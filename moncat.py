@@ -1,76 +1,112 @@
-from copy import copy
+"""
+Diagrams implement categories, PlanarDiagrams strict monoidal categories.
+"""
 
-def unzip(l):
-    return zip(*l)
-
-class StringDiagram:
-    def __init__(self, generators, offsets, source):
-        assert(len(generators) == len(offsets))
-        self.gen, self.dom = zip(generators, offsets), source
-
-        for f, n in self.gen:
-            assert(source[n : n + len(f.dom)] == f.dom)
-            source = source[: n] + f.cod + source[n + len(f.dom) :]
-
-        self.cod = source
+class Diagram:
+    def __init__(self, dom, cod, nodes):
+        self.dom, self.cod, self.nodes = dom, cod, nodes
+        u = dom
+        for f in nodes:
+            assert u == f.dom
+            u = f.cod
+        assert u == cod
 
     def __eq__(self, other):
-        return self.dom == other.dom and self.gen == other.gen
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
+        assert isinstance(other, Diagram)
+        return self.dom == other.dom and self.cod == other.cod\
+                                     and self.nodes == other.nodes
 
     def __repr__(self):
-        return "StringDiagram" + str(tuple(unzip(self.gen) + [self.dom]))
-
-    def tensor(self, other):
-        assert(isinstance(other, StringDiagram))
-
-        r = copy(self)
-        r.dom, r.cod = self.dom + other.dom, self.cod + other.cod
-        r.gen += [(f, n + len(self.cod)) for f, n in other.gen]
-
-        return r
+        return "Diagram('{}', '{}', {})".format(self.dom, self.cod, self.nodes)
 
     def compose(self, other):
-        assert(isinstance(other, StringDiagram) and self.cod == other.dom)
-        generators, offsets = unzip(self.gen + other.gen)
-        return StringDiagram(generators, offsets, self.dom)
+        assert isinstance(other, Diagram) and self.cod == other.dom
+        return Diagram(self.dom, other.cod, self.nodes + other.nodes)
 
 
-class Arrow(StringDiagram):
-    def __init__(self, domain, codomain, name):
-        self.dom, self.cod, self.gen = domain, codomain, [(self, 0)]
+class Identity(Diagram):
+    def __init__(self, x):
+        self.dom, self.cod, self.nodes = x, x, []
+
+
+class Node(Diagram):
+    def __init__(self, dom, cod, name):
+        self.dom, self.cod = dom, cod
+        self.nodes, self.name = [self], name
+
+    def __eq__(self, other):
+        return self.dom == other.dom and self.cod == other.cod\
+                                     and self.name == other.name
+
+    def __repr__(self):
+        return "Node('{}', '{}', '{}')".format(self.dom, self.cod, self.name)
+
+
+class PlanarDiagram(Diagram):
+    def __init__(self, dom, cod, nodes, offsets):
+        self.dom, self.cod = dom, cod
+        self.nodes, self.offsets = nodes, offsets
+        assert len(nodes) == len(offsets)
+        u = dom
+        for f, n in zip(nodes, offsets):
+            assert(u[n : n + len(f.dom)] == f.dom)
+            u = u[: n] + f.cod + u[n + len(f.dom) :]
+        assert u == cod
+
+    def __eq__(self, other):
+        assert isinstance(other, PlanarDiagram)
+        return super().__eq__(other) and self.offsets == other.offsets
+
+    def __repr__(self):
+        return "PlanarDiagram({}, {}, {}, {})".format(
+            self.dom, self.cod, self.nodes, self.offsets)
+
+    def tensor(self, other):
+        assert isinstance(other, PlanarDiagram)
+        dom, cod = self.dom + other.dom, self.cod + other.cod
+        nodes = self.nodes + other.nodes
+        offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
+        return PlanarDiagram(dom, cod, nodes, offsets)
+
+    def compose(self, other):
+        assert isinstance(other, PlanarDiagram) and self.cod == other.dom
+        dom, cod, nodes = self.dom, other.cod, self.nodes + other.nodes
+        offsets = self.offsets + other.offsets
+        return PlanarDiagram(dom, cod, nodes, offsets)
+
+
+class PlanarIdentity(Identity, PlanarDiagram):
+    def __init__(self, x):
+        self.dom, self.cod, self.nodes, self.offsets = x, x, [], []
+
+
+class PlanarNode(Node, PlanarDiagram):
+    def __init__(self, dom, cod, name):
+        self.dom, self.cod = dom, cod
+        self.nodes, self.offsets = [self], [0]
         self.name = name
 
     def __repr__(self):
-        return self.name
-
-class Identity(StringDiagram):
-    def __init__(self, objects):
-        self.dom, self.cod, self.gen = objects, objects, []
+        return "PlanarNode({}, {}, \'{}\')".format(
+            self.dom, self.cod, self.name)
 
 
-x, y, z = "x", "y", "z"
-f, g, h = Arrow([x], [y, z], "f"), Arrow([x, y], [z], "g"), Arrow([z, z], [x], "h")
-d1 = StringDiagram([f, g, h], [1, 0, 0], [x, x])
-d2 = Identity([x]).tensor(f).compose(g.tensor(Identity([z]))).compose(h)
+assert Node('x', 'y', 'f').compose(Node('y', 'z', 'g')) ==\
+    Node('x', 'y', 'f').compose(Identity('y')).compose(Node('y', 'z', 'g')) ==\
+    Diagram('x', 'z', [Node('x', 'y', 'f'), Node('y', 'z', 'g')])
 
-assert(d1==d2)
+assert repr(Node('x', 'y', 'f').compose(Node('y', 'z', 'g'))) ==\
+    repr(Diagram('x', 'z', [Node('x', 'y', 'f'), Node('y', 'z', 'g')])) ==\
+    "Diagram('x', 'z', [Node('x', 'y', \'f\'), Node('y', 'z', \'g\')])"
 
-class Signature:
-    def __init__(self, objects, arrows):
-        for f in arrows:
-            assert(isinstance(f, StringDiagram)
-                   and set(f.dom + f.cod).issubset(objects))
-        self.ob, self.ar = objects, arrows
+x, y, z = 'x', 'y', 'z'
+idx, idz = PlanarIdentity([x]), PlanarIdentity([z])
+f, g, h = (PlanarNode(dom, cod, name) for (dom, cod, name) in
+           [([x], [y, z], "f"), ([x, y], [z], "g"), ([z, z], [x], "h")])
+d1 = PlanarDiagram([x, x], [x], [f, g, h], [1, 0, 0])
+d2 = idx.tensor(f).compose(g.tensor(idz)).compose(h)
 
-class MonoidalFunctor:
-    def __init__(self, sigma, val):
-        assert(isinstance(sigma, Signature)
-               and isinstance(val, Signature))
-        assert(len(sigma.ob) == len(val.ob)
-               and len(sigma.ar == len(val.ar)))
-
-        for f, v in zip(sigma.ar, val.ar):
-            assert(isinstance(f, Arrow) and isinstance(v,StringDiagram))
+assert d1 == d2
+assert repr(d1) == "PlanarDiagram(['x', 'x'], ['x'], "\
+    "[PlanarNode(['x'], ['y', 'z'], 'f'), PlanarNode(['x', 'y'], ['z'], 'g'), "\
+    "PlanarNode(['z', 'z'], ['x'], 'h')], [1, 0, 0])"
