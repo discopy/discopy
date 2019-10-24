@@ -1,6 +1,8 @@
 # discopy
 Distributional Compositional Python
 
+![Alice loves Bob.](figures/alice-loves-bob.png)
+
 ## Requirements
 
 * numpy 1.17.2
