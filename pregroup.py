@@ -5,16 +5,18 @@ from diagram import Diagram, Node, Functor
 class NumpyFunctor(Functor):
     def apply(self, d):
         assert isinstance(d, Diagram)
-        dim = (self.ob(x) for x in d.dom)
-        arr = np.identity(np.prod(dim))
-
+        def identity(dims):
+            return np.identity(int(np.prod(dims)))
+        dim = [self.ob(x) for x in d.dom]
+        arr = identity(dim)
         for f, n in zip(d.nodes, d.offsets):
-            a = np.identity(1)
-            for i in range(n):
-                a = np.kron(a, np.identity(self.ob(f.dom)[i]))
-            a= np.kron(a , ar(f))
-            for i in [n + len(cod.f):]:
-                a = np.kron(a,np.identity(ob(i)))
+            fdom = int(np.prod([self.ob(x) for x in f.dom])) #dimension of domain
+            fcod = int(np.prod([self.ob(x) for x in f.cod])) #dimension of codomain
+            fmatrix = np.reshape(self.ar(f), (fdom, fcod)) #make f into a square matrix
+            a = np.kron( np.kron( identity(dim[0:n]), fmatrix), identity(dim[n+len(f.dom):]))
+            arr = np.dot(arr, a)
+            dim = dim[0:n] + [self.ob(x) for x in f.cod] + dim[n+len(f.dom):]
+        return arr
 
 x, y, z = 'x', 'y', 'z'
 f, g, h = Node('f', [x], [y, z]), Node('g', [x, y], [z]), Node('h', [z, z], [x])
@@ -24,8 +26,7 @@ F = NumpyFunctor({x: 1, y:2, z:3},
                   g: np.array([[[1, 1, 1], [1, 1, 1]]]),
                   h: np.array([[[1],[1],[1]],[[0],[0],[0]],[[2],[2],[2]]])
                  })
-
-F.apply(h)
+F.apply(d)
 
 class Word(Node):
     def __init__(self, w, t):

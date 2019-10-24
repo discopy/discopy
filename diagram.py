@@ -1,4 +1,3 @@
-
 class Arrow:
     def __init__(self, dom, cod, nodes):
         self.dom, self.cod, self.nodes = dom, cod, nodes
