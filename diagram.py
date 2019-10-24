@@ -113,6 +113,7 @@ d1 = Diagram([x, x], [x], [f, g, h], [1, 0, 0])
 d2 = Wire([x]).tensor(f).then(g.tensor(Wire([z]))).then(h)
 assert d1 == d2
 
+
 #
 # data = {'f': lambda *xs: [xs[0], xs[0] + 1],
 #         'g': lambda *xs: [xs[0] + xs[1]],
