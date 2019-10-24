@@ -1,3 +1,7 @@
+import numpy as np
+from functools import reduce as fold
+
+
 class Arrow:
     def __init__(self, dom, cod, nodes):
         self.dom, self.cod, self.nodes = dom, cod, nodes
@@ -36,30 +40,28 @@ class Generator(Arrow):
         return hash(str(self.name))
 
 class Functor:
-    def __init__(self, data_ob, data_ar):
-        self.data_ob, self.data_ar = data_ob, data_ar
+    def __init__(self, ob, ar):
+        self.ob, self.ar = ob, ar
 
-    def ob(self, x):
-        return self.data_ob[x]
+    def __call__(self, a):
+        if not isinstance(a, Arrow):  # a must be an object
+            return self.ob[a]
 
-    def ar(self, x):
-        return self.data_ar[x]
+        if isinstance(a, Generator):
+            return self.ar[a]
 
-    def apply(self, f):
-        assert isinstance(f, Arrow)
         r = lambda x: x
-        then = lambda f, g: (lambda x: g(f(x)))
-        for g in f.nodes:
-            r = then(r, self.ar(g))
+        compose = lambda f, g: (lambda x: g(f(x)))
+        for g in a.nodes:
+            r = compose(r, self(g))
         return r
 
 x, y, z = 'x', 'y', 'z'
 f, g = Generator('f', x, y), Generator('g', y, z)
-F = Functor({x: None, y: None, z: None},
-            {f: lambda x: x**2, g: lambda x: x + 1})
+F = Functor(None, {f: lambda x: x**2, g: lambda x: x + 1})
 
 assert f.then(g) == f.then(Identity(y)).then(g) == Arrow(x, z, [f, g])
-assert F.apply(f.then(g))(2) == 5
+assert F(f.then(g))(2) == F(g)(F(f)(2)) == 5
 
 
 class Diagram(Arrow):
@@ -96,7 +98,8 @@ class Diagram(Arrow):
 
 class Wire(Identity, Diagram):
     def __init__(self, x):
-        self.dom, self.cod, self.nodes, self.offsets = x, x, [], []
+        xs = x if isinstance(x, list) else [x]
+        self.dom, self.cod, self.nodes, self.offsets = xs, xs, [], []
 
 class Node(Generator, Diagram):
     def __init__(self, name, dom, cod):
@@ -106,25 +109,39 @@ class Node(Generator, Diagram):
     def __repr__(self):
         return "Node('{}', {}, {})".format(self.name, self.dom, self.cod)
 
+class NumpyFunctor(Functor):
+    def __call__(self, d):
+        if not isinstance(d, Diagram):  # d must be an object
+            xs = d if isinstance(d, list) else [d]
+            return [self.ob[x] for x in xs]
 
-f, g, h = Node('f', [x], [y, z]), Node('g', [x, y], [z]), Node('h', [z, z], [x])
-d1 = Diagram([x, x], [x], [f, g, h], [1, 0, 0])
-d2 = Wire([x]).tensor(f).then(g.tensor(Wire([z]))).then(h)
-assert d1 == d2
+        if isinstance(d, Node):
+            return self.ar[d].reshape(self(d.dom) + self(d.cod))
+
+        arr = 1
+        for x in d.dom:
+            arr = np.tensordot(arr, np.identity(self(x)[0]), 0)
+        arr = np.moveaxis(arr, [2 * i for i in range(len(d.dom))],
+                               [i for i in range(len(d.dom))])  # bureaucracy!
+
+        for f, n in zip(d.nodes, d.offsets):
+            source = range(len(d.dom) + n, len(d.dom) + n + len(f.dom))
+            target = range(len(f.dom))
+            arr = np.tensordot(arr, self(f), (source, target))
+
+            source = range(len(arr.shape) - len(f.cod), len(arr.shape))
+            destination = range(len(d.dom) + n, len(d.dom) + n +len(f.cod))
+            arr = np.moveaxis(arr, source, destination)  # more bureaucracy!
+
+        return arr
 
 
-#
-# data = {'f': lambda *xs: [xs[0], xs[0] + 1],
-#         'g': lambda *xs: [xs[0] + xs[1]],
-#         'h': lambda *xs: [xs[0] * xs[1]]}
-#
-# class MonoidalFunctor(Functor):
-#     def apply(self, d):
-#         assert isinstance(d, Diagram)
-#         then = lambda f, g: (lambda *xs: g(f(xs)))
-#         next = lambda f, n: (lambda *xs:
-#             xs[:n] + self.data[f.name](xs[n: n + len(f.dom)]) + xs[n + len(f.dom):])
-#         r = lambda *xs: xs
-#         for f, n in zip(d.nodes, d.offsets):
-#             r = then(r, next(f, n))
-#         return r
+x, y, z, w = 'x', 'y', 'z', 'w'
+f, g, h = Node('f', [x], [y, z]), Node('g', [z, x], [w]), Node('h', [y, w], [x])
+d = f.tensor(Wire(x)).then(Wire(y).tensor(g))
+
+Fo = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, None)
+F = NumpyFunctor(Fo.ob, {a: np.zeros(Fo(a.dom) + Fo(a.cod)) for a in [f, g, h]})
+
+assert F(d).shape == tuple(F(d.dom) + F(d.cod)) == tuple(F(x)+F(x)+F(y)+F(w))
+assert F(d.then(h)) == np.tensordot(F(d), F(h), 2)
