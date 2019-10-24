@@ -1,12 +1,41 @@
-from diagram import Diagram, Node
+import numpy as np
+from functools import reduce as fold
+from diagram import Diagram, Node, Functor
 
+class NumpyFunctor(Functor):
+    def apply(self, d):
+        assert isinstance(d, Diagram)
+        dim = (self.ob(x) for x in d.dom)
+        arr = np.identity(np.prod(dim))
+
+        for f, n in zip(d.nodes, d.offsets):
+            a = np.identity(1)
+            for i in range(n):
+                a = np.kron(a, np.identity(self.ob(f.dom)[i]))
+            a= np.kron(a , ar(f))
+            for i in [n + len(cod.f):]:
+                a = np.kron(a,np.identity(ob(i)))
+
+x, y, z = 'x', 'y', 'z'
+f, g, h = Node('f', [x], [y, z]), Node('g', [x, y], [z]), Node('h', [z, z], [x])
+d = Diagram([x, x], [x], [f, g, h], [1, 0, 0])
+F = NumpyFunctor({x: 1, y:2, z:3},
+                 {f: np.array([[[1, 1, 0], [0, 0, 1]]]),
+                  g: np.array([[[1, 1, 1], [1, 1, 1]]]),
+                  h: np.array([[[1],[1],[1]],[[0],[0],[0]],[[2],[2],[2]]])
+                 })
+
+F.apply(h)
 
 class Word(Node):
     def __init__(self, w, t):
         assert isinstance(w, str)
         for b, z in t:
             assert isinstance(z, int)
-        super().__init__(w, [w], t)
+        super().__init__((w, t), [w], t)
+
+    def __repr__(self):
+        return self.name[0]
 
 class Cup(Node):
     def __init__(self, x, y):
@@ -15,7 +44,7 @@ class Cup(Node):
 
 class Parsing(Diagram):
     def __init__(self, words, cups):
-        dom = [w.name for w in words]
+        dom = [w.dom[0] for w in words]
         nodes = words[::-1]  # words are backwards to make offsets easier
         offsets = [len(words) - i - 1 for i in range(len(words))] + cups
         cod = [x for w in words for x in w.cod]
@@ -24,9 +53,25 @@ class Parsing(Diagram):
             cod = cod[:i] + cod[i + 2:]
         super().__init__(dom, cod, nodes, offsets)
 
-s, n = [('s', 0)], [('n', 0)]
-l = lambda t: [(b, z - 1) for b, z in t[::-1]]
-r = lambda t: [(b, z + 1) for b, z in t[::-1]]
-alice, bob = Word('Alice', n), Word('Bob', n)
-loves = Word('loves', l(n) + s + r(n))
+class DisCo(NumpyFunctor):
+    def apply(self, p):
+        assert isinstance(p, Parsing)
+        return super().apply(p)
+
+    def ob(self, x):
+        if isinstance(x, str):  # x is a word
+            return 1
+        else:  # x is a simple type (b, z)
+            return self.data_ob[(x[0], 0)]  # we forget adjoints
+
+s, n = ('s', 0), ('n', 0)
+l = lambda b, z: (b, z - 1)
+r = lambda b, z: (b, z + 1)
+alice, bob = Word('Alice', [n]), Word('Bob', [n])
+loves = Word('loves', [l(*n), s, r(*n)])
 p = Parsing([alice, loves, bob], [0, 1])
+
+F = DisCo({s: 1, n: 2},
+          {alice : np.array([0, 1]),
+           bob : np.array([1, 0]),
+           loves : np.array([[0, 1], [1, 0]])})

@@ -1,5 +1,5 @@
 import pytket
-from diagram import PRODiagram, PRONode
+from diagram import Diagram, Node
 
 
 GATES = {
@@ -12,6 +12,50 @@ GATES = {
     'Ry': pytket.Circuit.Ry,
     'Rz': pytket.Circuit.Rz
 }
+
+
+class PRODiagram(Diagram):
+    def __init__(self, dom, cod, nodes, offsets):
+        self.dom, self.cod = dom, cod
+        self.nodes, self.offsets = nodes, offsets
+        assert len(nodes) == len(offsets)
+        u = dom
+        for f, n in zip(nodes, offsets):
+            assert n + f.dom <= u
+            u = u - f.dom + f.cod
+        assert u == cod
+
+    def tensor(self, other):
+        assert isinstance(other, PRODiagram)
+        dom, cod = self.dom + other.dom, self.cod + other.cod
+        nodes = self.nodes + other.nodes
+        offsets = self.offsets + [n + self.cod for n in other.offsets]
+        return PRODiagram(dom, cod, nodes, offsets)
+
+    def compose(self, other):
+        assert isinstance(other, PRODiagram) and self.cod == other.dom
+        dom, cod, nodes = self.dom, other.cod, self.nodes + other.nodes
+        offsets = self.offsets + other.offsets
+        return PRODiagram(dom, cod, nodes, offsets)
+
+    def __repr__(self):
+        return "PRODiagram({}, {}, {}, {})".format(
+            self.dom, self.cod, self.nodes, self.offsets)
+
+class PROWire(Wire, PRODiagram):
+    pass
+
+class PRONode(Node, PRODiagram):
+    def __repr__(self):
+        return "PRONode('{}', {}, {})".format(
+            self.name, self.dom, self.cod)
+
+
+f, g, h = PRONode('f', 1, 2), PRONode('g', 2, 1), PRONode('h', 2, 1)
+d1 = PRODiagram(2, 1, [f, g, h], [1, 0, 0])
+d2 = PROWire(1).tensor(f).compose(g.tensor(PROWire(1))).compose(h)
+assert d1 == d2
+
 
 class Gate(PRONode):
     def __init__(self, name, n_qubits, params):
