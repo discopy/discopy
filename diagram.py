@@ -72,7 +72,7 @@ x, y, z, w = 'x', 'y', 'z', 'w'
 f, g, h = Box('f', [x], [x, y]), Box('g', [y, z], [w]), Box('h', [x, w], [x])
 d = f.tensor(Wire(z)).then(Wire(x).tensor(g))
 
-idF = MonoidalFunctor({o: o for o in [x, y, z, w]},
+IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
                       {a: a for a in [f, g, h]})
 
-assert idF(d.then(h)) == idF(d).then(idF(h)) == d.then(h)
+assert IdF(d.then(h)) == IdF(d).then(IdF(h)) == d.then(h)
