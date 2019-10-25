@@ -67,6 +67,7 @@ class MonoidalFunctor(Functor):
 
         return r
 
+
 x, y, z, w = 'x', 'y', 'z', 'w'
 f, g, h = Box('f', [x], [x, y]), Box('g', [y, z], [w]), Box('h', [x, w], [x])
 d = f.tensor(Wire(z)).then(Wire(x).tensor(g))
