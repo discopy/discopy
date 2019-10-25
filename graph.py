@@ -17,10 +17,11 @@ class OpenGraph:
         assert isinstance(other, OpenGraph) and self.cod == other.dom
         g0, g1 = self.graph.copy(), other.graph.copy()
         l0 , l1 = len(g0.nodes()), len(g1.nodes())
-        def relabel(x):
-            return x - other.dom  + l0 - self.cod
-        g0.remove_nodes_from(range(l0 - self.cod, l0))
+
+        g0.remove_nodes_from(range(l0 - self.cod, l0)) #remove boundary nodes
         g1.remove_nodes_from(range(other.dom))
+        def relabel(x):
+            return x - other.dom  + l0 - self.cod #relabeling for nodes in other.graph
         g1 = nx.relabel_nodes(g1, {x : relabel(x) for x in g1.nodes()})
         g = nx.union(g0, g1)
         for i in range(self.cod):
@@ -28,6 +29,36 @@ class OpenGraph:
             target = relabel(list(other.graph.neighbors(i))[0])
             g.add_edge(source, target)
         return OpenGraph(self.dom, other.cod, g)
+
+    def tensor(self, other):
+        assert isinstance(other, OpenGraph)
+        g0, g1 = self.graph.copy(), other.graph.copy()
+        l0 , l1 = len(g0.nodes()), len(g1.nodes())
+        dom0, middle0, cod0 = range(self.dom), range(self.dom, l0 - self.cod), range(l0 - self.cod, l0)
+        dom1, middle1, cod1 = range(other.dom), range(other.dom, l1 - self.cod), range(l1 - other.cod, l1)
+
+        def relabel0(x):
+            if x in dom0:
+                return x
+            elif x in middle0:
+                return x + len(dom1)
+            elif x in cod0:
+                return x + len(dom1) + len(middle1)
+
+        def relabel1(x):
+            if x in dom1:
+                return x +  len(dom0)
+            elif x in middle1:
+                return x + len(dom0) + len(middle0)
+            elif x in cod1:
+                return x + len(dom0) + len(middle0) + len(cod0)
+
+        g0 = nx.relabel_nodes(g0, {x : relabel0(x) for x in g0.nodes()})
+        g1 = nx.relabel_nodes(g1, {x : relabel1(x) for x in g1.nodes()})
+
+        g = nx.union(g0, g1)
+        return OpenGraph(self.dom + other.dom, self.cod + other.cod, g)
+
 
 class Node(OpenGraph):
     def __init__(self, dom, cod):
@@ -52,6 +83,6 @@ d = f.tensor(Wire(x)).then(Wire(y).tensor(g))
 F0 = GraphFunctor({x: 1, y: 2, z: 3, w: 4}, None)
 F = GraphFunctor(F0.ob, {a: Node(F0(a.dom), F0(a.cod)) for a in [f, g, h]})
 
-G = Node(2,3).then(Node(3,1))
+G = Node(1,1).tensor(Node(1,3).then(Node(3,1)))
 print(G.graph.nodes())
 print(G.graph.edges())
