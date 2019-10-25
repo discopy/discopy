@@ -5,23 +5,25 @@ Distributional Compositional Python
 
 ## Requirements
 
-* numpy 1.17.2
-* pytket (only for the circuit module)
+* `numpy`
+* `pytket`
 
 ## Example
 
 ```python
-import numpy as np
+from numpy import array
 from disco import Word, Parse, Model, s, n, l, r
 
-alice, bob = Word('Alice', [n]), Word('Bob', [n])
-loves = Word('loves', [l(*n), s, r(*n)])
+alice, bob = Word('Alice', n), Word('Bob', n)
+loves = Word('loves', n.r + s + n.l)
 sentence = Parse([alice, loves, bob], [0, 1])
 
-F = Model(['Alice', 'loves', 'Bob'], {s: 1, n: 2},
-          {alice : np.array([0, 1]),
-           bob : np.array([1, 0]),
-           loves : np.array([[0, 1], [1, 0]])})
+F = Model({s: 1, n: 2},
+    {
+        alice: array([1, 0]),
+        loves: array([0, 1, 1, 0]),
+        bob: array([0, 1])
+    })
 
 assert F(sentence)
 ```

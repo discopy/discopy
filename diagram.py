@@ -1,5 +1,7 @@
 import numpy as np
+import pyzx as zx
 from category import Arrow, Identity, Generator, Functor
+
 
 class Diagram(Arrow):
     def __init__(self, dom, cod, nodes, offsets):
@@ -57,7 +59,7 @@ class NumpyFunctor(Functor):
 
         arr = 1
         for x in d.dom:
-            arr = np.tensordot(arr, np.identity(self(x)[0]), 0)
+            arr = np.tensordot(arr, np.identity(self.ob[x]), 0)
         arr = np.moveaxis(arr, [2 * i for i in range(len(d.dom))],
                                [i for i in range(len(d.dom))])  # bureaucracy!
 
