@@ -1,5 +1,5 @@
-from numpy import array, identity
-from diagram import Diagram, Box, Wire, NumpyFunctor
+import numpy as np
+from diagram import Diagram, Box, Wire, MonoidalFunctor
 
 
 class Type(list):
@@ -53,6 +53,32 @@ class Parse(Diagram):
             cod = Type(cod[:i] + cod[i + 2:])
         super().__init__(dom, cod, nodes, offsets)
 
+class NumpyFunctor(MonoidalFunctor):
+    def __call__(self, d):
+        if not isinstance(d, Diagram):  # d must be an object
+            xs = d if isinstance(d, list) else [d]
+            return [self.ob[x] for x in xs]
+
+        if isinstance(d, Box):
+            return self.ar[d].reshape(self(d.dom) + self(d.cod))
+
+        arr = 1
+        for x in d.dom:
+            arr = np.tensordot(arr, np.identity(self.ob[x]), 0)
+        arr = np.moveaxis(arr, [2 * i for i in range(len(d.dom))],
+                               [i for i in range(len(d.dom))])  # bureaucracy!
+
+        for f, n in zip(d.nodes, d.offsets):
+            source = range(len(d.dom) + n, len(d.dom) + n + len(f.dom))
+            target = range(len(f.dom))
+            arr = np.tensordot(arr, self(f), (source, target))
+
+            source = range(len(arr.shape) - len(f.cod), len(arr.shape))
+            destination = range(len(d.dom) + n, len(d.dom) + n +len(f.cod))
+            arr = np.moveaxis(arr, source, destination)  # more bureaucracy!
+
+        return arr
+
 class Model(NumpyFunctor):
     def __init__(self, ob, ar):
         ob.update({w.name: 1 for w in ar.keys()})
@@ -65,9 +91,20 @@ class Model(NumpyFunctor):
             return super().__call__(d)
 
         if isinstance(d, Cup):
-            return identity(self(d.dom)[0])
+            return np.identity(self(d.dom)[0])
 
         return super().__call__(d)
+
+
+x, y, z, w = 'x', 'y', 'z', 'w'
+f, g, h = Box('f', [x], [x, y]), Box('g', [y, z], [w]), Box('h', [x, w], [x])
+d = f.tensor(Wire(z)).then(Wire(x).tensor(g))
+
+F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, None)
+F = NumpyFunctor(F0.ob, {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g, h]})
+
+assert F(d).shape == tuple(F(d.dom) + F(d.cod))
+assert np.all(F(d.then(h)) == np.tensordot(F(d), F(h), 2))
 
 
 s, n = Type('s'), Type('n')
@@ -76,8 +113,8 @@ loves = Word('loves', n.r + s + n.l)
 sentence = Parse([alice, loves, bob], [0, 1])
 
 F = Model({s: 1, n: 2},
-          {alice : array([1, 0]),
-           bob : array([0, 1]),
-           loves : array([0, 1, 1, 0])})
+          {alice : np.array([1, 0]),
+           bob : np.array([0, 1]),
+           loves : np.array([0, 1, 1, 0])})
 
 assert F(sentence)

@@ -48,39 +48,30 @@ class Box(Generator, Diagram):
     def __repr__(self):
         return "Box('{}', {}, {})".format(self.name, self.dom, self.cod)
 
-class NumpyFunctor(Functor):
+class MonoidalFunctor(Functor):
     def __call__(self, d):
         if not isinstance(d, Diagram):  # d must be an object
             xs = d if isinstance(d, list) else [d]
             return [self.ob[x] for x in xs]
 
-        if isinstance(d, Box):
-            return self.ar[d].reshape(self(d.dom) + self(d.cod))
+        elif isinstance(d, Box):
+            return self.ar[d]
 
-        arr = 1
-        for x in d.dom:
-            arr = np.tensordot(arr, np.identity(self.ob[x]), 0)
-        arr = np.moveaxis(arr, [2 * i for i in range(len(d.dom))],
-                               [i for i in range(len(d.dom))])  # bureaucracy!
+        u = d.dom
+        r = Wire(self(u))
 
         for f, n in zip(d.nodes, d.offsets):
-            source = range(len(d.dom) + n, len(d.dom) + n + len(f.dom))
-            target = range(len(f.dom))
-            arr = np.tensordot(arr, self(f), (source, target))
+            r = r.then(Wire(self(u[:n])).tensor(self(f))\
+                 .tensor(Wire(self(u[n + len(f.dom):]))))
+            u = u[:n] + f.cod + u[n + len(f.dom):]
 
-            source = range(len(arr.shape) - len(f.cod), len(arr.shape))
-            destination = range(len(d.dom) + n, len(d.dom) + n +len(f.cod))
-            arr = np.moveaxis(arr, source, destination)  # more bureaucracy!
-
-        return arr
-
+        return r
 
 x, y, z, w = 'x', 'y', 'z', 'w'
-f, g, h = Box('f', [x], [y, z]), Box('g', [z, x], [w]), Box('h', [y, w], [x])
-d = f.tensor(Wire(x)).then(Wire(y).tensor(g))
+f, g, h = Box('f', [x], [x, y]), Box('g', [y, z], [w]), Box('h', [x, w], [x])
+d = f.tensor(Wire(z)).then(Wire(x).tensor(g))
 
-Fo = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, None)
-F = NumpyFunctor(Fo.ob, {a: np.zeros(Fo(a.dom) + Fo(a.cod)) for a in [f, g, h]})
+idF = MonoidalFunctor({o: o for o in [x, y, z, w]},
+                      {a: a for a in [f, g, h]})
 
-assert F(d).shape == tuple(F(d.dom) + F(d.cod)) == tuple(F(x)+F(x)+F(y)+F(w))
-assert F(d.then(h)) == np.tensordot(F(d), F(h), 2)
+assert idF(d.then(h)) == idF(d).then(idF(h)) == d.then(h)
