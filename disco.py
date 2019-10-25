@@ -4,8 +4,11 @@ from diagram import Diagram, Node, Wire, NumpyFunctor
 
 class Type(list):
     def __init__(self, t):
-        assert all(isinstance(z, int) for b, z in t)
-        super().__init__(t)
+        if isinstance(t, str):  # t is a basic type
+            super().__init__([(t, 0)])
+        else:
+            assert all(isinstance(z, int) for b, z in t)
+            super().__init__(t)
 
     def __add__(self, other):
         return Type(list(self) + list(other))
@@ -32,7 +35,7 @@ class Word(Node):
         super().__init__((w, t), [(w, t)], t)
 
     def __repr__(self):
-        return str(self.name)
+        return "Word" + str(self.name)
 
 class Cup(Node):
     def __init__(self, x, y):
@@ -67,7 +70,7 @@ class Model(NumpyFunctor):
         return super().__call__(d)
 
 
-s, n = Type([('s', 0)]), Type([('n', 0)])
+s, n = Type('s'), Type('n')
 alice, bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r + s + n.l)
 sentence = Parse([alice, loves, bob], [0, 1])
