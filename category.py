@@ -9,8 +9,7 @@ class Arrow:
 
     def __eq__(self, other):
         assert isinstance(other, Arrow)
-        return self.dom == other.dom and self.cod == other.cod\
-                                     and self.nodes == other.nodes
+        return all(x.name == y.name for x, y in zip(self.nodes, other.nodes))
 
     def __repr__(self):
         return "Arrow('{}', '{}', {})".format(self.dom, self.cod, self.nodes)
@@ -31,6 +30,10 @@ class Generator(Arrow):
     def __repr__(self):
         return "Generator('{}', '{}', '{}')".format(
             self.name, self.dom, self.cod)
+
+    def __eq__(self, other):
+        return self.dom == other.dom and self.cod == other.cod\
+                                     and self.name == other.name
 
     def __hash__(self):
         return hash(str(self.name))
