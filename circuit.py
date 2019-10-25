@@ -56,7 +56,6 @@ d1 = PRODiagram(2, 1, [f, g, h], [1, 0, 0])
 d2 = PROWire(1).tensor(f).compose(g.tensor(PROWire(1))).compose(h)
 assert d1 == d2
 
-
 class Gate(PRONode):
     def __init__(self, name, n_qubits, params):
         self.params, self.n_qubits = params, n_qubits
