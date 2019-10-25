@@ -40,13 +40,13 @@ class Wire(Identity, Diagram):
         xs = x if isinstance(x, list) else [x]
         self.dom, self.cod, self.nodes, self.offsets = xs, xs, [], []
 
-class Node(Generator, Diagram):
+class Box(Generator, Diagram):
     def __init__(self, name, dom, cod):
         self.dom, self.cod, self.nodes, self.offsets = dom, cod, [self], [0]
         self.name = name
 
     def __repr__(self):
-        return "Node('{}', {}, {})".format(self.name, self.dom, self.cod)
+        return "Box('{}', {}, {})".format(self.name, self.dom, self.cod)
 
 class NumpyFunctor(Functor):
     def __call__(self, d):
@@ -54,7 +54,7 @@ class NumpyFunctor(Functor):
             xs = d if isinstance(d, list) else [d]
             return [self.ob[x] for x in xs]
 
-        if isinstance(d, Node):
+        if isinstance(d, Box):
             return self.ar[d].reshape(self(d.dom) + self(d.cod))
 
         arr = 1
@@ -76,7 +76,7 @@ class NumpyFunctor(Functor):
 
 
 x, y, z, w = 'x', 'y', 'z', 'w'
-f, g, h = Node('f', [x], [y, z]), Node('g', [z, x], [w]), Node('h', [y, w], [x])
+f, g, h = Box('f', [x], [y, z]), Box('g', [z, x], [w]), Box('h', [y, w], [x])
 d = f.tensor(Wire(x)).then(Wire(y).tensor(g))
 
 Fo = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, None)

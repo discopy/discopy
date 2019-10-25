@@ -1,5 +1,5 @@
 from numpy import array, identity
-from diagram import Diagram, Node, Wire, NumpyFunctor
+from diagram import Diagram, Box, Wire, NumpyFunctor
 
 
 class Type(list):
@@ -28,7 +28,7 @@ class Type(list):
     def r(self):
         return Type([(b, z + 1) for b, z in self[::-1]])
 
-class Word(Node):
+class Word(Box):
     def __init__(self, w, t):
         assert isinstance(w, str)
         assert isinstance(t, Type)
@@ -37,7 +37,7 @@ class Word(Node):
     def __repr__(self):
         return "Word" + str(self.name)
 
-class Cup(Node):
+class Cup(Box):
     def __init__(self, x, y):
         assert x[0] == y[0] and y[1] - x[1] == 1  # x and y are adjoints
         super().__init__('cup_{}'.format(x[0]), Type([x, y]), [])
@@ -62,7 +62,7 @@ class Model(NumpyFunctor):
         if not isinstance(d, Diagram):  # d is an object
             if isinstance(d, Type):  # we forget adjoints
                 return super().__call__([Type([(b, 0)]) for b, z in d])
-            return super().__call__(d if isinstance(d, list) else [d])
+            return super().__call__(d)
 
         if isinstance(d, Cup):
             return identity(self(d.dom)[0])
