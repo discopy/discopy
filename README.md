@@ -12,8 +12,9 @@ Distributional Compositional Python
 
 ```python
 from numpy import array
-from disco import Word, Parse, Model, s, n, l, r
+from disco import Type, Word, Parse, Model
 
+s, n = Type('s'), Type('n')
 alice, bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r + s + n.l)
 sentence = Parse([alice, loves, bob], [0, 1])
