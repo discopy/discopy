@@ -19,7 +19,7 @@ class Circuit(Diagram):
         for f, n in zip(self.nodes, self.offsets):
             assert f.dom == f.cod and f.name in GATES
             c.__getattribute__(f.name)(
-                *[n + i for i in range(len(f.dom))], *f.params)
+                *[n + i for i in range(len(f.dom))], *f.data)
         return c
 
     @staticmethod
@@ -37,13 +37,13 @@ class Circuit(Diagram):
         return Circuit(c.n_qubits, nodes, offsets)
 
 class Gate(Box, Circuit):
-    def __init__(self, name, n_qubits, params=None):
-        self.params, self.n_qubits = params, n_qubits
+    def __init__(self, name, n_qubits, data=[]):
+        self.n_qubits, self.data = n_qubits, data
         super().__init__(name, PRO(n_qubits), PRO(n_qubits))
 
     def __repr__(self):
         return "Gate('{}', {}{})".format(self.name, len(self.dom),
-            '' if self.params is None else ", " + self.params)
+            '' if not self.data else ", " + repr(self.data))
 
 class Identity(Wire, Circuit):
     def __init__(self, n_qubits):
