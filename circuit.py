@@ -27,17 +27,26 @@ class Circuit(Diagram):
 
     @staticmethod
     def from_tk(c):
-        nodes, offsets = [], []
+        gates, offsets = [], []
         for g in c.get_commands():
-            assert g.op.get_type().name in GATES
-            nodes.append(Gate(
-                g.op.get_type().name, len(g.qubits), g.op.get_params()))
-            offsets.append(g.qubits[0].index)
-            if len(g.qubits) > 1:
-                for i, q in enumerate(g.qubits[1:]):
-                    # Checking that gates apply to adjacent qubits.
-                    assert q.index == g.qubits[0].index + i + 1
-        return Circuit(c.n_qubits, nodes, offsets)
+            i0 = g.qubits[0].index
+            for i, q in enumerate(g.qubits[1:]):
+                if q.index == i0 + i + 1:
+                    break  # gate applies to adjacent qubit already
+                elif q.index < i0 + i + 1:
+                    for j in range(q.index, i0 + i):
+                        gates.append(Gate('SWAP', 2))
+                        offsets.append(j)
+                    if q.index <= i0:
+                        i0 -= 1  # we just swapped q to the right of q0
+                elif q.index > i0 + i + 1:
+                    for j in range(q.index - i0 + i - 1):
+                        gates.append(Gate('SWAP', 2))
+                        offsets.append(q.index - j - 1)
+            gates.append(Gate(g.op.get_type().name,
+                len(g.qubits), g.op.get_params()))
+            offsets.append(i0)
+        return Circuit(c.n_qubits, gates, offsets)
 
     @staticmethod
     def random(n_qubits, depth):
@@ -72,12 +81,11 @@ class PytketFunctor(MonoidalFunctor):
         return Circuit(len(r.dom), r.nodes, r.offsets)
 
 
-c1 = tk.Circuit(3).CX(1, 2).H(1).SWAP(0, 1).Rx(0, 0.25)
-c2 = Circuit.from_tk(c1).to_tk()
-assert not c1 == c2  # Equality in tket doesn't work!
-
+c1 = tk.Circuit(3).CX(0, 2).H(1).SWAP(0, 1).Rx(0, 0.25)
 d1 = Circuit.from_tk(c1)
-d2 = Circuit.from_tk(d1.to_tk())
+c2 = d1.to_tk()
+d2 = Circuit.from_tk(c2)
+assert not c1 == c2  # Equality in tket doesn't work!
 assert d1 == d2  # This works as long as there are no interchangers!
 
 
