@@ -51,8 +51,9 @@ class Box(Generator, Diagram):
 class MonoidalFunctor(Functor):
     def __call__(self, d):
         if not isinstance(d, Diagram):  # d must be an object
-            xs = d if isinstance(d, list) else [d]
-            return [self.ob[x] for x in xs]
+            if isinstance(d, list):
+                return [self(x) for x in d]
+            return self.ob[d]  # d must be a generator
 
         elif isinstance(d, Box):
             return self.ar[d]

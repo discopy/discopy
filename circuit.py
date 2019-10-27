@@ -11,6 +11,7 @@ GATES = tk.OpType.__entries.keys()
 
 class Circuit(Diagram):
     def __init__(self, n_qubits, gates, offsets):
+        super.n_qubits = n_qubits
         super().__init__(PRO(n_qubits), PRO(n_qubits), gates, offsets)
 
     def __repr__(self):
