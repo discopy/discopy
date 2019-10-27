@@ -20,7 +20,7 @@ loves = Word('loves', n.r + s + n.l)
 bob = Word('Bob', n)
 
 words = alice.tensor(loves).tensor(bob)
-grammar = Cup(n).tensor(Wire(s)).tensor(Cup(n))
+grammar = Cup(n).tensor(Wire(s)).tensor(Cup(n.l))
 sentence = words.then(grammar)
 ```
 
