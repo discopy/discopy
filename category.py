@@ -87,7 +87,7 @@ class Generator(Arrow):
         if not isinstance(other, Arrow):
             return False
         if isinstance(other, Generator):
-            return repr(self) == repr(other)
+            return self.name == other.name
         return len(other) == 1 and other.data[0] == self
 
 class Function(Generator):
@@ -146,6 +146,8 @@ F = Functor({x: int, y:tuple, z:int}, {
     f: Function(lambda x: (x, x), int, tuple),
     g: Function(lambda x: x[0] + x[1], tuple, int),
     h: Function(lambda x: x // 2, int, int)})
-assert F(Identity(x))(42) == Function(lambda x: x, int, int)(42) == 42
-assert F(f.then(g))(42) == F(g)(F(f)(42))
-assert F(a)(42) == F(h)(F(g)(F(f)(42))) == F(Identity(x))(42) == 42
+
+SEED = 420
+assert F(Identity(x))(SEED) == Function(lambda x: x, int, int)(SEED) == SEED
+assert F(f.then(g))(SEED) == F(g)(F(f)(SEED))
+assert F(a)(SEED) == F(h)(F(g)(F(f)(SEED))) == F(Identity(x))(SEED) == SEED

@@ -5,16 +5,30 @@ from category import Object, Arrow, Identity, Generator, Functor
 class Type(list):
     def __init__(self, t=[]):
         if not isinstance(t, list):  # t is a generating object
-            super().__init__([t if isinstance(t, Object) else Object(t)])
-        super().__init__([x if isinstance(x, Object) else Object(x) for x in t])
+            assert isinstance(t, str)
+            super().__init__([Object(t)])
+        else:
+            for x in t:
+                assert isinstance(x, Object)
+            super().__init__(t)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return Type(super().__getitem__(key))
+        return super().__getitem__(key)
 
     def __add__(self, other):
         return Type(list(self) + list(other))
 
+    def __radd__(self, other):  # allows to compute sums of types
+        if not other:
+            return self
+        return other + self
+
     def __repr__(self):
         if not self:
             return 'Type()'
-        return ' + '.join(repr(x) for x in self)
+        return ' + '.join(x.name for x in self)
 
     def __hash__(self):
         return hash(repr(self))
@@ -32,9 +46,10 @@ class Diagram(Arrow):
         self._boxes, self._offsets = boxes, offsets
         scan = dom
         for f, n in zip(boxes, offsets):
-            assert Type(scan[n : n + len(f.dom)]) == f.dom
-            scan = Type(scan[: n]) + f.cod + Type(scan[n + len(f.dom) :])
+            assert scan[n : n + len(f.dom)] == f.dom
+            scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
         assert scan == cod
+        self._data = list(zip(boxes, offsets))  # used by the category module
         list.__init__(self, zip(boxes, offsets))
 
     @property
@@ -58,7 +73,8 @@ class Diagram(Arrow):
 
     def then(self, other):
         assert isinstance(other, Diagram) and self.cod == other.dom
-        dom, cod, boxes = self.dom, other.cod, self.boxes + other.boxes
+        dom, cod = self.dom, other.cod
+        boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
         return Diagram(dom, cod, boxes, offsets)
 
@@ -69,6 +85,9 @@ class Wire(Identity, Diagram):
 
 class Box(Generator, Diagram):
     def __init__(self, name, dom, cod):
+        assert isinstance(name, str)
+        assert isinstance(dom, Type)
+        assert isinstance(cod, Type)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
         self._name = name
         Diagram.__init__(self, dom, cod, [self], [0])
@@ -76,37 +95,45 @@ class Box(Generator, Diagram):
     def __repr__(self):
         return "Box('{}', {}, {})".format(self.name, self.dom, self.cod)
 
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __eq__(self, other):
+        if isinstance(other, Box):
+            return repr(self) == repr(other)
+        elif isinstance(other, Diagram):
+            return len(other) == 1 and other.boxes[0] == self
+        return False
+
 class MonoidalFunctor(Functor):
     def __init__(self, ob, ar):
         assert all(isinstance(x, Type) and len(x) == 1 for x in ob.keys())
         assert all(isinstance(y, Type) for y in ob.values())
         assert all(isinstance(a, Box) for a in ar.keys())
         assert all(isinstance(b, Diagram) for b in ar.values())
-        self._ob, self._ar = {x.pop(): ob[x] for x in ob.keys()}, ar
+        self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __call__(self, d):
         if isinstance(d, Type):
-            return Type(self.ob[x] for x in d)
-
+            return sum(self.ob[x] for x in d) or Type()
         elif isinstance(d, Box):
             return self.ar[d]
-
-        u = d.dom
-        r = Wire(self(u))
-
+        scan = d.dom
+        result = Wire(self(scan))
         for f, n in zip(d.boxes, d.offsets):
-            r = r.then(Wire(self(u[:n])).tensor(self(f))\
-                 .tensor(Wire(self(u[n + len(f.dom):]))))
-            u = u[:n] + f.cod + u[n + len(f.dom):]
-
-        return r
+            result = result.then(Wire(self(scan[:n])).tensor(self(f))\
+                           .tensor(Wire(self(scan[n + len(f.dom):]))))
+            scan = scan[:n] + f.cod + scan[n + len(f.dom):]
+        return result
 
 
 x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
+assert x + y != y + x
+assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z])
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
 d = f.tensor(Wire(z)).then(Wire(x).tensor(g))
 
-# IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
-#                       {a: a for a in [f, g, h]})
-#
-# assert IdF(d.then(h)) == IdF(d).then(IdF(h)) == d.then(h)
+IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
+                      {a: a for a in [f, g, h]})
+
+assert IdF(d.then(h)) == IdF(d).then(IdF(h)) == d.then(h)
