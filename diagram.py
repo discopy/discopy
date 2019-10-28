@@ -2,33 +2,29 @@ import numpy as np
 import pyzx as zx
 from category import Object, Arrow, Identity, Generator, Functor
 
+
 class Type(list):
     def __init__(self, t=[]):
         if not isinstance(t, list):  # t is a generating object
             assert isinstance(t, str)
             super().__init__([Object(t)])
         else:
-            for x in t:
-                assert isinstance(x, Object)
+            assert all(isinstance(x, Object) for x in t)
             super().__init__(t)
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return Type(super().__getitem__(key))
-        return super().__getitem__(key)
 
     def __add__(self, other):
         return Type(list(self) + list(other))
 
     def __radd__(self, other):  # allows to compute sums of types
-        if not other:
-            return self
-        return other + self
+        return self if not other else other + self
+
+    def __getitem__(self, key):  # allows to compute slices of types
+        if isinstance(key, slice):
+            return Type(super().__getitem__(key))
+        return super().__getitem__(key)
 
     def __repr__(self):
-        if not self:
-            return 'Type()'
-        return ' + '.join(x.name for x in self)
+        return 'Type()' if not self else ' + '.join(x.name for x in self)
 
     def __hash__(self):
         return hash(repr(self))
@@ -118,8 +114,7 @@ class MonoidalFunctor(Functor):
             return sum(self.ob[x] for x in d) or Type()
         elif isinstance(d, Box):
             return self.ar[d]
-        scan = d.dom
-        result = Wire(self(scan))
+        scan, result = d.dom, Wire(self(d.dom))
         for f, n in zip(d.boxes, d.offsets):
             result = result.then(Wire(self(scan[:n])).tensor(self(f))\
                            .tensor(Wire(self(scan[n + len(f.dom):]))))
