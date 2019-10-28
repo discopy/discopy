@@ -2,6 +2,8 @@ from diagram import Type, Diagram, Box, Wire, MonoidalFunctor
 import pyzx as zx
 import networkx as nx
 
+B, Z, X = 0, 1, 2
+
 class OpenGraph:
     def __init__(self, dom, cod, graph):
         assert isinstance(graph, nx.MultiGraph)
@@ -15,6 +17,15 @@ class OpenGraph:
     def __repr__(self):
         return "OpenGraph({}, {}, {}, {})".format(
             self.dom, self.cod, self.graph.nodes(), self.graph.edges())
+
+    def __eq__(self,other):
+        if not isinstance(other, OpenGraph):
+            return False
+        if not self.dom == other.dom and self.cod == other.cod:
+            return False
+        if not set(self.graph.nodes()) == set(other.graph.nodes()):
+            return False
+        return set(self.graph.edges()) == set(other.graph.edges())
 
     def then(self, other):
         assert isinstance(other, OpenGraph) and self.cod == other.dom
@@ -69,11 +80,19 @@ class OpenGraph:
         k.add_edges(list(self.graph.edges()))
         return k
 
+    @staticmethod
+    def from_zx(dom, cod, d):
+        g = nx.MultiGraph()
+        for x, y in d.edges():
+            g.add_edge(x,y)
+        for i in d.vertices():
+            g.add_node(i, ty = d.types()[i])
+        return OpenGraph(dom , cod, g)
 
 class Node(OpenGraph):
     def __init__(self, dom, cod, label):
         g = nx.MultiGraph()
-        g.add_nodes_from(range(dom + 1 +cod), ty = 0) #0 is the type of boundary nodes
+        g.add_nodes_from(range(dom + 1 +cod), ty = B) #boundary nodes
         g.add_node(dom, ty = label) #the inner node is labeled
         g.add_edges_from([(i, dom) for i in range(dom)])
         g.add_edges_from([(dom, dom + 1 + j) for j in range(cod)])
@@ -82,7 +101,7 @@ class Node(OpenGraph):
 class IdGraph(OpenGraph):
     def __init__(self, dom):
         g = nx.MultiGraph()
-        g.add_nodes_from(range(dom + dom), ty = 0)
+        g.add_nodes_from(range(dom + dom), ty = B)
         g.add_edges_from([(i, dom + i) for i in range(dom)])
         super().__init__(dom, dom, g)
 
@@ -109,16 +128,18 @@ class GraphFunctor(MonoidalFunctor):
                 u = u[:n] + f.cod + u[n + len(f.dom):]
             return g
 
-
 x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
 diagram = f.tensor(Wire(z)).then(Wire(x).tensor(g))
 
 ob = {x: 1, y: 2, z: 3, w: 4}
-D = {a: Node(sum(ob[Type([b])] for b in a.dom), sum(ob[Type([b])] for b in a.cod), 1) for a in [f, g, h]}
-print(D)
+D = {f: Node(sum(ob[Type([x])] for x in f.dom), sum(ob[Type([b])] for b in f.cod), Z),
+     g: Node(sum(ob[Type([x])] for x in g.dom), sum(ob[Type([b])] for b in g.cod), X) }
+
 F = GraphFunctor(ob, D)
 
-compgraph = D[f].tensor(IdGraph(F(z))).then(IdGraph(F(x)).tensor(D[g]))
-print(F(diagram))
-zxdiagram = F(diagram).to_zx()
+opengraph = D[f].tensor(IdGraph(F(z))).then(IdGraph(F(x)).tensor(D[g]))
+assert opengraph == F(diagram)
+
+C = zx.generate.cnots(3,4)
+assert OpenGraph.from_zx( 3,3, OpenGraph.from_zx(3, 3, C).to_zx()) == OpenGraph.from_zx(3,3,C)
