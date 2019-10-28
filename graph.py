@@ -63,16 +63,27 @@ class OpenGraph:
         g = nx.union(g0, g1)
         return OpenGraph(self.dom + other.dom, self.cod + other.cod, g)
 
+    def to_zx(self):
+        k = zx.Graph()
+        for x in self.graph.nodes(data = True):
+            k.add_vertex(ty = x[1]['type'])
+        k.add_edges(list(self.graph.edges()))
+        return k
 
 class Node(OpenGraph):
-    def __init__(self, dom, cod):
-        g = nx.MultiGraph([(i, dom) for i in range(dom)])
+    def __init__(self, dom, cod, label):
+        g = nx.MultiGraph()
+        g.add_nodes_from(range(dom + 1 +cod), type = 0) #0 is the type of boundary nodes
+        g.add_node(dom, type = label) #the inner node is labeled
+        g.add_edges_from([(i, dom) for i in range(dom)])
         g.add_edges_from([(dom, dom + 1 + j) for j in range(cod)])
         super().__init__(dom, cod, g)
 
-class Edge(OpenGraph):
+class IdGraph(OpenGraph):
     def __init__(self, dom):
-        g = nx.MultiGraph([(i, dom + i) for i in range(dom)])
+        g = nx.MultiGraph()
+        g.add_nodes_from(range(dom + dom), type = 0)
+        g.add_edges_from([(i, dom + i) for i in range(dom)])
         super().__init__(dom, dom, g)
 
 class GraphFunctor(MonoidalFunctor):
@@ -86,13 +97,11 @@ class GraphFunctor(MonoidalFunctor):
 
         if isinstance(d, Diagram):
             u = d.dom
-            g = Edge(self(u))
-
+            g = IdGraph(self(u))
             for f, n in zip(d.nodes, d.offsets):
-                g = g.then(Edge(self(u[:n])).tensor(self(f))\
-                     .tensor(Edge(self(u[n + len(f.dom):]))))
+                g = g.then(IdGraph(self(u[:n])).tensor(self(f))\
+                     .tensor(IdGraph(self(u[n + len(f.dom):]))))
                 u = u[:n] + f.cod + u[n + len(f.dom):]
-
             return g
 
 
@@ -101,8 +110,10 @@ f, g, h = Box('f', [x], [y, z]), Box('g', [z, x], [w]), Box('h', [y, w], [x])
 diagram = f.tensor(Wire(x)).then(Wire(y).tensor(g))
 
 F0 = GraphFunctor({x: 1, y: 2, z: 3, w: 4}, None)
-dict = {a: Node(F0(a.dom), F0(a.cod)) for a in [f, g, h]}
+dict = {a: Node(F0(a.dom), F0(a.cod), '1') for a in [f, g, h]}
 F = GraphFunctor(F0.ob, dict)
 
-print(dict[f].tensor(Edge(1)).then(Edge(2).tensor(dict[g])))
+print(dict[f].tensor(IdGraph(1)).then(IdGraph(2).tensor(dict[g])))
 print(F(diagram))
+zxdiagram = F(diagram).to_zx()
+print(zxdiagram.edge_set())
