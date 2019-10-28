@@ -1,4 +1,4 @@
-from diagram import Type, Diagram, Box, Wire, MonoidalFunctor
+from moncat import Type, Diagram, Box, MonoidalFunctor
 import pyzx as zx
 import networkx as nx
 
@@ -130,7 +130,7 @@ class GraphFunctor(MonoidalFunctor):
 
 x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-diagram = f.tensor(Wire(z)).then(Wire(x).tensor(g))
+diagram = f.tensor(Diagram.id(z)).then(Diagram.id(x).tensor(g))
 
 ob = {x: 1, y: 2, z: 3, w: 4}
 D = {f: Node(sum(ob[Type([x])] for x in f.dom), sum(ob[Type([b])] for b in f.cod), Z),
