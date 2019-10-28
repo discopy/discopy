@@ -51,6 +51,8 @@ class Type(list):
         return Type(list(self) + list(other))
 
     def __repr__(self):
+        if self == []:
+            return '[]'
         f = lambda z: - z * '.l' if z < 0 else z * '.r'
         return ' + '.join(b + f(z) for b, z in self)
 
@@ -65,18 +67,28 @@ class Type(list):
     def r(self):
         return Type([(b, z + 1) for b, z in self[::-1]])
 
-class Word(Box):
+class RDiagram(Diagram):
+    def __init__(self, dom, cod, nodes, offsets):
+        assert all(isinstance(x, Type) for x in [dom, cod])
+        super().__init__(dom, cod, nodes, offsets)
+
+    def tensor(self, other):
+        r = super().tensor(other)
+        r.dom, r.cod = Type(r.dom), Type(r.cod)
+        return r
+
+class Word(RDiagram, Box):
     def __init__(self, w, t):
         assert isinstance(w, str)
         assert isinstance(t, Type)
-        super().__init__((w, t), [(w, t)], t)
+        Box.__init__(self, (w, t), [(w, t)], t)
 
     def __repr__(self):
         return "Word" + str(self.name)
 
-class Cup(Box):
+class Cup(RDiagram, Box):
     def __init__(self, x):
-        super().__init__('cup_{}'.format(x), x + x.r, [])
+        Box.__init__(self, 'cup_{}'.format(x), x + x.r, [])
 
 class Parse(Diagram):
     def __init__(self, words, cups):
@@ -90,7 +102,6 @@ class Parse(Diagram):
             nodes.append(Cup(Type([x])))
             cod = Type(cod[:i] + cod[i + 2:])
         super().__init__(dom, cod, nodes, offsets)
-
 
 class Model(NumpyFunctor):
     def __init__(self, ob, ar):
@@ -113,6 +124,7 @@ class Model(NumpyFunctor):
 
 
 s, n = Type('s'), Type('n')
+
 alice, bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r + s + n.l)
 sentence = Parse([alice, loves, bob], [0, 1])
