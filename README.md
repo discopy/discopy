@@ -42,9 +42,9 @@ assert F(sentence) == True
 
 `discopy` is a Python implementation of the categorical compositional categorical (DisCoCat) models, see [arXiv:1003.4394](https://arxiv.org/abs/1003.4394), [arXiv:1106.4058](https://arxiv.org/abs/1106.4058) [arXiv:1904.03478](https://arxiv.org/abs/1904.03478).
 
-* `cat.Arrow`, `cat.Identity`, `cat.Generator` implement free categories.
+* `cat.Arrow`, `cat.Generator` implement free categories.
 * `cat.Functor` implements Python-valued functors.
-* `moncat.Diagram`, `moncat.Wire`, `moncat.Node` implement free monoidal categories.
+* `moncat.Diagram`, `moncat.Box` implement free monoidal categories.
 * `moncat.MonoidalFunctor` implements free monoidal functors.
 * `moncat.NumpyFunctor` implements monoidal functors into the category of matrices.
 * `disco.Word`, `disco.Cup`, `disco.Parse` implement pregroup grammars.
