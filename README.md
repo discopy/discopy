@@ -1,6 +1,6 @@
 # Distributional Compositional Python
 
-`discopy` computes meaning in pictures.
+`discopy` computes natural language meaning in pictures.
 
 !["Alice loves Bob" in picture](figures/alice-loves-bob.png)
 
@@ -11,17 +11,14 @@ The recipe goes in three steps:
 1) draw the picture
 
 ```python
-from disco import Type, Word, Cup, Wire
-
-s, n = Type('s'), Type('n')
+from disco import n, s, Word, Cup, Wire
 
 alice = Word('Alice', n)
 loves = Word('loves', n.r + s + n.l)
 bob = Word('Bob', n)
 
-words = alice.tensor(loves).tensor(bob)
 grammar = Cup(n).tensor(Wire(s)).tensor(Cup(n.l))
-sentence = words.then(grammar)
+sentence = alice.tensor(loves).tensor(bob).then(grammar)
 ```
 
 2) fill in the picture with `numpy` arrays
@@ -30,12 +27,9 @@ sentence = words.then(grammar)
 from disco import Model
 from numpy import array
 
-F = Model({s: 1, n: 2},
-    {
-        alice: array([1, 0]),
-        loves: array([0, 1, 1, 0]),
-        bob: array([0, 1])
-    })
+ob = {s: 1, n: 2}
+ar = {alice: array([1, 0]), loves: array([0, 1, 1, 0]), bob: array([0, 1])}
+F = Model(ob, ar)
 ```
 
 3) compute the meaning!
