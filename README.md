@@ -46,5 +46,5 @@ assert F(sentence) == True
 * `cat.Functor` implements Python-valued functors.
 * `moncat.Diagram`, `moncat.Box` implement free monoidal categories.
 * `moncat.MonoidalFunctor` implements free monoidal functors.
-* `moncat.NumpyFunctor` implements monoidal functors into the category of matrices.
+* `moncat.NumpyFunctor` implements matrix-valued monoidal functors.
 * `disco.Word`, `disco.Cup`, `disco.Parse` implement pregroup grammars.
