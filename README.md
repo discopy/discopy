@@ -17,8 +17,8 @@ alice = Word('Alice', n)
 loves = Word('loves', n.r + s + n.l)
 bob = Word('Bob', n)
 
-grammar = Cup(n).tensor(Wire(s)).tensor(Cup(n.l))
-sentence = alice.tensor(loves).tensor(bob).then(grammar)
+grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+sentence = grammar << alice @ loves @ bob
 ```
 
 2) fill in the picture with `numpy` arrays

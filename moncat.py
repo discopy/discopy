@@ -66,6 +66,9 @@ class Diagram(Arrow):
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
         return Diagram(dom, cod, boxes, offsets)
 
+    def __matmul__(self, other):
+        return self.tensor(other)
+
     def then(self, other):
         assert isinstance(other, Diagram) and self.cod == other.dom
         dom, cod = self.dom, other.cod
@@ -73,10 +76,19 @@ class Diagram(Arrow):
         offsets = self.offsets + other.offsets
         return Diagram(dom, cod, boxes, offsets)
 
+    def __rshift__(self, other):
+        return self.then(other)
+
+    def __lshift__(self, other):
+        return other.then(self)
+
     @staticmethod
     def id(x):
         assert isinstance(x, Type)
         return Diagram(x, x, [], [])
+
+def Id(x):
+    return Diagram.id(x)
 
 class Box(Generator, Diagram):
     def __init__(self, name, dom, cod):
@@ -97,7 +109,6 @@ class Box(Generator, Diagram):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
-        return False
 
 class MonoidalFunctor(Functor):
     def __init__(self, ob, ar):
@@ -153,16 +164,17 @@ x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
 assert x + y != y + x
 assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z])
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-d = f.tensor(Diagram.id(z)).then(Diagram.id(x).tensor(g))
+d = Id(x) @ g << f @ Id(z)
 
 IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
                       {a: a for a in [f, g, h]})
 
-assert IdF(d.then(h)) == IdF(d).then(IdF(h)) == d.then(h)
+assert IdF(d >> h) == IdF(d) >> IdF(h) == d >> h
 
 F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, dict())
 F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},
                  {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g, h]})
 
 assert F(d).shape == tuple(F(d.dom) + F(d.cod))
-assert np.all(F(d.then(h)) == np.tensordot(F(d), F(h), 2))
+assert F(d >> h).shape == np.tensordot(F(d), F(h), 2).shape
+assert np.all(F(d >> h) == np.tensordot(F(d), F(h), 2))
