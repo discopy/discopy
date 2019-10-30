@@ -135,11 +135,10 @@ diagram = f.tensor(Wire(z)).then(Wire(x).tensor(g))
 ob = {x: 1, y: 2, z: 3, w: 4}
 D = {f: Node(sum(ob[Type([x])] for x in f.dom), sum(ob[Type([b])] for b in f.cod), Z),
      g: Node(sum(ob[Type([x])] for x in g.dom), sum(ob[Type([b])] for b in g.cod), X) }
-
 F = GraphFunctor(ob, D)
 
 opengraph = D[f].tensor(IdGraph(F(z))).then(IdGraph(F(x)).tensor(D[g]))
 assert opengraph == F(diagram)
 
-C = zx.generate.cnots(3,4)
+C = zx.generate.cliffords(4,7)
 assert OpenGraph.from_zx( 3,3, OpenGraph.from_zx(3, 3, C).to_zx()) == OpenGraph.from_zx(3,3,C)
