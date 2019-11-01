@@ -148,7 +148,6 @@ class NumpyFunctor(MonoidalFunctor):
             arr = np.moveaxis(arr, source, destination)  # more bureaucracy!
         return arr
 
-
 x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
 assert x + y != y + x
 assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z])
