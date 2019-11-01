@@ -1,29 +1,41 @@
+import numpy as np
 import pyzx as zx
 import pytket as tk
 from pytket.pyzx import pyzx_to_tk
 from random import random
-from diagram import Diagram, Box, Wire, MonoidalFunctor
+from moncat import Type, Diagram, Box, MonoidalFunctor, NumpyFunctor
 
 
-PRO = lambda n: n * [1]
-GATES = tk.OpType.__entries.keys()
+PYTKET_GATES = tk.OpType.__entries.keys()
 
+#  Turns natural numbers into types encoded in unary.
+PRO = lambda n: sum(n * [Type(1)]) or Type()
 
 class Circuit(Diagram):
     def __init__(self, n_qubits, gates, offsets):
-        super.n_qubits = n_qubits
+        self.n_qubits = n_qubits
         super().__init__(PRO(n_qubits), PRO(n_qubits), gates, offsets)
 
     def __repr__(self):
         return "Circuit({}, {}, {})".format(
-            len(self.dom), self.nodes, self.offsets)
+            len(self.dom), self.boxes, self.offsets)
+
+    @staticmethod
+    def id(n_qubits):
+        return Circuit(n_qubits, [], [])
+
+    def eval(self):
+        class gates_to_numpy(dict):
+            def __getitem__(self, g):
+                return np.zeros(2 * g.n_qubits * (2, ))
+        return NumpyFunctor({PRO(1): 2}, gates_to_numpy())(self)
 
     def to_tk(self):
         c = tk.Circuit(len(self.dom))
-        for f, n in zip(self.nodes, self.offsets):
-            assert f.dom == f.cod and f.name in GATES
-            c.__getattribute__(f.name)(
-                *[n + i for i in range(len(f.dom))], *f.data)
+        for g, n in zip(self.boxes, self.offsets):
+            assert g.dom == g.cod and g.name in PYTKET_GATES
+            c.__getattribute__(g.name)(
+                *[n + i for i in range(len(g.dom))], *g.params)
         return c
 
     @staticmethod
@@ -45,7 +57,7 @@ class Circuit(Diagram):
                         gates.append(Gate('SWAP', 2))
                         offsets.append(q.index - j - 1)
             gates.append(Gate(g.op.get_type().name,
-                len(g.qubits), g.op.get_params()))
+                len(g.qubits), *g.op.get_params()))
             offsets.append(i0)
         return Circuit(c.n_qubits, gates, offsets)
 
@@ -60,40 +72,35 @@ class Circuit(Diagram):
         return Circuit.from_tk(pyzx_to_tk(c))
 
 class Gate(Box, Circuit):
-    def __init__(self, name, n_qubits, data=[]):
-        self.n_qubits, self.data = n_qubits, data
-        super().__init__(name, PRO(n_qubits), PRO(n_qubits))
+    def __init__(self, name, n_qubits, *params):
+        self.n_qubits, self.params = n_qubits, params
+        Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits))
 
     def __repr__(self):
         return "Gate('{}', {}{})".format(self.name, len(self.dom),
-            '' if not self.data else ", " + repr(self.data))
+            '' if not self.params else ', ' + ', '.join(map(str, self.params)))
 
-class IdCircuit(Wire, Circuit):
-    def __init__(self, n_qubits):
-        n_qubits = n_qubits if isinstance(n_qubits, int) else len(n_qubits)
-        super().__init__(PRO(n_qubits))
-
-class PytketFunctor(MonoidalFunctor):
+class CircuitFunctor(MonoidalFunctor):
     def __call__(self, d):
-        if not isinstance(d, Diagram):  # d must be an object
-            xs = d if isinstance(d, list) else [d]
-            return PRO(sum(self.ob[x] for x in xs))
         r = super().__call__(d)
-        return Circuit(len(r.dom), r.nodes, r.offsets)
+        if isinstance(d, Diagram):
+            return Circuit(len(r.dom), r.boxes, r.offsets)
+        return r
 
 
-c1 = tk.Circuit(3).CX(0, 2).H(1).SWAP(0, 1).Rx(0, 0.25)
-d1 = Circuit.from_tk(c1)
-c2 = d1.to_tk()
-d2 = Circuit.from_tk(c2)
-assert not c1 == c2  # Equality in tket doesn't work!
-assert d1 == d2  # This works as long as there are no interchangers!
+c1_tk = tk.Circuit(3).CX(0, 1).Rx(1, 0.25).CCX(0, 1, 2)
+c1 = Circuit.from_tk(c1_tk)
+assert c1 == Circuit(3,
+    [Gate('CX', 2), Gate('Rx', 1, 0.25), Gate('CCX', 3)], [0, 1, 0])
+c2_tk = c1.to_tk()
+c2 = Circuit.from_tk(c2_tk)
+assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
+assert c1 == c2  # This works as long as there are no interchangers!
+assert c1.eval().shape = 2 * tuple(2 for i in c1.dom)
 
-
-x, y, z, w = 'x', 'y', 'z', 'w'
-f, g, h = Box('f', [x], [y, z]), Box('g', [z, z], [w]), Box('h', [y, w], [x, z])
-d = f.tensor(Wire(z)).then(Wire(y).tensor(g)).then(h)
-F = PytketFunctor({x: 2, y: 1, z: 1, w: 2},
-    {f: Gate('CX', 2), g: Gate('CZ', 2), h: Gate('CCX', 3)})
-assert F(d) == Circuit(3,
-    [Gate('CX', 2), Gate('CZ', 2), Gate('CCX', 3)], [0, 1, 0])
+x, y, z = Type('x'), Type('y'), Type('z')
+f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + y + z, x + z)
+d = f @ Diagram.id(z) >> Diagram.id(y) @ g @ Diagram.id(z) >> h
+F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)},
+    {f: Gate('CX', 2), g: Gate('Rx', 1, 0.25), h: Gate('CCX', 3)})
+assert F(d) == c1
