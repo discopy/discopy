@@ -23,7 +23,7 @@ class Type(list):
         return super().__getitem__(key)
 
     def __repr__(self):
-        return 'Type()' if not self else ' + '.join(x.name for x in self)
+        return 'Type()' if not self else ' + '.join(str(x.name) for x in self)
 
     def __hash__(self):
         return hash(repr(self))
