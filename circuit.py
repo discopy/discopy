@@ -5,7 +5,7 @@ from pytket.pyzx import pyzx_to_tk
 from random import random
 from moncat import Type, Diagram, Box, MonoidalFunctor, NumpyFunctor
 
-
+GATES = {'CX': np.zeros(2 * 2 * (2, ))}
 PYTKET_GATES = tk.OpType.__entries.keys()
 
 #  Turns natural numbers into types encoded in unary.
@@ -27,7 +27,9 @@ class Circuit(Diagram):
     def eval(self):
         class gates_to_numpy(dict):
             def __getitem__(self, g):
-                return np.zeros(2 * g.n_qubits * (2, ))
+                if g.params:
+                    return np.zeros(2 * g.n_qubits * (2, ))
+                return GATES[g.name]
         return NumpyFunctor({PRO(1): 2}, gates_to_numpy())(self)
 
     def to_tk(self):
@@ -96,7 +98,7 @@ c2_tk = c1.to_tk()
 c2 = Circuit.from_tk(c2_tk)
 assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
 assert c1 == c2  # This works as long as there are no interchangers!
-assert c1.eval().shape = 2 * tuple(2 for i in c1.dom)
+# assert c1.eval().shape == 2 * tuple(2 for i in c1.dom)
 
 x, y, z = Type('x'), Type('y'), Type('z')
 f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + y + z, x + z)
