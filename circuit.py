@@ -5,41 +5,10 @@ from pyzx import tensorfy
 import pytket as tk
 from pytket.pyzx import pyzx_to_tk, tk_to_pyzx
 from random import random
+from gates import GATES_TO_NUMPY
 from moncat import Type, Diagram, Box, MonoidalFunctor, NumpyFunctor
 
 
-############ LIST OF GATES:
-# Pauli X
-X=np.array( [ [0,1] , [1,0] ] )
-
-# Pauli Y
-Y= np.array( [ [0,-1j] , [1j,0] ] )
-
-# Pauli Z
-Z= np.array( [ [1,0] , [0,-1] ] )
-
-# Phases:
-def Rz(theta):
-	return	math.cos(theta/2)*np.identity(2)-1j*math.sin(theta/2)*Z
-
-def Rx(theta):
-	return	math.cos(theta/2)*np.identity(2)-1j*math.sin(theta/2)*X
-
-# Control Gates
-def ctrl(A):
-	A=np.array(A)
-	B=np.zeros((4,4))+1j*np.zeros((4,4))
-	B[0,0]=1;B[1,1]=1;
-	B[2,2]=A[0,0];B[2,3]=A[0,1];
-	B[3,2]=A[1,0];B[3,3]=A[1,1];
-	return B
-
-#CNOT
-cX= ctrl(X)
-
-###########
-
-GATES = { 'CX' : cX , 'Z' : Z, 'X' : X, 'Y' : Y}
 PYTKET_GATES = tk.OpType.__entries.keys()
 
 #  Turns natural numbers into types encoded in unary.
@@ -54,20 +23,28 @@ class Circuit(Diagram):
         return "Circuit({}, {}, {})".format(
             len(self.dom), self.boxes, self.offsets)
 
+    def then(self, other):
+        assert isinstance(other, Circuit)
+        r = super().then(other)
+        return Circuit(len(r.dom), r.boxes, r.offsets)
+
+    def tensor(self, other):
+        assert isinstance(other, Circuit)
+        r = super().tensor(other)
+        return Circuit(len(r.dom), r.boxes, r.offsets)
+
     @staticmethod
     def id(n_qubits):
+        if isinstance(n_qubits, Type):
+            return Circuit(len(n_qubits), [], [])
+        assert isinstance(n_qubits, int)
         return Circuit(n_qubits, [], [])
 
     def eval(self):
-        class gates_to_numpy(dict):
-            def __getitem__(self, g):
-                if g.params:
-                    if g.name == 'Rz':
-                        return Rz(g.params[0])
-                    if g.name == 'Rx':
-                        return Rx(g.params[0])
-                return GATES[g.name]
-        return NumpyFunctor({PRO(1): 2}, gates_to_numpy())(self)
+        return NumpyFunctor({PRO(1): 2}, GATES_TO_NUMPY)(self)
+
+    def to_zx(self):
+        return tk_to_pyzx(self.to_tk()).to_graph()
 
     def to_tk(self):
         c = tk.Circuit(len(self.dom))
@@ -103,7 +80,7 @@ class Circuit(Diagram):
     @staticmethod
     def random(n_qubits, depth):
         if n_qubits == 1:
-            f, g, h = (Gate(t, 1, [phase]) for t, phase in zip(
+            f, g, h = (Gate(t, 1, 2 * p) for t, p in zip(
                 ['Rx', 'Rz', 'Rx'], [random(), random(), random()]))
             return Circuit(1, [f, g, h], [0, 0, 0])
         g = zx.generate.cliffordT(n_qubits, depth)
@@ -126,24 +103,28 @@ class CircuitFunctor(MonoidalFunctor):
             return Circuit(len(r.dom), r.boxes, r.offsets)
         return r
 
+SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
+H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
+X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
+Rx = lambda phase: Gate('Rx', 1, phase)
+Rz = lambda phase: Gate('Rz', 1, phase)
 
-c1_tk = tk.Circuit(3).CX(0, 1).Rx(1, 0.25).CX(1, 2)
+for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
+    assert np.all((U >> U).eval() == Circuit.id(U.n_qubits).eval())
+for U in [H, T >> T >> T >> T]:
+    np.allclose((U >> U).eval(), Circuit.id(U.n_qubits).eval())
+
+c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
 c1 = Circuit.from_tk(c1_tk)
-assert c1 == Circuit(3,
-    [Gate('CX', 2), Gate('Rx', 1, 0.25), Gate('CX', 2)], [0, 1, 1])
+assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
 c2_tk = c1.to_tk()
 c2 = Circuit.from_tk(c2_tk)
 assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
 assert c1 == c2  # This works as long as there are no interchangers!
 
-# Test circuit functor
 x, y, z = Type('x'), Type('y'), Type('z')
 f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
 d = f @ Diagram.id(z) >> Diagram.id(y) @ g @ Diagram.id(z) >> Diagram.id(y) @ h
 F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)},
-    {f: Gate('CX', 2), g: Gate('Rx', 1, 0.25), h: Gate('CX', 2)})
+                   {f: SWAP, g: Rx(0.25), h: CX})
 assert F(d) == c1
-
-# Test circuit evaluation
-assert c1.eval().shape == tensorfy(tk_to_pyzx(c1.to_tk()).to_graph()).shape
-assert c1.eval().all() == tensorfy(tk_to_pyzx(c1.to_tk()).to_graph()).all()

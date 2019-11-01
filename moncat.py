@@ -144,7 +144,7 @@ class NumpyFunctor(MonoidalFunctor):
         elif isinstance(d, Type):
             return tuple(self.ob[x] for x in d)
         elif isinstance(d, Box):
-            return self.ar[d].reshape(self(d.dom) + self(d.cod))
+            return np.array(self.ar[d]).reshape(self(d.dom) + self(d.cod))
         arr = 1
         for x in d.dom:
             arr = np.tensordot(arr, np.identity(self(x)), 0)
