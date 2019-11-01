@@ -2,7 +2,11 @@ import numpy as np
 
 class gates_to_numpy(dict):
     def __getitem__(self, g):
-        if g.name == 'S':
+        if g.name == 'ket0' or g.name == 'bra0':
+            return [0, 1]
+        if g.name == 'ket1' or g.name == 'bra1':
+            return [1, 0]
+        elif g.name == 'S':
             return [1, 0,
                     0, 1j]
         elif g.name == 'T':

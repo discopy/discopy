@@ -14,6 +14,8 @@ PYTKET_GATES = tk.OpType.__entries.keys()
 #  Turns natural numbers into types encoded in unary.
 PRO = lambda n: sum(n * [Type(1)]) or Type()
 
+EVAL = NumpyFunctor({PRO(1): 2}, GATES_TO_NUMPY)
+
 class Circuit(Diagram):
     def __init__(self, n_qubits, gates, offsets):
         self.n_qubits = n_qubits
@@ -41,7 +43,7 @@ class Circuit(Diagram):
         return Circuit(n_qubits, [], [])
 
     def eval(self):
-        return NumpyFunctor({PRO(1): 2}, GATES_TO_NUMPY)(self)
+        return EVAL(self)
 
     def to_zx(self):
         return tk_to_pyzx(self.to_tk()).to_graph()
@@ -103,6 +105,9 @@ class CircuitFunctor(MonoidalFunctor):
             return Circuit(len(r.dom), r.boxes, r.offsets)
         return r
 
+#  Gates are unitaries, bras and kets are not. They are only boxes.
+Ket = lambda b: Box('ket' + str(b), PRO(0), PRO(1))
+Bra = lambda b: Box('bra' + str(b), PRO(1), PRO(0))
 SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
 H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
 X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
