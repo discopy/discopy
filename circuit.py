@@ -1,10 +1,10 @@
 import math
 import numpy as np
+from random import random
+from functools import reduce as fold
 import pyzx as zx
-from pyzx import tensorfy
 import pytket as tk
 from pytket.pyzx import pyzx_to_tk, tk_to_pyzx
-from random import random
 from gates import GATES_TO_NUMPY
 from moncat import Type, Diagram, Box, MonoidalFunctor, NumpyFunctor
 
@@ -108,6 +108,9 @@ class CircuitFunctor(MonoidalFunctor):
 #  Gates are unitaries, bras and kets are not. They are only boxes.
 Ket = lambda b: Box('ket' + str(b), PRO(0), PRO(1))
 Bra = lambda b: Box('bra' + str(b), PRO(1), PRO(0))
+Kets = lambda b, n: fold(lambda x, y: x @ y, n * [Ket(b)])
+Bras = lambda b, n: fold(lambda x, y: x @ y, n * [Bra(b)])
+Id = lambda n: Circuit.id(n)
 SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
 H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
 X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
