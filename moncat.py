@@ -87,6 +87,24 @@ class Diagram(Arrow):
         assert isinstance(x, Type)
         return Diagram(x, x, [], [])
 
+    def iterchange(self, k):
+        boxes = self.boxes
+        offsets = self.offsets
+        assert isinstance(k, int)
+        assert k < len(boxes)
+        if offsets[k+1] < offsets[k] + len(boxes[k].cod):
+            return self
+        if offsets[k+1] + len(boxes[k+1].dom) > offsets[k]:
+            return self
+        if offsets[k] < offsets[k+1]:
+            offsets[k+1] = offsets[k]
+            offsets[k] = offsets[k] + len(boxes[k].dom)
+        else:
+            offsets[k] = offsets[k+1]
+            offsets[k+1] = offsets[k+1] + len(boxes[k+1].cod)
+        boxes[k], boxes[k+1] = boxes[k+1], boxes[k]
+        return Diagram(self.dom, self.cod, boxes, offsets)
+
 def Id(x):
     return Diagram.id(x)
 
@@ -177,3 +195,9 @@ F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},
 assert F(d).shape == tuple(F(d.dom) + F(d.cod))
 assert F(d >> h).shape == np.tensordot(F(d), F(h), 2).shape
 assert np.all(F(d >> h) == np.tensordot(F(d), F(h), 2))
+
+
+a, b, c, d = Box('a', x, x + y), Box('b', y + z, w), Box('c', y + w, x), Box('d', x, y)
+f = a @ Id(y) @ Id(z) >> Id(x) @ Id(y) @ b >> Id(x) @ c >> d @ Id(x)
+f.interchange(0)
+assert diagram == Id(x) @ b >> a @ Id(w) >> Id(x) @ c >> d @ Id(x)
