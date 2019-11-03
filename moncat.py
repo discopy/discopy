@@ -5,8 +5,7 @@ from cat import Ob, Arrow, Generator, Functor
 
 class Ty(list):
     def __init__(self, *t):
-        t = [x if isinstance(x, Ob) else Ob(x) for x in t]
-        super().__init__(t)
+        super().__init__(x if isinstance(x, Ob) else Ob(x) for x in t)
 
     def __add__(self, other):
         return Ty(*(super().__add__(other)))
@@ -53,17 +52,19 @@ class Diagram(Arrow):
         return self._offsets
 
     def __repr__(self):
+        if not self:  # i.e. self is identity.
+            return repr(Id(self.dom))
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
             repr(self.dom), repr(self.cod),
             repr(self.boxes), repr(self.offsets))
 
     def __str__(self):
-        if not self:  # self is identity.
-            return "Id({})".format(self.dom)
+        if not self:  # i.e. self is identity.
+            return str(self.id(self.dom))
         def line(scan, box, off):
-            left = "Id({}) @ ".format(scan[:off]) if scan[:off] else ""
-            right = " @ Id({})".format(scan[off + len(box.dom):])\
-                if scan[off + len(box.dom):] else ""
+            left = "{} @ ".format(self.id(scan[:off])) if scan[:off] else ""
+            right = " @ {}".format(self.id(scan[off + len(box.dom):]))\
+                                   if scan[off + len(box.dom):] else ""
             return left + str(box) + right
         box, off = self.boxes[0], self.offsets[0]
         result = line(self.dom, box, off)
@@ -96,7 +97,7 @@ class Diagram(Arrow):
 
     @staticmethod
     def id(x):
-        return Diagram(x, x, [], [])
+        return Id(x)
 
     def interchange(self, k0, k1):
         assert k0 + 1 == k1
@@ -113,8 +114,15 @@ class Diagram(Arrow):
                        self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
                        self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
 
-def Id(x):
-    return Diagram.id(x)
+class Id(Diagram):
+    def __init__(self, x):
+        super().__init__(x, x, [], [])
+
+    def __repr__(self):
+        return "Id({})".format(repr(self.dom))
+
+    def __str__(self):
+        return "Id({})".format(str(self.dom))
 
 class Box(Generator, Diagram):
     def __init__(self, name, dom, cod, dagger=False):
@@ -162,7 +170,7 @@ class MonoidalFunctor(Functor):
 class NumpyFunctor(MonoidalFunctor):
     def __call__(self, d):
         if isinstance(d, Ob):
-            return self.ob[d]
+            return int(self.ob[d])
         elif isinstance(d, Ty):
             return tuple(self.ob[x] for x in d)
         elif isinstance(d, Box):

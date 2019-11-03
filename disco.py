@@ -36,11 +36,8 @@ class Adjoint(Ob):
 
 class Pregroup(Ty):
     def __init__(self, *t):
-        if not isinstance(t, list):  # t is a basic type
-            super().__init__(Adjoint(t, 0))
-        else:
-            assert all(isinstance(x, Adjoint) for x in t)
-            super().__init__(*t)
+        t = [x if isinstance(x, Adjoint) else Adjoint(x, 0) for x in t]
+        super().__init__(*t)
 
     def __add__(self, other):
         return Pregroup(*super().__add__(other))
@@ -51,38 +48,94 @@ class Pregroup(Ty):
         return super().__getitem__(key)
 
     def __repr__(self):
-        if not self:
-            return 'Pregroup()'
-        return ' + '.join(map(repr, self))
+        return "Pregroup({})".format(', '.join(
+            repr(x if x.z else x.b) for x in self))
+
+    def __str__(self):
+        return ' + '.join(map(str, self)) or "Pregroup()"
 
     @property
     def l(self):
-        return Pregroup(*[t.l for t in self[::-1]])
+        return Pregroup(*[x.l for x in self[::-1]])
 
     @property
     def r(self):
-        return Pregroup(*[t.r for t in self[::-1]])
+        return Pregroup(*[x.r for x in self[::-1]])
 
     @property
     def is_basic(self):
-        return len(self) == 1 and self[0].z == 0
+        return len(self) == 1 and not self[0].z
 
-class PDiagram(Diagram):
-    def __init__(self, dom, cod, nodes, offsets):
-        assert all(isinstance(x, Pregroup) for x in [dom, cod])
-        super().__init__(dom, cod, nodes, offsets)
+class Grammar(Diagram):
+    def __init__(self, dom, cod, boxes, offsets):
+        assert isinstance(dom, Pregroup) and isinstance(cod, Pregroup)
+        super().__init__(dom, cod, boxes, offsets)
+
+    def then(self, other):
+        r = super().then(other)
+        return Grammar(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
     def tensor(self, other):
         r = super().tensor(other)
-        r._dom, r._cod = Pregroup(r.dom), Pregroup(r.cod)
-        return r
+        return Grammar(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
-class Wire(PDiagram):
+    @staticmethod
+    def id(t):
+        return Wire(t)
+
+    def __repr__(self):
+        return "Grammar(dom={}, cod={}, boxes={}, offsets={})".format(
+            *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
+
+    def __str__(self):
+        return repr(self)
+
+class Wire(Grammar):
+    def __init__(self, t):
+        if isinstance(t, Word):
+            t = t.dom
+        assert isinstance(t, Pregroup)
+        super().__init__(t, t, [], [])
+
+    def __repr__(self):
+        return "Wire({})".format(repr(self.dom))
+
+    def __str__(self):
+        return "Wire({})".format(str(self.dom))
+
+class Cup(Grammar, Box):
     def __init__(self, x):
-        assert isinstance(x, Pregroup)
-        super().__init__(x, x, [], [])
+        if isinstance(x, Pregroup):
+            assert len(x) == 1
+            x = x[0]
+        elif not isinstance(x, Adjoint):
+            x = Adjoint(x, 0)
+        Box.__init__(self, 'cup_{}'.format(x), Pregroup(x, x.r), Pregroup())
 
-class Word(PDiagram, Box):
+    def __repr__(self):
+        return "Cup({})".format(repr(
+            self.dom[0] if self.dom[0].z else self.dom[0].b))
+
+    def __str__(self):
+        return "Cup({})".format(str(self.dom[0]))
+
+class Cap(Grammar, Box):
+    def __init__(self, x):
+        if isinstance(x, Pregroup):
+            assert len(x) == 1
+            x = x[0]
+        elif not isinstance(x, Adjoint):
+            x = Adjoint(x, 0)
+        Box.__init__(self, 'cap_{}'.format(x), Pregroup(), Pregroup(x, x.l))
+
+    def __repr__(self):
+        return "Cap({})".format(repr(
+            self.cod[0] if self.cod[0].z else self.cod[0].b))
+
+    def __str__(self):
+        return "Cap({})".format(str(self.cod[0]))
+
+class Word(Grammar, Box):
     def __init__(self, w, t):
         assert isinstance(w, str)
         assert isinstance(t, Pregroup)
@@ -98,36 +151,33 @@ class Word(PDiagram, Box):
         return self._type
 
     def __repr__(self):
-        return "Word({}, {})".format(self.word, self.type)
+        return "Word({}, {})".format(repr(self.word), repr(self.type))
 
-class Cup(PDiagram, Box):
-    def __init__(self, x):
-        assert isinstance(x, Pregroup) and len(x) == 1
-        Box.__init__(self, 'cup_{}'.format(x), x + x.r, Pregroup())
+    def __str__(self):
+        return str(self.word)
 
-class Cap(PDiagram, Box):
-    def __init__(self, x):
-        assert isinstance(x, Pregroup) and len(x) == 1
-        Box.__init__(self, 'cap_{}'.format(x), Pregroup(), x + x.l)
-
-class Parse(Diagram):
+class Parse(Grammar):
     def __init__(self, words, cups):
-        dom = sum(w.dom for w in words)
-        nodes = words[::-1]  # words are backwards to make offsets easier
+        self._words, self._cups = words, cups
+        self._type = sum((w.cod for w in words), Pregroup())
+        dom = sum((w.dom for w in words), Pregroup())
+        boxes = words[::-1]  # words are backwards to make offsets easier
         offsets = [len(words) - i - 1 for i in range(len(words))] + cups
-        cod = sum(w.cod for w in words)
+        cod = self._type
         for i in cups:
             assert cod[i].r == cod[i + 1]
-            nodes.append(Cup(cod[i: i + 1]))
+            boxes.append(Cup(cod[i]))
             cod = cod[:i] + cod[i + 2:]
-        super().__init__(dom, cod, nodes, offsets)
+        super().__init__(dom, cod, boxes, offsets)
+
+    def __str__(self):
+        return "{} >> {}".format(" @ ".join(self._words), Grammar(self._type,
+            self.cod, self.boxes[len(self._words):], self._cups))
 
 class Model(NumpyFunctor):
     def __init__(self, ob, ar):
         assert all(isinstance(x, Pregroup) and x.is_basic for x in ob.keys())
-        assert all(isinstance(y, int) for y in ob.values())
         assert all(isinstance(a, Word) for a in ar.keys())
-        assert all(isinstance(b, np.ndarray) for b in ar.values())
         # rigid functors are defined by their image on basic types
         ob = {x[0].b: ob[x] for x in ob.keys()}
         # we assume the images for word boxes are all states
@@ -136,7 +186,7 @@ class Model(NumpyFunctor):
 
     def __call__(self, d):
         if isinstance(d, Adjoint):
-            return self.ob[d.b]
+            return int(self.ob[d.b])
         if isinstance(d, Pregroup):
             return [self(x) for x in d]
         if isinstance(d, Cup):
@@ -148,15 +198,17 @@ class Model(NumpyFunctor):
 
 s, n = Pregroup('s'), Pregroup('n')
 
-alice, bob = Word('Alice', n), Word('Bob', n)
+Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r + s + n.l)
-sentence = Parse([alice, loves, bob], [0, 1])
-
+grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+sentence = grammar << Alice @ loves @ Bob
+assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
+                                                     .interchange(1, 2)\
+                                                     .interchange(0, 1)
 F = Model({s: 1, n: 2},
-          {alice : [1, 0],
-           bob : [0, 1],
-           loves : [0, 1, 1, 0]})
-
+          {Alice: [1, 0],
+           loves: [0, 1, 1, 0],
+           Bob: [0, 1]})
 assert F(sentence) == True
 
 snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
