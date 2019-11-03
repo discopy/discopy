@@ -1,5 +1,4 @@
 import numpy as np
-import pyzx as zx
 from cat import FAST, Ob, Arrow, Generator, Functor
 
 

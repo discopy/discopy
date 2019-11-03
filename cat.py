@@ -1,6 +1,7 @@
 FAST, SEED = 0, 420
 from functools import reduce as fold
 
+
 class Ob(object):
     def __init__(self, name):
         self._name = name
