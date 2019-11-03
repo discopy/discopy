@@ -1,37 +1,34 @@
 import numpy as np
 import pyzx as zx
-from cat import Object, Arrow, Generator, Functor
+from cat import Ob, Arrow, Generator, Functor
 
 
-class Type(list):
-    def __init__(self, t=[]):
-        if not isinstance(t, list):  # t is a generating object
-            super().__init__([Object(t)])
-        else:
-            assert all(isinstance(x, Object) for x in t)
-            super().__init__(t)
+class Ty(list):
+    def __init__(self, *t):
+        t = [x if isinstance(x, Ob) else Ob(x) for x in t]
+        super().__init__(t)
 
     def __add__(self, other):
-        return Type(list(self) + list(other))
-
-    def __radd__(self, other):  # allows to compute sums of types
-        return self if not other else other + self
+        return Ty(*(super().__add__(other)))
 
     def __getitem__(self, key):  # allows to compute slices of types
         if isinstance(key, slice):
-            return Type(super().__getitem__(key))
+            return Ty(*super().__getitem__(key))
         return super().__getitem__(key)
 
     def __repr__(self):
-        return 'Type()' if not self else ' + '.join(x.name for x in self)
+        return "Ty({})".format(', '.join(repr(x.name) for x in self))
+
+    def __str__(self):
+        return ' + '.join(map(str, self)) or 'Ty()'
 
     def __hash__(self):
         return hash(repr(self))
 
 class Diagram(Arrow):
     def __init__(self, dom, cod, boxes, offsets):
-        assert isinstance(dom, Type)
-        assert isinstance(cod, Type)
+        assert isinstance(dom, Ty)
+        assert isinstance(cod, Ty)
         assert isinstance(boxes, list)
         assert isinstance(offsets, list)
         assert len(boxes) == len(offsets)
@@ -44,7 +41,7 @@ class Diagram(Arrow):
             assert scan[n : n + len(f.dom)] == f.dom
             scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
         assert scan == cod
-        self._data = list(zip(boxes, offsets))  # used by the category module
+        self._data = list(zip(boxes, offsets))  # used by the Arrow class
         list.__init__(self, zip(boxes, offsets))
 
     @property
@@ -56,8 +53,25 @@ class Diagram(Arrow):
         return self._offsets
 
     def __repr__(self):
-        return "Diagram({}, {}, {}, {})".format(
-            self.dom, self.cod, self.boxes, self.offsets)
+        return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
+            repr(self.dom), repr(self.cod),
+            repr(self.boxes), repr(self.offsets))
+
+    def __str__(self):
+        if not self:  # self is identity.
+            return "Id({})".format(self.dom)
+        def line(scan, box, off):
+            left = "Id({}) @ ".format(scan[:off]) if scan[:off] else ""
+            right = " @ Id({})".format(scan[off + len(box.dom):])\
+                if scan[off + len(box.dom):] else ""
+            return left + str(box) + right
+        box, off = self.boxes[0], self.offsets[0]
+        result = line(self.dom, box, off)
+        scan = self.dom[:off] + box.cod + self.dom[off + len(box.dom):]
+        for box, off in zip(self.boxes[1:], self.offsets[1:]):
+            result = "{} >> {}".format(result, line(scan, box, off))
+            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+        return result
 
     def tensor(self, other):
         assert isinstance(other, Diagram)
@@ -66,6 +80,9 @@ class Diagram(Arrow):
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
         return Diagram(dom, cod, boxes, offsets)
 
+    def __matmul__(self, other):
+        return self.tensor(other)
+
     def then(self, other):
         assert isinstance(other, Diagram) and self.cod == other.dom
         dom, cod = self.dom, other.cod
@@ -73,21 +90,47 @@ class Diagram(Arrow):
         offsets = self.offsets + other.offsets
         return Diagram(dom, cod, boxes, offsets)
 
+    def dagger(self):
+        return Diagram(self.cod, self.dom,
+            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
+
     @staticmethod
     def id(x):
-        assert isinstance(x, Type)
         return Diagram(x, x, [], [])
 
+    def interchange(self, k0, k1):
+        assert k0 + 1 == k1
+        box0, box1 = self.boxes[k0], self.boxes[k1]
+        off0, off1 = self.offsets[k0], self.offsets[k1]
+        if off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+        elif off0 >= off1 + len(box1.dom):  # box1 left of box0
+            off0 = off0 - len(box1.dom) + len(box1.cod)
+        else:
+            raise Exception("Interchange not allowed."
+                            "Boxes ({}, {}) are connected.".format(box0, box1))
+        return Diagram(self.dom, self.cod,
+                       self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
+                       self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
+
+def Id(x):
+    return Diagram.id(x)
+
 class Box(Generator, Diagram):
-    def __init__(self, name, dom, cod):
-        assert isinstance(dom, Type)
-        assert isinstance(cod, Type)
+    def __init__(self, name, dom, cod, dagger=False):
+        assert isinstance(dom, Ty)
+        assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
-        self._name = name
+        self._name, self._dagger = name, dagger
         Diagram.__init__(self, dom, cod, [self], [0])
 
+    def dagger(self):
+        return Box(self.name, self.cod, self.dom, not self._dagger)
+
     def __repr__(self):
-        return "Box('{}', {}, {})".format(self.name, self.dom, self.cod)
+        return "Box(name={}, dom={}, cod={}){}".format(
+            repr(self.name), repr(self.dom), repr(self.cod),
+            ".dagger()" if self._dagger else '')
 
     def __hash__(self):
         return hash(repr(self))
@@ -97,19 +140,16 @@ class Box(Generator, Diagram):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
-        return False
 
 class MonoidalFunctor(Functor):
     def __init__(self, ob, ar):
-        assert all(isinstance(x, Type) and len(x) == 1 for x in ob.keys())
-        assert all(isinstance(y, Type) for y in ob.values())
+        assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
         assert all(isinstance(a, Box) for a in ar.keys())
-        assert all(isinstance(b, Diagram) for b in ar.values())
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __call__(self, d):
-        if isinstance(d, Type):
-            return sum(self.ob[x] for x in d) or Type()
+        if isinstance(d, Ty):
+            return sum([self.ob[x] for x in d], Ty())
         elif isinstance(d, Box):
             return self.ar[d]
         scan, result = d.dom, d.id(self(d.dom))
@@ -120,20 +160,14 @@ class MonoidalFunctor(Functor):
         return result
 
 class NumpyFunctor(MonoidalFunctor):
-    def __init__(self, ob, ar):
-        assert all(isinstance(x, Type) and len(x) == 1 for x in ob.keys())
-        assert all(isinstance(y, int) for y in ob.values())
-        assert all(isinstance(a, Box) for a in ar.keys())
-        assert all(isinstance(b, np.ndarray) for b in ar.values())
-        self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
-
     def __call__(self, d):
-        if isinstance(d, Object):
+        if isinstance(d, Ob):
             return self.ob[d]
-        elif isinstance(d, Type):
+        elif isinstance(d, Ty):
             return tuple(self.ob[x] for x in d)
         elif isinstance(d, Box):
-            return self.ar[d].reshape(self(d.dom) + self(d.cod))
+            return np.array(self.ar[d]).reshape(self(d.dom) + self(d.cod))
+
         arr = 1
         for x in d.dom:
             arr = np.tensordot(arr, np.identity(self(x)), 0)
@@ -149,20 +183,29 @@ class NumpyFunctor(MonoidalFunctor):
         return arr
 
 
-x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
+x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+f0, f1 = Box('f0', x, y), Box('f1', z, w)
+assert (f0 @ f1).interchange(0, 1) == Id(x) @ f1 >> f0 @ Id(w)
+assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
+
+s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
+assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
+
 assert x + y != y + x
-assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z])
+assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-d = f.tensor(Diagram.id(z)).then(Diagram.id(x).tensor(g))
+d = Id(x) @ g << f @ Id(z)
 
 IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
                       {a: a for a in [f, g, h]})
 
-assert IdF(d.then(h)) == IdF(d).then(IdF(h)) == d.then(h)
+assert IdF(d >> h) == IdF(d) >> IdF(h) == d >> h
 
 F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, dict())
 F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},
                  {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g, h]})
 
 assert F(d).shape == tuple(F(d.dom) + F(d.cod))
-assert np.all(F(d.then(h)) == np.tensordot(F(d), F(h), 2))
+assert F(d >> h).shape == np.tensordot(F(d), F(h), 2).shape
+assert np.all(F(d >> h) == np.tensordot(F(d), F(h), 2))

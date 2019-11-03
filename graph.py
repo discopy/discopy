@@ -1,4 +1,4 @@
-from diagram import Type, Diagram, Box, Wire, MonoidalFunctor
+from moncat import Type, Diagram, Box, MonoidalFunctor
 import pyzx as zx
 import networkx as nx
 
@@ -130,7 +130,7 @@ class GraphFunctor(MonoidalFunctor):
 
 x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-diagram = f.tensor(Wire(z)).then(Wire(x).tensor(g))
+diagram = f.tensor(Diagram.id(z)).then(Diagram.id(x).tensor(g))
 
 ob = {x: 1, y: 2, z: 3, w: 4}
 D = {f: Node(sum(ob[Type([x])] for x in f.dom), sum(ob[Type([b])] for b in f.cod), Z),
@@ -140,5 +140,12 @@ F = GraphFunctor(ob, D)
 opengraph = D[f].tensor(IdGraph(F(z))).then(IdGraph(F(x)).tensor(D[g]))
 assert opengraph == F(diagram)
 
+<<<<<<< HEAD
 C = zx.generate.cliffords(4,7)
 assert OpenGraph.from_zx( 3,3, OpenGraph.from_zx(3, 3, C).to_zx()) == OpenGraph.from_zx(3,3,C)
+=======
+n_qubits= 100
+depth = 100
+C = zx.generate.cnots(n_qubits, depth)
+assert OpenGraph.from_zx( n_qubits,n_qubits, OpenGraph.from_zx(n_qubits, n_qubits, C).to_zx()) == OpenGraph.from_zx(n_qubits,n_qubits,C)
+>>>>>>> ae8a69903ec2a4f4e82966a13289908202fd6b0b
