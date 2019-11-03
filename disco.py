@@ -3,36 +3,29 @@ from moncat import Ob, Ty, Diagram, Box, NumpyFunctor
 
 
 class Adjoint(Ob):
-    def __init__(self, b, z):
+    def __init__(self, basic, z):
         assert isinstance(z, int)
-        self._b, self._z = b, z
-        super().__init__((b, z))
-
-    @property
-    def b(self):
-        return self._b
-
-    @property
-    def z(self):
-        return self._z
+        self._basic, self._z = basic, z
+        super().__init__((basic, z))
 
     @property
     def l(self):
-        return Adjoint(self.b, self.z - 1)
+        return Adjoint(self._basic, self._z - 1)
 
     @property
     def r(self):
-        return Adjoint(self.b, self.z + 1)
+        return Adjoint(self._basic, self._z + 1)
 
     def __repr__(self):
-        return "Adjoint({}, {})".format(repr(self.b), repr(self.z))
+        return "Adjoint({}, {})".format(repr(self._basic), repr(self._z))
 
     def __str__(self):
-        return str(self.b) + (- self.z * '.l' if self.z < 0 else self.z * '.r')
+        return str(self._basic) + (
+            - self._z * '.l' if self._z < 0 else self._z * '.r')
 
     def __iter__(self):
-        yield self.b
-        yield self.z
+        yield self._basic
+        yield self._z
 
 class Pregroup(Ty):
     def __init__(self, *t):
@@ -49,7 +42,7 @@ class Pregroup(Ty):
 
     def __repr__(self):
         return "Pregroup({})".format(', '.join(
-            repr(x if x.z else x.b) for x in self))
+            repr(x if x._z else x._basic) for x in self))
 
     def __str__(self):
         return ' + '.join(map(str, self)) or "Pregroup()"
@@ -64,7 +57,7 @@ class Pregroup(Ty):
 
     @property
     def is_basic(self):
-        return len(self) == 1 and not self[0].z
+        return len(self) == 1 and not self[0]._z
 
 class Grammar(Diagram):
     def __init__(self, dom, cod, boxes, offsets):
@@ -114,7 +107,7 @@ class Cup(Grammar, Box):
 
     def __repr__(self):
         return "Cup({})".format(repr(
-            self.dom[0] if self.dom[0].z else self.dom[0].b))
+            self.dom[0] if self.dom[0]._z else self.dom[0]._basic))
 
     def __str__(self):
         return "Cup({})".format(str(self.dom[0]))
@@ -130,7 +123,7 @@ class Cap(Grammar, Box):
 
     def __repr__(self):
         return "Cap({})".format(repr(
-            self.cod[0] if self.cod[0].z else self.cod[0].b))
+            self.cod[0] if self.cod[0]._z else self.cod[0]._basic))
 
     def __str__(self):
         return "Cap({})".format(str(self.cod[0]))
@@ -178,15 +171,19 @@ class Model(NumpyFunctor):
     def __init__(self, ob, ar):
         assert all(isinstance(x, Pregroup) and x.is_basic for x in ob.keys())
         assert all(isinstance(a, Word) for a in ar.keys())
+        self._types, self._vocab = ob, ar
         # rigid functors are defined by their image on basic types
-        ob = {x[0].b: ob[x] for x in ob.keys()}
+        ob = {x[0]._basic: ob[x] for x in self._types.keys()}
         # we assume the images for word boxes are all states
-        ob.update({w.dom[0].b: 1 for w in ar.keys()})
+        ob.update({w.dom[0]._basic: 1 for w in self._vocab.keys()})
         self._ob, self._ar = ob, ar
+
+    def __repr__(self):
+        return "Model(ob={}, ar={})".format(self._types, self._vocab)
 
     def __call__(self, d):
         if isinstance(d, Adjoint):
-            return int(self.ob[d.b])
+            return int(self.ob[d._basic])
         if isinstance(d, Pregroup):
             return [self(x) for x in d]
         if isinstance(d, Cup):

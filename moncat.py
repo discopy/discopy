@@ -155,6 +155,9 @@ class MonoidalFunctor(Functor):
         assert all(isinstance(a, Box) for a in ar.keys())
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
+    def __repr__(self):
+        return "MonoidalFunctor(ob={}, ar={})".format(self.ob, self.ar)
+
     def __call__(self, d):
         if isinstance(d, Ty):
             return sum([self.ob[x] for x in d], Ty())
