@@ -176,7 +176,7 @@ class Model(NumpyFunctor):
         ob = {x[0]._basic: ob[x] for x in self._types.keys()}
         # we assume the images for word boxes are all states
         ob.update({w.dom[0]._basic: 1 for w in self._vocab.keys()})
-        self._ob, self._ar = ob, ar
+        self._ob, self._ar = ob, {f.name: n for f, n in ar.items()}
 
     def __repr__(self):
         return "Model(ob={}, ar={})".format(self._types, self._vocab)
