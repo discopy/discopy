@@ -80,6 +80,9 @@ class Diagram(Arrow):
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
         return Diagram(dom, cod, boxes, offsets)
 
+    def __matmul__(self, other):
+        return self.tensor(other)
+
     def then(self, other):
         assert isinstance(other, Diagram) and self.cod == other.dom
         dom, cod = self.dom, other.cod
@@ -137,7 +140,6 @@ class Box(Generator, Diagram):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
-        return False
 
 class MonoidalFunctor(Functor):
     def __init__(self, ob, ar):
@@ -193,12 +195,12 @@ assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 assert x + y != y + x
 assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-d = f.tensor(Diagram.id(z)).then(Diagram.id(x).tensor(g))
+d = Id(x) @ g << f @ Id(z)
 
 IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
                       {a: a for a in [f, g, h]})
 
-assert IdF(d.then(h)) == IdF(d).then(IdF(h)) == d.then(h)
+assert IdF(d >> h) == IdF(d) >> IdF(h) == d >> h
 
 F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, dict())
 F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},

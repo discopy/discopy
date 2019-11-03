@@ -1,3 +1,7 @@
+import math
+import numpy as np
+from random import random
+from functools import reduce as fold
 import pyzx as zx
 import pytket as tk
 from pytket.pyzx import pyzx_to_tk, tk_to_pyzx
@@ -5,14 +9,16 @@ from gates import GATES_TO_NUMPY
 from moncat import Ty, Diagram, Box, MonoidalFunctor, NumpyFunctor
 
 
+PYTKET_GATES = tk.OpType.__entries.keys()
 
 #  Turns natural numbers into types encoded in unary.
 PRO = lambda n: sum(n * [Ty(1)], Ty())
 
+EVAL = NumpyFunctor({PRO(1): 2}, GATES_TO_NUMPY)
 
 class Circuit(Diagram):
     def __init__(self, n_qubits, gates, offsets):
-        super.n_qubits = n_qubits
+        self.n_qubits = n_qubits
         super().__init__(PRO(n_qubits), PRO(n_qubits), gates, offsets)
 
     def __repr__(self):
@@ -44,10 +50,10 @@ class Circuit(Diagram):
 
     def to_tk(self):
         c = tk.Circuit(len(self.dom))
-        for f, n in zip(self.nodes, self.offsets):
-            assert f.dom == f.cod and f.name in GATES
-            c.__getattribute__(f.name)(
-                *[n + i for i in range(len(f.dom))], *f.data)
+        for g, n in zip(self.boxes, self.offsets):
+            assert g.dom == g.cod and g.name in PYTKET_GATES
+            c.__getattribute__(g.name)(
+                *[n + i for i in range(len(g.dom))], *g.params)
         return c
 
     @staticmethod
@@ -69,14 +75,14 @@ class Circuit(Diagram):
                         gates.append(Gate('SWAP', 2))
                         offsets.append(q.index - j - 1)
             gates.append(Gate(g.op.get_type().name,
-                len(g.qubits), g.op.get_params()))
+                len(g.qubits), *g.op.get_params()))
             offsets.append(i0)
         return Circuit(c.n_qubits, gates, offsets)
 
     @staticmethod
     def random(n_qubits, depth):
         if n_qubits == 1:
-            f, g, h = (Gate(t, 1, [phase]) for t, phase in zip(
+            f, g, h = (Gate(t, 1, 2 * p) for t, p in zip(
                 ['Rx', 'Rz', 'Rx'], [random(), random(), random()]))
             return Circuit(1, [f, g, h], [0, 0, 0])
         g = zx.generate.cliffordT(n_qubits, depth)
@@ -84,24 +90,16 @@ class Circuit(Diagram):
         return Circuit.from_tk(pyzx_to_tk(c))
 
 class Gate(Box, Circuit):
-    def __init__(self, name, n_qubits, data=[]):
-        self.n_qubits, self.data = n_qubits, data
-        super().__init__(name, PRO(n_qubits), PRO(n_qubits))
+    def __init__(self, name, n_qubits, *params):
+        self.n_qubits, self.params = n_qubits, params
+        Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits))
 
     def __repr__(self):
         return "Gate('{}', {}{})".format(self.name, len(self.dom),
-            '' if not self.data else ", " + repr(self.data))
+            '' if not self.params else ', ' + ', '.join(map(str, self.params)))
 
-class IdCircuit(Wire, Circuit):
-    def __init__(self, n_qubits):
-        n_qubits = n_qubits if isinstance(n_qubits, int) else len(n_qubits)
-        super().__init__(PRO(n_qubits))
-
-class PytketFunctor(MonoidalFunctor):
+class CircuitFunctor(MonoidalFunctor):
     def __call__(self, d):
-        if not isinstance(d, Diagram):  # d must be an object
-            xs = d if isinstance(d, list) else [d]
-            return PRO(sum(self.ob[x] for x in xs))
         r = super().__call__(d)
         if isinstance(d, Diagram):
             return Circuit(len(r.dom), r.boxes, r.offsets)

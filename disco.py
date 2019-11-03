@@ -141,6 +141,8 @@ class Model(NumpyFunctor):
             return [self(x) for x in d]
         if isinstance(d, Cup):
             return np.identity(self(d.dom[0]))
+        if isinstance(d, Cap):
+            return np.identity(self(d.cod[0]))
         return super().__call__(d)
 
 
@@ -156,3 +158,8 @@ F = Model({s: 1, n: 2},
            loves : [0, 1, 1, 0]})
 
 assert F(sentence) == True
+
+snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+assert (F(snake_l) == F(Wire(n))).all()
+assert (F(Wire(n)) == F(snake_r)).all()

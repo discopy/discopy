@@ -117,7 +117,6 @@ class Generator(Arrow):
 
 class Function(Generator):
     def __init__(self, f, dom, cod):
-        assert isinstance(f, type(lambda x: x))
         assert isinstance(dom, type)
         assert isinstance(cod, type)
         self._name, self._dom, self._cod = f, dom, cod
@@ -177,8 +176,12 @@ F = Functor({x: int, y:tuple, z:int}, {
     f: Function(lambda x: (x, x), int, tuple),
     g: Function(lambda x: x[0] + x[1], tuple, int),
     h: Function(lambda x: x // 2, int, int)})
+# bigF is a functor from the free category to Cat, i.e. it maps f to F
+bigF = Functor({x: Arrow, y: Arrow}, {f: Function(F, Arrow, Arrow)})
 
 SEED = 420
 assert F(Arrow.id(x))(SEED) == Function(lambda x: x, int, int)(SEED) == SEED
 assert F(f.then(g))(SEED) == F(g)(F(f)(SEED))
 assert F(a)(SEED) == F(h)(F(g)(F(f)(SEED))) == F(Arrow.id(x))(SEED) == SEED
+assert isinstance(bigF(f).name, Functor)
+assert bigF(f)(f)(SEED) == F(f)(SEED) == (SEED, SEED)
