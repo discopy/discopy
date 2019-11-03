@@ -22,7 +22,7 @@ grammar = Cup(n) @ Wire(s) @ Cup(n.l)
 sentence = grammar << Alice @ loves @ Bob
 ```
 
-2) fill in the picture with `numpy` arrays
+2) define a model
 
 ```python
 from disco import Model
