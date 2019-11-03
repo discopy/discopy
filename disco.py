@@ -72,6 +72,10 @@ class Grammar(Diagram):
         r = super().tensor(other)
         return Grammar(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
+    def dagger(self):
+        return Grammar(self.cod, self.dom,
+            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
+
     @staticmethod
     def id(t):
         return Wire(t)
@@ -97,13 +101,17 @@ class Wire(Grammar):
         return "Wire({})".format(str(self.dom))
 
 class Cup(Grammar, Box):
-    def __init__(self, x):
+    def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
             assert len(x) == 1
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
-        Box.__init__(self, 'cup_{}'.format(x), Pregroup(x, x.r), Pregroup())
+        dom, cod = Pregroup(x, x.l) if dagger else Pregroup(x, x.r), Pregroup()
+        Box.__init__(self, 'cup_{}'.format(x), dom, cod, dagger)
+
+    def dagger(self):
+        return Cap(self.dom[0], not self._dagger)
 
     def __repr__(self):
         return "Cup({})".format(repr(
@@ -113,13 +121,17 @@ class Cup(Grammar, Box):
         return "Cup({})".format(str(self.dom[0]))
 
 class Cap(Grammar, Box):
-    def __init__(self, x):
+    def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
             assert len(x) == 1
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
-        Box.__init__(self, 'cap_{}'.format(x), Pregroup(), Pregroup(x, x.l))
+        dom, cod = Pregroup(), Pregroup(x, x.r) if dagger else Pregroup(x, x.l)
+        Box.__init__(self, 'cap_{}'.format(x), dom, cod, dagger)
+
+    def dagger(self):
+        return Cup(self.cod[0], not self._dagger)
 
     def __repr__(self):
         return "Cap({})".format(repr(
@@ -192,23 +204,23 @@ class Model(NumpyFunctor):
             return np.identity(self(d.cod[0]))
         return super().__call__(d)
 
-if __name__ == '__main__':
-    s, n = Pregroup('s'), Pregroup('n')
 
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r + s + n.l)
-    grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-    sentence = grammar << Alice @ loves @ Bob
-    assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
-                                                         .interchange(1, 2)\
-                                                         .interchange(0, 1)
-    F = Model({s: 1, n: 2},
-              {Alice: [1, 0],
-               loves: [0, 1, 1, 0],
-               Bob: [0, 1]})
-    assert F(sentence) == True
+s, n = Pregroup('s'), Pregroup('n')
 
-    snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-    snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-    assert (F(snake_l) == F(Wire(n))).all()
-    assert (F(Wire(n)) == F(snake_r)).all()
+Alice, Bob = Word('Alice', n), Word('Bob', n)
+loves = Word('loves', n.r + s + n.l)
+grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+sentence = grammar << Alice @ loves @ Bob
+assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
+                                                     .interchange(1, 2)\
+                                                     .interchange(0, 1)
+F = Model({s: 1, n: 2},
+          {Alice: [1, 0],
+           loves: [0, 1, 1, 0],
+           Bob: [0, 1]})
+assert F(sentence) == True
+
+snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+assert (F(snake_l) == F(Wire(n))).all()
+assert (F(Wire(n)) == F(snake_r)).all()
