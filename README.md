@@ -4,8 +4,6 @@
 
 !["Alice loves Bob" in picture](figures/alice-loves-bob.png)
 
-## Natural Language Meaning
-
 The recipe goes in three steps:
 
 1) draw the picture
