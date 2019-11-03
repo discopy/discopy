@@ -1,6 +1,6 @@
 import numpy as np
 import pyzx as zx
-from cat import Ob, Arrow, Generator, Functor
+from cat import FAST, Ob, Arrow, Generator, Functor
 
 
 class Ty(list):
@@ -35,13 +35,14 @@ class Diagram(Arrow):
         assert all(isinstance(n, int) for n in offsets)
         self._dom, self._cod = dom, cod
         self._boxes, self._offsets = boxes, offsets
-        scan = dom
-        for f, n in zip(boxes, offsets):
-            assert scan[n : n + len(f.dom)] == f.dom
-            scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
-        assert scan == cod
         self._data = list(zip(boxes, offsets))  # used by the Arrow class
         list.__init__(self, zip(boxes, offsets))
+        if not FAST:
+            scan = dom
+            for f, n in zip(boxes, offsets):
+                assert scan[n : n + len(f.dom)] == f.dom
+                scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
+            assert scan == cod
 
     @property
     def boxes(self):
@@ -194,29 +195,30 @@ class NumpyFunctor(MonoidalFunctor):
         return arr
 
 
-x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-f0, f1 = Box('f0', x, y), Box('f1', z, w)
-assert (f0 @ f1).interchange(0, 1) == Id(x) @ f1 >> f0 @ Id(w)
-assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
+if __name__ == '__main__':
+    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    assert (f0 @ f1).interchange(0, 1) == Id(x) @ f1 >> f0 @ Id(w)
+    assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
 
-s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
-assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
+    s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+    assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
+    assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-assert x + y != y + x
-assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
-f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-d = Id(x) @ g << f @ Id(z)
+    assert x + y != y + x
+    assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
+    f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
+    d = Id(x) @ g << f @ Id(z)
 
-IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
-                      {a: a for a in [f, g, h]})
+    IdF = MonoidalFunctor({o: o for o in [x, y, z, w]},
+                          {a: a for a in [f, g, h]})
 
-assert IdF(d >> h) == IdF(d) >> IdF(h) == d >> h
+    assert IdF(d >> h) == IdF(d) >> IdF(h) == d >> h
 
-F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, dict())
-F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},
-                 {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g, h]})
+    F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, dict())
+    F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},
+                     {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g, h]})
 
-assert F(d).shape == tuple(F(d.dom) + F(d.cod))
-assert F(d >> h).shape == np.tensordot(F(d), F(h), 2).shape
-assert np.all(F(d >> h) == np.tensordot(F(d), F(h), 2))
+    assert F(d).shape == tuple(F(d.dom) + F(d.cod))
+    assert F(d >> h).shape == np.tensordot(F(d), F(h), 2).shape
+    assert np.all(F(d >> h) == np.tensordot(F(d), F(h), 2))

@@ -6,7 +6,7 @@ import pyzx as zx
 import pytket as tk
 from pytket.pyzx import pyzx_to_tk, tk_to_pyzx
 from gates import GATES_TO_NUMPY
-from moncat import Ty, Diagram, Box, MonoidalFunctor, NumpyFunctor
+from moncat import FAST, Ty, Diagram, Box, MonoidalFunctor, NumpyFunctor
 
 
 PYTKET_GATES = tk.OpType.__entries.keys()
@@ -117,22 +117,23 @@ X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
 Rx = lambda phase: Gate('Rx', 1, phase)
 Rz = lambda phase: Gate('Rz', 1, phase)
 
-for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
-    assert np.all((U >> U).eval() == Circuit.id(U.n_qubits).eval())
-for U in [H, T >> T >> T >> T]:
-    np.allclose((U >> U).eval(), Circuit.id(U.n_qubits).eval())
+if __name__ == '__main__':
+    for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
+        assert np.all((U >> U).eval() == Circuit.id(U.n_qubits).eval())
+    for U in [H, T >> T >> T >> T]:
+        np.allclose((U >> U).eval(), Circuit.id(U.n_qubits).eval())
 
-c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
-c1 = Circuit.from_tk(c1_tk)
-assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
-c2_tk = c1.to_tk()
-c2 = Circuit.from_tk(c2_tk)
-assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
-assert c1 == c2  # This works as long as there are no interchangers!
+    c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
+    c1 = Circuit.from_tk(c1_tk)
+    assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
+    c2_tk = c1.to_tk()
+    c2 = Circuit.from_tk(c2_tk)
+    assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
+    assert c1 == c2  # This works as long as there are no interchangers!
 
-x, y, z = Ty('x'), Ty('y'), Ty('z')
-f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
-d = f @ Diagram.id(z) >> Diagram.id(y) @ g @ Diagram.id(z) >> Diagram.id(y) @ h
-F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)},
-                   {f: SWAP, g: Rx(0.25), h: CX})
-assert F(d) == c1
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
+    d = f @ Diagram.id(z) >> Diagram.id(y) @ g @ Diagram.id(z) >> Diagram.id(y) @ h
+    F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)},
+                       {f: SWAP, g: Rx(0.25), h: CX})
+    assert F(d) == c1
