@@ -147,6 +147,9 @@ class Word(Grammar, Box):
         self._word, self._type = w, t
         Box.__init__(self, (w, t), Pregroup(w), t)
 
+    def dagger(self):
+        return Box.dagger(self)
+
     @property
     def word(self):
         return self._word
@@ -205,22 +208,23 @@ class Model(NumpyFunctor):
         return super().__call__(d)
 
 
-s, n = Pregroup('s'), Pregroup('n')
+if __name__ == '__main__':
+    s, n = Pregroup('s'), Pregroup('n')
 
-Alice, Bob = Word('Alice', n), Word('Bob', n)
-loves = Word('loves', n.r + s + n.l)
-grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-sentence = grammar << Alice @ loves @ Bob
-assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
-                                                     .interchange(1, 2)\
-                                                     .interchange(0, 1)
-F = Model({s: 1, n: 2},
-          {Alice: [1, 0],
-           loves: [0, 1, 1, 0],
-           Bob: [0, 1]})
-assert F(sentence) == True
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r + s + n.l)
+    grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+    sentence = grammar << Alice @ loves @ Bob
+    assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
+                                                         .interchange(1, 2)\
+                                                         .interchange(0, 1)
+    F = Model({s: 1, n: 2},
+              {Alice: [1, 0],
+               loves: [0, 1, 1, 0],
+               Bob: [0, 1]})
+    assert F(sentence) == True
 
-snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-assert (F(snake_l) == F(Wire(n))).all()
-assert (F(Wire(n)) == F(snake_r)).all()
+    snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+    snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+    assert (F(snake_l) == F(Wire(n))).all()
+    assert (F(Wire(n)) == F(snake_r)).all()
