@@ -11,24 +11,24 @@ The recipe goes in three steps:
 1) draw the picture
 
 ```python
-from disco import n, s, Word, Cup, Wire
+from disco import Pregroup, Word, Cup, Wire
 
-alice = Word('Alice', n)
+s, n = Pregroup('s'), Pregroup('n')
+Alice = Word('Alice', n)
 loves = Word('loves', n.r + s + n.l)
-bob = Word('Bob', n)
+Bob = Word('Bob', n)
 
 grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-sentence = grammar << alice @ loves @ bob
+sentence = grammar << Alice @ loves @ Bob
 ```
 
 2) fill in the picture with `numpy` arrays
 
 ```python
 from disco import Model
-from numpy import array
 
 ob = {s: 1, n: 2}
-ar = {alice: array([1, 0]), loves: array([0, 1, 1, 0]), bob: array([0, 1])}
+ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 F = Model(ob, ar)
 ```
 
@@ -47,4 +47,5 @@ assert F(sentence) == True
 * `moncat.Diagram`, `moncat.Box` implement free monoidal categories.
 * `moncat.MonoidalFunctor` implements free monoidal functors.
 * `moncat.NumpyFunctor` implements matrix-valued monoidal functors.
-* `disco.Word`, `disco.Cup`, `disco.Parse` implement pregroup grammars.
+* `disco.Pregroup`, `disco.Cup` and `disco.Cap` implement Lambek pregroups.
+* `disco.Word`, `disco.Grammar`, `disco.Parse` implement pregroup grammars.
