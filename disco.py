@@ -141,14 +141,15 @@ class Cap(Grammar, Box):
         return "Cap({})".format(str(self.cod[0]))
 
 class Word(Grammar, Box):
-    def __init__(self, w, t):
+    def __init__(self, w, t, dagger=False):
         assert isinstance(w, str)
         assert isinstance(t, Pregroup)
         self._word, self._type = w, t
-        Box.__init__(self, (w, t), Pregroup(w), t)
+        dom, cod = (t, Pregroup(w)) if dagger else (Pregroup(w), t)
+        Box.__init__(self, (w, t), dom, cod, dagger)
 
     def dagger(self):
-        return Box.dagger(self)
+        return Word(self._word, self._type, not self._dagger)
 
     @property
     def word(self):
