@@ -114,11 +114,13 @@ class Cup(Grammar, Box):
         return Cap(self.dom[0], not self._dagger)
 
     def __repr__(self):
-        return "Cup({})".format(repr(
-            self.dom[0] if self.dom[0]._z else self.dom[0]._basic))
+        return "Cup({}{})".format(repr(
+            self.dom[0] if self.dom[0]._z else self.dom[0]._basic),
+            ", dagger=True" if self._dagger else "")
 
     def __str__(self):
-        return "Cup({})".format(str(self.dom[0]))
+        return "Cup({}{})".format(str(self.dom[0]),
+                                ", dagger=True" if self._dagger else "")
 
 class Cap(Grammar, Box):
     def __init__(self, x, dagger=False):
@@ -134,11 +136,13 @@ class Cap(Grammar, Box):
         return Cup(self.cod[0], not self._dagger)
 
     def __repr__(self):
-        return "Cap({})".format(repr(
-            self.cod[0] if self.cod[0]._z else self.cod[0]._basic))
+        return "Cap({}{})".format(repr(
+            self.cod[0] if self.cod[0]._z else self.cod[0]._basic),
+            ", dagger=True" if self._dagger else "")
 
     def __str__(self):
-        return "Cap({})".format(str(self.cod[0]))
+        return "Cap({}{})".format(str(self.cod[0]),
+                                ", dagger=True" if self._dagger else "")
 
 class Word(Grammar, Box):
     def __init__(self, w, t, dagger=False):
@@ -160,7 +164,8 @@ class Word(Grammar, Box):
         return self._type
 
     def __repr__(self):
-        return "Word({}, {})".format(repr(self.word), repr(self.type))
+        return "Word({}, {}){}".format(repr(self.word), repr(self.type),
+                                       ".dagger()" if self._dagger else "")
 
     def __str__(self):
         return str(self.word)
@@ -210,8 +215,6 @@ class Model(NumpyFunctor):
 
 
 if __name__ == '__main__':
-    s, n = Pregroup('s'), Pregroup('n')
-
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r + s + n.l)
     grammar = Cup(n) @ Wire(s) @ Cup(n.l)

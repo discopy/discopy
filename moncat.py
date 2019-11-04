@@ -137,8 +137,8 @@ class Box(Generator, Diagram):
 
     def __repr__(self):
         return "Box(name={}, dom={}, cod={}{})".format(
-            repr(self.name), repr(self.dom), repr(self.cod),
-            ", dagger=True" if self._dagger else '')
+            repr(self.name) + (repr(self.cod), repr(self.dom), ".dagger()")
+             if self._dagger else (repr(self.dom), repr(self.cod), ''))
 
     def __hash__(self):
         return hash(repr(self))
