@@ -4,8 +4,6 @@
 
 !["Alice loves Bob" in picture](figures/alice-loves-bob.png)
 
-## Natural Language Meaning
-
 The recipe goes in three steps:
 
 1) draw the picture
@@ -22,7 +20,7 @@ grammar = Cup(n) @ Wire(s) @ Cup(n.l)
 sentence = grammar << Alice @ loves @ Bob
 ```
 
-2) fill in the picture with `numpy` arrays
+2) define a model
 
 ```python
 from disco import Model

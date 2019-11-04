@@ -1,38 +1,32 @@
 import numpy as np
-from moncat import Ob, Ty, Diagram, Box, NumpyFunctor
+from moncat import Ob, Ty, Diagram, Box
+from matrix import NumpyFunctor
 
 
 class Adjoint(Ob):
-    def __init__(self, b, z):
+    def __init__(self, basic, z):
         assert isinstance(z, int)
-        self._b, self._z = b, z
-        super().__init__((b, z))
-
-    @property
-    def b(self):
-        return self._b
-
-    @property
-    def z(self):
-        return self._z
+        self._basic, self._z = basic, z
+        super().__init__((basic, z))
 
     @property
     def l(self):
-        return Adjoint(self.b, self.z - 1)
+        return Adjoint(self._basic, self._z - 1)
 
     @property
     def r(self):
-        return Adjoint(self.b, self.z + 1)
+        return Adjoint(self._basic, self._z + 1)
 
     def __repr__(self):
-        return "Adjoint({}, {})".format(repr(self.b), repr(self.z))
+        return "Adjoint({}, {})".format(repr(self._basic), repr(self._z))
 
     def __str__(self):
-        return str(self.b) + (- self.z * '.l' if self.z < 0 else self.z * '.r')
+        return str(self._basic) + (
+            - self._z * '.l' if self._z < 0 else self._z * '.r')
 
     def __iter__(self):
-        yield self.b
-        yield self.z
+        yield self._basic
+        yield self._z
 
 class Pregroup(Ty):
     def __init__(self, *t):
@@ -49,7 +43,7 @@ class Pregroup(Ty):
 
     def __repr__(self):
         return "Pregroup({})".format(', '.join(
-            repr(x if x.z else x.b) for x in self))
+            repr(x if x._z else x._basic) for x in self))
 
     def __str__(self):
         return ' + '.join(map(str, self)) or "Pregroup()"
@@ -64,7 +58,7 @@ class Pregroup(Ty):
 
     @property
     def is_basic(self):
-        return len(self) == 1 and not self[0].z
+        return len(self) == 1 and not self[0]._z
 
 class Grammar(Diagram):
     def __init__(self, dom, cod, boxes, offsets):
@@ -78,6 +72,10 @@ class Grammar(Diagram):
     def tensor(self, other):
         r = super().tensor(other)
         return Grammar(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
+
+    def dagger(self):
+        return Grammar(self.cod, self.dom,
+            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
 
     @staticmethod
     def id(t):
@@ -104,43 +102,59 @@ class Wire(Grammar):
         return "Wire({})".format(str(self.dom))
 
 class Cup(Grammar, Box):
-    def __init__(self, x):
+    def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
             assert len(x) == 1
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
-        Box.__init__(self, 'cup_{}'.format(x), Pregroup(x, x.r), Pregroup())
+        dom, cod = Pregroup(x, x.l) if dagger else Pregroup(x, x.r), Pregroup()
+        Box.__init__(self, 'cup_{}'.format(x), dom, cod, dagger)
+
+    def dagger(self):
+        return Cap(self.dom[0], not self._dagger)
 
     def __repr__(self):
-        return "Cup({})".format(repr(
-            self.dom[0] if self.dom[0].z else self.dom[0].b))
+        return "Cup({}{})".format(repr(
+            self.dom[0] if self.dom[0]._z else self.dom[0]._basic),
+            ", dagger=True" if self._dagger else "")
 
     def __str__(self):
-        return "Cup({})".format(str(self.dom[0]))
+        return "Cup({}{})".format(str(self.dom[0]),
+                                ", dagger=True" if self._dagger else "")
 
 class Cap(Grammar, Box):
-    def __init__(self, x):
+    def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
             assert len(x) == 1
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
-        Box.__init__(self, 'cap_{}'.format(x), Pregroup(), Pregroup(x, x.l))
+        dom, cod = Pregroup(), Pregroup(x, x.r) if dagger else Pregroup(x, x.l)
+        Box.__init__(self, 'cap_{}'.format(x), dom, cod, dagger)
+
+    def dagger(self):
+        return Cup(self.cod[0], not self._dagger)
 
     def __repr__(self):
-        return "Cap({})".format(repr(
-            self.cod[0] if self.cod[0].z else self.cod[0].b))
+        return "Cap({}{})".format(repr(
+            self.cod[0] if self.cod[0]._z else self.cod[0]._basic),
+            ", dagger=True" if self._dagger else "")
 
     def __str__(self):
-        return "Cap({})".format(str(self.cod[0]))
+        return "Cap({}{})".format(str(self.cod[0]),
+                                ", dagger=True" if self._dagger else "")
 
 class Word(Grammar, Box):
-    def __init__(self, w, t):
+    def __init__(self, w, t, dagger=False):
         assert isinstance(w, str)
         assert isinstance(t, Pregroup)
         self._word, self._type = w, t
-        Box.__init__(self, (w, t), Pregroup(w), t)
+        dom, cod = (t, Pregroup(w)) if dagger else (Pregroup(w), t)
+        Box.__init__(self, (w, t), dom, cod, dagger)
+
+    def dagger(self):
+        return Word(self._word, self._type, not self._dagger)
 
     @property
     def word(self):
@@ -151,7 +165,8 @@ class Word(Grammar, Box):
         return self._type
 
     def __repr__(self):
-        return "Word({}, {})".format(repr(self.word), repr(self.type))
+        return "Word({}, {}){}".format(repr(self.word), repr(self.type),
+                                       ".dagger()" if self._dagger else "")
 
     def __str__(self):
         return str(self.word)
@@ -159,7 +174,7 @@ class Word(Grammar, Box):
 class Parse(Grammar):
     def __init__(self, words, cups):
         self._words, self._cups = words, cups
-        self._type = sum((w.cod for w in words), Pregroup())
+        self._type = sum((w.type for w in words), Pregroup())
         dom = sum((w.dom for w in words), Pregroup())
         boxes = words[::-1]  # words are backwards to make offsets easier
         offsets = [len(words) - i - 1 for i in range(len(words))] + cups
@@ -178,15 +193,19 @@ class Model(NumpyFunctor):
     def __init__(self, ob, ar):
         assert all(isinstance(x, Pregroup) and x.is_basic for x in ob.keys())
         assert all(isinstance(a, Word) for a in ar.keys())
+        self._types, self._vocab = ob, ar
         # rigid functors are defined by their image on basic types
-        ob = {x[0].b: ob[x] for x in ob.keys()}
+        ob = {x[0]._basic: ob[x] for x in self._types.keys()}
         # we assume the images for word boxes are all states
-        ob.update({w.dom[0].b: 1 for w in ar.keys()})
-        self._ob, self._ar = ob, ar
+        ob.update({w.dom[0]._basic: 1 for w in self._vocab.keys()})
+        self._ob, self._ar = ob, {f.name: n for f, n in ar.items()}
+
+    def __repr__(self):
+        return "Model(ob={}, ar={})".format(self._types, self._vocab)
 
     def __call__(self, d):
         if isinstance(d, Adjoint):
-            return int(self.ob[d.b])
+            return int(self.ob[d._basic])
         if isinstance(d, Pregroup):
             return [self(x) for x in d]
         if isinstance(d, Cup):
@@ -196,22 +215,23 @@ class Model(NumpyFunctor):
         return super().__call__(d)
 
 
-s, n = Pregroup('s'), Pregroup('n')
+if __name__ == '__main__':
+    s, n = Pregroup('s'), Pregroup('n')
 
-Alice, Bob = Word('Alice', n), Word('Bob', n)
-loves = Word('loves', n.r + s + n.l)
-grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-sentence = grammar << Alice @ loves @ Bob
-assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
-                                                     .interchange(1, 2)\
-                                                     .interchange(0, 1)
-F = Model({s: 1, n: 2},
-          {Alice: [1, 0],
-           loves: [0, 1, 1, 0],
-           Bob: [0, 1]})
-assert F(sentence) == True
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r + s + n.l)
+    grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+    sentence = grammar << Alice @ loves @ Bob
+    assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
+                                                         .interchange(1, 2)\
+                                                         .interchange(0, 1)
+    F = Model({s: 1, n: 2},
+              {Alice: [1, 0],
+               loves: [0, 1, 1, 0],
+               Bob: [0, 1]})
+    assert F(sentence) == True
 
-snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-assert (F(snake_l) == F(Wire(n))).all()
-assert (F(Wire(n)) == F(snake_r)).all()
+    snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+    snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+    assert (F(snake_l) == F(Wire(n))).all()
+    assert (F(Wire(n)) == F(snake_r)).all()
