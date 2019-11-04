@@ -164,27 +164,3 @@ class Functor:
         assert isinstance(f, Arrow)
         unit = Function(lambda x: x, self(f.dom), self(f.dom))
         return fold(lambda g, h: g.then(self(h)), f, unit)
-
-if __name__ == '__main__':
-    a, b, c = Ob('a'), Ob('a'), 'c'
-    assert a == b and b != c
-
-    x, y, z = Ob('x'), Ob('y'), Ob('z')
-    f, g, h = Generator('f', x, y), Generator('g', y, z), Generator('h', z, x)
-    assert Arrow.id(x).then(f) == f == f.then(Arrow.id(y))
-    assert (f.then(g)).dom == f.dom and (f.then(g)).cod == g.cod
-    assert f.then(g).then(h) == f.then(g.then(h)) == Arrow(x, x, [f, g, h])
-
-    a = f.then(g).then(h)
-    F = Functor({x: int, y:tuple, z:int}, {
-        f: Function(lambda x: (x, x), int, tuple),
-        g: Function(lambda x: x[0] + x[1], tuple, int),
-        h: Function(lambda x: x // 2, int, int)})
-    # bigF is a functor from the free category to Cat, i.e. it maps f to F
-    bigF = Functor({x: Arrow, y: Arrow}, {f: Function(F, Arrow, Arrow)})
-
-    assert F(Arrow.id(x))(SEED) == Function(lambda x: x, int, int)(SEED) == SEED
-    assert F(f.then(g))(SEED) == F(g)(F(f)(SEED))
-    assert F(a)(SEED) == F(h)(F(g)(F(f)(SEED))) == F(Arrow.id(x))(SEED) == SEED
-    assert isinstance(bigF(f).name, Functor)
-    assert bigF(f)(f)(SEED) == F(f)(SEED) == (SEED, SEED)
