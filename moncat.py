@@ -1,4 +1,4 @@
-from cat import FAST, Ob, Arrow, Generator, Functor
+from discopy.cat import FAST, Ob, Arrow, Generator, Functor
 
 
 class Ty(list):

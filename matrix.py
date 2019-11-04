@@ -1,5 +1,5 @@
 import numpy as np
-from moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
+from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
 class NumpyFunctor(MonoidalFunctor):

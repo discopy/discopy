@@ -1,6 +1,6 @@
 import numpy as np
-from moncat import Ob, Ty, Diagram, Box
-from matrix import NumpyFunctor
+from discopy.moncat import Ob, Ty, Diagram, Box
+from discopy.matrix import NumpyFunctor
 
 
 class Adjoint(Ob):

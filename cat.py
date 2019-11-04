@@ -1,4 +1,4 @@
-FAST, SEED = 0, 420
+FAST = False
 from functools import reduce as fold
 
 
