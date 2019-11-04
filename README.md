@@ -38,7 +38,7 @@ assert F(sentence) == True
 
 ## General Abstract Nonsense
 
-`discopy` is a Python implementation of the categorical compositional categorical (DisCoCat) models, see [arXiv:1003.4394](https://arxiv.org/abs/1003.4394), [arXiv:1106.4058](https://arxiv.org/abs/1106.4058) [arXiv:1904.03478](https://arxiv.org/abs/1904.03478).
+`discopy` is a Python implementation of the categorical compositional distributional (DisCoCat) models, see [arXiv:1003.4394](https://arxiv.org/abs/1003.4394), [arXiv:1106.4058](https://arxiv.org/abs/1106.4058) [arXiv:1904.03478](https://arxiv.org/abs/1904.03478).
 
 * `cat.Arrow`, `cat.Generator` implement free categories.
 * `cat.Functor` implements Python-valued functors.
