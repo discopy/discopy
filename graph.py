@@ -1,4 +1,4 @@
-from moncat import Type, Diagram, Box, MonoidalFunctor
+from moncat import Ty, Diagram, Box, MonoidalFunctor
 import pyzx as zx
 import networkx as nx
 
@@ -107,13 +107,13 @@ class IdGraph(OpenGraph):
 
 class GraphFunctor(MonoidalFunctor):
     def __init__(self, ob, ar):
-        assert all(isinstance(x, Type) and len(x) == 1 for x in ob.keys())
+        assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
         assert all(isinstance(a, Box) for a in ar.keys())
         assert all(isinstance(b, OpenGraph) for b in ar.values())
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __call__(self, d):
-        if isinstance(d,Type):
+        if isinstance(d,Ty):
             return sum([self.ob[x] for x in d])
 
         if isinstance(d, Box):
@@ -128,24 +128,19 @@ class GraphFunctor(MonoidalFunctor):
                 u = u[:n] + f.cod + u[n + len(f.dom):]
             return g
 
-x, y, z, w = Type('x'), Type('y'), Type('z'), Type('w')
+x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
 diagram = f.tensor(Diagram.id(z)).then(Diagram.id(x).tensor(g))
 
 ob = {x: 1, y: 2, z: 3, w: 4}
-D = {f: Node(sum(ob[Type([x])] for x in f.dom), sum(ob[Type([b])] for b in f.cod), Z),
-     g: Node(sum(ob[Type([x])] for x in g.dom), sum(ob[Type([b])] for b in g.cod), X) }
+D = {f: Node(sum([ob[x] for x in f.dom]), sum([ob[b] for b in f.cod]), Z),
+     g: Node(sum([ob[x] for x in g.dom]), sum([ob[b] for b in g.cod]), X) }
 F = GraphFunctor(ob, D)
 
 opengraph = D[f].tensor(IdGraph(F(z))).then(IdGraph(F(x)).tensor(D[g]))
 assert opengraph == F(diagram)
 
-<<<<<<< HEAD
-C = zx.generate.cliffords(4,7)
-assert OpenGraph.from_zx( 3,3, OpenGraph.from_zx(3, 3, C).to_zx()) == OpenGraph.from_zx(3,3,C)
-=======
 n_qubits= 100
 depth = 100
 C = zx.generate.cnots(n_qubits, depth)
 assert OpenGraph.from_zx( n_qubits,n_qubits, OpenGraph.from_zx(n_qubits, n_qubits, C).to_zx()) == OpenGraph.from_zx(n_qubits,n_qubits,C)
->>>>>>> ae8a69903ec2a4f4e82966a13289908202fd6b0b
