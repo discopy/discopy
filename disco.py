@@ -1,5 +1,6 @@
 import numpy as np
-from moncat import Ob, Ty, Diagram, Box, NumpyFunctor
+from moncat import Ob, Ty, Diagram, Box
+from matrix import NumpyFunctor
 
 
 class Adjoint(Ob):
@@ -215,6 +216,8 @@ class Model(NumpyFunctor):
 
 
 if __name__ == '__main__':
+    s, n = Pregroup('s'), Pregroup('n')
+
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r + s + n.l)
     grammar = Cup(n) @ Wire(s) @ Cup(n.l)

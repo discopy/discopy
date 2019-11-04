@@ -100,9 +100,11 @@ class Generator(Arrow):
         return Generator(self.name, self.cod, self.dom, not self._dagger)
 
     def __repr__(self):
-        return "Generator(name={}, dom={}, cod={}){}".format(
-            repr(self.name) + (repr(self.cod), repr(self.dom), ".dagger()")
-             if self._dagger else (repr(self.dom), repr(self.cod), ''))
+        if self._dagger:
+            return "Generator(name={}, dom={}, cod={}).dagger()".format(
+                *map(repr, [self.name, self.cod, self.dom]))
+        return "Generator(name={}, dom={}, cod={})".format(
+            *map(repr, [self.name, self.dom, self.cod]))
 
     def __str__(self):
         return str(self.name) + (".dagger()" if self._dagger else '')
