@@ -36,11 +36,12 @@ class NumpyFunctor(MonoidalFunctor):
 
 if __name__ == '__name__':
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
+    d = Id(x) @ g << f @ Id(z)
+
     F0 = NumpyFunctor({x: 1, y: 2, z: 3, w: 4}, dict())
     F = NumpyFunctor({x: 1, y: 2, z: 3, w: 4},
                      {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g, h]})
 
-    f, g, h = Box('f', x, x + y), Box('g', y + z, w), Box('h', x + w, x)
-    d = Id(x) @ g << f @ Id(z)
 
     assert F(d.dagger()).shape == tuple(F(d.cod) + F(d.dom))
