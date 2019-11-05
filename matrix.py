@@ -1,3 +1,13 @@
+""" Implements dagger monoidal functors into matrices.
+
+>>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+>>> f, g, h = Box('f', x, x + y), Box('g', y + z, w)
+>>> d = Id(x) @ g << f @ Id(z)
+>>> ob = {x: 1, y: 2, z: 3, w: 4}
+>>> F0 = NumpyFunctor(ob, dict())
+>>> F = NumpyFunctor(ob, {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g]})
+>>> assert F(d.dagger()).shape == tuple(F(d.cod) + F(d.dom))
+"""
 import numpy as np
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 

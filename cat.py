@@ -61,14 +61,16 @@ class Arrow(list):
     >>> f = Generator('f', Ob('x'), Ob('y'))
     >>> g = Generator('g', Ob('y'), Ob('z'))
     >>> h = Arrow(Ob('x'), Ob('z'), [f, g])
-    >>> h
+    >>> h  # doctest: +ELLIPSIS
     Arrow(Ob('x'), Ob('z'), [...])
+    >>> list(h)  # doctest: +ELLIPSIS
+    [Generator(name='f', ...), Generator(name='g', ...)]
     >>> print(h)
     f >> g
     >>> h == f.then(g) == f >> g == g << f
     True
-    >>> h.dagger()
-    Arrow(Ob('z'), Ob('x'), [...])
+    >>> h.dagger()  # doctest: +ELLIPSIS
+    Arrow(Ob('z'), Ob('x'), [Generator(name='g', ...).dagger(), ...])
     >>> assert h.dagger() == g.dagger() >> f.dagger()
     """
     def __init__(self, dom, cod, data):
@@ -155,6 +157,8 @@ class Generator(Arrow):
     >>> f = Generator('f', Ob('x'), Ob('y'))
     >>> f
     Generator(name='f', dom=Ob('x'), cod=Ob('y'))
+    >>> list(f)
+    [Generator(name='f', dom=Ob('x'), cod=Ob('y'))]
     >>> print(f)
     f
     >>> f.dagger()
@@ -226,10 +230,10 @@ class Functor:
     >>> ob = {x: int, y:tuple}
     >>> ar = {f: Function(lambda x: (x, x), int, tuple)}
     >>> F = Functor(ob, ar)
-    >>> F
+    >>> F  # doctest: +ELLIPSIS
     Functor(ob=..., ar=...)
     >>> bigF = Functor({x: Arrow, y: Arrow}, {f: Function(F, Arrow, Arrow)})
-    >>> bigF
+    >>> bigF  # doctest: +ELLIPSIS
     Functor(ob=..., ar=...)
     >>> assert isinstance(bigF(f).name, Functor) and bigF(f).name == F
     >>> assert bigF(f)(f)(42) == F(f)(42) == (42, 42)
