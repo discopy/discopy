@@ -1,8 +1,39 @@
-FAST = False
+"""
+Implements free categories and Python-valued functors.
+We can test for the axioms of categories and functors:
+
+>>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+>>> f, g, h = Generator('f', x, y), Generator('g', y, z), Generator('h', z, x)
+>>>
+>>> assert Id(x) >> f == f == f >> Id(y)
+>>> assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
+>>> assert f >> g >> h == f >> (g >> h)
+>>>
+>>> ob = {x: int, y:tuple, z:int}
+>>> ar = dict()
+>>> ar[f] = Function(lambda x: (x, x), int, tuple)
+>>> ar[g] = Function(lambda x: x[0] + x[1], tuple, int)
+>>> F = Functor(ob, ar)
+>>> assert F(f >> g)(21) == F(g)(F(f)(21)) == F(Id(x))(42) == 42
+"""
+
+FAST = False  # If FAST, we do not check axioms (approximately twice faster).
+
 from functools import reduce as fold
 
 
 class Ob(object):
+    """ Defines an object, only distinguished by its name.
+
+    >>> x, x1, y = Ob('x'), Ob('x'), Ob('y')
+    >>> assert x == x1 and x != y and x != 'x'
+    >>> x
+    Ob('x')
+    >>> x.name
+    'x'
+    >>> print(x)
+    x
+    """
     def __init__(self, name):
         self._name = name
 
@@ -25,6 +56,21 @@ class Ob(object):
         return hash(repr(self))
 
 class Arrow(list):
+    """ Defines an arrow with domain, codomain and data: a list of generators.
+
+    >>> f = Generator('f', Ob('x'), Ob('y'))
+    >>> g = Generator('g', Ob('y'), Ob('z'))
+    >>> h = Arrow(Ob('x'), Ob('z'), [f, g])
+    >>> h
+    Arrow(Ob('x'), Ob('z'), [...])
+    >>> print(h)
+    f >> g
+    >>> h == f.then(g) == f >> g == g << f
+    True
+    >>> h.dagger()
+    Arrow(Ob('z'), Ob('x'), [...])
+    >>> assert h.dagger() == g.dagger() >> f.dagger()
+    """
     def __init__(self, dom, cod, data):
         if not FAST:
             assert isinstance(dom, Ob)
@@ -81,10 +127,42 @@ class Arrow(list):
 
     @staticmethod
     def id(x):
-        assert isinstance(x, Ob)
-        return Arrow(x, x, [])
+        return Id(x)
+
+class Id(Arrow):
+    """ Define an identity arrow, i.e. with an empty list of generators.
+
+    >>> id_x = Id(Ob('x'))
+    >>> id_x
+    Id(Ob('x'))
+    >>> print(id_x)
+    Id(x)
+    >>> assert id_x == Arrow.id(Ob('x')) == Arrow(Ob('x'), Ob('x'), [])
+    >>> assert id_x == id_x.dagger() == id_x.dagger().dagger()
+    """
+    def __init__(self, x):
+        super().__init__(x, x, [])
+
+    def __repr__(self):
+        return "Id({})".format(repr(self.dom))
+
+    def __str__(self):
+        return "Id({})".format(str(self.dom))
 
 class Generator(Arrow):
+    """ Defines a generator as an arrow with a name, and itself as generator.
+
+    >>> f = Generator('f', Ob('x'), Ob('y'))
+    >>> f
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'))
+    >>> print(f)
+    f
+    >>> f.dagger()
+    Generator(name='f', dom=Ob('x'), cod=Ob('y')).dagger()
+    >>> print(f.dagger())
+    f.dagger()
+    >>> assert f == f.dagger().dagger()
+    """
     def __init__(self, name, dom, cod, dagger=False):
         assert isinstance(dom, Ob)
         assert isinstance(cod, Ob)
@@ -120,10 +198,16 @@ class Generator(Arrow):
         return len(other) == 1 and other.data[0] == self
 
 class Function(Generator):
+    """ Defines a Python function with Python types as domain and codomain.
+
+    >>> f = Function(lambda x: (x, x), int, tuple)
+    >>> f(42)
+    (42, 42)
+    """
     def __init__(self, f, dom, cod):
         assert isinstance(dom, type)
         assert isinstance(cod, type)
-        self._name, self._dom, self._cod = f, dom, cod
+        self._name, self._dom, self._cod, self._dagger = f, dom, cod, False
 
     def __call__(self, x):
         assert isinstance(x, self.dom)
@@ -135,6 +219,21 @@ class Function(Generator):
         return Function(lambda x: other(self(x)), self.dom, other.cod)
 
 class Functor:
+    """ Defines Python-valued functor given its image on objects and arrows.
+
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f = Generator('f', x, y)
+    >>> ob = {x: int, y:tuple}
+    >>> ar = {f: Function(lambda x: (x, x), int, tuple)}
+    >>> F = Functor(ob, ar)
+    >>> F
+    Functor(ob=..., ar=...)
+    >>> bigF = Functor({x: Arrow, y: Arrow}, {f: Function(F, Arrow, Arrow)})
+    >>> bigF
+    Functor(ob=..., ar=...)
+    >>> assert isinstance(bigF(f).name, Functor) and bigF(f).name == F
+    >>> assert bigF(f)(f)(42) == F(f)(42) == (42, 42)
+    """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ob) for x in ob.keys())
         assert all(isinstance(y, type) for y in ob.values())
@@ -164,3 +263,8 @@ class Functor:
         assert isinstance(f, Arrow)
         unit = Function(lambda x: x, self(f.dom), self(f.dom))
         return fold(lambda g, h: g.then(self(h)), f, unit)
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(optionflags=doctest.ELLIPSIS)
