@@ -17,7 +17,7 @@
 
 import numpy as np
 from discopy.moncat import Ob, Ty, Diagram, Box
-from discopy.matrix import NumpyFunctor
+from discopy.matrix import Dim, Matrix, NumpyFunctor
 
 
 class Adjoint(Ob):
@@ -224,7 +224,7 @@ class Model(NumpyFunctor):
         if isinstance(d, Adjoint):
             return int(self.ob[d._basic])
         if isinstance(d, Pregroup):
-            return [self(x) for x in d]
+            return Dim(*(self(x) for x in d))
         if isinstance(d, Cup):
             return np.identity(self(d.dom[0]))
         if isinstance(d, Cap):
