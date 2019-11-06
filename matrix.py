@@ -1,16 +1,11 @@
 """ Implements dagger monoidal functors into matrices.
-
->>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
->>> f, g = Box('f', x, x + y), Box('g', y + z, w)
->>> ob = {x: 1, y: 2, z: 3, w: 4}
->>> F0 = NumpyFunctor(ob, dict())
->>> F = NumpyFunctor(ob, {a: np.zeros(F0(a.dom) + F0(a.cod)) for a in [f, g]})
->>> assert F(f.dagger()).shape == tuple(F(f.cod) + F(f.dom))
 """
 
 import numpy as np
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
+
+DEFAULT_TYPE = int
 
 class Dim(Ty):
     """ Implements dimensions as tuples of integers strictly greater than 1.
@@ -46,16 +41,16 @@ class Dim(Ty):
             yield self[i]
 
     def __repr__(self):
-        return "Dim({})".format(', '.join(map(repr, self)))
+        return "Dim({})".format(', '.join(map(repr, self)) or '1')
 
     def __str__(self):
-        return "({}, )".format(', '.join(map(str, self)) or '1')
+        return repr(self)
 
     def __hash__(self):
         return hash(repr(self))
 
 class Matrix(Diagram):
-    """ Implements a typed matrix.
+    """ Implements a matrix with dom, cod and numpy array.
 
     >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
     >>> v = Matrix(Dim(2), Dim(1), [0, 1])
@@ -64,27 +59,25 @@ class Matrix(Diagram):
     >>> (v @ v).array.flatten()
     array([0, 0, 0, 1])
     """
-    def __init__(self, dom, cod, array, dtype=np.dtype('int')):
+    def __init__(self, dom, cod, array):
         dom, cod = Dim(*dom), Dim(*cod)
-        array = np.array(array, dtype=dtype).reshape(dom + cod)
-        self._dom, self._cod, self._array, self._dtype = dom, cod, array, dtype
+        array = np.array(array).reshape(dom + cod)
+        self._dom, self._cod, self._array = dom, cod, array
 
     @property
     def array(self):
         return self._array
 
-    @property
-    def dtype(self):
-        return self._dtype
-
     def __repr__(self):
-        return "Matrix(dom={}, cod={}, array={}, dtype={})".format(
-            self.dom, self.cod, list(self.array.flat), repr(self.dtype))
+        return "Matrix(dom={}, cod={}, array={})".format(
+                       self.dom, self.cod, list(self.array.flat))
 
     def __str__(self):
         return repr(self)
 
     def __eq__(self, other):
+        if not isinstance(other, Matrix):
+            return self.array == other
         return (self.dom, self.cod) == (other.dom, other.cod) and np.all(
                 self.array == other.array)
 
@@ -104,22 +97,19 @@ class Matrix(Diagram):
              i - len(self.dom) for i in range(len(self.dom + self.cod))])
         return Matrix(self.cod, self.dom, array)
 
-    def id(self, dim):
+    @staticmethod
+    def id(dim):
         return Id(dim)
 
 class Id(Matrix):
     """ Implements the identity matrix for a given dimension. """
     def __init__(self, *dim):
-        if isinstance(dim[0], Dim):
-            dim = dim[0]
-        else:
-            dim = Dim(*dim)
+        dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
         array = 1
         for x in dim:
             array = np.tensordot(array, np.identity(x), 0)
         array = np.moveaxis(array,
-            [2 * i for i in range(len(dim))],
-            [i for i in range(len(dim))])  # bureaucracy!
+            [2 * i for i in range(len(dim))], [i for i in range(len(dim))])
         super().__init__(dim, dim, array)
 
     def __repr__(self):
@@ -128,20 +118,24 @@ class Id(Matrix):
     def __str__(self):
         return repr(self)
 
-class NumpyFunctor(MonoidalFunctor):
+class MatrixFunctor(MonoidalFunctor):
     """ Implements a matrix-valued functor.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g = Box('f', x + x, y), Box('g', y, Ty())
     >>> ob = {x: 2, y: 3}
     >>> ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
-    >>> F = NumpyFunctor(ob, ar)
-    >>> F(f >> g).flatten()
-    array([ 5, 14, 23, 32])
-    >>> F(f @ f.dagger()).shape
+    >>> F = MatrixFunctor(ob, ar)
+    >>> F(f >> g).array.flatten()
+    array([ 5., 14., 23., 32.])
+    >>> F(f @ f.dagger()).array.shape
     (2, 2, 3, 3, 2, 2)
-    >>> F(f.dagger() @ f).shape
+    >>> F(f.dagger() @ f).array.shape
     (3, 2, 2, 2, 2, 3)
+    >>> F(f.dagger() >> f).array.flatten()
+    array([126., 144., 162., 144., 166., 188., 162., 188., 214.])
+    >>> F(g.dagger() >> g).array
+    array(5)
     """
     def __call__(self, d):
         if isinstance(d, Ob):
@@ -149,23 +143,17 @@ class NumpyFunctor(MonoidalFunctor):
         elif isinstance(d, Ty):
             return Dim(*(self.ob[x] for x in d))
         elif isinstance(d, Box):
-            arr = np.array(self.ar[d.name])
             if d._dagger:
-                return Matrix(self(d.cod), self(d.dom), arr.flat).dagger().array
-            else:
-                return arr.reshape(self(d.dom) + self(d.cod))
-        scan = d.dom
-        arr = Id(self(scan)).array
+                return Matrix(self(d.cod), self(d.dom), self.ar[d.name]).dagger()
+            return Matrix(self(d.dom), self(d.cod), self.ar[d.name])
+        scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
         for f, offset in d:
-            dim = lambda t: len(self(t))
             n = dim(scan[:offset])
             source = range(dim(d.dom) + n, dim(d.dom) + n + dim(f.dom))
             target = range(dim(f.dom))
-            import pdb; pdb.set_trace()
-            arr = np.tensordot(arr, self(f), (source, target))
-
-            source = range(len(arr.shape) - dim(f.cod), len(arr.shape))
+            array = np.tensordot(array, self(f).array, (source, target))
+            source = range(len(array.shape) - dim(f.cod), len(array.shape))
             target = range(dim(d.dom) + n, dim(d.dom) + n + dim(f.cod))
-            arr = np.moveaxis(arr, source, target)  # more bureaucracy!
-            scan = scan[:offset] + f.cod + scan[offset + len(f.cod):]
-        return arr
+            array = np.moveaxis(array, source, target)
+            scan = scan[:offset] + f.cod + scan[offset + len(f.dom):]
+        return Matrix(self(d.dom), self(d.cod), array)

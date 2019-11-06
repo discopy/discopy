@@ -1,21 +1,23 @@
 """ Implements free monoidal categories and monoidal functors.
 Naturality needs to be computed explicitly with interchangers.
-
->>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
->>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> assert (f0 @ f1).interchange(0, 1) == Id(x) @ f1 >> f0 @ Id(w)
->>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
->>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
->>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
->>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
->>> assert x + y != y + x
->>> assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
 """
 
 from discopy.cat import FAST, Ob, Arrow, Generator, Functor
 
 
 class Ty(list):
+    """ Implements a type as a list of objects, used as dom and cod of diagrams.
+
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> x
+    Ty('x')
+    >>> print(x)
+    x
+    >>> x + y
+    Ty('x', 'y')
+    >>> assert x + y != y + x
+    >>> assert (x + y) + z == x + y + z == x + (y + z)
+    """
     def __init__(self, *t):
         super().__init__(x if isinstance(x, Ob) else Ob(x) for x in t)
 
@@ -37,6 +39,17 @@ class Ty(list):
         return hash(repr(self))
 
 class Diagram(Arrow):
+    """ Implements a diagram with dom, cod, a list of boxes and offsets.
+
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> assert Id(x) @ f1 >> f0 @ Id(w) == (f0 @ f1).interchange(0, 1)
+    >>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
+
+    >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+    >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
+    >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
+    """
     def __init__(self, dom, cod, boxes, offsets):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
@@ -128,6 +141,10 @@ class Diagram(Arrow):
                        self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
 
 class Id(Diagram):
+    """ Implements the identity diagram of a given type.
+
+    >>> assert Id(Ty('x')) == Diagram(Ty('x'), Ty('x'), [], [])
+    """
     def __init__(self, x):
         super().__init__(x, x, [], [])
 
@@ -138,6 +155,15 @@ class Id(Diagram):
         return "Id({})".format(str(self.dom))
 
 class Box(Generator, Diagram):
+    """ Implements a box as a generator for diagrams.
+
+    >>> f = Box('f', Ty('x', 'y'), Ty('z'))
+    >>> f
+    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
+    >>> f.dagger()
+    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z')).dagger()
+    >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
+    """
     def __init__(self, name, dom, cod, dagger=False):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
@@ -165,9 +191,20 @@ class Box(Generator, Diagram):
             return len(other) == 1 and other.boxes[0] == self
 
 class MonoidalFunctor(Functor):
+    """ Implements a monoidal functor given its image on objects and arrows.
+
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> ob = {x: z, y: w, z: x, w: y}
+    >>> ar = {f0: f1, f1: f0}
+    >>> F = MonoidalFunctor(ob, ar)
+    >>> assert F(f0) == f1 and F(f1) == f0
+    >>> assert F(f0 @ f1) == f1 @ f0
+    >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
+    """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
-        assert all(isinstance(a, Box) for a in ar.keys())
+        assert all(isinstance(f, Box) for f in ar.keys())
         self._objects, self._arrows = ob, ar
         self._ob = {x[0]: y for x, y in ob.items()}
         self._ar = {f.name: g for f, g in ar.items()}
@@ -181,9 +218,9 @@ class MonoidalFunctor(Functor):
             return sum([self.ob[x] for x in d], Ty())
         elif isinstance(d, Box):
             return self.ar[d.name].dagger() if d._dagger else self.ar[d.name]
-        scan, result = d.dom, d.id(self(d.dom))
+        scan, result = d.dom, Id(self(d.dom))
         for f, n in d:
-            result = result.then(d.id(self(scan[:n])).tensor(self(f))\
-                           .tensor(d.id(self(scan[n + len(f.dom):]))))
+            result = result >> Id(self(scan[:n])) @ self(f)\
+                             @ Id(self(scan[n + len(f.dom):]))
             scan = scan[:n] + f.cod + scan[n + len(f.dom):]
         return result

@@ -17,7 +17,7 @@
 
 import numpy as np
 from discopy.moncat import Ob, Ty, Diagram, Box
-from discopy.matrix import Dim, Matrix, NumpyFunctor
+from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 
 
 class Adjoint(Ob):
@@ -206,16 +206,16 @@ class Parse(Grammar):
         return "{} >> {}".format(" @ ".join(self._words), Grammar(self._type,
             self.cod, self.boxes[len(self._words):], self._cups))
 
-class Model(NumpyFunctor):
+class Model(MatrixFunctor):
     def __init__(self, ob, ar):
         assert all(isinstance(x, Pregroup) and x.is_basic for x in ob.keys())
         assert all(isinstance(a, Word) for a in ar.keys())
         self._types, self._vocab = ob, ar
-        # rigid functors are defined by their image on basic types
+        #  Rigid functors are defined by their image on basic types.
         ob = {x[0]._basic: ob[x] for x in self._types.keys()}
-        # we assume the images for word boxes are all states
+        #  We assume the images for word boxes are all states.
         ob.update({w.dom[0]._basic: 1 for w in self._vocab.keys()})
-        self._ob, self._ar = ob, {f.name: n for f, n in ar.items()}
+        self._ob, self._ar = ob, {f.name: array for f, array in ar.items()}
 
     def __repr__(self):
         return "Model(ob={}, ar={})".format(self._types, self._vocab)
@@ -226,7 +226,7 @@ class Model(NumpyFunctor):
         if isinstance(d, Pregroup):
             return Dim(*(self(x) for x in d))
         if isinstance(d, Cup):
-            return np.identity(self(d.dom[0]))
+            return Matrix(self(d.dom), Dim(), Id(self(d.dom[0])).array)
         if isinstance(d, Cap):
-            return np.identity(self(d.cod[0]))
+            return Matrix(Dim(), self(d.cod), Id(self(d.cod[0])).array)
         return super().__call__(d)
