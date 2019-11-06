@@ -1,6 +1,23 @@
+""" Implements free rigid categories and distributional compositional models.
+
+>>> s, n = Pregroup('s'), Pregroup('n')
+>>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+>>> loves = Word('loves', n.r + s + n.l)
+>>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+>>> sentence = grammar << Alice @ loves @ Bob
+>>> ob = {s: 1, n: 2}
+>>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+>>> F = Model(ob, ar)
+>>> assert F(sentence) == True
+>>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+>>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+>>> assert (F(snake_l) == F(Wire(n))).all()
+>>> assert (F(Wire(n)) == F(snake_r)).all()
+"""
+
 import numpy as np
-from moncat import Ob, Ty, Diagram, Box
-from matrix import NumpyFunctor
+from discopy.moncat import Ob, Ty, Diagram, Box
+from discopy.matrix import NumpyFunctor
 
 
 class Adjoint(Ob):
@@ -213,25 +230,3 @@ class Model(NumpyFunctor):
         if isinstance(d, Cap):
             return np.identity(self(d.cod[0]))
         return super().__call__(d)
-
-
-if __name__ == '__main__':
-    s, n = Pregroup('s'), Pregroup('n')
-
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r + s + n.l)
-    grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-    sentence = grammar << Alice @ loves @ Bob
-    assert sentence == Parse([Alice, loves, Bob], [0, 1]).interchange(0, 1)\
-                                                         .interchange(1, 2)\
-                                                         .interchange(0, 1)
-    F = Model({s: 1, n: 2},
-              {Alice: [1, 0],
-               loves: [0, 1, 1, 0],
-               Bob: [0, 1]})
-    assert F(sentence) == True
-
-    snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-    snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-    assert (F(snake_l) == F(Wire(n))).all()
-    assert (F(Wire(n)) == F(snake_r)).all()

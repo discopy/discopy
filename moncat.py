@@ -1,4 +1,18 @@
-from cat import FAST, Ob, Arrow, Generator, Functor
+""" Implements free monoidal categories and monoidal functors.
+Naturality needs to be computed explicitly with interchangers.
+
+>>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+>>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+>>> assert (f0 @ f1).interchange(0, 1) == Id(x) @ f1 >> f0 @ Id(w)
+>>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
+>>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+>>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
+>>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
+>>> assert x + y != y + x
+>>> assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
+"""
+
+from discopy.cat import FAST, Ob, Arrow, Generator, Functor
 
 
 class Ty(list):
@@ -173,17 +187,3 @@ class MonoidalFunctor(Functor):
                            .tensor(d.id(self(scan[n + len(f.dom):]))))
             scan = scan[:n] + f.cod + scan[n + len(f.dom):]
         return result
-
-
-if __name__ == '__name__':
-    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    assert (f0 @ f1).interchange(0, 1) == Id(x) @ f1 >> f0 @ Id(w)
-    assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
-
-    s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-    assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
-    assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
-
-    assert x + y != y + x
-    assert (x + y) + z == x + y + z == x + (y + z) == sum([x, y, z], Ty())
