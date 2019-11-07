@@ -53,9 +53,9 @@ python -m doctest discopy/*.py -v
 
 * `cat.Arrow`, `cat.Generator` implement free (dagger) categories.
 * `cat.Functor` implements Python-valued functors.
-* `moncat.Diagram`, `moncat.Box` implement free (dagger) monoidal categories.
+* `moncat.Diagram` and `moncat.Box` implement free (dagger) monoidal categories.
 * `moncat.MonoidalFunctor` implements free (dagger) monoidal functors.
-* `matrix.NumpyFunctor` implements matrix-valued (dagger) monoidal functors.
+* `matrix.MatrixFunctor` implements matrix-valued (dagger) monoidal functors.
 * `disco.Pregroup`, `disco.Cup` and `disco.Cap` implement free dagger pivotal monoidal categories.
 * `disco.Word`, `disco.Grammar`, `disco.Parse` implement pregroup grammars.
 * `disco.Model` implements rigid monoidal functors and dagger pivotal monoidal functors.
