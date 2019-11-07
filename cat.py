@@ -267,8 +267,3 @@ class Functor:
         assert isinstance(f, Arrow)
         unit = Function(lambda x: x, self(f.dom), self(f.dom))
         return fold(lambda g, h: g.then(self(h)), f, unit)
-
-
-if __name__ == "__main__":
-    import doctest
-    doctest.testmod(optionflags=doctest.ELLIPSIS)
