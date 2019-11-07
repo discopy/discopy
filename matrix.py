@@ -95,7 +95,7 @@ class Matrix(Diagram):
         array = np.moveaxis(self.array, range(len(self.dom + self.cod)),
             [i + len(self.cod) if i < len(self.dom) else
              i - len(self.dom) for i in range(len(self.dom + self.cod))])
-        return Matrix(self.cod, self.dom, array)
+        return Matrix(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
     def id(dim):
