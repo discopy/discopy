@@ -113,7 +113,7 @@ class Id(Matrix):
         super().__init__(dim, dim, array)
 
     def __repr__(self):
-        return "Id{}".format(self.dom)
+        return "Id({})".format(self.dom)
 
     def __str__(self):
         return repr(self)
