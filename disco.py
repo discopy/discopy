@@ -21,6 +21,20 @@ from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 
 
 class Adjoint(Ob):
+    """
+    Implements basic types and their iterated adjoints.
+
+    >>> a = Adjoint('a', 0)
+    >>> a
+    Adjoint('a', 0)
+    >>> a.l
+    Adjoint('a', -1)
+    >>> a.r
+    Adjoint('a', 1)
+    >>> a.r.r
+    Adjoint('a', 2)
+    >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
+    """
     def __init__(self, basic, z):
         assert isinstance(z, int)
         self._basic, self._z = basic, z
@@ -46,6 +60,8 @@ class Adjoint(Ob):
         yield self._z
 
 class Pregroup(Ty):
+    """ Implements pregroup types as lists of adjoints.
+    """
     def __init__(self, *t):
         t = [x if isinstance(x, Adjoint) else Adjoint(x, 0) for x in t]
         super().__init__(*t)

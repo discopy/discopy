@@ -9,6 +9,7 @@ DEFAULT_TYPE = int
 
 class Dim(Ty):
     """ Implements dimensions as tuples of integers strictly greater than 1.
+    Dimensions form a monoid with product + and unit Dim(1).
 
     >>> Dim(2, 3, 4)
     Dim(2, 3, 4)
@@ -25,7 +26,7 @@ class Dim(Ty):
     >>> assert Dim(2, 3)[0] == Dim(3, 2)[1] == 2
     """
     def __init__(self, *xs):
-        assert all(isinstance(x, int) for x in xs)
+        assert all(isinstance(x, int) and x >= 1 for x in xs)
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
     def __add__(self, other):
@@ -144,7 +145,7 @@ class MatrixFunctor(MonoidalFunctor):
             return Dim(*(self.ob[x] for x in d))
         elif isinstance(d, Box):
             if d._dagger:
-                return Matrix(self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
+                return Matrix(self(d.cod), self(d.dom), self.ar[d]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
         for f, offset in d:

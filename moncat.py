@@ -1,28 +1,32 @@
-""" Implements free monoidal categories and monoidal functors.
-Naturality needs to be computed explicitly with interchangers.
-"""
+""" Implements free monoidal categories and (dagger) monoidal functors.
+We can test the axioms of monoidal categories with explicit interchangers. """
 
 from discopy.cat import FAST, Ob, Arrow, Generator, Functor
 
 
 class Ty(list):
     """ Implements a type as a list of objects, used as dom and cod of diagrams.
+    Types are the free monoid on objects with product @ and unit Ty().
 
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
     >>> x
     Ty('x')
     >>> print(x)
     x
-    >>> x + y
+    >>> x @ y
     Ty('x', 'y')
-    >>> assert x + y != y + x
-    >>> assert (x + y) + z == x + y + z == x + (y + z)
+    >>> assert x @ y != y @ x
+    >>> assert x @ Ty() == x == Ty() @ x
+    >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
     """
     def __init__(self, *t):
         super().__init__(x if isinstance(x, Ob) else Ob(x) for x in t)
 
     def __add__(self, other):
         return Ty(*(super().__add__(other)))
+
+    def __matmul__(self, other):
+        return self + other
 
     def __getitem__(self, key):  # allows to compute slices of types
         if isinstance(key, slice):
@@ -33,7 +37,7 @@ class Ty(list):
         return "Ty({})".format(', '.join(repr(x.name) for x in self))
 
     def __str__(self):
-        return ' + '.join(map(str, self)) or 'Ty()'
+        return ' @ '.join(map(str, self)) or 'Ty()'
 
     def __hash__(self):
         return hash(repr(self))
@@ -41,14 +45,33 @@ class Ty(list):
 class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    >>> assert Id(x) @ f1 >> f0 @ Id(w) == (f0 @ f1).interchange(0, 1)
-    >>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
-
+    We can check the Eckerman-Hilton argument, up to explicit interchanger.
     >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
     >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
+
+    We can check bifunctoriality, again up to explicit interchanger.
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> f0 @ f1  # doctest: +ELLIPSIS
+    Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=[...], offsets=[0, 1])
+    >>> print(f0 @ f1)
+    f0 @ Id(z) >> Id(y) @ f1
+    >>> d = Id(x) @ f1 >> f0 @ Id(w)
+    >>> d  # doctest: +ELLIPSIS
+    Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=[...], offsets=[1, 0])
+    >>> print(d)
+    Id(x) @ f1 >> f0 @ Id(w)
+    >>> assert d == (f0 @ f1).interchange(0, 1)
+    >>> assert f0 @ f1 == d.interchange(0, 1)
+
+    We can check the axioms for dagger monoidal categories, up to interchanger.
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> print((f0 @ f1).dagger())
+    Id(y) @ f1.dagger() >> f0.dagger() @ Id(z)
+    >>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
+    >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
     """
     def __init__(self, dom, cod, boxes, offsets):
         assert isinstance(dom, Ty)
@@ -155,14 +178,26 @@ class Id(Diagram):
         return "Id({})".format(str(self.dom))
 
 class Box(Generator, Diagram):
-    """ Implements a box as a generator for diagrams.
+    """ Implements a box as a diagram with a name and itself as box.
 
+    Note that as for composition, when we tensor an empty diagram with a box,
+    we get a diagram that is defined as equal to the original box.
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
     >>> f
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
+    >>> print(f)
+    f
+    >>> Id(Ty('x', 'y')) >> f  # doctest: +ELLIPSIS
+    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(name='f'...], offsets=[0])
+    >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
+    >>> Id(Ty()) @ f  # doctest: +ELLIPSIS
+    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(name='f'...], offsets=[0])
+    >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> f.dagger()
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z')).dagger()
-    >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
+    >>> print(f.dagger())
+    f.dagger()
+    >>> assert f == f.dagger().dagger()
     """
     def __init__(self, name, dom, cod, dagger=False, params=[]):
         assert isinstance(dom, Ty)
