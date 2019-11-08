@@ -169,7 +169,7 @@ class Box(Generator, Diagram):
     >>> f.params
     [0.5, 0.3, 1]
     """
-    def __init__(self, name, dom, cod, dagger=False, params=[]):
+    def __init__(self, name, dom, cod, dagger=False, params=None):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
