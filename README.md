@@ -36,10 +36,6 @@ F = Model(ob, ar)
 assert F(sentence) == True
 ```
 
-## Requirements
-
-* `numpy` (>=1.17.2)
-
 ## Getting started
 
 ```shell
