@@ -4,7 +4,7 @@
 
 !["Alice loves Bob" in picture](alice-loves-bob.png)
 
-The recipe goes in three steps:
+## Recipe
 
 1) draw the picture
 
