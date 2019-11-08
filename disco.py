@@ -9,10 +9,6 @@
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 >>> F = Model(ob, ar)
 >>> assert F(sentence) == True
->>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
->>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
->>> assert (F(snake_l) == F(Wire(n))).all()
->>> assert (F(Wire(n)) == F(snake_r)).all()
 """
 
 import numpy as np
@@ -21,6 +17,20 @@ from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 
 
 class Adjoint(Ob):
+    """
+    Implements basic types and their iterated adjoints.
+
+    >>> a = Adjoint('a', 0)
+    >>> a
+    Adjoint('a', 0)
+    >>> a.l
+    Adjoint('a', -1)
+    >>> a.r
+    Adjoint('a', 1)
+    >>> a.r.r
+    Adjoint('a', 2)
+    >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
+    """
     def __init__(self, basic, z):
         assert isinstance(z, int)
         self._basic, self._z = basic, z
@@ -46,6 +56,22 @@ class Adjoint(Ob):
         yield self._z
 
 class Pregroup(Ty):
+    """ Implements pregroup types as lists of adjoints.
+
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> s
+    Pregroup('s')
+    >>> print(s)
+    s
+    >>> s.l
+    Pregroup(Adjoint('s', -1))
+    >>> s @ n.l
+    Pregroup('s', Adjoint('n', -1))
+    >>> (s @ n).l
+    Pregroup(Adjoint('n', -1), Adjoint('s', -1))
+    >>> assert n.l.r == n == n.r.l
+    >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
+    """
     def __init__(self, *t):
         t = [x if isinstance(x, Adjoint) else Adjoint(x, 0) for x in t]
         super().__init__(*t)
@@ -207,6 +233,14 @@ class Parse(Grammar):
             self.cod, self.boxes[len(self._words):], self._cups))
 
 class Model(MatrixFunctor):
+    """
+    >>> n = Pregroup('n')
+    >>> F = Model({n: 2}, {})
+    >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+    >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+    >>> assert (F(snake_l) == F(Wire(n))).all()
+    >>> assert (F(Wire(n)) == F(snake_r)).all()
+    """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Pregroup) and x.is_basic for x in ob.keys())
         assert all(isinstance(a, Word) for a in ar.keys())

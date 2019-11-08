@@ -1,6 +1,6 @@
 """
 Implements free categories and Python-valued functors.
-We can test for the axioms of categories and functors:
+We can check the axioms of categories and functors.
 
 >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
 >>> f, g, h = Generator('f', x, y), Generator('g', y, z), Generator('h', z, x)
@@ -154,6 +154,9 @@ class Id(Arrow):
 class Generator(Arrow):
     """ Defines a generator as an arrow with a name, and itself as generator.
 
+    We can check the axioms for free dagger categories.
+    Note that when we compose a generator with an identity, we get an arrow that
+    is defined as equal to the original generator.
     >>> f = Generator('f', Ob('x'), Ob('y'))
     >>> f
     Generator(name='f', dom=Ob('x'), cod=Ob('y'))
@@ -161,6 +164,9 @@ class Generator(Arrow):
     [Generator(name='f', dom=Ob('x'), cod=Ob('y'))]
     >>> print(f)
     f
+    >>> Id(Ob('x')) >> f
+    Arrow(Ob('x'), Ob('y'), [Generator(name='f', dom=Ob('x'), cod=Ob('y'))])
+    >>> assert Id(Ob('x')) >> f == f == f >> Id(Ob('y'))
     >>> f.dagger()
     Generator(name='f', dom=Ob('x'), cod=Ob('y')).dagger()
     >>> print(f.dagger())
@@ -205,13 +211,30 @@ class Function(Generator):
     """ Defines a Python function with Python types as domain and codomain.
 
     >>> f = Function(lambda x: (x, x), int, tuple)
+    >>> f  # doctest: +ELLIPSIS
+    Function(f=<function <lambda> ...>, dom=<class 'int'>, cod=<class 'tuple'>)
     >>> f(42)
     (42, 42)
+    >>> f('a')  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ... assert isinstance(x, self.dom)
+    AssertionError
+    >>> g = Function(lambda x: (x, x) if x == 42 else x + 1, int, tuple)
+    >>> g(42)
+    (42, 42)
+    >>> g(41)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ... assert isinstance(x, self.cod)
+    AssertionError
     """
     def __init__(self, f, dom, cod):
         assert isinstance(dom, type)
         assert isinstance(cod, type)
         self._name, self._dom, self._cod, self._dagger = f, dom, cod, False
+
+    def __repr__(self):
+        return "Function(f={}, dom={}, cod={})".format(
+            *map(repr, [self.name, self.dom, self.cod]))
 
     def __call__(self, x):
         assert isinstance(x, self.dom)
@@ -223,7 +246,8 @@ class Function(Generator):
         return Function(lambda x: other(self(x)), self.dom, other.cod)
 
 class Functor:
-    """ Defines Python-valued functor given its image on objects and arrows.
+    """ Defines a Python-valued functor F given its image on objects and arrows.
+    It is possible to define a functor bigF into (a one-object version of) Cat.
 
     >>> x, y = Ob('x'), Ob('y')
     >>> f = Generator('f', x, y)
@@ -235,7 +259,8 @@ class Functor:
     >>> bigF = Functor({x: Arrow, y: Arrow}, {f: Function(F, Arrow, Arrow)})
     >>> bigF  # doctest: +ELLIPSIS
     Functor(ob=..., ar=...)
-    >>> assert isinstance(bigF(f).name, Functor) and bigF(f).name == F
+    >>> bigF(f)  # doctest: +ELLIPSIS
+    Function(f=Functor(...), dom=<class 'cat.Arrow'>, cod=<class 'cat.Arrow'>)
     >>> assert bigF(f)(f)(42) == F(f)(42) == (42, 42)
     """
     def __init__(self, ob, ar):
@@ -264,4 +289,4 @@ class Functor:
             return self.ar[f]
         assert isinstance(f, Arrow)
         unit = Function(lambda x: x, self(f.dom), self(f.dom))
-        return fold(lambda g, h: g.then(self(h)), f, unit)
+        return fold(lambda g, h: g >> self(h), f, unit)
