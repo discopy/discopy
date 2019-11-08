@@ -1,6 +1,6 @@
 from setuptools import setup
 setup(name='discopy',
-      version='0.0.1-beta',
+      version='0.0.1-alpha',
       package_dir={'discopy': ''},
       packages=['discopy'],
       description='Distributional Compositional Python',
