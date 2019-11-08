@@ -164,7 +164,7 @@ class Box(Generator, Diagram):
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z')).dagger()
     >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
     """
-    def __init__(self, name, dom, cod, dagger=False):
+    def __init__(self, name, dom, cod, dagger=False, params=[]):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
@@ -172,7 +172,7 @@ class Box(Generator, Diagram):
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
-        return Box(self.name, self.cod, self.dom, not self._dagger)
+        return Box(self.name, self.cod, self.dom, dagger=not self._dagger)
 
     def __repr__(self):
         if self._dagger:
@@ -206,8 +206,7 @@ class MonoidalFunctor(Functor):
         assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
         assert all(isinstance(f, Box) for f in ar.keys())
         self._objects, self._arrows = ob, ar
-        self._ob = {x[0]: y for x, y in ob.items()}
-        self._ar = {f.name: g for f, g in ar.items()}
+        self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __repr__(self):
         return "MonoidalFunctor(ob={}, ar={})".format(
@@ -217,7 +216,7 @@ class MonoidalFunctor(Functor):
         if isinstance(d, Ty):
             return sum([self.ob[x] for x in d], Ty())
         elif isinstance(d, Box):
-            return self.ar[d.name].dagger() if d._dagger else self.ar[d.name]
+            return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
         scan, result = d.dom, Id(self(d.dom))
         for f, n in d:
             result = result >> Id(self(scan[:n])) @ self(f)\

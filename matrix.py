@@ -144,8 +144,8 @@ class MatrixFunctor(MonoidalFunctor):
             return Dim(*(self.ob[x] for x in d))
         elif isinstance(d, Box):
             if d._dagger:
-                return Matrix(self(d.cod), self(d.dom), self.ar[d.name]).dagger()
-            return Matrix(self(d.dom), self(d.cod), self.ar[d.name])
+                return Matrix(self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
+            return Matrix(self(d.dom), self(d.cod), self.ar[d])
         scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
         for f, offset in d:
             n = dim(scan[:offset])
