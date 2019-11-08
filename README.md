@@ -13,7 +13,7 @@ from discopy.disco import Pregroup, Word, Cup, Wire
 
 s, n = Pregroup('s'), Pregroup('n')
 Alice = Word('Alice', n)
-loves = Word('loves', n.r + s + n.l)
+loves = Word('loves', n.r @ s @ n.l)
 Bob = Word('Bob', n)
 
 grammar = Cup(n) @ Wire(s) @ Cup(n.l)
