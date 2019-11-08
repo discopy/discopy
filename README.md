@@ -36,16 +36,15 @@ F = Model(ob, ar)
 assert F(sentence) == True
 ```
 
-## Getting started
+## Getting Started
 
 ```shell
-git clone https://github.com/toumix/discopy.git
-python -m doctest discopy/*.py -v
+pip install git+https://github.com/toumix/discopy.git
 ```
 
 ## General Abstract Nonsense
 
-`discopy` is a Python implementation of the categorical compositional distributional (DisCoCat) models, see [arXiv:1003.4394](https://arxiv.org/abs/1003.4394), [arXiv:1106.4058](https://arxiv.org/abs/1106.4058) [arXiv:1904.03478](https://arxiv.org/abs/1904.03478).
+`discopy` is a Python implementation of the categorical compositional distributional (DisCoCat) models, see [arXiv:1003.4394](https://arxiv.org/abs/1003.4394), [arXiv:1106.4058](https://arxiv.org/abs/1106.4058), [arXiv:1904.03478](https://arxiv.org/abs/1904.03478).
 
 * `cat.Arrow`, `cat.Generator` implement free (dagger) categories.
 * `cat.Functor` implements Python-valued functors.
