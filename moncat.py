@@ -3,6 +3,7 @@ We can test the axioms of monoidal categories with explicit interchangers. """
 
 from discopy.cat import fold, FAST, Ob, Arrow, Generator, Functor
 
+
 class Ty(list):
     """ Implements a type as a list of objects, used as dom and cod of diagrams.
     Types are the free monoid on objects with product @ and unit Ty().
@@ -44,14 +45,7 @@ class Ty(list):
 class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
-<<<<<<< HEAD
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y, params=[0.2]), Box('f1', z, w, params=[1])
-    >>> assert Id(x) @ f1 >> f0 @ Id(w) == (f0 @ f1).interchange(0, 1)
-    >>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
-=======
     We can check the Eckerman-Hilton argument, up to explicit interchanger.
->>>>>>> b8625fd23fe226d08182d8a5b19c02e3752ef40c
 
     >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
@@ -192,19 +186,8 @@ class Box(Generator, Diagram):
     Note that as for composition, when we tensor an empty diagram with a box,
     we get a diagram that is defined as equal to the original box.
 
-    >>> f = Box('f', Ty('x', 'y'), Ty('z'), params=[0.2, 0.3])
+    >>> f = Box('f', Ty('x', 'y'), Ty('z'))
     >>> f
-<<<<<<< HEAD
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3])
-    >>> f.dagger()
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3]).dagger()
-    >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
-    >>> f.params
-    [0.2, 0.3]
-    >>> f.params = [0.5, 0.3, 1]
-    >>> f.params
-    [0.5, 0.3, 1]
-=======
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
     >>> print(f)
     f
@@ -219,7 +202,6 @@ class Box(Generator, Diagram):
     >>> print(f.dagger())
     f.dagger()
     >>> assert f == f.dagger().dagger()
->>>>>>> b8625fd23fe226d08182d8a5b19c02e3752ef40c
     """
     def __init__(self, name, dom, cod, dagger=False, params=None):
         assert isinstance(dom, Ty)
@@ -234,10 +216,12 @@ class Box(Generator, Diagram):
 
     def __repr__(self):
         if self._dagger:
-            return "Box(name={}, dom={}, cod={}, params={}).dagger()".format(
-                *map(repr, [self.name, self.cod, self.dom, self.params]))
-        return "Box(name={}, dom={}, cod={}, params={})".format(
-            *map(repr, [self.name, self.dom, self.cod, self.params]))
+            return "Box(name={}, dom={}, cod={}{}).dagger()".format(
+                *map(repr, [self.name, self.cod, self.dom]),
+                ", params=" + repr(self.params) if self.params else '')
+        return "Box(name={}, dom={}, cod={}{})".format(
+            *map(repr, [self.name, self.dom, self.cod]),
+            ", params=" + repr(self.params) if self.params else '')
 
     def __hash__(self):
         return hash(repr(self))
