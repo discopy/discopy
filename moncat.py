@@ -42,7 +42,7 @@ class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> f0, f1 = Box('f0', x, y, params=[0.2]), Box('f1', z, w, params=[1])
     >>> assert Id(x) @ f1 >> f0 @ Id(w) == (f0 @ f1).interchange(0, 1)
     >>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
 
@@ -157,29 +157,35 @@ class Id(Diagram):
 class Box(Generator, Diagram):
     """ Implements a box as a generator for diagrams.
 
-    >>> f = Box('f', Ty('x', 'y'), Ty('z'))
+    >>> f = Box('f', Ty('x', 'y'), Ty('z'), params=[0.2, 0.3])
     >>> f
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
+    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3])
     >>> f.dagger()
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z')).dagger()
+    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3]).dagger()
     >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
+    >>> f.params
+    [0.2, 0.3]
+    >>> f.params = [0.5, 0.3, 1]
+    >>> f.params
+    [0.5, 0.3, 1]
     """
     def __init__(self, name, dom, cod, dagger=False, params=[]):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
-        self._name, self._dagger = name, dagger
+        self._name, self._dagger, self._params = name, dagger, params
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
-        return Box(self.name, self.cod, self.dom, dagger=not self._dagger)
+        return Box(self.name, self.cod, self.dom, dagger=not self._dagger,
+                                                  params=self.params)
 
     def __repr__(self):
         if self._dagger:
-            return "Box(name={}, dom={}, cod={}).dagger()".format(
-                *map(repr, [self.name, self.cod, self.dom]))
-        return "Box(name={}, dom={}, cod={})".format(
-            *map(repr, [self.name, self.dom, self.cod]))
+            return "Box(name={}, dom={}, cod={}, params={}).dagger()".format(
+                *map(repr, [self.name, self.cod, self.dom, self.params]))
+        return "Box(name={}, dom={}, cod={}, params={})".format(
+            *map(repr, [self.name, self.dom, self.cod, self.params]))
 
     def __hash__(self):
         return hash(repr(self))
@@ -190,14 +196,24 @@ class Box(Generator, Diagram):
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
 
+    @property
+    def params(self):
+        return self._params
+
+    @params.setter
+    def params(self, new_params):
+        self._params = new_params
+
 class MonoidalFunctor(Functor):
     """ Implements a monoidal functor given its image on objects and arrows.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> f0, f1 = Box('f0', x, y, params=[0.1]), Box('f1', z, w, params=[1.1])
     >>> ob = {x: z, y: w, z: x, w: y}
     >>> ar = {f0: f1, f1: f0}
     >>> F = MonoidalFunctor(ob, ar)
+    >>> F(f0)
+    Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[1.1])
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
