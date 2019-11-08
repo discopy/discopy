@@ -3,7 +3,6 @@ We can test the axioms of monoidal categories with explicit interchangers. """
 
 from discopy.cat import fold, FAST, Ob, Arrow, Generator, Functor
 
-
 class Ty(list):
     """ Implements a type as a list of objects, used as dom and cod of diagrams.
     Types are the free monoid on objects with product @ and unit Ty().
@@ -45,7 +44,14 @@ class Ty(list):
 class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
+<<<<<<< HEAD
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y, params=[0.2]), Box('f1', z, w, params=[1])
+    >>> assert Id(x) @ f1 >> f0 @ Id(w) == (f0 @ f1).interchange(0, 1)
+    >>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
+=======
     We can check the Eckerman-Hilton argument, up to explicit interchanger.
+>>>>>>> b8625fd23fe226d08182d8a5b19c02e3752ef40c
 
     >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
@@ -186,8 +192,19 @@ class Box(Generator, Diagram):
     Note that as for composition, when we tensor an empty diagram with a box,
     we get a diagram that is defined as equal to the original box.
 
-    >>> f = Box('f', Ty('x', 'y'), Ty('z'))
+    >>> f = Box('f', Ty('x', 'y'), Ty('z'), params=[0.2, 0.3])
     >>> f
+<<<<<<< HEAD
+    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3])
+    >>> f.dagger()
+    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3]).dagger()
+    >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
+    >>> f.params
+    [0.2, 0.3]
+    >>> f.params = [0.5, 0.3, 1]
+    >>> f.params
+    [0.5, 0.3, 1]
+=======
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
     >>> print(f)
     f
@@ -202,23 +219,25 @@ class Box(Generator, Diagram):
     >>> print(f.dagger())
     f.dagger()
     >>> assert f == f.dagger().dagger()
+>>>>>>> b8625fd23fe226d08182d8a5b19c02e3752ef40c
     """
-    def __init__(self, name, dom, cod, dagger=False, params=[]):
+    def __init__(self, name, dom, cod, dagger=False, params=None):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
-        self._name, self._dagger = name, dagger
+        self._name, self._dagger, self._params = name, dagger, params
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
-        return Box(self.name, self.cod, self.dom, dagger=not self._dagger)
+        return Box(self.name, self.cod, self.dom, dagger=not self._dagger,
+                                                  params=self.params)
 
     def __repr__(self):
         if self._dagger:
-            return "Box(name={}, dom={}, cod={}).dagger()".format(
-                *map(repr, [self.name, self.cod, self.dom]))
-        return "Box(name={}, dom={}, cod={})".format(
-            *map(repr, [self.name, self.dom, self.cod]))
+            return "Box(name={}, dom={}, cod={}, params={}).dagger()".format(
+                *map(repr, [self.name, self.cod, self.dom, self.params]))
+        return "Box(name={}, dom={}, cod={}, params={})".format(
+            *map(repr, [self.name, self.dom, self.cod, self.params]))
 
     def __hash__(self):
         return hash(repr(self))
@@ -229,27 +248,66 @@ class Box(Generator, Diagram):
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
 
+    def __copy__(self):
+        return Box(self._name, self._dom, self._cod, dagger=self._dagger,
+                                                        params=self._params)
+
+    @property
+    def params(self):
+        return self._params
+
+    @params.setter
+    def params(self, new_params):
+        self._params = new_params
+
+class ArDict:
+    """Takes a python function and gives a getitem method on it
+
+    >>> func = lambda x: x + 2
+    >>> ar = ArDict(func)
+    >>> ar[3]
+    5
+    """
+    def __init__(self, func):
+        self._func = func
+
+    def __getitem__(self, box):
+        return self._func(box)
+
+    def __repr__(self):
+        return "ArDict({})".format(self._func)
+
 class MonoidalFunctor(Functor):
     """ Implements a monoidal functor given its image on objects and arrows.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> f0, f1 = Box('f0', x, y, params=[0.1]), Box('f1', z, w, params=[1.1])
     >>> ob = {x: z, y: w, z: x, w: y}
-    >>> ar = {f0: f1, f1: f0}
+    >>> ar = ArDict(lambda f: f1 if f == f0 else f0 if f == f1 else None)
     >>> F = MonoidalFunctor(ob, ar)
     >>> assert F(f0) == f1 and F(f1) == f0
+    >>> assert F(F(f0)) == f0
+    >>> F(f0)
+    Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[1.1])
+    >>> f1.params = [2, 3]
+    >>> F(f0)
+    Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[2, 3])
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
+    >>> def ar_func(box):
+    ...    newbox = box.copy()
+    ...    newbox.params = [2*box.params[i] for i in range(len(box.params))]
+    ...    return newbox
+    >>> ar1 = ArDict(ar_func)
+    >>> F1 = MonoidalFunctor(ob, ar1)
     """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
-        assert all(isinstance(f, Box) for f in ar.keys())
         self._objects, self._arrows = ob, ar
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __repr__(self):
-        return "MonoidalFunctor(ob={}, ar={})".format(
-                                self._objects, self._arrows)
+        return "MonoidalFunctor(ob={}, ar={})".format(self._objects, self._arrows)
 
     def __call__(self, d):
         if isinstance(d, Ty):
