@@ -2,7 +2,7 @@
 
 `discopy` computes natural language meaning in pictures.
 
-!["Alice loves Bob" in picture](figures/alice-loves-bob.png)
+!["Alice loves Bob" in picture](alice-loves-bob.png)
 
 The recipe goes in three steps:
 
@@ -13,7 +13,7 @@ from discopy.disco import Pregroup, Word, Cup, Wire
 
 s, n = Pregroup('s'), Pregroup('n')
 Alice = Word('Alice', n)
-loves = Word('loves', n.r + s + n.l)
+loves = Word('loves', n.r @ s @ n.l)
 Bob = Word('Bob', n)
 
 grammar = Cup(n) @ Wire(s) @ Cup(n.l)
