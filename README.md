@@ -6,7 +6,7 @@
 
 ## Recipe
 
-1) draw the picture
+1) Draw your picture.
 
 ```python
 from discopy.disco import Pregroup, Word, Cup, Wire
@@ -20,7 +20,7 @@ grammar = Cup(n) @ Wire(s) @ Cup(n.l)
 sentence = grammar << Alice @ loves @ Bob
 ```
 
-2) define a model
+2) Define a model.
 
 ```python
 from discopy.disco import Model
@@ -30,7 +30,7 @@ ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 F = Model(ob, ar)
 ```
 
-3) compute the meaning!
+3) Compute the meaning!
 
 ```python
 assert F(sentence) == True
