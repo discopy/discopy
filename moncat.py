@@ -4,7 +4,6 @@ Naturality needs to be computed explicitly with interchangers.
 
 from discopy.cat import FAST, Ob, Arrow, Generator, Functor
 
-
 class Ty(list):
     """ Implements a type as a list of objects, used as dom and cod of diagrams.
 
@@ -196,6 +195,10 @@ class Box(Generator, Diagram):
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
 
+    def __copy__(self):
+        return Box(self._name, self._dom, self._cod, dagger=self._dagger,
+                                                        params=self._params)
+
     @property
     def params(self):
         return self._params
@@ -204,29 +207,54 @@ class Box(Generator, Diagram):
     def params(self, new_params):
         self._params = new_params
 
+class ArDict:
+    """Takes a python function and gives a getitem method on it
+
+    >>> func = lambda x: x + 2
+    >>> ar = ArDict(func)
+    >>> ar[3]
+    5
+    """
+    def __init__(self, func):
+        self._func = func
+
+    def __getitem__(self, box):
+        return self._func(box)
+
+    def __repr__(self):
+        return "ArDict({})".format(self._func)
+
 class MonoidalFunctor(Functor):
     """ Implements a monoidal functor given its image on objects and arrows.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y, params=[0.1]), Box('f1', z, w, params=[1.1])
     >>> ob = {x: z, y: w, z: x, w: y}
-    >>> ar = {f0: f1, f1: f0}
+    >>> ar = ArDict(lambda f: f1 if f == f0 else f0 if f == f1 else None)
     >>> F = MonoidalFunctor(ob, ar)
+    >>> assert F(f0) == f1 and F(f1) == f0
+    >>> assert F(F(f0)) == f0
     >>> F(f0)
     Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[1.1])
-    >>> assert F(f0) == f1 and F(f1) == f0
+    >>> f1.params = [2, 3]
+    >>> F(f0)
+    Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[2, 3])
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
+    >>> def ar_func(box):
+    ...    newbox = box.copy()
+    ...    newbox.params = [2*box.params[i] for i in range(len(box.params))]
+    ...    return newbox
+    >>> ar1 = ArDict(ar_func)
+    >>> F1 = MonoidalFunctor(ob, ar1)
     """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
-        assert all(isinstance(f, Box) for f in ar.keys())
         self._objects, self._arrows = ob, ar
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __repr__(self):
-        return "MonoidalFunctor(ob={}, ar={})".format(
-                                self._objects, self._arrows)
+        return "MonoidalFunctor(ob={}, ar={})".format(self._objects, self._arrows)
 
     def __call__(self, d):
         if isinstance(d, Ty):

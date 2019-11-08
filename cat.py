@@ -241,8 +241,6 @@ class Functor:
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ob) for x in ob.keys())
         assert all(isinstance(y, type) for y in ob.values())
-        assert all(isinstance(a, Generator) for a in ar.keys())
-        assert all(isinstance(b, Function) for b in ar.values())
         self._ob, self._ar = ob, ar
 
     @property
