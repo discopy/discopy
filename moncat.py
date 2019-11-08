@@ -4,7 +4,6 @@ Naturality needs to be computed explicitly with interchangers.
 
 from discopy.cat import FAST, Ob, Arrow, Generator, Functor
 
-
 class Ty(list):
     """ Implements a type as a list of objects, used as dom and cod of diagrams.
 
@@ -41,14 +40,7 @@ class Ty(list):
 class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
-<<<<<<< Updated upstream
     We can check the Eckerman-Hilton argument, up to explicit interchanger.
-=======
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y, params=[0.2]), Box('f1', z, w, params=[1])
-    >>> assert Id(x) @ f1 >> f0 @ Id(w) == (f0 @ f1).interchange(0, 1)
-    >>> assert (f0 @ f1).interchange(0, 1).interchange(0, 1) == f0 @ f1
->>>>>>> Stashed changes
 
     >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
@@ -163,7 +155,6 @@ class Box(Generator, Diagram):
 
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
     >>> f
-<<<<<<< Updated upstream
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
     >>> print(f)
     f
@@ -178,17 +169,10 @@ class Box(Generator, Diagram):
     >>> print(f.dagger())
     f.dagger()
     >>> assert f == f.dagger().dagger()
-=======
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3])
-    >>> f.dagger()
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'), params=[0.2, 0.3]).dagger()
-    >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
-    >>> f.params
-    [0.2, 0.3]
+    >>> assert f.params == None
     >>> f.params = [0.5, 0.3, 1]
     >>> f.params
     [0.5, 0.3, 1]
->>>>>>> Stashed changes
     """
     def __init__(self, name, dom, cod, dagger=False, params=None):
         assert isinstance(dom, Ty)
@@ -218,10 +202,6 @@ class Box(Generator, Diagram):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
-
-    def copy(self):
-        return Box(self._name, self._dom, self._cod, dagger=self._dagger,
-                                                        params=self._params)
 
     @property
     def params(self):
@@ -265,12 +245,15 @@ class MonoidalFunctor(Functor):
     Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[2, 3])
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
+    >>> import copy # in order to copy a box, need to use copy.copy()
     >>> def ar_func(box):
-    ...    newbox = box.copy()
-    ...    newbox.params = [2*box.params[i] for i in range(len(box.params))]
+    ...    newbox = copy.copy(box)
+    ...    newbox.params = [200*box.params[i] for i in range(len(box.params))]
     ...    return newbox
     >>> ar1 = ArDict(ar_func)
     >>> F1 = MonoidalFunctor(ob, ar1)
+    >>> F1(f0)
+    Box(name='f0', dom=Ty('x'), cod=Ty('y'), params=[20.0])
     """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
