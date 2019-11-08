@@ -39,7 +39,7 @@ assert F(sentence) == True
 ## Getting Started
 
 ```shell
-pip install git+https://github.com/toumix/discopy.git
+pip install discopy
 ```
 
 ## General Abstract Nonsense
