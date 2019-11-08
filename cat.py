@@ -260,7 +260,7 @@ class Functor:
     >>> bigF  # doctest: +ELLIPSIS
     Functor(ob=..., ar=...)
     >>> bigF(f)  # doctest: +ELLIPSIS
-    Function(f=Functor(...), dom=<class 'cat.Arrow'>, cod=<class 'cat.Arrow'>)
+    Function(f=Functor(...), dom=<class '...Arrow'>, cod=<class '...Arrow'>)
     >>> assert bigF(f)(f)(42) == F(f)(42) == (42, 42)
     """
     def __init__(self, ob, ar):
