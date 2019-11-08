@@ -1,7 +1,7 @@
 """ Implements free monoidal categories and (dagger) monoidal functors.
 We can test the axioms of monoidal categories with explicit interchangers. """
 
-from discopy.cat import FAST, Ob, Arrow, Generator, Functor
+from discopy.cat import fold, FAST, Ob, Arrow, Generator, Functor
 
 
 class Ty(list):
@@ -46,11 +46,13 @@ class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
     We can check the Eckerman-Hilton argument, up to explicit interchanger.
+
     >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
     >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
     We can check bifunctoriality, again up to explicit interchanger.
+
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
     >>> f0 @ f1  # doctest: +ELLIPSIS
@@ -66,6 +68,7 @@ class Diagram(Arrow):
     >>> assert f0 @ f1 == d.interchange(0, 1)
 
     We can check the axioms for dagger monoidal categories, up to interchanger.
+
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
     >>> print((f0 @ f1).dagger())
@@ -182,6 +185,7 @@ class Box(Generator, Diagram):
 
     Note that as for composition, when we tensor an empty diagram with a box,
     we get a diagram that is defined as equal to the original box.
+
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
     >>> f
     Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))

@@ -2,13 +2,13 @@
 """
 
 import numpy as np
-from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
+from discopy.moncat import fold, Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
 DEFAULT_TYPE = int
 
 class Dim(Ty):
-    """ Implements dimensions as tuples of integers strictly greater than 1.
+    """ Implements dimensions as tuples of positive integers.
     Dimensions form a monoid with product + and unit Dim(1).
 
     >>> Dim(2, 3, 4)
@@ -53,12 +53,18 @@ class Dim(Ty):
 class Matrix(Diagram):
     """ Implements a matrix with dom, cod and numpy array.
 
-    >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
+    >>> m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
+    >>> m
+    Matrix(dom=Dim(2, 2), cod=Dim(2), array=[1, 0, 0, 1, 0, 1, 1, 0])
     >>> v = Matrix(Dim(2), Dim(1), [0, 1])
+    >>> v
+    Matrix(dom=Dim(2), cod=Dim(1), array=[0, 1])
     >>> (m >> v).array.flatten()
-    array([1, 0])
+    array([0, 1, 1, 0])
     >>> (v @ v).array.flatten()
     array([0, 0, 0, 1])
+    >>> v.dagger() @ v.dagger() >> m
+    Matrix(dom=Dim(1), cod=Dim(2), array=[1, 0])
     """
     def __init__(self, dom, cod, array):
         dom, cod = Dim(*dom), Dim(*cod)
@@ -103,18 +109,28 @@ class Matrix(Diagram):
         return Id(dim)
 
 class Id(Matrix):
-    """ Implements the identity matrix for a given dimension. """
+    """ Implements the identity matrix for a given dimension.
+
+    >>> Id(1)
+    Matrix(dom=Dim(1), cod=Dim(1), array=[1])
+    >>> Id(2)
+    Matrix(dom=Dim(2), cod=Dim(2), array=[1.0, 0.0, 0.0, 1.0])
+    >>> Id(2).array
+    array([[1., 0.],
+           [0., 1.]])
+    >>> Id(2).array.shape
+    (2, 2)
+    >>> Id(1, 2, 3)  # doctest: +ELLIPSIS
+    Matrix(dom=Dim(2, 3), cod=Dim(2, 3), array=[1.0, ..., 1.0])
+    >>> Id(1, 2, 3).array.shape
+    (2, 3, 2, 3)
+    """
     def __init__(self, *dim):
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        array = 1
-        for x in dim:
-            array = np.tensordot(array, np.identity(x), 0)
-        array = np.moveaxis(array,
+        array = np.moveaxis(
+            fold(lambda a, x: np.tensordot(a, np.identity(x), 0), dim, 1),
             [2 * i for i in range(len(dim))], [i for i in range(len(dim))])
         super().__init__(dim, dim, array)
-
-    def __repr__(self):
-        return "Id({})".format(self.dom)
 
     def __str__(self):
         return repr(self)
@@ -144,8 +160,8 @@ class MatrixFunctor(MonoidalFunctor):
         elif isinstance(d, Ty):
             return Dim(*(self.ob[x] for x in d))
         elif isinstance(d, Box):
-            if d._dagger:
-                return Matrix(self(d.cod), self(d.dom), self.ar[d]).dagger()
+            if d._dagger: return Matrix(
+                self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
         for f, offset in d:
