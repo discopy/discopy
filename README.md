@@ -38,8 +38,16 @@ assert F(sentence) == True
 
 ## Getting Started
 
+Either a) install from pip:
+
 ```shell
 pip install discopy
+```
+
+or b) install from sources:
+```
+git clone https://github.com/toumix/discopy.git
+python discopy/setup.py install
 ```
 
 ## General Abstract Nonsense
