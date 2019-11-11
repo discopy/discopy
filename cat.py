@@ -326,4 +326,4 @@ class Quiver:
         return self._func(box)
 
     def __repr__(self):
-        return "ArDict({})".format(self._func)
+        return "Quiver({})".format(repr(self._func))
