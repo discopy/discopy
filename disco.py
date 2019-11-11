@@ -255,12 +255,10 @@ class Model(MatrixFunctor):
         return "Model(ob={}, ar={})".format(self._types, self._vocab)
 
     def __call__(self, d):
-        if isinstance(d, Adjoint):
-            return int(self.ob[d._basic])
         if isinstance(d, Pregroup):
-            return Dim(*(self(x) for x in d))
+            return Dim(*(self.ob[x._basic] for x in d))
         if isinstance(d, Cup):
-            return Matrix(self(d.dom), Dim(), Id(self(d.dom[0])).array)
+            return Matrix(self(d.dom), Dim(), Id(self(d.dom[:1])).array)
         if isinstance(d, Cap):
-            return Matrix(Dim(), self(d.cod), Id(self(d.cod[0])).array)
+            return Matrix(Dim(), self(d.cod), Id(self(d.cod[:1])).array)
         return super().__call__(d)

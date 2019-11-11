@@ -155,11 +155,9 @@ class MatrixFunctor(MonoidalFunctor):
     array(5)
     """
     def __call__(self, d):
-        if isinstance(d, Ob):
-            return int(self.ob[d])
-        elif isinstance(d, Ty):
+        if isinstance(d, Ty):
             return Dim(*(self.ob[x] for x in d))
-        elif isinstance(d, Box):
+        if isinstance(d, Box):
             if d._dagger: return Matrix(
                 self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
