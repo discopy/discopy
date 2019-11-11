@@ -9,12 +9,16 @@ We can check the axioms of categories and functors.
 >>> assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
 >>> assert f >> g >> h == f >> (g >> h)
 >>>
->>> ob = {x: int, y:tuple, z:int}
->>> ar = dict()
->>> ar[f] = Function(lambda x: (x, x), int, tuple)
->>> ar[g] = Function(lambda x: x[0] + x[1], tuple, int)
+>>> ob, ar = {x: y, y: z, z: x}, {f: g, g: h, h: f >> g >> h >> f}
 >>> F = Functor(ob, ar)
->>> assert F(f >> g)(21) == F(g)(F(f)(21)) == F(Id(x))(42) == 42
+>>> F(x)
+Ob('y')
+>>> F(f)
+Generator(name='g', dom=Ob('y'), cod=Ob('z'))
+>>> F(f >> g >> h)  # doctest: +ELLIPSIS
+Arrow(Ob('y'), Ob('y'), ...)
+>>> assert F(Id(x)) == Id(F(x))
+>>> assert F(f >> g) == F(f) >> F(g)
 """
 
 FAST = False  # If FAST, we do not check axioms (approximately twice faster).
@@ -173,7 +177,7 @@ class Generator(Arrow):
     f.dagger()
     >>> assert f == f.dagger().dagger()
     """
-    def __init__(self, name, dom, cod, dagger=False):
+    def __init__(self, name, dom, cod, dagger=False, params=None):
         assert isinstance(dom, Ob)
         assert isinstance(cod, Ob)
         self._dagger = dagger
@@ -183,6 +187,10 @@ class Generator(Arrow):
     @property
     def name(self):
         return self._name
+
+    @property
+    def params(self):
+        return self._params
 
     def dagger(self):
         return Generator(self.name, self.cod, self.dom, not self._dagger)
@@ -251,21 +259,20 @@ class Functor:
 
     >>> x, y = Ob('x'), Ob('y')
     >>> f = Generator('f', x, y)
-    >>> ob = {x: int, y:tuple}
-    >>> ar = {f: Function(lambda x: (x, x), int, tuple)}
+    >>> ob = {x: y, y: x}
+    >>> ar = {f: f.dagger()}
     >>> F = Functor(ob, ar)
     >>> F  # doctest: +ELLIPSIS
     Functor(ob=..., ar=...)
-    >>> bigF = Functor({x: Arrow, y: Arrow}, {f: Function(F, Arrow, Arrow)})
-    >>> bigF  # doctest: +ELLIPSIS
-    Functor(ob=..., ar=...)
-    >>> bigF(f)  # doctest: +ELLIPSIS
-    Function(f=Functor(...), dom=<class '...Arrow'>, cod=<class '...Arrow'>)
-    >>> assert bigF(f)(f)(42) == F(f)(42) == (42, 42)
+    >>> F(x)
+    Ob('y')
+    >>> F(f)
+    Generator(name='f', dom=Ob('x'), cod=Ob('y')).dagger()
+    >>> F(f.dagger())
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'))
     """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ob) for x in ob.keys())
-        assert all(isinstance(y, type) for y in ob.values())
         self._ob, self._ar = ob, ar
 
     @property
@@ -286,7 +293,37 @@ class Functor:
         if isinstance(f, Ob):
             return self.ob[f]
         if isinstance(f, Generator):
+            if f._dagger: return self.ar[f.dagger()].dagger()
             return self.ar[f]
         assert isinstance(f, Arrow)
-        unit = Function(lambda x: x, self(f.dom), self(f.dom))
-        return fold(lambda g, h: g >> self(h), f, unit)
+        return fold(lambda g, h: g >> self(h), f, Id(self(f.dom)))
+
+class Quiver:
+    """ Wraps a Python function into a dict that holds the arrows of a functor.
+
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Generator('f', x, y), Generator('g', y, z)
+    >>> ob, ar = {o: o for o in [x, y, z]}, Quiver(lambda x: x)
+    >>> ar[3]
+    3
+    >>> ar[3] = 4  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+        ar[3] = 4
+    TypeError: 'Quiver' object does not support item assignment
+    >>> F = Functor(ob, ar)
+    >>> F(x)
+    Ob('x')
+    >>> F(f)
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'))
+    >>> F(f >> g)  # doctest: +ELLIPSIS
+    Arrow(Ob('x'), Ob('z'), ...)
+    """
+    def __init__(self, func):
+        self._func = func
+
+    def __getitem__(self, box):
+        return self._func(box)
+
+    def __repr__(self):
+        return "ArDict({})".format(self._func)
