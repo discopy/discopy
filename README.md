@@ -54,11 +54,9 @@ python discopy/setup.py install
 
 `discopy` is a Python implementation of the categorical compositional distributional (DisCoCat) models, see [arXiv:1003.4394](https://arxiv.org/abs/1003.4394), [arXiv:1106.4058](https://arxiv.org/abs/1106.4058), [arXiv:1904.03478](https://arxiv.org/abs/1904.03478).
 
-* `cat.Arrow`, `cat.Generator` implement free (dagger) categories.
-* `cat.Functor` implements Python-valued functors.
-* `moncat.Diagram` and `moncat.Box` implement free (dagger) monoidal categories.
-* `moncat.MonoidalFunctor` implements free (dagger) monoidal functors.
+* `cat.Arrow` and `cat.Functor` implement free (dagger) categories and functors.
+* `moncat.Diagram` and `moncat.MonoidalFunctor` implement free (dagger) monoidal categories and functors.
 * `matrix.MatrixFunctor` implements matrix-valued (dagger) monoidal functors.
-* `disco.Pregroup`, `disco.Cup` and `disco.Cap` implement free dagger pivotal monoidal categories.
+* `disco.Pregroup`, `disco.Cup` and `disco.Cap` implement free dagger pivotal and rigid monoidal categories.
 * `disco.Word`, `disco.Grammar`, `disco.Parse` implement pregroup grammars.
-* `disco.Model` implements rigid monoidal functors and dagger pivotal monoidal functors.
+* `disco.Model` implements rigid monoidal functors.
