@@ -47,7 +47,8 @@ pip install discopy
 or b) install from sources:
 ```
 git clone https://github.com/toumix/discopy.git
-python discopy/setup.py install
+cd discopy
+python setup.py install
 ```
 
 ## General Abstract Nonsense
