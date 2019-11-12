@@ -9,6 +9,6 @@ setup(name='discopy',
       url='https://github.com/toumix/discopy',
       author='Alexis Toumi',
       author_email='alexis.toumi@gmail.com',
-      download_url='https://github.com/toumix/discopy/archive/0.0.1.tar.gz',
+      download_url='https://github.com/toumix/discopy/archive/0.0.1.1.tar.gz',
       install_requires=['numpy'],
       )
