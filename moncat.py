@@ -1,7 +1,9 @@
-""" Implements free monoidal categories and (dagger) monoidal functors.
-We can test the axioms of monoidal categories with explicit interchangers. """
+"""
+Implements free monoidal categories and (dagger) monoidal functors.
+We can test the axioms of monoidal categories with explicit interchangers.
+"""
 
-from discopy.cat import fold, FAST, Ob, Arrow, Generator, Functor, Quiver
+from discopy.cat import FAST, Ob, Arrow, Generator, Functor, Quiver
 
 
 class Ty(list):
@@ -86,7 +88,6 @@ class Diagram(Arrow):
         assert all(isinstance(n, int) for n in offsets)
         self._dom, self._cod = dom, cod
         self._boxes, self._offsets = boxes, offsets
-        self._data = list(zip(boxes, offsets))  # used by the Arrow class
         list.__init__(self, zip(boxes, offsets))
         if not FAST:
             scan = dom
@@ -102,6 +103,10 @@ class Diagram(Arrow):
     @property
     def offsets(self):
         return self._offsets
+
+    def __eq__(self, other):
+        return all(self.__getattribute__(attr) == other.__getattribute__(attr)
+                   for attr in ['dom', 'cod', 'boxes', 'offsets'])
 
     def __repr__(self):
         if not self:  # i.e. self is identity.
@@ -203,25 +208,25 @@ class Box(Generator, Diagram):
     f.dagger()
     >>> assert f == f.dagger().dagger()
     """
-    def __init__(self, name, dom, cod, dagger=False, params=None):
+    def __init__(self, name, dom, cod, dagger=False, data=None):
         assert isinstance(dom, Ty)
         assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
-        self._name, self._dagger, self._params = name, dagger, params
+        self._name, self._dagger, self._data = name, dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
         return Box(self.name, self.cod, self.dom,
-                   dagger=not self._dagger, params=self.params)
+                   dagger=not self._dagger, data=self.data)
 
     def __repr__(self):
         if self._dagger:
             return "Box(name={}, dom={}, cod={}{}).dagger()".format(
                 *map(repr, [self.name, self.cod, self.dom]),
-                ", params=" + repr(self.params) if self.params else '')
+                ", data=" + repr(self.data) if self.data else '')
         return "Box(name={}, dom={}, cod={}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
-            ", params=" + repr(self.params) if self.params else '')
+            ", data=" + repr(self.data) if self.data else '')
 
     def __hash__(self):
         return hash(repr(self))
@@ -236,19 +241,19 @@ class MonoidalFunctor(Functor):
     """ Implements a monoidal functor given its image on objects and arrows.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y, params=[0.1]), Box('f1', z, w, params=[1.1])
+    >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
     >>> ob = {x: z, y: w, z: x, w: y}
     >>> ar = Quiver(lambda f: f1 if f == f0 else f0 if f == f1 else None)
     >>> F = MonoidalFunctor(ob, ar)
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(F(f0)) == f0
     >>> F(f0)
-    Box(name='f1', dom=Ty('z'), cod=Ty('w'), params=[1.1])
+    Box(name='f1', dom=Ty('z'), cod=Ty('w'), data=[1.1])
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
     >>> def ar_func(box):
     ...    newbox = box.copy()
-    ...    newbox.params = [2*box.params[i] for i in range(len(box.params))]
+    ...    newbox.data = [2*box.data[i] for i in range(len(box.data))]
     ...    return newbox
     >>> ar1 = Quiver(ar_func)
     >>> F1 = MonoidalFunctor(ob, ar1)

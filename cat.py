@@ -60,7 +60,7 @@ class Ob(object):
         return hash(repr(self))
 
 class Arrow(list):
-    """ Defines an arrow with domain, codomain and data: a list of generators.
+    """ Defines an arrow with domain, codomain and gens: a list of generators.
 
     >>> f = Generator('f', Ob('x'), Ob('y'))
     >>> g = Generator('g', Ob('y'), Ob('z'))
@@ -77,20 +77,20 @@ class Arrow(list):
     Arrow(Ob('z'), Ob('x'), [Generator(name='g', ...).dagger(), ...])
     >>> assert h.dagger() == g.dagger() >> f.dagger()
     """
-    def __init__(self, dom, cod, data):
+    def __init__(self, dom, cod, gens):
         if not FAST:
             assert isinstance(dom, Ob)
             assert isinstance(cod, Ob)
-            assert isinstance(data, list)
-            assert all(isinstance(f, Arrow) for f in data)
+            assert isinstance(gens, list)
+            assert all(isinstance(f, Arrow) for f in gens)
             u = dom
-            for f in data:
-                assert f.data  # i.e. f is not the identity arrow
+            for f in gens:
+                assert f.gens  # i.e. f is not the identity arrow
                 assert u == f.dom
                 u = f.cod
             assert u == cod
-        self._dom, self._cod, self._data = dom, cod, data
-        super().__init__(data)
+        self._dom, self._cod, self._gens = dom, cod, gens
+        super().__init__(gens)
 
     @property
     def dom(self):
@@ -101,12 +101,12 @@ class Arrow(list):
         return self._cod
 
     @property
-    def data(self):
-        return self._data
+    def gens(self):
+        return self._gens
 
     def __repr__(self):
         return "Arrow({}, {}, {})".format(
-            repr(self.dom), repr(self.cod), repr(self.data))
+            repr(self.dom), repr(self.cod), repr(self.gens))
 
     def __str__(self):
         return " >> ".join(map(str, self))
@@ -115,12 +115,12 @@ class Arrow(list):
         if not isinstance(other, Arrow):
             return False
         return self.dom == other.dom and self.cod == other.cod\
-            and all(x == y for x, y in zip(self.data, other.data))
+            and all(x == y for x, y in zip(self.gens, other.gens))
 
     def then(self, other):
         assert isinstance(other, Arrow)
         assert self.cod == other.dom
-        return Arrow(self.dom, other.cod, self.data + other.data)
+        return Arrow(self.dom, other.cod, self.gens + other.gens)
 
     def __rshift__(self, other):
         return self.then(other)
@@ -129,7 +129,7 @@ class Arrow(list):
         return other.then(self)
 
     def dagger(self):
-        return Arrow(self.cod, self.dom, [f.dagger() for f in self.data[::-1]])
+        return Arrow(self.cod, self.dom, [f.dagger() for f in self.gens[::-1]])
 
     @staticmethod
     def id(x):
@@ -157,31 +157,33 @@ class Id(Arrow):
 
 class Generator(Arrow):
     """ Defines a generator as an arrow with a name, and itself as generator.
+    Generators can hold any Python object as data attribute, default is None.
 
-    We can check the axioms for free dagger categories.
-    Note that when we compose a generator with an identity, we get an arrow that
-    is defined as equal to the original generator.
-    >>> f = Generator('f', Ob('x'), Ob('y'))
-    >>> f
-    Generator(name='f', dom=Ob('x'), cod=Ob('y'))
-    >>> list(f)
-    [Generator(name='f', dom=Ob('x'), cod=Ob('y'))]
+    We can check the axioms for free dagger categories. Note that when we
+    compose a generator with an identity, we get an arrow that is defined
+    as equal to the original generator.
+
+    >>> f = Generator('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
+    >>> f  # doctest: +ELLIPSIS
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'), data=[42, ...])
+    >>> list(f)  # doctest: +ELLIPSIS
+    [Generator(name='f', dom=Ob('x'), cod=Ob('y'), data=[42, ...])]
     >>> print(f)
     f
-    >>> Id(Ob('x')) >> f
-    Arrow(Ob('x'), Ob('y'), [Generator(name='f', dom=Ob('x'), cod=Ob('y'))])
+    >>> Id(Ob('x')) >> f  # doctest: +ELLIPSIS
+    Arrow(Ob('x'), Ob('y'), [Generator(name='f', ...)])
     >>> assert Id(Ob('x')) >> f == f == f >> Id(Ob('y'))
-    >>> f.dagger()
-    Generator(name='f', dom=Ob('x'), cod=Ob('y')).dagger()
+    >>> f.dagger()  # doctest: +ELLIPSIS
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'), data=[42, ...]).dagger()
     >>> print(f.dagger())
     f.dagger()
     >>> assert f == f.dagger().dagger()
     """
-    def __init__(self, name, dom, cod, dagger=False, params=None):
+    def __init__(self, name, dom, cod, dagger=False, data=None):
         assert isinstance(dom, Ob)
         assert isinstance(cod, Ob)
-        self._dagger = dagger
-        self._name, self._dom, self._cod, self._data = name, dom, cod, [self]
+        self._name, self._dom, self._cod,  = name, dom, cod
+        self._gens, self._dagger, self._data = [self], dagger, data
         super().__init__(dom, cod, [self])
 
     @property
@@ -189,18 +191,21 @@ class Generator(Arrow):
         return self._name
 
     @property
-    def params(self):
-        return self._params
+    def data(self):
+        return self._data
 
     def dagger(self):
-        return Generator(self.name, self.cod, self.dom, not self._dagger)
+        return Generator(self.name, self.cod, self.dom,
+                         dagger=not self._dagger, data=self.data)
 
     def __repr__(self):
         if self._dagger:
-            return "Generator(name={}, dom={}, cod={}).dagger()".format(
-                *map(repr, [self.name, self.cod, self.dom]))
-        return "Generator(name={}, dom={}, cod={})".format(
-            *map(repr, [self.name, self.dom, self.cod]))
+            return "Generator(name={}, dom={}, cod={}{}).dagger()".format(
+                *map(repr, [self.name, self.cod, self.dom]),
+                ", data=" + repr(self.data) if self.data else '')
+        return "Generator(name={}, dom={}, cod={}{})".format(
+            *map(repr, [self.name, self.dom, self.cod]),
+            ", data=" + repr(self.data) if self.data else '')
 
     def __str__(self):
         return str(self.name) + (".dagger()" if self._dagger else '')
@@ -213,52 +218,13 @@ class Generator(Arrow):
             return False
         if isinstance(other, Generator):
             return repr(self) == repr(other)
-        return len(other) == 1 and other.data[0] == self
-
-class Function(Generator):
-    """ Defines a Python function with Python types as domain and codomain.
-
-    >>> f = Function(lambda x: (x, x), int, tuple)
-    >>> f  # doctest: +ELLIPSIS
-    Function(f=<function <lambda> ...>, dom=<class 'int'>, cod=<class 'tuple'>)
-    >>> f(42)
-    (42, 42)
-    >>> f('a')  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ... assert isinstance(x, self.dom)
-    AssertionError
-    >>> g = Function(lambda x: (x, x) if x == 42 else x + 1, int, tuple)
-    >>> g(42)
-    (42, 42)
-    >>> g(41)  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ... assert isinstance(x, self.cod)
-    AssertionError
-    """
-    def __init__(self, f, dom, cod):
-        assert isinstance(dom, type)
-        assert isinstance(cod, type)
-        self._name, self._dom, self._cod, self._dagger = f, dom, cod, False
-
-    def __repr__(self):
-        return "Function(f={}, dom={}, cod={})".format(
-            *map(repr, [self.name, self.dom, self.cod]))
-
-    def __call__(self, x):
-        assert isinstance(x, self.dom)
-        y = self.name(x)
-        assert isinstance(y, self.cod)
-        return y
-
-    def then(self, other):
-        return Function(lambda x: other(self(x)), self.dom, other.cod)
+        return len(other) == 1 and other.gens[0] == self
 
 class Functor:
     """ Defines a Python-valued functor F given its image on objects and arrows.
-    It is possible to define a functor bigF into (a one-object version of) Cat.
 
     >>> x, y = Ob('x'), Ob('y')
-    >>> f = Generator('f', x, y)
+    >>> f = Generator('f', x, y, data=[1, 1, 0])
     >>> ob = {x: y, y: x}
     >>> ar = {f: f.dagger()}
     >>> F = Functor(ob, ar)
@@ -267,9 +233,9 @@ class Functor:
     >>> F(x)
     Ob('y')
     >>> F(f)
-    Generator(name='f', dom=Ob('x'), cod=Ob('y')).dagger()
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'), data=[1, 1, 0]).dagger()
     >>> F(f.dagger())
-    Generator(name='f', dom=Ob('x'), cod=Ob('y'))
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'), data=[1, 1, 0])
     """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ob) for x in ob.keys())

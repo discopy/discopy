@@ -2,7 +2,8 @@
 """
 
 import numpy as np
-from discopy.moncat import fold, Ob, Ty, Box, Diagram, MonoidalFunctor
+from functools import reduce as fold
+from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
 DEFAULT_TYPE = int
@@ -157,7 +158,7 @@ class MatrixFunctor(MonoidalFunctor):
     def __call__(self, d):
         if isinstance(d, Ty):
             return Dim(*(self.ob[x] for x in d))
-        if isinstance(d, Box):
+        elif isinstance(d, Box):
             if d._dagger: return Matrix(
                 self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
