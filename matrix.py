@@ -140,7 +140,7 @@ class MatrixFunctor(MonoidalFunctor):
     """ Implements a matrix-valued functor.
 
     >>> x, y = Ty('x'), Ty('y')
-    >>> f, g = Box('f', x + x, y), Box('g', y, Ty())
+    >>> f, g = Box('f', x @ x, y), Box('g', y, Ty())
     >>> ob = {x: 2, y: 3}
     >>> ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
     >>> F = MatrixFunctor(ob, ar)

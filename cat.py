@@ -268,7 +268,6 @@ class Quiver:
     """ Wraps a Python function into a dict that holds the arrows of a functor.
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g = Generator('f', x, y), Generator('g', y, z)
     >>> ob, ar = {o: o for o in [x, y, z]}, Quiver(lambda x: x)
     >>> ar[3]
     3
@@ -280,8 +279,9 @@ class Quiver:
     >>> F = Functor(ob, ar)
     >>> F(x)
     Ob('x')
+    >>> f, g = Generator('f', x, y, data=[0, 1]), Generator('g', y, z, data=[0])
     >>> F(f)
-    Generator(name='f', dom=Ob('x'), cod=Ob('y'))
+    Generator(name='f', dom=Ob('x'), cod=Ob('y'), data=[0, 1])
     >>> F(f >> g)  # doctest: +ELLIPSIS
     Arrow(Ob('x'), Ob('z'), ...)
     """
