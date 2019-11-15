@@ -9,7 +9,7 @@
 1) Draw your picture.
 
 ```python
-from discopy.disco import Pregroup, Word, Cup, Wire
+from discopy import Pregroup, Word, Cup, Wire
 
 s, n = Pregroup('s'), Pregroup('n')
 Alice = Word('Alice', n)
@@ -23,7 +23,7 @@ sentence = grammar << Alice @ loves @ Bob
 2) Define a model.
 
 ```python
-from discopy.disco import Model
+from discopy import Model
 
 ob = {s: 1, n: 2}
 ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
