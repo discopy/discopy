@@ -36,6 +36,11 @@ F = Model(ob, ar)
 assert F(sentence) == True
 ```
 
+## Requirements
+
+* `python3`
+* `numpy`
+
 ## Getting Started
 
 Either a) install from pip:
