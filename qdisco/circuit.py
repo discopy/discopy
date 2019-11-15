@@ -159,7 +159,7 @@ class Id(Circuit):
         super().__init__(n_qubits, [], [])
 
 class Gate(Box, Circuit):
-    """ Gates are generators for Circuits
+    """ Gates are generating Circuits
 
     >>> SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
     >>> H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)

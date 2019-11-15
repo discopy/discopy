@@ -215,6 +215,21 @@ class Word(Grammar, Box):
         return str(self.word)
 
 class Parse(Grammar):
+    """ Produces the diagram of a pregroup parsing for a typed sentence
+
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice, Bob, jokes = Word('Alice', n), Word('Bob', n), Word('jokes', n)
+    >>> loves, tells = Word('loves', n.r + s + n.l), Word('tells', n.r + s + n.l)
+    >>> who = Word('who', n.r + n.l.r + s.l + n)
+    >>> parse = Parse([Alice, loves, Bob], [0, 1])
+    >>> parse.dom
+    Pregroup('Alice', 'loves', 'Bob')
+    >>> parse.cod
+    Pregroup('s')
+    >>> parse._type
+    Pregroup('n', Adjoint('n', 1), 's', Adjoint('n', -1), 'n')
+    >>> parse1 = Parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
+    """
     def __init__(self, words, cups):
         self._words, self._cups = words, cups
         self._type = sum((w.type for w in words), Pregroup())
@@ -233,7 +248,8 @@ class Parse(Grammar):
             self.cod, self.boxes[len(self._words):], self._cups))
 
 class Model(MatrixFunctor):
-    """
+    """ Implements functors from pregroup grammars to matrices
+
     >>> n = Pregroup('n')
     >>> F = Model({n: 2}, {})
     >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
