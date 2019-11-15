@@ -3,7 +3,7 @@ Implements free monoidal categories and (dagger) monoidal functors.
 We can test the axioms of monoidal categories with explicit interchangers.
 """
 
-from discopy.cat import FAST, Ob, Arrow, Generator, Functor, Quiver
+from discopy.cat import _config, Ob, Arrow, Gen, Functor, Quiver
 
 
 class Ty(list):
@@ -89,7 +89,7 @@ class Diagram(Arrow):
         self._dom, self._cod = dom, cod
         self._boxes, self._offsets = boxes, offsets
         list.__init__(self, zip(boxes, offsets))
-        if not FAST:
+        if not _config.fast:
             scan = dom
             for f, n in zip(boxes, offsets):
                 assert scan[n : n + len(f.dom)] == f.dom
@@ -185,7 +185,7 @@ class Id(Diagram):
     def __str__(self):
         return "Id({})".format(str(self.dom))
 
-class Box(Generator, Diagram):
+class Box(Gen, Diagram):
     """ Implements a box as a diagram with a name and itself as box.
 
     Note that as for composition, when we tensor an empty diagram with a box,
