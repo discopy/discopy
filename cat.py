@@ -264,8 +264,12 @@ class Gen(Arrow):
     @property
     def data(self):
         """
-        >>> Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}]).data
+        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> f.data
         [42, {0: 1}]
+        >>> f.data[1][0] = 2
+        >>> f.data
+        [42, {0: 2}]
         """
         return self._data
 
@@ -396,11 +400,12 @@ class Quiver:
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> F = Functor({x: x, y: y, z: z}, Quiver(lambda x: x))
-    >>> f, g = Gen('f', x, y, data=[0, 1]), Gen('g', y, z, data=[0])
+    >>> f = Gen('f', x, y, data=[0, 1])
     >>> F(f)
     Gen('f', Ob('x'), Ob('y'), data=[0, 1])
-    >>> F(f >> g)  # doctest: +ELLIPSIS
-    Arrow(Ob('x'), Ob('z'), ...)
+    >>> f.data.append(2)
+    >>> F(f)
+    Gen('f', Ob('x'), Ob('y'), data=[0, 1, 2])
     """
     def __init__(self, func):
         """
