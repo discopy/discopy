@@ -1,25 +1,3 @@
-""" Implements quantum circuits as diagrams
-
->>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
-...     assert np.all((U >> U.dagger()).eval() == Circuit.id(U.n_qubits).eval())
->>> for U in [H, T >> T >> T >> T]:
-...     assert np.allclose((U >> U.dagger()).eval(), Circuit.id(U.n_qubits).eval())
->>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
->>> c1 = Circuit.from_tk(c1_tk)
->>> assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
->>> c2_tk = c1.to_tk()
->>> c2 = Circuit.from_tk(c2_tk)
->>> assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
->>> assert c1 == c2  # This works as long as there are no interchangers!
->>> x, y, z = Ty('x'), Ty('y'), Ty('z')
->>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
->>> d = (f @ Diagram.id(z)
-...       >> Diagram.id(y) @ g @ Diagram.id(z)
-...       >> Diagram.id(y) @ h)
->>> F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)}, {f: SWAP, g: Rx(0.25), h: CX})
->>> assert F(d) == c1
-"""
-
 import math
 import numpy as np
 from random import random, randint
@@ -35,6 +13,20 @@ PRO = lambda n: sum(n * [Ty(1)], Ty())
 
 
 class Circuit(Diagram):
+    """ Implements quantum circuits as diagrams
+
+    >>> SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
+    >>> H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
+    >>> X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
+    >>> assert isinstance(H >> S >> T, Circuit)
+    >>> circuit = CX >> SWAP >> CX >> SWAP >> CX
+    >>> assert np.all(circuit.eval() == SWAP.eval())
+    >>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
+    ...     assert np.all((U >> U.dagger()).eval() == Circuit.id(U.n_qubits).eval())
+    >>> for U in [H, T >> T >> T >> T]:
+    ...     assert np.allclose((U >> U.dagger()).eval(), Circuit.id(U.n_qubits).eval())
+    """
+
     def __init__(self, n_qubits, gates, offsets):
         self.n_qubits = n_qubits
         super().__init__(PRO(n_qubits), PRO(n_qubits), gates, offsets)
@@ -62,6 +54,16 @@ class Circuit(Diagram):
     def eval(self):
         return EVAL(self)
 
+    """ Interface with pytket
+
+    >>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
+    >>> c1 = Circuit.from_tk(c1_tk)
+    >>> assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
+    >>> c2_tk = c1.to_tk()
+    >>> c2 = Circuit.from_tk(c2_tk)
+    >>> assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
+    >>> assert c1 == c2  # This works as long as there are no interchangers!
+    """
     def to_tk(self):
         c = tk.Circuit(len(self.dom))
         for g, n in zip(self.boxes, self.offsets):
@@ -91,9 +93,15 @@ class Circuit(Diagram):
             offsets.append(i0)
         return Circuit(c.n_qubits, gates, offsets)
 
+    """ 1-qubit Euler ansatz
+
+    """
     def Euler(x0, z, x1):
         return Circuit(1, [Rx(x0), Rz(z), Rx(x1)], [0, 0, 0])
 
+    """ Random Tiling ansatz
+
+    """
     @staticmethod
     def random(n_qubits, depth, gateset=[]):
         if n_qubits == 1:
@@ -162,6 +170,18 @@ class Gate(Box, Circuit):
                     dagger=not self._dagger, data=self.data)
 
 class CircuitFunctor(MonoidalFunctor):
+    """ Implements funtors from monoidal categories to circuits
+
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
+    >>> d = (f @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ h)
+    >>> F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)}, {f: SWAP, g: Rx(0.25), h: CX})
+    >>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
+    >>> c1 = Circuit.from_tk(c1_tk)
+    >>> assert F(d) == c1
+    """
     def __call__(self, d):
         r = super().__call__(d)
         if isinstance(d, Diagram):
