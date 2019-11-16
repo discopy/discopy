@@ -87,8 +87,8 @@ class QParse(Diagram):
         super().__init__(dom, cod, boxes, offsets)
 
     def __str__(self):
-        return "{} >> {}".format(" @ ".join(self._words), Grammar(self._type,
-            self.cod, self.boxes[len(self._words):], self._cups))
+        return "{} >> {}".format(" @ ".join(self._words), str(Diagram(self._type,
+            self.cod, self.boxes[len(self._words) + 1:], self._cups)))
 
 class CircuitModel(CircuitFunctor):
     def __init__(self, ob, ar):
@@ -118,6 +118,7 @@ class CircuitModel(CircuitFunctor):
             return Gate('GSWAP', n_qubits, data=[len(self.__call__(d.dom0))])
         return super().__call__(d)
 
+# We can encode the language of a pregroup grammar into QParses
 
 s, n = Pregroup('s'), Pregroup('n')
 B = [s, n]
@@ -131,6 +132,24 @@ parse0 = QParse([Alice, loves, Bob], [0, 2])
 parse1 = QParse([Alice, loves, Bob, who, tells, jokes],
                 [0,  3, 2, 5, 4, 6])
 parse2 = QParse([Bob, tells, jokes], [0, 2])
+
+# We can translate parses from disco.py to qparses
+
+def parse_to_qparse(cups):
+    dummy_count = 0
+    qcups = [cups[0]]
+    for i in range(1, len(cups)):
+        dummy_count = i
+        if cups[i - 1] == cups[i] + 1:
+            qcups += [cups[i] + dummy_count - 1]
+        else:
+            qcups += [cups[i] + dummy_count]
+    return qcups
+
+assert parse_to_qparse([0,1]) == [0,2] == parse0._cups
+assert parse_to_qparse([0, 2, 1, 2, 1, 1]) == parse1._cups
+
+# We can map QParses to Circuits
 
 ob = {s: PRO(0), n: PRO(2)}
 ob.update({Dummy(x): ob[x] + ob[x] for x in B})
@@ -148,4 +167,3 @@ F = CircuitModel(ob, ar)
 circuit0 = F(parse0)
 circuit1 = F(parse1)
 circuit2 = F(parse2)
-# assert F(sentence) == True
