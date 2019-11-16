@@ -107,9 +107,16 @@ class Grammar(Diagram):
     """ Implements diagrams in free rigid categories, by checking that the domain
     and codomain are pregroup types.
 
-    >>> n = Pregroup('n')
+    >>> n, b = Pregroup('n'), Pregroup('b')
+    >>> Alice = Word('b', n)
     >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
     >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+
+    Transposition only works for morphisms between simple types for nowself.
+
+    >>> assert Alice.transpose_r() == Cap(b.r) @ Wire(n.r) >> Wire(b.r) @ Alice @ Wire(n.r) >> Wire(b.r) @ Cup(n)
+    >>> assert Wire(n.l).transpose_r() == snake_l
+    >>> assert Wire(n.r).transpose_l() == snake_r
     """
     def __init__(self, dom, cod, boxes, offsets):
         assert isinstance(dom, Pregroup) and isinstance(cod, Pregroup)
@@ -126,6 +133,16 @@ class Grammar(Diagram):
     def dagger(self):
         return Grammar(self.cod, self.dom,
             [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
+
+    def transpose_r(self):
+        a = self.dom
+        b = self.cod
+        return Cap(a.r) @ Wire(b.r) >> Wire(a.r) @ self @ Wire(b.r) >> Wire(a.r) @ Cup(b)
+
+    def transpose_l(self):
+        a = self.dom
+        b = self.cod
+        return Wire(b.l) @ Cap(a) >> Wire(b.l) @ self @ Wire(a.l) >> Cup(b.l) @ Wire(a.l)
 
     @staticmethod
     def id(t):
@@ -290,7 +307,7 @@ class Parse(Grammar):
 
     def __str__(self):
         return "{} >> {}".format(" @ ".join(self._words), Grammar(self._type,
-            self.cod, self.boxes[len(self._words):], self._cups))
+            self.cod, self.boxes[len(self._words):], ))
 
 class Model(MatrixFunctor):
     """ Implements functors from pregroup grammars to matrices
