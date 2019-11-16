@@ -112,7 +112,7 @@ class Grammar(Diagram):
     >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
     >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
 
-    Transposition only works for morphisms between simple types for nowself.
+    We take take transposes of any morphism.
 
     >>> assert Alice.transpose_r() == Cap(b.r) @ Wire(n.r) >> Wire(b.r) @ Alice @ Wire(n.r) >> Wire(b.r) @ Cup(n)
     >>> assert Wire(n.l).transpose_r() == snake_l
@@ -137,16 +137,62 @@ class Grammar(Diagram):
     def transpose_r(self):
         a = self.dom
         b = self.cod
-        return Cap(a.r) @ Wire(b.r) >> Wire(a.r) @ self @ Wire(b.r) >> Wire(a.r) @ Cup(b)
+        return Grammar.cap(a.r) @ Wire(b.r) >> Wire(a.r) @ self @ Wire(b.r) >> \
+               Wire(a.r) @ Grammar.cup(b)
 
     def transpose_l(self):
         a = self.dom
         b = self.cod
-        return Wire(b.l) @ Cap(a) >> Wire(b.l) @ self @ Wire(a.l) >> Cup(b.l) @ Wire(a.l)
+        return Wire(b.l) @ Grammar.cap(a) >> Wire(b.l) @ self @ Wire(a.l) >> \
+               Grammar.cup(b.l) @ Wire(a.l)
 
     @staticmethod
     def id(t):
         return Wire(t)
+
+    @staticmethod
+    def cup(t):
+        """ Define cups for pregroup types.
+
+        >>> n, s = Pregroup('n'), Pregroup('s')
+        >>> Grammar.cup(n @ s @ n).dom
+        Pregroup('n', 's', 'n', Adjoint('n', 1), Adjoint('s', 1), Adjoint('n', 1))
+        >>> Grammar.cup(n @ s @ n).boxes
+        [Cup('n'), Cup('s'), Cup('n')]
+        >>> Grammar.cup(n @ s @ n).offsets
+        [2, 1, 0]
+        >>> Grammar.cup(n @ s @ n).cod
+        Pregroup()
+        >>> assert Grammar.cup(n) == Cup('n')
+        """
+        assert isinstance(t, Pregroup)
+        dom = t @ t.r
+        cod = Pregroup()
+        boxes = [Cup(b) for b in t[::-1]]
+        offsets = list(range(len(t)))[::-1]
+        return Grammar(dom, cod, boxes, offsets)
+
+    @staticmethod
+    def cap(t):
+        """ Define caps for a pregroup types.
+
+        >>> n, s = Pregroup('n'), Pregroup('s')
+        >>> Grammar.cap(n @ s).dom
+        Pregroup()
+        >>> Grammar.cap(n @ s).boxes
+        [Cap('n'), Cap('s')]
+        >>> Grammar.cap(n @ s).offsets
+        [0, 1]
+        >>> Grammar.cap(n @ s).cod
+        Pregroup('n', 's', Adjoint('s', -1), Adjoint('n', -1))
+        >>> assert Grammar.cap(n) == Cap('n')
+        """
+        assert isinstance(t, Pregroup)
+        dom = Pregroup()
+        cod = t @ t.l
+        boxes = [Cap(b) for b in t]
+        offsets = list(range(len(t)))
+        return Grammar(dom, cod, boxes, offsets)
 
     def __repr__(self):
         return "Grammar(dom={}, cod={}, boxes={}, offsets={})".format(
@@ -173,7 +219,7 @@ class Wire(Grammar):
         return "Wire({})".format(str(self.dom))
 
 class Cup(Grammar, Box):
-    """ Define a cup in a free rigid category, witnessing adjoint types.
+    """ Defines cups for simple types.
 
     >>> Cup('n').dom
     Pregroup('n', Adjoint('n', 1))
@@ -202,7 +248,7 @@ class Cup(Grammar, Box):
                                 ", dagger=True" if self._dagger else "")
 
 class Cap(Grammar, Box):
-    """ Define a cap in a free rigid category, witnessing adjoint types.
+    """ Defines caps for simple types.
 
     >>> Cap('n').dom
     Pregroup()
