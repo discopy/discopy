@@ -18,7 +18,7 @@ from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 
 class Adjoint(Ob):
     """
-    Implements basic types and their iterated adjoints.
+    Implements basic types and their iterated adjoints, also known as simple types.
 
     >>> a = Adjoint('a', 0)
     >>> a
@@ -104,6 +104,13 @@ class Pregroup(Ty):
         return len(self) == 1 and not self[0]._z
 
 class Grammar(Diagram):
+    """ Implements diagrams in free rigid categories, by checking that the domain
+    and codomain are pregroup types.
+
+    >>> n = Pregroup('n')
+    >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+    >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+    """
     def __init__(self, dom, cod, boxes, offsets):
         assert isinstance(dom, Pregroup) and isinstance(cod, Pregroup)
         super().__init__(dom, cod, boxes, offsets)
@@ -132,6 +139,10 @@ class Grammar(Diagram):
         return repr(self)
 
 class Wire(Grammar):
+    """ Define an identity arrow in a free rigid category
+
+    >>> assert Wire(Pregroup('x')) == Grammar(Pregroup('x'), Pregroup('x'), [], [])
+    """
     def __init__(self, t):
         if isinstance(t, Word):
             t = t.dom
@@ -145,6 +156,13 @@ class Wire(Grammar):
         return "Wire({})".format(str(self.dom))
 
 class Cup(Grammar, Box):
+    """ Define a cup in a free rigid category, witnessing adjoint types.
+
+    >>> Cup('n').dom
+    Pregroup('n', Adjoint('n', 1))
+    >>> Cup('n').cod
+    Pregroup()
+    """
     def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
             assert len(x) == 1
@@ -167,6 +185,13 @@ class Cup(Grammar, Box):
                                 ", dagger=True" if self._dagger else "")
 
 class Cap(Grammar, Box):
+    """ Define a cap in a free rigid category, witnessing adjoint types.
+
+    >>> Cap('n').dom
+    Pregroup()
+    >>> Cap('n').cod
+    Pregroup('n', Adjoint('n', -1))
+    """
     def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
             assert len(x) == 1
@@ -189,6 +214,20 @@ class Cap(Grammar, Box):
                                 ", dagger=True" if self._dagger else "")
 
 class Word(Grammar, Box):
+    """ Encodes words with their pregroup type as diagrams in free rigid categories
+
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice = Word('Alice', n)
+    >>> Alice.dom
+    Pregroup('Alice')
+    >>> Alice.cod
+    Pregroup('n')
+    >>> loves = Word('loves', n.r + s + n.l)
+    >>> loves.dom
+    Pregroup('loves')
+    >>> loves.cod
+    Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+    """
     def __init__(self, w, t, dagger=False):
         assert isinstance(w, str)
         assert isinstance(t, Pregroup)
@@ -215,20 +254,26 @@ class Word(Grammar, Box):
         return str(self.word)
 
 class Parse(Grammar):
-    """ Produces the diagram of a pregroup parsing for a typed sentence
+    """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
 
     >>> s, n = Pregroup('s'), Pregroup('n')
     >>> Alice, Bob, jokes = Word('Alice', n), Word('Bob', n), Word('jokes', n)
     >>> loves, tells = Word('loves', n.r + s + n.l), Word('tells', n.r + s + n.l)
     >>> who = Word('who', n.r + n.l.r + s.l + n)
-    >>> parse = Parse([Alice, loves, Bob], [0, 1])
+
+    A parse is given by a list of words and a list of offsets for the cups.
+
+    >>> parse = Parse(words = [Alice, loves, Bob], cups = [0, 1])
+    >>> parse1 = Parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
+
+    A sentence u is grammatical if there is a parsing with domain u and codomain the sentence type s.
+
     >>> parse.dom
     Pregroup('Alice', 'loves', 'Bob')
     >>> parse.cod
     Pregroup('s')
     >>> parse._type
     Pregroup('n', Adjoint('n', 1), 's', Adjoint('n', -1), 'n')
-    >>> parse1 = Parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
     """
     def __init__(self, words, cups):
         self._words, self._cups = words, cups

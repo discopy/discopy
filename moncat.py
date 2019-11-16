@@ -251,12 +251,6 @@ class MonoidalFunctor(Functor):
     Box(name='f1', dom=Ty('z'), cod=Ty('w'), data=[1.1])
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
-    >>> def ar_func(box):
-    ...    newbox = box.copy()
-    ...    newbox.data = [2*box.data[i] for i in range(len(box.data))]
-    ...    return newbox
-    >>> ar1 = Quiver(ar_func)
-    >>> F1 = MonoidalFunctor(ob, ar1)
     """
     def __init__(self, ob, ar):
         assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
