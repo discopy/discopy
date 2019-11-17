@@ -3,24 +3,9 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from circuit import CircuitFunctor, Circuit, Gate, PRO, Id
+from circuit import CircuitFunctor, Circuit, Gate, PRO, Id, GCX, Permutation, H
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
-
-class GSWAP(Box):
-    def __init__(self, dom0, dom1):
-        self.dom0, self.dom1 = dom0, dom1
-        assert isinstance(dom0, Pregroup)
-        assert isinstance(dom1, Pregroup)
-        dom = dom0 + dom1
-        cod = dom1 + dom0
-        Box.__init__(self, 'GSWAP', dom, cod)
-
-    def __repr__(self):
-        return "GSWAP({}, {})".format(repr(self.dom0), repr(self.dom1))
-
-    def __str__(self):
-        return "GSWAP({}, {})".format(str(self.dom0), str(self.dom1))
 
 class QCup(Box):
     def __init__(self, x, dagger=False):
@@ -90,6 +75,21 @@ class QParse(Diagram):
         return "{} >> {}".format(" @ ".join(self._words), str(Diagram(self._type,
             self.cod, self.boxes[len(self._words) + 1:], self._cups)))
 
+class GSWAP(Box):
+    def __init__(self, dom0, dom1):
+        assert isinstance(dom0, Ty)
+        assert isinstance(dom1, Ty)
+        self.dom0, self.dom1 = dom0, dom1
+        dom = dom0 + dom1
+        cod = dom1 + dom0
+        Box.__init__(self, 'GSWAP', dom, cod)
+
+    def __repr__(self):
+        return "GSWAP({}, {})".format(repr(self.dom0), repr(self.dom1))
+
+    def __str__(self):
+        return "GSWAP({}, {})".format(str(self.dom0), str(self.dom1))
+
 class CircuitModel(CircuitFunctor):
     def __init__(self, ob, ar):
         self._ob, self._ar = ob, ar
@@ -103,19 +103,6 @@ class CircuitModel(CircuitFunctor):
         if isinstance(d, Pregroup):
             n_qubits = sum([self.__call__(b) for b in d], Ty())
             return n_qubits
-        if isinstance(d, QCup):
-            n_qubits = len(self.__call__(d.dom))
-            if n_qubits == 0:
-                return Id(0)
-            return Gate('CX', n_qubits)
-        if isinstance(d, QCap):
-            n_qubits = len(self.__call__(d.cod))
-            if n_qubits == 0:
-                return Id(0)
-            return Gate('CX', n_qubits)
-        if isinstance(d, GSWAP):
-            n_qubits = len(self.__call__(d.dom0) + self.__call__(d.dom1))
-            return Gate('GSWAP', n_qubits, data=[len(self.__call__(d.dom0))])
         return super().__call__(d)
 
 # We can encode the language of a pregroup grammar into QParses
@@ -151,18 +138,41 @@ assert parse_to_qparse([0, 2, 1, 2, 1, 1]) == parse1._cups
 
 # We can map QParses to Circuits
 
-ob = {s: PRO(0), n: PRO(2)}
+ob = {s: PRO(0), n: PRO(1)}
 ob.update({Dummy(x): ob[x] + ob[x] for x in B})
-F = CircuitModel(ob, {})
-ob.update({Pregroup(w.word): F(w.type) for w in vocab})
-F = CircuitModel(ob, {})
+Type_to_Pro = CircuitModel(ob, {})
+ob.update({Pregroup(w.word): Type_to_Pro(w.type) for w in vocab})
+Type_to_Pro = CircuitModel(ob, {})
 
-def word_to_gate(w):
-    assert isinstance(w, Word)
-    n_qubits = len(F(w.type))
-    return Gate(w.word, n_qubits)
+def qparse_to_circuit(d):
+    if isinstance(d, QCup):
+        n = int(len(Type_to_Pro(d.dom)) / 2)
+        HAD = Circuit(0, [], [])
+        for i in range(n):
+            HAD = HAD @ H
+        HAD = HAD @ Circuit.id(n)
+        return GCX(n) << HAD
+    if isinstance(d, QCap):
+        n = int(len(Type_to_Pro(d.cod)) / 2)
+        HAD = Circuit(0, [], [])
+        for i in range(n):
+            HAD = HAD @ H
+        HAD = HAD @ Circuit.id(n)
+        return GCX(n) >> HAD
+    if isinstance(d, GSWAP):
+        n_qubits0 = len(Type_to_Pro(d.dom0))
+        n_qubits1 = len(Type_to_Pro(d.dom1))
+        n_qubits = n_qubits0 + n_qubits1
+        gates = [Gate('SWAP', 2) for i in range(n_qubits0 * n_qubits1)]
+        offsets = []
+        for i in range(n_qubits1):
+            offsets += range(i, n_qubits0 + i)[::-1]
+        return Circuit(n_qubits, gates, offsets)
+    elif isinstance(d, Word):
+        n_qubits = len(Type_to_Pro(d.type))
+        return Gate(d.word, n_qubits)
 
-ar = Quiver(word_to_gate)
+ar = Quiver(qparse_to_circuit)
 F = CircuitModel(ob, ar)
 circuit0 = F(parse0)
 circuit1 = F(parse1)
