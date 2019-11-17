@@ -265,14 +265,20 @@ def Permutation(n_qubits, perm):
     assert set(range(n_qubits)) == set(perm)
     gates = []
     offsets = []
+    frame = perm
     for i in range(n_qubits):
-        if i >= perm[i]:
+        if i >= frame[i]:
             pass
         else:
-            num_swaps = perm[i] - i
+            num_swaps = frame[i] - i
             gates += [Gate('SWAP', 2) for x in range(num_swaps)]
-            offsets += range(i, perm[i])[::-1]
+            offsets += range(i, frame[i])[::-1]
+            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
     return Circuit(n_qubits, gates, offsets)
+
+assert Permutation(5, [4, 2, 0, 1, 3]) ==\
+        Permutation(5, [4, 0, 1, 2, 3]) >> Permutation(5, [0, 3, 1, 2, 4])
+
 
 # The Generalized CX gate returns cups/caps if pre/post-composed with bras/kets
 

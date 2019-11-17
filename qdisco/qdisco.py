@@ -151,14 +151,14 @@ def qparse_to_circuit(d):
         for i in range(n):
             HAD = HAD @ H
         HAD = HAD @ Circuit.id(n)
-        return GCX(n) << HAD
+        return GCX(n) >> HAD
     if isinstance(d, QCap):
         n = int(len(Type_to_Pro(d.cod)) / 2)
         HAD = Circuit(0, [], [])
         for i in range(n):
             HAD = HAD @ H
         HAD = HAD @ Circuit.id(n)
-        return GCX(n) >> HAD
+        return GCX(n) << HAD
     if isinstance(d, GSWAP):
         n_qubits0 = len(Type_to_Pro(d.dom0))
         n_qubits1 = len(Type_to_Pro(d.dom1))
