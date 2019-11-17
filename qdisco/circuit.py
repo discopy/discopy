@@ -257,3 +257,32 @@ EVAL = MatrixFunctor({PRO(1): 2}, Quiver(gates_to_numpy))
 
 GATES_TO_PYTKET = Quiver(lambda g: Gate(
     g.op.get_type().name, len(g.qubits), data=g.op.get_params()))
+
+
+# Permutations
+
+def Permutation(n_qubits, perm):
+    assert set(range(n_qubits)) == set(perm)
+    gates = []
+    offsets = []
+    for i in range(n_qubits):
+        if i >= perm[i]:
+            pass
+        else:
+            num_swaps = perm[i] - i
+            gates += [Gate('SWAP', 2) for x in range(num_swaps)]
+            offsets += range(i, perm[i])[::-1]
+    return Circuit(n_qubits, gates, offsets)
+
+# The Generalized CX gate returns cups/caps if pre/post-composed with bras/kets
+
+def GCX(n):
+    perm = []
+    for i in range(n):
+        perm += [i, 2*n - 1 - i]
+    SWAPS = Permutation(2*n, perm)
+    CNOTS = Circuit(0, [], [])
+    for i in range(n):
+        CNOTS = CNOTS @ CX
+    SWAPS_inv = Circuit(SWAPS.n_qubits, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
+    return SWAPS >> CNOTS >> SWAPS_inv
