@@ -236,6 +236,7 @@ def gates_to_numpy(g):
         return [1, 0, 0, -1]
     elif g.name in ['Rx', 'Rz']:
         theta = 2 * np.pi * float(g.data[0])
+        import pdb; pdb.set_trace()
         if g.name == 'Rz':
             return [1, 0, 0, np.exp(1j * theta)]
         elif g.name == 'Rx':
@@ -265,7 +266,7 @@ def Permutation(n_qubits, perm):
     assert set(range(n_qubits)) == set(perm)
     gates = []
     offsets = []
-    frame = perm
+    frame = perm.copy()
     for i in range(n_qubits):
         if i >= frame[i]:
             pass
@@ -279,6 +280,13 @@ def Permutation(n_qubits, perm):
 assert Permutation(5, [4, 2, 0, 1, 3]) ==\
         Permutation(5, [4, 0, 1, 2, 3]) >> Permutation(5, [0, 3, 1, 2, 4])
 
+# Construct a tensor of n hadamards
+
+def HAD(n):
+    HAD = Circuit(0, [], [])
+    for i in range(n):
+        HAD = HAD @ H
+    return HAD
 
 # The Generalized CX gate returns cups/caps if pre/post-composed with bras/kets
 

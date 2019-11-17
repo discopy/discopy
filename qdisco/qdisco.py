@@ -3,7 +3,7 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from circuit import CircuitFunctor, Circuit, Gate, PRO, Id, GCX, Permutation, H
+from circuit import *
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
 
@@ -137,28 +137,24 @@ assert parse_to_qparse([0,1]) == [0,2] == parse0._cups
 assert parse_to_qparse([0, 2, 1, 2, 1, 1]) == parse1._cups
 
 # We can map QParses to Circuits
-
-ob = {s: PRO(0), n: PRO(1)}
+N_qubits = 1
+ob = {s: PRO(0), n: PRO(N_qubits)}
 ob.update({Dummy(x): ob[x] + ob[x] for x in B})
 Type_to_Pro = CircuitModel(ob, {})
 ob.update({Pregroup(w.word): Type_to_Pro(w.type) for w in vocab})
 Type_to_Pro = CircuitModel(ob, {})
 
+# Initialise parametrized circuits for words.
+word_to_params = {w: Circuit.random(N_qubits, 3) for w in vocab}
+
+# Define the CircModel on arrows:
 def qparse_to_circuit(d):
     if isinstance(d, QCup):
         n = int(len(Type_to_Pro(d.dom)) / 2)
-        HAD = Circuit(0, [], [])
-        for i in range(n):
-            HAD = HAD @ H
-        HAD = HAD @ Circuit.id(n)
-        return GCX(n) >> HAD
+        return GCX(n) >> HAD(n) @ Circuit.id(n)
     if isinstance(d, QCap):
         n = int(len(Type_to_Pro(d.cod)) / 2)
-        HAD = Circuit(0, [], [])
-        for i in range(n):
-            HAD = HAD @ H
-        HAD = HAD @ Circuit.id(n)
-        return GCX(n) << HAD
+        return GCX(n) << HAD(n) @ Circuit.id(n)
     if isinstance(d, GSWAP):
         n_qubits0 = len(Type_to_Pro(d.dom0))
         n_qubits1 = len(Type_to_Pro(d.dom1))
@@ -168,12 +164,31 @@ def qparse_to_circuit(d):
         for i in range(n_qubits1):
             offsets += range(i, n_qubits0 + i)[::-1]
         return Circuit(n_qubits, gates, offsets)
-    elif isinstance(d, Word):
-        n_qubits = len(Type_to_Pro(d.type))
-        return Gate(d.word, n_qubits)
+    if isinstance(d, Word):
+        n = len(Type_to_Pro(d.type))
+        if n == N_qubits:
+            return word_to_params[d]
+        elif n == 2 * N_qubits:
+            return  HAD(N_qubits) @ Circuit.id(N_qubits) >> GCX(N_qubits) >> \
+                   Circuit.id(N_qubits) @ word_to_params[d]
+        elif n == 3 * N_qubits:
+            assert d.word == 'who'
+            perm = list(range(N_qubits, 2 * N_qubits)) + list(range(N_qubits))
+            return  Circuit.id(N_qubits) @ GCX(N_qubits) <<\
+                    Permutation(2 * N_qubits, perm) @ Circuit.id(N_qubits) <<\
+                    GCX(N_qubits) @ Circuit.id(N_qubits) <<\
+                    Permutation(2 * N_qubits, perm) @ Circuit.id(N_qubits) <<\
+                    Circuit.id(N_qubits) @ HAD(N_qubits) @ Circuit.id(N_qubits)
+        raise NotImplementedError
+    raise NotImplementedError
 
 ar = Quiver(qparse_to_circuit)
-F = CircuitModel(ob, ar)
-circuit0 = F(parse0)
-circuit1 = F(parse1)
-circuit2 = F(parse2)
+CircModel = CircuitModel(ob, ar)
+
+def measure(circuit):
+    state = Kets(0, circuit.n_qubits)
+    effect = Bras(0, circuit.n_qubits)
+    return np.absolute(EVAL(state >> circuit >> effect).array) ** 2
+
+state = Kets(0, N_qubits)
+effect = Bras(0, N_qubits)
