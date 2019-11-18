@@ -1,5 +1,5 @@
 import numpy as np
-from discopy.cat import Quiver
+from discopy.cat import fold, Quiver
 from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import MatrixFunctor
 
@@ -185,5 +185,7 @@ Rx = lambda phase: Gate('Rx', 1, data={'phase': phase})
 Rz = lambda phase: Gate('Rz', 1, data={'phase': phase})
 
 #  Gates are unitaries, bras and kets are not. They are only boxes for now.
-Ket = lambda b: Box('ket' + str(b), PRO(0), PRO(1))
-Bra = lambda b: Box('bra' + str(b), PRO(1), PRO(0))
+Ket = lambda b: Box('ket' + str(b), PRO(1), PRO(0))
+Bra = lambda b: Box('bra' + str(b), PRO(0), PRO(1))
+Kets = lambda b, n: fold(lambda x, y: x @ y, n * [Ket(b)])
+Bras = lambda b, n: fold(lambda x, y: x @ y, n * [Bra(b)])

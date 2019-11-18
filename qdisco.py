@@ -7,9 +7,6 @@ from discopy.circuit import PRO, Circuit, Gate, Ket, Bra
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
 
-Kets = lambda b, n: fold(lambda x, y: x @ y, n * [Ket(b)])
-Bras = lambda b, n: fold(lambda x, y: x @ y, n * [Bra(b)])
-
 # Permutations
 
 def Permutation(n_qubits, perm):
