@@ -6,8 +6,6 @@ from functools import reduce as fold
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
-DEFAULT_TYPE = int
-
 class Dim(Ty):
     """ Implements dimensions as tuples of positive integers.
     Dimensions form a monoid with product + and unit Dim(1).
