@@ -3,7 +3,7 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from discopy.circuit import PRO, Circuit, Gate, Ket, Bra, Kets, Bras
+from circuit import PRO, Circuit, Gate, Ket, Bra, Kets, Bras, H, CX, EVAL
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
 
@@ -178,7 +178,7 @@ def parse_to_qparse(cups):
 assert parse_to_qparse([0,1]) == [0,2] == parse0._cups
 assert parse_to_qparse([0, 2, 1, 2, 1, 1]) == parse1._cups
 
-# We can map QParses to Circuits
+# Map pregroup types to qubits
 N_qubits = 1
 ob = {s: PRO(0), n: PRO(N_qubits)}
 ob.update({Dummy(x): ob[x] + ob[x] for x in B})
@@ -219,8 +219,7 @@ def qparse_to_circuit(d):
             return  Circuit.id(N_qubits) @ GCX(N_qubits) <<\
                     Permutation(2 * N_qubits, perm) @ Circuit.id(N_qubits) <<\
                     GCX(N_qubits) @ Circuit.id(N_qubits) <<\
-                    Permutation(2 * N_qubits, perm) @ Circuit.id(N_qubits) <<\
-                    Circuit.id(N_qubits) @ HAD(N_qubits) @ Circuit.id(N_qubits)
+                    HAD(N_qubits) @ Circuit.id(N_qubits) @ Circuit.id(N_qubits)
         raise NotImplementedError
     raise NotImplementedError
 
@@ -228,9 +227,14 @@ ar = Quiver(qparse_to_circuit)
 CircModel = CircuitModel(ob, ar)
 
 def measure(circuit):
-    state = Kets(0, circuit.n_qubits)
-    effect = Bras(0, circuit.n_qubits)
-    return np.absolute(EVAL(state >> circuit >> effect).array) ** 2
+    if isinstance(circuit, Circuit):
+        state = Kets(0, circuit.n_qubits)
+        effect = Bras(0, circuit.n_qubits)
+    elif isinstance(circuit, Diagram):
+        state = Kets(0, len(circuit.dom))
+        effect = Bras(0, len(circuit.cod))
+    return np.absolute(EVAL((state >> circuit) >> effect).array) ** 2
 
-state = Kets(0, N_qubits)
-effect = Bras(0, N_qubits)
+
+# assert np.allclose(measure(CircModel(parse0)), measure(word_to_params[Alice] >>
+#         word_to_params[loves] >> word_to_params[Bob].transpose()))

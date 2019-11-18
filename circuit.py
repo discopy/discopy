@@ -54,7 +54,6 @@ class PRO(Ty):
             return PRO(len(super().__getitem__(key)))
         return super().__getitem__(key)
 
-
 class Circuit(Diagram):
     """ Implements quantum circuits as diagrams.
 
@@ -108,6 +107,9 @@ class Circuit(Diagram):
         r = super().dagger()
         return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
 
+    def transpose(self):
+        return Circuit(len(self.dom), [g for g in self.boxes[::-1]],
+                       self.offsets[::-1])
     @staticmethod
     def id(n):
         """
@@ -298,7 +300,6 @@ class Gate(Box, Circuit):
 
     def to_array(self):
         """
-
         >>> assert np.all((Ket(0, 0) >> SWAP).eval() == Ket(0, 0).eval())
         >>> assert np.all((Ket(0, 1) >> SWAP).eval() == Ket(1, 0).eval())
         >>> assert np.all((Ket(1, 0) >> SWAP).eval() == Ket(0, 1).eval())
@@ -402,6 +403,26 @@ class Bra(Gate):
         for b in self.bitstring:
             m = m @ Matrix(Dim(2), Dim(1), [0, 1] if b else [1, 0])
         return m.array
+
+class CircuitFunctor(MonoidalFunctor):
+    """ Implements funtors from monoidal categories to circuits
+
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
+    >>> d = (f @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ h)
+    >>> ob = {x: PRO(2), y: PRO(1), z: PRO(1)}
+    >>> ar = {f: SWAP, g: Rx(0.25), h: CX}
+    >>> F = CircuitFunctor(ob, ar)
+    >>> c1 = SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
+    >>> assert F(d) == c1
+    """
+    def __call__(self, d):
+        r = super().__call__(d)
+        if isinstance(d, Diagram):
+            return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+        return r
 
 SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
 H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
