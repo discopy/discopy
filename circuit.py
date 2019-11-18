@@ -7,7 +7,6 @@ from discopy.matrix import MatrixFunctor
 #  Turns natural numbers into types encoded in unary.
 PRO = lambda n: sum(n * [Ty(1)], Ty())
 
-
 class Circuit(Diagram):
     """ Implements quantum circuits as diagrams.
     >>> circuit = CX >> SWAP >> CX >> SWAP >> CX
@@ -37,6 +36,9 @@ class Circuit(Diagram):
         return Circuit(len(self.dom), [g.dagger() for g in self.boxes[::-1]],
                        self.offsets[::-1])
 
+    def transpose(self):
+        return Circuit(len(self.dom), [g for g in self.boxes[::-1]],
+                       self.offsets[::-1])
     @staticmethod
     def id(n_qubits):
         return Id(n_qubits)
@@ -141,9 +143,9 @@ class Gate(Box, Circuit):
                     dagger=not self._dagger, data=self.data)
 
 def gate_to_numpy(g):
-    if g.name == 'ket_0' or g.name == 'bra_0':
+    if g.name == 'ket0' or g.name == 'bra0':
         return [0, 1]
-    elif g.name == 'ket_1' or g.name == 'bra_1':
+    elif g.name == 'ket1' or g.name == 'bra1':
         return [1, 0]
     elif g.name == 'H':
         return 1 / np.sqrt(2) * np.array([1, 1, 1, -1])
