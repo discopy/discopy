@@ -152,7 +152,7 @@ class Grammar(Diagram):
 
     @staticmethod
     def cup(t):
-        """ Define cups for pregroup types.
+        """ Construct cups for pregroup types.
 
         >>> n, s = Pregroup('n'), Pregroup('s')
         >>> Grammar.cup(n @ s @ n).dom
@@ -174,7 +174,7 @@ class Grammar(Diagram):
 
     @staticmethod
     def cap(t):
-        """ Define caps for a pregroup types.
+        """ Construct caps for pregroup types.
 
         >>> n, s = Pregroup('n'), Pregroup('s')
         >>> Grammar.cap(n @ s).dom

@@ -177,8 +177,7 @@ def qparse_to_circuit(d):
             return  Circuit.id(N_qubits) @ GCX(N_qubits) <<\
                     Permutation(2 * N_qubits, perm) @ Circuit.id(N_qubits) <<\
                     GCX(N_qubits) @ Circuit.id(N_qubits) <<\
-                    Permutation(2 * N_qubits, perm) @ Circuit.id(N_qubits) <<\
-                    Circuit.id(N_qubits) @ HAD(N_qubits) @ Circuit.id(N_qubits)
+                    HAD(N_qubits) @ Circuit.id(N_qubits) @ Circuit.id(N_qubits)
         raise NotImplementedError
     raise NotImplementedError
 
