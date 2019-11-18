@@ -3,9 +3,51 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from circuit import *
+from discopy.circuit import PRO, Circuit, Gate, Ket, Bra, Kets, Bras
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
+
+# Permutations
+
+def Permutation(n_qubits, perm):
+    assert set(range(n_qubits)) == set(perm)
+    gates = []
+    offsets = []
+    frame = perm.copy()
+    for i in range(n_qubits):
+        if i >= frame[i]:
+            pass
+        else:
+            num_swaps = frame[i] - i
+            gates += [Gate('SWAP', 2) for x in range(num_swaps)]
+            offsets += range(i, frame[i])[::-1]
+            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
+    return Circuit(n_qubits, gates, offsets)
+
+assert Permutation(5, [4, 2, 0, 1, 3]) ==\
+        Permutation(5, [4, 0, 1, 2, 3]) >> Permutation(5, [0, 3, 1, 2, 4])
+
+# Construct a tensor of n hadamards
+
+def HAD(n):
+    HAD = Circuit(0, [], [])
+    for i in range(n):
+        HAD = HAD @ H
+    return HAD
+
+# The Generalized CX gate returns cups/caps if pre/post-composed with bras/kets
+
+def GCX(n):
+    perm = []
+    for i in range(n):
+        perm += [i, 2*n - 1 - i]
+    SWAPS = Permutation(2*n, perm)
+    CNOTS = Circuit(0, [], [])
+    for i in range(n):
+        CNOTS = CNOTS @ CX
+    SWAPS_inv = Circuit(SWAPS.n_qubits, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
+    return SWAPS >> CNOTS >> SWAPS_inv
+
 
 class QCup(Box):
     def __init__(self, x, dagger=False):
@@ -90,7 +132,7 @@ class GSWAP(Box):
     def __str__(self):
         return "GSWAP({}, {})".format(str(self.dom0), str(self.dom1))
 
-class CircuitModel(CircuitFunctor):
+class CircuitModel(MonoidalFunctor):
     def __init__(self, ob, ar):
         self._ob, self._ar = ob, ar
 
