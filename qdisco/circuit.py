@@ -1,4 +1,3 @@
-import math
 import numpy as np
 from random import random, randint
 from functools import reduce as fold
@@ -258,45 +257,3 @@ EVAL = MatrixFunctor({PRO(1): 2}, Quiver(gates_to_numpy))
 
 GATES_TO_PYTKET = Quiver(lambda g: Gate(
     g.op.get_type().name, len(g.qubits), data=g.op.get_params()))
-
-
-# Permutations
-
-def Permutation(n_qubits, perm):
-    assert set(range(n_qubits)) == set(perm)
-    gates = []
-    offsets = []
-    frame = perm.copy()
-    for i in range(n_qubits):
-        if i >= frame[i]:
-            pass
-        else:
-            num_swaps = frame[i] - i
-            gates += [Gate('SWAP', 2) for x in range(num_swaps)]
-            offsets += range(i, frame[i])[::-1]
-            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
-    return Circuit(n_qubits, gates, offsets)
-
-assert Permutation(5, [4, 2, 0, 1, 3]) ==\
-        Permutation(5, [4, 0, 1, 2, 3]) >> Permutation(5, [0, 3, 1, 2, 4])
-
-# Construct a tensor of n hadamards
-
-def HAD(n):
-    HAD = Circuit(0, [], [])
-    for i in range(n):
-        HAD = HAD @ H
-    return HAD
-
-# The Generalized CX gate returns cups/caps if pre/post-composed with bras/kets
-
-def GCX(n):
-    perm = []
-    for i in range(n):
-        perm += [i, 2*n - 1 - i]
-    SWAPS = Permutation(2*n, perm)
-    CNOTS = Circuit(0, [], [])
-    for i in range(n):
-        CNOTS = CNOTS @ CX
-    SWAPS_inv = Circuit(SWAPS.n_qubits, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
-    return SWAPS >> CNOTS >> SWAPS_inv
