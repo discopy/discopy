@@ -9,8 +9,6 @@
 """
 
 import numpy as np
-from random import random, randint
-from functools import reduce as fold
 from discopy.cat import Quiver
 from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import MatrixFunctor
@@ -63,14 +61,17 @@ class Circuit(Diagram):
         import pytket as tk
         c = tk.Circuit(len(self.dom))
         for g, n in zip(self.boxes, self.offsets):
-            c.__getattribute__(g.name)(
-                *[n + i for i in range(len(g.dom))], *(g.data or []))
+            if g.data:
+                c.__getattribute__(g.name)(*(n + i for i in range(len(g.dom))),
+                                           g.data['phase'])
+            else:
+                c.__getattribute__(g.name)(*(n + i for i in range(len(g.dom))))
         return c
 
     @staticmethod
     def from_tk(c):
-        gates_to_pytket = lambda g: Gate(
-            g.op.get_type().name, len(g.qubits), data=g.op.get_params())
+        gates_to_pytket = lambda g: Gate(g.op.get_type().name, len(g.qubits),
+            data={'phase': g.op.get_params()[0]} if g.op.get_params() else {})
         gates, offsets = [], []
         for g in c.get_commands():
             i0 = g.qubits[0].index
@@ -91,55 +92,30 @@ class Circuit(Diagram):
             offsets.append(i0)
         return Circuit(c.n_qubits, gates, offsets)
 
-    def Euler(x0, z, x1):
-        """ 1-qubit Euler ansatz.
+    def Euler(a, b, c):
+        """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
         """
-        return Circuit(1, [Rx(x0), Rz(z), Rx(x1)], [0, 0, 0])
+        return Circuit(1, [Rx(a), Rz(b), Rx(c)], [0, 0, 0])
 
     @staticmethod
-    def random(n_qubits, depth, gateset=[]):
-        """ Random Tiling ansatz.
+    def random(n_qubits, depth=0, gateset=[]):
+        """ Returns a random Euler decomposition if n_qubits == 1,
+        otherwise returns a random tiling with the given depth and gateset.
         """
+        from random import random, choice
         if n_qubits == 1:
             return Circuit.Euler(random(), random(), random())
-        else:
-        	U = Id(n_qubits)
-
-        	g1 = [] #the single-qubit gates
-        	for ii in range(len(gateset)):
-        		if gateset[ii].n_qubits == 1:
-        			g1.append(gateset[ii])
-
-        	for d in range(depth):
-
-        		#make a random layer of gates
-        		l = [] # initialise empty layer
-        		nqa = 0 # number of qubits affected
-
-        		while nqa <= n_qubits-2:
-        			#randomly choose a gate to apply
-        			#and append to layer
-        			gate = gateset[randint(0, len(gateset)-1)]
-        			l.append(gate)
-
-        			#count how many qubits affected
-        			nqa += gate.n_qubits
-
-        		if n_qubits-nqa == 1:
-        			#which single-qubit gate to apply
-        			#on the nth qubit in case it has been left unaffected
-        			l.append(g1[randint(0, len(g1)-1)])
-        			nqa += 1
-
-        		#circuit of this layer is
-        		#tensor product of all the gates in layer
-        		Ul = l[0]
-        		for ll in range(1, len(l)):
-        			Ul = Ul @ l[ll]
-
-        		U = U >> Ul
-
-        	return U
+        U = Id(n_qubits)
+        for d in range(depth):
+            L, affected = Id(0), 0
+            while affected <= n_qubits - 2:
+                gate = choice(gateset)
+                L = L @ gate
+                affected += gate.n_qubits
+            if n_qubits - affected == 1:
+                L = L @ choice([g for g in gateset if g.n_qubits == 1])
+            U = U >> L
+        return U
 
 class Id(Circuit):
     """ Implements identity circuits.
@@ -155,14 +131,11 @@ class Id(Circuit):
         super().__init__(n_qubits, [], [])
 
 class Gate(Box, Circuit):
-    """ Implement quantum gates.
+    """ Implements quantum gates.
     """
-    def __init__(self, name, n_qubits, dagger=False, data=[]):
+    def __init__(self, name, n_qubits, dagger=False, data={}):
         self.n_qubits = n_qubits
-        if isinstance(n_qubits, Ty):
-            Box.__init__(self, name, n_qubits, n_qubits, dagger, data)
-        else:
-            Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits), dagger, data)
+        Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits), dagger, data)
 
     def __repr__(self):
         return "Gate({}, {}{}){}".format(repr(self.name), len(self.dom),
@@ -173,58 +146,25 @@ class Gate(Box, Circuit):
         return Gate(self.name, self.n_qubits,
                     dagger=not self._dagger, data=self.data)
 
-class CircuitFunctor(MonoidalFunctor):
-    """ Implements funtors from monoidal categories to circuits
-
-    >>> import pytket as tk
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
-    >>> d = (f @ Diagram.id(z)
-    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
-    ...       >> Diagram.id(y) @ h)
-    >>> F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)}, {f: SWAP, g: Rx(0.25), h: CX})
-    >>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
-    >>> c1 = Circuit.from_tk(c1_tk)
-    >>> assert F(d) == c1
-    """
-    def __call__(self, d):
-        r = super().__call__(d)
-        if isinstance(d, Diagram):
-            return Circuit(len(r.dom), r.boxes, r.offsets)
-        return r
-
-# Quantum Gates:
-SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
-H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
-X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
-Rx = lambda phase: Gate('Rx', 1, data=[phase])
-Rz = lambda phase: Gate('Rz', 1, data=[phase])
-
-#  Gates are unitaries, bras and kets are not. They are only boxes for now.
-Ket = lambda b: Box('ket' + str(b), PRO(0), PRO(1))
-Bra = lambda b: Box('bra' + str(b), PRO(1), PRO(0))
-
-def gates_to_numpy(g):
-    if g.name == 'ket0' or g.name == 'bra0':
+def gate_to_numpy(g):
+    if g.name == 'ket_0' or g.name == 'bra_0':
         return [0, 1]
-    elif g.name == 'ket1' or g.name == 'bra1':
+    elif g.name == 'ket_1' or g.name == 'bra_1':
         return [1, 0]
-    elif g.name == 'S':
-        return [1, 0,
-                0, 1j]
-    elif g.name == 'T':
-        return [1, 0, 0, np.exp(1j * np.pi / 4)]
     elif g.name == 'H':
         return 1 / np.sqrt(2) * np.array([1, 1, 1, -1])
+    elif g.name == 'S':
+        return [1, 0, 0, 1j]
+    elif g.name == 'T':
+        return [1, 0, 0, np.exp(1j * np.pi / 4)]
     elif g.name == 'X':
-        return [0, 1,
-                1, 0]
+        return [0, 1, 1, 0]
     elif g.name == 'Y':
         return [0, -1j, 1j, 0]
     elif g.name == 'Z':
         return [1, 0, 0, -1]
     elif g.name in ['Rx', 'Rz']:
-        theta = 2 * np.pi * float(g.data[0])
+        theta = 2 * np.pi * float(g.data['phase'])
         if g.name == 'Rz':
             return [1, 0, 0, np.exp(1j * theta)]
         elif g.name == 'Rx':
@@ -242,4 +182,14 @@ def gates_to_numpy(g):
                 0, 0, 0, 1]
     raise NotImplementedError
 
-EVAL = MatrixFunctor({PRO(1): 2}, Quiver(gates_to_numpy))
+EVAL = MatrixFunctor({PRO(1): 2}, Quiver(gate_to_numpy))
+
+SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
+H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
+X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
+Rx = lambda phase: Gate('Rx', 1, data={'phase': phase})
+Rz = lambda phase: Gate('Rz', 1, data={'phase': phase})
+
+#  Gates are unitaries, bras and kets are not. They are only boxes for now.
+Ket = lambda b: Box('ket' + str(b), PRO(0), PRO(1))
+Bra = lambda b: Box('bra' + str(b), PRO(1), PRO(0))

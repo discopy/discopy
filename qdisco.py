@@ -3,7 +3,7 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from discopy.circuit import PRO, Circuit, Gate, Ket, Bra, CircuitFunctor
+from discopy.circuit import PRO, Circuit, Gate, Ket, Bra
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
 
@@ -135,7 +135,7 @@ class GSWAP(Box):
     def __str__(self):
         return "GSWAP({}, {})".format(str(self.dom0), str(self.dom1))
 
-class CircuitModel(CircuitFunctor):
+class CircuitModel(MonoidalFunctor):
     def __init__(self, ob, ar):
         self._ob, self._ar = ob, ar
 
