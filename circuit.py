@@ -142,6 +142,25 @@ class Gate(Box, Circuit):
         return Gate(self.name, self.n_qubits,
                     dagger=not self._dagger, data=self.data)
 
+class CircuitFunctor(MonoidalFunctor):
+    """ Implements funtors from monoidal categories to circuits
+
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
+    >>> d = (f @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ h)
+    >>> F = CircuitFunctor({x: PRO(2), y: PRO(1), z: PRO(1)}, {f: SWAP, g: Rx(0.25), h: CX})
+    >>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
+    >>> c1 = Circuit.from_tk(c1_tk)
+    >>> assert F(d) == c1
+    """
+    def __call__(self, d):
+        r = super().__call__(d)
+        if isinstance(d, Diagram):
+            return Circuit(len(r.dom), r.boxes, r.offsets)
+        return r
+
 def gate_to_numpy(g):
     if g.name == 'ket0' or g.name == 'bra0':
         return [0, 1]
