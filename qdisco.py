@@ -3,7 +3,7 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from discopy.circuit import PRO, Circuit, Gate, Ket, Bra
+from discopy.circuit import PRO, Circuit, Gate, Ket, Bra, Kets, Bras
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
 
