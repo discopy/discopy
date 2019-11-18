@@ -1,7 +1,16 @@
+""" Implements quantum circuits as diagrams.
+
+>>> circuit = CX >> SWAP >> CX >> SWAP >> CX
+>>> assert np.all(circuit.eval() == SWAP.eval())
+>>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
+...     assert np.all((U >> U.dagger()).eval() == Circuit.id(U.n_qubits).eval())
+>>> for U in [H, T >> T >> T >> T]:
+...     assert np.allclose((U >> U.dagger()).eval(), Circuit.id(U.n_qubits).eval())
+"""
+
 import numpy as np
 from random import random, randint
 from functools import reduce as fold
-import pytket as tk
 from discopy.cat import Quiver
 from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import MatrixFunctor
@@ -12,20 +21,6 @@ PRO = lambda n: sum(n * [Ty(1)], Ty())
 
 
 class Circuit(Diagram):
-    """ Implements quantum circuits as diagrams
-
-    >>> SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
-    >>> H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
-    >>> X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
-    >>> assert isinstance(H >> S >> T, Circuit)
-    >>> circuit = CX >> SWAP >> CX >> SWAP >> CX
-    >>> assert np.all(circuit.eval() == SWAP.eval())
-    >>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
-    ...     assert np.all((U >> U.dagger()).eval() == Circuit.id(U.n_qubits).eval())
-    >>> for U in [H, T >> T >> T >> T]:
-    ...     assert np.allclose((U >> U.dagger()).eval(), Circuit.id(U.n_qubits).eval())
-    """
-
     def __init__(self, n_qubits, gates, offsets):
         self.n_qubits = n_qubits
         super().__init__(PRO(n_qubits), PRO(n_qubits), gates, offsets)
@@ -53,17 +48,19 @@ class Circuit(Diagram):
     def eval(self):
         return EVAL(self)
 
-    """ Interface with pytket
-
-    >>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
-    >>> c1 = Circuit.from_tk(c1_tk)
-    >>> assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
-    >>> c2_tk = c1.to_tk()
-    >>> c2 = Circuit.from_tk(c2_tk)
-    >>> assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
-    >>> assert c1 == c2  # This works as long as there are no interchangers!
-    """
     def to_tk(self):
+        """ Interface with pytket
+
+        >>> import pytket as tk
+        >>> c1_tk = tk.Circuit(3).SWAP(0, 1).Rx(1, 0.25).CX(1, 2)
+        >>> c1 = Circuit.from_tk(c1_tk)
+        >>> assert c1 == Circuit(3, [SWAP, Rx(0.25), CX], [0, 1, 1])
+        >>> c2_tk = c1.to_tk()
+        >>> c2 = Circuit.from_tk(c2_tk)
+        >>> assert not c1_tk == c2_tk  # Equality of circuits in tket doesn't work!
+        >>> assert c1 == c2  # This works as long as there are no interchangers!
+        """
+        import pytket as tk
         c = tk.Circuit(len(self.dom))
         for g, n in zip(self.boxes, self.offsets):
             c.__getattribute__(g.name)(
@@ -72,6 +69,8 @@ class Circuit(Diagram):
 
     @staticmethod
     def from_tk(c):
+        gates_to_pytket = lambda g: Gate(
+            g.op.get_type().name, len(g.qubits), data=g.op.get_params())
         gates, offsets = [], []
         for g in c.get_commands():
             i0 = g.qubits[0].index
@@ -88,21 +87,19 @@ class Circuit(Diagram):
                     for j in range(q.index - i0 + i - 1):
                         gates.append(SWAP)
                         offsets.append(q.index - j - 1)
-            gates.append(GATES_TO_PYTKET[g])
+            gates.append(gates_to_pytket(g))
             offsets.append(i0)
         return Circuit(c.n_qubits, gates, offsets)
 
-    """ 1-qubit Euler ansatz
-
-    """
     def Euler(x0, z, x1):
+        """ 1-qubit Euler ansatz.
+        """
         return Circuit(1, [Rx(x0), Rz(z), Rx(x1)], [0, 0, 0])
 
-    """ Random Tiling ansatz
-
-    """
     @staticmethod
     def random(n_qubits, depth, gateset=[]):
+        """ Random Tiling ansatz.
+        """
         if n_qubits == 1:
             return Circuit.Euler(random(), random(), random())
         else:
@@ -145,7 +142,7 @@ class Circuit(Diagram):
         	return U
 
 class Id(Circuit):
-    """ Implements identity circuits
+    """ Implements identity circuits.
 
     >>> Id(3)
     Circuit(3, [], [])
@@ -158,13 +155,7 @@ class Id(Circuit):
         super().__init__(n_qubits, [], [])
 
 class Gate(Box, Circuit):
-    """ Gates are generating Circuits
-
-    >>> SWAP, CX = Gate('SWAP', 2), Gate('CX', 2)
-    >>> H, S, T = Gate('H', 1), Gate('S', 1), Gate('T', 1)
-    >>> X, Y, Z = Gate('X', 1), Gate('Y', 1), Gate('Z', 1)
-    >>> Rx = lambda phase: Gate('Rx', 1, data=[phase])
-    >>> Rz = lambda phase: Gate('Rz', 1, data=[phase])
+    """ Implement quantum gates.
     """
     def __init__(self, name, n_qubits, dagger=False, data=[]):
         self.n_qubits = n_qubits
@@ -185,6 +176,7 @@ class Gate(Box, Circuit):
 class CircuitFunctor(MonoidalFunctor):
     """ Implements funtors from monoidal categories to circuits
 
+    >>> import pytket as tk
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
     >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
     >>> d = (f @ Diagram.id(z)
@@ -211,8 +203,6 @@ Rz = lambda phase: Gate('Rz', 1, data=[phase])
 #  Gates are unitaries, bras and kets are not. They are only boxes for now.
 Ket = lambda b: Box('ket' + str(b), PRO(0), PRO(1))
 Bra = lambda b: Box('bra' + str(b), PRO(1), PRO(0))
-Kets = lambda b, n: fold(lambda x, y: x @ y, n * [Ket(b)])
-Bras = lambda b, n: fold(lambda x, y: x @ y, n * [Bra(b)])
 
 def gates_to_numpy(g):
     if g.name == 'ket0' or g.name == 'bra0':
@@ -235,7 +225,6 @@ def gates_to_numpy(g):
         return [1, 0, 0, -1]
     elif g.name in ['Rx', 'Rz']:
         theta = 2 * np.pi * float(g.data[0])
-        import pdb; pdb.set_trace()
         if g.name == 'Rz':
             return [1, 0, 0, np.exp(1j * theta)]
         elif g.name == 'Rx':
@@ -254,6 +243,3 @@ def gates_to_numpy(g):
     raise NotImplementedError
 
 EVAL = MatrixFunctor({PRO(1): 2}, Quiver(gates_to_numpy))
-
-GATES_TO_PYTKET = Quiver(lambda g: Gate(
-    g.op.get_type().name, len(g.qubits), data=g.op.get_params()))

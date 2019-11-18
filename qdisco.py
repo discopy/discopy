@@ -3,10 +3,12 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Diagram, Box, MonoidalFunctor
 from discopy.matrix import MatrixFunctor, Dim
 from discopy.disco import Adjoint, Pregroup, Grammar, Wire, Word, Model
-from circuit import PRO, Circuit, Gate, Kets, Bras, CircuitFunctor
+from discopy.circuit import PRO, Circuit, Gate, Ket, Bra, CircuitFunctor
 
 Dummy = lambda x: Pregroup('dummy{}'.format(x))
 
+Kets = lambda b, n: fold(lambda x, y: x @ y, n * [Ket(b)])
+Bras = lambda b, n: fold(lambda x, y: x @ y, n * [Bra(b)])
 
 # Permutations
 
