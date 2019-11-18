@@ -1,13 +1,3 @@
-""" Implements quantum circuits as diagrams.
-
->>> circuit = CX >> SWAP >> CX >> SWAP >> CX
->>> assert np.all(circuit.eval() == SWAP.eval())
->>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
-...     assert np.all((U >> U.dagger()).eval() == Circuit.id(U.n_qubits).eval())
->>> for U in [H, T >> T >> T >> T]:
-...     assert np.allclose((U >> U.dagger()).eval(), Circuit.id(U.n_qubits).eval())
-"""
-
 import numpy as np
 from discopy.cat import Quiver
 from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
@@ -19,6 +9,14 @@ PRO = lambda n: sum(n * [Ty(1)], Ty())
 
 
 class Circuit(Diagram):
+    """ Implements quantum circuits as diagrams.
+    >>> circuit = CX >> SWAP >> CX >> SWAP >> CX
+    >>> assert np.all(circuit.eval() == SWAP.eval())
+    >>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
+    ...     assert np.all((U >> U.dagger()).eval() == Circuit.id(U.n_qubits).eval())
+    >>> for U in [H, T >> T >> T >> T]:
+    ...     assert np.allclose((U >> U.dagger()).eval(), Circuit.id(U.n_qubits).eval())
+    """
     def __init__(self, n_qubits, gates, offsets):
         self.n_qubits = n_qubits
         super().__init__(PRO(n_qubits), PRO(n_qubits), gates, offsets)
@@ -119,10 +117,6 @@ class Circuit(Diagram):
 
 class Id(Circuit):
     """ Implements identity circuits.
-
-    >>> Id(3)
-    Circuit(3, [], [])
-    >>> assert np.all(Id(2).eval() == (CX >> CX).eval())
     """
     def __init__(self, n_qubits):
         if isinstance(n_qubits, Ty):
