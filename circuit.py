@@ -107,9 +107,6 @@ class Circuit(Diagram):
         r = super().dagger()
         return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
 
-    def transpose(self):
-        return Circuit(len(self.dom), [g for g in self.boxes[::-1]],
-                       self.offsets[::-1])
     @staticmethod
     def id(n):
         """
