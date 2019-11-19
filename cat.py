@@ -1,5 +1,5 @@
 """
-Implements free categories and Python-valued functors.
+Implements free dagger categories and functors.
 We can check the axioms of categories and functors.
 
 >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
@@ -91,16 +91,32 @@ class Arrow(list):
         >>> Arrow(Ob('x'), Ob('x'), [])
         Arrow(Ob('x'), Ob('x'), [])
         """
-        assert isinstance(dom, Ob)
-        assert isinstance(cod, Ob)
+        if not isinstance(dom, Ob):
+            raise ValueError("Domain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(dom), type(dom)))
+        if not isinstance(cod, Ob):
+            raise ValueError("Codomain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(cod), type(cod)))
         if not _config.fast:
-            assert all(isinstance(f, Arrow) for f in gens)
             u = dom
             for f in gens:
-                assert f.gens  # i.e. f is not the identity arrow
-                assert u == f.dom
+                if not isinstance(f, Arrow):
+                    raise ValueError(
+                        "Generator of type Arrow expected, got {} of type {} "
+                        "instead.".format(repr(f), type(f)))
+                if not f.gens:
+                    raise CompositionError(
+                        "The identity arrow {} cannot be used as a generator."
+                        .format(repr(f)))
+                if u != f.dom:
+                    raise CompositionError(
+                        "Generator with domain {} expected, got {} instead."
+                        .format(u, repr(f)))
                 u = f.cod
-            assert u == cod
+            if u != cod:
+                raise CompositionError(
+                    "Generator with codomain {} expected, got {} instead."
+                    .format(cod, repr(gens[-1])))
         self._dom, self._cod, self._gens = dom, cod, gens
         super().__init__(gens)
 
@@ -164,8 +180,12 @@ class Arrow(list):
         >>> f, g = Gen('f', x, y), Gen('g', y, z)
         >>> assert f.then(g) == f >> g == g << f
         """
-        assert isinstance(other, Arrow)
-        assert self.cod == other.dom
+        if not isinstance(other, Arrow):
+            raise ValueError("Expected Arrow, got {} of type {} instead."
+                              .format(repr(other), type(other)))
+        if self.cod != other.dom:
+            raise CompositionError("{} does not compose with {}."
+                                   .format(repr(self), repr(other)))
         return Arrow(self.dom, other.cod, self.gens + other.gens)
 
     def __rshift__(self, other):
@@ -228,6 +248,29 @@ class Id(Arrow):
         """
         return "Id({})".format(str(self.dom))
 
+class CompositionError(Exception):
+    """
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Gen('f', x, y), Gen('g', y, z)
+    >>> Arrow(x, y, [g])  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    cat.CompositionError: Generator with domain x expected, got Gen('g', ...
+    >>> Arrow(x, z, [f])  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    cat.CompositionError: Generator with codomain z expected, got Gen('f', ...
+    >>> Arrow(x, x, [Id(x)])  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    cat.CompositionError: The identity arrow Id(Ob('x')) cannot be used ...
+    >>> g >> f  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    cat.CompositionError: Gen('g',...) does not compose with Gen('f', ...).
+    """
+    pass
+
 class Gen(Arrow):
     """ Defines a generator as an arrow with a name, and itself as generator.
     Generators can hold any Python object as data attribute, default is None.
@@ -247,8 +290,12 @@ class Gen(Arrow):
         >>> Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         """
-        assert isinstance(dom, Ob)
-        assert isinstance(cod, Ob)
+        if not isinstance(dom, Ob):
+            raise ValueError("Domain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(dom), type(dom)))
+        if not isinstance(cod, Ob):
+            raise ValueError("Codomain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(cod), type(cod)))
         self._name, self._dom, self._cod,  = name, dom, cod
         self._gens, self._dagger, self._data = [self], _dagger, data
         super().__init__(dom, cod, [self])
@@ -389,11 +436,13 @@ class Functor:
         """
         if isinstance(f, Ob):
             return self.ob[f]
-        if isinstance(f, Gen):
+        elif isinstance(f, Gen):
             if f._dagger: return self.ar[f.dagger()].dagger()
             return self.ar[f]
-        assert isinstance(f, Arrow)
-        return fold(lambda g, h: g >> self(h), f, Id(self(f.dom)))
+        elif isinstance(f, Arrow):
+            return fold(lambda g, h: g >> self(h), f, Id(self(f.dom)))
+        raise ValueError("Expected Ob, Gen or Arrow, got {} of type {} instead."
+                         .format(repr(f), type(f)))
 
 class Quiver:
     """ Wraps a Python function into a dict that holds the arrows of a functor.
