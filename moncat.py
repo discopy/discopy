@@ -1,34 +1,19 @@
 """
 Implements free monoidal categories and (dagger) monoidal functors.
 
-We can check the Eckerman-Hilton argument, up to explicit interchanger.
+We can check the Eckerman-Hilton argument, up to interchanger.
 
 >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-We can check bifunctoriality, again up to explicit interchanger.
-
->>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
->>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> f0 @ f1  # doctest: +ELLIPSIS
-Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=[...], offsets=[0, 1])
->>> print(f0 @ f1)
-f0 @ Id(z) >> Id(y) @ f1
->>> d = Id(x) @ f1 >> f0 @ Id(w)
->>> d  # doctest: +ELLIPSIS
-Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=[...], offsets=[1, 0])
->>> print(d)
-Id(x) @ f1 >> f0 @ Id(w)
->>> assert d == (f0 @ f1).interchange(0, 1)
->>> assert f0 @ f1 == d.interchange(0, 1)
-
 We can check the axioms for dagger monoidal categories, up to interchanger.
 
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
 >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
->>> print((f0 @ f1).dagger())
-Id(y) @ f1.dagger() >> f0.dagger() @ Id(z)
+>>> d = Id(x) @ f1 >> f0 @ Id(w)
+>>> assert d == (f0 @ f1).interchange(0, 1)
+>>> assert f0 @ f1 == d.interchange(0, 1)
 >>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
 >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
 """
@@ -106,8 +91,48 @@ class Ty(list):
 class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> d = Diagram(x @ z, y @ w, [f0, f1], [0, 1])
+    >>> assert d == f0 @ f1
     """
     def __init__(self, dom, cod, boxes, offsets):
+        """
+        >>> Diagram(Ty('x'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
+        ... # doctest: +ELLIPSIS
+        Diagram(dom=Ty('x'), cod=Ty('y'), boxes=[Box(...)], offsets=[0])
+        >>> Diagram('x', Ty('x'), [], [])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Domain of type Ty expected, got 'x' ... instead.
+        >>> Diagram(Ty('x'), 'x', [], [])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Codomain of type Ty expected, got 'x' ... instead.
+        >>> Diagram(Ty('x'), Ty('x'), [], [1])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Boxes and offsets must have the same length.
+        >>> Diagram(Ty('x'), Ty('x'), [1], [1])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Box of type Diagram expected, got 1 ... instead.
+        >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
+        ... # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Offset of type int expected, got Ty('x') ... instead.
+        >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
+        ... # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        discopy.cat.CompositionError: Codomain x expected, got y instead.
+        >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
+        ... # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        discopy.cat.CompositionError: Domain y expected, got x instead.
+        """
         if not isinstance(dom, Ty):
             raise ValueError("Domain of type Ty expected, got {} of type {} "
                              "instead.".format(repr(dom), type(dom)))
@@ -124,16 +149,20 @@ class Diagram(Arrow):
             for f, n in zip(boxes, offsets):
                 if not isinstance(f, Diagram):
                     raise ValueError(
-                        "Generator of type Diagram expected, got {} of type {} "
+                        "Box of type Diagram expected, got {} of type {} "
                         "instead.".format(repr(f), type(f)))
+                if not f.boxes:
+                    raise ValueError(
+                        "The identity diagram {} cannot be used as a box."
+                        .format(repr(f)))
                 if not isinstance(n, int):
                     raise ValueError(
                         "Offset of type int expected, got {} of type {} "
                         "instead.".format(repr(n), type(n)))
                 if scan[n : n + len(f.dom)] != f.dom:
                     raise CompositionError(
-                        "Box with domain {} expected, got {} instead."
-                        .format(scan[n : n + len(f.dom)], repr(f)))
+                        "Domain {} expected, got {} instead."
+                        .format(scan[n : n + len(f.dom)], f.dom))
                 scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
             if scan != cod:
                 raise CompositionError(
@@ -141,25 +170,63 @@ class Diagram(Arrow):
 
     @property
     def boxes(self):
+        """
+        >>> Diagram(Ty('x'), Ty('x'), [], []).boxes
+        []
+        """
         return self._boxes
 
     @property
     def offsets(self):
+        """
+        >>> Diagram(Ty('x'), Ty('x'), [], []).offsets
+        []
+        """
         return self._offsets
 
     def __eq__(self, other):
+        """
+        >>> Diagram(Ty('x'), Ty('x'), [], []) == Ty('x')
+        False
+        >>> Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
+        True
+        """
+        if not isinstance(other, Diagram):
+            return False
         return all(self.__getattribute__(attr) == other.__getattribute__(attr)
                    for attr in ['dom', 'cod', 'boxes', 'offsets'])
 
     def __repr__(self):
-        if not self:  # i.e. self is identity.
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> Diagram(x, x, [], [])
+        Id(Ty('x'))
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> Diagram(x, y, [f0], [0])  # doctest: +ELLIPSIS
+        Diagram(dom=Ty('x'), cod=Ty('y'), boxes=[Box(...)], offsets=[0])
+        >>> Diagram(x @ z, y @ w, [f0, f1], [0, 1])  # doctest: +ELLIPSIS
+        Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=[...], offsets=[0, 1])
+        """
+        if not self.boxes:  # i.e. self is identity.
             return repr(Id(self.dom))
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
             repr(self.dom), repr(self.cod),
             repr(self.boxes), repr(self.offsets))
 
     def __str__(self):
-        if not self:  # i.e. self is identity.
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> print(Diagram(x, x, [], []))
+        Id(x)
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> print(Diagram(x, y, [f0], [0]))
+        f0
+        >>> print(f0 @ f1)
+        f0 @ Id(z) >> Id(y) @ f1
+        >>> print(f0 @ Id(z) >> Id(y) @ f1)
+        f0 @ Id(z) >> Id(y) @ f1
+        """
+        if not self.boxes:  # i.e. self is identity.
             return str(self.id(self.dom))
         def line(scan, box, off):
             left = "{} @ ".format(self.id(scan[:off])) if scan[:off] else ""
@@ -175,6 +242,11 @@ class Diagram(Arrow):
         return result
 
     def tensor(self, other):
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> assert f0.tensor(f1) == f0.tensor(Id(z)) >> Id(y).tensor(f1)
+        """
         if not isinstance(other, Diagram):
             raise ValueError("Expected Diagram, got {} of type {} instead."
                              .format(repr(other), type(other)))
@@ -184,6 +256,11 @@ class Diagram(Arrow):
         return Diagram(dom, cod, boxes, offsets)
 
     def __matmul__(self, other):
+        """
+        >>> Id(Ty('x')) @ Id(Ty('y'))
+        Id(Ty('x', 'y'))
+        >>> assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
+        """
         return self.tensor(other)
 
     def then(self, other):

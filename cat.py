@@ -88,8 +88,20 @@ class Arrow(list):
 
     def __init__(self, dom, cod, gens):
         """
-        >>> Arrow(Ob('x'), Ob('x'), [])
-        Arrow(Ob('x'), Ob('x'), [])
+        >>> Arrow(Ob('x'), Ob('y'), [Gen('f', Ob('x'), Ob('y'))])
+        Arrow(Ob('x'), Ob('y'), [Gen('f', Ob('x'), Ob('y'))])
+        >>> Arrow('x', Ob('x'), [])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Domain of type Ob expected, got 'x' ... instead.
+        >>> Arrow(Ob('x'), 'x', [])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Codomain of type Ob expected, got 'x' ... instead.
+        >>> Arrow(Ob('x'), Ob('x'), [Ob('x')])  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Generator of type Arrow expected, got Ob('x') ... instead.
         """
         if not isinstance(dom, Ob):
             raise ValueError("Domain of type Ob expected, got {} of type {} "
@@ -147,10 +159,14 @@ class Arrow(list):
     def __repr__(self):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+        >>> Arrow(x, x, [])
+        Id(Ob('x'))
         >>> f, g = Gen('f', x, y), Gen('g', y, z)
         >>> Arrow(x, z, [f, g])  # doctest: +ELLIPSIS
         Arrow(Ob('x'), Ob('z'), [Gen(...), Gen(...)])
         """
+        if not self.gens:  # i.e. self is identity.
+            return repr(Id(self.dom))
         return "Arrow({}, {}, {})".format(
             repr(self.dom), repr(self.cod), repr(self.gens))
 
@@ -179,6 +195,10 @@ class Arrow(list):
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Gen('f', x, y), Gen('g', y, z)
         >>> assert f.then(g) == f >> g == g << f
+        >>> f >> x  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Expected Arrow, got Ob('x') ... instead.
         """
         if not isinstance(other, Arrow):
             raise ValueError("Expected Arrow, got {} of type {} instead."
@@ -275,9 +295,8 @@ class Gen(Arrow):
     """ Defines a generator as an arrow with a name, and itself as generator.
     Generators can hold any Python object as data attribute, default is None.
 
-    We can check the axioms for free dagger categories. Note that when we
-    compose a generator with an identity, we get an arrow that is defined
-    as equal to the original generator.
+    Note that when we compose a generator with an identity, we get an arrow that
+    is defined as equal to the original generator.
 
     >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
     >>> Id(Ob('x')) >> f  # doctest: +ELLIPSIS
@@ -417,6 +436,10 @@ class Functor:
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Gen('f', x, y), Gen('g', y, z)
         >>> F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
+        >>> F(F)  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Expected Ob, Gen or Arrow, got Functor... instead.
         >>> print(F(x))
         y
         >>> print(F(f))
