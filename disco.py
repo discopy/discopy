@@ -275,9 +275,6 @@ class Cap(Grammar, Box):
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
-        else:
-            raise ValueError("Input of type Pregroup expected, got {} "
-                             "of type {} instead.".format(repr(x), type(x)))
         dom, cod = Pregroup(), Pregroup(x, x.r) if dagger else Pregroup(x, x.l)
         Box.__init__(self, 'cap_{}'.format(x), dom, cod, dagger)
 
@@ -389,7 +386,7 @@ class Model(MatrixFunctor):
     >>> assert (F(Wire(n)) == F(snake_r)).all()
     """
     def __init__(self, ob, ar):
-        for x in ob.keys()
+        for x in ob.keys():
             if not isinstance(x, Pregroup) or not x.is_basic:
                 raise ValueError(
                     "Expected a basic type, got {} instead.".format(repr(x)))
