@@ -19,7 +19,7 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 """
 
 from discopy import cat
-from cat import _config, Ob, Arrow, Gen, Functor, Quiver
+from discopy.cat import _config, Ob, Arrow, Gen, Functor, Quiver
 
 
 class Ty(list):
@@ -286,18 +286,30 @@ class Diagram(Arrow):
 
     def interchange(self, k0, k1):
         """
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> d = Box('f0', x, y) @ Box('f1', z, w)
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> d = f @ f.dagger()
+        >>> print(d.interchange(0, 0))
+        f @ Id(y) >> Id(y) @ f.dagger()
         >>> print(d.interchange(0, 1))
-        Id(x) @ f1 >> f0 @ Id(w)
+        Id(x) @ f.dagger() >> f @ Id(x)
+        >>> print((d >> d.dagger()).interchange(0, 2))
+        Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
         """
-        if k0 + 1 != k1:
-            raise NotImplementedError
+        if k0 == k1:
+            return self
+        elif k1 < k0:
+            return self.interchange(k1, k0)
+        elif k1 > k0 + 1:
+            result = self
+            for i in range(k1 - k0):
+                result = result.interchange(k0 + i, k0 + i + 1)
+            return result
         box0, box1 = self.boxes[k0], self.boxes[k1]
         off0, off1 = self.offsets[k0], self.offsets[k1]
         if off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
-        elif off0 >= off1 + len(box1.dom):  # box1 left of box0
+        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
             off0 = off0 - len(box1.dom) + len(box1.cod)
         else:
             raise InterchangerError("Boxes {} and {} are connected."
@@ -305,6 +317,37 @@ class Diagram(Arrow):
         return Diagram(self.dom, self.cod,
                        self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
                        self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
+
+    def normal_form(self):
+        """
+        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+        >>> (s1 @ s0).normal_form()  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: Diagram(...) is not connected.
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> d = Id(x) @ f1 >> f0 @ Id(w)
+        >>> assert d.normal_form() == f0 @ f1
+        """
+        d, cache = self, [self]
+        while True:
+            for i in range(len(d)):
+                try:
+                    off0, off1 = self.offsets[i], self.offsets[i + 1]
+                    left, right = (off0, off1)\
+                        if off1 >= off0 + len(self.boxes[i].cod)\
+                        else (off1, off0)
+                    d = d.interchange(right, left)
+                    if d in cache:
+                        raise NotImplementedError(
+                            "{} is not connected.".format(repr(self)))
+                    cache.append(d)
+                    break
+                except InterchangerError:
+                    pass
+            break
+        return d
 
 class AxiomError(cat.AxiomError):
     """
