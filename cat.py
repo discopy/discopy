@@ -474,7 +474,9 @@ class Quiver:
 
     def __getitem__(self, box):
         """
-        >>> Quiver(lambda x: x)[3] = 42  # doctest: +ELLIPSIS
+        >>> Quiver(lambda x: x * 10)[42]
+        420
+        >>> Quiver(lambda x: x * 10)[42] = 421  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         TypeError: 'Quiver' object does not support item assignment

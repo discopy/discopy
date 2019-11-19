@@ -285,6 +285,12 @@ class Diagram(Arrow):
         return Id(x)
 
     def interchange(self, k0, k1):
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> d = Box('f0', x, y) @ Box('f1', z, w)
+        >>> print(d.interchange(0, 1))
+        Id(x) @ f1 >> f0 @ Id(w)
+        """
         if k0 + 1 != k1:
             raise NotImplementedError
         box0, box1 = self.boxes[k0], self.boxes[k1]
