@@ -3,7 +3,7 @@
 
 import numpy as np
 from functools import reduce as fold
-from discopy.cat import CompositionError
+from discopy.cat import AxiomError
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
@@ -93,7 +93,7 @@ class Matrix(Diagram):
 
     def then(self, other):
         if self.cod != other.dom:
-            raise CompositionError("{} does not compose with {}."
+            raise AxiomError("{} does not compose with {}."
                                    .format(repr(self), repr(other)))
         return Matrix(self.dom, other.cod,
                       np.tensordot(self.array, other.array, len(self.cod)))

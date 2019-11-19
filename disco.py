@@ -12,7 +12,7 @@
 """
 
 import numpy as np
-from discopy.moncat import Ob, Ty, Diagram, Box, CompositionError
+from discopy.moncat import Ob, Ty, Diagram, Box, AxiomError
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 
 
@@ -365,7 +365,7 @@ class Parse(Grammar):
         cod = self._type
         for i in cups:
             if cod[i].r != cod[i + 1]:
-                raise CompositionError("There can be no Cup of type {}."
+                raise AxiomError("There can be no Cup of type {}."
                                        .format(cod[i: i + 2]))
             boxes.append(Cup(cod[i]))
             cod = cod[:i] + cod[i + 2:]

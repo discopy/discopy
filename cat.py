@@ -117,16 +117,16 @@ class Arrow(list):
                         "Generator of type Arrow expected, got {} of type {} "
                         "instead.".format(repr(f), type(f)))
                 if not f.gens:
-                    raise CompositionError(
+                    raise AxiomError(
                         "The identity arrow {} cannot be used as a generator."
                         .format(repr(f)))
                 if scan != f.dom:
-                    raise CompositionError(
+                    raise AxiomError(
                         "Generator with domain {} expected, got {} instead."
                         .format(scan, repr(f)))
                 scan = f.cod
             if scan != cod:
-                raise CompositionError(
+                raise AxiomError(
                     "Generator with codomain {} expected, got {} instead."
                     .format(cod, repr(gens[-1])))
         self._dom, self._cod, self._gens = dom, cod, gens
@@ -204,7 +204,7 @@ class Arrow(list):
             raise ValueError("Expected Arrow, got {} of type {} instead."
                               .format(repr(other), type(other)))
         if self.cod != other.dom:
-            raise CompositionError("{} does not compose with {}."
+            raise AxiomError("{} does not compose with {}."
                                    .format(repr(self), repr(other)))
         return Arrow(self.dom, other.cod, self.gens + other.gens)
 
@@ -268,26 +268,26 @@ class Id(Arrow):
         """
         return "Id({})".format(str(self.dom))
 
-class CompositionError(Exception):
+class AxiomError(Exception):
     """
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Gen('f', x, y), Gen('g', y, z)
     >>> Arrow(x, y, [g])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.CompositionError: Generator with domain x expected, got Gen('g', ...
+    cat.AxiomError: Generator with domain x expected, got Gen('g', ...
     >>> Arrow(x, z, [f])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.CompositionError: Generator with codomain z expected, got Gen('f', ...
+    cat.AxiomError: Generator with codomain z expected, got Gen('f', ...
     >>> Arrow(x, x, [Id(x)])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.CompositionError: The identity arrow Id(Ob('x')) cannot be used ...
+    cat.AxiomError: The identity arrow Id(Ob('x')) cannot be used ...
     >>> g >> f  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.CompositionError: Gen('g',...) does not compose with Gen('f', ...).
+    cat.AxiomError: Gen('g',...) does not compose with Gen('f', ...).
     """
     pass
 

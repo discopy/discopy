@@ -19,7 +19,7 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 """
 
 from discopy.cat import (
-    _config, Ob, Arrow, Gen, Functor, Quiver, CompositionError)
+    _config, Ob, Arrow, Gen, Functor, Quiver, AxiomError)
 
 
 class Ty(list):
@@ -126,12 +126,12 @@ class Diagram(Arrow):
         ... # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        discopy.cat.CompositionError: Codomain x expected, got y instead.
+        discopy.cat.AxiomError: Codomain x expected, got y instead.
         >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
         ... # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        discopy.cat.CompositionError: Domain y expected, got x instead.
+        discopy.cat.AxiomError: Domain y expected, got x instead.
         """
         if not isinstance(dom, Ty):
             raise ValueError("Domain of type Ty expected, got {} of type {} "
@@ -160,12 +160,12 @@ class Diagram(Arrow):
                         "Offset of type int expected, got {} of type {} "
                         "instead.".format(repr(n), type(n)))
                 if scan[n : n + len(f.dom)] != f.dom:
-                    raise CompositionError(
+                    raise AxiomError(
                         "Domain {} expected, got {} instead."
                         .format(scan[n : n + len(f.dom)], f.dom))
                 scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
             if scan != cod:
-                raise CompositionError(
+                raise AxiomError(
                     "Codomain {} expected, got {} instead.".format(cod, scan))
 
     @property
@@ -268,7 +268,7 @@ class Diagram(Arrow):
             raise ValueError("Expected Diagram, got {} of type {} instead."
                              .format(repr(other), type(other)))
         if self.cod != other.dom:
-            raise CompositionError("{} does not compose with {}."
+            raise AxiomError("{} does not compose with {}."
                                    .format(repr(self), repr(other)))
         dom, cod = self.dom, other.cod
         boxes = self.boxes + other.boxes
