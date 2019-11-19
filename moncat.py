@@ -18,8 +18,8 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
 """
 
-from discopy.cat import (
-    _config, Ob, Arrow, Gen, Functor, Quiver, AxiomError)
+from discopy import cat
+from cat import _config, Ob, Arrow, Gen, Functor, Quiver
 
 
 class Ty(list):
@@ -122,16 +122,6 @@ class Diagram(Arrow):
         Traceback (most recent call last):
         ...
         ValueError: Offset of type int expected, got Ty('x') ... instead.
-        >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
-        ... # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        discopy.cat.AxiomError: Codomain x expected, got y instead.
-        >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-        ... # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        discopy.cat.AxiomError: Domain y expected, got x instead.
         """
         if not isinstance(dom, Ty):
             raise ValueError("Domain of type Ty expected, got {} of type {} "
@@ -141,9 +131,6 @@ class Diagram(Arrow):
                              "instead.".format(repr(cod), type(cod)))
         if len(boxes) != len(offsets):
             raise ValueError("Boxes and offsets must have the same length.")
-        self._dom, self._cod = dom, cod
-        self._boxes, self._offsets = boxes, offsets
-        list.__init__(self, zip(boxes, offsets))
         if not _config.fast:
             scan = dom
             for f, n in zip(boxes, offsets):
@@ -151,10 +138,6 @@ class Diagram(Arrow):
                     raise ValueError(
                         "Box of type Diagram expected, got {} of type {} "
                         "instead.".format(repr(f), type(f)))
-                if not f.boxes:
-                    raise ValueError(
-                        "The identity diagram {} cannot be used as a box."
-                        .format(repr(f)))
                 if not isinstance(n, int):
                     raise ValueError(
                         "Offset of type int expected, got {} of type {} "
@@ -167,6 +150,9 @@ class Diagram(Arrow):
             if scan != cod:
                 raise AxiomError(
                     "Codomain {} expected, got {} instead.".format(cod, scan))
+        self._dom, self._cod = dom, cod
+        self._boxes, self._offsets = boxes, offsets
+        list.__init__(self, zip(boxes, offsets))
 
     @property
     def boxes(self):
@@ -264,6 +250,12 @@ class Diagram(Arrow):
         return self.tensor(other)
 
     def then(self, other):
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> print(Id(x) @ f1 >> f0 @ Id(w))
+        Id(x) @ f1 >> f0 @ Id(w)
+        """
         if not isinstance(other, Diagram):
             raise ValueError("Expected Diagram, got {} of type {} instead."
                              .format(repr(other), type(other)))
@@ -276,11 +268,20 @@ class Diagram(Arrow):
         return Diagram(dom, cod, boxes, offsets)
 
     def dagger(self):
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> d = Box('f0', x, y) @ Box('f1', z, w)
+        >>> print(d.dagger())
+        Id(y) @ f1.dagger() >> f0.dagger() @ Id(z)
+        """
         return Diagram(self.cod, self.dom,
             [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
 
     @staticmethod
     def id(x):
+        """
+        >>> assert Diagram.id(Ty('x')) == Diagram(Ty('x'), Ty('x'), [], [])
+        """
         return Id(x)
 
     def interchange(self, k0, k1):
@@ -293,27 +294,63 @@ class Diagram(Arrow):
         elif off0 >= off1 + len(box1.dom):  # box1 left of box0
             off0 = off0 - len(box1.dom) + len(box1.cod)
         else:
-            raise InterchangerError("Boxes ({}, {}) are connected."
-                                    .format(box0, box1))
+            raise InterchangerError("Boxes {} and {} are connected."
+                                    .format(repr(box0), repr(box1)))
         return Diagram(self.dom, self.cod,
                        self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
                        self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
 
-class InterchangerError:
+class AxiomError(cat.AxiomError):
+    """
+    >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
+    ... # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    moncat.AxiomError: Codomain x expected, got y instead.
+    >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
+    ... # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    moncat.AxiomError: Domain y expected, got x instead.
+    """
+    pass
+
+class InterchangerError(AxiomError):
+    """
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> d = Box('f', x, y) >> Box('g', y, z)
+    >>> d.interchange(0, 1)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    moncat.InterchangerError: Boxes ... are connected.
+    """
     pass
 
 class Id(Diagram):
     """ Implements the identity diagram of a given type.
 
-    >>> assert Id(Ty('x')) == Diagram(Ty('x'), Ty('x'), [], [])
+    >>> s, t = Ty('x', 'y'), Ty('z', 'w')
+    >>> f = Box('f', s, t)
+    >>> assert f >> Id(t) == f == Id(s) >> f
     """
     def __init__(self, x):
+        """
+        >>> assert Id(Ty('x')) == Diagram.id(Ty('x'))
+        """
         super().__init__(x, x, [], [])
 
     def __repr__(self):
+        """
+        >>> Id(Ty('x'))
+        Id(Ty('x'))
+        """
         return "Id({})".format(repr(self.dom))
 
     def __str__(self):
+        """
+        >>> print(Id(Ty('x')))
+        Id(x)
+        """
         return "Id({})".format(str(self.dom))
 
 class Box(Gen, Diagram):
@@ -323,44 +360,63 @@ class Box(Gen, Diagram):
     we get a diagram that is defined as equal to the original box.
 
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
-    >>> f
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z'))
-    >>> print(f)
-    f
     >>> Id(Ty('x', 'y')) >> f  # doctest: +ELLIPSIS
-    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(name='f'...], offsets=[0])
-    >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
+    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(...)], offsets=[0])
     >>> Id(Ty()) @ f  # doctest: +ELLIPSIS
-    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(name='f'...], offsets=[0])
+    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(...)], offsets=[0])
+    >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
-    >>> f.dagger()
-    Box(name='f', dom=Ty('x', 'y'), cod=Ty('z')).dagger()
-    >>> print(f.dagger())
-    f.dagger()
     >>> assert f == f.dagger().dagger()
     """
-    def __init__(self, name, dom, cod, dagger=False, data=None):
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        """
+        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+        >>> print(f)
+        f
+        >>> f.name, f.dom, f.cod, f.data
+        ('f', Ty('x', 'y'), Ty('z'), 42)
+        """
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
-        self._name, self._dagger, self._data = name, dagger, data
+        self._name, self._dagger, self._data = name, _dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
+        """
+        >>> f = Box('f', Ty('x', 'y'), Ty('z'))
+        >>> print(f.dagger())
+        f.dagger()
+        """
         return Box(self.name, self.cod, self.dom,
-                   dagger=not self._dagger, data=self.data)
+                   _dagger=not self._dagger, data=self.data)
 
     def __repr__(self):
+        """
+        >>> Box('f', Ty('x', 'y'), Ty('z'))
+        Box('f', Ty('x', 'y'), Ty('z'))
+        >>> Box('f', Ty('x', 'y'), Ty('z')).dagger()
+        Box('f', Ty('x', 'y'), Ty('z')).dagger()
+        """
         if self._dagger:
-            return "Box(name={}, dom={}, cod={}{}).dagger()".format(
+            return "Box({}, {}, {}{}).dagger()".format(
                 *map(repr, [self.name, self.cod, self.dom]),
                 ", data=" + repr(self.data) if self.data else '')
-        return "Box(name={}, dom={}, cod={}{})".format(
+        return "Box({}, {}, {}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
             ", data=" + repr(self.data) if self.data else '')
 
     def __hash__(self):
+        """
+        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+        >>> {f: 42}[f]
+        42
+        """
         return hash(repr(self))
 
     def __eq__(self, other):
+        """
+        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+        >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
+        """
         if isinstance(other, Box):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
@@ -371,17 +427,18 @@ class MonoidalFunctor(Functor):
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
-    >>> ob = {x: z, y: w, z: x, w: y}
-    >>> ar = Quiver(lambda f: f1 if f == f0 else f0 if f == f1 else None)
-    >>> F = MonoidalFunctor(ob, ar)
+    >>> F = MonoidalFunctor({x: z, y: w, z: x, w: y}, {f0: f1, f1: f0})
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(F(f0)) == f0
-    >>> F(f0)
-    Box(name='f1', dom=Ty('z'), cod=Ty('w'), data=[1.1])
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
     """
     def __init__(self, ob, ar):
+        """
+        >>> F = MonoidalFunctor({Ty('x'): Ty('y')}, {})
+        >>> F(Id(Ty('x')))
+        Id(Ty('y'))
+        """
         for x in ob.keys():
             if not isinstance(x, Ty) or len(x) != 1:
                 raise ValueError(
@@ -390,10 +447,29 @@ class MonoidalFunctor(Functor):
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __repr__(self):
+        """
+        >>> MonoidalFunctor({Ty('x'): Ty('y')}, {})
+        MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})
+        """
         return "MonoidalFunctor(ob={}, ar={})".format(
                                 self._objects, self._arrows)
 
     def __call__(self, d):
+        """
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> F = MonoidalFunctor({x: y, y: x}, {f: f.dagger()})
+        >>> print(F(x))
+        y
+        >>> print(F(f))
+        f.dagger()
+        >>> print(F(F(f)))
+        f
+        >>> print(F(f >> f.dagger()))
+        f.dagger() >> f
+        >>> print(F(f @ f.dagger()))
+        f.dagger() @ Id(x) >> Id(x) @ f
+        """
         if isinstance(d, Ty):
             return sum([self.ob[x] for x in d], Ty())
         elif isinstance(d, Box):

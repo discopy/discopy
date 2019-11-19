@@ -116,10 +116,6 @@ class Arrow(list):
                     raise ValueError(
                         "Generator of type Arrow expected, got {} of type {} "
                         "instead.".format(repr(f), type(f)))
-                if not f.gens:
-                    raise AxiomError(
-                        "The identity arrow {} cannot be used as a generator."
-                        .format(repr(f)))
                 if scan != f.dom:
                     raise AxiomError(
                         "Generator with domain {} expected, got {} instead."
@@ -280,10 +276,6 @@ class AxiomError(Exception):
     Traceback (most recent call last):
     ...
     cat.AxiomError: Generator with codomain z expected, got Gen('f', ...
-    >>> Arrow(x, x, [Id(x)])  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    cat.AxiomError: The identity arrow Id(Ob('x')) cannot be used ...
     >>> g >> f  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
@@ -375,9 +367,8 @@ class Gen(Arrow):
 
     def __eq__(self, other):
         """
-        >>> f0 = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-        >>> f1 = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-        >>> assert f0 == f1
+        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> assert f == Arrow(Ob('x'), Ob('y'), [f])
         """
         if not isinstance(other, Arrow):
             return False

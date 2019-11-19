@@ -7,6 +7,7 @@ from discopy.matrix import (
     Dim, Matrix, MatrixFunctor)
 from discopy.disco import (
     Adjoint, Pregroup, Grammar, Wire, Cup, Cap, Word, Parse, Model)
-
+from discopy.circuit import (
+    PRO, Circuit, Gate, Bra, Ket, CircuitFunctor)
 
 __version__ = _version.VERSION
