@@ -3,6 +3,7 @@
 
 import numpy as np
 from functools import reduce as fold
+from discopy.cat import CompositionError
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
@@ -25,7 +26,10 @@ class Dim(Ty):
     >>> assert Dim(2, 3)[0] == Dim(3, 2)[1] == 2
     """
     def __init__(self, *xs):
-        assert all(isinstance(x, int) and x >= 1 for x in xs)
+        for x in xs:
+            if not isinstance(x, int) or x < 1:
+                raise ValueError("Expected positive integer, got {} instead."
+                                 .format(repr(x)))
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
     def __add__(self, other):
@@ -88,7 +92,9 @@ class Matrix(Diagram):
                 self.array == other.array)
 
     def then(self, other):
-        assert self.cod == other.dom
+        if self.cod != other.dom:
+            raise CompositionError("{} does not compose with {}."
+                                   .format(repr(self), repr(other)))
         return Matrix(self.dom, other.cod,
                       np.tensordot(self.array, other.array, len(self.cod)))
 

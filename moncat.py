@@ -33,7 +33,8 @@ Id(y) @ f1.dagger() >> f0.dagger() @ Id(z)
 >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
 """
 
-from discopy.cat import _config, Ob, Arrow, Gen, Functor, Quiver
+from discopy.cat import (
+    _config, Ob, Arrow, Gen, Functor, Quiver, CompositionError)
 
 
 class Ty(list):
@@ -107,22 +108,36 @@ class Diagram(Arrow):
 
     """
     def __init__(self, dom, cod, boxes, offsets):
-        assert isinstance(dom, Ty)
-        assert isinstance(cod, Ty)
-        assert isinstance(boxes, list)
-        assert isinstance(offsets, list)
-        assert len(boxes) == len(offsets)
-        assert all(isinstance(f, Diagram) for f in boxes)
-        assert all(isinstance(n, int) for n in offsets)
+        if not isinstance(dom, Ty):
+            raise ValueError("Domain of type Ty expected, got {} of type {} "
+                             "instead.".format(repr(dom), type(dom)))
+        if not isinstance(cod, Ty):
+            raise ValueError("Codomain of type Ty expected, got {} of type {} "
+                             "instead.".format(repr(cod), type(cod)))
+        if len(boxes) != len(offsets):
+            raise ValueError("Boxes and offsets must have the same length.")
         self._dom, self._cod = dom, cod
         self._boxes, self._offsets = boxes, offsets
         list.__init__(self, zip(boxes, offsets))
         if not _config.fast:
             scan = dom
             for f, n in zip(boxes, offsets):
-                assert scan[n : n + len(f.dom)] == f.dom
+                if not isinstance(f, Diagram):
+                    raise ValueError(
+                        "Generator of type Diagram expected, got {} of type {} "
+                        "instead.".format(repr(f), type(f)))
+                if not isinstance(n, int):
+                    raise ValueError(
+                        "Offset of type int expected, got {} of type {} "
+                        "instead.".format(repr(n), type(n)))
+                if scan[n : n + len(f.dom)] != f.dom:
+                    raise CompositionError(
+                        "Box with domain {} expected, got {} instead."
+                        .format(scan[n : n + len(f.dom)], repr(f)))
                 scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
-            assert scan == cod
+            if scan != cod:
+                raise CompositionError(
+                    "Codomain {} expected, got {} instead.".format(cod, scan))
 
     @property
     def boxes(self):
@@ -160,6 +175,9 @@ class Diagram(Arrow):
         return result
 
     def tensor(self, other):
+        if not isinstance(other, Diagram):
+            raise ValueError("Expected Diagram, got {} of type {} instead."
+                             .format(repr(other), type(other)))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
@@ -169,7 +187,12 @@ class Diagram(Arrow):
         return self.tensor(other)
 
     def then(self, other):
-        assert self.cod == other.dom
+        if not isinstance(other, Diagram):
+            raise ValueError("Expected Diagram, got {} of type {} instead."
+                             .format(repr(other), type(other)))
+        if self.cod != other.dom:
+            raise CompositionError("{} does not compose with {}."
+                                   .format(repr(self), repr(other)))
         dom, cod = self.dom, other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
@@ -184,7 +207,8 @@ class Diagram(Arrow):
         return Id(x)
 
     def interchange(self, k0, k1):
-        assert k0 + 1 == k1
+        if k0 + 1 != k1:
+            raise NotImplementedError
         box0, box1 = self.boxes[k0], self.boxes[k1]
         off0, off1 = self.offsets[k0], self.offsets[k1]
         if off1 >= off0 + len(box0.cod):  # box0 left of box1
@@ -192,11 +216,14 @@ class Diagram(Arrow):
         elif off0 >= off1 + len(box1.dom):  # box1 left of box0
             off0 = off0 - len(box1.dom) + len(box1.cod)
         else:
-            raise Exception("Interchange not allowed."
-                            "Boxes ({}, {}) are connected.".format(box0, box1))
+            raise InterchangerError("Boxes ({}, {}) are connected."
+                                    .format(box0, box1))
         return Diagram(self.dom, self.cod,
                        self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
                        self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
+
+class InterchangerError:
+    pass
 
 class Id(Diagram):
     """ Implements the identity diagram of a given type.
@@ -236,8 +263,6 @@ class Box(Gen, Diagram):
     >>> assert f == f.dagger().dagger()
     """
     def __init__(self, name, dom, cod, dagger=False, data=None):
-        assert isinstance(dom, Ty)
-        assert isinstance(cod, Ty)
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
         self._name, self._dagger, self._data = name, dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
@@ -280,7 +305,10 @@ class MonoidalFunctor(Functor):
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
     """
     def __init__(self, ob, ar):
-        assert all(isinstance(x, Ty) and len(x) == 1 for x in ob.keys())
+        for x in ob.keys():
+            if not isinstance(x, Ty) or len(x) != 1:
+                raise ValueError(
+                    "Expected an atomic type, got {} instead.".format(repr(x)))
         self._objects, self._arrows = ob, ar
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 

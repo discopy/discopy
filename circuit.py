@@ -136,7 +136,8 @@ class Circuit(Diagram):
         c = tk.Circuit(len(self.dom))
         for g, n in zip(self.gates, self.offsets):
             if g.data:
-                assert g.name in ['Rx', 'Rz']
+                if g.name not in ['Rx', 'Rz']:
+                    raise NotImplementedError
                 c.__getattribute__(g.name)(
                     *(n + i for i in range(len(g.dom))), g.data['phase'])
             else:

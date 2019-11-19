@@ -98,7 +98,7 @@ class Arrow(list):
             raise ValueError("Codomain of type Ob expected, got {} of type {} "
                              "instead.".format(repr(cod), type(cod)))
         if not _config.fast:
-            u = dom
+            scan = dom
             for f in gens:
                 if not isinstance(f, Arrow):
                     raise ValueError(
@@ -108,12 +108,12 @@ class Arrow(list):
                     raise CompositionError(
                         "The identity arrow {} cannot be used as a generator."
                         .format(repr(f)))
-                if u != f.dom:
+                if scan != f.dom:
                     raise CompositionError(
                         "Generator with domain {} expected, got {} instead."
-                        .format(u, repr(f)))
-                u = f.cod
-            if u != cod:
+                        .format(scan, repr(f)))
+                scan = f.cod
+            if scan != cod:
                 raise CompositionError(
                     "Generator with codomain {} expected, got {} instead."
                     .format(cod, repr(gens[-1])))
@@ -290,12 +290,6 @@ class Gen(Arrow):
         >>> Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         """
-        if not isinstance(dom, Ob):
-            raise ValueError("Domain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(dom), type(dom)))
-        if not isinstance(cod, Ob):
-            raise ValueError("Codomain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(cod), type(cod)))
         self._name, self._dom, self._cod,  = name, dom, cod
         self._gens, self._dagger, self._data = [self], _dagger, data
         super().__init__(dom, cod, [self])

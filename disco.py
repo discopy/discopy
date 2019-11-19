@@ -12,7 +12,7 @@
 """
 
 import numpy as np
-from discopy.moncat import Ob, Ty, Diagram, Box
+from discopy.moncat import Ob, Ty, Diagram, Box, CompositionError
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 
 
@@ -32,7 +32,8 @@ class Adjoint(Ob):
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
     def __init__(self, basic, z):
-        assert isinstance(z, int)
+        if not isinstance(z, int):
+            raise ValueError("Expected int, got {} instead".format(repr(z)))
         self._basic, self._z = basic, z
         super().__init__((basic, z))
 
@@ -119,7 +120,12 @@ class Grammar(Diagram):
     >>> assert Wire(n.r).transpose_l() == snake_r
     """
     def __init__(self, dom, cod, boxes, offsets):
-        assert isinstance(dom, Pregroup) and isinstance(cod, Pregroup)
+        if not isinstance(dom, Pregroup):
+            raise ValueError("Domain of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(dom), type(dom)))
+        if not isinstance(cod, Pregroup):
+            raise ValueError("Codomain of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(cod), type(cod)))
         super().__init__(dom, cod, boxes, offsets)
 
     def then(self, other):
@@ -165,7 +171,9 @@ class Grammar(Diagram):
         Pregroup()
         >>> assert Grammar.cup(n) == Cup('n')
         """
-        assert isinstance(t, Pregroup)
+        if not isinstance(t, Pregroup):
+            raise ValueError("Input of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(t), type(t)))
         dom = t @ t.r
         cod = Pregroup()
         boxes = [Cup(b) for b in t[::-1]]
@@ -187,7 +195,9 @@ class Grammar(Diagram):
         Pregroup('n', 's', Adjoint('s', -1), Adjoint('n', -1))
         >>> assert Grammar.cap(n) == Cap('n')
         """
-        assert isinstance(t, Pregroup)
+        if not isinstance(t, Pregroup):
+            raise ValueError("Input of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(t), type(t)))
         dom = Pregroup()
         cod = t @ t.l
         boxes = [Cap(b) for b in t]
@@ -209,7 +219,9 @@ class Wire(Grammar):
     def __init__(self, t):
         if isinstance(t, Word):
             t = t.dom
-        assert isinstance(t, Pregroup)
+        if not isinstance(t, Pregroup):
+            raise ValueError("Input of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(t), type(t)))
         super().__init__(t, t, [], [])
 
     def __repr__(self):
@@ -228,7 +240,8 @@ class Cup(Grammar, Box):
     """
     def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
-            assert len(x) == 1
+            if len(x) != 1:
+                raise NotImplementedError
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
@@ -257,10 +270,14 @@ class Cap(Grammar, Box):
     """
     def __init__(self, x, dagger=False):
         if isinstance(x, Pregroup):
-            assert len(x) == 1
+            if len(x) != 1:
+                raise NotImplementedError
             x = x[0]
         elif not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
+        else:
+            raise ValueError("Input of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(x), type(x)))
         dom, cod = Pregroup(), Pregroup(x, x.r) if dagger else Pregroup(x, x.l)
         Box.__init__(self, 'cap_{}'.format(x), dom, cod, dagger)
 
@@ -292,8 +309,12 @@ class Word(Grammar, Box):
     Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
     """
     def __init__(self, w, t, dagger=False):
-        assert isinstance(w, str)
-        assert isinstance(t, Pregroup)
+        if not isinstance(w, str):
+            raise ValueError("Expected str, got {} of type {} instead."
+                             .format(repr(w), type(w)))
+        if not isinstance(t, Pregroup):
+            raise ValueError("Input of type Pregroup expected, got {} "
+                             "of type {} instead.".format(repr(t), type(t)))
         self._word, self._type = w, t
         dom, cod = (t, Pregroup(w)) if dagger else (Pregroup(w), t)
         Box.__init__(self, (w, t), dom, cod, dagger)
@@ -346,7 +367,9 @@ class Parse(Grammar):
         offsets = [len(words) - i - 1 for i in range(len(words))] + cups
         cod = self._type
         for i in cups:
-            assert cod[i].r == cod[i + 1]
+            if cod[i].r != cod[i + 1]:
+                raise CompositionError("There can be no Cup of type {}."
+                                       .format(cod[i: i + 2]))
             boxes.append(Cup(cod[i]))
             cod = cod[:i] + cod[i + 2:]
         super().__init__(dom, cod, boxes, offsets)
@@ -366,8 +389,15 @@ class Model(MatrixFunctor):
     >>> assert (F(Wire(n)) == F(snake_r)).all()
     """
     def __init__(self, ob, ar):
-        assert all(isinstance(x, Pregroup) and x.is_basic for x in ob.keys())
-        assert all(isinstance(a, Word) for a in ar.keys())
+        for x in ob.keys()
+            if not isinstance(x, Pregroup) or not x.is_basic:
+                raise ValueError(
+                    "Expected a basic type, got {} instead.".format(repr(x)))
+
+        for a in ar.keys():
+            if not isinstance(a, Word):
+                raise ValueError("Expected Word, got {} of type {} instead."
+                                 .format(repr(a), type(a)))
         self._types, self._vocab = ob, ar
         #  Rigid functors are defined by their image on basic types.
         ob = {x[0]._basic: ob[x] for x in self._types.keys()}
