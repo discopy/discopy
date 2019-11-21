@@ -1,4 +1,4 @@
-from discopy import cat, moncat, matrix, disco, circuit, _version
+from discopy import cat, moncat, matrix, disco, circuit, config, _version
 from discopy.cat import (
     Ob, Arrow, Gen, Functor, Quiver)
 from discopy.moncat import (

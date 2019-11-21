@@ -14,16 +14,9 @@ We can check the axioms of categories and functors.
 >>> assert F(f >> g) == F(f) >> F(g)
 """
 
+from discopy import config
 from functools import reduce as fold
 
-
-class _config:
-    """ If fast, checking axioms is disabled (approximately twice faster).
-
-    >>> assert _config
-    """
-
-    fast = False
 
 class Ob(object):
     """ Defines an object, only distinguished by its name.
@@ -109,7 +102,7 @@ class Arrow(list):
         if not isinstance(cod, Ob):
             raise ValueError("Codomain of type Ob expected, got {} of type {} "
                              "instead.".format(repr(cod), type(cod)))
-        if not _config.fast:
+        if not config.fast:
             scan = dom
             for f in gens:
                 if not isinstance(f, Arrow):

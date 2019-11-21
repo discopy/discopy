@@ -21,17 +21,14 @@ class Adjoint(Ob):
     Implements basic types and their iterated adjoints, also known as simple types.
 
     >>> a = Adjoint('a', 0)
-    >>> a
-    Adjoint('a', 0)
-    >>> a.l
-    Adjoint('a', -1)
-    >>> a.r
-    Adjoint('a', 1)
-    >>> a.r.r
-    Adjoint('a', 2)
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
     def __init__(self, basic, z):
+        """
+        >>> a = Adjoint('a', 0)
+        >>> a.name
+        ('a', 0)
+        """
         if not isinstance(z, int):
             raise ValueError("Expected int, got {} instead".format(repr(z)))
         self._basic, self._z = basic, z
@@ -39,69 +36,114 @@ class Adjoint(Ob):
 
     @property
     def l(self):
+        """
+        >>> Adjoint('a', 0).l
+        Adjoint('a', -1)
+        """
         return Adjoint(self._basic, self._z - 1)
 
     @property
     def r(self):
+        """
+        >>> Adjoint('a', 0).r
+        Adjoint('a', 1)
+        """
         return Adjoint(self._basic, self._z + 1)
 
     def __repr__(self):
+        """
+        >>> Adjoint('a', 42)
+        Adjoint('a', 42)
+        """
         return "Adjoint({}, {})".format(repr(self._basic), repr(self._z))
 
     def __str__(self):
+        """
+        >>> a = Adjoint('a', 0)
+        >>> print(a)
+        a
+        >>> print(a.r)
+        a.r
+        >>> print(a.l)
+        a.l
+        """
         return str(self._basic) + (
             - self._z * '.l' if self._z < 0 else self._z * '.r')
-
-    def __iter__(self):
-        yield self._basic
-        yield self._z
 
 class Pregroup(Ty):
     """ Implements pregroup types as lists of adjoints.
 
     >>> s, n = Pregroup('s'), Pregroup('n')
-    >>> s
-    Pregroup('s')
-    >>> print(s)
-    s
-    >>> s.l
-    Pregroup(Adjoint('s', -1))
-    >>> s @ n.l
-    Pregroup('s', Adjoint('n', -1))
-    >>> (s @ n).l
-    Pregroup(Adjoint('n', -1), Adjoint('s', -1))
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
     def __init__(self, *t):
+        """
+        >>> Pregroup('s', 'n')
+        Pregroup('s', 'n')
+        """
         t = [x if isinstance(x, Adjoint) else Adjoint(x, 0) for x in t]
         super().__init__(*t)
 
     def __add__(self, other):
+        """
+        >>> s, n = Pregroup('s'), Pregroup('n')
+        >>> assert n.r @ s @ n.l == n.r + s + n.l
+        """
         return Pregroup(*super().__add__(other))
 
-    def __getitem__(self, key):  # allows to compute slices of types
+    def __getitem__(self, key):
+        """
+        >>> Pregroup('s', 'n')[1]
+        Adjoint('n', 0)
+        >>> Pregroup('s', 'n')[1:]
+        Pregroup('n')
+        """
         if isinstance(key, slice):
             return Pregroup(*super().__getitem__(key))
         return super().__getitem__(key)
 
     def __repr__(self):
+        """
+        >>> s, n = Pregroup('s'), Pregroup('n')
+        >>> n.r @ s @ n.l
+        Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+        """
         return "Pregroup({})".format(', '.join(
             repr(x if x._z else x._basic) for x in self))
 
     def __str__(self):
-        return ' + '.join(map(str, self)) or "Pregroup()"
+        """
+        >>> s, n = Pregroup('s'), Pregroup('n')
+        >>> print(n.r @ s @ n.l)
+        n.r @ s @ n.l
+        """
+        return ' @ '.join(map(str, self)) or "Pregroup()"
 
     @property
     def l(self):
+        """
+        >>> s, n = Pregroup('s'), Pregroup('n')
+        >>> (s @ n.r).l
+        Pregroup('n', Adjoint('s', -1))
+        """
         return Pregroup(*[x.l for x in self[::-1]])
 
     @property
     def r(self):
+        """
+        >>> s, n = Pregroup('s'), Pregroup('n')
+        >>> (s @ n.l).r
+        Pregroup('n', Adjoint('s', 1))
+        """
         return Pregroup(*[x.r for x in self[::-1]])
 
     @property
     def is_basic(self):
+        """
+        >>> s, n = Pregroup('s'), Pregroup('n')
+        >>> assert s.is_basic and not s.l.is_basic and not (s @ n).is_basic
+        """
         return len(self) == 1 and not self[0]._z
 
 class Grammar(Diagram):

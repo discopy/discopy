@@ -18,8 +18,8 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
 """
 
-from discopy import cat
-from discopy.cat import _config, Ob, Arrow, Gen, Functor, Quiver
+from discopy import cat, config
+from discopy.cat import Ob, Arrow, Gen, Functor, Quiver
 
 
 class Ty(list):
@@ -131,7 +131,7 @@ class Diagram(Arrow):
                              "instead.".format(repr(cod), type(cod)))
         if len(boxes) != len(offsets):
             raise ValueError("Boxes and offsets must have the same length.")
-        if not _config.fast:
+        if not config.fast:
             scan = dom
             for f, n in zip(boxes, offsets):
                 if not isinstance(f, Diagram):
