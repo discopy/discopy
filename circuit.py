@@ -4,7 +4,7 @@
 >>> Alice = Box('Alice', Ty(), n)
 >>> loves = Box('loves', n, n)
 >>> Bob = Box('Bob', n, Ty())
->>> ob, ar = {n: PRO(1)}, {Alice: Ket(0), loves: X, Bob: Bra(1)}
+>>> ob, ar = {n: 1}, {Alice: Ket(0), loves: X, Bob: Bra(1)}
 >>> F = CircuitFunctor(ob, ar)
 >>> c = F(Alice >> loves >> Bob)
 >>> c
@@ -219,12 +219,12 @@ def random(n_qubits, depth=0, gateset=[], seed=None):
     otherwise returns a random tiling with the given depth and gateset.
 
     >>> c = random(1, seed=420)
-    >>> [g.data['phase'] for g in c.gates]
-    [0.026343380459525556, 0.7813690555430765, 0.2726063832840899]
-    >>> c.eval().array[0]
-    array([ 0.64067536+0.06124486j, -0.05310971-0.76352047j])
-    >>> c.eval().array[1]
-    array([-0.73833785-0.20159704j,  0.06540048-0.6402645j ])
+    >>> [g.data['phase'] for g in c.gates]  # doctest: +ELLIPSIS
+    [0.02..., 0.78..., 0.27...]
+    >>> c.eval().array[0]  # doctest: +ELLIPSIS
+    array([ 0.64...+0.06...j, -0.05...-0.76...j])
+    >>> c.eval().array[1]  # doctest: +ELLIPSIS
+    array([-0.73...-0.20...j,  0.06...-0.64...j ])
     >>> print(random(2, 2, [CX, H, T], seed=420))
     CX >> T @ Id(1) >> Id(1) @ T
     >>> print(random(3, 2, [CX, H, T], seed=420))
@@ -431,16 +431,30 @@ class CircuitFunctor(MonoidalFunctor):
     >>> d = (f @ Diagram.id(z)
     ...       >> Diagram.id(y) @ g @ Diagram.id(z)
     ...       >> Diagram.id(y) @ h)
-    >>> ob = {x: PRO(2), y: PRO(1), z: PRO(1)}
+    >>> ob = {x: 2, y: 1, z: 1}
     >>> ar = {f: SWAP, g: Rx(0.25), h: CX}
     >>> F = CircuitFunctor(ob, ar)
     >>> print(F(d))
     SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
     """
+    def __init__(self, ob, ar):
+        """
+        >>> F = CircuitFunctor({}, {})
+        """
+        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
+
+    def __repr__(self):
+        """
+        >>> CircuitFunctor({}, {})
+        CircuitFunctor(ob={}, ar={})
+        """
+        return "CircuitFunctor(ob={}, ar={})".format(
+            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
+
     def __call__(self, d):
         """
         >>> x = Ty('x')
-        >>> F = CircuitFunctor({x: PRO(1)}, {})
+        >>> F = CircuitFunctor({x: 1}, {})
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
         r = super().__call__(d)
