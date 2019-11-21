@@ -492,7 +492,6 @@ class MonoidalFunctor(Functor):
             if not isinstance(x, Ty) or len(x) != 1:
                 raise ValueError(
                     "Expected an atomic type, got {} instead.".format(repr(x)))
-        self._objects, self._arrows = ob, ar
         self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
 
     def __repr__(self):
@@ -501,7 +500,7 @@ class MonoidalFunctor(Functor):
         MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})
         """
         return "MonoidalFunctor(ob={}, ar={})".format(
-                                self._objects, self._arrows)
+            {Ty(x): y for x, y in self.ob.items()}, self.ar)
 
     def __call__(self, d):
         """
