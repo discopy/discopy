@@ -519,6 +519,7 @@ class Model(MatrixFunctor):
     >>> n, s = Pregroup('n'), Pregroup('s')
     >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
     >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [0, 1]})
+
     # >>> parsing = Alice @ jokes >> Cap(n, n.l) @ Wire(s)
     # >>> assert F(parsing) == True
     """
