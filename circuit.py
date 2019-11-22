@@ -154,7 +154,7 @@ class Circuit(Diagram):
         >>> for U in [H, T >> T >> T >> T]:
         ...     assert np.allclose((U >> U.dagger()).eval(), Id(len(U.dom)).eval())
         """
-        F_eval = MatrixFunctor({PRO(1): 2}, Quiver(lambda x: x.array))
+        F_eval = MatrixFunctor({PRO(1): 2}, Quiver(lambda g: g.array))
         return F_eval(self)
 
     def to_tk(self):
@@ -339,7 +339,8 @@ class Gate(Box, Circuit):
         >>> print(CX.dagger())
         CX.dagger()
         >>> print(Rx(0.25).dagger())
-        Rx(0.25).dagger()
+        Rx(-0.25)
+        >>> assert Rx(0.25).eval().dagger() == Rx(0.25).dagger().eval()
         """
         return Gate(self.name, self.n_qubits, self.array,
                     data=self.data, _dagger=not self._dagger)
@@ -429,6 +430,54 @@ class Bra(Gate):
             m = m @ Matrix(Dim(2), Dim(1), [0, 1] if b else [1, 0])
         return m.array
 
+class Rx(Gate):
+    """
+    >>> Rx(0.25)  # doctest: +ELLIPSIS
+    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
+    """
+    def __init__(self, phase):
+        super().__init__('Rx', 1, [], data={'phase': phase})
+
+    def dagger(self):
+        return Rx(-self.data['phase'])
+
+    @property
+    def array(self):
+        theta = 2 * np.pi * self.data['phase']
+        return [np.cos(theta / 2), -1j * np.sin(theta / 2),
+                -1j * np.sin(theta / 2), np.cos(theta / 2)]
+
+class Rz(Gate):
+    """
+    >>> Rx(0.25)  # doctest: +ELLIPSIS
+    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
+    """
+    def __init__(self, phase):
+        super().__init__('Rz', 1, [], data={'phase': phase})
+
+    def dagger(self):
+        return Rz(-self.data['phase'])
+
+    @property
+    def array(self):
+        theta = 2 * np.pi * self.data['phase']
+        return [1, 0, 0, np.exp(1j * theta)]
+
+SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
+                        0, 0, 1, 0,
+                        0, 1, 0, 0,
+                        0, 0, 0, 1])
+CX = Gate('CX', 2, [1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 0, 1,
+                    0, 0, 1, 0])
+H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
+S = Gate('S', 1, [1, 0, 0, 1j])
+T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+X = Gate('X', 1, [0, 1, 1, 0])
+Y = Gate('Y', 1, [0, -1j, 1j, 0])
+Z = Gate('Z', 1, [1, 0, 0, -1])
+
 class CircuitFunctor(MonoidalFunctor):
     """ Implements funtors from monoidal categories to circuits
 
@@ -467,37 +516,3 @@ class CircuitFunctor(MonoidalFunctor):
         if isinstance(d, Diagram):
             return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
         return r
-
-def Rx(phase):
-    """
-    >>> Rx(0.25)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
-    """
-    theta = 2 * np.pi * phase
-    array = [np.cos(theta / 2), -1j * np.sin(theta / 2),
-             -1j * np.sin(theta / 2), np.cos(theta / 2)]
-    return Gate('Rx', 1, array, data={'phase': phase})
-
-def Rz(phase):
-    """
-    >>> Rz(0.25)  # doctest: +ELLIPSIS
-    Gate('Rz', 1, [1, 0, 0, ...1j...], data={'phase': 0.25})
-    """
-    theta = 2 * np.pi * phase
-    array = [1, 0, 0, np.exp(1j * theta)]
-    return Gate('Rz', 1, array, data={'phase': phase})
-
-SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
-                        0, 0, 1, 0,
-                        0, 1, 0, 0,
-                        0, 0, 0, 1])
-CX = Gate('CX', 2, [1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 0, 1,
-                    0, 0, 1, 0])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
-S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
-X = Gate('X', 1, [0, 1, 1, 0])
-Y = Gate('Y', 1, [0, -1j, 1j, 0])
-Z = Gate('Z', 1, [1, 0, 0, -1])
