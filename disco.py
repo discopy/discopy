@@ -2,7 +2,7 @@
 
 >>> s, n = Pregroup('s'), Pregroup('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
->>> loves = Word('loves', n.r + s + n.l)
+>>> loves = Word('loves', n.r @ s @ n.l)
 
 # >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
 # >>> sentence = grammar << Alice @ loves @ Bob
@@ -14,13 +14,14 @@
 
 import numpy as np
 from discopy import moncat
-from discopy.moncat import Ob, Ty, Diagram, Box, AxiomError
+from discopy.moncat import Ob, Ty, Diagram, Box
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 from discopy.circuit import CircuitFunctor
 
+
 class Adjoint(Ob):
     """
-    Implements basic types and their iterated adjoints, also known as simple types.
+    Implements simple types: basic types and their iterated adjoints.
 
     >>> a = Adjoint('a', 0)
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
@@ -166,7 +167,10 @@ class Diagram(moncat.Diagram):
     """
     def __init__(self, dom, cod, boxes, offsets):
         """
-        
+        # >>> n, s = Pregroup('n'), Pregroup('s')
+        # >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
+        # >>> boxes, offsets = [Alice, jokes, Cup(n)], [0, 1, 0]
+        # >>> Diagram(Alice.dom @ jokes.dom, s, boxes, offsets)
         """
         if not isinstance(dom, Pregroup):
             raise ValueError("Domain of type Pregroup expected, got {} "
@@ -257,6 +261,23 @@ class Diagram(moncat.Diagram):
     #     offsets = list(range(len(t)))[::-1]
     #     return Diagram(dom, cod, boxes, offsets)
 
+class AxiomError(moncat.AxiomError):
+    """
+    >>> Cup(Pregroup('n'), Pregroup('n'))  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    disco.AxiomError: n and n are not adjoints.
+    >>> Cup(Pregroup('n'), Pregroup('s'))  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    disco.AxiomError: n and s are not adjoints.
+    >>> Cup(Pregroup('n'), Pregroup('n').l.l)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    disco.AxiomError: n and n.l.l are not adjoints.
+    """
+    pass
+
 class Wire(Diagram):
     """ Define an identity arrow in a free rigid category
 
@@ -279,59 +300,118 @@ class Wire(Diagram):
 class Cup(Diagram, Box):
     """ Defines cups for simple types.
 
-    >>> Cup('n').dom
-    Pregroup('n', Adjoint('n', 1))
-    >>> Cup('n').cod
-    Pregroup()
-
+    >>> n = Pregroup('n')
+    >>> Cup(n, n.l)
+    Cup(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+    >>> Cup(n, n.r)
+    Cup(Pregroup('n'), Pregroup(Adjoint('n', 1)))
+    >>> Cup(n.l.l, n.l)
+    Cup(Pregroup(Adjoint('n', -2)), Pregroup(Adjoint('n', -1)))
     """
-    def __init__(self, x, dagger=False):
-        if not isinstance(x, Adjoint):
-            x = Adjoint(x, 0)
-        dom = Pregroup(x, x.l) if dagger else Pregroup(x, x.r)
-        Box.__init__(self, 'cup_{}'.format(x), dom, Pregroup(), dagger)
+    def __init__(self, x, y):
+        """
+        >>> Cup(Pregroup('n', 's'), Pregroup('n').l)  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Simple type expected, got Pregroup('n', 's') instead.
+        >>> Cup(Pregroup('n'), Pregroup())  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Simple type expected, got Pregroup() instead.
+        >>> Cup(Pregroup('n'), Pregroup('n').l)
+        Cup(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+        """
+        err = "Simple type expected, got {} instead."
+        if not isinstance(x, Pregroup) or not len(x) == 1:
+            raise ValueError(err.format(repr(x)))
+        if not isinstance(y, Pregroup) or not len(y) == 1:
+            raise ValueError(err.format(repr(y)))
+        if x[0]._basic != y[0]._basic or not x[0]._z - y[0]._z in [-1, +1]:
+            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        Box.__init__(self, 'Cup', x @ y, Pregroup())
 
     def dagger(self):
-        return Cap(self.dom[0], not self._dagger)
+        """
+        >>> n = Pregroup('n')
+        >>> Cup(n, n.l).dagger()
+        Cap(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+        >>> assert Cup(n, n.l) == Cup(n, n.l).dagger().dagger()
+        """
+        return Cap(self.dom[:1], self.dom[1:])
 
     def __repr__(self):
-        return "Cup({}{})".format(repr(
-            self.dom[0] if self.dom[0]._z else self.dom[0]._basic),
-            ", dagger=True" if self._dagger else "")
+        """
+        >>> n = Pregroup('n')
+        >>> Cup(n, n.l)
+        Cup(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+        """
+        return "Cup({}, {})".format(repr(self.dom[:1]), repr(self.dom[1:]))
 
     def __str__(self):
-        return "Cup({}{})".format(str(self.dom[0]),
-                                ", dagger=True" if self._dagger else "")
+        """
+        >>> n = Pregroup('n')
+        >>> print(Cup(n, n.l))
+        Cup(n, n.l)
+        """
+        return "Cup({}, {})".format(self.dom[:1], self.dom[1:])
 
 class Cap(Diagram, Box):
-    """ Defines caps for simple types.
+    """ Defines cups for simple types.
 
-    >>> Cap('n').dom
-    Pregroup()
-    >>> Cap('n').cod
-    Pregroup('n', Adjoint('n', -1))
+    >>> n = Pregroup('n')
+    >>> print(Cap(n, n.l).cod)
+    n @ n.l
+    >>> print(Cap(n, n.r).cod)
+    n @ n.r
+    >>> print(Cap(n.l.l, n.l).cod)
+    n.l.l @ n.l
     """
-    def __init__(self, x, dagger=False):
-        if isinstance(x, Pregroup):
-            if len(x) != 1:
-                raise NotImplementedError
-            x = x[0]
-        elif not isinstance(x, Adjoint):
-            x = Adjoint(x, 0)
-        dom, cod = Pregroup(), Pregroup(x, x.r) if dagger else Pregroup(x, x.l)
-        Box.__init__(self, 'cap_{}'.format(x), dom, cod, dagger)
+    def __init__(self, x, y):
+        """
+        >>> Cap(Pregroup('n', 's'), Pregroup('n').l)  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Simple type expected, got Pregroup('n', 's') instead.
+        >>> Cap(Pregroup('n'), Pregroup())  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Simple type expected, got Pregroup() instead.
+        >>> Cap(Pregroup('n'), Pregroup('n').l)
+        Cap(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+        """
+        err = "Simple type expected, got {} instead."
+        if not isinstance(x, Pregroup) or not len(x) == 1:
+            raise ValueError(err.format(repr(x)))
+        if not isinstance(y, Pregroup) or not len(y) == 1:
+            raise ValueError(err.format(repr(y)))
+        if not x[0]._z - y[0]._z in [-1, +1]:
+            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        Box.__init__(self, 'Cap', Pregroup(), x @ y)
 
     def dagger(self):
-        return Cup(self.cod[0], not self._dagger)
+        """
+        >>> n = Pregroup('n')
+        >>> Cap(n, n.l).dagger()
+        Cup(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+        >>> assert Cap(n, n.l) == Cap(n, n.l).dagger().dagger()
+        """
+        return Cup(self.cod[:1], self.cod[1:])
 
     def __repr__(self):
-        return "Cap({}{})".format(repr(
-            self.cod[0] if self.cod[0]._z else self.cod[0]._basic),
-            ", dagger=True" if self._dagger else "")
+        """
+        >>> n = Pregroup('n')
+        >>> Cap(n, n.l)
+        Cap(Pregroup('n'), Pregroup(Adjoint('n', -1)))
+        """
+        return "Cap({}, {})".format(repr(self.cod[:1]), repr(self.cod[1:]))
 
     def __str__(self):
-        return "Cap({}{})".format(str(self.cod[0]),
-                                ", dagger=True" if self._dagger else "")
+        """
+        >>> n = Pregroup('n')
+        >>> print(Cap(n, n.l))
+        Cap(n, n.l)
+        """
+        return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
 class Word(Diagram, Box):
     """ Encodes words with their pregroup type as diagrams in free rigid categories
@@ -387,17 +467,17 @@ class Parse(Diagram):
 
     A parse is given by a list of words and a list of offsets for the cups.
 
-    >>> parse = Parse(words = [Alice, loves, Bob], cups = [0, 1])
-    >>> parse1 = Parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
+    # >>> parse = Parse(words = [Alice, loves, Bob], cups = [0, 1])
+    # >>> parse1 = Parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
 
     A sentence u is grammatical if there is a parsing with domain u and codomain the sentence type s.
 
-    >>> parse.dom
-    Pregroup('Alice', 'loves', 'Bob')
-    >>> parse.cod
-    Pregroup('s')
-    >>> parse._type
-    Pregroup('n', Adjoint('n', 1), 's', Adjoint('n', -1), 'n')
+    # >>> parse.dom
+    # Pregroup('Alice', 'loves', 'Bob')
+    # >>> parse.cod
+    # Pregroup('s')
+    # >>> parse._type
+    # Pregroup('n', Adjoint('n', 1), 's', Adjoint('n', -1), 'n')
     """
     def __init__(self, words, cups):
         self._words, self._cups = words, cups
@@ -407,10 +487,7 @@ class Parse(Diagram):
         offsets = [len(words) - i - 1 for i in range(len(words))] + cups
         cod = self._type
         for i in cups:
-            if cod[i].r != cod[i + 1]:
-                raise AxiomError("There can be no Cup of type {}."
-                                       .format(cod[i: i + 2]))
-            boxes.append(Cup(cod[i]))
+            boxes.append(Cup(cod[i], cod[i + 1]))
             cod = cod[:i] + cod[i + 2:]
         super().__init__(dom, cod, boxes, offsets)
 
