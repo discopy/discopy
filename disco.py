@@ -431,6 +431,12 @@ class Cap(Diagram, Box):
 class Word(Diagram, Box):
     """ Encodes words with their pregroup type as diagrams in free rigid categories
 
+    >>> Alice = Word('Alice', Pregroup('n'))
+    >>> loves = Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l)
+    >>> Alice
+    Word('Alice', Pregroup('n'))
+    >>> loves
+    Word('loves', Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1)))
     """
     def __init__(self, w, t, _dagger=False):
         """
@@ -607,6 +613,6 @@ def parse(words, cups):
         if cod[i].r != cod[i + 1]:
             raise AxiomError("There can be no Cup of type {}."
                                    .format(cod[i: i + 2]))
-        boxes.append(Cup(cod[i]))
+        boxes.append(Cup(cod[i: i + 1], cod[i + 1: i + 2]))
         cod = cod[:i] + cod[i + 2:]
     return Diagram(dom, cod, boxes, offsets)
