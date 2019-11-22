@@ -589,8 +589,8 @@ class CircuitModel(CircuitFunctor):
     >>> F = CircuitModel(ob, ar)
     >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
     >>> F(sentence).eval()
-
-    # >>> assert 2**3 * BornRule(F(sentence))
+    Matrix(dom=Dim(1), cod=Dim(1), array=[0.3535533905932737])
+    >>> assert 2**3 * BornRule(F(sentence))
     """
     def __call__(self, x):
         if isinstance(x, Pregroup):

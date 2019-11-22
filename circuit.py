@@ -537,3 +537,49 @@ T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
 X = Gate('X', 1, [0, 1, 1, 0])
 Y = Gate('Y', 1, [0, -1j, 1j, 0])
 Z = Gate('Z', 1, [1, 0, 0, -1])
+
+def Permutation(perm):
+    """ Constructs a permutation as a circuit made of swaps.
+    >>> assert Permutation([1, 0]) == SWAP
+    >>> assert Permutation([2, 1, 0]) == Permutation([2, 0, 1]) >> Permutation([0, 2, 1])
+    """
+    assert set(range(len(perm))) == set(perm)
+    gates = []
+    offsets = []
+    frame = perm.copy()
+    for i in range(len(perm)):
+        if i < frame[i]:
+            num_swaps = frame[i] - i
+            gates += [SWAP for x in range(num_swaps)]
+            offsets += range(i, frame[i])[::-1]
+            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
+    return Circuit(len(perm), len(perm), gates, offsets)
+
+def GCX(n):
+    """ Constructs a circuit of n nested CX gates.
+    >>> assert GCX(1) == CX
+    >>> assert len(GCX(3).dom) == 6
+    >>> print(GCX(2))  # doctest: +ELLIPSIS
+    Id(2) @ SWAP >> Id(1) @ SWAP @ Id(1) >> CX @ Id(2) >> ... >> Id(2) @ SWAP
+    >>> print(GCX(2))  # doctest: +ELLIPSIS
+    Id(2) @ SWAP >> ... >> Id(2) @ CX >> Id(1) @ SWAP @ Id(1) >> Id(2) @ SWAP
+    """
+    perm = []
+    for i in range(n):
+        perm += [i, 2*n - 1 - i]
+    SWAPS = Permutation(perm)
+    CNOTS = Circuit(0, 0, [], [])
+    for i in range(n):
+        CNOTS = CNOTS @ CX
+    SWAPS_inv = Circuit(2*n, 2*n, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
+    return SWAPS >> CNOTS >> SWAPS_inv
+
+def HAD(n):
+    """ Returns a tensor of n Hadamard gates.
+    >>> assert HAD(1) == H
+    >>> assert np.allclose((HAD(3) >> HAD(3)).eval(), Id(3).eval())
+    """
+    HAD = Circuit(0, 0, [], [])
+    for i in range(n):
+        HAD = HAD @ H
+    return HAD
