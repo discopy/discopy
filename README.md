@@ -16,7 +16,7 @@ Alice = Word('Alice', n)
 loves = Word('loves', n.r @ s @ n.l)
 Bob = Word('Bob', n)
 
-grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
 sentence = grammar << Alice @ loves @ Bob
 ```
 
@@ -33,7 +33,7 @@ F = Model(ob, ar)
 3) Compute the meaning!
 
 ```python
-assert F(sentence) == True
+assert F(sentence)
 ```
 
 ## Requirements
