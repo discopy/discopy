@@ -10,13 +10,13 @@
 >>> ob = {s: 0, n: 1, n.l: 1, n.r: 1}
 >>> ob.update({w.dom: 0 for w in [Alice, loves, Bob]})
 >>> ar = {Alice: Ket(0),
-...       loves: CX << Ket(0, 0),
-...       Bob: Ket(0),
-...       Cup(n): CX >> Bra(0, 0),
-...       Cup(n.l): CX >> Bra(0, 0)}
+...       loves: CX << H @ X << Ket(0, 0),
+...       Bob: Ket(1),
+...       Cup(n): CX >> H @ Id(1) >> Bra(0, 0),
+...       Cup(n.l): CX >> H @ Id(1) >> Bra(0, 0)}
 >>> F = CircuitFunctor(ob, ar)
->>> F(sentence).eval()
-Matrix(dom=Dim(1), cod=Dim(1), array=[1])
+>>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
+>>> assert 2**3 * BornRule(F(sentence))
 """
 
 import numpy as np
