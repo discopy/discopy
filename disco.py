@@ -13,8 +13,8 @@
 """
 
 import numpy as np
-from discopy import moncat
-from discopy.moncat import Ob, Ty, Diagram, Box
+from discopy import cat, moncat
+from discopy.moncat import Ob, Ty, Diagram
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 from discopy.circuit import CircuitFunctor
 
@@ -178,7 +178,7 @@ class Diagram(moncat.Diagram):
         >>> a, b = Pregroup('a'), Pregroup('b')
         >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
         >>> print(f >> Wire(a.l) @ g >> f.dagger())
-        f >> Id(a.l) @ g >> f.dagger()
+        f >> Wire(a.l) @ g >> f.dagger()
         """
         r = super().then(other)
         return Diagram(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
@@ -257,6 +257,33 @@ class Diagram(moncat.Diagram):
     #     offsets = list(range(len(t)))[::-1]
     #     return Diagram(dom, cod, boxes, offsets)
 
+class Box(cat.Gen, Diagram):
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
+        self._name, self._dagger, self._data = name, _dagger, data
+        Diagram.__init__(self, dom, cod, [self], [0])
+
+    def dagger(self):
+        return Box(self.name, self.cod, self.dom,
+                   _dagger=not self._dagger, data=self.data)
+
+    def __repr__(self):
+        if self._dagger:
+            return repr(self.dagger()) + ".dagger()"
+        return "Box({}, {}, {}{})".format(
+            *map(repr, [self.name, self.dom, self.cod]),
+            ", data=" + repr(self.data) if self.data else '')
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __eq__(self, other):
+        if isinstance(other, Box):
+            return repr(self) == repr(other)
+        elif isinstance(other, Diagram):
+            return len(other) == 1 and other.boxes[0] == self
+        return False
+
 class AxiomError(moncat.AxiomError):
     """
     >>> Cup(Pregroup('n'), Pregroup('n'))  # doctest: +ELLIPSIS
@@ -308,7 +335,7 @@ class Wire(Diagram):
         """
         return "Wire({})".format(str(self.dom))
 
-class Cup(Diagram, Box):
+class Cup(Box):
     """ Defines cups for simple types.
 
     >>> n = Pregroup('n')
@@ -366,7 +393,7 @@ class Cup(Diagram, Box):
         """
         return "Cup({}, {})".format(self.dom[:1], self.dom[1:])
 
-class Cap(Diagram, Box):
+class Cap(Box):
     """ Defines cups for simple types.
 
     >>> n = Pregroup('n')
@@ -424,7 +451,7 @@ class Cap(Diagram, Box):
         """
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
-class Word(Diagram, Box):
+class Word(Box):
     """ Encodes words with their pregroup type as diagrams in free rigid categories
 
     >>> Alice = Word('Alice', Pregroup('n'))
@@ -564,42 +591,42 @@ class CircuitModel(CircuitFunctor, Model):
             self(x.dom[0]) / 2
             return GCX(n) >> HAD(n) @ Circuit.id(n)
         CircuitFunctor.__call__(self, x)
-
-def parse(words, cups):
-    """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
-
-    >>> s, n = Pregroup('s'), Pregroup('n')
-    >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
-    >>> loves = Word('loves', n.r + s + n.l)
-    >>> parse([Alice, loves, Bob], [0, 2])  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    IndexError: list index out of range
-    >>> parse(["Alice", loves, Bob], [0, 1])  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    ValueError: Word expected, got Box(...) instead.
-    >>> parse1 = parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
-
-    A sentence u is grammatical if there is a parse with domain u and codomain s.
-
-    >>> parse0.dom
-    Pregroup('Alice', 'loves', 'Bob')
-    >>> parse1.dom
-    Pregroup('Alice', 'loves', 'Bob', 'who', 'tells', 'jokes')
-    >>> assert parse0.cod == Pregroup('s') == parse1.cod
-    """
-    for w in words:
-        if not isinstance(w, Word):
-            raise ValueError("Word expected, got {} instead.".format(repr(w)))
-    dom = sum((w.dom for w in words), Pregroup())
-    boxes = words[::-1]  # words are backwards to make offsets easier
-    offsets = [len(words) - i - 1 for i in range(len(words))] + offsets
-    cod = sum((w.type for w in words), Pregroup())
-    for i in offsets:
-        if cod[i].r != cod[i + 1]:
-            raise AxiomError("There can be no Cup of type {}."
-                                   .format(cod[i: i + 2]))
-        boxes.append(Cup(cod[i: i + 1], cod[i + 1: i + 2]))
-        cod = cod[:i] + cod[i + 2:]
-    return Diagram(dom, cod, boxes, offsets)
+#
+# def parse(words, offsets):
+#     """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
+#
+#     >>> s, n = Pregroup('s'), Pregroup('n')
+#     >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+#     >>> loves = Word('loves', n.r + s + n.l)
+#     >>> parse([Alice, loves, Bob], [0, 2])  # doctest: +ELLIPSIS
+#     Traceback (most recent call last):
+#     ...
+#     IndexError: list index out of range
+#     >>> parse(["Alice", loves, Bob], [0, 1])  # doctest: +ELLIPSIS
+#     Traceback (most recent call last):
+#     ...
+#     ValueError: Word expected, got Box(...) instead.
+#     >>> parse1 = parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
+#
+#     A sentence u is grammatical if there is a parse with domain u and codomain s.
+#
+#     >>> parse0.dom
+#     Pregroup('Alice', 'loves', 'Bob')
+#     >>> parse1.dom
+#     Pregroup('Alice', 'loves', 'Bob', 'who', 'tells', 'jokes')
+#     >>> assert parse0.cod == Pregroup('s') == parse1.cod
+#     """
+#     for w in words:
+#         if not isinstance(w, Word):
+#             raise ValueError("Word expected, got {} instead.".format(repr(w)))
+#     dom = sum((w.dom for w in words), Pregroup())
+#     boxes = words[::-1]  # words are backwards to make offsets easier
+#     offsets = [len(words) - i - 1 for i in range(len(words))] + offsets
+#     cod = sum((w.type for w in words), Pregroup())
+#     for i in offsets:
+#         if cod[i].r != cod[i + 1]:
+#             raise AxiomError("There can be no Cup of type {}."
+#                                    .format(cod[i: i + 2]))
+#         boxes.append(Cup(cod[i: i + 1], cod[i + 1: i + 2]))
+#         cod = cod[:i] + cod[i + 2:]
+#     return Diagram(dom, cod, boxes, offsets)

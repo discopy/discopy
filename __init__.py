@@ -6,7 +6,7 @@ from discopy.moncat import (
 from discopy.matrix import (
     Dim, Matrix, MatrixFunctor)
 from discopy.disco import (
-    Adjoint, Pregroup, Wire, Cup, Cap, Word, parse, Model)
+    Adjoint, Pregroup, Wire, Cup, Cap, Word, Model)
 from discopy.circuit import (
     PRO, Circuit, Gate, Bra, Ket, CircuitFunctor)
 

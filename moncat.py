@@ -446,9 +446,7 @@ class Box(Gen, Diagram):
         Box('f', Ty('x', 'y'), Ty('z')).dagger()
         """
         if self._dagger:
-            return "Box({}, {}, {}{}).dagger()".format(
-                *map(repr, [self.name, self.cod, self.dom]),
-                ", data=" + repr(self.data) if self.data else '')
+            return repr(self.dagger()) + ".dagger()"
         return "Box({}, {}, {}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
             ", data=" + repr(self.data) if self.data else '')
@@ -470,6 +468,7 @@ class Box(Gen, Diagram):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
+        return False
 
 class MonoidalFunctor(Functor):
     """ Implements a monoidal functor given its image on objects and arrows.
