@@ -16,7 +16,7 @@ import numpy as np
 from discopy import cat, moncat
 from discopy.moncat import Ob, Ty, Diagram
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
-from discopy.circuit import CircuitFunctor
+from discopy.circuit import CircuitFunctor, Circuit, PRO, GCX, HAD, Bra, Ket
 
 
 class Adjoint(Ob):
@@ -545,29 +545,38 @@ class Model(MatrixFunctor):
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         return super().__call__(d)
 
-class CircuitModel(CircuitFunctor, Model):
+class CircuitModel(CircuitFunctor):
     """
     >>> from discopy.circuit import *
     >>> s, n = Pregroup('s'), Pregroup('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
+    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> sentence = grammar << Alice @ loves @ Bob
+    >>> ob = {s: 0, n: 1}
+    >>> ar = {Alice: Ket(0),
+    ...       loves: CX << H @ X << Ket(0, 0),
+    ...       Bob: Ket(1)}
+    >>> F = CircuitModel(ob, ar)
+    >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
+    >>> F(sentence).eval()
 
-    # >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-    # >>> sentence = grammar << Alice @ loves @ Bob
-    # >>> ob = {s: 0, n: 1}
-    # >>> ar = {Alice: Ket(0),
-    # ...       loves: CX << H @ X << Ket(0, 0),
-    # ...       Bob: Ket(1)}
-    # >>> F = CircuitModel(ob, ar)
-    # >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
     # >>> assert 2**3 * BornRule(F(sentence))
     """
-    def __init__(self, ob, ar):
-        Model.__init__(self, ob, ar)
-
     def __call__(self, x):
+        if isinstance(x, Pregroup):
+            return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
         if isinstance(x, Cup):
-            self(x.dom[0]) / 2
-            return GCX(n) >> HAD(n) @ Circuit.id(n)
-        CircuitFunctor.__call__(self, x)
+            n = len(self(x.dom)) // 2
+            bits = [0 for i in range(2*n)]
+            return GCX(n) >> HAD(n) @ Circuit.id(n) >> Bra(*bits)
+        elif isinstance(x, Cap):
+            n = len(self(x.dom)) // 2
+            bitstring = [0 for i in range(2*n)]
+            return GCX(n) << HAD(n) @ Circuit.id(n) << Ket(*bitstring)
+        if isinstance(x, Box):
+            if x._dagger:
+                return self(x.dagger()).dagger()
+            return self.ar[x]
+        return CircuitFunctor.__call__(self, x)
