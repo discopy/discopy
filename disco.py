@@ -449,7 +449,7 @@ class Cap(Box):
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
 class Word(Box):
-    """ Encodes words with their pregroup type as diagrams in free rigid categories
+    """ Implements words as boxes with a pregroup type as codomain.
 
     >>> Alice = Word('Alice', Pregroup('n'))
     >>> loves = Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l)
@@ -491,8 +491,8 @@ class Word(Box):
     @property
     def type(self):
         """
-        >>> Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l).type
-        Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+        >>> Word('Alice', Pregroup('n')).type
+        Pregroup('n')
         """
         return self._type
 
@@ -518,11 +518,18 @@ class Model(MatrixFunctor):
 
     >>> n, s = Pregroup('n'), Pregroup('s')
     >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
-    >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [0, 1]})
-    >>> parsing = Alice @ jokes >> Cup(n, n.l) @ Wire(s)
-    >>> assert F(parsing).array
+    >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
+    >>> assert F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
     """
     def __init__(self, ob, ar):
+        """
+        >>> Model({'n': 1}, {})  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Expected a basic type, got 'n' instead.
+        >>> Model({Pregroup('n'): 2}, {})
+        Model(ob={Pregroup('n'): Dim(2)}, ar={})
+        """
         for x in ob.keys():
             if not isinstance(x, Pregroup) or not x.is_basic:
                 raise ValueError(
@@ -530,9 +537,30 @@ class Model(MatrixFunctor):
         super().__init__(ob, ar)
 
     def __repr__(self):
+        """
+        >>> Model({}, {Word('Alice', Pregroup('n')): [0, 1]})
+        Model(ob={}, ar={Word('Alice', Pregroup('n')): [0, 1]})
+        """
         return super().__repr__().replace("MatrixFunctor", "Model")
 
     def __call__(self, d):
+        """
+        >>> n, s = Pregroup('n'), Pregroup('s')
+        >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
+        >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
+        >>> F(n @ s.l)
+        Dim(2)
+        >>> F(Cup(n, n.l))
+        Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
+        >>> F(Cap(n, n.r))
+        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1.0, 0.0, 0.0, 1.0])
+        >>> F(Alice)
+        Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
+        >>> F(Alice @ jokes)
+        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 1])
+        >>> F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
+        Matrix(dom=Dim(1), cod=Dim(1), array=[1.0])
+        """
         if isinstance(d, Pregroup):
             return sum([self.ob[Pregroup(x._basic)] for x in d], Dim(1))
         elif isinstance(d, Cup):

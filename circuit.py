@@ -1,5 +1,14 @@
 """ Implements quantum circuits and circuit-valued monoidal functors.
 
+>>> n = Ty('n')
+>>> Alice = Box('Alice', Ty(), n)
+>>> loves = Box('loves', n, n)
+>>> Bob = Box('Bob', n, Ty())
+>>> ob, ar = {n: 1}, {Alice: Ket(0), loves: X, Bob: Bra(1)}
+>>> F = CircuitFunctor(ob, ar)
+>>> F(Alice >> loves >> Bob)
+Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
+>>> assert F(Alice >> loves >> Bob).eval()
 """
 
 import numpy as np
@@ -137,7 +146,7 @@ class Circuit(Diagram):
         >>> for U in [H, T >> T >> T >> T]:
         ...     assert np.allclose((U >> U.dagger()).eval(), Id(len(U.dom)).eval())
         """
-        F_eval = MatrixFunctor({PRO(1): 2}, Quiver(lambda g: g.array))
+        F_eval = MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))
         return F_eval(self)
 
     def to_tk(self):
@@ -415,100 +424,65 @@ class Bra(Gate):
 
 class Rx(Gate):
     """
-    >>> Rx(0.25)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
+    >>> Rx(0)  # doctest: +ELLIPSIS
+    Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
     """
     def __init__(self, phase):
+        """
+        >>> g = Rx(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
+        """
         super().__init__('Rx', 1, [], data={'phase': phase})
 
     def dagger(self):
+        """
+        >>> g = Rx(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
+        """
         return Rx(-self.data['phase'])
 
     @property
     def array(self):
+        """
+        >>> Rx(0.25).array  # doctest: +ELLIPSIS
+        [0.70..., -0.7...j, -0.70...j, 0.70...]
+        """
         theta = 2 * np.pi * self.data['phase']
         return [np.cos(theta / 2), -1j * np.sin(theta / 2),
                 -1j * np.sin(theta / 2), np.cos(theta / 2)]
 
 class Rz(Gate):
     """
-    >>> Rx(0.25)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
+    >>> Rz(0)
+    Gate('Rz', 1, [1, 0, 0, (1+0j)], data={'phase': 0})
     """
     def __init__(self, phase):
+        """
+        >>> g = Rz(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Gate('Rz', 1, [1, 0, 0, (1+0j)], data={'phase': 0})
+        """
         super().__init__('Rz', 1, [], data={'phase': phase})
 
     def dagger(self):
+        """
+        >>> assert Rz(1).dagger().eval() == Rz(1).eval().dagger()
+        """
         return Rz(-self.data['phase'])
 
     @property
     def array(self):
+        """
+        >>> Rz(0.25).array  # doctest: +ELLIPSIS
+        [1, 0, 0, ...]
+        """
         theta = 2 * np.pi * self.data['phase']
         return [1, 0, 0, np.exp(1j * theta)]
-
-SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
-                        0, 0, 1, 0,
-                        0, 1, 0, 0,
-                        0, 0, 0, 1])
-CX = Gate('CX', 2, [1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 0, 1,
-                    0, 0, 1, 0])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
-S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
-X = Gate('X', 1, [0, 1, 1, 0])
-Y = Gate('Y', 1, [0, -1j, 1j, 0])
-Z = Gate('Z', 1, [1, 0, 0, -1])
-
-def Permutation(perm):
-    """ Constructs a permutation as a circuit made of swaps.
-
-    >>> assert Permutation([1, 0]) == SWAP
-    >>> assert Permutation([2, 1, 0]) == Permutation([2, 0, 1]) >> Permutation([0, 2, 1])
-    """
-    assert set(range(len(perm))) == set(perm)
-    gates = []
-    offsets = []
-    frame = perm.copy()
-    for i in range(len(perm)):
-        if i < frame[i]:
-            num_swaps = frame[i] - i
-            gates += [SWAP for x in range(num_swaps)]
-            offsets += range(i, frame[i])[::-1]
-            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
-    return Circuit(len(perm), len(perm), gates, offsets)
-
-def GCX(n):
-    """ Constructs a circuit of n nested CX gates.
-
-    >>> assert GCX(1) == CX
-    >>> assert len(GCX(3).dom) == 6
-    >>> print(GCX(2))  # doctest: +ELLIPSIS
-    Id(2) @ SWAP >> Id(1) @ SWAP @ Id(1) >> CX @ Id(2) >> ... >> Id(2) @ SWAP
-    >>> print(GCX(2))  # doctest: +ELLIPSIS
-    Id(2) @ SWAP >> ... >> Id(2) @ CX >> Id(1) @ SWAP @ Id(1) >> Id(2) @ SWAP
-    """
-    perm = []
-    for i in range(n):
-        perm += [i, 2*n - 1 - i]
-    SWAPS = Permutation(perm)
-    CNOTS = Circuit(0, 0, [], [])
-    for i in range(n):
-        CNOTS = CNOTS @ CX
-    SWAPS_inv = Circuit(2*n, 2*n, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
-    return SWAPS >> CNOTS >> SWAPS_inv
-
-def HAD(n):
-    """ Returns a tensor of n Hadamard gates.
-
-    >>> assert HAD(1) == H
-    >>> assert np.allclose((HAD(3) >> HAD(3)).eval(), Id(3).eval())
-    """
-    HAD = Circuit(0, 0, [], [])
-    for i in range(n):
-        HAD = HAD @ H
-    return HAD
 
 class CircuitFunctor(MonoidalFunctor):
     """ Implements funtors from monoidal categories to circuits
@@ -548,3 +522,18 @@ class CircuitFunctor(MonoidalFunctor):
         if isinstance(d, Diagram):
             return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
         return r
+
+SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
+                        0, 0, 1, 0,
+                        0, 1, 0, 0,
+                        0, 0, 0, 1])
+CX = Gate('CX', 2, [1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 0, 1,
+                    0, 0, 1, 0])
+H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
+S = Gate('S', 1, [1, 0, 0, 1j])
+T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+X = Gate('X', 1, [0, 1, 1, 0])
+Y = Gate('Y', 1, [0, -1j, 1j, 0])
+Z = Gate('Z', 1, [1, 0, 0, -1])
