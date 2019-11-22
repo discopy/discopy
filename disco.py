@@ -4,7 +4,7 @@
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
 
-# >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+# >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
 # >>> sentence = grammar << Alice @ loves @ Bob
 # >>> ob = {s: 1, n: 2}
 # >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
@@ -150,20 +150,20 @@ class Pregroup(Ty):
         return len(self) == 1 and not self[0]._z
 
 class Diagram(moncat.Diagram):
-    """ Implements diagrams in free rigid categories, by checking that the domain
-    and codomain are pregroup types.
+    """ Implements diagrams in free dagger pivotal categories.
 
-    >>> a, b = Pregroup('a'), Pregroup('b')
-    >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
-    >>> print(Diagram(a, a, [f, g, f.dagger()], [0, 1, 0]))
-    f >> Wire(a.l) @ g >> f.dagger()
+    >>> n, s = Pregroup('n'), Pregroup('s')
+    >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
+    >>> boxes, offsets = [Alice, jokes, Cup(n, n.l)], [0, 1, 0]
+    >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
+    Alice >> Wire(n) @ jokes >> Cup(n, n.l) @ Wire(s)
     """
     def __init__(self, dom, cod, boxes, offsets):
         """
-        # >>> n, s = Pregroup('n'), Pregroup('s')
-        # >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
-        # >>> boxes, offsets = [Alice, jokes, Cup(n)], [0, 1, 0]
-        # >>> Diagram(Alice.dom @ jokes.dom, s, boxes, offsets)
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
+        >>> print(Diagram(a, a, [f, g, f.dagger()], [0, 1, 0]))
+        f >> Wire(a.l) @ g >> f.dagger()
         """
         if not isinstance(dom, Pregroup):
             raise ValueError("Domain of type Pregroup expected, got {} "
@@ -176,89 +176,60 @@ class Diagram(moncat.Diagram):
     def then(self, other):
         """
         >>> a, b = Pregroup('a'), Pregroup('b')
-        >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
-        >>> print(f >> Wire(a.l) @ g >> f.dagger())
-        f >> Wire(a.l) @ g >> f.dagger()
+        >>> f = Box('f', a, a.l @ b.r)
+        >>> print(f >> f.dagger() >> f)
+        f >> f.dagger() >> f
         """
         r = super().then(other)
         return Diagram(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
     def tensor(self, other):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> f = Box('f', a, a.l @ b.r)
+        >>> print(f.dagger() @ f)
+        f.dagger() @ Wire(a) >> Wire(a) @ f
+        """
         r = super().tensor(other)
         return Diagram(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
     def dagger(self):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> f = Box('f', a, a.l @ b.r).dagger()
+        >>> assert f.dagger() >> f == (f.dagger() >> f).dagger()
+        """
         return Diagram(self.cod, self.dom,
             [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
 
     def __repr__(self):
+        """
+        >>> Diagram(Pregroup('a'), Pregroup('a'), [], [])
+        Diagram(dom=Pregroup('a'), cod=Pregroup('a'), boxes=[], offsets=[])
+        """
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
         *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
 
-    def transpose_r(self):
-        a = self.dom
-        b = self.cod
-        return Diagram.cap(a.r) @ Wire(b.r) >> Wire(a.r) @ self @ Wire(b.r) >> \
-               Wire(a.r) @ Cup(b)
-
-    def transpose_l(self):
-        a = self.dom
-        b = self.cod
-        return Wire(b.l) @ Diagram.cap(a) >> Wire(b.l) @ self @ Wire(a.l) >> \
-               Cup(b.l) @ Wire(a.l)
-
     @staticmethod
     def id(t):
+        """
+        >>> assert Diagram.id(Pregroup('s')) == Wire(Pregroup('s'))
+        """
         return Wire(t)
 
-    # @staticmethod
-    # def cup(t):
-    #     """
-    #     >>> n, s = Pregroup('n'), Pregroup('s')
-    #     >>> Diagram.cup(n @ s @ n).dom
-    #     Pregroup('n', 's', 'n', Adjoint('n', 1), Adjoint('s', 1), Adjoint('n', 1))
-    #     >>> Diagram.cup(n @ s @ n).boxes
-    #     [Cup('n'), Cup('s'), Cup('n')]
-    #     >>> Diagram.cup(n @ s @ n).offsets
-    #     [2, 1, 0]
-    #     >>> Cup(n @ s @ n).cod
-    #     Pregroup()
-    #     >>> assert Diagram.cup(n) == Diagram.cup('n')
-    #     """
-    #
-    #     if not isinstance(t, Pregroup):
-    #         raise ValueError("Input of type Pregroup expected, got {} "
-    #                          "of type {} instead.".format(repr(t), type(t)))
-    #     boxes = [Cup(b) for b in t[::-1]]
-    #     offsets = list(range(len(t)))[::-1]
-    #     return Diagram(t @ t.r, Pregroup(), boxes, offsets)
-
-    # @staticmethod
-    # def cap(t):
-    #     """ Construct caps for pregroup types.
-    #
-    #     >>> n, s = Pregroup('n'), Pregroup('s')
-    #     >>> Diagram.cap(n @ s).dom
-    #     Pregroup()
-    #     >>> Diagram.cap(n @ s).boxes
-    #     [Cap('n'), Cap('s')]
-    #     >>> Diagram.cap(n @ s).offsets
-    #     [0, 1]
-    #     >>> Diagram.cap(n @ s).cod
-    #     Pregroup('n', 's', Adjoint('s', -1), Adjoint('n', -1))
-    #     >>> assert Diagram.cap(n) == Cap('n')
-    #     """
-    #     if not isinstance(t, Pregroup):
-    #         raise ValueError("Input of type Pregroup expected, got {} "
-    #                          "of type {} instead.".format(repr(t), type(t)))
-    #     dom = Pregroup()
-    #     cod = t @ t.l
-    #     boxes = [Cap(b) for b in t[::-1]]
-    #     offsets = list(range(len(t)))[::-1]
-    #     return Diagram(dom, cod, boxes, offsets)
-
 class Box(cat.Gen, Diagram):
+    """ Implements generators of dagger pivotal diagrams.
+
+    >>> a, b = Pregroup('a'), Pregroup('b')
+    >>> Box('f', a, b.l @ b, data={42})
+    Box('f', Pregroup('a'), Pregroup(Adjoint('b', -1), 'b'), data={42})
+    """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> Box('f', a, a.l @ b.r)
+        Box('f', Pregroup('a'), Pregroup(Adjoint('a', -1), Adjoint('b', 1)))
+        """
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
         self._name, self._dagger, self._data = name, _dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
@@ -463,17 +434,8 @@ class Word(Box):
     """
     def __init__(self, w, t, _dagger=False):
         """
-        >>> n, s = Pregroup('n'), Pregroup('s')
-        >>> Alice = Word('Alice', Pregroup('n'))
-        >>> Alice.dom
-        Pregroup('Alice')
-        >>> Alice.cod
-        Pregroup('n')
-        >>> loves = Word('loves', n.r + s + n.l)
-        >>> loves.dom
-        Pregroup('loves')
-        >>> loves.cod
-        Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+        >>> Word('Alice', Pregroup('n'))
+        Word('Alice', Pregroup('n'))
         """
         if not isinstance(w, str):
             raise ValueError("Expected str, got {} of type {} instead."
@@ -482,16 +444,13 @@ class Word(Box):
             raise ValueError("Input of type Pregroup expected, got {} "
                              "of type {} instead.".format(repr(t), type(t)))
         self._word, self._type = w, t
-        dom, cod = (t, Pregroup(w)) if _dagger else (Pregroup(w), t)
+        dom, cod = (t, Pregroup()) if _dagger else (Pregroup(), t)
         Box.__init__(self, (w, t), dom, cod, _dagger=_dagger)
 
     def dagger(self):
         """
-        >>> Alice = Word('Alice', Pregroup('n')).dagger()
-        >>> Alice.dom
-        Pregroup('n')
-        >>> Alice.cod
-        Pregroup('Alice')
+        >>> Word('Alice', Pregroup('n')).dagger()
+        Word('Alice', Pregroup('n')).dagger()
         """
         return Word(self._word, self._type, not self._dagger)
 
@@ -591,42 +550,3 @@ class CircuitModel(CircuitFunctor, Model):
             self(x.dom[0]) / 2
             return GCX(n) >> HAD(n) @ Circuit.id(n)
         CircuitFunctor.__call__(self, x)
-#
-# def parse(words, offsets):
-#     """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
-#
-#     >>> s, n = Pregroup('s'), Pregroup('n')
-#     >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
-#     >>> loves = Word('loves', n.r + s + n.l)
-#     >>> parse([Alice, loves, Bob], [0, 2])  # doctest: +ELLIPSIS
-#     Traceback (most recent call last):
-#     ...
-#     IndexError: list index out of range
-#     >>> parse(["Alice", loves, Bob], [0, 1])  # doctest: +ELLIPSIS
-#     Traceback (most recent call last):
-#     ...
-#     ValueError: Word expected, got Box(...) instead.
-#     >>> parse1 = parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
-#
-#     A sentence u is grammatical if there is a parse with domain u and codomain s.
-#
-#     >>> parse0.dom
-#     Pregroup('Alice', 'loves', 'Bob')
-#     >>> parse1.dom
-#     Pregroup('Alice', 'loves', 'Bob', 'who', 'tells', 'jokes')
-#     >>> assert parse0.cod == Pregroup('s') == parse1.cod
-#     """
-#     for w in words:
-#         if not isinstance(w, Word):
-#             raise ValueError("Word expected, got {} instead.".format(repr(w)))
-#     dom = sum((w.dom for w in words), Pregroup())
-#     boxes = words[::-1]  # words are backwards to make offsets easier
-#     offsets = [len(words) - i - 1 for i in range(len(words))] + offsets
-#     cod = sum((w.type for w in words), Pregroup())
-#     for i in offsets:
-#         if cod[i].r != cod[i + 1]:
-#             raise AxiomError("There can be no Cup of type {}."
-#                                    .format(cod[i: i + 2]))
-#         boxes.append(Cup(cod[i: i + 1], cod[i + 1: i + 2]))
-#         cod = cod[:i] + cod[i + 2:]
-#     return Diagram(dom, cod, boxes, offsets)
