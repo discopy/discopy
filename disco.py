@@ -3,12 +3,12 @@
 >>> s, n = Pregroup('s'), Pregroup('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
+>>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+>>> sentence = grammar << Alice @ loves @ Bob
+>>> ob = {s: 1, n: 2}
+>>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+>>> F = Model(ob, ar)
 
-# >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
-# >>> sentence = grammar << Alice @ loves @ Bob
-# >>> ob = {s: 1, n: 2}
-# >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-# >>> F = Model(ob, ar)
 # >>> assert F(sentence) == True
 """
 
@@ -227,18 +227,30 @@ class Box(cat.Gen, Diagram):
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         """
         >>> a, b = Pregroup('a'), Pregroup('b')
-        >>> Box('f', a, a.l @ b.r)
-        Box('f', Pregroup('a'), Pregroup(Adjoint('a', -1), Adjoint('b', 1)))
+        >>> Box('f', a, b.l @ b)
+        Box('f', Pregroup('a'), Pregroup(Adjoint('b', -1), 'b'))
         """
         self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
         self._name, self._dagger, self._data = name, _dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> Box('f', a, b.l @ b).dagger()
+        Box('f', Pregroup('a'), Pregroup(Adjoint('b', -1), 'b')).dagger()
+        """
         return Box(self.name, self.cod, self.dom,
                    _dagger=not self._dagger, data=self.data)
 
     def __repr__(self):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> Box('f', a, b.l @ b)
+        Box('f', Pregroup('a'), Pregroup(Adjoint('b', -1), 'b'))
+        >>> Box('f', a, b.l @ b).dagger()
+        Box('f', Pregroup('a'), Pregroup(Adjoint('b', -1), 'b')).dagger()
+        """
         if self._dagger:
             return repr(self.dagger()) + ".dagger()"
         return "Box({}, {}, {}{})".format(
@@ -246,9 +258,20 @@ class Box(cat.Gen, Diagram):
             ", data=" + repr(self.data) if self.data else '')
 
     def __hash__(self):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> f = Box('f', a, b.l @ b)
+        >>> {f: 42}[f]
+        42
+        """
         return hash(repr(self))
 
     def __eq__(self, other):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> f = Box('f', a, b.l @ b)
+        >>> assert f == Diagram(a, b.l @ b, [f], [0])
+        """
         if isinstance(other, Box):
             return repr(self) == repr(other)
         elif isinstance(other, Diagram):
@@ -275,21 +298,23 @@ class AxiomError(moncat.AxiomError):
 class Wire(Diagram):
     """ Define an identity arrow in a free rigid category
 
-    >>> assert Wire(Pregroup('x')) == Diagram(Pregroup('x'), Pregroup('x'), [], [])
+    >>> t = Pregroup('a', 'b', 'c')
+    >>> assert Wire(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
         """
-        >>> wire = Wire(Pregroup('n') @ Pregroup('s'))
-        >>> wire.dom
-        Pregroup('n', 's')
-        >>> wire.cod
-        Pregroup('n', 's')
+        >>> Wire(Pregroup('n') @ Pregroup('s'))
+        Wire(Pregroup('n', 's'))
+        >>> Wire('n')  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Input of type Pregroup expected, got 'n' instead.
         """
         if isinstance(t, Word):
             t = t.dom
         if not isinstance(t, Pregroup):
-            raise ValueError("Input of type Pregroup expected, got {} "
-                             "of type {} instead.".format(repr(t), type(t)))
+            raise ValueError("Input of type Pregroup expected, got {} instead."
+                             .format(repr(t), type(t)))
         super().__init__(t, t, [], [])
 
     def __repr__(self):
@@ -301,7 +326,8 @@ class Wire(Diagram):
 
     def __str__(self):
         """
-        >>> print(Wire(Pregroup('n')))
+        >>> n = Pregroup('n')
+        >>> print(Wire(n))
         Wire(n)
         """
         return "Wire({})".format(str(self.dom))
@@ -499,20 +525,11 @@ class Model(MatrixFunctor):
             if not isinstance(x, Pregroup) or not x.is_basic:
                 raise ValueError(
                     "Expected a basic type, got {} instead.".format(repr(x)))
-
-        for a in ar.keys():
-            if not isinstance(a, Word):
-                raise ValueError("Expected Word, got {} of type {} instead."
-                                 .format(repr(a), type(a)))
-        self._types, self._vocab = ob, ar
         #  Rigid functors are defined by their image on basic types.
-        ob = {x[0]._basic: ob[x] for x in self._types.keys()}
-        #  We assume the images for word boxes are all states.
-        ob.update({w.dom[0]._basic: 1 for w in self._vocab.keys()})
-        self._ob, self._ar = ob, {f: g for f, g in ar.items()}
+        self._ob, self._ar = {x[0]._basic: y for x, y in ob.items()}, ar
 
     def __repr__(self):
-        return "Model(ob={}, ar={})".format(self._types, self._vocab)
+        return super().__repr__().replace("MatrixFunctor", "Model")
 
     def __call__(self, d):
         if isinstance(d, Pregroup):
