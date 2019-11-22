@@ -275,7 +275,7 @@ class MatrixFunctor(MonoidalFunctor):
         array(5)
         """
         if isinstance(d, Ty):
-            return sum([self.ob[x] for x in d], Dim(1))
+            return sum([self.ob[Ty(x)] for x in d], Dim(1))
         elif isinstance(d, Box):
             if d._dagger: return Matrix(
                 self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()

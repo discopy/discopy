@@ -491,15 +491,14 @@ class MonoidalFunctor(Functor):
             if not isinstance(x, Ty) or len(x) != 1:
                 raise ValueError(
                     "Expected an atomic type, got {} instead.".format(repr(x)))
-        self._ob, self._ar = {x[0]: y for x, y in ob.items()}, ar
+        self._ob, self._ar = ob, ar
 
     def __repr__(self):
         """
         >>> MonoidalFunctor({Ty('x'): Ty('y')}, {})
         MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})
         """
-        return "MonoidalFunctor(ob={}, ar={})".format(
-            {Ty(x): y for x, y in self.ob.items()}, self.ar)
+        return "MonoidalFunctor(ob={}, ar={})".format(self.ob, self.ar)
 
     def __call__(self, d):
         """
@@ -518,7 +517,7 @@ class MonoidalFunctor(Functor):
         f.dagger() @ Id(x) >> Id(x) @ f
         """
         if isinstance(d, Ty):
-            return sum([self.ob[x] for x in d], Ty())
+            return sum([self.ob[Ty(x)] for x in d], Ty())
         elif isinstance(d, Box):
             return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
         scan, result = d.dom, Id(self(d.dom))

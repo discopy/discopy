@@ -519,30 +519,31 @@ class Model(MatrixFunctor):
     >>> n, s = Pregroup('n'), Pregroup('s')
     >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
     >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [0, 1]})
-
-    # >>> parsing = Alice @ jokes >> Cap(n, n.l) @ Wire(s)
-    # >>> assert F(parsing) == True
+    >>> parsing = Alice @ jokes >> Cup(n, n.l) @ Wire(s)
+    >>> assert F(parsing).array
     """
     def __init__(self, ob, ar):
         for x in ob.keys():
             if not isinstance(x, Pregroup) or not x.is_basic:
                 raise ValueError(
                     "Expected a basic type, got {} instead.".format(repr(x)))
-        #  Rigid functors are defined by their image on basic types.
-        self._ob, self._ar = {x[0]._basic: y for x, y in ob.items()}, ar
+        super().__init__(ob, ar)
 
     def __repr__(self):
         return super().__repr__().replace("MatrixFunctor", "Model")
 
     def __call__(self, d):
         if isinstance(d, Pregroup):
-            return sum([self.ob[x._basic] for x in d], Dim(1))
-        if isinstance(d, Cup):
-            return Matrix(self(d.dom), Dim(), Id(self(d.dom[:1])).array)
-        if isinstance(d, Cap):
-            return Matrix(Dim(), self(d.cod), Id(self(d.cod[:1])).array)
+            return sum([self.ob[Pregroup(x._basic)] for x in d], Dim(1))
+        elif isinstance(d, Cup):
+            return Matrix(self(d.dom), Dim(), Matrix.id(self(d.dom[:1])).array)
+        elif isinstance(d, Cap):
+            return Matrix(Dim(), self(d.cod), Matrix.id(self(d.cod[:1])).array)
+        elif isinstance(d, Box):
+            if d._dagger:
+                return self(d.dagger()).dagger()
+            return Matrix(self(d.dom), self(d.cod), self.ar[d])
         return super().__call__(d)
-
 
 class CircuitModel(CircuitFunctor, Model):
     """
