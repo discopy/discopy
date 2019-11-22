@@ -166,7 +166,7 @@ class Diagram(moncat.Diagram):
     """
     def __init__(self, dom, cod, boxes, offsets):
         """
-        
+
         """
         if not isinstance(dom, Pregroup):
             raise ValueError("Domain of type Pregroup expected, got {} "
@@ -263,6 +263,13 @@ class Wire(Diagram):
     >>> assert Wire(Pregroup('x')) == Diagram(Pregroup('x'), Pregroup('x'), [], [])
     """
     def __init__(self, t):
+        """
+        >>> wire = Wire(Pregroup('n') @ Pregroup('s'))
+        >>> wire.dom
+        Pregroup('n', 's')
+        >>> wire.cod
+        Pregroup('n', 's')
+        """
         if isinstance(t, Word):
             t = t.dom
         if not isinstance(t, Pregroup):
@@ -271,9 +278,17 @@ class Wire(Diagram):
         super().__init__(t, t, [], [])
 
     def __repr__(self):
+        """
+        >>> Wire(Pregroup('n'))
+        Wire(Pregroup('n'))
+        """
         return "Wire({})".format(repr(self.dom))
 
     def __str__(self):
+        """
+        >>> print(Wire(Pregroup('n')))
+        Wire(n)
+        """
         return "Wire({})".format(str(self.dom))
 
 class Cup(Diagram, Box):
@@ -283,7 +298,6 @@ class Cup(Diagram, Box):
     Pregroup('n', Adjoint('n', 1))
     >>> Cup('n').cod
     Pregroup()
-
     """
     def __init__(self, x, dagger=False):
         if not isinstance(x, Adjoint):
@@ -336,19 +350,21 @@ class Cap(Diagram, Box):
 class Word(Diagram, Box):
     """ Encodes words with their pregroup type as diagrams in free rigid categories
 
-    >>> s, n = Pregroup('s'), Pregroup('n')
-    >>> Alice = Word('Alice', n)
-    >>> Alice.dom
-    Pregroup('Alice')
-    >>> Alice.cod
-    Pregroup('n')
-    >>> loves = Word('loves', n.r + s + n.l)
-    >>> loves.dom
-    Pregroup('loves')
-    >>> loves.cod
-    Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
     """
-    def __init__(self, w, t, dagger=False):
+    def __init__(self, w, t, _dagger=False):
+        """
+        >>> n, s = Pregroup('n'), Pregroup('s')
+        >>> Alice = Word('Alice', Pregroup('n'))
+        >>> Alice.dom
+        Pregroup('Alice')
+        >>> Alice.cod
+        Pregroup('n')
+        >>> loves = Word('loves', n.r + s + n.l)
+        >>> loves.dom
+        Pregroup('loves')
+        >>> loves.cod
+        Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+        """
         if not isinstance(w, str):
             raise ValueError("Expected str, got {} of type {} instead."
                              .format(repr(w), type(w)))
@@ -356,67 +372,51 @@ class Word(Diagram, Box):
             raise ValueError("Input of type Pregroup expected, got {} "
                              "of type {} instead.".format(repr(t), type(t)))
         self._word, self._type = w, t
-        dom, cod = (t, Pregroup(w)) if dagger else (Pregroup(w), t)
-        Box.__init__(self, (w, t), dom, cod, dagger)
+        dom, cod = (t, Pregroup(w)) if _dagger else (Pregroup(w), t)
+        Box.__init__(self, (w, t), dom, cod, _dagger=_dagger)
 
     def dagger(self):
+        """
+        >>> Alice = Word('Alice', Pregroup('n')).dagger()
+        >>> Alice.dom
+        Pregroup('n')
+        >>> Alice.cod
+        Pregroup('Alice')
+        """
         return Word(self._word, self._type, not self._dagger)
 
     @property
     def word(self):
+        """
+        >>> Word('Alice', Pregroup('n')).word
+        'Alice'
+        """
         return self._word
 
     @property
     def type(self):
+        """
+        >>> Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l).type
+        Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+        """
         return self._type
 
     def __repr__(self):
+        """
+        >>> Word('Alice', Pregroup('n'))
+        Word('Alice', Pregroup('n'))
+        >>> Word('Alice', Pregroup('n')).dagger()
+        Word('Alice', Pregroup('n')).dagger()
+        """
         return "Word({}, {}){}".format(repr(self.word), repr(self.type),
                                        ".dagger()" if self._dagger else "")
 
     def __str__(self):
+        """
+        >>> print(Word('Alice', Pregroup('n')))
+        Alice
+        """
         return str(self.word)
-
-class Parse(Diagram):
-    """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
-
-    >>> s, n = Pregroup('s'), Pregroup('n')
-    >>> Alice, Bob, jokes = Word('Alice', n), Word('Bob', n), Word('jokes', n)
-    >>> loves, tells = Word('loves', n.r + s + n.l), Word('tells', n.r + s + n.l)
-    >>> who = Word('who', n.r + n.l.r + s.l + n)
-
-    A parse is given by a list of words and a list of offsets for the cups.
-
-    >>> parse = Parse(words = [Alice, loves, Bob], cups = [0, 1])
-    >>> parse1 = Parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
-
-    A sentence u is grammatical if there is a parsing with domain u and codomain the sentence type s.
-
-    >>> parse.dom
-    Pregroup('Alice', 'loves', 'Bob')
-    >>> parse.cod
-    Pregroup('s')
-    >>> parse._type
-    Pregroup('n', Adjoint('n', 1), 's', Adjoint('n', -1), 'n')
-    """
-    def __init__(self, words, cups):
-        self._words, self._cups = words, cups
-        self._type = sum((w.type for w in words), Pregroup())
-        dom = sum((w.dom for w in words), Pregroup())
-        boxes = words[::-1]  # words are backwards to make offsets easier
-        offsets = [len(words) - i - 1 for i in range(len(words))] + cups
-        cod = self._type
-        for i in cups:
-            if cod[i].r != cod[i + 1]:
-                raise AxiomError("There can be no Cup of type {}."
-                                       .format(cod[i: i + 2]))
-            boxes.append(Cup(cod[i]))
-            cod = cod[:i] + cod[i + 2:]
-        super().__init__(dom, cod, boxes, offsets)
-
-    def __str__(self):
-        return "{} >> {}".format(" @ ".join(self._words), Diagram(self._type,
-            self.cod, self.boxes[len(self._words):], ))
 
 class Model(MatrixFunctor):
     """ Implements functors from pregroup grammars to matrices
@@ -485,3 +485,40 @@ class CircuitModel(CircuitFunctor, Model):
             self(x.dom[0]) / 2
             return GCX(n) >> HAD(n) @ Circuit.id(n)
         CircuitFunctor.__call__(self, x)
+
+def parse(words, cups):
+    """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
+
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice, Bob, jokes = Word('Alice', n), Word('Bob', n), Word('jokes', n)
+    >>> loves, tells = Word('loves', n.r + s + n.l), Word('tells', n.r + s + n.l)
+    >>> who = Word('who', n.r + n.l.r + s.l + n)
+
+    A parse is given by a list of words and a list of offsets for the cups.
+
+    >>> parse0 = parse([Alice, loves, Bob], [0, 1])
+    >>> parse1 = parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
+
+    A sentence u is grammatical if there is a parse with domain u and codomain s.
+
+    >>> parse0.dom
+    Pregroup('Alice', 'loves', 'Bob')
+    >>> parse1.dom
+    Pregroup('Alice', 'loves', 'Bob', 'who', 'tells', 'jokes')
+    >>> assert parse0.cod == Pregroup('s') == parse1.cod
+    """
+    for w in words:
+        if not isinstance(w, Word):
+            raise ValueError("Word expected, got {} of type {} "
+                         "instead.".format(repr(w), type(w)))
+    dom = sum((w.dom for w in words), Pregroup())
+    boxes = words[::-1]  # words are backwards to make offsets easier
+    offsets = [len(words) - i - 1 for i in range(len(words))] + cups
+    cod = sum((w.type for w in words), Pregroup())
+    for i in cups:
+        if cod[i].r != cod[i + 1]:
+            raise AxiomError("There can be no Cup of type {}."
+                                   .format(cod[i: i + 2]))
+        boxes.append(Cup(cod[i]))
+        cod = cod[:i] + cod[i + 2:]
+    return Diagram(dom, cod, boxes, offsets)
