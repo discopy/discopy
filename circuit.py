@@ -1,5 +1,14 @@
 """ Implements quantum circuits and circuit-valued monoidal functors.
 
+>>> n = Ty('n')
+>>> Alice = Box('Alice', Ty(), n)
+>>> loves = Box('loves', n, n)
+>>> Bob = Box('Bob', n, Ty())
+>>> ob, ar = {n: 1}, {Alice: Ket(0), loves: X, Bob: Bra(1)}
+>>> F = CircuitFunctor(ob, ar)
+>>> F(Alice >> loves >> Bob)
+Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
+>>> assert F(Alice >> loves >> Bob).eval()
 """
 
 import numpy as np
@@ -415,34 +424,63 @@ class Bra(Gate):
 
 class Rx(Gate):
     """
-    >>> Rx(0.25)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
+    >>> Rx(0)  # doctest: +ELLIPSIS
+    Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
     """
     def __init__(self, phase):
+        """
+        >>> g = Rx(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
+        """
         super().__init__('Rx', 1, [], data={'phase': phase})
 
     def dagger(self):
+        """
+        >>> g = Rx(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
+        """
         return Rx(-self.data['phase'])
 
     @property
     def array(self):
+        """
+        >>> Rx(0.25).array  # doctest: +ELLIPSIS
+        [0.70..., -0.7...j, -0.70...j, 0.70...]
+        """
         theta = 2 * np.pi * self.data['phase']
         return [np.cos(theta / 2), -1j * np.sin(theta / 2),
                 -1j * np.sin(theta / 2), np.cos(theta / 2)]
 
 class Rz(Gate):
     """
-    >>> Rx(0.25)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
+    >>> Rz(0)
+    Gate('Rz', 1, [1, 0, 0, (1+0j)], data={'phase': 0})
     """
     def __init__(self, phase):
+        """
+        >>> g = Rz(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Gate('Rz', 1, [1, 0, 0, (1+0j)], data={'phase': 0})
+        """
         super().__init__('Rz', 1, [], data={'phase': phase})
 
     def dagger(self):
+        """
+        >>> assert Rz(1).dagger().eval() == Rz(1).eval().dagger()
+        """
         return Rz(-self.data['phase'])
 
     @property
     def array(self):
+        """
+        >>> Rz(0.25).array  # doctest: +ELLIPSIS
+        [1, 0, 0, ...]
+        """
         theta = 2 * np.pi * self.data['phase']
         return [1, 0, 0, np.exp(1j * theta)]
 

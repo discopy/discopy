@@ -114,6 +114,9 @@ class Matrix(Diagram):
         return self._array
 
     def __bool__(self):
+        """
+        >>> assert Matrix(Dim(1), Dim(1), [1])
+        """
         return bool(self.array)
 
     def __repr__(self):
