@@ -12,9 +12,10 @@
 """
 
 import numpy as np
+from discopy import moncat
 from discopy.moncat import Ob, Ty, Diagram, Box, AxiomError
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
-
+from discopy.circuit import CircuitFunctor
 
 class Adjoint(Ob):
     """
@@ -146,7 +147,7 @@ class Pregroup(Ty):
         """
         return len(self) == 1 and not self[0]._z
 
-class Grammar(Diagram):
+class Diagram(moncat.Diagram):
     """ Implements diagrams in free rigid categories, by checking that the domain
     and codomain are pregroup types.
 
@@ -172,27 +173,34 @@ class Grammar(Diagram):
 
     def then(self, other):
         r = super().then(other)
-        return Grammar(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
+        return Diagram(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
     def tensor(self, other):
         r = super().tensor(other)
-        return Grammar(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
+        return Diagram(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
     def dagger(self):
-        return Grammar(self.cod, self.dom,
+        return Diagram(self.cod, self.dom,
             [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
+
+    def __repr__(self):
+        return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
+        *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
+
+    def __str__(self):
+        return repr(self)
 
     def transpose_r(self):
         a = self.dom
         b = self.cod
-        return Grammar.cap(a.r) @ Wire(b.r) >> Wire(a.r) @ self @ Wire(b.r) >> \
-               Wire(a.r) @ Grammar.cup(b)
+        return Diagram.cap(a.r) @ Wire(b.r) >> Wire(a.r) @ self @ Wire(b.r) >> \
+               Wire(a.r) @ Cup(b)
 
     def transpose_l(self):
         a = self.dom
         b = self.cod
-        return Wire(b.l) @ Grammar.cap(a) >> Wire(b.l) @ self @ Wire(a.l) >> \
-               Grammar.cup(b.l) @ Wire(a.l)
+        return Wire(b.l) @ Diagram.cap(a) >> Wire(b.l) @ self @ Wire(a.l) >> \
+               Cup(b.l) @ Wire(a.l)
 
     @staticmethod
     def id(t):
@@ -200,63 +208,54 @@ class Grammar(Diagram):
 
     @staticmethod
     def cup(t):
-        """ Construct cups for pregroup types.
-
-        >>> n, s = Pregroup('n'), Pregroup('s')
-        >>> Grammar.cup(n @ s @ n).dom
-        Pregroup('n', 's', 'n', Adjoint('n', 1), Adjoint('s', 1), Adjoint('n', 1))
-        >>> Grammar.cup(n @ s @ n).boxes
-        [Cup('n'), Cup('s'), Cup('n')]
-        >>> Grammar.cup(n @ s @ n).offsets
-        [2, 1, 0]
-        >>> Grammar.cup(n @ s @ n).cod
-        Pregroup()
-        >>> assert Grammar.cup(n) == Cup('n')
         """
+        >>> n, s = Pregroup('n'), Pregroup('s')
+        >>> Diagram.cup(n @ s @ n).dom
+        Pregroup('n', 's', 'n', Adjoint('n', 1), Adjoint('s', 1), Adjoint('n', 1))
+        >>> Diagram.cup(n @ s @ n).boxes
+        [Cup('n'), Cup('s'), Cup('n')]
+        >>> Diagram.cup(n @ s @ n).offsets
+        [2, 1, 0]
+        >>> Cup(n @ s @ n).cod
+        Pregroup()
+        >>> assert Diagram.cup(n) == Diagram.cup('n')
+        """
+
         if not isinstance(t, Pregroup):
             raise ValueError("Input of type Pregroup expected, got {} "
                              "of type {} instead.".format(repr(t), type(t)))
-        dom = t @ t.r
-        cod = Pregroup()
         boxes = [Cup(b) for b in t[::-1]]
         offsets = list(range(len(t)))[::-1]
-        return Grammar(dom, cod, boxes, offsets)
+        return Diagram(t @ t.r, Pregroup(), boxes, offsets)
 
     @staticmethod
     def cap(t):
         """ Construct caps for pregroup types.
 
         >>> n, s = Pregroup('n'), Pregroup('s')
-        >>> Grammar.cap(n @ s).dom
+        >>> Diagram.cap(n @ s).dom
         Pregroup()
-        >>> Grammar.cap(n @ s).boxes
+        >>> Diagram.cap(n @ s).boxes
         [Cap('n'), Cap('s')]
-        >>> Grammar.cap(n @ s).offsets
+        >>> Diagram.cap(n @ s).offsets
         [0, 1]
-        >>> Grammar.cap(n @ s).cod
+        >>> Diagram.cap(n @ s).cod
         Pregroup('n', 's', Adjoint('s', -1), Adjoint('n', -1))
-        >>> assert Grammar.cap(n) == Cap('n')
+        >>> assert Diagram.cap(n) == Cap('n')
         """
         if not isinstance(t, Pregroup):
             raise ValueError("Input of type Pregroup expected, got {} "
                              "of type {} instead.".format(repr(t), type(t)))
         dom = Pregroup()
         cod = t @ t.l
-        boxes = [Cap(b) for b in t]
-        offsets = list(range(len(t)))
-        return Grammar(dom, cod, boxes, offsets)
+        boxes = [Cap(b) for b in t[::-1]]
+        offsets = list(range(len(t)))[::-1]
+        return Diagram(dom, cod, boxes, offsets)
 
-    def __repr__(self):
-        return "Grammar(dom={}, cod={}, boxes={}, offsets={})".format(
-            *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
-
-    def __str__(self):
-        return repr(self)
-
-class Wire(Grammar):
+class Wire(Diagram):
     """ Define an identity arrow in a free rigid category
 
-    >>> assert Wire(Pregroup('x')) == Grammar(Pregroup('x'), Pregroup('x'), [], [])
+    >>> assert Wire(Pregroup('x')) == Diagram(Pregroup('x'), Pregroup('x'), [], [])
     """
     def __init__(self, t):
         if isinstance(t, Word):
@@ -272,23 +271,20 @@ class Wire(Grammar):
     def __str__(self):
         return "Wire({})".format(str(self.dom))
 
-class Cup(Grammar, Box):
+class Cup(Diagram, Box):
     """ Defines cups for simple types.
 
     >>> Cup('n').dom
     Pregroup('n', Adjoint('n', 1))
     >>> Cup('n').cod
     Pregroup()
+
     """
     def __init__(self, x, dagger=False):
-        if isinstance(x, Pregroup):
-            if len(x) != 1:
-                raise NotImplementedError
-            x = x[0]
-        elif not isinstance(x, Adjoint):
+        if not isinstance(x, Adjoint):
             x = Adjoint(x, 0)
-        dom, cod = Pregroup(x, x.l) if dagger else Pregroup(x, x.r), Pregroup()
-        Box.__init__(self, 'cup_{}'.format(x), dom, cod, dagger)
+        dom = Pregroup(x, x.l) if dagger else Pregroup(x, x.r)
+        Box.__init__(self, 'cup_{}'.format(x), dom, Pregroup(), dagger)
 
     def dagger(self):
         return Cap(self.dom[0], not self._dagger)
@@ -302,7 +298,7 @@ class Cup(Grammar, Box):
         return "Cup({}{})".format(str(self.dom[0]),
                                 ", dagger=True" if self._dagger else "")
 
-class Cap(Grammar, Box):
+class Cap(Diagram, Box):
     """ Defines caps for simple types.
 
     >>> Cap('n').dom
@@ -332,7 +328,7 @@ class Cap(Grammar, Box):
         return "Cap({}{})".format(str(self.cod[0]),
                                 ", dagger=True" if self._dagger else "")
 
-class Word(Grammar, Box):
+class Word(Diagram, Box):
     """ Encodes words with their pregroup type as diagrams in free rigid categories
 
     >>> s, n = Pregroup('s'), Pregroup('n')
@@ -376,7 +372,7 @@ class Word(Grammar, Box):
     def __str__(self):
         return str(self.word)
 
-class Parse(Grammar):
+class Parse(Diagram):
     """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
 
     >>> s, n = Pregroup('s'), Pregroup('n')
@@ -414,7 +410,7 @@ class Parse(Grammar):
         super().__init__(dom, cod, boxes, offsets)
 
     def __str__(self):
-        return "{} >> {}".format(" @ ".join(self._words), Grammar(self._type,
+        return "{} >> {}".format(" @ ".join(self._words), Diagram(self._type,
             self.cod, self.boxes[len(self._words):], ))
 
 class Model(MatrixFunctor):
@@ -442,7 +438,7 @@ class Model(MatrixFunctor):
         ob = {x[0]._basic: ob[x] for x in self._types.keys()}
         #  We assume the images for word boxes are all states.
         ob.update({w.dom[0]._basic: 1 for w in self._vocab.keys()})
-        self._ob, self._ar = ob, {f: array for f, array in ar.items()}
+        self._ob, self._ar = ob, {f: g for f, g in ar.items()}
 
     def __repr__(self):
         return "Model(ob={}, ar={})".format(self._types, self._vocab)
@@ -455,3 +451,30 @@ class Model(MatrixFunctor):
         if isinstance(d, Cap):
             return Matrix(Dim(), self(d.cod), Id(self(d.cod[:1])).array)
         return super().__call__(d)
+
+
+class CircuitModel(CircuitFunctor, Model):
+    """
+    >>> from discopy.circuit import *
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice = Word('Alice', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> Bob = Word('Bob', n)
+    >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+    >>> sentence = grammar << Alice @ loves @ Bob
+    >>> ob = {s: 0, n: 1}
+    >>> ar = {Alice: Ket(0),
+    ...       loves: CX << H @ X << Ket(0, 0),
+    ...       Bob: Ket(1)}
+    >>> F = CircuitModel(ob, ar)
+    >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
+    >>> assert 2**3 * BornRule(F(sentence))
+    """
+    def __init__(self, ob, ar):
+        Model.__init__(self, ob, ar)
+
+    def __call__(self, x):
+        if isinstance(x, Cup):
+            self(x.dom[0]) / 2
+            return GCX(n) >> HAD(n) @ Circuit.id(n)
+        CircuitFunctor.__call__(self, x)
