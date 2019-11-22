@@ -578,6 +578,14 @@ def parse(words, cups):
     A parse is given by a list of words and a list of offsets for the cups.
 
     >>> parse0 = parse([Alice, loves, Bob], [0, 1])
+    >>> parse([Alice, loves, Bob], [0, 2])  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    IndexError: list index out of range
+    >>> parse([Box('Alice', Pregroup('Alice'), Pregroup('n')), loves, Bob], [0, 1])  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    ValueError: Word expected, got Box(...) of type <class 'discopy.moncat.Box'> instead.
     >>> parse1 = parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
 
     A sentence u is grammatical if there is a parse with domain u and codomain s.
