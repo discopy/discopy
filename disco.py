@@ -508,13 +508,9 @@ class Word(Diagram, Box):
 class Model(MatrixFunctor):
     """ Implements functors from pregroup grammars to matrices
 
-    >>> n = Pregroup('n')
-    >>> F = Model({n: 2}, {})
-
-    # >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-    # >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-    # >>> assert (F(snake_l) == F(Wire(n))).all()
-    # >>> assert (F(Wire(n)) == F(snake_r)).all()
+    >>> n, s = Pregroup('n'), Pregroup('s')
+    >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
+    >>>
     """
     def __init__(self, ob, ar):
         for x in ob.keys():
@@ -538,7 +534,7 @@ class Model(MatrixFunctor):
 
     def __call__(self, d):
         if isinstance(d, Pregroup):
-            return Dim(*(self.ob[x._basic] for x in d))
+            return sum([self.ob[x._basic] for x in d], Dim(1))
         if isinstance(d, Cup):
             return Matrix(self(d.dom), Dim(), Id(self(d.dom[:1])).array)
         if isinstance(d, Cap):
@@ -577,21 +573,16 @@ def parse(words, cups):
     """ Produces the diagram in a free rigid category corresponding to a pregroup parsing.
 
     >>> s, n = Pregroup('s'), Pregroup('n')
-    >>> Alice, Bob, jokes = Word('Alice', n), Word('Bob', n), Word('jokes', n)
-    >>> loves, tells = Word('loves', n.r + s + n.l), Word('tells', n.r + s + n.l)
-    >>> who = Word('who', n.r + n.l.r + s.l + n)
-
-    A parse is given by a list of words and a list of offsets for the cups.
-
-    >>> parse0 = parse([Alice, loves, Bob], [0, 1])
+    >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+    >>> loves = Word('loves', n.r + s + n.l)
     >>> parse([Alice, loves, Bob], [0, 2])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
     IndexError: list index out of range
-    >>> parse([Box('Alice', Pregroup('Alice'), Pregroup('n')), loves, Bob], [0, 1])  # doctest: +ELLIPSIS
+    >>> parse(["Alice", loves, Bob], [0, 1])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    ValueError: Word expected, got Box(...) of type <class 'discopy.moncat.Box'> instead.
+    ValueError: Word expected, got Box(...) instead.
     >>> parse1 = parse([Alice, loves, Bob, who, tells, jokes], [0, 2, 1, 2, 1, 1])
 
     A sentence u is grammatical if there is a parse with domain u and codomain s.
@@ -607,9 +598,9 @@ def parse(words, cups):
             raise ValueError("Word expected, got {} instead.".format(repr(w)))
     dom = sum((w.dom for w in words), Pregroup())
     boxes = words[::-1]  # words are backwards to make offsets easier
-    offsets = [len(words) - i - 1 for i in range(len(words))] + cups
+    offsets = [len(words) - i - 1 for i in range(len(words))] + offsets
     cod = sum((w.type for w in words), Pregroup())
-    for i in cups:
+    for i in offsets:
         if cod[i].r != cod[i + 1]:
             raise AxiomError("There can be no Cup of type {}."
                                    .format(cod[i: i + 2]))
