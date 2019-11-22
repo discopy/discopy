@@ -1,15 +1,21 @@
 """ Implements quantum circuits and circuit-valued monoidal functors.
 
->>> n = Ty('n')
->>> Alice = Box('Alice', Ty(), n)
->>> loves = Box('loves', n, n)
->>> Bob = Box('Bob', n, Ty())
->>> ob, ar = {n: 1}, {Alice: Ket(0), loves: X, Bob: Bra(1)}
+>>> from discopy import Pregroup, Word, Cup, Wire
+>>> s, n = Pregroup('s'), Pregroup('n')
+>>> Alice = Word('Alice', n)
+>>> loves = Word('loves', n.r @ s @ n.l)
+>>> Bob = Word('Bob', n)
+>>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+>>> sentence = grammar << Alice @ loves @ Bob
+>>> ob = {s: 0, n: 1, n.l: 1, n.r: 1}
+>>> ob.update({w.dom: 0 for w in [Alice, loves, Bob]})
+>>> ar = {Alice: Ket(0),
+...       loves: CX << Ket(0, 0),
+...       Bob: Ket(0),
+...       Cup(n): CX >> Bra(0, 0),
+...       Cup(n.l): CX >> Bra(0, 0)}
 >>> F = CircuitFunctor(ob, ar)
->>> c = F(Alice >> loves >> Bob)
->>> c
-Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
->>> c.eval()
+>>> F(sentence).eval()
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
