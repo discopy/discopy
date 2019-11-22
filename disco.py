@@ -153,17 +153,10 @@ class Diagram(moncat.Diagram):
     """ Implements diagrams in free rigid categories, by checking that the domain
     and codomain are pregroup types.
 
-    >>> n, b = Pregroup('n'), Pregroup('b')
-    >>> Alice = Word('b', n)
-
-    # >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-    # >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-
-    We take take transposes of any morphism.
-    #
-    # >>> assert Alice.transpose_r() == Cap(b.r) @ Wire(n.r) >> Wire(b.r) @ Alice @ Wire(n.r) >> Wire(b.r) @ Cup(n)
-    # >>> assert Wire(n.l).transpose_r() == snake_l
-    # >>> assert Wire(n.r).transpose_l() == snake_r
+    >>> a, b = Pregroup('a'), Pregroup('b')
+    >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
+    >>> print(Diagram(a, a, [f, g, f.dagger()], [0, 1, 0]))
+    f >> Wire(a.l) @ g >> f.dagger()
     """
     def __init__(self, dom, cod, boxes, offsets):
         """
@@ -181,6 +174,12 @@ class Diagram(moncat.Diagram):
         super().__init__(dom, cod, boxes, offsets)
 
     def then(self, other):
+        """
+        >>> a, b = Pregroup('a'), Pregroup('b')
+        >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
+        >>> print(f >> Wire(a.l) @ g >> f.dagger())
+        f >> Id(a.l) @ g >> f.dagger()
+        """
         r = super().then(other)
         return Diagram(Pregroup(*r.dom), Pregroup(*r.cod), r.boxes, r.offsets)
 
@@ -195,9 +194,6 @@ class Diagram(moncat.Diagram):
     def __repr__(self):
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
         *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
-
-    def __str__(self):
-        return repr(self)
 
     def transpose_r(self):
         a = self.dom
