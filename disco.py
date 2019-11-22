@@ -598,8 +598,7 @@ def parse(words, cups):
     """
     for w in words:
         if not isinstance(w, Word):
-            raise ValueError("Word expected, got {} of type {} "
-                         "instead.".format(repr(w), type(w)))
+            raise ValueError("Word expected, got {} instead.".format(repr(w)))
     dom = sum((w.dom for w in words), Pregroup())
     boxes = words[::-1]  # words are backwards to make offsets easier
     offsets = [len(words) - i - 1 for i in range(len(words))] + cups
