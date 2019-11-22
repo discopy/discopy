@@ -449,7 +449,7 @@ class Cap(Box):
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
 class Word(Box):
-    """ Encodes words with their pregroup type as diagrams in free rigid categories
+    """ Implements words as boxes with a pregroup type as codomain.
 
     >>> Alice = Word('Alice', Pregroup('n'))
     >>> loves = Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l)
@@ -491,8 +491,8 @@ class Word(Box):
     @property
     def type(self):
         """
-        >>> Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l).type
-        Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1))
+        >>> Word('Alice', Pregroup('n')).type
+        Pregroup('n')
         """
         return self._type
 
@@ -572,30 +572,3 @@ class Model(MatrixFunctor):
                 return self(d.dagger()).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         return super().__call__(d)
-
-class CircuitModel(CircuitFunctor, Model):
-    """
-    >>> from discopy.circuit import *
-    >>> s, n = Pregroup('s'), Pregroup('n')
-    >>> Alice = Word('Alice', n)
-    >>> loves = Word('loves', n.r @ s @ n.l)
-    >>> Bob = Word('Bob', n)
-
-    # >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-    # >>> sentence = grammar << Alice @ loves @ Bob
-    # >>> ob = {s: 0, n: 1}
-    # >>> ar = {Alice: Ket(0),
-    # ...       loves: CX << H @ X << Ket(0, 0),
-    # ...       Bob: Ket(1)}
-    # >>> F = CircuitModel(ob, ar)
-    # >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
-    # >>> assert 2**3 * BornRule(F(sentence))
-    """
-    def __init__(self, ob, ar):
-        Model.__init__(self, ob, ar)
-
-    def __call__(self, x):
-        if isinstance(x, Cup):
-            self(x.dom[0]) / 2
-            return GCX(n) >> HAD(n) @ Circuit.id(n)
-        CircuitFunctor.__call__(self, x)
