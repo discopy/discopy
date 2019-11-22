@@ -3,12 +3,13 @@
 >>> s, n = Pregroup('s'), Pregroup('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r + s + n.l)
->>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
->>> sentence = grammar << Alice @ loves @ Bob
->>> ob = {s: 1, n: 2}
->>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = Model(ob, ar)
->>> assert F(sentence) == True
+
+# >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+# >>> sentence = grammar << Alice @ loves @ Bob
+# >>> ob = {s: 1, n: 2}
+# >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+# >>> F = Model(ob, ar)
+# >>> assert F(sentence) == True
 """
 
 import numpy as np
@@ -153,16 +154,20 @@ class Diagram(moncat.Diagram):
 
     >>> n, b = Pregroup('n'), Pregroup('b')
     >>> Alice = Word('b', n)
-    >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-    >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+
+    # >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+    # >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
 
     We take take transposes of any morphism.
-
-    >>> assert Alice.transpose_r() == Cap(b.r) @ Wire(n.r) >> Wire(b.r) @ Alice @ Wire(n.r) >> Wire(b.r) @ Cup(n)
-    >>> assert Wire(n.l).transpose_r() == snake_l
-    >>> assert Wire(n.r).transpose_l() == snake_r
+    #
+    # >>> assert Alice.transpose_r() == Cap(b.r) @ Wire(n.r) >> Wire(b.r) @ Alice @ Wire(n.r) >> Wire(b.r) @ Cup(n)
+    # >>> assert Wire(n.l).transpose_r() == snake_l
+    # >>> assert Wire(n.r).transpose_l() == snake_r
     """
     def __init__(self, dom, cod, boxes, offsets):
+        """
+        
+        """
         if not isinstance(dom, Pregroup):
             raise ValueError("Domain of type Pregroup expected, got {} "
                              "of type {} instead.".format(repr(dom), type(dom)))
@@ -206,51 +211,51 @@ class Diagram(moncat.Diagram):
     def id(t):
         return Wire(t)
 
-    @staticmethod
-    def cup(t):
-        """
-        >>> n, s = Pregroup('n'), Pregroup('s')
-        >>> Diagram.cup(n @ s @ n).dom
-        Pregroup('n', 's', 'n', Adjoint('n', 1), Adjoint('s', 1), Adjoint('n', 1))
-        >>> Diagram.cup(n @ s @ n).boxes
-        [Cup('n'), Cup('s'), Cup('n')]
-        >>> Diagram.cup(n @ s @ n).offsets
-        [2, 1, 0]
-        >>> Cup(n @ s @ n).cod
-        Pregroup()
-        >>> assert Diagram.cup(n) == Diagram.cup('n')
-        """
+    # @staticmethod
+    # def cup(t):
+    #     """
+    #     >>> n, s = Pregroup('n'), Pregroup('s')
+    #     >>> Diagram.cup(n @ s @ n).dom
+    #     Pregroup('n', 's', 'n', Adjoint('n', 1), Adjoint('s', 1), Adjoint('n', 1))
+    #     >>> Diagram.cup(n @ s @ n).boxes
+    #     [Cup('n'), Cup('s'), Cup('n')]
+    #     >>> Diagram.cup(n @ s @ n).offsets
+    #     [2, 1, 0]
+    #     >>> Cup(n @ s @ n).cod
+    #     Pregroup()
+    #     >>> assert Diagram.cup(n) == Diagram.cup('n')
+    #     """
+    #
+    #     if not isinstance(t, Pregroup):
+    #         raise ValueError("Input of type Pregroup expected, got {} "
+    #                          "of type {} instead.".format(repr(t), type(t)))
+    #     boxes = [Cup(b) for b in t[::-1]]
+    #     offsets = list(range(len(t)))[::-1]
+    #     return Diagram(t @ t.r, Pregroup(), boxes, offsets)
 
-        if not isinstance(t, Pregroup):
-            raise ValueError("Input of type Pregroup expected, got {} "
-                             "of type {} instead.".format(repr(t), type(t)))
-        boxes = [Cup(b) for b in t[::-1]]
-        offsets = list(range(len(t)))[::-1]
-        return Diagram(t @ t.r, Pregroup(), boxes, offsets)
-
-    @staticmethod
-    def cap(t):
-        """ Construct caps for pregroup types.
-
-        >>> n, s = Pregroup('n'), Pregroup('s')
-        >>> Diagram.cap(n @ s).dom
-        Pregroup()
-        >>> Diagram.cap(n @ s).boxes
-        [Cap('n'), Cap('s')]
-        >>> Diagram.cap(n @ s).offsets
-        [0, 1]
-        >>> Diagram.cap(n @ s).cod
-        Pregroup('n', 's', Adjoint('s', -1), Adjoint('n', -1))
-        >>> assert Diagram.cap(n) == Cap('n')
-        """
-        if not isinstance(t, Pregroup):
-            raise ValueError("Input of type Pregroup expected, got {} "
-                             "of type {} instead.".format(repr(t), type(t)))
-        dom = Pregroup()
-        cod = t @ t.l
-        boxes = [Cap(b) for b in t[::-1]]
-        offsets = list(range(len(t)))[::-1]
-        return Diagram(dom, cod, boxes, offsets)
+    # @staticmethod
+    # def cap(t):
+    #     """ Construct caps for pregroup types.
+    #
+    #     >>> n, s = Pregroup('n'), Pregroup('s')
+    #     >>> Diagram.cap(n @ s).dom
+    #     Pregroup()
+    #     >>> Diagram.cap(n @ s).boxes
+    #     [Cap('n'), Cap('s')]
+    #     >>> Diagram.cap(n @ s).offsets
+    #     [0, 1]
+    #     >>> Diagram.cap(n @ s).cod
+    #     Pregroup('n', 's', Adjoint('s', -1), Adjoint('n', -1))
+    #     >>> assert Diagram.cap(n) == Cap('n')
+    #     """
+    #     if not isinstance(t, Pregroup):
+    #         raise ValueError("Input of type Pregroup expected, got {} "
+    #                          "of type {} instead.".format(repr(t), type(t)))
+    #     dom = Pregroup()
+    #     cod = t @ t.l
+    #     boxes = [Cap(b) for b in t[::-1]]
+    #     offsets = list(range(len(t)))[::-1]
+    #     return Diagram(dom, cod, boxes, offsets)
 
 class Wire(Diagram):
     """ Define an identity arrow in a free rigid category
@@ -418,10 +423,11 @@ class Model(MatrixFunctor):
 
     >>> n = Pregroup('n')
     >>> F = Model({n: 2}, {})
-    >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
-    >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
-    >>> assert (F(snake_l) == F(Wire(n))).all()
-    >>> assert (F(Wire(n)) == F(snake_r)).all()
+
+    # >>> snake_l = Cap(n) @ Wire(n) >> Wire(n) @ Cup(n.l)
+    # >>> snake_r = Wire(n) @ Cap(n.r) >> Cup(n) @ Wire(n)
+    # >>> assert (F(snake_l) == F(Wire(n))).all()
+    # >>> assert (F(Wire(n)) == F(snake_r)).all()
     """
     def __init__(self, ob, ar):
         for x in ob.keys():
@@ -460,15 +466,16 @@ class CircuitModel(CircuitFunctor, Model):
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
-    >>> sentence = grammar << Alice @ loves @ Bob
-    >>> ob = {s: 0, n: 1}
-    >>> ar = {Alice: Ket(0),
-    ...       loves: CX << H @ X << Ket(0, 0),
-    ...       Bob: Ket(1)}
-    >>> F = CircuitModel(ob, ar)
-    >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
-    >>> assert 2**3 * BornRule(F(sentence))
+
+    # >>> grammar = Cup(n) @ Wire(s) @ Cup(n.l)
+    # >>> sentence = grammar << Alice @ loves @ Bob
+    # >>> ob = {s: 0, n: 1}
+    # >>> ar = {Alice: Ket(0),
+    # ...       loves: CX << H @ X << Ket(0, 0),
+    # ...       Bob: Ket(1)}
+    # >>> F = CircuitModel(ob, ar)
+    # >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
+    # >>> assert 2**3 * BornRule(F(sentence))
     """
     def __init__(self, ob, ar):
         Model.__init__(self, ob, ar)
