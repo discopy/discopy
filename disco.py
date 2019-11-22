@@ -8,8 +8,7 @@
 >>> ob = {s: 1, n: 2}
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 >>> F = Model(ob, ar)
-
-# >>> assert F(sentence) == True
+>>> assert F(sentence) == True
 """
 
 import numpy as np
