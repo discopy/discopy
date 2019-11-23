@@ -542,6 +542,7 @@ def Permutation(perm):
     """ Constructs a permutation as a circuit made of swaps.
     >>> assert Permutation([1, 0]) == SWAP
     >>> assert Permutation([2, 1, 0]) == Permutation([2, 0, 1]) >> Permutation([0, 2, 1])
+    >>> assert np.allclose((Permutation([2, 1, 0]) >> Permutation([2, 1, 0])).eval(), Circuit.id(3).eval())
     """
     assert set(range(len(perm))) == set(perm)
     gates = []
@@ -563,6 +564,7 @@ def GCX(n):
     Id(2) @ SWAP >> Id(1) @ SWAP @ Id(1) >> CX @ Id(2) >> ... >> Id(2) @ SWAP
     >>> print(GCX(2))  # doctest: +ELLIPSIS
     Id(2) @ SWAP >> ... >> Id(2) @ CX >> Id(1) @ SWAP @ Id(1) >> Id(2) @ SWAP
+    >>> assert np.allclose((GCX(3) >> GCX(3)).eval(), Circuit.id(3).eval())
     """
     perm = []
     for i in range(n):
