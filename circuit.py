@@ -208,7 +208,7 @@ def Euler(a, b, c):
 
     >>> print(Euler(1, 0, 1))
     Rx(1) >> Rz(0) >> Rx(1)
-    >>> assert np.allclose(Euler(1, 0, 1).eval(), Id(1))
+    >>> assert np.allclose(Euler(1, 0, 1).eval(), Id(1).eval())
     """
     return Circuit(1, 1, [Rx(a), Rz(b), Rx(c)], [0, 0, 0])
 
@@ -219,10 +219,7 @@ def random(n_qubits, depth=0, gateset=[], seed=None):
     >>> c = random(1, seed=420)
     >>> [g.data['phase'] for g in c.gates]  # doctest: +ELLIPSIS
     [0.02..., 0.78..., 0.27...]
-    >>> c.eval().array[0]  # doctest: +ELLIPSIS
-    array([ 0.64...+0.06...j, -0.05...-0.76...j])
-    >>> c.eval().array[1]  # doctest: +ELLIPSIS
-    array([-0.73...-0.20...j,  0.06...-0.64...j ])
+    >>> assert np.allclose(c.eval() >> c.eval().dagger(), Id(1).eval())
     >>> print(random(2, 2, [CX, H, T], seed=420))
     CX >> T @ Id(1) >> Id(1) @ T
     >>> print(random(3, 2, [CX, H, T], seed=420))
