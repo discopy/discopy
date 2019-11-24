@@ -108,8 +108,8 @@ class Matrix(Diagram):
         """
         >>> Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0]).array.shape
         (2, 2, 2)
-        >>> Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0]).array.flatten()
-        array([1, 0, 0, 1, 0, 1, 1, 0])
+        >>> list(Matrix(Dim(2), Dim(2), [0, 1, 1, 0]).array.flatten())
+        [0, 1, 1, 0]
         """
         return self._array
 
@@ -166,7 +166,9 @@ class Matrix(Diagram):
         >>> assert v @ v.dagger() == v << v.dagger()
         """
         dom, cod = self.dom + other.dom, self.cod + other.cod
-        array = np.tensordot(self.array, other.array, 0)
+        array = np.tensordot(self.array, other.array, 0)\
+            if self.array.shape and other.array.shape\
+            else self.array * other.array
         return Matrix(dom, cod, array)
 
     def dagger(self):
@@ -211,15 +213,21 @@ class Id(Matrix):
     """
     def __init__(self, *dim):
         """
-        >>> Id(2).array
-        array([[1., 0.],
-               [0., 1.]])
+        >>> Id(1)
+        Matrix(dom=Dim(1), cod=Dim(1), array=[1])
+        >>> list(Id(2).array.flatten())
+        [1.0, 0.0, 0.0, 1.0]
         >>> Id(2).array.shape
         (2, 2)
+        >>> list(Id(2, 2).array.flatten())[:8]
+        [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        >>> list(Id(2, 2).array.flatten())[8:]
+        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         """
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        array = np.moveaxis(
-            fold(lambda a, x: np.tensordot(a, np.identity(x), 0), dim, 1),
+        tensor = lambda a, x: np.tensordot(a, np.identity(x), 0)\
+                              if a.shape else np.identity(x)
+        array = np.moveaxis(fold(tensor, dim, np.array(1)),
             [2 * i for i in range(len(dim))], [i for i in range(len(dim))])
         super().__init__(dim, dim, array)
 
@@ -269,16 +277,16 @@ class MatrixFunctor(MonoidalFunctor):
         >>> ob = {x: 2, y: 3}
         >>> ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
         >>> F = MatrixFunctor(ob, ar)
-        >>> F(f >> g).array.flatten()
-        array([ 5., 14., 23., 32.])
+        >>> list(F(f >> g).array.flatten())
+        [5.0, 14.0, 23.0, 32.0]
         >>> F(f @ f.dagger()).array.shape
         (2, 2, 3, 3, 2, 2)
         >>> F(f.dagger() @ f).array.shape
         (3, 2, 2, 2, 2, 3)
-        >>> F(f.dagger() >> f).array.flatten()
-        array([126., 144., 162., 144., 166., 188., 162., 188., 214.])
-        >>> F(g.dagger() >> g).array
-        array(5)
+        >>> list(F(f.dagger() >> f).array.flatten())
+        [126.0, 144.0, 162.0, 144.0, 166.0, 188.0, 162.0, 188.0, 214.0]
+        >>> list(F(g.dagger() >> g).array.flatten())
+        [5]
         """
         if isinstance(d, Ty):
             return sum([self.ob[Ty(x)] for x in d], Dim(1))
@@ -289,11 +297,13 @@ class MatrixFunctor(MonoidalFunctor):
         scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
         for f, offset in d:
             n = dim(scan[:offset])
-            source = range(dim(d.dom) + n, dim(d.dom) + n + dim(f.dom))
-            target = range(dim(f.dom))
-            array = np.tensordot(array, self(f).array, (source, target))
-            source = range(len(array.shape) - dim(f.cod), len(array.shape))
-            target = range(dim(d.dom) + n, dim(d.dom) + n + dim(f.cod))
+            source = list(range(dim(d.dom) + n, dim(d.dom) + n + dim(f.dom)))
+            target = list(range(dim(f.dom)))
+            array = np.tensordot(array, self(f).array, (source, target))\
+                if array.shape and self(f).array.shape\
+                else array * self(f).array
+            source = list(range(len(array.shape) - dim(f.cod), len(array.shape)))
+            target = list(range(dim(d.dom) + n, dim(d.dom) + n + dim(f.cod)))
             array = np.moveaxis(array, source, target)
             scan = scan[:offset] + f.cod + scan[offset + len(f.dom):]
         return Matrix(self(d.dom), self(d.cod), array)

@@ -144,7 +144,8 @@ class Circuit(Diagram):
         >>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
         ...     assert np.all((U >> U.dagger()).eval() == Id(len(U.dom)).eval())
         >>> for U in [H, T >> T >> T >> T]:
-        ...     assert np.allclose((U >> U.dagger()).eval(), Id(len(U.dom)).eval())
+        ...     m, id_n = (U >> U.dagger()).eval(), Id(len(U.dom)).eval()
+        ...     assert np.allclose(m.array, id_n.array)
         """
         F_eval = MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))
         return F_eval(self)
@@ -159,11 +160,10 @@ class Circuit(Diagram):
         import pytket as tk
         c = tk.Circuit(len(self.dom))
         for g, n in zip(self.gates, self.offsets):
-            if g.data:
-                if g.name not in ['Rx', 'Rz']:
-                    raise NotImplementedError
-                c.__getattribute__(g.name)(
-                    *(n + i for i in range(len(g.dom))), g.data['phase'])
+            if isinstance(g, Rx):
+                c.Rx(*(n + i for i in range(len(g.dom))), g.data['phase'])
+            elif isinstance(g, Rz):
+                c.Rz(*(n + i for i in range(len(g.dom))), g.data['phase'])
             else:
                 c.__getattribute__(g.name)(*(n + i for i in range(len(g.dom))))
         return c
@@ -203,49 +203,6 @@ def from_tk(c):
         offsets.append(i0)
     return Circuit(c.n_qubits, c.n_qubits, gates, offsets)
 
-def Euler(a, b, c):
-    """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
-
-    >>> print(Euler(1, 0, 1))
-    Rx(1) >> Rz(0) >> Rx(1)
-    >>> assert np.allclose(Euler(1, 0, 1).eval(), Id(1))
-    """
-    return Circuit(1, 1, [Rx(a), Rz(b), Rx(c)], [0, 0, 0])
-
-def random(n_qubits, depth=0, gateset=[], seed=None):
-    """ Returns a random Euler decomposition if n_qubits == 1,
-    otherwise returns a random tiling with the given depth and gateset.
-
-    >>> c = random(1, seed=420)
-    >>> [g.data['phase'] for g in c.gates]  # doctest: +ELLIPSIS
-    [0.02..., 0.78..., 0.27...]
-    >>> c.eval().array[0]  # doctest: +ELLIPSIS
-    array([ 0.64...+0.06...j, -0.05...-0.76...j])
-    >>> c.eval().array[1]  # doctest: +ELLIPSIS
-    array([-0.73...-0.20...j,  0.06...-0.64...j ])
-    >>> print(random(2, 2, [CX, H, T], seed=420))
-    CX >> T @ Id(1) >> Id(1) @ T
-    >>> print(random(3, 2, [CX, H, T], seed=420))
-    CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-    """
-    import random
-    if seed:
-        random.seed(seed)
-    if n_qubits == 1:
-        return Euler(
-            random.random(), random.random(), random.random())
-    U = Id(n_qubits)
-    for d in range(depth):
-        L, affected = Id(0), 0
-        while affected <= n_qubits - 2:
-            gate = random.choice(gateset)
-            L = L @ gate
-            affected += gate.n_qubits
-        if n_qubits - affected == 1:
-            L = L @ random.choice([g for g in gateset if g.n_qubits == 1])
-        U = U >> L
-    return U
-
 class Id(Circuit):
     """ Implements identity circuit on n qubits.
 
@@ -279,23 +236,20 @@ class Gate(Box, Circuit):
 
     >>> CX
     Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
-    >>> Rx(0.25)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [0.7..., -0.7...j, -0.7...j, 0.7...], data={'phase': 0.25})
     """
     def __init__(self, name, n_qubits, array, data={}, _dagger=False):
         """
-        >>> g = Rx(0.25)
-        >>> assert g == Rx(0.25)
-        >>> assert g.dom == g.cod == PRO(1)
+        >>> g = CX
+        >>> assert g.dom == g.cod == PRO(2)
         """
-        self.n_qubits, self._array = n_qubits, array
+        self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
         Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits),
                      data=data, _dagger=_dagger)
 
     @property
     def array(self):
         """
-        >>> X.array
+        >>> list(X.array.flatten())
         [0, 1, 1, 0]
         """
         return self._array
@@ -304,13 +258,11 @@ class Gate(Box, Circuit):
         """
         >>> CX
         Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
-        >>> Rx(0.25)  # doctest: +ELLIPSIS
-        Gate('Rx', 1, [...], data={'phase': 0.25})
         """
         if self._dagger:
             return repr(self.dagger()) + '.dagger()'
         return "Gate({}, {}, {}{})".format(
-            repr(self.name), len(self.dom), repr(self.array),
+            repr(self.name), len(self.dom), list(self.array.flatten()),
             ', data=' + repr(self.data) if self.data else '')
 
     def __str__(self):
@@ -334,7 +286,7 @@ class Gate(Box, Circuit):
         Rx(-0.25)
         >>> assert Rx(0.25).eval().dagger() == Rx(0.25).dagger().eval()
         """
-        return Gate(self.name, self.n_qubits, self.array,
+        return Gate(self.name, len(self.dom), self.array,
                     data=self.data, _dagger=not self._dagger)
 
 class Ket(Gate):
@@ -422,67 +374,99 @@ class Bra(Gate):
             m = m @ Matrix(Dim(2), Dim(1), [0, 1] if b else [1, 0])
         return m.array
 
-class Rx(Gate):
-    """
-    >>> Rx(0)  # doctest: +ELLIPSIS
-    Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
-    """
-    def __init__(self, phase):
-        """
-        >>> g = Rx(0.25)
-        >>> g.data['phase'] = 0
-        >>> g
-        Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
-        """
-        super().__init__('Rx', 1, [], data={'phase': phase})
-
-    def dagger(self):
-        """
-        >>> g = Rx(0.25)
-        >>> g.data['phase'] = 0
-        >>> g
-        Gate('Rx', 1, [1.0, -0j, -0j, 1.0], data={'phase': 0})
-        """
-        return Rx(-self.data['phase'])
-
-    @property
-    def array(self):
-        """
-        >>> Rx(0.25).array  # doctest: +ELLIPSIS
-        [0.70..., -0.7...j, -0.70...j, 0.70...]
-        """
-        theta = 2 * np.pi * self.data['phase']
-        return [np.cos(theta / 2), -1j * np.sin(theta / 2),
-                -1j * np.sin(theta / 2), np.cos(theta / 2)]
-
 class Rz(Gate):
     """
-    >>> Rz(0)
-    Gate('Rz', 1, [1, 0, 0, (1+0j)], data={'phase': 0})
+    >>> assert np.all(Rz(0).array == np.identity(2))
+    >>> assert np.allclose(Rz(0.5).array, Z.array)
+    >>> assert np.allclose(Rz(0.25).array, S.array)
+    >>> assert np.allclose(Rz(0.125).array, T.array)
     """
     def __init__(self, phase):
         """
         >>> g = Rz(0.25)
+        >>> assert g == Rz(0.25)
         >>> g.data['phase'] = 0
         >>> g
-        Gate('Rz', 1, [1, 0, 0, (1+0j)], data={'phase': 0})
+        Rz(0)
         """
-        super().__init__('Rz', 1, [], data={'phase': phase})
+        Box.__init__(self, 'Rz', PRO(1), PRO(1), data={'phase': phase})
+
+    @property
+    def name(self):
+        """
+        >>> assert str(Rz(0.125)) == repr(Rz(0.125)) == Rz(0.125).name
+        """
+        return 'Rz({})'.format(self.data['phase'])
+
+    def __repr__(self):
+        """
+        >>> assert str(Rz(0.125)) == repr(Rz(0.125))
+        """
+        return self.name
 
     def dagger(self):
         """
-        >>> assert Rz(1).dagger().eval() == Rz(1).eval().dagger()
+        >>> assert Rz(0.125).dagger().eval() == Rz(0.125).eval().dagger()
         """
         return Rz(-self.data['phase'])
 
     @property
     def array(self):
         """
-        >>> Rz(0.25).array  # doctest: +ELLIPSIS
-        [1, 0, 0, ...]
+        >>> assert np.allclose(Rz(-1).array, np.identity(2))
+        >>> assert np.allclose(Rz(0).array, np.identity(2))
+        >>> assert np.allclose(Rz(1).array, np.identity(2))
         """
         theta = 2 * np.pi * self.data['phase']
-        return [1, 0, 0, np.exp(1j * theta)]
+        return np.array([[1, 0], [0, np.exp(1j * theta)]])
+
+class Rx(Gate):
+    """
+    >>> assert np.all(Rx(0).array == np.identity(2))
+    >>> assert np.all(np.round(Rx(0.5).array) == X.array)
+    """
+    def __init__(self, phase):
+        """
+        >>> g = Rx(0.25)
+        >>> assert g == Rx(0.25)
+        >>> g.data['phase'] = 0
+        >>> g
+        Rx(0)
+        """
+        Box.__init__(self, 'Rx', PRO(1), PRO(1), data={'phase': phase})
+
+    @property
+    def name(self):
+        """
+        >>> assert str(Rx(0.125)) == Rx(0.125).name
+        """
+        return 'Rx({})'.format(self.data['phase'])
+
+    def __repr__(self):
+        """
+        >>> assert str(Rx(0.125)) == repr(Rx(0.125))
+        """
+        return self.name
+
+    def dagger(self):
+        """
+        >>> assert Rx(0.125).dagger().eval() == Rx(0.125).eval().dagger()
+        """
+        return Rx(-self.data['phase'])
+
+    @property
+    def array(self):
+        """
+        >>> assert np.allclose(Rx(0).array, np.identity(2))
+        >>> assert np.allclose(np.round(Rx(0.5).array), X.array)
+        >>> assert np.allclose(np.round(Rx(-1).array), np.identity(2))
+        >>> assert np.allclose(np.round(Rx(1).array), np.identity(2))
+        >>> assert np.allclose(np.round(Rx(2).array), np.identity(2))
+        """
+        half_theta = np.pi * self.data['phase']
+        global_phase = np.exp(1j * half_theta)
+        sin, cos = np.sin(half_theta), np.cos(half_theta)
+        return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 class CircuitFunctor(MonoidalFunctor):
     """ Implements funtors from monoidal categories to circuits
@@ -585,3 +569,55 @@ def HAD(n):
     for i in range(n):
         HAD = HAD @ H
     return HAD
+
+def Euler(a, b, c):
+    """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
+
+    >>> print(Euler(0.1, 0.2, 0.3))
+    Rx(0.1) >> Rz(0.2) >> Rx(0.3)
+    >>> assert np.all(np.round(Euler(0.5, 0, 0).eval().array) == X.array)
+    >>> assert np.all(np.round(Euler(0, 0.5, 0).eval().array) == Z.array)
+    >>> assert np.all(np.round(Euler(0, 0, 0.5).eval().array) == X.array)
+    >>> assert np.all(1j * np.round(Euler(0.5, 0.5, 0).eval().array) == Y.array)
+    """
+    return Rx(a) >> Rz(b) >> Rx(c)
+
+def random(n_qubits, depth=3, gateset=[CX, H, T], seed=None):
+    """ Returns a random Euler decomposition if n_qubits == 1,
+    otherwise returns a random tiling with the given depth and gateset.
+
+    >>> c = random(1, seed=420)
+    >>> print(c)
+    Rx(0.026343380459525556) >> Rz(0.7813690555430765) >> Rx(0.2726063832840899)
+    >>> array = (c >> c.dagger()).eval().array
+    >>> assert np.all(np.round(array) == np.identity(2))
+    >>> print(random(2, 2, seed=420))
+    CX >> T @ Id(1) >> Id(1) @ T
+    >>> print(random(3, 2, seed=420))
+    CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
+    >>> print(random(2, 1, gateset=[Rz, Rx], seed=420))
+    Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
+    """
+    import random
+    if seed:
+        random.seed(seed)
+    if n_qubits == 1:
+        assert depth == 3
+        return Euler(random.random(), random.random(), random.random())
+    gateset_1 = [g for g in gateset if g is Rx or g is Rz or len(g.dom) == 1]
+    U = Id(n_qubits)
+    for d in range(depth):
+        L, affected = Id(0), 0
+        while affected <= n_qubits - 2:
+            gate = random.choice(gateset)
+            if gate is Rx or gate is Rz:
+                gate = gate(random.random())
+            L = L @ gate
+            affected += len(gate.dom)
+        if n_qubits - affected == 1:
+            gate = random.choice(gateset_1)
+            if gate is Rx or gate is Rz:
+                gate = gate(random.random())
+            L = L @ gate
+        U = U >> L
+    return U
