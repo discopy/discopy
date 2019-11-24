@@ -9,6 +9,6 @@ from discopy.matrix import (
 from discopy.circuit import (
     PRO, Circuit, Gate, Bra, Ket, CircuitFunctor)
 from discopy.disco import (
-    Adjoint, Pregroup, Wire, Cup, Cap, Word, Model)
+    Adjoint, Pregroup, Wire, Cup, Cap, Word, Model, CircuitModel)
 
 __version__ = _version.VERSION
