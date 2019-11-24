@@ -11,10 +11,12 @@
 >>> assert F(sentence) == True
 """
 
+import math
 from discopy import cat, moncat
 from discopy.moncat import Ob, Ty, Diagram
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
-from discopy.circuit import CircuitFunctor, Circuit, PRO, GCX, HAD, Bra, Ket
+from discopy.circuit import (
+    CircuitFunctor, Circuit, Gate, PRO, GCX, HAD, Bra, Ket)
 
 
 class Adjoint(Ob):
@@ -595,12 +597,14 @@ class CircuitModel(CircuitFunctor):
             return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
         if isinstance(x, Cup):
             n = len(self(x.dom)) // 2
-            bits = [0 for i in range(2*n)]
-            return GCX(n) >> HAD(n) @ Circuit.id(n) >> Bra(*bits)
+            bits = [0 for i in range(2 * n)]
+            sqrt = lambda x: Gate('sqrt({})'.format(x), 0, math.sqrt(x))
+            return sqrt(2 ** n) @ GCX(n) >> HAD(n) @ Circuit.id(n) >> Bra(*bits)
         elif isinstance(x, Cap):
             n = len(self(x.dom)) // 2
-            bitstring = [0 for i in range(2*n)]
-            return GCX(n) << HAD(n) @ Circuit.id(n) << Ket(*bitstring)
+            bits = [0 for i in range(2 * n)]
+            sqrt = lambda x: Gate('sqrt({})'.format(x), 0, math.sqrt(x))
+            return sqrt(2 ** n) @ GCX(n) << HAD(n) @ Circuit.id(n) << Ket(*bits)
         if isinstance(x, Box):
             if x._dagger:
                 return self(x.dagger()).dagger()
