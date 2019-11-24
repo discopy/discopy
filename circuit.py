@@ -507,26 +507,11 @@ class CircuitFunctor(MonoidalFunctor):
             return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
         return r
 
-SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
-                        0, 0, 1, 0,
-                        0, 1, 0, 0,
-                        0, 0, 0, 1])
-CX = Gate('CX', 2, [1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 0, 1,
-                    0, 0, 1, 0])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
-S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
-X = Gate('X', 1, [0, 1, 1, 0])
-Y = Gate('Y', 1, [0, -1j, 1j, 0])
-Z = Gate('Z', 1, [1, 0, 0, -1])
-
-def Permutation(perm):
+def permutation(perm):
     """ Constructs a permutation as a circuit made of swaps.
-    >>> assert Permutation([1, 0]) == SWAP
-    >>> assert Permutation([2, 1, 0]) == Permutation([2, 0, 1]) >> Permutation([0, 2, 1])
-    >>> assert np.allclose((Permutation([2, 1, 0]) >> Permutation([2, 1, 0])).eval().array, Circuit.id(3).eval().array)
+    >>> assert permutation([1, 0]) == SWAP
+    >>> assert permutation([2, 1, 0]) == permutation([2, 0, 1]) >> permutation([0, 2, 1])
+    >>> assert np.allclose((permutation([2, 1, 0]) >> permutation([2, 1, 0])).eval().array, Circuit.id(3).eval().array)
     """
     assert set(range(len(perm))) == set(perm)
     gates = []
@@ -554,7 +539,7 @@ def GCX(n):
     perm = []
     for i in range(n):
         perm += [i, 2*n - 1 - i]
-    SWAPS = Permutation(perm)
+    SWAPS = permutation(perm)
     CNOTS = Circuit(0, 0, [], [])
     for i in range(n):
         CNOTS = CNOTS @ CX
@@ -622,3 +607,18 @@ def random(n_qubits, depth=3, gateset=[CX, H, T], seed=None):
             L = L @ gate
         U = U >> L
     return U
+
+SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
+                        0, 0, 1, 0,
+                        0, 1, 0, 0,
+                        0, 0, 0, 1])
+CX = Gate('CX', 2, [1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 0, 1,
+                    0, 0, 1, 0])
+H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
+S = Gate('S', 1, [1, 0, 0, 1j])
+T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+X = Gate('X', 1, [0, 1, 1, 0])
+Y = Gate('Y', 1, [0, -1j, 1j, 0])
+Z = Gate('Z', 1, [1, 0, 0, -1])
