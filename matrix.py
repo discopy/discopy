@@ -11,7 +11,7 @@
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
-import jax.numpy as np
+import numpy as np
 from functools import reduce as fold
 from discopy import cat
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
