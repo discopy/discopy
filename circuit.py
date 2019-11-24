@@ -11,11 +11,11 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-import jax.numpy as np
-from discopy.cat import fold, Quiver
+from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-
+from functools import reduce as fold
+import jax.numpy as np
 
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
@@ -545,16 +545,6 @@ def GCX(n):
         CNOTS = CNOTS @ CX
     SWAPS_inv = Circuit(2*n, 2*n, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
     return SWAPS >> CNOTS >> SWAPS_inv
-
-def HAD(n):
-    """ Returns a tensor of n Hadamard gates.
-    >>> assert HAD(1) == H
-    >>> assert np.allclose((HAD(3) >> HAD(3)).eval().array, Id(3).eval().array)
-    """
-    HAD = Circuit(0, 0, [], [])
-    for i in range(n):
-        HAD = HAD @ H
-    return HAD
 
 def Euler(a, b, c):
     """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.

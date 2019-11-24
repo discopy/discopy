@@ -11,13 +11,11 @@
 >>> assert F(sentence) == True
 """
 
-import math
 from discopy import cat, moncat
 from discopy.moncat import Ob, Ty, Diagram
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
-from discopy.circuit import (
-    CircuitFunctor, Circuit, Gate, PRO, GCX, HAD, Bra, Ket)
-
+from discopy.circuit import CircuitFunctor, Circuit, Gate, PRO, GCX, Bra, Ket
+from functools import reduce as fold
 
 class Adjoint(Ob):
     """
@@ -209,6 +207,9 @@ class Diagram(moncat.Diagram):
         """
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
         *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
+
+    def __hash__(self):
+        return hash(repr(self))
 
     @staticmethod
     def id(t):
@@ -584,28 +585,28 @@ class CircuitModel(CircuitFunctor):
     >>> sentence = grammar << Alice @ loves @ Bob
     >>> ob = {s: 0, n: 1}
     >>> ar = {Alice: Ket(0),
-    ...       loves: CX << H @ X << Ket(0, 0),
+    ...       loves: CX << Gate('sqrt(2)', 0, np.sqrt(2)) @ X << Ket(0, 0),
     ...       Bob: Ket(1)}
     >>> F = CircuitModel(ob, ar)
     >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
-    >>> F(sentence).eval()
-    Matrix(dom=Dim(1), cod=Dim(1), array=[0.3535533905932737])
-    >>> assert 2**3 * BornRule(F(sentence))
+    >>> assert np.isclose(1, BornRule(F(sentence)))
     """
     def __call__(self, x):
+        hadamard = lambda n: fold(lambda f, g: f @ g,
+            n * [Gate('H\'', 1, [1, 1, 1, -1])], Circuit.id(0))
         if isinstance(x, Pregroup):
             return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
-        if isinstance(x, Cup):
+        elif isinstance(x, Cup):
             n = len(self(x.dom)) // 2
             bits = [0 for i in range(2 * n)]
-            sqrt = lambda x: Gate('sqrt({})'.format(x), 0, math.sqrt(x))
-            return sqrt(2 ** n) @ GCX(n) >> HAD(n) @ Circuit.id(n) >> Bra(*bits)
+            return GCX(n)\
+                   >> hadamard(n) @ Circuit.id(n)\
+                   >> Bra(*bits)
         elif isinstance(x, Cap):
             n = len(self(x.dom)) // 2
             bits = [0 for i in range(2 * n)]
-            sqrt = lambda x: Gate('sqrt({})'.format(x), 0, math.sqrt(x))
-            return sqrt(2 ** n) @ GCX(n) << HAD(n) @ Circuit.id(n) << Ket(*bits)
-        if isinstance(x, Box):
+            return GCX(n) << hadamard(n) @ Circuit.id(n) << Ket(*bits)
+        elif isinstance(x, Box):
             if x._dagger:
                 return self(x.dagger()).dagger()
             return self.ar[x]
