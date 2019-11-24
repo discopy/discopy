@@ -11,7 +11,6 @@
 >>> assert F(sentence) == True
 """
 
-import numpy as np
 from discopy import cat, moncat
 from discopy.moncat import Ob, Ty, Diagram
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
