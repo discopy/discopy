@@ -11,7 +11,7 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-import numpy as np
+import jax.numpy as np
 from discopy.cat import fold, Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor

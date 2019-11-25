@@ -16,7 +16,7 @@ from discopy import cat, moncat
 from discopy.moncat import Ob, Ty, Diagram
 from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
 from discopy.circuit import (
-    CircuitFunctor, Circuit, Gate, PRO, GCX, HAD, Bra, Ket)
+    CircuitFunctor, Circuit, Gate, PRO, Bra, Ket)
 
 
 class Adjoint(Ob):
