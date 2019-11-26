@@ -1,4 +1,5 @@
-""" Implements quantum circuits and circuit-valued monoidal functors.
+"""
+Implements quantum circuits as diagrams and circuit-valued monoidal functors.
 
 >>> n = Ty('n')
 >>> Alice = Box('Alice', Ty(), n)
@@ -11,11 +12,14 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-from discopy.cat import Quiver
+
+from discopy import config
+if config.jax: import jax.numpy as np
+else: import numpy as np
+from discopy.cat import fold, Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-from functools import reduce as fold
-import jax.numpy as np
+
 
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
@@ -468,83 +472,21 @@ class Rx(Gate):
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
-class CircuitFunctor(MonoidalFunctor):
-    """ Implements funtors from monoidal categories to circuits
-
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
-    >>> d = (f @ Diagram.id(z)
-    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
-    ...       >> Diagram.id(y) @ h)
-    >>> ob = {x: 2, y: 1, z: 1}
-    >>> ar = {f: SWAP, g: Rx(0.25), h: CX}
-    >>> F = CircuitFunctor(ob, ar)
-    >>> print(F(d))
-    SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
-    """
-    def __init__(self, ob, ar):
-        """
-        >>> F = CircuitFunctor({}, {})
-        """
-        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
-
-    def __repr__(self):
-        """
-        >>> CircuitFunctor({}, {})
-        CircuitFunctor(ob={}, ar={})
-        """
-        return "CircuitFunctor(ob={}, ar={})".format(
-            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
-
-    def __call__(self, d):
-        """
-        >>> x = Ty('x')
-        >>> F = CircuitFunctor({x: 1}, {})
-        >>> assert isinstance(F(Diagram.id(x)), Circuit)
-        """
-        r = super().__call__(d)
-        if isinstance(d, Diagram):
-            return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
-        return r
-
-def permutation(perm):
-    """ Constructs a permutation as a circuit made of swaps.
-    >>> assert permutation([1, 0]) == SWAP
-    >>> assert permutation([2, 1, 0]) == permutation([2, 0, 1]) >> permutation([0, 2, 1])
-    >>> assert np.allclose((permutation([2, 1, 0]) >> permutation([2, 1, 0])).eval().array, Circuit.id(3).eval().array)
-    """
-    assert set(range(len(perm))) == set(perm)
-    gates = []
-    offsets = []
-    frame = perm.copy()
-    for i in range(len(perm)):
-        if i < frame[i]:
-            num_swaps = frame[i] - i
-            gates += [SWAP for x in range(num_swaps)]
-            offsets += range(i, frame[i])[::-1]
-            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
-    return Circuit(len(perm), len(perm), gates, offsets)
-
-def GCX(n):
-    """ Constructs a circuit of n nested CX gates.
-    >>> assert GCX(1) == CX
-    >>> assert len(GCX(3).dom) == 6
-    >>> print(GCX(2))  # doctest: +ELLIPSIS
-    Id(2) @ SWAP >> Id(1) @ SWAP @ Id(1) >> CX @ Id(2) >> ... >> Id(2) @ SWAP
-    >>> print(GCX(2))  # doctest: +ELLIPSIS
-    Id(2) @ SWAP >> ... >> Id(2) @ CX >> Id(1) @ SWAP @ Id(1) >> Id(2) @ SWAP
-
-    # >>> assert np.allclose((GCX(3) >> GCX(3)).eval().array, Circuit.id(3).eval().array)
-    """
-    perm = []
-    for i in range(n):
-        perm += [i, 2*n - 1 - i]
-    SWAPS = permutation(perm)
-    CNOTS = Circuit(0, 0, [], [])
-    for i in range(n):
-        CNOTS = CNOTS @ CX
-    SWAPS_inv = Circuit(2*n, 2*n, SWAPS.boxes[::-1], SWAPS.offsets[::-1])
-    return SWAPS >> CNOTS >> SWAPS_inv
+SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
+                        0, 0, 1, 0,
+                        0, 1, 0, 0,
+                        0, 0, 0, 1])
+CX = Gate('CX', 2, [1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 0, 1,
+                    0, 0, 1, 0])
+H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
+S = Gate('S', 1, [1, 0, 0, 1j])
+T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+X = Gate('X', 1, [0, 1, 1, 0])
+Y = Gate('Y', 1, [0, -1j, 1j, 0])
+Z = Gate('Z', 1, [1, 0, 0, -1])
+sqrt = lambda x: Gate('sqrt({})'.format(x), 0, np.sqrt(x))
 
 def Euler(a, b, c):
     """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
@@ -598,17 +540,41 @@ def random(n_qubits, depth=3, gateset=[CX, H, T], seed=None):
         U = U >> L
     return U
 
-SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
-                        0, 0, 1, 0,
-                        0, 1, 0, 0,
-                        0, 0, 0, 1])
-CX = Gate('CX', 2, [1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 0, 1,
-                    0, 0, 1, 0])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
-S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
-X = Gate('X', 1, [0, 1, 1, 0])
-Y = Gate('Y', 1, [0, -1j, 1j, 0])
-Z = Gate('Z', 1, [1, 0, 0, -1])
+class CircuitFunctor(MonoidalFunctor):
+    """ Implements funtors from monoidal categories to circuits
+
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
+    >>> d = (f @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ h)
+    >>> ob = {x: 2, y: 1, z: 1}
+    >>> ar = {f: SWAP, g: Rx(0.25), h: CX}
+    >>> F = CircuitFunctor(ob, ar)
+    >>> print(F(d))
+    SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
+    """
+    def __init__(self, ob, ar):
+        """
+        >>> F = CircuitFunctor({}, {})
+        """
+        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
+
+    def __repr__(self):
+        """
+        >>> CircuitFunctor({}, {})
+        CircuitFunctor(ob={}, ar={})
+        """
+        return "CircuitFunctor(ob={}, ar={})".format(
+            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
+
+    def __call__(self, d):
+        """
+        >>> x = Ty('x')
+        >>> F = CircuitFunctor({x: 1}, {})
+        >>> assert isinstance(F(Diagram.id(x)), Circuit)
+        """
+        r = super().__call__(d)
+        if isinstance(d, Diagram):
+            return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+        return r
