@@ -472,45 +472,6 @@ class Rx(Gate):
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
-class CircuitFunctor(MonoidalFunctor):
-    """ Implements funtors from monoidal categories to circuits
-
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
-    >>> d = (f @ Diagram.id(z)
-    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
-    ...       >> Diagram.id(y) @ h)
-    >>> ob = {x: 2, y: 1, z: 1}
-    >>> ar = {f: SWAP, g: Rx(0.25), h: CX}
-    >>> F = CircuitFunctor(ob, ar)
-    >>> print(F(d))
-    SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
-    """
-    def __init__(self, ob, ar):
-        """
-        >>> F = CircuitFunctor({}, {})
-        """
-        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
-
-    def __repr__(self):
-        """
-        >>> CircuitFunctor({}, {})
-        CircuitFunctor(ob={}, ar={})
-        """
-        return "CircuitFunctor(ob={}, ar={})".format(
-            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
-
-    def __call__(self, d):
-        """
-        >>> x = Ty('x')
-        >>> F = CircuitFunctor({x: 1}, {})
-        >>> assert isinstance(F(Diagram.id(x)), Circuit)
-        """
-        r = super().__call__(d)
-        if isinstance(d, Diagram):
-            return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
-        return r
-
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
                         0, 0, 1, 0,
                         0, 1, 0, 0,
@@ -577,3 +538,42 @@ def random(n_qubits, depth=3, gateset=[CX, H, T], seed=None):
             L = L @ gate
         U = U >> L
     return U
+
+class CircuitFunctor(MonoidalFunctor):
+    """ Implements funtors from monoidal categories to circuits
+
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)
+    >>> d = (f @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ g @ Diagram.id(z)
+    ...       >> Diagram.id(y) @ h)
+    >>> ob = {x: 2, y: 1, z: 1}
+    >>> ar = {f: SWAP, g: Rx(0.25), h: CX}
+    >>> F = CircuitFunctor(ob, ar)
+    >>> print(F(d))
+    SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
+    """
+    def __init__(self, ob, ar):
+        """
+        >>> F = CircuitFunctor({}, {})
+        """
+        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
+
+    def __repr__(self):
+        """
+        >>> CircuitFunctor({}, {})
+        CircuitFunctor(ob={}, ar={})
+        """
+        return "CircuitFunctor(ob={}, ar={})".format(
+            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
+
+    def __call__(self, d):
+        """
+        >>> x = Ty('x')
+        >>> F = CircuitFunctor({x: 1}, {})
+        >>> assert isinstance(F(Diagram.id(x)), Circuit)
+        """
+        r = super().__call__(d)
+        if isinstance(d, Diagram):
+            return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+        return r
