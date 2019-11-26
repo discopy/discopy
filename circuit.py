@@ -18,8 +18,16 @@ if config.jax: import jax.numpy as np
 else: import numpy as np
 from discopy.cat import fold, Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-from discopy.matrix import Dim, Matrix, MatrixFunctor
+from discopy.matrix import jax, Dim, Matrix, MatrixFunctor
 
+
+def jax(method):
+    def result(*args, **kwargs):
+        if config.jax: import jax.numpy as np
+        else: import numpy as np
+        global np
+        return method(*args, **kwargs)
+    return result
 
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
@@ -241,6 +249,7 @@ class Gate(Box, Circuit):
     >>> CX
     Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
     """
+    @jax
     def __init__(self, name, n_qubits, array, data={}, _dagger=False):
         """
         >>> g = CX
@@ -415,6 +424,7 @@ class Rz(Gate):
         return Rz(-self.data['phase'])
 
     @property
+    @jax
     def array(self):
         """
         >>> assert np.allclose(Rz(-1).array, np.identity(2))
@@ -459,6 +469,7 @@ class Rx(Gate):
         return Rx(-self.data['phase'])
 
     @property
+    @jax
     def array(self):
         """
         >>> assert np.allclose(Rx(0).array, np.identity(2))
@@ -480,13 +491,13 @@ CX = Gate('CX', 2, [1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 0, 1,
                     0, 0, 1, 0])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
+H = Gate('H', 1, 1 / jax(np.sqrt)(2) * jax(np.array)([1, 1, 1, -1]))
 S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+T = Gate('T', 1, [1, 0, 0, jax(np.exp)(1j * np.pi / 4)])
 X = Gate('X', 1, [0, 1, 1, 0])
 Y = Gate('Y', 1, [0, -1j, 1j, 0])
 Z = Gate('Z', 1, [1, 0, 0, -1])
-sqrt = lambda x: Gate('sqrt({})'.format(x), 0, np.sqrt(x))
+sqrt = lambda x: Gate('sqrt({})'.format(x), 0, jax(np.sqrt)(x))
 
 def Euler(a, b, c):
     """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
