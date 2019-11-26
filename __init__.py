@@ -11,4 +11,4 @@ from discopy.circuit import (
 from discopy.disco import (
     Adjoint, Pregroup, Wire, Cup, Cap, Word, Model)
 
-__version__ = _version.VERSION
+__version__ = config.VERSION
