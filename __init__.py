@@ -1,5 +1,5 @@
 from discopy import (
-    cat, moncat, matrix, circuit, disco, config, _version)
+    cat, moncat, matrix, circuit, disco, config)
 from discopy.cat import (
     Ob, Arrow, Gen, Functor, Quiver)
 from discopy.moncat import (

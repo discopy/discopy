@@ -1,19 +1,19 @@
-""" Implements dagger monoidal functors into matrices.
+"""
+Implements dagger monoidal functors into matrices.
 
 >>> n = Ty('n')
->>> Alice = Box('Alice', Ty(), n)
+>>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
 >>> loves = Box('loves', n, n)
->>> Bob = Box('Bob', n, Ty())
 >>> ob, ar = {n: Dim(2)}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
 >>> F = MatrixFunctor(ob, ar)
->>> c = F(Alice >> loves >> Bob)
->>> c
+>>> F(Alice >> loves >> Bob.dagger())
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
-import jax.numpy as np
+from discopy import cat, config
+if config.jax: import jax.numpy as np
+else: import numpy as np
 from functools import reduce as fold
-from discopy import cat
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
@@ -294,6 +294,9 @@ class MatrixFunctor(MonoidalFunctor):
             if d._dagger: return Matrix(
                 self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
+        elif not isinstance(d, Diagram):
+            raise ValueError("Input of type Ty or Diagram expected, got {} "
+                             "of type {} instead.".format(repr(d), type(d)))
         scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
         for f, offset in d:
             n = dim(scan[:offset])

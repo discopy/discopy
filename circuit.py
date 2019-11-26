@@ -1,4 +1,5 @@
-""" Implements quantum circuits and circuit-valued monoidal functors.
+"""
+Implements quantum circuits as diagrams and circuit-valued monoidal functors.
 
 >>> n = Ty('n')
 >>> Alice = Box('Alice', Ty(), n)
@@ -11,7 +12,10 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-import jax.numpy as np
+
+from discopy import config
+if config.jax: import jax.numpy as np
+else: import numpy as np
 from discopy.cat import fold, Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor

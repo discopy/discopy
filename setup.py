@@ -1,5 +1,5 @@
 from setuptools import setup
-from _version import VERSION
+from config import VERSION
 
 setup(name='discopy',
       version=VERSION,

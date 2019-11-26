@@ -11,10 +11,10 @@
 >>> assert F(sentence) == True
 """
 
-import math
-from discopy import cat, moncat
+
+from discopy import moncat
 from discopy.moncat import Ob, Ty, Diagram
-from discopy.matrix import Dim, Matrix, Id, MatrixFunctor
+from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import (
     CircuitFunctor, Circuit, Gate, PRO, Bra, Ket)
 
@@ -217,7 +217,7 @@ class Diagram(moncat.Diagram):
         """
         return Wire(t)
 
-class Box(cat.Gen, Diagram):
+class Box(moncat.Box, Diagram):
     """ Implements generators of dagger pivotal diagrams.
 
     >>> a, b = Pregroup('a'), Pregroup('b')
@@ -571,4 +571,6 @@ class Model(MatrixFunctor):
             if d._dagger:
                 return self(d.dagger()).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
-        return super().__call__(d)
+        elif isinstance(d, Diagram):
+            return super().__call__(d)
+        else: raise ValueError("Expected Diagram")

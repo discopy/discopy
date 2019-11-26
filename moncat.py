@@ -1,12 +1,6 @@
 """
 Implements free monoidal categories and (dagger) monoidal functors.
 
-We can check the Eckerman-Hilton argument, up to interchanger.
-
->>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
->>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
->>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
-
 We can check the axioms for dagger monoidal categories, up to interchanger.
 
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
@@ -16,6 +10,12 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 >>> assert f0 @ f1 == d.interchange(0, 1)
 >>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
 >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
+
+We can check the Eckerman-Hilton argument, up to interchanger.
+
+>>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+>>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
+>>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
 from discopy import cat, config
@@ -520,9 +520,12 @@ class MonoidalFunctor(Functor):
             return sum([self.ob[Ty(x)] for x in d], Ty())
         elif isinstance(d, Box):
             return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
-        scan, result = d.dom, Id(self(d.dom))
-        for f, n in d:
-            result = result >> Id(self(scan[:n])) @ self(f)\
-                             @ Id(self(scan[n + len(f.dom):]))
-            scan = scan[:n] + f.cod + scan[n + len(f.dom):]
-        return result
+        elif isinstance(d, Diagram):
+            scan, result = d.dom, d.id(self(d.dom))
+            for f, n in zip(d.boxes, d.offsets):
+                result = result >> d.id(self(scan[:n])) @ self(f)\
+                                @ d.id(self(scan[n + len(f.dom):]))
+                scan = scan[:n] + f.cod + scan[n + len(f.dom):]
+            return result
+        else: raise ValueError("Diagram expected, got {} of type {} "
+                               "instead.".format(repr(d), type(d)))
