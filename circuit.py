@@ -486,6 +486,7 @@ T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
 X = Gate('X', 1, [0, 1, 1, 0])
 Y = Gate('Y', 1, [0, -1j, 1j, 0])
 Z = Gate('Z', 1, [1, 0, 0, -1])
+sqrt = lambda x: Gate('sqrt({})'.format(x), 0, np.sqrt(x))
 
 def Euler(a, b, c):
     """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.

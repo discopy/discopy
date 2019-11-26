@@ -521,10 +521,10 @@ class MonoidalFunctor(Functor):
         elif isinstance(d, Box):
             return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
         elif isinstance(d, Diagram):
-            scan, result = d.dom, d.id(self(d.dom))
+            scan, result = d.dom, Id(self(d.dom))
             for f, n in zip(d.boxes, d.offsets):
-                result = result >> d.id(self(scan[:n])) @ self(f)\
-                                @ d.id(self(scan[n + len(f.dom):]))
+                result = result >> Id(self(scan[:n])) @ self(f)\
+                                @ Id(self(scan[n + len(f.dom):]))
                 scan = scan[:n] + f.cod + scan[n + len(f.dom):]
             return result
         else: raise ValueError("Diagram expected, got {} of type {} "

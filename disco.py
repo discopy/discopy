@@ -14,8 +14,7 @@
 
 from discopy.pregroup import Adjoint, Pregroup, Diagram, Box, Wire, Cup, Cap
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import (
-    CircuitFunctor, Circuit, Gate, PRO, Bra, Ket)
+from discopy.circuit import CircuitFunctor, Circuit, Gate, PRO, Bra, Ket, CX
 
 
 class Word(Box):
@@ -143,4 +142,53 @@ class Model(MatrixFunctor):
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         elif isinstance(d, Diagram):
             return super().__call__(d)
-        else: raise ValueError("Expected Diagram")
+        raise ValueError("Expected input of type Pregroup or Diagram, got"
+                         " {} of type {} instead".format(repr(d), type(d)))
+
+class CircuitModel(CircuitFunctor):
+    """
+    >>> from discopy.circuit import *
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice = Word('Alice', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> Bob = Word('Bob', n)
+    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> sentence = grammar << Alice @ loves @ Bob
+    >>> ob = {s: 0, n: 1}
+    >>> ar = {Alice: Ket(0),
+    ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
+    ...       Bob: Ket(1)}
+    >>> F = CircuitModel(ob, ar)
+    >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
+    >>> assert np.isclose(1, BornRule(F(sentence)))
+    """
+    def __call__(self, x):
+        if isinstance(x, Pregroup):
+            return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
+        elif isinstance(x, Cup):
+            result, n = Circuit.id(self(x.dom)), len(self(x.dom)) // 2
+            cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Circuit.id(1)\
+                     >> Bra(0, 0)
+            for i in range(n):
+                result = result\
+                    >> Circuit.id(n - i - 1) @ cup @ Circuit.id(n - i - 1)
+            return result
+        elif isinstance(x, Cap):
+            result, n = Circuit.id(self(x.cod)), len(self(x.cod)) // 2
+            cup = CX << Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Circuit.id(1)\
+                     << Ket(0, 0)
+            for i in range(n):
+                result = result\
+                    << Circuit.id(n - i - 1) @ cup @ Circuit.id(n - i - 1)
+            return result
+            n = len(self(x.cod)) // 2
+            bits = [0 for i in range(2 * n)]
+            return GCX(n) << hadamard(n) @ Circuit.id(n) << Ket(*bits)
+        elif isinstance(x, Box):
+            if x._dagger:
+                return self(x.dagger()).dagger()
+            return self.ar[x]
+        elif isinstance(x, Diagram):
+            return super().__call__(x)
+        raise ValueError("Expected input of type Pregroup or Diagram, got"
+                         " {} of type {} instead".format(repr(x), type(x)))
