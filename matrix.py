@@ -17,6 +17,16 @@ from functools import reduce as fold
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
+def jax(method):
+    def result(*args, **kwargs):
+        if config.jax:
+            import jax.numpy as np
+        else:
+            import numpy as np
+        global np
+        return method(*args, **kwargs)
+    return result
+
 class Dim(Ty):
     """ Implements dimensions as tuples of positive integers.
     Dimensions form a monoid with product @ and unit Dim(1).
@@ -94,6 +104,7 @@ class Matrix(Diagram):
     >>> v >> m >> v.dagger()
     Matrix(dom=Dim(1), cod=Dim(1), array=[0])
     """
+    @jax
     def __init__(self, dom, cod, array):
         """
         >>> Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
@@ -134,6 +145,7 @@ class Matrix(Diagram):
         """
         return repr(self)
 
+    @jax
     def __eq__(self, other):
         """
         >>> arr = np.array([1, 0, 0, 1, 0, 1, 1, 0]).reshape((2, 2, 2))
@@ -145,6 +157,7 @@ class Matrix(Diagram):
         return (self.dom, self.cod) == (other.dom, other.cod) and np.all(
                 self.array == other.array)
 
+    @jax
     def then(self, other):
         """
         >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
@@ -156,6 +169,7 @@ class Matrix(Diagram):
         return Matrix(self.dom, other.cod,
                       np.tensordot(self.array, other.array, len(self.cod)))
 
+    @jax
     def tensor(self, other):
         """
         >>> v = Matrix(Dim(1), Dim(2), [1, 0])
@@ -171,6 +185,7 @@ class Matrix(Diagram):
             else self.array * other.array
         return Matrix(dom, cod, array)
 
+    @jax
     def dagger(self):
         """
         >>> m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
@@ -211,6 +226,7 @@ class Id(Matrix):
     >>> Id(1, 2, 3)  # doctest: +ELLIPSIS
     Matrix(dom=Dim(2, 3), cod=Dim(2, 3), array=[1.0, ..., 1.0])
     """
+    @jax
     def __init__(self, *dim):
         """
         >>> Id(1)
@@ -270,6 +286,8 @@ class MatrixFunctor(MonoidalFunctor):
         """
         return super().__repr__().replace("MonoidalFunctor", "MatrixFunctor")
 
+
+    @jax
     def __call__(self, d):
         """
         >>> x, y = Ty('x'), Ty('y')
