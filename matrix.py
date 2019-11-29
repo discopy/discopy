@@ -13,11 +13,19 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 from discopy import cat, config
 if config.jax: import jax.numpy as np
 else: import numpy as np
-from functools import reduce as fold
+from functools import wraps, reduce as fold
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
 def jax(method):
+    """
+    >>> type(Id(2).array)
+    <class 'numpy.ndarray'>
+    >>> config.jax = True
+    >>> type(Id(2).array)
+    <class 'jax.interpreters.xla.DeviceArray'>
+    """
+    @wraps(method)
     def result(*args, **kwargs):
         if config.jax: import jax.numpy as np
         else: import numpy as np
@@ -142,6 +150,20 @@ class Matrix(Diagram):
         Matrix(dom=Dim(2, 2), cod=Dim(2), array=[1, 0, 0, 1, 0, 1, 1, 0])
         """
         return repr(self)
+
+    @jax
+    def __add__(self, other):
+        """
+        >>> u = Matrix(Dim(2), Dim(2), [1, 0, 0, 0])
+        >>> v = Matrix(Dim(2), Dim(2), [0, 0, 0, 1])
+        >>> assert u + v == Id(2)
+        """
+        if not isinstance(other, Matrix):
+            raise ValueError("Matrix expected, got {} of type {} instead."
+                             .format(repr(other), type(other)))
+        if not (self.dom, self.cod) == (other.dom, other.cod):
+            raise AxiomError("Cannot add {} and {}.".format(self, other))
+        return Matrix(self.dom, self.cod, self.array + other.array)
 
     @jax
     def __eq__(self, other):

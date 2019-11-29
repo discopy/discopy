@@ -1,4 +1,5 @@
-""" Implements free rigid categories and distributional compositional models.
+"""
+Implements distributional compositional models.
 
 >>> s, n = Pregroup('s'), Pregroup('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -14,7 +15,8 @@
 
 from discopy.pregroup import Adjoint, Pregroup, Diagram, Box, Wire, Cup, Cap
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import CircuitFunctor, Circuit, Gate, PRO, Bra, Ket, CX
+from discopy.circuit import PRO, Circuit, Id, CircuitFunctor
+from discopy.gates import Gate, Bra, Ket, CX
 
 
 class Word(Box):
@@ -163,27 +165,21 @@ class CircuitModel(CircuitFunctor):
     >>> assert np.isclose(1, BornRule(F(sentence)))
     """
     def __call__(self, x):
+        _H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
         if isinstance(x, Pregroup):
             return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
         elif isinstance(x, Cup):
-            result, n = Circuit.id(self(x.dom)), len(self(x.dom)) // 2
-            cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Circuit.id(1)\
-                     >> Bra(0, 0)
+            result, n = Id(self(x.dom)), len(self(x.dom)) // 2
+            cup = CX >> _H @ Id(1) >> Bra(0, 0)
             for i in range(n):
-                result = result\
-                    >> Circuit.id(n - i - 1) @ cup @ Circuit.id(n - i - 1)
+                result = result >> Id(n - i - 1) @ cup @ Id(n - i - 1)
             return result
         elif isinstance(x, Cap):
-            result, n = Circuit.id(self(x.cod)), len(self(x.cod)) // 2
-            cup = CX << Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Circuit.id(1)\
-                     << Ket(0, 0)
+            result, n = Id(self(x.cod)), len(self(x.cod)) // 2
+            cap = CX << _H @ Id(1) << Ket(0, 0)
             for i in range(n):
-                result = result\
-                    << Circuit.id(n - i - 1) @ cup @ Circuit.id(n - i - 1)
+                result = result << Id(n - i - 1) @ cap @ Id(n - i - 1)
             return result
-            n = len(self(x.cod)) // 2
-            bits = [0 for i in range(2 * n)]
-            return GCX(n) << hadamard(n) @ Circuit.id(n) << Ket(*bits)
         elif isinstance(x, Box):
             if x._dagger:
                 return self(x.dagger()).dagger()

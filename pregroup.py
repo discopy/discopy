@@ -1,3 +1,16 @@
+"""
+Implements free dagger pivotal and rigid monoidal categories.
+The objects are given by the free pregroup, the arrows by planar diagrams.
+
+>>> unit, s, n = Pregroup(), Pregroup('s'), Pregroup('n')
+>>> t = n.r @ s @ n.l
+>>> assert t @ unit == t == unit @ t
+>>> assert t.l.r == t == t.r.l
+>>> snake_l = Cap(n, n.l) @ Wire(n) >> Wire(n) @ Cup(n.l, n)
+>>> snake_r = Wire(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Wire(n)
+>>> assert snake_l.dagger().dagger() == snake_l
+>>> assert (snake_l >> snake_r).dagger() == snake_l.dagger() << snake_r.dagger()
+"""
 
 from discopy import cat, moncat
 
