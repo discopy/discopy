@@ -149,7 +149,7 @@ class Model(MatrixFunctor):
 
 class CircuitModel(CircuitFunctor):
     """
-    >>> from discopy.circuit import *
+    >>> from discopy.gates import *
     >>> s, n = Pregroup('s'), Pregroup('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
@@ -165,6 +165,13 @@ class CircuitModel(CircuitFunctor):
     >>> assert np.isclose(1, BornRule(F(sentence)))
     """
     def __call__(self, x):
+        """
+        >>> F = CircuitModel({}, {})
+        >>> F('x')  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Expected input of type Pregroup or Diagram, got 'x'...
+        """
         _H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
         if isinstance(x, Pregroup):
             return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
@@ -187,4 +194,4 @@ class CircuitModel(CircuitFunctor):
         elif isinstance(x, Diagram):
             return super().__call__(x)
         raise ValueError("Expected input of type Pregroup or Diagram, got"
-                         " {} of type {} instead".format(repr(x), type(x)))
+                         " {} of type {} instead.".format(repr(x), type(x)))
