@@ -20,6 +20,7 @@ from discopy.matrix import Dim, Matrix
 from discopy.circuit import PRO, Circuit, Id
 from functools import wraps
 
+
 def jax(method):
     """
     >>> type(sqrt(2).array)

@@ -149,7 +149,7 @@ class Model(MatrixFunctor):
 
 class CircuitModel(CircuitFunctor):
     """
-    >>> from discopy.gates import *
+    >>> from discopy.gates import sqrt, H, X
     >>> s, n = Pregroup('s'), Pregroup('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
