@@ -258,6 +258,11 @@ def brute_force(*vocab, target=Pregroup('s')):
     >>> assert next(gen) == Alice @ loves @ Bob >> grammar
     >>> assert next(gen) == Bob @ loves @ Alice >> grammar
     >>> assert next(gen) == Bob @ loves @ Bob >> grammar
+    >>> gen = brute_force(Alice, loves, Bob, target=n)
+    >>> next(gen)
+    Word('Alice', Pregroup('n'))
+    >>> next(gen)
+    Word('Bob', Pregroup('n'))
     """
     test = [()]
     for words in test:
