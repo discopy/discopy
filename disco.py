@@ -205,8 +205,9 @@ def eager_parse(*words, target=Pregroup('s')):
     >>> Bob = Word('Bob', n)
     >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
     >>> assert eager_parse(Alice, loves, Bob) == grammar << Alice @ loves @ Bob
-    >>> print(eager_parse(loves, Bob, target=n.r @ s))
-    loves >> Wire(n.r @ s @ n.l) @ Bob >> Wire(n.r @ s) @ Cup(n.l, n)
+    >>> who = Word('who', n.r @ n @ s.l @ n)
+    >>> eager_parse(Bob, who, loves, Alice, target=n).offsets
+    [0, 1, 5, 8, 0, 2, 1, 1]
     """
     result = fold(lambda x, y: x @ y, words)
     t = result.cod
@@ -214,6 +215,8 @@ def eager_parse(*words, target=Pregroup('s')):
         exit = True
         for i in range(len(t) - 1):
             try:
+                if t[i: i + 1].r != t[i + 1: i + 2]:
+                    raise AxiomError
                 cup = Cup(t[i: i + 1], t[i + 1: i + 2])
                 result = result >> Wire(t[: i]) @ cup @ Wire(t[i + 2:])
                 t, exit = result.cod, False
@@ -235,5 +238,32 @@ class FAIL(Exception):
     Traceback (most recent call last):
     ...
     disco.FAIL
+    >>> who = Word('who', n.r @ n @ s.l @ n)
+    >>> eager_parse(Alice, loves, Bob, who, loves, Alice)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    disco.FAIL
     """
     pass
+
+def brute_force(*vocab, target=Pregroup('s')):
+    """
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice = Word('Alice', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> Bob = Word('Bob', n)
+    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> gen = brute_force(Alice, loves, Bob)
+    >>> assert next(gen) == Alice @ loves @ Alice >> grammar
+    >>> assert next(gen) == Alice @ loves @ Bob >> grammar
+    >>> assert next(gen) == Bob @ loves @ Alice >> grammar
+    >>> assert next(gen) == Bob @ loves @ Bob >> grammar
+    """
+    test = [()]
+    for words in test:
+        for w in vocab:
+            try:
+                yield eager_parse(*(words + (w, )), target=target)
+            except FAIL:
+                pass
+            test.append(words + (w, ))
