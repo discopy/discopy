@@ -12,8 +12,9 @@ Implements distributional compositional models.
 >>> assert F(sentence) == True
 """
 
-
-from discopy.pregroup import Adjoint, Pregroup, Diagram, Box, Wire, Cup, Cap
+from functools import reduce as fold
+from discopy.pregroup import (
+    Adjoint, Pregroup, Diagram, Box, Wire, Cup, Cap, AxiomError)
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Id, CircuitFunctor
 from discopy.gates import Gate, Bra, Ket, CX
@@ -161,8 +162,8 @@ class CircuitModel(CircuitFunctor):
     ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
     ...       Bob: Ket(1)}
     >>> F = CircuitModel(ob, ar)
-    >>> BornRule = lambda c: np.absolute(c.eval().array) ** 2
-    >>> assert np.isclose(1, BornRule(F(sentence)))
+    >>> BornRule = lambda c: abs(c.eval().array) ** 2
+    >>> assert BornRule(F(sentence))
     """
     def __call__(self, x):
         """
@@ -195,3 +196,44 @@ class CircuitModel(CircuitFunctor):
             return super().__call__(x)
         raise ValueError("Expected input of type Pregroup or Diagram, got"
                          " {} of type {} instead.".format(repr(x), type(x)))
+
+def eager_parse(*words, target=Pregroup('s')):
+    """
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice = Word('Alice', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> Bob = Word('Bob', n)
+    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> assert eager_parse(Alice, loves, Bob) == grammar << Alice @ loves @ Bob
+    >>> print(eager_parse(loves, Bob, target=n.r @ s))
+    loves >> Wire(n.r @ s @ n.l) @ Bob >> Wire(n.r @ s) @ Cup(n.l, n)
+    """
+    result = fold(lambda x, y: x @ y, words)
+    t = result.cod
+    while True:
+        exit = True
+        for i in range(len(t) - 1):
+            try:
+                cup = Cup(t[i: i + 1], t[i + 1: i + 2])
+                result = result >> Wire(t[: i]) @ cup @ Wire(t[i + 2:])
+                t, exit = result.cod, False
+                break
+            except AxiomError:
+                pass
+        if result.cod == target:
+            return result
+        elif exit:
+            raise FAIL
+
+class FAIL(Exception):
+    """
+    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> Alice = Word('Alice', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> Bob = Word('Bob', n)
+    >>> eager_parse(Alice, Bob, loves)  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    disco.FAIL
+    """
+    pass
