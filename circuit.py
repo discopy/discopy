@@ -174,9 +174,9 @@ class Circuit(Diagram):
         c = tk.Circuit(len(self.dom))
         for g, n in zip(self.gates, self.offsets):
             if isinstance(g, Rx):
-                c.Rx(*(n + i for i in range(len(g.dom))), g.data['phase'])
+                c.Rx(g.data['phase'], *(n + i for i in range(len(g.dom))))
             elif isinstance(g, Rz):
-                c.Rz(*(n + i for i in range(len(g.dom))), g.data['phase'])
+                c.Rz(g.data['phase'], *(n + i for i in range(len(g.dom))))
             else:
                 c.__getattribute__(g.name)(*(n + i for i in range(len(g.dom))))
         return c
@@ -200,11 +200,11 @@ def from_tk(c):
         return {g.name: g for g in [SWAP, CX, H, S, T, X, Y, Z]}[name]
     gates, offsets = [], []
     for g in c.get_commands():
-        i0 = g.qubits[0].index
+        i0 = g.qubits[0].index[0]
         for i, q in enumerate(g.qubits[1:]):
-            if q.index == i0 + i + 1:
+            if q.index[0] == i0 + i + 1:
                 break  # gate applies to adjacent qubit already
-            elif q.index < i0 + i + 1:
+            elif q.index[0] < i0 + i + 1:
                 for j in range(q.index, i0 + i):
                     gates.append(SWAP)
                     offsets.append(j)
