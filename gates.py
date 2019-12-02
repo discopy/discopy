@@ -22,13 +22,6 @@ from functools import wraps
 
 
 def jax(method):
-    """
-    >>> type(sqrt(2).array)
-    <class 'numpy.ndarray'>
-    >>> config.jax = True
-    >>> type(sqrt(2).array)
-    <class 'jax.interpreters.xla.DeviceArray'>
-    """
     @wraps(method)
     def result(*args, **kwargs):
         if config.jax: import jax.numpy as np
@@ -279,8 +272,8 @@ class Rx(Gate):
 
 def sqrt(x):
     """
-    >>> sqrt(2)
-    Gate('sqrt(2)', 0, [1.4142135])
+    >>> sqrt(2)  # doctest: +ELLIPSIS
+    Gate('sqrt(2)', 0, [1.41...])
     """
     return Gate('sqrt({})'.format(x), 0, jax(np.sqrt)(x))
 

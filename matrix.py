@@ -18,13 +18,6 @@ from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
 def jax(method):
-    """
-    >>> type(Id(2).array)
-    <class 'numpy.ndarray'>
-    >>> config.jax = True
-    >>> type(Id(2).array)
-    <class 'jax.interpreters.xla.DeviceArray'>
-    """
     @wraps(method)
     def result(*args, **kwargs):
         if config.jax: import jax.numpy as np
