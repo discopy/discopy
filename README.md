@@ -79,8 +79,7 @@ You can also checkout the [notebooks](notebooks/) for a demo!
 
 ## References
 
-`discopy` is an implementation of the categorical compositional distributional (DisCoCat) models, see:
-
+* [pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) on the nLab
 * Coecke (2019) [The Mathematics of Text Structure](https://arxiv.org/abs/1904.03478)
 * Grefenstette and Sadrzadeh (2010) [Experimental Support for a Categorical Compositional Distributional Model of Meaning](https://arxiv.org/abs/1106.4058)
 * Clark et al. (2008) [A Compositional Distributional Model of Meaning](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf)
