@@ -65,14 +65,21 @@ For now all of it is in the code. You can use `help` if needed:
 >>> help(Pregroup)
 Help on class Pregroup in module discopy.pregroup:
 
-class Pregroup(discopy.moncat.Ty)
- |  Pregroup(*t)
- |
- |  Implements pregroup types as lists of adjoints.
- |
- |  >>> s, n = Pregroup('s'), Pregroup('n')
- |  >>> assert n.l.r == n == n.r.l
- |  >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
+Help on module discopy.moncat in discopy:
+
+NAME
+    discopy.moncat - Implements free monoidal categories and (dagger) monoidal functors.
+
+DESCRIPTION
+    We can check the axioms for dagger monoidal categories, up to interchanger.
+    
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> d = Id(x) @ f1 >> f0 @ Id(w)
+    >>> assert d == (f0 @ f1).interchange(0, 1)
+    >>> assert f0 @ f1 == d.interchange(0, 1)
+    >>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
+    >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
 ```
 
 You can also checkout the [notebooks](notebooks/) for a demo!
