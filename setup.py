@@ -6,9 +6,10 @@ setup(name='discopy',
       package_dir={'discopy': ''},
       packages=['discopy'],
       description='Distributional Compositional Python',
-      url='https://github.com/toumix/discopy',
+      url='https://github.com/oxford-quantum-group/discopy',
       author='Alexis Toumi',
-      author_email='alexis.toumi@gmail.com',
-      download_url='https://github.com/toumix/discopy/archive/0.0.1.3.tar.gz',
+      author_email='alexis.toumi@cs.ox.ac.uk',
+      download_url='https://github.com/oxford-quantum-group/discopy/archive/'
+                   '0.1.tar.gz',
       install_requires=['numpy'],
       )
