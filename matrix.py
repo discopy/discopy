@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Implements dagger monoidal functors into matrices.
 
@@ -10,21 +12,26 @@ Implements dagger monoidal functors into matrices.
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
-from discopy import cat, config
-if config.jax: import jax.numpy as np
-else: import numpy as np
 from functools import wraps, reduce as fold
+from discopy import cat, config
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
+if config.jax:
+    import jax.numpy as np
+else:
+    import numpy as np
 
 
 def jax(method):
     @wraps(method)
     def result(*args, **kwargs):
-        if config.jax: import jax.numpy as np
-        else: import numpy as np
+        if config.jax:
+            import jax.numpy as np
+        else:
+            import numpy as np
         global np
         return method(*args, **kwargs)
     return result
+
 
 class Dim(Ty):
     """ Implements dimensions as tuples of positive integers.
@@ -95,6 +102,7 @@ class Dim(Ty):
         """
         return hash(repr(self))
 
+
 class Matrix(Diagram):
     """ Implements a matrix with dom, cod and numpy array.
 
@@ -135,7 +143,7 @@ class Matrix(Diagram):
         Matrix(dom=Dim(2, 2), cod=Dim(2), array=[1, 0, 0, 1, 0, 1, 1, 0])
         """
         return "Matrix(dom={}, cod={}, array={})".format(
-                       self.dom, self.cod, list(self.array.flatten()))
+            self.dom, self.cod, list(self.array.flatten()))
 
     def __str__(self):
         """
@@ -167,8 +175,8 @@ class Matrix(Diagram):
         """
         if not isinstance(other, Matrix):
             return self.array == other
-        return (self.dom, self.cod) == (other.dom, other.cod) and np.all(
-                self.array == other.array)
+        return (self.dom, self.cod) == (other.dom, other.cod)\
+            and np.all(self.array == other.array)
 
     @jax
     def then(self, other):
@@ -178,7 +186,7 @@ class Matrix(Diagram):
         """
         if self.cod != other.dom:
             raise AxiomError("{} does not compose with {}."
-                                   .format(repr(self), repr(other)))
+                             .format(repr(self), repr(other)))
         return Matrix(self.dom, other.cod,
                       np.tensordot(self.array, other.array, len(self.cod)))
 
@@ -207,7 +215,8 @@ class Matrix(Diagram):
         >>> v = Matrix(Dim(1), Dim(2), [0, 1])
         >>> assert (v >> m.dagger()).dagger() == m >> v.dagger()
         """
-        array = np.moveaxis(self.array, range(len(self.dom + self.cod)),
+        array = np.moveaxis(
+            self.array, range(len(self.dom + self.cod)),
             [i + len(self.cod) if i < len(self.dom) else
              i - len(self.dom) for i in range(len(self.dom + self.cod))])
         return Matrix(self.cod, self.dom, np.conjugate(array))
@@ -215,9 +224,10 @@ class Matrix(Diagram):
     @staticmethod
     def id(dim):
         """
-        >>> assert Id(2) == Matrix.id(2) == Matrix(Dim(2), Dim(2), [1, 0, 0, 1])
+        >>> assert Id(2) == Matrix(Dim(2), Dim(2), [1, 0, 0, 1])
         """
         return Id(dim)
+
 
 class AxiomError(cat.AxiomError):
     """
@@ -228,6 +238,7 @@ class AxiomError(cat.AxiomError):
     matrix.AxiomError: Matrix... does not compose with Matrix...
     """
     pass
+
 
 class Id(Matrix):
     """ Implements the identity matrix for a given dimension.
@@ -254,11 +265,13 @@ class Id(Matrix):
         [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         """
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        tensor = lambda a, x: np.tensordot(a, np.identity(x), 0)\
-                              if a.shape else np.identity(x)
-        array = np.moveaxis(fold(tensor, dim, np.array(1)),
-            [2 * i for i in range(len(dim))], [i for i in range(len(dim))])
+        array = fold(lambda a, x: np.tensordot(a, np.identity(x), 0)
+                     if a.shape else np.identity(x), dim, np.array(1))
+        array = np.moveaxis(array,
+                            [2 * i for i in range(len(dim))],
+                            [i for i in range(len(dim))])
         super().__init__(dim, dim, array)
+
 
 class MatrixFunctor(MonoidalFunctor):
     """ Implements a matrix-valued functor.
@@ -299,7 +312,6 @@ class MatrixFunctor(MonoidalFunctor):
         """
         return super().__repr__().replace("MonoidalFunctor", "MatrixFunctor")
 
-
     @jax
     def __call__(self, d):
         """
@@ -322,8 +334,9 @@ class MatrixFunctor(MonoidalFunctor):
         if isinstance(d, Ty):
             return sum([self.ob[Ty(x)] for x in d], Dim(1))
         elif isinstance(d, Box):
-            if d._dagger: return Matrix(
-                self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
+            if d._dagger:
+                return Matrix(
+                    self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         elif not isinstance(d, Diagram):
             raise ValueError("Input of type Ty or Diagram expected, got {} "
@@ -336,8 +349,8 @@ class MatrixFunctor(MonoidalFunctor):
             array = np.tensordot(array, self(f).array, (source, target))\
                 if array.shape and self(f).array.shape\
                 else array * self(f).array
-            source = list(range(len(array.shape) - dim(f.cod), len(array.shape)))
-            target = list(range(dim(d.dom) + n, dim(d.dom) + n + dim(f.cod)))
-            array = np.moveaxis(array, source, target)
+            source = range(len(array.shape) - dim(f.cod), len(array.shape))
+            target = range(dim(d.dom) + n, dim(d.dom) + n + dim(f.cod))
+            array = np.moveaxis(array, list(source), list(target))
             scan = scan[:offset] + f.cod + scan[offset + len(f.dom):]
         return Matrix(self(d.dom), self(d.cod), array)

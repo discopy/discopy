@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from discopy import cat, moncat, matrix, circuit, gates, disco, config
 from discopy.cat import Ob, Arrow, Gen, Functor, Quiver
 from discopy.moncat import MonoidalFunctor

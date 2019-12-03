@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Implements free dagger pivotal and rigid monoidal categories.
 The objects are given by the free pregroup, the arrows by planar diagrams.
@@ -9,7 +11,8 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> snake_l = Cap(n, n.l) @ Wire(n) >> Wire(n) @ Cup(n.l, n)
 >>> snake_r = Wire(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Wire(n)
 >>> assert snake_l.dagger().dagger() == snake_l
->>> assert (snake_l >> snake_r).dagger() == snake_l.dagger() << snake_r.dagger()
+>>> assert (snake_l >> snake_r).dagger()\\
+...         == snake_l.dagger() << snake_r.dagger()
 """
 
 from discopy import cat, moncat
@@ -68,6 +71,7 @@ class Adjoint(cat.Ob):
         """
         return str(self._basic) + (
             - self._z * '.l' if self._z < 0 else self._z * '.r')
+
 
 class Pregroup(moncat.Ty):
     """ Implements pregroup types as lists of adjoints.
@@ -145,6 +149,7 @@ class Pregroup(moncat.Ty):
         """
         return len(self) == 1 and not self[0]._z
 
+
 class Diagram(moncat.Diagram):
     """ Implements diagrams in free dagger pivotal categories.
 
@@ -162,11 +167,13 @@ class Diagram(moncat.Diagram):
         f >> Wire(a.l) @ g >> f.dagger()
         """
         if not isinstance(dom, Pregroup):
-            raise ValueError("Domain of type Pregroup expected, got {} "
-                             "of type {} instead.".format(repr(dom), type(dom)))
+            raise ValueError(
+                "Domain of type Pregroup expected, got {} of type {} instead."
+                .format(repr(dom), type(dom)))
         if not isinstance(cod, Pregroup):
-            raise ValueError("Codomain of type Pregroup expected, got {} "
-                             "of type {} instead.".format(repr(cod), type(cod)))
+            raise ValueError(
+                "Codomain of type Pregroup expected, got {} of type {}"
+                " instead.".format(repr(cod), type(cod)))
         super().__init__(dom, cod, boxes, offsets)
 
     def then(self, other):
@@ -195,7 +202,8 @@ class Diagram(moncat.Diagram):
         >>> f = Box('f', a, a.l @ b.r).dagger()
         >>> assert f.dagger() >> f == (f.dagger() >> f).dagger()
         """
-        return Diagram(self.cod, self.dom,
+        return Diagram(
+            self.cod, self.dom,
             [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
 
     def __repr__(self):
@@ -204,7 +212,7 @@ class Diagram(moncat.Diagram):
         Diagram(dom=Pregroup('a'), cod=Pregroup('a'), boxes=[], offsets=[])
         """
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
-        *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
+            *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
 
     @staticmethod
     def id(t):
@@ -212,6 +220,7 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.id(Pregroup('s')) == Wire(Pregroup('s'))
         """
         return Wire(t)
+
 
 class Box(moncat.Box, Diagram):
     """ Implements generators of dagger pivotal diagrams.
@@ -226,7 +235,8 @@ class Box(moncat.Box, Diagram):
         >>> Box('f', a, b.l @ b)
         Box('f', Pregroup('a'), Pregroup(Adjoint('b', -1), 'b'))
         """
-        self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
+        self._dom, self._cod = dom, cod
+        self._boxes, self._offsets = [self], [0]
         self._name, self._dagger, self._data = name, _dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
 
@@ -274,6 +284,7 @@ class Box(moncat.Box, Diagram):
             return len(other) == 1 and other.boxes[0] == self
         return False
 
+
 class AxiomError(moncat.AxiomError):
     """
     >>> Cup(Pregroup('n'), Pregroup('n'))  # doctest: +ELLIPSIS
@@ -290,6 +301,7 @@ class AxiomError(moncat.AxiomError):
     pregroup.AxiomError: n and n.l.l are not adjoints.
     """
     pass
+
 
 class Wire(Diagram):
     """ Define an identity arrow in a free rigid category
@@ -325,6 +337,7 @@ class Wire(Diagram):
         Wire(n)
         """
         return "Wire({})".format(str(self.dom))
+
 
 class Cup(Box):
     """ Defines cups for simple types.
@@ -383,6 +396,7 @@ class Cup(Box):
         Cup(n, n.l)
         """
         return "Cup({}, {})".format(self.dom[:1], self.dom[1:])
+
 
 class Cap(Box):
     """ Defines cups for simple types.

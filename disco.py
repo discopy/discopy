@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Implements distributional compositional models.
 
@@ -24,7 +26,8 @@ class Word(Box):
     """ Implements words as boxes with a pregroup type as codomain.
 
     >>> Alice = Word('Alice', Pregroup('n'))
-    >>> loves = Word('loves', Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l)
+    >>> loves = Word('loves',
+    ...     Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l)
     >>> Alice
     Word('Alice', Pregroup('n'))
     >>> loves
@@ -84,6 +87,7 @@ class Word(Box):
         Alice
         """
         return str(self.word)
+
 
 class Model(MatrixFunctor):
     """ Implements functors from pregroup grammars to matrices
@@ -148,6 +152,7 @@ class Model(MatrixFunctor):
         raise ValueError("Expected input of type Pregroup or Diagram, got"
                          " {} of type {} instead".format(repr(d), type(d)))
 
+
 class CircuitModel(CircuitFunctor):
     """
     >>> from discopy.gates import sqrt, H, X
@@ -197,6 +202,7 @@ class CircuitModel(CircuitFunctor):
         raise ValueError("Expected input of type Pregroup or Diagram, got"
                          " {} of type {} instead.".format(repr(x), type(x)))
 
+
 def eager_parse(*words, target=Pregroup('s')):
     """
     >>> s, n = Pregroup('s'), Pregroup('n')
@@ -228,6 +234,7 @@ def eager_parse(*words, target=Pregroup('s')):
         elif exit:
             raise FAIL
 
+
 class FAIL(Exception):
     """
     >>> s, n = Pregroup('s'), Pregroup('n')
@@ -245,6 +252,7 @@ class FAIL(Exception):
     disco.FAIL
     """
     pass
+
 
 def brute_force(*vocab, target=Pregroup('s')):
     """

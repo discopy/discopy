@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Implements free monoidal categories and (dagger) monoidal functors.
 
@@ -19,11 +21,12 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 from discopy import cat, config
-from discopy.cat import Ob, Arrow, Gen, Functor, Quiver
+from discopy.cat import Ob, Arrow, Gen, Functor
 
 
 class Ty(list):
-    """ Implements a type as a list of objects, used as dom and cod of diagrams.
+    """
+    Implements a type as a list of objects, used as dom and cod of diagrams.
     Types are the free monoid on objects with product @ and unit Ty().
 
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
@@ -88,6 +91,7 @@ class Ty(list):
         """
         return hash(repr(self))
 
+
 class Diagram(Arrow):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
@@ -142,11 +146,11 @@ class Diagram(Arrow):
                     raise ValueError(
                         "Offset of type int expected, got {} of type {} "
                         "instead.".format(repr(n), type(n)))
-                if scan[n : n + len(f.dom)] != f.dom:
+                if scan[n: n + len(f.dom)] != f.dom:
                     raise AxiomError(
                         "Domain {} expected, got {} instead."
-                        .format(scan[n : n + len(f.dom)], f.dom))
-                scan = scan[: n] + f.cod + scan[n + len(f.dom) :]
+                        .format(scan[n: n + len(f.dom)], f.dom))
+                scan = scan[: n] + f.cod + scan[n + len(f.dom):]
             if scan != cod:
                 raise AxiomError(
                     "Codomain {} expected, got {} instead.".format(cod, scan))
@@ -191,7 +195,7 @@ class Diagram(Arrow):
         >>> Diagram(x, y, [f0], [0])  # doctest: +ELLIPSIS
         Diagram(dom=Ty('x'), cod=Ty('y'), boxes=[Box(...)], offsets=[0])
         >>> Diagram(x @ z, y @ w, [f0, f1], [0, 1])  # doctest: +ELLIPSIS
-        Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=[...], offsets=[0, 1])
+        Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=..., offsets=[0, 1])
         """
         if not self.boxes:  # i.e. self is identity.
             return repr(Id(self.dom))
@@ -214,10 +218,11 @@ class Diagram(Arrow):
         """
         if not self.boxes:  # i.e. self is identity.
             return str(self.id(self.dom))
+
         def line(scan, box, off):
             left = "{} @ ".format(self.id(scan[:off])) if scan[:off] else ""
             right = " @ {}".format(self.id(scan[off + len(box.dom):]))\
-                                   if scan[off + len(box.dom):] else ""
+                if scan[off + len(box.dom):] else ""
             return left + str(box) + right
         box, off = self.boxes[0], self.offsets[0]
         result = line(self.dom, box, off)
@@ -261,7 +266,7 @@ class Diagram(Arrow):
                              .format(repr(other), type(other)))
         if self.cod != other.dom:
             raise AxiomError("{} does not compose with {}."
-                                   .format(repr(self), repr(other)))
+                             .format(repr(self), repr(other)))
         dom, cod = self.dom, other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
@@ -275,7 +280,8 @@ class Diagram(Arrow):
         Id(y) @ f1.dagger() >> f0.dagger() @ Id(z)
         """
         return Diagram(self.cod, self.dom,
-            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
+                       [f.dagger() for f in self.boxes[::-1]],
+                       self.offsets[::-1])
 
     @staticmethod
     def id(x):
@@ -314,9 +320,10 @@ class Diagram(Arrow):
         else:
             raise InterchangerError("Boxes {} and {} are connected."
                                     .format(repr(box0), repr(box1)))
-        return Diagram(self.dom, self.cod,
-                       self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
-                       self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
+        return Diagram(
+            self.dom, self.cod,
+            self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
+            self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
 
     def normal_form(self):
         """
@@ -349,6 +356,7 @@ class Diagram(Arrow):
             break
         return d
 
+
 class AxiomError(cat.AxiomError):
     """
     >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
@@ -364,6 +372,7 @@ class AxiomError(cat.AxiomError):
     """
     pass
 
+
 class InterchangerError(AxiomError):
     """
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
@@ -374,6 +383,7 @@ class InterchangerError(AxiomError):
     moncat.InterchangerError: Boxes ... are connected.
     """
     pass
+
 
 class Id(Diagram):
     """ Implements the identity diagram of a given type.
@@ -402,6 +412,7 @@ class Id(Diagram):
         """
         return "Id({})".format(str(self.dom))
 
+
 class Box(Gen, Diagram):
     """ Implements a box as a diagram with a name and itself as box.
 
@@ -425,7 +436,8 @@ class Box(Gen, Diagram):
         >>> f.name, f.dom, f.cod, f.data
         ('f', Ty('x', 'y'), Ty('z'), 42)
         """
-        self._dom, self._cod, self._boxes, self._offsets = dom, cod, [self], [0]
+        self._dom, self._cod = dom, cod
+        self._boxes, self._offsets = [self], [0]
         self._name, self._dagger, self._data = name, _dagger, data
         Diagram.__init__(self, dom, cod, [self], [0])
 
@@ -470,6 +482,7 @@ class Box(Gen, Diagram):
             return len(other) == 1 and other.boxes[0] == self
         return False
 
+
 class MonoidalFunctor(Functor):
     """ Implements a monoidal functor given its image on objects and arrows.
 
@@ -481,7 +494,7 @@ class MonoidalFunctor(Functor):
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
     """
-    def __init__(self, ob, ar):
+    def __init__(self, ob, ar, ob_cls=Ty, ar_cls=Diagram):
         """
         >>> F = MonoidalFunctor({Ty('x'): Ty('y')}, {})
         >>> F(Id(Ty('x')))
@@ -492,6 +505,7 @@ class MonoidalFunctor(Functor):
                 raise ValueError(
                     "Expected an atomic type, got {} instead.".format(repr(x)))
         self._ob, self._ar = ob, ar
+        self.ob_cls, self.ar_cls = ob_cls, ar_cls
 
     def __repr__(self):
         """
@@ -517,15 +531,17 @@ class MonoidalFunctor(Functor):
         f.dagger() @ Id(x) >> Id(x) @ f
         """
         if isinstance(d, Ty):
-            return sum([self.ob[Ty(x)] for x in d], Ty())
+            return sum([self.ob[self.ob_cls(x)] for x in d], self.ob_cls())
         elif isinstance(d, Box):
             return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
         elif isinstance(d, Diagram):
             scan, result = d.dom, Id(self(d.dom))
             for f, n in zip(d.boxes, d.offsets):
-                result = result >> Id(self(scan[:n])) @ self(f)\
-                                @ Id(self(scan[n + len(f.dom):]))
+                id_l = self.ar_cls.id(self(scan[:n]))
+                id_r = self.ar_cls.id(self(scan[n + len(f.dom):]))
+                result = result >> id_l @ self(f) @ id_r
                 scan = scan[:n] + f.cod + scan[n + len(f.dom):]
             return result
-        else: raise ValueError("Diagram expected, got {} of type {} "
-                               "instead.".format(repr(d), type(d)))
+        else:
+            raise ValueError("Diagram expected, got {} of type {} "
+                             "instead.".format(repr(d), type(d)))

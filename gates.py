@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Implements quantum gates as boxes within a circuit diagram.
 
@@ -12,23 +14,28 @@ Gate('X', 1, [0, 1, 1, 0])
 (2, 2)
 """
 
-from discopy import config
-if config.jax: import jax.numpy as np
-else: import numpy as np
+from functools import wraps
 from discopy.moncat import Box
 from discopy.matrix import Dim, Matrix
 from discopy.circuit import PRO, Circuit, Id
-from functools import wraps
+from discopy import config
+if config.jax:
+    import jax.numpy as np
+else:
+    import numpy as np
 
 
 def jax(method):
     @wraps(method)
     def result(*args, **kwargs):
-        if config.jax: import jax.numpy as np
-        else: import numpy as np
+        if config.jax:
+            import jax.numpy as np
+        else:
+            import numpy as np
         global np
         return method(*args, **kwargs)
     return result
+
 
 class Gate(Box, Circuit):
     """ Implements quantum gates as boxes in a circuit diagram.
@@ -89,6 +96,7 @@ class Gate(Box, Circuit):
         return Gate(self.name, len(self.dom), self.array,
                     data=self.data, _dagger=not self._dagger)
 
+
 class Ket(Gate):
     """ Implements ket for a given bitstring.
 
@@ -110,7 +118,6 @@ class Ket(Gate):
         """
         return self.name
 
-
     def dagger(self):
         """
         >>> Ket(0, 1).dagger()
@@ -130,6 +137,7 @@ class Ket(Gate):
         for b in self.bitstring:
             m = m @ Matrix(Dim(1), Dim(2), [0, 1] if b else [1, 0])
         return m.array
+
 
 class Bra(Gate):
     """ Implements bra for a given bitstring.
@@ -173,6 +181,7 @@ class Bra(Gate):
         for b in self.bitstring:
             m = m @ Matrix(Dim(2), Dim(1), [0, 1] if b else [1, 0])
         return m.array
+
 
 class Rz(Gate):
     """
@@ -220,6 +229,7 @@ class Rz(Gate):
         """
         theta = 2 * np.pi * self.data['phase']
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
+
 
 class Rx(Gate):
     """
@@ -270,12 +280,14 @@ class Rx(Gate):
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
+
 def sqrt(x):
     """
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])
     """
     return Gate('sqrt({})'.format(x), 0, jax(np.sqrt)(x))
+
 
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
                         0, 0, 1, 0,

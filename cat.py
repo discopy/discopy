@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Implements free dagger categories and functors.
 We can check the axioms of categories and functors.
@@ -70,6 +72,7 @@ class Ob(object):
         42
         """
         return hash(repr(self))
+
 
 class Arrow(list):
     """ Defines an arrow with domain, codomain and a list of generators.
@@ -191,10 +194,10 @@ class Arrow(list):
         """
         if not isinstance(other, Arrow):
             raise ValueError("Expected Arrow, got {} of type {} instead."
-                              .format(repr(other), type(other)))
+                             .format(repr(other), type(other)))
         if self.cod != other.dom:
             raise AxiomError("{} does not compose with {}."
-                                   .format(repr(self), repr(other)))
+                             .format(repr(self), repr(other)))
         return Arrow(self.dom, other.cod, self.gens + other.gens)
 
     def __rshift__(self, other):
@@ -230,6 +233,7 @@ class Arrow(list):
         """
         return Id(x)
 
+
 class Id(Arrow):
     """ Define an identity arrow, i.e. with an empty list of generators.
 
@@ -257,6 +261,7 @@ class Id(Arrow):
         """
         return "Id({})".format(str(self.dom))
 
+
 class AxiomError(Exception):
     """
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
@@ -276,12 +281,13 @@ class AxiomError(Exception):
     """
     pass
 
+
 class Gen(Arrow):
     """ Defines a generator as an arrow with a name, and itself as generator.
     Generators can hold any Python object as data attribute, default is None.
 
-    Note that when we compose a generator with an identity, we get an arrow that
-    is defined as equal to the original generator.
+    Note that when we compose a generator with an identity,
+    we get an arrow that is defined as equal to the original generator.
 
     >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
     >>> Id(Ob('x')) >> f  # doctest: +ELLIPSIS
@@ -294,7 +300,7 @@ class Gen(Arrow):
         >>> Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         """
-        self._name, self._dom, self._cod,  = name, dom, cod
+        self._name, self._dom, self._cod = name, dom, cod
         self._gens, self._dagger, self._data = [self], _dagger, data
         super().__init__(dom, cod, [self])
 
@@ -369,8 +375,10 @@ class Gen(Arrow):
             return repr(self) == repr(other)
         return len(other) == 1 and other.gens[0] == self
 
+
 class Functor:
-    """ Defines a Python-valued functor F given its image on objects and arrows.
+    """
+    Defines a functor given its image on objects and arrows.
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Gen('f', x, y), Gen('g', y, z)
@@ -438,12 +446,14 @@ class Functor:
         if isinstance(f, Ob):
             return self.ob[f]
         elif isinstance(f, Gen):
-            if f._dagger: return self.ar[f.dagger()].dagger()
+            if f._dagger:
+                return self.ar[f.dagger()].dagger()
             return self.ar[f]
         elif isinstance(f, Arrow):
             return fold(lambda g, h: g >> self(h), f, Id(self(f.dom)))
-        raise ValueError("Expected Ob, Gen or Arrow, got {} of type {} instead."
-                         .format(repr(f), type(f)))
+        raise ValueError("Expected Ob, Gen or Arrow, got {} instead."
+                         .format(repr(f)))
+
 
 class Quiver:
     """ Wraps a Python function into a dict that holds the arrows of a functor.
