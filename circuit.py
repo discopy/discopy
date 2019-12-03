@@ -166,6 +166,41 @@ class Circuit(Diagram):
         F_eval = MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))
         return F_eval(self)
 
+    def measure(self):
+        """
+        Applies the Born rule and outputs a stochastic matrix.
+        The input maybe any circuit c, the output will be a numpy array
+        with shape len(c.dom @ c.cod) * (2, )
+
+        >>> from discopy.gates import Ket, Bra, CX, H, Rx, sqrt
+        >>> c = Circuit(2, 2, [sqrt(2), H, Rx(0.5), CX], [0, 0, 1, 0])
+        >>> m = c.measure()
+        >>> list(np.round(m[0, 0].flatten()))
+        [0.0, 1.0, 1.0, 0.0]
+        >>> assert np.all((Ket(0, 0) >> c).measure() == m[0, 0])
+        >>> assert np.all((c >> Bra(0, 1)).measure() == m[:, :, 0, 1])
+        >>> assert (Ket(1, 0) >> c >> Bra(0, 1)).measure() == m[1, 0, 0, 1]
+        """
+        from discopy.gates import Bra, Ket
+
+        def BornRule(matrix):
+            return np.absolute(matrix.array ** 2)
+
+        def bitstring(i, n):
+            return map(int, '{{:0{}b}}'.format(n).format(i))
+        process = self.eval()
+        states, effects = [], []
+        states = [Ket(*bitstring(i, len(self.dom))).eval()
+                  for i in range(2 ** len(self.dom))]
+        effects = [Bra(*bitstring(j, len(self.cod))).eval()
+                   for j in range(2 ** len(self.cod))]
+        array = np.zeros(len(self.dom + self.cod) * (2, ))
+        for state in states if self.dom else [Matrix.id(1)]:
+            for effect in effects if self.cod else [Matrix.id(1)]:
+                scalar = BornRule(state >> process >> effect)
+                array += scalar * (state.dagger() >> effect.dagger()).array
+        return array
+
     def to_tk(self):
         """ Returns a pytket circuit.
 
