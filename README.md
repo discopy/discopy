@@ -36,7 +36,10 @@ assert F(sentence)
 
 ## Requirements
 
-* [numpy](https://numpy.org/)
+* If you just want to play with free categories, there are no requirements.
+* If you want to compute matrix-valued functors, you will need [numpy](https://numpy.org/).
+* If you want to evaluate quantum circuits for real, you will need [pytket](https://github.com/CQCL/pytket).
+* If you want to differentiate your functors, you will need [jax](https://github.com/google/jax).
 
 ## Getting Started
 
