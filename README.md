@@ -62,23 +62,18 @@ python setup.py install
 For now all of it is in the code. You can use `help` if needed:
 
 ```python
->>> help(discopy.moncat)
+>>> help(discopy.cat.Arrow)
 
-Help on module discopy.moncat in discopy:
+Help on class Arrow in module discopy.cat:
 
-NAME
-    discopy.moncat - Implements free monoidal categories and (dagger) monoidal functors.
-
-DESCRIPTION
-    We can check the axioms for dagger monoidal categories, up to interchanger.
-    
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    >>> d = Id(x) @ f1 >> f0 @ Id(w)
-    >>> assert d == (f0 @ f1).interchange(0, 1)
-    >>> assert f0 @ f1 == d.interchange(0, 1)
-    >>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
-    >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
+class Arrow(builtins.list)
+ |  Arrow(dom, cod, gens)
+ |
+ |  Defines an arrow with domain, codomain and a list of generators.
+ |
+ |  >>> x, y, z, w = Ob('x'), Ob('y'), Ob('z'), Ob('w')
+ |  >>> f, g, h = Gen('f', x, y), Gen('g', y, z), Gen('h', z, w)
+ |  >>> assert f >> g >> h == Arrow(x, w, [f, g, h])
 ```
 
 You can also checkout the [notebooks](notebooks/) for a demo!
