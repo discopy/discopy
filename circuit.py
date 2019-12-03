@@ -18,10 +18,11 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 from discopy import config
 from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-from discopy.matrix import jax, Dim, Matrix, MatrixFunctor
-if config.jax:
+from discopy.matrix import Dim, Matrix, MatrixFunctor
+
+try:
     import jax.numpy as np
-else:
+except ImportError:
     import numpy as np
 
 

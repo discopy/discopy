@@ -8,8 +8,6 @@ Implements quantum gates as boxes within a circuit diagram.
 Gate('X', 1, [0, 1, 1, 0])
 >>> (X.dom, X.cod)
 (PRO(1), PRO(1))
->>> type(X.array)
-<class 'numpy.ndarray'>
 >>> X.array.shape
 (2, 2)
 """
@@ -19,22 +17,11 @@ from discopy.moncat import Box
 from discopy.matrix import Dim, Matrix
 from discopy.circuit import PRO, Circuit, Id
 from discopy import config
-if config.jax:
+
+try:
     import jax.numpy as np
-else:
+except ImportError:
     import numpy as np
-
-
-def jax(method):
-    @wraps(method)
-    def result(*args, **kwargs):
-        if config.jax:
-            import jax.numpy as np
-        else:
-            import numpy as np
-        global np
-        return method(*args, **kwargs)
-    return result
 
 
 class Gate(Box, Circuit):
@@ -43,7 +30,6 @@ class Gate(Box, Circuit):
     >>> CX
     Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
     """
-    @jax
     def __init__(self, name, n_qubits, array, data={}, _dagger=False):
         """
         >>> g = CX
@@ -220,7 +206,6 @@ class Rz(Gate):
         return Rz(-self.data['phase'])
 
     @property
-    @jax
     def array(self):
         """
         >>> assert np.allclose(Rz(-1).array, np.identity(2))
@@ -266,7 +251,6 @@ class Rx(Gate):
         return Rx(-self.data['phase'])
 
     @property
-    @jax
     def array(self):
         """
         >>> assert np.allclose(Rx(0).array, np.identity(2))
@@ -286,7 +270,7 @@ def sqrt(x):
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])
     """
-    return Gate('sqrt({})'.format(x), 0, jax(np.sqrt)(x))
+    return Gate('sqrt({})'.format(x), 0, np.sqrt(x))
 
 
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
@@ -297,9 +281,9 @@ CX = Gate('CX', 2, [1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 0, 1,
                     0, 0, 1, 0])
-H = Gate('H', 1, 1 / jax(np.sqrt)(2) * jax(np.array)([1, 1, 1, -1]))
+H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
 S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, jax(np.exp)(1j * np.pi / 4)])
+T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
 X = Gate('X', 1, [0, 1, 1, 0])
 Y = Gate('Y', 1, [0, -1j, 1j, 0])
 Z = Gate('Z', 1, [1, 0, 0, -1])
