@@ -39,7 +39,7 @@ assert F(sentence)
 * If you just want to play with free categories, there are no requirements.
 * If you want to compute matrix-valued functors, you will need [numpy](https://numpy.org/).
 * If you want to evaluate quantum circuits for real, you will need [pytket](https://github.com/CQCL/pytket).
-* If you want to differentiate your functors, you will need [jax](https://github.com/google/jax).
+* If you want to differentiate your matrix-valued functors, you will need [jax](https://github.com/google/jax).
 
 ## Getting Started
 
@@ -62,25 +62,30 @@ python setup.py install
 For now all of it is in the code. You can use `help` if needed:
 
 ```python
->>> help(Pregroup)
-Help on class Pregroup in module discopy.pregroup:
+>>> help(discopy.moncat)
 
-class Pregroup(discopy.moncat.Ty)
- |  Pregroup(*t)
- |
- |  Implements pregroup types as lists of adjoints.
- |
- |  >>> s, n = Pregroup('s'), Pregroup('n')
- |  >>> assert n.l.r == n == n.r.l
- |  >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
+Help on module discopy.moncat in discopy:
+
+NAME
+    discopy.moncat - Implements free monoidal categories and (dagger) monoidal functors.
+
+DESCRIPTION
+    We can check the axioms for dagger monoidal categories, up to interchanger.
+    
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    >>> d = Id(x) @ f1 >> f0 @ Id(w)
+    >>> assert d == (f0 @ f1).interchange(0, 1)
+    >>> assert f0 @ f1 == d.interchange(0, 1)
+    >>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
+    >>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
 ```
 
 You can also checkout the [notebooks](notebooks/) for a demo!
 
 ## References
 
-`discopy` is an implementation of the categorical compositional distributional (DisCoCat) models, see:
-
+* [pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) on the nLab
 * Coecke (2019) [The Mathematics of Text Structure](https://arxiv.org/abs/1904.03478)
 * Grefenstette and Sadrzadeh (2010) [Experimental Support for a Categorical Compositional Distributional Model of Meaning](https://arxiv.org/abs/1106.4058)
 * Clark et al. (2008) [A Compositional Distributional Model of Meaning](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf)
