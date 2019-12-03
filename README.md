@@ -1,1 +1,1 @@
-`discopy` has moved to [https://github.com/oxford-quantum-group/discopy]
+`discopy` has moved to https://github.com/oxford-quantum-group/discopy
