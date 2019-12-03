@@ -62,8 +62,7 @@ python setup.py install
 For now all of it is in the code. You can use `help` if needed:
 
 ```python
->>> help(Pregroup)
-Help on class Pregroup in module discopy.pregroup:
+>>> help(discopy.moncat)
 
 Help on module discopy.moncat in discopy:
 
