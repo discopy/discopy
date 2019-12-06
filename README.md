@@ -52,7 +52,7 @@ pip install discopy
 or b) install from sources:
 
 ```
-git clone https://github.com/toumix/discopy.git
+git clone https://github.com/oxford-quantum-group/discopy.git
 cd discopy
 python setup.py install
 ```
