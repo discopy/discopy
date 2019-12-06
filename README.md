@@ -84,5 +84,5 @@ You can also checkout the [notebooks](notebooks/) for a demo!
 * Clark, Coecke, Sadrzadeh (2008) [A Compositional Distributional Model of Meaning](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf)
 * Grefenstette and Sadrzadeh (2010) [Experimental Support for a Categorical Compositional Distributional Model of Meaning](https://arxiv.org/abs/1106.4058)
 * Coecke (2019) [The Mathematics of Text Structure](https://arxiv.org/abs/1904.03478)
-* De Felice, Meichanetzidis, Toumi (2019) [Functorial QUestion Answering](https://arxiv.org/abs/1905.07408)
-* [pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) on the nLab
+* De Felice, Meichanetzidis, Toumi (2019) [Functorial Question Answering](https://arxiv.org/abs/1905.07408)
+* [Pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) and [categorical compositional distributional semantics](https://ncatlab.org/nlab/show/categorical+compositional+distributional+semantics) and on the [nLab](https://ncatlab.org/)
