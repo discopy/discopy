@@ -16,11 +16,10 @@ We can check the axioms of categories and functors.
 >>> assert F(f >> g) == F(f) >> F(g)
 """
 
-from discopy import config
 from functools import reduce as fold
 
 
-class Ob(object):
+class Ob:
     """ Defines an object, only distinguished by its name.
 
     >>> assert Ob('x') == Ob('x') and Ob('x') != Ob('y')
@@ -74,7 +73,7 @@ class Ob(object):
         return hash(repr(self))
 
 
-class Arrow(list):
+class Arrow:
     """ Defines an arrow with domain, codomain and a list of generators.
 
     >>> x, y, z, w = Ob('x'), Ob('y'), Ob('z'), Ob('w')
@@ -82,7 +81,7 @@ class Arrow(list):
     >>> assert f >> g >> h == Arrow(x, w, [f, g, h])
     """
 
-    def __init__(self, dom, cod, gens):
+    def __init__(self, dom, cod, gens, fast=False):
         """
         >>> Arrow(Ob('x'), Ob('y'), [Gen('f', Ob('x'), Ob('y'))])
         Arrow(Ob('x'), Ob('y'), [Gen('f', Ob('x'), Ob('y'))])
@@ -105,24 +104,23 @@ class Arrow(list):
         if not isinstance(cod, Ob):
             raise ValueError("Codomain of type Ob expected, got {} of type {} "
                              "instead.".format(repr(cod), type(cod)))
-        if not config.fast:
+        if not fast:
             scan = dom
-            for f in gens:
-                if not isinstance(f, Arrow):
+            for gen in gens:
+                if not isinstance(gen, Arrow):
                     raise ValueError(
                         "Generator of type Arrow expected, got {} of type {} "
-                        "instead.".format(repr(f), type(f)))
-                if scan != f.dom:
+                        "instead.".format(repr(gen), type(gen)))
+                if scan != gen.dom:
                     raise AxiomError(
                         "Generator with domain {} expected, got {} instead."
-                        .format(scan, repr(f)))
-                scan = f.cod
+                        .format(scan, repr(gen)))
+                scan = gen.cod
             if scan != cod:
                 raise AxiomError(
                     "Generator with codomain {} expected, got {} instead."
                     .format(cod, repr(gens[-1])))
         self._dom, self._cod, self._gens = dom, cod, gens
-        super().__init__(gens)
 
     @property
     def dom(self):
@@ -148,6 +146,12 @@ class Arrow(list):
         """
         return self._gens
 
+    def __len__(self):
+        """
+        >>> assert len(Arrow(Ob('x'), Ob('x'), [])) == 0
+        """
+        return len(self.gens)
+
     def __repr__(self):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
@@ -169,7 +173,7 @@ class Arrow(list):
         >>> print(Arrow(x, z, [f, g]))
         f >> g
         """
-        return " >> ".join(map(str, self))
+        return " >> ".join(map(str, self.gens))
 
     def __eq__(self, other):
         """
@@ -198,7 +202,7 @@ class Arrow(list):
         if self.cod != other.dom:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
-        return Arrow(self.dom, other.cod, self.gens + other.gens)
+        return Arrow(self.dom, other.cod, self.gens + other.gens, fast=True)
 
     def __rshift__(self, other):
         """
@@ -224,7 +228,8 @@ class Arrow(list):
         >>> assert h.dagger() == g.dagger() >> f.dagger()
         >>> assert h.dagger().dagger() == h
         """
-        return Arrow(self.cod, self.dom, [f.dagger() for f in self.gens[::-1]])
+        return Arrow(self.cod, self.dom,
+                     [f.dagger() for f in self.gens[::-1]], fast=True)
 
     @staticmethod
     def id(x):
@@ -279,7 +284,6 @@ class AxiomError(Exception):
     ...
     cat.AxiomError: Gen('g',...) does not compose with Gen('f', ...).
     """
-    pass
 
 
 class Gen(Arrow):
@@ -373,7 +377,7 @@ class Gen(Arrow):
             return False
         if isinstance(other, Gen):
             return repr(self) == repr(other)
-        return len(other) == 1 and other.gens[0] == self
+        return len(other.gens) == 1 and other.gens[0] == self
 
 
 class Functor:
@@ -445,12 +449,12 @@ class Functor:
         """
         if isinstance(f, Ob):
             return self.ob[f]
-        elif isinstance(f, Gen):
+        if isinstance(f, Gen):
             if f._dagger:
                 return self.ar[f.dagger()].dagger()
             return self.ar[f]
-        elif isinstance(f, Arrow):
-            return fold(lambda g, h: g >> self(h), f, Id(self(f.dom)))
+        if isinstance(f, Arrow):
+            return fold(lambda g, h: g >> self(h), f.gens, Id(self(f.dom)))
         raise ValueError("Expected Ob, Gen or Arrow, got {} instead."
                          .format(repr(f)))
 

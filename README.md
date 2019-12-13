@@ -9,9 +9,9 @@
 1) Draw your picture.
 
 ```python
-from discopy import Pregroup, Word, Cup, Wire
+from discopy import Ty, Word, Cup, Wire
 
-s, n = Pregroup('s'), Pregroup('n')
+s, n = Ty('s'), Ty('n')
 Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 

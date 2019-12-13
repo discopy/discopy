@@ -20,11 +20,11 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
-from discopy import cat, config
+from discopy import cat
 from discopy.cat import Ob, Arrow, Gen, Functor
 
 
-class Ty(list):
+class Ty(Ob):
     """
     Implements a type as a list of objects, used as dom and cod of diagrams.
     Types are the free monoid on objects with product @ and unit Ty().
@@ -40,21 +40,45 @@ class Ty(list):
         >>> list(t)
         [Ob('x'), Ob('y'), Ob('z')]
         """
-        super().__init__(x if isinstance(x, Ob) else Ob(x) for x in t)
+        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in t]
+        super().__init__(str(self))
 
-    def __add__(self, other):
+    @property
+    def objects(self):
         """
-        >>> sum([Ty('x'), Ty('y'), Ty('z')], Ty())
-        Ty('x', 'y', 'z')
+        >>> Ty('x', 'y', 'z').objects
+        [Ob('x'), Ob('y'), Ob('z')]
         """
-        return Ty(*(super().__add__(other)))
+        return self._objects
+
+    def __eq__(self, other):
+        """
+        >>> assert Ty('x', 'y') == Ty('x') @ Ty('y')
+        """
+        if not isinstance(other, Ty):
+            return False
+        return self.objects == other.objects
+
+    def __len__(self):
+        """
+        >>> assert len(Ty('x', 'y')) == 2
+        """
+        return len(self.objects)
 
     def __matmul__(self, other):
         """
         >>> Ty('x') @ Ty('y')
         Ty('x', 'y')
         """
-        return self + other
+        return Ty(*(self.objects + other.objects))
+
+    def __add__(self, other):
+        """ __add__ may be used instead of __matmul__ for taking sums of types.
+
+        >>> sum([Ty('x'), Ty('y'), Ty('z')], Ty())
+        Ty('x', 'y', 'z')
+        """
+        return self @ other
 
     def __getitem__(self, key):
         """
@@ -67,15 +91,15 @@ class Ty(list):
         Ty('y', 'z')
         """
         if isinstance(key, slice):
-            return Ty(*super().__getitem__(key))
-        return super().__getitem__(key)
+            return Ty(*self.objects[key])
+        return self.objects[key]
 
     def __repr__(self):
         """
         >>> Ty('x', 'y')
         Ty('x', 'y')
         """
-        return "Ty({})".format(', '.join(repr(x.name) for x in self))
+        return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
 
     def __str__(self):
         """
@@ -100,7 +124,7 @@ class Diagram(Arrow):
     >>> d = Diagram(x @ z, y @ w, [f0, f1], [0, 1])
     >>> assert d == f0 @ f1
     """
-    def __init__(self, dom, cod, boxes, offsets):
+    def __init__(self, dom, cod, boxes, offsets, fast=False):
         """
         >>> Diagram(Ty('x'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
         ... # doctest: +ELLIPSIS
@@ -135,7 +159,7 @@ class Diagram(Arrow):
                              "instead.".format(repr(cod), type(cod)))
         if len(boxes) != len(offsets):
             raise ValueError("Boxes and offsets must have the same length.")
-        if not config.fast:
+        if not fast:
             scan = dom
             for f, n in zip(boxes, offsets):
                 if not isinstance(f, Diagram):
@@ -156,7 +180,7 @@ class Diagram(Arrow):
                     "Codomain {} expected, got {} instead.".format(cod, scan))
         self._dom, self._cod = dom, cod
         self._boxes, self._offsets = boxes, offsets
-        list.__init__(self, zip(boxes, offsets))
+        super().__init__(dom, cod, list(zip(boxes, offsets)), fast=True)
 
     @property
     def boxes(self):
@@ -244,7 +268,7 @@ class Diagram(Arrow):
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        return Diagram(dom, cod, boxes, offsets)
+        return Diagram(dom, cod, boxes, offsets, fast=True)
 
     def __matmul__(self, other):
         """
@@ -270,7 +294,7 @@ class Diagram(Arrow):
         dom, cod = self.dom, other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
-        return Diagram(dom, cod, boxes, offsets)
+        return Diagram(dom, cod, boxes, offsets, fast=True)
 
     def dagger(self):
         """
@@ -281,7 +305,7 @@ class Diagram(Arrow):
         """
         return Diagram(self.cod, self.dom,
                        [f.dagger() for f in self.boxes[::-1]],
-                       self.offsets[::-1])
+                       self.offsets[::-1], fast=True)
 
     @staticmethod
     def id(x):
@@ -323,7 +347,8 @@ class Diagram(Arrow):
         return Diagram(
             self.dom, self.cod,
             self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
-            self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:])
+            self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:],
+            fast=True)
 
     def normal_form(self):
         """
@@ -370,7 +395,6 @@ class AxiomError(cat.AxiomError):
     ...
     moncat.AxiomError: Domain y expected, got x instead.
     """
-    pass
 
 
 class InterchangerError(AxiomError):
@@ -382,7 +406,6 @@ class InterchangerError(AxiomError):
     ...
     moncat.InterchangerError: Boxes ... are connected.
     """
-    pass
 
 
 class Id(Diagram):
@@ -532,9 +555,9 @@ class MonoidalFunctor(Functor):
         """
         if isinstance(d, Ty):
             return sum([self.ob[self.ob_cls(x)] for x in d], self.ob_cls())
-        elif isinstance(d, Box):
+        if isinstance(d, Box):
             return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
-        elif isinstance(d, Diagram):
+        if isinstance(d, Diagram):
             scan, result = d.dom, Id(self(d.dom))
             for f, n in zip(d.boxes, d.offsets):
                 id_l = self.ar_cls.id(self(scan[:n]))
@@ -542,6 +565,5 @@ class MonoidalFunctor(Functor):
                 result = result >> id_l @ self(f) @ id_r
                 scan = scan[:n] + f.cod + scan[n + len(f.dom):]
             return result
-        else:
-            raise ValueError("Diagram expected, got {} of type {} "
-                             "instead.".format(repr(d), type(d)))
+        raise ValueError("Diagram expected, got {} of type {} "
+                         "instead.".format(repr(d), type(d)))

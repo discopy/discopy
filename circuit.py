@@ -20,10 +20,7 @@ from discopy.cat import Quiver
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 
-try:
-    import jax.numpy as np
-except ImportError:
-    import numpy as np
+np = config.get_numpy()
 
 
 class PRO(Ty):
@@ -43,7 +40,7 @@ class PRO(Ty):
         >>> assert all(len(PRO(n)) == n for n in range(5))
         """
         n = n if isinstance(n, int) else len(n)
-        super().__init__(*(n * [Ob(1)]))
+        super().__init__(*(n * [1]))
 
     def __repr__(self):
         """
@@ -59,12 +56,18 @@ class PRO(Ty):
         """
         return repr(self)
 
+    def __matmul__(self, other):
+        """
+        >>> assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12)
+        """
+        return PRO(len(self) + len(other))
+
     def __add__(self, other):
         """
         >>> sum((PRO(n) for n in range(5)), PRO(0))
         PRO(10)
         """
-        return PRO(len(self) + len(other))
+        return self @ other
 
     def __getitem__(self, key):
         """
@@ -387,6 +390,8 @@ class CircuitFunctor(MonoidalFunctor):
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
         r = super().__call__(d)
+        if isinstance(d, Ty):
+            return PRO(len(r))
         if isinstance(d, Diagram):
             return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
         return r

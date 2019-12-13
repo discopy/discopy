@@ -3,7 +3,7 @@
 """
 Implements distributional compositional models.
 
->>> s, n = Pregroup('s'), Pregroup('n')
+>>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
 >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
@@ -16,7 +16,7 @@ Implements distributional compositional models.
 
 from functools import reduce as fold
 from discopy.pregroup import (
-    Adjoint, Pregroup, Diagram, Box, Wire, Cup, Cap, AxiomError)
+    Ob, Ty, Diagram, Box, Wire, Cup, Cap, AxiomError)
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Id, CircuitFunctor
 from discopy.gates import Gate, Bra, Ket, CX
@@ -25,40 +25,40 @@ from discopy.gates import Gate, Bra, Ket, CX
 class Word(Box):
     """ Implements words as boxes with a pregroup type as codomain.
 
-    >>> Alice = Word('Alice', Pregroup('n'))
+    >>> Alice = Word('Alice', Ty('n'))
     >>> loves = Word('loves',
-    ...     Pregroup('n').r @ Pregroup('s') @ Pregroup('n').l)
+    ...     Ty('n').r @ Ty('s') @ Ty('n').l)
     >>> Alice
-    Word('Alice', Pregroup('n'))
+    Word('Alice', Ty('n'))
     >>> loves
-    Word('loves', Pregroup(Adjoint('n', 1), 's', Adjoint('n', -1)))
+    Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
     """
     def __init__(self, w, t, _dagger=False):
         """
-        >>> Word('Alice', Pregroup('n'))
-        Word('Alice', Pregroup('n'))
+        >>> Word('Alice', Ty('n'))
+        Word('Alice', Ty('n'))
         """
         if not isinstance(w, str):
             raise ValueError("Expected str, got {} of type {} instead."
                              .format(repr(w), type(w)))
-        if not isinstance(t, Pregroup):
-            raise ValueError("Input of type Pregroup expected, got {} "
+        if not isinstance(t, Ty):
+            raise ValueError("Input of type Ty expected, got {} "
                              "of type {} instead.".format(repr(t), type(t)))
         self._word, self._type = w, t
-        dom, cod = (t, Pregroup()) if _dagger else (Pregroup(), t)
+        dom, cod = (t, Ty()) if _dagger else (Ty(), t)
         Box.__init__(self, (w, t), dom, cod, _dagger=_dagger)
 
     def dagger(self):
         """
-        >>> Word('Alice', Pregroup('n')).dagger()
-        Word('Alice', Pregroup('n')).dagger()
+        >>> Word('Alice', Ty('n')).dagger()
+        Word('Alice', Ty('n')).dagger()
         """
         return Word(self._word, self._type, not self._dagger)
 
     @property
     def word(self):
         """
-        >>> Word('Alice', Pregroup('n')).word
+        >>> Word('Alice', Ty('n')).word
         'Alice'
         """
         return self._word
@@ -66,33 +66,33 @@ class Word(Box):
     @property
     def type(self):
         """
-        >>> Word('Alice', Pregroup('n')).type
-        Pregroup('n')
+        >>> Word('Alice', Ty('n')).type
+        Ty('n')
         """
         return self._type
 
     def __repr__(self):
         """
-        >>> Word('Alice', Pregroup('n'))
-        Word('Alice', Pregroup('n'))
-        >>> Word('Alice', Pregroup('n')).dagger()
-        Word('Alice', Pregroup('n')).dagger()
+        >>> Word('Alice', Ty('n'))
+        Word('Alice', Ty('n'))
+        >>> Word('Alice', Ty('n')).dagger()
+        Word('Alice', Ty('n')).dagger()
         """
         return "Word({}, {}){}".format(repr(self.word), repr(self.type),
                                        ".dagger()" if self._dagger else "")
 
     def __str__(self):
         """
-        >>> print(Word('Alice', Pregroup('n')))
+        >>> print(Word('Alice', Ty('n')))
         Alice
         """
         return str(self.word)
 
 
 class Model(MatrixFunctor):
-    """ Implements functors from pregroup grammars to matrices
+    """ Implements functors from pregroup grammars to matrices.
 
-    >>> n, s = Pregroup('n'), Pregroup('s')
+    >>> n, s = Ty('n'), Ty('s')
     >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
     >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
     >>> assert F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
@@ -103,25 +103,25 @@ class Model(MatrixFunctor):
         Traceback (most recent call last):
         ...
         ValueError: Expected a basic type, got 'n' instead.
-        >>> Model({Pregroup('n'): 2}, {})
-        Model(ob={Pregroup('n'): Dim(2)}, ar={})
+        >>> Model({Ty('n'): 2}, {})
+        Model(ob={Ty('n'): Dim(2)}, ar={})
         """
         for x in ob.keys():
-            if not isinstance(x, Pregroup) or not x.is_basic:
+            if not isinstance(x, Ty) or not x.is_basic:
                 raise ValueError(
                     "Expected a basic type, got {} instead.".format(repr(x)))
-        super().__init__(ob, ar)
+        super().__init__(ob, ar, ob_cls=Ob, ar_cls=Diagram)
 
     def __repr__(self):
         """
-        >>> Model({}, {Word('Alice', Pregroup('n')): [0, 1]})
-        Model(ob={}, ar={Word('Alice', Pregroup('n')): [0, 1]})
+        >>> Model({}, {Word('Alice', Ty('n')): [0, 1]})
+        Model(ob={}, ar={Word('Alice', Ty('n')): [0, 1]})
         """
         return super().__repr__().replace("MatrixFunctor", "Model")
 
     def __call__(self, d):
         """
-        >>> n, s = Pregroup('n'), Pregroup('s')
+        >>> n, s = Ty('n'), Ty('s')
         >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
         >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
         >>> F(n @ s.l)
@@ -137,8 +137,8 @@ class Model(MatrixFunctor):
         >>> F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
         Matrix(dom=Dim(1), cod=Dim(1), array=[1.0])
         """
-        if isinstance(d, Pregroup):
-            return sum([self.ob[Pregroup(x._basic)] for x in d], Dim(1))
+        if isinstance(d, Ty):
+            return sum([self.ob[Ty(x.name)] for x in d], Dim(1))
         elif isinstance(d, Cup):
             return Matrix(self(d.dom), Dim(), Matrix.id(self(d.dom[:1])).array)
         elif isinstance(d, Cap):
@@ -149,14 +149,14 @@ class Model(MatrixFunctor):
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
         elif isinstance(d, Diagram):
             return super().__call__(d)
-        raise ValueError("Expected input of type Pregroup or Diagram, got"
+        raise ValueError("Expected input of type Ty or Diagram, got"
                          " {} of type {} instead".format(repr(d), type(d)))
 
 
 class CircuitModel(CircuitFunctor):
     """
     >>> from discopy.gates import sqrt, H, X
-    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
@@ -176,11 +176,11 @@ class CircuitModel(CircuitFunctor):
         >>> F('x')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        ValueError: Expected input of type Pregroup or Diagram, got 'x'...
+        ValueError: Expected input of type Ty or Diagram, got 'x'...
         """
         _H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
-        if isinstance(x, Pregroup):
-            return sum([self.ob[Pregroup(b._basic)] for b in x], PRO(0))
+        if isinstance(x, Ty):
+            return sum([self.ob[Ty(b.name)] for b in x], PRO(0))
         elif isinstance(x, Cup):
             result, n = Id(self(x.dom)), len(self(x.dom)) // 2
             cup = CX >> _H @ Id(1) >> Bra(0, 0)
@@ -199,13 +199,13 @@ class CircuitModel(CircuitFunctor):
             return self.ar[x]
         elif isinstance(x, Diagram):
             return super().__call__(x)
-        raise ValueError("Expected input of type Pregroup or Diagram, got"
+        raise ValueError("Expected input of type Ty or Diagram, got"
                          " {} of type {} instead.".format(repr(x), type(x)))
 
 
-def eager_parse(*words, target=Pregroup('s')):
+def eager_parse(*words, target=Ty('s')):
     """
-    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
@@ -231,13 +231,13 @@ def eager_parse(*words, target=Pregroup('s')):
                 pass
         if result.cod == target:
             return result
-        elif exit:
+        if exit:
             raise FAIL
 
 
 class FAIL(Exception):
     """
-    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
@@ -251,12 +251,11 @@ class FAIL(Exception):
     ...
     disco.FAIL
     """
-    pass
 
 
-def brute_force(*vocab, target=Pregroup('s')):
+def brute_force(*vocab, target=Ty('s')):
     """
-    >>> s, n = Pregroup('s'), Pregroup('n')
+    >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
@@ -268,9 +267,9 @@ def brute_force(*vocab, target=Pregroup('s')):
     >>> assert next(gen) == Bob @ loves @ Bob >> grammar
     >>> gen = brute_force(Alice, loves, Bob, target=n)
     >>> next(gen)
-    Word('Alice', Pregroup('n'))
+    Word('Alice', Ty('n'))
     >>> next(gen)
-    Word('Bob', Pregroup('n'))
+    Word('Bob', Ty('n'))
     """
     test = [()]
     for words in test:

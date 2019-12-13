@@ -12,13 +12,11 @@ Implements dagger monoidal functors into matrices.
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
-from functools import wraps, reduce as fold
+from functools import reduce as fold
 from discopy import cat, config
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-try:
-    import jax.numpy as np
-except ImportError:
-    import numpy as np
+
+np = config.get_numpy()
 
 
 class Dim(Ty):
@@ -45,11 +43,17 @@ class Dim(Ty):
                                  .format(repr(x)))
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
+    def __matmul__(self, other):
+        """
+        >>> assert Dim(1) @ Dim(2, 3) == Dim(2, 3) @ Dim(1) == Dim(2, 3)
+        """
+        return Dim(*[x.name for x in super().__matmul__(other)])
+
     def __add__(self, other):
         """
-        >>> assert Dim(1) + Dim(2, 3) == Dim(2, 3) + Dim(1) == Dim(2, 3)
+        >>> assert sum([Dim(1), Dim(2, 3), Dim(4)], Dim(1)) == Dim(2, 3, 4)
         """
-        return Dim(*[x.name for x in super().__add__(other)])
+        return self @ other
 
     def __getitem__(self, key):
         """
@@ -148,7 +152,7 @@ class Matrix(Diagram):
         if not isinstance(other, Matrix):
             raise ValueError("Matrix expected, got {} of type {} instead."
                              .format(repr(other), type(other)))
-        if not (self.dom, self.cod) == (other.dom, other.cod):
+        if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError("Cannot add {} and {}.".format(self, other))
         return Matrix(self.dom, self.cod, self.array + other.array)
 
@@ -221,7 +225,6 @@ class AxiomError(cat.AxiomError):
     ...
     matrix.AxiomError: Matrix... does not compose with Matrix...
     """
-    pass
 
 
 class Id(Matrix):
@@ -250,9 +253,8 @@ class Id(Matrix):
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
         array = fold(lambda a, x: np.tensordot(a, np.identity(x), 0)
                      if a.shape else np.identity(x), dim, np.array(1))
-        array = np.moveaxis(array,
-                            [2 * i for i in range(len(dim))],
-                            [i for i in range(len(dim))])
+        array = np.moveaxis(
+            array, [2 * i for i in range(len(dim))], list(range(len(dim))))
         super().__init__(dim, dim, array)
 
 
@@ -265,7 +267,7 @@ class MatrixFunctor(MonoidalFunctor):
     >>> F(f)
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
-    def __init__(self, ob, ar):
+    def __init__(self, ob, ar, ob_cls=Ob, ar_cls=Diagram):
         """
         >>> MatrixFunctor({Ty('x'): 2}, {})
         MatrixFunctor(ob={Ty('x'): Dim(2)}, ar={})
@@ -283,7 +285,7 @@ class MatrixFunctor(MonoidalFunctor):
                 raise ValueError(
                     "Expected int or Dim object, got {} instead."
                     .format(repr(y)))
-        super().__init__(ob, ar)
+        super().__init__(ob, ar, ob_cls, ar_cls)
 
     def __repr__(self):
         """
@@ -315,16 +317,16 @@ class MatrixFunctor(MonoidalFunctor):
         """
         if isinstance(d, Ty):
             return sum([self.ob[Ty(x)] for x in d], Dim(1))
-        elif isinstance(d, Box):
+        if isinstance(d, Box):
             if d._dagger:
                 return Matrix(
                     self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
-        elif not isinstance(d, Diagram):
+        if not isinstance(d, Diagram):
             raise ValueError("Input of type Ty or Diagram expected, got {} "
                              "of type {} instead.".format(repr(d), type(d)))
         scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
-        for f, offset in d:
+        for f, offset in zip(d.boxes, d.offsets):
             n = dim(scan[:offset])
             source = list(range(dim(d.dom) + n, dim(d.dom) + n + dim(f.dom)))
             target = list(range(dim(f.dom)))

@@ -1,6 +1,24 @@
 # -*- coding: utf-8 -*-
 
-VERSION = '0.1.1'
+"""
+If fast, checking axioms is disabled (approximately twice faster).
+"""
 
-# If fast, checking axioms is disabled (approximately twice faster).
-fast = False
+VERSION = '0.1.2'
+
+JAX = True
+
+IGNORE = [
+    "No GPU/TPU found, falling back to CPU.",
+    "Casting complex values to real discards the imaginary part"]
+
+
+def get_numpy():
+    if JAX:
+        import warnings
+        for msg in IGNORE:
+            warnings.filterwarnings("ignore", message=msg)
+        import jax.numpy as np
+    else:
+        import numpy as np
+    return np

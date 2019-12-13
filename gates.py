@@ -18,10 +18,7 @@ from discopy.matrix import Dim, Matrix
 from discopy.circuit import PRO, Circuit, Id
 from discopy import config
 
-try:
-    import jax.numpy as np
-except ImportError:
-    import numpy as np
+np = config.get_numpy()
 
 
 class Gate(Box, Circuit):
