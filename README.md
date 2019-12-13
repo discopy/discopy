@@ -52,7 +52,7 @@ pip install discopy
 or b) install from sources:
 
 ```
-git clone https://github.com/toumix/discopy.git
+git clone https://github.com/oxford-quantum-group/discopy.git
 cd discopy
 python setup.py install
 ```
@@ -80,7 +80,9 @@ You can also checkout the [notebooks](notebooks/) for a demo!
 
 ## References
 
-* [pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) on the nLab
-* Coecke (2019) [The Mathematics of Text Structure](https://arxiv.org/abs/1904.03478)
+* Lambek (2008) [From Word to Sentence: A Computational Algebraic Approach to Grammar](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf)
+* Clark, Coecke, Sadrzadeh (2008) [A Compositional Distributional Model of Meaning](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf)
 * Grefenstette and Sadrzadeh (2010) [Experimental Support for a Categorical Compositional Distributional Model of Meaning](https://arxiv.org/abs/1106.4058)
-* Clark et al. (2008) [A Compositional Distributional Model of Meaning](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf)
+* Coecke (2019) [The Mathematics of Text Structure](https://arxiv.org/abs/1904.03478)
+* De Felice, Meichanetzidis, Toumi (2019) [Functorial Question Answering](https://arxiv.org/abs/1905.07408)
+* [Pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) and [categorical compositional distributional semantics](https://ncatlab.org/nlab/show/categorical+compositional+distributional+semantics) and on the [nLab](https://ncatlab.org/)
