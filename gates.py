@@ -12,13 +12,10 @@ Gate('X', 1, [0, 1, 1, 0])
 (2, 2)
 """
 
-from functools import wraps
 from discopy.moncat import Box
 from discopy.matrix import Dim, Matrix
-from discopy.circuit import PRO, Circuit, Id
-from discopy import config
-
-np = config.get_numpy()
+from discopy.circuit import PRO, Circuit
+from discopy.config import np
 
 
 class Gate(Box, Circuit):
@@ -27,14 +24,16 @@ class Gate(Box, Circuit):
     >>> CX
     Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
     """
-    def __init__(self, name, n_qubits, array, data={}, _dagger=False):
+    def __init__(self, name, n_qubits, array=None, data=None, _dagger=False):
         """
         >>> g = CX
         >>> assert g.dom == g.cod == PRO(2)
         """
-        self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
+        if array is not None:
+            self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
         Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits),
                      data=data, _dagger=_dagger)
+        Circuit.__init__(self, n_qubits, n_qubits, [self], [0])
 
     @property
     def array(self):
@@ -80,7 +79,7 @@ class Gate(Box, Circuit):
                     data=self.data, _dagger=not self._dagger)
 
 
-class Ket(Gate):
+class Ket(Box, Circuit):
     """ Implements ket for a given bitstring.
 
     >>> Ket(1, 1, 0).eval()
@@ -93,6 +92,7 @@ class Ket(Gate):
         self.bitstring = bitstring
         Box.__init__(self, 'Ket({})'.format(', '.join(map(str, bitstring))),
                      PRO(0), PRO(len(bitstring)))
+        Circuit.__init__(self, 0, len(bitstring), [self], [0])
 
     def __repr__(self):
         """
@@ -122,7 +122,7 @@ class Ket(Gate):
         return m.array
 
 
-class Bra(Gate):
+class Bra(Box, Circuit):
     """ Implements bra for a given bitstring.
 
     >>> Bra(1, 1, 0).eval()
@@ -137,6 +137,7 @@ class Bra(Gate):
         self.bitstring = bitstring
         Box.__init__(self, 'Bra({})'.format(', '.join(map(str, bitstring))),
                      PRO(len(bitstring)), PRO(0))
+        Circuit.__init__(self, len(bitstring), 0, [self], [0])
 
     def __repr__(self):
         """
@@ -181,7 +182,7 @@ class Rz(Gate):
         >>> g
         Rz(0)
         """
-        Box.__init__(self, 'Rz', PRO(1), PRO(1), data={'phase': phase})
+        super().__init__('Rz', 1, data={'phase': phase})
 
     @property
     def name(self):
@@ -226,7 +227,7 @@ class Rx(Gate):
         >>> g
         Rx(0)
         """
-        Box.__init__(self, 'Rx', PRO(1), PRO(1), data={'phase': phase})
+        super().__init__('Rx', 1, data={'phase': phase})
 
     @property
     def name(self):

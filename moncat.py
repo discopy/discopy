@@ -314,7 +314,7 @@ class Diagram(Arrow):
         """
         return Id(x)
 
-    def interchange(self, k0, k1):
+    def interchange(self, i, j):
         """
         >>> x, y = Ty('x'), Ty('y')
         >>> f = Box('f', x, y)
@@ -326,17 +326,17 @@ class Diagram(Arrow):
         >>> print((d >> d.dagger()).interchange(0, 2))
         Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
         """
-        if k0 == k1:
+        if i == j:
             return self
-        elif k1 < k0:
-            return self.interchange(k1, k0)
-        elif k1 > k0 + 1:
+        if j < i:
+            return self.interchange(j, i)
+        if j > i + 1:
             result = self
-            for i in range(k1 - k0):
-                result = result.interchange(k0 + i, k0 + i + 1)
+            for k in range(j - i):
+                result = result.interchange(i + k, i + k + 1)
             return result
-        box0, box1 = self.boxes[k0], self.boxes[k1]
-        off0, off1 = self.offsets[k0], self.offsets[k1]
+        box0, box1 = self.boxes[i], self.boxes[j]
+        off0, off1 = self.offsets[i], self.offsets[j]
         if off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
         elif off0 >= off1 + len(box1.dom):  # box0 right of box1
@@ -346,8 +346,8 @@ class Diagram(Arrow):
                                     .format(repr(box0), repr(box1)))
         return Diagram(
             self.dom, self.cod,
-            self.boxes[:k0] + [box1, box0] + self.boxes[k0 + 2:],
-            self.offsets[:k0] + [off1, off0] + self.offsets[k0 + 2:],
+            self.boxes[:i] + [box1, box0] + self.boxes[i + 2:],
+            self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
             fast=True)
 
     def normal_form(self):
@@ -459,9 +459,7 @@ class Box(Gen, Diagram):
         >>> f.name, f.dom, f.cod, f.data
         ('f', Ty('x', 'y'), Ty('z'), 42)
         """
-        self._dom, self._cod = dom, cod
-        self._boxes, self._offsets = [self], [0]
-        self._name, self._dagger, self._data = name, _dagger, data
+        Gen.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
@@ -501,7 +499,7 @@ class Box(Gen, Diagram):
         """
         if isinstance(other, Box):
             return repr(self) == repr(other)
-        elif isinstance(other, Diagram):
+        if isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self
         return False
 
@@ -527,8 +525,8 @@ class MonoidalFunctor(Functor):
             if not isinstance(x, Ty) or len(x) != 1:
                 raise ValueError(
                     "Expected an atomic type, got {} instead.".format(repr(x)))
-        self._ob, self._ar = ob, ar
         self.ob_cls, self.ar_cls = ob_cls, ar_cls
+        super().__init__(ob, ar)
 
     def __repr__(self):
         """

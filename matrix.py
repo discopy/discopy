@@ -13,10 +13,9 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import cat, config
+from discopy import cat
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-
-np = config.get_numpy()
+from discopy.config import np
 
 
 class Dim(Ty):
@@ -95,7 +94,7 @@ class Dim(Ty):
         return hash(repr(self))
 
 
-class Matrix(Diagram):
+class Matrix(Box):
     """ Implements a matrix with dom, cod and numpy array.
 
     >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
@@ -109,8 +108,8 @@ class Matrix(Diagram):
         Matrix(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])
         """
         dom, cod = Dim(*dom), Dim(*cod)
-        array = np.array(array).reshape(dom + cod)
-        self._dom, self._cod, self._array = dom, cod, array
+        self._array = np.array(array).reshape(dom + cod)
+        super().__init__(array, dom, cod)
 
     @property
     def array(self):
@@ -172,6 +171,9 @@ class Matrix(Diagram):
         >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
         >>> assert m >> m == m >> m.dagger() == Id(2)
         """
+        if not isinstance(other, Matrix):
+            raise ValueError(
+                "Matrix expected, got {} instead.".format(repr(other)))
         if self.cod != other.dom:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
@@ -189,6 +191,9 @@ class Matrix(Diagram):
         Matrix(dom=Dim(2), cod=Dim(2), array=[1, 0, 0, 0])
         >>> assert v @ v.dagger() == v << v.dagger()
         """
+        if not isinstance(other, Matrix):
+            raise ValueError(
+                "Matrix expected, got {} instead.".format(repr(other)))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         array = np.tensordot(self.array, other.array, 0)\
             if self.array.shape and other.array.shape\

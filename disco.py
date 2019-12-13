@@ -18,7 +18,7 @@ from functools import reduce as fold
 from discopy.pregroup import (
     Ob, Ty, Diagram, Box, Wire, Cup, Cap, AxiomError)
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import PRO, Circuit, Id, CircuitFunctor
+from discopy.circuit import PRO, Id, CircuitFunctor
 from discopy.gates import Gate, Bra, Ket, CX
 
 
@@ -139,15 +139,15 @@ class Model(MatrixFunctor):
         """
         if isinstance(d, Ty):
             return sum([self.ob[Ty(x.name)] for x in d], Dim(1))
-        elif isinstance(d, Cup):
+        if isinstance(d, Cup):
             return Matrix(self(d.dom), Dim(), Matrix.id(self(d.dom[:1])).array)
-        elif isinstance(d, Cap):
+        if isinstance(d, Cap):
             return Matrix(Dim(), self(d.cod), Matrix.id(self(d.cod[:1])).array)
-        elif isinstance(d, Box):
+        if isinstance(d, Box):
             if d._dagger:
                 return self(d.dagger()).dagger()
             return Matrix(self(d.dom), self(d.cod), self.ar[d])
-        elif isinstance(d, Diagram):
+        if isinstance(d, Diagram):
             return super().__call__(d)
         raise ValueError("Expected input of type Ty or Diagram, got"
                          " {} of type {} instead".format(repr(d), type(d)))
@@ -178,26 +178,26 @@ class CircuitModel(CircuitFunctor):
         ...
         ValueError: Expected input of type Ty or Diagram, got 'x'...
         """
-        _H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
+        H_sqrt2 = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
         if isinstance(x, Ty):
             return sum([self.ob[Ty(b.name)] for b in x], PRO(0))
-        elif isinstance(x, Cup):
+        if isinstance(x, Cup):
             result, n = Id(self(x.dom)), len(self(x.dom)) // 2
-            cup = CX >> _H @ Id(1) >> Bra(0, 0)
+            cup = CX >> H_sqrt2 @ Id(1) >> Bra(0, 0)
             for i in range(n):
                 result = result >> Id(n - i - 1) @ cup @ Id(n - i - 1)
             return result
-        elif isinstance(x, Cap):
+        if isinstance(x, Cap):
             result, n = Id(self(x.cod)), len(self(x.cod)) // 2
-            cap = CX << _H @ Id(1) << Ket(0, 0)
+            cap = CX << H_sqrt2 @ Id(1) << Ket(0, 0)
             for i in range(n):
                 result = result << Id(n - i - 1) @ cap @ Id(n - i - 1)
             return result
-        elif isinstance(x, Box):
+        if isinstance(x, Box):
             if x._dagger:
                 return self(x.dagger()).dagger()
             return self.ar[x]
-        elif isinstance(x, Diagram):
+        if isinstance(x, Diagram):
             return super().__call__(x)
         raise ValueError("Expected input of type Ty or Diagram, got"
                          " {} of type {} instead.".format(repr(x), type(x)))
@@ -218,20 +218,20 @@ def eager_parse(*words, target=Ty('s')):
     result = fold(lambda x, y: x @ y, words)
     t = result.cod
     while True:
-        exit = True
+        b = True
         for i in range(len(t) - 1):
             try:
                 if t[i: i + 1].r != t[i + 1: i + 2]:
                     raise AxiomError
                 cup = Cup(t[i: i + 1], t[i + 1: i + 2])
                 result = result >> Wire(t[: i]) @ cup @ Wire(t[i + 2:])
-                t, exit = result.cod, False
+                t, b = result.cod, False
                 break
             except AxiomError:
                 pass
         if result.cod == target:
             return result
-        if exit:
+        if b:
             raise FAIL
 
 

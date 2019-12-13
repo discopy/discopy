@@ -3,6 +3,7 @@
 """
 Implements quantum circuits as diagrams and circuit-valued monoidal functors.
 
+>>> from discopy.moncat import Box
 >>> from discopy.gates import X, Bra, Ket
 >>> n = Ty('n')
 >>> Alice = Box('Alice', Ty(), n)
@@ -15,12 +16,11 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-from discopy import config
+import random
 from discopy.cat import Quiver
-from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-from discopy.matrix import Dim, Matrix, MatrixFunctor
-
-np = config.get_numpy()
+from discopy.moncat import Ty, Diagram, MonoidalFunctor
+from discopy.matrix import Matrix, MatrixFunctor
+from discopy.config import np
 
 
 class PRO(Ty):
@@ -73,7 +73,7 @@ class PRO(Ty):
         """
         >>> PRO(42)[2:4]
         PRO(2)
-        >>> assert all(PRO(42)[i] == Ob(1) for i in range(42))
+        >>> assert all(PRO(42)[i].name == 1 for i in range(42))
         """
         if isinstance(key, slice):
             return PRO(len(super().__getitem__(key)))
@@ -167,8 +167,7 @@ class Circuit(Diagram):
         ...     m, id_n = (U >> U.dagger()).eval(), Id(len(U.dom)).eval()
         ...     assert np.allclose(m.array, id_n.array)
         """
-        F_eval = MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))
-        return F_eval(self)
+        return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
     def measure(self):
         """
@@ -225,44 +224,107 @@ class Circuit(Diagram):
                 c.__getattribute__(g.name)(*(n + i for i in range(len(g.dom))))
         return c
 
+    @staticmethod
+    def Euler(a, b, c):
+        """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
 
-def from_tk(c):
-    """ Takes a pytket circuit and returns a planar circuit,
-    SWAP gates are introduced when applying gates to non-adjacent qubits.
+        >>> from discopy.gates import X, Y, Z
+        >>> print(Circuit.Euler(0.1, 0.2, 0.3))
+        Rx(0.1) >> Rz(0.2) >> Rx(0.3)
+        >>> assert np.all(np.round(
+        ...     Circuit.Euler(0.5, 0, 0).eval().array) == X.array)
+        >>> assert np.all(np.round(
+        ...     Circuit.Euler(0, 0.5, 0).eval().array) == Z.array)
+        >>> assert np.all(np.round(
+        ...     Circuit.Euler(0, 0, 0.5).eval().array) == X.array)
+        >>> assert np.all(1j * np.round(
+        ...     Circuit.Euler(0.5, 0.5, 0).eval().array) == Y.array)
+        """
+        from discopy.gates import Rx, Rz
+        return Rx(a) >> Rz(b) >> Rx(c)
 
-    >>> from discopy.gates import SWAP, CX, Rx
-    >>> c1 = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1])
-    >>> c2 = from_tk(c1.to_tk())
-    >>> assert c1 == c2  # This works as long as there are no interchangers!
-    """
-    from discopy.gates import SWAP, CX, H, S, T, X, Y, Z, Rx, Rz
+    @staticmethod
+    def random(n_qubits, depth=3, gateset=None, seed=None):
+        """ Returns a random Euler decomposition if n_qubits == 1,
+        otherwise returns a random tiling with the given depth and gateset.
 
-    def gates_from_tk(g):
-        name = g.op.get_type().name
-        if name == 'Rx':
-            return Rx(g.op.get_params()[0])
-        if name == 'Rz':
-            return Rz(g.op.get_params()[0])
-        return {g.name: g for g in [SWAP, CX, H, S, T, X, Y, Z]}[name]
-    gates, offsets = [], []
-    for g in c.get_commands():
-        i0 = g.qubits[0].index[0]
-        for i, q in enumerate(g.qubits[1:]):
-            if q.index[0] == i0 + i + 1:
-                break  # gate applies to adjacent qubit already
-            elif q.index[0] < i0 + i + 1:
-                for j in range(q.index, i0 + i):
-                    gates.append(SWAP)
-                    offsets.append(j)
-                if q.index <= i0:
-                    i0 -= 1  # we just swapped q to the right of q0
-            elif q.index > i0 + i + 1:
-                for j in range(q.index - i0 + i - 1):
-                    gates.append(SWAP)
-                    offsets.append(q.index - j - 1)
-        gates.append(gates_from_tk(g))
-        offsets.append(i0)
-    return Circuit(c.n_qubits, c.n_qubits, gates, offsets)
+        >>> from discopy.gates import H, T, CX, Rz, Rx
+        >>> c = Circuit.random(1, seed=420)
+        >>> print(c)  # doctest: +ELLIPSIS
+        Rx(0.026...) >> Rz(0.781...) >> Rx(0.272...)
+        >>> array = (c >> c.dagger()).eval().array
+        >>> assert np.all(np.round(array) == np.identity(2))
+        >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
+        CX >> T @ Id(1) >> Id(1) @ T
+        >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
+        CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
+        >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
+        Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
+        """
+        from discopy.gates import Rx, Rz
+        if seed:
+            random.seed(seed)
+        if n_qubits == 1:
+            assert depth == 3
+            return Circuit.Euler(
+                random.random(), random.random(), random.random())
+        gateset_1 = [g for g in gateset
+                     if g is Rx or g is Rz or len(g.dom) == 1]
+        U = Id(n_qubits)
+        for _ in range(depth):
+            L, affected = Id(0), 0
+            while affected <= n_qubits - 2:
+                gate = random.choice(gateset)
+                if gate is Rx or gate is Rz:
+                    gate = gate(random.random())
+                L = L @ gate
+                affected += len(gate.dom)
+            if n_qubits - affected == 1:
+                gate = random.choice(gateset_1)
+                if gate is Rx or gate is Rz:
+                    gate = gate(random.random())
+                L = L @ gate
+            U = U >> L
+        return U
+
+    @staticmethod
+    def from_tk(c):
+        """ Takes a pytket circuit and returns a planar circuit,
+        SWAP gates are introduced when applying gates to non-adjacent qubits.
+
+        >>> from discopy.gates import SWAP, CX, Rx
+        >>> c1 = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1])
+        >>> c2 = Circuit.from_tk(c1.to_tk())
+        >>> assert c1 == c2
+        """
+        from discopy.gates import SWAP, CX, H, S, T, X, Y, Z, Rx, Rz
+
+        def gates_from_tk(g):
+            name = g.op.get_type().name
+            if name == 'Rx':
+                return Rx(g.op.get_params()[0])
+            if name == 'Rz':
+                return Rz(g.op.get_params()[0])
+            return {g.name: g for g in [SWAP, CX, H, S, T, X, Y, Z]}[name]
+        gates, offsets = [], []
+        for g in c.get_commands():
+            i0 = g.qubits[0].index[0]
+            for i, q in enumerate(g.qubits[1:]):
+                if q.index[0] == i0 + i + 1:
+                    break  # gate applies to adjacent qubit already
+                if q.index[0] < i0 + i + 1:
+                    for j in range(q.index, i0 + i):
+                        gates.append(SWAP)
+                        offsets.append(j)
+                    if q.index <= i0:
+                        i0 -= 1  # we just swapped q to the right of q0
+                else:
+                    for j in range(q.index - i0 + i - 1):
+                        gates.append(SWAP)
+                        offsets.append(q.index - j - 1)
+            gates.append(gates_from_tk(g))
+            offsets.append(i0)
+        return Circuit(c.n_qubits, c.n_qubits, gates, offsets)
 
 
 class Id(Circuit):
@@ -278,7 +340,7 @@ class Id(Circuit):
         """
         if isinstance(n, PRO):
             n = len(n)
-        Diagram.__init__(self, PRO(n), PRO(n), [], [])
+        super().__init__(n, n, [], [])
 
     def __repr__(self):
         """
@@ -295,68 +357,10 @@ class Id(Circuit):
         return repr(self)
 
 
-def Euler(a, b, c):
-    """ Returns a 1-qubit Euler decomposition with angles 2 * pi * a, b, c.
-
-    >>> from discopy.gates import X, Y, Z
-    >>> print(Euler(0.1, 0.2, 0.3))
-    Rx(0.1) >> Rz(0.2) >> Rx(0.3)
-    >>> assert np.all(np.round(Euler(0.5, 0, 0).eval().array) == X.array)
-    >>> assert np.all(np.round(Euler(0, 0.5, 0).eval().array) == Z.array)
-    >>> assert np.all(np.round(Euler(0, 0, 0.5).eval().array) == X.array)
-    >>> assert np.all(
-    ...     1j * np.round(Euler(0.5, 0.5, 0).eval().array) == Y.array)
-    """
-    from discopy.gates import Rx, Rz
-    return Rx(a) >> Rz(b) >> Rx(c)
-
-
-def random(n_qubits, depth=3, gateset=[], seed=None):
-    """ Returns a random Euler decomposition if n_qubits == 1,
-    otherwise returns a random tiling with the given depth and gateset.
-
-    >>> from discopy.gates import H, T, CX, Rz, Rx
-    >>> c = random(1, seed=420)
-    >>> print(c)  # doctest: +ELLIPSIS
-    Rx(0.026...) >> Rz(0.781...) >> Rx(0.272...)
-    >>> array = (c >> c.dagger()).eval().array
-    >>> assert np.all(np.round(array) == np.identity(2))
-    >>> print(random(2, 2, gateset=[CX, H, T], seed=420))
-    CX >> T @ Id(1) >> Id(1) @ T
-    >>> print(random(3, 2, gateset=[CX, H, T], seed=420))
-    CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-    >>> print(random(2, 1, gateset=[Rz, Rx], seed=420))
-    Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
-    """
-    from discopy.gates import Rx, Rz
-    import random
-    if seed:
-        random.seed(seed)
-    if n_qubits == 1:
-        assert depth == 3
-        return Euler(random.random(), random.random(), random.random())
-    gateset_1 = [g for g in gateset if g is Rx or g is Rz or len(g.dom) == 1]
-    U = Id(n_qubits)
-    for d in range(depth):
-        L, affected = Id(0), 0
-        while affected <= n_qubits - 2:
-            gate = random.choice(gateset)
-            if gate is Rx or gate is Rz:
-                gate = gate(random.random())
-            L = L @ gate
-            affected += len(gate.dom)
-        if n_qubits - affected == 1:
-            gate = random.choice(gateset_1)
-            if gate is Rx or gate is Rz:
-                gate = gate(random.random())
-            L = L @ gate
-        U = U >> L
-    return U
-
-
 class CircuitFunctor(MonoidalFunctor):
     """ Implements funtors from monoidal categories to circuits
 
+    >>> from discopy.moncat import Box
     >>> from discopy.gates import SWAP, Rx, CX
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
     >>> f, g, h = Box('f', x, y + z), Box('g', z, y), Box('h', y + z, x)

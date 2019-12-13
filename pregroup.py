@@ -177,7 +177,7 @@ class Diagram(moncat.Diagram):
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
     Alice >> Wire(n) @ jokes >> Cup(n, n.l) @ Wire(s)
     """
-    def __init__(self, dom, cod, boxes, offsets):
+    def __init__(self, dom, cod, boxes, offsets, fast=False):
         """
         >>> a, b = Ty('a'), Ty('b')
         >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
@@ -192,7 +192,7 @@ class Diagram(moncat.Diagram):
             raise ValueError(
                 "Codomain of type Ty expected, got {} of type {}"
                 " instead.".format(repr(cod), type(cod)))
-        super().__init__(dom, cod, boxes, offsets, fast=True)
+        super().__init__(dom, cod, boxes, offsets, fast=fast)
 
     def then(self, other):
         """
@@ -202,7 +202,7 @@ class Diagram(moncat.Diagram):
         f >> f.dagger() >> f
         """
         r = super().then(other)
-        return Diagram(Ty(*r.dom), Ty(*r.cod), r.boxes, r.offsets)
+        return Diagram(Ty(*r.dom), Ty(*r.cod), r.boxes, r.offsets, fast=True)
 
     def tensor(self, other):
         """
@@ -212,7 +212,7 @@ class Diagram(moncat.Diagram):
         f.dagger() @ Wire(a) >> Wire(a) @ f
         """
         r = super().tensor(other)
-        return Diagram(Ty(*r.dom), Ty(*r.cod), r.boxes, r.offsets)
+        return Diagram(Ty(*r.dom), Ty(*r.cod), r.boxes, r.offsets, fast=True)
 
     def dagger(self):
         """
@@ -222,7 +222,8 @@ class Diagram(moncat.Diagram):
         """
         return Diagram(
             self.cod, self.dom,
-            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1])
+            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1],
+            fast=True)
 
     def __repr__(self):
         """
@@ -256,6 +257,7 @@ class Box(moncat.Box, Diagram):
         self._dom, self._cod = dom, cod
         self._boxes, self._offsets = [self], [0]
         self._name, self._dagger, self._data = name, _dagger, data
+        moncat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         Diagram.__init__(self, dom, cod, [self], [0])
 
     def dagger(self):
@@ -267,20 +269,6 @@ class Box(moncat.Box, Diagram):
         return Box(self.name, self.cod, self.dom,
                    _dagger=not self._dagger, data=self.data)
 
-    def __repr__(self):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> Box('f', a, b.l @ b)
-        Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
-        >>> Box('f', a, b.l @ b).dagger()
-        Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b')).dagger()
-        """
-        if self._dagger:
-            return repr(self.dagger()) + ".dagger()"
-        return "Box({}, {}, {}{})".format(
-            *map(repr, [self.name, self.dom, self.cod]),
-            ", data=" + repr(self.data) if self.data else '')
-
     def __hash__(self):
         """
         >>> a, b = Ty('a'), Ty('b')
@@ -289,18 +277,6 @@ class Box(moncat.Box, Diagram):
         42
         """
         return hash(repr(self))
-
-    def __eq__(self, other):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f = Box('f', a, b.l @ b)
-        >>> assert f == Diagram(a, b.l @ b, [f], [0])
-        """
-        if isinstance(other, Box):
-            return repr(self) == repr(other)
-        elif isinstance(other, Diagram):
-            return len(other) == 1 and other.boxes[0] == self
-        return False
 
 
 class AxiomError(moncat.AxiomError):
@@ -318,7 +294,6 @@ class AxiomError(moncat.AxiomError):
     ...
     pregroup.AxiomError: n and n.l.l are not adjoints.
     """
-    pass
 
 
 class Wire(Diagram):
@@ -337,8 +312,8 @@ class Wire(Diagram):
         ValueError: Input of type Ty expected, got 'n' instead.
         """
         if not isinstance(t, Ty):
-            raise ValueError("Input of type Ty expected, got {} instead."
-                             .format(repr(t), type(t)))
+            raise ValueError(
+                "Input of type Ty expected, got {} instead.".format(repr(t)))
         super().__init__(t, t, [], [])
 
     def __repr__(self):

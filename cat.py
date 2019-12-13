@@ -306,7 +306,7 @@ class Gen(Arrow):
         """
         self._name, self._dom, self._cod = name, dom, cod
         self._gens, self._dagger, self._data = [self], _dagger, data
-        super().__init__(dom, cod, [self])
+        Arrow.__init__(self, dom, cod, [self])
 
     @property
     def name(self):

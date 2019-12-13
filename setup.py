@@ -1,3 +1,7 @@
+"""
+Setup discopy package.
+"""
+
 from setuptools import setup
 from config import VERSION
 
