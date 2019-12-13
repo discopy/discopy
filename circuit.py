@@ -87,13 +87,13 @@ class Circuit(Diagram):
     >>> circuit = CX >> CX >> CX >> CX >> CX >> CX
     >>> assert np.all(circuit.eval() == Id(2).eval())
     """
-    def __init__(self, dom, cod, gates, offsets):
+    def __init__(self, dom, cod, gates, offsets, fast=False):
         """
         >>> from discopy.gates import CX
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
         """
         self._gates = gates
-        super().__init__(PRO(dom), PRO(cod), gates, offsets)
+        super().__init__(PRO(dom), PRO(cod), gates, offsets, fast=fast)
 
     @property
     def gates(self):
@@ -120,7 +120,7 @@ class Circuit(Diagram):
         SWAP >> CX
         """
         r = super().then(other)
-        return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+        return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets, fast=True)
 
     def tensor(self, other):
         """
@@ -129,7 +129,7 @@ class Circuit(Diagram):
         CX @ Id(1) >> Id(2) @ H
         """
         r = super().tensor(other)
-        return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+        return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets, fast=True)
 
     def dagger(self):
         """
@@ -138,7 +138,7 @@ class Circuit(Diagram):
         SWAP.dagger() >> CX.dagger()
         """
         r = super().dagger()
-        return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+        return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets, fast=True)
 
     @staticmethod
     def id(n):
@@ -340,7 +340,7 @@ class Id(Circuit):
         """
         if isinstance(n, PRO):
             n = len(n)
-        super().__init__(n, n, [], [])
+        super().__init__(n, n, [], [], fast=True)
 
     def __repr__(self):
         """
@@ -397,5 +397,6 @@ class CircuitFunctor(MonoidalFunctor):
         if isinstance(d, Ty):
             return PRO(len(r))
         if isinstance(d, Diagram):
-            return Circuit(len(r.dom), len(r.cod), r.boxes, r.offsets)
+            return Circuit(
+                len(r.dom), len(r.cod), r.boxes, r.offsets, fast=True)
         return r

@@ -314,7 +314,7 @@ class Wire(Diagram):
         if not isinstance(t, Ty):
             raise ValueError(
                 "Input of type Ty expected, got {} instead.".format(repr(t)))
-        super().__init__(t, t, [], [])
+        super().__init__(t, t, [], [], fast=True)
 
     def __repr__(self):
         """

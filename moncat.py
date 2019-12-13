@@ -419,7 +419,7 @@ class Id(Diagram):
         """
         >>> assert Id(Ty('x')) == Diagram.id(Ty('x'))
         """
-        super().__init__(x, x, [], [])
+        super().__init__(x, x, [], [], fast=True)
 
     def __repr__(self):
         """

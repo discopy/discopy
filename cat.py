@@ -250,7 +250,7 @@ class Id(Arrow):
         >>> assert idx >> idx == idx
         >>> assert idx.dagger() == idx
         """
-        super().__init__(x, x, [])
+        super().__init__(x, x, [], fast=True)
 
     def __repr__(self):
         """
@@ -306,7 +306,7 @@ class Gen(Arrow):
         """
         self._name, self._dom, self._cod = name, dom, cod
         self._gens, self._dagger, self._data = [self], _dagger, data
-        Arrow.__init__(self, dom, cod, [self])
+        Arrow.__init__(self, dom, cod, [self], fast=True)
 
     @property
     def name(self):

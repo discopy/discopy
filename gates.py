@@ -33,7 +33,7 @@ class Gate(Box, Circuit):
             self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
         Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits),
                      data=data, _dagger=_dagger)
-        Circuit.__init__(self, n_qubits, n_qubits, [self], [0])
+        Circuit.__init__(self, n_qubits, n_qubits, [self], [0], fast=True)
 
     @property
     def array(self):
@@ -92,7 +92,7 @@ class Ket(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Ket({})'.format(', '.join(map(str, bitstring))),
                      PRO(0), PRO(len(bitstring)))
-        Circuit.__init__(self, 0, len(bitstring), [self], [0])
+        Circuit.__init__(self, 0, len(bitstring), [self], [0], fast=True)
 
     def __repr__(self):
         """
@@ -137,7 +137,7 @@ class Bra(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Bra({})'.format(', '.join(map(str, bitstring))),
                      PRO(len(bitstring)), PRO(0))
-        Circuit.__init__(self, len(bitstring), 0, [self], [0])
+        Circuit.__init__(self, len(bitstring), 0, [self], [0], fast=True)
 
     def __repr__(self):
         """

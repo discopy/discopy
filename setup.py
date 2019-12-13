@@ -14,6 +14,6 @@ setup(name='discopy',
       author='Alexis Toumi',
       author_email='alexis.toumi@cs.ox.ac.uk',
       download_url='https://github.com/oxford-quantum-group/discopy/archive/'
-                   '0.1.1.tar.gz',
+                   '0.1.2.tar.gz',
       install_requires=['numpy', 'pytket', 'jax', 'jaxlib'],
       )
