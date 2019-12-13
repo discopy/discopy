@@ -13,9 +13,8 @@ Gate('X', 1, [0, 1, 1, 0])
 """
 
 from discopy.moncat import Box
-from discopy.matrix import Dim, Matrix
+from discopy.matrix import np, Dim, Matrix
 from discopy.circuit import PRO, Circuit
-from discopy.config import np
 
 
 class Gate(Box, Circuit):

@@ -13,9 +13,17 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import cat
+from discopy import cat, config
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-from discopy.config import np
+
+
+if config.JAX:
+    import warnings
+    for msg in config.IGNORE:
+        warnings.filterwarnings("ignore", message=msg)
+    import jax.numpy as np
+else:
+    import numpy as np
 
 
 class Dim(Ty):

@@ -19,8 +19,7 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 import random
 from discopy.cat import Quiver
 from discopy.moncat import Ty, Diagram, MonoidalFunctor
-from discopy.matrix import Matrix, MatrixFunctor
-from discopy.config import np
+from discopy.matrix import np, Matrix, MatrixFunctor
 
 
 class PRO(Ty):
