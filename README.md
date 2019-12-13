@@ -62,18 +62,18 @@ python setup.py install
 For now all of it is in the code. You can use `help` if needed:
 
 ```python
->>> help(discopy.cat.Arrow)
+>>> help(discopy.Ty)
 
-Help on class Arrow in module discopy.cat:
+Help on class Ty in module discopy.pregroup:
 
-class Arrow(builtins.list)
- |  Arrow(dom, cod, gens)
+class Ty(discopy.moncat.Ty)
+ |  Ty(*t)
  |
- |  Defines an arrow with domain, codomain and a list of generators.
+ |  Implements pregroup types as lists of simple types.
  |
- |  >>> x, y, z, w = Ob('x'), Ob('y'), Ob('z'), Ob('w')
- |  >>> f, g, h = Gen('f', x, y), Gen('g', y, z), Gen('h', z, w)
- |  >>> assert f >> g >> h == Arrow(x, w, [f, g, h])
+ |  >>> s, n = Ty('s'), Ty('n')
+ |  >>> assert n.l.r == n == n.r.l
+ |  >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
 ```
 
 You can also checkout the [notebooks](notebooks/) for a demo!
