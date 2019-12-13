@@ -258,7 +258,7 @@ class Box(moncat.Box, Diagram):
         self._boxes, self._offsets = [self], [0]
         self._name, self._dagger, self._data = name, _dagger, data
         moncat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0])
+        Diagram.__init__(self, dom, cod, [self], [0], fast=True)
 
     def dagger(self):
         """
@@ -363,7 +363,7 @@ class Cup(Box):
             raise ValueError(err.format(repr(y)))
         if x[0].name != y[0].name or not x[0].z - y[0].z in [-1, +1]:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
-        Box.__init__(self, 'Cup', x @ y, Ty())
+        super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):
         """
@@ -422,7 +422,7 @@ class Cap(Box):
             raise ValueError(err.format(repr(y)))
         if not x[0].z - y[0].z in [-1, +1]:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
-        Box.__init__(self, 'Cap', Ty(), x @ y)
+        super().__init__('Cap', Ty(), x @ y)
 
     def dagger(self):
         """

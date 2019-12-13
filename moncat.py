@@ -460,7 +460,7 @@ class Box(Gen, Diagram):
         ('f', Ty('x', 'y'), Ty('z'), 42)
         """
         Gen.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0])
+        Diagram.__init__(self, dom, cod, [self], [0], fast=True)
 
     def dagger(self):
         """
