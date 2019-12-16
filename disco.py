@@ -176,20 +176,22 @@ class CircuitModel(CircuitFunctor):
         ...
         ValueError: Expected input of type Ty or Diagram, got 'x'...
         """
-        unnormalised_H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
+        unnormalised_had = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
         if isinstance(diagram, Ty):
             return sum([self.ob[Ty(b.name)] for b in diagram], PRO(0))
         if isinstance(diagram, Cup):
-            result, n = Id(self(diagram.dom)), len(self(diagram.dom)) // 2
-            cup = CX >> unnormalised_H @ Id(1) >> Bra(0, 0)
-            for i in range(n):
-                result = result >> Id(n - i - 1) @ cup @ Id(n - i - 1)
+            result, n_cups = Id(self(diagram.dom)), len(self(diagram.dom)) // 2
+            cup = CX >> unnormalised_had @ Id(1) >> Bra(0, 0)
+            for i in range(n_cups):
+                result = result\
+                    >> Id(n_cups - i - 1) @ cup @ Id(n_cups - i - 1)
             return result
         if isinstance(diagram, Cap):
-            result, n = Id(self(diagram.cod)), len(self(diagram.cod)) // 2
-            cap = CX << unnormalised_H @ Id(1) << Ket(0, 0)
-            for i in range(n):
-                result = result << Id(n - i - 1) @ cap @ Id(n - i - 1)
+            result, n_caps = Id(self(diagram.cod)), len(self(diagram.cod)) // 2
+            cap = CX << unnormalised_had @ Id(1) << Ket(0, 0)
+            for i in range(n_caps):
+                result = result\
+                    << Id(n_caps - i - 1) @ cap @ Id(n_caps - i - 1)
             return result
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
@@ -211,22 +213,22 @@ def eager_parse(*words, target=Ty('s')):
     [0, 1, 5, 8, 0, 2, 1, 1]
     """
     result = fold(lambda x, y: x @ y, words)
-    t = result.cod
+    scan = result.cod
     while True:
-        b = True
-        for i in range(len(t) - 1):
+        fail = True
+        for i in range(len(scan) - 1):
             try:
-                if t[i: i + 1].r != t[i + 1: i + 2]:
+                if scan[i: i + 1].r != scan[i + 1: i + 2]:
                     raise AxiomError
-                cup = Cup(t[i: i + 1], t[i + 1: i + 2])
-                result = result >> Wire(t[: i]) @ cup @ Wire(t[i + 2:])
-                t, b = result.cod, False
+                cup = Cup(scan[i: i + 1], scan[i + 1: i + 2])
+                result = result >> Wire(scan[: i]) @ cup @ Wire(scan[i + 2:])
+                scan, fail = result.cod, False
                 break
             except AxiomError:
                 pass
         if result.cod == target:
             return result
-        if b:
+        if fail:
             raise FAIL
 
 
@@ -268,9 +270,9 @@ def brute_force(*vocab, target=Ty('s')):
     """
     test = [()]
     for words in test:
-        for w in vocab:
+        for word in vocab:
             try:
-                yield eager_parse(*(words + (w, )), target=target)
+                yield eager_parse(*(words + (word, )), target=target)
             except FAIL:
                 pass
-            test.append(words + (w, ))
+            test.append(words + (word, ))

@@ -201,8 +201,9 @@ class Diagram(moncat.Diagram):
         >>> print(f >> f.dagger() >> f)
         f >> f.dagger() >> f
         """
-        r = super().then(other)
-        return Diagram(Ty(*r.dom), Ty(*r.cod), r.boxes, r.offsets, fast=True)
+        result = super().then(other)
+        return Diagram(Ty(*result.dom), Ty(*result.cod),
+                       result.boxes, result.offsets, fast=True)
 
     def tensor(self, other):
         """
@@ -211,8 +212,9 @@ class Diagram(moncat.Diagram):
         >>> print(f.dagger() @ f)
         f.dagger() @ Wire(a) >> Wire(a) @ f
         """
-        r = super().tensor(other)
-        return Diagram(Ty(*r.dom), Ty(*r.cod), r.boxes, r.offsets, fast=True)
+        result = super().tensor(other)
+        return Diagram(Ty(*result.dom), Ty(*result.cod),
+                       result.boxes, result.offsets, fast=True)
 
     def dagger(self):
         """

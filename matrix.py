@@ -310,7 +310,7 @@ class MatrixFunctor(MonoidalFunctor):
         """
         return super().__repr__().replace("MonoidalFunctor", "MatrixFunctor")
 
-    def __call__(self, d):
+    def __call__(self, diagram):
         """
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x @ x, y), Box('g', y, Ty())
@@ -328,26 +328,35 @@ class MatrixFunctor(MonoidalFunctor):
         >>> list(F(g.dagger() >> g).array.flatten())
         [5]
         """
-        if isinstance(d, Ty):
-            return sum([self.ob[Ty(x)] for x in d], Dim(1))
-        if isinstance(d, Box):
-            if d._dagger:
+        if isinstance(diagram, Ty):
+            return sum([self.ob[Ty(x)] for x in diagram], Dim(1))
+        if isinstance(diagram, Box):
+            if diagram._dagger:
                 return Matrix(
-                    self(d.cod), self(d.dom), self.ar[d.dagger()]).dagger()
-            return Matrix(self(d.dom), self(d.cod), self.ar[d])
-        if not isinstance(d, Diagram):
-            raise ValueError("Input of type Ty or Diagram expected, got {} "
-                             "of type {} instead.".format(repr(d), type(d)))
-        scan, array, dim = d.dom, Id(self(d.dom)).array, lambda t: len(self(t))
-        for f, offset in zip(d.boxes, d.offsets):
-            n = dim(scan[:offset])
-            source = list(range(dim(d.dom) + n, dim(d.dom) + n + dim(f.dom)))
-            target = list(range(dim(f.dom)))
-            array = np.tensordot(array, self(f).array, (source, target))\
-                if array.shape and self(f).array.shape\
-                else array * self(f).array
-            source = range(len(array.shape) - dim(f.cod), len(array.shape))
-            target = range(dim(d.dom) + n, dim(d.dom) + n + dim(f.cod))
+                    self(diagram.cod), self(diagram.dom),
+                    self.ar[diagram.dagger()]).dagger()
+            return Matrix(
+                self(diagram.dom), self(diagram.cod), self.ar[diagram])
+        if not isinstance(diagram, Diagram):
+            raise ValueError(
+                "Input of type Ty or Diagram expected, got {} of type {} "
+                "instead.".format(repr(diagram), type(diagram)))
+
+        def dim(scan):
+            return len(self(scan))
+        scan, array = diagram.dom, Id(self(diagram.dom)).array
+        for box, off in zip(diagram.boxes, diagram.offsets):
+            left = dim(scan[:off])
+            if array.shape and self(box).array.shape:
+                source = list(range(dim(diagram.dom) + left,
+                                    dim(diagram.dom) + left + dim(box.dom)))
+                target = list(range(dim(box.dom)))
+                array = np.tensordot(array, self(box).array, (source, target))
+            else:
+                array = array * self(box).array
+            source = range(len(array.shape) - dim(box.cod), len(array.shape))
+            target = range(dim(diagram.dom) + left,
+                           dim(diagram.dom) + left + dim(box.cod))
             array = np.moveaxis(array, list(source), list(target))
-            scan = scan[:offset] + f.cod + scan[offset + len(f.dom):]
-        return Matrix(self(d.dom), self(d.cod), array)
+            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+        return Matrix(self(diagram.dom), self(diagram.cod), array)

@@ -427,7 +427,7 @@ class Functor:
         """
         return "Functor(ob={}, ar={})".format(repr(self.ob), repr(self.ar))
 
-    def __call__(self, f):
+    def __call__(self, arrow):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Gen('f', x, y), Gen('g', y, z)
@@ -447,16 +447,17 @@ class Functor:
         >>> print(F(f >> g))
         f.dagger() >> f >> g
         """
-        if isinstance(f, Ob):
-            return self.ob[f]
-        if isinstance(f, Gen):
-            if f._dagger:
-                return self.ar[f.dagger()].dagger()
-            return self.ar[f]
-        if isinstance(f, Arrow):
-            return fold(lambda g, h: g >> self(h), f.gens, Id(self(f.dom)))
+        if isinstance(arrow, Ob):
+            return self.ob[arrow]
+        if isinstance(arrow, Gen):
+            if arrow._dagger:
+                return self.ar[arrow.dagger()].dagger()
+            return self.ar[arrow]
+        if isinstance(arrow, Arrow):
+            return fold(lambda g, h: g >> self(h),
+                        arrow.gens, Id(self(arrow.dom)))
         raise ValueError("Expected Ob, Gen or Arrow, got {} instead."
-                         .format(repr(f)))
+                         .format(repr(arrow)))
 
 
 class Quiver:

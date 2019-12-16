@@ -198,15 +198,18 @@ class Circuit(Diagram):
         [SWAP q[0], q[1];, Rx(0.25PI) q[1];, CX q[1], q[2];]
         """
         import pytket as tk
-        c = tk.Circuit(len(self.dom))
-        for g, n in zip(self.gates, self.offsets):
-            if isinstance(g, Rx):
-                c.Rx(g.data['phase'], *(n + i for i in range(len(g.dom))))
-            elif isinstance(g, Rz):
-                c.Rz(g.data['phase'], *(n + i for i in range(len(g.dom))))
+        tk_circuit = tk.Circuit(len(self.dom))
+        for gate, n in zip(self.gates, self.offsets):
+            if isinstance(gate, Rx):
+                tk_circuit.Rx(
+                    gate.phase, *(n + i for i in range(len(gate.dom))))
+            elif isinstance(gate, Rz):
+                tk_circuit.Rz(
+                    gate.phase, *(n + i for i in range(len(gate.dom))))
             else:
-                c.__getattribute__(g.name)(*(n + i for i in range(len(g.dom))))
-        return c
+                tk_circuit.__getattribute__(gate.name)(
+                    *(n + i for i in range(len(gate.dom))))
+        return tk_circuit
 
     @staticmethod
     def random(n_qubits, depth=3, gateset=None, seed=None):
@@ -228,8 +231,9 @@ class Circuit(Diagram):
         if seed is not None:
             random.seed(seed)
         if n_qubits == 1:
-            a, b, c = random.random(), random.random(), random.random()
-            return Rx(a) >> Rz(b) >> Rx(c)
+            return Rx(random.random())\
+                >> Rz(random.random())\
+                >> Rx(random.random())
 
         def is_one_qubit(gate):
             return gate is Rx or gate is Rz or len(gate.dom) == 1
@@ -273,7 +277,7 @@ class Circuit(Diagram):
                 if qubit.index[0] == i_0 + i + 1:
                     break  # gate applies to adjacent qubit already
                 if qubit.index[0] < i_0 + i + 1:
-                    for j in range(q.index, i_0 + i):
+                    for j in range(qubit.index, i_0 + i):
                         gates.append(SWAP)
                         offsets.append(j)
                     if qubit.index <= i_0:
@@ -294,13 +298,13 @@ class Id(Circuit):
     >>> c = CX @ H >> T @ SWAP
     >>> assert Id(3) >> c == c == c >> Id(3)
     """
-    def __init__(self, n):
+    def __init__(self, n_qubits):
         """
         >>> assert Circuit.id(42) == Id(42) == Circuit(42, 42, [], [])
         """
-        if isinstance(n, PRO):
-            n = len(n)
-        super().__init__(n, n, [], [], fast=True)
+        if isinstance(n_qubits, PRO):
+            n_qubits = len(n_qubits)
+        super().__init__(n_qubits, n_qubits, [], [], fast=True)
 
     def __repr__(self):
         """
@@ -353,19 +357,6 @@ class Gate(Box, Circuit):
             repr(self.name), len(self.dom), list(self.array.flatten()),
             ', data=' + repr(self.data) if self.data else '')
 
-    def __str__(self):
-        """
-        >>> print(CX)
-        CX
-        >>> print(Rx(0.25))
-        Rx(0.25)
-        """
-        if self._dagger:
-            return str(self.dagger()) + '.dagger()'
-        if self.name in ['Rx', 'Rz']:
-            return "{}({})".format(self.name, self.data['phase'])
-        return self.name
-
     def dagger(self):
         """
         >>> print(CX.dagger())
@@ -415,10 +406,10 @@ class Ket(Box, Circuit):
         >>> Ket(0, 1).eval()
         Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0, 1, 0, 0])
         """
-        m = Matrix(Dim(1), Dim(1), [1])
-        for b in self.bitstring:
-            m = m @ Matrix(Dim(1), Dim(2), [0, 1] if b else [1, 0])
-        return m.array
+        matrix = Matrix(Dim(1), Dim(1), [1])
+        for bit in self.bitstring:
+            matrix = matrix @ Matrix(Dim(2), Dim(1), [0, 1] if bit else [1, 0])
+        return matrix.array
 
 
 class Bra(Box, Circuit):
@@ -460,10 +451,7 @@ class Bra(Box, Circuit):
         >>> Bra(0, 1).eval()
         Matrix(dom=Dim(2, 2), cod=Dim(1), array=[0, 1, 0, 0])
         """
-        m = Matrix(Dim(1), Dim(1), [1])
-        for b in self.bitstring:
-            m = m @ Matrix(Dim(2), Dim(1), [0, 1] if b else [1, 0])
-        return m.array
+        return Ket(*self.bitstring).array
 
 
 class Rz(Gate):
@@ -475,20 +463,26 @@ class Rz(Gate):
     """
     def __init__(self, phase):
         """
-        >>> g = Rz(0.25)
-        >>> assert g == Rz(0.25)
-        >>> g.data['phase'] = 0
-        >>> g
-        Rz(0)
+        >>> Rz(0.25)
+        Rz(0.25)
         """
-        super().__init__('Rz', 1, data={'phase': phase})
+        self._phase = phase
+        super().__init__('Rz', 1)
+
+    @property
+    def phase(self):
+        """
+        >>> Rz(0.25).phase
+        0.25
+        """
+        return self._phase
 
     @property
     def name(self):
         """
         >>> assert str(Rz(0.125)) == repr(Rz(0.125)) == Rz(0.125).name
         """
-        return 'Rz({})'.format(self.data['phase'])
+        return 'Rz({})'.format(self.phase)
 
     def __repr__(self):
         """
@@ -500,7 +494,7 @@ class Rz(Gate):
         """
         >>> assert Rz(0.125).dagger().eval() == Rz(0.125).eval().dagger()
         """
-        return Rz(-self.data['phase'])
+        return Rz(-self.phase)
 
     @property
     def array(self):
@@ -509,7 +503,7 @@ class Rz(Gate):
         >>> assert np.allclose(Rz(0).array, np.identity(2))
         >>> assert np.allclose(Rz(1).array, np.identity(2))
         """
-        theta = 2 * np.pi * self.data['phase']
+        theta = 2 * np.pi * self.phase
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
@@ -520,20 +514,26 @@ class Rx(Gate):
     """
     def __init__(self, phase):
         """
-        >>> g = Rx(0.25)
-        >>> assert g == Rx(0.25)
-        >>> g.data['phase'] = 0
-        >>> g
-        Rx(0)
+        >>> Rx(0.25)
+        Rx(0.25)
         """
-        super().__init__('Rx', 1, data={'phase': phase})
+        self._phase = phase
+        super().__init__('Rx', 1)
+
+    @property
+    def phase(self):
+        """
+        >>> Rx(0.25).phase
+        0.25
+        """
+        return self._phase
 
     @property
     def name(self):
         """
         >>> assert str(Rx(0.125)) == Rx(0.125).name
         """
-        return 'Rx({})'.format(self.data['phase'])
+        return 'Rx({})'.format(self.phase)
 
     def __repr__(self):
         """
@@ -545,7 +545,7 @@ class Rx(Gate):
         """
         >>> assert Rx(0.125).dagger().eval() == Rx(0.125).eval().dagger()
         """
-        return Rx(-self.data['phase'])
+        return Rx(-self.phase)
 
     @property
     def array(self):
@@ -556,7 +556,7 @@ class Rx(Gate):
         >>> assert np.allclose(np.round(Rx(1).array), np.identity(2))
         >>> assert np.allclose(np.round(Rx(2).array), np.identity(2))
         """
-        half_theta = np.pi * self.data['phase']
+        half_theta = np.pi * self.phase
         global_phase = np.exp(1j * half_theta)
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
@@ -590,19 +590,20 @@ class CircuitFunctor(MonoidalFunctor):
         return "CircuitFunctor(ob={}, ar={})".format(
             repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
 
-    def __call__(self, d):
+    def __call__(self, diagram):
         """
         >>> x = Ty('x')
         >>> F = CircuitFunctor({x: 1}, {})
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
-        r = super().__call__(d)
-        if isinstance(d, Ty):
-            return PRO(len(r))
-        if isinstance(d, Diagram):
+        result = super().__call__(diagram)
+        if isinstance(diagram, Ty):
+            return PRO(len(result))
+        if isinstance(diagram, Diagram):
             return Circuit(
-                len(r.dom), len(r.cod), r.boxes, r.offsets, fast=True)
-        return r
+                len(result.dom), len(result.cod),
+                result.boxes, result.offsets, fast=True)
+        return result
 
 
 def sqrt(x):
