@@ -4,7 +4,7 @@
 If fast, checking axioms is disabled (approximately twice faster).
 """
 
-VERSION = '0.1.2b'
+VERSION = '0.1.3'
 
 JAX = True
 
