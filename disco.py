@@ -18,8 +18,7 @@ from functools import reduce as fold
 from discopy.pregroup import (
     Ob, Ty, Diagram, Box, Wire, Cup, Cap, AxiomError)
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import PRO, Id, CircuitFunctor
-from discopy.gates import Gate, Bra, Ket, CX
+from discopy.circuit import PRO, Id, Gate, Bra, Ket, CX, CircuitFunctor
 
 
 class Word(Box):
@@ -119,7 +118,7 @@ class Model(MatrixFunctor):
         """
         return super().__repr__().replace("MatrixFunctor", "Model")
 
-    def __call__(self, d):
+    def __call__(self, diagram):
         """
         >>> n, s = Ty('n'), Ty('s')
         >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
@@ -137,25 +136,24 @@ class Model(MatrixFunctor):
         >>> F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
         Matrix(dom=Dim(1), cod=Dim(1), array=[1.0])
         """
-        if isinstance(d, Ty):
-            return sum([self.ob[Ty(x.name)] for x in d], Dim(1))
-        if isinstance(d, Cup):
-            return Matrix(self(d.dom), Dim(), Matrix.id(self(d.dom[:1])).array)
-        if isinstance(d, Cap):
-            return Matrix(Dim(), self(d.cod), Matrix.id(self(d.cod[:1])).array)
-        if isinstance(d, Box):
-            if d._dagger:
-                return self(d.dagger()).dagger()
-            return Matrix(self(d.dom), self(d.cod), self.ar[d])
-        if isinstance(d, Diagram):
-            return super().__call__(d)
-        raise ValueError("Expected input of type Ty or Diagram, got"
-                         " {} of type {} instead".format(repr(d), type(d)))
+        if isinstance(diagram, Ty):
+            return sum([self.ob[Ty(x.name)] for x in diagram], Dim(1))
+        if isinstance(diagram, Cup):
+            return Matrix(self(diagram.dom), Dim(),
+                          Matrix.id(self(diagram.dom[:1])).array)
+        if isinstance(diagram, Cap):
+            return Matrix(Dim(), self(diagram.cod),
+                          Matrix.id(self(diagram.cod[:1])).array)
+        if isinstance(diagram, Diagram):
+            return super().__call__(diagram)
+        raise ValueError(
+            "Expected input of type Ty or Diagram, got {} of type {} instead"
+            .format(repr(diagram), type(diagram)))
 
 
 class CircuitModel(CircuitFunctor):
     """
-    >>> from discopy.gates import sqrt, H, X
+    >>> from discopy.circuit import sqrt, H, X
     >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
@@ -170,7 +168,7 @@ class CircuitModel(CircuitFunctor):
     >>> BornRule = lambda c: abs(c.eval().array) ** 2
     >>> assert BornRule(F(sentence))
     """
-    def __call__(self, x):
+    def __call__(self, diagram):
         """
         >>> F = CircuitModel({}, {})
         >>> F('x')  # doctest: +ELLIPSIS
@@ -178,29 +176,26 @@ class CircuitModel(CircuitFunctor):
         ...
         ValueError: Expected input of type Ty or Diagram, got 'x'...
         """
-        H_sqrt2 = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
-        if isinstance(x, Ty):
-            return sum([self.ob[Ty(b.name)] for b in x], PRO(0))
-        if isinstance(x, Cup):
-            result, n = Id(self(x.dom)), len(self(x.dom)) // 2
-            cup = CX >> H_sqrt2 @ Id(1) >> Bra(0, 0)
+        unnormalised_H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
+        if isinstance(diagram, Ty):
+            return sum([self.ob[Ty(b.name)] for b in diagram], PRO(0))
+        if isinstance(diagram, Cup):
+            result, n = Id(self(diagram.dom)), len(self(diagram.dom)) // 2
+            cup = CX >> unnormalised_H @ Id(1) >> Bra(0, 0)
             for i in range(n):
                 result = result >> Id(n - i - 1) @ cup @ Id(n - i - 1)
             return result
-        if isinstance(x, Cap):
-            result, n = Id(self(x.cod)), len(self(x.cod)) // 2
-            cap = CX << H_sqrt2 @ Id(1) << Ket(0, 0)
+        if isinstance(diagram, Cap):
+            result, n = Id(self(diagram.cod)), len(self(diagram.cod)) // 2
+            cap = CX << unnormalised_H @ Id(1) << Ket(0, 0)
             for i in range(n):
                 result = result << Id(n - i - 1) @ cap @ Id(n - i - 1)
             return result
-        if isinstance(x, Box):
-            if x._dagger:
-                return self(x.dagger()).dagger()
-            return self.ar[x]
-        if isinstance(x, Diagram):
-            return super().__call__(x)
-        raise ValueError("Expected input of type Ty or Diagram, got"
-                         " {} of type {} instead.".format(repr(x), type(x)))
+        if isinstance(diagram, Diagram):
+            return super().__call__(diagram)
+        raise ValueError(
+            "Expected input of type Ty or Diagram, got {} of type {} instead."
+            .format(repr(diagram), type(diagram)))
 
 
 def eager_parse(*words, target=Ty('s')):

@@ -176,20 +176,20 @@ class Diagram(Arrow):
             raise ValueError("Boxes and offsets must have the same length.")
         if not fast:
             scan = dom
-            for f, n in zip(boxes, offsets):
-                if not isinstance(f, Diagram):
+            for box, off in zip(boxes, offsets):
+                if not isinstance(box, Diagram):
                     raise ValueError(
                         "Box of type Diagram expected, got {} of type {} "
-                        "instead.".format(repr(f), type(f)))
-                if not isinstance(n, int):
+                        "instead.".format(repr(box), type(box)))
+                if not isinstance(off, int):
                     raise ValueError(
                         "Offset of type int expected, got {} of type {} "
-                        "instead.".format(repr(n), type(n)))
-                if scan[n: n + len(f.dom)] != f.dom:
+                        "instead.".format(repr(off), type(off)))
+                if scan[off: off + len(box.dom)] != box.dom:
                     raise AxiomError(
                         "Domain {} expected, got {} instead."
-                        .format(scan[n: n + len(f.dom)], f.dom))
-                scan = scan[: n] + f.cod + scan[n + len(f.dom):]
+                        .format(scan[off: off + len(box.dom)], box.dom))
+                scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             if scan != cod:
                 raise AxiomError(
                     "Codomain {} expected, got {} instead.".format(cod, scan))
@@ -417,11 +417,11 @@ class Diagram(Arrow):
         return diagram
 
 
-def SPIRAL(n):
+def _spiral(n_cups):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
 
-    >>> spiral = SPIRAL(3)
+    >>> spiral = _spiral(3)
     >>> unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
     >>> assert spiral.boxes[0] == unit and spiral.boxes[3 + 1] == counit
     >>> spiral_nf = spiral.normal_form()
@@ -431,11 +431,12 @@ def SPIRAL(n):
     unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
     cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
     result = unit
-    for i in range(n):
+    for i in range(n_cups):
         result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n) @ counit @ Id(x ** n)
-    for i in range(n):
-        result = result >> Id(x ** (n - i - 1)) @ cup @ Id(x ** (n - i - 1))
+    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
     return result
 
 
@@ -562,7 +563,10 @@ class Box(Gen, Diagram):
 
 
 class MonoidalFunctor(Functor):
-    """ Implements a monoidal functor given its image on objects and arrows.
+    """
+    Implements a monoidal functor given its image on objects and arrows.
+    One may define monoidal functors into custom categories by overriding
+    the defaults ob_cls=Ty and ar_cls=Diagram.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
@@ -592,7 +596,7 @@ class MonoidalFunctor(Functor):
         """
         return "MonoidalFunctor(ob={}, ar={})".format(self.ob, self.ar)
 
-    def __call__(self, d):
+    def __call__(self, diagram):
         """
         >>> x, y = Ty('x'), Ty('y')
         >>> f = Box('f', x, y)
@@ -608,17 +612,20 @@ class MonoidalFunctor(Functor):
         >>> print(F(f @ f.dagger()))
         f.dagger() @ Id(x) >> Id(x) @ f
         """
-        if isinstance(d, Ty):
-            return sum([self.ob[self.ob_cls(x)] for x in d], self.ob_cls())
-        if isinstance(d, Box):
-            return self.ar[d.dagger()].dagger() if d._dagger else self.ar[d]
-        if isinstance(d, Diagram):
-            scan, result = d.dom, Id(self(d.dom))
-            for f, n in zip(d.boxes, d.offsets):
-                id_l = self.ar_cls.id(self(scan[:n]))
-                id_r = self.ar_cls.id(self(scan[n + len(f.dom):]))
-                result = result >> id_l @ self(f) @ id_r
-                scan = scan[:n] + f.cod + scan[n + len(f.dom):]
+        if isinstance(diagram, Ty):
+            return sum([self.ob[self.ob_cls(x)] for x in diagram],
+                       self.ob_cls())  # the empty type is the unit for sum.
+        if isinstance(diagram, Box):
+            if diagram._dagger:
+                return self.ar[diagram.dagger()].dagger()
+            return self.ar[diagram]
+        if isinstance(diagram, Diagram):
+            scan, result = diagram.dom, Id(self(diagram.dom))
+            for box, off in zip(diagram.boxes, diagram.offsets):
+                id_l = self.ar_cls.id(self(scan[:off]))
+                id_r = self.ar_cls.id(self(scan[off + len(box.dom):]))
+                result = result >> id_l @ self(box) @ id_r
+                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
         raise ValueError("Diagram expected, got {} of type {} "
-                         "instead.".format(repr(d), type(d)))
+                         "instead.".format(repr(diagram), type(diagram)))

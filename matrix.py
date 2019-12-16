@@ -223,11 +223,11 @@ class Matrix(Box):
         return Matrix(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
-    def id(dim):
+    def id(x):
         """
         >>> assert Id(2) == Matrix(Dim(2), Dim(2), [1, 0, 0, 1])
         """
-        return Id(dim)
+        return Id(x)
 
 
 class AxiomError(cat.AxiomError):

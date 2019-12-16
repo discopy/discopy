@@ -234,11 +234,11 @@ class Diagram(moncat.Diagram):
             *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
 
     @staticmethod
-    def id(t):
+    def id(x):
         """
         >>> assert Diagram.id(Ty('s')) == Wire(Ty('s'))
         """
-        return Wire(t)
+        return Wire(x)
 
 
 class Box(moncat.Box, Diagram):
