@@ -348,6 +348,10 @@ class Diagram(Arrow):
         >>> print((d >> d.dagger()).interchange(0, 2))
         Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
         """
+        if i < 0:
+            return self.interchange(len(self) + i, j)
+        if j < 0:
+            return self.interchange(i, len(self) + j)
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError("Expected indices in range({}), got {} instead."
                              .format(len(self), (i, j)))
@@ -362,10 +366,10 @@ class Diagram(Arrow):
             return result
         box0, box1 = self.boxes[i], self.boxes[j]
         off0, off1 = self.offsets[i], self.offsets[j]
-        if off1 >= off0 + len(box0.cod):  # box0 left of box1
-            off1 = off1 - len(box0.cod) + len(box0.dom)
-        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
+        if off0 >= off1 + len(box1.dom):  # box0 right of box1
             off0 = off0 - len(box1.dom) + len(box1.cod)
+        elif off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
         else:
             raise InterchangerError("Boxes {} and {} are connected."
                                     .format(repr(box0), repr(box1)))
@@ -377,6 +381,8 @@ class Diagram(Arrow):
 
     def normal_form(self):
         """
+        Implements normalisation of connected diagrams, see arXiv:1804.07832.
+
         >>> assert Id(Ty()).normal_form() == Id(Ty())
         >>> assert Id(Ty('x', 'y')).normal_form() == Id(Ty('x', 'y'))
         >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
@@ -396,7 +402,7 @@ class Diagram(Arrow):
             for i in range(len(diagram) - 1):
                 # import pdb; pdb.set_trace()
                 off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
-                if off1 <= max(off0 + len(diagram.boxes[i].cod) - 1, 0):
+                if off0 >= off1 + len(diagram.boxes[i + 1].dom):
                     try:
                         diagram = diagram.interchange(i, i + 1)
                         if diagram in cache:
@@ -413,21 +419,23 @@ class Diagram(Arrow):
 
 def SPIRAL(n):
     """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
 
-    >>> diagram = SPIRAL(3).normal_form()
-    >>> assert diagram.boxes[3] == Box('unit', Ty(), Ty('x'))
-    >>> assert diagram.boxes[-2] == Box('unit', Ty(), Ty('x'))
+    >>> spiral = SPIRAL(3)
+    >>> unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
+    >>> assert spiral.boxes[0] == unit and spiral.boxes[3 + 1] == counit
+    >>> spiral_nf = spiral.normal_form()
+    >>> assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[3] == unit
     """
     x = Ty('x')
-    unit = Box('unit', Ty(), x)
+    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
     cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
     result = unit
     for i in range(n):
         result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n) @ unit @ Id(x ** (n + 1))
-    for i in range(n + 1):
-        result = result >> Id(x ** (n - i)) @ cup @ Id(x ** (n - i))
+    result = result >> Id(x ** n) @ counit @ Id(x ** n)
+    for i in range(n):
+        result = result >> Id(x ** (n - i - 1)) @ cup @ Id(x ** (n - i - 1))
     return result
 
 
