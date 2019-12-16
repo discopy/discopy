@@ -80,6 +80,21 @@ class Ty(Ob):
         """
         return self @ other
 
+    def __pow__(self, other):
+        """
+        >>> Ty('x') ** 3
+        Ty('x', 'x', 'x')
+        >>> Ty('x') ** Ty('y')  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        ValueError: Expected int, got Ty('y') instead.
+        >>> assert Ty('x') ** 42 == Ty('x') ** 21 @ Ty('x') ** 21
+        """
+        if not isinstance(other, int):
+            raise ValueError(
+                "Expected int, got {} instead.".format(repr(other)))
+        return sum(other * (self, ), Ty())
+
     def __getitem__(self, key):
         """
         >>> t = Ty('x', 'y', 'z')
@@ -227,6 +242,13 @@ class Diagram(Arrow):
             repr(self.dom), repr(self.cod),
             repr(self.boxes), repr(self.offsets))
 
+    def __hash__(self):
+        """
+        >>> d = Id(Ty('x'))
+        >>> assert {d: 42}[d] == 42
+        """
+        return hash(repr(self))
+
     def __str__(self):
         """
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
@@ -326,6 +348,9 @@ class Diagram(Arrow):
         >>> print((d >> d.dagger()).interchange(0, 2))
         Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
         """
+        if not 0 <= i < len(self) or not 0 <= j < len(self):
+            raise IndexError("Expected indices in range({}), got {} instead."
+                             .format(len(self), (i, j)))
         if i == j:
             return self
         if j < i:
@@ -352,34 +377,58 @@ class Diagram(Arrow):
 
     def normal_form(self):
         """
+        >>> assert Id(Ty()).normal_form() == Id(Ty())
+        >>> assert Id(Ty('x', 'y')).normal_form() == Id(Ty('x', 'y'))
         >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-        >>> (s1 @ s0).normal_form()  # doctest: +ELLIPSIS
+        >>> (s0 >> s1).normal_form()  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        NotImplementedError: Diagram(...) is not connected.
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> d = Id(x) @ f1 >> f0 @ Id(w)
-        >>> assert d.normal_form() == f0 @ f1
+        NotImplementedError: Diagram s0 >> s1 is not connected.
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> assert f0.normal_form() == f0
+        >>> assert (f0 >> f1).normal_form() == f0 >> f1
+        >>> assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
         """
-        d, cache = self, [self]
+        diagram, cache = self, set([self])
         while True:
-            for i in range(len(d)):
-                try:
-                    off0, off1 = self.offsets[i], self.offsets[i + 1]
-                    left, right = (off0, off1)\
-                        if off1 >= off0 + len(self.boxes[i].cod)\
-                        else (off1, off0)
-                    d = d.interchange(right, left)
-                    if d in cache:
-                        raise NotImplementedError(
-                            "{} is not connected.".format(repr(self)))
-                    cache.append(d)
-                    break
-                except InterchangerError:
-                    pass
-            break
-        return d
+            _diagram = diagram
+            for i in range(len(diagram) - 1):
+                # import pdb; pdb.set_trace()
+                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
+                if off1 <= max(off0 + len(diagram.boxes[i].cod) - 1, 0):
+                    try:
+                        diagram = diagram.interchange(i, i + 1)
+                        if diagram in cache:
+                            raise NotImplementedError(
+                                "Diagram {} is not connected.".format(self))
+                        cache.add(diagram)
+                        break
+                    except InterchangerError:
+                        pass
+            if diagram == _diagram:  # no more right exchange moves
+                break
+        return diagram
+
+
+def SPIRAL(n):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832
+
+    >>> diagram = SPIRAL(3).normal_form()
+    >>> assert diagram.boxes[3] == Box('unit', Ty(), Ty('x'))
+    >>> assert diagram.boxes[-2] == Box('unit', Ty(), Ty('x'))
+    """
+    x = Ty('x')
+    unit = Box('unit', Ty(), x)
+    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    result = unit
+    for i in range(n):
+        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
+    result = result >> Id(x ** n) @ unit @ Id(x ** (n + 1))
+    for i in range(n + 1):
+        result = result >> Id(x ** (n - i)) @ cup @ Id(x ** (n - i))
+    return result
 
 
 class AxiomError(cat.AxiomError):
