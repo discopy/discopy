@@ -336,8 +336,12 @@ class Diagram(Arrow):
         """
         return Id(x)
 
-    def interchange(self, i, j):
+    def interchange(self, i, j, left=False):
         """
+        Returns a new diagram with boxes i and j interchanged.
+        If there is a choice, i.e. when interchanging an effect and a state,
+        then we return the right interchange move by default.
+
         >>> x, y = Ty('x'), Ty('y')
         >>> f = Box('f', x, y)
         >>> d = f @ f.dagger()
@@ -347,6 +351,11 @@ class Diagram(Arrow):
         Id(x) @ f.dagger() >> f @ Id(x)
         >>> print((d >> d.dagger()).interchange(0, 2))
         Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
+        >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+        >>> print((cup >> cap).interchange(0, 1))
+        cap @ Id(x @ x) >> Id(x @ x) @ cup
+        >>> print((cup >> cap).interchange(0, 1, left=True))
+        Id(x @ x) @ cap >> cup @ Id(x @ x)
         """
         if i < 0:
             return self.interchange(len(self) + i, j)
@@ -366,7 +375,10 @@ class Diagram(Arrow):
             return result
         box0, box1 = self.boxes[i], self.boxes[j]
         off0, off1 = self.offsets[i], self.offsets[j]
-        if off0 >= off1 + len(box1.dom):  # box0 right of box1
+        # By default, we check if box0 is to the right first, then to the left.
+        if left and off1 >= off0 + len(box0.cod):
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
             off0 = off0 - len(box1.dom) + len(box1.cod)
         elif off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
@@ -379,9 +391,10 @@ class Diagram(Arrow):
             self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
             fast=True)
 
-    def normal_form(self):
+    def normal_form(self, left=False):
         """
         Implements normalisation of connected diagrams, see arXiv:1804.07832.
+        By default, we apply only right exchange moves.
 
         >>> assert Id(Ty()).normal_form() == Id(Ty())
         >>> assert Id(Ty('x', 'y')).normal_form() == Id(Ty('x', 'y'))
@@ -395,15 +408,18 @@ class Diagram(Arrow):
         >>> assert f0.normal_form() == f0
         >>> assert (f0 >> f1).normal_form() == f0 >> f1
         >>> assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
+        >>> assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
         """
         diagram, cache = self, set([self])
         while True:
             _diagram = diagram
             for i in range(len(diagram) - 1):
+                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
                 off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
-                if off0 >= off1 + len(diagram.boxes[i + 1].dom):
+                if left and off1 >= off0 + len(box0.cod)\
+                        or not left and off0 >= off1 + len(box1.dom):
                     try:
-                        diagram = diagram.interchange(i, i + 1)
+                        diagram = diagram.interchange(i, i + 1, left=left)
                         if diagram in cache:
                             raise NotImplementedError(
                                 "Diagram {} is not connected.".format(self))
@@ -411,7 +427,7 @@ class Diagram(Arrow):
                         break
                     except InterchangerError:
                         pass
-            if diagram == _diagram:  # no more right exchange moves
+            if diagram == _diagram:  # no more moves
                 break
         return diagram
 
