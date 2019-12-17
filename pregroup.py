@@ -257,6 +257,12 @@ class Diagram(moncat.Diagram):
         >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
         >>> d = Wire(n) @ Cap(n.r, n) >> f.dagger() @ Wire(n.r) @ f >> Cup(n, n.r) @ Wire(n)
         >>> assert d.remove_snakes() == f.dagger() >> f
+
+        Example from arxiv:1601.05372
+        >>> n, a = Ty('n'), Ty('a')
+        >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
+        >>> d = g @ Cap(n.r, n) >> f.dagger() @ Wire(n.r) @ f >> Cup(n, n.r) @ h
+        >>> assert d.remove_snakes() == g >> f.dagger() >> f >> h
         """
         diagram = self
         if normalise == True:
