@@ -3,12 +3,12 @@ Setup discopy package.
 """
 
 from setuptools import setup
-from config import VERSION
+import config
 
 
 if __name__ == '__main__':
     setup(name='discopy',
-          version=VERSION,
+          version=config.VERSION,
           package_dir={'discopy': ''},
           packages=['discopy'],
           description='Distributional Compositional Python',

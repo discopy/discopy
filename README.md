@@ -62,18 +62,21 @@ python setup.py install
 For now all of it is in the code. You can use `help` if needed:
 
 ```python
->>> help(discopy.Ty)
+>>> help(discopy.pregroup)
 
-Help on class Ty in module discopy.pregroup:
+Help on module discopy.pregroup in discopy:
 
-class Ty(discopy.moncat.Ty)
- |  Ty(*t)
- |
- |  Implements pregroup types as lists of simple types.
- |
- |  >>> s, n = Ty('s'), Ty('n')
- |  >>> assert n.l.r == n == n.r.l
- |  >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
+NAME
+    discopy.pregroup
+
+DESCRIPTION
+    Implements free dagger pivotal and rigid monoidal categories.
+    The objects are given by the free pregroup, the arrows by planar diagrams.
+
+    >>> unit, s, n = Ty(), Ty('s'), Ty('n')
+    >>> t = n.r @ s @ n.l
+    >>> assert t @ unit == t == unit @ t
+    >>> assert t.l.r == t == t.r.l
 ```
 
 You can also checkout the [notebooks](notebooks/) for a demo!
