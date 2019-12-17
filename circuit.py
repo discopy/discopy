@@ -199,16 +199,16 @@ class Circuit(Diagram):
         """
         import pytket as tk
         tk_circuit = tk.Circuit(len(self.dom))
-        for gate, n in zip(self.gates, self.offsets):
+        for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
                 tk_circuit.Rx(
-                    gate.phase, *(n + i for i in range(len(gate.dom))))
+                    gate.phase, *(off + i for i in range(len(gate.dom))))
             elif isinstance(gate, Rz):
                 tk_circuit.Rz(
-                    gate.phase, *(n + i for i in range(len(gate.dom))))
+                    gate.phase, *(off + i for i in range(len(gate.dom))))
             else:
                 tk_circuit.__getattribute__(gate.name)(
-                    *(n + i for i in range(len(gate.dom))))
+                    *(off + i for i in range(len(gate.dom))))
         return tk_circuit
 
     @staticmethod
