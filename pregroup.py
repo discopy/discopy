@@ -242,8 +242,8 @@ class Diagram(moncat.Diagram):
         """
         return Wire(x)
 
-    def interchange(self, i, j):
-        result = super().interchange(i, j)
+    def interchange(self, i, j, left=False):
+        result = super().interchange(i, j, left=left)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, fast=True)
 
@@ -260,6 +260,8 @@ class Diagram(moncat.Diagram):
         >>> assert d0.normal_form() == d1
         >>> assert d0.dagger().normal_form() == d1.dagger()
         """
+        self = super().normal_form()
+
         def unsnake(diagram, cup, cap):
             return Diagram(diagram.dom, diagram.cod,
                            diagram.boxes[:cap] + diagram.boxes[cup + 1:],
