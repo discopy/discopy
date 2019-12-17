@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-If fast, checking axioms is disabled (approximately twice faster).
+discopy package configuration.
 """
 
 VERSION = '0.1.3'

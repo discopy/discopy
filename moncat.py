@@ -400,7 +400,6 @@ class Diagram(Arrow):
         while True:
             _diagram = diagram
             for i in range(len(diagram) - 1):
-                # import pdb; pdb.set_trace()
                 off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
                 if off0 >= off1 + len(diagram.boxes[i + 1].dom):
                     try:
