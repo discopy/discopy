@@ -133,6 +133,11 @@ class Circuit(Diagram):
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, fast=True)
 
+    def normal_form(self):
+        result = super().normal_form()
+        return Circuit(len(result.dom), len(result.cod),
+                       result.boxes, result.offsets, fast=True)
+
     @staticmethod
     def id(x):
         """

@@ -242,36 +242,39 @@ class Diagram(moncat.Diagram):
         """
         return Wire(x)
 
-    def remove_snakes(self, normalise=True):
-        """ Removes snakes from a diagram containing cups and caps
-
+    def remove_snakes(self):
+        """
         >>> n = Ty('n')
         >>> snake = Wire(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Wire(n)
         >>> snake.boxes
         [Cap(Ty(Ob('n', z=1)), Ty('n')), Cup(Ty('n'), Ty(Ob('n', z=1)))]
         >>> assert snake.remove_snakes() == Wire(n)
+        """
+        for i in range(1, len(self)):
+            box0, box1 = self.boxes[i - 1], self.boxes[i]
+            if isinstance(box0, Cap) and isinstance(box1, Cup):
+                if self.offsets[i - 1] - self.offsets[i] in [-1, 1]:
+                    return Diagram(self.dom, self.cod,
+                                   self.boxes[:i - 1] + self.boxes[i + 1:],
+                                   self.offsets[:i - 1] + self.offsets[i + 1:],
+                                   fast=True).remove_snakes()
+        return self
 
-        Example from arxiv:1601.05372
+    def normal_form(self):
+        """
+        Implements the normalisation of rigid monoidal categories,
+        see arxiv:1601.05372.
+
         >>> n, a = Ty('n'), Ty('a')
         >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
         >>> d = g @ Cap(n.r, n) >> f.dagger() @ Wire(n.r)@ f >> Cup(n, n.r) @ h
-        >>> assert d.remove_snakes() == g >> f.dagger() >> f >> h
+        >>> assert d.normal_form() == g >> f.dagger() >> f >> h
+        >>> assert not any([isinstance(box, Cap)
+        ...                 for box in d.dagger().normal_form().boxes])
         """
-        diagram = self
-        if normalise:
-            diagram = diagram.normal_form()
-
-        # remove snakes from normalised diagram
-        for i in range(len(diagram) - 1):
-            box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
-            off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
-            if isinstance(box0, Cap) and (isinstance(box1, Cup)
-               and ((off0 == off1 + 1) or (off0 + 1 == off1))):
-                return Diagram(diagram.dom, diagram.cod,
-                               diagram.boxes[:i] + diagram.boxes[i+2:],
-                               diagram.offsets[:i] + diagram.offsets[i+2:]
-                               ).remove_snakes(normalise=False)
-        return diagram
+        result = super().normal_form()
+        return Diagram(result.dom, result.cod, result.boxes, result.offsets,
+                       fast=True).remove_snakes()
 
 
 class Box(moncat.Box, Diagram):
