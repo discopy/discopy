@@ -260,6 +260,34 @@ class Diagram(moncat.Diagram):
                                    fast=True).remove_snakes()
         return self
 
+    def connect(self, i, j):
+        """ Returns equivalent diagram with boxes i and j as close as possible
+
+        >>> n, a = Ty('n'), Ty('a')
+        >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
+        >>> d0 = g @ Cap(n.r, n) >> f.dagger()@ Wire(n.r)@ f >> Cup(n, n.r) @ h
+        >>> d1 = g >> f.dagger() >> f >> h
+        >>> assert d0.connect(1, 4).remove_snakes() == d1
+        >>> assert d0.dagger().connect(1, 4).remove_snakes() == d1.dagger()
+        """
+        diagram = self
+        for k in range(i, j):  # try to interchange up
+            try:
+                diagram = diagram.interchange(k, k+1)
+            except moncat.InterchangerError:
+                pass
+            if k + 1 == j:
+                j = j - 1
+            if k == i:
+                i = i + 1
+        for k in range(j, i, -1):
+            try:
+                diagram = diagram.interchange(k, k-1)
+            except moncat.InterchangerError:
+                pass
+        return Diagram(diagram.dom, diagram.cod,
+                       diagram.boxes, diagram.offsets)
+
     def normal_form(self):
         """
         Implements the normalisation of rigid monoidal categories,
@@ -267,14 +295,28 @@ class Diagram(moncat.Diagram):
 
         >>> n, a = Ty('n'), Ty('a')
         >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
-        >>> d = g @ Cap(n.r, n) >> f.dagger() @ Wire(n.r)@ f >> Cup(n, n.r) @ h
-        >>> assert d.normal_form() == g >> f.dagger() >> f >> h
-        >>> assert not any([isinstance(box, Cap)
-        ...                 for box in d.dagger().normal_form().boxes])
+        >>> d0 = g @ Cap(n.r, n) >> f.dagger()@ Wire(n.r)@ f >> Cup(n, n.r) @ h
+        >>> d1 = g >> f.dagger() >> f >> h
+        >>> assert d0.normal_form() == d1
+        >>> assert d0.dagger().normal_form() == d1.dagger()
         """
-        result = super().normal_form()
-        return Diagram(result.dom, result.cod, result.boxes, result.offsets,
-                       fast=True).remove_snakes()
+        diagram, cache = self, set([self])
+        while True:
+            _diagram = diagram
+            i = 0
+            while i in range(len(diagram) - 1):
+                if isinstance(diagram.boxes[i], Cap):
+                    for j in range(i, len(diagram) - 1):
+                        if isinstance(diagram.boxes[j], Cup):
+                            diagram = diagram.connect(i, j).remove_snakes()
+                            if diagram in cache:
+                                raise NotImplementedError(
+                                   "Diagram {} is not connected.".format(self))
+                            cache.add(diagram)
+                i = i + 1
+            if diagram == _diagram:  # no more simplifications
+                break
+        return diagram
 
 
 class Box(moncat.Box, Diagram):
