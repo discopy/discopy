@@ -242,81 +242,76 @@ class Diagram(moncat.Diagram):
         """
         return Wire(x)
 
-    def remove_snakes(self):
-        """
-        >>> n = Ty('n')
-        >>> snake = Wire(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Wire(n)
-        >>> snake.boxes
-        [Cap(Ty(Ob('n', z=1)), Ty('n')), Cup(Ty('n'), Ty(Ob('n', z=1)))]
-        >>> assert snake.remove_snakes() == Wire(n)
-        """
-        for i in range(1, len(self)):
-            box0, box1 = self.boxes[i - 1], self.boxes[i]
-            if isinstance(box0, Cap) and isinstance(box1, Cup):
-                if self.offsets[i - 1] - self.offsets[i] in [-1, 1]:
-                    return Diagram(self.dom, self.cod,
-                                   self.boxes[:i - 1] + self.boxes[i + 1:],
-                                   self.offsets[:i - 1] + self.offsets[i + 1:],
-                                   fast=True).remove_snakes()
-        return self
-
-    def connect(self, i, j):
-        """ Returns equivalent diagram with boxes i and j as close as possible
-
-        >>> n, a = Ty('n'), Ty('a')
-        >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
-        >>> d0 = g @ Cap(n.r, n) >> f.dagger()@ Wire(n.r)@ f >> Cup(n, n.r) @ h
-        >>> d1 = g >> f.dagger() >> f >> h
-        >>> assert d0.connect(1, 4).remove_snakes() == d1
-        >>> assert d0.dagger().connect(1, 4).remove_snakes() == d1.dagger()
-        """
-        diagram = self
-        for k in range(i, j):  # try to interchange up
-            try:
-                diagram = diagram.interchange(k, k+1)
-            except moncat.InterchangerError:
-                pass
-            if k + 1 == j:
-                j = j - 1
-            if k == i:
-                i = i + 1
-        for k in range(j, i, -1):
-            try:
-                diagram = diagram.interchange(k, k-1)
-            except moncat.InterchangerError:
-                pass
-        return Diagram(diagram.dom, diagram.cod,
-                       diagram.boxes, diagram.offsets)
+    def interchange(self, i, j):
+        result = super().interchange(i, j)
+        return Diagram(Ty(*result.dom), Ty(*result.cod),
+                       result.boxes, result.offsets, fast=True)
 
     def normal_form(self):
         """
         Implements the normalisation of rigid monoidal categories,
-        see arxiv:1601.05372.
+        see arxiv:1601.05372, definition 2.12.
 
         >>> n, a = Ty('n'), Ty('a')
+        >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
-        >>> d0 = g @ Cap(n.r, n) >> f.dagger()@ Wire(n.r)@ f >> Cup(n, n.r) @ h
+        >>> d0 = g @ cap >> f.dagger() @ Wire(n.r) @ f >> cup @ h
         >>> d1 = g >> f.dagger() >> f >> h
         >>> assert d0.normal_form() == d1
         >>> assert d0.dagger().normal_form() == d1.dagger()
         """
-        diagram, cache = self, set([self])
-        while True:
-            _diagram = diagram
-            i = 0
-            while i in range(len(diagram) - 1):
-                if isinstance(diagram.boxes[i], Cap):
-                    for j in range(i, len(diagram) - 1):
-                        if isinstance(diagram.boxes[j], Cup):
-                            diagram = diagram.connect(i, j).remove_snakes()
-                            if diagram in cache:
-                                raise NotImplementedError(
-                                   "Diagram {} is not connected.".format(self))
-                            cache.add(diagram)
-                i = i + 1
-            if diagram == _diagram:  # no more simplifications
-                break
-        return diagram
+        def left_unsnake(diagram, cup, cap,
+                         left_obstruction, right_obstruction):
+            for left in left_obstruction[::-1]:
+                diagram = diagram.interchange(left, cup)
+                for i, right in enumerate(right_obstruction):
+                    if right > left:
+                        right_obstruction[i] -= 1
+                cup -= 1
+            for right in right_obstruction:
+                diagram = diagram.interchange(right, cap)
+                cap += 1
+            return Diagram(diagram.dom, diagram.cod,
+                           diagram.boxes[:cap] + diagram.boxes[cup + 1:],
+                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
+                           fast=True)
+
+        def right_unsnake(diagram, cup, cap,
+                          left_obstruction, right_obstruction):
+            for left in left_obstruction:
+                diagram = diagram.interchange(left, cap)
+                for i, right in enumerate(right_obstruction):
+                    if right < left:
+                        right_obstruction[i] += 1
+                cap += 1
+            for right in right_obstruction[::-1]:
+                diagram = diagram.interchange(right, cup)
+                cup -= 1
+            return Diagram(diagram.dom, diagram.cod,
+                           diagram.boxes[:cap] + diagram.boxes[cup + 1:],
+                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
+                           fast=True)
+
+        for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
+            if isinstance(box0, Cap):
+                for scan in [off0, off0 + 1]:
+                    unsnake = right_unsnake if scan == off0 else left_unsnake
+                    left_obstruction, right_obstruction = [], []
+                    for j in range(i + 1, len(self)):
+                        box1, off1 = self.boxes[j], self.offsets[j]
+                        if off1 <= scan < off1 + len(box1.dom):
+                            if not isinstance(box1, Cup):
+                                break
+                            return unsnake(
+                                self, j, i,
+                                left_obstruction, right_obstruction)\
+                                .normal_form()
+                        elif off1 < scan:
+                            scan += len(box1.cod) - len(box1.dom)
+                            left_obstruction.append(j)
+                        else:
+                            right_obstruction.append(j)
+        return self
 
 
 class Box(moncat.Box, Diagram):
