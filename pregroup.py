@@ -250,22 +250,15 @@ class Diagram(moncat.Diagram):
         >>> snake.boxes
         [Cap(Ty(Ob('n', z=1)), Ty('n')), Cup(Ty('n'), Ty(Ob('n', z=1)))]
         >>> assert snake.remove_snakes() == Wire(n)
-        >>> f = Box('f', n, n)
-        >>> d = Wire(n) @ Cap(n.r, n) >> f @ Wire(n.r @ n) >> Cup(n, n.r) @ Wire(n)
-        >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
-        >>> d = Wire(n) @ Cap(n.r, n) >> Wire(n @ n.r) @ f >> Cup(n, n.r) @ Wire(n)
-        >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
-        >>> d = Wire(n) @ Cap(n.r, n) >> f.dagger() @ Wire(n.r) @ f >> Cup(n, n.r) @ Wire(n)
-        >>> assert d.remove_snakes() == f.dagger() >> f
 
         Example from arxiv:1601.05372
         >>> n, a = Ty('n'), Ty('a')
         >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
-        >>> d = g @ Cap(n.r, n) >> f.dagger() @ Wire(n.r) @ f >> Cup(n, n.r) @ h
+        >>> d = g @ Cap(n.r, n) >> f.dagger() @ Wire(n.r)@ f >> Cup(n, n.r) @ h
         >>> assert d.remove_snakes() == g >> f.dagger() >> f >> h
         """
         diagram = self
-        if normalise == True:
+        if normalise:
             diagram = diagram.normal_form()
 
         # remove snakes from normalised diagram
@@ -273,11 +266,11 @@ class Diagram(moncat.Diagram):
             box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
             off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
             if isinstance(box0, Cap) and (isinstance(box1, Cup)
-                                     and ((off0 == off1 + 1) or (off0 + 1 == off1))):
-                new_diagram = Diagram(diagram.dom, diagram.cod,
+               and ((off0 == off1 + 1) or (off0 + 1 == off1))):
+                return Diagram(diagram.dom, diagram.cod,
                                diagram.boxes[:i] + diagram.boxes[i+2:],
-                               diagram.offsets[:i] + diagram.offsets[i+2:])
-                return new_diagram.remove_snakes(normalise=False)
+                               diagram.offsets[:i] + diagram.offsets[i+2:]
+                               ).remove_snakes(normalise=False)
         return diagram
 
 
