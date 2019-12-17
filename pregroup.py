@@ -242,6 +242,50 @@ class Diagram(moncat.Diagram):
         """
         return Wire(x)
 
+    def remove_snakes(self, normalise=True):
+        """ Removes snakes from a diagram containing cups and caps
+
+        >>> n = Ty('n')
+        >>> snake = Wire(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Wire(n)
+        >>> snake.boxes
+        [Cap(Ty(Ob('n', z=1)), Ty('n')), Cup(Ty('n'), Ty(Ob('n', z=1)))]
+        >>> assert snake.remove_snakes() == Wire(n)
+        >>> f = Box('f', n, n)
+        >>> d = Wire(n) @ Cap(n.r, n) >> f @ Wire(n.r @ n) >> Cup(n, n.r) @ Wire(n)
+        >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
+        >>> d = Wire(n) @ Cap(n.r, n) >> Wire(n @ n.r) @ f >> Cup(n, n.r) @ Wire(n)
+        >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
+        >>> d
+        """
+        diagram = self
+        if normalise == True:
+            # interchange caps up and cups down
+            for i in range(len(diagram) - 1):
+                if isinstance(diagram.boxes[i], Cap):
+                    for j in range(i, len(diagram) - 1):
+                        try:
+                            diagram = diagram.interchange(j, j + 1)
+                        except moncat.InterchangerError:
+                            pass
+                if isinstance(diagram.boxes[i], Cup):
+                    for j in range(i, 0, -1):
+                        try:
+                            diagram = diagram.interchange(j, j - 1)
+                        except moncat.InterchangerError:
+                            pass
+
+        # remove snakes from normalised diagram
+        for i in range(len(diagram) - 1):
+            box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
+            off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
+            if isinstance(box0, Cap) and (isinstance(box1, Cup)
+                                     and ((off0 == off1 + 1) or (off0 + 1 == off1))):
+                new_diagram = Diagram(diagram.dom, diagram.cod,
+                               diagram.boxes[:i] + diagram.boxes[i+2:],
+                               diagram.offsets[:i] + diagram.offsets[i+2:])
+                return new_diagram.remove_snakes(normalise=False)
+        return diagram
+
 
 class Box(moncat.Box, Diagram):
     """ Implements generators of dagger pivotal diagrams.
