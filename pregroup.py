@@ -260,6 +260,12 @@ class Diagram(moncat.Diagram):
         >>> assert d0.normal_form() == d1
         >>> assert d0.dagger().normal_form() == d1.dagger()
         """
+        def unsnake(diagram, cup, cap):
+            return Diagram(diagram.dom, diagram.cod,
+                           diagram.boxes[:cap] + diagram.boxes[cup + 1:],
+                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
+                           fast=True)
+
         def left_unsnake(diagram, cup, cap,
                          left_obstruction, right_obstruction):
             for left in left_obstruction[::-1]:
@@ -271,10 +277,7 @@ class Diagram(moncat.Diagram):
             for right in right_obstruction:
                 diagram = diagram.interchange(right, cap)
                 cap += 1
-            return Diagram(diagram.dom, diagram.cod,
-                           diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                           fast=True)
+            return unsnake(diagram, cup, cap)
 
         def right_unsnake(diagram, cup, cap,
                           left_obstruction, right_obstruction):
@@ -287,22 +290,19 @@ class Diagram(moncat.Diagram):
             for right in right_obstruction[::-1]:
                 diagram = diagram.interchange(right, cup)
                 cup -= 1
-            return Diagram(diagram.dom, diagram.cod,
-                           diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                           fast=True)
+            return unsnake(diagram, cup, cap)
 
         for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box0, Cap):
                 for scan in [off0, off0 + 1]:
-                    unsnake = right_unsnake if scan == off0 else left_unsnake
+                    move = right_unsnake if scan == off0 else left_unsnake
                     left_obstruction, right_obstruction = [], []
                     for j in range(i + 1, len(self)):
                         box1, off1 = self.boxes[j], self.offsets[j]
                         if off1 <= scan < off1 + len(box1.dom):
                             if not isinstance(box1, Cup):
                                 break
-                            return unsnake(
+                            return move(
                                 self, j, i,
                                 left_obstruction, right_obstruction)\
                                 .normal_form()
