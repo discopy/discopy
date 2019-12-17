@@ -255,24 +255,12 @@ class Diagram(moncat.Diagram):
         >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
         >>> d = Wire(n) @ Cap(n.r, n) >> Wire(n @ n.r) @ f >> Cup(n, n.r) @ Wire(n)
         >>> assert d.remove_snakes() == Diagram(n, n, [f], [0])
-        >>> d
+        >>> d = Wire(n) @ Cap(n.r, n) >> f.dagger() @ Wire(n.r) @ f >> Cup(n, n.r) @ Wire(n)
+        >>> assert d.remove_snakes() == f.dagger() >> f
         """
         diagram = self
         if normalise == True:
-            # interchange caps up and cups down
-            for i in range(len(diagram) - 1):
-                if isinstance(diagram.boxes[i], Cap):
-                    for j in range(i, len(diagram) - 1):
-                        try:
-                            diagram = diagram.interchange(j, j + 1)
-                        except moncat.InterchangerError:
-                            pass
-                if isinstance(diagram.boxes[i], Cup):
-                    for j in range(i, 0, -1):
-                        try:
-                            diagram = diagram.interchange(j, j - 1)
-                        except moncat.InterchangerError:
-                            pass
+            diagram = diagram.normal_form()
 
         # remove snakes from normalised diagram
         for i in range(len(diagram) - 1):
