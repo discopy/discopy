@@ -297,14 +297,14 @@ class Diagram(moncat.Diagram):
         for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box0, Cap):
                 for scan in [off0, off0 + 1]:
-                    move = right_unsnake if scan == off0 else left_unsnake
+                    rewrite = right_unsnake if scan == off0 else left_unsnake
                     left_obstruction, right_obstruction = [], []
                     for j in range(i + 1, len(self)):
                         box1, off1 = self.boxes[j], self.offsets[j]
                         if off1 <= scan < off1 + len(box1.dom):
                             if not isinstance(box1, Cup):
                                 break
-                            return move(
+                            return rewrite(
                                 self, j, i,
                                 left_obstruction, right_obstruction)\
                                 .normal_form()
