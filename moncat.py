@@ -436,11 +436,12 @@ def _spiral(n_cups):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
 
-    >>> spiral = _spiral(3)
+    >>> n = 42
+    >>> spiral = _spiral(n)
     >>> unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
-    >>> assert spiral.boxes[0] == unit and spiral.boxes[3 + 1] == counit
+    >>> assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
     >>> spiral_nf = spiral.normal_form()
-    >>> assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[3] == unit
+    >>> assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
     """
     x = Ty('x')
     unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
