@@ -1,7 +1,13 @@
-VERSION = '0.0.1.2'
+# -*- coding: utf-8 -*-
 
-# If fast, checking axioms is disabled (approximately twice faster).
-fast = False
+"""
+If fast, checking axioms is disabled (approximately twice faster).
+"""
 
-# If jax, we import jax.numpy as np in matrix and circuit.
-jax = False
+VERSION = '0.1.3'
+
+JAX = True
+
+IGNORE = [
+    "No GPU/TPU found, falling back to CPU.",
+    "Casting complex values to real discards the imaginary part"]
