@@ -19,6 +19,6 @@ if __name__ == '__main__':
           author_email='alexis.toumi@cs.ox.ac.uk',
           download_url='https://github.com/'
                        'oxford-quantum-group/discopy/archive/'
-                       '{}.tar.gz'.format(VERSION),
+                       '{}.tar.gz'.format(config.VERSION),
           install_requires=['numpy', 'pytket', 'jax', 'jaxlib'],
           )
