@@ -294,6 +294,15 @@ class Diagram(moncat.Diagram):
             caps = caps << Wire(x[:j]) @ Cap(x[j], y[i]) @ Wire(y[i + 1:])
         return caps
 
+    def transpose_r(self):
+        """
+        >>> a, b = Ty('a'), Ty('b')
+        >>> snake_r = Wire(a).transpose_r()
+        """
+        return (Diagram.caps(self.dom.r, self.dom) @ Wire(self.cod.r)
+                >> Wire(self.dom.r) @ self @ Wire(self.cod.r)
+                >> Wire(self.dom.r) @ Diagram.cups(self.dom, self.dom.r))
+
     def interchange(self, i, j, left=False):
         """
         >>> x, y = Ty('x'), Ty('y')
