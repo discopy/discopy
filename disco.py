@@ -18,6 +18,7 @@ Implements disco models in the category of matrices and circuits.
 >>> loves_box = Box('loves', n @ n, s)
 >>> loves = Cap(n.r, n) @ Cap(n, n.l)\\
 ...     >> Wire(n.r) @ loves_box @ Wire(n.l)
+>>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
 >>> autonomised_sentence = (Alice @ loves @ Bob >> grammar).normal_form()
 >>> print(autonomised_sentence)
 Alice >> Wire(n) @ Bob >> loves

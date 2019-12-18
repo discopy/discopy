@@ -366,8 +366,11 @@ class Diagram(Arrow):
                              .format(len(self), (i, j)))
         if i == j:
             return self
-        if j < i:
-            return self.interchange(j, i)
+        if j < i - 1:
+            result = self
+            for k in range(i - j):
+                result = result.interchange(i - k, i - k - 1)
+            return result
         if j > i + 1:
             result = self
             for k in range(j - i):

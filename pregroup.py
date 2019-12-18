@@ -335,26 +335,12 @@ class Diagram(moncat.Diagram):
         def unsnake(diagram, cup, cap):
             return Diagram(diagram.dom, diagram.cod,
                            diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                           fast=True)
+                           diagram.offsets[:cap] + diagram.offsets[cup + 1:])
 
         def left_unsnake(diagram, cup, cap,
                          left_obstruction, right_obstruction):
-            for left in left_obstruction[::-1]:
-                diagram = diagram.interchange(left, cup)
-                for i, right in enumerate(right_obstruction):
-                    if right > left:
-                        right_obstruction[i] -= 1
-                cup -= 1
-            for right in right_obstruction:
-                diagram = diagram.interchange(right, cap)
-                cap += 1
-            return unsnake(diagram, cup, cap)
-
-        def right_unsnake(diagram, cup, cap,
-                          left_obstruction, right_obstruction):
             for left in left_obstruction:
-                diagram = diagram.interchange(left, cap)
+                diagram = diagram.interchange(cap, left)
                 for i, right in enumerate(right_obstruction):
                     if right < left:
                         right_obstruction[i] += 1
@@ -364,10 +350,23 @@ class Diagram(moncat.Diagram):
                 cup -= 1
             return unsnake(diagram, cup, cap)
 
+        def right_unsnake(diagram, cup, cap,
+                          left_obstruction, right_obstruction):
+            for left in left_obstruction[::-1]:
+                diagram = diagram.interchange(left, cup)
+                for i, right in enumerate(right_obstruction):
+                    if right > left:
+                        right_obstruction[i] -= 1
+                cup -= 1
+            for right in right_obstruction:
+                diagram = diagram.interchange(cap, right)
+                cap += 1
+            return unsnake(diagram, cup, cap)
+
         for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box0, Cap):
                 for scan in [off0, off0 + 1]:
-                    rewrite = right_unsnake if scan == off0 else left_unsnake
+                    rewrite = left_unsnake if scan == off0 else right_unsnake
                     left_obstruction, right_obstruction = [], []
                     for j in range(i + 1, len(self)):
                         box1, off1 = self.boxes[j], self.offsets[j]
