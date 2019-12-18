@@ -242,6 +242,40 @@ class Diagram(moncat.Diagram):
         """
         return Wire(x)
 
+    @staticmethod
+    def cup(x, y):
+        """ Constructs nested cups witnessing adjointness of x and y
+
+        >>> a, b = Ty('a'), Ty('b')
+        >>> assert Diagram.cup(a, a.r) == Cup(a, a.r)
+        >>> assert Diagram.cup(a @ b, (a @ b).l) == (Cup(a, a.l)
+        ...                 << Wire(a) @ Cup(b, b.l) @ Wire(a.l))
+        """
+        if not (x.r == y or x.l == y):
+            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        cups = Wire(x @ y)
+        for i in range(len(x)):
+            j = len(x) - i - 1
+            cups = cups >> Wire(x[:j]) @ Cup(x[j], y[i]) @ Wire(y[i + 1:])
+        return cups
+
+    @staticmethod
+    def cap(x, y):
+        """ Constructs nested cups witnessing adjointness of x and y
+
+        >>> a, b = Ty('a'), Ty('b')
+        >>> assert Diagram.cap(a, a.r) == Cap(a, a.r)
+        >>> assert Diagram.cap(a @ b, (a @ b).l) == (Cap(a, a.l)
+        ...                 >> Wire(a) @ Cap(b, b.l) @ Wire(a.l))
+        """
+        if not (x.r == y or x.l == y):
+            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        caps = Wire(x @ y)
+        for i in range(len(x)):
+            j = len(x) - i - 1
+            caps = caps << Wire(x[:j]) @ Cap(x[j], y[i]) @ Wire(y[i + 1:])
+        return caps
+
     def interchange(self, i, j, left=False):
         """
         >>> x, y = Ty('x'), Ty('y')
@@ -423,7 +457,7 @@ class Wire(Diagram):
         return "Wire({})".format(str(self.dom))
 
 
-class Cup(Box):
+class Cup(Box, Diagram):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -448,12 +482,17 @@ class Cup(Box):
         Cup(Ty('n'), Ty(Ob('n', z=-1)))
         """
         err = "Simple type expected, got {} instead."
+        if isinstance(x, Ob):
+            x = Ty(x)
+        if isinstance(y, Ob):
+            y = Ty(y)
         if not isinstance(x, Ty) or not len(x) == 1:
             raise ValueError(err.format(repr(x)))
         if not isinstance(y, Ty) or not len(y) == 1:
             raise ValueError(err.format(repr(y)))
         if x[0].name != y[0].name or not x[0].z - y[0].z in [-1, +1]:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        self._x, self._y = x, y
         super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):
@@ -506,6 +545,10 @@ class Cap(Box):
         >>> Cap(Ty('n'), Ty('n').l)
         Cap(Ty('n'), Ty(Ob('n', z=-1)))
         """
+        if isinstance(x, Ob):
+            x = Ty(x)
+        if isinstance(y, Ob):
+            y = Ty(y)
         err = "Simple type expected, got {} instead."
         if not isinstance(x, Ty) or not len(x) == 1:
             raise ValueError(err.format(repr(x)))
@@ -513,6 +556,7 @@ class Cap(Box):
             raise ValueError(err.format(repr(y)))
         if not x[0].z - y[0].z in [-1, +1]:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        self._x, self._y = x, y
         super().__init__('Cap', Ty(), x @ y)
 
     def dagger(self):
@@ -539,3 +583,36 @@ class Cap(Box):
         Cap(n, n.l)
         """
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
+
+
+class RigidFunctor(moncat.MonoidalFunctor):
+    """Implements functors between rigid categories preserving cups and caps
+
+    >>> s, n, a = Ty('s'), Ty('n'), Ty('a')
+    >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
+    >>> love_box = Box('loves', a @ a, s)
+    >>> ob = {s: s, n: a, a: n @ n}
+    >>> ar = {loves: Cap(a.r, a) @ Cap(a, a.l)
+    ...              >> Wire(a.r) @ love_box @ Wire(a.l)}
+    >>> F = RigidFunctor(ob, ar)
+    >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
+    >>> assert F(Cup(a, a.l)) == Diagram.cup(n @ n, (n @ n).l)
+    """
+    def __call__(self, diagram):
+        if isinstance(diagram, Ob):
+            result = self.ob[Ty(diagram.name)]
+            if diagram.z < 0:
+                for i in range(-diagram.z):
+                    result = result.l
+            elif diagram.z > 0:
+                for i in range(diagram.z):
+                    result = result.r
+            return result
+        if isinstance(diagram, Ty):
+            return sum([self(b) for b in diagram.objects], Ty())
+        if isinstance(diagram, Cup):
+            return Diagram.cup(self(diagram._x), self(diagram._y))
+        if isinstance(diagram, Cap):
+            return Diagram.cap(self(diagram._x), self(diagram._y))
+        if isinstance(diagram, Diagram):
+            return super().__call__(diagram)
