@@ -253,19 +253,19 @@ class Diagram(moncat.Diagram):
         return Wire(x)
 
     @staticmethod
-    def cup(x, y):
+    def cups(x, y):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
-        >>> Diagram.cup( a @ b @ a, a.r @ b.r) #doctest: +ELLIPSIS
+        >>> Diagram.cups(a @ b @ a, a.r @ b.r) #doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         pregroup.AxiomError: a @ b @ a and a.r @ b.r are not adjoints.
-        >>> assert Diagram.cup(a, a.r) == Cup(a, a.r)
-        >>> assert Diagram.cup(a @ b, (a @ b).l) == (Cup(a, a.l)
+        >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
+        >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Wire(a) @ Cup(b, b.l) @ Wire(a.l))
         """
-        if not x.r != y and not x != y.r:
+        if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         cups = Wire(x @ y)
         for i in range(len(x)):
@@ -274,19 +274,19 @@ class Diagram(moncat.Diagram):
         return cups
 
     @staticmethod
-    def cap(x, y):
+    def caps(x, y):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
-        >>> Diagram.cap( a @ b @ a, a.l @ b.l) #doctest: +ELLIPSIS
+        >>> Diagram.caps( a @ b @ a, a.l @ b.l) #doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         pregroup.AxiomError: a @ b @ a and a.l @ b.l are not adjoints.
-        >>> assert Diagram.cap(a, a.r) == Cap(a, a.r)
-        >>> assert Diagram.cap(a @ b, (a @ b).l) == (Cap(a, a.l)
+        >>> assert Diagram.caps(a, a.r) == Cap(a, a.r)
+        >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Wire(a) @ Cap(b, b.l) @ Wire(a.l))
         """
-        if not x.r == y and not x == y.r:
+        if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         caps = Wire(x @ y)
         for i in range(len(x)):
@@ -315,8 +315,8 @@ class Diagram(moncat.Diagram):
         see arxiv:1601.05372, definition 2.12.
 
         >>> n, a = Ty('n'), Ty('a')
-        >>> cup = Diagram.cup(n ** 5, (n ** 5).r)
-        >>> cap = Diagram.cap((n ** 5).r, n ** 5)
+        >>> cup = Diagram.cups(n ** 5, (n ** 5).r)
+        >>> cap = Diagram.caps((n ** 5).r, n ** 5)
         >>> snake = cup @ Wire(n ** 5) << Wire(n ** 5) @ cap
         >>> assert snake.normal_form() == Wire(n ** 5)
         >>> assert snake.dagger().normal_form() == Wire(n ** 5)
@@ -616,7 +616,7 @@ class RigidFunctor(moncat.MonoidalFunctor):
     ...              >> Wire(a.r) @ love_box @ Wire(a.l)}
     >>> F = RigidFunctor(ob, ar)
     >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
-    >>> assert F(Cup(a, a.l)) == Diagram.cup(n @ n, (n @ n).l)
+    >>> assert F(Cup(a, a.l)) == Diagram.cups(n @ n, (n @ n).l)
     """
     def __call__(self, diagram):
         if isinstance(diagram, Ob):
@@ -631,8 +631,8 @@ class RigidFunctor(moncat.MonoidalFunctor):
         if isinstance(diagram, Ty):
             return sum([self(b) for b in diagram.objects], Ty())
         if isinstance(diagram, Cup):
-            return Diagram.cup(self(diagram._x), self(diagram._y))
+            return Diagram.cups(self(diagram._x), self(diagram._y))
         if isinstance(diagram, Cap):
-            return Diagram.cap(self(diagram._x), self(diagram._y))
+            return Diagram.caps(self(diagram._x), self(diagram._y))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
