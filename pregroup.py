@@ -297,11 +297,32 @@ class Diagram(moncat.Diagram):
     def transpose_r(self):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> snake_r = Wire(a).transpose_r()
+        >>> snake_r = Wire(a @ b).transpose_r()
         """
         return Diagram.caps(self.dom.r, self.dom) @ Wire(self.cod.r)\
             >> Wire(self.dom.r) @ self @ Wire(self.cod.r)\
             >> Wire(self.dom.r) @ Diagram.cups(self.dom, self.dom.r)
+
+    def transpose_l(self):
+        """
+        >>> a, b = Ty('a'), Ty('b')
+        >>> snake_l = Wire(a @ b).transpose_l()
+        """
+        return Wire(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
+            >> Wire(self.cod.l) @ self @ Wire(self.dom.l)\
+            >> Diagram.cups(self.dom.l, self.dom) @ Wire(self.dom.l)
+
+    def coil(self, n, left=False):
+        """ Returns the n-th transpose of the diagram
+        >>> coiled_snake = Wire(Ty('a')).coil(3)
+        """
+        coil = self
+        for i in range(n):
+            if left:
+                coil = coil.transpose_l()
+            else:
+                coil = coil.transpose_r()
+        return coil
 
     def interchange(self, i, j, left=False):
         """
@@ -324,11 +345,7 @@ class Diagram(moncat.Diagram):
         see arxiv:1601.05372, definition 2.12.
 
         >>> n, a = Ty('n'), Ty('a')
-        >>> cup = Diagram.cups(n ** 5, (n ** 5).r)
-        >>> cap = Diagram.caps((n ** 5).r, n ** 5)
-        >>> snake = cup @ Wire(n ** 5) << Wire(n ** 5) @ cap
-        >>> assert snake.normal_form() == Wire(n ** 5)
-        >>> assert snake.dagger().normal_form() == Wire(n ** 5)
+        >>> snake = Wire(n).transpose_r().transpose_r()
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f_n = Wire(n)
         >>> for _ in range(2):
