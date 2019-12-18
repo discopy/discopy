@@ -12,6 +12,7 @@ Alice >> Wire(n) @ loves >> Wire(n @ n.r @ s @ n.l) @ Bob
 
 from discopy import cat, moncat, matrix, circuit, disco, config
 from discopy.cat import Quiver
+from discopy.moncat import MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CircuitFunctor
 from discopy.pregroup import Ob, Ty, Box, Diagram, Wire, Cup, Cap

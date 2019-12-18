@@ -243,6 +243,16 @@ class Diagram(moncat.Diagram):
         return Wire(x)
 
     def interchange(self, i, j, left=False):
+        """
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x.r, y.l)
+        >>> d = (f @ f.dagger()).interchange(0, 1)
+        >>> assert d == Wire(x.r) @ f.dagger() >> f @ Wire(x.r)
+        >>> print((Cup(x, x.l) >> Cap(x, x.r)).interchange(0, 1))
+        Cap(x, x.r) @ Wire(x @ x.l) >> Wire(x @ x.r) @ Cup(x, x.l)
+        >>> print((Cup(x, x.l) >> Cap(x, x.r)).interchange(0, 1, left=True))
+        Wire(x @ x.l) @ Cap(x, x.r) >> Cup(x, x.l) @ Wire(x @ x.r)
+        """
         result = super().interchange(i, j, left=left)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, fast=True)
@@ -254,9 +264,15 @@ class Diagram(moncat.Diagram):
 
         >>> n, a = Ty('n'), Ty('a')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
-        >>> f, g, h = Box('f', n, n), Box('g', a @ n, n), Box('h', n, n @ a)
-        >>> d0 = g @ cap >> f.dagger() @ Wire(n.r) @ f >> cup @ h
-        >>> d1 = g >> f.dagger() >> f >> h
+        >>> snake = cup @ Wire(n) << Wire(n) @ cap
+        >>> assert snake.normal_form() == Wire(n)
+        >>> assert snake.dagger().normal_form() == Wire(n)
+        >>> f_n = Wire(n)
+        >>> for _ in range(2):
+        ...     f_n = f_n >> Box('f0', n, n @ n) >> Box('f1', n @ n, n)
+        >>> g, h = Box('g', a @ n, n), Box('h', n, n @ a)
+        >>> d0 = g @ cap >> f_n.dagger() @ Wire(n.r) @ f_n >> cup @ h
+        >>> d1 = g >> f_n.dagger() >> f_n >> h
         >>> assert d0.normal_form() == d1
         >>> assert d0.dagger().normal_form() == d1.dagger()
         """

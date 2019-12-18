@@ -217,6 +217,46 @@ class Circuit(Diagram):
         return tk_circuit
 
     @staticmethod
+    def from_tk(tk_circuit):
+        """ Takes a pytket circuit and returns a planar circuit,
+        SWAP gates are introduced when applying gates to non-adjacent qubits.
+
+        >>> c1 = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1])
+        >>> c2 = Circuit.from_tk(c1.to_tk())
+        >>> assert c1.normal_form() == c2.normal_form()
+        """
+        def gates_from_tk(tk_gate):
+            name = tk_gate.op.get_type().name
+            if name == 'Rx':
+                return Rx(tk_gate.op.get_params()[0])
+            if name == 'Rz':
+                return Rz(tk_gate.op.get_params()[0])
+            for gate in [SWAP, CX, H, S, T, X, Y, Z]:
+                if name == gate.name:
+                    return gate
+            raise NotImplementedError
+        gates, offsets = [], []
+        for tk_gate in tk_circuit.get_commands():
+            i_0 = tk_gate.qubits[0].index[0]
+            for i, qubit in enumerate(tk_gate.qubits[1:]):
+                if qubit.index[0] == i_0 + i + 1:
+                    break  # gate applies to adjacent qubit already
+                if qubit.index[0] < i_0 + i + 1:
+                    for j in range(qubit.index, i_0 + i):
+                        gates.append(SWAP)
+                        offsets.append(j)
+                    if qubit.index <= i_0:
+                        i_0 -= 1
+                else:
+                    for j in range(qubit.index - i_0 + i - 1):
+                        gates.append(SWAP)
+                        offsets.append(qubit.index - j - 1)
+            gates.append(gates_from_tk(tk_gate))
+            offsets.append(i_0)
+        return Circuit(tk_circuit.n_qubits, tk_circuit.n_qubits,
+                       gates, offsets)
+
+    @staticmethod
     def random(n_qubits, depth=3, gateset=None, seed=None):
         """ Returns a random Euler decomposition if n_qubits == 1,
         otherwise returns a random tiling with the given depth and gateset.
@@ -255,46 +295,6 @@ class Circuit(Diagram):
                 n_affected += len(gate.dom)
             result = result >> line
         return result
-
-    @staticmethod
-    def from_tk(tk_circuit):
-        """ Takes a pytket circuit and returns a planar circuit,
-        SWAP gates are introduced when applying gates to non-adjacent qubits.
-
-        >>> c1 = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1])
-        >>> c2 = Circuit.from_tk(c1.to_tk())
-        >>> assert c1 == c2
-        """
-        def gates_from_tk(tk_gate):
-            name = tk_gate.op.get_type().name
-            if name == 'Rx':
-                return Rx(tk_gate.op.get_params()[0])
-            if name == 'Rz':
-                return Rz(tk_gate.op.get_params()[0])
-            for gate in [SWAP, CX, H, S, T, X, Y, Z]:
-                if name == gate.name:
-                    return gate
-            raise NotImplementedError
-        gates, offsets = [], []
-        for tk_gate in tk_circuit.get_commands():
-            i_0 = tk_gate.qubits[0].index[0]
-            for i, qubit in enumerate(tk_gate.qubits[1:]):
-                if qubit.index[0] == i_0 + i + 1:
-                    break  # gate applies to adjacent qubit already
-                if qubit.index[0] < i_0 + i + 1:
-                    for j in range(qubit.index, i_0 + i):
-                        gates.append(SWAP)
-                        offsets.append(j)
-                    if qubit.index <= i_0:
-                        i_0 -= 1
-                else:
-                    for j in range(qubit.index - i_0 + i - 1):
-                        gates.append(SWAP)
-                        offsets.append(qubit.index - j - 1)
-            gates.append(gates_from_tk(tk_gate))
-            offsets.append(i_0)
-        return Circuit(tk_circuit.n_qubits, tk_circuit.n_qubits,
-                       gates, offsets)
 
 
 class Id(Circuit):

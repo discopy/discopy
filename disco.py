@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements distributional compositional models.
+Implements disco models in the category of matrices and circuits.
 
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -12,6 +12,22 @@ Implements distributional compositional models.
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 >>> F = Model(ob, ar)
 >>> assert F(sentence) == True
+
+>>> s, n = Ty('s'), Ty('n')
+>>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+>>> loves_box = Box('loves', n @ n, s)
+>>> loves = Cap(n.r, n) @ Cap(n, n.l)\\
+...     >> Wire(n.r) @ loves_box @ Wire(n.l)
+>>> autonomised_sentence = (Alice @ loves @ Bob >> grammar).normal_form()
+>>> print(autonomised_sentence)
+Alice >> Wire(n) @ Bob >> loves
+>>> ob = {s: 0, n: 1}
+>>> loves_ansatz = CX\\
+...     >> Gate('H', 1, [1, 1, 1, -1]) @ Gate('X', 1, [0, 1, 1, 0])\\
+...     >> Bra(0, 0)
+>>> ar = {Alice: Ket(0), loves_box: loves_ansatz, Bob: Ket(1)}
+>>> F = CircuitFunctor(ob, ar)
+>>> assert F(autonomised_sentence).eval()
 """
 
 from functools import reduce as fold
