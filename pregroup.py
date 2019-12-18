@@ -141,6 +141,16 @@ class Ty(moncat.Ty):
         """
         return ' @ '.join(map(str, self.objects)) or "Ty()"
 
+    def __pow__(self, other):
+        """
+        >>> Ty('x') ** 3
+        Ty('x', 'x', 'x')
+        """
+        if not isinstance(other, int):
+            raise ValueError(
+                "Expected int, got {} instead.".format(repr(other)))
+        return sum(other * (self, ), Ty())
+
     @property
     def l(self):
         """
@@ -247,6 +257,10 @@ class Diagram(moncat.Diagram):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
+        >>> Diagram.cup( a @ b @ a, a.r @ b.r) #doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        pregroup.AxiomError: a @ b @ a and a.r @ b.r are not adjoints.
         >>> assert Diagram.cup(a, a.r) == Cup(a, a.r)
         >>> assert Diagram.cup(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Wire(a) @ Cup(b, b.l) @ Wire(a.l))
@@ -264,6 +278,10 @@ class Diagram(moncat.Diagram):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
+        >>> Diagram.cap( a @ b @ a, a.l @ b.l) #doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        pregroup.AxiomError: a @ b @ a and a.l @ b.l are not adjoints.
         >>> assert Diagram.cap(a, a.r) == Cap(a, a.r)
         >>> assert Diagram.cap(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Wire(a) @ Cap(b, b.l) @ Wire(a.l))
@@ -297,10 +315,12 @@ class Diagram(moncat.Diagram):
         see arxiv:1601.05372, definition 2.12.
 
         >>> n, a = Ty('n'), Ty('a')
+        >>> cup = Diagram.cup(n ** 5, (n ** 5).r)
+        >>> cap = Diagram.cap((n ** 5).r, n ** 5)
+        >>> snake = cup @ Wire(n ** 5) << Wire(n ** 5) @ cap
+        >>> assert snake.normal_form() == Wire(n ** 5)
+        >>> assert snake.dagger().normal_form() == Wire(n ** 5)
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
-        >>> snake = cup @ Wire(n) << Wire(n) @ cap
-        >>> assert snake.normal_form() == Wire(n)
-        >>> assert snake.dagger().normal_form() == Wire(n)
         >>> f_n = Wire(n)
         >>> for _ in range(2):
         ...     f_n = f_n >> Box('f0', n, n @ n) >> Box('f1', n @ n, n)
