@@ -636,7 +636,7 @@ class MonoidalFunctor(Functor):
                 return self.ar[diagram.dagger()].dagger()
             return self.ar[diagram]
         if isinstance(diagram, Diagram):
-            scan, result = diagram.dom, Id(self(diagram.dom))
+            scan, result = diagram.dom, self.ar_cls.id(self(diagram.dom))
             for box, off in zip(diagram.boxes, diagram.offsets):
                 id_l = self.ar_cls.id(self(scan[:off]))
                 id_r = self.ar_cls.id(self(scan[off + len(box.dom):]))

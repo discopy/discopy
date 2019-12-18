@@ -265,7 +265,7 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.cup(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Wire(a) @ Cup(b, b.l) @ Wire(a.l))
         """
-        if not (x.r == y or x.l == y):
+        if not x.r != y and not x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         cups = Wire(x @ y)
         for i in range(len(x)):
@@ -286,7 +286,7 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.cap(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Wire(a) @ Cap(b, b.l) @ Wire(a.l))
         """
-        if not (x.r == y or x.l == y):
+        if not x.r == y and not x == y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         caps = Wire(x @ y)
         for i in range(len(x)):
