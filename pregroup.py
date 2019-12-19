@@ -8,8 +8,8 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> t = n.r @ s @ n.l
 >>> assert t @ unit == t == unit @ t
 >>> assert t.l.r == t == t.r.l
->>> snake_l = Cap(n, n.l) @ Wire(n) >> Wire(n) @ Cup(n.l, n)
->>> snake_r = Wire(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Wire(n)
+>>> snake_l = Cap(n, n.l) @ Id(n) >> Id(n) @ Cup(n.l, n)
+>>> snake_r = Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n)
 >>> assert snake_l.dagger().dagger() == snake_l
 >>> assert (snake_l >> snake_r).dagger()\\
 ...         == snake_l.dagger() << snake_r.dagger()
@@ -167,14 +167,14 @@ class Diagram(moncat.Diagram):
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.l @ s)
     >>> boxes, offsets = [Alice, jokes, Cup(n, n.l)], [0, 1, 0]
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
-    Alice >> Wire(n) @ jokes >> Cup(n, n.l) @ Wire(s)
+    Alice >> Id(n) @ jokes >> Cup(n, n.l) @ Id(s)
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
         """
         >>> a, b = Ty('a'), Ty('b')
         >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
         >>> print(Diagram(a, a, [f, g, f.dagger()], [0, 1, 0]))
-        f >> Wire(a.l) @ g >> f.dagger()
+        f >> Id(a.l) @ g >> f.dagger()
         """
         if not isinstance(dom, Ty):
             raise ValueError(
@@ -202,7 +202,7 @@ class Diagram(moncat.Diagram):
         >>> a, b = Ty('a'), Ty('b')
         >>> f = Box('f', a, a.l @ b.r)
         >>> print(f.dagger() @ f)
-        f.dagger() @ Wire(a) >> Wire(a) @ f
+        f.dagger() @ Id(a) >> Id(a) @ f
         """
         result = super().tensor(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
@@ -221,11 +221,11 @@ class Diagram(moncat.Diagram):
     @staticmethod
     def id(x):
         """
-        >>> assert Diagram.id(Ty('s')) == Wire(Ty('s'))
+        >>> assert Diagram.id(Ty('s')) == Id(Ty('s'))
         >>> print(Diagram.id(Ty('s')))
-        Wire(s)
+        Id(s)
         """
-        return Wire(x)
+        return Id(x)
 
     @staticmethod
     def cups(x, y):  # pylint: disable=invalid-name
@@ -238,15 +238,15 @@ class Diagram(moncat.Diagram):
         pregroup.AxiomError: a @ b @ a and a.r @ b.r are not adjoints.
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
         >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
-        ...                 << Wire(a) @ Cup(b, b.l) @ Wire(a.l))
+        ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
         """
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
-        cups = Wire(x @ y)
+        cups = Id(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
             cups = cups\
-                >> Wire(x[:j]) @ Cup(x[j:j + 1], y[i:i + 1]) @ Wire(y[i + 1:])
+                >> Id(x[:j]) @ Cup(x[j:j + 1], y[i:i + 1]) @ Id(y[i + 1:])
         return cups
 
     @staticmethod
@@ -260,55 +260,55 @@ class Diagram(moncat.Diagram):
         pregroup.AxiomError: a @ b @ a and a.l @ b.l are not adjoints.
         >>> assert Diagram.caps(a, a.r) == Cap(a, a.r)
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
-        ...                 >> Wire(a) @ Cap(b, b.l) @ Wire(a.l))
+        ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
-        caps = Wire(x @ y)
+        caps = Id(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
             caps = caps\
-                << Wire(x[:j]) @ Cap(x[j:j + 1], y[i:i + 1]) @ Wire(y[i + 1:])
+                << Id(x[:j]) @ Cap(x[j:j + 1], y[i:i + 1]) @ Id(y[i + 1:])
         return caps
 
     def transpose_r(self):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> double_snake = Wire(a @ b).transpose_r()
-        >>> two_snakes = Wire(b).transpose_r() @ Wire(a).transpose_r()
+        >>> double_snake = Id(a @ b).transpose_r()
+        >>> two_snakes = Id(b).transpose_r() @ Id(a).transpose_r()
         >>> double_snake == two_snakes
         False
         >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes)
         >>> assert double_snake == two_snakes_nf
         """
-        return Diagram.caps(self.dom.r, self.dom) @ Wire(self.cod.r)\
-            >> Wire(self.dom.r) @ self @ Wire(self.cod.r)\
-            >> Wire(self.dom.r) @ Diagram.cups(self.cod, self.cod.r)
+        return Diagram.caps(self.dom.r, self.dom) @ Id(self.cod.r)\
+            >> Id(self.dom.r) @ self @ Id(self.cod.r)\
+            >> Id(self.dom.r) @ Diagram.cups(self.cod, self.cod.r)
 
     def transpose_l(self):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> double_snake = Wire(a @ b).transpose_l()
-        >>> two_snakes = Wire(b).transpose_l() @ Wire(a).transpose_l()
+        >>> double_snake = Id(a @ b).transpose_l()
+        >>> two_snakes = Id(b).transpose_l() @ Id(a).transpose_l()
         >>> double_snake == two_snakes
         False
         >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes, left=True)
         >>> assert double_snake == two_snakes_nf
         """
-        return Wire(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
-            >> Wire(self.cod.l) @ self @ Wire(self.dom.l)\
-            >> Diagram.cups(self.cod.l, self.cod) @ Wire(self.dom.l)
+        return Id(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
+            >> Id(self.cod.l) @ self @ Id(self.dom.l)\
+            >> Diagram.cups(self.cod.l, self.cod) @ Id(self.dom.l)
 
     def interchange(self, i, j, left=False):
         """
         >>> x, y = Ty('x'), Ty('y')
         >>> f = Box('f', x.r, y.l)
         >>> d = (f @ f.dagger()).interchange(0, 1)
-        >>> assert d == Wire(x.r) @ f.dagger() >> f @ Wire(x.r)
+        >>> assert d == Id(x.r) @ f.dagger() >> f @ Id(x.r)
         >>> print((Cup(x, x.l) >> Cap(x, x.r)).interchange(0, 1))
-        Cap(x, x.r) @ Wire(x @ x.l) >> Wire(x @ x.r) @ Cup(x, x.l)
+        Cap(x, x.r) @ Id(x @ x.l) >> Id(x @ x.r) @ Cup(x, x.l)
         >>> print((Cup(x, x.l) >> Cap(x, x.r)).interchange(0, 1, left=True))
-        Wire(x @ x.l) @ Cap(x, x.r) >> Cup(x, x.l) @ Wire(x @ x.r)
+        Id(x @ x.l) @ Cap(x, x.r) >> Cup(x, x.l) @ Id(x @ x.r)
         """
         result = super().interchange(i, j, left=left)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
@@ -323,7 +323,7 @@ class Diagram(moncat.Diagram):
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f = Box('f0', n, n @ s.l) >> Box('f1', n @ s.l, n)
         >>> g, h = Box('g', s @ n, n), Box('h', n, n @ s)
-        >>> d0 = g @ cap >> f.dagger() @ Wire(n.r) @ f >> cup @ h
+        >>> d0 = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
         >>> d1 = g >> f.dagger() >> f >> h
         >>> assert d1 == d0.normal_form()
         >>> assert d1.dagger() == d0.dagger().normal_form()
@@ -367,7 +367,7 @@ class Diagram(moncat.Diagram):
             with the lists of box indices obstructing on the left and right,
             returns a new diagram with the snake removed.
 
-            A left snake is one of the form Wire @ Cap >> Cup @ Wire.
+            A left snake is one of the form Id @ Cap >> Cup @ Id.
             """
             for left in left_obstruction:
                 diagram = diagram.interchange(cap, left)
@@ -383,7 +383,7 @@ class Diagram(moncat.Diagram):
         def right_unsnake(diagram, cup, cap,
                           left_obstruction, right_obstruction):
             """
-            A right snake is one of the form Cap @ Wire >> Wire @ Cup.
+            A right snake is one of the form Cap @ Id >> Id @ Cup.
             """
             for left in left_obstruction[::-1]:
                 diagram = diagram.interchange(left, cup)
@@ -474,17 +474,17 @@ class AxiomError(moncat.AxiomError):
     """
 
 
-class Wire(Diagram):
+class Id(Diagram):
     """ Define an identity arrow in a free rigid category
 
     >>> t = Ty('a', 'b', 'c')
-    >>> assert Wire(t) == Diagram(t, t, [], [])
+    >>> assert Id(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
         """
-        >>> Wire(Ty('n') @ Ty('s'))
-        Wire(Ty('n', 's'))
-        >>> Wire('n')  # doctest: +ELLIPSIS
+        >>> Id(Ty('n') @ Ty('s'))
+        Id(Ty('n', 's'))
+        >>> Id('n')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         ValueError: Input of type Ty expected, got 'n' instead.
@@ -496,18 +496,18 @@ class Wire(Diagram):
 
     def __repr__(self):
         """
-        >>> Wire(Ty('n'))
-        Wire(Ty('n'))
+        >>> Id(Ty('n'))
+        Id(Ty('n'))
         """
-        return "Wire({})".format(repr(self.dom))
+        return "Id({})".format(repr(self.dom))
 
     def __str__(self):
         """
         >>> n = Ty('n')
-        >>> print(Wire(n))
-        Wire(n)
+        >>> print(Id(n))
+        Id(n)
         """
-        return "Wire({})".format(str(self.dom))
+        return "Id({})".format(str(self.dom))
 
 
 class Cup(Box, Diagram):
@@ -638,7 +638,7 @@ class RigidFunctor(moncat.MonoidalFunctor):
     >>> love_box = Box('loves', a @ a, s)
     >>> ob = {s: s, n: a, a: n @ n}
     >>> ar = {loves: Cap(a.r, a) @ Cap(a, a.l)
-    ...              >> Wire(a.r) @ love_box @ Wire(a.l)}
+    ...              >> Id(a.r) @ love_box @ Id(a.l)}
     >>> F = RigidFunctor(ob, ar)
     >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
     >>> assert F(Cup(a, a.l)) == Diagram.cups(n @ n, (n @ n).l)

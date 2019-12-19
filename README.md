@@ -9,13 +9,13 @@
 1) Draw your picture.
 
 ```python
-from discopy import Ty, Word, Cup, Wire
+from discopy import Ty, Word, Cup, Id
 
 s, n = Ty('s'), Ty('n')
 Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
-sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 ```
 
 2) Define a model.
