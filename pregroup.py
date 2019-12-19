@@ -246,7 +246,8 @@ class Diagram(moncat.Diagram):
         cups = Wire(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
-            cups = cups >> Wire(x[:j]) @ Cup(x[j], y[i]) @ Wire(y[i + 1:])
+            cups = cups\
+                >> Wire(x[:j]) @ Cup(x[j:j + 1], y[i:i + 1]) @ Wire(y[i + 1:])
         return cups
 
     @staticmethod
@@ -267,7 +268,8 @@ class Diagram(moncat.Diagram):
         caps = Wire(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
-            caps = caps << Wire(x[:j]) @ Cap(x[j], y[i]) @ Wire(y[i + 1:])
+            caps = caps\
+                << Wire(x[:j]) @ Cap(x[j:j + 1], y[i:i + 1]) @ Wire(y[i + 1:])
         return caps
 
     def transpose_r(self):
@@ -279,6 +281,8 @@ class Diagram(moncat.Diagram):
         False
         >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes)
         >>> assert double_snake == two_snakes_nf
+        >>> f = Box('f', a @ b.l, a.r)
+        >>> print(f.transpose_r())
         """
         return Diagram.caps(self.dom.r, self.dom) @ Wire(self.cod.r)\
             >> Wire(self.dom.r) @ self @ Wire(self.cod.r)\
@@ -328,9 +332,15 @@ class Diagram(moncat.Diagram):
         >>> d1 = g >> f_n.dagger() >> f_n >> h
         >>> assert d1 == d0.normal_form()
         >>> assert d1.dagger() == d0.dagger().normal_form()
-        >>> snake = Wire(n).transpose_r().transpose_l().transpose_r()\\
-        ...                .transpose_l().transpose_r().transpose_l()
-        >>> assert snake.normal_form() == Wire(n)
+
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> f = Box('f', x @ y.l, z.r)
+        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
+        ...              .transpose_l().transpose_r().transpose_l()
+        >>> assert f.normal_form() == f
+        >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
+        ...              .transpose_r().transpose_r().transpose_r()
+        >>> assert transpose.normal_form() == f
         """
         def unsnake(diagram, cup, cap):
             """
@@ -442,9 +452,6 @@ class Box(moncat.Box, Diagram):
         >>> Box('f', a, b.l @ b)
         Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
         """
-        self._dom, self._cod = dom, cod
-        self._boxes, self._offsets = [self], [0]
-        self._name, self._dagger, self._data = name, _dagger, data
         moncat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         Diagram.__init__(self, dom, cod, [self], [0], fast=True)
 
@@ -545,10 +552,6 @@ class Cup(Box, Diagram):
         Cup(Ty('n'), Ty(Ob('n', z=-1)))
         """
         err = "Simple type expected, got {} instead."
-        if isinstance(x, Ob):
-            x = Ty(x)
-        if isinstance(y, Ob):
-            y = Ty(y)
         if not isinstance(x, Ty) or not len(x) == 1:
             raise ValueError(err.format(repr(x)))
         if not isinstance(y, Ty) or not len(y) == 1:
@@ -608,10 +611,6 @@ class Cap(Box):
         >>> Cap(Ty('n'), Ty('n').l)
         Cap(Ty('n'), Ty(Ob('n', z=-1)))
         """
-        if isinstance(x, Ob):
-            x = Ty(x)
-        if isinstance(y, Ob):
-            y = Ty(y)
         err = "Simple type expected, got {} instead."
         if not isinstance(x, Ty) or not len(x) == 1:
             raise ValueError(err.format(repr(x)))
