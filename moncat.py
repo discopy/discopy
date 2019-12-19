@@ -386,7 +386,7 @@ class Diagram(Arrow):
         elif off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
         else:
-            raise InterchangerError("Boxes {} and {} are connected."
+            raise InterchangerError("Boxes {} and {} do not commute."
                                     .format(repr(box0), repr(box1)))
         return Diagram(
             self.dom, self.cod,

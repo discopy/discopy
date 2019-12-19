@@ -314,7 +314,8 @@ class Diagram(moncat.Diagram):
 
     def coil(self, n, left=False):
         """ Returns the n-th transpose of the diagram
-        >>> coiled_snake = Wire(Ty('a')).coil(3)
+        >>> coiled_snake = Wire(Ty('a')).coil(2).coil(2, left=True)
+        >>> assert coiled_snake.normal_form() == Wire(Ty('a'))
         """
         coil = self
         for i in range(n):
@@ -392,6 +393,7 @@ class Diagram(moncat.Diagram):
         for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box0, Cap):
                 for scan in [off0, off0 + 1]:
+                    snake = 'left' if scan == off0 else 'right'
                     rewrite = left_unsnake if scan == off0 else right_unsnake
                     left_obstruction, right_obstruction = [], []
                     for j in range(i + 1, len(self)):
@@ -399,11 +401,15 @@ class Diagram(moncat.Diagram):
                         if off1 <= scan < off1 + len(box1.dom):
                             if not isinstance(box1, Cup):
                                 break
+                            if snake == 'left' and off1 + 1 != scan:
+                                break
+                            if snake == 'right' and off1 != scan:
+                                break
                             return rewrite(
                                 self, j, i,
                                 left_obstruction, right_obstruction)\
                                 .normal_form()
-                        elif off1 < scan:
+                        elif off1 <= scan:
                             scan += len(box1.cod) - len(box1.dom)
                             left_obstruction.append(j)
                         else:
