@@ -21,7 +21,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 from discopy import cat
-from discopy.cat import Ob, Functor
+from discopy.cat import Ob, Functor, Quiver
 
 
 class Ty(Ob):
@@ -423,6 +423,10 @@ class Diagram(cat.Diagram):
                 break
         return diagram
 
+    def flatten(self):
+        F = MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))
+        return F(self)
+
     def slice(self):
         """
         Returns a list of diagrams of depth 1
@@ -431,31 +435,18 @@ class Diagram(cat.Diagram):
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
         >>> d = f0 @ Id(y) >> f0.dagger() @ f1 >> Id(x) @ f0
-        >>> assert (d.slice()[0] >> d.slice()[1]).normal_form() ==\\
-        ...         d.normal_form()
+        >>> assert d.slice().flatten().normal_form() == d
         >>> g = Box('g', x @ y, y)
         >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
         ...      g @ f1 >> f1 @ Id(x)).normal_form()
-        >>> slices = d.slice()
-        >>> assert (slices[0] >> slices[1] >> slices[2]).normal_form() == d
-
-        Returns an empty list if there are no boxes in the diagram.
-
-        >>> assert Id(x @ y @ x).slice() == []
+        >>> assert d.slice().flatten().normal_form() == d
         """
-        def scan(diagram, i):
-            scan = diagram.dom
-            for j in range(i + 1):
-                off = diagram.offsets[j]
-                box = diagram.boxes[j]
-                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-            return scan
-
         diagram = self
+        dom = diagram.dom
+        cod = diagram.dom
         slices = []
-        dom = self.dom
         i = 0
-        while i in range(len(diagram)):
+        while i < len(diagram):
             count = 0
             for j in range(i + 1, len(diagram)):
                 try:
@@ -463,12 +454,16 @@ class Diagram(cat.Diagram):
                     count += 1
                 except InterchangerError:
                     pass
-            cod = scan(diagram, i + count)
+            for j in range(i, i + count + 1):
+                off = diagram.offsets[j]
+                box = diagram.boxes[j]
+                cod = cod[:off] + box.cod + cod[off + len(box.dom):]
             slices += [Diagram(dom, cod, diagram.boxes[i: i + count + 1],
-                               diagram.offsets[i: i + count + 1])]
+                               diagram.offsets[i: i + count + 1]
+                               ).normal_form()]
             dom = cod
             i += count + 1
-        return slices
+        return Diagram(self.dom, self.cod, slices, len(slices)*[0])
 
     def depth(self):
         """ Computes the depth of a diagram by slicing it
