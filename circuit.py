@@ -133,8 +133,8 @@ class Circuit(Diagram):
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, fast=True)
 
-    def normal_form(self):
-        result = super().normal_form()
+    def normal_form(self, left=False):
+        result = super().normal_form(left=left)
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, fast=True)
 
