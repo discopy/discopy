@@ -356,6 +356,13 @@ class Diagram(Arrow):
         cap @ Id(x @ x) >> Id(x @ x) @ cup
         >>> print((cup >> cap).interchange(0, 1, left=True))
         Id(x @ x) @ cap >> cup @ Id(x @ x)
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> d = f0 @ Id(y) >> f1 @ f1 >> Id(x) @ f0
+        >>> d.interchange(0,2) #doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        moncat.InterchangerError: Boxes ... do not commute.
+        >>> assert d.interchange(2,0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
         """
         if i < 0:
             return self.interchange(len(self) + i, j)
@@ -369,7 +376,7 @@ class Diagram(Arrow):
         if j < i - 1:
             result = self
             for k in range(i - j):
-                result = result.interchange(i - k, i - k - 1)
+                result = result.interchange(i - k - 1, i - k)
             return result
         if j > i + 1:
             result = self
@@ -433,6 +440,41 @@ class Diagram(Arrow):
             if diagram == _diagram:  # no more moves
                 break
         return diagram
+
+    # def slice(self):
+    #     """
+    #     Returns a list of diagrams such that their sequential composition
+    #     is the original diagram.
+    #     >>> x, y = Ty('x'), Ty('y')
+    #     >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+    #     >>> d = f0 @ Id(y) >> f0.dagger() @ f1 >> Id(x) @ f0
+    #     >>> d.slice()
+    #     """
+    #     def scan(diagram, i):
+    #         scan = diagram.dom
+    #         for j in range(i + 1):
+    #             off = diagram.offsets[j]
+    #             box = diagram.boxes[j]
+    #             scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+    #         return scan
+    #
+    #     diagram = self
+    #     slices = []
+    #     dom, i = self.dom, 0
+    #     while i in range(len(diagram) - 1):
+    #         count = 0
+    #         for j in range(i + 1, len(diagram)):
+    #             try:
+    #                 diagram = diagram.interchange(j, i)
+    #                 count += 1
+    #             except InterchangerError:
+    #                 pass
+    #         cod = scan(diagram, i + count + 1)
+    #         slices += [Diagram(dom, cod, diagram.boxes[i: i + count + 1],
+    #                            diagram.offsets[i: i + count + 1])]
+    #         dom = cod
+    #         i += count + 1
+    #     return slices
 
 
 def _spiral(n_cups):
