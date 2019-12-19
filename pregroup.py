@@ -313,7 +313,7 @@ class Diagram(moncat.Diagram):
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, fast=True)
 
-    def normal_form(self):
+    def normal_form(self, left=False):
         """
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
@@ -326,10 +326,10 @@ class Diagram(moncat.Diagram):
         >>> g, h = Box('g', a @ n, n), Box('h', n, n @ a)
         >>> d0 = g @ cap >> f_n.dagger() @ Wire(n.r) @ f_n >> cup @ h
         >>> d1 = g >> f_n.dagger() >> f_n >> h
-        >>> assert d0.normal_form() == d1
-        >>> assert d0.dagger().normal_form() == d1.dagger()
-        >>> snake = Wire(n).transpose_l().transpose_r().transpose_l()\\
-        ...                .transpose_r().transpose_l().transpose_r()
+        >>> assert d1 == d0.normal_form()
+        >>> assert d1.dagger() == d0.dagger().normal_form()
+        >>> snake = Wire(n).transpose_r().transpose_l().transpose_r()\\
+        ...                .transpose_l().transpose_r().transpose_l()
         >>> assert snake.normal_form() == Wire(n)
         """
         def unsnake(diagram, cup, cap):
@@ -386,48 +386,51 @@ class Diagram(moncat.Diagram):
                 cap += 1
             return unsnake(diagram, cup, cap)
 
-        for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
-            if isinstance(box0, Cap):
+        def follow_wire(diagram, i, wire):
+            """
+            Given a diagram, the index of a box i and the offset of an output
+            wire, returns a triple (j, left_obstruction, right_obstruction)
+            where j is the index of the box which takes this wire as input, or
+            len(diagram) if it is connected to the bottom boundary.
+            """
+            left_obstruction, right_obstruction = [], []
+            for j in range(i + 1, len(diagram)):
+                box, off = diagram.boxes[j], diagram.offsets[j]
+                if off <= wire < off + len(box.dom):
+                    return j, left_obstruction, right_obstruction
+                if off <= wire:
+                    wire += len(box.cod) - len(box.dom)
+                    left_obstruction.append(j)
+                else:
+                    right_obstruction.append(j)
+            return len(diagram), left_obstruction, right_obstruction
+
+        for cap in range(len(self)):
+            if not isinstance(self.boxes[cap], Cap):
+                continue
+            for snake, wire in [('left', self.offsets[cap]),
+                                ('right', self.offsets[cap] + 1)]:
+                cup, left_obstruction, right_obstruction = follow_wire(
+                    self, cap, wire)
                 """
-                We look for a yankable pair of indices (i, j) together with
-                a list of left and right obstructions.
-                The variable scan is the offset of the wire we are following.
+                We found what the cap is connected to, if it's not yankable
+                we try with the other leg.
                 """
-                for scan in [off0, off0 + 1]:
-                    snake = 'left' if scan == off0 else 'right'
-                    rewrite = left_unsnake if scan == off0 else right_unsnake
-                    left_obstruction, right_obstruction = [], []
-                    for j in range(i + 1, len(self)):
-                        box1, off1 = self.boxes[j], self.offsets[j]
-                        if off1 <= scan < off1 + len(box1.dom):
-                            """
-                            We found what box0 is connected to, if it's not
-                            a yankable pair we break out of the inner loop.
-                            """
-                            if not isinstance(box1, Cup):
-                                break
-                            if snake == 'left' and off1 + 1 != scan:
-                                break
-                            if snake == 'right' and off1 != scan:
-                                break
-                            """
-                            We rewrite self and call normal_form recursively
-                            on a smaller diagram (with one snake removed).
-                            """
-                            return rewrite(
-                                self, j, i,
-                                left_obstruction, right_obstruction)\
-                                .normal_form()
-                        if off1 <= scan:
-                            """
-                            If we pass by a box on our left we update the
-                            offset of the wire we are scanning along.
-                            """
-                            scan += len(box1.cod) - len(box1.dom)
-                            left_obstruction.append(j)
-                        else:
-                            right_obstruction.append(j)
-        return super().normal_form()
+                if cup == len(self) or not isinstance(self.boxes[cup], Cup):
+                    continue
+                if snake == 'left' and self.offsets[cup] + 1 != wire:
+                    continue
+                if snake == 'right' and self.offsets[cup] != wire:
+                    continue
+                """
+                We rewrite self and call normal_form recursively
+                on a smaller diagram (with one snake removed).
+                """
+                rewrite = left_unsnake if snake == 'left' else right_unsnake
+                return rewrite(
+                    self, cup, cap, left_obstruction, right_obstruction)\
+                    .normal_form()
+        return super().normal_form(left=left)
 
 
 class Box(moncat.Box, Diagram):
@@ -666,10 +669,10 @@ class RigidFunctor(moncat.MonoidalFunctor):
         if isinstance(diagram, Ob):
             result = self.ob[Ty(diagram.name)]
             if diagram.z < 0:
-                for i in range(-diagram.z):
+                for _ in range(-diagram.z):
                     result = result.l
             elif diagram.z > 0:
-                for i in range(diagram.z):
+                for _ in range(diagram.z):
                     result = result.r
             return result
         if isinstance(diagram, Ty):
@@ -680,3 +683,5 @@ class RigidFunctor(moncat.MonoidalFunctor):
             return Diagram.caps(self(diagram._x), self(diagram._y))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
+        raise ValueError("Expected pregroup.Diagram, got {} of type {} instead"
+                         .format(repr(diagram), type(diagram)))
