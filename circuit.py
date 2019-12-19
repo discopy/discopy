@@ -15,6 +15,7 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 """
 
 import random
+import pytket as tk
 from discopy.cat import Quiver
 from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
@@ -83,12 +84,12 @@ class Circuit(Diagram):
     >>> circuit = CX >> CX >> CX >> CX >> CX >> CX
     >>> assert np.all(circuit.eval() == Id(2).eval())
     """
-    def __init__(self, dom, cod, gates, offsets, fast=False):
+    def __init__(self, dom, cod, gates, offsets, _fast=False):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
         """
         self._gates = gates
-        super().__init__(PRO(dom), PRO(cod), gates, offsets, fast=fast)
+        super().__init__(PRO(dom), PRO(cod), gates, offsets, _fast=_fast)
 
     @property
     def gates(self):
@@ -113,7 +114,7 @@ class Circuit(Diagram):
         """
         result = super().then(other)
         return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     def tensor(self, other):
         """
@@ -122,7 +123,7 @@ class Circuit(Diagram):
         """
         result = super().tensor(other)
         return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     def dagger(self):
         """
@@ -131,12 +132,12 @@ class Circuit(Diagram):
         """
         result = super().dagger()
         return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     def normal_form(self, left=False):
         result = super().normal_form(left=left)
         return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     @staticmethod
     def id(x):
@@ -202,7 +203,6 @@ class Circuit(Diagram):
         >>> list(c)
         [SWAP q[0], q[1];, Rx(0.25PI) q[1];, CX q[1], q[2];]
         """
-        import pytket as tk
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
@@ -309,7 +309,7 @@ class Id(Circuit):
         """
         if isinstance(n_qubits, PRO):
             n_qubits = len(n_qubits)
-        super().__init__(n_qubits, n_qubits, [], [], fast=True)
+        super().__init__(n_qubits, n_qubits, [], [], _fast=True)
 
     def __repr__(self):
         """
@@ -341,7 +341,7 @@ class Gate(Box, Circuit):
             self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
         Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits),
                      data=data, _dagger=_dagger)
-        Circuit.__init__(self, n_qubits, n_qubits, [self], [0], fast=True)
+        Circuit.__init__(self, n_qubits, n_qubits, [self], [0], _fast=True)
 
     @property
     def array(self):
@@ -387,7 +387,7 @@ class Ket(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Ket({})'.format(', '.join(map(str, bitstring))),
                      PRO(0), PRO(len(bitstring)))
-        Circuit.__init__(self, 0, len(bitstring), [self], [0], fast=True)
+        Circuit.__init__(self, 0, len(bitstring), [self], [0], _fast=True)
 
     def __repr__(self):
         """
@@ -432,7 +432,7 @@ class Bra(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Bra({})'.format(', '.join(map(str, bitstring))),
                      PRO(len(bitstring)), PRO(0))
-        Circuit.__init__(self, len(bitstring), 0, [self], [0], fast=True)
+        Circuit.__init__(self, len(bitstring), 0, [self], [0], _fast=True)
 
     def __repr__(self):
         """
@@ -607,11 +607,11 @@ class CircuitFunctor(MonoidalFunctor):
         if isinstance(diagram, Diagram):
             return Circuit(
                 len(result.dom), len(result.cod),
-                result.boxes, result.offsets, fast=True)
+                result.boxes, result.offsets, _fast=True)
         return result
 
 
-def sqrt(x):
+def sqrt(x):  # pylint: disable=invalid-name
     """
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])

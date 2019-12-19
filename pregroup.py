@@ -38,7 +38,7 @@ class Ob(cat.Ob):
         super().__init__(name)
 
     @property
-    def z(self):
+    def z(self):  # pylint: disable=invalid-name
         """
         >>> Ob('a').z
         0
@@ -46,7 +46,7 @@ class Ob(cat.Ob):
         return self._z
 
     @property
-    def l(self):
+    def l(self):  # pylint: disable=invalid-name
         """
         >>> Ob('a').l
         Ob('a', z=-1)
@@ -54,7 +54,7 @@ class Ob(cat.Ob):
         return Ob(self.name, self.z - 1)
 
     @property
-    def r(self):
+    def r(self):  # pylint: disable=invalid-name
         """
         >>> Ob('a').r
         Ob('a', z=1)
@@ -134,7 +134,7 @@ class Ty(moncat.Ty):
             repr(x if x.z else x.name) for x in self.objects))
 
     @property
-    def l(self):
+    def l(self):  # pylint: disable=invalid-name
         """
         >>> s, n = Ty('s'), Ty('n')
         >>> (s @ n.r).l
@@ -143,7 +143,7 @@ class Ty(moncat.Ty):
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
-    def r(self):
+    def r(self):  # pylint: disable=invalid-name
         """
         >>> s, n = Ty('s'), Ty('n')
         >>> (s @ n.l).r
@@ -169,7 +169,7 @@ class Diagram(moncat.Diagram):
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
     Alice >> Wire(n) @ jokes >> Cup(n, n.l) @ Wire(s)
     """
-    def __init__(self, dom, cod, boxes, offsets, fast=False):
+    def __init__(self, dom, cod, boxes, offsets, _fast=False):
         """
         >>> a, b = Ty('a'), Ty('b')
         >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
@@ -184,7 +184,7 @@ class Diagram(moncat.Diagram):
             raise ValueError(
                 "Codomain of type Ty expected, got {} of type {}"
                 " instead.".format(repr(cod), type(cod)))
-        super().__init__(dom, cod, boxes, offsets, fast=fast)
+        super().__init__(dom, cod, boxes, offsets, _fast=_fast)
 
     def then(self, other):
         """
@@ -195,7 +195,7 @@ class Diagram(moncat.Diagram):
         """
         result = super().then(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     def tensor(self, other):
         """
@@ -206,7 +206,7 @@ class Diagram(moncat.Diagram):
         """
         result = super().tensor(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     def dagger(self):
         """
@@ -214,10 +214,9 @@ class Diagram(moncat.Diagram):
         >>> f = Box('f', a, a.l @ b.r).dagger()
         >>> assert f.dagger() >> f == (f.dagger() >> f).dagger()
         """
-        return Diagram(
-            self.cod, self.dom,
-            [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1],
-            fast=True)
+        result = super().dagger()
+        return Diagram(Ty(*result.dom), Ty(*result.cod),
+                       result.boxes, result.offsets, _fast=True)
 
     @staticmethod
     def id(x):
@@ -229,7 +228,7 @@ class Diagram(moncat.Diagram):
         return Wire(x)
 
     @staticmethod
-    def cups(x, y):
+    def cups(x, y):  # pylint: disable=invalid-name
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -251,7 +250,7 @@ class Diagram(moncat.Diagram):
         return cups
 
     @staticmethod
-    def caps(x, y):
+    def caps(x, y):  # pylint: disable=invalid-name
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -313,7 +312,7 @@ class Diagram(moncat.Diagram):
         """
         result = super().interchange(i, j, left=left)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, fast=True)
+                       result.boxes, result.offsets, _fast=True)
 
     def normal_form(self, left=False):
         """
@@ -359,7 +358,7 @@ class Diagram(moncat.Diagram):
             return Diagram(diagram.dom, diagram.cod,
                            diagram.boxes[:cap] + diagram.boxes[cup + 1:],
                            diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                           fast=True)
+                           _fast=True)
 
         def left_unsnake(diagram, cup, cap,
                          left_obstruction, right_obstruction):
@@ -435,9 +434,9 @@ class Diagram(moncat.Diagram):
                 # We rewrite self and call normal_form recursively
                 # on a smaller diagram (with one snake removed).
                 rewrite = left_unsnake if snake == 'left' else right_unsnake
-                return rewrite(
-                    self, cup, cap, left_obstruction, right_obstruction)\
-                    .normal_form()
+                return rewrite(self, cup, cap,
+                               left_obstruction, right_obstruction
+                               ).normal_form()
         return super().normal_form(left=left)
 
 
@@ -455,25 +454,7 @@ class Box(moncat.Box, Diagram):
         Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
         """
         moncat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], fast=True)
-
-    def dagger(self):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> Box('f', a, b.l @ b).dagger()
-        Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b')).dagger()
-        """
-        return Box(self.name, self.cod, self.dom,
-                   _dagger=not self._dagger, data=self.data)
-
-    def __hash__(self):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f = Box('f', a, b.l @ b)
-        >>> {f: 42}[f]
-        42
-        """
-        return hash(repr(self))
+        Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
 
 
 class AxiomError(moncat.AxiomError):
@@ -511,7 +492,7 @@ class Wire(Diagram):
         if not isinstance(t, Ty):
             raise ValueError(
                 "Input of type Ty expected, got {} instead.".format(repr(t)))
-        super().__init__(t, t, [], [], fast=True)
+        super().__init__(t, t, [], [], _fast=True)
 
     def __repr__(self):
         """

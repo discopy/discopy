@@ -3,12 +3,12 @@ Setup discopy package.
 """
 
 from setuptools import setup
-import config
+from config import VERSION  # pylint: disable=no-name-in-module
 
 
 if __name__ == '__main__':
     setup(name='discopy',
-          version=config.VERSION,
+          version=VERSION,
           package_dir={'discopy': ''},
           packages=['discopy'],
           description='Distributional Compositional Python',
@@ -19,6 +19,6 @@ if __name__ == '__main__':
           author_email='alexis.toumi@cs.ox.ac.uk',
           download_url='https://github.com/'
                        'oxford-quantum-group/discopy/archive/'
-                       '{}.tar.gz'.format(config.VERSION),
+                       '{}.tar.gz'.format(VERSION),
           install_requires=['numpy', 'pytket', 'jax', 'jaxlib'],
           )

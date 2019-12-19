@@ -5,7 +5,7 @@ Implements free dagger categories and functors.
 We can check the axioms of categories and functors.
 
 >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
->>> f, g, h = Gen('f', x, y), Gen('g', y, z), Gen('h', z, x)
+>>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
 >>>
 >>> assert Id(x) >> f == f == f >> Id(y)
 >>> assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
@@ -34,7 +34,7 @@ class Ob:
 
     @property
     def name(self):
-        """ Name of the object, can be of any hashable type.
+        """ Name of the object, can be of any type.
 
         >>> Ob('x').name
         'x'
@@ -73,30 +73,30 @@ class Ob:
         return hash(repr(self))
 
 
-class Arrow:
-    """ Defines an arrow with domain, codomain and a list of generators.
+class Diagram:
+    """ Defines a diagram with domain, codomain and a list of boxes.
 
     >>> x, y, z, w = Ob('x'), Ob('y'), Ob('z'), Ob('w')
-    >>> f, g, h = Gen('f', x, y), Gen('g', y, z), Gen('h', z, w)
-    >>> assert f >> g >> h == Arrow(x, w, [f, g, h])
+    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, w)
+    >>> assert f >> g >> h == Diagram(x, w, [f, g, h])
     """
 
-    def __init__(self, dom, cod, gens, fast=False):
+    def __init__(self, dom, cod, boxes, _fast=False):
         """
-        >>> Arrow(Ob('x'), Ob('y'), [Gen('f', Ob('x'), Ob('y'))])
-        Arrow(Ob('x'), Ob('y'), [Gen('f', Ob('x'), Ob('y'))])
-        >>> Arrow('x', Ob('x'), [])  # doctest: +ELLIPSIS
+        >>> Diagram(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))])
+        Diagram(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))])
+        >>> Diagram('x', Ob('x'), [])  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         ValueError: Domain of type Ob expected, got 'x' ... instead.
-        >>> Arrow(Ob('x'), 'x', [])  # doctest: +ELLIPSIS
+        >>> Diagram(Ob('x'), 'x', [])  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         ValueError: Codomain of type Ob expected, got 'x' ... instead.
-        >>> Arrow(Ob('x'), Ob('x'), [Ob('x')])  # doctest: +ELLIPSIS
+        >>> Diagram(Ob('x'), Ob('x'), [Ob('x')])  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        ValueError: Generator of type Arrow expected, got Ob('x') ... instead.
+        ValueError: Box of type Diagram expected, got Ob('x') ... instead.
         """
         if not isinstance(dom, Ob):
             raise ValueError("Domain of type Ob expected, got {} of type {} "
@@ -104,28 +104,28 @@ class Arrow:
         if not isinstance(cod, Ob):
             raise ValueError("Codomain of type Ob expected, got {} of type {} "
                              "instead.".format(repr(cod), type(cod)))
-        if not fast:
+        if not _fast:
             scan = dom
-            for gen in gens:
-                if not isinstance(gen, Arrow):
+            for gen in boxes:
+                if not isinstance(gen, Diagram):
                     raise ValueError(
-                        "Generator of type Arrow expected, got {} of type {} "
+                        "Box of type Diagram expected, got {} of type {} "
                         "instead.".format(repr(gen), type(gen)))
                 if scan != gen.dom:
                     raise AxiomError(
-                        "Generator with domain {} expected, got {} instead."
+                        "Box with domain {} expected, got {} instead."
                         .format(scan, repr(gen)))
                 scan = gen.cod
             if scan != cod:
                 raise AxiomError(
-                    "Generator with codomain {} expected, got {} instead."
-                    .format(cod, repr(gens[-1])))
-        self._dom, self._cod, self._gens = dom, cod, gens
+                    "Box with codomain {} expected, got {} instead."
+                    .format(cod, repr(boxes[-1])))
+        self._dom, self._cod, self._boxes = dom, cod, boxes
 
     @property
     def dom(self):
         """
-        >>> Arrow(Ob('x'), Ob('x'), []).dom
+        >>> Diagram(Ob('x'), Ob('x'), []).dom
         Ob('x')
         """
         return self._dom
@@ -133,81 +133,88 @@ class Arrow:
     @property
     def cod(self):
         """
-        >>> Arrow(Ob('x'), Ob('x'), []).cod
+        >>> Diagram(Ob('x'), Ob('x'), []).cod
         Ob('x')
         """
         return self._cod
 
     @property
-    def gens(self):
+    def boxes(self):
         """
-        >>> Arrow(Ob('x'), Ob('x'), []).gens
+        >>> Diagram(Ob('x'), Ob('x'), []).boxes
         []
         """
-        return self._gens
+        return self._boxes
 
     def __len__(self):
         """
-        >>> assert len(Arrow(Ob('x'), Ob('x'), [])) == 0
+        >>> assert len(Diagram(Ob('x'), Ob('x'), [])) == 0
         """
-        return len(self.gens)
+        return len(self.boxes)
 
     def __repr__(self):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> Arrow(x, x, [])
+        >>> Diagram(x, x, [])
         Id(Ob('x'))
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
-        >>> Arrow(x, z, [f, g])  # doctest: +ELLIPSIS
-        Arrow(Ob('x'), Ob('z'), [Gen(...), Gen(...)])
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> Diagram(x, z, [f, g])  # doctest: +ELLIPSIS
+        Diagram(Ob('x'), Ob('z'), [Box(...), Box(...)])
         """
-        if not self.gens:  # i.e. self is identity.
+        if not self.boxes:  # i.e. self is identity.
             return repr(Id(self.dom))
-        return "Arrow({}, {}, {})".format(
-            repr(self.dom), repr(self.cod), repr(self.gens))
+        return "Diagram({}, {}, {})".format(
+            repr(self.dom), repr(self.cod), repr(self.boxes))
 
     def __str__(self):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
-        >>> print(Arrow(x, z, [f, g]))
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> print(Diagram(x, z, [f, g]))
         f >> g
         """
-        return " >> ".join(map(str, self.gens))
+        return " >> ".join(map(str, self.boxes))
 
     def __eq__(self, other):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
-        >>> assert f >> g == Arrow(x, z, [f, g])
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> assert f >> g == Diagram(x, z, [f, g])
         """
-        if not isinstance(other, Arrow):
+        if not isinstance(other, Diagram):
             return False
         return self.dom == other.dom and self.cod == other.cod\
-            and all(x == y for x, y in zip(self.gens, other.gens))
+            and all(x == y for x, y in zip(self.boxes, other.boxes))
+
+    def __hash__(self):
+        """
+        >>> assert {Id(Ob('x')): 42}[Id(Ob('x'))] == 42
+        """
+        return hash(repr(self))
 
     def then(self, other):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
+        >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> assert f.then(g) == f >> g == g << f
         >>> f >> x  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        ValueError: Expected Arrow, got Ob('x') ... instead.
+        ValueError: Expected Diagram, got Ob('x') ... instead.
         """
-        if not isinstance(other, Arrow):
-            raise ValueError("Expected Arrow, got {} of type {} instead."
+        if not isinstance(other, Diagram):
+            raise ValueError("Expected Diagram, got {} of type {} instead."
                              .format(repr(other), type(other)))
         if self.cod != other.dom:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
-        return Arrow(self.dom, other.cod, self.gens + other.gens, fast=True)
+        return Diagram(
+            self.dom, other.cod, self.boxes + other.boxes, _fast=True)
 
     def __rshift__(self, other):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
+        >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> assert f.then(g) == f >> g == g << f
         """
         return self.then(other)
@@ -215,7 +222,7 @@ class Arrow:
     def __lshift__(self, other):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
+        >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> assert f.then(g) == f >> g == g << f
         """
         return other.then(self)
@@ -223,26 +230,27 @@ class Arrow:
     def dagger(self):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
-        >>> h = Arrow(x, z, [f, g])
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> h = Diagram(x, z, [f, g])
         >>> assert h.dagger() == g.dagger() >> f.dagger()
         >>> assert h.dagger().dagger() == h
         """
-        return Arrow(self.cod, self.dom,
-                     [f.dagger() for f in self.gens[::-1]], fast=True)
+        return Diagram(self.cod, self.dom,
+                       [f.dagger() for f in self.boxes[::-1]], _fast=True)
 
     @staticmethod
-    def id(x):
+    def id(x):  # pylint: disable=invalid-name
         """
-        >>> assert Arrow.id(Ob('x')) == Arrow(Ob('x'), Ob('x'), [])
+        >>> assert Diagram.id(Ob('x')) == Diagram(Ob('x'), Ob('x'), [])
         """
         return Id(x)
 
 
-class Id(Arrow):
-    """ Define an identity arrow, i.e. with an empty list of generators.
+class Id(Diagram):
+    """ Define an identity diagram, i.e. with an empty list of boxes.
 
-    >>> assert Id(Ob('x')) == Arrow.id(Ob('x')) == Arrow(Ob('x'), Ob('x'), [])
+    >>> assert Id(Ob('x')) == Diagram.id(Ob('x'))
+    >>> assert Id(Ob('x')) == Diagram(Ob('x'), Ob('x'), [])
     """
     def __init__(self, x):
         """
@@ -250,7 +258,7 @@ class Id(Arrow):
         >>> assert idx >> idx == idx
         >>> assert idx.dagger() == idx
         """
-        super().__init__(x, x, [], fast=True)
+        super().__init__(x, x, [], _fast=True)
 
     def __repr__(self):
         """
@@ -270,48 +278,48 @@ class Id(Arrow):
 class AxiomError(Exception):
     """
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g = Gen('f', x, y), Gen('g', y, z)
-    >>> Arrow(x, y, [g])  # doctest: +ELLIPSIS
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> Diagram(x, y, [g])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.AxiomError: Generator with domain x expected, got Gen('g', ...
-    >>> Arrow(x, z, [f])  # doctest: +ELLIPSIS
+    cat.AxiomError: Box with domain x expected, got Box('g', ...
+    >>> Diagram(x, z, [f])  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.AxiomError: Generator with codomain z expected, got Gen('f', ...
+    cat.AxiomError: Box with codomain z expected, got Box('f', ...
     >>> g >> f  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    cat.AxiomError: Gen('g',...) does not compose with Gen('f', ...).
+    cat.AxiomError: Box('g',...) does not compose with Box('f', ...).
     """
 
 
-class Gen(Arrow):
-    """ Defines a generator as an arrow with a name, and itself as generator.
-    Generators can hold any Python object as data attribute, default is None.
+class Box(Diagram):
+    """ Defines a box as a diagram with a name, and itself as box.
+    Boxes can hold any Python object as data attribute, default is None.
 
-    Note that when we compose a generator with an identity,
-    we get an arrow that is defined as equal to the original generator.
+    Note that when we compose a box with an identity,
+    we get a diagram that is defined as equal to the original box.
 
-    >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
+    >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
     >>> Id(Ob('x')) >> f  # doctest: +ELLIPSIS
-    Arrow(Ob('x'), Ob('y'), [Gen('f', ...)])
+    Diagram(Ob('x'), Ob('y'), [Box('f', ...)])
     >>> f >> Id(Ob('y')) == f == Id(Ob('x')) >> f
     True
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         """
-        >>> Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-        Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         """
         self._name, self._dom, self._cod = name, dom, cod
-        self._gens, self._dagger, self._data = [self], _dagger, data
-        Arrow.__init__(self, dom, cod, [self], fast=True)
+        self._boxes, self._dagger, self._data = [self], _dagger, data
+        Diagram.__init__(self, dom, cod, [self], _fast=True)
 
     @property
     def name(self):
         """
-        >>> Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}]).name
+        >>> Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}]).name
         'f'
         """
         return self._name
@@ -319,7 +327,7 @@ class Gen(Arrow):
     @property
     def data(self):
         """
-        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         >>> f.data
         [42, {0: 1}]
         >>> f.data[1][0] = 2
@@ -330,30 +338,30 @@ class Gen(Arrow):
 
     def dagger(self):
         """
-        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         >>> assert f.dom == f.dagger().cod and f.cod == f.dagger().dom
         >>> assert f == f.dagger().dagger()
         """
-        return Gen(self.name, self.cod, self.dom, data=self.data,
-                   _dagger=not self._dagger)
+        return type(self)(self.name, self.cod, self.dom, data=self.data,
+                          _dagger=not self._dagger)
 
     def __repr__(self):
         """
-        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
+        >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
         >>> f  # doctest: +ELLIPSIS
-        Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, <function ...])
+        Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, <function ...])
         >>> f.dagger()  # doctest: +ELLIPSIS
-        Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, <function ...]).dagger()
+        Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, <function ...]).dagger()
         """
         if self._dagger:
             return repr(self.dagger()) + ".dagger()"
-        return "Gen({}, {}, {}{})".format(
+        return "Box({}, {}, {}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
             ", data=" + repr(self.data) if self.data else '')
 
     def __str__(self):
         """
-        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
+        >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
         >>> print(f)
         f
         >>> print(f.dagger())
@@ -363,29 +371,29 @@ class Gen(Arrow):
 
     def __hash__(self):
         """
-        >>> {Gen('f', Ob('x'), Ob('y')): 42}[Gen('f', Ob('x'), Ob('y'))]
+        >>> {Box('f', Ob('x'), Ob('y')): 42}[Box('f', Ob('x'), Ob('y'))]
         42
         """
-        return hash(repr(self))
+        return hash(super().__repr__())
 
     def __eq__(self, other):
         """
-        >>> f = Gen('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-        >>> assert f == Arrow(Ob('x'), Ob('y'), [f])
+        >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> assert f == Diagram(Ob('x'), Ob('y'), [f])
         """
-        if not isinstance(other, Arrow):
+        if not isinstance(other, Diagram):
             return False
-        if isinstance(other, Gen):
+        if isinstance(other, Box):
             return repr(self) == repr(other)
-        return len(other.gens) == 1 and other.gens[0] == self
+        return len(other.boxes) == 1 and other.boxes[0] == self
 
 
 class Functor:
     """
-    Defines a functor given its image on objects and arrows.
+    Defines a functor given its image on objects and boxes.
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g = Gen('f', x, y), Gen('g', y, z)
+    >>> f, g = Box('f', x, y), Box('g', y, z)
     >>> F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
     >>> assert F((f >> g).dagger()) == F(f >> g).dagger()
     """
@@ -398,7 +406,7 @@ class Functor:
         self._ob, self._ar = ob, ar
 
     @property
-    def ob(self):
+    def ob(self):  # pylint: disable=invalid-name
         """
         >>> Functor({}, {}).ob
         {}
@@ -406,7 +414,7 @@ class Functor:
         return self._ob
 
     @property
-    def ar(self):
+    def ar(self):  # pylint: disable=invalid-name
         """
         >>> Functor({}, {}).ar
         {}
@@ -427,15 +435,15 @@ class Functor:
         """
         return "Functor(ob={}, ar={})".format(repr(self.ob), repr(self.ar))
 
-    def __call__(self, arrow):
+    def __call__(self, diagram):
         """
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g = Gen('f', x, y), Gen('g', y, z)
+        >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
         >>> F(F)  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        ValueError: Expected Ob, Gen or Arrow, got Functor... instead.
+        ValueError: Expected Ob, Box or Diagram, got Functor... instead.
         >>> print(F(x))
         y
         >>> print(F(f))
@@ -447,30 +455,30 @@ class Functor:
         >>> print(F(f >> g))
         f.dagger() >> f >> g
         """
-        if isinstance(arrow, Ob):
-            return self.ob[arrow]
-        if isinstance(arrow, Gen):
-            if arrow._dagger:
-                return self.ar[arrow.dagger()].dagger()
-            return self.ar[arrow]
-        if isinstance(arrow, Arrow):
+        if isinstance(diagram, Ob):
+            return self.ob[diagram]
+        if isinstance(diagram, Box):
+            if diagram._dagger:
+                return self.ar[diagram.dagger()].dagger()
+            return self.ar[diagram]
+        if isinstance(diagram, Diagram):
             return fold(lambda g, h: g >> self(h),
-                        arrow.gens, Id(self(arrow.dom)))
-        raise ValueError("Expected Ob, Gen or Arrow, got {} instead."
-                         .format(repr(arrow)))
+                        diagram.boxes, Id(self(diagram.dom)))
+        raise ValueError("Expected Ob, Box or Diagram, got {} instead."
+                         .format(repr(diagram)))
 
 
 class Quiver:
-    """ Wraps a Python function into a dict that holds the arrows of a functor.
+    """ Wraps a Python function into a dict.
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> F = Functor({x: x, y: y, z: z}, Quiver(lambda x: x))
-    >>> f = Gen('f', x, y, data=[0, 1])
+    >>> f = Box('f', x, y, data=[0, 1])
     >>> F(f)
-    Gen('f', Ob('x'), Ob('y'), data=[0, 1])
+    Box('f', Ob('x'), Ob('y'), data=[0, 1])
     >>> f.data.append(2)
     >>> F(f)
-    Gen('f', Ob('x'), Ob('y'), data=[0, 1, 2])
+    Box('f', Ob('x'), Ob('y'), data=[0, 1, 2])
     """
     def __init__(self, func):
         """

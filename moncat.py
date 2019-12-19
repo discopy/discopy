@@ -21,7 +21,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 from discopy import cat
-from discopy.cat import Ob, Arrow, Gen, Functor
+from discopy.cat import Ob, Functor
 
 
 class Ty(Ob):
@@ -131,7 +131,7 @@ class Ty(Ob):
         return hash(repr(self))
 
 
-class Diagram(Arrow):
+class Diagram(cat.Diagram):
     """ Implements a diagram with dom, cod, a list of boxes and offsets.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
@@ -139,7 +139,7 @@ class Diagram(Arrow):
     >>> d = Diagram(x @ z, y @ w, [f0, f1], [0, 1])
     >>> assert d == f0 @ f1
     """
-    def __init__(self, dom, cod, boxes, offsets, fast=False):
+    def __init__(self, dom, cod, boxes, offsets, _fast=False):
         """
         >>> Diagram(Ty('x'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
         ... # doctest: +ELLIPSIS
@@ -174,7 +174,7 @@ class Diagram(Arrow):
                              "instead.".format(repr(cod), type(cod)))
         if len(boxes) != len(offsets):
             raise ValueError("Boxes and offsets must have the same length.")
-        if not fast:
+        if not _fast:
             scan = dom
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
@@ -193,17 +193,8 @@ class Diagram(Arrow):
             if scan != cod:
                 raise AxiomError(
                     "Codomain {} expected, got {} instead.".format(cod, scan))
-        self._dom, self._cod = dom, cod
+        super().__init__(dom, cod, [], _fast=True)
         self._boxes, self._offsets = boxes, offsets
-        super().__init__(dom, cod, list(zip(boxes, offsets)), fast=True)
-
-    @property
-    def boxes(self):
-        """
-        >>> Diagram(Ty('x'), Ty('x'), [], []).boxes
-        []
-        """
-        return self._boxes
 
     @property
     def offsets(self):
@@ -290,7 +281,7 @@ class Diagram(Arrow):
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        return Diagram(dom, cod, boxes, offsets, fast=True)
+        return Diagram(dom, cod, boxes, offsets, _fast=True)
 
     def __matmul__(self, other):
         """
@@ -307,16 +298,9 @@ class Diagram(Arrow):
         >>> print(Id(x) @ f1 >> f0 @ Id(w))
         Id(x) @ f1 >> f0 @ Id(w)
         """
-        if not isinstance(other, Diagram):
-            raise ValueError("Expected Diagram, got {} of type {} instead."
-                             .format(repr(other), type(other)))
-        if self.cod != other.dom:
-            raise AxiomError("{} does not compose with {}."
-                             .format(repr(self), repr(other)))
-        dom, cod = self.dom, other.cod
-        boxes = self.boxes + other.boxes
-        offsets = self.offsets + other.offsets
-        return Diagram(dom, cod, boxes, offsets, fast=True)
+        result = super().then(other)
+        return Diagram(result.dom, result.cod, result.boxes,
+                       self.offsets + other.offsets, _fast=True)
 
     def dagger(self):
         """
@@ -327,7 +311,7 @@ class Diagram(Arrow):
         """
         return Diagram(self.cod, self.dom,
                        [f.dagger() for f in self.boxes[::-1]],
-                       self.offsets[::-1], fast=True)
+                       self.offsets[::-1], _fast=True)
 
     @staticmethod
     def id(x):
@@ -364,10 +348,6 @@ class Diagram(Arrow):
         moncat.InterchangerError: Boxes ... do not commute.
         >>> assert d.interchange(2,0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
         """
-        if i < 0:
-            return self.interchange(len(self) + i, j)
-        if j < 0:
-            return self.interchange(i, len(self) + j)
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError("Expected indices in range({}), got {} instead."
                              .format(len(self), (i, j)))
@@ -401,7 +381,7 @@ class Diagram(Arrow):
             self.dom, self.cod,
             self.boxes[:i] + [box1, box0] + self.boxes[i + 2:],
             self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
-            fast=True)
+            _fast=True)
 
     def normal_form(self, left=False):
         """
@@ -511,7 +491,7 @@ def _spiral(n_cups):
     >>> spiral_nf = spiral.normal_form()
     >>> assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
     """
-    x = Ty('x')
+    x = Ty('x')  # pylint: disable=invalid-name
     unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
     cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
     result = unit
@@ -561,7 +541,7 @@ class Id(Diagram):
         """
         >>> assert Id(Ty('x')) == Diagram.id(Ty('x'))
         """
-        super().__init__(x, x, [], [], fast=True)
+        super().__init__(x, x, [], [], _fast=True)
 
     def __repr__(self):
         """
@@ -578,7 +558,7 @@ class Id(Diagram):
         return "Id({})".format(str(self.dom))
 
 
-class Box(Gen, Diagram):
+class Box(cat.Box, Diagram):
     """ Implements a box as a diagram with a name and itself as box.
 
     Note that as for composition, when we tensor an empty diagram with a box,
@@ -601,38 +581,8 @@ class Box(Gen, Diagram):
         >>> f.name, f.dom, f.cod, f.data
         ('f', Ty('x', 'y'), Ty('z'), 42)
         """
-        Gen.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], fast=True)
-
-    def dagger(self):
-        """
-        >>> f = Box('f', Ty('x', 'y'), Ty('z'))
-        >>> print(f.dagger())
-        f.dagger()
-        """
-        return Box(self.name, self.cod, self.dom,
-                   _dagger=not self._dagger, data=self.data)
-
-    def __repr__(self):
-        """
-        >>> Box('f', Ty('x', 'y'), Ty('z'))
-        Box('f', Ty('x', 'y'), Ty('z'))
-        >>> Box('f', Ty('x', 'y'), Ty('z')).dagger()
-        Box('f', Ty('x', 'y'), Ty('z')).dagger()
-        """
-        if self._dagger:
-            return repr(self.dagger()) + ".dagger()"
-        return "Box({}, {}, {}{})".format(
-            *map(repr, [self.name, self.dom, self.cod]),
-            ", data=" + repr(self.data) if self.data else '')
-
-    def __hash__(self):
-        """
-        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
-        >>> {f: 42}[f]
-        42
-        """
-        return hash(repr(self))
+        cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+        Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
 
     def __eq__(self, other):
         """
@@ -642,8 +592,16 @@ class Box(Gen, Diagram):
         if isinstance(other, Box):
             return repr(self) == repr(other)
         if isinstance(other, Diagram):
-            return len(other) == 1 and other.boxes[0] == self
+            return (other.boxes, other.offsets) == ([self], [0])
         return False
+
+    def __hash__(self):
+        """
+        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
+        >>> {f: 42}[f]
+        42
+        """
+        return hash(repr(self))
 
 
 class MonoidalFunctor(Functor):
@@ -666,7 +624,7 @@ class MonoidalFunctor(Functor):
         >>> F(Id(Ty('x')))
         Id(Ty('y'))
         """
-        for x in ob.keys():
+        for x in ob.keys():  # pylint: disable=invalid-name
             if not isinstance(x, Ty) or len(x) != 1:
                 raise ValueError(
                     "Expected an atomic type, got {} instead.".format(repr(x)))
@@ -700,9 +658,7 @@ class MonoidalFunctor(Functor):
             return sum([self.ob[self.ob_cls(x)] for x in diagram],
                        self.ob_cls())  # the empty type is the unit for sum.
         if isinstance(diagram, Box):
-            if diagram._dagger:
-                return self.ar[diagram.dagger()].dagger()
-            return self.ar[diagram]
+            return super().__call__(diagram)
         if isinstance(diagram, Diagram):
             scan, result = diagram.dom, self.ar_cls.id(self(diagram.dom))
             for box, off in zip(diagram.boxes, diagram.offsets):

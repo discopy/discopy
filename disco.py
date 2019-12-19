@@ -122,7 +122,7 @@ class Model(MatrixFunctor):
         >>> Model({Ty('n'): 2}, {})
         Model(ob={Ty('n'): Dim(2)}, ar={})
         """
-        for x in ob.keys():
+        for x in ob.keys():  # pylint: disable=invalid-name
             if not isinstance(x, Ty) or not x.is_basic:
                 raise ValueError(
                     "Expected a basic type, got {} instead.".format(repr(x)))

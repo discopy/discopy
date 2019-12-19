@@ -44,7 +44,7 @@ class Dim(Ty):
         ...
         ValueError: Expected positive integer, got -1 instead.
         """
-        for x in xs:
+        for x in xs:  # pylint: disable=invalid-name
             if not isinstance(x, int) or x < 1:
                 raise ValueError("Expected positive integer, got {} instead."
                                  .format(repr(x)))
@@ -291,7 +291,7 @@ class MatrixFunctor(MonoidalFunctor):
         ...
         ValueError: Expected int or Dim object, got Ty('y') instead.
         """
-        for x, y in ob.items():
+        for x, y in ob.items():  # pylint: disable=invalid-name
             if isinstance(y, int):
                 ob.update({x: Dim(y)})
             elif not isinstance(y, Dim):
