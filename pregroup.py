@@ -332,15 +332,12 @@ class Diagram(moncat.Diagram):
         >>> d1 = g >> f_n.dagger() >> f_n >> h
         >>> assert d1 == d0.normal_form()
         >>> assert d1.dagger() == d0.dagger().normal_form()
-
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> f = Box('f', x @ y.l, z.r)
-        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
-        ...              .transpose_l().transpose_r().transpose_l()
-        >>> assert f.normal_form() == f
-        >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
-        ...              .transpose_r().transpose_r().transpose_r()
-        >>> assert transpose.normal_form() == f
+        >>> snake = Wire(n).transpose_r().transpose_l().transpose_r()\\
+        ...                .transpose_l().transpose_r().transpose_l()
+        >>> assert snake.normal_form() == Wire(n)
+        >>> snake = Wire(n).transpose_l().transpose_l().transpose_l()\\
+        ...                .transpose_r().transpose_r().transpose_r()
+        >>> assert snake.normal_form() == Wire(n)
         """
         def unsnake(diagram, cup, cap):
             """

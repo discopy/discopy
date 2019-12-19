@@ -376,13 +376,15 @@ class Diagram(Arrow):
         if j < i - 1:
             result = self
             for k in range(i - j):
-                result = result.interchange(i - k - 1, i - k)
+                result = result.interchange(i - k, i - k - 1)
             return result
         if j > i + 1:
             result = self
             for k in range(j - i):
                 result = result.interchange(i + k, i + k + 1)
             return result
+        if j < i:
+            i, j = j, i
         box0, box1 = self.boxes[i], self.boxes[j]
         off0, off1 = self.offsets[i], self.offsets[j]
         # By default, we check if box0 is to the right first, then to the left.
