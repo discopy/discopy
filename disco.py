@@ -6,7 +6,7 @@ Implements disco models in the category of matrices and circuits.
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
->>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+>>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 >>> sentence = grammar << Alice @ loves @ Bob
 >>> ob = {s: 1, n: 2}
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
@@ -17,11 +17,11 @@ Implements disco models in the category of matrices and circuits.
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves_box = Box('loves', n @ n, s)
 >>> loves = Cap(n.r, n) @ Cap(n, n.l)\\
-...     >> Wire(n.r) @ loves_box @ Wire(n.l)
->>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+...     >> Id(n.r) @ loves_box @ Id(n.l)
+>>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 >>> autonomised_sentence = (Alice @ loves @ Bob >> grammar).normal_form()
 >>> print(autonomised_sentence)
-Alice >> Wire(n) @ Bob >> loves
+Alice >> Id(n) @ Bob >> loves
 >>> ob = {s: 0, n: 1}
 >>> loves_ansatz = CX\\
 ...     >> Gate('H', 1, [1, 1, 1, -1]) @ Gate('X', 1, [0, 1, 1, 0])\\
@@ -33,9 +33,9 @@ Alice >> Wire(n) @ Bob >> loves
 
 from functools import reduce as fold
 from discopy.pregroup import (
-    Ob, Ty, Diagram, Box, Wire, Cup, Cap, AxiomError)
+    Ob, Ty, Diagram, Box, Id, Cup, Cap, AxiomError)
 from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import PRO, Id, Gate, Bra, Ket, CX, CircuitFunctor
+from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CX, CircuitFunctor
 
 
 class Word(Box):
@@ -111,7 +111,7 @@ class Model(MatrixFunctor):
     >>> n, s = Ty('n'), Ty('s')
     >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
     >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
-    >>> assert F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
+    >>> assert F(Alice @ jokes >> Cup(n, n.l) @ Id(s))
     """
     def __init__(self, ob, ar):
         """
@@ -150,7 +150,7 @@ class Model(MatrixFunctor):
         Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
         >>> F(Alice @ jokes)
         Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 1])
-        >>> F(Alice @ jokes >> Cup(n, n.l) @ Wire(s))
+        >>> F(Alice @ jokes >> Cup(n, n.l) @ Id(s))
         Matrix(dom=Dim(1), cod=Dim(1), array=[1.0])
         """
         if isinstance(diagram, Ty):
@@ -175,7 +175,7 @@ class CircuitModel(CircuitFunctor):
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> sentence = grammar << Alice @ loves @ Bob
     >>> ob = {s: 0, n: 1}
     >>> ar = {Alice: Ket(0),
@@ -197,18 +197,20 @@ class CircuitModel(CircuitFunctor):
         if isinstance(diagram, Ty):
             return sum([self.ob[Ty(b.name)] for b in diagram], PRO(0))
         if isinstance(diagram, Cup):
-            result, n_cups = Id(self(diagram.dom)), len(self(diagram.dom)) // 2
-            cup = CX >> unnormalised_had @ Id(1) >> Bra(0, 0)
+            result = Circuit.id(self(diagram.dom))
+            n_cups = len(self(diagram.dom)) // 2
+            cup = CX >> unnormalised_had @ Circuit.id(1) >> Bra(0, 0)
             for i in range(n_cups):
-                result = result\
-                    >> Id(n_cups - i - 1) @ cup @ Id(n_cups - i - 1)
+                result = result >> Circuit.id(n_cups - i - 1)\
+                    @ cup @ Circuit.id(n_cups - i - 1)
             return result
         if isinstance(diagram, Cap):
-            result, n_caps = Id(self(diagram.cod)), len(self(diagram.cod)) // 2
-            cap = CX << unnormalised_had @ Id(1) << Ket(0, 0)
+            result = Circuit.id(self(diagram.cod))
+            n_caps = len(self(diagram.cod)) // 2
+            cap = CX << unnormalised_had @ Circuit.id(1) << Ket(0, 0)
             for i in range(n_caps):
-                result = result\
-                    << Id(n_caps - i - 1) @ cap @ Id(n_caps - i - 1)
+                result = result << Circuit.id(n_caps - i - 1)\
+                    @ cap @ Circuit.id(n_caps - i - 1)
             return result
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
@@ -223,7 +225,7 @@ def eager_parse(*words, target=Ty('s')):
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> assert eager_parse(Alice, loves, Bob) == grammar << Alice @ loves @ Bob
     >>> who = Word('who', n.r @ n @ s.l @ n)
     >>> eager_parse(Bob, who, loves, Alice, target=n).offsets
@@ -238,7 +240,7 @@ def eager_parse(*words, target=Ty('s')):
                 if scan[i: i + 1].r != scan[i + 1: i + 2]:
                     raise AxiomError
                 cup = Cup(scan[i: i + 1], scan[i + 1: i + 2])
-                result = result >> Wire(scan[: i]) @ cup @ Wire(scan[i + 2:])
+                result = result >> Id(scan[: i]) @ cup @ Id(scan[i + 2:])
                 scan, fail = result.cod, False
                 break
             except AxiomError:
@@ -273,7 +275,7 @@ def brute_force(*vocab, target=Ty('s')):
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n, n.r) @ Wire(s) @ Cup(n.l, n)
+    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> gen = brute_force(Alice, loves, Bob)
     >>> assert next(gen) == Alice @ loves @ Alice >> grammar
     >>> assert next(gen) == Alice @ loves @ Bob >> grammar
