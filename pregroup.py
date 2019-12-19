@@ -237,14 +237,6 @@ class Diagram(moncat.Diagram):
             [f.dagger() for f in self.boxes[::-1]], self.offsets[::-1],
             fast=True)
 
-    def __repr__(self):
-        """
-        >>> Diagram(Ty('a'), Ty('a'), [], [])
-        Diagram(dom=Ty('a'), cod=Ty('a'), boxes=[], offsets=[])
-        """
-        return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
-            *map(repr, [self.dom, self.cod, self.boxes, self.offsets]))
-
     @staticmethod
     def id(x):
         """
@@ -418,6 +410,7 @@ class Diagram(moncat.Diagram):
                 """
                 We look for a yankable pair of indices (i, j) together with
                 a list of left and right obstructions.
+                The variable scan is the offset of the wire we are following.
                 """
                 for scan in [off0, off0 + 1]:
                     snake = 'left' if scan == off0 else 'right'
@@ -426,6 +419,10 @@ class Diagram(moncat.Diagram):
                     for j in range(i + 1, len(self)):
                         box1, off1 = self.boxes[j], self.offsets[j]
                         if off1 <= scan < off1 + len(box1.dom):
+                            """
+                            We found what box0 is connected to, if it's not
+                            a yankable pair we break out of the inner loop.
+                            """
                             if not isinstance(box1, Cup):
                                 break
                             if snake == 'left' and off1 + 1 != scan:
@@ -440,7 +437,11 @@ class Diagram(moncat.Diagram):
                                 self, j, i,
                                 left_obstruction, right_obstruction)\
                                 .normal_form()
-                        elif off1 <= scan:
+                        if off1 <= scan:
+                            """
+                            If we pass by a box on our left we update the
+                            offset of the wire we are scanning along.
+                            """
                             scan += len(box1.cod) - len(box1.dom)
                             left_obstruction.append(j)
                         else:
