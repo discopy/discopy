@@ -350,8 +350,6 @@ class Diagram(moncat.Diagram):
         ...                .transpose_r().transpose_l().transpose_r()
         >>> assert snake.normal_form() == Wire(n)
         """
-        self = super().normal_form()
-
         def unsnake(diagram, cup, cap):
             """
             Given a diagram and the indices for an adjacent cup and cap pair,
@@ -447,7 +445,7 @@ class Diagram(moncat.Diagram):
                             left_obstruction.append(j)
                         else:
                             right_obstruction.append(j)
-        return self
+        return super().normal_form()
 
 
 class Box(moncat.Box, Diagram):
