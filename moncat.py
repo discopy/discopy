@@ -424,8 +424,17 @@ class Diagram(cat.Diagram):
         return diagram
 
     def flatten(self):
-        F = MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))
-        return F(self)
+        """
+        Takes a diagram of diagrams and returns a diagram.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> g = Box('g', x @ y, y)
+        >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
+        ...      g @ f1 >> f1 @ Id(x)).normal_form()
+        >>> assert d.slice().flatten().normal_form() == d
+        """
+        return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
     def slice(self):
         """
@@ -435,10 +444,6 @@ class Diagram(cat.Diagram):
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
         >>> d = f0 @ Id(y) >> f0.dagger() @ f1 >> Id(x) @ f0
-        >>> assert d.slice().flatten().normal_form() == d
-        >>> g = Box('g', x @ y, y)
-        >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
-        ...      g @ f1 >> f1 @ Id(x)).normal_form()
         >>> assert d.slice().flatten().normal_form() == d
         """
         diagram = self
@@ -463,7 +468,7 @@ class Diagram(cat.Diagram):
                                ).normal_form()]
             dom = cod
             i += count + 1
-        return Diagram(self.dom, self.cod, slices, len(slices)*[0])
+        return Diagram(self.dom, self.cod, slices, len(slices) * [0])
 
     def depth(self):
         """ Computes the depth of a diagram by slicing it
