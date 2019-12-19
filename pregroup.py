@@ -320,25 +320,14 @@ class Diagram(moncat.Diagram):
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
 
-        >>> n, a = Ty('n'), Ty('a')
+        >>> n, s = Ty('n'), Ty('s')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
-        >>> f_n = Wire(n)
-        >>> for _ in range(2):
-        ...     f_n = f_n >> Box('f0', n, n @ n) >> Box('f1', n @ n, n)
-        >>> g, h = Box('g', a @ n, n), Box('h', n, n @ a)
-        >>> d0 = g @ cap >> f_n.dagger() @ Wire(n.r) @ f_n >> cup @ h
-        >>> d1 = g >> f_n.dagger() >> f_n >> h
+        >>> f = Box('unit', n, Ty()) >> Box('counit', Ty(), n)
+        >>> g, h = Box('g', s @ n, n), Box('h', n, n @ s)
+        >>> d0 = g @ cap >> f.dagger() @ Wire(n.r) @ f >> cup @ h
+        >>> d1 = g >> f.dagger() >> f >> h
         >>> assert d1 == d0.normal_form()
         >>> assert d1.dagger() == d0.dagger().normal_form()
-
-        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
-        >>> f = Box('f', a @ b.l, c.r)
-        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
-        ...              .transpose_l().transpose_r().transpose_l()
-        >>> assert f.normal_form() == f
-        >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
-        ...              .transpose_r().transpose_r().transpose_r()
-        >>> assert f.normal_form() == f
         """
         def unsnake(diagram, cup, cap):
             """
