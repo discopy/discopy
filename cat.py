@@ -397,12 +397,13 @@ class Functor:
     >>> F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
     >>> assert F((f >> g).dagger()) == F(f >> g).dagger()
     """
-    def __init__(self, ob, ar):
+    def __init__(self, ob, ar, ob_cls=Ob, ar_cls=Diagram):
         """
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> F(Id(Ob('x')))
         Id(Ob('y'))
         """
+        self.ob_cls, self.ar_cls = ob_cls, ar_cls
         self._ob, self._ar = ob, ar
 
     @property
@@ -463,7 +464,7 @@ class Functor:
             return self.ar[diagram]
         if isinstance(diagram, Diagram):
             return fold(lambda g, h: g >> self(h),
-                        diagram.boxes, Id(self(diagram.dom)))
+                        diagram.boxes, self.ar_cls.id(self(diagram.dom)))
         raise ValueError("Expected Ob, Box or Diagram, got {} instead."
                          .format(repr(diagram)))
 

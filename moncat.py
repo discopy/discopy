@@ -624,12 +624,7 @@ class MonoidalFunctor(Functor):
         >>> F(Id(Ty('x')))
         Id(Ty('y'))
         """
-        for x in ob.keys():  # pylint: disable=invalid-name
-            if not isinstance(x, Ty) or len(x) != 1:
-                raise ValueError(
-                    "Expected an atomic type, got {} instead.".format(repr(x)))
-        self.ob_cls, self.ar_cls = ob_cls, ar_cls
-        super().__init__(ob, ar)
+        super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
 
     def __repr__(self):
         """
