@@ -484,15 +484,13 @@ class Quiver:
     def __init__(self, func):
         """
         >>> ar = Quiver(lambda x: x ** 2)
-        >>> ar[3]
-        9
+        >>> assert ar[3] == 9
         """
         self._func = func
 
     def __getitem__(self, box):
         """
-        >>> Quiver(lambda x: x * 10)[42]
-        420
+        >>> assert Quiver(lambda x: x * 10)[42] == 420
         >>> Quiver(lambda x: x * 10)[42] = 421  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...

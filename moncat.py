@@ -320,6 +320,33 @@ class Diagram(cat.Diagram):
         """
         return Id(x)
 
+    def draw(self):
+        import networkx as nx
+        graph, scan, pos = nx.Graph(), [], {}
+        for i in range(len(self.dom)):
+            graph.add_node('input_{}'.format(i))
+            pos.update({'input_{}'.format(i): (i, len(self) + 1)})
+            scan.append('input_{}'.format(i))
+        for depth, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+            graph.add_node('box_{}'.format(depth))
+            pos.update({'box_{}'.format(depth): (off, len(self) - depth - 1)})
+            for i in range(len(box.dom)):
+                graph.add_edge(scan[off + i], 'box_{}'.format(depth))
+            scan = scan[:off] + len(box.cod) * ['box_{}'.format(depth)]\
+                + scan[off + len(box.dom):]
+        for i in range(len(self.cod)):
+            graph.add_node('output_{}'.format(i))
+            pos.update({'output_{}'.format(i): (i, 0)})
+        for i, node in enumerate(scan):
+            graph.add_edge(node, 'output_{}'.format(i))
+        labels = {'box_{}'.format(i): str(box)
+                  for i, box in enumerate(self.boxes)}
+        labels.update({'input_{}'.format(i): str(self.dom[i])
+                       for i in range(len(self.dom))})
+        labels.update({'output_{}'.format(i): str(self.cod[i])
+                       for i in range(len(self.cod))})
+        nx.drawing.nx_pylab.draw_networkx(graph, pos, labels=labels)
+
     def interchange(self, i, j, left=False):
         """
         Returns a new diagram with boxes i and j interchanged.
