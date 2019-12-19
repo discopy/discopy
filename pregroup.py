@@ -281,12 +281,10 @@ class Diagram(moncat.Diagram):
         False
         >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes)
         >>> assert double_snake == two_snakes_nf
-        >>> f = Box('f', a @ b.l, a.r)
-        >>> print(f.transpose_r())
         """
         return Diagram.caps(self.dom.r, self.dom) @ Wire(self.cod.r)\
             >> Wire(self.dom.r) @ self @ Wire(self.cod.r)\
-            >> Wire(self.dom.r) @ Diagram.cups(self.dom, self.dom.r)
+            >> Wire(self.dom.r) @ Diagram.cups(self.cod, self.cod.r)
 
     def transpose_l(self):
         """
@@ -300,7 +298,7 @@ class Diagram(moncat.Diagram):
         """
         return Wire(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
             >> Wire(self.cod.l) @ self @ Wire(self.dom.l)\
-            >> Diagram.cups(self.dom.l, self.dom) @ Wire(self.dom.l)
+            >> Diagram.cups(self.cod.l, self.cod) @ Wire(self.dom.l)
 
     def interchange(self, i, j, left=False):
         """
@@ -332,12 +330,15 @@ class Diagram(moncat.Diagram):
         >>> d1 = g >> f_n.dagger() >> f_n >> h
         >>> assert d1 == d0.normal_form()
         >>> assert d1.dagger() == d0.dagger().normal_form()
-        >>> snake = Wire(n).transpose_r().transpose_l().transpose_r()\\
-        ...                .transpose_l().transpose_r().transpose_l()
-        >>> assert snake.normal_form() == Wire(n)
-        >>> snake = Wire(n).transpose_l().transpose_l().transpose_l()\\
-        ...                .transpose_r().transpose_r().transpose_r()
-        >>> assert snake.normal_form() == Wire(n)
+
+        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
+        >>> f = Box('f', a @ b.l, c.r)
+        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
+        ...              .transpose_l().transpose_r().transpose_l()
+        >>> assert transpose.normal_form() == f
+        >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
+        ...              .transpose_r().transpose_r().transpose_r()
+        >>> assert transpose.normal_form() == f
         """
         def unsnake(diagram, cup, cap):
             """
