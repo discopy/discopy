@@ -412,20 +412,16 @@ class Diagram(moncat.Diagram):
                                 ('right', self.offsets[cap] + 1)]:
                 cup, left_obstruction, right_obstruction = follow_wire(
                     self, cap, wire)
-                """
-                We found what the cap is connected to, if it's not yankable
-                we try with the other leg.
-                """
+                # We found what the cap is connected to, if it's not yankable
+                # we try with the other leg.
                 if cup == len(self) or not isinstance(self.boxes[cup], Cup):
                     continue
                 if snake == 'left' and self.offsets[cup] + 1 != wire:
                     continue
                 if snake == 'right' and self.offsets[cup] != wire:
                     continue
-                """
-                We rewrite self and call normal_form recursively
-                on a smaller diagram (with one snake removed).
-                """
+                # We rewrite self and call normal_form recursively
+                # on a smaller diagram (with one snake removed).
                 rewrite = left_unsnake if snake == 'left' else right_unsnake
                 return rewrite(
                     self, cup, cap, left_obstruction, right_obstruction)\
