@@ -335,10 +335,10 @@ class Diagram(moncat.Diagram):
         >>> f = Box('f', a @ b.l, c.r)
         >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
         ...              .transpose_l().transpose_r().transpose_l()
-        >>> assert transpose.normal_form() == f
+        >>> assert f.normal_form() == f
         >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
         ...              .transpose_r().transpose_r().transpose_r()
-        >>> assert transpose.normal_form() == f
+        >>> assert f.normal_form() == f
         """
         def unsnake(diagram, cup, cap):
             """
