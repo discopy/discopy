@@ -322,12 +322,26 @@ class Diagram(moncat.Diagram):
 
         >>> n, s = Ty('n'), Ty('s')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
-        >>> f = Box('unit', n, Ty()) >> Box('counit', Ty(), n)
+        >>> f = Box('f0', n, n @ s.l) >> Box('f1', n @ s.l, n)
         >>> g, h = Box('g', s @ n, n), Box('h', n, n @ s)
         >>> d0 = g @ cap >> f.dagger() @ Wire(n.r) @ f >> cup @ h
         >>> d1 = g >> f.dagger() >> f >> h
         >>> assert d1 == d0.normal_form()
         >>> assert d1.dagger() == d0.dagger().normal_form()
+
+        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
+        >>> f = Box('f', a @ b.l, c.r)
+        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
+        ...              .transpose_l().transpose_r().transpose_l()
+        >>> assert f.normal_form() == f
+        >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
+        ...              .transpose_r().transpose_r().transpose_r()
+        >>> assert f.normal_form() == f
+
+        >>> x = Ty('x')
+        >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
+        >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
+        >>> assert d.normal_form() == unit >> counit
         """
         def unsnake(diagram, cup, cap):
             """
@@ -386,29 +400,30 @@ class Diagram(moncat.Diagram):
         def follow_wire(diagram, i, wire):
             """
             Given a diagram, the index of a box i and the offset of an output
-            wire, returns a triple (j, left_obstruction, right_obstruction)
-            where j is the index of the box which takes this wire as input, or
+            wire, returns (j, wire, left_obstruction, right_obstruction).
+            j is the index of the box which takes this wire as input, or
             len(diagram) if it is connected to the bottom boundary.
+            wire is the offset of the wire at its bottom end.
             """
             left_obstruction, right_obstruction = [], []
             for j in range(i + 1, len(diagram)):
                 box, off = diagram.boxes[j], diagram.offsets[j]
                 if off <= wire < off + len(box.dom):
-                    return j, left_obstruction, right_obstruction
+                    return j, wire, left_obstruction, right_obstruction
                 if off <= wire:
                     wire += len(box.cod) - len(box.dom)
                     left_obstruction.append(j)
                 else:
                     right_obstruction.append(j)
-            return len(diagram), left_obstruction, right_obstruction
+            return len(diagram), wire, left_obstruction, right_obstruction
 
         for cap in range(len(self)):
             if not isinstance(self.boxes[cap], Cap):
                 continue
             for snake, wire in [('left', self.offsets[cap]),
                                 ('right', self.offsets[cap] + 1)]:
-                cup, left_obstruction, right_obstruction = follow_wire(
-                    self, cap, wire)
+                cup, wire, left_obstruction, right_obstruction =\
+                    follow_wire(self, cap, wire)
                 # We found what the cap is connected to, if it's not yankable
                 # we try with the other leg.
                 if cup == len(self) or not isinstance(self.boxes[cup], Cup):
