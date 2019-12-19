@@ -443,40 +443,61 @@ class Diagram(Arrow):
                 break
         return diagram
 
-    # def slice(self):
-    #     """
-    #     Returns a list of diagrams such that their sequential composition
-    #     is the original diagram.
-    #     >>> x, y = Ty('x'), Ty('y')
-    #     >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-    #     >>> d = f0 @ Id(y) >> f0.dagger() @ f1 >> Id(x) @ f0
-    #     >>> d.slice()
-    #     """
-    #     def scan(diagram, i):
-    #         scan = diagram.dom
-    #         for j in range(i + 1):
-    #             off = diagram.offsets[j]
-    #             box = diagram.boxes[j]
-    #             scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-    #         return scan
-    #
-    #     diagram = self
-    #     slices = []
-    #     dom, i = self.dom, 0
-    #     while i in range(len(diagram) - 1):
-    #         count = 0
-    #         for j in range(i + 1, len(diagram)):
-    #             try:
-    #                 diagram = diagram.interchange(j, i)
-    #                 count += 1
-    #             except InterchangerError:
-    #                 pass
-    #         cod = scan(diagram, i + count + 1)
-    #         slices += [Diagram(dom, cod, diagram.boxes[i: i + count + 1],
-    #                            diagram.offsets[i: i + count + 1])]
-    #         dom = cod
-    #         i += count + 1
-    #     return slices
+    def slice(self):
+        """
+        Returns a list of diagrams of depth 1
+        such that their sequential composition is the original diagram.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> d = f0 @ Id(y) >> f0.dagger() @ f1 >> Id(x) @ f0
+        >>> assert (d.slice()[0] >> d.slice()[1]).normal_form() ==\\
+        ...         d.normal_form()
+        >>> g = Box('g', x @ y, y)
+        >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
+        ...      g @ f1 >> f1 @ Id(x)).normal_form()
+        >>> slices = d.slice()
+        >>> assert (slices[0] >> slices[1] >> slices[2]).normal_form() == d
+
+        Returns an empty list if there are no boxes in the diagram.
+
+        >>> assert Id(x @ y @ x).slice() == []
+        """
+        def scan(diagram, i):
+            scan = diagram.dom
+            for j in range(i + 1):
+                off = diagram.offsets[j]
+                box = diagram.boxes[j]
+                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+            return scan
+
+        diagram = self
+        slices = []
+        dom = self.dom
+        i = 0
+        while i in range(len(diagram)):
+            count = 0
+            for j in range(i + 1, len(diagram)):
+                try:
+                    diagram = diagram.interchange(j, i)
+                    count += 1
+                except InterchangerError:
+                    pass
+            cod = scan(diagram, i + count)
+            slices += [Diagram(dom, cod, diagram.boxes[i: i + count + 1],
+                               diagram.offsets[i: i + count + 1])]
+            dom = cod
+            i += count + 1
+        return slices
+
+    def depth(self):
+        """ Computes the depth of a diagram by slicing it
+
+        >>> x = Ty('x')
+        >>> assert Id(x ** 10).depth() == 0
+        >>> assert Box('g', x, x).depth() == 1
+        """
+        return len(self.slice())
 
 
 def _spiral(n_cups):
