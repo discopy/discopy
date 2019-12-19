@@ -241,6 +241,8 @@ class Diagram(moncat.Diagram):
     def id(x):
         """
         >>> assert Diagram.id(Ty('s')) == Wire(Ty('s'))
+        >>> print(Diagram.id(Ty('s')))
+        Wire(s)
         """
         return Wire(x)
 
@@ -289,7 +291,12 @@ class Diagram(moncat.Diagram):
     def transpose_r(self):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> snake_r = Wire(a @ b).transpose_r()
+        >>> double_snake = Wire(a @ b).transpose_r()
+        >>> two_snakes = Wire(b).transpose_r() @ Wire(a).transpose_r()
+        >>> double_snake == two_snakes
+        False
+        >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes)
+        >>> assert double_snake == two_snakes_nf
         """
         return Diagram.caps(self.dom.r, self.dom) @ Wire(self.cod.r)\
             >> Wire(self.dom.r) @ self @ Wire(self.cod.r)\
@@ -298,24 +305,16 @@ class Diagram(moncat.Diagram):
     def transpose_l(self):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> snake_l = Wire(a @ b).transpose_l()
+        >>> double_snake = Wire(a @ b).transpose_l()
+        >>> two_snakes = Wire(b).transpose_l() @ Wire(a).transpose_l()
+        >>> double_snake == two_snakes
+        False
+        >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes, left=True)
+        >>> assert double_snake == two_snakes_nf
         """
         return Wire(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
             >> Wire(self.cod.l) @ self @ Wire(self.dom.l)\
             >> Diagram.cups(self.dom.l, self.dom) @ Wire(self.dom.l)
-
-    def coil(self, n, left=False):
-        """ Returns the n-th transpose of the diagram
-        >>> coiled_snake = Wire(Ty('a')).coil(2).coil(2, left=True)
-        >>> assert coiled_snake.normal_form() == Wire(Ty('a'))
-        """
-        coil = self
-        for i in range(n):
-            if left:
-                coil = coil.transpose_l()
-            else:
-                coil = coil.transpose_r()
-        return coil
 
     def interchange(self, i, j, left=False):
         """
@@ -338,7 +337,6 @@ class Diagram(moncat.Diagram):
         see arxiv:1601.05372, definition 2.12.
 
         >>> n, a = Ty('n'), Ty('a')
-        >>> snake = Wire(n).transpose_r().transpose_r()
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f_n = Wire(n)
         >>> for _ in range(2):
@@ -348,6 +346,9 @@ class Diagram(moncat.Diagram):
         >>> d1 = g >> f_n.dagger() >> f_n >> h
         >>> assert d0.normal_form() == d1
         >>> assert d0.dagger().normal_form() == d1.dagger()
+        >>> snake = Wire(n).transpose_l().transpose_r().transpose_l()\\
+        ...                .transpose_r().transpose_l().transpose_r()
+        >>> assert snake.normal_form() == Wire(n)
         """
         self = super().normal_form()
 
