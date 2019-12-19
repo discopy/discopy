@@ -6,7 +6,8 @@ discopy computes natural language meaning in pictures.
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
->>> print(Alice @ loves @ Bob)
+>>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+>>> print(Alice @ loves @ Bob >> grammar)
 Alice >> Id(n) @ loves >> Id(n @ n.r @ s @ n.l) @ Bob
 """
 
