@@ -360,12 +360,32 @@ class Diagram(moncat.Diagram):
         self = super().normal_form()
 
         def unsnake(diagram, cup, cap):
+            """
+            Given a diagram and the indices for an adjacent cup and cap pair,
+            returns a new diagram with the snake removed.
+            """
+            if not cup - cap == 1:
+                raise ValueError
+            if not isinstance(diagram.boxes[cup], Cup):
+                raise ValueError
+            if not isinstance(diagram.boxes[cap], Cap):
+                raise ValueError
+            if not diagram.offsets[cap] - diagram.offsets[cup] in [-1, 1]:
+                raise ValueError
             return Diagram(diagram.dom, diagram.cod,
                            diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                           diagram.offsets[:cap] + diagram.offsets[cup + 1:])
+                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
+                           fast=True)
 
         def left_unsnake(diagram, cup, cap,
                          left_obstruction, right_obstruction):
+            """
+            Given a diagram, the indices for a yankable cup and cap, together
+            with the lists of box indices obstructing on the left and right,
+            returns a new diagram with the snake removed.
+
+            A left snake is one of the form Wire @ Cap >> Cup @ Wire.
+            """
             for left in left_obstruction:
                 diagram = diagram.interchange(cap, left)
                 for i, right in enumerate(right_obstruction):
@@ -379,6 +399,9 @@ class Diagram(moncat.Diagram):
 
         def right_unsnake(diagram, cup, cap,
                           left_obstruction, right_obstruction):
+            """
+            A right snake is one of the form Cap @ Wire >> Wire @ Cup.
+            """
             for left in left_obstruction[::-1]:
                 diagram = diagram.interchange(left, cup)
                 for i, right in enumerate(right_obstruction):
@@ -392,6 +415,10 @@ class Diagram(moncat.Diagram):
 
         for i, (box0, off0) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box0, Cap):
+                """
+                We look for a yankable pair of indices (i, j) together with
+                a list of left and right obstructions.
+                """
                 for scan in [off0, off0 + 1]:
                     snake = 'left' if scan == off0 else 'right'
                     rewrite = left_unsnake if scan == off0 else right_unsnake
@@ -405,6 +432,10 @@ class Diagram(moncat.Diagram):
                                 break
                             if snake == 'right' and off1 != scan:
                                 break
+                            """
+                            We rewrite self and call normal_form recursively
+                            on a smaller diagram (with one snake removed).
+                            """
                             return rewrite(
                                 self, j, i,
                                 left_obstruction, right_obstruction)\
