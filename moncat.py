@@ -329,7 +329,7 @@ class Diagram(cat.Diagram):
             scan.append('input_{}'.format(i))
         for depth, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             graph.add_node('box_{}'.format(depth))
-            pos.update({'box_{}'.format(depth): (off, len(self) - depth - 1)})
+            pos.update({'box_{}'.format(depth): (off, len(self) - depth)})
             for i in range(len(box.dom)):
                 graph.add_edge(scan[off + i], 'box_{}'.format(depth))
             scan = scan[:off] + len(box.cod) * ['box_{}'.format(depth)]\
