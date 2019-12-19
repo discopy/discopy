@@ -481,7 +481,7 @@ class InterchangerError(AxiomError):
     >>> d.interchange(0, 1)  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    moncat.InterchangerError: Boxes ... are connected.
+    moncat.InterchangerError: Boxes ... do not commute.
     """
 
 

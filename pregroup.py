@@ -133,24 +133,6 @@ class Ty(moncat.Ty):
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
 
-    def __str__(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> print(n.r @ s @ n.l)
-        n.r @ s @ n.l
-        """
-        return ' @ '.join(map(str, self.objects)) or "Ty()"
-
-    def __pow__(self, other):
-        """
-        >>> Ty('x') ** 3
-        Ty('x', 'x', 'x')
-        """
-        if not isinstance(other, int):
-            raise ValueError(
-                "Expected int, got {} instead.".format(repr(other)))
-        return sum(other * (self, ), Ty())
-
     @property
     def l(self):
         """
