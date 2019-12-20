@@ -314,33 +314,20 @@ class Diagram(moncat.Diagram):
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
-    def normal_form(self, left=False):
+    def normalize(self, left=False):
         """
-        Implements the normalisation of rigid monoidal categories,
-        see arxiv:1601.05372, definition 2.12.
+        Return a generator which yields normalization steps.
 
         >>> n, s = Ty('n'), Ty('s')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
-        >>> f = Box('f0', n, n @ s.l) >> Box('f1', n @ s.l, n)
-        >>> g, h = Box('g', s @ n, n), Box('h', n, n @ s)
-        >>> d0 = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
-        >>> d1 = g >> f.dagger() >> f >> h
-        >>> assert d1 == d0.normal_form()
-        >>> assert d1.dagger() == d0.dagger().normal_form()
-
-        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
-        >>> f = Box('f', a @ b.l, c.r)
-        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
-        ...              .transpose_l().transpose_r().transpose_l()
-        >>> assert f.normal_form() == f
-        >>> transpose = f.transpose_l().transpose_l().transpose_l()\\
-        ...              .transpose_r().transpose_r().transpose_r()
-        >>> assert f.normal_form() == f
-
-        >>> x = Ty('x')
-        >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-        >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
-        >>> assert d.normal_form() == unit >> counit
+        >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
+        >>> diagram = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
+        >>> assert next(diagram.normalize()) == diagram
+        >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
+        g >> Id(n) @ Cap(n.r, n) >> ... >> Cup(n, n.r) @ Id(n) >> h
+        g >> f.dagger() >> ... >> Cup(n, n.r) @ Id(n) >> h
+        g >> f.dagger() >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
+        g >> f.dagger() >> f >> h
         """
         def unsnake(diagram, cup, cap):
             """
@@ -371,14 +358,16 @@ class Diagram(moncat.Diagram):
             """
             for left in left_obstruction:
                 diagram = diagram.interchange(cap, left)
+                yield diagram
                 for i, right in enumerate(right_obstruction):
                     if right < left:
                         right_obstruction[i] += 1
                 cap += 1
             for right in right_obstruction[::-1]:
                 diagram = diagram.interchange(right, cup)
+                yield diagram
                 cup -= 1
-            return unsnake(diagram, cup, cap)
+            yield unsnake(diagram, cup, cap)
 
         def right_unsnake(diagram, cup, cap,
                           left_obstruction, right_obstruction):
@@ -387,14 +376,16 @@ class Diagram(moncat.Diagram):
             """
             for left in left_obstruction[::-1]:
                 diagram = diagram.interchange(left, cup)
+                yield diagram
                 for i, right in enumerate(right_obstruction):
                     if right > left:
                         right_obstruction[i] -= 1
                 cup -= 1
             for right in right_obstruction:
                 diagram = diagram.interchange(cap, right)
+                yield diagram
                 cap += 1
-            return unsnake(diagram, cup, cap)
+            yield unsnake(diagram, cup, cap)
 
         def follow_wire(diagram, i, wire):
             """
@@ -416,28 +407,62 @@ class Diagram(moncat.Diagram):
                     right_obstruction.append(j)
             return len(diagram), wire, left_obstruction, right_obstruction
 
-        for cap in range(len(self)):
-            if not isinstance(self.boxes[cap], Cap):
-                continue
-            for snake, wire in [('left', self.offsets[cap]),
-                                ('right', self.offsets[cap] + 1)]:
-                cup, wire, left_obstruction, right_obstruction =\
-                    follow_wire(self, cap, wire)
-                # We found what the cap is connected to, if it's not yankable
-                # we try with the other leg.
-                if cup == len(self) or not isinstance(self.boxes[cup], Cup):
+        diagram = self
+        yield diagram
+        while True:
+            before = diagram
+            for cap in range(len(diagram)):
+                if not isinstance(diagram.boxes[cap], Cap):
                     continue
-                if snake == 'left' and self.offsets[cup] + 1 != wire:
-                    continue
-                if snake == 'right' and self.offsets[cup] != wire:
-                    continue
-                # We rewrite self and call normal_form recursively
-                # on a smaller diagram (with one snake removed).
-                rewrite = left_unsnake if snake == 'left' else right_unsnake
-                return rewrite(self, cup, cap,
-                               left_obstruction, right_obstruction
-                               ).normal_form()
-        return super().normal_form(left=left)
+                for left_snake, wire in [(True, diagram.offsets[cap]),
+                                         (False, diagram.offsets[cap] + 1)]:
+                    cup, wire, left_obstruction, right_obstruction =\
+                        follow_wire(diagram, cap, wire)
+                    # We found what the cap is connected to,
+                    # if it's not yankable we try with the other leg.
+                    if cup == len(diagram):
+                        continue
+                    if not isinstance(diagram.boxes[cup], Cup):
+                        continue
+                    if left_snake and diagram.offsets[cup] + 1 != wire:
+                        continue
+                    if not left_snake and diagram.offsets[cup] != wire:
+                        continue
+                    # We rewrite self and call normal_form recursively
+                    # on a smaller diagram (with one snake removed).
+                    rewrite = left_unsnake if left_snake else right_unsnake
+                    for _diagram in rewrite(
+                            diagram, cup, cap,
+                            left_obstruction, right_obstruction):
+                        yield _diagram
+                        diagram = _diagram
+                    break
+                break
+            if diagram == before:
+                break
+        gen = moncat.Diagram.normalize(diagram, left=left)
+        for _diagram in gen:
+            if _diagram != diagram:
+                yield _diagram
+
+    def normal_form(self, left=False):
+        """
+        Implements the normalisation of rigid monoidal categories,
+        see arxiv:1601.05372, definition 2.12.
+
+        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
+        >>> f = Box('f', a @ b.l, c.r)
+        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
+        ...              .transpose_l().transpose_r().transpose_l()
+        >>> assert transpose.normal_form() == f
+
+        >>> x = Ty('x')
+        >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
+        >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
+        >>> assert d.normal_form() == unit >> counit
+        """
+        *_, diagram = self.normalize(left=left)
+        return diagram
 
 
 class Box(moncat.Box, Diagram):

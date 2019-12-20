@@ -320,32 +320,95 @@ class Diagram(cat.Diagram):
         """
         return Id(x)
 
-    def draw(self):
+    def draw(self, _test=False):
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> diagram = Box('f0', x, y) @ Box('f1', z, w)
+        >>> graph, pos, labels = diagram.draw(_test=True)
+        >>> for u, s in sorted(labels.items()): print("{} ({})".format(u, s))
+        box_0 (f0)
+        box_1 (f1)
+        input_0 (x)
+        input_1 (z)
+        output_0 (y)
+        output_1 (w)
+        >>> for u, (i, j) in sorted(pos.items()):
+        ...     print("{} {}".format(u, (i, j)))
+        box_0 (-1.0, 2)
+        box_1 (0.0, 1)
+        input_0 (-1.0, 3)
+        input_1 (0.0, 3)
+        output_0 (-1.0, 0)
+        output_1 (0.0, 0)
+        wire_0_1 (0.0, 2)
+        wire_1_0 (-1.0, 1)
+        >>> for u, v in sorted(graph.edges()): print("{} -> {}".format(u, v))
+        box_0 -> wire_1_0
+        box_1 -> output_1
+        input_0 -> box_0
+        input_1 -> wire_0_1
+        wire_0_1 -> box_1
+        wire_1_0 -> output_0
+        """
+        import matplotlib.pyplot as plt
         import networkx as nx
-        graph, scan, pos = nx.Graph(), [], {}
+        graph, scan, pos, labels = nx.Graph(), list(), dict(), dict()
+        inputs, outputs, boxes, wires = [], [], [], []
         for i in range(len(self.dom)):
-            graph.add_node('input_{}'.format(i))
-            pos.update({'input_{}'.format(i): (i, len(self) + 1)})
-            scan.append('input_{}'.format(i))
-        for depth, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-            graph.add_node('box_{}'.format(depth))
-            pos.update({'box_{}'.format(depth): (off, len(self) - depth)})
-            for i in range(len(box.dom)):
-                graph.add_edge(scan[off + i], 'box_{}'.format(depth))
-            scan = scan[:off] + len(box.cod) * ['box_{}'.format(depth)]\
+            input_node = 'input_{}'.format(i)
+            graph.add_node(input_node)
+            scan.append(input_node)
+            inputs.append(input_node)
+            pos.update({input_node: (-.5 * len(self.dom) + i, len(self) + 1)})
+            labels.update({input_node: str(self.dom[i])})
+        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+            width = len(scan) - len(box.dom) + 1
+            box_node = 'box_{}'.format(i)
+            boxes.append(box_node)
+            graph.add_node(box_node)
+            for j in range(len(box.dom)):
+                graph.add_edge(scan[off + j], box_node)
+            pos.update({box_node: (-.5 * width + off, len(self) - i)})
+            labels.update({box_node: str(box)})
+            for j, wire_node in enumerate(scan[:off]):
+                new_wire_node = 'wire_{}_{}'.format(i, j)
+                wires.append(new_wire_node)
+                graph.add_node(new_wire_node)
+                graph.add_edge(wire_node, new_wire_node)
+                pos.update({new_wire_node: (-.5 * width + j, len(self) - i)})
+                scan[j] = new_wire_node
+            for j, wire_node in enumerate(scan[off + len(box.dom):]):
+                new_wire_node = 'wire_{}_{}'.format(i, off + j + 1)
+                wires.append(new_wire_node)
+                graph.add_node(new_wire_node)
+                graph.add_edge(wire_node, new_wire_node)
+                position = (-.5 * width + off + j + 1, len(self) - i)
+                pos.update({new_wire_node: position})
+                scan[off + len(box.dom) + j] = new_wire_node
+            scan = scan[:off] + len(box.cod) * [box_node]\
                 + scan[off + len(box.dom):]
-        for i in range(len(self.cod)):
-            graph.add_node('output_{}'.format(i))
-            pos.update({'output_{}'.format(i): (i, 0)})
         for i, node in enumerate(scan):
-            graph.add_edge(node, 'output_{}'.format(i))
-        labels = {'box_{}'.format(i): str(box)
-                  for i, box in enumerate(self.boxes)}
-        labels.update({'input_{}'.format(i): str(self.dom[i])
-                       for i in range(len(self.dom))})
-        labels.update({'output_{}'.format(i): str(self.cod[i])
-                       for i in range(len(self.cod))})
-        nx.drawing.nx_pylab.draw_networkx(graph, pos, labels=labels)
+            output_node = 'output_{}'.format(i)
+            outputs.append(output_node)
+            graph.add_node(output_node)
+            graph.add_edge(node, output_node)
+            pos.update({output_node: (-.5 * len(scan) + i, 0)})
+            labels.update({output_node: str(self.cod[i])})
+        if _test:
+            return graph, pos, labels
+        nx.draw_networkx_nodes(
+            graph, pos, node_color='#ffffff', nodelist=inputs)
+        nx.draw_networkx_nodes(
+            graph, pos, node_color='#ffffff', nodelist=outputs)
+        nx.draw_networkx_nodes(
+            graph, pos, node_size=0, nodelist=wires)
+        nx.draw_networkx_nodes(
+            graph, pos, node_color='#ff0000', node_shape='s', nodelist=boxes)
+        nx.draw_networkx_labels(graph, pos, labels)
+        nx.draw_networkx_edges(graph, pos)
+        plt.axis("off")
+        plt.show()
+        return
 
     def interchange(self, i, j, left=False):
         """
@@ -410,6 +473,43 @@ class Diagram(cat.Diagram):
             self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
             _fast=True)
 
+    def normalize(self, left=False):
+        """
+        Returns a generator which yields the diagrams at each step towards
+        a normal form. Never halts if the diagram is not connected.
+
+        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+        >>> gen = (s0 @ s1).normalize()
+        >>> for _ in range(3): print(next(gen))
+        s0 >> s1
+        s1 >> s0
+        s0 >> s1
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> for d in (Id(x) @ f1 >> f0 @ Id(x)).normalize(): print(d)
+        Id(x) @ f1 >> f0 @ Id(x)
+        f0 @ Id(y) >> Id(y) @ f1
+        >>> for d in (f0 @ f1).normalize(left=True): print(d)
+        f0 @ Id(y) >> Id(y) @ f1
+        Id(x) @ f1 >> f0 @ Id(x)
+        """
+        diagram = self
+        while True:
+            yield diagram
+            before = diagram
+            for i in range(len(diagram) - 1):
+                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
+                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
+                if left and off1 >= off0 + len(box0.cod)\
+                        or not left and off0 >= off1 + len(box1.dom):
+                    try:
+                        diagram = diagram.interchange(i, i + 1, left=left)
+                        break
+                    except InterchangerError:
+                        pass
+            if diagram == before:  # no more moves
+                break
+
     def normal_form(self, left=False):
         """
         Implements normalisation of connected diagrams, see arXiv:1804.07832.
@@ -429,25 +529,13 @@ class Diagram(cat.Diagram):
         >>> assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
         >>> assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
         """
-        diagram, cache = self, set([self])
-        while True:
-            _diagram = diagram
-            for i in range(len(diagram) - 1):
-                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
-                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
-                if left and off1 >= off0 + len(box0.cod)\
-                        or not left and off0 >= off1 + len(box1.dom):
-                    try:
-                        diagram = diagram.interchange(i, i + 1, left=left)
-                        if diagram in cache:
-                            raise NotImplementedError(
-                                "Diagram {} is not connected.".format(self))
-                        cache.add(diagram)
-                        break
-                    except InterchangerError:
-                        pass
-            if diagram == _diagram:  # no more moves
-                break
+        diagram, cache = self, set()
+        for _diagram in Diagram.normalize(self, left=left):
+            if _diagram in cache:
+                raise NotImplementedError(
+                    "Diagram {} is not connected.".format(self))
+            diagram = _diagram
+            cache.add(diagram)
         return diagram
 
     def flatten(self):

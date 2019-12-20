@@ -7,8 +7,8 @@ discopy computes natural language meaning in pictures.
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
 >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
->>> print(Alice @ loves @ Bob >> grammar)
-Alice >> Id(n) @ loves >> Id(n @ n.r @ s @ n.l) @ Bob
+>>> F = Model({s: 1, n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]})
+>>> assert F(Alice @ loves @ Bob >> grammar)
 """
 
 from discopy import cat, moncat, matrix, circuit, disco, config
