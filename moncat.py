@@ -20,6 +20,8 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
+import matplotlib.pyplot as plt
+import networkx as nx
 from discopy import cat
 from discopy.cat import Ob, Functor, Quiver
 
@@ -350,65 +352,80 @@ class Diagram(cat.Diagram):
         wire_0_1 -> box_1
         wire_1_0 -> output_0
         """
-        import matplotlib.pyplot as plt
-        import networkx as nx
+        def draw_inputs(self, graph, pos, labels):
+            inputs = []
+            for i in range(len(self.dom)):
+                input_node = 'input_{}'.format(i)
+                graph.add_node(input_node)
+                inputs.append(input_node)
+                position = (-.5 * len(self.dom) + i, len(self) + 1)
+                pos.update({input_node: position})
+                labels.update({input_node: str(self.dom[i])})
+            return inputs
+
+        def draw_boxes_and_wires(self, input_nodes, graph, pos, labels):
+            scan, boxes, wires = input_nodes, [], []
+            for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+                width = len(scan) - len(box.dom) + 1
+                box_node = 'box_{}'.format(i)
+                boxes.append(box_node)
+                graph.add_node(box_node)
+                for j in range(len(box.dom)):
+                    graph.add_edge(scan[off + j], box_node)
+                pos.update({box_node: (-.5 * width + off, len(self) - i)})
+                labels.update({box_node: str(box)})
+                for j, wire_node in enumerate(scan[:off]):
+                    new_wire_node = 'wire_{}_{}'.format(i, j)
+                    wires.append(new_wire_node)
+                    graph.add_node(new_wire_node)
+                    graph.add_edge(wire_node, new_wire_node)
+                    position = (-.5 * width + j, len(self) - i)
+                    pos.update({new_wire_node: position})
+                    scan[j] = new_wire_node
+                for j, wire_node in enumerate(scan[off + len(box.dom):]):
+                    new_wire_node = 'wire_{}_{}'.format(i, off + j + 1)
+                    wires.append(new_wire_node)
+                    graph.add_node(new_wire_node)
+                    graph.add_edge(wire_node, new_wire_node)
+                    position = (-.5 * width + off + j + 1, len(self) - i)
+                    pos.update({new_wire_node: position})
+                    scan[off + len(box.dom) + j] = new_wire_node
+                scan = scan[:off] + len(box.cod) * [box_node]\
+                    + scan[off + len(box.dom):]
+            return boxes, wires, scan
+
+        def draw_outputs(self, scan, graph, pos, labels):
+            outputs = []
+            for i, node in enumerate(scan):
+                output_node = 'output_{}'.format(i)
+                outputs.append(output_node)
+                graph.add_node(output_node)
+                graph.add_edge(node, output_node)
+                pos.update({output_node: (-.5 * len(scan) + i, 0)})
+                labels.update({output_node: str(self.cod[i])})
+            return outputs
+
         graph, scan, pos, labels = nx.Graph(), list(), dict(), dict()
-        inputs, outputs, boxes, wires = [], [], [], []
-        for i in range(len(self.dom)):
-            input_node = 'input_{}'.format(i)
-            graph.add_node(input_node)
-            scan.append(input_node)
-            inputs.append(input_node)
-            pos.update({input_node: (-.5 * len(self.dom) + i, len(self) + 1)})
-            labels.update({input_node: str(self.dom[i])})
-        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-            width = len(scan) - len(box.dom) + 1
-            box_node = 'box_{}'.format(i)
-            boxes.append(box_node)
-            graph.add_node(box_node)
-            for j in range(len(box.dom)):
-                graph.add_edge(scan[off + j], box_node)
-            pos.update({box_node: (-.5 * width + off, len(self) - i)})
-            labels.update({box_node: str(box)})
-            for j, wire_node in enumerate(scan[:off]):
-                new_wire_node = 'wire_{}_{}'.format(i, j)
-                wires.append(new_wire_node)
-                graph.add_node(new_wire_node)
-                graph.add_edge(wire_node, new_wire_node)
-                pos.update({new_wire_node: (-.5 * width + j, len(self) - i)})
-                scan[j] = new_wire_node
-            for j, wire_node in enumerate(scan[off + len(box.dom):]):
-                new_wire_node = 'wire_{}_{}'.format(i, off + j + 1)
-                wires.append(new_wire_node)
-                graph.add_node(new_wire_node)
-                graph.add_edge(wire_node, new_wire_node)
-                position = (-.5 * width + off + j + 1, len(self) - i)
-                pos.update({new_wire_node: position})
-                scan[off + len(box.dom) + j] = new_wire_node
-            scan = scan[:off] + len(box.cod) * [box_node]\
-                + scan[off + len(box.dom):]
-        for i, node in enumerate(scan):
-            output_node = 'output_{}'.format(i)
-            outputs.append(output_node)
-            graph.add_node(output_node)
-            graph.add_edge(node, output_node)
-            pos.update({output_node: (-.5 * len(scan) + i, 0)})
-            labels.update({output_node: str(self.cod[i])})
-        if _test:
-            return graph, pos, labels
-        nx.draw_networkx_nodes(
-            graph, pos, node_color='#ffffff', nodelist=inputs)
-        nx.draw_networkx_nodes(
-            graph, pos, node_color='#ffffff', nodelist=outputs)
-        nx.draw_networkx_nodes(
-            graph, pos, node_size=0, nodelist=wires)
-        nx.draw_networkx_nodes(
-            graph, pos, node_color='#ff0000', node_shape='s', nodelist=boxes)
-        nx.draw_networkx_labels(graph, pos, labels)
-        nx.draw_networkx_edges(graph, pos)
-        plt.axis("off")
-        plt.show()
-        return
+        inputs = draw_inputs(self, graph, pos, labels)
+        boxes, wires, scan = draw_boxes_and_wires(
+            self, inputs, graph, pos, labels)
+        outputs = draw_outputs(self, scan, graph, pos, labels)
+
+        if not _test:
+            nx.draw_networkx_nodes(
+                graph, pos, nodelist=inputs, node_color='#ffffff')
+            nx.draw_networkx_nodes(
+                graph, pos, nodelist=outputs, node_color='#ffffff')
+            nx.draw_networkx_nodes(
+                graph, pos, nodelist=wires, node_size=0)
+            nx.draw_networkx_nodes(
+                graph, pos, nodelist=boxes,
+                node_color='#ff0000', node_shape='s')
+            nx.draw_networkx_labels(graph, pos, labels)
+            nx.draw_networkx_edges(graph, pos)
+            plt.axis("off")
+            plt.show()
+        return graph, pos, labels
 
     def interchange(self, i, j, left=False):
         """
