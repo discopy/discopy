@@ -527,7 +527,7 @@ class Diagram(cat.Diagram):
         >>> assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
         """
         diagram, cache = self, set()
-        for _diagram in Diagram.normalize(self, left=left):
+        for _diagram in self.normalize(left=left):
             if _diagram in cache:
                 raise NotImplementedError(
                     "Diagram {} is not connected.".format(self))

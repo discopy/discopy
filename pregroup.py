@@ -318,7 +318,7 @@ class Diagram(moncat.Diagram):
         >>> two_snakes = Id(b).transpose_r() @ Id(a).transpose_r()
         >>> double_snake == two_snakes
         False
-        >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes)
+        >>> *_, two_snakes_nf = moncat.Diagram.normalize(two_snakes)
         >>> assert double_snake == two_snakes_nf
         """
         return Diagram.caps(self.dom.r, self.dom) @ Id(self.cod.r)\
@@ -332,7 +332,7 @@ class Diagram(moncat.Diagram):
         >>> two_snakes = Id(b).transpose_l() @ Id(a).transpose_l()
         >>> double_snake == two_snakes
         False
-        >>> two_snakes_nf = moncat.Diagram.normal_form(two_snakes, left=True)
+        >>> *_, two_snakes_nf = moncat.Diagram.normalize(two_snakes, left=True)
         >>> assert double_snake == two_snakes_nf
         """
         return Id(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
@@ -458,6 +458,8 @@ class Diagram(moncat.Diagram):
             for _diagram in unsnake(diagram, *yankable):
                 yield _diagram
                 diagram = _diagram
+        for _diagram in moncat.Diagram.normalize(diagram, left=left):
+            yield _diagram
 
     def normal_form(self, left=False):
         """
@@ -467,7 +469,7 @@ class Diagram(moncat.Diagram):
         >>> x = Ty('x')
         >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
         >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
-        >>> assert d.normal_form() == unit >> counit
+        >>> assert d.normal_form(left=True) == unit >> counit
         >>> assert d.dagger().normal_form() == counit.dagger() >> unit.dagger()
         >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
         >>> f = Box('f', a, b @ c)
@@ -482,10 +484,7 @@ class Diagram(moncat.Diagram):
         >>> assert more_complicated.normal_form() == f
         """
         *_, diagram = list(self.normalize()) or [self]
-        try:
-            diagram = moncat.Diagram.normal_form(diagram, left=left)
-        except NotImplementedError:
-            pass
+        moncat.Diagram.normal_form(diagram, left=left)
         return diagram
 
 
