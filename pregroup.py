@@ -15,6 +15,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 ...         == snake_l.dagger() << snake_r.dagger()
 """
 
+import networkx as nx
 from discopy import cat, moncat
 
 
@@ -227,6 +228,45 @@ class Diagram(moncat.Diagram):
         """
         return Id(x)
 
+    def draw(self, _test=False, _data=None):
+        """
+        >>> f = Box('f', Ty('x'), Ty('y'))
+        >>> graph, positions, labels = f.transpose_l().draw(_test=True)
+        >>> for u, s in sorted(labels.items()): print("{} ({})".format(u, s))
+        box_1 (f)
+        input_0 (y.l)
+        output_0 (x.l)
+        >>> for u, (i, j) in sorted(positions.items()):
+        ...     print("{} {}".format(u, (i, j)))
+        box_1 (-0.5, 2)
+        input_0 (-0.5, 4)
+        output_0 (-0.5, 0)
+        wire_0_0 (-1.0, 3)
+        wire_1_0 (-1.5, 2)
+        wire_1_2 (0.5, 2)
+        wire_2_1 (0.0, 1)
+        wire_Cap(x, x.l) (0.0, 3)
+        wire_Cup(y.l, y) (-1.0, 1)
+        >>> for u, v in sorted(graph.edges()): print("{} -> {}".format(u, v))
+        box_1 -> wire_Cup(y.l, y)
+        input_0 -> wire_0_0
+        wire_0_0 -> wire_1_0
+        wire_1_0 -> wire_Cup(y.l, y)
+        wire_1_2 -> wire_2_1
+        wire_2_1 -> output_0
+        wire_Cap(x, x.l) -> box_1
+        wire_Cap(x, x.l) -> wire_1_2
+        """
+        graph, positions, labels = moncat.Diagram.draw(self, _test=True)
+        for i, box in enumerate(self.boxes):
+            if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
+                node = 'box_{}'.format(i)
+                positions['wire_{}'.format(box)] = positions[node]
+                del positions[node]
+                del labels[node]
+                graph = nx.relabel_nodes(graph, {node: 'wire_{}'.format(box)})
+        return super().draw(_test=_test, _data=(graph, positions, labels))
+
     @staticmethod
     def cups(x, y):  # pylint: disable=invalid-name
         """ Constructs nested cups witnessing adjointness of x and y
@@ -322,146 +362,130 @@ class Diagram(moncat.Diagram):
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
         >>> diagram = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
-        >>> assert next(diagram.normalize()) == diagram
         >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
-        g >> Id(n) @ Cap(n.r, n) >> ... >> Cup(n, n.r) @ Id(n) >> h
         g >> f.dagger() >> ... >> Cup(n, n.r) @ Id(n) >> h
         g >> f.dagger() >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
         g >> f.dagger() >> f >> h
         """
-        def unsnake(diagram, cup, cap):
+        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
             """
             Given a diagram and the indices for an adjacent cup and cap pair,
             returns a new diagram with the snake removed.
-            """
-            if not cup - cap == 1:
-                raise ValueError
-            if not isinstance(diagram.boxes[cup], Cup):
-                raise ValueError
-            if not isinstance(diagram.boxes[cap], Cap):
-                raise ValueError
-            if not diagram.offsets[cap] - diagram.offsets[cup] in [-1, 1]:
-                raise ValueError
-            return Diagram(diagram.dom, diagram.cod,
-                           diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                           diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                           _fast=True)
-
-        def left_unsnake(diagram, cup, cap,
-                         left_obstruction, right_obstruction):
-            """
-            Given a diagram, the indices for a yankable cup and cap, together
-            with the lists of box indices obstructing on the left and right,
-            returns a new diagram with the snake removed.
 
             A left snake is one of the form Id @ Cap >> Cup @ Id.
-            """
-            for left in left_obstruction:
-                diagram = diagram.interchange(cap, left)
-                yield diagram
-                for i, right in enumerate(right_obstruction):
-                    if right < left:
-                        right_obstruction[i] += 1
-                cap += 1
-            for right in right_obstruction[::-1]:
-                diagram = diagram.interchange(right, cup)
-                yield diagram
-                cup -= 1
-            yield unsnake(diagram, cup, cap)
-
-        def right_unsnake(diagram, cup, cap,
-                          left_obstruction, right_obstruction):
-            """
             A right snake is one of the form Cap @ Id >> Id @ Cup.
             """
-            for left in left_obstruction[::-1]:
-                diagram = diagram.interchange(left, cup)
-                yield diagram
-                for i, right in enumerate(right_obstruction):
-                    if right > left:
-                        right_obstruction[i] -= 1
-                cup -= 1
-            for right in right_obstruction:
-                diagram = diagram.interchange(cap, right)
-                yield diagram
-                cap += 1
-            yield unsnake(diagram, cup, cap)
+            left_obstruction, right_obstruction = obstructions
+            if left_snake:
+                for box in left_obstruction:
+                    diagram = diagram.interchange(box, cap)
+                    yield diagram
+                    for i, right_box in enumerate(right_obstruction):
+                        if right_box < box:
+                            right_obstruction[i] += 1
+                    cap += 1
+                for box in right_obstruction[::-1]:
+                    diagram = diagram.interchange(box, cup)
+                    yield diagram
+                    cup -= 1
+            else:
+                for box in left_obstruction[::-1]:
+                    diagram = diagram.interchange(box, cup)
+                    yield diagram
+                    for i, right_box in enumerate(right_obstruction):
+                        if right_box > box:
+                            right_obstruction[i] -= 1
+                    cup -= 1
+                for box in right_obstruction:
+                    diagram = diagram.interchange(box, cap)
+                    yield diagram
+                    cap += 1
+            yield Diagram(diagram.dom, diagram.cod,
+                          diagram.boxes[:cap] + diagram.boxes[cup + 1:],
+                          diagram.offsets[:cap] + diagram.offsets[cup + 1:],
+                          _fast=True)
 
-        def follow_wire(diagram, i, wire):
+        def follow_wire(diagram, i, j):
             """
-            Given a diagram, the index of a box i and the offset of an output
-            wire, returns (j, wire, left_obstruction, right_obstruction).
-            j is the index of the box which takes this wire as input, or
+            Given a diagram, the index of a box i and the offset j of an output
+            wire, returns (i, j, obstructions) where:
+            - i is the index of the box which takes this wire as input, or
             len(diagram) if it is connected to the bottom boundary.
-            wire is the offset of the wire at its bottom end.
+            - j is the offset of the wire at its bottom end.
+            - obstructions is a pair of lists of indices for the diagrams on
+            the left and right of the wire we followed.
             """
             left_obstruction, right_obstruction = [], []
-            for j in range(i + 1, len(diagram)):
-                box, off = diagram.boxes[j], diagram.offsets[j]
-                if off <= wire < off + len(box.dom):
-                    return j, wire, left_obstruction, right_obstruction
-                if off <= wire:
-                    wire += len(box.cod) - len(box.dom)
-                    left_obstruction.append(j)
+            while i < len(diagram) - 1:
+                i += 1
+                box, off = diagram.boxes[i], diagram.offsets[i]
+                if off <= j < off + len(box.dom):
+                    return i, j, (left_obstruction, right_obstruction)
+                if off <= j:
+                    j += len(box.cod) - len(box.dom)
+                    left_obstruction.append(i)
                 else:
-                    right_obstruction.append(j)
-            return len(diagram), wire, left_obstruction, right_obstruction
+                    right_obstruction.append(i)
+            return len(diagram), j, (left_obstruction, right_obstruction)
 
-        diagram = self
-        yield diagram
-        while True:
-            before = diagram
+        def find_yankable_pair(diagram):
+            """
+            Given a diagram, returns (cup, cap, obstructions, left_snake)
+            if there is a yankable pair, otherwise returns None.
+            """
             for cap in range(len(diagram)):
                 if not isinstance(diagram.boxes[cap], Cap):
                     continue
                 for left_snake, wire in [(True, diagram.offsets[cap]),
                                          (False, diagram.offsets[cap] + 1)]:
-                    cup, wire, left_obstruction, right_obstruction =\
+                    cup, wire, obstructions =\
                         follow_wire(diagram, cap, wire)
-                    # We found what the cap is connected to,
-                    # if it's not yankable we try with the other leg.
-                    if cup == len(diagram):
+                    not_yankable =\
+                        cup == len(diagram)\
+                        or not isinstance(diagram.boxes[cup], Cup)\
+                        or left_snake and diagram.offsets[cup] + 1 != wire\
+                        or not left_snake and diagram.offsets[cup] != wire
+                    if not_yankable:
                         continue
-                    if not isinstance(diagram.boxes[cup], Cup):
-                        continue
-                    if left_snake and diagram.offsets[cup] + 1 != wire:
-                        continue
-                    if not left_snake and diagram.offsets[cup] != wire:
-                        continue
-                    # We rewrite self and call normal_form recursively
-                    # on a smaller diagram (with one snake removed).
-                    rewrite = left_unsnake if left_snake else right_unsnake
-                    for _diagram in rewrite(
-                            diagram, cup, cap,
-                            left_obstruction, right_obstruction):
-                        yield _diagram
-                        diagram = _diagram
-                    break
+                    return cup, cap, obstructions, left_snake
+            return None
+
+        diagram = self
+        while True:
+            yankable = find_yankable_pair(diagram)
+            if yankable is None:
                 break
-            if diagram == before:
-                break
-        gen = moncat.Diagram.normalize(diagram, left=left)
-        for _diagram in gen:
-            if _diagram != diagram:
+            for _diagram in unsnake(diagram, *yankable):
                 yield _diagram
+                diagram = _diagram
 
     def normal_form(self, left=False):
         """
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
 
-        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
-        >>> f = Box('f', a @ b.l, c.r)
-        >>> transpose = f.transpose_r().transpose_l().transpose_r()\\
-        ...              .transpose_l().transpose_r().transpose_l()
-        >>> assert transpose.normal_form() == f
-
         >>> x = Ty('x')
         >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
         >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
         >>> assert d.normal_form() == unit >> counit
+        >>> assert d.dagger().normal_form() == counit.dagger() >> unit.dagger()
+        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
+        >>> f = Box('f', a, b @ c)
+        >>> assert f.normal_form() == f
+        >>> transpose_rl = f.transpose_r().transpose_l()
+        >>> assert transpose_rl.normal_form() == f
+        >>> transpose_lr = f.transpose_l().transpose_r()
+        >>> assert transpose_lr.normal_form() == f
+        >>> more_complicated = f
+        >>> more_complicated = more_complicated.transpose_l().transpose_l()
+        >>> more_complicated = more_complicated.transpose_r().transpose_r()
+        >>> assert more_complicated.normal_form() == f
         """
-        *_, diagram = self.normalize(left=left)
+        *_, diagram = list(self.normalize()) or [self]
+        try:
+            diagram = moncat.Diagram.normal_form(diagram, left=left)
+        except NotImplementedError:
+            pass
         return diagram
 
 

@@ -322,7 +322,7 @@ class Diagram(cat.Diagram):
         """
         return Id(x)
 
-    def draw(self, _test=False):
+    def draw(self, _test=False, _data=None):
         """
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> diagram = Box('f0', x, y) @ Box('f1', z, w)
@@ -352,7 +352,7 @@ class Diagram(cat.Diagram):
         wire_0_1 -> box_1
         wire_1_0 -> output_0
         """
-        def to_graph(self):
+        def build_graph():
             graph, positions, labels = nx.Graph(), dict(), dict()
 
             def add(node, position, label):
@@ -360,38 +360,38 @@ class Diagram(cat.Diagram):
                 positions.update({node: position})
                 if label is not None:
                     labels.update({node: label})
-            for i, x in enumerate(self.dom):
+            for i in range(len(self.dom)):
                 position = (-.5 * len(self.dom) + i, len(self) + 1)
-                add("input_{}".format(i), position, x)
+                add("input_{}".format(i), position, self.dom[i])
             scan = ["input_{}".format(i) for i, _ in enumerate(self.dom)]
             for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-                pad, y = -.5 * (len(scan) - len(box.dom) + 1), len(self) - i
+                pad = -.5 * (len(scan) - len(box.dom) + 1)
                 box_node = "box_{}".format(i)
-                add(box_node, (pad + off, y), str(box))
+                add(box_node, (pad + off, len(self) - i), str(box))
                 graph.add_edges_from(
                     [(scan[off + j], box_node) for j, _ in enumerate(box.dom)])
                 for j, _ in enumerate(scan[:off]):
                     wire_node = "wire_{}_{}".format(i, j)
-                    add(wire_node, (pad + j, y), None)
+                    add(wire_node, (pad + j, len(self) - i), None)
                     graph.add_edge(scan[j], wire_node)
                     scan[j] = wire_node
                 for j, _ in enumerate(scan[off + len(box.dom):]):
                     wire_node = "wire_{}_{}".format(i, off + j + 1)
-                    add(wire_node, (pad + off + j + 1, y), None)
+                    add(wire_node, (pad + off + j + 1, len(self) - i), None)
                     graph.add_edge(scan[off + len(box.dom) + j], wire_node)
                     scan[off + len(box.dom) + j] = wire_node
                 scan = scan[:off] + len(box.cod) * [box_node]\
                     + scan[off + len(box.dom):]
-            for i, x in enumerate(self.cod):
-                add("output_{}".format(i), (-.5 * len(scan) + i, 0), x)
+            for i in range(len(self.cod)):
+                position = (-.5 * len(scan) + i, 0)
+                add("output_{}".format(i), position, self.cod[i])
                 graph.add_edge(scan[i], "output_{}".format(i))
             return graph, positions, labels
 
-        graph, positions, labels = to_graph(self)
-        if not _test:
-            inputs, outputs, boxes, wires = (list(filter(
-                lambda node: node[:len(x)] == x, graph.nodes))
-                for x in ['input', 'output', 'box', 'wire'])
+        def draw_graph(graph, positions, labels):
+            inputs, outputs, boxes, wires = (
+                [node for node in graph.nodes if node[:len(name)] == name]
+                for name in ('input', 'output', 'box', 'wire'))
             nx.draw_networkx_nodes(
                 graph, positions, nodelist=inputs, node_color='#ffffff')
             nx.draw_networkx_nodes(
@@ -399,12 +399,14 @@ class Diagram(cat.Diagram):
             nx.draw_networkx_nodes(
                 graph, positions, nodelist=wires, node_size=0)
             nx.draw_networkx_nodes(
-                graph, positions, nodelist=boxes,
-                node_color='#ff0000', node_shape='s')
+                graph, positions, nodelist=boxes, node_color='#ff0000')
             nx.draw_networkx_labels(graph, positions, labels)
             nx.draw_networkx_edges(graph, positions)
             plt.axis("off")
             plt.show()
+        graph, positions, labels = build_graph() if _data is None else _data
+        if not _test:
+            draw_graph(graph, positions, labels)
         return graph, positions, labels
 
     def interchange(self, i, j, left=False):

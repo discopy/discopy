@@ -20,6 +20,8 @@ Implements disco models in the category of matrices and circuits.
 ...     >> Id(n.r) @ loves_box @ Id(n.l)
 >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 >>> autonomised_sentence = (Alice @ loves @ Bob >> grammar).normal_form()
+>>> assert not any(isinstance(box, Cup) for box in autonomised_sentence.boxes)
+>>> assert not any(isinstance(box, Cap) for box in autonomised_sentence.boxes)
 >>> print(autonomised_sentence)
 Alice >> Id(n) @ Bob >> loves
 >>> ob = {s: 0, n: 1}
