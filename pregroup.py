@@ -367,44 +367,6 @@ class Diagram(moncat.Diagram):
         g >> f.dagger() >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
         g >> f.dagger() >> f >> h
         """
-        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
-            """
-            Given a diagram and the indices for an adjacent cup and cap pair,
-            returns a new diagram with the snake removed.
-
-            A left snake is one of the form Id @ Cap >> Cup @ Id.
-            A right snake is one of the form Cap @ Id >> Id @ Cup.
-            """
-            left_obstruction, right_obstruction = obstructions
-            if left_snake:
-                for box in left_obstruction:
-                    diagram = diagram.interchange(box, cap)
-                    yield diagram
-                    for i, right_box in enumerate(right_obstruction):
-                        if right_box < box:
-                            right_obstruction[i] += 1
-                    cap += 1
-                for box in right_obstruction[::-1]:
-                    diagram = diagram.interchange(box, cup)
-                    yield diagram
-                    cup -= 1
-            else:
-                for box in left_obstruction[::-1]:
-                    diagram = diagram.interchange(box, cup)
-                    yield diagram
-                    for i, right_box in enumerate(right_obstruction):
-                        if right_box > box:
-                            right_obstruction[i] -= 1
-                    cup -= 1
-                for box in right_obstruction:
-                    diagram = diagram.interchange(box, cap)
-                    yield diagram
-                    cap += 1
-            yield Diagram(diagram.dom, diagram.cod,
-                          diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                          diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                          _fast=True)
-
         def follow_wire(diagram, i, j):
             """
             Given a diagram, the index of a box i and the offset j of an output
@@ -447,8 +409,51 @@ class Diagram(moncat.Diagram):
                         or not left_snake and diagram.offsets[cup] != wire
                     if not_yankable:
                         continue
+                    dom = diagram.boxes[cup].dom[0 if left_snake else 1]
+                    cod = diagram.boxes[cap].cod[1 if left_snake else 0]
+                    if dom != cod:  # we must have found a pivotal structure.
+                        continue
                     return cup, cap, obstructions, left_snake
             return None
+
+        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
+            """
+            Given a diagram and the indices for a cup and cap pair
+            and a pair of lists of obstructions on the left and right,
+            returns a new diagram with the snake removed.
+
+            A left snake is one of the form Id @ Cap >> Cup @ Id.
+            A right snake is one of the form Cap @ Id >> Id @ Cup.
+            """
+            left_obstruction, right_obstruction = obstructions
+            if left_snake:
+                for box in left_obstruction:
+                    diagram = diagram.interchange(box, cap)
+                    yield diagram
+                    for i, right_box in enumerate(right_obstruction):
+                        if right_box < box:
+                            right_obstruction[i] += 1
+                    cap += 1
+                for box in right_obstruction[::-1]:
+                    diagram = diagram.interchange(box, cup)
+                    yield diagram
+                    cup -= 1
+            else:
+                for box in left_obstruction[::-1]:
+                    diagram = diagram.interchange(box, cup)
+                    yield diagram
+                    for i, right_box in enumerate(right_obstruction):
+                        if right_box > box:
+                            right_obstruction[i] -= 1
+                    cup -= 1
+                for box in right_obstruction:
+                    diagram = diagram.interchange(box, cap)
+                    yield diagram
+                    cap += 1
+            yield Diagram(diagram.dom, diagram.cod,
+                          diagram.boxes[:cap] + diagram.boxes[cup + 1:],
+                          diagram.offsets[:cap] + diagram.offsets[cup + 1:],
+                          _fast=True)
 
         diagram = self
         while True:
@@ -468,6 +473,8 @@ class Diagram(moncat.Diagram):
 
         >>> x = Ty('x')
         >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
+        >>> twist = Cap(x, x.r) @ Id(x.r.r) >> Id(x) @ Cup(x.r, x.r.r)
+        >>> assert twist.dom != twist.cod and twist.normal_form() == twist
         >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
         >>> assert d.normal_form(left=True) == unit >> counit
         >>> assert d.dagger().normal_form() == counit.dagger() >> unit.dagger()
@@ -482,10 +489,14 @@ class Diagram(moncat.Diagram):
         >>> more_complicated = more_complicated.transpose_l().transpose_l()
         >>> more_complicated = more_complicated.transpose_r().transpose_r()
         >>> assert more_complicated.normal_form() == f
+        >>> Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
+        >>> try:
+        ...     Eckmann_Hilton.normal_form()
+        ... except NotImplementedError as err:
+        ...     print(err)
+        Diagram s0 >> s1 is not connected.
         """
-        *_, diagram = list(self.normalize()) or [self]
-        moncat.Diagram.normal_form(diagram, left=left)
-        return diagram
+        return moncat.Diagram.normal_form(self, left=left)
 
 
 class Box(moncat.Box, Diagram):
@@ -589,7 +600,6 @@ class Cup(Box, Diagram):
             raise ValueError(err.format(repr(y)))
         if x[0].name != y[0].name or not x[0].z - y[0].z in [-1, +1]:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
-        self._x, self._y = x, y
         super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):
@@ -649,7 +659,6 @@ class Cap(Box):
             raise ValueError(err.format(repr(y)))
         if not x[0].z - y[0].z in [-1, +1]:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
-        self._x, self._y = x, y
         super().__init__('Cap', Ty(), x @ y)
 
     def dagger(self):
@@ -678,8 +687,9 @@ class Cap(Box):
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
 
-class RigidFunctor(moncat.MonoidalFunctor):
-    """Implements functors between rigid categories preserving cups and caps
+class PivotalFunctor(moncat.MonoidalFunctor):
+    """
+    Implements functors between pivotal categories preserving cups and caps.
 
     >>> s, n, a = Ty('s'), Ty('n'), Ty('a')
     >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
@@ -687,11 +697,11 @@ class RigidFunctor(moncat.MonoidalFunctor):
     >>> ob = {s: s, n: a, a: n @ n}
     >>> ar = {loves: Cap(a.r, a) @ Cap(a, a.l)
     ...              >> Id(a.r) @ love_box @ Id(a.l)}
-    >>> F = RigidFunctor(ob, ar)
+    >>> F = PivotalFunctor(ob, ar)
     >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
     >>> assert F(Cup(a, a.l)) == Diagram.cups(n @ n, (n @ n).l)
     """
-    def __call__(self, diagram):
+    def __call__(self, diagram, ob_cls=Ty, ar_cls=Diagram):
         if isinstance(diagram, Ob):
             result = self.ob[Ty(diagram.name)]
             if diagram.z < 0:
@@ -704,10 +714,10 @@ class RigidFunctor(moncat.MonoidalFunctor):
         if isinstance(diagram, Ty):
             return sum([self(b) for b in diagram.objects], Ty())
         if isinstance(diagram, Cup):
-            return Diagram.cups(self(diagram._x), self(diagram._y))
+            return ar_cls.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
-            return Diagram.caps(self(diagram._x), self(diagram._y))
+            return ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
-            return super().__call__(diagram)
+            return super().__call__(diagram, ob_cls=ob_cls, ar_cls=ar_cls)
         raise ValueError("Expected pregroup.Diagram, got {} of type {} instead"
                          .format(repr(diagram), type(diagram)))
