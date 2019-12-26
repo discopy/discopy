@@ -550,8 +550,8 @@ class Diagram(cat.Diagram):
 
     def slice(self):
         """
-        Returns a list of diagrams of depth 1
-        such that their sequential composition is the original diagram.
+        Returns a diagram with diagrams of depth 1 as boxes such that its
+        flattening gives the original diagram back, up to normal form.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
@@ -559,35 +559,35 @@ class Diagram(cat.Diagram):
         >>> assert d.slice().flatten().normal_form() == d
         """
         diagram = self
-        dom = diagram.dom
-        cod = diagram.dom
-        slices = []
-        i = 0
+        i, slices, dom, cod = 0, [], diagram.dom, diagram.dom
         while i < len(diagram):
-            count = 0
+            dom, n_boxes = cod, 0
             for j in range(i + 1, len(diagram)):
                 try:
                     diagram = diagram.interchange(j, i)
-                    count += 1
+                    n_boxes += 1
                 except InterchangerError:
                     pass
-            for j in range(i, i + count + 1):
-                off = diagram.offsets[j]
-                box = diagram.boxes[j]
+            for j in range(i, i + n_boxes + 1):
+                box, off = diagram.boxes[j], diagram.offsets[j]
                 cod = cod[:off] + box.cod + cod[off + len(box.dom):]
-            slices += [Diagram(dom, cod, diagram.boxes[i: i + count + 1],
-                               diagram.offsets[i: i + count + 1]
-                               ).normal_form()]
-            dom = cod
-            i += count + 1
-        return Diagram(self.dom, self.cod, slices, len(slices) * [0])
+            slices.append(Diagram(dom, cod,
+                                  diagram.boxes[i: i + n_boxes + 1],
+                                  diagram.offsets[i: i + n_boxes + 1],
+                                  _fast=True))
+            i += n_boxes + 1
+        return Diagram(self.dom, self.cod, slices, len(slices) * [0],
+                       _fast=True)
 
     def depth(self):
         """ Computes the depth of a diagram by slicing it
 
-        >>> x = Ty('x')
-        >>> assert Id(x ** 10).depth() == 0
-        >>> assert Box('g', x, x).depth() == 1
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f, g = Box('f', x, y), Box('g', y, x)
+        >>> assert Id(x @ y).depth() == 0
+        >>> assert f.depth() == 1
+        >>> assert (f @ g).depth() == 1
+        >>> assert (f >> g).depth() == 2
         """
         return len(self.slice())
 
