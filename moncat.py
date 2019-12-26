@@ -480,21 +480,18 @@ class Diagram(cat.Diagram):
         >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
         >>> gen = (s0 @ s1).normalize()
         >>> for _ in range(3): print(next(gen))
-        s0 >> s1
         s1 >> s0
         s0 >> s1
+        s1 >> s0
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
         >>> for d in (Id(x) @ f1 >> f0 @ Id(x)).normalize(): print(d)
-        Id(x) @ f1 >> f0 @ Id(x)
         f0 @ Id(y) >> Id(y) @ f1
         >>> for d in (f0 @ f1).normalize(left=True): print(d)
-        f0 @ Id(y) >> Id(y) @ f1
         Id(x) @ f1 >> f0 @ Id(x)
         """
         diagram = self
         while True:
-            yield diagram
             before = diagram
             for i in range(len(diagram) - 1):
                 box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
@@ -508,6 +505,7 @@ class Diagram(cat.Diagram):
                         pass
             if diagram == before:  # no more moves
                 break
+            yield diagram
 
     def normal_form(self, left=False):
         """

@@ -12,25 +12,6 @@ Implements disco models in the category of matrices and circuits.
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 >>> F = Model(ob, ar)
 >>> assert F(sentence) == True
-
->>> s, n = Ty('s'), Ty('n')
->>> Alice, Bob = Word('Alice', n), Word('Bob', n)
->>> loves_box = Box('loves', n @ n, s)
->>> loves = Cap(n.r, n) @ Cap(n, n.l)\\
-...     >> Id(n.r) @ loves_box @ Id(n.l)
->>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
->>> autonomised_sentence = (Alice @ loves @ Bob >> grammar).normal_form()
->>> assert not any(isinstance(box, Cup) for box in autonomised_sentence.boxes)
->>> assert not any(isinstance(box, Cap) for box in autonomised_sentence.boxes)
->>> print(autonomised_sentence)
-Alice >> Id(n) @ Bob >> loves
->>> ob = {s: 0, n: 1}
->>> loves_ansatz = CX\\
-...     >> Gate('H', 1, [1, 1, 1, -1]) @ Gate('X', 1, [0, 1, 1, 0])\\
-...     >> Bra(0, 0)
->>> ar = {Alice: Ket(0), loves_box: loves_ansatz, Bob: Ket(1)}
->>> F = CircuitFunctor(ob, ar)
->>> assert F(autonomised_sentence).eval()
 """
 
 from functools import reduce as fold
