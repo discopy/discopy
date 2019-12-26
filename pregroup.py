@@ -242,29 +242,29 @@ class Diagram(moncat.Diagram):
         input_0 (-0.5, 4)
         output_0 (-0.5, 0)
         wire_0_0 (-1.0, 3)
+        wire_0_1 (0.0, 3)
         wire_1_0 (-1.5, 2)
         wire_1_2 (0.5, 2)
+        wire_2_0 (-1.0, 1)
         wire_2_1 (0.0, 1)
-        wire_Cap(x, x.l) (0.0, 3)
-        wire_Cup(y.l, y) (-1.0, 1)
         >>> for u, v in sorted(graph.edges()): print("{} -> {}".format(u, v))
-        box_1 -> wire_Cup(y.l, y)
+        box_1 -> wire_2_0
         input_0 -> wire_0_0
         wire_0_0 -> wire_1_0
-        wire_1_0 -> wire_Cup(y.l, y)
+        wire_0_1 -> box_1
+        wire_0_1 -> wire_1_2
+        wire_1_0 -> wire_2_0
         wire_1_2 -> wire_2_1
         wire_2_1 -> output_0
-        wire_Cap(x, x.l) -> box_1
-        wire_Cap(x, x.l) -> wire_1_2
         """
         graph, positions, labels = moncat.Diagram.draw(self, _test=True)
-        for i, box in enumerate(self.boxes):
+        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
-                node = 'box_{}'.format(i)
-                positions['wire_{}'.format(box)] = positions[node]
+                node, wire = 'box_{}'.format(i), 'wire_{}_{}'.format(i, off)
+                positions[wire] = positions[node]
                 del positions[node]
                 del labels[node]
-                graph = nx.relabel_nodes(graph, {node: 'wire_{}'.format(box)})
+                graph = nx.relabel_nodes(graph, {node: wire})
         return super().draw(_test=_test, _data=(graph, positions, labels))
 
     @staticmethod
