@@ -181,9 +181,8 @@ class Circuit(Diagram):
         if not isinstance(x, PRO) or not isinstance(y, PRO):
             raise ValueError("Expected PRO, got {} of type {} instead."
                              .format((repr(x), repr(y)), (type(x), type(y))))
-        _H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
         result = Id(x @ y)
-        cup = CX >> _H @ Id(1) >> Bra(0, 0)
+        cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
         for i in range(1, len(x) + 1):
             result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
         return result

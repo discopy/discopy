@@ -15,10 +15,9 @@ Implements disco models in the category of matrices and circuits.
 """
 
 from functools import reduce as fold
-from discopy.pregroup import (
-    Ob, Ty, Diagram, Box, Id, Cup, Cap, AxiomError)
-from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CX, CircuitFunctor
+from discopy.pregroup import Ty, Box, Id, Cup, AxiomError
+from discopy.matrix import MatrixFunctor
+from discopy.circuit import CircuitFunctor
 
 
 class Word(Box):
@@ -106,7 +105,7 @@ class Model(MatrixFunctor):
 
 class CircuitModel(CircuitFunctor):
     """
-    >>> from discopy.circuit import sqrt, H, X
+    >>> from discopy.circuit import sqrt, H, X, Ket, CX
     >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
@@ -123,6 +122,7 @@ class CircuitModel(CircuitFunctor):
     """
     def __repr__(self):
         """
+        >>> from discopy.circuit import Ket
         >>> CircuitModel({Ty('n'): 1}, {Word('Alice', Ty('n')): Ket(0)})
         CircuitModel(ob={Ty('n'): 1}, ar={Word('Alice', Ty('n')): Ket(0)})
         """
