@@ -15,8 +15,7 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 """
 
 from discopy.cat import Quiver
-from discopy.moncat import MonoidalFunctor
-from discopy.pregroup import Ty, Box, Diagram
+from discopy.pregroup import Ty, Box, Diagram, PivotalFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
 
 
@@ -28,7 +27,7 @@ class PRO(Ty):
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
     """
-    def __init__(self, n):
+    def __init__(self, n=0):
         """
         >>> list(PRO(0))
         []
@@ -75,6 +74,20 @@ class PRO(Ty):
         if isinstance(key, slice):
             return PRO(len(super().__getitem__(key)))
         return super().__getitem__(key)
+
+    @property
+    def l(self):
+        """
+        >>> assert PRO(2).l == PRO(2)
+        """
+        return self
+
+    @property
+    def r(self):
+        """
+        >>> assert PRO(2).r == PRO(2)
+        """
+        return self
 
 
 class Circuit(Diagram):
@@ -152,6 +165,42 @@ class Circuit(Diagram):
         Id(2)
         """
         return Id(x)
+
+    @staticmethod
+    def cups(x, y):
+        """
+        >>> Circuit.cups(PRO(1), PRO(1)).eval()
+        Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
+        >>> arr = Circuit.cups(PRO(2), PRO(2)).eval().array
+        >>> for i in range(4): print(list(arr[i % 2, i // 2].flatten()))
+        [1.0, 0.0, 0.0, 0.0]
+        [0.0, 1.0, 0.0, 0.0]
+        [0.0, 0.0, 1.0, 0.0]
+        [0.0, 0.0, 0.0, 1.0]
+        """
+        if not isinstance(x, PRO) or not isinstance(y, PRO):
+            raise ValueError("Expected PRO, got {} of type {} instead."
+                             .format((repr(x), repr(y)), (type(x), type(y))))
+        _H = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
+        result = Id(x @ y)
+        cup = CX >> _H @ Id(1) >> Bra(0, 0)
+        for i in range(1, len(x) + 1):
+            result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
+        return result
+
+    @staticmethod
+    def caps(x, y):
+        """
+        >>> Circuit.caps(PRO(1), PRO(1)).eval()
+        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 1])
+        >>> arr = Circuit.caps(PRO(2), PRO(2)).eval().array
+        >>> for i in range(4): print(list(arr[i % 2, i // 2].flatten()))
+        [1, 0, 0, 0]
+        [0, 1, 0, 0]
+        [0, 0, 1, 0]
+        [0, 0, 0, 1]
+        """
+        return Circuit.cups(x, y).dagger()
 
     def eval(self):
         """ Evaluates the circuit as a discopy Matrix.
@@ -330,7 +379,7 @@ class Id(Circuit):
         return repr(self)
 
 
-class Gate(Box, Circuit):
+class Gate(Box, Circuit):  # pylint: disable=too-many-ancestors
     """ Implements quantum gates as boxes in a circuit diagram.
 
     >>> CX
@@ -378,7 +427,7 @@ class Gate(Box, Circuit):
                     data=self.data, _dagger=not self._dagger)
 
 
-class Ket(Box, Circuit):
+class Ket(Box, Circuit):  # pylint: disable=too-many-ancestors
     """ Implements ket for a given bitstring.
 
     >>> Ket(1, 1, 0).eval()
@@ -421,7 +470,7 @@ class Ket(Box, Circuit):
         return matrix.array
 
 
-class Bra(Box, Circuit):
+class Bra(Box, Circuit):  # pylint: disable=too-many-ancestors
     """ Implements bra for a given bitstring.
 
     >>> Bra(1, 1, 0).eval()
@@ -463,7 +512,7 @@ class Bra(Box, Circuit):
         return Ket(*self.bitstring).array
 
 
-class Rz(Gate):
+class Rz(Gate):  # pylint: disable=too-many-ancestors
     """
     >>> assert np.all(Rz(0).array == np.identity(2))
     >>> assert np.allclose(Rz(0.5).array, Z.array)
@@ -516,7 +565,7 @@ class Rz(Gate):
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
-class Rx(Gate):
+class Rx(Gate):  # pylint: disable=too-many-ancestors
     """
     >>> assert np.all(Rx(0).array == np.identity(2))
     >>> assert np.all(np.round(Rx(0.5).array) == X.array)
@@ -571,7 +620,7 @@ class Rx(Gate):
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
-class CircuitFunctor(MonoidalFunctor):
+class CircuitFunctor(PivotalFunctor):
     """ Implements funtors from monoidal categories to circuits
 
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
@@ -589,7 +638,8 @@ class CircuitFunctor(MonoidalFunctor):
         """
         >>> F = CircuitFunctor({}, {})
         """
-        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
+        super().__init__({x: PRO(y) for x, y in ob.items()}, ar,
+                         ob_cls=PRO, ar_cls=Circuit)
 
     def __repr__(self):
         """

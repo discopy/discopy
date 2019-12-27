@@ -280,6 +280,9 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
         """
+        if not isinstance(x, Ty) or not isinstance(y, Ty):
+            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+                             .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         cups = Id(x @ y)
@@ -302,6 +305,9 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
+        if not isinstance(x, Ty) or not isinstance(y, Ty):
+            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+                             .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         caps = Id(x @ y)

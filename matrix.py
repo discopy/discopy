@@ -13,7 +13,7 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import cat, config
+from discopy import pregroup, config
 from discopy.cat import Quiver
 from discopy.pregroup import Ob, Ty, Box, Diagram, PivotalFunctor
 
@@ -72,14 +72,6 @@ class Dim(Ty):
             return Dim(*[x.name for x in super().__getitem__(key)])
         return super().__getitem__(key).name
 
-    def __iter__(self):
-        """
-        >>> [n for n in Dim(2, 3, 4)]
-        [2, 3, 4]
-        """
-        for i in range(len(self)):
-            yield self[i]
-
     def __repr__(self):
         """
         >>> Dim(1, 2, 3)
@@ -102,6 +94,20 @@ class Dim(Ty):
         """
         return hash(repr(self))
 
+    @property
+    def l(self):
+        """
+        >>> assert Dim(2, 3, 4).l == Dim(4, 3, 2)
+        """
+        return Dim(*self[::-1])
+
+    @property
+    def r(self):
+        """
+        >>> assert Dim(2, 3, 4).r == Dim(4, 3, 2)
+        """
+        return Dim(*self[::-1])
+
 
 class Matrix(Box):
     """ Implements a matrix with dom, cod and numpy array.
@@ -116,7 +122,6 @@ class Matrix(Box):
         >>> Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
         Matrix(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])
         """
-        dom, cod = Dim(*dom), Dim(*cod)
         self._array = np.array(array).reshape(dom + cod)
         super().__init__(array, dom, cod)
 
@@ -230,8 +235,26 @@ class Matrix(Box):
         """
         return Id(x)
 
+    @staticmethod
+    def cups(x, y):
+        if not isinstance(x, Dim) or not isinstance(y, Dim):
+            raise ValueError("Expected Dim, got {} of type {} instead."
+                             .format(repr((x, y)), (type(x), type(y))))
+        if x.r != y:
+            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        return Matrix(x @ y, Dim(1), Id(x).array)
 
-class AxiomError(cat.AxiomError):
+    @staticmethod
+    def caps(x, y):
+        if not isinstance(x, Dim) or not isinstance(y, Dim):
+            raise ValueError("Expected Dim, got {} of type {} instead."
+                             .format(repr((x, y)), (type(x), type(y))))
+        if x.r != y:
+            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        return Matrix(Dim(1), x @ y, Id(x).array)
+
+
+class AxiomError(pregroup.AxiomError):
     """
     >>> m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
     >>> m >> m  # doctest: +ELLIPSIS
@@ -241,7 +264,7 @@ class AxiomError(cat.AxiomError):
     """
 
 
-class Id(Matrix):
+class Id(Matrix):  # pylint: disable=too-many-ancestors
     """ Implements the identity matrix for a given dimension.
 
     >>> Id(1)
@@ -330,6 +353,9 @@ class MatrixFunctor(PivotalFunctor):
         [126.0, 144.0, 162.0, 144.0, 166.0, 188.0, 162.0, 188.0, 214.0]
         >>> list(F(g.dagger() >> g).array.flatten())
         [5]
+        >>> assert F((x @ y).r) == F(x @ y).r
+        >>> assert np.all(F(f.transpose_l()).array == F(f).array.transpose())
+        >>> assert np.all(F(f.transpose_r()).array == F(f).array.transpose())
         """
         if isinstance(diagram, (Ty, Box)) or not isinstance(diagram, Diagram):
             return super().__call__(diagram)
