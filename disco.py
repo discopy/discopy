@@ -121,6 +121,12 @@ class CircuitModel(CircuitFunctor):
     >>> BornRule = lambda c: abs(c.eval().array) ** 2
     >>> assert BornRule(F(sentence))
     """
+    def __repr__(self):
+        """
+        >>> CircuitModel({Ty('n'): 1}, {Word('Alice', Ty('n')): Ket(0)})
+        CircuitModel(ob={Ty('n'): 1}, ar={Word('Alice', Ty('n')): Ket(0)})
+        """
+        return super().__repr__().replace("CircuitFunctor", "CircuitModel")
 
 
 def eager_parse(*words, target=Ty('s')):
