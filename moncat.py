@@ -20,8 +20,6 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
-import matplotlib.pyplot as plt
-import networkx as nx
 from discopy import cat
 from discopy.cat import Ob, Functor, Quiver
 
@@ -352,6 +350,10 @@ class Diagram(cat.Diagram):
         wire_0_1 -> box_1
         wire_1_0 -> output_0
         """
+        # pylint: disable=import-outside-toplevel
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
         def build_graph():
             graph, positions, labels = nx.Graph(), dict(), dict()
 
@@ -743,7 +745,7 @@ class MonoidalFunctor(Functor):
         >>> MonoidalFunctor({Ty('x'): Ty('y')}, {})
         MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})
         """
-        return "MonoidalFunctor(ob={}, ar={})".format(self.ob, self.ar)
+        return super().__repr__().replace("Functor", "MonoidalFunctor")
 
     def __call__(self, diagram):
         """
@@ -774,5 +776,5 @@ class MonoidalFunctor(Functor):
                 result = result >> id_l @ self(box) @ id_r
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
-        raise ValueError("Diagram expected, got {} of type {} "
+        raise ValueError("Expected moncat.Diagram, got {} of type {} "
                          "instead.".format(repr(diagram), type(diagram)))

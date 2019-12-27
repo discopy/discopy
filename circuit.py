@@ -14,10 +14,9 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-import random
-import pytket as tk
 from discopy.cat import Quiver
-from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
+from discopy.moncat import MonoidalFunctor
+from discopy.pregroup import Ty, Box, Diagram
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
 
 
@@ -135,6 +134,13 @@ class Circuit(Diagram):
                        result.boxes, result.offsets, _fast=True)
 
     def normal_form(self, left=False):
+        """
+        >>> circuit = Id(1) @ X >> X @ Id(1)
+        >>> print(circuit.normal_form())
+        X @ Id(1) >> Id(1) @ X
+        >>> print(circuit.normal_form(left=True))
+        Id(1) @ X >> X @ Id(1)
+        """
         result = super().normal_form(left=left)
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, _fast=True)
@@ -203,6 +209,7 @@ class Circuit(Diagram):
         >>> list(c)
         [SWAP q[0], q[1];, Rx(0.25PI) q[1];, CX q[1], q[2];]
         """
+        import pytket as tk  # pylint: disable=import-outside-toplevel
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
@@ -273,24 +280,21 @@ class Circuit(Diagram):
         >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
         Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
         """
+        # pylint: disable=import-outside-toplevel
+        from random import choice, random as _random, seed as _seed
         if seed is not None:
-            random.seed(seed)
+            _seed(seed)
         if n_qubits == 1:
-            return Rx(random.random())\
-                >> Rz(random.random())\
-                >> Rx(random.random())
-
-        def is_one_qubit(gate):
-            return gate is Rx or gate is Rz or len(gate.dom) == 1
+            return Rx(_random()) >> Rz(_random()) >> Rx(_random())
         result = Id(n_qubits)
         for _ in range(depth):
             line, n_affected = Id(0), 0
             while n_affected < n_qubits:
-                gate = random.choice(
-                    gateset if n_qubits - n_affected > 1
-                    else list(filter(is_one_qubit, gateset)))
+                gate = choice(gateset if n_qubits - n_affected > 1
+                              else [g for g in gateset
+                                    if g is Rx or g is Rz or len(g.dom) == 1])
                 if gate is Rx or gate is Rz:
-                    gate = gate(random.random())
+                    gate = gate(_random())
                 line = line @ gate
                 n_affected += len(gate.dom)
             result = result >> line

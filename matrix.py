@@ -14,7 +14,8 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 
 from functools import reduce as fold
 from discopy import cat, config
-from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
+from discopy.cat import Quiver
+from discopy.pregroup import Ob, Ty, Box, Diagram, PivotalFunctor
 
 
 if config.JAX:
@@ -271,8 +272,8 @@ class Id(Matrix):
         super().__init__(dim, dim, array)
 
 
-class MatrixFunctor(MonoidalFunctor):
-    """ Implements a matrix-valued functor.
+class MatrixFunctor(PivotalFunctor):
+    """ Implements a matrix-valued pivotal functor.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, x @ y)
@@ -280,7 +281,7 @@ class MatrixFunctor(MonoidalFunctor):
     >>> F(f)
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
-    def __init__(self, ob, ar, ob_cls=Ob, ar_cls=Diagram):
+    def __init__(self, ob, ar, ob_cls=Dim, ar_cls=Matrix):
         """
         >>> MatrixFunctor({Ty('x'): 2}, {})
         MatrixFunctor(ob={Ty('x'): Dim(2)}, ar={})
@@ -298,7 +299,9 @@ class MatrixFunctor(MonoidalFunctor):
                 raise ValueError(
                     "Expected int or Dim object, got {} instead."
                     .format(repr(y)))
-        super().__init__(ob, ar, ob_cls, ar_cls)
+        super().__init__(ob, {}, ob_cls, ar_cls)
+        self._input_ar, self._ar = ar, Quiver(
+            lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))
 
     def __repr__(self):
         """
@@ -308,7 +311,7 @@ class MatrixFunctor(MonoidalFunctor):
         >>> MatrixFunctor({}, {Box('f', x @ x, y): list(range(3))})
         MatrixFunctor(ob={}, ar={Box('f', Ty('x', 'x'), Ty('y')): [0, 1, 2]})
         """
-        return super().__repr__().replace("MonoidalFunctor", "MatrixFunctor")
+        return "MatrixFunctor(ob={}, ar={})".format(self.ob, self._input_ar)
 
     def __call__(self, diagram):
         """
@@ -328,19 +331,8 @@ class MatrixFunctor(MonoidalFunctor):
         >>> list(F(g.dagger() >> g).array.flatten())
         [5]
         """
-        if isinstance(diagram, Ty):
-            return sum([self.ob[Ty(x)] for x in diagram], Dim(1))
-        if isinstance(diagram, Box):
-            if diagram._dagger:
-                return Matrix(
-                    self(diagram.cod), self(diagram.dom),
-                    self.ar[diagram.dagger()]).dagger()
-            return Matrix(
-                self(diagram.dom), self(diagram.cod), self.ar[diagram])
-        if not isinstance(diagram, Diagram):
-            raise ValueError(
-                "Input of type Ty or Diagram expected, got {} of type {} "
-                "instead.".format(repr(diagram), type(diagram)))
+        if isinstance(diagram, (Ty, Box)) or not isinstance(diagram, Diagram):
+            return super().__call__(diagram)
 
         def dim(scan):
             return len(self(scan))
