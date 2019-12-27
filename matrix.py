@@ -13,18 +13,10 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import pregroup, config
+from discopy import pregroup
+from discopy.config import np
 from discopy.cat import Quiver
 from discopy.pregroup import Ob, Ty, Box, Diagram, PivotalFunctor
-
-
-if config.JAX:
-    import warnings
-    for msg in config.IGNORE:
-        warnings.filterwarnings("ignore", message=msg)
-    import jax.numpy as np
-else:
-    import numpy as np
 
 
 class Dim(Ty):
@@ -237,6 +229,9 @@ class Matrix(Box):
 
     @staticmethod
     def cups(x, y):
+        """
+        >>> assert np.all(Matrix.cups(Dim(2), Dim(2)).array == np.identity(2))
+        """
         if not isinstance(x, Dim) or not isinstance(y, Dim):
             raise ValueError("Expected Dim, got {} of type {} instead."
                              .format(repr((x, y)), (type(x), type(y))))
@@ -246,6 +241,9 @@ class Matrix(Box):
 
     @staticmethod
     def caps(x, y):
+        """
+        >>> assert np.all(Matrix.caps(Dim(2), Dim(2)).array == np.identity(2))
+        """
         if not isinstance(x, Dim) or not isinstance(y, Dim):
             raise ValueError("Expected Dim, got {} of type {} instead."
                              .format(repr((x, y)), (type(x), type(y))))

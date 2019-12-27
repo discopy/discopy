@@ -14,9 +14,10 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
+from discopy.config import np
 from discopy.cat import Quiver
 from discopy.pregroup import Ty, Box, Diagram, PivotalFunctor
-from discopy.matrix import np, Dim, Matrix, MatrixFunctor
+from discopy.matrix import Dim, Matrix, MatrixFunctor
 
 
 class PRO(Ty):
