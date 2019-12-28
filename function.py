@@ -22,6 +22,15 @@ Copy and add form a bimonoid.
 >>> assert add([1, 2]) == [3]
 >>> assert (copy @ copy >> Id(1) @ swap @ Id(1) >> add @ add)([123, 25]) ==\\
 ...        (add >> copy)([123, 25])
+
+Numpy/Jax functions are also accepted. But, for the moment,
+tensor doens't work correctly on arrays.
+
+>>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
+>>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
+>>> def scalar_mult(scalar):
+...     return Function(repr(scalar), Dim(1), Dim(1), lambda x: scalar * x)
+>>> assert (scalar_mult(2) @ scalar_mult(1))(np.array([1, 2])) == np.array([4])
 """
 from functools import reduce as fold
 from discopy import cat, config
@@ -38,8 +47,8 @@ else:
 
 
 class Dim(Ty):
-    """ Implements dimensions as tuples of non-negative integers.
-    Dimensions form a monoid with product @ and unit Dim(0).
+    """ Implements dimensions as non-negative integers.
+    These form a monoid with sum as product denoted by @ and unit Dim(0).
 
     >>> Dim(0) @ Dim(1) @ Dim(2)
     Dim(3)
@@ -101,7 +110,15 @@ class Dim(Ty):
 
 
 class Function(Box):
-    """ Wraps functions on lists with domain and codomain information
+    """
+    Wraps python functions with domain and codomain information.
+
+    >>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
+    >>> assert swap([1, 2]) == [2, 1]
+    >>> assert np.all(swap(np.array([1, 2])) == np.array([2, 1]))
+    >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
+    >>> assert np.all(abs(np.array([1, -1])) == np.array([1, 1]))
+    >>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
     """
     def __init__(self, name, dom, cod, function):
         """
@@ -126,6 +143,9 @@ class Function(Box):
 
     @property
     def name(self):
+        """
+        >>> assert Function('f', Dim(2), Dim(2), lambda x: x).name == 'f'
+        """
         return self._name
 
     def __repr__(self):
@@ -144,20 +164,16 @@ class Function(Box):
 
     def __call__(self, value):
         """
+        In order to call a Function, it is sufficient that the input
+        has a length which agrees with the domain dimension.
+
         >>> f = Function('f', Dim(2), Dim(2), lambda x: x)
         >>> assert f([1, 2]) == [1, 2]
-        >>> f(465)  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: List expected, got <class 'int'> instead.
         >>> f([3])  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         function.AxiomError: Expected input of length 2, got 1 instead.
         """
-        if not isinstance(value, list):
-            raise ValueError(
-                "List expected, got {} instead.".format(type(value)))
         if not len(value) == self.dom.dim:
             raise AxiomError("Expected input of length {}, got {} instead."
                              .format(self.dom.dim, len(value)))
@@ -216,13 +232,46 @@ class Id(Function):
     """
     def __init__(self, dim):
         name = 'Id({})'.format(dim)
-        super().__init__(name, Dim(dim), Dim(dim), lambda x: x)
+        dom = dim if isinstance(dim, Dim) else Dim(dim)
+        super().__init__(name, dom, dom, lambda x: x)
+
+
+class PythonFunctor(MonoidalFunctor):
+    """ Implements functors into the category of functions on lists
+
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f = Box('f', x, y)
+    >>> g = Box('g', y, x)
+    >>> @discofunc(Dim(1), Dim(2))
+    ... def copy(x):
+    ...     return x + x
+    >>> @discofunc(Dim(2), Dim(1))
+    ... def add(x):
+    ...     return [x[0] + x[1]]
+    >>> F = PythonFunctor({x: Dim(1), y: Dim(2)}, {f: copy, g: add})
+    >>> assert F(f >> g)([1]) == [2]
+    """
+    def __call__(self, diagram):
+        if isinstance(diagram, Ty):
+            return sum([self.ob[Ty(x)] for x in diagram], Dim(0))
+        if isinstance(diagram, Box):
+            return super().__call__(diagram)
+        if isinstance(diagram, Diagram):
+            scan, result = diagram.dom, Id(self(diagram.dom))
+            for box, off in zip(diagram.boxes, diagram.offsets):
+                id_l = Id(self(scan[:off]))
+                id_r = Id(self(scan[off + len(box.dom):]))
+                result = result >> id_l @ self(box) @ id_r
+                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+            return result
+        raise ValueError("Diagram expected, got {} of type {} "
+                         "instead.".format(repr(diagram), type(diagram)))
 
 
 def discofunc(dom, cod):
     """
     Decorator turning a python function into a discopy Function
-    with domain and codomain information.
+    given domain and codomain information.
 
     >>> @discofunc(Dim(2), Dim(2))
     ... def f(x):
