@@ -23,14 +23,14 @@ Copy and add form a bimonoid.
 >>> assert (copy @ copy >> Id(1) @ swap @ Id(1) >> add @ add)([123, 25]) ==\\
 ...        (add >> copy)([123, 25])
 
-Numpy/Jax functions are also accepted. But, for the moment,
-tensor doens't work correctly on arrays.
+Numpy/Jax functions are also accepted.
 
 >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
 >>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
 >>> def scalar_mult(scalar):
 ...     return Function(repr(scalar), Dim(1), Dim(1), lambda x: scalar * x)
->>> assert (scalar_mult(2) @ scalar_mult(1))(np.array([1, 2])) == np.array([4])
+>>> assert np.all((scalar_mult(2) @ scalar_mult(1) >> abs)(np.array([-1, -2]))
+...               == np.array([2, 2]))
 """
 from functools import reduce as fold
 from discopy import cat, config
@@ -213,7 +213,11 @@ class Function(Box):
         newname = self.name + ' @ ' + other.name
 
         def f(x):
-            return self(x[:self.dom.dim]) + other(x[self.dom.dim:])
+            if isinstance(x, list):
+                return self(x[:self.dom.dim]) + other(x[self.dom.dim:])
+            else:
+                return np.concatenate([self(x[:self.dom.dim]),
+                                       other(x[self.dom.dim:])])
         return Function(newname, dom, cod, f)
 
 
