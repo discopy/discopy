@@ -10,7 +10,7 @@ with direct sum as tensor.
 >>> assert (swap >> swap)([1, 2]) == [1, 2]
 >>> assert (swap @ swap)([0, 1, 2, 3]) == [1, 0, 3, 2]
 
-Copy and add form a bialgebra.
+Copy and add form a bimonoid.
 
 >>> @discofunc(Dim(1), Dim(2))
 ... def copy(x):
@@ -42,79 +42,58 @@ class Dim(Ty):
     Dimensions form a monoid with product @ and unit Dim(0).
 
     >>> Dim(0) @ Dim(1) @ Dim(2)
-    Dim(1, 2)
+    Dim(3)
     """
-    def __init__(self, *xs):
+    def __init__(self, x):
         """
-        >>> len(Dim(2, 3, 4))
-        3
-        >>> len(Dim(1, 2, 3))
-        3
         >>> Dim(-1)  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         ValueError: Expected non-negative integer, got -1 instead.
         """
-        for x in xs:  # pylint: disable=invalid-name
-            if not isinstance(x, int) or x < 0:
-                raise ValueError("Expected non-negative integer, "
-                                 "got {} instead.".format(repr(x)))
-        self._dim = sum(xs)
-        super().__init__(*[Ob(x) for x in xs if x > 0])
+        if not isinstance(x, int) or x < 0:
+            raise ValueError("Expected non-negative integer, "
+                             "got {} instead.".format(repr(x)))
+        self._dim = x
+        super().__init__(*[Ob(1) for i in range(x)])
 
     @property
     def dim(self):
         """
-        >>> assert Dim(2, 3).dim == 5
+        >>> assert Dim(5).dim == 5
         """
         return self._dim
 
     def __matmul__(self, other):
         """
-        >>> assert Dim(0) @ Dim(2, 3) == Dim(2, 3) @ Dim(0) == Dim(2, 3)
+        >>> assert Dim(0) @ Dim(4) == Dim(4) @ Dim(0) == Dim(4)
+        >>> assert Dim(2) @ Dim(3) == Dim(5)
         """
-        return Dim(*[x.name for x in super().__matmul__(other)])
+        return Dim(self.dim + other.dim)
 
     def __add__(self, other):
         """
-        >>> assert sum([Dim(0), Dim(2, 3), Dim(4)], Dim(0)) == Dim(2, 3, 4)
+        >>> assert sum([Dim(0), Dim(3), Dim(4)], Dim(0)) == Dim(7)
         """
         return self @ other
 
-    def __getitem__(self, key):
-        """
-        >>> assert Dim(2, 3)[:1] == Dim(3, 2)[1:] == Dim(2)
-        >>> assert Dim(2, 3)[0] == Dim(3, 2)[1] == 2
-        """
-        if isinstance(key, slice):
-            return Dim(*[x.name for x in super().__getitem__(key)])
-        return super().__getitem__(key).name
-
-    def __iter__(self):
-        """
-        >>> [n for n in Dim(2, 3, 4)]
-        [2, 3, 4]
-        """
-        for i in range(len(self)):
-            yield self[i]
-
     def __repr__(self):
         """
-        >>> Dim(0, 1, 2)
-        Dim(1, 2)
+        >>> Dim(5)
+        Dim(5)
         """
-        return "Dim({})".format(', '.join(map(repr, self)) or '0')
+        return "Dim({})".format(self.dim)
 
     def __str__(self):
         """
-        >>> print(Dim(0, 1, 2))
-        Dim(1, 2)
+        >>> print(Dim(0) @ Dim(3))
+        Dim(3)
         """
         return repr(self)
 
     def __hash__(self):
         """
-        >>> dim = Dim(2, 3)
+        >>> dim = Dim(3)
         >>> {dim: 42}[dim]
         42
         """
@@ -128,7 +107,12 @@ class Function(Box):
         """
         >>> f = Function('f', Dim(2), Dim(2), lambda x: x)
         """
-        dom, cod = Dim(*dom), Dim(*cod)
+        if not isinstance(dom, Dim):
+            raise ValueError(
+                "Dim expected for name, got {} instead.".format(type(dom)))
+        if not isinstance(cod, Dim):
+            raise ValueError(
+                "Dim expected for name, got {} instead.".format(type(cod)))
         self._function = function
         if not isinstance(name, str):
             raise ValueError(
@@ -225,15 +209,14 @@ class AxiomError(cat.AxiomError):
 class Id(Function):
     """ Implements the identity function for a given dimension.
 
-    >>> Id(2, 3)
-    Id(2, 3)
+    >>> Id(5)
+    Id(5)
     >>> assert Id(1)([476]) == [476]
     >>> assert Id(2)([0, 1]) == [0, 1]
     """
-    def __init__(self, *dim):
-        dims = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        name = 'Id({})'.format(', '.join(map(repr, dim)))
-        super().__init__(name, dims, dims, lambda x: x)
+    def __init__(self, dim):
+        name = 'Id({})'.format(dim)
+        super().__init__(name, Dim(dim), Dim(dim), lambda x: x)
 
 
 def discofunc(dom, cod):
