@@ -4,11 +4,24 @@ Implements the monoidal category of functions on lists
 with direct sum as tensor.
 
 >>> @discofunc(Dim(2), Dim(2))
-... def f(x):
+... def swap(x):
 ...     return x[::-1]
->>> assert isinstance(f, Function)
->>> assert (f >> f)([1, 2]) == [1, 2]
->>> assert (f @ f)([0, 1, 2, 3]) == [1, 0, 3, 2]
+>>> assert isinstance(swap, Function)
+>>> assert (swap >> swap)([1, 2]) == [1, 2]
+>>> assert (swap @ swap)([0, 1, 2, 3]) == [1, 0, 3, 2]
+
+Copy and add form a bialgebra.
+
+>>> @discofunc(Dim(1), Dim(2))
+... def copy(x):
+...     return x + x
+>>> assert copy([1]) == [1, 1]
+>>> @discofunc(Dim(2), Dim(1))
+... def add(x):
+...     return [x[0] + x[1]]
+>>> assert add([1, 2]) == [3]
+>>> assert (copy @ copy >> Id(1) @ swap @ Id(1) >> add @ add)([123, 25]) ==\\
+...        (add >> copy)([123, 25])
 """
 from functools import reduce as fold
 from discopy import cat, config
@@ -90,7 +103,7 @@ class Dim(Ty):
         >>> Dim(0, 1, 2)
         Dim(1, 2)
         """
-        return "Dim({})".format(', '.join(map(repr, self)) or '1')
+        return "Dim({})".format(', '.join(map(repr, self)) or '0')
 
     def __str__(self):
         """
@@ -138,6 +151,13 @@ class Function(Box):
         """
         return self.name
 
+    def __str__(self):
+        """
+        >>> print(Function('copy', Dim(2), Dim(2), lambda x: x + x))
+        copy
+        """
+        return repr(self)
+
     def __call__(self, value):
         """
         >>> f = Function('f', Dim(2), Dim(2), lambda x: x)
@@ -169,7 +189,7 @@ class Function(Box):
         if not isinstance(other, Function):
             raise ValueError(
                 "Function expected, got {} instead.".format(repr(other)))
-        if self.cod != other.dom:
+        if self.cod.dim != other.dom.dim:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
         newname = self.name + ' >> ' + other.name
@@ -180,11 +200,11 @@ class Function(Box):
 
     def tensor(self, other):
         """
-        >>> f = Function('f', Dim(2), Dim(1), lambda x: [x[0] + x[1]])
-        >>> g = Function('g', Dim(1), Dim(2), lambda x: x + x)
-        >>> assert (f @ g)([0, 1, 2]) == [1, 2, 2]
-        >>> f @ g
-        f @ g
+        >>> add = Function('add', Dim(2), Dim(1), lambda x: [x[0] + x[1]])
+        >>> copy = Function('copy', Dim(1), Dim(2), lambda x: x + x)
+        >>> assert (add @ copy)([0, 1, 2]) == [1, 2, 2]
+        >>> add @ copy
+        add @ copy
         """
         if not isinstance(other, Function):
             raise ValueError(
@@ -200,6 +220,20 @@ class Function(Box):
 class AxiomError(cat.AxiomError):
     """
     """
+
+
+class Id(Function):
+    """ Implements the identity function for a given dimension.
+
+    >>> Id(2, 3)
+    Id(2, 3)
+    >>> assert Id(1)([476]) == [476]
+    >>> assert Id(2)([0, 1]) == [0, 1]
+    """
+    def __init__(self, *dim):
+        dims = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
+        name = 'Id({})'.format(', '.join(map(repr, dim)))
+        super().__init__(name, dims, dims, lambda x: x)
 
 
 def discofunc(dom, cod):
