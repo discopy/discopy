@@ -281,7 +281,16 @@ def discofunc(dom, cod):
     ... def f(x):
     ...     return x[::-1]
     >>> assert isinstance(f, Function)
+    >>> @discofunc(2, 2)
+    ... def f(x):
+    ...     return x[::-1]
+    >>> assert isinstance(f, Function)
     """
+    if isinstance(dom, int):
+        dom = Dim(dom)
+    if isinstance(cod, int):
+        cod = Dim(cod)
+
     def decorator(f):
         return Function(f.__name__, dom, cod, f)
     return decorator
