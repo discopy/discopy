@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Implements the monoidal category of functions on lists
-with direct sum as tensor.
+Implements the symmetric monoidal category (PROP) of functions on lists
+with cartesian product as tensor.
+
+Symmetry.
 
 >>> @discofunc(Dim(2), Dim(2))
 ... def swap(x):
@@ -9,6 +11,11 @@ with direct sum as tensor.
 >>> assert isinstance(swap, Function)
 >>> assert (swap >> swap)([1, 2]) == [1, 2]
 >>> assert (swap @ swap)([0, 1, 2, 3]) == [1, 0, 3, 2]
+
+Dim(0) is a terminal object with the following discarding map.
+
+>>> discard = lambda n: Function('discard', Dim(n), Dim(0), lambda x: [])
+>>> assert discard(3)([23, 2, 67]) == discard(1)([23])
 
 Copy and add form a bimonoid.
 
@@ -23,7 +30,7 @@ Copy and add form a bimonoid.
 >>> assert (copy @ copy >> Id(1) @ swap @ Id(1) >> add @ add)([123, 25]) ==\\
 ...        (add >> copy)([123, 25])
 
-Numpy/Jax functions are also accepted.
+Numpy/Jax functions are also accepted and np.arrays are accepted as inputs
 
 >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
 >>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
@@ -139,6 +146,9 @@ class Function(Box):
 
     @property
     def function(self):
+        """
+        >>> assert Function('Id', Dim(2), Dim(2), lambda x: x).function(1) == 1
+        """
         return self._function
 
     @property
@@ -203,14 +213,22 @@ class Function(Box):
         >>> add = Function('add', Dim(2), Dim(1), lambda x: [x[0] + x[1]])
         >>> copy = Function('copy', Dim(1), Dim(2), lambda x: x + x)
         >>> assert (add @ copy)([0, 1, 2]) == [1, 2, 2]
-        >>> add @ copy
+        >>> add @ copy @ Id(0)
         add @ copy
+        >>> Id(0) @ Id(0)
+        Id(0)
         """
         if not isinstance(other, Function):
             raise ValueError(
                 "Function expected, got {} instead.".format(repr(other)))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        newname = self.name + ' @ ' + other.name
+        if not self.name == 'Id(0)':
+            if not other.name == 'Id(0)':
+                newname = self.name + ' @ ' + other.name
+            else:
+                newname = self.name
+        else:
+            newname = other.name
 
         def f(x):
             if isinstance(x, list):
@@ -223,6 +241,13 @@ class Function(Box):
 
 class AxiomError(cat.AxiomError):
     """
+    >>> f = Function('f', Dim(0), Dim(2), lambda x: x)
+    >>> f.function([3, 2])
+    [3, 2]
+    >>> f([3, 2])  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    function.AxiomError: Expected input of length 0, got 2 instead.
     """
 
 
@@ -272,19 +297,20 @@ class PythonFunctor(MonoidalFunctor):
                          "instead.".format(repr(diagram), type(diagram)))
 
 
-def discofunc(dom, cod):
+def discofunc(dom, cod, name=False):
     """
     Decorator turning a python function into a discopy Function
     given domain and codomain information.
 
-    >>> @discofunc(Dim(2), Dim(2))
-    ... def f(x):
-    ...     return x[::-1]
-    >>> assert isinstance(f, Function)
     >>> @discofunc(2, 2)
     ... def f(x):
     ...     return x[::-1]
     >>> assert isinstance(f, Function)
+    >>> @discofunc(Dim(2), Dim(2), name='swap')
+    ... def f(x):
+    ...     return x[::-1]
+    >>> f
+    swap
     """
     if isinstance(dom, int):
         dom = Dim(dom)
@@ -292,5 +318,8 @@ def discofunc(dom, cod):
         cod = Dim(cod)
 
     def decorator(f):
-        return Function(f.__name__, dom, cod, f)
+        if not name:
+            return Function(f.__name__, dom, cod, f)
+        else:
+            return Function(name, dom, cod, f)
     return decorator
