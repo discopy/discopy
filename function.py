@@ -40,17 +40,9 @@ Numpy/Jax functions are also accepted with np.arrays as inputs.
 ...               == np.array([2, 2]))
 """
 from functools import reduce as fold
-from discopy import cat, config
+from discopy import cat
+from discopy.config import np
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
-
-
-if config.JAX:
-    import warnings
-    for msg in config.IGNORE:
-        warnings.filterwarnings("ignore", message=msg)
-    import jax.numpy as np
-else:
-    import numpy as np
 
 
 class Dim(Ty):
