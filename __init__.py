@@ -17,7 +17,7 @@ from discopy.cat import Quiver
 from discopy.moncat import MonoidalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CircuitFunctor
-from discopy.pregroup import Ob, Ty, Box, Diagram, Id, Cup, Cap
+from discopy.pregroup import Ob, Ty, Box, Diagram, Id, Cup, Cap, PivotalFunctor
 from discopy.disco import Word, Model, CircuitModel
 
 __version__ = config.VERSION

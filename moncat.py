@@ -20,8 +20,6 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
-import matplotlib.pyplot as plt
-import networkx as nx
 from discopy import cat
 from discopy.cat import Ob, Functor, Quiver
 
@@ -61,11 +59,54 @@ class Ty(Ob):
             return False
         return self.objects == other.objects
 
+    def __hash__(self):
+        """
+        >>> {Ty('x', 'y', 'z'): 42}[Ty('x', 'y', 'z')]
+        42
+        """
+        return hash(repr(self))
+
+    def __repr__(self):
+        """
+        >>> Ty('x', 'y')
+        Ty('x', 'y')
+        """
+        return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
+
+    def __str__(self):
+        """
+        >>> print(Ty('x', 'y'))
+        x @ y
+        """
+        return ' @ '.join(map(str, self)) or 'Ty()'
+
     def __len__(self):
         """
         >>> assert len(Ty('x', 'y')) == 2
         """
         return len(self.objects)
+
+    def __iter__(self):
+        """
+        >>> list(Ty('a', 'b', 'c'))
+        [Ob('a'), Ob('b'), Ob('c')]
+        """
+        for i in range(len(self)):
+            yield self[i]
+
+    def __getitem__(self, key):
+        """
+        >>> t = Ty('x', 'y', 'z')
+        >>> t[0]
+        Ob('x')
+        >>> t[:1]
+        Ty('x')
+        >>> t[1:]
+        Ty('y', 'z')
+        """
+        if isinstance(key, slice):
+            return Ty(*self.objects[key])
+        return self.objects[key]
 
     def __matmul__(self, other):
         """
@@ -96,41 +137,6 @@ class Ty(Ob):
             raise ValueError(
                 "Expected int, got {} instead.".format(repr(other)))
         return sum(other * (self, ), Ty())
-
-    def __getitem__(self, key):
-        """
-        >>> t = Ty('x', 'y', 'z')
-        >>> t[0]
-        Ob('x')
-        >>> t[:1]
-        Ty('x')
-        >>> t[1:]
-        Ty('y', 'z')
-        """
-        if isinstance(key, slice):
-            return Ty(*self.objects[key])
-        return self.objects[key]
-
-    def __repr__(self):
-        """
-        >>> Ty('x', 'y')
-        Ty('x', 'y')
-        """
-        return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
-
-    def __str__(self):
-        """
-        >>> print(Ty('x', 'y'))
-        x @ y
-        """
-        return ' @ '.join(map(str, self)) or 'Ty()'
-
-    def __hash__(self):
-        """
-        >>> {Ty('x', 'y', 'z'): 42}[Ty('x', 'y', 'z')]
-        42
-        """
-        return hash(repr(self))
 
 
 class Diagram(cat.Diagram):
@@ -352,6 +358,10 @@ class Diagram(cat.Diagram):
         wire_0_1 -> box_1
         wire_1_0 -> output_0
         """
+        # pylint: disable=import-outside-toplevel
+        import matplotlib.pyplot as plt
+        import networkx as nx
+
         def build_graph():
             graph, positions, labels = nx.Graph(), dict(), dict()
 
@@ -743,7 +753,7 @@ class MonoidalFunctor(Functor):
         >>> MonoidalFunctor({Ty('x'): Ty('y')}, {})
         MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})
         """
-        return "MonoidalFunctor(ob={}, ar={})".format(self.ob, self.ar)
+        return super().__repr__().replace("Functor", "MonoidalFunctor")
 
     def __call__(self, diagram):
         """
@@ -774,5 +784,5 @@ class MonoidalFunctor(Functor):
                 result = result >> id_l @ self(box) @ id_r
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
-        raise ValueError("Diagram expected, got {} of type {} "
+        raise ValueError("Expected moncat.Diagram, got {} of type {} "
                          "instead.".format(repr(diagram), type(diagram)))

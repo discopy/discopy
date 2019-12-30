@@ -15,10 +15,9 @@ Implements disco models in the category of matrices and circuits.
 """
 
 from functools import reduce as fold
-from discopy.pregroup import (
-    Ob, Ty, Diagram, Box, Id, Cup, Cap, AxiomError)
-from discopy.matrix import Dim, Matrix, MatrixFunctor
-from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CX, CircuitFunctor
+from discopy.pregroup import Ty, Box, Id, Cup, AxiomError
+from discopy.matrix import MatrixFunctor
+from discopy.circuit import CircuitFunctor
 
 
 class Word(Box):
@@ -96,21 +95,6 @@ class Model(MatrixFunctor):
     >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
     >>> assert F(Alice @ jokes >> Cup(n, n.l) @ Id(s))
     """
-    def __init__(self, ob, ar):
-        """
-        >>> Model({'n': 1}, {})  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Expected a basic type, got 'n' instead.
-        >>> Model({Ty('n'): 2}, {})
-        Model(ob={Ty('n'): Dim(2)}, ar={})
-        """
-        for x in ob.keys():  # pylint: disable=invalid-name
-            if not isinstance(x, Ty) or not x.is_basic:
-                raise ValueError(
-                    "Expected a basic type, got {} instead.".format(repr(x)))
-        super().__init__(ob, ar, ob_cls=Ob, ar_cls=Diagram)
-
     def __repr__(self):
         """
         >>> Model({}, {Word('Alice', Ty('n')): [0, 1]})
@@ -118,42 +102,10 @@ class Model(MatrixFunctor):
         """
         return super().__repr__().replace("MatrixFunctor", "Model")
 
-    def __call__(self, diagram):
-        """
-        >>> n, s = Ty('n'), Ty('s')
-        >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
-        >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
-        >>> F(n @ s.l)
-        Dim(2)
-        >>> F(Cup(n, n.l))
-        Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
-        >>> F(Cap(n, n.r))
-        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1.0, 0.0, 0.0, 1.0])
-        >>> F(Alice)
-        Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
-        >>> F(Alice @ jokes)
-        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 1])
-        >>> F(Alice @ jokes >> Cup(n, n.l) @ Id(s))
-        Matrix(dom=Dim(1), cod=Dim(1), array=[1.0])
-        """
-        if isinstance(diagram, Ty):
-            return sum([self.ob[Ty(x.name)] for x in diagram], Dim(1))
-        if isinstance(diagram, Cup):
-            return Matrix(self(diagram.dom), Dim(),
-                          Matrix.id(self(diagram.dom[:1])).array)
-        if isinstance(diagram, Cap):
-            return Matrix(Dim(), self(diagram.cod),
-                          Matrix.id(self(diagram.cod[:1])).array)
-        if isinstance(diagram, Diagram):
-            return super().__call__(diagram)
-        raise ValueError(
-            "Expected input of type Ty or Diagram, got {} of type {} instead"
-            .format(repr(diagram), type(diagram)))
-
 
 class CircuitModel(CircuitFunctor):
     """
-    >>> from discopy.circuit import sqrt, H, X
+    >>> from discopy.circuit import sqrt, H, X, Ket, CX
     >>> s, n = Ty('s'), Ty('n')
     >>> Alice = Word('Alice', n)
     >>> loves = Word('loves', n.r @ s @ n.l)
@@ -168,38 +120,13 @@ class CircuitModel(CircuitFunctor):
     >>> BornRule = lambda c: abs(c.eval().array) ** 2
     >>> assert BornRule(F(sentence))
     """
-    def __call__(self, diagram):
+    def __repr__(self):
         """
-        >>> F = CircuitModel({}, {})
-        >>> F('x')  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Expected input of type Ty or Diagram, got 'x'...
+        >>> from discopy.circuit import Ket
+        >>> CircuitModel({Ty('n'): 1}, {Word('Alice', Ty('n')): Ket(0)})
+        CircuitModel(ob={Ty('n'): 1}, ar={Word('Alice', Ty('n')): Ket(0)})
         """
-        unnormalised_had = Gate('H @ sqrt(2)', 1, [1, 1, 1, -1])
-        if isinstance(diagram, Ty):
-            return sum([self.ob[Ty(b.name)] for b in diagram], PRO(0))
-        if isinstance(diagram, Cup):
-            result = Circuit.id(self(diagram.dom))
-            n_cups = len(self(diagram.dom)) // 2
-            cup = CX >> unnormalised_had @ Circuit.id(1) >> Bra(0, 0)
-            for i in range(n_cups):
-                result = result >> Circuit.id(n_cups - i - 1)\
-                    @ cup @ Circuit.id(n_cups - i - 1)
-            return result
-        if isinstance(diagram, Cap):
-            result = Circuit.id(self(diagram.cod))
-            n_caps = len(self(diagram.cod)) // 2
-            cap = CX << unnormalised_had @ Circuit.id(1) << Ket(0, 0)
-            for i in range(n_caps):
-                result = result << Circuit.id(n_caps - i - 1)\
-                    @ cap @ Circuit.id(n_caps - i - 1)
-            return result
-        if isinstance(diagram, Diagram):
-            return super().__call__(diagram)
-        raise ValueError(
-            "Expected input of type Ty or Diagram, got {} of type {} instead."
-            .format(repr(diagram), type(diagram)))
+        return super().__repr__().replace("CircuitFunctor", "CircuitModel")
 
 
 def eager_parse(*words, target=Ty('s')):

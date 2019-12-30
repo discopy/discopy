@@ -14,11 +14,10 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-import random
-import pytket as tk
+from discopy.config import np
 from discopy.cat import Quiver
-from discopy.moncat import Ty, Box, Diagram, MonoidalFunctor
-from discopy.matrix import np, Dim, Matrix, MatrixFunctor
+from discopy.pregroup import Ty, Box, Diagram, PivotalFunctor
+from discopy.matrix import Dim, Matrix, MatrixFunctor
 
 
 class PRO(Ty):
@@ -29,7 +28,7 @@ class PRO(Ty):
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
     """
-    def __init__(self, n):
+    def __init__(self, n=0):
         """
         >>> list(PRO(0))
         []
@@ -76,6 +75,20 @@ class PRO(Ty):
         if isinstance(key, slice):
             return PRO(len(super().__getitem__(key)))
         return super().__getitem__(key)
+
+    @property
+    def l(self):
+        """
+        >>> assert PRO(2).l == PRO(2)
+        """
+        return self
+
+    @property
+    def r(self):
+        """
+        >>> assert PRO(2).r == PRO(2)
+        """
+        return self
 
 
 class Circuit(Diagram):
@@ -135,6 +148,13 @@ class Circuit(Diagram):
                        result.boxes, result.offsets, _fast=True)
 
     def normal_form(self, left=False):
+        """
+        >>> circuit = Id(1) @ X >> X @ Id(1)
+        >>> print(circuit.normal_form())
+        X @ Id(1) >> Id(1) @ X
+        >>> print(circuit.normal_form(left=True))
+        Id(1) @ X >> X @ Id(1)
+        """
         result = super().normal_form(left=left)
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, _fast=True)
@@ -146,6 +166,41 @@ class Circuit(Diagram):
         Id(2)
         """
         return Id(x)
+
+    @staticmethod
+    def cups(x, y):
+        """
+        >>> Circuit.cups(PRO(1), PRO(1)).eval()
+        Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
+        >>> arr = Circuit.cups(PRO(2), PRO(2)).eval().array
+        >>> for i in range(4): print(list(arr[i % 2, i // 2].flatten()))
+        [1.0, 0.0, 0.0, 0.0]
+        [0.0, 1.0, 0.0, 0.0]
+        [0.0, 0.0, 1.0, 0.0]
+        [0.0, 0.0, 0.0, 1.0]
+        """
+        if not isinstance(x, PRO) or not isinstance(y, PRO):
+            raise ValueError("Expected PRO, got {} of type {} instead."
+                             .format((repr(x), repr(y)), (type(x), type(y))))
+        result = Id(x @ y)
+        cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
+        for i in range(1, len(x) + 1):
+            result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
+        return result
+
+    @staticmethod
+    def caps(x, y):
+        """
+        >>> Circuit.caps(PRO(1), PRO(1)).eval()
+        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 1])
+        >>> arr = Circuit.caps(PRO(2), PRO(2)).eval().array
+        >>> for i in range(4): print(list(arr[i % 2, i // 2].flatten()))
+        [1, 0, 0, 0]
+        [0, 1, 0, 0]
+        [0, 0, 1, 0]
+        [0, 0, 0, 1]
+        """
+        return Circuit.cups(x, y).dagger()
 
     def eval(self):
         """ Evaluates the circuit as a discopy Matrix.
@@ -203,6 +258,7 @@ class Circuit(Diagram):
         >>> list(c)
         [SWAP q[0], q[1];, Rx(0.25PI) q[1];, CX q[1], q[2];]
         """
+        import pytket as tk  # pylint: disable=import-outside-toplevel
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
@@ -273,24 +329,21 @@ class Circuit(Diagram):
         >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
         Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
         """
+        # pylint: disable=import-outside-toplevel
+        from random import choice, random as _random, seed as _seed
         if seed is not None:
-            random.seed(seed)
+            _seed(seed)
         if n_qubits == 1:
-            return Rx(random.random())\
-                >> Rz(random.random())\
-                >> Rx(random.random())
-
-        def is_one_qubit(gate):
-            return gate is Rx or gate is Rz or len(gate.dom) == 1
+            return Rx(_random()) >> Rz(_random()) >> Rx(_random())
         result = Id(n_qubits)
         for _ in range(depth):
             line, n_affected = Id(0), 0
             while n_affected < n_qubits:
-                gate = random.choice(
-                    gateset if n_qubits - n_affected > 1
-                    else list(filter(is_one_qubit, gateset)))
+                gate = choice(gateset if n_qubits - n_affected > 1
+                              else [g for g in gateset
+                                    if g is Rx or g is Rz or len(g.dom) == 1])
                 if gate is Rx or gate is Rz:
-                    gate = gate(random.random())
+                    gate = gate(_random())
                 line = line @ gate
                 n_affected += len(gate.dom)
             result = result >> line
@@ -326,7 +379,7 @@ class Id(Circuit):
         return repr(self)
 
 
-class Gate(Box, Circuit):
+class Gate(Box, Circuit):  # pylint: disable=too-many-ancestors
     """ Implements quantum gates as boxes in a circuit diagram.
 
     >>> CX
@@ -374,7 +427,7 @@ class Gate(Box, Circuit):
                     data=self.data, _dagger=not self._dagger)
 
 
-class Ket(Box, Circuit):
+class Ket(Box, Circuit):  # pylint: disable=too-many-ancestors
     """ Implements ket for a given bitstring.
 
     >>> Ket(1, 1, 0).eval()
@@ -417,7 +470,7 @@ class Ket(Box, Circuit):
         return matrix.array
 
 
-class Bra(Box, Circuit):
+class Bra(Box, Circuit):  # pylint: disable=too-many-ancestors
     """ Implements bra for a given bitstring.
 
     >>> Bra(1, 1, 0).eval()
@@ -459,7 +512,7 @@ class Bra(Box, Circuit):
         return Ket(*self.bitstring).array
 
 
-class Rz(Gate):
+class Rz(Gate):  # pylint: disable=too-many-ancestors
     """
     >>> assert np.all(Rz(0).array == np.identity(2))
     >>> assert np.allclose(Rz(0.5).array, Z.array)
@@ -512,7 +565,7 @@ class Rz(Gate):
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
-class Rx(Gate):
+class Rx(Gate):  # pylint: disable=too-many-ancestors
     """
     >>> assert np.all(Rx(0).array == np.identity(2))
     >>> assert np.all(np.round(Rx(0.5).array) == X.array)
@@ -567,7 +620,7 @@ class Rx(Gate):
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
-class CircuitFunctor(MonoidalFunctor):
+class CircuitFunctor(PivotalFunctor):
     """ Implements funtors from monoidal categories to circuits
 
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
@@ -585,7 +638,8 @@ class CircuitFunctor(MonoidalFunctor):
         """
         >>> F = CircuitFunctor({}, {})
         """
-        super().__init__({x: PRO(y) for x, y in ob.items()}, ar)
+        super().__init__({x: PRO(y) for x, y in ob.items()}, ar,
+                         ob_cls=PRO, ar_cls=Circuit)
 
     def __repr__(self):
         """

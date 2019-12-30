@@ -15,7 +15,6 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 ...         == snake_l.dagger() << snake_r.dagger()
 """
 
-import networkx as nx
 from discopy import cat, moncat
 
 
@@ -257,6 +256,7 @@ class Diagram(moncat.Diagram):
         wire_1_2 -> wire_2_1
         wire_2_1 -> output_0
         """
+        import networkx as nx  # pylint: disable=import-outside-toplevel
         graph, positions, labels = moncat.Diagram.draw(self, _test=True)
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
@@ -280,6 +280,9 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
         """
+        if not isinstance(x, Ty) or not isinstance(y, Ty):
+            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+                             .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         cups = Id(x @ y)
@@ -302,6 +305,9 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
+        if not isinstance(x, Ty) or not isinstance(y, Ty):
+            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+                             .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
         caps = Id(x @ y)
@@ -698,12 +704,43 @@ class PivotalFunctor(moncat.MonoidalFunctor):
     >>> ar = {loves: Cap(a.r, a) @ Cap(a, a.l)
     ...              >> Id(a.r) @ love_box @ Id(a.l)}
     >>> F = PivotalFunctor(ob, ar)
+    >>> assert F(n.r) == F(n).r and F(a.l) == F(a).l
     >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
     >>> assert F(Cup(a, a.l)) == Diagram.cups(n @ n, (n @ n).l)
     >>> type(F(loves))
     <class 'pregroup.Diagram'>
     """
-    def __call__(self, diagram, ob_cls=Ty, ar_cls=Diagram):
+    def __init__(self, ob, ar, ob_cls=Ty, ar_cls=Diagram):
+        """
+        >>> F = PivotalFunctor({Ty('x'): Ty('y')}, {})
+        >>> F(Id(Ty('x')))
+        Id(Ty('y'))
+        """
+        super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
+
+    def __repr__(self):
+        """
+        >>> PivotalFunctor({Ty('x'): Ty('y')}, {})
+        PivotalFunctor(ob={Ty('x'): Ty('y')}, ar={})
+        """
+        return super().__repr__().replace("MonoidalFunctor", "PivotalFunctor")
+
+    def __call__(self, diagram):
+        """
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> F = PivotalFunctor({x: y, y: x}, {f: f.dagger()})
+        >>> print(F(x))
+        y
+        >>> print(F(f))
+        f.dagger()
+        >>> print(F(F(f)))
+        f
+        >>> print(F(f >> f.dagger()))
+        f.dagger() >> f
+        >>> print(F(f @ f.dagger()))
+        f.dagger() @ Id(x) >> Id(x) @ f
+        """
         if isinstance(diagram, Ob):
             result = self.ob[Ty(diagram.name)]
             if diagram.z < 0:
@@ -714,11 +751,11 @@ class PivotalFunctor(moncat.MonoidalFunctor):
                     result = result.r
             return result
         if isinstance(diagram, Ty):
-            return sum([self(b) for b in diagram.objects], Ty())
+            return sum([self(b) for b in diagram.objects], self.ob_cls())
         if isinstance(diagram, Cup):
-            return ar_cls.cups(self(diagram.dom[0]), self(diagram.dom[1]))
+            return self.ar_cls.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
-            return ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
+            return self.ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
         raise ValueError("Expected pregroup.Diagram, got {} of type {} instead"
