@@ -700,6 +700,8 @@ class PivotalFunctor(moncat.MonoidalFunctor):
     >>> F = PivotalFunctor(ob, ar)
     >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
     >>> assert F(Cup(a, a.l)) == Diagram.cups(n @ n, (n @ n).l)
+    >>> type(F(loves))
+    <class 'pregroup.Diagram'>
     """
     def __call__(self, diagram, ob_cls=Ty, ar_cls=Diagram):
         if isinstance(diagram, Ob):
@@ -718,6 +720,6 @@ class PivotalFunctor(moncat.MonoidalFunctor):
         if isinstance(diagram, Cap):
             return ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
-            return super().__call__(diagram, ob_cls=ob_cls, ar_cls=ar_cls)
+            return super().__call__(diagram)
         raise ValueError("Expected pregroup.Diagram, got {} of type {} instead"
                          .format(repr(diagram), type(diagram)))

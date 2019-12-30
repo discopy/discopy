@@ -15,7 +15,7 @@ Symmetry.
 Dim(0) is a terminal object with the following discarding map.
 
 >>> discard = lambda n: Function('discard', Dim(n), Dim(0), lambda x: [])
->>> assert discard(3)([23, 2, 67]) == discard(1)([23])
+>>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
 
 Copy and add form a bimonoid.
 
@@ -30,7 +30,7 @@ Copy and add form a bimonoid.
 >>> assert (copy @ copy >> Id(1) @ swap @ Id(1) >> add @ add)([123, 25]) ==\\
 ...        (add >> copy)([123, 25])
 
-Numpy/Jax functions are also accepted and np.arrays are accepted as inputs
+Numpy/Jax functions are also accepted with np.arrays as inputs.
 
 >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
 >>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
@@ -266,7 +266,8 @@ class Id(Function):
 
 
 class PythonFunctor(MonoidalFunctor):
-    """ Implements functors into the category of functions on lists
+    """
+    Implements functors into the category of functions on lists
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, y)
