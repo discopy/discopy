@@ -5,7 +5,7 @@ with cartesian product as tensor.
 
 Symmetry.
 
->>> @discofunc(Dim(2), Dim(2))
+>>> @discofunc(2, 2)
 ... def swap(x):
 ...     return x[::-1]
 >>> assert isinstance(swap, Function)
@@ -19,11 +19,11 @@ Dim(0) is a terminal object with the following discarding map.
 
 Copy and add form a bimonoid.
 
->>> @discofunc(Dim(1), Dim(2))
+>>> @discofunc(1, 2)
 ... def copy(x):
 ...     return x + x
 >>> assert copy([1]) == [1, 1]
->>> @discofunc(Dim(2), Dim(1))
+>>> @discofunc(2, 1)
 ... def add(x):
 ...     return [x[0] + x[1]]
 >>> assert add([1, 2]) == [3]
@@ -187,6 +187,11 @@ class Function(Box):
         >>> inv >> inv
         inv >> inv
         >>> assert (inv >> inv)([1, 0]) == [1, 0]
+        >>> id = Function('id', Dim(3), Dim(3), lambda x: x)
+        >>> id >> inv  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        function.AxiomError: id does not compose with inv.
         """
         if not isinstance(other, Function):
             raise ValueError(
@@ -204,7 +209,7 @@ class Function(Box):
         """
         >>> add = Function('add', Dim(2), Dim(1), lambda x: [x[0] + x[1]])
         >>> copy = Function('copy', Dim(1), Dim(2), lambda x: x + x)
-        >>> assert (add @ copy)([0, 1, 2]) == [1, 2, 2]
+        >>> assert (add @ copy)([3, 1, 2]) == [4, 2, 2]
         >>> add @ copy @ Id(0)
         add @ copy
         >>> Id(0) @ Id(0)
@@ -244,7 +249,8 @@ class AxiomError(cat.AxiomError):
 
 
 class Id(Function):
-    """ Implements the identity function for a given dimension.
+    """
+    Implements the identity function for a given dimension.
 
     >>> Id(5)
     Id(5)
@@ -299,6 +305,8 @@ def discofunc(dom, cod, name=False):
     ... def f(x):
     ...     return x[::-1]
     >>> assert isinstance(f, Function)
+    >>> f
+    f
     >>> @discofunc(Dim(2), Dim(2), name='swap')
     ... def f(x):
     ...     return x[::-1]
