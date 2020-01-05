@@ -1,7 +1,7 @@
 discopy.circuit
 ===============
 
-.. automodule:: circuit
+.. automodule:: discopy.circuit
     :members:
     :member-order: bysource
     :inherited-members:

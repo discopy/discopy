@@ -1,7 +1,7 @@
 discopy.disco
 =============
 
-.. automodule:: disco
+.. automodule:: discopy.disco
     :members:
     :member-order: bysource
     :inherited-members:

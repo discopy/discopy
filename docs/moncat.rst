@@ -1,7 +1,7 @@
 discopy.moncat
 ==============
 
-.. automodule:: moncat
+.. automodule:: discopy.moncat
     :members:
     :member-order: bysource
     :inherited-members:

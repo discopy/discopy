@@ -1,7 +1,7 @@
 discopy.matrix
 ==============
 
-.. automodule:: matrix
+.. automodule:: discopy.matrix
     :members:
     :member-order: bysource
     :inherited-members:
