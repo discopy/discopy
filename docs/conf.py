@@ -16,11 +16,6 @@ import sys
 sys.path.insert(0, os.path.abspath('../..'))
 
 
-def get_version():
-    from discopy.config import VERSION
-    return VERSION
-
-
 # -- Project information -----------------------------------------------------
 
 project = 'discopy'
@@ -28,7 +23,7 @@ copyright = '2019, Oxford Quantum Group'
 author = 'Oxford Quantum Group'
 
 # The full version, including alpha/beta/rc tags
-release = get_version()
+release = '0.1.4'
 
 
 # -- General configuration ---------------------------------------------------
