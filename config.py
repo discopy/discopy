@@ -14,6 +14,6 @@ try:
     import warnings
     for msg in IGNORE:
         warnings.filterwarnings("ignore", message=msg)
-    import jax.numpy as np
+    import jax.numpy as np  # pylint: disable=unused-import
 except ImportError:
-    import numpy as np
+    import numpy as np  # pylint: disable=unused-import

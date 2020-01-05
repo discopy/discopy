@@ -9,20 +9,26 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-#
-# import os
-# import sys
-# sys.path.insert(0, os.path.abspath('.'))
+
+import os
+import sys
+
+sys.path.insert(0, os.path.abspath('..'))
+
+
+def get_version():
+    from discopy.config import VERSION
+    return VERSION
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'discopy'
-copyright = '2019, Quantum Group Oxford'
-author = 'Quantum Group Oxford'
+copyright = '2019, Oxford Quantum Group'
+author = 'Oxford Quantum Group'
 
 # The full version, including alpha/beta/rc tags
-release = '1.1.4'
+release = get_version()
 
 
 # -- General configuration ---------------------------------------------------
@@ -30,8 +36,7 @@ release = '1.1.4'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['sphinx.ext.autodoc'
-]
+extensions = ['sphinx.ext.autodoc']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
