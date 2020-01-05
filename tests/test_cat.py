@@ -203,6 +203,15 @@ def test_Functor_call():
 
 
 def test_Quiver():
+    x, y, z = Ob('x'), Ob('y'), Ob('z')
+    F = Functor({x: x, y: y, z: z}, Quiver(lambda x: x))
+    f = Box('f', x, y, data=[0, 1])
+    assert F(f) == Box('f', Ob('x'), Ob('y'), data=[0, 1])
+    f.data.append(2)
+    assert F(f) == Box('f', Ob('x'), Ob('y'), data=[0, 1, 2])
+
+
+def test_Quiver_init():
     ar = Quiver(lambda x: x ** 2)
     assert ar[3] == 9
 

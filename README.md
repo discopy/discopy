@@ -2,7 +2,7 @@
 
 `discopy` computes natural language meaning in pictures.
 
-!["Alice loves Bob" in picture](notebooks/alice-loves-bob.png)
+!["Alice loves Bob" in picture](docs/alice-loves-bob.png)
 
 ## Recipe
 
