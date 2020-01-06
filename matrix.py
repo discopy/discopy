@@ -13,10 +13,17 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import pregroup
-from discopy.config import np
+from discopy import pregroup, config
 from discopy.cat import Quiver
 from discopy.pregroup import Ob, Ty, Box, Diagram, PivotalFunctor
+
+try:
+    import warnings
+    for msg in config.IGNORE:
+        warnings.filterwarnings("ignore", message=msg)
+    import jax.numpy as np
+except ImportError:
+    import numpy as np
 
 
 class Dim(Ty):
@@ -258,7 +265,7 @@ class AxiomError(pregroup.AxiomError):
     >>> m >> m  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    matrix.AxiomError: Matrix... does not compose with Matrix...
+    discopy.matrix.AxiomError: Matrix... does not compose with Matrix...
     """
 
 

@@ -444,7 +444,7 @@ class Diagram(cat.Diagram):
         >>> d.interchange(0,2) #doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        moncat.InterchangerError: Boxes ... do not commute.
+        discopy.moncat.InterchangerError: Boxes ... do not commute.
         >>> assert d.interchange(2,0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
         """
         if not 0 <= i < len(self) or not 0 <= j < len(self):
@@ -632,12 +632,12 @@ class AxiomError(cat.AxiomError):
     ... # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    moncat.AxiomError: Codomain x expected, got y instead.
+    discopy.moncat.AxiomError: Codomain x expected, got y instead.
     >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
     ... # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    moncat.AxiomError: Domain y expected, got x instead.
+    discopy.moncat.AxiomError: Domain y expected, got x instead.
     """
 
 
@@ -648,7 +648,7 @@ class InterchangerError(AxiomError):
     >>> d.interchange(0, 1)  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    moncat.InterchangerError: Boxes ... do not commute.
+    discopy.moncat.InterchangerError: Boxes ... do not commute.
     """
 
 

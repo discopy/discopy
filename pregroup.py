@@ -272,10 +272,10 @@ class Diagram(moncat.Diagram):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
-        >>> Diagram.cups(a @ b @ a, a.r @ b.r) #doctest: +ELLIPSIS
+        >>> Diagram.cups(a @ b @ a, a.r @ b.r)  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        pregroup.AxiomError: a @ b @ a and a.r @ b.r are not adjoints.
+        discopy.pregroup.AxiomError: a @ b @ a and a.r @ b.r are not adjoints.
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
         >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
@@ -300,7 +300,7 @@ class Diagram(moncat.Diagram):
         >>> Diagram.caps( a @ b @ a, a.l @ b.l) #doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        pregroup.AxiomError: a @ b @ a and a.l @ b.l are not adjoints.
+        discopy.pregroup.AxiomError: a @ b @ a and a.l @ b.l are not adjoints.
         >>> assert Diagram.caps(a, a.r) == Cap(a, a.r)
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
@@ -527,15 +527,15 @@ class AxiomError(moncat.AxiomError):
     >>> Cup(Ty('n'), Ty('n'))  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    pregroup.AxiomError: n and n are not adjoints.
+    discopy.pregroup.AxiomError: n and n are not adjoints.
     >>> Cup(Ty('n'), Ty('s'))  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    pregroup.AxiomError: n and s are not adjoints.
+    discopy.pregroup.AxiomError: n and s are not adjoints.
     >>> Cup(Ty('n'), Ty('n').l.l)  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    pregroup.AxiomError: n and n.l.l are not adjoints.
+    discopy.pregroup.AxiomError: n and n.l.l are not adjoints.
     """
 
 
