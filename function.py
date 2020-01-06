@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Implements the symmetric monoidal category (PROP) of functions on lists
+Implements the symmetric monoidal category (PROP) of functions on Numpy lists
 with cartesian product as tensor.
 
 Symmetry.
@@ -9,8 +9,8 @@ Symmetry.
 ... def swap(x):
 ...     return x[::-1]
 >>> assert isinstance(swap, Function)
->>> assert (swap >> swap)([1, 2]) == [1, 2]
->>> assert (swap @ swap)([0, 1, 2, 3]) == [1, 0, 3, 2]
+>>> assert np.all((swap >> swap)([1, 2]) == np.array([1, 2]))
+>>> assert np.all((swap @ swap)([0, 1, 2, 3]) == np.array([1, 0, 3, 2]))
 
 Dim(0) is a terminal object with the following discarding map.
 
@@ -21,16 +21,16 @@ Copy and add form a bimonoid.
 
 >>> @discofunc(1, 2)
 ... def copy(x):
-...     return x + x
->>> assert copy([1]) == [1, 1]
+...     return np.concatenate([x, x])
+>>> assert np.all(copy([1]) == np.array([1, 1]))
 >>> @discofunc(2, 1)
 ... def add(x):
-...     return [x[0] + x[1]]
->>> assert add([1, 2]) == [3]
->>> assert (copy @ copy >> Id(1) @ swap @ Id(1) >> add @ add)([123, 25]) ==\\
-...        (add >> copy)([123, 25])
+...     return np.array([x[0] + x[1]])
+>>> assert np.all(add([1, 2]) == np.array([3]))
+>>> assert np.all((copy @ copy >> Id(1) @ swap @ Id(1) >>\\
+...               add @ add)([123, 25]) == (add >> copy)([123, 25]))
 
-Numpy/Jax functions are also accepted with np.arrays as inputs.
+Numpy/Jax functions are also accepted.
 
 >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
 >>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
@@ -41,7 +41,7 @@ Numpy/Jax functions are also accepted with np.arrays as inputs.
 """
 from functools import reduce as fold
 from discopy import cat
-from discopy.config import np
+from discopy.matrix import np
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
 
@@ -113,7 +113,7 @@ class Function(Box):
     Wraps python functions with domain and codomain information.
 
     >>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
-    >>> assert swap([1, 2]) == [2, 1]
+    >>> assert np.all(swap([1, 2]) == np.array([2, 1]))
     >>> assert np.all(swap(np.array([1, 2])) == np.array([2, 1]))
     >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
     >>> assert np.all(abs(np.array([1, -1])) == np.array([1, 1]))
@@ -170,12 +170,14 @@ class Function(Box):
         has a length which agrees with the domain dimension.
 
         >>> f = Function('f', Dim(2), Dim(2), lambda x: x)
-        >>> assert f([1, 2]) == [1, 2]
+        >>> assert np.all(f([1, 2]) == np.array([1, 2]))
         >>> f([3])  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         function.AxiomError: Expected input of length 2, got 1 instead.
         """
+        if isinstance(value, list):
+            value = np.array(value)
         if not len(value) == self.dom.dim:
             raise AxiomError("Expected input of length {}, got {} instead."
                              .format(self.dom.dim, len(value)))
@@ -183,15 +185,15 @@ class Function(Box):
 
     def then(self, other):
         """
-        >>> inv = Function('inv', Dim(2), Dim(2), lambda x: x[::-1])
-        >>> inv >> inv
-        inv >> inv
-        >>> assert (inv >> inv)([1, 0]) == [1, 0]
+        >>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
+        >>> swap >> swap
+        (swap >> swap)
+        >>> assert np.all((swap >> swap)([1, 0]) == np.array([1, 0]))
         >>> id = Function('id', Dim(3), Dim(3), lambda x: x)
-        >>> id >> inv  # doctest: +ELLIPSIS
+        >>> id >> swap  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        function.AxiomError: id does not compose with inv.
+        function.AxiomError: id does not compose with swap.
         """
         if not isinstance(other, Function):
             raise ValueError(
@@ -199,7 +201,7 @@ class Function(Box):
         if self.cod.dim != other.dom.dim:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
-        newname = self.name + ' >> ' + other.name
+        newname = '(' + self.name + ' >> ' + other.name + ')'
 
         def f(x):
             return other(self(x))
@@ -207,11 +209,13 @@ class Function(Box):
 
     def tensor(self, other):
         """
-        >>> add = Function('add', Dim(2), Dim(1), lambda x: [x[0] + x[1]])
-        >>> copy = Function('copy', Dim(1), Dim(2), lambda x: x + x)
-        >>> assert (add @ copy)([3, 1, 2]) == [4, 2, 2]
+        >>> add = Function('add', Dim(2), Dim(1),
+        ...                lambda x: np.array([x[0] + x[1]]))
+        >>> copy = Function('copy', Dim(1), Dim(2),\\
+        ...                 lambda x: np.concatenate([x, x]))
+        >>> assert np.all((add @ copy)([3, 1, 2]) == np.array([4, 2, 2]))
         >>> add @ copy @ Id(0)
-        add @ copy
+        (add @ copy)
         >>> Id(0) @ Id(0)
         Id(0)
         """
@@ -221,18 +225,15 @@ class Function(Box):
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         if not self.name == 'Id(0)':
             if not other.name == 'Id(0)':
-                newname = self.name + ' @ ' + other.name
+                newname = '(' + self.name + ' @ ' + other.name + ')'
             else:
                 newname = self.name
         else:
             newname = other.name
 
         def f(x):
-            if isinstance(x, list):
-                return self(x[:self.dom.dim]) + other(x[self.dom.dim:])
-            else:
-                return np.concatenate([self(x[:self.dom.dim]),
-                                       other(x[self.dom.dim:])])
+            return np.concatenate([self(x[:self.dom.dim]),
+                                   other(x[self.dom.dim:])])
         return Function(newname, dom, cod, f)
 
 
@@ -254,8 +255,8 @@ class Id(Function):
 
     >>> Id(5)
     Id(5)
-    >>> assert Id(1)([476]) == [476]
-    >>> assert Id(2)([0, 1]) == [0, 1]
+    >>> assert Id(1)([476]) == np.array([476])
+    >>> assert np.all(Id(2)([0, 1]) == np.array([0, 1]))
     """
     def __init__(self, dim):
         name = 'Id({})'.format(dim)
@@ -263,7 +264,7 @@ class Id(Function):
         super().__init__(name, dom, dom, lambda x: x)
 
 
-class PythonFunctor(MonoidalFunctor):
+class NumpyFunctor(MonoidalFunctor):
     """
     Implements functors into the category of functions on lists
 
@@ -272,12 +273,12 @@ class PythonFunctor(MonoidalFunctor):
     >>> g = Box('g', y, x)
     >>> @discofunc(Dim(1), Dim(2))
     ... def copy(x):
-    ...     return x + x
+    ...     return np.concatenate([x, x])
     >>> @discofunc(Dim(2), Dim(1))
     ... def add(x):
-    ...     return [x[0] + x[1]]
-    >>> F = PythonFunctor({x: Dim(1), y: Dim(2)}, {f: copy, g: add})
-    >>> assert F(f >> g)([1]) == [2]
+    ...     return np.array([x[0] + x[1]])
+    >>> F = NumpyFunctor({x: Dim(1), y: Dim(2)}, {f: copy, g: add})
+    >>> assert F(f >> g)([1]) == np.array([2])
     """
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
