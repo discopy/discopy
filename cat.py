@@ -9,7 +9,38 @@ from functools import reduce as fold
 
 class Ob:
     """
-    Defines an object, only distinguished by its name.
+    Defines an object in a free category, only distinguished by its name.
+
+    :param name: Name of the object
+    :type name: any
+
+    >>> x = Ob('x')
+    >>> x
+    Ob('x')
+
+    The name of an object is immutable.
+
+    >>> x.name = 'y'  # doctest: +ELLIPSIS
+    Traceback (most recent call last):
+    ...
+    AttributeError: can't set attribute
+
+    Objects with equal names are equal.
+
+    >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
+
+    When printing an object, we only print the name.
+
+    >>> print(x)
+    x
+
+    Objects are hashable whenever their name is.
+
+    >>> assert {x: 42}[x] == 42
+    >>> d = {Ob(['x', 'y']): 42}
+    Traceback (most recent call last):
+    ...
+    TypeError: unhashable type: 'list'
     """
     def __init__(self, name):
         self._name = name
@@ -33,12 +64,19 @@ class Ob:
         return str(self.name)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash(self.name)
 
 
 class Diagram:
     """
-    Defines a diagram with domain, codomain and a list of boxes.
+    Defines a diagram in a free dagger category.
+
+    :param dom: Domain
+    :type dom: discopy.cat.Ob
+    :param cod: Codomain
+    :type cod: discopy.cat.Ob
+    :param boxes: A list of boxes of type :class:`discopy.cat.Diagram`
+    :type boxes: list
     """
     def __init__(self, dom, cod, boxes, _fast=False):
         if not isinstance(dom, Ob):
@@ -115,6 +153,11 @@ class Diagram:
     def then(self, other):
         """
         Returns the composition of self and other.
+
+        :param other: A diagram with `self.cod == other.dom`
+        :type other: :class:`discopy.cat.Diagram`
+        :returns: :class:`discopy.cat.Diagram`
+        :raises: :class:`discopy.cat.AxiomError`
         """
         if not isinstance(other, Diagram):
             raise ValueError("Expected Diagram, got {} of type {} instead."
