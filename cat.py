@@ -2,6 +2,23 @@
 
 """
 Implements free dagger categories and functors.
+
+We can create boxes with objects as domain and codomain:
+
+>>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+>>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+
+We can create arbitrary diagrams with composition:
+
+>>> diagram = Diagram(x, x, [f, g, h])
+>>> assert diagram == f >> g >> h == h << g << f
+
+We can create dagger functors from the free category to itself:
+
+>>> ob = {x: z, y: y, z: x}
+>>> ar = {f: g.dagger(), g: f.dagger(), h: h.dagger()}
+>>> F = Functor(ob, ar)
+>>> assert F(diagram) == (h >> f >> g).dagger()
 """
 
 from functools import reduce as fold
@@ -11,36 +28,10 @@ class Ob:
     """
     Defines an object in a free category, only distinguished by its name.
 
-    :param name: Name of the object
-    :type name: any
-
-    >>> x = Ob('x')
-    >>> x
-    Ob('x')
-
-    The name of an object is immutable.
-
-    >>> x.name = 'y'  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    AttributeError: can't set attribute
-
-    Objects with equal names are equal.
-
-    >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
-
-    When printing an object, we only print the name.
-
-    >>> print(x)
-    x
-
-    Objects are hashable whenever their name is.
-
-    >>> assert {x: 42}[x] == 42
-    >>> d = {Ob(['x', 'y']): 42}
-    Traceback (most recent call last):
-    ...
-    TypeError: unhashable type: 'list'
+    Parameters
+    ----------
+    name : any
+        Name of the object
     """
     def __init__(self, name):
         self._name = name
@@ -48,22 +39,51 @@ class Ob:
     @property
     def name(self):
         """
-        Name of the object, can be of any type.
+        The name of an object is immutable.
+
+        >>> x = Ob('x')
+        >>> x.name
+        'x'
+        >>> x.name = 'y'  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        AttributeError: can't set attribute
         """
         return self._name
-
-    def __eq__(self, other):
-        if not isinstance(other, Ob):
-            return False
-        return self.name == other.name
 
     def __repr__(self):
         return "Ob({})".format(repr(self.name))
 
     def __str__(self):
+        """
+        When printing an object, we only print its name.
+
+        >>> x = Ob('x')
+        >>> print(x)
+        x
+        """
         return str(self.name)
 
+    def __eq__(self, other):
+        """
+        Objects are equal only to objects with equal names.
+
+        >>> x = Ob('x')
+        >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
+        """
+        if not isinstance(other, Ob):
+            return False
+        return self.name == other.name
+
     def __hash__(self):
+        """
+        Objects are hashable whenever their name is.
+
+        >>> d = {Ob(['x', 'y']): 42}
+        Traceback (most recent call last):
+        ...
+        TypeError: unhashable type: 'list'
+        """
         return hash(self.name)
 
 
@@ -71,12 +91,26 @@ class Diagram:
     """
     Defines a diagram in a free dagger category.
 
-    :param dom: Domain
-    :type dom: discopy.cat.Ob
-    :param cod: Codomain
-    :type cod: discopy.cat.Ob
-    :param boxes: A list of boxes of type :class:`discopy.cat.Diagram`
-    :type boxes: list
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    >>> diagram = Diagram(x, x, [f, g, h])
+    >>> print(diagram.dagger())
+    h.dagger() >> g.dagger() >> f.dagger()
+
+    Parameters
+    ----------
+    dom : discopy.cat.Ob
+        Domain of the diagram.
+    cod : discopy.cat.Ob
+        Codomain of the diagram.
+    boxes : list of :class:`discopy.cat.Diagram`
+        Boxes of the diagram.
+
+    Raises
+    ------
+    :class:`discopy.cat.AxiomError`
+        Whenever the boxes do not compose.
+
     """
     def __init__(self, dom, cod, boxes, _fast=False):
         if not isinstance(dom, Ob):
@@ -101,31 +135,47 @@ class Diagram:
                 raise AxiomError(
                     "Box with codomain {} expected, got {} instead."
                     .format(cod, repr(boxes[-1])))
-        self._dom, self._cod, self._boxes = dom, cod, boxes
+        self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
 
     @property
     def dom(self):
         """
-        >>> Diagram(Ob('x'), Ob('x'), []).dom
-        Ob('x')
+        The domain of a diagram is immutable.
+
+        >>> diagram = Diagram(Ob('x'), Ob('x'), [])
+        >>> assert diagram.dom == Ob('x')
+        >>> diagram.dom = Ob('y')  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        AttributeError: can't set attribute
         """
         return self._dom
 
     @property
     def cod(self):
         """
-        >>> Diagram(Ob('x'), Ob('x'), []).cod
-        Ob('x')
+        The codomain of a diagram is immutable.
+
+        >>> diagram = Diagram(Ob('x'), Ob('x'), [])
+        >>> assert diagram.cod == Ob('x')
+        >>> diagram.cod = Ob('y')  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        AttributeError: can't set attribute
         """
         return self._cod
 
     @property
     def boxes(self):
         """
-        >>> Diagram(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))]).boxes
-        [Box('f', Ob('x'), Ob('y'))]
+        The list of boxes in a diagram is immutable. Use composition instead.
+
+        >>> f = Box('f', Ob('x'), Ob('y'))
+        >>> diagram = Diagram(Ob('x'), Ob('x'), [])
+        >>> diagram.boxes.append(f)  # This does nothing.
+        >>> assert f not in diagram.boxes
         """
-        return self._boxes
+        return list(self._boxes)
 
     def __len__(self):
         return len(self.boxes)
@@ -152,12 +202,37 @@ class Diagram:
 
     def then(self, other):
         """
-        Returns the composition of self and other.
+        Returns the composition of `self` with a diagram `other`.
 
-        :param other: A diagram with `self.cod == other.dom`
-        :type other: :class:`discopy.cat.Diagram`
-        :returns: :class:`discopy.cat.Diagram`
-        :raises: :class:`discopy.cat.AxiomError`
+        This method is called using the binary operators `>>` and `<<`:
+
+        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+        >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+        >>> assert f.then(g) == f >> g == g << f
+
+        Parameters
+        ----------
+        other : discopy.cat.Diagram
+            such that `self.cod == other.dom`.
+
+        Returns
+        -------
+        diagram : discopy.cat.Diagram
+            such that `diagram.boxes == self.boxes + other.boxes`.
+
+        Raises
+        ------
+        :class:`discopy.cat.AxiomError`
+            whenever `self` and `other` do not compose.
+
+        Notes
+        -----
+
+        We can check the axioms of categories
+        (i.e. composition is unital and associative):
+
+        >>> assert f >> Id(y) == f == Id(x) >> f
+        >>> assert (f >> g) >> h == f >> (g >> h)
         """
         if not isinstance(other, Diagram):
             raise ValueError("Expected Diagram, got {} of type {} instead."
@@ -176,7 +251,24 @@ class Diagram:
 
     def dagger(self):
         """
-        Returns the dagger of self.
+        Returns the dagger of `self`.
+
+        Returns
+        -------
+        diagram : discopy.cat.Diagram
+            such that
+            `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
+
+        Notes
+        -----
+        We can check the axioms of dagger (i.e. a contravariant involutive
+        identity-on-objects endofunctor):
+
+        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> assert f.dagger().dagger() == f
+        >>> assert Id(x).dagger() == Id(x)
+        >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
         """
         return Diagram(self.cod, self.dom,
                        [f.dagger() for f in self.boxes[::-1]], _fast=True)
@@ -185,16 +277,32 @@ class Diagram:
     def id(x):  # pylint: disable=invalid-name
         """
         Returns the identity diagram on x.
+
+        >>> x = Ob('x')
+        >>> assert Diagram.id(x) == Id(x) == Diagram(x, x, [])
+
+        :param x: Any object
+        :type x: :class:`discopy.cat.Ob`
+        :returns: :class:`discopy.cat.Id`
         """
         return Id(x)
 
 
 class Id(Diagram):
     """
-    Defines an identity diagram, i.e. with an empty list of boxes.
+    Defines the identity diagram on x, i.e. with an empty list of boxes.
 
     >>> x = Ob('x')
     >>> assert Id(x) == Diagram(x, x, [])
+
+    Parameters
+    ----------
+        x : discopy.cat.Ob
+            Any object.
+
+    See also
+    --------
+        discopy.cat.Diagram.id
     """
     def __init__(self, x):
         super().__init__(x, x, [], _fast=True)
@@ -213,10 +321,24 @@ class AxiomError(Exception):
 
 
 class Box(Diagram):
-    """ Defines a box as a diagram with a name, and itself as box.
-    Boxes can hold any Python object as data attribute, default is None.
+    """ Defines a box as a diagram with the list of only itself as boxes.
 
-    >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f = Box('f', x, y, data=[42])
+    >>> assert f == Diagram(x, y, [f])
+    >>> assert f.boxes == [f]
+
+    Parameters
+    ----------
+        name : any
+            Name of the box.
+        dom : discopy.cat.Ob
+            Domain.
+        cod : discopy.cat.Ob
+            Codomain.
+        data : any
+            Extra data in the box, default is `None`.
+
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         self._name, self._dom, self._cod = name, dom, cod
@@ -226,18 +348,28 @@ class Box(Diagram):
     @property
     def name(self):
         """
-        >>> Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}]).name
-        'f'
+        The name of a box is immutable.
+
+        >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
+        >>> assert f.name == 'f'
+        >>> f.name = 'g'  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        AttributeError: can't set attribute
         """
         return self._name
 
     @property
     def data(self):
         """
-        The data of a box can be a mutable python object.
+        The attribute `data` is immutable, but it can hold a mutable object.
 
         >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
         >>> assert f.data == [42, {0: 1}]
+        >>> f.data = [42, {0: 2}]  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        AttributeError: can't set attribute
         >>> f.data[1][0] = 2
         >>> assert f.data == [42, {0: 2}]
         """
