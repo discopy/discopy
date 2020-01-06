@@ -194,7 +194,7 @@ class Id(Diagram):
     Defines an identity diagram, i.e. with an empty list of boxes.
 
     >>> x = Ob('x')
-    >>> assert Id(x) == Diagram.id(x) == Diagram(x, x, [])
+    >>> assert Id(x) == Diagram(x, x, [])
     """
     def __init__(self, x):
         super().__init__(x, x, [], _fast=True)

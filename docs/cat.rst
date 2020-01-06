@@ -7,6 +7,7 @@ discopy.cat
 
 .. autoclass:: discopy.cat.Diagram(dom, cod, boxes)
     :members: then, dagger
+    :member-order: bysource
 
 .. autoclass:: discopy.cat.Id
     :show-inheritance:
