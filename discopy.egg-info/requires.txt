@@ -1,0 +1,4 @@
+numpy
+pytket
+jax
+jaxlib

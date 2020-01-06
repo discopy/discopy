@@ -1,0 +1,16 @@
+README.md
+__init__.py
+cat.py
+circuit.py
+config.py
+disco.py
+matrix.py
+moncat.py
+pregroup.py
+setup.cfg
+setup.py
+discopy.egg-info/PKG-INFO
+discopy.egg-info/SOURCES.txt
+discopy.egg-info/dependency_links.txt
+discopy.egg-info/requires.txt
+discopy.egg-info/top_level.txt
