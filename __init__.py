@@ -12,12 +12,12 @@ discopy computes natural language meaning in pictures.
 >>> assert F(Alice @ loves @ Bob >> grammar)
 """
 
-from discopy import cat, moncat, matrix, circuit, disco, config
-from discopy.cat import Quiver
+from discopy import cat, moncat, pivotal, matrix, circuit, pregroup, config
+from discopy.cat import Quiver, Functor
 from discopy.moncat import MonoidalFunctor
+from discopy.pivotal import Ob, Ty, Box, Diagram, Id, Cup, Cap, PivotalFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CircuitFunctor
-from discopy.pregroup import Ob, Ty, Box, Diagram, Id, Cup, Cap, PivotalFunctor
-from discopy.disco import Word, Model, CircuitModel
+from discopy.pregroup import Word, Model, CircuitModel
 
 __version__ = config.VERSION

@@ -1,7 +1,7 @@
-discopy.disco
-=============
+discopy.pivotal
+===============
 
-.. automodule:: discopy.disco
+.. automodule:: discopy.pivotal
     :members:
     :member-order: bysource
     :inherited-members:

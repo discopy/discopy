@@ -13,9 +13,9 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import pregroup, config
+from discopy import pivotal, config
 from discopy.cat import Quiver
-from discopy.pregroup import Ob, Ty, Box, Diagram, PivotalFunctor
+from discopy.pivotal import Ob, Ty, Box, Diagram, PivotalFunctor
 
 try:
     import warnings
@@ -259,7 +259,7 @@ class Matrix(Box):
         return Matrix(Dim(1), x @ y, Id(x).array)
 
 
-class AxiomError(pregroup.AxiomError):
+class AxiomError(pivotal.AxiomError):
     """
     >>> m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
     >>> m >> m  # doctest: +ELLIPSIS

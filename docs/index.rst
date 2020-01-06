@@ -12,10 +12,10 @@ discopy
 
    cat.rst
    moncat.rst
-   pregroup.rst
+   pivotal.rst
    matrix.rst
    circuit.rst
-   disco.rst
+   pregroup.rst
 
 
 Indices and tables
