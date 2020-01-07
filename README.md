@@ -1,10 +1,11 @@
-!["Alice loves Bob" in picture](docs/alice-loves-bob.png)
-
-# Distributional Compositional Python
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=dev)](https://discopy.readthedocs.io/en/dev/)
 [![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=dev)](https://travis-ci.com/oxford-quantum-group/discopy)
 [![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/dev/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
 [![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
+
+!["Alice loves Bob" in picture](docs/alice-loves-bob.png)
+
+# Distributional Compositional Python
 
 `discopy` computes natural language meaning in pictures.
 
