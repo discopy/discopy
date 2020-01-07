@@ -6,6 +6,6 @@ before_install:
   - pip install codecov
 install:
   - pip install ".[test]" . # install package + test dependencies
-script: pytest --with-doctest # run tests
+script: pytest --doctest-modules # run tests
 after_success:
   - codecov # submit coverage
