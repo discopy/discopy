@@ -146,23 +146,31 @@ class Function(Box):
     @property
     def name(self):
         """
-        >>> assert Function('f', Dim(2), Dim(2), lambda x: x).name == 'f'
+        The name of a function is immutable.
+
+        >>> f = Function('f', Dim(2), Dim(2), lambda x: x)
+        >>> assert f.name == 'f'
+        >>> f.name = 'g'  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        AttributeError: can't set attribute
         """
         return self._name
 
     def __repr__(self):
         """
-        >>> Function('Id_2', Dim(2), Dim(2), lambda x: x)
-        Id_2
+        >>> id = Function('Id_2', Dim(2), Dim(2), lambda x: x)
+        >>> assert 'Function(name=Id_2, dom=Dim(2), cod=Dim(2)' in repr(id)
         """
-        return self.name
+        return "Function(name={}, dom={}, cod={}, function={})".format(
+            self.name, self.dom, self.cod, repr(self.function))
 
     def __str__(self):
         """
         >>> print(Function('copy', Dim(2), Dim(2), lambda x: x + x))
         copy
         """
-        return repr(self)
+        return self.name
 
     def __call__(self, value):
         """
@@ -186,14 +194,14 @@ class Function(Box):
     def then(self, other):
         """
         >>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
-        >>> swap >> swap
+        >>> print(swap >> swap)
         (swap >> swap)
         >>> assert np.all((swap >> swap)([1, 0]) == np.array([1, 0]))
         >>> id = Function('id', Dim(3), Dim(3), lambda x: x)
         >>> id >> swap  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        function.AxiomError: id does not compose with swap.
+        function.AxiomError: Function(... does not compose with Function(...
         """
         if not isinstance(other, Function):
             raise ValueError(
@@ -214,9 +222,8 @@ class Function(Box):
         >>> copy = Function('copy', Dim(1), Dim(2),\\
         ...                 lambda x: np.concatenate([x, x]))
         >>> assert np.all((add @ copy)([3, 1, 2]) == np.array([4, 2, 2]))
-        >>> add @ copy @ Id(0)
-        (add @ copy)
-        >>> Id(0) @ Id(0)
+        >>> assert (add @ copy @ Id(0)).name == '(add @ copy)'
+        >>> print(Id(0) @ Id(0))
         Id(0)
         """
         if not isinstance(other, Function):
@@ -253,7 +260,7 @@ class Id(Function):
     """
     Implements the identity function for a given dimension.
 
-    >>> Id(5)
+    >>> print(Id(5))
     Id(5)
     >>> assert Id(1)([476]) == np.array([476])
     >>> assert np.all(Id(2)([0, 1]) == np.array([0, 1]))
@@ -306,12 +313,12 @@ def discofunc(dom, cod, name=False):
     ... def f(x):
     ...     return x[::-1]
     >>> assert isinstance(f, Function)
-    >>> f
+    >>> print(f)
     f
     >>> @discofunc(Dim(2), Dim(2), name='swap')
     ... def f(x):
     ...     return x[::-1]
-    >>> f
+    >>> print(f)
     swap
     """
     if isinstance(dom, int):
