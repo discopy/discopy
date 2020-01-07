@@ -1,4 +1,6 @@
 [![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=dev)](https://travis-ci.com/oxford-quantum-group/discopy)
+[![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/dev/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
+
 
 # Distributional Compositional Python
 
