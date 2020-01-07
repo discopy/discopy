@@ -1,4 +1,4 @@
-discopy.cat.Diagram
+cat.Diagram
 ===================
 
 .. autoclass:: discopy.cat.Diagram(dom, cod, boxes)

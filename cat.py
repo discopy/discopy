@@ -99,16 +99,16 @@ class Diagram:
 
     Parameters
     ----------
-    dom : discopy.cat.Ob
+    dom : cat.Ob
         Domain of the diagram.
-    cod : discopy.cat.Ob
+    cod : cat.Ob
         Codomain of the diagram.
-    boxes : list of :class:`discopy.cat.Diagram`
+    boxes : list of :class:`cat.Diagram`
         Boxes of the diagram.
 
     Raises
     ------
-    :class:`discopy.cat.AxiomError`
+    :class:`cat.AxiomError`
         Whenever the boxes do not compose.
 
     """
@@ -212,17 +212,17 @@ class Diagram:
 
         Parameters
         ----------
-        other : discopy.cat.Diagram
+        other : cat.Diagram
             such that `self.cod == other.dom`.
 
         Returns
         -------
-        diagram : discopy.cat.Diagram
+        diagram : cat.Diagram
             such that `diagram.boxes == self.boxes + other.boxes`.
 
         Raises
         ------
-        :class:`discopy.cat.AxiomError`
+        :class:`cat.AxiomError`
             whenever `self` and `other` do not compose.
 
         Notes
@@ -255,7 +255,7 @@ class Diagram:
 
         Returns
         -------
-        diagram : discopy.cat.Diagram
+        diagram : cat.Diagram
             such that
             `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
 
@@ -282,8 +282,8 @@ class Diagram:
         >>> assert Diagram.id(x) == Id(x) == Diagram(x, x, [])
 
         :param x: Any object
-        :type x: :class:`discopy.cat.Ob`
-        :returns: :class:`discopy.cat.Id`
+        :type x: :class:`cat.Ob`
+        :returns: :class:`cat.Id`
         """
         return Id(x)
 
@@ -297,12 +297,12 @@ class Id(Diagram):
 
     Parameters
     ----------
-        x : discopy.cat.Ob
+        x : cat.Ob
             Any object.
 
     See also
     --------
-        discopy.cat.Diagram.id
+        cat.Diagram.id
     """
     def __init__(self, x):
         super().__init__(x, x, [], _fast=True)
@@ -332,9 +332,9 @@ class Box(Diagram):
     ----------
         name : any
             Name of the box.
-        dom : discopy.cat.Ob
+        dom : cat.Ob
             Domain.
-        cod : discopy.cat.Ob
+        cod : cat.Ob
             Codomain.
         data : any
             Extra data in the box, default is `None`.
@@ -417,18 +417,18 @@ class Functor:
     Parameters
     ----------
     ob : dict_like
-        Mapping from :class:`discopy.cat.Ob` to `ob_cls`
+        Mapping from :class:`cat.Ob` to `ob_cls`
     ar : dict_like
-        Mapping from :class:`discopy.cat.Box` to `ar_cls`
+        Mapping from :class:`cat.Box` to `ar_cls`
 
     Other Parameters
     ----------------
     ob_cls : type, optional
         Class to be used as objects for the codomain of the functor.
-        If None, this will be set to :class:`discopy.cat.Ob`.
+        If None, this will be set to :class:`cat.Ob`.
     ar_cls : type, optional
         Class to be used as arrows for the codomain of the functor.
-        If None, this will be set to :class:`discopy.cat.Diagram`.
+        If None, this will be set to :class:`cat.Diagram`.
 
     See Also
     --------

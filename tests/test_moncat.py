@@ -2,7 +2,7 @@ from pytest import raises
 from discopy.moncat import *
 
 
-def spiral(n_cups):
+def build_spiral(n_cups):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
     """
@@ -20,7 +20,7 @@ def spiral(n_cups):
 
 
 def test_spiral(n=2):
-    spiral = spiral(n)
+    spiral = build_spiral(n)
     unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
     assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
     spiral_nf = spiral.normal_form()

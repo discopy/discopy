@@ -1,6 +1,6 @@
-discopy.moncat.Ty
-=================
+cat.Ob
+==============
 
-.. autoclass:: discopy.moncat.Ty
+.. autoclass:: discopy.cat.Ob
     :members: name, __str__, __eq__, __hash__
     :member-order: bysource

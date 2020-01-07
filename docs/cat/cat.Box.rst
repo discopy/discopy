@@ -1,4 +1,4 @@
-discopy.cat.Box
+cat.Box
 ===============
 
 .. autoclass:: discopy.cat.Box(name, dom, cod, data=None)
