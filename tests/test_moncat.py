@@ -44,7 +44,7 @@ def test_Diagram_init():
     assert "Offset of type int expected, got Ty('x')" in str(err.value)
 
 
-def spiral(n_cups):
+def build_spiral(n_cups):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
     """

@@ -26,22 +26,36 @@ from discopy.cat import Ob, Functor, Quiver
 
 class Ty(Ob):
     """
-    Implements a type as a list of objects, used as dom and cod of diagrams.
+    Implements a type as a list of :class:`cat.Ob`, used as domain and
+    codomain for :class:`moncat.Diagram`.
     Types are the free monoid on objects with product @ and unit Ty().
 
     Parameters
     ----------
-    t : tuple
-        Definition of the type as a tensor of objects
+    objects : list of :class:`cat.Ob`
+        List of objects or object names.
+
+    Warning
+    -------
+    Elements that are not instance of :class:`discopy.cat.Ob` are implicitly
+    taken to be the name of an object, i.e. `Ty('x') == Ty(Ob('x'))`.
+
+    Notes
+    -----
+    We can check the axioms for a monoid.
+
+    >>> x, y, z, unit = Ty('x'), Ty('y'), Ty('z'), Ty()
+    >>> assert x @ unit == x == unit @ x
+    >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
     """
-    def __init__(self, *t):
-        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in t]
+    def __init__(self, *objects):
+        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in objects]
         super().__init__(str(self))
 
     @property
     def objects(self):
         """
-        Recovers the list of objects forming a type.
+        List of objects forming a type.
 
         >>> Ty('x', 'y', 'z').objects
         [Ob('x'), Ob('y'), Ob('z')]
@@ -88,12 +102,6 @@ class Ty(Ob):
         return len(self.objects)
 
     def __iter__(self):
-        """
-        We can iterate over the objects forming a type.
-
-        >>> list(Ty('a', 'b', 'c'))
-        [Ob('a'), Ob('b'), Ob('c')]
-        """
         for i in range(len(self)):
             yield self[i]
 
@@ -115,6 +123,9 @@ class Ty(Ob):
         Returns the tensor of two types, i.e. the concatenation of their lists
         of objects.
 
+        >>> Ty('x') @ Ty('y', 'z')
+        Ty('x', 'y', 'z')
+
         Parameters
         ----------
         other : discopy.moncat.Ty
@@ -123,9 +134,6 @@ class Ty(Ob):
         -------
         type : discopy.moncat.Ty
             such that `type.objects == self.objects + other.objects`.
-
-        >>> Ty('x') @ Ty('y') @ Ty('x', 'z')
-        Ty('x', 'y', 'x', 'z')
         """
         return Ty(*(self.objects + other.objects))
 
