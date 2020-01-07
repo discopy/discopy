@@ -186,7 +186,7 @@ class Diagram(cat.Diagram):
                              "instead.".format(repr(dom), type(dom)))
         if not isinstance(cod, Ty):
             raise ValueError("Codomain of type Ty expected, got {} of type {} "
-                             "instead.".format(repr(cod), type(cod)))
+                             "instead.".tformat(repr(cod), type(cod)))
         if len(boxes) != len(offsets):
             raise ValueError("Boxes and offsets must have the same length.")
         if not _fast:
@@ -214,13 +214,15 @@ class Diagram(cat.Diagram):
     @property
     def offsets(self):
         """
-        >>> Diagram(Ty('x'), Ty('x'), [], []).offsets
-        []
+        The offset for a box in a diagram is the number of wires to its left.
         """
         return list(self._offsets)
 
     def __eq__(self, other):
         """
+        Two diagrams are equal when they have the same dom, cod, boxes
+        and offsets.
+
         >>> Diagram(Ty('x'), Ty('x'), [], []) == Ty('x')
         False
         >>> Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
@@ -232,16 +234,6 @@ class Diagram(cat.Diagram):
                    for attr in ['dom', 'cod', 'boxes', 'offsets'])
 
     def __repr__(self):
-        """
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> Diagram(x, x, [], [])
-        Id(Ty('x'))
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> Diagram(x, y, [f0], [0])  # doctest: +ELLIPSIS
-        Diagram(dom=Ty('x'), cod=Ty('y'), boxes=[Box(...)], offsets=[0])
-        >>> Diagram(x @ z, y @ w, [f0, f1], [0, 1])  # doctest: +ELLIPSIS
-        Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w'), boxes=..., offsets=[0, 1])
-        """
         if not self.boxes:  # i.e. self is identity.
             return repr(Id(self.dom))
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
@@ -249,25 +241,9 @@ class Diagram(cat.Diagram):
             repr(self.boxes), repr(self.offsets))
 
     def __hash__(self):
-        """
-        >>> d = Id(Ty('x'))
-        >>> assert {d: 42}[d] == 42
-        """
         return hash(repr(self))
 
     def __str__(self):
-        """
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> print(Diagram(x, x, [], []))
-        Id(x)
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> print(Diagram(x, y, [f0], [0]))
-        f0
-        >>> print(f0 @ f1)
-        f0 @ Id(z) >> Id(y) @ f1
-        >>> print(f0 @ Id(z) >> Id(y) @ f1)
-        f0 @ Id(z) >> Id(y) @ f1
-        """
         if not self.boxes:  # i.e. self is identity.
             return str(self.id(self.dom))
 
@@ -286,9 +262,22 @@ class Diagram(cat.Diagram):
 
     def tensor(self, other):
         """
+        Returns the horizontal composition of 'self' with a diagram 'other'.
+
+        This method is called using the binary operator `@`:
+
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> assert f0.tensor(f1) == f0.tensor(Id(z)) >> Id(y).tensor(f1)
+        >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
+
+        Parameters
+        ----------
+        other : discopy.moncat.Diagram
+
+        Returns
+        -------
+        diagram : discopy.moncat.Diagram
+            the tensor of 'self' and 'other'.
         """
         if not isinstance(other, Diagram):
             raise ValueError("Expected Diagram, got {} of type {} instead."
@@ -299,19 +288,32 @@ class Diagram(cat.Diagram):
         return Diagram(dom, cod, boxes, offsets, _fast=True)
 
     def __matmul__(self, other):
-        """
-        >>> Id(Ty('x')) @ Id(Ty('y'))
-        Id(Ty('x', 'y'))
-        >>> assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
-        """
         return self.tensor(other)
 
     def then(self, other):
         """
+        Returns the composition of `self` with a diagram `other`.
+
+        This method is called using the binary operators `>>` and `<<`:
+
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> print(Id(x) @ f1 >> f0 @ Id(w))
-        Id(x) @ f1 >> f0 @ Id(w)
+        >>> assert Id(x) @ f1 >> f0 @ Id(w) == f0 @ Id(w) << Id(x) @ f1
+
+        Parameters
+        ----------
+        other : discopy.moncat.Diagram
+            such that `self.cod == other.dom`.
+
+        Returns
+        -------
+        diagram : discopy.moncat.Diagram
+            such that `diagram.boxes == self.boxes + other.boxes`.
+
+        Raises
+        ------
+        :class:`discopy.moncat.AxiomError`
+            whenever `self` and `other` do not compose.
         """
         result = super().then(other)
         return Diagram(result.dom, result.cod, result.boxes,
@@ -319,10 +321,24 @@ class Diagram(cat.Diagram):
 
     def dagger(self):
         """
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> d = Box('f0', x, y) @ Box('f1', z, w)
-        >>> print(d.dagger())
-        Id(y) @ f1.dagger() >> f0.dagger() @ Id(z)
+        Returns the dagger of `self`.
+
+        Returns
+        -------
+        diagram : discopy.moncat.Diagram
+            such that
+            `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
+
+        Notes
+        -----
+        We can check the axioms of dagger (i.e. a contravariant involutive
+        identity-on-objects endofunctor):
+
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> f, g = Box('f', x, y @ z), Box('g', y @ z, z)
+        >>> assert f.dagger().dagger() == f
+        >>> assert Id(x).dagger() == Id(x)
+        >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
         """
         return Diagram(self.cod, self.dom,
                        [f.dagger() for f in self.boxes[::-1]],
@@ -331,7 +347,14 @@ class Diagram(cat.Diagram):
     @staticmethod
     def id(x):
         """
-        >>> assert Diagram.id(Ty('x')) == Diagram(Ty('x'), Ty('x'), [], [])
+        Returns the identity diagram on x.
+
+        >>> assert Diagram.id(Ty('x')) == Id(Ty('x')) ==\\
+        ...                               Diagram(Ty('x'), Ty('x'), [], [])
+
+        :param x: Any type
+        :type x: :class:`discopy.moncat.Ty`
+        :returns: :class:`discopy.moncat.Id`
         """
         return Id(x)
 
@@ -607,6 +630,30 @@ class Diagram(cat.Diagram):
         >>> assert (f >> g).depth() == 2
         """
         return len(self.slice())
+
+
+def _spiral(n_cups):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+
+    >>> n = 2
+    >>> spiral = _spiral(n)
+    >>> unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
+    >>> assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
+    >>> spiral_nf = spiral.normal_form()
+    >>> assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
+    """
+    x = Ty('x')  # pylint: disable=invalid-name
+    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
+    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
+    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
+    return result
 
 
 class AxiomError(cat.AxiomError):
