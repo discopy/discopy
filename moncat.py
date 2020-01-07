@@ -26,19 +26,21 @@ from discopy.cat import Ob, Functor, Quiver
 
 class Ty(Ob):
     """
-    Implements a type as a list of :class:`cat.Ob`, used as domain and
+    Implements a type as a list of :class:`discopy.cat.Ob`, used as domain and
     codomain for :class:`moncat.Diagram`.
-    Types are the free monoid on objects with product @ and unit Ty().
+    Types are the free monoid on objects with product
+    :code:`@` and unit :code:`Ty()`.
 
     Parameters
     ----------
-    objects : list of :class:`cat.Ob`
+    objects : list of :class:`discopy.cat.Ob`
         List of objects or object names.
 
-    Warning
-    -------
+    Important
+    ---------
     Elements that are not instance of :class:`discopy.cat.Ob` are implicitly
-    taken to be the name of an object, i.e. `Ty('x') == Ty(Ob('x'))`.
+    taken to be the name of an object, i.e.
+    :code:`Ty('x', 'y') == Ty(Ob('x'), Ob('y'))`.
 
     Notes
     -----
@@ -128,12 +130,12 @@ class Ty(Ob):
 
         Parameters
         ----------
-        other : discopy.moncat.Ty
+        other : moncat.Ty
 
         Returns
         -------
-        type : discopy.moncat.Ty
-            such that `type.objects == self.objects + other.objects`.
+        t : moncat.Ty
+            such that :code:`t.objects == self.objects + other.objects`.
         """
         return Ty(*(self.objects + other.objects))
 
@@ -146,7 +148,7 @@ class Ty(Ob):
         """
         return self @ other
 
-    def __pow__(self, other):
+    def __pow__(self, n):
         """
         __pow__ may be used to iterate __matmul__
 
@@ -156,11 +158,21 @@ class Ty(Ob):
         Traceback (most recent call last):
         ...
         ValueError: Expected int, got Ty('y') instead.
+
+        Parameters
+        ----------
+        n : int
+            Any natural number.
+
+        Returns
+        -------
+        t : moncat.Ty
+            such that :code:`t == self @ ... @ self`.
         """
-        if not isinstance(other, int):
+        if not isinstance(n, int):
             raise ValueError(
-                "Expected int, got {} instead.".format(repr(other)))
-        return sum(other * (self, ), Ty())
+                "Expected int, got {} instead.".format(repr(n)))
+        return sum(n * (self, ), Ty())
 
 
 class Diagram(cat.Diagram):
@@ -174,18 +186,18 @@ class Diagram(cat.Diagram):
 
     Parameters
     ----------
-    dom : discopy.moncat.Ty
+    dom : moncat.Ty
         Domain of the diagram.
-    cod : discopy.moncat.Ty
+    cod : moncat.Ty
         Codomain of the diagram.
-    boxes : list of :class:`discopy.moncat.Diagram`
+    boxes : list of :class:`Diagram`
         Boxes of the diagram.
-    offsets : list of :class:`int`
+    offsets : list of int
         Offsets of each box in the diagram.
 
     Raises
     ------
-    :class:`discopy.moncat.AxiomError`
+    :class:`moncat.AxiomError`
         Whenever the boxes do not compose.
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
@@ -459,7 +471,7 @@ class Diagram(cat.Diagram):
         >>> d.interchange(0,2) #doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        discopy.moncat.InterchangerError: Boxes ... do not commute.
+        moncat.InterchangerError: Boxes ... do not commute.
         >>> assert d.interchange(2,0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
         """
         if not 0 <= i < len(self) or not 0 <= j < len(self):
@@ -623,12 +635,12 @@ class AxiomError(cat.AxiomError):
     ... # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    discopy.moncat.AxiomError: Codomain x expected, got y instead.
+    moncat.AxiomError: Codomain x expected, got y instead.
     >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
     ... # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    discopy.moncat.AxiomError: Domain y expected, got x instead.
+    moncat.AxiomError: Domain y expected, got x instead.
     """
 
 
@@ -639,7 +651,7 @@ class InterchangerError(AxiomError):
     >>> d.interchange(0, 1)  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    discopy.moncat.InterchangerError: Boxes ... do not commute.
+    moncat.InterchangerError: Boxes ... do not commute.
     """
 
 

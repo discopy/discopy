@@ -103,7 +103,7 @@ class Diagram:
         Domain of the diagram.
     cod : cat.Ob
         Codomain of the diagram.
-    boxes : list of :class:`cat.Diagram`
+    boxes : list of :class:`Diagram`
         Boxes of the diagram.
 
     Raises
@@ -218,7 +218,7 @@ class Diagram:
         Returns
         -------
         diagram : cat.Diagram
-            such that `diagram.boxes == self.boxes + other.boxes`.
+            such that :code:`diagram.boxes == self.boxes + other.boxes`.
 
         Raises
         ------
@@ -281,9 +281,14 @@ class Diagram:
         >>> x = Ob('x')
         >>> assert Diagram.id(x) == Id(x) == Diagram(x, x, [])
 
-        :param x: Any object
-        :type x: :class:`cat.Ob`
-        :returns: :class:`cat.Id`
+        Parameters
+        ----------
+        x : cat.Ob
+            Any object.
+
+        Returns
+        -------
+        cat.Id
         """
         return Id(x)
 
