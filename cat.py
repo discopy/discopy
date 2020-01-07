@@ -402,9 +402,53 @@ class Box(Diagram):
 
 class Functor:
     """
-    Defines a functor given its image on objects and boxes.
+    Defines a dagger functor which can be applied to objects and diagrams.
+
+    By default, `Functor` defines an endofunctor from the free dagger category
+    to itself. The codomain can be changed with the optional parameters
+    `ob_cls` and `ar_cls`.
+
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g.dagger()}
+    >>> F = Functor(ob, ar)
+    >>> assert F(x) == y and F(f) == g
+
+    Parameters
+    ----------
+    ob : dict_like
+        Mapping from :class:`discopy.cat.Ob` to `ob_cls`
+    ar : dict_like
+        Mapping from :class:`discopy.cat.Box` to `ar_cls`
+
+    Other Parameters
+    ----------------
+    ob_cls : type, optional
+        Class to be used as objects for the codomain of the functor.
+        If None, this will be set to :class:`discopy.cat.Ob`.
+    ar_cls : type, optional
+        Class to be used as arrows for the codomain of the functor.
+        If None, this will be set to :class:`discopy.cat.Diagram`.
+
+    See Also
+    --------
+    Quiver : For functors from infinitely-generated categories,
+             use quivers to create dict-like objects from functions.
+
+    Notes
+    -----
+    We can check the axioms of dagger functors.
+
+    >>> assert F(Id(x)) == Id(F(x))
+    >>> assert F(f >> g) == F(f) >> F(g)
+    >>> assert F(f.dagger()) == F(f).dagger()
+    >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
     """
-    def __init__(self, ob, ar, ob_cls=Ob, ar_cls=Diagram):
+    def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
+        if ob_cls is None:
+            ob_cls = Ob
+        if ar_cls is None:
+            ar_cls = Diagram
         self.ob_cls, self.ar_cls = ob_cls, ar_cls
         self._ob, self._ar = ob, ar
 
@@ -447,7 +491,40 @@ class Functor:
 
 class Quiver:
     """
-    Wraps a Python function into a dict, to be used as input to Functor.
+    Wraps a function into an immutable dict-like object, used as input for a
+    :class:`Functor`.
+
+    >>> ob, ar = Quiver(lambda x: x), Quiver(lambda f: f)
+    >>> F = Functor(ob, ar)
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> assert F(x) == x and F(f >> g) == f >> g
+
+    Parameters
+    ----------
+    func : callable
+        Any callable Python object.
+
+    Notes
+    -----
+    In conjunction with :attr:`Box.data`, this can be used to create a
+    :class:`Functor` from a free category with infinitely many generators.
+
+    >>> h = Box('h', x, x, data=42)
+    >>> def ar_func(box):
+    ...     return Box(box.name, box.dom, box.cod, data=box.data + 1)
+    >>> F = Functor(ob, Quiver(ar_func))
+    >>> assert F(h).data == 43 and F(F(h)).data == 44
+
+    If :attr:`Box.data` is a mutable object, then so can be the image of a
+    :class:`Functor` on it.
+
+    >>> ar = Quiver(lambda f: f if all(f.data) else f.dagger())
+    >>> F = Functor(ob, ar)
+    >>> m = Box('m', x, x, data=[True])
+    >>> assert F(m) == m
+    >>> m.data.append(False)
+    >>> assert F(m) == m.dagger()
     """
     def __init__(self, func):
         self._func = func
