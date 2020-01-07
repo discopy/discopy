@@ -1,4 +1,4 @@
-discopy.cat.Id
+cat.Id
 ==============
 
 .. autoclass:: discopy.cat.Id

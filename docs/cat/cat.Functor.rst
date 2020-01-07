@@ -1,4 +1,4 @@
-discopy.cat.Functor
+cat.Functor
 ===================
 
 .. autoclass:: discopy.cat.Functor

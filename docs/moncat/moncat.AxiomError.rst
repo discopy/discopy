@@ -1,4 +1,4 @@
-discopy.moncat.AxiomError
+moncat.AxiomError
 =========================
 
 .. autoclass:: discopy.moncat.AxiomError

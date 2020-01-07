@@ -78,7 +78,7 @@ def test_Diagram_matmul():
     assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
 
 
-def spiral(n_cups):
+def build_spiral(n_cups):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
     """
@@ -96,8 +96,8 @@ def spiral(n_cups):
 
 
 def test_spiral(n=2):
-    spira = spiral(n)
+    spiral = build_spiral(n)
     unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
-    assert spira.boxes[0] == unit and spira.boxes[n + 1] == counit
-    spira_nf = spira.normal_form()
-    assert spira_nf.boxes[-1] == counit and spira_nf.boxes[n] == unit
+    assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
+    spiral_nf = spiral.normal_form()
+    assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit

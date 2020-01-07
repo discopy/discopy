@@ -1,4 +1,4 @@
-discopy.moncat.Id
+moncat.Id
 =================
 
 .. autoclass:: discopy.moncat.Id
