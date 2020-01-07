@@ -253,9 +253,11 @@ class Circuit(Diagram):
     def to_tk(self):
         """ Returns a pytket circuit.
 
-        >>> c = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1]).to_tk()
-        >>> list(c)
-        [SWAP q[0], q[1];, Rx(0.25PI) q[1];, CX q[1], q[2];]
+        >>> circuit = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1]).to_tk()
+        >>> for g in circuit: print((g.op.get_type(), g.op.get_params()))
+        (OpType.SWAP, [])
+        (OpType.Rx, [0.25])
+        (OpType.CX, [])
         """
         import pytket as tk  # pylint: disable=import-outside-toplevel
         tk_circuit = tk.Circuit(len(self.dom))
