@@ -29,23 +29,20 @@ class Ty(Ob):
     Implements a type as a list of objects, used as dom and cod of diagrams.
     Types are the free monoid on objects with product @ and unit Ty().
 
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> assert x @ y != y @ x
-    >>> assert x @ Ty() == x == Ty() @ x
-    >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
+    Parameters
+    ----------
+    t : tuple
+        Definition of the type as a tensor of objects
     """
     def __init__(self, *t):
-        """
-        >>> t = Ty('x', 'y', 'z')
-        >>> list(t)
-        [Ob('x'), Ob('y'), Ob('z')]
-        """
         self._objects = [x if isinstance(x, Ob) else Ob(x) for x in t]
         super().__init__(str(self))
 
     @property
     def objects(self):
         """
+        Recovers the list of objects forming a type.
+
         >>> Ty('x', 'y', 'z').objects
         [Ob('x'), Ob('y'), Ob('z')]
         """
@@ -53,6 +50,8 @@ class Ty(Ob):
 
     def __eq__(self, other):
         """
+        Types are equal when their lists of objects are.
+
         >>> assert Ty('x', 'y') == Ty('x') @ Ty('y')
         """
         if not isinstance(other, Ty):
@@ -61,20 +60,20 @@ class Ty(Ob):
 
     def __hash__(self):
         """
+        Types are hashable whenever the name of their objects is.
+
         >>> {Ty('x', 'y', 'z'): 42}[Ty('x', 'y', 'z')]
         42
         """
         return hash(repr(self))
 
     def __repr__(self):
-        """
-        >>> Ty('x', 'y')
-        Ty('x', 'y')
-        """
         return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
 
     def __str__(self):
         """
+        When printing a type we print the tensor of the name of its objects.
+
         >>> print(Ty('x', 'y'))
         x @ y
         """
@@ -82,12 +81,16 @@ class Ty(Ob):
 
     def __len__(self):
         """
+        The length of a type is the length of the list of its objects.
+
         >>> assert len(Ty('x', 'y')) == 2
         """
         return len(self.objects)
 
     def __iter__(self):
         """
+        We can iterate over the objects forming a type.
+
         >>> list(Ty('a', 'b', 'c'))
         [Ob('a'), Ob('b'), Ob('c')]
         """
@@ -96,11 +99,10 @@ class Ty(Ob):
 
     def __getitem__(self, key):
         """
+        __getitem__ may be used to slice a type seen as a list of objects.
+
         >>> t = Ty('x', 'y', 'z')
-        >>> t[0]
-        Ob('x')
-        >>> t[:1]
-        Ty('x')
+        >>> assert t[0] == Ob('x') != Ty('x') == t[:1]
         >>> t[1:]
         Ty('y', 'z')
         """
@@ -110,13 +112,26 @@ class Ty(Ob):
 
     def __matmul__(self, other):
         """
-        >>> Ty('x') @ Ty('y')
-        Ty('x', 'y')
+        Returns the tensor of two types, i.e. the concatenation of their lists
+        of objects.
+
+        Parameters
+        ----------
+        other : discopy.moncat.Ty
+
+        Returns
+        -------
+        type : discopy.moncat.Ty
+            such that `type.objects == self.objects + other.objects`.
+
+        >>> Ty('x') @ Ty('y') @ Ty('x', 'z')
+        Ty('x', 'y', 'x', 'z')
         """
         return Ty(*(self.objects + other.objects))
 
     def __add__(self, other):
-        """ __add__ may be used instead of __matmul__ for taking sums of types.
+        """
+        __add__ may be used instead of __matmul__ for taking tensors of types.
 
         >>> sum([Ty('x'), Ty('y'), Ty('z')], Ty())
         Ty('x', 'y', 'z')
@@ -125,13 +140,14 @@ class Ty(Ob):
 
     def __pow__(self, other):
         """
+        __pow__ may be used to iterate __matmul__
+
         >>> Ty('x') ** 3
         Ty('x', 'x', 'x')
         >>> Ty('x') ** Ty('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         ValueError: Expected int, got Ty('y') instead.
-        >>> assert Ty('x') ** 42 == Ty('x') ** 21 @ Ty('x') ** 21
         """
         if not isinstance(other, int):
             raise ValueError(
@@ -140,40 +156,31 @@ class Ty(Ob):
 
 
 class Diagram(cat.Diagram):
-    """ Implements a diagram with dom, cod, a list of boxes and offsets.
+    """
+    Defines a diagram given dom, cod, a list of boxes and offsets.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    >>> d = Diagram(x @ z, y @ w, [f0, f1], [0, 1])
-    >>> assert d == f0 @ f1
+    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
+    >>> assert d == f0 @ f1 >> g
+
+    Parameters
+    ----------
+    dom : discopy.moncat.Ty
+        Domain of the diagram.
+    cod : discopy.moncat.Ty
+        Codomain of the diagram.
+    boxes : list of :class:`discopy.moncat.Diagram`
+        Boxes of the diagram.
+    offsets : list of :class:`int`
+        Offsets of each box in the diagram.
+
+    Raises
+    ------
+    :class:`discopy.moncat.AxiomError`
+        Whenever the boxes do not compose.
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
-        """
-        >>> Diagram(Ty('x'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-        ... # doctest: +ELLIPSIS
-        Diagram(dom=Ty('x'), cod=Ty('y'), boxes=[Box(...)], offsets=[0])
-        >>> Diagram('x', Ty('x'), [], [])  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Domain of type Ty expected, got 'x' ... instead.
-        >>> Diagram(Ty('x'), 'x', [], [])  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Codomain of type Ty expected, got 'x' ... instead.
-        >>> Diagram(Ty('x'), Ty('x'), [], [1])  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Boxes and offsets must have the same length.
-        >>> Diagram(Ty('x'), Ty('x'), [1], [1])  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Box of type Diagram expected, got 1 ... instead.
-        >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
-        ... # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Offset of type int expected, got Ty('x') ... instead.
-        """
         if not isinstance(dom, Ty):
             raise ValueError("Domain of type Ty expected, got {} of type {} "
                              "instead.".format(repr(dom), type(dom)))
