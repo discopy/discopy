@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 from pytest import raises
 from discopy.moncat import *
 
@@ -42,6 +44,38 @@ def test_Diagram_init():
     with raises(ValueError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
     assert "Offset of type int expected, got Ty('x')" in str(err.value)
+
+
+def test_Diagram_offsets():
+    assert Diagram(Ty('x'), Ty('x'), [], []).offsets == []
+
+
+def test_Diagram_repr():
+    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    assert repr(Diagram(x, x, [], [])) == "Id(Ty('x'))"
+    f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    assert "Diagram(dom=Ty('x'), cod=Ty('y')" in repr(Diagram(x, y, [f0], [0]))
+    assert "offsets=[0]" in repr(Diagram(x, y, [f0], [0]))
+    assert "Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w')" in repr(f0 @ f1)
+    assert "offsets=[0, 1]" in repr(f0 @ f1)
+
+
+def test_Diagram_hash():
+    assert {Id(Ty('x')): 42}[Id(Ty('x'))] == 42
+
+
+def test_Diagram_str():
+    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    assert str(Diagram(x, x, [], [])) == "Id(x)"
+    f0, f1 = Box('f0', x, y), Box('f1', z, w)
+    assert str(Diagram(x, y, [f0], [0])) == "f0"
+    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ Id(z) >> Id(y) @ f1"
+    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ Id(z) >> Id(y) @ f1"
+
+
+def test_Diagram_matmul():
+    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x', 'y'))
+    assert Id(Ty('x')) @ Id(Ty('y')) == Id(Ty('x')).tensor(Id(Ty('y')))
 
 
 def build_spiral(n_cups):
