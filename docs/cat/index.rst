@@ -6,10 +6,10 @@ discopy.cat
 .. toctree::
     :caption: Contents:
 
-    cat.Ob.rst
-    cat.Diagram.rst
-    cat.Id.rst
-    cat.Box.rst
-    cat.Functor.rst
-    cat.Quiver.rst
-    cat.AxiomError.rst
+    Ob.rst
+    Diagram.rst
+    Id.rst
+    Box.rst
+    Functor.rst
+    Quiver.rst
+    AxiomError.rst

@@ -6,9 +6,9 @@ discopy.moncat
 .. toctree::
     :caption: Contents:
 
-    moncat.Ty.rst
-    moncat.Diagram.rst
-    moncat.Id.rst
-    moncat.Box.rst
-    moncat.MonoidalFunctor.rst
-    moncat.InterchangerError.rst
+    Ty.rst
+    Diagram.rst
+    Id.rst
+    Box.rst
+    MonoidalFunctor.rst
+    InterchangerError.rst
