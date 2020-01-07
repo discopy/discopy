@@ -64,25 +64,7 @@ python setup.py install
 
 ## Documentation
 
-For now all of it is in the code. You can use `help` if needed:
-
-```python
->>> help(discopy.pregroup)
-
-Help on module discopy.pregroup in discopy:
-
-NAME
-    discopy.pregroup
-
-DESCRIPTION
-    Implements free dagger pivotal and rigid monoidal categories.
-    The objects are given by the free pregroup, the arrows by planar diagrams.
-
-    >>> unit, s, n = Ty(), Ty('s'), Ty('n')
-    >>> t = n.r @ s @ n.l
-    >>> assert t @ unit == t == unit @ t
-    >>> assert t.l.r == t == t.r.l
-```
+The documentation is hosted at https://discopy.readthedocs.io/.
 
 You can also checkout the [notebooks](notebooks/) for a demo!
 
