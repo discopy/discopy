@@ -11,7 +11,7 @@ discopy
    :caption: Contents:
 
    cat/index.rst
-   moncat.rst
+   moncat/index.rst
    pivotal.rst
    matrix.rst
    circuit.rst
