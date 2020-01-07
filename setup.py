@@ -20,5 +20,8 @@ if __name__ == '__main__':
           download_url='https://github.com/'
                        'oxford-quantum-group/discopy/archive/'
                        '{}.tar.gz'.format(VERSION),
-          install_requires=['numpy'],
+          install_requires=['numpy',
+                            'networkx',
+                            'matplotlib',
+                            'pytket'],
           )
