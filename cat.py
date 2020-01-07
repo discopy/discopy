@@ -274,7 +274,7 @@ class Diagram:
                        [f.dagger() for f in self.boxes[::-1]], _fast=True)
 
     @staticmethod
-    def id(x):  # pylint: disable=invalid-name
+    def id(x):
         """
         Returns the identity diagram on x.
 
@@ -458,7 +458,7 @@ class Functor:
         self._ob, self._ar = ob, ar
 
     @property
-    def ob(self):  # pylint: disable=invalid-name
+    def ob(self):
         """
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> assert F.ob == {Ob('x'): Ob('y')}
@@ -466,7 +466,7 @@ class Functor:
         return self._ob
 
     @property
-    def ar(self):  # pylint: disable=invalid-name
+    def ar(self):
         """
         >>> f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
         >>> F = Functor({}, {f: g})

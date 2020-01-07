@@ -14,6 +14,8 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
+from random import choice, random as _random, seed as _seed
+import pytket as tk
 from discopy.cat import Quiver
 from discopy.pivotal import Ty, Box, Diagram, PivotalFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
@@ -259,7 +261,6 @@ class Circuit(Diagram):
         (OpType.Rx, [0.25])
         (OpType.CX, [])
         """
-        import pytket as tk  # pylint: disable=import-outside-toplevel
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
@@ -330,8 +331,6 @@ class Circuit(Diagram):
         >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
         Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
         """
-        # pylint: disable=import-outside-toplevel
-        from random import choice, random as _random, seed as _seed
         if seed is not None:
             _seed(seed)
         if n_qubits == 1:
@@ -380,7 +379,7 @@ class Id(Circuit):
         return repr(self)
 
 
-class Gate(Box, Circuit):  # pylint: disable=too-many-ancestors
+class Gate(Box, Circuit):
     """ Implements quantum gates as boxes in a circuit diagram.
 
     >>> CX
@@ -428,7 +427,7 @@ class Gate(Box, Circuit):  # pylint: disable=too-many-ancestors
                     data=self.data, _dagger=not self._dagger)
 
 
-class Ket(Box, Circuit):  # pylint: disable=too-many-ancestors
+class Ket(Box, Circuit):
     """ Implements ket for a given bitstring.
 
     >>> Ket(1, 1, 0).eval()
@@ -471,7 +470,7 @@ class Ket(Box, Circuit):  # pylint: disable=too-many-ancestors
         return matrix.array
 
 
-class Bra(Box, Circuit):  # pylint: disable=too-many-ancestors
+class Bra(Box, Circuit):
     """ Implements bra for a given bitstring.
 
     >>> Bra(1, 1, 0).eval()
@@ -513,7 +512,7 @@ class Bra(Box, Circuit):  # pylint: disable=too-many-ancestors
         return Ket(*self.bitstring).array
 
 
-class Rz(Gate):  # pylint: disable=too-many-ancestors
+class Rz(Gate):
     """
     >>> assert np.all(Rz(0).array == np.identity(2))
     >>> assert np.allclose(Rz(0.5).array, Z.array)
@@ -566,7 +565,7 @@ class Rz(Gate):  # pylint: disable=too-many-ancestors
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
-class Rx(Gate):  # pylint: disable=too-many-ancestors
+class Rx(Gate):
     """
     >>> assert np.all(Rx(0).array == np.identity(2))
     >>> assert np.all(np.round(Rx(0.5).array) == X.array)
@@ -666,7 +665,7 @@ class CircuitFunctor(PivotalFunctor):
         return result
 
 
-def sqrt(x):  # pylint: disable=invalid-name
+def sqrt(x):
     """
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])

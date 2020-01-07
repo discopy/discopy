@@ -20,6 +20,8 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
+import matplotlib.pyplot as plt
+import networkx as nx
 from discopy import cat
 from discopy.cat import Ob, Functor, Quiver, AxiomError
 
@@ -206,7 +208,7 @@ class Diagram(cat.Diagram):
                              "instead.".format(repr(dom), type(dom)))
         if not isinstance(cod, Ty):
             raise ValueError("Codomain of type Ty expected, got {} of type {} "
-                             "instead.".tformat(repr(cod), type(cod)))
+                             "instead.".format(repr(cod), type(cod)))
         if len(boxes) != len(offsets):
             raise ValueError("Boxes and offsets must have the same length.")
         if not _fast:
@@ -408,10 +410,6 @@ class Diagram(cat.Diagram):
         wire_0_1 -> box_1
         wire_1_0 -> output_0
         """
-        # pylint: disable=import-outside-toplevel
-        import matplotlib.pyplot as plt
-        import networkx as nx
-
         def build_graph():
             graph, positions, labels = nx.Graph(), dict(), dict()
 
@@ -628,30 +626,6 @@ class Diagram(cat.Diagram):
         >>> assert (f >> g).depth() == 2
         """
         return len(self.slice())
-
-
-def _spiral(n_cups):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-
-    >>> n = 2
-    >>> spiral = _spiral(n)
-    >>> unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
-    >>> assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
-    >>> spiral_nf = spiral.normal_form()
-    >>> assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
-    """
-    x = Ty('x')  # pylint: disable=invalid-name
-    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
-    return result
 
 
 class InterchangerError(AxiomError):

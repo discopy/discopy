@@ -15,6 +15,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 ...         == snake_l.dagger() << snake_r.dagger()
 """
 
+import networkx as nx
 from discopy import cat, moncat
 
 
@@ -38,7 +39,7 @@ class Ob(cat.Ob):
         super().__init__(name)
 
     @property
-    def z(self):  # pylint: disable=invalid-name
+    def z(self):
         """
         >>> Ob('a').z
         0
@@ -46,7 +47,7 @@ class Ob(cat.Ob):
         return self._z
 
     @property
-    def l(self):  # pylint: disable=invalid-name
+    def l(self):
         """
         >>> Ob('a').l
         Ob('a', z=-1)
@@ -54,7 +55,7 @@ class Ob(cat.Ob):
         return Ob(self.name, self.z - 1)
 
     @property
-    def r(self):  # pylint: disable=invalid-name
+    def r(self):
         """
         >>> Ob('a').r
         Ob('a', z=1)
@@ -134,7 +135,7 @@ class Ty(moncat.Ty):
             repr(x if x.z else x.name) for x in self.objects))
 
     @property
-    def l(self):  # pylint: disable=invalid-name
+    def l(self):
         """
         >>> s, n = Ty('s'), Ty('n')
         >>> (s @ n.r).l
@@ -143,7 +144,7 @@ class Ty(moncat.Ty):
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
-    def r(self):  # pylint: disable=invalid-name
+    def r(self):
         """
         >>> s, n = Ty('s'), Ty('n')
         >>> (s @ n.l).r
@@ -256,7 +257,6 @@ class Diagram(moncat.Diagram):
         wire_1_2 -> wire_2_1
         wire_2_1 -> output_0
         """
-        import networkx as nx  # pylint: disable=import-outside-toplevel
         graph, positions, labels = moncat.Diagram.draw(self, _test=True)
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
@@ -268,7 +268,7 @@ class Diagram(moncat.Diagram):
         return super().draw(_test=_test, _data=(graph, positions, labels))
 
     @staticmethod
-    def cups(x, y):  # pylint: disable=invalid-name
+    def cups(x, y):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -293,7 +293,7 @@ class Diagram(moncat.Diagram):
         return cups
 
     @staticmethod
-    def caps(x, y):  # pylint: disable=invalid-name
+    def caps(x, y):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')

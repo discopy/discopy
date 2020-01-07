@@ -44,7 +44,7 @@ class Dim(Ty):
         ...
         ValueError: Expected positive integer, got -1 instead.
         """
-        for x in xs:  # pylint: disable=invalid-name
+        for x in xs:
             if not isinstance(x, int) or x < 1:
                 raise ValueError("Expected positive integer, got {} instead."
                                  .format(repr(x)))
@@ -269,7 +269,7 @@ class AxiomError(pivotal.AxiomError):
     """
 
 
-class Id(Matrix):  # pylint: disable=too-many-ancestors
+class Id(Matrix):
     """ Implements the identity matrix for a given dimension.
 
     >>> Id(1)
@@ -320,7 +320,7 @@ class MatrixFunctor(PivotalFunctor):
         ...
         ValueError: Expected int or Dim object, got Ty('y') instead.
         """
-        for x, y in ob.items():  # pylint: disable=invalid-name
+        for x, y in ob.items():
             if isinstance(y, int):
                 ob.update({x: Dim(y)})
             elif not isinstance(y, Dim):
