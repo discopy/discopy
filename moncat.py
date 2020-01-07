@@ -21,7 +21,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 from discopy import cat
-from discopy.cat import Ob, Functor, Quiver
+from discopy.cat import Ob, Functor, Quiver, AxiomError
 
 
 class Ty(Ob):
@@ -197,7 +197,7 @@ class Diagram(cat.Diagram):
 
     Raises
     ------
-    :class:`moncat.AxiomError`
+    :class:`discopy.cat.AxiomError`
         Whenever the boxes do not compose.
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
@@ -474,28 +474,6 @@ class Diagram(cat.Diagram):
         Returns a new diagram with boxes i and j interchanged.
         If there is a choice, i.e. when interchanging an effect and a state,
         then we return the right interchange move by default.
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x, y)
-        >>> d = f @ f.dagger()
-        >>> print(d.interchange(0, 0))
-        f @ Id(y) >> Id(y) @ f.dagger()
-        >>> print(d.interchange(0, 1))
-        Id(x) @ f.dagger() >> f @ Id(x)
-        >>> print((d >> d.dagger()).interchange(0, 2))
-        Id(x) @ f.dagger() >> Id(x) @ f >> f @ Id(y) >> f.dagger() @ Id(y)
-        >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
-        >>> print((cup >> cap).interchange(0, 1))
-        cap @ Id(x @ x) >> Id(x @ x) @ cup
-        >>> print((cup >> cap).interchange(0, 1, left=True))
-        Id(x @ x) @ cap >> cup @ Id(x @ x)
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> d = f0 @ Id(y) >> f1 @ f1 >> Id(x) @ f0
-        >>> d.interchange(0,2) #doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        moncat.InterchangerError: Boxes ... do not commute.
-        >>> assert d.interchange(2,0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
         """
         if not 0 <= i < len(self) or not 0 <= j < len(self):
             raise IndexError("Expected indices in range({}), got {} instead."
@@ -676,29 +654,9 @@ def _spiral(n_cups):
     return result
 
 
-class AxiomError(cat.AxiomError):
-    """
-    >>> Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
-    ... # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    moncat.AxiomError: Codomain x expected, got y instead.
-    >>> Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-    ... # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    moncat.AxiomError: Domain y expected, got x instead.
-    """
-
-
 class InterchangerError(AxiomError):
     """
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> d = Box('f', x, y) >> Box('g', y, z)
-    >>> d.interchange(0, 1)  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    moncat.InterchangerError: Boxes ... do not commute.
+    This is raised when we try to interchange conected boxes.
     """
 
 

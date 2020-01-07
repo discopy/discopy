@@ -12,4 +12,3 @@ discopy.moncat
     moncat.Box.rst
     moncat.MonoidalFunctor.rst
     moncat.InterchangerError.rst
-    moncat.AxiomError.rst
