@@ -10,7 +10,7 @@ discopy
    :maxdepth: 2
    :caption: Contents:
 
-   cat.rst
+   cat/index.rst
    moncat.rst
    pivotal.rst
    matrix.rst

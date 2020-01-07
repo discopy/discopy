@@ -170,12 +170,12 @@ class FAIL(Exception):
     >>> eager_parse(Alice, Bob, loves)  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    discopy.disco.FAIL
+    discopy.pregroup.FAIL
     >>> who = Word('who', n.r @ n @ s.l @ n)
     >>> eager_parse(Alice, loves, Bob, who, loves, Alice)  # doctest: +ELLIPSIS
     Traceback (most recent call last):
     ...
-    discopy.disco.FAIL
+    discopy.pregroup.FAIL
     """
 
 

@@ -202,7 +202,7 @@ class Diagram(cat.Diagram):
                 raise AxiomError(
                     "Codomain {} expected, got {} instead.".format(cod, scan))
         super().__init__(dom, cod, [], _fast=True)
-        self._boxes, self._offsets = boxes, offsets
+        self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
     @property
     def offsets(self):
@@ -210,7 +210,7 @@ class Diagram(cat.Diagram):
         >>> Diagram(Ty('x'), Ty('x'), [], []).offsets
         []
         """
-        return self._offsets
+        return list(self._offsets)
 
     def __eq__(self, other):
         """
