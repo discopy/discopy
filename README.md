@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=dev)](https://travis-ci.com/oxford-quantum-group/discopy)
+
 # Distributional Compositional Python
 
 `discopy` computes natural language meaning in pictures.
