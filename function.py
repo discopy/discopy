@@ -43,7 +43,7 @@ class Dim(Ty):
     >>> assert Dim(2) @ Dim(3) == Dim(5)
     >>> assert sum([Dim(0), Dim(3), Dim(4)], Dim(0)) == Dim(7)
     """
-    def __init__(self, x):
+    def __init__(self, x=0):
         if not isinstance(x, int) or x < 0:
             raise ValueError("Expected non-negative integer, "
                              "got {} instead.".format(repr(x)))
@@ -81,11 +81,11 @@ class Function(Box):
 
     Parameters
     ----------
-    name: string
+    name: 'string'
         Name of the function.
-    dom : function.Dim
+    dom : 'function.Dim' or non-negative 'int'
         Domain of the diagram.
-    cod : function.Dim
+    cod : 'function.Dim' or non-negative 'int'
         Codomain of the diagram.
     function: any
         Python function with a call method.
@@ -272,6 +272,13 @@ class Function(Box):
                                    other(x[self.dom.dim:])])
         return Function(newname, dom, cod, f)
 
+    @staticmethod
+    def id(x):
+        """
+        >>> assert np.all(Function.id(2)([1, 2]) == np.array([1, 2]))
+        """
+        return Id(x)
+
 
 class AxiomError(cat.AxiomError):
     """
@@ -310,21 +317,8 @@ class NumpyFunctor(MonoidalFunctor):
     >>> F = NumpyFunctor({x: Dim(1), y: Dim(2)}, {f: copy, g: add})
     >>> assert F(f >> g)([1]) == np.array([2])
     """
-    def __call__(self, diagram):
-        if isinstance(diagram, Ty):
-            return sum([self.ob[Ty(x)] for x in diagram], Dim(0))
-        if isinstance(diagram, Box):
-            return super().__call__(diagram)
-        if isinstance(diagram, Diagram):
-            scan, result = diagram.dom, Id(self(diagram.dom))
-            for box, off in zip(diagram.boxes, diagram.offsets):
-                id_l = Id(self(scan[:off]))
-                id_r = Id(self(scan[off + len(box.dom):]))
-                result = result >> id_l @ self(box) @ id_r
-                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-            return result
-        raise ValueError("Diagram expected, got {} of type {} "
-                         "instead.".format(repr(diagram), type(diagram)))
+    def __init__(self, ob, ar):
+        super().__init__(ob, ar, ob_cls=Dim, ar_cls=Function)
 
 
 def discofunc(dom, cod, name=False):

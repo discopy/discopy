@@ -671,7 +671,7 @@ class MonoidalFunctor(Functor):
         f.dagger() @ Id(x) >> Id(x) @ f
         """
         if isinstance(diagram, Ty):
-            return sum([self.ob[self.ob_cls(x)] for x in diagram],
+            return sum([self.ob[type(diagram)(x)] for x in diagram],
                        self.ob_cls())  # the empty type is the unit for sum.
         if isinstance(diagram, Box):
             return super().__call__(diagram)
