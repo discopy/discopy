@@ -3,41 +3,33 @@
 Implements the symmetric monoidal category (PROP) of functions on Numpy lists
 with cartesian product as tensor.
 
-Symmetry.
+We can check the axioms for symmetry on specific values.
 
->>> @discofunc(2, 2)
-... def swap(x):
-...     return x[::-1]
->>> assert isinstance(swap, Function)
->>> assert np.all((swap >> swap)([1, 2]) == np.array([1, 2]))
->>> assert np.all((swap @ swap)([0, 1, 2, 3]) == np.array([1, 0, 3, 2]))
+>>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
+>>> assert np.all((swap >> swap)([1, 2]) == Id(2)([1, 2]))
+>>> assert np.all((Id(1) @ swap >> swap @ Id(1) >> Id(1) @ swap)([0, 1, 2])
+...            == (swap @ Id(1) >> Id(1) @ swap >> swap @ Id(1))([0, 1, 2]))
 
 Dim(0) is a terminal object with the following discarding map.
 
 >>> discard = lambda n: Function('discard', Dim(n), Dim(0), lambda x: [])
 >>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
 
-Copy and add form a bimonoid.
+The following maps witness the categorical product.
 
->>> @discofunc(1, 2)
-... def copy(x):
-...     return np.concatenate([x, x])
->>> assert np.all(copy([1]) == np.array([1, 1]))
->>> @discofunc(2, 1)
-... def add(x):
-...     return np.array([x[0] + x[1]])
->>> assert np.all(add([1, 2]) == np.array([3]))
->>> assert np.all((copy @ copy >> Id(1) @ swap @ Id(1) >>\\
-...               add @ add)([123, 25]) == (add >> copy)([123, 25]))
+>>> proj1 = Function('proj1', Dim(2), Dim(1), lambda x: np.array(x[0]))
+>>> proj2 = Function('proj2', Dim(2), Dim(1), lambda x: np.array(x[1]))
+>>> copy = Function('copy', Dim(1), Dim(2), lambda x: np.concatenate([x, x]))
+>>> assert (copy >> proj1)([46]) == Id(1)([46]) == (copy >> proj2)([46])
 
-Numpy/Jax functions are also accepted.
+The decorator '@discofunc' can be used to turn a python function into a
+discopy function, given dom and cod information.
 
+>>> @discofunc(2, 2)
+... def f(x):
+...     return np.absolute(x[::-1])
 >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
->>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
->>> def scalar_mult(scalar):
-...     return Function(repr(scalar), Dim(1), Dim(1), lambda x: scalar * x)
->>> assert np.all((scalar_mult(2) @ scalar_mult(1) >> abs)(np.array([-1, -2]))
-...               == np.array([2, 2]))
+>>> assert np.all((swap >> abs)([-134, 2]) == f([-134, 2]))
 """
 from functools import reduce as fold
 from discopy import cat
@@ -112,17 +104,24 @@ class Function(Box):
     """
     Wraps python functions with domain and codomain information.
 
-    >>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
-    >>> assert np.all(swap([1, 2]) == np.array([2, 1]))
-    >>> assert np.all(swap(np.array([1, 2])) == np.array([2, 1]))
-    >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
-    >>> assert np.all(abs(np.array([1, -1])) == np.array([1, 1]))
-    >>> assert np.all((swap >> abs)(np.array([-1, -2])) == np.array([2, 1]))
+    As an example, we show that copy and add satisfy the bimonoid law.
+
+    >>> swap = Function('swap', 2, 2, lambda x: x[::-1])
+    >>> copy = Function('copy', 1, 2, lambda x: np.concatenate([x, x]))
+    >>> assert np.all(copy([1]) == np.array([1, 1]))
+    >>> add = Function('add', 2, 1, lambda x: np.sum(x, keepdims=True))
+    >>> assert np.all(add([1, 2]) == np.array([3]))
+    >>> assert np.all((copy @ copy >> Id(1) @ swap @ Id(1)
+    ...                >> add @ add)([123, 25]) == (add >> copy)([123, 25]))
     """
     def __init__(self, name, dom, cod, function):
         """
         >>> f = Function('f', Dim(2), Dim(2), lambda x: x)
         """
+        if isinstance(dom, int):
+            dom = Dim(dom)
+        if isinstance(cod, int):
+            cod = Dim(cod)
         if not isinstance(dom, Dim):
             raise ValueError(
                 "Dim expected for name, got {} instead.".format(type(dom)))
