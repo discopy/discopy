@@ -99,41 +99,6 @@ class Ty(moncat.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
-    def __init__(self, *t):
-        """
-        >>> Ty('s', 'n')
-        Ty('s', 'n')
-        """
-        t = [x if isinstance(x, Ob) else Ob(x) for x in t]
-        super().__init__(*t)
-
-    def tensor(self, other):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
-        """
-        return Ty(*super().tensor(other))
-
-    def __getitem__(self, key):
-        """
-        >>> Ty('s', 'n')[1]
-        Ob('n')
-        >>> Ty('s', 'n')[1:]
-        Ty('n')
-        """
-        if isinstance(key, slice):
-            return Ty(*super().__getitem__(key))
-        return super().__getitem__(key)
-
-    def __repr__(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> n.r @ s @ n.l
-        Ty(Ob('n', z=1), 's', Ob('n', z=-1))
-        """
-        return "Ty({})".format(', '.join(
-            repr(x if x.z else x.name) for x in self.objects))
-
     @property
     def l(self):
         """
@@ -159,6 +124,41 @@ class Ty(moncat.Ty):
         >>> assert s.is_basic and not s.l.is_basic and not (s @ n).is_basic
         """
         return len(self) == 1 and not self.objects[0].z
+
+    def tensor(self, other):
+        """
+        >>> s, n = Ty('s'), Ty('n')
+        >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
+        """
+        return Ty(*super().tensor(other))
+
+    def __init__(self, *t):
+        """
+        >>> Ty('s', 'n')
+        Ty('s', 'n')
+        """
+        t = [x if isinstance(x, Ob) else Ob(x) for x in t]
+        super().__init__(*t)
+
+    def __getitem__(self, key):
+        """
+        >>> Ty('s', 'n')[1]
+        Ob('n')
+        >>> Ty('s', 'n')[1:]
+        Ty('n')
+        """
+        if isinstance(key, slice):
+            return Ty(*super().__getitem__(key))
+        return super().__getitem__(key)
+
+    def __repr__(self):
+        """
+        >>> s, n = Ty('s'), Ty('n')
+        >>> n.r @ s @ n.l
+        Ty(Ob('n', z=1), 's', Ob('n', z=-1))
+        """
+        return "Ty({})".format(', '.join(
+            repr(x if x.z else x.name) for x in self.objects))
 
 
 class Diagram(moncat.Diagram):

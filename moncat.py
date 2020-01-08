@@ -142,7 +142,7 @@ class Ty(Ob):
         if not isinstance(n, int):
             raise ValueError(
                 "Expected int, got {} instead.".format(repr(n)))
-        return sum(n * (self, ), Ty())
+        return sum(n * (self, ), type(self)())
 
 
 class Diagram(cat.Diagram):
