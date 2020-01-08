@@ -32,18 +32,18 @@ def test_Ty_pow():
 
 
 def test_Diagram_init():
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         Diagram('x', Ty('x'), [], [])
-    assert "Domain of type Ty expected, got 'x'" in str(err.value)
+    assert str(err.value) == config.Msg.type_err(Ty, 'x')
     with raises(ValueError) as err:
         Diagram(Ty('x'), Ty('x'), [], [1])
     assert "Boxes and offsets must have the same length." in str(err.value)
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         Diagram(Ty('x'), Ty('x'), [1], [1])
-    assert "Box of type Diagram expected, got 1" in str(err.value)
-    with raises(ValueError) as err:
+    assert str(err.value) == config.Msg.type_err(Diagram, 1)
+    with raises(TypeError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
-    assert "Offset of type int expected, got Ty('x')" in str(err.value)
+    assert str(err.value) == config.Msg.type_err(int, Ty('x'))
 
 
 def test_Diagram_offsets():
@@ -94,26 +94,40 @@ def test_Diagram_interchange():
     d = f0 @ Id(y) >> f1 @ f1 >> Id(x) @ f0
     with raises(InterchangerError) as err:
         d.interchange(0, 2)
-    assert "do not commute" in str(err.value)
+    assert str(err.value) == str(InterchangerError(f0, f1))
     assert d.interchange(2, 0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
+
+
+def test_Diagram_normal_form():
+    assert Id(Ty()).normal_form() == Id(Ty())
+    assert Id(Ty('x', 'y')).normal_form() == Id(Ty('x', 'y'))
+    s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+    with raises(NotImplementedError) as err:
+        (s0 >> s1).normal_form()
+    assert str(err.value) == config.Msg.is_not_connected(s0 >> s1)
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x, y), Box('f1', y, x)
+    assert f0.normal_form() == f0
+    assert (f0 >> f1).normal_form() == f0 >> f1
+    assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
+    assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
 
 
 def test_AxiomError():
     with raises(AxiomError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert "Codomain x expected, got y instead." in str(err.value)
+    assert str(err.value) == config.Msg.does_not_compose(Ty('y'), Ty('x'))
     with raises(AxiomError) as err:
         Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert "Domain y expected, got x instead." in str(err.value)
+    assert str(err.value) == config.Msg.does_not_compose(Ty('y'), Ty('x'))
 
 
 def test_InterchangerError():
-
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    d = Box('f', x, y) >> Box('g', y, z)
+    f, g = Box('f', x, y), Box('g', y, z)
     with raises(InterchangerError) as err:
-        d.interchange(0, 1)
-    assert "do not commute" in str(err.value)
+        (f >> g).interchange(0, 1)
+    assert str(err.value) == str(InterchangerError(f, g))
 
 
 def build_spiral(n_cups):
@@ -139,3 +153,35 @@ def test_spiral(n=2):
     assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
     spiral_nf = spiral.normal_form()
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
+
+
+def test_Diagram_draw():
+    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    diagram = Box('f0', x, y) @ Box('f1', z, w)
+    graph, positions, labels = diagram.draw(_test=True)
+    assert sorted(labels.items()) == [
+        ('box_0', 'f0'),
+        ('box_1', 'f1'),
+        ('input_0', 'x'),
+        ('input_1', 'z'),
+        ('output_0', 'y'),
+        ('output_1', 'w')
+    ]
+    assert sorted(positions.items()) == [
+        ('box_0', (-1.0, 2)),
+        ('box_1', (0.0, 1)),
+        ('input_0', (-1.0, 3)),
+        ('input_1', (0.0, 3)),
+        ('output_0', (-1.0, 0)),
+        ('output_1', (0.0, 0)),
+        ('wire_0_1', (0.0, 2)),
+        ('wire_1_0', (-1.0, 1))
+    ]
+    assert sorted(graph.edges()) == [
+        ('box_0', 'wire_1_0'),
+        ('box_1', 'output_1'),
+        ('input_0', 'box_0'),
+        ('input_1', 'wire_0_1'),
+        ('wire_0_1', 'box_1'),
+        ('wire_1_0', 'output_0')
+    ]

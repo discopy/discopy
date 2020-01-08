@@ -22,7 +22,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from discopy import cat
+from discopy import cat, config
 from discopy.cat import Ob, Functor, Quiver, AxiomError
 
 
@@ -140,8 +140,7 @@ class Ty(Ob):
 
     def __pow__(self, n):
         if not isinstance(n, int):
-            raise ValueError(
-                "Expected int, got {} instead.".format(repr(n)))
+            raise TypeError(config.Msg.type_err(int, n))
         return sum(n * (self, ), type(self)())
 
 
@@ -172,32 +171,24 @@ class Diagram(cat.Diagram):
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
         if not isinstance(dom, Ty):
-            raise ValueError("Domain of type Ty expected, got {} of type {} "
-                             "instead.".format(repr(dom), type(dom)))
+            raise TypeError(config.Msg.type_err(Ty, dom))
         if not isinstance(cod, Ty):
-            raise ValueError("Codomain of type Ty expected, got {} of type {} "
-                             "instead.".format(repr(cod), type(cod)))
+            raise TypeError(config.Msg.type_err(Ty, cod))
         if len(boxes) != len(offsets):
-            raise ValueError("Boxes and offsets must have the same length.")
+            raise ValueError(config.Msg.boxes_and_offsets_must_have_same_len())
         if not _fast:
             scan = dom
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
-                    raise ValueError(
-                        "Box of type Diagram expected, got {} of type {} "
-                        "instead.".format(repr(box), type(box)))
+                    raise TypeError(config.Msg.type_err(Diagram, box))
                 if not isinstance(off, int):
-                    raise ValueError(
-                        "Offset of type int expected, got {} of type {} "
-                        "instead.".format(repr(off), type(off)))
+                    raise TypeError(config.Msg.type_err(int, off))
                 if scan[off: off + len(box.dom)] != box.dom:
-                    raise AxiomError(
-                        "Domain {} expected, got {} instead."
-                        .format(scan[off: off + len(box.dom)], box.dom))
+                    raise AxiomError(config.Msg.does_not_compose(
+                        scan[off: off + len(box.dom)], box.dom))
                 scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             if scan != cod:
-                raise AxiomError(
-                    "Codomain {} expected, got {} instead.".format(cod, scan))
+                raise AxiomError(config.Msg.does_not_compose(scan, cod))
         super().__init__(dom, cod, [], _fast=True)
         self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
@@ -270,8 +261,7 @@ class Diagram(cat.Diagram):
             the tensor of 'self' and 'other'.
         """
         if not isinstance(other, Diagram):
-            raise ValueError("Expected Diagram, got {} of type {} instead."
-                             .format(repr(other), type(other)))
+            raise TypeError(config.Msg.type_err(Diagram, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
@@ -350,33 +340,7 @@ class Diagram(cat.Diagram):
 
     def draw(self, _test=False, _data=None):
         """
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> diagram = Box('f0', x, y) @ Box('f1', z, w)
-        >>> graph, pos, labels = diagram.draw(_test=True)
-        >>> for u, s in sorted(labels.items()): print("{} ({})".format(u, s))
-        box_0 (f0)
-        box_1 (f1)
-        input_0 (x)
-        input_1 (z)
-        output_0 (y)
-        output_1 (w)
-        >>> for u, (i, j) in sorted(pos.items()):
-        ...     print("{} {}".format(u, (i, j)))
-        box_0 (-1.0, 2)
-        box_1 (0.0, 1)
-        input_0 (-1.0, 3)
-        input_1 (0.0, 3)
-        output_0 (-1.0, 0)
-        output_1 (0.0, 0)
-        wire_0_1 (0.0, 2)
-        wire_1_0 (-1.0, 1)
-        >>> for u, v in sorted(graph.edges()): print("{} -> {}".format(u, v))
-        box_0 -> wire_1_0
-        box_1 -> output_1
-        input_0 -> box_0
-        input_1 -> wire_0_1
-        wire_0_1 -> box_1
-        wire_1_0 -> output_0
+        Draws a diagram.
         """
         def build_graph():
             graph, positions, labels = nx.Graph(), dict(), dict()
@@ -388,7 +352,7 @@ class Diagram(cat.Diagram):
                     labels.update({node: label})
             for i in range(len(self.dom)):
                 position = (-.5 * len(self.dom) + i, len(self) + 1)
-                add("input_{}".format(i), position, self.dom[i])
+                add("input_{}".format(i), position, str(self.dom[i]))
             scan = ["input_{}".format(i) for i, _ in enumerate(self.dom)]
             for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
                 pad = -.5 * (len(scan) - len(box.dom) + 1)
@@ -410,7 +374,7 @@ class Diagram(cat.Diagram):
                     + scan[off + len(box.dom):]
             for i in range(len(self.cod)):
                 position = (-.5 * len(scan) + i, 0)
-                add("output_{}".format(i), position, self.cod[i])
+                add("output_{}".format(i), position, str(self.cod[i]))
                 graph.add_edge(scan[i], "output_{}".format(i))
             return graph, positions, labels
 
@@ -442,8 +406,7 @@ class Diagram(cat.Diagram):
         then we return the right interchange move by default.
         """
         if not 0 <= i < len(self) or not 0 <= j < len(self):
-            raise IndexError("Expected indices in range({}), got {} instead."
-                             .format(len(self), (i, j)))
+            raise IndexError
         if i == j:
             return self
         if j < i - 1:
@@ -468,8 +431,7 @@ class Diagram(cat.Diagram):
         elif off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
         else:
-            raise InterchangerError("Boxes {} and {} do not commute."
-                                    .format(repr(box0), repr(box1)))
+            raise InterchangerError(box0, box1)
         return Diagram(
             self.dom, self.cod,
             self.boxes[:i] + [box1, box0] + self.boxes[i + 2:],
@@ -515,26 +477,11 @@ class Diagram(cat.Diagram):
         """
         Implements normalisation of connected diagrams, see arXiv:1804.07832.
         By default, we apply only right exchange moves.
-
-        >>> assert Id(Ty()).normal_form() == Id(Ty())
-        >>> assert Id(Ty('x', 'y')).normal_form() == Id(Ty('x', 'y'))
-        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-        >>> (s0 >> s1).normal_form()  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        NotImplementedError: Diagram s0 >> s1 is not connected.
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> assert f0.normal_form() == f0
-        >>> assert (f0 >> f1).normal_form() == f0 >> f1
-        >>> assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
-        >>> assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
         """
         diagram, cache = self, set()
         for _diagram in self.normalize(left=left):
             if _diagram in cache:
-                raise NotImplementedError(
-                    "Diagram {} is not connected.".format(self))
+                raise NotImplementedError(config.Msg.is_not_connected(self))
             diagram = _diagram
             cache.add(diagram)
         return diagram
@@ -600,6 +547,8 @@ class InterchangerError(AxiomError):
     """
     This is raised when we try to interchange conected boxes.
     """
+    def __init__(self, box0, box1):
+        super().__init__("Boxes {} and {} do not commute.".format(box0, box1))
 
 
 class Id(Diagram):
@@ -734,5 +683,4 @@ class MonoidalFunctor(Functor):
                 result = result >> id_l @ self(box) @ id_r
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
-        raise ValueError("Expected moncat.Diagram, got {} of type {} "
-                         "instead.".format(repr(diagram), type(diagram)))
+        raise TypeError(config.Msg.type_err(Diagram, diagram))

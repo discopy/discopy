@@ -16,7 +16,8 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 """
 
 import networkx as nx
-from discopy import cat, moncat
+from discopy import cat, moncat, config
+from discopy.cat import AxiomError
 
 
 class Ob(cat.Ob):
@@ -34,7 +35,7 @@ class Ob(cat.Ob):
         a.l.l
         """
         if not isinstance(z, int):
-            raise ValueError("Expected int, got {} instead".format(repr(z)))
+            raise TypeError(config.Msg.type_err(int, z))
         self._z = z
         super().__init__(name)
 
@@ -178,13 +179,9 @@ class Diagram(moncat.Diagram):
         f >> Id(a.l) @ g >> f.dagger()
         """
         if not isinstance(dom, Ty):
-            raise ValueError(
-                "Domain of type Ty expected, got {} of type {} instead."
-                .format(repr(dom), type(dom)))
+            raise TypeError(config.Msg.type_err(Ty, dom))
         if not isinstance(cod, Ty):
-            raise ValueError(
-                "Codomain of type Ty expected, got {} of type {}"
-                " instead.".format(repr(cod), type(cod)))
+            raise TypeError(config.Msg.type_err(Ty, cod))
         super().__init__(dom, cod, boxes, offsets, _fast=_fast)
 
     def then(self, other):
@@ -230,32 +227,7 @@ class Diagram(moncat.Diagram):
 
     def draw(self, _test=False, _data=None):
         """
-        >>> f = Box('f', Ty('x'), Ty('y'))
-        >>> graph, positions, labels = f.transpose_l().draw(_test=True)
-        >>> for u, s in sorted(labels.items()): print("{} ({})".format(u, s))
-        box_1 (f)
-        input_0 (y.l)
-        output_0 (x.l)
-        >>> for u, (i, j) in sorted(positions.items()):
-        ...     print("{} {}".format(u, (i, j)))
-        box_1 (-0.5, 2)
-        input_0 (-0.5, 4)
-        output_0 (-0.5, 0)
-        wire_0_0 (-1.0, 3)
-        wire_0_1 (0.0, 3)
-        wire_1_0 (-1.5, 2)
-        wire_1_2 (0.5, 2)
-        wire_2_0 (-1.0, 1)
-        wire_2_1 (0.0, 1)
-        >>> for u, v in sorted(graph.edges()): print("{} -> {}".format(u, v))
-        box_1 -> wire_2_0
-        input_0 -> wire_0_0
-        wire_0_0 -> wire_1_0
-        wire_0_1 -> box_1
-        wire_0_1 -> wire_1_2
-        wire_1_0 -> wire_2_0
-        wire_1_2 -> wire_2_1
-        wire_2_1 -> output_0
+        Draws a diagram with cups and caps.
         """
         graph, positions, labels = moncat.Diagram.draw(self, _test=True)
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
@@ -272,19 +244,14 @@ class Diagram(moncat.Diagram):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
-        >>> Diagram.cups(a @ b @ a, a.r @ b.r)  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        discopy.pivotal.AxiomError: a @ b @ a and a.r @ b.r are not adjoints.
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
         >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
         ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
         """
-        if not isinstance(x, Ty) or not isinstance(y, Ty):
-            raise ValueError("Expected pivotal.Ty, got {} of type {} instead."
-                             .format((repr(x), repr(y)), (type(x), type(y))))
-        if x.r != y and x != y.r:
-            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        if not isinstance(x, Ty):
+            raise TypeError(config.Msg.type_err(Ty, x))
+        if not isinstance(y, Ty):
+            raise TypeError(config.Msg.type_err(Ty, y))
         cups = Id(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
@@ -297,19 +264,14 @@ class Diagram(moncat.Diagram):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
-        >>> Diagram.caps( a @ b @ a, a.l @ b.l) #doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        discopy.pivotal.AxiomError: a @ b @ a and a.l @ b.l are not adjoints.
         >>> assert Diagram.caps(a, a.r) == Cap(a, a.r)
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        if not isinstance(x, Ty) or not isinstance(y, Ty):
-            raise ValueError("Expected pivotal.Ty, got {} of type {} instead."
-                             .format((repr(x), repr(y)), (type(x), type(y))))
-        if x.r != y and x != y.r:
-            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        if not isinstance(x, Ty):
+            raise TypeError(config.Msg.type_err(Ty, x))
+        if not isinstance(y, Ty):
+            raise TypeError(config.Msg.type_err(Ty, y))
         caps = Id(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
@@ -476,31 +438,6 @@ class Diagram(moncat.Diagram):
         """
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
-
-        >>> x = Ty('x')
-        >>> unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-        >>> twist = Cap(x, x.r) @ Id(x.r.r) >> Id(x) @ Cup(x.r, x.r.r)
-        >>> assert twist.dom != twist.cod and twist.normal_form() == twist
-        >>> d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
-        >>> assert d.normal_form(left=True) == unit >> counit
-        >>> assert d.dagger().normal_form() == counit.dagger() >> unit.dagger()
-        >>> a, b, c = Ty('a'), Ty('b'), Ty('c')
-        >>> f = Box('f', a, b @ c)
-        >>> assert f.normal_form() == f
-        >>> transpose_rl = f.transpose_r().transpose_l()
-        >>> assert transpose_rl.normal_form() == f
-        >>> transpose_lr = f.transpose_l().transpose_r()
-        >>> assert transpose_lr.normal_form() == f
-        >>> more_complicated = f
-        >>> more_complicated = more_complicated.transpose_l().transpose_l()
-        >>> more_complicated = more_complicated.transpose_r().transpose_r()
-        >>> assert more_complicated.normal_form() == f
-        >>> Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
-        >>> try:
-        ...     Eckmann_Hilton.normal_form()
-        ... except NotImplementedError as err:
-        ...     print(err)
-        Diagram s0 >> s1 is not connected.
         """
         return moncat.Diagram.normal_form(self, left=left)
 
@@ -522,23 +459,6 @@ class Box(moncat.Box, Diagram):
         Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
 
 
-class AxiomError(moncat.AxiomError):
-    """
-    >>> Cup(Ty('n'), Ty('n'))  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    discopy.pivotal.AxiomError: n and n are not adjoints.
-    >>> Cup(Ty('n'), Ty('s'))  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    discopy.pivotal.AxiomError: n and s are not adjoints.
-    >>> Cup(Ty('n'), Ty('n').l.l)  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    discopy.pivotal.AxiomError: n and n.l.l are not adjoints.
-    """
-
-
 class Id(Diagram):
     """ Define an identity arrow in a free rigid category
 
@@ -546,17 +466,8 @@ class Id(Diagram):
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
-        """
-        >>> Id(Ty('n') @ Ty('s'))
-        Id(Ty('n', 's'))
-        >>> Id('n')  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Input of type Ty expected, got 'n' instead.
-        """
         if not isinstance(t, Ty):
-            raise ValueError(
-                "Input of type Ty expected, got {} instead.".format(repr(t)))
+            raise TypeError(config.Msg.type_err(Ty, t))
         super().__init__(t, t, [], [], _fast=True)
 
     def __repr__(self):
@@ -578,34 +489,18 @@ class Id(Diagram):
 class Cup(Box):
     """ Defines cups for simple types.
 
-    >>> n = Ty('n')
-    >>> Cup(n, n.l)
+    >>> Cup(Ty('n'), Ty('n').l)
     Cup(Ty('n'), Ty(Ob('n', z=-1)))
-    >>> Cup(n, n.r)
-    Cup(Ty('n'), Ty(Ob('n', z=1)))
-    >>> Cup(n.l.l, n.l)
-    Cup(Ty(Ob('n', z=-2)), Ty(Ob('n', z=-1)))
     """
     def __init__(self, x, y):
-        """
-        >>> Cup(Ty('n', 's'), Ty('n').l)  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Simple type expected, got Ty('n', 's') instead.
-        >>> Cup(Ty('n'), Ty())  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Simple type expected, got Ty() instead.
-        >>> Cup(Ty('n'), Ty('n').l)
-        Cup(Ty('n'), Ty(Ob('n', z=-1)))
-        """
-        err = "Simple type expected, got {} instead."
-        if not isinstance(x, Ty) or not len(x) == 1:
-            raise ValueError(err.format(repr(x)))
-        if not isinstance(y, Ty) or not len(y) == 1:
-            raise ValueError(err.format(repr(y)))
-        if x[0].name != y[0].name or not x[0].z - y[0].z in [-1, +1]:
-            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        if not isinstance(x, Ty):
+            raise TypeError(config.Msg.type_err(Ty, x))
+        if not isinstance(y, Ty):
+            raise TypeError(config.Msg.type_err(Ty, y))
+        if x.r != y and x != y.r:
+            raise AxiomError(config.Msg.are_not_adjoints(x, y))
+        if len(x) != 1 or len(y) != 1:
+            raise ValueError(config.Msg.cup_vs_cups(x, y))
         super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):
@@ -646,25 +541,14 @@ class Cap(Box):
     n.l.l @ n.l
     """
     def __init__(self, x, y):
-        """
-        >>> Cap(Ty('n', 's'), Ty('n').l)  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Simple type expected, got Ty('n', 's') instead.
-        >>> Cap(Ty('n'), Ty())  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Simple type expected, got Ty() instead.
-        >>> Cap(Ty('n'), Ty('n').l)
-        Cap(Ty('n'), Ty(Ob('n', z=-1)))
-        """
-        err = "Simple type expected, got {} instead."
-        if not isinstance(x, Ty) or not len(x) == 1:
-            raise ValueError(err.format(repr(x)))
-        if not isinstance(y, Ty) or not len(y) == 1:
-            raise ValueError(err.format(repr(y)))
-        if not x[0].z - y[0].z in [-1, +1]:
-            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+        if not isinstance(x, Ty):
+            raise TypeError(config.Msg.type_err(Ty, x))
+        if not isinstance(y, Ty):
+            raise TypeError(config.Msg.type_err(Ty, y))
+        if x.r != y and x != y.r:
+            raise AxiomError(config.Msg.are_not_adjoints(x, y))
+        if len(x) != 1 or len(y) != 1:
+            raise ValueError(config.Msg.cap_vs_caps(x, y))
         super().__init__('Cap', Ty(), x @ y)
 
     def dagger(self):
@@ -756,5 +640,4 @@ class PivotalFunctor(moncat.MonoidalFunctor):
             return self.ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
-        raise ValueError("Expected pivotal.Diagram, got {} of type {} instead"
-                         .format(repr(diagram), type(diagram)))
+        raise TypeError(config.Msg.type_err(Diagram, diagram))

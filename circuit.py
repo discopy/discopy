@@ -29,47 +29,6 @@ class PRO(Ty):
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
     """
-    def __init__(self, n=0):
-        """
-        >>> list(PRO(0))
-        []
-        >>> list(PRO(1))
-        [Ob(1)]
-        >>> assert all(len(PRO(n)) == n for n in range(5))
-        """
-        n = n if isinstance(n, int) else len(n)
-        super().__init__(*(n * [1]))
-
-    def __repr__(self):
-        """
-        >>> PRO(0), PRO(1)
-        (PRO(0), PRO(1))
-        """
-        return "PRO({})".format(len(self))
-
-    def __str__(self):
-        """
-        >>> print(PRO(2 * 3 * 7))
-        PRO(42)
-        """
-        return repr(self)
-
-    def tensor(self, other):
-        """
-        >>> assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12)
-        """
-        return PRO(len(self) + len(other))
-
-    def __getitem__(self, key):
-        """
-        >>> PRO(42)[2:4]
-        PRO(2)
-        >>> assert all(PRO(42)[i].name == 1 for i in range(42))
-        """
-        if isinstance(key, slice):
-            return PRO(len(super().__getitem__(key)))
-        return super().__getitem__(key)
-
     @property
     def l(self):
         """
@@ -79,17 +38,30 @@ class PRO(Ty):
 
     @property
     def r(self):
-        """
-        >>> assert PRO(2).r == PRO(2)
-        """
         return self
+
+    def tensor(self, other):
+        return PRO(len(self) + len(other))
+
+    def __init__(self, n=0):
+        n = n if isinstance(n, int) else len(n)
+        super().__init__(*(n * [1]))
+
+    def __repr__(self):
+        return "PRO({})".format(len(self))
+
+    def __str__(self):
+        return repr(self)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return PRO(len(super().__getitem__(key)))
+        return super().__getitem__(key)
 
 
 class Circuit(Diagram):
-    """ Implements quantum circuits as diagrams.
-
-    >>> circuit = CX >> CX >> CX >> CX >> CX >> CX
-    >>> assert np.all(circuit.eval() == Id(2).eval())
+    """
+    Implements quantum circuits as diagrams.
     """
     def __init__(self, dom, cod, gates, offsets, _fast=False):
         """
@@ -197,22 +169,8 @@ class Circuit(Diagram):
         return Circuit.cups(x, y).dagger()
 
     def eval(self):
-        """ Evaluates the circuit as a discopy Matrix.
-
-        >>> assert np.all((Ket(0, 0) >> SWAP).eval() == Ket(0, 0).eval())
-        >>> assert np.all((Ket(0, 1) >> SWAP).eval() == Ket(1, 0).eval())
-        >>> assert np.all((Ket(1, 0) >> SWAP).eval() == Ket(0, 1).eval())
-        >>> assert np.all((Ket(1, 1) >> SWAP).eval() == Ket(1, 1).eval())
-        >>> assert np.all((Ket(0, 0) >> CX).eval() == Ket(0, 0).eval())
-        >>> assert np.all((Ket(0, 1) >> CX).eval() == Ket(0, 1).eval())
-        >>> assert np.all((Ket(1, 0) >> CX).eval() == Ket(1, 1).eval())
-        >>> assert np.all((Ket(1, 1) >> CX).eval() == Ket(1, 0).eval())
-        >>> for U in [SWAP, X, Y, Z, S >> S, CX >> CX >> CX]:
-        ...     assert np.all(
-        ...         (U >> U.dagger()).eval() == Id(len(U.dom)).eval())
-        >>> for U in [H, T >> T >> T >> T]:
-        ...     m, id_n = (U >> U.dagger()).eval(), Id(len(U.dom)).eval()
-        ...     assert np.allclose(m.array, id_n.array)
+        """
+        Evaluates the circuit as a discopy Matrix.
         """
         return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
@@ -226,8 +184,6 @@ class Circuit(Diagram):
         >>> m = c.measure()
         >>> list(np.round(m[0, 0].flatten()))
         [0.0, 1.0, 1.0, 0.0]
-        >>> assert np.all((Ket(0, 0) >> c).measure() == m[0, 0])
-        >>> assert np.all((c >> Bra(0, 1)).measure() == m[:, :, 0, 1])
         >>> assert (Ket(1, 0) >> c >> Bra(0, 1)).measure() == m[1, 0, 0, 1]
         """
         def bitstring(i, length):
