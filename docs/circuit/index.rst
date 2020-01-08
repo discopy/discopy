@@ -2,7 +2,14 @@ discopy.circuit
 ===============
 
 .. automodule:: discopy.circuit
-    :members:
-    :member-order: bysource
-    :inherited-members:
-    :show-inheritance:
+
+.. toctree::
+    :caption: Contents:
+
+    PRO.rst
+    Circuit.rst
+    Id.rst
+    Bra.rst
+    Ket.rst
+    Gate.rst
+    CircuitFunctor.rst

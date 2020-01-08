@@ -2,7 +2,11 @@ discopy.matrix
 ==============
 
 .. automodule:: discopy.matrix
-    :members:
-    :member-order: bysource
-    :inherited-members:
-    :show-inheritance:
+
+.. toctree::
+    :caption: Contents:
+
+    Dim.rst
+    Matrix.rst
+    Id.rst
+    MatrixFunctor.rst

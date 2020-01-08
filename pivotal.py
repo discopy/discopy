@@ -575,7 +575,7 @@ class Id(Diagram):
         return "Id({})".format(str(self.dom))
 
 
-class Cup(Box, Diagram):
+class Cup(Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')

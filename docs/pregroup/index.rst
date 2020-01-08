@@ -2,7 +2,12 @@ discopy.pregroup
 ================
 
 .. automodule:: discopy.pregroup
-    :members:
-    :member-order: bysource
-    :inherited-members:
-    :show-inheritance:
+
+.. toctree::
+    :caption: Contents:
+
+    Word.rst
+    Model.rst
+    CircuitModel.rst
+    eager_parse.rst
+    brute_force.rst

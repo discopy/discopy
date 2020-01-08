@@ -309,7 +309,7 @@ class MatrixFunctor(PivotalFunctor):
     >>> F(f)
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
-    def __init__(self, ob, ar, ob_cls=Dim, ar_cls=Matrix):
+    def __init__(self, ob, ar):
         """
         >>> MatrixFunctor({Ty('x'): 2}, {})
         MatrixFunctor(ob={Ty('x'): Dim(2)}, ar={})
@@ -327,7 +327,7 @@ class MatrixFunctor(PivotalFunctor):
                 raise ValueError(
                     "Expected int or Dim object, got {} instead."
                     .format(repr(y)))
-        super().__init__(ob, {}, ob_cls, ar_cls)
+        super().__init__(ob, {}, Dim, Matrix)
         self._input_ar, self._ar = ar, Quiver(
             lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))
 
