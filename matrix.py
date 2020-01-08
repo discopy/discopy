@@ -50,11 +50,11 @@ class Dim(Ty):
                                  .format(repr(x)))
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
-    def __matmul__(self, other):
+    def tensor(self, other):
         """
         >>> assert Dim(1) @ Dim(2, 3) == Dim(2, 3) @ Dim(1) == Dim(2, 3)
         """
-        return Dim(*[x.name for x in super().__matmul__(other)])
+        return Dim(*[x.name for x in super().tensor(other)])
 
     def __add__(self, other):
         """

@@ -107,12 +107,12 @@ class Ty(moncat.Ty):
         t = [x if isinstance(x, Ob) else Ob(x) for x in t]
         super().__init__(*t)
 
-    def __matmul__(self, other):
+    def tensor(self, other):
         """
         >>> s, n = Ty('s'), Ty('n')
         >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
         """
-        return Ty(*super().__matmul__(other))
+        return Ty(*super().tensor(other))
 
     def __getitem__(self, key):
         """
@@ -281,7 +281,7 @@ class Diagram(moncat.Diagram):
         ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
         """
         if not isinstance(x, Ty) or not isinstance(y, Ty):
-            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+            raise ValueError("Expected pivotal.Ty, got {} of type {} instead."
                              .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
@@ -306,7 +306,7 @@ class Diagram(moncat.Diagram):
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
         if not isinstance(x, Ty) or not isinstance(y, Ty):
-            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+            raise ValueError("Expected pivotal.Ty, got {} of type {} instead."
                              .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
@@ -756,5 +756,5 @@ class PivotalFunctor(moncat.MonoidalFunctor):
             return self.ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
-        raise ValueError("Expected pregroup.Diagram, got {} of type {} instead"
+        raise ValueError("Expected pivotal.Diagram, got {} of type {} instead"
                          .format(repr(diagram), type(diagram)))

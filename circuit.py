@@ -54,18 +54,11 @@ class PRO(Ty):
         """
         return repr(self)
 
-    def __matmul__(self, other):
+    def tensor(self, other):
         """
         >>> assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12)
         """
         return PRO(len(self) + len(other))
-
-    def __add__(self, other):
-        """
-        >>> sum((PRO(n) for n in range(5)), PRO(0))
-        PRO(10)
-        """
-        return self @ other
 
     def __getitem__(self, key):
         """
