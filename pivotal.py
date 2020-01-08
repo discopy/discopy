@@ -358,7 +358,7 @@ class Diagram(moncat.Diagram):
                     right_obstruction.append(i)
             return len(diagram), j, (left_obstruction, right_obstruction)
 
-        def find_yankable_pair(diagram):
+        def find_move(diagram):
             """
             Given a diagram, returns (cup, cap, obstructions, left_snake)
             if there is a yankable pair, otherwise returns None.
@@ -380,11 +380,13 @@ class Diagram(moncat.Diagram):
                     dom = diagram.boxes[cup].dom[0 if left_snake else 1]
                     cod = diagram.boxes[cap].cod[1 if left_snake else 0]
                     if dom != cod:  # we must have found a pivotal structure.
+                        if left and not left_snake or not left and left_snake:
+                            return cup, cap, obstructions, left_snake
                         continue
                     return cup, cap, obstructions, left_snake
             return None
 
-        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
+        def move(diagram, cup, cap, obstructions, left_snake=False):
             """
             Given a diagram and the indices for a cup and cap pair
             and a pair of lists of obstructions on the left and right,
@@ -418,17 +420,25 @@ class Diagram(moncat.Diagram):
                     diagram = diagram.interchange(box, cap)
                     yield diagram
                     cap += 1
-            yield Diagram(diagram.dom, diagram.cod,
-                          diagram.boxes[:cap] + diagram.boxes[cup + 1:],
-                          diagram.offsets[:cap] + diagram.offsets[cup + 1:],
-                          _fast=True)
+            dom = diagram.boxes[cup].dom[0 if left_snake else 1]
+            cod = diagram.boxes[cap].cod[1 if left_snake else 0]
+            if dom != cod:
+                boxes, offsets = list(diagram.boxes), list(diagram.offsets)
+                boxes[cap] = Cap(boxes[cap].cod[1:], boxes[cap].cod[:1])
+                boxes[cup] = Cup(boxes[cup].dom[1:], boxes[cup].dom[:1])
+                offsets[cap] += -1 if left_snake else 1
+                offsets[cup] += 1 if left_snake else -1
+            else:
+                boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
+                offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
+            yield Diagram(diagram.dom, diagram.cod, boxes, offsets, _fast=True)
 
         diagram = self
         while True:
-            yankable = find_yankable_pair(diagram)
+            yankable = find_move(diagram)
             if yankable is None:
                 break
-            for _diagram in unsnake(diagram, *yankable):
+            for _diagram in move(diagram, *yankable):
                 yield _diagram
                 diagram = _diagram
         for _diagram in moncat.Diagram.normalize(diagram, left=left):
