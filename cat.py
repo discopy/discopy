@@ -32,10 +32,28 @@ class Ob:
     ----------
     name : any
         Name of the object
-    """
-    def __init__(self, name):
-        self._name = name
 
+    Note
+    ----
+    When printing an object, we only print its name.
+
+    >>> x = Ob('x')
+    >>> print(x)
+    x
+
+    Objects are equal only to objects with equal names.
+
+    >>> x = Ob('x')
+    >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
+
+    Objects are hashable whenever their name is.
+
+    >>> d = {Ob(['x', 'y']): 42}
+    Traceback (most recent call last):
+    ...
+    TypeError: unhashable type: 'list'
+
+    """
     @property
     def name(self):
         """
@@ -51,39 +69,21 @@ class Ob:
         """
         return self._name
 
+    def __init__(self, name):
+        self._name = name
+
     def __repr__(self):
         return "Ob({})".format(repr(self.name))
 
     def __str__(self):
-        """
-        When printing an object, we only print its name.
-
-        >>> x = Ob('x')
-        >>> print(x)
-        x
-        """
         return str(self.name)
 
     def __eq__(self, other):
-        """
-        Objects are equal only to objects with equal names.
-
-        >>> x = Ob('x')
-        >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
-        """
         if not isinstance(other, Ob):
             return False
         return self.name == other.name
 
     def __hash__(self):
-        """
-        Objects are hashable whenever their name is.
-
-        >>> d = {Ob(['x', 'y']): 42}
-        Traceback (most recent call last):
-        ...
-        TypeError: unhashable type: 'list'
-        """
         return hash(self.name)
 
 
@@ -112,31 +112,6 @@ class Diagram:
         Whenever the boxes do not compose.
 
     """
-    def __init__(self, dom, cod, boxes, _fast=False):
-        if not isinstance(dom, Ob):
-            raise ValueError("Domain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(dom), type(dom)))
-        if not isinstance(cod, Ob):
-            raise ValueError("Codomain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(cod), type(cod)))
-        if not _fast:
-            scan = dom
-            for gen in boxes:
-                if not isinstance(gen, Diagram):
-                    raise ValueError(
-                        "Box of type Diagram expected, got {} of type {} "
-                        "instead.".format(repr(gen), type(gen)))
-                if scan != gen.dom:
-                    raise AxiomError(
-                        "Box with domain {} expected, got {} instead."
-                        .format(scan, repr(gen)))
-                scan = gen.cod
-            if scan != cod:
-                raise AxiomError(
-                    "Box with codomain {} expected, got {} instead."
-                    .format(cod, repr(boxes[-1])))
-        self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
-
     @property
     def dom(self):
         """
@@ -176,6 +151,31 @@ class Diagram:
         >>> assert f not in diagram.boxes
         """
         return list(self._boxes)
+
+    def __init__(self, dom, cod, boxes, _fast=False):
+        if not isinstance(dom, Ob):
+            raise ValueError("Domain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(dom), type(dom)))
+        if not isinstance(cod, Ob):
+            raise ValueError("Codomain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(cod), type(cod)))
+        if not _fast:
+            scan = dom
+            for gen in boxes:
+                if not isinstance(gen, Diagram):
+                    raise ValueError(
+                        "Box of type Diagram expected, got {} of type {} "
+                        "instead.".format(repr(gen), type(gen)))
+                if scan != gen.dom:
+                    raise AxiomError(
+                        "Box with domain {} expected, got {} instead."
+                        .format(scan, repr(gen)))
+                scan = gen.cod
+            if scan != cod:
+                raise AxiomError(
+                    "Box with codomain {} expected, got {} instead."
+                    .format(cod, repr(boxes[-1])))
+        self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
 
     def __len__(self):
         return len(self.boxes)

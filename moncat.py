@@ -52,80 +52,28 @@ class Ty(Ob):
     >>> assert x @ unit == x == unit @ x
     >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
     """
-    def __init__(self, *objects):
-        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in objects]
-        super().__init__(str(self))
-
     @property
     def objects(self):
         """
         List of objects forming a type.
 
-        >>> Ty('x', 'y', 'z').objects
-        [Ob('x'), Ob('y'), Ob('z')]
+        Note
+        ----
+
+        A type may be sliced into subtypes.
+
+        >>> t = Ty('x', 'y', 'z')
+        >>> assert t[0] == Ob('x')
+        >>> assert t[:1] == Ty('x')
+        >>> assert t[1:] == Ty('y', 'z')
+
         """
         return self._objects
 
-    def __eq__(self, other):
-        """
-        Types are equal when their lists of objects are.
-
-        >>> assert Ty('x', 'y') == Ty('x') @ Ty('y')
-        """
-        if not isinstance(other, Ty):
-            return False
-        return self.objects == other.objects
-
-    def __hash__(self):
-        """
-        Types are hashable whenever the name of their objects is.
-
-        >>> {Ty('x', 'y', 'z'): 42}[Ty('x', 'y', 'z')]
-        42
-        """
-        return hash(repr(self))
-
-    def __repr__(self):
-        return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
-
-    def __str__(self):
-        """
-        When printing a type we print the tensor of the name of its objects.
-
-        >>> print(Ty('x', 'y'))
-        x @ y
-        """
-        return ' @ '.join(map(str, self)) or 'Ty()'
-
-    def __len__(self):
-        """
-        The length of a type is the length of the list of its objects.
-
-        >>> assert len(Ty('x', 'y')) == 2
-        """
-        return len(self.objects)
-
-    def __iter__(self):
-        for i in range(len(self)):
-            yield self[i]
-
-    def __getitem__(self, key):
-        """
-        __getitem__ may be used to slice a type seen as a list of objects.
-
-        >>> t = Ty('x', 'y', 'z')
-        >>> assert t[0] == Ob('x') != Ty('x') == t[:1]
-        >>> t[1:]
-        Ty('y', 'z')
-        """
-        if isinstance(key, slice):
-            return Ty(*self.objects[key])
-        return self.objects[key]
-
-    def __matmul__(self, other):
+    def tensor(self, other):
         """
         Returns the tensor of two types, i.e. the concatenation of their lists
-        of objects.
+        of objects. This is called with the binary operator `@`.
 
         >>> Ty('x') @ Ty('y', 'z')
         Ty('x', 'y', 'z')
@@ -138,39 +86,59 @@ class Ty(Ob):
         -------
         t : moncat.Ty
             such that :code:`t.objects == self.objects + other.objects`.
-        """
-        return Ty(*(self.objects + other.objects))
 
-    def __add__(self, other):
-        """
-        __add__ may be used instead of __matmul__ for taking tensors of types.
+        Note
+        ----
+        We can take the sum of a list of type, specifying the unit `Ty()`.
 
         >>> sum([Ty('x'), Ty('y'), Ty('z')], Ty())
         Ty('x', 'y', 'z')
-        """
-        return self @ other
 
-    def __pow__(self, n):
-        """
-        __pow__ may be used to iterate __matmul__
+        We can take the exponent of a type by any natural number.
 
         >>> Ty('x') ** 3
         Ty('x', 'x', 'x')
-        >>> Ty('x') ** Ty('y')  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Expected int, got Ty('y') instead.
 
-        Parameters
-        ----------
-        n : int
-            Any natural number.
-
-        Returns
-        -------
-        t : moncat.Ty
-            such that :code:`t == self @ ... @ self`.
         """
+        return Ty(*(self.objects + other.objects))
+
+    def __init__(self, *objects):
+        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in objects]
+        super().__init__(str(self))
+
+    def __eq__(self, other):
+        if not isinstance(other, Ty):
+            return False
+        return self.objects == other.objects
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __repr__(self):
+        return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
+
+    def __str__(self):
+        return ' @ '.join(map(str, self)) or 'Ty()'
+
+    def __len__(self):
+        return len(self.objects)
+
+    def __iter__(self):
+        for i in range(len(self)):
+            yield self[i]
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return Ty(*self.objects[key])
+        return self.objects[key]
+
+    def __matmul__(self, other):
+        return self.tensor(other)
+
+    def __add__(self, other):
+        return self.tensor(other)
+
+    def __pow__(self, n):
         if not isinstance(n, int):
             raise ValueError(
                 "Expected int, got {} instead.".format(repr(n)))
