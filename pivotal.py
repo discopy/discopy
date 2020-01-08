@@ -15,6 +15,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 ...         == snake_l.dagger() << snake_r.dagger()
 """
 
+import networkx as nx
 from discopy import cat, moncat
 
 
@@ -38,7 +39,7 @@ class Ob(cat.Ob):
         super().__init__(name)
 
     @property
-    def z(self):  # pylint: disable=invalid-name
+    def z(self):
         """
         >>> Ob('a').z
         0
@@ -46,7 +47,7 @@ class Ob(cat.Ob):
         return self._z
 
     @property
-    def l(self):  # pylint: disable=invalid-name
+    def l(self):
         """
         >>> Ob('a').l
         Ob('a', z=-1)
@@ -54,7 +55,7 @@ class Ob(cat.Ob):
         return Ob(self.name, self.z - 1)
 
     @property
-    def r(self):  # pylint: disable=invalid-name
+    def r(self):
         """
         >>> Ob('a').r
         Ob('a', z=1)
@@ -98,6 +99,39 @@ class Ty(moncat.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    @property
+    def l(self):
+        """
+        >>> s, n = Ty('s'), Ty('n')
+        >>> (s @ n.r).l
+        Ty('n', Ob('s', z=-1))
+        """
+        return Ty(*[x.l for x in self.objects[::-1]])
+
+    @property
+    def r(self):
+        """
+        >>> s, n = Ty('s'), Ty('n')
+        >>> (s @ n.l).r
+        Ty('n', Ob('s', z=1))
+        """
+        return Ty(*[x.r for x in self.objects[::-1]])
+
+    @property
+    def is_basic(self):
+        """
+        >>> s, n = Ty('s'), Ty('n')
+        >>> assert s.is_basic and not s.l.is_basic and not (s @ n).is_basic
+        """
+        return len(self) == 1 and not self.objects[0].z
+
+    def tensor(self, other):
+        """
+        >>> s, n = Ty('s'), Ty('n')
+        >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
+        """
+        return Ty(*super().tensor(other))
+
     def __init__(self, *t):
         """
         >>> Ty('s', 'n')
@@ -105,13 +139,6 @@ class Ty(moncat.Ty):
         """
         t = [x if isinstance(x, Ob) else Ob(x) for x in t]
         super().__init__(*t)
-
-    def __matmul__(self, other):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
-        """
-        return Ty(*super().__matmul__(other))
 
     def __getitem__(self, key):
         """
@@ -132,32 +159,6 @@ class Ty(moncat.Ty):
         """
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
-
-    @property
-    def l(self):  # pylint: disable=invalid-name
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> (s @ n.r).l
-        Ty('n', Ob('s', z=-1))
-        """
-        return Ty(*[x.l for x in self.objects[::-1]])
-
-    @property
-    def r(self):  # pylint: disable=invalid-name
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> (s @ n.l).r
-        Ty('n', Ob('s', z=1))
-        """
-        return Ty(*[x.r for x in self.objects[::-1]])
-
-    @property
-    def is_basic(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert s.is_basic and not s.l.is_basic and not (s @ n).is_basic
-        """
-        return len(self) == 1 and not self.objects[0].z
 
 
 class Diagram(moncat.Diagram):
@@ -256,7 +257,6 @@ class Diagram(moncat.Diagram):
         wire_1_2 -> wire_2_1
         wire_2_1 -> output_0
         """
-        import networkx as nx  # pylint: disable=import-outside-toplevel
         graph, positions, labels = moncat.Diagram.draw(self, _test=True)
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
@@ -268,7 +268,7 @@ class Diagram(moncat.Diagram):
         return super().draw(_test=_test, _data=(graph, positions, labels))
 
     @staticmethod
-    def cups(x, y):  # pylint: disable=invalid-name
+    def cups(x, y):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -281,7 +281,7 @@ class Diagram(moncat.Diagram):
         ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
         """
         if not isinstance(x, Ty) or not isinstance(y, Ty):
-            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+            raise ValueError("Expected pivotal.Ty, got {} of type {} instead."
                              .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
@@ -293,7 +293,7 @@ class Diagram(moncat.Diagram):
         return cups
 
     @staticmethod
-    def caps(x, y):  # pylint: disable=invalid-name
+    def caps(x, y):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -306,7 +306,7 @@ class Diagram(moncat.Diagram):
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
         if not isinstance(x, Ty) or not isinstance(y, Ty):
-            raise ValueError("Expected pregroup.Ty, got {} of type {} instead."
+            raise ValueError("Expected pivotal.Ty, got {} of type {} instead."
                              .format((repr(x), repr(y)), (type(x), type(y))))
         if x.r != y and x != y.r:
             raise AxiomError("{} and {} are not adjoints.".format(x, y))
@@ -575,7 +575,7 @@ class Id(Diagram):
         return "Id({})".format(str(self.dom))
 
 
-class Cup(Box, Diagram):
+class Cup(Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -756,5 +756,5 @@ class PivotalFunctor(moncat.MonoidalFunctor):
             return self.ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
-        raise ValueError("Expected pregroup.Diagram, got {} of type {} instead"
+        raise ValueError("Expected pivotal.Diagram, got {} of type {} instead"
                          .format(repr(diagram), type(diagram)))

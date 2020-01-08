@@ -11,11 +11,11 @@ discopy
    :caption: Contents:
 
    cat/index.rst
-   moncat.rst
-   pivotal.rst
-   matrix.rst
-   circuit.rst
-   pregroup.rst
+   moncat/index.rst
+   pivotal/index.rst
+   matrix/index.rst
+   circuit/index.rst
+   pregroup/index.rst
 
 
 Indices and tables

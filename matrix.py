@@ -44,17 +44,17 @@ class Dim(Ty):
         ...
         ValueError: Expected positive integer, got -1 instead.
         """
-        for x in xs:  # pylint: disable=invalid-name
+        for x in xs:
             if not isinstance(x, int) or x < 1:
                 raise ValueError("Expected positive integer, got {} instead."
                                  .format(repr(x)))
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
-    def __matmul__(self, other):
+    def tensor(self, other):
         """
         >>> assert Dim(1) @ Dim(2, 3) == Dim(2, 3) @ Dim(1) == Dim(2, 3)
         """
-        return Dim(*[x.name for x in super().__matmul__(other)])
+        return Dim(*[x.name for x in super().tensor(other)])
 
     def __add__(self, other):
         """
@@ -269,7 +269,7 @@ class AxiomError(pivotal.AxiomError):
     """
 
 
-class Id(Matrix):  # pylint: disable=too-many-ancestors
+class Id(Matrix):
     """ Implements the identity matrix for a given dimension.
 
     >>> Id(1)
@@ -309,7 +309,7 @@ class MatrixFunctor(PivotalFunctor):
     >>> F(f)
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
-    def __init__(self, ob, ar, ob_cls=Dim, ar_cls=Matrix):
+    def __init__(self, ob, ar):
         """
         >>> MatrixFunctor({Ty('x'): 2}, {})
         MatrixFunctor(ob={Ty('x'): Dim(2)}, ar={})
@@ -320,14 +320,14 @@ class MatrixFunctor(PivotalFunctor):
         ...
         ValueError: Expected int or Dim object, got Ty('y') instead.
         """
-        for x, y in ob.items():  # pylint: disable=invalid-name
+        for x, y in ob.items():
             if isinstance(y, int):
                 ob.update({x: Dim(y)})
             elif not isinstance(y, Dim):
                 raise ValueError(
                     "Expected int or Dim object, got {} instead."
                     .format(repr(y)))
-        super().__init__(ob, {}, ob_cls, ar_cls)
+        super().__init__(ob, {}, Dim, Matrix)
         self._input_ar, self._ar = ar, Quiver(
             lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))
 

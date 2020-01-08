@@ -1,0 +1,14 @@
+language: python
+python:
+  - 3.6
+before_install:
+  - python --version
+  - pip install -U pip
+  - pip install -U pytest
+  - pip install -U pytest-cov
+  - pip install codecov
+install:
+  - pip install ".[test]" . # install package + test dependencies
+script: py.test --cov-report=xml --cov=discopy --doctest-modules # run tests
+after_success:
+  - codecov # submit coverage

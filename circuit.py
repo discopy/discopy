@@ -14,6 +14,8 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
+from random import choice, random as _random, seed as _seed
+import pytket as tk
 from discopy.cat import Quiver
 from discopy.pivotal import Ty, Box, Diagram, PivotalFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
@@ -52,18 +54,11 @@ class PRO(Ty):
         """
         return repr(self)
 
-    def __matmul__(self, other):
+    def tensor(self, other):
         """
         >>> assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12)
         """
         return PRO(len(self) + len(other))
-
-    def __add__(self, other):
-        """
-        >>> sum((PRO(n) for n in range(5)), PRO(0))
-        PRO(10)
-        """
-        return self @ other
 
     def __getitem__(self, key):
         """
@@ -253,11 +248,12 @@ class Circuit(Diagram):
     def to_tk(self):
         """ Returns a pytket circuit.
 
-        >>> c = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1]).to_tk()
-        >>> list(c)
-        [SWAP q[0], q[1];, Rx(0.25PI) q[1];, CX q[1], q[2];]
+        >>> circuit = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1]).to_tk()
+        >>> for g in circuit: print((g.op.get_type(), g.op.get_params()))
+        (OpType.SWAP, [])
+        (OpType.Rx, [0.25])
+        (OpType.CX, [])
         """
-        import pytket as tk  # pylint: disable=import-outside-toplevel
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
@@ -328,8 +324,6 @@ class Circuit(Diagram):
         >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
         Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
         """
-        # pylint: disable=import-outside-toplevel
-        from random import choice, random as _random, seed as _seed
         if seed is not None:
             _seed(seed)
         if n_qubits == 1:
@@ -378,7 +372,7 @@ class Id(Circuit):
         return repr(self)
 
 
-class Gate(Box, Circuit):  # pylint: disable=too-many-ancestors
+class Gate(Box, Circuit):
     """ Implements quantum gates as boxes in a circuit diagram.
 
     >>> CX
@@ -426,7 +420,7 @@ class Gate(Box, Circuit):  # pylint: disable=too-many-ancestors
                     data=self.data, _dagger=not self._dagger)
 
 
-class Ket(Box, Circuit):  # pylint: disable=too-many-ancestors
+class Ket(Box, Circuit):
     """ Implements ket for a given bitstring.
 
     >>> Ket(1, 1, 0).eval()
@@ -469,7 +463,7 @@ class Ket(Box, Circuit):  # pylint: disable=too-many-ancestors
         return matrix.array
 
 
-class Bra(Box, Circuit):  # pylint: disable=too-many-ancestors
+class Bra(Box, Circuit):
     """ Implements bra for a given bitstring.
 
     >>> Bra(1, 1, 0).eval()
@@ -511,7 +505,7 @@ class Bra(Box, Circuit):  # pylint: disable=too-many-ancestors
         return Ket(*self.bitstring).array
 
 
-class Rz(Gate):  # pylint: disable=too-many-ancestors
+class Rz(Gate):
     """
     >>> assert np.all(Rz(0).array == np.identity(2))
     >>> assert np.allclose(Rz(0.5).array, Z.array)
@@ -564,7 +558,7 @@ class Rz(Gate):  # pylint: disable=too-many-ancestors
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
-class Rx(Gate):  # pylint: disable=too-many-ancestors
+class Rx(Gate):
     """
     >>> assert np.all(Rx(0).array == np.identity(2))
     >>> assert np.all(np.round(Rx(0.5).array) == X.array)
@@ -664,7 +658,7 @@ class CircuitFunctor(PivotalFunctor):
         return result
 
 
-def sqrt(x):  # pylint: disable=invalid-name
+def sqrt(x):
     """
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])

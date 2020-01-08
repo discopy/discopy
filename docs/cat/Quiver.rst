@@ -1,4 +1,4 @@
-discopy.cat.Quiver
+cat.Quiver
 ==================
 
 .. autoclass:: discopy.cat.Quiver

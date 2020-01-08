@@ -32,10 +32,28 @@ class Ob:
     ----------
     name : any
         Name of the object
-    """
-    def __init__(self, name):
-        self._name = name
 
+    Note
+    ----
+    When printing an object, we only print its name.
+
+    >>> x = Ob('x')
+    >>> print(x)
+    x
+
+    Objects are equal only to objects with equal names.
+
+    >>> x = Ob('x')
+    >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
+
+    Objects are hashable whenever their name is.
+
+    >>> d = {Ob(['x', 'y']): 42}
+    Traceback (most recent call last):
+    ...
+    TypeError: unhashable type: 'list'
+
+    """
     @property
     def name(self):
         """
@@ -51,39 +69,21 @@ class Ob:
         """
         return self._name
 
+    def __init__(self, name):
+        self._name = name
+
     def __repr__(self):
         return "Ob({})".format(repr(self.name))
 
     def __str__(self):
-        """
-        When printing an object, we only print its name.
-
-        >>> x = Ob('x')
-        >>> print(x)
-        x
-        """
         return str(self.name)
 
     def __eq__(self, other):
-        """
-        Objects are equal only to objects with equal names.
-
-        >>> x = Ob('x')
-        >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
-        """
         if not isinstance(other, Ob):
             return False
         return self.name == other.name
 
     def __hash__(self):
-        """
-        Objects are hashable whenever their name is.
-
-        >>> d = {Ob(['x', 'y']): 42}
-        Traceback (most recent call last):
-        ...
-        TypeError: unhashable type: 'list'
-        """
         return hash(self.name)
 
 
@@ -99,44 +99,19 @@ class Diagram:
 
     Parameters
     ----------
-    dom : discopy.cat.Ob
+    dom : cat.Ob
         Domain of the diagram.
-    cod : discopy.cat.Ob
+    cod : cat.Ob
         Codomain of the diagram.
-    boxes : list of :class:`discopy.cat.Diagram`
+    boxes : list of :class:`Diagram`
         Boxes of the diagram.
 
     Raises
     ------
-    :class:`discopy.cat.AxiomError`
+    :class:`cat.AxiomError`
         Whenever the boxes do not compose.
 
     """
-    def __init__(self, dom, cod, boxes, _fast=False):
-        if not isinstance(dom, Ob):
-            raise ValueError("Domain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(dom), type(dom)))
-        if not isinstance(cod, Ob):
-            raise ValueError("Codomain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(cod), type(cod)))
-        if not _fast:
-            scan = dom
-            for gen in boxes:
-                if not isinstance(gen, Diagram):
-                    raise ValueError(
-                        "Box of type Diagram expected, got {} of type {} "
-                        "instead.".format(repr(gen), type(gen)))
-                if scan != gen.dom:
-                    raise AxiomError(
-                        "Box with domain {} expected, got {} instead."
-                        .format(scan, repr(gen)))
-                scan = gen.cod
-            if scan != cod:
-                raise AxiomError(
-                    "Box with codomain {} expected, got {} instead."
-                    .format(cod, repr(boxes[-1])))
-        self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
-
     @property
     def dom(self):
         """
@@ -177,6 +152,31 @@ class Diagram:
         """
         return list(self._boxes)
 
+    def __init__(self, dom, cod, boxes, _fast=False):
+        if not isinstance(dom, Ob):
+            raise ValueError("Domain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(dom), type(dom)))
+        if not isinstance(cod, Ob):
+            raise ValueError("Codomain of type Ob expected, got {} of type {} "
+                             "instead.".format(repr(cod), type(cod)))
+        if not _fast:
+            scan = dom
+            for gen in boxes:
+                if not isinstance(gen, Diagram):
+                    raise ValueError(
+                        "Box of type Diagram expected, got {} of type {} "
+                        "instead.".format(repr(gen), type(gen)))
+                if scan != gen.dom:
+                    raise AxiomError(
+                        "Box with domain {} expected, got {} instead."
+                        .format(scan, repr(gen)))
+                scan = gen.cod
+            if scan != cod:
+                raise AxiomError(
+                    "Box with codomain {} expected, got {} instead."
+                    .format(cod, repr(boxes[-1])))
+        self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
+
     def __len__(self):
         return len(self.boxes)
 
@@ -212,17 +212,17 @@ class Diagram:
 
         Parameters
         ----------
-        other : discopy.cat.Diagram
+        other : cat.Diagram
             such that `self.cod == other.dom`.
 
         Returns
         -------
-        diagram : discopy.cat.Diagram
-            such that `diagram.boxes == self.boxes + other.boxes`.
+        diagram : cat.Diagram
+            such that :code:`diagram.boxes == self.boxes + other.boxes`.
 
         Raises
         ------
-        :class:`discopy.cat.AxiomError`
+        :class:`cat.AxiomError`
             whenever `self` and `other` do not compose.
 
         Notes
@@ -255,7 +255,7 @@ class Diagram:
 
         Returns
         -------
-        diagram : discopy.cat.Diagram
+        diagram : cat.Diagram
             such that
             `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
 
@@ -274,16 +274,21 @@ class Diagram:
                        [f.dagger() for f in self.boxes[::-1]], _fast=True)
 
     @staticmethod
-    def id(x):  # pylint: disable=invalid-name
+    def id(x):
         """
         Returns the identity diagram on x.
 
         >>> x = Ob('x')
         >>> assert Diagram.id(x) == Id(x) == Diagram(x, x, [])
 
-        :param x: Any object
-        :type x: :class:`discopy.cat.Ob`
-        :returns: :class:`discopy.cat.Id`
+        Parameters
+        ----------
+        x : cat.Ob
+            Any object.
+
+        Returns
+        -------
+        cat.Id
         """
         return Id(x)
 
@@ -297,12 +302,12 @@ class Id(Diagram):
 
     Parameters
     ----------
-        x : discopy.cat.Ob
+        x : cat.Ob
             Any object.
 
     See also
     --------
-        discopy.cat.Diagram.id
+        cat.Diagram.id
     """
     def __init__(self, x):
         super().__init__(x, x, [], _fast=True)
@@ -332,9 +337,9 @@ class Box(Diagram):
     ----------
         name : any
             Name of the box.
-        dom : discopy.cat.Ob
+        dom : cat.Ob
             Domain.
-        cod : discopy.cat.Ob
+        cod : cat.Ob
             Codomain.
         data : any
             Extra data in the box, default is `None`.
@@ -402,14 +407,58 @@ class Box(Diagram):
 
 class Functor:
     """
-    Defines a functor given its image on objects and boxes.
+    Defines a dagger functor which can be applied to objects and diagrams.
+
+    By default, `Functor` defines an endofunctor from the free dagger category
+    to itself. The codomain can be changed with the optional parameters
+    `ob_cls` and `ar_cls`.
+
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g.dagger()}
+    >>> F = Functor(ob, ar)
+    >>> assert F(x) == y and F(f) == g
+
+    Parameters
+    ----------
+    ob : dict_like
+        Mapping from :class:`cat.Ob` to `ob_cls`
+    ar : dict_like
+        Mapping from :class:`cat.Box` to `ar_cls`
+
+    Other Parameters
+    ----------------
+    ob_cls : type, optional
+        Class to be used as objects for the codomain of the functor.
+        If None, this will be set to :class:`cat.Ob`.
+    ar_cls : type, optional
+        Class to be used as arrows for the codomain of the functor.
+        If None, this will be set to :class:`cat.Diagram`.
+
+    See Also
+    --------
+    Quiver : For functors from infinitely-generated categories,
+             use quivers to create dict-like objects from functions.
+
+    Notes
+    -----
+    We can check the axioms of dagger functors.
+
+    >>> assert F(Id(x)) == Id(F(x))
+    >>> assert F(f >> g) == F(f) >> F(g)
+    >>> assert F(f.dagger()) == F(f).dagger()
+    >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
     """
-    def __init__(self, ob, ar, ob_cls=Ob, ar_cls=Diagram):
+    def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
+        if ob_cls is None:
+            ob_cls = Ob
+        if ar_cls is None:
+            ar_cls = Diagram
         self.ob_cls, self.ar_cls = ob_cls, ar_cls
         self._ob, self._ar = ob, ar
 
     @property
-    def ob(self):  # pylint: disable=invalid-name
+    def ob(self):
         """
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> assert F.ob == {Ob('x'): Ob('y')}
@@ -417,7 +466,7 @@ class Functor:
         return self._ob
 
     @property
-    def ar(self):  # pylint: disable=invalid-name
+    def ar(self):
         """
         >>> f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
         >>> F = Functor({}, {f: g})
@@ -447,7 +496,40 @@ class Functor:
 
 class Quiver:
     """
-    Wraps a Python function into a dict, to be used as input to Functor.
+    Wraps a function into an immutable dict-like object, used as input for a
+    :class:`Functor`.
+
+    >>> ob, ar = Quiver(lambda x: x), Quiver(lambda f: f)
+    >>> F = Functor(ob, ar)
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> assert F(x) == x and F(f >> g) == f >> g
+
+    Parameters
+    ----------
+    func : callable
+        Any callable Python object.
+
+    Notes
+    -----
+    In conjunction with :attr:`Box.data`, this can be used to create a
+    :class:`Functor` from a free category with infinitely many generators.
+
+    >>> h = Box('h', x, x, data=42)
+    >>> def ar_func(box):
+    ...     return Box(box.name, box.dom, box.cod, data=box.data + 1)
+    >>> F = Functor(ob, Quiver(ar_func))
+    >>> assert F(h).data == 43 and F(F(h)).data == 44
+
+    If :attr:`Box.data` is a mutable object, then so can be the image of a
+    :class:`Functor` on it.
+
+    >>> ar = Quiver(lambda f: f if all(f.data) else f.dagger())
+    >>> F = Functor(ob, ar)
+    >>> m = Box('m', x, x, data=[True])
+    >>> assert F(m) == m
+    >>> m.data.append(False)
+    >>> assert F(m) == m.dagger()
     """
     def __init__(self, func):
         self._func = func
