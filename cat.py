@@ -22,6 +22,7 @@ We can create dagger functors from the free category to itself:
 """
 
 from functools import reduce as fold
+from discopy import config
 
 
 class Ob:
@@ -154,27 +155,21 @@ class Diagram:
 
     def __init__(self, dom, cod, boxes, _fast=False):
         if not isinstance(dom, Ob):
-            raise ValueError("Domain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(dom), type(dom)))
+            raise TypeError(config.Msg.type_err(Ob, dom))
         if not isinstance(cod, Ob):
-            raise ValueError("Codomain of type Ob expected, got {} of type {} "
-                             "instead.".format(repr(cod), type(cod)))
+            raise TypeError(config.Msg.type_err(Ob, cod))
         if not _fast:
             scan = dom
-            for gen in boxes:
-                if not isinstance(gen, Diagram):
-                    raise ValueError(
-                        "Box of type Diagram expected, got {} of type {} "
-                        "instead.".format(repr(gen), type(gen)))
-                if scan != gen.dom:
-                    raise AxiomError(
-                        "Box with domain {} expected, got {} instead."
-                        .format(scan, repr(gen)))
-                scan = gen.cod
+            for i, box in enumerate(boxes):
+                if not isinstance(box, Diagram):
+                    raise TypeError(config.Msg.type_err(Diagram, box))
+                if scan != box.dom:
+                    raise AxiomError(config.Msg.does_not_compose(
+                        Id(dom) if i == 0 else boxes[i - 1], box))
+                scan = box.cod
             if scan != cod:
                 raise AxiomError(
-                    "Box with codomain {} expected, got {} instead."
-                    .format(cod, repr(boxes[-1])))
+                    config.Msg.does_not_compose(boxes[-1], Id(cod)))
         self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
 
     def __len__(self):
@@ -235,11 +230,9 @@ class Diagram:
         >>> assert (f >> g) >> h == f >> (g >> h)
         """
         if not isinstance(other, Diagram):
-            raise ValueError("Expected Diagram, got {} of type {} instead."
-                             .format(repr(other), type(other)))
+            raise TypeError(config.Msg.type_err(Diagram, other))
         if self.cod != other.dom:
-            raise AxiomError("{} does not compose with {}."
-                             .format(repr(self), repr(other)))
+            raise AxiomError(config.Msg.does_not_compose(self, other))
         return Diagram(
             self.dom, other.cod, self.boxes + other.boxes, _fast=True)
 
@@ -490,8 +483,7 @@ class Functor:
         if isinstance(diagram, Diagram):
             return fold(lambda g, h: g >> self(h),
                         diagram.boxes, self.ar_cls.id(self(diagram.dom)))
-        raise ValueError("Expected Ob, Box or Diagram, got {} instead."
-                         .format(repr(diagram)))
+        raise TypeError(config.Msg.type_err(Diagram, diagram))
 
 
 class Quiver:

@@ -52,15 +52,15 @@ def test_Diagram():
 
 
 def test_Diagram_init():
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         Diagram('x', Ob('x'), [])
-    assert "Domain of type Ob expected" in str(err.value)
-    with raises(ValueError) as err:
+    assert str(err.value) == config.Msg.type_err(Ob, 'x')
+    with raises(TypeError) as err:
         Diagram(Ob('x'), 'x', [])
-    assert "Codomain of type Ob expected, got 'x'" in str(err.value)
-    with raises(ValueError) as err:
+    assert str(err.value) == config.Msg.type_err(Ob, 'x')
+    with raises(TypeError) as err:
         Diagram(Ob('x'), Ob('x'), [Ob('x')])
-    assert "Box of type Diagram expected, got Ob('x')" in str(err.value)
+    assert str(err.value) == config.Msg.type_err(Diagram, Ob('x'))
 
 
 def test_Diagram_len():
@@ -97,9 +97,9 @@ def test_Diagram_then():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
     assert f.then(g) == f >> g == g << f
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         f >> x
-    assert "Expected Diagram, got Ob('x')" in str(err.value)
+    assert str(err.value) == config.Msg.type_err(Diagram, x)
 
 
 def test_Diagram_dagger():
@@ -130,13 +130,13 @@ def test_AxiomError():
     f, g = Box('f', x, y), Box('g', y, z)
     with raises(AxiomError) as err:
         Diagram(x, y, [g])
-    assert "Box with domain x expected" in str(err.value)
+    assert str(err.value) == config.Msg.does_not_compose(Id(x), g)
     with raises(AxiomError) as err:
         Diagram(x, z, [f])
-    assert "Box with codomain z expected" in str(err.value)
+    assert str(err.value) == config.Msg.does_not_compose(f, Id(z))
     with raises(AxiomError) as err:
         g >> f
-    assert "does not compose with" in str(err.value)
+    assert str(err.value) == config.Msg.does_not_compose(g, f)
 
 
 def test_Box():
@@ -192,9 +192,9 @@ def test_Functor_call():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
     F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         F(F)
-    assert "Expected Ob, Box or Diagram, got Functor" in str(err.value)
+    assert str(err.value) == config.Msg.type_err(Diagram, F)
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(f.dagger()) == f
@@ -220,7 +220,7 @@ def test_Quiver_getitem():
     assert Quiver(lambda x: x * 10)[42] == 420
     with raises(TypeError) as err:
         Quiver(lambda x: x * 10)[42] = 421
-    "'Quiver' object does not support item assignment" in str(err.value)
+    "does not support item assignment" in str(err.value)
 
 
 def test_Quiver_repr():

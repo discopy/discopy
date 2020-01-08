@@ -13,13 +13,13 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import pivotal, config
-from discopy.cat import Quiver
+from discopy import config
+from discopy.cat import Quiver, AxiomError
 from discopy.pivotal import Ob, Ty, Box, Diagram, PivotalFunctor
 
 try:
     import warnings
-    for msg in config.IGNORE:
+    for msg in config.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
 except ImportError:
@@ -42,12 +42,13 @@ class Dim(Ty):
         >>> Dim(-1)  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        ValueError: Expected positive integer, got -1 instead.
+        ValueError
         """
         for x in xs:
-            if not isinstance(x, int) or x < 1:
-                raise ValueError("Expected positive integer, got {} instead."
-                                 .format(repr(x)))
+            if not isinstance(x, int):
+                raise TypeError(config.Msg.type_err(int, x))
+            if x < 1:
+                raise ValueError
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
     def tensor(self, other):
@@ -162,10 +163,9 @@ class Matrix(Box):
         >>> assert u + v == Id(2)
         """
         if not isinstance(other, Matrix):
-            raise ValueError("Matrix expected, got {} of type {} instead."
-                             .format(repr(other), type(other)))
+            raise ValueError(config.Msg.type_err(Matrix, other))
         if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError("Cannot add {} and {}.".format(self, other))
+            raise AxiomError(config.Msg.cannot_add(self, other))
         return Matrix(self.dom, self.cod, self.array + other.array)
 
     def __eq__(self, other):
@@ -185,11 +185,9 @@ class Matrix(Box):
         >>> assert m >> m == m >> m.dagger() == Id(2)
         """
         if not isinstance(other, Matrix):
-            raise ValueError(
-                "Matrix expected, got {} instead.".format(repr(other)))
+            raise ValueError(config.Msg.type_err(Matrix, other))
         if self.cod != other.dom:
-            raise AxiomError("{} does not compose with {}."
-                             .format(repr(self), repr(other)))
+            raise AxiomError(config.Msg.does_not_compose(self, other))
         array = np.tensordot(self.array, other.array, len(self.cod))\
             if self.array.shape and other.array.shape\
             else self.array * other.array
@@ -205,8 +203,7 @@ class Matrix(Box):
         >>> assert v @ v.dagger() == v << v.dagger()
         """
         if not isinstance(other, Matrix):
-            raise ValueError(
-                "Matrix expected, got {} instead.".format(repr(other)))
+            raise TypeError(config.Msg.type_err(Matrix, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         array = np.tensordot(self.array, other.array, 0)\
             if self.array.shape and other.array.shape\
@@ -239,11 +236,12 @@ class Matrix(Box):
         """
         >>> assert np.all(Matrix.cups(Dim(2), Dim(2)).array == np.identity(2))
         """
-        if not isinstance(x, Dim) or not isinstance(y, Dim):
-            raise ValueError("Expected Dim, got {} of type {} instead."
-                             .format(repr((x, y)), (type(x), type(y))))
+        if not isinstance(x, Dim):
+            raise TypeError(config.Msg.type_err(Dim, x))
+        if not isinstance(y, Dim):
+            raise TypeError(config.Msg.type_err(Dim, y))
         if x.r != y:
-            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+            raise AxiomError(config.Msg.are_not_adjoints(x, y))
         return Matrix(x @ y, Dim(1), Id(x).array)
 
     @staticmethod
@@ -251,22 +249,13 @@ class Matrix(Box):
         """
         >>> assert np.all(Matrix.caps(Dim(2), Dim(2)).array == np.identity(2))
         """
-        if not isinstance(x, Dim) or not isinstance(y, Dim):
-            raise ValueError("Expected Dim, got {} of type {} instead."
-                             .format(repr((x, y)), (type(x), type(y))))
+        if not isinstance(x, Dim):
+            raise TypeError(config.Msg.type_err(Dim, x))
+        if not isinstance(y, Dim):
+            raise TypeError(config.Msg.type_err(Dim, y))
         if x.r != y:
-            raise AxiomError("{} and {} are not adjoints.".format(x, y))
+            raise AxiomError(config.Msg.are_not_adjoints(x, y))
         return Matrix(Dim(1), x @ y, Id(x).array)
-
-
-class AxiomError(pivotal.AxiomError):
-    """
-    >>> m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
-    >>> m >> m  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    discopy.matrix.AxiomError: Matrix... does not compose with Matrix...
-    """
 
 
 class Id(Matrix):
@@ -310,23 +299,11 @@ class MatrixFunctor(PivotalFunctor):
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
     def __init__(self, ob, ar):
-        """
-        >>> MatrixFunctor({Ty('x'): 2}, {})
-        MatrixFunctor(ob={Ty('x'): Dim(2)}, ar={})
-        >>> MatrixFunctor({Ty('x'): Dim(2)}, {})
-        MatrixFunctor(ob={Ty('x'): Dim(2)}, ar={})
-        >>> MatrixFunctor({Ty('x'): Ty('y')}, {})  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError: Expected int or Dim object, got Ty('y') instead.
-        """
         for x, y in ob.items():
             if isinstance(y, int):
                 ob.update({x: Dim(y)})
             elif not isinstance(y, Dim):
-                raise ValueError(
-                    "Expected int or Dim object, got {} instead."
-                    .format(repr(y)))
+                raise TypeError(config.Msg.type_err(Dim, y))
         super().__init__(ob, {}, Dim, Matrix)
         self._input_ar, self._ar = ar, Quiver(
             lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))

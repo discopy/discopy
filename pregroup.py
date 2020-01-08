@@ -15,6 +15,7 @@ Implements disco models in the category of matrices and circuits.
 """
 
 from functools import reduce as fold
+from discopy import config
 from discopy.pivotal import Ty, Box, Id, Cup, AxiomError
 from discopy.matrix import MatrixFunctor
 from discopy.circuit import CircuitFunctor
@@ -37,11 +38,9 @@ class Word(Box):
         Word('Alice', Ty('n'))
         """
         if not isinstance(w, str):
-            raise ValueError("Expected str, got {} of type {} instead."
-                             .format(repr(w), type(w)))
+            raise TypeError(config.Msg.type_err(str, w))
         if not isinstance(t, Ty):
-            raise ValueError("Input of type Ty expected, got {} "
-                             "of type {} instead.".format(repr(t), type(t)))
+            raise TypeError(config.Msg.type_err(Ty, t))
         self._word, self._type = w, t
         dom, cod = (t, Ty()) if _dagger else (Ty(), t)
         Box.__init__(self, (w, t), dom, cod, _dagger=_dagger)
@@ -131,15 +130,7 @@ class CircuitModel(CircuitFunctor):
 
 def eager_parse(*words, target=Ty('s')):
     """
-    >>> s, n = Ty('s'), Ty('n')
-    >>> Alice = Word('Alice', n)
-    >>> loves = Word('loves', n.r @ s @ n.l)
-    >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    >>> assert eager_parse(Alice, loves, Bob) == grammar << Alice @ loves @ Bob
-    >>> who = Word('who', n.r @ n @ s.l @ n)
-    >>> eager_parse(Bob, who, loves, Alice, target=n).offsets
-    [0, 1, 5, 8, 0, 2, 1, 1]
+    Tries to parse a given list of words in an eager fashion.
     """
     result = fold(lambda x, y: x @ y, words)
     scan = result.cod
@@ -148,7 +139,7 @@ def eager_parse(*words, target=Ty('s')):
         for i in range(len(scan) - 1):
             try:
                 if scan[i: i + 1].r != scan[i + 1: i + 2]:
-                    raise AxiomError
+                    continue
                 cup = Cup(scan[i: i + 1], scan[i + 1: i + 2])
                 result = result >> Id(scan[: i]) @ cup @ Id(scan[i + 2:])
                 scan, fail = result.cod, False
@@ -158,50 +149,18 @@ def eager_parse(*words, target=Ty('s')):
         if result.cod == target:
             return result
         if fail:
-            raise FAIL
-
-
-class FAIL(Exception):
-    """
-    >>> s, n = Ty('s'), Ty('n')
-    >>> Alice = Word('Alice', n)
-    >>> loves = Word('loves', n.r @ s @ n.l)
-    >>> Bob = Word('Bob', n)
-    >>> eager_parse(Alice, Bob, loves)  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    discopy.pregroup.FAIL
-    >>> who = Word('who', n.r @ n @ s.l @ n)
-    >>> eager_parse(Alice, loves, Bob, who, loves, Alice)  # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-    ...
-    discopy.pregroup.FAIL
-    """
+            raise NotImplementedError
 
 
 def brute_force(*vocab, target=Ty('s')):
     """
-    >>> s, n = Ty('s'), Ty('n')
-    >>> Alice = Word('Alice', n)
-    >>> loves = Word('loves', n.r @ s @ n.l)
-    >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    >>> gen = brute_force(Alice, loves, Bob)
-    >>> assert next(gen) == Alice @ loves @ Alice >> grammar
-    >>> assert next(gen) == Alice @ loves @ Bob >> grammar
-    >>> assert next(gen) == Bob @ loves @ Alice >> grammar
-    >>> assert next(gen) == Bob @ loves @ Bob >> grammar
-    >>> gen = brute_force(Alice, loves, Bob, target=n)
-    >>> next(gen)
-    Word('Alice', Ty('n'))
-    >>> next(gen)
-    Word('Bob', Ty('n'))
+    Given a vocabulary, search for grammatical sentences.
     """
     test = [()]
     for words in test:
         for word in vocab:
             try:
                 yield eager_parse(*(words + (word, )), target=target)
-            except FAIL:
+            except NotImplementedError:
                 pass
             test.append(words + (word, ))
