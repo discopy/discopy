@@ -7,6 +7,7 @@ def test_Diagram_normal_form():
     unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
     twist = Cap(x, x.r) @ Id(x.r.r) >> Id(x) @ Cup(x.r, x.r.r)
     assert twist.dom != twist.cod and twist.normal_form() == twist
+    assert (twist.dagger() >> twist).normal_form() == Id(x)
     d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
     assert d.normal_form(left=True) == unit >> counit
     assert d.dagger().normal_form() == counit.dagger() >> unit.dagger()
