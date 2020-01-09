@@ -12,7 +12,7 @@ discopy
 
    cat/index.rst
    moncat/index.rst
-   pivotal/index.rst
+   rigidcat/index.rst
    matrix/index.rst
    function/index.rst
    circuit/index.rst

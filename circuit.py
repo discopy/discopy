@@ -17,7 +17,7 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 from random import choice, random as _random, seed as _seed
 import pytket as tk
 from discopy.cat import Quiver
-from discopy.pivotal import Ty, Box, Diagram, PivotalFunctor
+from discopy.rigidcat import Ty, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
 
 
@@ -569,7 +569,7 @@ class Rx(Gate):
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
-class CircuitFunctor(PivotalFunctor):
+class CircuitFunctor(RigidFunctor):
     """ Implements funtors from monoidal categories to circuits
 
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')

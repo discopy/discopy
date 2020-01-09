@@ -168,7 +168,7 @@ def test_Box_hash():
 
 def test_Box_eq():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-    assert f == Diagram(Ob('x'), Ob('y'), [f])
+    assert f == Diagram(Ob('x'), Ob('y'), [f]) and f != Ob('x')
 
 
 def test_Functor():

@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements free dagger pivotal and rigid monoidal categories.
+Implements the free rigid monoidal category.
+
 The objects are given by the free pregroup, the arrows by planar diagrams.
 
 >>> unit, s, n = Ty(), Ty('s'), Ty('n')
 >>> t = n.r @ s @ n.l
 >>> assert t @ unit == t == unit @ t
 >>> assert t.l.r == t == t.r.l
->>> snake_l = Cap(n, n.l) @ Id(n) >> Id(n) @ Cup(n.l, n)
->>> snake_r = Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n)
->>> assert snake_l.dagger().dagger() == snake_l
->>> assert (snake_l >> snake_r).dagger()\\
-...         == snake_l.dagger() << snake_r.dagger()
+>>> left_snake, right_snake = Id(n.r).transpose_l(), Id(n.l).transpose_r()
+>>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 """
 
 import networkx as nx
@@ -27,68 +25,37 @@ class Ob(cat.Ob):
     >>> a = Ob('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
+    @property
+    def z(self):
+        """ Winding number """
+        return self._z
+
+    @property
+    def l(self):
+        """ Left adjoint """
+        return Ob(self.name, self.z - 1)
+
+    @property
+    def r(self):
+        """ Right adjoint """
+        return Ob(self.name, self.z + 1)
+
     def __init__(self, name, z=0):
-        """
-        >>> print(Ob('a'))
-        a
-        >>> print(Ob('a', z=-2))
-        a.l.l
-        """
         if not isinstance(z, int):
             raise TypeError(config.Msg.type_err(int, z))
         self._z = z
         super().__init__(name)
 
-    @property
-    def z(self):
-        """
-        >>> Ob('a').z
-        0
-        """
-        return self._z
-
-    @property
-    def l(self):
-        """
-        >>> Ob('a').l
-        Ob('a', z=-1)
-        """
-        return Ob(self.name, self.z - 1)
-
-    @property
-    def r(self):
-        """
-        >>> Ob('a').r
-        Ob('a', z=1)
-        """
-        return Ob(self.name, self.z + 1)
-
     def __eq__(self, other):
-        """
-        >>> assert Ob('a') == Ob('a').l.r
-        """
         if not isinstance(other, Ob):
             return False
         return (self.name, self.z) == (other.name, other.z)
 
     def __repr__(self):
-        """
-        >>> Ob('a', z=42)
-        Ob('a', z=42)
-        """
         return "Ob({}{})".format(
             repr(self.name), ", z=" + repr(self.z) if self.z else '')
 
     def __str__(self):
-        """
-        >>> a = Ob('a')
-        >>> print(a)
-        a
-        >>> print(a.r)
-        a.r
-        >>> print(a.l)
-        a.l
-        """
         return str(self.name) + (
             - self.z * '.l' if self.z < 0 else self.z * '.r')
 
@@ -102,82 +69,41 @@ class Ty(moncat.Ty):
     """
     @property
     def l(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> (s @ n.r).l
-        Ty('n', Ob('s', z=-1))
-        """
+        """ Left adjoint. """
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
     def r(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> (s @ n.l).r
-        Ty('n', Ob('s', z=1))
-        """
+        """ Right adjoint. """
         return Ty(*[x.r for x in self.objects[::-1]])
 
-    @property
-    def is_basic(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert s.is_basic and not s.l.is_basic and not (s @ n).is_basic
-        """
-        return len(self) == 1 and not self.objects[0].z
-
     def tensor(self, other):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
-        """
         return Ty(*super().tensor(other))
 
     def __init__(self, *t):
-        """
-        >>> Ty('s', 'n')
-        Ty('s', 'n')
-        """
         t = [x if isinstance(x, Ob) else Ob(x) for x in t]
         super().__init__(*t)
 
     def __getitem__(self, key):
-        """
-        >>> Ty('s', 'n')[1]
-        Ob('n')
-        >>> Ty('s', 'n')[1:]
-        Ty('n')
-        """
         if isinstance(key, slice):
             return Ty(*super().__getitem__(key))
         return super().__getitem__(key)
 
     def __repr__(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> n.r @ s @ n.l
-        Ty(Ob('n', z=1), 's', Ob('n', z=-1))
-        """
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
 
 
 class Diagram(moncat.Diagram):
-    """ Implements diagrams in free dagger pivotal categories.
+    """ Implements diagrams in the free rigid monoidal category.
 
     >>> I, n, s = Ty(), Ty('n'), Ty('s')
-    >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.l @ s)
-    >>> boxes, offsets = [Alice, jokes, Cup(n, n.l)], [0, 1, 0]
+    >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
+    >>> boxes, offsets = [Alice, jokes, Cup(n, n.r)], [0, 1, 0]
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
-    Alice >> Id(n) @ jokes >> Cup(n, n.l) @ Id(s)
+    Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
-        >>> print(Diagram(a, a, [f, g, f.dagger()], [0, 1, 0]))
-        f >> Id(a.l) @ g >> f.dagger()
-        """
         if not isinstance(dom, Ty):
             raise TypeError(config.Msg.type_err(Ty, dom))
         if not isinstance(cod, Ty):
@@ -185,44 +111,22 @@ class Diagram(moncat.Diagram):
         super().__init__(dom, cod, boxes, offsets, _fast=_fast)
 
     def then(self, other):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f = Box('f', a, a.l @ b.r)
-        >>> print(f >> f.dagger() >> f)
-        f >> f.dagger() >> f
-        """
         result = super().then(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
     def tensor(self, other):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f = Box('f', a, a.l @ b.r)
-        >>> print(f.dagger() @ f)
-        f.dagger() @ Id(a) >> Id(a) @ f
-        """
         result = super().tensor(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
     def dagger(self):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f = Box('f', a, a.l @ b.r).dagger()
-        >>> assert f.dagger() >> f == (f.dagger() >> f).dagger()
-        """
         result = super().dagger()
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
     @staticmethod
     def id(x):
-        """
-        >>> assert Diagram.id(Ty('s')) == Id(Ty('s'))
-        >>> print(Diagram.id(Ty('s')))
-        Id(s)
-        """
         return Id(x)
 
     def draw(self, _test=False, _data=None):
@@ -245,8 +149,8 @@ class Diagram(moncat.Diagram):
 
         >>> a, b = Ty('a'), Ty('b')
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
-        >>> assert Diagram.cups(a @ b, (a @ b).l) == (Cup(a, a.l)
-        ...                 << Id(a) @ Cup(b, b.l) @ Id(a.l))
+        >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
+        ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
         """
         if not isinstance(x, Ty):
             raise TypeError(config.Msg.type_err(Ty, x))
@@ -264,7 +168,7 @@ class Diagram(moncat.Diagram):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
-        >>> assert Diagram.caps(a, a.r) == Cap(a, a.r)
+        >>> assert Diagram.caps(a, a.l) == Cap(a, a.l)
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
@@ -288,6 +192,7 @@ class Diagram(moncat.Diagram):
         False
         >>> *_, two_snakes_nf = moncat.Diagram.normalize(two_snakes)
         >>> assert double_snake == two_snakes_nf
+        >>> f = Box('f', a, b)
         """
         return Diagram.caps(self.dom.r, self.dom) @ Id(self.cod.r)\
             >> Id(self.dom.r) @ self @ Id(self.cod.r)\
@@ -302,6 +207,7 @@ class Diagram(moncat.Diagram):
         False
         >>> *_, two_snakes_nf = moncat.Diagram.normalize(two_snakes, left=True)
         >>> assert double_snake == two_snakes_nf
+        >>> f = Box('f', a, b)
         """
         return Id(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
             >> Id(self.cod.l) @ self @ Id(self.dom.l)\
@@ -313,10 +219,10 @@ class Diagram(moncat.Diagram):
         >>> f = Box('f', x.r, y.l)
         >>> d = (f @ f.dagger()).interchange(0, 1)
         >>> assert d == Id(x.r) @ f.dagger() >> f @ Id(x.r)
-        >>> print((Cup(x, x.l) >> Cap(x, x.r)).interchange(0, 1))
-        Cap(x, x.r) @ Id(x @ x.l) >> Id(x @ x.r) @ Cup(x, x.l)
-        >>> print((Cup(x, x.l) >> Cap(x, x.r)).interchange(0, 1, left=True))
-        Id(x @ x.l) @ Cap(x, x.r) >> Cup(x, x.l) @ Id(x @ x.r)
+        >>> print((Cup(x, x.r) >> Cap(x, x.l)).interchange(0, 1))
+        Cap(x, x.l) @ Id(x @ x.r) >> Id(x @ x.l) @ Cup(x, x.r)
+        >>> print((Cup(x, x.r) >> Cap(x, x.l)).interchange(0, 1, left=True))
+        Id(x @ x.r) @ Cap(x, x.l) >> Cup(x, x.r) @ Id(x @ x.l)
         """
         result = super().interchange(i, j, left=left)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
@@ -377,12 +283,6 @@ class Diagram(moncat.Diagram):
                         or not left_snake and diagram.offsets[cup] != wire
                     if not_yankable:
                         continue
-                    dom = diagram.boxes[cup].dom[0 if left_snake else 1]
-                    cod = diagram.boxes[cap].cod[1 if left_snake else 0]
-                    if dom != cod:  # we must have found a pivotal structure.
-                        if left and not left_snake or not left and left_snake:
-                            return cup, cap, obstructions, left_snake
-                        continue
                     return cup, cap, obstructions, left_snake
             return None
 
@@ -420,17 +320,8 @@ class Diagram(moncat.Diagram):
                     diagram = diagram.interchange(box, cap)
                     yield diagram
                     cap += 1
-            dom = diagram.boxes[cup].dom[0 if left_snake else 1]
-            cod = diagram.boxes[cap].cod[1 if left_snake else 0]
-            if dom != cod:
-                boxes, offsets = list(diagram.boxes), list(diagram.offsets)
-                boxes[cap] = Cap(boxes[cap].cod[1:], boxes[cap].cod[:1])
-                boxes[cup] = Cup(boxes[cup].dom[1:], boxes[cup].dom[:1])
-                offsets[cap] += -1 if left_snake else 1
-                offsets[cup] += 1 if left_snake else -1
-            else:
-                boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
-                offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
+            boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
+            offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
             yield Diagram(diagram.dom, diagram.cod, boxes, offsets, _fast=True)
 
         diagram = self
@@ -453,7 +344,7 @@ class Diagram(moncat.Diagram):
 
 
 class Box(moncat.Box, Diagram):
-    """ Implements generators of dagger pivotal diagrams.
+    """ Implements generators of rigid monoidal diagrams.
 
     >>> a, b = Ty('a'), Ty('b')
     >>> Box('f', a, b.l @ b, data={42})
@@ -476,8 +367,6 @@ class Id(Diagram):
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
-        if not isinstance(t, Ty):
-            raise TypeError(config.Msg.type_err(Ty, t))
         super().__init__(t, t, [], [], _fast=True)
 
     def __repr__(self):
@@ -499,8 +388,9 @@ class Id(Diagram):
 class Cup(Box):
     """ Defines cups for simple types.
 
-    >>> Cup(Ty('n'), Ty('n').l)
-    Cup(Ty('n'), Ty(Ob('n', z=-1)))
+    >>> n = Ty('n')
+    >>> Cup(n, n.r)
+    Cup(Ty('n'), Ty(Ob('n', z=1)))
     """
     def __init__(self, x, y):
         if not isinstance(x, Ty):
@@ -511,30 +401,24 @@ class Cup(Box):
             raise AxiomError(config.Msg.are_not_adjoints(x, y))
         if len(x) != 1 or len(y) != 1:
             raise ValueError(config.Msg.cup_vs_cups(x, y))
+        if x == y.r:
+            raise NotImplementedError(config.Msg.pivotal_not_implemented())
         super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):
-        """
-        >>> n = Ty('n')
-        >>> Cup(n, n.l).dagger()
-        Cap(Ty('n'), Ty(Ob('n', z=-1)))
-        >>> assert Cup(n, n.l) == Cup(n, n.l).dagger().dagger()
-        """
-        return Cap(self.dom[:1], self.dom[1:])
+        raise NotImplementedError(config.Msg.pivotal_not_implemented())
 
     def __repr__(self):
         """
         >>> n = Ty('n')
-        >>> Cup(n, n.l)
-        Cup(Ty('n'), Ty(Ob('n', z=-1)))
+        >>> assert repr(Cup(n, n.r)) == "Cup(Ty('n'), Ty(Ob('n', z=1)))"
         """
         return "Cup({}, {})".format(repr(self.dom[:1]), repr(self.dom[1:]))
 
     def __str__(self):
         """
         >>> n = Ty('n')
-        >>> print(Cup(n, n.l))
-        Cup(n, n.l)
+        >>> assert str(Cup(n, n.r)) == "Cup(n, n.r)"
         """
         return "Cup({}, {})".format(self.dom[:1], self.dom[1:])
 
@@ -545,30 +429,24 @@ class Cap(Box):
     >>> n = Ty('n')
     >>> print(Cap(n, n.l).cod)
     n @ n.l
-    >>> print(Cap(n, n.r).cod)
-    n @ n.r
-    >>> print(Cap(n.l.l, n.l).cod)
-    n.l.l @ n.l
+    >>> print(Cap(n.l, n.l.l).cod)
+    n.l @ n.l.l
     """
     def __init__(self, x, y):
         if not isinstance(x, Ty):
             raise TypeError(config.Msg.type_err(Ty, x))
         if not isinstance(y, Ty):
             raise TypeError(config.Msg.type_err(Ty, y))
-        if x.r != y and x != y.r:
+        if x != y.r and x.r != y:
             raise AxiomError(config.Msg.are_not_adjoints(x, y))
         if len(x) != 1 or len(y) != 1:
             raise ValueError(config.Msg.cap_vs_caps(x, y))
+        if x.r == y:
+            raise NotImplementedError(config.Msg.pivotal_not_implemented())
         super().__init__('Cap', Ty(), x @ y)
 
     def dagger(self):
-        """
-        >>> n = Ty('n')
-        >>> Cap(n, n.l).dagger()
-        Cup(Ty('n'), Ty(Ob('n', z=-1)))
-        >>> assert Cap(n, n.l) == Cap(n, n.l).dagger().dagger()
-        """
-        return Cup(self.cod[:1], self.cod[1:])
+        raise NotImplementedError(config.Msg.pivotal_not_implemented())
 
     def __repr__(self):
         """
@@ -587,24 +465,25 @@ class Cap(Box):
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
 
-class PivotalFunctor(moncat.MonoidalFunctor):
+class RigidFunctor(moncat.MonoidalFunctor):
     """
-    Implements functors between pivotal categories preserving cups and caps.
+    Implements rigid monoidal functors, i.e. preserving cups and caps.
 
-    >>> s, n, a = Ty('s'), Ty('n'), Ty('a')
+    >>> s, n = Ty('s'), Ty('n')
+    >>> Alice, Bob = Box("Alice", Ty(), n), Box("Bob", Ty(), n)
     >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
-    >>> love_box = Box('loves', a @ a, s)
-    >>> ob = {s: s, n: a, a: n @ n}
-    >>> ar = {loves: Cap(a.r, a) @ Cap(a, a.l)
-    ...              >> Id(a.r) @ love_box @ Id(a.l)}
-    >>> F = PivotalFunctor(ob, ar)
-    >>> assert F(n.r) == F(n).r and F(a.l) == F(a).l
-    >>> assert F(Cap(n.r, n)) == Cap(Ty(Ob('a', z=1)), Ty('a'))
-    >>> assert F(Cup(a, a.l)) == Diagram.cups(n @ n, (n @ n).l)
+    >>> love_box = Box('loves', n @ n, s)
+    >>> ob = {s: s, n: n}
+    >>> ar = {Alice: Alice, Bob: Bob}
+    >>> ar.update({loves: Cap(n.r, n) @ Cap(n, n.l)
+    ...                   >> Id(n.r) @ love_box @ Id(n.l)})
+    >>> F = RigidFunctor(ob, ar)
+    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
     """
     def __init__(self, ob, ar, ob_cls=Ty, ar_cls=Diagram):
         """
-        >>> F = PivotalFunctor({Ty('x'): Ty('y')}, {})
+        >>> F = RigidFunctor({Ty('x'): Ty('y')}, {})
         >>> F(Id(Ty('x')))
         Id(Ty('y'))
         """
@@ -612,26 +491,18 @@ class PivotalFunctor(moncat.MonoidalFunctor):
 
     def __repr__(self):
         """
-        >>> PivotalFunctor({Ty('x'): Ty('y')}, {})
-        PivotalFunctor(ob={Ty('x'): Ty('y')}, ar={})
+        >>> RigidFunctor({Ty('x'): Ty('y')}, {})
+        RigidFunctor(ob={Ty('x'): Ty('y')}, ar={})
         """
-        return super().__repr__().replace("MonoidalFunctor", "PivotalFunctor")
+        return super().__repr__().replace("MonoidalFunctor", "RigidFunctor")
 
     def __call__(self, diagram):
         """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x, y)
-        >>> F = PivotalFunctor({x: y, y: x}, {f: f.dagger()})
-        >>> print(F(x))
-        y
-        >>> print(F(f))
-        f.dagger()
-        >>> print(F(F(f)))
-        f
-        >>> print(F(f >> f.dagger()))
-        f.dagger() >> f
-        >>> print(F(f @ f.dagger()))
-        f.dagger() @ Id(x) >> Id(x) @ f
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> F = RigidFunctor({x: y, y: z}, {f: g})
+        >>> assert F(f.transpose_l()) == F(f).transpose_l()
+        >>> assert F(f.transpose_r()) == F(f).transpose_r()
         """
         if isinstance(diagram, Ob):
             result = self.ob[Ty(diagram.name)]

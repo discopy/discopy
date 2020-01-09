@@ -16,7 +16,7 @@ Implements disco models in the category of matrices and circuits.
 
 from functools import reduce as fold
 from discopy import config
-from discopy.pivotal import Ty, Box, Id, Cup, AxiomError
+from discopy.rigidcat import Ty, Box, Id, Cup, AxiomError
 from discopy.matrix import MatrixFunctor
 from discopy.circuit import CircuitFunctor
 
@@ -90,9 +90,9 @@ class Model(MatrixFunctor):
     """ Implements functors from pregroup grammars to matrices.
 
     >>> n, s = Ty('n'), Ty('s')
-    >>> Alice, jokes = Word('Alice', n), Word('jokes', n.l @ s)
+    >>> Alice, jokes = Word('Alice', n), Word('jokes', n.r @ s)
     >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
-    >>> assert F(Alice @ jokes >> Cup(n, n.l) @ Id(s))
+    >>> assert F(Alice @ jokes >> Cup(n, n.r) @ Id(s))
     """
     def __repr__(self):
         """

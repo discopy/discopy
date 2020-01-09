@@ -1,7 +1,7 @@
-pivotal.Ob
+rigidcat.Cup
 ==============
 
-.. autoclass:: discopy.pivotal.Ob
+.. autoclass:: discopy.rigidcat.Cup
     :show-inheritance:
-    :members: l, r, z
+    :members:
     :member-order: bysource
