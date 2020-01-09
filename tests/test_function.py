@@ -25,15 +25,15 @@ def test_Dim_hash():
 
 def test_Function_init():
     f = Function('f', Dim(2), Dim(2), lambda x: x)
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         Function('f', 2., Dim(3), lambda x: x)
-    assert "Dim expected for dom, got <class 'float'>" in str(err.value)
-    with raises(ValueError) as err:
+    assert "Expected discopy.function.Dim, got 2.0" in str(err.value)
+    with raises(TypeError) as err:
         Function('f', Dim(2), Ob('x'), lambda x: x)
-    assert "Dim expected for cod, got <class 'discopy.cat.Ob" in str(err.value)
-    with raises(ValueError) as err:
+    assert "Expected discopy.function.Dim, got Ob('x')" in str(err.value)
+    with raises(TypeError) as err:
         Function(5, Dim(2), Dim(1), lambda x: x)
-    assert "String expected for name, got <class 'int'>" in str(err.value)
+    assert "Expected builtins.str, got 5 of type int instead" in str(err.value)
 
 
 def test_Function_repr():
@@ -60,9 +60,9 @@ def test_Function_then():
 
 
 def test_Function_tensor():
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         Function('id', Dim(3), Dim(3), lambda x: x) >> (lambda x: x)
-    assert "Function expected, got <function" in str(err.value)
+    assert "Expected discopy.function.Function, got <functio" in str(err.value)
 
 
 def test_AxiomError():

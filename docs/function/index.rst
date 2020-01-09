@@ -9,6 +9,6 @@ discopy.function
     Dim.rst
     Function.rst
     Id.rst
-    AxiomError.rst
+    Copy.rst
     NumpyFunctor.rst
     discofunc.rst

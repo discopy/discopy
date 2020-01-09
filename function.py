@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Implements the symmetric monoidal category (PROP) of functions on Numpy lists
+Implements the symmetric monoidal category (PROP) of functions on lists
 with cartesian product as tensor.
 
 Projections and the copy map witness the categorical product.
 
 >>> proj0 = Function('proj0', Dim(2), Dim(1), lambda x: np.array(x[0]))
 >>> proj1 = Function('proj1', Dim(2), Dim(1), lambda x: np.array(x[1]))
->>> @discofunc(1, 2)
-... def copy(x):
-...     return np.concatenate([x, x])
+>>> copy = Copy(1, 2)
 >>> assert (copy >> proj0)([46]) == Id(1)([46]) == (copy >> proj1)([46])
 
 'Dim(0)' is a terminal object with the following discarding map.
@@ -24,28 +22,37 @@ We can check the axioms for symmetry on specific inputs.
 >>> assert np.all((Id(1) @ swap >> swap @ Id(1) >> Id(1) @ swap)([0, 1, 2])
 ...            == (swap @ Id(1) >> Id(1) @ swap >> swap @ Id(1))([0, 1, 2]))
 
+As an example, we show that copy and add satisfy the bimonoid law.
+
+>>> add = Function('add', 2, 1, lambda x: np.sum(x, keepdims=True))
+>>> assert np.all(add([1, 2]) == np.array([3]))
+>>> assert np.all((copy @ copy >> Id(1) @ swap @ Id(1)
+...                >> add @ add)([123, 25]) == (add >> copy)([123, 25]))
+
 Notes
 -----
 
 The name of a composition is the composition of the names
 with brackets.
 
->>> (swap >> swap >> abs).name
-'((swap >> swap) >> abs)'
->>> print(swap >> abs)
-(swap >> abs)
+>>> (swap >> swap >> add).name
+'((swap >> swap) >> add)'
+>>> print(swap >> add)
+(swap >> add)
+>>> print(add << swap)
+(swap >> add)
 >>> assert (swap >> Id(2)).name == 'swap'
 
 The name of a tensor is the tensor of the names
 with brackets.
 
->>> assert (add @ copy @ Id(0)).name == '(add @ copy)'
+>>> assert (add @ copy @ Id(0)).name == '(add @ Copy(1, 2))'
 >>> print(Id(0) @ Id(0))
 Id(0)
 """
 from functools import reduce as fold
-from discopy import cat
-from cat import AxiomError
+from discopy import cat, config
+from discopy.cat import AxiomError
 from discopy.matrix import np
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
@@ -59,14 +66,17 @@ class Dim(Ty):
     x : int
         Non-negative integer value of Dim.
 
+    Notes
+    -----
+
     >>> assert Dim(0) @ Dim(4) == Dim(4) @ Dim(0) == Dim(4)
     >>> assert Dim(2) @ Dim(3) == Dim(5)
     >>> assert sum([Dim(0), Dim(3), Dim(4)], Dim(0)) == Dim(7)
     """
     def __init__(self, x=0):
         if not isinstance(x, int) or x < 0:
-            raise ValueError("Expected non-negative integer, "
-                             "got {} instead.".format(repr(x)))
+            raise ValueError("Expected non-negative integer, got {} instead"
+                             .format(x))
         self._dim = x
         super().__init__(*[Ob(1) for i in range(x)])
 
@@ -101,7 +111,7 @@ class Function(Box):
 
     Parameters
     ----------
-    name: 'string'
+    name: 'str'
         Name of the function.
     dom : 'function.Dim' or non-negative 'int'
         Domain of the diagram.
@@ -112,20 +122,14 @@ class Function(Box):
 
     Notes
     -----
+
     When calling a 'Function' on a list, it is automatically turned into
-    a Numpy array.
+    a Numpy array. It is sufficient that the input has a length which agrees
+    with the domain dimension.
 
     >>> swap = Function('swap', 2, 2, lambda x: x[::-1])
     >>> assert np.all(swap([1, 2]) == swap(np.array([1, 2])))
-
-    As an example, we show that copy and add satisfy the bimonoid law.
-
-    >>> copy = Function('copy', 1, 2, lambda x: np.concatenate([x, x]))
-    >>> assert np.all(copy([1]) == np.array([1, 1]))
-    >>> add = Function('add', 2, 1, lambda x: np.sum(x, keepdims=True))
-    >>> assert np.all(add([1, 2]) == np.array([3]))
-    >>> assert np.all((copy @ copy >> Id(1) @ swap @ Id(1)
-    ...                >> add @ add)([123, 25]) == (add >> copy)([123, 25]))
+    >>> swap = Function('swap', 2, 2, lambda x: x[::-1])
     """
     def __init__(self, name, dom, cod, function):
         if isinstance(dom, int):
@@ -133,15 +137,12 @@ class Function(Box):
         if isinstance(cod, int):
             cod = Dim(cod)
         if not isinstance(dom, Dim):
-            raise ValueError(
-                "Dim expected for dom, got {} instead.".format(type(dom)))
+            raise TypeError(config.Msg.type_err(Dim, dom))
         if not isinstance(cod, Dim):
-            raise ValueError(
-                "Dim expected for cod, got {} instead.".format(type(cod)))
+            raise TypeError(config.Msg.type_err(Dim, cod))
         self._function = function
         if not isinstance(name, str):
-            raise ValueError(
-                "String expected for name, got {} instead.".format(type(name)))
+            raise TypeError(config.Msg.type_err(str, name))
         self._name = name
         super().__init__(name, dom, cod)
 
@@ -190,7 +191,6 @@ class Function(Box):
         value : 'list' or 'numpy.ndarray' or 'jax.interpreters.xla.DeviceArray'
             Input list with 'len(value) == self.dom.dim'
 
-
         Notes
         -----
         When calling a 'Function' on a 'list', it is automatically turned into
@@ -216,8 +216,7 @@ class Function(Box):
         >>> assert np.all((swap >> abs)([14, 42]) == (abs << swap)([14, 42]))
         """
         if not isinstance(other, Function):
-            raise ValueError(
-                "Function expected, got {} instead.".format(repr(other)))
+            raise TypeError(config.Msg.type_err(Function, other))
         if self.cod.dim != other.dom.dim:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
@@ -245,8 +244,7 @@ class Function(Box):
         >>> assert np.all((add @ copy)([3, 1, 2]) == np.array([4, 2, 2]))
         """
         if not isinstance(other, Function):
-            raise ValueError(
-                "Function expected, got {} instead.".format(repr(other)))
+            raise TypeError(config.Msg.type_err(Function, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         if not self.name == 'Id(0)':
             if not other.name == 'Id(0)':
@@ -287,12 +285,21 @@ class Id(Function):
 class Copy(Function):
     """
     Implements the copy function with domain 'dom' and codomain 'dom * copies'.
+
+    Parameters
+    ----------
+    dom : 'int'
+        Domain dimension.
+    copies : 'int'
+        Number of copies.
+
+    >>> assert Copy(2, 3).cod == Dim(6)
     """
     def __init__(self, dom, copies=2):
         name = 'Copy({}, {})'.format(dom, copies)
 
         def function(x):
-            return np.concatenate([x for x in range(copies)])
+            return np.concatenate([x for i in range(copies)])
         super().__init__(name, dom, copies * dom, function)
 
 
