@@ -4,7 +4,7 @@
 discopy package configuration.
 """
 
-VERSION = '0.1.4'
+VERSION = '0.1.5'
 
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
