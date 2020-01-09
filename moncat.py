@@ -217,6 +217,8 @@ class Diagram(cat.Diagram):
     def __repr__(self):
         if not self.boxes:  # i.e. self is identity.
             return repr(Id(self.dom))
+        if len(self.boxes) == 1 and self.offsets == [0]:
+            return repr(self.boxes[0])  # i.e. self is a generator.
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
             repr(self.dom), repr(self.cod),
             repr(self.boxes), repr(self.offsets))
@@ -378,25 +380,23 @@ class Diagram(cat.Diagram):
                 graph.add_edge(scan[i], "output_{}".format(i))
             return graph, positions, labels
 
-        def draw_graph(graph, positions, labels):
-            inputs, outputs, boxes, wires = (
-                [node for node in graph.nodes if node[:len(name)] == name]
-                for name in ('input', 'output', 'box', 'wire'))
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=inputs, node_color='#ffffff')
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=outputs, node_color='#ffffff')
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=wires, node_size=0)
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=boxes, node_color='#ff0000')
-            nx.draw_networkx_labels(graph, positions, labels)
-            nx.draw_networkx_edges(graph, positions)
-            plt.axis("off")
-            plt.show()
         graph, positions, labels = build_graph() if _data is None else _data
+        inputs, outputs, boxes, wires = (
+            [node for node in graph.nodes if node[:len(name)] == name]
+            for name in ('input', 'output', 'box', 'wire'))
+        nx.draw_networkx_nodes(
+            graph, positions, nodelist=inputs, node_color='#ffffff')
+        nx.draw_networkx_nodes(
+            graph, positions, nodelist=outputs, node_color='#ffffff')
+        nx.draw_networkx_nodes(
+            graph, positions, nodelist=wires, node_size=0)
+        nx.draw_networkx_nodes(
+            graph, positions, nodelist=boxes, node_color='#ff0000')
+        nx.draw_networkx_labels(graph, positions, labels)
+        nx.draw_networkx_edges(graph, positions)
+        plt.axis("off")
         if not _test:
-            draw_graph(graph, positions, labels)
+            plt.show()
         return graph, positions, labels
 
     def interchange(self, i, j, left=False):
@@ -449,12 +449,6 @@ class Diagram(cat.Diagram):
         s1 >> s0
         s0 >> s1
         s1 >> s0
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> for d in (Id(x) @ f1 >> f0 @ Id(x)).normalize(): print(d)
-        f0 @ Id(y) >> Id(y) @ f1
-        >>> for d in (f0 @ f1).normalize(left=True): print(d)
-        Id(x) @ f1 >> f0 @ Id(x)
         """
         diagram = self
         while True:
@@ -464,11 +458,8 @@ class Diagram(cat.Diagram):
                 off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
                 if left and off1 >= off0 + len(box0.cod)\
                         or not left and off0 >= off1 + len(box1.dom):
-                    try:
-                        diagram = diagram.interchange(i, i + 1, left=left)
-                        break
-                    except InterchangerError:
-                        pass
+                    diagram = diagram.interchange(i, i + 1, left=left)
+                    break
             if diagram == before:  # no more moves
                 break
             yield diagram
@@ -597,36 +588,19 @@ class Id(Diagram):
 
 
 class Box(cat.Box, Diagram):
-    """ Implements a box as a diagram with a name and itself as box.
-
-    Note that as for composition, when we tensor an empty diagram with a box,
-    we get a diagram that is defined as equal to the original box.
+    """
+    Implements a box as a diagram with :code:`boxes=[self], offsets=[0]`.
 
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
-    >>> Id(Ty('x', 'y')) >> f  # doctest: +ELLIPSIS
-    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(...)], offsets=[0])
-    >>> Id(Ty()) @ f  # doctest: +ELLIPSIS
-    Diagram(dom=Ty('x', 'y'), cod=Ty('z'), boxes=[Box(...)], offsets=[0])
     >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f.dagger().dagger()
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
-        """
-        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
-        >>> print(f)
-        f
-        >>> f.name, f.dom, f.cod, f.data
-        ('f', Ty('x', 'y'), Ty('z'), 42)
-        """
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
 
     def __eq__(self, other):
-        """
-        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
-        >>> assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0])
-        """
         if isinstance(other, Box):
             return repr(self) == repr(other)
         if isinstance(other, Diagram):
@@ -634,11 +608,6 @@ class Box(cat.Box, Diagram):
         return False
 
     def __hash__(self):
-        """
-        >>> f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
-        >>> {f: 42}[f]
-        42
-        """
         return hash(repr(self))
 
 
@@ -656,37 +625,17 @@ class MonoidalFunctor(Functor):
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
     """
-    def __init__(self, ob, ar, ob_cls=Ty, ar_cls=Diagram):
-        """
-        >>> F = MonoidalFunctor({Ty('x'): Ty('y')}, {})
-        >>> F(Id(Ty('x')))
-        Id(Ty('y'))
-        """
+    def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
+        if ob_cls is None:
+            ob_cls = Ty
+        if ar_cls is None:
+            ar_cls = Diagram
         super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
 
     def __repr__(self):
-        """
-        >>> MonoidalFunctor({Ty('x'): Ty('y')}, {})
-        MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})
-        """
         return super().__repr__().replace("Functor", "MonoidalFunctor")
 
     def __call__(self, diagram):
-        """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x, y)
-        >>> F = MonoidalFunctor({x: y, y: x}, {f: f.dagger()})
-        >>> print(F(x))
-        y
-        >>> print(F(f))
-        f.dagger()
-        >>> print(F(F(f)))
-        f
-        >>> print(F(f >> f.dagger()))
-        f.dagger() >> f
-        >>> print(F(f @ f.dagger()))
-        f.dagger() @ Id(x) >> Id(x) @ f
-        """
         if isinstance(diagram, Ty):
             return sum([self.ob[type(diagram)(x)] for x in diagram],
                        self.ob_cls())  # the empty type is the unit for sum.

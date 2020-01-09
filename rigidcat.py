@@ -25,68 +25,37 @@ class Ob(cat.Ob):
     >>> a = Ob('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
+    @property
+    def z(self):
+        """ Winding number """
+        return self._z
+
+    @property
+    def l(self):
+        """ Left adjoint """
+        return Ob(self.name, self.z - 1)
+
+    @property
+    def r(self):
+        """ Right adjoint """
+        return Ob(self.name, self.z + 1)
+
     def __init__(self, name, z=0):
-        """
-        >>> print(Ob('a'))
-        a
-        >>> print(Ob('a', z=-2))
-        a.l.l
-        """
         if not isinstance(z, int):
             raise TypeError(config.Msg.type_err(int, z))
         self._z = z
         super().__init__(name)
 
-    @property
-    def z(self):
-        """
-        >>> Ob('a').z
-        0
-        """
-        return self._z
-
-    @property
-    def l(self):
-        """
-        >>> Ob('a').l
-        Ob('a', z=-1)
-        """
-        return Ob(self.name, self.z - 1)
-
-    @property
-    def r(self):
-        """
-        >>> Ob('a').r
-        Ob('a', z=1)
-        """
-        return Ob(self.name, self.z + 1)
-
     def __eq__(self, other):
-        """
-        >>> assert Ob('a') == Ob('a').l.r
-        """
         if not isinstance(other, Ob):
             return False
         return (self.name, self.z) == (other.name, other.z)
 
     def __repr__(self):
-        """
-        >>> Ob('a', z=42)
-        Ob('a', z=42)
-        """
         return "Ob({}{})".format(
             repr(self.name), ", z=" + repr(self.z) if self.z else '')
 
     def __str__(self):
-        """
-        >>> a = Ob('a')
-        >>> print(a)
-        a
-        >>> print(a.r)
-        a.r
-        >>> print(a.l)
-        a.l
-        """
         return str(self.name) + (
             - self.z * '.l' if self.z < 0 else self.z * '.r')
 
@@ -100,62 +69,27 @@ class Ty(moncat.Ty):
     """
     @property
     def l(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> (s @ n.r).l
-        Ty('n', Ob('s', z=-1))
-        """
+        """ Left adjoint. """
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
     def r(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> (s @ n.l).r
-        Ty('n', Ob('s', z=1))
-        """
+        """ Right adjoint. """
         return Ty(*[x.r for x in self.objects[::-1]])
 
-    @property
-    def is_basic(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert s.is_basic and not s.l.is_basic and not (s @ n).is_basic
-        """
-        return len(self) == 1 and not self.objects[0].z
-
     def tensor(self, other):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> assert n.r @ s == Ty(Ob('n', z=1), 's')
-        """
         return Ty(*super().tensor(other))
 
     def __init__(self, *t):
-        """
-        >>> Ty('s', 'n')
-        Ty('s', 'n')
-        """
         t = [x if isinstance(x, Ob) else Ob(x) for x in t]
         super().__init__(*t)
 
     def __getitem__(self, key):
-        """
-        >>> Ty('s', 'n')[1]
-        Ob('n')
-        >>> Ty('s', 'n')[1:]
-        Ty('n')
-        """
         if isinstance(key, slice):
             return Ty(*super().__getitem__(key))
         return super().__getitem__(key)
 
     def __repr__(self):
-        """
-        >>> s, n = Ty('s'), Ty('n')
-        >>> n.r @ s @ n.l
-        Ty(Ob('n', z=1), 's', Ob('n', z=-1))
-        """
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
 
@@ -177,42 +111,22 @@ class Diagram(moncat.Diagram):
         super().__init__(dom, cod, boxes, offsets, _fast=_fast)
 
     def then(self, other):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f, g = Box('f', a, a @ b.r), Box('g', b.r, b)
-        >>> assert f >> Id(a) @ g == Diagram(a, a @ b, [f, g], [0, 1])
-        """
         result = super().then(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
     def tensor(self, other):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f, g = Box('f', a, a.l @ b.r), Box('g', b.r, b.r)
-        >>> assert f @ g == f @ Id(b.r) >> Id(a.l @ b.r) @ g
-        """
         result = super().tensor(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
     def dagger(self):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> f = Box('f', a, a.l @ b.r).dagger()
-        >>> assert f.dagger() >> f == (f.dagger() >> f).dagger()
-        """
         result = super().dagger()
         return Diagram(Ty(*result.dom), Ty(*result.cod),
                        result.boxes, result.offsets, _fast=True)
 
     @staticmethod
     def id(x):
-        """
-        >>> assert Diagram.id(Ty('s')) == Id(Ty('s'))
-        >>> print(Diagram.id(Ty('s')))
-        Id(s)
-        """
         return Id(x)
 
     def draw(self, _test=False, _data=None):
@@ -369,12 +283,6 @@ class Diagram(moncat.Diagram):
                         or not left_snake and diagram.offsets[cup] != wire
                     if not_yankable:
                         continue
-                    dom = diagram.boxes[cup].dom[0 if left_snake else 1]
-                    cod = diagram.boxes[cap].cod[1 if left_snake else 0]
-                    if dom != cod:  # we must have found a Pivotal structure.
-                        if left and not left_snake or not left and left_snake:
-                            return cup, cap, obstructions, left_snake
-                        continue
                     return cup, cap, obstructions, left_snake
             return None
 
@@ -412,17 +320,8 @@ class Diagram(moncat.Diagram):
                     diagram = diagram.interchange(box, cap)
                     yield diagram
                     cap += 1
-            dom = diagram.boxes[cup].dom[0 if left_snake else 1]
-            cod = diagram.boxes[cap].cod[1 if left_snake else 0]
-            if dom != cod:  # we found a Pivotal structure
-                boxes, offsets = list(diagram.boxes), list(diagram.offsets)
-                boxes[cap] = Cap(boxes[cap].cod[1:], boxes[cap].cod[:1])
-                boxes[cup] = Cup(boxes[cup].dom[1:], boxes[cup].dom[:1])
-                offsets[cap] += -1 if left_snake else 1
-                offsets[cup] += 1 if left_snake else -1
-            else:
-                boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
-                offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
+            boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
+            offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
             yield Diagram(diagram.dom, diagram.cod, boxes, offsets, _fast=True)
 
         diagram = self
@@ -468,8 +367,6 @@ class Id(Diagram):
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
-        if not isinstance(t, Ty):
-            raise TypeError(config.Msg.type_err(Ty, t))
         super().__init__(t, t, [], [], _fast=True)
 
     def __repr__(self):
@@ -500,10 +397,12 @@ class Cup(Box):
             raise TypeError(config.Msg.type_err(Ty, x))
         if not isinstance(y, Ty):
             raise TypeError(config.Msg.type_err(Ty, y))
-        if x.r != y:
+        if x.r != y and x != y.r:
             raise AxiomError(config.Msg.are_not_adjoints(x, y))
         if len(x) != 1 or len(y) != 1:
             raise ValueError(config.Msg.cup_vs_cups(x, y))
+        if x == y.r:
+            raise NotImplementedError(config.Msg.pivotal_not_implemented())
         super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):

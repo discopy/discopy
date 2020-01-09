@@ -3,5 +3,5 @@ rigidcat.Ty
 
 .. autoclass:: discopy.rigidcat.Ty
     :show-inheritance:
-    :members: l, r, is_basic
+    :members: l, r
     :member-order: bysource
