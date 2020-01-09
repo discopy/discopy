@@ -3,19 +3,7 @@
 Implements the symmetric monoidal category (PROP) of functions on Numpy lists
 with cartesian product as tensor.
 
-We can check the axioms for symmetry on specific values.
-
->>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
->>> assert np.all((swap >> swap)([1, 2]) == Id(2)([1, 2]))
->>> assert np.all((Id(1) @ swap >> swap @ Id(1) >> Id(1) @ swap)([0, 1, 2])
-...            == (swap @ Id(1) >> Id(1) @ swap >> swap @ Id(1))([0, 1, 2]))
-
-Dim(0) is a terminal object with the following discarding map.
-
->>> discard = lambda n: Function('discard', Dim(n), Dim(0), lambda x: [])
->>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
-
-The following maps witness the categorical product.
+Projections and the copy map witness the categorical product.
 
 >>> proj0 = Function('proj0', Dim(2), Dim(1), lambda x: np.array(x[0]))
 >>> proj1 = Function('proj1', Dim(2), Dim(1), lambda x: np.array(x[1]))
@@ -23,9 +11,41 @@ The following maps witness the categorical product.
 ... def copy(x):
 ...     return np.concatenate([x, x])
 >>> assert (copy >> proj0)([46]) == Id(1)([46]) == (copy >> proj1)([46])
+
+'Dim(0)' is a terminal object with the following discarding map.
+
+>>> discard = lambda n: Function('discard', Dim(n), Dim(0), lambda x: [])
+>>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
+
+We can check the axioms for symmetry on specific inputs.
+
+>>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
+>>> assert np.all((swap >> swap)([1, 2]) == Id(2)([1, 2]))
+>>> assert np.all((Id(1) @ swap >> swap @ Id(1) >> Id(1) @ swap)([0, 1, 2])
+...            == (swap @ Id(1) >> Id(1) @ swap >> swap @ Id(1))([0, 1, 2]))
+
+Notes
+-----
+
+The name of a composition is the composition of the names
+with brackets.
+
+>>> (swap >> swap >> abs).name
+'((swap >> swap) >> abs)'
+>>> print(swap >> abs)
+(swap >> abs)
+>>> assert (swap >> Id(2)).name == 'swap'
+
+The name of a tensor is the tensor of the names
+with brackets.
+
+>>> assert (add @ copy @ Id(0)).name == '(add @ copy)'
+>>> print(Id(0) @ Id(0))
+Id(0)
 """
 from functools import reduce as fold
 from discopy import cat
+from cat import AxiomError
 from discopy.matrix import np
 from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
 
@@ -189,27 +209,11 @@ class Function(Box):
     def then(self, other):
         """
         Returns the sequential composition of 'self' with 'other'.
+        This method is called using the binary operators `>>` and `<<`.
 
-        This method is called using the binary operators `>>` and `<<`:
         >>> swap = Function('swap', Dim(2), Dim(2), lambda x: x[::-1])
         >>> abs = Function('abs', Dim(2), Dim(2), np.absolute)
         >>> assert np.all((swap >> abs)([14, 42]) == (abs << swap)([14, 42]))
-
-        Parameters
-        ----------
-        value : 'list' or 'numpy.ndarray' or 'jax.interpreters.xla.DeviceArray'
-            Input list with 'len(value) == self.dom.dim'
-
-        Notes
-        -----
-        The name of a composition is the composition of the names
-        with brackets.
-
-        >>> (swap >> swap >> abs).name
-        '((swap >> swap) >> abs)'
-        >>> print(swap >> abs)
-        (swap >> abs)
-        >>> assert (swap >> Id(2)).name == 'swap'
         """
         if not isinstance(other, Function):
             raise ValueError(
@@ -231,29 +235,14 @@ class Function(Box):
 
     def tensor(self, other):
         """
-        Returns the parallel composition of 'self' and 'other'
-
-        This method is called using the binary operator `@`:
+        Returns the parallel composition of 'self' and 'other'.
+        This method is called using the binary operator `@`.
 
         >>> add = Function('add', Dim(2), Dim(1),
         ...                lambda x: np.array([x[0] + x[1]]))
         >>> copy = Function('copy', Dim(1), Dim(2),\\
         ...                 lambda x: np.concatenate([x, x]))
         >>> assert np.all((add @ copy)([3, 1, 2]) == np.array([4, 2, 2]))
-
-        Parameters
-        ----------
-        value : 'list' or 'numpy.ndarray' or 'jax.interpreters.xla.DeviceArray'
-            Input list with 'len(value) == self.dom.dim'
-
-        Notes
-        -----
-        The name of a tensor is the tensor of the names
-        with brackets.
-
-        >>> assert (add @ copy @ Id(0)).name == '(add @ copy)'
-        >>> print(Id(0) @ Id(0))
-        Id(0)
         """
         if not isinstance(other, Function):
             raise ValueError(
@@ -280,12 +269,6 @@ class Function(Box):
         return Id(x)
 
 
-class AxiomError(cat.AxiomError):
-    """
-    This is raised when Functions do not compose.
-    """
-
-
 class Id(Function):
     """
     Implements the identity function for a given dimension.
@@ -299,6 +282,18 @@ class Id(Function):
         name = 'Id({})'.format(dim)
         dom = dim if isinstance(dim, Dim) else Dim(dim)
         super().__init__(name, dom, dom, lambda x: x)
+
+
+class Copy(Function):
+    """
+    Implements the copy function with domain 'dom' and codomain 'dom * copies'.
+    """
+    def __init__(self, dom, copies=2):
+        name = 'Copy({}, {})'.format(dom, copies)
+
+        def function(x):
+            return np.concatenate([x for x in range(copies)])
+        super().__init__(name, dom, copies * dom, function)
 
 
 class NumpyFunctor(MonoidalFunctor):
