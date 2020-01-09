@@ -1,27 +1,19 @@
 from pytest import raises
-from discopy.pivotal import *
+from discopy.rigidcat import *
 
 
 def test_Diagram_normal_form():
     x = Ty('x')
-    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-    twist = Cap(x, x.r) @ Id(x.r.r) >> Id(x) @ Cup(x.r, x.r.r)
-    assert twist.dom != twist.cod and twist.normal_form() == twist
-    assert (twist.dagger() >> twist).normal_form() == Id(x)
-    d = Cap(x, x.l) @ unit >> counit @ Cup(x.l, x)
-    assert d.normal_form(left=True) == unit >> counit
-    assert d.dagger().normal_form() == counit.dagger() >> unit.dagger()
-    a, b, c = Ty('a'), Ty('b'), Ty('c')
-    f = Box('f', a, b @ c)
+    assert Id(x).transpose_l().normal_form() == Id(x.l)
+    assert Id(x).transpose_r().normal_form() == Id(x.r)
+
+    f = Box('f', Ty('a'), Ty('b') @ Ty('c'))
     assert f.normal_form() == f
-    transpose_rl = f.transpose_r().transpose_l()
-    assert transpose_rl.normal_form() == f
-    transpose_lr = f.transpose_l().transpose_r()
-    assert transpose_lr.normal_form() == f
-    more_complicated = f
-    more_complicated = more_complicated.transpose_l().transpose_l()
-    more_complicated = more_complicated.transpose_r().transpose_r()
-    assert more_complicated.normal_form() == f
+    assert f.transpose_r().transpose_l().normal_form() == f
+    assert f.transpose_l().transpose_r().normal_form() == f
+    diagram = f.transpose_l().transpose_l().transpose_r().transpose_r()
+    assert diagram.normal_form() == f
+
     Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
     with raises(NotImplementedError) as err:
         Eckmann_Hilton.normal_form()
@@ -63,10 +55,10 @@ def test_Diagram_draw():
 def test_Cup_init():
     t = Ty('n', 's')
     with raises(ValueError) as err:
-        Cup(t, t.l)
-    assert str(err.value) == config.Msg.cup_vs_cups(t, t.l)
+        Cup(t, t.r)
+    assert str(err.value) == config.Msg.cup_vs_cups(t, t.r)
     with raises(ValueError) as err:
-        Cup(Ty(), Ty().l)
+        Cup(Ty(), Ty())
     assert str(err.value) == config.Msg.cup_vs_cups(Ty(), Ty().l)
 
 

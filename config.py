@@ -41,6 +41,11 @@ class Msg:
         return "{} and {} are not adjoints.".format(left, right)
 
     @staticmethod
+    def pivotal_not_implemented():
+        """ Pivotal error. """
+        return "Pivotal categories are not implemented."
+
+    @staticmethod
     def cup_vs_cups(left, right):
         """ Simple type error. """
         return "Cup can only witness adjunctions between simple types. "\

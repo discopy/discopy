@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements free monoidal categories and (dagger) monoidal functors.
+Implements the free dagger monoidal category.
 
 We can check the axioms for dagger monoidal categories, up to interchanger.
 
@@ -541,6 +541,23 @@ class Diagram(cat.Diagram):
         >>> assert (f >> g).depth() == 2
         """
         return len(self.slice())
+
+
+def build_spiral(n_cups):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    x = Ty('x')  # pylint: disable=invalid-name
+    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
+    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
+    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
+    return result
 
 
 class InterchangerError(AxiomError):

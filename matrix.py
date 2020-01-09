@@ -15,7 +15,7 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 from functools import reduce as fold
 from discopy import config
 from discopy.cat import Quiver, AxiomError
-from discopy.pivotal import Ob, Ty, Box, Diagram, PivotalFunctor
+from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
 
 try:
     import warnings
@@ -289,8 +289,8 @@ class Id(Matrix):
         super().__init__(dim, dim, array)
 
 
-class MatrixFunctor(PivotalFunctor):
-    """ Implements a matrix-valued pivotal functor.
+class MatrixFunctor(RigidFunctor):
+    """ Implements a matrix-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, x @ y)

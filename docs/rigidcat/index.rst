@@ -1,7 +1,7 @@
-discopy.pivotal
-===============
+discopy.rigidcat
+================
 
-.. automodule:: discopy.pivotal
+.. automodule:: discopy.rigidcat
 
 .. toctree::
     :caption: Contents:
@@ -13,4 +13,4 @@ discopy.pivotal
     Box.rst
     Cup.rst
     Cap.rst
-    PivotalFunctor.rst
+    RigidFunctor.rst
