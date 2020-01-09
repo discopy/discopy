@@ -286,14 +286,15 @@ class Copy(Function):
     """
     Implements the copy function with domain 'dom' and codomain 'dom * copies'.
 
+    >>> assert np.all(Copy(2, 2)([23, 45]) == np.array([23, 45, 23, 45]))
+    >>> assert Copy(2, 3).cod == Dim(6)
+
     Parameters
     ----------
     dom : 'int'
         Domain dimension.
     copies : 'int'
         Number of copies.
-
-    >>> assert Copy(2, 3).cod == Dim(6)
     """
     def __init__(self, dom, copies=2):
         name = 'Copy({}, {})'.format(dom, copies)
