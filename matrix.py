@@ -34,16 +34,6 @@ class Dim(Ty):
     Dim(2, 3)
     """
     def __init__(self, *xs):
-        """
-        >>> len(Dim(2, 3, 4))
-        3
-        >>> len(Dim(1, 2, 3))
-        2
-        >>> Dim(-1)  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        ValueError
-        """
         for x in xs:
             if not isinstance(x, int):
                 raise TypeError(config.Msg.type_err(int, x))
@@ -52,60 +42,28 @@ class Dim(Ty):
         super().__init__(*[Ob(x) for x in xs if x > 1])
 
     def tensor(self, other):
-        """
-        >>> assert Dim(1) @ Dim(2, 3) == Dim(2, 3) @ Dim(1) == Dim(2, 3)
-        """
         return Dim(*[x.name for x in super().tensor(other)])
 
-    def __add__(self, other):
-        """
-        >>> assert sum([Dim(1), Dim(2, 3), Dim(4)], Dim(1)) == Dim(2, 3, 4)
-        """
-        return self @ other
-
     def __getitem__(self, key):
-        """
-        >>> assert Dim(2, 3)[:1] == Dim(3, 2)[1:] == Dim(2)
-        >>> assert Dim(2, 3)[0] == Dim(3, 2)[1] == 2
-        """
         if isinstance(key, slice):
             return Dim(*[x.name for x in super().__getitem__(key)])
         return super().__getitem__(key).name
 
     def __repr__(self):
-        """
-        >>> Dim(1, 2, 3)
-        Dim(2, 3)
-        """
         return "Dim({})".format(', '.join(map(repr, self)) or '1')
 
     def __str__(self):
-        """
-        >>> print(Dim(1, 2, 3))
-        Dim(2, 3)
-        """
         return repr(self)
 
     def __hash__(self):
-        """
-        >>> dim = Dim(2, 3)
-        >>> {dim: 42}[dim]
-        42
-        """
         return hash(repr(self))
 
     @property
     def l(self):
-        """
-        >>> assert Dim(2, 3, 4).l == Dim(4, 3, 2)
-        """
         return Dim(*self[::-1])
 
     @property
     def r(self):
-        """
-        >>> assert Dim(2, 3, 4).r == Dim(4, 3, 2)
-        """
         return Dim(*self[::-1])
 
 
@@ -118,74 +76,40 @@ class Matrix(Box):
     Matrix(dom=Dim(1), cod=Dim(1), array=[0])
     """
     def __init__(self, dom, cod, array):
-        """
-        >>> Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
-        Matrix(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])
-        """
         self._array = np.array(array).reshape(dom + cod)
         super().__init__(array, dom, cod)
 
     @property
     def array(self):
-        """
-        >>> Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0]).array.shape
-        (2, 2, 2)
-        >>> list(Matrix(Dim(2), Dim(2), [0, 1, 1, 0]).array.flatten())
-        [0, 1, 1, 0]
-        """
+        """ Numpy array. """
         return self._array
 
     def __bool__(self):
-        """
-        >>> assert Matrix(Dim(1), Dim(1), [1])
-        """
         return bool(self.array)
 
     def __repr__(self):
-        """
-        >>> Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
-        Matrix(dom=Dim(2, 2), cod=Dim(2), array=[1, 0, 0, 1, 0, 1, 1, 0])
-        """
         return "Matrix(dom={}, cod={}, array={})".format(
             self.dom, self.cod, list(self.array.flatten()))
 
     def __str__(self):
-        """
-        >>> print(Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0]))
-        Matrix(dom=Dim(2, 2), cod=Dim(2), array=[1, 0, 0, 1, 0, 1, 1, 0])
-        """
         return repr(self)
 
     def __add__(self, other):
-        """
-        >>> u = Matrix(Dim(2), Dim(2), [1, 0, 0, 0])
-        >>> v = Matrix(Dim(2), Dim(2), [0, 0, 0, 1])
-        >>> assert u + v == Id(2)
-        """
         if not isinstance(other, Matrix):
-            raise ValueError(config.Msg.type_err(Matrix, other))
+            raise TypeError(config.Msg.type_err(Matrix, other))
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(config.Msg.cannot_add(self, other))
         return Matrix(self.dom, self.cod, self.array + other.array)
 
     def __eq__(self, other):
-        """
-        >>> arr = np.array([1, 0, 0, 1, 0, 1, 1, 0]).reshape((2, 2, 2))
-        >>> m = Matrix(Dim(2, 2), Dim(2), arr)
-        >>> assert m == m and np.all(m == arr)
-        """
         if not isinstance(other, Matrix):
             return self.array == other
         return (self.dom, self.cod) == (other.dom, other.cod)\
             and np.all(self.array == other.array)
 
     def then(self, other):
-        """
-        >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
-        >>> assert m >> m == m >> m.dagger() == Id(2)
-        """
         if not isinstance(other, Matrix):
-            raise ValueError(config.Msg.type_err(Matrix, other))
+            raise TypeError(config.Msg.type_err(Matrix, other))
         if self.cod != other.dom:
             raise AxiomError(config.Msg.does_not_compose(self, other))
         array = np.tensordot(self.array, other.array, len(self.cod))\
@@ -194,14 +118,6 @@ class Matrix(Box):
         return Matrix(self.dom, other.cod, array)
 
     def tensor(self, other):
-        """
-        >>> v = Matrix(Dim(1), Dim(2), [1, 0])
-        >>> v @ v
-        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 0])
-        >>> v @ v.dagger()
-        Matrix(dom=Dim(2), cod=Dim(2), array=[1, 0, 0, 0])
-        >>> assert v @ v.dagger() == v << v.dagger()
-        """
         if not isinstance(other, Matrix):
             raise TypeError(config.Msg.type_err(Matrix, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
@@ -211,13 +127,6 @@ class Matrix(Box):
         return Matrix(dom, cod, array)
 
     def dagger(self):
-        """
-        >>> m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
-        >>> m.dagger()
-        Matrix(dom=Dim(2), cod=Dim(2, 2), array=[1, 0, 0, 1, 0, 1, 1, 0])
-        >>> v = Matrix(Dim(1), Dim(2), [0, 1])
-        >>> assert (v >> m.dagger()).dagger() == m >> v.dagger()
-        """
         array = np.moveaxis(
             self.array, range(len(self.dom + self.cod)),
             [i + len(self.cod) if i < len(self.dom) else
@@ -226,16 +135,10 @@ class Matrix(Box):
 
     @staticmethod
     def id(x):
-        """
-        >>> assert Id(2) == Matrix(Dim(2), Dim(2), [1, 0, 0, 1])
-        """
         return Id(x)
 
     @staticmethod
     def cups(x, y):
-        """
-        >>> assert np.all(Matrix.cups(Dim(2), Dim(2)).array == np.identity(2))
-        """
         if not isinstance(x, Dim):
             raise TypeError(config.Msg.type_err(Dim, x))
         if not isinstance(y, Dim):
@@ -246,9 +149,6 @@ class Matrix(Box):
 
     @staticmethod
     def caps(x, y):
-        """
-        >>> assert np.all(Matrix.caps(Dim(2), Dim(2)).array == np.identity(2))
-        """
         if not isinstance(x, Dim):
             raise TypeError(config.Msg.type_err(Dim, x))
         if not isinstance(y, Dim):
@@ -327,17 +227,6 @@ class MatrixFunctor(RigidFunctor):
         >>> F = MatrixFunctor(ob, ar)
         >>> list(F(f >> g).array.flatten())
         [5.0, 14.0, 23.0, 32.0]
-        >>> F(f @ f.dagger()).array.shape
-        (2, 2, 3, 3, 2, 2)
-        >>> F(f.dagger() @ f).array.shape
-        (3, 2, 2, 2, 2, 3)
-        >>> list(F(f.dagger() >> f).array.flatten())
-        [126.0, 144.0, 162.0, 144.0, 166.0, 188.0, 162.0, 188.0, 214.0]
-        >>> list(F(g.dagger() >> g).array.flatten())
-        [5]
-        >>> assert F((x @ y).r) == F(x @ y).r
-        >>> assert np.all(F(f.transpose_l()).array == F(f).array.transpose())
-        >>> assert np.all(F(f.transpose_r()).array == F(f).array.transpose())
         """
         if isinstance(diagram, (Ty, Box)) or not isinstance(diagram, Diagram):
             return super().__call__(diagram)
