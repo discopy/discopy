@@ -46,7 +46,7 @@ with brackets.
 The name of a tensor is the tensor of the names
 with brackets.
 
->>> assert (add @ copy @ Id(0)).name == '(add @ Copy(1, 2))'
+>>> assert (add @ swap @ Id(0)).name == '(add @ swap)'
 >>> print(Id(0) @ Id(0))
 Id(0)
 """
