@@ -14,6 +14,7 @@ discopy
    moncat/index.rst
    pivotal/index.rst
    matrix/index.rst
+   function/index.rst
    circuit/index.rst
    pregroup/index.rst
 
