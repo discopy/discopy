@@ -16,7 +16,7 @@ Implements disco models in the category of matrices and circuits.
 
 from functools import reduce as fold
 from discopy import config
-from discopy.rigidcat import Ty, Box, Id, Cup, AxiomError
+from discopy.rigidcat import Ty, Box, Id, Cup
 from discopy.matrix import MatrixFunctor
 from discopy.circuit import CircuitFunctor
 

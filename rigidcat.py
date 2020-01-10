@@ -106,13 +106,6 @@ class Diagram(moncat.Diagram):
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
     Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     """
-    def __init__(self, dom, cod, boxes, offsets, _fast=False):
-        if not isinstance(dom, Ty):
-            raise TypeError(config.Msg.type_err(Ty, dom))
-        if not isinstance(cod, Ty):
-            raise TypeError(config.Msg.type_err(Ty, cod))
-        super().__init__(dom, cod, boxes, offsets, _fast=_fast)
-
     def then(self, other):
         result = super().then(other)
         return Diagram(Ty(*result.dom), Ty(*result.cod),

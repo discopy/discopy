@@ -26,15 +26,6 @@ def test_Ob_str():
     assert str(a) == "a" and str(a.r) == "a.r" and str(a.l) == "a.l"
 
 
-def test_Diagram_init():
-    with raises(TypeError) as err:
-        Diagram('x', Ty('x'), [], [])
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
-    with raises(TypeError) as err:
-        Diagram(Ty('x'), 'x', [], [])
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
-
-
 def test_Diagram_cups():
     with raises(TypeError) as err:
         Diagram.cups('x', Ty('x'))

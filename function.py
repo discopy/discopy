@@ -50,11 +50,11 @@ with brackets.
 >>> print(Id(0) @ Id(0))
 Id(0)
 """
-from functools import reduce as fold
-from discopy import cat, config
+
+from discopy import config
 from discopy.cat import AxiomError
 from discopy.matrix import np
-from discopy.moncat import Ob, Ty, Box, Diagram, MonoidalFunctor
+from discopy.moncat import Ob, Ty, Box, MonoidalFunctor
 
 
 class Dim(Ty):
@@ -228,9 +228,9 @@ class Function(Box):
         else:
             newname = other.name
 
-        def f(x):
-            return other(self(x))
-        return Function(newname, self.dom, other.cod, f)
+        def func(val):
+            return other(self(val))
+        return Function(newname, self.dom, other.cod, func)
 
     def tensor(self, other):
         """
@@ -254,10 +254,10 @@ class Function(Box):
         else:
             newname = other.name
 
-        def f(x):
-            return np.concatenate([self(x[:self.dom.dim]),
-                                   other(x[self.dom.dim:])])
-        return Function(newname, dom, cod, f)
+        def func(val):
+            return np.concatenate([self(val[:self.dom.dim]),
+                                   other(val[self.dom.dim:])])
+        return Function(newname, dom, cod, func)
 
     @staticmethod
     def id(x):
@@ -299,9 +299,9 @@ class Copy(Function):
     def __init__(self, dom, copies=2):
         name = 'Copy({}, {})'.format(dom, copies)
 
-        def function(x):
-            return np.concatenate([x for i in range(copies)])
-        super().__init__(name, dom, copies * dom, function)
+        def func(val):
+            return np.concatenate([val for i in range(copies)])
+        super().__init__(name, dom, copies * dom, func)
 
 
 class NumpyFunctor(MonoidalFunctor):
@@ -324,7 +324,7 @@ class NumpyFunctor(MonoidalFunctor):
         super().__init__(ob, ar, ob_cls=Dim, ar_cls=Function)
 
 
-def discofunc(dom, cod, name=False):
+def discofunc(dom, cod, name=None):
     """
     Decorator turning a python function into a discopy Function
     given domain and codomain information.
@@ -346,9 +346,8 @@ def discofunc(dom, cod, name=False):
     if isinstance(cod, int):
         cod = Dim(cod)
 
-    def decorator(f):
-        if not name:
-            return Function(f.__name__, dom, cod, f)
-        else:
-            return Function(name, dom, cod, f)
+    def decorator(func):
+        if name is None:
+            return Function(func.__name__, dom, cod, func)
+        return Function(name, dom, cod, func)
     return decorator

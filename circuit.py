@@ -270,8 +270,7 @@ class Circuit(Diagram):
         if seed is not None:
             rand.seed(seed)
         if n_qubits == 1:
-            a, b, c = rand.random(), rand.random(), rand.random()
-            return Rx(a) >> Rz(b) >> Rx(c)
+            return Rx(rand.random()) >> Rz(rand.random()) >> Rx(rand.random())
         result = Id(n_qubits)
         for _ in range(depth):
             line, n_affected = Id(0), 0
