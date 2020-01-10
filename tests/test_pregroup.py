@@ -2,6 +2,13 @@ from pytest import raises
 from discopy.pregroup import *
 
 
+def test_Word():
+    with raises(TypeError):
+        Word(0, Ty('n'))
+    with raises(TypeError):
+        Word('Alice', 0)
+
+
 def test_eager_parse():
     s, n = Ty('s'), Ty('n')
     Alice = Word('Alice', n)

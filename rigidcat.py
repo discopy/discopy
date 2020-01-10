@@ -51,6 +51,9 @@ class Ob(cat.Ob):
             return False
         return (self.name, self.z) == (other.name, other.z)
 
+    def __hash__(self):
+        return hash(repr(self))
+
     def __repr__(self):
         return "Ob({}{})".format(
             repr(self.name), ", z=" + repr(self.z) if self.z else '')

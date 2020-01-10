@@ -66,6 +66,11 @@ def test_Matrix_tensor():
     assert v @ v.dagger() == v << v.dagger()
 
 
+def test_MatrixFunctor():
+    assert repr(MatrixFunctor({Ty('x'): 1}, {})) ==\
+        "MatrixFunctor(ob={Ty('x'): 1}, ar={})"
+
+
 def test_AxiomError():
     m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
     with raises(AxiomError) as err:

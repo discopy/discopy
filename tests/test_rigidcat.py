@@ -12,6 +12,11 @@ def test_Ob_eq():
     assert Ob('a') == Ob('a').l.r and Ob('a') != 'a'
 
 
+def test_Ob_hash():
+    a = Ob('a')
+    assert {a: 42}[a] == 42
+
+
 def test_Ob_repr():
     assert repr(Ob('a', z=42)) == "Ob('a', z=42)"
 

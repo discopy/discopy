@@ -1,3 +1,4 @@
+from pytest import raises
 from discopy.circuit import *
 
 
@@ -25,3 +26,19 @@ def test_PRO_str():
 def test_PRO_getitem():
     assert PRO(42)[2: 4] == PRO(2)
     assert all(PRO(42)[i].name == 1 for i in range(42))
+
+
+def test_Circuit_cups():
+    with raises(TypeError):
+        Circuit.cups(2, PRO(3))
+    with raises(TypeError):
+        Circuit.cups(PRO(2), 3)
+
+
+def test_Circuit_from_tk():
+    with raises(NotImplementedError):
+        Circuit.from_tk(Id(3).to_tk().CCX(0, 1, 2))
+    circuit = Circuit.from_tk(Id(3).to_tk().CX(0, 2))
+    assert circuit == Id(1) @ SWAP >> CX @ Id(1)
+    circuit = Circuit.from_tk(Id(3).to_tk().CX(2, 0))
+    assert circuit == SWAP @ Id(1) >> Id(1) @ SWAP >> Id(1) @ CX

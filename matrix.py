@@ -149,13 +149,7 @@ class Matrix(Box):
 
     @staticmethod
     def caps(x, y):
-        if not isinstance(x, Dim):
-            raise TypeError(config.Msg.type_err(Dim, x))
-        if not isinstance(y, Dim):
-            raise TypeError(config.Msg.type_err(Dim, y))
-        if x.r != y:
-            raise AxiomError(config.Msg.are_not_adjoints(x, y))
-        return Matrix(Dim(1), x @ y, Id(x).array)
+        return Matrix.cups(x, y).dagger()
 
 
 class Id(Matrix):
@@ -199,24 +193,15 @@ class MatrixFunctor(RigidFunctor):
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
     def __init__(self, ob, ar):
-        for x, y in ob.items():
-            if isinstance(y, int):
-                ob.update({x: Dim(y)})
-            elif not isinstance(y, Dim):
-                raise TypeError(config.Msg.type_err(Dim, y))
-        super().__init__(ob, {}, Dim, Matrix)
-        self._input_ar, self._ar = ar, Quiver(
-            lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))
+        self._input_ob, self._input_ar = ob, ar
+        _ob = Quiver(lambda x: ob[x] if isinstance(ob[x], Dim) else Dim(ob[x]))
+        super().__init__(_ob, {}, Dim, Matrix)
+        _ar = Quiver(lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))
+        super().__init__(_ob, _ar, Dim, Matrix)
 
     def __repr__(self):
-        """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> MatrixFunctor({x: 1, y: 3}, {})
-        MatrixFunctor(ob={Ty('x'): Dim(1), Ty('y'): Dim(3)}, ar={})
-        >>> MatrixFunctor({}, {Box('f', x @ x, y): list(range(3))})
-        MatrixFunctor(ob={}, ar={Box('f', Ty('x', 'x'), Ty('y')): [0, 1, 2]})
-        """
-        return "MatrixFunctor(ob={}, ar={})".format(self.ob, self._input_ar)
+        return "MatrixFunctor(ob={}, ar={})".format(
+            self._input_ob, self._input_ar)
 
     def __call__(self, diagram):
         """

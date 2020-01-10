@@ -137,15 +137,12 @@ def eager_parse(*words, target=Ty('s')):
     while True:
         fail = True
         for i in range(len(scan) - 1):
-            try:
-                if scan[i: i + 1].r != scan[i + 1: i + 2]:
-                    continue
-                cup = Cup(scan[i: i + 1], scan[i + 1: i + 2])
-                result = result >> Id(scan[: i]) @ cup @ Id(scan[i + 2:])
-                scan, fail = result.cod, False
-                break
-            except AxiomError:
-                pass
+            if scan[i: i + 1].r != scan[i + 1: i + 2]:
+                continue
+            cup = Cup(scan[i: i + 1], scan[i + 1: i + 2])
+            result = result >> Id(scan[: i]) @ cup @ Id(scan[i + 2:])
+            scan, fail = result.cod, False
+            break
         if result.cod == target:
             return result
         if fail:

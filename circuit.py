@@ -14,8 +14,9 @@ Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
-from random import choice, random as _random, seed as _seed
+import random as rand
 import pytket as tk
+from discopy import config
 from discopy.cat import Quiver
 from discopy.rigidcat import Ty, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
@@ -145,9 +146,10 @@ class Circuit(Diagram):
         [0.0, 0.0, 1.0, 0.0]
         [0.0, 0.0, 0.0, 1.0]
         """
-        if not isinstance(x, PRO) or not isinstance(y, PRO):
-            raise ValueError("Expected PRO, got {} of type {} instead."
-                             .format((repr(x), repr(y)), (type(x), type(y))))
+        if not isinstance(x, PRO):
+            raise TypeError(config.Msg.type_err(PRO, x))
+        if not isinstance(y, PRO):
+            raise TypeError(config.Msg.type_err(PRO, y))
         result = Id(x @ y)
         cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
         for i in range(1, len(x) + 1):
@@ -204,9 +206,9 @@ class Circuit(Diagram):
     def to_tk(self):
         """ Returns a pytket circuit.
 
-        >>> circuit = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1]).to_tk()
+        >>> circuit = Circuit(2, 2, [Rz(0.5), Rx(0.25), CX], [0, 1, 0]).to_tk()
         >>> for g in circuit: print((g.op.get_type(), g.op.get_params()))
-        (OpType.SWAP, [])
+        (OpType.Rz, [0.5])
         (OpType.Rx, [0.25])
         (OpType.CX, [])
         """
@@ -228,7 +230,7 @@ class Circuit(Diagram):
         """ Takes a pytket circuit and returns a planar circuit,
         SWAP gates are introduced when applying gates to non-adjacent qubits.
 
-        >>> c1 = Circuit(3, 3, [SWAP, Rx(0.25), CX], [0, 1, 1])
+        >>> c1 = Circuit(2, 2, [Rz(0.5), Rx(0.25), CX], [0, 1, 0])
         >>> c2 = Circuit.from_tk(c1.to_tk())
         >>> assert c1.normal_form() == c2.normal_form()
         """
@@ -249,15 +251,15 @@ class Circuit(Diagram):
                 if qubit.index[0] == i_0 + i + 1:
                     break  # gate applies to adjacent qubit already
                 if qubit.index[0] < i_0 + i + 1:
-                    for j in range(qubit.index, i_0 + i):
+                    for j in range(qubit.index[0], i_0 + i):
                         gates.append(SWAP)
                         offsets.append(j)
-                    if qubit.index <= i_0:
+                    if qubit.index[0] <= i_0:
                         i_0 -= 1
                 else:
-                    for j in range(qubit.index - i_0 + i - 1):
+                    for j in range(qubit.index[0] - i_0 + i - 1):
                         gates.append(SWAP)
-                        offsets.append(qubit.index - j - 1)
+                        offsets.append(qubit.index[0] - j - 1)
             gates.append(gates_from_tk(tk_gate))
             offsets.append(i_0)
         return Circuit(tk_circuit.n_qubits, tk_circuit.n_qubits,
@@ -281,18 +283,20 @@ class Circuit(Diagram):
         Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
         """
         if seed is not None:
-            _seed(seed)
+            rand.seed(seed)
         if n_qubits == 1:
-            return Rx(_random()) >> Rz(_random()) >> Rx(_random())
+            a, b, c = rand.random(), rand.random(), rand.random()
+            return Rx(a) >> Rz(b) >> Rx(c)
         result = Id(n_qubits)
         for _ in range(depth):
             line, n_affected = Id(0), 0
             while n_affected < n_qubits:
-                gate = choice(gateset if n_qubits - n_affected > 1
-                              else [g for g in gateset
-                                    if g is Rx or g is Rz or len(g.dom) == 1])
+                gate = rand.choice(
+                    gateset if n_qubits - n_affected > 1 else [
+                        g for g in gateset
+                        if g is Rx or g is Rz or len(g.dom) == 1])
                 if gate is Rx or gate is Rz:
-                    gate = gate(_random())
+                    gate = gate(rand.random())
                 line = line @ gate
                 n_affected += len(gate.dom)
             result = result >> line
@@ -357,6 +361,8 @@ class Gate(Box, Circuit):
         """
         >>> CX
         Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
+        >>> X.dagger()
+        Gate('X', 1, [0, 1, 1, 0]).dagger()
         """
         if self._dagger:
             return repr(self.dagger()) + '.dagger()'
