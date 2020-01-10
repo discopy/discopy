@@ -139,12 +139,6 @@ class Circuit(Diagram):
         """
         >>> Circuit.cups(PRO(1), PRO(1)).eval()
         Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
-        >>> arr = Circuit.cups(PRO(2), PRO(2)).eval().array
-        >>> for i in range(4): print(list(arr[i % 2, i // 2].flatten()))
-        [1.0, 0.0, 0.0, 0.0]
-        [0.0, 1.0, 0.0, 0.0]
-        [0.0, 0.0, 1.0, 0.0]
-        [0.0, 0.0, 0.0, 1.0]
         """
         if not isinstance(x, PRO):
             raise TypeError(config.Msg.type_err(PRO, x))
@@ -161,12 +155,6 @@ class Circuit(Diagram):
         """
         >>> Circuit.caps(PRO(1), PRO(1)).eval()
         Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 1])
-        >>> arr = Circuit.caps(PRO(2), PRO(2)).eval().array
-        >>> for i in range(4): print(list(arr[i % 2, i // 2].flatten()))
-        [1, 0, 0, 0]
-        [0, 1, 0, 0]
-        [0, 0, 1, 0]
-        [0, 0, 0, 1]
         """
         return Circuit.cups(x, y).dagger()
 
@@ -182,11 +170,10 @@ class Circuit(Diagram):
         The input maybe any circuit c, the output will be a numpy array
         with shape len(c.dom @ c.cod) * (2, )
 
-        >>> c = Circuit(2, 2, [sqrt(2), H, Rx(0.5), CX], [0, 0, 1, 0])
-        >>> m = c.measure()
-        >>> list(np.round(m[0, 0].flatten()))
-        [0.0, 1.0, 1.0, 0.0]
-        >>> assert (Ket(1, 0) >> c >> Bra(0, 1)).measure() == m[1, 0, 0, 1]
+        >>> m = X.measure()
+        >>> list(np.round(m[0].flatten()))
+        [0.0, 1.0]
+        >>> assert (Ket(0) >> X >> Bra(1)).measure() == m[0, 1]
         """
         def bitstring(i, length):
             return map(int, '{{:0{}b}}'.format(length).format(i))
@@ -503,16 +490,14 @@ class Rz(Gate):
 
     def dagger(self):
         """
-        >>> assert Rz(0.125).dagger().eval() == Rz(0.125).eval().dagger()
+        >>> assert Rz(0.5).dagger().eval() == Rz(0.5).eval().dagger()
         """
         return Rz(-self.phase)
 
     @property
     def array(self):
         """
-        >>> assert np.allclose(Rz(-1).array, np.identity(2))
-        >>> assert np.allclose(Rz(0).array, np.identity(2))
-        >>> assert np.allclose(Rz(1).array, np.identity(2))
+        >>> assert np.allclose(Rz(0.5).array, Z.array)
         """
         theta = 2 * np.pi * self.phase
         return np.array([[1, 0], [0, np.exp(1j * theta)]])
@@ -520,7 +505,6 @@ class Rz(Gate):
 
 class Rx(Gate):
     """
-    >>> assert np.all(Rx(0).array == np.identity(2))
     >>> assert np.all(np.round(Rx(0.5).array) == X.array)
     """
     def __init__(self, phase):
@@ -554,19 +538,12 @@ class Rx(Gate):
 
     def dagger(self):
         """
-        >>> assert Rx(0.125).dagger().eval() == Rx(0.125).eval().dagger()
+        >>> assert Rx(0.5).dagger().eval() == Rx(0.5).eval().dagger()
         """
         return Rx(-self.phase)
 
     @property
     def array(self):
-        """
-        >>> assert np.allclose(Rx(0).array, np.identity(2))
-        >>> assert np.allclose(np.round(Rx(0.5).array), X.array)
-        >>> assert np.allclose(np.round(Rx(-1).array), np.identity(2))
-        >>> assert np.allclose(np.round(Rx(1).array), np.identity(2))
-        >>> assert np.allclose(np.round(Rx(2).array), np.identity(2))
-        """
         half_theta = np.pi * self.phase
         global_phase = np.exp(1j * half_theta)
         sin, cos = np.sin(half_theta), np.cos(half_theta)
