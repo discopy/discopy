@@ -273,8 +273,6 @@ class Circuit(Diagram):
         >>> c = Circuit.random(1, seed=420)
         >>> print(c)  # doctest: +ELLIPSIS
         Rx(0.026...) >> Rz(0.781...) >> Rx(0.272...)
-        >>> array = (c >> c.dagger()).eval().array
-        >>> assert np.all(np.round(array) == np.identity(2))
         >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
         CX >> T @ Id(1) >> Id(1) @ T
         >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
@@ -374,9 +372,9 @@ class Gate(Box, Circuit):
         """
         >>> print(CX.dagger())
         CX.dagger()
-        >>> print(Rx(0.25).dagger())
-        Rx(-0.25)
-        >>> assert Rx(0.25).eval().dagger() == Rx(0.25).dagger().eval()
+        >>> print(Y.dagger())
+        Y.dagger()
+        >>> assert Y.eval().dagger() == Y.dagger().eval()
         """
         return Gate(self.name, len(self.dom), self.array,
                     data=self.data, _dagger=not self._dagger)
