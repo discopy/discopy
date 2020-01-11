@@ -32,23 +32,12 @@ As an example, we show that copy and add satisfy the bimonoid law.
 Notes
 -----
 
-The name of a composition is the composition of the names
-with brackets.
+The name of a composition is the composition of the names.
 
 >>> (swap >> swap >> add).name
 '((swap >> swap) >> add)'
->>> print(swap >> add)
-(swap >> add)
->>> print(add << swap)
-(swap >> add)
 >>> assert (swap >> Id(2)).name == 'swap'
-
-The name of a tensor is the tensor of the names
-with brackets.
-
 >>> assert (add @ swap @ Id(0)).name == '(add @ swap)'
->>> print(Id(0) @ Id(0))
-Id(0)
 """
 
 from discopy import config
@@ -111,11 +100,11 @@ class Function(Box):
 
     Parameters
     ----------
-    name: 'str'
+    name: str
         Name of the function.
-    dom : 'function.Dim' or non-negative 'int'
+    dom : function.Dim or int
         Domain of the diagram.
-    cod : 'function.Dim' or non-negative 'int'
+    cod : function.Dim or int
         Codomain of the diagram.
     function: any
         Python function with a call method.
@@ -129,7 +118,6 @@ class Function(Box):
 
     >>> swap = Function('swap', 2, 2, lambda x: x[::-1])
     >>> assert np.all(swap([1, 2]) == swap(np.array([1, 2])))
-    >>> swap = Function('swap', 2, 2, lambda x: x[::-1])
     """
     def __init__(self, name, dom, cod, function):
         if isinstance(dom, int):
