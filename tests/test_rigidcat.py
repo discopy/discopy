@@ -62,10 +62,10 @@ def test_Diagram_normal_form():
     assert str(err.value) == config.Msg.is_not_connected(Eckmann_Hilton)
 
 
-def test_Diagram_draw():
+def test_Diagram_build_graph():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
-    graph, positions, labels = f.transpose_l().draw(_test=True)
+    graph, positions, labels = f.transpose_l().build_graph()
     assert sorted(labels.items()) == [
         ('box_1', 'f'),
         ('input_0', 'y.l'),

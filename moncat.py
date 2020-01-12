@@ -216,8 +216,8 @@ class Diagram(cat.Diagram):
 
     def __repr__(self):
         if not self.boxes:  # i.e. self is identity.
-            return repr(Id(self.dom))
-        if len(self.boxes) == 1 and self.offsets == [0]:
+            return repr(self.id(self.dom))
+        if len(self.boxes) == 1 and self.dom == self.boxes[0].dom:
             return repr(self.boxes[0])  # i.e. self is a generator.
         return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
             repr(self.dom), repr(self.cod),
@@ -340,47 +340,61 @@ class Diagram(cat.Diagram):
         """
         return Id(x)
 
-    def draw(self, _test=False, _data=None):
+    def build_graph(self):
         """
-        Draws a diagram.
+        Builds a networkx graph, called by
+        :meth:`discopy.moncat.Diagram.draw`.
+
+        Returns
+        -------
+        graph, positions, labels : tuple
+            where:
+
+            * :code:`graph` is a networkx graph with nodes for inputs, outputs,
+              boxes and wires,
+            * :code:`positions` is a dict from nodes to pairs of floats,
+            * :code:`labels` is a dict from nodes to strings.
         """
-        def build_graph():
-            graph, positions, labels = nx.Graph(), dict(), dict()
+        graph, positions, labels = nx.Graph(), dict(), dict()
 
-            def add(node, position, label):
-                graph.add_node(node)
-                positions.update({node: position})
-                if label is not None:
-                    labels.update({node: label})
-            for i in range(len(self.dom)):
-                position = (-.5 * len(self.dom) + i, len(self) + 1)
-                add("input_{}".format(i), position, str(self.dom[i]))
-            scan = ["input_{}".format(i) for i, _ in enumerate(self.dom)]
-            for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-                pad = -.5 * (len(scan) - len(box.dom) + 1)
-                box_node = "box_{}".format(i)
-                add(box_node, (pad + off, len(self) - i), str(box))
-                graph.add_edges_from(
-                    [(scan[off + j], box_node) for j, _ in enumerate(box.dom)])
-                for j, _ in enumerate(scan[:off]):
-                    wire_node = "wire_{}_{}".format(i, j)
-                    add(wire_node, (pad + j, len(self) - i), None)
-                    graph.add_edge(scan[j], wire_node)
-                    scan[j] = wire_node
-                for j, _ in enumerate(scan[off + len(box.dom):]):
-                    wire_node = "wire_{}_{}".format(i, off + j + 1)
-                    add(wire_node, (pad + off + j + 1, len(self) - i), None)
-                    graph.add_edge(scan[off + len(box.dom) + j], wire_node)
-                    scan[off + len(box.dom) + j] = wire_node
-                scan = scan[:off] + len(box.cod) * [box_node]\
-                    + scan[off + len(box.dom):]
-            for i in range(len(self.cod)):
-                position = (-.5 * len(scan) + i, 0)
-                add("output_{}".format(i), position, str(self.cod[i]))
-                graph.add_edge(scan[i], "output_{}".format(i))
-            return graph, positions, labels
+        def add(node, position, label):
+            graph.add_node(node)
+            positions.update({node: position})
+            if label is not None:
+                labels.update({node: label})
+        for i in range(len(self.dom)):
+            position = (-.5 * len(self.dom) + i, len(self) + 1)
+            add("input_{}".format(i), position, str(self.dom[i]))
+        scan = ["input_{}".format(i) for i, _ in enumerate(self.dom)]
+        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+            pad = -.5 * (len(scan) - len(box.dom) + 1)
+            box_node = "box_{}".format(i)
+            add(box_node, (pad + off, len(self) - i), str(box))
+            graph.add_edges_from(
+                [(scan[off + j], box_node) for j, _ in enumerate(box.dom)])
+            for j, _ in enumerate(scan[:off]):
+                wire_node = "wire_{}_{}".format(i, j)
+                add(wire_node, (pad + j, len(self) - i), None)
+                graph.add_edge(scan[j], wire_node)
+                scan[j] = wire_node
+            for j, _ in enumerate(scan[off + len(box.dom):]):
+                wire_node = "wire_{}_{}".format(i, off + j + 1)
+                add(wire_node, (pad + off + j + 1, len(self) - i), None)
+                graph.add_edge(scan[off + len(box.dom) + j], wire_node)
+                scan[off + len(box.dom) + j] = wire_node
+            scan = scan[:off] + len(box.cod) * [box_node]\
+                + scan[off + len(box.dom):]
+        for i in range(len(self.cod)):
+            position = (-.5 * len(scan) + i, 0)
+            add("output_{}".format(i), position, str(self.cod[i]))
+            graph.add_edge(scan[i], "output_{}".format(i))
+        return graph, positions, labels
 
-        graph, positions, labels = build_graph() if _data is None else _data
+    def draw(self):  # pragma: no cover
+        """
+        Draws a diagram using networkx and matplotlib.
+        """
+        graph, positions, labels = self.build_graph()
         inputs, outputs, boxes, wires = (
             [node for node in graph.nodes if node[:len(name)] == name]
             for name in ('input', 'output', 'box', 'wire'))
@@ -395,9 +409,7 @@ class Diagram(cat.Diagram):
         nx.draw_networkx_labels(graph, positions, labels)
         nx.draw_networkx_edges(graph, positions)
         plt.axis("off")
-        if not _test:
-            plt.show()
-        return graph, positions, labels
+        plt.show()
 
     def interchange(self, i, j, left=False):
         """

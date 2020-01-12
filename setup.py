@@ -3,10 +3,10 @@ Setup discopy package.
 """
 
 from setuptools import setup
-from config import VERSION  # pylint: disable=no-name-in-module
+from config import VERSION
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     setup(name='discopy',
           version=VERSION,
           package_dir={'discopy': ''},

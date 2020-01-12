@@ -161,10 +161,10 @@ def test_spiral(n=2):
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
 
 
-def test_Diagram_draw():
+def test_Diagram_build_graph():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     diagram = Box('f0', x, y) @ Box('f1', z, w)
-    graph, positions, labels = diagram.draw(_test=True)
+    graph, positions, labels = diagram.build_graph()
     assert sorted(labels.items()) == [
         ('box_0', 'f0'),
         ('box_1', 'f1'),

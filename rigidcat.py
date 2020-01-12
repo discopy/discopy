@@ -125,11 +125,12 @@ class Diagram(moncat.Diagram):
     def id(x):
         return Id(x)
 
-    def draw(self, _test=False, _data=None):
+    def build_graph(self):
         """
-        Draws a diagram with cups and caps.
+        Builds a networkx graph, called by
+        :meth:`discopy.moncat.Diagram.draw`.
         """
-        graph, positions, labels = moncat.Diagram.draw(self, _test=True)
+        graph, positions, labels = super().build_graph()
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
                 node, wire = 'box_{}'.format(i), 'wire_{}_{}'.format(i, off)
@@ -137,7 +138,7 @@ class Diagram(moncat.Diagram):
                 del positions[node]
                 del labels[node]
                 graph = nx.relabel_nodes(graph, {node: wire})
-        return super().draw(_test=_test, _data=(graph, positions, labels))
+        return graph, positions, labels
 
     @staticmethod
     def cups(x, y):
@@ -336,7 +337,9 @@ class Diagram(moncat.Diagram):
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
-        return moncat.Diagram.normal_form(self, left=left)
+        result = moncat.Diagram.normal_form(self, left=left)
+        return Diagram(result.dom, result.cod, result.boxes, result.offsets,
+                       _fast=True)
 
 
 class Box(moncat.Box, Diagram):

@@ -9,8 +9,8 @@ Implements quantum circuits as diagrams and circuit-valued monoidal functors.
 >>> Bob = Box('Bob', n, Ty())
 >>> ob, ar = {n: 1}, {Alice: Ket(0), loves: X, Bob: Bra(1)}
 >>> F = CircuitFunctor(ob, ar)
->>> F(Alice >> loves >> Bob)
-Circuit(0, 0, [Ket(0), Gate('X', 1, [0, 1, 1, 0]), Bra(1)], [0, 0, 0])
+>>> print(F(Alice >> loves >> Bob))
+Ket(0) >> X >> Bra(1)
 >>> assert F(Alice >> loves >> Bob).eval()
 """
 
@@ -71,6 +71,19 @@ class Circuit(Diagram):
         self._gates = gates
         super().__init__(PRO(dom), PRO(cod), gates, offsets, _fast=_fast)
 
+    def __repr__(self):
+        """
+        >>> Circuit(2, 2, [CX, CX], [0, 0])  # doctest: +ELLIPSIS
+        Circuit(dom=PRO(2), cod=PRO(2), ...)
+        >>> Circuit(2, 2, [CX, CX], [0, 0])  # doctest: +ELLIPSIS
+        Circuit(..., boxes=[Gate('CX', ...), Gate('CX', ...)], offsets=[0, 0])
+        >>> Circuit(2, 2, [CX], [0])  # doctest: +ELLIPSIS
+        Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
+        >>> Circuit(2, 2, [], [])
+        Id(2)
+        """
+        return super().__repr__().replace('Diagram', 'Circuit')
+
     @property
     def gates(self):
         """
@@ -78,14 +91,6 @@ class Circuit(Diagram):
         [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
         """
         return self._gates
-
-    def __repr__(self):
-        """
-        >>> Circuit(2, 2, [CX, CX], [0, 0])  # doctest: +ELLIPSIS
-        Circuit(2, 2, [Gate('CX', 2, [...]), Gate('CX', 2, [...])], [0, 0])
-        """
-        return "Circuit({}, {}, {}, {})".format(
-            len(self.dom), len(self.cod), self.gates, self.offsets)
 
     def then(self, other):
         """
@@ -112,6 +117,18 @@ class Circuit(Diagram):
         """
         result = super().dagger()
         return Circuit(len(result.dom), len(result.cod),
+                       result.boxes, result.offsets, _fast=True)
+
+    def interchange(self, i, j, left=False):
+        """
+        >>> circuit = Id(1) @ X >> X @ Id(1)
+        >>> print(circuit.interchange(0, 1))
+        X @ Id(1) >> Id(1) @ X
+        >>> print(circuit.interchange(0, 1).interchange(0, 1, left=True))
+        Id(1) @ X >> X @ Id(1)
+        """
+        result = super().interchange(i, j, left=left)
+        return Circuit(PRO(len(result.dom)), PRO(len(result.cod)),
                        result.boxes, result.offsets, _fast=True)
 
     def normal_form(self, left=False):
