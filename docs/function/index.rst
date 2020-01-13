@@ -6,7 +6,7 @@ discopy.function
 .. toctree::
     :caption: Contents:
 
-    Dim.rst
+    Vec.rst
     Function.rst
     Id.rst
     Copy.rst
