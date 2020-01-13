@@ -1,6 +1,6 @@
-function.Dim
+function.Vec
 ============
 
-.. autoclass:: discopy.function.Dim(x)
+.. autoclass:: discopy.function.Vec(x)
     :show-inheritance:
     :members: dim
