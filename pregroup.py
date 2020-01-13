@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
-from discopy import config, rigidcat
+from discopy import config
 from discopy.rigidcat import Ty, Box, Id, Cup
 from discopy.matrix import MatrixFunctor
 from discopy.circuit import CircuitFunctor
@@ -167,51 +167,64 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram, draw_types=False):  # pragma: no cover
+def draw(diagram,
+         pad=.1, space=.5, width=2, draw_types=False):  # pragma: no cover
     """
     Draws a pregroup diagram.
     """
-    words, *cups = diagram.slice().boxes
-    is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
-        and all(isinstance(box, Cup) for s in cups for box in s.boxes)
-    if not is_pregroup:
-        return diagram.draw()
-    fig, ax = plt.subplots()
-    words, scan = words.normal_form(), []
-    for i, (word, off) in enumerate(zip(words.boxes, words.offsets)):
-        for j, _ in enumerate(word.cod):
-            scan.append(3 * i + (2. / (len(word.cod) + 1)) * (j + 1))
-            if draw_types:
-                ax.text(scan[-1] + .1, -.2, str(word.cod[j]))
-        verts = [(3 * i, 0),
-                 (3 * i + 2, 0),
-                 (3 * i + 1, 1),
-                 (3 * i, 0)]
-        codes = [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
-        ax.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
-        ax.text(3 * i + 1, .1, str(word), ha='center')
-    for j, slice in enumerate(cups):
-        for off in slice.offsets:
-            middle = .5 * (scan[off] + scan[off + 1])
+    def draw_triangles(axis, words):
+        scan = []
+        for i, word in enumerate(words.boxes):
+            for j, _ in enumerate(word.cod):
+                x_wire = (space + width) * i\
+                    + (width / (len(word.cod) + 1)) * (j + 1)
+                scan.append(x_wire)
+                if draw_types:
+                    axis.text(x_wire + pad, -2 * pad, str(word.cod[j]))
+            path = Path(
+                [((space + width) * i, 0),
+                 ((space + width) * i + width, 0),
+                 ((space + width) * i + width / 2, 1),
+                 ((space + width) * i, 0)],
+                [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY])
+            axis.add_patch(PathPatch(path, facecolor='none'))
+            axis.text((space + width) * i + width / 2, pad,
+                      str(word), ha='center')
+        return scan
+
+    def draw_cups_and_wires(axis, cups, scan):
+        for j, off in [(j, off)
+                       for j, s in enumerate(cups) for off in s.offsets]:
+            middle = (scan[off] + scan[off + 1]) / 2
             verts = [(scan[off], 0),
                      (scan[off], - j - 1),
                      (middle, - j - 1)]
             codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            ax.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
+            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
             verts = [(middle, - j - 1),
                      (scan[off + 1], - j - 1),
                      (scan[off + 1], 0)]
             codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            ax.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
+            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
             scan = scan[:off] + scan[off + 2:]
-    for i, _ in enumerate(diagram.cod):
-        verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
-        codes = [Path.MOVETO, Path.LINETO]
-        ax.add_patch(PathPatch(Path(verts, codes)))
-        if draw_types:
-            ax.text(scan[i] + .1, - len(cups) - 1, str(diagram.cod[i]))
-    ax.set_xlim(0, 3 * len(words.boxes) - 1)
-    ax.set_ylim(- len(cups) - 1, 1)
-    ax.set_aspect('equal')
-    plt.axis('off')
-    plt.show()
+        for i, _ in enumerate(diagram.cod):
+            verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
+            codes = [Path.MOVETO, Path.LINETO]
+            axis.add_patch(PathPatch(Path(verts, codes)))
+            if draw_types:
+                axis.text(scan[i] + pad, - len(cups) - space,
+                          str(diagram.cod[i]))
+    words, *cups = diagram.slice().boxes
+    is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
+        and all(isinstance(box, Cup) for s in cups for box in s.boxes)
+    if is_pregroup:
+        _, axis = plt.subplots()
+        scan = draw_triangles(axis, words.normal_form())
+        draw_cups_and_wires(axis, cups, scan)
+        axis.set_xlim(0, (space + width) * len(words.boxes) - space)
+        axis.set_ylim(- len(cups) - space, 1)
+        axis.set_aspect('equal')
+        plt.axis('off')
+        plt.show()
+    else:
+        diagram.draw()

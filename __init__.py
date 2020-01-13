@@ -18,6 +18,6 @@ from discopy.moncat import MonoidalFunctor
 from discopy.rigidcat import Ob, Ty, Box, Diagram, Id, Cup, Cap, RigidFunctor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CircuitFunctor
-from discopy.pregroup import Word, Model, CircuitModel
+from discopy.pregroup import Word, Model, CircuitModel, draw
 
 __version__ = config.VERSION
