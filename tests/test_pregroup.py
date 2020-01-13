@@ -1,4 +1,5 @@
 from pytest import raises
+from matplotlib import pyplot as plt
 from discopy.pregroup import *
 
 
@@ -39,3 +40,15 @@ def test_brute_force():
     gen = brute_force(Alice, loves, Bob, target=n)
     assert next(gen) == Word('Alice', Ty('n'))
     assert next(gen) == Word('Bob', Ty('n'))
+
+
+def test_draw():
+    plt.rcParams.update({'font.size': 18, 'figure.figsize': (6, 2)})
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r @ s @ n.l)
+    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    draw(sentence, show=False)
+    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    plt.margins(0, 0)
+    plt.savefig('docs/alice-loves-bob.png')

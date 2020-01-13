@@ -167,11 +167,27 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram,
-         pad=.1, space=.5, width=2, draw_types=False):  # pragma: no cover
+def draw(diagram, show=True, **params):  # pragma: no cover
     """
     Draws a pregroup diagram.
+
+    Parameters
+    ----------
+    width : float, optional
+        Width of the word triangles, default is :code:`2.0`.
+    space : float, optional
+        Space between word triangles, default is :code:`0.5`.
+    pad : float, optional
+        Padding between text and wires, default is :code:`0.1`.
+    draw_types : bool, optional
+        Whether to draw type labels, default is :code:`False`.
+
     """
+    pad = params.get('pad', .1)
+    space = params.get('space', .5)
+    width = params.get('width', 2.)
+    draw_types = params.get('draw_types', False)
+
     def draw_triangles(axis, words):
         scan = []
         for i, word in enumerate(words.boxes):
@@ -225,6 +241,7 @@ def draw(diagram,
         axis.set_ylim(- len(cups) - space, 1)
         axis.set_aspect('equal')
         plt.axis('off')
-        plt.show()
+        if show:
+            plt.show()
     else:
-        diagram.draw()
+        diagram.draw(show=show)

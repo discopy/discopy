@@ -390,7 +390,7 @@ class Diagram(cat.Diagram):
             graph.add_edge(scan[i], "output_{}".format(i))
         return graph, positions, labels
 
-    def draw(self):  # pragma: no cover
+    def draw(self, show=True):  # pragma: no cover
         """
         Draws a diagram using networkx and matplotlib.
         """
@@ -409,7 +409,8 @@ class Diagram(cat.Diagram):
         nx.draw_networkx_labels(graph, positions, labels)
         nx.draw_networkx_edges(graph, positions)
         plt.axis("off")
-        plt.show()
+        if show:
+            plt.show()
 
     def interchange(self, i, j, left=False):
         """
