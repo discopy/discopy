@@ -15,6 +15,10 @@ Implements disco models in the category of matrices and circuits.
 """
 
 from functools import reduce as fold
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
+
 from discopy import config
 from discopy.rigidcat import Ty, Box, Id, Cup
 from discopy.matrix import MatrixFunctor
@@ -161,3 +165,83 @@ def brute_force(*vocab, target=Ty('s')):
             except NotImplementedError:
                 pass
             test.append(words + (word, ))
+
+
+def draw(diagram, show=True, **params):
+    """
+    Draws a pregroup diagram.
+
+    Parameters
+    ----------
+    width : float, optional
+        Width of the word triangles, default is :code:`2.0`.
+    space : float, optional
+        Space between word triangles, default is :code:`0.5`.
+    pad : float, optional
+        Padding between text and wires, default is :code:`0.1`.
+    draw_types : bool, optional
+        Whether to draw type labels, default is :code:`False`.
+
+    """
+    pad = params.get('pad', .1)
+    space = params.get('space', .5)
+    width = params.get('width', 2.)
+    draw_types = params.get('draw_types', False)
+
+    def draw_triangles(axis, words):
+        scan = []
+        for i, word in enumerate(words.boxes):
+            for j, _ in enumerate(word.cod):
+                x_wire = (space + width) * i\
+                    + (width / (len(word.cod) + 1)) * (j + 1)
+                scan.append(x_wire)
+                if draw_types:  # pragma: no cover
+                    axis.text(x_wire + pad, -2 * pad, str(word.cod[j]))
+            path = Path(
+                [((space + width) * i, 0),
+                 ((space + width) * i + width, 0),
+                 ((space + width) * i + width / 2, 1),
+                 ((space + width) * i, 0)],
+                [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY])
+            axis.add_patch(PathPatch(path, facecolor='none'))
+            axis.text((space + width) * i + width / 2, pad,
+                      str(word), ha='center')
+        return scan
+
+    def draw_cups_and_wires(axis, cups, scan):
+        for j, off in [(j, off)
+                       for j, s in enumerate(cups) for off in s.offsets]:
+            middle = (scan[off] + scan[off + 1]) / 2
+            verts = [(scan[off], 0),
+                     (scan[off], - j - 1),
+                     (middle, - j - 1)]
+            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
+            verts = [(middle, - j - 1),
+                     (scan[off + 1], - j - 1),
+                     (scan[off + 1], 0)]
+            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
+            scan = scan[:off] + scan[off + 2:]
+        for i, _ in enumerate(diagram.cod):
+            verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
+            codes = [Path.MOVETO, Path.LINETO]
+            axis.add_patch(PathPatch(Path(verts, codes)))
+            if draw_types:  # pragma: no cover
+                axis.text(scan[i] + pad, - len(cups) - space,
+                          str(diagram.cod[i]))
+    words, *cups = diagram.slice().boxes
+    is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
+        and all(isinstance(box, Cup) for s in cups for box in s.boxes)
+    if is_pregroup:
+        _, axis = plt.subplots()
+        scan = draw_triangles(axis, words.normal_form())
+        draw_cups_and_wires(axis, cups, scan)
+        axis.set_xlim(0, (space + width) * len(words.boxes) - space)
+        axis.set_ylim(- len(cups) - space, 1)
+        axis.set_aspect('equal')
+        plt.axis('off')
+        if show:  # pragma: no cover
+            plt.show()
+    else:  # pragma: no cover
+        diagram.draw(show=show)
