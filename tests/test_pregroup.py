@@ -1,5 +1,7 @@
+import os
 from pytest import raises
 from matplotlib import pyplot as plt
+from matplotlib.testing.compare import compare_images
 from discopy.pregroup import *
 
 
@@ -43,12 +45,16 @@ def test_brute_force():
 
 
 def test_draw():
-    plt.rcParams.update({'font.size': 18, 'figure.figsize': (6, 2)})
+    dir, file = 'docs/', 'alice-loves-bob.png'
+    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5.8, 2)})
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     draw(sentence, show=False)
-    plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    plt.subplots_adjust(
+        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.margins(0, 0)
-    plt.savefig('docs/alice-loves-bob.png')
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)

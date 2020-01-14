@@ -167,7 +167,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram, show=True, **params):  # pragma: no cover
+def draw(diagram, show=True, **params):
     """
     Draws a pregroup diagram.
 
@@ -243,5 +243,5 @@ def draw(diagram, show=True, **params):  # pragma: no cover
         plt.axis('off')
         if show:
             plt.show()
-    else:
+    else:  # pragma: no cover
         diagram.draw(show=show)
