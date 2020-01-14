@@ -195,7 +195,7 @@ def draw(diagram, show=True, **params):
                 x_wire = (space + width) * i\
                     + (width / (len(word.cod) + 1)) * (j + 1)
                 scan.append(x_wire)
-                if draw_types:
+                if draw_types:  # pragma: no cover
                     axis.text(x_wire + pad, -2 * pad, str(word.cod[j]))
             path = Path(
                 [((space + width) * i, 0),
@@ -227,7 +227,7 @@ def draw(diagram, show=True, **params):
             verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
             codes = [Path.MOVETO, Path.LINETO]
             axis.add_patch(PathPatch(Path(verts, codes)))
-            if draw_types:
+            if draw_types:  # pragma: no cover
                 axis.text(scan[i] + pad, - len(cups) - space,
                           str(diagram.cod[i]))
     words, *cups = diagram.slice().boxes
@@ -241,7 +241,7 @@ def draw(diagram, show=True, **params):
         axis.set_ylim(- len(cups) - space, 1)
         axis.set_aspect('equal')
         plt.axis('off')
-        if show:
+        if show:  # pragma: no cover
             plt.show()
     else:  # pragma: no cover
         diagram.draw(show=show)
