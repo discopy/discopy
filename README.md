@@ -8,13 +8,11 @@
 [![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 
-`discopy` computes natural language meaning in pictures.
-
-## Recipe
+`discopy` is a tool for classical and quantum natural language processing
+([QNLP](http://www.cs.ox.ac.uk/QNLP2019/)) using
+[string diagrams](https://en.wikipedia.org/wiki/String_diagram).
 
 ```python
-# 1) Draw your picture.
-
 from discopy import Ty, Word, Cup, Id
 
 s, n = Ty('s'), Ty('n')

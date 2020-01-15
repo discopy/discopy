@@ -16,7 +16,7 @@ Ket(0) >> X >> Bra(1)
 
 import random as rand
 import pytket as tk
-from discopy import config
+from discopy import messages
 from discopy.cat import Quiver
 from discopy.rigidcat import Ty, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
@@ -158,9 +158,9 @@ class Circuit(Diagram):
         Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
         """
         if not isinstance(x, PRO):
-            raise TypeError(config.Msg.type_err(PRO, x))
+            raise TypeError(messages.type_err(PRO, x))
         if not isinstance(y, PRO):
-            raise TypeError(config.Msg.type_err(PRO, y))
+            raise TypeError(messages.type_err(PRO, y))
         result = Id(x @ y)
         cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
         for i in range(1, len(x) + 1):

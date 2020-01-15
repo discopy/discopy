@@ -35,31 +35,31 @@ def test_Ty_pow():
     assert Ty('x') ** 42 == Ty('x') ** 21 @ Ty('x') ** 21
     with raises(TypeError) as err:
         Ty('x') ** Ty('y')
-    assert config.Msg.type_err(int, Ty('y'))
+    assert messages.type_err(int, Ty('y'))
 
 
 def test_Diagram_init():
     with raises(TypeError) as err:
         Diagram('x', Ty('x'), [], [])
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
+    assert str(err.value) == messages.type_err(Ty, 'x')
     with raises(TypeError) as err:
         Diagram(Ty('x'), 'x', [], [])
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
+    assert str(err.value) == messages.type_err(Ty, 'x')
     with raises(ValueError) as err:
         Diagram(Ty('x'), Ty('x'), [], [1])
     assert "Boxes and offsets must have the same length." in str(err.value)
     with raises(TypeError) as err:
         Diagram(Ty('x'), Ty('x'), [1], [1])
-    assert str(err.value) == config.Msg.type_err(Diagram, 1)
+    assert str(err.value) == messages.type_err(Diagram, 1)
     with raises(TypeError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
-    assert str(err.value) == config.Msg.type_err(int, Ty('x'))
+    assert str(err.value) == messages.type_err(int, Ty('x'))
 
 
 def test_Diagram_tensor():
     with raises(TypeError) as err:
         Id(Ty('x')) @ Ty('x')
-    assert str(err.value) == config.Msg.type_err(Diagram, Ty('x'))
+    assert str(err.value) == messages.type_err(Diagram, Ty('x'))
 
 
 def test_Diagram_offsets():
@@ -127,7 +127,7 @@ def test_Diagram_normal_form():
     s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     with raises(NotImplementedError) as err:
         (s0 >> s1).normal_form()
-    assert str(err.value) == config.Msg.is_not_connected(s0 >> s1)
+    assert str(err.value) == messages.is_not_connected(s0 >> s1)
     x, y = Ty('x'), Ty('y')
     f0, f1 = Box('f0', x, y), Box('f1', y, x)
     assert f0.normal_form() == f0
@@ -139,10 +139,10 @@ def test_Diagram_normal_form():
 def test_AxiomError():
     with raises(AxiomError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert str(err.value) == config.Msg.does_not_compose(Ty('y'), Ty('x'))
+    assert str(err.value) == messages.does_not_compose(Ty('y'), Ty('x'))
     with raises(AxiomError) as err:
         Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert str(err.value) == config.Msg.does_not_compose(Ty('y'), Ty('x'))
+    assert str(err.value) == messages.does_not_compose(Ty('y'), Ty('x'))
 
 
 def test_InterchangerError():
@@ -229,4 +229,4 @@ def test_Functor_call():
     assert F(f @ f.dagger()) == f.dagger() @ Id(x) >> Id(x) @ f
     with raises(TypeError) as err:
         F(F)
-    assert str(err.value) == config.Msg.type_err(Diagram, F)
+    assert str(err.value) == messages.type_err(Diagram, F)

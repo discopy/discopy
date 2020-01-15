@@ -22,7 +22,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 
 import matplotlib.pyplot as plt
 import networkx as nx
-from discopy import cat, config
+from discopy import cat, messages
 from discopy.cat import Ob, Functor, Quiver, AxiomError
 
 
@@ -140,7 +140,7 @@ class Ty(Ob):
 
     def __pow__(self, n):
         if not isinstance(n, int):
-            raise TypeError(config.Msg.type_err(int, n))
+            raise TypeError(messages.type_err(int, n))
         return sum(n * (self, ), type(self)())
 
 
@@ -171,24 +171,24 @@ class Diagram(cat.Diagram):
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
         if not isinstance(dom, Ty):
-            raise TypeError(config.Msg.type_err(Ty, dom))
+            raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
-            raise TypeError(config.Msg.type_err(Ty, cod))
+            raise TypeError(messages.type_err(Ty, cod))
         if len(boxes) != len(offsets):
-            raise ValueError(config.Msg.boxes_and_offsets_must_have_same_len())
+            raise ValueError(messages.boxes_and_offsets_must_have_same_len())
         if not _fast:
             scan = dom
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
-                    raise TypeError(config.Msg.type_err(Diagram, box))
+                    raise TypeError(messages.type_err(Diagram, box))
                 if not isinstance(off, int):
-                    raise TypeError(config.Msg.type_err(int, off))
+                    raise TypeError(messages.type_err(int, off))
                 if scan[off: off + len(box.dom)] != box.dom:
-                    raise AxiomError(config.Msg.does_not_compose(
+                    raise AxiomError(messages.does_not_compose(
                         scan[off: off + len(box.dom)], box.dom))
                 scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             if scan != cod:
-                raise AxiomError(config.Msg.does_not_compose(scan, cod))
+                raise AxiomError(messages.does_not_compose(scan, cod))
         super().__init__(dom, cod, [], _fast=True)
         self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
@@ -263,7 +263,7 @@ class Diagram(cat.Diagram):
             the tensor of 'self' and 'other'.
         """
         if not isinstance(other, Diagram):
-            raise TypeError(config.Msg.type_err(Diagram, other))
+            raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
@@ -485,7 +485,7 @@ class Diagram(cat.Diagram):
         diagram, cache = self, set()
         for _diagram in self.normalize(left=left):
             if _diagram in cache:
-                raise NotImplementedError(config.Msg.is_not_connected(self))
+                raise NotImplementedError(messages.is_not_connected(self))
             diagram = _diagram
             cache.add(diagram)
         return diagram
@@ -662,4 +662,4 @@ class MonoidalFunctor(Functor):
                 result = result >> id_l @ self(box) @ id_r
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
-        raise TypeError(config.Msg.type_err(Diagram, diagram))
+        raise TypeError(messages.type_err(Diagram, diagram))
