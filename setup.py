@@ -2,20 +2,15 @@
 Setup discopy package.
 """
 
-import re
+from re import search, M
 from setuptools import setup
 
-
-def get_version():
-    with open('__init__.py', 'r') as f:
-        match = re.search(
-            r"^__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.M)
-        if match:
-            return match.group(1)
+with open('__init__.py', 'r') as file:  # pragma: no cover
+    MATCH = search(r"^__version__ = ['\"]([^'\"]*)['\"]", file.read(), M)
+    if MATCH:
+        VERSION = MATCH.group(1)
+    else:
         raise RuntimeError("Unable to find version string.")
-
-
-VERSION = get_version()
 
 if __name__ == '__main__':  # pragma: no cover
     setup(name='discopy',

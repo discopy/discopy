@@ -131,7 +131,7 @@ class Diagram(moncat.Diagram):
         :meth:`discopy.moncat.Diagram.draw`.
         """
         graph, positions, labels = super().build_graph()
-        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+        for i, box in enumerate(self.boxes):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
                 node, wire = 'box_{}'.format(i), 'wire_{}'.format(i)
                 positions[wire] = positions[node]
