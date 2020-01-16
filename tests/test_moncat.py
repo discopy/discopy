@@ -56,6 +56,11 @@ def test_Diagram_init():
     assert str(err.value) == messages.type_err(int, Ty('x'))
 
 
+def test_Diagram_eq():
+    assert Diagram(Ty('x'), Ty('x'), [], []) != Ty('x')
+    assert Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
+
+
 def test_Diagram_tensor():
     with raises(TypeError) as err:
         Id(Ty('x')) @ Ty('x')
@@ -174,22 +179,34 @@ def test_Diagram_build_graph():
         ('output_1', 'w')
     ]
     assert sorted(positions.items()) == [
-        ('box_0', (-1.0, 2)),
-        ('box_1', (0.0, 1)),
-        ('input_0', (-1.0, 3)),
-        ('input_1', (0.0, 3)),
-        ('output_0', (-1.0, 0)),
-        ('output_1', (0.0, 0)),
-        ('wire_0_1', (0.0, 2)),
-        ('wire_1_0', (-1.0, 1))
+        ('box_0', (-0.5, 2)),
+        ('box_1', (0.5, 1)),
+        ('input_0', (-0.5, 3)),
+        ('input_1', (0.5, 3)),
+        ('output_0', (-0.5, 0)),
+        ('output_1', (0.5, 0)),
+        ('wire_0.5_0', (-0.5, 2.5)),
+        ('wire_0.5_1', (0.5, 2.5)),
+        ('wire_1.5_0', (-0.5, 1.5)),
+        ('wire_1.5_1', (0.5, 1.5)),
+        ('wire_1_1', (0.5, 2)),
+        ('wire_2.5_0', (-0.5, 0.5)),
+        ('wire_2.5_1', (0.5, 0.5)),
+        ('wire_2_0', (-0.5, 1))
     ]
     assert sorted(graph.edges()) == [
-        ('box_0', 'wire_1_0'),
-        ('box_1', 'output_1'),
-        ('input_0', 'box_0'),
-        ('input_1', 'wire_0_1'),
-        ('wire_0_1', 'box_1'),
-        ('wire_1_0', 'output_0')
+        ('box_0', 'wire_1.5_0'),
+        ('box_1', 'wire_2.5_1'),
+        ('input_0', 'wire_0.5_0'),
+        ('input_1', 'wire_0.5_1'),
+        ('wire_0.5_0', 'box_0'),
+        ('wire_0.5_1', 'wire_1_1'),
+        ('wire_1.5_0', 'wire_2_0'),
+        ('wire_1.5_1', 'box_1'),
+        ('wire_1_1', 'wire_1.5_1'),
+        ('wire_2.5_0', 'output_0'),
+        ('wire_2.5_1', 'output_1'),
+        ('wire_2_0', 'wire_2.5_0')
     ]
 
 

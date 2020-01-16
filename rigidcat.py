@@ -133,7 +133,7 @@ class Diagram(moncat.Diagram):
         graph, positions, labels = super().build_graph()
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
-                node, wire = 'box_{}'.format(i), 'wire_{}_{}'.format(i, off)
+                node, wire = 'box_{}'.format(i), 'wire_{}'.format(i)
                 positions[wire] = positions[node]
                 del positions[node]
                 del labels[node]

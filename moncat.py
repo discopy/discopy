@@ -200,15 +200,6 @@ class Diagram(cat.Diagram):
         return list(self._offsets)
 
     def __eq__(self, other):
-        """
-        Two diagrams are equal when they have the same dom, cod, boxes
-        and offsets.
-
-        >>> Diagram(Ty('x'), Ty('x'), [], []) == Ty('x')
-        False
-        >>> Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
-        True
-        """
         if not isinstance(other, Diagram):
             return False
         return all(self.__getattribute__(attr) == other.__getattribute__(attr)
@@ -357,36 +348,43 @@ class Diagram(cat.Diagram):
         """
         graph, positions, labels = nx.Graph(), dict(), dict()
 
-        def add(node, position, label):
+        def add_node(node, position, label):
             graph.add_node(node)
             positions.update({node: position})
             if label is not None:
                 labels.update({node: label})
+
+        def draw_wire(scan, i, j, position):
+            wire_node = "wire_{}_{}".format(i, j)
+            add_node(wire_node, position, None)
+            graph.add_edge(scan[j], wire_node)
+            scan[j] = wire_node
         for i in range(len(self.dom)):
-            position = (-.5 * len(self.dom) + i, len(self) + 1)
-            add("input_{}".format(i), position, str(self.dom[i]))
+            position = (-len(self.dom[1:]) / 2 + i, len(self) + 1)
+            add_node("input_{}".format(i), position, str(self.dom[i]))
         scan = ["input_{}".format(i) for i, _ in enumerate(self.dom)]
+        for j, _ in enumerate(scan):
+            position = (-len(scan[1:]) / 2. + j, len(self) + .5)
+            draw_wire(scan, .5, j, position)
         for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-            pad = -.5 * (len(scan) - len(box.dom) + 1)
+            pad = -(len(scan) - len(box.dom)) / 2.
             box_node = "box_{}".format(i)
-            add(box_node, (pad + off, len(self) - i), str(box))
+            add_node(box_node, (pad + off, len(self) - i), str(box))
             graph.add_edges_from(
                 [(scan[off + j], box_node) for j, _ in enumerate(box.dom)])
             for j, _ in enumerate(scan[:off]):
-                wire_node = "wire_{}_{}".format(i, j)
-                add(wire_node, (pad + j, len(self) - i), None)
-                graph.add_edge(scan[j], wire_node)
-                scan[j] = wire_node
+                draw_wire(scan, i + 1, j, (pad + j, len(self) - i))
             for j, _ in enumerate(scan[off + len(box.dom):]):
-                wire_node = "wire_{}_{}".format(i, off + j + 1)
-                add(wire_node, (pad + off + j + 1, len(self) - i), None)
-                graph.add_edge(scan[off + len(box.dom) + j], wire_node)
-                scan[off + len(box.dom) + j] = wire_node
+                position = (pad + off + j + 1, len(self) - i)
+                draw_wire(scan, i + 1, off + len(box.dom) + j, position)
             scan = scan[:off] + len(box.cod) * [box_node]\
                 + scan[off + len(box.dom):]
+            for j, _ in enumerate(scan):
+                position = (-len(scan[1:]) / 2. + j, len(self) - i - .5)
+                draw_wire(scan, i + 1.5, j, position)
         for i in range(len(self.cod)):
-            position = (-.5 * len(scan) + i, 0)
-            add("output_{}".format(i), position, str(self.cod[i]))
+            position = (-len(scan[1:]) / 2 + i, 0)
+            add_node("output_{}".format(i), position, str(self.cod[i]))
             graph.add_edge(scan[i], "output_{}".format(i))
         return graph, positions, labels
 
