@@ -533,7 +533,8 @@ class Diagram(cat.Diagram):
                        _fast=True)
 
     def depth(self):
-        """ Computes the depth of a diagram by slicing it
+        """
+        Computes the depth of a diagram by slicing it
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
@@ -543,6 +544,23 @@ class Diagram(cat.Diagram):
         >>> assert (f >> g).depth() == 2
         """
         return len(self.slice())
+
+    def width(self):
+        """
+        Computes the width of a diagram,
+        i.e. the maximum number of parallel wires.
+
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x ** 4)
+        >>> assert (f >> f.dagger()).width() == 4
+        >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
+        """
+        scan = self.dom
+        width = len(scan)
+        for box, off in zip(self.boxes, self.offsets):
+            scan = scan[: off] + box.cod + scan[off + len(box.dom):]
+            width = max(width, len(scan))
+        return width
 
 
 def build_spiral(n_cups):
