@@ -21,6 +21,8 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
 import networkx as nx
 from discopy import cat, messages
 from discopy.cat import Ob, Functor, Quiver, AxiomError
@@ -432,7 +434,12 @@ class Diagram(cat.Diagram):
         nx.draw_networkx_nodes(
             graph, positions, nodelist=boxes, node_color='#ff0000', ax=axis)
         nx.draw_networkx_labels(graph, positions, labels, ax=axis)
-        nx.draw_networkx_edges(graph, positions, ax=axis)
+        for u, v in graph.edges():
+            verts = [positions[u],
+                     (positions[v][0], positions[u][1]),
+                     positions[v]]
+            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         axis.set_aspect(aspect)
