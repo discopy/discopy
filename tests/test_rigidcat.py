@@ -71,7 +71,8 @@ def test_Diagram_draw():
     plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 2)})
     x, eq = Ty('x'), Box('=', Ty(), Ty())
     diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
-    diagram.interchange(4, 0, left=True).interchange(2, 5).draw(show=False)
+    diagram = diagram.interchange(4, 0, left=True).interchange(2, 5)
+    diagram.draw(show=False, aspect='auto')
     plt.subplots_adjust(
         top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.savefig(dir + '.' + file)

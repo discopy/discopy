@@ -172,7 +172,7 @@ def test_spiral(n=2):
 def test_Diagram_draw():
     dir, file = 'docs/imgs/', 'spiral-equality.png'
     plt.clf()
-    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 2)})
+    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 6)})
     equals = Box('=', Ty(), Ty())
     diagram = ((build_spiral(3) @ equals).interchange(8, 4, left=True)
                @ build_spiral(3).normal_form()).interchange(9, 1, left=True)\
