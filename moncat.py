@@ -138,10 +138,10 @@ class Ty(Ob):
     def __add__(self, other):
         return self.tensor(other)
 
-    def __pow__(self, n):
-        if not isinstance(n, int):
-            raise TypeError(messages.type_err(int, n))
-        return sum(n * (self, ), type(self)())
+    def __pow__(self, n_times):
+        if not isinstance(n_times, int):
+            raise TypeError(messages.type_err(int, n_times))
+        return sum(n_times * (self, ), type(self)())
 
 
 class Diagram(cat.Diagram):
@@ -343,52 +343,78 @@ class Diagram(cat.Diagram):
 
             * :code:`graph` is a networkx graph with nodes for inputs, outputs,
               boxes and wires,
-            * :code:`positions` is a dict from nodes to pairs of floats,
+            * :code:`pos` is a dict from nodes to pairs of floats,
             * :code:`labels` is a dict from nodes to strings.
         """
-        graph, positions, labels = nx.Graph(), dict(), dict()
+        graph, pos, labels = nx.Graph(), dict(), dict()
 
-        def add_node(node, position, label):
+        def add_node(node, position, label=None):
             graph.add_node(node)
-            positions.update({node: position})
+            pos.update({node: position})
             if label is not None:
                 labels.update({node: label})
 
-        def draw_wire(scan, i, j, position):
-            wire_node = "wire_{}_{}".format(i, j)
-            add_node(wire_node, position, None)
-            graph.add_edge(scan[j], wire_node)
-            scan[j] = wire_node
-        for i in range(len(self.dom)):
-            position = (-len(self.dom[1:]) / 2 + i, len(self) + 1)
-            add_node("input_{}".format(i), position, str(self.dom[i]))
-        scan = ["input_{}".format(i) for i, _ in enumerate(self.dom)]
-        for j, _ in enumerate(scan):
-            position = (-len(scan[1:]) / 2. + j, len(self) + .5)
-            draw_wire(scan, .5, j, position)
-        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
-            pad = -(len(scan) - len(box.dom)) / 2.
-            box_node = "box_{}".format(i)
-            add_node(box_node, (pad + off, len(self) - i), str(box))
-            graph.add_edges_from(
-                [(scan[off + j], box_node) for j, _ in enumerate(box.dom)])
-            for j, _ in enumerate(scan[:off]):
-                draw_wire(scan, i + 1, j, (pad + j, len(self) - i))
-            for j, _ in enumerate(scan[off + len(box.dom):]):
-                position = (pad + off + j + 1, len(self) - i)
-                draw_wire(scan, i + 1, off + len(box.dom) + j, position)
-            scan = scan[:off] + len(box.cod) * [box_node]\
+        def add_box(scan, box, off, depth, x_pos):
+            add_node('box_{}'.format(depth),
+                     (x_pos, len(self) - depth - .5), str(box))
+            for i, _ in enumerate(box.dom):
+                wire = 'wire_dom_{}_{}'.format(depth, i)
+                add_node(wire, (pos[scan[off + i]][0], len(self) - depth))
+                graph.add_edge(scan[off + i], wire)
+                graph.add_edge(wire, 'box_{}'.format(depth))
+            for i, _ in enumerate(box.cod):
+                wire = 'wire_cod_{}_{}'.format(depth, i)
+                add_node(wire, (x_pos - len(box.cod[1:]) / 2 + i,
+                                len(self) - depth - 1))
+                graph.add_edge('box_{}'.format(depth), wire)
+            return scan[:off] + ['wire_cod_{}_{}'.format(depth, i)
+                                 for i, _ in enumerate(box.cod)]\
                 + scan[off + len(box.dom):]
-            for j, _ in enumerate(scan):
-                position = (-len(scan[1:]) / 2. + j, len(self) - i - .5)
-                draw_wire(scan, i + 1.5, j, position)
-        for i in range(len(self.cod)):
-            position = (-len(scan[1:]) / 2 + i, 0)
-            add_node("output_{}".format(i), position, str(self.cod[i]))
-            graph.add_edge(scan[i], "output_{}".format(i))
-        return graph, positions, labels
 
-    def draw(self, show=True):  # pragma: no cover
+        def make_space(scan, box, off):
+            if not scan:
+                return 0
+            if not box.dom:
+                if not off:
+                    x_pos = pos[scan[0]][0] - len(box.cod) / 2 - .5
+                elif off == len(scan):
+                    x_pos = pos[scan[-1]][0] + len(box.cod) / 2 + .5
+                else:
+                    right = pos[scan[off + len(box.dom)]][0]
+                    x_pos = (pos[scan[off - 1]][0] + right) / 2
+            else:
+                right = pos[scan[off + len(box.dom) - 1]][0]
+                x_pos = (pos[scan[off]][0] + right) / 2
+            if off and pos[scan[off - 1]][0] > x_pos - len(box.cod) / 2 - .5:
+                limit = pos[scan[off - 1]][0]
+                pad = limit - (x_pos - len(box.cod) / 2 - .5)
+                for node, position in pos.items():
+                    if position[0] <= limit:
+                        pos[node] = (pos[node][0] - pad, pos[node][1])
+            if off + len(box.dom) < len(scan)\
+                    and pos[scan[off + len(box.dom)]][0]\
+                    < x_pos + len(box.cod) / 2 + .5:
+                limit = pos[scan[off + len(box.dom)]][0]
+                pad = x_pos + len(box.cod) / 2 + .5 - limit
+                for node, position in pos.items():
+                    if position[0] >= limit:
+                        pos[node] = (pos[node][0] + pad, pos[node][1])
+            return x_pos
+
+        for i, _ in enumerate(self.dom):
+            add_node('input_{}'.format(i),
+                     (i, len(self) + .5), str(self.dom[i]))
+        scan = ['input_{}'.format(i) for i, _ in enumerate(self.dom)]
+        for depth, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+            x_pos = make_space(scan, box, off)
+            scan = add_box(scan, box, off, depth, x_pos)
+        for i, _ in enumerate(self.cod):
+            add_node('output_{}'.format(i),
+                     (pos[scan[i]][0], -.5), str(self.cod[i]))
+            graph.add_edge(scan[i], 'output_{}'.format(i))
+        return graph, pos, labels
+
+    def draw(self, show=True):
         """
         Draws a diagram using networkx and matplotlib.
         """
@@ -407,7 +433,7 @@ class Diagram(cat.Diagram):
         nx.draw_networkx_labels(graph, positions, labels)
         nx.draw_networkx_edges(graph, positions)
         plt.axis("off")
-        if show:
+        if show:  # pragma: no cover
             plt.show()
 
     def interchange(self, i, j, left=False):
@@ -423,12 +449,12 @@ class Diagram(cat.Diagram):
         if j < i - 1:
             result = self
             for k in range(i - j):
-                result = result.interchange(i - k, i - k - 1)
+                result = result.interchange(i - k, i - k - 1, left=left)
             return result
         if j > i + 1:
             result = self
             for k in range(j - i):
-                result = result.interchange(i + k, i + k + 1)
+                result = result.interchange(i + k, i + k + 1, left=left)
             return result
         if j < i:
             i, j = j, i

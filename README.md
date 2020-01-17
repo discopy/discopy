@@ -1,5 +1,5 @@
 
-!["Alice loves Bob" in picture](https://github.com/oxford-quantum-group/discopy/raw/master/docs/alice-loves-bob.png)
+!["Alice loves Bob" in picture](https://github.com/oxford-quantum-group/discopy/raw/master/docs/imgs/alice-loves-bob.png)
 
 # Distributional Compositional Python
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=master)](https://discopy.readthedocs.io/)

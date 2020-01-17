@@ -1,4 +1,7 @@
+import os
 from pytest import raises
+from matplotlib import pyplot as plt
+from matplotlib.testing.compare import compare_images
 from discopy.rigidcat import *
 
 
@@ -62,52 +65,18 @@ def test_Diagram_normal_form():
     assert str(err.value) == messages.is_not_connected(Eckmann_Hilton)
 
 
-def test_Diagram_build_graph():
-    x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
-    graph, positions, labels = f.transpose_l().build_graph()
-    assert sorted(labels.items()) == [
-        ('box_1', 'f'),
-        ('input_0', 'y.l'),
-        ('output_0', 'x.l'),
-    ]
-    assert sorted(positions.items()) == [
-        ('box_1', (0.0, 2)),
-        ('input_0', (0.0, 4)),
-        ('output_0', (0.0, 0)),
-        ('wire_0', (0.5, 3)),
-        ('wire_0.5_0', (0.0, 3.5)),
-        ('wire_1.5_0', (-1.0, 2.5)),
-        ('wire_1.5_1', (0.0, 2.5)),
-        ('wire_1.5_2', (1.0, 2.5)),
-        ('wire_1_0', (-0.5, 3)),
-        ('wire_2', (-0.5, 1)),
-        ('wire_2.5_0', (-1.0, 1.5)),
-        ('wire_2.5_1', (0.0, 1.5)),
-        ('wire_2.5_2', (1.0, 1.5)),
-        ('wire_2_0', (-1.0, 2)),
-        ('wire_2_2', (1.0, 2)),
-        ('wire_3.5_0', (0.0, 0.5)),
-        ('wire_3_2', (0.5, 1))
-    ]
-    assert sorted(graph.edges()) == [
-        ('box_1', 'wire_2.5_1'),
-        ('input_0', 'wire_0.5_0'),
-        ('wire_0', 'wire_1.5_1'),
-        ('wire_0', 'wire_1.5_2'),
-        ('wire_0.5_0', 'wire_1_0'),
-        ('wire_1.5_0', 'wire_2_0'),
-        ('wire_1.5_1', 'box_1'),
-        ('wire_1.5_2', 'wire_2_2'),
-        ('wire_1_0', 'wire_1.5_0'),
-        ('wire_2.5_0', 'wire_2'),
-        ('wire_2.5_1', 'wire_2'),
-        ('wire_2.5_2', 'wire_3_2'),
-        ('wire_2_0', 'wire_2.5_0'),
-        ('wire_2_2', 'wire_2.5_2'),
-        ('wire_3.5_0', 'output_0'),
-        ('wire_3_2', 'wire_3.5_0')
-    ]
+def test_Diagram_draw():
+    dir, file = 'docs/imgs/', 'snake-equation.png'
+    plt.clf()
+    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 2)})
+    x, eq = Ty('x'), Box('=', Ty(), Ty())
+    diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
+    diagram.interchange(4, 0, left=True).interchange(2, 5).draw(show=False)
+    plt.subplots_adjust(
+        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)
 
 
 def test_Cup_init():
