@@ -9,6 +9,5 @@ discopy.function
     Vec.rst
     Function.rst
     Id.rst
-    Copy.rst
     NumpyFunctor.rst
     discofunc.rst

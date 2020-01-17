@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """
-Implements the symmetric monoidal category (PROP) of functions on lists
+Implements functors into the category of functions on vectors
 with cartesian product as tensor.
 
 Projections and the copy map witness the categorical product.
 
 >>> proj0 = Function('proj0', Vec(2), Vec(1), lambda x: np.array(x[0]))
 >>> proj1 = Function('proj1', Vec(2), Vec(1), lambda x: np.array(x[1]))
->>> copy = Copy(1, 2)
+>>> copy = Function('copy', 1, 2, lambda x: np.concatenate([x, x]))
 >>> assert (copy >> proj0)([46]) == Id(1)([46]) == (copy >> proj1)([46])
 
 'Vec(0)' is a terminal object with the following discarding map.
@@ -270,29 +270,7 @@ class Id(Function):
         super().__init__(name, dom, dom, lambda x: x)
 
 
-class Copy(Function):
-    """
-    Implements the copy function with domain 'dom' and codomain 'dom * copies'.
-
-    >>> assert np.all(Copy(2, 2)([23, 45]) == np.array([23, 45, 23, 45]))
-    >>> assert Copy(2, 3).cod == Vec(6)
-
-    Parameters
-    ----------
-    dom : 'int'
-        Domain dimension.
-    copies : 'int'
-        Number of copies.
-    """
-    def __init__(self, dom, copies=2):
-        name = 'Copy({}, {})'.format(dom, copies)
-
-        def func(val):
-            return np.concatenate([val for i in range(copies)])
-        super().__init__(name, dom, copies * dom, func)
-
-
-class NumpyFunctor(MonoidalFunctor):
+class CartesianFunctor(MonoidalFunctor):
     """
     Implements functors into the category of functions on lists
 
@@ -305,7 +283,7 @@ class NumpyFunctor(MonoidalFunctor):
     >>> @discofunc(Vec(2), Vec(1))
     ... def add(x):
     ...     return np.array([x[0] + x[1]])
-    >>> F = NumpyFunctor({x: Vec(1), y: Vec(2)}, {f: copy, g: add})
+    >>> F = CartesianFunctor({x: Vec(1), y: Vec(2)}, {f: copy, g: add})
     >>> assert F(f >> g)([1]) == np.array([2])
     """
     def __init__(self, ob, ar):
