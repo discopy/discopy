@@ -18,8 +18,9 @@ import random as rand
 import pytket as tk
 from discopy import messages
 from discopy.cat import Quiver
-from discopy.rigidcat import Ty, Box, Diagram, RigidFunctor
-from discopy.matrix import np, Dim, Matrix, MatrixFunctor
+from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
+from discopy.matrix import Dim, Matrix, MatrixFunctor
+import numpy as np
 
 
 class PRO(Ty):
@@ -30,6 +31,14 @@ class PRO(Ty):
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
     """
+    def __init__(self, n=0):
+        if not isinstance(n, int):
+            if isinstance(n, Ob):
+                n = n.name
+            else:
+                n = len(n)
+        super().__init__(*(n * [1]))
+
     @property
     def l(self):
         """
@@ -43,10 +52,6 @@ class PRO(Ty):
 
     def tensor(self, other):
         return PRO(len(self) + len(other))
-
-    def __init__(self, n=0):
-        n = n if isinstance(n, int) else len(n)
-        super().__init__(*(n * [1]))
 
     def __repr__(self):
         return "PRO({})".format(len(self))

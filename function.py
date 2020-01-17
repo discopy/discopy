@@ -2,96 +2,13 @@
 """
 Implements functors into the category of functions on vectors
 with cartesian product as tensor.
-
-Projections and the copy map witness the categorical product.
-
->>> proj0 = Function('proj0', Vec(2), Vec(1), lambda x: np.array(x[0]))
->>> proj1 = Function('proj1', Vec(2), Vec(1), lambda x: np.array(x[1]))
->>> copy = Function('copy', 1, 2, lambda x: np.concatenate([x, x]))
->>> assert (copy >> proj0)([46]) == Id(1)([46]) == (copy >> proj1)([46])
-
-'Vec(0)' is a terminal object with the following discarding map.
-
->>> discard = lambda n: Function('discard', Vec(n), Vec(0), lambda x: [])
->>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
-
-We can check the axioms for symmetry on specific inputs.
-
->>> swap = Function('swap', Vec(2), Vec(2), lambda x: x[::-1])
->>> assert np.all((swap >> swap)([1, 2]) == Id(2)([1, 2]))
->>> assert np.all((Id(1) @ swap >> swap @ Id(1) >> Id(1) @ swap)([0, 1, 2])
-...            == (swap @ Id(1) >> Id(1) @ swap >> swap @ Id(1))([0, 1, 2]))
-
-As an example, we show that copy and add satisfy the bimonoid law.
-
->>> add = Function('add', 2, 1, lambda x: np.sum(x, keepdims=True))
->>> assert np.all(add([1, 2]) == np.array([3]))
->>> assert np.all((copy @ copy >> Id(1) @ swap @ Id(1)
-...                >> add @ add)([123, 25]) == (add >> copy)([123, 25]))
-
-Notes
------
-
-The name of a composition is the composition of the names.
-
->>> (swap >> swap >> add).name
-'((swap >> swap) >> add)'
->>> assert (swap >> Id(2)).name == 'swap'
->>> assert (add @ swap @ Id(0)).name == '(add @ swap)'
 """
 
 from discopy import messages
 from discopy.cat import AxiomError
-from discopy.matrix import np
-from discopy.moncat import Ob, Ty, Box, MonoidalFunctor
-
-
-class Vec(Ty):
-    """ Implements dimensions as non-negative integers.
-    These form a monoid with sum as product denoted by '@' and unit 'Vec(0)'.
-
-    Parameters
-    ----------
-    dim : int
-        dimension of the vector.
-
-    Notes
-    -----
-
-    >>> assert Vec(0) @ Vec(4) == Vec(4) @ Vec(0) == Vec(4)
-    >>> assert Vec(2) @ Vec(3) == Vec(5)
-    >>> assert sum([Vec(0), Vec(3), Vec(4)], Vec(0)) == Vec(7)
-    """
-    def __init__(self, dim=0):
-        if not isinstance(dim, int) or dim < 0:
-            raise ValueError("Expected non-negative integer, got {} instead"
-                             .format(dim))
-        self._dim = dim
-        super().__init__(*[Ob(1) for i in range(dim)])
-
-    @property
-    def dim(self):
-        """
-        Returns the integer value stored in a Vec object.
-
-        >>> assert Vec(5).dim == 5
-        """
-        return self._dim
-
-    def __matmul__(self, other):
-        return Vec(self.dim + other.dim)
-
-    def __add__(self, other):
-        return self @ other
-
-    def __repr__(self):
-        return "Vec({})".format(self.dim)
-
-    def __str__(self):
-        return repr(self)
-
-    def __hash__(self):
-        return hash(repr(self))
+import numpy as np
+from discopy.moncat import Ty, Box, MonoidalFunctor
+from discopy.circuit import PRO
 
 
 class Function(Box):
@@ -102,9 +19,9 @@ class Function(Box):
     ----------
     name: str
         Name of the function.
-    dom : function.Vec or int
+    dom : int
         Domain of the diagram.
-    cod : function.Vec or int
+    cod : int
         Codomain of the diagram.
     function: any
         Python function with a call method.
@@ -120,26 +37,26 @@ class Function(Box):
     >>> assert np.all(swap([1, 2]) == swap(np.array([1, 2])))
     """
     def __init__(self, name, dom, cod, function):
-        if isinstance(dom, int):
-            dom = Vec(dom)
-        if isinstance(cod, int):
-            cod = Vec(cod)
-        if not isinstance(dom, Vec):
-            raise TypeError(messages.type_err(Vec, dom))
-        if not isinstance(cod, Vec):
-            raise TypeError(messages.type_err(Vec, cod))
+        if isinstance(dom, PRO):
+            dom = len(dom)
+        if isinstance(cod, PRO):
+            cod = len(cod)
+        if not isinstance(dom, int):
+            raise TypeError(messages.type_err(int, dom))
+        if not isinstance(cod, int):
+            raise TypeError(messages.type_err(int, cod))
         self._function = function
         if not isinstance(name, str):
             raise TypeError(messages.type_err(str, name))
         self._name = name
-        super().__init__(name, dom, cod)
+        super().__init__(name, PRO(dom), PRO(cod))
 
     @property
     def function(self):
         """
         The function stored in a discopy.Function object is immutable
 
-        >>> f = Function('Id', Vec(2), Vec(2), lambda x: x)
+        >>> f = Function('Id', PRO(2), PRO(2), lambda x: x)
         >>> assert f.function(1) == 1
         >>> f.function = lambda x: 2*x  # doctest: +ELLIPSIS
         Traceback (most recent call last):
@@ -153,7 +70,7 @@ class Function(Box):
         """
         The name of a function is immutable.
 
-        >>> f = Function('f', Vec(2), Vec(2), lambda x: x)
+        >>> f = Function('f', PRO(2), PRO(2), lambda x: x)
         >>> assert f.name == 'f'
         >>> f.name = 'g'  # doctest: +ELLIPSIS
         Traceback (most recent call last):
@@ -177,7 +94,7 @@ class Function(Box):
         Parameters
         ----------
         value : 'list' or 'numpy.ndarray' or 'jax.interpreters.xla.DeviceArray'
-            Input list with 'len(value) == self.dom.dim'
+            Input list with 'len(value) == len(self.dom)'
 
         Notes
         -----
@@ -189,9 +106,9 @@ class Function(Box):
         """
         if isinstance(value, list):
             value = np.array(value)
-        if not len(value) == self.dom.dim:
+        if not len(value) == len(self.dom):
             raise AxiomError("Expected input of length {}, got {} instead."
-                             .format(self.dom.dim, len(value)))
+                             .format(len(self.dom), len(value)))
         return self.function(value)
 
     def then(self, other):
@@ -199,13 +116,13 @@ class Function(Box):
         Returns the sequential composition of 'self' with 'other'.
         This method is called using the binary operators `>>` and `<<`.
 
-        >>> swap = Function('swap', Vec(2), Vec(2), lambda x: x[::-1])
-        >>> abs = Function('abs', Vec(2), Vec(2), np.absolute)
+        >>> swap = Function('swap', PRO(2), PRO(2), lambda x: x[::-1])
+        >>> abs = Function('abs', PRO(2), PRO(2), np.absolute)
         >>> assert np.all((swap >> abs)([14, 42]) == (abs << swap)([14, 42]))
         """
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
-        if self.cod.dim != other.dom.dim:
+        if len(self.cod) != len(other.dom):
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
         if not isinstance(self, Id):
@@ -225,9 +142,9 @@ class Function(Box):
         Returns the parallel composition of 'self' and 'other'.
         This method is called using the binary operator `@`.
 
-        >>> add = Function('add', Vec(2), Vec(1),
+        >>> add = Function('add', PRO(2), PRO(1),
         ...                lambda x: np.array([x[0] + x[1]]))
-        >>> copy = Function('copy', Vec(1), Vec(2),\\
+        >>> copy = Function('copy', PRO(1), PRO(2),\\
         ...                 lambda x: np.concatenate([x, x]))
         >>> assert np.all((add @ copy)([3, 1, 2]) == np.array([4, 2, 2]))
         """
@@ -243,8 +160,8 @@ class Function(Box):
             newname = other.name
 
         def func(val):
-            return np.concatenate([self(val[:self.dom.dim]),
-                                   other(val[self.dom.dim:])])
+            return np.concatenate([self(val[:len(self.dom)]),
+                                   other(val[len(self.dom):])])
         return Function(newname, dom, cod, func)
 
     @staticmethod
@@ -266,7 +183,7 @@ class Id(Function):
     """
     def __init__(self, dim):
         name = 'Id({})'.format(dim)
-        dom = dim if isinstance(dim, Vec) else Vec(dim)
+        dom = dim if isinstance(dim, int) else len(dim)
         super().__init__(name, dom, dom, lambda x: x)
 
 
@@ -277,17 +194,17 @@ class CartesianFunctor(MonoidalFunctor):
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, y)
     >>> g = Box('g', y, x)
-    >>> @discofunc(Vec(1), Vec(2))
+    >>> @discofunc(PRO(1), PRO(2))
     ... def copy(x):
     ...     return np.concatenate([x, x])
-    >>> @discofunc(Vec(2), Vec(1))
+    >>> @discofunc(PRO(2), PRO(1))
     ... def add(x):
     ...     return np.array([x[0] + x[1]])
-    >>> F = CartesianFunctor({x: Vec(1), y: Vec(2)}, {f: copy, g: add})
+    >>> F = CartesianFunctor({x: PRO(1), y: PRO(2)}, {f: copy, g: add})
     >>> assert F(f >> g)([1]) == np.array([2])
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_cls=Vec, ar_cls=Function)
+        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Function)
 
 
 def discofunc(dom, cod, name=None):
@@ -301,16 +218,16 @@ def discofunc(dom, cod, name=None):
     >>> assert isinstance(f, Function)
     >>> print(f)
     f
-    >>> @discofunc(Vec(2), Vec(2), name='swap')
+    >>> @discofunc(PRO(2), PRO(2), name='swap')
     ... def f(x):
     ...     return x[::-1]
     >>> print(f)
     swap
     """
     if isinstance(dom, int):
-        dom = Vec(dom)
+        dom = PRO(dom)
     if isinstance(cod, int):
-        cod = Vec(cod)
+        cod = PRO(cod)
 
     def decorator(func):
         if name is None:
