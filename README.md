@@ -10,30 +10,25 @@
 
 `discopy` computes natural language meaning in pictures.
 
-# Features
-
-
-
 ```python
-from discopy import Ty, Word, Cup, Id
+from discopy import Ty, Word, Cup, Id, draw
 
 s, n = Ty('s'), Ty('n')
 Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
 sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+draw(sentence)
+```
 
+![snake equation](docs/imgs/alice-loves-bob.png)
 
-# 2) Define a model.
-
+```python
 from discopy import Model
 
 ob = {s: 1, n: 2}
 ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 F = Model(ob, ar)
-
-
-# 3) Compute the meaning!
 
 assert F(sentence)
 ```
