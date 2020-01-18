@@ -20,4 +20,4 @@ from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import PRO, Circuit, Gate, Bra, Ket, CircuitFunctor
 from discopy.pregroup import Word, Model, CircuitModel, draw
 
-__version__ = '0.1.6'
+__version__ = '0.2'
