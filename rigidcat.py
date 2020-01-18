@@ -14,7 +14,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 """
 
 import networkx as nx
-from discopy import cat, moncat, config
+from discopy import cat, moncat, messages
 from discopy.cat import AxiomError
 
 
@@ -42,7 +42,7 @@ class Ob(cat.Ob):
 
     def __init__(self, name, z=0):
         if not isinstance(z, int):
-            raise TypeError(config.Msg.type_err(int, z))
+            raise TypeError(messages.type_err(int, z))
         self._z = z
         super().__init__(name)
 
@@ -131,9 +131,9 @@ class Diagram(moncat.Diagram):
         :meth:`discopy.moncat.Diagram.draw`.
         """
         graph, positions, labels = super().build_graph()
-        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+        for i, box in enumerate(self.boxes):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
-                node, wire = 'box_{}'.format(i), 'wire_{}_{}'.format(i, off)
+                node, wire = 'box_{}'.format(i), 'wire_c_{}'.format(i)
                 positions[wire] = positions[node]
                 del positions[node]
                 del labels[node]
@@ -150,9 +150,9 @@ class Diagram(moncat.Diagram):
         ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
         """
         if not isinstance(x, Ty):
-            raise TypeError(config.Msg.type_err(Ty, x))
+            raise TypeError(messages.type_err(Ty, x))
         if not isinstance(y, Ty):
-            raise TypeError(config.Msg.type_err(Ty, y))
+            raise TypeError(messages.type_err(Ty, y))
         cups = Id(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
@@ -170,9 +170,9 @@ class Diagram(moncat.Diagram):
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
         if not isinstance(x, Ty):
-            raise TypeError(config.Msg.type_err(Ty, x))
+            raise TypeError(messages.type_err(Ty, x))
         if not isinstance(y, Ty):
-            raise TypeError(config.Msg.type_err(Ty, y))
+            raise TypeError(messages.type_err(Ty, y))
         caps = Id(x @ y)
         for i in range(len(x)):
             j = len(x) - i - 1
@@ -393,19 +393,19 @@ class Cup(Box):
     """
     def __init__(self, x, y):
         if not isinstance(x, Ty):
-            raise TypeError(config.Msg.type_err(Ty, x))
+            raise TypeError(messages.type_err(Ty, x))
         if not isinstance(y, Ty):
-            raise TypeError(config.Msg.type_err(Ty, y))
+            raise TypeError(messages.type_err(Ty, y))
         if x.r != y and x != y.r:
-            raise AxiomError(config.Msg.are_not_adjoints(x, y))
+            raise AxiomError(messages.are_not_adjoints(x, y))
         if len(x) != 1 or len(y) != 1:
-            raise ValueError(config.Msg.cup_vs_cups(x, y))
+            raise ValueError(messages.cup_vs_cups(x, y))
         if x == y.r:
-            raise NotImplementedError(config.Msg.pivotal_not_implemented())
+            raise NotImplementedError(messages.pivotal_not_implemented())
         super().__init__('Cup', x @ y, Ty())
 
     def dagger(self):
-        raise NotImplementedError(config.Msg.pivotal_not_implemented())
+        raise NotImplementedError(messages.pivotal_not_implemented())
 
     def __repr__(self):
         """
@@ -433,19 +433,19 @@ class Cap(Box):
     """
     def __init__(self, x, y):
         if not isinstance(x, Ty):
-            raise TypeError(config.Msg.type_err(Ty, x))
+            raise TypeError(messages.type_err(Ty, x))
         if not isinstance(y, Ty):
-            raise TypeError(config.Msg.type_err(Ty, y))
+            raise TypeError(messages.type_err(Ty, y))
         if x != y.r and x.r != y:
-            raise AxiomError(config.Msg.are_not_adjoints(x, y))
+            raise AxiomError(messages.are_not_adjoints(x, y))
         if len(x) != 1 or len(y) != 1:
-            raise ValueError(config.Msg.cap_vs_caps(x, y))
+            raise ValueError(messages.cap_vs_caps(x, y))
         if x.r == y:
-            raise NotImplementedError(config.Msg.pivotal_not_implemented())
+            raise NotImplementedError(messages.pivotal_not_implemented())
         super().__init__('Cap', Ty(), x @ y)
 
     def dagger(self):
-        raise NotImplementedError(config.Msg.pivotal_not_implemented())
+        raise NotImplementedError(messages.pivotal_not_implemented())
 
     def __repr__(self):
         """
@@ -520,4 +520,4 @@ class RigidFunctor(moncat.MonoidalFunctor):
             return self.ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
-        raise TypeError(config.Msg.type_err(Diagram, diagram))
+        raise TypeError(messages.type_err(Diagram, diagram))

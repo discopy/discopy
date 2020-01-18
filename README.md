@@ -15,8 +15,6 @@
 
 
 ```python
-# 1) Draw your picture.
-
 from discopy import Ty, Word, Cup, Id
 
 s, n = Ty('s'), Ty('n')

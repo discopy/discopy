@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
-from discopy import config
+from discopy import messages
 from discopy.rigidcat import Ty, Box, Id, Cup
 from discopy.matrix import MatrixFunctor
 from discopy.circuit import CircuitFunctor
@@ -42,9 +42,9 @@ class Word(Box):
         Word('Alice', Ty('n'))
         """
         if not isinstance(w, str):
-            raise TypeError(config.Msg.type_err(str, w))
+            raise TypeError(messages.type_err(str, w))
         if not isinstance(t, Ty):
-            raise TypeError(config.Msg.type_err(Ty, t))
+            raise TypeError(messages.type_err(Ty, t))
         self._word, self._type = w, t
         dom, cod = (t, Ty()) if _dagger else (Ty(), t)
         Box.__init__(self, (w, t), dom, cod, _dagger=_dagger)

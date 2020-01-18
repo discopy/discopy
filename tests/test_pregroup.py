@@ -46,6 +46,11 @@ def test_brute_force():
 
 def test_draw():
     dir, file = 'docs/imgs/', 'alice-loves-bob.png'
+<<<<<<< HEAD
+=======
+    plt.clf()
+    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 2)})
+>>>>>>> master
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)

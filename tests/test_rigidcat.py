@@ -1,11 +1,14 @@
+import os
 from pytest import raises
+from matplotlib import pyplot as plt
+from matplotlib.testing.compare import compare_images
 from discopy.rigidcat import *
 
 
 def test_Ob_init():
     with raises(TypeError) as err:
         Ob('x', z='y')
-    assert str(err.value) == config.Msg.type_err(int, 'y')
+    assert str(err.value) == messages.type_err(int, 'y')
 
 
 def test_Ob_eq():
@@ -29,19 +32,19 @@ def test_Ob_str():
 def test_Diagram_cups():
     with raises(TypeError) as err:
         Diagram.cups('x', Ty('x'))
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
+    assert str(err.value) == messages.type_err(Ty, 'x')
     with raises(TypeError) as err:
         Diagram.cups(Ty('x'), 'x')
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
+    assert str(err.value) == messages.type_err(Ty, 'x')
 
 
 def test_Diagram_caps():
     with raises(TypeError) as err:
         Diagram.caps('x', Ty('x'))
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
+    assert str(err.value) == messages.type_err(Ty, 'x')
     with raises(TypeError) as err:
         Diagram.caps(Ty('x'), 'x')
-    assert str(err.value) == config.Msg.type_err(Ty, 'x')
+    assert str(err.value) == messages.type_err(Ty, 'x')
 
 
 def test_Diagram_normal_form():
@@ -64,6 +67,7 @@ def test_Diagram_normal_form():
 
 def test_Diagram_draw():
     dir, file = 'docs/imgs/', 'snake-equation.png'
+<<<<<<< HEAD
     x, eq = Ty('x'), Box('=', Ty(), Ty())
     diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
     diagram = diagram.interchange(1, 4).interchange(3, 1, left=True)
@@ -73,6 +77,19 @@ def test_Diagram_draw():
     assert compare_images(dir + file, dir + '.' + file, 0) is None
     os.remove(dir + '.' + file)
     plt.clf()
+=======
+    plt.clf()
+    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 2)})
+    x, eq = Ty('x'), Box('=', Ty(), Ty())
+    diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
+    diagram = diagram.interchange(4, 0, left=True).interchange(2, 5)
+    diagram.draw(show=False, aspect='auto')
+    plt.subplots_adjust(
+        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)
+>>>>>>> master
 
 
 def test_Cup_init():
@@ -83,10 +100,10 @@ def test_Cup_init():
     t = Ty('n', 's')
     with raises(ValueError) as err:
         Cup(t, t.r)
-    assert str(err.value) == config.Msg.cup_vs_cups(t, t.r)
+    assert str(err.value) == messages.cup_vs_cups(t, t.r)
     with raises(ValueError) as err:
         Cup(Ty(), Ty())
-    assert str(err.value) == config.Msg.cup_vs_cups(Ty(), Ty().l)
+    assert str(err.value) == messages.cup_vs_cups(Ty(), Ty().l)
     with raises(NotImplementedError):
         Cup(Ty('n'), Ty('n').l)
     with raises(NotImplementedError):
@@ -101,10 +118,10 @@ def test_Cap_init():
     t = Ty('n', 's')
     with raises(ValueError) as err:
         Cap(t, t.l)
-    assert str(err.value) == config.Msg.cap_vs_caps(t, t.l)
+    assert str(err.value) == messages.cap_vs_caps(t, t.l)
     with raises(ValueError) as err:
         Cap(Ty(), Ty())
-    assert str(err.value) == config.Msg.cap_vs_caps(Ty(), Ty())
+    assert str(err.value) == messages.cap_vs_caps(Ty(), Ty())
     with raises(NotImplementedError):
         Cap(Ty('n'), Ty('n').r)
     with raises(NotImplementedError):
@@ -115,16 +132,16 @@ def test_AxiomError():
     n, s = Ty('n'), Ty('s')
     with raises(AxiomError) as err:
         Cup(n, n)
-    assert str(err.value) == config.Msg.are_not_adjoints(n, n)
+    assert str(err.value) == messages.are_not_adjoints(n, n)
     with raises(AxiomError) as err:
         Cup(n, s)
-    assert str(err.value) == config.Msg.are_not_adjoints(n, s)
+    assert str(err.value) == messages.are_not_adjoints(n, s)
     with raises(AxiomError) as err:
         Cup(n, n.l.l)
-    assert str(err.value) == config.Msg.are_not_adjoints(n, n.l.l)
+    assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
     with raises(AxiomError) as err:
         Cap(n, n.l.l)
-    assert str(err.value) == config.Msg.are_not_adjoints(n, n.l.l)
+    assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
 
 
 def test_RigidFunctor_call():

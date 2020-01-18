@@ -17,8 +17,8 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 
 def get_version():
-    from discopy import config
-    return config.VERSION
+    from discopy import __version__
+    return __version__
 
 
 # -- Project information -----------------------------------------------------

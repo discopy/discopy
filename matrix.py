@@ -13,13 +13,13 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 from functools import reduce as fold
-from discopy import config
+from discopy import messages
 from discopy.cat import Quiver, AxiomError
 from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
 
 try:
     import warnings
-    for msg in config.IGNORE_WARNINGS:
+    for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
 except ImportError:
@@ -36,7 +36,7 @@ class Dim(Ty):
     def __init__(self, *xs):
         for x in xs:
             if not isinstance(x, int):
-                raise TypeError(config.Msg.type_err(int, x))
+                raise TypeError(messages.type_err(int, x))
             if x < 1:
                 raise ValueError
         super().__init__(*[Ob(x) for x in xs if x > 1])
@@ -96,9 +96,9 @@ class Matrix(Box):
 
     def __add__(self, other):
         if not isinstance(other, Matrix):
-            raise TypeError(config.Msg.type_err(Matrix, other))
+            raise TypeError(messages.type_err(Matrix, other))
         if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError(config.Msg.cannot_add(self, other))
+            raise AxiomError(messages.cannot_add(self, other))
         return Matrix(self.dom, self.cod, self.array + other.array)
 
     def __eq__(self, other):
@@ -109,9 +109,9 @@ class Matrix(Box):
 
     def then(self, other):
         if not isinstance(other, Matrix):
-            raise TypeError(config.Msg.type_err(Matrix, other))
+            raise TypeError(messages.type_err(Matrix, other))
         if self.cod != other.dom:
-            raise AxiomError(config.Msg.does_not_compose(self, other))
+            raise AxiomError(messages.does_not_compose(self, other))
         array = np.tensordot(self.array, other.array, len(self.cod))\
             if self.array.shape and other.array.shape\
             else self.array * other.array
@@ -119,7 +119,7 @@ class Matrix(Box):
 
     def tensor(self, other):
         if not isinstance(other, Matrix):
-            raise TypeError(config.Msg.type_err(Matrix, other))
+            raise TypeError(messages.type_err(Matrix, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         array = np.tensordot(self.array, other.array, 0)\
             if self.array.shape and other.array.shape\
@@ -140,11 +140,11 @@ class Matrix(Box):
     @staticmethod
     def cups(x, y):
         if not isinstance(x, Dim):
-            raise TypeError(config.Msg.type_err(Dim, x))
+            raise TypeError(messages.type_err(Dim, x))
         if not isinstance(y, Dim):
-            raise TypeError(config.Msg.type_err(Dim, y))
+            raise TypeError(messages.type_err(Dim, y))
         if x.r != y:
-            raise AxiomError(config.Msg.are_not_adjoints(x, y))
+            raise AxiomError(messages.are_not_adjoints(x, y))
         return Matrix(x @ y, Dim(1), Id(x).array)
 
     @staticmethod

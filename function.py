@@ -40,7 +40,7 @@ The name of a composition is the composition of the names.
 >>> assert (add @ swap @ Id(0)).name == '(add @ swap)'
 """
 
-from discopy import config
+from discopy import messages
 from discopy.cat import AxiomError
 from discopy.matrix import np
 from discopy.moncat import Ob, Ty, Box, MonoidalFunctor
@@ -125,12 +125,12 @@ class Function(Box):
         if isinstance(cod, int):
             cod = Vec(cod)
         if not isinstance(dom, Vec):
-            raise TypeError(config.Msg.type_err(Vec, dom))
+            raise TypeError(messages.type_err(Vec, dom))
         if not isinstance(cod, Vec):
-            raise TypeError(config.Msg.type_err(Vec, cod))
+            raise TypeError(messages.type_err(Vec, cod))
         self._function = function
         if not isinstance(name, str):
-            raise TypeError(config.Msg.type_err(str, name))
+            raise TypeError(messages.type_err(str, name))
         self._name = name
         super().__init__(name, dom, cod)
 
@@ -204,7 +204,7 @@ class Function(Box):
         >>> assert np.all((swap >> abs)([14, 42]) == (abs << swap)([14, 42]))
         """
         if not isinstance(other, Function):
-            raise TypeError(config.Msg.type_err(Function, other))
+            raise TypeError(messages.type_err(Function, other))
         if self.cod.dim != other.dom.dim:
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
@@ -232,7 +232,7 @@ class Function(Box):
         >>> assert np.all((add @ copy)([3, 1, 2]) == np.array([4, 2, 2]))
         """
         if not isinstance(other, Function):
-            raise TypeError(config.Msg.type_err(Function, other))
+            raise TypeError(messages.type_err(Function, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         if not self.name == 'Id(0)':
             if not other.name == 'Id(0)':

@@ -54,13 +54,13 @@ def test_Diagram():
 def test_Diagram_init():
     with raises(TypeError) as err:
         Diagram('x', Ob('x'), [])
-    assert str(err.value) == config.Msg.type_err(Ob, 'x')
+    assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
         Diagram(Ob('x'), 'x', [])
-    assert str(err.value) == config.Msg.type_err(Ob, 'x')
+    assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
         Diagram(Ob('x'), Ob('x'), [Ob('x')])
-    assert str(err.value) == config.Msg.type_err(Diagram, Ob('x'))
+    assert str(err.value) == messages.type_err(Diagram, Ob('x'))
 
 
 def test_Diagram_len():
@@ -99,7 +99,7 @@ def test_Diagram_then():
     assert f.then(g) == f >> g == g << f
     with raises(TypeError) as err:
         f >> x
-    assert str(err.value) == config.Msg.type_err(Diagram, x)
+    assert str(err.value) == messages.type_err(Diagram, x)
 
 
 def test_Diagram_dagger():
@@ -130,13 +130,13 @@ def test_AxiomError():
     f, g = Box('f', x, y), Box('g', y, z)
     with raises(AxiomError) as err:
         Diagram(x, y, [g])
-    assert str(err.value) == config.Msg.does_not_compose(Id(x), g)
+    assert str(err.value) == messages.does_not_compose(Id(x), g)
     with raises(AxiomError) as err:
         Diagram(x, z, [f])
-    assert str(err.value) == config.Msg.does_not_compose(f, Id(z))
+    assert str(err.value) == messages.does_not_compose(f, Id(z))
     with raises(AxiomError) as err:
         g >> f
-    assert str(err.value) == config.Msg.does_not_compose(g, f)
+    assert str(err.value) == messages.does_not_compose(g, f)
 
 
 def test_Box():
@@ -194,7 +194,7 @@ def test_Functor_call():
     F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
     with raises(TypeError) as err:
         F(F)
-    assert str(err.value) == config.Msg.type_err(Diagram, F)
+    assert str(err.value) == messages.type_err(Diagram, F)
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(f.dagger()) == f

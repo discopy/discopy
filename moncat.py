@@ -21,8 +21,10 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
 import networkx as nx
-from discopy import cat, config
+from discopy import cat, messages
 from discopy.cat import Ob, Functor, Quiver, AxiomError
 
 
@@ -138,10 +140,10 @@ class Ty(Ob):
     def __add__(self, other):
         return self.tensor(other)
 
-    def __pow__(self, n):
-        if not isinstance(n, int):
-            raise TypeError(config.Msg.type_err(int, n))
-        return sum(n * (self, ), type(self)())
+    def __pow__(self, n_times):
+        if not isinstance(n_times, int):
+            raise TypeError(messages.type_err(int, n_times))
+        return sum(n_times * (self, ), type(self)())
 
 
 class Diagram(cat.Diagram):
@@ -171,24 +173,24 @@ class Diagram(cat.Diagram):
     """
     def __init__(self, dom, cod, boxes, offsets, _fast=False):
         if not isinstance(dom, Ty):
-            raise TypeError(config.Msg.type_err(Ty, dom))
+            raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
-            raise TypeError(config.Msg.type_err(Ty, cod))
+            raise TypeError(messages.type_err(Ty, cod))
         if len(boxes) != len(offsets):
-            raise ValueError(config.Msg.boxes_and_offsets_must_have_same_len())
+            raise ValueError(messages.boxes_and_offsets_must_have_same_len())
         if not _fast:
             scan = dom
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
-                    raise TypeError(config.Msg.type_err(Diagram, box))
+                    raise TypeError(messages.type_err(Diagram, box))
                 if not isinstance(off, int):
-                    raise TypeError(config.Msg.type_err(int, off))
+                    raise TypeError(messages.type_err(int, off))
                 if scan[off: off + len(box.dom)] != box.dom:
-                    raise AxiomError(config.Msg.does_not_compose(
+                    raise AxiomError(messages.does_not_compose(
                         scan[off: off + len(box.dom)], box.dom))
                 scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             if scan != cod:
-                raise AxiomError(config.Msg.does_not_compose(scan, cod))
+                raise AxiomError(messages.does_not_compose(scan, cod))
         super().__init__(dom, cod, [], _fast=True)
         self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
@@ -200,15 +202,6 @@ class Diagram(cat.Diagram):
         return list(self._offsets)
 
     def __eq__(self, other):
-        """
-        Two diagrams are equal when they have the same dom, cod, boxes
-        and offsets.
-
-        >>> Diagram(Ty('x'), Ty('x'), [], []) == Ty('x')
-        False
-        >>> Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
-        True
-        """
         if not isinstance(other, Diagram):
             return False
         return all(self.__getattribute__(attr) == other.__getattribute__(attr)
@@ -263,7 +256,7 @@ class Diagram(cat.Diagram):
             the tensor of 'self' and 'other'.
         """
         if not isinstance(other, Diagram):
-            raise TypeError(config.Msg.type_err(Diagram, other))
+            raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
@@ -352,14 +345,14 @@ class Diagram(cat.Diagram):
 
             * :code:`graph` is a networkx graph with nodes for inputs, outputs,
               boxes and wires,
-            * :code:`positions` is a dict from nodes to pairs of floats,
+            * :code:`pos` is a dict from nodes to pairs of floats,
             * :code:`labels` is a dict from nodes to strings.
         """
-        graph, positions, labels = nx.Graph(), dict(), dict()
+        graph, pos, labels = nx.Graph(), dict(), dict()
 
-        def add(node, position, label):
+        def add_node(node, position, label=None):
             graph.add_node(node)
-            positions.update({node: position})
+            pos.update({node: position})
             if label is not None:
                 labels.update({node: label})
 
@@ -380,11 +373,6 @@ class Diagram(cat.Diagram):
             return scan[:off] + ['wire_cod_{}_{}'.format(depth, i)
                                  for i, _ in enumerate(box.cod)]\
                 + scan[off + len(box.dom):]
-        for i in range(len(self.cod)):
-            position = (-.5 * len(scan) + i, 0)
-            add("output_{}".format(i), position, str(self.cod[i]))
-            graph.add_edge(scan[i], "output_{}".format(i))
-        return graph, positions, labels
 
         def make_space(scan, box, off):
             if not scan:
@@ -555,12 +543,12 @@ class Diagram(cat.Diagram):
         if j < i - 1:
             result = self
             for k in range(i - j):
-                result = result.interchange(i - k, i - k - 1)
+                result = result.interchange(i - k, i - k - 1, left=left)
             return result
         if j > i + 1:
             result = self
             for k in range(j - i):
-                result = result.interchange(i + k, i + k + 1)
+                result = result.interchange(i + k, i + k + 1, left=left)
             return result
         if j < i:
             i, j = j, i
@@ -615,7 +603,7 @@ class Diagram(cat.Diagram):
         diagram, cache = self, set()
         for _diagram in self.normalize(left=left):
             if _diagram in cache:
-                raise NotImplementedError(config.Msg.is_not_connected(self))
+                raise NotImplementedError(messages.is_not_connected(self))
             diagram = _diagram
             cache.add(diagram)
         return diagram
@@ -665,7 +653,8 @@ class Diagram(cat.Diagram):
                        _fast=True)
 
     def depth(self):
-        """ Computes the depth of a diagram by slicing it
+        """
+        Computes the depth of a diagram by slicing it
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
@@ -675,6 +664,23 @@ class Diagram(cat.Diagram):
         >>> assert (f >> g).depth() == 2
         """
         return len(self.slice())
+
+    def width(self):
+        """
+        Computes the width of a diagram,
+        i.e. the maximum number of parallel wires.
+
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x ** 4)
+        >>> assert (f >> f.dagger()).width() == 4
+        >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
+        """
+        scan = self.dom
+        width = len(scan)
+        for box, off in zip(self.boxes, self.offsets):
+            scan = scan[: off] + box.cod + scan[off + len(box.dom):]
+            width = max(width, len(scan))
+        return width
 
 
 def build_spiral(n_cups):
@@ -792,4 +798,4 @@ class MonoidalFunctor(Functor):
                 result = result >> id_l @ self(box) @ id_r
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
-        raise TypeError(config.Msg.type_err(Diagram, diagram))
+        raise TypeError(messages.type_err(Diagram, diagram))

@@ -22,7 +22,7 @@ We can create dagger functors from the free category to itself:
 """
 
 from functools import reduce as fold
-from discopy import config
+from discopy import messages
 
 
 class Ob:
@@ -155,21 +155,21 @@ class Diagram:
 
     def __init__(self, dom, cod, boxes, _fast=False):
         if not isinstance(dom, Ob):
-            raise TypeError(config.Msg.type_err(Ob, dom))
+            raise TypeError(messages.type_err(Ob, dom))
         if not isinstance(cod, Ob):
-            raise TypeError(config.Msg.type_err(Ob, cod))
+            raise TypeError(messages.type_err(Ob, cod))
         if not _fast:
             scan = dom
             for i, box in enumerate(boxes):
                 if not isinstance(box, Diagram):
-                    raise TypeError(config.Msg.type_err(Diagram, box))
+                    raise TypeError(messages.type_err(Diagram, box))
                 if scan != box.dom:
-                    raise AxiomError(config.Msg.does_not_compose(
+                    raise AxiomError(messages.does_not_compose(
                         Id(dom) if i == 0 else boxes[i - 1], box))
                 scan = box.cod
             if scan != cod:
                 raise AxiomError(
-                    config.Msg.does_not_compose(boxes[-1], Id(cod)))
+                    messages.does_not_compose(boxes[-1], Id(cod)))
         self._dom, self._cod, self._boxes = dom, cod, tuple(boxes)
 
     def __len__(self):
@@ -230,9 +230,9 @@ class Diagram:
         >>> assert (f >> g) >> h == f >> (g >> h)
         """
         if not isinstance(other, Diagram):
-            raise TypeError(config.Msg.type_err(Diagram, other))
+            raise TypeError(messages.type_err(Diagram, other))
         if self.cod != other.dom:
-            raise AxiomError(config.Msg.does_not_compose(self, other))
+            raise AxiomError(messages.does_not_compose(self, other))
         return Diagram(
             self.dom, other.cod, self.boxes + other.boxes, _fast=True)
 
@@ -483,7 +483,7 @@ class Functor:
         if isinstance(diagram, Diagram):
             return fold(lambda g, h: g >> self(h),
                         diagram.boxes, self.ar_cls.id(self(diagram.dom)))
-        raise TypeError(config.Msg.type_err(Diagram, diagram))
+        raise TypeError(messages.type_err(Diagram, diagram))
 
 
 class Quiver:
