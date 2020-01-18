@@ -226,10 +226,9 @@ class Neuron(Diagram):
     Implements a neuron with domain 'dom' and codomain 1,
     given a list of weights of length 'dom + 1', and an activation function.
 
-    >>> assert Neuron(3, [1.3, 0.5, 2.1, 0.4])([1, 2, 3])\\
-    ...             == np.array([0.99987662])
-    >>> disconnect = Neuron(4, [0., 0., 0., 0., 0.])
-    >>> assert disconnect([13, 2, 3, 4]) == disconnect([1, 2, 3, 4])
+    >>> neuron = Neuron(3, [1.3, 0.5, 2.1, 0.4])
+    >>> disconnected = Neuron(4, [0., 0., 0., 0., 0.])
+    >>> assert disconnected([13, 2, 3, 4]) == disconnected([1, 2, 3, 4])
 
     Parameters
     ----------
@@ -253,10 +252,9 @@ class Layer(Diagram):
     """
     Implements a neural network layer as a diagram of neurons.
 
-    >>> params = np.array([[0.1, 0.2, 0.3], [1, 2, 3], [0.3, 0.2, 0.1]])
+    >>> params = np.array([[0., 0., 0.], [1, 2, 3], [0.3, 0.2, 0.1]])
     >>> layer = Layer(2, 3, params)
-    >>> assert np.all(layer([1., 1.]) ==\\
-    ...               np.array([0.64565629, 0.99752742, 0.64565629]))
+    >>> assert layer([2.1, 1.3])[0] == np.array([0.5])
 
     Parameters
     ----------
