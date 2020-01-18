@@ -76,7 +76,7 @@ pregroup.draw(sentence)
 
 ![snake equation](docs/imgs/alice-loves-bob.png)
 
-# Functors & Meanings
+### Functors & Meanings
 
 *Functors* compute the meaning of a diagram, given a meaning for each box.
 As a special case, free functors (i.e. from the free monoidal category to itself)
