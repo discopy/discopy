@@ -29,5 +29,6 @@ if __name__ == '__main__':  # pragma: no cover
           install_requires=['numpy',
                             'networkx',
                             'matplotlib',
-                            'pytket'],
+                            'pytket',
+                            'pillow'],
           )

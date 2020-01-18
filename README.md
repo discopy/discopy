@@ -102,13 +102,6 @@ F = Model(ob, ar)
 assert F(sentence)
 ```
 
-## Requirements
-
-* [numpy](https://numpy.org/)
-* [networkx](https://networkx.github.io/)
-* [matplotlib](https://matplotlib.org/)
-* [pytket](https://github.com/CQCL/pytket)
-
 ## Getting Started
 
 ```shell

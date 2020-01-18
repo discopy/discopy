@@ -3,6 +3,7 @@ from pytest import raises
 from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 from discopy.pregroup import *
+from discopy.rigidcat import Cap, RigidFunctor
 
 
 def test_Word():
@@ -60,3 +61,17 @@ def test_draw():
     assert compare_images(dir + file, dir + '.' + file, 0) is None
     os.remove(dir + '.' + file)
     plt.clf()
+
+
+def test_Diagram_to_gif():
+    dir, file = 'docs/imgs/', 'autonomisation.gif'
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Box("Alice", Ty(), n), Box("Bob", Ty(), n)
+    loves = Box('loves', Ty(), n.r @ s @ n.l)
+    love_box = Box('loves', n @ n, s)
+    love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
+    ob, ar = {s: s, n: n}, {Alice: Alice, Bob: Bob, loves: love_ansatz}
+    F = RigidFunctor(ob, ar)
+    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    F(sentence).to_gif(
+        dir + file, timestep=1000, loop=False, draw_types=True)

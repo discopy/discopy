@@ -615,7 +615,7 @@ class Diagram(cat.Diagram):
             cache.add(diagram)
         return diagram
 
-    def to_gif(self, path, timestep=200, loop=False):
+    def to_gif(self, path, timestep=200, loop=False, **params):
         """
         Builds a gif with the normalisation steps.
 
@@ -627,12 +627,16 @@ class Diagram(cat.Diagram):
             Time step in milliseconds, default is :code:`200`.
         loop : bool, optional
             Whether to loop, default is :code:`False`
+
+        Other Parameters
+        ----------------
+        Other parameters are passed to :meth:`discopy.rigidcat.Diagram.draw`.
         """
         frames = []
         with tempfile.TemporaryDirectory() as directory:
             for i, diagram in enumerate(self.normalize()):
                 tmp_path = os.path.join(directory, '{}.png'.format(i))
-                diagram.draw(show=False, draw_types=False)
+                diagram.draw(show=False, **params)
                 plt.savefig(tmp_path)
                 plt.close()
                 frames.append(Image.open(tmp_path))
