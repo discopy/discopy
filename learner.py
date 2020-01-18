@@ -1,24 +1,22 @@
 # -*- coding: utf-8 -*-
 """
-Implements the PRO of functions on vectors with cartesian product as tensor.
+Implements the PRO of Python functions on numpy vectors
+with cartesian product as tensor.
 
 >>> SWAP = Box('swap', 2, 2, lambda x: x[::-1])
 >>> COPY = Box('copy', 1, 2, lambda x: np.concatenate((x, x)))
 >>> ADD = Box('add', 2, 1, lambda x: np.sum(x, keepdims=True))
 >>> DISCARD = Box('discard', 1, 0, lambda x: np.array([]))
 
-Projections and the copy map witness the categorical product.
+Projections, swaps and the copy map witness the categorical product.
 
 >>> assert (COPY >> DISCARD @ Id(1))([46]) == Id(1)([46])\\
 ...     == (COPY >> Id(1) @ DISCARD)([46])
-
-We can check the axioms for symmetry on specific inputs.
-
 >>> assert np.all((SWAP >> SWAP)([1, 2]) == Id(2)([1, 2]))
 >>> assert np.all((Id(1) @ SWAP >> SWAP @ Id(1) >> Id(1) @ SWAP)([0, 1, 2])
 ...            == (SWAP @ Id(1) >> Id(1) @ SWAP >> SWAP @ Id(1))([0, 1, 2]))
 
-As an example, we show that copy and add satisfy the bimonoid law.
+We can check that copy and add satisfy the bimonoid law.
 
 >>> assert np.all(ADD([1, 2]) == np.array([3]))
 >>> assert np.all((COPY @ COPY >> Id(1) @ SWAP @ Id(1)
@@ -228,8 +226,8 @@ class Mults(Diagram):
 
 class Neuron(Diagram):
     """
-    Implements a neuron with domain 'dom' and codomain 1,
-    given a list of weights of length 'dom + 1', and an activation function.
+    Implements a neuron with domain 'dom' and codomain '1',
+    given a list of weights of length dom + 1, and an activation function.
 
     >>> neuron = Neuron(3, [1.3, 0.5, 2.1, 0.4])
     >>> disconnected = Neuron(4, [0., 0., 0., 0., 0.])
@@ -240,16 +238,16 @@ class Neuron(Diagram):
     dom : int
         Domain dimension.
     weights : list
-        List of weights of length 'dom + 1'.
+        List of weights of length dom + 1.
     """
-    def __init__(self, dom, weights):
+    def __init__(self, dom, weights, activation='sigmoid'):
         """
         >>> neuron = Neuron(4, [0.1, 0.4, 3., 2., 0.7])
         >>> assert neuron.dom == PRO(4)
         >>> assert neuron.cod == PRO(1)
         """
         neuron = Mults(dom, weights[:-1]) @ bias(weights[-1])
-        neuron = neuron >> Sum(1, dom + 1) >> SIG
+        neuron = neuron >> Sum(1, dom + 1) >> Activation[activation]
         super().__init__(dom, 1, neuron.boxes, neuron.offsets, _fast=True)
 
 
@@ -268,7 +266,7 @@ class Layer(Diagram):
     cod : int
         Number of outputs.
     params: array
-        Array of weigths with shape '(cod, dom + 1)'
+        Array of shape (cod, dom + 1)
     """
     def __init__(self, dom, cod, params):
         """
@@ -297,9 +295,6 @@ class LearnerFunctor(MonoidalFunctor):
     """
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_cls=PRO, ar_cls=Diagram)
-
-
-SIG = Box('sigmoid', 1, 1, lambda x: 1 / (1 + np.exp(-x)))
 
 
 def bias(scalar):
@@ -341,3 +336,5 @@ def disco(name, dom, cod):
 SWAP = Box('swap', 2, 2, lambda x: x[::-1])
 COPY = Box('copy', 1, 2, lambda x: np.concatenate((x, x)))
 ADD = Box('add', 2, 1, lambda x: np.sum(x, keepdims=True))
+Activation = {'sigmoid': Box('sigmoid', 1, 1, lambda x: 1 / (1 + np.exp(-x))),
+              'RelU': Box('RelU', 1, 1, lambda x: x * (x > 0))}

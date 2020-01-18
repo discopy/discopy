@@ -61,7 +61,7 @@ right_snake =  Cap(x, x.l) @ Id(x) >> Id(x) @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-In particular, `discopy` can draw the grammatical structure of natural language sentences given by reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar)ee [Lambek (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction.
+In particular, `discopy` can draw the grammatical structure of natural language sentences given by reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar), see [Lambek (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction.
 
 ```python
 from discopy import pregroup, Word
@@ -76,7 +76,7 @@ pregroup.draw(sentence)
 
 ![snake equation](docs/imgs/alice-loves-bob.png)
 
-# Functors & Meanings
+### Functors & Meanings
 
 *Functors* compute the meaning of a diagram, given a meaning for each box.
 As a special case, free functors (i.e. from the free monoidal category to itself)
@@ -102,8 +102,8 @@ import numpy as np
 from discopy import MatrixFunctor
 
 ob = {s: 1, n: 2}
-ar = lambda param: {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-F = MatrixFunctor(ob, ar(param))
+ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+F = MatrixFunctor(ob, ar)
 
 assert F(sentence) == np.array([1])
 ```

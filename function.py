@@ -13,7 +13,7 @@ from discopy.matrix import np
 
 class Function(Box):
     """
-    Wraps python functions with domain and codomain information.
+    Wraps a python function with domain and codomain information.
 
     >>> SWAP = Function(2, 2, lambda x: x[::-1])
     >>> COPY = Function(1, 2, lambda x: np.concatenate((x, x)))
@@ -150,7 +150,7 @@ class Id(Function):
 
 class CartesianFunctor(MonoidalFunctor):
     """
-    Implements functors into the category of functions on lists
+    Implements functors into the PRO of functions.
 
     >>> from discopy import Ty
     >>> x, y = Ty('x'), Ty('y')
