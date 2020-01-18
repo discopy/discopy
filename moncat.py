@@ -20,6 +20,9 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 """
 
+import os
+import tempfile
+from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
@@ -611,6 +614,33 @@ class Diagram(cat.Diagram):
             diagram = _diagram
             cache.add(diagram)
         return diagram
+
+    def to_gif(self, path, timestep=200, loop=False):
+        """
+        Builds a gif with the normalisation steps.
+
+        Parameters
+        ----------
+        path : str
+            Where to save the image.
+        timestep : int, optional
+            Time step in milliseconds, default is :code:`200`.
+        loop : bool, optional
+            Whether to loop, default is :code:`False`
+        """
+        frames = []
+        with tempfile.TemporaryDirectory() as directory:
+            for i, diagram in enumerate(self.normalize()):
+                tmp_path = os.path.join(directory, '{}.png'.format(i))
+                diagram.draw(show=False, draw_types=False)
+                plt.savefig(tmp_path)
+                plt.close()
+                frames.append(Image.open(tmp_path))
+            if loop:
+                frames = frames + frames[::-1]
+            frames[0].save(path, format='GIF', append_images=frames[1:],
+                           save_all=True, duration=timestep,
+                           **{'loop': 0} if loop else {})
 
     def flatten(self):
         """

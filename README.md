@@ -23,7 +23,7 @@ diagram ::= Box(name, dom=type, cod=type)
     | diagram >> diagram
     | Id(type)
 
-type :: = Ty(name) | type @ type | Ty()
+type ::= Ty(name) | type.l | type.r | type @ type | Ty()
 ```
 
 Mathematically, [string diagrams](https://ncatlab.org/nlab/show/string+diagram) (also called [tensor networks](https://ncatlab.org/nlab/show/tensor+network) or [Penrose notation](https://en.wikipedia.org/wiki/Penrose_graphical_notation)) are a graphical calculus for computing the arrows of the free
@@ -49,7 +49,7 @@ crack_two_eggs.draw()
 
 ### Words, Snakes & Functors
 
-There are two special kinds of boxes that allow to bend wires and draw snakes: _cups_ and _caps_ which satisfy the _snake equations_ or [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
+There are two special kinds of boxes that allow to bend wires and draw snakes: **cups** and **caps**, which satisfy the **snake equations** or [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
 That is, `discopy` diagrams are the arrows of the free [rigid monoidal category](https://ncatlab.org/nlab/show/rigid+monoidal+category), up to `diagram.normal_form()`.
 
 ```python
@@ -76,8 +76,21 @@ pregroup.draw(sentence)
 
 ![snake equation](docs/imgs/alice-loves-bob.png)
 
+We can take strong monoidal functors from the free category to itself.
+
+```python
+love_box = Box('loves', n @ n, s)
+love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
+ob, ar = {s: s, n: n}, {Alice: Alice, Bob: Bob, loves: love_ansatz}
+F = RigidFunctor(ob, ar)
+F(sentence).to_gif('docs/imgs/autonomisation.gif')
+```
+
+![autonomisation](docs/imgs/autonomisation.gif)
+
 ### Matrices, Circuits & Learners
 
+We can take strong monoidal functors into the category of matrices with tensor product.
 
 ```python
 from discopy import Model
