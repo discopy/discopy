@@ -3,7 +3,7 @@ discopy
 
 `discopy` computes natural language meaning in pictures.
 
-.. image:: imgs/alice-loves-bob.png
+.. image:: imgs/snake-equation.png
    :align: center
 
 .. toctree::

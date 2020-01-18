@@ -12,7 +12,7 @@
 
 ## Features
 
-### Diagrams, Recipes & Categories
+### Diagrams & Recipes
 
 Diagrams are the core data structure of `discopy`, they are generated
 by the following grammar:
@@ -47,9 +47,9 @@ crack_two_eggs.draw()
 
 ![crack two eggs](docs/imgs/crack-eggs.png)
 
-### Words, Snakes & Functors
+### Snakes & Words
 
-There are two special kinds of boxes that allow to bend wires and draw snakes: **cups** and **caps**, which satisfy the **snake equations** or [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
+There are two special kinds of boxes that allows to bend wires and draw snakes: **cups** and **caps**, which satisfy the **snake equations** or [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
 That is, `discopy` diagrams are the arrows of the free [rigid monoidal category](https://ncatlab.org/nlab/show/rigid+monoidal+category), up to `diagram.normal_form()`.
 
 ```python
@@ -61,7 +61,7 @@ right_snake =  Cap(x, x.l) @ Id(x) >> Id(x) @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-In particular, `discopy` allows to draw the grammatical structure of natural language sentences given by reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
+In particular, `discopy` can draw the grammatical structure of natural language sentences given by reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar)ee [Lambek (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction.
 
 ```python
 from discopy import pregroup, Word
@@ -76,7 +76,11 @@ pregroup.draw(sentence)
 
 ![snake equation](docs/imgs/alice-loves-bob.png)
 
-We can take strong monoidal functors from the free category to itself.
+# Functors & Meanings
+
+*Functors* compute the meaning of a diagram, given a meaning for each box.
+As a special case, free functors (i.e. from the free monoidal category to itself)
+can fill in a box with a complex diagram.
 
 ```python
 love_box = Box('loves', n @ n, s)
@@ -88,18 +92,20 @@ F(sentence).to_gif('docs/imgs/autonomisation.gif')
 
 ![autonomisation](docs/imgs/autonomisation.gif)
 
-### Matrices, Circuits & Learners
-
-We can take strong monoidal functors into the category of matrices with tensor product.
+Functors into the category of matrices evaluate a diagram as a tensor network
+using [numpy](https://numpy.org/) or [jax.numpy](https://github.com/google/jax/).
+Once applied to pregroup diagrams, this makes `discopy` an implementation of the
+*compositional distributional* (_DisCo_) models of [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
 ```python
-from discopy import Model
+import numpy as np
+from discopy import MatrixFunctor
 
 ob = {s: 1, n: 2}
-ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-F = Model(ob, ar)
+ar = lambda param: {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+F = MatrixFunctor(ob, ar(param))
 
-assert F(sentence)
+assert F(sentence) == np.array([1])
 ```
 
 ## Getting Started
@@ -112,12 +118,3 @@ pip install discopy
 
 The documentation is hosted at [readthedocs.io](https://discopy.readthedocs.io/),
 you can also checkout the [notebooks](notebooks/) for a demo!
-
-## References
-
-* [Pregroup grammars](https://ncatlab.org/nlab/show/pregroup+grammar) and [categorical compositional distributional semantics](https://ncatlab.org/nlab/show/categorical+compositional+distributional+semantics) on the [nLab](https://ncatlab.org/)
-* [From Word to Sentence: A Computational Algebraic Approach to Grammar](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) - Lambek (2008)
-* [A Compositional Distributional Model of Meaning](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf) - Clark, Coecke, Sadrzadeh (2008)
-* [Experimental Support for a Categorical Compositional Distributional Model of Meaning](https://arxiv.org/abs/1106.4058) - Grefenstette and Sadrzadeh (2010)
-* [Functorial Question Answering](https://arxiv.org/abs/1905.07408) - De Felice, Meichanetzidis, Toumi (2019)
-* [The Mathematics of Text Structure](https://arxiv.org/abs/1904.03478) - Coecke (2019)
