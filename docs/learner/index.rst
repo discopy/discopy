@@ -7,10 +7,11 @@ discopy.learner
     :caption: Contents:
 
     Diagram.rst
-    Box.rst
     Id.rst
+    Box.rst
     Copy.rst
     Sum.rst
     Neuron.rst
     Layer.rst
+    disco.rst
     LearnerFunctor.rst
