@@ -7,4 +7,4 @@ def test_Box_function():
 
 
 def test_Box_repr():
-    assert "Box('COPY', 1, 2, function=" in repr(COPY)
+    assert "Box('copy', 1, 2, function=" in repr(COPY)

@@ -6,7 +6,7 @@ with cartesian product as tensor.
 
 from discopy import messages
 from discopy.cat import AxiomError
-from discopy.moncat import Ty, Box, MonoidalFunctor
+from discopy.moncat import Box, MonoidalFunctor
 from discopy.circuit import PRO
 from discopy.matrix import np
 
@@ -191,6 +191,7 @@ class CartesianFunctor(MonoidalFunctor):
     """
     Implements functors into the category of functions on lists
 
+    >>> from discopy import Ty
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, y)
     >>> g = Box('g', y, x)

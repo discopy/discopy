@@ -19,8 +19,7 @@ import pytket as tk
 from discopy import messages
 from discopy.cat import Quiver
 from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
-from discopy.matrix import Dim, Matrix, MatrixFunctor
-import numpy as np
+from discopy.matrix import np, Dim, Matrix, MatrixFunctor
 
 
 class PRO(Ty):
