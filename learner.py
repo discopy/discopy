@@ -229,8 +229,7 @@ class Neuron(Diagram):
     >>> assert Neuron(3, [1.3, 0.5, 2.1, 0.4])([1, 2, 3])\\
     ...             == np.array([0.99987662])
     >>> disconnect = Neuron(4, [0., 0., 0., 0., 0.])
-    >>> assert disconnect([13, 2, 3, 4]) == np.array([0.5])\\
-    ...             == disconnect([1, 2, 3, 4])
+    >>> assert disconnect([13, 2, 3, 4]) == disconnect([1, 2, 3, 4])
 
     Parameters
     ----------
@@ -256,7 +255,7 @@ class Layer(Diagram):
 
     >>> params = np.array([[0.1, 0.2, 0.3], [1, 2, 3], [0.3, 0.2, 0.1]])
     >>> layer = Layer(2, 3, params)
-    >>> assert np.all(layer([1., 1.]) ==
+    >>> assert np.all(layer([1., 1.]) ==\\
     ...               np.array([0.64565629, 0.99752742, 0.64565629]))
 
     Parameters
