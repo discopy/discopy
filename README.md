@@ -61,7 +61,7 @@ right_snake =  Cap(x, x.l) @ Id(x) >> Id(x) @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-In particular, `discopy` can draw the grammatical structure of natural language sentences given by reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar)ee [Lambek (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction.
+In particular, `discopy` can draw the grammatical structure of natural language sentences given by reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar), see [Lambek (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction.
 
 ```python
 from discopy import pregroup, Word
