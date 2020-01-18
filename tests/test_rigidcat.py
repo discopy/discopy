@@ -67,7 +67,6 @@ def test_Diagram_normal_form():
 
 def test_Diagram_draw():
     dir, file = 'docs/imgs/', 'snake-equation.png'
-<<<<<<< HEAD
     x, eq = Ty('x'), Box('=', Ty(), Ty())
     diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
     diagram = diagram.interchange(1, 4).interchange(3, 1, left=True)
@@ -77,19 +76,6 @@ def test_Diagram_draw():
     assert compare_images(dir + file, dir + '.' + file, 0) is None
     os.remove(dir + '.' + file)
     plt.clf()
-=======
-    plt.clf()
-    plt.rcParams.update({'font.size': 18, 'figure.figsize': (5, 2)})
-    x, eq = Ty('x'), Box('=', Ty(), Ty())
-    diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
-    diagram = diagram.interchange(4, 0, left=True).interchange(2, 5)
-    diagram.draw(show=False, aspect='auto')
-    plt.subplots_adjust(
-        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-    plt.savefig(dir + '.' + file)
-    assert compare_images(dir + file, dir + '.' + file, 0) is None
-    os.remove(dir + '.' + file)
->>>>>>> master
 
 
 def test_Cup_init():
