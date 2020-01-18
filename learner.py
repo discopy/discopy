@@ -207,6 +207,50 @@ class Sum(Box):
         super().__init__(name, copies * cod, cod, func)
 
 
+class Mults(Diagram):
+    """
+    Implements scalar multiplication by a list of weights.
+
+    >>> assert np.all(Mults(2, [2., 3.])([1, 1]) == np.array([2, 3]))
+
+    Parameters
+    ----------
+    dom : 'int'
+        Domain dimension.
+    weights : any
+        List of weights of length 'dom'.
+    """
+    def __init__(self, dom, weights):
+        """
+        >>> m = Mults(3, [1, 2, 3])
+        >>> assert m.dom == PRO(3) == m.cod
+        """
+        super().__init__(dom, dom, [MULT(weight) for weight in weights],
+                         list(range(len(weights))))
+
+
+class Neuron(Diagram):
+    """
+    Implements a neuron with domain 'dom' and codomain 1,
+    given a list of weights of length 'dom + 1', and an activation function.
+
+    >>> assert Neuron(3, [1.3, 0.5, 2.1, 0.4])([1, 2, 3])\\
+    ...             == np.array([0.99987662])
+    >>> disconnect = Neuron(4, [0., 0., 0., 0., 0.])
+    >>> assert disconnect([13, 2, 3, 4]) == np.array([0.5])\\
+    ...             == disconnect([1, 2, 3, 4])
+    """
+    def __init__(self, dom, weights):
+        """
+        >>> neuron = Neuron(4, [0.1, 0.4, 3., 2., 0.7])
+        >>> assert neuron.dom == PRO(4)
+        >>> assert neuron.cod == PRO(1)
+        """
+        neuron = Mults(dom, weights[:-1]) @ BIAS(weights[-1])
+        neuron = neuron >> Sum(1, dom + 1) >> sigmoid
+        super().__init__(dom, 1, neuron.boxes, neuron.offsets, _fast=True)
+
+
 class LearnerFunctor(MonoidalFunctor):
     """
     Implements functors into the category of learners.
@@ -227,3 +271,12 @@ class LearnerFunctor(MonoidalFunctor):
 SWAP = Box('SWAP', 2, 2, lambda x: x[::-1])
 COPY = Box('COPY', 1, 2, lambda x: np.concatenate((x, x)))
 ADD = Box('ADD', 2, 1, lambda x: np.array([x[0] + x[1]]))
+sigmoid = Box('sigmoid', 1, 1, lambda x: 1/(1 + np.exp(-x)))
+
+
+def BIAS(scalar):
+    return Box('BIAS({})'.format(scalar), 0, 1, lambda x: np.array([scalar]))
+
+
+def MULT(scalar):
+    return Box('MULT({})'.format(scalar), 1, 1, lambda x: scalar * x)
