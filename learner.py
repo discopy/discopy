@@ -21,15 +21,15 @@ As an example, we show that copy and add satisfy the bimonoid law.
 ...                >> ADD @ ADD)([123, 25]) == (ADD >> COPY)([123, 25]))
 """
 
-from discopy import messages, moncat
-from discopy.cat import AxiomError, Quiver
+from discopy import rigidcat
+from discopy.cat import Quiver
 from discopy.matrix import np
-from discopy.moncat import Ty, MonoidalFunctor
+from discopy.moncat import MonoidalFunctor
 from discopy.circuit import PRO
 from discopy.function import Function, CartesianFunctor
 
 
-class Diagram(moncat.Diagram):
+class Diagram(rigidcat.Diagram):
     """
     Implements learners as diagrams of functions.
     """
@@ -83,10 +83,8 @@ class Diagram(moncat.Diagram):
         >>> assert np.all(SWAP([1, 2]) == np.array([2, 1]))
         >>> assert np.all((COPY @ COPY)([1, 2]) == Id(4)([1, 1, 2, 2]))
         """
-        ob = Quiver(lambda t: t)
-        ar = Quiver(lambda f:
-                    Function(f.name, f.dom, f.cod, f.function))
-        return CartesianFunctor(ob, ar)(self)(value)
+        return CartesianFunctor(Quiver(lambda t: t), Quiver(
+            lambda f: Function(f.name, f.dom, f.cod, f.function)))(self)(value)
 
 
 class Id(Diagram):
@@ -118,7 +116,7 @@ class Id(Diagram):
         return repr(self)
 
 
-class Box(moncat.Box, Diagram):
+class Box(rigidcat.Box, Diagram):
     """
     Implements Python functions as boxes in a learner.Diagram.
 
@@ -132,11 +130,14 @@ class Box(moncat.Box, Diagram):
         """
         if function is not None:
             self._function = function
-        moncat.Box.__init__(self, name, PRO(dom), PRO(cod), data=data)
+        rigidcat.Box.__init__(self, name, PRO(dom), PRO(cod), data=data)
         Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
 
     @property
     def function(self):
+        """
+        Callable python object.
+        """
         return self._function
 
     def __repr__(self):
@@ -217,7 +218,7 @@ class Mults(Diagram):
         >>> m = Mults(3, [1, 2, 3])
         >>> assert m.dom == PRO(3) == m.cod
         """
-        super().__init__(dom, dom, [MULT(weight) for weight in weights],
+        super().__init__(dom, dom, [mult(weight) for weight in weights],
                          list(range(len(weights))))
 
 
@@ -243,8 +244,8 @@ class Neuron(Diagram):
         >>> assert neuron.dom == PRO(4)
         >>> assert neuron.cod == PRO(1)
         """
-        neuron = Mults(dom, weights[:-1]) @ BIAS(weights[-1])
-        neuron = neuron >> Sum(1, dom + 1) >> sigmoid
+        neuron = Mults(dom, weights[:-1]) @ bias(weights[-1])
+        neuron = neuron >> Sum(1, dom + 1) >> SIG
         super().__init__(dom, 1, neuron.boxes, neuron.offsets, _fast=True)
 
 
@@ -281,9 +282,9 @@ class LearnerFunctor(MonoidalFunctor):
     """
     Implements functors into the category of learners.
 
-    >>> x, y = Ty('x'), Ty('y')
-    >>> f = moncat.Box('f', x, y)
-    >>> g = moncat.Box('g', y, x)
+    >>> x, y = rigidcat.Ty('x'), rigidcat.Ty('y')
+    >>> f = rigidcat.Box('f', x, y)
+    >>> g = rigidcat.Box('g', y, x)
     >>> F = LearnerFunctor({x: PRO(1), y: PRO(2)}, {f: COPY >> SWAP, g: ADD})
     >>> assert F(f >> g)([1]) == np.array([2])
     >>> ob = lambda n: Quiver(lambda x: PRO(n * len(x)))
@@ -294,15 +295,21 @@ class LearnerFunctor(MonoidalFunctor):
         super().__init__(ob, ar, ob_cls=PRO, ar_cls=Diagram)
 
 
-SWAP = Box('SWAP', 2, 2, lambda x: x[::-1])
-COPY = Box('COPY', 1, 2, lambda x: np.concatenate((x, x)))
-ADD = Box('ADD', 2, 1, lambda x: np.array([x[0] + x[1]]))
-sigmoid = Box('sigmoid', 1, 1, lambda x: 1/(1 + np.exp(-x)))
+SWAP = Box('swap', 2, 2, lambda x: x[::-1])
+COPY = Box('copy', 1, 2, lambda x: np.concatenate((x, x)))
+ADD = Box('add', 2, 1, lambda x: np.array([x[0] + x[1]]))
+SIG = Box('sigmoid', 1, 1, lambda x: 1 / (1 + np.exp(-x)))
 
 
-def BIAS(scalar):
+def bias(scalar):
+    """
+    Neural net bias.
+    """
     return Box('{}'.format(scalar), 0, 1, lambda x: np.array([scalar]))
 
 
-def MULT(scalar):
+def mult(scalar):
+    """
+    Scalar multiplication.
+    """
     return Box('{}'.format(scalar), 1, 1, lambda x: scalar * x)

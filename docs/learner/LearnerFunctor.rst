@@ -1,4 +1,4 @@
-function.LearnerFunctor
+learner.LearnerFunctor
 =======================
 
 .. autoclass:: discopy.learner.LearnerFunctor(ob, ar)
