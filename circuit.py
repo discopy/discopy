@@ -167,7 +167,7 @@ class Circuit(Diagram):
         if not isinstance(y, PRO):
             raise TypeError(messages.type_err(PRO, y))
         result = Id(x @ y)
-        cup = CX >> Gate('H @ sqrt(2)', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
+        cup = CX >> Gate('H', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
         for i in range(1, len(x) + 1):
             result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
         return result

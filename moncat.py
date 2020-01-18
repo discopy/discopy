@@ -21,6 +21,8 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
 import networkx as nx
 from discopy import cat, messages
 from discopy.cat import Ob, Functor, Quiver, AxiomError
@@ -374,28 +376,28 @@ class Diagram(cat.Diagram):
         def make_space(scan, box, off):
             if not scan:
                 return 0
+            half_width = len(box.cod[:-1]) / 2 + 1
             if not box.dom:
                 if not off:
-                    x_pos = pos[scan[0]][0] - len(box.cod) / 2 - .5
+                    x_pos = pos[scan[0]][0] - half_width
                 elif off == len(scan):
-                    x_pos = pos[scan[-1]][0] + len(box.cod) / 2 + .5
+                    x_pos = pos[scan[-1]][0] + half_width
                 else:
                     right = pos[scan[off + len(box.dom)]][0]
                     x_pos = (pos[scan[off - 1]][0] + right) / 2
             else:
                 right = pos[scan[off + len(box.dom) - 1]][0]
                 x_pos = (pos[scan[off]][0] + right) / 2
-            if off and pos[scan[off - 1]][0] > x_pos - len(box.cod) / 2 - .5:
+            if off and pos[scan[off - 1]][0] > x_pos - half_width:
                 limit = pos[scan[off - 1]][0]
-                pad = limit - (x_pos - len(box.cod) / 2 - .5)
+                pad = limit - x_pos + half_width
                 for node, position in pos.items():
                     if position[0] <= limit:
                         pos[node] = (pos[node][0] - pad, pos[node][1])
             if off + len(box.dom) < len(scan)\
-                    and pos[scan[off + len(box.dom)]][0]\
-                    < x_pos + len(box.cod) / 2 + .5:
+                    and pos[scan[off + len(box.dom)]][0] < x_pos + half_width:
                 limit = pos[scan[off + len(box.dom)]][0]
-                pad = x_pos + len(box.cod) / 2 + .5 - limit
+                pad = x_pos + half_width - limit
                 for node, position in pos.items():
                     if position[0] >= limit:
                         pos[node] = (pos[node][0] + pad, pos[node][1])
@@ -414,7 +416,7 @@ class Diagram(cat.Diagram):
             graph.add_edge(scan[i], 'output_{}'.format(i))
         return graph, pos, labels
 
-    def draw(self, show=True):
+    def draw(self, show=True, aspect='equal'):
         """
         Draws a diagram using networkx and matplotlib.
         """
@@ -422,16 +424,25 @@ class Diagram(cat.Diagram):
         inputs, outputs, boxes, wires = (
             [node for node in graph.nodes if node[:len(name)] == name]
             for name in ('input', 'output', 'box', 'wire'))
+        _, axis = plt.subplots()
         nx.draw_networkx_nodes(
-            graph, positions, nodelist=inputs, node_color='#ffffff')
+            graph, positions, nodelist=inputs, node_color='#ffffff', ax=axis)
         nx.draw_networkx_nodes(
-            graph, positions, nodelist=outputs, node_color='#ffffff')
+            graph, positions, nodelist=outputs, node_color='#ffffff', ax=axis)
         nx.draw_networkx_nodes(
-            graph, positions, nodelist=wires, node_size=0)
+            graph, positions, nodelist=wires, node_size=0, ax=axis)
         nx.draw_networkx_nodes(
-            graph, positions, nodelist=boxes, node_color='#ff0000')
-        nx.draw_networkx_labels(graph, positions, labels)
-        nx.draw_networkx_edges(graph, positions)
+            graph, positions, nodelist=boxes, node_color='#ff0000', ax=axis)
+        nx.draw_networkx_labels(graph, positions, labels, ax=axis)
+        for u, v in graph.edges():
+            verts = [positions[u],
+                     (positions[v][0], positions[u][1]),
+                     positions[v]]
+            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
+            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
+        plt.subplots_adjust(
+            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+        axis.set_aspect(aspect)
         plt.axis("off")
         if show:  # pragma: no cover
             plt.show()
