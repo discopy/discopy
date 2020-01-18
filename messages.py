@@ -55,3 +55,8 @@ def cap_vs_caps(left, right):
 def cannot_add(left, right):
     """ Addition error. """
     return "Cannot add {} and {}.".format(left, right)
+
+
+def expected_pregroup():
+    """ pregroup.draw error. """
+    return "Expected a pregroup diagram, use diagram.draw() instead."

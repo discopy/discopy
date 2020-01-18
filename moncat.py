@@ -360,14 +360,15 @@ class Diagram(cat.Diagram):
             add_node('box_{}'.format(depth),
                      (x_pos, len(self) - depth - .5), str(box))
             for i, _ in enumerate(box.dom):
-                wire = 'wire_dom_{}_{}'.format(depth, i)
-                add_node(wire, (pos[scan[off + i]][0], len(self) - depth))
+                wire, position = 'wire_dom_{}_{}'.format(depth, i), (
+                    pos[scan[off + i]][0], len(self) - depth)
+                add_node(wire, position, str(box.dom[i]))
                 graph.add_edge(scan[off + i], wire)
                 graph.add_edge(wire, 'box_{}'.format(depth))
             for i, _ in enumerate(box.cod):
-                wire = 'wire_cod_{}_{}'.format(depth, i)
-                add_node(wire, (x_pos - len(box.cod[1:]) / 2 + i,
-                                len(self) - depth - 1))
+                wire, position = 'wire_cod_{}_{}'.format(depth, i), (
+                    x_pos - len(box.cod[1:]) / 2 + i, len(self) - depth - 1)
+                add_node(wire, position, str(box.cod[i]))
                 graph.add_edge('box_{}'.format(depth), wire)
             return scan[:off] + ['wire_cod_{}_{}'.format(depth, i)
                                  for i, _ in enumerate(box.cod)]\
@@ -405,45 +406,131 @@ class Diagram(cat.Diagram):
 
         for i, _ in enumerate(self.dom):
             add_node('input_{}'.format(i),
-                     (i, len(self) + .5), str(self.dom[i]))
+                     (i, len(self.boxes[:-1]) + 1), str(self.dom[i]))
         scan = ['input_{}'.format(i) for i, _ in enumerate(self.dom)]
         for depth, (box, off) in enumerate(zip(self.boxes, self.offsets)):
             x_pos = make_space(scan, box, off)
             scan = add_box(scan, box, off, depth, x_pos)
         for i, _ in enumerate(self.cod):
             add_node('output_{}'.format(i),
-                     (pos[scan[i]][0], -.5), str(self.cod[i]))
+                     (pos[scan[i]][0], 0), str(self.cod[i]))
             graph.add_edge(scan[i], 'output_{}'.format(i))
         return graph, pos, labels
 
-    def draw(self, show=True, aspect='equal'):
+    def draw(self, **params):
         """
         Draws a diagram using networkx and matplotlib.
+
+        Parameters
+        ----------
+        draw_as_nodes : bool, optional
+            Whether to draw boxes as nodes, default is :code:`False`.
+        color : string, optional
+            Color of the box or node, default is white (:code:`'#ffffff'`) for
+            boxes and red (:code:`'#ff0000'`) for nodes.
+        textpad : float, optional
+            Padding between text and wires, default is :code:`0.1`.
+        draw_types : bool, optional
+            Whether to draw type labels, default is :code:`False`.
+        aspect : string, optional
+            Aspect ratio, one of :code:`['equal', 'auto']`.
+        fontsize : int, optional
+            Font size for the boxes, default is :code:`12`.
+        fontsize_types : int, optional
+            Font size for the types, default is :code:`12`.
+        figsize : tuple, optional
+            Figure size.
+        show : bool, optional
+            Whether to call plt.show(), default is :code:`True`.
         """
+        show = params.get('show', True)
+        aspect = params.get('aspect', 'equal')
+        margins = params.get('margins', None)
+        figsize = params.get('figsize', None)
+        fontsize = params.get('fontsize', 12)
+        fontsize_types = params.get('fontsize_types', fontsize)
+        draw_types = params.get('draw_types', True)
+        textpad = params.get('textpad', .1)
+        draw_as_nodes = params.get('draw_as_nodes', False)
+        color = params.get('color', '#ff0000' if draw_as_nodes else '#ffffff')
+
         graph, positions, labels = self.build_graph()
-        inputs, outputs, boxes, wires = (
-            [node for node in graph.nodes if node[:len(name)] == name]
-            for name in ('input', 'output', 'box', 'wire'))
-        _, axis = plt.subplots()
-        nx.draw_networkx_nodes(
-            graph, positions, nodelist=inputs, node_color='#ffffff', ax=axis)
-        nx.draw_networkx_nodes(
-            graph, positions, nodelist=outputs, node_color='#ffffff', ax=axis)
-        nx.draw_networkx_nodes(
-            graph, positions, nodelist=wires, node_size=0, ax=axis)
-        nx.draw_networkx_nodes(
-            graph, positions, nodelist=boxes, node_color='#ff0000', ax=axis)
-        nx.draw_networkx_labels(graph, positions, labels, ax=axis)
-        for u, v in graph.edges():
-            verts = [positions[u],
-                     (positions[v][0], positions[u][1]),
-                     positions[v]]
-            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
+
+        def draw_box(box, depth, axis):
+            node = 'box_{}'.format(depth)
+            if node not in graph.nodes():
+                return
+            if not box.dom and not box.cod:
+                left, right = positions[node][0], positions[node][0]
+            elif not box.dom:
+                left, right = (
+                    positions['wire_cod_{}_{}'.format(depth, i)][0]
+                    for i in [0, len(box.cod) - 1])
+            elif not box.cod:
+                left, right = (
+                    positions['wire_dom_{}_{}'.format(depth, i)][0]
+                    for i in [0, len(box.dom) - 1])
+            else:
+                top_left, top_right = (
+                    positions['wire_dom_{}_{}'.format(depth, i)][0]
+                    for i in [0, len(box.dom) - 1])
+                bottom_left, bottom_right = (
+                    positions['wire_cod_{}_{}'.format(depth, i)][0]
+                    for i in [0, len(box.cod) - 1])
+                left = min(top_left, bottom_left)
+                right = max(top_right, bottom_right)
+            height = len(self) - depth - .75
+            left, right = left - .25, right + .25
+            path = Path(
+                [(left, height), (right, height),
+                 (right, height + .5), (left, height + .5), (left, height)],
+                [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY])
+            axis.add_patch(PathPatch(path, facecolor=color))
+            axis.text(positions[node][0], positions[node][1], labels[node],
+                      ha='center', va='center', fontsize=fontsize)
+
+        def draw_wires(axis):
+            for case in ['input', 'output', 'wire_dom', 'wire_cod']:
+                nodes = [n for n in graph.nodes if n[:len(case)] == case]
+                nx.draw_networkx_nodes(
+                    graph, positions, nodelist=nodes, node_size=0, ax=axis)
+                for node in nodes:
+                    i, j = positions[node]
+                    if draw_types and case in ['input', 'wire_cod']:
+                        if node in labels.keys():
+                            axis.text(
+                                i + textpad,
+                                j - (textpad if case == 'input' else 0),
+                                labels[node],
+                                fontsize=fontsize_types)
+                    if not draw_as_nodes and case == 'wire_dom':
+                        positions[node] = (i, j - .25)
+                    if not draw_as_nodes and case == 'wire_cod':
+                        positions[node] = (i, j + .25)
+            for node0, node1 in graph.edges():
+                source, target = positions[node0], positions[node1]
+                path = Path([source, (target[0], source[1]), target],
+                            [Path.MOVETO, Path.CURVE3, Path.CURVE3])
+                axis.add_patch(PathPatch(path, facecolor='none'))
+        _, axis = plt.subplots(figsize=figsize)
+        draw_wires(axis)
+        if draw_as_nodes:
+            boxes = [node for node in graph.nodes if node[:3] == 'box']
+            nx.draw_networkx_nodes(graph, positions, nodelist=boxes,
+                                   node_color=color, ax=axis)
+            nx.draw_networkx_labels(
+                graph, positions,
+                {n: l for n, l in labels.items() if n in boxes})
+        else:
+            for depth, box in enumerate(self.boxes):
+                draw_box(box, depth, axis)
+        if margins is not None:
+            plt.margins(*margins)
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         axis.set_aspect(aspect)
         plt.axis("off")
+        axis.autoscale(enable=True, axis='both', tight=False)
         if show:  # pragma: no cover
             plt.show()
 
@@ -598,23 +685,6 @@ class Diagram(cat.Diagram):
             scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             width = max(width, len(scan))
         return width
-
-
-def build_spiral(n_cups):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    x = Ty('x')  # pylint: disable=invalid-name
-    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
-    return result
 
 
 class InterchangerError(AxiomError):

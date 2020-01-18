@@ -1,5 +1,5 @@
 
-!["Alice loves Bob" in picture](https://github.com/oxford-quantum-group/discopy/raw/master/docs/imgs/alice-loves-bob.png)
+![snake equation](docs/imgs/snake-equation.png)
 
 # Distributional Compositional Python
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=master)](https://discopy.readthedocs.io/)
@@ -8,30 +8,27 @@
 [![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 
-`discopy` is a tool for classical and quantum natural language processing
-([QNLP](http://www.cs.ox.ac.uk/QNLP2019/)) using
-[string diagrams](https://en.wikipedia.org/wiki/String_diagram).
+`discopy` computes natural language meaning in pictures.
 
 ```python
-from discopy import Ty, Word, Cup, Id
+from discopy import Ty, Word, Cup, Id, draw
 
 s, n = Ty('s'), Ty('n')
 Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
 sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+draw(sentence)
+```
 
+![snake equation](docs/imgs/alice-loves-bob.png)
 
-# 2) Define a model.
-
+```python
 from discopy import Model
 
 ob = {s: 1, n: 2}
 ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 F = Model(ob, ar)
-
-
-# 3) Compute the meaning!
 
 assert F(sentence)
 ```
