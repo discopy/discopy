@@ -481,11 +481,11 @@ class Diagram(cat.Diagram):
                 right = max(top_right, bottom_right)
             height = len(self) - depth - .75
             left, right = left - .25, right + .25
-            axis.add_patch(PathPatch(Path([
-                (left, height), (right, height),
-                (right, height + .5), (left, height + .5), (left, height)],
-                [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY]),
-                facecolor=color))
+            path = Path(
+                [(left, height), (right, height),
+                 (right, height + .5), (left, height + .5), (left, height)],
+                [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY])
+            axis.add_patch(PathPatch(path, facecolor=color))
             axis.text(positions[node][0], positions[node][1], labels[node],
                       ha='center', va='center', fontsize=fontsize)
 
