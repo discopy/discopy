@@ -2,11 +2,15 @@
 """
 Implements the PRO of functions on vectors with cartesian product as tensor.
 
+>>> SWAP = Box('swap', 2, 2, lambda x: x[::-1])
+>>> COPY = Box('copy', 1, 2, lambda x: np.concatenate((x, x)))
+>>> ADD = Box('add', 2, 1, lambda x: np.sum(x, keepdims=True))
+>>> DISCARD = Box('discard', 1, 0, lambda x: np.array([]))
+
 Projections and the copy map witness the categorical product.
 
->>> discard = lambda n: Box('discard', n, 0, lambda x: np.array([]))
->>> assert (COPY >> discard(1) @ Id(1))([46]) == Id(1)([46])\\
-...     == (COPY >> Id(1) @ discard(1))([46])
+>>> assert (COPY >> DISCARD @ Id(1))([46]) == Id(1)([46])\\
+...     == (COPY >> Id(1) @ DISCARD)([46])
 
 We can check the axioms for symmetry on specific inputs.
 
@@ -84,7 +88,7 @@ class Diagram(rigidcat.Diagram):
         >>> assert np.all((COPY @ COPY)([1, 2]) == Id(4)([1, 1, 2, 2]))
         """
         return CartesianFunctor(Quiver(lambda t: t), Quiver(
-            lambda f: Function(f.name, f.dom, f.cod, f.function)))(self)(value)
+            lambda f: Function(f.dom, f.cod, f.function)))(self)(value)
 
 
 class Id(Diagram):
@@ -295,9 +299,6 @@ class LearnerFunctor(MonoidalFunctor):
         super().__init__(ob, ar, ob_cls=PRO, ar_cls=Diagram)
 
 
-SWAP = Box('swap', 2, 2, lambda x: x[::-1])
-COPY = Box('copy', 1, 2, lambda x: np.concatenate((x, x)))
-ADD = Box('add', 2, 1, lambda x: np.array([x[0] + x[1]]))
 SIG = Box('sigmoid', 1, 1, lambda x: 1 / (1 + np.exp(-x)))
 
 
@@ -313,3 +314,30 @@ def mult(scalar):
     Scalar multiplication.
     """
     return Box('{}'.format(scalar), 1, 1, lambda x: scalar * x)
+
+
+def disco(name, dom, cod):
+    """
+    Decorator turning a python function into a learner.Box
+    given name, domain and codomain information.
+
+    >>> @disco('SWAP', 2, 2)
+    ... def swap(x):
+    ...     return x[::-1]
+    >>> assert isinstance(swap, Box)
+    >>> print(swap)
+    SWAP
+    """
+    if isinstance(dom, int):
+        dom = PRO(dom)
+    if isinstance(cod, int):
+        cod = PRO(cod)
+
+    def decorator(func):
+        return Box(name, dom, cod, func)
+    return decorator
+
+
+SWAP = Box('swap', 2, 2, lambda x: x[::-1])
+COPY = Box('copy', 1, 2, lambda x: np.concatenate((x, x)))
+ADD = Box('add', 2, 1, lambda x: np.sum(x, keepdims=True))
