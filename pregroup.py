@@ -167,7 +167,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram, show=True, **params):
+def draw(diagram, **params):
     """
     Draws a pregroup diagram.
 
@@ -177,16 +177,30 @@ def draw(diagram, show=True, **params):
         Width of the word triangles, default is :code:`2.0`.
     space : float, optional
         Space between word triangles, default is :code:`0.5`.
-    pad : float, optional
+    textpad : float, optional
         Padding between text and wires, default is :code:`0.1`.
     draw_types : bool, optional
         Whether to draw type labels, default is :code:`False`.
-
+    aspect : string, optional
+        Aspect ratio, one of :code:`['equal', 'auto']`.
+    fontsize : int, optional
+        Font size.
+    figsize : tuple, optional
+        Figure size.
+    margins : tuple, optional
+        Margins.
+    show : bool, optional
+        Whether to call plt.show(), default is :code:`True`.
     """
-    pad = params.get('pad', .1)
+    textpad = params.get('textpad', .1)
     space = params.get('space', .5)
     width = params.get('width', 2.)
     draw_types = params.get('draw_types', False)
+    aspect = params.get('aspect', 'equal')
+    margins = params.get('margins', (0, 0))
+    fontsize = params.get('fontsize', None)
+    figsize = params.get('figsize', None)
+    show = params.get('show', True)
 
     def draw_triangles(axis, words):
         scan = []
@@ -195,8 +209,8 @@ def draw(diagram, show=True, **params):
                 x_wire = (space + width) * i\
                     + (width / (len(word.cod) + 1)) * (j + 1)
                 scan.append(x_wire)
-                if draw_types:  # pragma: no cover
-                    axis.text(x_wire + pad, -2 * pad, str(word.cod[j]))
+                if draw_types:
+                    axis.text(x_wire + textpad, -2 * textpad, str(word.cod[j]))
             path = Path(
                 [((space + width) * i, 0),
                  ((space + width) * i + width, 0),
@@ -204,7 +218,7 @@ def draw(diagram, show=True, **params):
                  ((space + width) * i, 0)],
                 [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY])
             axis.add_patch(PathPatch(path, facecolor='none'))
-            axis.text((space + width) * i + width / 2, pad,
+            axis.text((space + width) * i + width / 2, textpad,
                       str(word), ha='center')
         return scan
 
@@ -227,21 +241,27 @@ def draw(diagram, show=True, **params):
             verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
             codes = [Path.MOVETO, Path.LINETO]
             axis.add_patch(PathPatch(Path(verts, codes)))
-            if draw_types:  # pragma: no cover
-                axis.text(scan[i] + pad, - len(cups) - space,
+            if draw_types:
+                axis.text(scan[i] + textpad, - len(cups) - space,
                           str(diagram.cod[i]))
     words, *cups = diagram.slice().boxes
     is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
         and all(isinstance(box, Cup) for s in cups for box in s.boxes)
     if is_pregroup:
-        _, axis = plt.subplots()
+        _, axis = plt.subplots(figsize=figsize)
+        if fontsize is not None:
+            plt.rcParams.update({'font.size': fontsize})
         scan = draw_triangles(axis, words.normal_form())
         draw_cups_and_wires(axis, cups, scan)
+        if margins is not None:
+            plt.margins(*margins)
+        plt.subplots_adjust(
+            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+        plt.axis('off')
         axis.set_xlim(0, (space + width) * len(words.boxes) - space)
         axis.set_ylim(- len(cups) - space, 1)
-        axis.set_aspect('equal')
-        plt.axis('off')
+        axis.set_aspect(aspect)
         if show:  # pragma: no cover
             plt.show()
-    else:  # pragma: no cover
-        diagram.draw(show=show)
+    else:
+        diagram.draw(**params)

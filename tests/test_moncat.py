@@ -161,36 +161,19 @@ def test_spiral(n=2):
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
 
 
-def test_Diagram_build_graph():
-    x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    diagram = Box('f0', x, y) @ Box('f1', z, w)
-    graph, positions, labels = diagram.build_graph()
-    assert sorted(labels.items()) == [
-        ('box_0', 'f0'),
-        ('box_1', 'f1'),
-        ('input_0', 'x'),
-        ('input_1', 'z'),
-        ('output_0', 'y'),
-        ('output_1', 'w')
-    ]
-    assert sorted(positions.items()) == [
-        ('box_0', (-1.0, 2)),
-        ('box_1', (0.0, 1)),
-        ('input_0', (-1.0, 3)),
-        ('input_1', (0.0, 3)),
-        ('output_0', (-1.0, 0)),
-        ('output_1', (0.0, 0)),
-        ('wire_0_1', (0.0, 2)),
-        ('wire_1_0', (-1.0, 1))
-    ]
-    assert sorted(graph.edges()) == [
-        ('box_0', 'wire_1_0'),
-        ('box_1', 'output_1'),
-        ('input_0', 'box_0'),
-        ('input_1', 'wire_0_1'),
-        ('wire_0_1', 'box_1'),
-        ('wire_1_0', 'output_0')
-    ]
+def test_Diagram_draw():
+    dir, file = 'docs/imgs/', 'spiral-equality.png'
+    equals = Box('=', Ty(), Ty())
+    diagram = ((build_spiral(3) @ equals).interchange(8, 4, left=True)
+               @ build_spiral(3).normal_form()).interchange(9, 1, left=True)\
+                                               .interchange(10, 2, left=True)\
+                                               .interchange(11, 3, left=True)\
+                                               .interchange(12, 4, left=True)
+    diagram.draw(show=False, fontsize=18, figsize=(5, 6), draw_as_nodes=True)
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)
+    plt.clf()
 
 
 def test_Box_init():

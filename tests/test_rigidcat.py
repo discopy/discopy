@@ -59,39 +59,20 @@ def test_Diagram_normal_form():
     Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
     with raises(NotImplementedError) as err:
         Eckmann_Hilton.normal_form()
-    assert str(err.value) == config.Msg.is_not_connected(Eckmann_Hilton)
+    assert str(err.value) == messages.is_not_connected(Eckmann_Hilton)
 
 
-def test_Diagram_build_graph():
-    x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
-    graph, positions, labels = f.transpose_l().build_graph()
-    assert sorted(labels.items()) == [
-        ('box_1', 'f'),
-        ('input_0', 'y.l'),
-        ('output_0', 'x.l'),
-    ]
-    assert sorted(positions.items()) == [
-        ('box_1', (-0.5, 2)),
-        ('input_0', (-0.5, 4)),
-        ('output_0', (-0.5, 0)),
-        ('wire_0_0', (-1.0, 3)),
-        ('wire_0_1', (0.0, 3)),
-        ('wire_1_0', (-1.5, 2)),
-        ('wire_1_2', (0.5, 2)),
-        ('wire_2_0', (-1.0, 1)),
-        ('wire_2_1', (0.0, 1)),
-    ]
-    assert sorted(graph.edges()) == [
-        ('box_1', 'wire_2_0'),
-        ('input_0', 'wire_0_0'),
-        ('wire_0_0', 'wire_1_0'),
-        ('wire_0_1', 'box_1'),
-        ('wire_0_1', 'wire_1_2'),
-        ('wire_1_0', 'wire_2_0'),
-        ('wire_1_2', 'wire_2_1'),
-        ('wire_2_1', 'output_0'),
-    ]
+def test_Diagram_draw():
+    dir, file = 'docs/imgs/', 'snake-equation.png'
+    x, eq = Ty('x'), Box('=', Ty(), Ty())
+    diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
+    diagram = diagram.interchange(1, 4).interchange(3, 1, left=True)
+    diagram.draw(show=False, aspect='auto', figsize=(5, 2), draw_as_nodes=True,
+                 color='#ffffff', draw_types=False,)
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)
+    plt.clf()
 
 
 def test_Cup_init():

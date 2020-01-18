@@ -1,5 +1,5 @@
 
-!["Alice loves Bob" in picture](https://github.com/oxford-quantum-group/discopy/raw/master/docs/alice-loves-bob.png)
+![snake equation](docs/imgs/snake-equation.png)
 
 # Distributional Compositional Python
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=master)](https://discopy.readthedocs.io/)
@@ -10,7 +10,9 @@
 
 `discopy` computes natural language meaning in pictures.
 
-## Recipe
+# Features
+
+
 
 ```python
 # 1) Draw your picture.
