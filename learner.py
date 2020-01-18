@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 """
-Implements the symmetric monoidal category (PROP) of functions on vectors
-with cartesian product as tensor.
-
-Projections and the copy map witness the categorical product.
-
->>> proj0 = Box('proj0', 2, 1, lambda x: np.array([x[0]]))
->>> proj1 = Box('proj1', 2, 1, lambda x: np.array([x[1]]))
->>> assert (COPY >> proj0)([46]) == Id(1)([46]) == (COPY >> proj1)([46])
+Implements the PRO of functions on vectors with cartesian product as tensor.
 
 'PRO(0)' is a terminal object with the following discarding map.
 
 >>> discard = lambda n: Box('discard', n, 0, lambda x: [])
 >>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
+
+Projections and the copy map witness the categorical product.
+
+>>> assert (COPY >> discard(1) @ Id(1))([46]) == Id(1)([46])\\
+...     == (COPY >> Id(1) @ discard(1))([46])
 
 We can check the axioms for symmetry on specific inputs.
 
@@ -144,6 +142,7 @@ class Box(moncat.Box, Diagram):
     @property
     def function(self):
         """
+        >>> assert "<lambda>" in repr(COPY.function)
         """
         return self._function
 
@@ -159,7 +158,9 @@ class Copy(Box):
     """
     Implements the copy function with domain 'dom' and codomain 'dom * copies'.
 
-    >>> assert Copy(2, 3).cod == PRO(6)
+    >>> assert np.all(Copy(3, 2)([1, 2, 3]) == np.array([1, 2, 3, 1, 2, 3]))
+    >>> assert np.all(Copy(2, 3)([1, 2]) == np.array([1, 2, 1, 2, 1, 2]))
+    >>> assert np.all(Copy(1, 2)([34]) == COPY([34]))
 
     Parameters
     ----------
@@ -169,11 +170,58 @@ class Copy(Box):
         Number of copies.
     """
     def __init__(self, dom, copies=2):
+        """
+        >>> assert Copy(2, 3).dom == PRO(2)
+        >>> assert Copy(2, 3).cod == PRO(6)
+        """
         name = 'Copy({}, {})'.format(dom, copies)
 
         def func(val):
             return np.concatenate([val for i in range(copies)])
         super().__init__(name, dom, copies * dom, func)
+
+
+class Sum(Box):
+    """
+    Implements the sum function with codomain 'cod' and domain 'cod * copies'.
+
+    >>> assert np.all(Sum(2, 3)([1, 2, 3, 4, 5, 6]) == np.array([9, 12]))
+
+    Parameters
+    ----------
+    cod : 'int'
+        Codomain dimension.
+    copies : 'int'
+        Number of copies.
+    """
+    def __init__(self, cod, copies=2):
+        """
+        >>> assert Sum(3, 2).cod == PRO(3)
+        >>> assert Sum(2, 3).cod == PRO(2)
+        """
+        name = 'Sum({}, {})'.format(cod, copies)
+
+        def func(val):
+            return np.array([np.sum([val[i + cod * j] for j in range(copies)])
+                             for i in range(cod)])
+        super().__init__(name, copies * cod, cod, func)
+
+
+class LearnerFunctor(MonoidalFunctor):
+    """
+    Implements functors into the category of learners.
+
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f = moncat.Box('f', x, y)
+    >>> g = moncat.Box('g', y, x)
+    >>> F = LearnerFunctor({x: PRO(1), y: PRO(2)}, {f: COPY >> SWAP, g: ADD})
+    >>> assert F(f >> g)([1]) == np.array([2])
+    >>> ob = lambda n: Quiver(lambda x: PRO(n * len(x)))
+    >>> M = lambda n: LearnerFunctor(ob(n), {COPY: Copy(n), ADD: Sum(n)})
+    >>> assert np.all(M(3)(COPY >> ADD)([1, 2, 3]) == np.array([2, 4, 6]))
+    """
+    def __init__(self, ob, ar):
+        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Diagram)
 
 
 SWAP = Box('SWAP', 2, 2, lambda x: x[::-1])
