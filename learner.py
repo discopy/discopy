@@ -2,13 +2,9 @@
 """
 Implements the PRO of functions on vectors with cartesian product as tensor.
 
-'PRO(0)' is a terminal object with the following discarding map.
-
->>> discard = lambda n: Box('discard', n, 0, lambda x: [])
->>> assert discard(3)([23, 2, 67]) == [] == discard(1)([23])
-
 Projections and the copy map witness the categorical product.
 
+>>> discard = lambda n: Box('discard', n, 0, lambda x: np.array([]))
 >>> assert (COPY >> discard(1) @ Id(1))([46]) == Id(1)([46])\\
 ...     == (COPY >> Id(1) @ discard(1))([46])
 
@@ -50,7 +46,7 @@ class Diagram(moncat.Diagram):
 
     def tensor(self, other):
         """
-        >>> assert (ADD @ ADD).offsets == [0, 1]
+        >>> assert (ADD @ ADD >> Id(1) @ COPY).offsets == [0, 1, 1]
         """
         result = super().tensor(other)
         return Diagram(len(result.dom), len(result.cod),
@@ -141,16 +137,12 @@ class Box(moncat.Box, Diagram):
 
     @property
     def function(self):
-        """
-        >>> assert "<lambda>" in repr(COPY.function)
-        """
         return self._function
 
     def __repr__(self):
-        """
-        """
-        return "Box({}, {}, {}{})".format(
-            repr(self.name), len(self.dom), self.function,
+        return "Box({}, {}, {}{}{})".format(
+            repr(self.name), len(self.dom), len(self.cod),
+            ', function=' + repr(self.function) if self.function else '',
             ', data=' + repr(self.data) if self.data else '')
 
 
@@ -164,9 +156,9 @@ class Copy(Box):
 
     Parameters
     ----------
-    dom : 'int'
+    dom : int
         Domain dimension.
-    copies : 'int'
+    copies : int
         Number of copies.
     """
     def __init__(self, dom, copies=2):
@@ -189,9 +181,9 @@ class Sum(Box):
 
     Parameters
     ----------
-    cod : 'int'
+    cod : int
         Codomain dimension.
-    copies : 'int'
+    copies : int
         Number of copies.
     """
     def __init__(self, cod, copies=2):
@@ -215,7 +207,7 @@ class Mults(Diagram):
 
     Parameters
     ----------
-    dom : 'int'
+    dom : int
         Domain dimension.
     weights : any
         List of weights of length 'dom'.
@@ -239,6 +231,13 @@ class Neuron(Diagram):
     >>> disconnect = Neuron(4, [0., 0., 0., 0., 0.])
     >>> assert disconnect([13, 2, 3, 4]) == np.array([0.5])\\
     ...             == disconnect([1, 2, 3, 4])
+
+    Parameters
+    ----------
+    dom : int
+        Domain dimension.
+    weights : list
+        List of weights of length 'dom + 1'.
     """
     def __init__(self, dom, weights):
         """
@@ -249,6 +248,36 @@ class Neuron(Diagram):
         neuron = Mults(dom, weights[:-1]) @ BIAS(weights[-1])
         neuron = neuron >> Sum(1, dom + 1) >> sigmoid
         super().__init__(dom, 1, neuron.boxes, neuron.offsets, _fast=True)
+
+
+class Layer(Diagram):
+    """
+    Implements a neural network layer as a diagram of neurons.
+
+    >>> params = np.array([[0.1, 0.2, 0.3], [1, 2, 3], [0.3, 0.2, 0.1]])
+    >>> layer = Layer(2, 3, params)
+    >>> assert np.all(layer([1., 1.]) ==
+    ...               np.array([0.64565629, 0.99752742, 0.64565629]))
+
+    Parameters
+    ----------
+    dom : int
+        Number of inputs.
+    cod : int
+        Number of outputs.
+    params: array
+        Array of weigths with shape '(cod, dom + 1)'
+    """
+    def __init__(self, dom, cod, params):
+        """
+        >>> layer = Layer(1, 2, np.array([[0., 0.1], [1.2, 1.3]]))
+        >>> assert (layer.dom == PRO(1)) and (layer.cod == PRO(2))
+        """
+        neurons = Id(0)
+        for i in range(cod):
+            neurons = neurons @ Neuron(dom, params[i])
+        layer = Copy(dom, cod) >> neurons
+        super().__init__(dom, cod, layer.boxes, layer.offsets, _fast=True)
 
 
 class LearnerFunctor(MonoidalFunctor):
@@ -275,8 +304,8 @@ sigmoid = Box('sigmoid', 1, 1, lambda x: 1/(1 + np.exp(-x)))
 
 
 def BIAS(scalar):
-    return Box('BIAS({})'.format(scalar), 0, 1, lambda x: np.array([scalar]))
+    return Box('{}'.format(scalar), 0, 1, lambda x: np.array([scalar]))
 
 
 def MULT(scalar):
-    return Box('MULT({})'.format(scalar), 1, 1, lambda x: scalar * x)
+    return Box('{}'.format(scalar), 1, 1, lambda x: scalar * x)

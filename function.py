@@ -6,9 +6,9 @@ with cartesian product as tensor.
 
 from discopy import messages
 from discopy.cat import AxiomError
-import numpy as np
 from discopy.moncat import Ty, Box, MonoidalFunctor
 from discopy.circuit import PRO
+from discopy.matrix import np
 
 
 class Function(Box):
