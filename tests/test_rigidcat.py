@@ -65,13 +65,28 @@ def test_Diagram_normal_form():
     assert str(err.value) == messages.is_not_connected(Eckmann_Hilton)
 
 
-def test_Diagram_draw():
+def test_Diagram_draw_snake():
     dir, file = 'docs/imgs/', 'snake-equation.png'
     x, eq = Ty('x'), Box('=', Ty(), Ty())
     diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
     diagram = diagram.interchange(1, 4).interchange(3, 1, left=True)
     diagram.draw(show=False, aspect='auto', figsize=(5, 2), draw_as_nodes=True,
                  color='#ffffff', draw_types=False,)
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)
+    plt.clf()
+
+
+def test_Diagram_draw_who():
+    dir, file = 'docs/imgs/', 'who-ansatz.png'
+    n, s = Ty('n'), Ty('s')
+    copy, update = Box('copy', n, n @ n), Box('update', n @ s, s)
+    diagram = Cap(n.r, n)\
+        >> Id(n.r) @ copy\
+        >> Id(n.r @ n) @ Cap(s, s.l) @ Id(n)\
+        >> Id(n.r) @ update @ Id(s.l @ n)
+    diagram.draw(show=False)
     plt.savefig(dir + '.' + file)
     assert compare_images(dir + file, dir + '.' + file, 0) is None
     os.remove(dir + '.' + file)

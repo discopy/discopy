@@ -20,7 +20,7 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 from discopy import messages
-from discopy.rigidcat import Ty, Box, Id, Cup
+from discopy.rigidcat import Ty, Box, Diagram, Id, Cup
 from discopy.matrix import MatrixFunctor
 from discopy.circuit import CircuitFunctor
 
@@ -180,11 +180,13 @@ def draw(diagram, **params):
     textpad : float, optional
         Padding between text and wires, default is :code:`0.1`.
     draw_types : bool, optional
-        Whether to draw type labels, default is :code:`False`.
+        Whether to draw type labels, default is :code:`True`.
     aspect : string, optional
         Aspect ratio, one of :code:`['equal', 'auto']`.
     fontsize : int, optional
-        Font size.
+        Font size for the words, default is :code:`12`.
+    fontsize_types : int, optional
+        Font size for the types, default is :code:`12`.
     figsize : tuple, optional
         Figure size.
     margins : tuple, optional
@@ -195,10 +197,11 @@ def draw(diagram, **params):
     textpad = params.get('textpad', .1)
     space = params.get('space', .5)
     width = params.get('width', 2.)
-    draw_types = params.get('draw_types', False)
+    draw_types = params.get('draw_types', True)
     aspect = params.get('aspect', 'equal')
     margins = params.get('margins', (0, 0))
-    fontsize = params.get('fontsize', None)
+    fontsize = params.get('fontsize', 12)
+    fontsize_types = params.get('fontsize_types', fontsize)
     figsize = params.get('figsize', None)
     show = params.get('show', True)
 
@@ -210,7 +213,8 @@ def draw(diagram, **params):
                     + (width / (len(word.cod) + 1)) * (j + 1)
                 scan.append(x_wire)
                 if draw_types:
-                    axis.text(x_wire + textpad, -2 * textpad, str(word.cod[j]))
+                    axis.text(x_wire + textpad, -2 * textpad, str(word.cod[j]),
+                              fontsize=fontsize_types)
             path = Path(
                 [((space + width) * i, 0),
                  ((space + width) * i + width, 0),
@@ -219,7 +223,7 @@ def draw(diagram, **params):
                 [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY])
             axis.add_patch(PathPatch(path, facecolor='none'))
             axis.text((space + width) * i + width / 2, textpad,
-                      str(word), ha='center')
+                      str(word), ha='center', fontsize=fontsize)
         return scan
 
     def draw_cups_and_wires(axis, cups, scan):
@@ -242,26 +246,26 @@ def draw(diagram, **params):
             codes = [Path.MOVETO, Path.LINETO]
             axis.add_patch(PathPatch(Path(verts, codes)))
             if draw_types:
-                axis.text(scan[i] + textpad, - len(cups) - space,
-                          str(diagram.cod[i]))
+                axis.text(
+                    scan[i] + textpad, - len(cups) - space,
+                    str(diagram.cod[i]), fontsize=fontsize_types)
+    if not isinstance(diagram, Diagram):
+        raise TypeError(messages.type_err(Diagram, diagram))
     words, *cups = diagram.slice().boxes
     is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
         and all(isinstance(box, Cup) for s in cups for box in s.boxes)
-    if is_pregroup:
-        _, axis = plt.subplots(figsize=figsize)
-        if fontsize is not None:
-            plt.rcParams.update({'font.size': fontsize})
-        scan = draw_triangles(axis, words.normal_form())
-        draw_cups_and_wires(axis, cups, scan)
-        if margins is not None:
-            plt.margins(*margins)
-        plt.subplots_adjust(
-            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        plt.axis('off')
-        axis.set_xlim(0, (space + width) * len(words.boxes) - space)
-        axis.set_ylim(- len(cups) - space, 1)
-        axis.set_aspect(aspect)
-        if show:  # pragma: no cover
-            plt.show()
-    else:
-        diagram.draw(**params)
+    if not is_pregroup:
+        raise ValueError(messages.expected_pregroup())
+    _, axis = plt.subplots(figsize=figsize)
+    scan = draw_triangles(axis, words.normal_form())
+    draw_cups_and_wires(axis, cups, scan)
+    if margins is not None:
+        plt.margins(*margins)
+    plt.subplots_adjust(
+        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    plt.axis('off')
+    axis.set_xlim(0, (space + width) * len(words.boxes) - space)
+    axis.set_ylim(- len(cups) - space, 1)
+    axis.set_aspect(aspect)
+    if show:  # pragma: no cover
+        plt.show()

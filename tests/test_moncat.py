@@ -161,15 +161,32 @@ def test_InterchangerError():
     assert str(err.value) == str(InterchangerError(f, g))
 
 
+def build_spiral(n_cups):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    x = Ty('x')
+    unit, counit = Box('', Ty(), x), Box('', x, Ty())
+    cup, cap = Box('', x @ x, Ty()), Box('', Ty(), x @ x)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
+    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
+    return result
+
+
 def test_spiral(n=2):
     spiral = build_spiral(n)
-    unit, counit = Box('unit', Ty(), Ty('x')), Box('counit', Ty('x'), Ty())
+    unit, counit = Box('', Ty(), Ty('x')), Box('', Ty('x'), Ty())
     assert spiral.boxes[0] == unit and spiral.boxes[n + 1] == counit
     spiral_nf = spiral.normal_form()
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n] == unit
 
 
-def test_Diagram_draw():
+def test_Diagram_draw_spiral():
     dir, file = 'docs/imgs/', 'spiral-equality.png'
     equals = Box('=', Ty(), Ty())
     diagram = ((build_spiral(3) @ equals).interchange(8, 4, left=True)
@@ -177,7 +194,24 @@ def test_Diagram_draw():
                                                .interchange(10, 2, left=True)\
                                                .interchange(11, 3, left=True)\
                                                .interchange(12, 4, left=True)
-    diagram.draw(show=False, fontsize=18, figsize=(5, 6), draw_as_nodes=True)
+    diagram.draw(show=False, figsize=(5, 6), draw_types=False, margins=(.1, 0))
+    plt.savefig(dir + '.' + file)
+    assert compare_images(dir + file, dir + '.' + file, 0) is None
+    os.remove(dir + '.' + file)
+    plt.clf()
+
+
+def test_Diagram_draw_eggs():
+    dir, file = 'docs/imgs/', 'crack-eggs.png'
+
+    def merge(x):
+        return Box('merge', x @ x, x)
+    egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
+    crack = Box('crack', egg, white @ yolk)
+    crack_two_eggs = crack @ crack\
+        >> Id(white) @ Box('swap', yolk @ white, white @ yolk) @ Id(yolk)\
+        >> merge(white) @ merge(yolk)
+    crack_two_eggs.draw(show=False, figsize=(5, 6), fontsize=18)
     plt.savefig(dir + '.' + file)
     assert compare_images(dir + file, dir + '.' + file, 0) is None
     os.remove(dir + '.' + file)

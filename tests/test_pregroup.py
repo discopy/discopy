@@ -45,12 +45,17 @@ def test_brute_force():
 
 
 def test_draw():
+    with raises(TypeError):
+        draw(0)
+    with raises(ValueError):
+        draw(Box('s', Ty(), Ty()))
     dir, file = 'docs/imgs/', 'alice-loves-bob.png'
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    draw(sentence, show=False, fontsize=18, figsize=(5, 2), margins=(0, 0))
+    draw(sentence, show=False, fontsize=18, fontsize_types=12,
+         figsize=(5, 2), margins=(0, 0))
     plt.savefig(dir + '.' + file)
     assert compare_images(dir + file, dir + '.' + file, 0) is None
     os.remove(dir + '.' + file)

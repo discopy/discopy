@@ -435,7 +435,9 @@ class Diagram(cat.Diagram):
         aspect : string, optional
             Aspect ratio, one of :code:`['equal', 'auto']`.
         fontsize : int, optional
-            Font size.
+            Font size for the boxes, default is :code:`12`.
+        fontsize_types : int, optional
+            Font size for the types, default is :code:`12`.
         figsize : tuple, optional
             Figure size.
         show : bool, optional
@@ -445,8 +447,9 @@ class Diagram(cat.Diagram):
         aspect = params.get('aspect', 'equal')
         margins = params.get('margins', None)
         figsize = params.get('figsize', None)
-        fontsize = params.get('fontsize', None)
-        draw_types = params.get('draw_types', False)
+        fontsize = params.get('fontsize', 12)
+        fontsize_types = params.get('fontsize_types', fontsize)
+        draw_types = params.get('draw_types', True)
         textpad = params.get('textpad', .1)
         draw_as_nodes = params.get('draw_as_nodes', False)
         color = params.get('color', '#ff0000' if draw_as_nodes else '#ffffff')
@@ -484,22 +487,25 @@ class Diagram(cat.Diagram):
                 [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY]),
                 facecolor=color))
             axis.text(positions[node][0], positions[node][1], labels[node],
-                      ha='center', va='center')
+                      ha='center', va='center', fontsize=fontsize)
 
         def draw_wires(axis):
-            for case in ['input', 'output', 'wire']:
+            for case in ['input', 'output', 'wire_dom', 'wire_cod']:
                 nodes = [n for n in graph.nodes if n[:len(case)] == case]
                 nx.draw_networkx_nodes(
                     graph, positions, nodelist=nodes, node_size=0, ax=axis)
                 for node in nodes:
                     i, j = positions[node]
-                    if draw_types:
-                        pad = -textpad if case == 'input' else\
-                            0 if case == 'wire' else textpad
-                        axis.text(i + textpad, j + pad, labels.get(node, ''))
-                    if not draw_as_nodes and '_dom_' in node:
+                    if draw_types and case in ['input', 'wire_cod']:
+                        if node in labels.keys():
+                            axis.text(
+                                i + textpad,
+                                j - (textpad if case == 'input' else 0),
+                                labels[node],
+                                fontsize=fontsize_types)
+                    if not draw_as_nodes and case == 'wire_dom':
                         positions[node] = (i, j - .25)
-                    if not draw_as_nodes and '_cod_' in node:
+                    if not draw_as_nodes and case == 'wire_cod':
                         positions[node] = (i, j + .25)
             for node0, node1 in graph.edges():
                 source, target = positions[node0], positions[node1]
@@ -507,8 +513,6 @@ class Diagram(cat.Diagram):
                             [Path.MOVETO, Path.CURVE3, Path.CURVE3])
                 axis.add_patch(PathPatch(path, facecolor='none'))
         _, axis = plt.subplots(figsize=figsize)
-        if fontsize is not None:
-            plt.rcParams.update({'font.size': fontsize})
         draw_wires(axis)
         if draw_as_nodes:
             boxes = [node for node in graph.nodes if node[:3] == 'box']
@@ -681,23 +685,6 @@ class Diagram(cat.Diagram):
             scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             width = max(width, len(scan))
         return width
-
-
-def build_spiral(n_cups):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    x = Ty('x')  # pylint: disable=invalid-name
-    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
-    return result
 
 
 class InterchangerError(AxiomError):
