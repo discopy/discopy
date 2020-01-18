@@ -102,8 +102,8 @@ import numpy as np
 from discopy import MatrixFunctor
 
 ob = {s: 1, n: 2}
-ar = lambda param: {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-F = MatrixFunctor(ob, ar(param))
+ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+F = MatrixFunctor(ob, ar)
 
 assert F(sentence) == np.array([1])
 ```
