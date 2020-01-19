@@ -50,28 +50,3 @@ def test_draw():
         draw(0)
     with raises(ValueError):
         draw(Box('s', Ty(), Ty()))
-    dir, file = 'docs/imgs/', 'alice-loves-bob.png'
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r @ s @ n.l)
-    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    draw(sentence, show=False, fontsize=18, fontsize_types=12,
-         figsize=(5, 2), margins=(0, 0))
-    plt.savefig(dir + '.' + file)
-    assert compare_images(dir + file, dir + '.' + file, 0) is None
-    os.remove(dir + '.' + file)
-    plt.clf()
-
-
-def test_Diagram_to_gif():
-    dir, file = 'docs/imgs/', 'autonomisation.gif'
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Box("Alice", Ty(), n), Box("Bob", Ty(), n)
-    loves = Box('loves', Ty(), n.r @ s @ n.l)
-    love_box = Box('loves', n @ n, s)
-    love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
-    ob, ar = {s: s, n: n}, {Alice: Alice, Bob: Bob, loves: love_ansatz}
-    F = RigidFunctor(ob, ar)
-    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    F(sentence).to_gif(
-        dir + file, timestep=1000, loop=False, draw_types=True)

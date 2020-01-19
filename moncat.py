@@ -443,10 +443,10 @@ class Diagram(cat.Diagram):
             Font size for the types, default is :code:`12`.
         figsize : tuple, optional
             Figure size.
-        show : bool, optional
-            Whether to call plt.show(), default is :code:`True`.
+        path : str, optional
+            Where to save the image, if `None` we call :code:`plt.show()`.
         """
-        show = params.get('show', True)
+        path = params.get('path', None)
         aspect = params.get('aspect', 'equal')
         margins = params.get('margins', None)
         figsize = params.get('figsize', None)
@@ -534,8 +534,10 @@ class Diagram(cat.Diagram):
         axis.set_aspect(aspect)
         plt.axis("off")
         axis.autoscale(enable=True, axis='both', tight=False)
-        if show:  # pragma: no cover
-            plt.show()
+        if path is not None:
+            plt.savefig(path)
+            plt.close()
+        plt.show()
 
     def interchange(self, i, j, left=False):
         """
@@ -615,7 +617,7 @@ class Diagram(cat.Diagram):
             cache.add(diagram)
         return diagram
 
-    def to_gif(self, path, timestep=200, loop=False, **params):
+    def to_gif(self, path, diagrams=None, **params):
         """
         Builds a gif with the normalisation steps.
 
@@ -624,21 +626,31 @@ class Diagram(cat.Diagram):
         path : str
             Where to save the image.
         timestep : int, optional
-            Time step in milliseconds, default is :code:`200`.
+            Time step in milliseconds, default is :code:`500`.
         loop : bool, optional
             Whether to loop, default is :code:`False`
+        diagrams : iterable, optional
+            List of diagrams to draw, default is given by
+            :meth:`discopy.moncat.Diagram.normalize`.
 
         Other Parameters
         ----------------
-        Other parameters are passed to :meth:`discopy.rigidcat.Diagram.draw`.
+        Other parameters are passed to :meth:`discopy.moncat.Diagram.draw`.
         """
+        timestep = params.get('timestep', 500)
+        loop = params.get('loop', False)
+        if diagrams is None:
+            diagrams = [self]
+            for diagram in self.normalize():
+                if diagram in diagrams:
+                    loop = True  # self has no normal_form.
+                    break
+                diagrams.append(diagram)
         frames = []
         with tempfile.TemporaryDirectory() as directory:
-            for i, diagram in enumerate(self.normalize()):
+            for i, diagram in enumerate(diagrams):
                 tmp_path = os.path.join(directory, '{}.png'.format(i))
-                diagram.draw(show=False, **params)
-                plt.savefig(tmp_path)
-                plt.close()
+                diagram.draw(path=tmp_path, **params)
                 frames.append(Image.open(tmp_path))
             if loop:
                 frames = frames + frames[::-1]
@@ -719,6 +731,22 @@ class Diagram(cat.Diagram):
             scan = scan[: off] + box.cod + scan[off + len(box.dom):]
             width = max(width, len(scan))
         return width
+
+
+def spiral(n_cups, ty=Ty('x')):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    unit, counit = Box('', Ty(), ty), Box('', ty, Ty())
+    cup, cap = Box('', ty @ ty, Ty()), Box('', Ty(), ty @ ty)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(ty ** i) @ cap @ Id(ty ** (i + 1))
+    result = result >> Id(ty ** n_cups) @ counit @ Id(ty ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(ty ** (n_cups - i - 1)) @ cup @ Id(ty ** (n_cups - i - 1))
+    return result
 
 
 class InterchangerError(AxiomError):

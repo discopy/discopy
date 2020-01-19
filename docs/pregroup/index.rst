@@ -7,9 +7,6 @@ discopy.pregroup
     :caption: Contents:
 
     Word.rst
-    Model.rst
-    CircuitModel.rst
-
-.. autofunction :: discopy.pregroup.draw
-.. autofunction :: discopy.pregroup.eager_parse
-.. autofunction :: discopy.pregroup.brute_force
+    draw.rst
+    eager_parse.rst
+    brute_force.rst
