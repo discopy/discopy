@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Implements functors into the category of functions on vectors
-with cartesian product as tensor.
+Implements cartesian functors into the category of functions on numpy vectors.
 """
 
 from discopy import messages
@@ -13,7 +12,7 @@ from discopy.matrix import np
 
 class Function(Box):
     """
-    Wraps a python function with domain and codomain information.
+    Wraps a Python function with domain and codomain information.
 
     >>> SWAP = Function(2, 2, lambda x: x[::-1])
     >>> COPY = Function(1, 2, lambda x: np.concatenate((x, x)))
