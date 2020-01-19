@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements disco models in the category of matrices and circuits.
+Implements distributional compositional models.
 
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -10,8 +10,22 @@ Implements disco models in the category of matrices and circuits.
 >>> sentence = grammar << Alice @ loves @ Bob
 >>> ob = {s: 1, n: 2}
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = Model(ob, ar)
+>>> F = MatrixFunctor(ob, ar)
 >>> assert F(sentence) == True
+
+>>> from discopy.circuit import  Ket, CX, H, X, sqrt
+>>> s, n = Ty('s'), Ty('n')
+>>> Alice = Word('Alice', n)
+>>> loves = Word('loves', n.r @ s @ n.l)
+>>> Bob = Word('Bob', n)
+>>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+>>> sentence = grammar << Alice @ loves @ Bob
+>>> ob = {s: 0, n: 1}
+>>> ar = {Alice: Ket(0),
+...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
+...       Bob: Ket(1)}
+>>> F = CircuitFunctor(ob, ar)
+>>> assert abs(F(sentence).eval().array) ** 2
 """
 
 from functools import reduce as fold
@@ -26,7 +40,8 @@ from discopy.circuit import CircuitFunctor
 
 
 class Word(Box):
-    """ Implements words as boxes with a pregroup type as codomain.
+    """
+    Implements words as boxes with a pregroup type as codomain.
 
     >>> Alice = Word('Alice', Ty('n'))
     >>> loves = Word('loves',
@@ -36,100 +51,23 @@ class Word(Box):
     >>> loves
     Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
     """
-    def __init__(self, w, t, _dagger=False):
+    def __init__(self, word, ty):
         """
         >>> Word('Alice', Ty('n'))
         Word('Alice', Ty('n'))
         """
-        if not isinstance(w, str):
-            raise TypeError(messages.type_err(str, w))
-        if not isinstance(t, Ty):
-            raise TypeError(messages.type_err(Ty, t))
-        self._word, self._type = w, t
-        dom, cod = (t, Ty()) if _dagger else (Ty(), t)
-        Box.__init__(self, (w, t), dom, cod, _dagger=_dagger)
-
-    def dagger(self):
-        """
-        >>> Word('Alice', Ty('n')).dagger()
-        Word('Alice', Ty('n')).dagger()
-        """
-        return Word(self._word, self._type, not self._dagger)
-
-    @property
-    def word(self):
-        """
-        >>> Word('Alice', Ty('n')).word
-        'Alice'
-        """
-        return self._word
-
-    @property
-    def type(self):
-        """
-        >>> Word('Alice', Ty('n')).type
-        Ty('n')
-        """
-        return self._type
+        if not isinstance(word, str):
+            raise TypeError(messages.type_err(str, word))
+        if not isinstance(ty, Ty):
+            raise TypeError(messages.type_err(Ty, ty))
+        super().__init__(word, Ty(), ty)
 
     def __repr__(self):
         """
         >>> Word('Alice', Ty('n'))
         Word('Alice', Ty('n'))
-        >>> Word('Alice', Ty('n')).dagger()
-        Word('Alice', Ty('n')).dagger()
         """
-        return "Word({}, {}){}".format(repr(self.word), repr(self.type),
-                                       ".dagger()" if self._dagger else "")
-
-    def __str__(self):
-        """
-        >>> print(Word('Alice', Ty('n')))
-        Alice
-        """
-        return str(self.word)
-
-
-class Model(MatrixFunctor):
-    """ Implements functors from pregroup grammars to matrices.
-
-    >>> n, s = Ty('n'), Ty('s')
-    >>> Alice, jokes = Word('Alice', n), Word('jokes', n.r @ s)
-    >>> F = Model({s: 1, n: 2}, {Alice: [0, 1], jokes: [1, 1]})
-    >>> assert F(Alice @ jokes >> Cup(n, n.r) @ Id(s))
-    """
-    def __repr__(self):
-        """
-        >>> Model({}, {Word('Alice', Ty('n')): [0, 1]})
-        Model(ob={}, ar={Word('Alice', Ty('n')): [0, 1]})
-        """
-        return super().__repr__().replace("MatrixFunctor", "Model")
-
-
-class CircuitModel(CircuitFunctor):
-    """
-    >>> from discopy.circuit import sqrt, H, X, Ket, CX
-    >>> s, n = Ty('s'), Ty('n')
-    >>> Alice = Word('Alice', n)
-    >>> loves = Word('loves', n.r @ s @ n.l)
-    >>> Bob = Word('Bob', n)
-    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    >>> sentence = grammar << Alice @ loves @ Bob
-    >>> ob = {s: 0, n: 1}
-    >>> ar = {Alice: Ket(0),
-    ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
-    ...       Bob: Ket(1)}
-    >>> F = CircuitModel(ob, ar)
-    >>> BornRule = lambda c: abs(c.eval().array) ** 2
-    >>> assert BornRule(F(sentence))
-    """
-    def __repr__(self):
-        """
-        >>> from discopy.circuit import Ket
-        >>> CircuitModel({Ty('n'): 1}, {Word('Alice', Ty('n')): Ket(0)})
-        CircuitModel(ob={Ty('n'): 1}, ar={Word('Alice', Ty('n')): Ket(0)})
-        """
-        return super().__repr__().replace("CircuitFunctor", "CircuitModel")
+        return "Word({}, {})".format(repr(self.name), repr(self.cod))
 
 
 def eager_parse(*words, target=Ty('s')):
@@ -169,7 +107,8 @@ def brute_force(*vocab, target=Ty('s')):
 
 def draw(diagram, **params):
     """
-    Draws a pregroup diagram.
+    Draws a pregroup diagram, i.e. one slice of word boxes followed by any
+    number of slices of cups.
 
     Parameters
     ----------
@@ -191,8 +130,13 @@ def draw(diagram, **params):
         Figure size.
     margins : tuple, optional
         Margins.
-    show : bool, optional
-        Whether to call plt.show(), default is :code:`True`.
+    path : str, optional
+        Where to save the image, if `None` we call :code:`plt.show()`.
+
+    Raises
+    ------
+    ValueError
+        Whenever the input is not a pregroup diagram.
     """
     textpad = params.get('textpad', .1)
     space = params.get('space', .5)
@@ -203,7 +147,7 @@ def draw(diagram, **params):
     fontsize = params.get('fontsize', 12)
     fontsize_types = params.get('fontsize_types', fontsize)
     figsize = params.get('figsize', None)
-    show = params.get('show', True)
+    path = params.get('path', None)
 
     def draw_triangles(axis, words):
         scan = []
@@ -267,5 +211,7 @@ def draw(diagram, **params):
     axis.set_xlim(0, (space + width) * len(words.boxes) - space)
     axis.set_ylim(- len(cups) - space, 1)
     axis.set_aspect(aspect)
-    if show:  # pragma: no cover
-        plt.show()
+    if path is not None:
+        plt.savefig(path)
+        plt.close()
+    plt.show()

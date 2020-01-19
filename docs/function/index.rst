@@ -9,4 +9,3 @@ discopy.function
     Function.rst
     Id.rst
     CartesianFunctor.rst
-    discofunc.rst

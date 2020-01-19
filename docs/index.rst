@@ -1,10 +1,10 @@
 discopy
 =======
 
-`discopy` computes natural language meaning in pictures.
-
 .. image:: imgs/snake-equation.png
    :align: center
+
+.. automodule:: discopy
 
 .. toctree::
    :maxdepth: 2
