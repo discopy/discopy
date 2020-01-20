@@ -678,7 +678,11 @@ class Diagram(cat.Diagram):
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> d = f0 @ Id(y) >> f0.dagger() @ f1 >> Id(x) @ f0
+        >>> d = f0 @ Id(y) >> f0.dagger() @ f1
+        >>> assert d.slice().flatten() == f0 @ f1 >> f0.dagger() @ Id(x)
+        >>> assert d.slice().boxes[0] == f0 @ f1
+        >>> assert d.slice(reversed=True).boxes[1].normal_form() ==\\
+        ...        f0.dagger() @ f1
         >>> assert d.slice().flatten().normal_form() == d
         >>> assert d.slice(reversed=True).flatten().normal_form() == d
         """
@@ -700,7 +704,7 @@ class Diagram(cat.Diagram):
                 slices.append(Diagram(dom, cod,
                                       diagram.boxes[i: i + n_boxes + 1],
                                       diagram.offsets[i: i + n_boxes + 1],
-                                      _fast=True))
+                                      _fast=True).normal_form())
                 i += n_boxes + 1
             return Diagram(self.dom, self.cod, slices, len(slices) * [0],
                            _fast=True)

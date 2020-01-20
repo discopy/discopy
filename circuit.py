@@ -147,6 +147,29 @@ class Circuit(Diagram):
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, _fast=True)
 
+    def slice(self, reversed=False):
+        """
+        >>> assert (X @ X >> Id(1) @ X).slice().gates[0] == X @ X
+        >>> assert (X @ X >> Id(1) @ X).slice(reversed=True).gates[0]\\
+        ...        == Id(1) @ X
+        >>> assert (X @ X @ Id(1) >> Id(1) @ CX).slice().flatten()\\
+        ...        == X @ X @ Id(1) >> Id(1) @ CX
+        """
+        result = super().slice(reversed=reversed)
+        slices = []
+        for slice in result.boxes:
+            slices += [Circuit(slice.dom, slice.cod, slice.boxes,
+                               slice.offsets, _fast=True)]
+        return Circuit(result.dom, result.cod, slices, result.offsets)
+
+    def flatten(self):
+        """
+        Takes a circuit of circuits and returns a circuit.
+
+        >>> assert (X @ X >> Id(1) @ X).slice().flatten() == X @ X >> Id(1) @ X
+        """
+        return CircuitFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
+
     @staticmethod
     def id(x):
         """
@@ -591,8 +614,11 @@ class CircuitFunctor(RigidFunctor):
         """
         >>> F = CircuitFunctor({}, {})
         """
-        super().__init__({x: PRO(y) for x, y in ob.items()}, ar,
-                         ob_cls=PRO, ar_cls=Circuit)
+        if isinstance(ob, Quiver):
+            super().__init__(ob, ar, ob_cls=PRO, ar_cls=Circuit)
+        else:
+            super().__init__({x: PRO(y) for x, y in ob.items()}, ar,
+                             ob_cls=PRO, ar_cls=Circuit)
 
     def __repr__(self):
         """
