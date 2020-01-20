@@ -3,6 +3,7 @@
 """
 Implements distributional compositional models.
 
+>>> from discopy.matrix import MatrixFunctor
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
@@ -13,7 +14,7 @@ Implements distributional compositional models.
 >>> F = MatrixFunctor(ob, ar)
 >>> assert F(sentence) == True
 
->>> from discopy.circuit import  Ket, CX, H, X, sqrt
+>>> from discopy.circuit import Ket, CX, H, X, sqrt, CircuitFunctor
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice = Word('Alice', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
@@ -35,8 +36,6 @@ from matplotlib.patches import PathPatch
 
 from discopy import messages
 from discopy.rigidcat import Ty, Box, Diagram, Id, Cup
-from discopy.matrix import MatrixFunctor
-from discopy.circuit import CircuitFunctor
 
 
 class Word(Box):
@@ -122,14 +121,14 @@ def draw(diagram, **params):
         Whether to draw type labels, default is :code:`True`.
     aspect : string, optional
         Aspect ratio, one of :code:`['equal', 'auto']`.
+    margins : tuple, optional
+        Margins, default is :code:`(0.05, 0.05)`.
     fontsize : int, optional
         Font size for the words, default is :code:`12`.
     fontsize_types : int, optional
         Font size for the types, default is :code:`12`.
     figsize : tuple, optional
         Figure size.
-    margins : tuple, optional
-        Margins.
     path : str, optional
         Where to save the image, if `None` we call :code:`plt.show()`.
 
@@ -141,13 +140,7 @@ def draw(diagram, **params):
     textpad = params.get('textpad', .1)
     space = params.get('space', .5)
     width = params.get('width', 2.)
-    draw_types = params.get('draw_types', True)
-    aspect = params.get('aspect', 'equal')
-    margins = params.get('margins', (0, 0))
     fontsize = params.get('fontsize', 12)
-    fontsize_types = params.get('fontsize_types', fontsize)
-    figsize = params.get('figsize', None)
-    path = params.get('path', None)
 
     def draw_triangles(axis, words):
         scan = []
@@ -156,9 +149,9 @@ def draw(diagram, **params):
                 x_wire = (space + width) * i\
                     + (width / (len(word.cod) + 1)) * (j + 1)
                 scan.append(x_wire)
-                if draw_types:
+                if params.get('draw_types', True):
                     axis.text(x_wire + textpad, -2 * textpad, str(word.cod[j]),
-                              fontsize=fontsize_types)
+                              fontsize=params.get('fontsize_types', fontsize))
             path = Path(
                 [((space + width) * i, 0),
                  ((space + width) * i + width, 0),
@@ -189,10 +182,11 @@ def draw(diagram, **params):
             verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
             codes = [Path.MOVETO, Path.LINETO]
             axis.add_patch(PathPatch(Path(verts, codes)))
-            if draw_types:
+            if params.get('draw_types', True):
                 axis.text(
                     scan[i] + textpad, - len(cups) - space,
-                    str(diagram.cod[i]), fontsize=fontsize_types)
+                    str(diagram.cod[i]),
+                    fontsize=params.get('fontsize_types', fontsize))
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
     words, *cups = diagram.slice().boxes
@@ -200,18 +194,17 @@ def draw(diagram, **params):
         and all(isinstance(box, Cup) for s in cups for box in s.boxes)
     if not is_pregroup:
         raise ValueError(messages.expected_pregroup())
-    _, axis = plt.subplots(figsize=figsize)
+    _, axis = plt.subplots(figsize=params.get('figsize', None))
     scan = draw_triangles(axis, words.normal_form())
     draw_cups_and_wires(axis, cups, scan)
-    if margins is not None:
-        plt.margins(*margins)
+    plt.margins(*params.get('margins', (.05, .05)))
     plt.subplots_adjust(
         top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
     plt.axis('off')
     axis.set_xlim(0, (space + width) * len(words.boxes) - space)
     axis.set_ylim(- len(cups) - space, 1)
-    axis.set_aspect(aspect)
-    if path is not None:
-        plt.savefig(path)
+    axis.set_aspect(params.get('aspect', 'equal'))
+    if 'path' in params.keys():
+        plt.savefig(params['path'])
         plt.close()
     plt.show()

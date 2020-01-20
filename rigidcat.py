@@ -141,7 +141,7 @@ class Diagram(moncat.Diagram):
         return graph, positions, labels
 
     @staticmethod
-    def cups(x, y):
+    def cups(left, right):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -149,19 +149,19 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
         ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
         """
-        if not isinstance(x, Ty):
-            raise TypeError(messages.type_err(Ty, x))
-        if not isinstance(y, Ty):
-            raise TypeError(messages.type_err(Ty, y))
-        cups = Id(x @ y)
-        for i in range(len(x)):
-            j = len(x) - i - 1
-            cups = cups\
-                >> Id(x[:j]) @ Cup(x[j:j + 1], y[i:i + 1]) @ Id(y[i + 1:])
+        if not isinstance(left, Ty):
+            raise TypeError(messages.type_err(Ty, left))
+        if not isinstance(right, Ty):
+            raise TypeError(messages.type_err(Ty, right))
+        cups = Id(left @ right)
+        for i in range(len(left)):
+            j = len(left) - i - 1
+            cup = Cup(left[j:j + 1], right[i:i + 1])
+            cups = cups >> Id(left[:j]) @ cup @ Id(right[i + 1:])
         return cups
 
     @staticmethod
-    def caps(x, y):
+    def caps(left, right):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -169,15 +169,15 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        if not isinstance(x, Ty):
-            raise TypeError(messages.type_err(Ty, x))
-        if not isinstance(y, Ty):
-            raise TypeError(messages.type_err(Ty, y))
-        caps = Id(x @ y)
-        for i in range(len(x)):
-            j = len(x) - i - 1
-            caps = caps\
-                << Id(x[:j]) @ Cap(x[j:j + 1], y[i:i + 1]) @ Id(y[i + 1:])
+        if not isinstance(left, Ty):
+            raise TypeError(messages.type_err(Ty, left))
+        if not isinstance(right, Ty):
+            raise TypeError(messages.type_err(Ty, right))
+        caps = Id(left @ right)
+        for i in range(len(left)):
+            j = len(left) - i - 1
+            cap = Cap(left[j:j + 1], right[i:i + 1])
+            caps = caps << Id(left[:j]) @ cap @ Id(right[i + 1:])
         return caps
 
     def transpose_r(self):

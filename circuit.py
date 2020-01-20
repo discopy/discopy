@@ -156,28 +156,28 @@ class Circuit(Diagram):
         return Id(x)
 
     @staticmethod
-    def cups(x, y):
+    def cups(left, right):
         """
         >>> list(np.round(Circuit.cups(PRO(1), PRO(1)).eval().array.flatten()))
         [1.0, 0.0, 0.0, 1.0]
         """
-        if not isinstance(x, PRO):
-            raise TypeError(messages.type_err(PRO, x))
-        if not isinstance(y, PRO):
-            raise TypeError(messages.type_err(PRO, y))
-        result = Id(x @ y)
+        if not isinstance(left, PRO):
+            raise TypeError(messages.type_err(PRO, left))
+        if not isinstance(right, PRO):
+            raise TypeError(messages.type_err(PRO, right))
+        result = Id(left @ right)
         cup = CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
-        for i in range(1, len(x) + 1):
-            result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
+        for i in range(1, len(left) + 1):
+            result = result >> Id(len(left) - i) @ cup @ Id(len(left) - i)
         return result
 
     @staticmethod
-    def caps(x, y):
+    def caps(left, right):
         """
         >>> list(np.round(Circuit.caps(PRO(1), PRO(1)).eval().array.flatten()))
         [1.0, 0.0, 0.0, 1.0]
         """
-        return Circuit.cups(x, y).dagger()
+        return Circuit.cups(left, right).dagger()
 
     def eval(self):
         """
@@ -618,12 +618,12 @@ class CircuitFunctor(RigidFunctor):
         return result
 
 
-def sqrt(x):
+def sqrt(real):
     """
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])
     """
-    return Gate('sqrt({})'.format(x), 0, np.sqrt(x), _dagger=None)
+    return Gate('sqrt({})'.format(real), 0, np.sqrt(real), _dagger=None)
 
 
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
