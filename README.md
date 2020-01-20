@@ -49,9 +49,8 @@ crack_two_eggs.draw(path='docs/imgs/crack-eggs.png')
 
 ### Snakes & Sentences
 
-The wires in a diagram are never allowed to cross (they are _planar string diagrams_)
-but they can be bended using two special kinds of boxes: **cups** and **caps**.
-Cups and caps satisfy the **snake equations**, also called [triangle identities](https://ncatlab.org/nlab/show/triangle+identities):
+Wires are never allowed to cross, i.e. `discopy` diagrams are _planar string diagrams_.
+However, wires can be bended using two special kinds of boxes: **cups** and **caps**, which satisfy the **snake equations**, also called [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
 from discopy import Cup, Cap
