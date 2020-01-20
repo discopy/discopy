@@ -15,7 +15,7 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 from functools import reduce as fold
 from discopy import messages
 from discopy.cat import Quiver, AxiomError
-from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
+from discopy.rigidcat import Ob, Ty, Box, Cup, Cap, Diagram, RigidFunctor
 
 try:
     import warnings
@@ -193,15 +193,10 @@ class MatrixFunctor(RigidFunctor):
     Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
     def __init__(self, ob, ar):
-        self._input_ob, self._input_ar = ob, ar
-        _ob = Quiver(lambda x: ob[x] if isinstance(ob[x], Dim) else Dim(ob[x]))
-        super().__init__(_ob, {}, Dim, Matrix)
-        _ar = Quiver(lambda box: Matrix(self(box.dom), self(box.cod), ar[box]))
-        super().__init__(_ob, _ar, Dim, Matrix)
+        super().__init__(ob, ar, ob_cls=Dim, ar_cls=Matrix)
 
     def __repr__(self):
-        return "MatrixFunctor(ob={}, ar={})".format(
-            self._input_ob, self._input_ar)
+        return super().__repr__().replace("RigidFunctor", "MatrixFunctor")
 
     def __call__(self, diagram):
         """
@@ -213,7 +208,16 @@ class MatrixFunctor(RigidFunctor):
         >>> list(F(f >> g).array.flatten())
         [5.0, 14.0, 23.0, 32.0]
         """
-        if isinstance(diagram, (Ty, Box)) or not isinstance(diagram, Diagram):
+        if isinstance(diagram, Ob) and not diagram.z:
+            if isinstance(self.ob[Ty(diagram)], Dim):
+                return self.ob[Ty(diagram)]
+            return Dim(self.ob[Ty(diagram)])
+        if isinstance(diagram, Box) and not isinstance(diagram, (Cup, Cap)):
+            if diagram._dagger:
+                return self(diagram.dagger()).dagger()
+            return Matrix(self(diagram.dom), self(diagram.cod),
+                          self.ar[diagram])
+        if not isinstance(diagram, Diagram) or len(diagram) == 1:
             return super().__call__(diagram)
 
         def dim(scan):

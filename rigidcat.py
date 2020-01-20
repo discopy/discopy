@@ -503,8 +503,10 @@ class RigidFunctor(moncat.MonoidalFunctor):
         >>> assert F(f.transpose_l()) == F(f).transpose_l()
         >>> assert F(f.transpose_r()) == F(f).transpose_r()
         """
+        if isinstance(diagram, Ob) and not diagram.z:
+            return self.ob[Ty(diagram.name)]
         if isinstance(diagram, Ob):
-            result = self.ob[Ty(diagram.name)]
+            result = self(Ob(diagram.name, z=0))
             if diagram.z < 0:
                 for _ in range(-diagram.z):
                     result = result.l

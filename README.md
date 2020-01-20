@@ -79,37 +79,43 @@ pregroup.draw(sentence, path='docs/imgs/alice-loves-bob.png')
 
 ![Alice loves Bob](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/alice-loves-bob.png)
 
-### Functors & Meanings
+### Functors & Rewrites
 
 *Functors* compute the meaning of a diagram, given a meaning for each box.
-Free functors (i.e. from diagrams to diagrams) can fill each box with a complex diagram, the result can then be simplified using `diagram.normalize()` to remove the snakes.
+Free functors (i.e. from diagrams to diagrams) can fill each box with a complex diagram,
+the result can then be simplified using `diagram.normalize()` to remove the snakes.
 
 ```python
+from discopy import RigidFunctor
+
 love_box = Box('loves', n @ n, s)
 love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
-ob, ar = {s: s, n: n}, {Alice: Alice, Bob: Bob, loves: love_ansatz}
-A = RigidFunctor(ob, ar)
-rewriting_steps = A(sentence).normalize()
-Diagram.to_gif(A(sentence), diagrams=rewriting_steps
+A = RigidFunctor(ob={s: s, n: n},
+                 ar={Alice: Alice, Bob: Bob, loves: love_ansatz})
+
+rewrite_steps = A(sentence).normalize()
+Diagram.to_gif(A(sentence), diagrams=rewrite_steps,
                path='docs/imgs/autonomisation.gif')
 ```
 
 ![autonomisation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/autonomisation.gif)
 
-Functors into the category of matrices evaluate a diagram as a tensor network
-using [numpy](https://numpy.org/).
+Functors into the category of matrices evaluate a diagram as a tensor network using [numpy](https://numpy.org/).
 Applied to pregroup diagrams, matrix functors implement the
-**distributional compositional** (_DisCo_) models of [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
+**distributional compositional** (_DisCo_) models of
+[Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
 ```python
-import numpy as np
 from discopy import MatrixFunctor
 
-ob = {s: 1, n: 2}
-ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-F = MatrixFunctor(ob, ar)
+F = MatrixFunctor(
+    ob={s: 1, n: 2},
+    ar={Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]})
 
-assert F(sentence) == np.array([1])
+assert F(sentence)
+
+F.ar.update({love_box: F(loves).array})
+assert F(sentence) == F(A(sentence)) == F(A(sentence).normal_form())
 ```
 
 ## Getting Started
