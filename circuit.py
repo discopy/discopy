@@ -123,6 +123,14 @@ class Circuit(Diagram):
         return Circuit(len(result.dom), len(result.cod),
                        result.boxes, result.offsets, _fast=True)
 
+    def __getitem__(self, item):
+        """
+        >>> assert isinstance((CX >> Rx(1.0) @ X >> CX)[2:], Circuit)
+        """
+        result = super().__getitem__(item)
+        return Circuit(len(result.dom), len(result.cod),
+                       result.boxes, result.offsets, _fast=True)
+
     def interchange(self, i, j, left=False):
         """
         >>> circuit = Id(1) @ X >> X @ Id(1)
@@ -135,17 +143,37 @@ class Circuit(Diagram):
         return Circuit(PRO(len(result.dom)), PRO(len(result.cod)),
                        result.boxes, result.offsets, _fast=True)
 
-    def normal_form(self, left=False):
-        """
-        >>> circuit = Id(1) @ X >> X @ Id(1)
-        >>> print(circuit.normal_form())
-        X @ Id(1) >> Id(1) @ X
-        >>> print(circuit.normal_form(left=True))
-        Id(1) @ X >> X @ Id(1)
-        """
-        result = super().normal_form(left=left)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
+    # def normal_form(self, left=False):
+    #     """
+    #     >>> circuit = Id(1) @ X >> X @ Id(1)
+    #     >>> print(circuit.normal_form())
+    #     X @ Id(1) >> Id(1) @ X
+    #     >>> print(circuit.normal_form(left=True))
+    #     Id(1) @ X >> X @ Id(1)
+    #     """
+    #     result = self.slice()
+    #     first_slice = Diagram.normal_form(result[0])
+    #     preparation = Id(first_slice.offsets[0]) @ first_slice.boxes[0]
+    #     for i in range(1, len(first_slice) - 1):
+    #         sep = first_slice.offsets[i] - len(preparation.cod)
+    #         if sep > 0:
+    #             preparation = preparation @ Id(sep) @ first_slice.boxes[i]
+    #         else:
+    #             preparation = preparation @ first_slice.boxes[i]
+    #     result = preparation >> result[1:]
+    #     result = result.slice(reversed=True)
+    #     last_slice = result[-1].normal_form()
+    #     measurement = Id(last_slice.offsets[0]) @ last_slice.boxes[0]
+    #     for i in range(1, len(last_slice) - 1):
+    #         sep = first_slice.offsets[i] - len(measurement.cod)
+    #         if sep > 0:
+    #             measurement = measurement @ Id(sep) @ last_slice.boxes[i]
+    #         else:
+    #             measurement = measurement @ last_slice.boxes[i]
+    #     result = result[:-1] >> measurement
+    #     result = Diagram.normal_form(result, left=left)
+    #     return Circuit(len(result.dom), len(result.cod),
+    #                    result.boxes, result.offsets, _fast=True)
 
     def slice(self, reversed=False):
         """
@@ -428,6 +456,18 @@ class Ket(Box, Circuit):
                      PRO(0), PRO(len(bitstring)))
         Circuit.__init__(self, 0, len(bitstring), [self], [0], _fast=True)
 
+    def tensor(self, other):
+        """
+        When two Kets are tensored together, they yield one big Ket with the
+        concatenation of their bitstrings.
+
+        >>> Ket(0, 1, 0) @ Ket(1, 0)
+        Ket(0, 1, 0, 1, 0)
+        """
+        if isinstance(other, Ket):
+            return Ket(*(self.bitstring + other.bitstring))
+        return super().tensor(self, other)
+
     def __repr__(self):
         """
         >>> Ket(1, 1, 0)
@@ -479,6 +519,18 @@ class Bra(Box, Circuit):
         Bra(1, 1, 0)
         """
         return self.name
+
+    def tensor(self, other):
+        """
+        When two Bras are tensored together, they yield one big Bra with the
+        concatenation of their bitstrings.
+
+        >>> Bra(0, 1, 0) @ Bra(1, 0)
+        Bra(0, 1, 0, 1, 0)
+        """
+        if isinstance(other, Bra):
+            return Bra(*(self.bitstring + other.bitstring))
+        return super().tensor(self, other)
 
     def dagger(self):
         """

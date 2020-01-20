@@ -268,6 +268,30 @@ class Diagram(cat.Diagram):
     def __matmul__(self, other):
         return self.tensor(other)
 
+    def __getitem__(self, item):
+        """
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+        >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
+        >>> assert d[1] == Id(y) @ f1
+        >>> assert d[1:3] == Id(y) @ f1 >> g == d[1:]
+        >>> assert d[:2] == f0 @ f1
+        >>> assert d[:2] >> d[2:] == d
+        """
+        if isinstance(item, slice):
+            if item.step or 1 != 1:
+                raise ValueError('')
+            result = self[item.start or 0]
+            for i in range((item.start or 0) + 1, item.stop or len(self)):
+                result = result >> self[i]
+            return result
+        scan = self.dom
+        for i in range(item):
+            off, box = self.offsets[i], self.boxes[i]
+            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+        off, box = self.offsets[item], self.boxes[item]
+        return Id(scan[:off]) @ box @ Id(scan[off + len(box.dom):])
+
     def then(self, other):
         """
         Returns the composition of `self` with a diagram `other`.

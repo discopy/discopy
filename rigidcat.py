@@ -125,6 +125,20 @@ class Diagram(moncat.Diagram):
     def id(x):
         return Id(x)
 
+    def __getitem__(self, item):
+        """
+        >>> n, s = Ty('n'), Ty('s')
+        >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
+        >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
+        >>> diagram = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
+        >>> assert isinstance(diagram[1:3], Diagram)
+        >>> assert diagram[3:] == Id(n @ n.r) @ f >> cup @ h
+        >>> assert diagram[:2] >> diagram[2:] == diagram
+        """
+        result = super().__getitem__(item)
+        return Diagram(result.dom, result.cod, result.boxes, result.offsets,
+                       _fast=True)
+
     def build_graph(self):
         """
         Builds a networkx graph, called by
