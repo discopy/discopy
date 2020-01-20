@@ -68,6 +68,14 @@ class Circuit(Diagram):
     """
     Implements quantum circuits as diagrams.
     """
+    @staticmethod
+    def _upgrade(diagram):
+        """
+        Takes a diagram and returns a circuit.
+        """
+        return Circuit(len(diagram.dom), len(diagram.cod),
+                       diagram.boxes, diagram.offsets, _fast=True)
+
     def __init__(self, dom, cod, gates, offsets, _fast=False):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
@@ -95,57 +103,6 @@ class Circuit(Diagram):
         [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
         """
         return self._gates
-
-    def then(self, other):
-        """
-        >>> print(SWAP >> CX)
-        SWAP >> CX
-        """
-        result = super().then(other)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def tensor(self, other):
-        """
-        >>> print(CX @ H)
-        CX @ Id(1) >> Id(2) @ H
-        """
-        result = super().tensor(other)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def dagger(self):
-        """
-        >>> print((CX >> SWAP).dagger())
-        SWAP >> CX
-        """
-        result = super().dagger()
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def interchange(self, i, j, left=False):
-        """
-        >>> circuit = Id(1) @ X >> X @ Id(1)
-        >>> print(circuit.interchange(0, 1))
-        X @ Id(1) >> Id(1) @ X
-        >>> print(circuit.interchange(0, 1).interchange(0, 1, left=True))
-        Id(1) @ X >> X @ Id(1)
-        """
-        result = super().interchange(i, j, left=left)
-        return Circuit(PRO(len(result.dom)), PRO(len(result.cod)),
-                       result.boxes, result.offsets, _fast=True)
-
-    def normal_form(self, left=False):
-        """
-        >>> circuit = Id(1) @ X >> X @ Id(1)
-        >>> print(circuit.normal_form())
-        X @ Id(1) >> Id(1) @ X
-        >>> print(circuit.normal_form(left=True))
-        Id(1) @ X >> X @ Id(1)
-        """
-        result = super().normal_form(left=left)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
 
     @staticmethod
     def id(x):

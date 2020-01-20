@@ -198,12 +198,55 @@ class Diagram(cat.Diagram):
         super().__init__(dom, cod, [], _fast=True)
         self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
+    def then(self, other):
+        return Diagram(self.dom, other.cod,
+                       self.boxes + other.boxes,
+                       self.offsets + other.offsets, _fast=True)
+
+    def dagger(self):
+        return Diagram(self.cod, self.dom,
+                       [f.dagger() for f in self.boxes[::-1]],
+                       self.offsets[::-1], _fast=True)
+
+    @staticmethod
+    def id(x):
+        return Id(x)
+
     @property
     def offsets(self):
         """
         The offset for a box in a diagram is the number of wires to its left.
         """
         return list(self._offsets)
+
+    def tensor(self, other):
+        """
+        Returns the horizontal composition of 'self' with a diagram 'other'.
+
+        This method is called using the binary operator `@`:
+
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
+
+        Parameters
+        ----------
+        other : discopy.moncat.Diagram
+
+        Returns
+        -------
+        diagram : discopy.moncat.Diagram
+            the tensor of 'self' and 'other'.
+        """
+        if not isinstance(other, Diagram):
+            raise TypeError(messages.type_err(Diagram, other))
+        dom, cod = self.dom + other.dom, self.cod + other.cod
+        boxes = self.boxes + other.boxes
+        offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
+        return Diagram(dom, cod, boxes, offsets, _fast=True)
+
+    def __matmul__(self, other):
+        return self.tensor(other)
 
     def __eq__(self, other):
         if not isinstance(other, Diagram):
@@ -239,103 +282,6 @@ class Diagram(cat.Diagram):
             result = "{} >> {}".format(result, line(scan, box, off))
             scan = scan[:off] + box.cod + scan[off + len(box.dom):]
         return result
-
-    def tensor(self, other):
-        """
-        Returns the horizontal composition of 'self' with a diagram 'other'.
-
-        This method is called using the binary operator `@`:
-
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
-
-        Parameters
-        ----------
-        other : discopy.moncat.Diagram
-
-        Returns
-        -------
-        diagram : discopy.moncat.Diagram
-            the tensor of 'self' and 'other'.
-        """
-        if not isinstance(other, Diagram):
-            raise TypeError(messages.type_err(Diagram, other))
-        dom, cod = self.dom + other.dom, self.cod + other.cod
-        boxes = self.boxes + other.boxes
-        offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        return Diagram(dom, cod, boxes, offsets, _fast=True)
-
-    def __matmul__(self, other):
-        return self.tensor(other)
-
-    def then(self, other):
-        """
-        Returns the composition of `self` with a diagram `other`.
-
-        This method is called using the binary operators `>>` and `<<`:
-
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> assert Id(x) @ f1 >> f0 @ Id(w) == f0 @ Id(w) << Id(x) @ f1
-
-        Parameters
-        ----------
-        other : discopy.moncat.Diagram
-            such that `self.cod == other.dom`.
-
-        Returns
-        -------
-        diagram : discopy.moncat.Diagram
-            such that `diagram.boxes == self.boxes + other.boxes`.
-
-        Raises
-        ------
-        :class:`discopy.moncat.AxiomError`
-            whenever `self` and `other` do not compose.
-        """
-        result = super().then(other)
-        return Diagram(result.dom, result.cod, result.boxes,
-                       self.offsets + other.offsets, _fast=True)
-
-    def dagger(self):
-        """
-        Returns the dagger of `self`.
-
-        Returns
-        -------
-        diagram : discopy.moncat.Diagram
-            such that
-            `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
-
-        Notes
-        -----
-        We can check the axioms of dagger (i.e. a contravariant involutive
-        identity-on-objects endofunctor):
-
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> f, g = Box('f', x, y @ z), Box('g', y @ z, z)
-        >>> assert f.dagger().dagger() == f
-        >>> assert Id(x).dagger() == Id(x)
-        >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
-        """
-        return Diagram(self.cod, self.dom,
-                       [f.dagger() for f in self.boxes[::-1]],
-                       self.offsets[::-1], _fast=True)
-
-    @staticmethod
-    def id(x):
-        """
-        Returns the identity diagram on x.
-
-        >>> assert Diagram.id(Ty('x')) == Id(Ty('x')) ==\\
-        ...                               Diagram(Ty('x'), Ty('x'), [], [])
-
-        :param x: Any type
-        :type x: :class:`discopy.moncat.Ty`
-        :returns: :class:`discopy.moncat.Id`
-        """
-        return Id(x)
 
     def build_graph(self):
         """

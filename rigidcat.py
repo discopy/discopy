@@ -106,24 +106,29 @@ class Diagram(moncat.Diagram):
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
     Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     """
-    def then(self, other):
-        result = super().then(other)
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def tensor(self, other):
-        result = super().tensor(other)
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def dagger(self):
-        result = super().dagger()
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
+    @staticmethod
+    def _upgrade(diagram):
+        """
+        Takes a moncat.Diagram and returns a rigidcat.Diagram.
+        """
+        return Diagram(Ty(*diagram.dom), Ty(*diagram.cod),
+                       diagram.boxes, diagram.offsets, _fast=True)
 
     @staticmethod
     def id(x):
         return Id(x)
+
+    def then(self, other):
+        return self._upgrade(super().then(other))
+
+    def tensor(self, other):
+        return self._upgrade(super().tensor(other))
+
+    def dagger(self):
+        return self._upgrade(super().dagger())
+
+    def interchange(self, i, j, left=False):
+        return self._upgrade(super().interchange(i, j, left=left))
 
     def build_graph(self):
         """
@@ -209,21 +214,6 @@ class Diagram(moncat.Diagram):
         return Id(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
             >> Id(self.cod.l) @ self @ Id(self.dom.l)\
             >> Diagram.cups(self.cod.l, self.cod) @ Id(self.dom.l)
-
-    def interchange(self, i, j, left=False):
-        """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x.r, y.l)
-        >>> d = (f @ f.dagger()).interchange(0, 1)
-        >>> assert d == Id(x.r) @ f.dagger() >> f @ Id(x.r)
-        >>> print((Cup(x, x.r) >> Cap(x, x.l)).interchange(0, 1))
-        Cap(x, x.l) @ Id(x @ x.r) >> Id(x @ x.l) @ Cup(x, x.r)
-        >>> print((Cup(x, x.r) >> Cap(x, x.l)).interchange(0, 1, left=True))
-        Id(x @ x.r) @ Cap(x, x.l) >> Cup(x, x.r) @ Id(x @ x.l)
-        """
-        result = super().interchange(i, j, left=left)
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
 
     def normalize(self, left=False):
         """
