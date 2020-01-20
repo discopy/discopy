@@ -117,7 +117,7 @@ class Circuit(Diagram):
     def dagger(self):
         """
         >>> print((CX >> SWAP).dagger())
-        SWAP.dagger() >> CX.dagger()
+        SWAP >> CX
         """
         result = super().dagger()
         return Circuit(len(result.dom), len(result.cod),
@@ -158,15 +158,15 @@ class Circuit(Diagram):
     @staticmethod
     def cups(x, y):
         """
-        >>> Circuit.cups(PRO(1), PRO(1)).eval()
-        Matrix(dom=Dim(2, 2), cod=Dim(1), array=[1.0, 0.0, 0.0, 1.0])
+        >>> list(np.round(Circuit.cups(PRO(1), PRO(1)).eval().array.flatten()))
+        [1.0, 0.0, 0.0, 1.0]
         """
         if not isinstance(x, PRO):
             raise TypeError(messages.type_err(PRO, x))
         if not isinstance(y, PRO):
             raise TypeError(messages.type_err(PRO, y))
         result = Id(x @ y)
-        cup = CX >> Gate('H', 1, [1, 1, 1, -1]) @ Id(1) >> Bra(0, 0)
+        cup = CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
         for i in range(1, len(x) + 1):
             result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
         return result
@@ -174,8 +174,8 @@ class Circuit(Diagram):
     @staticmethod
     def caps(x, y):
         """
-        >>> Circuit.caps(PRO(1), PRO(1)).eval()
-        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 1])
+        >>> list(np.round(Circuit.caps(PRO(1), PRO(1)).eval().array.flatten()))
+        [1.0, 0.0, 0.0, 1.0]
         """
         return Circuit.cups(x, y).dagger()
 
@@ -367,7 +367,9 @@ class Gate(Box, Circuit):
         >>> CX
         Gate('CX', 2, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
         >>> X.dagger()
-        Gate('X', 1, [0, 1, 1, 0]).dagger()
+        Gate('X', 1, [0, 1, 1, 0])
+        >>> Y.dagger()
+        Gate('Y', 1, [0j, (-0-1j), 1j, 0j]).dagger()
         """
         if self._dagger:
             return repr(self.dagger()) + '.dagger()'
@@ -378,13 +380,14 @@ class Gate(Box, Circuit):
     def dagger(self):
         """
         >>> print(CX.dagger())
-        CX.dagger()
+        CX
         >>> print(Y.dagger())
         Y.dagger()
         >>> assert Y.eval().dagger() == Y.dagger().eval()
         """
-        return Gate(self.name, len(self.dom), self.array,
-                    data=self.data, _dagger=not self._dagger)
+        return Gate(
+            self.name, len(self.dom), self.array, data=self.data,
+            _dagger=None if self._dagger is None else not self._dagger)
 
 
 class Ket(Box, Circuit):
@@ -620,20 +623,20 @@ def sqrt(x):
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])
     """
-    return Gate('sqrt({})'.format(x), 0, np.sqrt(x))
+    return Gate('sqrt({})'.format(x), 0, np.sqrt(x), _dagger=None)
 
 
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
                         0, 0, 1, 0,
                         0, 1, 0, 0,
-                        0, 0, 0, 1])
+                        0, 0, 0, 1], _dagger=None)
 CX = Gate('CX', 2, [1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 0, 1,
-                    0, 0, 1, 0])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
+                    0, 0, 1, 0], _dagger=None)
+H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]), _dagger=None)
 S = Gate('S', 1, [1, 0, 0, 1j])
 T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
-X = Gate('X', 1, [0, 1, 1, 0])
+X = Gate('X', 1, [0, 1, 1, 0], _dagger=None)
 Y = Gate('Y', 1, [0, -1j, 1j, 0])
-Z = Gate('Z', 1, [1, 0, 0, -1])
+Z = Gate('Z', 1, [1, 0, 0, -1], _dagger=None)

@@ -49,6 +49,11 @@ def test_draw_typed_snake():
     return diagram
 
 
+@draw_and_compare('spiral.png', draw_types=False)
+def test_draw_spiral():
+    return moncat.spiral(2)
+
+
 @draw_and_compare('who-ansatz.png')
 def test_draw_who():
     n, s = Ty('n'), Ty('s')
@@ -59,6 +64,14 @@ def test_draw_who():
         >> Id(n.r) @ update @ Id(s.l @ n)
 
 
+@draw_and_compare('sentence-as-diagram.png')
+def test_draw_sentence():
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r @ s @ n.l)
+    return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+
+
 @draw_and_compare('alice-loves-bob.png', draw=pregroup.draw,
                   fontsize=18, fontsize_types=12,
                   figsize=(5, 2), margins=(0, 0))
@@ -67,26 +80,6 @@ def test_pregroup_draw():
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-
-
-def test_autonomisation_to_gif(folder=FOLDER, file='autonomisation.gif'):
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Box("Alice", Ty(), n), Box("Bob", Ty(), n)
-    loves = Box('loves', Ty(), n.r @ s @ n.l)
-    love_box = Box('loves', n @ n, s)
-    love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
-    ob, ar = {s: s, n: n}, {Alice: Alice, Bob: Bob, loves: love_ansatz}
-    A = RigidFunctor(ob, ar)
-    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    Diagram.to_gif(A(sentence), diagrams=A(sentence).normalize(),
-                   path=os.path.join(folder, file), aspect='auto',
-                   figsize=(5, 4))
-
-
-def test_spiral_to_gif(n_cups=2, folder=FOLDER, file='spiral.gif'):
-    diagram = moncat.spiral(n_cups)
-    diagram.to_gif(os.path.join(folder, file),
-                   timestep=500, loop=True, draw_types=False)
 
 
 def test_Eckmann_Hilton_to_gif(folder=FOLDER, file='EckmannHilton.gif'):
