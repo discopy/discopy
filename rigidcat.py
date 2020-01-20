@@ -245,7 +245,7 @@ class Diagram(moncat.Diagram):
             - i is the index of the box which takes this wire as input, or
             len(diagram) if it is connected to the bottom boundary.
             - j is the offset of the wire at its bottom end.
-            - obstructions is a pair of lists of indices for the diagrams on
+            - obstructions is a pair of lists of indices for the boxes on
             the left and right of the wire we followed.
             """
             left_obstruction, right_obstruction = [], []
@@ -261,7 +261,7 @@ class Diagram(moncat.Diagram):
                     right_obstruction.append(i)
             return len(diagram), j, (left_obstruction, right_obstruction)
 
-        def find_move(diagram):
+        def find_snake(diagram):
             """
             Given a diagram, returns (cup, cap, obstructions, left_snake)
             if there is a yankable pair, otherwise returns None.
@@ -283,7 +283,7 @@ class Diagram(moncat.Diagram):
                     return cup, cap, obstructions, left_snake
             return None
 
-        def move(diagram, cup, cap, obstructions, left_snake=False):
+        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
             """
             Given a diagram and the indices for a cup and cap pair
             and a pair of lists of obstructions on the left and right,
@@ -323,10 +323,10 @@ class Diagram(moncat.Diagram):
 
         diagram = self
         while True:
-            yankable = find_move(diagram)
+            yankable = find_snake(diagram)
             if yankable is None:
                 break
-            for _diagram in move(diagram, *yankable):
+            for _diagram in unsnake(diagram, *yankable):
                 yield _diagram
                 diagram = _diagram
         for _diagram in moncat.Diagram.normalize(diagram, left=left):

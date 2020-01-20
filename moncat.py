@@ -73,7 +73,7 @@ class Ty(Ob):
         >>> assert t[1:] == Ty('y', 'z')
 
         """
-        return self._objects
+        return list(self._objects)
 
     def tensor(self, other):
         """
@@ -108,7 +108,8 @@ class Ty(Ob):
         return Ty(*(self.objects + other.objects))
 
     def __init__(self, *objects):
-        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in objects]
+        self._objects = tuple(
+            x if isinstance(x, Ob) else Ob(x) for x in objects)
         super().__init__(str(self))
 
     def __eq__(self, other):
