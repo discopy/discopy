@@ -277,6 +277,7 @@ class Diagram(cat.Diagram):
         >>> assert d[1:3] == Id(y) @ f1 >> g == d[1:]
         >>> assert d[:2] == f0 @ f1
         >>> assert d[:2] >> d[2:] == d
+        >>> assert d[:2].cod == d[2].dom
         """
         if isinstance(item, slice):
             if item.step or 1 != 1:
