@@ -135,7 +135,7 @@ class Diagram(moncat.Diagram):
         >>> assert diagram[3:] == Id(n @ n.r) @ f >> cup @ h
         >>> assert diagram[:2] >> diagram[2:] == diagram
         """
-        result = super().__getitem__(item)
+        result = moncat.Diagram.__getitem__(self, item)
         return Diagram(result.dom, result.cod, result.boxes, result.offsets,
                        _fast=True)
 

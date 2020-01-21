@@ -281,7 +281,7 @@ class Diagram(cat.Diagram):
         """
         if isinstance(item, slice):
             if item.step or 1 != 1:
-                raise ValueError('')
+                raise ValueError('Slice has to have step 1')
             result = self[item.start or 0]
             for i in range((item.start or 0) + 1, item.stop or len(self)):
                 result = result >> self[i]
@@ -696,7 +696,7 @@ class Diagram(cat.Diagram):
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
-    def slice(self, reversed=False):
+    def slice(self):
         """
         Returns a diagram with diagrams of depth 1 as boxes such that its
         flattening gives the original diagram back, up to normal form.
@@ -704,37 +704,32 @@ class Diagram(cat.Diagram):
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
         >>> d = f0 @ Id(y) >> f0.dagger() @ f1
-        >>> assert d.slice().flatten() == f0 @ f1 >> f0.dagger() @ Id(x)
-        >>> assert d.slice().boxes[0] == f0 @ f1
-        >>> assert d.slice(reversed=True).boxes[1].normal_form() ==\\
-        ...        f0.dagger() @ f1
+        >>> assert d.slice().flatten().normal_form()\\
+        ...        == (f0 @ f1 >> f0.dagger() @ Id(x)).normal_form()
+        >>> assert d.slice().boxes[0].normal_form() == f0 @ f1
         >>> assert d.slice().flatten().normal_form() == d
-        >>> assert d.slice(reversed=True).flatten().normal_form() == d
         """
         diagram = self
         slices = []
         dom, cod, i = diagram.dom, diagram.dom, 0
-        if not reversed:
-            while i < len(diagram):
-                dom, n_boxes = cod, 0
-                for j in range(i + 1, len(diagram)):
-                    try:
-                        diagram = diagram.interchange(j, i)
-                        n_boxes += 1
-                    except InterchangerError:
-                        pass
-                for j in range(i, i + n_boxes + 1):
-                    box, off = diagram.boxes[j], diagram.offsets[j]
-                    cod = cod[:off] + box.cod + cod[off + len(box.dom):]
-                slices.append(Diagram(dom, cod,
-                                      diagram.boxes[i: i + n_boxes + 1],
-                                      diagram.offsets[i: i + n_boxes + 1],
-                                      _fast=True).normal_form())
-                i += n_boxes + 1
-            return Diagram(self.dom, self.cod, slices, len(slices) * [0],
-                           _fast=True)
-        else:
-            return diagram.dagger().slice(reversed=False).dagger()
+        while i < len(diagram):
+            dom, n_boxes = cod, 0
+            for j in range(i + 1, len(diagram)):
+                try:
+                    diagram = diagram.interchange(j, i)
+                    n_boxes += 1
+                except InterchangerError:
+                    pass
+            for j in range(i, i + n_boxes + 1):
+                box, off = diagram.boxes[j], diagram.offsets[j]
+                cod = cod[:off] + box.cod + cod[off + len(box.dom):]
+            slices.append(Diagram(dom, cod,
+                                  diagram.boxes[i: i + n_boxes + 1],
+                                  diagram.offsets[i: i + n_boxes + 1],
+                                  _fast=True))
+            i += n_boxes + 1
+        return Diagram(self.dom, self.cod, slices, len(slices) * [0],
+                       _fast=True)
 
     def depth(self):
         """
