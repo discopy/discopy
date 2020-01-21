@@ -22,11 +22,14 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 
 import os
 import tempfile
+from functools import reduce as fold
+
+import networkx as nx
 from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
-import networkx as nx
+
 from discopy import cat, messages
 from discopy.cat import Ob, Functor, Quiver, AxiomError
 
@@ -266,65 +269,52 @@ class Diagram(cat.Diagram):
     def __hash__(self):
         return hash(repr(self))
 
-    def __str__(self):
-        if not self.boxes:  # i.e. self is identity.
-            return str(self.id(self.dom))
-
-        def line(scan, box, off):
-            left = "{} @ ".format(self.id(scan[:off])) if scan[:off] else ""
-            right = " @ {}".format(self.id(scan[off + len(box.dom):]))\
-                if scan[off + len(box.dom):] else ""
-            return left + str(box) + right
-        box, off = self.boxes[0], self.offsets[0]
-        result = line(self.dom, box, off)
-        scan = self.dom[:off] + box.cod + self.dom[off + len(box.dom):]
-        for box, off in zip(self.boxes[1:], self.offsets[1:]):
-            result = "{} >> {}".format(result, line(scan, box, off))
-            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-        return result
-
-    def __getitem__(self, key):
+    def __iter__(self):
         """
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, y)
         >>> g0 = Box('g', y @ y, x)
         >>> g1 = g0.dagger()
         >>> d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
-        >>> assert len(d) == 6
-        >>> assert d[1] == d[-5] == f1 @ Id(y @ x)
-        >>> assert d[1:3] == d[1:-3] == f1 @ Id(y @ x) >> g0 @ Id(x)
-        >>> assert d[2:] == d[-4:] == Id(y @ y @ x) >> g0 @ g1 >> f0 @ g0
-        >>> assert d[:2] >> d[2:] == d
-        >>> assert d[::-1] == d.dagger()
-        >>> assert d[1::-1] == d[1:].dagger()
-        >>> assert d[1:4:-1] == d.dagger()[2:5]
+        >>> assert Diagram.compose(*(layer for layer in d)) == d
         """
+        if not self.boxes:
+            yield self.id(self.dom)
+        scan = self.dom
+        for box, off in zip(self.boxes, self.offsets):
+            yield\
+                self.id(scan[:off]) @ box @ self.id(scan[off + len(box.dom):])
+            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+
+    def __str__(self):
+        if len(self) == 1:
+            box, off, scan = self.boxes[0], self.offsets[0], self.dom
+            left = "{} @ ".format(self.id(scan[:off])) if scan[:off] else ""
+            right = " @ {}".format(self.id(scan[off + len(box.dom):]))\
+                if scan[off + len(box.dom):] else ""
+            return left + str(box) + right
+        return ' >> '.join(map(str, self))
+
+    def __getitem__(self, key):
         if isinstance(key, slice):
-            if (key.stop or 0) < 0:
-                return self[key.start: len(self) + key.stop]
-            if (key.start or 0) < 0:
-                return self[len(self) + key.start: key.stop]
             if (key.step or 0) == -1:
-                return self.dagger()[len(self) - (key.stop or len(self)):
-                                     len(self) - (key.start or 0)]
+                return self.dagger()[
+                    None if key.start is None else -key.start - 1:
+                    None if key.stop is None else -key.stop - 1]
             if (key.step or 1) != 1:
                 raise IndexError
-            result = self[key.start or 0]
-            for i in range((key.start or 0) + 1, key.stop or len(self)):
-                result = result >> self[i]
-            return result
+            if key.start is None and key.stop is None:
+                return self
+            return Diagram.compose(*(list(self)[key]))
         if isinstance(key, int):
             if key < 0:
                 return self[len(self) + key]
             if key >= len(self):
                 raise IndexError
-            scan = self.dom
-            for i in range(key):
-                off, box = self.offsets[i], self.boxes[i]
-                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-            off, box = self.offsets[key], self.boxes[key]
-            return Id(scan[:off]) @ box @ Id(scan[off + len(box.dom):])
-        raise ValueError
+            for depth, result in enumerate(self):
+                if depth == key:
+                    return result
+        raise TypeError
 
     def build_graph(self):
         """

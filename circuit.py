@@ -162,9 +162,7 @@ class Circuit(Diagram):
         >>> is_rich = Box('is rich', Ty(), n.r @ s)
         >>> grammar = Cup(n, n.r) @ Diagram.cups(n @ s.l @ n, n.r @ s @ n.r)\\
         ...           @ Diagram.id(s) @ Cup(n.l, n)
-        >>> sentence0 = Cup(n, n.r) @ Diagram.id(s) @ Cup(n.l, n)\\
-        ...             << Alice @ loves @ Bob
-        >>> sentence1 = grammar << Alice @ who @ is_rich @ loves @ Bob
+        >>> sentence = grammar << Alice @ who @ is_rich @ loves @ Bob
         >>> ob = {s: 0, n: 1}
         >>> ar = {Alice: Ket(0),
         ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
@@ -175,10 +173,17 @@ class Circuit(Diagram):
         ...            >> (SWAP >>  CX) @ Circuit.id(1),
         ...       is_rich: Ket(0) >> X}
         >>> F = CircuitFunctor(ob, ar)
-        >>> assert np.allclose(F(sentence0).normal_form().measure(),
-        ...                    F(sentence0).measure())
-        >>> assert np.allclose(F(sentence1).normal_form().measure(),
-        ...                    F(sentence1).measure())
+        >>> circuit = F(sentence).normal_form()
+        >>> for layer in circuit.slice(): print(layer)
+        sqrt(2) >> sqrt(2) >> Ket(0) >> Id(1) @ Ket(0, 0, 0, 0, 0, 0, 0)
+        Id(7) @ X >> Id(6) @ X @ Id(1) >> Id(5) @ H @ Id(2) >> Id(4) @ X @ Id(3) >> Id(2) @ H @ Id(5)
+        Id(5) @ CX @ Id(1) >> Id(2) @ CX @ Id(4)
+        Id(6) @ CX >> Id(1) @ SWAP @ Id(5) >> Id(3) @ CX @ Id(3)
+        Id(7) @ sqrt(2) @ Id(1) >> Id(6) @ H @ Id(1) >> Id(1) @ CX @ Id(5) >> Id(4) @ sqrt(2) @ Id(4) >> Id(3) @ H @ Id(4)
+        Id(6) @ Bra(0, 0) >> CX @ Id(4) >> Id(3) @ Bra(0, 0) @ Id(1)
+        Id(1) @ sqrt(2) @ Id(3) >> H @ Id(3) >> Id(2) @ CX
+        Id(3) @ sqrt(2) @ Id(1) >> Id(2) @ H @ Id(1)
+        Bra(0, 0, 0, 0)
         """
         result = moncat.Diagram.normal_form(self, left=left)
         return Circuit(len(result.dom), len(result.cod), result.boxes,

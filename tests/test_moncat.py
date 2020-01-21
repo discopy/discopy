@@ -61,19 +61,38 @@ def test_Diagram_eq():
     assert Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
 
 
+def test_Diagram_iter():
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x, y), Box('f1', y, y)
+    g0 = Box('g', y @ y, x)
+    g1 = g0.dagger()
+    d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
+    assert Diagram.compose(*(layer for layer in d)) == d
+
+
 def test_Diagram_getitem():
     x, y = Ty('x'), Ty('y')
-    f0, f1 = Box('f0', x @ y, x), Box('f1', x, y)
-    d = f0 @ Id(y @ y) >> f0 @ Id(y) >> f1 @ f1.dagger()
+    f0, f1, g = Box('f0', x, y), Box('f1', y, y), Box('g', y @ y, x)
+    d = (f0 >> f1) @ Id(y @ x) >> g @ g.dagger() >> f0 @ g
+    assert d == f0 @ Id(y @ x)\
+        >> f1 @ Id(y @ x)\
+        >> g @ Id(x)\
+        >> Id(x) @ g.dagger()\
+        >> f0 @ Id(y @ y)\
+        >> Id(y) @ g
+    assert d[:2] == f0 @ Id(y @ x) >> f1 @ Id(y @ x)
+    assert d[-2:] == f0 @ Id(y @ y) >> Id(y) @ g
+    assert d[2:-2] == g @ Id(x) >> Id(x) @ g.dagger()
+    assert d[::-1] == d.dagger()
+    assert d[:2:-1] == d[::-1][:-2 - 1]
+    assert d[2::-1] == d[::-1][-2 - 1:]
+    assert d[4:2:-1] == d[::-1][-4 - 1: -2 - 1]
     with raises(IndexError) as err:
-        d[5]
-    assert "IndexError" in str(err)
+        d[7]
     with raises(IndexError) as err:
         d[1:3:2]
-    assert "IndexError" in str(err)
-    with raises(ValueError) as err:
+    with raises(TypeError) as err:
         d[x]
-    assert "ValueError" in str(err)
 
 
 def test_Diagram_tensor():
