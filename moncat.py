@@ -268,7 +268,7 @@ class Diagram(cat.Diagram):
     def __matmul__(self, other):
         return self.tensor(other)
 
-    def __getitem__(self, item):
+    def __getitem__(self, key):
         """
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
@@ -280,11 +280,11 @@ class Diagram(cat.Diagram):
         >>> assert d[:2].cod == d[2].dom
         """
         if isinstance(key, slice):
-            if key.stop < 0:
+            if (key.stop or 0) < 0:
                 return self[key.start: len(self) + key.stop]
-            if key.start < 0:
+            if (key.start or 0) < 0:
                 return self[len(self) + key.start: key.stop]
-            if key.step or 1 != 1:
+            if (key.step or 1) != 1:
                 raise IndexError
             result = self[key.start or 0]
             for i in range((key.start or 0) + 1, key.stop or len(self)):
