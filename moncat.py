@@ -711,6 +711,7 @@ class Diagram(cat.Diagram):
         >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
         ...      g @ f1 >> f1 @ Id(x)).normal_form()
         >>> assert d.slice().flatten().normal_form() == d
+        >>> assert d.slice().dagger().flatten() == d.slice().flatten().dagger()
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
