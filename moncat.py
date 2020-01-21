@@ -279,19 +279,29 @@ class Diagram(cat.Diagram):
         >>> assert d[:2] >> d[2:] == d
         >>> assert d[:2].cod == d[2].dom
         """
-        if isinstance(item, slice):
-            if item.step or 1 != 1:
-                raise ValueError('Slice has to have step 1')
-            result = self[item.start or 0]
-            for i in range((item.start or 0) + 1, item.stop or len(self)):
+        if isinstance(key, slice):
+            if key.stop < 0:
+                return self[key.start: len(self) + key.stop]
+            if key.start < 0:
+                return self[len(self) + key.start: key.stop]
+            if key.step or 1 != 1:
+                raise IndexError
+            result = self[key.start or 0]
+            for i in range((key.start or 0) + 1, key.stop or len(self)):
                 result = result >> self[i]
             return result
-        scan = self.dom
-        for i in range(item):
-            off, box = self.offsets[i], self.boxes[i]
-            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-        off, box = self.offsets[item], self.boxes[item]
-        return Id(scan[:off]) @ box @ Id(scan[off + len(box.dom):])
+        if isinstance(key, int):
+            if key < 0:
+                return self[len(self) + key]
+            if key >= len(self):
+                raise IndexError
+            scan = self.dom
+            for i in range(key):
+                off, box = self.offsets[i], self.boxes[i]
+                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+            off, box = self.offsets[key], self.boxes[key]
+            return Id(scan[:off]) @ box @ Id(scan[off + len(box.dom):])
+        raise ValueError
 
     def then(self, other):
         """
