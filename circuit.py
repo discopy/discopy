@@ -167,7 +167,8 @@ class Circuit(Diagram):
 
         circuit = self
         slices = self.slice()
-        for kets in moncat.Diagram.normalize(slices[0]):
+        kets = slices[0]
+        for kets in moncat.Diagram.normalize(kets):
             yield kets >> slices[1:].flatten()
         while True:
             fusable = find_kets(kets)
@@ -178,7 +179,8 @@ class Circuit(Diagram):
             yield circuit
 
         slices = circuit.dagger().slice()
-        for bras in moncat.Diagram.normalize(slices[0]):
+        bras = slices[0]
+        for bras in moncat.Diagram.normalize(bras):
             yield (bras >> slices[1:].flatten()).dagger()
         while True:
             fusable = find_kets(bras)
@@ -195,15 +197,27 @@ class Circuit(Diagram):
         >>> Alice = Box('Alice', Ty(), n)
         >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
         >>> Bob = Box('Bob', Ty(), n)
-        >>> grammar = Cup(n, n.r) @ Diagram.id(s) @ Cup(n.l, n)
-        >>> sentence = grammar << Alice @ loves @ Bob
+        >>> who = Box('who', Ty(), n.r @ n @ s.l @ n)
+        >>> is_rich = Box('is rich', Ty(), n.r @ s)
+        >>> grammar = Cup(n, n.r) @ Diagram.cups(n @ s.l @ n, n.r @ s @ n.r)\\
+        ...           @ Diagram.id(s) @ Cup(n.l, n)
+        >>> sentence0 = Cup(n, n.r) @ Diagram.id(s) @ Cup(n.l, n)\\
+        ...             << Alice @ loves @ Bob
+        >>> sentence1 = grammar << Alice @ who @ is_rich @ loves @ Bob
         >>> ob = {s: 0, n: 1}
         >>> ar = {Alice: Ket(0),
         ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
-        ...       Bob: Ket(0) >> X}
+        ...       Bob: Ket(0) >> X,
+        ...       who: sqrt(2) @ Ket(0, 0, 0)\\
+        ...            >> Circuit.id(1) @ H @ Circuit.id(1)\\
+        ...            >> Circuit.id(1) @ CX\\
+        ...            >> (SWAP >>  CX) @ Circuit.id(1),
+        ...       is_rich: Ket(0) >> X}
         >>> F = CircuitFunctor(ob, ar)
-        >>> assert np.allclose(F(sentence).normal_form().measure(),
-        ...                    F(sentence).measure())
+        >>> assert np.allclose(F(sentence0).normal_form().measure(),
+        ...                    F(sentence0).measure())
+        >>> assert np.allclose(F(sentence1).normal_form().measure(),
+        ...                    F(sentence1).measure())
         """
         result = moncat.Diagram.normal_form(self, left=left)
         return Circuit(len(result.dom), len(result.cod), result.boxes,

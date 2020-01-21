@@ -61,6 +61,21 @@ def test_Diagram_eq():
     assert Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
 
 
+def test_Diagram_getitem():
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x @ y, x), Box('f1', x, y)
+    d = f0 @ Id(y @ y) >> f0 @ Id(y) >> f1 @ f1.dagger()
+    with raises(IndexError) as err:
+        d[5]
+    assert "IndexError" in str(err)
+    with raises(IndexError) as err:
+        d[1:3:2]
+    assert "IndexError" in str(err)
+    with raises(ValueError) as err:
+        d[x]
+    assert "ValueError" in str(err)
+
+
 def test_Diagram_tensor():
     with raises(TypeError) as err:
         Id(Ty('x')) @ Ty('x')

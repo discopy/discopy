@@ -270,20 +270,28 @@ class Diagram(cat.Diagram):
 
     def __getitem__(self, key):
         """
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
-        >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
-        >>> assert d[1] == Id(y) @ f1
-        >>> assert d[1:3] == Id(y) @ f1 >> g == d[1:]
-        >>> assert d[:2] == f0 @ f1
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, y)
+        >>> g0 = Box('g', y @ y, x)
+        >>> g1 = g0.dagger()
+        >>> d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
+        >>> assert len(d) == 6
+        >>> assert d[1] == d[-5] == f1 @ Id(y @ x)
+        >>> assert d[1:3] == d[1:-3] == f1 @ Id(y @ x) >> g0 @ Id(x)
+        >>> assert d[2:] == d[-4:] == Id(y @ y @ x) >> g0 @ g1 >> f0 @ g0
         >>> assert d[:2] >> d[2:] == d
-        >>> assert d[:2].cod == d[2].dom
+        >>> assert d[::-1] == d.dagger()
+        >>> assert d[1::-1] == d[1:].dagger()
+        >>> assert d[1:4:-1] == d.dagger()[2:5]
         """
         if isinstance(key, slice):
             if (key.stop or 0) < 0:
                 return self[key.start: len(self) + key.stop]
             if (key.start or 0) < 0:
                 return self[len(self) + key.start: key.stop]
+            if (key.step or 0) == -1:
+                return self.dagger()[len(self) - (key.stop or len(self)):
+                                     len(self) - (key.start or 0)]
             if (key.step or 1) != 1:
                 raise IndexError
             result = self[key.start or 0]
@@ -719,24 +727,20 @@ class Diagram(cat.Diagram):
         >>> assert d.slice().boxes[0].normal_form() == f0 @ f1
         >>> assert d.slice().flatten().normal_form() == d
         """
-        diagram = self
-        slices = []
-        dom, cod, i = diagram.dom, diagram.dom, 0
-        while i < len(diagram):
-            dom, n_boxes = cod, 0
+        def find_slice(diagram, i):
+            n_boxes = 0
             for j in range(i + 1, len(diagram)):
                 try:
                     diagram = diagram.interchange(j, i)
                     n_boxes += 1
                 except InterchangerError:
                     pass
-            for j in range(i, i + n_boxes + 1):
-                box, off = diagram.boxes[j], diagram.offsets[j]
-                cod = cod[:off] + box.cod + cod[off + len(box.dom):]
-            slices.append(Diagram(dom, cod,
-                                  diagram.boxes[i: i + n_boxes + 1],
-                                  diagram.offsets[i: i + n_boxes + 1],
-                                  _fast=True))
+            return diagram, n_boxes
+        diagram = self
+        slices, i = [], 0
+        while i < len(diagram):
+            diagram, n_boxes = find_slice(diagram, i)
+            slices += [diagram[i: i + n_boxes + 1]]
             i += n_boxes + 1
         return Diagram(self.dom, self.cod, slices, len(slices) * [0],
                        _fast=True)
