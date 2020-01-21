@@ -68,6 +68,14 @@ class Circuit(Diagram):
     """
     Implements quantum circuits as diagrams.
     """
+    @staticmethod
+    def _upgrade(diagram):
+        """
+        Takes a diagram and returns a circuit.
+        """
+        return Circuit(len(diagram.dom), len(diagram.cod),
+                       diagram.boxes, diagram.offsets, _fast=True)
+
     def __init__(self, dom, cod, gates, offsets, _fast=False):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
@@ -95,53 +103,6 @@ class Circuit(Diagram):
         [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
         """
         return self._gates
-
-    def then(self, other):
-        """
-        >>> print(SWAP >> CX)
-        SWAP >> CX
-        """
-        result = super().then(other)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def tensor(self, other):
-        """
-        >>> print(CX @ H)
-        CX @ Id(1) >> Id(2) @ H
-        """
-        result = super().tensor(other)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def dagger(self):
-        """
-        >>> print((CX >> SWAP).dagger())
-        SWAP >> CX
-        """
-        result = super().dagger()
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def __getitem__(self, item):
-        """
-        >>> assert isinstance((CX >> Rx(1.0) @ X >> CX)[2:], Circuit)
-        """
-        result = super().__getitem__(item)
-        return Circuit(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def interchange(self, i, j, left=False):
-        """
-        >>> circuit = Id(1) @ X >> X @ Id(1)
-        >>> print(circuit.interchange(0, 1))
-        X @ Id(1) >> Id(1) @ X
-        >>> print(circuit.interchange(0, 1).interchange(0, 1, left=True))
-        Id(1) @ X >> X @ Id(1)
-        """
-        result = super().interchange(i, j, left=left)
-        return Circuit(PRO(len(result.dom)), PRO(len(result.cod)),
-                       result.boxes, result.offsets, _fast=True)
 
     def normalize(self, left=False):
         """
@@ -252,28 +213,28 @@ class Circuit(Diagram):
         return Id(x)
 
     @staticmethod
-    def cups(x, y):
+    def cups(left, right):
         """
         >>> list(np.round(Circuit.cups(PRO(1), PRO(1)).eval().array.flatten()))
         [1.0, 0.0, 0.0, 1.0]
         """
-        if not isinstance(x, PRO):
-            raise TypeError(messages.type_err(PRO, x))
-        if not isinstance(y, PRO):
-            raise TypeError(messages.type_err(PRO, y))
-        result = Id(x @ y)
+        if not isinstance(left, PRO):
+            raise TypeError(messages.type_err(PRO, left))
+        if not isinstance(right, PRO):
+            raise TypeError(messages.type_err(PRO, right))
+        result = Id(left @ right)
         cup = CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
-        for i in range(1, len(x) + 1):
-            result = result >> Id(len(x) - i) @ cup @ Id(len(x) - i)
+        for i in range(1, len(left) + 1):
+            result = result >> Id(len(left) - i) @ cup @ Id(len(left) - i)
         return result
 
     @staticmethod
-    def caps(x, y):
+    def caps(left, right):
         """
         >>> list(np.round(Circuit.caps(PRO(1), PRO(1)).eval().array.flatten()))
         [1.0, 0.0, 0.0, 1.0]
         """
-        return Circuit.cups(x, y).dagger()
+        return Circuit.cups(left, right).dagger()
 
     def eval(self):
         """
@@ -742,12 +703,12 @@ class CircuitFunctor(RigidFunctor):
         return result
 
 
-def sqrt(x):
+def sqrt(real):
     """
     >>> sqrt(2)  # doctest: +ELLIPSIS
     Gate('sqrt(2)', 0, [1.41...])
     """
-    return Gate('sqrt({})'.format(x), 0, np.sqrt(x), _dagger=None)
+    return Gate('sqrt({})'.format(real), 0, np.sqrt(real), _dagger=None)
 
 
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,

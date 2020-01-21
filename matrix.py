@@ -14,7 +14,7 @@ Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 
 from functools import reduce as fold
 from discopy import messages
-from discopy.cat import Quiver, AxiomError
+from discopy.cat import AxiomError
 from discopy.rigidcat import Ob, Ty, Box, Cup, Cap, Diagram, RigidFunctor
 
 try:
@@ -33,13 +33,13 @@ class Dim(Ty):
     >>> Dim(1) @ Dim(2) @ Dim(3)
     Dim(2, 3)
     """
-    def __init__(self, *xs):
-        for x in xs:
-            if not isinstance(x, int):
-                raise TypeError(messages.type_err(int, x))
-            if x < 1:
+    def __init__(self, *dims):
+        for dim in dims:
+            if not isinstance(dim, int):
+                raise TypeError(messages.type_err(int, dim))
+            if dim < 1:
                 raise ValueError
-        super().__init__(*[Ob(x) for x in xs if x > 1])
+        super().__init__(*[Ob(dim) for dim in dims if dim > 1])
 
     def tensor(self, other):
         return Dim(*[x.name for x in super().tensor(other)])
@@ -138,18 +138,18 @@ class Matrix(Box):
         return Id(x)
 
     @staticmethod
-    def cups(x, y):
-        if not isinstance(x, Dim):
-            raise TypeError(messages.type_err(Dim, x))
-        if not isinstance(y, Dim):
-            raise TypeError(messages.type_err(Dim, y))
-        if x.r != y:
-            raise AxiomError(messages.are_not_adjoints(x, y))
-        return Matrix(x @ y, Dim(1), Id(x).array)
+    def cups(left, right):
+        if not isinstance(left, Dim):
+            raise TypeError(messages.type_err(Dim, left))
+        if not isinstance(right, Dim):
+            raise TypeError(messages.type_err(Dim, right))
+        if left.r != right:
+            raise AxiomError(messages.are_not_adjoints(left, right))
+        return Matrix(left @ right, Dim(1), Id(left).array)
 
     @staticmethod
-    def caps(x, y):
-        return Matrix.cups(x, y).dagger()
+    def caps(left, right):
+        return Matrix.cups(left, right).dagger()
 
 
 class Id(Matrix):

@@ -22,7 +22,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 
 import os
 import tempfile
-from PIL import Image, ImageDraw
+from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
@@ -73,7 +73,7 @@ class Ty(Ob):
         >>> assert t[1:] == Ty('y', 'z')
 
         """
-        return self._objects
+        return list(self._objects)
 
     def tensor(self, other):
         """
@@ -108,7 +108,8 @@ class Ty(Ob):
         return Ty(*(self.objects + other.objects))
 
     def __init__(self, *objects):
-        self._objects = [x if isinstance(x, Ob) else Ob(x) for x in objects]
+        self._objects = tuple(
+            x if isinstance(x, Ob) else Ob(x) for x in objects)
         super().__init__(str(self))
 
     def __eq__(self, other):
@@ -197,12 +198,55 @@ class Diagram(cat.Diagram):
         super().__init__(dom, cod, [], _fast=True)
         self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
+    def then(self, other):
+        return Diagram(self.dom, other.cod,
+                       self.boxes + other.boxes,
+                       self.offsets + other.offsets, _fast=True)
+
+    def dagger(self):
+        return Diagram(self.cod, self.dom,
+                       [f.dagger() for f in self.boxes[::-1]],
+                       self.offsets[::-1], _fast=True)
+
+    @staticmethod
+    def id(x):
+        return Id(x)
+
     @property
     def offsets(self):
         """
         The offset for a box in a diagram is the number of wires to its left.
         """
         return list(self._offsets)
+
+    def tensor(self, other):
+        """
+        Returns the horizontal composition of 'self' with a diagram 'other'.
+
+        This method is called using the binary operator `@`:
+
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+        >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
+
+        Parameters
+        ----------
+        other : discopy.moncat.Diagram
+
+        Returns
+        -------
+        diagram : discopy.moncat.Diagram
+            the tensor of 'self' and 'other'.
+        """
+        if not isinstance(other, Diagram):
+            raise TypeError(messages.type_err(Diagram, other))
+        dom, cod = self.dom + other.dom, self.cod + other.cod
+        boxes = self.boxes + other.boxes
+        offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
+        return Diagram(dom, cod, boxes, offsets, _fast=True)
+
+    def __matmul__(self, other):
+        return self.tensor(other)
 
     def __eq__(self, other):
         if not isinstance(other, Diagram):
@@ -238,35 +282,6 @@ class Diagram(cat.Diagram):
             result = "{} >> {}".format(result, line(scan, box, off))
             scan = scan[:off] + box.cod + scan[off + len(box.dom):]
         return result
-
-    def tensor(self, other):
-        """
-        Returns the horizontal composition of 'self' with a diagram 'other'.
-
-        This method is called using the binary operator `@`:
-
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
-
-        Parameters
-        ----------
-        other : discopy.moncat.Diagram
-
-        Returns
-        -------
-        diagram : discopy.moncat.Diagram
-            the tensor of 'self' and 'other'.
-        """
-        if not isinstance(other, Diagram):
-            raise TypeError(messages.type_err(Diagram, other))
-        dom, cod = self.dom + other.dom, self.cod + other.cod
-        boxes = self.boxes + other.boxes
-        offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        return Diagram(dom, cod, boxes, offsets, _fast=True)
-
-    def __matmul__(self, other):
-        return self.tensor(other)
 
     def __getitem__(self, key):
         """
@@ -310,74 +325,6 @@ class Diagram(cat.Diagram):
             off, box = self.offsets[key], self.boxes[key]
             return Id(scan[:off]) @ box @ Id(scan[off + len(box.dom):])
         raise ValueError
-
-    def then(self, other):
-        """
-        Returns the composition of `self` with a diagram `other`.
-
-        This method is called using the binary operators `>>` and `<<`:
-
-        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
-        >>> assert Id(x) @ f1 >> f0 @ Id(w) == f0 @ Id(w) << Id(x) @ f1
-
-        Parameters
-        ----------
-        other : discopy.moncat.Diagram
-            such that `self.cod == other.dom`.
-
-        Returns
-        -------
-        diagram : discopy.moncat.Diagram
-            such that `diagram.boxes == self.boxes + other.boxes`.
-
-        Raises
-        ------
-        :class:`discopy.moncat.AxiomError`
-            whenever `self` and `other` do not compose.
-        """
-        result = super().then(other)
-        return Diagram(result.dom, result.cod, result.boxes,
-                       self.offsets + other.offsets, _fast=True)
-
-    def dagger(self):
-        """
-        Returns the dagger of `self`.
-
-        Returns
-        -------
-        diagram : discopy.moncat.Diagram
-            such that
-            `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
-
-        Notes
-        -----
-        We can check the axioms of dagger (i.e. a contravariant involutive
-        identity-on-objects endofunctor):
-
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> f, g = Box('f', x, y @ z), Box('g', y @ z, z)
-        >>> assert f.dagger().dagger() == f
-        >>> assert Id(x).dagger() == Id(x)
-        >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
-        """
-        return Diagram(self.cod, self.dom,
-                       [f.dagger() for f in self.boxes[::-1]],
-                       self.offsets[::-1], _fast=True)
-
-    @staticmethod
-    def id(x):
-        """
-        Returns the identity diagram on x.
-
-        >>> assert Diagram.id(Ty('x')) == Id(Ty('x')) ==\\
-        ...                               Diagram(Ty('x'), Ty('x'), [], [])
-
-        :param x: Any type
-        :type x: :class:`discopy.moncat.Ty`
-        :returns: :class:`discopy.moncat.Id`
-        """
-        return Id(x)
 
     def build_graph(self):
         """
@@ -480,6 +427,8 @@ class Diagram(cat.Diagram):
             Whether to draw type labels, default is :code:`False`.
         aspect : string, optional
             Aspect ratio, one of :code:`['equal', 'auto']`.
+        margins : tuple, optional
+            Margins, default is :code:`(0.05, 0.05)`.
         fontsize : int, optional
             Font size for the boxes, default is :code:`12`.
         fontsize_types : int, optional
@@ -489,17 +438,6 @@ class Diagram(cat.Diagram):
         path : str, optional
             Where to save the image, if `None` we call :code:`plt.show()`.
         """
-        path = params.get('path', None)
-        aspect = params.get('aspect', 'equal')
-        margins = params.get('margins', None)
-        figsize = params.get('figsize', None)
-        fontsize = params.get('fontsize', 12)
-        fontsize_types = params.get('fontsize_types', fontsize)
-        draw_types = params.get('draw_types', True)
-        textpad = params.get('textpad', .1)
-        draw_as_nodes = params.get('draw_as_nodes', False)
-        color = params.get('color', '#ff0000' if draw_as_nodes else '#ffffff')
-
         graph, positions, labels = self.build_graph()
 
         def draw_box(box, depth, axis):
@@ -531,9 +469,11 @@ class Diagram(cat.Diagram):
                 [(left, height), (right, height),
                  (right, height + .5), (left, height + .5), (left, height)],
                 [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY])
-            axis.add_patch(PathPatch(path, facecolor=color))
+            axis.add_patch(PathPatch(
+                path, facecolor=params.get('color', '#ffffff')))
             axis.text(positions[node][0], positions[node][1], labels[node],
-                      ha='center', va='center', fontsize=fontsize)
+                      ha='center', va='center',
+                      fontsize=params.get('fontsize', 12))
 
         def draw_wires(axis):
             for case in ['input', 'output', 'wire_dom', 'wire_cod']:
@@ -542,43 +482,47 @@ class Diagram(cat.Diagram):
                     graph, positions, nodelist=nodes, node_size=0, ax=axis)
                 for node in nodes:
                     i, j = positions[node]
-                    if draw_types and case in ['input', 'wire_cod']:
+                    if params.get('draw_types', True)\
+                            and case in ['input', 'wire_cod']:
                         if node in labels.keys():
                             axis.text(
-                                i + textpad,
-                                j - (textpad if case == 'input' else 0),
+                                i + params.get('textpad', .1),
+                                j - (params.get('textpad', .1)
+                                     if case == 'input' else 0),
                                 labels[node],
-                                fontsize=fontsize_types)
-                    if not draw_as_nodes and case == 'wire_dom':
-                        positions[node] = (i, j - .25)
-                    if not draw_as_nodes and case == 'wire_cod':
-                        positions[node] = (i, j + .25)
+                                fontsize=params.get(
+                                    'fontsize_types',
+                                    params.get('fontsize', 12)))
+                    if not params.get('draw_as_nodes', False):
+                        if case == 'wire_dom':
+                            positions[node] = (i, j - .25)
+                        elif case == 'wire_cod':
+                            positions[node] = (i, j + .25)
             for node0, node1 in graph.edges():
                 source, target = positions[node0], positions[node1]
                 path = Path([source, (target[0], source[1]), target],
                             [Path.MOVETO, Path.CURVE3, Path.CURVE3])
                 axis.add_patch(PathPatch(path, facecolor='none'))
-        _, axis = plt.subplots(figsize=figsize)
+        _, axis = plt.subplots(figsize=params.get('figsize', None))
         draw_wires(axis)
-        if draw_as_nodes:
+        if params.get('draw_as_nodes', False):
             boxes = [node for node in graph.nodes if node[:3] == 'box']
-            nx.draw_networkx_nodes(graph, positions, nodelist=boxes,
-                                   node_color=color, ax=axis)
+            nx.draw_networkx_nodes(
+                graph, positions, nodelist=boxes,
+                node_color=params.get('color', '#ff0000'), ax=axis)
             nx.draw_networkx_labels(
                 graph, positions,
                 {n: l for n, l in labels.items() if n in boxes})
         else:
             for depth, box in enumerate(self.boxes):
                 draw_box(box, depth, axis)
-        if margins is not None:
-            plt.margins(*margins)
+        plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        axis.set_aspect(aspect)
+        axis.set_aspect(params.get('aspect', 'equal'))
         plt.axis("off")
-        axis.autoscale(enable=True, axis='both', tight=False)
-        if path is not None:
-            plt.savefig(path)
+        if 'path' in params.keys():
+            plt.savefig(params['path'])
             plt.close()
         plt.show()
 
@@ -776,19 +720,19 @@ class Diagram(cat.Diagram):
         return width
 
 
-def spiral(n_cups, ty=Ty('x')):
+def spiral(n_cups, _type=Ty('x')):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
     """
-    unit, counit = Box('', Ty(), ty), Box('', ty, Ty())
-    cup, cap = Box('', ty @ ty, Ty()), Box('', Ty(), ty @ ty)
+    unit, counit = Box('', Ty(), _type), Box('', _type, Ty())
+    cup, cap = Box('', _type @ _type, Ty()), Box('', Ty(), _type @ _type)
     result = unit
     for i in range(n_cups):
-        result = result >> Id(ty ** i) @ cap @ Id(ty ** (i + 1))
-    result = result >> Id(ty ** n_cups) @ counit @ Id(ty ** n_cups)
+        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
+    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
     for i in range(n_cups):
         result = result >>\
-            Id(ty ** (n_cups - i - 1)) @ cup @ Id(ty ** (n_cups - i - 1))
+            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
     return result
 
 
