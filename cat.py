@@ -242,6 +242,34 @@ class Diagram:
     def __lshift__(self, other):
         return other.then(self)
 
+    def compose(self, *others, backwards=False):
+        """
+        Returns the composition of self with a list of other diagrams.
+
+        Parameters
+        ----------
+        others : list
+            Other diagrams.
+        backwards : bool, optional
+            Whether to compose in reverse, default is :code`False`.
+
+        Returns
+        -------
+        diagram : cat.Diagram
+            Such that :code:`diagram == self >> others[0] >> ... >> others[-1]`
+            if :code:`backwards` else
+            :code:`diagram == self << others[0] << ... << others[-1]`.
+
+        Examples
+        --------
+        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+        >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+        >>> assert Diagram.compose(f, g, h) == f >> g >> h
+        >>> assert f.compose(g, h) == Id(x).compose(f, g, h) == f >> g >> h
+        >>> assert h.compose(g, f, backwards=True) == h << g << f
+        """
+        return fold(lambda f, g: f << g if backwards else f >> g, others, self)
+
     def dagger(self):
         """
         Returns the dagger of `self`.
@@ -250,7 +278,7 @@ class Diagram:
         -------
         diagram : cat.Diagram
             such that
-            `diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
+            :code:`diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
 
         Notes
         -----
@@ -481,8 +509,8 @@ class Functor:
                 return self.ar[diagram.dagger()].dagger()
             return self.ar[diagram]
         if isinstance(diagram, Diagram):
-            return fold(lambda g, h: g >> self(h),
-                        diagram.boxes, self.ar_cls.id(self(diagram.dom)))
+            return self.ar_cls.id(self(diagram.dom)).compose(
+                *map(self, diagram.boxes))
         raise TypeError(messages.type_err(Diagram, diagram))
 
 

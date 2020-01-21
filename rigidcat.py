@@ -106,26 +106,31 @@ class Diagram(moncat.Diagram):
     >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
     Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     """
-    def then(self, other):
-        result = super().then(other)
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def tensor(self, other):
-        result = super().tensor(other)
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
-    def dagger(self):
-        result = super().dagger()
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
+    @staticmethod
+    def _upgrade(diagram):
+        """
+        Takes a moncat.Diagram and returns a rigidcat.Diagram.
+        """
+        return Diagram(Ty(*diagram.dom), Ty(*diagram.cod),
+                       diagram.boxes, diagram.offsets, _fast=True)
 
     @staticmethod
     def id(x):
         return Id(x)
 
-    def __getitem__(self, item):
+    def then(self, other):
+        return self._upgrade(super().then(other))
+
+    def tensor(self, other):
+        return self._upgrade(super().tensor(other))
+
+    def dagger(self):
+        return self._upgrade(super().dagger())
+
+    def interchange(self, i, j, left=False):
+        return self._upgrade(super().interchange(i, j, left=left))
+
+    def __getitem__(self, key):
         """
         >>> n, s = Ty('n'), Ty('s')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
@@ -135,9 +140,7 @@ class Diagram(moncat.Diagram):
         >>> assert diagram[3:] == Id(n @ n.r) @ f >> cup @ h
         >>> assert diagram[:2] >> diagram[2:] == diagram
         """
-        result = moncat.Diagram.__getitem__(self, item)
-        return Diagram(result.dom, result.cod, result.boxes, result.offsets,
-                       _fast=True)
+        return self._upgrade(super().__getitem__(key))
 
     def build_graph(self):
         """
@@ -155,7 +158,7 @@ class Diagram(moncat.Diagram):
         return graph, positions, labels
 
     @staticmethod
-    def cups(x, y):
+    def cups(left, right):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -163,19 +166,19 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
         ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
         """
-        if not isinstance(x, Ty):
-            raise TypeError(messages.type_err(Ty, x))
-        if not isinstance(y, Ty):
-            raise TypeError(messages.type_err(Ty, y))
-        cups = Id(x @ y)
-        for i in range(len(x)):
-            j = len(x) - i - 1
-            cups = cups\
-                >> Id(x[:j]) @ Cup(x[j:j + 1], y[i:i + 1]) @ Id(y[i + 1:])
+        if not isinstance(left, Ty):
+            raise TypeError(messages.type_err(Ty, left))
+        if not isinstance(right, Ty):
+            raise TypeError(messages.type_err(Ty, right))
+        cups = Id(left @ right)
+        for i in range(len(left)):
+            j = len(left) - i - 1
+            cup = Cup(left[j:j + 1], right[i:i + 1])
+            cups = cups >> Id(left[:j]) @ cup @ Id(right[i + 1:])
         return cups
 
     @staticmethod
-    def caps(x, y):
+    def caps(left, right):
         """ Constructs nested cups witnessing adjointness of x and y
 
         >>> a, b = Ty('a'), Ty('b')
@@ -183,15 +186,15 @@ class Diagram(moncat.Diagram):
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        if not isinstance(x, Ty):
-            raise TypeError(messages.type_err(Ty, x))
-        if not isinstance(y, Ty):
-            raise TypeError(messages.type_err(Ty, y))
-        caps = Id(x @ y)
-        for i in range(len(x)):
-            j = len(x) - i - 1
-            caps = caps\
-                << Id(x[:j]) @ Cap(x[j:j + 1], y[i:i + 1]) @ Id(y[i + 1:])
+        if not isinstance(left, Ty):
+            raise TypeError(messages.type_err(Ty, left))
+        if not isinstance(right, Ty):
+            raise TypeError(messages.type_err(Ty, right))
+        caps = Id(left @ right)
+        for i in range(len(left)):
+            j = len(left) - i - 1
+            cap = Cap(left[j:j + 1], right[i:i + 1])
+            caps = caps << Id(left[:j]) @ cap @ Id(right[i + 1:])
         return caps
 
     def transpose_r(self):
@@ -224,21 +227,6 @@ class Diagram(moncat.Diagram):
             >> Id(self.cod.l) @ self @ Id(self.dom.l)\
             >> Diagram.cups(self.cod.l, self.cod) @ Id(self.dom.l)
 
-    def interchange(self, i, j, left=False):
-        """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x.r, y.l)
-        >>> d = (f @ f.dagger()).interchange(0, 1)
-        >>> assert d == Id(x.r) @ f.dagger() >> f @ Id(x.r)
-        >>> print((Cup(x, x.r) >> Cap(x, x.l)).interchange(0, 1))
-        Cap(x, x.l) @ Id(x @ x.r) >> Id(x @ x.l) @ Cup(x, x.r)
-        >>> print((Cup(x, x.r) >> Cap(x, x.l)).interchange(0, 1, left=True))
-        Id(x @ x.r) @ Cap(x, x.l) >> Cup(x, x.r) @ Id(x @ x.l)
-        """
-        result = super().interchange(i, j, left=left)
-        return Diagram(Ty(*result.dom), Ty(*result.cod),
-                       result.boxes, result.offsets, _fast=True)
-
     def normalize(self, left=False):
         """
         Return a generator which yields normalization steps.
@@ -259,7 +247,7 @@ class Diagram(moncat.Diagram):
             - i is the index of the box which takes this wire as input, or
             len(diagram) if it is connected to the bottom boundary.
             - j is the offset of the wire at its bottom end.
-            - obstructions is a pair of lists of indices for the diagrams on
+            - obstructions is a pair of lists of indices for the boxes on
             the left and right of the wire we followed.
             """
             left_obstruction, right_obstruction = [], []
@@ -275,7 +263,7 @@ class Diagram(moncat.Diagram):
                     right_obstruction.append(i)
             return len(diagram), j, (left_obstruction, right_obstruction)
 
-        def find_move(diagram):
+        def find_snake(diagram):
             """
             Given a diagram, returns (cup, cap, obstructions, left_snake)
             if there is a yankable pair, otherwise returns None.
@@ -297,7 +285,7 @@ class Diagram(moncat.Diagram):
                     return cup, cap, obstructions, left_snake
             return None
 
-        def move(diagram, cup, cap, obstructions, left_snake=False):
+        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
             """
             Given a diagram and the indices for a cup and cap pair
             and a pair of lists of obstructions on the left and right,
@@ -337,10 +325,10 @@ class Diagram(moncat.Diagram):
 
         diagram = self
         while True:
-            yankable = find_move(diagram)
+            yankable = find_snake(diagram)
             if yankable is None:
                 break
-            for _diagram in move(diagram, *yankable):
+            for _diagram in unsnake(diagram, *yankable):
                 yield _diagram
                 diagram = _diagram
         for _diagram in moncat.Diagram.normalize(diagram, left=left):
