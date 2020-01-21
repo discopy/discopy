@@ -178,10 +178,8 @@ def test_Diagram_normal_form():
 def test_AxiomError():
     with raises(AxiomError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert str(err.value) == messages.does_not_compose(Ty('y'), Ty('x'))
     with raises(AxiomError) as err:
         Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert str(err.value) == messages.does_not_compose(Ty('y'), Ty('x'))
 
 
 def test_InterchangerError():
