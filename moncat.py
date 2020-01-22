@@ -334,18 +334,13 @@ class Diagram(cat.Diagram):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            if (key.step or 0) == -1:
-                return self.dagger()[
-                    None if key.start is None else -key.start - 1:
-                    None if key.stop is None else -key.stop - 1]
             layers = self._scan[key]
-            return self.id(layers.dom).compose(
-                *(self.id(left) @ box @ self.id(right)
-                  for left, box, right in layers))
-        if isinstance(key, int):
-            left, box, right = self._scan[key]
-            return self.id(left) @ box @ self.id(right)
-        raise TypeError
+            boxes_and_offsets = tuple(zip(*(
+                (box, len(left)) for left, box, _ in layers))) or ([], [])
+            inputs = (layers.dom, layers.cod) + boxes_and_offsets
+            return Diagram(*inputs, _scan=layers)
+        left, box, right = self._scan[key]
+        return self.id(left) @ box @ self.id(right)
 
     def build_graph(self):
         """

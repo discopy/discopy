@@ -184,24 +184,18 @@ class Diagram:
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            if (key.step or 0) == -1:
-                return self.dagger()[
-                    None if key.start is None else -key.start - 1:
-                    None if key.stop is None else -key.stop - 1]
+            if key.step == -1:
+                boxes = [box[::-1] for box in self.boxes[key]]
+                return Diagram(self.cod, self.dom, boxes, _scan=True)
             if (key.step or 1) != 1:
                 raise IndexError
-            if key.start is None and key.stop is None:
-                return self
-            dom = self.cod if (key.start or 0) >= len(self.boxes)\
-                else self.boxes[key.start or 0].dom
-            return Id(dom).compose(*self.boxes[key])
-        if isinstance(key, int):
-            if key < 0:
-                return self[len(self) + key]
-            if key >= len(self):
-                raise IndexError
-            return self.boxes[key]
-        raise TypeError
+            boxes = self.boxes[key]
+            if not boxes:
+                if (key.start or 0) >= len(self):
+                    return Id(self.cod)
+                return Id(self.boxes[key.start or 0].dom)
+            return Diagram(boxes[0].dom, boxes[-1].cod, boxes, _scan=True)
+        return self.boxes[key]
 
     def __len__(self):
         return len(self.boxes)
@@ -331,8 +325,7 @@ class Diagram:
         >>> assert Id(x).dagger() == Id(x)
         >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
         """
-        boxes = [f.dagger() for f in self.boxes[::-1]]
-        return Diagram(self.cod, self.dom, boxes, _scan=False)
+        return self[::-1]
 
     @staticmethod
     def id(x):
@@ -393,6 +386,7 @@ class Box(Diagram):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f == Diagram(x, y, [f])
     >>> assert f.boxes == [f]
+    >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
 
     Parameters
     ----------
@@ -412,6 +406,11 @@ class Box(Diagram):
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
         Diagram.__init__(self, dom, cod, [self], _scan=False)
+
+    def __getitem__(self, key):
+        if key.step == -1 and key.start is None and key.stop is None:
+            return self.dagger()
+        return super().__getitem__(key)
 
     @property
     def name(self):
