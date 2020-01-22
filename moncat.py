@@ -593,6 +593,18 @@ class Diagram(cat.Diagram):
         """
         Implements normalisation of connected diagrams, see arXiv:1804.07832.
         By default, we apply only right exchange moves.
+
+        A corner case of normal_form():
+
+        >>> ket = Box('ket', Ty(), Ty('x'))
+        >>> scalar, scalar1 = Box('scalar', Ty(), Ty()), Box('scalar1', Ty(), Ty())
+        >>> (scalar @ scalar1).normal_form()  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: scalar >> scalar1 is not connected.
+        >>> diagram0 = ket @ scalar @ ket @ scalar
+        >>> diagram1 = scalar @ ket @ scalar @ ket
+        >>> assert diagram0.normal_form() != diagram1.normal_form()
         """
         diagram, cache = self, set()
         for _diagram in self.normalize(left=left):
@@ -652,25 +664,30 @@ class Diagram(cat.Diagram):
         >>> g = Box('g', x @ y, y)
         >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
         ...      g @ f1 >> f1 @ Id(x)).normal_form()
-        >>> assert d.slice().flatten().normal_form() == d
-        >>> assert d.slice().dagger().flatten() == d.slice().flatten().dagger()
+        >>> assert d.foliation().flatten().normal_form() == d
+        >>> assert d.foliation().dagger().flatten() == d.foliation().flatten().dagger()
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
-    def slice(self):
+    def foliate(self, i=0):
         """
-        Returns a diagram with diagrams of depth 1 as boxes such that its
-        flattening gives the original diagram back, up to normal form.
+        Generator yielding the slices for a foliation of self.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> d = f0 @ Id(y) >> f0.dagger() @ f1
-        >>> assert d.slice().flatten().normal_form()\\
-        ...        == (f0 @ f1 >> f0.dagger() @ Id(x)).normal_form()
-        >>> assert d.slice().boxes[0].normal_form() == f0 @ f1
-        >>> assert d.slice().flatten().normal_form() == d
+        >>> d = (f0 @ Id(y) >> f0.dagger() @ f1) @ (f0 >> f1)
+        >>> gen = d.foliate()
+        >>> print(next(gen))
+        Id(x @ y) @ f0 >> Id(x) @ f1 @ Id(y) >> f0 @ Id(x @ y)
+        >>> ket = Box('ket', Ty(), x)
+        >>> scalar = Box('scalar', Ty(), Ty())
+        >>> kets = ket @ scalar @ ket @ scalar
+        >>> a = next(kets.foliate())
+        >>> print(a)
+        scalar >> ket >> Id(x) @ scalar >> ket @ Id(x)
         """
-        def find_slice(diagram, i):
+        diagram = self
+        while i < len(diagram):
             n_boxes = 0
             for j in range(i + 1, len(diagram)):
                 try:
@@ -678,14 +695,30 @@ class Diagram(cat.Diagram):
                     n_boxes += 1
                 except InterchangerError:
                     pass
-            return diagram, n_boxes
-        diagram = self
-        slices, i = [], 0
-        while i < len(diagram):
-            diagram, n_boxes = find_slice(diagram, i)
-            slices += [diagram[i: i + n_boxes + 1]]
+            yield diagram[i: i + n_boxes + 1]
             i += n_boxes + 1
-        return Diagram(self.dom, self.cod, slices, len(slices) * [0],
+
+    def foliation(self):
+        """
+        Returns a diagram with diagrams of depth 1 as boxes such that its
+        flattening gives the original diagram back, up to normal form.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> d = f0 @ Id(y) >> f0.dagger() @ f1
+        >>> assert d.foliation().boxes[0] == f0 @ f1
+        >>> assert d.foliation().flatten().normal_form() == d
+        >>> assert d.foliation().flatten() == d[::-1].foliation()[::-1].flatten()\\
+        ...        == d[::-1].foliation().flatten()[::-1]
+
+        This method calls the normal_form for each slice, making it idempotent.
+
+        >>> assert d.foliation().flatten().foliation() == d.foliation()
+        """
+        foliation = []
+        for slice in self.foliate(0):
+            foliation.append(slice.normal_form())
+        return Diagram(self.dom, self.cod, foliation, len(foliation) * [0],
                        _scan=None)
 
     def depth(self):
@@ -699,7 +732,7 @@ class Diagram(cat.Diagram):
         >>> assert (f @ g).depth() == 1
         >>> assert (f >> g).depth() == 2
         """
-        return len(self.slice())
+        return sum(1 for i in self.foliate())
 
     def width(self):
         """
