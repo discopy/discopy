@@ -81,8 +81,7 @@ def test_Diagram_getitem():
         diagram[::-2]
     assert diagram[:] == diagram
     assert diagram[::-1] == diagram.dagger()
-    assert diagram[:0] == Id(diagram.dom)
-    assert diagram[8:] == Id(diagram.cod)
+    assert diagram[:0] == diagram[:-8] == diagram[-9:-9] == Id(diagram.dom)
     for depth, box in enumerate(diagram):
         assert diagram[depth] == box
         assert diagram[-depth] == diagram.boxes[-depth]

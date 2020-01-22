@@ -193,6 +193,8 @@ class Diagram:
             if not boxes:
                 if (key.start or 0) >= len(self):
                     return Id(self.cod)
+                if (key.start or 0) <= -len(self):
+                    return Id(self.dom)
                 return Id(self.boxes[key.start or 0].dom)
             return Diagram(boxes[0].dom, boxes[-1].cod, boxes, _scan=True)
         return self.boxes[key]
