@@ -227,26 +227,27 @@ class Diagram(cat.Diagram):
     :class:`discopy.cat.AxiomError`
         Whenever the boxes do not compose.
     """
-    def __init__(self, dom, cod, boxes, offsets, _scan=None, _fast=False):
+    def __init__(self, dom, cod, boxes, offsets, _scan=None):
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
         if len(boxes) != len(offsets):
             raise ValueError(messages.boxes_and_offsets_must_have_same_len())
-        if _scan is None and not _fast:
-            _scan, _fast = [], False
+        if _scan is None:
+            layers = []
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
                     raise TypeError(messages.type_err(Diagram, box))
                 if not isinstance(off, int):
                     raise TypeError(messages.type_err(int, off))
-                left = _scan[-1].cod[:off] if _scan else dom[:off]
-                right = _scan[-1].cod[off + len(box.dom):]\
-                    if _scan else dom[off + len(box.dom):]
-                _scan.append(Layer(left, box, right))
-        super().__init__(dom, cod, boxes=_scan, _scan=not _fast)
-        self._scan = cat.Diagram(dom, cod, boxes=_scan, _scan=False)
+                left = layers[-1].cod[:off] if layers else dom[:off]
+                right = layers[-1].cod[off + len(box.dom):]\
+                    if layers else dom[off + len(box.dom):]
+                layers.append(Layer(left, box, right))
+            _scan = cat.Diagram(dom, cod, boxes=layers)
+        super().__init__(dom, cod, boxes=_scan.boxes, _scan=False)
+        self._scan = _scan
         self._boxes, self._offsets = tuple(boxes), tuple(offsets)
 
     def then(self, other):
