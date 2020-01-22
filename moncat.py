@@ -178,38 +178,46 @@ class Diagram(cat.Diagram):
     :class:`discopy.cat.AxiomError`
         Whenever the boxes do not compose.
     """
-    def __init__(self, dom, cod, boxes, offsets, _fast=False):
+    def __init__(self, dom, cod, boxes, offsets, _scan=None, _fast=False):
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
         if len(boxes) != len(offsets):
             raise ValueError(messages.boxes_and_offsets_must_have_same_len())
-        if not _fast:
-            scan = dom
+        if _scan is None and not _fast:
+            _scan, prev_layer = [], cat.Id(dom)
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
                     raise TypeError(messages.type_err(Diagram, box))
                 if not isinstance(off, int):
                     raise TypeError(messages.type_err(int, off))
-                if scan[off: off + len(box.dom)] != box.dom:
-                    raise AxiomError(messages.does_not_compose(
-                        scan[off: off + len(box.dom)], box.dom))
-                scan = scan[: off] + box.cod + scan[off + len(box.dom):]
-            if scan != cod:
-                raise AxiomError(messages.does_not_compose(scan, cod))
-        super().__init__(dom, cod, [], _fast=True)
-        self._boxes, self._offsets = tuple(boxes), tuple(offsets)
+                left, right =\
+                    prev_layer.cod[:off], prev_layer.cod[off + len(box.dom):]
+                next_layer = cat.Box((left, box, right),
+                                     left @ box.dom @ right,
+                                     left @ box.cod @ right)
+                if next_layer.dom != prev_layer.cod:
+                    raise AxiomError(
+                        messages.does_not_compose(prev_layer, next_layer))
+                _scan.append(next_layer)
+                prev_layer = next_layer
+            if prev_layer.cod != cod:
+                raise AxiomError(
+                    messages.does_not_compose(prev_layer, Id(cod)))
+        super().__init__(dom, cod, boxes, _scan=_scan, _fast=_fast)
+        self._offsets = tuple(offsets)
 
     def then(self, other):
         return Diagram(self.dom, other.cod,
                        self.boxes + other.boxes,
-                       self.offsets + other.offsets, _fast=True)
+                       self.offsets + other.offsets,
+                       _scan=None)
 
     def dagger(self):
         return Diagram(self.cod, self.dom,
                        [f.dagger() for f in self.boxes[::-1]],
-                       self.offsets[::-1], _fast=True)
+                       self.offsets[::-1], _scan=None)
 
     @staticmethod
     def id(x):
@@ -246,7 +254,7 @@ class Diagram(cat.Diagram):
         dom, cod = self.dom + other.dom, self.cod + other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        return Diagram(dom, cod, boxes, offsets, _fast=True)
+        return Diagram(dom, cod, boxes, offsets, _scan=None)
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -311,9 +319,9 @@ class Diagram(cat.Diagram):
                 return self[len(self) + key]
             if key >= len(self):
                 raise IndexError
-            for depth, result in enumerate(self):
+            for depth, layer in enumerate(self):
                 if depth == key:
-                    return result
+                    return layer
         raise TypeError
 
     def build_graph(self):
@@ -553,7 +561,7 @@ class Diagram(cat.Diagram):
             self.dom, self.cod,
             self.boxes[:i] + [box1, box0] + self.boxes[i + 2:],
             self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
-            _fast=True)
+            _scan=None)
 
     def normalize(self, left=False):
         """
@@ -678,7 +686,7 @@ class Diagram(cat.Diagram):
             slices += [diagram[i: i + n_boxes + 1]]
             i += n_boxes + 1
         return Diagram(self.dom, self.cod, slices, len(slices) * [0],
-                       _fast=True)
+                       _scan=None)
 
     def depth(self):
         """
@@ -746,7 +754,7 @@ class Id(Diagram):
         """
         >>> assert Id(Ty('x')) == Diagram.id(Ty('x'))
         """
-        super().__init__(x, x, [], [], _fast=True)
+        super().__init__(x, x, [], [], _scan=None)
 
     def __repr__(self):
         """
@@ -774,7 +782,7 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
+        Diagram.__init__(self, dom, cod, [self], [0], _scan=[self])
 
     def __eq__(self, other):
         if isinstance(other, Box):
