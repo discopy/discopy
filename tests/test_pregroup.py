@@ -43,10 +43,3 @@ def test_brute_force():
     gen = brute_force(Alice, loves, Bob, target=n)
     assert next(gen) == Word('Alice', Ty('n'))
     assert next(gen) == Word('Bob', Ty('n'))
-
-
-def test_draw():
-    with raises(TypeError):
-        draw(0)
-    with raises(ValueError):
-        draw(Box('s', Ty(), Ty()))

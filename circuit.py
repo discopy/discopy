@@ -56,7 +56,7 @@ class PRO(Ty):
         return "PRO({})".format(len(self))
 
     def __str__(self):
-        return repr(self)
+        return repr(len(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -74,14 +74,14 @@ class Circuit(Diagram):
         Takes a diagram and returns a circuit.
         """
         return Circuit(len(diagram.dom), len(diagram.cod),
-                       diagram.boxes, diagram.offsets, _fast=True)
+                       diagram.boxes, diagram.offsets, _scan=diagram._scan)
 
-    def __init__(self, dom, cod, gates, offsets, _fast=False):
+    def __init__(self, dom, cod, gates, offsets, _scan=None):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
         """
         self._gates = gates
-        super().__init__(PRO(dom), PRO(cod), gates, offsets, _fast=_fast)
+        super().__init__(PRO(dom), PRO(cod), gates, offsets, _scan=_scan)
 
     def __repr__(self):
         """
@@ -103,102 +103,6 @@ class Circuit(Diagram):
         [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
         """
         return self._gates
-
-    def normalize(self, left=False):
-        """
-        >>> circuit = Ket(0) @ Id(1) @ Ket(1) >> Bra(0) @ X @ Ket(0) @ X\\
-        ...           >>  Bra(0, 0) @ Id(1)
-        >>> gen = circuit.normalize()
-        >>> print(next(gen))  # doctest: +ELLIPSIS
-        X >> ... >> Bra(0) @ Id(1)
-        """
-        def find_kets(diagram):
-            boxes, offsets = diagram.boxes, diagram.offsets
-            for i in range(len(diagram) - 1):
-                if isinstance(boxes[i], Ket) and isinstance(boxes[i + 1], Ket)\
-                        and offsets[i + 1] == offsets[i] + len(boxes[i].cod):
-                    return i
-
-        def fuse_kets(diagram, i):
-            boxes, offsets = diagram.boxes, diagram.offsets
-            ket = Ket(*(boxes[i].bitstring + boxes[i + 1].bitstring))
-            return Circuit(len(diagram.dom), len(diagram.cod),
-                           boxes[:i] + [ket] + boxes[i + 2:],
-                           offsets[:i + 1] + offsets[i + 2:])
-
-        circuit = self
-        slices = self.slice()
-        kets = slices[0]
-        for kets in moncat.Diagram.normalize(kets):
-            yield kets >> slices[1:].flatten()
-        while True:
-            fusable = find_kets(kets)
-            if fusable is None:
-                break
-            kets = fuse_kets(kets, fusable)
-            circuit = kets >> slices[1:].flatten()
-            yield circuit
-
-        slices = circuit.dagger().slice()
-        bras = slices[0]
-        for bras in moncat.Diagram.normalize(bras):
-            yield (bras >> slices[1:].flatten()).dagger()
-        while True:
-            fusable = find_kets(bras)
-            if fusable is None:
-                break
-            bras = fuse_kets(bras, fusable)
-            circuit = bras >> slices[1:].flatten()
-            yield circuit.dagger()
-
-    def normal_form(self, left=False):
-        """
-        >>> from discopy.rigidcat import Ty, Cup, Box
-        >>> s, n = Ty('s'), Ty('n')
-        >>> Alice = Box('Alice', Ty(), n)
-        >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
-        >>> Bob = Box('Bob', Ty(), n)
-        >>> who = Box('who', Ty(), n.r @ n @ s.l @ n)
-        >>> is_rich = Box('is rich', Ty(), n.r @ s)
-        >>> grammar = Cup(n, n.r) @ Diagram.cups(n @ s.l @ n, n.r @ s @ n.r)\\
-        ...           @ Diagram.id(s) @ Cup(n.l, n)
-        >>> sentence = grammar << Alice @ who @ is_rich @ loves @ Bob
-        >>> ob = {s: 0, n: 1}
-        >>> ar = {Alice: Ket(0),
-        ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
-        ...       Bob: Ket(0) >> X,
-        ...       who: sqrt(2) @ Ket(0, 0, 0)\\
-        ...            >> Circuit.id(1) @ H @ Circuit.id(1)\\
-        ...            >> Circuit.id(1) @ CX\\
-        ...            >> (SWAP >>  CX) @ Circuit.id(1),
-        ...       is_rich: Ket(0) >> X}
-        >>> F = CircuitFunctor(ob, ar)
-        >>> circuit = F(sentence).normal_form()
-        >>> for layer in circuit.slice(): print(layer)
-        sqrt(2) >> sqrt(2) >> Ket(0) >> Id(1) @ Ket(0, 0, 0, 0, 0, 0, 0)
-        Id(7) @ X >> Id(6) @ X @ Id(1) >> Id(5) @ H @ Id(2) >> Id(4) @ X @ Id(3) >> Id(2) @ H @ Id(5)
-        Id(5) @ CX @ Id(1) >> Id(2) @ CX @ Id(4)
-        Id(6) @ CX >> Id(1) @ SWAP @ Id(5) >> Id(3) @ CX @ Id(3)
-        Id(7) @ sqrt(2) @ Id(1) >> Id(6) @ H @ Id(1) >> Id(1) @ CX @ Id(5) >> Id(4) @ sqrt(2) @ Id(4) >> Id(3) @ H @ Id(4)
-        Id(6) @ Bra(0, 0) >> CX @ Id(4) >> Id(3) @ Bra(0, 0) @ Id(1)
-        Id(1) @ sqrt(2) @ Id(3) >> H @ Id(3) >> Id(2) @ CX
-        Id(3) @ sqrt(2) @ Id(1) >> Id(2) @ H @ Id(1)
-        Bra(0, 0, 0, 0)
-        """
-        result = moncat.Diagram.normal_form(self, left=left)
-        return Circuit(len(result.dom), len(result.cod), result.boxes,
-                       result.offsets, _fast=True)
-
-    def slice(self):
-        """
-        >>> assert (X @ X >> Id(1) @ X).slice()[0].gates == [X, X]
-        """
-        result = super().slice()
-        slices = []
-        for slice in result.boxes:
-            slices += [Circuit(slice.dom, slice.cod, slice.boxes,
-                               slice.offsets, _fast=True)]
-        return Circuit(result.dom, result.cod, slices, result.offsets)
 
     def flatten(self):
         """
@@ -382,7 +286,7 @@ class Id(Circuit):
         """
         if isinstance(n_qubits, PRO):
             n_qubits = len(n_qubits)
-        super().__init__(n_qubits, n_qubits, [], [], _fast=True)
+        super().__init__(n_qubits, n_qubits, [], [])
 
     def __repr__(self):
         """
@@ -414,7 +318,7 @@ class Gate(Box, Circuit):
             self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
         Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits),
                      data=data, _dagger=_dagger)
-        Circuit.__init__(self, n_qubits, n_qubits, [self], [0], _fast=True)
+        Circuit.__init__(self, n_qubits, n_qubits, [self], [0])
 
     @property
     def array(self):
@@ -465,7 +369,7 @@ class Ket(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Ket({})'.format(', '.join(map(str, bitstring))),
                      PRO(0), PRO(len(bitstring)))
-        Circuit.__init__(self, 0, len(bitstring), [self], [0], _fast=True)
+        Circuit.__init__(self, 0, len(bitstring), [self], [0])
 
     def tensor(self, other):
         """
@@ -523,7 +427,7 @@ class Bra(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Bra({})'.format(', '.join(map(str, bitstring))),
                      PRO(len(bitstring)), PRO(0))
-        Circuit.__init__(self, len(bitstring), 0, [self], [0], _fast=True)
+        Circuit.__init__(self, len(bitstring), 0, [self], [0])
 
     def __repr__(self):
         """
@@ -702,9 +606,7 @@ class CircuitFunctor(RigidFunctor):
         if isinstance(diagram, Ty):
             return PRO(len(result))
         if isinstance(diagram, Diagram):
-            return Circuit(
-                len(result.dom), len(result.cod),
-                result.boxes, result.offsets, _fast=True)
+            return Circuit._upgrade(result)
         return result
 
 

@@ -71,6 +71,8 @@ class Ob:
         return self._name
 
     def __init__(self, name):
+        if not str(name):
+            raise TypeError(messages.empty_name(name))
         self._name = name
 
     def __repr__(self):
@@ -113,24 +115,24 @@ class Diagram:
         Whenever the boxes do not compose.
 
     """
-    def __init__(self, dom, cod, boxes, _scan=None, _fast=False):
+    def __init__(self, dom, cod, boxes, _scan=True):
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
         if not isinstance(cod, Ob):
             raise TypeError(messages.type_err(Ob, cod))
-        if _scan is None and not _fast:
-            _scan = []
-            for box in boxes:
+        if _scan:
+            scan = dom
+            for depth, box in enumerate(boxes):
                 if not isinstance(box, Diagram):
                     raise TypeError(messages.type_err(Diagram, box))
-                if box.dom != (_scan[-1].cod if _scan else dom):
+                if box.dom != scan:
                     raise AxiomError(messages.does_not_compose(
-                        _scan[-1] if _scan else Id(dom), box))
-                _scan.append(box)
-            if (_scan[-1].cod if _scan else dom) != cod:
+                        _scan[depth - 1] if depth else Id(dom), box))
+                scan = box.cod
+            if scan != cod:
                 raise AxiomError(messages.does_not_compose(
-                    _scan[-1] if _scan else Id(dom), Id(cod)))
-        self._dom, self._cod, self._boxes, self._scan = dom, cod, boxes, _scan
+                    boxes[-1] if boxes else Id(dom), Id(cod)))
+        self._dom, self._cod, self._boxes = dom, cod, boxes
 
     @property
     def dom(self):
@@ -173,10 +175,29 @@ class Diagram:
         return list(self._boxes)
 
     def __iter__(self):
-        if not self.boxes:
-            yield self.id(self.dom)
-        for layer in self._scan:
-            yield layer
+        for box in self.boxes:
+            yield box
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            if (key.step or 0) == -1:
+                return self.dagger()[
+                    None if key.start is None else -key.start - 1:
+                    None if key.stop is None else -key.stop - 1]
+            if (key.step or 1) != 1:
+                raise IndexError
+            if key.start is None and key.stop is None:
+                return self
+            dom = self.cod if (key.start or 0) >= len(self.boxes)\
+                else self.boxes[key.start or 0].dom
+            return Id(dom).compose(*self.boxes[key])
+        if isinstance(key, int):
+            if key < 0:
+                return self[len(self) + key]
+            if key >= len(self):
+                raise IndexError
+            return self.boxes[key]
+        raise TypeError
 
     def __len__(self):
         return len(self.boxes)
@@ -190,7 +211,7 @@ class Diagram:
             repr(self.dom), repr(self.cod), repr(self.boxes))
 
     def __str__(self):
-        return " >> ".join(map(str, self.boxes))
+        return ' >> '.join(map(str, self)) or str(self.id(self.dom))
 
     def __eq__(self, other):
         if not isinstance(other, Diagram):
@@ -200,6 +221,15 @@ class Diagram:
 
     def __hash__(self):
         return hash(repr(self))
+
+    def __rmul__(self, n_times):
+        """
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f = Box('f', x, y)
+        >>> print(3 * (f >> f.dagger()))
+        f >> f.dagger() >> f >> f.dagger() >> f >> f.dagger()
+        """
+        return self.id(self.dom).compose(*(n_times * (self, )))
 
     def then(self, other):
         """
@@ -239,8 +269,8 @@ class Diagram:
             raise TypeError(messages.type_err(Diagram, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        boxes, _scan = self.boxes + other.boxes, self._scan + other._scan
-        return Diagram(self.dom, other.cod, boxes, _scan=_scan)
+        boxes = self.boxes + other.boxes
+        return Diagram(self.dom, other.cod, boxes, _scan=False)
 
     def __rshift__(self, other):
         return self.then(other)
@@ -298,7 +328,7 @@ class Diagram:
         >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
         """
         boxes = [f.dagger() for f in self.boxes[::-1]]
-        return Diagram(self.cod, self.dom, boxes, _scan=boxes)
+        return Diagram(self.cod, self.dom, boxes, _scan=False)
 
     @staticmethod
     def id(x):
@@ -337,7 +367,7 @@ class Id(Diagram):
         cat.Diagram.id
     """
     def __init__(self, x):
-        super().__init__(x, x, [], _scan=[])
+        super().__init__(x, x, [], _scan=False)
 
     def __repr__(self):
         return "Id({})".format(repr(self.dom))
@@ -373,9 +403,11 @@ class Box(Diagram):
 
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
+        if not str(name):
+            raise TypeError(messages.empty_name(name))
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
-        Diagram.__init__(self, dom, cod, [self], _scan=[self])
+        Diagram.__init__(self, dom, cod, [self], _scan=False)
 
     @property
     def name(self):

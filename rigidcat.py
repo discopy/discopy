@@ -112,7 +112,7 @@ class Diagram(moncat.Diagram):
         Takes a moncat.Diagram and returns a rigidcat.Diagram.
         """
         return Diagram(Ty(*diagram.dom), Ty(*diagram.cod),
-                       diagram.boxes, diagram.offsets, _fast=True)
+                       diagram.boxes, diagram.offsets, _scan=diagram._scan)
 
     @staticmethod
     def id(x):
@@ -321,7 +321,8 @@ class Diagram(moncat.Diagram):
                     cap += 1
             boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
             offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
-            yield Diagram(diagram.dom, diagram.cod, boxes, offsets, _fast=True)
+            yield Diagram(diagram.dom, diagram.cod, boxes, offsets,
+                          _scan=diagram._scan[:cap] >> diagram._scan[cup + 1:])
 
         diagram = self
         while True:
@@ -339,9 +340,7 @@ class Diagram(moncat.Diagram):
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
-        result = moncat.Diagram.normal_form(self, left=left)
-        return Diagram(result.dom, result.cod, result.boxes, result.offsets,
-                       _fast=True)
+        return self._upgrade(moncat.Diagram.normal_form(self, left=left))
 
 
 class Box(moncat.Box, Diagram):
@@ -358,7 +357,7 @@ class Box(moncat.Box, Diagram):
         Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
         """
         moncat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], _fast=True)
+        Diagram.__init__(self, dom, cod, [self], [0], _scan=self._scan)
 
 
 class Id(Diagram):
@@ -368,7 +367,7 @@ class Id(Diagram):
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
-        super().__init__(t, t, [], [], _fast=True)
+        super().__init__(t, t, [], [], _scan=cat.Id(t))
 
     def __repr__(self):
         """

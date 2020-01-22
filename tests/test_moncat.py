@@ -197,6 +197,18 @@ def test_spiral(n_cups=2):
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n_cups] == unit
 
 
+def test_Id_init():
+    assert Id(Ty('x')) == Diagram.id(Ty('x'))
+
+
+def test_Id_repr():
+    assert repr(Id(Ty('x'))) == "Id(Ty('x'))"
+
+
+def test_Id_str():
+    assert str(Id(Ty('x'))) == "Id(x)"
+
+
 def test_Box_init():
     f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
     assert (f.name, f.dom, f.cod, f.data) == ('f', Ty('x', 'y'), Ty('z'), 42)

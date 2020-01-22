@@ -9,6 +9,11 @@ IGNORE_WARNINGS = [
     "Casting complex values to real discards the imaginary part"]
 
 
+def empty_name(got):
+    """ Empty name error. """
+    return "Expected non-empty name, got {}.".format(repr(got))
+
+
 def type_err(expected, got):
     """ Type error. """
     return "Expected {}.{}, got {} of type {} instead.".format(
@@ -18,7 +23,7 @@ def type_err(expected, got):
 
 def does_not_compose(left, right):
     """ Composition error. """
-    return "{} does not compose with {}.".format(str(left), str(right))
+    return "{} does not compose with {}.".format(repr(left), repr(right))
 
 
 def is_not_connected(diagram):

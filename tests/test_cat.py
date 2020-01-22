@@ -67,6 +67,25 @@ def test_Diagram_len():
     assert len(Diagram(Ob('x'), Ob('x'), [])) == 0
 
 
+def test_Diagram_getitem():
+    f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
+    diagram = 2 * (f >> g >> g.dagger() >> f.dagger())
+    with raises(IndexError):
+        diagram[9]
+    with raises(IndexError):
+        diagram[::-2]
+    assert diagram[:] == diagram
+    assert diagram[::-1] == diagram.dagger()
+    for depth, box in enumerate(diagram):
+        id_box = Id(diagram.boxes[depth].dom)
+        assert diagram[depth:depth] == id_box
+        assert diagram[depth:] == id_box.compose(*diagram.boxes[depth:])
+        assert diagram[:depth] == Id(diagram.dom).compose(
+            *diagram.boxes[:depth])
+        assert diagram[depth: depth + 2] == id_box.compose(
+            *diagram.boxes[depth: depth + 2])
+
+
 def test_Diagram_repr():
     assert repr(Diagram(Ob('x'), Ob('x'), [])) == "Id(Ob('x'))"
     assert repr(Diagram(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))]))\
@@ -80,7 +99,9 @@ def test_Diagram_repr():
 def test_Diagram_str():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    str(Diagram(x, z, [f, g])) == "f >> g"
+    assert str(Diagram(x, x, []) == "Id(x)")
+    assert str(Diagram(x, y, [f]) == "f")
+    assert str(Diagram(x, z, [f, g])) == "f >> g"
 
 
 def test_Diagram_eq():
