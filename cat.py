@@ -186,7 +186,7 @@ class Diagram:
         if isinstance(key, slice):
             if key.step == -1:
                 boxes = [box[::-1] for box in self.boxes[key]]
-                return Diagram(self.cod, self.dom, boxes, _scan=True)
+                return Diagram(self.cod, self.dom, boxes, _scan=False)
             if (key.step or 1) != 1:
                 raise IndexError
             boxes = self.boxes[key]
@@ -196,7 +196,7 @@ class Diagram:
                 if (key.start or 0) <= -len(self):
                     return Id(self.dom)
                 return Id(self.boxes[key.start or 0].dom)
-            return Diagram(boxes[0].dom, boxes[-1].cod, boxes, _scan=True)
+            return Diagram(boxes[0].dom, boxes[-1].cod, boxes, _scan=False)
         return self.boxes[key]
 
     def __len__(self):

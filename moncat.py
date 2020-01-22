@@ -588,11 +588,13 @@ class Diagram(cat.Diagram):
             layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
         else:
             raise InterchangerError(box0, box1)
-        return Diagram(
+        boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
+        offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
+        _scan = cat.Diagram(
             self.dom, self.cod,
-            self.boxes[:i] + [box1, box0] + self.boxes[i + 2:],
-            self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
-            _scan=self._scan[:i] >> layer1 >> layer0 >> self._scan[i + 2:])
+            self._scan.boxes[:i] + [layer1, layer0] + self._scan.boxes[i + 2:],
+            _scan=False)
+        return Diagram(self.dom, self.cod, boxes, offsets, _scan=_scan)
 
     def normalize(self, left=False):
         """
