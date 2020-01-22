@@ -31,11 +31,6 @@ class PRO(Ty):
     >>> assert PRO(3) == Ty(1, 1, 1)
     """
     def __init__(self, n=0):
-        if not isinstance(n, int):
-            if isinstance(n, Ob):
-                n = n.name
-            else:
-                n = len(n)
         super().__init__(*(n * [1]))
 
     @property
@@ -103,15 +98,6 @@ class Circuit(Diagram):
         [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
         """
         return self._gates
-
-    def flatten(self):
-        """
-        Takes a circuit of circuits and returns a circuit.
-
-        >>> circuit = X @ X >> Id(1) @ X
-        >>> # assert circuit.slice().flatten().normal_form() == circuit
-        """
-        return CircuitFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
     @staticmethod
     def id(x):
@@ -443,6 +429,8 @@ class Bra(Box, Circuit):
 
         >>> Bra(0, 1, 0) @ Bra(1, 0)
         Bra(0, 1, 0, 1, 0)
+        >>> print(Bra(0) @ X)
+        Bra(0) @ Id(1) >> X
         """
         if isinstance(other, Bra):
             return Bra(*(self.bitstring + other.bitstring))
@@ -579,14 +567,7 @@ class CircuitFunctor(RigidFunctor):
     SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
     """
     def __init__(self, ob, ar):
-        """
-        >>> F = CircuitFunctor({}, {})
-        """
-        if isinstance(ob, Quiver):
-            super().__init__(ob, ar, ob_cls=PRO, ar_cls=Circuit)
-        else:
-            super().__init__({x: PRO(y) for x, y in ob.items()}, ar,
-                             ob_cls=PRO, ar_cls=Circuit)
+        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Circuit)
 
     def __repr__(self):
         """
@@ -594,7 +575,7 @@ class CircuitFunctor(RigidFunctor):
         CircuitFunctor(ob={}, ar={})
         """
         return "CircuitFunctor(ob={}, ar={})".format(
-            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
+            repr(self.ob), repr(self.ar))
 
     def __call__(self, diagram):
         """
@@ -602,6 +583,8 @@ class CircuitFunctor(RigidFunctor):
         >>> F = CircuitFunctor({x: 1}, {})
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
+        if isinstance(diagram, Ob) and not diagram.z:
+            return PRO(self.ob[Ty(diagram.name)])
         result = super().__call__(diagram)
         if isinstance(diagram, Ty):
             return PRO(len(result))

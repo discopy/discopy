@@ -104,7 +104,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram, **params):
+def draw(diagram, **params):  # pragma: no cover
     """
     Draws a pregroup diagram, i.e. one slice of word boxes followed by any
     number of slices of cups.

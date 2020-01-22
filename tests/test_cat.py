@@ -21,6 +21,9 @@ def test_Ob():
 
 def test_Ob_init():
     assert (Ob('x'), Ob(42), Ob('Alice')) == (Ob('x'), Ob(42), Ob('Alice'))
+    with raises(ValueError) as err:
+        Ob('')
+    assert str(err.value) == messages.empty_name('')
 
 
 def test_Ob_name():
@@ -70,6 +73,8 @@ def test_Diagram_len():
 def test_Diagram_getitem():
     f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
     diagram = 2 * (f >> g >> g.dagger() >> f.dagger())
+    with raises(TypeError):
+        diagram["Alice"]
     with raises(IndexError):
         diagram[9]
     with raises(IndexError):
@@ -77,12 +82,13 @@ def test_Diagram_getitem():
     assert diagram[:] == diagram
     assert diagram[::-1] == diagram.dagger()
     for depth, box in enumerate(diagram):
-        id_box = Id(diagram.boxes[depth].dom)
-        assert diagram[depth:depth] == id_box
-        assert diagram[depth:] == id_box.compose(*diagram.boxes[depth:])
+        assert diagram[depth] == box
+        assert diagram[-depth] == diagram.boxes[-depth]
+        assert diagram[depth:depth] == Id(box.dom)
+        assert diagram[depth:] == Id(box.dom).compose(*diagram.boxes[depth:])
         assert diagram[:depth] == Id(diagram.dom).compose(
             *diagram.boxes[:depth])
-        assert diagram[depth: depth + 2] == id_box.compose(
+        assert diagram[depth: depth + 2] == Id(box.dom).compose(
             *diagram.boxes[depth: depth + 2])
 
 
@@ -163,6 +169,8 @@ def test_AxiomError():
 def test_Box():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
     assert f >> Id(Ob('y')) == f == Id(Ob('x')) >> f
+    with raises(ValueError) as err:
+        Box('', '', '')
 
 
 def test_Box_dagger():

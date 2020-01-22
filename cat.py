@@ -58,7 +58,7 @@ class Ob:
     @property
     def name(self):
         """
-        The name of an object is immutable.
+        The name of an object is immutable, it cannot be empty.
 
         >>> x = Ob('x')
         >>> x.name
@@ -72,7 +72,7 @@ class Ob:
 
     def __init__(self, name):
         if not str(name):
-            raise TypeError(messages.empty_name(name))
+            raise ValueError(messages.empty_name(name))
         self._name = name
 
     def __repr__(self):
@@ -116,6 +116,10 @@ class Diagram:
 
     """
     def __init__(self, dom, cod, boxes, _scan=True):
+        """
+        >>> from discopy.moncat import spiral
+        >>> diagram = spiral(3)
+        """
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
         if not isinstance(cod, Ob):
@@ -404,7 +408,7 @@ class Box(Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         if not str(name):
-            raise TypeError(messages.empty_name(name))
+            raise ValueError(messages.empty_name(name))
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
         Diagram.__init__(self, dom, cod, [self], _scan=False)

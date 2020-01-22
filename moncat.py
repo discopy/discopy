@@ -294,12 +294,12 @@ class Diagram(cat.Diagram):
         if not isinstance(other, Diagram):
             raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        _scan = []
+        layers = []
         for left, box, right in self._scan:
-            _scan.append(Layer(left, box, right @ other.dom))
+            layers.append(Layer(left, box, right @ other.dom))
         for left, box, right in other._scan:
-            _scan.append(Layer(self.cod @ left, box, right))
-        _scan = cat.Diagram(dom, cod, _scan)
+            layers.append(Layer(self.cod @ left, box, right))
+        _scan = cat.Diagram(dom, cod, boxes=layers, _scan=False)
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
         return Diagram(dom, cod, boxes, offsets, _scan=_scan)
