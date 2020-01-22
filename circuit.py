@@ -15,7 +15,6 @@ Ket(0) >> X >> Bra(1)
 """
 
 import random as rand
-import pytket as tk
 from discopy import messages, moncat
 from discopy.cat import Quiver
 from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
@@ -172,6 +171,7 @@ class Circuit(Diagram):
         (OpType.Rx, [0.25])
         (OpType.CX, [])
         """
+        import pytket as tk
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
