@@ -38,6 +38,14 @@ def test_Ty_pow():
     assert messages.type_err(int, Ty('y'))
 
 
+def test_Layer_getitem():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f = Box('f', y, z)
+    layer = Layer(x, f, z)
+    assert layer[::-1] == Layer(x, f[::-1], z)
+    assert layer[0] == layer
+
+
 def test_Diagram_init():
     with raises(TypeError) as err:
         Diagram('x', Ty('x'), [], [])

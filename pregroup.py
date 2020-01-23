@@ -105,7 +105,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram, **params):  # pragma: no cover
+def draw(diagram, **params):
     """
     Draws a pregroup diagram, i.e. one slice of word boxes followed by any
     number of slices of cups.
@@ -190,7 +190,7 @@ def draw(diagram, **params):  # pragma: no cover
                     fontsize=params.get('fontsize_types', fontsize))
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
-    words, *cups = diagram.slice().boxes
+    words, *cups = diagram.foliation().boxes
     is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
         and all(isinstance(box, Cup) for s in cups for box in s.boxes)
     if not is_pregroup:
