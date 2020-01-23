@@ -21,6 +21,9 @@ def test_Ob():
 
 def test_Ob_init():
     assert (Ob('x'), Ob(42), Ob('Alice')) == (Ob('x'), Ob(42), Ob('Alice'))
+    with raises(ValueError) as err:
+        Ob('')
+    assert str(err.value) == messages.empty_name('')
 
 
 def test_Ob_name():
@@ -67,20 +70,45 @@ def test_Diagram_len():
     assert len(Diagram(Ob('x'), Ob('x'), [])) == 0
 
 
+def test_Diagram_getitem():
+    f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
+    diagram = 2 * (f >> g >> g.dagger() >> f.dagger())
+    with raises(TypeError):
+        diagram["Alice"]
+    with raises(IndexError):
+        diagram[9]
+    with raises(IndexError):
+        diagram[::-2]
+    assert diagram[:] == diagram
+    assert diagram[::-1] == diagram.dagger()
+    assert diagram[:0] == diagram[:-8] == diagram[-9:-9] == Id(diagram.dom)
+    for depth, box in enumerate(diagram):
+        assert diagram[depth] == box
+        assert diagram[-depth] == diagram.boxes[-depth]
+        assert diagram[depth:depth] == Id(box.dom)
+        assert diagram[depth:] == Id(box.dom).compose(*diagram.boxes[depth:])
+        assert diagram[:depth] == Id(diagram.dom).compose(
+            *diagram.boxes[:depth])
+        assert diagram[depth: depth + 2] == Id(box.dom).compose(
+            *diagram.boxes[depth: depth + 2])
+
+
 def test_Diagram_repr():
     assert repr(Diagram(Ob('x'), Ob('x'), [])) == "Id(Ob('x'))"
     assert repr(Diagram(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))]))\
         == "Box('f', Ob('x'), Ob('y'))"
     assert repr(Diagram(Ob('x'), Ob('z'),
                 [Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))]))\
-        == "Diagram(Ob('x'), Ob('z'), "\
-           "[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
+        == "cat.Diagram(dom=Ob('x'), cod=Ob('z'), "\
+           "boxes=[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
 
 
 def test_Diagram_str():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    str(Diagram(x, z, [f, g])) == "f >> g"
+    assert str(Diagram(x, x, []) == "Id(x)")
+    assert str(Diagram(x, y, [f]) == "f")
+    assert str(Diagram(x, z, [f, g])) == "f >> g"
 
 
 def test_Diagram_eq():
@@ -142,6 +170,8 @@ def test_AxiomError():
 def test_Box():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
     assert f >> Id(Ob('y')) == f == Id(Ob('x')) >> f
+    with raises(ValueError) as err:
+        Box('', '', '')
 
 
 def test_Box_dagger():
@@ -159,7 +189,7 @@ def test_Box_repr():
 def test_Box_str():
     f = Box('f', Ob('x'), Ob('y'), data=42)
     assert str(f) == "f"
-    assert str(f.dagger()) == "f.dagger()"
+    assert str(f.dagger()) == "f[::-1]"
 
 
 def test_Box_hash():

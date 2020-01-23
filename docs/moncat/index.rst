@@ -7,6 +7,7 @@ discopy.moncat
     :caption: Contents:
 
     Ty.rst
+    Layer.rst
     Diagram.rst
     Id.rst
     Box.rst

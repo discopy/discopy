@@ -38,6 +38,14 @@ def test_Ty_pow():
     assert messages.type_err(int, Ty('y'))
 
 
+def test_Layer_getitem():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f = Box('f', y, z)
+    layer = Layer(x, f, z)
+    assert layer[::-1] == Layer(x, f[::-1], z)
+    assert layer[0] == layer
+
+
 def test_Diagram_init():
     with raises(TypeError) as err:
         Diagram('x', Ty('x'), [], [])
@@ -59,6 +67,46 @@ def test_Diagram_init():
 def test_Diagram_eq():
     assert Diagram(Ty('x'), Ty('x'), [], []) != Ty('x')
     assert Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
+
+
+def test_Diagram_iter():
+    x, y = Ty('x'), Ty('y')
+    f0, f1 = Box('f0', x, y), Box('f1', y, y)
+    g0 = Box('g', y @ y, x)
+    g1 = g0.dagger()
+    d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
+    assert Diagram.compose(*(layer for layer in d)) == d
+
+
+def test_Diagram_getitem():
+    x, y = Ty('x'), Ty('y')
+    f0, f1, g = Box('f0', x, y), Box('f1', y, y), Box('g', y @ y, x)
+    diagram = f0 @ Id(y @ x)\
+        >> f1 @ Id(y @ x)\
+        >> g @ Id(x)\
+        >> Id(x) @ g.dagger()\
+        >> f0 @ Id(y @ y)\
+        >> Id(y) @ g
+    assert diagram[:] == diagram
+    assert diagram[::-1] == diagram.dagger()
+    with raises(TypeError):
+        diagram["Alice"]
+    for depth, (left, box, right) in enumerate(diagram.layers):
+        layer = Id(left) @ box @ Id(right)
+        assert diagram[depth] == layer
+        assert (diagram[-depth], ) == tuple(
+            Id(left) @ box @ Id(right)
+            for left, box, right in (diagram.layers[-depth], ))
+        assert diagram[depth:depth] == Id(layer.dom)
+        assert diagram[depth:] == Id(layer.dom).compose(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in diagram.layers[depth:]))
+        assert diagram[:depth] == Id(diagram.dom).compose(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in diagram.layers[:depth]))
+        assert diagram[depth: depth + 2] == Id(layer.dom).compose(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in diagram.layers[depth: depth + 2]))
 
 
 def test_Diagram_tensor():
@@ -144,10 +192,8 @@ def test_Diagram_normal_form():
 def test_AxiomError():
     with raises(AxiomError) as err:
         Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert str(err.value) == messages.does_not_compose(Ty('y'), Ty('x'))
     with raises(AxiomError) as err:
         Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
-    assert str(err.value) == messages.does_not_compose(Ty('y'), Ty('x'))
 
 
 def test_InterchangerError():
@@ -163,6 +209,18 @@ def test_spiral(n_cups=2):
     unit, counit = diagram.boxes[0], diagram.boxes[n_cups + 1]
     spiral_nf = diagram.normal_form()
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n_cups] == unit
+
+
+def test_Id_init():
+    assert Id(Ty('x')) == Diagram.id(Ty('x'))
+
+
+def test_Id_repr():
+    assert repr(Id(Ty('x'))) == "Id(Ty('x'))"
+
+
+def test_Id_str():
+    assert str(Id(Ty('x'))) == "Id(x)"
 
 
 def test_Box_init():

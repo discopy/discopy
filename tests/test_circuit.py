@@ -20,7 +20,7 @@ def test_PRO_repr():
 
 
 def test_PRO_str():
-    assert str(PRO(2 * 3 * 7)) == "PRO(42)"
+    assert str(PRO(2 * 3 * 7)) == "42"
 
 
 def test_PRO_getitem():
