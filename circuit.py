@@ -104,6 +104,17 @@ class Circuit(Diagram):
         """
         return self._gates
 
+    # def foliation(self):
+    #     """
+    #     >>> ket, scalar, bra = Ket(0), sqrt(2), Bra(0)
+    #     """
+    #     result = super().foliation()
+    #     slices = []
+    #     for slice in result.boxes:
+    #         slices += [Circuit(slice.dom, slice.cod, slice.boxes,
+    #                            slice.offsets, _fast=True)]
+    #     return Circuit(result.dom, result.cod, slices, result.offsets)
+    #
     # def normalize(self, left=False):
     #     """
     #     >>> circuit = Ket(0) @ Id(1) @ Ket(1) >> Bra(0) @ X @ Ket(0) @ X\\
@@ -112,7 +123,16 @@ class Circuit(Diagram):
     #     >>> print(next(gen))  # doctest: +ELLIPSIS
     #     X >> ... >> Bra(0) @ Id(1)
     #     """
-    #     def next_ket(diagram):
+        # def move_scalars(diagram):
+        #     positions = []
+        #     for i, box in enumerate(diagram.boxes):
+        #         if box.dom == box.cod == PRO():
+        #             positions.append(i)
+        #     for i in positions[::-1]:
+        #         diagram = (diagram[:i] >> diagram[i + 1:]) @ diagram.boxes[i]
+        #     return diagram
+    #
+    #     def find_kets(diagram):
     #         boxes, offsets = diagram.boxes, diagram.offsets
     #         for i in range(len(diagram) - 1):
     #             if isinstance(boxes[i], Ket) and isinstance(boxes[i + 1], Ket)\
@@ -125,26 +145,28 @@ class Circuit(Diagram):
     #         return Circuit(len(diagram.dom), len(diagram.cod),
     #                        boxes[:i] + [ket] + boxes[i + 2:],
     #                        offsets[:i + 1] + offsets[i + 2:])
-
-        # while True:
-        #     slice =
-        #     fusable = find_kets(kets)
-        #     if fusable is None:
-        #         break
-        #     kets = fuse_kets(kets, fusable)
-        #     circuit = kets >> slices[1:].flatten()
-        #     yield circuit
     #
-    #     slices = circuit.dagger().foliation()
-    #     bras = slices[0]
+    #     circuit = self
+    #     slices = self.foliation()
+    #     kets = slices[0]
     #     while True:
-    #         fusable = find_kets(bras)
+    #         fusable = find_kets(kets)
     #         if fusable is None:
     #             break
-    #         bras = fuse_kets(bras, fusable)
-    #         circuit = slices[1:].dagger().flatten() >> bras.dagger()
+    #         kets = fuse_kets(kets, fusable)
+    #         circuit = kets >> slices[1:].flatten()
     #         yield circuit
 
+        # slices = circuit.dagger().foliation()
+        # bras = move_scalars(slices.boxes[0])
+        # while True:
+        #     fusable = find_kets(bras)
+        #     if fusable is None:
+        #         break
+        #     bras = fuse_kets(bras, fusable)
+        #     circuit = slices[1:].dagger().flatten() >> bras.dagger()
+        #     yield circuit
+    #
     # def normal_form(self, left=False):
     #     """
     #     >>> from discopy.rigidcat import Ty, Cup, Box
@@ -181,24 +203,14 @@ class Circuit(Diagram):
     #     result = moncat.Diagram.normal_form(self, left=left)
     #     return Circuit(len(result.dom), len(result.cod), result.boxes,
     #                    result.offsets, _fast=True)
-
-    def foliation(self):
-        """
-        >>> assert (X @ X >> Id(1) @ X).foliation()[0].gates == [X, X]
-        """
-        result = super().foliation()
-        slices = []
-        for slice in result.boxes:
-            slices += [Circuit(slice.dom, slice.cod, slice.boxes,
-                               slice.offsets, _fast=True)]
-        return Circuit(result.dom, result.cod, slices, result.offsets)
+    #
 
     def flatten(self):
         """
         Takes a circuit of circuits and returns a circuit.
 
         >>> circuit = X @ X >> Id(1) @ X
-        >>> # assert circuit.foliation().flatten().normal_form() == circuit
+        >>> circuit = circuit.foliation().flatten()
         """
         return CircuitFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 

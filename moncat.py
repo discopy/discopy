@@ -716,14 +716,14 @@ class Diagram(cat.Diagram):
         >>> assert d.foliation().flatten().foliation() == d.foliation()
         """
         foliation = []
-        for slice in self.foliate(0):
+        for slice in self.foliate():
             foliation.append(slice.normal_form())
         return Diagram(self.dom, self.cod, foliation, len(foliation) * [0],
                        _scan=None)
 
     def depth(self):
         """
-        Computes the depth of a diagram by slicing it
+        Computes the depth of a diagram by foliating it
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
