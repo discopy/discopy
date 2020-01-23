@@ -1,7 +1,7 @@
 moncat.Diagram
 ======================
 
-.. autoclass:: discopy.moncat.Diagram(dom, cod, boxes, offsets)
+.. autoclass:: discopy.moncat.Diagram
     :show-inheritance:
-    :members: offsets, tensor, draw, interchange, normalize, normal_form, flatten, slice, depth, width
+    :members: offsets, layers, tensor, draw, interchange, normalize, normal_form
     :member-order: bysource

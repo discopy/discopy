@@ -112,7 +112,7 @@ class Diagram(moncat.Diagram):
         Takes a moncat.Diagram and returns a rigidcat.Diagram.
         """
         return Diagram(Ty(*diagram.dom), Ty(*diagram.cod),
-                       diagram.boxes, diagram.offsets, _scan=diagram._scan)
+                       diagram.boxes, diagram.offsets, layers=diagram.layers)
 
     @staticmethod
     def id(x):
@@ -124,9 +124,6 @@ class Diagram(moncat.Diagram):
     def tensor(self, other):
         return self._upgrade(super().tensor(other))
 
-    def dagger(self):
-        return self._upgrade(super().dagger())
-
     def interchange(self, i, j, left=False):
         return self._upgrade(super().interchange(i, j, left=left))
 
@@ -135,7 +132,7 @@ class Diagram(moncat.Diagram):
         >>> n, s = Ty('n'), Ty('s')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
-        >>> diagram = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
+        >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
         >>> assert isinstance(diagram[1:3], Diagram)
         >>> assert diagram[3:] == Id(n @ n.r) @ f >> cup @ h
         >>> assert diagram[:2] >> diagram[2:] == diagram
@@ -234,11 +231,11 @@ class Diagram(moncat.Diagram):
         >>> n, s = Ty('n'), Ty('s')
         >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
         >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
-        >>> diagram = g @ cap >> f.dagger() @ Id(n.r) @ f >> cup @ h
+        >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
         >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
-        g >> f.dagger() >> ... >> Cup(n, n.r) @ Id(n) >> h
-        g >> f.dagger() >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
-        g >> f.dagger() >> f >> h
+        g >> f[::-1] >> ... >> Cup(n, n.r) @ Id(n) >> h
+        g >> f[::-1] >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
+        g >> f[::-1] >> f >> h
         """
         def follow_wire(diagram, i, j):
             """
@@ -321,8 +318,8 @@ class Diagram(moncat.Diagram):
                     cap += 1
             boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
             offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
-            yield Diagram(diagram.dom, diagram.cod, boxes, offsets,
-                          _scan=diagram._scan[:cap] >> diagram._scan[cup + 1:])
+            layers = diagram.layers[:cap] >> diagram.layers[cup + 1:]
+            yield Diagram(diagram.dom, diagram.cod, boxes, offsets, layers)
 
         diagram = self
         while True:
@@ -357,7 +354,7 @@ class Box(moncat.Box, Diagram):
         Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
         """
         moncat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], _scan=self._scan)
+        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
 
 
 class Id(Diagram):
@@ -367,7 +364,7 @@ class Id(Diagram):
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
     def __init__(self, t):
-        super().__init__(t, t, [], [], _scan=cat.Id(t))
+        super().__init__(t, t, [], [], layers=cat.Id(t))
 
     def __repr__(self):
         """

@@ -99,8 +99,8 @@ def test_Diagram_repr():
         == "Box('f', Ob('x'), Ob('y'))"
     assert repr(Diagram(Ob('x'), Ob('z'),
                 [Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))]))\
-        == "Diagram(Ob('x'), Ob('z'), "\
-           "[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
+        == "cat.Diagram(dom=Ob('x'), cod=Ob('z'), "\
+           "boxes=[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
 
 
 def test_Diagram_str():
@@ -189,7 +189,7 @@ def test_Box_repr():
 def test_Box_str():
     f = Box('f', Ob('x'), Ob('y'), data=42)
     assert str(f) == "f"
-    assert str(f.dagger()) == "f.dagger()"
+    assert str(f.dagger()) == "f[::-1]"
 
 
 def test_Box_hash():

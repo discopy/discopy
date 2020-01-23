@@ -83,22 +83,22 @@ def test_Diagram_getitem():
     assert diagram[::-1] == diagram.dagger()
     with raises(TypeError):
         diagram["Alice"]
-    for depth, (left, box, right) in enumerate(diagram._scan):
+    for depth, (left, box, right) in enumerate(diagram.layers):
         layer = Id(left) @ box @ Id(right)
         assert diagram[depth] == layer
         assert (diagram[-depth], ) == tuple(
             Id(left) @ box @ Id(right)
-            for left, box, right in (diagram._scan[-depth], ))
+            for left, box, right in (diagram.layers[-depth], ))
         assert diagram[depth:depth] == Id(layer.dom)
         assert diagram[depth:] == Id(layer.dom).compose(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram._scan[depth:]))
+            for left, box, right in diagram.layers[depth:]))
         assert diagram[:depth] == Id(diagram.dom).compose(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram._scan[:depth]))
+            for left, box, right in diagram.layers[:depth]))
         assert diagram[depth: depth + 2] == Id(layer.dom).compose(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram._scan[depth: depth + 2]))
+            for left, box, right in diagram.layers[depth: depth + 2]))
 
 
 def test_Diagram_tensor():

@@ -16,9 +16,9 @@ We can create arbitrary diagrams with composition:
 We can create dagger functors from the free category to itself:
 
 >>> ob = {x: z, y: y, z: x}
->>> ar = {f: g.dagger(), g: f.dagger(), h: h.dagger()}
+>>> ar = {f: g[::-1], g: f[::-1], h: h[::-1]}
 >>> F = Functor(ob, ar)
->>> assert F(diagram) == (h >> f >> g).dagger()
+>>> assert F(diagram) == (h >> f >> g)[::-1]
 """
 
 from functools import reduce as fold
@@ -97,8 +97,8 @@ class Diagram:
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
     >>> diagram = Diagram(x, x, [f, g, h])
-    >>> print(diagram.dagger())
-    h.dagger() >> g.dagger() >> f.dagger()
+    >>> print(diagram[::-1])
+    h[::-1] >> g[::-1] >> f[::-1]
 
     Parameters
     ----------
@@ -131,7 +131,7 @@ class Diagram:
                     raise TypeError(messages.type_err(Diagram, box))
                 if box.dom != scan:
                     raise AxiomError(messages.does_not_compose(
-                        _scan[depth - 1] if depth else Id(dom), box))
+                        boxes[depth - 1] if depth else Id(dom), box))
                 scan = box.cod
             if scan != cod:
                 raise AxiomError(messages.does_not_compose(
@@ -207,7 +207,7 @@ class Diagram:
             return repr(Id(self.dom))
         if len(self.boxes) == 1:  # i.e. self is a box.
             return repr(self.boxes[0])
-        return "Diagram({}, {}, {})".format(
+        return "cat.Diagram(dom={}, cod={}, boxes={})".format(
             repr(self.dom), repr(self.cod), repr(self.boxes))
 
     def __str__(self):
@@ -227,7 +227,7 @@ class Diagram:
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y)
         >>> print(3 * (f >> f.dagger()))
-        f >> f.dagger() >> f >> f.dagger() >> f >> f.dagger()
+        f >> f[::-1] >> f >> f[::-1] >> f >> f[::-1]
         """
         return self.id(self.dom).compose(*(n_times * (self, )))
 
@@ -308,13 +308,14 @@ class Diagram:
 
     def dagger(self):
         """
-        Returns the dagger of `self`.
+        Returns the dagger of `self`, this method is called using the unary
+        operator :code:`[::-1]`, i.e. :code:`self[::-1] == self.dagger()`.
 
         Returns
         -------
         diagram : cat.Diagram
-            such that
-            :code:`diagram.boxes == [box.dagger() for box in self.boxes[::-1]]`
+            Such that
+            :code:`diagram.boxes == [box[::-1] for box in self[::-1]]`.
 
         Notes
         -----
@@ -323,9 +324,9 @@ class Diagram:
 
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g = Box('f', x, y), Box('g', y, z)
-        >>> assert f.dagger().dagger() == f
-        >>> assert Id(x).dagger() == Id(x)
-        >>> assert (f >> g).dagger() == g.dagger() >> f.dagger()
+        >>> assert f[::-1][::-1] == f
+        >>> assert Id(x)[::-1] == Id(x)
+        >>> assert (f >> g)[::-1] == g[::-1] >> f[::-1]
         """
         return self[::-1]
 
@@ -409,11 +410,6 @@ class Box(Diagram):
         self._boxes, self._dagger, self._data = [self], _dagger, data
         Diagram.__init__(self, dom, cod, [self], _scan=False)
 
-    def __getitem__(self, key):
-        if key.step == -1 and key.start is None and key.stop is None:
-            return self.dagger()
-        return super().__getitem__(key)
-
     @property
     def name(self):
         """
@@ -444,6 +440,11 @@ class Box(Diagram):
         """
         return self._data
 
+    def __getitem__(self, key):
+        if key == slice(None, None, -1):
+            return self.dagger()
+        return super().__getitem__(key)
+
     def dagger(self):
         return type(self)(self.name, self.cod, self.dom, data=self.data,
                           _dagger=not self._dagger)
@@ -456,7 +457,7 @@ class Box(Diagram):
             ", data=" + repr(self.data) if self.data else '')
 
     def __str__(self):
-        return str(self.name) + (".dagger()" if self._dagger else '')
+        return str(self.name) + ("[::-1]" if self._dagger else '')
 
     def __hash__(self):
         return hash(super().__repr__())
@@ -479,16 +480,16 @@ class Functor:
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
-    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g.dagger()}
+    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
     >>> F = Functor(ob, ar)
     >>> assert F(x) == y and F(f) == g
 
     Parameters
     ----------
     ob : dict_like
-        Mapping from :class:`cat.Ob` to `ob_cls`
+        Mapping from :class:`cat.Ob` to `ob_cls`.
     ar : dict_like
-        Mapping from :class:`cat.Box` to `ar_cls`
+        Mapping from :class:`cat.Box` to `ar_cls`.
 
     Other Parameters
     ----------------
@@ -510,7 +511,7 @@ class Functor:
 
     >>> assert F(Id(x)) == Id(F(x))
     >>> assert F(f >> g) == F(f) >> F(g)
-    >>> assert F(f.dagger()) == F(f).dagger()
+    >>> assert F(f[::-1]) == F(f)[::-1]
     >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
     """
     def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
@@ -587,12 +588,12 @@ class Quiver:
     If :attr:`Box.data` is a mutable object, then so can be the image of a
     :class:`Functor` on it.
 
-    >>> ar = Quiver(lambda f: f if all(f.data) else f.dagger())
+    >>> ar = Quiver(lambda f: f if all(f.data) else f[::-1])
     >>> F = Functor(ob, ar)
     >>> m = Box('m', x, x, data=[True])
     >>> assert F(m) == m
     >>> m.data.append(False)
-    >>> assert F(m) == m.dagger()
+    >>> assert F(m) == m[::-1]
     """
     def __init__(self, func):
         self._func = func

@@ -68,14 +68,14 @@ class Circuit(Diagram):
         Takes a diagram and returns a circuit.
         """
         return Circuit(len(diagram.dom), len(diagram.cod),
-                       diagram.boxes, diagram.offsets, _scan=diagram._scan)
+                       diagram.boxes, diagram.offsets, diagram.layers)
 
-    def __init__(self, dom, cod, gates, offsets, _scan=None):
+    def __init__(self, dom, cod, gates, offsets, layers=None):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
         """
         self._gates = gates
-        super().__init__(PRO(dom), PRO(cod), gates, offsets, _scan=_scan)
+        super().__init__(PRO(dom), PRO(cod), gates, offsets, layers)
 
     def __repr__(self):
         """
@@ -334,7 +334,7 @@ class Gate(Box, Circuit):
         >>> print(CX.dagger())
         CX
         >>> print(Y.dagger())
-        Y.dagger()
+        Y[::-1]
         >>> assert Y.eval().dagger() == Y.dagger().eval()
         """
         return Gate(
