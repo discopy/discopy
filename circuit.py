@@ -15,7 +15,7 @@ Ket(0) >> X >> Bra(1)
 """
 
 import random as rand
-from discopy import messages, moncat
+from discopy import messages
 from discopy.cat import Quiver
 from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor

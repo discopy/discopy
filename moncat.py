@@ -38,7 +38,6 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 
 import os
 import tempfile
-from functools import reduce as fold
 
 import networkx as nx
 from PIL import Image
@@ -210,9 +209,9 @@ class Layer(cat.Box):
             *map(repr, (self._left, self._box, self._right)))
 
     def __str__(self):
-        return ("{} @ ".format(cat.Id(self._left)) if len(self._left) else "")\
+        return ("{} @ ".format(cat.Id(self._left)) if self._left else "")\
             + str(self._box)\
-            + (" @ {}".format(cat.Id(self._right)) if len(self._right) else "")
+            + (" @ {}".format(cat.Id(self._right)) if self._right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -776,8 +775,8 @@ class Diagram(cat.Diagram):
         >>> assert d.foliation().flatten().foliation() == d.foliation()
         """
         foliation = []
-        for slice in self.foliate():
-            foliation.append(slice.normal_form())
+        for diagram in self.foliate():
+            foliation.append(diagram.normal_form())
         return Diagram(self.dom, self.cod, foliation, len(foliation) * [0])
 
     def depth(self):
@@ -791,7 +790,7 @@ class Diagram(cat.Diagram):
         >>> assert (f @ g).depth() == 1
         >>> assert (f >> g).depth() == 2
         """
-        return sum(1 for i in self.foliate())
+        return sum(1 for _ in self.foliate())
 
     def width(self):
         """
