@@ -127,6 +127,32 @@ class Diagram(moncat.Diagram):
     def interchange(self, i, j, left=False):
         return self._upgrade(super().interchange(i, j, left=left))
 
+    def flatten(self):
+        """
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> assert isinstance((3 * f).foliation().flatten(), Diagram)
+        """
+        return self._upgrade(super().flatten())
+
+    def foliate(self):
+        """
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> gen = (f @ Id(x) >> (f @ f)).foliate()
+        >>> assert next(gen).normal_form() == f @ f
+        """
+        for diagram in super().foliate():
+            yield self._upgrade(diagram)
+
+    def foliation(self):
+        """
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> assert isinstance((f @ Id(x) >> (f @ f)).foliation(), Diagram)
+        """
+        return self._upgrade(super().foliation())
+
     def __getitem__(self, key):
         """
         >>> n, s = Ty('n'), Ty('s')
