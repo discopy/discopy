@@ -22,7 +22,7 @@ try:
     for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
-except ImportError:
+except ImportError:  # pragma: no cover
     import numpy as np
 
 

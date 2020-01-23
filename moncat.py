@@ -1,8 +1,24 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements the free dagger monoidal category.
+Implements the free dagger monoidal category
+and strong dagger monoidal functors.
 
+The syntax for diagrams is given by the following grammar::
+
+    diagram ::= Box(name, dom=type, cod=type)
+        | diagram[::-1]
+        | diagram @ diagram
+        | diagram >> diagram
+        | Id(type)
+
+where :code:`[::-1]`, :code:`@` and :code:`>>` denote the dagger, tensor and
+composition respectively. The syntax for types is given by::
+
+    type ::= Ty(name) | type @ type | Ty()
+
+Notes
+-----
 We can check the axioms for dagger monoidal categories, up to interchanger.
 
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
@@ -10,8 +26,8 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 >>> d = Id(x) @ f1 >> f0 @ Id(w)
 >>> assert d == (f0 @ f1).interchange(0, 1)
 >>> assert f0 @ f1 == d.interchange(0, 1)
->>> assert (f0 @ f1).dagger().dagger() == f0 @ f1
->>> assert (f0 @ f1).dagger().interchange(0, 1) == f0.dagger() @ f1.dagger()
+>>> assert (f0 @ f1)[::-1][::-1] == f0 @ f1
+>>> assert (f0 @ f1)[::-1].interchange(0, 1) == f0[::-1] @ f1[::-1]
 
 We can check the Eckerman-Hilton argument, up to interchanger.
 
@@ -153,6 +169,57 @@ class Ty(Ob):
         return sum(n_times * (self, ), type(self)())
 
 
+class Layer(cat.Box):
+    """
+    Layer of a diagram, i.e. a box with wires to the left and right.
+
+    Parameters
+    ----------
+    left : moncat.Ty
+        Left wires.
+    box : moncat.Box
+        Middle box.
+    right : moncat.Ty
+        Right wires.
+
+    Examples
+    --------
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> f, g = Box('f', y, z), Box('g', z, x)
+    >>> layers = Layer(x, f, z), Layer(x, g, z)
+    >>> for left, box, right in layers: print(left, box, right)
+    x f z
+    x g z
+    >>> first, then = layers
+    >>> print(first >> then)
+    Id(x) @ f @ Id(z) >> Id(x) @ g @ Id(z)
+    """
+    def __init__(self, left, box, right):
+        self._left, self._box, self._right = left, box, right
+        name = (left, box, right)
+        dom, cod = left @ box.dom @ right, left @ box.cod @ right
+        super().__init__(name, dom, cod)
+
+    def __iter__(self):
+        yield self._left
+        yield self._box
+        yield self._right
+
+    def __repr__(self):
+        return "Layer({}, {}, {})".format(
+            *map(repr, (self._left, self._box, self._right)))
+
+    def __str__(self):
+        return ("{} @ ".format(cat.Id(self._left)) if len(self._left) else "")\
+            + str(self._box)\
+            + (" @ {}".format(cat.Id(self._right)) if len(self._right) else "")
+
+    def __getitem__(self, key):
+        if key == slice(None, None, -1):
+            return Layer(self._left, self._box[::-1], self._right)
+        return super().__getitem__(key)
+
+
 class Diagram(cat.Diagram):
     """
     Defines a diagram given dom, cod, a list of boxes and offsets.
@@ -164,60 +231,42 @@ class Diagram(cat.Diagram):
 
     Parameters
     ----------
-    dom : moncat.Ty
+    dom : :class:`Ty`
         Domain of the diagram.
-    cod : moncat.Ty
+    cod : :class:`Ty`
         Codomain of the diagram.
     boxes : list of :class:`Diagram`
         Boxes of the diagram.
     offsets : list of int
         Offsets of each box in the diagram.
-
+    layers : list of :class:`Layer`
+        Layers of the diagram, computed from boxes and offsets if :code:`None`.
     Raises
     ------
-    :class:`discopy.cat.AxiomError`
+    :class:`AxiomError`
         Whenever the boxes do not compose.
     """
-    def __init__(self, dom, cod, boxes, offsets, _scan=None, _fast=False):
+    def __init__(self, dom, cod, boxes, offsets, layers=None):
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
         if len(boxes) != len(offsets):
             raise ValueError(messages.boxes_and_offsets_must_have_same_len())
-        if _scan is None and not _fast:
-            _scan, prev_layer = [], cat.Id(dom)
+        if layers is None:
+            layers = cat.Id(dom)
             for box, off in zip(boxes, offsets):
                 if not isinstance(box, Diagram):
                     raise TypeError(messages.type_err(Diagram, box))
                 if not isinstance(off, int):
                     raise TypeError(messages.type_err(int, off))
-                left, right =\
-                    prev_layer.cod[:off], prev_layer.cod[off + len(box.dom):]
-                next_layer = cat.Box((left, box, right),
-                                     left @ box.dom @ right,
-                                     left @ box.cod @ right)
-                if next_layer.dom != prev_layer.cod:
-                    raise AxiomError(
-                        messages.does_not_compose(prev_layer, next_layer))
-                _scan.append(next_layer)
-                prev_layer = next_layer
-            if prev_layer.cod != cod:
-                raise AxiomError(
-                    messages.does_not_compose(prev_layer, Id(cod)))
-        super().__init__(dom, cod, boxes, _scan=_scan, _fast=_fast)
-        self._offsets = tuple(offsets)
-
-    def then(self, other):
-        return Diagram(self.dom, other.cod,
-                       self.boxes + other.boxes,
-                       self.offsets + other.offsets,
-                       _scan=None)
-
-    def dagger(self):
-        return Diagram(self.cod, self.dom,
-                       [f.dagger() for f in self.boxes[::-1]],
-                       self.offsets[::-1], _scan=None)
+                left = layers.cod[:off] if layers else dom[:off]
+                right = layers.cod[off + len(box.dom):]\
+                    if layers else dom[off + len(box.dom):]
+                layers = layers >> Layer(left, box, right)
+            layers = layers >> cat.Id(cod)
+        self._layers, self._offsets = layers, tuple(offsets)
+        super().__init__(dom, cod, boxes, _scan=False)
 
     @staticmethod
     def id(x):
@@ -226,9 +275,34 @@ class Diagram(cat.Diagram):
     @property
     def offsets(self):
         """
-        The offset for a box in a diagram is the number of wires to its left.
+        The offset of a box is the number of wires to its left.
         """
         return list(self._offsets)
+
+    @property
+    def layers(self):
+        """
+        A :class:`discopy.cat.Diagram` with :class:`Layer` boxes such that::
+
+            diagram.layers == cat.Id(diagram.dom).compose(*[
+                Id(left) @ box Id(right)
+                for left, box, right in diagram.layers])
+
+        This is accessed using python slices::
+
+            diagram[i:j] == Diagram(
+                dom=diagram.boxes[i].dom,
+                cod=diagram.boxes[j - 1].cod,
+                boxes=diagram.boxes[i:j],
+                offsets=diagram.offsets[i:j])
+        """
+        return self._layers
+
+    def then(self, other):
+        return Diagram(self.dom, other.cod,
+                       self.boxes + other.boxes,
+                       self.offsets + other.offsets,
+                       layers=self.layers >> other.layers)
 
     def tensor(self, other):
         """
@@ -251,10 +325,15 @@ class Diagram(cat.Diagram):
         """
         if not isinstance(other, Diagram):
             raise TypeError(messages.type_err(Diagram, other))
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        return Diagram(dom, cod, boxes, offsets, _scan=None)
+        layers = cat.Id(dom)
+        for left, box, right in self.layers:
+            layers = layers >> Layer(left, box, right @ other.dom)
+        for left, box, right in other.layers:
+            layers = layers >> Layer(self.cod @ left, box, right)
+        return Diagram(dom, cod, boxes, offsets, layers=layers)
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -278,51 +357,21 @@ class Diagram(cat.Diagram):
         return hash(repr(self))
 
     def __iter__(self):
-        """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, y)
-        >>> g0 = Box('g', y @ y, x)
-        >>> g1 = g0.dagger()
-        >>> d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
-        >>> assert Diagram.compose(*(layer for layer in d)) == d
-        """
-        if not self.boxes:
-            yield self.id(self.dom)
-        scan = self.dom
-        for box, off in zip(self.boxes, self.offsets):
-            yield\
-                self.id(scan[:off]) @ box @ self.id(scan[off + len(box.dom):])
-            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+        for left, box, right in self.layers:
+            yield self.id(left) @ box @ self.id(right)
 
     def __str__(self):
-        if len(self) == 1:
-            box, off, scan = self.boxes[0], self.offsets[0], self.dom
-            left = "{} @ ".format(self.id(scan[:off])) if scan[:off] else ""
-            right = " @ {}".format(self.id(scan[off + len(box.dom):]))\
-                if scan[off + len(box.dom):] else ""
-            return left + str(box) + right
-        return ' >> '.join(map(str, self))
+        return ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            if (key.step or 0) == -1:
-                return self.dagger()[
-                    None if key.start is None else -key.start - 1:
-                    None if key.stop is None else -key.stop - 1]
-            if (key.step or 1) != 1:
-                raise IndexError
-            if key.start is None and key.stop is None:
-                return self
-            return Diagram.compose(*(list(self)[key]))
-        if isinstance(key, int):
-            if key < 0:
-                return self[len(self) + key]
-            if key >= len(self):
-                raise IndexError
-            for depth, layer in enumerate(self):
-                if depth == key:
-                    return layer
-        raise TypeError
+            layers = self.layers[key]
+            boxes_and_offsets = tuple(zip(*(
+                (box, len(left)) for left, box, _ in layers))) or ([], [])
+            inputs = (layers.dom, layers.cod) + boxes_and_offsets
+            return Diagram(*inputs, layers=layers)
+        left, box, right = self.layers[key]
+        return self.id(left) @ box @ self.id(right)
 
     def build_graph(self):
         """
@@ -423,6 +472,8 @@ class Diagram(cat.Diagram):
             Padding between text and wires, default is :code:`0.1`.
         draw_types : bool, optional
             Whether to draw type labels, default is :code:`False`.
+        draw_box_labels : bool, optional
+            Whether to draw box labels, default is :code:`True`.
         aspect : string, optional
             Aspect ratio, one of :code:`['equal', 'auto']`.
         margins : tuple, optional
@@ -469,9 +520,10 @@ class Diagram(cat.Diagram):
                 [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY])
             axis.add_patch(PathPatch(
                 path, facecolor=params.get('color', '#ffffff')))
-            axis.text(positions[node][0], positions[node][1], labels[node],
-                      ha='center', va='center',
-                      fontsize=params.get('fontsize', 12))
+            if params.get('draw_box_labels', True):
+                axis.text(positions[node][0], positions[node][1], labels[node],
+                          ha='center', va='center',
+                          fontsize=params.get('fontsize', 12))
 
         def draw_wires(axis):
             for case in ['input', 'output', 'wire_dom', 'wire_cod']:
@@ -519,7 +571,7 @@ class Diagram(cat.Diagram):
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         axis.set_aspect(params.get('aspect', 'equal'))
         plt.axis("off")
-        if 'path' in params.keys():
+        if 'path' in params:
             plt.savefig(params['path'])
             plt.close()
         plt.show()
@@ -546,22 +598,31 @@ class Diagram(cat.Diagram):
             return result
         if j < i:
             i, j = j, i
-        box0, box1 = self.boxes[i], self.boxes[j]
         off0, off1 = self.offsets[i], self.offsets[j]
+        left0, box0, right0 = self.layers[i]
+        left1, box1, right1 = self.layers[j]
         # By default, we check if box0 is to the right first, then to the left.
-        if left and off1 >= off0 + len(box0.cod):
+        if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
+            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
         elif off0 >= off1 + len(box1.dom):  # box0 right of box1
             off0 = off0 - len(box1.dom) + len(box1.cod)
+            middle = left0[len(left1 @ box1.dom):]
+            layer0 = Layer(left1 @ box1.cod @ middle, box0, right0)
+            layer1 = Layer(left1, box1, middle @ box0.dom @ right0)
         elif off1 >= off0 + len(box0.cod):  # box0 left of box1
             off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
+            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
         else:
             raise InterchangerError(box0, box1)
-        return Diagram(
-            self.dom, self.cod,
-            self.boxes[:i] + [box1, box0] + self.boxes[i + 2:],
-            self.offsets[:i] + [off1, off0] + self.offsets[i + 2:],
-            _scan=None)
+        boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
+        offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
+        layers = self.layers[:i] >> layer1 >> layer0 >> self.layers[i + 2:]
+        return Diagram(self.dom, self.cod, boxes, offsets, layers=layers)
 
     def normalize(self, left=False):
         """
@@ -757,8 +818,8 @@ def spiral(n_cups, _type=Ty('x')):
     """
     Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
     """
-    unit, counit = Box('', Ty(), _type), Box('', _type, Ty())
-    cup, cap = Box('', _type @ _type, Ty()), Box('', Ty(), _type @ _type)
+    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
+    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
     result = unit
     for i in range(n_cups):
         result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
@@ -785,23 +846,12 @@ class Id(Diagram):
     >>> assert f >> Id(t) == f == Id(s) >> f
     """
     def __init__(self, x):
-        """
-        >>> assert Id(Ty('x')) == Diagram.id(Ty('x'))
-        """
-        super().__init__(x, x, [], [], _scan=None)
+        super().__init__(x, x, [], [], layers=cat.Id(x))
 
     def __repr__(self):
-        """
-        >>> Id(Ty('x'))
-        Id(Ty('x'))
-        """
         return "Id({})".format(repr(self.dom))
 
     def __str__(self):
-        """
-        >>> print(Id(Ty('x')))
-        Id(x)
-        """
         return "Id({})".format(str(self.dom))
 
 
@@ -812,11 +862,12 @@ class Box(cat.Box, Diagram):
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
     >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
-    >>> assert f == f.dagger().dagger()
+    >>> assert f == f[::-1][::-1]
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], _scan=[self])
+        layers = cat.Diagram(dom, cod, [Layer(Ty(), self, Ty())], _scan=False)
+        Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 
     def __eq__(self, other):
         if isinstance(other, Box):
@@ -841,7 +892,7 @@ class MonoidalFunctor(Functor):
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(F(f0)) == f0
     >>> assert F(f0 @ f1) == f1 @ f0
-    >>> assert F(f0 >> f0.dagger()) == f1 >> f1.dagger()
+    >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     """
     def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
         if ob_cls is None:

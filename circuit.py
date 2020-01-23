@@ -15,7 +15,6 @@ Ket(0) >> X >> Bra(1)
 """
 
 import random as rand
-import pytket as tk
 from discopy import messages, moncat
 from discopy.cat import Quiver
 from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
@@ -31,11 +30,6 @@ class PRO(Ty):
     >>> assert PRO(3) == Ty(1, 1, 1)
     """
     def __init__(self, n=0):
-        if not isinstance(n, int):
-            if isinstance(n, Ob):
-                n = n.name
-            else:
-                n = len(n)
         super().__init__(*(n * [1]))
 
     @property
@@ -56,7 +50,7 @@ class PRO(Ty):
         return "PRO({})".format(len(self))
 
     def __str__(self):
-        return repr(self)
+        return repr(len(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -74,14 +68,14 @@ class Circuit(Diagram):
         Takes a diagram and returns a circuit.
         """
         return Circuit(len(diagram.dom), len(diagram.cod),
-                       diagram.boxes, diagram.offsets, _fast=True)
+                       diagram.boxes, diagram.offsets, diagram.layers)
 
-    def __init__(self, dom, cod, gates, offsets, _fast=False):
+    def __init__(self, dom, cod, gates, offsets, layers=None):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
         """
         self._gates = gates
-        super().__init__(PRO(dom), PRO(cod), gates, offsets, _fast=_fast)
+        super().__init__(PRO(dom), PRO(cod), gates, offsets, layers)
 
     def __repr__(self):
         """
@@ -103,15 +97,6 @@ class Circuit(Diagram):
         [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
         """
         return self._gates
-
-    def flatten(self):
-        """
-        Takes a circuit of circuits and returns a circuit.
-
-        >>> circuit = X @ X >> Id(1) @ X
-        >>> circuit = circuit.foliation().flatten()
-        """
-        return CircuitFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
     @staticmethod
     def id(x):
@@ -186,6 +171,7 @@ class Circuit(Diagram):
         (OpType.Rx, [0.25])
         (OpType.CX, [])
         """
+        import pytket as tk
         tk_circuit = tk.Circuit(len(self.dom))
         for gate, off in zip(self.gates, self.offsets):
             if isinstance(gate, Rx):
@@ -286,7 +272,7 @@ class Id(Circuit):
         """
         if isinstance(n_qubits, PRO):
             n_qubits = len(n_qubits)
-        super().__init__(n_qubits, n_qubits, [], [], _fast=True)
+        super().__init__(n_qubits, n_qubits, [], [])
 
     def __repr__(self):
         """
@@ -318,7 +304,7 @@ class Gate(Box, Circuit):
             self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
         Box.__init__(self, name, PRO(n_qubits), PRO(n_qubits),
                      data=data, _dagger=_dagger)
-        Circuit.__init__(self, n_qubits, n_qubits, [self], [0], _fast=True)
+        Circuit.__init__(self, n_qubits, n_qubits, [self], [0])
 
     @property
     def array(self):
@@ -348,7 +334,7 @@ class Gate(Box, Circuit):
         >>> print(CX.dagger())
         CX
         >>> print(Y.dagger())
-        Y.dagger()
+        Y[::-1]
         >>> assert Y.eval().dagger() == Y.dagger().eval()
         """
         return Gate(
@@ -369,7 +355,7 @@ class Ket(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Ket({})'.format(', '.join(map(str, bitstring))),
                      PRO(0), PRO(len(bitstring)))
-        Circuit.__init__(self, 0, len(bitstring), [self], [0], _fast=True)
+        Circuit.__init__(self, 0, len(bitstring), [self], [0])
 
     def tensor(self, other):
         """
@@ -427,7 +413,7 @@ class Bra(Box, Circuit):
         self.bitstring = bitstring
         Box.__init__(self, 'Bra({})'.format(', '.join(map(str, bitstring))),
                      PRO(len(bitstring)), PRO(0))
-        Circuit.__init__(self, len(bitstring), 0, [self], [0], _fast=True)
+        Circuit.__init__(self, len(bitstring), 0, [self], [0])
 
     def __repr__(self):
         """
@@ -443,6 +429,8 @@ class Bra(Box, Circuit):
 
         >>> Bra(0, 1, 0) @ Bra(1, 0)
         Bra(0, 1, 0, 1, 0)
+        >>> print(Bra(0) @ X)
+        Bra(0) @ Id(1) >> X
         """
         if isinstance(other, Bra):
             return Bra(*(self.bitstring + other.bitstring))
@@ -579,14 +567,7 @@ class CircuitFunctor(RigidFunctor):
     SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
     """
     def __init__(self, ob, ar):
-        """
-        >>> F = CircuitFunctor({}, {})
-        """
-        if isinstance(ob, Quiver):
-            super().__init__(ob, ar, ob_cls=PRO, ar_cls=Circuit)
-        else:
-            super().__init__({x: PRO(y) for x, y in ob.items()}, ar,
-                             ob_cls=PRO, ar_cls=Circuit)
+        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Circuit)
 
     def __repr__(self):
         """
@@ -594,7 +575,7 @@ class CircuitFunctor(RigidFunctor):
         CircuitFunctor(ob={}, ar={})
         """
         return "CircuitFunctor(ob={}, ar={})".format(
-            repr({x: len(y) for x, y in self.ob.items()}), repr(self.ar))
+            repr(self.ob), repr(self.ar))
 
     def __call__(self, diagram):
         """
@@ -602,13 +583,13 @@ class CircuitFunctor(RigidFunctor):
         >>> F = CircuitFunctor({x: 1}, {})
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
+        if isinstance(diagram, Ob) and not diagram.z:
+            return PRO(self.ob[Ty(diagram.name)])
         result = super().__call__(diagram)
         if isinstance(diagram, Ty):
             return PRO(len(result))
         if isinstance(diagram, Diagram):
-            return Circuit(
-                len(result.dom), len(result.cod),
-                result.boxes, result.offsets, _fast=True)
+            return Circuit._upgrade(result)
         return result
 
 

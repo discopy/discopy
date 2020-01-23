@@ -15,8 +15,6 @@ discopy
    rigidcat/index.rst
    matrix/index.rst
    circuit/index.rst
-   function/index.rst
-   learner/index.rst
    pregroup/index.rst
 
 

@@ -73,26 +73,32 @@ def test_Diagram_iter():
 def test_Diagram_getitem():
     x, y = Ty('x'), Ty('y')
     f0, f1, g = Box('f0', x, y), Box('f1', y, y), Box('g', y @ y, x)
-    d = (f0 >> f1) @ Id(y @ x) >> g @ g.dagger() >> f0 @ g
-    assert d == f0 @ Id(y @ x)\
+    diagram = f0 @ Id(y @ x)\
         >> f1 @ Id(y @ x)\
         >> g @ Id(x)\
         >> Id(x) @ g.dagger()\
         >> f0 @ Id(y @ y)\
         >> Id(y) @ g
-    assert d[:2] == f0 @ Id(y @ x) >> f1 @ Id(y @ x)
-    assert d[-2:] == f0 @ Id(y @ y) >> Id(y) @ g
-    assert d[2:-2] == g @ Id(x) >> Id(x) @ g.dagger()
-    assert d[::-1] == d.dagger()
-    assert d[:2:-1] == d[::-1][:-2 - 1]
-    assert d[2::-1] == d[::-1][-2 - 1:]
-    assert d[4:2:-1] == d[::-1][-4 - 1: -2 - 1]
-    with raises(IndexError) as err:
-        d[7]
-    with raises(IndexError) as err:
-        d[1:3:2]
-    with raises(TypeError) as err:
-        d[x]
+    assert diagram[:] == diagram
+    assert diagram[::-1] == diagram.dagger()
+    with raises(TypeError):
+        diagram["Alice"]
+    for depth, (left, box, right) in enumerate(diagram.layers):
+        layer = Id(left) @ box @ Id(right)
+        assert diagram[depth] == layer
+        assert (diagram[-depth], ) == tuple(
+            Id(left) @ box @ Id(right)
+            for left, box, right in (diagram.layers[-depth], ))
+        assert diagram[depth:depth] == Id(layer.dom)
+        assert diagram[depth:] == Id(layer.dom).compose(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in diagram.layers[depth:]))
+        assert diagram[:depth] == Id(diagram.dom).compose(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in diagram.layers[:depth]))
+        assert diagram[depth: depth + 2] == Id(layer.dom).compose(*(
+            Id(left) @ box @ Id(right)
+            for left, box, right in diagram.layers[depth: depth + 2]))
 
 
 def test_Diagram_tensor():
@@ -195,6 +201,18 @@ def test_spiral(n_cups=2):
     unit, counit = diagram.boxes[0], diagram.boxes[n_cups + 1]
     spiral_nf = diagram.normal_form()
     assert spiral_nf.boxes[-1] == counit and spiral_nf.boxes[n_cups] == unit
+
+
+def test_Id_init():
+    assert Id(Ty('x')) == Diagram.id(Ty('x'))
+
+
+def test_Id_repr():
+    assert repr(Id(Ty('x'))) == "Id(Ty('x'))"
+
+
+def test_Id_str():
+    assert str(Id(Ty('x'))) == "Id(x)"
 
 
 def test_Box_init():
