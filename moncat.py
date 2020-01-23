@@ -12,7 +12,7 @@ The syntax for diagrams is given by the following grammar::
         | diagram >> diagram
         | Id(type)
 
-where :code`[::-1]`, :code:`@` and :code:`>>` denote the dagger, tensor and
+where :code:`[::-1]`, :code:`@` and :code:`>>` denote the dagger, tensor and
 composition respectively. The syntax for types is given by::
 
     type ::= Ty(name) | type @ type | Ty()
