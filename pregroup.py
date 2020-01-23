@@ -51,10 +51,6 @@ class Word(Box):
     Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
     """
     def __init__(self, word, ty):
-        """
-        >>> Word('Alice', Ty('n'))
-        Word('Alice', Ty('n'))
-        """
         if not isinstance(word, str):
             raise TypeError(messages.type_err(str, word))
         if not isinstance(ty, Ty):
@@ -62,11 +58,16 @@ class Word(Box):
         super().__init__(word, Ty(), ty)
 
     def __repr__(self):
-        """
-        >>> Word('Alice', Ty('n'))
-        Word('Alice', Ty('n'))
-        """
         return "Word({}, {})".format(repr(self.name), repr(self.cod))
+
+    def dagger(self):
+        """
+        >>> Word('Alice', Ty('n')).dagger()  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: Pivotal categories are not implemented.
+        """
+        raise NotImplementedError(messages.pivotal_not_implemented())
 
 
 def eager_parse(*words, target=Ty('s')):
