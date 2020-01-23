@@ -658,11 +658,7 @@ class Diagram(cat.Diagram):
         A corner case of normal_form():
 
         >>> ket = Box('ket', Ty(), Ty('x'))
-        >>> scalar, scalar1 = Box('scalar', Ty(), Ty()), Box('scalar1', Ty(), Ty())
-        >>> (scalar @ scalar1).normal_form()  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        NotImplementedError: scalar >> scalar1 is not connected.
+        >>> scalar = Box('scalar', Ty(), Ty())
         >>> diagram0 = ket @ scalar @ ket @ scalar
         >>> diagram1 = scalar @ ket @ scalar @ ket
         >>> assert diagram0.normal_form() != diagram1.normal_form()
@@ -726,7 +722,8 @@ class Diagram(cat.Diagram):
         >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
         ...      g @ f1 >> f1 @ Id(x)).normal_form()
         >>> assert d.foliation().flatten().normal_form() == d
-        >>> assert d.foliation().dagger().flatten() == d.foliation().flatten().dagger()
+        >>> assert d.foliation().dagger().flatten()\\
+        ...     == d.foliation().flatten().dagger()
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
@@ -770,8 +767,9 @@ class Diagram(cat.Diagram):
         >>> d = f0 @ Id(y) >> f0.dagger() @ f1
         >>> assert d.foliation().boxes[0] == f0 @ f1
         >>> assert d.foliation().flatten().normal_form() == d
-        >>> assert d.foliation().flatten() == d[::-1].foliation()[::-1].flatten()\\
-        ...        == d[::-1].foliation().flatten()[::-1]
+        >>> assert d.foliation().flatten()\\
+        ...     == d[::-1].foliation()[::-1].flatten()\\
+        ...     == d[::-1].foliation().flatten()[::-1]
 
         This method calls the normal_form for each slice, making it idempotent.
 
@@ -780,8 +778,7 @@ class Diagram(cat.Diagram):
         foliation = []
         for slice in self.foliate():
             foliation.append(slice.normal_form())
-        return Diagram(self.dom, self.cod, foliation, len(foliation) * [0],
-                       _scan=None)
+        return Diagram(self.dom, self.cod, foliation, len(foliation) * [0])
 
     def depth(self):
         """
