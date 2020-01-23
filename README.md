@@ -87,10 +87,10 @@ the result can then be simplified using `diagram.normalize()` to remove the snak
 ```python
 from discopy import RigidFunctor
 
-love_box = Box('loves', n, s @ n.l)
-love_ansatz = Cap(n.r, n) >> Id(n.r) @ love_box
+love_ansatz = Cap(n.r, n) >> Id(n.r) @ Box('loves', n, s @ n.l)
+Bob_transpose = Cap(n, n.l) >> Id(n) @ Box('Bob', n.l, Ty())
 A = RigidFunctor(ob={s: s, n: n},
-                 ar={Alice: Alice, Bob: Bob, loves: love_ansatz})
+                 ar={Alice: Alice, Bob: Bob_transpose, loves: love_ansatz})
 
 rewrite_steps = A(sentence).normalize()
 Diagram.to_gif(A(sentence), diagrams=rewrite_steps,
@@ -109,14 +109,9 @@ from discopy import MatrixFunctor
 
 F = MatrixFunctor(
     ob={s: 1, n: 2},
-    ob={s: 1, n: 2},
-
     ar={Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]})
 
 assert F(sentence)
-
-F.ar.update({love_box: F(loves).array})
-assert F(sentence) == F(A(sentence)) == F(A(sentence).normal_form())
 ```
 
 ## Getting Started
