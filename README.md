@@ -87,8 +87,8 @@ the result can then be simplified using `diagram.normalize()` to remove the snak
 ```python
 from discopy import RigidFunctor
 
-love_box = Box('loves', n @ n, s)
-love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
+love_box = Box('loves', n, s @ n.l)
+love_ansatz = Cap(n.r, n) >> Id(n.r) @ love_box
 A = RigidFunctor(ob={s: s, n: n},
                  ar={Alice: Alice, Bob: Bob, loves: love_ansatz})
 
@@ -109,6 +109,8 @@ from discopy import MatrixFunctor
 
 F = MatrixFunctor(
     ob={s: 1, n: 2},
+    ob={s: 1, n: 2},
+
     ar={Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]})
 
 assert F(sentence)
