@@ -669,7 +669,7 @@ class Diagram(cat.Diagram):
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
-    def foliate(self, i=0):
+    def foliate(self):
         """
         Generator yielding the slices for a foliation of self.
 
@@ -687,6 +687,7 @@ class Diagram(cat.Diagram):
         scalar >> ket >> Id(x) @ scalar >> ket @ Id(x)
         """
         diagram = self
+        i = 0
         while i < len(diagram):
             n_boxes = 0
             for j in range(i + 1, len(diagram)):
