@@ -239,7 +239,10 @@ class Circuit(Diagram):
         >>> caps = Circuit.caps(PRO(2), PRO(2))
         >>> cups = Circuit.cups(PRO(2), PRO(2))
         >>> snake = caps @ Id(2) >> Id(2) @ cups
-        >>> assert np.allclose(snake.normal_form().measure(), snake.measure())
+        >>> circ = snake.normal_form()
+        >>> assert circ.boxes[0] == Ket(0, 0, 0, 0)
+        >>> assert circ.boxes[-1] == Bra(0, 0, 0, 0)
+        >>> assert circ.boxes[-2].name == 'scalar'
         """
         *_, result = self.normalize()
         return result
