@@ -112,8 +112,21 @@ class Circuit(Diagram):
     @staticmethod
     def cups(left, right):
         """
-        >>> list(np.round(Circuit.cups(PRO(1), PRO(1)).eval().array.flatten()))
-        [1.0, 0.0, 0.0, 1.0]
+        >>> bell_state = Circuit.cups(PRO(1), PRO(1))
+        >>> print(bell_state)
+        CX >> H @ Id(1) >> Id(1) @ sqrt(2) @ Id(1) >> Bra(0, 0)
+        >>> assert np.allclose(bell_state.eval().array, [[1, 0], [0, 1]])
+
+        >>> double_bell_state = Circuit.cups(PRO(2), PRO(2))
+        >>> print('\\n>> '.join(str(layer) for layer in double_bell_state))
+        Id(1) @ CX @ Id(1)
+        >> Id(1) @ H @ Id(2)
+        >> Id(2) @ sqrt(2) @ Id(2)
+        >> Id(1) @ Bra(0, 0) @ Id(1)
+        >> CX
+        >> H @ Id(1)
+        >> Id(1) @ sqrt(2) @ Id(1)
+        >> Bra(0, 0)
         """
         if not isinstance(left, PRO):
             raise TypeError(messages.type_err(PRO, left))
@@ -128,26 +141,59 @@ class Circuit(Diagram):
     @staticmethod
     def caps(left, right):
         """
-        >>> list(np.round(Circuit.caps(PRO(1), PRO(1)).eval().array.flatten()))
-        [1.0, 0.0, 0.0, 1.0]
+        >>> bell_effect = Circuit.caps(PRO(1), PRO(1))
+        >>> print(bell_effect)
+        Ket(0, 0) >> Id(1) @ sqrt(2) @ Id(1) >> H @ Id(1) >> CX
+        >>> assert np.allclose(bell_effect.eval().array, [[1, 0], [0, 1]])
+
+        >>> double_bell_effect = Circuit.caps(PRO(2), PRO(2))
+        >>> print('\\n>> '.join(str(layer) for layer in double_bell_effect))
+        Ket(0, 0)
+        >> Id(1) @ sqrt(2) @ Id(1)
+        >> H @ Id(1)
+        >> CX
+        >> Id(1) @ Ket(0, 0) @ Id(1)
+        >> Id(2) @ sqrt(2) @ Id(2)
+        >> Id(1) @ H @ Id(2)
+        >> Id(1) @ CX @ Id(1)
         """
         return Circuit.cups(left, right).dagger()
 
     def eval(self):
         """
         Evaluates the circuit as a discopy Matrix.
+
+        Returns
+        -------
+        matrix : `discopy.matrix.Matrix`
+            with complex amplitudes as entries.
+
+        Examples
+        --------
+        >>> state, isometry = Ket(1, 1), Id(1) @ Bra(0)
+        >>> print(state.eval() >> isometry.eval())
+        Matrix(dom=Dim(1), cod=Dim(2), array=[1.0, 0.0])
+        >>> print((state >> isometry).eval())
+        Matrix(dom=Dim(1), cod=Dim(2), array=[0, 0])
+        >>> assert state.eval() >> isometry.eval()\\
+        ...     == (state >> isometry).eval()
         """
         return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
     def measure(self):
         """
-        Applies the Born rule and outputs a stochastic matrix.
-        The input maybe any circuit c, the output will be a numpy array
-        with shape len(c.dom @ c.cod) * (2, )
+        Measures a circuit on the computational basis.
 
+        Returns
+        -------
+        array : np.ndarray
+            with real entries and the same shape as :code:`self.eval().array`.
+
+        Examples
+        --------
         >>> m = X.measure()
-        >>> list(np.round(m[0].flatten()))
-        [0.0, 1.0]
+        >>> list(np.round(m.flatten()))
+        [0.0, 1.0, 1.0, 0.0]
         >>> assert (Ket(0) >> X >> Bra(1)).measure() == m[0, 1]
         """
         def bitstring(i, length):
@@ -161,7 +207,7 @@ class Circuit(Diagram):
         array = np.zeros(len(self.dom + self.cod) * (2, ))
         for state in states if self.dom else [Matrix.id(1)]:
             for effect in effects if self.cod else [Matrix.id(1)]:
-                scalar = np.absolute((state >> process >> effect).array ** 2)
+                scalar = np.absolute((state >> process >> effect).array) ** 2
                 array += scalar * (state.dagger() >> effect.dagger()).array
         return array
 
