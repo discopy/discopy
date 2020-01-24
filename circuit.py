@@ -144,19 +144,6 @@ class Circuit(Diagram):
     def normalize(self):
         """
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
-        >>> s, n = Ty('s'), Ty('n')
-        >>> from discopy.pregroup import Word
-        >>> from discopy.rigidcat import Cup, Id
-        >>> Alice = Word('Alice', n)
-        >>> loves = Word('loves', n.r @ s @ n.l)
-        >>> Bob = Word('Bob', n)
-        >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-        >>> sentence = grammar << Alice @ loves @ Bob
-        >>> ob = {s: 0, n: 1}
-        >>> ar = {Alice: Ket(0),
-        ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
-        ...       Bob: Ket(1)}
-        >>> F = CircuitFunctor(ob, ar)
         >>> gen = circuit.normalize()
         >>> print(next(gen))
         Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
@@ -199,9 +186,6 @@ class Circuit(Diagram):
                 result = result @ Ket(bool)
             return result
 
-        U = CircuitFunctor(Quiver(lambda x: len(x)),
-                           Quiver(lambda box: unfuse(box)
-                                  if isinstance(box, Ket) else box))
         diagram = self
         # step 0: remove scalars from diagram
         scalar = 1
@@ -213,6 +197,9 @@ class Circuit(Diagram):
             yield diagram
 
         # step 1: unfuse all kets
+        U = CircuitFunctor(Quiver(lambda x: len(x)),
+                           Quiver(lambda box: unfuse(box)
+                                  if isinstance(box, Ket) else box))
         diagram = U(diagram)
         yield diagram
 
@@ -229,10 +216,9 @@ class Circuit(Diagram):
         # step 3: normalize kets
         ket_count = sum([1 if isinstance(box, Ket) else 0
                         for box in diagram.boxes])
-
         kets = moncat.Diagram.normal_form(diagram[:ket_count])
-        diagram = kets >> diagram[ket_count:]
-        yield diagram
+        bot_diagram = diagram[ket_count:]
+        yield kets >> bot_diagram
 
         # step 4: fuse kets
         while True:
@@ -240,7 +226,32 @@ class Circuit(Diagram):
             if fusable is None:
                 break
             kets = fuse_kets(kets, fusable)
-            yield kets >> diagram[ket_count:]
+            ket_count -= 1
+            yield kets >> bot_diagram
+
+        yield (kets >> bot_diagram) @ Gate('scalar', 0, array=[scalar])
+
+    def normal_form(self):
+        """
+        >>> from discopy.rigidcat import Ty, Cup, Box
+        >>> s, n = Ty('s'), Ty('n')
+        >>> Alice = Box('Alice', Ty(), n)
+        >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
+        >>> Bob = Box('Bob', Ty(), n)
+        >>> grammar = Cup(n, n.r) @ Diagram.id(s) @ Cup(n.l, n)
+        >>> sentence = grammar << Alice @ loves @ Bob
+        >>> ob = {s: 0, n: 1}
+        >>> ar = {Alice: Ket(0),
+        ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
+        ...       Bob: Ket(0) >> X}
+        >>> F = CircuitFunctor(ob, ar)
+        >>> assert np.allclose(F(sentence).normal_form().measure(),
+        ...                    F(sentence).measure())
+        >>> caps = Circuit.caps(PRO(2), PRO(2))
+        >>> assert np.allclose(caps.normal_form().measure(), caps.measure())
+        """
+        *_, result = self.normalize()
+        return result
 
     def measure(self):
         """
