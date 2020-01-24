@@ -238,8 +238,9 @@ class Diagram(cat.Diagram):
         Boxes of the diagram.
     offsets : list of int
         Offsets of each box in the diagram.
-    layers : list of :class:`Layer`
+    layers : list of :class:`Layer`, optional
         Layers of the diagram, computed from boxes and offsets if :code:`None`.
+
     Raises
     ------
     :class:`AxiomError`
@@ -283,17 +284,18 @@ class Diagram(cat.Diagram):
         """
         A :class:`discopy.cat.Diagram` with :class:`Layer` boxes such that::
 
-            diagram.layers == cat.Id(diagram.dom).compose(*[
+            diagram == Id(diagram.dom).compose(*[
                 Id(left) @ box Id(right)
                 for left, box, right in diagram.layers])
 
         This is accessed using python slices::
 
             diagram[i:j] == Diagram(
-                dom=diagram.boxes[i].dom,
-                cod=diagram.boxes[j - 1].cod,
+                dom=diagram.layers[i].dom,
+                cod=diagram.layers[j - 1].cod,
                 boxes=diagram.boxes[i:j],
-                offsets=diagram.offsets[i:j])
+                offsets=diagram.offsets[i:j],
+                layers=diagram.layers[i:j])
         """
         return self._layers
 
@@ -315,11 +317,11 @@ class Diagram(cat.Diagram):
 
         Parameters
         ----------
-        other : discopy.moncat.Diagram
+        other : :class:`Diagram`
 
         Returns
         -------
-        diagram : discopy.moncat.Diagram
+        diagram : :class:`Diagram`
             the tensor of 'self' and 'other'.
         """
         if not isinstance(other, Diagram):
@@ -372,10 +374,142 @@ class Diagram(cat.Diagram):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
+    def interchange(self, i, j, left=False):
+        """
+        Returns a new diagram with boxes i and j interchanged.
+
+        Gets called recursively whenever :code:`i < j + 1 or j < i - 1`.
+
+        Parameters
+        ----------
+        i : int
+            Index of the box to interchange.
+        j : int
+            Index of the new position for the box.
+        left : bool, optional
+            Whether to apply left interchangers.
+
+        Notes
+        -----
+        By default, we apply only right exchange moves::
+
+            top >> Id(left @ box1.dom @ mid) @ box0 @ Id(right)
+                >> Id(left) @ box1 @ Id(mid @ box0.cod @ right) >> bottom
+
+        gets rewritten to::
+
+            top >> Id(left) @ box1 @ Id(mid @ box0.dom @ right)
+                >> Id(left @ box1.cod @ mid) @ box0 @ Id(right) >> bottom
+        """
+        if not 0 <= i < len(self) or not 0 <= j < len(self):
+            raise IndexError
+        if i == j:
+            return self
+        if j < i - 1:
+            result = self
+            for k in range(i - j):
+                result = result.interchange(i - k, i - k - 1, left=left)
+            return result
+        if j > i + 1:
+            result = self
+            for k in range(j - i):
+                result = result.interchange(i + k, i + k + 1, left=left)
+            return result
+        if j < i:
+            i, j = j, i
+        off0, off1 = self.offsets[i], self.offsets[j]
+        left0, box0, right0 = self.layers[i]
+        left1, box1, right1 = self.layers[j]
+        # By default, we check if box0 is to the right first, then to the left.
+        if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
+            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
+        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
+            off0 = off0 - len(box1.dom) + len(box1.cod)
+            middle = left0[len(left1 @ box1.dom):]
+            layer0 = Layer(left1 @ box1.cod @ middle, box0, right0)
+            layer1 = Layer(left1, box1, middle @ box0.dom @ right0)
+        elif off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
+            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
+        else:
+            raise InterchangerError(box0, box1)
+        boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
+        offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
+        layers = self.layers[:i] >> layer1 >> layer0 >> self.layers[i + 2:]
+        return Diagram(self.dom, self.cod, boxes, offsets, layers=layers)
+
+    def normalize(self, left=False):
+        """
+        Implements normalisation of connected diagrams, see arXiv:1804.07832.
+
+        Parameters
+        ----------
+        left : bool, optional
+            Passed to :meth:`Diagram.interchange`.
+
+        Yields
+        ------
+        diagram : :class:`Diagram`
+            Rewrite steps.
+
+        Examples
+        --------
+
+        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+        >>> gen = (s0 @ s1).normalize()
+        >>> for _ in range(3): print(next(gen))
+        s1 >> s0
+        s0 >> s1
+        s1 >> s0
+        """
+        diagram = self
+        while True:
+            before, exit = diagram, True
+            for i in range(len(diagram) - 1):
+                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
+                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
+                if left and off1 >= off0 + len(box0.cod)\
+                        or not left and off0 >= off1 + len(box1.dom):
+                    diagram = diagram.interchange(i, i + 1, left=left)
+                    exit = False
+            if exit:  # no more moves
+                break
+            yield diagram
+
+    def normal_form(self, normalize=None, **params):
+        """
+        Returns the normal form of a diagram.
+
+        Parameters
+        ----------
+        normalize : iterable of :class:`Diagram`, optional
+            Generator that yields rewrite steps, default is
+            :meth:`Diagram.normalize`.
+
+        params : any, optional
+            Passed to :code:`normalize`.
+
+        Raises
+        ------
+        NotImplementedError
+            Whenever :code:`normalize` yields the same rewrite steps twice.
+        """
+        diagram, cache = self, set()
+        for _diagram in (normalize or Diagram.normalize)(diagram, **params):
+            if _diagram in cache:
+                raise NotImplementedError(messages.is_not_connected(self))
+            diagram = _diagram
+            cache.add(diagram)
+        return diagram
+
     def build_graph(self):
         """
-        Builds a networkx graph, called by
-        :meth:`discopy.moncat.Diagram.draw`.
+        Builds a networkx graph, called by :meth:`Diagram.draw`.
 
         Returns
         -------
@@ -575,102 +709,7 @@ class Diagram(cat.Diagram):
             plt.close()
         plt.show()
 
-    def interchange(self, i, j, left=False):
-        """
-        Returns a new diagram with boxes i and j interchanged.
-        If there is a choice, i.e. when interchanging an effect and a state,
-        then we return the right interchange move by default.
-        """
-        if not 0 <= i < len(self) or not 0 <= j < len(self):
-            raise IndexError
-        if i == j:
-            return self
-        if j < i - 1:
-            result = self
-            for k in range(i - j):
-                result = result.interchange(i - k, i - k - 1, left=left)
-            return result
-        if j > i + 1:
-            result = self
-            for k in range(j - i):
-                result = result.interchange(i + k, i + k + 1, left=left)
-            return result
-        if j < i:
-            i, j = j, i
-        off0, off1 = self.offsets[i], self.offsets[j]
-        left0, box0, right0 = self.layers[i]
-        left1, box1, right1 = self.layers[j]
-        # By default, we check if box0 is to the right first, then to the left.
-        if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
-            off1 = off1 - len(box0.cod) + len(box0.dom)
-            middle = left1[len(left0 @ box0.cod):]
-            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
-            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
-        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
-            off0 = off0 - len(box1.dom) + len(box1.cod)
-            middle = left0[len(left1 @ box1.dom):]
-            layer0 = Layer(left1 @ box1.cod @ middle, box0, right0)
-            layer1 = Layer(left1, box1, middle @ box0.dom @ right0)
-        elif off1 >= off0 + len(box0.cod):  # box0 left of box1
-            off1 = off1 - len(box0.cod) + len(box0.dom)
-            middle = left1[len(left0 @ box0.cod):]
-            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
-            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
-        else:
-            raise InterchangerError(box0, box1)
-        boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
-        offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
-        layers = self.layers[:i] >> layer1 >> layer0 >> self.layers[i + 2:]
-        return Diagram(self.dom, self.cod, boxes, offsets, layers=layers)
-
-    def normalize(self, left=False):
-        """
-        Returns a generator which yields the diagrams at each step towards
-        a normal form. Never halts if the diagram is not connected.
-
-        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-        >>> gen = (s0 @ s1).normalize()
-        >>> for _ in range(3): print(next(gen))
-        s1 >> s0
-        s0 >> s1
-        s1 >> s0
-        """
-        diagram = self
-        while True:
-            before = diagram
-            for i in range(len(diagram) - 1):
-                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
-                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
-                if left and off1 >= off0 + len(box0.cod)\
-                        or not left and off0 >= off1 + len(box1.dom):
-                    diagram = diagram.interchange(i, i + 1, left=left)
-                    break
-            if diagram == before:  # no more moves
-                break
-            yield diagram
-
-    def normal_form(self, left=False):
-        """
-        Implements normalisation of connected diagrams, see arXiv:1804.07832.
-        By default, we apply only right exchange moves.
-
-        A corner case of normal_form():
-
-        >>> ket = Box('ket', Ty(), Ty('x'))
-        >>> scalar = Box('scalar', Ty(), Ty())
-        >>> diagram0 = ket @ scalar @ ket @ scalar
-        >>> diagram1 = scalar @ ket @ scalar @ ket
-        >>> assert diagram0.normal_form() != diagram1.normal_form()
-        """
-        diagram, cache = self, set()
-        for _diagram in self.normalize(left=left):
-            if _diagram in cache:
-                raise NotImplementedError(messages.is_not_connected(self))
-            diagram = _diagram
-            cache.add(diagram)
-        return diagram
-
-    def to_gif(self, path, diagrams=None, **params):
+    def to_gif(self, path, diagrams=None, timestep=500, loop=False, **params):
         """
         Builds a gif with the normalisation steps.
 
@@ -678,20 +717,16 @@ class Diagram(cat.Diagram):
         ----------
         path : str
             Where to save the image.
+        diagrams : iterable of :class:`Diagram`, optional
+            List of diagrams to draw, default is given by
+            :meth:`Diagram.normalize`.
         timestep : int, optional
             Time step in milliseconds, default is :code:`500`.
         loop : bool, optional
             Whether to loop, default is :code:`False`
-        diagrams : iterable, optional
-            List of diagrams to draw, default is given by
-            :meth:`discopy.moncat.Diagram.normalize`.
-
-        Other Parameters
-        ----------------
-        Other parameters are passed to :meth:`discopy.moncat.Diagram.draw`.
+        params : any, optional
+            Passed to :meth:`Diagram.draw`.
         """
-        timestep = params.get('timestep', 500)
-        loop = params.get('loop', False)
         if diagrams is None:
             diagrams = [self]
             for diagram in self.normalize():
@@ -867,9 +902,10 @@ class Box(cat.Box, Diagram):
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return repr(self) == repr(other)
+            return cat.Box.__eq__(self, other)
         if isinstance(other, Diagram):
-            return (other.boxes, other.offsets) == ([self], [0])
+            return len(other) == 1 and other.boxes[0] == self\
+                and (other.dom, other.cod) == (self.dom, self.cod)
         return False
 
     def __hash__(self):

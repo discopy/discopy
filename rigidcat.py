@@ -363,7 +363,7 @@ class Diagram(moncat.Diagram):
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
-        return self._upgrade(moncat.Diagram.normal_form(self, left=left))
+        return super().normal_form(normalize=Diagram.normalize, left=left)
 
 
 class Box(moncat.Box, Diagram):
