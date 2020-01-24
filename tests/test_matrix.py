@@ -71,6 +71,18 @@ def test_MatrixFunctor():
         "MatrixFunctor(ob={Ty('x'): 1}, ar={})"
 
 
+def test_MatrixFunctor_call():
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x @ x, y), Box('g', y, Ty())
+    ob = {x: 2, y: 3}
+    ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
+    F = MatrixFunctor(ob, ar)
+    assert list(F(f >> g).array.flatten()) == [5.0, 14.0, 23.0, 32.0]
+    assert list(F(g.transpose_l()).array.flatten()) == [0.0, 1.0, 2.0]
+    with raises(TypeError):
+        F("Alice")
+
+
 def test_AxiomError():
     m = Matrix(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
     with raises(AxiomError) as err:

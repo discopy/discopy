@@ -173,10 +173,6 @@ class Circuit(Diagram):
         Examples
         --------
         >>> state, isometry = Ket(1, 1), Id(1) @ Bra(0)
-        >>> print(state.eval() >> isometry.eval())
-        Matrix(dom=Dim(1), cod=Dim(2), array=[1.0, 0.0])
-        >>> print((state >> isometry).eval())
-        Matrix(dom=Dim(1), cod=Dim(2), array=[0, 0])
         >>> assert state.eval() >> isometry.eval()\\
         ...     == (state >> isometry).eval()
         """

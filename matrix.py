@@ -60,10 +60,16 @@ class Dim(Ty):
 
     @property
     def l(self):
+        """
+        >>> assert Dim(2, 3, 4).l == Dim(4, 3, 2)
+        """
         return Dim(*self[::-1])
 
     @property
     def r(self):
+        """
+        >>> assert Dim(2, 3, 4).r == Dim(4, 3, 2)
+        """
         return Dim(*self[::-1])
 
 
@@ -199,26 +205,25 @@ class MatrixFunctor(RigidFunctor):
         return super().__repr__().replace("RigidFunctor", "MatrixFunctor")
 
     def __call__(self, diagram):
-        """
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f, g = Box('f', x @ x, y), Box('g', y, Ty())
-        >>> ob = {x: 2, y: 3}
-        >>> ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
-        >>> F = MatrixFunctor(ob, ar)
-        >>> list(F(f >> g).array.flatten())
-        [5.0, 14.0, 23.0, 32.0]
-        """
         if isinstance(diagram, Ob) and not diagram.z:
             if isinstance(self.ob[Ty(diagram)], Dim):
                 return self.ob[Ty(diagram)]
             return Dim(self.ob[Ty(diagram)])
-        if isinstance(diagram, Box) and not isinstance(diagram, (Cup, Cap)):
+        if isinstance(diagram, Ob):
+            return self(Ob(diagram.name, z=0))
+        if isinstance(diagram, Ty):
+            return sum([self(x) for x in diagram.objects], Dim(1))
+        if isinstance(diagram, Cup):
+            return Matrix.cups(self(diagram.dom[0]), self(diagram.dom[1]))
+        if isinstance(diagram, Cap):
+            return Matrix.caps(self(diagram.cod[0]), self(diagram.cod[1]))
+        if isinstance(diagram, Box):
             if diagram._dagger:
                 return self(diagram.dagger()).dagger()
             return Matrix(self(diagram.dom), self(diagram.cod),
                           self.ar[diagram])
-        if not isinstance(diagram, Diagram) or len(diagram) == 1:
-            return super().__call__(diagram)
+        if not isinstance(diagram, Diagram):
+            raise TypeError(messages.type_err(Diagram, diagram))
 
         def dim(scan):
             return len(self(scan))
