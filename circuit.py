@@ -136,6 +136,57 @@ class Circuit(Diagram):
         """
         return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
+    def normalize(self):
+        """
+        >>> circuit = Ket(0) @ sqrt(2) @ Ket(1) @ sqrt(2) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> gen = circuit.normalize()
+        >>> print(next(gen))
+        >>> print(next(gen))
+        >>> print(next(gen))
+        >>> print(next(gen))
+        """
+        # step 2: move kets to the bottom of the diagram
+        # step 3: get first slice of the foliation
+        # step 4: fuse kets
+        # step 5: repeat with .dagger() for bras
+        def remove_scalars(diagram):
+            for i, box in enumerate(diagram.boxes):
+                if box.dom == box.cod == PRO():
+                    return diagram[:i] >> diagram[i + 1:], box.array[0]
+            return diagram, None
+
+        def move_ket(diagram, i):
+            try:
+                diagram.interchange(i, i - 1)
+                return diagram, i - 1
+            except InterchangerError:
+                left = diagram.layers[i].left
+                right = diagram.layers[i].right
+                layer = Id(left[:-1])\
+                    @ (diagram.boxes[i] @ Id(left[-1]) >> SWAP)\
+                    @ Id(right)
+                return diagram[:i] >> layer >> diagram[i + 1:], i
+
+        diagram = self
+        # step 1: remove scalars from diagram
+        scalar = 1
+        while True:
+            diagram, number = remove_scalars(diagram)
+            if number is None:
+                break
+            scalar = scalar * number
+            yield diagram, scalar
+
+        # step 2: move kets to the bottom of the diagram
+        slices = diagram.foliation()
+        _diagram, i = slices[1:].flatten(), 0
+        while i < len(_diagram):
+            if isinstance(box, Ket):
+                _diagram, i = move_ket(_diagram, i)
+                yield slices.boxes[0] >> _diagram
+            else:
+                i += 1
+
     def measure(self):
         """
         Applies the Born rule and outputs a stochastic matrix.
