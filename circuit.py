@@ -17,6 +17,8 @@ Ket(0) >> X >> Bra(1)
 import random as rand
 from discopy import messages
 from discopy.cat import Quiver
+from discopy.moncat import InterchangerError
+from discopy import moncat
 from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
 
@@ -141,17 +143,26 @@ class Circuit(Diagram):
 
     def normalize(self):
         """
-        >>> circuit = Ket(0) @ sqrt(2) @ Ket(1) @ sqrt(2) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> s, n = Ty('s'), Ty('n')
+        >>> from discopy.pregroup import Word
+        >>> from discopy.rigidcat import Cup, Id
+        >>> Alice = Word('Alice', n)
+        >>> loves = Word('loves', n.r @ s @ n.l)
+        >>> Bob = Word('Bob', n)
+        >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+        >>> sentence = grammar << Alice @ loves @ Bob
+        >>> ob = {s: 0, n: 1}
+        >>> ar = {Alice: Ket(0),
+        ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
+        ...       Bob: Ket(1)}
+        >>> F = CircuitFunctor(ob, ar)
         >>> gen = circuit.normalize()
         >>> print(next(gen))
+        Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> print(next(gen))
-        >>> print(next(gen))
-        >>> print(next(gen))
+        Ket(1) >> Id(1) @ Ket(0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         """
-        # step 2: move kets to the bottom of the diagram
-        # step 3: get first slice of the foliation
-        # step 4: fuse kets
-        # step 5: repeat with .dagger() for bras
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
                 if box.dom == box.cod == PRO():
@@ -160,35 +171,76 @@ class Circuit(Diagram):
 
         def move_ket(diagram, i):
             try:
-                diagram.interchange(i, i - 1)
+                diagram = diagram.interchange(i, i - 1)
                 return diagram, i - 1
             except InterchangerError:
-                left = diagram.layers[i].left
-                right = diagram.layers[i].right
-                layer = Id(left[:-1])\
-                    @ (diagram.boxes[i] @ Id(left[-1]) >> SWAP)\
-                    @ Id(right)
+                left, ket, right = diagram.layers[i]
+                layer = Id(len(left) - 1) @ ket @ Id(len(right) + 1)\
+                    >> Id(len(left) - 1) @ SWAP @ Id(len(right))
                 return diagram[:i] >> layer >> diagram[i + 1:], i
 
+        def find_ket(diagram):
+            boxes, offsets = diagram.boxes, diagram.offsets
+            for i in range(len(diagram) - 1):
+                if isinstance(boxes[i], Ket) and isinstance(boxes[i + 1], Ket)\
+                        and offsets[i + 1] == offsets[i] + len(boxes[i].cod):
+                    return i
+
+        def fuse_kets(diagram, i):
+            boxes, offsets = diagram.boxes, diagram.offsets
+            ket = Ket(*(boxes[i].bitstring + boxes[i + 1].bitstring))
+            return Circuit(len(diagram.dom), len(diagram.cod),
+                           boxes[:i] + [ket] + boxes[i + 2:],
+                           offsets[:i + 1] + offsets[i + 2:])
+
+        def unfuse(ket):
+            result = Id(0)
+            for bool in ket.bitstring:
+                result = result @ Ket(bool)
+            return result
+
+        U = CircuitFunctor(Quiver(lambda x: len(x)),
+                           Quiver(lambda box: unfuse(box)
+                                  if isinstance(box, Ket) else box))
         diagram = self
-        # step 1: remove scalars from diagram
+        # step 0: remove scalars from diagram
         scalar = 1
         while True:
             diagram, number = remove_scalars(diagram)
             if number is None:
                 break
             scalar = scalar * number
-            yield diagram, scalar
+            yield diagram
+
+        # step 1: unfuse all kets
+        diagram = U(diagram)
+        yield diagram
 
         # step 2: move kets to the bottom of the diagram
-        slices = diagram.foliation()
-        _diagram, i = slices[1:].flatten(), 0
-        while i < len(_diagram):
-            if isinstance(box, Ket):
-                _diagram, i = move_ket(_diagram, i)
-                yield slices.boxes[0] >> _diagram
-            else:
-                i += 1
+        i = 0
+        while i < len(diagram):
+            if isinstance(diagram.boxes[i], Ket):
+                j = i
+                while j > 0:
+                    diagram, j = move_ket(diagram, j)
+                    yield diagram
+            i += 1
+
+        # step 3: normalize kets
+        ket_count = sum([1 if isinstance(box, Ket) else 0
+                        for box in diagram.boxes])
+
+        kets = moncat.Diagram.normal_form(diagram[:ket_count])
+        diagram = kets >> diagram[ket_count:]
+        yield diagram
+
+        # step 4: fuse kets
+        while True:
+            fusable = find_ket(kets)
+            if fusable is None:
+                break
+            kets = fuse_kets(kets, fusable)
+            yield kets >> diagram[ket_count:]
 
     def measure(self):
         """

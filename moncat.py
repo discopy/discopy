@@ -811,7 +811,7 @@ class Diagram(cat.Diagram):
         """
         foliation = []
         for diagram in self.foliate():
-            foliation.append(moncat.normal_form(diagram))
+            foliation.append(Diagram.normal_form(diagram))
         return Diagram(self.dom, self.cod, foliation, len(foliation) * [0])
 
     def depth(self):
