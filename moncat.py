@@ -469,15 +469,15 @@ class Diagram(cat.Diagram):
         """
         diagram = self
         while True:
-            before, exit = diagram, True
+            no_more_moves = True
             for i in range(len(diagram) - 1):
                 box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
                 off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
                 if left and off1 >= off0 + len(box0.cod)\
                         or not left and off0 >= off1 + len(box1.dom):
                     diagram = diagram.interchange(i, i + 1, left=left)
-                    exit = False
-            if exit:  # no more moves
+                    no_more_moves = False
+            if no_more_moves:
                 break
             yield diagram
 
