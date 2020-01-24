@@ -141,14 +141,12 @@ class Circuit(Diagram):
         """
         return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
-    def normalize(self):
+    def normalize(self, _dagger=False):
         """
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> gen = circuit.normalize()
         >>> print(next(gen))
-        Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
-        >>> print(next(gen))
-        Ket(1) >> Id(1) @ Ket(0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1) >> Id(3) @ scalar
         """
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
@@ -187,14 +185,16 @@ class Circuit(Diagram):
             return result
 
         diagram = self
-        # step 0: remove scalars from diagram
-        scalar = 1
-        while True:
-            diagram, number = remove_scalars(diagram)
-            if number is None:
-                break
-            scalar = scalar * number
-            yield diagram
+        # step 0: move scalars to the right of the diagram
+        if not _dagger:
+            scalar = 1
+            while True:
+                diagram, number = remove_scalars(diagram)
+                if number is None:
+                    break
+                scalar = scalar * number
+                yield diagram @ Gate('scalar', 0, [scalar])
+            diagram = diagram @ Gate('scalar', 0, [scalar])
 
         # step 1: unfuse all kets
         U = CircuitFunctor(Quiver(lambda x: len(x)),
@@ -217,8 +217,8 @@ class Circuit(Diagram):
         ket_count = sum([1 if isinstance(box, Ket) else 0
                         for box in diagram.boxes])
         kets = moncat.Diagram.normal_form(diagram[:ket_count])
-        bot_diagram = diagram[ket_count:]
-        yield kets >> bot_diagram
+        bottom = diagram[ket_count:]
+        yield kets >> bottom
 
         # step 4: fuse kets
         while True:
@@ -226,29 +226,20 @@ class Circuit(Diagram):
             if fusable is None:
                 break
             kets = fuse_kets(kets, fusable)
-            ket_count -= 1
-            yield kets >> bot_diagram
+            yield kets >> bottom
 
-        yield (kets >> bot_diagram) @ Gate('scalar', 0, array=[scalar])
+        diagram = kets >> bottom
+        # step 5: repeat for bras using dagger
+        if not _dagger:
+            for _diagram in diagram.dagger().normalize(_dagger=True):
+                yield _diagram.dagger()
 
     def normal_form(self):
         """
-        >>> from discopy.rigidcat import Ty, Cup, Box
-        >>> s, n = Ty('s'), Ty('n')
-        >>> Alice = Box('Alice', Ty(), n)
-        >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
-        >>> Bob = Box('Bob', Ty(), n)
-        >>> grammar = Cup(n, n.r) @ Diagram.id(s) @ Cup(n.l, n)
-        >>> sentence = grammar << Alice @ loves @ Bob
-        >>> ob = {s: 0, n: 1}
-        >>> ar = {Alice: Ket(0),
-        ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
-        ...       Bob: Ket(0) >> X}
-        >>> F = CircuitFunctor(ob, ar)
-        >>> assert np.allclose(F(sentence).normal_form().measure(),
-        ...                    F(sentence).measure())
         >>> caps = Circuit.caps(PRO(2), PRO(2))
-        >>> assert np.allclose(caps.normal_form().measure(), caps.measure())
+        >>> cups = Circuit.cups(PRO(2), PRO(2))
+        >>> snake = caps @ Id(2) >> Id(2) @ cups
+        >>> assert np.allclose(snake.normal_form().measure(), snake.measure())
         """
         *_, result = self.normalize()
         return result
