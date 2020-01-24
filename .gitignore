@@ -2,3 +2,4 @@
 __pycache__/
 *.pyc
 .gitgnore
+.ipynb_checkpoints/
