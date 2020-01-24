@@ -466,7 +466,8 @@ class Box(Diagram):
         if not isinstance(other, Diagram):
             return False
         if isinstance(other, Box):
-            return repr(self) == repr(other)
+            return all(self.__getattribute__(x) == other.__getattribute__(x)
+                       for x in ['name', 'dom', 'cod', 'data', '_dagger'])
         return len(other.boxes) == 1 and other.boxes[0] == self
 
 

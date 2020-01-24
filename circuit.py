@@ -28,8 +28,11 @@ class PRO(Ty):
     >>> PRO(1) @ PRO(1)
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
+    >>> assert PRO(1) == PRO(Ob(1))
     """
     def __init__(self, n=0):
+        if isinstance(n, Ob):
+            n = n.name
         super().__init__(*(n * [1]))
 
     @property
