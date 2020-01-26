@@ -42,3 +42,13 @@ def test_Circuit_from_tk():
     assert circuit == Id(1) @ SWAP >> CX @ Id(1)
     circuit = Circuit.from_tk(Id(3).to_tk().CX(2, 0))
     assert circuit == SWAP @ Id(1) >> Id(1) @ SWAP >> Id(1) @ CX
+
+
+def test_Circuit_normal_form():
+    caps = Circuit.caps(PRO(2), PRO(2))
+    cups = Circuit.cups(PRO(2), PRO(2))
+    snake = caps @ Id(2) >> Id(2) @ cups
+    circ = snake.normal_form()
+    assert circ.boxes[0] == Ket(0, 0, 0, 0)
+    assert circ.boxes[-1] == Bra(0, 0, 0, 0)
+    assert circ.boxes[-2].name == 'scalar'
