@@ -37,7 +37,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 import os
-import tempfile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import networkx as nx
 from PIL import Image
@@ -476,10 +476,10 @@ class Diagram(cat.Diagram):
                 if left and off1 >= off0 + len(box0.cod)\
                         or not left and off0 >= off1 + len(box1.dom):
                     diagram = diagram.interchange(i, i + 1, left=left)
+                    yield diagram
                     no_more_moves = False
             if no_more_moves:
                 break
-            yield diagram
 
     def normal_form(self, normalize=None, **params):
         """
@@ -709,17 +709,24 @@ class Diagram(cat.Diagram):
             plt.close()
         plt.show()
 
-    def to_gif(self, path, diagrams=None, timestep=500, loop=False, **params):
+    def to_gif(self, *diagrams, path=None, timestep=500, loop=False, **params):
         """
         Builds a gif with the normalisation steps.
 
+        >>> step0 = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
+        >>> step1 = next(step0.normalize())
+        >>> Diagram.to_gif(step0, step1,
+        ...                loop=True, margins=(0.1, 0.1),
+        ...                path='docs/imgs/EckmannHilton.gif')
+        <IPython.core.display.HTML object>
+
         Parameters
         ----------
-        path : str
-            Where to save the image.
-        diagrams : iterable of :class:`Diagram`, optional
+        diagrams : :class:`Diagram`, optional
             List of diagrams to draw, default is given by
             :meth:`Diagram.normalize`.
+        path : str
+            Where to save the image, if :code:`None` a gif gets created.
         timestep : int, optional
             Time step in milliseconds, default is :code:`500`.
         loop : bool, optional
@@ -727,16 +734,11 @@ class Diagram(cat.Diagram):
         params : any, optional
             Passed to :meth:`Diagram.draw`.
         """
-        if diagrams is None:
-            diagrams = [self]
-            for diagram in self.normalize():
-                if diagram in diagrams:
-                    loop = True  # self has no normal_form.
-                    break
-                diagrams.append(diagram)
-        frames = []
-        with tempfile.TemporaryDirectory() as directory:
-            for i, diagram in enumerate(diagrams):
+        steps, frames = (self, ) + diagrams, []
+        path = path or os.path.basename(NamedTemporaryFile(
+            suffix='.gif', prefix='tmp_', dir='.').name)
+        with TemporaryDirectory() as directory:
+            for i, diagram in enumerate(steps):
                 tmp_path = os.path.join(directory, '{}.png'.format(i))
                 diagram.draw(path=tmp_path, **params)
                 frames.append(Image.open(tmp_path))
@@ -745,6 +747,8 @@ class Diagram(cat.Diagram):
             frames[0].save(path, format='GIF', append_images=frames[1:],
                            save_all=True, duration=timestep,
                            **{'loop': 0} if loop else {})
+            from IPython.display import HTML
+            return HTML('<img src="{}">'.format(path))
 
     def flatten(self):
         """

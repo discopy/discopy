@@ -75,12 +75,11 @@ class Circuit(Diagram):
         return Circuit(len(diagram.dom), len(diagram.cod),
                        diagram.boxes, diagram.offsets, diagram.layers)
 
-    def __init__(self, dom, cod, gates, offsets, layers=None):
+    def __init__(self, dom, cod, boxes, offsets, layers=None):
         """
         >>> c = Circuit(2, 2, [CX, CX], [0, 0])
         """
-        self._gates = gates
-        super().__init__(PRO(dom), PRO(cod), gates, offsets, layers)
+        super().__init__(PRO(dom), PRO(cod), boxes, offsets, layers)
 
     def __repr__(self):
         """
@@ -94,14 +93,6 @@ class Circuit(Diagram):
         Id(2)
         """
         return super().__repr__().replace('Diagram', 'Circuit')
-
-    @property
-    def gates(self):
-        """
-        >>> Circuit(1, 1, [X, X], [0, 0]).gates
-        [Gate('X', 1, [0, 1, 1, 0]), Gate('X', 1, [0, 1, 1, 0])]
-        """
-        return self._gates
 
     @staticmethod
     def id(x):
@@ -181,9 +172,18 @@ class Circuit(Diagram):
     def normalize(self, _dagger=False):
         """
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
-        >>> gen = circuit.normalize()
-        >>> print(next(gen))
-        Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1) >> Id(3) @ scalar
+        >>> for step in circuit.normalize():
+        ...     print(', '.join(map(str, step.boxes)))
+        Ket(1, 0), CX, Ket(0), scalar
+        Ket(1), Ket(0), CX, Ket(0), scalar
+        Ket(0), Ket(1), CX, Ket(0), scalar
+        Ket(0), Ket(1), CX, Ket(0), SWAP, scalar
+        Ket(0), Ket(1), Ket(0), CX, SWAP, scalar
+        Ket(0), Ket(0), Ket(1), CX, SWAP, scalar
+        Ket(0), Ket(0), Ket(1), CX, SWAP, scalar
+        Ket(0), Ket(1), Ket(0), CX, SWAP, scalar
+        Ket(0, 1), Ket(0), CX, SWAP, scalar
+        Ket(0, 1, 0), CX, SWAP, scalar
         """
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
@@ -217,8 +217,8 @@ class Circuit(Diagram):
 
         def unfuse(ket):
             result = Id(0)
-            for bool in ket.bitstring:
-                result = result @ Ket(bool)
+            for bit in ket.bitstring:
+                result = result @ Ket(bit)
             return result
 
         diagram = self
@@ -234,11 +234,12 @@ class Circuit(Diagram):
             diagram = diagram @ Gate('scalar', 0, [scalar])
 
         # step 1: unfuse all kets
-        U = CircuitFunctor(Quiver(lambda x: len(x)),
-                           Quiver(lambda box: unfuse(box)
-                                  if isinstance(box, Ket) else box))
-        diagram = U(diagram)
-        yield diagram
+        Unfuse = CircuitFunctor(Quiver(lambda x: len(x)),
+                                Quiver(lambda box: unfuse(box)
+                                       if isinstance(box, Ket) else box))
+        before, diagram = diagram, Unfuse(diagram)
+        if diagram != before:
+            yield diagram
 
         # step 2: move kets to the bottom of the diagram
         i = 0
@@ -253,11 +254,13 @@ class Circuit(Diagram):
         # step 3: normalize kets
         ket_count = sum([1 if isinstance(box, Ket) else 0
                         for box in diagram.boxes])
-        kets = moncat.Diagram.normal_form(diagram[:ket_count])
         bottom = diagram[ket_count:]
-        yield kets >> bottom
+        for kets in moncat.Diagram.normalize(diagram[:ket_count]):
+            diagram = kets >> bottom
+            yield diagram
 
         # step 4: fuse kets
+        kets = diagram[:ket_count]
         while True:
             fusable = find_ket(kets)
             if fusable is None:
@@ -272,16 +275,7 @@ class Circuit(Diagram):
                 yield _diagram.dagger()
 
     def normal_form(self):
-        """
-        >>> caps = Circuit.caps(PRO(2), PRO(2))
-        >>> cups = Circuit.cups(PRO(2), PRO(2))
-        >>> snake = caps @ Id(2) >> Id(2) @ cups
-        >>> circ = snake.normal_form()
-        >>> assert circ.boxes[0] == Ket(0, 0, 0, 0)
-        >>> assert circ.boxes[-1] == Bra(0, 0, 0, 0)
-        >>> assert circ.boxes[-2].name == 'scalar'
-        """
-        *_, result = self.normalize()
+        *_, result = list(self.normalize()) or [self]
         return result
 
     def measure(self):
@@ -326,7 +320,7 @@ class Circuit(Diagram):
         """
         import pytket as tk
         tk_circuit = tk.Circuit(len(self.dom))
-        for gate, off in zip(self.gates, self.offsets):
+        for gate, off in zip(self.boxes, self.offsets):
             if isinstance(gate, Rx):
                 tk_circuit.Rx(
                     gate.phase, *(off + i for i in range(len(gate.dom))))
@@ -345,9 +339,9 @@ class Circuit(Diagram):
 
         >>> c1 = Circuit(2, 2, [Rz(0.5), Rx(0.25), CX], [0, 1, 0])
         >>> c2 = Circuit.from_tk(c1.to_tk())
-        >>> # assert c1.normal_form() == c2.normal_form()
+        >>> assert c1.normal_form() == c2.normal_form()
         """
-        def gates_from_tk(tk_gate):
+        def boxes_from_tk(tk_gate):
             name = tk_gate.op.get_type().name
             if name == 'Rx':
                 return Rx(tk_gate.op.get_params()[0])
@@ -357,7 +351,7 @@ class Circuit(Diagram):
                 if name == gate.name:
                     return gate
             raise NotImplementedError
-        gates, offsets = [], []
+        boxes, offsets = [], []
         for tk_gate in tk_circuit.get_commands():
             i_0 = tk_gate.qubits[0].index[0]
             for i, qubit in enumerate(tk_gate.qubits[1:]):
@@ -365,18 +359,18 @@ class Circuit(Diagram):
                     break  # gate applies to adjacent qubit already
                 if qubit.index[0] < i_0 + i + 1:
                     for j in range(qubit.index[0], i_0 + i):
-                        gates.append(SWAP)
+                        boxes.append(SWAP)
                         offsets.append(j)
                     if qubit.index[0] <= i_0:
                         i_0 -= 1
                 else:
                     for j in range(qubit.index[0] - i_0 + i - 1):
-                        gates.append(SWAP)
+                        boxes.append(SWAP)
                         offsets.append(qubit.index[0] - j - 1)
-            gates.append(gates_from_tk(tk_gate))
+            boxes.append(boxes_from_tk(tk_gate))
             offsets.append(i_0)
         return Circuit(tk_circuit.n_qubits, tk_circuit.n_qubits,
-                       gates, offsets)
+                       boxes, offsets)
 
     @staticmethod
     def random(n_qubits, depth=3, gateset=None, seed=None):

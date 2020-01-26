@@ -43,3 +43,12 @@ def test_brute_force():
     gen = brute_force(Alice, loves, Bob, target=n)
     assert next(gen) == Word('Alice', Ty('n'))
     assert next(gen) == Word('Bob', Ty('n'))
+
+
+def test_pregroup_draw_errors():
+    n = Ty('n')
+    with raises(TypeError):
+        draw(0)
+    with raises(ValueError) as err:
+        draw(Cap(n, n.l))
+    assert str(err.value) is messages.expected_pregroup()

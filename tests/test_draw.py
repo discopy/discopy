@@ -81,18 +81,3 @@ def test_pregroup_draw():
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-
-
-def test_pregroup_draw_errors():
-    n = Ty('n')
-    with raises(TypeError):
-        pregroup.draw(0)
-    with raises(ValueError) as err:
-        pregroup.draw(Cap(n, n.l))
-    assert str(err.value) is messages.expected_pregroup()
-
-
-def test_Eckmann_Hilton_to_gif(folder=FOLDER, file='EckmannHilton.gif'):
-    diagram = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
-    diagram.to_gif(os.path.join(folder, file),
-                   timestep=500, margins=(0.1, 0.1))
