@@ -51,4 +51,4 @@ def test_Circuit_normal_form():
     circ = snake.normal_form()
     assert circ.boxes[0] == Ket(0, 0, 0, 0)
     assert circ.boxes[-1] == Bra(0, 0, 0, 0)
-    assert circ.boxes[-2].name == 'scalar'
+    assert circ.boxes[-2].name == '4.000'

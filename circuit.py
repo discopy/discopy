@@ -174,16 +174,16 @@ class Circuit(Diagram):
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> for step in circuit.normalize():
         ...     print(', '.join(map(str, step.boxes)))
-        Ket(1, 0), CX, Ket(0), scalar
-        Ket(1), Ket(0), CX, Ket(0), scalar
-        Ket(0), Ket(1), CX, Ket(0), scalar
-        Ket(0), Ket(1), CX, Ket(0), SWAP, scalar
-        Ket(0), Ket(1), Ket(0), CX, SWAP, scalar
-        Ket(0), Ket(0), Ket(1), CX, SWAP, scalar
-        Ket(0), Ket(0), Ket(1), CX, SWAP, scalar
-        Ket(0), Ket(1), Ket(0), CX, SWAP, scalar
-        Ket(0, 1), Ket(0), CX, SWAP, scalar
-        Ket(0, 1, 0), CX, SWAP, scalar
+        Ket(1, 0), CX, Ket(0), 1.414
+        Ket(1), Ket(0), CX, Ket(0), 1.414
+        Ket(0), Ket(1), CX, Ket(0), 1.414
+        Ket(0), Ket(1), CX, Ket(0), SWAP, 1.414
+        Ket(0), Ket(1), Ket(0), CX, SWAP, 1.414
+        Ket(0), Ket(0), Ket(1), CX, SWAP, 1.414
+        Ket(0), Ket(0), Ket(1), CX, SWAP, 1.414
+        Ket(0), Ket(1), Ket(0), CX, SWAP, 1.414
+        Ket(0, 1), Ket(0), CX, SWAP, 1.414
+        Ket(0, 1, 0), CX, SWAP, 1.414
         """
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
