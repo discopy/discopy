@@ -63,7 +63,7 @@ class Ob(cat.Ob):
             - self.z * '.l' if self.z < 0 else self.z * '.r')
 
 
-class Ty(moncat.Ty):
+class Ty(moncat.Ty, Ob):
     """ Implements pregroup types as lists of simple types.
 
     >>> s, n = Ty('s'), Ty('n')
@@ -85,7 +85,8 @@ class Ty(moncat.Ty):
 
     def __init__(self, *t):
         t = [x if isinstance(x, Ob) else Ob(x) for x in t]
-        super().__init__(*t)
+        moncat.Ty.__init__(self, *t)
+        Ob.__init__(self, str(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -95,6 +96,46 @@ class Ty(moncat.Ty):
     def __repr__(self):
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
+
+
+class PRO(Ty):
+    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
+    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
+
+    >>> PRO(1) @ PRO(1)
+    PRO(2)
+    >>> assert PRO(3) == Ty(1, 1, 1)
+    >>> assert PRO(1) == PRO(Ob(1))
+    """
+    def __init__(self, n=0):
+        if isinstance(n, Ob):
+            n = n.name
+        super().__init__(*(n * [1]))
+
+    @property
+    def l(self):
+        """
+        >>> assert PRO(2).l == PRO(2)
+        """
+        return self
+
+    @property
+    def r(self):
+        return self
+
+    def tensor(self, other):
+        return PRO(len(self) + len(other))
+
+    def __repr__(self):
+        return "PRO({})".format(len(self))
+
+    def __str__(self):
+        return repr(len(self))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return PRO(len(super().__getitem__(key)))
+        return super().__getitem__(key)
 
 
 class Diagram(moncat.Diagram):
@@ -527,6 +568,8 @@ class RigidFunctor(moncat.MonoidalFunctor):
         >>> assert F(f.transpose_l()) == F(f).transpose_l()
         >>> assert F(f.transpose_r()) == F(f).transpose_r()
         """
+        if isinstance(diagram, Ty):
+            return sum([self(b) for b in diagram.objects], self.ob_cls())
         if isinstance(diagram, Ob) and not diagram.z:
             return self.ob[Ty(diagram.name)]
         if isinstance(diagram, Ob):
@@ -538,8 +581,6 @@ class RigidFunctor(moncat.MonoidalFunctor):
                 for _ in range(diagram.z):
                     result = result.r
             return result
-        if isinstance(diagram, Ty):
-            return sum([self(b) for b in diagram.objects], self.ob_cls())
         if isinstance(diagram, Cup):
             return self.ar_cls.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):

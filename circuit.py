@@ -19,48 +19,8 @@ from discopy import messages
 from discopy.cat import Quiver
 from discopy.moncat import InterchangerError
 from discopy import moncat
-from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
+from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
-
-
-class PRO(Ty):
-    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
-    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
-
-    >>> PRO(1) @ PRO(1)
-    PRO(2)
-    >>> assert PRO(3) == Ty(1, 1, 1)
-    >>> assert PRO(1) == PRO(Ob(1))
-    """
-    def __init__(self, n=0):
-        if isinstance(n, Ob):
-            n = n.name
-        super().__init__(*(n * [1]))
-
-    @property
-    def l(self):
-        """
-        >>> assert PRO(2).l == PRO(2)
-        """
-        return self
-
-    @property
-    def r(self):
-        return self
-
-    def tensor(self, other):
-        return PRO(len(self) + len(other))
-
-    def __repr__(self):
-        return "PRO({})".format(len(self))
-
-    def __str__(self):
-        return repr(len(self))
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return PRO(len(super().__getitem__(key)))
-        return super().__getitem__(key)
 
 
 class Circuit(Diagram):
@@ -730,14 +690,13 @@ class CircuitFunctor(RigidFunctor):
         >>> F = CircuitFunctor({x: 1}, {})
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
+        if isinstance(diagram, Ty):
+            return PRO(len(super().__call__(diagram)))
         if isinstance(diagram, Ob) and not diagram.z:
             return PRO(self.ob[Ty(diagram.name)])
-        result = super().__call__(diagram)
-        if isinstance(diagram, Ty):
-            return PRO(len(result))
         if isinstance(diagram, Diagram):
-            return Circuit._upgrade(result)
-        return result
+            return Circuit._upgrade(super().__call__(diagram))
+        return super().__call__(diagram)
 
 
 def sqrt(real):

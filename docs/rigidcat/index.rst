@@ -8,6 +8,7 @@ discopy.rigidcat
 
     Ob.rst
     Ty.rst
+    PRO.rst
     Diagram.rst
     Id.rst
     Box.rst

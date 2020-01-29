@@ -6,7 +6,6 @@ discopy.circuit
 .. toctree::
     :caption: Contents:
 
-    PRO.rst
     Circuit.rst
     Id.rst
     Bra.rst
