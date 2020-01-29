@@ -23,7 +23,7 @@ def type_err(expected, got):
 
 def does_not_compose(left, right):
     """ Composition error. """
-    return "{} does not compose with {}.".format(repr(left), repr(right))
+    return "{} does not compose with {}.".format(left, right)
 
 
 def is_not_connected(diagram):
