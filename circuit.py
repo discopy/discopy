@@ -174,16 +174,16 @@ class Circuit(Diagram):
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> for step in circuit.normalize():
         ...     print(', '.join(map(str, step.boxes)))
-        Ket(1, 0), CX, Ket(0), scalar
-        Ket(1), Ket(0), CX, Ket(0), scalar
-        Ket(0), Ket(1), CX, Ket(0), scalar
-        Ket(0), Ket(1), CX, Ket(0), SWAP, scalar
-        Ket(0), Ket(1), Ket(0), CX, SWAP, scalar
-        Ket(0), Ket(0), Ket(1), CX, SWAP, scalar
-        Ket(0), Ket(0), Ket(1), CX, SWAP, scalar
-        Ket(0), Ket(1), Ket(0), CX, SWAP, scalar
-        Ket(0, 1), Ket(0), CX, SWAP, scalar
-        Ket(0, 1, 0), CX, SWAP, scalar
+        Ket(1, 0), CX, Ket(0), 1.414
+        Ket(1), Ket(0), CX, Ket(0), 1.414
+        Ket(0), Ket(1), CX, Ket(0), 1.414
+        Ket(0), Ket(1), CX, Ket(0), SWAP, 1.414
+        Ket(0), Ket(1), Ket(0), CX, SWAP, 1.414
+        Ket(0), Ket(0), Ket(1), CX, SWAP, 1.414
+        Ket(0), Ket(0), Ket(1), CX, SWAP, 1.414
+        Ket(0), Ket(1), Ket(0), CX, SWAP, 1.414
+        Ket(0, 1), Ket(0), CX, SWAP, 1.414
+        Ket(0, 1, 0), CX, SWAP, 1.414
         """
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
@@ -222,7 +222,7 @@ class Circuit(Diagram):
             return result
 
         diagram = self
-        # step 0: move scalars to the right of the diagram
+        # step 0: merge scalars to the right of the diagram
         if not _dagger:
             scalar = 1
             while True:
@@ -230,8 +230,8 @@ class Circuit(Diagram):
                 if number is None:
                     break
                 scalar = scalar * number
-                yield diagram @ Gate('scalar', 0, [scalar])
-            diagram = diagram @ Gate('scalar', 0, [scalar])
+                yield diagram @ Gate('{0:.3f}'.format(scalar), 0, [scalar])
+            diagram = diagram @ Gate('{0:.3f}'.format(scalar), 0, [scalar])
 
         # step 1: unfuse all kets
         Unfuse = CircuitFunctor(Quiver(lambda x: len(x)),
