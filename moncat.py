@@ -765,35 +765,68 @@ class Diagram(cat.Diagram):
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
-    def foliate(self):
+    def foliate(self, start=0):
         """
         Generator yielding the slices for a foliation of self.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
         >>> d = (f0 @ Id(y) >> f0.dagger() @ f1) @ (f0 >> f1)
-        >>> gen = d.foliate()
-        >>> print(next(gen))
-        Id(x @ y) @ f0 >> Id(x) @ f1 @ Id(y) >> f0 @ Id(x @ y)
+        >>> *_, (diagram, slices) = d.foliate()
+        >>> print(slices[0])
+        f0 @ Id(y @ x) >> Id(y) @ f1 @ Id(x) >> Id(y @ x) @ f0
+        >>> print(slices[1])
+        f0[::-1] @ Id(x @ y) >> Id(x @ x) @ f1
         >>> ket = Box('ket', Ty(), x)
         >>> scalar = Box('scalar', Ty(), Ty())
         >>> kets = ket @ scalar @ ket @ scalar
-        >>> a = next(kets.foliate())
-        >>> print(a)
-        scalar >> ket >> Id(x) @ scalar >> ket @ Id(x)
+        >>> a = kets.foliate()
+        >>> print(next(a))
+        ket >> Id(x) @ scalar >> Id(x) @ ket >> Id(x @ x) @ scalar
+        >>> print(next(a))
+        ket >> Id(x) @ ket >> Id(x @ x) @ scalar >> Id(x @ x) @ scalar
         """
-        diagram = self
-        i = 0
-        while i < len(diagram):
-            n_boxes = 0
-            for j in range(i + 1, len(diagram)):
-                try:
-                    diagram = diagram.interchange(j, i)
-                    n_boxes += 1
-                except InterchangerError:
+        def is_right_of(last, diagram):
+            off0, off1 = diagram.offsets[last], diagram.offsets[last + 1]
+            box0, box1 = diagram.boxes[last], diagram.boxes[last + 1]
+            if off0 >= off1 + len(box1.dom):  # box1 left of box0
+                return False
+            elif off1 >= off0 + len(box0.cod):  # box1 right of box0
+                return True
+            else:
+                return None
+
+        def move_in_slice(first, last, k, diagram):
+            result = diagram
+            try:
+                if not k == last + 1:
+                    result = diagram.interchange(k, last + 1)
+                if is_right_of(last, result) is None:
+                    return None
+                elif is_right_of(last, result):
+                    return result
+                else:
+                    result = result.interchange(last + 1, last)
+                    if last == first:
+                        return result
+                    else:
+                        return move_in_slice(first, last - 1, last, result)
+            except InterchangerError:
+                return None
+
+        diagram, slices = self, []
+        while start < len(diagram):
+            last = start
+            for k in range(last + 1, len(diagram)):
+                if move_in_slice(start, last, k, diagram) is None:
                     pass
-            yield diagram[i: i + n_boxes + 1]
-            i += n_boxes + 1
+                else:
+                    diagram = move_in_slice(start, last, k, diagram)
+                    last += 1
+                    yield diagram
+            slices += [diagram[start: last + 1]]
+            start = last + 1
+        yield diagram, slices
 
     def foliation(self):
         """
@@ -808,46 +841,40 @@ class Diagram(cat.Diagram):
         >>> assert d.foliation().flatten()\\
         ...     == d[::-1].foliation()[::-1].flatten()\\
         ...     == d[::-1].foliation().flatten()[::-1]
-
-        This method calls the normal_form for each slice, making it idempotent.
-
-        >>> assert d.foliation().flatten().foliation() == d.foliation()
         """
-        foliation = []
-        for diagram in self.foliate():
-            foliation.append(Diagram.normal_form(diagram))
-        return Diagram(self.dom, self.cod, foliation, len(foliation) * [0])
+        *_, (_, slices) = self.foliate()
+        return Diagram(self.dom, self.cod, slices, len(slices) * [0])
 
-    def depth(self):
-        """
-        Computes the depth of a diagram by foliating it
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f, g = Box('f', x, y), Box('g', y, x)
-        >>> assert Id(x @ y).depth() == 0
-        >>> assert f.depth() == 1
-        >>> assert (f @ g).depth() == 1
-        >>> assert (f >> g).depth() == 2
-        """
-        return sum(1 for _ in self.foliate())
-
-    def width(self):
-        """
-        Computes the width of a diagram,
-        i.e. the maximum number of parallel wires.
-
-        >>> x = Ty('x')
-        >>> f = Box('f', x, x ** 4)
-        >>> assert (f >> f.dagger()).width() == 4
-        >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
-        """
-        scan = self.dom
-        width = len(scan)
-        for box, off in zip(self.boxes, self.offsets):
-            scan = scan[: off] + box.cod + scan[off + len(box.dom):]
-            width = max(width, len(scan))
-        return width
-
+    # def depth(self):
+    #     """
+    #     Computes the depth of a diagram by foliating it
+    #
+    #     >>> x, y = Ty('x'), Ty('y')
+    #     >>> f, g = Box('f', x, y), Box('g', y, x)
+    #     >>> assert Id(x @ y).depth() == 0
+    #     >>> assert f.depth() == 1
+    #     >>> assert (f @ g).depth() == 1
+    #     >>> assert (f >> g).depth() == 2
+    #     """
+    #     return sum(1 for _ in self.foliate())
+    #
+    # def width(self):
+    #     """
+    #     Computes the width of a diagram,
+    #     i.e. the maximum number of parallel wires.
+    #
+    #     >>> x = Ty('x')
+    #     >>> f = Box('f', x, x ** 4)
+    #     >>> assert (f >> f.dagger()).width() == 4
+    #     >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
+    #     """
+    #     scan = self.dom
+    #     width = len(scan)
+    #     for box, off in zip(self.boxes, self.offsets):
+    #         scan = scan[: off] + box.cod + scan[off + len(box.dom):]
+    #         width = max(width, len(scan))
+    #     return width
+    #
 
 def spiral(n_cups, _type=Ty('x')):
     """
