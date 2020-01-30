@@ -80,39 +80,46 @@ pregroup.draw(sentence, path='docs/imgs/alice-loves-bob.png')
 
 ### Functors & Rewrites
 
-*Functors* compute the meaning of a diagram, given a meaning for each box.
-Free functors (i.e. from diagrams to diagrams) can fill each box with a complex diagram,
-the result can then be simplified using `diagram.normalize()` to remove the snakes.
-
-```python
-from discopy import RigidFunctor
-
-love_ansatz = Cap(n.r, n) >> Id(n.r) @ Box('loves', n, s @ n.l)
-Bob_transpose = Cap(n, n.l) >> Id(n) @ Box('Bob', n.l, Ty())
-A = RigidFunctor(ob={s: s, n: n},
-                 ar={Alice: Alice, Bob: Bob_transpose, loves: love_ansatz})
-
-rewrite_steps = A(sentence).normalize()
-Diagram.to_gif(A(sentence), diagrams=rewrite_steps,
-               path='docs/imgs/autonomisation.gif')
-```
-
-![autonomisation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/autonomisation.gif)
-
-Functors into the category of matrices evaluate a diagram as a tensor network using [numpy](https://numpy.org/).
-Applied to pregroup diagrams, matrix functors implement the
+**Monoidal functors** compute the meaning of a diagram, given an interpretation for each wire and for each box.
+In particular, **matrix functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/).
+Applied to pregroup diagrams, `discopy` implements the
 **distributional compositional** (_DisCo_) models of
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
 ```python
+import numpy as np
 from discopy import MatrixFunctor
 
 F = MatrixFunctor(
     ob={s: 1, n: 2},
-    ar={Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]})
+    ar={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]})
 
-assert F(sentence)
+assert F(sentence) == np.array(1)
 ```
+
+Free **rigid functors** (i.e. from diagrams to diagrams) can fill each box with a complex diagram,
+while **quivers** allow to construct functors from arbitrary python functions.
+The result can then be simplified using `diagram.normalize()` to remove the snakes.
+
+```python
+from discopy import RigidFunctor, Quiver
+
+def wiring(word):
+    if word.cod == n:  # word is a noun
+        return word
+    if word.cod == n.r @ s @ n.l:  # word is a transitive verb
+        return Cap(n.r, n) @ Cap(n, n.l)\
+            >> Id(n.r) @ Box(word.name, n @ n, s) @ Id(n.l)
+
+W = RigidFunctor(ob=Quiver(lambda x: x), ar=Quiver(wiring))
+
+
+rewrite_steps = W(sentence).normalize()
+sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
+```
+
+![autonomisation](docs/imgs/autonomisation.gif)
+
 
 ## Getting Started
 
