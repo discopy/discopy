@@ -765,14 +765,14 @@ class Diagram(cat.Diagram):
         """
         return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
-    def foliate(self, start=0):
+    def foliate(self, start=0, yield_slices=False):
         """
-        Generator yielding the slices for a foliation of self.
+        Generator yielding the interchanger steps in the foliation of self.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
         >>> d = (f0 @ Id(y) >> f0.dagger() @ f1) @ (f0 >> f1)
-        >>> *_, (diagram, slices) = d.foliate()
+        >>> *_, slices = d.foliate(yield_slices=True)
         >>> print(slices[0])
         f0 @ Id(y @ x) >> Id(y) @ f1 @ Id(x) >> Id(y @ x) @ f0
         >>> print(slices[1])
@@ -826,7 +826,8 @@ class Diagram(cat.Diagram):
                     yield diagram
             slices += [diagram[start: last + 1]]
             start = last + 1
-        yield diagram, slices
+        if yield_slices:
+            yield slices
 
     def foliation(self):
         """
@@ -842,11 +843,14 @@ class Diagram(cat.Diagram):
         ...     == d[::-1].foliation()[::-1].flatten()\\
         ...     == d[::-1].foliation().flatten()[::-1]
         >>> assert d.foliation().flatten().foliation() == d.foliation()
-        >>> diagram = (d >> d.dagger()) @ d
+        >>> g = Box('g', x @ x, x @ y)
+        >>> diagram = (d >> g >> d) @ (d >> g >> d)
         >>> slices = diagram.foliation()
         >>> assert slices.boxes[0] == f0 @ f1 @ f0 @ f1
+        >>> *_, last_diagram = diagram.foliate()
+        >>> assert last_diagram == slices.flatten()
         """
-        *_, (_, slices) = self.foliate()
+        *_, slices = self.foliate(yield_slices=True)
         return Diagram(self.dom, self.cod, slices, len(slices) * [0])
 
     def depth(self):
@@ -860,7 +864,7 @@ class Diagram(cat.Diagram):
         >>> assert (f @ g).depth() == 1
         >>> assert (f >> g).depth() == 2
         """
-        *_, (_, slices) = self.foliate()
+        *_, slices = self.foliate(yield_slices=True)
         return len(slices)
 
     def width(self):
