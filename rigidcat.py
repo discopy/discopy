@@ -206,12 +206,12 @@ class Diagram(moncat.Diagram):
         """
         return self._upgrade(super().__getitem__(key))
 
-    def build_graph(self):
+    def to_graph(self):
         """
         Builds a networkx graph, called by
         :meth:`discopy.moncat.Diagram.draw`.
         """
-        graph, positions, labels = super().build_graph()
+        graph, positions, labels = super().to_graph()
         for i, box in enumerate(self.boxes):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
                 node, wire = 'box_{}'.format(i), 'wire_c_{}'.format(i)
@@ -300,7 +300,7 @@ class Diagram(moncat.Diagram):
         >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
         >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
         >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
-        g >> f[::-1] >> ... >> Cup(n, n.r) @ Id(n) >> h
+        g... >> Cup(n, n.r) @ Id(n)...
         g >> f[::-1] >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
         g >> f[::-1] >> f >> h
         """

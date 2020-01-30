@@ -38,10 +38,10 @@ def test_Circuit_cups():
 def test_Circuit_from_tk():
     with raises(NotImplementedError):
         Circuit.from_tk(Id(3).to_tk().CCX(0, 1, 2))
-    circuit = Circuit.from_tk(Id(3).to_tk().CX(0, 2))
-    assert circuit == Id(1) @ SWAP >> CX @ Id(1)
-    circuit = Circuit.from_tk(Id(3).to_tk().CX(2, 0))
-    assert circuit == SWAP @ Id(1) >> Id(1) @ SWAP >> Id(1) @ CX
+    circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+    tk_circ = circuit.to_tk()
+    circuit1 = Ket(0, 0, 0) >> Circuit.from_tk(tk_circ)
+    assert np.all(circuit.eval() == circuit1.eval())
 
 
 def test_Circuit_normal_form():
