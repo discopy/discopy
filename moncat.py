@@ -841,40 +841,45 @@ class Diagram(cat.Diagram):
         >>> assert d.foliation().flatten()\\
         ...     == d[::-1].foliation()[::-1].flatten()\\
         ...     == d[::-1].foliation().flatten()[::-1]
+        >>> assert d.foliation().flatten().foliation() == d.foliation()
+        >>> diagram = (d >> d.dagger()) @ d
+        >>> slices = diagram.foliation()
+        >>> assert slices.boxes[0] == f0 @ f1 @ f0 @ f1
         """
         *_, (_, slices) = self.foliate()
         return Diagram(self.dom, self.cod, slices, len(slices) * [0])
 
-    # def depth(self):
-    #     """
-    #     Computes the depth of a diagram by foliating it
-    #
-    #     >>> x, y = Ty('x'), Ty('y')
-    #     >>> f, g = Box('f', x, y), Box('g', y, x)
-    #     >>> assert Id(x @ y).depth() == 0
-    #     >>> assert f.depth() == 1
-    #     >>> assert (f @ g).depth() == 1
-    #     >>> assert (f >> g).depth() == 2
-    #     """
-    #     return sum(1 for _ in self.foliate())
-    #
-    # def width(self):
-    #     """
-    #     Computes the width of a diagram,
-    #     i.e. the maximum number of parallel wires.
-    #
-    #     >>> x = Ty('x')
-    #     >>> f = Box('f', x, x ** 4)
-    #     >>> assert (f >> f.dagger()).width() == 4
-    #     >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
-    #     """
-    #     scan = self.dom
-    #     width = len(scan)
-    #     for box, off in zip(self.boxes, self.offsets):
-    #         scan = scan[: off] + box.cod + scan[off + len(box.dom):]
-    #         width = max(width, len(scan))
-    #     return width
-    #
+    def depth(self):
+        """
+        Computes the depth of a diagram by foliating it
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f, g = Box('f', x, y), Box('g', y, x)
+        >>> assert Id(x @ y).depth() == 0
+        >>> assert f.depth() == 1
+        >>> assert (f @ g).depth() == 1
+        >>> assert (f >> g).depth() == 2
+        """
+        *_, (_, slices) = self.foliate()
+        return len(slices)
+
+    def width(self):
+        """
+        Computes the width of a diagram,
+        i.e. the maximum number of parallel wires.
+
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x ** 4)
+        >>> assert (f >> f.dagger()).width() == 4
+        >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
+        """
+        scan = self.dom
+        width = len(scan)
+        for box, off in zip(self.boxes, self.offsets):
+            scan = scan[: off] + box.cod + scan[off + len(box.dom):]
+            width = max(width, len(scan))
+        return width
+
 
 def spiral(n_cups, _type=Ty('x')):
     """

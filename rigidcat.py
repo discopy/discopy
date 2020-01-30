@@ -140,10 +140,14 @@ class Diagram(moncat.Diagram):
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
         >>> gen = (f @ Id(x) >> (f @ f)).foliate()
-        >>> assert next(gen).normal_form() == f @ f
+        >>> print(next(gen))
+        f @ Id(x) >> Id(x) @ f >> f @ Id(x)
         """
         for diagram in super().foliate():
-            yield self._upgrade(diagram)
+            if isinstance(diagram, cat.Diagram):
+                yield self._upgrade(diagram)
+        yield self._upgrade(diagram[0]),\
+            [self._upgrade(diagram[1][i]) for i in range(len(diagram[1]))]
 
     def foliation(self):
         """
