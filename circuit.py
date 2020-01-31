@@ -15,52 +15,14 @@ Ket(0) >> X >> Bra(1)
 """
 
 import random as rand
-from discopy import messages
+
+import pytket as tk
+
+from discopy import moncat, messages
 from discopy.cat import Quiver
 from discopy.moncat import InterchangerError
-from discopy import moncat
-from discopy.rigidcat import Ob, Ty, Box, Diagram, RigidFunctor
+from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, RigidFunctor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
-
-
-class PRO(Ty):
-    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
-    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
-
-    >>> PRO(1) @ PRO(1)
-    PRO(2)
-    >>> assert PRO(3) == Ty(1, 1, 1)
-    >>> assert PRO(1) == PRO(Ob(1))
-    """
-    def __init__(self, n=0):
-        if isinstance(n, Ob):
-            n = n.name
-        super().__init__(*(n * [1]))
-
-    @property
-    def l(self):
-        """
-        >>> assert PRO(2).l == PRO(2)
-        """
-        return self
-
-    @property
-    def r(self):
-        return self
-
-    def tensor(self, other):
-        return PRO(len(self) + len(other))
-
-    def __repr__(self):
-        return "PRO({})".format(len(self))
-
-    def __str__(self):
-        return repr(len(self))
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return PRO(len(super().__getitem__(key)))
-        return super().__getitem__(key)
 
 
 class Circuit(Diagram):
@@ -207,6 +169,7 @@ class Circuit(Diagram):
                 if isinstance(boxes[i], Ket) and isinstance(boxes[i + 1], Ket)\
                         and offsets[i + 1] == offsets[i] + len(boxes[i].cod):
                     return i
+            return None
 
         def fuse_kets(diagram, i):
             boxes, offsets = diagram.boxes, diagram.offsets
@@ -216,6 +179,8 @@ class Circuit(Diagram):
                            offsets[:i + 1] + offsets[i + 2:])
 
         def unfuse(ket):
+            if not isinstance(ket, Ket):
+                return ket
             result = Id(0)
             for bit in ket.bitstring:
                 result = result @ Ket(bit)
@@ -234,10 +199,8 @@ class Circuit(Diagram):
             diagram = diagram @ Gate('{0:.3f}'.format(scalar), 0, [scalar])
 
         # step 1: unfuse all kets
-        Unfuse = CircuitFunctor(Quiver(lambda x: len(x)),
-                                Quiver(lambda box: unfuse(box)
-                                       if isinstance(box, Ket) else box))
-        before, diagram = diagram, Unfuse(diagram)
+        before = diagram
+        diagram = CircuitFunctor(ob=Quiver(len), ar=Quiver(unfuse))(diagram)
         if diagram != before:
             yield diagram
 
@@ -253,7 +216,7 @@ class Circuit(Diagram):
 
         # step 3: normalize kets
         ket_count = sum([1 if isinstance(box, Ket) else 0
-                        for box in diagram.boxes])
+                         for box in diagram.boxes])
         bottom = diagram[ket_count:]
         for kets in moncat.Diagram.normalize(diagram[:ket_count]):
             diagram = kets >> bottom
@@ -310,27 +273,106 @@ class Circuit(Diagram):
         return array
 
     def to_tk(self):
-        """ Returns a pytket circuit.
-
-        >>> circuit = Circuit(2, 2, [Rz(0.5), Rx(0.25), CX], [0, 1, 0]).to_tk()
-        >>> for g in circuit: print((g.op.get_type(), g.op.get_params()))
-        (OpType.Rz, [0.5])
-        (OpType.Rx, [0.25])
-        (OpType.CX, [])
         """
-        import pytket as tk
-        tk_circuit = tk.Circuit(len(self.dom))
-        for gate, off in zip(self.boxes, self.offsets):
-            if isinstance(gate, Rx):
-                tk_circuit.Rx(
-                    gate.phase, *(off + i for i in range(len(gate.dom))))
-            elif isinstance(gate, Rz):
-                tk_circuit.Rz(
-                    gate.phase, *(off + i for i in range(len(gate.dom))))
+        Returns a pytket circuit. SWAP gates are treated as logical swaps.
+
+        >>> circuit0 = H @ Rx(0.5) >> CX
+        >>> print(list(circuit0.to_tk()))
+        [H q[0];, Rx(0.5*PI) q[1];, CX q[0], q[1];]
+
+        >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> print(list(circuit1.to_tk()))
+        [X q[0];, CX q[0], q[2];]
+        >>> circuit2 = Circuit.from_tk(circuit1.to_tk())
+        >>> print(circuit2)
+        X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+        >>> print(list(circuit2.to_tk()))
+        [X q[0];, CX q[0], q[2];]
+
+        >>> bell_state = Ket(0, 0) >> H @ Id(1) >> CX
+        >>> bell_effect = bell_state[::-1]
+        >>> snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+        >>> for gate in snake.to_tk(): print(gate)
+        H q[2];
+        CX q[2], q[0];
+        CX q[1], q[2];
+        H q[1];
+        Measure q[2] --> c[1];
+        Measure q[1] --> c[0];
+        >>> print(Circuit.from_tk(snake.to_tk()))
+        Id(2) @ H\\
+          >> SWAP @ Id(1)\\
+          >> Id(1) @ SWAP\\
+          >> Id(1) @ CX\\
+          >> Id(1) @ SWAP\\
+          >> SWAP @ Id(1)\\
+          >> Id(1) @ CX\\
+          >> Id(1) @ H @ Id(1)\\
+          >> Id(2) @ Bra(0)\\
+          >> Id(1) @ Bra(0)
+        """
+        def remove_ket1(box):
+            if not isinstance(box, Ket):
+                return box
+            x_gates = Circuit.id(0)
+            for bit in box.bitstring:
+                x_gates = x_gates @ (X if bit else Circuit.id(1))
+            return Ket(*(len(box.bitstring) * (0, ))) >> x_gates
+
+        def swap(tk_circ, i, j):
+            old = tk.circuit.UnitID('q', i)
+            tmp = tk.circuit.UnitID('tmp', 0)
+            new = tk.circuit.UnitID('q', j)
+            tk_circ.rename_units({old: tmp})
+            tk_circ.rename_units({new: old})
+            tk_circ.rename_units({tmp: new})
+        circuit = CircuitFunctor(ob=Quiver(len), ar=Quiver(remove_ket1))(self)
+        if circuit.dom != PRO(0):
+            circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
+        graph, _, _ = circuit.to_graph()
+        tk_circ, scan = tk.Circuit(), []
+        for i, (left, box, right) in enumerate(circuit.layers):
+            if isinstance(box, Ket):
+                if len(right) > 0:
+                    renaming = dict()
+                    for j in range(len(left), tk_circ.n_qubits):
+                        old = tk.circuit.UnitID('q', j)
+                        new = tk.circuit.UnitID('q', j + len(box.cod))
+                        renaming.update({old: new})
+                    tk_circ.rename_units(renaming)
+                tk_circ.add_blank_wires(len(box.cod))
+            elif isinstance(box, Bra):
+                for j, _ in enumerate(box.dom):
+                    tk_circ.add_bit(tk.circuit.UnitID('c', len(tk_circ.bits)))
+                    tk_circ.Measure(len(left) + j, len(tk_circ.bits) - 1)
+                if len(right) > 0:
+                    renaming = dict()
+                    for j, _ in enumerate(box.dom):
+                        old = tk.circuit.UnitID('q', len(left) + j)
+                        tmp = tk.circuit.UnitID('tmp', j)
+                        renaming.update({old: tmp})
+                    for j, _ in enumerate(right):
+                        old = tk.circuit.UnitID('q', len(left @ box.dom) + j)
+                        new = tk.circuit.UnitID('q', len(left) + j)
+                        renaming.update({old: new})
+                    tk_circ.rename_units(renaming)
+                    renaming = dict()
+                    for j, _ in enumerate(box.dom):
+                        tmp = tk.circuit.UnitID('tmp', j)
+                        new = tk.circuit.UnitID(
+                            'q', tk_circ.n_qubits - len(tk_circ.bits) + j)
+                        renaming.update({tmp: new})
+                    tk_circ.rename_units(renaming)
             else:
-                tk_circuit.__getattribute__(gate.name)(
-                    *(off + i for i in range(len(gate.dom))))
-        return tk_circuit
+                qubits = [len(left) + j for j in range(len(box.dom))]
+                if box == SWAP:
+                    swap(tk_circ, qubits[0], qubits[1])
+                elif isinstance(box, (Rx, Rz)):
+                    tk_circ.__getattribute__(box.name[:2])(box.phase, *qubits)
+                else:
+                    tk_circ.__getattribute__(box.name)(*qubits)
+        tk_circ.flatten_registers()
+        return tk_circ
 
     @staticmethod
     def from_tk(tk_circuit):
@@ -340,9 +382,22 @@ class Circuit(Diagram):
         >>> c1 = Circuit(2, 2, [Rz(0.5), Rx(0.25), CX], [0, 1, 0])
         >>> c2 = Circuit.from_tk(c1.to_tk())
         >>> assert c1.normal_form() == c2.normal_form()
+
+        >>> tk_GHZ = tk.Circuit(3).H(1).CX(1, 2).CX(1, 0)
+        >>> print(Circuit.from_tk(tk_GHZ))
+        Id(1) @ H @ Id(1)\\
+          >> Id(1) @ CX\\
+          >> SWAP @ Id(1)\\
+          >> CX @ Id(1)\\
+          >> SWAP @ Id(1)
+        >>> circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> print(Circuit.from_tk(circuit.to_tk()))
+        X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
         """
-        def boxes_from_tk(tk_gate):
+        def box_from_tk(tk_gate):
             name = tk_gate.op.get_type().name
+            if name == 'Measure':
+                return Bra(0)
             if name == 'Rx':
                 return Rx(tk_gate.op.get_params()[0])
             if name == 'Rz':
@@ -351,26 +406,32 @@ class Circuit(Diagram):
                 if name == gate.name:
                     return gate
             raise NotImplementedError
-        boxes, offsets = [], []
+        n_qubits, n_bits = tk_circuit.n_qubits, 0
+        circuit = Id(n_qubits)
         for tk_gate in tk_circuit.get_commands():
             i_0 = tk_gate.qubits[0].index[0]
+            perm = Id(n_qubits)
             for i, qubit in enumerate(tk_gate.qubits[1:]):
                 if qubit.index[0] == i_0 + i + 1:
-                    break  # gate applies to adjacent qubit already
+                    continue  # gate applies to adjacent qubit already
                 if qubit.index[0] < i_0 + i + 1:
                     for j in range(qubit.index[0], i_0 + i):
-                        boxes.append(SWAP)
-                        offsets.append(j)
+                        perm = perm >> Id(j) @ SWAP @ Id(n_qubits - j - 2)
                     if qubit.index[0] <= i_0:
                         i_0 -= 1
                 else:
                     for j in range(qubit.index[0] - i_0 + i - 1):
-                        boxes.append(SWAP)
-                        offsets.append(qubit.index[0] - j - 1)
-            boxes.append(boxes_from_tk(tk_gate))
-            offsets.append(i_0)
-        return Circuit(tk_circuit.n_qubits, tk_circuit.n_qubits,
-                       boxes, offsets)
+                        off = qubit.index[0] - j - 1
+                        perm = perm >> Id(off) @ SWAP @ Id(n_qubits - off - 2)
+            left, right = i_0, n_qubits - i_0 - len(tk_gate.qubits) - n_bits
+            box = box_from_tk(tk_gate)
+            if isinstance(box, Bra):
+                n_bits += 1
+            layer = Id(left) @ box @ Id(right)
+            if len(perm) > 0:
+                layer = perm >> layer >> perm[::-1]
+            circuit = circuit >> layer
+        return circuit
 
     @staticmethod
     def random(n_qubits, depth=3, gateset=None, seed=None):
@@ -379,7 +440,7 @@ class Circuit(Diagram):
 
         >>> c = Circuit.random(1, seed=420)
         >>> print(c)  # doctest: +ELLIPSIS
-        Rx(0.026...) >> Rz(0.781...) >> Rx(0.272...)
+        Rx(0.026... >> Rz(0.781... >> Rx(0.272...
         >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
         CX >> T @ Id(1) >> Id(1) @ T
         >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
@@ -730,14 +791,13 @@ class CircuitFunctor(RigidFunctor):
         >>> F = CircuitFunctor({x: 1}, {})
         >>> assert isinstance(F(Diagram.id(x)), Circuit)
         """
+        if isinstance(diagram, Ty):
+            return PRO(len(super().__call__(diagram)))
         if isinstance(diagram, Ob) and not diagram.z:
             return PRO(self.ob[Ty(diagram.name)])
-        result = super().__call__(diagram)
-        if isinstance(diagram, Ty):
-            return PRO(len(result))
         if isinstance(diagram, Diagram):
-            return Circuit._upgrade(result)
-        return result
+            return Circuit._upgrade(super().__call__(diagram))
+        return super().__call__(diagram)
 
 
 def sqrt(real):

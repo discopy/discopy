@@ -185,11 +185,9 @@ class Layer(cat.Box):
     --------
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
     >>> f, g = Box('f', y, z), Box('g', z, x)
-    >>> layers = Layer(x, f, z), Layer(x, g, z)
-    >>> for left, box, right in layers: print(left, box, right)
-    x f z
-    x g z
-    >>> first, then = layers
+    >>> Layer(x, f, z)
+    Layer(Ty('x'), Box('f', Ty('y'), Ty('z')), Ty('z'))
+    >>> first, then = Layer(x, f, z), Layer(x, g, z)
     >>> print(first >> then)
     Id(x) @ f @ Id(z) >> Id(x) @ g @ Id(z)
     """
@@ -362,7 +360,10 @@ class Diagram(cat.Diagram):
             yield self.id(left) @ box @ self.id(right)
 
     def __str__(self):
-        return ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
+        result = ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
+        if len(result) > 74:
+            result = result.replace(' >>', '\\\n  >>')
+        return result
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -507,7 +508,7 @@ class Diagram(cat.Diagram):
             cache.add(diagram)
         return diagram
 
-    def build_graph(self):
+    def to_graph(self):
         """
         Builds a networkx graph, called by :meth:`Diagram.draw`.
 
@@ -518,7 +519,7 @@ class Diagram(cat.Diagram):
 
             * :code:`graph` is a networkx graph with nodes for inputs, outputs,
               boxes and wires,
-            * :code:`pos` is a dict from nodes to pairs of floats,
+            * :code:`positions` is a dict from nodes to pairs of floats,
             * :code:`labels` is a dict from nodes to strings.
         """
         graph, pos, labels = nx.Graph(), dict(), dict()
@@ -620,7 +621,7 @@ class Diagram(cat.Diagram):
         path : str, optional
             Where to save the image, if `None` we call :code:`plt.show()`.
         """
-        graph, positions, labels = self.build_graph()
+        graph, positions, labels = self.to_graph()
 
         def draw_box(box, depth, axis):
             node = 'box_{}'.format(depth)

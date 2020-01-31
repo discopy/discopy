@@ -205,14 +205,14 @@ class MatrixFunctor(RigidFunctor):
         return super().__repr__().replace("RigidFunctor", "MatrixFunctor")
 
     def __call__(self, diagram):
+        if isinstance(diagram, Ty):
+            return sum([self(x) for x in diagram.objects], Dim(1))
         if isinstance(diagram, Ob) and not diagram.z:
             if isinstance(self.ob[Ty(diagram)], Dim):
                 return self.ob[Ty(diagram)]
             return Dim(self.ob[Ty(diagram)])
         if isinstance(diagram, Ob):
             return self(Ob(diagram.name, z=0))
-        if isinstance(diagram, Ty):
-            return sum([self(x) for x in diagram.objects], Dim(1))
         if isinstance(diagram, Cup):
             return Matrix.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):

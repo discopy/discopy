@@ -63,7 +63,7 @@ class Ob(cat.Ob):
             - self.z * '.l' if self.z < 0 else self.z * '.r')
 
 
-class Ty(moncat.Ty):
+class Ty(moncat.Ty, Ob):
     """ Implements pregroup types as lists of simple types.
 
     >>> s, n = Ty('s'), Ty('n')
@@ -85,7 +85,8 @@ class Ty(moncat.Ty):
 
     def __init__(self, *t):
         t = [x if isinstance(x, Ob) else Ob(x) for x in t]
-        super().__init__(*t)
+        moncat.Ty.__init__(self, *t)
+        Ob.__init__(self, str(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -95,6 +96,46 @@ class Ty(moncat.Ty):
     def __repr__(self):
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
+
+
+class PRO(Ty):
+    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
+    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
+
+    >>> PRO(1) @ PRO(1)
+    PRO(2)
+    >>> assert PRO(3) == Ty(1, 1, 1)
+    >>> assert PRO(1) == PRO(Ob(1))
+    """
+    def __init__(self, n=0):
+        if isinstance(n, Ob):
+            n = n.name
+        super().__init__(*(n * [1]))
+
+    @property
+    def l(self):
+        """
+        >>> assert PRO(2).l == PRO(2)
+        """
+        return self
+
+    @property
+    def r(self):
+        return self
+
+    def tensor(self, other):
+        return PRO(len(self) + len(other))
+
+    def __repr__(self):
+        return "PRO({})".format(len(self))
+
+    def __str__(self):
+        return repr(len(self))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return PRO(len(super().__getitem__(key)))
+        return super().__getitem__(key)
 
 
 class Diagram(moncat.Diagram):
@@ -169,12 +210,12 @@ class Diagram(moncat.Diagram):
         """
         return self._upgrade(super().__getitem__(key))
 
-    def build_graph(self):
+    def to_graph(self):
         """
         Builds a networkx graph, called by
         :meth:`discopy.moncat.Diagram.draw`.
         """
-        graph, positions, labels = super().build_graph()
+        graph, positions, labels = super().to_graph()
         for i, box in enumerate(self.boxes):
             if isinstance(box, (Cup, Cap)):  # We draw cups and caps as wires.
                 node, wire = 'box_{}'.format(i), 'wire_c_{}'.format(i)
@@ -263,7 +304,7 @@ class Diagram(moncat.Diagram):
         >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
         >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
         >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
-        g >> f[::-1] >> ... >> Cup(n, n.r) @ Id(n) >> h
+        g... >> Cup(n, n.r) @ Id(n)...
         g >> f[::-1] >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
         g >> f[::-1] >> f >> h
         """
@@ -531,6 +572,8 @@ class RigidFunctor(moncat.MonoidalFunctor):
         >>> assert F(f.transpose_l()) == F(f).transpose_l()
         >>> assert F(f.transpose_r()) == F(f).transpose_r()
         """
+        if isinstance(diagram, Ty):
+            return sum([self(b) for b in diagram.objects], self.ob_cls())
         if isinstance(diagram, Ob) and not diagram.z:
             return self.ob[Ty(diagram.name)]
         if isinstance(diagram, Ob):
@@ -542,8 +585,6 @@ class RigidFunctor(moncat.MonoidalFunctor):
                 for _ in range(diagram.z):
                     result = result.r
             return result
-        if isinstance(diagram, Ty):
-            return sum([self(b) for b in diagram.objects], self.ob_cls())
         if isinstance(diagram, Cup):
             return self.ar_cls.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
