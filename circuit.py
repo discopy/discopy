@@ -140,6 +140,9 @@ class Circuit(Diagram):
         Ket(1, 0), CX, Ket(0), sqrt(2)
         >>> print(', '.join(map(str, circuit.interchange(3, 0).boxes)))
         Ket(0), sqrt(2), Ket(1, 0), CX, SWAP
+        >>> print(', '.join(map(str,
+        ...                     circuit.interchange(3, 0, left=True).boxes)))
+        Ket(0), sqrt(2), Ket(1, 0), CX, SWAP
         """
         if i == j + 1 and isinstance(self.boxes[i], Ket)\
                 and len(self.boxes[i].bitstring) == 1:

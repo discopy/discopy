@@ -798,16 +798,17 @@ class Diagram(cat.Diagram):
             try:
                 if not k == last + 1:
                     result = diagram.interchange(k, last + 1)
-                if is_right_of(last, result):
+                right_of_last = is_right_of(last, result)
+                if right_of_last is None:
+                    return None
+                if right_of_last:
                     return result
-                elif not is_right_of(last, result):
+                else:
                     result = result.interchange(last + 1, last)
                     if last == first:
                         return result
                     else:
                         return move_in_slice(first, last - 1, last, result)
-                else:
-                    return None
             except InterchangerError:
                 return None
 
