@@ -169,6 +169,12 @@ class Circuit(Diagram):
 
     def normalize(self, _dagger=False):
         """
+        Multiplies all the scalars in the diagram.
+        Moves the kets to the top of the diagram, adding swaps if necessary.
+        Fuses them into preparation layers.
+        Moves the bras to the bottom of the diagram,
+        Fuses them into meaurement layers.
+
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> for step in circuit.normalize():
         ...     print(', '.join(map(str, step.boxes)))
@@ -179,7 +185,6 @@ class Circuit(Diagram):
         Ket(0), Ket(1), Ket(0), 1.414, CX, SWAP
         Ket(0, 1), Ket(0), 1.414, CX, SWAP
         Ket(0, 1, 0), 1.414, CX, SWAP
-        Ket(0, 1, 0), CX, 1.414, SWAP
         """
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
@@ -229,23 +234,21 @@ class Circuit(Diagram):
             yield diagram
 
         # step 2: move kets to the bottom of the diagram by foliating
-        for diagram in diagram.foliate():
-            yield diagram
-
         ket_count = sum([1 if isinstance(box, Ket) else 0
                          for box in diagram.boxes])
-        kets = diagram[:ket_count + 1]
-        bottom = diagram[ket_count + 1:]
+        gen = diagram.foliate()
+        for i in range(ket_count):
+            diagram = next(gen)
+            yield diagram
 
         # step 4: fuse kets
         while True:
-            fusable = find_ket(kets)
+            fusable = find_ket(diagram)
             if fusable is None:
                 break
-            kets = fuse_kets(kets, fusable)
-            yield kets >> bottom
+            diagram = fuse_kets(diagram, fusable)
+            yield diagram
 
-        diagram = kets >> bottom
         # step 5: repeat for bras using dagger
         if not _dagger:
             for _diagram in diagram.dagger().normalize(_dagger=True):
@@ -253,12 +256,19 @@ class Circuit(Diagram):
 
     def normal_form(self):
         """
+        Rewrites self into a circuit of the form:
+        kets >> unitary >> bras >> scalar.
+        Where 'kets' is a slice of preparation layers,
+        'bras' is a slice of measurement layers,
+        and 'scalar' is the renormalization factor.
+
         >>> caps = Circuit.caps(PRO(2), PRO(2))
         >>> cups = Circuit.cups(PRO(2), PRO(2))
         >>> snake = caps @ Id(2) >> Id(2) @ cups
         >>> snake_nf = snake.normal_form()
         >>> assert snake_nf.boxes[0] == Ket(0, 0, 0, 0)
         >>> assert snake_nf.boxes[-2] == Bra(0, 0, 0, 0)
+        >>> assert snake_nf.boxes[-1].name == '4.000'
         """
         *_, result = list(self.normalize()) or [self]
         return result
