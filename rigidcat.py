@@ -135,7 +135,7 @@ class Diagram(moncat.Diagram):
         """
         return self._upgrade(super().flatten())
 
-    def foliate(self, start=0, yield_slices=True):
+    def foliate(self, yield_slices=True):
         """
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
@@ -143,7 +143,7 @@ class Diagram(moncat.Diagram):
         >>> print(next(gen))
         f @ Id(x) >> Id(x) @ f >> f @ Id(x)
         """
-        for diagram in super().foliate(start=start, yield_slices=yield_slices):
+        for diagram in super().foliate(yield_slices=yield_slices):
             if isinstance(diagram, cat.Diagram):
                 yield self._upgrade(diagram)
             else:

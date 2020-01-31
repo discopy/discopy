@@ -750,24 +750,23 @@ class Diagram(cat.Diagram):
             from IPython.display import HTML
             return HTML('<img src="{}">'.format(path))
 
-    def flatten(self):
-        """
-        Takes a diagram of diagrams and returns a diagram.
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> g = Box('g', x @ y, y)
-        >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
-        ...      g @ f1 >> f1 @ Id(x)).normal_form()
-        >>> assert d.foliation().flatten().normal_form() == d
-        >>> assert d.foliation().dagger().flatten()\\
-        ...     == d.foliation().flatten().dagger()
-        """
-        return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
-
-    def foliate(self, start=0, yield_slices=False):
+    def foliate(self, yield_slices=False):
         """
         Generator yielding the interchanger steps in the foliation of self.
+
+        Yields
+        ------
+        diagram : :class:`Diagram`
+            Rewrite steps of the foliation.
+
+        Parameters
+        ----------
+        yield_slices : bool, optional
+            Yield the list of slices of self as last output,
+            used in :meth:`Diagram.foliation`.
+
+        Examples
+        --------
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
@@ -801,38 +800,57 @@ class Diagram(cat.Diagram):
             try:
                 if not k == last + 1:
                     result = diagram.interchange(k, last + 1)
-                if is_right_of(last, result) is None:
-                    return None
-                elif is_right_of(last, result):
+                if is_right_of(last, result):
                     return result
-                else:
+                elif not is_right_of(last, result):
                     result = result.interchange(last + 1, last)
                     if last == first:
                         return result
                     else:
                         return move_in_slice(first, last - 1, last, result)
+                else:
+                    return None
             except InterchangerError:
                 return None
 
-        diagram, slices = self, []
+        start, diagram = 0, self
+        if yield_slices:
+            slices = []
         while start < len(diagram):
             last = start
             for k in range(last + 1, len(diagram)):
-                if move_in_slice(start, last, k, diagram) is None:
+                result = move_in_slice(start, last, k, diagram)
+                if result is None:
                     pass
                 else:
-                    diagram = move_in_slice(start, last, k, diagram)
+                    diagram = result
                     last += 1
                     yield diagram
-            slices += [diagram[start: last + 1]]
+            if yield_slices:
+                slices += [diagram[start: last + 1]]
             start = last + 1
         if yield_slices:
             yield slices
 
+    def flatten(self):
+        """
+        Takes a diagram of diagrams and returns a diagram.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> g = Box('g', x @ y, y)
+        >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
+        ...      g @ f1 >> f1 @ Id(x)).normal_form()
+        >>> assert d.foliation().flatten().normal_form() == d
+        >>> assert d.foliation().dagger().flatten()\\
+        ...     == d.foliation().flatten().dagger()
+        """
+        return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
+
     def foliation(self):
         """
-        Returns a diagram with diagrams of depth 1 as boxes such that its
-        flattening gives the original diagram back, up to normal form.
+        Returns a diagram with normal_form diagrams of depth 1 as boxes
+        such that its flattening gives the original diagram back.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
