@@ -41,6 +41,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 import networkx as nx
 from PIL import Image
+from IPython.display import HTML
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
@@ -748,7 +749,6 @@ class Diagram(cat.Diagram):
             frames[0].save(path, format='GIF', append_images=frames[1:],
                            save_all=True, duration=timestep,
                            **{'loop': 0} if loop else {})
-            from IPython.display import HTML
             return HTML('<img src="{}">'.format(path))
 
     def flatten(self):

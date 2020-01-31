@@ -12,7 +12,8 @@ Implements dagger monoidal functors into matrices.
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
-from functools import reduce as fold
+import functools
+
 from discopy import messages
 from discopy.cat import AxiomError
 from discopy.rigidcat import Ob, Ty, Box, Cup, Cap, Diagram, RigidFunctor
@@ -182,8 +183,9 @@ class Id(Matrix):
         [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         """
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        array = fold(lambda a, x: np.tensordot(a, np.identity(x), 0)
-                     if a.shape else np.identity(x), dim, np.array(1))
+        array = functools.reduce(
+            lambda a, x: np.tensordot(a, np.identity(x), 0)
+            if a.shape else np.identity(x), dim, np.array(1))
         array = np.moveaxis(
             array, [2 * i for i in range(len(dim))], list(range(len(dim))))
         super().__init__(dim, dim, array)
@@ -203,6 +205,9 @@ class MatrixFunctor(RigidFunctor):
 
     def __repr__(self):
         return super().__repr__().replace("RigidFunctor", "MatrixFunctor")
+
+    def __hash__(self):
+        return hash(repr(self))
 
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
