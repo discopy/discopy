@@ -779,20 +779,17 @@ class Diagram(cat.Diagram):
         f0[::-1] @ Id(x @ y) >> Id(x @ x) @ f1
         >>> ket = Box('ket', Ty(), x)
         >>> scalar = Box('scalar', Ty(), Ty())
-        >>> kets = ket @ scalar @ ket @ scalar
+        >>> kets = scalar @ ket @ scalar @ ket
         >>> a = kets.foliate()
-        >>> print(next(a))
-        ket >> Id(x) @ scalar >> Id(x) @ ket >> Id(x @ x) @ scalar
-        >>> print(next(a))
-        ket >> Id(x) @ ket >> Id(x @ x) @ scalar >> Id(x @ x) @ scalar
+        >>> assert next(a) == kets
         """
         def is_right_of(last, diagram):
             off0, off1 = diagram.offsets[last], diagram.offsets[last + 1]
             box0, box1 = diagram.boxes[last], diagram.boxes[last + 1]
-            if off0 >= off1 + len(box1.dom):  # box1 left of box0
-                return False
-            elif off1 >= off0 + len(box0.cod):  # box1 right of box0
+            if off1 >= off0 + len(box0.cod):  # box1 right of box0
                 return True
+            elif off0 >= off1 + len(box1.dom):  # box1 left of box0
+                return False
             else:
                 return None
 
@@ -819,8 +816,10 @@ class Diagram(cat.Diagram):
             slices = []
         while start < len(diagram):
             last = start
-            for k in range(last + 1, len(diagram)):
+            k = last + 1
+            while k < len(diagram):
                 result = move_in_slice(start, last, k, diagram)
+                k += 1
                 if result is None:
                     pass
                 else:

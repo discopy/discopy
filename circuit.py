@@ -131,6 +131,39 @@ class Circuit(Diagram):
         """
         return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
+    def interchange(self, i, j, left=False):
+        """
+        Implements naturality of single kets with respect to the symmetry.
+
+        >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> print(', '.join(map(str, circuit.interchange(0, 3).boxes)))
+        Ket(1, 0), CX, Ket(0), sqrt(2)
+        >>> print(', '.join(map(str, circuit.interchange(3, 0).boxes)))
+        Ket(0), sqrt(2), Ket(1, 0), CX, SWAP
+        """
+        if i == j + 1 and isinstance(self.boxes[i], Ket)\
+                and len(self.boxes[i].bitstring) == 1:
+            try:
+                return super().interchange(i, j, left=left)
+            except InterchangerError:
+                left_wires, ket, right_wires = self.layers[i]
+                if left:
+                    layer = Id(len(left_wires) + 1) @ ket\
+                            @ Id(len(right_wires) - 1)\
+                            >> Id(len(left_wires)) @ SWAP\
+                            @ Id(len(right_wires) - 1)
+                    return (self[:i] >> layer
+                            >> self[i + 1:]).interchange(i, j, left=left)
+                else:
+                    layer = Id(len(left_wires) - 1) @ ket\
+                            @ Id(len(right_wires) + 1)\
+                            >> Id(len(left_wires) - 1) @ SWAP\
+                            @ Id(len(right_wires))
+                    return (self[:i] >> layer
+                            >> self[i + 1:]).interchange(i, j, left=left)
+        else:
+            return super().interchange(i, j, left=left)
+
     def normalize(self, _dagger=False):
         """
         >>> circuit = sqrt(2) @ Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
@@ -138,30 +171,18 @@ class Circuit(Diagram):
         ...     print(', '.join(map(str, step.boxes)))
         Ket(1, 0), CX, Ket(0), 1.414
         Ket(1), Ket(0), CX, Ket(0), 1.414
-        Ket(0), Ket(1), CX, Ket(0), 1.414
-        Ket(0), Ket(1), CX, Ket(0), SWAP, 1.414
+        Ket(1), Ket(0), CX, Ket(0), 1.414
         Ket(0), Ket(1), Ket(0), CX, SWAP, 1.414
-        Ket(0), Ket(0), Ket(1), CX, SWAP, 1.414
-        Ket(0), Ket(0), Ket(1), CX, SWAP, 1.414
-        Ket(0), Ket(1), Ket(0), CX, SWAP, 1.414
-        Ket(0, 1), Ket(0), CX, SWAP, 1.414
-        Ket(0, 1, 0), CX, SWAP, 1.414
+        Ket(0), Ket(1), Ket(0), 1.414, CX, SWAP
+        Ket(0, 1), Ket(0), 1.414, CX, SWAP
+        Ket(0, 1, 0), 1.414, CX, SWAP
+        Ket(0, 1, 0), CX, 1.414, SWAP
         """
         def remove_scalars(diagram):
             for i, box in enumerate(diagram.boxes):
                 if box.dom == box.cod == PRO():
                     return diagram[:i] >> diagram[i + 1:], box.array[0]
             return diagram, None
-
-        def move_ket(diagram, i):
-            try:
-                diagram = diagram.interchange(i, i - 1)
-                return diagram, i - 1
-            except InterchangerError:
-                left, ket, right = diagram.layers[i]
-                layer = Id(len(left) - 1) @ ket @ Id(len(right) + 1)\
-                    >> Id(len(left) - 1) @ SWAP @ Id(len(right))
-                return diagram[:i] >> layer >> diagram[i + 1:], i
 
         def find_ket(diagram):
             boxes, offsets = diagram.boxes, diagram.offsets
@@ -187,7 +208,7 @@ class Circuit(Diagram):
             return result
 
         diagram = self
-        # step 0: merge scalars to the right of the diagram
+        # step 0: multiply scalars to the right of the diagram
         if not _dagger:
             scalar = 1
             while True:
@@ -204,26 +225,16 @@ class Circuit(Diagram):
         if diagram != before:
             yield diagram
 
-        # step 2: move kets to the bottom of the diagram
-        i = 0
-        while i < len(diagram):
-            if isinstance(diagram.boxes[i], Ket):
-                j = i
-                while j > 0:
-                    diagram, j = move_ket(diagram, j)
-                    yield diagram
-            i += 1
-
-        # step 3: normalize kets
-        ket_count = sum([1 if isinstance(box, Ket) else 0
-                         for box in diagram.boxes])
-        bottom = diagram[ket_count:]
-        for kets in moncat.Diagram.normalize(diagram[:ket_count]):
-            diagram = kets >> bottom
+        # step 2: move kets to the bottom of the diagram by foliating
+        for diagram in diagram.foliate():
             yield diagram
 
+        ket_count = sum([1 if isinstance(box, Ket) else 0
+                         for box in diagram.boxes])
+        kets = diagram[:ket_count + 1]
+        bottom = diagram[ket_count + 1:]
+
         # step 4: fuse kets
-        kets = diagram[:ket_count]
         while True:
             fusable = find_ket(kets)
             if fusable is None:
@@ -238,6 +249,14 @@ class Circuit(Diagram):
                 yield _diagram.dagger()
 
     def normal_form(self):
+        """
+        >>> caps = Circuit.caps(PRO(2), PRO(2))
+        >>> cups = Circuit.cups(PRO(2), PRO(2))
+        >>> snake = caps @ Id(2) >> Id(2) @ cups
+        >>> snake_nf = snake.normal_form()
+        >>> assert snake_nf.boxes[0] == Ket(0, 0, 0, 0)
+        >>> assert snake_nf.boxes[-2] == Bra(0, 0, 0, 0)
+        """
         *_, result = list(self.normalize()) or [self]
         return result
 

@@ -176,7 +176,7 @@ class Diagram(moncat.Diagram):
         """
         return self._upgrade(super().flatten())
 
-    def foliate(self, yield_slices=True):
+    def foliate(self, yield_slices=False):
         """
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
