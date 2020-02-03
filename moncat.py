@@ -750,13 +750,6 @@ class Diagram(cat.Diagram):
         """
         Builds a gif with the normalisation steps.
 
-        >>> step0 = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
-        >>> step1 = next(step0.normalize())
-        >>> Diagram.to_gif(step0, step1,
-        ...                loop=True, margins=(0.1, 0.1),
-        ...                path='docs/imgs/EckmannHilton.gif')
-        <IPython.core.display.HTML object>
-
         Parameters
         ----------
         diagrams : :class:`Diagram`, optional
