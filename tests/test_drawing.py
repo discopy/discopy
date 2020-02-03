@@ -28,10 +28,13 @@ def draw_and_compare(file, folder=FOLDER, tol=TOL,
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
+
+    def swap(x, y):
+        return Box('swap', x @ y, y @ x)
     egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
     crack = Box('crack', egg, white @ yolk)
     crack_two_eggs = crack @ crack\
-        >> Id(white) @ Box('swap', yolk @ white, white @ yolk) @ Id(yolk)\
+        >> Id(white) @ swap(yolk, white) @ Id(yolk)\
         >> merge(white) @ merge(yolk)
     return crack_two_eggs
 

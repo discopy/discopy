@@ -19,7 +19,7 @@ import random as rand
 import pytket as tk
 from pytket.circuit import UnitID
 
-from discopy import moncat, messages
+from discopy import messages
 from discopy.cat import Quiver
 from discopy.moncat import InterchangerError
 from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, RigidFunctor
@@ -158,13 +158,12 @@ class Circuit(Diagram):
                         @ Id(len(right_wires) - 1)
                     return (self[:i] >> layer >> self[i + 1:])\
                         .interchange(i, j, left=left)
-                else:
-                    layer = Id(len(left_wires) - 1) @ ket\
-                        @ Id(len(right_wires) + 1)\
-                        >> Id(len(left_wires) - 1) @ SWAP\
-                        @ Id(len(right_wires))
-                    return (self[:i] >> layer >> self[i + 1:])\
-                        .interchange(i, j, left=left)
+                layer = Id(len(left_wires) - 1) @ ket\
+                    @ Id(len(right_wires) + 1)\
+                    >> Id(len(left_wires) - 1) @ SWAP\
+                    @ Id(len(right_wires))
+                return (self[:i] >> layer >> self[i + 1:])\
+                    .interchange(i, j, left=left)
         else:
             return super().interchange(i, j, left=left)
 
@@ -238,7 +237,7 @@ class Circuit(Diagram):
         ket_count = sum([1 if isinstance(box, Ket) else 0
                          for box in diagram.boxes])
         gen = diagram.foliate()
-        for i in range(ket_count):
+        for _ in range(ket_count):
             diagram = next(gen)
             yield diagram
 

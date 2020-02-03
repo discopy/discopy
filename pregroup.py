@@ -30,11 +30,8 @@ Implements distributional compositional models.
 """
 
 from functools import reduce as fold
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
 
-from discopy import messages
+from discopy import messages, drawing
 from discopy.rigidcat import Ty, Box, Diagram, Id, Cup
 
 
@@ -138,56 +135,6 @@ def draw(diagram, **params):
     ValueError
         Whenever the input is not a pregroup diagram.
     """
-    textpad = params.get('textpad', .1)
-    space = params.get('space', .5)
-    width = params.get('width', 2.)
-    fontsize = params.get('fontsize', 12)
-
-    def draw_triangles(axis, words):
-        scan = []
-        for i, word in enumerate(words.boxes):
-            for j, _ in enumerate(word.cod):
-                x_wire = (space + width) * i\
-                    + (width / (len(word.cod) + 1)) * (j + 1)
-                scan.append(x_wire)
-                if params.get('draw_types', True):
-                    axis.text(x_wire + textpad, -2 * textpad, str(word.cod[j]),
-                              fontsize=params.get('fontsize_types', fontsize))
-            path = Path(
-                [((space + width) * i, 0),
-                 ((space + width) * i + width, 0),
-                 ((space + width) * i + width / 2, 1),
-                 ((space + width) * i, 0)],
-                [Path.MOVETO, Path.LINETO, Path.LINETO, Path.CLOSEPOLY])
-            axis.add_patch(PathPatch(path, facecolor='none'))
-            axis.text((space + width) * i + width / 2, textpad,
-                      str(word), ha='center', fontsize=fontsize)
-        return scan
-
-    def draw_cups_and_wires(axis, cups, scan):
-        for j, off in [(j, off)
-                       for j, s in enumerate(cups) for off in s.offsets]:
-            middle = (scan[off] + scan[off + 1]) / 2
-            verts = [(scan[off], 0),
-                     (scan[off], - j - 1),
-                     (middle, - j - 1)]
-            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
-            verts = [(middle, - j - 1),
-                     (scan[off + 1], - j - 1),
-                     (scan[off + 1], 0)]
-            codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3]
-            axis.add_patch(PathPatch(Path(verts, codes), facecolor='none'))
-            scan = scan[:off] + scan[off + 2:]
-        for i, _ in enumerate(diagram.cod):
-            verts = [(scan[i], 0), (scan[i], - len(cups) - 1)]
-            codes = [Path.MOVETO, Path.LINETO]
-            axis.add_patch(PathPatch(Path(verts, codes)))
-            if params.get('draw_types', True):
-                axis.text(
-                    scan[i] + textpad, - len(cups) - space,
-                    str(diagram.cod[i]),
-                    fontsize=params.get('fontsize_types', fontsize))
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
     words, *cups = diagram.foliation().boxes
@@ -195,17 +142,4 @@ def draw(diagram, **params):
         and all(isinstance(box, Cup) for s in cups for box in s.boxes)
     if not is_pregroup:
         raise ValueError(messages.expected_pregroup())
-    _, axis = plt.subplots(figsize=params.get('figsize', None))
-    scan = draw_triangles(axis, words.normal_form())
-    draw_cups_and_wires(axis, cups, scan)
-    plt.margins(*params.get('margins', (.05, .05)))
-    plt.subplots_adjust(
-        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-    plt.axis('off')
-    axis.set_xlim(0, (space + width) * len(words.boxes) - space)
-    axis.set_ylim(- len(cups) - space, 1)
-    axis.set_aspect(params.get('aspect', 'equal'))
-    if 'path' in params.keys():
-        plt.savefig(params['path'])
-        plt.close()
-    plt.show()
+    drawing.pregroup_draw(words, cups, **params)
