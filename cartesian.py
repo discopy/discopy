@@ -3,17 +3,49 @@
 Implements functors into the category of functions on tuples
 with cartesian product as tensor.
 
+The cartesian product comes with swap, copy and discard maps:
+
+>>> COPY = Box('copy', 1, 2, lambda *x: x + x)
+>>> SWAP = Box('swap', 2, 2, lambda x, y: (y, x))
+>>> DISCARD = Box('discard', 1, 0, lambda *x: ())
+
+Comonoid law:
+
+>>> assert (COPY >> Id(1) @ DISCARD)(42) == Id(1)(42)\\
+...     == (COPY >> DISCARD @ Id(1))(42)
+
+Yang-Baxter equation:
+
+>>> assert (SWAP @ Id(1) >> Id(1) @ SWAP >> SWAP @ Id(1))(1, 2, 3)\\
+...     == (Id(1) @ SWAP >> SWAP @ Id(1) >> Id(1) @ SWAP)(1, 2, 3)
+
+Bialgebra law:
+
 >>> assert (ADD >> COPY)(1, 2)\\
 ...     == (COPY @ COPY >> Id(1) @ SWAP @ Id(1) >> ADD @ ADD)(1, 2)
+
+Naturality of the symmetry:
+
+>>> f = disco(1, 1)(lambda x: x + 1)
+>>> g = disco(1, 1)(lambda x: 2 * x))
+>>> assert (f @ g >> SWAP)(42, 34) == (SWAP >> g @ f)(42, 34)
 """
 
 from discopy.cat import AxiomError
-from discopy import messages, moncat
+from discopy import messages, rigidcat
 from discopy.cat import Quiver
-from discopy.moncat import PRO, MonoidalFunctor
+from discopy.rigidcat import PRO, RigidFunctor
 
 
-class Function(moncat.Box):
+def tuplify(xs):
+    return xs if isinstance(xs, tuple) else (xs, )
+
+
+def untuplify(*xs):
+    return xs[0] if len(xs) == 1 else xs
+
+
+class Function(rigidcat.Box):
     """
     Wraps python functions with domain and codomain information.
 
@@ -25,16 +57,12 @@ class Function(moncat.Box):
         Codomain of the diagram.
     function: any
         Python function with a call method.
+
+    >>> sort = Function(3, 3, lambda *xs: tuple(sorted(xs)))
+    >>> swap = Function(2, 2, lambda x, y: (y, x))
+    >>> assert (sort >> Function.id(1) @ swap)(1, 2, 3) == (1, 3, 2)
     """
     def __init__(self, dom, cod, function):
-        if isinstance(dom, PRO):
-            dom = len(dom)
-        if isinstance(cod, PRO):
-            cod = len(cod)
-        if not isinstance(dom, int):
-            raise TypeError(messages.type_err(int, dom))
-        if not isinstance(cod, int):
-            raise TypeError(messages.type_err(int, cod))
         self._function = function
         super().__init__(repr(function), PRO(dom), PRO(cod))
 
@@ -75,7 +103,6 @@ class Function(moncat.Box):
     def then(self, other):
         """
         Returns the sequential composition of 'self' with 'other'.
-        This method is called using the binary operators `>>` and `<<`.
 
         >>> copy = Function(1, 2, lambda *x: x + x)
         >>> swap = Function(2, 2, lambda x, y: (y, x))
@@ -87,15 +114,12 @@ class Function(moncat.Box):
         if len(self.cod) != len(other.dom):
             raise AxiomError("{} does not compose with {}."
                              .format(repr(self), repr(other)))
-
-        def func(*vals):
-            return other(*self(*vals))
-        return Function(self.dom, other.cod, func)
+        return Function(self.dom, other.cod,
+                        lambda *vals: other(*tuplify(self(*vals))))
 
     def tensor(self, other):
         """
         Returns the parallel composition of 'self' and 'other'.
-        This method is called using the binary operator `@`.
 
         >>> copy = Function(1, 2, lambda *x: x + x)
         >>> swap = Function(2, 2, lambda x, y: (y, x))
@@ -106,11 +130,11 @@ class Function(moncat.Box):
             raise TypeError(messages.type_err(Function, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
 
-        def func(*vals):
-            vals0 = vals[:len(self.dom)]
-            vals1 = vals[len(self.dom):]
-            return self(*vals0) + other(*vals1)
-        return Function(dom, cod, func)
+        def product(*vals):
+            vals0 = tuplify(self(*vals[:len(self.dom)]))
+            vals1 = tuplify(other(*vals[len(self.dom):]))
+            return untuplify(*(vals0 + vals1))
+        return Function(dom, cod, product)
 
     @staticmethod
     def id(dom):
@@ -122,10 +146,10 @@ class Function(moncat.Box):
         ...
         discopy.cat.AxiomError: Expected input of length 1, got 2 instead.
         """
-        return Function(dom, dom, lambda *xs: xs)
+        return Function(dom, dom, untuplify)
 
 
-class PythonFunctor(MonoidalFunctor):
+class PythonFunctor(RigidFunctor):
     """
     Implements functors into the category of Python functions on tuples
     """
@@ -133,28 +157,20 @@ class PythonFunctor(MonoidalFunctor):
         super().__init__(ob, ar, ob_cls=PRO, ar_cls=Function)
 
 
-class Diagram(moncat.Diagram):
+class Diagram(rigidcat.Diagram):
     """
     Implements diagrams of Python functions.
     """
-    def __init__(self, dom, cod, boxes, offsets):
-        super().__init__(PRO(dom), PRO(cod), boxes, offsets)
+    def __init__(self, dom, cod, boxes, offsets, layers=None):
+        super().__init__(PRO(dom), PRO(cod), boxes, offsets, layers=layers)
 
-    def then(self, other):
+    @staticmethod
+    def _upgrade(diagram):
         """
-        >>> assert isinstance(ADD >> COPY, Diagram)
+        Takes a rigidcat.Diagram and returns a cartesian.Diagram.
         """
-        result = super().then(other)
-        return Diagram(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets)
-
-    def tensor(self, other):
-        """
-        >>> assert (ADD @ ADD >> Id(1) @ COPY).offsets == [0, 1, 1]
-        """
-        result = super().tensor(other)
-        return Diagram(len(result.dom), len(result.cod),
-                       result.boxes, result.offsets)
+        return Diagram(len(diagram.dom), len(diagram.cod),
+                       diagram.boxes, diagram.offsets, layers=diagram.layers)
 
     @staticmethod
     def id(x):
@@ -169,25 +185,26 @@ class Diagram(moncat.Diagram):
         >>> assert SWAP(1, 2) == (2, 1)
         >>> assert (COPY @ COPY >> Id(1) @ SWAP @ Id(1))(1, 2) == (1, 2, 1, 2)
         """
-        ob = Quiver(lambda t: t)
+        ob = Quiver(lambda t: PRO(len(t)))
         ar = Quiver(lambda f:
-                    Function(f.dom, f.cod, f.function))
+                    Function(len(f.dom), len(f.cod), f.function))
         return PythonFunctor(ob, ar)(self)(*values)
 
 
 class Id(Diagram):
-    """ Implements identity diagrams on n inputs.
+    """
+    Implements identity diagrams on dom inputs.
 
     >>> c =  SWAP >> ADD >> COPY
     >>> assert Id(2) >> c == c == c >> Id(2)
     """
-    def __init__(self, dim):
+    def __init__(self, dom):
         """
         >>> assert Diagram.id(42) == Id(42) == Diagram(42, 42, [], [])
         """
-        if isinstance(dim, PRO):
-            dim = len(dim)
-        super().__init__(dim, dim, [], [])
+        if isinstance(dom, PRO):
+            dom = len(dom)
+        super().__init__(PRO(dom), PRO(dom), [], [], layers=None)
 
     def __repr__(self):
         """
@@ -204,7 +221,7 @@ class Id(Diagram):
         return repr(self)
 
 
-class Box(moncat.Box, Diagram):
+class Box(rigidcat.Box, Diagram):
     """
     Implements Python functions as boxes in a learner.Diagram.
     """
@@ -215,7 +232,7 @@ class Box(moncat.Box, Diagram):
         """
         if function is not None:
             self._function = function
-        moncat.Box.__init__(self, name, PRO(dom), PRO(cod), data=data)
+        rigidcat.Box.__init__(self, name, PRO(dom), PRO(cod), data=data)
         Diagram.__init__(self, dom, cod, [self], [0])
 
     @property
@@ -229,7 +246,7 @@ class Box(moncat.Box, Diagram):
             ', data=' + repr(self.data) if self.data else '')
 
 
-class CartesianFunctor(MonoidalFunctor):
+class CartesianFunctor(RigidFunctor):
     """
     Implements functors into the category of Python functions on tuples.
     """
@@ -246,6 +263,7 @@ def disco(dom, cod, name=None):
     ... def add(x, y):
     ...     return (x + y,)
     >>> assert isinstance(add, Box)
+    >>> copy = disco(1, 2, name='copy')(lambda x: (x, x))
     """
     def decorator(func):
         if name is None:
@@ -257,4 +275,4 @@ def disco(dom, cod, name=None):
 COPY = Box('copy', 1, 2, lambda *x: x + x)
 SWAP = Box('swap', 2, 2, lambda x, y: (y, x))
 DISCARD = Box('discard', 1, 0, lambda *x: ())
-ADD = Box('add', 2, 1, lambda x, y: (x + y, ))
+ADD = Box('add', 2, 1, lambda x, y: x + y)
