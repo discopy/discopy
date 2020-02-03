@@ -48,11 +48,13 @@ class Ob(cat.Ob):
 
     def __eq__(self, other):
         if not isinstance(other, Ob):
+            if isinstance(other, cat.Ob):
+                return self.z == 0 and self.name == other.name
             return False
         return (self.name, self.z) == (other.name, other.z)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash(self.name if not self.z else (self.name, self.z))
 
     def __repr__(self):
         return "Ob({}{})".format(
@@ -98,20 +100,7 @@ class Ty(moncat.Ty, Ob):
             repr(x if x.z else x.name) for x in self.objects))
 
 
-class PRO(Ty):
-    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
-    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
-
-    >>> PRO(1) @ PRO(1)
-    PRO(2)
-    >>> assert PRO(3) == Ty(1, 1, 1)
-    >>> assert PRO(1) == PRO(Ob(1))
-    """
-    def __init__(self, n=0):
-        if isinstance(n, Ob):
-            n = n.name
-        super().__init__(*(n * [1]))
-
+class PRO(moncat.PRO, Ty):
     @property
     def l(self):
         """
@@ -122,20 +111,6 @@ class PRO(Ty):
     @property
     def r(self):
         return self
-
-    def tensor(self, other):
-        return PRO(len(self) + len(other))
-
-    def __repr__(self):
-        return "PRO({})".format(len(self))
-
-    def __str__(self):
-        return repr(len(self))
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return PRO(len(super().__getitem__(key)))
-        return super().__getitem__(key)
 
 
 class Diagram(moncat.Diagram):

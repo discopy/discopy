@@ -169,6 +169,41 @@ class Ty(Ob):
         return sum(n_times * (self, ), type(self)())
 
 
+class PRO(Ty):
+    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
+    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
+
+    >>> PRO(1) @ PRO(1)
+    PRO(2)
+    >>> assert PRO(3) == Ty(1, 1, 1)
+    >>> assert PRO(1) == PRO(Ob(1))
+    """
+    def __init__(self, n=0):
+        if isinstance(n, PRO):
+            n = len(n)
+        if isinstance(n, Ob):
+            n = n.name
+        super().__init__(*(n * [1]))
+
+    def tensor(self, other):
+        if not isinstance(other, PRO):
+            if isinstance(other, Ty):
+                return super().tensor(other)
+            raise TypeError(messages.type_err(PRO, other))
+        return type(self)(len(self) + len(other))
+
+    def __repr__(self):
+        return "PRO({})".format(len(self))
+
+    def __str__(self):
+        return repr(len(self))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return type(self)(len(super().__getitem__(key)))
+        return super().__getitem__(key)
+
+
 class Layer(cat.Box):
     """
     Layer of a diagram, i.e. a box with wires to the left and right.
@@ -803,14 +838,12 @@ class Diagram(cat.Diagram):
                     result = diagram.interchange(k, last + 1)
                 if is_right_of(last, result):
                     return result
-                elif not is_right_of(last, result):
+                else:
                     result = result.interchange(last + 1, last)
                     if last == first:
                         return result
                     else:
                         return move_in_slice(first, last - 1, last, result)
-                else:
-                    return None
             except InterchangerError:
                 return None
 

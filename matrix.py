@@ -206,9 +206,6 @@ class MatrixFunctor(RigidFunctor):
     def __repr__(self):
         return super().__repr__().replace("RigidFunctor", "MatrixFunctor")
 
-    def __hash__(self):
-        return hash(repr(self))
-
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
             return sum([self(x) for x in diagram.objects], Dim(1))
