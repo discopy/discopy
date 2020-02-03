@@ -48,5 +48,5 @@ def test_Circuit_normal_form():
     snake = caps @ Id(2) >> Id(2) @ cups
     circ = snake.normal_form()
     assert circ.boxes[0] == Ket(0, 0, 0, 0)
-    assert circ.boxes[-1] == Bra(0, 0, 0, 0)
-    assert circ.boxes[-2].name == '4.000'
+    assert circ.boxes[-2] == Bra(0, 0, 0, 0)
+    assert circ.boxes[-1].name == '4.000'
