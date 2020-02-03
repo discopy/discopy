@@ -104,6 +104,7 @@ def test_Diagram_to_gif():
         loop=True, margins=(0.1, 0.1), figsize=(3, 3),
         path=path_test)
 
-    img_ref, img_test = Image.open(path_ref), Image.open(path_test)
+    img_ref = Image.open(path_ref).convert('RGB')
+    img_test = Image.open(path_test).convert('RGB')
     assert ImageChops.difference(img_ref, img_test).getbbox() is None
     os.remove(path_test)

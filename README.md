@@ -37,7 +37,7 @@ from discopy import Ty, Box, Id
 egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
 crack = Box('crack', egg, white @ yolk)
 merge = lambda x: Box('merge', x @ x, x)
-swap = lambda x, y: Box('SWAP', x @ y, y @ x)
+swap = lambda x, y: Box('swap', x @ y, y @ x)
 
 crack_two_eggs = crack @ crack\
     >> Id(white) @ swap(yolk, white) @ Id(yolk)\
