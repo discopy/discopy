@@ -6,6 +6,7 @@ def test_Ob_init():
     with raises(TypeError) as err:
         Ob('x', z='y')
     assert str(err.value) == messages.type_err(int, 'y')
+    assert cat.Ob('x') == Ob('x')
 
 
 def test_Ob_eq():
@@ -24,6 +25,10 @@ def test_Ob_repr():
 def test_Ob_str():
     a = Ob('a')
     assert str(a) == "a" and str(a.r) == "a.r" and str(a.l) == "a.l"
+
+
+def test_PRO_r():
+    assert PRO(2).r == PRO(2)
 
 
 def test_Diagram_cups():

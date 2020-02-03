@@ -17,8 +17,9 @@ Ket(0) >> X >> Bra(1)
 import random as rand
 
 import pytket as tk
+from pytket.circuit import UnitID
 
-from discopy import moncat, messages
+from discopy import messages
 from discopy.cat import Quiver
 from discopy.moncat import InterchangerError
 from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, RigidFunctor
@@ -152,18 +153,17 @@ class Circuit(Diagram):
                 left_wires, ket, right_wires = self.layers[i]
                 if left:
                     layer = Id(len(left_wires) + 1) @ ket\
-                            @ Id(len(right_wires) - 1)\
-                            >> Id(len(left_wires)) @ SWAP\
-                            @ Id(len(right_wires) - 1)
-                    return (self[:i] >> layer
-                            >> self[i + 1:]).interchange(i, j, left=left)
-                else:
-                    layer = Id(len(left_wires) - 1) @ ket\
-                            @ Id(len(right_wires) + 1)\
-                            >> Id(len(left_wires) - 1) @ SWAP\
-                            @ Id(len(right_wires))
-                    return (self[:i] >> layer
-                            >> self[i + 1:]).interchange(i, j, left=left)
+                        @ Id(len(right_wires) - 1)\
+                        >> Id(len(left_wires)) @ SWAP\
+                        @ Id(len(right_wires) - 1)
+                    return (self[:i] >> layer >> self[i + 1:])\
+                        .interchange(i, j, left=left)
+                layer = Id(len(left_wires) - 1) @ ket\
+                    @ Id(len(right_wires) + 1)\
+                    >> Id(len(left_wires) - 1) @ SWAP\
+                    @ Id(len(right_wires))
+                return (self[:i] >> layer >> self[i + 1:])\
+                    .interchange(i, j, left=left)
         else:
             return super().interchange(i, j, left=left)
 
@@ -237,7 +237,7 @@ class Circuit(Diagram):
         ket_count = sum([1 if isinstance(box, Ket) else 0
                          for box in diagram.boxes])
         gen = diagram.foliate()
-        for i in range(ket_count):
+        for _ in range(ket_count):
             diagram = next(gen)
             yield diagram
 
@@ -320,28 +320,6 @@ class Circuit(Diagram):
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
         >>> print(list(circuit2.to_tk()))
         [X q[0];, CX q[0], q[2];]
-
-        >>> bell_state = Ket(0, 0) >> H @ Id(1) >> CX
-        >>> bell_effect = bell_state[::-1]
-        >>> snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
-        >>> for gate in snake.to_tk(): print(gate)
-        H q[2];
-        CX q[2], q[0];
-        CX q[1], q[2];
-        H q[1];
-        Measure q[2] --> c[1];
-        Measure q[1] --> c[0];
-        >>> print(Circuit.from_tk(snake.to_tk()))
-        Id(2) @ H\\
-          >> SWAP @ Id(1)\\
-          >> Id(1) @ SWAP\\
-          >> Id(1) @ CX\\
-          >> Id(1) @ SWAP\\
-          >> SWAP @ Id(1)\\
-          >> Id(1) @ CX\\
-          >> Id(1) @ H @ Id(1)\\
-          >> Id(2) @ Bra(0)\\
-          >> Id(1) @ Bra(0)
         """
         def remove_ket1(box):
             if not isinstance(box, Ket):
@@ -352,58 +330,65 @@ class Circuit(Diagram):
             return Ket(*(len(box.bitstring) * (0, ))) >> x_gates
 
         def swap(tk_circ, i, j):
-            old = tk.circuit.UnitID('q', i)
-            tmp = tk.circuit.UnitID('tmp', 0)
-            new = tk.circuit.UnitID('q', j)
+            old = UnitID('q', i)
+            tmp = UnitID('tmp', 0)
+            new = UnitID('q', j)
             tk_circ.rename_units({old: tmp})
             tk_circ.rename_units({new: old})
             tk_circ.rename_units({tmp: new})
+
+        def add_qubit(tk_circ, left, box, right):
+            if len(right) > 0:
+                renaming = dict()
+                for i in range(len(left), tk_circ.n_qubits):
+                    old = UnitID('q', i)
+                    new = UnitID('q', i + len(box.cod))
+                    renaming.update({old: new})
+                tk_circ.rename_units(renaming)
+            tk_circ.add_blank_wires(len(box.cod))
+
+        def add_gate(tk_circ, box, off):
+            qubits = [off + j for j in range(len(box.dom))]
+            if isinstance(box, (Rx, Rz)):
+                tk_circ.__getattribute__(box.name[:2])(box.phase, *qubits)
+            else:
+                tk_circ.__getattribute__(box.name)(*qubits)
+
+        def measure_qubit(tk_circ, left, box, right):
+            for i, _ in enumerate(box.dom):
+                tk_circ.add_bit(UnitID('c', len(tk_circ.bits)))
+                tk_circ.Measure(len(left) + i, len(tk_circ.bits) - 1)
+            if len(right) > 0:
+                renaming = dict()
+                for i, _ in enumerate(box.dom):
+                    old = UnitID('q', len(left) + i)
+                    tmp = UnitID('tmp', i)
+                    renaming.update({old: tmp})
+                for i, _ in enumerate(right):
+                    old = UnitID('q', len(left @ box.dom) + i)
+                    new = UnitID('q', len(left) + i)
+                    renaming.update({old: new})
+                tk_circ.rename_units(renaming)
+                renaming = dict()
+                for j, _ in enumerate(box.dom):
+                    tmp = UnitID('tmp', j)
+                    new = UnitID(
+                        'q', tk_circ.n_qubits - len(tk_circ.bits) + j)
+                    renaming.update({tmp: new})
+                tk_circ.rename_units(renaming)
         circuit = CircuitFunctor(ob=Quiver(len), ar=Quiver(remove_ket1))(self)
         if circuit.dom != PRO(0):
             circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
-        graph, _, _ = circuit.to_graph()
-        tk_circ, scan = tk.Circuit(), []
-        for i, (left, box, right) in enumerate(circuit.layers):
+        tk_circ = tk.Circuit()
+        for left, box, right in circuit.layers:
             if isinstance(box, Ket):
-                if len(right) > 0:
-                    renaming = dict()
-                    for j in range(len(left), tk_circ.n_qubits):
-                        old = tk.circuit.UnitID('q', j)
-                        new = tk.circuit.UnitID('q', j + len(box.cod))
-                        renaming.update({old: new})
-                    tk_circ.rename_units(renaming)
-                tk_circ.add_blank_wires(len(box.cod))
+                add_qubit(tk_circ, left, box, right)
             elif isinstance(box, Bra):
-                for j, _ in enumerate(box.dom):
-                    tk_circ.add_bit(tk.circuit.UnitID('c', len(tk_circ.bits)))
-                    tk_circ.Measure(len(left) + j, len(tk_circ.bits) - 1)
-                if len(right) > 0:
-                    renaming = dict()
-                    for j, _ in enumerate(box.dom):
-                        old = tk.circuit.UnitID('q', len(left) + j)
-                        tmp = tk.circuit.UnitID('tmp', j)
-                        renaming.update({old: tmp})
-                    for j, _ in enumerate(right):
-                        old = tk.circuit.UnitID('q', len(left @ box.dom) + j)
-                        new = tk.circuit.UnitID('q', len(left) + j)
-                        renaming.update({old: new})
-                    tk_circ.rename_units(renaming)
-                    renaming = dict()
-                    for j, _ in enumerate(box.dom):
-                        tmp = tk.circuit.UnitID('tmp', j)
-                        new = tk.circuit.UnitID(
-                            'q', tk_circ.n_qubits - len(tk_circ.bits) + j)
-                        renaming.update({tmp: new})
-                    tk_circ.rename_units(renaming)
+                measure_qubit(tk_circ, left, box, right)
+            elif box == SWAP:
+                swap(tk_circ, len(left), len(left) + 1)
             else:
-                qubits = [len(left) + j for j in range(len(box.dom))]
-                if box == SWAP:
-                    swap(tk_circ, qubits[0], qubits[1])
-                elif isinstance(box, (Rx, Rz)):
-                    tk_circ.__getattribute__(box.name[:2])(box.phase, *qubits)
-                else:
-                    tk_circ.__getattribute__(box.name)(*qubits)
-        tk_circ.flatten_registers()
+                add_gate(tk_circ, box, len(left))
         return tk_circ
 
     @staticmethod
@@ -438,30 +423,35 @@ class Circuit(Diagram):
                 if name == gate.name:
                     return gate
             raise NotImplementedError
-        n_qubits, n_bits = tk_circuit.n_qubits, 0
-        circuit = Id(n_qubits)
-        for tk_gate in tk_circuit.get_commands():
-            i_0 = tk_gate.qubits[0].index[0]
-            perm = Id(n_qubits)
+
+        def permute(tk_circuit, tk_gate):
+            n_qubits, i_0 = tk_circuit.n_qubits, tk_gate.qubits[0].index[0]
+            result = Id(n_qubits)
             for i, qubit in enumerate(tk_gate.qubits[1:]):
                 if qubit.index[0] == i_0 + i + 1:
                     continue  # gate applies to adjacent qubit already
                 if qubit.index[0] < i_0 + i + 1:
                     for j in range(qubit.index[0], i_0 + i):
-                        perm = perm >> Id(j) @ SWAP @ Id(n_qubits - j - 2)
+                        result = result >> Id(j) @ SWAP @ Id(n_qubits - j - 2)
                     if qubit.index[0] <= i_0:
                         i_0 -= 1
                 else:
                     for j in range(qubit.index[0] - i_0 + i - 1):
-                        off = qubit.index[0] - j - 1
-                        perm = perm >> Id(off) @ SWAP @ Id(n_qubits - off - 2)
+                        left = qubit.index[0] - j - 1
+                        right = n_qubits - left - 2
+                        result = result >> Id(left) @ SWAP @ Id(right)
+            return i_0, result
+        n_qubits, n_bits = tk_circuit.n_qubits, 0
+        circuit = Id(n_qubits)
+        for tk_gate in tk_circuit.get_commands():
+            i_0, permutation = permute(tk_circuit, tk_gate)
             left, right = i_0, n_qubits - i_0 - len(tk_gate.qubits) - n_bits
             box = box_from_tk(tk_gate)
             if isinstance(box, Bra):
                 n_bits += 1
             layer = Id(left) @ box @ Id(right)
-            if len(perm) > 0:
-                layer = perm >> layer >> perm[::-1]
+            if len(permutation) > 0:
+                layer = permutation >> layer >> permutation[::-1]
             circuit = circuit >> layer
         return circuit
 
