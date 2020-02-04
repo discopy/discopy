@@ -713,7 +713,7 @@ class Diagram(cat.Arrow):
         path : str, optional
             Where to save the image, if `None` we call :code:`plt.show()`.
         """
-        drawing.draw(self, **params)
+        return drawing.draw(self, **params)
 
     def to_gif(self, *diagrams, **params):
         """
@@ -732,7 +732,7 @@ class Diagram(cat.Arrow):
         params : any, optional
             Passed to :meth:`Diagram.draw`.
         """
-        drawing.to_gif(self, *diagrams, **params)
+        return drawing.to_gif(self, *diagrams, **params)
 
 
 def spiral(n_cups, _type=Ty('x')):
