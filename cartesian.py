@@ -27,7 +27,7 @@ Bialgebra law:
 Naturality of the symmetry:
 
 >>> f = disco(1, 1)(lambda x: x + 1)
->>> g = disco(1, 1)(lambda x: 2 * x))
+>>> g = disco(1, 1)(lambda x: 2 * x)
 >>> assert (f @ g >> SWAP)(42, 34) == (SWAP >> g @ f)(42, 34)
 """
 
@@ -202,8 +202,6 @@ class Id(Diagram):
         """
         >>> assert Diagram.id(42) == Id(42) == Diagram(42, 42, [], [])
         """
-        if isinstance(dom, PRO):
-            dom = len(dom)
         super().__init__(PRO(dom), PRO(dom), [], [], layers=None)
 
     def __repr__(self):
@@ -249,6 +247,13 @@ class Box(rigidcat.Box, Diagram):
 class CartesianFunctor(RigidFunctor):
     """
     Implements functors into the category of Python functions on tuples.
+
+    >>> x = rigidcat.Ty('x')
+    >>> f, g = rigidcat.Box('f', x, x @ x), rigidcat.Box('g', x @ x, x)
+    >>> ob = {x: PRO(1)}
+    >>> ar = {f: COPY, g: ADD}
+    >>> F = CartesianFunctor(ob, ar)
+    >>> assert F(f >> g)(43) == 86
     """
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_cls=PRO, ar_cls=Diagram)
