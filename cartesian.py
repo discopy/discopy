@@ -115,8 +115,7 @@ class Function(rigidcat.Box):
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
         if len(self.cod) != len(other.dom):
-            raise AxiomError("{} does not compose with {}."
-                             .format(repr(self), repr(other)))
+            raise AxiomError(messages.does_not_compose(self, other))
         return Function(self.dom, other.cod,
                         lambda *vals: other(*tuplify(self(*vals))))
 
