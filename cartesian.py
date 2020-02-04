@@ -37,7 +37,7 @@ We can check the axioms for the Copy/Discard comonoid on specific inputs:
 from discopy.cat import AxiomError
 from discopy import messages, rigidcat
 from discopy.cat import Quiver
-from discopy.rigidcat import PRO, RigidFunctor
+from discopy.rigidcat import PRO
 
 
 def tuplify(xs):
@@ -151,7 +151,7 @@ class Function(rigidcat.Box):
         return Function(dom, dom, untuplify)
 
 
-class PythonFunctor(RigidFunctor):
+class PythonFunctor(rigidcat.Functor):
     """
     Implements functors into the category of Python functions on tuples
     """
@@ -305,7 +305,7 @@ class Discard(Diagram):
                          layers=result.layers)
 
 
-class Functor(RigidFunctor):
+class Functor(rigidcat.Functor):
     """
     Implements functors into the category of Python functions on tuples.
 
