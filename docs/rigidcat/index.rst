@@ -14,4 +14,4 @@ discopy.rigidcat
     Box.rst
     Cup.rst
     Cap.rst
-    RigidFunctor.rst
+    Functor.rst

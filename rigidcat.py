@@ -162,7 +162,7 @@ class Diagram(moncat.Diagram):
         f @ Id(x) >> Id(x) @ f >> f @ Id(x)
         """
         for diagram in super().foliate(yield_slices=yield_slices):
-            if isinstance(diagram, cat.Diagram):
+            if isinstance(diagram, cat.Arrow):
                 yield self._upgrade(diagram)
             else:
                 yield [self._upgrade(diagram[i]) for i in range(len(diagram))]
@@ -495,7 +495,7 @@ class Cap(Box):
         return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
 
 
-class RigidFunctor(moncat.MonoidalFunctor):
+class Functor(moncat.Functor):
     """
     Implements rigid monoidal functors, i.e. preserving cups and caps.
 
@@ -507,30 +507,23 @@ class RigidFunctor(moncat.MonoidalFunctor):
     >>> ar = {Alice: Alice, Bob: Bob}
     >>> ar.update({loves: Cap(n.r, n) @ Cap(n, n.l)
     ...                   >> Id(n.r) @ love_box @ Id(n.l)})
-    >>> F = RigidFunctor(ob, ar)
+    >>> F = Functor(ob, ar)
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
     """
     def __init__(self, ob, ar, ob_cls=Ty, ar_cls=Diagram):
         """
-        >>> F = RigidFunctor({Ty('x'): Ty('y')}, {})
+        >>> F = Functor({Ty('x'): Ty('y')}, {})
         >>> F(Id(Ty('x')))
         Id(Ty('y'))
         """
         super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
 
-    def __repr__(self):
-        """
-        >>> RigidFunctor({Ty('x'): Ty('y')}, {})
-        RigidFunctor(ob={Ty('x'): Ty('y')}, ar={})
-        """
-        return super().__repr__().replace("MonoidalFunctor", "RigidFunctor")
-
     def __call__(self, diagram):
         """
         >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
         >>> f, g = Box('f', x, y), Box('g', y, z)
-        >>> F = RigidFunctor({x: y, y: z}, {f: g})
+        >>> F = Functor({x: y, y: z}, {f: g})
         >>> assert F(f.transpose_l()) == F(f).transpose_l()
         >>> assert F(f.transpose_r()) == F(f).transpose_r()
         """
