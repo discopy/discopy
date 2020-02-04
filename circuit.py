@@ -320,6 +320,20 @@ class Circuit(Diagram):
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
         >>> print(list(circuit2.to_tk()))
         [X q[0];, CX q[0], q[2];]
+
+        >>> circuit = Ket(0, 0)\\
+        ...     >> sqrt(2) @ Id(2)\\
+        ...     >> H @ Id(1)\\
+        ...     >> Id(1) @ X\\
+        ...     >> CX\\
+        ...     >> Id(1) @ Bra(0)
+        >>> tk_circ, post_selection, scalar = circuit.to_tk()
+        >>> print(list(tk_circ))
+        [H q[0];, X q[1];, CX q[0], q[1];, Measure q[1] --> c[0];]
+        >>> print(post_selection)
+        {1: 0}
+        >>> print(np.round(abs(scalar) ** 2))
+        2.0
         """
         def remove_ket1(box):
             if not isinstance(box, Ket):
@@ -337,7 +351,7 @@ class Circuit(Diagram):
             tk_circ.rename_units({new: old})
             tk_circ.rename_units({tmp: new})
 
-        def add_qubit(tk_circ, left, box, right):
+        def prepare_qubit(tk_circ, left, box, right):
             if len(right) > 0:
                 renaming = dict()
                 for i in range(len(left), tk_circ.n_qubits):
@@ -372,24 +386,69 @@ class Circuit(Diagram):
                 renaming = dict()
                 for j, _ in enumerate(box.dom):
                     tmp = UnitID('tmp', j)
-                    new = UnitID(
-                        'q', tk_circ.n_qubits - len(tk_circ.bits) + j)
+                    new = UnitID('q', tk_circ.n_qubits - len(tk_circ.bits) + j)
                     renaming.update({tmp: new})
                 tk_circ.rename_units(renaming)
+            return {tk_circ.n_qubits - len(tk_circ.bits) + j: box.bitstring[j]
+                    for j, _ in enumerate(box.dom)}
+        scalar, post_selection = 1, {}
         circuit = CircuitFunctor(ob=Quiver(len), ar=Quiver(remove_ket1))(self)
         if circuit.dom != PRO(0):
             circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
         tk_circ = tk.Circuit()
         for left, box, right in circuit.layers:
             if isinstance(box, Ket):
-                add_qubit(tk_circ, left, box, right)
+                prepare_qubit(tk_circ, left, box, right)
             elif isinstance(box, Bra):
-                measure_qubit(tk_circ, left, box, right)
+                post_selection.update(measure_qubit(tk_circ, left, box, right))
             elif box == SWAP:
                 swap(tk_circ, len(left), len(left) + 1)
+            elif box.dom == box.cod == PRO(0):
+                scalar *= box.array[0]
             else:
                 add_gate(tk_circ, box, len(left))
+        if post_selection or scalar != 1:
+            return (tk_circ, post_selection, scalar)
         return tk_circ
+
+    def get_counts(self, backend, n_shots=2**10, measure_all=True):
+        """
+        >>> from pytket.backends.ibm import AerBackend
+        >>> backend = AerBackend()
+        >>> circuit = H @ X >> CX >> Id(1) @ Bra(0)
+        >>> matrix = circuit.get_counts(backend)
+        >>> list(np.round(matrix.array.flatten()))
+        [0.0, 1.0]
+        """
+        def build_bras(n_qubits, post_selection):
+            result = Id(n_qubits)
+            for qubit, bit in reversed(sorted(post_selection.items())):
+                result = result >> Id(qubit) @ Bra(bit)
+            return result
+        circuit = self
+        if circuit.dom != PRO(0):
+            circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
+        tk_circ = circuit.to_tk()
+        if isinstance(tk_circ, tuple):
+            tk_circ, post_selection, scalar = tk_circ
+        else:
+            post_selection, scalar = {}, 1
+        if measure_all:
+            tk_circ.measure_all()
+        backend.compile_circuit(tk_circ)
+        if not backend.valid_circuit(tk_circ):
+            raise RuntimeError
+        counts_dict = backend.get_counts(tk_circ, n_shots=n_shots)
+        array = np.zeros(tk_circ.n_qubits * (2, ))
+        for bitstring, count in counts_dict.items():
+            array += count * Ket(*bitstring).array
+        matrix = Matrix(Dim(1), Dim(*(tk_circ.n_qubits * (2, ))), array)
+        matrix = matrix >> build_bras(tk_circ.n_qubits, post_selection).eval()
+        total = np.sum(matrix.array)
+        if not total:
+            raise RuntimeError
+        array = 1. / total * abs(scalar) ** 2 * matrix.array
+        return Matrix(Dim(1), matrix.cod, array)
 
     @staticmethod
     def from_tk(tk_circuit):
@@ -411,10 +470,15 @@ class Circuit(Diagram):
         >>> print(Circuit.from_tk(circuit.to_tk()))
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
         """
+        if isinstance(tk_circuit, tuple):
+            tk_circuit, post_selection, scalar = tk_circuit
+        else:
+            post_selection, scalar = {}, 1
+
         def box_from_tk(tk_gate):
             name = tk_gate.op.get_type().name
             if name == 'Measure':
-                return Bra(0)
+                return Bra(post_selection.get(tk_gate.qubits[0].index[0], 0))
             if name == 'Rx':
                 return Rx(tk_gate.op.get_params()[0])
             if name == 'Rz':
@@ -450,9 +514,11 @@ class Circuit(Diagram):
             if isinstance(box, Bra):
                 n_bits += 1
             layer = Id(left) @ box @ Id(right)
-            if len(permutation) > 0:
+            if permutation:
                 layer = permutation >> layer >> permutation[::-1]
             circuit = circuit >> layer
+        if scalar != 1:
+            circuit = circuit @ Gate('{:.3f}'.format(scalar), 0, scalar)
         return circuit
 
     @staticmethod
