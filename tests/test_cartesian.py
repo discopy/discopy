@@ -7,6 +7,14 @@ def test_Function_str():
     assert 'Function(dom=2, cod=1,' in str(f)
 
 
+def test_Function_call():
+    f = Swap(2, 1)
+    values = (2, 3)
+    with raises(TypeError) as err:
+        f(*values)
+    assert str(err.value) == messages.expected_input_length(f, values)
+
+
 def test_Function_then():
     f = Function(2, 1, lambda x, y: x + y)
     g = (lambda x: x, )

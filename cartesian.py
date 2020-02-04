@@ -55,11 +55,14 @@ class Function(rigidcat.Box):
     Parameters
     ----------
     dom : int
-        Domain of the diagram.
+        Domain of the function, i.e. number of input arguments.
     cod : int
         Codomain of the diagram.
     function: any
         Python function with a call method.
+
+    Example
+    -------
 
     >>> sort = Function(3, 3, lambda *xs: tuple(sorted(xs)))
     >>> swap = Function(2, 2, lambda x, y: (y, x))
@@ -99,13 +102,12 @@ class Function(rigidcat.Box):
         values : tuple
         """
         if not len(values) == len(self.dom):
-            raise AxiomError("Expected input of length {}, got {} instead."
-                             .format(len(self.dom), len(values)))
+            raise TypeError(messages.expected_input_length(self, values))
         return self.function(*values)
 
     def then(self, other):
         """
-        Returns the sequential composition of 'self' with 'other'.
+        Implements the sequential composition of Python functions.
 
         >>> copy = Function(1, 2, lambda *x: x + x)
         >>> swap = Function(2, 2, lambda x, y: (y, x))
@@ -121,7 +123,7 @@ class Function(rigidcat.Box):
 
     def tensor(self, other):
         """
-        Returns the parallel composition of 'self' and 'other'.
+        Implements the product of Python functions.
 
         >>> copy = Function(1, 2, lambda *x: x + x)
         >>> swap = Function(2, 2, lambda x, y: (y, x))
@@ -141,12 +143,10 @@ class Function(rigidcat.Box):
     @staticmethod
     def id(dom):
         """
+        Implements the identity function on 'dom' inputs.
+
         >>> assert Function.id(0)() == ()
         >>> assert Function.id(2)(1, 2) == (1, 2)
-        >>> Function.id(1)(1, 2)  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        discopy.cat.AxiomError: Expected input of length 1, got 2 instead.
         """
         return Function(dom, dom, untuplify)
 
@@ -184,6 +184,8 @@ class Diagram(rigidcat.Diagram):
 
     def __call__(self, *values):
         """
+        Call method implemented using PythonFunctors.
+
         >>> assert SWAP(1, 2) == (2, 1)
         >>> assert (COPY @ COPY >> Id(1) @ SWAP @ Id(1))(1, 2) == (1, 2, 1, 2)
         """
@@ -223,7 +225,18 @@ class Id(Diagram):
 
 class Box(rigidcat.Box, Diagram):
     """
-    Implements Python functions as boxes in a learner.Diagram.
+    Implements Python functions as boxes in a cartesian.Diagram.
+
+    Parameters
+    ----------
+    name : str
+        Name of the box.
+    dom : int
+        Domain of the box.
+    cod : int
+        Codomain of the box.
+    function: any
+        Python function with a call method.
     """
     def __init__(self, name, dom, cod, function=None, data=None):
         """
@@ -248,7 +261,7 @@ class Box(rigidcat.Box, Diagram):
 
 class Swap(Diagram):
     """
-    Implements the Swap map from 'left @ right' to 'right @ left'
+    Implements the swap function from left @ right to right @ left
 
     >>> assert Swap(2, 3)(0, 1, 2, 3, 4) == (2, 3, 4, 0, 1)
     """
@@ -261,7 +274,7 @@ class Swap(Diagram):
 
 class Copy(Diagram):
     """
-    Implements the Copy map from 'dom' to '2 * dom'.
+    Implements the copy function from dom to 2*dom.
 
     >>> assert Copy(3)(0, 1, 2) == (0, 1, 2, 0, 1, 2)
     """
@@ -280,6 +293,8 @@ class Copy(Diagram):
 
 class Discard(Diagram):
     """
+    Implements the discarding function on dom inputs.
+
     >>> assert Discard(3)(0, 1, 2) == () == Discard(2)(43, 44)
     """
     def __init__(self, dom):
@@ -290,7 +305,7 @@ class Discard(Diagram):
                          layers=result.layers)
 
 
-class CartesianFunctor(RigidFunctor):
+class Functor(RigidFunctor):
     """
     Implements functors into the category of Python functions on tuples.
 
@@ -298,7 +313,7 @@ class CartesianFunctor(RigidFunctor):
     >>> f, g = rigidcat.Box('f', x, x @ x), rigidcat.Box('g', x @ x, x)
     >>> ob = {x: PRO(1)}
     >>> ar = {f: COPY, g: ADD}
-    >>> F = CartesianFunctor(ob, ar)
+    >>> F = Functor(ob, ar)
     >>> assert F(f >> g)(43) == 86
     """
     def __init__(self, ob, ar):
@@ -312,7 +327,7 @@ def disco(dom, cod, name=None):
 
     >>> @disco(2, 1)
     ... def add(x, y):
-    ...     return (x + y,)
+    ...     return x + y
     >>> assert isinstance(add, Box)
     >>> copy = disco(1, 2, name='copy')(lambda x: (x, x))
     """
