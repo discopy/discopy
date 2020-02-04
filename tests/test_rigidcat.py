@@ -119,7 +119,7 @@ def test_AxiomError():
     assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
 
 
-def test_RigidFunctor_call():
-    F = RigidFunctor({}, {})
+def test_Functor_call():
+    F = Functor({}, {})
     with raises(TypeError):
         F(F)

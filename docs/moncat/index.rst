@@ -7,9 +7,10 @@ discopy.moncat
     :caption: Contents:
 
     Ty.rst
+    PRO.rst
     Layer.rst
     Diagram.rst
     Id.rst
     Box.rst
-    MonoidalFunctor.rst
+    Functor.rst
     InterchangerError.rst

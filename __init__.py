@@ -19,15 +19,13 @@ discopy computes natural language meaning in pictures.
 >>> love_box = Box('loves', n @ n, s)
 >>> love_ansatz = Cap(n.r, n) @ Cap(n, n.l) >> Id(n.r) @ love_box @ Id(n.l)
 >>> ob, ar = {s: s, n: n}, {Alice: Alice, Bob: Bob, loves: love_ansatz}
->>> A = RigidFunctor(ob, ar)
+>>> A = Functor(ob, ar)
 >>> assert A(sentence).normal_form() == Alice @ Bob >> love_box
 """
 
 from discopy import cat, moncat, rigidcat, matrix, circuit, pregroup
-from discopy.cat import Quiver, Functor
-from discopy.moncat import MonoidalFunctor
-from discopy.rigidcat import (
-    Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, RigidFunctor)
+from discopy.cat import Quiver
+from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Functor
 from discopy.matrix import Dim, Matrix, MatrixFunctor
 from discopy.circuit import Circuit, Gate, Bra, Ket, CircuitFunctor
 from discopy.pregroup import Word

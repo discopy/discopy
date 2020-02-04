@@ -8,17 +8,17 @@ We can create boxes with objects as domain and codomain:
 >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
 >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
 
-We can create arbitrary diagrams with composition:
+We can create arbitrary arrows with composition:
 
->>> diagram = Diagram(x, x, [f, g, h])
->>> assert diagram == f >> g >> h == h << g << f
+>>> arrow = Arrow(x, x, [f, g, h])
+>>> assert arrow == f >> g >> h == h << g << f
 
 We can create dagger functors from the free category to itself:
 
 >>> ob = {x: z, y: y, z: x}
 >>> ar = {f: g[::-1], g: f[::-1], h: h[::-1]}
 >>> F = Functor(ob, ar)
->>> assert F(diagram) == (h >> f >> g)[::-1]
+>>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
 from functools import reduce as fold
@@ -90,24 +90,24 @@ class Ob:
         return hash(self.name)
 
 
-class Diagram:
+class Arrow:
     """
-    Defines a diagram in a free dagger category.
+    Defines an arrow in a free dagger category.
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-    >>> diagram = Diagram(x, x, [f, g, h])
-    >>> print(diagram[::-1])
+    >>> arrow = Arrow(x, x, [f, g, h])
+    >>> print(arrow[::-1])
     h[::-1] >> g[::-1] >> f[::-1]
 
     Parameters
     ----------
     dom : cat.Ob
-        Domain of the diagram.
+        Domain of the arrow.
     cod : cat.Ob
-        Codomain of the diagram.
-    boxes : list of :class:`Diagram`
-        Boxes of the diagram.
+        Codomain of the arrow.
+    boxes : list of :class:`Arrow`
+        Boxes of the arrow.
 
     Raises
     ------
@@ -118,7 +118,7 @@ class Diagram:
     def __init__(self, dom, cod, boxes, _scan=True):
         """
         >>> from discopy.moncat import spiral
-        >>> diagram = spiral(3)
+        >>> arrow = spiral(3)
         """
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
@@ -127,8 +127,8 @@ class Diagram:
         if _scan:
             scan = dom
             for depth, box in enumerate(boxes):
-                if not isinstance(box, Diagram):
-                    raise TypeError(messages.type_err(Diagram, box))
+                if not isinstance(box, Arrow):
+                    raise TypeError(messages.type_err(Arrow, box))
                 if box.dom != scan:
                     raise AxiomError(messages.does_not_compose(
                         boxes[depth - 1] if depth else Id(dom), box))
@@ -141,11 +141,11 @@ class Diagram:
     @property
     def dom(self):
         """
-        The domain of a diagram is immutable.
+        The domain of an arrow is immutable.
 
-        >>> diagram = Diagram(Ob('x'), Ob('x'), [])
-        >>> assert diagram.dom == Ob('x')
-        >>> diagram.dom = Ob('y')  # doctest: +ELLIPSIS
+        >>> arrow = Arrow(Ob('x'), Ob('x'), [])
+        >>> assert arrow.dom == Ob('x')
+        >>> arrow.dom = Ob('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         AttributeError: can't set attribute
@@ -155,11 +155,11 @@ class Diagram:
     @property
     def cod(self):
         """
-        The codomain of a diagram is immutable.
+        The codomain of an arrow is immutable.
 
-        >>> diagram = Diagram(Ob('x'), Ob('x'), [])
-        >>> assert diagram.cod == Ob('x')
-        >>> diagram.cod = Ob('y')  # doctest: +ELLIPSIS
+        >>> arrow = Arrow(Ob('x'), Ob('x'), [])
+        >>> assert arrow.cod == Ob('x')
+        >>> arrow.cod = Ob('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
         AttributeError: can't set attribute
@@ -169,12 +169,12 @@ class Diagram:
     @property
     def boxes(self):
         """
-        The list of boxes in a diagram is immutable. Use composition instead.
+        The list of boxes in an arrow is immutable. Use composition instead.
 
         >>> f = Box('f', Ob('x'), Ob('y'))
-        >>> diagram = Diagram(Ob('x'), Ob('x'), [])
-        >>> diagram.boxes.append(f)  # This does nothing.
-        >>> assert f not in diagram.boxes
+        >>> arrow = Arrow(Ob('x'), Ob('x'), [])
+        >>> arrow.boxes.append(f)  # This does nothing.
+        >>> assert f not in arrow.boxes
         """
         return list(self._boxes)
 
@@ -186,7 +186,7 @@ class Diagram:
         if isinstance(key, slice):
             if key.step == -1:
                 boxes = [box[::-1] for box in self.boxes[key]]
-                return Diagram(self.cod, self.dom, boxes, _scan=False)
+                return Arrow(self.cod, self.dom, boxes, _scan=False)
             if (key.step or 1) != 1:
                 raise IndexError
             boxes = self.boxes[key]
@@ -196,7 +196,7 @@ class Diagram:
                 if (key.start or 0) <= -len(self):
                     return Id(self.dom)
                 return Id(self.boxes[key.start or 0].dom)
-            return Diagram(boxes[0].dom, boxes[-1].cod, boxes, _scan=False)
+            return Arrow(boxes[0].dom, boxes[-1].cod, boxes, _scan=False)
         return self.boxes[key]
 
     def __len__(self):
@@ -207,14 +207,14 @@ class Diagram:
             return repr(Id(self.dom))
         if len(self.boxes) == 1:  # i.e. self is a box.
             return repr(self.boxes[0])
-        return "cat.Diagram(dom={}, cod={}, boxes={})".format(
+        return "cat.Arrow(dom={}, cod={}, boxes={})".format(
             repr(self.dom), repr(self.cod), repr(self.boxes))
 
     def __str__(self):
         return ' >> '.join(map(str, self)) or str(self.id(self.dom))
 
     def __eq__(self, other):
-        if not isinstance(other, Diagram):
+        if not isinstance(other, Arrow):
             return False
         return self.dom == other.dom and self.cod == other.cod\
             and all(x == y for x, y in zip(self.boxes, other.boxes))
@@ -233,7 +233,7 @@ class Diagram:
 
     def then(self, other):
         """
-        Returns the composition of `self` with a diagram `other`.
+        Returns the composition of `self` with an arrow `other`.
 
         This method is called using the binary operators `>>` and `<<`:
 
@@ -243,13 +243,13 @@ class Diagram:
 
         Parameters
         ----------
-        other : cat.Diagram
+        other : cat.Arrow
             such that `self.cod == other.dom`.
 
         Returns
         -------
-        diagram : cat.Diagram
-            such that :code:`diagram.boxes == self.boxes + other.boxes`.
+        arrow : cat.Arrow
+            such that :code:`arrow.boxes == self.boxes + other.boxes`.
 
         Raises
         ------
@@ -265,12 +265,12 @@ class Diagram:
         >>> assert f >> Id(y) == f == Id(x) >> f
         >>> assert (f >> g) >> h == f >> (g >> h)
         """
-        if not isinstance(other, Diagram):
-            raise TypeError(messages.type_err(Diagram, other))
+        if not isinstance(other, Arrow):
+            raise TypeError(messages.type_err(Arrow, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
         boxes = self.boxes + other.boxes
-        return Diagram(self.dom, other.cod, boxes, _scan=False)
+        return Arrow(self.dom, other.cod, boxes, _scan=False)
 
     def __rshift__(self, other):
         return self.then(other)
@@ -280,27 +280,27 @@ class Diagram:
 
     def compose(self, *others, backwards=False):
         """
-        Returns the composition of self with a list of other diagrams.
+        Returns the composition of self with a list of other arrows.
 
         Parameters
         ----------
         others : list
-            Other diagrams.
+            Other arrows.
         backwards : bool, optional
             Whether to compose in reverse, default is :code`False`.
 
         Returns
         -------
-        diagram : cat.Diagram
-            Such that :code:`diagram == self >> others[0] >> ... >> others[-1]`
+        arrow : cat.Arrow
+            Such that :code:`arrow == self >> others[0] >> ... >> others[-1]`
             if :code:`backwards` else
-            :code:`diagram == self << others[0] << ... << others[-1]`.
+            :code:`arrow == self << others[0] << ... << others[-1]`.
 
         Examples
         --------
         >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
         >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-        >>> assert Diagram.compose(f, g, h) == f >> g >> h
+        >>> assert Arrow.compose(f, g, h) == f >> g >> h
         >>> assert f.compose(g, h) == Id(x).compose(f, g, h) == f >> g >> h
         >>> assert h.compose(g, f, backwards=True) == h << g << f
         """
@@ -313,9 +313,9 @@ class Diagram:
 
         Returns
         -------
-        diagram : cat.Diagram
+        arrow : cat.Arrow
             Such that
-            :code:`diagram.boxes == [box[::-1] for box in self[::-1]]`.
+            :code:`arrow.boxes == [box[::-1] for box in self[::-1]]`.
 
         Notes
         -----
@@ -333,10 +333,10 @@ class Diagram:
     @staticmethod
     def id(x):
         """
-        Returns the identity diagram on x.
+        Returns the identity arrow on x.
 
         >>> x = Ob('x')
-        >>> assert Diagram.id(x) == Id(x) == Diagram(x, x, [])
+        >>> assert Arrow.id(x) == Id(x) == Arrow(x, x, [])
 
         Parameters
         ----------
@@ -350,12 +350,12 @@ class Diagram:
         return Id(x)
 
 
-class Id(Diagram):
+class Id(Arrow):
     """
-    Defines the identity diagram on x, i.e. with an empty list of boxes.
+    Defines the identity arrow on x, i.e. with an empty list of boxes.
 
     >>> x = Ob('x')
-    >>> assert Id(x) == Diagram(x, x, [])
+    >>> assert Id(x) == Arrow(x, x, [])
 
     Parameters
     ----------
@@ -364,7 +364,7 @@ class Id(Diagram):
 
     See also
     --------
-        cat.Diagram.id
+        cat.Arrow.id
     """
     def __init__(self, x):
         super().__init__(x, x, [], _scan=False)
@@ -378,16 +378,16 @@ class Id(Diagram):
 
 class AxiomError(Exception):
     """
-    This is raised whenever we try to build an invalid diagram.
+    This is raised whenever we try to build an invalid arrow.
     """
 
 
-class Box(Diagram):
-    """ Defines a box as a diagram with the list of only itself as boxes.
+class Box(Arrow):
+    """ Defines a box as an arrow with the list of only itself as boxes.
 
     >>> x, y = Ob('x'), Ob('y')
     >>> f = Box('f', x, y, data=[42])
-    >>> assert f == Diagram(x, y, [f])
+    >>> assert f == Arrow(x, y, [f])
     >>> assert f.boxes == [f]
     >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
 
@@ -408,7 +408,7 @@ class Box(Diagram):
             raise ValueError(messages.empty_name(name))
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
-        Diagram.__init__(self, dom, cod, [self], _scan=False)
+        Arrow.__init__(self, dom, cod, [self], _scan=False)
 
     @property
     def name(self):
@@ -440,14 +440,21 @@ class Box(Diagram):
         """
         return self._data
 
-    def __getitem__(self, key):
-        if key == slice(None, None, -1):
-            return self.dagger()
-        return super().__getitem__(key)
+    @property
+    def is_dagger(self):
+        """
+        Whether the box is dagger.
+        """
+        return self._dagger
 
     def dagger(self):
         return type(self)(self.name, self.cod, self.dom, data=self.data,
                           _dagger=not self._dagger)
+
+    def __getitem__(self, key):
+        if key == slice(None, None, -1):
+            return self.dagger()
+        return super().__getitem__(key)
 
     def __repr__(self):
         if self._dagger:
@@ -463,17 +470,17 @@ class Box(Diagram):
         return hash(super().__repr__())
 
     def __eq__(self, other):
-        if not isinstance(other, Diagram):
-            return False
         if isinstance(other, Box):
             return all(self.__getattribute__(x) == other.__getattribute__(x)
                        for x in ['name', 'dom', 'cod', 'data', '_dagger'])
-        return len(other.boxes) == 1 and other.boxes[0] == self
+        if isinstance(other, Arrow):
+            return len(other) == 1 and other[0] == self
+        return False
 
 
 class Functor:
     """
-    Defines a dagger functor which can be applied to objects and diagrams.
+    Defines a dagger functor which can be applied to objects and arrows.
 
     By default, `Functor` defines an endofunctor from the free dagger category
     to itself. The codomain can be changed with the optional parameters
@@ -499,7 +506,7 @@ class Functor:
         If None, this will be set to :class:`cat.Ob`.
     ar_cls : type, optional
         Class to be used as arrows for the codomain of the functor.
-        If None, this will be set to :class:`cat.Diagram`.
+        If None, this will be set to :class:`cat.Arrow`.
 
     See Also
     --------
@@ -519,7 +526,7 @@ class Functor:
         if ob_cls is None:
             ob_cls = Ob
         if ar_cls is None:
-            ar_cls = Diagram
+            ar_cls = Arrow
         self.ob_cls, self.ar_cls = ob_cls, ar_cls
         self._ob, self._ar = ob, ar
 
@@ -546,17 +553,17 @@ class Functor:
     def __repr__(self):
         return "Functor(ob={}, ar={})".format(repr(self.ob), repr(self.ar))
 
-    def __call__(self, diagram):
-        if isinstance(diagram, Ob):
-            return self.ob[diagram]
-        if isinstance(diagram, Box):
-            if diagram._dagger:
-                return self.ar[diagram.dagger()].dagger()
-            return self.ar[diagram]
-        if isinstance(diagram, Diagram):
-            return self.ar_cls.id(self(diagram.dom)).compose(
-                *map(self, diagram.boxes))
-        raise TypeError(messages.type_err(Diagram, diagram))
+    def __call__(self, arrow):
+        if isinstance(arrow, Ob):
+            return self.ob[arrow]
+        if isinstance(arrow, Box):
+            if arrow.is_dagger:
+                return self.ar[arrow.dagger()].dagger()
+            return self.ar[arrow]
+        if isinstance(arrow, Arrow):
+            return self.ar_cls.id(self(arrow.dom)).compose(
+                *map(self, arrow.boxes))
+        raise TypeError(messages.type_err(Arrow, arrow))
 
 
 class Quiver:

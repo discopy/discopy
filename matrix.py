@@ -6,7 +6,7 @@ Implements dagger monoidal functors into matrices.
 >>> n = Ty('n')
 >>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
 >>> loves = Box('loves', n, n)
->>> ob, ar = {n: Dim(2)}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
+>>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
 >>> F = MatrixFunctor(ob, ar)
 >>> F(Alice >> loves >> Bob.dagger())
 Matrix(dom=Dim(1), cod=Dim(1), array=[1])
@@ -16,7 +16,7 @@ import functools
 
 from discopy import messages
 from discopy.cat import AxiomError
-from discopy.rigidcat import Ob, Ty, Box, Cup, Cap, Diagram, RigidFunctor
+from discopy.rigidcat import Ob, Ty, Box, Cup, Cap, Diagram, Functor
 
 try:
     import warnings
@@ -191,7 +191,7 @@ class Id(Matrix):
         super().__init__(dim, dim, array)
 
 
-class MatrixFunctor(RigidFunctor):
+class MatrixFunctor(Functor):
     """ Implements a matrix-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
@@ -204,23 +204,19 @@ class MatrixFunctor(RigidFunctor):
         super().__init__(ob, ar, ob_cls=Dim, ar_cls=Matrix)
 
     def __repr__(self):
-        return super().__repr__().replace("RigidFunctor", "MatrixFunctor")
+        return super().__repr__().replace("Functor", "MatrixFunctor")
 
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
-            return sum([self(x) for x in diagram.objects], Dim(1))
-        if isinstance(diagram, Ob) and not diagram.z:
-            if isinstance(self.ob[Ty(diagram)], Dim):
-                return self.ob[Ty(diagram)]
-            return Dim(self.ob[Ty(diagram)])
+            return sum(map(self, diagram.objects), Dim(1))
         if isinstance(diagram, Ob):
-            return self(Ob(diagram.name, z=0))
+            return Dim(self.ob[Ty(Ob(diagram.name, z=0))])
         if isinstance(diagram, Cup):
             return Matrix.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
             return Matrix.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Box):
-            if diagram._dagger:
+            if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
             return Matrix(self(diagram.dom), self(diagram.cod),
                           self.ar[diagram])

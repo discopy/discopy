@@ -3,7 +3,7 @@ from pytest import raises
 from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 from discopy.pregroup import *
-from discopy.rigidcat import Cap, RigidFunctor
+from discopy.rigidcat import Cap
 
 
 def test_Word():

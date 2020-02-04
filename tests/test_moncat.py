@@ -265,19 +265,19 @@ def test_Box_eq():
 
 
 def test_Functor_init():
-    F = MonoidalFunctor({Ty('x'): Ty('y')}, {})
+    F = Functor({Ty('x'): Ty('y')}, {})
     assert F(Id(Ty('x'))) == Id(Ty('y'))
 
 
 def test_Functor_repr():
-    assert repr(MonoidalFunctor({Ty('x'): Ty('y')}, {})) ==\
-        "MonoidalFunctor(ob={Ty('x'): Ty('y')}, ar={})"
+    assert repr(Functor({Ty('x'): Ty('y')}, {})) ==\
+        "Functor(ob={Ty('x'): Ty('y')}, ar={})"
 
 
 def test_Functor_call():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
-    F = MonoidalFunctor({x: y, y: x}, {f: f.dagger()})
+    F = Functor({x: y, y: x}, {f: f.dagger()})
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(F(f)) == f

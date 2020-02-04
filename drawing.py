@@ -108,6 +108,8 @@ def draw(diagram, **params):
     Draws a diagram.
     """
     graph, positions, labels = diagram_to_nx(diagram)
+    asymmetry = params.get('asymmetry',
+                           .25 * any(box.is_dagger for box in diagram.boxes))
 
     def draw_box(box, depth, axis):
         node = 'box_{}'.format(depth)
@@ -135,13 +137,15 @@ def draw(diagram, **params):
         height = len(diagram) - depth - .75
         left, right = left - .25, right + .25
         path = Path(
-            [(left, height), (right, height),
-             (right, height + .5), (left, height + .5), (left, height)],
+            [(left, height),
+             (right + (asymmetry if box.is_dagger else 0), height),
+             (right + (0 if box.is_dagger else asymmetry), height + .5),
+             (left, height + .5), (left, height)],
             [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY])
         axis.add_patch(PathPatch(
             path, facecolor=params.get('color', '#ffffff')))
         if params.get('draw_box_labels', True):
-            axis.text(positions[node][0], positions[node][1], labels[node],
+            axis.text(positions[node][0], positions[node][1], str(box.name),
                       ha='center', va='center',
                       fontsize=params.get('fontsize', 12))
 
