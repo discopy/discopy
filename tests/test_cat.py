@@ -48,92 +48,92 @@ def test_Ob_hash():
     assert {Ob('x'): 42}[Ob('x')] == 42
 
 
-def test_Diagram():
+def test_Arrow():
     x, y, z, w = Ob('x'), Ob('y'), Ob('z'), Ob('w')
     f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, w)
-    assert f >> g >> h == Diagram(x, w, [f, g, h])
+    assert f >> g >> h == Arrow(x, w, [f, g, h])
 
 
-def test_Diagram_init():
+def test_Arrow_init():
     with raises(TypeError) as err:
-        Diagram('x', Ob('x'), [])
+        Arrow('x', Ob('x'), [])
     assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
-        Diagram(Ob('x'), 'x', [])
+        Arrow(Ob('x'), 'x', [])
     assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
-        Diagram(Ob('x'), Ob('x'), [Ob('x')])
-    assert str(err.value) == messages.type_err(Diagram, Ob('x'))
+        Arrow(Ob('x'), Ob('x'), [Ob('x')])
+    assert str(err.value) == messages.type_err(Arrow, Ob('x'))
 
 
-def test_Diagram_len():
-    assert len(Diagram(Ob('x'), Ob('x'), [])) == 0
+def test_Arrow_len():
+    assert len(Arrow(Ob('x'), Ob('x'), [])) == 0
 
 
-def test_Diagram_getitem():
+def test_Arrow_getitem():
     f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
-    diagram = 2 * (f >> g >> g.dagger() >> f.dagger())
+    arrow = 2 * (f >> g >> g.dagger() >> f.dagger())
     with raises(TypeError):
-        diagram["Alice"]
+        arrow["Alice"]
     with raises(IndexError):
-        diagram[9]
+        arrow[9]
     with raises(IndexError):
-        diagram[::-2]
-    assert diagram[:] == diagram
-    assert diagram[::-1] == diagram.dagger()
-    assert diagram[:0] == diagram[:-8] == diagram[-9:-9] == Id(diagram.dom)
-    for depth, box in enumerate(diagram):
-        assert diagram[depth] == box
-        assert diagram[-depth] == diagram.boxes[-depth]
-        assert diagram[depth:depth] == Id(box.dom)
-        assert diagram[depth:] == Id(box.dom).compose(*diagram.boxes[depth:])
-        assert diagram[:depth] == Id(diagram.dom).compose(
-            *diagram.boxes[:depth])
-        assert diagram[depth: depth + 2] == Id(box.dom).compose(
-            *diagram.boxes[depth: depth + 2])
+        arrow[::-2]
+    assert arrow[:] == arrow
+    assert arrow[::-1] == arrow.dagger()
+    assert arrow[:0] == arrow[:-8] == arrow[-9:-9] == Id(arrow.dom)
+    for depth, box in enumerate(arrow):
+        assert arrow[depth] == box
+        assert arrow[-depth] == arrow.boxes[-depth]
+        assert arrow[depth:depth] == Id(box.dom)
+        assert arrow[depth:] == Id(box.dom).compose(*arrow.boxes[depth:])
+        assert arrow[:depth] == Id(arrow.dom).compose(
+            *arrow.boxes[:depth])
+        assert arrow[depth: depth + 2] == Id(box.dom).compose(
+            *arrow.boxes[depth: depth + 2])
 
 
-def test_Diagram_repr():
-    assert repr(Diagram(Ob('x'), Ob('x'), [])) == "Id(Ob('x'))"
-    assert repr(Diagram(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))]))\
+def test_Arrow_repr():
+    assert repr(Arrow(Ob('x'), Ob('x'), [])) == "Id(Ob('x'))"
+    assert repr(Arrow(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))]))\
         == "Box('f', Ob('x'), Ob('y'))"
-    assert repr(Diagram(Ob('x'), Ob('z'),
+    assert repr(Arrow(Ob('x'), Ob('z'),
                 [Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))]))\
-        == "cat.Diagram(dom=Ob('x'), cod=Ob('z'), "\
+        == "cat.Arrow(dom=Ob('x'), cod=Ob('z'), "\
            "boxes=[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
 
 
-def test_Diagram_str():
+def test_Arrow_str():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    assert str(Diagram(x, x, []) == "Id(x)")
-    assert str(Diagram(x, y, [f]) == "f")
-    assert str(Diagram(x, z, [f, g])) == "f >> g"
+    assert str(Arrow(x, x, []) == "Id(x)")
+    assert str(Arrow(x, y, [f]) == "f")
+    assert str(Arrow(x, z, [f, g])) == "f >> g"
 
 
-def test_Diagram_eq():
+def test_Arrow_eq():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    assert f >> g == Diagram(x, z, [f, g])
+    assert f >> g == Arrow(x, z, [f, g])
 
 
-def test_Diagram_hash():
+def test_Arrow_hash():
     assert {Id(Ob('x')): 42}[Id(Ob('x'))] == 42
 
 
-def test_Diagram_then():
+def test_Arrow_then():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
     assert f.then(g) == f >> g == g << f
     with raises(TypeError) as err:
         f >> x
-    assert str(err.value) == messages.type_err(Diagram, x)
+    assert str(err.value) == messages.type_err(Arrow, x)
 
 
-def test_Diagram_dagger():
+def test_Arrow_dagger():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    h = Diagram(x, z, [f, g])
+    h = Arrow(x, z, [f, g])
     assert h.dagger() == g.dagger() >> f.dagger()
     assert h.dagger().dagger() == h
 
@@ -157,10 +157,10 @@ def test_AxiomError():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
     with raises(AxiomError) as err:
-        Diagram(x, y, [g])
+        Arrow(x, y, [g])
     assert str(err.value) == messages.does_not_compose(Id(x), g)
     with raises(AxiomError) as err:
-        Diagram(x, z, [f])
+        Arrow(x, z, [f])
     assert str(err.value) == messages.does_not_compose(f, Id(z))
     with raises(AxiomError) as err:
         g >> f
@@ -198,7 +198,7 @@ def test_Box_hash():
 
 def test_Box_eq():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-    assert f == Diagram(Ob('x'), Ob('y'), [f]) and f != Ob('x')
+    assert f == Arrow(Ob('x'), Ob('y'), [f]) and f != Ob('x')
 
 
 def test_Functor():
@@ -224,7 +224,7 @@ def test_Functor_call():
     F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
     with raises(TypeError) as err:
         F(F)
-    assert str(err.value) == messages.type_err(Diagram, F)
+    assert str(err.value) == messages.type_err(Arrow, F)
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(f.dagger()) == f

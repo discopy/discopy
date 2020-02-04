@@ -1,5 +1,5 @@
-circuit.PRO
+rigidcat.PRO
 =================
 
-.. autoclass:: discopy.circuit.PRO
+.. autoclass:: discopy.rigidcat.PRO
     :show-inheritance:

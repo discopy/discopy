@@ -243,7 +243,7 @@ class Layer(cat.Box):
         return super().__getitem__(key)
 
 
-class Diagram(cat.Diagram):
+class Diagram(cat.Arrow):
     """
     Defines a diagram given dom, cod, a list of boxes and offsets.
 
@@ -306,7 +306,7 @@ class Diagram(cat.Diagram):
     @property
     def layers(self):
         """
-        A :class:`discopy.cat.Diagram` with :class:`Layer` boxes such that::
+        A :class:`discopy.cat.Arrow` with :class:`Layer` boxes such that::
 
             diagram == Id(diagram.dom).compose(*[
                 Id(left) @ box Id(right)
@@ -626,7 +626,7 @@ class Diagram(cat.Diagram):
         >>> assert d.foliation().dagger().flatten()\\
         ...     == d.foliation().flatten().dagger()
         """
-        return MonoidalFunctor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
+        return Functor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
 
     def foliation(self):
         """
@@ -713,7 +713,7 @@ class Diagram(cat.Diagram):
         path : str, optional
             Where to save the image, if `None` we call :code:`plt.show()`.
         """
-        drawing.draw(self, **params)
+        return drawing.draw(self, **params)
 
     def to_gif(self, *diagrams, **params):
         """
@@ -732,7 +732,7 @@ class Diagram(cat.Diagram):
         params : any, optional
             Passed to :meth:`Diagram.draw`.
         """
-        drawing.to_gif(self, *diagrams, **params)
+        return drawing.to_gif(self, *diagrams, **params)
 
 
 def spiral(n_cups, _type=Ty('x')):
@@ -787,7 +787,7 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        layers = cat.Diagram(dom, cod, [Layer(Ty(), self, Ty())], _scan=False)
+        layers = cat.Arrow(dom, cod, [Layer(Ty(), self, Ty())], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 
     def __eq__(self, other):
@@ -802,7 +802,7 @@ class Box(cat.Box, Diagram):
         return hash(repr(self))
 
 
-class MonoidalFunctor(Functor):
+class Functor(cat.Functor):
     """
     Implements a monoidal functor given its image on objects and arrows.
     One may define monoidal functors into custom categories by overriding
@@ -810,7 +810,7 @@ class MonoidalFunctor(Functor):
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
-    >>> F = MonoidalFunctor({x: z, y: w, z: x, w: y}, {f0: f1, f1: f0})
+    >>> F = Functor({x: z, y: w, z: x, w: y}, {f0: f1, f1: f0})
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(F(f0)) == f0
     >>> assert F(f0 @ f1) == f1 @ f0
@@ -822,9 +822,6 @@ class MonoidalFunctor(Functor):
         if ar_cls is None:
             ar_cls = Diagram
         super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
-
-    def __repr__(self):
-        return super().__repr__().replace("Functor", "MonoidalFunctor")
 
     def __call__(self, diagram):
         if isinstance(diagram, Ty):

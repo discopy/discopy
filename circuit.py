@@ -22,7 +22,7 @@ from pytket.circuit import UnitID
 from discopy import messages
 from discopy.cat import Quiver
 from discopy.moncat import InterchangerError
-from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, RigidFunctor
+from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, Functor
 from discopy.matrix import np, Dim, Matrix, MatrixFunctor
 
 
@@ -782,7 +782,7 @@ class Rx(Gate):
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
-class CircuitFunctor(RigidFunctor):
+class CircuitFunctor(Functor):
     """ Implements funtors from monoidal categories to circuits
 
     >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
