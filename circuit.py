@@ -367,7 +367,7 @@ class Circuit(Diagram):
         def add_gate(tk_circ, box, off):
             qubits = [off + j for j in range(len(box.dom))]
             if isinstance(box, (Rx, Rz)):
-                tk_circ.__getattribute__(box.name[:2])(box.phase, *qubits)
+                tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *qubits)
             else:
                 tk_circ.__getattribute__(box.name)(*qubits)
 
@@ -438,9 +438,7 @@ class Circuit(Diagram):
             post_selection, scalar = {}, 1
         if measure_all:
             tk_circ.measure_all()
-        backend.compile_circuit(tk_circ)
-        if not backend.valid_circuit(tk_circ):
-            raise RuntimeError
+        backend.default_compilation_pass.apply(tk_circ)
         counts_dict = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
         if not counts_dict:
             raise RuntimeError
@@ -500,9 +498,9 @@ class Circuit(Diagram):
             if name == 'Measure':
                 return Bra(0)
             if name == 'Rx':
-                return Rx(tk_gate.op.get_params()[0])
+                return Rx(tk_gate.op.get_params()[0] / 2)
             if name == 'Rz':
-                return Rz(tk_gate.op.get_params()[0])
+                return Rz(tk_gate.op.get_params()[0] / 2)
             for gate in [SWAP, CX, H, S, T, X, Y, Z]:
                 if name == gate.name:
                     return gate
