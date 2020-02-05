@@ -411,24 +411,24 @@ class Circuit(Diagram):
             return (tk_circ, post_selection, scalar)
         return tk_circ
 
-    def get_counts(self, backend, n_shots=2**10, measure_all=True):
+    def get_counts(self, backend, n_shots=2**10,
+                   measure_all=True, normalize=True, scale=True, seed=None):
         """
         >>> from pytket.backends.ibm import AerBackend
         >>> backend = AerBackend()
-        >>> circuit = H @ X >> CX >> Id(1) @ Bra(0)
-        >>> matrix = circuit.get_counts(backend)
-        >>> list(np.round(matrix.array.flatten()))
-        [0.0, 1.0]
+        >>> bell_state = Circuit.caps(PRO(1), PRO(1))
+        >>> bell_effect = bell_state[::-1]
+        >>> snake = bell_state @ Id(1) >> Id(1) @ bell_effect
+        >>> assert np.all(
+        ...     np.round(snake.get_counts(backend, seed=42).array)
+        ...     == np.round((Ket(0) >> snake).measure()))
         """
         def build_bras(n_qubits, post_selection):
             result = Id(n_qubits)
             for qubit, bit in reversed(sorted(post_selection.items())):
                 result = result >> Id(qubit) @ Bra(bit)
             return result
-        circuit = self
-        if circuit.dom != PRO(0):
-            circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
-        tk_circ = circuit.to_tk()
+        tk_circ = self.to_tk()
         if isinstance(tk_circ, tuple):
             tk_circ, post_selection, scalar = tk_circ
         else:
@@ -438,17 +438,18 @@ class Circuit(Diagram):
         backend.compile_circuit(tk_circ)
         if not backend.valid_circuit(tk_circ):
             raise RuntimeError
-        counts_dict = backend.get_counts(tk_circ, n_shots=n_shots)
+        counts_dict = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
+        if not counts_dict:
+            raise RuntimeError
         array = np.zeros(tk_circ.n_qubits * (2, ))
         for bitstring, count in counts_dict.items():
             array += count * Ket(*bitstring).array
-        matrix = Matrix(Dim(1), Dim(*(tk_circ.n_qubits * (2, ))), array)
-        matrix = matrix >> build_bras(tk_circ.n_qubits, post_selection).eval()
-        total = np.sum(matrix.array)
-        if not total:
-            raise RuntimeError
-        array = 1. / total * abs(scalar) ** 2 * matrix.array
-        return Matrix(Dim(1), matrix.cod, array)
+        if normalize:
+            array = 1. / np.sum(array) * array
+        if scale:
+            array = abs(scalar) ** 2 * array
+        return Matrix(Dim(1), Dim(*(tk_circ.n_qubits * (2, ))), array)\
+            >> build_bras(tk_circ.n_qubits, post_selection).eval()
 
     @staticmethod
     def from_tk(tk_circuit):
@@ -469,16 +470,29 @@ class Circuit(Diagram):
         >>> circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> print(Circuit.from_tk(circuit.to_tk()))
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+
+        >>> bell_state = Circuit.caps(PRO(1), PRO(1))
+        >>> bell_effect = bell_state[::-1]
+        >>> circuit = bell_state @ Id(1) >> Id(1) @ bell_effect >> Bra(0)
+        >>> print(Circuit.from_tk(circuit.to_tk()))
+        H @ Id(2)\\
+          >> CX @ Id(1)\\
+          >> Id(1) @ CX\\
+          >> Id(1) @ H @ Id(1)\\
+          >> Id(2) @ Bra(0)\\
+          >> Id(1) @ Bra(0)\\
+          >> Bra(0)\\
+          >> scalar(2.000)
         """
         if isinstance(tk_circuit, tuple):
-            tk_circuit, post_selection, scalar = tk_circuit
+            tk_circuit, post_selection, scal = tk_circuit
         else:
-            post_selection, scalar = {}, 1
+            post_selection, scal = {}, 1
 
         def box_from_tk(tk_gate):
             name = tk_gate.op.get_type().name
             if name == 'Measure':
-                return Bra(post_selection.get(tk_gate.qubits[0].index[0], 0))
+                return Bra(0)
             if name == 'Rx':
                 return Rx(tk_gate.op.get_params()[0])
             if name == 'Rz':
@@ -505,20 +519,19 @@ class Circuit(Diagram):
                         right = n_qubits - left - 2
                         result = result >> Id(left) @ SWAP @ Id(right)
             return i_0, result
-        n_qubits, n_bits = tk_circuit.n_qubits, 0
-        circuit = Id(n_qubits)
+        circuit = Id(tk_circuit.n_qubits)
         for tk_gate in tk_circuit.get_commands():
-            i_0, permutation = permute(tk_circuit, tk_gate)
-            left, right = i_0, n_qubits - i_0 - len(tk_gate.qubits) - n_bits
             box = box_from_tk(tk_gate)
             if isinstance(box, Bra):
-                n_bits += 1
+                continue
+            i_0, perm = permute(tk_circuit, tk_gate)
+            left, right = i_0, len(circuit.cod) - i_0 - len(box.dom)
             layer = Id(left) @ box @ Id(right)
-            if permutation:
-                layer = permutation >> layer >> permutation[::-1]
-            circuit = circuit >> layer
-        if scalar != 1:
-            circuit = circuit @ Gate('{:.3f}'.format(scalar), 0, scalar)
+            circuit = circuit >> perm >> layer >> perm[::-1]
+        for qubit, bit in reversed(sorted(post_selection.items())):
+            circuit = circuit >> Id(qubit) @ Bra(bit)
+        if scal != 1:
+            circuit = circuit @ scalar(scal)
         return circuit
 
     @staticmethod
@@ -894,6 +907,11 @@ def sqrt(real):
     Gate('sqrt(2)', 0, [1.41...])
     """
     return Gate('sqrt({})'.format(real), 0, np.sqrt(real), _dagger=None)
+
+
+def scalar(complex):
+    return Gate('scalar({:.3f})'.format(complex), 0, complex,
+                _dagger=None if np.conjugate(complex) == complex else False)
 
 
 SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
