@@ -57,6 +57,9 @@ class Circuit(Diagram):
         """
         return super().__repr__().replace('Diagram', 'Circuit')
 
+    def draw(self, draw_types=False, **params):
+        return super().draw(**dict(params, draw_types=draw_types))
+
     @staticmethod
     def id(x):
         """
@@ -411,8 +414,8 @@ class Circuit(Diagram):
             return (tk_circ, post_selection, scalar)
         return tk_circ
 
-    def get_counts(self, backend, n_shots=2**10,
-                   measure_all=True, normalize=True, scale=True, seed=None):
+    def get_counts(self, backend, n_shots=2**10, measure_all=True,
+                   normalize=True, scale=True, post_select=True, seed=None):
         """
         >>> from pytket.backends.ibm import AerBackend
         >>> backend = AerBackend()
@@ -448,8 +451,11 @@ class Circuit(Diagram):
             array = 1. / np.sum(array) * array
         if scale:
             array = abs(scalar) ** 2 * array
-        return Matrix(Dim(1), Dim(*(tk_circ.n_qubits * (2, ))), array)\
-            >> build_bras(tk_circ.n_qubits, post_selection).eval()
+        matrix = Matrix(Dim(1), Dim(*(tk_circ.n_qubits * (2, ))), array)
+        if post_select:
+            matrix = matrix\
+                >> build_bras(tk_circ.n_qubits, post_selection).eval()
+        return matrix
 
     @staticmethod
     def from_tk(tk_circuit):
