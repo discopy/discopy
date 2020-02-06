@@ -13,16 +13,14 @@ def test_Circuit_to_tk():
     bell_state = Circuit.caps(PRO(1), PRO(1))
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
-    tk_circ, post_selection, scalar = snake.to_tk()
-    assert abs(scalar - 2) < 1e-5
+    tk_circ, post_selection, scal = snake.to_tk()
+    assert abs(scal - 2) < 1e-5
     assert post_selection == {1: 0, 2: 0}
     assert list(map(str, tk_circ)) == [
         "H q[2];",
         "CX q[2], q[0];",
         "CX q[1], q[2];",
-        "H q[1];",
-        "Measure q[2] --> c[1];",
-        "Measure q[1] --> c[0];"]
+        "H q[1];"]
     assert Circuit.from_tk(snake.to_tk()) ==\
         Id(2) @ H\
         >> SWAP @ Id(1)\
@@ -34,7 +32,7 @@ def test_Circuit_to_tk():
         >> Id(1) @ H @ Id(1)\
         >> Id(2) @ Bra(0)\
         >> Id(1) @ Bra(0)\
-        >> Id(1) @ Gate('2.000', 0, 2)
+        >> Id(1) @ scalar(2.000)
 
 
 def test_Circuit_from_tk():

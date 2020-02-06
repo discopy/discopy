@@ -92,6 +92,11 @@ def test_pregroup_draw():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
+@draw_and_compare('bell-state.png', draw=Circuit.draw)
+def test_draw_bell_state():
+    return circuit.H @ circuit.Id(1) >> circuit.CX
+
+
 def test_Diagram_to_gif():
     file = 'EckmannHilton.gif'
     path_ref = os.path.join(FOLDER, file)

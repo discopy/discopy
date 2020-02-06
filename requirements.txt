@@ -1,5 +1,7 @@
 numpy>=1.18.1
 networkx>=2.4
 matplotlib>=3.1.2
-pytket>=0.4.1
 pillow>=6.2.1
+qiskit==0.12.0
+pytket>=0.4.1
+pytket-qiskit==0.3.3

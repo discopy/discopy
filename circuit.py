@@ -417,9 +417,11 @@ class Circuit(Diagram):
         """
         >>> from pytket.backends.ibm import AerBackend
         >>> backend = AerBackend()
-        >>> bell_state = Circuit.caps(PRO(1), PRO(1))
-        >>> bell_effect = bell_state[::-1]
-        >>> snake = bell_state @ Id(1) >> Id(1) @ bell_effect
+        >>> bell_state = H @ Id(1) >> CX
+        >>> bell_state.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
+        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0.49..., 0.0, 0.0, 0.50...])
+        >>> scaled_bell = Circuit.caps(PRO(1), PRO(1))
+        >>> snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
         >>> assert np.all(
         ...     np.round(snake.get_counts(backend, seed=42).array)
         ...     == np.round((Ket(0) >> snake).measure()))
@@ -440,7 +442,7 @@ class Circuit(Diagram):
             compilation_pass = backend.default_compilation_pass
         compilation_pass.apply(tk_circ)
         counts_dict = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
-        if not counts_dict:
+        if not counts_dict:  # pragma: no cover
             raise RuntimeError
         array = np.zeros(tk_circ.n_qubits * (2, ))
         for bitstring, count in counts_dict.items():
@@ -495,8 +497,6 @@ class Circuit(Diagram):
 
         def box_from_tk(tk_gate):
             name = tk_gate.op.get_type().name
-            if name == 'Measure':
-                return Bra(0)
             if name == 'Rx':
                 return Rx(tk_gate.op.get_params()[0] / 2)
             if name == 'Rz':
@@ -526,8 +526,6 @@ class Circuit(Diagram):
         circuit = Id(tk_circuit.n_qubits)
         for tk_gate in tk_circuit.get_commands():
             box = box_from_tk(tk_gate)
-            if isinstance(box, Bra):
-                continue
             i_0, perm = permute(tk_circuit, tk_gate)
             left, right = i_0, len(circuit.cod) - i_0 - len(box.dom)
             layer = Id(left) @ box @ Id(right)
