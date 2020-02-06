@@ -26,9 +26,6 @@ if __name__ == '__main__':  # pragma: no cover
           download_url='https://github.com/'
                        'oxford-quantum-group/discopy/archive/'
                        '{}.tar.gz'.format(VERSION),
-          install_requires=['numpy',
-                            'networkx',
-                            'matplotlib',
-                            'pytket',
-                            'pillow'],
+          install_requires=[
+              l.strip() for l in open('requirements.txt').readlines()],
           )
