@@ -13,6 +13,7 @@ discopy
    cat/index.rst
    moncat/index.rst
    rigidcat/index.rst
+   cartesian/index.rst
    matrix/index.rst
    circuit/index.rst
    pregroup/index.rst

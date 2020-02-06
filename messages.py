@@ -65,3 +65,8 @@ def cannot_add(left, right):
 def expected_pregroup():
     """ pregroup.draw error. """
     return "Expected a pregroup diagram, use diagram.draw() instead."
+
+
+def expected_input_length(function, values):
+    return "Expected input of length {}, got {} instead.".format(
+        len(function.dom), len(values))
