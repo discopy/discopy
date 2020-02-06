@@ -313,7 +313,7 @@ class Circuit(Diagram):
 
         >>> circuit0 = H @ Rx(0.5) >> CX
         >>> print(list(circuit0.to_tk()))
-        [H q[0];, Rx(0.5*PI) q[1];, CX q[0], q[1];]
+        [H q[0];, Rx(1*PI) q[1];, CX q[0], q[1];]
 
         >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> print(list(circuit1.to_tk()))
@@ -332,7 +332,7 @@ class Circuit(Diagram):
         ...     >> Id(1) @ Bra(0)
         >>> tk_circ, post_selection, scalar = circuit.to_tk()
         >>> print(list(tk_circ))
-        [H q[0];, X q[1];, CX q[0], q[1];, Measure q[1] --> c[0];]
+        [H q[0];, X q[1];, CX q[0], q[1];]
         >>> print(post_selection)
         {1: 0}
         >>> print(np.round(abs(scalar) ** 2))
@@ -372,9 +372,6 @@ class Circuit(Diagram):
                 tk_circ.__getattribute__(box.name)(*qubits)
 
         def measure_qubit(tk_circ, left, box, right):
-            for i, _ in enumerate(box.dom):
-                tk_circ.add_bit(UnitID('c', len(tk_circ.bits)))
-                tk_circ.Measure(len(left) + i, len(tk_circ.bits) - 1)
             if len(right) > 0:
                 renaming = dict()
                 for i, _ in enumerate(box.dom):
@@ -389,10 +386,10 @@ class Circuit(Diagram):
                 renaming = dict()
                 for j, _ in enumerate(box.dom):
                     tmp = UnitID('tmp', j)
-                    new = UnitID('q', tk_circ.n_qubits - len(tk_circ.bits) + j)
+                    new = UnitID('q', len(left @ right) + j)
                     renaming.update({tmp: new})
                 tk_circ.rename_units(renaming)
-            return {tk_circ.n_qubits - len(tk_circ.bits) + j: box.bitstring[j]
+            return {len(left @ right) + j: box.bitstring[j]
                     for j, _ in enumerate(box.dom)}
         scalar, post_selection = 1, {}
         circuit = CircuitFunctor(ob=Quiver(len), ar=Quiver(remove_ket1))(self)
@@ -415,7 +412,8 @@ class Circuit(Diagram):
         return tk_circ
 
     def get_counts(self, backend, n_shots=2**10, measure_all=True,
-                   normalize=True, scale=True, post_select=True, seed=None):
+                   normalize=True, scale=True, post_select=True, seed=None,
+                   compilation_pass=None):
         """
         >>> from pytket.backends.ibm import AerBackend
         >>> backend = AerBackend()
@@ -438,7 +436,9 @@ class Circuit(Diagram):
             post_selection, scalar = {}, 1
         if measure_all:
             tk_circ.measure_all()
-        backend.default_compilation_pass.apply(tk_circ)
+        if compilation_pass is None:
+            compilation_pass = backend.default_compilation_pass
+        compilation_pass.apply(tk_circ)
         counts_dict = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
         if not counts_dict:
             raise RuntimeError
