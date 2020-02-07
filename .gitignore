@@ -14,3 +14,4 @@
 *.nav
 docs/_build/*
 */__pycache__/*
+*.egg-info
