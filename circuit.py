@@ -18,6 +18,7 @@ import random as rand
 
 import pytket as tk
 from pytket.circuit import UnitID
+from pytket.utils import probs_from_counts
 
 from discopy import messages
 from discopy.cat import Quiver
@@ -124,7 +125,7 @@ class Circuit(Diagram):
 
         Returns
         -------
-        matrix : `discopy.matrix.Matrix`
+        matrix : :class:`discopy.matrix.Matrix`
             with complex amplitudes as entries.
 
         Examples
@@ -276,6 +277,40 @@ class Circuit(Diagram):
         *_, result = list(self.normalize()) or [self]
         return result
 
+    @staticmethod
+    def random(n_qubits, depth=3, gateset=None, seed=None):
+        """ Returns a random Euler decomposition if n_qubits == 1,
+        otherwise returns a random tiling with the given depth and gateset.
+
+        >>> c = Circuit.random(1, seed=420)
+        >>> print(c)  # doctest: +ELLIPSIS
+        Rx(0.026... >> Rz(0.781... >> Rx(0.272...
+        >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
+        CX >> T @ Id(1) >> Id(1) @ T
+        >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
+        CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
+        >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
+        Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
+        """
+        if seed is not None:
+            rand.seed(seed)
+        if n_qubits == 1:
+            return Rx(rand.random()) >> Rz(rand.random()) >> Rx(rand.random())
+        result = Id(n_qubits)
+        for _ in range(depth):
+            line, n_affected = Id(0), 0
+            while n_affected < n_qubits:
+                gate = rand.choice(
+                    gateset if n_qubits - n_affected > 1 else [
+                        g for g in gateset
+                        if g is Rx or g is Rz or len(g.dom) == 1])
+                if gate is Rx or gate is Rz:
+                    gate = gate(rand.random())
+                line = line @ gate
+                n_affected += len(gate.dom)
+            result = result >> line
+        return result
+
     def measure(self):
         """
         Measures a circuit on the computational basis.
@@ -309,8 +344,21 @@ class Circuit(Diagram):
 
     def to_tk(self):
         """
-        Returns a pytket circuit. SWAP gates are treated as logical swaps.
+        Returns
+        -------
+        tk_circuit : pytket.Circuit
+            A :class:`pytket.Circuit`.
 
+        Note
+        ----
+        * No measurements are performed.
+        * SWAP gates are treated as logical swaps.
+        * If the circuit contains scalars or a :class:`Bra`,
+          then :code:`tk_circuit` will hold attributes
+          :code:`post_selection` and :code:`scalar`.
+
+        Examples
+        --------
         >>> circuit0 = H @ Rx(0.5) >> CX
         >>> print(list(circuit0.to_tk()))
         [H q[0];, Rx(1*PI) q[1];, CX q[0], q[1];]
@@ -330,12 +378,12 @@ class Circuit(Diagram):
         ...     >> Id(1) @ X\\
         ...     >> CX\\
         ...     >> Id(1) @ Bra(0)
-        >>> tk_circ, post_selection, scalar = circuit.to_tk()
+        >>> tk_circ = circuit.to_tk()
         >>> print(list(tk_circ))
         [H q[0];, X q[1];, CX q[0], q[1];]
-        >>> print(post_selection)
+        >>> print(tk_circ.post_selection)
         {1: 0}
-        >>> print(np.round(abs(scalar) ** 2))
+        >>> print(np.round(abs(tk_circ.scalar) ** 2))
         2.0
         """
         def remove_ket1(box):
@@ -391,77 +439,44 @@ class Circuit(Diagram):
                 tk_circ.rename_units(renaming)
             return {len(left @ right) + j: box.bitstring[j]
                     for j, _ in enumerate(box.dom)}
-        scalar, post_selection = 1, {}
         circuit = CircuitFunctor(ob=Quiver(len), ar=Quiver(remove_ket1))(self)
         if circuit.dom != PRO(0):
             circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
-        tk_circ = tk.Circuit()
+        tk_circ = TketCircuit()
         for left, box, right in circuit.layers:
             if isinstance(box, Ket):
                 prepare_qubit(tk_circ, left, box, right)
             elif isinstance(box, Bra):
-                post_selection.update(measure_qubit(tk_circ, left, box, right))
+                tk_circ.post_selection.update(
+                    measure_qubit(tk_circ, left, box, right))
             elif box == SWAP:
                 swap(tk_circ, len(left), len(left) + 1)
             elif box.dom == box.cod == PRO(0):
-                scalar *= box.array[0]
+                tk_circ.scalar *= box.array[0]
             else:
                 add_gate(tk_circ, box, len(left))
-        if post_selection or scalar != 1:
-            return (tk_circ, post_selection, scalar)
         return tk_circ
-
-    def get_counts(self, backend, n_shots=2**10, measure_all=True,
-                   normalize=True, scale=True, post_select=True, seed=None,
-                   compilation_pass=None):
-        """
-        >>> from pytket.backends.ibm import AerBackend
-        >>> backend = AerBackend()
-        >>> bell_state = H @ Id(1) >> CX
-        >>> bell_state.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
-        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0.49..., 0.0, 0.0, 0.50...])
-        >>> scaled_bell = Circuit.caps(PRO(1), PRO(1))
-        >>> snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
-        >>> assert np.all(
-        ...     np.round(snake.get_counts(backend, seed=42).array)
-        ...     == np.round((Ket(0) >> snake).measure()))
-        """
-        def build_bras(n_qubits, post_selection):
-            result = Id(n_qubits)
-            for qubit, bit in reversed(sorted(post_selection.items())):
-                result = result >> Id(qubit) @ Bra(bit)
-            return result
-        tk_circ = self.to_tk()
-        if isinstance(tk_circ, tuple):
-            tk_circ, post_selection, scalar = tk_circ
-        else:
-            post_selection, scalar = {}, 1
-        if measure_all:
-            tk_circ.measure_all()
-        if compilation_pass is None:
-            compilation_pass = backend.default_compilation_pass
-        compilation_pass.apply(tk_circ)
-        counts_dict = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
-        if not counts_dict:  # pragma: no cover
-            raise RuntimeError
-        array = np.zeros(tk_circ.n_qubits * (2, ))
-        for bitstring, count in counts_dict.items():
-            array += count * Ket(*bitstring).array
-        if normalize:
-            array = 1. / np.sum(array) * array
-        if scale:
-            array = abs(scalar) ** 2 * array
-        matrix = Matrix(Dim(1), Dim(*(tk_circ.n_qubits * (2, ))), array)
-        if post_select:
-            matrix = matrix\
-                >> build_bras(tk_circ.n_qubits, post_selection).eval()
-        return matrix
 
     @staticmethod
     def from_tk(tk_circuit):
-        """ Takes a pytket circuit and returns a planar circuit,
-        SWAP gates are introduced when applying gates to non-adjacent qubits.
+        """
+        Parameters
+        ----------
+        tk_circuit : pytket.Circuit
+            A pytket.Circuit, potentially with :code:`scalar` and
+            :code:`post_selection` attributes.
 
+        Returns
+        -------
+        circuit : :class:`Circuit`
+            Such that :code:`Circuit.from_tk(circuit.to_tk()) == circuit`.
+
+        Note
+        ----
+        * SWAP gates are introduced when applying gates to non-adjacent qubits.
+
+        Examples
+        --------
         >>> c1 = Circuit(2, 2, [Rz(0.5), Rx(0.25), CX], [0, 1, 0])
         >>> c2 = Circuit.from_tk(c1.to_tk())
         >>> assert c1.normal_form() == c2.normal_form()
@@ -490,10 +505,8 @@ class Circuit(Diagram):
           >> Bra(0)\\
           >> scalar(2.000)
         """
-        if isinstance(tk_circuit, tuple):
-            tk_circuit, post_selection, scal = tk_circuit
-        else:
-            post_selection, scal = {}, 1
+        if not isinstance(tk_circuit, (tk.Circuit, TketCircuit)):
+            raise TypeError(messages.type_err(tk.Circuit, tk_circuit))
 
         def box_from_tk(tk_gate):
             name = tk_gate.op.get_type().name
@@ -523,6 +536,8 @@ class Circuit(Diagram):
                         right = n_qubits - left - 2
                         result = result >> Id(left) @ SWAP @ Id(right)
             return i_0, result
+        post_selection, scal = (tk_circuit.post_selection, tk_circuit.scalar)\
+            if isinstance(tk_circuit, TketCircuit) else ({}, 1)
         circuit = Id(tk_circuit.n_qubits)
         for tk_gate in tk_circuit.get_commands():
             box = box_from_tk(tk_gate)
@@ -536,39 +551,109 @@ class Circuit(Diagram):
             circuit = circuit @ scalar(scal)
         return circuit
 
-    @staticmethod
-    def random(n_qubits, depth=3, gateset=None, seed=None):
-        """ Returns a random Euler decomposition if n_qubits == 1,
-        otherwise returns a random tiling with the given depth and gateset.
-
-        >>> c = Circuit.random(1, seed=420)
-        >>> print(c)  # doctest: +ELLIPSIS
-        Rx(0.026... >> Rz(0.781... >> Rx(0.272...
-        >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
-        CX >> T @ Id(1) >> Id(1) @ T
-        >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
-        CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-        >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
-        Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
+    def get_counts(self, backend, n_shots=2**10, measure_all=True,
+                   normalize=True, scale=True, post_select=True, seed=None):
         """
-        if seed is not None:
-            rand.seed(seed)
-        if n_qubits == 1:
-            return Rx(rand.random()) >> Rz(rand.random()) >> Rx(rand.random())
-        result = Id(n_qubits)
-        for _ in range(depth):
-            line, n_affected = Id(0), 0
-            while n_affected < n_qubits:
-                gate = rand.choice(
-                    gateset if n_qubits - n_affected > 1 else [
-                        g for g in gateset
-                        if g is Rx or g is Rz or len(g.dom) == 1])
-                if gate is Rx or gate is Rz:
-                    gate = gate(rand.random())
-                line = line @ gate
-                n_affected += len(gate.dom)
-            result = result >> line
-        return result
+        Parameters
+        ----------
+        backend : pytket.Backend
+            Backend on which to run the circuit.
+        n_shots : int, optional
+            Number of shots, default is :code:`2**10`.
+        measure_all : bool, optional
+            Whether to measure all qubits, default is :code:`True`.
+        normalize : bool, optional
+            Whether to normalize the counts, default is :code:`True`.
+        post_select : bool, optional
+            Whether to perform post-selection, default is :code:`True`.
+        scale : bool, optional
+            Whether to scale the output, default is :code:`True`.
+        seed : int, optional
+            Seed to feed the backend, default is :code:`None`.
+
+        Returns
+        -------
+        matrix : :class:`discopy.matrix.Matrix`
+            Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the
+            number of post-selected qubits.
+
+        Examples
+        --------
+        >>> from pytket.backends.ibm import AerBackend
+        >>> backend = AerBackend()
+        >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
+        >>> circuit.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
+        Matrix(dom=Dim(1), cod=Dim(2), array=[0.49..., 0.0])
+        >>> scaled_bell = Circuit.caps(PRO(1), PRO(1))
+        >>> snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
+        >>> assert np.all(
+        ...     np.round(snake.get_counts(backend, seed=42).array)
+        ...     == np.round((Ket(0) >> snake).measure()))
+        """
+        tk_circ = self.to_tk()
+        if measure_all:
+            tk_circ.measure_all()
+        backend.default_compilation_pass.apply(tk_circ)
+        result = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
+        if not result:  # pragma: no cover
+            raise RuntimeError
+        return matrix_from_counts(
+            result, tk_circ.post_selection, tk_circ.scalar, normalize)
+
+
+def matrix_from_counts(counts, post_selection=None, scalar=1, normalize=True):
+    """
+    Parameters
+    ----------
+    counts : dict
+        From bitstrings to counts.
+    post_selection : dict, optional
+        From qubit indices to bits.
+    scalar : complex, optional
+        Scale the output using the Born rule.
+    normalize : bool, optional
+        Whether to normalize the counts.
+
+    Returns
+    -------
+    matrix : discopy.matrix.Matrix
+        Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the number
+        of post-selected qubits.
+    """
+    if normalize:
+        counts = probs_from_counts(counts)
+    n_qubits = len(list(counts.keys()).pop())
+    if post_selection:
+        post_selected = dict()
+        for bitstring, count in counts.items():
+            if all(bitstring[qubit] == bit
+                    for qubit, bit in post_selection.items()):
+                post_selected.update({
+                    tuple(bit for qubit, bit in enumerate(bitstring)
+                          if qubit not in post_selection): count})
+        n_qubits -= len(post_selection.keys())
+        counts = post_selected
+    array = np.zeros(n_qubits * (2, ))
+    for bitstring, count in counts.items():
+        array += count * Ket(*bitstring).array
+    array = abs(scalar) ** 2 * array
+    return Matrix(Dim(1), Dim(*(n_qubits * (2, ))), array)
+
+
+class TketCircuit(tk.Circuit):
+    """
+    pytket.Circuit with post selection and scalars.
+
+    >>> tk_circ = TketCircuit(post_selection={0: 1}, scalar=2)
+    >>> tk_circ.scalar
+    2
+    >>> tk_circ.post_selection
+    {0: 1}
+    """
+    def __init__(self, post_selection=None, scalar=None):
+        self.post_selection = post_selection or {}
+        self.scalar = scalar or 1
+        super().__init__()
 
 
 class Id(Circuit):

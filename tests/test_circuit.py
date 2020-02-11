@@ -13,9 +13,9 @@ def test_Circuit_to_tk():
     bell_state = Circuit.caps(PRO(1), PRO(1))
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
-    tk_circ, post_selection, scal = snake.to_tk()
-    assert abs(scal - 2) < 1e-5
-    assert post_selection == {1: 0, 2: 0}
+    tk_circ = snake.to_tk()
+    assert abs(tk_circ.scalar - 2) < 1e-5
+    assert tk_circ.post_selection == {1: 0, 2: 0}
     assert list(map(str, tk_circ)) == [
         "H q[2];",
         "CX q[2], q[0];",
@@ -36,6 +36,8 @@ def test_Circuit_to_tk():
 
 
 def test_Circuit_from_tk():
+    with raises(TypeError):
+        Circuit.from_tk(CX)
     with raises(NotImplementedError):
         Circuit.from_tk(Id(3).to_tk().CCX(0, 1, 2))
     circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
