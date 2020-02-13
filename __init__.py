@@ -13,7 +13,7 @@ discopy computes natural language meaning in pictures.
 >>> loves = Word('loves', n.r @ s @ n.l)
 >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 >>> ob, ar = {s: 1, n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
->>> F = MatrixFunctor(ob, ar)
+>>> F = TensorFunctor(ob, ar)
 >>> assert F(sentence)
 
 >>> love_box = Box('loves', n @ n, s)
@@ -23,10 +23,10 @@ discopy computes natural language meaning in pictures.
 >>> assert A(sentence).normal_form() == Alice @ Bob >> love_box
 """
 
-from discopy import cat, moncat, rigidcat, matrix, circuit, pregroup
+from discopy import cat, moncat, rigidcat, tensor, circuit, pregroup
 from discopy.cat import Quiver
 from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Functor
-from discopy.matrix import Dim, Matrix, MatrixFunctor
+from discopy.tensor import Dim, Tensor, TensorFunctor
 from discopy.circuit import Circuit, Gate, Bra, Ket, CircuitFunctor
 from discopy.pregroup import Word
 

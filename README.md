@@ -81,16 +81,16 @@ pregroup.draw(sentence, path='docs/imgs/alice-loves-bob.png')
 ### Functors & Rewrites
 
 **Monoidal functors** compute the meaning of a diagram, given an interpretation for each wire and for each box.
-In particular, **matrix functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/).
+In particular, **tensor functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/).
 Applied to pregroup diagrams, `discopy` implements the
 **distributional compositional** (_DisCo_) models of
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
 ```python
 import numpy as np
-from discopy import MatrixFunctor
+from discopy import TensorFunctor
 
-F = MatrixFunctor(
+F = TensorFunctor(
     ob={s: 1, n: 2},
     ar={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]})
 

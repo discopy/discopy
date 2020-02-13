@@ -14,7 +14,7 @@ discopy
    moncat/index.rst
    rigidcat/index.rst
    cartesian/index.rst
-   matrix/index.rst
+   tensor/index.rst
    circuit/index.rst
    pregroup/index.rst
 
