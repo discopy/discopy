@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements dagger monoidal functors into matrices.
+Implements dagger monoidal functors into tensors.
 
 >>> n = Ty('n')
 >>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
 >>> loves = Box('loves', n, n)
 >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
->>> F = MatrixFunctor(ob, ar)
+>>> F = TensorFunctor(ob, ar)
 >>> F(Alice >> loves >> Bob.dagger())
-Matrix(dom=Dim(1), cod=Dim(1), array=[1])
+Tensor(dom=Dim(1), cod=Dim(1), array=[1])
 """
 
 import functools
@@ -74,13 +74,13 @@ class Dim(Ty):
         return Dim(*self[::-1])
 
 
-class Matrix(Box):
-    """ Implements a matrix with dom, cod and numpy array.
+class Tensor(Box):
+    """ Implements a tensor with dom, cod and numpy array.
 
-    >>> m = Matrix(Dim(2), Dim(2), [0, 1, 1, 0])
-    >>> v = Matrix(Dim(1), Dim(2), [0, 1])
+    >>> m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
+    >>> v = Tensor(Dim(1), Dim(2), [0, 1])
     >>> v >> m >> v.dagger()
-    Matrix(dom=Dim(1), cod=Dim(1), array=[0])
+    Tensor(dom=Dim(1), cod=Dim(1), array=[0])
     """
     def __init__(self, dom, cod, array):
         self._array = np.array(array).reshape(dom + cod)
@@ -95,50 +95,50 @@ class Matrix(Box):
         return bool(self.array)
 
     def __repr__(self):
-        return "Matrix(dom={}, cod={}, array={})".format(
+        return "Tensor(dom={}, cod={}, array={})".format(
             self.dom, self.cod, list(self.array.flatten()))
 
     def __str__(self):
         return repr(self)
 
     def __add__(self, other):
-        if not isinstance(other, Matrix):
-            raise TypeError(messages.type_err(Matrix, other))
+        if not isinstance(other, Tensor):
+            raise TypeError(messages.type_err(Tensor, other))
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
-        return Matrix(self.dom, self.cod, self.array + other.array)
+        return Tensor(self.dom, self.cod, self.array + other.array)
 
     def __eq__(self, other):
-        if not isinstance(other, Matrix):
+        if not isinstance(other, Tensor):
             return self.array == other
         return (self.dom, self.cod) == (other.dom, other.cod)\
             and np.all(self.array == other.array)
 
     def then(self, other):
-        if not isinstance(other, Matrix):
-            raise TypeError(messages.type_err(Matrix, other))
+        if not isinstance(other, Tensor):
+            raise TypeError(messages.type_err(Tensor, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
         array = np.tensordot(self.array, other.array, len(self.cod))\
             if self.array.shape and other.array.shape\
             else self.array * other.array
-        return Matrix(self.dom, other.cod, array)
+        return Tensor(self.dom, other.cod, array)
 
     def tensor(self, other):
-        if not isinstance(other, Matrix):
-            raise TypeError(messages.type_err(Matrix, other))
+        if not isinstance(other, Tensor):
+            raise TypeError(messages.type_err(Tensor, other))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         array = np.tensordot(self.array, other.array, 0)\
             if self.array.shape and other.array.shape\
             else self.array * other.array
-        return Matrix(dom, cod, array)
+        return Tensor(dom, cod, array)
 
     def dagger(self):
         array = np.moveaxis(
             self.array, range(len(self.dom + self.cod)),
             [i + len(self.cod) if i < len(self.dom) else
              i - len(self.dom) for i in range(len(self.dom + self.cod))])
-        return Matrix(self.cod, self.dom, np.conjugate(array))
+        return Tensor(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
     def id(x):
@@ -152,27 +152,27 @@ class Matrix(Box):
             raise TypeError(messages.type_err(Dim, right))
         if left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        return Matrix(left @ right, Dim(1), Id(left).array)
+        return Tensor(left @ right, Dim(1), Id(left).array)
 
     @staticmethod
     def caps(left, right):
-        return Matrix.cups(left, right).dagger()
+        return Tensor.cups(left, right).dagger()
 
 
-class Id(Matrix):
-    """ Implements the identity matrix for a given dimension.
+class Id(Tensor):
+    """ Implements the identity tensor for a given dimension.
 
     >>> Id(1)
-    Matrix(dom=Dim(1), cod=Dim(1), array=[1])
+    Tensor(dom=Dim(1), cod=Dim(1), array=[1])
     >>> Id(2)
-    Matrix(dom=Dim(2), cod=Dim(2), array=[1.0, 0.0, 0.0, 1.0])
+    Tensor(dom=Dim(2), cod=Dim(2), array=[1.0, 0.0, 0.0, 1.0])
     >>> Id(1, 2, 3)  # doctest: +ELLIPSIS
-    Matrix(dom=Dim(2, 3), cod=Dim(2, 3), array=[1.0, ..., 1.0])
+    Tensor(dom=Dim(2, 3), cod=Dim(2, 3), array=[1.0, ..., 1.0])
     """
     def __init__(self, *dim):
         """
         >>> Id(1)
-        Matrix(dom=Dim(1), cod=Dim(1), array=[1])
+        Tensor(dom=Dim(1), cod=Dim(1), array=[1])
         >>> list(Id(2).array.flatten())
         [1.0, 0.0, 0.0, 1.0]
         >>> Id(2).array.shape
@@ -191,20 +191,20 @@ class Id(Matrix):
         super().__init__(dim, dim, array)
 
 
-class MatrixFunctor(Functor):
-    """ Implements a matrix-valued rigid functor.
+class TensorFunctor(Functor):
+    """ Implements a tensor-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, x @ y)
-    >>> F = MatrixFunctor({x: 1, y: 2}, {f: [0, 1]})
+    >>> F = TensorFunctor({x: 1, y: 2}, {f: [0, 1]})
     >>> F(f)
-    Matrix(dom=Dim(1), cod=Dim(2), array=[0, 1])
+    Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_cls=Dim, ar_cls=Matrix)
+        super().__init__(ob, ar, ob_cls=Dim, ar_cls=Tensor)
 
     def __repr__(self):
-        return super().__repr__().replace("Functor", "MatrixFunctor")
+        return super().__repr__().replace("Functor", "TensorFunctor")
 
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
@@ -212,13 +212,13 @@ class MatrixFunctor(Functor):
         if isinstance(diagram, Ob):
             return Dim(self.ob[Ty(Ob(diagram.name, z=0))])
         if isinstance(diagram, Cup):
-            return Matrix.cups(self(diagram.dom[0]), self(diagram.dom[1]))
+            return Tensor.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
-            return Matrix.caps(self(diagram.cod[0]), self(diagram.cod[1]))
+            return Tensor.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Box):
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
-            return Matrix(self(diagram.dom), self(diagram.cod),
+            return Tensor(self(diagram.dom), self(diagram.cod),
                           self.ar[diagram])
         if not isinstance(diagram, Diagram):
             raise TypeError(messages.type_err(Diagram, diagram))
@@ -240,4 +240,4 @@ class MatrixFunctor(Functor):
                            dim(diagram.dom) + left + dim(box.cod))
             array = np.moveaxis(array, list(source), list(target))
             scan = scan[:off] + box.cod + scan[off + len(box.dom):]
-        return Matrix(self(diagram.dom), self(diagram.cod), array)
+        return Tensor(self(diagram.dom), self(diagram.cod), array)

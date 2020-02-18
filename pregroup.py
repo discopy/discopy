@@ -3,7 +3,7 @@
 """
 Implements distributional compositional models.
 
->>> from discopy.matrix import MatrixFunctor
+>>> from discopy.tensor import TensorFunctor
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
@@ -11,7 +11,7 @@ Implements distributional compositional models.
 >>> sentence = grammar << Alice @ loves @ Bob
 >>> ob = {s: 1, n: 2}
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = MatrixFunctor(ob, ar)
+>>> F = TensorFunctor(ob, ar)
 >>> assert F(sentence) == True
 
 >>> from discopy.circuit import Ket, CX, H, X, sqrt, CircuitFunctor

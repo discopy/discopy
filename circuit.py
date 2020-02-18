@@ -24,7 +24,7 @@ from discopy import messages
 from discopy.cat import Quiver
 from discopy.moncat import InterchangerError
 from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, Functor
-from discopy.matrix import np, Dim, Matrix, MatrixFunctor
+from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 
 class Circuit(Diagram):
@@ -121,11 +121,11 @@ class Circuit(Diagram):
 
     def eval(self):
         """
-        Evaluates the circuit as a discopy Matrix.
+        Evaluates the circuit as a discopy Tensor.
 
         Returns
         -------
-        matrix : :class:`discopy.matrix.Matrix`
+        tensor : :class:`discopy.tensor.Tensor`
             with complex amplitudes as entries.
 
         Examples
@@ -134,7 +134,7 @@ class Circuit(Diagram):
         >>> assert state.eval() >> isometry.eval()\\
         ...     == (state >> isometry).eval()
         """
-        return MatrixFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
+        return TensorFunctor({Ty(1): 2}, Quiver(lambda g: g.array))(self)
 
     def interchange(self, i, j, left=False):
         """
@@ -336,8 +336,8 @@ class Circuit(Diagram):
         effects = [Bra(*bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
         array = np.zeros(len(self.dom + self.cod) * (2, ))
-        for state in states if self.dom else [Matrix.id(1)]:
-            for effect in effects if self.cod else [Matrix.id(1)]:
+        for state in states if self.dom else [Tensor.id(1)]:
+            for effect in effects if self.cod else [Tensor.id(1)]:
                 scalar = np.absolute((state >> process >> effect).array) ** 2
                 array += scalar * (state.dagger() >> effect.dagger()).array
         return array
@@ -573,7 +573,7 @@ class Circuit(Diagram):
 
         Returns
         -------
-        matrix : :class:`discopy.matrix.Matrix`
+        tensor : :class:`discopy.tensor.Tensor`
             Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the
             number of post-selected qubits.
 
@@ -583,7 +583,7 @@ class Circuit(Diagram):
         >>> backend = AerBackend()
         >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
         >>> circuit.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
-        Matrix(dom=Dim(1), cod=Dim(2), array=[0.49..., 0.0])
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0.0])
         >>> scaled_bell = Circuit.caps(PRO(1), PRO(1))
         >>> snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
         >>> assert np.all(
@@ -597,11 +597,11 @@ class Circuit(Diagram):
         result = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
         if not result:  # pragma: no cover
             raise RuntimeError
-        return matrix_from_counts(
+        return tensor_from_counts(
             result, tk_circ.post_selection, tk_circ.scalar, normalize)
 
 
-def matrix_from_counts(counts, post_selection=None, scalar=1, normalize=True):
+def tensor_from_counts(counts, post_selection=None, scalar=1, normalize=True):
     """
     Parameters
     ----------
@@ -616,7 +616,7 @@ def matrix_from_counts(counts, post_selection=None, scalar=1, normalize=True):
 
     Returns
     -------
-    matrix : discopy.matrix.Matrix
+    tensor : discopy.tensor.Tensor
         Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the number
         of post-selected qubits.
     """
@@ -637,7 +637,7 @@ def matrix_from_counts(counts, post_selection=None, scalar=1, normalize=True):
     for bitstring, count in counts.items():
         array += count * Ket(*bitstring).array
     array = abs(scalar) ** 2 * array
-    return Matrix(Dim(1), Dim(*(n_qubits * (2, ))), array)
+    return Tensor(Dim(1), Dim(*(n_qubits * (2, ))), array)
 
 
 class TketCircuit(tk.Circuit):
@@ -742,7 +742,7 @@ class Ket(Box, Circuit):
     """ Implements ket for a given bitstring.
 
     >>> Ket(1, 1, 0).eval()
-    Matrix(dom=Dim(1), cod=Dim(2, 2, 2), array=[0, 0, 0, 0, 0, 0, 1, 0])
+    Tensor(dom=Dim(1), cod=Dim(2, 2, 2), array=[0, 0, 0, 0, 0, 0, 1, 0])
     """
     def __init__(self, *bitstring):
         """
@@ -784,21 +784,21 @@ class Ket(Box, Circuit):
     def array(self):
         """
         >>> Ket(0).eval()
-        Matrix(dom=Dim(1), cod=Dim(2), array=[1, 0])
+        Tensor(dom=Dim(1), cod=Dim(2), array=[1, 0])
         >>> Ket(0, 1).eval()
-        Matrix(dom=Dim(1), cod=Dim(2, 2), array=[0, 1, 0, 0])
+        Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 1, 0, 0])
         """
-        matrix = Matrix(Dim(1), Dim(1), [1])
+        tensor = Tensor(Dim(1), Dim(1), [1])
         for bit in self.bitstring:
-            matrix = matrix @ Matrix(Dim(2), Dim(1), [0, 1] if bit else [1, 0])
-        return matrix.array
+            tensor = tensor @ Tensor(Dim(2), Dim(1), [0, 1] if bit else [1, 0])
+        return tensor.array
 
 
 class Bra(Box, Circuit):
     """ Implements bra for a given bitstring.
 
     >>> Bra(1, 1, 0).eval()
-    Matrix(dom=Dim(2, 2, 2), cod=Dim(1), array=[0, 0, 0, 0, 0, 0, 1, 0])
+    Tensor(dom=Dim(2, 2, 2), cod=Dim(1), array=[0, 0, 0, 0, 0, 0, 1, 0])
     >>> assert all((Bra(x, y, z) << Ket(x, y, z)).eval() == 1
     ...            for x in [0, 1] for y in [0, 1] for z in [0, 1])
     """
@@ -843,9 +843,9 @@ class Bra(Box, Circuit):
     def array(self):
         """
         >>> Bra(0).eval()
-        Matrix(dom=Dim(2), cod=Dim(1), array=[1, 0])
+        Tensor(dom=Dim(2), cod=Dim(1), array=[1, 0])
         >>> Bra(0, 1).eval()
-        Matrix(dom=Dim(2, 2), cod=Dim(1), array=[0, 1, 0, 0])
+        Tensor(dom=Dim(2, 2), cod=Dim(1), array=[0, 1, 0, 0])
         """
         return Ket(*self.bitstring).array
 
