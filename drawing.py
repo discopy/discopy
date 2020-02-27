@@ -184,9 +184,11 @@ def draw(diagram, **params):
         nx.draw_networkx_nodes(
             graph, positions, nodelist=boxes,
             node_color=params.get('color', '#ff0000'), ax=axis)
-        nx.draw_networkx_labels(
-            graph, positions,
-            {n: l for n, l in labels.items() if n in boxes})
+
+        if params.get('draw_box_labels', True):
+            nx.draw_networkx_labels(
+                graph, positions,
+                {n: l for n, l in labels.items() if n in boxes})
     else:
         for depth, box in enumerate(diagram.boxes):
             draw_box(box, depth, axis)
