@@ -85,7 +85,9 @@ class Ty(moncat.Ty, Ob):
         return Ty(*super().tensor(other))
 
     def __init__(self, *t):
-        t = [x if isinstance(x, Ob) else Ob(x) for x in t]
+        t = [x if isinstance(x, Ob)
+             else Ob(x.name) if isinstance(x, cat.Ob)
+             else Ob(x) for x in t]
         moncat.Ty.__init__(self, *t)
         Ob.__init__(self, str(self))
 
