@@ -484,7 +484,7 @@ class Functor:
 
     By default, `Functor` defines an endofunctor from the free dagger category
     to itself. The codomain can be changed with the optional parameters
-    `ob_cls` and `ar_cls`.
+    `ob_factory` and `ar_factory`.
 
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
@@ -495,16 +495,16 @@ class Functor:
     Parameters
     ----------
     ob : dict_like
-        Mapping from :class:`cat.Ob` to `ob_cls`.
+        Mapping from :class:`cat.Ob` to `ob_factory`.
     ar : dict_like
-        Mapping from :class:`cat.Box` to `ar_cls`.
+        Mapping from :class:`cat.Box` to `ar_factory`.
 
     Other Parameters
     ----------------
-    ob_cls : type, optional
+    ob_factory : type, optional
         Class to be used as objects for the codomain of the functor.
         If None, this will be set to :class:`cat.Ob`.
-    ar_cls : type, optional
+    ar_factory : type, optional
         Class to be used as arrows for the codomain of the functor.
         If None, this will be set to :class:`cat.Arrow`.
 
@@ -522,12 +522,12 @@ class Functor:
     >>> assert F(f[::-1]) == F(f)[::-1]
     >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
     """
-    def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
-        if ob_cls is None:
-            ob_cls = Ob
-        if ar_cls is None:
-            ar_cls = Arrow
-        self.ob_cls, self.ar_cls = ob_cls, ar_cls
+    def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
+        if ob_factory is None:
+            ob_factory = Ob
+        if ar_factory is None:
+            ar_factory = Arrow
+        self.ob_factory, self.ar_factory = ob_factory, ar_factory
         self._ob, self._ar = ob, ar
 
     @property
@@ -561,7 +561,7 @@ class Functor:
                 return self.ar[arrow.dagger()].dagger()
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
-            return self.ar_cls.id(self(arrow.dom)).compose(
+            return self.ar_factory.id(self(arrow.dom)).compose(
                 *map(self, arrow.boxes))
         raise TypeError(messages.type_err(Arrow, arrow))
 

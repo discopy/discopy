@@ -963,7 +963,7 @@ class CircuitFunctor(Functor):
     SWAP @ Id(1) >> Id(1) @ Rx(0.25) @ Id(1) >> Id(1) @ CX
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Circuit)
+        super().__init__(ob, ar, ob_factory=PRO, ar_factory=Circuit)
 
     def __repr__(self):
         """

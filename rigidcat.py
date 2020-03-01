@@ -513,13 +513,13 @@ class Functor(moncat.Functor):
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
     """
-    def __init__(self, ob, ar, ob_cls=Ty, ar_cls=Diagram):
+    def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):
         """
         >>> F = Functor({Ty('x'): Ty('y')}, {})
         >>> F(Id(Ty('x')))
         Id(Ty('y'))
         """
-        super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
+        super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
         """
@@ -530,7 +530,7 @@ class Functor(moncat.Functor):
         >>> assert F(f.transpose_r()) == F(f).transpose_r()
         """
         if isinstance(diagram, Ty):
-            return sum([self(b) for b in diagram.objects], self.ob_cls())
+            return sum([self(b) for b in diagram.objects], self.ob_factory())
         if isinstance(diagram, Ob) and not diagram.z:
             return self.ob[Ty(diagram.name)]
         if isinstance(diagram, Ob):
@@ -543,9 +543,9 @@ class Functor(moncat.Functor):
                     result = result.r
             return result
         if isinstance(diagram, Cup):
-            return self.ar_cls.cups(self(diagram.dom[0]), self(diagram.dom[1]))
+            return self.ar_factory.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
-            return self.ar_cls.caps(self(diagram.cod[0]), self(diagram.cod[1]))
+            return self.ar_factory.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))

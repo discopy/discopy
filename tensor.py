@@ -201,7 +201,7 @@ class TensorFunctor(Functor):
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_cls=Dim, ar_cls=Tensor)
+        super().__init__(ob, ar, ob_factory=Dim, ar_factory=Tensor)
 
     def __repr__(self):
         return super().__repr__().replace("Functor", "TensorFunctor")

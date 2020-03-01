@@ -156,7 +156,7 @@ class PythonFunctor(rigidcat.Functor):
     Implements functors into the category of Python functions on tuples
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Function)
+        super().__init__(ob, ar, ob_factory=PRO, ar_factory=Function)
 
 
 class Diagram(rigidcat.Diagram):
@@ -317,7 +317,7 @@ class Functor(rigidcat.Functor):
     >>> assert F(f >> g)(43) == 86
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_cls=PRO, ar_cls=Diagram)
+        super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
 
 
 def disco(dom, cod, name=None):

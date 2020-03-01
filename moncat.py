@@ -806,7 +806,7 @@ class Functor(cat.Functor):
     """
     Implements a monoidal functor given its image on objects and arrows.
     One may define monoidal functors into custom categories by overriding
-    the defaults ob_cls=Ty and ar_cls=Diagram.
+    the defaults ob_factory=Ty and ar_factory=Diagram.
 
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
@@ -816,24 +816,24 @@ class Functor(cat.Functor):
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     """
-    def __init__(self, ob, ar, ob_cls=None, ar_cls=None):
-        if ob_cls is None:
-            ob_cls = Ty
-        if ar_cls is None:
-            ar_cls = Diagram
-        super().__init__(ob, ar, ob_cls=ob_cls, ar_cls=ar_cls)
+    def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
+        if ob_factory is None:
+            ob_factory = Ty
+        if ar_factory is None:
+            ar_factory = Diagram
+        super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
             return sum([self.ob[type(diagram)(x)] for x in diagram],
-                       self.ob_cls())  # the empty type is the unit for sum.
+                       self.ob_factory())  # the empty type is the unit for sum.
         if isinstance(diagram, Box):
             return super().__call__(diagram)
         if isinstance(diagram, Diagram):
-            scan, result = diagram.dom, self.ar_cls.id(self(diagram.dom))
+            scan, result = diagram.dom, self.ar_factory.id(self(diagram.dom))
             for box, off in zip(diagram.boxes, diagram.offsets):
-                id_l = self.ar_cls.id(self(scan[:off]))
-                id_r = self.ar_cls.id(self(scan[off + len(box.dom):]))
+                id_l = self.ar_factory.id(self(scan[:off]))
+                id_r = self.ar_factory.id(self(scan[off + len(box.dom):]))
                 result = result >> id_l @ self(box) @ id_r
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
