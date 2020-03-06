@@ -826,7 +826,7 @@ class Functor(cat.Functor):
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
             return sum([self.ob[type(diagram)(x)] for x in diagram],
-                       self.ob_factory())  # the empty type is the unit for sum.
+                       self.ob_factory())  # empty type is the unit for sum.
         if isinstance(diagram, Box):
             return super().__call__(diagram)
         if isinstance(diagram, Diagram):
@@ -838,3 +838,40 @@ class Functor(cat.Functor):
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
         raise TypeError(messages.type_err(Diagram, diagram))
+
+
+class AbstractDiagram(Diagram):
+    def _upgrade(diagram):
+        raise NotImplementedError
+
+    @staticmethod
+    def id(x):
+        return self._upgrade(super().id(x))
+
+    def dagger(self):
+        return self._upgrade(super().dagger())
+
+    def then(self, other):
+        return self._upgrade(super().then(other))
+
+    def tensor(self, other):
+        return self._upgrade(super().tensor(other))
+
+    def interchange(self, i, j, left=False):
+        return self._upgrade(super().interchange(i, j, left=left))
+
+    def flatten(self):
+        return self._upgrade(super().flatten())
+
+    def foliate(self, yield_slices=False):
+        for diagram in super().foliate(yield_slices=yield_slices):
+            if isinstance(diagram, cat.Arrow):
+                yield self._upgrade(diagram)
+            else:
+                yield [self._upgrade(diagram[i]) for i in range(len(diagram))]
+
+    def foliation(self):
+        return self._upgrade(super().foliation())
+
+    def __getitem__(self, key):
+        return self._upgrade(super().__getitem__(key))

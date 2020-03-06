@@ -31,6 +31,16 @@ def test_PRO_r():
     assert PRO(2).r == PRO(2)
 
 
+def test_Diagram_getitem():
+    n, s = Ty('n'), Ty('s')
+    cup, cap = Cup(n, n.r), Cap(n.r, n)
+    f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
+    diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
+    assert isinstance(diagram[1:3], Diagram)
+    assert diagram[3:] == Id(n @ n.r) @ f >> cup @ h
+    assert diagram[:2] >> diagram[2:] == diagram
+
+
 def test_Diagram_cups():
     with raises(TypeError) as err:
         Diagram.cups('x', Ty('x'))
