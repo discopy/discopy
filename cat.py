@@ -528,10 +528,6 @@ class Functor:
         if ar_factory is None:
             ar_factory = Arrow
         self.ob_factory, self.ar_factory = ob_factory, ar_factory
-        if not hasattr(ob, "__getitem__"):
-            ob = Quiver(ob)
-        if not hasattr(ar, "__getitem__"):
-            ar = Quiver(ar)
         self._ob, self._ar = ob, ar
 
     @property
@@ -575,7 +571,8 @@ class Quiver:
     Wraps a function into an immutable dict-like object, used as input for a
     :class:`Functor`.
 
-    >>> F = Functor(lambda x: x, lambda f: f)
+    >>> ob, ar = Quiver(lambda x: x), Quiver(lambda f: f)
+    >>> F = Functor(ob, ar)
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
     >>> assert F(x) == x and F(f >> g) == f >> g
@@ -591,15 +588,16 @@ class Quiver:
     :class:`Functor` from a free category with infinitely many generators.
 
     >>> h = Box('h', x, x, data=42)
-    >>> def ar(box):
+    >>> def ar_func(box):
     ...     return Box(box.name, box.dom, box.cod, data=box.data + 1)
-    >>> F = Functor(lambda x: x, ar)
+    >>> F = Functor(ob, Quiver(ar_func))
     >>> assert F(h).data == 43 and F(F(h)).data == 44
 
     If :attr:`Box.data` is a mutable object, then so can be the image of a
     :class:`Functor` on it.
 
-    >>> F = Functor(lambda x: x, lambda f: f if all(f.data) else f[::-1])
+    >>> ar = Quiver(lambda f: f if all(f.data) else f[::-1])
+    >>> F = Functor(ob, ar)
     >>> m = Box('m', x, x, data=[True])
     >>> assert F(m) == m
     >>> m.data.append(False)

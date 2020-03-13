@@ -117,7 +117,7 @@ class PRO(moncat.PRO, Ty):
         return self
 
 
-class Diagram(moncat.AbstractDiagram):
+class Diagram(moncat.Diagram):
     """ Implements diagrams in the free rigid monoidal category.
 
     >>> I, n, s = Ty(), Ty('n'), Ty('s')
@@ -137,6 +137,57 @@ class Diagram(moncat.AbstractDiagram):
     @staticmethod
     def id(x):
         return Id(x)
+
+    def then(self, other):
+        return self._upgrade(super().then(other))
+
+    def tensor(self, other):
+        return self._upgrade(super().tensor(other))
+
+    def interchange(self, i, j, left=False):
+        return self._upgrade(super().interchange(i, j, left=left))
+
+    def flatten(self):
+        """
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> assert isinstance((3 * f).foliation().flatten(), Diagram)
+        """
+        return self._upgrade(super().flatten())
+
+    def foliate(self, yield_slices=False):
+        """
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> gen = (f @ Id(x) >> (f @ f)).foliate()
+        >>> print(next(gen))
+        f @ Id(x) >> Id(x) @ f >> f @ Id(x)
+        """
+        for diagram in super().foliate(yield_slices=yield_slices):
+            if isinstance(diagram, cat.Arrow):
+                yield self._upgrade(diagram)
+            else:
+                yield [self._upgrade(diagram[i]) for i in range(len(diagram))]
+
+    def foliation(self):
+        """
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> assert isinstance((f @ Id(x) >> (f @ f)).foliation(), Diagram)
+        """
+        return self._upgrade(super().foliation())
+
+    def __getitem__(self, key):
+        """
+        >>> n, s = Ty('n'), Ty('s')
+        >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
+        >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
+        >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
+        >>> assert isinstance(diagram[1:3], Diagram)
+        >>> assert diagram[3:] == Id(n @ n.r) @ f >> cup @ h
+        >>> assert diagram[:2] >> diagram[2:] == diagram
+        """
+        return self._upgrade(super().__getitem__(key))
 
     @staticmethod
     def cups(left, right):
@@ -492,11 +543,9 @@ class Functor(moncat.Functor):
                     result = result.r
             return result
         if isinstance(diagram, Cup):
-            return self.ar_factory.cups(
-                self(diagram.dom[0]), self(diagram.dom[1]))
+            return self.ar_factory.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
-            return self.ar_factory.caps(
-                self(diagram.cod[0]), self(diagram.cod[1]))
+            return self.ar_factory.caps(self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
