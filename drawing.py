@@ -111,6 +111,32 @@ def draw(diagram, **params):
     asymmetry = params.get('asymmetry',
                            .25 * any(box.is_dagger for box in diagram.boxes))
 
+    def draw_line(axis, source, target):
+        if params.get('to_tikz', False):
+            axis.append("\\draw {};\n".format(" -- ".join(
+                "({}, {})".format(*point) for point in [source, target])))
+        else:
+            path = Path([source, (target[0], source[1]), target],
+                        [Path.MOVETO, Path.CURVE3, Path.CURVE3])
+            axis.add_patch(PathPatch(path, facecolor='none'))
+
+    def draw_text(axis, text, i, j, **text_params):
+        if params.get('to_tikz', False):
+            axis.append("\\node () at ({}, {}) {{{}}};\n".format(i, j, text))
+        else:
+            axis.text(i, j, text, **text_params)
+
+    def draw_polygon(axis, *points):
+        if params.get('to_tikz', False):
+            axis.append("\\draw {};\n".format(" -- ".join(
+                "({}, {})".format(*x) for x in points + points[:1])))
+        else:
+            codes = [Path.MOVETO]
+            codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
+            path = Path(points + points[:1], codes)
+            axis.add_patch(PathPatch(
+                path, facecolor=params.get('color', '#ffffff')))
+
     def draw_box(box, depth, axis):
         node = 'box_{}'.format(depth)
         if node not in graph.nodes():
@@ -136,48 +162,43 @@ def draw(diagram, **params):
             right = max(top_right, bottom_right)
         height = len(diagram) - depth - .75
         left, right = left - .25, right + .25
-        path = Path(
-            [(left, height),
-             (right + (asymmetry if box.is_dagger else 0), height),
-             (right + (0 if box.is_dagger else asymmetry), height + .5),
-             (left, height + .5), (left, height)],
-            [Path.MOVETO] + 3 * [Path.LINETO] + [Path.CLOSEPOLY])
-        axis.add_patch(PathPatch(
-            path, facecolor=params.get('color', '#ffffff')))
+        draw_polygon(
+            axis, (left, height),
+            (right + (asymmetry if box.is_dagger else 0), height),
+            (right + (0 if box.is_dagger else asymmetry), height + .5),
+            (left, height + .5))
         if params.get('draw_box_labels', True):
-            axis.text(positions[node][0], positions[node][1], str(box.name),
+            draw_text(axis, str(box.name), *positions[node],
                       ha='center', va='center',
                       fontsize=params.get('fontsize', 12))
 
     def draw_wires(axis):
         for case in ['input', 'output', 'wire_dom', 'wire_cod']:
-            nodes = [n for n in graph.nodes if n[:len(case)] == case]
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=nodes, node_size=0, ax=axis)
-            for node in nodes:
+            for node in [n for n in graph.nodes if n[:len(case)] == case]:
                 i, j = positions[node]
                 if params.get('draw_types', True)\
                         and case in ['input', 'wire_cod']:
                     if node in labels.keys():
-                        axis.text(
+                        draw_text(
+                            axis, labels[node],
                             i + params.get('textpad', .1),
                             j - (params.get('textpad', .1)
                                  if case == 'input' else 0),
-                            labels[node],
-                            fontsize=params.get(
-                                'fontsize_types',
-                                params.get('fontsize', 12)))
+                            fontsize=params.get('fontsize_types',
+                                                params.get('fontsize', 12)))
                 if not params.get('draw_as_nodes', False):
                     if case == 'wire_dom':
                         positions[node] = (i, j - .25)
                     elif case == 'wire_cod':
                         positions[node] = (i, j + .25)
         for node0, node1 in graph.edges():
-            source, target = positions[node0], positions[node1]
-            path = Path([source, (target[0], source[1]), target],
-                        [Path.MOVETO, Path.CURVE3, Path.CURVE3])
-            axis.add_patch(PathPatch(path, facecolor='none'))
-    _, axis = plt.subplots(figsize=params.get('figsize', None))
+            if "box" in (node0[:3], node1[:3])\
+                    and not params.get('draw_as_nodes', False):
+                continue
+            draw_line(axis, positions[node0], positions[node1])
+
+    axis = [] if params.get('to_tikz', False)\
+        else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
     if params.get('draw_as_nodes', False):
         boxes = [node for node in graph.nodes if node[:3] == 'box']
@@ -192,15 +213,23 @@ def draw(diagram, **params):
     else:
         for depth, box in enumerate(diagram.boxes):
             draw_box(box, depth, axis)
-    plt.margins(*params.get('margins', (.05, .05)))
-    plt.subplots_adjust(
-        top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-    axis.set_aspect(params.get('aspect', 'equal'))
-    plt.axis("off")
-    if 'path' in params:
-        plt.savefig(params['path'])
-        plt.close()
-    plt.show()
+    if params.get('to_tikz', False):
+        axis = ["\\begin{tikzpicture}\n"] + axis + ["\\end{tikzpicture}\n"]
+        if 'path' in params:
+            with open(params['path'], 'w+') as file:
+                file.writelines(axis)
+        else:  # pragma: no cover
+            print(''.join(axis))
+    else:
+        plt.margins(*params.get('margins', (.05, .05)))
+        plt.subplots_adjust(
+            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+        axis.set_aspect(params.get('aspect', 'equal'))
+        plt.axis("off")
+        if 'path' in params:
+            plt.savefig(params['path'])
+            plt.close()
+        plt.show()
 
 
 def to_gif(diagram, *diagrams, path=None, timestep=500, loop=False, **params):

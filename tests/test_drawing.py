@@ -8,7 +8,7 @@ from matplotlib.testing.compare import compare_images
 from discopy import *
 
 
-FOLDER, TOL = 'docs/imgs/', 0
+FOLDER, TOL = 'docs/imgs/', 5
 
 
 def draw_and_compare(file, folder=FOLDER, tol=TOL,
@@ -24,19 +24,19 @@ def draw_and_compare(file, folder=FOLDER, tol=TOL,
     return decorator
 
 
-# @draw_and_compare('crack-eggs.png', figsize=(5, 6), fontsize=18)
-# def test_draw_eggs():
-#     def merge(x):
-#         return Box('merge', x @ x, x)
-#
-#     def swap(x, y):
-#         return Box('swap', x @ y, y @ x)
-#     egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
-#     crack = Box('crack', egg, white @ yolk)
-#     crack_two_eggs = crack @ crack\
-#         >> Id(white) @ swap(yolk, white) @ Id(yolk)\
-#         >> merge(white) @ merge(yolk)
-#     return crack_two_eggs
+@draw_and_compare('crack-eggs.png', figsize=(5, 6), fontsize=18)
+def test_draw_eggs():
+    def merge(x):
+        return Box('merge', x @ x, x)
+
+    def swap(x, y):
+        return Box('swap', x @ y, y @ x)
+    egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
+    crack = Box('crack', egg, white @ yolk)
+    crack_two_eggs = crack @ crack\
+        >> Id(white) @ swap(yolk, white) @ Id(yolk)\
+        >> merge(white) @ merge(yolk)
+    return crack_two_eggs
 
 
 @draw_and_compare('snake-equation.png',
@@ -113,3 +113,11 @@ def test_Diagram_to_gif():
     img_test = Image.open(path_test).convert('RGB')
     assert ImageChops.difference(img_ref, img_test).getbbox() is None
     os.remove(path_test)
+
+
+def test_to_tikz():
+    moncat.spiral(2).draw(to_tikz=True, path="tests/.spiral.tex")
+    with open("tests/spiral.tex", "r") as true:
+        with open("tests/.spiral.tex", "r") as test:
+            assert true.read() == test.read()
+    os.remove("tests/.spiral.tex")
