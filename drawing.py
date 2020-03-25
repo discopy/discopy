@@ -198,8 +198,8 @@ def draw(diagram, **params):
                     if node in labels.keys():
                         draw_text(
                             axis, labels[node],
-                            i + params.get('textpad', .1),
-                            j - (params.get('textpad', .1)
+                            i + params.get('textpad', (.1, .1))[0],
+                            j - (params.get('textpad', (.1, .1))[1]
                                  if case == 'input' else 0),
                             fontsize=params.get('fontsize_types',
                                                 params.get('fontsize', 12)))
@@ -213,9 +213,12 @@ def draw(diagram, **params):
                     and not params.get('draw_as_nodes', False):
                 continue
             draw_line(axis, positions[node0], positions[node1])
-
+    cmds = [
+        "\\begin{{tikzpicture}}[{}]\n".format(
+            params.get('tikz_options', 'baseline=(0.base)')),
+        "\\node (0) at ({}, {}) {{}};\n".format(0, len(diagram) / 2)]
     # axis is a list of tikz commands if to_tikz else a matplotlib axis
-    axis = [] if params.get('to_tikz', False)\
+    axis = cmds if params.get('to_tikz', False)\
         else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
     if params.get('draw_as_nodes', False):
@@ -224,7 +227,7 @@ def draw(diagram, **params):
         for depth, box in enumerate(diagram.boxes):
             draw_box(axis, box, depth)
     if params.get('to_tikz', False):
-        axis = ["\\begin{tikzpicture}\n"] + axis + ["\\end{tikzpicture}\n"]
+        axis = [] + axis + ["\\end{tikzpicture}\n"]
         if 'path' in params:
             with open(params['path'], 'w+') as file:
                 file.writelines(axis)
