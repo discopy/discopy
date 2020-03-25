@@ -115,9 +115,21 @@ def test_Diagram_to_gif():
     os.remove(path_test)
 
 
-def test_to_tikz():
+def test_spiral_to_tikz():
     moncat.spiral(2).draw(to_tikz=True, path="tests/.spiral.tex")
     with open("tests/spiral.tex", "r") as true:
         with open("tests/.spiral.tex", "r") as test:
             assert true.read() == test.read()
     os.remove("tests/.spiral.tex")
+
+def test_copy_to_tikz():
+    x, y, z = map(Ty, ("$x$", "$y$", "$z$"))
+    swap = lambda x, y: Box("SWAP", x @ y, y @ x)
+    copy = lambda x: Box('COPY', x, x @ x)
+    double_copy = copy(x) @ copy(y) >> Id(x) @ swap(x, y) @ Id(y)
+    double_copy.draw(to_tikz=True, path="tests/.copy.tex",
+                 draw_as_nodes=True, draw_box_labels=False, color='black')
+    with open("tests/copy.tex", "r") as true:
+        with open("tests/.copy.tex", "r") as test:
+            assert true.read() == test.read()
+    os.remove("tests/.copy.tex")

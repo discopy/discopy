@@ -111,10 +111,27 @@ def draw(diagram, **params):
     asymmetry = params.get('asymmetry',
                            .25 * any(box.is_dagger for box in diagram.boxes))
 
+    def draw_nodes(axis, nodes):
+        if params.get('to_tikz', False):
+            lab = labels[node] if params.get('draw_box_labels', True) else ""
+            dec = "[circle, fill={}]".format(params.get('color', 'red'))
+            cmd = "\\node {1} () at ({2}, {3}) {{{0}}};\n"
+            for node in nodes:
+                axis.append(cmd.format(lab, dec, *positions[node]))
+        else:
+            nx.draw_networkx_nodes(
+                graph, positions, nodelist=nodes,
+                node_color=params.get('color', '#ff0000'), ax=axis)
+            if params.get('draw_box_labels', True):
+                nx.draw_networkx_labels(
+                    graph, positions,
+                    {n: l for n, l in labels.items() if n in nodes})
+
     def draw_line(axis, source, target):
         if params.get('to_tikz', False):
-            axis.append("\\draw {};\n".format(" -- ".join(
-                "({}, {})".format(*point) for point in [source, target])))
+            cmd = "\\draw {} .. controls {} .. {};\n"
+            axis.append(cmd.format(*("({}, {})".format(*point)
+                for point in [source, (target[0], source[1]), target])))
         else:
             path = Path([source, (target[0], source[1]), target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
@@ -137,7 +154,7 @@ def draw(diagram, **params):
             axis.add_patch(PathPatch(
                 path, facecolor=params.get('color', '#ffffff')))
 
-    def draw_box(box, depth, axis):
+    def draw_box(axis, box, depth):
         node = 'box_{}'.format(depth)
         if node not in graph.nodes():
             return
@@ -197,22 +214,15 @@ def draw(diagram, **params):
                 continue
             draw_line(axis, positions[node0], positions[node1])
 
+    # axis is a list of tikz commands if to_tikz else a matplotlib axis
     axis = [] if params.get('to_tikz', False)\
         else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
     if params.get('draw_as_nodes', False):
-        boxes = [node for node in graph.nodes if node[:3] == 'box']
-        nx.draw_networkx_nodes(
-            graph, positions, nodelist=boxes,
-            node_color=params.get('color', '#ff0000'), ax=axis)
-
-        if params.get('draw_box_labels', True):
-            nx.draw_networkx_labels(
-                graph, positions,
-                {n: l for n, l in labels.items() if n in boxes})
+        draw_nodes(axis, [node for node in graph.nodes if node[:3] == 'box'])
     else:
         for depth, box in enumerate(diagram.boxes):
-            draw_box(box, depth, axis)
+            draw_box(axis, box, depth)
     if params.get('to_tikz', False):
         axis = ["\\begin{tikzpicture}\n"] + axis + ["\\end{tikzpicture}\n"]
         if 'path' in params:
