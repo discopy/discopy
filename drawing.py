@@ -31,7 +31,7 @@ def diagram_to_nx(diagram):
         * :code:`positions` is a dict from nodes to pairs of floats,
         * :code:`labels` is a dict from nodes to strings.
     """
-    graph, pos, labels = nx.Graph(), dict(), dict()
+    graph, pos, labels = nx.DiGraph(), dict(), dict()
 
     def add_node(node, position, label=None):
         graph.add_node(node)
@@ -128,12 +128,18 @@ def draw(diagram, **params):
                     {n: l for n, l in labels.items() if n in nodes})
 
     def draw_line(axis, source, target):
+        pos0, pos1 = positions[source], positions[target]
         if params.get('to_tikz', False):
-            cmd = "\\draw {} .. controls {} .. {};\n"
+            out = -90 if 'box' not in source or pos0[0] == pos1[0]\
+                else (180 if pos0[0] > pos1[0] else 0)
+            inp = 90 if 'box' not in target or pos0[0] == pos1[0]\
+                    else (180 if pos0[0] < pos1[0] else 0)
+            cmd = "\\draw [out={}, in={}] {{}} to {{}};\n".format(out, inp)
             axis.append(cmd.format(*("({}, {})".format(*point)
-                for point in [source, (target[0], source[1]), target])))
+                for point in [positions[source], positions[target]])))
         else:
-            path = Path([source, (target[0], source[1]), target],
+            mid = (pos1[0], pos0[1]) if 'box' in source else (pos0[0], pos1[1])
+            path = Path([pos0, mid, pos1],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             axis.add_patch(PathPatch(path, facecolor='none'))
 
@@ -208,11 +214,11 @@ def draw(diagram, **params):
                         positions[node] = (i, j - .25)
                     elif case == 'wire_cod':
                         positions[node] = (i, j + .25)
-        for node0, node1 in graph.edges():
-            if "box" in (node0[:3], node1[:3])\
+        for source, target in graph.edges():
+            if "box" in (source[:3], target[:3])\
                     and not params.get('draw_as_nodes', False):
                 continue
-            draw_line(axis, positions[node0], positions[node1])
+            draw_line(axis, source, target)
     cmds = [
         "\\begin{{tikzpicture}}[{}]\n".format(
             params.get('tikz_options', 'baseline=(0.base)')),
