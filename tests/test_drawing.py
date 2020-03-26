@@ -8,18 +8,19 @@ from matplotlib.testing.compare import compare_images
 from discopy import *
 
 
-FOLDER, TOL = 'docs/imgs/', 10
+IMG_FOLDER, TIKZ_FOLDER, TOL = 'tests/imgs/', 'tests/tikz/', 10
 
 
-def draw_and_compare(file, folder=FOLDER, tol=TOL,
+def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
                      draw=Diagram.draw, **params):
     def decorator(func):
         def wrapper():
-            draw(func(), path=os.path.join(folder, '.' + file), **params)
-            test = compare_images(os.path.join(folder, file),
-                                  os.path.join(folder, '.' + file), tol)
+            true_path = os.path.join(folder, file)
+            test_path = os.path.join(folder, '.' + file)
+            draw(func(), path=test_path, **params)
+            test = compare_images(true_path, test_path, tol)
             assert test is None
-            os.remove(os.path.join(folder, '.' + file))
+            os.remove(test_path)
         return wrapper
     return decorator
 
@@ -99,8 +100,8 @@ def test_draw_bell_state():
 
 def test_Diagram_to_gif():
     file = 'EckmannHilton.gif'
-    path_ref = os.path.join(FOLDER, file)
-    path_test = os.path.join(FOLDER, '.' + file)
+    path_ref = os.path.join(IMG_FOLDER, file)
+    path_test = os.path.join(IMG_FOLDER, '.' + file)
 
     step0 = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
     step1 = next(step0.normalize())
@@ -115,21 +116,29 @@ def test_Diagram_to_gif():
     os.remove(path_test)
 
 
-def test_spiral_to_tikz():
-    moncat.spiral(2).draw(to_tikz=True, path="tests/.spiral.tex")
-    with open("tests/spiral.tex", "r") as true:
-        with open("tests/.spiral.tex", "r") as test:
-            assert true.read() == test.read()
-    os.remove("tests/.spiral.tex")
+def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
+    def decorator(func):
+        def wrapper():
+            true_path = os.path.join(folder, file)
+            test_path = os.path.join(folder, '.' + file)
+            func().draw(to_tikz=True, path=test_path, **params)
+            with open(true_path, "r") as true:
+                with open(test_path, "r") as test:
+                    assert true.read() == test.read()
+            os.remove(test_path)
+        return wrapper
+    return decorator
 
+
+@tikz_and_compare("spiral.tex")
+def test_spiral_to_tikz():
+    return moncat.spiral(2)
+
+
+@tikz_and_compare("copy.tex",
+                  draw_as_nodes=True, draw_box_labels=False, color='black')
 def test_copy_to_tikz():
     x, y, z = map(Ty, ("$x$", "$y$", "$z$"))
     swap = lambda x, y: Box("SWAP", x @ y, y @ x)
     copy = lambda x: Box('COPY', x, x @ x)
-    double_copy = copy(x) @ copy(y) >> Id(x) @ swap(x, y) @ Id(y)
-    double_copy.draw(to_tikz=True, path="tests/.copy.tex",
-                 draw_as_nodes=True, draw_box_labels=False, color='black')
-    with open("tests/copy.tex", "r") as true:
-        with open("tests/.copy.tex", "r") as test:
-            assert true.read() == test.read()
-    os.remove("tests/.copy.tex")
+    return copy(x) @ copy(y) >> Id(x) @ swap(x, y) @ Id(y)
