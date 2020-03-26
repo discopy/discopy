@@ -40,16 +40,6 @@ def test_draw_eggs():
     return crack_two_eggs
 
 
-@draw_and_compare('snake-equation.png',
-                  aspect='auto', figsize=(5, 2), draw_as_nodes=True,
-                  color='#ffffff', draw_types=False)
-def test_draw_snake():
-    x, eq = Ty('x'), Box('=', Ty(), Ty())
-    diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
-    diagram = diagram.interchange(1, 4).interchange(3, 1, left=True)
-    return diagram
-
-
 @draw_and_compare('typed-snake-equation.png',
                   figsize=(5, 3), aspect='auto',
                   draw_as_nodes=True, color='#ffffff')
@@ -150,3 +140,22 @@ def test_sentence_to_tikz():
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+
+
+def draw_equation(diagrams, **params):
+    return drawing.equation(*diagrams, **params)
+
+
+@draw_and_compare("snake-equation.png", draw=draw_equation,
+                  aspect='auto', figsize=(5, 2), draw_as_nodes=True,
+                  color='#ffffff', draw_types=False)
+def test_snake_equation():
+    x = Ty('x')
+    return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()
+
+
+@tikz_and_compare("snake-equation.tex", draw=draw_equation,
+                  textpad=(.2, .2), textpad_words=(0, .25))
+def test_snake_equation_to_tikz():
+    x = Ty('x')
+    return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()

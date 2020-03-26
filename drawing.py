@@ -103,6 +103,15 @@ def diagram_to_nx(diagram):
     return graph, pos, labels
 
 
+def save_tikz(commands, path=None):
+    """
+    Save a list of tikz commands.
+    """
+    with open(path, 'w+') as file:
+        file.writelines(
+            ["\\begin{tikzpicture}\n"] + commands + ["\\end{tikzpicture}\n"])
+
+
 def draw_text(axis, text, i, j, to_tikz=False, **params):
     """
     Draws `text` on `axis` as position `(i, j)`.
@@ -149,13 +158,18 @@ def draw_wire(axis, source, target,
         axis.add_patch(PathPatch(path, facecolor='none'))
 
 
-def draw(diagram, **params):
+def draw(diagram, axis=None, data=None, **params):
     """
     Draws a diagram, see :meth:`moncat.Diagram.draw` for a list of parameters.
     """
-    graph, positions, labels = diagram_to_nx(diagram)
     asymmetry = params.get('asymmetry',
                            .25 * any(box.is_dagger for box in diagram.boxes))
+    graph, positions, labels = diagram_to_nx(diagram) if data is None else data
+
+    scale_x, scale_y = params.get('scale', (1, 1))
+    pad_x, pad_y = params.get('pad', (0, 0))
+    positions = {n: (x * scale_x + pad_x, y * scale_y + pad_y)
+                 for n, (x, y) in positions.items()}
 
     def draw_nodes(axis, nodes):
         if params.get('to_tikz', False):
@@ -197,7 +211,7 @@ def draw(diagram, **params):
                 for i in [0, len(box.cod) - 1])
             left = min(top_left, bottom_left)
             right = max(top_right, bottom_right)
-        height = len(diagram) - depth - .75
+        height = positions[node][1] - .25
         left, right = left - .25, right + .25
         draw_polygon(
             axis, (left, height),
@@ -233,13 +247,9 @@ def draw(diagram, **params):
             draw_wire(axis, positions[source], positions[target],
                       bend_out='box' in source, bend_in='box' in target,
                       to_tikz=params.get('to_tikz', False))
-    cmds = [
-        "\\begin{{tikzpicture}}[{}]\n".format(
-            params.get('tikz_options', 'baseline=(0.base)')),
-        "\\node (0) at ({}, {}) {{}};\n".format(0, len(diagram) / 2)]
-    # axis is a list of tikz commands if to_tikz else a matplotlib axis
-    axis = cmds if params.get('to_tikz', False)\
-        else plt.subplots(figsize=params.get('figsize', None))[1]
+    if axis is None:
+        axis = [] if params.get('to_tikz', False)\
+            else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
     if params.get('draw_as_nodes', False):
         draw_nodes(axis, [node for node in graph.nodes if node[:3] == 'box'])
@@ -247,12 +257,8 @@ def draw(diagram, **params):
         for depth, box in enumerate(diagram.boxes):
             draw_box(axis, box, depth)
     if params.get('to_tikz', False):
-        axis += ["\\end{tikzpicture}\n"]
         if 'path' in params:
-            with open(params['path'], 'w+') as file:
-                file.writelines(axis)
-        else:  # pragma: no cover
-            print(''.join(axis))
+            save_tikz(axis, params['path'])
     else:
         plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
@@ -262,7 +268,9 @@ def draw(diagram, **params):
         if 'path' in params:
             plt.savefig(params['path'])
             plt.close()
-        plt.show()
+        if params.get('show', True):
+            plt.show()
+    return axis
 
 
 def to_gif(diagram, *diagrams, path=None, timestep=500, loop=False, **params):
@@ -288,6 +296,32 @@ def to_gif(diagram, *diagrams, path=None, timestep=500, loop=False, **params):
 def pregroup_draw(words, cups, **params):
     """
     Draws pregroup words and cups.
+
+    >>> from discopy import *
+    >>> s, n = Ty('s'), Ty('n')
+    >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    >>> words, *cups = sentence.foliation().boxes
+    >>> pregroup_draw(words, cups, to_tikz=True)
+    \\node () at (1.1, -0.2) {n};
+    \\draw (0.0, 0) -- (2.0, 0) -- (1.0, 1) -- (0.0, 0);
+    \\node () at (1.0, 0.1) {Alice};
+    \\node () at (3.1, -0.2) {n.r};
+    \\node () at (3.6, -0.2) {s};
+    \\node () at (4.1, -0.2) {n.l};
+    \\draw (2.5, 0) -- (4.5, 0) -- (3.5, 1) -- (2.5, 0);
+    \\node () at (3.5, 0.1) {loves};
+    \\node () at (6.1, -0.2) {n};
+    \\draw (5.0, 0) -- (7.0, 0) -- (6.0, 1) -- (5.0, 0);
+    \\node () at (6.0, 0.1) {Bob};
+    \\draw [out=-90, in=180] (1.0, 0) to (2.0, -1);
+    \\draw [out=-90, in=0] (3.0, 0) to (2.0, -1);
+    \\draw [out=-90, in=180] (4.0, 0) to (5.0, -1);
+    \\draw [out=-90, in=0] (6.0, 0) to (5.0, -1);
+    \\draw [out=-90, in=90] (3.5, 0) to (3.5, -2);
+    \\node () at (3.6, -1.5) {s};
+    <BLANKLINE>
     """
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
@@ -335,16 +369,14 @@ def pregroup_draw(words, cups, **params):
                           scan[i] + textpad[0], - len(cups) - space,
                           fontsize=params.get('fontsize_types', fontsize),
                           to_tikz=params.get('to_tikz', False))
-    axis = ["\\begin{tikzpicture}\n"] if params.get('to_tikz', False)\
+    axis = [] if params.get('to_tikz', False)\
         else plt.subplots(figsize=params.get('figsize', None))[1]
     scan = draw_triangles(axis, words.normal_form())
     draw_cups_and_wires(axis, cups, scan)
     if params.get('to_tikz', False):
-        axis += ["\\end{tikzpicture}\n"]
         if 'path' in params:
-            with open(params['path'], 'w+') as file:
-                file.writelines(axis)
-        else:  # pragma: no cover
+            save_tikz(axis, params['path'])
+        else:
             print(''.join(axis))
     else:
         plt.margins(*params.get('margins', (.05, .05)))
@@ -356,5 +388,63 @@ def pregroup_draw(words, cups, **params):
         axis.set_aspect(params.get('aspect', 'equal'))
         if 'path' in params.keys():
             plt.savefig(params['path'])
+            plt.close()
+        plt.show()
+
+
+def equation(*diagrams, symbol="=", space=1, **params):
+    """
+    >>> from discopy import *
+    >>> x = Ty('x')
+    >>> diagrams = Id(x.r).transpose_l(), Id(x.l).transpose_r()
+    >>> equation(*diagrams, to_tikz=True)
+    \\node () at (0.1, 2.0) {x};
+    \\node () at (1.1, 1.15) {x.r};
+    \\node () at (2.1, 1.15) {x};
+    \\draw [out=-90, in=90] (0, 2.0) to (0, 0.75);
+    \\draw [out=180, in=90] (1.5, 1.5) to (1.0, 1.25);
+    \\draw [out=0, in=90] (1.5, 1.5) to (2.0, 1.25);
+    \\draw [out=-90, in=90] (1.0, 1.25) to (1.0, 0.75);
+    \\draw [out=-90, in=90] (2.0, 1.25) to (2.0, 0.0);
+    \\draw [out=-90, in=180] (0, 0.75) to (0.5, 0.5);
+    \\draw [out=-90, in=0] (1.0, 0.75) to (0.5, 0.5);
+    \\node () at (3.0, 1.0) {=};
+    \\node () at (6.1, 2.0) {x};
+    \\node () at (4.1, 1.15) {x};
+    \\node () at (5.1, 1.15) {x.l};
+    \\draw [out=-90, in=90] (6.0, 2.0) to (6.0, 0.75);
+    \\draw [out=180, in=90] (4.5, 1.5) to (4.0, 1.25);
+    \\draw [out=0, in=90] (4.5, 1.5) to (5.0, 1.25);
+    \\draw [out=-90, in=90] (4.0, 1.25) to (4.0, 0.0);
+    \\draw [out=-90, in=90] (5.0, 1.25) to (5.0, 0.75);
+    \\draw [out=-90, in=180] (5.0, 0.75) to (5.5, 0.5);
+    \\draw [out=-90, in=0] (6.0, 0.75) to (5.5, 0.5);
+    <BLANKLINE>
+    """
+    axis, pad, max_height = None, 0, max(map(len, diagrams))
+    path = params.get("path", None)
+    if "path" in params:
+        del params['path']
+    for i, diagram in enumerate(diagrams):
+        graph, positions, labels = diagram_to_nx(diagram)
+        widths, height = {x for x, _ in positions.values()}, len(diagram) or 1
+        min_width, max_width = min(widths), max(widths)
+        positions = {n: (x - min_width, y) for n, (x, y) in positions.items()}
+        axis = diagram.draw(axis=axis, data=(graph, positions, labels),
+                            scale=(1, max_height / height), pad=(pad, 0),
+                            show=False, **params)
+        pad += max_width - min_width + space
+        if i < len(diagrams) - 1:
+            draw_text(axis, symbol, pad, max_height / 2,
+                      to_tikz=params.get('to_tikz', False))
+            pad += space
+    if params.get('to_tikz', False):
+        if path is not None:
+            save_tikz(axis, path)
+        else:  # pragma: no cover
+            print(''.join(axis))
+    else:
+        if path is not None:
+            plt.savefig(path)
             plt.close()
         plt.show()
