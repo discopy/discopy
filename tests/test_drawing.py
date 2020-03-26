@@ -116,12 +116,12 @@ def test_Diagram_to_gif():
     os.remove(path_test)
 
 
-def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
+def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
     def decorator(func):
         def wrapper():
             true_path = os.path.join(folder, file)
             test_path = os.path.join(folder, '.' + file)
-            func().draw(to_tikz=True, path=test_path, **params)
+            draw(func(), to_tikz=True, path=test_path, **params)
             with open(true_path, "r") as true:
                 with open(test_path, "r") as test:
                     assert true.read() == test.read()
@@ -141,3 +141,12 @@ def test_copy_to_tikz():
     x, y, z = map(Ty, ("$x$", "$y$", "$z$"))
     return Box('COPY', x, x @ x) @ Box('COPY', y, y @ y)\
         >> Id(x) @ Box("SWAP", x @ y, y @ x) @ Id(y)
+
+
+@tikz_and_compare("alice-loves-bob.tex", draw=pregroup.draw,
+                  textpad=(.2, .2), textpad_words=(0, .25))
+def test_sentence_to_tikz():
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r @ s @ n.l)
+    return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)

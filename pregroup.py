@@ -113,8 +113,8 @@ def draw(diagram, **params):
         Width of the word triangles, default is :code:`2.0`.
     space : float, optional
         Space between word triangles, default is :code:`0.5`.
-    textpad : float, optional
-        Padding between text and wires, default is :code:`0.1`.
+    textpad : pair of floats, optional
+        Padding between text and wires, default is :code:`(0.1, 0.2)`.
     draw_types : bool, optional
         Whether to draw type labels, default is :code:`True`.
     aspect : string, optional

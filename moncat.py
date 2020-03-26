@@ -832,7 +832,7 @@ class Functor(cat.Functor):
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
             return sum([self.ob[type(diagram)(x)] for x in diagram],
-                       self.ob_factory())  # the empty type is the unit for sum.
+                       self.ob_factory())  # the empty type is the unit.
         if isinstance(diagram, Box):
             return super().__call__(diagram)
         if isinstance(diagram, Diagram):
