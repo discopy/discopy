@@ -46,13 +46,13 @@ def diagram_to_nx(diagram):
                  (x_pos, len(diagram) - depth - .5), str(box))
         for i, _ in enumerate(box.dom):
             wire, position = 'wire_dom_{}_{}'.format(depth, i), (
-                pos[scan[off + i]][0], len(diagram) - depth)
+                pos[scan[off + i]][0], len(diagram) - depth - .25)
             add_node(wire, position, str(box.dom[i]))
             graph.add_edge(scan[off + i], wire)
             graph.add_edge(wire, node)
         for i, _ in enumerate(box.cod):
             wire, position = 'wire_cod_{}_{}'.format(depth, i), (
-                x_pos - len(box.cod[1:]) / 2 + i, len(diagram) - depth - 1)
+                x_pos - len(box.cod[1:]) / 2 + i, len(diagram) - depth - .75)
             add_node(wire, position, str(box.cod[i]))
             graph.add_edge(node, wire)
         return scan[:off] + ['wire_cod_{}_{}'.format(depth, i)
@@ -113,10 +113,11 @@ def draw(diagram, **params):
 
     def draw_nodes(axis, nodes):
         if params.get('to_tikz', False):
-            lab = labels[node] if params.get('draw_box_labels', True) else ""
             dec = "[circle, fill={}]".format(params.get('color', 'red'))
             cmd = "\\node {1} () at ({2}, {3}) {{{0}}};\n"
             for node in nodes:
+                lab = labels[node]\
+                    if params.get('draw_box_labels', True) else ""
                 axis.append(cmd.format(lab, dec, *positions[node]))
         else:
             nx.draw_networkx_nodes(
@@ -127,16 +128,16 @@ def draw(diagram, **params):
                     graph, positions,
                     {n: l for n, l in labels.items() if n in nodes})
 
-    def draw_line(axis, source, target):
+    def draw_wire(axis, source, target):
         pos0, pos1 = positions[source], positions[target]
         if params.get('to_tikz', False):
             out = -90 if 'box' not in source or pos0[0] == pos1[0]\
                 else (180 if pos0[0] > pos1[0] else 0)
             inp = 90 if 'box' not in target or pos0[0] == pos1[0]\
-                    else (180 if pos0[0] < pos1[0] else 0)
+                else (180 if pos0[0] < pos1[0] else 0)
             cmd = "\\draw [out={}, in={}] {{}} to {{}};\n".format(out, inp)
             axis.append(cmd.format(*("({}, {})".format(*point)
-                for point in [positions[source], positions[target]])))
+                        for point in [positions[source], positions[target]])))
         else:
             mid = (pos1[0], pos0[1]) if 'box' in source else (pos0[0], pos1[1])
             path = Path([pos0, mid, pos1],
@@ -202,23 +203,23 @@ def draw(diagram, **params):
                 if params.get('draw_types', True)\
                         and case in ['input', 'wire_cod']:
                     if node in labels.keys():
+                        pad_i, pad_j = params.get('textpad', (.1, .1))
                         draw_text(
                             axis, labels[node],
-                            i + params.get('textpad', (.1, .1))[0],
-                            j - (params.get('textpad', (.1, .1))[1]
-                                 if case == 'input' else 0),
+                            i + pad_i, j - (0 if case == 'input' else pad_j),
                             fontsize=params.get('fontsize_types',
-                                                params.get('fontsize', 12)))
-                if not params.get('draw_as_nodes', False):
-                    if case == 'wire_dom':
-                        positions[node] = (i, j - .25)
-                    elif case == 'wire_cod':
-                        positions[node] = (i, j + .25)
+                                                params.get('fontsize', 12)),
+                            verticalalignment='top')
+                # if not params.get('draw_as_nodes', False):
+                #     if case == 'wire_dom':
+                #         positions[node] = (i, j - .25)
+                #     elif case == 'wire_cod':
+                #         positions[node] = (i, j + .25)
         for source, target in graph.edges():
             if "box" in (source[:3], target[:3])\
                     and not params.get('draw_as_nodes', False):
                 continue
-            draw_line(axis, source, target)
+            draw_wire(axis, source, target)
     cmds = [
         "\\begin{{tikzpicture}}[{}]\n".format(
             params.get('tikz_options', 'baseline=(0.base)')),

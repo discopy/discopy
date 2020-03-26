@@ -694,8 +694,8 @@ class Diagram(cat.Arrow):
         color : string, optional
             Color of the box or node, default is white (:code:`'#ffffff'`) for
             boxes and red (:code:`'#ff0000'`) for nodes.
-        textpad : float, optional
-            Padding between text and wires, default is :code:`0.1`.
+        textpad : pair of floats, optional
+            Padding between text and wires, default is :code:`(0.1, 0.1)`.
         draw_types : bool, optional
             Whether to draw type labels, default is :code:`False`.
         draw_box_labels : bool, optional
@@ -712,6 +712,12 @@ class Diagram(cat.Arrow):
             Figure size.
         path : str, optional
             Where to save the image, if `None` we call :code:`plt.show()`.
+        to_tikz : bool, optional
+            Whether to output tikz code instead of matplotlib,
+            default is :code:`False`.
+        tikz_options : string, optional
+            Extra options for tikzpicture,
+            default is :code:`"baseline=(0.base)"`
         """
         return drawing.draw(self, **params)
 

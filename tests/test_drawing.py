@@ -139,6 +139,5 @@ def test_spiral_to_tikz():
                   draw_as_nodes=True, draw_box_labels=False, color='black')
 def test_copy_to_tikz():
     x, y, z = map(Ty, ("$x$", "$y$", "$z$"))
-    swap = lambda x, y: Box("SWAP", x @ y, y @ x)
-    copy = lambda x: Box('COPY', x, x @ x)
-    return copy(x) @ copy(y) >> Id(x) @ swap(x, y) @ Id(y)
+    return Box('COPY', x, x @ x) @ Box('COPY', y, y @ y)\
+        >> Id(x) @ Box("SWAP", x @ y, y @ x) @ Id(y)
