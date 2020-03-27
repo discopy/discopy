@@ -17,7 +17,7 @@ from matplotlib.patches import PathPatch
 WIRE_BOXES = ['CUP', 'CAP', 'SWAP']
 
 
-def diagram_to_nx(diagram):
+def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     """
     Builds a networkx graph, called by :meth:`Diagram.draw`.
 
@@ -89,6 +89,24 @@ def diagram_to_nx(diagram):
                     pos[node] = (pos[node][0] + pad, pos[node][1])
         return x_pos
 
+    def scale_and_pad(pos):
+        widths, heights = zip(*pos.values())
+        min_width, max_width = min(widths), max(widths)
+        min_height, max_height = min(heights), max(heights)
+        pos = {n: ((x - min_width) * scale[0] + pad[0],
+                   (y - min_height) * scale[1] + pad[1])
+               for n, (x, y) in pos.items()}
+        for depth, box in enumerate(diagram.boxes):
+            if "box_{}".format(depth) in pos:
+                for i, _ in enumerate(box.dom):
+                    node = "wire_dom_{}_{}".format(depth, i)
+                    pos[node] = (
+                        pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
+                for i, _ in enumerate(box.cod):
+                    node = "wire_cod_{}_{}".format(depth, i)
+                    pos[node] = (
+                        pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
+        return pos
     for i, _ in enumerate(diagram.dom):
         add_node('input_{}'.format(i),
                  (i, len(diagram.boxes[:-1]) + 1), str(diagram.dom[i]))
@@ -100,7 +118,7 @@ def diagram_to_nx(diagram):
         add_node('output_{}'.format(i),
                  (pos[scan[i]][0], 0), str(diagram.cod[i]))
         graph.add_edge(scan[i], 'output_{}'.format(i))
-    return graph, pos, labels
+    return graph, scale_and_pad(pos), labels
 
 
 def save_tikz(commands, path=None):
@@ -143,7 +161,12 @@ def draw_wire(axis, source, target,
     """
     Draws a wire from source to target using a Bezier curve.
     """
-    if to_tikz:
+    mid = (target[0], source[1]) if bend_out else (source[0], target[1])
+    if to_tikz == "controls":
+        cmd = "\\draw {} .. controls {} .. {};\n"
+        axis.append(cmd.format(*("({}, {})".format(*point)
+                                 for point in [source, mid, target])))
+    elif to_tikz:
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -152,7 +175,6 @@ def draw_wire(axis, source, target,
         axis.append(cmd.format(*("({}, {})".format(*point)
                                  for point in [source, target])))
     else:
-        mid = (target[0], source[1]) if bend_out else (source[0], target[1])
         path = Path([source, mid, target],
                     [Path.MOVETO, Path.CURVE3, Path.CURVE3])
         axis.add_patch(PathPatch(path, facecolor='none'))
@@ -164,12 +186,9 @@ def draw(diagram, axis=None, data=None, **params):
     """
     asymmetry = params.get('asymmetry',
                            .25 * any(box.is_dagger for box in diagram.boxes))
-    graph, positions, labels = diagram_to_nx(diagram) if data is None else data
-
-    scale_x, scale_y = params.get('scale', (1, 1))
-    pad_x, pad_y = params.get('pad', (0, 0))
-    positions = {n: (x * scale_x + pad_x, y * scale_y + pad_y)
-                 for n, (x, y) in positions.items()}
+    scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
+    graph, positions, labels =\
+        diagram_to_nx(diagram, scale, pad) if data is None else data
 
     def draw_nodes(axis, nodes):
         if params.get('to_tikz', False):
@@ -321,7 +340,6 @@ def pregroup_draw(words, cups, **params):
     \\draw [out=-90, in=0] (6.0, 0) to (5.0, -1);
     \\draw [out=-90, in=90] (3.5, 0) to (3.5, -2);
     \\node () at (3.6, -1.5) {s};
-    <BLANKLINE>
     """
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
@@ -377,7 +395,7 @@ def pregroup_draw(words, cups, **params):
         if 'path' in params:
             save_tikz(axis, params['path'])
         else:
-            print(''.join(axis))
+            print(''.join(axis).strip())
     else:
         plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
@@ -419,20 +437,16 @@ def equation(*diagrams, symbol="=", space=1, **params):
     \\draw [out=-90, in=90] (5.0, 1.25) to (5.0, 0.75);
     \\draw [out=-90, in=180] (5.0, 0.75) to (5.5, 0.5);
     \\draw [out=-90, in=0] (6.0, 0.75) to (5.5, 0.5);
-    <BLANKLINE>
     """
     axis, pad, max_height = None, 0, max(map(len, diagrams))
-    path = params.get("path", None)
-    if "path" in params:
-        del params['path']
+    path = params.pop("path", None)
     for i, diagram in enumerate(diagrams):
-        graph, positions, labels = diagram_to_nx(diagram)
-        widths, height = {x for x, _ in positions.values()}, len(diagram) or 1
-        min_width, max_width = min(widths), max(widths)
-        positions = {n: (x - min_width, y) for n, (x, y) in positions.items()}
+        graph, positions, labels = diagram_to_nx(
+            diagram, scale=(1, max_height / (len(diagram) or 1)), pad=(pad, 0))
         axis = diagram.draw(axis=axis, data=(graph, positions, labels),
-                            scale=(1, max_height / height), pad=(pad, 0),
                             show=False, **params)
+        widths = {x for x, _ in positions.values()}
+        min_width, max_width = min(widths), max(widths)
         pad += max_width - min_width + space
         if i < len(diagrams) - 1:
             draw_text(axis, symbol, pad, max_height / 2,
@@ -441,8 +455,8 @@ def equation(*diagrams, symbol="=", space=1, **params):
     if params.get('to_tikz', False):
         if path is not None:
             save_tikz(axis, path)
-        else:  # pragma: no cover
-            print(''.join(axis))
+        else:
+            print(''.join(axis).strip())
     else:
         if path is not None:
             plt.savefig(path)
