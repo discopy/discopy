@@ -29,25 +29,12 @@ def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
-
-    def swap(x, y):
-        return Box('swap', x @ y, y @ x)
     egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
     crack = Box('crack', egg, white @ yolk)
     crack_two_eggs = crack @ crack\
-        >> Id(white) @ swap(yolk, white) @ Id(yolk)\
+        >> Id(white) @ Box('SWAP', yolk @ white, white @ yolk) @ Id(yolk)\
         >> merge(white) @ merge(yolk)
     return crack_two_eggs
-
-
-@draw_and_compare('typed-snake-equation.png',
-                  figsize=(5, 3), aspect='auto',
-                  draw_as_nodes=True, color='#ffffff')
-def test_draw_typed_snake():
-    x, eq = Ty('x'), Box('=', Ty(), Ty())
-    diagram = Id(x.r).transpose_l() @ eq @ Id(x) @ eq @ Id(x.l).transpose_r()
-    diagram = diagram.interchange(1, 4).interchange(3, 1, left=True)
-    return diagram
 
 
 @draw_and_compare('spiral.png', draw_types=False, draw_box_labels=False)
@@ -111,9 +98,15 @@ def draw_equation(diagrams, **params):
 
 
 @draw_and_compare("snake-equation.png", draw=draw_equation,
-                  aspect='auto', figsize=(5, 2), draw_as_nodes=True,
-                  color='#ffffff', draw_types=False)
+                  aspect='auto', figsize=(5, 2), draw_types=False)
 def test_snake_equation():
+    x = Ty('x')
+    return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()
+
+
+@draw_and_compare('typed-snake-equation.png', draw=draw_equation,
+                  figsize=(5, 2), aspect='auto')
+def test_draw_typed_snake():
     x = Ty('x')
     return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()
 

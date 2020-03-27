@@ -37,7 +37,7 @@ from discopy import Ty, Box, Id
 egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
 crack = Box('crack', egg, white @ yolk)
 merge = lambda x: Box('merge', x @ x, x)
-swap = lambda x, y: Box('swap', x @ y, y @ x)
+swap = lambda x, y: Box('SWAP', x @ y, y @ x)
 
 crack_two_eggs = crack @ crack\
     >> Id(white) @ swap(yolk, white) @ Id(yolk)\
@@ -49,8 +49,7 @@ crack_two_eggs.draw(path='docs/imgs/crack-eggs.png')
 
 ### Snakes & Sentences
 
-Wires are never allowed to cross, i.e. `discopy` diagrams are _planar string diagrams_.
-However, wires can be bended using two special kinds of boxes: **cups** and **caps**, which satisfy the **snake equations**, also called [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
+Wires can be bended using two special kinds of boxes: **cups** and **caps**, which satisfy the **snake equations**, also called [triangle identities](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
 from discopy import Cup, Cap
