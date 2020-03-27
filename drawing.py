@@ -121,13 +121,15 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     return graph, scale_and_pad(pos), labels
 
 
-def save_tikz(commands, path=None):
+def save_tikz(commands, path=None, baseline=0):
     """
     Save a list of tikz commands.
     """
+    begin = ["\\begin{tikzpicture}[baseline=(O.base)]\n",
+             "\\node (O) at (0, {}) {{}};\n".format(baseline)]
+    end = ["\\end{tikzpicture}\n"]
     with open(path, 'w+') as file:
-        file.writelines(
-            ["\\begin{tikzpicture}\n"] + commands + ["\\end{tikzpicture}\n"])
+        file.writelines(begin + commands + end)
 
 
 def draw_text(axis, text, i, j, to_tikz=False, **params):
@@ -277,7 +279,7 @@ def draw(diagram, axis=None, data=None, **params):
             draw_box(axis, box, depth)
     if params.get('to_tikz', False):
         if 'path' in params:
-            save_tikz(axis, params['path'])
+            save_tikz(axis, params['path'], baseline=len(diagram) / 2 or .5)
     else:
         plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
@@ -454,7 +456,7 @@ def equation(*diagrams, symbol="=", space=1, **params):
             pad += space
     if params.get('to_tikz', False):
         if path is not None:
-            save_tikz(axis, path)
+            save_tikz(axis, path, baseline=max_height / 2)
         else:
             print(''.join(axis).strip())
     else:
