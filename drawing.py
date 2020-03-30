@@ -262,8 +262,8 @@ def draw(diagram, axis=None, data=None, **params):
                                                 params.get('fontsize', 12)),
                             verticalalignment='top')
         for source, target in graph.edges():
-            if "box" in (source[:3], target[:3])\
-                    and not params.get('draw_as_nodes', False):
+            if "box" in [source[:3], target[:3]] and not any(
+                    n in [source, target] for n in params['draw_as_nodes']):
                 continue
             draw_wire(axis, positions[source], positions[target],
                       bend_out='box' in source, bend_in='box' in target,
@@ -271,12 +271,17 @@ def draw(diagram, axis=None, data=None, **params):
     if axis is None:
         axis = [] if params.get('to_tikz', False)\
             else plt.subplots(figsize=params.get('figsize', None))[1]
+    if params.get('draw_as_nodes', []) is True:
+        params['draw_as_nodes'] = list(range(len(diagram)))
+    params['draw_as_nodes'] = [
+        'box_{}'.format(i) for i in params.get('draw_as_nodes', [])
+        if 'box_{}'.format(i) in graph.nodes]
     draw_wires(axis)
-    if params.get('draw_as_nodes', False):
-        draw_nodes(axis, [node for node in graph.nodes if node[:3] == 'box'])
-    else:
-        for depth, box in enumerate(diagram.boxes):
-            draw_box(axis, box, depth)
+    draw_nodes(axis, params['draw_as_nodes'])
+    for depth, box in enumerate(diagram.boxes):
+        if 'box_{}'.format(depth) in params['draw_as_nodes']:
+            continue
+        draw_box(axis, box, depth)
     if params.get('to_tikz', False):
         if 'path' in params:
             save_tikz(axis, params['path'], baseline=len(diagram) / 2 or .5)

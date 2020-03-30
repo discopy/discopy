@@ -70,7 +70,7 @@ def test_pregroup_draw():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('bell-state.png', draw=Circuit.draw)
+@draw_and_compare('bell-state.png', draw=Circuit.draw, draw_as_nodes=[0])
 def test_draw_bell_state():
     return circuit.H @ circuit.Id(1) >> circuit.CX
 

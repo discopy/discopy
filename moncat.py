@@ -713,11 +713,7 @@ class Diagram(cat.Arrow):
         path : str, optional
             Where to save the image, if `None` we call :code:`plt.show()`.
         to_tikz : bool, optional
-            Whether to output tikz code instead of matplotlib,
-            default is :code:`False`.
-        tikz_options : string, optional
-            Extra options for tikzpicture,
-            default is :code:`"baseline=(0.base)"`
+            Whether to output tikz code instead of matplotlib.
         """
         return drawing.draw(self, **params)
 
