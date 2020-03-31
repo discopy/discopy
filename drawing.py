@@ -121,11 +121,13 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     return graph, scale_and_pad(pos), labels
 
 
-def save_tikz(commands, path=None, baseline=0):
+def save_tikz(commands, path=None, baseline=0, options=None):
     """
     Save a list of tikz commands.
     """
-    begin = ["\\begin{tikzpicture}[baseline=(O.base)]\n",
+    options = "baseline=(O.base)" if options is None\
+        else "baseline=(O.base), " + options
+    begin = ["\\begin{{tikzpicture}}[{}]\n".format(options),
              "\\node (O) at (0, {}) {{}};\n".format(baseline)]
     end = ["\\end{tikzpicture}\n"]
     with open(path, 'w+') as file:
@@ -139,8 +141,12 @@ def draw_text(axis, text, i, j, to_tikz=False, **params):
     `params` get passed to matplotlib.
     """
     if to_tikz:
-        axis.append("\\node () at ({}, {}) {{{}}};\n".format(i, j, text))
+        options = "[scale={}] ".format(params['fontsize'])\
+            if 'fontsize' in params and params['fontsize'] is not None else ""
+        axis.append(
+            "\\node {}() at ({}, {}) {{{}}};\n".format(options, i, j, text))
     else:
+        params['fontsize'] = params.get('fontsize', None) or 12
         axis.text(i, j, text, **params)
 
 
@@ -233,7 +239,7 @@ def draw(diagram, axis=None, data=None, **params):
             left = min(top_left, bottom_left)
             right = max(top_right, bottom_right)
         height = positions[node][1] - .25
-        left, right = left - .25, right + .25
+        left, right = left - .25 * scale[0], right + .25 * scale[0]
         draw_polygon(
             axis, (left, height),
             (right + (asymmetry if box.is_dagger else 0), height),
@@ -245,7 +251,7 @@ def draw(diagram, axis=None, data=None, **params):
             draw_text(axis, str(box.name), *positions[node],
                       to_tikz=params.get('to_tikz', False),
                       ha='center', va='center',
-                      fontsize=params.get('fontsize', 12))
+                      fontsize=params.get('fontsize', None))
 
     def draw_wires(axis):
         for case in ['input', 'wire_cod']:
@@ -259,7 +265,7 @@ def draw(diagram, axis=None, data=None, **params):
                             i + pad_i, j - (0 if case == 'input' else pad_j),
                             to_tikz=params.get('to_tikz', False),
                             fontsize=params.get('fontsize_types',
-                                                params.get('fontsize', 12)),
+                                                params.get('fontsize', None)),
                             verticalalignment='top')
         for source, target in graph.edges():
             if "box" in [source[:3], target[:3]] and not any(
@@ -284,7 +290,8 @@ def draw(diagram, axis=None, data=None, **params):
         draw_box(axis, box, depth)
     if params.get('to_tikz', False):
         if 'path' in params:
-            save_tikz(axis, params['path'], baseline=len(diagram) / 2 or .5)
+            save_tikz(axis, params['path'], baseline=len(diagram) / 2 or .5,
+                      options=params.get('tikz_options', None))
     else:
         plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
@@ -352,7 +359,7 @@ def pregroup_draw(words, cups, **params):
     textpad_words = params.get('textpad_words', (0, .1))
     space = params.get('space', .5)
     width = params.get('width', 2.)
-    fontsize = params.get('fontsize', 12)
+    fontsize = params.get('fontsize', None)
 
     def draw_triangles(axis, words):
         scan = []
@@ -400,7 +407,8 @@ def pregroup_draw(words, cups, **params):
     draw_cups_and_wires(axis, cups, scan)
     if params.get('to_tikz', False):
         if 'path' in params:
-            save_tikz(axis, params['path'])
+            save_tikz(axis, params['path'],
+                      options=params.get('tikz_options', None))
         else:
             print(''.join(axis).strip())
     else:
@@ -446,22 +454,25 @@ def equation(*diagrams, symbol="=", space=1, **params):
     \\draw [out=-90, in=0] (6.0, 0.75) to (5.5, 0.5);
     """
     axis, pad, max_height = None, 0, max(map(len, diagrams))
+    scale_x, scale_y = params.get('scale', (1, 1))
     path = params.pop("path", None)
     for i, diagram in enumerate(diagrams):
+        scale = (scale_x, scale_y * max_height / (len(diagram) or 1))
         graph, positions, labels = diagram_to_nx(
-            diagram, scale=(1, max_height / (len(diagram) or 1)), pad=(pad, 0))
+            diagram, scale=scale, pad=(pad, 0))
         axis = diagram.draw(axis=axis, data=(graph, positions, labels),
                             show=False, **params)
         widths = {x for x, _ in positions.values()}
         min_width, max_width = min(widths), max(widths)
         pad += max_width - min_width + space
         if i < len(diagrams) - 1:
-            draw_text(axis, symbol, pad, max_height / 2,
+            draw_text(axis, symbol, pad, scale_y * max_height / 2,
                       to_tikz=params.get('to_tikz', False))
             pad += space
     if params.get('to_tikz', False):
         if path is not None:
-            save_tikz(axis, path, baseline=max_height / 2)
+            save_tikz(axis, path, baseline=max_height / 2,
+                      options=params.get('tikz_options', None))
         else:
             print(''.join(axis).strip())
     else:
