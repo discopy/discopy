@@ -16,45 +16,6 @@ from pytket.circuit import UnitID
 from pytket.utils import probs_from_counts
 
 
-def tensor_from_counts(counts, post_selection=None, scalar=1, normalize=True):
-    """
-    Parameters
-    ----------
-    counts : dict
-        From bitstrings to counts.
-    post_selection : dict, optional
-        From qubit indices to bits.
-    scalar : complex, optional
-        Scale the output using the Born rule.
-    normalize : bool, optional
-        Whether to normalize the counts.
-
-    Returns
-    -------
-    tensor : discopy.tensor.Tensor
-        Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the number
-        of post-selected qubits.
-    """
-    if normalize:
-        counts = probs_from_counts(counts)
-    n_qubits = len(list(counts.keys()).pop())
-    if post_selection:
-        post_selected = dict()
-        for bitstring, count in counts.items():
-            if all(bitstring[qubit] == bit
-                    for qubit, bit in post_selection.items()):
-                post_selected.update({
-                    tuple(bit for qubit, bit in enumerate(bitstring)
-                          if qubit not in post_selection): count})
-        n_qubits -= len(post_selection.keys())
-        counts = post_selected
-    array = np.zeros(n_qubits * (2, ))
-    for bitstring, count in counts.items():
-        array += count * Ket(*bitstring).array
-    array = abs(scalar) ** 2 * array
-    return Tensor(Dim(1), Dim(*(n_qubits * (2, ))), array)
-
-
 class TketCircuit(tk.Circuit):
     """
     pytket.Circuit with post selection and scalars.
