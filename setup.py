@@ -13,6 +13,8 @@ if __name__ == '__main__':  # pragma: no cover
         else:
             raise RuntimeError("Unable to find version string.")
 
+    TEST_REQ = [l.strip() for l in open('tests/requirements.txt').readlines()]
+
     setup(name='discopy',
           version=VERSION,
           package_dir={'discopy': 'discopy'},
@@ -28,4 +30,6 @@ if __name__ == '__main__':  # pragma: no cover
                        '{}.tar.gz'.format(VERSION),
           install_requires=[
               l.strip() for l in open('requirements.txt').readlines()],
+          tests_require=TEST_REQ,
+          extras_require={'test': TEST_REQ}
           )
