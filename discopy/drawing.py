@@ -219,7 +219,7 @@ def draw(diagram, axis=None, data=None, **params):
         node = 'box_{}'.format(depth)
         if node not in graph.nodes():
             return
-        if not box.dom and not box.cod:
+        if not box.dom and not box.cod:  # pragma: no cover
             left, right = positions[node][0], positions[node][0]
         elif not box.dom:
             left, right = (
@@ -306,7 +306,8 @@ def draw(diagram, axis=None, data=None, **params):
     return axis
 
 
-def to_gif(diagram, *diagrams, path=None, timestep=500, loop=False, **params):
+def to_gif(diagram, *diagrams, path=None,
+           timestep=500, loop=False, **params):  # pragma: no cover
     """
     Draws a sequence of diagrams.
     """

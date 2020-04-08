@@ -717,7 +717,7 @@ class Diagram(cat.Arrow):
         """
         return drawing.draw(self, **params)
 
-    def to_gif(self, *diagrams, **params):
+    def to_gif(self, *diagrams, **params):  # pragma: no cover
         """
         Builds a gif with the normalisation steps.
 

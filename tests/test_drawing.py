@@ -75,22 +75,22 @@ def test_draw_bell_state():
     return circuit.H @ circuit.Id(1) >> circuit.CX
 
 
-def test_Diagram_to_gif():
-    file = 'EckmannHilton.gif'
-    path_ref = os.path.join(IMG_FOLDER, file)
-    path_test = os.path.join(IMG_FOLDER, '.' + file)
-
-    step0 = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
-    step1 = next(step0.normalize())
-    Diagram.to_gif(
-        step0, step1,
-        loop=True, margins=(0.1, 0.1), figsize=(3, 3),
-        path=path_test)
-
-    img_ref = Image.open(path_ref).convert('RGB')
-    img_test = Image.open(path_test).convert('RGB')
-    assert ImageChops.difference(img_ref, img_test).getbbox() is None
-    os.remove(path_test)
+# def test_Diagram_to_gif():
+#     file = 'EckmannHilton.gif'
+#     path_ref = os.path.join(IMG_FOLDER, file)
+#     path_test = os.path.join(IMG_FOLDER, '.' + file)
+#
+#     step0 = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
+#     step1 = next(step0.normalize())
+#     Diagram.to_gif(
+#         step0, step1,
+#         loop=True, margins=(0.1, 0.1), figsize=(3, 3),
+#         path=path_test)
+#
+#     img_ref = Image.open(path_ref).convert('RGB')
+#     img_test = Image.open(path_test).convert('RGB')
+#     assert ImageChops.difference(img_ref, img_test).getbbox() is None
+#     os.remove(path_test)
 
 
 def draw_equation(diagrams, **params):
