@@ -6,7 +6,7 @@ if __name__ == '__main__':  # pragma: no cover
     from re import search, M
     from setuptools import setup
 
-    with open('__init__.py', 'r') as file:
+    with open('discopy/__init__.py', 'r') as file:
         MATCH = search(r"^__version__ = ['\"]([^'\"]*)['\"]", file.read(), M)
         if MATCH:
             VERSION = MATCH.group(1)
@@ -15,7 +15,7 @@ if __name__ == '__main__':  # pragma: no cover
 
     setup(name='discopy',
           version=VERSION,
-          package_dir={'discopy': ''},
+          package_dir={'discopy': 'discopy'},
           packages=['discopy'],
           description='Distributional Compositional Python',
           long_description=open("README.md", "r").read(),
