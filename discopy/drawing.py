@@ -141,10 +141,14 @@ def draw_text(axis, text, i, j, to_tikz=False, **params):
     `params` get passed to matplotlib.
     """
     if to_tikz:
-        options = "[scale={}] ".format(params['fontsize'])\
-            if 'fontsize' in params and params['fontsize'] is not None else ""
+        options = ""
+        if params.get("verticalalignment", "center") == "top":  # wire labels
+            options += "right"
+        if 'fontsize' in params and params['fontsize'] is not None:
+            options += (", " if options else "") +\
+                "scale={}".format(params['fontsize'])
         axis.append(
-            "\\node {}() at ({}, {}) {{{}}};\n".format(options, i, j, text))
+            "\\node [{}] () at ({}, {}) {{{}}};\n".format(options, i, j, text))
     else:
         params['fontsize'] = params.get('fontsize', None) or 12
         axis.text(i, j, text, **params)
@@ -337,24 +341,24 @@ def pregroup_draw(words, cups, **params):
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> words, *cups = sentence.foliation().boxes
-    >>> pregroup_draw(words, cups, to_tikz=True)
-    \\node () at (1.1, -0.2) {n};
+    >>> pregroup_draw(words, cups, to_tikz=True, fontsize=2)
+    \\node [scale=2] () at (1.1, -0.2) {n};
     \\draw (0.0, 0) -- (2.0, 0) -- (1.0, 1) -- (0.0, 0);
-    \\node () at (1.0, 0.1) {Alice};
-    \\node () at (3.1, -0.2) {n.r};
-    \\node () at (3.6, -0.2) {s};
-    \\node () at (4.1, -0.2) {n.l};
+    \\node [scale=2] () at (1.0, 0.1) {Alice};
+    \\node [scale=2] () at (3.1, -0.2) {n.r};
+    \\node [scale=2] () at (3.6, -0.2) {s};
+    \\node [scale=2] () at (4.1, -0.2) {n.l};
     \\draw (2.5, 0) -- (4.5, 0) -- (3.5, 1) -- (2.5, 0);
-    \\node () at (3.5, 0.1) {loves};
-    \\node () at (6.1, -0.2) {n};
+    \\node [scale=2] () at (3.5, 0.1) {loves};
+    \\node [scale=2] () at (6.1, -0.2) {n};
     \\draw (5.0, 0) -- (7.0, 0) -- (6.0, 1) -- (5.0, 0);
-    \\node () at (6.0, 0.1) {Bob};
+    \\node [scale=2] () at (6.0, 0.1) {Bob};
     \\draw [out=-90, in=180] (1.0, 0) to (2.0, -1);
     \\draw [out=-90, in=0] (3.0, 0) to (2.0, -1);
     \\draw [out=-90, in=180] (4.0, 0) to (5.0, -1);
     \\draw [out=-90, in=0] (6.0, 0) to (5.0, -1);
     \\draw [out=-90, in=90] (3.5, 0) to (3.5, -2);
-    \\node () at (3.6, -1.5) {s};
+    \\node [scale=2] () at (3.6, -1.5) {s};
     """
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
@@ -432,9 +436,9 @@ def equation(*diagrams, symbol="=", space=1, **params):
     >>> x = Ty('x')
     >>> diagrams = Id(x.r).transpose_l(), Id(x.l).transpose_r()
     >>> equation(*diagrams, to_tikz=True)
-    \\node () at (0.1, 2.0) {x};
-    \\node () at (1.1, 1.15) {x.r};
-    \\node () at (2.1, 1.15) {x};
+    \\node [right] () at (0.1, 2.0) {x};
+    \\node [right] () at (1.1, 1.15) {x.r};
+    \\node [right] () at (2.1, 1.15) {x};
     \\draw [out=-90, in=90] (0, 2.0) to (0, 0.75);
     \\draw [out=180, in=90] (1.5, 1.5) to (1.0, 1.25);
     \\draw [out=0, in=90] (1.5, 1.5) to (2.0, 1.25);
@@ -442,10 +446,10 @@ def equation(*diagrams, symbol="=", space=1, **params):
     \\draw [out=-90, in=90] (2.0, 1.25) to (2.0, 0.0);
     \\draw [out=-90, in=180] (0, 0.75) to (0.5, 0.5);
     \\draw [out=-90, in=0] (1.0, 0.75) to (0.5, 0.5);
-    \\node () at (3.0, 1.0) {=};
-    \\node () at (6.1, 2.0) {x};
-    \\node () at (4.1, 1.15) {x};
-    \\node () at (5.1, 1.15) {x.l};
+    \\node [] () at (3.0, 1.0) {=};
+    \\node [right] () at (6.1, 2.0) {x};
+    \\node [right] () at (4.1, 1.15) {x};
+    \\node [right] () at (5.1, 1.15) {x.l};
     \\draw [out=-90, in=90] (6.0, 2.0) to (6.0, 0.75);
     \\draw [out=180, in=90] (4.5, 1.5) to (4.0, 1.25);
     \\draw [out=0, in=90] (4.5, 1.5) to (5.0, 1.25);
