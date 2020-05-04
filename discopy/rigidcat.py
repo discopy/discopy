@@ -100,6 +100,12 @@ class Ty(moncat.Ty, Ob):
         return "Ty({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
 
+    def __lshift__(self, other):
+        return self @ other.l
+
+    def __rshift__(self, other):
+        return self.r @ other
+
 
 class PRO(moncat.PRO, Ty):
     """
@@ -543,9 +549,11 @@ class Functor(moncat.Functor):
                     result = result.r
             return result
         if isinstance(diagram, Cup):
-            return self.ar_factory.cups(self(diagram.dom[0]), self(diagram.dom[1]))
+            return self.ar_factory.cups(
+                self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
-            return self.ar_factory.caps(self(diagram.cod[0]), self(diagram.cod[1]))
+            return self.ar_factory.caps(
+                self(diagram.cod[0]), self(diagram.cod[1]))
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
