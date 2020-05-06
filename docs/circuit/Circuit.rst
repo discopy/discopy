@@ -6,4 +6,4 @@ circuit.Circuit
     :members: eval, measure, to_tk, from_tk, random, get_counts
     :member-order: bysource
 
-.. autofunction:: discopy.circuit.tensor_from_counts
+.. autofunction:: discopy.tk_interface.tensor_from_counts

@@ -1,7 +1,7 @@
-discopy.rigidcat
+discopy.rigid
 ================
 
-.. automodule:: discopy.rigidcat
+.. automodule:: discopy.rigid
 
 .. toctree::
     :caption: Contents:

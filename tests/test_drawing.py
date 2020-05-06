@@ -39,7 +39,7 @@ def test_draw_eggs():
 
 @draw_and_compare('spiral.png', draw_types=False, draw_box_labels=False)
 def test_draw_spiral():
-    return moncat.spiral(2)
+    return monoidal.spiral(2)
 
 
 @draw_and_compare('who-ansatz.png')
@@ -127,7 +127,7 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
 
 @tikz_and_compare("spiral.tex", to_tikz=True)
 def test_spiral_to_tikz():
-    return moncat.spiral(2)
+    return monoidal.spiral(2)
 
 
 @tikz_and_compare("copy.tex", to_tikz=True,

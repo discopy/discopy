@@ -43,7 +43,7 @@ from discopy.cat import Ob, Functor, Quiver, AxiomError
 class Ty(Ob):
     """
     Implements a type as a list of :class:`discopy.cat.Ob`, used as domain and
-    codomain for :class:`moncat.Diagram`.
+    codomain for :class:`monoidal.Diagram`.
     Types are the free monoid on objects with product
     :code:`@` and unit :code:`Ty()`.
 
@@ -94,11 +94,11 @@ class Ty(Ob):
 
         Parameters
         ----------
-        other : moncat.Ty
+        other : monoidal.Ty
 
         Returns
         -------
-        t : moncat.Ty
+        t : monoidal.Ty
             such that :code:`t.objects == self.objects + other.objects`.
 
         Note
@@ -200,11 +200,11 @@ class Layer(cat.Box):
 
     Parameters
     ----------
-    left : moncat.Ty
+    left : monoidal.Ty
         Left wires.
-    box : moncat.Box
+    box : monoidal.Box
         Middle box.
-    right : moncat.Ty
+    right : monoidal.Ty
         Right wires.
 
     Examples

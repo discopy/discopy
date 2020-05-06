@@ -11,8 +11,8 @@ discopy
    :caption: Contents:
 
    cat/index.rst
-   moncat/index.rst
-   rigidcat/index.rst
+   monoidal/index.rst
+   rigid/index.rst
    cartesian/index.rst
    tensor/index.rst
    circuit/index.rst

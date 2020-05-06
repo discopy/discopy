@@ -194,7 +194,7 @@ def draw_wire(axis, source, target,
 
 def draw(diagram, axis=None, data=None, **params):
     """
-    Draws a diagram, see :meth:`moncat.Diagram.draw` for a list of parameters.
+    Draws a diagram, see :meth:`monoidal.Diagram.draw`.
     """
     asymmetry = params.get('asymmetry',
                            .25 * any(box.is_dagger for box in diagram.boxes))

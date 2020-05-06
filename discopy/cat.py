@@ -117,7 +117,7 @@ class Arrow:
     """
     def __init__(self, dom, cod, boxes, _scan=True):
         """
-        >>> from discopy.moncat import spiral
+        >>> from discopy.monoidal import spiral
         >>> arrow = spiral(3)
         """
         if not isinstance(dom, Ob):

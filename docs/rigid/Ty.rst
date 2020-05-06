@@ -1,7 +1,7 @@
-rigidcat.Ty
+rigid.Ty
 =================
 
-.. autoclass:: discopy.rigidcat.Ty
+.. autoclass:: discopy.rigid.Ty
     :show-inheritance:
     :members: l, r
     :member-order: bysource

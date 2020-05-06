@@ -35,9 +35,9 @@ We can check the axioms for the Copy/Discard comonoid on specific inputs:
 """
 
 from discopy.cat import AxiomError
-from discopy import messages, rigidcat
+from discopy import messages, rigid
 from discopy.cat import Quiver
-from discopy.rigidcat import PRO
+from discopy.rigid import PRO
 
 
 def tuplify(xs):
@@ -48,7 +48,7 @@ def untuplify(*xs):
     return xs[0] if len(xs) == 1 else xs
 
 
-class Function(rigidcat.Box):
+class Function(rigid.Box):
     """
     Wraps python functions with domain and codomain information.
 
@@ -151,7 +151,7 @@ class Function(rigidcat.Box):
         return Function(dom, dom, untuplify)
 
 
-class PythonFunctor(rigidcat.Functor):
+class PythonFunctor(rigid.Functor):
     """
     Implements functors into the category of Python functions on tuples
     """
@@ -159,7 +159,7 @@ class PythonFunctor(rigidcat.Functor):
         super().__init__(ob, ar, ob_factory=PRO, ar_factory=Function)
 
 
-class Diagram(rigidcat.Diagram):
+class Diagram(rigid.Diagram):
     """
     Implements diagrams of Python functions.
     """
@@ -169,7 +169,7 @@ class Diagram(rigidcat.Diagram):
     @staticmethod
     def _upgrade(diagram):
         """
-        Takes a rigidcat.Diagram and returns a cartesian.Diagram.
+        Takes a rigid.Diagram and returns a cartesian.Diagram.
         """
         return Diagram(len(diagram.dom), len(diagram.cod),
                        diagram.boxes, diagram.offsets, layers=diagram.layers)
@@ -223,7 +223,7 @@ class Id(Diagram):
         return repr(self)
 
 
-class Box(rigidcat.Box, Diagram):
+class Box(rigid.Box, Diagram):
     """
     Implements Python functions as boxes in a cartesian.Diagram.
 
@@ -245,7 +245,7 @@ class Box(rigidcat.Box, Diagram):
         """
         if function is not None:
             self._function = function
-        rigidcat.Box.__init__(self, name, PRO(dom), PRO(cod), data=data)
+        rigid.Box.__init__(self, name, PRO(dom), PRO(cod), data=data)
         Diagram.__init__(self, dom, cod, [self], [0])
 
     @property
@@ -305,12 +305,12 @@ class Discard(Diagram):
                          layers=result.layers)
 
 
-class Functor(rigidcat.Functor):
+class Functor(rigid.Functor):
     """
     Implements functors into the category of Python functions on tuples.
 
-    >>> x = rigidcat.Ty('x')
-    >>> f, g = rigidcat.Box('f', x, x @ x), rigidcat.Box('g', x @ x, x)
+    >>> x = rigid.Ty('x')
+    >>> f, g = rigid.Box('f', x, x @ x), rigid.Box('g', x @ x, x)
     >>> ob = {x: PRO(1)}
     >>> ar = {f: COPY, g: ADD}
     >>> F = Functor(ob, ar)
