@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/master/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
 [![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
-[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-B31B1B.svg)](https://arxiv.org/abs/2005.02975)
+[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)
 
 DisCoPy is a tool box for computing with monoidal categories.
 
