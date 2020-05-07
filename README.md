@@ -7,14 +7,15 @@
 [![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/master/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
 [![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
+[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-B31B1B.svg)](https://arxiv.org/abs/2005.02975)
 
-`discopy` computes natural language meaning in pictures.
+DisCoPy is a tool box for computing with monoidal categories.
 
 ## Features
 
 ### Diagrams & Recipes
 
-Diagrams are the core data structure of `discopy`, they are generated
+Diagrams are the core data structure of DisCoPy, they are generated
 by the following grammar:
 
 ```python
@@ -62,7 +63,7 @@ assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 
 ![snake equations, with types](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/typed-snake-equation.png)
 
-In particular, `discopy` can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar) (see Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction).
+In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar) (see Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction).
 
 ```python
 from discopy import pregroup, Word
@@ -81,7 +82,7 @@ pregroup.draw(sentence, path='docs/imgs/alice-loves-bob.png')
 
 **Monoidal functors** compute the meaning of a diagram, given an interpretation for each wire and for each box.
 In particular, **tensor functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/).
-Applied to pregroup diagrams, `discopy` implements the
+Applied to pregroup diagrams, DisCoPy implements the
 **distributional compositional** (_DisCo_) models of
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
@@ -127,6 +128,8 @@ pip install discopy
 ```
 
 ## Documentation
+
+The tool paper is now available on [arXiv:2005.02975](https://arxiv.org/abs/2005.02975), it was submitted to [ACT2020](https://act2020.mit.edu/).
 
 The documentation is hosted at [readthedocs.io](https://discopy.readthedocs.io/),
 you can also checkout the [notebooks](notebooks/) for a demo!
