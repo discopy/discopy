@@ -18,8 +18,8 @@ import random as rand
 
 from discopy import messages
 from discopy.cat import Quiver
-from discopy.moncat import InterchangerError
-from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, Functor
+from discopy.monoidal import InterchangerError
+from discopy.rigid import Ob, Ty, PRO, Box, Diagram, Functor
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 

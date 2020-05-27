@@ -1,5 +1,5 @@
 from pytest import raises
-from discopy.rigidcat import *
+from discopy.rigid import *
 
 
 def test_Ob_init():

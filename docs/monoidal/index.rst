@@ -1,7 +1,7 @@
-discopy.moncat
-==============
+discopy.monoidal
+================
 
-.. automodule:: discopy.moncat
+.. automodule:: discopy.monoidal
 
 .. toctree::
     :caption: Contents:

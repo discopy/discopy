@@ -1,5 +1,5 @@
-moncat.Functor
+rigid.Functor
 ==============================
 
-.. autoclass:: discopy.moncat.Functor
+.. autoclass:: discopy.rigid.Functor
     :show-inheritance:

@@ -32,7 +32,7 @@ Implements distributional compositional models.
 from functools import reduce as fold
 
 from discopy import messages, drawing
-from discopy.rigidcat import Ty, Box, Diagram, Id, Cup
+from discopy.rigid import Ty, Box, Diagram, Id, Cup
 
 
 class Word(Box):

@@ -23,9 +23,9 @@ discopy computes natural language meaning in pictures.
 >>> assert A(sentence).normal_form() == Alice @ Bob >> love_box
 """
 
-from discopy import cat, moncat, rigidcat, tensor, circuit, pregroup
+from discopy import cat, monoidal, rigid, tensor, circuit, pregroup
 from discopy.cat import Quiver
-from discopy.rigidcat import Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Functor
+from discopy.rigid import Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Functor
 from discopy.tensor import Dim, Tensor, TensorFunctor
 from discopy.circuit import Circuit, Gate, Bra, Ket, CircuitFunctor
 from discopy.pregroup import Word

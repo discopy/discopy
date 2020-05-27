@@ -1,7 +1,7 @@
-moncat.Ty
+monoidal.Ty
 =================
 
-.. autoclass:: discopy.moncat.Ty
+.. autoclass:: discopy.monoidal.Ty
     :show-inheritance:
     :members: objects, tensor
     :member-order: bysource

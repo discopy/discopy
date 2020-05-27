@@ -16,7 +16,7 @@ import functools
 
 from discopy import messages
 from discopy.cat import AxiomError
-from discopy.rigidcat import Ob, Ty, Box, Cup, Cap, Diagram, Functor
+from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
 
 try:
     import warnings

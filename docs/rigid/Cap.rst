@@ -1,7 +1,7 @@
-rigidcat.Cap
+rigid.Cap
 ==============
 
-.. autoclass:: discopy.rigidcat.Cap
+.. autoclass:: discopy.rigid.Cap
     :show-inheritance:
     :members:
     :member-order: bysource
