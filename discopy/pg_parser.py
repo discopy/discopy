@@ -253,7 +253,3 @@ def parse(dict, sentence):
      print('Reductions:')
      return R
 
-dict={'alice':{('n')}, 'loves':{('n^r', 's', 'n^l')}, 'bob':{('n')}, 'very':{('n^r','n^l')},'much':{('n','n')}}
-#dict can be ambiguous 
-s= ['alice', 'loves', 'bob', 'very','much'] 
-parse(dict,s)
