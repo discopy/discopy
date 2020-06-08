@@ -30,4 +30,4 @@ from discopy.tensor import Dim, Tensor, TensorFunctor
 from discopy.circuit import Circuit, Gate, Bra, Ket, CircuitFunctor
 from discopy.pregroup import Word
 
-__version__ = '0.2.4'
+__version__ = '0.2.5'
