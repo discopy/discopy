@@ -13,7 +13,8 @@ if __name__ == '__main__':  # pragma: no cover
         else:
             raise RuntimeError("Unable to find version string.")
 
-    TEST_REQ = [l.strip() for l in open('tests/requirements.txt').readlines()]
+    with open('tests/requirements.txt', 'r') as file:
+        TEST_REQ = [line.strip() for line in file.readlines()]
 
     setup(name='discopy',
           version=VERSION,
