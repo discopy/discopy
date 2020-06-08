@@ -8,7 +8,7 @@ from matplotlib.testing.compare import compare_images
 from discopy import *
 
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'tests/imgs/', 'tests/tikz/', 10
+IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/imgs/', 'test/tikz/', 10
 
 
 def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
