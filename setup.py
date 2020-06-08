@@ -4,7 +4,7 @@ Setup discopy package.
 
 if __name__ == '__main__':  # pragma: no cover
     from re import search, M
-    from setuptools import setup
+    from setuptools import setup, find_packages
 
     with open('discopy/__init__.py', 'r') as file:
         MATCH = search(r"^__version__ = ['\"]([^'\"]*)['\"]", file.read(), M)
@@ -19,7 +19,7 @@ if __name__ == '__main__':  # pragma: no cover
     setup(name='discopy',
           version=VERSION,
           package_dir={'discopy': 'discopy'},
-          packages=['discopy'],
+          packages=find_packages(),
           description='Distributional Compositional Python',
           long_description=open("README.md", "r").read(),
           long_description_content_type="text/markdown",
