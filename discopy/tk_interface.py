@@ -12,7 +12,7 @@ from discopy.circuit import (
     Rx, Rz, SWAP, CX, H, S, T, X, Y, Z, scalar)
 
 import pytket as tk
-from pytket.circuit import UnitID
+from pytket.circuit import Qubit
 from pytket.utils import probs_from_counts
 
 
@@ -42,9 +42,9 @@ def to_tk(self):
         return Ket(*(len(box.bitstring) * (0, ))) >> x_gates
 
     def swap(tk_circ, i, j):
-        old = UnitID('q', i)
-        tmp = UnitID('tmp', 0)
-        new = UnitID('q', j)
+        old = Qubit('q', i)
+        tmp = Qubit('tmp', 0)
+        new = Qubit('q', j)
         tk_circ.rename_units({old: tmp})
         tk_circ.rename_units({new: old})
         tk_circ.rename_units({tmp: new})
@@ -53,8 +53,8 @@ def to_tk(self):
         if len(right) > 0:
             renaming = dict()
             for i in range(len(left), tk_circ.n_qubits):
-                old = UnitID('q', i)
-                new = UnitID('q', i + len(box.cod))
+                old = Qubit('q', i)
+                new = Qubit('q', i + len(box.cod))
                 renaming.update({old: new})
             tk_circ.rename_units(renaming)
         tk_circ.add_blank_wires(len(box.cod))
@@ -70,18 +70,18 @@ def to_tk(self):
         if len(right) > 0:
             renaming = dict()
             for i, _ in enumerate(box.dom):
-                old = UnitID('q', len(left) + i)
-                tmp = UnitID('tmp', i)
+                old = Qubit('q', len(left) + i)
+                tmp = Qubit('tmp', i)
                 renaming.update({old: tmp})
             for i, _ in enumerate(right):
-                old = UnitID('q', len(left @ box.dom) + i)
-                new = UnitID('q', len(left) + i)
+                old = Qubit('q', len(left @ box.dom) + i)
+                new = Qubit('q', len(left) + i)
                 renaming.update({old: new})
             tk_circ.rename_units(renaming)
             renaming = dict()
             for j, _ in enumerate(box.dom):
-                tmp = UnitID('tmp', j)
-                new = UnitID('q', len(left @ right) + j)
+                tmp = Qubit('tmp', j)
+                new = Qubit('q', len(left @ right) + j)
                 renaming.update({tmp: new})
             tk_circ.rename_units(renaming)
         return {len(left @ right) + j: box.bitstring[j]
@@ -113,11 +113,11 @@ def from_tk(tk_circuit):
         raise TypeError(messages.type_err(tk.Circuit, tk_circuit))
 
     def box_from_tk(tk_gate):
-        name = tk_gate.op.get_type().name
+        name = tk_gate.op.type.name
         if name == 'Rx':
-            return Rx(tk_gate.op.get_params()[0] / 2)
+            return Rx(tk_gate.op.params[0] / 2)
         if name == 'Rz':
-            return Rz(tk_gate.op.get_params()[0] / 2)
+            return Rz(tk_gate.op.params[0] / 2)
         for gate in [SWAP, CX, H, S, T, X, Y, Z]:
             if name == gate.name:
                 return gate
