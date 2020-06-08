@@ -33,6 +33,5 @@ if __name__ == '__main__':  # pragma: no cover
               l.strip() for l in open('requirements.txt').readlines()],
           tests_require=TEST_REQ,
           extras_require={'test': TEST_REQ},
-          data_file=[('', ['requirements.txt']),
-                     ('test', ['test/requirements.txt'])]
+          data_file=[('test', ['test/requirements.txt'])]
           )
