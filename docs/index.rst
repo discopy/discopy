@@ -16,7 +16,7 @@ discopy
    cartesian/index.rst
    tensor/index.rst
    circuit/index.rst
-   pregroup/index.rst
+   grammar/index.rst
 
 
 Indices and tables

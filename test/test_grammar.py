@@ -2,7 +2,7 @@ import os
 from pytest import raises
 from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
-from discopy.pregroup import *
+from discopy.grammar import *
 from discopy.rigid import Cap
 
 
