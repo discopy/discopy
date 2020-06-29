@@ -1,3 +1,1 @@
-qiskit==0.19
-pytket==0.5.5
-pytket-qiskit==0.4.2
+pytket==0.5.6

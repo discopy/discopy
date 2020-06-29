@@ -163,7 +163,7 @@ def get_counts(self, backend, n_shots=2**10, measure_all=True,
         tk_circ.measure_all()
     backend.default_compilation_pass.apply(tk_circ)
     result = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
-    if not result:  # pragma: no cover
+    if not result:
         raise RuntimeError
     return tensor_from_counts(
         result, tk_circ.post_selection, tk_circ.scalar, normalize)

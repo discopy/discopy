@@ -1,4 +1,5 @@
 from pytest import raises
+from unittest.mock import Mock
 from discopy.circuit import *
 
 
@@ -54,3 +55,22 @@ def test_Circuit_normal_form():
     assert circ.boxes[0] == Ket(0, 0, 0, 0)
     assert circ.boxes[-2] == Bra(0, 0, 0, 0)
     assert circ.boxes[-1].name == '4.000'
+
+
+def test_Circuit_get_counts_snake():
+    backend = Mock()
+    backend.get_counts.return_value = {
+        (0, 0, 0): 251, (0, 0, 1): 247,
+        (1, 1, 0): 268, (1, 1, 1): 258}
+    scaled_bell = Circuit.caps(PRO(1), PRO(1))
+    snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
+    result = np.round(snake.get_counts(backend, seed=42).array)
+    expected = np.round((Ket(0) >> snake).measure())
+    assert np.all(result == expected)
+
+
+def test_Circuit_get_counts_empty():
+    backend = Mock()
+    backend.get_counts.return_value = {}
+    with raises(RuntimeError):
+        Id(1).get_counts(backend)
