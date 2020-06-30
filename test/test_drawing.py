@@ -60,7 +60,7 @@ def test_draw_sentence():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('alice-loves-bob.png', draw=pregroup.draw,
+@draw_and_compare('alice-loves-bob.png', draw=grammar.draw,
                   fontsize=18, fontsize_types=12,
                   figsize=(5, 2), margins=(0, 0))
 def test_pregroup_draw():
@@ -138,7 +138,7 @@ def test_copy_to_tikz():
         >> Id(x) @ Box("SWAP", x @ y, y @ x) @ Id(y)
 
 
-@tikz_and_compare("alice-loves-bob.tex", to_tikz=True, draw=pregroup.draw,
+@tikz_and_compare("alice-loves-bob.tex", to_tikz=True, draw=grammar.draw,
                   textpad=(.2, .2), textpad_words=(0, .25))
 def test_sentence_to_tikz():
     s, n = Ty('s'), Ty('n')
