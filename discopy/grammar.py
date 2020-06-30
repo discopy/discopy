@@ -30,6 +30,7 @@ Implements distributional compositional models.
 """
 
 from functools import reduce as fold
+import random
 
 from discopy import messages, drawing
 from discopy.rigid import Ty, Box, Diagram, Id, Cup
@@ -65,6 +66,77 @@ class Word(Box):
         NotImplementedError: Pivotal categories are not implemented.
         """
         raise NotImplementedError(messages.pivotal_not_implemented())
+
+
+class CFG:
+    """
+    Implements context-free grammars.
+
+    >>> s, n, v, vp = Ty('S'), Ty('N'), Ty('V'), Ty('VP')
+    >>> R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v , vp)
+    >>> Jane, loves = Word('Jane', n), Word('loves', v)
+    >>> cfg = CFG(R0, R1, Jane, loves)
+    >>> gen = cfg.generate(s, 2, 6)
+    >>> for sentence in gen:
+    ...     print(sentence)
+    Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
+    Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
+    >>> gen = cfg.generate(s, 2, 6, remove_duplicates=True, max_iter=10)
+    >>> for sentence in gen:
+    ...     print(sentence)
+    Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
+    """
+    def __init__(self, *productions):
+        self._productions = productions
+
+    @property
+    def productions(self):
+        return self._productions
+
+    def __repr__(self):
+        return "CFG{}".format(repr(self._productions))
+
+    def generate(self, start, max_sentences, max_depth, max_iter=100,
+                 remove_duplicates=False):
+        """
+        Generate sentences from a context-free grammars.
+        Assumes the only terminal symbol is Ty().
+
+        Parameters
+        ----------
+        start : type
+            root of the generated trees.
+        max_sentences : int
+            maximum number of sentences to generate from cfg.
+        max_depth : int
+            maximum depth of the trees.
+        max_iter : int
+            maximum number of iterations, set to 100 by default.
+        remove_duplicates : bool
+            if set to True only distinct syntax trees will be generated.
+        """
+        prods, cache = list(self.productions), set()
+        n, iter = 0, 0
+        while n < max_sentences and iter < max_iter:
+            iter += 1
+            depth = 0
+            sentence = Id(start)
+            while depth < max_depth:
+                if sentence.dom == Ty():
+                    if remove_duplicates and sentence in cache:
+                        break
+                    yield sentence
+                    if remove_duplicates:
+                        cache.add(sentence)
+                    n += 1
+                    break
+                tag = sentence.dom[0]
+                random.shuffle(prods)
+                for prod in prods:
+                    if Ty(tag) == prod.cod:
+                        sentence = sentence << prod @ Id(sentence.dom[1:])
+                        depth += 1
+                        break
 
 
 def eager_parse(*words, target=Ty('s')):
