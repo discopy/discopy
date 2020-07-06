@@ -19,6 +19,7 @@ def test_CFG():
     Jane, loves = Word('Jane', n), Word('loves', v)
     cfg = CFG(R0, R1, Jane, loves)
     assert Jane in cfg.productions
+    assert "CFG(Box('R0', Ty('VP', 'N'), Ty('S'))" in repr(cfg)
 
 
 def test_eager_parse():
