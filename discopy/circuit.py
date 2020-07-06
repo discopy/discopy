@@ -767,6 +767,58 @@ class Rx(Gate):
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
+class CRz(Gate):
+    """
+    >>> assert np.allclose(CRz(0.5).eval().array,
+    ...                    (Id(1) @ H >> CX >> Id(1) @ H).eval().array)
+    """
+    def __init__(self, phase):
+        """
+        >>> CRz(0.25)
+        CRz(0.25)
+        """
+        self._phase = phase
+        super().__init__('CRz', 2)
+
+    @property
+    def phase(self):
+        """
+        >>> CRz(0.25).phase
+        0.25
+        """
+        return self._phase
+
+    @property
+    def name(self):
+        """
+        >>> assert str(CRz(0.125)) == CRz(0.125).name
+        """
+        return 'CRz({})'.format(self.phase)
+
+    def __repr__(self):
+        """
+        >>> assert str(CRz(0.125)) == repr(CRz(0.125))
+        """
+        return self.name
+
+    def dagger(self):
+        """
+        >>> assert CRz(0.5).dagger().eval() == CRz(0.5).eval().dagger()
+        """
+        return CRz(-self.phase)
+
+    @property
+    def array(self):
+        """
+        >>> assert CRz(0).array[-1] == 1
+        """
+        phase = np.exp(1j*2*np.pi*self.phase)
+        return np.array([1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, phase])
+
+
 class CircuitFunctor(Functor):
     """ Implements funtors from monoidal categories to circuits
 
