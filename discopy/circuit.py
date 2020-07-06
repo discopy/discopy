@@ -886,3 +886,47 @@ T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
 X = Gate('X', 1, [0, 1, 1, 0], _dagger=None)
 Y = Gate('Y', 1, [0, -1j, 1j, 0])
 Z = Gate('Z', 1, [1, 0, 0, -1], _dagger=None)
+
+
+def Hlayer(n):
+    layer = H
+    for nn in range(1, n):
+        layer = layer @ H
+    return layer
+
+
+def CRzlayer(thetas):
+    n = len(thetas) + 1
+    layer = CRz(thetas[0]) @ Id(n-2)
+    for tt in range(1, len(thetas)):
+        layer = layer >> Id(tt) @ CRz(thetas[tt]) @ Id(n-2-tt)
+    return layer
+
+
+def IQPlayer(thetas):
+    n = len(thetas) + 1
+    return Hlayer(n) >> CRzlayer(thetas)
+
+
+def IQPansatz(n, depth, params):
+    """
+    Builds an IQP ansatz on n qubits
+
+    >>> print(IQPansatz(3, 2, [[0.1, 0.2], [0.3, 0.4]]))
+    H @ Id(2)\\
+      >> Id(1) @ H @ Id(1)\\
+      >> Id(2) @ H\\
+      >> CRz(0.1) @ Id(1)\\
+      >> Id(1) @ CRz(0.2)\\
+      >> H @ Id(2)\\
+      >> Id(1) @ H @ Id(1)\\
+      >> Id(2) @ H\\
+      >> CRz(0.3) @ Id(1)\\
+      >> Id(1) @ CRz(0.4)
+    """
+    assert depth == np.shape(params)[0]
+    assert n == np.shape(params)[1] + 1
+    ansatz = IQPlayer(params[0])
+    for i in range(1, depth):
+        ansatz = ansatz >> IQPlayer(params[i])
+    return ansatz
