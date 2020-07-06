@@ -367,6 +367,7 @@ class Circuit(Diagram):
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
         >>> print(list(circuit2.to_tk()))
         [X q[0];, CX q[0], q[2];]
+        >>> assert CRz(0.5) == Circuit.from_tk(CRz(0.5).to_tk())
 
         >>> circuit = Ket(0, 0)\\
         ...     >> sqrt(2) @ Id(2)\\

@@ -9,7 +9,7 @@ from discopy.cat import Quiver
 from discopy.tensor import np, Dim, Tensor
 from discopy.circuit import (
     CircuitFunctor, Circuit, Id, Bra, Ket, PRO,
-    Rx, Rz, SWAP, CX, H, S, T, X, Y, Z, scalar)
+    Rx, Rz, SWAP, CX, H, S, T, X, Y, Z, scalar, CRz)
 
 import pytket as tk
 from pytket.circuit import Qubit
@@ -63,6 +63,8 @@ def to_tk(self):
         qubits = [off + j for j in range(len(box.dom))]
         if isinstance(box, (Rx, Rz)):
             tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *qubits)
+        elif isinstance(box, CRz):
+            tk_circ.__getattribute__(box.name[:3])(2 * box.phase, *qubits)
         else:
             tk_circ.__getattribute__(box.name)(*qubits)
 
@@ -118,6 +120,8 @@ def from_tk(tk_circuit):
             return Rx(tk_gate.op.params[0] / 2)
         if name == 'Rz':
             return Rz(tk_gate.op.params[0] / 2)
+        if name == 'CRz':
+            return CRz(tk_gate.op.params[0] / 2)
         for gate in [SWAP, CX, H, S, T, X, Y, Z]:
             if name == gate.name:
                 return gate
