@@ -99,7 +99,7 @@ class CFG:
     def generate(self, start, max_sentences, max_depth, max_iter=100,
                  remove_duplicates=False):
         """
-        Generate sentences from a context-free grammars.
+        Generate sentences from a context-free grammar.
         Assumes the only terminal symbol is Ty().
 
         Parameters
@@ -107,7 +107,7 @@ class CFG:
         start : type
             root of the generated trees.
         max_sentences : int
-            maximum number of sentences to generate from cfg.
+            maximum number of sentences to generate.
         max_depth : int
             maximum depth of the trees.
         max_iter : int
@@ -117,10 +117,10 @@ class CFG:
         """
         prods, cache = list(self.productions), set()
         n, iter = 0, 0
-        while n < max_sentences and iter < max_iter:
+        while n < max_sentences and (iter < max_iter):
             iter += 1
-            depth = 0
             sentence = Id(start)
+            depth = 0
             while depth < max_depth:
                 if sentence.dom == Ty():
                     if remove_duplicates and sentence in cache:

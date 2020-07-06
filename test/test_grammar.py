@@ -13,6 +13,14 @@ def test_Word():
         Word('Alice', 0)
 
 
+def test_CFG():
+    s, n, v, vp = Ty('S'), Ty('N'), Ty('V'), Ty('VP')
+    R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v, vp)
+    Jane, loves = Word('Jane', n), Word('loves', v)
+    cfg = CFG(R0, R1, Jane, loves)
+    assert Jane in cfg.productions
+
+
 def test_eager_parse():
     s, n = Ty('s'), Ty('n')
     Alice = Word('Alice', n)
