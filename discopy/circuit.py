@@ -913,11 +913,11 @@ def IQPlayer(thetas):
     return Hlayer(n) >> CRzlayer(thetas)
 
 
-def IQPansatz(n, params, depth=1):
+def IQPansatz(n, params):
     """
     Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
 
-    >>> print(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]], depth=2))
+    >>> print(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
     H @ Id(2)\\
       >> Id(1) @ H @ Id(1)\\
       >> Id(2) @ H\\
@@ -934,7 +934,7 @@ def IQPansatz(n, params, depth=1):
     if n == 1:
         assert np.shape(params) == (3,)
         return Euler(params)
-    assert depth == np.shape(params)[0]
+    depth = np.shape(params)[0]
     assert n == np.shape(params)[1] + 1
     ansatz = IQPlayer(params[0])
     for i in range(1, depth):
