@@ -9,7 +9,7 @@ from discopy.cat import Quiver
 from discopy.tensor import np, Dim, Tensor
 from discopy.circuit import (
     CircuitFunctor, Circuit, Id, Bra, Ket, PRO,
-    Rx, Rz, SWAP, CX, H, S, T, X, Y, Z, scalar, CRz)
+    Rx, Rz, SWAP, CZ, CX, H, S, T, X, Y, Z, scalar, CRz)
 
 import pytket as tk
 from pytket.circuit import Qubit
@@ -122,7 +122,7 @@ def from_tk(tk_circuit):
             return Rz(tk_gate.op.params[0] / 2)
         if name == 'CRz':
             return CRz(tk_gate.op.params[0] / 2)
-        for gate in [SWAP, CX, H, S, T, X, Y, Z]:
+        for gate in [SWAP, CZ, CX, H, S, T, X, Y, Z]:
             if name == gate.name:
                 return gate
         raise NotImplementedError

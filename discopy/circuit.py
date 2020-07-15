@@ -881,6 +881,10 @@ CX = Gate('CX', 2, [1, 0, 0, 0,
                     0, 1, 0, 0,
                     0, 0, 0, 1,
                     0, 0, 1, 0], _dagger=None)
+CZ = Gate('CZ', 2, [1, 0, 0, 0,
+                    0, 1, 0, 0,
+                    0, 0, 1, 0,
+                    0, 0, 0, -1], _dagger=None)
 H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]), _dagger=None)
 S = Gate('S', 1, [1, 0, 0, 1j])
 T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
@@ -940,3 +944,20 @@ def IQPansatz(n, params):
     for i in range(1, depth):
         ansatz = ansatz >> IQPlayer(params[i])
     return ansatz
+
+
+def Perm(perm):
+    """ Constructs a permutation
+
+    >>> assert Perm([2, 1, 0]) == Perm([2, 0, 1]) >> Perm([0, 2, 1])
+    """
+    assert set(range(len(perm))) == set(perm)
+    gates, offsets = [], []
+    frame = perm.copy()
+    for i in range(len(perm)):
+        if i < frame[i]:
+            num_swaps = frame[i] - i
+            gates += [SWAP for x in range(num_swaps)]
+            offsets += range(i, frame[i])[::-1]
+            frame[i: i + num_swaps] = [x + 1 for x in frame[i: i + num_swaps]]
+    return Circuit(len(perm), len(perm), gates, offsets)
