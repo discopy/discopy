@@ -889,6 +889,10 @@ Y = Gate('Y', 1, [0, -1j, 1j, 0])
 Z = Gate('Z', 1, [1, 0, 0, -1], _dagger=None)
 
 
+def Euler(thetas):
+    return Rx(thetas[0]) >> Rz(thetas[1]) >> Rx(thetas[2])
+
+
 def Hlayer(n):
     layer = H
     for nn in range(1, n):
@@ -909,11 +913,11 @@ def IQPlayer(thetas):
     return Hlayer(n) >> CRzlayer(thetas)
 
 
-def IQPansatz(n, depth, params):
+def IQPansatz(n, params, depth=1):
     """
-    Builds an IQP ansatz on n qubits
+    Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
 
-    >>> print(IQPansatz(3, 2, [[0.1, 0.2], [0.3, 0.4]]))
+    >>> print(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]], depth=2))
     H @ Id(2)\\
       >> Id(1) @ H @ Id(1)\\
       >> Id(2) @ H\\
@@ -924,7 +928,12 @@ def IQPansatz(n, depth, params):
       >> Id(2) @ H\\
       >> CRz(0.3) @ Id(1)\\
       >> Id(1) @ CRz(0.4)
+    >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
+    Rx(0.3) >> Rz(0.8) >> Rx(0.4)
     """
+    if n == 1:
+        assert np.shape(params) == (3,)
+        return Euler(params)
     assert depth == np.shape(params)[0]
     assert n == np.shape(params)[1] + 1
     ansatz = IQPlayer(params[0])
