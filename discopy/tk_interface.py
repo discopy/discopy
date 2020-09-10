@@ -31,6 +31,27 @@ class TketCircuit(tk.Circuit):
         self.scalar = scalar or 1
         super().__init__()
 
+    def rename_units(self, renaming):
+        """
+        >>> circuit = Ket(0)\\
+        ...    >> Ket(0, 0) @ Id(1)\\
+        ...    >> Id(1) @ Bra(0, 0)\\
+        ...    >> Ket(0) @ Id(1)\\
+        ...    >> Bra(0, 0)
+        >>> tk_circ = to_tk(circuit)
+        >>> sorted(tk_circ.post_selection.items())
+        [(0, 0), (1, 0), (2, 0), (3, 0)]
+        """
+        post_selection_renaming = {
+            new.index[0]: self.post_selection[old.index[0]]
+            for old, new in renaming.items()
+            if old.index[0] in self.post_selection}
+        for old in renaming.keys():
+            if old.index[0] in self.post_selection:
+                del self.post_selection[old.index[0]]
+        self.post_selection.update(post_selection_renaming)
+        super().rename_units(renaming)
+
 
 def to_tk(self):
     def remove_ket1(box):
