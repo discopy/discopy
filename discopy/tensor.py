@@ -127,11 +127,16 @@ class Tensor(Box):
     def tensor(self, other):
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
-        dom, cod = self.dom + other.dom, self.cod + other.cod
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
         array = np.tensordot(self.array, other.array, 0)\
             if self.array.shape and other.array.shape\
             else self.array * other.array
-        return Tensor(dom, cod, array)
+        source = range(len(dom @ cod))
+        target = [
+            i if i < len(self.dom) or i >= len(self.dom @ self.cod @ other.dom)
+            else i - len(self.cod) if i >= len(self.dom @ self.cod)
+            else i + len(other.dom) for i in source]
+        return Tensor(dom, cod, np.moveaxis(array, source, target))
 
     def dagger(self):
         array = np.moveaxis(

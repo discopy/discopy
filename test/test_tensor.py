@@ -61,9 +61,17 @@ def test_Tensor_caps():
 
 
 def test_Tensor_tensor():
+    assert Tensor.id(2) @ Tensor.id(3) == Tensor.id(Dim(2, 3))
+
     v = Tensor(Dim(1), Dim(2), [1, 0])
     assert v @ v == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 0])
     assert v @ v.dagger() == v << v.dagger()
+
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, x), Box('g', y, y)
+    ob, ar = {x: 2, y: 3}, {f: [1, 0, 0, 1], g: list(range(9))}
+    F = TensorFunctor(ob, ar)
+    assert F(f) @ F(g) == F(f @ g)
 
 
 def test_TensorFunctor():

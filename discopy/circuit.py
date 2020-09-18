@@ -813,7 +813,7 @@ class CRz(Gate):
         """
         >>> assert CRz(0).array[-1] == 1
         """
-        phase = np.exp(1j*2*np.pi*self.phase)
+        phase = np.exp(1j * 2 * np.pi * self.phase)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, 1, 0,
@@ -906,9 +906,9 @@ def Hlayer(n):
 
 def CRzlayer(thetas):
     n = len(thetas) + 1
-    layer = CRz(thetas[0]) @ Id(n-2)
+    layer = CRz(thetas[0]) @ Id(n - 2)
     for tt in range(1, len(thetas)):
-        layer = layer >> Id(tt) @ CRz(thetas[tt]) @ Id(n-2-tt)
+        layer = layer >> Id(tt) @ CRz(thetas[tt]) @ Id(n - 2 - tt)
     return layer
 
 
