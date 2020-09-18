@@ -163,6 +163,15 @@ class Tensor(Box):
     def caps(left, right):
         return Tensor.cups(left, right).dagger()
 
+    @staticmethod
+    def swap(left, right):
+        array = Id(left @ right).array
+        source = range(len(left @ right), 2 * len(left @ right))
+        target = [i + len(right) if i < len(left @ right @ left)
+                  else i - len(left) for i in source]
+        return Tensor(left @ right, right @ left,
+                      np.moveaxis(array, source, target))
+
 
 class Id(Tensor):
     """ Implements the identity tensor for a given dimension.

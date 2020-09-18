@@ -74,6 +74,17 @@ def test_Tensor_tensor():
     assert F(f) @ F(g) == F(f @ g)
 
 
+def test_tensor_swap():
+    f = Tensor(Dim(2), Dim(2), [1, 0, 0, 1])
+    g = Tensor(Dim(3), Dim(3), list(range(9)))
+    swap = Tensor.swap(Dim(2), Dim(3))
+    assert f @ g >> swap == swap >> g @ f
+
+    swaps = Tensor.swap(Dim(2), Dim(3, 3))
+    assert swaps == swap @ Id(3) >> Id(3) @ swap
+    assert swaps >> swaps.dagger() == Id(Dim(2, 3, 3))
+
+
 def test_TensorFunctor():
     assert repr(TensorFunctor({Ty('x'): 1}, {})) ==\
         "TensorFunctor(ob={Ty('x'): 1}, ar={})"
