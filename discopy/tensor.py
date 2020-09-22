@@ -172,6 +172,12 @@ class Tensor(Box):
         return Tensor(left @ right, right @ left,
                       np.moveaxis(array, source, target))
 
+    def transpose(self):
+        return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
+
+    def conjugate(self):
+        return Tensor(self.dom, self.cod, self.array.conjugate)
+
 
 class Id(Tensor):
     """ Implements the identity tensor for a given dimension.
