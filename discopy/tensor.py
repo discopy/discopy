@@ -16,6 +16,7 @@ import functools
 
 from discopy import messages
 from discopy.cat import AxiomError
+from discopy.monoidal import Swap
 from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
 
 try:
@@ -247,6 +248,17 @@ class TensorFunctor(Functor):
             return len(self(scan))
         scan, array = diagram.dom, Id(self(diagram.dom)).array
         for box, off in zip(diagram.boxes, diagram.offsets):
+            if isinstance(box, Swap):
+                source = range(
+                    dim(diagram.dom @ scan[:off]),
+                    dim(diagram.dom @ scan[:off] @ box.dom))
+                target = [
+                    i + dim(box.right)
+                    if i < dim(diagram.dom @ scan[:off]) + dim(box.left)
+                    else i - dim(box.left) for i in source]
+                array = np.moveaxis(array, list(source), list(target))
+                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+                continue
             left = dim(scan[:off])
             if array.shape and self(box).array.shape:
                 source = list(range(dim(diagram.dom) + left,

@@ -102,6 +102,13 @@ def test_TensorFunctor_call():
         F("Alice")
 
 
+def test_TensorFunctor_swap():
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, x), Box('g', y, y)
+    F = TensorFunctor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
+    assert F(f @ g >> Diagram.swap(x, y)) == F(Diagram.swap(x, y) >> g @ f)
+
+
 def test_AxiomError():
     m = Tensor(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
     with raises(AxiomError) as err:

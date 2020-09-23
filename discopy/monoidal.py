@@ -401,6 +401,17 @@ class Diagram(cat.Arrow):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
+    @staticmethod
+    def swap(left, right):
+        if not left:
+            return Id(right)
+        if len(left) == 1:
+            boxes = [Swap(left[0], x) for x in right]
+            offsets = range(len(right))
+            return Diagram(left @ right, right @ left, boxes, offsets)
+        return Id(left[:1]) @ Diagram.swap(left[1:], right)\
+            >> Diagram.swap(left[:1], right) @ Id(left[:1])
+
     def interchange(self, i, j, left=False):
         """
         Returns a new diagram with boxes i and j interchanged.
@@ -802,6 +813,19 @@ class Box(cat.Box, Diagram):
 
     def __hash__(self):
         return hash(repr(self))
+
+
+class Swap(Box):
+    def __init__(self, left, right):
+        if not isinstance(left, Ob):
+            raise TypeError(messages.type_err(Ob, left))
+        if not isinstance(right, Ob):
+            raise TypeError(messages.type_err(Ob, right))
+        self.left, self.right = left, right
+        super().__init__('SWAP', Ty(left, right), Ty(right, left))
+
+    def __repr__(self):
+        return "Swap({}, {})".format(self.left, self.right)
 
 
 class Functor(cat.Functor):

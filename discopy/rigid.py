@@ -144,6 +144,10 @@ class Diagram(monoidal.Diagram):
     def tensor(self, other):
         return self._upgrade(super().tensor(other))
 
+    @staticmethod
+    def swap(left, right):
+        return Diagram._upgrade(monoidal.Diagram.swap(left, right))
+
     def interchange(self, i, j, left=False):
         return self._upgrade(super().interchange(i, j, left=left))
 
