@@ -177,7 +177,7 @@ class Tensor(Box):
         return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
 
     def conjugate(self):
-        return Tensor(self.dom, self.cod, self.array.conjugate)
+        return Tensor(self.dom, self.cod, np.conjugate(self.array))
 
 
 class Id(Tensor):
@@ -204,12 +204,8 @@ class Id(Tensor):
         [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         """
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        array = functools.reduce(
-            lambda a, x: np.tensordot(a, np.identity(x), 0)
-            if a.shape else np.identity(x), dim, np.array(1))
-        array = np.moveaxis(
-            array, [2 * i for i in range(len(dim))], list(range(len(dim))))
-        super().__init__(dim, dim, array)
+        super().__init__(
+            dim, dim, np.identity(functools.reduce(int.__mul__, dim, 1)))
 
 
 class TensorFunctor(Functor):
@@ -231,7 +227,8 @@ class TensorFunctor(Functor):
         if isinstance(diagram, Ty):
             return sum(map(self, diagram.objects), Dim(1))
         if isinstance(diagram, Ob):
-            return Dim(self.ob[Ty(Ob(diagram.name, z=0))])
+            result = self.ob[Ty(Ob(diagram.name, z=0))]
+            return result if isinstance(result, Dim) else Dim(result)
         if isinstance(diagram, Cup):
             return Tensor.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
