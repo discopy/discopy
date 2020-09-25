@@ -5,7 +5,10 @@ from discopy.quantum import *
 
 
 def test_QuantumMap():
-    f, v = X.eval(), Ket(0).eval()
-    assert PureMap(v >> f) == PureMap(v) >> PureMap(f)
-    assert PureMap(f) >> Discard(Dim(2)) == Discard(Dim(2))
-    assert PureMap(v) >> Discard(Dim(2)) == QuantumMap.id(Dim(1))
+    assert pure(Ket(0)).is_causal
+    assert pure(Ket(0, 1)).is_causal
+    assert pure(H).is_causal
+    assert pure(CX).is_causal
+    assert pure(Ket(0, 0, 0) >> H @ CX >> CX @ X).is_causal
+    assert pure(Ket(1, 0) >> CX) == pure(Ket(1, 0)) >> pure(CX)
+    assert pure(Ket(1)) @ pure(Ket(0)) == pure(Ket(1, 0))
