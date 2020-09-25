@@ -410,7 +410,7 @@ class Diagram(cat.Arrow):
             offsets = range(len(right))
             return Diagram(left @ right, right @ left, boxes, offsets)
         return Id(left[:1]) @ Diagram.swap(left[1:], right)\
-            >> Diagram.swap(left[:1], right) @ Id(left[:1])
+            >> Diagram.swap(left[:1], right) @ Id(left[1:])
 
     def interchange(self, i, j, left=False):
         """
@@ -826,6 +826,9 @@ class Swap(Box):
 
     def __repr__(self):
         return "Swap({}, {})".format(self.left, self.right)
+
+    def dagger(self):
+        return Swap(self.right, self.left)
 
 
 class Functor(cat.Functor):
