@@ -5,6 +5,8 @@ from discopy.quantum import *
 
 
 def test_QuantumMap():
+    def pure(circuit):
+        return CQMap.pure(circuit.pure_eval())
     assert pure(Ket(0)).is_causal
     assert pure(Ket(0, 1)).is_causal
     assert pure(H).is_causal

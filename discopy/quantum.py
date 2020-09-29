@@ -1,8 +1,8 @@
-import numpy as np
+from itertools import takewhile
 
 from discopy import rigid, Quiver
-from discopy.rigid import Ob, Ty, Box, Diagram
-from discopy.tensor import Dim, Tensor, TensorFunctor
+from discopy.rigid import Ob, Ty, Diagram
+from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 
 class CQ(Ty):
@@ -13,6 +13,8 @@ class CQ(Ty):
         super().__init__(*types)
 
     def __repr__(self):
+        if not self:
+            return "CQ()"
         if not self.classical:
             return "Q({})".format(repr(self.quantum))
         if not self.quantum:
@@ -37,12 +39,12 @@ class Q(CQ):
         super().__init__(Dim(1), dim)
 
 
-class CQMap(Box):
+class CQMap(rigid.Box):
     def __init__(self, dom, cod, array):
         data = Tensor(dom.classical @ dom.quantum @ dom.quantum,
                       cod.classical @ cod.quantum @ cod.quantum, array)
         self.array = data.array
-        super().__init__(array, dom, cod, data)
+        super().__init__("CQMap", dom, cod, data=data)
 
     def __eq__(self, other):
         return isinstance(other, CQMap)\
@@ -51,7 +53,10 @@ class CQMap(Box):
 
     def __repr__(self):
         return "CQMap(dom={}, cod={}, array={})".format(
-            self.dom, self.cod, self.array.flatten())
+            self.dom, self.cod, np.array2string(self.array.flatten()))
+
+    def __str__(self):
+        return repr(self)
 
     @staticmethod
     def id(dom):
@@ -63,8 +68,8 @@ class CQMap(Box):
         return CQMap(self.dom, other.cod, data.array)
 
     def tensor(self, other):
-        f = Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
-        g = Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
+        f = rigid.Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
+        g = rigid.Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
         ob = {Ty("{}{}{}".format(a, b, c)):
               z.__getattribute__(y).__getattribute__(x)
               for a, x in zip(['c', 'q'], ['classical', 'quantum'])
@@ -88,13 +93,19 @@ class CQMap(Box):
     @staticmethod
     def measure(dim):
         if not dim:
-            super().__init__(CQ(), CQ(), np.array(1))
+            return CQMap(CQ(), CQ(), np.array(1))
         if len(dim) == 1:
-            array = np.zeros(dim @ dim @ dim)
-            for i in range(dim[0]):
-                array[i, i, i] = 1
+            array = np.array([
+                i == j == k
+                for i in range(dim[0])
+                for j in range(dim[0])
+                for k in range(dim[0])])
             return CQMap(Q(dim), C(dim), array)
         return CQMap.measure(dim[:1]) @ CQMap.measure(dim[1:])
+
+    @staticmethod
+    def encode(dim):
+        return CQMap(C(dim), Q(dim), CQMap.measure(dim).array)
 
     @staticmethod
     def pure(process):
@@ -116,50 +127,44 @@ class CQMap(Box):
     def is_causal(self):
         return self.discard(self.dom).is_close(self >> self.discard(self.cod))
 
+    def cups(left, right):
+        assert not left.classical and not right.classical
+        return pure(Tensor.cups(left.quantum, right.quantum))
+
+    def caps(left, right):
+        assert not left.classical and not right.classical
+        return pure(Tensor.caps(left.quantum, right.quantum))
+
 
 class BitsAndQubits(Ty):
-    def _upgrade(ty):
-        return BitsAndQubits(ty.objects.count(Ob("bit")),
-                             ty.objects.count(Ob("qubit")))
-
-    def __init__(self, n_bits=0, n_qubits=0):
-        self.n_bits, self.n_qubits = n_bits, n_qubits
-        super().__init__(*(n_bits * [Ob("bit")] + n_qubits * [Ob("qubit")]))
-
     def __repr__(self):
-        if not self.n_bits and not self.n_qubits:
-            return "qubit ** 0"
-        if not self.n_bits:
-            return "qubit{}".format(
-                " ** {}".format(self.n_qubits) if self.n_qubits > 1 else "")
-        if not self.n_qubits:
-            return "bit{}".format(
-                " ** {}".format(self.n_bits) if self.n_bits > 1 else "")
-        return "{} @ {}".format(
-            BitsAndQubits(self.n_bits, 0), BitsAndQubits(0, self.n_qubits))
+        if not self:
+            return "Ty()"
+        n_bits = len(list(takewhile(lambda x: x.name == "bit", self)))
+        n_qubits = len(list(takewhile(
+            lambda x: x.name == "qubit", self[n_bits:])))
+        remainder = self[n_bits + n_qubits:]
+        left = "" if not n_bits else "bit{}".format(
+            " ** {}".format(n_bits) if n_bits > 1 else "")
+        middle = "" if not n_qubits else "qubit{}".format(
+            " ** {}".format(n_qubits) if n_qubits > 1 else "")
+        right = "" if not remainder else repr(BitsAndQubits(*remainder))
+        return " @ ".join(s for s in [left, middle, right] if s)
 
     def __str__(self):
         return repr(self)
 
-    def tensor(self, other):
-        if not isinstance(other, BitsAndQubits):
-            return super().tensor(other)
-        return BitsAndQubits(self.n_bits + other.n_bits,
-                             self.n_qubits + other.n_qubits)
 
-
-bit, qubit = BitsAndQubits(1, 0), BitsAndQubits(0, 1)
+bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 
 
 class CQCircuit(Diagram):
     @staticmethod
     def _upgrade(diagram):
-        return CQCircuit(BitsAndQubits._upgrade(diagram.dom),
-                         BitsAndQubits._upgrade(diagram.cod),
-                         diagram.boxes, diagram.offsets, diagram.layers)
-
-    def __init__(self, dom, cod, boxes, offsets, layers=None):
-        super().__init__(dom, cod, boxes, offsets, layers)
+        dom = BitsAndQubits(*diagram.dom.objects)
+        cod = BitsAndQubits(*diagram.cod.objects)
+        return CQCircuit(
+            dom, cod, diagram.boxes, diagram.offsets, diagram.layers)
 
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'CQCircuit')
@@ -169,7 +174,8 @@ class CQCircuit(Diagram):
         return Id(dom)
 
     def eval(self):
-        return EvalFunctor()(self)
+        ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
+        return Functor(ob, ar)(self)
 
     def pure_eval(self):
         return TensorFunctor({Ty('qubit'): 2}, Quiver(lambda g: g.array))(self)
@@ -181,53 +187,112 @@ class Id(rigid.Id, CQCircuit):
         CQCircuit.__init__(self, dom, dom, [], [])
 
 
-class Discard(Box, CQCircuit):
+class Box(rigid.Box, CQCircuit):
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        rigid.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+        CQCircuit.__init__(self, dom, cod, [self], [0])
+
+    def __repr__(self):
+        return self.name
+
+
+class Discard(Box):
     def __init__(self, dom=1):
         if isinstance(dom, int):
             dom = qubit ** dom
-        Box.__init__(self, "Discard({})".format(dom), dom, qubit ** 0)
-        CQCircuit.__init__(self, dom, qubit ** 0, [self], [0])
+        super().__init__("Discard({})".format(dom), dom, qubit ** 0)
+
+    def dagger(self):
+        return MixedState(self.dom)
 
 
-class Measure(Box, CQCircuit):
+class MixedState(Box):
+    def __init__(self, cod=1):
+        if isinstance(cod, int):
+            cod = qubit ** cod
+        super().__init__("MixedState({})".format(cod), qubit ** 0, cod)
+
+    def dagger(self):
+        return Discard(self.cod)
+
+
+class Measure(Box):
     def __init__(self, n_qubits=1):
         dom, cod = qubit ** n_qubits, bit ** n_qubits
-        Box.__init__(self, "Measure({})".format(n_qubits), dom, cod)
-        CQCircuit.__init__(self, dom, cod, [self], [0])
+        super().__init__("Measure({})".format(n_qubits), dom, cod)
+
+    def dagger(self):
+        return Encode(len(self.cod))
 
 
-class Gate(Box, CQCircuit):
-    def __init__(self, name, n_qubits, array=None):
+class Encode(Box):
+    def __init__(self, n_bits=1):
+        dom, cod = bit ** n_bits, qubit ** n_bits
+        super().__init__("Encode({})".format(n_bits), dom, cod)
+
+    def dagger(self):
+        return Measure(len(self.dom))
+
+
+class QGate(Box):
+    def __init__(self, name, n_qubits, array=None, _dagger=False):
         dom = qubit ** n_qubits
         if array is not None:
             self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
-        Box.__init__(self, name, dom, dom)
-        CQCircuit.__init__(self, dom, dom, [self], [0])
+        super().__init__(name, dom, dom, _dagger=_dagger)
 
     @property
     def array(self):
         return self._array
 
     def __repr__(self):
-        return "Gate({}, {}, {})".format(
-            repr(self.name), len(self.dom), repr(self.array.flatten()))
+        return "QGate({}, {}, {})".format(
+            repr(self.name), len(self.dom),
+            np.array2string(self.array.flatten()))
+
+    def dagger(self):
+        return QGate(
+            self.name, len(self.dom), self.array,
+            _dagger=None if self._dagger is None else not self._dagger)
 
 
-class Ket(Box, CQCircuit):
+class CGate(Box):
+    def __init__(self, name, n_bits_in, n_bits_out, array, _dagger=False):
+        dom, cod = bit ** n_bits_in, bit ** n_bits_out
+        if array is not None:
+            self._array = np.array(array).reshape(
+                (n_bits_in + n_bits_out) * (2, ) or 1)
+        super().__init__(name, dom, cod, _dagger=_dagger)
+
+    @property
+    def array(self):
+        return self._array
+
+    def __repr__(self):
+        return "CGate({}, {}, {}, {})".format(
+            repr(self.name), len(self.dom), len(self.cod),
+            np.array2string(self.array))
+
+    def dagger(self):
+        return CGate(
+            self.name, len(self.dom), len(self.cod), self.array,
+            _dagger=None if self._dagger is None else not self._dagger)
+
+    @staticmethod
+    def func(name, n_bits_in, n_bits_out, function):
+        array = np.zeros((n_bits_in + n_bits_out) * [2])
+        for i in range(2 ** n_bits_in):
+            bitstring = tuple(map(int, format(i, '0{}b'.format(n_bits_in))))
+            array[bitstring + tuple(function(*bitstring))] = 1
+        return CGate(name, n_bits_in, n_bits_out, array)
+
+
+class Ket(Box):
     def __init__(self, *bitstring):
         self.bitstring = bitstring
         name = 'Ket({})'.format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** 0, qubit ** len(bitstring)
-        Box.__init__(self, name, dom, cod)
-        CQCircuit.__init__(self, dom, cod, [self], [0])
-
-    def tensor(self, other):
-        if isinstance(other, Ket):
-            return Ket(*(self.bitstring + other.bitstring))
-        return super().tensor(other)
-
-    def __repr__(self):
-        return self.name
+        super().__init__(name, dom, cod)
 
     @property
     def array(self):
@@ -236,11 +301,29 @@ class Ket(Box, CQCircuit):
             tensor = tensor @ Tensor(Dim(2), Dim(1), [0, 1] if bit else [1, 0])
         return tensor.array
 
+    def dagger(self):
+        return Bra(*self.bitstring)
 
-class Rx(Gate):
+
+class Bra(Box):
+    def __init__(self, *bitstring):
+        self.bitstring = bitstring
+        name = 'Bra({})'.format(', '.join(map(str, bitstring)))
+        dom, cod = qubit ** len(bitstring), qubit ** 0
+        super().__init__(name, dom, cod)
+
+    @property
+    def array(self):
+        return Ket(*self.bitstring).array
+
+    def dagger(self):
+        return Ket(*self.bitstring)
+
+
+class Rx(QGate):
     def __init__(self, phase):
         self._phase = phase
-        super().__init__('Rx', 1)
+        super().__init__('Rx', 1, array=None)
 
     @property
     def phase(self):
@@ -260,48 +343,54 @@ class Rx(Gate):
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
+    def dagger(self):
+        return Rx(-self.phase)
 
-def sqrt(real):
-    return Gate('sqrt({})'.format(real), 0, np.sqrt(real))
 
-
-class EvalFunctor(rigid.Functor):
-    def __init__(self):
-        ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
+class Functor(rigid.Functor):
+    def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
 
     def __call__(self, diagram):
-        if isinstance(diagram, BitsAndQubits):
-            return C(Dim(2) ** diagram.n_bits) @ Q(Dim(2) ** diagram.n_qubits)
-        if isinstance(diagram, (Gate, Ket)):
+        if isinstance(diagram, (QGate, Bra, Ket)):
             dom, cod = self(diagram.dom).quantum, self(diagram.cod).quantum
             return CQMap.pure(Tensor(dom, cod, diagram.array))
+        if isinstance(diagram, CGate):
+            dom, cod = self(diagram.dom), self(diagram.cod)
+            return CQMap(dom, cod, diagram.array)
         if isinstance(diagram, Discard):
-            return CQMap.discard(Q(self(diagram.dom).quantum))
+            return CQMap.discard(self(diagram.dom))
         if isinstance(diagram, Measure):
             return CQMap.measure(self(diagram.dom).quantum)
+        if isinstance(diagram, Encode):
+            return CQMap.encode(self(diagram.dom).classical)
         return super().__call__(diagram)
 
 
-SWAP = Gate('SWAP', 2, [1, 0, 0, 0,
-                        0, 0, 1, 0,
-                        0, 1, 0, 0,
-                        0, 0, 0, 1])
-CX = Gate('CX', 2, [1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 0, 1,
-                    0, 0, 1, 0])
-CZ = Gate('CZ', 2, [1, 0, 0, 0,
-                    0, 1, 0, 0,
-                    0, 0, 1, 0,
-                    0, 0, 0, -1])
-H = Gate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]))
-S = Gate('S', 1, [1, 0, 0, 1j])
-T = Gate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
-X = Gate('X', 1, [0, 1, 1, 0])
-Y = Gate('Y', 1, [0, -1j, 1j, 0])
-Z = Gate('Z', 1, [1, 0, 0, -1])
+SWAP = QGate('SWAP', 2, [1, 0, 0, 0,
+                         0, 0, 1, 0,
+                         0, 1, 0, 0,
+                         0, 0, 0, 1], _dagger=None)
+CX = QGate('CX', 2, [1, 0, 0, 0,
+                     0, 1, 0, 0,
+                     0, 0, 0, 1,
+                     0, 0, 1, 0], _dagger=None)
+CZ = QGate('CZ', 2, [1, 0, 0, 0,
+                     0, 1, 0, 0,
+                     0, 0, 1, 0,
+                     0, 0, 0, -1], _dagger=None)
+H = QGate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]), _dagger=None)
+S = QGate('S', 1, [1, 0, 0, 1j])
+T = QGate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+X = QGate('X', 1, [0, 1, 1, 0], _dagger=None)
+Y = QGate('Y', 1, [0, -1j, 1j, 0])
+Z = QGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 
 
-def pure(circuit):
-    return CQMap.pure(circuit.pure_eval())
+def sqrt(real):
+    return QGate('sqrt({})'.format(real), 0, np.sqrt(real), _dagger=None)
+
+
+def scalar(complex):
+    return Gate('scalar({:.3f})'.format(complex), 0, complex,
+                _dagger=None if np.conjugate(complex) == complex else False)

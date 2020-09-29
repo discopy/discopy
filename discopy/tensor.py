@@ -8,8 +8,7 @@ Implements dagger monoidal functors into tensors.
 >>> loves = Box('loves', n, n)
 >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
 >>> F = TensorFunctor(ob, ar)
->>> F(Alice >> loves >> Bob.dagger())
-Tensor(dom=Dim(1), cod=Dim(1), array=[1])
+>>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
 import functools
@@ -24,6 +23,7 @@ try:
     for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
+    np.array2string = lambda array: str(list(array))
 except ImportError:  # pragma: no cover
     import numpy as np
 
@@ -85,7 +85,7 @@ class Tensor(Box):
     """
     def __init__(self, dom, cod, array):
         self._array = np.array(array).reshape(dom + cod)
-        super().__init__(array, dom, cod)
+        super().__init__("Tensor", dom, cod)
 
     @property
     def array(self):
@@ -97,7 +97,8 @@ class Tensor(Box):
 
     def __repr__(self):
         return "Tensor(dom={}, cod={}, array={})".format(
-            self.dom, self.cod, list(self.array.flatten()))
+            self.dom, self.cod,
+            np.array2string(self.array.flatten()))
 
     def __str__(self):
         return repr(self)
@@ -183,26 +184,11 @@ class Tensor(Box):
 class Id(Tensor):
     """ Implements the identity tensor for a given dimension.
 
-    >>> Id(1)
-    Tensor(dom=Dim(1), cod=Dim(1), array=[1])
-    >>> Id(2)
-    Tensor(dom=Dim(2), cod=Dim(2), array=[1.0, 0.0, 0.0, 1.0])
-    >>> Id(1, 2, 3)  # doctest: +ELLIPSIS
-    Tensor(dom=Dim(2, 3), cod=Dim(2, 3), array=[1.0, ..., 1.0])
+    >>> Id(2, 2)  # doctest: +ELLIPSIS
+    Tensor(dom=Dim(2, 2), cod=Dim(2, 2), array=[...])
+    >>> assert Id(2, 2) == Id(2) @ Id(2)
     """
     def __init__(self, *dim):
-        """
-        >>> Id(1)
-        Tensor(dom=Dim(1), cod=Dim(1), array=[1])
-        >>> list(Id(2).array.flatten())
-        [1.0, 0.0, 0.0, 1.0]
-        >>> Id(2).array.shape
-        (2, 2)
-        >>> list(Id(2, 2).array.flatten())[:8]
-        [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-        >>> list(Id(2, 2).array.flatten())[8:]
-        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
-        """
         dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
         super().__init__(
             dim, dim, np.identity(functools.reduce(int.__mul__, dim, 1)))

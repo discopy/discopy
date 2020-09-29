@@ -470,7 +470,7 @@ class Circuit(Diagram):
         >>> backend.get_counts.return_value = {(0, 0): 502, (1, 1): 522}
         >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
         >>> circuit.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0.0])
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0...])
         """
         from discopy.tk_interface import get_counts
         return get_counts(self, backend, **params)
