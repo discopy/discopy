@@ -14,7 +14,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 """
 
 from discopy import cat, monoidal, messages
-from discopy.cat import AxiomError
+from discopy.cat import Quiver, AxiomError
 
 
 class Ob(cat.Ob):
@@ -71,6 +71,10 @@ class Ty(monoidal.Ty, Ob):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    @staticmethod
+    def _upgrade(ty):
+        return Ty(*ty.objects)
+
     @property
     def l(self):
         """ Left adjoint. """
@@ -82,7 +86,7 @@ class Ty(monoidal.Ty, Ob):
         return Ty(*[x.r for x in self.objects[::-1]])
 
     def tensor(self, other):
-        return Ty(*super().tensor(other))
+        return self._upgrade(super().tensor(other))
 
     def __init__(self, *t):
         t = [x if isinstance(x, Ob)
@@ -93,7 +97,7 @@ class Ty(monoidal.Ty, Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return Ty(*super().__getitem__(key))
+            return self._upgrade(super().__getitem__(key))
         return super().__getitem__(key)
 
     def __repr__(self):
@@ -146,7 +150,10 @@ class Diagram(monoidal.Diagram):
 
     @staticmethod
     def swap(left, right):
-        return Diagram._upgrade(monoidal.Diagram.swap(left, right))
+        return swap(left, right)
+
+    def permutation(perm, dom=None):
+        return permutation(perm, dom)
 
     def interchange(self, i, j, left=False):
         return self._upgrade(super().interchange(i, j, left=left))
@@ -380,23 +387,6 @@ class Diagram(monoidal.Diagram):
         return super().normal_form(normalize=Diagram.normalize, left=left)
 
 
-class Box(monoidal.Box, Diagram):
-    """ Implements generators of rigid monoidal diagrams.
-
-    >>> a, b = Ty('a'), Ty('b')
-    >>> Box('f', a, b.l @ b, data={42})
-    Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
-    """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> Box('f', a, b.l @ b)
-        Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
-        """
-        monoidal.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
-
-
 class Id(Diagram):
     """ Define an identity arrow in a free rigid category
 
@@ -420,6 +410,37 @@ class Id(Diagram):
         Id(n)
         """
         return "Id({})".format(str(self.dom))
+
+
+class Box(monoidal.Box, Diagram):
+    """ Implements generators of rigid monoidal diagrams.
+
+    >>> a, b = Ty('a'), Ty('b')
+    >>> Box('f', a, b.l @ b, data={42})
+    Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
+    """
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        """
+        >>> a, b = Ty('a'), Ty('b')
+        >>> Box('f', a, b.l @ b)
+        Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
+        """
+        monoidal.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
+
+
+class Swap(monoidal.Swap, Box):
+    pass
+
+
+def swap(left, right):
+    return monoidal.swap(left, right, ar_factory=Diagram, swap_factory=Swap)
+
+
+def permutation(perm, dom=None):
+    if dom is None:
+        dom = PRO(len(perm))
+    return monoidal.permutation(perm, dom, ar_factory=Diagram)
 
 
 class Cup(Box):

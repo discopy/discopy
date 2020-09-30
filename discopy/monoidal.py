@@ -403,14 +403,11 @@ class Diagram(cat.Arrow):
 
     @staticmethod
     def swap(left, right):
-        if not left:
-            return Id(right)
-        if len(left) == 1:
-            boxes = [Swap(left[0], x) for x in right]
-            offsets = range(len(right))
-            return Diagram(left @ right, right @ left, boxes, offsets)
-        return Id(left[:1]) @ Diagram.swap(left[1:], right)\
-            >> Diagram.swap(left[:1], right) @ Id(left[1:])
+        return swap(left, right)
+
+    @staticmethod
+    def permutation(perm, dom=None):
+        return permutation(perm, dom)
 
     def interchange(self, i, j, left=False):
         """
@@ -748,22 +745,6 @@ class Diagram(cat.Arrow):
         return drawing.to_gif(self, *diagrams, **params)
 
 
-def spiral(n_cups, _type=Ty('x')):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
-    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
-    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
-    return result
-
-
 class InterchangerError(AxiomError):
     """
     This is raised when we try to interchange conected boxes.
@@ -817,14 +798,13 @@ class Box(cat.Box, Diagram):
 
 class Swap(Box):
     def __init__(self, left, right):
-        if not isinstance(left, Ob):
-            raise TypeError(messages.type_err(Ob, left))
-        if not isinstance(right, Ob):
-            raise TypeError(messages.type_err(Ob, right))
         self.left, self.right = left, right
-        super().__init__('SWAP', Ty(left, right), Ty(right, left))
+        super().__init__('SWAP', left @ right, right @ left)
 
     def __repr__(self):
+        return "Swap({}, {})".format(repr(self.left), repr(self.right))
+
+    def __str__(self):
         return "Swap({}, {})".format(self.left, self.right)
 
     def dagger(self):
@@ -867,3 +847,48 @@ class Functor(cat.Functor):
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
         raise TypeError(messages.type_err(Diagram, diagram))
+
+
+def swap(left, right, ar_factory=Diagram, swap_factory=Swap):
+    if not left:
+        return ar_factory.id(right)
+    if len(left) == 1:
+        boxes = [
+            swap_factory(left, right[i: i + 1]) for i, _ in enumerate(right)]
+        offsets = range(len(right))
+        return ar_factory(left @ right, right @ left, boxes, offsets)
+    return ar_factory.id(left[:1]) @ ar_factory.swap(left[1:], right)\
+        >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
+
+
+def permutation(perm, dom=None, ar_factory=Diagram):
+    if set(range(len(perm))) != set(perm):
+        raise ValueError("Input should be a permutation of range(n).")
+    if dom is None:
+        dom = PRO(len(perm))
+    if len(dom) != len(perm):
+        raise ValueError("Domain and permutation should have the same length.")
+    diagram = ar_factory.id(dom)
+    for i in range(len(dom)):
+        j = perm.index(i)
+        diagram = diagram >> ar_factory.id(diagram.cod[:i])\
+            @ ar_factory.swap(diagram.cod[i:j], diagram.cod[j:j + 1])\
+            @ ar_factory.id(diagram.cod[j + 1:])
+        perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
+    return diagram
+
+
+def spiral(n_cups, _type=Ty('x')):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
+    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
+    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
+    return result

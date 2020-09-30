@@ -7,9 +7,9 @@ Implements the translation between discopy and pytket.
 from discopy import messages
 from discopy.cat import Quiver
 from discopy.tensor import np, Dim, Tensor
-from discopy.circuit import (
-    CircuitFunctor, Circuit, Id, Bra, Ket, PRO,
-    Rx, Rz, SWAP, CZ, CX, H, S, T, X, Y, Z, scalar, CRz)
+from discopy.quantum import (
+    CircuitFunctor, Circuit, Id, Bra, Ket, BitsAndQubits,
+    bit, qubit, Rx, Rz, SWAP, CZ, CX, H, S, T, X, Y, Z, scalar, CRz)
 
 import pytket as tk
 from pytket.circuit import Qubit
@@ -53,7 +53,7 @@ class TketCircuit(tk.Circuit):
         super().rename_units(renaming)
 
 
-def to_tk(self):
+def to_tk(circuit):
     def remove_ket1(box):
         if not isinstance(box, Ket):
             return box
@@ -70,7 +70,7 @@ def to_tk(self):
         tk_circ.rename_units({new: old})
         tk_circ.rename_units({tmp: new})
 
-    def prepare_qubit(tk_circ, left, box, right):
+    def prepare_qubits(tk_circ, left, box, right):
         if len(right) > 0:
             renaming = dict()
             for i in range(len(left), tk_circ.n_qubits):
@@ -89,7 +89,7 @@ def to_tk(self):
         else:
             tk_circ.__getattribute__(box.name)(*qubits)
 
-    def measure_qubit(tk_circ, left, box, right):
+    def move_qubits_right(tk_circ, left, box, right):
         if len(right) > 0:
             renaming = dict()
             for i, _ in enumerate(box.dom):
@@ -109,19 +109,21 @@ def to_tk(self):
             tk_circ.rename_units(renaming)
         return {len(left @ right) + j: box.bitstring[j]
                 for j, _ in enumerate(box.dom)}
-    circuit = CircuitFunctor(ob=Quiver(len), ar=Quiver(remove_ket1))(self)
-    if circuit.dom != PRO(0):
+    assert all(x in qubit for x in circuit.dom)
+    circuit = CircuitFunctor(
+        ob=Quiver(lambda x: x), ar=Quiver(remove_ket1))(circuit)
+    if circuit.dom:
         circuit = Ket(*(len(circuit.dom) * (0, ))) >> circuit
     tk_circ = TketCircuit()
     for left, box, right in circuit.layers:
         if isinstance(box, Ket):
-            prepare_qubit(tk_circ, left, box, right)
+            prepare_qubits(tk_circ, left, box, right)
         elif isinstance(box, Bra):
             tk_circ.post_selection.update(
-                measure_qubit(tk_circ, left, box, right))
+                move_qubits_right(tk_circ, left, box, right))
         elif box == SWAP:
             swap(tk_circ, len(left), len(left) + 1)
-        elif box.dom == box.cod == PRO(0):
+        elif not box.dom and not box.cod:
             tk_circ.scalar *= box.array[0]
         else:
             add_gate(tk_circ, box, len(left))
@@ -181,9 +183,9 @@ def from_tk(tk_circuit):
     return circuit
 
 
-def get_counts(self, backend, n_shots=2**10, measure_all=True,
+def get_counts(circuit, backend, n_shots=2**10, measure_all=True,
                normalize=True, scale=True, post_select=True, seed=None):
-    tk_circ = self.to_tk()
+    tk_circ = circuit.to_tk()
     if measure_all:
         tk_circ.measure_all()
     backend.default_compilation_pass.apply(tk_circ)

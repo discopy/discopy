@@ -1,6 +1,7 @@
+import random as random
 from itertools import takewhile
 
-from discopy import rigid, Quiver
+from discopy import monoidal, rigid, Quiver
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
@@ -19,7 +20,7 @@ class CQ(Ty):
             return "Q({})".format(repr(self.quantum))
         if not self.quantum:
             return "C({})".format(repr(self.classical))
-        return "C({}) @ Q({})".format(repr(self.quantum), repr(self.classical))
+        return "C({}) @ Q({})".format(repr(self.classical), repr(self.quantum))
 
     def __str__(self):
         return repr(self)
@@ -67,6 +68,9 @@ class CQMap(rigid.Box):
         data = self.data >> other.data
         return CQMap(self.dom, other.cod, data.array)
 
+    def dagger(self):
+        return CQMap(self.cod, self.dom, self.data.dagger().array)
+
     def tensor(self, other):
         f = rigid.Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
         g = rigid.Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
@@ -91,6 +95,12 @@ class CQMap(rigid.Box):
         return CQMap(dom, cod, array)
 
     @staticmethod
+    def swap(left, right):
+        data = Tensor.swap(left.classical, right.classical)\
+            @ Tensor.swap(left.quantum ** 2, right.quantum ** 2)
+        return CQMap(left @ right, right @ left, data.array)
+
+    @staticmethod
     def measure(dim):
         if not dim:
             return CQMap(CQ(), CQ(), np.array(1))
@@ -108,9 +118,12 @@ class CQMap(rigid.Box):
         return CQMap(C(dim), Q(dim), CQMap.measure(dim).array)
 
     @staticmethod
-    def pure(process):
-        return CQMap(Q(process.dom), Q(process.cod),
-                     (process.conjugate() @ process).array)
+    def pure(tensor):
+        return CQMap(Q(tensor.dom), Q(tensor.cod),
+                     (tensor.conjugate() @ tensor).array)
+
+    def classical(tensor):
+        return CQMap(C(tensor.dom), C(tensor.cod), tensor.array)
 
     @staticmethod
     def discard(dom):
@@ -127,23 +140,28 @@ class CQMap(rigid.Box):
     def is_causal(self):
         return self.discard(self.dom).is_close(self >> self.discard(self.cod))
 
+    @staticmethod
     def cups(left, right):
-        assert not left.classical and not right.classical
-        return pure(Tensor.cups(left.quantum, right.quantum))
+        return CQMap.classical(Tensor.cups(left.classical, right.classical))\
+            @ CQMap.pure(Tensor.cups(left.quantum, right.quantum))
 
+    @staticmethod
     def caps(left, right):
-        assert not left.classical and not right.classical
-        return pure(Tensor.caps(left.quantum, right.quantum))
+        return CQMap.cups(left, right).dagger()
 
 
 class BitsAndQubits(Ty):
+    @staticmethod
+    def _upgrade(ty):
+        return BitsAndQubits(*ty.objects)
+
     def __repr__(self):
         if not self:
             return "Ty()"
-        n_bits = len(list(takewhile(lambda x: x.name == "bit", self)))
+        n_bits = len(list(takewhile(lambda x: x.name == "bit", self.objects)))
         n_qubits = len(list(takewhile(
-            lambda x: x.name == "qubit", self[n_bits:])))
-        remainder = self[n_bits + n_qubits:]
+            lambda x: x.name == "qubit", self.objects[n_bits:])))
+        remainder = self.objects[n_bits + n_qubits:]
         left = "" if not n_bits else "bit{}".format(
             " ** {}".format(n_bits) if n_bits > 1 else "")
         middle = "" if not n_qubits else "qubit{}".format(
@@ -155,45 +173,196 @@ class BitsAndQubits(Ty):
         return repr(self)
 
 
-bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
-
-
-class CQCircuit(Diagram):
+class Circuit(Diagram):
     @staticmethod
     def _upgrade(diagram):
-        dom = BitsAndQubits(*diagram.dom.objects)
-        cod = BitsAndQubits(*diagram.cod.objects)
-        return CQCircuit(
+        dom, cod = BitsAndQubits(*diagram.dom), BitsAndQubits(*diagram.cod)
+        return Circuit(
             dom, cod, diagram.boxes, diagram.offsets, diagram.layers)
 
     def __repr__(self):
-        return super().__repr__().replace('Diagram', 'CQCircuit')
+        return super().__repr__().replace('Diagram', 'Circuit')
 
     @staticmethod
     def id(dom):
         return Id(dom)
 
-    def eval(self):
-        ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
-        return Functor(ob, ar)(self)
+    @staticmethod
+    def swap(left, right):
+        return monoidal.swap(left, right,
+                             ar_factory=Circuit, swap_factory=Swap)
 
-    def pure_eval(self):
-        return TensorFunctor({Ty('qubit'): 2}, Quiver(lambda g: g.array))(self)
+    @staticmethod
+    def permutation(perm, dom=None):
+        return permutation(perm, dom)
+
+    def eval(self, mixed=False):
+        mixed = mixed or any(
+            isinstance(box, (Discard, MixedState, Measure, Encode))
+            for box in self.boxes)
+        if mixed:
+            ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
+            return CQMapFunctor(ob, ar)(self)
+        ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, Quiver(lambda g: g.array)
+        return TensorFunctor(ob, ar)(self)
+
+    def to_tk(self):
+        """
+        Returns
+        -------
+        tk_circuit : pytket.Circuit
+            A :class:`pytket.Circuit`.
+
+        Note
+        ----
+        * No measurements are performed.
+        * SWAP gates are treated as logical swaps.
+        * If the circuit contains scalars or a :class:`Bra`,
+          then :code:`tk_circuit` will hold attributes
+          :code:`post_selection` and :code:`scalar`.
+
+        Examples
+        --------
+        >>> circuit0 = H @ Rx(0.5) >> CX
+        >>> print(list(circuit0.to_tk()))
+        [H q[0];, Rx(1*PI) q[1];, CX q[0], q[1];]
+
+        >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> print(list(circuit1.to_tk()))
+        [X q[0];, CX q[0], q[2];]
+        >>> circuit2 = Circuit.from_tk(circuit1.to_tk())
+        >>> print(circuit2)
+        X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+        >>> print(list(circuit2.to_tk()))
+        [X q[0];, CX q[0], q[2];]
+        >>> assert CRz(0.5) == Circuit.from_tk(CRz(0.5).to_tk())
+
+        >>> circuit = Ket(0, 0)\\
+        ...     >> sqrt(2) @ Id(2)\\
+        ...     >> H @ Id(1)\\
+        ...     >> Id(1) @ X\\
+        ...     >> CX\\
+        ...     >> Id(1) @ Bra(0)
+        >>> tk_circ = circuit.to_tk()
+        >>> print(list(tk_circ))
+        [H q[0];, X q[1];, CX q[0], q[1];]
+        >>> print(tk_circ.post_selection)
+        {1: 0}
+        >>> print(np.round(abs(tk_circ.scalar) ** 2))
+        2.0
+        """
+        from discopy.tk_interface import to_tk
+        return to_tk(self)
+
+    @staticmethod
+    def from_tk(tk_circuit):
+        """
+        Parameters
+        ----------
+        tk_circuit : pytket.Circuit
+            A pytket.Circuit, potentially with :code:`scalar` and
+            :code:`post_selection` attributes.
+
+        Returns
+        -------
+        circuit : :class:`Circuit`
+            Such that :code:`Circuit.from_tk(circuit.to_tk()) == circuit`.
+
+        Note
+        ----
+        * SWAP gates are introduced when applying gates to non-adjacent qubits.
+
+        Examples
+        --------
+        >>> c1 = Rz(0.5) @ Id(1) >> Id(1) @ Rx(0.25) >> CX
+        >>> c2 = Circuit.from_tk(c1.to_tk())
+        >>> assert c1.normal_form() == c2.normal_form()
+
+        >>> import pytket as tk
+        >>> tk_GHZ = tk.Circuit(3).H(1).CX(1, 2).CX(1, 0)
+        >>> print(Circuit.from_tk(tk_GHZ))
+        Id(1) @ H @ Id(1)\\
+          >> Id(1) @ CX\\
+          >> SWAP @ Id(1)\\
+          >> CX @ Id(1)\\
+          >> SWAP @ Id(1)
+        >>> circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> print(Circuit.from_tk(circuit.to_tk()))
+        X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+
+        >>> bell_state = Circuit.caps(PRO(1), PRO(1))
+        >>> bell_effect = bell_state[::-1]
+        >>> circuit = bell_state @ Id(1) >> Id(1) @ bell_effect >> Bra(0)
+        >>> print(Circuit.from_tk(circuit.to_tk()))
+        H @ Id(2)\\
+          >> CX @ Id(1)\\
+          >> Id(1) @ CX\\
+          >> Id(1) @ H @ Id(1)\\
+          >> Id(2) @ Bra(0)\\
+          >> Id(1) @ Bra(0)\\
+          >> Bra(0)\\
+          >> scalar(2.000)
+        """
+        from discopy.tk_interface import from_tk
+        return from_tk(tk_circuit)
+
+    def get_counts(self, backend, **params):
+        """
+        Parameters
+        ----------
+        backend : pytket.Backend
+         Backend on which to run the circuit.
+        n_shots : int, optional
+         Number of shots, default is :code:`2**10`.
+        measure_all : bool, optional
+         Whether to measure all qubits, default is :code:`True`.
+        normalize : bool, optional
+         Whether to normalize the counts, default is :code:`True`.
+        post_select : bool, optional
+         Whether to perform post-selection, default is :code:`True`.
+        scale : bool, optional
+         Whether to scale the output, default is :code:`True`.
+        seed : int, optional
+         Seed to feed the backend, default is :code:`None`.
+
+        Returns
+        -------
+        tensor : :class:`discopy.tensor.Tensor`
+         Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the
+         number of post-selected qubits.
+
+        Examples
+        --------
+        >>> from unittest.mock import Mock
+        >>> backend = Mock()
+        >>> backend.get_counts.return_value = {(0, 0): 502, (1, 1): 522}
+        >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
+        >>> circuit.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0...])
+        """
+        from discopy.tk_interface import get_counts
+        return get_counts(self, backend, **params)
 
 
-class Id(rigid.Id, CQCircuit):
+class Id(rigid.Id, Circuit):
     def __init__(self, dom):
+        if isinstance(dom, int):
+            dom = qubit ** dom
         rigid.Id.__init__(self, dom)
-        CQCircuit.__init__(self, dom, dom, [], [])
+        Circuit.__init__(self, dom, dom, [], [])
 
 
-class Box(rigid.Box, CQCircuit):
+class Box(rigid.Box, Circuit):
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         rigid.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        CQCircuit.__init__(self, dom, cod, [self], [0])
+        Circuit.__init__(self, dom, cod, [self], [0])
 
     def __repr__(self):
         return self.name
+
+
+class Swap(rigid.Swap, Box):
+    pass
 
 
 class Discard(Box):
@@ -320,10 +489,10 @@ class Bra(Box):
         return Ket(*self.bitstring)
 
 
-class Rx(QGate):
-    def __init__(self, phase):
+class Rotation(QGate):
+    def __init__(self, phase, n_qubits=1):
         self._phase = phase
-        super().__init__('Rx', 1, array=None)
+        super().__init__('Rx', n_qubits, array=None)
 
     @property
     def phase(self):
@@ -331,11 +500,17 @@ class Rx(QGate):
 
     @property
     def name(self):
-        return 'Rx({})'.format(self.phase)
+        return '{}({})'.format(self._name, self.phase)
+
+    def dagger(self):
+        return type(self)(-self.phase)
 
     def __repr__(self):
         return self.name
 
+
+class Rx(Rotation):
+    """"""
     @property
     def array(self):
         half_theta = np.pi * self.phase
@@ -343,13 +518,33 @@ class Rx(QGate):
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
-    def dagger(self):
-        return Rx(-self.phase)
+
+class Rz(Rotation):
+    @property
+    def array(self):
+        theta = 2 * np.pi * self.phase
+        return np.array([[1, 0], [0, np.exp(1j * theta)]])
 
 
-class Functor(rigid.Functor):
+class CRz(Rotation):
+    def __init__(self, phase):
+        super().__init__(self, phase, n_qubits=2)
+
+    @property
+    def array(self):
+        phase = np.exp(1j * 2 * np.pi * self.phase)
+        return np.array([1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, phase])
+
+
+class CQMapFunctor(rigid.Functor):
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
+
+    def __repr__(self):
+        return super().__repr__().replace("Functor", "CQMapFunctor")
 
     def __call__(self, diagram):
         if isinstance(diagram, (QGate, Bra, Ket)):
@@ -358,6 +553,8 @@ class Functor(rigid.Functor):
         if isinstance(diagram, CGate):
             dom, cod = self(diagram.dom), self(diagram.cod)
             return CQMap(dom, cod, diagram.array)
+        if isinstance(diagram, Swap):
+            return CQMap.swap(self(diagram.dom[:1]), self(diagram.dom[1:]))
         if isinstance(diagram, Discard):
             return CQMap.discard(self(diagram.dom))
         if isinstance(diagram, Measure):
@@ -367,10 +564,17 @@ class Functor(rigid.Functor):
         return super().__call__(diagram)
 
 
-SWAP = QGate('SWAP', 2, [1, 0, 0, 0,
-                         0, 0, 1, 0,
-                         0, 1, 0, 0,
-                         0, 0, 0, 1], _dagger=None)
+class CircuitFunctor(rigid.Functor):
+    def __init__(self, ob, ar):
+        super().__init__(ob, ar, ob_factory=BitsAndQubits, ar_factory=Circuit)
+
+    def __repr__(self):
+        return super().__repr__().replace("Functor", "CircuitFunctor")
+
+
+bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
+
+SWAP = Swap(qubit, qubit)
 CX = QGate('CX', 2, [1, 0, 0, 0,
                      0, 1, 0, 0,
                      0, 0, 0, 1,
@@ -387,6 +591,12 @@ Y = QGate('Y', 1, [0, -1j, 1j, 0])
 Z = QGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 
 
+def permutation(perm, dom=None):
+    if dom is None:
+        dom = qubit ** len(perm)
+    return monoidal.permutation(perm, dom, ar_factory=Circuit)
+
+
 def sqrt(real):
     return QGate('sqrt({})'.format(real), 0, np.sqrt(real), _dagger=None)
 
@@ -394,3 +604,83 @@ def sqrt(real):
 def scalar(complex):
     return Gate('scalar({:.3f})'.format(complex), 0, complex,
                 _dagger=None if np.conjugate(complex) == complex else False)
+
+
+def random_tiling(n_qubits, depth=3, gateset=[H, Rx, CX], seed=None):
+    """ Returns a random Euler decomposition if n_qubits == 1,
+    otherwise returns a random tiling with the given depth and gateset.
+
+    >>> c = Circuit.random(1, seed=420)
+    >>> print(c)  # doctest: +ELLIPSIS
+    Rx(0.026... >> Rz(0.781... >> Rx(0.272...
+    >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
+    CX >> T @ Id(1) >> Id(1) @ T
+    >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
+    CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
+    >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
+    Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
+    """
+    if seed is not None:
+        random.seed(seed)
+    if n_qubits == 1:
+        phases = [random.random() for _ in range(3)]
+        return Rx(phases[0]) >> Rz(phases[1]) >> Rx(phases[2])
+    result = Id(n_qubits)
+    for _ in range(depth):
+        line, n_affected = Id(0), 0
+        while n_affected < n_qubits:
+            gate = random.choice(
+                gateset if n_qubits - n_affected > 1 else [
+                    g for g in gateset
+                    if g is Rx or g is Rz or len(g.dom) == 1])
+            if gate is Rx or gate is Rz:
+                gate = gate(random.random())
+            line = line @ gate
+            n_affected += len(gate.dom)
+        result = result >> line
+    return result
+
+
+def IQPansatz(n, params):
+    """
+    Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
+
+    >>> print(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
+    H @ Id(2)\\
+    >> Id(1) @ H @ Id(1)\\
+    >> Id(2) @ H\\
+    >> CRz(0.1) @ Id(1)\\
+    >> Id(1) @ CRz(0.2)\\
+    >> H @ Id(2)\\
+    >> Id(1) @ H @ Id(1)\\
+    >> Id(2) @ H\\
+    >> CRz(0.3) @ Id(1)\\
+    >> Id(1) @ CRz(0.4)
+    >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
+    Rx(0.3) >> Rz(0.8) >> Rx(0.4)
+    """
+    def Hlayer(n):
+        layer = H
+        for nn in range(1, n):
+            layer = layer @ H
+        return layer
+
+    def CRzlayer(thetas):
+        n = len(thetas) + 1
+        layer = CRz(thetas[0]) @ Id(n - 2)
+        for tt in range(1, len(thetas)):
+            layer = layer >> Id(tt) @ CRz(thetas[tt]) @ Id(n - 2 - tt)
+        return layer
+
+    def IQPlayer(thetas):
+        n = len(thetas) + 1
+        return Hlayer(n) >> CRzlayer(thetas)
+    if n == 1:
+        assert np.shape(params) == (3,)
+        return Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
+    depth = np.shape(params)[0]
+    assert n == np.shape(params)[1] + 1
+    ansatz = IQPlayer(params[0])
+    for i in range(1, depth):
+        ansatz = ansatz >> IQPlayer(params[i])
+    return ansatz

@@ -273,40 +273,6 @@ class Circuit(Diagram):
         *_, result = list(self.normalize()) or [self]
         return result
 
-    @staticmethod
-    def random(n_qubits, depth=3, gateset=None, seed=None):
-        """ Returns a random Euler decomposition if n_qubits == 1,
-        otherwise returns a random tiling with the given depth and gateset.
-
-        >>> c = Circuit.random(1, seed=420)
-        >>> print(c)  # doctest: +ELLIPSIS
-        Rx(0.026... >> Rz(0.781... >> Rx(0.272...
-        >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
-        CX >> T @ Id(1) >> Id(1) @ T
-        >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
-        CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-        >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
-        Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
-        """
-        if seed is not None:
-            rand.seed(seed)
-        if n_qubits == 1:
-            return Rx(rand.random()) >> Rz(rand.random()) >> Rx(rand.random())
-        result = Id(n_qubits)
-        for _ in range(depth):
-            line, n_affected = Id(0), 0
-            while n_affected < n_qubits:
-                gate = rand.choice(
-                    gateset if n_qubits - n_affected > 1 else [
-                        g for g in gateset
-                        if g is Rx or g is Rz or len(g.dom) == 1])
-                if gate is Rx or gate is Rz:
-                    gate = gate(rand.random())
-                line = line @ gate
-                n_affected += len(gate.dom)
-            result = result >> line
-        return result
-
     def measure(self):
         """
         Measures a circuit on the computational basis.
