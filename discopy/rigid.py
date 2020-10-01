@@ -85,8 +85,8 @@ class Ty(monoidal.Ty, Ob):
         """ Right adjoint. """
         return Ty(*[x.r for x in self.objects[::-1]])
 
-    def tensor(self, other):
-        return self._upgrade(super().tensor(other))
+    def tensor(self, *others):
+        return self._upgrade(super().tensor(*others))
 
     def __init__(self, *t):
         t = [x if isinstance(x, Ob)
@@ -145,8 +145,8 @@ class Diagram(monoidal.Diagram):
     def then(self, other):
         return self._upgrade(super().then(other))
 
-    def tensor(self, other):
-        return self._upgrade(super().tensor(other))
+    def tensor(self, *others):
+        return self._upgrade(super().tensor(*others))
 
     @staticmethod
     def swap(left, right):

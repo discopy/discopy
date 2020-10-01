@@ -84,9 +84,9 @@ class Ty(Ob):
         """
         return list(self._objects)
 
-    def tensor(self, other):
+    def tensor(self, *others):
         """
-        Returns the tensor of two types, i.e. the concatenation of their lists
+        Returns the tensor of types, i.e. the concatenation of their lists
         of objects. This is called with the binary operator `@`.
 
         >>> Ty('x') @ Ty('y', 'z')
@@ -105,7 +105,8 @@ class Ty(Ob):
         ----
         We can take the sum of a list of type, specifying the unit `Ty()`.
 
-        >>> sum([Ty('x'), Ty('y'), Ty('z')], Ty())
+        >>> types = Ty('x'), Ty('y'), Ty('z')
+        >>> Ty().tensor(*types)
         Ty('x', 'y', 'z')
 
         We can take the exponent of a type by any natural number.
@@ -114,7 +115,10 @@ class Ty(Ob):
         Ty('x', 'x', 'x')
 
         """
-        return Ty(*(self.objects + other.objects))
+        for other in others:
+            if not isinstance(other, Ty):
+                raise TypeError(messages.type_err(Ty, other))
+        return Ty(*sum([t.objects for t in (self, ) + others], []))
 
     def __init__(self, *objects):
         self._objects = tuple(
@@ -175,12 +179,11 @@ class PRO(Ty):
             n = n.name
         super().__init__(*(n * [1]))
 
-    def tensor(self, other):
-        if not isinstance(other, PRO):
-            if isinstance(other, Ty):
-                return super().tensor(other)
-            raise TypeError(messages.type_err(PRO, other))
-        return type(self)(len(self) + len(other))
+    def tensor(self, *others):
+        for other in others:
+            if not isinstance(other, PRO):
+                return super().tensor(*others)
+        return type(self)(sum(len(t) for t in (self, ) + others))
 
     def __repr__(self):
         return "PRO({})".format(len(self))
@@ -329,7 +332,7 @@ class Diagram(cat.Arrow):
                        self.offsets + other.offsets,
                        layers=self.layers >> other.layers)
 
-    def tensor(self, other):
+    def tensor(self, *others):
         """
         Returns the horizontal composition of 'self' with a diagram 'other'.
 
@@ -348,6 +351,11 @@ class Diagram(cat.Arrow):
         diagram : :class:`Diagram`
             the tensor of 'self' and 'other'.
         """
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.tensor(others[0]).tensor(*others[1:])
+        other = others[0]
         if not isinstance(other, Diagram):
             raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
