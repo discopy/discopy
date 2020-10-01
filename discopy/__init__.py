@@ -27,7 +27,7 @@ from discopy import cat, monoidal, rigid, tensor, circuit, grammar
 from discopy.cat import Quiver
 from discopy.rigid import Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Functor
 from discopy.tensor import Dim, Tensor, TensorFunctor
-from discopy.circuit import Circuit, Gate, Bra, Ket, CircuitFunctor
+from discopy.quantum import Circuit, QGate, CGate, Bra, Ket, CircuitFunctor
 from discopy.grammar import Word
 
 __version__ = '0.2.6'

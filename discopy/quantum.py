@@ -6,7 +6,7 @@ from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 
-class CQ(Ty):
+class CQ(rigid.Ty):
     def __init__(self, classical=Dim(1), quantum=Dim(1)):
         self.classical, self.quantum = classical, quantum
         types = [Ob("C({})".format(dim)) for dim in classical]\
@@ -28,6 +28,14 @@ class CQ(Ty):
     def tensor(self, other):
         return CQ(
             self.classical @ other.classical, self.quantum @ other.quantum)
+
+    @property
+    def l(self):
+        return CQ(self.classical[::-1], other.classical[::-1])
+
+    @property
+    def r(self):
+        return self.l
 
 
 class C(CQ):
@@ -172,6 +180,14 @@ class BitsAndQubits(Ty):
     def __str__(self):
         return repr(self)
 
+    @property
+    def l(self):
+        return BitsAndQubits(*self.objects[::-1])
+
+    @property
+    def r(self):
+        return self.l
+
 
 class Circuit(Diagram):
     @staticmethod
@@ -196,15 +212,48 @@ class Circuit(Diagram):
     def permutation(perm, dom=None):
         return permutation(perm, dom)
 
+    @staticmethod
+    def cups(left, right):
+        assert all(x in qubit for x in left @ right)
+        result = Id(left @ right)
+        cup = CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
+        for i in range(1, len(left) + 1):
+            result = result >> Id(len(left) - i) @ cup @ Id(len(left) - i)
+        return result
+
+    @staticmethod
+    def caps(left, right):
+        return Circuit.cups(left, right).dagger()
+
+    @property
+    def is_mixed(self):
+        return any(box.is_mixed for box in self.boxes)
+
     def eval(self, mixed=False):
-        mixed = mixed or any(
-            isinstance(box, (Discard, MixedState, Measure, Encode))
-            for box in self.boxes)
-        if mixed:
+        if mixed or self.is_mixed:
             ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
             return CQMapFunctor(ob, ar)(self)
         ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, Quiver(lambda g: g.array)
         return TensorFunctor(ob, ar)(self)
+
+    def measure(self):
+        if self.is_mixed:
+            raise NotImplementedError
+
+        def bitstring(i, length):
+            return map(int, '{{:0{}b}}'.format(length).format(i))
+        process = self.eval()
+        states, effects = [], []
+        states = [Ket(*bitstring(i, len(self.dom))).eval()
+                  for i in range(2 ** len(self.dom))]
+        effects = [Bra(*bitstring(j, len(self.cod))).eval()
+                   for j in range(2 ** len(self.cod))]
+        array = np.zeros(len(self.dom + self.cod) * (2, ))
+        for state in states if self.dom else [Tensor.id(1)]:
+            for effect in effects if self.cod else [Tensor.id(1)]:
+                scalar = np.absolute((state >> process >> effect).array) ** 2
+                array += scalar * (state.dagger() >> effect.dagger()).array
+        return array
 
     def to_tk(self):
         """
@@ -361,11 +410,25 @@ class Box(rigid.Box, Circuit):
         return self.name
 
 
+class PureBox(Box):
+    @property
+    def is_mixed(self):
+        return False
+
+
+class MixedBox(Box):
+    @property
+    def is_mixed(self):
+        return True
+
+
 class Swap(rigid.Swap, Box):
-    pass
+    @property
+    def is_mixed(self):
+        return self.left == self.right
 
 
-class Discard(Box):
+class Discard(MixedBox):
     def __init__(self, dom=1):
         if isinstance(dom, int):
             dom = qubit ** dom
@@ -374,8 +437,12 @@ class Discard(Box):
     def dagger(self):
         return MixedState(self.dom)
 
+    @property
+    def is_mixed(self):
+        return True
 
-class MixedState(Box):
+
+class MixedState(MixedBox):
     def __init__(self, cod=1):
         if isinstance(cod, int):
             cod = qubit ** cod
@@ -385,16 +452,17 @@ class MixedState(Box):
         return Discard(self.cod)
 
 
-class Measure(Box):
+class Measure(MixedBox):
     def __init__(self, n_qubits=1):
         dom, cod = qubit ** n_qubits, bit ** n_qubits
         super().__init__("Measure({})".format(n_qubits), dom, cod)
+        self.is_mixed = True
 
     def dagger(self):
         return Encode(len(self.cod))
 
 
-class Encode(Box):
+class Encode(MixedBox):
     def __init__(self, n_bits=1):
         dom, cod = bit ** n_bits, qubit ** n_bits
         super().__init__("Encode({})".format(n_bits), dom, cod)
@@ -403,7 +471,7 @@ class Encode(Box):
         return Measure(len(self.dom))
 
 
-class QGate(Box):
+class QGate(PureBox):
     def __init__(self, name, n_qubits, array=None, _dagger=False):
         dom = qubit ** n_qubits
         if array is not None:
@@ -425,7 +493,7 @@ class QGate(Box):
             _dagger=None if self._dagger is None else not self._dagger)
 
 
-class CGate(Box):
+class CGate(PureBox):
     def __init__(self, name, n_bits_in, n_bits_out, array, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
         if array is not None:
@@ -456,7 +524,7 @@ class CGate(Box):
         return CGate(name, n_bits_in, n_bits_out, array)
 
 
-class Ket(Box):
+class Ket(PureBox):
     def __init__(self, *bitstring):
         self.bitstring = bitstring
         name = 'Ket({})'.format(', '.join(map(str, bitstring)))
@@ -474,7 +542,7 @@ class Ket(Box):
         return Bra(*self.bitstring)
 
 
-class Bra(Box):
+class Bra(PureBox):
     def __init__(self, *bitstring):
         self.bitstring = bitstring
         name = 'Bra({})'.format(', '.join(map(str, bitstring)))
