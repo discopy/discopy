@@ -23,9 +23,15 @@ try:
     for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
-    np.array2string = lambda array: str(list(array))
+    def array2string(array, max_length=messages.NUMPY_THRESHOLD):
+        ls = list(array)
+        if len(ls) > max_length:
+            ls = ls[:max_length // 2] + ["..."] + ls[1 - max_length // 2:]
+        return "[{}]".format(", ".join(map(str, ls)))
+    np.array2string = array2string
 except ImportError:  # pragma: no cover
     import numpy as np
+    numpy.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
 
 
 class Dim(Ty):

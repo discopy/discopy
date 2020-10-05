@@ -355,7 +355,7 @@ class Circuit(Diagram):
         >>> print(np.round(abs(tk_circ.scalar) ** 2))
         2.0
         """
-        from discopy.tk_interface import to_tk
+        from discopy.tk import to_tk
         return to_tk(self)
 
     @staticmethod
@@ -407,7 +407,7 @@ class Circuit(Diagram):
           >> Bra(0)\\
           >> scalar(2.000)
         """
-        from discopy.tk_interface import from_tk
+        from discopy.tk import from_tk
         return from_tk(tk_circuit)
 
     def get_counts(self, backend, **params):
