@@ -72,7 +72,8 @@ def test_Arrow_len():
 
 def test_Arrow_getitem():
     f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
-    arrow = 2 * (f >> g >> g.dagger() >> f.dagger())
+    arrow = f >> g >> g.dagger() >> f.dagger()\
+        >> f >> g >> g.dagger() >> f.dagger()
     with raises(TypeError):
         arrow["Alice"]
     with raises(IndexError):
@@ -86,10 +87,10 @@ def test_Arrow_getitem():
         assert arrow[depth] == box
         assert arrow[-depth] == arrow.boxes[-depth]
         assert arrow[depth:depth] == Id(box.dom)
-        assert arrow[depth:] == Id(box.dom).compose(*arrow.boxes[depth:])
-        assert arrow[:depth] == Id(arrow.dom).compose(
+        assert arrow[depth:] == Id(box.dom).then(*arrow.boxes[depth:])
+        assert arrow[:depth] == Id(arrow.dom).then(
             *arrow.boxes[:depth])
-        assert arrow[depth: depth + 2] == Id(box.dom).compose(
+        assert arrow[depth: depth + 2] == Id(box.dom).then(
             *arrow.boxes[depth: depth + 2])
 
 

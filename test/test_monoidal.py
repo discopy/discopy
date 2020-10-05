@@ -101,7 +101,7 @@ def test_Diagram_iter():
     g0 = Box('g', y @ y, x)
     g1 = g0.dagger()
     d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
-    assert Diagram.compose(*(layer for layer in d)) == d
+    assert Id(x @ y @ x).then(*(layer for layer in d)) == d
 
 
 def test_Diagram_getitem():
@@ -124,13 +124,13 @@ def test_Diagram_getitem():
             Id(left) @ box @ Id(right)
             for left, box, right in (diagram.layers[-depth], ))
         assert diagram[depth:depth] == Id(layer.dom)
-        assert diagram[depth:] == Id(layer.dom).compose(*(
+        assert diagram[depth:] == Id(layer.dom).then(*(
             Id(left) @ box @ Id(right)
             for left, box, right in diagram.layers[depth:]))
-        assert diagram[:depth] == Id(diagram.dom).compose(*(
+        assert diagram[:depth] == Id(diagram.dom).then(*(
             Id(left) @ box @ Id(right)
             for left, box, right in diagram.layers[:depth]))
-        assert diagram[depth: depth + 2] == Id(layer.dom).compose(*(
+        assert diagram[depth: depth + 2] == Id(layer.dom).then(*(
             Id(left) @ box @ Id(right)
             for left, box, right in diagram.layers[depth: depth + 2]))
 

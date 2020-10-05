@@ -1,12 +1,13 @@
 import random as random
 from itertools import takewhile
 
-from discopy import monoidal, rigid, Quiver
+from discopy import monoidal, rigid
+from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 
-class CQ(rigid.Ty):
+class CQ(Ty):
     def __init__(self, classical=Dim(1), quantum=Dim(1)):
         self.classical, self.quantum = classical, quantum
         types = [Ob("C({})".format(dim)) for dim in classical]\
@@ -67,27 +68,36 @@ class CQMap(rigid.Box):
     def __str__(self):
         return repr(self)
 
+    def __add__(self, other):
+        if (self.dom, self.cod) != (other.dom, other.cod):
+            raise AxiomError(messages.cannot_add(self, other))
+        return CQMap(self.dom, self.cod, self.array + other.array)
+
     @staticmethod
     def id(dom):
         data = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
         return CQMap(dom, dom, data.array)
 
-    def then(self, other):
-        data = self.data >> other.data
-        return CQMap(self.dom, other.cod, data.array)
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        data = self.data >> others[0].data
+        return CQMap(self.dom, others[0].cod, data.array)
 
     def dagger(self):
         return CQMap(self.cod, self.dom, self.data.dagger().array)
 
-    def tensor(self, other):
+    def tensor(self, *others):
+        if len(others) != 1:
+            return super().tensor(*others)
         f = rigid.Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
         g = rigid.Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
         ob = {Ty("{}{}{}".format(a, b, c)):
               z.__getattribute__(y).__getattribute__(x)
               for a, x in zip(['c', 'q'], ['classical', 'quantum'])
               for b, y in zip([0, 1], ['dom', 'cod'])
-              for c, z in zip([0, 1], [self, other])}
-        ar = {f: self.array, g: other.array}
+              for c, z in zip([0, 1], [self, others[0]])}
+        ar = {f: self.array, g: others[0].array}
         permute_above = Diagram.id(f.dom[:1] @ g.dom[:1] @ f.dom[1:2])\
             @ Diagram.swap(g.dom[1:2], f.dom[2:]) @ Diagram.id(g.dom[2:])\
             >> Diagram.id(f.dom[:1]) @ Diagram.swap(g.dom[:1], f.dom[1:])\
@@ -99,7 +109,7 @@ class CQMap(rigid.Box):
             @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ Diagram.id(g.cod[2:])
         F = TensorFunctor(ob, ar)
         array = F(permute_above >> f @ g >> permute_below).array
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
+        dom, cod = self.dom @ others[0].dom, self.cod @ others[0].cod
         return CQMap(dom, cod, array)
 
     @staticmethod
@@ -109,21 +119,31 @@ class CQMap(rigid.Box):
         return CQMap(left @ right, right @ left, data.array)
 
     @staticmethod
-    def measure(dim):
+    def measure(dim, destructive=True):
         if not dim:
             return CQMap(CQ(), CQ(), np.array(1))
         if len(dim) == 1:
+            if destructive:
+                array = np.array([
+                    int(i == j == k)
+                    for i in range(dim[0])
+                    for j in range(dim[0])
+                    for k in range(dim[0])])
+                return CQMap(Q(dim), C(dim), array)
             array = np.array([
-                i == j == k
+                int(i == j == k == l == m)
                 for i in range(dim[0])
                 for j in range(dim[0])
-                for k in range(dim[0])])
-            return CQMap(Q(dim), C(dim), array)
-        return CQMap.measure(dim[:1]) @ CQMap.measure(dim[1:])
+                for k in range(dim[0])
+                for l in range(dim[0])
+                for m in range(dim[0])])
+            return CQMap(Q(dim), C(dim) @ Q(dim), array)
+        return CQMap.measure(dim[:1], destructive=destructive)\
+            @ CQMap.measure(dim[1:], destructive=destructive)
 
     @staticmethod
-    def encode(dim):
-        return CQMap(C(dim), Q(dim), CQMap.measure(dim).array)
+    def encode(dim, constructive=True):
+        return CQMap.measure(dim, destructive=constructive).dagger()
 
     @staticmethod
     def pure(tensor):
@@ -156,6 +176,35 @@ class CQMap(rigid.Box):
     @staticmethod
     def caps(left, right):
         return CQMap.cups(left, right).dagger()
+
+
+class CQMapFunctor(rigid.Functor):
+    def __init__(self, ob, ar):
+        super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
+
+    def __repr__(self):
+        return super().__repr__().replace("Functor", "CQMapFunctor")
+
+    def __call__(self, diagram):
+        if isinstance(diagram, PureBox):
+            if diagram.classical:
+                dom, cod = self(diagram.dom), self(diagram.cod)
+                return CQMap(dom, cod, diagram.array)
+            dom, cod = self(diagram.dom).quantum, self(diagram.cod).quantum
+            return CQMap.pure(Tensor(dom, cod, diagram.array))
+        if isinstance(diagram, Swap):
+            return CQMap.swap(self(diagram.dom[:1]), self(diagram.dom[1:]))
+        if isinstance(diagram, Discard):
+            return CQMap.discard(self(diagram.dom))
+        if isinstance(diagram, MixedState):
+            return CQMap.discard(self(diagram.cod)).dagger()
+        if isinstance(diagram, Measure):
+            return CQMap.measure(
+                self(diagram.dom).quantum, destructive=diagram.destructive)
+        if isinstance(diagram, Encode):
+            return CQMap.encode(
+                self(diagram.dom).classical, constructive=diagram.constructive)
+        return super().__call__(diagram)
 
 
 class BitsAndQubits(Ty):
@@ -199,6 +248,10 @@ class Circuit(Diagram):
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
 
+    def draw(self, draw_types=None, **params):
+        draw_types = draw_types or self.is_mixed
+        return super().draw(**dict(params, draw_types=draw_types))
+
     @staticmethod
     def id(dom):
         return Id(dom)
@@ -214,12 +267,10 @@ class Circuit(Diagram):
 
     @staticmethod
     def cups(left, right):
-        assert all(x in qubit for x in left @ right)
-        result = Id(left @ right)
+        assert all(x.name == "qubit" for x in left @ right)
         cup = CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
-        for i in range(1, len(left) + 1):
-            result = result >> Id(len(left) - i) @ cup @ Id(len(left) - i)
-        return result
+        return rigid.cups(
+            left, right, ar_factory=Circuit, cup_factory=lambda *_: cup)
 
     @staticmethod
     def caps(left, right):
@@ -233,12 +284,16 @@ class Circuit(Diagram):
         if mixed or self.is_mixed:
             ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
             return CQMapFunctor(ob, ar)(self)
-        ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, Quiver(lambda g: g.array)
+        ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, lambda g: g.array
         return TensorFunctor(ob, ar)(self)
 
-    def measure(self):
-        if self.is_mixed:
-            raise NotImplementedError
+    def measure(self, mixed=False):
+        if mixed or self.is_mixed:
+            encode = Id(0).tensor(*(
+                Encode() if x in qubit else Id(bit) for x in self.dom))
+            measure = Id(0).tensor(*(
+                Measure() if x in qubit else Id(bit) for x in self.cod))
+            return (encode >> self >> measure).eval().array.real
 
         def bitstring(i, length):
             return map(int, '{{:0{}b}}'.format(length).format(i))
@@ -397,8 +452,15 @@ class Id(rigid.Id, Circuit):
     def __init__(self, dom):
         if isinstance(dom, int):
             dom = qubit ** dom
+        self._qubit_only = all(x.name == "qubit" for x in dom)
         rigid.Id.__init__(self, dom)
         Circuit.__init__(self, dom, dom, [], [])
+
+    def __repr__(self):
+        return "Id({})".format(len(self.dom) if self._qubit_only else self.dom)
+
+    def __str__(self):
+        return repr(self)
 
 
 class Box(rigid.Box, Circuit):
@@ -411,6 +473,15 @@ class Box(rigid.Box, Circuit):
 
 
 class PureBox(Box):
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        if all(x.name == "bit" for x in dom @ cod):
+            self.classical = True
+        elif all(x.name == "qubit" for x in dom @ cod):
+            self.classical = False
+        else:
+            raise ValueError("dom and cod should be bits only or qubits only.")
+        super().__init__(name, dom, cod, data=data, _dagger=_dagger)
+
     @property
     def is_mixed(self):
         return False
@@ -425,7 +496,14 @@ class MixedBox(Box):
 class Swap(rigid.Swap, Box):
     @property
     def is_mixed(self):
-        return self.left == self.right
+        return self.left != self.right
+
+    def __repr__(self):
+        return "SWAP"\
+            if self.left == self.right == qubit else super().__repr__()
+
+    def __str__(self):
+        return repr(self)
 
 
 class Discard(MixedBox):
@@ -453,22 +531,54 @@ class MixedState(MixedBox):
 
 
 class Measure(MixedBox):
-    def __init__(self, n_qubits=1):
-        dom, cod = qubit ** n_qubits, bit ** n_qubits
-        super().__init__("Measure({})".format(n_qubits), dom, cod)
-        self.is_mixed = True
+    def __init__(self, n_qubits=1, destructive=True):
+        if destructive:
+            dom, cod = qubit ** n_qubits, bit ** n_qubits
+            name = "Measure({})".format(n_qubits)
+        else:
+            dom, cod = qubit ** n_qubits, qubit ** n_qubits @ bit ** n_qubits
+            name = "Measure({}, destructive=False)".format(n_qubits)
+        super().__init__(name, dom, cod)
+        self.destructive = destructive
 
     def dagger(self):
-        return Encode(len(self.cod))
+        return Encode(len(self.cod), constructive=self.destructive)
 
 
 class Encode(MixedBox):
-    def __init__(self, n_bits=1):
-        dom, cod = bit ** n_bits, qubit ** n_bits
-        super().__init__("Encode({})".format(n_bits), dom, cod)
+    def __init__(self, n_bits=1, constructive=True):
+        if constructive:
+            dom, cod = bit ** n_bits, qubit ** n_bits
+            name = "Encode({})".format(n_bits)
+        else:
+            dom, cod = qubit ** n_bits @ bit ** n_bits, qubit ** n_bits
+            name = "Encode({}, constructive=False)".format(n_bits)
+        super().__init__(name, dom, cod)
+        self.constructive = constructive
 
     def dagger(self):
-        return Measure(len(self.dom))
+        return Measure(len(self.dom), destructive=self.constructive)
+
+
+class Spider(PureBox):
+    def __init__(self, n_legs_in, n_legs_out):
+        self.axis = axis
+        ob = bit if classical else qubit
+        dom, cod = ob ** n_legs_in, ob ** n_legs_out
+        name = "Spider({}, {}{}{})".format(
+            len(dom), len(cod),
+            ", axis=X" if axis == 'X' else "",
+            ", classical=True" if classical else "")
+        super().__init__(name, dom, cod)
+
+    def dagger(self):
+        return Spider(len(self.cod), len(self.dom), axis=self.axis)
+
+    @property
+    def array(self):
+        zeros = Bra(*(len(self.dom) * [0])) >> Ket(*(len(self.cod) * [0]))
+        ones = Bra(*(len(self.dom) * [1])) >> Ket(*(len(self.cod) * [1]))
+        return zeros.eval().array + ones.eval().array
 
 
 class QGate(PureBox):
@@ -483,6 +593,8 @@ class QGate(PureBox):
         return self._array
 
     def __repr__(self):
+        if self in gates:
+            return self.name
         return "QGate({}, {}, {})".format(
             repr(self.name), len(self.dom),
             np.array2string(self.array.flatten()))
@@ -558,9 +670,9 @@ class Bra(PureBox):
 
 
 class Rotation(QGate):
-    def __init__(self, phase, n_qubits=1):
+    def __init__(self, name, phase, n_qubits=1):
         self._phase = phase
-        super().__init__('Rx', n_qubits, array=None)
+        super().__init__(name, n_qubits, array=None)
 
     @property
     def phase(self):
@@ -578,7 +690,9 @@ class Rotation(QGate):
 
 
 class Rx(Rotation):
-    """"""
+    def __init__(self, phase):
+        super().__init__("Rx", phase)
+
     @property
     def array(self):
         half_theta = np.pi * self.phase
@@ -588,6 +702,9 @@ class Rx(Rotation):
 
 
 class Rz(Rotation):
+    def __init__(self, phase):
+        super().__init__("Rz", phase)
+
     @property
     def array(self):
         theta = 2 * np.pi * self.phase
@@ -596,7 +713,7 @@ class Rz(Rotation):
 
 class CRz(Rotation):
     def __init__(self, phase):
-        super().__init__(self, phase, n_qubits=2)
+        super().__init__("CRz", phase, n_qubits=2)
 
     @property
     def array(self):
@@ -605,31 +722,6 @@ class CRz(Rotation):
                          0, 1, 0, 0,
                          0, 0, 1, 0,
                          0, 0, 0, phase])
-
-
-class CQMapFunctor(rigid.Functor):
-    def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
-
-    def __repr__(self):
-        return super().__repr__().replace("Functor", "CQMapFunctor")
-
-    def __call__(self, diagram):
-        if isinstance(diagram, (QGate, Bra, Ket)):
-            dom, cod = self(diagram.dom).quantum, self(diagram.cod).quantum
-            return CQMap.pure(Tensor(dom, cod, diagram.array))
-        if isinstance(diagram, CGate):
-            dom, cod = self(diagram.dom), self(diagram.cod)
-            return CQMap(dom, cod, diagram.array)
-        if isinstance(diagram, Swap):
-            return CQMap.swap(self(diagram.dom[:1]), self(diagram.dom[1:]))
-        if isinstance(diagram, Discard):
-            return CQMap.discard(self(diagram.dom))
-        if isinstance(diagram, Measure):
-            return CQMap.measure(self(diagram.dom).quantum)
-        if isinstance(diagram, Encode):
-            return CQMap.encode(self(diagram.dom).classical)
-        return super().__call__(diagram)
 
 
 class CircuitFunctor(rigid.Functor):
@@ -658,6 +750,8 @@ X = QGate('X', 1, [0, 1, 1, 0], _dagger=None)
 Y = QGate('Y', 1, [0, -1j, 1j, 0])
 Z = QGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 
+gates = [SWAP, CZ, CX, H, S, T, X, Y, Z]
+
 
 def permutation(perm, dom=None):
     if dom is None:
@@ -670,22 +764,22 @@ def sqrt(real):
 
 
 def scalar(complex):
-    return Gate('scalar({:.3f})'.format(complex), 0, complex,
-                _dagger=None if np.conjugate(complex) == complex else False)
+    return QGate('scalar({:.3f})'.format(complex), 0, complex,
+                 _dagger=None if np.conjugate(complex) == complex else False)
 
 
 def random_tiling(n_qubits, depth=3, gateset=[H, Rx, CX], seed=None):
     """ Returns a random Euler decomposition if n_qubits == 1,
     otherwise returns a random tiling with the given depth and gateset.
 
-    >>> c = Circuit.random(1, seed=420)
+    >>> c = random_tiling(1, seed=420)
     >>> print(c)  # doctest: +ELLIPSIS
-    Rx(0.026... >> Rz(0.781... >> Rx(0.272...
-    >>> print(Circuit.random(2, 2, gateset=[CX, H, T], seed=420))
+    Rx(0.026...>> Rz(0.781... >> Rx(0.272...
+    >>> print(random_tiling(2, 2, gateset=[CX, H, T], seed=420))
     CX >> T @ Id(1) >> Id(1) @ T
-    >>> print(Circuit.random(3, 2, gateset=[CX, H, T], seed=420))
+    >>> print(random_tiling(3, 2, gateset=[CX, H, T], seed=420))
     CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-    >>> print(Circuit.random(2, 1, gateset=[Rz, Rx], seed=420))
+    >>> print(random_tiling(2, 1, gateset=[Rz, Rx], seed=420))
     Rz(0.6731171219152886) @ Id(1) >> Id(1) @ Rx(0.2726063832840899)
     """
     if seed is not None:
@@ -709,46 +803,34 @@ def random_tiling(n_qubits, depth=3, gateset=[H, Rx, CX], seed=None):
     return result
 
 
-def IQPansatz(n, params):
+def IQPansatz(n_qubits, params):
     """
     Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
 
     >>> print(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
     H @ Id(2)\\
-    >> Id(1) @ H @ Id(1)\\
-    >> Id(2) @ H\\
-    >> CRz(0.1) @ Id(1)\\
-    >> Id(1) @ CRz(0.2)\\
-    >> H @ Id(2)\\
-    >> Id(1) @ H @ Id(1)\\
-    >> Id(2) @ H\\
-    >> CRz(0.3) @ Id(1)\\
-    >> Id(1) @ CRz(0.4)
+      >> Id(1) @ H @ Id(1)\\
+      >> Id(2) @ H\\
+      >> CRz(0.1) @ Id(1)\\
+      >> Id(1) @ CRz(0.2)\\
+      >> H @ Id(2)\\
+      >> Id(1) @ H @ Id(1)\\
+      >> Id(2) @ H\\
+      >> CRz(0.3) @ Id(1)\\
+      >> Id(1) @ CRz(0.4)
     >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
     Rx(0.3) >> Rz(0.8) >> Rx(0.4)
     """
-    def Hlayer(n):
-        layer = H
-        for nn in range(1, n):
-            layer = layer @ H
-        return layer
-
-    def CRzlayer(thetas):
-        n = len(thetas) + 1
-        layer = CRz(thetas[0]) @ Id(n - 2)
-        for tt in range(1, len(thetas)):
-            layer = layer >> Id(tt) @ CRz(thetas[tt]) @ Id(n - 2 - tt)
-        return layer
-
-    def IQPlayer(thetas):
-        n = len(thetas) + 1
-        return Hlayer(n) >> CRzlayer(thetas)
-    if n == 1:
-        assert np.shape(params) == (3,)
+    def layer(thetas):
+        hadamards = Id(0).tensor(*(n_qubits * [H]))
+        rotations = Id(n_qubits).then(*(
+            Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
+            for i in range(n_qubits - 1)))
+        return hadamards >> rotations
+    if n_qubits == 1:
         return Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
+    if np.shape(params)[1] != n_qubits - 1:
+        raise ValueError(
+            "Expected params of shape (depth, {})".format(n_qubits - 1))
     depth = np.shape(params)[0]
-    assert n == np.shape(params)[1] + 1
-    ansatz = IQPlayer(params[0])
-    for i in range(1, depth):
-        ansatz = ansatz >> IQPlayer(params[i])
-    return ansatz
+    return Id(n_qubits).then(*(layer(params[i]) for i in range(depth)))

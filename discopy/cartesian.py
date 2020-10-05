@@ -105,7 +105,7 @@ class Function(rigid.Box):
             raise TypeError(messages.expected_input_length(self, values))
         return self.function(*values)
 
-    def then(self, other):
+    def then(self, *others):
         """
         Implements the sequential composition of Python functions.
 
@@ -114,6 +114,9 @@ class Function(rigid.Box):
         >>> assert (copy >> swap)(1) == copy(1)
         >>> assert (swap >> swap)(1, 2) == (1, 2)
         """
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
         if len(self.cod) != len(other.dom):
@@ -121,7 +124,7 @@ class Function(rigid.Box):
         return Function(self.dom, other.cod,
                         lambda *vals: other(*tuplify(self(*vals))))
 
-    def tensor(self, other):
+    def tensor(self, *others):
         """
         Implements the product of Python functions.
 
@@ -130,6 +133,9 @@ class Function(rigid.Box):
         >>> assert (swap @ swap)(1, 2, 3, 4) == (2, 1, 4, 3)
         >>> assert (copy @ copy)(1, 2) == (1, 1, 2, 2)
         """
+        if len(others) != 1:
+            return super().tensor(*others)
+        other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod

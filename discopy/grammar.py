@@ -14,14 +14,14 @@ Implements distributional compositional models.
 >>> F = TensorFunctor(ob, ar)
 >>> assert F(sentence) == True
 
->>> from discopy.circuit import Ket, CX, H, X, sqrt, CircuitFunctor
+>>> from discopy.quantum import qubit, Ket, CX, H, X, sqrt, CircuitFunctor
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice = Word('Alice', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
 >>> Bob = Word('Bob', n)
 >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 >>> sentence = grammar << Alice @ loves @ Bob
->>> ob = {s: 0, n: 1}
+>>> ob = {s: Ty(), n: qubit}
 >>> ar = {Alice: Ket(0),
 ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
 ...       Bob: Ket(1)}

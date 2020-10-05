@@ -222,18 +222,9 @@ class Arrow:
     def __hash__(self):
         return hash(repr(self))
 
-    def __rmul__(self, n_times):
+    def then(self, *others):
         """
-        >>> x, y = Ob('x'), Ob('y')
-        >>> f = Box('f', x, y)
-        >>> print(3 * (f >> f.dagger()))
-        f >> f[::-1] >> f >> f[::-1] >> f >> f[::-1]
-        """
-        return self.id(self.dom).compose(*(n_times * (self, )))
-
-    def then(self, other):
-        """
-        Returns the composition of `self` with an arrow `other`.
+        Returns the composition of `self` with arrows `others`.
 
         This method is called using the binary operators `>>` and `<<`:
 
@@ -243,18 +234,20 @@ class Arrow:
 
         Parameters
         ----------
-        other : cat.Arrow
-            such that `self.cod == other.dom`.
+        others : cat.Arrow
+            such that `self.cod == others[0].dom`
+            and `all(x.cod == y.dom for x, y in zip(others, others[1:])`.
 
         Returns
         -------
         arrow : cat.Arrow
-            such that :code:`arrow.boxes == self.boxes + other.boxes`.
+            such that :code:`arrow.boxes == self.boxes
+            + sum(other.boxes for other in others, [])`.
 
         Raises
         ------
         :class:`cat.AxiomError`
-            whenever `self` and `other` do not compose.
+            whenever `self` and `others` do not compose.
 
         Notes
         -----
@@ -265,46 +258,22 @@ class Arrow:
         >>> assert f >> Id(y) == f == Id(x) >> f
         >>> assert (f >> g) >> h == f >> (g >> h)
         """
-        if not isinstance(other, Arrow):
-            raise TypeError(messages.type_err(Arrow, other))
-        if self.cod != other.dom:
-            raise AxiomError(messages.does_not_compose(self, other))
-        boxes = self.boxes + other.boxes
-        return Arrow(self.dom, other.cod, boxes, _scan=False)
+        for other in others:
+            if not isinstance(other, Arrow):
+                raise TypeError(messages.type_err(Arrow, other))
+        boxes, scan = self.boxes, self.cod
+        for other in others:
+            if scan != other.dom:
+                raise AxiomError(messages.does_not_compose(
+                    boxes[-1] if boxes else Id(scan), other))
+            boxes, scan = boxes + other.boxes, other.cod
+        return Arrow(self.dom, scan, boxes, _scan=False)
 
     def __rshift__(self, other):
         return self.then(other)
 
     def __lshift__(self, other):
         return other.then(self)
-
-    def compose(self, *others, backwards=False):
-        """
-        Returns the composition of self with a list of other arrows.
-
-        Parameters
-        ----------
-        others : list
-            Other arrows.
-        backwards : bool, optional
-            Whether to compose in reverse, default is :code`False`.
-
-        Returns
-        -------
-        arrow : cat.Arrow
-            Such that :code:`arrow == self >> others[0] >> ... >> others[-1]`
-            if :code:`backwards` else
-            :code:`arrow == self << others[0] << ... << others[-1]`.
-
-        Examples
-        --------
-        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-        >>> assert Arrow.compose(f, g, h) == f >> g >> h
-        >>> assert f.compose(g, h) == Id(x).compose(f, g, h) == f >> g >> h
-        >>> assert h.compose(g, f, backwards=True) == h << g << f
-        """
-        return fold(lambda f, g: f << g if backwards else f >> g, others, self)
 
     def dagger(self):
         """
@@ -536,7 +505,8 @@ class Functor:
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> assert F.ob == {Ob('x'): Ob('y')}
         """
-        return self._ob
+        return self._ob\
+            if hasattr(self._ob, "__getitem__") else Quiver(self._ob)
 
     @property
     def ar(self):
@@ -545,7 +515,8 @@ class Functor:
         >>> F = Functor({}, {f: g})
         >>> assert F.ar == {f: g}
         """
-        return self._ar
+        return self._ar\
+            if hasattr(self._ar, "__getitem__") else Quiver(self._ar)
 
     def __eq__(self, other):
         return self.ob == other.ob and self.ar == other.ar
@@ -561,7 +532,7 @@ class Functor:
                 return self.ar[arrow.dagger()].dagger()
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
-            return self.ar_factory.id(self(arrow.dom)).compose(
+            return self.ar_factory.id(self(arrow.dom)).then(
                 *map(self, arrow.boxes))
         raise TypeError(messages.type_err(Arrow, arrow))
 

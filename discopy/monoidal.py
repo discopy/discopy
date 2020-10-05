@@ -222,7 +222,7 @@ class Layer(cat.Box):
     """
     def __init__(self, left, box, right):
         self._left, self._box, self._right = left, box, right
-        name = (left, box, right)
+        name = "Layer({}, {}, {})".format(left, box, right)
         dom, cod = left @ box.dom @ right, left @ box.cod @ right
         super().__init__(name, dom, cod)
 
@@ -236,9 +236,9 @@ class Layer(cat.Box):
             *map(repr, (self._left, self._box, self._right)))
 
     def __str__(self):
-        return ("{} @ ".format(cat.Id(self._left)) if self._left else "")\
+        return ("{} @ ".format(self._box.id(self._left)) if self._left else "")\
             + str(self._box)\
-            + (" @ {}".format(cat.Id(self._right)) if self._right else "")
+            + (" @ {}".format(self._box.id(self._right)) if self._right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -326,11 +326,15 @@ class Diagram(cat.Arrow):
         """
         return self._layers
 
-    def then(self, other):
-        return Diagram(self.dom, other.cod,
-                       self.boxes + other.boxes,
-                       self.offsets + other.offsets,
-                       layers=self.layers >> other.layers)
+    def then(self, *others):
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.then(others[0]).then(*others[1:])
+        return Diagram(self.dom, others[0].cod,
+                       self.boxes + others[0].boxes,
+                       self.offsets + others[0].offsets,
+                       layers=self.layers >> others[0].layers)
 
     def tensor(self, *others):
         """

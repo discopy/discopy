@@ -13,7 +13,7 @@ Implements dagger monoidal functors into tensors.
 
 import functools
 
-from discopy import messages
+from discopy import messages, rigid
 from discopy.cat import AxiomError
 from discopy.monoidal import Swap
 from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
@@ -116,7 +116,10 @@ class Tensor(Box):
         return (self.dom, self.cod) == (other.dom, other.cod)\
             and np.all(self.array == other.array)
 
-    def then(self, other):
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0]
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         if self.cod != other.dom:
@@ -126,7 +129,10 @@ class Tensor(Box):
             else self.array * other.array
         return Tensor(self.dom, other.cod, array)
 
-    def tensor(self, other):
+    def tensor(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0]
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -153,13 +159,10 @@ class Tensor(Box):
 
     @staticmethod
     def cups(left, right):
-        if not isinstance(left, Dim):
-            raise TypeError(messages.type_err(Dim, left))
-        if not isinstance(right, Dim):
-            raise TypeError(messages.type_err(Dim, right))
-        if left.r != right:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        return Tensor(left @ right, Dim(1), Id(left).array)
+        return rigid.cups(
+            left, right, ar_factory=Tensor,
+            cup_factory=lambda left, right:
+                Tensor(left @ right, Dim(1), Id(left).array))
 
     @staticmethod
     def caps(left, right):
@@ -212,14 +215,16 @@ class TensorFunctor(Functor):
     def __call__(self, diagram):
         if isinstance(diagram, Ty):
             return sum(map(self, diagram.objects), Dim(1))
-        if isinstance(diagram, Ob):
-            result = self.ob[Ty(Ob(diagram.name, z=0))]
+        if isinstance(diagram, Ob) and not diagram.z:
+            result = self.ob[Ty(diagram.name)]
             return result if isinstance(result, Dim) else Dim(result)
+        if isinstance(diagram, Ob):
+            return super().__call__(diagram)
         if isinstance(diagram, Cup):
             return Tensor.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
             return Tensor.caps(self(diagram.cod[0]), self(diagram.cod[1]))
-        if isinstance(diagram, Box):
+        if isinstance(diagram, Box) and not isinstance(diagram, Swap):
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
             return Tensor(self(diagram.dom), self(diagram.cod),
