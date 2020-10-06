@@ -7,6 +7,10 @@ from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 
+def bitstring(i, length):
+    return tuple(map(int, '{{:0{}b}}'.format(length).format(i)))
+
+
 class CQ(Ty):
     def __init__(self, classical=Dim(1), quantum=Dim(1)):
         self.classical, self.quantum = classical, quantum
@@ -115,7 +119,8 @@ class CQMap(rigid.Box):
     @staticmethod
     def swap(left, right):
         data = Tensor.swap(left.classical, right.classical)\
-            @ Tensor.swap(left.quantum ** 2, right.quantum ** 2)
+            @ Tensor.swap(left.quantum, right.quantum)\
+            @ Tensor.swap(left.quantum, right.quantum)
         return CQMap(left @ right, right @ left, data.array)
 
     @staticmethod
@@ -280,12 +285,83 @@ class Circuit(Diagram):
     def is_mixed(self):
         return any(box.is_mixed for box in self.boxes)
 
-    def eval(self, mixed=False):
-        if mixed or self.is_mixed:
+    def eval(self, mixed=False, backend=None, **params):
+        """
+        Parameters
+        ----------
+        mixed : bool, optional
+            Whether to apply :class:`TensorFunctor` or :class:`CQMapFunctor`.
+        backend : pytket.Backend, optional
+            Backend on which to run the circuit, if none then `numpy`.
+        params : optional
+            Get passed to Circuit.get_counts.
+
+        Returns
+        -------
+        cqmap : :class:`CQMap`
+            If :code:`mixed=True` and :code:`backend=None`.
+        tensor : :class:`discopy.tensor.Tensor`
+            Of dimension :code:`n_bits * (2, )` for :code:`n_bits` the
+            number of post-selected bits.
+
+        Examples
+        --------
+        >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
+        >>> from unittest.mock import Mock
+        >>> backend = Mock()
+        >>> backend.get_counts.return_value = {(0, 0): 502, (1, 1): 522}
+        >>> circuit.eval(backend=backend, seed=42)  # doctest: +ELLIPSIS
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0...])
+        """
+        if backend is None and mixed or self.is_mixed:
             ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
             return CQMapFunctor(ob, ar)(self)
-        ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, lambda g: g.array
-        return TensorFunctor(ob, ar)(self)
+        if backend is None:
+            ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, lambda g: g.array
+            return TensorFunctor(ob, ar)(self)
+        counts = self.get_counts(backend, **params)
+        n_bits = len(list(counts.keys()).pop())
+        array = np.zeros(n_bits * (2, ))
+        for bitstring, count in counts.items():
+            array += count * Ket(*bitstring).array
+        return Tensor(Dim(1), Dim(*(n_bits * (2, ))), array)
+
+    def get_counts(self, backend=None, **params):
+        """
+        Parameters
+        ----------
+        backend : pytket.Backend, optional
+            Backend on which to run the circuit, if none then `numpy`.
+        n_shots : int, optional
+            Number of shots, default is :code:`2**10`.
+        measure_all : bool, optional
+            Whether to measure all qubits, default is :code:`False`.
+        normalize : bool, optional
+            Whether to normalize the counts, default is :code:`True`.
+        post_select : bool, optional
+            Whether to perform post-selection, default is :code:`True`.
+        scale : bool, optional
+            Whether to scale the output, default is :code:`True`.
+        seed : int, optional
+            Seed to feed the backend, default is :code:`None`.
+        compilation : callable, optional
+            Compilation function to apply before getting counts.
+
+        Returns
+        -------
+        counts : dict
+            From bitstrings to counts.
+        """
+        if backend is None:
+            tensor, counts = self.eval(backend=None), dict()
+            for i in range(2**len(tensor.cod)):
+                bits = bitstring(i, len(tensor.cod))
+                if tensor.array[bits]:
+                    counts[bits] = tensor.array[bits]
+            return counts
+        from discopy.tk import get_counts
+        return get_counts(self, backend, **params)
+
 
     def measure(self, mixed=False):
         if mixed or self.is_mixed:
@@ -294,9 +370,6 @@ class Circuit(Diagram):
             measure = Id(0).tensor(*(
                 Measure() if x in qubit else Id(bit) for x in self.cod))
             return (encode >> self >> measure).eval().array.real
-
-        def bitstring(i, length):
-            return map(int, '{{:0{}b}}'.format(length).format(i))
         process = self.eval()
         states, effects = [], []
         states = [Ket(*bitstring(i, len(self.dom))).eval()
@@ -327,33 +400,26 @@ class Circuit(Diagram):
 
         Examples
         --------
-        >>> circuit0 = H @ Rx(0.5) >> CX
-        >>> print(list(circuit0.to_tk()))
-        [H q[0];, Rx(1*PI) q[1];, CX q[0], q[1];]
+        >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
+        >>> circuit0.to_tk()  # doctest: +ELLIPSIS
+        tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(1.41...)
 
         >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
-        >>> print(list(circuit1.to_tk()))
-        [X q[0];, CX q[0], q[2];]
-        >>> circuit2 = Circuit.from_tk(circuit1.to_tk())
-        >>> print(circuit2)
-        X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
-        >>> print(list(circuit2.to_tk()))
-        [X q[0];, CX q[0], q[2];]
-        >>> assert CRz(0.5) == Circuit.from_tk(CRz(0.5).to_tk())
+        >>> circuit1.to_tk()
+        tk.Circuit(3).X(0).CX(0, 2)
 
-        >>> circuit = Ket(0, 0)\\
-        ...     >> sqrt(2) @ Id(2)\\
+        >>> circuit2 = X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+        >>> circuit2.to_tk()
+        tk.Circuit(3).X(0).CX(0, 2)
+
+        >>> circuit3 = Ket(0, 0)\\
         ...     >> H @ Id(1)\\
         ...     >> Id(1) @ X\\
         ...     >> CX\\
         ...     >> Id(1) @ Bra(0)
-        >>> tk_circ = circuit.to_tk()
-        >>> print(list(tk_circ))
-        [H q[0];, X q[1];, CX q[0], q[1];]
-        >>> print(tk_circ.post_selection)
-        {1: 0}
-        >>> print(np.round(abs(tk_circ.scalar) ** 2))
-        2.0
+        >>> print(repr(circuit3.to_tk()))
+        tk.Circuit(2, 1).H(0).X(1).CX(0, 1).Measure(1, 0).post_select({0: 0})
+
         """
         from discopy.tk import to_tk
         return to_tk(self)
@@ -409,43 +475,6 @@ class Circuit(Diagram):
         """
         from discopy.tk import from_tk
         return from_tk(tk_circuit)
-
-    def get_counts(self, backend, **params):
-        """
-        Parameters
-        ----------
-        backend : pytket.Backend
-         Backend on which to run the circuit.
-        n_shots : int, optional
-         Number of shots, default is :code:`2**10`.
-        measure_all : bool, optional
-         Whether to measure all qubits, default is :code:`True`.
-        normalize : bool, optional
-         Whether to normalize the counts, default is :code:`True`.
-        post_select : bool, optional
-         Whether to perform post-selection, default is :code:`True`.
-        scale : bool, optional
-         Whether to scale the output, default is :code:`True`.
-        seed : int, optional
-         Seed to feed the backend, default is :code:`None`.
-
-        Returns
-        -------
-        tensor : :class:`discopy.tensor.Tensor`
-         Of dimension :code:`n_qubits * (2, )` for :code:`n_qubits` the
-         number of post-selected qubits.
-
-        Examples
-        --------
-        >>> from unittest.mock import Mock
-        >>> backend = Mock()
-        >>> backend.get_counts.return_value = {(0, 0): 502, (1, 1): 522}
-        >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
-        >>> circuit.get_counts(backend, seed=42)  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0...])
-        """
-        from discopy.tk_interface import get_counts
-        return get_counts(self, backend, **params)
 
 
 class Id(rigid.Id, Circuit):

@@ -120,6 +120,10 @@ class Ty(Ob):
                 raise TypeError(messages.type_err(Ty, other))
         return Ty(*sum([t.objects for t in (self, ) + others], []))
 
+    def count(self, ob):
+        ob, = ob if isinstance(ob, Ty) else (ob, )
+        return self.objects.count(ob)
+
     def __init__(self, *objects):
         self._objects = tuple(
             x if isinstance(x, Ob) else Ob(x) for x in objects)
