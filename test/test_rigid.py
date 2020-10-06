@@ -51,14 +51,14 @@ def test_Diagram_caps():
 
 def test_Diagram_normal_form():
     x = Ty('x')
-    assert Id(x).transpose_l().normal_form() == Id(x.l)
-    assert Id(x).transpose_r().normal_form() == Id(x.r)
+    assert Id(x).transpose(left=True).normal_form() == Id(x.l)
+    assert Id(x).transpose().normal_form() == Id(x.r)
 
     f = Box('f', Ty('a'), Ty('b') @ Ty('c'))
     assert f.normal_form() == f
-    assert f.transpose_r().transpose_l().normal_form() == f
-    assert f.transpose_l().transpose_r().normal_form() == f
-    diagram = f.transpose_l().transpose_l().transpose_r().transpose_r()
+    assert f.transpose().transpose(left=True).normal_form() == f
+    assert f.transpose(left=True).transpose().normal_form() == f
+    diagram = f.transpose(left=True).transpose(left=True).transpose().transpose()
     assert diagram.normal_form() == f
 
     Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
@@ -120,6 +120,16 @@ def test_AxiomError():
 
 
 def test_Functor_call():
-    F = Functor({}, {})
+    x = Ty('x')
+    cup, cap = Cup(x, x.r), Cap(x.r, x)
+    F = Functor(lambda x: x @ x, {})
+    assert F(cup) == Id(x) @ cup @ Id(x.r) >> cup
+    assert F(cap) == Id(x.r) @ cap @ Id(x) << cap
     with raises(TypeError):
         F(F)
+
+
+def test_Diagram_permutation():
+    assert Diagram.permutation([2, 0, 1])\
+        == Diagram.swap(PRO(1), PRO(1)) @ Id(PRO(1))\
+        >> Id(PRO(1)) @ Diagram.swap(PRO(1), PRO(1))

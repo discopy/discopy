@@ -83,14 +83,14 @@ def draw_equation(diagrams, **params):
                   aspect='auto', figsize=(5, 2), draw_types=False)
 def test_snake_equation():
     x = Ty('x')
-    return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()
+    return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
 @draw_and_compare('typed-snake-equation.png', draw=draw_equation,
                   figsize=(5, 2), aspect='auto')
 def test_draw_typed_snake():
     x = Ty('x')
-    return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()
+    return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
 def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
@@ -133,7 +133,7 @@ def test_sentence_to_tikz():
                   textpad=(.2, .2), textpad_words=(0, .25))
 def test_snake_equation_to_tikz():
     x = Ty('x')
-    return Id(x.r).transpose_l(), Id(x), Id(x.l).transpose_r()
+    return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
 @tikz_and_compare("who-ansatz.tex", to_tikz="controls",

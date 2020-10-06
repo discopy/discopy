@@ -9,7 +9,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> t = n.r @ s @ n.l
 >>> assert t @ unit == t == unit @ t
 >>> assert t.l.r == t == t.r.l
->>> left_snake, right_snake = Id(n.r).transpose_l(), Id(n.l).transpose_r()
+>>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 """
 
@@ -152,6 +152,7 @@ class Diagram(monoidal.Diagram):
     def swap(left, right):
         return swap(left, right)
 
+    @staticmethod
     def permutation(perm, dom=None):
         return permutation(perm, dom)
 
@@ -222,26 +223,20 @@ class Diagram(monoidal.Diagram):
         """
         return caps(left, right)
 
-    def transpose_r(self):
+    def transpose(self, left=False):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> double_snake = Id(a @ b).transpose_r()
-        >>> two_snakes = Id(b).transpose_r() @ Id(a).transpose_r()
+        >>> double_snake = Id(a @ b).transpose()
+        >>> two_snakes = Id(b).transpose() @ Id(a).transpose()
         >>> double_snake == two_snakes
         False
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(two_snakes)
         >>> assert double_snake == two_snakes_nf
         >>> f = Box('f', a, b)
-        """
-        return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
-            >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
-            >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
 
-    def transpose_l(self):
-        """
         >>> a, b = Ty('a'), Ty('b')
-        >>> double_snake = Id(a @ b).transpose_l()
-        >>> two_snakes = Id(b).transpose_l() @ Id(a).transpose_l()
+        >>> double_snake = Id(a @ b).transpose(left=True)
+        >>> two_snakes = Id(b).transpose(left=True) @ Id(a).transpose(left=True)
         >>> double_snake == two_snakes
         False
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(
@@ -249,6 +244,10 @@ class Diagram(monoidal.Diagram):
         >>> assert double_snake == two_snakes_nf
         >>> f = Box('f', a, b)
         """
+        if left:
+            return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
+                >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
+                >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
         return self.id(self.cod.l) @ self.caps(self.dom, self.dom.l)\
             >> self.id(self.cod.l) @ self @ self.id(self.dom.l)\
             >> self.cups(self.cod.l, self.cod) @ self.id(self.dom.l)

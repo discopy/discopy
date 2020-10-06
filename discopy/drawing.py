@@ -434,7 +434,7 @@ def equation(*diagrams, symbol="=", space=1, **params):
     """
     >>> from discopy import *
     >>> x = Ty('x')
-    >>> diagrams = Id(x.r).transpose_l(), Id(x.l).transpose_r()
+    >>> diagrams = Id(x.r).transpose(left=True), Id(x.l).transpose()
     >>> equation(*diagrams, to_tikz=True)
     \\node [right] () at (0.1, 2.0) {x};
     \\node [right] () at (1.1, 1.15) {x.r};

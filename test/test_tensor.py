@@ -97,7 +97,7 @@ def test_TensorFunctor_call():
     ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
     F = TensorFunctor(ob, ar)
     assert list(F(f >> g).array.flatten()) == [5.0, 14.0, 23.0, 32.0]
-    assert list(F(g.transpose_l()).array.flatten()) == [0.0, 1.0, 2.0]
+    assert list(F(g.transpose(left=True)).array.flatten()) == [0.0, 1.0, 2.0]
     with raises(TypeError):
         F("Alice")
 
