@@ -31,7 +31,10 @@ try:
     np.array2string = array2string
 except ImportError:  # pragma: no cover
     import numpy as np
-    numpy.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
+    try:
+        numpy.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
+    except NameError:  # readthedocs fails otherwise
+        pass
 
 
 class Dim(Ty):
