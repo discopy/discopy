@@ -139,8 +139,10 @@ class Tensor(Box):
         return Tensor(self.dom, other.cod, array)
 
     def tensor(self, *others):
-        if len(others) != 1:
-            return super().then(*others)
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.tensor(others[0]).tensor(*others[1:])
         other = others[0]
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))

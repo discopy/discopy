@@ -15,7 +15,7 @@ from discopy import messages
 from discopy.cat import Quiver
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum import (
-    CircuitFunctor, Id, Bra, Ket, BitsAndQubits, Swap, Ob,
+    CircuitFunctor, Id, Bits, Bra, Ket, BitsAndQubits, Swap, Ob,
     bit, qubit, Discard, Measure, gates, SWAP, X, Rx, Rz, CRz, scalar)
 
 
@@ -67,13 +67,14 @@ class Circuit(tk.Circuit):
 
 
 def to_tk(circuit):
-    if circuit.dom != qubit ** len(circuit.dom):
-        raise ValueError("Circuit should have qubits as domains.")
     if circuit.dom:
-        circuit = Ket(*(len(circuit.dom) * [0])) >> circuit
+        init = Id(0).tensor(*(
+            Bits(0) if x.name == "bit" else Ket(0) for x in circuit.dom))
+        circuit = init >> circuit
     if circuit.cod != bit ** len(circuit.cod):
-        circuit = circuit >> Id(0).tensor(*(
+        discards = Id(0).tensor(*(
             Discard() if x.name == "qubit" else Id(bit) for x in circuit.cod))
+        circuit = circuit >> discards
 
     tk_circ, bits, qubits = Circuit(), [], []
 
@@ -85,7 +86,8 @@ def to_tk(circuit):
 
     def prepare_qubits(qubits, left, ket, right):
         renaming = dict()
-        start = qubits[-right.count(qubit)] if qubits else tk_circ.n_qubits
+        start =\
+            qubits[left.count(qubit) - 1] + 1 if qubits else tk_circ.n_qubits
         for i in range(start, tk_circ.n_qubits):
             old = Qubit('q', i)
             new = Qubit('q', i + len(ket.cod))

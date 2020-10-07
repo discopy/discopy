@@ -254,6 +254,9 @@ class CQMap(rigid.Box):
 
 
 class CQMapFunctor(rigid.Functor):
+    """
+    Implements functors into :class:`CQMap`.
+    """
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
 
@@ -283,6 +286,21 @@ class CQMapFunctor(rigid.Functor):
 
 
 class BitsAndQubits(Ty):
+    """
+    Implements the objects of :class:`Circuit`, the free monoid on two objects
+    :code:`bit` and :code:`qubit`.
+
+    Examples
+    --------
+    >>> assert bit == BitsAndQubits("bit")
+    >>> assert qubit == BitsAndQubits("qubit")
+    >>> assert bit @ qubit != qubit @ bit
+
+    You can construct :code:`n` qubits by taking powers of :code:`qubit`:
+
+    >>> bit @ bit @ qubit @ qubit @ qubit
+    bit ** 2 @ qubit ** 3
+    """
     @staticmethod
     def _upgrade(ty):
         return BitsAndQubits(*ty.objects)
@@ -314,6 +332,9 @@ class BitsAndQubits(Ty):
 
 
 class Circuit(Diagram):
+    """
+    Implements classical-quantum circuits.
+    """
     @staticmethod
     def _upgrade(diagram):
         dom, cod = BitsAndQubits(*diagram.dom), BitsAndQubits(*diagram.cod)
@@ -353,9 +374,14 @@ class Circuit(Diagram):
 
     @property
     def is_mixed(self):
+        """
+        Whether the circuit is mixed, i.e. it contains both bits and qubits
+        or it discards qubits. Mixed circuits can be evaluated only by a
+        :class:`CQMapFunctor` not a :class:`discopy.tensor.TensorFunctor`.
+        """
         return any(box.is_mixed for box in self.boxes)
 
-    def eval(self, mixed=False, backend=None, **params):
+    def eval(self, backend=None, mixed=False, **params):
         """
         Parameters
         ----------
@@ -371,19 +397,35 @@ class Circuit(Diagram):
         cqmap : :class:`CQMap`
             If :code:`mixed=True` and :code:`backend=None`.
         tensor : :class:`discopy.tensor.Tensor`
-            Of dimension :code:`n_bits * (2, )` for :code:`n_bits` the
-            number of post-selected bits.
+            Otherwise.
 
         Examples
         --------
-        >>> circuit = H @ Id(1) >> CX >> Id(1) @ Bra(0)
+        We can evaluate a pure circuit as a :class:`discopy.tensor.Tensor`
+        or as a :class:`CQMap`:
+
+        >>> circuit = Ket(0, 0) >> H @ X >> CX >> Id(1) @ Bra(0)
+        >>> circuit.eval()  # doctest: +ELLIPSIS
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.0, 0.707...])
+        >>> circuit.eval(mixed=True)  # doctest: +ELLIPSIS
+        CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.0, 0.0, 0.0, 0.499...])
+
+        We can evaluate a mixed circuit as a :class:`CQMap`:
+
+        >>> circuit = Ket(0, 0) >> H @ X >> CX >> Measure() @ Discard()
+        >>> circuit.eval()  # doctest: +ELLIPSIS
+        CQMap(dom=CQ(), cod=C(Dim(2)), array=[0.499..., 0.499...])
+
+        We can execute any circuit on a `pytket.Backend`:
+
+        >>> circuit = sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
         >>> from unittest.mock import Mock
         >>> backend = Mock()
         >>> backend.get_counts.return_value = {(0, 0): 502, (1, 1): 522}
         >>> circuit.eval(backend=backend, seed=42)  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(1), cod=Dim(2), array=[0.49..., 0...])
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.98..., 0...])
         """
-        if backend is None and mixed or self.is_mixed:
+        if backend is None and (mixed or self.is_mixed):
             ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
             return CQMapFunctor(ob, ar)(self)
         if backend is None:
@@ -694,7 +736,7 @@ class QGate(PureBox):
     def __repr__(self):
         if self in gates:
             return self.name
-        return "QGate({}, {}, {})".format(
+        return "QGate({}, n_qubits={}, array={})".format(
             repr(self.name), len(self.dom),
             np.array2string(self.array.flatten()))
 
@@ -717,9 +759,9 @@ class CGate(PureBox):
         return self._array
 
     def __repr__(self):
-        return "CGate({}, {}, {}, {})".format(
+        return "CGate({}, n_bits_in={}, n_bits_out={}, array={})".format(
             repr(self.name), len(self.dom), len(self.cod),
-            np.array2string(self.array))
+            np.array2string(self.array.flatten()))
 
     def dagger(self):
         return CGate(
@@ -735,25 +777,30 @@ class CGate(PureBox):
         return CGate(name, n_bits_in, n_bits_out, array)
 
 
-class Bit(CGate):
-    def __init__(self, value):
-        name = [int(value == 0), int(value == 1)]
-        super().__init__("Bit({})".format(value), 0, 1, array)
+class Bits(CGate):
+    def __init__(self, *bitstring, _dagger=False):
+        data = Tensor.id(Dim(1)).tensor(*(
+            Tensor(Dim(1), Dim(2), [0, 1] if bit else [1, 0])
+            for bit in bitstring))
+        name = "Bits({})".format(', '.join(map(str, bitstring)))
+        dom, cod = (len(bitstring), 0) if _dagger else (0, len(bitstring))
+        super().__init__(name, dom, cod, array=data.array, _dagger=_dagger)
+        self.bitstring = bitstring
+
+    def __repr__(self):
+        return self.name + (".dagger()" if self._dagger else "")
+
+    def dagger(self):
+        return Bits(*self.bitstring, _dagger=not self._dagger)
 
 
 class Ket(PureBox):
     def __init__(self, *bitstring):
-        self.bitstring = bitstring
-        name = 'Ket({})'.format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** 0, qubit ** len(bitstring)
+        name = "Ket({})".format(', '.join(map(str, bitstring)))
         super().__init__(name, dom, cod)
-
-    @property
-    def array(self):
-        tensor = Tensor(Dim(1), Dim(1), [1])
-        for bit in self.bitstring:
-            tensor = tensor @ Tensor(Dim(2), Dim(1), [0, 1] if bit else [1, 0])
-        return tensor.array
+        self.bitstring = bitstring
+        self.array = Bits(*bitstring).array
 
     def dagger(self):
         return Bra(*self.bitstring)
@@ -761,14 +808,11 @@ class Ket(PureBox):
 
 class Bra(PureBox):
     def __init__(self, *bitstring):
-        self.bitstring = bitstring
-        name = 'Bra({})'.format(', '.join(map(str, bitstring)))
+        name = "Bra({})".format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod)
-
-    @property
-    def array(self):
-        return Ket(*self.bitstring).array
+        self.bitstring = bitstring
+        self.array = Bits(*bitstring).array
 
     def dagger(self):
         return Ket(*self.bitstring)
