@@ -15,7 +15,7 @@ discopy
    rigid/index.rst
    cartesian/index.rst
    tensor/index.rst
-   circuit/index.rst
+   quantum/index.rst
    grammar/index.rst
 
 

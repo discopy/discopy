@@ -245,12 +245,12 @@ class Diagram(monoidal.Diagram):
         >>> f = Box('f', a, b)
         """
         if left:
-            return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
-                >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
-                >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
-        return self.id(self.cod.l) @ self.caps(self.dom, self.dom.l)\
-            >> self.id(self.cod.l) @ self @ self.id(self.dom.l)\
-            >> self.cups(self.cod.l, self.cod) @ self.id(self.dom.l)
+            return self.id(self.cod.l) @ self.caps(self.dom, self.dom.l)\
+                >> self.id(self.cod.l) @ self @ self.id(self.dom.l)\
+                >> self.cups(self.cod.l, self.cod) @ self.id(self.dom.l)
+        return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
+            >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
+            >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
 
     def normalize(self, left=False):
         """

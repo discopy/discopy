@@ -1,5 +1,5 @@
 circuit.Bra
 ===========
 
-.. autoclass:: discopy.circuit.Bra
+.. autoclass:: discopy.quantum.Bra
     :show-inheritance:

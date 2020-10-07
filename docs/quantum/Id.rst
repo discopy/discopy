@@ -1,5 +1,5 @@
 circuit.Id
 =================
 
-.. autoclass:: discopy.circuit.Id
+.. autoclass:: discopy.quantum.Id
     :show-inheritance:

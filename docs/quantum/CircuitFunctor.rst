@@ -1,5 +1,5 @@
 circuit.CircuitFunctor
 ==============================
 
-.. autoclass:: discopy.circuit.CircuitFunctor
+.. autoclass:: discopy.quantum.CircuitFunctor
     :show-inheritance:

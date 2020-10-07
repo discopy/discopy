@@ -123,8 +123,10 @@ def to_tk(circuit):
             tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *i_qubits)
         elif isinstance(box, CRz):
             tk_circ.__getattribute__(box.name[:3])(2 * box.phase, *i_qubits)
-        else:
+        elif hasattr(tk_circ, box.name):
             tk_circ.__getattribute__(box.name)(*i_qubits)
+        else:
+            raise NotImplementedError
 
     circuit = CircuitFunctor(ob=lambda x: x, ar=remove_ket1)(circuit)
     for left, box, right in circuit.layers:
@@ -144,7 +146,7 @@ def to_tk(circuit):
                 off = left.count(bit)
                 swap(bits[off], bits[off + 1], unit_factory=Bit, register='c')
             elif box in [Swap(qubit, bit), Swap(bit, qubit)]:
-                continue
+                continue  # bits and qubits live in different registers
             else:
                 raise ValueError(messages.type_err(BitsAndQubits, box.dom))
         elif not box.dom and not box.cod:

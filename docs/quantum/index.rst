@@ -1,11 +1,12 @@
-discopy.circuit
+discopy.quantum
 ===============
 
-.. automodule:: discopy.circuit
+.. automodule:: discopy.quantum
 
 .. toctree::
     :caption: Contents:
 
+    CQMap.rst
     Circuit.rst
     Id.rst
     Bra.rst

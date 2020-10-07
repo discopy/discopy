@@ -1,3 +1,9 @@
+# -*- coding: utf-8 -*-
+
+"""
+Implements classical-quantum maps and circuits.
+"""
+
 import random as random
 from itertools import takewhile
 
@@ -7,11 +13,49 @@ from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
 
-def bitstring(i, length):
+def index2bitstring(i, length):
+    """
+    Turns an index into a bitstring of a given length.
+
+    >>> index2bitstring(42, 8)
+    (0, 0, 1, 0, 1, 0, 1, 0)
+    """
     return tuple(map(int, '{{:0{}b}}'.format(length).format(i)))
+
+def bitstring2index(bitstring):
+    """
+    Turns a bitstring into an index.
+
+    >>> bitstring2index((0, 0, 1, 0, 1, 0, 1, 0))
+    42
+    """
+    return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
 class CQ(Ty):
+    """
+    Implements the dimensions of classical-quantum systems.
+
+    Parameters
+    ----------
+    classical : :class:`discopy.tensor.Dim`
+        Classical dimension.
+    quantum : :class:`discopy.tensor.Dim`
+        Quantum dimension.
+
+    Note
+    ----
+
+    In the category of monoids, :class:`CQ` is the product of :class:`C` and
+    :class:`Q`, which are both isomorphic to :class:`discopy.tensor.Dim`.
+
+    Examples
+    --------
+    >>> CQ(Dim(2), Dim(2))
+    C(Dim(2)) @ Q(Dim(2))
+    >>> CQ(Dim(2), Dim(2)) @ CQ(Dim(2), Dim(2))
+    C(Dim(2, 2)) @ Q(Dim(2, 2))
+    """
     def __init__(self, classical=Dim(1), quantum=Dim(1)):
         self.classical, self.quantum = classical, quantum
         types = [Ob("C({})".format(dim)) for dim in classical]\
@@ -44,19 +88,45 @@ class CQ(Ty):
 
 
 class C(CQ):
+    """
+    Implements the classical dimension of a classical-quantum system,
+    see :class:`CQ`.
+    """
     def __init__(self, dim):
         super().__init__(dim, Dim(1))
 
 
 class Q(CQ):
+    """
+    Implements the quantum dimension of a classical-quantum system,
+    see :class:`CQ`.
+    """
     def __init__(self, dim):
         super().__init__(Dim(1), dim)
 
 
 class CQMap(rigid.Box):
-    def __init__(self, dom, cod, array):
-        data = Tensor(dom.classical @ dom.quantum @ dom.quantum,
-                      cod.classical @ cod.quantum @ cod.quantum, array)
+    """
+    Implements classical-quantum maps.
+
+    Parameters
+    ----------
+    dom : :class:`CQ`
+        Domain.
+    cod : :class:`CQ`
+        Codomain.
+    array : list, optional
+        Array of size :code:`product(data.dom @ data.cod)`.
+    data : :class:`discopy.tensor.Tensor`, optional
+        Tensor with domain :code:`dom.classical @ dom.quantum ** 2`
+        and codomain :code:`cod.classical @ cod.quantum ** 2``.
+    """
+    def __init__(self, dom, cod, array=None, data=None):
+        if array is None and data is None:
+            raise ValueError("One of array or data must be given.")
+        if data is None:
+            data = Tensor(dom.classical @ dom.quantum @ dom.quantum,
+                          cod.classical @ cod.quantum @ cod.quantum, array)
         self.array = data.array
         super().__init__("CQMap", dom, cod, data=data)
 
@@ -355,7 +425,7 @@ class Circuit(Diagram):
         if backend is None:
             tensor, counts = self.eval(backend=None), dict()
             for i in range(2**len(tensor.cod)):
-                bits = bitstring(i, len(tensor.cod))
+                bits = index2bitstring(i, len(tensor.cod))
                 if tensor.array[bits]:
                     counts[bits] = tensor.array[bits]
             return counts
@@ -372,9 +442,9 @@ class Circuit(Diagram):
             return (encode >> self >> measure).eval().array.real
         process = self.eval()
         states, effects = [], []
-        states = [Ket(*bitstring(i, len(self.dom))).eval()
+        states = [Ket(*index2bitstring(i, len(self.dom))).eval()
                   for i in range(2 ** len(self.dom))]
-        effects = [Bra(*bitstring(j, len(self.cod))).eval()
+        effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
         array = np.zeros(len(self.dom + self.cod) * (2, ))
         for state in states if self.dom else [Tensor.id(1)]:
@@ -590,7 +660,7 @@ class Encode(MixedBox):
 
 
 class Spider(PureBox):
-    def __init__(self, n_legs_in, n_legs_out):
+    def __init__(self, n_legs_in, n_legs_out, axis='X', classical=False):
         self.axis = axis
         ob = bit if classical else qubit
         dom, cod = ob ** n_legs_in, ob ** n_legs_out
@@ -663,6 +733,12 @@ class CGate(PureBox):
             bitstring = tuple(map(int, format(i, '0{}b'.format(n_bits_in))))
             array[bitstring + tuple(function(*bitstring))] = 1
         return CGate(name, n_bits_in, n_bits_out, array)
+
+
+class Bit(CGate):
+    def __init__(self, value):
+        name = [int(value == 0), int(value == 1)]
+        super().__init__("Bit({})".format(value), 0, 1, array)
 
 
 class Ket(PureBox):
