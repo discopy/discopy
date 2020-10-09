@@ -48,15 +48,19 @@ class Word(Box):
     >>> loves
     Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
     """
-    def __init__(self, word, ty):
+    def __init__(self, word, cod, dom=Ty()):
         if not isinstance(word, str):
             raise TypeError(messages.type_err(str, word))
-        if not isinstance(ty, Ty):
-            raise TypeError(messages.type_err(Ty, ty))
-        super().__init__(word, Ty(), ty)
+        if not isinstance(dom, Ty):
+            raise TypeError(messages.type_err(Ty, dom))
+        if not isinstance(cod, Ty):
+            raise TypeError(messages.type_err(Ty, cod))
+        super().__init__(word, dom, cod)
 
     def __repr__(self):
-        return "Word({}, {})".format(repr(self.name), repr(self.cod))
+        return "Word({}, {}{})".format(
+            repr(self.name), self.cod,
+            ", dom={}".format(self.cod) if self.cod else "")
 
     def dagger(self):
         """

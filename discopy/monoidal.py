@@ -797,7 +797,8 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        layers = cat.Arrow(dom, cod, [Layer(Ty(), self, Ty())], _scan=False)
+        layer = Layer(type(dom)(), self, type(dom)())
+        layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 
     def __eq__(self, other):

@@ -13,7 +13,7 @@ Implements dagger monoidal functors into tensors.
 
 import functools
 
-from discopy import messages, rigid
+from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
 from discopy.monoidal import Swap
 from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
@@ -92,6 +92,9 @@ class Tensor(Box):
     >>> v >> m >> v.dagger()
     Tensor(dom=Dim(1), cod=Dim(1), array=[0])
     """
+    def _upgrade(diagram):
+        import pdb; pdb.set_trace()
+
     def __init__(self, dom, cod, array):
         self._array = np.array(array).reshape(dom + cod)
         super().__init__("Tensor", dom, cod)
@@ -139,10 +142,8 @@ class Tensor(Box):
         return Tensor(self.dom, other.cod, array)
 
     def tensor(self, *others):
-        if not others:
-            return self
-        if len(others) > 1:
-            return self.tensor(others[0]).tensor(*others[1:])
+        if len(others) != 1:
+            return monoidal.Diagram.tensor(self, *others)
         other = others[0]
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))

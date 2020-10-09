@@ -150,11 +150,14 @@ class Diagram(monoidal.Diagram):
 
     @staticmethod
     def swap(left, right):
-        return swap(left, right)
+        return monoidal.swap(
+            left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
     def permutation(perm, dom=None):
-        return permutation(perm, dom)
+        if dom is None:
+            dom = PRO(len(perm))
+        return monoidal.permutation(perm, dom, ar_factory=Diagram)
 
     def interchange(self, i, j, left=False):
         return self._upgrade(super().interchange(i, j, left=left))
@@ -502,16 +505,6 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
-
-
-def swap(left, right):
-    return monoidal.swap(left, right, ar_factory=Diagram, swap_factory=Swap)
-
-
-def permutation(perm, dom=None):
-    if dom is None:
-        dom = PRO(len(perm))
-    return monoidal.permutation(perm, dom, ar_factory=Diagram)
 
 
 def cups(left, right, ar_factory=Diagram, cup_factory=Cup, caps=False):

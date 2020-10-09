@@ -4,10 +4,11 @@
 Implements classical-quantum maps and circuits.
 """
 
-import random as random
+import random
+import math
 from itertools import takewhile
 
-from discopy import monoidal, rigid
+from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
@@ -80,7 +81,7 @@ class CQ(Ty):
 
     @property
     def l(self):
-        return CQ(self.classical[::-1], other.classical[::-1])
+        return CQ(self.classical[::-1], self.quantum[::-1])
 
     @property
     def r(self):
@@ -92,7 +93,7 @@ class C(CQ):
     Implements the classical dimension of a classical-quantum system,
     see :class:`CQ`.
     """
-    def __init__(self, dim):
+    def __init__(self, dim=Dim(1)):
         super().__init__(dim, Dim(1))
 
 
@@ -101,7 +102,7 @@ class Q(CQ):
     Implements the quantum dimension of a classical-quantum system,
     see :class:`CQ`.
     """
-    def __init__(self, dim):
+    def __init__(self, dim=Dim(1)):
         super().__init__(Dim(1), dim)
 
 
@@ -225,6 +226,7 @@ class CQMap(rigid.Box):
         return CQMap(Q(tensor.dom), Q(tensor.cod),
                      (tensor.conjugate() @ tensor).array)
 
+    @staticmethod
     def classical(tensor):
         return CQMap(C(tensor.dom), C(tensor.cod), tensor.array)
 
@@ -344,8 +346,8 @@ class Circuit(Diagram):
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
 
-    def draw(self, draw_types=None, **params):
-        draw_types = draw_types or self.is_mixed
+    def draw(self, **params):
+        draw_types = params.get('draw_types') or self.is_mixed
         return super().draw(**dict(params, draw_types=draw_types))
 
     @staticmethod
@@ -379,7 +381,8 @@ class Circuit(Diagram):
         or it discards qubits. Mixed circuits can be evaluated only by a
         :class:`CQMapFunctor` not a :class:`discopy.tensor.TensorFunctor`.
         """
-        return any(box.is_mixed for box in self.boxes)
+        both_bits_and_qubits = self.dom.count(bit) and self.dom.count(qubit)
+        return both_bits_and_qubits or any(box.is_mixed for box in self.boxes)
 
     def eval(self, backend=None, mixed=False, **params):
         """
@@ -401,29 +404,30 @@ class Circuit(Diagram):
 
         Examples
         --------
-        We can evaluate a pure circuit as a :class:`discopy.tensor.Tensor`
-        or as a :class:`CQMap`:
+        We can evaluate a pure circuit (i.e. with :code:`not circuit.is_mixed`)
+        as a unitary :class:`discopy.tensor.Tensor` or as a :class:`CQMap`:
 
-        >>> circuit = Ket(0, 0) >> H @ X >> CX >> Id(1) @ Bra(0)
-        >>> circuit.eval()  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(1), cod=Dim(2), array=[0.0, 0.707...])
-        >>> circuit.eval(mixed=True)  # doctest: +ELLIPSIS
-        CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.0, 0.0, 0.0, 0.499...])
+        >>> H.eval()  # doctest: +ELLIPSIS
+        Tensor(dom=Dim(2), cod=Dim(2), array=[0.7..., 0.7..., 0.7..., -0.7...])
+        >>> H.eval(mixed=True)  # doctest: +ELLIPSIS
+        CQMap(dom=Q(Dim(2)), cod=Q(Dim(2)), array=[0.499..., 0.499...])
 
         We can evaluate a mixed circuit as a :class:`CQMap`:
 
-        >>> circuit = Ket(0, 0) >> H @ X >> CX >> Measure() @ Discard()
-        >>> circuit.eval()  # doctest: +ELLIPSIS
-        CQMap(dom=CQ(), cod=C(Dim(2)), array=[0.499..., 0.499...])
+        >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
+        >>> circuit.eval()
+        CQMap(dom=CQ(), cod=CQ(), array=[1.0])
+        >>> Measure().eval()
+        CQMap(dom=Q(Dim(2)), cod=C(Dim(2)), array=[1, 0, 0, 0, 0, 0, 0, 1])
 
         We can execute any circuit on a `pytket.Backend`:
 
-        >>> circuit = sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
+        >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
         >>> from unittest.mock import Mock
         >>> backend = Mock()
-        >>> backend.get_counts.return_value = {(0, 0): 502, (1, 1): 522}
-        >>> circuit.eval(backend=backend, seed=42)  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(1), cod=Dim(2), array=[0.98..., 0...])
+        >>> backend.get_counts.return_value = {(0, 1): 512, (1, 0): 512}
+        >>> circuit.eval(backend, n_shots=2**10)  # doctest: +ELLIPSIS
+        Tensor(dom=Dim(1), cod=Dim(2), array=[0.0, 0.999...])
         """
         if backend is None and (mixed or self.is_mixed):
             ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
@@ -463,19 +467,43 @@ class Circuit(Diagram):
         -------
         counts : dict
             From bitstrings to counts.
+
+        Examples
+        --------
+        >>> circuit = H @ X >> CX >> Measure(2)
+        >>> from unittest.mock import Mock
+        >>> backend = Mock()
+        >>> backend.get_counts.return_value = {(0, 1): 512, (1, 0): 512}
+        >>> circuit.get_counts(backend, n_shots=2**10)  # doctest: +ELLIPSIS
+        {(0, 1): 0.5, (1, 0): 0.5}
         """
         if backend is None:
             tensor, counts = self.eval(backend=None), dict()
             for i in range(2**len(tensor.cod)):
                 bits = index2bitstring(i, len(tensor.cod))
                 if tensor.array[bits]:
-                    counts[bits] = tensor.array[bits]
+                    counts[bits] = float(tensor.array[bits])
             return counts
         from discopy.tk import get_counts
         return get_counts(self, backend, **params)
 
 
     def measure(self, mixed=False):
+        """
+        Measures a circuit on the computational basis.
+
+        Returns
+        -------
+        array : np.ndarray
+            with real entries and the same shape as :code:`self.eval().array`.
+
+        Examples
+        --------
+        >>> m = X.measure()
+        >>> list(np.round(m.flatten()))
+        [0.0, 1.0, 1.0, 0.0]
+        >>> assert (Ket(0) >> X >> Bra(1)).measure() == m[0, 1]
+        """
         if mixed or self.is_mixed:
             encode = Id(0).tensor(*(
                 Encode() if x in qubit else Id(bit) for x in self.dom))
@@ -638,6 +666,9 @@ class Swap(rigid.Swap, Box):
     @property
     def is_mixed(self):
         return self.left != self.right
+
+    def dagger(self):
+        return Swap(self.right, self.left)
 
     def __repr__(self):
         return "SWAP"\
@@ -908,13 +939,15 @@ def permutation(perm, dom=None):
     return monoidal.permutation(perm, dom, ar_factory=Circuit)
 
 
-def sqrt(real):
-    return QGate('sqrt({})'.format(real), 0, np.sqrt(real), _dagger=None)
+def sqrt(real_number):
+    name = 'sqrt({})'.format(real_number)
+    return QGate(name, 0, math.sqrt(real_number), _dagger=None)
 
 
-def scalar(complex):
-    return QGate('scalar({:.3f})'.format(complex), 0, complex,
-                 _dagger=None if np.conjugate(complex) == complex else False)
+def scalar(complex_number):
+    name = 'scalar({:.3f})'.format(complex_number)
+    _dagger = None if np.conjugate(complex_number) == complex_number else False
+    return QGate(name, 0, complex_number, _dagger=_dagger)
 
 
 def random_tiling(n_qubits, depth=3, gateset=[H, Rx, CX], seed=None):

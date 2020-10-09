@@ -69,5 +69,6 @@ def expected_pregroup():
 
 
 def expected_input_length(function, values):
+    """ Unexpected input length error. """
     return "Expected input of length {}, got {} instead.".format(
         len(function.dom), len(values))
