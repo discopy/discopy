@@ -265,27 +265,6 @@ class CQMapFunctor(rigid.Functor):
     def __repr__(self):
         return super().__repr__().replace("Functor", "CQMapFunctor")
 
-    def __call__(self, diagram):
-        if isinstance(diagram, PureBox):
-            if diagram.classical:
-                dom, cod = self(diagram.dom), self(diagram.cod)
-                return CQMap(dom, cod, diagram.array)
-            dom, cod = self(diagram.dom).quantum, self(diagram.cod).quantum
-            return CQMap.pure(Tensor(dom, cod, diagram.array))
-        if isinstance(diagram, Swap):
-            return CQMap.swap(self(diagram.dom[:1]), self(diagram.dom[1:]))
-        if isinstance(diagram, Discard):
-            return CQMap.discard(self(diagram.dom))
-        if isinstance(diagram, MixedState):
-            return CQMap.discard(self(diagram.cod)).dagger()
-        if isinstance(diagram, Measure):
-            return CQMap.measure(
-                self(diagram.dom).quantum, destructive=diagram.destructive)
-        if isinstance(diagram, Encode):
-            return CQMap.encode(
-                self(diagram.dom).classical, constructive=diagram.constructive)
-        return super().__call__(diagram)
-
 
 class BitsAndQubits(Ty):
     """
@@ -388,18 +367,19 @@ class Circuit(Diagram):
         """
         Parameters
         ----------
+        backend : pytket.Backend, optional
+            Backend on which to run the circuit, if none then we apply
+            :class:`TensorFunctor` or :class:`CQMapFunctor` instead.
         mixed : bool, optional
             Whether to apply :class:`TensorFunctor` or :class:`CQMapFunctor`.
-        backend : pytket.Backend, optional
-            Backend on which to run the circuit, if none then `numpy`.
-        params : optional
+        params : kwargs, optional
             Get passed to Circuit.get_counts.
 
         Returns
         -------
-        cqmap : :class:`CQMap`
-            If :code:`mixed=True` and :code:`backend=None`.
         tensor : :class:`discopy.tensor.Tensor`
+            If :code:`backend is not None` or :code:`mixed=False`.
+        cqmap : :class:`CQMap`
             Otherwise.
 
         Examples
@@ -430,11 +410,30 @@ class Circuit(Diagram):
         Tensor(dom=Dim(1), cod=Dim(2), array=[0.0, 0.999...])
         """
         if backend is None and (mixed or self.is_mixed):
-            ob, ar = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}, {}
+            ob = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}
+            F_ob = CQMapFunctor(ob, {})
+            def ar(box):
+                if isinstance(box, PureBox) and box.classical:
+                    return CQMap(F_ob(box.dom), F_ob(box.cod), box.array)
+                if isinstance(box, PureBox):
+                    dom, cod = F_ob(box.dom).quantum, F_ob(box.cod).quantum
+                    return CQMap.pure(Tensor(dom, cod, box.array))
+                if isinstance(box, Swap):
+                    return CQMap.swap(F_ob(box.dom[:1]), F_ob(box.dom[1:]))
+                if isinstance(box, Discard):
+                    return CQMap.discard(F_ob(box.dom))
+                if isinstance(box, Measure):
+                    measure = CQMap.measure(
+                        F_ob(box.dom).quantum, destructive=box.destructive)
+                    measure = measure @ CQMap.discard(F_ob(box.dom).classical)\
+                        if box.override_bits else measure
+                    return measure
+                if isinstance(box, (MixedState, Encode)):
+                    return ar(box.dagger()).dagger()
+                raise ValueError
             return CQMapFunctor(ob, ar)(self)
         if backend is None:
-            ob, ar = {Ty('bit'): 2, Ty('qubit'): 2}, lambda g: g.array
-            return TensorFunctor(ob, ar)(self)
+            return TensorFunctor(lambda x: 2, lambda f: f.array)(self)
         counts = self.get_counts(backend, **params)
         n_bits = len(list(counts.keys()).pop())
         array = np.zeros(n_bits * (2, ))
@@ -487,41 +486,6 @@ class Circuit(Diagram):
         from discopy.tk import get_counts
         return get_counts(self, backend, **params)
 
-
-    def measure(self, mixed=False):
-        """
-        Measures a circuit on the computational basis.
-
-        Returns
-        -------
-        array : np.ndarray
-            with real entries and the same shape as :code:`self.eval().array`.
-
-        Examples
-        --------
-        >>> m = X.measure()
-        >>> list(np.round(m.flatten()))
-        [0.0, 1.0, 1.0, 0.0]
-        >>> assert (Ket(0) >> X >> Bra(1)).measure() == m[0, 1]
-        """
-        if mixed or self.is_mixed:
-            encode = Id(0).tensor(*(
-                Encode() if x in qubit else Id(bit) for x in self.dom))
-            measure = Id(0).tensor(*(
-                Measure() if x in qubit else Id(bit) for x in self.cod))
-            return (encode >> self >> measure).eval().array.real
-        process = self.eval()
-        states, effects = [], []
-        states = [Ket(*index2bitstring(i, len(self.dom))).eval()
-                  for i in range(2 ** len(self.dom))]
-        effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
-                   for j in range(2 ** len(self.cod))]
-        array = np.zeros(len(self.dom + self.cod) * (2, ))
-        for state in states if self.dom else [Tensor.id(1)]:
-            for effect in effects if self.cod else [Tensor.id(1)]:
-                scalar = np.absolute((state >> process >> effect).array) ** 2
-                array += scalar * (state.dagger() >> effect.dagger()).array
-        return array
 
     def to_tk(self):
         """
@@ -600,7 +564,7 @@ class Circuit(Diagram):
         >>> print(Circuit.from_tk(circuit.to_tk()))
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
 
-        >>> bell_state = Circuit.caps(PRO(1), PRO(1))
+        >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
         >>> circuit = bell_state @ Id(1) >> Id(1) @ bell_effect >> Bra(0)
         >>> print(Circuit.from_tk(circuit.to_tk()))
@@ -703,33 +667,41 @@ class MixedState(MixedBox):
 
 
 class Measure(MixedBox):
-    def __init__(self, n_qubits=1, destructive=True):
-        if destructive:
-            dom, cod = qubit ** n_qubits, bit ** n_qubits
-            name = "Measure({})".format(n_qubits)
-        else:
-            dom, cod = qubit ** n_qubits, qubit ** n_qubits @ bit ** n_qubits
-            name = "Measure({}, destructive=False)".format(n_qubits)
+    def __init__(self, n_qubits=1, destructive=True, override_bits=False):
+        dom, cod = qubit ** n_qubits, bit ** n_qubits
+        name = "Measure({})".format("" if n_qubits == 1 else n_qubits)
+        if not destructive:
+            cod = qubit ** n_qubits @ cod
+            name = name.replace("()", "(1)").replace(')', ", destructive=False)")
+        if override_bits:
+            dom = dom @ bit ** n_qubits
+            name = name.replace("()", "(1)").replace(')', ", override_bits=True)")
         super().__init__(name, dom, cod)
-        self.destructive = destructive
+        self.destructive, self.override_bits = destructive, override_bits
 
     def dagger(self):
-        return Encode(len(self.cod), constructive=self.destructive)
+        return Encode(len(self.cod),
+                      constructive=self.destructive,
+                      reset_bits=self.override_bits)
 
 
 class Encode(MixedBox):
-    def __init__(self, n_bits=1, constructive=True):
-        if constructive:
-            dom, cod = bit ** n_bits, qubit ** n_bits
-            name = "Encode({})".format(n_bits)
-        else:
-            dom, cod = qubit ** n_bits @ bit ** n_bits, qubit ** n_bits
-            name = "Encode({}, constructive=False)".format(n_bits)
+    def __init__(self, n_bits=1, constructive=True, reset_bits=False):
+        dom, cod = bit ** n_bits, qubit ** n_bits
+        name = "Encode({})".format("" if n_bits == 1 else n_bits)
+        if not constructive:
+            dom = qubit ** n_bits @ dom
+            name = name.replace("()", "(1)").replace(')', ", constructive=False)")
+        if reset_bits:
+            cod = cod @ bit ** n_bits
+            name = name.replace("()", "(1)").replace(')', ", reset_bits=True)")
         super().__init__(name, dom, cod)
-        self.constructive = constructive
+        self.constructive, self.reset_bits = constructive, reset_bits
 
     def dagger(self):
-        return Measure(len(self.dom), destructive=self.constructive)
+        return Measure(len(self.dom),
+                       destructive=self.constructive,
+                       override_bits=self.reset_bits)
 
 
 class Spider(PureBox):

@@ -12,20 +12,19 @@ from pytket.circuit import Bit, Qubit
 from pytket.utils import probs_from_counts
 
 from discopy import messages
-from discopy.cat import Quiver
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum import (
     Circuit, CircuitFunctor, Id, Bits, Bra, Ket, BitsAndQubits, Swap, Ob,
     bit, qubit, Discard, Measure, gates, SWAP, X, Rx, Rz, CRz, scalar)
 
 
-class TketCircuit(tk.Circuit):
+class Circuit(tk.Circuit):
     """
     Extend pytket.Circuit with post selection and scalars.
     """
     @staticmethod
     def _upgrade(tk_circuit):
-        result = TketCircuit(tk_circuit.n_qubits, len(tk_circuit.bits))
+        result = Circuit(tk_circuit.n_qubits, len(tk_circuit.bits))
         for gate in tk_circuit:
             name, inputs = gate.op.type.name, gate.op.params + [
                 x.index[0] for x in gate.qubits + gate.bits]
@@ -85,7 +84,7 @@ def to_tk(circuit):
             Discard() if x.name == "qubit" else Id(bit) for x in circuit.cod))
         circuit = circuit >> discards
 
-    tk_circ, bits, qubits = TketCircuit(), [], []
+    tk_circ, bits, qubits = Circuit(), [], []
 
     def remove_ket1(box):
         if not isinstance(box, Ket):
@@ -105,7 +104,7 @@ def to_tk(circuit):
         tk_circ.add_blank_wires(len(box.cod))
         return qubits[:left.count(qubit)]\
             + list(range(start, start + len(box.cod)))\
-            + qubits[-right.count(qubit):]
+            + qubits[left.count(qubit):]
 
     def prepare_bits(bits, left, box, right):
         renaming = dict()
@@ -119,9 +118,15 @@ def to_tk(circuit):
             tk_circ.add_bit(Bit(i))
         return bits[:left.count(bit)]\
             + list(range(start, start + len(box.cod)))\
-            + bits[-right.count(bit):]
+            + bits[left.count(bit):]
 
     def measure_qubits(qubits, bits, left, box, right):
+        if isinstance(box, Measure) and box.override_bits:
+            for j, x in enumerate(box.dom[:len(box.dom) // 2]):
+                i_bit = bits[left.count(bit) + j]
+                i_qubit = qubits[left.count(qubit) + j]
+                tk_circ.Measure(i_qubit, i_bit)
+            return bits, qubits
         for j, _ in enumerate(box.dom):
             i_bit, i_qubit = len(tk_circ.bits), qubits[left.count(qubit) + j]
             tk_circ.add_bit(Bit(i_bit))
@@ -129,9 +134,12 @@ def to_tk(circuit):
             if isinstance(box, Bra):
                 tk_circ.post_select({i_bit: box.bitstring[j]})
             if isinstance(box, Measure):
-                bits = bits[:left.count(bit) + j]+ [i_bit]\
-                    + bits[-right.count(bit):]
-        return bits
+                bits = bits[:left.count(bit) + j] + [i_bit]\
+                    + bits[left.count(bit) + j:]
+        if isinstance(box, Bra):
+            qubits = qubits[:left.count(qubit)]\
+                + qubits[left.count(qubit) + len(box.dom):]
+        return bits, qubits
 
     def swap(i, j, unit_factory=Qubit):
         old = unit_factory(i)
@@ -160,11 +168,12 @@ def to_tk(circuit):
         elif isinstance(box, Bits):
             bits = prepare_bits(bits, left, box, right)
         elif isinstance(box, (Measure, Bra)):
-            bits = measure_qubits(qubits, bits, left, box, right)
-            qubits = qubits[:left.count(qubit)] + qubits[-right.count(qubit):]
+            bits, qubits = measure_qubits(qubits, bits, left, box, right)
         elif isinstance(box, Discard):
-            bits = bits[:left.count(bit)] + bits[-right.count(bit):]
-            qubits = qubits[:left.count(qubit)] + qubits[-right.count(qubit):]
+            bits = bits[:left.count(bit)]\
+                + bits[left.count(bit) + box.dom.count(bit):]
+            qubits = qubits[:left.count(qubit)]\
+                + qubits[left.count(qubit) + box.dom.count(qubit):]
         elif isinstance(box, Swap):
             if box == Swap(qubit, qubit):
                 off = left.count(qubit)
@@ -189,14 +198,13 @@ def from_tk(tk_circuit):
     """
     if not isinstance(tk_circuit, tk.Circuit):
         raise TypeError(messages.type_err(tk.Circuit, tk_circuit))
-    if not isinstance(tk_circuit, TketCircuit):
-        tk_circuit = TketCircuit._upgrade(tk_circuit)
-    n_bits, n_qubits = tk_circuit.n_bits, tk_circuit.n_qubits
+    if not isinstance(tk_circuit, Circuit):
+        tk_circuit = Circuit._upgrade(tk_circuit)
+    n_bits = tk_circuit.n_bits - len(tk_circuit.post_selection)
+    n_qubits = tk_circuit.n_qubits
 
     def box_from_tk(tk_gate):
         name = tk_gate.op.type.name
-        if name == 'Measure':
-            return Measure()
         if name == 'Rx':
             return Rx(tk_gate.op.params[0] / 2)
         if name == 'Rz':
@@ -215,31 +223,42 @@ def from_tk(tk_circuit):
             source, target = tk_qubit.index[0], offset + i + 1
             if source < target:
                 left, right = swaps.cod[:source], swaps.cod[target:]
-                swap = Circuit.swap(
+                swap = Id.swap(
                     swaps.cod[source:source + 1], swaps.cod[source + 1:target])
                 if source <= offset:
                     offset -= 1
-            elif souce > target:
-                left, right = swaps.cod[:target], swaps.cod[source:]
-                swap = Circuit.swap(
-                    swaps.cod[target: target + 1], swaps.cod[target + 1: source])
+            elif source > target:
+                left, right = swaps.cod[:target], swaps.cod[source + 1:]
+                swap = Id.swap(
+                    swaps.cod[target: target + 1],
+                    swaps.cod[target + 1: source + 1])
             else:  # units are adjacent already
                 continue
             swaps = swaps >> Id(left) @ swap @ Id(right)
         return offset, swaps
-    circuit = Id(qubit ** n_qubits @ bit ** n_bits)
+    circuit, bras = Id(qubit ** n_qubits @ bit ** n_bits), {}
     for tk_gate in tk_circuit.get_commands():
-        box = box_from_tk(tk_gate)
-        if box == Measure():
-            if tk_gate.bits[0].index[0] in tk_circuit.post_selection:
-                box = Bra(post_selection[tk_gate.bits[0].index[0]])
-            else:
-                raise NotImplementedError
-        offset, swaps = make_units_adjacent(tk_gate)
-        left, right = circuit.cod[:offset], circuit.cod[offset + len(box.dom):]
+        if tk_gate.op.type.name == "Measure":
+            offset = tk_gate.qubits[0].index[0]
+            bit_index = tk_gate.bits[0].index[0]
+            if bit_index in tk_circuit.post_selection:
+                bras[offset] = tk_circuit.post_selection[bit_index]
+                continue  # post selection happens at the end
+            box = Measure(destructive=False, override_bits=True)
+            swaps = Id(circuit.cod[:offset + 1]) @ Id.swap(
+               circuit.cod[offset + 1:n_qubits + bit_index],
+               circuit.cod[n_qubits:][bit_index: bit_index + 1])\
+               @ Id(circuit.cod[n_qubits + bit_index + 1:])
+        else:
+            box = box_from_tk(tk_gate)
+            offset, swaps = make_units_adjacent(tk_gate)
+        left, right = swaps.cod[:offset], swaps.cod[offset + len(box.dom):]
         circuit = circuit >> swaps >> Id(left) @ box @ Id(right) >> swaps[::-1]
+    circuit = circuit >> Id(0).tensor(*(
+        Bra(bras[i]) if i in bras else Id(circuit.cod[i: i + 1])
+        for i, _ in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ scalar(scal)
+        circuit = circuit @ scalar(tk_circuit.scalar)
     return circuit
 
 
