@@ -21,10 +21,11 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import reduce as fold
+from functools import total_ordering
 from discopy import messages
 
 
+@total_ordering
 class Ob:
     """
     Defines an object in a free category, only distinguished by its name.
@@ -88,6 +89,9 @@ class Ob:
 
     def __hash__(self):
         return hash(self.name)
+
+    def __lt__(self, other):
+        return self.name < other.name
 
 
 class Arrow:
@@ -278,34 +282,6 @@ class Arrow:
     def __lshift__(self, other):
         return other.then(self)
 
-    def compose(self, *others, backwards=False):
-        """
-        Returns the composition of self with a list of other arrows.
-
-        Parameters
-        ----------
-        others : list
-            Other arrows.
-        backwards : bool, optional
-            Whether to compose in reverse, default is :code`False`.
-
-        Returns
-        -------
-        arrow : cat.Arrow
-            Such that :code:`arrow == self >> others[0] >> ... >> others[-1]`
-            if :code:`backwards` else
-            :code:`arrow == self << others[0] << ... << others[-1]`.
-
-        Examples
-        --------
-        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-        >>> assert Arrow.compose(f, g, h) == f >> g >> h
-        >>> assert f.compose(g, h) == Id(x).compose(f, g, h) == f >> g >> h
-        >>> assert h.compose(g, f, backwards=True) == h << g << f
-        """
-        return fold(lambda f, g: f << g if backwards else f >> g, others, self)
-
     def dagger(self):
         """
         Returns the dagger of `self`, this method is called using the unary
@@ -382,6 +358,7 @@ class AxiomError(Exception):
     """
 
 
+@total_ordering
 class Box(Arrow):
     """ Defines a box as an arrow with the list of only itself as boxes.
 
@@ -476,6 +453,9 @@ class Box(Arrow):
         if isinstance(other, Arrow):
             return len(other) == 1 and other[0] == self
         return False
+
+    def __lt__(self, other):
+        return self.name < other.name
 
 
 class Functor:
