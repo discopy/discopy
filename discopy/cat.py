@@ -21,7 +21,7 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import total_ordering
+from functools import total_ordering, reduce as fold
 from discopy import messages
 
 
@@ -275,6 +275,34 @@ class Arrow:
             raise AxiomError(messages.does_not_compose(self, other))
         boxes = self.boxes + other.boxes
         return Arrow(self.dom, other.cod, boxes, _scan=False)
+
+    def compose(self, *others, backwards=False):
+        """
+        Returns the composition of self with a list of other arrows.
+
+        Parameters
+        ----------
+        others : list
+            Other arrows.
+        backwards : bool, optional
+            Whether to compose in reverse, default is :code`False`.
+
+        Returns
+        -------
+        arrow : cat.Arrow
+            Such that :code:`arrow == self >> others[0] >> ... >> others[-1]`
+            if :code:`backwards` else
+            :code:`arrow == self << others[0] << ... << others[-1]`.
+
+        Examples
+        --------
+        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+        >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+        >>> assert Arrow.compose(f, g, h) == f >> g >> h
+        >>> assert f.compose(g, h) == Id(x).compose(f, g, h) == f >> g >> h
+        >>> assert h.compose(g, f, backwards=True) == h << g << f
+        """
+        return fold(lambda f, g: f << g if backwards else f >> g, others, self)
 
     def __rshift__(self, other):
         return self.then(other)
