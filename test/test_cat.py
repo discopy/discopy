@@ -255,3 +255,10 @@ def test_Quiver_getitem():
 
 def test_Quiver_repr():
     assert "Quiver(<function " in repr(Quiver(lambda x: x))
+
+
+def test_total_ordering():
+    x, y, z = Ob('x'), Ob('y'), Ob('z')
+    assert sorted([z, y, x]) == [x, y, z]
+    f, g = Box('f', x, y), Box('g', y, z)
+    assert f < g
