@@ -21,10 +21,11 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import reduce as fold
+from functools import total_ordering, reduce as fold
 from discopy import messages
 
 
+@total_ordering
 class Ob:
     """
     Defines an object in a free category, only distinguished by its name.
@@ -88,6 +89,9 @@ class Ob:
 
     def __hash__(self):
         return hash(self.name)
+
+    def __lt__(self, other):
+        return self.name < other.name
 
 
 class Arrow:
@@ -351,6 +355,7 @@ class AxiomError(Exception):
     """
 
 
+@total_ordering
 class Box(Arrow):
     """ Defines a box as an arrow with the list of only itself as boxes.
 
@@ -445,6 +450,9 @@ class Box(Arrow):
         if isinstance(other, Arrow):
             return len(other) == 1 and other[0] == self
         return False
+
+    def __lt__(self, other):
+        return self.name < other.name
 
 
 class Functor:
