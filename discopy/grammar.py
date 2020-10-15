@@ -59,8 +59,8 @@ class Word(Box):
 
     def __repr__(self):
         return "Word({}, {}{})".format(
-            repr(self.name), self.cod,
-            ", dom={}".format(self.dom) if self.dom else "")
+            repr(self.name), repr(self.cod),
+            ", dom={}".format(repr(self.dom)) if self.dom else "")
 
     def dagger(self):
         """

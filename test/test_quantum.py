@@ -21,13 +21,11 @@ def test_Circuit_to_tk():
 def test_Circuit_get_counts_snake():
     backend = Mock()
     backend.get_counts.return_value = {
-        (0, 0, 0): 251, (0, 0, 1): 247,
-        (1, 1, 0): 268, (1, 1, 1): 258}
+        (0, 0): 240, (0, 1): 242, (1, 0): 271, (1, 1): 271}
     scaled_bell = Circuit.caps(qubit, qubit)
     snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
     result = np.round(snake.eval(backend, seed=42).array)
-    expected = np.round((Ket(0) >> snake).measure())
-    assert np.all(result == expected)
+    assert result == 1
 
 def test_Circuit_get_counts_empty():
     backend = Mock()

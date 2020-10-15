@@ -486,6 +486,25 @@ class Circuit(Diagram):
         from discopy.tk import get_counts
         return get_counts(self, backend, **params)
 
+    def measure(self, mixed=False):
+        if mixed or self.is_mixed:
+            encode = Id(0).tensor(*(
+                Encode() if x in qubit else Id(bit) for x in self.dom))
+            measure = Id(0).tensor(*(
+                Measure() if x in qubit else Id(bit) for x in self.cod))
+            return (encode >> self >> measure).eval().array.real
+        process = self.eval()
+        states, effects = [], []
+        states = [Ket(*index2bitstring(i, len(self.dom))).eval()
+                  for i in range(2 ** len(self.dom))]
+        effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
+                   for j in range(2 ** len(self.cod))]
+        array = np.zeros(len(self.dom + self.cod) * (2, ))
+        for state in states if self.dom else [Tensor.id(1)]:
+            for effect in effects if self.cod else [Tensor.id(1)]:
+                scalar = np.absolute((state >> process >> effect).array) ** 2
+                array += scalar * (state.dagger() >> effect.dagger()).array
+        return array
 
     def to_tk(self):
         """
@@ -572,8 +591,8 @@ class Circuit(Diagram):
           >> CX @ Id(1)\\
           >> Id(1) @ CX\\
           >> Id(1) @ H @ Id(1)\\
-          >> Id(2) @ Bra(0)\\
-          >> Id(1) @ Bra(0)\\
+          >> Bra(0) @ Id(2)\\
+          >> Bra(0) @ Id(1)\\
           >> Bra(0)\\
           >> scalar(2.000)
         """

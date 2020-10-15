@@ -93,18 +93,17 @@ def to_tk(circuit):
         return Ket(*(len(box.bitstring) * (0, ))) >> x_gates
 
     def prepare_qubits(qubits, left, box, right):
-        renaming = dict()
-        start =\
-            qubits[left.count(qubit) - 1] + 1 if qubits else tk_circ.n_qubits
+        offset, renaming = left.count(qubit), dict()
+        start = tk_circ.n_qubits if not qubits else 0\
+            if not offset else qubits[offset - 1] + 1
         for i in range(start, tk_circ.n_qubits):
             old = Qubit('q', i)
             new = Qubit('q', i + len(box.cod))
             renaming.update({old: new})
         tk_circ.rename_units(renaming)
         tk_circ.add_blank_wires(len(box.cod))
-        return qubits[:left.count(qubit)]\
-            + list(range(start, start + len(box.cod)))\
-            + qubits[left.count(qubit):]
+        return qubits[:offset] + list(range(start, start + len(box.cod)))\
+            + [i + len(box.cod) for i in qubits[offset:]]
 
     def prepare_bits(bits, left, box, right):
         renaming = dict()
