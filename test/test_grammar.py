@@ -11,6 +11,8 @@ def test_Word():
         Word(0, Ty('n'))
     with raises(TypeError):
         Word('Alice', 0)
+    with raises(TypeError):
+        Word('Alice', Ty('n'), dom=0)
 
 
 def test_CFG():

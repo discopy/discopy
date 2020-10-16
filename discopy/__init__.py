@@ -30,7 +30,7 @@ from discopy.rigid import (
 from discopy.tensor import Dim, Tensor, TensorFunctor
 from discopy.quantum import (
     C, Q, CQMap, CQMapFunctor, bit, qubit, Circuit, CircuitFunctor,
-    Discard, MixedState, Measure, Encode, Spider, Ket, Bra, Rx, Rz, CRz,
+    Discard, MixedState, Measure, Encode, Ket, Bra, Rx, Rz, CRz,
     SWAP, CZ, CX, H, S, T, X, Y, Z)
 from discopy.grammar import Word
 

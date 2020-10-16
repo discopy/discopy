@@ -135,6 +135,17 @@ def test_Diagram_getitem():
             for left, box, right in diagram.layers[depth: depth + 2]))
 
 
+def test_Diagram_permutation():
+    x = PRO(1)
+    assert Diagram.swap(x, x ** 2)\
+        == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
+        == Diagram.permutation([2, 0, 1])
+    with raises(ValueError):
+        Diagram.permutation([2, 0])
+    with raises(ValueError):
+        Diagram.permutation([2, 0, 1], x ** 2)
+
+
 def test_Diagram_tensor():
     with raises(TypeError) as err:
         Id(Ty('x')) @ Ty('x')
@@ -262,6 +273,14 @@ def test_Box_hash():
 def test_Box_eq():
     f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
     assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0]) and f != 'f'
+
+
+def test_Swap():
+    x, y = Ty('x'), Ty('y')
+    assert repr(Swap(x, y)) == "Swap(Ty('x'), Ty('y'))"
+    assert Swap(x, y).dagger() == Swap(y, x)
+    with raises(ValueError):
+        Swap(x ** 2, Ty())
 
 
 def test_Functor_init():

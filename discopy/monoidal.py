@@ -815,6 +815,8 @@ class Box(cat.Box, Diagram):
 
 class Swap(Box):
     def __init__(self, left, right):
+        if len(left) != 1 or len(right) != 1:
+            raise ValueError(messages.swap_vs_swaps(left, right))
         self.left, self.right = left, right
         super().__init__('SWAP', left @ right, right @ left)
 

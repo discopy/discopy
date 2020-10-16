@@ -35,7 +35,7 @@ We can check the axioms for the Copy/Discard comonoid on specific inputs:
 """
 
 from discopy.cat import AxiomError
-from discopy import messages, rigid
+from discopy import messages, monoidal, rigid
 from discopy.cat import Quiver
 from discopy.rigid import PRO
 
@@ -115,7 +115,7 @@ class Function(rigid.Box):
         >>> assert (swap >> swap)(1, 2) == (1, 2)
         """
         if len(others) != 1:
-            return super().then(*others)
+            return monoidal.Diagram.then(self, *others)
         other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
@@ -134,7 +134,7 @@ class Function(rigid.Box):
         >>> assert (copy @ copy)(1, 2) == (1, 1, 2, 2)
         """
         if len(others) != 1:
-            return super().tensor(*others)
+            return monoidal.Diagram.tensor(self, *others)
         other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))

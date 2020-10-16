@@ -58,6 +58,12 @@ def cap_vs_caps(left, right):
     return cup_vs_cups(left, right).replace('up', 'ap')
 
 
+def swap_vs_swaps(left, right):
+    """ Simple type error. """
+    return cup_vs_cups(left, right).replace("adjunctions", "symmetry")\
+        .replace("Cup", "Swap").replace("cups", "swap")
+
+
 def cannot_add(left, right):
     """ Addition error. """
     return "Cannot add {} and {}.".format(left, right)

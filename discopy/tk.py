@@ -75,15 +75,8 @@ class Circuit(tk.Circuit):
 
 
 def to_tk(circuit):
-    if circuit.dom:
-        init = Id(0).tensor(*(
-            Bits(0) if x.name == "bit" else Ket(0) for x in circuit.dom))
-        circuit = init >> circuit
-    if circuit.cod != bit ** len(circuit.cod):
-        discards = Id(0).tensor(*(
-            Discard() if x.name == "qubit" else Id(bit) for x in circuit.cod))
-        circuit = circuit >> discards
-
+    # bits and qubits are lists of register indices, at layer i we want
+    # len(bits) == circuit[:i].cod.count(bit) and same for qubits
     tk_circ, bits, qubits = Circuit(), [], []
 
     def remove_ket1(box):
@@ -106,38 +99,38 @@ def to_tk(circuit):
             + [i + len(box.cod) for i in qubits[offset:]]
 
     def prepare_bits(bits, left, box, right):
-        renaming = dict()
-        start = bits[left.count(bit) - 1] + 1 if bits else tk_circ.n_bits
-        for i in range(start, tk_circ.n_qubits):
+        offset, renaming = left.count(bit), dict()
+        start = tk_circ.n_bits if not bits else 0\
+            if not offset else bits[offset - 1] + 1
+        for i in range(start, tk_circ.n_bits):
             old = Bit(i)
             new = Bit(i + len(box.cod))
             renaming.update({old: new})
         tk_circ.rename_units(renaming)
         for i in range(start, start + len(box.cod)):
             tk_circ.add_bit(Bit(i))
-        return bits[:left.count(bit)]\
-            + list(range(start, start + len(box.cod)))\
-            + bits[left.count(bit):]
+        return bits[:offset] + list(range(start, start + len(box.cod)))\
+            + [i + len(box.cod) for i in bits[offset:]]
 
     def measure_qubits(qubits, bits, left, box, right):
+        bit_offset, qubit_offset = left.count(bit), left.count(qubit)
         if isinstance(box, Measure) and box.override_bits:
             for j, x in enumerate(box.dom[:len(box.dom) // 2]):
-                i_bit = bits[left.count(bit) + j]
-                i_qubit = qubits[left.count(qubit) + j]
+                i_bit = bits[bit_offset + j]
+                i_qubit = qubits[qubit_offset + j]
                 tk_circ.Measure(i_qubit, i_bit)
             return bits, qubits
         for j, _ in enumerate(box.dom):
-            i_bit, i_qubit = len(tk_circ.bits), qubits[left.count(qubit) + j]
+            i_bit, i_qubit = len(tk_circ.bits), qubits[qubit_offset + j]
             tk_circ.add_bit(Bit(i_bit))
             tk_circ.Measure(i_qubit, i_bit)
             if isinstance(box, Bra):
                 tk_circ.post_select({i_bit: box.bitstring[j]})
             if isinstance(box, Measure):
-                bits = bits[:left.count(bit) + j] + [i_bit]\
-                    + bits[left.count(bit) + j:]
+                bits = bits[:bit_offset + j] + [i_bit] + bits[bit_offset + j:]
         if isinstance(box, Bra):
-            qubits = qubits[:left.count(qubit)]\
-                + qubits[left.count(qubit) + len(box.dom):]
+            qubits = qubits[:qubit_offset]\
+                + qubits[qubit_offset + len(box.dom):]
         return bits, qubits
 
     def swap(i, j, unit_factory=Qubit):
@@ -165,6 +158,8 @@ def to_tk(circuit):
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, left, box, right)
         elif isinstance(box, Bits):
+            if 1 in box.bitstring:
+                raise NotImplementedError
             bits = prepare_bits(bits, left, box, right)
         elif isinstance(box, (Measure, Bra)):
             bits, qubits = measure_qubits(qubits, bits, left, box, right)
@@ -180,10 +175,6 @@ def to_tk(circuit):
             elif box == Swap(bit, bit):
                 off = left.count(bit)
                 swap(bits[off], bits[off + 1], unit_factory=Bit)
-            elif box in [Swap(qubit, bit), Swap(bit, qubit)]:
-                continue  # bits and qubits live in different registers
-            else:
-                raise ValueError(messages.type_err(BitsAndQubits, box.dom))
         elif not box.dom and not box.cod:
             tk_circ.scale(box.array[0])
         else:
@@ -231,8 +222,8 @@ def from_tk(tk_circuit):
                 swap = Id.swap(
                     swaps.cod[target: target + 1],
                     swaps.cod[target + 1: source + 1])
-            else:  # units are adjacent already
-                continue
+            else:  # pragma: no cover
+                continue  # units are adjacent already
             swaps = swaps >> Id(left) @ swap @ Id(right)
         return offset, swaps
     circuit, bras = Id(qubit ** n_qubits @ bit ** n_bits), {}
@@ -265,23 +256,23 @@ def get_counts(circuit, backend, n_shots=2**10, scale=True, post_select=True,
                compilation=None, normalize=True, measure_all=False, seed=None):
     tk_circ = circuit.to_tk()
     if measure_all:
-       tk_circ.measure_all()
+        tk_circ.measure_all()
     if compilation is not None:
-       compilation.apply(tk_circ)
+        compilation.apply(tk_circ)
     counts = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
     if not counts:
-       raise RuntimeError
+        raise RuntimeError
     if normalize:
-       counts = probs_from_counts(counts)
+        counts = probs_from_counts(counts)
     if post_select:
-       post_selected = dict()
-       for bitstring, count in counts.items():
-           if all(bitstring[index] == value
-                   for index, value in tk_circ.post_selection.items()):
-               post_selected.update({
-                   tuple(value for index, value in enumerate(bitstring)
-                         if index not in tk_circ.post_selection): count})
-       counts = post_selected
+        post_selected = dict()
+        for bitstring, count in counts.items():
+            if all(bitstring[index] == value
+                    for index, value in tk_circ.post_selection.items()):
+                post_selected.update({
+                    tuple(value for index, value in enumerate(bitstring)
+                          if index not in tk_circ.post_selection): count})
+        counts = post_selected
     if scale:
         for bitstring in counts:
             counts[bitstring] *= abs(tk_circ.scalar) ** 2

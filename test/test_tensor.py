@@ -37,7 +37,7 @@ def test_Tensor():
     m = Tensor(Dim(2, 2), Dim(2), arr)
     assert m == m and np.all(m == arr)
     m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
-    assert m >> m == m >> m.dagger() == Id(2)
+    assert Id(Dim(2)).then(*(m, m)) == m >> m.dagger() == Id(2)
 
 
 def test_Tensor_cups():
@@ -59,6 +59,9 @@ def test_Tensor_caps():
     with raises(AxiomError):
         Tensor.caps(Dim(3), Dim(2))
 
+def test_Tensor_transpose():
+    assert Tensor.caps(Dim(2), Dim(2)).transpose()\
+        == Tensor.cups(Dim(2), Dim(2))
 
 def test_Tensor_tensor():
     assert Tensor.id(2) @ Tensor.id(3) == Tensor.id(Dim(2, 3))

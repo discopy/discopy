@@ -92,9 +92,6 @@ class Tensor(Box):
     >>> v >> m >> v.dagger()
     Tensor(dom=Dim(1), cod=Dim(1), array=[0])
     """
-    def _upgrade(diagram):
-        import pdb; pdb.set_trace()
-
     def __init__(self, dom, cod, array):
         self._array = np.array(array).reshape(dom + cod)
         super().__init__("Tensor", dom, cod)
@@ -130,7 +127,7 @@ class Tensor(Box):
 
     def then(self, *others):
         if len(others) != 1:
-            return super().then(*others)
+            return monoidal.Diagram.then(self, *others)
         other = others[0]
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
