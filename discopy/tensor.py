@@ -31,10 +31,12 @@ try:
     np.array2string = array2string
 except ImportError:  # pragma: no cover
     import numpy as np
-    try:
-        numpy.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
-    except NameError:  # readthedocs fails otherwise
-        pass
+    from numpy import array2string as _array2string
+    np.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
+    def array2string(array, **params):
+        return _array2string(array, separator=', ', **params)\
+            .replace('[ ', '[').replace('  ',  ' ')
+    np.array2string = array2string
 
 
 class Dim(Ty):
@@ -191,6 +193,10 @@ class Tensor(Box):
 
     def conjugate(self):
         return Tensor(self.dom, self.cod, np.conjugate(self.array))
+
+    def round(self, decimals=0):
+        return Tensor(self.dom, self.cod,
+                      np.around(self.array, decimals=decimals))
 
 
 class Id(Tensor):

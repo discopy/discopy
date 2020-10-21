@@ -123,8 +123,9 @@ class CQMap(rigid.Box):
     array : list, optional
         Array of size :code:`product(data.dom @ data.cod)`.
     data : :class:`discopy.tensor.Tensor`, optional
-        Tensor with domain :code:`dom.classical @ dom.quantum ** 2`
-        and codomain :code:`cod.classical @ cod.quantum ** 2``.
+        :class:`discopy.tensor.Tensor` with domain
+        :code:`dom.classical @ dom.quantum ** 2` and codomain
+        :code:`cod.classical @ cod.quantum ** 2``.
     """
     def __init__(self, dom, cod, array=None, data=None):
         if array is None and data is None:
@@ -248,6 +249,9 @@ class CQMap(rigid.Box):
     @staticmethod
     def caps(left, right):
         return CQMap.cups(left, right).dagger()
+
+    def round(self, decimals=0):
+        return CQMap(self.dom, self.cod, data=self.data.round(decimals))
 
 
 class CQMapFunctor(rigid.Functor):
@@ -401,18 +405,17 @@ class Circuit(Diagram):
         We can evaluate a pure circuit (i.e. with :code:`not circuit.is_mixed`)
         as a unitary :class:`discopy.tensor.Tensor` or as a :class:`CQMap`:
 
-        >>> H.eval()  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(2), cod=Dim(2), array=[0.7..., 0.7..., 0.7..., -0.7...])
-        >>> H.eval(mixed=True)  # doctest: +ELLIPSIS
-        CQMap(dom=Q(Dim(2)), cod=Q(Dim(2)), array=[0.499..., 0.499...])
+        >>> H.eval().round(2)
+        Tensor(dom=Dim(2), cod=Dim(2), array=[0.71, 0.71, 0.71, -0.71])
+        >>> H.eval(mixed=True).round(1)  # doctest: +ELLIPSIS
+        CQMap(dom=Q(Dim(2)), cod=Q(Dim(2)), array=[0.5, ..., 0.5])
 
         We can evaluate a mixed circuit as a :class:`CQMap`:
 
-        >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
-        >>> circuit.eval()
-        CQMap(dom=CQ(), cod=CQ(), array=[1.0])
         >>> Measure().eval()
         CQMap(dom=Q(Dim(2)), cod=C(Dim(2)), array=[1, 0, 0, 0, 0, 0, 0, 1])
+        >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
+        >>> assert circuit.eval() == CQMap(dom=CQ(), cod=CQ(), array=[1.0])
 
         We can execute any circuit on a `pytket.Backend`:
 
@@ -420,8 +423,8 @@ class Circuit(Diagram):
         >>> from unittest.mock import Mock
         >>> backend = Mock()
         >>> backend.get_counts.return_value = {(0, 1): 512, (1, 0): 512}
-        >>> circuit.eval(backend, n_shots=2**10)  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(1), cod=Dim(2), array=[0.0, 0.999...])
+        >>> assert circuit.eval(backend, n_shots=2**10).round()\\
+        ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         if backend is None and (mixed or self.is_mixed):
             ob = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}
@@ -450,7 +453,7 @@ class Circuit(Diagram):
             return TensorFunctor(lambda x: 2, lambda f: f.array)(self)
         counts = self.get_counts(backend, **params)
         n_bits = len(list(counts.keys()).pop())
-        array = np.zeros(n_bits * (2, ))
+        array = np.zeros(n_bits * (2, ) or (1, ))
         for bitstring, count in counts.items():
             array += count * Ket(*bitstring).array
         return Tensor(Dim(1), Dim(*(n_bits * (2, ))), array)
