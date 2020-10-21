@@ -315,8 +315,8 @@ class Diagram(cat.Arrow):
         """
         A :class:`discopy.cat.Arrow` with :class:`Layer` boxes such that::
 
-            diagram == Id(diagram.dom).compose(*[
-                Id(left) @ box Id(right)
+            diagram == Id(diagram.dom).then(*[
+                Id(left) @ box @ Id(right)
                 for left, box, right in diagram.layers])
 
         This is accessed using python slices::

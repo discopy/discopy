@@ -417,14 +417,14 @@ class Cup(Box):
             raise TypeError(messages.type_err(Ty, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
+        if left == right.r:
+            raise AxiomError(messages.pivotal_not_implemented(left, right))
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.cup_vs_cups(left, right))
-        if left == right.r:
-            raise NotImplementedError(messages.pivotal_not_implemented())
         super().__init__('CUP', left @ right, Ty())
 
     def dagger(self):
-        raise NotImplementedError(messages.pivotal_not_implemented())
+        return Cap(self.left, self.right)
 
     def __repr__(self):
         return "Cup({}, {})".format(repr(self.dom[:1]), repr(self.dom[1:]))
@@ -447,14 +447,14 @@ class Cap(Box):
             raise TypeError(messages.type_err(Ty, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
+        if left.r == right:
+            raise AxiomError(messages.pivotal_not_implemented(left, right))
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.cap_vs_caps(left, right))
-        if left.r == right:
-            raise NotImplementedError(messages.pivotal_not_implemented())
         super().__init__('CAP', Ty(), left @ right)
 
     def dagger(self):
-        raise NotImplementedError(messages.pivotal_not_implemented())
+        return Cup(self.left, self.right)
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.cod[:1]), repr(self.cod[1:]))

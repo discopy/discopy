@@ -505,13 +505,13 @@ class Circuit(Diagram):
 
     def measure(self, mixed=False):
         self = self.init_and_discard()
-        if mixed or self.is_mixed or not self.cod:
+        if mixed or self.is_mixed:
             measure = Id(0).tensor(*len(self.cod) * [Measure()])
             return (self >> measure).eval().array.real
         state = self.eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
-        array = np.zeros(len(self.cod) * (2, ))
+        array = np.zeros(len(self.cod) * (2, ) or (1, ))
         for effect in effects:
             scalar = np.absolute((state >> effect).array) ** 2
             array += scalar * effect.array

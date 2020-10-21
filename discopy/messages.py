@@ -42,7 +42,7 @@ def are_not_adjoints(left, right):
     return "{} and {} are not adjoints.".format(left, right)
 
 
-def pivotal_not_implemented():
+def pivotal_not_implemented(left, right):
     """ Pivotal error. """
     return "Pivotal categories are not implemented."
 
