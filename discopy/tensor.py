@@ -18,7 +18,7 @@ from discopy.cat import AxiomError
 from discopy.monoidal import Swap
 from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
 
-try:
+try:  # pragma: no cover
     import warnings
     for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
