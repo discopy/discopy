@@ -506,8 +506,7 @@ class Circuit(Diagram):
     def measure(self, mixed=False):
         self = self.init_and_discard()
         if mixed or self.is_mixed:
-            measure = Id(0).tensor(*len(self.cod) * [Measure()])
-            return (self >> measure).eval().array.real
+            return self.eval(mixed=True).array.real
         state = self.eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]

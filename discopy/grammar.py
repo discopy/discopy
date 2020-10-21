@@ -48,28 +48,19 @@ class Word(Box):
     >>> loves
     Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
     """
-    def __init__(self, word, cod, dom=Ty()):
-        if not isinstance(word, str):
-            raise TypeError(messages.type_err(str, word))
+    def __init__(self, name, cod, dom=Ty(), data=None, _dagger=False):
+        if not isinstance(name, str):
+            raise TypeError(messages.type_err(str, name))
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
-        super().__init__(word, dom, cod)
+        super().__init__(name, dom, cod, data, _dagger)
 
     def __repr__(self):
         return "Word({}, {}{})".format(
             repr(self.name), repr(self.cod),
             ", dom={}".format(repr(self.dom)) if self.dom else "")
-
-    def dagger(self):
-        """
-        >>> Word('Alice', Ty('n')).dagger()  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        NotImplementedError: Pivotal categories are not implemented.
-        """
-        raise NotImplementedError(messages.pivotal_not_implemented())
 
 
 class CFG:

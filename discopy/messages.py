@@ -42,9 +42,12 @@ def are_not_adjoints(left, right):
     return "{} and {} are not adjoints.".format(left, right)
 
 
-def pivotal_not_implemented(left, right):
-    """ Pivotal error. """
-    return "Pivotal categories are not implemented."
+def wrong_adjunction(left, right, cup):
+    """ Wrong adjunction error. """
+    return "There is no {}({}, {}) in a rigid category. "\
+           "Maybe you meant {}({}, {})?".format(
+               "Cup" if cup else "Cap", left, right,
+               "Cap" if cup else "Cup", left, right)
 
 
 def cup_vs_cups(left, right):

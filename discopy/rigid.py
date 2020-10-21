@@ -415,12 +415,13 @@ class Cup(Box):
             raise TypeError(messages.type_err(Ty, left))
         if not isinstance(right, Ty):
             raise TypeError(messages.type_err(Ty, right))
+        if len(left) != 1 or len(right) != 1:
+            raise ValueError(messages.cup_vs_cups(left, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
         if left == right.r:
-            raise AxiomError(messages.pivotal_not_implemented(left, right))
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.cup_vs_cups(left, right))
+            raise AxiomError(messages.wrong_adjunction(left, right, cup=True))
+        self.left, self.right = left, right
         super().__init__('CUP', left @ right, Ty())
 
     def dagger(self):
@@ -445,22 +446,23 @@ class Cap(Box):
             raise TypeError(messages.type_err(Ty, left))
         if not isinstance(right, Ty):
             raise TypeError(messages.type_err(Ty, right))
+        if len(left) != 1 or len(right) != 1:
+            raise ValueError(messages.cap_vs_caps(left, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
         if left.r == right:
-            raise AxiomError(messages.pivotal_not_implemented(left, right))
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.cap_vs_caps(left, right))
+            raise AxiomError(messages.wrong_adjunction(left, right, cup=False))
+        self.left, self.right = left, right
         super().__init__('CAP', Ty(), left @ right)
 
     def dagger(self):
         return Cup(self.left, self.right)
 
     def __repr__(self):
-        return "Cap({}, {})".format(repr(self.cod[:1]), repr(self.cod[1:]))
+        return "Cap({}, {})".format(repr(self.left), repr(self.right))
 
     def __str__(self):
-        return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
+        return "Cap({}, {})".format(self.left, self.right)
 
 
 class Functor(monoidal.Functor):

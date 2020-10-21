@@ -138,7 +138,7 @@ def test_Circuit_get_counts_empty():
 
 def test_Circuit_measure():
     assert Id(0).measure() == 1
-    assert all(Bits(0).measure() == np.array([1, 0]))
+    assert all(Bits(0).measure(mixed=True) == np.array([1, 0]))
 
 
 def test_Box():

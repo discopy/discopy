@@ -422,8 +422,9 @@ class Box(Arrow):
         return self._dagger
 
     def dagger(self):
-        return type(self)(self.name, self.cod, self.dom, data=self.data,
-                          _dagger=not self._dagger)
+        return type(self)(
+            name=self.name, dom=self.cod, cod=self.dom,
+            data=self.data, _dagger=not self._dagger)
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
