@@ -96,28 +96,27 @@ class CFG:
     def __repr__(self):
         return "CFG{}".format(repr(self._productions))
 
-    def generate(self, max_sentences=None, start=Ty('s'), **params):
+    def generate(self, start, max_sentences, max_depth, max_iter=100,
+                 remove_duplicates=False, not_twice=[]):
         """
         Generate sentences from a context-free grammar.
         Assumes the only terminal symbol is Ty().
-
         Parameters
         ----------
-        max_sentences : int, optional
-            maximum number of sentences to generate, default is :code:`None`.
-        start : type, optional
-            root of the generated trees, default is :code:`Ty('s')`.
-        max_depth : int, optional
-            maximum depth of the trees, default is :code:`100`.
-        max_iter : int, optional
-            maximum number of iterations, default is :code:`100`.
-        remove_duplicates : bool, optional
-            generate distinct trees, default is :code:`False`.
+        start : type
+            root of the generated trees.
+        max_sentences : int
+            maximum number of sentences to generate.
+        max_depth : int
+            maximum depth of the trees.
+        max_iter : int
+            maximum number of iterations, set to 100 by default.
+        remove_duplicates : bool
+            if set to True only distinct syntax trees will be generated.
+        not_twice : list
+            list of productions that you don't want appearing twice
+            in a sentence, set to the empty list by default
         """
-        remove_duplicates = params.get('remove_duplicates', False)
-        max_depth = params.get('max_depth', 10)
-        max_iter = params.get('max_iter', 100)
-
         prods, cache = list(self.productions), set()
         n, i = 0, 0
         while (not max_sentences or n < max_sentences) and i < max_iter:
