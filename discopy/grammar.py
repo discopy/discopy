@@ -125,6 +125,7 @@ class CFG:
             sentence = Id(start)
             depth = 0
             while depth < max_depth:
+                recall = depth
                 if sentence.dom == Ty():
                     if remove_duplicates and sentence in cache:
                         break
@@ -136,10 +137,14 @@ class CFG:
                 tag = sentence.dom[0]
                 random.shuffle(prods)
                 for prod in prods:
+                    if prod in not_twice and prod in sentence.boxes:
+                        continue
                     if Ty(tag) == prod.cod:
                         sentence = sentence << prod @ Id(sentence.dom[1:])
                         depth += 1
                         break
+                if recall == depth:  # in this case, no production was found
+                    break
 
 
 def eager_parse(*words, target=Ty('s')):

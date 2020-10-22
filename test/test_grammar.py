@@ -18,10 +18,14 @@ def test_Word():
 def test_CFG():
     s, n, v, vp = Ty('S'), Ty('N'), Ty('V'), Ty('VP')
     R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v, vp)
-    Jane, loves = Word('Jane', n), Word('loves', v)
+    Jane, loves, Bob = Word('Jane', n), Word('loves', v), Word('Bob', n)
     cfg = CFG(R0, R1, Jane, loves)
     assert Jane in cfg.productions
     assert "CFG(Box('R0', Ty('VP', 'N'), Ty('S'))" in repr(cfg)
+    gen = cfg.generate(s, 2, 10, remove_duplicates=True, not_twice=[Jane, Bob])
+    for sentence in gen:
+        assert Jane in sentence.boxes
+        assert Bob in sentence.boxes
 
 
 def test_eager_parse():
