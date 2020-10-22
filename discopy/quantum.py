@@ -661,7 +661,19 @@ class Id(rigid.Id, Circuit):
 
 
 class Box(rigid.Box, Circuit):
-    """ Boxes in a circuit diagram. """
+    """
+    Boxes in a circuit diagram.
+
+    Parameters
+    ----------
+    name : any
+    dom : BitsAndQubits
+    cod : BitsAndQubits
+    is_mixed : bool, optional
+        Whether the box is mixed, default is :code:`True`.
+    _dagger : bool, optional
+        If set to :code:`None` then the box is self-adjoint.
+    """
     def __init__(self, name, dom, cod, is_mixed=True, _dagger=False):
         if dom and not isinstance(dom, BitsAndQubits):
             raise TypeError(messages.type_err(BitsAndQubits, dom))
