@@ -94,7 +94,7 @@ def test_tk_err():
     with raises(TypeError):
         Circuit.from_tk("foo")
     with raises(NotImplementedError):
-        QGate("foo", 1, [1, 2, 3, 4]).to_tk()
+        QuantumGate("foo", 1, [1, 2, 3, 4]).to_tk()
     with raises(NotImplementedError):
         Bits(1).to_tk()
     with raises(NotImplementedError):
@@ -169,15 +169,15 @@ def test_Measure():
     assert Encode().dagger() == Measure()
 
 
-def test_QGate():
+def test_QuantumGate():
     assert repr(X) == "X"
-    assert repr(QGate("s", 0, [1])) == "QGate('s', n_qubits=0, array=[1])"
+    assert repr(QuantumGate("s", 0, [1])) == "QuantumGate('s', n_qubits=0, array=[1])"
 
 
-def test_CGate():
-    f = CGate('f', 1, 1, [0, 1, 1, 0])
+def test_ClassicalGate():
+    f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
     assert repr(f.dagger())\
-        == "CGate('f', n_bits_in=1, n_bits_out=1, array=[0, 1, 1, 0]).dagger()"
+        == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, array=[0, 1, 1, 0]).dagger()"
 
 
 def test_Bits():

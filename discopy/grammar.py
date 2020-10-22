@@ -71,12 +71,14 @@ class CFG:
     >>> R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v , vp)
     >>> Jane, loves = Word('Jane', n), Word('loves', v)
     >>> cfg = CFG(R0, R1, Jane, loves)
-    >>> gen = cfg.generate(s, 2, 6)
+    >>> gen = cfg.generate(start=s, max_sentences=2, max_depth=6)
     >>> for sentence in gen:
     ...     print(sentence)
     Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
     Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
-    >>> gen = cfg.generate(s, 2, 6, remove_duplicates=True, max_iter=10)
+    >>> gen = cfg.generate(
+    ...     start=s, max_sentences=2, max_depth=6,
+    ...     remove_duplicates=True, max_iter=10)
     >>> for sentence in gen:
     ...     print(sentence)
     Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
@@ -86,34 +88,40 @@ class CFG:
 
     @property
     def productions(self):
+        """
+        Production rules, i.e. boxes with grammatical types as dom and cod.
+        """
         return self._productions
 
     def __repr__(self):
         return "CFG{}".format(repr(self._productions))
 
-    def generate(self, start, max_sentences, max_depth, max_iter=100,
-                 remove_duplicates=False):
+    def generate(self, max_sentences=None, start=Ty('s'), **params):
         """
         Generate sentences from a context-free grammar.
         Assumes the only terminal symbol is Ty().
 
         Parameters
         ----------
-        start : type
-            root of the generated trees.
-        max_sentences : int
-            maximum number of sentences to generate.
-        max_depth : int
-            maximum depth of the trees.
-        max_iter : int
-            maximum number of iterations, set to 100 by default.
-        remove_duplicates : bool
-            if set to True only distinct syntax trees will be generated.
+        max_sentences : int, optional
+            maximum number of sentences to generate, default is :code:`None`.
+        start : type, optional
+            root of the generated trees, default is :code:`Ty('s')`.
+        max_depth : int, optional
+            maximum depth of the trees, default is :code:`100`.
+        max_iter : int, optional
+            maximum number of iterations, default is :code:`100`.
+        remove_duplicates : bool, optional
+            generate distinct trees, default is :code:`False`.
         """
+        remove_duplicates = params.get('remove_duplicates', False)
+        max_depth = params.get('max_depth', 10)
+        max_iter = params.get('max_iter', 100)
+
         prods, cache = list(self.productions), set()
-        n, iter = 0, 0
-        while n < max_sentences and (iter < max_iter):
-            iter += 1
+        n, i = 0, 0
+        while (not max_sentences or n < max_sentences) and i < max_iter:
+            i += 1
             sentence = Id(start)
             depth = 0
             while depth < max_depth:

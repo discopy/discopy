@@ -1,7 +1,7 @@
-circuit.QGate
-============
+quantum.QuantumGate
+===================
 
-.. autoclass:: discopy.quantum.QGate(name, n_qubits, array=None)
+.. autoclass:: discopy.quantum.QuantumGate(name, n_qubits, array=None)
     :show-inheritance:
 
 .. autoclass:: discopy.quantum.Rotation
@@ -17,3 +17,12 @@ circuit.QGate
     :show-inheritance:
 
 .. autofunction:: discopy.quantum.sqrt
+
+quantum.ClassicalGate
+=====================
+
+.. autoclass:: discopy.quantum.ClassicalGate(name, n_qubits, array=None)
+    :show-inheritance:
+
+.. autoclass:: discopy.quantum.Bits
+    :show-inheritance:

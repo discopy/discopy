@@ -24,6 +24,7 @@ try:  # pragma: no cover
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
     def array2string(array, max_length=messages.NUMPY_THRESHOLD):
+        """ array2string is not implemented in jax.numpy """
         ls = list(array)
         if len(ls) > max_length:
             ls = ls[:max_length // 2] + ["..."] + ls[1 - max_length // 2:]
@@ -34,6 +35,7 @@ except ImportError:  # pragma: no cover
     from numpy import array2string as _array2string
     np.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
     def array2string(array, **params):
+        """ makes sure we get the same doctest with numpy and jax.numpy """
         return _array2string(array, separator=', ', **params)\
             .replace('[ ', '[').replace('  ',  ' ')
     np.array2string = array2string
@@ -54,8 +56,8 @@ class Dim(Ty):
                 raise ValueError
         super().__init__(*[Ob(dim) for dim in dims if dim > 1])
 
-    def tensor(self, other):
-        return Dim(*[x.name for x in super().tensor(other)])
+    def tensor(self, *others):
+        return Dim(*[x.name for x in super().tensor(*others)])
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -188,15 +190,36 @@ class Tensor(Box):
         return Tensor(left @ right, right @ left,
                       np.moveaxis(array, source, target))
 
-    def transpose(self):
+    def transpose(self, left=False):
+        """
+        Returns the algebraic transpose.
+
+        Note
+        ----
+        This is *not* the same as the diagrammatic transpose for complex dims.
+        """
         return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
 
     def conjugate(self):
+        """ Returns the conjugate of a tensor. """
         return Tensor(self.dom, self.cod, np.conjugate(self.array))
 
     def round(self, decimals=0):
+        """ Rounds the entries of a tensor up to a number of decimals. """
         return Tensor(self.dom, self.cod,
                       np.around(self.array, decimals=decimals))
+
+    @staticmethod
+    def zeros(dom, cod):
+        """
+        Returns the zero tensor of a given shape.
+
+        Examples
+        --------
+        >>> assert Tensor.zeros(Dim(2), Dim(2))\\
+        ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
+        """
+        return Tensor(dom, cod, np.zeros(dom + cod))
 
 
 class Id(Tensor):

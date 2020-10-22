@@ -1,4 +1,4 @@
-circuit.CircuitFunctor
+quantum.CircuitFunctor
 ==============================
 
 .. autoclass:: discopy.quantum.CircuitFunctor

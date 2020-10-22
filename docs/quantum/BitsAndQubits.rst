@@ -1,4 +1,4 @@
-circuit.BitsAndQubits
+quantum.BitsAndQubits
 =====================
 
 .. autoclass:: discopy.quantum.BitsAndQubits

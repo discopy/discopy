@@ -1,4 +1,4 @@
-circuit.Bra
+quantum.Bra
 ===========
 
 .. autoclass:: discopy.quantum.Bra

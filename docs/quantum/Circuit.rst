@@ -1,4 +1,4 @@
-circuit.Circuit
+quantum.Circuit
 ==================
 
 .. autoclass:: discopy.quantum.Circuit(dom, cod, gates, offsets)

@@ -21,7 +21,7 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import total_ordering, reduce as fold
+from functools import total_ordering
 from discopy import messages
 
 

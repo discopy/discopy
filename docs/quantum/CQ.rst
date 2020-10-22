@@ -1,15 +1,15 @@
-circuit.CQ
+quantum.CQ
 ===========
 
 .. autoclass:: discopy.quantum.CQ
     :show-inheritance:
 
-circuit.C
+quantum.C
 =========
 .. autoclass:: discopy.quantum.C
     :show-inheritance:
 
-circuit.Q
+quantum.Q
 =========
 .. autoclass:: discopy.quantum.Q
     :show-inheritance:

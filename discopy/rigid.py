@@ -14,7 +14,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 """
 
 from discopy import cat, monoidal, messages
-from discopy.cat import Quiver, AxiomError
+from discopy.cat import AxiomError
 
 
 class Ob(cat.Ob):
@@ -363,12 +363,13 @@ class Diagram(monoidal.Diagram):
         for _diagram in monoidal.Diagram.normalize(diagram, left=left):
             yield _diagram
 
-    def normal_form(self, left=False):
+    def normal_form(self, normalize=None, **params):
         """
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
-        return super().normal_form(normalize=Diagram.normalize, left=left)
+        return super().normal_form(
+            normalize=normalize or Diagram.normalize, **params)
 
 
 class Id(Diagram):
@@ -400,7 +401,7 @@ class Box(monoidal.Box, Diagram):
 
 
 class Swap(monoidal.Swap, Box):
-    pass
+    """ Implements swaps of basic types in a rigid category. """
 
 
 class Cup(Box):
@@ -509,7 +510,8 @@ class Functor(monoidal.Functor):
         raise TypeError(messages.type_err(Diagram, diagram))
 
 
-def cups(left, right, ar_factory=Diagram, cup_factory=Cup, caps=False):
+def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
+    """ Constructs a diagram of nested cups. """
     for ty in left, right:
         if not isinstance(ty, Ty):
             raise TypeError(messages.type_err(Ty, ty))
@@ -520,9 +522,10 @@ def cups(left, right, ar_factory=Diagram, cup_factory=Cup, caps=False):
         j = len(left) - i - 1
         cup = cup_factory(left[j:j + 1], right[i:i + 1])
         layer = ar_factory.id(left[:j]) @ cup @ ar_factory.id(right[i + 1:])
-        result = result << layer if caps else result >> layer
+        result = result << layer if reverse else result >> layer
     return result
 
 
 def caps(left, right, ar_factory=Diagram, cap_factory=Cap):
-    return cups(left, right, ar_factory, cap_factory, caps=True)
+    """ Constructs a diagram of nested caps. """
+    return cups(left, right, ar_factory, cap_factory, reverse=True)

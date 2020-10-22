@@ -91,8 +91,7 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
 
     def scale_and_pad(pos):
         widths, heights = zip(*pos.values())
-        min_width, max_width = min(widths), max(widths)
-        min_height, max_height = min(heights), max(heights)
+        min_width, min_height = min(widths), min(heights)
         pos = {n: ((x - min_width) * scale[0] + pad[0],
                    (y - min_height) * scale[1] + pad[1])
                for n, (x, y) in pos.items()}

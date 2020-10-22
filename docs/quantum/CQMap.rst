@@ -1,10 +1,10 @@
-circuit.CQMap
+quantum.CQMap
 =============
 
 .. autoclass:: discopy.quantum.CQMap
     :show-inheritance:
 
-circuit.CQMapFunctor
+quantum.CQMapFunctor
 ====================
 
 .. autoclass:: discopy.quantum.CQMapFunctor

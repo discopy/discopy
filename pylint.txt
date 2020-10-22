@@ -1,0 +1,42 @@
+************* Module discopy.monoidal
+discopy/monoidal.py:121:24: E1101: Instance of 'list' has no 'objects' member (no-member)
+discopy/monoidal.py:300:4: R0913: Too many arguments (6/5) (too-many-arguments)
+discopy/monoidal.py:478:4: R0914: Too many local variables (20/15) (too-many-locals)
+************* Module discopy.drawing
+discopy/drawing.py:20:0: R0914: Too many local variables (17/15) (too-many-locals)
+discopy/drawing.py:20:0: R0915: Too many statements (52/50) (too-many-statements)
+discopy/drawing.py:170:0: R0913: Too many arguments (6/5) (too-many-arguments)
+discopy/drawing.py:194:0: R0915: Too many statements (62/50) (too-many-statements)
+discopy/drawing.py:432:0: R0914: Too many local variables (19/15) (too-many-locals)
+************* Module discopy.tensor
+discopy/tensor.py:253:4: R0911: Too many return statements (8/6) (too-many-return-statements)
+************* Module discopy.tk
+discopy/tk.py:8:0: E0611: No name 'Bit' in module 'pytket.circuit' (no-name-in-module)
+discopy/tk.py:8:0: E0611: No name 'Qubit' in module 'pytket.circuit' (no-name-in-module)
+discopy/tk.py:22:4: C0116: Missing function or method docstring (missing-function-docstring)
+discopy/tk.py:77:0: C0116: Missing function or method docstring (missing-function-docstring)
+discopy/tk.py:155:19: W0612: Unused variable 'right' (unused-variable)
+discopy/tk.py:77:0: R0915: Too many statements (69/50) (too-many-statements)
+discopy/tk.py:254:0: R0913: Too many arguments (9/5) (too-many-arguments)
+************* Module discopy.cartesian
+discopy/cartesian.py:152:4: W0221: Parameters differ from overridden 'id' method (arguments-differ)
+discopy/cartesian.py:174:4: R0913: Too many arguments (6/5) (too-many-arguments)
+discopy/cartesian.py:249:4: R0913: Too many arguments (6/5) (too-many-arguments)
+************* Module discopy.quantum
+discopy/quantum.py:1:0: C0302: Too many lines in module (1091/1000) (too-many-lines)
+discopy/quantum.py:173:4: W0221: Parameters differ from overridden 'id' method (arguments-differ)
+discopy/quantum.py:356:4: W0221: Parameters differ from overridden 'id' method (arguments-differ)
+discopy/quantum.py:388:8: R1706: Consider using ternary (self.dom.count(qubit) if self.dom.count(bit) else any((layer.cod.count(bit) and layer.cod.count(qubit) for layer in self.layers))) (consider-using-ternary)
+discopy/quantum.py:526:8: C0415: Import outside toplevel (discopy.tk.get_counts) (import-outside-toplevel)
+discopy/quantum.py:591:8: C0415: Import outside toplevel (discopy.tk.to_tk) (import-outside-toplevel)
+discopy/quantum.py:643:8: C0415: Import outside toplevel (discopy.tk.from_tk) (import-outside-toplevel)
+discopy/quantum.py:693:8: E1120: No value for argument 'cod' in unbound method call (no-value-for-parameter)
+discopy/quantum.py:919:4: C0116: Missing function or method docstring (missing-function-docstring)
+discopy/quantum.py:927:15: E1120: No value for argument 'phase' in constructor call (no-value-for-parameter)
+discopy/quantum.py:1026:0: W0102: Dangerous default value [] as argument (dangerous-default-value)
+************* Module discopy.rigid
+discopy/rigid.py:1:0: R0401: Cyclic import (discopy.quantum -> discopy.tk) (cyclic-import)
+
+------------------------------------------------------------------
+Your code has been rated at 9.76/10 (previous run: 9.64/10, +0.12)
+

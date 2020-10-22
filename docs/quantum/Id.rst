@@ -1,4 +1,4 @@
-circuit.Id
+quantum.Id
 =================
 
 .. autoclass:: discopy.quantum.Id

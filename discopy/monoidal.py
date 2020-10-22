@@ -37,7 +37,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 from discopy import cat, messages, drawing
-from discopy.cat import Ob, Functor, Quiver, AxiomError
+from discopy.cat import Ob, Quiver, AxiomError
 
 
 class Ty(Ob):
@@ -118,9 +118,29 @@ class Ty(Ob):
         for other in others:
             if not isinstance(other, Ty):
                 raise TypeError(messages.type_err(Ty, other))
-        return Ty(*sum([t.objects for t in (self, ) + others], []))
+        return Ty(*sum([t.objects for t in [self] + list(others)], []))
 
     def count(self, ob):
+        """
+        Counts the occurrence of a given object.
+
+        Parameters
+        ----------
+        ob : :class:`Ty` or :class:`Ob`
+            either a type of length 1 or an object
+
+        Returns
+        -------
+        n : int
+            such that :code:`n == self.objects.count(ob)`.
+
+        Examples
+        --------
+
+        >>> x = Ty('x')
+        >>> xs = x ** 5
+        >>> assert xs.count(x) == xs.count(x[0]) == xs.objects.count(Ob('x'))
+        """
         ob, = ob if isinstance(ob, Ty) else (ob, )
         return self.objects.count(ob)
 
@@ -419,10 +439,40 @@ class Diagram(cat.Arrow):
 
     @staticmethod
     def swap(left, right):
+        """
+        Returns a diagram that swaps the left with the right wires.
+
+        Parameters
+        ----------
+        left : monoidal.Ty
+            left hand-side of the domain.
+        right : monoidal.Ty
+            right hand-side of the domain.
+
+        Returns
+        -------
+        diagram : monoidal.Diagram
+            with :code:`diagram.dom == left @ right`
+        """
         return swap(left, right)
 
     @staticmethod
     def permutation(perm, dom=None):
+        """
+        Returns the diagram that encodes a permutation of wires.
+
+        Parameters
+        ----------
+        perm : list of int
+            such that :code:`i` goes to :code:`perm[i]`
+        dom : monoidal.Ty, optional
+            of the same length as :code:`perm`,
+            default is :code:`PRO(len(perm))`.
+
+        Returns
+        -------
+        diagram : monoidal.Diagram
+        """
         return permutation(perm, dom)
 
     def interchange(self, i, j, left=False):
@@ -814,6 +864,16 @@ class Box(cat.Box, Diagram):
 
 
 class Swap(Box):
+    """
+    Implements the symmetry of atomic types.
+
+    Parameters
+    ----------
+    left : monoidal.Ty
+        of length 1.
+    right : monoidal.Ty
+        of length 1.
+    """
     def __init__(self, left, right):
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.swap_vs_swaps(left, right))
@@ -869,6 +929,7 @@ class Functor(cat.Functor):
 
 
 def swap(left, right, ar_factory=Diagram, swap_factory=Swap):
+    """ Constructs swap diagrams of arbitrary types """
     if not left:
         return ar_factory.id(right)
     if len(left) == 1:
@@ -881,6 +942,7 @@ def swap(left, right, ar_factory=Diagram, swap_factory=Swap):
 
 
 def permutation(perm, dom=None, ar_factory=Diagram):
+    """ Constructs permutation diagrams of arbitrary types """
     if set(range(len(perm))) != set(perm):
         raise ValueError("Input should be a permutation of range(n).")
     if dom is None:

@@ -4,18 +4,14 @@
 Implements the translation between discopy and pytket.
 """
 
-from warnings import warn
-
 import pytket as tk
-from pytket import *
 from pytket.circuit import Bit, Qubit
 from pytket.utils import probs_from_counts
 
 from discopy import messages
-from discopy.tensor import np, Dim, Tensor
 from discopy.quantum import (
-    Circuit, CircuitFunctor, Id, Bits, Bra, Ket, BitsAndQubits, Swap, Ob,
-    bit, qubit, Discard, Measure, gates, SWAP, X, Rx, Rz, CRz, scalar)
+    CircuitFunctor, Id, Bits, Bra, Ket, Swap, scalar as scalar_box,
+    bit, qubit, Discard, Measure, GATES, X, Rx, Rz, CRz)
 
 
 class Circuit(tk.Circuit):
@@ -23,7 +19,7 @@ class Circuit(tk.Circuit):
     Extend pytket.Circuit with post selection and scalars.
     """
     @staticmethod
-    def _upgrade(tk_circuit):
+    def upgrade(tk_circuit):
         result = Circuit(tk_circuit.n_qubits, len(tk_circuit.bits))
         for gate in tk_circuit:
             name, inputs = gate.op.type.name, gate.op.params + [
@@ -51,9 +47,11 @@ class Circuit(tk.Circuit):
 
     @property
     def n_bits(self):
+        """ Number of bits in a circuit. """
         return len(self.bits)
 
     def rename_units(self, renaming):
+        """ Rename units in a circuit. """
         bits_to_rename = [old for old in renaming.keys()
                           if isinstance(old, Bit)
                           and old.index[0] in self.post_selection]
@@ -66,10 +64,12 @@ class Circuit(tk.Circuit):
         super().rename_units(renaming)
 
     def scale(self, number):
+        """ Scale a circuit by a given number. """
         self.scalar *= number
         return self
 
     def post_select(self, post_selection):
+        """ Post select bits on a a given value. """
         self.post_selection.update(post_selection)
         return self
 
@@ -85,8 +85,8 @@ def to_tk(circuit):
         x_gates = Id(0).tensor(*(X if x else Id(1) for x in box.bitstring))
         return Ket(*(len(box.bitstring) * (0, ))) >> x_gates
 
-    def prepare_qubits(qubits, left, box, right):
-        offset, renaming = left.count(qubit), dict()
+    def prepare_qubits(qubits, box, offset):
+        renaming = dict()
         start = tk_circ.n_qubits if not qubits else 0\
             if not offset else qubits[offset - 1] + 1
         for i in range(start, tk_circ.n_qubits):
@@ -98,8 +98,8 @@ def to_tk(circuit):
         return qubits[:offset] + list(range(start, start + len(box.cod)))\
             + [i + len(box.cod) for i in qubits[offset:]]
 
-    def prepare_bits(bits, left, box, right):
-        offset, renaming = left.count(bit), dict()
+    def prepare_bits(bits, box, offset):
+        renaming = dict()
         start = tk_circ.n_bits if not bits else 0\
             if not offset else bits[offset - 1] + 1
         for i in range(start, tk_circ.n_bits):
@@ -112,10 +112,9 @@ def to_tk(circuit):
         return bits[:offset] + list(range(start, start + len(box.cod)))\
             + [i + len(box.cod) for i in bits[offset:]]
 
-    def measure_qubits(qubits, bits, left, box, right):
-        bit_offset, qubit_offset = left.count(bit), left.count(qubit)
+    def measure_qubits(qubits, bits, box, bit_offset, qubit_offset):
         if isinstance(box, Measure) and box.override_bits:
-            for j, x in enumerate(box.dom[:len(box.dom) // 2]):
+            for j, _ in enumerate(box.dom[:len(box.dom) // 2]):
                 i_bit = bits[bit_offset + j]
                 i_qubit = qubits[qubit_offset + j]
                 tk_circ.Measure(i_qubit, i_bit)
@@ -141,8 +140,7 @@ def to_tk(circuit):
         tk_circ.rename_units({new: old})
         tk_circ.rename_units({tmp: new})
 
-    def add_gate(qubits, left, box, right):
-        offset = left.count(qubit)
+    def add_gate(qubits, box, offset):
         i_qubits = [qubits[offset + j] for j in range(len(box.dom))]
         if isinstance(box, (Rx, Rz)):
             tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *i_qubits)
@@ -156,13 +154,14 @@ def to_tk(circuit):
     circuit = CircuitFunctor(ob=lambda x: x, ar=remove_ket1)(circuit)
     for left, box, right in circuit.layers:
         if isinstance(box, Ket):
-            qubits = prepare_qubits(qubits, left, box, right)
+            qubits = prepare_qubits(qubits, box, left.count(qubit))
         elif isinstance(box, Bits):
             if 1 in box.bitstring:
                 raise NotImplementedError
-            bits = prepare_bits(bits, left, box, right)
+            bits = prepare_bits(bits, box, left.count(bit))
         elif isinstance(box, (Measure, Bra)):
-            bits, qubits = measure_qubits(qubits, bits, left, box, right)
+            bits, qubits = measure_qubits(
+                qubits, bits, box, left.count(bit), left.count(qubit))
         elif isinstance(box, Discard):
             bits = bits[:left.count(bit)]\
                 + bits[left.count(bit) + box.dom.count(bit):]
@@ -178,7 +177,7 @@ def to_tk(circuit):
         elif not box.dom and not box.cod:
             tk_circ.scale(box.array[0])
         else:
-            add_gate(qubits, left, box, right)
+            add_gate(qubits, box, left.count(qubit))
     return tk_circ
 
 
@@ -189,7 +188,7 @@ def from_tk(tk_circuit):
     if not isinstance(tk_circuit, tk.Circuit):
         raise TypeError(messages.type_err(tk.Circuit, tk_circuit))
     if not isinstance(tk_circuit, Circuit):
-        tk_circuit = Circuit._upgrade(tk_circuit)
+        tk_circuit = Circuit.upgrade(tk_circuit)
     n_bits = tk_circuit.n_bits - len(tk_circuit.post_selection)
     n_qubits = tk_circuit.n_qubits
 
@@ -201,7 +200,7 @@ def from_tk(tk_circuit):
             return Rz(tk_gate.op.params[0] / 2)
         if name == 'CRz':
             return CRz(tk_gate.op.params[0] / 2)
-        for gate in gates:
+        for gate in GATES:
             if name == gate.name:
                 return gate
         raise NotImplementedError
@@ -248,12 +247,13 @@ def from_tk(tk_circuit):
         Bra(bras[i]) if i in bras else Id(circuit.cod[i: i + 1])
         for i, _ in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ scalar(tk_circuit.scalar)
+        circuit = circuit @ scalar_box(tk_circuit.scalar)
     return circuit
 
 
 def get_counts(circuit, backend, n_shots=2**10, scale=True, post_select=True,
                compilation=None, normalize=True, measure_all=False, seed=None):
+    """ Runs a circuit on a backend and returns the counts """
     tk_circ = circuit.to_tk()
     if measure_all:
         tk_circ.measure_all()

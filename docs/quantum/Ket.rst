@@ -1,4 +1,4 @@
-circuit.Ket
+quantum.Ket
 ===========
 
 .. autoclass:: discopy.quantum.Ket

@@ -41,10 +41,12 @@ from discopy.rigid import PRO
 
 
 def tuplify(xs):
+    """ Returns :code:`xs` if it is already a tuple else :code:`(xs, )`. """
     return xs if isinstance(xs, tuple) else (xs, )
 
 
 def untuplify(*xs):
+    """ Returns either the tuple :code:`xs` or its only element. """
     return xs[0] if len(xs) == 1 else xs
 
 
@@ -256,6 +258,7 @@ class Box(rigid.Box, Diagram):
 
     @property
     def function(self):
+        """ Underlying function. """
         return self._function
 
     def __repr__(self):
@@ -289,9 +292,7 @@ class Copy(Diagram):
         for i in range(dom):
             result = result @ COPY
         for i in range(1, dom):
-            swaps = Id(0)
-            for j in range(dom - i):
-                swaps = swaps @ SWAP
+            swaps = Id(0).tensor(*((dom - i) * [SWAP]))
             result = result >> Id(i) @ swaps @ Id(i)
         super().__init__(dom, 2 * dom, result.boxes, result.offsets,
                          layers=result.layers)
@@ -304,9 +305,7 @@ class Discard(Diagram):
     >>> assert Discard(3)(0, 1, 2) == () == Discard(2)(43, 44)
     """
     def __init__(self, dom):
-        result = Id(0)
-        for i in range(dom):
-            result = result @ DISCARD
+        result = Id(0).tensor(*(dom * [DISCARD]))
         super().__init__(result.dom, result.cod, result.boxes, result.offsets,
                          layers=result.layers)
 

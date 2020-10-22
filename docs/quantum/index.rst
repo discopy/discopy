@@ -8,7 +8,6 @@ discopy.quantum
 
     CQ.rst
     CQMap.rst
-    CQMapFunctor.rst
     BitsAndQubits.rst
     Circuit.rst
     Id.rst
