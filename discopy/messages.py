@@ -37,6 +37,10 @@ def boxes_and_offsets_must_have_same_len():
     return "Boxes and offsets must have the same length."
 
 
+def no_winding_number_for_complex_types():
+    """ No winding number for complex types. """
+    return "Only atomic types have a winding number."
+
 def are_not_adjoints(left, right):
     """ Adjunction error. """
     return "{} and {} are not adjoints.".format(left, right)

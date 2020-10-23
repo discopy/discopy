@@ -27,6 +27,14 @@ def test_Ob_str():
     assert str(a) == "a" and str(a.r) == "a.r" and str(a.l) == "a.l"
 
 
+def test_Ty_z():
+    with raises(TypeError):
+        Ty('x', 'y').z
+    with raises(TypeError):
+        Ty().z
+    assert Ty('x').l.z == -1
+
+
 def test_PRO_r():
     assert PRO(2).r == PRO(2)
 

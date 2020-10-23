@@ -77,13 +77,17 @@ class Ty(monoidal.Ty, Ob):
 
     @property
     def l(self):
-        """ Left adjoint. """
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
     def r(self):
-        """ Right adjoint. """
         return Ty(*[x.r for x in self.objects[::-1]])
+
+    @property
+    def z(self):
+        if len(self) != 1:
+            raise TypeError(messages.no_winding_number_for_complex_types())
+        return self[0].z
 
     def tensor(self, *others):
         return self._upgrade(super().tensor(*others))
