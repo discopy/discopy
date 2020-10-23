@@ -22,10 +22,6 @@ def test_CFG():
     cfg = CFG(R0, R1, Jane, loves)
     assert Jane in cfg.productions
     assert "CFG(Box('R0', Ty('VP', 'N'), Ty('S'))" in repr(cfg)
-    gen = cfg.generate(s, 2, 10, remove_duplicates=True, not_twice=[Jane, Bob])
-    for sentence in gen:
-        assert Jane in sentence.boxes
-        assert Bob in sentence.boxes
 
 
 def test_eager_parse():
@@ -66,4 +62,6 @@ def test_pregroup_draw_errors():
         draw(0)
     with raises(ValueError) as err:
         draw(Cap(n, n.l))
+    with raises(ValueError) as err:
+        draw(Word('Alice', n) >> Word('Alice', n) @ Id(n))
     assert str(err.value) is messages.expected_pregroup()

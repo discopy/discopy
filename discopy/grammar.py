@@ -72,15 +72,13 @@ class CFG:
     >>> Jane, loves = Word('Jane', n), Word('loves', v)
     >>> cfg = CFG(R0, R1, Jane, loves)
     >>> gen = cfg.generate(start=s, max_sentences=2, max_depth=6)
-    >>> for sentence in gen:
-    ...     print(sentence)
+    >>> for sentence in gen: print(sentence)
     Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
     Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
     >>> gen = cfg.generate(
     ...     start=s, max_sentences=2, max_depth=6,
     ...     remove_duplicates=True, max_iter=10)
-    >>> for sentence in gen:
-    ...     print(sentence)
+    >>> for sentence in gen: print(sentence)
     Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
     """
     def __init__(self, *productions):
@@ -216,9 +214,18 @@ def draw(diagram, **params):
     """
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
-    words, *cups = diagram.foliation().boxes
-    is_pregroup = all(isinstance(box, Word) for box in words.boxes)\
-        and all(isinstance(box, Cup) for s in cups for box in s.boxes)
+    words, is_pregroup = Id(Ty()), True
+    for i, (left, box, right) in enumerate(diagram.layers):
+        if isinstance(box, Word):
+            if right:
+                is_pregroup = False
+                break
+            words = words @ box
+        else:
+            break
+    cups = diagram[i:].foliation().boxes
+    is_pregroup = is_pregroup and all(
+        isinstance(box, Cup) for s in cups for box in s.boxes)
     if not is_pregroup:
         raise ValueError(messages.expected_pregroup())
     drawing.pregroup_draw(words, cups, **params)

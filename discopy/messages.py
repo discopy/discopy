@@ -77,7 +77,8 @@ def cannot_add(left, right):
 
 def expected_pregroup():
     """ pregroup.draw error. """
-    return "Expected a pregroup diagram, use diagram.draw() instead."
+    return "Expected a pregroup diagram of shape `word @ ... @ word >> cups`,"\
+           " use diagram.draw() instead."
 
 
 def expected_input_length(function, values):
