@@ -118,7 +118,8 @@ class Ty(Ob):
         for other in others:
             if not isinstance(other, Ty):
                 raise TypeError(messages.type_err(Ty, other))
-        return Ty(*sum([t.objects for t in [self] + list(others)], []))
+        return self.upgrade(
+            Ty(*sum([t.objects for t in [self] + list(others)], [])))
 
     def count(self, ob):
         """
@@ -143,6 +144,11 @@ class Ty(Ob):
         """
         ob, = ob if isinstance(ob, Ty) else (ob, )
         return self.objects.count(ob)
+
+    @staticmethod
+    def upgrade(ty):
+        """ Allows class inheritance for tensor and __getitem__ """
+        return ty
 
     def __init__(self, *objects):
         self._objects = tuple(
@@ -172,7 +178,7 @@ class Ty(Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return Ty(*self.objects[key])
+            return self.upgrade(Ty(*self.objects[key]))
         return self.objects[key]
 
     def __matmul__(self, other):
@@ -196,6 +202,13 @@ class PRO(Ty):
     >>> assert PRO(3) == Ty(1, 1, 1)
     >>> assert PRO(1) == PRO(Ob(1))
     """
+    @staticmethod
+    def upgrade(ty):
+        for x in ty:
+            if x.name != 1:
+                raise TypeError(messages.type_err(int, x.name))
+        return PRO(len(ty))
+
     def __init__(self, n=0):
         if isinstance(n, PRO):
             n = len(n)
@@ -203,22 +216,11 @@ class PRO(Ty):
             n = n.name
         super().__init__(*(n * [1]))
 
-    def tensor(self, *others):
-        for other in others:
-            if not isinstance(other, PRO):
-                return super().tensor(*others)
-        return type(self)(sum(len(t) for t in (self, ) + others))
-
     def __repr__(self):
         return "PRO({})".format(len(self))
 
     def __str__(self):
         return repr(len(self))
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return type(self)(len(super().__getitem__(key)))
-        return super().__getitem__(key)
 
 
 class Layer(cat.Box):
@@ -297,6 +299,10 @@ class Diagram(cat.Arrow):
     :class:`AxiomError`
         Whenever the boxes do not compose.
     """
+    @staticmethod
+    def upgrade(diagram):
+        return diagram
+
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
@@ -355,10 +361,11 @@ class Diagram(cat.Arrow):
             return self
         if len(others) > 1:
             return self.then(others[0]).then(*others[1:])
-        return Diagram(self.dom, others[0].cod,
-                       self.boxes + others[0].boxes,
-                       self.offsets + others[0].offsets,
-                       layers=self.layers >> others[0].layers)
+        return self.upgrade(
+            Diagram(self.dom, others[0].cod,
+                    self.boxes + others[0].boxes,
+                    self.offsets + others[0].offsets,
+                    layers=self.layers >> others[0].layers))
 
     def tensor(self, *others):
         """
@@ -394,7 +401,7 @@ class Diagram(cat.Arrow):
             layers = layers >> Layer(left, box, right @ other.dom)
         for left, box, right in other.layers:
             layers = layers >> Layer(self.cod @ left, box, right)
-        return Diagram(dom, cod, boxes, offsets, layers=layers)
+        return self.upgrade(Diagram(dom, cod, boxes, offsets, layers=layers))
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -433,7 +440,7 @@ class Diagram(cat.Arrow):
             boxes_and_offsets = tuple(zip(*(
                 (box, len(left)) for left, box, _ in layers))) or ([], [])
             inputs = (layers.dom, layers.cod) + boxes_and_offsets
-            return Diagram(*inputs, layers=layers)
+            return self.upgrade(Diagram(*inputs, layers=layers))
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
@@ -542,7 +549,8 @@ class Diagram(cat.Arrow):
         boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
         offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
         layers = self.layers[:i] >> layer1 >> layer0 >> self.layers[i + 2:]
-        return Diagram(self.dom, self.cod, boxes, offsets, layers=layers)
+        return self.upgrade(
+            Diagram(self.dom, self.cod, boxes, offsets, layers=layers))
 
     def normalize(self, left=False):
         """
@@ -700,7 +708,8 @@ class Diagram(cat.Arrow):
         >>> assert d.foliation().dagger().flatten()\\
         ...     == d.foliation().flatten().dagger()
         """
-        return Functor(Quiver(lambda x: x), Quiver(lambda f: f))(self)
+        return self.upgrade(
+            Functor(Quiver(lambda x: x), Quiver(lambda f: f))(self))
 
     def foliation(self):
         """
@@ -724,7 +733,8 @@ class Diagram(cat.Arrow):
         >>> assert last_diagram == slices.flatten()
         """
         *_, slices = self.foliate(yield_slices=True)
-        return Diagram(self.dom, self.cod, slices, len(slices) * [0])
+        return self.upgrade(
+            Diagram(self.dom, self.cod, slices, len(slices) * [0]))
 
     def depth(self):
         """

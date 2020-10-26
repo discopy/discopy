@@ -175,7 +175,7 @@ class Diagram(rigid.Diagram):
         super().__init__(PRO(dom), PRO(cod), boxes, offsets, layers=layers)
 
     @staticmethod
-    def _upgrade(diagram):
+    def upgrade(diagram):
         """
         Takes a rigid.Diagram and returns a cartesian.Diagram.
         """
