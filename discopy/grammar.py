@@ -4,6 +4,7 @@
 Implements distributional compositional models.
 
 >>> from discopy.tensor import TensorFunctor
+>>> from discopy.rigid import Ty
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
@@ -15,6 +16,7 @@ Implements distributional compositional models.
 >>> assert F(sentence) == True
 
 >>> from discopy.quantum import qubit, Ket, CX, H, X, sqrt, CircuitFunctor
+>>> from discopy.rigid import Ty
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice = Word('Alice', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
@@ -32,14 +34,17 @@ Implements distributional compositional models.
 from functools import reduce as fold
 import random
 
-from discopy import messages, drawing
-from discopy.rigid import Ty, Box, Diagram, Id, Cup
+from discopy import messages, drawing, biclosed
+from discopy.cat import AxiomError
+from discopy.monoidal import Ty, Box, Diagram, Id
+from discopy.rigid import Cup
 
 
 class Word(Box):
     """
     Implements words as boxes with a pregroup type as codomain.
 
+    >>> from discopy.rigid import Ty
     >>> Alice = Word('Alice', Ty('n'))
     >>> loves = Word('loves',
     ...     Ty('n').r @ Ty('s') @ Ty('n').l)
@@ -232,3 +237,36 @@ def draw(diagram, **params):
     if not is_pregroup:
         raise ValueError(messages.expected_pregroup())
     drawing.pregroup_draw(words, cups, **params)
+
+
+def cat2ty(cat):
+    """ Takes a depccg.Category or its repr, returns a biclosed.Ty """
+    from depccg.cat import Category
+    cat = Category(cat) if not isinstance(cat, Category) else cat
+    if cat.is_functor and cat.slash == '\\':
+        return biclosed.Over(cat2ty(cat.left), cat2ty(cat.right))
+    if cat.is_functor and cat.slash == '/':
+        return biclosed.Under(cat2ty(cat.left), cat2ty(cat.right))
+    return biclosed.Ty(cat.base)
+
+
+def tree2diagram(tree):
+    """ Takes a depccg.Tree in JSON format, returns a biclosed.Diagram """
+    if 'word' in tree:
+        return Word(tree['word'], cat2ty(tree['cat']))
+    children = list(map(tree2diagram, tree['children']))
+    dom = biclosed.Ty().tensor(*[child.cod for child in children])
+    cod = cat2ty(tree['cat'])
+    if tree['type'] == 'ba':
+        try:
+            box = biclosed.BA(dom[:1], dom[1:])
+        except AxiomError:
+            box = biclosed.Box(tree['type'], dom, cod)
+    elif tree['type'] == 'fa':
+        try:
+            box = biclosed.FA(dom[:1], dom[1:])
+        except AxiomError:
+            box = biclosed.Box(tree['type'], dom, cod)
+    else:
+        box = biclosed.Box(tree['type'], dom, cod)
+    return biclosed.Id(biclosed.Ty()).tensor(*children) >> box

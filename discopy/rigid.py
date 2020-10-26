@@ -236,6 +236,20 @@ class Diagram(monoidal.Diagram):
         """
         return caps(left, right)
 
+    @staticmethod
+    def fa(left, right):
+        """ Forward application. """
+        off = -len(right) or len(left)
+        return Id(left[:off]) @ Diagram.cups(left[off:], right)
+
+
+    @staticmethod
+    def ba(left, right):
+        """ Backward application. """
+        off = -len(left) or len(right)
+        return Diagram.cups(left, right[:off]) @ Id(right[off:])
+
+
     def transpose(self, left=False):
         """
         >>> a, b = Ty('a'), Ty('b')

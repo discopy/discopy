@@ -72,3 +72,45 @@ def test_pregroup_draw_errors():
     with raises(ValueError) as err:
         draw(Word('Alice', n) >> Word('Alice', n) @ Id(n))
     assert str(err.value) is messages.expected_pregroup()
+
+
+def test_tree2diagram():
+    tree = {'type': 'ba',
+     'cat': 'S[dcl]',
+     'children': [{'word': 'This',
+       'lemma': 'XX',
+       'pos': 'XX',
+       'entity': 'XX',
+       'chunk': 'XX',
+       'cat': 'NP'},
+      {'type': 'fa',
+       'cat': 'S[dcl]\\NP',
+       'children': [{'word': 'is',
+         'lemma': 'XX',
+         'pos': 'XX',
+         'entity': 'XX',
+         'chunk': 'XX',
+         'cat': '(S[dcl]\\NP)/NP'},
+        {'type': 'fa',
+         'cat': 'NP',
+         'children': [{'word': 'a',
+           'lemma': 'XX',
+           'pos': 'XX',
+           'entity': 'XX',
+           'chunk': 'XX',
+           'cat': 'NP[nb]/N'},
+          {'type': 'fa',
+           'cat': 'N',
+           'children': [{'word': 'test',
+             'lemma': 'XX',
+             'pos': 'XX',
+             'entity': 'XX',
+             'chunk': 'XX',
+             'cat': 'N/N'},
+            {'word': 'sentence',
+             'lemma': 'XX',
+             'pos': 'XX',
+             'entity': 'XX',
+             'chunk': 'XX',
+             'cat': 'N'}]}]}]}]}
+    tree2diagram(tree)
