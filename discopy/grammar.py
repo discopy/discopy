@@ -34,7 +34,7 @@ Implements distributional compositional models.
 from functools import reduce as fold
 import random
 
-from discopy import messages, drawing, biclosed
+from discopy import messages, drawing, biclosed, rigid
 from discopy.cat import AxiomError
 from discopy.monoidal import Ty, Box, Diagram, Id
 from discopy.rigid import Cup
@@ -42,7 +42,7 @@ from discopy.rigid import Cup
 
 class Word(Box):
     """
-    Implements words as boxes with a pregroup type as codomain.
+    Implements words as boxes with a monoidal type as codomain.
 
     >>> from discopy.rigid import Ty
     >>> Alice = Word('Alice', Ty('n'))
@@ -66,6 +66,14 @@ class Word(Box):
         return "Word({}, {}{})".format(
             repr(self.name), repr(self.cod),
             ", dom={}".format(repr(self.dom)) if self.dom else "")
+
+
+class CCGWord(Word, biclosed.Box):
+    """ Word with a biclosed type. """
+
+
+class PregroupWord(Word, rigid.Box):
+    """ Word with a rigid type. """
 
 
 class CFG:
@@ -253,9 +261,7 @@ def cat2ty(cat):
 def tree2diagram(tree):
     """ Takes a depccg.Tree in JSON format, returns a biclosed.Diagram """
     if 'word' in tree:
-        class BiclosedWord(Word, biclosed.Box):
-            pass
-        return BiclosedWord(tree['word'], cat2ty(tree['cat']))
+        return CCGWord(tree['word'], cat2ty(tree['cat']))
     children = list(map(tree2diagram, tree['children']))
     dom = biclosed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])

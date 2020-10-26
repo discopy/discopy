@@ -151,7 +151,7 @@ class Functor(monoidal.Functor):
     ...     ar_factory=rigid.Diagram)
     >>> print(F(y >> x << y))
     y.r @ x @ y.l
-    >>> assert F((y << x) >> y) == F(y << (x >> y))
+    >>> assert F((y >> x) << y) == F(y >> (x << y))
     """
     def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):
         super().__init__(ob, ar, ob_factory, ar_factory)
