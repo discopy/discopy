@@ -23,12 +23,15 @@ class Ty(monoidal.Ty):
     >>> print((y << x >> y) @ x)
     ((y << x) >> y) @ x
     """
-    def __init__(self, name=None, left=None, right=None):
-        self.left, self.right = left, right
-        super().__init__(*(() if name is None else (name, )))
+    @staticmethod
+    def upgrade(ty):
+        if len(ty) == 1 and isinstance(ty[0], (Over, Under)):
+            return ty[0]
+        return Ty(*ty.objects)
 
-    def __repr__(self):
-        return self.name
+    def __init__(self, *objects, left=None, right=None):
+        self.left, self.right = left, right
+        super().__init__(*objects)
 
     def __lshift__(self, other):
         return Over(self, other)
@@ -40,25 +43,51 @@ class Ty(monoidal.Ty):
 class Over(Ty):
     """ Forward slash types. """
     def __init__(self, left, right):
-        name = "Over({}, {})".format(repr(left), repr(right))
-        super().__init__(name, left, right)
+        super().__init__(self, left=left, right=right)
+
+    def __repr__(self):
+        return "Over({}, {})".format(repr(self.left), repr(self.right))
 
     def __str__(self):
-        return "({} << {})".format(str(self.left), str(self.right))
+        return "({} << {})".format(self.left, self.right)
+
+    def __eq__(self, other):
+        if not isinstance(other, Over):
+            return False
+        return self.left == other.left and self.right == other.right
+
+    def __hash__(self):
+        return hash(repr(self))
 
 
 class Under(Ty):
     """ Backward slash types. """
     def __init__(self, left, right):
-        name = "Under({}, {})".format(repr(left), repr(right))
-        super().__init__(name, left, right)
+        super().__init__(self, left=left, right=right)
+
+    def __repr__(self):
+        return "Under({}, {})".format(repr(self.left), repr(self.right))
 
     def __str__(self):
-        return "({} >> {})".format(str(self.left), str(self.right))
+        return "({} >> {})".format(self.left, self.right)
+
+    def __eq__(self, other):
+        if not isinstance(other, Under):
+            return False
+        return self.left == other.left and self.right == other.right
+
+    def __hash__(self):
+        return hash(repr(self))
 
 
 class Diagram(monoidal.Diagram):
     """ Diagrams in a biclosed monoidal category. """
+    @staticmethod
+    def upgrade(diagram):
+        return Diagram(
+            diagram.dom, diagram.cod, diagram.boxes,
+            diagram.offsets, diagram.layers)
+
     @staticmethod
     def id(dom):
         return Id(dom)
@@ -120,7 +149,7 @@ class Functor(monoidal.Functor):
     ...     ob={x: x, y: y}, ar={},
     ...     ob_factory=rigid.Ty,
     ...     ar_factory=rigid.Diagram)
-    >>> print(F(y << x >> y))
+    >>> print(F(y >> x << y))
     y.r @ x @ y.l
     >>> assert F((y << x) >> y) == F(y << (x >> y))
     """
@@ -132,6 +161,9 @@ class Functor(monoidal.Functor):
             return self(diagram.left) << self(diagram.right)
         if isinstance(diagram, Under):
             return self(diagram.left) >> self(diagram.right)
+        if isinstance(diagram, Ty) and len(diagram) > 1:
+            return self.ob_factory.tensor(*[
+                self(diagram[i: i + 1]) for i in range(len(diagram))])
         if isinstance(diagram, FA):
             return self.ar_factory.fa(self(diagram.left), self(diagram.right))
         if isinstance(diagram, BA):

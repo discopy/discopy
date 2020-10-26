@@ -244,29 +244,25 @@ def cat2ty(cat):
     from depccg.cat import Category
     cat = Category(cat) if not isinstance(cat, Category) else cat
     if cat.is_functor and cat.slash == '\\':
-        return biclosed.Over(cat2ty(cat.left), cat2ty(cat.right))
+        return biclosed.Under(cat2ty(cat.right), cat2ty(cat.left))
     if cat.is_functor and cat.slash == '/':
-        return biclosed.Under(cat2ty(cat.left), cat2ty(cat.right))
+        return biclosed.Over(cat2ty(cat.left), cat2ty(cat.right))
     return biclosed.Ty(cat.base)
 
 
 def tree2diagram(tree):
     """ Takes a depccg.Tree in JSON format, returns a biclosed.Diagram """
     if 'word' in tree:
-        return Word(tree['word'], cat2ty(tree['cat']))
+        class BiclosedWord(Word, biclosed.Box):
+            pass
+        return BiclosedWord(tree['word'], cat2ty(tree['cat']))
     children = list(map(tree2diagram, tree['children']))
     dom = biclosed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
-        try:
-            box = biclosed.BA(dom[:1], dom[1:])
-        except AxiomError:
-            box = biclosed.Box(tree['type'], dom, cod)
+        box = biclosed.BA(dom[:1], dom[1:])
     elif tree['type'] == 'fa':
-        try:
-            box = biclosed.FA(dom[:1], dom[1:])
-        except AxiomError:
-            box = biclosed.Box(tree['type'], dom, cod)
+        box = biclosed.FA(dom[:1], dom[1:])
     else:
         box = biclosed.Box(tree['type'], dom, cod)
     return biclosed.Id(biclosed.Ty()).tensor(*children) >> box
