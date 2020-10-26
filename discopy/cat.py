@@ -119,6 +119,11 @@ class Arrow:
         Whenever the boxes do not compose.
 
     """
+    @staticmethod
+    def upgrade(arrow):
+        """ Allows class inheritance for then and __getitem__ """
+        return arrow
+
     def __init__(self, dom, cod, boxes, _scan=True):
         """
         >>> from discopy.monoidal import spiral
@@ -190,7 +195,8 @@ class Arrow:
         if isinstance(key, slice):
             if key.step == -1:
                 boxes = [box[::-1] for box in self.boxes[key]]
-                return Arrow(self.cod, self.dom, boxes, _scan=False)
+                return self.upgrade(
+                    Arrow(self.cod, self.dom, boxes, _scan=False))
             if (key.step or 1) != 1:
                 raise IndexError
             boxes = self.boxes[key]
@@ -200,7 +206,8 @@ class Arrow:
                 if (key.start or 0) <= -len(self):
                     return Id(self.dom)
                 return Id(self.boxes[key.start or 0].dom)
-            return Arrow(boxes[0].dom, boxes[-1].cod, boxes, _scan=False)
+            return self.upgrade(
+                Arrow(boxes[0].dom, boxes[-1].cod, boxes, _scan=False))
         return self.boxes[key]
 
     def __len__(self):
@@ -271,7 +278,7 @@ class Arrow:
                 raise AxiomError(messages.does_not_compose(
                     boxes[-1] if boxes else Id(scan), other))
             boxes, scan = boxes + other.boxes, other.cod
-        return Arrow(self.dom, scan, boxes, _scan=False)
+        return self.upgrade(Arrow(self.dom, scan, boxes, _scan=False))
 
     def __rshift__(self, other):
         return self.then(other)

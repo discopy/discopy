@@ -42,6 +42,8 @@ def test_PRO_init():
     assert list(PRO(0)) == []
     assert PRO(PRO(2)) == PRO(2)
     assert all(len(PRO(n)) == n for n in range(5))
+    with raises(TypeError):
+        PRO.upgrade(Ty('x'))
 
 
 def test_PRO_tensor():

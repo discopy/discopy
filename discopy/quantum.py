@@ -304,7 +304,7 @@ class BitsAndQubits(Ty):
     bit ** 2 @ qubit ** 3
     """
     @staticmethod
-    def _upgrade(ty):
+    def upgrade(ty):
         if not set(ty.objects) <= {Ob('bit'), Ob('qubit')}:
             raise TypeError(messages.type_err(BitsAndQubits, ty))
         return BitsAndQubits(*ty.objects)
@@ -340,7 +340,7 @@ class Circuit(Diagram):
     Implements classical-quantum circuits.
     """
     @staticmethod
-    def _upgrade(diagram):
+    def upgrade(diagram):
         dom, cod = BitsAndQubits(*diagram.dom), BitsAndQubits(*diagram.cod)
         return Circuit(
             dom, cod, diagram.boxes, diagram.offsets, diagram.layers)
