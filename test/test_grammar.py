@@ -63,5 +63,7 @@ def test_pregroup_draw_errors():
     with raises(ValueError) as err:
         draw(Cap(n, n.l))
     with raises(ValueError) as err:
+        draw(Cup(n, n.r))
+    with raises(ValueError) as err:
         draw(Word('Alice', n) >> Word('Alice', n) @ Id(n))
     assert str(err.value) is messages.expected_pregroup()

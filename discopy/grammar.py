@@ -215,16 +215,17 @@ def draw(diagram, **params):
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
     words, is_pregroup = Id(Ty()), True
-    for i, (left, box, right) in enumerate(diagram.layers):
+    for left, box, right in diagram.layers:
         if isinstance(box, Word):
-            if right:
+            if right:  # word boxes should be tensored left to right.
                 is_pregroup = False
                 break
             words = words @ box
         else:
             break
-    cups = diagram[i:].foliation().boxes
-    is_pregroup = is_pregroup and all(
+    cups = diagram[len(words):].foliation().boxes\
+        if len(words) < len(diagram) else []
+    is_pregroup = is_pregroup and words and all(
         isinstance(box, Cup) for s in cups for box in s.boxes)
     if not is_pregroup:
         raise ValueError(messages.expected_pregroup())

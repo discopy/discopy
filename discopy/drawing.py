@@ -397,12 +397,13 @@ def pregroup_draw(words, cups, **params):
             draw_wire(axis, (scan[off + 1], 0), (middle, - j - 1),
                       bend_in=True, to_tikz=params.get('to_tikz', False))
             scan = scan[:off] + scan[off + 2:]
-        for i, _ in enumerate(cups[-1].cod):
-            draw_wire(axis, (scan[i], 0), (scan[i], - len(cups) - 1),
+        for i, _ in enumerate(cups[-1].cod if cups else words.cod):
+            label = str(cups[-1].cod[i]) if cups else ""
+            draw_wire(axis, (scan[i], 0), (scan[i], - (len(cups) or 1) - 1),
                       to_tikz=params.get('to_tikz', False))
             if params.get('draw_types', True):
-                draw_text(axis, str(cups[-1].cod[i]),
-                          scan[i] + textpad[0], - len(cups) - space,
+                draw_text(axis, label,
+                          scan[i] + textpad[0], - (len(cups) or 1) - space,
                           fontsize=params.get('fontsize_types', fontsize),
                           to_tikz=params.get('to_tikz', False))
     axis = [] if params.get('to_tikz', False)\
