@@ -1,0 +1,5 @@
+fixes:
+    - "/home/travis/build/oxford-quantum-group/::"
+
+codecov:
+  disable_default_path_fixes: false

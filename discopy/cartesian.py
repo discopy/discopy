@@ -35,16 +35,18 @@ We can check the axioms for the Copy/Discard comonoid on specific inputs:
 """
 
 from discopy.cat import AxiomError
-from discopy import messages, rigid
+from discopy import messages, monoidal, rigid
 from discopy.cat import Quiver
 from discopy.rigid import PRO
 
 
 def tuplify(xs):
+    """ Returns :code:`xs` if it is already a tuple else :code:`(xs, )`. """
     return xs if isinstance(xs, tuple) else (xs, )
 
 
 def untuplify(*xs):
+    """ Returns either the tuple :code:`xs` or its only element. """
     return xs[0] if len(xs) == 1 else xs
 
 
@@ -105,7 +107,7 @@ class Function(rigid.Box):
             raise TypeError(messages.expected_input_length(self, values))
         return self.function(*values)
 
-    def then(self, other):
+    def then(self, *others):
         """
         Implements the sequential composition of Python functions.
 
@@ -114,6 +116,9 @@ class Function(rigid.Box):
         >>> assert (copy >> swap)(1) == copy(1)
         >>> assert (swap >> swap)(1, 2) == (1, 2)
         """
+        if len(others) != 1:
+            return monoidal.Diagram.then(self, *others)
+        other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
         if len(self.cod) != len(other.dom):
@@ -121,7 +126,7 @@ class Function(rigid.Box):
         return Function(self.dom, other.cod,
                         lambda *vals: other(*tuplify(self(*vals))))
 
-    def tensor(self, other):
+    def tensor(self, *others):
         """
         Implements the product of Python functions.
 
@@ -130,6 +135,9 @@ class Function(rigid.Box):
         >>> assert (swap @ swap)(1, 2, 3, 4) == (2, 1, 4, 3)
         >>> assert (copy @ copy)(1, 2) == (1, 1, 2, 2)
         """
+        if len(others) != 1:
+            return monoidal.Diagram.tensor(self, *others)
+        other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -250,6 +258,7 @@ class Box(rigid.Box, Diagram):
 
     @property
     def function(self):
+        """ Underlying function. """
         return self._function
 
     def __repr__(self):
@@ -283,9 +292,7 @@ class Copy(Diagram):
         for i in range(dom):
             result = result @ COPY
         for i in range(1, dom):
-            swaps = Id(0)
-            for j in range(dom - i):
-                swaps = swaps @ SWAP
+            swaps = Id(0).tensor(*((dom - i) * [SWAP]))
             result = result >> Id(i) @ swaps @ Id(i)
         super().__init__(dom, 2 * dom, result.boxes, result.offsets,
                          layers=result.layers)
@@ -298,9 +305,7 @@ class Discard(Diagram):
     >>> assert Discard(3)(0, 1, 2) == () == Discard(2)(43, 44)
     """
     def __init__(self, dom):
-        result = Id(0)
-        for i in range(dom):
-            result = result @ DISCARD
+        result = Id(0).tensor(*(dom * [DISCARD]))
         super().__init__(result.dom, result.cod, result.boxes, result.offsets,
                          layers=result.layers)
 

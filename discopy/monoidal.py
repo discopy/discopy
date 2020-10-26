@@ -37,7 +37,7 @@ We can check the Eckerman-Hilton argument, up to interchanger.
 """
 
 from discopy import cat, messages, drawing
-from discopy.cat import Ob, Functor, Quiver, AxiomError
+from discopy.cat import Ob, Quiver, AxiomError
 
 
 class Ty(Ob):
@@ -84,9 +84,9 @@ class Ty(Ob):
         """
         return list(self._objects)
 
-    def tensor(self, other):
+    def tensor(self, *others):
         """
-        Returns the tensor of two types, i.e. the concatenation of their lists
+        Returns the tensor of types, i.e. the concatenation of their lists
         of objects. This is called with the binary operator `@`.
 
         >>> Ty('x') @ Ty('y', 'z')
@@ -105,7 +105,8 @@ class Ty(Ob):
         ----
         We can take the sum of a list of type, specifying the unit `Ty()`.
 
-        >>> sum([Ty('x'), Ty('y'), Ty('z')], Ty())
+        >>> types = Ty('x'), Ty('y'), Ty('z')
+        >>> Ty().tensor(*types)
         Ty('x', 'y', 'z')
 
         We can take the exponent of a type by any natural number.
@@ -114,7 +115,34 @@ class Ty(Ob):
         Ty('x', 'x', 'x')
 
         """
-        return Ty(*(self.objects + other.objects))
+        for other in others:
+            if not isinstance(other, Ty):
+                raise TypeError(messages.type_err(Ty, other))
+        return Ty(*sum([t.objects for t in [self] + list(others)], []))
+
+    def count(self, ob):
+        """
+        Counts the occurrence of a given object.
+
+        Parameters
+        ----------
+        ob : :class:`Ty` or :class:`Ob`
+            either a type of length 1 or an object
+
+        Returns
+        -------
+        n : int
+            such that :code:`n == self.objects.count(ob)`.
+
+        Examples
+        --------
+
+        >>> x = Ty('x')
+        >>> xs = x ** 5
+        >>> assert xs.count(x) == xs.count(x[0]) == xs.objects.count(Ob('x'))
+        """
+        ob, = ob if isinstance(ob, Ty) else (ob, )
+        return self.objects.count(ob)
 
     def __init__(self, *objects):
         self._objects = tuple(
@@ -175,12 +203,11 @@ class PRO(Ty):
             n = n.name
         super().__init__(*(n * [1]))
 
-    def tensor(self, other):
-        if not isinstance(other, PRO):
-            if isinstance(other, Ty):
-                return super().tensor(other)
-            raise TypeError(messages.type_err(PRO, other))
-        return type(self)(len(self) + len(other))
+    def tensor(self, *others):
+        for other in others:
+            if not isinstance(other, PRO):
+                return super().tensor(*others)
+        return type(self)(sum(len(t) for t in (self, ) + others))
 
     def __repr__(self):
         return "PRO({})".format(len(self))
@@ -219,7 +246,7 @@ class Layer(cat.Box):
     """
     def __init__(self, left, box, right):
         self._left, self._box, self._right = left, box, right
-        name = (left, box, right)
+        name = "Layer({}, {}, {})".format(left, box, right)
         dom, cod = left @ box.dom @ right, left @ box.cod @ right
         super().__init__(name, dom, cod)
 
@@ -233,9 +260,9 @@ class Layer(cat.Box):
             *map(repr, (self._left, self._box, self._right)))
 
     def __str__(self):
-        return ("{} @ ".format(cat.Id(self._left)) if self._left else "")\
+        return ("{} @ ".format(self._box.id(self._left)) if self._left else "")\
             + str(self._box)\
-            + (" @ {}".format(cat.Id(self._right)) if self._right else "")
+            + (" @ {}".format(self._box.id(self._right)) if self._right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -308,8 +335,8 @@ class Diagram(cat.Arrow):
         """
         A :class:`discopy.cat.Arrow` with :class:`Layer` boxes such that::
 
-            diagram == Id(diagram.dom).compose(*[
-                Id(left) @ box Id(right)
+            diagram == Id(diagram.dom).then(*[
+                Id(left) @ box @ Id(right)
                 for left, box, right in diagram.layers])
 
         This is accessed using python slices::
@@ -323,13 +350,17 @@ class Diagram(cat.Arrow):
         """
         return self._layers
 
-    def then(self, other):
-        return Diagram(self.dom, other.cod,
-                       self.boxes + other.boxes,
-                       self.offsets + other.offsets,
-                       layers=self.layers >> other.layers)
+    def then(self, *others):
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.then(others[0]).then(*others[1:])
+        return Diagram(self.dom, others[0].cod,
+                       self.boxes + others[0].boxes,
+                       self.offsets + others[0].offsets,
+                       layers=self.layers >> others[0].layers)
 
-    def tensor(self, other):
+    def tensor(self, *others):
         """
         Returns the horizontal composition of 'self' with a diagram 'other'.
 
@@ -348,6 +379,11 @@ class Diagram(cat.Arrow):
         diagram : :class:`Diagram`
             the tensor of 'self' and 'other'.
         """
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.tensor(others[0]).tensor(*others[1:])
+        other = others[0]
         if not isinstance(other, Diagram):
             raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -400,6 +436,44 @@ class Diagram(cat.Arrow):
             return Diagram(*inputs, layers=layers)
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
+
+    @staticmethod
+    def swap(left, right):
+        """
+        Returns a diagram that swaps the left with the right wires.
+
+        Parameters
+        ----------
+        left : monoidal.Ty
+            left hand-side of the domain.
+        right : monoidal.Ty
+            right hand-side of the domain.
+
+        Returns
+        -------
+        diagram : monoidal.Diagram
+            with :code:`diagram.dom == left @ right`
+        """
+        return swap(left, right)
+
+    @staticmethod
+    def permutation(perm, dom=None):
+        """
+        Returns the diagram that encodes a permutation of wires.
+
+        Parameters
+        ----------
+        perm : list of int
+            such that :code:`i` goes to :code:`perm[i]`
+        dom : monoidal.Ty, optional
+            of the same length as :code:`perm`,
+            default is :code:`PRO(len(perm))`.
+
+        Returns
+        -------
+        diagram : monoidal.Diagram
+        """
+        return permutation(perm, dom)
 
     def interchange(self, i, j, left=False):
         """
@@ -737,22 +811,6 @@ class Diagram(cat.Arrow):
         return drawing.to_gif(self, *diagrams, **params)
 
 
-def spiral(n_cups, _type=Ty('x')):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
-    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
-    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
-    return result
-
-
 class InterchangerError(AxiomError):
     """
     This is raised when we try to interchange conected boxes.
@@ -789,7 +847,8 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        layers = cat.Arrow(dom, cod, [Layer(Ty(), self, Ty())], _scan=False)
+        layer = Layer(type(dom)(), self, type(dom)())
+        layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 
     def __eq__(self, other):
@@ -802,6 +861,33 @@ class Box(cat.Box, Diagram):
 
     def __hash__(self):
         return hash(repr(self))
+
+
+class Swap(Box):
+    """
+    Implements the symmetry of atomic types.
+
+    Parameters
+    ----------
+    left : monoidal.Ty
+        of length 1.
+    right : monoidal.Ty
+        of length 1.
+    """
+    def __init__(self, left, right):
+        if len(left) != 1 or len(right) != 1:
+            raise ValueError(messages.swap_vs_swaps(left, right))
+        self.left, self.right = left, right
+        super().__init__('SWAP', left @ right, right @ left)
+
+    def __repr__(self):
+        return "Swap({}, {})".format(repr(self.left), repr(self.right))
+
+    def __str__(self):
+        return "Swap({}, {})".format(self.left, self.right)
+
+    def dagger(self):
+        return Swap(self.right, self.left)
 
 
 class Functor(cat.Functor):
@@ -840,3 +926,50 @@ class Functor(cat.Functor):
                 scan = scan[:off] + box.cod + scan[off + len(box.dom):]
             return result
         raise TypeError(messages.type_err(Diagram, diagram))
+
+
+def swap(left, right, ar_factory=Diagram, swap_factory=Swap):
+    """ Constructs swap diagrams of arbitrary types """
+    if not left:
+        return ar_factory.id(right)
+    if len(left) == 1:
+        boxes = [
+            swap_factory(left, right[i: i + 1]) for i, _ in enumerate(right)]
+        offsets = range(len(right))
+        return ar_factory(left @ right, right @ left, boxes, offsets)
+    return ar_factory.id(left[:1]) @ ar_factory.swap(left[1:], right)\
+        >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
+
+
+def permutation(perm, dom=None, ar_factory=Diagram):
+    """ Constructs permutation diagrams of arbitrary types """
+    if set(range(len(perm))) != set(perm):
+        raise ValueError("Input should be a permutation of range(n).")
+    if dom is None:
+        dom = PRO(len(perm))
+    if len(dom) != len(perm):
+        raise ValueError("Domain and permutation should have the same length.")
+    diagram = ar_factory.id(dom)
+    for i in range(len(dom)):
+        j = perm.index(i)
+        diagram = diagram >> ar_factory.id(diagram.cod[:i])\
+            @ ar_factory.swap(diagram.cod[i:j], diagram.cod[j:j + 1])\
+            @ ar_factory.id(diagram.cod[j + 1:])
+        perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
+    return diagram
+
+
+def spiral(n_cups, _type=Ty('x')):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
+    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
+    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
+    return result

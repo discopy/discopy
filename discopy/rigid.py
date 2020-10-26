@@ -9,7 +9,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> t = n.r @ s @ n.l
 >>> assert t @ unit == t == unit @ t
 >>> assert t.l.r == t == t.r.l
->>> left_snake, right_snake = Id(n.r).transpose_l(), Id(n.l).transpose_r()
+>>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 """
 
@@ -71,18 +71,26 @@ class Ty(monoidal.Ty, Ob):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    @staticmethod
+    def _upgrade(ty):
+        return Ty(*ty.objects)
+
     @property
     def l(self):
-        """ Left adjoint. """
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
     def r(self):
-        """ Right adjoint. """
         return Ty(*[x.r for x in self.objects[::-1]])
 
-    def tensor(self, other):
-        return Ty(*super().tensor(other))
+    @property
+    def z(self):
+        if len(self) != 1:
+            raise TypeError(messages.no_winding_number_for_complex_types())
+        return self[0].z
+
+    def tensor(self, *others):
+        return self._upgrade(super().tensor(*others))
 
     def __init__(self, *t):
         t = [x if isinstance(x, Ob)
@@ -93,7 +101,7 @@ class Ty(monoidal.Ty, Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return Ty(*super().__getitem__(key))
+            return self._upgrade(super().__getitem__(key))
         return super().__getitem__(key)
 
     def __repr__(self):
@@ -144,11 +152,22 @@ class Diagram(monoidal.Diagram):
     def id(x):
         return Id(x)
 
-    def then(self, other):
-        return self._upgrade(super().then(other))
+    def then(self, *others):
+        return self._upgrade(super().then(*others))
 
-    def tensor(self, other):
-        return self._upgrade(super().tensor(other))
+    def tensor(self, *others):
+        return self._upgrade(super().tensor(*others))
+
+    @staticmethod
+    def swap(left, right):
+        return monoidal.swap(
+            left, right, ar_factory=Diagram, swap_factory=Swap)
+
+    @staticmethod
+    def permutation(perm, dom=None):
+        if dom is None:
+            dom = PRO(len(perm))
+        return monoidal.permutation(perm, dom, ar_factory=Diagram)
 
     def interchange(self, i, j, left=False):
         return self._upgrade(super().interchange(i, j, left=left))
@@ -157,7 +176,7 @@ class Diagram(monoidal.Diagram):
         """
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
-        >>> assert isinstance((3 * f).foliation().flatten(), Diagram)
+        >>> assert isinstance((f >> f >> f).foliation().flatten(), Diagram)
         """
         return self._upgrade(super().flatten())
 
@@ -197,64 +216,40 @@ class Diagram(monoidal.Diagram):
 
     @staticmethod
     def cups(left, right):
-        """ Constructs nested cups witnessing adjointness of x and y
+        """ Constructs nested cups witnessing adjointness of x and y.
 
         >>> a, b = Ty('a'), Ty('b')
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
         >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
         ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
         """
-        if not isinstance(left, Ty):
-            raise TypeError(messages.type_err(Ty, left))
-        if not isinstance(right, Ty):
-            raise TypeError(messages.type_err(Ty, right))
-        cups = Id(left @ right)
-        for i in range(len(left)):
-            j = len(left) - i - 1
-            cup = Cup(left[j:j + 1], right[i:i + 1])
-            cups = cups >> Id(left[:j]) @ cup @ Id(right[i + 1:])
-        return cups
+        return cups(left, right)
 
     @staticmethod
     def caps(left, right):
-        """ Constructs nested cups witnessing adjointness of x and y
+        """ Constructs nested cups witnessing adjointness of x and y.
 
         >>> a, b = Ty('a'), Ty('b')
         >>> assert Diagram.caps(a, a.l) == Cap(a, a.l)
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        if not isinstance(left, Ty):
-            raise TypeError(messages.type_err(Ty, left))
-        if not isinstance(right, Ty):
-            raise TypeError(messages.type_err(Ty, right))
-        caps = Id(left @ right)
-        for i in range(len(left)):
-            j = len(left) - i - 1
-            cap = Cap(left[j:j + 1], right[i:i + 1])
-            caps = caps << Id(left[:j]) @ cap @ Id(right[i + 1:])
-        return caps
+        return caps(left, right)
 
-    def transpose_r(self):
+    def transpose(self, left=False):
         """
         >>> a, b = Ty('a'), Ty('b')
-        >>> double_snake = Id(a @ b).transpose_r()
-        >>> two_snakes = Id(b).transpose_r() @ Id(a).transpose_r()
+        >>> double_snake = Id(a @ b).transpose()
+        >>> two_snakes = Id(b).transpose() @ Id(a).transpose()
         >>> double_snake == two_snakes
         False
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(two_snakes)
         >>> assert double_snake == two_snakes_nf
         >>> f = Box('f', a, b)
-        """
-        return Diagram.caps(self.dom.r, self.dom) @ Id(self.cod.r)\
-            >> Id(self.dom.r) @ self @ Id(self.cod.r)\
-            >> Id(self.dom.r) @ Diagram.cups(self.cod, self.cod.r)
 
-    def transpose_l(self):
-        """
         >>> a, b = Ty('a'), Ty('b')
-        >>> double_snake = Id(a @ b).transpose_l()
-        >>> two_snakes = Id(b).transpose_l() @ Id(a).transpose_l()
+        >>> double_snake = Id(a @ b).transpose(left=True)
+        >>> two_snakes = Id(b).transpose(left=True) @ Id(a).transpose(left=True)
         >>> double_snake == two_snakes
         False
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(
@@ -262,9 +257,13 @@ class Diagram(monoidal.Diagram):
         >>> assert double_snake == two_snakes_nf
         >>> f = Box('f', a, b)
         """
-        return Id(self.cod.l) @ Diagram.caps(self.dom, self.dom.l)\
-            >> Id(self.cod.l) @ self @ Id(self.dom.l)\
-            >> Diagram.cups(self.cod.l, self.cod) @ Id(self.dom.l)
+        if left:
+            return self.id(self.cod.l) @ self.caps(self.dom, self.dom.l)\
+                >> self.id(self.cod.l) @ self @ self.id(self.dom.l)\
+                >> self.cups(self.cod.l, self.cod) @ self.id(self.dom.l)
+        return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
+            >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
+            >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
 
     def normalize(self, left=False):
         """
@@ -374,29 +373,13 @@ class Diagram(monoidal.Diagram):
         for _diagram in monoidal.Diagram.normalize(diagram, left=left):
             yield _diagram
 
-    def normal_form(self, left=False):
+    def normal_form(self, normalize=None, **params):
         """
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
-        return super().normal_form(normalize=Diagram.normalize, left=left)
-
-
-class Box(monoidal.Box, Diagram):
-    """ Implements generators of rigid monoidal diagrams.
-
-    >>> a, b = Ty('a'), Ty('b')
-    >>> Box('f', a, b.l @ b, data={42})
-    Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
-    """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        """
-        >>> a, b = Ty('a'), Ty('b')
-        >>> Box('f', a, b.l @ b)
-        Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'))
-        """
-        monoidal.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
+        return super().normal_form(
+            normalize=normalize or Diagram.normalize, **params)
 
 
 class Id(Diagram):
@@ -409,19 +392,26 @@ class Id(Diagram):
         super().__init__(t, t, [], [], layers=cat.Id(t))
 
     def __repr__(self):
-        """
-        >>> Id(Ty('n'))
-        Id(Ty('n'))
-        """
         return "Id({})".format(repr(self.dom))
 
     def __str__(self):
-        """
-        >>> n = Ty('n')
-        >>> print(Id(n))
-        Id(n)
-        """
         return "Id({})".format(str(self.dom))
+
+
+class Box(monoidal.Box, Diagram):
+    """ Implements generators of rigid monoidal diagrams.
+
+    >>> a, b = Ty('a'), Ty('b')
+    >>> Box('f', a, b.l @ b, data={42})
+    Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
+    """
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        monoidal.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
+
+
+class Swap(monoidal.Swap, Box):
+    """ Implements swaps of basic types in a rigid category. """
 
 
 class Cup(Box):
@@ -431,34 +421,27 @@ class Cup(Box):
     >>> Cup(n, n.r)
     Cup(Ty('n'), Ty(Ob('n', z=1)))
     """
-    def __init__(self, x, y):
-        if not isinstance(x, Ty):
-            raise TypeError(messages.type_err(Ty, x))
-        if not isinstance(y, Ty):
-            raise TypeError(messages.type_err(Ty, y))
-        if x.r != y and x != y.r:
-            raise AxiomError(messages.are_not_adjoints(x, y))
-        if len(x) != 1 or len(y) != 1:
-            raise ValueError(messages.cup_vs_cups(x, y))
-        if x == y.r:
-            raise NotImplementedError(messages.pivotal_not_implemented())
-        super().__init__('CUP', x @ y, Ty())
+    def __init__(self, left, right):
+        if not isinstance(left, Ty):
+            raise TypeError(messages.type_err(Ty, left))
+        if not isinstance(right, Ty):
+            raise TypeError(messages.type_err(Ty, right))
+        if len(left) != 1 or len(right) != 1:
+            raise ValueError(messages.cup_vs_cups(left, right))
+        if left.r != right and left != right.r:
+            raise AxiomError(messages.are_not_adjoints(left, right))
+        if left == right.r:
+            raise AxiomError(messages.wrong_adjunction(left, right, cup=True))
+        self.left, self.right = left, right
+        super().__init__('CUP', left @ right, Ty())
 
     def dagger(self):
-        raise NotImplementedError(messages.pivotal_not_implemented())
+        return Cap(self.left, self.right)
 
     def __repr__(self):
-        """
-        >>> n = Ty('n')
-        >>> assert repr(Cup(n, n.r)) == "Cup(Ty('n'), Ty(Ob('n', z=1)))"
-        """
         return "Cup({}, {})".format(repr(self.dom[:1]), repr(self.dom[1:]))
 
     def __str__(self):
-        """
-        >>> n = Ty('n')
-        >>> assert str(Cup(n, n.r)) == "Cup(n, n.r)"
-        """
         return "Cup({}, {})".format(self.dom[:1], self.dom[1:])
 
 
@@ -466,42 +449,31 @@ class Cap(Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
-    >>> print(Cap(n, n.l).cod)
-    n @ n.l
-    >>> print(Cap(n.l, n.l.l).cod)
-    n.l @ n.l.l
+    >>> Cap(n, n.l)
+    Cap(Ty('n'), Ty(Ob('n', z=-1)))
     """
-    def __init__(self, x, y):
-        if not isinstance(x, Ty):
-            raise TypeError(messages.type_err(Ty, x))
-        if not isinstance(y, Ty):
-            raise TypeError(messages.type_err(Ty, y))
-        if x != y.r and x.r != y:
-            raise AxiomError(messages.are_not_adjoints(x, y))
-        if len(x) != 1 or len(y) != 1:
-            raise ValueError(messages.cap_vs_caps(x, y))
-        if x.r == y:
-            raise NotImplementedError(messages.pivotal_not_implemented())
-        super().__init__('CAP', Ty(), x @ y)
+    def __init__(self, left, right):
+        if not isinstance(left, Ty):
+            raise TypeError(messages.type_err(Ty, left))
+        if not isinstance(right, Ty):
+            raise TypeError(messages.type_err(Ty, right))
+        if len(left) != 1 or len(right) != 1:
+            raise ValueError(messages.cap_vs_caps(left, right))
+        if left != right.r and left.r != right:
+            raise AxiomError(messages.are_not_adjoints(left, right))
+        if left.r == right:
+            raise AxiomError(messages.wrong_adjunction(left, right, cup=False))
+        self.left, self.right = left, right
+        super().__init__('CAP', Ty(), left @ right)
 
     def dagger(self):
-        raise NotImplementedError(messages.pivotal_not_implemented())
+        return Cup(self.left, self.right)
 
     def __repr__(self):
-        """
-        >>> n = Ty('n')
-        >>> Cap(n, n.l)
-        Cap(Ty('n'), Ty(Ob('n', z=-1)))
-        """
-        return "Cap({}, {})".format(repr(self.cod[:1]), repr(self.cod[1:]))
+        return "Cap({}, {})".format(repr(self.left), repr(self.right))
 
     def __str__(self):
-        """
-        >>> n = Ty('n')
-        >>> print(Cap(n, n.l))
-        Cap(n, n.l)
-        """
-        return "Cap({}, {})".format(self.cod[:1], self.cod[1:])
+        return "Cap({}, {})".format(self.left, self.right)
 
 
 class Functor(monoidal.Functor):
@@ -521,21 +493,9 @@ class Functor(monoidal.Functor):
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
     """
     def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):
-        """
-        >>> F = Functor({Ty('x'): Ty('y')}, {})
-        >>> F(Id(Ty('x')))
-        Id(Ty('y'))
-        """
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
-        """
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> f, g = Box('f', x, y), Box('g', y, z)
-        >>> F = Functor({x: y, y: z}, {f: g})
-        >>> assert F(f.transpose_l()) == F(f).transpose_l()
-        >>> assert F(f.transpose_r()) == F(f).transpose_r()
-        """
         if isinstance(diagram, Ty):
             return sum([self(b) for b in diagram.objects], self.ob_factory())
         if isinstance(diagram, Ob) and not diagram.z:
@@ -558,3 +518,24 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
+
+
+def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
+    """ Constructs a diagram of nested cups. """
+    for ty in left, right:
+        if not isinstance(ty, Ty):
+            raise TypeError(messages.type_err(Ty, ty))
+    if left.r != right and right.r != left:
+        raise AxiomError(messages.are_not_adjoints(left, right))
+    result = ar_factory.id(left @ right)
+    for i in range(len(left)):
+        j = len(left) - i - 1
+        cup = cup_factory(left[j:j + 1], right[i:i + 1])
+        layer = ar_factory.id(left[:j]) @ cup @ ar_factory.id(right[i + 1:])
+        result = result << layer if reverse else result >> layer
+    return result
+
+
+def caps(left, right, ar_factory=Diagram, cap_factory=Cap):
+    """ Constructs a diagram of nested caps. """
+    return cups(left, right, ar_factory, cap_factory, reverse=True)

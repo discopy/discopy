@@ -91,8 +91,7 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
 
     def scale_and_pad(pos):
         widths, heights = zip(*pos.values())
-        min_width, max_width = min(widths), max(widths)
-        min_height, max_height = min(heights), max(heights)
+        min_width, min_height = min(widths), min(heights)
         pos = {n: ((x - min_width) * scale[0] + pad[0],
                    (y - min_height) * scale[1] + pad[1])
                for n, (x, y) in pos.items()}
@@ -398,12 +397,13 @@ def pregroup_draw(words, cups, **params):
             draw_wire(axis, (scan[off + 1], 0), (middle, - j - 1),
                       bend_in=True, to_tikz=params.get('to_tikz', False))
             scan = scan[:off] + scan[off + 2:]
-        for i, _ in enumerate(cups[-1].cod):
-            draw_wire(axis, (scan[i], 0), (scan[i], - len(cups) - 1),
+        for i, _ in enumerate(cups[-1].cod if cups else words.cod):
+            label = str(cups[-1].cod[i]) if cups else ""
+            draw_wire(axis, (scan[i], 0), (scan[i], - (len(cups) or 1) - 1),
                       to_tikz=params.get('to_tikz', False))
             if params.get('draw_types', True):
-                draw_text(axis, str(cups[-1].cod[i]),
-                          scan[i] + textpad[0], - len(cups) - space,
+                draw_text(axis, label,
+                          scan[i] + textpad[0], - (len(cups) or 1) - space,
                           fontsize=params.get('fontsize_types', fontsize),
                           to_tikz=params.get('to_tikz', False))
     axis = [] if params.get('to_tikz', False)\
@@ -434,7 +434,7 @@ def equation(*diagrams, symbol="=", space=1, **params):
     """
     >>> from discopy import *
     >>> x = Ty('x')
-    >>> diagrams = Id(x.r).transpose_l(), Id(x.l).transpose_r()
+    >>> diagrams = Id(x.r).transpose(left=True), Id(x.l).transpose()
     >>> equation(*diagrams, to_tikz=True)
     \\node [right] () at (0.1, 2.0) {x};
     \\node [right] () at (1.1, 1.15) {x.r};
