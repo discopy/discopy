@@ -1,10 +1,10 @@
 
-![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/snake-equation.png)
+![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/snake-equation.png)
 
 # Distributional Compositional Python
-[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=master)](https://discopy.readthedocs.io/)
-[![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=master)](https://travis-ci.com/oxford-quantum-group/discopy)
-[![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/master/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
+[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
+[![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
+[![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/main/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
 [![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 [![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)
@@ -46,7 +46,7 @@ crack_two_eggs = crack @ crack\
 crack_two_eggs.draw(path='docs/imgs/crack-eggs.png')
 ```
 
-![crack two eggs](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/crack-eggs.png)
+![crack two eggs](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/crack-eggs.png)
 
 ### Snakes & Sentences
 
@@ -61,7 +61,7 @@ right_snake =  Cap(x, x.l) @ Id(x) >> Id(x) @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-![snake equations, with types](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/typed-snake-equation.png)
+![snake equations, with types](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/typed-snake-equation.png)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar) (see Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction).
 
@@ -76,7 +76,7 @@ sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 pregroup.draw(sentence, path='docs/imgs/alice-loves-bob.png')
 ```
 
-![Alice loves Bob](https://raw.githubusercontent.com/oxford-quantum-group/discopy/master/docs/imgs/alice-loves-bob.png)
+![Alice loves Bob](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/alice-loves-bob.png)
 
 ### Functors & Rewrites
 
