@@ -19,9 +19,14 @@ def test_CFG():
     s, n, v, vp = Ty('S'), Ty('N'), Ty('V'), Ty('VP')
     R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v, vp)
     Jane, loves, Bob = Word('Jane', n), Word('loves', v), Word('Bob', n)
-    cfg = CFG(R0, R1, Jane, loves)
+    cfg = CFG(R0, R1, Jane, loves, Bob)
     assert Jane in cfg.productions
     assert "CFG(Box('R0', Ty('VP', 'N'), Ty('S'))" in repr(cfg)
+    assert not list(CFG().generate(start=s, max_sentences=1, max_depth=1))
+    sentence, *_ = cfg.generate(
+        start=s, max_sentences=1, max_depth=10, not_twice=[Jane, Bob], seed=42)
+    assert sentence\
+        == (Jane @ loves @ Bob).normal_form(left=True) >> R1 @ Id(n) >> R0
 
 
 def test_eager_parse():
