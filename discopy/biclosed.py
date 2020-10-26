@@ -1,7 +1,7 @@
-from discopy import moncat
+from discopy import monoidal
 
 
-class Ty(moncat.Ty):
+class Ty(monoidal.Ty):
     """
     >>> x, y = Ty('x'), Ty('y')
     >>> print(y << x >> y)
@@ -42,22 +42,22 @@ class Under(Ty):
         return "({} >> {})".format(str(self.left), str(self.right))
 
 
-class Diagram(moncat.Diagram):
+class Diagram(monoidal.Diagram):
     pass
 
 
-class Box(moncat.Box, Diagram):
+class Box(monoidal.Box, Diagram):
     pass
 
 
-class Functor(moncat.Functor):
+class Functor(monoidal.Functor):
     """
-    >>> from discopy import rigidcat
+    >>> from discopy import rigid
     >>> x, y = Ty('x'), Ty('y')
     >>> F = Functor(
     ...     ob={x: x, y: y}, ar={},
-    ...     ob_factory=rigidcat.Ty,
-    ...     ar_factory=rigidcat.Diagram)
+    ...     ob_factory=rigid.Ty,
+    ...     ar_factory=rigid.Diagram)
     >>> print(F(y << x >> y))
     y.r @ x @ y.l
     >>> assert F((y << x) >> y) == F(y << (x >> y))
