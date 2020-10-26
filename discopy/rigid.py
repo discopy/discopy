@@ -469,7 +469,7 @@ class Functor(monoidal.Functor):
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
-        if isinstance(diagram, Ty):
+        if isinstance(diagram, monoidal.Ty):
             return sum([self(b) for b in diagram.objects], self.ob_factory())
         if isinstance(diagram, Ob) and not diagram.z:
             return self.ob[Ty(diagram.name)]
@@ -488,7 +488,7 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Cap):
             return self.ar_factory.caps(
                 self(diagram.cod[0]), self(diagram.cod[1]))
-        if isinstance(diagram, Diagram):
+        if isinstance(diagram, monoidal.Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
 

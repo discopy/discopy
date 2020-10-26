@@ -251,23 +251,23 @@ class TensorFunctor(Functor):
         return super().__repr__().replace("Functor", "TensorFunctor")
 
     def __call__(self, diagram):
-        if isinstance(diagram, Ty):
+        if isinstance(diagram, monoidal.Ty):
             return sum(map(self, diagram.objects), Dim(1))
         if isinstance(diagram, Ob) and not diagram.z:
             result = self.ob[Ty(diagram.name)]
             return result if isinstance(result, Dim) else Dim(result)
-        if isinstance(diagram, Ob):
+        if isinstance(diagram, monoidal.Ob):
             return super().__call__(diagram)
         if isinstance(diagram, Cup):
             return Tensor.cups(self(diagram.dom[0]), self(diagram.dom[1]))
         if isinstance(diagram, Cap):
             return Tensor.caps(self(diagram.cod[0]), self(diagram.cod[1]))
-        if isinstance(diagram, Box) and not isinstance(diagram, Swap):
+        if isinstance(diagram, monoidal.Box) and not isinstance(diagram, Swap):
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
             return Tensor(self(diagram.dom), self(diagram.cod),
                           self.ar[diagram])
-        if not isinstance(diagram, Diagram):
+        if not isinstance(diagram, monoidal.Diagram):
             raise TypeError(messages.type_err(Diagram, diagram))
 
         def dim(scan):

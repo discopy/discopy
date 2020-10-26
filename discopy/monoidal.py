@@ -153,7 +153,7 @@ class Ty(Ob):
     def __init__(self, *objects):
         self._objects = tuple(
             x if isinstance(x, Ob) else Ob(x) for x in objects)
-        super().__init__(str(self))
+        super().__init__(self)
 
     def __eq__(self, other):
         if not isinstance(other, Ty):
