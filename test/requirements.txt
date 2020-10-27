@@ -1,3 +1,1 @@
 pytket==0.5.6
-cython
-depccg==1.1.0
