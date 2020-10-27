@@ -258,10 +258,10 @@ def cat2ty(cat):
     return biclosed.Ty(cat.base)
 
 
-def tree2diagram(tree):
+def tree2diagram(tree, dom=biclosed.Ty()):
     """ Takes a depccg.Tree in JSON format, returns a biclosed.Diagram """
     if 'word' in tree:
-        return CCGWord(tree['word'], cat2ty(tree['cat']))
+        return CCGWord(tree['word'], cat2ty(tree['cat']), dom=dom)
     children = list(map(tree2diagram, tree['children']))
     dom = biclosed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
