@@ -1,4 +1,6 @@
 grammar.CFG
 =============
 
-.. autofunction :: discopy.grammar.CFG(productions)
+.. autoclass:: discopy.grammar.CFG
+    :members: productions, generate
+    :member-order: bysource

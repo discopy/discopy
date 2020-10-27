@@ -17,6 +17,7 @@ discopy
    tensor/index.rst
    quantum/index.rst
    grammar/index.rst
+   biclosed/index.rst
 
 
 Indices and tables

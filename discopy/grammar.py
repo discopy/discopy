@@ -42,7 +42,7 @@ from discopy.rigid import Cup
 
 class Word(Box):
     """
-    Implements words as boxes with a monoidal type as codomain.
+    Implements words as boxes with a :class:`moncat.Ty` as codomain.
 
     >>> from discopy.rigid import Ty
     >>> Alice = Word('Alice', Ty('n'))
@@ -69,11 +69,11 @@ class Word(Box):
 
 
 class CCGWord(Word, biclosed.Box):
-    """ Word with a biclosed type. """
+    """ Word with a :class:`biclosed.Ty` as codomain. """
 
 
 class PregroupWord(Word, rigid.Box):
-    """ Word with a rigid type. """
+    """ Word with a :class:`rigid.Ty` as codomain. """
 
 
 class CFG:
@@ -100,7 +100,7 @@ class CFG:
     @property
     def productions(self):
         """
-        Production rules, i.e. boxes with grammatical types as dom and cod.
+        Production rules, i.e. boxes with :class:`moncat.Ty` as dom and cod.
         """
         return self._productions
 
@@ -111,9 +111,11 @@ class CFG:
                  remove_duplicates=False, not_twice=[], seed=None):
         """
         Generate sentences from a context-free grammar.
-        Assumes the only terminal symbol is Ty().
+        Assumes the only terminal symbol is :code:`Ty()`.
+
         Parameters
         ----------
+
         start : type
             root of the generated trees.
         max_sentences : int
@@ -196,8 +198,7 @@ def brute_force(*vocab, target=Ty('s')):
 
 def draw(diagram, **params):
     """
-    Draws a pregroup diagram, i.e. one slice of word boxes followed by any
-    number of slices of cups.
+    Draws a pregroup diagram, i.e. of shape :code:`word @ ... @ word >> cups`.
 
     Parameters
     ----------

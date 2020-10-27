@@ -8,6 +8,3 @@ discopy.grammar
 
     Word.rst
     CFG.rst
-    draw.rst
-    eager_parse.rst
-    brute_force.rst
