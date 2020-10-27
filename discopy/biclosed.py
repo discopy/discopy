@@ -114,11 +114,11 @@ class Box(monoidal.Box, Diagram):
 class FA(Box):
     """ Forward application. """
     def __init__(self, left, right):
+        self.left, self.right = left, right
         if not isinstance(left, Over) or left.right != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
         dom, cod = left @ right, left.left
         super().__init__("FA({}, {})".format(left, right), dom, cod)
-        self.left, self.right = left, right
 
     def __repr__(self):
         return "FA({}, {})".format(repr(self.left), repr(self.right))
@@ -127,11 +127,11 @@ class FA(Box):
 class BA(Box):
     """ Backward application. """
     def __init__(self, left, right):
+        self.left, self.right = left, right
         if not isinstance(right, Under) or right.left != left:
             raise AxiomError(messages.are_not_adjoints(left, right))
         dom, cod = left @ right, right.right
         super().__init__("BA({}, {})".format(left, right), dom, cod)
-        self.left, self.right = left, right
 
     def __repr__(self):
         return "BA({}, {})".format(repr(self.left), repr(self.right))

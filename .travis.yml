@@ -7,7 +7,6 @@ before_install:
   - pip install -U pytest
   - pip install -U pytest-cov
   - pip install codecov
-  - pip install cython numpy depccg
 install:
   - pip install ".[test]" . # install package + test dependencies
 script: py.test --cov-report=xml --cov=discopy --doctest-modules # run tests

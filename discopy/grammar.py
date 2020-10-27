@@ -31,8 +31,8 @@ Implements distributional compositional models.
 >>> assert abs(F(sentence).eval().array) ** 2
 """
 
-from functools import reduce as fold
 import random
+import re
 
 from discopy import messages, drawing, biclosed, rigid
 from discopy.cat import AxiomError
@@ -165,7 +165,7 @@ def eager_parse(*words, target=Ty('s')):
     """
     Tries to parse a given list of words in an eager fashion.
     """
-    result = fold(lambda x, y: x @ y, words)
+    result = Id(rigid.Ty()).tensor(*words)
     scan = result.cod
     while True:
         fail = True
@@ -230,7 +230,7 @@ def draw(diagram, **params):
     """
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
-    words, is_pregroup = Id(Ty()), True
+    words, is_pregroup = rigid.Id(rigid.Ty()), True
     for left, box, right in diagram.layers:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
@@ -248,15 +248,31 @@ def draw(diagram, **params):
     drawing.pregroup_draw(words, cups, **params)
 
 
-def cat2ty(cat):
-    """ Takes a depccg.Category or its repr, returns a biclosed.Ty """
-    from depccg.cat import Category
-    cat = Category(cat) if not isinstance(cat, Category) else cat
-    if cat.is_functor and cat.slash == '\\':
-        return biclosed.Under(cat2ty(cat.right), cat2ty(cat.left))
-    if cat.is_functor and cat.slash == '/':
-        return biclosed.Over(cat2ty(cat.left), cat2ty(cat.right))
-    return biclosed.Ty(cat.base)
+def cat2ty(string):
+    """ Takes the string repr of a CCG category, returns a biclosed.Ty """
+    def unbracket(string):
+        return string[1:-1] if string[0] == '(' else string
+
+    def remove_modifier(string):
+        return re.sub(r'\[[^]]*\]', '', string)
+
+    def split(string):
+        par_count = 0
+        for i, char in enumerate(string):
+            if char == "(":
+                par_count += 1
+            elif char == ")":
+                par_count -= 1
+            elif char in ["\\", "/"] and par_count == 0:
+                return unbracket(string[:i]), char, unbracket(string[i + 1:])
+        return remove_modifier(string), None, None
+
+    left, slash, right = split(string)
+    if slash == '\\':
+        return biclosed.Under(cat2ty(right), cat2ty(left))
+    if slash == '/':
+        return biclosed.Over(cat2ty(left), cat2ty(right))
+    return biclosed.Ty(left)
 
 
 def tree2diagram(tree, dom=biclosed.Ty()):
