@@ -35,4 +35,4 @@ from discopy.quantum import (
 from discopy.grammar import Word
 from discopy.biclosed import Over, Under
 
-__version__ = '0.3.1'
+__version__ = '0.3.1a'
