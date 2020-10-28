@@ -17,7 +17,7 @@ if __name__ == '__main__':  # pragma: no cover
         with open('test/requirements.txt', 'r') as file:
             TEST_REQ = [line.strip() for line in file.readlines()]
     except FileNotFoundError:
-        from warning import warn
+        from warnings import warn
         warn("test/requirements.txt not found")
         TEST_REQ = []
 
