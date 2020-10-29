@@ -42,7 +42,7 @@ class Ty(monoidal.Ty):
 
 class Over(Ty):
     """ Forward slash types. """
-    def __init__(self, left, right):
+    def __init__(self, left=None, right=None):
         super().__init__(self, left=left, right=right)
 
     def __repr__(self):
@@ -62,7 +62,7 @@ class Over(Ty):
 
 class Under(Ty):
     """ Backward slash types. """
-    def __init__(self, left, right):
+    def __init__(self, left=None, right=None):
         super().__init__(self, left=left, right=right)
 
     def __repr__(self):
@@ -95,12 +95,30 @@ class Diagram(monoidal.Diagram):
     @staticmethod
     def fa(left, right):
         """ Forward application. """
-        return FA(left, right)
+        if left.right != right:
+            raise AxiomError(messages.are_not_adjoints(left, right))
+        return FA(left)
 
     @staticmethod
     def ba(left, right):
         """ Backward application. """
-        return BA(left, right)
+        if right.left != left:
+            raise AxiomError(messages.are_not_adjoints(left, right))
+        return BA(right)
+
+    @staticmethod
+    def fx(left, middle, right):
+        """ Forward composition. """
+        return FX(left << middle, middle << right)
+
+    @staticmethod
+    def bx(left, middle, right):
+        """ Backward composition. """
+        return BX(left >> middle, middle >> right)
+
+    @staticmethod
+    def curry(diagram, n_wires=1, left=False):
+        return Curry(diagram, n_wires, left)
 
 
 class Id(monoidal.Id, Diagram):
@@ -111,30 +129,80 @@ class Box(monoidal.Box, Diagram):
     """ Boxes in a biclosed monoidal category. """
 
 
+class Curry(Box):
+    """
+    Curried diagram.
+
+    Parameters
+    ----------
+    diagram : Diagram
+        to curry.
+    n_wires : int, optional
+        Number :code:`<= len(diagram.dom)` of wires to curry,
+        default is :code:`1`.
+    left : bool, optional
+        Whether to curry to the left, default is :code:`False`.
+    """
+    def __init__(self, diagram, n_wires=1, left=False):
+        if left:
+            dom = diagram.dom[n_wires:]
+            cod = diagram.dom[:n_wires] >> diagram.cod
+        else:
+            dom = diagram.dom[:-n_wires]
+            cod = diagram.cod << diagram.dom[-n_wires or len(diagram.dom):]
+        name = "Curry({}{}{})".format(
+            diagram, ", n_wires={}".format(n_wires) if n_wires != 1 else "",
+            ", left=True" if left else "")
+        self.diagram, self.n_wires, self.left = diagram, n_wires, left
+        super().__init__(name, dom, cod)
+
+
 class FA(Box):
-    """ Forward application. """
-    def __init__(self, left, right):
-        self.left, self.right = left, right
-        if not isinstance(left, Over) or left.right != right:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        dom, cod = left @ right, left.left
-        super().__init__("FA({}, {})".format(left, right), dom, cod)
+    """ Forward application box. """
+    def __init__(self, over):
+        if not isinstance(over, Over):
+            raise TypeError(messages.type_err(Over, over))
+        dom, cod = over @ over.right, over.left
+        super().__init__("FA{}".format(over), dom, cod)
 
     def __repr__(self):
-        return "FA({}, {})".format(repr(self.left), repr(self.right))
+        return "FA({})".format(repr(self.dom[:1]))
 
 
 class BA(Box):
-    """ Backward application. """
-    def __init__(self, left, right):
-        self.left, self.right = left, right
-        if not isinstance(right, Under) or right.left != left:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        dom, cod = left @ right, right.right
-        super().__init__("BA({}, {})".format(left, right), dom, cod)
+    """ Backward application box. """
+    def __init__(self, under):
+        if not isinstance(under, Under):
+            raise TypeError(Under, under)
+        dom, cod = under.left @ under, under.right
+        super().__init__("BA{}".format(under), dom, cod)
 
     def __repr__(self):
-        return "BA({}, {})".format(repr(self.left), repr(self.right))
+        return "BA({})".format(repr(self.dom[1:]))
+
+
+class FX(Box):
+    """ Forward composition box. """
+    def __init__(self, left, right):
+        if not isinstance(left, Over):
+            raise TypeError(messages.type_err(Over, left))
+        if not isinstance(right, Over):
+            raise TypeError(messages.type_err(Over, right))
+        name = "FX({}, {})".format(left, right)
+        dom, cod = left @ right, left.left << right.right
+        super().__init__(name, dom, cod)
+
+
+class BX(Box):
+    """ Backward composition box. """
+    def __init__(self, left, right):
+        if not isinstance(left, Under):
+            raise TypeError(messages.type_err(Under, left))
+        if not isinstance(right, Under):
+            raise TypeError(messages.type_err(Under, right))
+        name = "BX({}, {})".format(left, right)
+        dom, cod = left @ right, left.left >> right.right
+        super().__init__(name, dom, cod)
 
 
 class Functor(monoidal.Functor):
@@ -164,10 +232,21 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Ty) and len(diagram) > 1:
             return self.ob_factory.tensor(*[
                 self(diagram[i: i + 1]) for i in range(len(diagram))])
-        if isinstance(diagram, FA):
-            return self.ar_factory.fa(self(diagram.left), self(diagram.right))
-        if isinstance(diagram, BA):
-            return self.ar_factory.ba(self(diagram.left), self(diagram.right))
+        if isinstance(diagram, Curry):
+            n_wires = len(self(getattr(
+                diagram.cod, 'left' if diagram.left else 'right')))
+            return self.ar_factory.curry(
+                self(diagram.diagram), n_wires, diagram.left)
+        for cls, method in [(FA, 'fa'), (BA, 'ba')]:
+            if isinstance(diagram, cls):
+                return getattr(self.ar_factory, method)(
+                    self(diagram.dom[:1]), self(diagram.dom[1:]))
+        for cls, method in [(FX, 'fx'), (BX, 'bx')]:
+            if isinstance(diagram, cls):
+                left, right = diagram.dom[:1].left, diagram.dom[1:].right
+                middle = diagram.dom[:1].right
+                return getattr(self.ar_factory, method)(
+                    self(left), self(middle), self(right))
         return super().__call__(diagram)
 
 

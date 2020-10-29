@@ -138,18 +138,17 @@ def test_tree2diagram():
         CCGWord('is', Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
         CCGWord('a', Over(Ty('NP'), Ty('N'))),
         CCGWord('test', Ty('N')),
-        FA(Over(Ty('NP'), Ty('N')), Ty('N')),
-        FA(Over(Under(Ty('NP'), Ty('S')), Ty('NP')), Ty('NP')),
+        FA(Over(Ty('NP'), Ty('N'))),
+        FA(Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
         CCGWord('and', Ty('conj')),
         CCGWord('learn', Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
         CCGWord('sentence.', Ty('N')),
         Box('lex', Ty('N'), Ty('NP')),
-        FA(Over(Under(Ty('NP'), Ty('S')), Ty('NP')), Ty('NP')),
+        FA(Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
         Box('conj', Ty('conj', Under(Ty('NP'), Ty('S'))),
             Under(Under(Ty('NP'), Ty('S')), Under(Ty('NP'), Ty('S')))),
-        BA(Under(Ty('NP'), Ty('S')),
-           Under(Under(Ty('NP'), Ty('S')), Under(Ty('NP'), Ty('S')))),
-        BA(Ty('NP'), Under(Ty('NP'), Ty('S')))]
+        BA(Under(Under(Ty('NP'), Ty('S')), Under(Ty('NP'), Ty('S')))),
+        BA(Under(Ty('NP'), Ty('S')))]
     assert diagram.offsets == [0, 1, 2, 3, 2, 1, 2, 3, 4, 4, 3, 2, 1, 0]
     F_ob = Functor(
         ob=lambda x: x, ar={}, ob_factory=rigid.Ty, ar_factory=rigid.Diagram)

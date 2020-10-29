@@ -208,6 +208,27 @@ class Diagram(monoidal.Diagram):
         off = -len(left) or len(right)
         return Diagram.cups(left, right[:off]) @ Id(right[off:])
 
+    @staticmethod
+    def fx(left, middle, right):
+        """ Forward composition. """
+        return Id(left) @ Diagram.cups(middle.l, middle) @ Id(right.l)
+
+    @staticmethod
+    def bx(left, middle, right):
+        """ Backward composition. """
+        return Id(left.r) @ Diagram.cups(middle, middle.r) @ Id(right)
+
+    @staticmethod
+    def curry(diagram, n_wires=1, left=False):
+        """ Diagram currying. """
+        if left:
+            wires = diagram.dom[:n_wires]
+            return Diagram.caps(wires.r, wires) @ Id(diagram.dom[n_wires:])\
+                >> Id(wires.r) @ diagram
+        else:
+            wires = diagram.dom[-n_wires or len(diagram.dom):]
+            return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
+                >> diagram @ Id(wires.l)
 
     def transpose(self, left=False):
         """

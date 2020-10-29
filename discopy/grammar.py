@@ -269,9 +269,9 @@ def cat2ty(string):
 
     left, slash, right = split(string)
     if slash == '\\':
-        return biclosed.Under(cat2ty(right), cat2ty(left))
+        return cat2ty(right) >> cat2ty(left)
     if slash == '/':
-        return biclosed.Over(cat2ty(left), cat2ty(right))
+        return cat2ty(left) << cat2ty(right)
     return biclosed.Ty(left)
 
 
@@ -283,9 +283,9 @@ def tree2diagram(tree, dom=biclosed.Ty()):
     dom = biclosed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
-        box = biclosed.BA(dom[:1], dom[1:])
+        box = biclosed.BA(dom[1:])
     elif tree['type'] == 'fa':
-        box = biclosed.FA(dom[:1], dom[1:])
+        box = biclosed.FA(dom[:1])
     else:
         box = biclosed.Box(tree['type'], dom, cod)
     return biclosed.Id(biclosed.Ty()).tensor(*children) >> box
