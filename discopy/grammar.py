@@ -37,7 +37,7 @@ import re
 from discopy import messages, drawing, biclosed, rigid
 from discopy.cat import AxiomError
 from discopy.monoidal import Ty, Box, Diagram, Id
-from discopy.rigid import Cup
+from discopy.rigid import Cup, Ob
 
 
 class Word(Box):
