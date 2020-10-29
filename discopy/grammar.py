@@ -951,24 +951,3 @@ def get_parsing(sentence, k = 7, target= Ty('s')):
     answer = bounded_parser.is_sentence(target)
     print('returning: sentence status, reduction set')
     return answer, reductions
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#to trigger doctests
-if __name__ == '__main__':
-    import doctest
-    doctest.testmod()
