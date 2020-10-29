@@ -172,7 +172,7 @@ class Functor(monoidal.Functor):
 
 
 biclosed2rigid_ob = Functor(
-    ob=lambda x: rigid.Ty(x.name), ar={}, ob_factory=rigid.Ty)
+    ob=lambda x: rigid.Ty(x[0].name), ar={}, ob_factory=rigid.Ty)
 biclosed2rigid = Functor(
     ob=biclosed2rigid_ob,
     ar=lambda f: rigid.Box(
