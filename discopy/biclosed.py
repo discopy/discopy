@@ -4,7 +4,7 @@
 Implements the free biclosed monoidal category.
 """
 
-from discopy import messages, monoidal
+from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
 
 
@@ -169,3 +169,12 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, BA):
             return self.ar_factory.ba(self(diagram.left), self(diagram.right))
         return super().__call__(diagram)
+
+
+biclosed2rigid_ob = Functor(
+    ob=lambda x: rigid.Ty(x.name), ar={}, ob_factory=rigid.Ty)
+biclosed2rigid = Functor(
+    ob=biclosed2rigid_ob,
+    ar=lambda f: rigid.Box(
+        f.name, biclosed2rigid_ob(f.dom), biclosed2rigid_ob(f.cod)),
+    ob_factory=rigid.Ty, ar_factory=rigid.Diagram)
