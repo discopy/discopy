@@ -427,11 +427,11 @@ class Stack():
         >>> string = [Alice, loves]
         >>> stack.push_types(string, 1, t1=1)
         >>> stack.types
-        [PTy('s'), PTy(Ob('n', z=-1))]
+        [Ty('s'), Ty(Ob('n', z=-1))]
 
         >>> stack.push_types(string,0, backward=True)
         >>> stack.types
-        [PTy('n'), PTy('s'), PTy(Ob('n', z=-1))]
+        [Ty('n'), Ty('s'), Ty(Ob('n', z=-1))]
         """
 
 
@@ -554,7 +554,7 @@ class Fan():
         >>> string = [A,B,C]
         >>> fan.fan2stack(string, 1,1)
         >>> fan.s.types
-        [PTy(Ob('n', z=1)), PTy(Ob('s', z=1)), PTy(Ob('b', z=1))]
+        [Ty(Ob('n', z=1)), Ty(Ob('s', z=1)), Ty(Ob('b', z=1))]
         """
 
         assert len(self.s.types)==0, 'stack needs to be empty'
