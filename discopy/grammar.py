@@ -34,11 +34,12 @@ Implements distributional compositional models.
 import random
 import re
 
+
 from discopy import messages, drawing, biclosed, rigid
 from discopy.cat import AxiomError
 from discopy.monoidal import Ty, Box, Diagram, Id
-from discopy.rigid import Cup, Ob
-
+from discopy.rigid import Cup
+from discopy.rigid import Ty as PTy #distinguishing between Type and Pregroup Type (PTy)
 
 class Word(Box):
     """
@@ -293,6 +294,17 @@ def tree2diagram(tree, dom=biclosed.Ty()):
 
 ####################################################### LINEAR PARSER ############################################################
 
+"""
+Implementing linear parser LinPP_W for pregroups.
+The algorithm parses lists of PregroupWord objects (i.e. Words with codomain given by rigid.Ty types, PTy)
+The parser is correct for lists of words satosfying the following restrictions:
+
+1 - winding number for any simple type must be z <= 1. (right-lateral complexity 2)
+2 - any critical fan is 'guarded', i.e. critical fans do not nest.
+
+"""
+
+
 
 ##################################### necessary functions #######################################
 def check_reduction(t1,t2):
@@ -302,19 +314,20 @@ def check_reduction(t1,t2):
 
     Parameters
     ----------
-    t1 : Ty class from discopy
+    t1 : Ty class from discopy.rigid
         left type
-    t2 : Ty class from discopy
+    t2 : Ty class from discopy.rigid
         right type
 
 
     Example
     -------
-    >>> check_reduction(Ty('n').l, Ty('n'))
+
+    >>> check_reduction(PTy('n').l, PTy('n'))
     True
-    >>> check_reduction(Ty('n'), Ty('n').r)
+    >>> check_reduction(PTy('n'), PTy('n').r)
     True
-    >>> check_reduction(Ty('n').r , Ty('n'))
+    >>> check_reduction(PTy('n').r , PTy('n'))
     False
     """
 
@@ -333,21 +346,21 @@ def critical(t):
 
     Paramenters
     -----------
-    t = Ty class from discopy
+    t = Ty class from discopy.rigid
 
 
     Example
     -------
-    >>> critical(Ty('n').r)
+    >>> critical(PTy('n').r)
     True
-    >>> critical(Ty('n').l)
+    >>> critical(PTy('n').l)
     False
-    >>> critical(Ty('n'))
+    >>> critical(PTy('n'))
     False
     """
 
 
-    if t[0].z > 0:
+    if t.z > 0:
         return True
     else:
         return False
@@ -365,9 +378,9 @@ class Stack():
         Attributes
         ----------
         types : list
-            the stack containing the reduced types
+            the stack containing the reduced pregroup types
         indices : list
-            the stack containing the indices corresponding to the reduced types in the parsed string
+            the stack containing the indices corresponding to the reduced pregroup types in the parsed string
 
 
         Methods
@@ -395,7 +408,7 @@ class Stack():
         Parameters
         ----------
         string : list
-            list of discopy words (i.e. a sentence)
+            list of discopy PregroupWords (i.e. a sentence)
         word_index : int
             index of word in string that we want to push
         t1 : None or int
@@ -409,16 +422,16 @@ class Stack():
         Example
         -------
         >>> stack = Stack()
-        >>> Alice = Word('Alice', Ty('n'))
-        >>> loves = Word('loves', Ty('n').r @ Ty('s') @ Ty('n').l)
+        >>> Alice = PregroupWord('Alice', PTy('n'))
+        >>> loves = PregroupWord('loves', PTy('n').r @ PTy('s') @ PTy('n').l)
         >>> string = [Alice, loves]
         >>> stack.push_types(string, 1, t1=1)
         >>> stack.types
-        [Ty('s'), Ty(Ob('n', z=-1))]
+        [PTy('s'), PTy(Ob('n', z=-1))]
 
         >>> stack.push_types(string,0, backward=True)
         >>> stack.types
-        [Ty('n'), Ty('s'), Ty(Ob('n', z=-1))]
+        [PTy('n'), PTy('s'), PTy(Ob('n', z=-1))]
         """
 
 
@@ -435,10 +448,10 @@ class Stack():
 
         while t < tmin:
             if backward==False:
-                   self.types.append(Ty(string[word_index].cod[t]))
+                   self.types.append(PTy(string[word_index].cod[t]))
                    self.indices.append((word_index,t))
             else:
-                   self.types.insert(0, Ty(string[word_index].cod[t]))
+                   self.types.insert(0, PTy(string[word_index].cod[t]))
                    self.indices.insert(0, (word_index, t))
             t+=1
 
@@ -469,7 +482,7 @@ class Stack():
         Parameters
         ----------
         string : list
-            list of discopy words (sentence being parsed)
+            list of discopy pregroupwords (sentence being parsed)
         w : int
             word index of element that needs to be added
         t : int
@@ -479,10 +492,10 @@ class Stack():
         """
 
         if not backward:
-            self.types.append(Ty(string[w].cod[t]))
+            self.types.append(PTy(string[w].cod[t]))
             self.indices.append((w,t))
         else:
-            self.types.insert(0, Ty(string[word_index].cod[t]))
+            self.types.insert(0, PTy(string[word_index].cod[t]))
             self.indices.insert(0, (word_index, t))
 
 
@@ -527,7 +540,7 @@ class Fan():
         Parameters
         ----------
         string : list
-            list of discopy words (sentence)
+            list of discopy pregroupwords (sentence)
         w_critical : int
             word index of critical type
         t_index : int
@@ -537,11 +550,11 @@ class Fan():
         Example
         -------
         >>> fan = Fan()
-        >>> A, B, C = Word('A', Ty('n')), Word('B', Ty('b')@Ty('n').r @ Ty('s').r), Word('c', Ty('b').r @ Ty('n'))
+        >>> A, B, C = PregroupWord('A', PTy('n')), PregroupWord('B', PTy('b')@ PTy('n').r @ PTy('s').r), PregroupWord('c', PTy('b').r @ PTy('n'))
         >>> string = [A,B,C]
         >>> fan.fan2stack(string, 1,1)
         >>> fan.s.types
-        [Ty(Ob('n', z=1)), Ty(Ob('s', z=1)), Ty(Ob('b', z=1))]
+        [PTy(Ob('n', z=1)), PTy(Ob('s', z=1)), PTy(Ob('b', z=1))]
         """
 
         assert len(self.s.types)==0, 'stack needs to be empty'
@@ -549,7 +562,7 @@ class Fan():
         #function that reads word (or word segment) and checks if its types form a critical fan
         def check_fan(Types,t):
             while t < len(Types):
-                type = Ty(Types[t])
+                type = PTy(Types[t])
                 if critical(type):
                     t+=1
                 else:
@@ -638,7 +651,7 @@ class BackParser():
         Parameters
         ----------
         string : list
-            list of discopy words (sentence)
+            list of discopy pregroupwords (sentence)
         w_critical : int
             word index of critical type
         t_index : int
@@ -669,7 +682,7 @@ class BackParser():
         Parameters
         ----------
         string : list
-            list of discopy words (sentence)
+            list of discopy pregroupwords (sentence)
         w_critical : int
             word index of newly found critical type (critical type triggers initialisation of BackParser in Parser)
         t_critical : int
@@ -700,11 +713,11 @@ class BackParser():
                 if w == w_top and t == t_top: #making sure we don't exceed top of forward stack (not included)
                         break
                 else:
-                        type = Ty(word[t])
+                        type = PTy(word[t])
                         if check_reduction(type, self.s.types[0]):
                             W,T = self.s.pop(i=0)
 
-                            if critical(Ty(string[W].cod[T])):
+                            if critical(PTy(string[W].cod[T])):
                                 middle_critical = (w,t)
                                 self.middle_criticals.append(middle_critical)
                                 self.reductions[(W,T)]=middle_critical
@@ -790,7 +803,7 @@ class LinPP_W():
         Parameters
         ----------
         string : list
-            list of discopy words (sentence)
+            list of discopy pregroupwords (sentence)
 
         Returns
         -------
@@ -815,7 +828,7 @@ class LinPP_W():
                     t=0                 #going to next word
                     break
                 else:
-                    type = Ty(word.cod[t])
+                    type = PTy(word.cod[t])
                     if len(self.stack.types) == 0:                          #if stack is empty, we push type to stack
                         self.stack.push_types(string, w, t1=t)
                         print('stack updated:', self.stack.types, 'stage:', w,t)
@@ -880,15 +893,15 @@ class LinPP_W():
 
 
 
-    def is_sentence(self, target=Ty('s')):
+    def is_sentence(self, target=PTy('s')):
         """
         Checks if string reduces to target type. Must be ran after running function parse,
         otherwise it will rise error.
 
         Parameters
         ----------
-        target : class Ty
-            discopy grammatical type. Default is sentence type Ty('s')
+        target : class Ty from discopy.rigid
+            discopy grammatical type. Default is sentence type 's'.
 
         Returns
         -------
@@ -918,19 +931,19 @@ class LinPP_W():
 
 ########################################## callable function to parse string ##########################
 
-def get_parsing(sentence, k = 7, target= Ty('s')):
+def get_parsing(sentence, k = 7, target= PTy('s')):
     """
     Main function that runs the parsing algorithm and checks if parsed to sentence type.
 
     Parameters
     ---------
     sentence : list
-        list of discopy words
+        list of discopy pregroupwords
     k : int
         bound of backparser, that makes algortithm linear. Default is 7.
 
-    target : class Ty
-        target type for parsing. Default is sentence type Ty('s').
+    target : class Ty from discopy.rigid
+        target type for parsing. Default is sentence type 's'.
 
     Return
     ------
