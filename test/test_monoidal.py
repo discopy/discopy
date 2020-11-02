@@ -307,3 +307,24 @@ def test_Functor_call():
     with raises(TypeError) as err:
         F(F)
     assert str(err.value) == messages.type_err(Diagram, F)
+
+
+def test_Functor_sum():
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, y), Box('g', x, y)
+    F = Functor(ob={x: y, y: x}, ar={f: g[::-1], g: f[::-1]})
+    assert F(f + g) == F(f) + F(g)
+
+
+def test_Sum():
+    x = Ty('x')
+    f = Box('f', x, x)
+    with raises(ValueError):
+        Sum()
+    with raises(AxiomError):
+        Sum(f, dom=Ty())
+    with raises(AxiomError):
+        f + Box('g', Ty(), x)
+    assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
+    assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])
+    assert f + Sum(dom=x, cod=x) == Sum(f) == Sum(dom=x, cod=x) + f

@@ -485,7 +485,7 @@ class Functor(monoidal.Functor):
 
     def __call__(self, diagram):
         if isinstance(diagram, monoidal.Ty):
-            return sum([self(b) for b in diagram.objects], self.ob_factory())
+            return self.ob_factory().tensor(*map(self, diagram.objects))
         if isinstance(diagram, Ob) and not diagram.z:
             return self.ob[Ty(diagram.name)]
         if isinstance(diagram, Ob):

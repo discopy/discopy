@@ -26,6 +26,7 @@ from itertools import takewhile
 
 from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
+from discopy.monoidal import Sum
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
@@ -175,7 +176,7 @@ class CQMap(rigid.Box):
         return CQMap(dom, dom, data.array)
 
     def then(self, *others):
-        if len(others) != 1:
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.then(self, *others)
         data = self.data >> others[0].data
         return CQMap(self.dom, others[0].cod, data.array)
@@ -184,7 +185,7 @@ class CQMap(rigid.Box):
         return CQMap(self.cod, self.dom, self.data.dagger().array)
 
     def tensor(self, *others):
-        if len(others) != 1:
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.tensor(self, *others)
         f = rigid.Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
         g = rigid.Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))

@@ -9,7 +9,7 @@ def test_Dim():
         Dim(-1)
     dim = Dim(2, 3)
     assert Dim(1) @ dim == dim @ Dim(1) == dim
-    assert sum([Dim(1), dim, Dim(4)], Dim(1)) == Dim(2, 3, 4)
+    assert Dim(1).tensor(*(Dim(2, 3), Dim(4), Dim(1))) == Dim(2, 3, 4)
     assert dim[:1] == Dim(3, 2)[1:] == Dim(2)
     assert dim[0] == Dim(3, 2)[1] == 2
     assert repr(Dim(1, 2, 3)) == str(dim) == "Dim(2, 3)"
@@ -117,3 +117,10 @@ def test_AxiomError():
     with raises(AxiomError) as err:
         m >> m
     assert str(err.value) == messages.does_not_compose(m, m)
+
+
+def test_TensorFunctor_sum():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    F = TensorFunctor({x: 1, y: 2}, {f: [1, 0]})
+    assert F(f + f) == F(f) + F(f)

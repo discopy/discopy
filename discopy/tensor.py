@@ -15,7 +15,7 @@ import functools
 
 from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
-from discopy.monoidal import Swap
+from discopy.monoidal import Swap, Sum
 from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
 
 try:  # pragma: no cover
@@ -97,7 +97,7 @@ class Tensor(Box):
     Tensor(dom=Dim(1), cod=Dim(1), array=[0])
     """
     def __init__(self, dom, cod, array):
-        self._array = np.array(array).reshape(dom + cod)
+        self._array = np.array(array).reshape(dom @ cod)
         super().__init__("Tensor", dom, cod)
 
     @property
@@ -143,7 +143,7 @@ class Tensor(Box):
         return Tensor(self.dom, other.cod, array)
 
     def tensor(self, *others):
-        if len(others) != 1:
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.tensor(self, *others)
         other = others[0]
         if not isinstance(other, Tensor):
@@ -161,9 +161,9 @@ class Tensor(Box):
 
     def dagger(self):
         array = np.moveaxis(
-            self.array, range(len(self.dom + self.cod)),
+            self.array, range(len(self.dom @ self.cod)),
             [i + len(self.cod) if i < len(self.dom) else
-             i - len(self.dom) for i in range(len(self.dom + self.cod))])
+             i - len(self.dom) for i in range(len(self.dom @ self.cod))])
         return Tensor(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
@@ -219,7 +219,7 @@ class Tensor(Box):
         >>> assert Tensor.zeros(Dim(2), Dim(2))\\
         ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
         """
-        return Tensor(dom, cod, np.zeros(dom + cod))
+        return Tensor(dom, cod, np.zeros(dom @ cod))
 
 
 class Id(Tensor):
@@ -255,7 +255,7 @@ class TensorFunctor(Functor):
             dom, cod = self(diagram.dom), self(diagram.cod)
             return sum(map(self, diagram), Tensor.zeros(dom, cod))
         if isinstance(diagram, monoidal.Ty):
-            return sum(map(self, diagram.objects), Dim(1))
+            return Dim(1).tensor(*map(self, diagram.objects))
         if isinstance(diagram, Ob) and not diagram.z:
             result = self.ob[Ty(diagram.name)]
             return result if isinstance(result, Dim) else Dim(result)
@@ -286,7 +286,7 @@ class TensorFunctor(Functor):
                     if i < dim(diagram.dom @ scan[:off]) + dim(box.left)
                     else i - dim(box.left) for i in source]
                 array = np.moveaxis(array, list(source), list(target))
-                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+                scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
                 continue
             left = dim(scan[:off])
             if array.shape and self(box).array.shape:
@@ -300,5 +300,5 @@ class TensorFunctor(Functor):
             target = range(dim(diagram.dom) + left,
                            dim(diagram.dom) + left + dim(box.cod))
             array = np.moveaxis(array, list(source), list(target))
-            scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+            scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
         return Tensor(self(diagram.dom), self(diagram.cod), array)

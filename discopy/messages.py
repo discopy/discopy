@@ -41,6 +41,7 @@ def no_winding_number_for_complex_types():
     """ No winding number for complex types. """
     return "Only atomic types have a winding number."
 
+
 def are_not_adjoints(left, right):
     """ Adjunction error. """
     return "{} and {} are not adjoints.".format(left, right)
@@ -73,6 +74,11 @@ def swap_vs_swaps(left, right):
 def cannot_add(left, right):
     """ Addition error. """
     return "Cannot add {} and {}.".format(left, right)
+
+
+def missing_types_for_empty_sum():
+    """ Empty sum needs types. """
+    return "Empty sum needs a domain and codomain."
 
 
 def expected_pregroup():
