@@ -2,8 +2,10 @@ import os
 from pytest import raises
 from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
+
+from discopy import rigid, messages
+from discopy.rigid import Id, Cup, Cap, Ty, Box
 from discopy.grammar import *
-from discopy.rigid import Cap, Ty
 
 
 def test_Word():
@@ -134,15 +136,15 @@ def test_tree2diagram():
     diagram = tree2diagram(tree)
     from discopy.biclosed import Ty, Over, Under, Box, FA, BA, Functor
     assert diagram.boxes == [
-        CCGWord('This', Ty('NP')),
-        CCGWord('is', Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
-        CCGWord('a', Over(Ty('NP'), Ty('N'))),
-        CCGWord('test', Ty('N')),
+        ccg.Word('This', Ty('NP')),
+        ccg.Word('is', Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
+        ccg.Word('a', Over(Ty('NP'), Ty('N'))),
+        ccg.Word('test', Ty('N')),
         FA(Over(Ty('NP'), Ty('N'))),
         FA(Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
-        CCGWord('and', Ty('conj')),
-        CCGWord('learn', Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
-        CCGWord('sentence.', Ty('N')),
+        ccg.Word('and', Ty('conj')),
+        ccg.Word('learn', Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
+        ccg.Word('sentence.', Ty('N')),
         Box('lex', Ty('N'), Ty('NP')),
         FA(Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),
         Box('conj', Ty('conj', Under(Ty('NP'), Ty('S'))),

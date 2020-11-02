@@ -28,16 +28,10 @@ biclosed.BA
 .. autoclass:: discopy.biclosed.BA
     :show-inheritance:
 
-biclosed.FX
+biclosed.FC
 =================
 
-.. autoclass:: discopy.biclosed.FX
-    :show-inheritance:
-
-biclosed.BX
-=================
-
-.. autoclass:: discopy.biclosed.BX
+.. autoclass:: discopy.biclosed.FC
     :show-inheritance:
 
 biclosed.Curry

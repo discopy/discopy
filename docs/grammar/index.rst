@@ -6,5 +6,6 @@ discopy.grammar
 .. toctree::
     :caption: Contents:
 
-    Word.rst
-    CFG.rst
+    cfg.rst
+    pregroup.rst
+    ccg.rst

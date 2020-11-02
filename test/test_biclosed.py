@@ -40,20 +40,12 @@ def test_FA():
     assert repr(FA(x << y)) == "FA(Over(Ty('x'), Ty('y')))"
 
 
-def test_BX():
+def test_FC():
     x, y = Ty('x'), Ty('y')
     with raises(TypeError):
-        BX(x << y, y << x)
+        FC(x >> y, y >> x)
     with raises(TypeError):
-        BX(x >> y, y << x)
-
-
-def test_FX():
-    x, y = Ty('x'), Ty('y')
-    with raises(TypeError):
-        FX(x >> y, y >> x)
-    with raises(TypeError):
-        FX(x << y, y >> x)
+        FC(x << y, y >> x)
 
 
 def test_Functor():
@@ -62,8 +54,7 @@ def test_Functor():
     IdF = Functor(lambda x: x, lambda f: f)
     assert IdF(x >> y << x) == x >> y << x
     assert IdF(Curry(f)) == Curry(f)
-    assert IdF(FX(x << y, y << x)) == FX(x << y, y << x)
-    assert IdF(BX(x >> y, y >> x)) == BX(x >> y, y >> x)
+    assert IdF(FC(x << y, y << x)) == FC(x << y, y << x)
 
 
 def test_biclosed2rigid():
@@ -79,7 +70,5 @@ def test_biclosed2rigid():
         == rigid.Cap(y_, y_.l) @ rigid.Id(x_)
     assert biclosed2rigid(Curry(FA(x << y), left=True)).normal_form()\
         == rigid.Id(y_) @ rigid.Cap(x_.r, x_)
-    assert biclosed2rigid(BX(x >> y, y >> x))\
-        == rigid.Id(x_.r) @ rigid.Cup(y_, y_.r) @ rigid.Id(x_)
-    assert biclosed2rigid(FX(x << y, y << x))\
+    assert biclosed2rigid(FC(x << y, y << x))\
         == rigid.Id(x_) @ rigid.Cup(y_.l, y_) @ rigid.Id(x_.l)
