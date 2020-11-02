@@ -325,6 +325,8 @@ def test_Sum():
         Sum(f, dom=Ty())
     with raises(AxiomError):
         f + Box('g', Ty(), x)
+    with raises(TypeError):
+        Sum.upgrade(f)
     assert Sum(f) != f
     assert {Sum(f): 42}[Sum(f)] == 42
     assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])

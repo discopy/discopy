@@ -411,12 +411,6 @@ class Diagram(cat.Arrow):
     def __matmul__(self, other):
         return self.tensor(other)
 
-    def __add__(self, other):
-        return Sum(self) + other
-
-    def __radd__(self, other):
-        return Sum(self).__radd__(other)
-
     def __eq__(self, other):
         if not isinstance(other, Diagram):
             return False
@@ -454,6 +448,9 @@ class Diagram(cat.Arrow):
             return self.upgrade(Diagram(*inputs, layers=layers))
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
+
+    def sum(self, *diagrams):
+        return Sum(*((self, ) + diagrams))
 
     @staticmethod
     def swap(left, right):
@@ -911,104 +908,19 @@ class Swap(Box):
         return Swap(self.right, self.left)
 
 
-class Sum(Box):
-    """
-    Implements enrichment over monoids, i.e. formal sums of diagrams.
-
-    Parameters
-    ----------
-    diagrams : :class:`Diagram`
-        Terms of the formal sum.
-    dom : :class:`Ty`, optional
-        Domain of the formal sum, optional if :code:`diagrams` is non-empty.
-    cod : :class:`Ty`, optional
-        Codomain of the formal sum, optional if :code:`diagrams` is non-empty.
-
-    Examples
-    --------
-    >>> x, y = Ty('x'), Ty('y')
-    >>> f, g = Box('f', x, y), Box('g', x, y)
-    >>> f + g
-    Sum(Box('f', Ty('x'), Ty('y')), Box('g', Ty('x'), Ty('y')))
-    >>> unit = Sum(dom=x, cod=y)
-    >>> assert (f + unit) == Sum(f) == (unit + f)
-    >>> print((f + g) @ Id(Ty('z')))
-    (f @ Id(z)) + (g @ Id(z))
-    >>> print((f + g) >> (f + g).dagger())
-    (f >> f[::-1]) + (f >> g[::-1]) + (g >> f[::-1]) + (g >> g[::-1])
-
-    Note
-    ----
-    The sum is non-commutative, i.e. :code:`Sum(f, g) != Sum(g, f)`.
-
-    A diagram is different from the sum of itself, i.e. :code:`Sum(f) != f`
-    """
-    def __init__(self, *diagrams, dom=None, cod=None):
-        self.diagrams = diagrams
-        if not diagrams:
-            if dom is None or cod is None:
-                raise ValueError(messages.missing_types_for_empty_sum())
-        else:
-            dom = diagrams[0].dom if dom is None else dom
-            cod = diagrams[0].cod if cod is None else cod
-            if (dom, cod) != (diagrams[0].dom, diagrams[0].cod):
-                raise AxiomError(
-                    messages.cannot_add(Sum(dom=dom, cod=cod), diagrams[0]))
-        for diagram in diagrams:
-            if (diagram.dom, diagram.cod) != (dom, cod):
-                raise AxiomError(messages.cannot_add(diagrams[0], diagram))
-        name = "Sum({})".format(", ".join(map(repr, diagrams)))\
-            if diagrams else "Sum(dom={}, cod={})".format(dom, cod)
-        super().__init__(name, dom, cod)
-
-    def __eq__(self, other):
-        if not isinstance(other, Sum):
-            return False
-        return (self.dom, self.cod, self.diagrams)\
-            == (other.dom, other.cod, other.diagrams)
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    def __repr__(self):
-        return self.name
-
-    def __str__(self):
-        if not self.diagrams:
-            return self.name
-        return " + ".join("({})".format(diagram) for diagram in self.diagrams)
-
-    def __add__(self, other):
-        other = other if isinstance(other, Sum) else Sum(other)
-        return Sum(*(self.diagrams + other.diagrams))
-
-    def __radd__(self, other):
-        if isinstance(other, Diagram):
-            return self + Sum(other)
-        return self if not other else other + self
-
-    def __iter__(self):
-        for diagram in self.diagrams:
-            yield diagram
-
-    def then(self, *others):
-        if len(others) != 1:
-            return super().then(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
-        diagrams = [f.then(g) for f in self.diagrams for g in other.diagrams]
-        return Sum(*diagrams, dom=self.dom, cod=other.cod)
+class Sum(cat.Sum, Box):
+    @staticmethod
+    def upgrade(arrow):
+        if not isinstance(arrow, cat.Sum):
+            raise TypeError(messages.type_err(cat.Sum, arrow))
+        return Sum(*arrow.terms, dom=arrow.dom, cod=arrow.cod)
 
     def tensor(self, *others):
         if len(others) != 1:
             return super().tensor(*others)
         other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
-        diagrams = [f.tensor(g) for f in self.diagrams for g in other.diagrams]
-        return Sum(
-            *diagrams, dom=self.dom @ other.dom, cod=self.cod @ other.cod)
-
-    def dagger(self):
-        diagrams = [diagram.dagger() for diagram in self.diagrams]
-        return Sum(*diagrams, dom=self.cod, cod=self.dom)
+        terms = [f.tensor(g) for f in self.terms for g in other.terms]
+        return Sum(*terms, dom=self.dom @ other.dom, cod=self.cod @ other.cod)
 
 
 class Functor(cat.Functor):
@@ -1034,8 +946,7 @@ class Functor(cat.Functor):
 
     def __call__(self, diagram):
         if isinstance(diagram, Sum):
-            unit = Sum(dom=self(diagram.dom), cod=self(diagram.cod))
-            return sum(map(self, diagram), unit)
+            super().__call__(diagram)
         if isinstance(diagram, Ty):
             return self.ob_factory().tensor(*[
                 self.ob[type(diagram)(x)] for x in diagram])

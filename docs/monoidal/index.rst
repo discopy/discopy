@@ -12,6 +12,5 @@ discopy.monoidal
     Diagram.rst
     Id.rst
     Box.rst
-    Sum.rst
     Functor.rst
     InterchangerError.rst

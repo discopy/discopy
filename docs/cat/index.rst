@@ -10,6 +10,7 @@ discopy.cat
     Diagram.rst
     Id.rst
     Box.rst
+    Sum.rst
     Functor.rst
     Quiver.rst
     AxiomError.rst

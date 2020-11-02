@@ -233,6 +233,15 @@ class Arrow:
     def __hash__(self):
         return hash(repr(self))
 
+    def __add__(self, other):
+        return self.sum() + other
+
+    def __radd__(self, other):
+        return self.sum().__radd__(other)
+
+    def sum(self, *arrows):
+        return Sum(*((self, ) + arrows))
+
     def then(self, *others):
         """
         Returns the composition of `self` with arrows `others`.
@@ -463,6 +472,100 @@ class Box(Arrow):
         return self.name < other.name
 
 
+class Sum(Box):
+    """
+    Implements enrichment over monoids, i.e. formal sums of diagrams.
+
+    Parameters
+    ----------
+    terms : :class:`Arrow`
+        Terms of the formal sum.
+    dom : :class:`Ob`, optional
+        Domain of the formal sum, optional if :code:`diagrams` is non-empty.
+    cod : :class:`Ob`, optional
+        Codomain of the formal sum, optional if :code:`diagrams` is non-empty.
+
+    Examples
+    --------
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f, g = Box('f', x, y), Box('g', x, y)
+    >>> f + g
+    Sum(Box('f', Ob('x'), Ob('y')), Box('g', Ob('x'), Ob('y')))
+    >>> unit = Sum(dom=x, cod=y)
+    >>> assert (f + unit) == Sum(f) == (unit + f)
+    >>> print((f + g) >> (f + g)[::-1])
+    (f >> f[::-1]) + (f >> g[::-1]) + (g >> f[::-1]) + (g >> g[::-1])
+
+    Note
+    ----
+    The sum is non-commutative, i.e. :code:`Sum(f, g) != Sum(g, f)`.
+
+    A diagram is different from the sum of itself, i.e. :code:`Sum(f) != f`
+    """
+    def __init__(self, *terms, dom=None, cod=None):
+        self.terms = terms
+        if not terms:
+            if dom is None or cod is None:
+                raise ValueError(messages.missing_types_for_empty_sum())
+        else:
+            dom = terms[0].dom if dom is None else dom
+            cod = terms[0].cod if cod is None else cod
+            if (dom, cod) != (terms[0].dom, terms[0].cod):
+                raise AxiomError(
+                    messages.cannot_add(Sum(dom=dom, cod=cod), terms[0]))
+        for arrow in terms:
+            if (arrow.dom, arrow.cod) != (dom, cod):
+                raise AxiomError(messages.cannot_add(terms[0], arrow))
+        name = "Sum({})".format(", ".join(map(repr, terms)))\
+            if terms else "Sum(dom={}, cod={})".format(dom, cod)
+        super().__init__(name, dom, cod)
+
+    def __eq__(self, other):
+        if not isinstance(other, Sum):
+            return False
+        return (self.dom, self.cod, self.terms)\
+            == (other.dom, other.cod, other.terms)
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        if not self.terms:
+            return self.name
+        return " + ".join("({})".format(arrow) for arrow in self.terms)
+
+    def __add__(self, other):
+        other = other if isinstance(other, Sum) else Sum(other)
+        return self.upgrade(Sum(*(self.terms + other.terms)))
+
+    def __radd__(self, other):
+        if isinstance(other, Arrow):
+            return self + Sum(other)
+        return self if not other else other + self
+
+    def __iter__(self):
+        for arrow in self.terms:
+            yield arrow
+
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
+        terms = [f.then(g) for f in self.terms for g in other.terms]
+        return self.upgrade(Sum(*terms, dom=self.dom, cod=other.cod))
+
+    def dagger(self):
+        terms = [arrow.dagger() for arrow in self.terms]
+        return self.upgrade(Sum(*terms, dom=self.cod, cod=self.dom))
+
+    @staticmethod
+    def upgrade(arrow):
+        return arrow
+
+
 class Functor:
     """
     Defines a dagger functor which can be applied to objects and arrows.
@@ -541,6 +644,9 @@ class Functor:
         return "Functor(ob={}, ar={})".format(repr(self.ob), repr(self.ar))
 
     def __call__(self, arrow):
+        if isinstance(arrow, Sum):
+            unit = Sum(dom=self(arrow.dom), cod=self(arrow.cod))
+            return sum(map(self, arrow), unit)
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):
