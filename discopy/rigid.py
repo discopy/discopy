@@ -220,10 +220,9 @@ class Diagram(monoidal.Diagram):
             wires = diagram.dom[:n_wires]
             return Diagram.caps(wires.r, wires) @ Id(diagram.dom[n_wires:])\
                 >> Id(wires.r) @ diagram
-        else:
-            wires = diagram.dom[-n_wires or len(diagram.dom):]
-            return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
-                >> diagram @ Id(wires.l)
+        wires = diagram.dom[-n_wires or len(diagram.dom):]
+        return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
+            >> diagram @ Id(wires.l)
 
     def transpose(self, left=False):
         """

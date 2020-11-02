@@ -31,7 +31,7 @@ Implements pregroup grammars and distributional compositional models.
 >>> assert abs(F(sentence).eval().array) ** 2
 """
 
-from discopy import messages, drawing, rigid, cfg
+from discopy import messages, drawing, cfg
 from discopy.rigid import Ty, Box, Diagram, Id, Cup
 
 
@@ -109,7 +109,7 @@ def draw(diagram, **params):
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
     words, is_pregroup = Id(Ty()), True
-    for left, box, right in diagram.layers:
+    for _, box, right in diagram.layers:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
                 is_pregroup = False

@@ -20,6 +20,7 @@ class Circuit(tk.Circuit):
     """
     @staticmethod
     def upgrade(tk_circuit):
+        """ Takes a :class:`pytket.Circuit`, returns a :class:`Circuit`. """
         result = Circuit(tk_circuit.n_qubits, len(tk_circuit.bits))
         for gate in tk_circuit:
             name, inputs = gate.op.type.name, gate.op.params + [
@@ -75,6 +76,9 @@ class Circuit(tk.Circuit):
 
 
 def to_tk(circuit):
+    """
+    Takes a :class:`discopy.quantum.Circuit`, returns a :class:`Circuit`.
+    """
     # bits and qubits are lists of register indices, at layer i we want
     # len(bits) == circuit[:i].cod.count(bit) and same for qubits
     tk_circ, bits, qubits = Circuit(), [], []
@@ -152,7 +156,7 @@ def to_tk(circuit):
             raise NotImplementedError
 
     circuit = CircuitFunctor(ob=lambda x: x, ar=remove_ket1)(circuit)
-    for left, box, right in circuit.layers:
+    for left, box, _ in circuit.layers:
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
         elif isinstance(box, Bits):

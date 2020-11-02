@@ -71,7 +71,7 @@ class CFG:
         return "CFG{}".format(repr(self._productions))
 
     def generate(self, start, max_sentences, max_depth, max_iter=100,
-                 remove_duplicates=False, not_twice=[], seed=None):
+                 remove_duplicates=False, not_twice=None, seed=None):
         """
         Generate sentences from a context-free grammar.
         Assumes the only terminal symbol is :code:`Ty()`.
@@ -114,7 +114,7 @@ class CFG:
                 tag = sentence.dom[0]
                 random.shuffle(prods)
                 for prod in prods:
-                    if prod in not_twice and prod in sentence.boxes:
+                    if prod in (not_twice or []) and prod in sentence.boxes:
                         continue
                     if Ty(tag) == prod.cod:
                         sentence = sentence << prod @ Id(sentence.dom[1:])
