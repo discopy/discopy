@@ -411,6 +411,12 @@ class Diagram(cat.Arrow):
     def __matmul__(self, other):
         return self.tensor(other)
 
+    def __add__(self, other):
+        return Sum(self) + other
+
+    def __radd__(self, other):
+        return Sum(self).__radd__(other)
+
     def __eq__(self, other):
         if not isinstance(other, Diagram):
             return False
@@ -448,12 +454,6 @@ class Diagram(cat.Arrow):
             return self.upgrade(Diagram(*inputs, layers=layers))
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
-
-    def __add__(self, other):
-        return Sum(self) + other
-
-    def __radd__(self, other):
-        return Sum(self).__radd__(other)
 
     @staticmethod
     def swap(left, right):
@@ -930,6 +930,8 @@ class Sum(Box):
     >>> f, g = Box('f', x, y), Box('g', x, y)
     >>> f + g
     Sum(Box('f', Ty('x'), Ty('y')), Box('g', Ty('x'), Ty('y')))
+    >>> unit = Sum(dom=x, cod=y)
+    >>> assert (f + unit) == Sum(f) == (unit + f)
     >>> print((f + g) @ Id(Ty('z')))
     (f @ Id(z)) + (g @ Id(z))
     >>> print((f + g) >> (f + g).dagger())
@@ -959,6 +961,15 @@ class Sum(Box):
             if diagrams else "Sum(dom={}, cod={})".format(dom, cod)
         super().__init__(name, dom, cod)
 
+    def __eq__(self, other):
+        if not isinstance(other, Sum):
+            return False
+        return (self.dom, self.cod, self.diagrams)\
+            == (other.dom, other.cod, other.diagrams)
+
+    def __hash__(self):
+        return hash(repr(self))
+
     def __repr__(self):
         return self.name
 
@@ -972,7 +983,9 @@ class Sum(Box):
         return Sum(*(self.diagrams + other.diagrams))
 
     def __radd__(self, other):
-        return self if other == 0 else Sum(other, self)
+        if isinstance(other, Diagram):
+            return self + Sum(other)
+        return self if not other else other + self
 
     def __iter__(self):
         for diagram in self.diagrams:

@@ -325,6 +325,7 @@ def test_Sum():
         Sum(f, dom=Ty())
     with raises(AxiomError):
         f + Box('g', Ty(), x)
+    assert Sum(f) != f
+    assert {Sum(f): 42}[Sum(f)] == 42
     assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
     assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])
-    assert f + Sum(dom=x, cod=x) == Sum(f) == Sum(dom=x, cod=x) + f
