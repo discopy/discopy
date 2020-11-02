@@ -251,6 +251,9 @@ class TensorFunctor(Functor):
         return super().__repr__().replace("Functor", "TensorFunctor")
 
     def __call__(self, diagram):
+        if isinstance(diagram, monoidal.Sum):
+            dom, cod = self(diagram.dom), self(diagram.cod)
+            return sum(map(self, diagram), Tensor.zeros(dom, cod))
         if isinstance(diagram, monoidal.Ty):
             return sum(map(self, diagram.objects), Dim(1))
         if isinstance(diagram, Ob) and not diagram.z:

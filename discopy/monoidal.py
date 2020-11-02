@@ -444,6 +444,9 @@ class Diagram(cat.Arrow):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
+    def __add__(self, other):
+        return Sum.upgrade(self) + other
+
     @staticmethod
     def swap(left, right):
         """
@@ -900,6 +903,63 @@ class Swap(Box):
         return Swap(self.right, self.left)
 
 
+class Sum(Box):
+    """
+    Implements enrichment over monoids, i.e. formal sums of diagrams.
+    """
+    @staticmethod
+    def upgrade(diagram):
+        return Sum([diagram], diagram.dom, diagram.cod)
+
+    def __init__(self, diagrams, dom, cod):
+        self.diagrams = diagrams
+        for diagram in diagrams:
+            if (diagram.dom, diagram.cod) != (dom, cod):
+                raise AxiomError
+        name = "Sum({}, dom={}, cod={})".format(repr(diagrams), dom, cod)
+        super().__init__(name, dom, cod)
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        if not self.diagrams:
+            return "Sum([], {}, {})".format(self.dom, self.cod)
+        return " + ".join("({})".format(diagram) for diagram in self.diagrams)
+
+    def __add__(self, other):
+        other = other if isinstance(other, Sum) else Sum.upgrade(other)
+        return Sum(self.diagrams + other.diagrams, self.dom, self.cod)
+
+    def __iter__(self):
+        for diagram in self.diagrams:
+            yield diagram
+
+    @staticmethod
+    def id(dom):
+        return Sum([Id(dom)], dom, dom)
+
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other, = others
+        other = other if isinstance(other, Sum) else Sum.upgrade(other)
+        diagrams = [f.then(g) for f in self.diagrams for g in other.diagrams]
+        return Sum(diagrams, self.dom, other.cod)
+
+    def tensor(self, *others):
+        if len(others) != 1:
+            return super().tensor(*others)
+        other, = others
+        other = other if isinstance(other, Sum) else Sum.upgrade(other)
+        diagrams = [f.tensor(g) for f in self.diagrams for g in other.diagrams]
+        return Sum(diagrams, self.dom @ other.dom, self.cod @ other.cod)
+
+    def dagger(self):
+        diagrams = [diagram.dagger() for diagram in self.diagrams]
+        return Sum(diagrams, self.cod, self.dom)
+
+
 class Functor(cat.Functor):
     """
     Implements a monoidal functor given its image on objects and arrows.
@@ -922,9 +982,12 @@ class Functor(cat.Functor):
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
+        if isinstance(diagram, Sum):
+            dom, cod = self(diagram.dom), self(diagram.cod)
+            return sum(map(self, diagram), Sum([], dom, cod))
         if isinstance(diagram, Ty):
             return sum([self.ob[type(diagram)(x)] for x in diagram],
-                       self.ob_factory())  # the empty type is the unit.
+                       self.ob_factory())  # the empty type is the unit.)
         if isinstance(diagram, Box):
             return super().__call__(diagram)
         if isinstance(diagram, Diagram):
