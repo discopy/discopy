@@ -123,6 +123,11 @@ class Tensor(Box):
             raise AxiomError(messages.cannot_add(self, other))
         return Tensor(self.dom, self.cod, self.array + other.array)
 
+    def __radd__(self, other):
+        if not other:
+            return self
+        return self.__add__(other)
+
     def __eq__(self, other):
         if not isinstance(other, Tensor):
             return self.array == other

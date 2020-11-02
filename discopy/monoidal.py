@@ -271,6 +271,9 @@ class Layer(cat.Box):
             return Layer(self._left, self._box[::-1], self._right)
         return super().__getitem__(key)
 
+    def map(self, func):
+        return Layer(self.left, func(self.box), self.right)
+
 
 class Diagram(cat.Arrow):
     """
@@ -449,8 +452,8 @@ class Diagram(cat.Arrow):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
-    def sum(self, *diagrams):
-        return Sum(*((self, ) + diagrams))
+    def sum(self, *others):
+        return Sum(*((self, ) + others))
 
     @staticmethod
     def swap(left, right):

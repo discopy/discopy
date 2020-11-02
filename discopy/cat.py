@@ -239,8 +239,11 @@ class Arrow:
     def __radd__(self, other):
         return self.sum().__radd__(other)
 
-    def sum(self, *arrows):
-        return Sum(*((self, ) + arrows))
+    def sum(self, *others):
+        """
+        Returns the formal sum of `self` with arrows `others`.
+        """
+        return Sum(*((self, ) + others))
 
     def then(self, *others):
         """
@@ -337,6 +340,12 @@ class Arrow:
         cat.Id
         """
         return Id(x)
+
+    def map(self, func):
+        """ Applies `func` to each box in self. """
+        if not self:
+            return self
+        return type(self).then(*map(func, self))
 
 
 class Id(Arrow):
@@ -471,6 +480,9 @@ class Box(Arrow):
     def __lt__(self, other):
         return self.name < other.name
 
+    def map(self, func):
+        return func(self)
+
 
 class Sum(Box):
     """
@@ -502,6 +514,10 @@ class Sum(Box):
 
     A diagram is different from the sum of itself, i.e. :code:`Sum(f) != f`
     """
+    @staticmethod
+    def upgrade(arrow):
+        return arrow
+
     def __init__(self, *terms, dom=None, cod=None):
         self.terms = terms
         if not terms:
@@ -561,9 +577,9 @@ class Sum(Box):
         terms = [arrow.dagger() for arrow in self.terms]
         return self.upgrade(Sum(*terms, dom=self.cod, cod=self.dom))
 
-    @staticmethod
-    def upgrade(arrow):
-        return arrow
+    def map(self, func):
+        terms = [func(arrow) for arrow in self.terms]
+        return self.upgrade(Sum(*terms, dom=self.dom, cod=self.cod))
 
 
 class Functor:

@@ -357,6 +357,9 @@ class Circuit(Diagram):
     def id(dom):
         return Id(dom)
 
+    def sum(self, *others):
+        return Sum(*((self, ) + others))
+
     @staticmethod
     def swap(left, right):
         return monoidal.swap(left, right,
@@ -700,6 +703,20 @@ class Box(rigid.Box, Circuit):
         return self.name
 
 
+class Sum(monoidal.Sum, Box):
+    """ Sums of circuits. """
+    @staticmethod
+    def upgrade(arrow):
+        return Sum(*arrow.terms, dom=arrow.dom, cod=arrow.cod)
+
+    def is_mixed(self):
+        return any(circuit.is_mixed for circuit in self.terms)
+
+    def eval(self, backend=None, mixed=False, **params):
+        return sum(circuit.eval(backend, mixed, **params)
+                   for circuit in self.terms)
+
+
 class Swap(rigid.Swap, Box):
     """ Implements swaps of circuit wires. """
     def __init__(self, left, right):
@@ -928,6 +945,9 @@ class Rotation(QuantumGate):
         self._phase = phase
         super().__init__(name, n_qubits, array=None)
 
+    def __repr__(self):
+        return self.name
+
     @property
     def phase(self):
         """ The phase of a rotation gate. """
@@ -939,9 +959,6 @@ class Rotation(QuantumGate):
 
     def dagger(self):
         return type(self)(-self.phase)
-
-    def __repr__(self):
-        return self.name
 
 
 class Rx(Rotation):
