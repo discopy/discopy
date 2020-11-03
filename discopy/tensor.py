@@ -26,10 +26,10 @@ try:  # pragma: no cover
 
     def array2string(array, max_length=messages.NUMPY_THRESHOLD):
         """ array2string is not implemented in jax.numpy """
-        ls = list(array)
-        if len(ls) > max_length:
-            ls = ls[:max_length // 2] + ["..."] + ls[1 - max_length // 2:]
-        return "[{}]".format(", ".join(map(str, ls)))
+        flat = list(array)
+        flat = flat if len(flat) <= max_length else\
+            flat[:max_length // 2] + ["..."] + flat[1 - max_length // 2:]
+        return "[{}]".format(", ".join(map(str, flat)))
     np.array2string = array2string
 except ImportError:  # pragma: no cover
     import numpy as np
@@ -139,7 +139,7 @@ class Tensor(Box):
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.then(self, *others)
-        other = others[0]
+        other, = others
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         if self.cod != other.dom:
@@ -262,10 +262,10 @@ class TensorFunctor(Functor):
             dom, cod = self(diagram.dom), self(diagram.cod)
             return sum(map(self, diagram), Tensor.zeros(dom, cod))
         if isinstance(diagram, monoidal.Ty):
-            def ob(x):
-                result = self.ob[type(diagram)(x.name)]
+            def obj_to_dim(obj):
+                result = self.ob[type(diagram)(obj.name)]
                 return result if isinstance(result, Dim) else Dim(result)
-            return Dim(1).tensor(*map(ob, diagram.objects))
+            return Dim(1).tensor(*map(obj_to_dim, diagram.objects))
         if isinstance(diagram, Cup):
             return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))
         if isinstance(diagram, Cap):

@@ -36,19 +36,18 @@ We can check the axioms for the Copy/Discard comonoid on specific inputs:
 
 from discopy.cat import AxiomError
 from discopy import messages, monoidal, rigid
-from discopy.cat import Quiver
 from discopy.monoidal import Sum
 from discopy.rigid import PRO
 
 
-def tuplify(xs):
+def tuplify(stuff):
     """ Returns :code:`xs` if it is already a tuple else :code:`(xs, )`. """
-    return xs if isinstance(xs, tuple) else (xs, )
+    return stuff if isinstance(stuff, tuple) else (stuff, )
 
 
-def untuplify(*xs):
+def untuplify(*stuff):
     """ Returns either the tuple :code:`xs` or its only element. """
-    return xs[0] if len(xs) == 1 else xs
+    return stuff[0] if len(stuff) == 1 else stuff
 
 
 class Function(rigid.Box):
@@ -198,10 +197,10 @@ class Diagram(rigid.Diagram):
         >>> assert SWAP(1, 2) == (2, 1)
         >>> assert (COPY @ COPY >> Id(1) @ SWAP @ Id(1))(1, 2) == (1, 2, 1, 2)
         """
-        ob = Quiver(lambda t: PRO(len(t)))
-        ar = Quiver(lambda f:
-                    Function(len(f.dom), len(f.cod), f.function))
-        return PythonFunctor(ob, ar)(self)(*values)
+        return PythonFunctor(
+            ob=lambda t: PRO(len(t)),
+            ar=lambda f: Function(len(f.dom), len(f.cod), f.function))(
+                self)(*values)
 
 
 class Id(Diagram):

@@ -128,7 +128,7 @@ class Q(CQ):
         super().__init__(Dim(1), dim)
 
 
-class CQMap(rigid.Box):
+class CQMap(Tensor):
     """
     Implements classical-quantum maps.
 
@@ -139,31 +139,30 @@ class CQMap(rigid.Box):
     cod : :class:`CQ`
         Codomain.
     array : list, optional
-        Array of size :code:`product(data.dom @ data.cod)`.
-    data : :class:`discopy.tensor.Tensor`, optional
-        with domain :code:`dom.classical @ dom.quantum ** 2` and codomain
+        Array of size :code:`product(utensor.dom @ utensor.cod)`.
+    utensor : :class:`discopy.tensor.Tensor`, optional
+        Underlying tensor with domain
+        :code:`dom.classical @ dom.quantum ** 2` and codomain
         :code:`cod.classical @ cod.quantum ** 2``.
     """
-    def __init__(self, dom, cod, array=None, data=None):
-        if array is None and data is None:
-            raise ValueError("One of array or data must be given.")
-        if data is None:
-            data = Tensor(dom.classical @ dom.quantum @ dom.quantum,
-                          cod.classical @ cod.quantum @ cod.quantum, array)
-        self.array = data.array
-        super().__init__("CQMap", dom, cod, data=data)
+    @property
+    def utensor(self):
+        """ Underlying tensor. """
+        return Tensor(self._udom, self._ucod, self.array)
 
-    def __eq__(self, other):
-        return isinstance(other, CQMap)\
-            and (self.dom, self.cod) == (other.dom, other.cod)\
-            and self.data == other.data
+    def __init__(self, dom, cod, array=None, utensor=None):
+        if array is None and utensor is None:
+            raise ValueError("One of array or utensor must be given.")
+        if utensor is None:
+            udom = dom.classical @ dom.quantum @ dom.quantum
+            ucod = cod.classical @ cod.quantum @ cod.quantum
+        else:
+            udom, ucod = utensor.dom, utensor.cod
+        super().__init__(udom, ucod, utensor.array if array is None else array)
+        self._dom, self._cod, self._udom, self._ucod = dom, cod, udom, ucod
 
     def __repr__(self):
-        return "CQMap(dom={}, cod={}, array={})".format(
-            self.dom, self.cod, np.array2string(self.array.flatten()))
-
-    def __str__(self):
-        return repr(self)
+        return super().__repr__().replace("Tensor", "CQMap")
 
     def __add__(self, other):
         if other == 0:
@@ -177,49 +176,50 @@ class CQMap(rigid.Box):
 
     @staticmethod
     def id(dom):
-        data = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
-        return CQMap(dom, dom, data.array)
+        utensor = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
+        return CQMap(dom, dom, utensor=utensor)
 
     def then(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
+        if len(others) != 1:
             return monoidal.Diagram.then(self, *others)
-        data = self.data >> others[0].data
-        return CQMap(self.dom, others[0].cod, data.array)
+        other, = others
+        return CQMap(
+            self.dom, other.cod, utensor=self.utensor >> other.utensor)
 
     def dagger(self):
-        return CQMap(self.cod, self.dom, self.data.dagger().array)
+        return CQMap(self.cod, self.dom, utensor=self.utensor.dagger())
 
     def tensor(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
+        if len(others) != 1:
             return monoidal.Diagram.tensor(self, *others)
+        other, = others
         f = rigid.Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
         g = rigid.Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
-        ob = {Ty("{}{}{}".format(a, b, c)):
-              z.__getattribute__(y).__getattribute__(x)
-              for a, x in zip(['c', 'q'], ['classical', 'quantum'])
-              for b, y in zip([0, 1], ['dom', 'cod'])
-              for c, z in zip([0, 1], [self, others[0]])}
-        ar = {f: self.array, g: others[0].array}
-        permute_above = Diagram.id(f.dom[:1] @ g.dom[:1] @ f.dom[1:2])\
+        above = Diagram.id(f.dom[:1] @ g.dom[:1] @ f.dom[1:2])\
             @ Diagram.swap(g.dom[1:2], f.dom[2:]) @ Diagram.id(g.dom[2:])\
             >> Diagram.id(f.dom[:1]) @ Diagram.swap(g.dom[:1], f.dom[1:])\
             @ Diagram.id(g.dom[1:])
-        permute_below =\
+        below =\
             Diagram.id(f.cod[:1]) @ Diagram.swap(f.cod[1:], g.cod[:1])\
             @ Diagram.id(g.cod[1:])\
             >> Diagram.id(f.cod[:1] @ g.cod[:1] @ f.cod[1:2])\
             @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ Diagram.id(g.cod[2:])
-        F = TensorFunctor(ob, ar)
-        array = F(permute_above >> f @ g >> permute_below).array
-        dom, cod = self.dom @ others[0].dom, self.cod @ others[0].cod
-        return CQMap(dom, cod, array)
+        diagram2tensor = TensorFunctor(
+            ob={Ty("{}{}{}".format(a, b, c)):
+                z.__getattribute__(y).__getattribute__(x)
+                for a, x in zip(['c', 'q'], ['classical', 'quantum'])
+                for b, y in zip([0, 1], ['dom', 'cod'])
+                for c, z in zip([0, 1], [self, other])},
+            ar={f: self.utensor.array, g: other.utensor.array})
+        return CQMap(self.dom @ other.dom, self.cod @ other.cod,
+                     utensor=diagram2tensor(above >> f @ g >> below))
 
     @staticmethod
     def swap(left, right):
-        data = Tensor.swap(left.classical, right.classical)\
+        utensor = Tensor.swap(left.classical, right.classical)\
             @ Tensor.swap(left.quantum, right.quantum)\
             @ Tensor.swap(left.quantum, right.quantum)
-        return CQMap(left @ right, right @ left, data.array)
+        return CQMap(left @ right, right @ left, utensor=utensor)
 
     @staticmethod
     def measure(dim, destructive=True):
@@ -279,7 +279,7 @@ class CQMap(rigid.Box):
 
     def round(self, decimals=0):
         """ Rounds the entries of a CQMap up to a number of decimals. """
-        return CQMap(self.dom, self.cod, data=self.data.round(decimals))
+        return CQMap(self.dom, self.cod, utensor=self.utensor.round(decimals))
 
 
 class CQMapFunctor(rigid.Functor):
@@ -897,12 +897,12 @@ class Bits(ClassicalGate):
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring, _dagger=False):
-        data = Tensor.id(Dim(1)).tensor(*(
+        utensor = Tensor.id(Dim(1)).tensor(*(
             Tensor(Dim(1), Dim(2), [0, 1] if bit else [1, 0])
             for bit in bitstring))
         name = "Bits({})".format(', '.join(map(str, bitstring)))
         dom, cod = (len(bitstring), 0) if _dagger else (0, len(bitstring))
-        super().__init__(name, dom, cod, array=data.array, _dagger=_dagger)
+        super().__init__(name, dom, cod, array=utensor.array, _dagger=_dagger)
         self.bitstring = bitstring
 
     def __repr__(self):

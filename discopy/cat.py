@@ -548,13 +548,13 @@ class Sum(Box):
         return " + ".join("({})".format(arrow) for arrow in self.terms)
 
     def __add__(self, other):
+        if other == 0:
+            return self
         other = other if isinstance(other, Sum) else Sum(other)
         return self.upgrade(Sum(*(self.terms + other.terms)))
 
     def __radd__(self, other):
-        if isinstance(other, Arrow):
-            return self + Sum(other)
-        return self if 0 == other else other + self
+        return self.__add__(other)
 
     def __iter__(self):
         for arrow in self.terms:

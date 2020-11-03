@@ -24,10 +24,10 @@ class Ty(monoidal.Ty):
     ((y << x) >> y) @ x
     """
     @staticmethod
-    def upgrade(ty):
-        if len(ty) == 1 and isinstance(ty[0], (Over, Under)):
-            return ty[0]
-        return Ty(*ty.objects)
+    def upgrade(typ):
+        if len(typ) == 1 and isinstance(typ[0], (Over, Under)):
+            return typ[0]
+        return Ty(*typ.objects)
 
     def __init__(self, *objects, left=None, right=None):
         self.left, self.right = left, right

@@ -28,7 +28,7 @@ def test_CQMap():
     assert CQMap.id(dim).dagger() == CQMap.id(dim)
     assert CQMap.swap(dim, C()) == CQMap.id(dim)
     assert CQMap.cups(C(), C()) == CQMap.caps(C(), C()) == CQMap.id(C())
-    assert CQMap.id(C()).tensor(CQMap.id(C()), CQMap.id(C())).data == 1
+    assert CQMap.id(C()).tensor(CQMap.id(C()), CQMap.id(C())).utensor == 1
 
 
 def test_CQMapFunctor():

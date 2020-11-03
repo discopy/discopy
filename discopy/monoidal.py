@@ -121,13 +121,13 @@ class Ty(Ob):
         objects = self.objects + [x for t in others for x in t.objects]
         return self.upgrade(Ty(*objects))
 
-    def count(self, ob):
+    def count(self, obj):
         """
         Counts the occurrence of a given object.
 
         Parameters
         ----------
-        ob : :class:`Ty` or :class:`Ob`
+        obj : :class:`Ty` or :class:`Ob`
             either a type of length 1 or an object
 
         Returns
@@ -142,13 +142,13 @@ class Ty(Ob):
         >>> xs = x ** 5
         >>> assert xs.count(x) == xs.count(x[0]) == xs.objects.count(Ob('x'))
         """
-        ob, = ob if isinstance(ob, Ty) else (ob, )
-        return self.objects.count(ob)
+        obj, = obj if isinstance(obj, Ty) else (obj, )
+        return self.objects.count(obj)
 
     @staticmethod
-    def upgrade(ty):
+    def upgrade(typ):
         """ Allows class inheritance for tensor and __getitem__ """
-        return ty
+        return typ
 
     def __init__(self, *objects):
         self._objects = tuple(
@@ -203,11 +203,11 @@ class PRO(Ty):
     >>> assert PRO(1) == PRO(Ob(1))
     """
     @staticmethod
-    def upgrade(ty):
-        for x in ty:
-            if x.name != 1:
-                raise TypeError(messages.type_err(int, x.name))
-        return PRO(len(ty))
+    def upgrade(typ):
+        for obj in typ:
+            if obj.name != 1:
+                raise TypeError(messages.type_err(int, obj.name))
+        return PRO(len(typ))
 
     def __init__(self, n=0):
         if isinstance(n, PRO):

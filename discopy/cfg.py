@@ -96,8 +96,8 @@ class CFG:
         if seed is not None:
             random.seed(seed)
         prods, cache = list(self.productions), set()
-        n, i = 0, 0
-        while (not max_sentences or n < max_sentences) and i < max_iter:
+        n_sentences, i = 1, 0
+        while n_sentences <= (max_sentences or n_sentences) and i < max_iter:
             i += 1
             sentence = Id(start)
             depth = 0
@@ -109,7 +109,7 @@ class CFG:
                     yield sentence
                     if remove_duplicates:
                         cache.add(sentence)
-                    n += 1
+                    n_sentences += 1
                     break
                 tag = sentence.dom[0]
                 random.shuffle(prods)
