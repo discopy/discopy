@@ -6,6 +6,7 @@ before_install:
   - pip install -U pip
   - pip install -U pytest
   - pip install -U pytest-cov
+  - pip install -U pylint
   - pip install codecov
 install:
   - pip install ".[test]" . # install package + test dependencies
