@@ -32,7 +32,8 @@ def test_CQMap():
 
 
 def test_CQMapFunctor():
-    assert repr(CQMapFunctor({}, {})) == "CQMapFunctor(ob={}, ar={})"
+    assert repr(CQMapFunctor({}, {}))\
+        == "CQMapFunctor(ob={bit: C(Dim(2)), qubit: Q(Dim(2))}, ar={})"
 
 
 def test_CQMap_measure():
@@ -171,13 +172,15 @@ def test_Measure():
 
 def test_QuantumGate():
     assert repr(X) == "X"
-    assert repr(QuantumGate("s", 0, [1])) == "QuantumGate('s', n_qubits=0, array=[1])"
+    assert repr(QuantumGate("s", 0, [1]))\
+        == "QuantumGate('s', n_qubits=0, array=[1])"
 
 
 def test_ClassicalGate():
     f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
     assert repr(f.dagger())\
-        == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, array=[0, 1, 1, 0]).dagger()"
+        == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, "\
+           "array=[0, 1, 1, 0]).dagger()"
 
 
 def test_Bits():
@@ -210,3 +213,10 @@ def test_CircuitFunctor():
 def test_IQPAnsatz():
     with raises(ValueError):
         IQPansatz(10, np.array([]))
+
+
+def test_Sum():
+    assert (X + X).eval() == X.eval() + X.eval()
+    assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
+    assert (Discard() + Discard()).eval()\
+        == Discard().eval() + Discard().eval()

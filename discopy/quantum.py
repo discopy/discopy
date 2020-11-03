@@ -166,9 +166,14 @@ class CQMap(rigid.Box):
         return repr(self)
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
         return CQMap(self.dom, self.cod, self.array + other.array)
+
+    def __radd__(self, other):
+        return self.__add__(other)
 
     @staticmethod
     def id(dom):
@@ -281,14 +286,15 @@ class CQMapFunctor(rigid.Functor):
     """
     Implements functors into :class:`CQMap`.
     """
-    def __init__(self, ob, ar):
+    def __init__(self, ob=None, ar=None):
+        ob, ar = ob or {bit: C(Dim(2)), qubit: Q(Dim(2))}, ar or {}
         super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
 
     def __repr__(self):
         return super().__repr__().replace("Functor", "CQMapFunctor")
 
     def __call__(self, box):
-        if not isinstance(box, Box):
+        if isinstance(box, Sum) or not isinstance(box, Box):
             return super().__call__(box)
         if isinstance(box, Swap):
             return CQMap.swap(self(box.dom[:1]), self(box.dom[1:]))
@@ -476,7 +482,7 @@ class Circuit(Diagram):
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         if backend is None and (mixed or self.is_mixed):
-            return CQMapFunctor({bit: C(Dim(2)), qubit: Q(Dim(2))}, {})(self)
+            return CQMapFunctor()(self)
         if backend is None:
             return TensorFunctor(lambda x: 2, lambda f: f.array)(self)
         counts = self.get_counts(backend, **params)
@@ -1013,12 +1019,6 @@ class CircuitFunctor(rigid.Functor):
 
     def __repr__(self):
         return super().__repr__().replace("Functor", "CircuitFunctor")
-
-    def __call__(self, diagram):
-        if isinstance(diagram, Ob) and not isinstance(diagram, Ty):
-            result = self.ob[Ty(diagram.name)]
-            return qubit ** result if isinstance(result, int) else result
-        return super().__call__(diagram)
 
 
 bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")

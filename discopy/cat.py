@@ -218,7 +218,7 @@ class Arrow:
             return repr(Id(self.dom))
         if len(self.boxes) == 1:  # i.e. self is a box.
             return repr(self.boxes[0])
-        return "cat.Arrow(dom={}, cod={}, boxes={})".format(
+        return "Arrow(dom={}, cod={}, boxes={})".format(
             repr(self.dom), repr(self.cod), repr(self.boxes))
 
     def __str__(self):
@@ -281,16 +281,19 @@ class Arrow:
         >>> assert f >> Id(y) == f == Id(x) >> f
         >>> assert (f >> g) >> h == f >> (g >> h)
         """
-        for other in others:
-            if not isinstance(other, Arrow):
-                raise TypeError(messages.type_err(Arrow, other))
-        boxes, scan = self.boxes, self.cod
-        for other in others:
-            if scan != other.dom:
-                raise AxiomError(messages.does_not_compose(
-                    boxes[-1] if boxes else Id(scan), other))
-            boxes, scan = boxes + other.boxes, other.cod
-        return self.upgrade(Arrow(self.dom, scan, boxes, _scan=False))
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.then(others[0]).then(*others[1:])
+        other, = others
+        if isinstance(other, Sum):
+            return self.sum().then(other)
+        if not isinstance(other, Arrow):
+            raise TypeError(messages.type_err(Arrow, other))
+        if self.cod != other.dom:
+            raise AxiomError(messages.does_not_compose(self, other))
+        return self.upgrade(Arrow(
+            self.dom, other.cod, self.boxes + other.boxes, _scan=False))
 
     def __rshift__(self, other):
         return self.then(other)
@@ -340,12 +343,6 @@ class Arrow:
         cat.Id
         """
         return Id(dom)
-
-    def map(self, func):
-        """ Applies `func` to each box in self. """
-        if not self:
-            return self
-        return type(self).then(*map(func, self))
 
 
 class Id(Arrow):
@@ -480,9 +477,6 @@ class Box(Arrow):
     def __lt__(self, other):
         return self.name < other.name
 
-    def map(self, func):
-        return func(self)
-
 
 class Sum(Box):
     """
@@ -560,7 +554,7 @@ class Sum(Box):
     def __radd__(self, other):
         if isinstance(other, Arrow):
             return self + Sum(other)
-        return self if not other else other + self
+        return self if 0 == other else other + self
 
     def __iter__(self):
         for arrow in self.terms:
@@ -568,7 +562,7 @@ class Sum(Box):
 
     def then(self, *others):
         if len(others) != 1:
-            return super().then(*others)
+            return Arrow.then(self, *others)
         other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
         terms = [f.then(g) for f in self.terms for g in other.terms]
         return self.upgrade(Sum(*terms, dom=self.dom, cod=other.cod))
@@ -576,10 +570,6 @@ class Sum(Box):
     def dagger(self):
         terms = [arrow.dagger() for arrow in self.terms]
         return self.upgrade(Sum(*terms, dom=self.cod, cod=self.dom))
-
-    def map(self, func):
-        terms = [func(arrow) for arrow in self.terms]
-        return self.upgrade(Sum(*terms, dom=self.dom, cod=self.cod))
 
 
 class Functor:

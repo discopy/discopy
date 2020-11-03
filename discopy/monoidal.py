@@ -273,10 +273,6 @@ class Layer(cat.Box):
             return Layer(self._left, self._box[::-1], self._right)
         return super().__getitem__(key)
 
-    def map(self, func):
-        left, box, right = self
-        return Layer(left, func(box), right)
-
 
 class Diagram(cat.Arrow):
     """
@@ -363,13 +359,9 @@ class Diagram(cat.Arrow):
         return self._layers
 
     def then(self, *others):
-        if not others:
-            return self
-        if len(others) > 1:
-            return self.then(others[0]).then(*others[1:])
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
+            return super().then(*others)
         other, = others
-        if isinstance(other, Sum):
-            return Sum(self).then(other)
         return self.upgrade(
             Diagram(self.dom, other.cod,
                     self.boxes + other.boxes,

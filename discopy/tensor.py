@@ -119,6 +119,8 @@ class Tensor(Box):
         return repr(self)
 
     def __add__(self, other):
+        if other == 0:
+            return self
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         if (self.dom, self.cod) != (other.dom, other.cod):
@@ -126,18 +128,16 @@ class Tensor(Box):
         return Tensor(self.dom, self.cod, self.array + other.array)
 
     def __radd__(self, other):
-        if not other:
-            return self
         return self.__add__(other)
 
     def __eq__(self, other):
         if not isinstance(other, Tensor):
-            return self.array == other
+            return np.all(self.array == other)
         return (self.dom, self.cod) == (other.dom, other.cod)\
             and np.all(self.array == other.array)
 
     def then(self, *others):
-        if len(others) != 1:
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.then(self, *others)
         other = others[0]
         if not isinstance(other, Tensor):

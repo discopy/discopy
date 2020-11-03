@@ -59,9 +59,11 @@ def test_Tensor_caps():
     with raises(AxiomError):
         Tensor.caps(Dim(3), Dim(2))
 
+
 def test_Tensor_transpose():
     assert Tensor.caps(Dim(2), Dim(2)).transpose()\
         == Tensor.cups(Dim(2), Dim(2))
+
 
 def test_Tensor_tensor():
     assert Tensor.id(2) @ Tensor.id(3) == Tensor.id(Dim(2, 3))
@@ -124,3 +126,8 @@ def test_TensorFunctor_sum():
     f = Box('f', x, y)
     F = TensorFunctor({x: 1, y: 2}, {f: [1, 0]})
     assert F(f + f) == F(f) + F(f)
+
+
+def test_Tensor_radd():
+    m = Tensor(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
+    assert 0 + m == m
