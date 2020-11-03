@@ -5,7 +5,7 @@
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
 [![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
 [![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/main/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
-[![pylint Score](https://mperlet.github.io/pybadge/badges/9.77.svg)](https://www.pylint.org/)
+[![pylint Score](https://mperlet.github.io/pybadge/badges/9.91.svg)](https://www.pylint.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 [![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)
 

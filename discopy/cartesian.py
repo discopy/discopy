@@ -184,12 +184,12 @@ class Diagram(rigid.Diagram):
                        diagram.boxes, diagram.offsets, layers=diagram.layers)
 
     @staticmethod
-    def id(x):
+    def id(dom):
         """
         >>> Diagram.id(2)
         Id(2)
         """
-        return Id(x)
+        return Id(dom)
 
     def __call__(self, *values):
         """

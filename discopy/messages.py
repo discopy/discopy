@@ -17,9 +17,9 @@ def empty_name(got):
 
 def type_err(expected, got):
     """ Type error. """
-    return "Expected {}.{}, got {} of type {} instead.".format(
+    return "Expected {}.{}, got {} of type {}.{} instead.".format(
         expected.__module__, expected.__name__,
-        repr(got), type(got).__name__)
+        repr(got), type(got).__module__, type(got).__name__)
 
 
 def does_not_compose(left, right):

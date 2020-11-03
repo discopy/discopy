@@ -5,7 +5,7 @@ Implements the translation between discopy and pytket.
 """
 
 import pytket as tk
-from pytket.circuit import Bit, Qubit
+from pytket.circuit import Bit, Qubit  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
 
 from discopy import messages
@@ -53,9 +53,9 @@ class Circuit(tk.Circuit):
 
     def rename_units(self, renaming):
         """ Rename units in a circuit. """
-        bits_to_rename = [old for old in renaming.keys()
-                          if isinstance(old, Bit)
-                          and old.index[0] in self.post_selection]
+        bits_to_rename = [
+            old for old in renaming.keys()
+            if isinstance(old, Bit) and old.index[0] in self.post_selection]
         post_selection_renaming = {
             renaming[old].index[0]: self.post_selection[old.index[0]]
             for old in bits_to_rename}
@@ -238,10 +238,11 @@ def from_tk(tk_circuit):
                 bras[offset] = tk_circuit.post_selection[bit_index]
                 continue  # post selection happens at the end
             box = Measure(destructive=False, override_bits=True)
-            swaps = Id(circuit.cod[:offset + 1]) @ Id.swap(
-               circuit.cod[offset + 1:n_qubits + bit_index],
-               circuit.cod[n_qubits:][bit_index: bit_index + 1])\
-               @ Id(circuit.cod[n_qubits + bit_index + 1:])
+            swaps = Id(circuit.cod[:offset + 1])
+            swaps = swaps @ Id.swap(
+                circuit.cod[offset + 1:n_qubits + bit_index],
+                circuit.cod[n_qubits:][bit_index: bit_index + 1])\
+                @ Id(circuit.cod[n_qubits + bit_index + 1:])
         else:
             box = box_from_tk(tk_gate)
             offset, swaps = make_units_adjacent(tk_gate)

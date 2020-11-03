@@ -121,7 +121,7 @@ class Arrow:
     """
     @staticmethod
     def upgrade(arrow):
-        """ Allows class inheritance for then and __getitem__ """
+        """ Allows class inheritance for then and __getitem__. """
         return arrow
 
     def __init__(self, dom, cod, boxes, _scan=True):
@@ -323,23 +323,23 @@ class Arrow:
         return self[::-1]
 
     @staticmethod
-    def id(x):
+    def id(dom):
         """
-        Returns the identity arrow on x.
+        Returns the identity arrow on `dom`.
 
         >>> x = Ob('x')
         >>> assert Arrow.id(x) == Id(x) == Arrow(x, x, [])
 
         Parameters
         ----------
-        x : cat.Ob
+        dom : cat.Ob
             Any object.
 
         Returns
         -------
         cat.Id
         """
-        return Id(x)
+        return Id(dom)
 
     def map(self, func):
         """ Applies `func` to each box in self. """
@@ -350,22 +350,22 @@ class Arrow:
 
 class Id(Arrow):
     """
-    Defines the identity arrow on x, i.e. with an empty list of boxes.
+    Defines the identity arrow on `dom`, i.e. with an empty list of boxes.
 
     >>> x = Ob('x')
     >>> assert Id(x) == Arrow(x, x, [])
 
     Parameters
     ----------
-        x : cat.Ob
+        dom : cat.Ob
             Any object.
 
     See also
     --------
         cat.Arrow.id
     """
-    def __init__(self, x):
-        super().__init__(x, x, [], _scan=False)
+    def __init__(self, dom):
+        Arrow.__init__(self, dom, dom, [], _scan=False)
 
     def __repr__(self):
         return "Id({})".format(repr(self.dom))

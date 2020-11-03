@@ -23,6 +23,7 @@ try:  # pragma: no cover
     for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
+
     def array2string(array, max_length=messages.NUMPY_THRESHOLD):
         """ array2string is not implemented in jax.numpy """
         ls = list(array)
@@ -34,10 +35,11 @@ except ImportError:  # pragma: no cover
     import numpy as np
     from numpy import array2string as _array2string
     np.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
+
     def array2string(array, **params):
         """ makes sure we get the same doctest with numpy and jax.numpy """
         return _array2string(array, separator=', ', **params)\
-            .replace('[ ', '[').replace('  ',  ' ')
+            .replace('[ ', '[').replace('  ', ' ')
     np.array2string = array2string
 
 
@@ -172,8 +174,8 @@ class Tensor(Box):
         return Tensor(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
-    def id(x):
-        return Id(x)
+    def id(dom):
+        return Id(dom)
 
     @staticmethod
     def cups(left, right):
@@ -260,16 +262,14 @@ class TensorFunctor(Functor):
             dom, cod = self(diagram.dom), self(diagram.cod)
             return sum(map(self, diagram), Tensor.zeros(dom, cod))
         if isinstance(diagram, monoidal.Ty):
-            return Dim(1).tensor(*map(self, diagram.objects))
-        if isinstance(diagram, Ob) and not diagram.z:
-            result = self.ob[Ty(diagram.name)]
-            return result if isinstance(result, Dim) else Dim(result)
-        if isinstance(diagram, monoidal.Ob):
-            return super().__call__(diagram)
+            def ob(x):
+                result = self.ob[type(diagram)(x.name)]
+                return result if isinstance(result, Dim) else Dim(result)
+            return Dim(1).tensor(*map(ob, diagram.objects))
         if isinstance(diagram, Cup):
-            return Tensor.cups(self(diagram.dom[0]), self(diagram.dom[1]))
+            return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))
         if isinstance(diagram, Cap):
-            return Tensor.caps(self(diagram.cod[0]), self(diagram.cod[1]))
+            return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, monoidal.Box) and not isinstance(diagram, Swap):
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()

@@ -26,7 +26,6 @@ from itertools import takewhile
 
 from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
-from discopy.monoidal import Sum
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
 
@@ -43,6 +42,7 @@ def index2bitstring(i, length):
     if not i and not length:
         return ()
     return tuple(map(int, '{{:0{}b}}'.format(length).format(i)))
+
 
 def bitstring2index(bitstring):
     """
@@ -287,6 +287,28 @@ class CQMapFunctor(rigid.Functor):
     def __repr__(self):
         return super().__repr__().replace("Functor", "CQMapFunctor")
 
+    def __call__(self, box):
+        if not isinstance(box, Box):
+            return super().__call__(box)
+        if isinstance(box, Swap):
+            return CQMap.swap(self(box.dom[:1]), self(box.dom[1:]))
+        if isinstance(box, Discard):
+            return CQMap.discard(self(box.dom))
+        if isinstance(box, Measure):
+            measure = CQMap.measure(
+                self(box.dom).quantum, destructive=box.destructive)
+            measure = measure @ CQMap.discard(self(box.dom).classical)\
+                if box.override_bits else measure
+            return measure
+        if isinstance(box, (MixedState, Encode)):
+            return self(box.dagger()).dagger()
+        if not box.is_mixed and box.classical:
+            return CQMap(self(box.dom), self(box.cod), box.array)
+        if not box.is_mixed:
+            dom, cod = self(box.dom).quantum, self(box.cod).quantum
+            return CQMap.pure(Tensor(dom, cod, box.array))
+        raise TypeError(messages.type_err(QuantumGate, box))
+
 
 class BitsAndQubits(Ty):
     """
@@ -454,28 +476,7 @@ class Circuit(Diagram):
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         if backend is None and (mixed or self.is_mixed):
-            ob = {Ty('bit'): C(Dim(2)), Ty('qubit'): Q(Dim(2))}
-            F_ob = CQMapFunctor(ob, {})
-            def ar(box):
-                if isinstance(box, Swap):
-                    return CQMap.swap(F_ob(box.dom[:1]), F_ob(box.dom[1:]))
-                if isinstance(box, Discard):
-                    return CQMap.discard(F_ob(box.dom))
-                if isinstance(box, Measure):
-                    measure = CQMap.measure(
-                        F_ob(box.dom).quantum, destructive=box.destructive)
-                    measure = measure @ CQMap.discard(F_ob(box.dom).classical)\
-                        if box.override_bits else measure
-                    return measure
-                if isinstance(box, (MixedState, Encode)):
-                    return ar(box.dagger()).dagger()
-                if not box.is_mixed and box.classical:
-                    return CQMap(F_ob(box.dom), F_ob(box.cod), box.array)
-                if not box.is_mixed:
-                    dom, cod = F_ob(box.dom).quantum, F_ob(box.cod).quantum
-                    return CQMap.pure(Tensor(dom, cod, box.array))
-                raise TypeError(messages.type_err(QuantumGate, box))
-            return CQMapFunctor(ob, ar)(self)
+            return CQMapFunctor({bit: C(Dim(2)), qubit: Q(Dim(2))}, {})(self)
         if backend is None:
             return TensorFunctor(lambda x: 2, lambda f: f.array)(self)
         counts = self.get_counts(backend, **params)
@@ -527,6 +528,7 @@ class Circuit(Diagram):
                 if tensor.array[bits]:
                     counts[bits] = float(tensor.array[bits])
             return counts
+        # pylint: disable=import-outside-toplevel
         from discopy.tk import get_counts
         return get_counts(self, backend, **params)
 
@@ -592,6 +594,7 @@ class Circuit(Diagram):
         tk.Circuit(2, 1).H(0).X(1).CX(0, 1).Measure(1, 0).post_select({0: 0})
 
         """
+        # pylint: disable=import-outside-toplevel
         from discopy.tk import to_tk
         return to_tk(self.init_and_discard())
 
@@ -644,6 +647,7 @@ class Circuit(Diagram):
           >> Bra(0)\\
           >> scalar(2.000)
         """
+        # pylint: disable=import-outside-toplevel
         from discopy.tk import from_tk
         return from_tk(tk_circuit)
 
@@ -709,6 +713,7 @@ class Sum(monoidal.Sum, Box):
     def upgrade(arrow):
         return Sum(*arrow.terms, dom=arrow.dom, cod=arrow.cod)
 
+    @property
     def is_mixed(self):
         return any(circuit.is_mixed for circuit in self.terms)
 
@@ -866,10 +871,10 @@ class ClassicalGate(Box):
         return self._array
 
     def __repr__(self):
-        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, array={}){}".format(
-            repr(self.name), len(self.dom), len(self.cod),
-            np.array2string(self.array.flatten()),
-            ".dagger()" if self._dagger else "")
+        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, array={}){}"\
+            .format(repr(self.name), len(self.dom), len(self.cod),
+                    np.array2string(self.array.flatten()),
+                    ".dagger()" if self._dagger else "")
 
     def dagger(self):
         return ClassicalGate(
@@ -941,7 +946,7 @@ class Bra(Box):
 
 class Rotation(QuantumGate):
     """ Abstract class for rotation gates. """
-    def __init__(self, name, phase, n_qubits=1):
+    def __init__(self, phase, name=None, n_qubits=1):
         self._phase = phase
         super().__init__(name, n_qubits, array=None)
 
@@ -964,7 +969,7 @@ class Rotation(QuantumGate):
 class Rx(Rotation):
     """ X rotations. """
     def __init__(self, phase):
-        super().__init__("Rx", phase)
+        super().__init__(phase, name="Rx")
 
     @property
     def array(self):
@@ -977,7 +982,7 @@ class Rx(Rotation):
 class Rz(Rotation):
     """ Z rotations. """
     def __init__(self, phase):
-        super().__init__("Rz", phase)
+        super().__init__(phase, name="Rz")
 
     @property
     def array(self):
@@ -988,7 +993,7 @@ class Rz(Rotation):
 class CRz(Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
-        super().__init__("CRz", phase, n_qubits=2)
+        super().__init__(phase, name="CRz", n_qubits=2)
 
     @property
     def array(self):
@@ -1020,13 +1025,13 @@ bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 
 SWAP = Swap(qubit, qubit)
 CX = QuantumGate('CX', 2, [1, 0, 0, 0,
-                     0, 1, 0, 0,
-                     0, 0, 0, 1,
-                     0, 0, 1, 0], _dagger=None)
+                           0, 1, 0, 0,
+                           0, 0, 0, 1,
+                           0, 0, 1, 0], _dagger=None)
 CZ = QuantumGate('CZ', 2, [1, 0, 0, 0,
-                     0, 1, 0, 0,
-                     0, 0, 1, 0,
-                     0, 0, 0, -1], _dagger=None)
+                           0, 1, 0, 0,
+                           0, 0, 1, 0,
+                           0, 0, 0, -1], _dagger=None)
 H = QuantumGate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]), _dagger=None)
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
 T = QuantumGate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])

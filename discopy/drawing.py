@@ -327,6 +327,7 @@ def to_gif(diagram, *diagrams, path=None,
                        save_all=True, duration=timestep,
                        **{'loop': 0} if loop else {})
         try:
+            # pylint: disable=import-outside-toplevel
             from IPython.display import HTML
             return HTML('<img src="{}">'.format(path))
         except ImportError:

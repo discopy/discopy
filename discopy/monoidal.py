@@ -118,8 +118,8 @@ class Ty(Ob):
         for other in others:
             if not isinstance(other, Ty):
                 raise TypeError(messages.type_err(Ty, other))
-        return self.upgrade(
-            Ty(*sum([t.objects for t in [self] + list(others)], [])))
+        objects = self.objects + [x for t in others for x in t.objects]
+        return self.upgrade(Ty(*objects))
 
     def count(self, ob):
         """
@@ -262,9 +262,11 @@ class Layer(cat.Box):
             *map(repr, (self._left, self._box, self._right)))
 
     def __str__(self):
-        return ("{} @ ".format(self._box.id(self._left)) if self._left else "")\
-            + str(self._box)\
-            + (" @ {}".format(self._box.id(self._right)) if self._right else "")
+        left, box, right = self
+        _id = self._box.id
+        return ("{} @ ".format(_id(left)) if left else "")\
+            + str(box)\
+            + (" @ {}".format(_id(right)) if right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -272,7 +274,8 @@ class Layer(cat.Box):
         return super().__getitem__(key)
 
     def map(self, func):
-        return Layer(self.left, func(self.box), self.right)
+        left, box, right = self
+        return Layer(left, func(box), right)
 
 
 class Diagram(cat.Arrow):
@@ -329,8 +332,8 @@ class Diagram(cat.Arrow):
         super().__init__(dom, cod, boxes, _scan=False)
 
     @staticmethod
-    def id(x):
-        return Id(x)
+    def id(dom):
+        return Id(dom)
 
     @property
     def offsets(self):
@@ -840,21 +843,16 @@ class InterchangerError(AxiomError):
         super().__init__("Boxes {} and {} do not commute.".format(box0, box1))
 
 
-class Id(Diagram):
+class Id(cat.Id, Diagram):
     """ Implements the identity diagram of a given type.
 
     >>> s, t = Ty('x', 'y'), Ty('z', 'w')
     >>> f = Box('f', s, t)
     >>> assert f >> Id(t) == f == Id(s) >> f
     """
-    def __init__(self, x):
-        super().__init__(x, x, [], [], layers=cat.Id(x))
-
-    def __repr__(self):
-        return "Id({})".format(repr(self.dom))
-
-    def __str__(self):
-        return "Id({})".format(str(self.dom))
+    def __init__(self, dom):
+        cat.Id.__init__(self, dom)
+        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
 
 class Box(cat.Box, Diagram):
@@ -912,6 +910,7 @@ class Swap(Box):
 
 
 class Sum(cat.Sum, Box):
+    """ Sum of monoidal diagrams. """
     @staticmethod
     def upgrade(arrow):
         if not isinstance(arrow, cat.Sum):

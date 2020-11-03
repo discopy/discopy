@@ -113,6 +113,7 @@ class Diagram(monoidal.Diagram):
 
     @staticmethod
     def curry(diagram, n_wires=1, left=False):
+        """ Diagram currying. """
         return Curry(diagram, n_wires, left)
 
 

@@ -145,8 +145,8 @@ class Diagram(monoidal.Diagram):
                        diagram.boxes, diagram.offsets, layers=diagram.layers)
 
     @staticmethod
-    def id(x):
-        return Id(x)
+    def id(dom):
+        return Id(dom)
 
     @staticmethod
     def swap(left, right):
@@ -201,7 +201,6 @@ class Diagram(monoidal.Diagram):
         off = -len(right) or len(left)
         return Id(left[:off]) @ Diagram.cups(left[off:], right)
 
-
     @staticmethod
     def ba(left, right):
         """ Backward application. """
@@ -237,11 +236,11 @@ class Diagram(monoidal.Diagram):
 
         >>> a, b = Ty('a'), Ty('b')
         >>> double_snake = Id(a @ b).transpose(left=True)
-        >>> two_snakes = Id(b).transpose(left=True) @ Id(a).transpose(left=True)
+        >>> snakes = Id(b).transpose(left=True) @ Id(a).transpose(left=True)
         >>> double_snake == two_snakes
         False
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(
-        ...     two_snakes, left=True)
+        ...     snakes, left=True)
         >>> assert double_snake == two_snakes_nf
         >>> f = Box('f', a, b)
         """
@@ -370,20 +369,15 @@ class Diagram(monoidal.Diagram):
             normalize=normalize or Diagram.normalize, **params)
 
 
-class Id(Diagram):
+class Id(monoidal.Id, Diagram):
     """ Define an identity arrow in a free rigid category
 
     >>> t = Ty('a', 'b', 'c')
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
-    def __init__(self, t):
-        super().__init__(t, t, [], [], layers=cat.Id(t))
-
-    def __repr__(self):
-        return "Id({})".format(repr(self.dom))
-
-    def __str__(self):
-        return "Id({})".format(str(self.dom))
+    def __init__(self, dom):
+        monoidal.Id.__init__(self, dom)
+        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
 
 class Box(monoidal.Box, Diagram):
@@ -400,6 +394,10 @@ class Box(monoidal.Box, Diagram):
 
 class Swap(monoidal.Swap, Box):
     """ Implements swaps of basic types in a rigid category. """
+    def __init__(self, left, right):
+        monoidal.Swap.__init__(self, left, right)
+        dom, cod = left @ right, right @ left
+        Box.__init__(self, "Swap({}, {})".format(left, right), dom, cod)
 
 
 class Cup(Box):
@@ -485,24 +483,22 @@ class Functor(monoidal.Functor):
 
     def __call__(self, diagram):
         if isinstance(diagram, monoidal.Ty):
-            return self.ob_factory().tensor(*map(self, diagram.objects))
-        if isinstance(diagram, Ob) and not diagram.z:
-            return self.ob[Ty(diagram.name)]
-        if isinstance(diagram, Ob):
-            result = self(Ob(diagram.name, z=0))
-            if diagram.z < 0:
-                for _ in range(-diagram.z):
-                    result = result.l
-            elif diagram.z > 0:
-                for _ in range(diagram.z):
-                    result = result.r
-            return result
+            def adjoint(ob):
+                result = self.ob[type(diagram)(type(ob)(ob.name, z=0))]
+                if ob.z < 0:
+                    for _ in range(-ob.z):
+                        result = result.l
+                elif ob.z > 0:
+                    for _ in range(ob.z):
+                        result = result.r
+                return result
+            return self.ob_factory().tensor(*map(adjoint, diagram.objects))
         if isinstance(diagram, Cup):
             return self.ar_factory.cups(
-                self(diagram.dom[0]), self(diagram.dom[1]))
+                self(diagram.dom[:1]), self(diagram.dom[1:]))
         if isinstance(diagram, Cap):
             return self.ar_factory.caps(
-                self(diagram.cod[0]), self(diagram.cod[1]))
+                self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, monoidal.Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
