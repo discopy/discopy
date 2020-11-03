@@ -411,6 +411,33 @@ class Circuit(Diagram):
         return Circuit.cups(left, right).dagger()
 
     @property
+    def free_symbols(self):
+        return {x for box in self.boxes
+                if hasattr(box, "_free_symbols") for x in box._free_symbols}
+
+    def subs(self, var, expr):
+        def subs_box(box):
+            if hasattr(box, "_subs"):
+                result = box._subs(var, expr)
+                if isinstance(expr, (int, float, complex)):
+                    result = result._evalf()
+                return result
+            return box
+        return CircuitFunctor(ob=lambda x: x, ar=subs_box)(self)
+
+    def grad(self, var):
+        if not self:
+            return self
+        left, box, right = self.layers[0]
+        tail = self[1:]
+        if var not in box.free_symbols:
+            return Id(left) @ box @ Id(right) >> tail.grad(var)
+        if var not in tail.free_symbols:
+            return Id(left) @ box._grad(var) @ Id(right) >> tail
+        return (Id(left) @ box._grad(var) @ Id(right) >> tail)\
+            + (Id(left) @ box @ Id(right) >> tail.grad(var))
+
+    @property
     def is_mixed(self):
         """
         Whether the circuit is mixed, i.e. it contains both bits and qubits
@@ -688,12 +715,13 @@ class Box(rigid.Box, Circuit):
     _dagger : bool, optional
         If set to :code:`None` then the box is self-adjoint.
     """
-    def __init__(self, name, dom, cod, is_mixed=True, _dagger=False):
+    def __init__(self, name, dom, cod,
+                 is_mixed=True, data=None, _dagger=False):
         if dom and not isinstance(dom, BitsAndQubits):
             raise TypeError(messages.type_err(BitsAndQubits, dom))
         if cod and not isinstance(cod, BitsAndQubits):
             raise TypeError(messages.type_err(BitsAndQubits, cod))
-        rigid.Box.__init__(self, name, dom, cod, _dagger=_dagger)
+        rigid.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         Circuit.__init__(self, dom, cod, [self], [0])
         if not is_mixed:
             if all(x.name == "bit" for x in dom @ cod):
@@ -726,6 +754,12 @@ class Sum(monoidal.Sum, Box):
     def eval(self, backend=None, mixed=False, **params):
         return sum(circuit.eval(backend, mixed, **params)
                    for circuit in self.terms)
+
+    def subs(self, var, expr):
+        return sum(circuit.subs(var, expr) for circuit in self.terms)
+
+    def grad(self, var):
+        return sum(circuit.grad(var) for circuit in self.terms)
 
 
 class Swap(rigid.Swap, Box):
@@ -838,11 +872,12 @@ class Encode(Box):
 
 class QuantumGate(Box):
     """ Quantum gates, i.e. unitaries on n qubits. """
-    def __init__(self, name, n_qubits, array=None, _dagger=False):
+    def __init__(self, name, n_qubits, array=None, data=None, _dagger=False):
         dom = qubit ** n_qubits
         if array is not None:
             self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
-        super().__init__(name, dom, dom, is_mixed=False, _dagger=_dagger)
+        super().__init__(
+            name, dom, dom, is_mixed=False, data=data, _dagger=_dagger)
 
     @property
     def array(self):
@@ -864,12 +899,14 @@ class QuantumGate(Box):
 
 class ClassicalGate(Box):
     """ Classical gates, i.e. from bits to bits. """
-    def __init__(self, name, n_bits_in, n_bits_out, array, _dagger=False):
+    def __init__(self, name, n_bits_in, n_bits_out,
+                 array, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
         if array is not None:
             self._array = np.array(array).reshape(
                 (n_bits_in + n_bits_out) * (2, ) or 1)
-        super().__init__(name, dom, cod, is_mixed=False, _dagger=_dagger)
+        super().__init__(
+            name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
     @property
     def array(self):
@@ -953,8 +990,21 @@ class Bra(Box):
 class Rotation(QuantumGate):
     """ Abstract class for rotation gates. """
     def __init__(self, phase, name=None, n_qubits=1):
-        self._phase = phase
-        super().__init__(name, n_qubits, array=None)
+        self._free_symbols =\
+            phase.free_symbols if hasattr(phase, "free_symbols") else {}
+        super().__init__(name, n_qubits, array=None, data=phase)
+
+    def _subs(self, var, expr):
+        return type(self)(
+            self.phase.subs(var, expr)
+            if hasattr(self.phase, "subs") else self.phase)
+
+    def _evalf(self):
+        return type(self)(float(self.phase))
+
+    def _grad(self, var):
+        from sympy import diff
+        return type(self)(self.phase - 1)
 
     def __repr__(self):
         return self.name
@@ -962,7 +1012,7 @@ class Rotation(QuantumGate):
     @property
     def phase(self):
         """ The phase of a rotation gate. """
-        return self._phase
+        return self.data
 
     @property
     def name(self):
@@ -1050,13 +1100,15 @@ def sqrt(real_number):
     return QuantumGate(name, 0, math.sqrt(real_number), _dagger=None)
 
 
-def scalar(complex_number):
+def scalar(expr):
     """
     Returns a 0-qubit quantum gate that scales by a complex number.
     """
-    name = 'scalar({:.3f})'.format(complex_number)
-    _dagger = None if np.conjugate(complex_number) == complex_number else False
-    return QuantumGate(name, 0, complex_number, _dagger=_dagger)
+    symbolic = not isinstance(expr, (int, float, complex))
+    name = 'scalar({})'.format(expr)\
+        if symbolic else 'scalar({:.3f})'.format(expr)
+    _dagger = None if not symbolic and np.conjugate(expr) == expr else False
+    return QuantumGate(name, 0, expr, _dagger=_dagger)
 
 
 def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
