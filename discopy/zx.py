@@ -9,14 +9,14 @@ from discopy.rigid import PRO, Diagram, Box
 class Diagram(rigid.Diagram):
     @staticmethod
     def upgrade(diagram):
-        return ZX(diagram.dom, diagram.cod,
-                  diagram.boxes, diagram.offsets, layers=diagram.layers)
+        return Diagram(diagram.dom, diagram.cod,
+                       diagram.boxes, diagram.offsets, layers=diagram.layers)
 
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         super().__init__(dom, cod, boxes, offsets, layers)
 
     def draw(self, **params):
-        super().draw(**dict(params, draw_types=False))
+        return super().draw(**dict(params, draw_types=False))
 
     @staticmethod
     def id(dom):
@@ -41,7 +41,7 @@ class Spider(Box, Diagram):
     def __init__(self, name, n_legs_in, n_legs_out, phase=0):
         dom, cod = PRO(n_legs_in), PRO(n_legs_out)
         Box.__init__(self, name, dom, cod, data=phase)
-        ZX.__init__(self, dom, cod, [self], [0])
+        Diagram.__init__(self, dom, cod, [self], [0])
         self.draw_as_spider = True
 
     @property
