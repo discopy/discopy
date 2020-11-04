@@ -120,6 +120,7 @@ def test_copy_to_tikz():
     x, y = map(Ty, ("$x$", "$y$"))
     copy_x, copy_y = Box('COPY', x, x @ x), Box('COPY', y, y @ y)
     copy_x.draw_as_spider, copy_y.draw_as_spider = True, True
+    copy_x.color, copy_y.color = "black", "black"
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
