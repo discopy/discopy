@@ -418,17 +418,14 @@ class Cup(Box):
             raise AxiomError(messages.are_not_adjoints(left, right))
         if left == right.r:
             raise AxiomError(messages.wrong_adjunction(left, right, cup=True))
-        self.left, self.right = left, right
-        super().__init__('CUP', left @ right, Ty())
+        self.left, self.right, self.draw_as_wire = left, right, True
+        super().__init__("Cup({}, {})".format(left, right), left @ right, Ty())
 
     def dagger(self):
         return Cap(self.left, self.right)
 
     def __repr__(self):
-        return "Cup({}, {})".format(repr(self.dom[:1]), repr(self.dom[1:]))
-
-    def __str__(self):
-        return "Cup({}, {})".format(self.dom[:1], self.dom[1:])
+        return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
 
 class Cap(Box):
@@ -449,17 +446,14 @@ class Cap(Box):
             raise AxiomError(messages.are_not_adjoints(left, right))
         if left.r == right:
             raise AxiomError(messages.wrong_adjunction(left, right, cup=False))
-        self.left, self.right = left, right
-        super().__init__('CAP', Ty(), left @ right)
+        self.left, self.right, self.draw_as_wire = left, right, True
+        super().__init__("Cap({}, {})".format(left, right), Ty(), left @ right)
 
     def dagger(self):
         return Cup(self.left, self.right)
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))
-
-    def __str__(self):
-        return "Cap({}, {})".format(self.left, self.right)
 
 
 class Functor(monoidal.Functor):

@@ -2,6 +2,7 @@
 
 from pytest import raises
 from unittest.mock import Mock
+from discopy.cqmap import CQMap, C
 from discopy.quantum import *
 from discopy import tk
 
@@ -9,41 +10,11 @@ from discopy import tk
 def test_index2bitstring():
     with raises(ValueError):
         index2bitstring(1, 0)
+    assert index2bitstring(42, 8) == (0, 0, 1, 0, 1, 0, 1, 0)
 
 
-def test_CQ():
-    assert C(Dim(2, 3)).l == C(Dim(2, 3)).r == C(Dim(3, 2))
-
-
-def test_CQMap():
-    with raises(ValueError):
-        CQMap(CQ(), CQ())
-    dim = C(Dim(2))
-    assert CQMap.id(C(Dim(2, 2)))\
-        == CQMap.id(C()).tensor(CQMap.id(dim), CQMap.id(dim))
-    assert CQMap.id(C()) + CQMap.id(C()) == CQMap(C(), C(), 2)
-    with raises(AxiomError):
-        CQMap.id(C()) + CQMap.id(dim)
-    assert CQMap.id(dim).then(CQMap.id(dim), CQMap.id(dim)) == CQMap.id(dim)
-    assert CQMap.id(dim).dagger() == CQMap.id(dim)
-    assert CQMap.swap(dim, C()) == CQMap.id(dim)
-    assert CQMap.cups(C(), C()) == CQMap.caps(C(), C()) == CQMap.id(C())
-    assert CQMap.id(C()).tensor(CQMap.id(C()), CQMap.id(C())).utensor == 1
-
-
-def test_CQMapFunctor():
-    assert repr(CQMapFunctor({}, {}))\
-        == "CQMapFunctor(ob={bit: C(Dim(2)), qubit: Q(Dim(2))}, ar={})"
-
-
-def test_CQMap_measure():
-    import numpy as np
-    array = np.zeros((2, 2, 2, 2, 2))
-    array[0, 0, 0, 0, 0] = array[1, 1, 1, 1, 1] = 1
-    assert np.all(CQMap.measure(Dim(2), destructive=False).array == array)
-    assert CQMap.encode(Dim(1)) == CQMap.measure(Dim(1)) == CQMap.id(C())
-    assert CQMap.measure(Dim(2, 2))\
-        == CQMap.measure(Dim(2)) @ CQMap.measure(Dim(2))
+def test_bitstring2index():
+    assert bitstring2index((0, 0, 1, 0, 1, 0, 1, 0)) == 42
 
 
 def test_BitsAndQubits():

@@ -885,14 +885,12 @@ class Swap(Box):
     def __init__(self, left, right):
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.swap_vs_swaps(left, right))
-        self.left, self.right = left, right
-        super().__init__('SWAP', left @ right, right @ left)
+        self.left, self.right, self.draw_as_wire = left, right, True
+        super().__init__(
+            "Swap({}, {})".format(left, right), left @ right, right @ left)
 
     def __repr__(self):
         return "Swap({}, {})".format(repr(self.left), repr(self.right))
-
-    def __str__(self):
-        return "Swap({}, {})".format(self.left, self.right)
 
     def dagger(self):
         return Swap(self.right, self.left)

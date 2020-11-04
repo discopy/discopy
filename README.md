@@ -32,15 +32,14 @@ For example, if we take ingredients as types and cooking steps as boxes then a
 diagram is a recipe:
 
 ```python
-from discopy import Ty, Box, Id
+from discopy import Ty, Box, Id, Swap
 
 egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
 crack = Box('crack', egg, white @ yolk)
 merge = lambda x: Box('merge', x @ x, x)
-swap = lambda x, y: Box('SWAP', x @ y, y @ x)
 
 crack_two_eggs = crack @ crack\
-    >> Id(white) @ swap(yolk, white) @ Id(yolk)\
+    >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
     >> merge(white) @ merge(yolk)
 crack_two_eggs.draw(path='docs/imgs/crack-eggs.png')
 ```

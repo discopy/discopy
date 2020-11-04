@@ -32,9 +32,10 @@ from discopy.rigid import (
     Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Swap, Functor)
 from discopy.tensor import Dim, Tensor, TensorFunctor
 from discopy.quantum import (
-    C, Q, CQMap, CQMapFunctor, bit, qubit, Circuit, CircuitFunctor,
+    bit, qubit, Circuit, CircuitFunctor,
     Discard, MixedState, Measure, Encode, Ket, Bra, Rx, Rz, CRz,
     SWAP, CZ, CX, H, S, T, X, Y, Z)
+from discopy.cqmap import C, Q, CQMap, CQMapFunctor
 from discopy.pregroup import Word
 
 __version__ = '0.3.2'

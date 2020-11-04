@@ -32,7 +32,7 @@ def test_draw_eggs():
     egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
     crack = Box('crack', egg, white @ yolk)
     crack_two_eggs = crack @ crack\
-        >> Id(white) @ Box('SWAP', yolk @ white, white @ yolk) @ Id(yolk)\
+        >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
         >> merge(white) @ merge(yolk)
     return crack_two_eggs
 
@@ -70,9 +70,11 @@ def test_pregroup_draw():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('bell-state.png', draw=Circuit.draw, draw_as_nodes=[0])
+@draw_and_compare('bell-state.png', draw=Circuit.draw)
 def test_draw_bell_state():
-    return quantum.H @ quantum.Id(1) >> quantum.CX
+    gate = quantum.QuantumGate('H', 1, _dagger=None)
+    gate.draw_as_spider = True
+    return gate @ quantum.Id(1) >> quantum.CX
 
 
 def draw_equation(diagrams, **params):
@@ -113,11 +115,12 @@ def test_spiral_to_tikz():
 
 
 @tikz_and_compare("copy.tex", to_tikz=True,
-                  draw_as_nodes=True, draw_box_labels=False, color='black')
+                  draw_box_labels=False, color='black')
 def test_copy_to_tikz():
-    x, y, z = map(Ty, ("$x$", "$y$", "$z$"))
-    return Box('COPY', x, x @ x) @ Box('COPY', y, y @ y)\
-        >> Id(x) @ Box("SWAP", x @ y, y @ x) @ Id(y)
+    x, y = map(Ty, ("$x$", "$y$"))
+    copy_x, copy_y = Box('COPY', x, x @ x), Box('COPY', y, y @ y)
+    copy_x.draw_as_spider, copy_y.draw_as_spider = True, True
+    return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
 @tikz_and_compare("alice-loves-bob.tex", to_tikz=True, draw=grammar.draw,
