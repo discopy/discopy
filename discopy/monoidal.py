@@ -432,10 +432,7 @@ class Diagram(cat.Arrow):
             yield self.id(left) @ box @ self.id(right)
 
     def __str__(self):
-        result = ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
-        if len(result) > 74:
-            result = result.replace(' >>', '\\\n  >>')
-        return result
+        return ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
 
     def __getitem__(self, key):
         if isinstance(key, slice):

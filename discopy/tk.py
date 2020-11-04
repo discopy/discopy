@@ -10,7 +10,7 @@ from pytket.utils import probs_from_counts
 
 from discopy import messages
 from discopy.quantum import (
-    CircuitFunctor, Id, Bits, Bra, Ket, Swap, scalar as scalar_box,
+    CircuitFunctor, Id, Bits, Bra, Ket, Swap, Scalar,
     bit, qubit, Discard, Measure, GATES, X, Rx, Rz, CRz)
 
 
@@ -252,7 +252,7 @@ def from_tk(tk_circuit):
         Bra(bras[i]) if i in bras else Id(circuit.cod[i: i + 1])
         for i, _ in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ scalar_box(tk_circuit.scalar)
+        circuit = circuit @ Scalar(tk_circuit.scalar)
     return circuit
 
 

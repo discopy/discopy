@@ -220,3 +220,19 @@ def test_Sum():
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
+
+
+def test_subs():
+    from sympy.abc import phi
+    with raises(NotImplementedError):
+        Box('f', qubit, qubit, data=phi).subs(phi, 1)
+    assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
+
+def test_grad():
+    from sympy.abc import phi
+    with raises(NotImplementedError):
+        Box('f', qubit, qubit, data=phi).grad(phi)
+    assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
+        == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
+    assert scalar(phi).grad(phi) == scalar(1)
+    assert Rz(0).grad(phi) == X.grad(phi) == Sum(dom=qubit, cod=qubit)
