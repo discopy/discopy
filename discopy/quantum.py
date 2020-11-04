@@ -252,7 +252,7 @@ class Circuit(Diagram):
         >>> Measure().eval()
         CQMap(dom=Q(Dim(2)), cod=C(Dim(2)), array=[1, 0, 0, 0, 0, 0, 0, 1])
         >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
-        >>> from discopy.cqmap import CQMap
+        >>> from discopy.cqmap import CQ, CQMap
         >>> circuit.eval() == CQMap(dom=CQ(), cod=CQ(), array=[1.0])
 
         We can execute any circuit on a `pytket.Backend`:
