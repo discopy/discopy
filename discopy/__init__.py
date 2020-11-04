@@ -38,4 +38,4 @@ from discopy.quantum import (
 from discopy.cqmap import C, Q, CQMap, CQMapFunctor
 from discopy.pregroup import Word
 
-__version__ = '0.3.2'
+__version__ = '0.3.3'
