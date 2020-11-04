@@ -302,7 +302,7 @@ class Diagram(cat.Arrow):
         Whenever the boxes do not compose.
     """
     @staticmethod
-    def upgrade(diagram):
+    def upgrade(diagram):  #pylint: disable=arguments-differ
         return diagram
 
     def __init__(self, dom, cod, boxes, offsets, layers=None):

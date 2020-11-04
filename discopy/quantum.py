@@ -265,6 +265,7 @@ class Circuit(Diagram):
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         if backend is None and (mixed or self.is_mixed):
+            # pylint: disable=import-outside-toplevel
             from discopy.cqmap import CQMapFunctor
             return CQMapFunctor()(self)
         if backend is None:
@@ -792,9 +793,11 @@ class Rotation(Parametrized):
         return self.data
 
     def dagger(self):
+        # pylint: disable=invalid-unary-operand-type
         return type(self)(-self.phase)
 
     def grad(self, var):
+        # pylint: disable=import-outside-toplevel
         from sympy import diff
         gradient = diff(self.phase, var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
@@ -853,6 +856,7 @@ class Scalar(Parametrized):
         return [self.data]
 
     def grad(self, var):
+        # pylint: disable=import-outside-toplevel
         from sympy import diff
         return Scalar(diff(self.array[0], var))
 
