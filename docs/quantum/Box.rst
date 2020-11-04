@@ -24,3 +24,9 @@ quantum.Box
 
 .. autoclass:: discopy.quantum.Ket
     :show-inheritance:
+
+.. autoclass:: discopy.quantum.Scalar
+    :show-inheritance:
+
+.. autoclass:: discopy.quantum.Sqrt
+    :show-inheritance:
