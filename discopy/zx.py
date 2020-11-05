@@ -70,13 +70,15 @@ class Diagram(rigid.Diagram):
     def to_pyzx(self):
         from pyzx import Graph, VertexType
         graph, scan = Graph(), []
-        for _ in self.dom:
+        for i, _ in enumerate(self.dom):
             scan.append(graph.add_vertex(VertexType.BOUNDARY))
-        for box, offset in zip(self.boxes, self.offsets):
+            graph.set_position(scan[-1], i, 0)
+        for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, Spider):
                 node = graph.add_vertex(
                     VertexType.Z if isinstance(box, Z) else VertexType.X,
                     phase=box.phase if box.phase else None)
+                graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
                     graph.add_edge((scan[offset + i], node))
                 scan = scan[:offset] + len(box.cod) * [node]\
@@ -84,6 +86,10 @@ class Diagram(rigid.Diagram):
             if isinstance(box, Swap):
                 scan = scan[:offset] + [scan[offset + 1], scan[offset]]\
                     + scan[offset + 2:]
+        for i, _ in enumerate(self.cod):
+            node = graph.add_vertex(VertexType.BOUNDARY)
+            graph.add_edge((scan[i], node))
+            graph.set_position(node, i, len(self) + 1)
         return graph
 
 
