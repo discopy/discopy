@@ -50,7 +50,25 @@ class Diagram(rigid.Diagram):
     def draw(self, **params):
         return super().draw(**dict(params, draw_types=False))
 
-    grad = Circuit.grad
+    def grad(self, var):
+        """
+        Gradient with respect to `var`.
+
+        Parameters
+        ----------
+        var : sympy.Symbol
+            Differentiated variable.
+
+        Returns
+        -------
+        diagrams : Sum
+
+        Examples
+        --------
+        >>> from sympy.abc import phi
+        >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - 1)
+        """
+        return Circuit.grad(self, var)
 
 
 class Id(rigid.Id, Diagram):
@@ -98,7 +116,7 @@ SWAP = Swap(PRO(1), PRO(1))
 
 
 class Spider(Box):
-    """ Spider boxes. """
+    """ Abstract spider box. """
     def __init__(self, n_legs_in, n_legs_out, phase=0, name=None):
         dom, cod = PRO(n_legs_in), PRO(n_legs_out)
         Box.__init__(self, name, dom, cod, data=phase)

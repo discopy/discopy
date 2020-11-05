@@ -15,7 +15,9 @@ discopy
    rigid/index.rst
    cartesian/index.rst
    tensor/index.rst
+   cqmap/index.rst
    quantum/index.rst
+   zx/index.rst
    grammar/index.rst
    biclosed/index.rst
 
