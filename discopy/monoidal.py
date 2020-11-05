@@ -941,6 +941,9 @@ class Functor(cat.Functor):
         if isinstance(diagram, Ty):
             return self.ob_factory().tensor(*[
                 self.ob[type(diagram)(x)] for x in diagram])
+        if isinstance(diagram, Swap):
+            return self.ar_factory.swap(
+                self(diagram.left), self(diagram.right))
         if isinstance(diagram, Box):
             return super().__call__(diagram)
         if isinstance(diagram, Diagram):

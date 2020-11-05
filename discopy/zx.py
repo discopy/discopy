@@ -2,13 +2,16 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import monoidal, rigid
+from discopy import messages, monoidal, rigid
 from discopy.rigid import PRO, Diagram, Box
 
 
 class Diagram(rigid.Diagram):
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         super().__init__(dom, cod, boxes, offsets, layers)
+
+    def __repr__(self):
+        return super().__repr__().replace('Diagram', 'zx.Diagram')
 
     @staticmethod
     def upgrade(diagram):
@@ -43,7 +46,7 @@ class Diagram(rigid.Diagram):
         return rigid.caps(
             left, right, ar_factory=Diagram, cap_factory=lambda *_: Z(0, 2))
 
-    def draw(self, **params):
+    def draw(self, **params):  # pragma: no cover
         return super().draw(**dict(params, draw_types=False))
 
 
@@ -63,8 +66,8 @@ class Swap(rigid.Swap, Diagram):
     def __init__(self, left, right):
         if not isinstance(left, PRO):
             raise TypeError(messages.type_err(PRO, left))
-        if not isinstance(left, PRO):
-            raise TypeError(messages.type_err(PRO, left))
+        if not isinstance(right, PRO):
+            raise TypeError(messages.type_err(PRO, right))
         super().__init__(left, right)
 
     def __repr__(self):
@@ -75,6 +78,7 @@ class Swap(rigid.Swap, Diagram):
 
 class Sum(monoidal.Sum, Diagram):
     """ Sum of ZX diagrams. """
+    @staticmethod
     def upgrade(old):
         return Sum(old.terms, old.dom, old.cod)
 

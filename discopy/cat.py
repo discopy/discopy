@@ -552,7 +552,7 @@ class Sum(Box):
         if other == 0:
             return self
         other = other if isinstance(other, Sum) else Sum([other])
-        return self.upgrade(Sum(self.terms + other.terms, self.dom, self.cod))
+        return self.sum(self.terms + other.terms, self.dom, self.cod)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -564,7 +564,7 @@ class Sum(Box):
     def then(self, *others):
         if len(others) != 1:
             return super().then(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
+        other = others[0] if isinstance(others[0], Sum) else Sum(list(others))
         unit = Sum([], self.dom, other.cod)
         terms = [f.then(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))
