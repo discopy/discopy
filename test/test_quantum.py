@@ -195,14 +195,15 @@ def test_Sum():
 
 def test_subs():
     from sympy.abc import phi
-    with raises(NotImplementedError):
-        Box('f', qubit, qubit, data=phi).subs(phi, 1)
     assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
 
 def test_grad():
     from sympy.abc import phi
     with raises(NotImplementedError):
         Box('f', qubit, qubit, data=phi).grad(phi)
+    with raises(NotImplementedError):
+        CRz(phi).grad(phi)
+    assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
     assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)

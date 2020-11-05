@@ -3,10 +3,12 @@
 """ Implements ZX diagrams. """
 
 from discopy import messages, monoidal, rigid
-from discopy.rigid import PRO, Diagram, Box
+from discopy.rigid import PRO
+from discopy.quantum import Circuit, Rotation, format_number
 
 
 class Diagram(rigid.Diagram):
+    """ ZX Diagram. """
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         super().__init__(dom, cod, boxes, offsets, layers)
 
@@ -14,9 +16,8 @@ class Diagram(rigid.Diagram):
         return super().__repr__().replace('Diagram', 'zx.Diagram')
 
     @staticmethod
-    def upgrade(diagram):
-        return Diagram(diagram.dom, diagram.cod,
-                       diagram.boxes, diagram.offsets, layers=diagram.layers)
+    def upgrade(old):
+        return Diagram(old.dom, old.cod, old.boxes, old.offsets, old.layers)
 
     @staticmethod
     def id(dom):
@@ -49,6 +50,8 @@ class Diagram(rigid.Diagram):
     def draw(self, **params):
         return super().draw(**dict(params, draw_types=False))
 
+    grad = Circuit.grad
+
 
 class Id(rigid.Id, Diagram):
     """ Identity ZX diagram. """
@@ -61,21 +64,6 @@ class Id(rigid.Id, Diagram):
     __str__ = __repr__
 
 
-class Swap(rigid.Swap, Diagram):
-    """ Swap in a ZX diagram. """
-    def __init__(self, left, right):
-        if not isinstance(left, PRO):
-            raise TypeError(messages.type_err(PRO, left))
-        if not isinstance(right, PRO):
-            raise TypeError(messages.type_err(PRO, right))
-        super().__init__(left, right)
-
-    def __repr__(self):
-        return "SWAP"
-
-    __str__ = __repr__
-
-
 class Sum(monoidal.Sum, Diagram):
     """ Sum of ZX diagrams. """
     @staticmethod
@@ -83,39 +71,108 @@ class Sum(monoidal.Sum, Diagram):
         return Sum(old.terms, old.dom, old.cod)
 
 
-class Spider(Box, Diagram):
+class Box(rigid.Box, Diagram):
+    """ Box in a ZX diagram. """
+    def __init__(self, name, dom, cod, data=None):
+        if not isinstance(dom, PRO):
+            raise TypeError(messages.type_err(PRO, dom))
+        if not isinstance(cod, PRO):
+            raise TypeError(messages.type_err(PRO, cod))
+        rigid.Box.__init__(self, name, dom, cod, data)
+        Diagram.__init__(self, dom, cod, [self], [0])
+
+
+class Swap(rigid.Swap, Box):
+    """ Swap in a ZX diagram. """
+    def __init__(self, left, right):
+        rigid.Swap.__init__(self, left, right)
+        Box.__init__(self, self.name, self.dom, self.cod)
+
+    def __repr__(self):
+        return "SWAP"
+
+    __str__ = __repr__
+
+
+SWAP = Swap(PRO(1), PRO(1))
+
+
+class Spider(Box):
     """ Spider boxes. """
-    def __init__(self, name, n_legs_in, n_legs_out, phase=0):
+    def __init__(self, n_legs_in, n_legs_out, phase=0, name=None):
         dom, cod = PRO(n_legs_in), PRO(n_legs_out)
-        name = "{}({}, {}{})".format(
-            name, n_legs_in, n_legs_out, ", {}".format(phase) if phase else "")
         Box.__init__(self, name, dom, cod, data=phase)
         Diagram.__init__(self, dom, cod, [self], [0])
         self.draw_as_spider, self.drawing_name = True, phase or ""
+
+    @property
+    def name(self):
+        return "{}({}, {}{})".format(
+            self._name, len(self.dom), len(self.cod),
+            ", {}".format(format_number(self.phase)) if self.phase else "")
+
+    def __repr__(self):
+        return self.name
 
     @property
     def phase(self):
         """ Phase of a spider. """
         return self.data
 
-    def __repr__(self):
-        return self._name
+    def dagger(self):
+        return type(self)(len(self.cod), len(self.dom), -self.phase)
 
-    __str__ = __repr__
+    def subs(self, var, expr):
+        return type(self)(len(self.dom), len(self.cod),
+                          phase=super().subs(var, expr).data)
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        return Scalar(.5j * gradient)\
+            @ type(self)(len(self.dom), len(self.cod), self.phase - 1)
 
 
 class Z(Spider):
     """ Z spider. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__("Z", n_legs_in, n_legs_out, phase)
+        super().__init__(n_legs_in, n_legs_out, phase, name='Z')
         self.color = "green"
 
 
 class X(Spider):
     """ X spider. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__("X", n_legs_in, n_legs_out, phase)
+        super().__init__(n_legs_in, n_legs_out, phase, name='X')
         self.color = "red"
 
 
-SWAP = Swap(PRO(1), PRO(1))
+class Scalar(Box):
+    """ Scalar in a ZX diagram. """
+    def __init__(self, data):
+        super().__init__("zx.scalar", PRO(0), PRO(0), data)
+
+    @property
+    def name(self):
+        return "zx.scalar({})".format(format_number(self.data))
+
+    def __repr__(self):
+        return self.name
+
+    def subs(self, var, expr):
+        return Scalar(super().subs(var, expr).data)
+
+    def dagger(self):
+        return Scalar(self.data.conjugate())
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        return Scalar(self.data.diff(var))
+
+
+def scalar(data):
+    """ Returns a scalar. """
+    return Scalar(data)

@@ -33,6 +33,13 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
+def format_number(data):
+    try:
+        return '{:.3g}'.format(data)
+    except TypeError:
+        return data
+
+
 class BitsAndQubits(Ty):
     """
     Implements the objects of :class:`Circuit`, the free monoid on two objects
@@ -82,9 +89,7 @@ class BitsAndQubits(Ty):
 
 
 class Circuit(Diagram):
-    """
-    Implements classical-quantum circuits.
-    """
+    """ Classical-quantum circuits. """
     @staticmethod
     def upgrade(old):
         dom, cod = BitsAndQubits(*old.dom), BitsAndQubits(*old.cod)
@@ -127,44 +132,6 @@ class Circuit(Diagram):
     def caps(left, right):
         return Circuit.cups(left, right).dagger()
 
-    @property
-    def free_symbols(self):
-        """
-        Free symbols in a circuit.
-
-        >>> from sympy.abc import phi, psi
-        >>> circuit = Rz(phi / 2) @ Rz(psi + 1) >> CX
-        >>> assert circuit.free_symbols == {phi, psi}
-        """
-        return {x for box in self.boxes for x in box.free_symbols}
-
-    def subs(self, var, expr):
-        """
-        Substitute `var` for `expr`.
-
-        Parameters
-        ----------
-        var : sympy.Symbol
-            Subtituted variable.
-        expr : sympy.Expr
-            Substituting expression.
-
-        Returns
-        -------
-        circuit : Circuit
-
-        Examples
-        --------
-        >>> from sympy.abc import phi, psi
-        >>> circuit = Rz(phi) @ H >> CX
-        >>> assert circuit.subs(phi, phi + 1) == Rz(phi + 1) @ H >> CX
-        >>> assert circuit.subs(phi, 1) == Rz(1) @ H >> CX
-        >>> assert circuit.subs(psi, 1) == circuit
-        """
-        return CircuitFunctor(
-            ob=lambda x: x,
-            ar=lambda f: f.subs(var, expr))(self)
-
     def grad(self, var):
         """
         Gradient with respect to `var`.
@@ -187,10 +154,10 @@ class Circuit(Diagram):
         ...     + (scalar(0+0.25j) @ Rz(phi/2 - 1) @ Rz(phi + 1) >> CX)
         """
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            return self.sum([], self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-        return (Id(left) @ box.grad(var) @ Id(right) >> tail)\
-            + (Id(left) @ box @ Id(right) >> tail.grad(var))
+        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
+            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
 
     @property
     def is_mixed(self):
@@ -492,15 +459,6 @@ class Box(rigid.Box, Circuit):
                     "dom and cod should be bits only or qubits only.")
         self._mixed = is_mixed
 
-    @property
-    def free_symbols(self):
-        return getattr(self.data, "free_symbols", {})
-
-    def subs(self, var, expr):
-        if var not in self.free_symbols:
-            return self
-        raise NotImplementedError
-
     def grad(self, var):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
@@ -527,9 +485,6 @@ class Sum(monoidal.Sum, Box):
     def eval(self, backend=None, mixed=False, **params):
         return sum(circuit.eval(backend, mixed, **params)
                    for circuit in self.terms)
-
-    def subs(self, var, expr):
-        return sum(circuit.subs(var, expr) for circuit in self.terms)
 
     def grad(self, var):
         return sum(circuit.grad(var) for circuit in self.terms)
@@ -771,18 +726,10 @@ class Parametrized(QuantumGate):
 
     @property
     def name(self):
-        try:
-            data = '{:.3g}'.format(self.data)
-        except TypeError:
-            data = self.data
-        return '{}({})'.format(self._name, data)
+        return '{}({})'.format(self._name, format_number(self.data))
 
     def subs(self, var, expr):
-        if var not in self.free_symbols:
-            return self
-        data = self.data.subs(var, expr)
-        data = type(expr)(data) if isinstance(expr, Number) else data
-        return type(self)(data)
+        return type(self)(super().subs(var, expr).data)
 
 
 class Rotation(Parametrized):
@@ -797,12 +744,12 @@ class Rotation(Parametrized):
         return type(self)(-self.phase)
 
     def grad(self, var):
-        # pylint: disable=import-outside-toplevel
-        from sympy import diff
-        gradient = diff(self.phase, var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-        if var not in self.free_symbols or not gradient:
+        if len(self.dom) != 1:
+            raise NotImplementedError
+        if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
         return scalar(.5j * gradient) @ type(self)(self.phase - 1)
 
 
@@ -847,8 +794,7 @@ class CRz(Rotation):
 class Scalar(Parametrized):
     """ Scalar, i.e. quantum gate with empty domain and codomain. """
     def __init__(self, data, name=None):
-        _dagger = None if isinstance(data, Number)\
-            and np.conjugate(data) == data else False
+        _dagger = None if data.conjugate() == data else False
         super().__init__(data, name="scalar", n_qubits=0, _dagger=_dagger)
 
     @property
@@ -856,9 +802,9 @@ class Scalar(Parametrized):
         return [self.data]
 
     def grad(self, var):
-        # pylint: disable=import-outside-toplevel
-        from sympy import diff
-        return Scalar(diff(self.array[0], var))
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        return Scalar(self.array[0].diff(var))
 
 
 class Sqrt(Scalar):

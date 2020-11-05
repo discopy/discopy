@@ -412,7 +412,7 @@ class Diagram(cat.Arrow):
     def __eq__(self, other):
         if not isinstance(other, Diagram):
             return False
-        return all(self.__getattribute__(attr) == other.__getattribute__(attr)
+        return all(getattr(self, attr) == getattr(other, attr)
                    for attr in ['dom', 'cod', 'boxes', 'offsets'])
 
     def __repr__(self):
@@ -894,7 +894,7 @@ class Swap(Box):
         return "Swap({}, {})".format(repr(self.left), repr(self.right))
 
     def dagger(self):
-        return Swap(self.right, self.left)
+        return type(self)(self.right, self.left)
 
 
 class Sum(cat.Sum, Box):
