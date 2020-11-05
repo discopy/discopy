@@ -46,7 +46,7 @@ class Diagram(rigid.Diagram):
         return rigid.caps(
             left, right, ar_factory=Diagram, cap_factory=lambda *_: Z(0, 2))
 
-    def draw(self, **params):  # pragma: no cover
+    def draw(self, **params):
         return super().draw(**dict(params, draw_types=False))
 
 
