@@ -24,10 +24,10 @@ class Ty(monoidal.Ty):
     ((y << x) >> y) @ x
     """
     @staticmethod
-    def upgrade(typ):
-        if len(typ) == 1 and isinstance(typ[0], (Over, Under)):
-            return typ[0]
-        return Ty(*typ.objects)
+    def upgrade(old):
+        if len(old) == 1 and isinstance(old[0], (Over, Under)):
+            return old[0]
+        return Ty(*old.objects)
 
     def __init__(self, *objects, left=None, right=None):
         self.left, self.right = left, right
@@ -83,10 +83,8 @@ class Under(Ty):
 class Diagram(monoidal.Diagram):
     """ Diagrams in a biclosed monoidal category. """
     @staticmethod
-    def upgrade(diagram):
-        return Diagram(
-            diagram.dom, diagram.cod, diagram.boxes,
-            diagram.offsets, diagram.layers)
+    def upgrade(old):
+        return Diagram(old.dom, old.cod, old.boxes, old.offsets, old.layers)
 
     @staticmethod
     def id(dom):

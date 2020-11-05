@@ -146,9 +146,9 @@ class Ty(Ob):
         return self.objects.count(obj)
 
     @staticmethod
-    def upgrade(typ):
+    def upgrade(old):
         """ Allows class inheritance for tensor and __getitem__ """
-        return typ
+        return old
 
     def __init__(self, *objects):
         self._objects = tuple(
@@ -203,11 +203,11 @@ class PRO(Ty):
     >>> assert PRO(1) == PRO(Ob(1))
     """
     @staticmethod
-    def upgrade(typ):
-        for obj in typ:
+    def upgrade(old):
+        for obj in old:
             if obj.name != 1:
                 raise TypeError(messages.type_err(int, obj.name))
-        return PRO(len(typ))
+        return PRO(len(old))
 
     def __init__(self, n=0):
         if isinstance(n, PRO):
@@ -302,8 +302,8 @@ class Diagram(cat.Arrow):
         Whenever the boxes do not compose.
     """
     @staticmethod
-    def upgrade(diagram):  #pylint: disable=arguments-differ
-        return diagram
+    def upgrade(old):
+        return old
 
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         if not isinstance(dom, Ty):
@@ -393,7 +393,7 @@ class Diagram(cat.Arrow):
             return self.tensor(others[0]).tensor(*others[1:])
         other, = others
         if isinstance(other, Sum):
-            return Sum(self).tensor(other)
+            return self.sum([self]).tensor(other)
         if not isinstance(other, Diagram):
             raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -444,8 +444,9 @@ class Diagram(cat.Arrow):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
-    def sum(self, *others):
-        return Sum(*((self, ) + others))
+    @staticmethod
+    def sum(terms, dom=None, cod=None):
+        return Sum(terms, dom, cod)
 
     @staticmethod
     def swap(left, right):
@@ -899,17 +900,18 @@ class Swap(Box):
 class Sum(cat.Sum, Box):
     """ Sum of monoidal diagrams. """
     @staticmethod
-    def upgrade(arrow):
-        if not isinstance(arrow, cat.Sum):
-            raise TypeError(messages.type_err(cat.Sum, arrow))
-        return Sum(*arrow.terms, dom=arrow.dom, cod=arrow.cod)
+    def upgrade(old):
+        if not isinstance(old, cat.Sum):
+            raise TypeError(messages.type_err(cat.Sum, old))
+        return Sum(old.terms, old.dom, old.cod)
 
     def tensor(self, *others):
         if len(others) != 1:
             return super().tensor(*others)
         other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
+        unit = Sum([], self.dom @ other.dom, self.cod @ other.cod)
         terms = [f.tensor(g) for f in self.terms for g in other.terms]
-        return Sum(*terms, dom=self.dom @ other.dom, cod=self.cod @ other.cod)
+        return self.upgrade(sum(terms, unit))
 
 
 class Functor(cat.Functor):

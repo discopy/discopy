@@ -72,8 +72,8 @@ class Ty(monoidal.Ty, Ob):
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
     @staticmethod
-    def upgrade(typ):
-        return Ty(*typ.objects)
+    def upgrade(old):
+        return Ty(*old.objects)
 
     @property
     def l(self):
@@ -137,12 +137,12 @@ class Diagram(monoidal.Diagram):
     Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     """
     @staticmethod
-    def upgrade(diagram):
+    def upgrade(old):
         """
         Takes a monoidal.Diagram and returns a rigid.Diagram.
         """
-        return Diagram(Ty(*diagram.dom), Ty(*diagram.cod),
-                       diagram.boxes, diagram.offsets, layers=diagram.layers)
+        dom, cod = Ty(*old.dom), Ty(*old.cod)
+        return Diagram(dom, cod, old.boxes, old.offsets, old.layers)
 
     @staticmethod
     def id(dom):

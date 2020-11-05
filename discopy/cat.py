@@ -120,9 +120,9 @@ class Arrow:
 
     """
     @staticmethod
-    def upgrade(arrow):
+    def upgrade(old):
         """ Allows class inheritance for then and __getitem__. """
-        return arrow
+        return old
 
     def __init__(self, dom, cod, boxes, _scan=True):
         """
@@ -234,16 +234,15 @@ class Arrow:
         return hash(repr(self))
 
     def __add__(self, other):
-        return self.sum() + other
+        return self.sum([self]) + other
 
     def __radd__(self, other):
-        return self.sum().__radd__(other)
+        return self.__add__(other)
 
-    def sum(self, *others):
-        """
-        Returns the formal sum of `self` with arrows `others`.
-        """
-        return Sum(*((self, ) + others))
+    @staticmethod
+    def sum(terms, dom=None, cod=None):
+        """ Formal sum of `terms`. """
+        return Sum(terms, dom, cod)
 
     def then(self, *others):
         """
@@ -287,7 +286,7 @@ class Arrow:
             return self.then(others[0]).then(*others[1:])
         other, = others
         if isinstance(other, Sum):
-            return self.sum().then(other)
+            return self.sum([self]).then(other)
         if not isinstance(other, Arrow):
             raise TypeError(messages.type_err(Arrow, other))
         if self.cod != other.dom:
@@ -484,7 +483,7 @@ class Sum(Box):
 
     Parameters
     ----------
-    terms : :class:`Arrow`
+    terms : list of :class:`Arrow`
         Terms of the formal sum.
     dom : :class:`Ob`, optional
         Domain of the formal sum, optional if :code:`diagrams` is non-empty.
@@ -496,23 +495,25 @@ class Sum(Box):
     >>> x, y = Ob('x'), Ob('y')
     >>> f, g = Box('f', x, y), Box('g', x, y)
     >>> f + g
-    Sum(Box('f', Ob('x'), Ob('y')), Box('g', Ob('x'), Ob('y')))
-    >>> unit = Sum(dom=x, cod=y)
-    >>> assert (f + unit) == Sum(f) == (unit + f)
+    Sum([Box('f', Ob('x'), Ob('y')), Box('g', Ob('x'), Ob('y'))])
+    >>> unit = Sum([], x, y)
+    >>> assert (f + unit) == Sum([f]) == (unit + f)
     >>> print((f + g) >> (f + g)[::-1])
     (f >> f[::-1]) + (f >> g[::-1]) + (g >> f[::-1]) + (g >> g[::-1])
 
     Note
     ----
-    The sum is non-commutative, i.e. :code:`Sum(f, g) != Sum(g, f)`.
+    The sum is non-commutative, i.e. :code:`Sum([f, g]) != Sum([g, f])`.
 
-    A diagram is different from the sum of itself, i.e. :code:`Sum(f) != f`
+    A diagram is different from the sum of itself, i.e. :code:`Sum([f]) != f`
     """
     @staticmethod
-    def upgrade(arrow):
-        return arrow
+    def upgrade(old):
+        return old
 
-    def __init__(self, *terms, dom=None, cod=None):
+    def __init__(self, terms, dom=None, cod=None):
+        if not isinstance(terms, list):
+            raise TypeError(messages.type_err(list, terms))
         self.terms = terms
         if not terms:
             if dom is None or cod is None:
@@ -522,12 +523,12 @@ class Sum(Box):
             cod = terms[0].cod if cod is None else cod
             if (dom, cod) != (terms[0].dom, terms[0].cod):
                 raise AxiomError(
-                    messages.cannot_add(Sum(dom=dom, cod=cod), terms[0]))
+                    messages.cannot_add(Sum([], dom, cod), terms[0]))
         for arrow in terms:
             if (arrow.dom, arrow.cod) != (dom, cod):
                 raise AxiomError(messages.cannot_add(terms[0], arrow))
-        name = "Sum({})".format(", ".join(map(repr, terms)))\
-            if terms else "Sum(dom={}, cod={})".format(dom, cod)
+        name = "Sum({})".format(repr(terms)) if terms\
+            else "Sum([], dom={}, cod={})".format(repr(dom), repr(cod))
         super().__init__(name, dom, cod)
 
     def __eq__(self, other):
@@ -544,14 +545,14 @@ class Sum(Box):
 
     def __str__(self):
         if not self.terms:
-            return self.name
+            return "Sum([], {}, {})".format(self.dom, self.cod)
         return " + ".join("({})".format(arrow) for arrow in self.terms)
 
     def __add__(self, other):
         if other == 0:
             return self
-        other = other if isinstance(other, Sum) else Sum(other)
-        return self.upgrade(Sum(*(self.terms + other.terms)))
+        other = other if isinstance(other, Sum) else Sum([other])
+        return self.upgrade(Sum(self.terms + other.terms, self.dom, self.cod))
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -562,14 +563,15 @@ class Sum(Box):
 
     def then(self, *others):
         if len(others) != 1:
-            return Arrow.then(self, *others)
+            return super().then(*others)
         other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
+        unit = Sum([], self.dom, other.cod)
         terms = [f.then(g) for f in self.terms for g in other.terms]
-        return self.upgrade(Sum(*terms, dom=self.dom, cod=other.cod))
+        return self.upgrade(sum(terms, unit))
 
     def dagger(self):
-        terms = [arrow.dagger() for arrow in self.terms]
-        return self.upgrade(Sum(*terms, dom=self.cod, cod=self.dom))
+        unit = Sum([], self.cod, self.dom)
+        return self.upgrade(sum([f.dagger() for f in self.terms], unit))
 
 
 class Functor:
@@ -651,8 +653,8 @@ class Functor:
 
     def __call__(self, arrow):
         if isinstance(arrow, Sum):
-            unit = Sum(dom=self(arrow.dom), cod=self(arrow.cod))
-            return sum(map(self, arrow), unit)
+            return self.ar_factory.sum(
+                list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):

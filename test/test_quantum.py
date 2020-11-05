@@ -206,4 +206,4 @@ def test_grad():
     assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)
-    assert Rz(0).grad(phi) == X.grad(phi) == Sum(dom=qubit, cod=qubit)
+    assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)

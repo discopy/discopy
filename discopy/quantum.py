@@ -50,10 +50,10 @@ class BitsAndQubits(Ty):
     bit ** 2 @ qubit ** 3
     """
     @staticmethod
-    def upgrade(typ):
-        if not set(typ.objects) <= {Ob('bit'), Ob('qubit')}:
-            raise TypeError(messages.type_err(BitsAndQubits, typ))
-        return BitsAndQubits(*typ.objects)
+    def upgrade(old):
+        if not set(old.objects) <= {Ob('bit'), Ob('qubit')}:
+            raise TypeError(messages.type_err(BitsAndQubits, old))
+        return BitsAndQubits(*old.objects)
 
     def __repr__(self):
         if not self:
@@ -86,10 +86,9 @@ class Circuit(Diagram):
     Implements classical-quantum circuits.
     """
     @staticmethod
-    def upgrade(diagram):
-        dom, cod = BitsAndQubits(*diagram.dom), BitsAndQubits(*diagram.cod)
-        return Circuit(
-            dom, cod, diagram.boxes, diagram.offsets, diagram.layers)
+    def upgrade(old):
+        dom, cod = BitsAndQubits(*old.dom), BitsAndQubits(*old.cod)
+        return Circuit(dom, cod, old.boxes, old.offsets, old.layers)
 
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
@@ -102,8 +101,9 @@ class Circuit(Diagram):
     def id(dom):
         return Id(dom)
 
-    def sum(self, *others):
-        return Sum(*((self, ) + others))
+    @staticmethod
+    def sum(terms, dom=None, cod=None):
+        return Sum(terms, dom, cod)
 
     @staticmethod
     def swap(left, right):
@@ -187,7 +187,7 @@ class Circuit(Diagram):
         ...     + (scalar(0+0.25j) @ Rz(phi/2 - 1) @ Rz(phi + 1) >> CX)
         """
         if var not in self.free_symbols:
-            return Sum(dom=self.dom, cod=self.cod)
+            return Sum([], self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
         return (Id(left) @ box.grad(var) @ Id(right) >> tail)\
             + (Id(left) @ box @ Id(right) >> tail.grad(var))
@@ -503,7 +503,7 @@ class Box(rigid.Box, Circuit):
 
     def grad(self, var):
         if var not in self.free_symbols:
-            return Sum(dom=self.dom, cod=self.cod)
+            return Sum([], self.dom, self.cod)
         raise NotImplementedError
 
     @property
@@ -517,8 +517,8 @@ class Box(rigid.Box, Circuit):
 class Sum(monoidal.Sum, Box):
     """ Sums of circuits. """
     @staticmethod
-    def upgrade(arrow):
-        return Sum(*arrow.terms, dom=arrow.dom, cod=arrow.cod)
+    def upgrade(old):
+        return Sum(old.terms, old.dom, old.cod)
 
     @property
     def is_mixed(self):
@@ -802,7 +802,7 @@ class Rotation(Parametrized):
         gradient = diff(self.phase, var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         if var not in self.free_symbols or not gradient:
-            return Sum(dom=self.dom, cod=self.cod)
+            return Sum([], self.dom, self.cod)
         return scalar(.5j * gradient) @ type(self)(self.phase - 1)
 
 
