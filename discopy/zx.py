@@ -4,14 +4,11 @@
 
 from discopy import messages, monoidal, rigid
 from discopy.rigid import PRO
-from discopy.quantum import Circuit, Rotation, format_number
+from discopy.quantum import Circuit, format_number
 
 
 class Diagram(rigid.Diagram):
     """ ZX Diagram. """
-    def __init__(self, dom, cod, boxes, offsets, layers=None):
-        super().__init__(dom, cod, boxes, offsets, layers)
-
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'zx.Diagram')
 
@@ -70,6 +67,25 @@ class Diagram(rigid.Diagram):
         """
         return Circuit.grad(self, var)
 
+    def to_pyzx(self):
+        from pyzx import Graph, VertexType
+        graph, scan = Graph(), []
+        for _ in self.dom:
+            scan.append(graph.add_vertex(VertexType.BOUNDARY))
+        for box, offset in zip(self.boxes, self.offsets):
+            if isinstance(box, Spider):
+                node = graph.add_vertex(
+                    VertexType.Z if isinstance(box, Z) else VertexType.X,
+                    phase=box.phase if box.phase else None)
+                for i, _ in enumerate(box.dom):
+                    graph.add_edge((scan[offset + i], node))
+                scan = scan[:offset] + len(box.cod) * [node]\
+                    + scan[offset + len(box.dom):]
+            if isinstance(box, Swap):
+                scan = scan[:offset] + [scan[offset + 1], scan[offset]]\
+                    + scan[offset + 2:]
+        return graph
+
 
 class Id(rigid.Id, Diagram):
     """ Identity ZX diagram. """
@@ -119,8 +135,7 @@ class Spider(Box):
     """ Abstract spider box. """
     def __init__(self, n_legs_in, n_legs_out, phase=0, name=None):
         dom, cod = PRO(n_legs_in), PRO(n_legs_out)
-        Box.__init__(self, name, dom, cod, data=phase)
-        Diagram.__init__(self, dom, cod, [self], [0])
+        super().__init__(name, dom, cod, data=phase)
         self.draw_as_spider, self.drawing_name = True, phase or ""
 
     @property
