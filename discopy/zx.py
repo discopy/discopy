@@ -127,6 +127,7 @@ class Diagram(rigid.Diagram):
     def from_pyzx(graph):
         """
         Takes a :class:`pyzx.Graph` returns a :class:`zx.Diagram`.
+
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
@@ -135,7 +136,7 @@ class Diagram(rigid.Diagram):
         def node2box(node, n_legs_in, n_legs_out):
             from pyzx import VertexType
             if graph.type(node) not in {VertexType.Z, VertexType.X}:
-                raise NotImplementedError
+                raise NotImplementedError  # pragma: no cover
             return (Z if graph.type(node) == VertexType.Z else X)(
                 n_legs_in, n_legs_out, graph.phase(node) * .5)
 
@@ -263,16 +264,19 @@ class Z(Spider):
         super().__init__(n_legs_in, n_legs_out, phase, name='Z')
         self.color = "green"
 
+
 class Y(Spider):
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, phase, name='Y')
         self.color = "blue"
+
 
 class X(Spider):
     """ X spider. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, phase, name='Y')
         self.color = "red"
+
 
 class Had(Box, Diagram):
     def __init__(self):
@@ -323,10 +327,6 @@ def scalar(data):
     return Scalar(data)
 
 
-SWAP = Swap(PRO(1), PRO(1))
-BIALGEBRA = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
-
-
 def box2zx(box):
     from functools import reduce
     if isinstance(box, Bra):
@@ -360,11 +360,10 @@ def box2zx(box):
     elif isinstance(box, CU1):
         p = box.phase
         return Z(1, 2, p) @ Z(1, 2, p) >> Id(1) @ (X(2, 1) >> Z(1, 0, -p)) @ Id(1)
-    
+
 
     return box
 
 circuit2zx = Functor(
     ob=lambda x: x, ar=box2zx,
     ob_factory=rigid.Ty, ar_factory=rigid.Diagram)
-

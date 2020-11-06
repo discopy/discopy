@@ -63,3 +63,8 @@ def test_grad():
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
         == (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi))\
         + (scalar(0.25j) @ Z(1, 1, phi / 2 - 1) >> Z(1, 1, phi + 1))
+
+def test_to_pyzx():
+    bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
+    diagram = X(0, 2) >> bialgebra >> X(2, 0)
+    assert Diagram.from_pyzx(diagram.to_pyzx()) == diagram
