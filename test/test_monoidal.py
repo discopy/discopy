@@ -319,15 +319,17 @@ def test_Functor_sum():
 def test_Sum():
     x = Ty('x')
     f = Box('f', x, x)
+    with raises(TypeError):
+        Sum(f)
     with raises(ValueError):
-        Sum()
+        Sum([])
     with raises(AxiomError):
-        Sum(f, dom=Ty())
+        Sum([f], dom=Ty())
     with raises(AxiomError):
         f + Box('g', Ty(), x)
     with raises(TypeError):
         Sum.upgrade(f)
-    assert Sum(f) != f
-    assert {Sum(f): 42}[Sum(f)] == 42
+    assert Sum([f]) != f
+    assert {Sum([f]): 42}[Sum([f])] == 42
     assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
     assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])

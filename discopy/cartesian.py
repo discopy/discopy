@@ -175,12 +175,12 @@ class Diagram(rigid.Diagram):
         super().__init__(PRO(dom), PRO(cod), boxes, offsets, layers=layers)
 
     @staticmethod
-    def upgrade(diagram):
+    def upgrade(old):
         """
         Takes a rigid.Diagram and returns a cartesian.Diagram.
         """
-        return Diagram(len(diagram.dom), len(diagram.cod),
-                       diagram.boxes, diagram.offsets, layers=diagram.layers)
+        return Diagram(
+            len(old.dom), len(old.cod), old.boxes, old.offsets, old.layers)
 
     @staticmethod
     def id(dom):

@@ -43,8 +43,8 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     def add_box(scan, box, off, depth, x_pos):
         node = 'wire_box_{}'.format(depth)\
             if getattr(box, "draw_as_wire", False) else 'box_{}'.format(depth)
-        add_node(node,
-                 (x_pos, len(diagram) - depth - .5), box.name)
+        add_node(node, (x_pos, len(diagram) - depth - .5),
+                 getattr(box, "drawing_name", box.name))
         for i, _ in enumerate(box.dom):
             wire, position = 'wire_dom_{}_{}'.format(depth, i), (
                 pos[scan[off + i]][0], len(diagram) - depth - .25)
@@ -258,7 +258,7 @@ def draw(diagram, axis=None, data=None, **params):
             to_tikz=params.get('to_tikz', False),
             color=params.get('color', '#ffffff'))
         if params.get('draw_box_labels', True):
-            draw_text(axis, str(box.name), *positions[node],
+            draw_text(axis, labels[node], *positions[node],
                       to_tikz=params.get('to_tikz', False),
                       ha='center', va='center',
                       fontsize=params.get('fontsize', None))

@@ -77,6 +77,13 @@ def test_draw_bell_state():
     return gate @ quantum.Id(1) >> quantum.CX
 
 
+@draw_and_compare('bialgebra.png', draw=zx.Diagram.draw)
+def test_draw_bialgebra():
+    from discopy.zx import Z, X, Id, SWAP
+    bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
+    return bialgebra
+
+
 def draw_equation(diagrams, **params):
     return drawing.equation(*diagrams, **params)
 
