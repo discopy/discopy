@@ -2,8 +2,8 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, monoidal, rigid, Functor
-from discopy.rigid import Box, Diagram, PRO
+from discopy import messages, monoidal, rigid
+from discopy.rigid import Box, Diagram, Functor, PRO
 from discopy.quantum import Circuit, format_number
 
 from discopy.quantum import Bra, Ket, Rz, Rx, H, CX, CZ, CRz, CRx
