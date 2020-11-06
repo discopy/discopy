@@ -133,8 +133,9 @@ class Diagram(rigid.Diagram):
         >>> graph = bialgebra.to_pyzx()
         >>> assert Diagram.from_pyzx(graph) == bialgebra
         """
+        from pyzx import VertexType
+
         def node2box(node, n_legs_in, n_legs_out):
-            from pyzx import VertexType
             if graph.type(node) not in {VertexType.Z, VertexType.X}:
                 raise NotImplementedError  # pragma: no cover
             return (Z if graph.type(node) == VertexType.Z else X)(
@@ -159,6 +160,13 @@ class Diagram(rigid.Diagram):
                     diagram = diagram >> swaps
             return scan, diagram, i0
 
+        missing_boundary = any(
+            graph.type(node) == VertexType.BOUNDARY
+            and node not in graph.inputs + graph.outputs
+            for node in graph.vertices())
+        duplicate_boundary = set(graph.inputs).intersection(graph.outputs)
+        if missing_boundary or duplicate_boundary:
+            raise ValueError
         diagram, scan = Id(len(graph.inputs)), graph.inputs
         for node in [v for v in graph.vertices()
                  if v not in graph.inputs + graph.outputs]:

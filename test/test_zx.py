@@ -68,3 +68,10 @@ def test_to_pyzx():
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
     diagram = X(0, 2) >> bialgebra >> X(2, 0)
     assert Diagram.from_pyzx(diagram.to_pyzx()) == diagram
+    graph = bialgebra.to_pyzx()
+    graph.inputs = graph.outputs = []
+    with raises(ValueError):
+        Diagram.from_pyzx(graph)
+    graph.auto_detect_io()
+    with raises(ValueError):
+        Diagram.from_pyzx(graph)
