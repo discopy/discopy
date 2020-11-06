@@ -2,14 +2,11 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, monoidal, rigid
+from discopy import messages, monoidal, rigid, quantum
 from discopy.rigid import Box, Diagram, Functor, PRO
 from discopy.quantum import Circuit, format_number
 
-from discopy.quantum import Bra, Ket, Rz, Rx, H, CX, CZ, CRz, CRx
-from discopy.quantum import Z as PauliZ
-from discopy.quantum import X as PauliX
-from discopy.quantum import Y as PauliY
+from discopy.quantum import Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx
 
 
 class Diagram(rigid.Diagram):
@@ -128,10 +125,22 @@ class Diagram(rigid.Diagram):
         """
         Takes a :class:`pyzx.Graph` returns a :class:`zx.Diagram`.
 
+        Examples
+        --------
+
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert Diagram.from_pyzx(graph) == bialgebra
+
+        Note
+        ----
+
+        Raises :code:`ValueError` if either:
+        - a boundary node is not in :code:`graph.inputs + graph.outputs`,
+        - :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty,
+        - there is an input node after a non-input node,
+        - or there is an output node before a non-output node.
         """
         from pyzx import VertexType
 
@@ -164,8 +173,18 @@ class Diagram(rigid.Diagram):
             graph.type(node) == VertexType.BOUNDARY
             and node not in graph.inputs + graph.outputs
             for node in graph.vertices())
+        if missing_boundary:
+            raise ValueError
         duplicate_boundary = set(graph.inputs).intersection(graph.outputs)
-        if missing_boundary or duplicate_boundary:
+        if duplicate_boundary:
+            raise ValueError
+        wrong_ordering = any(
+            input > v for input in graph.inputs
+            for v in set(graph.vertices()) - set(graph.inputs))\
+            or any(
+            output < v for output in graph.outputs
+            for v in set(graph.vertices()) - set(graph.outputs))
+        if wrong_ordering:
             raise ValueError
         diagram, scan = Id(len(graph.inputs)), graph.inputs
         for node in [v for v in graph.vertices()
@@ -286,24 +305,16 @@ class X(Spider):
         self.color = "red"
 
 
-class Had(Box, Diagram):
+class Had(Box):
     def __init__(self):
-        name = "Had()"
-        dom, cod = PRO(1), PRO(1)
-        Box.__init__(self, name, dom, cod)
-        Diagram.__init__(self, dom, cod, [self], [0])
-        self.draw_as_spider = True
-        self.color = "yellow"
-
-    @property
-    def name(self):
-        return self.data or "H"
-
-    def __str__(self):
-        return self._name
+        super().__init__('zx.H', PRO(1), PRO(1))
+        self.draw_as_spider, self.color = True, "yellow"
 
     def __repr__(self):
-        return str(self)
+        return self.name
+
+
+H = Had()
 
 
 class Scalar(Box):
@@ -336,41 +347,27 @@ def scalar(data):
 
 
 def box2zx(box):
-    from functools import reduce
-    if isinstance(box, Bra):
-        bits = box.bitstring
-        return reduce(lambda a, b: a @ b, map(lambda p: X(1, 0, phase=p), bits))
-    elif isinstance(box, Ket):
-        bits = box.bitstring
-        return reduce(lambda a, b: a @ b, map(lambda p: X(0, 1, phase=p), bits))
-    elif isinstance(box, Rz):
-        return Z(1,1, box.phase)
-    elif isinstance(box, Rx):
-        return X(1,1, box.phase)
-    elif box == H:
-        return Had()
-    elif box == CX:
-        return Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)
-    elif box == CZ:
-        return Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1)
-    elif box == PauliZ:
-        return Z(1,1,1)
-    elif box == PauliY:
-        return Y(1,1,1)
-    elif box == PauliX:
-        return X(1,1,1)
-    elif isinstance(box, CRz):
-        p = box.phase
-        return Z(1, 2) @ Z(1, 2, p) >> Id(1) @ (X(2, 1) >> Z(1, 0, -p)) @ Id(1)
+    if isinstance(box, (Bra, Ket)):
+        dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
+        Id(0).tensor(*[X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
+    if isinstance(box, (Rz, Rx)):
+        return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
+    if isinstance(box, CRz):
+        return Z(1, 2) @ Z(1, 2, box.phase)\
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
     elif isinstance(box, CRx):
-        p = box.phase
-        return X(1, 2) @ X(1, 2, p) >> Id(1) @ (Z(2, 1) >> X(1, 0, -p)) @ Id(1)
+        return X(1, 2) @ X(1, 2, box.phase)\
+            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
     elif isinstance(box, CU1):
-        p = box.phase
-        return Z(1, 2, p) @ Z(1, 2, p) >> Id(1) @ (X(2, 1) >> Z(1, 0, -p)) @ Id(1)
-
-
-    return box
+        return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+    return {
+        quantum.H: H,
+        quantum.Z: Z(1, 1, .5),
+        quantum.X: X(1, 1, .5),
+        quantum.Y: Y(1, 1, .5),
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
+        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}[box]
 
 circuit2zx = Functor(
     ob=lambda x: x, ar=box2zx,

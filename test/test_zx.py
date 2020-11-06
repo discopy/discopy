@@ -70,8 +70,12 @@ def test_to_pyzx():
     assert Diagram.from_pyzx(diagram.to_pyzx()) == diagram
     graph = bialgebra.to_pyzx()
     graph.inputs = graph.outputs = []
-    with raises(ValueError):
+    with raises(ValueError):  # missing_boundary
         Diagram.from_pyzx(graph)
     graph.auto_detect_io()
-    with raises(ValueError):
+    with raises(ValueError):  # duplicate_boundary
+        Diagram.from_pyzx(graph)
+    graph = bialgebra.to_pyzx()
+    graph.inputs, graph.outputs = graph.outputs, graph.inputs
+    with raises(ValueError):  # wrong_ordering
         Diagram.from_pyzx(graph)
