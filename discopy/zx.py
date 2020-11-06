@@ -67,7 +67,7 @@ class Diagram(rigid.Diagram):
         Examples
         --------
         >>> from sympy.abc import phi
-        >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - 1)
+        >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
         """
         return Circuit.grad(self, var)
 
@@ -282,7 +282,7 @@ class Spider(Box):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         return Scalar(.5j * gradient)\
-            @ type(self)(len(self.dom), len(self.cod), self.phase - 1)
+            @ type(self)(len(self.dom), len(self.cod), self.phase - .5)
 
 
 class Z(Spider):

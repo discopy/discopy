@@ -197,6 +197,7 @@ def test_subs():
     from sympy.abc import phi
     assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
 
+
 def test_grad():
     from sympy.abc import phi
     with raises(NotImplementedError):
@@ -208,3 +209,11 @@ def test_grad():
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)
     assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
+
+
+def test_CU1():
+    assert CU1(0).eval() == Id(2).eval()
+
+
+def test_CRx():
+    assert CRx(0).eval() == Id(2).eval()

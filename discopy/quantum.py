@@ -149,8 +149,8 @@ class Circuit(Diagram):
         >>> from sympy.abc import phi
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi)\\
-        ...     == (Rz(phi/2) @ scalar(0+0.5j) @ Rz(phi) >> CX)\\
-        ...     + (scalar(0+0.25j) @ Rz(phi/2 - 1) @ Rz(phi + 1) >> CX)
+        ...     == (Rz(phi / 2) @ scalar(0+0.5j) @ Rz(phi + .5) >> CX)\\
+        ...     + (scalar(0+0.25j) @ Rz(phi/2 - .5) @ Rz(phi + 1) >> CX)
         """
         if var not in self.free_symbols:
             return self.sum([], self.dom, self.cod)
@@ -749,7 +749,7 @@ class Rotation(Parametrized):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        return scalar(.5j * gradient) @ type(self)(self.phase - 1)
+        return scalar(.5j * gradient) @ type(self)(self.phase - .5)
 
 
 class Rx(Rotation):

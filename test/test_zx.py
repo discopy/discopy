@@ -22,8 +22,13 @@ def test_Swap():
 
 def test_Spider():
     assert repr(Z(1, 2, 3)) == "Z(1, 2, 3)"
+    assert repr(Y(1, 2, 3)) == "Y(1, 2, 3)"
     assert Z(1, 2, 3).phase == 3
     assert Z(1, 2, 3j).dagger() == Z(2, 1, -3j)
+
+
+def test_H():
+    assert repr(H) == str(H) == "zx.H"
 
 
 def test_Sum():
@@ -59,10 +64,11 @@ def test_grad():
     from sympy.abc import phi, psi
     assert not scalar(phi).grad(psi) and scalar(phi).grad(phi) == scalar(1)
     assert not Z(1, 1, phi).grad(psi)
-    assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - 1)
+    assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
-        == (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi))\
-        + (scalar(0.25j) @ Z(1, 1, phi / 2 - 1) >> Z(1, 1, phi + 1))
+        == (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi + .5))\
+        + (scalar(0.25j) @ Z(1, 1, phi / 2 - .5) >> Z(1, 1, phi + 1))
+
 
 def test_to_pyzx():
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
@@ -79,3 +85,7 @@ def test_to_pyzx():
     graph.inputs, graph.outputs = graph.outputs, graph.inputs
     with raises(ValueError):  # wrong_ordering
         Diagram.from_pyzx(graph)
+
+
+def test_circui2zx():
+    pass
