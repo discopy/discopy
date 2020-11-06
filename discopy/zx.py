@@ -26,6 +26,8 @@ class Diagram(rigid.Diagram):
 
     @staticmethod
     def swap(left, right):
+        left = left if isinstance(left, PRO) else PRO(left)
+        right = right if isinstance(right, PRO) else PRO(right)
         return monoidal.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
@@ -68,16 +70,38 @@ class Diagram(rigid.Diagram):
         return Circuit.grad(self, var)
 
     def to_pyzx(self):
+        """
+        Returns a :class:`pyzx.Graph`.
+
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
+        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        >>> graph = bialgebra.to_pyzx()
+        >>> assert len(graph.vertices()) == 8
+        >>> assert (graph.inputs, graph.outputs) == ([0, 1], [6, 7])
+        >>> from pyzx import VertexType
+        >>> assert graph.type(2) == graph.type(3) == VertexType.Z
+        >>> assert graph.type(4) == graph.type(5) == VertexType.X
+        >>> assert graph.graph == {
+        ...     0: {2: 1},
+        ...     1: {3: 1},
+        ...     2: {0: 1, 4: 1, 5: 1},
+        ...     3: {1: 1, 4: 1, 5: 1},
+        ...     4: {2: 1, 3: 1, 6: 1},
+        ...     5: {2: 1, 3: 1, 7: 1},
+        ...     6: {4: 1},
+        ...     7: {5: 1}}
+        """
         from pyzx import Graph, VertexType
         graph, scan = Graph(), []
         for i, _ in enumerate(self.dom):
             scan.append(graph.add_vertex(VertexType.BOUNDARY))
             graph.set_position(scan[-1], i, 0)
+        graph.inputs = scan
         for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, Spider):
                 node = graph.add_vertex(
                     VertexType.Z if isinstance(box, Z) else VertexType.X,
-                    phase=box.phase if box.phase else None)
+                    phase=box.phase * 2 if box.phase else None)
                 graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
                     graph.add_edge((scan[offset + i], node))
@@ -90,7 +114,61 @@ class Diagram(rigid.Diagram):
             node = graph.add_vertex(VertexType.BOUNDARY)
             graph.add_edge((scan[i], node))
             graph.set_position(node, i, len(self) + 1)
+            scan[i] = node
+        graph.outputs = scan
         return graph
+
+    @staticmethod
+    def from_pyzx(graph):
+        """
+        Takes a :class:`pyzx.Graph` returns a :class:`zx.Diagram`.
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
+        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        >>> graph = bialgebra.to_pyzx()
+        >>> assert Diagram.from_pyzx(graph) == bialgebra
+        """
+        def node2box(node, n_legs_in, n_legs_out):
+            from pyzx import VertexType
+            if graph.type(node) not in {VertexType.Z, VertexType.X}:
+                raise NotImplementedError
+            return (Z if graph.type(node) == VertexType.Z else X)(
+                n_legs_in, n_legs_out, graph.phase(node) * .5)
+
+        def move(scan, source, target):
+            swaps = Id(target)\
+                @ Diagram.swap(source - target, 1)\
+                @ Id(len(scan) - source - 1)
+            scan = scan[:target] + [node]\
+                + scan[target:source] + scan[source + 1:]
+            return scan, swaps
+
+        def make_wires_adjacent(scan, diagram, inputs):
+            if not inputs:
+                return scan, diagram, len(scan)
+            i0 = scan.index(inputs[0])
+            for i, node in enumerate(inputs[1:]):
+                source, target = scan.index(inputs[i + 1]), i0 + i + 1
+                if source != target:
+                    scan, swaps = move(scan, source, target)
+                    diagram = diagram >> swaps
+            return scan, diagram, i0
+
+        diagram, scan = Id(len(graph.inputs)), graph.inputs
+        for node in [v for v in graph.vertices()
+                 if v not in graph.inputs + graph.outputs]:
+            inputs = [v for v in graph.neighbors(node) if v < node]
+            outputs = [v for v in graph.neighbors(node) if v > node]
+            scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
+            diagram = diagram >> Id(offset)\
+                @ node2box(node, len(inputs), len(outputs))\
+                @ Id(len(diagram.cod) - offset - len(inputs))
+            scan = scan[:offset] + len(outputs) * [node]\
+                + scan[offset + len(inputs):]
+        for target, output in enumerate(graph.outputs):
+            node, = graph.neighbors(output)
+            scan, swaps = move(scan, scan.index(node), target)
+            diagram = diagram >> swaps
+        return diagram
 
 
 class Id(rigid.Id, Diagram):
