@@ -760,9 +760,8 @@ class Rx(Rotation):
     @property
     def array(self):
         half_theta = np.pi * self.phase
-        global_phase = np.exp(1j * half_theta)
         sin, cos = np.sin(half_theta), np.cos(half_theta)
-        return global_phase * np.array([[cos, -1j * sin], [-1j * sin, cos]])
+        return np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
 class Rz(Rotation):
@@ -772,9 +771,22 @@ class Rz(Rotation):
 
     @property
     def array(self):
-        theta = 2 * np.pi * self.phase
-        return np.array([[1, 0], [0, np.exp(1j * theta)]])
+        half_theta = np.pi * self.phase
+        return np.array([[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
 
+
+class CU1(Rotation):
+    """ Controlled Z rotations. """
+    def __init__(self, phase):
+        super().__init__(phase, name="CU1", n_qubits=2)
+
+    @property
+    def array(self):
+        theta = 2 * np.pi * self.phase
+        return np.array([1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, 1, 0,
+                         0, 0, 0, np.exp(1j * theta)])
 
 class CRz(Rotation):
     """ Controlled Z rotations. """
@@ -783,12 +795,27 @@ class CRz(Rotation):
 
     @property
     def array(self):
-        phase = np.exp(1j * 2 * np.pi * self.phase)
+        half_theta = np.pi * self.phase
+        p1 = np.exp(-1j * half_theta)
+        p2 = np.exp(1j * half_theta)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
-                         0, 0, 1, 0,
-                         0, 0, 0, phase])
+                         0, 0, p1, 0,
+                         0, 0, 0, p2])
 
+class CRx(Rotation):
+    """ Controlled Z rotations. """
+    def __init__(self, phase):
+        super().__init__(phase, name="CRx", n_qubits=2)
+
+    @property
+    def array(self):
+        half_theta = np.pi * self.phase
+        c, s = np.cos(half_theta), np.sin(half_theta)
+        return np.array([1, 0, 0, 0,
+                         0, 1, 0, 0,
+                         0, 0, c, -1j * s,
+                         0, 0, -1j * s, c])
 
 class Scalar(Parametrized):
     """ Scalar, i.e. quantum gate with empty domain and codomain. """

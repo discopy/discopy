@@ -13,7 +13,9 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 
-COLORS = {'red': '#e8a5a5', 'green': '#d8f8d8', 'black': '#000000'}
+COLORS = {
+    'red': '#e8a5a5', 'green': '#d8f8d8', 'blue': '#776ff3', 
+    'yellow': '#f7f700', 'black': '#000000'}
 
 
 def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
