@@ -193,7 +193,7 @@ class Y(Spider):
 class X(Spider):
     """ X spider. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='Y')
+        super().__init__(n_legs_in, n_legs_out, phase, name='X')
         self.color = "red"
 
 class Had(Box, Diagram):

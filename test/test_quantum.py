@@ -172,6 +172,14 @@ def test_CRz():
     assert CRz(0).eval() == Id(2).eval()
 
 
+def test_CU1():
+    assert CU1(0).eval() == Id(2).eval()
+
+
+def test_CRx():
+    assert CRx(0).eval() == Id(2).eval()
+
+
 def test_CircuitFunctor():
     x, y = Ty('x'), Ty('y')
     f = rigid.Box('f', x, y)
