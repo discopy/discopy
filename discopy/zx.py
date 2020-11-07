@@ -2,14 +2,11 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, monoidal, rigid
+from discopy import messages, monoidal, rigid, quantum
 from discopy.rigid import Box, Diagram, Functor, PRO
 from discopy.quantum import Circuit, format_number
 
-from discopy.quantum import Bra, Ket, Rz, Rx, H, CX, CZ, CRz, CRx
-from discopy.quantum import Z as PauliZ
-from discopy.quantum import X as PauliX
-from discopy.quantum import Y as PauliY
+from discopy.quantum import Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx
 
 
 class Diagram(rigid.Diagram):
@@ -31,6 +28,8 @@ class Diagram(rigid.Diagram):
 
     @staticmethod
     def swap(left, right):
+        left = left if isinstance(left, PRO) else PRO(left)
+        right = right if isinstance(right, PRO) else PRO(right)
         return monoidal.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
@@ -68,21 +67,43 @@ class Diagram(rigid.Diagram):
         Examples
         --------
         >>> from sympy.abc import phi
-        >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - 1)
+        >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
         """
         return Circuit.grad(self, var)
 
     def to_pyzx(self):
+        """
+        Returns a :class:`pyzx.Graph`.
+
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
+        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        >>> graph = bialgebra.to_pyzx()
+        >>> assert len(graph.vertices()) == 8
+        >>> assert (graph.inputs, graph.outputs) == ([0, 1], [6, 7])
+        >>> from pyzx import VertexType
+        >>> assert graph.type(2) == graph.type(3) == VertexType.Z
+        >>> assert graph.type(4) == graph.type(5) == VertexType.X
+        >>> assert graph.graph == {
+        ...     0: {2: 1},
+        ...     1: {3: 1},
+        ...     2: {0: 1, 4: 1, 5: 1},
+        ...     3: {1: 1, 4: 1, 5: 1},
+        ...     4: {2: 1, 3: 1, 6: 1},
+        ...     5: {2: 1, 3: 1, 7: 1},
+        ...     6: {4: 1},
+        ...     7: {5: 1}}
+        """
         from pyzx import Graph, VertexType
         graph, scan = Graph(), []
         for i, _ in enumerate(self.dom):
             scan.append(graph.add_vertex(VertexType.BOUNDARY))
             graph.set_position(scan[-1], i, 0)
+        graph.inputs = scan
         for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, Spider):
                 node = graph.add_vertex(
                     VertexType.Z if isinstance(box, Z) else VertexType.X,
-                    phase=box.phase if box.phase else None)
+                    phase=box.phase * 2 if box.phase else None)
                 graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
                     graph.add_edge((scan[offset + i], node))
@@ -95,7 +116,92 @@ class Diagram(rigid.Diagram):
             node = graph.add_vertex(VertexType.BOUNDARY)
             graph.add_edge((scan[i], node))
             graph.set_position(node, i, len(self) + 1)
+            scan[i] = node
+        graph.outputs = scan
         return graph
+
+    @staticmethod
+    def from_pyzx(graph):
+        """
+        Takes a :class:`pyzx.Graph` returns a :class:`zx.Diagram`.
+
+        Examples
+        --------
+
+        >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
+        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        >>> graph = bialgebra.to_pyzx()
+        >>> assert Diagram.from_pyzx(graph) == bialgebra
+
+        Note
+        ----
+
+        Raises :code:`ValueError` if either:
+        - a boundary node is not in :code:`graph.inputs + graph.outputs`,
+        - :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty,
+        - there is an input node after a non-input node,
+        - or there is an output node before a non-output node.
+        """
+        from pyzx import VertexType
+
+        def node2box(node, n_legs_in, n_legs_out):
+            if graph.type(node) not in {VertexType.Z, VertexType.X}:
+                raise NotImplementedError  # pragma: no cover
+            return (Z if graph.type(node) == VertexType.Z else X)(
+                n_legs_in, n_legs_out, graph.phase(node) * .5)
+
+        def move(scan, source, target):
+            swaps = Id(target)\
+                @ Diagram.swap(source - target, 1)\
+                @ Id(len(scan) - source - 1)
+            scan = scan[:target] + [node]\
+                + scan[target:source] + scan[source + 1:]
+            return scan, swaps
+
+        def make_wires_adjacent(scan, diagram, inputs):
+            if not inputs:
+                return scan, diagram, len(scan)
+            i0 = scan.index(inputs[0])
+            for i, node in enumerate(inputs[1:]):
+                source, target = scan.index(inputs[i + 1]), i0 + i + 1
+                if source != target:
+                    scan, swaps = move(scan, source, target)
+                    diagram = diagram >> swaps
+            return scan, diagram, i0
+
+        missing_boundary = any(
+            graph.type(node) == VertexType.BOUNDARY
+            and node not in graph.inputs + graph.outputs
+            for node in graph.vertices())
+        if missing_boundary:
+            raise ValueError
+        duplicate_boundary = set(graph.inputs).intersection(graph.outputs)
+        if duplicate_boundary:
+            raise ValueError
+        wrong_ordering = any(
+            input > v for input in graph.inputs
+            for v in set(graph.vertices()) - set(graph.inputs))\
+            or any(
+            output < v for output in graph.outputs
+            for v in set(graph.vertices()) - set(graph.outputs))
+        if wrong_ordering:
+            raise ValueError
+        diagram, scan = Id(len(graph.inputs)), graph.inputs
+        for node in [v for v in graph.vertices()
+                 if v not in graph.inputs + graph.outputs]:
+            inputs = [v for v in graph.neighbors(node) if v < node]
+            outputs = [v for v in graph.neighbors(node) if v > node]
+            scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
+            diagram = diagram >> Id(offset)\
+                @ node2box(node, len(inputs), len(outputs))\
+                @ Id(len(diagram.cod) - offset - len(inputs))
+            scan = scan[:offset] + len(outputs) * [node]\
+                + scan[offset + len(inputs):]
+        for target, output in enumerate(graph.outputs):
+            node, = graph.neighbors(output)
+            scan, swaps = move(scan, scan.index(node), target)
+            diagram = diagram >> swaps
+        return diagram
 
 
 class Id(rigid.Id, Diagram):
@@ -176,7 +282,7 @@ class Spider(Box):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         return Scalar(.5j * gradient)\
-            @ type(self)(len(self.dom), len(self.cod), self.phase - 1)
+            @ type(self)(len(self.dom), len(self.cod), self.phase - .5)
 
 
 class Z(Spider):
@@ -185,10 +291,12 @@ class Z(Spider):
         super().__init__(n_legs_in, n_legs_out, phase, name='Z')
         self.color = "green"
 
+
 class Y(Spider):
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, phase, name='Y')
         self.color = "blue"
+
 
 class X(Spider):
     """ X spider. """
@@ -196,24 +304,17 @@ class X(Spider):
         super().__init__(n_legs_in, n_legs_out, phase, name='X')
         self.color = "red"
 
-class Had(Box, Diagram):
+
+class Had(Box):
     def __init__(self):
-        name = "Had()"
-        dom, cod = PRO(1), PRO(1)
-        Box.__init__(self, name, dom, cod)
-        Diagram.__init__(self, dom, cod, [self], [0])
-        self.draw_as_spider = True
-        self.color = "yellow"
-
-    @property
-    def name(self):
-        return self.data or "H"
-
-    def __str__(self):
-        return self._name
+        super().__init__('zx.H', PRO(1), PRO(1))
+        self.draw_as_spider, self.color = True, "yellow"
 
     def __repr__(self):
-        return str(self)
+        return self.name
+
+
+H = Had()
 
 
 class Scalar(Box):
@@ -245,48 +346,29 @@ def scalar(data):
     return Scalar(data)
 
 
-SWAP = Swap(PRO(1), PRO(1))
-BIALGEBRA = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
-
-
 def box2zx(box):
-    from functools import reduce
-    if isinstance(box, Bra):
-        bits = box.bitstring
-        return reduce(lambda a, b: a @ b, map(lambda p: X(1, 0, phase=p), bits))
-    elif isinstance(box, Ket):
-        bits = box.bitstring
-        return reduce(lambda a, b: a @ b, map(lambda p: X(0, 1, phase=p), bits))
-    elif isinstance(box, Rz):
-        return Z(1,1, box.phase)
-    elif isinstance(box, Rx):
-        return X(1,1, box.phase)
-    elif box == H:
-        return Had()
-    elif box == CX:
-        return Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)
-    elif box == CZ:
-        return Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1)
-    elif box == PauliZ:
-        return Z(1,1,1)
-    elif box == PauliY:
-        return Y(1,1,1)
-    elif box == PauliX:
-        return X(1,1,1)
-    elif isinstance(box, CRz):
-        p = box.phase
-        return Z(1, 2) @ Z(1, 2, p) >> Id(1) @ (X(2, 1) >> Z(1, 0, -p)) @ Id(1)
+    if isinstance(box, (Bra, Ket)):
+        dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
+        Id(0).tensor(*[X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
+    if isinstance(box, (Rz, Rx)):
+        return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
+    if isinstance(box, CRz):
+        return Z(1, 2) @ Z(1, 2, box.phase)\
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
     elif isinstance(box, CRx):
-        p = box.phase
-        return X(1, 2) @ X(1, 2, p) >> Id(1) @ (Z(2, 1) >> X(1, 0, -p)) @ Id(1)
+        return X(1, 2) @ X(1, 2, box.phase)\
+            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
     elif isinstance(box, CU1):
-        p = box.phase
-        return Z(1, 2, p) @ Z(1, 2, p) >> Id(1) @ (X(2, 1) >> Z(1, 0, -p)) @ Id(1)
-    
-
-    return box
+        return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+    return {
+        quantum.H: H,
+        quantum.Z: Z(1, 1, .5),
+        quantum.X: X(1, 1, .5),
+        quantum.Y: Y(1, 1, .5),
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
+        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}[box]
 
 circuit2zx = Functor(
     ob=lambda x: x, ar=box2zx,
     ob_factory=rigid.Ty, ar_factory=rigid.Diagram)
-
