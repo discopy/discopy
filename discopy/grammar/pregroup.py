@@ -31,7 +31,8 @@ Implements pregroup grammars and distributional compositional models.
 >>> assert abs(F(sentence).eval().array) ** 2
 """
 
-from discopy import messages, drawing, cfg
+from discopy import messages, drawing
+from discopy.grammar import cfg
 from discopy.rigid import Ty, Box, Diagram, Id, Cup
 
 

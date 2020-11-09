@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 from pytest import raises
-from discopy.cqmap import *
 from discopy.quantum import *
+from discopy.quantum.cqmap import *
 
 
 def test_CQ():
@@ -25,9 +25,9 @@ def test_CQMap():
     assert CQMap.id(C()).tensor(CQMap.id(C()), CQMap.id(C())).utensor == 1
 
 
-def test_CQMapFunctor():
-    assert repr(CQMapFunctor({}, {}))\
-        == "CQMapFunctor(ob={bit: C(Dim(2)), qubit: Q(Dim(2))}, ar={})"
+def test_Functor():
+    assert repr(Functor({}, {}))\
+        == "cqmap.Functor(ob={bit: C(Dim(2)), qubit: Q(Dim(2))}, ar={})"
 
 
 def test_CQMap_measure():

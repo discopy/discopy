@@ -1,6 +1,6 @@
 from pytest import raises
 from discopy import *
-from discopy.zx import *
+from discopy.quantum.zx import *
 
 
 def test_Diagram():
@@ -23,8 +23,10 @@ def test_Swap():
 def test_Spider():
     assert repr(Z(1, 2, 3)) == "Z(1, 2, 3)"
     assert repr(Y(1, 2, 3)) == "Y(1, 2, 3)"
-    assert Z(1, 2, 3).phase == 3
-    assert Z(1, 2, 3j).dagger() == Z(2, 1, -3j)
+    assert repr(X(1, 2, 3)) == "X(1, 2, 3)"
+    for spider in [Z, Y, X]:
+        assert spider(1, 2, 3).phase == 3
+        assert spider(1, 2, 3j).dagger() == spider(2, 1, -3j)
 
 
 def test_H():

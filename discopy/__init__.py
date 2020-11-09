@@ -24,18 +24,21 @@ discopy computes natural language meaning in pictures.
 """
 
 from discopy import (
-    cat, monoidal, rigid, biclosed,
-    tensor, quantum, zx, grammar, cfg, pregroup, ccg)
+    cat, monoidal, rigid, biclosed, tensor, quantum, grammar)
 from discopy.cat import Quiver
 from discopy.monoidal import Sum
 from discopy.rigid import (
     Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Swap, Functor)
 from discopy.tensor import Dim, Tensor, TensorFunctor
-from discopy.quantum import (
-    bit, qubit, Circuit, CircuitFunctor,
-    Discard, MixedState, Measure, Encode, Ket, Bra, Rx, Rz, CRz,
-    SWAP, CZ, CX, H, S, T, X, Y, Z)
-from discopy.cqmap import C, Q, CQMap, CQMapFunctor
-from discopy.pregroup import Word
+
+from discopy.quantum import cqmap, tk, zx
+from discopy.quantum.zx import Z, X, H, SWAP
+from discopy.quantum.cqmap import C, Q, CQMap
+from discopy.quantum.circuit import (
+    bit, qubit, Circuit, CircuitFunctor, Discard, MixedState, Measure, Encode)
+from discopy.quantum.gates import Ket, Bra, Rx, Rz, CU1, CRz, CRx, CZ, CX
+
+from discopy.grammar import cfg, ccg, pregroup
+from discopy.grammar.pregroup import Word
 
 __version__ = '0.3.3'

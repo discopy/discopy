@@ -144,7 +144,7 @@ def test_tree2diagram():
     diagram = tree2diagram(tree)
     from discopy.biclosed import (
         Ty, Over, Under, Box, FA, BA, Functor, biclosed2rigid)
-    from discopy.ccg import Word
+    from discopy.grammar.ccg import Word
     assert diagram.boxes == [
         Word('that', Ty('NP')),
         Word("'s", Over(Under(Ty('NP'), Ty('S')), Ty('NP'))),

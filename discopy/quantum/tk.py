@@ -9,9 +9,10 @@ from pytket.circuit import Bit, Qubit  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
 
 from discopy import messages
-from discopy.quantum import (
-    CircuitFunctor, Id, Bits, Bra, Ket, Swap, Scalar,
-    bit, qubit, Discard, Measure, GATES, X, Rx, Rz, CRz)
+from discopy.quantum.circuit import (
+    CircuitFunctor, Id, bit, qubit, Discard, Measure)
+from discopy.quantum.gates import (
+    Bits, Bra, Ket, Swap, Scalar, GATES, X, Rx, Rz, CRz)
 
 
 class Circuit(tk.Circuit):

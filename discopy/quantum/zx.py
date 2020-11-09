@@ -4,9 +4,9 @@
 
 from discopy import messages, monoidal, rigid, quantum
 from discopy.rigid import Box, Diagram, Functor, PRO
-from discopy.quantum import Circuit, format_number
-
-from discopy.quantum import Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx
+from discopy.quantum.circuit import Circuit
+from discopy.quantum.gates import (
+    Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
 
 
 class Diagram(rigid.Diagram):
@@ -301,7 +301,7 @@ class Y(Spider):
 class X(Spider):
     """ X spider. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='Y')
+        super().__init__(n_legs_in, n_legs_out, phase, name='X')
         self.color = "red"
 
 

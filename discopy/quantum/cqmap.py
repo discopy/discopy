@@ -18,9 +18,8 @@ from discopy import monoidal, rigid, messages
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor, TensorFunctor
-from discopy.quantum import (
-    bit, qubit, Box, Sum, Swap, Discard,
-    Measure, MixedState, Encode, QuantumGate)
+from discopy.quantum.circuit import (
+    bit, qubit, Box, Sum, Swap, Discard, Measure, MixedState, Encode)
 
 
 class CQ(Ty):
@@ -252,7 +251,7 @@ class CQMap(Tensor):
         return CQMap(self.dom, self.cod, utensor=self.utensor.round(decimals))
 
 
-class CQMapFunctor(rigid.Functor):
+class Functor(rigid.Functor):
     """
     Implements functors into :class:`CQMap`.
     """
@@ -261,7 +260,7 @@ class CQMapFunctor(rigid.Functor):
         super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
 
     def __repr__(self):
-        return super().__repr__().replace("Functor", "CQMapFunctor")
+        return super().__repr__().replace("Functor", "cqmap.Functor")
 
     def __call__(self, box):
         if isinstance(box, Sum) or not isinstance(box, Box):
@@ -283,4 +282,4 @@ class CQMapFunctor(rigid.Functor):
         if not box.is_mixed:
             dom, cod = self(box.dom).quantum, self(box.cod).quantum
             return CQMap.pure(Tensor(dom, cod, box.array))
-        raise TypeError(messages.type_err(QuantumGate, box))
+        return CQMap(self(box.dom), self(box.cod), box.array)

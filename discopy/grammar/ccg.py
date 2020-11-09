@@ -6,7 +6,7 @@ Implements combinatory categorial grammars.
 
 import re
 
-from discopy import cfg
+from discopy.grammar import cfg
 from discopy.biclosed import Ty, Box, Id, FA, BA, FC
 
 

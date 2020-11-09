@@ -2,8 +2,9 @@
 
 from pytest import raises
 from unittest.mock import Mock
-from discopy.cqmap import CQMap, C
-from discopy.quantum import *
+from discopy.quantum.cqmap import *
+from discopy.quantum.circuit import *
+from discopy.quantum.gates import *
 from discopy import tk
 
 
@@ -35,7 +36,7 @@ def test_Circuit_permutation():
 
 
 def test_Circuit_eval():
-    with raises(TypeError):
+    with raises(AttributeError):
         Box('f', qubit, qubit).eval()
     assert MixedState().eval() == Discard().eval().dagger()
 
@@ -172,6 +173,14 @@ def test_CRz():
     assert CRz(0).eval() == Id(2).eval()
 
 
+def test_CU1():
+    assert CU1(0).eval() == Id(2).eval()
+
+
+def test_CRx():
+    assert CRx(0).eval() == Id(2).eval()
+
+
 def test_CircuitFunctor():
     x, y = Ty('x'), Ty('y')
     f = rigid.Box('f', x, y)
@@ -209,11 +218,3 @@ def test_grad():
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)
     assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
-
-
-def test_CU1():
-    assert CU1(0).eval() == Id(2).eval()
-
-
-def test_CRx():
-    assert CRx(0).eval() == Id(2).eval()

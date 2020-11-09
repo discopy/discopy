@@ -15,5 +15,5 @@ discopy.cqmap
 .. autoclass:: discopy.cqmap.CQMap
     :show-inheritance:
 
-.. autoclass:: discopy.cqmap.CQMapFunctor
+.. autoclass:: discopy.cqmap.Functor
     :show-inheritance:
