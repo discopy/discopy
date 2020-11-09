@@ -295,8 +295,7 @@ def draw(diagram, axis=None, data=None, **params):
         axis = [] if params.get('to_tikz', False)\
             else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
-    for color in sorted(colors):
-        for shape in shapes:
+    for color, shape in spiders.keys():
             draw_nodes(axis, spiders[(color, shape)], color, shape)
     for depth, box in enumerate(diagram.boxes):
         if getattr(box, "draw_as_spider", False):
