@@ -296,7 +296,9 @@ class Had(Box):
     """ Hadamard box. """
     def __init__(self):
         super().__init__('zx.H', PRO(1), PRO(1))
-        self.draw_as_spider, self.color = True, "yellow"
+        self.draw_as_spider = True
+        self.drawing_name = ''
+        self.color, self.shape = "yellow", "s"
 
     def __repr__(self):
         return self.name

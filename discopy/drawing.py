@@ -206,13 +206,16 @@ def draw(diagram, axis=None, data=None, **params):
     graph, positions, labels =\
         diagram_to_nx(diagram, scale, pad) if data is None else data
     colors = {getattr(box, 'color', 'red') for box in diagram.boxes}
-    spiders = {color: ["box_{}".format(i)
+    shapes = {getattr(box, 'shape', 'o') for box in diagram.boxes}
+    spiders = {(color, shape): ["box_{}".format(i)
                for i, box in enumerate(diagram.boxes)
                if getattr(box, "draw_as_spider", False)
-               if getattr(box, "color", "red") == color]
-               for color in colors}
+               if getattr(box, "color", "red") == color
+               if getattr(box, "shape", "o") == shape]
+               for color in colors
+               for shape in shapes}
 
-    def draw_nodes(axis, nodes, color):
+    def draw_nodes(axis, nodes, color, shape):
         if params.get('to_tikz', False):
             cmd = "\\node [circle, fill={}] () ".format(color)
             cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
@@ -222,8 +225,8 @@ def draw(diagram, axis=None, data=None, **params):
                 axis.append(cmd.format(label=lab, pos=positions[node]))
         else:
             nx.draw_networkx_nodes(
-                graph, positions, nodelist=spiders[color],
-                node_color=COLORS[color], ax=axis)
+                graph, positions, nodelist=spiders[(color, shape)],
+                node_color=COLORS[color], node_shape=shape, ax=axis)
             if params.get('draw_box_labels', True):
                 nx.draw_networkx_labels(
                     graph, positions,
@@ -293,7 +296,8 @@ def draw(diagram, axis=None, data=None, **params):
             else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
     for color in sorted(colors):
-        draw_nodes(axis, spiders[color], color)
+        for shape in shapes:
+            draw_nodes(axis, spiders[(color, shape)], color, shape)
     for depth, box in enumerate(diagram.boxes):
         if getattr(box, "draw_as_spider", False):
             continue
