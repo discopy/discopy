@@ -3,28 +3,18 @@
 """ Implements ZX diagrams. """
 
 from discopy import messages, monoidal, rigid, quantum
-from discopy.rigid import Box, Diagram, Functor, PRO
+from discopy.monoidal import Sum
+from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
 
 
+@monoidal.diagram_subclass
 class Diagram(rigid.Diagram):
     """ ZX Diagram. """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'zx.Diagram')
-
-    @staticmethod
-    def upgrade(old):
-        return Diagram(old.dom, old.cod, old.boxes, old.offsets, old.layers)
-
-    @staticmethod
-    def id(dom):
-        return Id(len(dom))
-
-    @staticmethod
-    def sum(terms, dom=None, cod=None):
-        return Sum(terms, dom, cod)
 
     @staticmethod
     def swap(left, right):
@@ -161,13 +151,13 @@ class Diagram(rigid.Diagram):
         def make_wires_adjacent(scan, diagram, inputs):
             if not inputs:
                 return scan, diagram, len(scan)
-            i0 = scan.index(inputs[0])
-            for i, node in enumerate(inputs[1:]):
-                source, target = scan.index(inputs[i + 1]), i0 + i + 1
+            offset = scan.index(inputs[0])
+            for i, _ in enumerate(inputs[1:]):
+                source, target = scan.index(inputs[i + 1]), offset + i + 1
                 if source != target:
                     scan, swaps = move(scan, source, target)
                     diagram = diagram >> swaps
-            return scan, diagram, i0
+            return scan, diagram, offset
 
         missing_boundary = any(
             graph.type(node) == VertexType.BOUNDARY
@@ -215,11 +205,7 @@ class Id(rigid.Id, Diagram):
     __str__ = __repr__
 
 
-class Sum(monoidal.Sum, Diagram):
-    """ Sum of ZX diagrams. """
-    @staticmethod
-    def upgrade(old):
-        return Sum(old.terms, old.dom, old.cod)
+Diagram.id = Id
 
 
 class Box(rigid.Box, Diagram):
@@ -293,6 +279,7 @@ class Z(Spider):
 
 
 class Y(Spider):
+    """ Y spider. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, phase, name='Y')
         self.color = "blue"
@@ -306,6 +293,7 @@ class X(Spider):
 
 
 class Had(Box):
+    """ Hadamard box. """
     def __init__(self):
         super().__init__('zx.H', PRO(1), PRO(1))
         self.draw_as_spider, self.color = True, "yellow"
@@ -346,7 +334,8 @@ def scalar(data):
     return Scalar(data)
 
 
-def box2zx(box):
+def gate2zx(box):
+    """ Turns gates into ZX diagrams. """
     if isinstance(box, (Bra, Ket)):
         dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
         return Id(0).tensor(*[
@@ -371,5 +360,5 @@ def box2zx(box):
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}[box]
 
 circuit2zx = Functor(
-    ob={quantum.circuit.qubit: PRO(1)}, ar=box2zx,
+    ob={quantum.circuit.qubit: PRO(1)}, ar=gate2zx,
     ob_factory=PRO, ar_factory=Diagram)

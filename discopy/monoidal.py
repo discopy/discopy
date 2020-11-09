@@ -327,10 +327,6 @@ class Diagram(cat.Arrow):
         self._layers, self._offsets = layers, tuple(offsets)
         super().__init__(dom, cod, boxes, _scan=False)
 
-    @staticmethod
-    def id(dom):
-        return Id(dom)
-
     @property
     def offsets(self):
         """
@@ -443,10 +439,6 @@ class Diagram(cat.Arrow):
             return self.upgrade(Diagram(*inputs, layers=layers))
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
-
-    @staticmethod
-    def sum(terms, dom=None, cod=None):
-        return Sum(terms, dom, cod)
 
     @staticmethod
     def swap(left, right):
@@ -761,15 +753,10 @@ class Diagram(cat.Arrow):
 
         >>> x = Ty('x')
         >>> f = Box('f', x, x ** 4)
-        >>> assert (f >> f.dagger()).width() == 4
         >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
         """
-        scan = self.dom
-        width = len(scan)
-        for box, off in zip(self.boxes, self.offsets):
-            scan = scan[: off] @ box.cod @ scan[off + len(box.dom):]
-            width = max(width, len(scan))
-        return width
+        return max(len(self.dom), max(
+            len(left @ box.cod @ right) for left, box, right in self.layers))
 
     def draw(self, **params):
         """
@@ -826,9 +813,7 @@ class Diagram(cat.Arrow):
 
 
 class InterchangerError(AxiomError):
-    """
-    This is raised when we try to interchange conected boxes.
-    """
+    """ This is raised when we try to interchange conected boxes. """
     def __init__(self, box0, box1):
         super().__init__("Boxes {} and {} do not commute.".format(box0, box1))
 
@@ -843,6 +828,9 @@ class Id(cat.Id, Diagram):
     def __init__(self, dom):
         cat.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+
+
+Diagram.id = Id
 
 
 class Box(cat.Box, Diagram):
@@ -912,6 +900,9 @@ class Sum(cat.Sum, Box):
         unit = Sum([], self.dom @ other.dom, self.cod @ other.cod)
         terms = [f.tensor(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))
+
+
+Diagram.sum = Sum
 
 
 class Functor(cat.Functor):
@@ -988,17 +979,9 @@ def permutation(perm, dom=None, ar_factory=Diagram):
     return diagram
 
 
-def spiral(n_cups, _type=Ty('x')):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
-    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
-    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
-    return result
+def diagram_subclass(cls):
+    """ Decorator for subclasses of Diagram. """
+    def upgrade(old):
+        return cls(old.dom, old.cod, old.boxes, old.offsets, old.layers)
+    cls.upgrade = staticmethod(upgrade)
+    return cls

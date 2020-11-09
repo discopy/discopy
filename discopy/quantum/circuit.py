@@ -82,13 +82,9 @@ class BitsAndQubits(Ty):
 bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 
 
+@monoidal.diagram_subclass
 class Circuit(Diagram):
     """ Classical-quantum circuits. """
-    @staticmethod
-    def upgrade(old):
-        dom, cod = BitsAndQubits(*old.dom), BitsAndQubits(*old.cod)
-        return Circuit(dom, cod, old.boxes, old.offsets, old.layers)
-
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
 
@@ -97,17 +93,9 @@ class Circuit(Diagram):
         return super().draw(**dict(params, draw_types=draw_types))
 
     @staticmethod
-    def id(dom):
-        return Id(dom)
-
-    @staticmethod
-    def sum(terms, dom=None, cod=None):
-        return Sum(terms, dom, cod)
-
-    @staticmethod
     def swap(left, right):
-        return monoidal.swap(left, right,
-                             ar_factory=Circuit, swap_factory=Swap)
+        return monoidal.swap(
+            left, right, ar_factory=Circuit, swap_factory=Swap)
 
     @staticmethod
     def permutation(perm, dom=None):
@@ -434,6 +422,9 @@ class Id(rigid.Id, Circuit):
         return repr(self)
 
 
+Circuit.id = Id
+
+
 class Box(rigid.Box, Circuit):
     """
     Boxes in a circuit diagram.
@@ -498,6 +489,9 @@ class Sum(monoidal.Sum, Box):
 
     def to_tk(self):
         return [circuit.to_tk() for circuit in self.terms]
+
+
+Circuit.sum = Sum
 
 
 class Swap(rigid.Swap, Box):

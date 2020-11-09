@@ -80,12 +80,9 @@ class Under(Ty):
         return hash(repr(self))
 
 
+@monoidal.diagram_subclass
 class Diagram(monoidal.Diagram):
     """ Diagrams in a biclosed monoidal category. """
-    @staticmethod
-    def upgrade(old):
-        return Diagram(old.dom, old.cod, old.boxes, old.offsets, old.layers)
-
     @staticmethod
     def id(dom):
         return Id(dom)

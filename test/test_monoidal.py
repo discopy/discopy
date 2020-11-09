@@ -243,6 +243,22 @@ def test_InterchangerError():
     assert str(err.value) == str(InterchangerError(f, g))
 
 
+def spiral(n_cups, _type=Ty('x')):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
+    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
+    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
+    return result
+
+
 def test_spiral(n_cups=2):
     diagram = spiral(n_cups)
     unit, counit = diagram.boxes[0], diagram.boxes[n_cups + 1]
