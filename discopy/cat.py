@@ -127,10 +127,6 @@ class Arrow:
         return old
 
     def __init__(self, dom, cod, boxes, _scan=True):
-        """
-        >>> from discopy.monoidal import spiral
-        >>> arrow = spiral(3)
-        """
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
         if not isinstance(cod, Ob):

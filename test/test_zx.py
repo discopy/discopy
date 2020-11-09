@@ -68,8 +68,8 @@ def test_grad():
     assert not Z(1, 1, phi).grad(psi)
     assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
-        == (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi + .5))\
-        + (scalar(0.25j) @ Z(1, 1, phi / 2 - .5) >> Z(1, 1, phi + 1))
+        == (scalar(0.25j) @ Z(1, 1, phi / 2 - .5) >> Z(1, 1, phi + 1))\
+           + (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi + .5))
 
 
 def test_to_pyzx():

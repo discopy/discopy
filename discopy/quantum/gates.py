@@ -9,6 +9,7 @@ from discopy.quantum.circuit import bit, qubit, Box, Id, Circuit, Swap, Sum
 
 
 def format_number(data):
+    """ Tries to format a number. """
     try:
         return '{:.3g}'.format(data)
     except TypeError:
@@ -215,12 +216,10 @@ class CRz(Rotation):
     @property
     def array(self):
         half_theta = np.pi * self.phase
-        p1 = np.exp(-1j * half_theta)
-        p2 = np.exp(1j * half_theta)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
-                         0, 0, p1, 0,
-                         0, 0, 0, p2])
+                         0, 0, np.exp(-1j * half_theta), 0,
+                         0, 0, 0, np.exp(1j * half_theta)])
 
 
 class CRx(Rotation):
@@ -231,11 +230,11 @@ class CRx(Rotation):
     @property
     def array(self):
         half_theta = np.pi * self.phase
-        c, s = np.cos(half_theta), np.sin(half_theta)
+        cos, sin = np.cos(half_theta), np.sin(half_theta)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
-                         0, 0, c, -1j * s,
-                         0, 0, -1j * s, c])
+                         0, 0, cos, -1j * sin,
+                         0, 0, -1j * sin, cos])
 
 
 class Scalar(Parametrized):

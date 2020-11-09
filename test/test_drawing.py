@@ -37,9 +37,16 @@ def test_draw_eggs():
     return crack_two_eggs
 
 
+spiral = Diagram(
+    dom=Ty(), cod=Ty(), boxes=[
+        Box('unit', Ty(), Ty('x')), Box('cap', Ty(), Ty('x', 'x')),
+        Box('cap', Ty(), Ty('x', 'x')), Box('counit', Ty('x'), Ty()),
+        Box('cup', Ty('x', 'x'), Ty()), Box('cup', Ty('x', 'x'), Ty())],
+    offsets=[0, 0, 1, 2, 1, 0])
+
 @draw_and_compare('spiral.png', draw_types=False, draw_box_labels=False)
 def test_draw_spiral():
-    return monoidal.spiral(2)
+    return spiral
 
 
 @draw_and_compare('who-ansatz.png')
@@ -118,7 +125,7 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
 
 @tikz_and_compare("spiral.tex", to_tikz=True)
 def test_spiral_to_tikz():
-    return monoidal.spiral(2)
+    return spiral
 
 
 @tikz_and_compare("copy.tex", to_tikz=True,
