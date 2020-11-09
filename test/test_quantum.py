@@ -61,6 +61,8 @@ def test_Circuit_to_tk():
         == "tk.Circuit(0, 2)"
     assert repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())\
         == "tk.Circuit(1, 3).Measure(0, 1).post_select({1: 0})"
+    assert Circuit.from_tk(*(X + X).to_tk()) == X + X
+    assert Circuit.from_tk() == Sum([], qubit ** 0, qubit ** 0)
 
 
 def test_tk_err():

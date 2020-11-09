@@ -412,7 +412,7 @@ class Circuit(Diagram):
         # pylint: disable=import-outside-toplevel
         from discopy.quantum.tk import from_tk
         if not tk_circuits:
-            return Sum([], qubit ** 0, qubits ** 0)
+            return Sum([], qubit ** 0, qubit ** 0)
         if len(tk_circuits) == 1:
             return from_tk(tk_circuits[0])
         return sum(Circuit.from_tk(c) for c in tk_circuits)

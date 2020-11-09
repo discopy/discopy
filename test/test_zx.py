@@ -90,4 +90,11 @@ def test_to_pyzx():
 
 
 def test_circui2zx():
-    pass
+    circuit = Ket(0, 0) >> quantum.H @ Rx(0) >> CRz(0) >> CRx(0) >> CU1(0)
+    circuit2zx(circuit) == Diagram(
+        dom=PRO(0), cod=PRO(2), boxes=[
+            X(0, 1), X(0, 1), H, X(1, 1),
+            Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0),
+            X(1, 2), X(1, 2), Z(2, 1), X(1, 0),
+            Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0)],
+        offsets=[0, 1, 0, 1, 0, 2, 1, 1, 0, 2, 1, 1, 0, 2, 1, 1])

@@ -349,16 +349,17 @@ def scalar(data):
 def box2zx(box):
     if isinstance(box, (Bra, Ket)):
         dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
-        Id(0).tensor(*[X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
+        return Id(0).tensor(*[
+            X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, CRz):
         return Z(1, 2) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
-    elif isinstance(box, CRx):
+    if isinstance(box, CRx):
         return X(1, 2) @ X(1, 2, box.phase)\
             >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
-    elif isinstance(box, CU1):
+    if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
     return {
@@ -370,5 +371,5 @@ def box2zx(box):
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}[box]
 
 circuit2zx = Functor(
-    ob=lambda x: x, ar=box2zx,
-    ob_factory=rigid.Ty, ar_factory=rigid.Diagram)
+    ob={quantum.circuit.qubit: PRO(1)}, ar=box2zx,
+    ob_factory=PRO, ar_factory=Diagram)
