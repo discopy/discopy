@@ -1,11 +1,11 @@
 zx.Spider
 ===================
 
-.. autoclass:: discopy.zx.Spider
+.. autoclass:: discopy.quantum.zx.Spider
     :members: phase
     :show-inheritance:
 
-.. autoclass:: discopy.zx.Z
+.. autoclass:: discopy.quantum.zx.Z
     :show-inheritance:
 
-.. autoclass:: discopy.zx.X
+.. autoclass:: discopy.quantum.zx.X

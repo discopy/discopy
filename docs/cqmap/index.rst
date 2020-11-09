@@ -1,19 +1,19 @@
 discopy.cqmap
 =============
 
-.. automodule:: discopy.cqmap
+.. automodule:: discopy.quantum.cqmap
 
-.. autoclass:: discopy.cqmap.CQ
+.. autoclass:: discopy.quantum.cqmap.CQ
     :show-inheritance:
 
-.. autoclass:: discopy.cqmap.C
+.. autoclass:: discopy.quantum.cqmap.C
     :show-inheritance:
 
-.. autoclass:: discopy.cqmap.Q
+.. autoclass:: discopy.quantum.cqmap.Q
     :show-inheritance:
 
-.. autoclass:: discopy.cqmap.CQMap
+.. autoclass:: discopy.quantum.cqmap.CQMap
     :show-inheritance:
 
-.. autoclass:: discopy.cqmap.Functor
+.. autoclass:: discopy.quantum.cqmap.Functor
     :show-inheritance:

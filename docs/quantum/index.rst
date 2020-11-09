@@ -1,7 +1,7 @@
 discopy.quantum
 ===============
 
-.. automodule:: discopy.quantum
+.. automodule:: discopy.quantum.circuit
 
 .. toctree::
     :caption: Contents:

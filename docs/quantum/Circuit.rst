@@ -1,13 +1,13 @@
 quantum.Circuit
-==================
+=======================
 
-.. autoclass:: discopy.quantum.Circuit(dom, cod, gates, offsets)
+.. autoclass:: discopy.quantum.circuit.Circuit(dom, cod, gates, offsets)
     :show-inheritance:
     :members: eval, measure, to_tk, from_tk, get_counts, grad
     :member-order: bysource
 
-.. autoclass:: discopy.quantum.Id
+.. autoclass:: discopy.quantum.circuit.Id
     :show-inheritance:
 
-.. autoclass:: discopy.quantum.CircuitFunctor
+.. autoclass:: discopy.quantum.circuit.CircuitFunctor
     :show-inheritance:

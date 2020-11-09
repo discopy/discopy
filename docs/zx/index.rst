@@ -1,7 +1,7 @@
 discopy.zx
 ==============
 
-.. automodule:: discopy.zx
+.. automodule:: discopy.quantum.zx
 
 .. toctree::
     :caption: Contents:

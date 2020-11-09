@@ -1,32 +1,20 @@
 quantum.Box
-===========
+===================
 
-.. autoclass:: discopy.quantum.Box(self, name, dom, cod, is_mixed=True, _dagger=False)
+.. autoclass:: discopy.quantum.circuit.Box(self, name, dom, cod, is_mixed=True, _dagger=False)
     :show-inheritance:
 
-.. autoclass:: discopy.quantum.Swap
+.. autoclass:: discopy.quantum.circuit.Swap
     :show-inheritance:
 
-.. autoclass:: discopy.quantum.Discard
+.. autoclass:: discopy.quantum.circuit.Discard
     :show-inheritance:
 
-.. autoclass:: discopy.quantum.MixedState
+.. autoclass:: discopy.quantum.circuit.MixedState
     :show-inheritance:
 
-.. autoclass:: discopy.quantum.Measure
+.. autoclass:: discopy.quantum.circuit.Measure
     :show-inheritance:
 
-.. autoclass:: discopy.quantum.Encode
-    :show-inheritance:
-
-.. autoclass:: discopy.quantum.Bra
-    :show-inheritance:
-
-.. autoclass:: discopy.quantum.Ket
-    :show-inheritance:
-
-.. autoclass:: discopy.quantum.Scalar
-    :show-inheritance:
-
-.. autoclass:: discopy.quantum.Sqrt
+.. autoclass:: discopy.quantum.circuit.Encode
     :show-inheritance:
