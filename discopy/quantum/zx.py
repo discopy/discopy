@@ -141,12 +141,23 @@ class Diagram(rigid.Diagram):
                 n_legs_in, n_legs_out, graph.phase(node) * .5)
 
         def move(scan, source, target):
-            swaps = Id(target)\
-                @ Diagram.swap(source - target, 1)\
-                @ Id(len(scan) - source - 1)
-            scan = scan[:target] + [node]\
-                + scan[target:source] + scan[source + 1:]
+            if target < source:
+                swaps = Id(target)\
+                    @ Diagram.swap(source - target, 1)\
+                    @ Id(len(scan) - source - 1)
+                scan = scan[:target] + [node]\
+                    + scan[target:source] + scan[source + 1:]
+            elif target > source:
+                swaps = Id(source)\
+                    @ Diagram.swap(1, target - source)\
+                    @ Id(len(scan) - target - 1)
+                scan = scan[:source] + scan[source + 1:target]\
+                    + [node] + scan[target:]
+            else:
+                scan, swaps = scan, Id(len(scan))
             return scan, swaps
+
+
 
         def make_wires_adjacent(scan, diagram, inputs):
             if not inputs:
@@ -154,9 +165,8 @@ class Diagram(rigid.Diagram):
             offset = scan.index(inputs[0])
             for i, _ in enumerate(inputs[1:]):
                 source, target = scan.index(inputs[i + 1]), offset + i + 1
-                if source != target:
-                    scan, swaps = move(scan, source, target)
-                    diagram = diagram >> swaps
+                scan, swaps = move(scan, source, target)
+                diagram = diagram >> swaps
             return scan, diagram, offset
 
         missing_boundary = any(
@@ -180,6 +190,7 @@ class Diagram(rigid.Diagram):
         for node in [v for v in graph.vertices()
                  if v not in graph.inputs + graph.outputs]:
             inputs = [v for v in graph.neighbors(node) if v < node]
+            inputs.sort(key=lambda v: scan.index(v))
             outputs = [v for v in graph.neighbors(node) if v > node]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
             diagram = diagram >> Id(offset)\
