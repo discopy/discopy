@@ -83,12 +83,13 @@ class Diagram(rigid.Diagram):
         ...     6: {4: 1},
         ...     7: {5: 1}}
         """
-        from pyzx import Graph, VertexType
+        from pyzx import Graph, VertexType, EdgeType
         graph, scan = Graph(), []
         for i, _ in enumerate(self.dom):
-            scan.append(graph.add_vertex(VertexType.BOUNDARY))
-            graph.set_position(scan[-1], i, 0)
-        graph.inputs = scan
+            node = graph.add_vertex(VertexType.BOUNDARY)
+            scan.append((node, False))
+            graph.inputs.append(node)
+            graph.set_position(node, i, 0)
         for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, Spider):
                 node = graph.add_vertex(
@@ -96,18 +97,26 @@ class Diagram(rigid.Diagram):
                     phase=box.phase * 2 if box.phase else None)
                 graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
-                    graph.add_edge((scan[offset + i], node))
-                scan = scan[:offset] + len(box.cod) * [node]\
+                    input, hadamard = scan[offset + i]
+                    etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
+                    graph.add_edge((input, node), etype)
+                scan = scan[:offset] + len(box.cod) * [(node, False)]\
                     + scan[offset + len(box.dom):]
-            if isinstance(box, Swap):
+            elif isinstance(box, Swap):
                 scan = scan[:offset] + [scan[offset + 1], scan[offset]]\
                     + scan[offset + 2:]
+            elif box == H:
+                node, hadamard = scan[offset]
+                scan[offset] = (node, not hadamard)
+            else:
+                raise TypeError(messages.type_err(Box, box))
         for i, _ in enumerate(self.cod):
             node = graph.add_vertex(VertexType.BOUNDARY)
-            graph.add_edge((scan[i], node))
+            input, hadamard = scan[i]
+            etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
+            graph.add_edge((input, node), etype)
             graph.set_position(node, i, len(self) + 1)
-            scan[i] = node
-        graph.outputs = scan
+            graph.outputs.append(node)
         return graph
 
     @staticmethod
@@ -132,7 +141,7 @@ class Diagram(rigid.Diagram):
         - there is an input node after a non-input node,
         - or there is an output node before a non-output node.
         """
-        from pyzx import VertexType
+        from pyzx import VertexType, EdgeType
 
         def node2box(node, n_legs_in, n_legs_out):
             if graph.type(node) not in {VertexType.Z, VertexType.X}:
@@ -156,8 +165,6 @@ class Diagram(rigid.Diagram):
             else:
                 scan, swaps = scan, Id(len(scan))
             return scan, swaps
-
-
 
         def make_wires_adjacent(scan, diagram, inputs):
             if not inputs:
@@ -193,8 +200,11 @@ class Diagram(rigid.Diagram):
             inputs.sort(key=lambda v: scan.index(v))
             outputs = [v for v in graph.neighbors(node) if v > node]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
-            diagram = diagram >> Id(offset)\
-                @ node2box(node, len(inputs), len(outputs))\
+            hadamards = Id(0).tensor(*[
+                H if graph.edge_type((i, node)) == EdgeType.HADAMARD else Id(1)
+                for i in scan[offset: offset + len(inputs)]])
+            box = node2box(node, len(inputs), len(outputs))
+            diagram = diagram >> Id(offset) @ (hadamards >> box)\
                 @ Id(len(diagram.cod) - offset - len(inputs))
             scan = scan[:offset] + len(outputs) * [node]\
                 + scan[offset + len(inputs):]
