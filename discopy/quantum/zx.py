@@ -187,20 +187,14 @@ class Diagram(rigid.Diagram):
         duplicate_boundary = set(graph.inputs).intersection(graph.outputs)
         if duplicate_boundary:
             raise ValueError
-        wrong_ordering = any(
-            input > v for input in graph.inputs
-            for v in set(graph.vertices()) - set(graph.inputs))\
-            or any(
-            output < v for output in graph.outputs
-            for v in set(graph.vertices()) - set(graph.outputs))
-        if wrong_ordering:
-            raise ValueError
         diagram, scan = Id(len(graph.inputs)), graph.inputs
         for node in [v for v in graph.vertices()
-                 if v not in graph.inputs + graph.outputs]:
-            inputs = [v for v in graph.neighbors(node) if v < node]
+                     if v not in graph.inputs + graph.outputs]:
+            inputs = [v for v in graph.neighbors(node) if v < node
+                      and v not in graph.outputs or v in graph.inputs]
             inputs.sort(key=lambda v: scan.index(v))
-            outputs = [v for v in graph.neighbors(node) if v > node]
+            outputs = [v for v in graph.neighbors(node) if v > node
+                       and v not in graph.inputs or v in graph.outputs]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
             hadamards = Id(0).tensor(*[
                 H if graph.edge_type((i, node)) == EdgeType.HADAMARD else Id(1)
@@ -321,13 +315,16 @@ class X(Spider):
 class Had(Box):
     """ Hadamard box. """
     def __init__(self):
-        super().__init__('zx.H', PRO(1), PRO(1))
+        super().__init__('H', PRO(1), PRO(1))
         self.draw_as_spider = True
         self.drawing_name = ''
         self.color, self.shape = "yellow", "s"
 
     def __repr__(self):
         return self.name
+
+    def dagger(self):
+        return self
 
 
 H = Had()
@@ -336,11 +333,11 @@ H = Had()
 class Scalar(Box):
     """ Scalar in a ZX diagram. """
     def __init__(self, data):
-        super().__init__("zx.scalar", PRO(0), PRO(0), data)
+        super().__init__("scalar", PRO(0), PRO(0), data)
 
     @property
     def name(self):
-        return "zx.scalar({})".format(format_number(self.data))
+        return "scalar({})".format(format_number(self.data))
 
     def __repr__(self):
         return self.name
