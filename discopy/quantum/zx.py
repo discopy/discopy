@@ -72,7 +72,9 @@ class Diagram(rigid.Diagram):
         >>> assert (graph.inputs, graph.outputs) == ([0, 1], [6, 7])
         >>> from pyzx import VertexType
         >>> assert graph.type(2) == graph.type(3) == VertexType.Z
+        >>> assert graph.phase(2) == 2 * .25 and graph.phase(3) == 2 * .75
         >>> assert graph.type(4) == graph.type(5) == VertexType.X
+        >>> assert graph.phase(4) == graph.phase(5) == 2 * .5
         >>> assert graph.graph == {
         ...     0: {2: 1},
         ...     1: {3: 1},
@@ -86,8 +88,8 @@ class Diagram(rigid.Diagram):
         from pyzx import Graph, VertexType, EdgeType
         graph, scan = Graph(), []
         for i, _ in enumerate(self.dom):
-            node = graph.add_vertex(VertexType.BOUNDARY)
-            scan.append((node, False))
+            node, hadamard = graph.add_vertex(VertexType.BOUNDARY), False
+            scan.append((node, hadamard))
             graph.inputs.append(node)
             graph.set_position(node, i, 0)
         for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
@@ -210,8 +212,11 @@ class Diagram(rigid.Diagram):
                 + scan[offset + len(inputs):]
         for target, output in enumerate(graph.outputs):
             node, = graph.neighbors(output)
+            etype = graph.edge_type((node, output))
+            hadamard = H if etype == EdgeType.HADAMARD else Id(1)
             scan, swaps = move(scan, scan.index(node), target)
-            diagram = diagram >> swaps
+            diagram = diagram >> swaps\
+                >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
         return diagram
 
 
