@@ -95,12 +95,11 @@ F = TensorFunctor(
 assert F(sentence) == np.array(1)
 ```
 
-**Free functors** (i.e. from diagrams to diagrams) can fill each box with a complex diagram,
-while **quivers** allow to construct functors from arbitrary python functions.
+**Free functors** (i.e. from diagrams to diagrams) can fill each box with a complex diagram.
 The result can then be simplified using `diagram.normalize()` to remove the snakes.
 
 ```python
-from discopy import Functor, Quiver
+from discopy import Functor
 
 def wiring(word):
     if word.cod == n:  # word is a noun
@@ -109,7 +108,7 @@ def wiring(word):
         return Cap(n.r, n) @ Cap(n, n.l)\
             >> Id(n.r) @ Box(word.name, n @ n, s) @ Id(n.l)
 
-W = Functor(ob={s: s, n: n}, ar=Quiver(wiring))
+W = Functor(ob={s: s, n: n}, ar=wiring)
 
 
 rewrite_steps = W(sentence).normalize()
