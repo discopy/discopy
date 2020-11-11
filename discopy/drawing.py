@@ -26,6 +26,145 @@ SHAPES = {
     'circle': 'o'
 }
 
+from abc import ABC, abstractmethod
+
+class DrawingBackend(ABC):
+
+    @abstractmethod
+    def draw_text(self, text, i, j, **params):
+        pass
+
+    @abstractmethod
+    def draw_polygon(self, *points, color='#ffffff'):
+        pass
+
+    @abstractmethod
+    def draw_wire(self, source, target, bend_out=False, bend_in=False):
+        pass
+
+    @abstractmethod
+    def draw_spiders(self, spiders, labels, graph, positions, draw_box_labels=True):
+        pass
+
+    @abstractmethod
+    def show_drawing(self, path=None):
+        pass
+
+class TikzDrawingBackend(DrawingBackend):
+
+    def __init__(self):
+        self.nodes = []
+        self.edges = []
+
+
+    def draw_text(self, text, i, j, **params):
+        options = ""
+        if params.get("verticalalignment", "center") == "top":  # wire labels
+            options += "right"
+        if 'fontsize' in params and params['fontsize'] is not None:
+            options += (", " if options else "") +\
+                "scale={}".format(params['fontsize'])
+        self.nodes.append(
+            "\\node [{}] () at ({}, {}) {{{}}};\n".format(options, i, j, text))
+
+    def draw_polygon(self, *points, color='#ffffff'):
+        if len(points) < 2:
+            return
+        for i, point in enumerate(points):
+            x, y = point
+            self.nodes.append(
+                f"\\node [] (poly_{i}) at ({x}, {y}) {{}};\n")
+
+        self.edges.append("\\draw {};\n".format(" to ".join(
+            "(poly_{})".format(x) for x in list(range(len(points))) + [0])))
+
+    def draw_wire(self, source, target, bend_out=False, bend_in=False):
+        out = -90 if not bend_out or source[0] == target[0]\
+            else (180 if source[0] > target[0] else 0)
+        inp = 90 if not bend_in or source[0] == target[0]\
+            else (180 if source[0] < target[0] else 0)
+        cmd = "\\draw [out={}, in={}] {{}} to {{}};\n".format(out, inp)
+        self.edges.append(cmd.format(*("({}, {})".format(*point)
+                                 for point in [source, target])))
+
+    def draw_spiders(self, spiders, labels, graph, positions, draw_box_labels=True):
+        for node, color, shape in spiders:
+            cmd = "\\node [{}, fill={}] ({}) ".format(shape, color, node)
+            cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
+            lab = labels[node] if draw_box_labels else ""
+            self.nodes.append(cmd.format(label=lab, pos=positions[node]))
+
+    def show_drawing(self, path=None, baseline=0, tikz_options=None):
+        """
+        Save a list of tikz commands.
+        """
+        options = "baseline=(O.base)" if tikz_options is None\
+            else "baseline=(O.base), " + tikz_options
+        begin = ["\\begin{{tikzpicture}}[{}]\n".format(options)]
+        nodes = ["\\begin{pgfonlayer}{nodelayer}\n",
+                 "\\node (O) at (0, {}) {{}};\n".format(baseline)] + self.nodes +\
+                ["\\end{pgfonlayer}\n"]
+        edges = ["\\begin{pgfonlayer}{edgelayer}\n"] + self.edges +\
+                ["\\end{pgfonlayer}\n"]
+        
+        end = ["\\end{tikzpicture}\n"]
+        if path is None:
+            print(begin + nodes + edges + end)
+        else:
+            with open(path, 'w+') as file:
+                file.writelines(begin + nodes + edges + end)
+    
+class MatDrawingBackend(DrawingBackend):
+
+    def __init__(self, figsize):
+        self.axis = plt.subplots(figsize=figsize)[1]
+
+
+    def draw_text(self, text, i, j, **params):
+        params['fontsize'] = params.get('fontsize', None) or 12
+        self.axis.text(i, j, text, **params)
+
+    def draw_polygon(self, *points, color='#ffffff'):
+        codes = [Path.MOVETO]
+        codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
+        path = Path(points + points[:1], codes)
+        self.axis.add_patch(PathPatch(path, facecolor=color))
+
+    def draw_wire(self, source, target, bend_out=False, bend_in=False):
+        mid = (target[0], source[1]) if bend_out else (source[0], target[1])
+        path = Path([source, mid, target],
+                    [Path.MOVETO, Path.CURVE3, Path.CURVE3])
+        self.axis.add_patch(PathPatch(path, facecolor='none'))
+
+    def draw_spiders(self, spiders, labels, graph, positions, draw_box_labels=True):
+        shapes = {shape for _, _, shape in spiders}
+        for shape in shapes:
+            shaped_spiders = [(node, color) 
+                for node, color, s in spiders if s == shape]
+            nodes, colors = zip(*shaped_spiders)
+            hex_codes = [COLORS[color] for color in colors]
+            nx.draw_networkx_nodes(
+                graph, positions, nodelist=nodes,
+                node_color=hex_codes, node_shape=SHAPES[shape], ax=self.axis)
+            if draw_box_labels:
+                nx.draw_networkx_labels(
+                    graph, positions,
+                    {n: l for n, l in labels.items() if n in nodes})
+
+    def show_drawing(self, path=None, show=True, margins=(.05, .05), aspect='equal'):
+        plt.margins(*margins)
+        plt.subplots_adjust(
+            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+        self.axis.set_aspect(aspect)
+        plt.axis('off')
+        if path is not None:
+            plt.savefig(path)
+            plt.close()
+        if show:
+            plt.show()
+        return self.axis
+    
+
 
 def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     """
@@ -234,11 +373,16 @@ def draw(diagram, axis=None, data=None, **params):
         diagram_to_nx(diagram, scale, pad) if data is None else data
     spiders = [("box_{}".format(i), 
                 getattr(box, 'color', 'red'), 
-                getattr(box, 'shape', 'circle')) 
+                getattr(box, 'shape', 'circle'))
                 for i, box in enumerate(diagram.boxes)
                 if getattr(box, "draw_as_spider", False)]
 
-    def draw_box(axis, box, depth):
+    if params.get('to_tikz', False):
+        backend = TikzDrawingBackend()
+    else:
+        backend = MatDrawingBackend(figsize=params.get('figsize', None))
+
+    def draw_box(box, depth):
         node = 'box_{}'.format(depth)
         if node not in graph.nodes():
             return
@@ -263,30 +407,27 @@ def draw(diagram, axis=None, data=None, **params):
             right = max(top_right, bottom_right)
         height = positions[node][1] - .25
         left, right = left - .25 * scale[0], right + .25 * scale[0]
-        draw_polygon(
-            axis, (left, height),
+        backend.draw_polygon(
+            (left, height),
             (right + (asymmetry if box.is_dagger else 0), height),
             (right + (0 if box.is_dagger else asymmetry), height + .5),
             (left, height + .5),
-            to_tikz=params.get('to_tikz', False),
             color=params.get('color', '#ffffff'))
         if params.get('draw_box_labels', True):
-            draw_text(axis, labels[node], *positions[node],
-                      to_tikz=params.get('to_tikz', False),
+            backend.draw_text(labels[node], *positions[node],
                       ha='center', va='center',
                       fontsize=params.get('fontsize', None))
 
-    def draw_wires(axis):
+    def draw_wires():
         for case in ['input', 'wire_cod']:
             for node in [n for n in graph.nodes if n[:len(case)] == case]:
                 i, j = positions[node]
                 if params.get('draw_types', True):
                     if node in labels.keys():
                         pad_i, pad_j = params.get('textpad', (.1, .1))
-                        draw_text(
-                            axis, labels[node],
+                        backend.draw_text(
+                            labels[node],
                             i + pad_i, j - (0 if case == 'input' else pad_j),
-                            to_tikz=params.get('to_tikz', False),
                             fontsize=params.get('fontsize_types',
                                                 params.get('fontsize', None)),
                             verticalalignment='top')
@@ -294,35 +435,22 @@ def draw(diagram, axis=None, data=None, **params):
             if "box" in [source[:3], target[:3]] and not any(
                     v in [l for l, _, _ in spiders] for v in [source, target]):
                 continue
-            draw_wire(axis, positions[source], positions[target],
-                      bend_out='box' in source, bend_in='box' in target,
-                      to_tikz=params.get('to_tikz', False))
-    if axis is None:
-        axis = [] if params.get('to_tikz', False)\
-            else plt.subplots(figsize=params.get('figsize', None))[1]
-    draw_wires(axis)
-    draw_spiders(axis, spiders, labels, graph, positions, 
-        to_tikz=params.get('to_tikz', False), draw_box_labels=params.get('draw_box_labels', True))
+            backend.draw_wire(positions[source], positions[target],
+                      bend_out='box' in source, bend_in='box' in target)
+    
+    draw_wires()
+    backend.draw_spiders(spiders, labels, graph, positions, draw_box_labels=params.get('draw_box_labels', True))
     for depth, box in enumerate(diagram.boxes):
         if getattr(box, "draw_as_spider", False):
             continue
-        draw_box(axis, box, depth)
+        draw_box(box, depth)
     if params.get('to_tikz', False):
         if 'path' in params:
-            save_tikz(axis, params['path'], baseline=len(diagram) / 2 or .5,
-                      options=params.get('tikz_options', None))
+            return backend.show_drawing(params['path'], baseline=len(diagram) / 2 or .5,
+                      tikz_options=params.get('tikz_options', None))
     else:
-        plt.margins(*params.get('margins', (.05, .05)))
-        plt.subplots_adjust(
-            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        axis.set_aspect(params.get('aspect', 'equal'))
-        plt.axis("off")
-        if 'path' in params:
-            plt.savefig(params['path'])
-            plt.close()
-        if params.get('show', True):
-            plt.show()
-    return axis
+        return backend.show_drawing(params.get('path', None), 
+            margins=params.get('margins', (.05, .05)), aspect=params.get('aspect', 'equal'))
 
 
 def to_gif(diagram, *diagrams, path=None,
