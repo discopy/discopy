@@ -241,7 +241,7 @@ class Scalar(Parametrized):
     """ Scalar, i.e. quantum gate with empty domain and codomain. """
     def __init__(self, data, name=None):
         _dagger = None if data.conjugate() == data else False
-        super().__init__(data, name="scalar", n_qubits=0, _dagger=_dagger)
+        super().__init__(data, name or "scalar", n_qubits=0, _dagger=_dagger)
 
     @property
     def array(self):

@@ -216,19 +216,20 @@ class Circuit(Diagram):
         >>> assert circuit.eval(backend, n_shots=2**10).round()\\
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
-        from discopy.quantum.gates import Ket
+        # pylint: disable=import-outside-toplevel
+        from discopy.quantum.gates import Bits, scalar
         if backend is None and (mixed or self.is_mixed):
-            # pylint: disable=import-outside-toplevel
             from discopy import cqmap
             return cqmap.Functor()(self)
         if backend is None:
             return TensorFunctor(lambda x: 2, lambda f: f.array)(self)
-        counts = self.get_counts(backend, **params)
+        tk_circuit = self.to_tk()
+        counts = tk_circuit.get_counts(backend, **params)
         n_bits = len(list(counts.keys()).pop())
-        array = np.zeros(n_bits * (2, ) or (1, ))
+        result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
         for bitstring, count in counts.items():
-            array += count * Ket(*bitstring).array
-        return Tensor(Dim(1), Dim(*(n_bits * (2, ))), array)
+            result += (scalar(count) @ Bits(*bitstring)).eval()
+        return result >> tk_circuit.post_processing.eval()
 
     def get_counts(self, backend=None, **params):
         """
@@ -271,11 +272,9 @@ class Circuit(Diagram):
             for i in range(2**len(tensor.cod)):
                 bits = index2bitstring(i, len(tensor.cod))
                 if tensor.array[bits]:
-                    counts[bits] = float(tensor.array[bits])
+                    counts[bits] = tensor.array[bits].real
             return counts
-        # pylint: disable=import-outside-toplevel
-        from discopy.quantum.tk import get_counts
-        return get_counts(self, backend, **params)
+        return self.to_tk().get_counts(backend, **params)
 
     def measure(self, mixed=False):
         """
@@ -343,7 +342,7 @@ class Circuit(Diagram):
         """
         # pylint: disable=import-outside-toplevel
         from discopy.quantum.tk import to_tk
-        return to_tk(self.init_and_discard())
+        return to_tk(self)
 
     @staticmethod
     def from_tk(*tk_circuits):
@@ -519,6 +518,7 @@ class Discard(Box):
             dom = qubit ** dom
         super().__init__(
             "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
+        self.drawing_name = "Discard"
 
     def dagger(self):
         return MixedState(self.dom)
@@ -566,6 +566,7 @@ class Measure(Box):
         super().__init__(name, dom, cod, is_mixed=True)
         self.destructive, self.override_bits = destructive, override_bits
         self.n_qubits = n_qubits
+        self.drawing_name = "Measure"
 
     def dagger(self):
         return Encode(self.n_qubits,

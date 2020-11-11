@@ -12,12 +12,13 @@ from discopy import messages
 from discopy.quantum.circuit import (
     CircuitFunctor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
-    Bits, Bra, Ket, Swap, Scalar, GATES, X, Rx, Rz, CRz)
+    ClassicalGate, QuantumGate, Bits, Bra, Ket,
+    Swap, Scalar, GATES, X, Rx, Rz, CRz)
 
 
 class Circuit(tk.Circuit):
     """
-    Extend pytket.Circuit with post selection and scalars.
+    Extend pytket.Circuit with counts post-processing.
     """
     @staticmethod
     def upgrade(tk_circuit):
@@ -29,9 +30,12 @@ class Circuit(tk.Circuit):
             result.__getattribute__(name)(*inputs)
         return result
 
-    def __init__(self, n_qubits=0, n_bits=0, post_selection=None, scalar=None):
+    def __init__(self, n_qubits=0, n_bits=0,
+                 post_selection=None, scalar=None, post_processing=None):
         self.post_selection = post_selection or {}
         self.scalar = scalar or 1
+        self.post_processing = post_processing\
+            or Id(bit ** (n_bits - len(self.post_selection)))
         super().__init__(n_qubits, n_bits)
 
     def __repr__(self):
@@ -45,12 +49,21 @@ class Circuit(tk.Circuit):
         post_select = ["post_select({})".format(self.post_selection)]\
             if self.post_selection else []
         scalar = ["scale({})".format(x) for x in [self.scalar] if x != 1]
-        return '.'.join(init + gates + post_select + scalar)
+        post_process = ["post_process({})".format(repr(d))
+                        for d in [self.post_processing] if d]
+        return '.'.join(init + gates + post_select + scalar + post_process)
 
     @property
     def n_bits(self):
         """ Number of bits in a circuit. """
         return len(self.bits)
+
+    def add_bit(self, unit):
+        """ Add a bit, update post_processing. """
+        self.post_processing @= Id(bit)
+        self.post_processing >>= Id(bit ** unit.index[0])\
+            @ Id.swap(self.post_processing.cod[unit.index[0]:-1], bit)
+        super().add_bit(unit)
 
     def rename_units(self, renaming):
         """ Rename units in a circuit. """
@@ -71,9 +84,41 @@ class Circuit(tk.Circuit):
         return self
 
     def post_select(self, post_selection):
-        """ Post select bits on a a given value. """
+        """ Post-select bits on a a given value. """
         self.post_selection.update(post_selection)
         return self
+
+    def post_process(self, process):
+        """ Classical post-processing. """
+        self.post_processing >>= process
+        return self
+
+    def get_counts(
+            self, backend, n_shots=2**10, scale=True, post_select=True,
+            compilation=None, normalize=True, measure_all=False, seed=None):
+        """ Runs a circuit on a backend and returns the counts. """
+        if measure_all:
+            self.measure_all()
+        if compilation is not None:
+            compilation.apply(self)
+        counts = backend.get_counts(self, n_shots=n_shots, seed=seed)
+        if not counts:
+            raise RuntimeError
+        if normalize:
+            counts = probs_from_counts(counts)
+        if post_select:
+            post_selected = dict()
+            for bitstring, count in counts.items():
+                if all(bitstring[index] == value
+                        for index, value in self.post_selection.items()):
+                    post_selected.update({
+                        tuple(value for index, value in enumerate(bitstring)
+                              if index not in self.post_selection): count})
+            counts = post_selected
+        if scale:
+            for bitstring in counts:
+                counts[bitstring] *= abs(self.scalar) ** 2
+        return counts
 
 
 def to_tk(circuit):
@@ -83,6 +128,7 @@ def to_tk(circuit):
     # bits and qubits are lists of register indices, at layer i we want
     # len(bits) == circuit[:i].cod.count(bit) and same for qubits
     tk_circ, bits, qubits = Circuit(), [], []
+    circuit = circuit.init_and_discard()
 
     def remove_ket1(box):
         if not isinstance(box, Ket):
@@ -138,9 +184,7 @@ def to_tk(circuit):
         return bits, qubits
 
     def swap(i, j, unit_factory=Qubit):
-        old = unit_factory(i)
-        tmp = unit_factory('tmp', 0)
-        new = unit_factory(j)
+        old, tmp, new = Qubit(i), Qubit('tmp', 0), Qubit(j)
         tk_circ.rename_units({old: tmp})
         tk_circ.rename_units({new: old})
         tk_circ.rename_units({tmp: new})
@@ -160,7 +204,7 @@ def to_tk(circuit):
     for left, box, _ in circuit.layers:
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
-        elif isinstance(box, Bits):
+        elif isinstance(box, Bits) and not box.is_dagger:
             if 1 in box.bitstring:
                 raise NotImplementedError
             bits = prepare_bits(bits, box, left.count(bit))
@@ -178,11 +222,21 @@ def to_tk(circuit):
                 swap(qubits[off], qubits[off + 1])
             elif box == Swap(bit, bit):
                 off = left.count(bit)
-                swap(bits[off], bits[off + 1], unit_factory=Bit)
-        elif not box.dom and not box.cod:
+                right = Id(tk_circ.post_processing.cod[off + 2:])
+                tk_circ.post_process(Id(bit ** off) @ Swap(bit, bit) @ right)
+            else:
+                continue  # bits and qubits live in different registers.
+        elif isinstance(box, Scalar):
             tk_circ.scale(box.array[0])
-        else:
+        elif isinstance(box, ClassicalGate)\
+                or isinstance(box, Bits) and box.is_dagger:
+            off = left.count(bit)
+            right = Id(tk_circ.post_processing.cod[off + len(box.dom):])
+            tk_circ.post_process(Id(bit ** off) @ box @ right)
+        elif isinstance(box, QuantumGate):
             add_gate(qubits, box, left.count(qubit))
+        else:
+            raise NotImplementedError
     return tk_circ
 
 
@@ -230,7 +284,7 @@ def from_tk(tk_circuit):
                 continue  # units are adjacent already
             swaps = swaps >> Id(left) @ swap @ Id(right)
         return offset, swaps
-    circuit, bras = Id(qubit ** n_qubits @ bit ** n_bits), {}
+    circuit, bras = Ket(*(n_qubits * (0, ))) @ Bits(*(n_bits * (0, ))), {}
     for tk_gate in tk_circuit.get_commands():
         if tk_gate.op.type.name == "Measure":
             offset = tk_gate.qubits[0].index[0]
@@ -250,36 +304,9 @@ def from_tk(tk_circuit):
         left, right = swaps.cod[:offset], swaps.cod[offset + len(box.dom):]
         circuit = circuit >> swaps >> Id(left) @ box @ Id(right) >> swaps[::-1]
     circuit = circuit >> Id(0).tensor(*(
-        Bra(bras[i]) if i in bras else Id(circuit.cod[i: i + 1])
-        for i, _ in enumerate(circuit.cod)))
+        Bra(bras[i]) if i in bras
+        else Discard() if x.name == 'qubit' else Id(bit)
+        for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
         circuit = circuit @ Scalar(tk_circuit.scalar)
-    return circuit
-
-
-def get_counts(circuit, backend, n_shots=2**10, scale=True, post_select=True,
-               compilation=None, normalize=True, measure_all=False, seed=None):
-    """ Runs a circuit on a backend and returns the counts """
-    tk_circ = circuit.to_tk()
-    if measure_all:
-        tk_circ.measure_all()
-    if compilation is not None:
-        compilation.apply(tk_circ)
-    counts = backend.get_counts(tk_circ, n_shots=n_shots, seed=seed)
-    if not counts:
-        raise RuntimeError
-    if normalize:
-        counts = probs_from_counts(counts)
-    if post_select:
-        post_selected = dict()
-        for bitstring, count in counts.items():
-            if all(bitstring[index] == value
-                    for index, value in tk_circ.post_selection.items()):
-                post_selected.update({
-                    tuple(value for index, value in enumerate(bitstring)
-                          if index not in tk_circ.post_selection): count})
-        counts = post_selected
-    if scale:
-        for bitstring in counts:
-            counts[bitstring] *= abs(tk_circ.scalar) ** 2
-    return counts
+    return circuit >> tk_circuit.post_processing
