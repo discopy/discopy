@@ -21,6 +21,11 @@ COLORS = {
     'black': '#000000',
 }
 
+SHAPES = {
+    'square': 's',
+    'circle': 'o'
+}
+
 
 def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     """
@@ -137,7 +142,6 @@ def save_tikz(commands, path=None, baseline=0, options=None):
     with open(path, 'w+') as file:
         file.writelines(begin + commands + end)
 
-
 def draw_text(axis, text, i, j, to_tikz=False, **params):
     """
     Draws `text` on `axis` as position `(i, j)`.
@@ -196,6 +200,29 @@ def draw_wire(axis, source, target,
         axis.add_patch(PathPatch(path, facecolor='none'))
 
 
+def draw_spiders(axis, spiders, labels, graph, positions, to_tikz=False, draw_box_labels=True):
+    if to_tikz:
+        for node, color, shape in spiders:
+            cmd = "\\node [{}, fill={}] ({}) ".format(shape, color, node)
+            cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
+            lab = labels[node] if draw_box_labels else ""
+            axis.append(cmd.format(label=lab, pos=positions[node]))
+    else:
+        shapes = {shape for _, _, shape in spiders}
+        for shape in shapes:
+            shaped_spiders = [(node, color) 
+                for node, color, s in spiders if s == shape]
+            nodes, colors = zip(*shaped_spiders)
+            hex_codes = [COLORS[color] for color in colors]
+            nx.draw_networkx_nodes(
+                graph, positions, nodelist=nodes,
+                node_color=hex_codes, node_shape=SHAPES[shape], ax=axis)
+            if draw_box_labels:
+                nx.draw_networkx_labels(
+                    graph, positions,
+                    {n: l for n, l in labels.items() if n in nodes})
+
+
 def draw(diagram, axis=None, data=None, **params):
     """
     Draws a diagram, see :meth:`monoidal.Diagram.draw`.
@@ -205,32 +232,11 @@ def draw(diagram, axis=None, data=None, **params):
     scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
     graph, positions, labels =\
         diagram_to_nx(diagram, scale, pad) if data is None else data
-    colors = {getattr(box, 'color', 'red') for box in diagram.boxes}
-    shapes = {getattr(box, 'shape', 'o') for box in diagram.boxes}
-    spiders = {(color, shape): ["box_{}".format(i)
-               for i, box in enumerate(diagram.boxes)
-               if getattr(box, "draw_as_spider", False)
-               if getattr(box, "color", "red") == color
-               if getattr(box, "shape", "o") == shape]
-               for color in colors
-               for shape in shapes}
-
-    def draw_nodes(axis, nodes, color, shape):
-        if params.get('to_tikz', False):
-            cmd = "\\node [circle, fill={}] () ".format(color)
-            cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
-            for node in nodes:
-                lab = labels[node]\
-                    if params.get('draw_box_labels', True) else ""
-                axis.append(cmd.format(label=lab, pos=positions[node]))
-        else:
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=spiders[(color, shape)],
-                node_color=COLORS[color], node_shape=shape, ax=axis)
-            if params.get('draw_box_labels', True):
-                nx.draw_networkx_labels(
-                    graph, positions,
-                    {n: l for n, l in labels.items() if n in nodes})
+    spiders = [("box_{}".format(i), 
+                getattr(box, 'color', 'red'), 
+                getattr(box, 'shape', 'circle')) 
+                for i, box in enumerate(diagram.boxes)
+                if getattr(box, "draw_as_spider", False)]
 
     def draw_box(axis, box, depth):
         node = 'box_{}'.format(depth)
@@ -286,7 +292,7 @@ def draw(diagram, axis=None, data=None, **params):
                             verticalalignment='top')
         for source, target in graph.edges():
             if "box" in [source[:3], target[:3]] and not any(
-                    v in sum(spiders.values(), []) for v in [source, target]):
+                    v in [l for l, _, _ in spiders] for v in [source, target]):
                 continue
             draw_wire(axis, positions[source], positions[target],
                       bend_out='box' in source, bend_in='box' in target,
@@ -295,8 +301,8 @@ def draw(diagram, axis=None, data=None, **params):
         axis = [] if params.get('to_tikz', False)\
             else plt.subplots(figsize=params.get('figsize', None))[1]
     draw_wires(axis)
-    for color, shape in spiders.keys():
-            draw_nodes(axis, spiders[(color, shape)], color, shape)
+    draw_spiders(axis, spiders, labels, graph, positions, 
+        to_tikz=params.get('to_tikz', False), draw_box_labels=params.get('draw_box_labels', True))
     for depth, box in enumerate(diagram.boxes):
         if getattr(box, "draw_as_spider", False):
             continue
