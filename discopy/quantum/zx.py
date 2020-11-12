@@ -72,7 +72,9 @@ class Diagram(rigid.Diagram):
         >>> assert (graph.inputs, graph.outputs) == ([0, 1], [6, 7])
         >>> from pyzx import VertexType
         >>> assert graph.type(2) == graph.type(3) == VertexType.Z
+        >>> assert graph.phase(2) == 2 * .25 and graph.phase(3) == 2 * .75
         >>> assert graph.type(4) == graph.type(5) == VertexType.X
+        >>> assert graph.phase(4) == graph.phase(5) == 2 * .5
         >>> assert graph.graph == {
         ...     0: {2: 1},
         ...     1: {3: 1},
@@ -86,8 +88,8 @@ class Diagram(rigid.Diagram):
         from pyzx import Graph, VertexType, EdgeType
         graph, scan = Graph(), []
         for i, _ in enumerate(self.dom):
-            node = graph.add_vertex(VertexType.BOUNDARY)
-            scan.append((node, False))
+            node, hadamard = graph.add_vertex(VertexType.BOUNDARY), False
+            scan.append((node, hadamard))
             graph.inputs.append(node)
             graph.set_position(node, i, 0)
         for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
@@ -185,20 +187,14 @@ class Diagram(rigid.Diagram):
         duplicate_boundary = set(graph.inputs).intersection(graph.outputs)
         if duplicate_boundary:
             raise ValueError
-        wrong_ordering = any(
-            input > v for input in graph.inputs
-            for v in set(graph.vertices()) - set(graph.inputs))\
-            or any(
-            output < v for output in graph.outputs
-            for v in set(graph.vertices()) - set(graph.outputs))
-        if wrong_ordering:
-            raise ValueError
         diagram, scan = Id(len(graph.inputs)), graph.inputs
         for node in [v for v in graph.vertices()
-                 if v not in graph.inputs + graph.outputs]:
-            inputs = [v for v in graph.neighbors(node) if v < node]
+                     if v not in graph.inputs + graph.outputs]:
+            inputs = [v for v in graph.neighbors(node) if v < node
+                      and v not in graph.outputs or v in graph.inputs]
             inputs.sort(key=lambda v: scan.index(v))
-            outputs = [v for v in graph.neighbors(node) if v > node]
+            outputs = [v for v in graph.neighbors(node) if v > node
+                       and v not in graph.inputs or v in graph.outputs]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
             hadamards = Id(0).tensor(*[
                 H if graph.edge_type((i, node)) == EdgeType.HADAMARD else Id(1)
@@ -210,8 +206,11 @@ class Diagram(rigid.Diagram):
                 + scan[offset + len(inputs):]
         for target, output in enumerate(graph.outputs):
             node, = graph.neighbors(output)
+            etype = graph.edge_type((node, output))
+            hadamard = H if etype == EdgeType.HADAMARD else Id(1)
             scan, swaps = move(scan, scan.index(node), target)
-            diagram = diagram >> swaps
+            diagram = diagram >> swaps\
+                >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
         return diagram
 
 
@@ -316,13 +315,16 @@ class X(Spider):
 class Had(Box):
     """ Hadamard box. """
     def __init__(self):
-        super().__init__('zx.H', PRO(1), PRO(1))
+        super().__init__('H', PRO(1), PRO(1))
         self.draw_as_spider = True
         self.drawing_name = ''
         self.color, self.shape = "yellow", "square"
 
     def __repr__(self):
         return self.name
+
+    def dagger(self):
+        return self
 
 
 H = Had()
@@ -331,11 +333,12 @@ H = Had()
 class Scalar(Box):
     """ Scalar in a ZX diagram. """
     def __init__(self, data):
-        super().__init__("zx.scalar", PRO(0), PRO(0), data)
+        super().__init__("scalar", PRO(0), PRO(0), data)
+        self.drawing_name = format_number(data)
 
     @property
     def name(self):
-        return "zx.scalar({})".format(format_number(self.data))
+        return "scalar({})".format(format_number(self.data))
 
     def __repr__(self):
         return self.name

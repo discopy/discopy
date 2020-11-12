@@ -901,6 +901,9 @@ class Sum(cat.Sum, Box):
         terms = [f.tensor(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))
 
+    def draw(self, **params):
+        return drawing.equation(*self.terms, symbol='+', **params)
+
 
 Diagram.sum = Sum
 

@@ -23,6 +23,7 @@ We can create dagger functors from the free category to itself:
 
 from numbers import Number
 from functools import total_ordering
+from collections.abc import Mapping, Iterable
 
 from discopy import messages
 
@@ -348,7 +349,8 @@ class Arrow:
 
         >>> from sympy.abc import phi, psi
         >>> x, y = Ob('x'), Ob('y')
-        >>> f, g = Box('f', x, y, data=phi + 1), Box('g', y, x, data=psi / 2)
+        >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
+        >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
         >>> assert (f >> g).free_symbols == {phi, psi}
         """
         return {x for box in self.boxes for x in box.free_symbols}
@@ -372,7 +374,8 @@ class Arrow:
         --------
         >>> from sympy.abc import phi, psi
         >>> x, y = Ob('x'), Ob('y')
-        >>> f, g = Box('f', x, y, data=phi + 1), Box('g', y, x, data=psi / 2)
+        >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
+        >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
         >>> assert (f >> g).subs(phi, phi + 1) == f.subs(phi, phi + 1) >> g
         >>> assert (f >> g).subs(phi, 1) == f.subs(phi, 1) >> g
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
@@ -473,14 +476,29 @@ class Box(Arrow):
 
     @property
     def free_symbols(self):
-        return getattr(self.data, "free_symbols", {})
+        def recursive_free_symbols(data):
+            if isinstance(data, Mapping):
+                return sum(map(recursive_free_symbols, data.values()), [])
+            if isinstance(data, Iterable):
+                return sum(map(recursive_free_symbols, data), [])
+            if hasattr(data, "free_symbols"):
+                return list(data.free_symbols)
+            return []
+        return set(recursive_free_symbols(self.data))
 
     def subs(self, var, expr):
         if not var in self.free_symbols:
             return self
-        data = self.data.subs(var, expr)
-        data = type(expr)(data) if isinstance(expr, Number) else data
-        return Box(self.name, self.dom, self.cod, data, self._dagger)
+        def recursive_subs(data, var, expr):
+            if isinstance(data, Mapping):
+                return {key: recursive_subs(value, var, expr)
+                        for key, value in data.items()}
+            if isinstance(data, Iterable):
+                return [recursive_subs(elem, var, expr) for elem in data]
+            result = data.subs(var, expr)
+            return type(expr)(result) if isinstance(expr, Number) else result
+        return Box(self.name, self.dom, self.cod, _dagger=self._dagger,
+                   data=recursive_subs(self.data, var, expr))
 
     @property
     def is_dagger(self):

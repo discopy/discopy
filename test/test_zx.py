@@ -30,7 +30,8 @@ def test_Spider():
 
 
 def test_H():
-    assert repr(H) == str(H) == "zx.H"
+    assert repr(H) == str(H) == "H"
+    assert H[::-1] == H
 
 
 def test_Sum():
@@ -72,10 +73,17 @@ def test_grad():
            + (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi + .5))
 
 
+def test_to_pyzx_errors():
+    with raises(TypeError):
+        Diagram.to_pyzx(quantum.H)
+
+
 def test_to_pyzx():
+    Diagram.from_pyzx(Z(0, 2).to_pyzx()) == Z(0, 2) >> SWAP
+
+
+def test_from_pyzx_errors():
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
-    diagram = X(0, 2) >> bialgebra >> X(2, 0)
-    assert Diagram.from_pyzx(diagram.to_pyzx()) == diagram
     graph = bialgebra.to_pyzx()
     graph.inputs = graph.outputs = []
     with raises(ValueError):  # missing_boundary
@@ -83,10 +91,16 @@ def test_to_pyzx():
     graph.auto_detect_io()
     with raises(ValueError):  # duplicate_boundary
         Diagram.from_pyzx(graph)
-    graph = bialgebra.to_pyzx()
-    graph.inputs, graph.outputs = graph.outputs, graph.inputs
-    with raises(ValueError):  # wrong_ordering
-        Diagram.from_pyzx(graph)
+
+
+
+def test_backnforth_pyzx():
+    from pyzx import Graph
+    path = 'test/src/zx-graph.json'
+    graph = Graph.from_json(open(path).read())
+    diagram = Diagram.from_pyzx(graph)
+    backnforth = lambda diagram: Diagram.from_pyzx(diagram.to_pyzx())
+    assert backnforth(diagram) == diagram
 
 
 def test_circui2zx():

@@ -31,7 +31,7 @@ from discopy.rigid import (
     Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Swap, Functor)
 from discopy.tensor import Dim, Tensor, TensorFunctor
 
-from discopy.quantum import cqmap, tk, zx
+from discopy.quantum import cqmap, zx
 from discopy.quantum.zx import Z, X, H, SWAP
 from discopy.quantum.cqmap import C, Q, CQMap
 from discopy.quantum.circuit import (
