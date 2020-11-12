@@ -257,6 +257,7 @@ class Scalar(Parametrized):
     def __init__(self, data, name=None):
         _dagger = None if data.conjugate() == data else False
         super().__init__(data, name or "scalar", n_qubits=0, _dagger=_dagger)
+        self.drawing_name = format_number(data)
 
     @property
     def array(self):
@@ -276,6 +277,7 @@ class Sqrt(Scalar):
     """ Square root. """
     def __init__(self, data):
         super().__init__(data, name="sqrt")
+        self.drawing_name = "sqrt({})".format(format_number(data))
 
     @property
     def array(self):

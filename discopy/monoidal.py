@@ -440,6 +440,10 @@ class Diagram(cat.Arrow):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
+    def subs(self, var, expr):
+        return self.upgrade(
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(var, expr))(self))
+
     @staticmethod
     def swap(left, right):
         """
@@ -896,7 +900,7 @@ class Sum(cat.Sum, Box):
     def tensor(self, *others):
         if len(others) != 1:
             return super().tensor(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
+        other = others[0] if isinstance(others[0], Sum) else Sum(others)
         unit = Sum([], self.dom @ other.dom, self.cod @ other.cod)
         terms = [f.tensor(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))

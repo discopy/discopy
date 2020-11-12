@@ -380,7 +380,8 @@ class Arrow:
         >>> assert (f >> g).subs(phi, 1) == f.subs(phi, 1) >> g
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
-        return Functor(ob=lambda x: x, ar=lambda f: f.subs(var, expr))(self)
+        return self.upgrade(
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(var, expr))(self))
 
 
 class Id(Arrow):
@@ -577,9 +578,7 @@ class Sum(Box):
         return old
 
     def __init__(self, terms, dom=None, cod=None):
-        if not isinstance(terms, list):
-            raise TypeError(messages.type_err(list, terms))
-        self.terms = terms
+        self.terms = list(terms)
         if not terms:
             if dom is None or cod is None:
                 raise ValueError(messages.missing_types_for_empty_sum())
@@ -734,8 +733,7 @@ class Functor:
                 return self.ar[arrow.dagger()].dagger()
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
-            return self.ar_factory.id(self(arrow.dom)).then(
-                *map(self, arrow.boxes))
+            return self.ar_factory.id(self(arrow.dom)).then(*map(self, arrow))
         raise TypeError(messages.type_err(Arrow, arrow))
 
 

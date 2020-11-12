@@ -220,6 +220,9 @@ def test_Sum():
 def test_subs():
     from sympy.abc import phi
     assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
+    circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(phi) >> CX >> Bra(0, 1)
+    assert circuit.subs(phi, 0.5)\
+        == sqrt(2) @ Ket(0, 0) >> H @ Rx(0.5) >> CX >> Bra(0, 1)
 
 
 def test_grad():
