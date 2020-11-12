@@ -309,7 +309,7 @@ def draw(diagram, axis=None, data=None, **params):
         plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        axis.set_aspect(params.get('aspect', 'equal'))
+        axis.set_aspect(params.get('aspect', 'auto'))
         plt.axis("off")
         if 'path' in params:
             plt.savefig(params['path'])
@@ -438,7 +438,7 @@ def pregroup_draw(words, cups, **params):
         plt.axis('off')
         axis.set_xlim(0, (space + width) * len(words.boxes) - space)
         axis.set_ylim(- len(cups) - space, 1)
-        axis.set_aspect(params.get('aspect', 'equal'))
+        axis.set_aspect(params.get('aspect', 'auto'))
         if 'path' in params.keys():
             plt.savefig(params['path'])
             plt.close()

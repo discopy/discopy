@@ -776,7 +776,7 @@ class Diagram(cat.Arrow):
         draw_box_labels : bool, optional
             Whether to draw box labels, default is :code:`True`.
         aspect : string, optional
-            Aspect ratio, one of :code:`['equal', 'auto']`.
+            Aspect ratio, one of :code:`['auto', 'equal']`.
         margins : tuple, optional
             Margins, default is :code:`(0.05, 0.05)`.
         fontsize : int, optional
