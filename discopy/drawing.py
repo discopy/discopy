@@ -117,10 +117,8 @@ class TikzDrawingBackend(DrawingBackend):
 class MatDrawingBackend(DrawingBackend):
 
     def __init__(self, axis=None, figsize=None):
-        if axis is None:
-            self.axis = plt.subplots(figsize=figsize)[1]
-        else:
-            self.axis = axis
+        print("figsize", figsize)
+        self.axis = axis or plt.subplots(figsize=figsize)[1]
 
 
     def draw_text(self, text, i, j, **params):
@@ -154,20 +152,23 @@ class MatDrawingBackend(DrawingBackend):
                     graph, positions,
                     {n: l for n, l in labels.items() if n in nodes})
 
-    def show_drawing(self, path=None, show=True, margins=(.05, .05), aspect='equal'):
-        return
+    def show_drawing(
+        self, path=None, show=True, margins=(.05, .05), aspect='equal', 
+        xlim=None, ylim=None):
         plt.margins(*margins)
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
         self.axis.set_aspect(aspect)
         plt.axis('off')
+        if xlim is not None:
+            self.axis.set_xlim(*xlim)
+        if ylim is not None:
+            self.axis.set_ylim(*ylim)
         if path is not None:
             plt.savefig(path)
             plt.close()
-        # if show:
-        #     print("Showing")
-        #     plt.show()
-        print("show", show)
+        if show:
+            plt.show()
         return self.axis
     
 
@@ -293,7 +294,7 @@ def draw(diagram, axis=None, data=None, **params):
     if params.get('to_tikz', False):
         backend = TikzDrawingBackend()
     else:
-        backend = MatDrawingBackend(figsize=params.get('figsize', None))
+        backend = MatDrawingBackend(axis=axis, figsize=params.get('figsize', None))
 
     def draw_box(box, depth):
         node = 'box_{}'.format(depth)
@@ -475,8 +476,11 @@ def pregroup_draw(words, cups, **params):
         if 'path' in params:
             return backend.show_drawing(params['path'], tikz_options=params.get('tikz_options', None))
     else:
+        xlim = (0, (space + width) * len(words.boxes) - space)
+        ylim = (- len(cups) - space, 1)
         return backend.show_drawing(params.get('path', None), show=params.get('show', True),
-            margins=params.get('margins', (.05, .05)), aspect=params.get('aspect', 'equal'))
+            margins=params.get('margins', (.05, .05)), aspect=params.get('aspect', 'equal'),
+            xlim=xlim, ylim=ylim)
 
 
 def equation(*diagrams, symbol="=", space=1, **params):
@@ -515,16 +519,14 @@ def equation(*diagrams, symbol="=", space=1, **params):
         raise Exception("Tikz equations not supported for now.")
     else:
         backend = MatDrawingBackend()
-        axis = backend.axis
 
 
     for i, diagram in enumerate(diagrams):
         scale = (scale_x, scale_y * max_height / (len(diagram) or 1))
         graph, positions, labels = diagram_to_nx(
             diagram, scale=scale, pad=(pad, 0))
-        axis = diagram.draw(axis=axis, data=(graph, positions, labels),
+        backend.axis = diagram.draw(axis=backend.axis, data=(graph, positions, labels),
                             show=False, **params)
-        # backend = MatDrawingBackend(axis=axis)
         widths = {x for x, _ in positions.values()}
         min_width, max_width = min(widths), max(widths)
         pad += max_width - min_width + space
