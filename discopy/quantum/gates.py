@@ -45,30 +45,45 @@ class QuantumGate(Box):
 
 class ClassicalGate(Box):
     """ Classical gates, i.e. from bits to bits. """
-    def __init__(self, name, n_bits_in, n_bits_out,
-                 array, data=None, _dagger=False):
+    def __init__(self, name, n_bits_in, n_bits_out, array=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
         if array is not None:
-            self._array = np.array(array).reshape(
+            array = np.array(array).reshape(
                 (n_bits_in + n_bits_out) * (2, ) or 1)
         super().__init__(
-            name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
+            name, dom, cod, is_mixed=False, data=array, _dagger=_dagger)
 
     @property
     def array(self):
         """ The array of a classical gate. """
-        return self._array
+        return self.data
+
+    def __eq__(self, other):
+        if not isinstance(other, ClassicalGate):
+            return super().__eq__(other)
+        return (self.name, self.dom, self.cod)\
+            == (other.name, other.dom, other.cod)\
+            and np.all(self.array == other.array)
 
     def __repr__(self):
-        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, array={}){}"\
-            .format(repr(self.name), len(self.dom), len(self.cod),
-                    np.array2string(self.array.flatten()),
-                    ".dagger()" if self._dagger else "")
+        if self.is_dagger:
+            return repr(self.dagger()) + ".dagger()"
+        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}{})".format(
+            repr(self.name), len(self.dom), len(self.cod),
+            "" if self.data is None
+            else ", array={}".format(np.array2string(self.array.flatten())))
 
     def dagger(self):
         return ClassicalGate(
-            self.name, len(self.dom), len(self.cod), self.array,
+            self.name, len(self.cod), len(self.dom), self.array,
             _dagger=None if self._dagger is None else not self._dagger)
+
+    def grad(self, var):  # pragma: no cover
+        name = "{}.grad({})".format(self.name, var)
+        dom, cod, _dagger = len(self.dom), len(self.cod), self._dagger
+        array = [getattr(x, "diff", lambda _: 0)(var)
+                 for x in self.array.flatten()]
+        return ClassicalGate(name, dom, cod, array, _dagger)
 
 
 class Bits(ClassicalGate):
@@ -251,6 +266,10 @@ class Scalar(Parametrized):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         return Scalar(self.array[0].diff(var))
+
+    def dagger(self):
+        return self if self._dagger is None\
+            else Scalar(self.array[0].conjugate())
 
 
 class Sqrt(Scalar):

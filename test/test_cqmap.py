@@ -28,6 +28,7 @@ def test_CQMap():
 def test_Functor():
     assert repr(Functor({}, {}))\
         == "cqmap.Functor(ob={bit: C(Dim(2)), qubit: Q(Dim(2))}, ar={})"
+    assert Functor()(sqrt(2)) == CQMap(dom=CQ(), cod=CQ(), array=[2.0])
 
 
 def test_CQMap_measure():

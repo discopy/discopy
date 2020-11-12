@@ -360,6 +360,7 @@ class Circuit(Diagram):
 
         Note
         ----
+        * :meth:`Circuit.init_and_discard` is applied beforehand.
         * SWAP gates are introduced when applying gates to non-adjacent qubits.
 
         Examples
@@ -367,26 +368,31 @@ class Circuit(Diagram):
         >>> from discopy.quantum import *
         >>> import pytket as tk
 
-        >>> c1 = Rz(0.5) @ Id(1) >> Id(1) @ Rx(0.25) >> CX
-        >>> c2 = Circuit.from_tk(c1.to_tk())
-        >>> assert c1.normal_form() == c2.normal_form()
+        >>> c = Rz(0.5) @ Id(1) >> Id(1) @ Rx(0.25) >> CX
+        >>> assert Circuit.from_tk(c.to_tk()) == c.init_and_discard()
 
         >>> tk_GHZ = tk.Circuit(3).H(1).CX(1, 2).CX(1, 0)
         >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
         >>> pprint(Circuit.from_tk(tk_GHZ))
-        Id(1) @ H @ Id(1)
+        Ket(0)
+          >> Id(1) @ Ket(0)
+          >> Id(2) @ Ket(0)
+          >> Id(1) @ H @ Id(1)
           >> Id(1) @ CX
           >> SWAP @ Id(1)
           >> CX @ Id(1)
           >> SWAP @ Id(1)
+          >> Discard(qubit) @ Id(2)
+          >> Discard(qubit) @ Id(1)
+          >> Discard(qubit)
         >>> circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
-        >>> print(Circuit.from_tk(circuit.to_tk()))
+        >>> print(Circuit.from_tk(circuit.to_tk())[3:-3])
         X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
         >>> circuit = bell_state @ Id(1) >> Id(1) @ bell_effect >> Bra(0)
-        >>> pprint(Circuit.from_tk(circuit.to_tk()))
+        >>> pprint(Circuit.from_tk(circuit.to_tk())[3:])
         H @ Id(2)
           >> CX @ Id(1)
           >> Id(1) @ CX
