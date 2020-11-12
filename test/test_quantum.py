@@ -60,8 +60,12 @@ def test_Circuit_to_tk():
     assert repr((Bits(0) >> Id(bit) @ Bits(0)).to_tk())\
         == "tk.Circuit(0, 2)"
     assert repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())\
-        == "tk.Circuit(1, 3).Measure(0, 1).post_select({1: 0})"
-    assert Circuit.from_tk(*(X + X).to_tk()) == X + X
+        == "tk.Circuit(1, 3).Measure(0, 1)"\
+           ".post_select({1: 0}).post_process(Swap(bit, bit))"
+
+
+def test_Sum_from_tk():
+    assert Circuit.from_tk(*(X + X).to_tk()) == (X + X).init_and_discard()
     assert Circuit.from_tk() == Sum([], qubit ** 0, qubit ** 0)
 
 
@@ -81,10 +85,19 @@ def test_Circuit_from_tk():
         return Circuit.from_tk(f.to_tk())
 
     m = Measure(1, destructive=False, override_bits=True)
-    assert back_n_forth(m) == m
-    assert back_n_forth(CRz(0.5)) == CRz(0.5)
-    assert Id(qubit @ bit)\
+    assert back_n_forth(m) == m.init_and_discard()
+    assert back_n_forth(CRz(0.5)) ==\
+        Ket(0) @ Ket(0) >> CRz(0.5) >> Discard() @ Discard()
+    assert Id(qubit @ bit).init_and_discard()\
         == back_n_forth(Swap(qubit, bit)) == back_n_forth(Swap(bit, qubit))
+
+
+def test_ClassicalGate_to_tk():
+    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, array=[0, 0, 0, 1])
+    assert (post[::-1] >> Swap(bit, bit)).to_tk().post_processing\
+        == post[::-1] >> Swap(bit, bit)
+    circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
+    assert Circuit.from_tk(circuit.to_tk())[-1] == post
 
 
 def test_Circuit_get_counts():

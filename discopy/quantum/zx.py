@@ -5,7 +5,7 @@
 from discopy import messages, monoidal, rigid, quantum
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
-from discopy.quantum.circuit import Circuit
+from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
 
@@ -387,5 +387,5 @@ def gate2zx(box):
     return standard_gates[box]
 
 circuit2zx = Functor(
-    ob={quantum.circuit.qubit: PRO(1)}, ar=gate2zx,
+    ob={qubit: PRO(1)}, ar=gate2zx,
     ob_factory=PRO, ar_factory=Diagram)
