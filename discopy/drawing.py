@@ -52,9 +52,9 @@ class DrawingBackend(ABC):
 
 class TikzDrawingBackend(DrawingBackend):
 
-    def __init__(self):
-        self.nodes = []
-        self.edges = []
+    def __init__(self, nodes=[], edges=[]):
+        self.nodes = nodes
+        self.edges = edges
 
 
     def draw_text(self, text, i, j, **params):
@@ -116,8 +116,11 @@ class TikzDrawingBackend(DrawingBackend):
     
 class MatDrawingBackend(DrawingBackend):
 
-    def __init__(self, figsize):
-        self.axis = plt.subplots(figsize=figsize)[1]
+    def __init__(self, axis=None, figsize=None):
+        if axis is None:
+            self.axis = plt.subplots(figsize=figsize)[1]
+        else:
+            self.axis = axis
 
 
     def draw_text(self, text, i, j, **params):
@@ -152,6 +155,7 @@ class MatDrawingBackend(DrawingBackend):
                     {n: l for n, l in labels.items() if n in nodes})
 
     def show_drawing(self, path=None, show=True, margins=(.05, .05), aspect='equal'):
+        return
         plt.margins(*margins)
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
@@ -160,8 +164,10 @@ class MatDrawingBackend(DrawingBackend):
         if path is not None:
             plt.savefig(path)
             plt.close()
-        if show:
-            plt.show()
+        # if show:
+        #     print("Showing")
+        #     plt.show()
+        print("show", show)
         return self.axis
     
 
@@ -269,99 +275,6 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     return graph, scale_and_pad(pos), labels
 
 
-def save_tikz(commands, path=None, baseline=0, options=None):
-    """
-    Save a list of tikz commands.
-    """
-    options = "baseline=(O.base)" if options is None\
-        else "baseline=(O.base), " + options
-    begin = ["\\begin{{tikzpicture}}[{}]\n".format(options),
-             "\\node (O) at (0, {}) {{}};\n".format(baseline)]
-    end = ["\\end{tikzpicture}\n"]
-    with open(path, 'w+') as file:
-        file.writelines(begin + commands + end)
-
-def draw_text(axis, text, i, j, to_tikz=False, **params):
-    """
-    Draws `text` on `axis` as position `(i, j)`.
-    If `to_tikz`, axis is a list of tikz commands, else it's a matplotlib axis.
-    `params` get passed to matplotlib.
-    """
-    if to_tikz:
-        options = ""
-        if params.get("verticalalignment", "center") == "top":  # wire labels
-            options += "right"
-        if 'fontsize' in params and params['fontsize'] is not None:
-            options += (", " if options else "") +\
-                "scale={}".format(params['fontsize'])
-        axis.append(
-            "\\node [{}] () at ({}, {}) {{{}}};\n".format(options, i, j, text))
-    else:
-        params['fontsize'] = params.get('fontsize', None) or 12
-        axis.text(i, j, text, **params)
-
-
-def draw_polygon(axis, *points, to_tikz=False, color='#ffffff'):
-    """
-    Draws a polygon from a list of points.
-    """
-    if to_tikz:
-        axis.append("\\draw {};\n".format(" -- ".join(
-            "({}, {})".format(*x) for x in points + points[:1])))
-    else:
-        codes = [Path.MOVETO]
-        codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
-        path = Path(points + points[:1], codes)
-        axis.add_patch(PathPatch(path, facecolor=color))
-
-
-def draw_wire(axis, source, target,
-              bend_out=False, bend_in=False, to_tikz=False):
-    """
-    Draws a wire from source to target using a Bezier curve.
-    """
-    mid = (target[0], source[1]) if bend_out else (source[0], target[1])
-    if to_tikz == "controls":
-        cmd = "\\draw {} .. controls {} .. {};\n"
-        axis.append(cmd.format(*("({}, {})".format(*point)
-                                 for point in [source, mid, target])))
-    elif to_tikz:
-        out = -90 if not bend_out or source[0] == target[0]\
-            else (180 if source[0] > target[0] else 0)
-        inp = 90 if not bend_in or source[0] == target[0]\
-            else (180 if source[0] < target[0] else 0)
-        cmd = "\\draw [out={}, in={}] {{}} to {{}};\n".format(out, inp)
-        axis.append(cmd.format(*("({}, {})".format(*point)
-                                 for point in [source, target])))
-    else:
-        path = Path([source, mid, target],
-                    [Path.MOVETO, Path.CURVE3, Path.CURVE3])
-        axis.add_patch(PathPatch(path, facecolor='none'))
-
-
-def draw_spiders(axis, spiders, labels, graph, positions, to_tikz=False, draw_box_labels=True):
-    if to_tikz:
-        for node, color, shape in spiders:
-            cmd = "\\node [{}, fill={}] ({}) ".format(shape, color, node)
-            cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
-            lab = labels[node] if draw_box_labels else ""
-            axis.append(cmd.format(label=lab, pos=positions[node]))
-    else:
-        shapes = {shape for _, _, shape in spiders}
-        for shape in shapes:
-            shaped_spiders = [(node, color) 
-                for node, color, s in spiders if s == shape]
-            nodes, colors = zip(*shaped_spiders)
-            hex_codes = [COLORS[color] for color in colors]
-            nx.draw_networkx_nodes(
-                graph, positions, nodelist=nodes,
-                node_color=hex_codes, node_shape=SHAPES[shape], ax=axis)
-            if draw_box_labels:
-                nx.draw_networkx_labels(
-                    graph, positions,
-                    {n: l for n, l in labels.items() if n in nodes})
-
-
 def draw(diagram, axis=None, data=None, **params):
     """
     Draws a diagram, see :meth:`monoidal.Diagram.draw`.
@@ -449,7 +362,7 @@ def draw(diagram, axis=None, data=None, **params):
             return backend.show_drawing(params['path'], baseline=len(diagram) / 2 or .5,
                       tikz_options=params.get('tikz_options', None))
     else:
-        return backend.show_drawing(params.get('path', None), 
+        return backend.show_drawing(params.get('path', None), show=params.get('show', True),
             margins=params.get('margins', (.05, .05)), aspect=params.get('aspect', 'equal'))
 
 
@@ -514,7 +427,12 @@ def pregroup_draw(words, cups, **params):
     width = params.get('width', 2.)
     fontsize = params.get('fontsize', None)
 
-    def draw_triangles(axis, words):
+    if params.get('to_tikz', False):
+        backend = TikzDrawingBackend()
+    else:
+        backend = MatDrawingBackend(figsize=params.get('figsize', None))
+
+    def draw_triangles(words):
         scan = []
         for i, word in enumerate(words.boxes):
             for j, _ in enumerate(word.cod):
@@ -522,61 +440,43 @@ def pregroup_draw(words, cups, **params):
                     + (width / (len(word.cod) + 1)) * (j + 1)
                 scan.append(x_wire)
                 if params.get('draw_types', True):
-                    draw_text(axis, str(word.cod[j]),
+                    backend.draw_text(str(word.cod[j]),
                               x_wire + textpad[0], -textpad[1],
-                              fontsize=params.get('fontsize_types', fontsize),
-                              to_tikz=params.get('to_tikz', False))
-            draw_polygon(
-                axis, ((space + width) * i, 0),
+                              fontsize=params.get('fontsize_types', fontsize))
+            backend.draw_polygon(
+                ((space + width) * i, 0),
                 ((space + width) * i + width, 0),
                 ((space + width) * i + width / 2, 1),
-                color='none', to_tikz=params.get('to_tikz', False))
-            draw_text(axis, str(word),
+                color='none')
+            backend.draw_text(str(word),
                       (space + width) * i + width / 2 + textpad_words[0],
-                      textpad_words[1], ha='center', fontsize=fontsize,
-                      to_tikz=params.get('to_tikz', False))
+                      textpad_words[1], ha='center', fontsize=fontsize)
         return scan
 
-    def draw_cups_and_wires(axis, cups, scan):
+    def draw_cups_and_wires(cups, scan):
         for j, off in [(j, off)
                        for j, s in enumerate(cups) for off in s.offsets]:
             middle = (scan[off] + scan[off + 1]) / 2
-            draw_wire(axis, (scan[off], 0), (middle, - j - 1),
-                      bend_in=True, to_tikz=params.get('to_tikz', False))
-            draw_wire(axis, (scan[off + 1], 0), (middle, - j - 1),
-                      bend_in=True, to_tikz=params.get('to_tikz', False))
+            backend.draw_wire((scan[off], 0), (middle, - j - 1), bend_in=True)
+            backend.draw_wire((scan[off + 1], 0), (middle, - j - 1), bend_in=True)
             scan = scan[:off] + scan[off + 2:]
         for i, _ in enumerate(cups[-1].cod if cups else words.cod):
             label = str(cups[-1].cod[i]) if cups else ""
-            draw_wire(axis, (scan[i], 0), (scan[i], - (len(cups) or 1) - 1),
-                      to_tikz=params.get('to_tikz', False))
+            backend.draw_wire((scan[i], 0), (scan[i], - (len(cups) or 1) - 1))
             if params.get('draw_types', True):
-                draw_text(axis, label,
+                backend.draw_text(label,
                           scan[i] + textpad[0], - (len(cups) or 1) - space,
-                          fontsize=params.get('fontsize_types', fontsize),
-                          to_tikz=params.get('to_tikz', False))
-    axis = [] if params.get('to_tikz', False)\
-        else plt.subplots(figsize=params.get('figsize', None))[1]
-    scan = draw_triangles(axis, words.normal_form())
-    draw_cups_and_wires(axis, cups, scan)
+                          fontsize=params.get('fontsize_types', fontsize))
+    
+    scan = draw_triangles(words.normal_form())
+    draw_cups_and_wires(cups, scan)
+
     if params.get('to_tikz', False):
         if 'path' in params:
-            save_tikz(axis, params['path'],
-                      options=params.get('tikz_options', None))
-        else:
-            print(''.join(axis).strip())
+            return backend.show_drawing(params['path'], tikz_options=params.get('tikz_options', None))
     else:
-        plt.margins(*params.get('margins', (.05, .05)))
-        plt.subplots_adjust(
-            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        plt.axis('off')
-        axis.set_xlim(0, (space + width) * len(words.boxes) - space)
-        axis.set_ylim(- len(cups) - space, 1)
-        axis.set_aspect(params.get('aspect', 'equal'))
-        if 'path' in params.keys():
-            plt.savefig(params['path'])
-            plt.close()
-        plt.show()
+        return backend.show_drawing(params.get('path', None), show=params.get('show', True),
+            margins=params.get('margins', (.05, .05)), aspect=params.get('aspect', 'equal'))
 
 
 def equation(*diagrams, symbol="=", space=1, **params):
@@ -610,27 +510,32 @@ def equation(*diagrams, symbol="=", space=1, **params):
     axis, pad, max_height = None, 0, max(map(len, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
     path = params.pop("path", None)
+
+    if params.get('to_tikz', False):
+        raise Exception("Tikz equations not supported for now.")
+    else:
+        backend = MatDrawingBackend()
+        axis = backend.axis
+
+
     for i, diagram in enumerate(diagrams):
         scale = (scale_x, scale_y * max_height / (len(diagram) or 1))
         graph, positions, labels = diagram_to_nx(
             diagram, scale=scale, pad=(pad, 0))
         axis = diagram.draw(axis=axis, data=(graph, positions, labels),
                             show=False, **params)
+        # backend = MatDrawingBackend(axis=axis)
         widths = {x for x, _ in positions.values()}
         min_width, max_width = min(widths), max(widths)
         pad += max_width - min_width + space
         if i < len(diagrams) - 1:
-            draw_text(axis, symbol, pad, scale_y * max_height / 2,
-                      to_tikz=params.get('to_tikz', False))
+            backend.draw_text(symbol, pad, scale_y * max_height / 2)
             pad += space
+
     if params.get('to_tikz', False):
-        if path is not None:
-            save_tikz(axis, path, baseline=max_height / 2,
-                      options=params.get('tikz_options', None))
-        else:
-            print(''.join(axis).strip())
+        return backend.show_drawing(path, baseline=max_height / 2, 
+                tikz_options=params.get('tikz_options', None))
     else:
-        if path is not None:
-            plt.savefig(path)
-            plt.close()
-        plt.show()
+        return backend.show_drawing(path, show=False, 
+                margins=params.get('margins', (.05, .05)), aspect=params.get('aspect', 'equal'))
+
