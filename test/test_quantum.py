@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
-from discopy import tk
+from discopy.quantum import tk
 
 
 def test_index2bitstring():

@@ -334,6 +334,7 @@ class Scalar(Box):
     """ Scalar in a ZX diagram. """
     def __init__(self, data):
         super().__init__("scalar", PRO(0), PRO(0), data)
+        self.drawing_name = format_number(data)
 
     @property
     def name(self):
