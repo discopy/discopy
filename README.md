@@ -85,14 +85,13 @@ Applied to pregroup diagrams, DisCoPy implements the
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
 ```python
-import numpy as np
 from discopy import TensorFunctor
 
 F = TensorFunctor(
     ob={s: 1, n: 2},
     ar={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]})
 
-assert F(sentence) == np.array(1)
+assert F(sentence) == 1
 ```
 
 **Free functors** (i.e. from diagrams to diagrams) can fill each box with a complex diagram.
