@@ -41,6 +41,13 @@ def test_Circuit_eval():
     assert MixedState().eval() == Discard().eval().dagger()
 
 
+def test_Circuit_cups_and_caps():
+    assert Circuit.cups(bit, bit) == Match() >> Discard(bit)
+    assert Circuit.caps(bit, bit) == MixedState(bit) >> Copy()
+    with raises(ValueError):
+        Circuit.cups(Ty('x'), Ty('x').r)
+
+
 def test_Circuit_to_tk():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
@@ -236,3 +243,13 @@ def test_grad():
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)
     assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
+
+
+def test_ClassicalGate_grad_subs():
+    from sympy.abc import x, y
+    s = ClassicalGate('s', 0, 0, [x])
+    assert s.grad(x) and not s.subs(x, y).grad(x)
+
+
+def test_Copy_Match():
+    assert Match().dagger() == Copy() and Copy().dagger() == Match()

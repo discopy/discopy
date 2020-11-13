@@ -8,6 +8,6 @@ from discopy.quantum.circuit import (
     bit, qubit, Circuit, Id, Box, Sum, Swap, CircuitFunctor,
     Discard, MixedState, Measure, Encode)
 from discopy.quantum.gates import (
-    SWAP, ClassicalGate, QuantumGate, Ket, Bra, Bits,
+    SWAP, ClassicalGate, QuantumGate, Ket, Bra, Bits, Copy, Match,
     Rx, Rz, CU1, CRz, CRx, CZ, CX, X, Y, Z, H, S, T, scalar, sqrt,
     IQPansatz, random_tiling)

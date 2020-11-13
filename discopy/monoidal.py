@@ -440,9 +440,9 @@ class Diagram(cat.Arrow):
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         return self.upgrade(
-            Functor(ob=lambda x: x, ar=lambda f: f.subs(var, expr))(self))
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
     @staticmethod
     def swap(left, right):

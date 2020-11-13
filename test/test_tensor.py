@@ -131,3 +131,16 @@ def test_TensorFunctor_sum():
 def test_Tensor_radd():
     m = Tensor(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
     assert 0 + m == m
+
+
+def test_Tensor_iter():
+    v = Tensor(Dim(1), Dim(2), [0, 1])
+    assert list(v) == [0, 1]
+    s = Tensor(Dim(1), Dim(1), [1])
+    assert list(s) == [1]
+
+
+def test_Tensor_subs():
+    from sympy.abc import x
+    s = Tensor(Dim(1), Dim(1), [x])
+    assert s.subs(x, 1) == 1

@@ -78,12 +78,37 @@ class ClassicalGate(Box):
             self.name, len(self.cod), len(self.dom), self.array,
             _dagger=None if self._dagger is None else not self._dagger)
 
-    def grad(self, var):  # pragma: no cover
+    def subs(self, *args):
+        return ClassicalGate(
+            self.name, len(self.cod), len(self.dom), super().subs(*args).data)
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
         name = "{}.grad({})".format(self.name, var)
-        dom, cod, _dagger = len(self.dom), len(self.cod), self._dagger
-        array = [getattr(x, "diff", lambda _: 0)(var)
-                 for x in self.array.flatten()]
-        return ClassicalGate(name, dom, cod, array, _dagger)
+        n_bits_in, n_bits_out = len(self.dom), len(self.cod)
+        array = self.eval().grad(var).array
+        return ClassicalGate(name, n_bits_in, n_bits_out, array)
+
+
+class Copy(ClassicalGate):
+    def __init__(self):
+        super().__init__("Copy", 1, 2, [1, 0, 0, 0, 0, 0, 0, 1])
+        self.draw_as_spider, self.color = True, "black"
+        self.drawing_name = ""
+
+    def dagger(self):
+        return Match()
+
+
+class Match(ClassicalGate):
+    def __init__(self):
+        super().__init__("Match", 2, 1, [1, 0, 0, 0, 0, 0, 0, 1])
+        self.draw_as_spider, self.color = True, "black"
+        self.drawing_name = ""
+
+    def dagger(self):
+        return Copy()
 
 
 class Bits(ClassicalGate):
@@ -161,8 +186,8 @@ class Parametrized(QuantumGate):
     def name(self):
         return '{}({})'.format(self._name, format_number(self.data))
 
-    def subs(self, var, expr):
-        return type(self)(super().subs(var, expr).data)
+    def subs(self, *args):
+        return type(self)(super().subs(*args).data)
 
 
 class Rotation(Parametrized):

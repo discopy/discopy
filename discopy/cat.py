@@ -355,16 +355,20 @@ class Arrow:
         """
         return {x for box in self.boxes for x in box.free_symbols}
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         """
-        Substitute `var` for `expr`.
+        Substitute a variable by an expression.
 
         Parameters
         ----------
+        Either var, expr with:
+
         var : sympy.Symbol
             Subtituted variable.
         expr : sympy.Expr
             Substituting expression.
+
+        Or a list of such pairs for multiple substitution.
 
         Returns
         -------
@@ -381,7 +385,7 @@ class Arrow:
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
         return self.upgrade(
-            Functor(ob=lambda x: x, ar=lambda f: f.subs(var, expr))(self))
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
 
 class Id(Arrow):
@@ -487,19 +491,19 @@ class Box(Arrow):
             return []
         return set(recursive_free_symbols(self.data))
 
-    def subs(self, var, expr):
-        if not var in self.free_symbols:
+    def subs(self, *args):
+        vars = {var for var, _ in args[0]} if len(args) == 1 else {args[0]}
+        if not any(var in self.free_symbols for var in vars):
             return self
-        def recursive_subs(data, var, expr):
+        def recursive_subs(data, *args):
             if isinstance(data, Mapping):
-                return {key: recursive_subs(value, var, expr)
+                return {key: recursive_subs(value, *args)
                         for key, value in data.items()}
             if isinstance(data, Iterable):
-                return [recursive_subs(elem, var, expr) for elem in data]
-            result = data.subs(var, expr)
-            return type(expr)(result) if isinstance(expr, Number) else result
+                return [recursive_subs(elem, *args) for elem in data]
+            return getattr(data, "subs", lambda *_: data)(*args)
         return Box(self.name, self.dom, self.cod, _dagger=self._dagger,
-                   data=recursive_subs(self.data, var, expr))
+                   data=recursive_subs(self.data, *args))
 
     @property
     def is_dagger(self):
@@ -640,9 +644,9 @@ class Sum(Box):
         unit = Sum([], self.cod, self.dom)
         return self.upgrade(sum([f.dagger() for f in self.terms], unit))
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         unit = Sum([], self.dom, self.cod)
-        return self.upgrade(sum([f.subs(var, expr) for f in self.terms], unit))
+        return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
 
 class Functor:

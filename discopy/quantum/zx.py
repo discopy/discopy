@@ -278,9 +278,9 @@ class Spider(Box):
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), -self.phase)
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         return type(self)(len(self.dom), len(self.cod),
-                          phase=super().subs(var, expr).data)
+                          phase=super().subs(*args).data)
 
     def grad(self, var):
         if var not in self.free_symbols:
@@ -343,8 +343,8 @@ class Scalar(Box):
     def __repr__(self):
         return self.name
 
-    def subs(self, var, expr):
-        return Scalar(super().subs(var, expr).data)
+    def subs(self, *args):
+        return Scalar(super().subs(*args).data)
 
     def dagger(self):
         return Scalar(self.data.conjugate())

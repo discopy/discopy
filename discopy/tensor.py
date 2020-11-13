@@ -13,12 +13,13 @@ Implements dagger monoidal functors into tensors.
 
 import functools
 
-from discopy import messages, monoidal, rigid
+from discopy import messages, monoidal, rigid, IMPORT_JAX
 from discopy.cat import AxiomError
 from discopy.monoidal import Swap, Sum
 from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
 
-try:  # pragma: no cover
+
+if IMPORT_JAX:  # pragma: no cover
     import warnings
     for msg in messages.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
@@ -31,7 +32,7 @@ try:  # pragma: no cover
             flat[:max_length // 2] + ["..."] + flat[1 - max_length // 2:]
         return "[{}]".format(", ".join(map(str, flat)))
     np.array2string = array2string
-except ImportError:  # pragma: no cover
+else:
     import numpy as np
     from numpy import array2string as _array2string
     np.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
@@ -101,6 +102,13 @@ class Tensor(Box):
     def __init__(self, dom, cod, array):
         self._array = np.array(array).reshape(dom @ cod)
         super().__init__("Tensor", dom, cod)
+
+    def __iter__(self):
+        if self.array.shape:
+            for i in self.array:
+                yield i
+        else:
+            yield self.array
 
     @property
     def array(self):
@@ -227,6 +235,18 @@ class Tensor(Box):
         ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
         """
         return Tensor(dom, cod, np.zeros(dom @ cod))
+
+    def subs(self, *args):
+        array = [getattr(x, "subs", lambda y, *_: y)(*args)
+                 for x in self.array.flatten()]
+        return Tensor(self.dom, self.cod, array)
+
+    def grad(self, *vars):  # pragma: no cover
+        array = np.array([[
+            getattr(x, "diff", lambda _: 0)(var) for x in self.array.flatten()]
+            for var in vars]).reshape(Dim(len(vars)) @ self.dom @ self.cod)
+        return Tensor(Dim(len(vars)) @ self.dom, self.cod, array)
+
 
 
 class Id(Tensor):

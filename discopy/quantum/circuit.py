@@ -105,10 +105,16 @@ class Circuit(Diagram):
 
     @staticmethod
     def cups(left, right):
-        from discopy.quantum.gates import CX, H, sqrt, Bra
-        cup = CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
+        from discopy.quantum.gates import CX, H, sqrt, Bra, Match
+        def cup_factory(left, right):
+            if left == right == qubit:
+                return CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
+            elif left == right == bit:
+                return Match() >> Discard(bit)
+            else:
+                raise ValueError
         return rigid.cups(
-            left, right, ar_factory=Circuit, cup_factory=lambda *_: cup)
+            left, right, ar_factory=Circuit, cup_factory=cup_factory)
 
     @staticmethod
     def caps(left, right):
@@ -525,6 +531,9 @@ class Discard(Box):
         super().__init__(
             "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
         self.drawing_name = "Discard"
+        if dom == bit:
+            self.drawing_name = ""
+            self.draw_as_spider, self.color = True, "black"
 
     def dagger(self):
         return MixedState(self.dom)
@@ -540,6 +549,10 @@ class MixedState(Box):
             cod = qubit ** cod
         super().__init__(
             "MixedState({})".format(cod), qubit ** 0, cod, is_mixed=True)
+        self.drawing_name = "MixedState"
+        if cod == bit:
+            self.drawing_name = ""
+            self.draw_as_spider, self.color = True, "black"
 
     def dagger(self):
         return Discard(self.cod)
