@@ -2,8 +2,6 @@
 
 """ Gates in a :class:`discopy.quantum.Circuit`. """
 
-import random
-
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum.circuit import bit, qubit, Box, Id, Circuit, Swap, Sum
 
@@ -336,78 +334,3 @@ def sqrt(expr):
 def scalar(expr):
     """ Returns a 0-qubit quantum gate that scales by a complex number. """
     return Scalar(expr)
-
-
-def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
-    """ Returns a random Euler decomposition if n_qubits == 1,
-    otherwise returns a random tiling with the given depth and gateset.
-
-    >>> c = random_tiling(1, seed=420)
-    >>> print(c)
-    Rx(0.0263) >> Rz(0.781) >> Rx(0.273)
-    >>> print(random_tiling(2, 2, gateset=[CX, H, T], seed=420))
-    CX >> T @ Id(1) >> Id(1) @ T
-    >>> print(random_tiling(3, 2, gateset=[CX, H, T], seed=420))
-    CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-    >>> print(random_tiling(2, 1, gateset=[Rz, Rx], seed=420))
-    Rz(0.673) @ Id(1) >> Id(1) @ Rx(0.273)
-    """
-    gateset = gateset or [H, Rx, CX]
-    if seed is not None:
-        random.seed(seed)
-    if n_qubits == 1:
-        phases = [random.random() for _ in range(3)]
-        return Rx(phases[0]) >> Rz(phases[1]) >> Rx(phases[2])
-    result = Id(n_qubits)
-    for _ in range(depth):
-        line, n_affected = Id(0), 0
-        while n_affected < n_qubits:
-            gate = random.choice(
-                gateset if n_qubits - n_affected > 1 else [
-                    g for g in gateset
-                    if g is Rx or g is Rz or len(g.dom) == 1])
-            if gate is Rx or gate is Rz:
-                gate = gate(random.random())
-            line = line @ gate
-            n_affected += len(gate.dom)
-        result = result >> line
-    return result
-
-
-class IQPansatz(Circuit):
-    """
-    Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
-
-    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
-    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
-    H @ Id(2)
-      >> Id(1) @ H @ Id(1)
-      >> Id(2) @ H
-      >> CRz(0.1) @ Id(1)
-      >> Id(1) @ CRz(0.2)
-      >> H @ Id(2)
-      >> Id(1) @ H @ Id(1)
-      >> Id(2) @ H
-      >> CRz(0.3) @ Id(1)
-      >> Id(1) @ CRz(0.4)
-    >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
-    Rx(0.3) >> Rz(0.8) >> Rx(0.4)
-    """
-    def __init__(self, n_qubits, params):
-        def layer(thetas):
-            hadamards = Id(0).tensor(*(n_qubits * [H]))
-            rotations = Id(n_qubits).then(*(
-                Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
-                for i in range(n_qubits - 1)))
-            return hadamards >> rotations
-        if n_qubits == 1:
-            circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
-        elif len(np.shape(params)) != 2 or np.shape(params)[1] != n_qubits - 1:
-            raise ValueError(
-                "Expected params of shape (depth, {})".format(n_qubits - 1))
-        else:
-            depth = np.shape(params)[0]
-            circuit = Id(n_qubits).then(*(
-                layer(params[i]) for i in range(depth)))
-        super().__init__(
-            circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)

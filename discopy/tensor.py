@@ -248,7 +248,6 @@ class Tensor(Box):
         return Tensor(Dim(len(vars)) @ self.dom, self.cod, array)
 
 
-
 class Id(Tensor):
     """ Implements the identity tensor for a given dimension.
 

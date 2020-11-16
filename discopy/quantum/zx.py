@@ -52,7 +52,7 @@ class Diagram(rigid.Diagram):
 
         Returns
         -------
-        diagrams : Sum
+        diagrams : `discopy.cat.Sum`
 
         Examples
         --------
