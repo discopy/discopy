@@ -9,7 +9,7 @@
    {% for item in methods %}
    {% if item not in inherited_members and item not in excluded %}
    {% if not rubric.printed %}
-   .. rubric:: {{ _('Methods') }}
+   .. rubric:: Methods
 
    .. autosummary::
    {% endif %}
@@ -25,7 +25,7 @@
    {% for item in attributes %}
    {% if item not in inherited_members %}
    {% if not rubric.printed %}
-   .. rubric:: {{ _('Attributes') }}
+   .. rubric:: Attributes
 
    .. autosummary::
    {% endif %}

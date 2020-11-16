@@ -145,7 +145,7 @@ class Arrow:
 
     @staticmethod
     def upgrade(old):
-        """ Allows class inheritance for then and __getitem__. """
+        """ Allows class inheritance. """
         return old
 
     @property
