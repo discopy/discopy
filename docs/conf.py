@@ -46,9 +46,9 @@ autosummary_generate = True
 autoclass_content = "class"
 
 autodoc_default_options = {
-    "members": True,
+    "members": None,
     "member-order": "bysource",
-    "show-inheritance": True,
+    "show-inheritance": None,
 }
 
 
