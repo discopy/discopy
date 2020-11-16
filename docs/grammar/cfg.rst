@@ -5,7 +5,8 @@ discopy.grammar.cfg
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.grammar.cfg
+   :template: class.rst
+   :toctree: ../_autosummary/grammar/cfg
 
    discopy.grammar.cfg.Word
    discopy.grammar.cfg.CFG

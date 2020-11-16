@@ -5,7 +5,8 @@ discopy.rigid
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.rigid
+   :template: class.rst
+   :toctree: _autosummary/rigid
 
    discopy.rigid.Ob
    discopy.rigid.Ty

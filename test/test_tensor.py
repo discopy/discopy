@@ -75,7 +75,7 @@ def test_Tensor_tensor():
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, x), Box('g', y, y)
     ob, ar = {x: 2, y: 3}, {f: [1, 0, 0, 1], g: list(range(9))}
-    F = TensorFunctor(ob, ar)
+    F = Functor(ob, ar)
     assert F(f) @ F(g) == F(f @ g)
 
 
@@ -90,27 +90,27 @@ def test_tensor_swap():
     assert swaps >> swaps.dagger() == Id(Dim(2, 3, 3))
 
 
-def test_TensorFunctor():
-    assert repr(TensorFunctor({Ty('x'): 1}, {})) ==\
-        "TensorFunctor(ob={Ty('x'): 1}, ar={})"
+def test_Functor():
+    assert repr(Functor({Ty('x'): 1}, {})) ==\
+        "tensor.Functor(ob={Ty('x'): 1}, ar={})"
 
 
-def test_TensorFunctor_call():
+def test_Functor_call():
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x @ x, y), Box('g', y, Ty())
     ob = {x: 2, y: 3}
     ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
-    F = TensorFunctor(ob, ar)
+    F = Functor(ob, ar)
     assert list(F(f >> g).array.flatten()) == [5.0, 14.0, 23.0, 32.0]
     assert list(F(g.transpose(left=True)).array.flatten()) == [0.0, 1.0, 2.0]
     with raises(TypeError):
         F("Alice")
 
 
-def test_TensorFunctor_swap():
+def test_Functor_swap():
     x, y = Ty('x'), Ty('y')
     f, g = Box('f', x, x), Box('g', y, y)
-    F = TensorFunctor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
+    F = Functor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
     assert F(f @ g >> Diagram.swap(x, y)) == F(Diagram.swap(x, y) >> g @ f)
 
 
@@ -121,10 +121,10 @@ def test_AxiomError():
     assert str(err.value) == messages.does_not_compose(m, m)
 
 
-def test_TensorFunctor_sum():
+def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
-    F = TensorFunctor({x: 1, y: 2}, {f: [1, 0]})
+    F = Functor({x: 1, y: 2}, {f: [1, 0]})
     assert F(f + f) == F(f) + F(f)
 
 

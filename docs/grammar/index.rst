@@ -6,6 +6,6 @@ discopy.grammar
 
 .. toctree::
 
-   discopy.grammar.cfg
-   discopy.grammar.pregroup
-   discopy.grammar.ccg
+   cfg
+   pregroup
+   ccg

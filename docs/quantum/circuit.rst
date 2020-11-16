@@ -5,7 +5,8 @@ discopy.quantum.circuit
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.quantum.circuit
+   :template: class.rst
+   :toctree: ../_autosummary/quantum/circuit
 
    discopy.quantum.circuit.BitsAndQubits
    discopy.quantum.circuit.Circuit

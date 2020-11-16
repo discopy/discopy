@@ -14,10 +14,10 @@ For example, states of type :class:`Q` are density matrices:
 CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5, 0.5, 0.5, 0.5])
 """
 
-from discopy import monoidal, rigid, messages
+from discopy import monoidal, rigid, messages, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
-from discopy.tensor import np, Dim, Tensor, TensorFunctor
+from discopy.tensor import np, Dim, Tensor
 from discopy.quantum.circuit import (
     bit, qubit, Box, Sum, Swap, Discard, Measure, MixedState, Encode)
 from discopy.quantum.gates import Scalar
@@ -174,7 +174,7 @@ class CQMap(Tensor):
             @ Diagram.id(g.cod[1:])\
             >> Diagram.id(f.cod[:1] @ g.cod[:1] @ f.cod[1:2])\
             @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ Diagram.id(g.cod[2:])
-        diagram2tensor = TensorFunctor(
+        diagram2tensor = tensor.Functor(
             ob={Ty("{}{}{}".format(a, b, c)):
                 z.__getattribute__(y).__getattribute__(x)
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])

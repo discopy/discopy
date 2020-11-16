@@ -5,9 +5,10 @@ discopy.tensor
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.tensor
+   :template: class.rst
+   :toctree: _autosummary/tensor
 
    discopy.tensor.Dim
    discopy.tensor.Tensor
    discopy.tensor.Id
-   discopy.tensor.TensorFunctor
+   discopy.tensor.Functor

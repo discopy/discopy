@@ -5,7 +5,8 @@ discopy.cat
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.cat
+   :template: class.rst
+   :toctree: _autosummary/cat
 
    discopy.cat.Ob
    discopy.cat.Arrow

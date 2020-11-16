@@ -66,6 +66,11 @@ class Ty(Ob):
     >>> assert x @ unit == x == unit @ x
     >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
     """
+    def __init__(self, *objects):
+        self._objects = tuple(
+            x if isinstance(x, Ob) else Ob(x) for x in objects)
+        super().__init__(self)
+
     @property
     def objects(self):
         """
@@ -150,11 +155,6 @@ class Ty(Ob):
         """ Allows class inheritance for tensor and __getitem__ """
         return old
 
-    def __init__(self, *objects):
-        self._objects = tuple(
-            x if isinstance(x, Ob) else Ob(x) for x in objects)
-        super().__init__(self)
-
     def __eq__(self, other):
         if not isinstance(other, Ty):
             return False
@@ -197,6 +197,13 @@ class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
     Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
 
+    Parameters
+    ----------
+    n : int
+        Number of wires.
+
+    Examples
+    --------
     >>> PRO(1) @ PRO(1)
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
@@ -278,28 +285,32 @@ class Diagram(cat.Arrow):
     """
     Defines a diagram given dom, cod, a list of boxes and offsets.
 
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
-    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
-    >>> assert d == f0 @ f1 >> g
-
     Parameters
     ----------
-    dom : :class:`Ty`
+    dom : monoidal.Ty
         Domain of the diagram.
-    cod : :class:`Ty`
+    cod : monoidal.Ty
         Codomain of the diagram.
     boxes : list of :class:`Diagram`
         Boxes of the diagram.
     offsets : list of int
         Offsets of each box in the diagram.
     layers : list of :class:`Layer`, optional
-        Layers of the diagram, computed from boxes and offsets if :code:`None`.
+        Layers of the diagram,
+        computed from boxes and offsets if :code:`None`.
 
     Raises
     ------
     :class:`AxiomError`
         Whenever the boxes do not compose.
+
+    Examples
+    --------
+
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
+    >>> assert d == f0 @ f1 >> g
     """
     @staticmethod
     def upgrade(old):

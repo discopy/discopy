@@ -5,7 +5,8 @@ discopy.grammar.ccg
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.grammar.ccg
+   :template: class.rst
+   :toctree: ../_autosummary/grammar/ccg
 
    discopy.grammar.ccg.Word
    discopy.grammar.ccg.cat2ty

@@ -5,7 +5,8 @@ discopy.monoidal
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.monoidal
+   :template: class.rst
+   :toctree: _autosummary/monoidal
 
    discopy.monoidal.Ty
    discopy.monoidal.PRO
@@ -13,5 +14,6 @@ discopy.monoidal
    discopy.monoidal.Diagram
    discopy.monoidal.Id
    discopy.monoidal.Box
+   discopy.monoidal.Sum
    discopy.monoidal.Swap
    discopy.monoidal.Functor

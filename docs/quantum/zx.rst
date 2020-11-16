@@ -5,7 +5,8 @@ discopy.quantum.zx
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.quantum.zx
+   :template: class.rst
+   :toctree: ../_autosummary/quantum/zx
 
    discopy.quantum.zx.Diagram
    discopy.quantum.zx.Id

@@ -33,7 +33,7 @@ from discopy.cat import Quiver
 from discopy.monoidal import Sum
 from discopy.rigid import (
     Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Swap, Functor)
-from discopy.tensor import Dim, Tensor, TensorFunctor
+from discopy.tensor import Dim, Tensor, Functor as TensorFunctor
 
 from discopy.quantum import cqmap, zx
 from discopy.quantum.zx import Z, X, H, SWAP

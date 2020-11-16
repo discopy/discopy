@@ -5,7 +5,8 @@ discopy.biclosed
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.biclosed
+   :template: class.rst
+   :toctree: _autosummary/biclosed
 
    discopy.biclosed.Ty
    discopy.biclosed.Over

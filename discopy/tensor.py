@@ -7,7 +7,7 @@ Implements dagger monoidal functors into tensors.
 >>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
 >>> loves = Box('loves', n, n)
 >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
->>> F = TensorFunctor(ob, ar)
+>>> F = Functor(ob, ar)
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
@@ -16,7 +16,7 @@ import functools
 from discopy import messages, monoidal, rigid, IMPORT_JAX
 from discopy.cat import AxiomError
 from discopy.monoidal import Swap, Sum
-from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram, Functor
+from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram
 
 
 if IMPORT_JAX:  # pragma: no cover
@@ -261,12 +261,12 @@ class Id(Tensor):
             dim, dim, np.identity(functools.reduce(int.__mul__, dim, 1)))
 
 
-class TensorFunctor(Functor):
+class Functor(rigid.Functor):
     """ Implements a tensor-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, x @ y)
-    >>> F = TensorFunctor({x: 1, y: 2}, {f: [0, 1]})
+    >>> F = Functor({x: 1, y: 2}, {f: [0, 1]})
     >>> F(f)
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
@@ -274,7 +274,7 @@ class TensorFunctor(Functor):
         super().__init__(ob, ar, ob_factory=Dim, ar_factory=Tensor)
 
     def __repr__(self):
-        return super().__repr__().replace("Functor", "TensorFunctor")
+        return super().__repr__().replace("Functor", "tensor.Functor")
 
     def __call__(self, diagram):
         if isinstance(diagram, monoidal.Sum):

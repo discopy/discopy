@@ -5,7 +5,8 @@ discopy.quantum.cqmap
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.quantum.cqmap
+   :template: class.rst
+   :toctree: ../_autosummary/quantum/cqmap
 
    discopy.quantum.cqmap.CQ
    discopy.quantum.cqmap.C

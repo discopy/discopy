@@ -5,7 +5,8 @@ discopy.quantum.gates
     :no-members:
 
 .. autosummary::
-   :toctree: discopy.quantum.gates
+   :template: class.rst
+   :toctree: ../_autosummary/quantum/gates
 
    discopy.quantum.gates.QuantumGate
    discopy.quantum.gates.ClassicalGate

@@ -3,7 +3,7 @@
 """
 Implements pregroup grammars and distributional compositional models.
 
->>> from discopy.tensor import TensorFunctor
+>>> from discopy.tensor import Functor
 >>> from discopy.rigid import Ty
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -12,7 +12,7 @@ Implements pregroup grammars and distributional compositional models.
 >>> sentence = grammar << Alice @ loves @ Bob
 >>> ob = {s: 1, n: 2}
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = TensorFunctor(ob, ar)
+>>> F = Functor(ob, ar)
 >>> assert F(sentence) == True
 
 >>> from discopy.quantum import qubit, Ket, CX, H, X, sqrt, CircuitFunctor
