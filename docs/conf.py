@@ -43,14 +43,6 @@ extensions = ['sphinx.ext.autodoc',
 
 autosummary_generate = True
 
-autoclass_content = "class"
-
-autodoc_default_options = {
-    "members": None,
-    "member-order": "bysource",
-    "show-inheritance": None,
-}
-
 autosummary_context = {"excluded": ["__init__", "upgrade"]}
 
 autodoc_mock_imports = ["pytket"]

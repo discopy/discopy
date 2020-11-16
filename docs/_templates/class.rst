@@ -3,6 +3,10 @@
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
+   :show-inheritance:
+   :members:
+   :no-inherited-members:
+   :member-order: bysource
 
    {% block methods %}
    {% set rubric = namespace(printed=false) %}

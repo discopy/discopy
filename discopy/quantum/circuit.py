@@ -89,66 +89,6 @@ class Circuit(Diagram):
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
 
-    def draw(self, **params):
-        draw_types = params.get('draw_types') or self.is_mixed
-        return super().draw(**dict(params, draw_types=draw_types))
-
-    @staticmethod
-    def swap(left, right):
-        return monoidal.swap(
-            left, right, ar_factory=Circuit, swap_factory=Swap)
-
-    @staticmethod
-    def permutation(perm, dom=None):
-        if dom is None:
-            dom = qubit ** len(perm)
-        return monoidal.permutation(perm, dom, ar_factory=Circuit)
-
-    @staticmethod
-    def cups(left, right):
-        from discopy.quantum.gates import CX, H, sqrt, Bra, Match
-        def cup_factory(left, right):
-            if left == right == qubit:
-                return CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
-            elif left == right == bit:
-                return Match() >> Discard(bit)
-            else:
-                raise ValueError
-        return rigid.cups(
-            left, right, ar_factory=Circuit, cup_factory=cup_factory)
-
-    @staticmethod
-    def caps(left, right):
-        return Circuit.cups(left, right).dagger()
-
-    def grad(self, var):
-        """
-        Gradient with respect to `var`.
-
-        Parameters
-        ----------
-        var : sympy.Symbol
-            Differentiated variable.
-
-        Returns
-        -------
-        circuits : `discopy.quantum.circuit.Sum`
-
-        Examples
-        --------
-        >>> from sympy.abc import phi
-        >>> from discopy.quantum import *
-        >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
-        >>> assert circuit.grad(phi)\\
-        ...     == (Rz(phi / 2) @ scalar(0+0.5j) @ Rz(phi + .5) >> CX)\\
-        ...     + (scalar(0+0.25j) @ Rz(phi/2 - .5) @ Rz(phi + 1) >> CX)
-        """
-        if var not in self.free_symbols:
-            return self.sum([], self.dom, self.cod)
-        left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
-            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
-
     @property
     def is_mixed(self):
         """
@@ -178,6 +118,8 @@ class Circuit(Diagram):
 
     def eval(self, backend=None, mixed=False, **params):
         """
+        Evaluate a circuit on a backend, or simulate it with numpy.
+
         Parameters
         ----------
         backend : pytket.Backend, optional
@@ -241,6 +183,8 @@ class Circuit(Diagram):
 
     def get_counts(self, backend=None, **params):
         """
+        Get counts from a backend, or simulate them with numpy.
+
         Parameters
         ----------
         backend : pytket.Backend, optional
@@ -311,6 +255,8 @@ class Circuit(Diagram):
 
     def to_tk(self):
         """
+        Export to t|ket>.
+
         Returns
         -------
         tk_circuit : pytket.Circuit
@@ -355,10 +301,13 @@ class Circuit(Diagram):
     @staticmethod
     def from_tk(*tk_circuits):
         """
+        Translates a :class:`pytket.Circuit` into a :class:`Circuit`, or
+        a list of :class:`pytket` circuits into a :class:`Sum`.
+
         Parameters
         ----------
-        tk_circuit : pytket.Circuit
-            A pytket.Circuit, potentially with :code:`scalar` and
+        tk_circuits : pytket.Circuit
+            potentially with :code:`scalar` and
             :code:`post_selection` attributes.
 
         Returns
@@ -417,6 +366,66 @@ class Circuit(Diagram):
         if len(tk_circuits) == 1:
             return from_tk(tk_circuits[0])
         return sum(Circuit.from_tk(c) for c in tk_circuits)
+
+    def grad(self, var):
+        """
+        Gradient with respect to `var`.
+
+        Parameters
+        ----------
+        var : sympy.Symbol
+            Differentiated variable.
+
+        Returns
+        -------
+        circuits : `discopy.quantum.circuit.Sum`
+
+        Examples
+        --------
+        >>> from sympy.abc import phi
+        >>> from discopy.quantum import *
+        >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
+        >>> assert circuit.grad(phi)\\
+        ...     == (Rz(phi / 2) @ scalar(0+0.5j) @ Rz(phi + .5) >> CX)\\
+        ...     + (scalar(0+0.25j) @ Rz(phi/2 - .5) @ Rz(phi + 1) >> CX)
+        """
+        if var not in self.free_symbols:
+            return self.sum([], self.dom, self.cod)
+        left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
+        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
+            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
+
+    def draw(self, **params):
+        draw_types = params.get('draw_types') or self.is_mixed
+        return super().draw(**dict(params, draw_types=draw_types))
+
+    @staticmethod
+    def swap(left, right):
+        return monoidal.swap(
+            left, right, ar_factory=Circuit, swap_factory=Swap)
+
+    @staticmethod
+    def permutation(perm, dom=None):
+        if dom is None:
+            dom = qubit ** len(perm)
+        return monoidal.permutation(perm, dom, ar_factory=Circuit)
+
+    @staticmethod
+    def cups(left, right):
+        from discopy.quantum.gates import CX, H, sqrt, Bra, Match
+        def cup_factory(left, right):
+            if left == right == qubit:
+                return CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
+            elif left == right == bit:
+                return Match() >> Discard(bit)
+            else:
+                raise ValueError
+        return rigid.cups(
+            left, right, ar_factory=Circuit, cup_factory=cup_factory)
+
+    @staticmethod
+    def caps(left, right):
+        return Circuit.cups(left, right).dagger()
 
 
 class Id(rigid.Id, Circuit):
