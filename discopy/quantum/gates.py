@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-""" Gates in a :class:`discopy.quantum.Circuit`. """
+""" Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum.circuit import bit, qubit, Box, Id, Circuit, Swap, Sum

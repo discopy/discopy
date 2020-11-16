@@ -1,5 +1,5 @@
-discopy.monoidal
-================
+monoidal
+========
 
 .. automodule:: discopy.monoidal
     :no-members:

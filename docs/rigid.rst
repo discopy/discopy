@@ -1,5 +1,5 @@
-discopy.rigid
-=============
+rigid
+=====
 
 .. automodule:: discopy.rigid
     :no-members:

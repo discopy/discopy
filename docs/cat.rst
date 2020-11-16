@@ -1,5 +1,5 @@
-discopy.cat
-===========
+cat
+===
 
 .. automodule:: discopy.cat
     :no-members:

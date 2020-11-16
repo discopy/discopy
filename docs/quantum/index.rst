@@ -1,5 +1,5 @@
-discopy.quantum
-===============
+quantum
+=======
 
 .. automodule:: discopy.quantum
     :no-members:

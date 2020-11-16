@@ -1,5 +1,5 @@
-discopy.grammar
-===============
+grammar
+=======
 
 .. automodule:: discopy.grammar
     :no-members:

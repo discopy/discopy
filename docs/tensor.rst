@@ -1,5 +1,5 @@
-discopy.tensor
-==============
+tensor
+======
 
 .. automodule:: discopy.tensor
     :no-members:

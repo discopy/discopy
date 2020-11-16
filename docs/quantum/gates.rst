@@ -1,5 +1,5 @@
-discopy.quantum.gates
-=====================
+quantum.gates
+=============
 
 .. automodule:: discopy.quantum.gates
     :no-members:

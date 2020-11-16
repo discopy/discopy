@@ -1,5 +1,5 @@
-discopy.quantum.cqmap
-=====================
+quantum.cqmap
+=============
 
 .. automodule:: discopy.quantum.cqmap
     :no-members:

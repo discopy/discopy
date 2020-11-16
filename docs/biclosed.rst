@@ -1,5 +1,5 @@
-discopy.biclosed
-================
+biclosed
+========
 
 .. automodule:: discopy.biclosed
     :no-members:

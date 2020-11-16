@@ -1,5 +1,5 @@
-discopy.quantum.tk
-==================
+quantum.tk
+==========
 
 .. automodule:: discopy.quantum.tk
     :no-members:

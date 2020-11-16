@@ -1,5 +1,5 @@
-discopy.quantum.circuit
-=======================
+quantum.circuit
+===============
 
 .. automodule:: discopy.quantum.circuit
     :no-members:

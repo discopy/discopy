@@ -1,5 +1,5 @@
-discopy.grammar.ccg
-===================
+grammar.ccg
+===========
 
 .. automodule:: discopy.grammar.ccg
     :no-members:

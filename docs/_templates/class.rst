@@ -1,4 +1,4 @@
-{{ name | escape | underline}}
+{{ '.'.join(fullname.split('.')[1:]) | escape | underline}}
 
 .. currentmodule:: {{ module }}
 
@@ -7,7 +7,7 @@
    {% block methods %}
    {% set rubric = namespace(printed=false) %}
    {% for item in methods %}
-   {% if item not in inherited_members and item != "__init__" %}
+   {% if item not in inherited_members and item not in excluded %}
    {% if not rubric.printed %}
    .. rubric:: {{ _('Methods') }}
 

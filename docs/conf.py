@@ -49,8 +49,9 @@ autodoc_default_options = {
     "members": None,
     "member-order": "bysource",
     "show-inheritance": None,
-    "exclude-members": "__init__"
 }
+
+autosummary_context = {"excluded": ["__init__", "upgrade"]}
 
 autodoc_mock_imports = ["pytket"]
 

@@ -1,5 +1,5 @@
-discopy.quantum.zx
-==================
+quantum.zx
+==========
 
 .. automodule:: discopy.quantum.zx
     :no-members:

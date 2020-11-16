@@ -1,5 +1,5 @@
-discopy.grammar.pregroup
-========================
+grammar.pregroup
+================
 
 .. automodule:: discopy.grammar.pregroup
     :no-members:
