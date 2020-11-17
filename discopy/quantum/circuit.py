@@ -179,7 +179,9 @@ class Circuit(Diagram):
         result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
         for bitstring, count in counts.items():
             result += (scalar(count) @ Bits(*bitstring)).eval()
-        return result >> tk_circuit.post_processing.eval()
+        if tk_circuit.post_processing:
+            result >>= tk_circuit.post_processing.eval()
+        return result
 
     def get_counts(self, backend=None, **params):
         """
