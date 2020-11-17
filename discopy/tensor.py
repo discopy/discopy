@@ -341,6 +341,20 @@ class Diagram(rigid.Diagram):
     def eval(self):
         return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
 
+    def to_tn(self):
+        import tensornetwork as tn
+        nodes = [tn.Node(np.eye(dim), 'input_{}'.format(i))
+                 for i, dim in enumerate(self.dom)]
+        inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
+        for box, offset in zip(self.boxes, self.offsets):
+            node = tn.Node(box.array, str(box))
+            for i, _ in enumerate(box.dom):
+                tn.connect(scan[offset + i], node[i])
+            edges = [node[len(box.dom) + i] for i, _ in enumerate(box.cod)]
+            scan = scan[:offset] + edges + scan[offset + len(box.dom):]
+            nodes.append(node)
+        return nodes, inputs + scan
+
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
@@ -354,7 +368,7 @@ class Box(rigid.Box, Diagram):
     @property
     def array(self):
         """ The array inside the box. """
-        return self.data
+        return np.array(self.data).reshape(self.dom @ self.cod)
 
     def __repr__(self):
         return super().__repr__().replace("Box", "tensor.Box")
