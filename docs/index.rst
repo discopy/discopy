@@ -1,20 +1,10 @@
 discopy
 =======
 
-.. image:: imgs/snake-equation.png
+.. image:: _static/imgs/snake-equation.png
    :align: center
 
 .. automodule:: discopy
-
-.. toctree::
-   :caption: Notebooks
-
-   notebooks/crema-di-mascarpone
-   notebooks/lasagna-recursion
-   nlp
-   notebooks/bell-test
-   notebooks/rewriting-diagrams
-   notebooks/new-features-0.3.3
 
 .. toctree::
    :maxdepth: 2
@@ -28,6 +18,15 @@ discopy
    quantum/index
    grammar/index
 
+.. toctree::
+  :caption: Notebooks
+
+  notebooks/crema-di-mascarpone
+  notebooks/lasagna-recursion
+  nlp
+  notebooks/bell-test
+  notebooks/rewriting-diagrams
+  notebooks/new-features-0.3.3
 
 Indices and tables
 ------------------
