@@ -13,7 +13,7 @@ from discopy.quantum.circuit import (
     CircuitFunctor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
     ClassicalGate, QuantumGate, Bits, Bra, Ket,
-    Swap, Scalar, GATES, X, Rx, Rz, CRz)
+    Swap, Scalar, GATES, X, Rx, Rz, CRz, format_number)
 
 
 class Circuit(tk.Circuit):
@@ -48,7 +48,8 @@ class Circuit(tk.Circuit):
         gates = list(map(repr_gate, list(self)))
         post_select = ["post_select({})".format(self.post_selection)]\
             if self.post_selection else []
-        scalar = ["scale({})".format(x) for x in [self.scalar] if x != 1]
+        scalar = ["scale({})".format(format_number(x))
+                  for x in [self.scalar] if x != 1]
         post_process = ["post_process({})".format(repr(d))
                         for d in [self.post_processing] if d]
         return '.'.join(init + gates + post_select + scalar + post_process)
@@ -173,8 +174,8 @@ def to_tk(circuit):
             return bits, qubits
         for j, _ in enumerate(box.dom):
             i_bit, i_qubit = len(tk_circ.bits), qubits[qubit_offset + j]
-            tk_circ.add_bit(
-                Bit(i_bit), offset=i_bit if isinstance(box, Measure) else None)
+            offset = len(bits) if isinstance(box, Measure) else None
+            tk_circ.add_bit(Bit(i_bit), offset=offset)
             tk_circ.Measure(i_qubit, i_bit)
             if isinstance(box, Bra):
                 tk_circ.post_select({i_bit: box.bitstring[j]})

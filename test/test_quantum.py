@@ -53,14 +53,16 @@ def test_Circuit_to_tk():
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
     tk_circ = snake.to_tk()
-    assert repr(tk_circ).split('.')[2:-2] == [
-        'H(1)',
-        'CX(1, 2)',
-        'CX(0, 1)',
-        'Measure(1, 1)',
-        'H(0)',
-        'Measure(0, 0)',
-        'post_select({0: 0, 1: 0})']
+    assert repr(tk_circ) ==\
+        'tk.Circuit(3, 2)'\
+        '.H(1)'\
+        '.CX(1, 2)'\
+        '.CX(0, 1)'\
+        '.Measure(1, 1)'\
+        '.H(0)'\
+        '.Measure(0, 0)'\
+        '.post_select({0: 0, 1: 0})'\
+        '.scale(2)'
     assert np.isclose(tk_circ.scalar, 2)
     assert repr((CX >> Measure(2) >> Swap(bit, bit)).to_tk())\
         == "tk.Circuit(2, 2).CX(0, 1).Measure(1, 0).Measure(0, 1)"
@@ -134,6 +136,50 @@ def test_Circuit_get_counts_empty():
 def test_Circuit_measure():
     assert Id(0).measure() == 1
     assert all(Bits(0).measure(mixed=True) == np.array([1, 0]))
+
+
+def test_Bra_and_Measure_to_tk():
+    c = Circuit(
+        dom=qubit ** 0, cod=bit, boxes=[
+            Ket(0), Rx(0.552), Rz(0.512), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(0.847), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(0.177), CX, H, sqrt(2), Bra(0, 0),
+            Measure()],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0])
+    assert repr(c.to_tk()) ==\
+        "tk.Circuit(5, 5)"\
+        ".Rx(0.892, 0)"\
+        ".H(1)"\
+        ".H(2)"\
+        ".H(3)"\
+        ".Rx(1.104, 4)"\
+        ".Rz(0.512, 0)"\
+        ".CRz(0.36, 1, 2)"\
+        ".Rz(1.024, 4)"\
+        ".Rx(0.354, 0)"\
+        ".CRz(1.694, 2, 3)"\
+        ".Rx(1.834, 4)"\
+        ".Measure(2, 4)"\
+        ".CX(0, 1)"\
+        ".CX(3, 4)"\
+        ".Measure(4, 1)"\
+        ".Measure(1, 3)"\
+        ".H(0)"\
+        ".H(3)"\
+        ".Measure(3, 0)"\
+        ".Measure(0, 2)"\
+        ".post_select({0: 0, 1: 0, 2: 0, 3: 0})"\
+        ".scale(2)"
+
+
+def test_ClassicalGate_eval():
+    backend = Mock()
+    backend.get_counts.return_value = {
+        (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256}
+    post = ClassicalGate('post', 2, 0, [1, 0, 0, 0])
+    assert post.eval(backend) == Tensor(dom=Dim(1), cod=Dim(1), array=[0.25])
 
 
 def test_Box():

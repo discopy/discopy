@@ -56,7 +56,7 @@ class BitsAndQubits(Ty):
 
     def __repr__(self):
         if not self:
-            return "Ty()"
+            return "qubit ** 0"
         n_bits = len(list(takewhile(lambda x: x.name == "bit", self.objects)))
         n_qubits = len(list(takewhile(
             lambda x: x.name == "qubit", self.objects[n_bits:])))
