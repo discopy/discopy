@@ -537,7 +537,7 @@ class Box(Arrow):
             return repr(self.dagger()) + ".dagger()"
         return "Box({}, {}, {}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
-            ", data=" + repr(self.data) if self.data else '')
+            '' if self.data is None else ", data=" + repr(self.data))
 
     def __str__(self):
         return str(self.name) + ("[::-1]" if self._dagger else '')

@@ -16,7 +16,7 @@ import functools
 from discopy import messages, monoidal, rigid, IMPORT_JAX
 from discopy.cat import AxiomError
 from discopy.monoidal import Swap, Sum
-from discopy.rigid import Ob, Ty, Box, Cup, Cap, Diagram
+from discopy.rigid import Ob, Ty, Cup, Cap
 
 
 if IMPORT_JAX:  # pragma: no cover
@@ -91,7 +91,7 @@ class Dim(Ty):
         return Dim(*self[::-1])
 
 
-class Tensor(Box):
+class Tensor(rigid.Box):
     """ Implements a tensor with dom, cod and numpy array.
 
     >>> m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
@@ -183,7 +183,7 @@ class Tensor(Box):
 
     @staticmethod
     def id(dom):
-        return Id(dom)
+        return Tensor(dom, dom, np.identity(np.prod(dom)))
 
     @staticmethod
     def cups(left, right):
@@ -248,19 +248,6 @@ class Tensor(Box):
         return Tensor(Dim(len(vars)) @ self.dom, self.cod, array)
 
 
-class Id(Tensor):
-    """ Implements the identity tensor for a given dimension.
-
-    >>> Id(2, 2)  # doctest: +ELLIPSIS
-    Tensor(dom=Dim(2, 2), cod=Dim(2, 2), array=[...])
-    >>> assert Id(2, 2) == Id(2) @ Id(2)
-    """
-    def __init__(self, *dim):
-        dim = dim[0] if isinstance(dim[0], Dim) else Dim(*dim)
-        super().__init__(
-            dim, dim, np.identity(functools.reduce(int.__mul__, dim, 1)))
-
-
 class Functor(rigid.Functor):
     """ Implements a tensor-valued rigid functor.
 
@@ -295,7 +282,7 @@ class Functor(rigid.Functor):
             return Tensor(self(diagram.dom), self(diagram.cod),
                           self.ar[diagram])
         if not isinstance(diagram, monoidal.Diagram):
-            raise TypeError(messages.type_err(Diagram, diagram))
+            raise TypeError(messages.type_err(monoidal.Diagram, diagram))
 
         def dim(scan):
             return len(self(scan))
@@ -326,3 +313,76 @@ class Functor(rigid.Functor):
             array = np.moveaxis(array, list(source), list(target))
             scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
         return Tensor(self(diagram.dom), self(diagram.cod), array)
+
+
+@monoidal.diagram_subclass
+class Diagram(rigid.Diagram):
+    """
+    Diagram with Tensor boxes.
+
+    Examples
+    --------
+    >>> v = Box('v', Dim(1), Dim(2), [0, 1])
+    >>> print(v[::-1] >> v @ v)
+    v[::-1] >> v >> Id(Dim(2)) @ v
+    """
+    @staticmethod
+    def cups(left, right):
+        def factory(left, right):
+            if left != right:
+                raise AxiomError(messages.are_not_adjoints(left, right))
+            return Frobenius(2, 0, left[0])
+        return rigid.cups(left, right, ar_factory=Diagram, cup_factory=factory)
+
+    @staticmethod
+    def caps(left, right):
+        return Diagram.cups(left, right).dagger()
+
+    def eval(self):
+        return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+
+
+class Id(rigid.Id, Diagram):
+    """ Identity tensor.Diagram """
+
+
+Diagram.id = Id
+
+
+class Box(rigid.Box, Diagram):
+    """ Box in a tensor.Diagram """
+    @property
+    def array(self):
+        """ The array inside the box. """
+        return self.data
+
+    def __repr__(self):
+        return super().__repr__().replace("Box", "tensor.Box")
+
+
+class Frobenius(Box):
+    """ Frobenius box """
+    def __init__(self, n_wires_in, n_wires_out, dim):
+        self.dim = dim
+        dom, cod = Dim(dim) ** n_wires_in, Dim(dim) ** n_wires_out
+        name = "Frobenius({}, {}, dim={})".format(n_wires_in, n_wires_out, dim)
+        super().__init__(name, dom, cod)
+        self.draw_as_spider, self.color, self.drawing_name = True, "black", ""
+
+    def __repr__(self):
+        return self.name
+
+    def dagger(self):
+        return Frobenius(len(self.cod), len(self.dom), self.dim)
+
+    @property
+    def array(self):
+        dim, dom, cod = self.dim, self.dom, self.cod
+        array = np.zeros(dom @ cod)
+        for i in range(dim):
+            one_hot = Tensor(
+                Dim(1), Dim(dim), np.array([int(j == i) for j in range(dim)]))
+            state = Tensor.id(Dim(1)).tensor(*(len(dom) * [one_hot]))
+            effect = Tensor.id(Dim(1)).tensor(*(len(cod) * [one_hot.dagger()]))
+            array += (effect >> state).array
+        return array
