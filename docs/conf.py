@@ -38,7 +38,9 @@ release = get_version()
 # ones.
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
-              'sphinx.ext.autosummary'
+              'sphinx.ext.autosummary',
+              'nbsphinx',
+              'sphinx.ext.mathjax',
               ]
 
 autosummary_generate = True
