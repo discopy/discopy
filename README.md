@@ -1,5 +1,5 @@
 
-![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/snake-equation.png)
+![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/snake-equation.png)
 
 # Distributional Compositional Python
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
