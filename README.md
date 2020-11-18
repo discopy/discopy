@@ -41,10 +41,10 @@ merge = lambda x: Box('merge', x @ x, x)
 crack_two_eggs = crack @ crack\
     >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
     >> merge(white) @ merge(yolk)
-crack_two_eggs.draw(path='docs/imgs/crack-eggs.png')
+crack_two_eggs.draw(path='docs/_static/imgs/crack-eggs.png')
 ```
 
-![crack two eggs](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/crack-eggs.png)
+![crack two eggs](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/crack-eggs.png)
 
 ### Snakes & Sentences
 
@@ -59,7 +59,7 @@ right_snake =  Cap(x, x.l) @ Id(x) >> Id(x) @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-![snake equations, with types](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/typed-snake-equation.png)
+![snake equations, with types](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/typed-snake-equation.png)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar) (see Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction).
 
@@ -71,10 +71,10 @@ Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
 sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-pregroup.draw(sentence, path='docs/imgs/alice-loves-bob.png')
+pregroup.draw(sentence, path='docs/_static/imgs/alice-loves-bob.png')
 ```
 
-![Alice loves Bob](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/imgs/alice-loves-bob.png)
+![Alice loves Bob](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/alice-loves-bob.png)
 
 ### Functors & Rewrites
 
@@ -114,7 +114,7 @@ rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
 ```
 
-![autonomisation](docs/imgs/autonomisation.gif)
+![autonomisation](docs/_static/imgs/autonomisation.gif)
 
 
 ## Getting Started
