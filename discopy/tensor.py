@@ -4,28 +4,28 @@
 Implements dagger monoidal functors into tensors.
 
 >>> n = Ty('n')
->>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
->>> loves = Box('loves', n, n)
+>>> Alice, Bob = rigid.Box('Alice', Ty(), n), rigid.Box('Bob', Ty(), n)
+>>> loves = rigid.Box('loves', n, n)
 >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
 >>> F = Functor(ob, ar)
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
-import functools
+import itertools
 
-from discopy import messages, monoidal, rigid, IMPORT_JAX
+from discopy import messages, monoidal, rigid, config
 from discopy.cat import AxiomError
 from discopy.monoidal import Swap, Sum
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
-if IMPORT_JAX:  # pragma: no cover
+if config.IMPORT_JAX:  # pragma: no cover
     import warnings
-    for msg in messages.IGNORE_WARNINGS:
+    for msg in config.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
     import jax.numpy as np
 
-    def array2string(array, max_length=messages.NUMPY_THRESHOLD):
+    def array2string(array, max_length=config.NUMPY_THRESHOLD):
         """ array2string is not implemented in jax.numpy """
         flat = list(array)
         flat = flat if len(flat) <= max_length else\
@@ -35,11 +35,11 @@ if IMPORT_JAX:  # pragma: no cover
 else:
     import numpy as np
     from numpy import array2string as _array2string
-    np.set_printoptions(threshold=messages.NUMPY_THRESHOLD)
+    np.set_printoptions(threshold=config.NUMPY_THRESHOLD)
 
     def array2string(array, **params):
         """ makes sure we get the same doctest with numpy and jax.numpy """
-        return _array2string(array, separator=', ', **params)\
+        return _array2string(array, **dict(params, separator=', '))\
             .replace('[ ', '[').replace('  ', ' ')
     np.array2string = array2string
 
@@ -51,6 +51,10 @@ class Dim(Ty):
     >>> Dim(1) @ Dim(2) @ Dim(3)
     Dim(2, 3)
     """
+    @staticmethod
+    def upgrade(old):
+        return Dim(*[x.name for x in old.objects])
+
     def __init__(self, *dims):
         for dim in dims:
             if not isinstance(dim, int):
@@ -59,12 +63,9 @@ class Dim(Ty):
                 raise ValueError
         super().__init__(*[Ob(dim) for dim in dims if dim > 1])
 
-    def tensor(self, *others):
-        return Dim(*[x.name for x in super().tensor(*others)])
-
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return Dim(*[x.name for x in super().__getitem__(key)])
+            return super().__getitem__(key)
         return super().__getitem__(key).name
 
     def __repr__(self):
@@ -183,14 +184,14 @@ class Tensor(rigid.Box):
 
     @staticmethod
     def id(dom):
-        return Tensor(dom, dom, np.identity(np.prod(dom)))
+        return Tensor(dom, dom, np.identity(int(np.prod(dom))))
 
     @staticmethod
     def cups(left, right):
         return rigid.cups(
             left, right, ar_factory=Tensor,
             cup_factory=lambda left, right:
-                Tensor(left @ right, Dim(1), Id(left).array))
+                Tensor(left @ right, Dim(1), Tensor.id(left).array))
 
     @staticmethod
     def caps(left, right):
@@ -198,7 +199,7 @@ class Tensor(rigid.Box):
 
     @staticmethod
     def swap(left, right):
-        array = Id(left @ right).array
+        array = Tensor.id(left @ right).array
         source = range(len(left @ right), 2 * len(left @ right))
         target = [i + len(right) if i < len(left @ right @ left)
                   else i - len(left) for i in source]
@@ -252,7 +253,7 @@ class Functor(rigid.Functor):
     """ Implements a tensor-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
-    >>> f = Box('f', x, x @ y)
+    >>> f = rigid.Box('f', x, x @ y)
     >>> F = Functor({x: 1, y: 2}, {f: [0, 1]})
     >>> F(f)
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
@@ -286,7 +287,7 @@ class Functor(rigid.Functor):
 
         def dim(scan):
             return len(self(scan))
-        scan, array = diagram.dom, Id(self(diagram.dom)).array
+        scan, array = diagram.dom, Tensor.id(self(diagram.dom)).array
         for box, off in zip(diagram.boxes, diagram.offsets):
             if isinstance(box, Swap):
                 source = range(
@@ -322,26 +323,68 @@ class Diagram(rigid.Diagram):
 
     Examples
     --------
-    >>> v = Box('v', Dim(1), Dim(2), [0, 1])
-    >>> print(v[::-1] >> v @ v)
-    v[::-1] >> v >> Id(Dim(2)) @ v
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> diagram = vector[::-1] >> vector @ vector
+    >>> print(diagram)
+    vector[::-1] >> vector >> Id(Dim(2)) @ vector
     """
     @staticmethod
     def cups(left, right):
-        def factory(left, right):
-            if left != right:
-                raise AxiomError(messages.are_not_adjoints(left, right))
-            return Frobenius(2, 0, left[0])
-        return rigid.cups(left, right, ar_factory=Diagram, cup_factory=factory)
+        return rigid.cups(left, right, ar_factory=Diagram,
+                          cup_factory=lambda x, _: Frobenius(2, 0, x[0]))
 
     @staticmethod
     def caps(left, right):
         return Diagram.cups(left, right).dagger()
 
-    def eval(self):
-        return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+    def eval(self, contractor=None):
+        """
+        Diagram evaluation.
+
+        Parameters
+        ----------
+        contractor : callable, optional
+            Use :class:`tensornetwork` contraction
+            instead of :class:`tensor.Functor`.
+
+        Returns
+        -------
+        tensor : Tensor
+            With the same domain and codomain as self.
+
+        Examples
+        --------
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> assert (vector >> vector[::-1]).eval() == 1
+        >>> import tensornetwork as tn
+        >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
+        """
+        if contractor is None:
+            return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+        array = contractor(*self.to_tn()).tensor
+        return Tensor(self.dom, self.cod, array)
 
     def to_tn(self):
+        """
+        Sends a diagram to :code:`tensornetwork`.
+
+        Returns
+        -------
+        nodes : :class:`tensornetwork.Node`
+            Nodes of the network.
+
+        output_edge_order : list of :class:`tensornetwork.Edge`
+            Output edges of the network.
+
+        Examples
+        --------
+        >>> from tensornetwork import Node, Edge
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> nodes, output_edge_order = vector.to_tn()
+        >>> node, = nodes
+        >>> assert node.name == "vector" and np.all(node.tensor == [0, 1])
+        >>> assert output_edge_order == [node[0]]
+        """
         import tensornetwork as tn
         nodes = [tn.Node(np.eye(dim), 'input_{}'.format(i))
                  for i, dim in enumerate(self.dom)]
@@ -358,6 +401,10 @@ class Diagram(rigid.Diagram):
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
+    def __init__(self, dom):
+        rigid.Id.__init__(self, dom)
+        Diagram.__init__(self, dom, dom, [], [])
+
 
 
 Diagram.id = Id
@@ -373,30 +420,48 @@ class Box(rigid.Box, Diagram):
     def __repr__(self):
         return super().__repr__().replace("Box", "tensor.Box")
 
+    def __eq__(self, other):
+        if not isinstance(other, Box):
+            return False
+        return np.all(self.array == other.array)\
+            and (self.name, self.dom, self.cod)\
+            == (other.name, other.dom, other.cod)
+
+    def __hash__(self):
+        return hash(
+            (self.name, self.dom, self.cod, tuple(self.array.flatten())))
+
 
 class Frobenius(Box):
-    """ Frobenius box """
+    """
+    Frobenius box.
+
+    Parameters
+    ----------
+    n_wires_in, n_wires_out : int
+        Number of input and output wires.
+    dim : int
+        Dimension for each leg.
+
+    Examples
+    --------
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> spider = Frobenius(1, 2, dim=2)
+    >>> assert (vector >> spider).eval() == (vector @ vector).eval()
+    """
     def __init__(self, n_wires_in, n_wires_out, dim):
-        self.dim = dim
-        dom, cod = Dim(dim) ** n_wires_in, Dim(dim) ** n_wires_out
+        import numpy as np
         name = "Frobenius({}, {}, dim={})".format(n_wires_in, n_wires_out, dim)
-        super().__init__(name, dom, cod)
+        dom, cod = Dim(dim) ** n_wires_in, Dim(dim) ** n_wires_out
+        array = np.zeros(dom @ cod)
+        for i in range(dim):
+            array[len(dom @ cod) * (i, )] = 1
         self.draw_as_spider, self.color, self.drawing_name = True, "black", ""
+        self.dim = dim
+        super().__init__(name, dom, cod, array)
 
     def __repr__(self):
         return self.name
 
     def dagger(self):
         return Frobenius(len(self.cod), len(self.dom), self.dim)
-
-    @property
-    def array(self):
-        dim, dom, cod = self.dim, self.dom, self.cod
-        array = np.zeros(dom @ cod)
-        for i in range(dim):
-            one_hot = Tensor(
-                Dim(1), Dim(dim), np.array([int(j == i) for j in range(dim)]))
-            state = Tensor.id(Dim(1)).tensor(*(len(dom) * [one_hot]))
-            effect = Tensor.id(Dim(1)).tensor(*(len(cod) * [one_hot.dagger()]))
-            array += (effect >> state).array
-        return array

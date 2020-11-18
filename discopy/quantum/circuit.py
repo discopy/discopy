@@ -243,14 +243,13 @@ class Circuit(Diagram):
         -------
         array : numpy.ndarray
         """
-        from discopy.quantum.gates import Bra
-        circuit = self.init_and_discard()
-        if mixed or circuit.is_mixed:
-            return circuit.eval(mixed=True).array.real
-        state = circuit.eval()
-        effects = [Bra(*index2bitstring(j, len(circuit.cod))).eval()
-                   for j in range(2 ** len(circuit.cod))]
-        array = np.zeros(len(circuit.cod) * (2, ) or (1, ))
+        from discopy.quantum.gates import Bra, Ket
+        if mixed or self.is_mixed:
+            return self.init_and_discard().eval(mixed=True).array.real
+        state = (Ket(*(len(self.dom) * [0])) >> self).eval()
+        effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
+                   for j in range(2 ** len(self.cod))]
+        array = np.zeros(len(self.cod) * (2, ) or (1, ))
         for effect in effects:
             array += effect.array * np.absolute((state >> effect).array) ** 2
         return array

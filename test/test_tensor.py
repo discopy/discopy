@@ -24,7 +24,7 @@ def test_Tensor():
         == "Tensor(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])"
     u = Tensor(Dim(2), Dim(2), [1, 0, 0, 0])
     v = Tensor(Dim(2), Dim(2), [0, 0, 0, 1])
-    assert u + v == Id(2)
+    assert u + v == Tensor.id(Dim(2))
     with raises(TypeError):
         u + [0, 0, 0, 1]
     with raises(AxiomError):
@@ -37,7 +37,7 @@ def test_Tensor():
     m = Tensor(Dim(2, 2), Dim(2), arr)
     assert m == m and np.all(m == arr)
     m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
-    assert Id(Dim(2)).then(*(m, m)) == m >> m.dagger() == Id(2)
+    assert Tensor.id(Dim(2)).then(*(m, m)) == m >> m.dagger()
 
 
 def test_Tensor_cups():
@@ -66,14 +66,14 @@ def test_Tensor_transpose():
 
 
 def test_Tensor_tensor():
-    assert Tensor.id(2) @ Tensor.id(3) == Tensor.id(Dim(2, 3))
+    assert Tensor.id(Dim(2)) @ Tensor.id(Dim(3)) == Tensor.id(Dim(2, 3))
 
     v = Tensor(Dim(1), Dim(2), [1, 0])
     assert v @ v == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 0])
     assert v @ v.dagger() == v << v.dagger()
 
     x, y = Ty('x'), Ty('y')
-    f, g = Box('f', x, x), Box('g', y, y)
+    f, g = rigid.Box('f', x, x), rigid.Box('g', y, y)
     ob, ar = {x: 2, y: 3}, {f: [1, 0, 0, 1], g: list(range(9))}
     F = Functor(ob, ar)
     assert F(f) @ F(g) == F(f @ g)
@@ -85,10 +85,6 @@ def test_tensor_swap():
     swap = Tensor.swap(Dim(2), Dim(3))
     assert f @ g >> swap == swap >> g @ f
 
-    swaps = Tensor.swap(Dim(2), Dim(3, 3))
-    assert swaps == swap @ Id(3) >> Id(3) @ swap
-    assert swaps >> swaps.dagger() == Id(Dim(2, 3, 3))
-
 
 def test_Functor():
     assert repr(Functor({Ty('x'): 1}, {})) ==\
@@ -97,7 +93,7 @@ def test_Functor():
 
 def test_Functor_call():
     x, y = Ty('x'), Ty('y')
-    f, g = Box('f', x @ x, y), Box('g', y, Ty())
+    f, g = rigid.Box('f', x @ x, y), rigid.Box('g', y, Ty())
     ob = {x: 2, y: 3}
     ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
     F = Functor(ob, ar)
@@ -109,7 +105,7 @@ def test_Functor_call():
 
 def test_Functor_swap():
     x, y = Ty('x'), Ty('y')
-    f, g = Box('f', x, x), Box('g', y, y)
+    f, g = rigid.Box('f', x, x), rigid.Box('g', y, y)
     F = Functor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
     assert F(f @ g >> Diagram.swap(x, y)) == F(Diagram.swap(x, y) >> g @ f)
 
@@ -123,7 +119,7 @@ def test_AxiomError():
 
 def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
+    f = rigid.Box('f', x, y)
     F = Functor({x: 1, y: 2}, {f: [1, 0]})
     assert F(f + f) == F(f) + F(f)
 
@@ -144,3 +140,23 @@ def test_Tensor_subs():
     from sympy.abc import x
     s = Tensor(Dim(1), Dim(1), [x])
     assert s.subs(x, 1) == 1
+
+
+def test_Diagram_cups_and_caps():
+    with raises(AxiomError):
+        Diagram.cups(Dim(2), Dim(3))
+    assert Id(Dim(2)).transpose()\
+        == Frobenius(0, 2, dim=2) @ Id(Dim(2))\
+        >> Id(Dim(2)) @ Frobenius(2, 0, dim=2)
+
+
+def test_Box():
+    f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert repr(f) == "tensor.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
+    assert f != rigid.Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert {f: 42}[f] == 42
+
+
+def test_Frobenius():
+    assert repr(Frobenius(1, 2, dim=3)) == "Frobenius(1, 2, dim=3)"
+    assert Frobenius(1, 2, 2).dagger() == Frobenius(2, 1, 2)
