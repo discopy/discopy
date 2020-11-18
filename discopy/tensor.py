@@ -15,7 +15,7 @@ import itertools
 
 from discopy import messages, monoidal, rigid, config
 from discopy.cat import AxiomError
-from discopy.monoidal import Swap, Sum
+from discopy.monoidal import Sum
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
@@ -277,7 +277,8 @@ class Functor(rigid.Functor):
             return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))
         if isinstance(diagram, Cap):
             return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
-        if isinstance(diagram, monoidal.Box) and not isinstance(diagram, Swap):
+        if isinstance(diagram, monoidal.Box)\
+                and not isinstance(diagram, monoidal.Swap):
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
             return Tensor(self(diagram.dom), self(diagram.cod),
@@ -289,7 +290,7 @@ class Functor(rigid.Functor):
             return len(self(scan))
         scan, array = diagram.dom, Tensor.id(self(diagram.dom)).array
         for box, off in zip(diagram.boxes, diagram.offsets):
-            if isinstance(box, Swap):
+            if isinstance(box, monoidal.Swap):
                 source = range(
                     dim(diagram.dom @ scan[:off]),
                     dim(diagram.dom @ scan[:off] @ box.dom))
@@ -328,15 +329,6 @@ class Diagram(rigid.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Id(Dim(2)) @ vector
     """
-    @staticmethod
-    def cups(left, right):
-        return rigid.cups(left, right, ar_factory=Diagram,
-                          cup_factory=lambda x, _: Frobenius(2, 0, x[0]))
-
-    @staticmethod
-    def caps(left, right):
-        return Diagram.cups(left, right).dagger()
-
     def eval(self, contractor=None):
         """
         Diagram evaluation.
@@ -390,6 +382,9 @@ class Diagram(rigid.Diagram):
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
+            if isinstance(box, Swap):
+                scan[offset], scan[offset + 1] = scan[offset + 1], scan[offset]
+                continue
             node = tn.Node(box.array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
@@ -398,16 +393,30 @@ class Diagram(rigid.Diagram):
             nodes.append(node)
         return nodes, inputs + scan
 
+    @staticmethod
+    def cups(left, right):
+        return rigid.cups(left, right, ar_factory=Diagram,
+                          cup_factory=lambda x, _: Frobenius(2, 0, x[0]))
+
+    @staticmethod
+    def caps(left, right):
+        return Diagram.cups(left, right).dagger()
+
+    @staticmethod
+    def swap(left, right):
+        return monoidal.swap(
+            left, right, ar_factory=Diagram, swap_factory=Swap)
+
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
-    def __init__(self, dom):
-        rigid.Id.__init__(self, dom)
-        Diagram.__init__(self, dom, dom, [], [])
-
 
 
 Diagram.id = Id
+
+
+class Swap(rigid.Swap, Diagram):
+    """ Symmetry in a tensor.Diagram """
 
 
 class Box(rigid.Box, Diagram):

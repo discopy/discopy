@@ -160,3 +160,8 @@ def test_Box():
 def test_Frobenius():
     assert repr(Frobenius(1, 2, dim=3)) == "Frobenius(1, 2, dim=3)"
     assert Frobenius(1, 2, 2).dagger() == Frobenius(2, 1, 2)
+
+
+def test_Swap_to_tn():
+    nodes, order = Swap(Dim(2), Dim(2)).to_tn()
+    assert order == [nodes[0][0], nodes[1][0], nodes[1][1], nodes[0][1]]
