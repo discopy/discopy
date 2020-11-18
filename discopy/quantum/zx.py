@@ -287,7 +287,7 @@ class Spider(Box):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        return Scalar(.5j * gradient)\
+        return Scalar(.5 * gradient)\
             @ type(self)(len(self.dom), len(self.cod), self.phase - .5)
 
 
@@ -303,6 +303,14 @@ class Y(Spider):
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, phase, name='Y')
         self.color = "blue"
+    
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        return Scalar(-.5 * gradient)\
+            @ type(self)(len(self.dom), len(self.cod), self.phase - .5)
 
 
 class X(Spider):
