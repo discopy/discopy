@@ -206,14 +206,25 @@ class Rotation(Parametrized):
         return type(self)(subbed.data)
 
 
+    # def grad(self, var):
+    #     if len(self.dom) != 1:
+    #         raise NotImplementedError
+    #     if var not in self.free_symbols:
+    #         return Sum([], self.dom, self.cod)
+    #     gradient = self.phase.diff(var)
+    #     gradient = complex(gradient) if not gradient.free_symbols else gradient
+    #     return scalar(.5 * gradient) @ type(self)(self.phase - .5)
+
+    # TODO gradient recipes
     def grad(self, var):
-        if len(self.dom) != 1:
-            raise NotImplementedError
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        return scalar(.5 * gradient) @ type(self)(self.phase - .5)
+        circ1 = scalar(.5 * gradient) @ type(self)(self.phase + .25)
+        circ2 = scalar(-.5 * gradient) @ type(self)(self.phase - .25)
+        return circ1 + circ2
+
 
 
 class Rx(Rotation):
