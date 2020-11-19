@@ -101,15 +101,12 @@ class Tensor(rigid.Box):
     Tensor(dom=Dim(1), cod=Dim(1), array=[0])
     """
     def __init__(self, dom, cod, array):
-        self._array = np.array(array).reshape(dom @ cod)
+        self._array = np.array(array).reshape(dom @ cod or (1, ))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
-        if self.array.shape:
-            for i in self.array:
-                yield i
-        else:
-            yield self.array
+        for i in self.array:
+            yield i
 
     @property
     def array(self):
@@ -302,13 +299,10 @@ class Functor(rigid.Functor):
                 scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
                 continue
             left = dim(scan[:off])
-            if array.shape and self(box).array.shape:
-                source = list(range(dim(diagram.dom) + left,
-                                    dim(diagram.dom) + left + dim(box.dom)))
-                target = list(range(dim(box.dom)))
-                array = np.tensordot(array, self(box).array, (source, target))
-            else:
-                array = array * self(box).array
+            source = list(range(dim(diagram.dom) + left,
+                                dim(diagram.dom) + left + dim(box.dom)))
+            target = list(range(dim(box.dom)))
+            array = np.tensordot(array, self(box).array, (source, target))
             source = range(len(array.shape) - dim(box.cod), len(array.shape))
             target = range(dim(diagram.dom) + left,
                            dim(diagram.dom) + left + dim(box.cod))
@@ -424,7 +418,7 @@ class Box(rigid.Box, Diagram):
     @property
     def array(self):
         """ The array inside the box. """
-        return np.array(self.data).reshape(self.dom @ self.cod)
+        return np.array(self.data).reshape(self.dom @ self.cod or (1, ))
 
     def __repr__(self):
         return super().__repr__().replace("Box", "tensor.Box")

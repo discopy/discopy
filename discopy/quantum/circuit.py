@@ -14,6 +14,7 @@ import random
 from itertools import takewhile
 
 from discopy import messages, monoidal, rigid, tensor
+from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor
 
@@ -153,8 +154,9 @@ class Circuit(Diagram):
 
         We can evaluate a mixed circuit as a :class:`CQMap`:
 
-        >>> Measure().eval()
-        CQMap(dom=Q(Dim(2)), cod=C(Dim(2)), array=[1, 0, 0, 0, 0, 0, 0, 1])
+        >>> assert Measure().eval()\\
+        ...     == CQMap(dom=Q(Dim(2)), cod=C(Dim(2)),
+        ...              array=[1, 0, 0, 0, 0, 0, 0, 1])
         >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
         >>> assert circuit.eval() == CQMap(dom=CQ(), cod=CQ(), array=[1])
 
@@ -169,19 +171,33 @@ class Circuit(Diagram):
         """
         # pylint: disable=import-outside-toplevel
         from discopy.quantum.gates import Bits, scalar
-        if backend is None and (mixed or self.is_mixed):
-            from discopy import cqmap
-            return cqmap.Functor()(self)
         if backend is None:
-            return tensor.Functor(lambda x: 2, lambda f: f.array)(self)
+            from discopy import cqmap
+            from discopy.quantum.gates import ClassicalGate
+            post_processes = Id(self.cod)
+            for left, box, right in self.layers:
+                if isinstance(box, ClassicalGate) and not box.is_linear:
+                    if left.count(bit) or right.count(bit):
+                        raise AxiomError("You can't tensor non-linear gates.")
+                    post_processes = (post_processes or Id(box.dom)) >> box
+                elif post_processes and not isinstance(box, ClassicalGate):
+                    raise AxiomError("You can't do anything quantum "
+                                     "after non-linear gates.")
+            circuit = self[:-len(post_processes) or len(self)]
+            functor = cqmap.Functor() if mixed or self.is_mixed\
+                else tensor.Functor(lambda x: 2, lambda f: f.array)
+            result = functor(circuit)
+            for process in post_processes.boxes:
+                result = process(result)
+            return result
         tk_circuit = self.to_tk()
-        n_bits = self.cod.count(bit)
+        n_bits = len(tk_circuit.post_processing.dom)
         counts = tk_circuit.get_counts(backend, **params)
         result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
         for bitstring, count in counts.items():
             result += (scalar(count) @ Bits(*bitstring)).eval()
-        if tk_circuit.post_processing:
-            result >>= tk_circuit.post_processing.eval()
+        for process in tk_circuit.post_processing.boxes:
+            result = process(result)
         return result
 
     def get_counts(self, backend=None, **params):
@@ -415,6 +431,7 @@ class Circuit(Diagram):
     @staticmethod
     def cups(left, right):
         from discopy.quantum.gates import CX, H, sqrt, Bra, Match
+
         def cup_factory(left, right):
             if left == right == qubit:
                 return CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
@@ -665,6 +682,7 @@ class IQPansatz(Circuit):
     """
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import H, Rx, Rz, CRz
+
         def layer(thetas):
             hadamards = Id(0).tensor(*(n_qubits * [H]))
             rotations = Id(n_qubits).then(*(

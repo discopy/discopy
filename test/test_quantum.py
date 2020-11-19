@@ -102,7 +102,7 @@ def test_Circuit_from_tk():
 
 
 def test_ClassicalGate_to_tk():
-    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, array=[0, 0, 0, 1])
+    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, data=[0, 0, 0, 1])
     assert (post[::-1] >> Swap(bit, bit)).to_tk().post_processing\
         == post[::-1] >> Swap(bit, bit)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
@@ -129,8 +129,7 @@ def test_Circuit_get_counts_snake():
 def test_Circuit_get_counts_empty():
     backend = Mock()
     backend.get_counts.return_value = {}
-    with raises(RuntimeError):
-        Id(1).get_counts(backend)
+    assert not Id(1).get_counts(backend)
 
 
 def test_Circuit_measure():
@@ -220,7 +219,7 @@ def test_ClassicalGate():
     f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
     assert repr(f.dagger())\
         == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, "\
-           "array=[0, 1, 1, 0]).dagger()"
+           "data=[0, 1, 1, 0]).dagger()"
 
 
 def test_Bits():
@@ -299,3 +298,22 @@ def test_ClassicalGate_grad_subs():
 
 def test_Copy_Match():
     assert Match().dagger() == Copy() and Copy().dagger() == Match()
+
+
+def test_non_linear_ClassicalGate():
+    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
+    state = Bits(0, 0) + Bits(0, 1) + Bits(1, 0) + Bits(1, 1)
+    vector = (state >> f).eval().array.flatten()
+    assert np.all(vector == 4 * [np.sin(1) ** 2])
+
+
+def test_non_linear_AxiomError():
+    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
+    with raises(AttributeError):
+        f.array
+    with raises(AxiomError):
+        f.eval()
+    with raises(AxiomError):
+        (f @ f).eval()
+    with raises(AxiomError):
+        (f >> Discard(bit ** 2)).eval()
