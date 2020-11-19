@@ -75,9 +75,7 @@ class BitsAndQubits(Ty):
     def l(self):
         return BitsAndQubits(*self.objects[::-1])
 
-    @property
-    def r(self):
-        return self.l
+    r = l
 
 
 bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
@@ -86,6 +84,9 @@ bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 @monoidal.diagram_subclass
 class Circuit(Diagram):
     """ Classical-quantum circuits. """
+    def __init__(self, dom, cod, boxes, offsets, layers=None):
+        super().__init__(dom, cod, boxes, offsets, layers)
+
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
 
@@ -174,8 +175,8 @@ class Circuit(Diagram):
         if backend is None:
             return tensor.Functor(lambda x: 2, lambda f: f.array)(self)
         tk_circuit = self.to_tk()
+        n_bits = self.cod.count(bit)
         counts = tk_circuit.get_counts(backend, **params)
-        n_bits = len(list(counts.keys()).pop())
         result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
         for bitstring, count in counts.items():
             result += (scalar(count) @ Bits(*bitstring)).eval()
@@ -218,7 +219,7 @@ class Circuit(Diagram):
         >>> from unittest.mock import Mock
         >>> backend = Mock()
         >>> backend.get_counts.return_value = {(0, 1): 512, (1, 0): 512}
-        >>> circuit.get_counts(backend, n_shots=2**10)  # doctest: +ELLIPSIS
+        >>> circuit.get_counts(backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
         """
         if backend is None:

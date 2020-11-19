@@ -104,8 +104,6 @@ class Circuit(tk.Circuit):
         if compilation is not None:
             compilation.apply(self)
         counts = backend.get_counts(self, n_shots=n_shots, seed=seed)
-        if not counts:
-            raise RuntimeError
         if normalize:
             counts = probs_from_counts(counts)
         if post_select:
