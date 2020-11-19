@@ -100,7 +100,7 @@ def test_Arrow_repr():
         == "Box('f', Ob('x'), Ob('y'))"
     assert repr(Arrow(Ob('x'), Ob('z'),
                 [Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))]))\
-        == "cat.Arrow(dom=Ob('x'), cod=Ob('z'), "\
+        == "Arrow(dom=Ob('x'), cod=Ob('z'), "\
            "boxes=[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
 
 

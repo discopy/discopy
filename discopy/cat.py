@@ -21,7 +21,10 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
+from numbers import Number
 from functools import total_ordering
+from collections.abc import Mapping, Iterable
+
 from discopy import messages
 
 
@@ -33,7 +36,7 @@ class Ob:
     Parameters
     ----------
     name : any
-        Name of the object
+        Name of the object.
 
     Note
     ----
@@ -56,6 +59,11 @@ class Ob:
     TypeError: unhashable type: 'list'
 
     """
+    def __init__(self, name):
+        if not str(name):
+            raise ValueError(messages.empty_name(name))
+        self._name = name
+
     @property
     def name(self):
         """
@@ -70,11 +78,6 @@ class Ob:
         AttributeError: can't set attribute
         """
         return self._name
-
-    def __init__(self, name):
-        if not str(name):
-            raise ValueError(messages.empty_name(name))
-        self._name = name
 
     def __repr__(self):
         return "Ob({})".format(repr(self.name))
@@ -98,12 +101,6 @@ class Arrow:
     """
     Defines an arrow in a free dagger category.
 
-    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-    >>> arrow = Arrow(x, x, [f, g, h])
-    >>> print(arrow[::-1])
-    h[::-1] >> g[::-1] >> f[::-1]
-
     Parameters
     ----------
     dom : cat.Ob
@@ -118,17 +115,16 @@ class Arrow:
     :class:`cat.AxiomError`
         Whenever the boxes do not compose.
 
-    """
-    @staticmethod
-    def upgrade(arrow):
-        """ Allows class inheritance for then and __getitem__ """
-        return arrow
+    Examples
+    --------
 
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    >>> arrow = Arrow(x, x, [f, g, h])
+    >>> print(arrow[::-1])
+    h[::-1] >> g[::-1] >> f[::-1]
+    """
     def __init__(self, dom, cod, boxes, _scan=True):
-        """
-        >>> from discopy.monoidal import spiral
-        >>> arrow = spiral(3)
-        """
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
         if not isinstance(cod, Ob):
@@ -146,6 +142,11 @@ class Arrow:
                 raise AxiomError(messages.does_not_compose(
                     boxes[-1] if boxes else Id(dom), Id(cod)))
         self._dom, self._cod, self._boxes = dom, cod, boxes
+
+    @staticmethod
+    def upgrade(old):
+        """ Allows class inheritance. """
+        return old
 
     @property
     def dom(self):
@@ -218,7 +219,7 @@ class Arrow:
             return repr(Id(self.dom))
         if len(self.boxes) == 1:  # i.e. self is a box.
             return repr(self.boxes[0])
-        return "cat.Arrow(dom={}, cod={}, boxes={})".format(
+        return "Arrow(dom={}, cod={}, boxes={})".format(
             repr(self.dom), repr(self.cod), repr(self.boxes))
 
     def __str__(self):
@@ -227,11 +228,22 @@ class Arrow:
     def __eq__(self, other):
         if not isinstance(other, Arrow):
             return False
-        return self.dom == other.dom and self.cod == other.cod\
-            and all(x == y for x, y in zip(self.boxes, other.boxes))
+        return all(getattr(self, a) == getattr(other, a)
+                   for a in ["dom", "cod", "boxes"])
 
     def __hash__(self):
         return hash(repr(self))
+
+    def __add__(self, other):
+        return self.sum([self]) + other
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    @staticmethod
+    def sum(terms, dom=None, cod=None):
+        """ Formal sum of `terms`. """
+        return Sum(terms, dom, cod)
 
     def then(self, *others):
         """
@@ -269,16 +281,19 @@ class Arrow:
         >>> assert f >> Id(y) == f == Id(x) >> f
         >>> assert (f >> g) >> h == f >> (g >> h)
         """
-        for other in others:
-            if not isinstance(other, Arrow):
-                raise TypeError(messages.type_err(Arrow, other))
-        boxes, scan = self.boxes, self.cod
-        for other in others:
-            if scan != other.dom:
-                raise AxiomError(messages.does_not_compose(
-                    boxes[-1] if boxes else Id(scan), other))
-            boxes, scan = boxes + other.boxes, other.cod
-        return self.upgrade(Arrow(self.dom, scan, boxes, _scan=False))
+        if not others:
+            return self
+        if len(others) > 1:
+            return self.then(others[0]).then(*others[1:])
+        other, = others
+        if isinstance(other, Sum):
+            return self.sum([self]).then(other)
+        if not isinstance(other, Arrow):
+            raise TypeError(messages.type_err(Arrow, other))
+        if self.cod != other.dom:
+            raise AxiomError(messages.does_not_compose(self, other))
+        return self.upgrade(Arrow(
+            self.dom, other.cod, self.boxes + other.boxes, _scan=False))
 
     def __rshift__(self, other):
         return self.then(other)
@@ -311,43 +326,91 @@ class Arrow:
         return self[::-1]
 
     @staticmethod
-    def id(x):
+    def id(dom):
         """
-        Returns the identity arrow on x.
+        Returns the identity arrow on `dom`.
 
         >>> x = Ob('x')
         >>> assert Arrow.id(x) == Id(x) == Arrow(x, x, [])
 
         Parameters
         ----------
-        x : cat.Ob
+        dom : cat.Ob
             Any object.
 
         Returns
         -------
         cat.Id
         """
-        return Id(x)
+        return Id(dom)
+
+    @property
+    def free_symbols(self):
+        """
+        Free symbols in a :class:`Arrow`.
+
+        >>> from sympy.abc import phi, psi
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
+        >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
+        >>> assert (f >> g).free_symbols == {phi, psi}
+        """
+        return {x for box in self.boxes for x in box.free_symbols}
+
+    def subs(self, *args):
+        """
+        Substitute a variable by an expression.
+
+        Parameters
+        ----------
+        Either var, expr with:
+
+        var : sympy.Symbol
+            Subtituted variable.
+        expr : sympy.Expr
+            Substituting expression.
+
+        Or a list of such pairs for multiple substitution.
+
+        Returns
+        -------
+        arrow : Arrow
+
+        Examples
+        --------
+        >>> from sympy.abc import phi, psi
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
+        >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
+        >>> assert (f >> g).subs(phi, phi + 1) == f.subs(phi, phi + 1) >> g
+        >>> assert (f >> g).subs(phi, 1) == f.subs(phi, 1) >> g
+        >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
+        """
+        return self.upgrade(
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
 
 class Id(Arrow):
     """
-    Defines the identity arrow on x, i.e. with an empty list of boxes.
-
-    >>> x = Ob('x')
-    >>> assert Id(x) == Arrow(x, x, [])
+    Defines the identity arrow on `dom`, i.e. with an empty list of boxes.
 
     Parameters
     ----------
-        x : cat.Ob
-            Any object.
+    dom : cat.Ob
+        Any object.
+
+    Examples
+    --------
+
+    >>> x = Ob('x')
+    >>> assert Id(x) == Arrow(x, x, [])
 
     See also
     --------
         cat.Arrow.id
     """
-    def __init__(self, x):
-        super().__init__(x, x, [], _scan=False)
+    def __init__(self, dom):
+        Arrow.__init__(self, dom, dom, [], _scan=False)
 
     def __repr__(self):
         return "Id({})".format(repr(self.dom))
@@ -366,12 +429,6 @@ class AxiomError(Exception):
 class Box(Arrow):
     """ Defines a box as an arrow with the list of only itself as boxes.
 
-    >>> x, y = Ob('x'), Ob('y')
-    >>> f = Box('f', x, y, data=[42])
-    >>> assert f == Arrow(x, y, [f])
-    >>> assert f.boxes == [f]
-    >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
-
     Parameters
     ----------
         name : any
@@ -383,8 +440,19 @@ class Box(Arrow):
         data : any
             Extra data in the box, default is `None`.
 
+    Examples
+    --------
+
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f = Box('f', x, y, data=[42])
+    >>> assert f == Arrow(x, y, [f])
+    >>> assert f.boxes == [f]
+    >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
+
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
+        """
+        """
         if not str(name):
             raise ValueError(messages.empty_name(name))
         self._name, self._dom, self._cod = name, dom, cod
@@ -422,6 +490,32 @@ class Box(Arrow):
         return self._data
 
     @property
+    def free_symbols(self):
+        def recursive_free_symbols(data):
+            if isinstance(data, Mapping):
+                return sum(map(recursive_free_symbols, data.values()), [])
+            if isinstance(data, Iterable):
+                return sum(map(recursive_free_symbols, data), [])
+            if hasattr(data, "free_symbols"):
+                return list(data.free_symbols)
+            return []
+        return set(recursive_free_symbols(self.data))
+
+    def subs(self, *args):
+        vars = {var for var, _ in args[0]} if len(args) == 1 else {args[0]}
+        if not any(var in self.free_symbols for var in vars):
+            return self
+        def recursive_subs(data, *args):
+            if isinstance(data, Mapping):
+                return {key: recursive_subs(value, *args)
+                        for key, value in data.items()}
+            if isinstance(data, Iterable):
+                return [recursive_subs(elem, *args) for elem in data]
+            return getattr(data, "subs", lambda *_: data)(*args)
+        return Box(self.name, self.dom, self.cod, _dagger=self._dagger,
+                   data=recursive_subs(self.data, *args))
+
+    @property
     def is_dagger(self):
         """
         Whether the box is dagger.
@@ -443,7 +537,7 @@ class Box(Arrow):
             return repr(self.dagger()) + ".dagger()"
         return "Box({}, {}, {}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
-            ", data=" + repr(self.data) if self.data else '')
+            '' if self.data is None else ", data=" + repr(self.data))
 
     def __str__(self):
         return str(self.name) + ("[::-1]" if self._dagger else '')
@@ -454,13 +548,117 @@ class Box(Arrow):
     def __eq__(self, other):
         if isinstance(other, Box):
             return all(self.__getattribute__(x) == other.__getattribute__(x)
-                       for x in ['name', 'dom', 'cod', 'data', '_dagger'])
+                       for x in ['_name', 'dom', 'cod', 'data', '_dagger'])
         if isinstance(other, Arrow):
             return len(other) == 1 and other[0] == self
         return False
 
     def __lt__(self, other):
         return self.name < other.name
+
+
+class Sum(Box):
+    """
+    Implements enrichment over monoids, i.e. formal sums of diagrams.
+
+    Parameters
+    ----------
+    terms : list of :class:`Arrow`
+        Terms of the formal sum.
+    dom : :class:`Ob`, optional
+        Domain of the formal sum,
+        optional if :code:`diagrams` is non-empty.
+    cod : :class:`Ob`, optional
+        Codomain of the formal sum,
+        optional if :code:`diagrams` is non-empty.
+
+    Examples
+    --------
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f, g = Box('f', x, y), Box('g', x, y)
+    >>> f + g
+    Sum([Box('f', Ob('x'), Ob('y')), Box('g', Ob('x'), Ob('y'))])
+    >>> unit = Sum([], x, y)
+    >>> assert (f + unit) == Sum([f]) == (unit + f)
+    >>> print((f + g) >> (f + g)[::-1])
+    (f >> f[::-1]) + (f >> g[::-1]) + (g >> f[::-1]) + (g >> g[::-1])
+
+    Note
+    ----
+    The sum is non-commutative, i.e. :code:`Sum([f, g]) != Sum([g, f])`.
+
+    A diagram is different from the sum of itself, i.e. :code:`Sum([f]) != f`
+    """
+    @staticmethod
+    def upgrade(old):
+        return old
+
+    def __init__(self, terms, dom=None, cod=None):
+        self.terms = list(terms)
+        if not terms:
+            if dom is None or cod is None:
+                raise ValueError(messages.missing_types_for_empty_sum())
+        else:
+            dom = terms[0].dom if dom is None else dom
+            cod = terms[0].cod if cod is None else cod
+            if (dom, cod) != (terms[0].dom, terms[0].cod):
+                raise AxiomError(
+                    messages.cannot_add(Sum([], dom, cod), terms[0]))
+        for arrow in terms:
+            if (arrow.dom, arrow.cod) != (dom, cod):
+                raise AxiomError(messages.cannot_add(terms[0], arrow))
+        name = "Sum({})".format(repr(terms)) if terms\
+            else "Sum([], dom={}, cod={})".format(repr(dom), repr(cod))
+        super().__init__(name, dom, cod)
+
+    def __eq__(self, other):
+        if not isinstance(other, Sum):
+            return False
+        return (self.dom, self.cod, self.terms)\
+            == (other.dom, other.cod, other.terms)
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        if not self.terms:
+            return "Sum([], {}, {})".format(self.dom, self.cod)
+        return " + ".join("({})".format(arrow) for arrow in self.terms)
+
+    def __add__(self, other):
+        if other == 0:
+            return self
+        other = other if isinstance(other, Sum) else Sum([other])
+        return self.sum(self.terms + other.terms, self.dom, self.cod)
+
+    def __radd__(self, other):
+        return self.__add__(other)
+
+    def __iter__(self):
+        for arrow in self.terms:
+            yield arrow
+
+    def __len__(self):
+        return len(self.terms)
+
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0] if isinstance(others[0], Sum) else Sum(list(others))
+        unit = Sum([], self.dom, other.cod)
+        terms = [f.then(g) for f in self.terms for g in other.terms]
+        return self.upgrade(sum(terms, unit))
+
+    def dagger(self):
+        unit = Sum([], self.cod, self.dom)
+        return self.upgrade(sum([f.dagger() for f in self.terms], unit))
+
+    def subs(self, *args):
+        unit = Sum([], self.dom, self.cod)
+        return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
 
 class Functor:
@@ -470,12 +668,6 @@ class Functor:
     By default, `Functor` defines an endofunctor from the free dagger category
     to itself. The codomain can be changed with the optional parameters
     `ob_factory` and `ar_factory`.
-
-    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g = Box('f', x, y), Box('g', y, z)
-    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
-    >>> F = Functor(ob, ar)
-    >>> assert F(x) == y and F(f) == g
 
     Parameters
     ----------
@@ -493,10 +685,13 @@ class Functor:
         Class to be used as arrows for the codomain of the functor.
         If None, this will be set to :class:`cat.Arrow`.
 
-    See Also
+    Examples
     --------
-    Quiver : For functors from infinitely-generated categories,
-             use quivers to create dict-like objects from functions.
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
+    >>> F = Functor(ob, ar)
+    >>> assert F(x) == y and F(f) == g
 
     Notes
     -----
@@ -506,6 +701,11 @@ class Functor:
     >>> assert F(f >> g) == F(f) >> F(g)
     >>> assert F(f[::-1]) == F(f)[::-1]
     >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
+
+    See Also
+    --------
+    Quiver : For functors from infinitely-generated categories,
+             use quivers to create dict-like objects from functions.
     """
     def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
         if ob_factory is None:
@@ -518,6 +718,8 @@ class Functor:
     @property
     def ob(self):
         """
+        Mapping on objects.
+
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> assert F.ob == {Ob('x'): Ob('y')}
         """
@@ -527,6 +729,8 @@ class Functor:
     @property
     def ar(self):
         """
+        Mapping on arrows.
+
         >>> f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
         >>> F = Functor({}, {f: g})
         >>> assert F.ar == {f: g}
@@ -541,6 +745,9 @@ class Functor:
         return "Functor(ob={}, ar={})".format(repr(self.ob), repr(self.ar))
 
     def __call__(self, arrow):
+        if isinstance(arrow, Sum):
+            return self.ar_factory.sum(
+                list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):
@@ -548,8 +755,7 @@ class Functor:
                 return self.ar[arrow.dagger()].dagger()
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
-            return self.ar_factory.id(self(arrow.dom)).then(
-                *map(self, arrow.boxes))
+            return self.ar_factory.id(self(arrow.dom)).then(*map(self, arrow))
         raise TypeError(messages.type_err(Arrow, arrow))
 
 
@@ -558,16 +764,19 @@ class Quiver:
     Wraps a function into an immutable dict-like object, used as input for a
     :class:`Functor`.
 
+    Parameters
+    ----------
+    func : callable
+        Any callable Python object.
+
+    Examples
+    --------
+
     >>> ob, ar = Quiver(lambda x: x), Quiver(lambda f: f)
     >>> F = Functor(ob, ar)
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
     >>> assert F(x) == x and F(f >> g) == f >> g
-
-    Parameters
-    ----------
-    func : callable
-        Any callable Python object.
 
     Notes
     -----

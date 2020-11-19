@@ -243,6 +243,22 @@ def test_InterchangerError():
     assert str(err.value) == str(InterchangerError(f, g))
 
 
+def spiral(n_cups, _type=Ty('x')):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
+    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
+    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
+    return result
+
+
 def test_spiral(n_cups=2):
     diagram = spiral(n_cups)
     unit, counit = diagram.boxes[0], diagram.boxes[n_cups + 1]
@@ -307,3 +323,27 @@ def test_Functor_call():
     with raises(TypeError) as err:
         F(F)
     assert str(err.value) == messages.type_err(Diagram, F)
+
+
+def test_Functor_sum():
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, y), Box('g', x, y)
+    F = Functor(ob={x: y, y: x}, ar={f: g[::-1], g: f[::-1]})
+    assert F(f + g) == F(f) + F(g)
+
+
+def test_Sum():
+    x = Ty('x')
+    f = Box('f', x, x)
+    with raises(ValueError):
+        Sum([])
+    with raises(AxiomError):
+        Sum([f], dom=Ty())
+    with raises(AxiomError):
+        f + Box('g', Ty(), x)
+    with raises(TypeError):
+        Sum.upgrade(f)
+    assert Sum([f]) != f
+    assert {Sum([f]): 42}[Sum([f])] == 42
+    assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
+    assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])

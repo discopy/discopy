@@ -1,10 +1,11 @@
-discopy.grammar
-================
+grammar
+=======
 
 .. automodule:: discopy.grammar
+    :no-members:
 
 .. toctree::
-    :caption: Contents:
 
-    Word.rst
-    CFG.rst
+   cfg
+   pregroup
+   ccg

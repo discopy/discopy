@@ -13,7 +13,13 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 
-WIRE_BOXES = ['CUP', 'CAP', 'SWAP']
+COLORS = {
+    'red': '#e8a5a5',
+    'green': '#d8f8d8',
+    'blue': '#776ff3',
+    'yellow': '#f7f700',
+    'black': '#000000',
+}
 
 
 def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
@@ -39,10 +45,10 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
             labels.update({node: label})
 
     def add_box(scan, box, off, depth, x_pos):
-        node = 'wire_box_{}'.format(depth) if box.name in WIRE_BOXES\
-            else 'box_{}'.format(depth)
-        add_node(node,
-                 (x_pos, len(diagram) - depth - .5), str(box))
+        node = 'wire_box_{}'.format(depth)\
+            if getattr(box, "draw_as_wire", False) else 'box_{}'.format(depth)
+        add_node(node, (x_pos, len(diagram) - depth - .5),
+                 getattr(box, "drawing_name", box.name))
         for i, _ in enumerate(box.dom):
             wire, position = 'wire_dom_{}_{}'.format(depth, i), (
                 pos[scan[off + i]][0], len(diagram) - depth - .25)
@@ -199,19 +205,28 @@ def draw(diagram, axis=None, data=None, **params):
     scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
     graph, positions, labels =\
         diagram_to_nx(diagram, scale, pad) if data is None else data
+    colors = {getattr(box, 'color', 'red') for box in diagram.boxes}
+    shapes = {getattr(box, 'shape', 'o') for box in diagram.boxes}
+    spiders = {(color, shape): ["box_{}".format(i)
+               for i, box in enumerate(diagram.boxes)
+               if getattr(box, "draw_as_spider", False)
+               if getattr(box, "color", "red") == color
+               if getattr(box, "shape", "o") == shape]
+               for color in colors
+               for shape in shapes}
 
-    def draw_nodes(axis, nodes):
+    def draw_nodes(axis, nodes, color, shape):
         if params.get('to_tikz', False):
-            dec = "[circle, fill={}]".format(params.get('color', 'red'))
-            cmd = "\\node {1} () at ({2}, {3}) {{{0}}};\n"
+            cmd = "\\node [circle, fill={}] () ".format(color)
+            cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
             for node in nodes:
                 lab = labels[node]\
                     if params.get('draw_box_labels', True) else ""
-                axis.append(cmd.format(lab, dec, *positions[node]))
+                axis.append(cmd.format(label=lab, pos=positions[node]))
         else:
             nx.draw_networkx_nodes(
-                graph, positions, nodelist=nodes,
-                node_color=params.get('color', '#ff0000'), ax=axis)
+                graph, positions, nodelist=spiders[(color, shape)],
+                node_color=COLORS[color], node_shape=shape, ax=axis)
             if params.get('draw_box_labels', True):
                 nx.draw_networkx_labels(
                     graph, positions,
@@ -250,7 +265,7 @@ def draw(diagram, axis=None, data=None, **params):
             to_tikz=params.get('to_tikz', False),
             color=params.get('color', '#ffffff'))
         if params.get('draw_box_labels', True):
-            draw_text(axis, str(box.name), *positions[node],
+            draw_text(axis, labels[node], *positions[node],
                       to_tikz=params.get('to_tikz', False),
                       ha='center', va='center',
                       fontsize=params.get('fontsize', None))
@@ -271,7 +286,7 @@ def draw(diagram, axis=None, data=None, **params):
                             verticalalignment='top')
         for source, target in graph.edges():
             if "box" in [source[:3], target[:3]] and not any(
-                    n in [source, target] for n in params['draw_as_nodes']):
+                    v in sum(spiders.values(), []) for v in [source, target]):
                 continue
             draw_wire(axis, positions[source], positions[target],
                       bend_out='box' in source, bend_in='box' in target,
@@ -279,15 +294,11 @@ def draw(diagram, axis=None, data=None, **params):
     if axis is None:
         axis = [] if params.get('to_tikz', False)\
             else plt.subplots(figsize=params.get('figsize', None))[1]
-    if params.get('draw_as_nodes', []) is True:
-        params['draw_as_nodes'] = list(range(len(diagram)))
-    params['draw_as_nodes'] = [
-        'box_{}'.format(i) for i in params.get('draw_as_nodes', [])
-        if 'box_{}'.format(i) in graph.nodes]
     draw_wires(axis)
-    draw_nodes(axis, params['draw_as_nodes'])
+    for color, shape in spiders.keys():
+            draw_nodes(axis, spiders[(color, shape)], color, shape)
     for depth, box in enumerate(diagram.boxes):
-        if 'box_{}'.format(depth) in params['draw_as_nodes']:
+        if getattr(box, "draw_as_spider", False):
             continue
         draw_box(axis, box, depth)
     if params.get('to_tikz', False):
@@ -298,7 +309,7 @@ def draw(diagram, axis=None, data=None, **params):
         plt.margins(*params.get('margins', (.05, .05)))
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        axis.set_aspect(params.get('aspect', 'equal'))
+        axis.set_aspect(params.get('aspect', 'auto'))
         plt.axis("off")
         if 'path' in params:
             plt.savefig(params['path'])
@@ -327,6 +338,7 @@ def to_gif(diagram, *diagrams, path=None,
                        save_all=True, duration=timestep,
                        **{'loop': 0} if loop else {})
         try:
+            # pylint: disable=import-outside-toplevel
             from IPython.display import HTML
             return HTML('<img src="{}">'.format(path))
         except ImportError:
@@ -426,7 +438,7 @@ def pregroup_draw(words, cups, **params):
         plt.axis('off')
         axis.set_xlim(0, (space + width) * len(words.boxes) - space)
         axis.set_ylim(- len(cups) - space, 1)
-        axis.set_aspect(params.get('aspect', 'equal'))
+        axis.set_aspect(params.get('aspect', 'auto'))
         if 'path' in params.keys():
             plt.savefig(params['path'])
             plt.close()

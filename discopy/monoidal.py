@@ -66,6 +66,11 @@ class Ty(Ob):
     >>> assert x @ unit == x == unit @ x
     >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
     """
+    def __init__(self, *objects):
+        self._objects = tuple(
+            x if isinstance(x, Ob) else Ob(x) for x in objects)
+        super().__init__(self)
+
     @property
     def objects(self):
         """
@@ -118,16 +123,16 @@ class Ty(Ob):
         for other in others:
             if not isinstance(other, Ty):
                 raise TypeError(messages.type_err(Ty, other))
-        return self.upgrade(
-            Ty(*sum([t.objects for t in [self] + list(others)], [])))
+        objects = self.objects + [x for t in others for x in t.objects]
+        return self.upgrade(Ty(*objects))
 
-    def count(self, ob):
+    def count(self, obj):
         """
         Counts the occurrence of a given object.
 
         Parameters
         ----------
-        ob : :class:`Ty` or :class:`Ob`
+        obj : :class:`Ty` or :class:`Ob`
             either a type of length 1 or an object
 
         Returns
@@ -142,18 +147,13 @@ class Ty(Ob):
         >>> xs = x ** 5
         >>> assert xs.count(x) == xs.count(x[0]) == xs.objects.count(Ob('x'))
         """
-        ob, = ob if isinstance(ob, Ty) else (ob, )
-        return self.objects.count(ob)
+        obj, = obj if isinstance(obj, Ty) else (obj, )
+        return self.objects.count(obj)
 
     @staticmethod
-    def upgrade(ty):
+    def upgrade(old):
         """ Allows class inheritance for tensor and __getitem__ """
-        return ty
-
-    def __init__(self, *objects):
-        self._objects = tuple(
-            x if isinstance(x, Ob) else Ob(x) for x in objects)
-        super().__init__(self)
+        return old
 
     def __eq__(self, other):
         if not isinstance(other, Ty):
@@ -184,30 +184,37 @@ class Ty(Ob):
     def __matmul__(self, other):
         return self.tensor(other)
 
-    def __add__(self, other):
-        return self.tensor(other)
-
     def __pow__(self, n_times):
         if not isinstance(n_times, int):
             raise TypeError(messages.type_err(int, n_times))
-        return sum(n_times * (self, ), type(self)())
+        result = type(self)()
+        for _ in range(n_times):
+            result = result @ self
+        return result
 
 
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
     Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
 
+    Parameters
+    ----------
+    n : int
+        Number of wires.
+
+    Examples
+    --------
     >>> PRO(1) @ PRO(1)
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
     >>> assert PRO(1) == PRO(Ob(1))
     """
     @staticmethod
-    def upgrade(ty):
-        for x in ty:
-            if x.name != 1:
-                raise TypeError(messages.type_err(int, x.name))
-        return PRO(len(ty))
+    def upgrade(old):
+        for obj in old:
+            if obj.name != 1:
+                raise TypeError(messages.type_err(int, obj.name))
+        return PRO(len(old))
 
     def __init__(self, n=0):
         if isinstance(n, PRO):
@@ -262,9 +269,10 @@ class Layer(cat.Box):
             *map(repr, (self._left, self._box, self._right)))
 
     def __str__(self):
-        return ("{} @ ".format(self._box.id(self._left)) if self._left else "")\
-            + str(self._box)\
-            + (" @ {}".format(self._box.id(self._right)) if self._right else "")
+        left, box, right = self
+        return ("{} @ ".format(box.id(left)) if left else "")\
+            + str(box)\
+            + (" @ {}".format(box.id(right)) if right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -276,32 +284,36 @@ class Diagram(cat.Arrow):
     """
     Defines a diagram given dom, cod, a list of boxes and offsets.
 
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
-    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
-    >>> assert d == f0 @ f1 >> g
-
     Parameters
     ----------
-    dom : :class:`Ty`
+    dom : monoidal.Ty
         Domain of the diagram.
-    cod : :class:`Ty`
+    cod : monoidal.Ty
         Codomain of the diagram.
     boxes : list of :class:`Diagram`
         Boxes of the diagram.
     offsets : list of int
         Offsets of each box in the diagram.
     layers : list of :class:`Layer`, optional
-        Layers of the diagram, computed from boxes and offsets if :code:`None`.
+        Layers of the diagram,
+        computed from boxes and offsets if :code:`None`.
 
     Raises
     ------
     :class:`AxiomError`
         Whenever the boxes do not compose.
+
+    Examples
+    --------
+
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
+    >>> assert d == f0 @ f1 >> g
     """
     @staticmethod
-    def upgrade(diagram):
-        return diagram
+    def upgrade(old):
+        return old
 
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         if not isinstance(dom, Ty):
@@ -324,10 +336,6 @@ class Diagram(cat.Arrow):
             layers = layers >> cat.Id(cod)
         self._layers, self._offsets = layers, tuple(offsets)
         super().__init__(dom, cod, boxes, _scan=False)
-
-    @staticmethod
-    def id(x):
-        return Id(x)
 
     @property
     def offsets(self):
@@ -357,15 +365,14 @@ class Diagram(cat.Arrow):
         return self._layers
 
     def then(self, *others):
-        if not others:
-            return self
-        if len(others) > 1:
-            return self.then(others[0]).then(*others[1:])
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
+            return super().then(*others)
+        other, = others
         return self.upgrade(
-            Diagram(self.dom, others[0].cod,
-                    self.boxes + others[0].boxes,
-                    self.offsets + others[0].offsets,
-                    layers=self.layers >> others[0].layers))
+            Diagram(self.dom, other.cod,
+                    self.boxes + other.boxes,
+                    self.offsets + other.offsets,
+                    layers=self.layers >> other.layers))
 
     def tensor(self, *others):
         """
@@ -390,7 +397,9 @@ class Diagram(cat.Arrow):
             return self
         if len(others) > 1:
             return self.tensor(others[0]).tensor(*others[1:])
-        other = others[0]
+        other, = others
+        if isinstance(other, Sum):
+            return self.sum([self]).tensor(other)
         if not isinstance(other, Diagram):
             raise TypeError(messages.type_err(Diagram, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -409,7 +418,7 @@ class Diagram(cat.Arrow):
     def __eq__(self, other):
         if not isinstance(other, Diagram):
             return False
-        return all(self.__getattribute__(attr) == other.__getattribute__(attr)
+        return all(getattr(self, attr) == getattr(other, attr)
                    for attr in ['dom', 'cod', 'boxes', 'offsets'])
 
     def __repr__(self):
@@ -429,10 +438,7 @@ class Diagram(cat.Arrow):
             yield self.id(left) @ box @ self.id(right)
 
     def __str__(self):
-        result = ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
-        if len(result) > 74:
-            result = result.replace(' >>', '\\\n  >>')
-        return result
+        return ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -443,6 +449,10 @@ class Diagram(cat.Arrow):
             return self.upgrade(Diagram(*inputs, layers=layers))
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
+
+    def subs(self, *args):
+        return self.upgrade(
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
     @staticmethod
     def swap(left, right):
@@ -757,15 +767,10 @@ class Diagram(cat.Arrow):
 
         >>> x = Ty('x')
         >>> f = Box('f', x, x ** 4)
-        >>> assert (f >> f.dagger()).width() == 4
         >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
         """
-        scan = self.dom
-        width = len(scan)
-        for box, off in zip(self.boxes, self.offsets):
-            scan = scan[: off] + box.cod + scan[off + len(box.dom):]
-            width = max(width, len(scan))
-        return width
+        return max(len(self.dom), max(
+            len(left @ box.cod @ right) for left, box, right in self.layers))
 
     def draw(self, **params):
         """
@@ -785,7 +790,7 @@ class Diagram(cat.Arrow):
         draw_box_labels : bool, optional
             Whether to draw box labels, default is :code:`True`.
         aspect : string, optional
-            Aspect ratio, one of :code:`['equal', 'auto']`.
+            Aspect ratio, one of :code:`['auto', 'equal']`.
         margins : tuple, optional
             Margins, default is :code:`(0.05, 0.05)`.
         fontsize : int, optional
@@ -822,28 +827,24 @@ class Diagram(cat.Arrow):
 
 
 class InterchangerError(AxiomError):
-    """
-    This is raised when we try to interchange conected boxes.
-    """
+    """ This is raised when we try to interchange conected boxes. """
     def __init__(self, box0, box1):
         super().__init__("Boxes {} and {} do not commute.".format(box0, box1))
 
 
-class Id(Diagram):
+class Id(cat.Id, Diagram):
     """ Implements the identity diagram of a given type.
 
     >>> s, t = Ty('x', 'y'), Ty('z', 'w')
     >>> f = Box('f', s, t)
     >>> assert f >> Id(t) == f == Id(s) >> f
     """
-    def __init__(self, x):
-        super().__init__(x, x, [], [], layers=cat.Id(x))
+    def __init__(self, dom):
+        cat.Id.__init__(self, dom)
+        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
-    def __repr__(self):
-        return "Id({})".format(repr(self.dom))
 
-    def __str__(self):
-        return "Id({})".format(str(self.dom))
+Diagram.id = Id
 
 
 class Box(cat.Box, Diagram):
@@ -857,7 +858,7 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        layer = Layer(type(dom)(), self, type(dom)())
+        layer = Layer(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 
@@ -887,17 +888,38 @@ class Swap(Box):
     def __init__(self, left, right):
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.swap_vs_swaps(left, right))
-        self.left, self.right = left, right
-        super().__init__('SWAP', left @ right, right @ left)
+        self.left, self.right, self.draw_as_wire = left, right, True
+        super().__init__(
+            "Swap({}, {})".format(left, right), left @ right, right @ left)
 
     def __repr__(self):
         return "Swap({}, {})".format(repr(self.left), repr(self.right))
 
-    def __str__(self):
-        return "Swap({}, {})".format(self.left, self.right)
-
     def dagger(self):
-        return Swap(self.right, self.left)
+        return type(self)(self.right, self.left)
+
+
+class Sum(cat.Sum, Box):
+    """ Sum of monoidal diagrams. """
+    @staticmethod
+    def upgrade(old):
+        if not isinstance(old, cat.Sum):
+            raise TypeError(messages.type_err(cat.Sum, old))
+        return Sum(old.terms, old.dom, old.cod)
+
+    def tensor(self, *others):
+        if len(others) != 1:
+            return super().tensor(*others)
+        other = others[0] if isinstance(others[0], Sum) else Sum(others)
+        unit = Sum([], self.dom @ other.dom, self.cod @ other.cod)
+        terms = [f.tensor(g) for f in self.terms for g in other.terms]
+        return self.upgrade(sum(terms, unit))
+
+    def draw(self, **params):
+        return drawing.equation(*self.terms, symbol='+', **params)
+
+
+Diagram.sum = Sum
 
 
 class Functor(cat.Functor):
@@ -922,9 +944,14 @@ class Functor(cat.Functor):
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
+        if isinstance(diagram, Sum):
+            super().__call__(diagram)
         if isinstance(diagram, Ty):
-            return sum([self.ob[type(diagram)(x)] for x in diagram],
-                       self.ob_factory())  # the empty type is the unit.
+            return self.ob_factory().tensor(*[
+                self.ob[type(diagram)(x)] for x in diagram])
+        if isinstance(diagram, Swap):
+            return self.ar_factory.swap(
+                self(diagram.left), self(diagram.right))
         if isinstance(diagram, Box):
             return super().__call__(diagram)
         if isinstance(diagram, Diagram):
@@ -933,7 +960,7 @@ class Functor(cat.Functor):
                 id_l = self.ar_factory.id(self(scan[:off]))
                 id_r = self.ar_factory.id(self(scan[off + len(box.dom):]))
                 result = result >> id_l @ self(box) @ id_r
-                scan = scan[:off] + box.cod + scan[off + len(box.dom):]
+                scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
             return result
         raise TypeError(messages.type_err(Diagram, diagram))
 
@@ -969,17 +996,9 @@ def permutation(perm, dom=None, ar_factory=Diagram):
     return diagram
 
 
-def spiral(n_cups, _type=Ty('x')):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
-    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
-    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
-    return result
+def diagram_subclass(cls):
+    """ Decorator for subclasses of Diagram. """
+    def upgrade(old):
+        return cls(old.dom, old.cod, old.boxes, old.offsets, old.layers)
+    cls.upgrade = staticmethod(upgrade)
+    return cls

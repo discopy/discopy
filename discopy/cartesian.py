@@ -36,18 +36,18 @@ We can check the axioms for the Copy/Discard comonoid on specific inputs:
 
 from discopy.cat import AxiomError
 from discopy import messages, monoidal, rigid
-from discopy.cat import Quiver
+from discopy.monoidal import Sum
 from discopy.rigid import PRO
 
 
-def tuplify(xs):
+def tuplify(stuff):
     """ Returns :code:`xs` if it is already a tuple else :code:`(xs, )`. """
-    return xs if isinstance(xs, tuple) else (xs, )
+    return stuff if isinstance(stuff, tuple) else (stuff, )
 
 
-def untuplify(*xs):
+def untuplify(*stuff):
     """ Returns either the tuple :code:`xs` or its only element. """
-    return xs[0] if len(xs) == 1 else xs
+    return stuff[0] if len(stuff) == 1 else stuff
 
 
 class Function(rigid.Box):
@@ -116,7 +116,7 @@ class Function(rigid.Box):
         >>> assert (copy >> swap)(1) == copy(1)
         >>> assert (swap >> swap)(1, 2) == (1, 2)
         """
-        if len(others) != 1:
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.then(self, *others)
         other = others[0]
         if not isinstance(other, Function):
@@ -135,7 +135,7 @@ class Function(rigid.Box):
         >>> assert (swap @ swap)(1, 2, 3, 4) == (2, 1, 4, 3)
         >>> assert (copy @ copy)(1, 2) == (1, 1, 2, 2)
         """
-        if len(others) != 1:
+        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.tensor(self, *others)
         other = others[0]
         if not isinstance(other, Function):
@@ -175,20 +175,20 @@ class Diagram(rigid.Diagram):
         super().__init__(PRO(dom), PRO(cod), boxes, offsets, layers=layers)
 
     @staticmethod
-    def upgrade(diagram):
+    def upgrade(old):
         """
         Takes a rigid.Diagram and returns a cartesian.Diagram.
         """
-        return Diagram(len(diagram.dom), len(diagram.cod),
-                       diagram.boxes, diagram.offsets, layers=diagram.layers)
+        return Diagram(
+            len(old.dom), len(old.cod), old.boxes, old.offsets, old.layers)
 
     @staticmethod
-    def id(x):
+    def id(dom):
         """
         >>> Diagram.id(2)
         Id(2)
         """
-        return Id(x)
+        return Id(dom)
 
     def __call__(self, *values):
         """
@@ -197,10 +197,10 @@ class Diagram(rigid.Diagram):
         >>> assert SWAP(1, 2) == (2, 1)
         >>> assert (COPY @ COPY >> Id(1) @ SWAP @ Id(1))(1, 2) == (1, 2, 1, 2)
         """
-        ob = Quiver(lambda t: PRO(len(t)))
-        ar = Quiver(lambda f:
-                    Function(len(f.dom), len(f.cod), f.function))
-        return PythonFunctor(ob, ar)(self)(*values)
+        return PythonFunctor(
+            ob=lambda t: PRO(len(t)),
+            ar=lambda f: Function(len(f.dom), len(f.cod), f.function))(
+                self)(*values)
 
 
 class Id(Diagram):

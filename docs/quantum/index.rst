@@ -1,13 +1,13 @@
-discopy.quantum
-===============
+quantum
+=======
 
 .. automodule:: discopy.quantum
+    :no-members:
 
 .. toctree::
-    :caption: Contents:
 
-    CQMap.rst
-    BitsAndQubits.rst
-    Circuit.rst
-    Gate.rst
-    Box.rst
+   cqmap
+   circuit
+   gates
+   tk
+   zx
