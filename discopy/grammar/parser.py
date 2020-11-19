@@ -1,19 +1,24 @@
-####################################################### LINEAR PARSER ############################################################
-
 """
-Implementing linear parser LinPP_W for pregroups.
-The algorithm parses lists of PregroupWord objects (i.e. Words with codomain given by rigid.Ty types, PTy)
+Implementing linear parser LinPP for pregroups.
+The algorithm parses lists of Word objects (i.e. Words with codomain
+given by rigid.Ty types, Ty)
 The parser is correct for lists of words satosfying the following restrictions:
 
-1 - winding number for any simple type must be z <= 1. (right-lateral complexity 2)
+1 - winding number for any simple type must be z <= 1. (right-lateral
+complexity 2)
 2 - any critical fan is 'guarded', i.e. critical fans do not nest.
 
 """
 
+import logging
+
+from discopy import *
+from discopy.grammar import *
 
 
-##################################### necessary functions #######################################
-def check_reduction(t1,t2):
+logger = logging.getLogger()
+
+def check_reduction(t1, t2):
     """
     Checks whether simple types t1,t2 reduce to the empty type.
 
@@ -29,20 +34,14 @@ def check_reduction(t1,t2):
     Example
     -------
 
-    >>> check_reduction(PTy('n').l, PTy('n'))
+    >>> check_reduction(Ty('n').l, Ty('n'))
     True
-    >>> check_reduction(PTy('n'), PTy('n').r)
+    >>> check_reduction(Ty('n'), Ty('n').r)
     True
-    >>> check_reduction(PTy('n').r , PTy('n'))
+    >>> check_reduction(Ty('n').r , Ty('n'))
     False
     """
-
-    if (t1 == t2.l) or (t2 == t1.r):
-        return True
-    else:
-        return False
-
-
+    return (t1 == t2.l) or (t2 == t1.r)
 
 
 def critical(t):
@@ -57,37 +56,29 @@ def critical(t):
 
     Example
     -------
-    >>> critical(PTy('n').r)
+    >>> critical(Ty('n').r)
     True
-    >>> critical(PTy('n').l)
+    >>> critical(Ty('n').l)
     False
-    >>> critical(PTy('n'))
+    >>> critical(Ty('n'))
     False
     """
+    return t.z > 0
 
 
-    if t.z > 0:
-        return True
-    else:
-        return False
-
-################################################## necessary classes : Stack, Fan, BackParser ###################
-
-class Stack():
-
+class Stack:
     def __init__(self):
         """
-        A class to represent the stack of reduced types for a string being parsed.
-
-        ...
+        A class to represent the stack of reduced types
+        for a string being parsed.
 
         Attributes
         ----------
         types : list
             the stack containing the reduced pregroup types
         indices : list
-            the stack containing the indices corresponding to the reduced pregroup types in the parsed string
-
+            the stack containing the indices corresponding to the reduced
+            pregroup types in the parsed string
 
         Methods
         -------
@@ -100,21 +91,19 @@ class Stack():
         pop(i=-1)
             pops type from stack
         """
-
-
-
         self.types = []
         self.indices = []
 
     def push_types(self, string, word_index, t1=None, t2=None, backward=False):
         """
-        Adding segments of words from the string to the stack (both types and corresponding indices).
+        Adding segments of words from the string to the stack (both types and
+        corresponding indices).
 
 
         Parameters
         ----------
         string : list
-            list of discopy PregroupWords (i.e. a sentence)
+            list of discopy Words (i.e. a sentence)
         word_index : int
             index of word in string that we want to push
         t1 : None or int
@@ -128,8 +117,8 @@ class Stack():
         Example
         -------
         >>> stack = Stack()
-        >>> Alice = PregroupWord('Alice', PTy('n'))
-        >>> loves = PregroupWord('loves', PTy('n').r @ PTy('s') @ PTy('n').l)
+        >>> Alice = Word('Alice', Ty('n'))
+        >>> loves = Word('loves', Ty('n').r @ Ty('s') @ Ty('n').l)
         >>> string = [Alice, loves]
         >>> stack.push_types(string, 1, t1=1)
         >>> stack.types
@@ -139,9 +128,6 @@ class Stack():
         >>> stack.types
         [Ty('n'), Ty('s'), Ty(Ob('n', z=-1))]
         """
-
-
-
         if t1== None:
             t = 0
         else:
@@ -154,10 +140,10 @@ class Stack():
 
         while t < tmin:
             if backward==False:
-                   self.types.append(PTy(string[word_index].cod[t]))
+                   self.types.append(Ty(string[word_index].cod[t]))
                    self.indices.append((word_index,t))
             else:
-                   self.types.insert(0, PTy(string[word_index].cod[t]))
+                   self.types.insert(0, Ty(string[word_index].cod[t]))
                    self.indices.insert(0, (word_index, t))
             t+=1
 
@@ -177,7 +163,7 @@ class Stack():
         pair of integers (w,t). w is the word index in the string, and t is the type index  in the string of the popped element.
         """
         self.types.pop(i)
-        coordinates= self.indices.pop(i)
+        coordinates = self.indices.pop(i)
         return coordinates
 
     def add(self, string, w, t, backward=False):
@@ -198,65 +184,51 @@ class Stack():
         """
 
         if not backward:
-            self.types.append(PTy(string[w].cod[t]))
-            self.indices.append((w,t))
+            self.types.append(Ty(string[w].cod[t]))
+            self.indices.append((w, t))
         else:
-            self.types.insert(0, PTy(string[word_index].cod[t]))
+            self.types.insert(0, Ty(string[word_index].cod[t]))
             self.indices.insert(0, (word_index, t))
 
 
-
-
-
-
-
-class Fan():
-
+class Fan:
     def __init__(self):
         """
-        Class to represents a critical segment, i.e. the right endpoints of a critical fan.
-
+        Class to represents a critical segment, i.e. the right endpoints
+        of a critical fan.
 
         Attributes
         ----------
         start_from : pair of int
-            word and type indices (coordinates) of the first type after the fan. Forward
-            parsing will be resumed from this type onward.
-        s = class Stack
-            initialises a new stack (so-called back stack), where the fan is pushed.
-
-
-        Methods
-        -------
-        fan2stack(string, w_critical, t_critical)
-            finds the fan, reading from the newly found critical type onwards. Then pushes it to the back Stack
+            word and type indices (coordinates) of the first type after the
+            fan. Forward parsing will be resumed from this type onward.
+        s : Stack
+            initialises a new stack (so-called back stack), where the fan is
+            pushed.
         """
 
         self.start_from = None
         self.s = Stack()
 
-
-
-
     def fan2stack(self, string, w_critical, t_critical):
         """
-        Reads string after a given critical type and finds its critical fan. Then pushes it to an empty Stack.
-        It also updates the attribute start_from (the first type after the fan).
+        Reads string after a given critical type and finds its critical fan.
+        Then pushes it to an empty Stack. It also updates the attribute
+        start_from (the first type after the fan).
 
         Parameters
         ----------
         string : list
-            list of discopy pregroupwords (sentence)
+            list of :class:`Word` (sentence)
         w_critical : int
             word index of critical type
         t_index : int
             type index of critical type
 
-
         Example
         -------
         >>> fan = Fan()
-        >>> A, B, C = PregroupWord('A', PTy('n')), PregroupWord('B', PTy('b')@ PTy('n').r @ PTy('s').r), PregroupWord('c', PTy('b').r @ PTy('n'))
+        >>> A, B, C = Word('A', Ty('n')), Word('B', Ty('b')@ Ty('n').r @ Ty('s').r), Word('c', Ty('b').r @ Ty('n'))
         >>> string = [A,B,C]
         >>> fan.fan2stack(string, 1,1)
         >>> fan.s.types
@@ -268,7 +240,7 @@ class Fan():
         #function that reads word (or word segment) and checks if its types form a critical fan
         def check_fan(Types,t):
             while t < len(Types):
-                type = PTy(Types[t])
+                type = Ty(Types[t])
                 if critical(type):
                     t+=1
                 else:
@@ -301,14 +273,7 @@ class Fan():
                     self.s.push_types(string, w, t1=t, t2=c)
                     break
 
-
-
-
-
-
-
 class BackParser():
-
     def __init__(self, K):
         """
         A class to represent the backparsing part of the pregroup parser algorithm.
@@ -350,7 +315,7 @@ class BackParser():
         self.reductions = {}
         self.start_from = None
 
-    def push_fan(self,string,w_critical, t_critical):
+    def push_fan(self, string, w_critical, t_critical):
         """
         Uses fan2stack to push fan to stack and update start_from cooridinates.
 
@@ -371,8 +336,8 @@ class BackParser():
 
         self.f.fan2stack(string,w_critical, t_critical) #fan pushed to Stack
         self.start_from = self.f.start_from
-        print('backparse stack was initialised with critical fan', self.s.types)
-        print('forward parsing will resume from (w,t):', self.start_from)
+        logger.info(str('backparse stack was initialised with critical fan', self.s.types))
+        logger.info(str('forward parsing will resume from (w,t):', self.start_from))
         return self.s.types , self.s.indices
 
 
@@ -404,7 +369,7 @@ class BackParser():
 
 
 
-        print('backparsing started...')
+        logger.info('backparsing started...')
 
         w_top, t_top = top_coordinates
         w= w_critical -1
@@ -419,11 +384,11 @@ class BackParser():
                 if w == w_top and t == t_top: #making sure we don't exceed top of forward stack (not included)
                         break
                 else:
-                        type = PTy(word[t])
+                        type = Ty(word[t])
                         if check_reduction(type, self.s.types[0]):
                             W,T = self.s.pop(i=0)
 
-                            if critical(PTy(string[W].cod[T])):
+                            if critical(Ty(string[W].cod[T])):
                                 middle_critical = (w,t)
                                 self.middle_criticals.append(middle_critical)
                                 self.reductions[(W,T)]=middle_critical
@@ -436,68 +401,51 @@ class BackParser():
                                 break
 
         if len(self.s.types) > 0:
-            print('Underlink bound reached without reducing critical fan. No sentence parsing')
+            logger.info('Underlink bound reached without reducing critical fan. No sentence parsing')
             return False
         else:
-            print('critical fan successfully reduced')
+            logger.info('critical fan successfully reduced')
             return True
 
 
+class LinPP():
+    """
+    A class to represent the LinPP parsing algorithm.
 
-################################################# main class: Parser LinPP_W ########################################################
+    The parsing at each stage updates the stack containing the reduced string,
+    and a set of reductions, containings links of reduction pairs.
+    The links are identified by pairs of coordinates (word index and type index).
+    The parsing proceeds as in Lazy Parsing until a critical type that does
+    NOT reduce with the top of the stack in encountered.
+    At this point the bounded BackParser is called. This will find a critical fan and process the string backward until the fan reduces.
+    Lazy parsing is resumed from after the critical fan.
+    This parser computes a reduction of the string in linear time (linearly proportional to the number of simple types in the sentence).
+    The coefficient of proportinality given by the bound of the backparser.
+    If we the bound number approaches infinity, then the algorithm computes in quadratic time.
 
+    Parameters
+    ----------
+    K : int, optional
+        bound for backward parsing.
 
+    Attributes
+    ----------
+    stack : class Stack
+        forward stack
+    back : class BackParser
+        backparsing algorithm
+    R : dict
+        set of reductions. The keys are the right endpoints of the links, the values are the left endpoints.
 
-class LinPP_W():
-
-    def __init__(self, K = 7):          #K = bound for backward parsing
-        """
-        A class to represent the LinPP_W parsing algorithm.
-
-        The parsing at each stage updates the stack containing the reduced string,
-        and a set of reductions, containings links of reduction pairs.
-        The links are identified by pairs of coordinates (word index and type index).
-        The parsing proceeds as in Lazy Parsing until a critical type that does
-        NOT reduce with the top of the stack in encountered.
-        At this point the bounded BackParser is called. This will find a critical fan and process the string backward until the fan reduces.
-        Lazy parsing is resumed from after the critical fan.
-        This parser computes a reduction of the string in linear time (linearly proportional to the number of simple types in the sentence).
-        The coefficient of proportinality given by the bound of the backparser.
-        If we the bound number approaches infinity, then the algorithm computes in quadratic time.
-
-        Attributes
-        ----------
-        stack : class Stack
-            forward stack
-        back : class BackParser
-            backparsing algorithm
-        R : dict
-            set of reductions. The keys are the right endpoints of the links, the values are the left endpoints.
-
-
-        Methods
-        -------
-        parse(string)
-            computes pregroup reduction of the string. Given the appropriate restrictions on the dictionary (see theory),
-            if it is a sentence it will compute a parsing.
-            If string is not a sentence it will reduce to types other than the sentence type.
-        is_sentence()
-            checks if string was parsed to sentence type or not.
-
-
-        Parameters
-        ----------
-        K : int
-            bound for backparser. Default is 7.
-        """
-
-
-
-
-        self.stack = Stack()        #initialise stack
-        self.back = BackParser(K)   #initialise bounded backparser
-        self.R = {}                 #initialise set of reductions as dictionary
-
+    Parameters
+    ----------
+    K : int
+        bound for backparser. Default is 7.
+    """
+    def __init__(self, K=7):
+        self.stack = Stack()
+        self.back = BackParser(K)
+        self.R = {}
 
     def parse(self, string):
         """
@@ -517,11 +465,11 @@ class LinPP_W():
             set of reduction links
         """
 
-        print('at each stage we will print the updated stack, and the stage coordinates: w_index, t_index')
-        print('parsing algorithm started...')
+        logger.info('at each stage we will print the updated stack, and the stage coordinates: w_index, t_index')
+        logger.info('parsing algorithm started...')
 
         self.stack.push_types(string, 0) #pushing types of first word onto stack
-        print('adding first word to stack:', self.stack.types)
+        logger.info(str(('adding first word to stack:', self.stack.types)))
         w = 1                          #word index
         t = 0                          #simple type index in word
         while w < len(string):         #iterating over remaining sentence
@@ -534,10 +482,10 @@ class LinPP_W():
                     t=0                 #going to next word
                     break
                 else:
-                    type = PTy(word.cod[t])
+                    type = Ty(word.cod[t])
                     if len(self.stack.types) == 0:                          #if stack is empty, we push type to stack
                         self.stack.push_types(string, w, t1=t)
-                        print('stack updated:', self.stack.types, 'stage:', w,t)
+                        logger.info(str(('stack updated:', self.stack.types, 'stage:', w,t)))
                         w+=1
                         t=0
                         break
@@ -545,26 +493,26 @@ class LinPP_W():
 
                         if check_reduction(self.stack.types[-1], type):     #if type reduces with top(stack)
                             type_pop= self.stack.pop()                      #popping stack
-                            print('stack updated:', self.stack.types, 'stage:', w, t)
+                            logger.info(str(('stack updated:', self.stack.types, 'stage:', w, t)))
                             self.R[(w,t)] = type_pop                        #adding link to reduction set
                             t+=1
 
                         elif not critical(type):                         #if no reduction, but type is linear
                             self.stack.push_types(string, w, t1=t)       #add the rest of the word to the stack
-                            print('stack updated:', self.stack.types, 'stage:', w,t)
+                            logger.info(str('stack updated:', self.stack.types, 'stage:', w,t))
                             w +=1
                             t=0
                             break
 
                         else:
-                            print('critical type found at:', w,t, 'backparser called')
+                            logger.info(str('critical type found at:', w,t, 'backparser called'))
                             fan_types, fan_indices = self.back.push_fan(string,w,t)
                             backparser = self.back.back_parse(string, w, t, self.stack.indices[-1]) #backparsing
 
 
                             #if critical fan was reduced by backparser, we update reduction set and stack according to the corrected reductions
                             if backparser:
-                                print('correcting forward stack and set of reductions')
+                                logger.info('correcting forward stack and set of reductions')
                                 #correcting links in reduction set and adding removed (from self.R) types to stack
                                 left_criticals = []                                    #storing removed types
                                 for middle_critical in self.back.middle_criticals:
@@ -577,29 +525,29 @@ class LinPP_W():
                                 for left_adjoint in sorted(left_criticals): #making sure types appear in right order
                                     w,t = left_adjoint
                                     self.stack.add(string, w, t)                #pushing stale types onto stack
-                                print('updated stack:', self.stack.types, 'stage:', fan_indices[-1])
+                                logger.info(str(('updated stack:', self.stack.types, 'stage:', fan_indices[-1])))
 
                             #if backparser did not reduce the whole critical fan, we add it back on the stack
                             else:
-                                print('adding critical fan to forward stack')
+                                logger.info('adding critical fan to forward stack')
                                 self.stack.types += fan_types
                                 self.stack.indices += fan_indices
-                                print('updated stack:', self.stack.types, 'stage:', fan_indices[-1])
+                                logger.info(str(('updated stack:', self.stack.types, 'stage:', fan_indices[-1])))
 
 
-                            print('resuming forward parsing from stage:', self.back.start_from)
+                            logger.info(str(('resuming forward parsing from stage:', self.back.start_from)))
                             w, t =  self.back.start_from              #resuming forward parser from after the fan
                             break
 
 
 
 
-        print('parsing completed.')
+        logger.info('parsing completed.')
         return self.R
 
 
 
-    def is_sentence(self, target=PTy('s')):
+    def is_sentence(self, target=Ty('s')):
         """
         Checks if string reduces to target type. Must be ran after running function parse,
         otherwise it will rise error.
@@ -623,21 +571,21 @@ class LinPP_W():
 
 
         if self.stack.types == [target]:
-            print('YES, this string was parsed to sentence type')
+            logger.info('YES, this string was parsed to sentence type')
             return True
 
         elif self.stack.types == []:
-            print('string not parsed yet. Please call parse function')
+            logger.info('string not parsed yet. Please call parse function')
             return None
         else:
-            print('NOT a sentence, string parsed to type:', self.stack.types)
+            logger.info(str('NOT a sentence, string parsed to type:', self.stack.types))
             return False
 
 
 
-########################################## callable function to parse string ##########################
 
-def get_parsing(sentence, k = 7, target= PTy('s')):
+
+def get_parsing(sentence, k = 7, target= Ty('s')):
     """
     Main function that runs the parsing algorithm and checks if parsed to sentence type.
 
@@ -657,16 +605,19 @@ def get_parsing(sentence, k = 7, target= PTy('s')):
         True is parsed to sentence (target) type. False otherwise
 
 
-    Example
-    -------
-
+    Examples
+    --------
+    >>> s, n = Ty('s'), Ty('n')
+    >>> Alice, Bob = Word("Alice", n), Word("Bob", n)
+    >>> loves = Word("loves", n.r @ s @ n.l)
+    >>> get_parsing([Alice, loves, Bob])
+    (True, {(1, 0): (0, 0), (2, 0): (1, 2)})
     """
-
-    bounded_parser = LinPP_W(K=k)
-    print('parsing', sentence, 'with bound', k)
+    bounded_parser = LinPP(K=k)
+    logger.info(str(('parsing', sentence, 'with bound', k)))
     reductions = bounded_parser.parse(sentence)
 
-    print('checking if string was reduced to type', target, '...')
+    logger.info('checking if string was reduced to type', target, '...')
     answer = bounded_parser.is_sentence(target)
-    print('returning: sentence status, reduction set')
+    logger.info('returning: sentence status, reduction set')
     return answer, reductions
