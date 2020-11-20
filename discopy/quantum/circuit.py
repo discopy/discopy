@@ -118,12 +118,14 @@ class Circuit(Diagram):
             circuit = circuit >> discards
         return circuit
 
-    def eval(self, backend=None, mixed=False, **params):
+    def eval(self, *others, backend=None, mixed=False, **params):
         """
         Evaluate a circuit on a backend, or simulate it with numpy.
 
         Parameters
         ----------
+        others : Circuit
+            Other circuits to process in batch.
         backend : pytket.Backend, optional
             Backend on which to run the circuit, if none then we apply
             :class:`discopy.tensor.Functor` or :class:`CQMapFunctor` instead.
@@ -169,11 +171,15 @@ class Circuit(Diagram):
         >>> assert circuit.eval(backend, n_shots=2**10).round()\\
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
-        # pylint: disable=import-outside-toplevel
-        from discopy.quantum.gates import Bits, scalar
+        from discopy import cqmap
+        from discopy.quantum.gates import Bits, scalar, ClassicalGate
+        if len(others) == 1 and not isinstance(others[0], Circuit):
+            # This allows the syntax :code:`circuit.eval(backend)`
+            return self.eval(backend=others[0], mixed=mixed, **params)
         if backend is None:
-            from discopy import cqmap
-            from discopy.quantum.gates import ClassicalGate
+            if others:
+                return [circuit.eval(mixed=mixed, **params)
+                        for circuit in (self, ) + others]
             post_processes = Id(self.cod)
             for left, box, right in self.layers:
                 if isinstance(box, ClassicalGate) and not box.is_linear:
@@ -190,22 +196,27 @@ class Circuit(Diagram):
             for process in post_processes.boxes:
                 result = process(result)
             return result
-        tk_circuit = self.to_tk()
-        n_bits = len(tk_circuit.post_processing.dom)
-        counts = tk_circuit.get_counts(backend, **params)
-        result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
-        for bitstring, count in counts.items():
-            result += (scalar(count) @ Bits(*bitstring)).eval()
-        for process in tk_circuit.post_processing.boxes:
-            result = process(result)
-        return result
+        circuits = [circuit.to_tk() for circuit in (self, ) + others]
+        results, counts = [], circuits[0].get_counts(
+            *circuits[1:], backend=backend, **params)
+        for i, circuit in enumerate(circuits):
+            n_bits = len(circuit.post_processing.dom)
+            result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
+            for bitstring, count in counts[i].items():
+                result += (scalar(count) @ Bits(*bitstring)).eval()
+            for process in circuit.post_processing.boxes:
+                result = process(result)
+            results.append(result)
+        return results if len(results) > 1 else results[0]
 
-    def get_counts(self, backend=None, **params):
+    def get_counts(self, *others, backend=None, **params):
         """
         Get counts from a backend, or simulate them with numpy.
 
         Parameters
         ----------
+        others : Circuit
+            Other circuits to process in batch.
         backend : pytket.Backend, optional
             Backend on which to run the circuit, if none then `numpy`.
         n_shots : int, optional
@@ -238,18 +249,26 @@ class Circuit(Diagram):
         >>> circuit.get_counts(backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
         """
+        if len(others) == 1 and not isinstance(others[0], Circuit):
+            # This allows the syntax :code:`circuit.get_counts(backend)`
+            return self.get_counts(backend=others[0], **params)
         if backend is None:
+            if others:
+                return [circuit.get_counts(**params)
+                        for circuit in (self, ) + others]
             tensor, counts = self.init_and_discard().eval(backend=None), dict()
             for i in range(2**len(tensor.cod)):
                 bits = index2bitstring(i, len(tensor.cod))
                 if tensor.array[bits]:
                     counts[bits] = tensor.array[bits].real
             return counts
-        return self.to_tk().get_counts(backend, **params)
+        counts = self.to_tk().get_counts(
+            *(other.to_tk() for other in others), backend=backend, **params)
+        return counts if len(counts) > 1 else counts[0]
 
     def measure(self, mixed=False):
         """
-        Measures a circuit on the computational basis.
+        Measures a circuit on the computational basis using :code:`numpy`.
 
         Parameters
         ----------
@@ -521,9 +540,23 @@ class Sum(monoidal.Sum, Box):
     def is_mixed(self):
         return any(circuit.is_mixed for circuit in self.terms)
 
+    def get_counts(self, backend=None, **params):
+        if not self.terms:
+            return {}
+        if len(self.terms) == 1:
+            return self.terms[0].get_counts(backend=backend, **params)
+        counts = Circuit.get_counts(*self.terms, backend=backend, **params)
+        result = {}
+        for circuit_counts in counts:
+            for bitstring, count in circuit_counts.items():
+                result[bitstring] = result.get(bitstring, 0) + count
+        return result
+
     def eval(self, backend=None, mixed=False, **params):
-        return sum(circuit.eval(backend, mixed, **params)
-                   for circuit in self.terms)
+        if not self.terms:
+            return 0
+        return sum(Circuit.eval(
+            *self.terms, backend=backend, mixed=mixed, **params))
 
     def grad(self, var):
         return sum(circuit.grad(var) for circuit in self.terms)

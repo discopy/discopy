@@ -263,7 +263,10 @@ def test_IQPAnsatz():
 
 
 def test_Sum():
-    assert (X + X).eval() == X.eval() + X.eval()
+    assert not Sum([], qubit, qubit).eval()
+    assert Sum([Id(0)]).get_counts() == Id(0).get_counts()
+    assert (Id(0) + Id(0)).get_counts()[()] == 2
+    assert (Id(0) + Id(0)).eval() == Id(0).eval() + Id(0).eval()
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
@@ -317,3 +320,7 @@ def test_non_linear_AxiomError():
         (f @ f).eval()
     with raises(AxiomError):
         (f >> Discard(bit ** 2)).eval()
+
+
+def test_Sum_get_counts():
+    assert Sum([], qubit, qubit).get_counts() == {}

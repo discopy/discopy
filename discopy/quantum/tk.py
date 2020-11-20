@@ -95,29 +95,41 @@ class Circuit(tk.Circuit):
         self.post_processing >>= process
         return self
 
-    def get_counts(
-            self, backend, n_shots=2**10, scale=True, post_select=True,
-            compilation=None, normalize=True, measure_all=False, seed=None):
+    def get_counts(self, *others, backend=None, **params):
         """ Runs a circuit on a backend and returns the counts. """
+        n_shots = params.get("n_shots", 2**10)
+        scale = params.get("scale", True)
+        post_select = params.get("post_select", True)
+        compilation = params.get("compilation", None)
+        normalize = params.get("normalize", True)
+        measure_all = params.get("measure_all", False)
+        seed = params.get("seed", None)
         if measure_all:
-            self.measure_all()
+            for circuit in (self, ) + others:
+                circuit.measure_all()
         if compilation is not None:
-            compilation.apply(self)
-        counts = backend.get_counts(self, n_shots=n_shots, seed=seed)
+            for circuit in (self, ) + others:
+                compilation.apply(circuit)
+        backend.process_circuits((self, ) + others, n_shots=n_shots, seed=seed)
+        counts = [backend.get_counts(circuit, n_shots=n_shots)
+                  for circuit in (self, ) + others]
         if normalize:
-            counts = probs_from_counts(counts)
+            counts = list(map(probs_from_counts, counts))
         if post_select:
-            post_selected = dict()
-            for bitstring, count in counts.items():
-                if all(bitstring[index] == value
-                        for index, value in self.post_selection.items()):
-                    post_selected.update({
-                        tuple(value for index, value in enumerate(bitstring)
-                              if index not in self.post_selection): count})
-            counts = post_selected
+            for i, circuit in enumerate((self, ) + others):
+                post_selected = dict()
+                for bitstring, count in counts[i].items():
+                    if all(bitstring[index] == value
+                           for index, value in circuit.post_selection.items()):
+                        key = tuple(
+                            value for index, value in enumerate(bitstring)
+                            if index not in circuit.post_selection)
+                        post_selected.update({key: count})
+                counts[i] = post_selected
         if scale:
-            for bitstring in counts:
-                counts[bitstring] *= abs(self.scalar) ** 2
+            for i, _ in enumerate((self, ) + others):
+                for bitstring in counts[i]:
+                    counts[i][bitstring] *= abs(self.scalar) ** 2
         return counts
 
 

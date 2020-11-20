@@ -254,7 +254,8 @@ class Rz(Rotation):
     @property
     def array(self):
         half_theta = np.pi * self.phase
-        return np.array([[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
+        return np.array(
+            [[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
 
 
 class CU1(Rotation):
