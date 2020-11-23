@@ -116,6 +116,15 @@ class Tensor(rigid.Box):
     def __bool__(self):
         return bool(self.array)
 
+    def __int__(self):
+        return int(self.array)
+
+    def __float__(self):
+        return float(self.array)
+
+    def __complex__(self):
+        return complex(self.array)
+
     def __repr__(self):
         return "Tensor(dom={}, cod={}, array={})".format(
             self.dom, self.cod,

@@ -165,3 +165,9 @@ def test_Frobenius():
 def test_Swap_to_tn():
     nodes, order = Swap(Dim(2), Dim(2)).to_tn()
     assert order == [nodes[0][0], nodes[1][0], nodes[1][1], nodes[0][1]]
+
+
+def test_Tensor_scalar():
+    s = Tensor(Dim(1), Dim(1), [1])
+    for ptype in [int, float, complex]:
+        assert isinstance(ptype(s), ptype)

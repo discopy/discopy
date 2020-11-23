@@ -14,21 +14,6 @@ Implements pregroup grammars and distributional compositional models.
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 >>> F = Functor(ob, ar)
 >>> assert F(sentence) == True
-
->>> from discopy.quantum import qubit, Ket, CX, H, X, sqrt, CircuitFunctor
->>> from discopy.rigid import Ty
->>> s, n = Ty('s'), Ty('n')
->>> Alice = Word('Alice', n)
->>> loves = Word('loves', n.r @ s @ n.l)
->>> Bob = Word('Bob', n)
->>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
->>> sentence = grammar << Alice @ loves @ Bob
->>> ob = {s: Ty(), n: qubit}
->>> ar = {Alice: Ket(0),
-...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
-...       Bob: Ket(1)}
->>> F = CircuitFunctor(ob, ar)
->>> assert abs(F(sentence).eval().array) ** 2
 """
 
 from discopy import messages, drawing
