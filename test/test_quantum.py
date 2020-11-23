@@ -53,14 +53,16 @@ def test_Circuit_to_tk():
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
     tk_circ = snake.to_tk()
-    assert repr(tk_circ).split('.')[2:-2] == [
-        'H(1)',
-        'CX(1, 2)',
-        'CX(0, 1)',
-        'Measure(1, 1)',
-        'H(0)',
-        'Measure(0, 0)',
-        'post_select({0: 0, 1: 0})']
+    assert repr(tk_circ) ==\
+        'tk.Circuit(3, 2)'\
+        '.H(1)'\
+        '.CX(1, 2)'\
+        '.CX(0, 1)'\
+        '.Measure(1, 1)'\
+        '.H(0)'\
+        '.Measure(0, 0)'\
+        '.post_select({0: 0, 1: 0})'\
+        '.scale(2)'
     assert np.isclose(tk_circ.scalar, 2)
     assert repr((CX >> Measure(2) >> Swap(bit, bit)).to_tk())\
         == "tk.Circuit(2, 2).CX(0, 1).Measure(1, 0).Measure(0, 1)"
@@ -100,7 +102,7 @@ def test_Circuit_from_tk():
 
 
 def test_ClassicalGate_to_tk():
-    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, array=[0, 0, 0, 1])
+    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, data=[0, 0, 0, 1])
     assert (post[::-1] >> Swap(bit, bit)).to_tk().post_processing\
         == post[::-1] >> Swap(bit, bit)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
@@ -127,13 +129,56 @@ def test_Circuit_get_counts_snake():
 def test_Circuit_get_counts_empty():
     backend = Mock()
     backend.get_counts.return_value = {}
-    with raises(RuntimeError):
-        Id(1).get_counts(backend)
+    assert not Id(1).get_counts(backend)
 
 
 def test_Circuit_measure():
     assert Id(0).measure() == 1
     assert all(Bits(0).measure(mixed=True) == np.array([1, 0]))
+
+
+def test_Bra_and_Measure_to_tk():
+    c = Circuit(
+        dom=qubit ** 0, cod=bit, boxes=[
+            Ket(0), Rx(0.552), Rz(0.512), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(0.847), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(0.177), CX, H, sqrt(2), Bra(0, 0),
+            Measure()],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0])
+    assert repr(c.to_tk()) ==\
+        "tk.Circuit(5, 5)"\
+        ".Rx(0.892, 0)"\
+        ".H(1)"\
+        ".H(2)"\
+        ".H(3)"\
+        ".Rx(1.104, 4)"\
+        ".Rz(0.512, 0)"\
+        ".CRz(0.36, 1, 2)"\
+        ".Rz(1.024, 4)"\
+        ".Rx(0.354, 0)"\
+        ".CRz(1.694, 2, 3)"\
+        ".Rx(1.834, 4)"\
+        ".Measure(2, 4)"\
+        ".CX(0, 1)"\
+        ".CX(3, 4)"\
+        ".Measure(4, 1)"\
+        ".Measure(1, 3)"\
+        ".H(0)"\
+        ".H(3)"\
+        ".Measure(3, 0)"\
+        ".Measure(0, 2)"\
+        ".post_select({0: 0, 1: 0, 2: 0, 3: 0})"\
+        ".scale(2)"
+
+
+def test_ClassicalGate_eval():
+    backend = Mock()
+    backend.get_counts.return_value = {
+        (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256}
+    post = ClassicalGate('post', 2, 0, [1, 0, 0, 0])
+    assert post.eval(backend) == Tensor(dom=Dim(1), cod=Dim(1), array=[0.25])
 
 
 def test_Box():
@@ -174,7 +219,7 @@ def test_ClassicalGate():
     f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
     assert repr(f.dagger())\
         == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, "\
-           "array=[0, 1, 1, 0]).dagger()"
+           "data=[0, 1, 1, 0]).dagger()"
 
 
 def test_Bits():
@@ -218,7 +263,10 @@ def test_IQPAnsatz():
 
 
 def test_Sum():
-    assert (X + X).eval() == X.eval() + X.eval()
+    assert not Sum([], qubit, qubit).eval()
+    assert Sum([Id(0)]).get_counts() == Id(0).get_counts()
+    assert (Id(0) + Id(0)).get_counts()[()] == 2
+    assert (Id(0) + Id(0)).eval() == Id(0).eval() + Id(0).eval()
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
@@ -253,3 +301,26 @@ def test_ClassicalGate_grad_subs():
 
 def test_Copy_Match():
     assert Match().dagger() == Copy() and Copy().dagger() == Match()
+
+
+def test_non_linear_ClassicalGate():
+    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
+    state = Bits(0, 0) + Bits(0, 1) + Bits(1, 0) + Bits(1, 1)
+    vector = (state >> f).eval().array.flatten()
+    assert np.all(vector == 4 * [np.sin(1) ** 2])
+
+
+def test_non_linear_AxiomError():
+    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
+    with raises(AttributeError):
+        f.array
+    with raises(AxiomError):
+        f.eval()
+    with raises(AxiomError):
+        (f @ f).eval()
+    with raises(AxiomError):
+        (f >> Discard(bit ** 2)).eval()
+
+
+def test_Sum_get_counts():
+    assert Sum([], qubit, qubit).get_counts() == {}

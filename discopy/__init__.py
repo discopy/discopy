@@ -25,7 +25,13 @@ discopy computes natural language meaning in pictures.
 
 __version__ = '0.3.3'
 
-IMPORT_JAX = False
+class config:
+    IMPORT_JAX = False
+    NUMPY_THRESHOLD = 16
+    IGNORE_WARNINGS = [
+        "No GPU/TPU found, falling back to CPU.",
+        "Casting complex values to real discards the imaginary part"]
+
 
 from discopy import (
     cat, monoidal, rigid, biclosed, tensor, quantum, grammar)

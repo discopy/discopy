@@ -270,10 +270,9 @@ class Layer(cat.Box):
 
     def __str__(self):
         left, box, right = self
-        _id = self._box.id
-        return ("{} @ ".format(_id(left)) if left else "")\
+        return ("{} @ ".format(box.id(left)) if left else "")\
             + str(box)\
-            + (" @ {}".format(_id(right)) if right else "")
+            + (" @ {}".format(box.id(right)) if right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -859,7 +858,7 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        layer = Layer(Ty(), self, Ty())
+        layer = Layer(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 

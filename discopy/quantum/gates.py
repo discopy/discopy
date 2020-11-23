@@ -2,6 +2,8 @@
 
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
+from collections.abc import Callable
+from discopy.cat import AxiomError
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum.circuit import bit, qubit, Box, Id, Circuit, Swap, Sum
 
@@ -19,7 +21,8 @@ class QuantumGate(Box):
     def __init__(self, name, n_qubits, array=None, data=None, _dagger=False):
         dom = qubit ** n_qubits
         if array is not None:
-            self._array = np.array(array).reshape(2 * n_qubits * (2, ) or 1)
+            self._array = np.array(array).reshape(
+                2 * n_qubits * (2, ) or (1, ))
         super().__init__(
             name, dom, dom, is_mixed=False, data=data, _dagger=_dagger)
 
@@ -43,18 +46,40 @@ class QuantumGate(Box):
 
 class ClassicalGate(Box):
     """ Classical gates, i.e. from bits to bits. """
-    def __init__(self, name, n_bits_in, n_bits_out, array=None, _dagger=False):
+    def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
-        if array is not None:
-            array = np.array(array).reshape(
-                (n_bits_in + n_bits_out) * (2, ) or 1)
+        if isinstance(data, Callable):
+            self.is_linear = False
+        else:
+            self.is_linear = True
+            data = np.array(data).reshape(
+                (n_bits_in + n_bits_out) * (2, ) or (1, ))
         super().__init__(
-            name, dom, cod, is_mixed=False, data=array, _dagger=_dagger)
+            name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
     @property
     def array(self):
         """ The array of a classical gate. """
-        return self.data
+        if self.is_linear:
+            return self.data
+        raise AttributeError("{} is non-linear.".format(self))
+
+    @property
+    def func(self):
+        """ The underlying function of a classical gate. """
+        if self.is_linear:
+            return lambda other: other >> self.eval()
+
+        def apply(state):
+            dom, cod = Dim(*(len(self.dom) * [2])), Dim(*(len(self.cod) * [2]))
+            if (state.dom, state.cod) != (Dim(1), dom):
+                raise AxiomError("Non-linear gates can only be applied "
+                                 "to states, not processes.")
+            return Tensor(Dim(1), cod, self.data(state.array))
+        return apply
+
+    def __call__(self, other):
+        return self.func(other)
 
     def __eq__(self, other):
         if not isinstance(other, ClassicalGate):
@@ -66,10 +91,10 @@ class ClassicalGate(Box):
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}{})".format(
-            repr(self.name), len(self.dom), len(self.cod),
-            "" if self.data is None
-            else ", array={}".format(np.array2string(self.array.flatten())))
+        data = np.array2string(self.array.flatten())\
+            if self.is_linear else self.data
+        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, data={})"\
+            .format(repr(self.name), len(self.dom), len(self.cod), data)
 
     def dagger(self):
         return ClassicalGate(
@@ -123,7 +148,7 @@ class Bits(ClassicalGate):
             for bit in bitstring))
         name = "Bits({})".format(', '.join(map(str, bitstring)))
         dom, cod = (len(bitstring), 0) if _dagger else (0, len(bitstring))
-        super().__init__(name, dom, cod, array=utensor.array, _dagger=_dagger)
+        super().__init__(name, dom, cod, data=utensor.array, _dagger=_dagger)
         self.bitstring = bitstring
 
     def __repr__(self):
@@ -236,7 +261,8 @@ class Rz(Rotation):
     @property
     def array(self):
         half_theta = np.pi * self.phase
-        return np.array([[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
+        return np.array(
+            [[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
 
 
 class CU1(Rotation):

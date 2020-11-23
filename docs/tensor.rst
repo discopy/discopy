@@ -10,5 +10,8 @@ tensor
 
    discopy.tensor.Dim
    discopy.tensor.Tensor
-   discopy.tensor.Id
    discopy.tensor.Functor
+   discopy.tensor.Diagram
+   discopy.tensor.Id
+   discopy.tensor.Box
+   discopy.tensor.Frobenius
