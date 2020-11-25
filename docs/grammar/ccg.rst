@@ -1,17 +1,13 @@
-.. automodule:: discopy.ccg
+grammar.ccg
+===========
 
-ccg.Word
-===============
+.. automodule:: discopy.grammar.ccg
+    :no-members:
 
-.. autoclass:: discopy.ccg.Word(word, type)
-    :show-inheritance:
+.. autosummary::
+   :template: class.rst
+   :toctree: ../_autosummary/grammar/ccg
 
-ccg.cat2ty
-====================
-
-.. autofunction:: discopy.ccg.cat2ty
-
-ccg.tree2diagram
-====================
-
-.. autofunction:: discopy.ccg.tree2diagram
+   discopy.grammar.ccg.Word
+   discopy.grammar.ccg.cat2ty
+   discopy.grammar.ccg.tree2diagram

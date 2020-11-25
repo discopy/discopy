@@ -1,11 +1,11 @@
-discopy.grammar
-================
+grammar
+=======
 
 .. automodule:: discopy.grammar
+    :no-members:
 
 .. toctree::
-    :caption: Contents:
 
-    cfg.rst
-    pregroup.rst
-    ccg.rst
+   cfg
+   pregroup
+   ccg

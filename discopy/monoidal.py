@@ -66,6 +66,11 @@ class Ty(Ob):
     >>> assert x @ unit == x == unit @ x
     >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
     """
+    def __init__(self, *objects):
+        self._objects = tuple(
+            x if isinstance(x, Ob) else Ob(x) for x in objects)
+        super().__init__(self)
+
     @property
     def objects(self):
         """
@@ -150,11 +155,6 @@ class Ty(Ob):
         """ Allows class inheritance for tensor and __getitem__ """
         return old
 
-    def __init__(self, *objects):
-        self._objects = tuple(
-            x if isinstance(x, Ob) else Ob(x) for x in objects)
-        super().__init__(self)
-
     def __eq__(self, other):
         if not isinstance(other, Ty):
             return False
@@ -197,6 +197,13 @@ class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
     Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
 
+    Parameters
+    ----------
+    n : int
+        Number of wires.
+
+    Examples
+    --------
     >>> PRO(1) @ PRO(1)
     PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
@@ -263,10 +270,9 @@ class Layer(cat.Box):
 
     def __str__(self):
         left, box, right = self
-        _id = self._box.id
-        return ("{} @ ".format(_id(left)) if left else "")\
+        return ("{} @ ".format(box.id(left)) if left else "")\
             + str(box)\
-            + (" @ {}".format(_id(right)) if right else "")
+            + (" @ {}".format(box.id(right)) if right else "")
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -278,28 +284,32 @@ class Diagram(cat.Arrow):
     """
     Defines a diagram given dom, cod, a list of boxes and offsets.
 
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
-    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
-    >>> assert d == f0 @ f1 >> g
-
     Parameters
     ----------
-    dom : :class:`Ty`
+    dom : monoidal.Ty
         Domain of the diagram.
-    cod : :class:`Ty`
+    cod : monoidal.Ty
         Codomain of the diagram.
     boxes : list of :class:`Diagram`
         Boxes of the diagram.
     offsets : list of int
         Offsets of each box in the diagram.
     layers : list of :class:`Layer`, optional
-        Layers of the diagram, computed from boxes and offsets if :code:`None`.
+        Layers of the diagram,
+        computed from boxes and offsets if :code:`None`.
 
     Raises
     ------
     :class:`AxiomError`
         Whenever the boxes do not compose.
+
+    Examples
+    --------
+
+    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
+    >>> assert d == f0 @ f1 >> g
     """
     @staticmethod
     def upgrade(old):
@@ -439,6 +449,10 @@ class Diagram(cat.Arrow):
             return self.upgrade(Diagram(*inputs, layers=layers))
         left, box, right = self.layers[key]
         return self.id(left) @ box @ self.id(right)
+
+    def subs(self, *args):
+        return self.upgrade(
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
     @staticmethod
     def swap(left, right):
@@ -776,7 +790,7 @@ class Diagram(cat.Arrow):
         draw_box_labels : bool, optional
             Whether to draw box labels, default is :code:`True`.
         aspect : string, optional
-            Aspect ratio, one of :code:`['equal', 'auto']`.
+            Aspect ratio, one of :code:`['auto', 'equal']`.
         margins : tuple, optional
             Margins, default is :code:`(0.05, 0.05)`.
         fontsize : int, optional
@@ -844,7 +858,7 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
-        layer = Layer(Ty(), self, Ty())
+        layer = Layer(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
 
@@ -896,7 +910,7 @@ class Sum(cat.Sum, Box):
     def tensor(self, *others):
         if len(others) != 1:
             return super().tensor(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(others[0])
+        other = others[0] if isinstance(others[0], Sum) else Sum(others)
         unit = Sum([], self.dom @ other.dom, self.cod @ other.cod)
         terms = [f.tensor(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))

@@ -25,7 +25,7 @@ def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
     return decorator
 
 
-@draw_and_compare('crack-eggs.png', figsize=(5, 6), fontsize=18)
+@draw_and_compare('crack-eggs.png', figsize=(5, 6), fontsize=18, aspect='equal')
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
@@ -44,12 +44,13 @@ spiral = Diagram(
         Box('cup', Ty('x', 'x'), Ty()), Box('cup', Ty('x', 'x'), Ty())],
     offsets=[0, 0, 1, 2, 1, 0])
 
-@draw_and_compare('spiral.png', draw_types=False, draw_box_labels=False)
+@draw_and_compare(
+    'spiral.png', draw_types=False, draw_box_labels=False, aspect='equal')
 def test_draw_spiral():
     return spiral
 
 
-@draw_and_compare('who-ansatz.png')
+@draw_and_compare('who-ansatz.png', aspect='equal')
 def test_draw_who():
     n, s = Ty('n'), Ty('s')
     copy, update = Box('copy', n, n @ n), Box('update', n @ s, s)
@@ -59,7 +60,7 @@ def test_draw_who():
         >> Id(n.r) @ update @ Id(s.l @ n)
 
 
-@draw_and_compare('sentence-as-diagram.png')
+@draw_and_compare('sentence-as-diagram.png', aspect='equal')
 def test_draw_sentence():
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -69,7 +70,7 @@ def test_draw_sentence():
 
 @draw_and_compare('alice-loves-bob.png', draw=grammar.draw,
                   fontsize=18, fontsize_types=12,
-                  figsize=(5, 2), margins=(0, 0))
+                  figsize=(5, 2), margins=(0, 0), aspect='equal')
 def test_pregroup_draw():
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -77,14 +78,14 @@ def test_pregroup_draw():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('bell-state.png', draw=Circuit.draw)
+@draw_and_compare('bell-state.png', draw=Circuit.draw, aspect='equal')
 def test_draw_bell_state():
     gate = quantum.QuantumGate('H', 1, _dagger=None)
     gate.draw_as_spider = True
     return gate @ quantum.Id(1) >> quantum.CX
 
 
-@draw_and_compare('bialgebra.png', draw=Sum.draw)
+@draw_and_compare('bialgebra.png', draw=Sum.draw, aspect='equal')
 def test_draw_bialgebra():
     from discopy.quantum.zx import Z, X, Id, SWAP
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)

@@ -1,3 +1,4 @@
 pytket
 pyzx
 sympy
+tensornetwork

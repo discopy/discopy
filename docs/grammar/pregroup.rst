@@ -1,22 +1,14 @@
-.. automodule:: discopy.pregroup
+grammar.pregroup
+================
 
-pregroup.Word
-=============
+.. automodule:: discopy.grammar.pregroup
+    :no-members:
 
-.. autoclass:: discopy.pregroup.Word(word, type)
-    :show-inheritance:
+.. autosummary::
+   :template: class.rst
+   :toctree: ../_autosummary/grammar/pregroup
 
-pregroup.eager_parse
-====================
-
-.. autofunction:: discopy.pregroup.eager_parse
-
-pregroup.brute_force
-====================
-
-.. autofunction:: discopy.pregroup.brute_force
-
-pregroup.draw
-=============
-
-.. autofunction:: discopy.pregroup.draw
+   discopy.grammar.pregroup.Word
+   discopy.grammar.pregroup.eager_parse
+   discopy.grammar.pregroup.brute_force
+   discopy.grammar.pregroup.draw

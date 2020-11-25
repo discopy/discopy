@@ -5,7 +5,7 @@
 from discopy import messages, monoidal, rigid, quantum
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
-from discopy.quantum.circuit import Circuit
+from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
 
@@ -52,7 +52,7 @@ class Diagram(rigid.Diagram):
 
         Returns
         -------
-        diagrams : Sum
+        diagrams : discopy.monoidal.Sum
 
         Examples
         --------
@@ -278,9 +278,9 @@ class Spider(Box):
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), -self.phase)
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         return type(self)(len(self.dom), len(self.cod),
-                          phase=super().subs(var, expr).data)
+                          phase=super().subs(*args).data)
 
     def grad(self, var):
         if var not in self.free_symbols:
@@ -343,8 +343,8 @@ class Scalar(Box):
     def __repr__(self):
         return self.name
 
-    def subs(self, var, expr):
-        return Scalar(super().subs(var, expr).data)
+    def subs(self, *args):
+        return Scalar(super().subs(*args).data)
 
     def dagger(self):
         return Scalar(self.data.conjugate())
@@ -387,5 +387,5 @@ def gate2zx(box):
     return standard_gates[box]
 
 circuit2zx = Functor(
-    ob={quantum.circuit.qubit: PRO(1)}, ar=gate2zx,
+    ob={qubit: PRO(1)}, ar=gate2zx,
     ob_factory=PRO, ar_factory=Diagram)

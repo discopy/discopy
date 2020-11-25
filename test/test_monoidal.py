@@ -335,8 +335,6 @@ def test_Functor_sum():
 def test_Sum():
     x = Ty('x')
     f = Box('f', x, x)
-    with raises(TypeError):
-        Sum(f)
     with raises(ValueError):
         Sum([])
     with raises(AxiomError):

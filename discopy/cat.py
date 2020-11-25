@@ -36,7 +36,7 @@ class Ob:
     Parameters
     ----------
     name : any
-        Name of the object
+        Name of the object.
 
     Note
     ----
@@ -59,6 +59,11 @@ class Ob:
     TypeError: unhashable type: 'list'
 
     """
+    def __init__(self, name):
+        if not str(name):
+            raise ValueError(messages.empty_name(name))
+        self._name = name
+
     @property
     def name(self):
         """
@@ -73,11 +78,6 @@ class Ob:
         AttributeError: can't set attribute
         """
         return self._name
-
-    def __init__(self, name):
-        if not str(name):
-            raise ValueError(messages.empty_name(name))
-        self._name = name
 
     def __repr__(self):
         return "Ob({})".format(repr(self.name))
@@ -101,12 +101,6 @@ class Arrow:
     """
     Defines an arrow in a free dagger category.
 
-    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-    >>> arrow = Arrow(x, x, [f, g, h])
-    >>> print(arrow[::-1])
-    h[::-1] >> g[::-1] >> f[::-1]
-
     Parameters
     ----------
     dom : cat.Ob
@@ -121,12 +115,15 @@ class Arrow:
     :class:`cat.AxiomError`
         Whenever the boxes do not compose.
 
-    """
-    @staticmethod
-    def upgrade(old):
-        """ Allows class inheritance for then and __getitem__. """
-        return old
+    Examples
+    --------
 
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    >>> arrow = Arrow(x, x, [f, g, h])
+    >>> print(arrow[::-1])
+    h[::-1] >> g[::-1] >> f[::-1]
+    """
     def __init__(self, dom, cod, boxes, _scan=True):
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
@@ -145,6 +142,11 @@ class Arrow:
                 raise AxiomError(messages.does_not_compose(
                     boxes[-1] if boxes else Id(dom), Id(cod)))
         self._dom, self._cod, self._boxes = dom, cod, boxes
+
+    @staticmethod
+    def upgrade(old):
+        """ Allows class inheritance. """
+        return old
 
     @property
     def dom(self):
@@ -345,7 +347,7 @@ class Arrow:
     @property
     def free_symbols(self):
         """
-        Free symbols in a circuit.
+        Free symbols in a :class:`Arrow`.
 
         >>> from sympy.abc import phi, psi
         >>> x, y = Ob('x'), Ob('y')
@@ -355,16 +357,20 @@ class Arrow:
         """
         return {x for box in self.boxes for x in box.free_symbols}
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         """
-        Substitute `var` for `expr`.
+        Substitute a variable by an expression.
 
         Parameters
         ----------
+        Either var, expr with:
+
         var : sympy.Symbol
             Subtituted variable.
         expr : sympy.Expr
             Substituting expression.
+
+        Or a list of such pairs for multiple substitution.
 
         Returns
         -------
@@ -380,20 +386,24 @@ class Arrow:
         >>> assert (f >> g).subs(phi, 1) == f.subs(phi, 1) >> g
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
-        return Functor(ob=lambda x: x, ar=lambda f: f.subs(var, expr))(self)
+        return self.upgrade(
+            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
 
 class Id(Arrow):
     """
     Defines the identity arrow on `dom`, i.e. with an empty list of boxes.
 
-    >>> x = Ob('x')
-    >>> assert Id(x) == Arrow(x, x, [])
-
     Parameters
     ----------
-        dom : cat.Ob
-            Any object.
+    dom : cat.Ob
+        Any object.
+
+    Examples
+    --------
+
+    >>> x = Ob('x')
+    >>> assert Id(x) == Arrow(x, x, [])
 
     See also
     --------
@@ -419,12 +429,6 @@ class AxiomError(Exception):
 class Box(Arrow):
     """ Defines a box as an arrow with the list of only itself as boxes.
 
-    >>> x, y = Ob('x'), Ob('y')
-    >>> f = Box('f', x, y, data=[42])
-    >>> assert f == Arrow(x, y, [f])
-    >>> assert f.boxes == [f]
-    >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
-
     Parameters
     ----------
         name : any
@@ -436,8 +440,19 @@ class Box(Arrow):
         data : any
             Extra data in the box, default is `None`.
 
+    Examples
+    --------
+
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f = Box('f', x, y, data=[42])
+    >>> assert f == Arrow(x, y, [f])
+    >>> assert f.boxes == [f]
+    >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
+
     """
     def __init__(self, name, dom, cod, data=None, _dagger=False):
+        """
+        """
         if not str(name):
             raise ValueError(messages.empty_name(name))
         self._name, self._dom, self._cod = name, dom, cod
@@ -486,19 +501,19 @@ class Box(Arrow):
             return []
         return set(recursive_free_symbols(self.data))
 
-    def subs(self, var, expr):
-        if not var in self.free_symbols:
+    def subs(self, *args):
+        vars = {var for var, _ in args[0]} if len(args) == 1 else {args[0]}
+        if not any(var in self.free_symbols for var in vars):
             return self
-        def recursive_subs(data, var, expr):
+        def recursive_subs(data, *args):
             if isinstance(data, Mapping):
-                return {key: recursive_subs(value, var, expr)
+                return {key: recursive_subs(value, *args)
                         for key, value in data.items()}
             if isinstance(data, Iterable):
-                return [recursive_subs(elem, var, expr) for elem in data]
-            result = data.subs(var, expr)
-            return type(expr)(result) if isinstance(expr, Number) else result
+                return [recursive_subs(elem, *args) for elem in data]
+            return getattr(data, "subs", lambda *_: data)(*args)
         return Box(self.name, self.dom, self.cod, _dagger=self._dagger,
-                   data=recursive_subs(self.data, var, expr))
+                   data=recursive_subs(self.data, *args))
 
     @property
     def is_dagger(self):
@@ -522,7 +537,7 @@ class Box(Arrow):
             return repr(self.dagger()) + ".dagger()"
         return "Box({}, {}, {}{})".format(
             *map(repr, [self.name, self.dom, self.cod]),
-            ", data=" + repr(self.data) if self.data else '')
+            '' if self.data is None else ", data=" + repr(self.data))
 
     def __str__(self):
         return str(self.name) + ("[::-1]" if self._dagger else '')
@@ -551,9 +566,11 @@ class Sum(Box):
     terms : list of :class:`Arrow`
         Terms of the formal sum.
     dom : :class:`Ob`, optional
-        Domain of the formal sum, optional if :code:`diagrams` is non-empty.
+        Domain of the formal sum,
+        optional if :code:`diagrams` is non-empty.
     cod : :class:`Ob`, optional
-        Codomain of the formal sum, optional if :code:`diagrams` is non-empty.
+        Codomain of the formal sum,
+        optional if :code:`diagrams` is non-empty.
 
     Examples
     --------
@@ -577,9 +594,7 @@ class Sum(Box):
         return old
 
     def __init__(self, terms, dom=None, cod=None):
-        if not isinstance(terms, list):
-            raise TypeError(messages.type_err(list, terms))
-        self.terms = terms
+        self.terms = list(terms)
         if not terms:
             if dom is None or cod is None:
                 raise ValueError(messages.missing_types_for_empty_sum())
@@ -641,9 +656,9 @@ class Sum(Box):
         unit = Sum([], self.cod, self.dom)
         return self.upgrade(sum([f.dagger() for f in self.terms], unit))
 
-    def subs(self, var, expr):
+    def subs(self, *args):
         unit = Sum([], self.dom, self.cod)
-        return self.upgrade(sum([f.subs(var, expr) for f in self.terms], unit))
+        return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
 
 class Functor:
@@ -653,12 +668,6 @@ class Functor:
     By default, `Functor` defines an endofunctor from the free dagger category
     to itself. The codomain can be changed with the optional parameters
     `ob_factory` and `ar_factory`.
-
-    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g = Box('f', x, y), Box('g', y, z)
-    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
-    >>> F = Functor(ob, ar)
-    >>> assert F(x) == y and F(f) == g
 
     Parameters
     ----------
@@ -676,10 +685,13 @@ class Functor:
         Class to be used as arrows for the codomain of the functor.
         If None, this will be set to :class:`cat.Arrow`.
 
-    See Also
+    Examples
     --------
-    Quiver : For functors from infinitely-generated categories,
-             use quivers to create dict-like objects from functions.
+    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> ob, ar = {x: y, y: z, z: y}, {f: g, g: g[::-1]}
+    >>> F = Functor(ob, ar)
+    >>> assert F(x) == y and F(f) == g
 
     Notes
     -----
@@ -689,6 +701,11 @@ class Functor:
     >>> assert F(f >> g) == F(f) >> F(g)
     >>> assert F(f[::-1]) == F(f)[::-1]
     >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
+
+    See Also
+    --------
+    Quiver : For functors from infinitely-generated categories,
+             use quivers to create dict-like objects from functions.
     """
     def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
         if ob_factory is None:
@@ -701,6 +718,8 @@ class Functor:
     @property
     def ob(self):
         """
+        Mapping on objects.
+
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> assert F.ob == {Ob('x'): Ob('y')}
         """
@@ -710,6 +729,8 @@ class Functor:
     @property
     def ar(self):
         """
+        Mapping on arrows.
+
         >>> f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
         >>> F = Functor({}, {f: g})
         >>> assert F.ar == {f: g}
@@ -734,8 +755,7 @@ class Functor:
                 return self.ar[arrow.dagger()].dagger()
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
-            return self.ar_factory.id(self(arrow.dom)).then(
-                *map(self, arrow.boxes))
+            return self.ar_factory.id(self(arrow.dom)).then(*map(self, arrow))
         raise TypeError(messages.type_err(Arrow, arrow))
 
 
@@ -744,16 +764,19 @@ class Quiver:
     Wraps a function into an immutable dict-like object, used as input for a
     :class:`Functor`.
 
+    Parameters
+    ----------
+    func : callable
+        Any callable Python object.
+
+    Examples
+    --------
+
     >>> ob, ar = Quiver(lambda x: x), Quiver(lambda f: f)
     >>> F = Functor(ob, ar)
     >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
     >>> f, g = Box('f', x, y), Box('g', y, z)
     >>> assert F(x) == x and F(f >> g) == f >> g
-
-    Parameters
-    ----------
-    func : callable
-        Any callable Python object.
 
     Notes
     -----
