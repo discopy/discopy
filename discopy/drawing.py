@@ -109,7 +109,7 @@ class TikzBackend(Backend):
 
         end = ["\\end{tikzpicture}\n"]
         if path is None:
-            print(begin + nodes + edges + end)
+            print(''.join(begin + nodes + edges + end))
         else:
             with open(path, 'w+') as file:
                 file.writelines(begin + nodes + edges + end)
@@ -117,7 +117,6 @@ class TikzBackend(Backend):
 
 class MatBackend(Backend):
     def __init__(self, axis=None, figsize=None):
-        print("figsize", figsize)
         self.axis = axis or plt.subplots(figsize=figsize)[1]
 
     def draw_text(self, text, i, j, **params):
@@ -275,7 +274,7 @@ def diagram_to_nx(diagram, scale=(1, 1), pad=(0, 0)):
     return graph, scale_and_pad(pos), labels
 
 
-def draw(diagram, axis=None, data=None, **params):
+def draw(diagram, backend=None, data=None, **params):
     """
     Draws a diagram, see :meth:`monoidal.Diagram.draw`.
     """
@@ -290,10 +289,9 @@ def draw(diagram, axis=None, data=None, **params):
                for i, box in enumerate(diagram.boxes)
                if getattr(box, "draw_as_spider", False)]
 
-    if params.get('to_tikz', False):
-        backend = TikzBackend()
-    else:
-        backend = MatBackend(axis=axis, figsize=params.get('figsize', None))
+    backend = backend if backend is not None else\
+        TikzBackend() if params.get('to_tikz', False)\
+        else MatBackend(figsize=params.get('figsize', None))
 
     def draw_box(box, depth):
         node = 'box_{}'.format(depth)
@@ -492,7 +490,7 @@ def pregroup_draw(words, cups, **params):
             xlim=xlim, ylim=ylim)
 
 
-def equation(*diagrams, symbol="=", space=1, **params):
+def equation(*diagrams, backend=None, symbol="=", space=1, **params):
     """
     >>> from discopy import *
     >>> x = Ty('x')
@@ -524,17 +522,16 @@ def equation(*diagrams, symbol="=", space=1, **params):
     scale_x, scale_y = params.get('scale', (1, 1))
     path = params.pop("path", None)
 
-    if params.get('to_tikz', False):
-        raise Exception("Tikz equations not supported for now.")
-    else:
-        backend = MatBackend()
+    backend = backend if backend is not None else\
+        TikzBackend() if params.get('to_tikz', False)\
+        else MatBackend(figsize=params.get('figsize', None))
 
     for i, diagram in enumerate(diagrams):
         scale = (scale_x, scale_y * max_height / (len(diagram) or 1))
         graph, positions, labels = diagram_to_nx(
             diagram, scale=scale, pad=(pad, 0))
         backend.axis = diagram.draw(
-            axis=backend.axis, data=(graph, positions, labels),
+            backend=backend, data=(graph, positions, labels),
             show=False, **params)
         widths = {x for x, _ in positions.values()}
         min_width, max_width = min(widths), max(widths)
