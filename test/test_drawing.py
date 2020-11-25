@@ -17,7 +17,7 @@ def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
         def wrapper():
             true_path = os.path.join(folder, file)
             test_path = os.path.join(folder, '.' + file)
-            draw(func(), path=test_path, **params)
+            draw(func(), path=test_path, show=False, **params)
             test = compare_images(true_path, test_path, tol)
             assert test is None
             os.remove(test_path)
@@ -25,7 +25,8 @@ def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
     return decorator
 
 
-@draw_and_compare('crack-eggs.png', figsize=(5, 6), fontsize=18, aspect='equal')
+@draw_and_compare(
+    'crack-eggs.png', figsize=(5, 6), fontsize=18, aspect='equal')
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
@@ -37,12 +38,15 @@ def test_draw_eggs():
     return crack_two_eggs
 
 
+unit = Box('unit', Ty(), Ty('x'))
+counit = Box('counit', Ty('x'), Ty())
+cup = Box('cup', Ty('x', 'x'), Ty())
+cap = Box('cap', Ty(), Ty('x', 'x'))
 spiral = Diagram(
-    dom=Ty(), cod=Ty(), boxes=[
-        Box('unit', Ty(), Ty('x')), Box('cap', Ty(), Ty('x', 'x')),
-        Box('cap', Ty(), Ty('x', 'x')), Box('counit', Ty('x'), Ty()),
-        Box('cup', Ty('x', 'x'), Ty()), Box('cup', Ty('x', 'x'), Ty())],
+    dom=Ty(), cod=Ty(),
+    boxes=[unit, cap, cap, counit, cup, cup],
     offsets=[0, 0, 1, 2, 1, 0])
+
 
 @draw_and_compare(
     'spiral.png', draw_types=False, draw_box_labels=False, aspect='equal')
