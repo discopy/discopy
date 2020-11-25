@@ -12,7 +12,7 @@ def test_Word():
     with raises(TypeError):
         Word(0, Ty('n'))
     with raises(TypeError):
-        Word('Alice', 0)
+        Word('Alice', 1)
     with raises(TypeError):
         Word('Alice', Ty('n'), dom=1)
 
