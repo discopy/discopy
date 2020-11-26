@@ -4,6 +4,7 @@ Drawing module.
 """
 
 import os
+from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
@@ -14,7 +15,9 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 
+@dataclass
 class DEFAULT:
+    """ Drawing defaults. """
     aspect = "auto"
     fontsize = 12
     margins = (.05, .05)
@@ -22,7 +25,9 @@ class DEFAULT:
     color = '#ffffff'
 
 
+@dataclass
 class COLORS:
+    """ Drawing colours. """
     white = '#ffffff'
     red = '#e8a5a5'
     green = '#d8f8d8'
@@ -31,7 +36,9 @@ class COLORS:
     black = '#000000'
 
 
+@dataclass
 class SHAPES:
+    """ Drawing shapes. """
     square = 's'
     circle = 'o'
 
@@ -103,7 +110,7 @@ def diagram_to_nx(diagram):
     """
     graph, pos = nx.DiGraph(), dict()
 
-    def add_node(node, position, label=None):
+    def add_node(node, position):
         graph.add_node(node)
         pos.update({node: position})
 
@@ -155,8 +162,7 @@ def diagram_to_nx(diagram):
                     pos[node] = (pos[node][0] + pad, pos[node][1])
         return x_pos
     for i, obj in enumerate(diagram.dom):
-        add_node(InputNode(obj, i),
-                 (i, len(diagram.boxes[:-1]) + 1), str(diagram.dom[i]))
+        add_node(InputNode(obj, i), (i, len(diagram.boxes[:-1]) + 1))
     scan = [InputNode(obj, i) for i, obj in enumerate(diagram.dom)]
     for depth, (box, off) in enumerate(zip(diagram.boxes, diagram.offsets)):
         x_pos = make_space(scan, box, off)
@@ -168,31 +174,33 @@ def diagram_to_nx(diagram):
 
 
 class Backend(ABC):
+    """ Abstract drawing backend. """
     @abstractmethod
     def draw_text(self, text, i, j, **params):
-        pass
+        """ Draws a piece of text at a given position. """
 
     @abstractmethod
     def draw_polygon(self, *points, color=DEFAULT.color):
-        pass
+        """ Draws a polygon given a list of points. """
 
     @abstractmethod
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
-        pass
+        """ Draws a wire from source to target, possibly with a Bezier. """
 
     @abstractmethod
     def draw_spiders(self, spiders, graph, positions, draw_box_labels=True):
-        pass
+        """ Draws a list of boxes depicted as spiders. """
 
     @abstractmethod
     def output(self, path=None, show=True, **params):
-        pass
+        """ Output the drawing. """
 
 
 class TikzBackend(Backend):
-    def __init__(self, nodes=[], edges=[]):
-        self.nodes = nodes
-        self.edges = edges
+    """ Tikz drawing backend. """
+    def __init__(self, nodes=None, edges=None):
+        self.nodes = nodes or []
+        self.edges = edges or []
 
     def draw_text(self, text, i, j, **params):
         options = ""
@@ -208,10 +216,8 @@ class TikzBackend(Backend):
         if len(points) < 2:
             return
         for i, point in enumerate(points):
-            x, y = point
             self.nodes.append(
-                f"\\node [] (poly_{i}) at ({x}, {y}) {{}};\n")
-
+                f"\\node [] (poly_{i}) at ({point[0]}, {point[1]}) {{}};\n")
         self.edges.append("\\draw {};\n".format(" to ".join(
             "(poly_{})".format(x) for x in list(range(len(points))) + [0])))
 
@@ -232,8 +238,9 @@ class TikzBackend(Backend):
                 if draw_box_labels else ""
             self.nodes.append(cmd.format(label=label, pos=positions[node]))
 
-    def output(self, path=None, show=True,
-               baseline=0, tikz_options=None, **params):
+    def output(self, path=None, show=True, **params):
+        baseline = params.get("baseline", 0)
+        tikz_options = params.get("tikz_options", None)
         options = "baseline=(O.base)" if tikz_options is None\
             else "baseline=(O.base), " + tikz_options
         begin = ["\\begin{{tikzpicture}}[{}]\n".format(options)]
@@ -251,6 +258,7 @@ class TikzBackend(Backend):
 
 
 class MatBackend(Backend):
+    """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None):
         self.axis = axis or plt.subplots(figsize=figsize)[1]
 
@@ -537,9 +545,9 @@ def equation(*diagrams, backend=None, symbol="=", space=1, **params):
     \\draw [out=-90, in=180] (5.0, 0.75) to (5.5, 0.5);
     \\draw [out=-90, in=0] (6.0, 0.75) to (5.5, 0.5);
     """
-    axis, pad, max_height = None, 0, max(map(len, diagrams))
+    pad, max_height = 0, max(map(len, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
-    path = params.pop("path", None)
+    path = params.get("path", None)
 
     backend = backend if backend is not None else\
         TikzBackend() if params.get('to_tikz', False)\

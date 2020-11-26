@@ -21,7 +21,6 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from numbers import Number
 from functools import total_ordering
 from collections.abc import Mapping, Iterable
 
@@ -502,9 +501,10 @@ class Box(Arrow):
         return set(recursive_free_symbols(self.data))
 
     def subs(self, *args):
-        vars = {var for var, _ in args[0]} if len(args) == 1 else {args[0]}
-        if not any(var in self.free_symbols for var in vars):
+        if not any(var in self.free_symbols for var in (
+                {var for var, _ in args[0]} if len(args) == 1 else {args[0]})):
             return self
+
         def recursive_subs(data, *args):
             if isinstance(data, Mapping):
                 return {key: recursive_subs(value, *args)
