@@ -232,7 +232,7 @@ class TikzBackend(Backend):
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
             else (180 if source[0] < target[0] else 0)
-        cmd = "\\draw [out={}, in={}] ({}.center) to ({}.center);\n"
+        cmd = "\\draw [in={}, out={}] ({}.center) to ({}.center);\n"
         if source not in self.nodes:
             self.add_node(*source)
         if target not in self.nodes:
