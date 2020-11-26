@@ -53,11 +53,11 @@
 \draw [in=90, out=-90] (7.center) to (8.center);
 \draw [in=90, out=-90] (10.center) to (11.center);
 \draw [in=90, out=-90] (13.center) to (14.center);
-\draw (16.center) to (17.center) to (18.center) to (19.center) to (16.center);
-\draw (21.center) to (22.center) to (23.center) to (24.center) to (21.center);
-\draw (26.center) to (27.center) to (28.center) to (29.center) to (26.center);
-\draw (31.center) to (32.center) to (33.center) to (34.center) to (31.center);
-\draw (36.center) to (37.center) to (38.center) to (39.center) to (36.center);
-\draw (41.center) to (42.center) to (43.center) to (44.center) to (41.center);
+\draw [] (16.center) to (17.center) to (18.center) to (19.center) to (16.center);
+\draw [] (21.center) to (22.center) to (23.center) to (24.center) to (21.center);
+\draw [] (26.center) to (27.center) to (28.center) to (29.center) to (26.center);
+\draw [] (31.center) to (32.center) to (33.center) to (34.center) to (31.center);
+\draw [] (36.center) to (37.center) to (38.center) to (39.center) to (36.center);
+\draw [] (41.center) to (42.center) to (43.center) to (44.center) to (41.center);
 \end{pgfonlayer}
 \end{tikzpicture}

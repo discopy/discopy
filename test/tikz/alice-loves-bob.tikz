@@ -29,9 +29,9 @@
 \node [scale=0.8] (26) at (3.7, -1.5) {s};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
-\draw (2.center) to (3.center) to (4.center) to (2.center);
-\draw (9.center) to (10.center) to (11.center) to (9.center);
-\draw (14.center) to (15.center) to (16.center) to (14.center);
+\draw [] (2.center) to (3.center) to (4.center) to (2.center);
+\draw [] (9.center) to (10.center) to (11.center) to (9.center);
+\draw [] (14.center) to (15.center) to (16.center) to (14.center);
 \draw [in=180, out=-90] (18.center) to (19.center);
 \draw [in=0, out=-90] (20.center) to (19.center);
 \draw [in=180, out=-90] (21.center) to (22.center);

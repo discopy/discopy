@@ -58,7 +58,7 @@
 \draw [in=90, out=-90] (4.center) to (5.center);
 \draw [in=90, out=-90] (7.center) to (8.center);
 \draw [in=90, out=-90] (10.center) to (11.center);
-\draw (13.center) to (14.center) to (15.center) to (16.center) to (13.center);
+\draw [] (13.center) to (14.center) to (15.center) to (16.center) to (13.center);
 \draw [in=90, out=180] (19.center) to (20.center);
 \draw [in=90, out=0] (19.center) to (21.center);
 \draw [in=90, out=-90] (20.center) to (22.center);
@@ -70,7 +70,7 @@
 \draw [in=90, out=-90] (33.center) to (35.center);
 \draw [in=90, out=-90] (34.center) to (37.center);
 \draw [in=90, out=-90] (39.center) to (40.center);
-\draw (42.center) to (43.center) to (44.center) to (45.center) to (42.center);
-\draw (47.center) to (48.center) to (49.center) to (50.center) to (47.center);
+\draw [] (42.center) to (43.center) to (44.center) to (45.center) to (42.center);
+\draw [] (47.center) to (48.center) to (49.center) to (50.center) to (47.center);
 \end{pgfonlayer}
 \end{tikzpicture}
