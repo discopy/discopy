@@ -162,7 +162,7 @@ def diagram_to_nx(diagram):
                     pos[node] = (pos[node][0] + pad, pos[node][1])
         return x_pos
     for i, obj in enumerate(diagram.dom):
-        add_node(InputNode(obj, i), (i, len(diagram.boxes[:-1]) + 1))
+        add_node(InputNode(obj, i), (i, len(diagram) or 1))
     scan = [InputNode(obj, i) for i, obj in enumerate(diagram.dom)]
     for depth, (box, off) in enumerate(zip(diagram.boxes, diagram.offsets)):
         x_pos = make_space(scan, box, off)
@@ -198,9 +198,17 @@ class Backend(ABC):
 
 class TikzBackend(Backend):
     """ Tikz drawing backend. """
-    def __init__(self, nodes=None, edges=None):
-        self.nodes = nodes or []
-        self.edges = edges or []
+    def __init__(self):
+        self.nodes, self.nodelayer, self.edgelayer = {}, [], []
+
+    def add_node(self, i, j, text=None, options=None):
+        """ Add a node to the tikz picture, return its unique id. """
+        node = len(self.nodes) + 1
+        self.nodelayer.append(
+            "\\node [{}] ({}) at ({}, {}) {{{}}};\n".format(
+                options or "", node, i, j, text or ""))
+        self.nodes.update({(i, j): node})
+        return node
 
     def draw_text(self, text, i, j, **params):
         options = ""
@@ -209,45 +217,47 @@ class TikzBackend(Backend):
         if 'fontsize' in params and params['fontsize'] is not None:
             options += (", " if options else "") +\
                 "scale={}".format(params['fontsize'])
-        self.nodes.append(
-            "\\node [{}] () at ({}, {}) {{{}}};\n".format(options, i, j, text))
+        self.add_node(i, j, text, options)
 
     def draw_polygon(self, *points, color=DEFAULT.color):
-        if len(points) < 2:
-            return
-        for i, point in enumerate(points):
-            self.nodes.append(
-                f"\\node [] (poly_{i}) at ({point[0]}, {point[1]}) {{}};\n")
-        self.edges.append("\\draw {};\n".format(" to ".join(
-            "(poly_{})".format(x) for x in list(range(len(points))) + [0])))
+        nodes = []
+        for point in points:
+            nodes.append(self.add_node(*point))
+        nodes.append(nodes[0])
+        self.edgelayer.append("\\draw {};\n".format(" to ".join(
+            "({}.center)".format(node) for node in nodes)))
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
             else (180 if source[0] < target[0] else 0)
-        cmd = "\\draw [out={}, in={}] {{}} to {{}};\n".format(out, inp)
-        self.edges.append(cmd.format(*("({}, {})".format(*point)
-                          for point in [source, target])))
+        cmd = "\\draw [out={}, in={}] ({}.center) to ({}.center);\n"
+        if source not in self.nodes:
+            self.add_node(*source)
+        if target not in self.nodes:
+            self.add_node(*target)
+        self.edgelayer.append(cmd.format(
+            inp, out, self.nodes[source], self.nodes[target]))
 
     def draw_spiders(self, spiders, graph, positions, draw_box_labels=True):
         for node, color, shape in spiders:
-            cmd = "\\node [{}, fill={}] ({}) ".format(shape, color, node)
-            cmd += "at ({pos[0]}, {pos[1]}) {{{label}}};\n"
-            label = getattr(node.box, "drawing_name", str(node.box))\
+            i, j = positions[node]
+            text = getattr(node.box, "drawing_name", str(node.box))\
                 if draw_box_labels else ""
-            self.nodes.append(cmd.format(label=label, pos=positions[node]))
+            options = "{}, fill={}".format(shape, color)
+            self.add_node(i, j, text, options)
 
     def output(self, path=None, show=True, **params):
         baseline = params.get("baseline", 0)
         tikz_options = params.get("tikz_options", None)
-        options = "baseline=(O.base)" if tikz_options is None\
-            else "baseline=(O.base), " + tikz_options
+        options = "baseline=(0.base)" if tikz_options is None\
+            else "baseline=(0.base), " + tikz_options
         begin = ["\\begin{{tikzpicture}}[{}]\n".format(options)]
         nodes = ["\\begin{pgfonlayer}{nodelayer}\n",
-                 "\\node (O) at (0, {}) {{}};\n".format(baseline)]\
-            + self.nodes + ["\\end{pgfonlayer}\n"]
-        edges = ["\\begin{pgfonlayer}{edgelayer}\n"] + self.edges +\
+                 "\\node (0) at (0, {}) {{}};\n".format(baseline)]\
+            + self.nodelayer + ["\\end{pgfonlayer}\n"]
+        edges = ["\\begin{pgfonlayer}{edgelayer}\n"] + self.edgelayer +\
                 ["\\end{pgfonlayer}\n"]
         end = ["\\end{tikzpicture}\n"]
         if path is not None:
