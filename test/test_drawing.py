@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 
 from discopy import *
+from discopy.drawing import *
 
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/imgs/', 'test/tikz/', 10
@@ -128,12 +129,12 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
     return decorator
 
 
-@tikz_and_compare("spiral.tex", to_tikz=True)
+@tikz_and_compare("spiral.tikz", to_tikz=True)
 def test_spiral_to_tikz():
     return spiral
 
 
-@tikz_and_compare("copy.tex", to_tikz=True,
+@tikz_and_compare("copy.tikz", to_tikz=True,
                   draw_box_labels=False, color='black')
 def test_copy_to_tikz():
     x, y = map(Ty, ("$x$", "$y$"))
@@ -143,8 +144,8 @@ def test_copy_to_tikz():
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
-@tikz_and_compare("alice-loves-bob.tex", to_tikz=True, draw=grammar.draw,
-                  textpad=(.2, .2), textpad_words=(0, .25))
+@tikz_and_compare("alice-loves-bob.tikz", to_tikz=True, draw=grammar.draw,
+                  textpad=(.2, .2), textpad_words=(0, .25), fontsize=.8)
 def test_sentence_to_tikz():
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -152,14 +153,14 @@ def test_sentence_to_tikz():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@tikz_and_compare("snake-equation.tex", to_tikz=True, draw=draw_equation,
+@tikz_and_compare("snake-equation.tikz", to_tikz=True, draw=draw_equation,
                   textpad=(.2, .2), textpad_words=(0, .25))
 def test_snake_equation_to_tikz():
     x = Ty('x')
     return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
-@tikz_and_compare("who-ansatz.tex", to_tikz="controls",
+@tikz_and_compare("who-ansatz.tikz", to_tikz="controls",
                   draw=draw_equation, symbol="$\\mapsto$")
 def test_who_ansatz_to_tikz():
     s, n = Ty('s'), Ty('n')
@@ -169,3 +170,7 @@ def test_who_ansatz_to_tikz():
         >> Id(n.r @ n) @ Cap(s, s.l) @ Id(n)\
         >> Id(n.r) @ Box('update', n @ s, n) @ Id(s.l @ n)
     return who, who_ansatz
+
+
+def test_Node_repr():
+    assert repr(DomNode(Ob('x'), 0, 1)) == "DomNode(Ob('x'), 0, 1)"

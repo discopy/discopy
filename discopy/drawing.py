@@ -263,7 +263,7 @@ class TikzBackend(Backend):
         if path is not None:
             with open(path, 'w+') as file:
                 file.writelines(begin + nodes + edges + end)
-        elif show:
+        elif show:  # pragma: no cover
             print(''.join(begin + nodes + edges + end))
 
 
@@ -444,31 +444,6 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
 def pregroup_draw(words, cups, **params):
     """
     Draws pregroup words and cups.
-
-    >>> from discopy import *
-    >>> s, n = Ty('s'), Ty('n')
-    >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
-    >>> loves = Word('loves', n.r @ s @ n.l)
-    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    >>> words, *cups = sentence.foliation().boxes
-    >>> pregroup_draw(words, cups, to_tikz=True, fontsize=2)
-    \\node [scale=2] () at (1.1, -0.2) {n};
-    \\draw (0.0, 0) -- (2.0, 0) -- (1.0, 1) -- (0.0, 0);
-    \\node [scale=2] () at (1.0, 0.1) {Alice};
-    \\node [scale=2] () at (3.1, -0.2) {n.r};
-    \\node [scale=2] () at (3.6, -0.2) {s};
-    \\node [scale=2] () at (4.1, -0.2) {n.l};
-    \\draw (2.5, 0) -- (4.5, 0) -- (3.5, 1) -- (2.5, 0);
-    \\node [scale=2] () at (3.5, 0.1) {loves};
-    \\node [scale=2] () at (6.1, -0.2) {n};
-    \\draw (5.0, 0) -- (7.0, 0) -- (6.0, 1) -- (5.0, 0);
-    \\node [scale=2] () at (6.0, 0.1) {Bob};
-    \\draw [out=-90, in=180] (1.0, 0) to (2.0, -1);
-    \\draw [out=-90, in=0] (3.0, 0) to (2.0, -1);
-    \\draw [out=-90, in=180] (4.0, 0) to (5.0, -1);
-    \\draw [out=-90, in=0] (6.0, 0) to (5.0, -1);
-    \\draw [out=-90, in=90] (3.5, 0) to (3.5, -2);
-    \\node [scale=2] () at (3.6, -1.5) {s};
     """
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
@@ -527,40 +502,11 @@ def pregroup_draw(words, cups, **params):
         aspect=params.get('aspect', DEFAULT.aspect))
 
 
-def equation(*diagrams, backend=None, symbol="=", space=1, **params):
-    """
-    >>> from discopy import *
-    >>> x = Ty('x')
-    >>> diagrams = Id(x.r).transpose(left=True), Id(x.l).transpose()
-    >>> equation(*diagrams, to_tikz=True)
-    \\node [right] () at (0.1, 2.0) {x};
-    \\node [right] () at (1.1, 1.15) {x.r};
-    \\node [right] () at (2.1, 1.15) {x};
-    \\draw [out=-90, in=90] (0, 2.0) to (0, 0.75);
-    \\draw [out=180, in=90] (1.5, 1.5) to (1.0, 1.25);
-    \\draw [out=0, in=90] (1.5, 1.5) to (2.0, 1.25);
-    \\draw [out=-90, in=90] (1.0, 1.25) to (1.0, 0.75);
-    \\draw [out=-90, in=90] (2.0, 1.25) to (2.0, 0.0);
-    \\draw [out=-90, in=180] (0, 0.75) to (0.5, 0.5);
-    \\draw [out=-90, in=0] (1.0, 0.75) to (0.5, 0.5);
-    \\node [] () at (3.0, 1.0) {=};
-    \\node [right] () at (6.1, 2.0) {x};
-    \\node [right] () at (4.1, 1.15) {x};
-    \\node [right] () at (5.1, 1.15) {x.l};
-    \\draw [out=-90, in=90] (6.0, 2.0) to (6.0, 0.75);
-    \\draw [out=180, in=90] (4.5, 1.5) to (4.0, 1.25);
-    \\draw [out=0, in=90] (4.5, 1.5) to (5.0, 1.25);
-    \\draw [out=-90, in=90] (4.0, 1.25) to (4.0, 0.0);
-    \\draw [out=-90, in=90] (5.0, 1.25) to (5.0, 0.75);
-    \\draw [out=-90, in=180] (5.0, 0.75) to (5.5, 0.5);
-    \\draw [out=-90, in=0] (6.0, 0.75) to (5.5, 0.5);
-    """
+def equation(*diagrams, path=None, symbol="=", space=1, **params):
+    """ Draws an equation with multiple diagrams. """
     pad, max_height = 0, max(map(len, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
-    path = params.get("path", None)
-
-    backend = backend if backend is not None else\
-        TikzBackend() if params.get('to_tikz', False)\
+    backend = TikzBackend() if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
     def scale_and_pad(diagram, pos, scale, pad):
@@ -570,15 +516,14 @@ def equation(*diagrams, backend=None, symbol="=", space=1, **params):
                    (y - min_height) * scale[1] + pad[1])
                for n, (x, y) in pos.items()}
         for depth, box in enumerate(diagram.boxes):
-            if "box_{}".format(depth) in pos:
-                for i, _ in enumerate(box.dom):
-                    node = "wire_dom_{}_{}".format(depth, i)
-                    pos[node] = (
-                        pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
-                for i, _ in enumerate(box.cod):
-                    node = "wire_cod_{}_{}".format(depth, i)
-                    pos[node] = (
-                        pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
+            for i, obj in enumerate(box.dom):
+                node = DomNode(obj, i, depth)
+                pos[node] = (
+                    pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
+            for i, obj in enumerate(box.cod):
+                node = CodNode(obj, i, depth)
+                pos[node] = (
+                    pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
         return pos
 
     for i, diagram in enumerate(diagrams):
@@ -586,7 +531,7 @@ def equation(*diagrams, backend=None, symbol="=", space=1, **params):
         graph, positions = diagram_to_nx(diagram)
         positions = scale_and_pad(diagram, positions, scale, (pad, 0))
         diagram.draw(backend=backend, data=(graph, positions),
-                     **dict(params, show=False))
+                     **dict(params, show=False, path=None))
         widths = {x for x, _ in positions.values()}
         min_width, max_width = min(widths), max(widths)
         pad += max_width - min_width + space
@@ -595,7 +540,7 @@ def equation(*diagrams, backend=None, symbol="=", space=1, **params):
             pad += space
 
     return backend.output(
-        path,
+        path=path,
         baseline=max_height / 2,
         tikz_options=params.get('tikz_options', None),
         show=params.get("show", True),
