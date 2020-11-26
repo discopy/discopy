@@ -42,6 +42,14 @@ class SHAPES:
     square = 's'
     circle = 'o'
 
+""" Drawing tikzit styles. """
+STYLES = {
+    ('circle', 'green'): 'Z',
+    ('circle', 'red'): 'X',
+    ('circle', 'blue'): 'Y',
+    ('square', 'yellow'): 'H',
+}
+
 
 class Node:
     """ Node in a :class:`networkx.Graph`, can hold arbitrary data. """
@@ -198,8 +206,9 @@ class Backend(ABC):
 
 class TikzBackend(Backend):
     """ Tikz drawing backend. """
-    def __init__(self):
+    def __init__(self, use_tikzstyles=False):
         self.nodes, self.nodelayer, self.edgelayer = {}, [], []
+        self.use_tikzstyles = use_tikzstyles
 
     def add_node(self, i, j, text=None, options=None):
         """ Add a node to the tikz picture, return its unique id. """
@@ -224,7 +233,8 @@ class TikzBackend(Backend):
         for point in points:
             nodes.append(self.add_node(*point))
         nodes.append(nodes[0])
-        self.edgelayer.append("\\draw {};\n".format(" to ".join(
+        options = "style=boxedge" if self.use_tikzstyles else ""
+        self.edgelayer.append("\\draw [{}] {};\n".format(options, " to ".join(
             "({}.center)".format(node) for node in nodes)))
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
@@ -245,7 +255,10 @@ class TikzBackend(Backend):
             i, j = positions[node]
             text = getattr(node.box, "drawing_name", str(node.box))\
                 if draw_box_labels else ""
-            options = "{}, fill={}".format(shape, color)
+            if (shape, color) in STYLES and self.use_tikzstyles:
+                options = "style={}".format(STYLES[(shape, color)])
+            else:
+                options = "{}, fill={}".format(shape, color)
             self.add_node(i, j, text, options)
 
     def output(self, path=None, show=True, **params):
@@ -336,7 +349,8 @@ def draw(diagram, backend=None, data=None, **params):
                if getattr(box, "draw_as_spider", False)]
 
     backend = backend if backend is not None else\
-        TikzBackend() if params.get('to_tikz', False)\
+        TikzBackend(use_tikzstyles=params.get('use_tikzstyles', False))\
+        if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
     def draw_box(box, depth):
@@ -451,7 +465,8 @@ def pregroup_draw(words, cups, **params):
     width = params.get('width', 2.)
     fontsize = params.get('fontsize', None)
 
-    backend = TikzBackend() if params.get('to_tikz', False)\
+    backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', False))\
+        if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
     def draw_triangles(words):
