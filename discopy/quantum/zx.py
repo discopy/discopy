@@ -318,7 +318,7 @@ class Had(Box):
         super().__init__('H', PRO(1), PRO(1))
         self.draw_as_spider = True
         self.drawing_name = ''
-        self.color, self.shape = "yellow", "square"
+        self.color, self.shape = "yellow", "rectangle"
 
     def __repr__(self):
         return self.name

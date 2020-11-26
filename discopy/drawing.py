@@ -39,7 +39,7 @@ class COLORS:
 @dataclass
 class SHAPES:
     """ Drawing shapes. """
-    square = 's'
+    rectangle = 's'
     circle = 'o'
 
 """ Drawing tikzit styles. """
@@ -47,7 +47,7 @@ STYLES = {
     ('circle', 'green'): 'Z',
     ('circle', 'red'): 'X',
     ('circle', 'blue'): 'Y',
-    ('square', 'yellow'): 'H',
+    ('rectangle', 'yellow'): 'H',
 }
 
 
