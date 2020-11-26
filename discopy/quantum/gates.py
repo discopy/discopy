@@ -5,7 +5,7 @@
 from collections.abc import Callable
 from discopy.cat import AxiomError
 from discopy.tensor import np, Dim, Tensor
-from discopy.quantum.circuit import bit, qubit, Box, Id, Circuit, Swap, Sum
+from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum
 
 
 def format_number(data):
@@ -115,6 +115,7 @@ class ClassicalGate(Box):
 
 
 class Copy(ClassicalGate):
+    """ Takes a bit, returns two copies of it. """
     def __init__(self):
         super().__init__("Copy", 1, 2, [1, 0, 0, 0, 0, 0, 0, 1])
         self.draw_as_spider, self.color = True, "black"
@@ -125,6 +126,7 @@ class Copy(ClassicalGate):
 
 
 class Match(ClassicalGate):
+    """ Takes two bits in, returns them if they are equal. """
     def __init__(self):
         super().__init__("Match", 2, 1, [1, 0, 0, 0, 0, 0, 0, 1])
         self.draw_as_spider, self.color = True, "black"

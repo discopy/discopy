@@ -102,9 +102,6 @@ bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 @monoidal.diagram_subclass
 class Circuit(Diagram):
     """ Classical-quantum circuits. """
-    def __init__(self, dom, cod, boxes, offsets, layers=None):
-        super().__init__(dom, cod, boxes, offsets, layers)
-
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
 
@@ -273,11 +270,11 @@ class Circuit(Diagram):
             if others:
                 return [circuit.get_counts(**params)
                         for circuit in (self, ) + others]
-            tensor, counts = self.init_and_discard().eval(backend=None), dict()
-            for i in range(2**len(tensor.cod)):
-                bits = index2bitstring(i, len(tensor.cod))
-                if tensor.array[bits]:
-                    counts[bits] = tensor.array[bits].real
+            utensor, counts = self.init_and_discard().eval(), dict()
+            for i in range(2**len(utensor.cod)):
+                bits = index2bitstring(i, len(utensor.cod))
+                if utensor.array[bits]:
+                    counts[bits] = utensor.array[bits].real
             return counts
         counts = self.to_tk().get_counts(
             *(other.to_tk() for other in others), backend=backend, **params)
@@ -471,10 +468,9 @@ class Circuit(Diagram):
         def cup_factory(left, right):
             if left == right == qubit:
                 return CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
-            elif left == right == bit:
+            if left == right == bit:
                 return Match() >> Discard(bit)
-            else:
-                raise ValueError
+            raise ValueError
         return rigid.cups(
             left, right, ar_factory=Circuit, cup_factory=cup_factory)
 

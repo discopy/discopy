@@ -11,8 +11,6 @@ Implements dagger monoidal functors into tensors.
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
-import itertools
-
 from discopy import messages, monoidal, rigid, config
 from discopy.cat import AxiomError
 from discopy.monoidal import Sum
@@ -248,11 +246,13 @@ class Tensor(rigid.Box):
                  for x in self.array.flatten()]
         return Tensor(self.dom, self.cod, array)
 
-    def grad(self, *vars):  # pragma: no cover
+    def grad(self, *variables):  # pragma: no cover
+        """ Gradient with respect to vars. """
         array = np.array([[
             getattr(x, "diff", lambda _: 0)(var) for x in self.array.flatten()]
-            for var in vars]).reshape(Dim(len(vars)) @ self.dom @ self.cod)
-        return Tensor(Dim(len(vars)) @ self.dom, self.cod, array)
+            for var in variables])
+        array = array.reshape(Dim(len(variables)) @ self.dom @ self.cod)
+        return Tensor(Dim(len(variables)) @ self.dom, self.cod, array)
 
 
 class Functor(rigid.Functor):
@@ -462,10 +462,10 @@ class Frobenius(Box):
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
     """
     def __init__(self, n_wires_in, n_wires_out, dim):
-        import numpy as np
+        import numpy
         name = "Frobenius({}, {}, dim={})".format(n_wires_in, n_wires_out, dim)
         dom, cod = Dim(dim) ** n_wires_in, Dim(dim) ** n_wires_out
-        array = np.zeros(dom @ cod)
+        array = numpy.zeros(dom @ cod)
         for i in range(dim):
             array[len(dom @ cod) * (i, )] = 1
         self.draw_as_spider, self.color, self.drawing_name = True, "black", ""

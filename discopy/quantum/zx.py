@@ -99,9 +99,9 @@ class Diagram(rigid.Diagram):
                     phase=box.phase * 2 if box.phase else None)
                 graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
-                    input, hadamard = scan[offset + i]
+                    source, hadamard = scan[offset + i]
                     etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
-                    graph.add_edge((input, node), etype)
+                    graph.add_edge((source, node), etype)
                 scan = scan[:offset] + len(box.cod) * [(node, False)]\
                     + scan[offset + len(box.dom):]
             elif isinstance(box, Swap):
@@ -165,7 +165,7 @@ class Diagram(rigid.Diagram):
                 scan = scan[:source] + scan[source + 1:target]\
                     + [node] + scan[target:]
             else:
-                scan, swaps = scan, Id(len(scan))
+                swaps = Id(len(scan))
             return scan, swaps
 
         def make_wires_adjacent(scan, diagram, inputs):
@@ -192,7 +192,7 @@ class Diagram(rigid.Diagram):
                      if v not in graph.inputs + graph.outputs]:
             inputs = [v for v in graph.neighbors(node) if v < node
                       and v not in graph.outputs or v in graph.inputs]
-            inputs.sort(key=lambda v: scan.index(v))
+            inputs.sort(key=scan.index)
             outputs = [v for v in graph.neighbors(node) if v > node
                        and v not in graph.inputs or v in graph.outputs]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
@@ -385,6 +385,7 @@ def gate2zx(box):
         CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}
     return standard_gates[box]
+
 
 circuit2zx = Functor(
     ob={qubit: PRO(1)}, ar=gate2zx,
