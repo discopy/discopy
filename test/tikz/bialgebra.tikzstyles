@@ -1,0 +1,4 @@
+% Node styles
+\tikzstyle{X}=[fill={rgb,255: red,232; green,165; blue,165}]
+\tikzstyle{Z}=[fill={rgb,255: red,216; green,248; blue,216}]
+% Edge styles

@@ -22,7 +22,8 @@ class DEFAULT:
     fontsize = 12
     margins = (.05, .05)
     textpad = (.1, .1)
-    color = '#ffffff'
+    color = 'white'
+    use_tikzstyles = False
 
 
 @dataclass
@@ -41,14 +42,6 @@ class SHAPES:
     """ Drawing shapes. """
     rectangle = 's'
     circle = 'o'
-
-""" Drawing tikzit styles. """
-STYLES = {
-    ('circle', 'green'): 'Z',
-    ('circle', 'red'): 'X',
-    ('circle', 'blue'): 'Y',
-    ('rectangle', 'yellow'): 'H',
-}
 
 
 class Node:
@@ -206,9 +199,18 @@ class Backend(ABC):
 
 class TikzBackend(Backend):
     """ Tikz drawing backend. """
-    def __init__(self, use_tikzstyles=False):
+    def __init__(self, use_tikzstyles=None):
+        self.use_tikzstyles = DEFAULT.use_tikzstyles\
+            if use_tikzstyles is None else use_tikzstyles
+        self.node_styles, self.edge_styles = [], []
         self.nodes, self.nodelayer, self.edgelayer = {}, [], []
-        self.use_tikzstyles = use_tikzstyles
+
+    @staticmethod
+    def format_color(color):
+        hexcode = getattr(COLORS, color)
+        rgb = [
+            int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
+        return "{{rgb,255: red,{}; green,{}; blue,{}}}".format(*rgb)
 
     def add_node(self, i, j, text=None, options=None):
         """ Add a node to the tikz picture, return its unique id. """
@@ -220,12 +222,11 @@ class TikzBackend(Backend):
         return node
 
     def draw_text(self, text, i, j, **params):
-        options = ""
+        options = "style=none"
         if params.get("verticalalignment", "center") == "top":  # wire labels
-            options += "right"
+            options += ", right"
         if 'fontsize' in params and params['fontsize'] is not None:
-            options += (", " if options else "") +\
-                "scale={}".format(params['fontsize'])
+            options += ", scale={}".format(params['fontsize'])
         self.add_node(i, j, text, options)
 
     def draw_polygon(self, *points, color=DEFAULT.color):
@@ -233,7 +234,16 @@ class TikzBackend(Backend):
         for point in points:
             nodes.append(self.add_node(*point))
         nodes.append(nodes[0])
-        options = "style=boxedge" if self.use_tikzstyles else ""
+        if self.use_tikzstyles:
+            style_name = "box" if color == DEFAULT.color\
+                else "{}_box".format(color)
+            style = "\\tikzstyle{{{}}}=[-, fill={}]\n"\
+                .format(style_name, self.format_color(color))
+            if style not in self.edge_styles:
+                self.edge_styles.append(style)
+            options = "style={}".format(style_name)
+        else:
+            options = "-, fill={{{}}}".format(color)
         self.edgelayer.append("\\draw [{}] {};\n".format(options, " to ".join(
             "({}.center)".format(node) for node in nodes)))
 
@@ -255,8 +265,13 @@ class TikzBackend(Backend):
             i, j = positions[node]
             text = getattr(node.box, "drawing_name", str(node.box))\
                 if draw_box_labels else ""
-            if (shape, color) in STYLES and self.use_tikzstyles:
-                options = "style={}".format(STYLES[(shape, color)])
+            if self.use_tikzstyles:
+                style_name = getattr(node.box, "tikzstyle_name", str(node.box))
+                style = "\\tikzstyle{{{}}}=[fill={}]\n"\
+                    .format(style_name, self.format_color(color))
+                if style not in self.node_styles:
+                    self.node_styles.append(style)
+                options = "style={}".format(style_name)
             else:
                 options = "{}, fill={}".format(shape, color)
             self.add_node(i, j, text, options)
@@ -264,6 +279,8 @@ class TikzBackend(Backend):
     def output(self, path=None, show=True, **params):
         baseline = params.get("baseline", 0)
         tikz_options = params.get("tikz_options", None)
+        output_tikzstyle = self.use_tikzstyles\
+            and params.get("output_tikzstyle", True)
         options = "baseline=(0.base)" if tikz_options is None\
             else "baseline=(0.base), " + tikz_options
         begin = ["\\begin{{tikzpicture}}[{}]\n".format(options)]
@@ -274,9 +291,16 @@ class TikzBackend(Backend):
                 ["\\end{pgfonlayer}\n"]
         end = ["\\end{tikzpicture}\n"]
         if path is not None:
+            if output_tikzstyle:
+                style_path = '.'.join(path.split('.')[:-1]) + '.tikzstyles'
+                with open(style_path, 'w+') as file:
+                    file.writelines(["% Node styles\n"] + self.node_styles)
+                    file.writelines(["% Edge styles\n"] + self.edge_styles)
             with open(path, 'w+') as file:
                 file.writelines(begin + nodes + edges + end)
         elif show:  # pragma: no cover
+            if output_tikzstyle:
+                print(''.join(self.node_styles + self.edge_styles))
             print(''.join(begin + nodes + edges + end))
 
 
@@ -293,7 +317,7 @@ class MatBackend(Backend):
         codes = [Path.MOVETO]
         codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
         path = Path(points + points[:1], codes)
-        self.axis.add_patch(PathPatch(path, facecolor=color))
+        self.axis.add_patch(PathPatch(path, facecolor=getattr(COLORS, color)))
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
         mid = (target[0], source[1]) if bend_out else (source[0], target[1])
@@ -349,7 +373,7 @@ def draw(diagram, backend=None, data=None, **params):
                if getattr(box, "draw_as_spider", False)]
 
     backend = backend if backend is not None else\
-        TikzBackend(use_tikzstyles=params.get('use_tikzstyles', False))\
+        TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
@@ -357,7 +381,7 @@ def draw(diagram, backend=None, data=None, **params):
         node = BoxNode(box, depth)
         if getattr(box, "draw_as_wire", False):
             return
-        if not box.dom and not box.cod:  # pragma: no cover
+        if not box.dom and not box.cod:
             left, right = positions[node][0], positions[node][0]
         elif not box.dom:
             left, right = (
@@ -465,7 +489,7 @@ def pregroup_draw(words, cups, **params):
     width = params.get('width', 2.)
     fontsize = params.get('fontsize', None)
 
-    backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', False))\
+    backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
@@ -484,7 +508,7 @@ def pregroup_draw(words, cups, **params):
                 ((space + width) * i, 0),
                 ((space + width) * i + width, 0),
                 ((space + width) * i + width / 2, 1),
-                color='none')
+                color=DEFAULT.color)
             backend.draw_text(
                 str(word), (space + width) * i + width / 2 + textpad_words[0],
                 textpad_words[1], ha='center', fontsize=fontsize)
@@ -521,7 +545,8 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
     """ Draws an equation with multiple diagrams. """
     pad, max_height = 0, max(map(len, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
-    backend = TikzBackend() if params.get('to_tikz', False)\
+    backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
+        if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
     def scale_and_pad(diagram, pos, scale, pad):

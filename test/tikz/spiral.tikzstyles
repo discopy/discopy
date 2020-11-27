@@ -1,0 +1,6 @@
+% Node styles
+\tikzstyle{unit}=[fill={rgb,255: red,0; green,0; blue,0}]
+\tikzstyle{cap}=[fill={rgb,255: red,0; green,0; blue,0}]
+\tikzstyle{counit}=[fill={rgb,255: red,0; green,0; blue,0}]
+\tikzstyle{cup}=[fill={rgb,255: red,0; green,0; blue,0}]
+% Edge styles

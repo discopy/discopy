@@ -260,6 +260,7 @@ class Spider(Box):
         dom, cod = PRO(n_legs_in), PRO(n_legs_out)
         super().__init__(name, dom, cod, data=phase)
         self.draw_as_spider, self.drawing_name = True, phase or ""
+        self.tikzstyle_name = name
 
     @property
     def name(self):
@@ -317,7 +318,7 @@ class Had(Box):
     def __init__(self):
         super().__init__('H', PRO(1), PRO(1))
         self.draw_as_spider = True
-        self.drawing_name = ''
+        self.drawing_name, self.tikzstyle_name, = '', 'H'
         self.color, self.shape = "yellow", "rectangle"
 
     def __repr__(self):
