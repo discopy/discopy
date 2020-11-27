@@ -17,6 +17,7 @@ discopy
    tensor
    quantum/index
    grammar/index
+   drawing
 
 .. toctree::
   :caption: Notebooks

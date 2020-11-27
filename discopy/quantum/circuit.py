@@ -138,7 +138,7 @@ class Circuit(Diagram):
 
         Parameters
         ----------
-        others : Circuit
+        others : :class:`discopy.quantum.circuit.Circuit`
             Other circuits to process in batch.
         backend : pytket.Backend, optional
             Backend on which to run the circuit, if none then we apply
@@ -229,7 +229,7 @@ class Circuit(Diagram):
 
         Parameters
         ----------
-        others : Circuit
+        others : :class:`discopy.quantum.circuit.Circuit`
             Other circuits to process in batch.
         backend : pytket.Backend, optional
             Backend on which to run the circuit, if none then `numpy`.
