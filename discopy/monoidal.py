@@ -29,11 +29,14 @@ We can check the axioms for dagger monoidal categories, up to interchanger.
 >>> assert (f0 @ f1)[::-1][::-1] == f0 @ f1
 >>> assert (f0 @ f1)[::-1].interchange(0, 1) == f0[::-1] @ f1[::-1]
 
-We can check the Eckerman-Hilton argument, up to interchanger.
+We can check the Eckmann-Hilton argument, up to interchanger.
 
 >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
+
+.. image:: ../../_static/imgs/EckmannHilton.gif
+    :align: center
 """
 
 from discopy import cat, messages, drawing
@@ -310,6 +313,11 @@ class Diagram(cat.Arrow):
     >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
     >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
     >>> assert d == f0 @ f1 >> g
+
+    >>> d.draw(figsize=(2, 2), path='docs/_static/imgs/monoidal/arrow-example.png')
+
+    .. image:: ../../_static/imgs/monoidal/arrow-example.png
+        :align: center
     """
     @staticmethod
     def upgrade(old):
@@ -383,6 +391,11 @@ class Diagram(cat.Arrow):
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
+        
+        >>> (f0 @ f1).draw(figsize=(2, 2), path='docs/_static/imgs/monoidal/tensor-example.png')
+
+        .. image:: ../../_static/imgs/monoidal/tensor-example.png
+            :align: center
 
         Parameters
         ----------
@@ -646,17 +659,35 @@ class Diagram(cat.Arrow):
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> d = (f0 @ Id(y) >> f0.dagger() @ f1) @ (f0 >> f1)
+        >>> d = (f0 @ Id(x) >> f0.dagger() @ f1.dagger()) @ (f0 >> f1)
         >>> *_, slices = d.foliate(yield_slices=True)
         >>> print(slices[0])
-        f0 @ Id(y @ x) >> Id(y) @ f1 @ Id(x) >> Id(y @ x) @ f0
+        f0 @ Id(x @ x) >> Id(y) @ f1[::-1] @ Id(x) >> Id(y @ y) @ f0
         >>> print(slices[1])
-        f0[::-1] @ Id(x @ y) >> Id(x @ x) @ f1
+        f0[::-1] @ Id(y @ y) >> Id(x @ y) @ f1
+
+        >>> d.draw(figsize=(4, 2), path='docs/_static/imgs/monoidal/foliate-example-1a.png')
+
+        .. image:: ../../_static/imgs/monoidal/foliate-example-1a.png
+            :align: center
+
+        >>> drawing.equation(*slices, symbol=', ', figsize=(4, 2),\\
+        ... path='docs/_static/imgs/monoidal/foliate-example-1b.png')
+
+        .. image:: ../../_static/imgs/monoidal/foliate-example-1b.png
+            :align: center
+
         >>> ket = Box('ket', Ty(), x)
         >>> scalar = Box('scalar', Ty(), Ty())
         >>> kets = scalar @ ket @ scalar @ ket
         >>> a = kets.foliate()
         >>> assert next(a) == kets
+
+        >>> kets.draw(figsize=(2, 2), path='docs/_static/imgs/monoidal/foliate-example-2.png')
+
+        .. image:: ../../_static/imgs/monoidal/foliate-example-2.png
+            :align: center
+
         """
         def is_right_of(last, diagram):
             off0, off1 = diagram.offsets[last], diagram.offsets[last + 1]
@@ -748,7 +779,7 @@ class Diagram(cat.Arrow):
 
     def depth(self):
         """
-        Computes the depth of a diagram by foliating it
+        Computes the depth of a diagram by foliating it.
 
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
@@ -935,6 +966,12 @@ class Functor(cat.Functor):
     >>> assert F(F(f0)) == f0
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
+
+    >>> drawing.equation(f0 >> f0[::-1], F(f0 >> f0[::-1]), symbol='|->',\
+        figsize=(4, 2), path='docs/_static/imgs/monoidal/functor-example.png')
+    
+    .. image:: ../../_static/imgs/monoidal/functor-example.png
+        :align: center
     """
     def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
         if ob_factory is None:

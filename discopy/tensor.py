@@ -11,7 +11,7 @@ Implements dagger monoidal functors into tensors.
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
-from discopy import messages, monoidal, rigid, config
+from discopy import messages, monoidal, rigid, config, drawing
 from discopy.cat import AxiomError
 from discopy.monoidal import Sum
 from discopy.rigid import Ob, Ty, Cup, Cap
@@ -457,9 +457,15 @@ class Frobenius(Box):
 
     Examples
     --------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Frobenius(1, 2, dim=2)
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
+
+    >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
+    ... path='docs/_static/imgs/tensor/frobenius-example.png')
+
+    .. image:: ../../_static/imgs/tensor/frobenius-example.png
+        :align: center
     """
     def __init__(self, n_wires_in, n_wires_out, dim):
         import numpy

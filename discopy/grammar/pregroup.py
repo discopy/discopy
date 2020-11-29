@@ -14,6 +14,12 @@ Implements pregroup grammars and distributional compositional models.
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
 >>> F = Functor(ob, ar)
 >>> assert F(sentence) == True
+
+>>> draw(sentence, figsize=(4, 2),\\
+... path='docs/_static/imgs/grammar/pregroup-example.png')
+
+.. image:: ../../_static/imgs/grammar/pregroup-example.png
+    :align: center
 """
 
 from discopy import messages, drawing

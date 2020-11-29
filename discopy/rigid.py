@@ -11,9 +11,15 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> assert t.l.r == t == t.r.l
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
+
+>>> drawing.equation(left_snake, Id(n), right_snake, figsize=(4, 2),\\
+... path='docs/_static/imgs/rigid/rigid-example.png')
+
+.. image:: ../../_static/imgs/rigid/rigid-example.png
+    :align: center
 """
 
-from discopy import cat, monoidal, messages
+from discopy import cat, monoidal, messages, drawing
 from discopy.cat import AxiomError
 
 
@@ -134,8 +140,14 @@ class Diagram(monoidal.Diagram):
     >>> I, n, s = Ty(), Ty('n'), Ty('s')
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
     >>> boxes, offsets = [Alice, jokes, Cup(n, n.r)], [0, 1, 0]
-    >>> print(Diagram(Alice.dom @ jokes.dom, s, boxes, offsets))
+    >>> d = Diagram(Alice.dom @ jokes.dom, s, boxes, offsets)
+    >>> print(d)
     Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
+
+    >>> d.draw(figsize=(3, 2), path='docs/_static/imgs/rigid/diagram-example.png')
+
+    .. image:: ../../_static/imgs/rigid/diagram-example.png
+        :align: center
     """
     @staticmethod
     def id(dom):
@@ -174,6 +186,12 @@ class Diagram(monoidal.Diagram):
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
         >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
         ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
+
+        >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
+        ... margins=(0.3, 0.05), path='docs/_static/imgs/rigid/cups.png')
+    
+    .. image:: ../../_static/imgs/rigid/cups.png
+        :align: center
         """
         return cups(left, right)
 
@@ -399,6 +417,12 @@ class Cup(Box):
     >>> n = Ty('n')
     >>> Cup(n, n.r)
     Cup(Ty('n'), Ty(Ob('n', z=1)))
+
+    >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
+    ... path='docs/_static/imgs/rigid/cup.png')
+    
+    .. image:: ../../_static/imgs/rigid/cup.png
+        :align: center
     """
     def __init__(self, left, right):
         if not isinstance(left, Ty):
@@ -427,6 +451,12 @@ class Cap(Box):
     >>> n = Ty('n')
     >>> Cap(n, n.l)
     Cap(Ty('n'), Ty(Ob('n', z=-1)))
+
+    >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
+    ... path='docs/_static/imgs/rigid/cap.png')
+    
+    .. image:: ../../_static/imgs/rigid/cap.png
+        :align: center
     """
     def __init__(self, left, right):
         if not isinstance(left, Ty):
@@ -464,6 +494,12 @@ class Functor(monoidal.Functor):
     >>> F = Functor(ob, ar)
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
+
+    >>> drawing.equation(sentence, F(sentence), symbol='|->', figsize=(5,2),\\
+    ... path='docs/_static/imgs/rigid/functor-example.png')
+
+    .. image:: ../../_static/imgs/rigid/functor-example.png
+        :align: center
     """
     def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
