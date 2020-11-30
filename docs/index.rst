@@ -7,9 +7,17 @@ discopy
 .. automodule:: discopy
 
 .. toctree::
-    :caption: Notebooks, Talks & Slides
+    :caption: Talks
 
-    talks/index
+    talks/qnlp19
+    talks/qnlp20
+    talks/act20
+    talks/pydata.berlin
+
+
+.. toctree::
+    :caption: Notebooks
+
     notebooks/crema-di-mascarpone
     notebooks/lasagna-recursion
     nlp
