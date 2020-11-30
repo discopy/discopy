@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """ Taken from https://github.com/sphinx-contrib/youtube """
