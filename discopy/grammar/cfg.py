@@ -20,7 +20,7 @@ Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
 >>> sentence.draw(figsize=(4, 3),\\
 ... path='docs/_static/imgs/grammar/cfg-example.png')
 
-.. image:: ../../_static/imgs/grammar/cfg-example.png
+.. image:: ../_static/imgs/grammar/cfg-example.png
     :align: center
 """
 

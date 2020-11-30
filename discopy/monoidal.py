@@ -35,7 +35,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-.. image:: ../../_static/imgs/EckmannHilton.gif
+.. image:: _static/imgs/EckmannHilton.gif
     :align: center
 """
 
@@ -314,7 +314,8 @@ class Diagram(cat.Arrow):
     >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
     >>> assert d == f0 @ f1 >> g
 
-    >>> d.draw(figsize=(2, 2), path='docs/_static/imgs/monoidal/arrow-example.png')
+    >>> d.draw(figsize=(2, 2),
+    ...        path='docs/_static/imgs/monoidal/arrow-example.png')
 
     .. image:: ../../_static/imgs/monoidal/arrow-example.png
         :align: center
@@ -391,8 +392,10 @@ class Diagram(cat.Arrow):
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
-        
-        >>> (f0 @ f1).draw(figsize=(2, 2), path='docs/_static/imgs/monoidal/tensor-example.png')
+
+        >>> (f0 @ f1).draw(
+        ...     figsize=(2, 2),
+        ...     path='docs/_static/imgs/monoidal/tensor-example.png')
 
         .. image:: ../../_static/imgs/monoidal/tensor-example.png
             :align: center
@@ -666,13 +669,15 @@ class Diagram(cat.Arrow):
         >>> print(slices[1])
         f0[::-1] @ Id(y @ y) >> Id(x @ y) @ f1
 
-        >>> d.draw(figsize=(4, 2), path='docs/_static/imgs/monoidal/foliate-example-1a.png')
+        >>> d.draw(figsize=(4, 2),
+        ...        path='docs/_static/imgs/monoidal/foliate-example-1a.png')
 
         .. image:: ../../_static/imgs/monoidal/foliate-example-1a.png
             :align: center
 
-        >>> drawing.equation(*slices, symbol=', ', figsize=(4, 2),\\
-        ... path='docs/_static/imgs/monoidal/foliate-example-1b.png')
+        >>> drawing.equation(
+        ...     *slices, symbol=', ', figsize=(4, 2),
+        ...     path='docs/_static/imgs/monoidal/foliate-example-1b.png')
 
         .. image:: ../../_static/imgs/monoidal/foliate-example-1b.png
             :align: center
@@ -683,7 +688,8 @@ class Diagram(cat.Arrow):
         >>> a = kets.foliate()
         >>> assert next(a) == kets
 
-        >>> kets.draw(figsize=(2, 2), path='docs/_static/imgs/monoidal/foliate-example-2.png')
+        >>> kets.draw(figsize=(2, 2),
+        ...           path='docs/_static/imgs/monoidal/foliate-example-2.png')
 
         .. image:: ../../_static/imgs/monoidal/foliate-example-2.png
             :align: center
@@ -969,7 +975,7 @@ class Functor(cat.Functor):
 
     >>> drawing.equation(f0 >> f0[::-1], F(f0 >> f0[::-1]), symbol='|->',\
         figsize=(4, 2), path='docs/_static/imgs/monoidal/functor-example.png')
-    
+
     .. image:: ../../_static/imgs/monoidal/functor-example.png
         :align: center
     """

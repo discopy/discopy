@@ -6,7 +6,7 @@ quantum.circuit
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary/quantum/circuit
+   :toctree: ../_autosummary/quantum.circuit
 
    discopy.quantum.circuit.BitsAndQubits
    discopy.quantum.circuit.Circuit

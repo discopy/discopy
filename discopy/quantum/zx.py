@@ -138,10 +138,8 @@ class Diagram(rigid.Diagram):
         ----
 
         Raises :code:`ValueError` if either:
-        - a boundary node is not in :code:`graph.inputs + graph.outputs`,
-        - :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty,
-        - there is an input node after a non-input node,
-        - or there is an output node before a non-output node.
+        * a boundary node is not in :code:`graph.inputs + graph.outputs`,
+        * :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty.
         """
         from pyzx import VertexType, EdgeType
 

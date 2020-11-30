@@ -15,7 +15,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> drawing.equation(left_snake, Id(n), right_snake, figsize=(4, 2),\\
 ... path='docs/_static/imgs/rigid/rigid-example.png')
 
-.. image:: ../../_static/imgs/rigid/rigid-example.png
+.. image:: _static/imgs/rigid/rigid-example.png
     :align: center
 """
 
@@ -144,7 +144,8 @@ class Diagram(monoidal.Diagram):
     >>> print(d)
     Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
 
-    >>> d.draw(figsize=(3, 2), path='docs/_static/imgs/rigid/diagram-example.png')
+    >>> d.draw(figsize=(3, 2),
+    ...        path='docs/_static/imgs/rigid/diagram-example.png')
 
     .. image:: ../../_static/imgs/rigid/diagram-example.png
         :align: center
@@ -189,7 +190,7 @@ class Diagram(monoidal.Diagram):
 
         >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
         ... margins=(0.3, 0.05), path='docs/_static/imgs/rigid/cups.png')
-    
+
     .. image:: ../../_static/imgs/rigid/cups.png
         :align: center
         """
@@ -420,7 +421,7 @@ class Cup(Box):
 
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cup.png')
-    
+
     .. image:: ../../_static/imgs/rigid/cup.png
         :align: center
     """
@@ -454,7 +455,7 @@ class Cap(Box):
 
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cap.png')
-    
+
     .. image:: ../../_static/imgs/rigid/cap.png
         :align: center
     """

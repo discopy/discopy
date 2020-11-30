@@ -6,7 +6,7 @@ grammar.ccg
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary/grammar/ccg
+   :toctree: ../_autosummary/grammar.ccg
 
    discopy.grammar.ccg.Word
    discopy.grammar.ccg.cat2ty

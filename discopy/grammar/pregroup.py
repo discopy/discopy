@@ -18,7 +18,7 @@ Implements pregroup grammars and distributional compositional models.
 >>> draw(sentence, figsize=(4, 2),\\
 ... path='docs/_static/imgs/grammar/pregroup-example.png')
 
-.. image:: ../../_static/imgs/grammar/pregroup-example.png
+.. image:: ../_static/imgs/grammar/pregroup-example.png
     :align: center
 """
 
