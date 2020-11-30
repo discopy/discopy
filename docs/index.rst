@@ -7,6 +7,17 @@ discopy
 .. automodule:: discopy
 
 .. toctree::
+    :caption: Notebooks, Talks & Slides
+
+    talks/index
+    notebooks/crema-di-mascarpone
+    notebooks/lasagna-recursion
+    nlp
+    notebooks/bell-test
+    notebooks/rewriting-diagrams
+    notebooks/new-features-0.3.3
+
+.. toctree::
    :maxdepth: 2
    :caption: API
 
@@ -18,16 +29,6 @@ discopy
    quantum/index
    grammar/index
    drawing
-
-.. toctree::
-  :caption: Notebooks
-
-  notebooks/crema-di-mascarpone
-  notebooks/lasagna-recursion
-  nlp
-  notebooks/bell-test
-  notebooks/rewriting-diagrams
-  notebooks/new-features-0.3.3
 
 Indices and tables
 ------------------
