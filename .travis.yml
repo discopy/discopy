@@ -12,6 +12,6 @@ install:
 script: coverage run -m py.test test/*.py discopy/*.py discopy/*/*.py --doctest-modules # run tests
 after_success:
   - coverage report -m discopy/*.py discopy/*/*.py
-  - coverage xml
+  - coverage xml discopy/*.py discopy/*/*.py
   - codecov # submit coverage
   - pylint discopy
