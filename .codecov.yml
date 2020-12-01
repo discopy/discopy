@@ -1,5 +1,5 @@
 fixes:
-    - "::/home/travis/build/oxford-quantum-group/"
+    - "::/home/travis/build/oxford-quantum-group/discopy/"
 
 codecov:
   disable_default_path_fixes: false
