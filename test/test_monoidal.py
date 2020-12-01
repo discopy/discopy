@@ -2,6 +2,7 @@
 
 from pytest import raises
 from discopy.monoidal import *
+from discopy.rewriting import *
 
 
 def test_Ty():

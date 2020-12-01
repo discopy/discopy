@@ -39,7 +39,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
     :align: center
 """
 
-from discopy import cat, messages, drawing
+from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob, Quiver, AxiomError
 
 
@@ -471,7 +471,7 @@ class Diagram(cat.Arrow):
             Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
     @staticmethod
-    def swap(left, right):
+    def swap(left, right, ar_factory=None, swap_factory=None):
         """
         Returns a diagram that swaps the left with the right wires.
 
@@ -487,10 +487,21 @@ class Diagram(cat.Arrow):
         diagram : monoidal.Diagram
             with :code:`diagram.dom == left @ right`
         """
-        return swap(left, right)
+        ar_factory = ar_factory or Diagram
+        swap_factory = swap_factory or Swap
+        if not left:
+            return ar_factory.id(right)
+        if len(left) == 1:
+            boxes = [
+                swap_factory(left, right[i: i + 1])
+                for i, _ in enumerate(right)]
+            offsets = range(len(right))
+            return ar_factory(left @ right, right @ left, boxes, offsets)
+        return ar_factory.id(left[:1]) @ ar_factory.swap(left[1:], right)\
+            >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
 
     @staticmethod
-    def permutation(perm, dom=None):
+    def permutation(perm, dom=None, ar_factory=None):
         """
         Returns the diagram that encodes a permutation of wires.
 
@@ -506,367 +517,41 @@ class Diagram(cat.Arrow):
         -------
         diagram : monoidal.Diagram
         """
-        return permutation(perm, dom)
-
-    def interchange(self, i, j, left=False):
-        """
-        Returns a new diagram with boxes i and j interchanged.
-
-        Gets called recursively whenever :code:`i < j + 1 or j < i - 1`.
-
-        Parameters
-        ----------
-        i : int
-            Index of the box to interchange.
-        j : int
-            Index of the new position for the box.
-        left : bool, optional
-            Whether to apply left interchangers.
-
-        Notes
-        -----
-        By default, we apply only right exchange moves::
-
-            top >> Id(left @ box1.dom @ mid) @ box0 @ Id(right)
-                >> Id(left) @ box1 @ Id(mid @ box0.cod @ right) >> bottom
-
-        gets rewritten to::
-
-            top >> Id(left) @ box1 @ Id(mid @ box0.dom @ right)
-                >> Id(left @ box1.cod @ mid) @ box0 @ Id(right) >> bottom
-        """
-        if not 0 <= i < len(self) or not 0 <= j < len(self):
-            raise IndexError
-        if i == j:
-            return self
-        if j < i - 1:
-            result = self
-            for k in range(i - j):
-                result = result.interchange(i - k, i - k - 1, left=left)
-            return result
-        if j > i + 1:
-            result = self
-            for k in range(j - i):
-                result = result.interchange(i + k, i + k + 1, left=left)
-            return result
-        if j < i:
-            i, j = j, i
-        off0, off1 = self.offsets[i], self.offsets[j]
-        left0, box0, right0 = self.layers[i]
-        left1, box1, right1 = self.layers[j]
-        # By default, we check if box0 is to the right first, then to the left.
-        if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
-            off1 = off1 - len(box0.cod) + len(box0.dom)
-            middle = left1[len(left0 @ box0.cod):]
-            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
-            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
-        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
-            off0 = off0 - len(box1.dom) + len(box1.cod)
-            middle = left0[len(left1 @ box1.dom):]
-            layer0 = Layer(left1 @ box1.cod @ middle, box0, right0)
-            layer1 = Layer(left1, box1, middle @ box0.dom @ right0)
-        elif off1 >= off0 + len(box0.cod):  # box0 left of box1
-            off1 = off1 - len(box0.cod) + len(box0.dom)
-            middle = left1[len(left0 @ box0.cod):]
-            layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
-            layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
-        else:
-            raise InterchangerError(box0, box1)
-        boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
-        offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
-        layers = self.layers[:i] >> layer1 >> layer0 >> self.layers[i + 2:]
-        return self.upgrade(
-            Diagram(self.dom, self.cod, boxes, offsets, layers=layers))
-
-    def normalize(self, left=False):
-        """
-        Implements normalisation of connected diagrams, see arXiv:1804.07832.
-
-        Parameters
-        ----------
-        left : bool, optional
-            Passed to :meth:`Diagram.interchange`.
-
-        Yields
-        ------
-        diagram : :class:`Diagram`
-            Rewrite steps.
-
-        Examples
-        --------
-
-        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-        >>> gen = (s0 @ s1).normalize()
-        >>> for _ in range(3): print(next(gen))
-        s1 >> s0
-        s0 >> s1
-        s1 >> s0
-        """
-        diagram = self
-        while True:
-            no_more_moves = True
-            for i in range(len(diagram) - 1):
-                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
-                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
-                if left and off1 >= off0 + len(box0.cod)\
-                        or not left and off0 >= off1 + len(box1.dom):
-                    diagram = diagram.interchange(i, i + 1, left=left)
-                    yield diagram
-                    no_more_moves = False
-            if no_more_moves:
-                break
-
-    def normal_form(self, normalize=None, **params):
-        """
-        Returns the normal form of a diagram.
-
-        Parameters
-        ----------
-        normalize : iterable of :class:`Diagram`, optional
-            Generator that yields rewrite steps, default is
-            :meth:`Diagram.normalize`.
-
-        params : any, optional
-            Passed to :code:`normalize`.
-
-        Raises
-        ------
-        NotImplementedError
-            Whenever :code:`normalize` yields the same rewrite steps twice.
-        """
-        diagram, cache = self, set()
-        for _diagram in (normalize or Diagram.normalize)(diagram, **params):
-            if _diagram in cache:
-                raise NotImplementedError(messages.is_not_connected(self))
-            diagram = _diagram
-            cache.add(diagram)
+        ar_factory = ar_factory or Diagram
+        if set(range(len(perm))) != set(perm):
+            raise ValueError("Input should be a permutation of range(n).")
+        if dom is None:
+            dom = PRO(len(perm))
+        if len(dom) != len(perm):
+            raise ValueError(
+                "Domain and permutation should have the same length.")
+        diagram = ar_factory.id(dom)
+        for i in range(len(dom)):
+            j = perm.index(i)
+            diagram = diagram >> ar_factory.id(diagram.cod[:i])\
+                @ ar_factory.swap(diagram.cod[i:j], diagram.cod[j:j + 1])\
+                @ ar_factory.id(diagram.cod[j + 1:])
+            perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
         return diagram
 
-    def foliate(self, yield_slices=False):
-        """
-        Generator yielding the interchanger steps in the foliation of self.
+    @staticmethod
+    def subclass(cls):
+        """ Decorator for subclasses of Diagram. """
+        def upgrade(old):
+            return cls(old.dom, old.cod, old.boxes, old.offsets, old.layers)
+        cls.upgrade = staticmethod(upgrade)
+        return cls
 
-        Yields
-        ------
-        diagram : :class:`Diagram`
-            Rewrite steps of the foliation.
-
-        Parameters
-        ----------
-        yield_slices : bool, optional
-            Yield the list of slices of self as last output,
-            used in :meth:`Diagram.foliation`.
-
-        Examples
-        --------
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> d = (f0 @ Id(x) >> f0.dagger() @ f1.dagger()) @ (f0 >> f1)
-        >>> *_, slices = d.foliate(yield_slices=True)
-        >>> print(slices[0])
-        f0 @ Id(x @ x) >> Id(y) @ f1[::-1] @ Id(x) >> Id(y @ y) @ f0
-        >>> print(slices[1])
-        f0[::-1] @ Id(y @ y) >> Id(x @ y) @ f1
-
-        >>> d.draw(figsize=(4, 2),
-        ...        path='docs/_static/imgs/monoidal/foliate-example-1a.png')
-
-        .. image:: ../../_static/imgs/monoidal/foliate-example-1a.png
-            :align: center
-
-        >>> drawing.equation(
-        ...     *slices, symbol=', ', figsize=(4, 2),
-        ...     path='docs/_static/imgs/monoidal/foliate-example-1b.png')
-
-        .. image:: ../../_static/imgs/monoidal/foliate-example-1b.png
-            :align: center
-
-        >>> ket = Box('ket', Ty(), x)
-        >>> scalar = Box('scalar', Ty(), Ty())
-        >>> kets = scalar @ ket @ scalar @ ket
-        >>> a = kets.foliate()
-        >>> assert next(a) == kets
-
-        >>> kets.draw(figsize=(2, 2),
-        ...           path='docs/_static/imgs/monoidal/foliate-example-2.png')
-
-        .. image:: ../../_static/imgs/monoidal/foliate-example-2.png
-            :align: center
-
-        """
-        def is_right_of(last, diagram):
-            off0, off1 = diagram.offsets[last], diagram.offsets[last + 1]
-            box0, box1 = diagram.boxes[last], diagram.boxes[last + 1]
-            if off1 >= off0 + len(box0.cod):  # box1 right of box0
-                return True
-            if off0 >= off1 + len(box1.dom):  # box1 left of box0
-                return False
-            return None
-
-        def move_in_slice(first, last, k, diagram):
-            result = diagram
-            try:
-                if not k == last + 1:
-                    result = diagram.interchange(k, last + 1)
-                right_of_last = is_right_of(last, result)
-                if right_of_last is None:
-                    return None
-                if right_of_last:
-                    return result
-                result = result.interchange(last + 1, last)
-                if last == first:
-                    return result
-                return move_in_slice(first, last - 1, last, result)
-            except InterchangerError:
-                return None
-
-        start, diagram = 0, self
-        if yield_slices:
-            slices = []
-        while start < len(diagram):
-            last = start
-            k = last + 1
-            while k < len(diagram):
-                result = move_in_slice(start, last, k, diagram)
-                k += 1
-                if result is None:
-                    pass
-                else:
-                    diagram = result
-                    last += 1
-                    yield diagram
-            if yield_slices:
-                slices += [diagram[start: last + 1]]
-            start = last + 1
-        if yield_slices:
-            yield slices
-
-    def flatten(self):
-        """
-        Takes a diagram of diagrams and returns a diagram.
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> g = Box('g', x @ y, y)
-        >>> d = (Id(y) @ f0 @ Id(x) >> f0.dagger() @ Id(y) @ f0 >>\\
-        ...      g @ f1 >> f1 @ Id(x)).normal_form()
-        >>> assert d.foliation().flatten().normal_form() == d
-        >>> assert d.foliation().dagger().flatten()\\
-        ...     == d.foliation().flatten().dagger()
-        """
-        return self.upgrade(
-            Functor(Quiver(lambda x: x), Quiver(lambda f: f))(self))
-
-    def foliation(self):
-        """
-        Returns a diagram with normal_form diagrams of depth 1 as boxes
-        such that its flattening gives the original diagram back.
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> d = f0 @ Id(y) >> f0.dagger() @ f1
-        >>> assert d.foliation().boxes[0] == f0 @ f1
-        >>> assert d.foliation().flatten().normal_form() == d
-        >>> assert d.foliation().flatten()\\
-        ...     == d[::-1].foliation()[::-1].flatten()\\
-        ...     == d[::-1].foliation().flatten()[::-1]
-        >>> assert d.foliation().flatten().foliation() == d.foliation()
-        >>> g = Box('g', x @ x, x @ y)
-        >>> diagram = (d >> g >> d) @ (d >> g >> d)
-        >>> slices = diagram.foliation()
-        >>> assert slices.boxes[0] == f0 @ f1 @ f0 @ f1
-        >>> *_, last_diagram = diagram.foliate()
-        >>> assert last_diagram == slices.flatten()
-        """
-        *_, slices = self.foliate(yield_slices=True)
-        return self.upgrade(
-            Diagram(self.dom, self.cod, slices, len(slices) * [0]))
-
-    def depth(self):
-        """
-        Computes the depth of a diagram by foliating it.
-
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f, g = Box('f', x, y), Box('g', y, x)
-        >>> assert Id(x @ y).depth() == 0
-        >>> assert f.depth() == 1
-        >>> assert (f @ g).depth() == 1
-        >>> assert (f >> g).depth() == 2
-        """
-        *_, slices = self.foliate(yield_slices=True)
-        return len(slices)
-
-    def width(self):
-        """
-        Computes the width of a diagram,
-        i.e. the maximum number of parallel wires.
-
-        >>> x = Ty('x')
-        >>> f = Box('f', x, x ** 4)
-        >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
-        """
-        return max(len(self.dom), max(
-            len(left @ box.cod @ right) for left, box, right in self.layers))
-
-    def draw(self, **params):
-        """
-        Draws a diagram using networkx and matplotlib.
-
-        Parameters
-        ----------
-        draw_as_nodes : bool, optional
-            Whether to draw boxes as nodes, default is :code:`False`.
-        color : string, optional
-            Color of the box or node, default is white (:code:`'#ffffff'`) for
-            boxes and red (:code:`'#ff0000'`) for nodes.
-        textpad : pair of floats, optional
-            Padding between text and wires, default is :code:`(0.1, 0.1)`.
-        draw_types : bool, optional
-            Whether to draw type labels, default is :code:`False`.
-        draw_box_labels : bool, optional
-            Whether to draw box labels, default is :code:`True`.
-        aspect : string, optional
-            Aspect ratio, one of :code:`['auto', 'equal']`.
-        margins : tuple, optional
-            Margins, default is :code:`(0.05, 0.05)`.
-        fontsize : int, optional
-            Font size for the boxes, default is :code:`12`.
-        fontsize_types : int, optional
-            Font size for the types, default is :code:`12`.
-        figsize : tuple, optional
-            Figure size.
-        path : str, optional
-            Where to save the image, if `None` we call :code:`plt.show()`.
-        to_tikz : bool, optional
-            Whether to output tikz code instead of matplotlib.
-        """
-        return drawing.draw(self, **params)
-
-    def to_gif(self, *diagrams, **params):  # pragma: no cover
-        """
-        Builds a gif with the normalisation steps.
-
-        Parameters
-        ----------
-        diagrams : :class:`Diagram`, optional
-            Sequence of diagrams to draw.
-        path : str
-            Where to save the image, if :code:`None` a gif gets created.
-        timestep : int, optional
-            Time step in milliseconds, default is :code:`500`.
-        loop : bool, optional
-            Whether to loop, default is :code:`False`
-        params : any, optional
-            Passed to :meth:`Diagram.draw`.
-        """
-        return drawing.to_gif(self, *diagrams, **params)
-
-
-class InterchangerError(AxiomError):
-    """ This is raised when we try to interchange conected boxes. """
-    def __init__(self, box0, box1):
-        super().__init__("Boxes {} and {} do not commute.".format(box0, box1))
+    draw = drawing.draw
+    to_gif = drawing.to_gif
+    interchange = rewriting.interchange
+    normalize = rewriting.normalize
+    normal_form = rewriting.normal_form
+    foliate = rewriting.foliate
+    flatten = rewriting.flatten
+    foliation = rewriting.foliation
+    depth = rewriting.depth
+    width = rewriting.width
 
 
 class Id(cat.Id, Diagram):
@@ -1006,42 +691,3 @@ class Functor(cat.Functor):
                 scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
             return result
         raise TypeError(messages.type_err(Diagram, diagram))
-
-
-def swap(left, right, ar_factory=Diagram, swap_factory=Swap):
-    """ Constructs swap diagrams of arbitrary types """
-    if not left:
-        return ar_factory.id(right)
-    if len(left) == 1:
-        boxes = [
-            swap_factory(left, right[i: i + 1]) for i, _ in enumerate(right)]
-        offsets = range(len(right))
-        return ar_factory(left @ right, right @ left, boxes, offsets)
-    return ar_factory.id(left[:1]) @ ar_factory.swap(left[1:], right)\
-        >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
-
-
-def permutation(perm, dom=None, ar_factory=Diagram):
-    """ Constructs permutation diagrams of arbitrary types """
-    if set(range(len(perm))) != set(perm):
-        raise ValueError("Input should be a permutation of range(n).")
-    if dom is None:
-        dom = PRO(len(perm))
-    if len(dom) != len(perm):
-        raise ValueError("Domain and permutation should have the same length.")
-    diagram = ar_factory.id(dom)
-    for i in range(len(dom)):
-        j = perm.index(i)
-        diagram = diagram >> ar_factory.id(diagram.cod[:i])\
-            @ ar_factory.swap(diagram.cod[i:j], diagram.cod[j:j + 1])\
-            @ ar_factory.id(diagram.cod[j + 1:])
-        perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
-    return diagram
-
-
-def diagram_subclass(cls):
-    """ Decorator for subclasses of Diagram. """
-    def upgrade(old):
-        return cls(old.dom, old.cod, old.boxes, old.offsets, old.layers)
-    cls.upgrade = staticmethod(upgrade)
-    return cls

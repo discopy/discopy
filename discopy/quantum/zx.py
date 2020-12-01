@@ -10,7 +10,7 @@ from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
 
 
-@monoidal.diagram_subclass
+@monoidal.Diagram.subclass
 class Diagram(rigid.Diagram):
     """ ZX Diagram. """
     def __repr__(self):
@@ -20,13 +20,13 @@ class Diagram(rigid.Diagram):
     def swap(left, right):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
-        return monoidal.swap(
+        return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
     def permutation(perm, dom=None):
         dom = PRO(len(perm)) if dom is None else dom
-        return monoidal.permutation(perm, dom, ar_factory=Diagram)
+        return monoidal.Diagram.permutation(perm, dom, ar_factory=Diagram)
 
     @staticmethod
     def cups(left, right):

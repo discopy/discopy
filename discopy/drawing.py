@@ -362,7 +362,37 @@ class MatBackend(Backend):
 
 
 def draw(diagram, backend=None, data=None, **params):
-    """ Draws a diagram, see :meth:`monoidal.Diagram.draw`. """
+    """
+    Draws a diagram using networkx and matplotlib.
+
+    Parameters
+    ----------
+    draw_as_nodes : bool, optional
+        Whether to draw boxes as nodes, default is :code:`False`.
+    color : string, optional
+        Color of the box or node, default is white (:code:`'#ffffff'`) for
+        boxes and red (:code:`'#ff0000'`) for nodes.
+    textpad : pair of floats, optional
+        Padding between text and wires, default is :code:`(0.1, 0.1)`.
+    draw_types : bool, optional
+        Whether to draw type labels, default is :code:`False`.
+    draw_box_labels : bool, optional
+        Whether to draw box labels, default is :code:`True`.
+    aspect : string, optional
+        Aspect ratio, one of :code:`['auto', 'equal']`.
+    margins : tuple, optional
+        Margins, default is :code:`(0.05, 0.05)`.
+    fontsize : int, optional
+        Font size for the boxes, default is :code:`12`.
+    fontsize_types : int, optional
+        Font size for the types, default is :code:`12`.
+    figsize : tuple, optional
+        Figure size.
+    path : str, optional
+        Where to save the image, if `None` we call :code:`plt.show()`.
+    to_tikz : bool, optional
+        Whether to output tikz code instead of matplotlib.
+    """
     asymmetry = params.get('asymmetry',
                            .25 * any(box.is_dagger for box in diagram.boxes))
     graph, positions = diagram_to_nx(diagram) if data is None else data
@@ -455,7 +485,22 @@ def draw(diagram, backend=None, data=None, **params):
 
 
 def to_gif(diagram, *diagrams, **params):  # pragma: no cover
-    """ Draws a sequence of diagrams as an animated picture. """
+    """
+    Builds a gif with the normalisation steps.
+
+    Parameters
+    ----------
+    diagrams : :class:`Diagram`, optional
+        Sequence of diagrams to draw.
+    path : str
+        Where to save the image, if :code:`None` a gif gets created.
+    timestep : int, optional
+        Time step in milliseconds, default is :code:`500`.
+    loop : bool, optional
+        Whether to loop, default is :code:`False`
+    params : any, optional
+        Passed to :meth:`Diagram.draw`.
+    """
     path = params.get("path", None)
     timestep = params.get("timestep", 500)
     loop = params.get("loop", False)

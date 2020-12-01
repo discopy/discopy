@@ -105,7 +105,7 @@ class BitsAndQubits(Ty):
 bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 
 
-@monoidal.diagram_subclass
+@monoidal.Diagram.subclass
 class Circuit(Diagram):
     """ Classical-quantum circuits. """
     def __repr__(self):
@@ -458,14 +458,14 @@ class Circuit(Diagram):
 
     @staticmethod
     def swap(left, right):
-        return monoidal.swap(
+        return monoidal.Diagram.swap(
             left, right, ar_factory=Circuit, swap_factory=Swap)
 
     @staticmethod
     def permutation(perm, dom=None):
         if dom is None:
             dom = qubit ** len(perm)
-        return monoidal.permutation(perm, dom, ar_factory=Circuit)
+        return monoidal.Diagram.permutation(perm, dom, ar_factory=Circuit)
 
     @staticmethod
     def cups(left, right):

@@ -19,7 +19,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
     :align: center
 """
 
-from discopy import cat, monoidal, messages, drawing
+from discopy import cat, monoidal, messages, drawing, rewriting
 from discopy.cat import AxiomError
 
 
@@ -133,7 +133,7 @@ class PRO(monoidal.PRO, Ty):
         return self
 
 
-@monoidal.diagram_subclass
+@monoidal.Diagram.subclass
 class Diagram(monoidal.Diagram):
     """ Implements diagrams in the free rigid monoidal category.
 
@@ -156,14 +156,14 @@ class Diagram(monoidal.Diagram):
 
     @staticmethod
     def swap(left, right):
-        return monoidal.swap(
+        return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
     def permutation(perm, dom=None):
         if dom is None:
             dom = PRO(len(perm))
-        return monoidal.permutation(perm, dom, ar_factory=Diagram)
+        return monoidal.Diagram.permutation(perm, dom, ar_factory=Diagram)
 
     def foliate(self, yield_slices=False):
         """
@@ -264,114 +264,6 @@ class Diagram(monoidal.Diagram):
             >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
             >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
 
-    def normalize(self, left=False):
-        """
-        Return a generator which yields normalization steps.
-
-        >>> n, s = Ty('n'), Ty('s')
-        >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
-        >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
-        >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
-        >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
-        g... >> Cup(n, n.r) @ Id(n)...
-        g >> f[::-1] >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
-        g >> f[::-1] >> f >> h
-        """
-        def follow_wire(diagram, i, j):
-            """
-            Given a diagram, the index of a box i and the offset j of an output
-            wire, returns (i, j, obstructions) where:
-            - i is the index of the box which takes this wire as input, or
-            len(diagram) if it is connected to the bottom boundary.
-            - j is the offset of the wire at its bottom end.
-            - obstructions is a pair of lists of indices for the boxes on
-            the left and right of the wire we followed.
-            """
-            left_obstruction, right_obstruction = [], []
-            while i < len(diagram) - 1:
-                i += 1
-                box, off = diagram.boxes[i], diagram.offsets[i]
-                if off <= j < off + len(box.dom):
-                    return i, j, (left_obstruction, right_obstruction)
-                if off <= j:
-                    j += len(box.cod) - len(box.dom)
-                    left_obstruction.append(i)
-                else:
-                    right_obstruction.append(i)
-            return len(diagram), j, (left_obstruction, right_obstruction)
-
-        def find_snake(diagram):
-            """
-            Given a diagram, returns (cup, cap, obstructions, left_snake)
-            if there is a yankable pair, otherwise returns None.
-            """
-            for cap in range(len(diagram)):
-                if not isinstance(diagram.boxes[cap], Cap):
-                    continue
-                for left_snake, wire in [(True, diagram.offsets[cap]),
-                                         (False, diagram.offsets[cap] + 1)]:
-                    cup, wire, obstructions =\
-                        follow_wire(diagram, cap, wire)
-                    not_yankable =\
-                        cup == len(diagram)\
-                        or not isinstance(diagram.boxes[cup], Cup)\
-                        or left_snake and diagram.offsets[cup] + 1 != wire\
-                        or not left_snake and diagram.offsets[cup] != wire
-                    if not_yankable:
-                        continue
-                    return cup, cap, obstructions, left_snake
-            return None
-
-        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
-            """
-            Given a diagram and the indices for a cup and cap pair
-            and a pair of lists of obstructions on the left and right,
-            returns a new diagram with the snake removed.
-
-            A left snake is one of the form Id @ Cap >> Cup @ Id.
-            A right snake is one of the form Cap @ Id >> Id @ Cup.
-            """
-            left_obstruction, right_obstruction = obstructions
-            if left_snake:
-                for box in left_obstruction:
-                    diagram = diagram.interchange(box, cap)
-                    yield diagram
-                    for i, right_box in enumerate(right_obstruction):
-                        if right_box < box:
-                            right_obstruction[i] += 1
-                    cap += 1
-                for box in right_obstruction[::-1]:
-                    diagram = diagram.interchange(box, cup)
-                    yield diagram
-                    cup -= 1
-            else:
-                for box in left_obstruction[::-1]:
-                    diagram = diagram.interchange(box, cup)
-                    yield diagram
-                    for i, right_box in enumerate(right_obstruction):
-                        if right_box > box:
-                            right_obstruction[i] -= 1
-                    cup -= 1
-                for box in right_obstruction:
-                    diagram = diagram.interchange(box, cap)
-                    yield diagram
-                    cap += 1
-            boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
-            offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
-            layers = diagram.layers[:cap] >> diagram.layers[cup + 1:]
-            yield Diagram(diagram.dom, diagram.cod, boxes, offsets, layers)
-
-        diagram = self
-        while True:
-            yankable = find_snake(diagram)
-            if yankable is None:
-                break
-            for _diagram in unsnake(diagram, *yankable):
-                yield _diagram
-                diagram = _diagram
-        for _diagram in monoidal.Diagram.normalize(diagram, left=left):
-            yield _diagram
-
     def normal_form(self, normalize=None, **params):
         """
         Implements the normalisation of rigid monoidal categories,
@@ -379,6 +271,8 @@ class Diagram(monoidal.Diagram):
         """
         return super().normal_form(
             normalize=normalize or Diagram.normalize, **params)
+
+    normalize = rewriting.snake_removal
 
 
 class Id(monoidal.Id, Diagram):

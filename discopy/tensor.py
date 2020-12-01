@@ -320,7 +320,7 @@ class Functor(rigid.Functor):
         return Tensor(self(diagram.dom), self(diagram.cod), array)
 
 
-@monoidal.diagram_subclass
+@monoidal.Diagram.subclass
 class Diagram(rigid.Diagram):
     """
     Diagram with Tensor boxes.
@@ -407,7 +407,7 @@ class Diagram(rigid.Diagram):
 
     @staticmethod
     def swap(left, right):
-        return monoidal.swap(
+        return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
 
