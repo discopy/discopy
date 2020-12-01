@@ -1,2 +1,2 @@
 fixes:
-    - "::discopy/"
+    - "/home/travis/build/oxford-quantum-group/discopy/discopy/::"
