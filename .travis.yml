@@ -13,4 +13,5 @@ install:
 script: py.test discopy/*.py test/*.py --cov-report=xml --cov=discopy --doctest-modules # run tests
 after_success:
   - codecov # submit coverage
+  - coverage report -m
   - pylint discopy
