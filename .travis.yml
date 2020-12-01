@@ -9,9 +9,9 @@ before_install:
   - pip install codecov
 install:
   - pip install ".[test]" . # install package + test dependencies
-script: coverage run -m py.test discopy/*.py test/*.py --doctest-modules # run tests
+script: coverage run -m py.test test/*.py discopy/*.py discopy/*/*.py --doctest-modules # run tests
 after_success:
-  - coverage report -m discopy/*.py
+  - coverage report -m discopy/*.py discopy/*/*.py
   - coverage xml
   - codecov # submit coverage
   - pylint discopy
