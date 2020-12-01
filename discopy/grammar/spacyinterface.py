@@ -94,7 +94,7 @@ def document_to_diagrams(doc, drop_stop=False, **kwargs):
     Splits a document into sentences, and tries to create diagrams for each sentence,
     and a creates a set of all the basic types that were inferred from the document.
 
-    Drops punctuation, and stop words if stop_words=True.
+    Drops punctuation, and stop words if drop_stop=True.
     """
     
     # split sentences and parse
