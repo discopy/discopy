@@ -260,7 +260,13 @@ class TikzBackend(Backend):
         self.edgelayer.append(cmd.format(
             inp, out, self.nodes[source], self.nodes[target]))
 
-    def draw_spiders(self, spiders, graph, positions, draw_box_labels=True):
+    def draw_spiders(self, graph, positions, draw_box_labels=True):
+        spiders = [(node,
+                    getattr(node.box, 'color', 'red'),
+                    getattr(node.box, 'shape', 'circle'))
+                   for node in graph.nodes
+                   if isinstance(node, BoxNode)
+                   if getattr(node.box, "draw_as_spider", False)]
         for node, color, shape in spiders:
             i, j = positions[node]
             text = getattr(node.box, "drawing_name", str(node.box))\
@@ -325,16 +331,19 @@ class MatBackend(Backend):
                     [Path.MOVETO, Path.CURVE3, Path.CURVE3])
         self.axis.add_patch(PathPatch(path, facecolor='none'))
 
-    def draw_spiders(self, spiders, graph, positions, draw_box_labels=True):
-        shapes = {shape for _, _, shape in spiders}
-        for shape in shapes:
-            shaped_spiders = [
-                (node, color) for node, color, s in spiders if s == shape]
-            nodes, colors = zip(*shaped_spiders)
-            hex_codes = [getattr(COLORS, color) for color in colors]
+    def draw_spiders(self, graph, positions, draw_box_labels=True):
+        nodes = {node for node in graph.nodes
+                 if isinstance(node, BoxNode)
+                 if getattr(node.box, "draw_as_spider", False)}
+        shapes = {n: getattr(n.box, 'shape', 'circle') for n in nodes}
+        for shape in set(shapes.values()):
+            colors = {
+                n: getattr(n.box, 'color', 'red')
+                for n, s in shapes.items() if s == shape}
+            nodes, colors = zip(*colors.items())
             nx.draw_networkx_nodes(
                 graph, positions, nodelist=nodes,
-                node_color=hex_codes,
+                node_color=[getattr(COLORS, color) for color in colors],
                 node_shape=getattr(SHAPES, shape), ax=self.axis)
             if draw_box_labels:
                 labels = {n: getattr(n.box, "drawing_name", str(n.box))
@@ -392,25 +401,16 @@ def draw(diagram, backend=None, data=None, **params):
         Where to save the image, if `None` we call :code:`plt.show()`.
     to_tikz : bool, optional
         Whether to output tikz code instead of matplotlib.
+    asymmetry : float, optional
+        Make a box and its dagger mirror images, default is
+        :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
-    asymmetry = params.get('asymmetry',
-                           .25 * any(box.is_dagger for box in diagram.boxes))
-    graph, positions = diagram_to_nx(diagram) if data is None else data
-    spiders = [(BoxNode(box, depth),
-                getattr(box, 'color', 'red'),
-                getattr(box, 'shape', 'circle'))
-               for depth, box in enumerate(diagram.boxes)
-               if getattr(box, "draw_as_spider", False)]
-
-    backend = backend if backend is not None else\
-        TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
-        if params.get('to_tikz', False)\
-        else MatBackend(figsize=params.get('figsize', None))
-
-    def draw_box(box, depth):
+    def draw_box(backend, graph, positions, box, depth):
+        asymmetry = params.get(
+            'asymmetry', .25 * any(box.is_dagger for box in diagram.boxes))
         node = BoxNode(box, depth)
         if getattr(box, "draw_as_wire", False):
-            return
+            return backend
         if not box.dom and not box.cod:
             left, right = positions[node][0], positions[node][0]
         elif not box.dom:
@@ -443,8 +443,9 @@ def draw(diagram, backend=None, data=None, **params):
             backend.draw_text(label, *positions[node],
                               ha='center', va='center',
                               fontsize=params.get('fontsize', None))
+        return backend
 
-    def draw_wires():
+    def draw_wires(backend, graph, positions):
         for source, target in graph.edges():
             def inside_a_box(node):
                 return isinstance(node, BoxNode)\
@@ -466,15 +467,22 @@ def draw(diagram, backend=None, data=None, **params):
                     fontsize=params.get('fontsize_types',
                                         params.get('fontsize', None)),
                     verticalalignment='top')
+        return backend
 
-    draw_wires()
+    graph, positions = diagram_to_nx(diagram) if data is None else data
+    backend = backend if backend is not None else\
+        TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
+        if params.get('to_tikz', False)\
+        else MatBackend(figsize=params.get('figsize', None))
+
+    backend = draw_wires(backend, graph, positions)
     backend.draw_spiders(
-        spiders, graph, positions,
+        graph, positions,
         draw_box_labels=params.get('draw_box_labels', True))
     for depth, box in enumerate(diagram.boxes):
         if getattr(box, "draw_as_spider", False):
             continue
-        draw_box(box, depth)
+        backend = draw_box(backend, graph, positions, box, depth)
     return backend.output(
         path=params.get('path', None),
         baseline=len(diagram) / 2 or .5,
