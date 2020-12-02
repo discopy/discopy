@@ -93,6 +93,7 @@ class CodNode(WireNode):
 
 
 def open_bubbles(diagram):
+    """ Replace bubbles by diagrams with opening and closing boxes. """
     from discopy.monoidal import Ty, Box, Id, Functor, Bubble
     if not any(isinstance(box, Bubble) for box in diagram.boxes):
         return diagram
@@ -100,13 +101,17 @@ def open_bubbles(diagram):
     class OpenBubbles(Functor):
         def __call__(self, diagram):
             if isinstance(diagram, Bubble):
-                _left, _right = Ty("_left"), Ty("_right")
+                label = getattr(diagram, "drawing_name", str(diagram))
+                _left, _right = Ty(label), Ty(" ")
                 _open = Box(
                     "_open", diagram.dom, _left @ diagram.inside.dom @ _right)
                 _close = Box(
                     "_close", _left @ diagram.inside.cod @ _right, diagram.cod)
                 _open.draw_as_wire, _close.draw_as_wire = True, True
-                _open.bubble_opening, _close.bubble_closing = True, True
+                if len(diagram.dom) == len(diagram.inside.dom):
+                    _open.bubble_opening = True
+                if len(diagram.cod) == len(diagram.inside.cod):
+                    _close.bubble_closing = True
                 return _open\
                     >> Id(_left) @ self(diagram.inside) @ Id(_right)\
                     >> _close
@@ -142,6 +147,9 @@ def diagram_to_nx(diagram):
         pos.update({node: position})
 
     def add_box(scan, box, off, depth, x_pos):
+        bubble_opening = getattr(box, "bubble_opening", False)
+        bubble_closing = getattr(box, "bubble_closing", False)
+        bubble = bubble_opening or bubble_closing
         node = BoxNode(box, depth)
         add_node(node, (x_pos, len(diagram) - depth - .5))
         for i, obj in enumerate(box.dom):
@@ -149,12 +157,22 @@ def diagram_to_nx(diagram):
                 pos[scan[off + i]][0], len(diagram) - depth - .25)
             add_node(wire, position)
             graph.add_edge(scan[off + i], wire)
-            graph.add_edge(wire, node)
+            if not bubble or bubble_closing and i in [0, len(box.dom) - 1]:
+                graph.add_edge(wire, node)
         for i, obj in enumerate(box.cod):
             wire, position = CodNode(obj, i, depth), (
                 x_pos - len(box.cod[1:]) / 2 + i, len(diagram) - depth - .75)
             add_node(wire, position)
-            graph.add_edge(node, wire)
+            if not bubble or bubble_opening and i in [0, len(box.cod) - 1]:
+                graph.add_edge(node, wire)
+        if bubble_opening:
+            for i, obj in enumerate(box.dom):
+                graph.add_edge(
+                    DomNode(obj, i, depth), CodNode(obj, i + 1, depth))
+        if bubble_closing:
+            for i, obj in enumerate(box.cod):
+                graph.add_edge(
+                    DomNode(obj, i + 1, depth), CodNode(obj, i, depth))
         return scan[:off]\
             + [CodNode(obj, i, depth) for i, obj in enumerate(box.cod)]\
             + scan[off + len(box.dom):]

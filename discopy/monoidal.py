@@ -646,6 +646,7 @@ Diagram.sum = Sum
 
 class Bubble(cat.Bubble, Box):
     """ Bubble in a monoidal diagram, i.e. a unary operator on homsets. """
+    drawing_name = " "
 
 
 class Functor(cat.Functor):
