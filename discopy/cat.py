@@ -237,12 +237,7 @@ class Arrow:
         return self.sum([self]) + other
 
     def __radd__(self, other):
-        return self.__add__(other)
-
-    @staticmethod
-    def sum(terms, dom=None, cod=None):
-        """ Formal sum of `terms`. """
-        return Sum(terms, dom, cod)
+        return self + other
 
     def then(self, *others):
         """
@@ -661,6 +656,38 @@ class Sum(Box):
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
 
+class Bubble(Box):
+    """ A unary operator on homsets. """
+    def __init__(self, inside, dom=None, cod=None):
+        name = "Bubble({})".format(inside)
+        if dom is not None:
+            name = "{}, dom={})".format(name[:-1], dom)
+        if cod is not None:
+            name = "{}, cod={})".format(name[:-1], cod)
+        dom = inside.dom if dom is None else dom
+        cod = inside.cod if cod is None else cod
+        super().__init__(name, dom, cod, data=inside)
+
+    @property
+    def inside(self):
+        """ The diagram inside a bubble. """
+        return self.data
+
+    @property
+    def is_ioo(self):
+        """ Whether the bubble is identity-on-objects. """
+        return (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+
+    def __repr__(self):
+        return "Bubble({})".format(repr(self.inside)) if self.is_ioo\
+            else "Bubble({}, dom={}, cod={})".format(
+                repr(self.inside), repr(self.dom), repr(self.cod))
+
+
+Arrow.sum = Sum
+Arrow.bubble = Bubble
+
+
 class Functor:
     """
     Defines a dagger functor which can be applied to objects and arrows.
@@ -748,6 +775,9 @@ class Functor:
         if isinstance(arrow, Sum):
             return self.ar_factory.sum(
                 list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
+        if isinstance(arrow, Bubble):
+            return self.ar_factory.bubble(
+                self(arrow.inside), dom=self(arrow.dom), cod=self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):

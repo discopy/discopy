@@ -92,6 +92,31 @@ class CodNode(WireNode):
     """ Node in a networkx Graph, representing an output wire of a box. """
 
 
+def open_bubbles(diagram):
+    from discopy.monoidal import Ty, Box, Id, Functor, Bubble
+    if not any(isinstance(box, Bubble) for box in diagram.boxes):
+        return diagram
+
+    class OpenBubbles(Functor):
+        def __call__(self, diagram):
+            if isinstance(diagram, Bubble):
+                _left, _right = Ty("_left"), Ty("_right")
+                _open = Box(
+                    "_open", diagram.dom, _left @ diagram.inside.dom @ _right)
+                _close = Box(
+                    "_close", _left @ diagram.inside.cod @ _right, diagram.cod)
+                _open.draw_as_wire, _close.draw_as_wire = True, True
+                _open.bubble_opening, _close.bubble_closing = True, True
+                return _open\
+                    >> Id(_left) @ self(diagram.inside) @ Id(_right)\
+                    >> _close
+            return super().__call__(diagram)
+    return OpenBubbles(
+        lambda x: x, lambda f: f,
+        ob_factory=type(diagram.dom), ar_factory=type(diagram[0:0])
+    )(diagram)
+
+
 def diagram_to_nx(diagram):
     """
     Builds a networkx graph, called by :meth:`Diagram.draw`.
@@ -109,6 +134,7 @@ def diagram_to_nx(diagram):
     positions : Mapping[Node, Tuple[float, float]]
         from nodes to pairs of floats.
     """
+    diagram = open_bubbles(diagram)
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -479,13 +505,14 @@ def draw(diagram, backend=None, data=None, **params):
     backend.draw_spiders(
         graph, positions,
         draw_box_labels=params.get('draw_box_labels', True))
-    for depth, box in enumerate(diagram.boxes):
-        if getattr(box, "draw_as_spider", False):
+    box_nodes = [node for node in graph.nodes if isinstance(node, BoxNode)]
+    for node in box_nodes:
+        if getattr(node.box, "draw_as_spider", False):
             continue
-        backend = draw_box(backend, graph, positions, box, depth)
+        backend = draw_box(backend, graph, positions, node.box, node.depth)
     return backend.output(
         path=params.get('path', None),
-        baseline=len(diagram) / 2 or .5,
+        baseline=len(box_nodes) / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True),
         margins=params.get('margins', DEFAULT.margins),

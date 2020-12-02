@@ -644,6 +644,10 @@ class Sum(cat.Sum, Box):
 Diagram.sum = Sum
 
 
+class Bubble(cat.Bubble, Box):
+    """ Bubble in a monoidal diagram, i.e. a unary operator on homsets. """
+
+
 class Functor(cat.Functor):
     """
     Implements a monoidal functor given its image on objects and arrows.
@@ -672,7 +676,7 @@ class Functor(cat.Functor):
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
-        if isinstance(diagram, Sum):
+        if isinstance(diagram, (Sum, Bubble)):
             super().__call__(diagram)
         if isinstance(diagram, Ty):
             return self.ob_factory().tensor(*[
