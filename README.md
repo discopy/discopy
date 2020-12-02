@@ -118,13 +118,45 @@ sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
 pip install discopy
 ```
 
+## Contributing
+
+Contributions are welcome, please drop one of us an email or
+[open an issue](https://github.com/oxford-quantum-group/discopy/issues/new).
+
+## Tests
+
+If you want the bleeding edge, you can install DisCoPy locally:
+
+```shell
+git clone https://github.com/oxford-quantum-group/discopy.git
+cd discopy
+pip install .
+```
+
+You can check you haven't broken anything by running the test suite:
+
+```shell
+pip install ".[test]" .
+pip install pytest coverage
+coverage run -m pytest --doctest-modules
+coverage report -m
+```
+
+The documentation is built automatically from the source code using
+[sphinx](https://www.sphinx-doc.org/en/master/).
+If you've made any changes to the documentation, or if you're adding new
+features that need documentation, you should try to build it locally:
+
+```shell
+(cd docs && (make clean; make html))
+```
+
 ## Documentation
 
 The tool paper is now available on [arXiv:2005.02975](https://arxiv.org/abs/2005.02975), it was presented at [ACT2020](https://act2020.mit.edu/).
 
 The documentation is hosted at [readthedocs.io](https://discopy.readthedocs.io/),
 you can also checkout the [notebooks](docs/notebooks/) for a demo!
-
 
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
 [![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
