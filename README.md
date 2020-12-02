@@ -144,8 +144,7 @@ coverage report -m
 
 The documentation is built automatically from the source code using
 [sphinx](https://www.sphinx-doc.org/en/master/).
-If you've made any changes to the documentation, or if you're adding new
-features that need documentation, you should try to build it locally:
+If you need to build it locally, just run:
 
 ```shell
 (cd docs && (make clean; make html))
