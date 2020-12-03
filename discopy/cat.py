@@ -661,12 +661,7 @@ class Sum(Box):
 
 class Bubble(Box):
     """ A unary operator on homsets. """
-    def __init__(self, inside, dom=None, cod=None):
-        name = "Bubble({})".format(inside)
-        if dom is not None and dom != inside.dom:
-            name = "{}, dom={})".format(name[:-1], dom)
-        if cod is not None and cod != inside.cod:
-            name = "{}, cod={})".format(name[:-1], cod)
+    def __init__(self, inside, dom=None, cod=None, name="Bubble"):
         dom = inside.dom if dom is None else dom
         cod = inside.cod if cod is None else cod
         super().__init__(name, dom, cod, data=inside)
@@ -681,10 +676,16 @@ class Bubble(Box):
         """ Whether the bubble is identity-on-objects. """
         return (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
 
+    @property
+    def name(self):
+        return "{}({})".format(self._name, self.inside) if self.is_ioo\
+            else "{}({}, dom={}, cod={})".format(
+                self._name, self.inside, self.dom, self.cod)
+
     def __repr__(self):
-        return "Bubble({})".format(repr(self.inside)) if self.is_ioo\
-            else "Bubble({}, dom={}, cod={})".format(
-                repr(self.inside), repr(self.dom), repr(self.cod))
+        return "{}({})".format(self._name, repr(self.inside)) if self.is_ioo\
+            else "{}({}, dom={}, cod={})".format(
+                self._name, repr(self.inside), repr(self.dom), repr(self.cod))
 
 
 Arrow.sum = Sum

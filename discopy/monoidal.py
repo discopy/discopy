@@ -41,6 +41,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob, Quiver, AxiomError
+from discopy.drawing import DRAWING_ATTRIBUTES
 
 
 class Ty(Ob):
@@ -324,6 +325,12 @@ class Diagram(cat.Arrow):
     def upgrade(old):
         return old
 
+    def downgrade(self):
+        """ Downcasting. """
+        dom, cod = Ty(*self.dom), Ty(*self.cod)
+        boxes, offsets = [box.downgrade() for box in self.boxes], self.offsets
+        return Diagram(dom, cod, boxes, offsets)
+
     def __init__(self, dom, cod, boxes, offsets, layers=None):
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
@@ -578,11 +585,20 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
     """
+    def downgrade(self):
+        dom, cod = Ty(*self.dom), Ty(*self.cod)
+        box = Box(self.name, dom, cod, self.data, self._dagger)
+        for attr, default in DRAWING_ATTRIBUTES.items():
+            setattr(box, attr, getattr(self, attr, default))
+        box.drawing_name = self.drawing_name
+        return box
+
     def __init__(self, name, dom, cod, data=None, _dagger=False):
         cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         layer = Layer(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
+        self.drawing_name = name
 
     def __eq__(self, other):
         if isinstance(other, Box):
@@ -665,7 +681,6 @@ class Bubble(cat.Bubble, Box):
     .. image:: ../../_static/imgs/monoidal/bubble-example.png
         :align: center
     """
-    drawing_name = "Bubble"
 
 
 Diagram.sum = Sum

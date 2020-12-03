@@ -15,6 +15,14 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 
+DRAWING_ATTRIBUTES = {
+    "draw_as_wire": False,
+    "draw_as_spider": False,
+    "shape": "circle",
+    "color": "white",
+}
+
+
 @dataclass
 class DEFAULT:
     """ Drawing defaults. """
@@ -94,7 +102,7 @@ class CodNode(WireNode):
 
 def open_bubbles(diagram):
     """ Replace bubbles by diagrams with opening and closing boxes. """
-    from discopy.monoidal import Ty, Box, Id, Functor, Bubble
+    from discopy.monoidal import Ty, Diagram, Box, Id, Functor, Bubble
     if not any(isinstance(box, Bubble) for box in diagram.boxes):
         return diagram
 
@@ -104,17 +112,18 @@ def open_bubbles(diagram):
                 label = getattr(diagram, "drawing_name", str(diagram))
                 _left, _right = Ty(label), Ty(" ")
                 _open = Box(
-                    "_open", diagram.dom, _left @ diagram.inside.dom @ _right)
+                    "_open", Ty() @ diagram.dom,  # downcasting dom to Ty
+                    _left @ diagram.inside.dom @ _right)
                 _close = Box(
-                    "_close", _left @ diagram.inside.cod @ _right, diagram.cod)
+                    "_close",
+                    _left @ diagram.inside.cod @ _right, Ty() @ diagram.cod)
                 _open.draw_as_wire, _close.draw_as_wire = True, True
                 if len(diagram.dom) == len(diagram.inside.dom):
                     _open.bubble_opening = True
                 if len(diagram.cod) == len(diagram.inside.cod):
                     _close.bubble_closing = True
-                return _open\
-                    >> Id(_left) @ self(diagram.inside) @ Id(_right)\
-                    >> _close
+                inside = self(diagram.inside).downgrade()
+                return _open >> Id(_left) @ inside @ Id(_right) >> _close
             return super().__call__(diagram)
     return OpenBubbles(
         lambda x: x, lambda f: f,

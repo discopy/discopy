@@ -13,7 +13,7 @@ Implements dagger monoidal functors into tensors.
 
 from discopy import messages, monoidal, rigid, config, drawing
 from discopy.cat import AxiomError
-from discopy.monoidal import Sum
+from discopy.monoidal import Sum, Bubble
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
@@ -229,6 +229,11 @@ class Tensor(rigid.Box):
         return Tensor(self.dom, self.cod,
                       np.around(self.array, decimals=decimals))
 
+    def map(self, func):
+        """ Apply a function elementwise. """
+        return Tensor(
+            self.dom, self.cod, list(map(func, self.array.flatten())))
+
     @staticmethod
     def zeros(dom, cod):
         """
@@ -271,6 +276,8 @@ class Functor(rigid.Functor):
         return super().__repr__().replace("Functor", "tensor.Functor")
 
     def __call__(self, diagram):
+        if isinstance(diagram, Sep):
+            return self(diagram.inside).map(diagram.func)
         if isinstance(diagram, monoidal.Sum):
             dom, cod = self(diagram.dom), self(diagram.cod)
             return sum(map(self, diagram), Tensor.zeros(dom, cod))
@@ -474,12 +481,33 @@ class Frobenius(Box):
         array = numpy.zeros(dom @ cod)
         for i in range(dim):
             array[len(dom @ cod) * (i, )] = 1
+        super().__init__(name, dom, cod, array)
         self.draw_as_spider, self.color, self.drawing_name = True, "black", ""
         self.dim = dim
-        super().__init__(name, dom, cod, array)
 
     def __repr__(self):
         return self.name
 
     def dagger(self):
         return Frobenius(len(self.cod), len(self.dom), self.dim)
+
+
+class Sep(Bubble, Box):
+    """
+    Sep line in a tensor diagram, interpreted as negation by default.
+
+    >>> Sep(Frobenius(1, 2, 2)).draw(
+    ...     draw_type_labels=False,
+    ...     path='docs/_static/imgs/tensor/sep.png')
+
+    .. image:: ../../_static/imgs/tensor/sep.png
+        :align: center
+
+    >>> Sep(Frobenius(1, 2, 2)).eval().map(int)
+    Tensor(dom=Dim(2), cod=Dim(2, 2), array=[0, 1, 1, 1, 1, 1, 1, 0])
+    """
+    def __init__(self, inside, func=lambda x: not x):
+        self.func = func
+        super().__init__(inside, name="Sep")
+
+    drawing_name = ""
