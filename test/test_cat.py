@@ -263,3 +263,8 @@ def test_total_ordering():
     assert sorted([z, y, x]) == [x, y, z]
     f, g = Box('f', x, y), Box('g', y, z)
     assert f < g
+
+
+def test_Bubble():
+    f = Box('f', Ob('x'), Ob('y'))
+    assert repr((f).bubble()) == "Bubble(Box('f', Ob('x'), Ob('y')))"

@@ -641,12 +641,35 @@ class Sum(cat.Sum, Box):
         return drawing.equation(*self.terms, symbol='+', **params)
 
 
-Diagram.sum = Sum
-
-
 class Bubble(cat.Bubble, Box):
-    """ Bubble in a monoidal diagram, i.e. a unary operator on homsets. """
-    drawing_name = " "
+    """
+    Bubble in a monoidal diagram, i.e. a unary operator on homsets.
+
+    Parameters
+    ----------
+    inside : discopy.monoidal.Diagram
+        The diagram inside the bubble.
+    dom : discopy.monoidal.Ty, optional
+        The domain of the bubble, default is :code:`inside.dom`.
+    cod : discopy.monoidal.Ty, optional
+        The codomain of the bubble, default is :code:`inside.cod`.
+
+    Examples
+    --------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
+    >>> f.draw_as_spider, g.draw_as_spider = True, True
+    >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
+    >>> d.draw(path='docs/_static/imgs/monoidal/bubble-example.png')
+
+    .. image:: ../../_static/imgs/monoidal/bubble-example.png
+        :align: center
+    """
+    drawing_name = "Bubble"
+
+
+Diagram.sum = Sum
+Diagram.bubble_factory = Bubble
 
 
 class Functor(cat.Functor):
@@ -662,9 +685,9 @@ class Functor(cat.Functor):
     >>> assert F(F(f0)) == f0
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
-
-    >>> drawing.equation(f0 >> f0[::-1], F(f0 >> f0[::-1]), symbol='|->',\
-        figsize=(4, 2), path='docs/_static/imgs/monoidal/functor-example.png')
+    >>> drawing.equation(
+    ...     f0 >> f0[::-1], F(f0 >> f0[::-1]), symbol='-->', figsize=(4, 2),
+    ...     path='docs/_static/imgs/monoidal/functor-example.png')
 
     .. image:: ../../_static/imgs/monoidal/functor-example.png
         :align: center

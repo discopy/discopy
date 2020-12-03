@@ -383,6 +383,9 @@ class Arrow:
         return self.upgrade(
             Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
+    def bubble(self, dom=None, cod=None):
+        return self.bubble_factory(self, dom, cod)
+
 
 class Id(Arrow):
     """
@@ -660,9 +663,9 @@ class Bubble(Box):
     """ A unary operator on homsets. """
     def __init__(self, inside, dom=None, cod=None):
         name = "Bubble({})".format(inside)
-        if dom is not None:
+        if dom is not None and dom != inside.dom:
             name = "{}, dom={})".format(name[:-1], dom)
-        if cod is not None:
+        if cod is not None and cod != inside.cod:
             name = "{}, cod={})".format(name[:-1], cod)
         dom = inside.dom if dom is None else dom
         cod = inside.cod if cod is None else cod
@@ -685,7 +688,7 @@ class Bubble(Box):
 
 
 Arrow.sum = Sum
-Arrow.bubble = Bubble
+Arrow.bubble_factory = Bubble
 
 
 class Functor:
@@ -728,6 +731,10 @@ class Functor:
     >>> assert F(f >> g) == F(f) >> F(g)
     >>> assert F(f[::-1]) == F(f)[::-1]
     >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
+
+    Functors are bubble-preserving.
+
+    >>> assert F(f.bubble()) == F(f).bubble()
 
     See Also
     --------
@@ -776,8 +783,7 @@ class Functor:
             return self.ar_factory.sum(
                 list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Bubble):
-            return self.ar_factory.bubble(
-                self(arrow.inside), dom=self(arrow.dom), cod=self(arrow.cod))
+            return self(arrow.inside).bubble(self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):
