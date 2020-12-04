@@ -11,9 +11,9 @@ Implements dagger monoidal functors into tensors.
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
-from discopy import messages, monoidal, rigid, config, drawing
+from discopy import messages, monoidal, rigid, config
 from discopy.cat import AxiomError
-from discopy.monoidal import Sum, Bubble
+from discopy.monoidal import Sum
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
@@ -247,17 +247,11 @@ class Tensor(rigid.Box):
         return Tensor(dom, cod, np.zeros(dom @ cod))
 
     def subs(self, *args):
-        array = [getattr(x, "subs", lambda y, *_: y)(*args)
-                 for x in self.array.flatten()]
-        return Tensor(self.dom, self.cod, array)
+        return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
 
-    def grad(self, *variables):  # pragma: no cover
-        """ Gradient with respect to vars. """
-        array = np.array([[
-            getattr(x, "diff", lambda _: 0)(var) for x in self.array.flatten()]
-            for var in variables])
-        array = array.reshape(Dim(len(variables)) @ self.dom @ self.cod)
-        return Tensor(Dim(len(variables)) @ self.dom, self.cod, array)
+    def grad(self, var):
+        """ Gradient with respect to variables. """
+        return self.map(lambda x: getattr(x, "diff", lambda _: 0)(var))
 
 
 class Functor(rigid.Functor):
@@ -276,7 +270,7 @@ class Functor(rigid.Functor):
         return super().__repr__().replace("Functor", "tensor.Functor")
 
     def __call__(self, diagram):
-        if isinstance(diagram, Sep):
+        if isinstance(diagram, Bubble):
             return self(diagram.inside).map(diagram.func)
         if isinstance(diagram, monoidal.Sum):
             dom, cod = self(diagram.dom), self(diagram.cod)
@@ -471,7 +465,7 @@ class Frobenius(Box):
     >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Frobenius(1, 2, dim=2)
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
-
+    >>> from discopy import drawing
     >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
     ... path='docs/_static/imgs/tensor/frobenius-example.png')
 
@@ -497,22 +491,31 @@ class Frobenius(Box):
         return Frobenius(len(self.cod), len(self.dom), self.dim)
 
 
-class Sep(Bubble, Box):
+class Bubble(monoidal.Bubble, Box):
     """
-    Sep line in a tensor diagram, interpreted as negation by default.
+    Bubble in a tensor diagram, applies a function elementwise.
 
-    >>> Sep(Frobenius(1, 2, 2)).draw(
-    ...     draw_type_labels=False,
-    ...     path='docs/_static/imgs/tensor/sep.png')
+    Parameters
+    ----------
+    inside : tensor.Diagram
+        The diagram inside the bubble.
+    func : callable
+        The function to apply.
+
+    Examples
+    --------
+
+    >>> bubble = Bubble(Frobenius(1, 2, 2), lambda x: int(not x))
+    >>> bubble.draw(
+    ...        draw_type_labels=False,
+    ...        path='docs/_static/imgs/tensor/sep.png')
 
     .. image:: ../../_static/imgs/tensor/sep.png
         :align: center
 
-    >>> Sep(Frobenius(1, 2, 2)).eval().map(int)
+    >>> bubble.eval()
     Tensor(dom=Dim(2), cod=Dim(2, 2), array=[0, 1, 1, 1, 1, 1, 1, 0])
     """
-    def __init__(self, inside, func=lambda x: not x):
+    def __init__(self, inside, func=lambda x: int(not x)):
         self.func = func
-        super().__init__(inside, name="Sep")
-
-    drawing_name = ""
+        super().__init__(inside)

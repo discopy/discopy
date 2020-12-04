@@ -124,27 +124,27 @@ def normalize(self, left=False):
             break
 
 
-def normal_form(self, normalize=None, **params):
+def normal_form(self, normalizer=None, **params):
     """
     Returns the normal form of a diagram.
 
     Parameters
     ----------
-    normalize : iterable of :class:`Diagram`, optional
+    normalizer : iterable of :class:`Diagram`, optional
         Generator that yields rewrite steps, default is
         :meth:`Diagram.normalize`.
 
     params : any, optional
-        Passed to :code:`normalize`.
+        Passed to :code:`normalizer`.
 
     Raises
     ------
     NotImplementedError
-        Whenever :code:`normalize` yields the same rewrite steps twice.
+        Whenever :code:`normalizer` yields the same rewrite steps twice.
     """
     from discopy.monoidal import Diagram
     diagram, cache = self, set()
-    for _diagram in (normalize or Diagram.normalize)(diagram, **params):
+    for _diagram in (normalizer or Diagram.normalize)(diagram, **params):
         if _diagram in cache:
             raise NotImplementedError(messages.is_not_connected(self))
         diagram = _diagram

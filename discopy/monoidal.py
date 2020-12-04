@@ -40,7 +40,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 """
 
 from discopy import cat, messages, drawing, rewriting
-from discopy.cat import Ob, Quiver, AxiomError
+from discopy.cat import Ob
 from discopy.drawing import DRAWING_ATTRIBUTES
 
 
@@ -686,6 +686,7 @@ class Sum(cat.Sum, Box):
         return self.upgrade(sum(terms, unit))
 
     def draw(self, **params):
+        """ Drawing a sum as an equation with :code:`symbol='+'`. """
         return drawing.equation(*self.terms, symbol='+', **params)
 
 

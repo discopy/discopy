@@ -16,7 +16,7 @@ Implements pregroup grammars and distributional compositional models.
 >>> assert F(sentence) == True
 
 >>> draw(sentence, figsize=(4, 2),\\
-... path='docs/_static/imgs/grammar/pregroup-example.png')
+...      path='docs/_static/imgs/grammar/pregroup-example.png')
 
 .. image:: ../_static/imgs/grammar/pregroup-example.png
     :align: center
@@ -78,7 +78,7 @@ def draw(diagram, **params):
         Space between word triangles, default is :code:`0.5`.
     textpad : pair of floats, optional
         Padding between text and wires, default is :code:`(0.1, 0.2)`.
-    draw_types : bool, optional
+    draw_type_labels : bool, optional
         Whether to draw type labels, default is :code:`True`.
     aspect : string, optional
         Aspect ratio, one of :code:`['equal', 'auto']`.
@@ -91,7 +91,7 @@ def draw(diagram, **params):
     figsize : tuple, optional
         Figure size.
     path : str, optional
-        Where to save the image, if `None` we call :code:`plt.show()`.
+        Where to save the image, if :code:`None` we call :code:`plt.show()`.
 
     Raises
     ------

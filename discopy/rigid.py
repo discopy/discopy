@@ -11,7 +11,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> assert t.l.r == t == t.r.l
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
-
+>>> from discopy import drawing
 >>> drawing.equation(left_snake, Id(n), right_snake, figsize=(4, 2),\\
 ... path='docs/_static/imgs/rigid/rigid-example.png')
 
@@ -19,7 +19,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
     :align: center
 """
 
-from discopy import cat, monoidal, messages, drawing, rewriting
+from discopy import cat, monoidal, messages, rewriting
 from discopy.cat import AxiomError
 
 
@@ -264,13 +264,13 @@ class Diagram(monoidal.Diagram):
             >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
             >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
 
-    def normal_form(self, normalize=None, **params):
+    def normal_form(self, normalizer=None, **params):
         """
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
         return super().normal_form(
-            normalize=normalize or Diagram.normalize, **params)
+            normalizer=normalizer or Diagram.normalize, **params)
 
     normalize = rewriting.snake_removal
 
@@ -390,7 +390,7 @@ class Functor(monoidal.Functor):
     >>> F = Functor(ob, ar)
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
-
+    >>> from discopy import drawing
     >>> drawing.equation(sentence, F(sentence), symbol='|->', figsize=(5,2),\\
     ... path='docs/_static/imgs/rigid/functor-example.png')
 

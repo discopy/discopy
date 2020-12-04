@@ -9,12 +9,6 @@ drawing
    :toctree: _autosummary/drawing
 
    discopy.drawing.Node
-   discopy.drawing.BoxNode
-   discopy.drawing.WireNode
-   discopy.drawing.InputNode
-   discopy.drawing.OutputNode
-   discopy.drawing.CodNode
-   discopy.drawing.DomNode
    discopy.drawing.Backend
    discopy.drawing.TikzBackend
    discopy.drawing.MatBackend

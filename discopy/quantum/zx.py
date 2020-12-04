@@ -2,7 +2,7 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, monoidal, rigid, quantum
+from discopy import messages, monoidal, rigid, quantum, tensor
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
@@ -11,7 +11,7 @@ from discopy.quantum.gates import (
 
 
 @monoidal.Diagram.subclass
-class Diagram(rigid.Diagram):
+class Diagram(tensor.Diagram):
     """ ZX Diagram. """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'zx.Diagram')
@@ -39,7 +39,8 @@ class Diagram(rigid.Diagram):
             left, right, ar_factory=Diagram, cap_factory=lambda *_: Z(0, 2))
 
     def draw(self, **params):
-        return super().draw(**dict(params, draw_types=False))
+        """ ZX diagrams don't have labels on wires. """
+        return super().draw(**dict(params, draw_type_labels=False))
 
     def grad(self, var):
         """
@@ -113,12 +114,12 @@ class Diagram(rigid.Diagram):
             else:
                 raise TypeError(messages.type_err(Box, box))
         for i, _ in enumerate(self.cod):
-            node = graph.add_vertex(VertexType.BOUNDARY)
-            input, hadamard = scan[i]
+            target = graph.add_vertex(VertexType.BOUNDARY)
+            source, hadamard = scan[i]
             etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
-            graph.add_edge((input, node), etype)
-            graph.set_position(node, i, len(self) + 1)
-            graph.outputs.append(node)
+            graph.add_edge((source, target), etype)
+            graph.set_position(target, i, len(self) + 1)
+            graph.outputs.append(target)
         return graph
 
     @staticmethod

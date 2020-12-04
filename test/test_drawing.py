@@ -79,7 +79,7 @@ def test_draw_eggs():
 
 
 @draw_and_compare(
-    'spiral.png', draw_types=False, draw_box_labels=False, aspect='equal')
+    'spiral.png', draw_type_labels=False, draw_box_labels=False, aspect='equal')
 def test_draw_spiral():
     return spiral(2)
 
@@ -130,7 +130,7 @@ def draw_equation(diagrams, **params):
 
 
 @draw_and_compare("snake-equation.png", draw=draw_equation,
-                  aspect='auto', figsize=(5, 2), draw_types=False)
+                  aspect='auto', figsize=(5, 2), draw_type_labels=False)
 def test_snake_equation():
     x = Ty('x')
     return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
@@ -143,7 +143,7 @@ def test_draw_typed_snake():
     return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
-@tikz_and_compare("spiral.tikz", draw_types=False, use_tikzstyles=True)
+@tikz_and_compare("spiral.tikz", draw_type_labels=False, use_tikzstyles=True)
 def test_spiral_to_tikz():
     return spiral(2)
 
@@ -215,4 +215,5 @@ def test_tikz_eggs():
 
 
 def test_Node_repr():
-    assert repr(DomNode(Ob('x'), 0, 1)) == "DomNode(Ob('x'), 0, 1)"
+    assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
+        == "Node('dom', depth=1, i=0, obj=Ob('x'))"

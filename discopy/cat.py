@@ -382,6 +382,7 @@ class Arrow:
             Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
     def bubble(self, dom=None, cod=None):
+        """ Returns a bubble with the diagram inside. """
         return self.bubble_factory(self, dom, cod)
 
 
