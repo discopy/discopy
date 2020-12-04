@@ -431,6 +431,10 @@ class Swap(rigid.Swap, Diagram):
 
 class Box(rigid.Box, Diagram):
     """ Box in a tensor.Diagram """
+    def __init__(self, name, dom, cod, data, **params):
+        rigid.Box.__init__(self, name, dom, cod, data=data, **params)
+        Diagram.__init__(self, dom, cod, [self], [0])
+
     @property
     def array(self):
         """ The array inside the box. """
@@ -481,8 +485,9 @@ class Frobenius(Box):
         array = numpy.zeros(dom @ cod)
         for i in range(dim):
             array[len(dom @ cod) * (i, )] = 1
-        super().__init__(name, dom, cod, array)
-        self.draw_as_spider, self.color, self.drawing_name = True, "black", ""
+        super().__init__(
+            name, dom, cod, data=array,
+            draw_as_spider=True, color="black", drawing_name="")
         self.dim = dim
 
     def __repr__(self):

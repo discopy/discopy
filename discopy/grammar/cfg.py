@@ -51,7 +51,7 @@ class Word(Box):
         dom = dom or cod[0:0]
         if not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
-        super().__init__(name, dom, cod, data, _dagger)
+        super().__init__(name, dom, cod, data=data, _dagger=_dagger)
 
     def __repr__(self):
         return "Word({}, {}{})".format(

@@ -293,8 +293,8 @@ class Box(monoidal.Box, Diagram):
     >>> Box('f', a, b.l @ b, data={42})
     Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
     """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        monoidal.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+    def __init__(self, name, dom, cod, **params):
+        monoidal.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
 
 
@@ -302,8 +302,7 @@ class Swap(monoidal.Swap, Box):
     """ Implements swaps of basic types in a rigid category. """
     def __init__(self, left, right):
         monoidal.Swap.__init__(self, left, right)
-        dom, cod = left @ right, right @ left
-        Box.__init__(self, "Swap({}, {})".format(left, right), dom, cod)
+        Box.__init__(self, self.name, self.dom, self.cod)
 
 
 class Cup(Box):
@@ -330,8 +329,9 @@ class Cup(Box):
             raise AxiomError(messages.are_not_adjoints(left, right))
         if left == right.r:
             raise AxiomError(messages.wrong_adjunction(left, right, cup=True))
-        self.left, self.right, self.draw_as_wire = left, right, True
+        self.left, self.right = left, right
         super().__init__("Cup({}, {})".format(left, right), left @ right, Ty())
+        self.draw_as_wires = True
 
     def dagger(self):
         return Cap(self.left, self.right)
@@ -364,8 +364,9 @@ class Cap(Box):
             raise AxiomError(messages.are_not_adjoints(left, right))
         if left.r == right:
             raise AxiomError(messages.wrong_adjunction(left, right, cup=False))
-        self.left, self.right, self.draw_as_wire = left, right, True
+        self.left, self.right = left, right
         super().__init__("Cap({}, {})".format(left, right), Ty(), left @ right)
+        self.draw_as_wires = True
 
     def dagger(self):
         return Cup(self.left, self.right)

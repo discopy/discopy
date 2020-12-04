@@ -15,3 +15,4 @@ tensor
    discopy.tensor.Id
    discopy.tensor.Box
    discopy.tensor.Frobenius
+   discopy.tensor.Sep

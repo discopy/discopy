@@ -204,8 +204,7 @@ def test_tikz_bell_state():
 @tikz_and_compare('crack-eggs.tikz')
 def test_tikz_eggs():
     def merge(x):
-        box = Box('merge', x @ x, x)
-        box.draw_as_spider = True
+        box = Box('merge', x @ x, x, draw_as_spider=True)
         return box
 
     egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')

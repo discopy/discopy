@@ -5,11 +5,6 @@ discopy error messages.
 """
 
 
-def empty_name(got):
-    """ Empty name error. """
-    return "Expected non-empty name, got {}.".format(repr(got))
-
-
 def type_err(expected, got):
     """ Type error. """
     return "Expected {}.{}, got {} of type {}.{} instead.".format(

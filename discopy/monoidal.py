@@ -326,7 +326,7 @@ class Diagram(cat.Arrow):
         return old
 
     def downgrade(self):
-        """ Downcasting. """
+        """ Downcasting to :class:`discopy.monoidal.Diagram`. """
         dom, cod = Ty(*self.dom), Ty(*self.cod)
         boxes, offsets = [box.downgrade() for box in self.boxes], self.offsets
         return Diagram(dom, cod, boxes, offsets)
@@ -355,9 +355,7 @@ class Diagram(cat.Arrow):
 
     @property
     def offsets(self):
-        """
-        The offset of a box is the number of wires to its left.
-        """
+        """ The offset of a box is the number of wires to its left. """
         return list(self._offsets)
 
     @property
@@ -578,27 +576,60 @@ Diagram.id = Id
 
 class Box(cat.Box, Diagram):
     """
-    Implements a box as a diagram with :code:`boxes=[self], offsets=[0]`.
+    A box is a diagram with :code:`boxes==[self]` and :code:`offsets==[0]`.
 
+    Parameters
+    ----------
+    name : any
+        Name of the box.
+    dom : :class:`discopy.monoidal.Ty`
+        Domain of the box.
+    cod : :class:`discopy.monoidal.Ty`
+        Codomain of the box.
+    data : any, optional
+        Extra data in the box.
+
+    Other parameters
+    ----------------
+
+    draw_as_spider : bool, optional
+        Whether to draw the box as a spider.
+    draw_as_wires : bool, optional
+        Whether to draw the box as wires, e.g. :class:`discopy.monoidal.Swap`.
+    drawing_name : str, optional
+        The name to use when drawing the box.
+    tikzstyle_name : str, optional
+        The name of the style when tikzing the box.
+    color : str, optional
+        The color to use when drawing the box, one of
+        :code:`"white", "red", "green", "blue", "yellow", "black"`.
+        Default is :code:`"red" if draw_as_spider else "white"`.
+    shape : str, optional
+        The shape to use when drawing a spider,
+        one of :code:`"circle", "rectangle"`.
+
+    Examples
+    --------
     >>> f = Box('f', Ty('x', 'y'), Ty('z'))
     >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
     """
     def downgrade(self):
+        """ Downcasting to :class:`discopy.monoidal.Box`. """
         dom, cod = Ty(*self.dom), Ty(*self.cod)
-        box = Box(self.name, dom, cod, self.data, self._dagger)
-        for attr, default in DRAWING_ATTRIBUTES.items():
-            setattr(box, attr, getattr(self, attr, default))
-        box.drawing_name = self.drawing_name
+        box = Box(self.name, dom, cod, data=self.data, _dagger=self._dagger,
+                  **{attr: getattr(self, attr) for attr in DRAWING_ATTRIBUTES})
         return box
 
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        cat.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+    def __init__(self, name, dom, cod, **params):
+        cat.Box.__init__(self, name, dom, cod, **params)
         layer = Layer(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
-        self.drawing_name = name
+        for attr, default in DRAWING_ATTRIBUTES.items():
+            value = params.pop(attr, getattr(self, attr, default(self)))
+            setattr(self, attr, value)
 
     def __eq__(self, other):
         if isinstance(other, Box):
@@ -626,9 +657,10 @@ class Swap(Box):
     def __init__(self, left, right):
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.swap_vs_swaps(left, right))
-        self.left, self.right, self.draw_as_wire = left, right, True
+        self.left, self.right = left, right
         super().__init__(
             "Swap({}, {})".format(left, right), left @ right, right @ left)
+        self.draw_as_wires = True
 
     def __repr__(self):
         return "Swap({}, {})".format(repr(self.left), repr(self.right))
@@ -674,13 +706,16 @@ class Bubble(cat.Bubble, Box):
     --------
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
-    >>> f.draw_as_spider, g.draw_as_spider = True, True
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
     >>> d.draw(path='docs/_static/imgs/monoidal/bubble-example.png')
 
     .. image:: ../../_static/imgs/monoidal/bubble-example.png
         :align: center
     """
+    def downgrade(self):
+        return Bubble(self.inside.downgrade(), self.dom, self.cod)
+
+    drawing_name = ""
 
 
 Diagram.sum = Sum

@@ -13,5 +13,6 @@ cat
    discopy.cat.Id
    discopy.cat.Box
    discopy.cat.Sum
+   discopy.cat.Bubble
    discopy.cat.Functor
    discopy.cat.AxiomError

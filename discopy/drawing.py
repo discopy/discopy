@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Drawing module.
-"""
+""" Drawing module. """
 
 import os
 from dataclasses import dataclass
@@ -15,11 +13,17 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 
+# Mapping from attributes to mappings from box to default value.
 DRAWING_ATTRIBUTES = {
-    "draw_as_wire": False,
-    "draw_as_spider": False,
-    "shape": "circle",
-    "color": "white",
+    "draw_as_wires": lambda _: False,
+    "draw_as_spider": lambda _: False,
+    "shape": lambda _: "circle",
+    "color": lambda box:
+        "red" if getattr(box, "draw_as_spider", False) else "white",
+    "drawing_name": lambda box: box.name,
+    "tikzstyle_name": lambda box: box.name,
+    "bubble_opening": lambda _: False,
+    "bubble_closing": lambda _: False,
 }
 
 
@@ -109,20 +113,19 @@ def open_bubbles(diagram):
     class OpenBubbles(Functor):
         def __call__(self, diagram):
             if isinstance(diagram, Bubble):
-                label = getattr(diagram, "drawing_name", str(diagram))
-                _left, _right = Ty(label), Ty(" ")
+                _left, _right = Ty(diagram.drawing_name), Ty("")
                 _open = Box(
                     "_open", Ty() @ diagram.dom,  # downcasting dom to Ty
                     _left @ diagram.inside.dom @ _right)
                 _close = Box(
                     "_close",
                     _left @ diagram.inside.cod @ _right, Ty() @ diagram.cod)
-                _open.draw_as_wire, _close.draw_as_wire = True, True
+                _open.draw_as_wires, _close.draw_as_wires = True, True
                 if len(diagram.dom) == len(diagram.inside.dom):
                     _open.bubble_opening = True
                 if len(diagram.cod) == len(diagram.inside.cod):
                     _close.bubble_closing = True
-                inside = self(diagram.inside).downgrade()
+                inside = self(diagram.inside)
                 return _open >> Id(_left) @ inside @ Id(_right) >> _close
             return super().__call__(diagram)
     return OpenBubbles(
@@ -148,7 +151,7 @@ def diagram_to_nx(diagram):
     positions : Mapping[Node, Tuple[float, float]]
         from nodes to pairs of floats.
     """
-    diagram = open_bubbles(diagram)
+    diagram = open_bubbles(diagram.downgrade())
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -156,9 +159,7 @@ def diagram_to_nx(diagram):
         pos.update({node: position})
 
     def add_box(scan, box, off, depth, x_pos):
-        bubble_opening = getattr(box, "bubble_opening", False)
-        bubble_closing = getattr(box, "bubble_closing", False)
-        bubble = bubble_opening or bubble_closing
+        bubble = box.bubble_opening or box.bubble_closing
         node = BoxNode(box, depth)
         add_node(node, (x_pos, len(diagram) - depth - .5))
         for i, obj in enumerate(box.dom):
@@ -166,19 +167,19 @@ def diagram_to_nx(diagram):
                 pos[scan[off + i]][0], len(diagram) - depth - .25)
             add_node(wire, position)
             graph.add_edge(scan[off + i], wire)
-            if not bubble or bubble_closing and i in [0, len(box.dom) - 1]:
+            if not bubble or box.bubble_closing and i in [0, len(box.dom) - 1]:
                 graph.add_edge(wire, node)
         for i, obj in enumerate(box.cod):
             wire, position = CodNode(obj, i, depth), (
                 x_pos - len(box.cod[1:]) / 2 + i, len(diagram) - depth - .75)
             add_node(wire, position)
-            if not bubble or bubble_opening and i in [0, len(box.cod) - 1]:
+            if not bubble or box.bubble_opening and i in [0, len(box.cod) - 1]:
                 graph.add_edge(node, wire)
-        if bubble_opening:
+        if box.bubble_opening:
             for i, obj in enumerate(box.dom):
                 graph.add_edge(
                     DomNode(obj, i, depth), CodNode(obj, i + 1, depth))
-        if bubble_closing:
+        if box.bubble_closing:
             for i, obj in enumerate(box.cod):
                 graph.add_edge(
                     DomNode(obj, i + 1, depth), CodNode(obj, i, depth))
@@ -314,23 +315,18 @@ class TikzBackend(Backend):
             inp, out, self.nodes[source], self.nodes[target]))
 
     def draw_spiders(self, graph, positions, draw_box_labels=True):
-        spiders = [(node,
-                    getattr(node.box, 'color', 'red'),
-                    getattr(node.box, 'shape', 'circle'))
-                   for node in graph.nodes
-                   if isinstance(node, BoxNode)
-                   if getattr(node.box, "draw_as_spider", False)]
+        spiders = [(node, node.box.color, node.box.shape)
+                   for node in graph.nodes if isinstance(node, BoxNode)
+                   if node.box.draw_as_spider]
         for node, color, shape in spiders:
             i, j = positions[node]
-            text = getattr(node.box, "drawing_name", str(node.box))\
-                if draw_box_labels else ""
+            text = node.box.drawing_name if draw_box_labels else ""
             if self.use_tikzstyles:
-                style_name = getattr(node.box, "tikzstyle_name", str(node.box))
                 style = "\\tikzstyle{{{}}}=[fill={}]\n"\
-                    .format(style_name, self.format_color(color))
+                    .format(node.box.tikzstyle_name, self.format_color(color))
                 if style not in self.node_styles:
                     self.node_styles.append(style)
-                options = "style={}".format(style_name)
+                options = "style={}".format(node.box.tikzstyle_name)
             else:
                 options = "{}, fill={}".format(shape, color)
             self.add_node(i, j, text, options)
@@ -387,20 +383,17 @@ class MatBackend(Backend):
     def draw_spiders(self, graph, positions, draw_box_labels=True):
         nodes = {node for node in graph.nodes
                  if isinstance(node, BoxNode)
-                 if getattr(node.box, "draw_as_spider", False)}
-        shapes = {n: getattr(n.box, 'shape', 'circle') for n in nodes}
+                 if node.box.draw_as_spider}
+        shapes = {node: node.box.shape for node in nodes}
         for shape in set(shapes.values()):
-            colors = {
-                n: getattr(n.box, 'color', 'red')
-                for n, s in shapes.items() if s == shape}
+            colors = {n: n.box.color for n, s in shapes.items() if s == shape}
             nodes, colors = zip(*colors.items())
             nx.draw_networkx_nodes(
                 graph, positions, nodelist=nodes,
                 node_color=[getattr(COLORS, color) for color in colors],
                 node_shape=getattr(SHAPES, shape), ax=self.axis)
             if draw_box_labels:
-                labels = {n: getattr(n.box, "drawing_name", str(n.box))
-                          for n in nodes}
+                labels = {node: node.box.drawing_name for node in nodes}
                 nx.draw_networkx_labels(graph, positions, labels)
 
     def output(self, path=None, show=True, **params):
@@ -462,8 +455,6 @@ def draw(diagram, backend=None, data=None, **params):
         asymmetry = params.get(
             'asymmetry', .25 * any(box.is_dagger for box in diagram.boxes))
         node = BoxNode(box, depth)
-        if getattr(box, "draw_as_wire", False):
-            return backend
         if not box.dom and not box.cod:
             left, right = positions[node][0], positions[node][0]
         elif not box.dom:
@@ -492,8 +483,7 @@ def draw(diagram, backend=None, data=None, **params):
             (left, height + .5),
             color=params.get('color', DEFAULT.color))
         if params.get('draw_box_labels', True):
-            label = getattr(box, "drawing_name", str(box))
-            backend.draw_text(label, *positions[node],
+            backend.draw_text(box.drawing_name, *positions[node],
                               ha='center', va='center',
                               fontsize=params.get('fontsize', None))
         return backend
@@ -502,8 +492,8 @@ def draw(diagram, backend=None, data=None, **params):
         for source, target in graph.edges():
             def inside_a_box(node):
                 return isinstance(node, BoxNode)\
-                    and not getattr(node.box, "draw_as_wire", False)\
-                    and not getattr(node.box, "draw_as_spider", False)
+                    and not node.box.draw_as_wires\
+                    and not node.box.draw_as_spider
             if inside_a_box(source) or inside_a_box(target):
                 continue  # no need to draw wires inside a box
             backend.draw_wire(
@@ -534,7 +524,7 @@ def draw(diagram, backend=None, data=None, **params):
         draw_box_labels=params.get('draw_box_labels', True))
     box_nodes = [node for node in graph.nodes if isinstance(node, BoxNode)]
     for node in box_nodes:
-        if getattr(node.box, "draw_as_spider", False):
+        if node.box.draw_as_spider or node.box.draw_as_wires:
             continue
         backend = draw_box(backend, graph, positions, node.box, node.depth)
     return backend.output(
@@ -656,27 +646,28 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
-    def scale_and_pad(diagram, pos, scale, pad):
+    def scale_and_pad(graph, pos, scale, pad):
         widths, heights = zip(*pos.values())
         min_width, min_height = min(widths), min(heights)
         pos = {n: ((x - min_width) * scale[0] + pad[0],
                    (y - min_height) * scale[1] + pad[1])
                for n, (x, y) in pos.items()}
-        for depth, box in enumerate(diagram.boxes):
-            for i, obj in enumerate(box.dom):
-                node = DomNode(obj, i, depth)
-                pos[node] = (
-                    pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
-            for i, obj in enumerate(box.cod):
-                node = CodNode(obj, i, depth)
-                pos[node] = (
-                    pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
+        for box_node in graph.nodes:
+            if isinstance(box_node, BoxNode):
+                for i, obj in enumerate(box_node.box.dom):
+                    node = DomNode(obj, i, box_node.depth)
+                    pos[node] = (
+                        pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
+                for i, obj in enumerate(box_node.box.cod):
+                    node = CodNode(obj, i, box_node.depth)
+                    pos[node] = (
+                        pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
         return pos
 
     for i, diagram in enumerate(diagrams):
         scale = (scale_x, scale_y * max_height / (len(diagram) or 1))
         graph, positions = diagram_to_nx(diagram)
-        positions = scale_and_pad(diagram, positions, scale, (pad, 0))
+        positions = scale_and_pad(graph, positions, scale, (pad, 0))
         diagram.draw(backend=backend, data=(graph, positions),
                      **dict(params, show=False, path=None))
         widths = {x for x, _ in positions.values()}

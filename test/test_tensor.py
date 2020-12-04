@@ -153,7 +153,7 @@ def test_Diagram_cups_and_caps():
 def test_Box():
     f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
     assert repr(f) == "tensor.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
-    assert f != rigid.Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert f != rigid.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])
     assert {f: 42}[f] == 42
 
 

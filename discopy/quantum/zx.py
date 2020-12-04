@@ -228,12 +228,12 @@ Diagram.id = Id
 
 class Box(rigid.Box, Diagram):
     """ Box in a ZX diagram. """
-    def __init__(self, name, dom, cod, data=None):
+    def __init__(self, name, dom, cod, **params):
         if not isinstance(dom, PRO):
             raise TypeError(messages.type_err(PRO, dom))
         if not isinstance(cod, PRO):
             raise TypeError(messages.type_err(PRO, cod))
-        rigid.Box.__init__(self, name, dom, cod, data)
+        rigid.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, dom, cod, [self], [0])
 
 
@@ -332,7 +332,7 @@ H = Had()
 class Scalar(Box):
     """ Scalar in a ZX diagram. """
     def __init__(self, data):
-        super().__init__("scalar", PRO(0), PRO(0), data)
+        super().__init__("scalar", PRO(0), PRO(0), data=data)
         self.drawing_name = format_number(data)
 
     @property

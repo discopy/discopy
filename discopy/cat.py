@@ -59,8 +59,6 @@ class Ob:
 
     """
     def __init__(self, name):
-        if not str(name):
-            raise ValueError(messages.empty_name(name))
         self._name = name
 
     @property
@@ -447,11 +445,8 @@ class Box(Arrow):
     >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
 
     """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        """
-        """
-        if not str(name):
-            raise ValueError(messages.empty_name(name))
+    def __init__(self, name, dom, cod, **params):
+        data, _dagger = params.get("data", None), params.get("_dagger", False)
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
         Arrow.__init__(self, dom, cod, [self], _scan=False)
@@ -545,8 +540,9 @@ class Box(Arrow):
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return all(self.__getattribute__(x) == other.__getattribute__(x)
-                       for x in ['_name', 'dom', 'cod', 'data', '_dagger'])
+            attributes = ['_name', '_dom', '_cod', '_data', '_dagger']
+            return all(
+                getattr(self, x) == getattr(other, x) for x in attributes)
         if isinstance(other, Arrow):
             return len(other) == 1 and other[0] == self
         return False

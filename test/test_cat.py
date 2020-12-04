@@ -21,9 +21,6 @@ def test_Ob():
 
 def test_Ob_init():
     assert (Ob('x'), Ob(42), Ob('Alice')) == (Ob('x'), Ob(42), Ob('Alice'))
-    with raises(ValueError) as err:
-        Ob('')
-    assert str(err.value) == messages.empty_name('')
 
 
 def test_Ob_name():
@@ -171,8 +168,6 @@ def test_AxiomError():
 def test_Box():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}, lambda x: x])
     assert f >> Id(Ob('y')) == f == Id(Ob('x')) >> f
-    with raises(ValueError) as err:
-        Box('', '', '')
 
 
 def test_Box_dagger():

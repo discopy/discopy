@@ -16,4 +16,5 @@ monoidal
    discopy.monoidal.Box
    discopy.monoidal.Sum
    discopy.monoidal.Swap
+   discopy.monoidal.Bubble
    discopy.monoidal.Functor
