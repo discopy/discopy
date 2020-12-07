@@ -155,7 +155,7 @@ If you need to build it locally, just run:
 The tool paper is now available on [arXiv:2005.02975](https://arxiv.org/abs/2005.02975), it was presented at [ACT2020](https://act2020.mit.edu/).
 
 The documentation is hosted at [readthedocs.io](https://discopy.readthedocs.io/),
-you can also checkout the [notebooks](docs/notebooks/) for a demo!
+you can also checkout the [notebooks](notebooks/) for a demo!
 
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
 [![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
