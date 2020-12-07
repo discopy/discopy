@@ -6,7 +6,7 @@ cat
 
 .. autosummary::
    :template: class.rst
-   :toctree: _autosummary/cat
+   :toctree: ../_autosummary
 
    discopy.cat.Ob
    discopy.cat.Arrow

@@ -411,6 +411,9 @@ class Diagram(rigid.Diagram):
         return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
+    def bubble(self, func=lambda x: int(not x)):
+        return Bubble(self, func)
+
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
@@ -469,7 +472,7 @@ class Frobenius(Box):
     >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
     ... path='docs/_static/imgs/tensor/frobenius-example.png')
 
-    .. image:: ../../_static/imgs/tensor/frobenius-example.png
+    .. image:: ../_static/imgs/tensor/frobenius-example.png
         :align: center
     """
     def __init__(self, n_wires_in, n_wires_out, dim):
@@ -500,21 +503,21 @@ class Bubble(monoidal.Bubble, Box):
     inside : tensor.Diagram
         The diagram inside the bubble.
     func : callable
-        The function to apply.
+        The function to apply, default is :code:`lambda x: int(not x)`.
 
     Examples
     --------
 
-    >>> bubble = Bubble(Frobenius(1, 2, 2), lambda x: int(not x))
-    >>> bubble.draw(
-    ...        draw_type_labels=False,
-    ...        path='docs/_static/imgs/tensor/sep.png')
+    >>> men = Box("men", Dim(1), Dim(2), [0, 1])
+    >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
+    >>> men_are_mortal = (men >> mortal.bubble()).bubble()
+    >>> men_are_mortal.draw(draw_type_labels=False,
+    ...                     path='docs/_static/imgs/tensor/men-are-mortal.png')
 
-    .. image:: ../../_static/imgs/tensor/sep.png
+    .. image:: ../_static/imgs/tensor/men-are-mortal.png
         :align: center
 
-    >>> bubble.eval()
-    Tensor(dom=Dim(2), cod=Dim(2, 2), array=[0, 1, 1, 1, 1, 1, 1, 0])
+    >>> assert men_are_mortal.eval()
     """
     def __init__(self, inside, func=lambda x: int(not x)):
         self.func = func

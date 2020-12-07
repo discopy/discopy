@@ -6,8 +6,8 @@ quantum
 
 .. toctree::
 
-   cqmap
-   circuit
-   gates
-   tk
-   zx
+   quantum.cqmap
+   quantum.circuit
+   quantum.gates
+   quantum.tk
+   quantum.zx

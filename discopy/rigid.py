@@ -12,10 +12,11 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
 >>> from discopy import drawing
->>> drawing.equation(left_snake, Id(n), right_snake, figsize=(4, 2),\\
-... path='docs/_static/imgs/rigid/rigid-example.png')
+>>> drawing.equation(
+...     left_snake, Id(n), right_snake, figsize=(4, 2),
+...     path='docs/_static/imgs/rigid/snake-equation.png')
 
-.. image:: _static/imgs/rigid/rigid-example.png
+.. image:: ../_static/imgs/rigid/snake-equation.png
     :align: center
 """
 
@@ -147,7 +148,7 @@ class Diagram(monoidal.Diagram):
     >>> d.draw(figsize=(3, 2),
     ...        path='docs/_static/imgs/rigid/diagram-example.png')
 
-    .. image:: ../../_static/imgs/rigid/diagram-example.png
+    .. image:: ../_static/imgs/rigid/diagram-example.png
         :align: center
     """
     @staticmethod
@@ -191,7 +192,7 @@ class Diagram(monoidal.Diagram):
         >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
         ... margins=(0.3, 0.05), path='docs/_static/imgs/rigid/cups.png')
 
-    .. image:: ../../_static/imgs/rigid/cups.png
+    .. image:: ../_static/imgs/rigid/cups.png
         :align: center
         """
         return cups(left, right)
@@ -315,7 +316,7 @@ class Cup(Box):
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cup.png')
 
-    .. image:: ../../_static/imgs/rigid/cup.png
+    .. image:: ../_static/imgs/rigid/cup.png
         :align: center
     """
     def __init__(self, left, right):
@@ -350,7 +351,7 @@ class Cap(Box):
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cap.png')
 
-    .. image:: ../../_static/imgs/rigid/cap.png
+    .. image:: ../_static/imgs/rigid/cap.png
         :align: center
     """
     def __init__(self, left, right):
@@ -394,7 +395,7 @@ class Functor(monoidal.Functor):
     >>> drawing.equation(sentence, F(sentence), symbol='|->', figsize=(5,2),\\
     ... path='docs/_static/imgs/rigid/functor-example.png')
 
-    .. image:: ../../_static/imgs/rigid/functor-example.png
+    .. image:: ../_static/imgs/rigid/functor-example.png
         :align: center
     """
     def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):

@@ -103,10 +103,7 @@ def open_bubbles(diagram):
                 inside = self(diagram.inside)
                 return _open >> Id(_left) @ inside @ Id(_right) >> _close
             return super().__call__(diagram)
-    return OpenBubbles(
-        lambda x: x, lambda f: f,
-        ob_factory=type(diagram.dom), ar_factory=type(diagram[0:0])
-    )(diagram)
+    return OpenBubbles(lambda x: x, lambda f: f)(diagram)
 
 
 def diagram_to_nx(diagram):

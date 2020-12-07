@@ -6,7 +6,7 @@ drawing
 
 .. autosummary::
    :template: class.rst
-   :toctree: _autosummary/drawing
+   :toctree: ../_autosummary
 
    discopy.drawing.Node
    discopy.drawing.Backend

@@ -6,7 +6,7 @@ grammar.pregroup
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary/grammar.pregroup
+   :toctree: ../_autosummary
 
    discopy.grammar.pregroup.Word
    discopy.grammar.pregroup.eager_parse

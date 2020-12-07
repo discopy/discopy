@@ -35,7 +35,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-.. image:: _static/imgs/EckmannHilton.gif
+.. image:: ../_static/imgs/EckmannHilton.gif
     :align: center
 """
 
@@ -318,7 +318,7 @@ class Diagram(cat.Arrow):
     >>> d.draw(figsize=(2, 2),
     ...        path='docs/_static/imgs/monoidal/arrow-example.png')
 
-    .. image:: ../../_static/imgs/monoidal/arrow-example.png
+    .. image:: ../_static/imgs/monoidal/arrow-example.png
         :align: center
     """
     @staticmethod
@@ -402,7 +402,7 @@ class Diagram(cat.Arrow):
         ...     figsize=(2, 2),
         ...     path='docs/_static/imgs/monoidal/tensor-example.png')
 
-        .. image:: ../../_static/imgs/monoidal/tensor-example.png
+        .. image:: ../_static/imgs/monoidal/tensor-example.png
             :align: center
 
         Parameters
@@ -710,7 +710,7 @@ class Bubble(cat.Bubble, Box):
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
     >>> d.draw(path='docs/_static/imgs/monoidal/bubble-example.png')
 
-    .. image:: ../../_static/imgs/monoidal/bubble-example.png
+    .. image:: ../_static/imgs/monoidal/bubble-example.png
         :align: center
     """
     def downgrade(self):
@@ -740,7 +740,7 @@ class Functor(cat.Functor):
     ...     f0 >> f0[::-1], F(f0 >> f0[::-1]), symbol='-->', figsize=(4, 2),
     ...     path='docs/_static/imgs/monoidal/functor-example.png')
 
-    .. image:: ../../_static/imgs/monoidal/functor-example.png
+    .. image:: ../_static/imgs/monoidal/functor-example.png
         :align: center
     """
     def __init__(self, ob, ar, ob_factory=None, ar_factory=None):

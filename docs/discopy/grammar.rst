@@ -6,6 +6,6 @@ grammar
 
 .. toctree::
 
-   cfg
-   pregroup
-   ccg
+   grammar.cfg
+   grammar.pregroup
+   grammar.ccg
