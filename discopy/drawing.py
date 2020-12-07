@@ -80,7 +80,7 @@ class Node:
 
 def open_bubbles(diagram):
     """ Replace bubbles by diagrams with opening and closing boxes. """
-    from discopy.monoidal import Ty, Box, Id, Functor, Bubble
+    from discopy.monoidal import Ob, Ty, Box, Id, Functor, Bubble
     if not any(isinstance(box, Bubble) for box in diagram.boxes):
         return diagram
 
@@ -88,13 +88,13 @@ def open_bubbles(diagram):
         """ Sends a bubble to open >> Id(label) @ bubble @ Id("") >> clos. """
         def __call__(self, diagram):
             if isinstance(diagram, Bubble):
-                _left, _right = Ty(diagram.drawing_name), Ty("")
+                obj = Ob(diagram.drawing_name)
+                obj.draw_as_box = True
+                _left, _right = Ty(obj), Ty("")
                 _open = Box(
-                    "_open", Ty() @ diagram.dom,  # downcasting dom to Ty
-                    _left @ diagram.inside.dom @ _right)
+                    "_open", diagram.dom, _left @ diagram.inside.dom @ _right)
                 _close = Box(
-                    "_close",
-                    _left @ diagram.inside.cod @ _right, Ty() @ diagram.cod)
+                    "_close", _left @ diagram.inside.cod @ _right, diagram.cod)
                 _open.draw_as_wires, _close.draw_as_wires = True, True
                 if len(diagram.dom) == len(diagram.inside.dom):
                     _open.bubble_opening = True
@@ -499,7 +499,9 @@ def draw(diagram, **params):
                 positions[source], positions[target],
                 bend_out=source.kind == "box", bend_in=target.kind == "box")
             if source.kind in ["input", "cod"]\
-                    and params.get('draw_type_labels', True):
+                    and (params.get('draw_type_labels', True)
+                         or getattr(source.obj, "draw_as_box", False)
+                         and params.get('draw_box_labels', True)):
                 i, j = positions[source]
                 pad_i, pad_j = params.get('textpad', DEFAULT.textpad)
                 pad_j = 0 if source.kind == "input" else pad_j
@@ -661,7 +663,11 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
     def height(diagram):
         if hasattr(diagram, "terms"):  # i.e. if isinstance(diagram, Sum)
             return max(height(d) for d in diagram.terms)
-        return len(diagram)
+        if hasattr(diagram, "inside"):  # i.e. if isinstance(diagram, Bubble)
+            return height(diagram.inside) + 2
+        if len(diagram) > 1:
+            return sum(height(d) for d in diagram.boxes)
+        return 1
 
     pad, max_height = params.get('pad', (0, 0)), max(map(height, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
@@ -671,7 +677,7 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
         else MatBackend(figsize=params.get('figsize', None))
 
     for i, diagram in enumerate(diagrams):
-        scale = (scale_x, scale_y * max_height / (height(diagram) or 1))
+        scale = (scale_x, scale_y * max_height / height(diagram))
         diagram.draw(**dict(
             params, show=False, path=None,
             backend=backend, scale=scale, pad=pad))

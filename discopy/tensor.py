@@ -414,12 +414,23 @@ class Diagram(rigid.Diagram):
     def bubble(self, func=lambda x: int(not x)):
         return Bubble(self, func)
 
+    def grad(self, var):
+        """ Returns a gradient bubble. """
+        return Grad(self, var)
+
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
 
 
+class Sum(monoidal.Sum, Diagram):
+    """ Sums of tensor diagrams. """
+    def eval(self, contractor=None):
+        return sum(term.eval(contractor=contractor) for term in self.terms)
+
+
 Diagram.id = Id
+Diagram.sum = Sum
 
 
 class Swap(rigid.Swap, Diagram):
@@ -522,3 +533,36 @@ class Bubble(monoidal.Bubble, Box):
     def __init__(self, inside, func=lambda x: int(not x)):
         self.func = func
         super().__init__(inside)
+
+
+class Grad(Bubble):
+    """
+    Gradient bubble.
+
+    Parameters
+    ----------
+    inside : tensor.Diagram
+        The diagram inside the bubble.
+    var : :class:`sympy.Symbol`
+        The variable to differentiate.
+
+    Examples
+    --------
+
+    >>> from sympy.abc import x
+    >>> f = Box('f', Dim(2), Dim(2), [1, 0, 0, x])
+    >>> g = Box('g', Dim(2), Dim(2), [-x, 0, 0, 1])
+    >>> lhs = (f >> g).grad(x)
+    >>> rhs = (f.grad(x) >> g) + (f >> g.grad(x))
+    >>> assert lhs.eval() == rhs.eval()
+    >>> from discopy import drawing
+    >>> drawing.equation(lhs, rhs, figsize=(5, 2), draw_type_labels=False,
+    ...                  path='docs/_static/imgs/tensor/product-rule.png')
+
+    .. image:: ../_static/imgs/tensor/product-rule.png
+        :align: center
+    """
+    def __init__(self, inside, var):
+        super().__init__(
+            inside, lambda x: getattr(x, 'diff', lambda _: 0)(var))
+        self.drawing_name = "d${}$".format(var)

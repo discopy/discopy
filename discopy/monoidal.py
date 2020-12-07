@@ -714,7 +714,10 @@ class Bubble(cat.Bubble, Box):
         :align: center
     """
     def downgrade(self):
-        return Bubble(self.inside.downgrade(), self.dom, self.cod)
+        """ Downcasting to :class:`discopy.monoidal.Bubble`. """
+        result = Bubble(self.inside.downgrade(), Ty(*self.dom), Ty(*self.cod))
+        result.drawing_name = self.drawing_name
+        return result
 
     drawing_name = ""
 
