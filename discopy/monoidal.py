@@ -736,8 +736,9 @@ class Functor(cat.Functor):
     >>> assert F(F(f0)) == f0
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
+    >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
     >>> drawing.equation(
-    ...     f0 >> f0[::-1], F(f0 >> f0[::-1]), symbol='-->', figsize=(4, 2),
+    ...     source, target, symbol='$\\\\mapsto$', figsize=(4, 2),
     ...     path='docs/_static/imgs/monoidal/functor-example.png')
 
     .. image:: ../_static/imgs/monoidal/functor-example.png

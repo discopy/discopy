@@ -392,8 +392,9 @@ class Functor(monoidal.Functor):
     >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
     >>> from discopy import drawing
-    >>> drawing.equation(sentence, F(sentence), symbol='|->', figsize=(5,2),\\
-    ... path='docs/_static/imgs/rigid/functor-example.png')
+    >>> drawing.equation(
+    ...     sentence, F(sentence), symbol='$\\\\mapsto$', figsize=(5, 2),
+    ...     path='docs/_static/imgs/rigid/functor-example.png')
 
     .. image:: ../_static/imgs/rigid/functor-example.png
         :align: center
