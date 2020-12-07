@@ -16,3 +16,4 @@ tensor
    discopy.tensor.Box
    discopy.tensor.Frobenius
    discopy.tensor.Bubble
+   discopy.tensor.Grad
