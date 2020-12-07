@@ -208,21 +208,32 @@ def diagram_to_nx(diagram):
 
 class Backend(ABC):
     """ Abstract drawing backend. """
+    def __init__(self):
+        self.max_width = 0
+
     @abstractmethod
     def draw_text(self, text, i, j, **params):
         """ Draws a piece of text at a given position. """
+        self.max_width = max(self.max_width, i)
 
     @abstractmethod
     def draw_polygon(self, *points, color=DEFAULT.color):
         """ Draws a polygon given a list of points. """
+        self.max_width = max(self.max_width, max(i for i, _ in points))
 
     @abstractmethod
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
         """ Draws a wire from source to target, possibly with a Bezier. """
+        self.max_width = max(self.max_width, source[0], target[0])
 
     @abstractmethod
     def draw_spiders(self, graph, positions, draw_box_labels=True):
         """ Draws a list of boxes depicted as spiders. """
+        spider_widths = [
+            positions[n][0] for n in graph.nodes
+            if n.kind == 'box' and n.box.draw_as_spider]
+        if spider_widths:
+            self.max_width = max(self.max_width, max(spider_widths))
 
     @abstractmethod
     def output(self, path=None, show=True, **params):
@@ -236,6 +247,7 @@ class TikzBackend(Backend):
             if use_tikzstyles is None else use_tikzstyles
         self.node_styles, self.edge_styles = [], []
         self.nodes, self.nodelayer, self.edgelayer = {}, [], []
+        super().__init__()
 
     @staticmethod
     def format_color(color):
@@ -261,6 +273,7 @@ class TikzBackend(Backend):
         if 'fontsize' in params and params['fontsize'] is not None:
             options += ", scale={}".format(params['fontsize'])
         self.add_node(i, j, text, options)
+        super().draw_text(text, i, j, **params)
 
     def draw_polygon(self, *points, color=DEFAULT.color):
         nodes = []
@@ -279,6 +292,7 @@ class TikzBackend(Backend):
             options = "-, fill={{{}}}".format(color)
         self.edgelayer.append("\\draw [{}] {};\n".format(options, " to ".join(
             "({}.center)".format(node) for node in nodes)))
+        super().draw_polygon(*points, color=color)
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
         out = -90 if not bend_out or source[0] == target[0]\
@@ -292,6 +306,7 @@ class TikzBackend(Backend):
             self.add_node(*target)
         self.edgelayer.append(cmd.format(
             inp, out, self.nodes[source], self.nodes[target]))
+        super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_spiders(self, graph, positions, draw_box_labels=True):
         spiders = [(node, node.box.color, node.box.shape)
@@ -309,6 +324,7 @@ class TikzBackend(Backend):
             else:
                 options = "{}, fill={}".format(shape, color)
             self.add_node(i, j, text, options)
+        super().draw_spiders(graph, positions, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
         baseline = params.get("baseline", 0)
@@ -342,22 +358,26 @@ class MatBackend(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None):
         self.axis = axis or plt.subplots(figsize=figsize)[1]
+        super().__init__()
 
     def draw_text(self, text, i, j, **params):
         params['fontsize'] = params.get('fontsize', None) or DEFAULT.fontsize
         self.axis.text(i, j, text, **params)
+        super().draw_text(text, i, j, **params)
 
     def draw_polygon(self, *points, color=DEFAULT.color):
         codes = [Path.MOVETO]
         codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
         path = Path(points + points[:1], codes)
         self.axis.add_patch(PathPatch(path, facecolor=getattr(COLORS, color)))
+        super().draw_polygon(*points, color=color)
 
     def draw_wire(self, source, target, bend_out=False, bend_in=False):
         mid = (target[0], source[1]) if bend_out else (source[0], target[1])
         path = Path([source, mid, target],
                     [Path.MOVETO, Path.CURVE3, Path.CURVE3])
         self.axis.add_patch(PathPatch(path, facecolor='none'))
+        super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_spiders(self, graph, positions, draw_box_labels=True):
         nodes = {node for node in graph.nodes
@@ -373,6 +393,7 @@ class MatBackend(Backend):
             if draw_box_labels:
                 labels = {node: node.box.drawing_name for node in nodes}
                 nx.draw_networkx_labels(graph, positions, labels)
+        super().draw_spiders(graph, positions, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
         xlim, ylim = params.get("xlim", None), params.get("ylim", None)
@@ -394,7 +415,7 @@ class MatBackend(Backend):
             plt.show()
 
 
-def draw(diagram, backend=None, data=None, **params):
+def draw(diagram, **params):
     """
     Draws a diagram using networkx and matplotlib.
 
@@ -489,8 +510,28 @@ def draw(diagram, backend=None, data=None, **params):
                     verticalalignment='top')
         return backend
 
-    graph, positions = diagram_to_nx(diagram) if data is None else data
-    backend = backend if backend is not None else\
+    def scale_and_pad(graph, pos, scale, pad):
+        widths, heights = zip(*pos.values())
+        min_width, min_height = min(widths), min(heights)
+        pos = {n: ((x - min_width) * scale[0] + pad[0],
+                   (y - min_height) * scale[1] + pad[1])
+               for n, (x, y) in pos.items()}
+        for box_node in graph.nodes:
+            if box_node.kind == "box":
+                for i, obj in enumerate(box_node.box.dom):
+                    node = Node("dom", obj=obj, i=i, depth=box_node.depth)
+                    pos[node] = (
+                        pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
+                for i, obj in enumerate(box_node.box.cod):
+                    node = Node("cod", obj=obj, i=i, depth=box_node.depth)
+                    pos[node] = (
+                        pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
+        return pos
+
+    scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
+    graph, positions = diagram_to_nx(diagram)
+    positions = scale_and_pad(graph, positions, scale, pad)
+    backend = params['backend'] if 'backend' in params else\
         TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
@@ -617,42 +658,27 @@ def pregroup_draw(words, cups, **params):
 
 def equation(*diagrams, path=None, symbol="=", space=1, **params):
     """ Draws an equation with multiple diagrams. """
-    pad, max_height = 0, max(map(len, diagrams))
+    def height(diagram):
+        if hasattr(diagram, "terms"):  # i.e. if isinstance(diagram, Sum)
+            return max(height(d) for d in diagram.terms)
+        return len(diagram)
+
+    pad, max_height = params.get('pad', (0, 0)), max(map(height, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
-    backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
+    backend = params['backend'] if 'backend' in params\
+        else TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
-    def scale_and_pad(graph, pos, scale, pad):
-        widths, heights = zip(*pos.values())
-        min_width, min_height = min(widths), min(heights)
-        pos = {n: ((x - min_width) * scale[0] + pad[0],
-                   (y - min_height) * scale[1] + pad[1])
-               for n, (x, y) in pos.items()}
-        for box_node in graph.nodes:
-            if box_node.kind == "box":
-                for i, obj in enumerate(box_node.box.dom):
-                    node = Node("dom", obj=obj, i=i, depth=box_node.depth)
-                    pos[node] = (
-                        pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
-                for i, obj in enumerate(box_node.box.cod):
-                    node = Node("cod", obj=obj, i=i, depth=box_node.depth)
-                    pos[node] = (
-                        pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
-        return pos
-
     for i, diagram in enumerate(diagrams):
-        scale = (scale_x, scale_y * max_height / (len(diagram) or 1))
-        graph, positions = diagram_to_nx(diagram)
-        positions = scale_and_pad(graph, positions, scale, (pad, 0))
-        diagram.draw(backend=backend, data=(graph, positions),
-                     **dict(params, show=False, path=None))
-        widths = {x for x, _ in positions.values()}
-        min_width, max_width = min(widths), max(widths)
-        pad += max_width - min_width + space
+        scale = (scale_x, scale_y * max_height / (height(diagram) or 1))
+        diagram.draw(**dict(
+            params, show=False, path=None,
+            backend=backend, scale=scale, pad=pad))
+        pad = (backend.max_width + space, 0)
         if i < len(diagrams) - 1:
-            backend.draw_text(symbol, pad, scale_y * max_height / 2)
-            pad += space
+            backend.draw_text(symbol, pad[0], scale_y * max_height / 2)
+            pad = (pad[0] + space, pad[1])
 
     return backend.output(
         path=path,
