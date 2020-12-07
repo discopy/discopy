@@ -1,6 +1,4 @@
-import logging
-from discopy import *
-from discopy.grammar import *
+
 
 """
 Implementing linear parser LinPP for pregroups.
@@ -12,6 +10,11 @@ The parser is correct for lists of words satosfying the following restrictions:
 complexity 2)
 2 - any critical fan is 'guarded', i.e. critical fans do not nest.
 """
+
+import logging
+from discopy import *
+from discopy.grammar import *
+from discopy.grammar.pregroup import draw
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -567,7 +570,13 @@ class LinPP():
                     ty_index += 1
 
         logger.info('parsing completed.')
-        return reductions, stack.types
+
+        #transforming reduction dict into list of pairs (left, right)
+        reduction_list = []
+        for key, value in reductions.items():
+            reduction_list.append([value, key])
+
+        return reduction_list, stack.types
 
 
 def is_sentence(sentence, bound=7, target=Ty('s')):
@@ -595,3 +604,43 @@ def is_sentence(sentence, bound=7, target=Ty('s')):
         """
     red , stack = LinPP(bound=bound).parse(sentence)
     return (stack == [target])
+
+
+def coordinates_to_index(sentence, link):
+    word_index , type_index = link
+    if word_index is 0:
+        return type_index
+    index = len(sentence[0].cod) - 1
+    for word in sentence[1:word_index]:
+        index = index + len(word.cod)
+    return index + type_index + 1
+
+def diagram(sentence, bound_parser=7, reductions=None, max_iteration = 10):
+    if reductions is None:
+        parser = LinPP(bound=bound_parser)
+        reductions = parser.parse(sentence)[0]
+
+    # transform reduction links coordinates into indices
+    red = []
+    for link in reductions:
+        red.append((coordinates_to_index(link[0]), coordinates_to_index(link[1])))
+
+    # constructing the diagram
+    iter_counter = 0
+    string = Id(Ty()).tensor(sentence).cod
+    result = Id(Ty()).tensor(sentence)
+    types = result.cod
+    while iter_counter < max_iteration:
+        type_counter = 0
+        while type_counter < len(string):
+            left, right = red[0]
+            if type_counter == left:
+                cup = Cup(string[type_counter], string[right])
+                result = result >> Id(types[:type_counter]) @ cup @ Id(types[right + 1:])
+                red.pop(0)
+                types = result.cod
+            type_counter += 1
+        if len(red) == 0:
+            return result
+        iter_counter += 1
+    assert (len(red) == 0), 'Reduction set not transformed correctly'
