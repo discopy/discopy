@@ -60,7 +60,7 @@ class Diagram(tensor.Diagram):
         >>> from sympy.abc import phi
         >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
         """
-        return Circuit.grad(self, var)
+        return super().grad(var)
 
     def to_pyzx(self):
         """

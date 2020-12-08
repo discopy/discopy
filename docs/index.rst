@@ -24,6 +24,7 @@ discopy
     notebooks/bell-test
     notebooks/rewriting-diagrams
     notebooks/new-features-0.3.3
+    notebooks/your-own-category
 
 .. toctree::
    :maxdepth: 2

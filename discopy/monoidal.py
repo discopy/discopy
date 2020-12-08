@@ -259,9 +259,8 @@ class Layer(cat.Box):
     """
     def __init__(self, left, box, right):
         self._left, self._box, self._right = left, box, right
-        name = "Layer({}, {}, {})".format(left, box, right)
         dom, cod = left @ box.dom @ right, left @ box.cod @ right
-        super().__init__(name, dom, cod)
+        super().__init__("Layer", dom, cod, data=box)
 
     def __iter__(self):
         yield self._left
@@ -539,6 +538,22 @@ class Diagram(cat.Arrow):
             perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
         return diagram
 
+    def permute(self, *perm):
+        """
+        Returns :code:`self >> self.permutation(perm, self.dom)`.
+
+        Parameters
+        ----------
+        perm : list of int
+            such that :code:`i` goes to :code:`perm[i]`
+
+        Examples
+        --------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> assert Id(x @ y @ z).permute(2, 1, 0).cod == z @ y @ x
+        """
+        return self >> self.permutation(list(perm), self.dom)
+
     @staticmethod
     def subclass(cls):
         """ Decorator for subclasses of Diagram. """
@@ -713,13 +728,16 @@ class Bubble(cat.Bubble, Box):
     .. image:: ../_static/imgs/monoidal/bubble-example.png
         :align: center
     """
+    def __init__(self, inside, dom=None, cod=None, **params):
+        self.drawing_name = params.get("drawing_name", "")
+        cat.Bubble.__init__(self, inside, dom, cod)
+        Box.__init__(self, self._name, self.dom, self.cod, data=self.data)
+
     def downgrade(self):
         """ Downcasting to :class:`discopy.monoidal.Bubble`. """
         result = Bubble(self.inside.downgrade(), Ty(*self.dom), Ty(*self.cod))
         result.drawing_name = self.drawing_name
         return result
-
-    drawing_name = ""
 
 
 Diagram.sum = Sum

@@ -107,7 +107,7 @@ bit, qubit = BitsAndQubits("bit"), BitsAndQubits("qubit")
 
 
 @monoidal.Diagram.subclass
-class Circuit(Diagram):
+class Circuit(tensor.Diagram):
     """ Classical-quantum circuits. """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
@@ -447,11 +447,7 @@ class Circuit(Diagram):
         ...     == (Rz(phi / 2) @ scalar(0+0.5j) @ Rz(phi + .5) >> CX)\\
         ...     + (scalar(0+0.25j) @ Rz(phi/2 - .5) @ Rz(phi + 1) >> CX)
         """
-        if var not in self.free_symbols:
-            return self.sum([], self.dom, self.cod)
-        left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
-            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
+        return super().grad(var)
 
     def draw(self, **params):
         """ We draw the labels of a circuit whenever it's mixed. """

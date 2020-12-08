@@ -381,9 +381,9 @@ class Arrow:
         return self.upgrade(
             Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
-    def bubble(self, dom=None, cod=None):
-        """ Returns a bubble with the diagram inside. """
-        return self.bubble_factory(self, dom, cod)
+    def bubble(self, **params):
+        """ Returns a :class:`cat.Bubble` with the diagram inside. """
+        return self.bubble_factory(self, **params)
 
 
 class Id(Arrow):
@@ -658,31 +658,27 @@ class Sum(Box):
 
 class Bubble(Box):
     """ A unary operator on homsets. """
-    def __init__(self, inside, dom=None, cod=None, name="Bubble"):
+    def __init__(self, inside, dom=None, cod=None):
         dom = inside.dom if dom is None else dom
         cod = inside.cod if cod is None else cod
-        super().__init__(name, dom, cod, data=inside)
+        super().__init__("Bubble", dom, cod, data=inside)
 
     @property
     def inside(self):
         """ The diagram inside a bubble. """
         return self.data
 
-    @property
-    def is_ioo(self):
-        """ Whether the bubble is identity-on-objects. """
-        return (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
-
-    @property
-    def name(self):
-        return "{}({})".format(self._name, self.inside) if self.is_ioo\
-            else "{}({}, dom={}, cod={})".format(
-                self._name, self.inside, self.dom, self.cod)
+    def __str__(self):
+        return "({}).bubble({})".format(
+            self.inside,
+            "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+            else "dom={}, cod={}".format(self.dom, self.cod))
 
     def __repr__(self):
-        return "{}({})".format(self._name, repr(self.inside)) if self.is_ioo\
-            else "{}({}, dom={}, cod={})".format(
-                self._name, repr(self.inside), repr(self.dom), repr(self.cod))
+        return "Bubble({}{})".format(
+            repr(self.inside),
+            "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+            else ", dom={}, cod={})".format(repr(self.dom), repr(self.cod)))
 
 
 Arrow.sum = Sum
@@ -781,7 +777,8 @@ class Functor:
             return self.ar_factory.sum(
                 list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Bubble):
-            return self(arrow.inside).bubble(self(arrow.dom), self(arrow.cod))
+            return self(arrow.inside).bubble(
+                dom=self(arrow.dom), cod=self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):

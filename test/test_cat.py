@@ -263,3 +263,4 @@ def test_total_ordering():
 def test_Bubble():
     f = Box('f', Ob('x'), Ob('y'))
     assert repr((f).bubble()) == "Bubble(Box('f', Ob('x'), Ob('y')))"
+    assert str(f.bubble()) == "(f).bubble()"

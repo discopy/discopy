@@ -14,6 +14,5 @@ tensor
    discopy.tensor.Diagram
    discopy.tensor.Id
    discopy.tensor.Box
-   discopy.tensor.Frobenius
+   discopy.tensor.Spider
    discopy.tensor.Bubble
-   discopy.tensor.Grad
