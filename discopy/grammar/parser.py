@@ -1,14 +1,15 @@
 
 
 """
-Implementing linear parser LinPP for pregroups.
+Implementing linear parser "LinPP" for pregroups.
 The algorithm parses lists of Word objects (i.e. Words with codomain
-given by rigid.Ty types, Ty)
-The parser is correct for lists of words satosfying the following restrictions:
+given by rigid.Ty types, Ty), outputting an irreducible form.
+The parser is correct, i.e. it reduces a string to the sentence type if and only if the string is a grammatical sentence, for lists of words satisfying the following restrictions:
 
-1 - winding number for any simple type must be z <= 1. (right-lateral
-complexity 2)
+1 - winding number for any simple type must be -1 <= z <= 1 (complexity 2).
 2 - any critical fan is 'guarded', i.e. critical fans do not nest.
+
+The proof of correctness can be found at:
 """
 
 import logging
@@ -18,6 +19,7 @@ from discopy.grammar.pregroup import draw
 
 logger = logging.getLogger()
 logging.basicConfig(level=logging.INFO, format='%(message)s')
+
 
 def check_reduction(ty_1, ty_2):
     """
@@ -463,7 +465,7 @@ class LinPP():
 
         Returns
         -------
-        reductions : dict
+        reductions : list
             set of reduction links
         stack : list
             reduced sentence
@@ -571,7 +573,7 @@ class LinPP():
 
         logger.info('parsing completed.')
 
-        #transforming reduction dict into list of pairs (left, right)
+        # transforming reduction dict into list of pairs (left, right)
         reduction_list = []
         for key, value in reductions.items():
             reduction_list.append([value, key])
@@ -602,45 +604,97 @@ def is_sentence(sentence, bound=7, target=Ty('s')):
         True is reduced to target type.
 
         """
-    red , stack = LinPP(bound=bound).parse(sentence)
-    return (stack == [target])
+    stack = LinPP(bound=bound).parse(sentence)[1]
+    return stack == [target]
 
 
-def coordinates_to_index(sentence, link):
-    word_index , type_index = link
-    if word_index is 0:
-        return type_index
-    index = len(sentence[0].cod) - 1
-    for word in sentence[1:word_index]:
-        index = index + len(word.cod)
-    return index + type_index + 1
+def coordinates_to_index(sentence, reductions):
+    """
+    Parser returns reductions links as
+    pairs of coordinates [(word_index, type_index), (word_index, type_index)].
+    This function transforms the set of reductions into single indices pairs
+    (left_index, right_index).
 
-def diagram(sentence, bound_parser=7, reductions=None, max_iteration = 10):
+    """
+    red = []
+    for link in reductions:
+        for coor in link:
+            new_link = []
+            word_index, type_index = coor
+            if word_index == 0:
+                 new_link.append(type_index)
+            else:
+                index = len(sentence[0].cod) - 1
+                for word in sentence[1:word_index]:
+                    index = index + len(word.cod)
+                new_link.append(index + type_index + 1)
+        red.append(new_link)
+
+def reduction_layers(reductions):
+    """
+    This function identifies layers of nested reduction cups.
+    It returns a list of the different layers in order of appearance.
+    Input needs to be already converted into indices.
+    """
+    layers = []
+    while True:
+        layer_1 = {reductions[0][0]: reductions[0][1]]}
+        layer_2 = []
+        counter = 1
+        while counter < len(reductions):
+            if reductions[counter][0] < reductions[counter -1][0]:
+                layer_2.append(reductions[counter])
+            if reductions[counter][0] > reductions[counter -1][0]:
+                layer_1[reductions[counter][0]] = reductions[counter][1]
+            counter += 1
+        layers.append(layer_1)
+        if layer_2 == []:
+            break
+        reductions = layer_2
+    return layers
+
+
+def diagram(sentence, bound_parser=7, reductions=None, max_iteration=10):
+    """
+    This function transforms a list of words (unparsed sentence) into
+    its sentence diagram. If the sentence was already parsed, we can
+    specify a list of reductions as a paramenter.
+    """
+    # if not parsed yet, we parse the sentence
     if reductions is None:
         parser = LinPP(bound=bound_parser)
         reductions = parser.parse(sentence)[0]
 
-    # transform reduction links coordinates into indices
-    red = []
-    for link in reductions:
-        red.append((coordinates_to_index(link[0]), coordinates_to_index(link[1])))
+    # converting coordinates into indices and separate layers of cups
+    reductions = coordinates_to_index(sentence, reductions)
+    layers = reduction_layers(reductions)
 
-    # constructing the diagram
-    iter_counter = 0
-    string = Id(Ty()).tensor(sentence).cod
-    result = Id(Ty()).tensor(sentence)
-    types = result.cod
-    while iter_counter < max_iteration:
-        type_counter = 0
-        while type_counter < len(string):
-            left, right = red[0]
-            if type_counter == left:
-                cup = Cup(string[type_counter], string[right])
-                result = result >> Id(types[:type_counter]) @ cup @ Id(types[right + 1:])
-                red.pop(0)
-                types = result.cod
-            type_counter += 1
-        if len(red) == 0:
-            return result
-        iter_counter += 1
-    assert (len(red) == 0), 'Reduction set not transformed correctly'
+    # constructing diagram of tensored words
+    diagram = sentence[0]
+    if len(sentence) == 1:
+        return diagram
+    for word in sentence[1:]:
+        diagram = diagram.tensor(word)
+
+    string = diagram[:].cod # tensored sentence we loop over. static
+    set = {}
+    #constructing diagram of layer of cups
+    for layer in layers:
+        index = layers.index(layer)
+        counter = 0
+        diagram_temp = Id(Ty())
+        for counter < len(string):
+            if counter in layer:
+                cup = Cup(Ty(string[counter]), Ty(layer[counter]))
+                diagram_temp = diagram_temp @ cup
+                counter += 2
+            else:
+                if counter in set.items():
+                    counter += 1
+                else:
+                    id = Id(Ty(string[counter]))
+                    diagram_temp = diagram_temp @ id
+                    counter += 1
+        diagram = diagram >> diagram_temp
+        set = set + layer
+    return diagram
