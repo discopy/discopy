@@ -188,7 +188,8 @@ class Tensor(rigid.Box):
 
     @staticmethod
     def id(dom):
-        return Tensor(dom, dom, np.identity(int(np.prod(dom))))
+        from numpy import prod
+        return Tensor(dom, dom, np.identity(int(prod(dom))))
 
     @staticmethod
     def cups(left, right):
@@ -530,7 +531,7 @@ class Spider(Box):
         name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, dim)
         dom, cod = dim ** n_legs_in, dim ** n_legs_out
         array = numpy.zeros(dom @ cod)
-        for i in range(int(np.prod(dim))):
+        for i in range(int(numpy.prod(dim))):
             array[len(dom @ cod) * (i, )] = 1
         super().__init__(
             name, dom, cod, data=array,
