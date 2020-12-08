@@ -634,7 +634,8 @@ class Box(cat.Box, Diagram):
         """ Downcasting to :class:`discopy.monoidal.Box`. """
         dom, cod = Ty(*self.dom), Ty(*self.cod)
         box = Box(self.name, dom, cod, data=self.data, _dagger=self._dagger,
-                  **{attr: getattr(self, attr) for attr in DRAWING_ATTRIBUTES})
+                  **{attr: getattr(self, attr, default(self))
+                     for attr, default in DRAWING_ATTRIBUTES.items()})
         return box
 
     def __init__(self, name, dom, cod, **params):
