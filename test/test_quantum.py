@@ -116,9 +116,8 @@ def test_Circuit_get_counts():
 def test_Circuit_get_counts_snake():
     compilation = Mock()
     compilation.apply = lambda x: x
-    backend = Mock()
-    backend.get_counts.return_value = {
-        (0, 0): 240, (0, 1): 242, (1, 0): 271, (1, 1): 271}
+    backend = tk.mockBackend({
+        (0, 0): 240, (0, 1): 242, (1, 0): 271, (1, 1): 271})
     scaled_bell = Circuit.caps(qubit, qubit)
     snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
     result = np.round(snake.eval(
@@ -127,8 +126,7 @@ def test_Circuit_get_counts_snake():
 
 
 def test_Circuit_get_counts_empty():
-    backend = Mock()
-    backend.get_counts.return_value = {}
+    backend = tk.mockBackend({})
     assert not Id(1).get_counts(backend)
 
 
@@ -174,9 +172,8 @@ def test_Bra_and_Measure_to_tk():
 
 
 def test_ClassicalGate_eval():
-    backend = Mock()
-    backend.get_counts.return_value = {
-        (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256}
+    backend = tk.mockBackend({
+        (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256})
     post = ClassicalGate('post', 2, 0, [1, 0, 0, 0])
     assert post.eval(backend) == Tensor(dom=Dim(1), cod=Dim(1), array=[0.25])
 

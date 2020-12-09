@@ -4,6 +4,8 @@
 Implements the translation between discopy and pytket.
 """
 
+from unittest.mock import Mock
+
 import pytket as tk
 from pytket.circuit import Bit, Qubit  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
@@ -110,9 +112,9 @@ class Circuit(tk.Circuit):
         if compilation is not None:
             for circuit in (self, ) + others:
                 compilation.apply(circuit)
-        backend.process_circuits((self, ) + others, n_shots=n_shots, seed=seed)
-        counts = [backend.get_counts(circuit, n_shots=n_shots)
-                  for circuit in (self, ) + others]
+        handles = backend.process_circuits(
+            (self, ) + others, n_shots=n_shots, seed=seed)
+        counts = [backend.get_result(h).get_counts() for h in handles]
         if normalize:
             counts = list(map(probs_from_counts, counts))
         if post_select:
@@ -329,3 +331,14 @@ def from_tk(tk_circuit):
     if tk_circuit.scalar != 1:
         circuit = circuit @ Scalar(tk_circuit.scalar)
     return circuit >> tk_circuit.post_processing
+
+
+def mockBackend(*counts):
+    def get_result(i):
+        result = Mock()
+        result.get_counts.return_value = counts[i]
+        return result
+    mock = Mock()
+    mock.process_circuits.return_value = list(range(len(counts)))
+    mock.get_result = get_result
+    return mock

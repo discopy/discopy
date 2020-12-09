@@ -186,9 +186,8 @@ class Circuit(tensor.Diagram):
         We can execute any circuit on a `pytket.Backend`:
 
         >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
-        >>> from unittest.mock import Mock
-        >>> backend = Mock()
-        >>> backend.get_counts.return_value = {(0, 1): 512, (1, 0): 512}
+        >>> from discopy.quantum.tk import mockBackend
+        >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> assert circuit.eval(backend, n_shots=2**10).round()\\
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
@@ -264,9 +263,8 @@ class Circuit(tensor.Diagram):
         --------
         >>> from discopy.quantum import *
         >>> circuit = H @ X >> CX >> Measure(2)
-        >>> from unittest.mock import Mock
-        >>> backend = Mock()
-        >>> backend.get_counts.return_value = {(0, 1): 512, (1, 0): 512}
+        >>> from discopy.quantum.tk import mockBackend
+        >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> circuit.get_counts(backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
         """
