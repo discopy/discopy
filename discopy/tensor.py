@@ -187,7 +187,7 @@ class Tensor(rigid.Box):
         return Tensor(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
-    def id(dom):
+    def id(dom=Dim(1)):
         from numpy import prod
         return Tensor(dom, dom, np.identity(int(prod(dom))))
 
@@ -279,7 +279,11 @@ class Functor(rigid.Functor):
         if isinstance(diagram, monoidal.Ty):
             def obj_to_dim(obj):
                 result = self.ob[type(diagram)(obj.name)]
-                return result if isinstance(result, Dim) else Dim(result)
+                if isinstance(result, int):
+                    result = Dim(result)
+                if not isinstance(result, Dim):
+                    result = Dim.upgrade(result)
+                return result
             return Dim(1).tensor(*map(obj_to_dim, diagram.objects))
         if isinstance(diagram, Cup):
             return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))

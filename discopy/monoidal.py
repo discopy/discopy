@@ -41,7 +41,6 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob
-from discopy.drawing import DRAWING_ATTRIBUTES
 
 
 class Ty(Ob):
@@ -156,8 +155,12 @@ class Ty(Ob):
 
     @staticmethod
     def upgrade(old):
-        """ Allows class inheritance for tensor and __getitem__ """
+        """ Allows class inheritance for tensor and __getitem__. """
         return old
+
+    def downgrade(self):
+        """ Downgrades to :class:`discopy.monoidal.Ty`. """
+        return Ty(*self)
 
     def __eq__(self, other):
         if not isinstance(other, Ty):
@@ -555,12 +558,54 @@ class Diagram(cat.Arrow):
         return self >> self.permutation(list(perm), self.dom)
 
     @staticmethod
-    def subclass(cls):
+    def subclass(ar_factory):
         """ Decorator for subclasses of Diagram. """
         def upgrade(old):
-            return cls(old.dom, old.cod, old.boxes, old.offsets, old.layers)
-        cls.upgrade = staticmethod(upgrade)
-        return cls
+            ob_upgrade = type(ar_factory.id().dom).upgrade  # Is this Yoneda?
+            dom, cod = ob_upgrade(old.dom), ob_upgrade(old.cod)
+            return ar_factory(dom, cod, old.boxes, old.offsets, old.layers)
+        ar_factory.upgrade = staticmethod(upgrade)
+        return ar_factory
+
+    def open_bubbles(self):
+        """
+        Called when drawing bubbles. Replace each bubble by::
+
+            open_bubble\\
+                >> Id(left) @ open_bubbles(bubble.inside) @ Id(right)\\
+                >> close_bubble
+
+        for :code:`left = Ty(bubble.drawing_name)` and :code:`right = Ty("")`.
+        :meth:`Diagram.downgrade` gets called in the process.
+        """
+        if not any(isinstance(box, Bubble) for box in self.boxes):
+            return self.downgrade()
+
+        class OpenBubbles(Functor):
+            def __call__(self, diagram):
+                diagram = diagram.downgrade()
+                if isinstance(diagram, Bubble):
+                    obj = Ob(diagram.drawing_name)
+                    obj.draw_as_box = True
+                    left, right = Ty(obj), Ty("")
+                    open_bubble = Box(
+                        "open_bubble",
+                        diagram.dom, left @ diagram.inside.dom @ right)
+                    close_bubble = Box(
+                        "_close",
+                        left @ diagram.inside.cod @ right, diagram.cod)
+                    open_bubble.draw_as_wires = True
+                    close_bubble.draw_as_wires = True
+                    # Wires can go straight only if types have the same length.
+                    if len(diagram.dom) == len(diagram.inside.dom):
+                        open_bubble.bubble_opening = True
+                    if len(diagram.cod) == len(diagram.inside.cod):
+                        close_bubble.bubble_closing = True
+                    return open_bubble\
+                        >> Id(left) @ self(diagram.inside) @ Id(right)\
+                        >> close_bubble
+                return super().__call__(diagram)
+        return OpenBubbles(lambda x: x, lambda f: f)(self)
 
     draw = drawing.draw
     to_gif = drawing.to_gif
@@ -581,7 +626,7 @@ class Id(cat.Id, Diagram):
     >>> f = Box('f', s, t)
     >>> assert f >> Id(t) == f == Id(s) >> f
     """
-    def __init__(self, dom):
+    def __init__(self, dom=Ty()):
         cat.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
@@ -632,10 +677,13 @@ class Box(cat.Box, Diagram):
     """
     def downgrade(self):
         """ Downcasting to :class:`discopy.monoidal.Box`. """
-        dom, cod = Ty(*self.dom), Ty(*self.cod)
-        box = Box(self.name, dom, cod, data=self.data, _dagger=self._dagger,
-                  **{attr: getattr(self, attr, default(self))
-                     for attr, default in DRAWING_ATTRIBUTES.items()})
+        box = Box.__new__(Box)
+        for attr, value in self.__dict__.items():
+            setattr(box, attr, value)
+        dom, cod = self.dom.downgrade(), self.cod.downgrade()
+        box._dom, box._cod, box._boxes = dom, cod, [box]
+        layer = Layer(box._dom[0:0], box, box._dom[0:0])
+        box._layers = cat.Arrow(dom, cod, [layer], _scan=False)
         return box
 
     def __init__(self, name, dom, cod, **params):
@@ -643,9 +691,9 @@ class Box(cat.Box, Diagram):
         layer = Layer(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
-        for attr, default in DRAWING_ATTRIBUTES.items():
-            value = params.pop(attr, getattr(self, attr, default(self)))
-            setattr(self, attr, value)
+        for attr, value in params.items():
+            if attr in drawing.ATTRIBUTES:
+                setattr(self, attr, value)
 
     def __eq__(self, other):
         if isinstance(other, Box):

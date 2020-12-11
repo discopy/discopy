@@ -14,46 +14,48 @@ from matplotlib.patches import PathPatch
 
 
 # Mapping from attributes to mappings from box to default value.
-DRAWING_ATTRIBUTES = {
+ATTRIBUTES = {
     "draw_as_wires": lambda _: False,
     "draw_as_spider": lambda _: False,
-    "shape": lambda _: "circle",
+    "shape": lambda box:
+        "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:
         "red" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
     "tikzstyle_name": lambda box: box.name,
-    "bubble_opening": lambda _: False,
-    "bubble_closing": lambda _: False,
+}
+# Default drawing parameters.
+DEFAULT = {
+    "aspect": "auto",
+    "fontsize": 12,
+    "margins": (.05, .05),
+    "textpad": (.1, .1),
+    "color": 'white',
+    "use_tikzstyles": False,
+}
+# Mapping from tikz colors to hexcodes.
+COLORS = {
+    "white": '#ffffff',
+    "red": '#e8a5a5',
+    "green": '#d8f8d8',
+    "blue": '#776ff3',
+    "yellow": '#f7f700',
+    "black": '#000000',
+}
+# Mapping from tikz shapes to matplotlib shapes.
+SHAPES = {
+    "rectangle": 's',
+    "circle": 'o',
+    "plus": '+',
 }
 
 
-@dataclass
-class DEFAULT:
-    """ Drawing defaults. """
-    aspect = "auto"
-    fontsize = 12
-    margins = (.05, .05)
-    textpad = (.1, .1)
-    color = 'white'
-    use_tikzstyles = False
-
-
-@dataclass
-class COLORS:
-    """ Drawing colours. """
-    white = '#ffffff'
-    red = '#e8a5a5'
-    green = '#d8f8d8'
-    blue = '#776ff3'
-    yellow = '#f7f700'
-    black = '#000000'
-
-
-@dataclass
-class SHAPES:
-    """ Drawing shapes. """
-    rectangle = 's'
-    circle = 'o'
+def add_drawing_attributes(diagram):
+    """ Adds missing drawing attributes to a box. """
+    for box in diagram.boxes:
+        for attr, default in ATTRIBUTES.items():
+            setattr(box, attr, getattr(box, attr, default(box)))
+    return diagram
 
 
 class Node:
@@ -78,34 +80,6 @@ class Node:
     __str__ = __repr__
 
 
-def open_bubbles(diagram):
-    """ Replace bubbles by diagrams with opening and closing boxes. """
-    from discopy.monoidal import Ob, Ty, Box, Id, Functor, Bubble
-    if not any(isinstance(box, Bubble) for box in diagram.boxes):
-        return diagram
-
-    class OpenBubbles(Functor):
-        """ Sends a bubble to open >> Id(label) @ bubble @ Id("") >> clos. """
-        def __call__(self, diagram):
-            if isinstance(diagram, Bubble):
-                obj = Ob(diagram.drawing_name)
-                obj.draw_as_box = True
-                _left, _right = Ty(obj), Ty("")
-                _open = Box(
-                    "_open", diagram.dom, _left @ diagram.inside.dom @ _right)
-                _close = Box(
-                    "_close", _left @ diagram.inside.cod @ _right, diagram.cod)
-                _open.draw_as_wires, _close.draw_as_wires = True, True
-                if len(diagram.dom) == len(diagram.inside.dom):
-                    _open.bubble_opening = True
-                if len(diagram.cod) == len(diagram.inside.cod):
-                    _close.bubble_closing = True
-                inside = self(diagram.inside)
-                return _open >> Id(_left) @ inside @ Id(_right) >> _close
-            return super().__call__(diagram)
-    return OpenBubbles(lambda x: x, lambda f: f)(diagram)
-
-
 def diagram_to_nx(diagram):
     """
     Builds a networkx graph, called by :meth:`Diagram.draw`.
@@ -123,7 +97,7 @@ def diagram_to_nx(diagram):
     positions : Mapping[Node, Tuple[float, float]]
         from nodes to pairs of floats.
     """
-    diagram = open_bubbles(diagram.downgrade())
+    diagram = add_drawing_attributes(diagram.open_bubbles())
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -131,7 +105,9 @@ def diagram_to_nx(diagram):
         pos.update({node: position})
 
     def add_box(scan, box, off, depth, x_pos):
-        bubble = box.bubble_opening or box.bubble_closing
+        bubble_opening = getattr(box, "bubble_opening", False)
+        bubble_closing = getattr(box, "bubble_closing", False)
+        bubble = bubble_opening or bubble_closing
         node = Node("box", box=box, depth=depth)
         add_node(node, (x_pos, len(diagram) - depth - .5))
         for i, obj in enumerate(box.dom):
@@ -139,20 +115,23 @@ def diagram_to_nx(diagram):
                 pos[scan[off + i]][0], len(diagram) - depth - .25)
             add_node(wire, position)
             graph.add_edge(scan[off + i], wire)
-            if not bubble or box.bubble_closing and i in [0, len(box.dom) - 1]:
+            if not bubble or bubble_closing and i in [0, len(box.dom) - 1]:
                 graph.add_edge(wire, node)
         for i, obj in enumerate(box.cod):
-            wire, position = Node("cod", obj=obj, i=i, depth=depth), (
-                x_pos - len(box.cod[1:]) / 2 + i, len(diagram) - depth - .75)
+            position = (
+                pos[scan[off + i]][0] if len(box.dom) == len(box.cod)
+                else x_pos - len(box.cod[1:]) / 2 + i,
+                len(diagram) - depth - .75)
+            wire = Node("cod", obj=obj, i=i, depth=depth)
             add_node(wire, position)
-            if not bubble or box.bubble_opening and i in [0, len(box.cod) - 1]:
+            if not bubble or bubble_opening and i in [0, len(box.cod) - 1]:
                 graph.add_edge(node, wire)
-        if box.bubble_opening:
+        if bubble_opening:
             for i, obj in enumerate(box.dom):
                 source = Node("dom", obj=obj, i=i, depth=depth)
                 target = Node("cod", obj=obj, i=i + 1, depth=depth)
                 graph.add_edge(source, target)
-        if box.bubble_closing:
+        if bubble_closing:
             for i, obj in enumerate(box.cod):
                 source = Node("dom", obj=obj, i=i + 1, depth=depth)
                 target = Node("cod", obj=obj, i=i, depth=depth)
@@ -191,6 +170,7 @@ def diagram_to_nx(diagram):
                 if position[0] >= limit:
                     pos[node] = (pos[node][0] + pad, pos[node][1])
         return x_pos
+
     scan = []
     for i, obj in enumerate(diagram.dom):
         node = Node("input", obj=obj, i=i)
@@ -211,23 +191,24 @@ class Backend(ABC):
     def __init__(self):
         self.max_width = 0
 
-    @abstractmethod
     def draw_text(self, text, i, j, **params):
         """ Draws a piece of text at a given position. """
         self.max_width = max(self.max_width, i)
 
-    @abstractmethod
-    def draw_polygon(self, *points, color=DEFAULT.color):
+    def draw_node(self, i, j, **params):
+        """ Draws a node for a given position, color and shape. """
+        self.max_width = max(self.max_width, i)
+
+    def draw_polygon(self, *points, color=DEFAULT["color"]):
         """ Draws a polygon given a list of points. """
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
-    @abstractmethod
-    def draw_wire(self, source, target, bend_out=False, bend_in=False):
+    def draw_wire(self, source, target,
+                  bend_out=False, bend_in=False, style=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
 
-    @abstractmethod
-    def draw_spiders(self, graph, positions, draw_box_labels=True):
+    def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
         spider_widths = [
             positions[n][0] for n in graph.nodes
@@ -235,7 +216,6 @@ class Backend(ABC):
         if spider_widths:
             self.max_width = max(self.max_width, max(spider_widths))
 
-    @abstractmethod
     def output(self, path=None, show=True, **params):
         """ Output the drawing. """
 
@@ -243,7 +223,7 @@ class Backend(ABC):
 class TikzBackend(Backend):
     """ Tikz drawing backend. """
     def __init__(self, use_tikzstyles=None):
-        self.use_tikzstyles = DEFAULT.use_tikzstyles\
+        self.use_tikzstyles = DEFAULT["use_tikzstyles"]\
             if use_tikzstyles is None else use_tikzstyles
         self.node_styles, self.edge_styles = [], []
         self.nodes, self.nodelayer, self.edgelayer = {}, [], []
@@ -252,7 +232,7 @@ class TikzBackend(Backend):
     @staticmethod
     def format_color(color):
         """ Formats a color. """
-        hexcode = getattr(COLORS, color)
+        hexcode = COLORS[color]
         rgb = [
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
         return "{{rgb,255: red,{}; green,{}; blue,{}}}".format(*rgb)
@@ -266,6 +246,11 @@ class TikzBackend(Backend):
         self.nodes.update({(i, j): node})
         return node
 
+    def draw_node(self, i, j, **params):
+        options = [params.get('shape', 'circle'), params.get('color', 'black')]
+        self.add_node(i, j, options=", ".join(options))
+        super().draw_node(i, j, **params)
+
     def draw_text(self, text, i, j, **params):
         options = "style=none"
         if params.get("verticalalignment", "center") == "top":  # wire labels
@@ -275,13 +260,13 @@ class TikzBackend(Backend):
         self.add_node(i, j, text, options)
         super().draw_text(text, i, j, **params)
 
-    def draw_polygon(self, *points, color=DEFAULT.color):
+    def draw_polygon(self, *points, color=DEFAULT["color"]):
         nodes = []
         for point in points:
             nodes.append(self.add_node(*point))
         nodes.append(nodes[0])
         if self.use_tikzstyles:
-            style_name = "box" if color == DEFAULT.color\
+            style_name = "box" if color == DEFAULT["color"]\
                 else "{}_box".format(color)
             style = "\\tikzstyle{{{}}}=[-, fill={}]\n"\
                 .format(style_name, self.format_color(color))
@@ -294,21 +279,23 @@ class TikzBackend(Backend):
             "({}.center)".format(node) for node in nodes)))
         super().draw_polygon(*points, color=color)
 
-    def draw_wire(self, source, target, bend_out=False, bend_in=False):
+    def draw_wire(self, source, target,
+                  bend_out=False, bend_in=False, style=None):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
             else (180 if source[0] < target[0] else 0)
-        cmd = "\\draw [in={}, out={}] ({}.center) to ({}.center);\n"
+        cmd = "\\draw [in={}, out={}{}] ({}.center) to ({}.center);\n"
         if source not in self.nodes:
             self.add_node(*source)
         if target not in self.nodes:
             self.add_node(*target)
         self.edgelayer.append(cmd.format(
-            inp, out, self.nodes[source], self.nodes[target]))
+            inp, out, ", {}".format(style) if style is not None else "",
+            self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_spiders(self, graph, positions, draw_box_labels=True):
+    def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
         spiders = [(node, node.box.color, node.box.shape)
                    for node in graph.nodes
                    if node.kind == "box" and node.box.draw_as_spider]
@@ -323,6 +310,8 @@ class TikzBackend(Backend):
                 options = "style={}".format(node.box.tikzstyle_name)
             else:
                 options = "{}, fill={}".format(shape, color)
+            if params.get("nodesize", 1) != 1:
+                options += ", scale={}".format(params.get("nodesize"))
             self.add_node(i, j, text, options)
         super().draw_spiders(graph, positions, draw_box_labels)
 
@@ -361,25 +350,41 @@ class MatBackend(Backend):
         super().__init__()
 
     def draw_text(self, text, i, j, **params):
-        params['fontsize'] = params.get('fontsize', None) or DEFAULT.fontsize
+        params['fontsize'] = params.get('fontsize', DEFAULT['fontsize'])
         self.axis.text(i, j, text, **params)
         super().draw_text(text, i, j, **params)
 
-    def draw_polygon(self, *points, color=DEFAULT.color):
+    def draw_node(self, i, j, **params):
+        self.axis.scatter(
+            [i], [j],
+            c=COLORS[params.get("color", "black")],
+            marker=SHAPES[params.get("shape", "circle")],
+            s=300 * params.get("nodesize", 1),
+            edgecolors=params.get("edgecolor", None))
+        super().draw_node(i, j, **params)
+
+    def draw_polygon(self, *points, color=DEFAULT["color"]):
         codes = [Path.MOVETO]
         codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
         path = Path(points + points[:1], codes)
-        self.axis.add_patch(PathPatch(path, facecolor=getattr(COLORS, color)))
+        self.axis.add_patch(PathPatch(path, facecolor=COLORS[color]))
         super().draw_polygon(*points, color=color)
 
-    def draw_wire(self, source, target, bend_out=False, bend_in=False):
-        mid = (target[0], source[1]) if bend_out else (source[0], target[1])
-        path = Path([source, mid, target],
-                    [Path.MOVETO, Path.CURVE3, Path.CURVE3])
-        self.axis.add_patch(PathPatch(path, facecolor='none'))
+    def draw_wire(self, source, target,
+                  bend_out=False, bend_in=False, style=None):
+        if style == '->':
+            self.axis.arrow(
+                *(source + (target[0] - source[0], target[1] - source[1])),
+                head_width=.02, color="black")
+        else:
+            mid = (target[0], source[1])\
+                if bend_out else (source[0], target[1])
+            path = Path([source, mid, target],
+                        [Path.MOVETO, Path.CURVE3, Path.CURVE3])
+            self.axis.add_patch(PathPatch(path, facecolor='none'))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_spiders(self, graph, positions, draw_box_labels=True):
+    def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
         nodes = {node for node in graph.nodes
                  if node.kind == "box" and node.box.draw_as_spider}
         shapes = {node: node.box.shape for node in nodes}
@@ -388,8 +393,9 @@ class MatBackend(Backend):
             nodes, colors = zip(*colors.items())
             nx.draw_networkx_nodes(
                 graph, positions, nodelist=nodes,
-                node_color=[getattr(COLORS, color) for color in colors],
-                node_shape=getattr(SHAPES, shape), ax=self.axis)
+                node_color=[COLORS[color] for color in colors],
+                node_shape=SHAPES[shape], ax=self.axis,
+                node_size=300 * params.get("nodesize", 1))
             if draw_box_labels:
                 labels = {node: node.box.drawing_name for node in nodes}
                 nx.draw_networkx_labels(graph, positions, labels)
@@ -397,8 +403,8 @@ class MatBackend(Backend):
 
     def output(self, path=None, show=True, **params):
         xlim, ylim = params.get("xlim", None), params.get("ylim", None)
-        margins = params.get("margins", DEFAULT.margins)
-        aspect = params.get("aspect", DEFAULT.aspect)
+        margins = params.get("margins", DEFAULT['margins'])
+        aspect = params.get("aspect", DEFAULT['aspect'])
         plt.margins(*margins)
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
@@ -436,6 +442,8 @@ def draw(diagram, **params):
         Aspect ratio, one of :code:`['auto', 'equal']`.
     margins : tuple, optional
         Margins, default is :code:`(0.05, 0.05)`.
+    nodesize : float, optional
+        Node size for spiders and controlled gates.
     fontsize : int, optional
         Font size for the boxes, default is :code:`12`.
     fontsize_types : int, optional
@@ -450,42 +458,14 @@ def draw(diagram, **params):
         Make a box and its dagger mirror images, default is
         :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
-    def draw_box(backend, positions, box, depth):
-        asymmetry = params.get(
-            'asymmetry', .25 * any(box.is_dagger for box in diagram.boxes))
-        node = Node("box", box=box, depth=depth)
-        if not box.dom and not box.cod:
-            left, right = positions[node][0], positions[node][0]
-        elif not box.dom:
-            left, right = (
-                positions[Node("cod", obj=box.cod[i], i=i, depth=depth)][0]
-                for i in [0, len(box.cod) - 1])
-        elif not box.cod:
-            left, right = (
-                positions[Node("dom", obj=box.dom[i], i=i, depth=depth)][0]
-                for i in [0, len(box.dom) - 1])
-        else:
-            top_left, top_right = (
-                positions[Node("dom", obj=box.dom[i], i=i, depth=depth)][0]
-                for i in [0, len(box.dom) - 1])
-            bottom_left, bottom_right = (
-                positions[Node("cod", obj=box.cod[i], i=i, depth=depth)][0]
-                for i in [0, len(box.cod) - 1])
-            left = min(top_left, bottom_left)
-            right = max(top_right, bottom_right)
-        height = positions[node][1] - .25
-        left, right = left - .25, right + .25
-        backend.draw_polygon(
-            (left, height),
-            (right + (asymmetry if box.is_dagger else 0), height),
-            (right + (0 if box.is_dagger else asymmetry), height + .5),
-            (left, height + .5),
-            color=params.get('color', DEFAULT.color))
-        if params.get('draw_box_labels', True):
-            backend.draw_text(box.drawing_name, *positions[node],
-                              ha='center', va='center',
-                              fontsize=params.get('fontsize', None))
-        return backend
+    from discopy.quantum.drawing import (
+        draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
+    drawing_methods = [
+        ("draw_as_brakets", draw_brakets),
+        ("draw_as_controlled", draw_controlled_gate),
+        ("draw_as_discards", draw_discard),
+        ("draw_as_measures", draw_measure),
+        (None, draw_box)]
 
     def draw_wires(backend, graph, positions):
         for source, target in graph.edges():
@@ -503,7 +483,7 @@ def draw(diagram, **params):
                          or getattr(source.obj, "draw_as_box", False)
                          and params.get('draw_box_labels', True)):
                 i, j = positions[source]
-                pad_i, pad_j = params.get('textpad', DEFAULT.textpad)
+                pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
                 pad_j = 0 if source.kind == "input" else pad_j
                 backend.draw_text(
                     str(source.obj), i + pad_i, j - pad_j,
@@ -533,27 +513,69 @@ def draw(diagram, **params):
     scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
     graph, positions = diagram_to_nx(diagram)
     positions = scale_and_pad(graph, positions, scale, pad)
-    backend = params['backend'] if 'backend' in params else\
+    backend = params.pop('backend') if 'backend' in params else\
         TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
     backend = draw_wires(backend, graph, positions)
-    backend.draw_spiders(
-        graph, positions,
-        draw_box_labels=params.get('draw_box_labels', True))
+    backend.draw_spiders(graph, positions, **params)
     box_nodes = [node for node in graph.nodes if node.kind == "box"]
     for node in box_nodes:
         if node.box.draw_as_spider or node.box.draw_as_wires:
             continue
-        backend = draw_box(backend, positions, node.box, node.depth)
+        for attr, drawing_method in drawing_methods:
+            if attr is None or getattr(node.box, attr, False):
+                backend = drawing_method(backend, positions, node, **params)
+                break
     return backend.output(
         path=params.get('path', None),
         baseline=len(box_nodes) / 2 or .5,
         tikz_options=params.get('tikz_options', None),
         show=params.get('show', True),
-        margins=params.get('margins', DEFAULT.margins),
-        aspect=params.get('aspect', DEFAULT.aspect))
+        margins=params.get('margins', DEFAULT['margins']),
+        aspect=params.get('aspect', DEFAULT['aspect']))
+
+
+def draw_box(backend, positions, node, **params):
+    """ Draws a box node on a given backend. """
+    box, depth = node.box, node.depth
+    asymmetry = params.get(
+        'asymmetry', .25 * any(
+            node.kind == "box" and node.box.is_dagger
+            for box in positions.keys()))
+    if not box.dom and not box.cod:
+        left, right = positions[node][0], positions[node][0]
+    elif not box.dom:
+        left, right = (
+            positions[Node("cod", obj=box.cod[i], i=i, depth=depth)][0]
+            for i in [0, len(box.cod) - 1])
+    elif not box.cod:
+        left, right = (
+            positions[Node("dom", obj=box.dom[i], i=i, depth=depth)][0]
+            for i in [0, len(box.dom) - 1])
+    else:
+        top_left, top_right = (
+            positions[Node("dom", obj=box.dom[i], i=i, depth=depth)][0]
+            for i in [0, len(box.dom) - 1])
+        bottom_left, bottom_right = (
+            positions[Node("cod", obj=box.cod[i], i=i, depth=depth)][0]
+            for i in [0, len(box.cod) - 1])
+        left = min(top_left, bottom_left)
+        right = max(top_right, bottom_right)
+    height = positions[node][1] - .25
+    left, right = left - .25, right + .25
+    points = [
+        (left, height),
+        (right + (asymmetry if box.is_dagger else 0), height),
+        (right + (0 if box.is_dagger else asymmetry), height + .5),
+        (left, height + .5)]
+    backend.draw_polygon(*points, color=box.color)
+    if params.get('draw_box_labels', True):
+        backend.draw_text(box.drawing_name, *positions[node],
+                          ha='center', va='center',
+                          fontsize=params.get('fontsize', None))
+    return backend
 
 
 def to_gif(diagram, *diagrams, **params):  # pragma: no cover
@@ -625,7 +647,7 @@ def pregroup_draw(words, cups, **params):
                 ((space + width) * i, 0),
                 ((space + width) * i + width, 0),
                 ((space + width) * i + width / 2, 1),
-                color=DEFAULT.color)
+                color=DEFAULT["color"])
             backend.draw_text(
                 str(word), (space + width) * i + width / 2 + textpad_words[0],
                 textpad_words[1], ha='center', fontsize=fontsize)
@@ -654,8 +676,8 @@ def pregroup_draw(words, cups, **params):
         tikz_options=params.get('tikz_options', None),
         xlim=(0, (space + width) * len(words.boxes) - space),
         ylim=(- len(cups) - space, 1),
-        margins=params.get('margins', DEFAULT.margins),
-        aspect=params.get('aspect', DEFAULT.aspect))
+        margins=params.get('margins', DEFAULT['margins']),
+        aspect=params.get('aspect', 'equal'))
 
 
 def equation(*diagrams, path=None, symbol="=", space=1, **params):
@@ -691,5 +713,5 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
         baseline=max_height / 2,
         tikz_options=params.get('tikz_options', None),
         show=params.get("show", True),
-        margins=params.get('margins', DEFAULT.margins),
-        aspect=params.get('aspect', DEFAULT.aspect))
+        margins=params.get('margins', DEFAULT['margins']),
+        aspect=params.get('aspect', DEFAULT['aspect']))

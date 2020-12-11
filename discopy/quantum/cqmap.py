@@ -145,7 +145,7 @@ class CQMap(Tensor):
         return self.__add__(other)
 
     @staticmethod
-    def id(dom):
+    def id(dom=CQ()):
         utensor = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
         return CQMap(dom, dom, utensor=utensor)
 

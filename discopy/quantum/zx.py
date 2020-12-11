@@ -215,7 +215,7 @@ class Diagram(tensor.Diagram):
 
 class Id(rigid.Id, Diagram):
     """ Identity ZX diagram. """
-    def __init__(self, dom):
+    def __init__(self, dom=0):
         super().__init__(PRO(dom))
 
     def __repr__(self):

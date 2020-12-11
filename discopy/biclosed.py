@@ -84,10 +84,6 @@ class Under(Ty):
 class Diagram(monoidal.Diagram):
     """ Diagrams in a biclosed monoidal category. """
     @staticmethod
-    def id(dom):
-        return Id(dom)
-
-    @staticmethod
     def fa(left, right):
         """ Forward application. """
         if left.right != right:
@@ -114,6 +110,9 @@ class Diagram(monoidal.Diagram):
 
 class Id(monoidal.Id, Diagram):
     """ Identity diagram in a biclosed monoidal category. """
+
+
+Diagram.id = Id
 
 
 class Box(monoidal.Box, Diagram):

@@ -152,10 +152,6 @@ class Diagram(monoidal.Diagram):
         :align: center
     """
     @staticmethod
-    def id(dom):
-        return Id(dom)
-
-    @staticmethod
     def swap(left, right):
         return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
@@ -282,9 +278,12 @@ class Id(monoidal.Id, Diagram):
     >>> t = Ty('a', 'b', 'c')
     >>> assert Id(t) == Diagram(t, t, [], [])
     """
-    def __init__(self, dom):
+    def __init__(self, dom=Ty()):
         monoidal.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+
+
+Diagram.id = Id
 
 
 class Box(monoidal.Box, Diagram):

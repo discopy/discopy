@@ -172,8 +172,8 @@ class Ket(Box):
         dom, cod = qubit ** 0, qubit ** len(bitstring)
         name = "Ket({})".format(', '.join(map(str, bitstring)))
         super().__init__(name, dom, cod, is_mixed=False)
-        self.bitstring = bitstring
-        self.array = Bits(*bitstring).array
+        self.bitstring, self.array = bitstring, Bits(*bitstring).array
+        self.draw_as_brakets = True
 
     def dagger(self):
         return Bra(*self.bitstring)
@@ -191,16 +191,45 @@ class Bra(Box):
         name = "Bra({})".format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod, is_mixed=False)
-        self.bitstring = bitstring
-        self.array = Bits(*bitstring).array
+        self.bitstring, self.array = bitstring, Bits(*bitstring).array
+        self.draw_as_brakets = True
 
     def dagger(self):
         return Ket(*self.bitstring)
 
 
+class Controlled(QuantumGate):
+    """
+    Abstract class for controled quantum gates.
+
+    Parameters
+    ----------
+    name : str
+        Name of the gate being controlled.
+    data : list of complex
+        Array of the gate being controlled.
+    distance : int, optional
+        Number of qubits from the control to the target, default is :code:`0`.
+        If negative, the control is on the right of the target.
+    _dagger : bool, optional
+        If set to :code:`None` then the gate is self-adjoint.
+    """
+    def __init__(self, controlled, distance=0):
+        import numpy
+        array = numpy.zeros((4, 4))
+        array[:2, :2] = numpy.eye(2)
+        array[2:, 2:] = controlled.array
+        if distance != 0:
+            raise NotImplementedError
+        name = "C" + controlled.name
+        self.controlled, self.draw_as_controlled = controlled, True
+        super().__init__(name, 2 + distance, array, _dagger=controlled._dagger)
+
+
 class Parametrized(QuantumGate):
     """ Abstract class for parametrized quantum gates. """
     def __init__(self, data, name=None, n_qubits=1, _dagger=False):
+        self.drawing_name = '{}({})'.format(name, format_number(data))
         super().__init__(
             name, n_qubits, array=None, data=data, _dagger=_dagger)
 
@@ -336,10 +365,6 @@ class Sqrt(Scalar):
 
 
 SWAP = Swap(qubit, qubit)
-CX = QuantumGate('CX', 2, [1, 0, 0, 0,
-                           0, 1, 0, 0,
-                           0, 0, 0, 1,
-                           0, 0, 1, 0], _dagger=None)
 CZ = QuantumGate('CZ', 2, [1, 0, 0, 0,
                            0, 1, 0, 0,
                            0, 0, 1, 0,
@@ -350,6 +375,7 @@ T = QuantumGate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
 X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None)
 Y = QuantumGate('Y', 1, [0, -1j, 1j, 0])
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
+CX = Controlled(X)
 
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 

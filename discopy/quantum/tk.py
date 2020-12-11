@@ -334,6 +334,7 @@ def from_tk(tk_circuit):
 
 
 def mockBackend(*counts):
+    """ Takes a list of counts, returns a mock backend that outputs them. """
     def get_result(i):
         result = Mock()
         result.get_counts.return_value = counts[i]

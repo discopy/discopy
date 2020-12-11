@@ -31,7 +31,7 @@ def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
         def wrapper():
             true_paths = [os.path.join(folder, file)]
             test_paths = [os.path.join(folder, '.' + file)]
-            if params.get("use_tikzstyles", DEFAULT.use_tikzstyles):
+            if params.get("use_tikzstyles", DEFAULT['use_tikzstyles']):
                 true_paths.append(
                     true_paths[0].replace('.tikz', '.tikzstyles'))
                 test_paths.append(
