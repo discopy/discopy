@@ -198,32 +198,38 @@ class Bra(Box):
         return Ket(*self.bitstring)
 
 
-class Parametrized(QuantumGate):
+class Parametrized(Box):
     """ Abstract class for parametrized quantum gates. """
-    def __init__(self, data, name=None, n_qubits=1, _dagger=False):
-        super().__init__(
-            name, n_qubits, array=None, data=data, _dagger=_dagger)
+    def __init__(
+            self, name, dom, cod, is_mixed=True, data=None, _dagger=False):
+        Box.__init__(
+            self, name, dom, cod,
+            is_mixed=is_mixed, data=data, _dagger=_dagger)
 
-    def __repr__(self):
-        return self.name
+    def subs(self, *args):
+        return type(self)(super().subs(*args).data)
 
     @property
     def name(self):
         return '{}({})'.format(self._name, format_number(self.data))
 
-    def subs(self, *args):
-        return type(self)(super().subs(*args).data)
+    def __repr__(self):
+        return self.name
 
 
-class Rotation(Parametrized):
+class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
+    def __init__(self, phase, name=None, n_qubits=1):
+        QuantumGate.__init__(self, name, n_qubits)
+        Parametrized.__init__(
+            self, name, self.dom, self.cod, is_mixed=False, data=phase)
+
     @property
     def phase(self):
         """ The phase of a rotation gate. """
         return self.data
 
     def dagger(self):
-        # pylint: disable=invalid-unary-operand-type
         return type(self)(-self.phase)
 
     def grad(self, var):
@@ -305,10 +311,17 @@ class CRx(Rotation):
 
 class Scalar(Parametrized):
     """ Scalar, i.e. quantum gate with empty domain and codomain. """
-    def __init__(self, data, name=None):
-        _dagger = None if data.conjugate() == data else False
-        super().__init__(data, name or "scalar", n_qubits=0, _dagger=_dagger)
+    def __init__(self, data, name=None, is_mixed=False):
         self.drawing_name = format_number(data)
+        name = "scalar" if name is None else name
+        dom, cod = qubit ** 0, qubit ** 0
+        _dagger = None if data.conjugate() == data else False
+        super().__init__(
+            name, dom, cod, is_mixed=is_mixed, data=data, _dagger=_dagger)
+
+    def __repr__(self):
+        return super().__repr__()[:-1]\
+            + ', is_mixed=True)' if self.is_mixed else ')'
 
     @property
     def array(self):
@@ -359,6 +372,6 @@ def sqrt(expr):
     return Sqrt(expr)
 
 
-def scalar(expr):
+def scalar(expr, is_mixed=False):
     """ Returns a 0-qubit quantum gate that scales by a complex number. """
-    return Scalar(expr)
+    return Scalar(expr, is_mixed=is_mixed)

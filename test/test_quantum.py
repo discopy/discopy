@@ -62,8 +62,7 @@ def test_Circuit_to_tk():
         '.H(0)'\
         '.Measure(0, 0)'\
         '.post_select({0: 0, 1: 0})'\
-        '.scale(2)'
-    assert np.isclose(tk_circ.scalar, 2)
+        '.scale(4)'
     assert repr((CX >> Measure(2) >> Swap(bit, bit)).to_tk())\
         == "tk.Circuit(2, 2).CX(0, 1).Measure(1, 0).Measure(0, 1)"
     assert repr((Bits(0) >> Id(bit) @ Bits(0)).to_tk())\
@@ -168,7 +167,7 @@ def test_Bra_and_Measure_to_tk():
         ".Measure(3, 0)"\
         ".Measure(0, 2)"\
         ".post_select({0: 0, 1: 0, 2: 0, 3: 0})"\
-        ".scale(2)"
+        ".scale(4)"
 
 
 def test_ClassicalGate_eval():

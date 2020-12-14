@@ -131,7 +131,7 @@ class Circuit(tk.Circuit):
         if scale:
             for i, _ in enumerate((self, ) + others):
                 for bitstring in counts[i]:
-                    counts[i][bitstring] *= abs(self.scalar) ** 2
+                    counts[i][bitstring] *= self.scalar
         return counts
 
 
@@ -247,7 +247,8 @@ def to_tk(circuit):
             else:  # pragma: no cover
                 continue  # bits and qubits live in different registers.
         elif isinstance(box, Scalar):
-            tk_circ.scale(box.array[0])
+            tk_circ.scale(
+                box.array[0] if box.is_mixed else abs(box.array[0]) ** 2)
         elif isinstance(box, ClassicalGate)\
                 or isinstance(box, Bits) and box.is_dagger:
             off = left.count(bit)
@@ -329,7 +330,7 @@ def from_tk(tk_circuit):
         else Discard() if x.name == 'qubit' else Id(bit)
         for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ Scalar(tk_circuit.scalar)
+        circuit = circuit @ Scalar(tk_circuit.scalar, is_mixed=True)
     return circuit >> tk_circuit.post_processing
 
 

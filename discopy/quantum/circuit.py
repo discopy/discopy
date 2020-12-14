@@ -331,8 +331,8 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum import *
 
         >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
-        >>> circuit0.to_tk()  # doctest: +ELLIPSIS
-        tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(1.41...)
+        >>> circuit0.to_tk()
+        tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(2)
 
         >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> circuit1.to_tk()
@@ -413,7 +413,7 @@ class Circuit(tensor.Diagram):
           >> Bra(0) @ Id(2)
           >> Bra(0) @ Id(1)
           >> Bra(0)
-          >> scalar(2)
+          >> scalar(4)
         """
         # pylint: disable=import-outside-toplevel
         from discopy.quantum.tk import from_tk
