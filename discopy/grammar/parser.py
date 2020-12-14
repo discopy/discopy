@@ -699,6 +699,7 @@ def sentence_diagram(sentence, bound_parser=7, reductions=None):
     This function transforms a list of words (unparsed sentence) into
     its sentence diagram. If the sentence was already parsed, we can
     specify a list of reductions as a paramenter.
+
     """
     # if not parsed yet, we parse the sentence
     if reductions is None:
@@ -732,8 +733,8 @@ def sentence_diagram(sentence, bound_parser=7, reductions=None):
                 diagram_temp = diagram_temp @ cup # add cup
                 counter = layer[counter] + 1
             else:
-                if counter in layer_set.items(): # if index in previous layers
-                    counter += 1
+                if counter in layer_set: # if index in previous layers
+                    counter += layer_set[counter] + 1
                 else:
                     id_diag = Id(Ty(string[counter]))  # add id diagram of type
                     diagram_temp = diagram_temp @ id_diag
