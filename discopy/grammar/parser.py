@@ -615,14 +615,35 @@ def coordinates_to_index(sentence, reductions):
     This function transforms the set of reductions into single indices pairs
     (left_index, right_index).
 
+    Parameters
+    ----------
+    sentence : list
+        list of discopy words
+    reductions : list
+        list of reductions as produced by the parser
+
+    Returns
+    -------
+    list of single index reduction pairs
+
+
+    Example
+    -------
+    >>> n, s = Ty('n'), Ty('s')
+    >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> sentence = [Alice, loves, Bob]
+    >>> reductions = [[(0, 0), (1, 0)], [(1, 2), (2, 0)]]
+    >>> coordinates_to_index(sentence, reductions)
+    [[0, 1], [3, 4]]
     """
     red = []
     for link in reductions:
+        new_link = []
         for coor in link:
-            new_link = []
             word_index, type_index = coor
             if word_index == 0:
-                 new_link.append(type_index)
+                new_link.append(type_index)
             else:
                 index = len(sentence[0].cod) - 1
                 for word in sentence[1:word_index]:
@@ -630,15 +651,34 @@ def coordinates_to_index(sentence, reductions):
                 new_link.append(index + type_index + 1)
         red.append(new_link)
 
+    return red
+
 def reduction_layers(reductions):
     """
     This function identifies layers of nested reduction cups.
     It returns a list of the different layers in order of appearance.
     Input needs to be already converted into indices.
+
+    Parameters
+    ----------
+    reductions : list
+        list of single index reduction pairs
+
+
+    Returns
+    -------
+    list of layers. Layers are dictionaries.
+
+
+    Example
+    -------
+    reductions = [[0, 1], [5, 6], [8, 9], [7, 10], [4, 11], [3, 12], [2, 13], [15, 16]]
+    >>> reduction_layers(reductions)
+    [{0: 1, 5: 6, 8: 9, 15: 16}, {7: 10}, {4: 11}, {3: 12}, {2: 13}]
     """
     layers = []
     while True:
-        layer_1 = {reductions[0][0]: reductions[0][1]]}
+        layer_1 = {reductions[0][0]: reductions[0][1]}
         layer_2 = []
         counter = 1
         while counter < len(reductions):
@@ -654,7 +694,7 @@ def reduction_layers(reductions):
     return layers
 
 
-def diagram(sentence, bound_parser=7, reductions=None, max_iteration=10):
+def sentence_diagram(sentence, bound_parser=7, reductions=None):
     """
     This function transforms a list of words (unparsed sentence) into
     its sentence diagram. If the sentence was already parsed, we can
@@ -665,11 +705,13 @@ def diagram(sentence, bound_parser=7, reductions=None, max_iteration=10):
         parser = LinPP(bound=bound_parser)
         reductions = parser.parse(sentence)[0]
 
-    # converting coordinates into indices and separate layers of cups
+    # converting coordinates into indices and separate layers of cups.
+    # this step is working okay
     reductions = coordinates_to_index(sentence, reductions)
     layers = reduction_layers(reductions)
 
     # constructing diagram of tensored words
+    # this step is working okay
     diagram = sentence[0]
     if len(sentence) == 1:
         return diagram
@@ -677,24 +719,25 @@ def diagram(sentence, bound_parser=7, reductions=None, max_iteration=10):
         diagram = diagram.tensor(word)
 
     string = diagram[:].cod # tensored sentence we loop over. static
-    set = {}
-    #constructing diagram of layer of cups
+    layer_set = {}
+    # constructing diagram of layers of cups
+    # TODO: check this loop: issues of mismatching of different layers
     for layer in layers:
-        index = layers.index(layer)
         counter = 0
-        diagram_temp = Id(Ty())
-        for counter < len(string):
-            if counter in layer:
-                cup = Cup(Ty(string[counter]), Ty(layer[counter]))
-                diagram_temp = diagram_temp @ cup
-                counter += 2
+        diagram_temp = Id(Ty()) # initial empty diagram
+        while counter < len(string):
+            if counter in layer: # index in reduction layer
+                # cup of reduction
+                cup = Cup(Ty(string[counter]), Ty(string[layer[counter]]))
+                diagram_temp = diagram_temp @ cup # add cup
+                counter = layer[counter] + 1
             else:
-                if counter in set.items():
+                if counter in layer_set.items(): # if index in previous layers
                     counter += 1
                 else:
-                    id = Id(Ty(string[counter]))
-                    diagram_temp = diagram_temp @ id
+                    id_diag = Id(Ty(string[counter]))  # add id diagram of type
+                    diagram_temp = diagram_temp @ id_diag
                     counter += 1
         diagram = diagram >> diagram_temp
-        set = set + layer
+        layer_set.update(layer)
     return diagram
