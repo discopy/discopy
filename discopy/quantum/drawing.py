@@ -62,15 +62,18 @@ def draw_controlled_gate(backend, positions, node, **params):
     controlled = Node("box", box=controlled_box, depth=depth)
     c_dom = Node("dom", obj=box.dom[0], i=1, depth=depth)
     c_cod = Node("cod", obj=box.cod[0], i=1, depth=depth)
+    c_middle = positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
     target = (positions[c_dom][0],
               (positions[c_dom][1] + positions[c_cod][1]) / 2)
     if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
         backend.draw_wire(positions[c_dom], positions[c_cod])
+        eps = 1e-10
+        perturbed_target = target[0], target[1]+eps
         backend.draw_node(
-            *target, shape="circle", color="white", edgecolor="black",
+            *perturbed_target, shape="circle", color="white", edgecolor="black",
             nodesize=2 * params.get("nodesize", 1))
         backend.draw_node(
-            *target, shape="plus", color="black",
+            *target, shape="plus",
             nodesize=2 * params.get("nodesize", 1))
         left_of_target = target
     else:
@@ -79,7 +82,8 @@ def draw_controlled_gate(backend, positions, node, **params):
             controlled: target, dom: positions[c_dom], cod: positions[c_cod]}
         backend = draw_box(backend, fake_positions, controlled, **params)
     backend.draw_wire(positions[dom], positions[cod])
-    backend.draw_wire(middle, left_of_target)
+    # TODO change bend_in and bend_out for tikz backend
+    backend.draw_wire(middle, left_of_target, bend_in=True, bend_out=True)
     backend.draw_node(
         *middle, color="black", shape="circle",
         nodesize=params.get("nodesize", 1))
