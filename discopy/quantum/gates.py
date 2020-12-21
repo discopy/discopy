@@ -249,7 +249,7 @@ class Rx(Rotation):
 
     @property
     def array(self):
-        half_theta = np.pi * self.phase
+        half_theta = float(np.pi * self.phase)
         sin, cos = np.sin(half_theta), np.cos(half_theta)
         return np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
@@ -261,7 +261,7 @@ class Rz(Rotation):
 
     @property
     def array(self):
-        half_theta = np.pi * self.phase
+        half_theta = float(np.pi * self.phase)
         return np.array(
             [[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
 
@@ -273,7 +273,7 @@ class CU1(Rotation):
 
     @property
     def array(self):
-        theta = 2 * np.pi * self.phase
+        theta = float(2 * np.pi * self.phase)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, 1, 0,
@@ -287,7 +287,7 @@ class CRz(Rotation):
 
     @property
     def array(self):
-        half_theta = np.pi * self.phase
+        half_theta = float(np.pi * self.phase)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, np.exp(-1j * half_theta), 0,
@@ -301,7 +301,7 @@ class CRx(Rotation):
 
     @property
     def array(self):
-        half_theta = np.pi * self.phase
+        half_theta = float(np.pi * self.phase)
         cos, sin = np.cos(half_theta), np.sin(half_theta)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
