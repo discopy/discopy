@@ -355,18 +355,18 @@ class Arrow:
 
         Parameters
         ----------
-        Either var, expr with:
-
         var : sympy.Symbol
             Subtituted variable.
         expr : sympy.Expr
             Substituting expression.
 
-        Or a list of such pairs for multiple substitution.
-
         Returns
         -------
         arrow : Arrow
+
+        Note
+        ----
+        You can give a list of (var, expr) pairs for multiple substitution.
 
         Examples
         --------

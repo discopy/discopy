@@ -15,7 +15,7 @@ from discopy.quantum.circuit import (
     CircuitFunctor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
     ClassicalGate, QuantumGate, Bits, Bra, Ket,
-    Swap, Scalar, GATES, X, Rx, Rz, CRz, format_number)
+    Swap, Scalar, MixedScalar, GATES, X, Rx, Rz, CRz, format_number)
 
 
 class Circuit(tk.Circuit):
@@ -330,7 +330,7 @@ def from_tk(tk_circuit):
         else Discard() if x.name == 'qubit' else Id(bit)
         for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ Scalar(tk_circuit.scalar, is_mixed=True)
+        circuit = circuit @ MixedScalar(tk_circuit.scalar)
     return circuit >> tk_circuit.post_processing
 
 

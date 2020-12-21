@@ -413,7 +413,7 @@ class Circuit(tensor.Diagram):
           >> Bra(0) @ Id(2)
           >> Bra(0) @ Id(1)
           >> Bra(0)
-          >> scalar(4)
+          >> scalar(4+0j)
         """
         # pylint: disable=import-outside-toplevel
         from discopy.quantum.tk import from_tk

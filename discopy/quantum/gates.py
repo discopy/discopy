@@ -199,12 +199,45 @@ class Bra(Box):
 
 
 class Parametrized(Box):
-    """ Abstract class for parametrized quantum gates. """
-    def __init__(
-            self, name, dom, cod, is_mixed=True, data=None, _dagger=False):
+    """
+    Abstract class for parametrized boxes in a quantum circuit.
+
+    Parameters
+    ----------
+    name : str
+        Name of the parametrized class, e.g. :code:`"CRz"`.
+    dom, cod : BitsAndQubits
+        Domain and codomain.
+    data : any
+        Data of the box, potentially with free symbols.
+    datatype : type
+        Type to cast whenever there are no free symbols.
+
+    Example
+    -------
+    >>> from sympy.abc import phi
+    >>> from sympy import pi, exp, I
+    >>> assert Rz(phi)\\
+    ...     == Parametrized('Rz', qubit, qubit, data=phi, is_mixed=False)
+    >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
+    >>> assert list((Rz(phi) >> Rz(-phi)).eval()
+    ...             .array.flatten()) == [1, 0, 0, 1]
+    """
+    def __init__(self, name, dom, cod, data=None, **params):
+        self._datatype = params.get('datatype', None)
+        data = data\
+            if getattr(data, "free_symbols", False) else self._datatype(data)
         Box.__init__(
-            self, name, dom, cod,
-            is_mixed=is_mixed, data=data, _dagger=_dagger)
+            self, name, dom, cod, data=data,
+            is_mixed=params.get('is_mixed', True),
+            _dagger=params.get('_dagger', False))
+        if self.free_symbols:
+            import sympy
+            self._pi, self._exp = sympy.pi, sympy.exp
+            self._cos, self._sin = sympy.cos, sympy.sin
+        else:
+            self._pi, self._exp = np.pi, np.exp
+            self._cos, self._sin = np.cos, np.sin
 
     def subs(self, *args):
         return type(self)(super().subs(*args).data)
@@ -222,7 +255,8 @@ class Rotation(Parametrized, QuantumGate):
     def __init__(self, phase, name=None, n_qubits=1):
         QuantumGate.__init__(self, name, n_qubits)
         Parametrized.__init__(
-            self, name, self.dom, self.cod, is_mixed=False, data=phase)
+            self, name, self.dom, self.cod,
+            datatype=float, is_mixed=False, data=phase)
 
     @property
     def phase(self):
@@ -249,8 +283,8 @@ class Rx(Rotation):
 
     @property
     def array(self):
-        half_theta = float(np.pi * self.phase)
-        sin, cos = np.sin(half_theta), np.cos(half_theta)
+        half_theta = self._pi * self.phase
+        sin, cos = self._sin(half_theta), self._cos(half_theta)
         return np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
@@ -261,9 +295,9 @@ class Rz(Rotation):
 
     @property
     def array(self):
-        half_theta = float(np.pi * self.phase)
+        half_theta = self._pi * self.phase
         return np.array(
-            [[np.exp(-1j * half_theta), 0], [0, np.exp(1j * half_theta)]])
+            [[self._exp(-1j * half_theta), 0], [0, self._exp(1j * half_theta)]])
 
 
 class CU1(Rotation):
@@ -273,11 +307,11 @@ class CU1(Rotation):
 
     @property
     def array(self):
-        theta = float(2 * np.pi * self.phase)
+        theta = 2 * self._pi * self.phase
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, 1, 0,
-                         0, 0, 0, np.exp(1j * theta)])
+                         0, 0, 0, self._exp(1j * theta)])
 
 
 class CRz(Rotation):
@@ -287,11 +321,11 @@ class CRz(Rotation):
 
     @property
     def array(self):
-        half_theta = float(np.pi * self.phase)
+        half_theta = self._pi * self.phase
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
-                         0, 0, np.exp(-1j * half_theta), 0,
-                         0, 0, 0, np.exp(1j * half_theta)])
+                         0, 0, self._exp(-1j * half_theta), 0,
+                         0, 0, 0, self._exp(1j * half_theta)])
 
 
 class CRx(Rotation):
@@ -301,8 +335,8 @@ class CRx(Rotation):
 
     @property
     def array(self):
-        half_theta = float(np.pi * self.phase)
-        cos, sin = np.cos(half_theta), np.sin(half_theta)
+        half_theta = self._pi * self.phase
+        cos, sin = self._cos(half_theta), self._sin(half_theta)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, cos, -1j * sin,
@@ -311,17 +345,18 @@ class CRx(Rotation):
 
 class Scalar(Parametrized):
     """ Scalar, i.e. quantum gate with empty domain and codomain. """
-    def __init__(self, data, name=None, is_mixed=False):
+    def __init__(self, data, datatype=complex, name=None, is_mixed=False):
         self.drawing_name = format_number(data)
         name = "scalar" if name is None else name
         dom, cod = qubit ** 0, qubit ** 0
         _dagger = None if data.conjugate() == data else False
         super().__init__(
-            name, dom, cod, is_mixed=is_mixed, data=data, _dagger=_dagger)
+            name, dom, cod,
+            datatype=datatype, is_mixed=is_mixed, data=data, _dagger=_dagger)
 
     def __repr__(self):
-        return super().__repr__()[:-1]\
-            + ', is_mixed=True)' if self.is_mixed else ')'
+        return super().__repr__()[:-1] + (
+            ', is_mixed=True)' if self.is_mixed else ')')
 
     @property
     def array(self):
@@ -335,6 +370,12 @@ class Scalar(Parametrized):
     def dagger(self):
         return self if self._dagger is None\
             else Scalar(self.array[0].conjugate())
+
+
+class MixedScalar(Scalar):
+    """ Mixed scalar, i.e. where the Born rule has already been applied. """
+    def __init__(self, data):
+        super().__init__(data, is_mixed=True)
 
 
 class Sqrt(Scalar):
