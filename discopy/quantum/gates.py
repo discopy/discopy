@@ -227,6 +227,7 @@ class Parametrized(Box):
         self._datatype = params.get('datatype', None)
         data = data\
             if getattr(data, "free_symbols", False) else self._datatype(data)
+        self.drawing_name = '{}({})'.format(name, data)
         Box.__init__(
             self, name, dom, cod, data=data,
             is_mixed=params.get('is_mixed', True),
