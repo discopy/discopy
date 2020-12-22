@@ -4,6 +4,8 @@
 Implements the translation between discopy and pytket.
 """
 
+from unittest.mock import Mock
+
 import pytket as tk
 from pytket.circuit import Bit, Qubit  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
@@ -13,7 +15,7 @@ from discopy.quantum.circuit import (
     CircuitFunctor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
     ClassicalGate, QuantumGate, Bits, Bra, Ket,
-    Swap, Scalar, GATES, X, Rx, Rz, CRz, format_number)
+    Swap, Scalar, MixedScalar, GATES, X, Rx, Rz, CRz, format_number)
 
 
 class Circuit(tk.Circuit):
@@ -110,9 +112,9 @@ class Circuit(tk.Circuit):
         if compilation is not None:
             for circuit in (self, ) + others:
                 compilation.apply(circuit)
-        backend.process_circuits((self, ) + others, n_shots=n_shots, seed=seed)
-        counts = [backend.get_counts(circuit, n_shots=n_shots)
-                  for circuit in (self, ) + others]
+        handles = backend.process_circuits(
+            (self, ) + others, n_shots=n_shots, seed=seed)
+        counts = [backend.get_result(h).get_counts() for h in handles]
         if normalize:
             counts = list(map(probs_from_counts, counts))
         if post_select:
@@ -129,7 +131,7 @@ class Circuit(tk.Circuit):
         if scale:
             for i, _ in enumerate((self, ) + others):
                 for bitstring in counts[i]:
-                    counts[i][bitstring] *= abs(self.scalar) ** 2
+                    counts[i][bitstring] *= self.scalar
         return counts
 
 
@@ -245,7 +247,8 @@ def to_tk(circuit):
             else:  # pragma: no cover
                 continue  # bits and qubits live in different registers.
         elif isinstance(box, Scalar):
-            tk_circ.scale(box.array[0])
+            tk_circ.scale(
+                box.array[0] if box.is_mixed else abs(box.array[0]) ** 2)
         elif isinstance(box, ClassicalGate)\
                 or isinstance(box, Bits) and box.is_dagger:
             off = left.count(bit)
@@ -327,5 +330,16 @@ def from_tk(tk_circuit):
         else Discard() if x.name == 'qubit' else Id(bit)
         for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ Scalar(tk_circuit.scalar)
+        circuit = circuit @ MixedScalar(tk_circuit.scalar)
     return circuit >> tk_circuit.post_processing
+
+
+def mockBackend(*counts):
+    def get_result(i):
+        result = Mock()
+        result.get_counts.return_value = counts[i]
+        return result
+    mock = Mock()
+    mock.process_circuits.return_value = list(range(len(counts)))
+    mock.get_result = get_result
+    return mock

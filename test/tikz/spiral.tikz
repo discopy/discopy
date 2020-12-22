@@ -1,0 +1,44 @@
+\begin{tikzpicture}[baseline=(0.base)]
+\begin{pgfonlayer}{nodelayer}
+\node (0) at (0, 3.0) {};
+\node [] (1) at (4.0, 5.0) {};
+\node [] (2) at (4.0, 4.75) {};
+\node [] (3) at (4.0, 0.25) {};
+\node [] (4) at (1.5, 4.0) {};
+\node [] (5) at (0.0, 3.75) {};
+\node [] (6) at (3.0, 3.75) {};
+\node [] (7) at (0.0, 0.25) {};
+\node [] (8) at (3.0, 1.25) {};
+\node [] (9) at (1.5, 3.0) {};
+\node [] (10) at (1.0, 2.75) {};
+\node [] (11) at (2.0, 2.75) {};
+\node [] (12) at (1.0, 1.25) {};
+\node [] (13) at (2.0, 2.25) {};
+\node [] (14) at (2.0, 2.0) {};
+\node [] (15) at (2.0, 1.0) {};
+\node [] (16) at (2.0, 0.0) {};
+\node [style=unit] (17) at (4.0, 5.0) {};
+\node [style=cap] (17) at (1.5, 4.0) {};
+\node [style=cap] (17) at (1.5, 3.0) {};
+\node [style=counit] (17) at (2.0, 2.0) {};
+\node [style=cup] (17) at (2.0, 1.0) {};
+\node [style=cup] (17) at (2.0, 0.0) {};
+\end{pgfonlayer}
+\begin{pgfonlayer}{edgelayer}
+\draw [in=90, out=-90] (1.center) to (2.center);
+\draw [in=90, out=-90] (2.center) to (3.center);
+\draw [in=90, out=180] (4.center) to (5.center);
+\draw [in=90, out=0] (4.center) to (6.center);
+\draw [in=90, out=-90] (5.center) to (7.center);
+\draw [in=90, out=-90] (6.center) to (8.center);
+\draw [in=90, out=180] (9.center) to (10.center);
+\draw [in=90, out=0] (9.center) to (11.center);
+\draw [in=90, out=-90] (10.center) to (12.center);
+\draw [in=90, out=-90] (11.center) to (13.center);
+\draw [in=90, out=-90] (13.center) to (14.center);
+\draw [in=180, out=-90] (12.center) to (15.center);
+\draw [in=0, out=-90] (8.center) to (15.center);
+\draw [in=180, out=-90] (7.center) to (16.center);
+\draw [in=0, out=-90] (3.center) to (16.center);
+\end{pgfonlayer}
+\end{tikzpicture}

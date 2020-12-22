@@ -221,15 +221,15 @@ class CQMap(Tensor):
         return CQMap.measure(dim, destructive=constructive).dagger()
 
     @staticmethod
-    def pure(tensor):
+    def pure(utensor):
         """ Takes a tensor, returns a pure quantum CQMap. """
-        return CQMap(Q(tensor.dom), Q(tensor.cod),
-                     (tensor.conjugate() @ tensor).array)
+        return CQMap(Q(utensor.dom), Q(utensor.cod),
+                     (utensor.conjugate() @ utensor).array)
 
     @staticmethod
-    def classical(tensor):
+    def classical(utensor):
         """ Takes a tensor, returns a classical CQMap. """
-        return CQMap(C(tensor.dom), C(tensor.cod), tensor.array)
+        return CQMap(C(utensor.dom), C(utensor.cod), utensor.array)
 
     @staticmethod
     def discard(dom):
@@ -279,7 +279,8 @@ class Functor(rigid.Functor):
         if isinstance(box, (MixedState, Encode)):
             return self(box.dagger()).dagger()
         if isinstance(box, Scalar):
-            return CQMap(CQ(), CQ(), abs(box.array[0]) ** 2)
+            scalar = box.array[0] if box.is_mixed else abs(box.array[0]) ** 2
+            return CQMap(CQ(), CQ(), scalar)
         if not box.is_mixed and box.classical:
             return CQMap(self(box.dom), self(box.cod), box.array)
         if not box.is_mixed:

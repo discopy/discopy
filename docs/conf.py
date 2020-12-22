@@ -15,6 +15,8 @@ import sys
 
 sys.path.insert(0, os.path.abspath('..'))
 
+sys.path.append(os.path.abspath("./_ext"))
+
 
 def get_version():
     from discopy import __version__
@@ -41,6 +43,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.autosummary',
               'nbsphinx',
               'sphinx.ext.mathjax',
+              'youtube',
               ]
 
 autosummary_generate = True

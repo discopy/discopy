@@ -23,18 +23,9 @@ discopy computes natural language meaning in pictures.
 >>> assert A(sentence).normal_form() == Alice @ Bob >> love_box
 """
 
-__version__ = '0.3.3'
-
-class config:
-    IMPORT_JAX = False
-    NUMPY_THRESHOLD = 16
-    IGNORE_WARNINGS = [
-        "No GPU/TPU found, falling back to CPU.",
-        "Casting complex values to real discards the imaginary part"]
-
 
 from discopy import (
-    cat, monoidal, rigid, biclosed, tensor, quantum, grammar)
+    config, cat, monoidal, rigid, biclosed, tensor, quantum, grammar)
 from discopy.cat import Quiver
 from discopy.monoidal import Sum
 from discopy.rigid import (
@@ -51,3 +42,6 @@ from discopy.quantum.gates import (
 
 from discopy.grammar import cfg, ccg, pregroup
 from discopy.grammar.pregroup import Word
+
+
+__version__ = '0.3.4'

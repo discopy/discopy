@@ -1,0 +1,49 @@
+\begin{tikzpicture}[baseline=(0.base)]
+\begin{pgfonlayer}{nodelayer}
+\node (0) at (0, 1.0) {};
+\node [] (1) at (0, 2.0) {};
+\node [] (2) at (0, 0.75) {};
+\node [style=none, right] (3) at (0.2, 2.0) {x};
+\node [] (4) at (1.5, 1.5) {};
+\node [] (5) at (1.0, 1.25) {};
+\node [] (6) at (2.0, 1.25) {};
+\node [] (7) at (1.0, 0.75) {};
+\node [style=none, right] (8) at (1.2, 1.05) {x.r};
+\node [] (9) at (2.0, 0.0) {};
+\node [style=none, right] (10) at (2.2, 1.05) {x};
+\node [] (11) at (0.5, 0.5) {};
+\node [style=none] (12) at (3.2, 1.0) {=};
+\node [] (13) at (4.2, 2.0) {};
+\node [] (14) at (4.2, 0.0) {};
+\node [style=none, right] (15) at (4.4, 2.0) {x};
+\node [style=none] (16) at (5.4, 1.0) {=};
+\node [] (17) at (8.4, 2.0) {};
+\node [] (18) at (8.4, 0.75) {};
+\node [style=none, right] (19) at (8.6, 2.0) {x};
+\node [] (20) at (6.9, 1.5) {};
+\node [] (21) at (6.4, 1.25) {};
+\node [] (22) at (7.4, 1.25) {};
+\node [] (23) at (6.4, 0.0) {};
+\node [style=none, right] (24) at (6.6000000000000005, 1.05) {x};
+\node [] (25) at (7.4, 0.75) {};
+\node [style=none, right] (26) at (7.6000000000000005, 1.05) {x.l};
+\node [] (27) at (7.9, 0.5) {};
+\end{pgfonlayer}
+\begin{pgfonlayer}{edgelayer}
+\draw [in=90, out=-90] (1.center) to (2.center);
+\draw [in=90, out=180] (4.center) to (5.center);
+\draw [in=90, out=0] (4.center) to (6.center);
+\draw [in=90, out=-90] (5.center) to (7.center);
+\draw [in=90, out=-90] (6.center) to (9.center);
+\draw [in=180, out=-90] (2.center) to (11.center);
+\draw [in=0, out=-90] (7.center) to (11.center);
+\draw [in=90, out=-90] (13.center) to (14.center);
+\draw [in=90, out=-90] (17.center) to (18.center);
+\draw [in=90, out=180] (20.center) to (21.center);
+\draw [in=90, out=0] (20.center) to (22.center);
+\draw [in=90, out=-90] (21.center) to (23.center);
+\draw [in=90, out=-90] (22.center) to (25.center);
+\draw [in=180, out=-90] (25.center) to (27.center);
+\draw [in=0, out=-90] (18.center) to (27.center);
+\end{pgfonlayer}
+\end{tikzpicture}

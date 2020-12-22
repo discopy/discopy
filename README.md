@@ -2,11 +2,6 @@
 ![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/snake-equation.png)
 
 # Distributional Compositional Python
-[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
-[![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
-[![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/main/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
-[![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
-[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)
 
 DisCoPy is a tool box for computing with monoidal categories.
 
@@ -123,9 +118,47 @@ sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
 pip install discopy
 ```
 
+## Contributing
+
+Contributions are welcome, please drop one of us an email or
+[open an issue](https://github.com/oxford-quantum-group/discopy/issues/new).
+
+## Tests
+
+If you want the bleeding edge, you can install DisCoPy locally:
+
+```shell
+git clone https://github.com/oxford-quantum-group/discopy.git
+cd discopy
+pip install .
+```
+
+You can check you haven't broken anything by running the test suite:
+
+```shell
+pip install ".[test]" .
+pip install pytest coverage
+coverage run -m pytest --doctest-modules
+coverage report -m
+```
+
+The documentation is built automatically from the source code using
+[sphinx](https://www.sphinx-doc.org/en/master/).
+If you need to build it locally, just run:
+
+```shell
+(cd docs && (make clean; make html))
+```
+
 ## Documentation
 
 The tool paper is now available on [arXiv:2005.02975](https://arxiv.org/abs/2005.02975), it was presented at [ACT2020](https://act2020.mit.edu/).
 
 The documentation is hosted at [readthedocs.io](https://discopy.readthedocs.io/),
-you can also checkout the [notebooks](docs/notebooks/) for a demo!
+you can also checkout the [notebooks](notebooks/) for a demo!
+
+[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
+[![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
+[![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/main/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
+[![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
+[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)

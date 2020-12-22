@@ -6,6 +6,7 @@ from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 
 from discopy import *
+from discopy.drawing import *
 
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/imgs/', 'test/tikz/', 10
@@ -17,7 +18,7 @@ def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
         def wrapper():
             true_path = os.path.join(folder, file)
             test_path = os.path.join(folder, '.' + file)
-            draw(func(), path=test_path, **params)
+            draw(func(), path=test_path, show=False, **params)
             test = compare_images(true_path, test_path, tol)
             assert test is None
             os.remove(test_path)
@@ -25,29 +26,62 @@ def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
     return decorator
 
 
-@draw_and_compare('crack-eggs.png', figsize=(5, 6), fontsize=18, aspect='equal')
+def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
+    def decorator(func):
+        def wrapper():
+            true_paths = [os.path.join(folder, file)]
+            test_paths = [os.path.join(folder, '.' + file)]
+            if params.get("use_tikzstyles", DEFAULT.use_tikzstyles):
+                true_paths.append(
+                    true_paths[0].replace('.tikz', '.tikzstyles'))
+                test_paths.append(
+                    test_paths[0].replace('.tikz', '.tikzstyles'))
+            draw(func(), path=test_paths[0], **dict(params, to_tikz=True))
+            for true_path, test_path in zip(true_paths, test_paths):
+                with open(true_path, "r") as true:
+                    with open(test_path, "r") as test:
+                        assert true.read() == test.read()
+                os.remove(test_path)
+        return wrapper
+    return decorator
+
+
+def spiral(n_cups):
+    """
+    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
+    """
+    x = Ty('x')
+    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
+    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    for box in [unit, counit, cup, cap]:
+        box.draw_as_spider, box.color, box.drawing_name = True, "black", ""
+    result = unit
+    for i in range(n_cups):
+        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
+    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
+    for i in range(n_cups):
+        result = result >>\
+            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
+    return result
+
+
+@draw_and_compare(
+    'crack-eggs.png', figsize=(5, 6), fontsize=18, aspect='equal')
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
+
     egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
     crack = Box('crack', egg, white @ yolk)
-    crack_two_eggs = crack @ crack\
+    return crack @ crack\
         >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
         >> merge(white) @ merge(yolk)
-    return crack_two_eggs
 
-
-spiral = Diagram(
-    dom=Ty(), cod=Ty(), boxes=[
-        Box('unit', Ty(), Ty('x')), Box('cap', Ty(), Ty('x', 'x')),
-        Box('cap', Ty(), Ty('x', 'x')), Box('counit', Ty('x'), Ty()),
-        Box('cup', Ty('x', 'x'), Ty()), Box('cup', Ty('x', 'x'), Ty())],
-    offsets=[0, 0, 1, 2, 1, 0])
 
 @draw_and_compare(
-    'spiral.png', draw_types=False, draw_box_labels=False, aspect='equal')
+    'spiral.png', draw_type_labels=False, draw_box_labels=False, aspect='equal')
 def test_draw_spiral():
-    return spiral
+    return spiral(2)
 
 
 @draw_and_compare('who-ansatz.png', aspect='equal')
@@ -80,9 +114,8 @@ def test_pregroup_draw():
 
 @draw_and_compare('bell-state.png', draw=Circuit.draw, aspect='equal')
 def test_draw_bell_state():
-    gate = quantum.QuantumGate('H', 1, _dagger=None)
-    gate.draw_as_spider = True
-    return gate @ quantum.Id(1) >> quantum.CX
+    from discopy.quantum import H, sqrt, Bra, Ket, Id, CX
+    return sqrt(2) >> Ket(0, 0) >> H @ Id(1) >> CX >> Bra(0) @ Id(1)
 
 
 @draw_and_compare('bialgebra.png', draw=Sum.draw, aspect='equal')
@@ -97,7 +130,7 @@ def draw_equation(diagrams, **params):
 
 
 @draw_and_compare("snake-equation.png", draw=draw_equation,
-                  aspect='auto', figsize=(5, 2), draw_types=False)
+                  aspect='auto', figsize=(5, 2), draw_type_labels=False)
 def test_snake_equation():
     x = Ty('x')
     return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
@@ -110,37 +143,23 @@ def test_draw_typed_snake():
     return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
-def tikz_and_compare(file, folder=TIKZ_FOLDER, draw=Diagram.draw, **params):
-    def decorator(func):
-        def wrapper():
-            true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '.' + file)
-            draw(func(), path=test_path, **params)
-            with open(true_path, "r") as true:
-                with open(test_path, "r") as test:
-                    assert true.read() == test.read()
-            os.remove(test_path)
-        return wrapper
-    return decorator
-
-
-@tikz_and_compare("spiral.tex", to_tikz=True)
+@tikz_and_compare("spiral.tikz", draw_type_labels=False, use_tikzstyles=True)
 def test_spiral_to_tikz():
-    return spiral
+    return spiral(2)
 
 
-@tikz_and_compare("copy.tex", to_tikz=True,
-                  draw_box_labels=False, color='black')
+@tikz_and_compare("copy.tikz", use_tikzstyles=True)
 def test_copy_to_tikz():
     x, y = map(Ty, ("$x$", "$y$"))
     copy_x, copy_y = Box('COPY', x, x @ x), Box('COPY', y, y @ y)
     copy_x.draw_as_spider, copy_y.draw_as_spider = True, True
+    copy_x.drawing_name, copy_y.drawing_name = "", ""
     copy_x.color, copy_y.color = "black", "black"
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
-@tikz_and_compare("alice-loves-bob.tex", to_tikz=True, draw=grammar.draw,
-                  textpad=(.2, .2), textpad_words=(0, .25))
+@tikz_and_compare("alice-loves-bob.tikz", draw=grammar.draw,
+                  textpad=(.2, .2), textpad_words=(0, .25), fontsize=.8)
 def test_sentence_to_tikz():
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
@@ -148,14 +167,14 @@ def test_sentence_to_tikz():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@tikz_and_compare("snake-equation.tex", to_tikz=True, draw=draw_equation,
+@tikz_and_compare("snake-equation.tikz", draw=draw_equation,
                   textpad=(.2, .2), textpad_words=(0, .25))
 def test_snake_equation_to_tikz():
     x = Ty('x')
     return Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose()
 
 
-@tikz_and_compare("who-ansatz.tex", to_tikz="controls",
+@tikz_and_compare("who-ansatz.tikz",
                   draw=draw_equation, symbol="$\\mapsto$")
 def test_who_ansatz_to_tikz():
     s, n = Ty('s'), Ty('n')
@@ -165,3 +184,36 @@ def test_who_ansatz_to_tikz():
         >> Id(n.r @ n) @ Cap(s, s.l) @ Id(n)\
         >> Id(n.r) @ Box('update', n @ s, n) @ Id(s.l @ n)
     return who, who_ansatz
+
+
+@tikz_and_compare('bialgebra.tikz', draw=draw_equation, use_tikzstyles=True)
+def test_tikz_bialgebra_law():
+    from discopy.quantum.zx import Z, X, Id, SWAP
+    source = X(2, 1) >> Z(1, 2)
+    target = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
+    return source, target
+
+
+@tikz_and_compare('bell-state.tikz', aspect='equal', use_tikzstyles=True)
+def test_tikz_bell_state():
+    from discopy.quantum import H, sqrt, Bra, Ket, Id, CX
+    H.draw_as_spider, H.color, H.drawing_name = True, "yellow", ""
+    return sqrt(2) >> Ket(0, 0) >> H @ Id(1) >> CX >> Bra(0) @ Id(1)
+
+
+@tikz_and_compare('crack-eggs.tikz')
+def test_tikz_eggs():
+    def merge(x):
+        box = Box('merge', x @ x, x, draw_as_spider=True)
+        return box
+
+    egg, white, yolk = Ty('egg'), Ty('white'), Ty('yolk')
+    crack = Box('crack', egg, white @ yolk)
+    return crack @ crack\
+        >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
+        >> merge(white) @ merge(yolk)
+
+
+def test_Node_repr():
+    assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
+        == "Node('dom', depth=1, i=0, obj=Ob('x'))"

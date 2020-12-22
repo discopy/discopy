@@ -80,7 +80,7 @@ class Under(Ty):
         return hash(repr(self))
 
 
-@monoidal.diagram_subclass
+@monoidal.Diagram.subclass
 class Diagram(monoidal.Diagram):
     """ Diagrams in a biclosed monoidal category. """
     @staticmethod

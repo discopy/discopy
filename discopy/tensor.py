@@ -11,8 +11,6 @@ Implements dagger monoidal functors into tensors.
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
-import itertools
-
 from discopy import messages, monoidal, rigid, config
 from discopy.cat import AxiomError
 from discopy.monoidal import Sum
@@ -190,7 +188,8 @@ class Tensor(rigid.Box):
 
     @staticmethod
     def id(dom):
-        return Tensor(dom, dom, np.identity(int(np.prod(dom))))
+        from numpy import prod
+        return Tensor(dom, dom, np.identity(int(prod(dom))))
 
     @staticmethod
     def cups(left, right):
@@ -231,6 +230,11 @@ class Tensor(rigid.Box):
         return Tensor(self.dom, self.cod,
                       np.around(self.array, decimals=decimals))
 
+    def map(self, func):
+        """ Apply a function elementwise. """
+        return Tensor(
+            self.dom, self.cod, list(map(func, self.array.flatten())))
+
     @staticmethod
     def zeros(dom, cod):
         """
@@ -244,15 +248,11 @@ class Tensor(rigid.Box):
         return Tensor(dom, cod, np.zeros(dom @ cod))
 
     def subs(self, *args):
-        array = [getattr(x, "subs", lambda y, *_: y)(*args)
-                 for x in self.array.flatten()]
-        return Tensor(self.dom, self.cod, array)
+        return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
 
-    def grad(self, *vars):  # pragma: no cover
-        array = np.array([[
-            getattr(x, "diff", lambda _: 0)(var) for x in self.array.flatten()]
-            for var in vars]).reshape(Dim(len(vars)) @ self.dom @ self.cod)
-        return Tensor(Dim(len(vars)) @ self.dom, self.cod, array)
+    def grad(self, var):
+        """ Gradient with respect to variables. """
+        return self.map(lambda x: getattr(x, "diff", lambda _: 0)(var))
 
 
 class Functor(rigid.Functor):
@@ -271,6 +271,8 @@ class Functor(rigid.Functor):
         return super().__repr__().replace("Functor", "tensor.Functor")
 
     def __call__(self, diagram):
+        if isinstance(diagram, Bubble):
+            return self(diagram.inside).map(diagram.func)
         if isinstance(diagram, monoidal.Sum):
             dom, cod = self(diagram.dom), self(diagram.cod)
             return sum(map(self, diagram), Tensor.zeros(dom, cod))
@@ -320,7 +322,7 @@ class Functor(rigid.Functor):
         return Tensor(self(diagram.dom), self(diagram.cod), array)
 
 
-@monoidal.diagram_subclass
+@monoidal.Diagram.subclass
 class Diagram(rigid.Diagram):
     """
     Diagram with Tensor boxes.
@@ -399,7 +401,7 @@ class Diagram(rigid.Diagram):
     @staticmethod
     def cups(left, right):
         return rigid.cups(left, right, ar_factory=Diagram,
-                          cup_factory=lambda x, _: Frobenius(2, 0, x[0]))
+                          cup_factory=lambda x, _: Spider(2, 0, x[0]))
 
     @staticmethod
     def caps(left, right):
@@ -407,15 +409,58 @@ class Diagram(rigid.Diagram):
 
     @staticmethod
     def swap(left, right):
-        return monoidal.swap(
+        return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
+
+    def grad(self, var):
+        """ Gradient with respect to :code:`var`. """
+        if var not in self.free_symbols:
+            return self.sum([], self.dom, self.cod)
+        left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
+        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
+            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
+
+    @staticmethod
+    def spiders(n_legs_in, n_legs_out, dim):
+        """
+        Spider diagram.
+
+        Parameters
+        ----------
+        n_legs_in, n_legs_out : int
+            Number of legs in and out.
+        dim : Dim
+            Dimension for each leg.
+
+        Examples
+        --------
+        >>> assert Diagram.spiders(3, 2, Dim(1)) == Id(Dim(1))
+        >>> assert Diagram.spiders(1, 2, Dim(2)) == Spider(1, 2, Dim(2))
+        >>> Diagram.spiders(1, 2, Dim(2, 3))  # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        NotImplementedError
+        """
+        dim = dim if isinstance(dim, Dim) else Dim(dim)
+        if not dim:
+            return Id(dim)
+        if len(dim) == 1:
+            return Spider(n_legs_in, n_legs_out, dim)
+        raise NotImplementedError
 
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
 
 
+class Sum(monoidal.Sum, Diagram):
+    """ Sums of tensor diagrams. """
+    def eval(self, contractor=None):
+        return sum(term.eval(contractor=contractor) for term in self.terms)
+
+
 Diagram.id = Id
+Diagram.sum = Sum
 
 
 class Swap(rigid.Swap, Diagram):
@@ -424,10 +469,19 @@ class Swap(rigid.Swap, Diagram):
 
 class Box(rigid.Box, Diagram):
     """ Box in a tensor.Diagram """
+    def __init__(self, name, dom, cod, data, **params):
+        rigid.Box.__init__(self, name, dom, cod, data=data, **params)
+        Diagram.__init__(self, dom, cod, [self], [0])
+
     @property
     def array(self):
         """ The array inside the box. """
         return np.array(self.data).reshape(self.dom @ self.cod or (1, ))
+
+    def grad(self, var):
+        return self.bubble(
+            func=lambda x: getattr(x, "diff", lambda _: 0)(var),
+            drawing_name="d${}$".format(var))
 
     def __repr__(self):
         return super().__repr__().replace("Box", "tensor.Box")
@@ -444,36 +498,120 @@ class Box(rigid.Box, Diagram):
             (self.name, self.dom, self.cod, tuple(self.array.flatten())))
 
 
-class Frobenius(Box):
+class Spider(Box):
     """
-    Frobenius box.
+    Spider box.
 
     Parameters
     ----------
-    n_wires_in, n_wires_out : int
-        Number of input and output wires.
+    n_legs_in, n_legs_out : int
+        Number of legs in and out.
     dim : int
         Dimension for each leg.
 
     Examples
     --------
-    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-    >>> spider = Frobenius(1, 2, dim=2)
+    >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
+    >>> spider = Spider(1, 2, dim=2)
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
+    >>> from discopy import drawing
+    >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
+    ... path='docs/_static/imgs/tensor/frobenius-example.png')
+
+    .. image:: ../_static/imgs/tensor/frobenius-example.png
+        :align: center
     """
-    def __init__(self, n_wires_in, n_wires_out, dim):
-        import numpy as np
-        name = "Frobenius({}, {}, dim={})".format(n_wires_in, n_wires_out, dim)
-        dom, cod = Dim(dim) ** n_wires_in, Dim(dim) ** n_wires_out
-        array = np.zeros(dom @ cod)
-        for i in range(dim):
+    def __init__(self, n_legs_in, n_legs_out, dim):
+        import numpy
+        dim = dim if isinstance(dim, Dim) else Dim(dim)
+        if len(dim) > 1:
+            raise ValueError(
+                "Spider boxes can only have len(dim) <= 1, "
+                "try Diagram.spiders instead.")
+        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, dim)
+        dom, cod = dim ** n_legs_in, dim ** n_legs_out
+        array = numpy.zeros(dom @ cod)
+        for i in range(int(numpy.prod(dim))):
             array[len(dom @ cod) * (i, )] = 1
-        self.draw_as_spider, self.color, self.drawing_name = True, "black", ""
+        super().__init__(
+            name, dom, cod, data=array,
+            draw_as_spider=True, color="black", drawing_name="")
         self.dim = dim
-        super().__init__(name, dom, cod, array)
 
     def __repr__(self):
         return self.name
 
     def dagger(self):
-        return Frobenius(len(self.cod), len(self.dom), self.dim)
+        return Spider(len(self.cod), len(self.dom), self.dim)
+
+
+class Bubble(monoidal.Bubble, Box):
+    """
+    Bubble in a tensor diagram, applies a function elementwise.
+
+    Parameters
+    ----------
+    inside : tensor.Diagram
+        The diagram inside the bubble.
+    func : callable
+        The function to apply, default is :code:`lambda x: int(not x)`.
+
+    Examples
+    --------
+
+    >>> men = Box("men", Dim(1), Dim(2), [0, 1])
+    >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
+    >>> men_are_mortal = (men >> mortal.bubble()).bubble()
+    >>> assert men_are_mortal.eval()
+    >>> men_are_mortal.draw(draw_type_labels=False,
+    ...                     path='docs/_static/imgs/tensor/men-are-mortal.png')
+
+    .. image:: ../_static/imgs/tensor/men-are-mortal.png
+        :align: center
+
+    >>> from sympy.abc import x
+    >>> f = Box('f', Dim(2), Dim(2), [1, 0, 0, x])
+    >>> g = Box('g', Dim(2), Dim(2), [-x, 0, 0, 1])
+    >>> def grad(diagram, var):
+    ...     return diagram.bubble(
+    ...         func=lambda x: getattr(x, "diff", lambda _: 0)(var),
+    ...         drawing_name="d${}$".format(var))
+    >>> lhs = grad(f >> g, x)
+    >>> rhs = (grad(f, x) >> g) + (f >> grad(g, x))
+    >>> assert lhs.eval() == rhs.eval()
+    >>> from discopy import drawing
+    >>> drawing.equation(lhs, rhs, figsize=(5, 2), draw_type_labels=False,
+    ...                  path='docs/_static/imgs/tensor/product-rule.png')
+
+    .. image:: ../_static/imgs/tensor/product-rule.png
+        :align: center
+    """
+    def __init__(self, inside, func=lambda x: int(not x), **params):
+        self.func = func
+        super().__init__(inside, **params)
+
+    def grad(self, var):
+        """
+        The gradient of a bubble is given by the chain rule.
+
+        >>> from sympy.abc import x
+        >>> from discopy import drawing
+        >>> g = Box('g', Dim(2), Dim(2), [2 * x, 0, 0, x + 1])
+        >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
+        >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
+        >>> drawing.equation(lhs, rhs, draw_type_labels=False,
+        ...                  path='docs/_static/imgs/tensor/chain-rule.png')
+
+        .. image:: ../_static/imgs/tensor/chain-rule.png
+            :align: center
+        """
+        from sympy import Symbol
+        tmp = Symbol("tmp")
+        return Spider(1, 2, dim=self.dom)\
+            >> self.inside.bubble(
+                func=lambda x: self.func(tmp).diff(tmp).subs(tmp, x),
+                drawing_name="({})/d${}$".format(self.drawing_name, var))\
+            @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
+
+
+Diagram.bubble_factory = Bubble

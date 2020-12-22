@@ -2,7 +2,7 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, monoidal, rigid, quantum
+from discopy import messages, monoidal, rigid, quantum, tensor
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
@@ -10,8 +10,8 @@ from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
 
 
-@monoidal.diagram_subclass
-class Diagram(rigid.Diagram):
+@monoidal.Diagram.subclass
+class Diagram(tensor.Diagram):
     """ ZX Diagram. """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'zx.Diagram')
@@ -20,13 +20,13 @@ class Diagram(rigid.Diagram):
     def swap(left, right):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
-        return monoidal.swap(
+        return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
     def permutation(perm, dom=None):
         dom = PRO(len(perm)) if dom is None else dom
-        return monoidal.permutation(perm, dom, ar_factory=Diagram)
+        return monoidal.Diagram.permutation(perm, dom, ar_factory=Diagram)
 
     @staticmethod
     def cups(left, right):
@@ -39,7 +39,8 @@ class Diagram(rigid.Diagram):
             left, right, ar_factory=Diagram, cap_factory=lambda *_: Z(0, 2))
 
     def draw(self, **params):
-        return super().draw(**dict(params, draw_types=False))
+        """ ZX diagrams don't have labels on wires. """
+        return super().draw(**dict(params, draw_type_labels=False))
 
     def grad(self, var):
         """
@@ -59,7 +60,7 @@ class Diagram(rigid.Diagram):
         >>> from sympy.abc import phi
         >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
         """
-        return Circuit.grad(self, var)
+        return super().grad(var)
 
     def to_pyzx(self):
         """
@@ -99,9 +100,9 @@ class Diagram(rigid.Diagram):
                     phase=box.phase * 2 if box.phase else None)
                 graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
-                    input, hadamard = scan[offset + i]
+                    source, hadamard = scan[offset + i]
                     etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
-                    graph.add_edge((input, node), etype)
+                    graph.add_edge((source, node), etype)
                 scan = scan[:offset] + len(box.cod) * [(node, False)]\
                     + scan[offset + len(box.dom):]
             elif isinstance(box, Swap):
@@ -113,12 +114,12 @@ class Diagram(rigid.Diagram):
             else:
                 raise TypeError(messages.type_err(Box, box))
         for i, _ in enumerate(self.cod):
-            node = graph.add_vertex(VertexType.BOUNDARY)
-            input, hadamard = scan[i]
+            target = graph.add_vertex(VertexType.BOUNDARY)
+            source, hadamard = scan[i]
             etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
-            graph.add_edge((input, node), etype)
-            graph.set_position(node, i, len(self) + 1)
-            graph.outputs.append(node)
+            graph.add_edge((source, target), etype)
+            graph.set_position(target, i, len(self) + 1)
+            graph.outputs.append(target)
         return graph
 
     @staticmethod
@@ -138,10 +139,8 @@ class Diagram(rigid.Diagram):
         ----
 
         Raises :code:`ValueError` if either:
-        - a boundary node is not in :code:`graph.inputs + graph.outputs`,
-        - :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty,
-        - there is an input node after a non-input node,
-        - or there is an output node before a non-output node.
+        * a boundary node is not in :code:`graph.inputs + graph.outputs`,
+        * :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty.
         """
         from pyzx import VertexType, EdgeType
 
@@ -165,7 +164,7 @@ class Diagram(rigid.Diagram):
                 scan = scan[:source] + scan[source + 1:target]\
                     + [node] + scan[target:]
             else:
-                scan, swaps = scan, Id(len(scan))
+                swaps = Id(len(scan))
             return scan, swaps
 
         def make_wires_adjacent(scan, diagram, inputs):
@@ -192,7 +191,7 @@ class Diagram(rigid.Diagram):
                      if v not in graph.inputs + graph.outputs]:
             inputs = [v for v in graph.neighbors(node) if v < node
                       and v not in graph.outputs or v in graph.inputs]
-            inputs.sort(key=lambda v: scan.index(v))
+            inputs.sort(key=scan.index)
             outputs = [v for v in graph.neighbors(node) if v > node
                        and v not in graph.inputs or v in graph.outputs]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
@@ -230,12 +229,12 @@ Diagram.id = Id
 
 class Box(rigid.Box, Diagram):
     """ Box in a ZX diagram. """
-    def __init__(self, name, dom, cod, data=None):
+    def __init__(self, name, dom, cod, **params):
         if not isinstance(dom, PRO):
             raise TypeError(messages.type_err(PRO, dom))
         if not isinstance(cod, PRO):
             raise TypeError(messages.type_err(PRO, cod))
-        rigid.Box.__init__(self, name, dom, cod, data)
+        rigid.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, dom, cod, [self], [0])
 
 
@@ -260,6 +259,7 @@ class Spider(Box):
         dom, cod = PRO(n_legs_in), PRO(n_legs_out)
         super().__init__(name, dom, cod, data=phase)
         self.draw_as_spider, self.drawing_name = True, phase or ""
+        self.tikzstyle_name = name
 
     @property
     def name(self):
@@ -325,8 +325,8 @@ class Had(Box):
     def __init__(self):
         super().__init__('H', PRO(1), PRO(1))
         self.draw_as_spider = True
-        self.drawing_name = ''
-        self.color, self.shape = "yellow", "s"
+        self.drawing_name, self.tikzstyle_name, = '', 'H'
+        self.color, self.shape = "yellow", "rectangle"
 
     def __repr__(self):
         return self.name
@@ -341,7 +341,7 @@ H = Had()
 class Scalar(Box):
     """ Scalar in a ZX diagram. """
     def __init__(self, data):
-        super().__init__("scalar", PRO(0), PRO(0), data)
+        super().__init__("scalar", PRO(0), PRO(0), data=data)
         self.drawing_name = format_number(data)
 
     @property
@@ -393,6 +393,7 @@ def gate2zx(box):
         CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}
     return standard_gates[box]
+
 
 circuit2zx = Functor(
     ob={qubit: PRO(1)}, ar=gate2zx,

@@ -62,8 +62,7 @@ def test_Circuit_to_tk():
         '.H(0)'\
         '.Measure(0, 0)'\
         '.post_select({0: 0, 1: 0})'\
-        '.scale(2)'
-    assert np.isclose(tk_circ.scalar, 2)
+        '.scale(4)'
     assert repr((CX >> Measure(2) >> Swap(bit, bit)).to_tk())\
         == "tk.Circuit(2, 2).CX(0, 1).Measure(1, 0).Measure(0, 1)"
     assert repr((Bits(0) >> Id(bit) @ Bits(0)).to_tk())\
@@ -116,9 +115,8 @@ def test_Circuit_get_counts():
 def test_Circuit_get_counts_snake():
     compilation = Mock()
     compilation.apply = lambda x: x
-    backend = Mock()
-    backend.get_counts.return_value = {
-        (0, 0): 240, (0, 1): 242, (1, 0): 271, (1, 1): 271}
+    backend = tk.mockBackend({
+        (0, 0): 240, (0, 1): 242, (1, 0): 271, (1, 1): 271})
     scaled_bell = Circuit.caps(qubit, qubit)
     snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
     result = np.round(snake.eval(
@@ -127,8 +125,7 @@ def test_Circuit_get_counts_snake():
 
 
 def test_Circuit_get_counts_empty():
-    backend = Mock()
-    backend.get_counts.return_value = {}
+    backend = tk.mockBackend({})
     assert not Id(1).get_counts(backend)
 
 
@@ -170,13 +167,12 @@ def test_Bra_and_Measure_to_tk():
         ".Measure(3, 0)"\
         ".Measure(0, 2)"\
         ".post_select({0: 0, 1: 0, 2: 0, 3: 0})"\
-        ".scale(2)"
+        ".scale(4)"
 
 
 def test_ClassicalGate_eval():
-    backend = Mock()
-    backend.get_counts.return_value = {
-        (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256}
+    backend = tk.mockBackend({
+        (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256})
     post = ClassicalGate('post', 2, 0, [1, 0, 0, 0])
     assert post.eval(backend) == Tensor(dom=Dim(1), cod=Dim(1), array=[0.25])
 
@@ -274,6 +270,7 @@ def test_Sum():
 
 def test_subs():
     from sympy.abc import phi
+    assert list(Rz(phi).subs(phi, 0).array.flatten()) == [1, 0, 0, 1]
     assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(phi) >> CX >> Bra(0, 1)
     assert circuit.subs(phi, 0.5)\

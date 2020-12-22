@@ -16,6 +16,12 @@ Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
 ...     remove_duplicates=True, max_iter=10)
 >>> for sentence in gen: print(sentence)
 Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
+
+>>> sentence.draw(figsize=(4, 3),\\
+... path='docs/_static/imgs/grammar/cfg-example.png')
+
+.. image:: ../_static/imgs/grammar/cfg-example.png
+    :align: center
 """
 
 import random
@@ -37,14 +43,15 @@ class Word(Box):
     >>> loves
     Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
     """
-    def __init__(self, name, cod, dom=Ty(), data=None, _dagger=False):
+    def __init__(self, name, cod, dom=None, data=None, _dagger=False):
         if not isinstance(name, str):
             raise TypeError(messages.type_err(str, name))
-        if not isinstance(dom, Ty):
-            raise TypeError(messages.type_err(Ty, dom))
         if not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
-        super().__init__(name, dom, cod, data, _dagger)
+        dom = dom or cod[0:0]
+        if not isinstance(dom, Ty):
+            raise TypeError(messages.type_err(Ty, dom))
+        super().__init__(name, dom, cod, data=data, _dagger=_dagger)
 
     def __repr__(self):
         return "Word({}, {}{})".format(

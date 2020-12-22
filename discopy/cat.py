@@ -21,7 +21,6 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from numbers import Number
 from functools import total_ordering
 from collections.abc import Mapping, Iterable
 
@@ -60,8 +59,6 @@ class Ob:
 
     """
     def __init__(self, name):
-        if not str(name):
-            raise ValueError(messages.empty_name(name))
         self._name = name
 
     @property
@@ -238,12 +235,7 @@ class Arrow:
         return self.sum([self]) + other
 
     def __radd__(self, other):
-        return self.__add__(other)
-
-    @staticmethod
-    def sum(terms, dom=None, cod=None):
-        """ Formal sum of `terms`. """
-        return Sum(terms, dom, cod)
+        return self + other
 
     def then(self, *others):
         """
@@ -363,18 +355,18 @@ class Arrow:
 
         Parameters
         ----------
-        Either var, expr with:
-
         var : sympy.Symbol
             Subtituted variable.
         expr : sympy.Expr
             Substituting expression.
 
-        Or a list of such pairs for multiple substitution.
-
         Returns
         -------
         arrow : Arrow
+
+        Note
+        ----
+        You can give a list of (var, expr) pairs for multiple substitution.
 
         Examples
         --------
@@ -388,6 +380,10 @@ class Arrow:
         """
         return self.upgrade(
             Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
+
+    def bubble(self, **params):
+        """ Returns a :class:`cat.Bubble` with the diagram inside. """
+        return self.bubble_factory(self, **params)
 
 
 class Id(Arrow):
@@ -450,11 +446,8 @@ class Box(Arrow):
     >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
 
     """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        """
-        """
-        if not str(name):
-            raise ValueError(messages.empty_name(name))
+    def __init__(self, name, dom, cod, **params):
+        data, _dagger = params.get("data", None), params.get("_dagger", False)
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
         Arrow.__init__(self, dom, cod, [self], _scan=False)
@@ -502,9 +495,10 @@ class Box(Arrow):
         return set(recursive_free_symbols(self.data))
 
     def subs(self, *args):
-        vars = {var for var, _ in args[0]} if len(args) == 1 else {args[0]}
-        if not any(var in self.free_symbols for var in vars):
+        if not any(var in self.free_symbols for var in (
+                {var for var, _ in args[0]} if len(args) == 1 else {args[0]})):
             return self
+
         def recursive_subs(data, *args):
             if isinstance(data, Mapping):
                 return {key: recursive_subs(value, *args)
@@ -547,8 +541,9 @@ class Box(Arrow):
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return all(self.__getattribute__(x) == other.__getattribute__(x)
-                       for x in ['_name', 'dom', 'cod', 'data', '_dagger'])
+            attributes = ['_name', '_dom', '_cod', '_data', '_dagger']
+            return all(
+                getattr(self, x) == getattr(other, x) for x in attributes)
         if isinstance(other, Arrow):
             return len(other) == 1 and other[0] == self
         return False
@@ -661,6 +656,35 @@ class Sum(Box):
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
 
+class Bubble(Box):
+    """ A unary operator on homsets. """
+    def __init__(self, inside, dom=None, cod=None):
+        dom = inside.dom if dom is None else dom
+        cod = inside.cod if cod is None else cod
+        super().__init__("Bubble", dom, cod, data=inside)
+
+    @property
+    def inside(self):
+        """ The diagram inside a bubble. """
+        return self.data
+
+    def __str__(self):
+        return "({}).bubble({})".format(
+            self.inside,
+            "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+            else "dom={}, cod={}".format(self.dom, self.cod))
+
+    def __repr__(self):
+        return "Bubble({}{})".format(
+            repr(self.inside),
+            "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+            else ", dom={}, cod={})".format(repr(self.dom), repr(self.cod)))
+
+
+Arrow.sum = Sum
+Arrow.bubble_factory = Bubble
+
+
 class Functor:
     """
     Defines a dagger functor which can be applied to objects and arrows.
@@ -701,6 +725,10 @@ class Functor:
     >>> assert F(f >> g) == F(f) >> F(g)
     >>> assert F(f[::-1]) == F(f)[::-1]
     >>> assert F(f.dom) == F(f).dom and F(f.cod) == F(f).cod
+
+    Functors are bubble-preserving.
+
+    >>> assert F(f.bubble()) == F(f).bubble()
 
     See Also
     --------
@@ -748,6 +776,9 @@ class Functor:
         if isinstance(arrow, Sum):
             return self.ar_factory.sum(
                 list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
+        if isinstance(arrow, Bubble):
+            return self(arrow.inside).bubble(
+                dom=self(arrow.dom), cod=self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
         if isinstance(arrow, Box):

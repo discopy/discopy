@@ -146,20 +146,22 @@ def test_Diagram_cups_and_caps():
     with raises(AxiomError):
         Diagram.cups(Dim(2), Dim(3))
     assert Id(Dim(2)).transpose()\
-        == Frobenius(0, 2, dim=2) @ Id(Dim(2))\
-        >> Id(Dim(2)) @ Frobenius(2, 0, dim=2)
+        == Spider(0, 2, dim=2) @ Id(Dim(2))\
+        >> Id(Dim(2)) @ Spider(2, 0, dim=2)
 
 
 def test_Box():
     f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
     assert repr(f) == "tensor.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
-    assert f != rigid.Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert f != rigid.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])
     assert {f: 42}[f] == 42
 
 
-def test_Frobenius():
-    assert repr(Frobenius(1, 2, dim=3)) == "Frobenius(1, 2, dim=3)"
-    assert Frobenius(1, 2, 2).dagger() == Frobenius(2, 1, 2)
+def test_Spider():
+    assert repr(Spider(1, 2, dim=3)) == "Spider(1, 2, Dim(3))"
+    assert Spider(1, 2, 2).dagger() == Spider(2, 1, 2)
+    with raises(ValueError):
+        Spider(1, 2, Dim(2, 3))
 
 
 def test_Swap_to_tn():
