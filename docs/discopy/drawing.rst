@@ -16,3 +16,4 @@ drawing
    discopy.drawing.to_gif
    discopy.drawing.pregroup_draw
    discopy.drawing.equation
+   discopy.drawing.Equation
