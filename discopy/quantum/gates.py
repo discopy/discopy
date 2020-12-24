@@ -274,7 +274,7 @@ class Rotation(Parametrized, QuantumGate):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        return scalar(.5j * gradient) @ type(self)(self.phase - .5)
+        return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
 
 
 class Rx(Rotation):

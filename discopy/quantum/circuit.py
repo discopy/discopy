@@ -41,6 +41,7 @@ from discopy import messages, monoidal, rigid, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor
+from math import pi
 
 
 def index2bitstring(i, length):
@@ -442,8 +443,8 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi)\\
-        ...     == (Rz(phi / 2) @ scalar(0+0.5j) @ Rz(phi + .5) >> CX)\\
-        ...     + (scalar(0+0.25j) @ Rz(phi/2 - .5) @ Rz(phi + 1) >> CX)
+        ...     == (Rz(phi / 2) @ scalar(pi) @ Rz(phi + 1.5) >> CX)\\
+        ...     + (scalar(pi/2) @ Rz(phi/2 + .5) @ Rz(phi + 1) >> CX)
         """
         return super().grad(var)
 

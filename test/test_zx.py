@@ -65,12 +65,13 @@ def test_subs():
 
 def test_grad():
     from sympy.abc import phi, psi
+    from math import pi
     assert not scalar(phi).grad(psi) and scalar(phi).grad(phi) == scalar(1)
     assert not Z(1, 1, phi).grad(psi)
-    assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
+    assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
-        == (scalar(0.25j) @ Z(1, 1, phi / 2 - .5) >> Z(1, 1, phi + 1))\
-           + (Z(1, 1, phi / 2) >> scalar(0.5j) @ Id(1) >> Z(1, 1, phi + .5))
+        == (scalar(pi/2) @ Z(1, 1, phi / 2 + .5) >> Z(1, 1, phi + 1))\
+           + (Z(1, 1, phi / 2) >> scalar(pi) @ Id(1) >> Z(1, 1, phi + 1.5))
 
 
 def test_to_pyzx_errors():

@@ -8,6 +8,7 @@ from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
+from math import pi
 
 
 @monoidal.Diagram.subclass
@@ -58,7 +59,7 @@ class Diagram(tensor.Diagram):
         Examples
         --------
         >>> from sympy.abc import phi
-        >>> assert Z(1, 1, phi).grad(phi) == scalar(0.5j) @ Z(1, 1, phi - .5)
+        >>> assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
         """
         return super().grad(var)
 
@@ -287,8 +288,8 @@ class Spider(Box):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        return Scalar(.5j * gradient)\
-            @ type(self)(len(self.dom), len(self.cod), self.phase - .5)
+        return Scalar(pi * gradient)\
+            @ type(self)(len(self.dom), len(self.cod), self.phase + .5)
 
 
 class Z(Spider):
