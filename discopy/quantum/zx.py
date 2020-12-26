@@ -7,7 +7,8 @@ from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
-    Bra, Ket, Rz, Rx, CX, CZ, CRz, CRx, format_number)
+    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, format_number)
+from discopy.quantum.gates import Scalar as GatesScalar
 from math import pi
 
 
@@ -369,6 +370,8 @@ def gate2zx(box):
             X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
+    if isinstance(box, Ry):
+        return Y(1, 1, box.phase)
     if isinstance(box, CRz):
         return Z(1, 2) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
@@ -378,6 +381,10 @@ def gate2zx(box):
     if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+    if isinstance(box, GatesScalar):
+        if box.is_mixed:
+            raise NotImplementedError
+        return scalar(box.data)
     standard_gates = {
         quantum.H: H,
         quantum.Z: Z(1, 1, .5),

@@ -228,6 +228,10 @@ def test_Rx():
     assert Rx(0).eval() == Rx(0).dagger().eval() == Id(1).eval()
 
 
+def test_Ry():
+    assert Ry(0).eval() == Id(1).eval()
+
+
 def test_Rz():
     assert Rz(0).eval() == Id(1).eval()
 
