@@ -372,8 +372,6 @@ def gate2zx(box):
             X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
-    if isinstance(box, Ry):
-        return Y(1, 1, box.phase)
     if isinstance(box, CRz):
         return Z(1, 2) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
@@ -391,7 +389,7 @@ def gate2zx(box):
         quantum.H: H,
         quantum.Z: Z(1, 1, .5),
         quantum.X: X(1, 1, .5),
-        quantum.Y: Y(1, 1, .5),
+        quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1)}
     return standard_gates[box]
