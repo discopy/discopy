@@ -83,6 +83,15 @@ def test_to_pyzx():
     Diagram.from_pyzx(Z(0, 2).to_pyzx()) == Z(0, 2) >> SWAP
 
 
+def test_to_pyzx_scalar():
+    import numpy as np
+    # Test that a scalar is translated to the corresponding pyzx object.
+    k = np.exp(np.pi/4*1j)
+    m = (scalar(k) @ scalar(k) @ Id(1)).to_pyzx().to_matrix()
+    m = np.linalg.norm(m/(1j) - np.eye(2))
+    assert np.isclose(m, 0)
+
+
 def test_from_pyzx_errors():
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
     graph = bialgebra.to_pyzx()

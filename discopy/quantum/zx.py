@@ -110,6 +110,8 @@ class Diagram(tensor.Diagram):
             elif isinstance(box, Swap):
                 scan = scan[:offset] + [scan[offset + 1], scan[offset]]\
                     + scan[offset + 2:]
+            elif isinstance(box, Scalar):
+                graph.scalar.add_float(box.data)
             elif box == H:
                 node, hadamard = scan[offset]
                 scan[offset] = (node, not hadamard)
