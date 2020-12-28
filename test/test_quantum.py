@@ -285,6 +285,9 @@ def test_grad():
     from sympy.abc import phi
     with raises(NotImplementedError):
         Box('f', qubit, qubit, data=phi).grad(phi)
+    with raises(NotImplementedError):
+        super(CRz, CRz(phi)).grad(phi)
+
     assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
     assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
