@@ -129,3 +129,10 @@ def test_circui2zx():
     t = circuit2zx(quantum.Z >> quantum.Y >> quantum.X)
     t = t.to_pyzx().to_matrix() - 1j*np.eye(2)
     assert np.isclose(np.linalg.norm(t), 0)
+
+    # Check scalar translation
+    t = circuit2zx(quantum.X >> quantum.X @ quantum.scalar(1j)).to_pyzx().to_matrix()
+    assert np.isclose(np.linalg.norm(t - 1j*np.eye(2)), 0)
+
+    with raises(NotImplementedError):
+        circuit2zx(quantum.scalar(1, is_mixed=True))

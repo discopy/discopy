@@ -291,6 +291,9 @@ def test_grad():
     assert scalar(phi).grad(phi) == scalar(1)
     assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
 
+    for op in (CU1, CRx, CRz):
+        assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
+
 
 def _to_square_mat(m):
     m = np.asarray(m).flatten()
