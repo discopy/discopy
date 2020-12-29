@@ -369,7 +369,7 @@ def gate2zx(box):
     if isinstance(box, (Bra, Ket)):
         dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
         return Id(0).tensor(*[
-            X(dom, cod, phase=.5 * bit) for bit in box.bitstring])
+            X(dom, cod, phase=.5 * bit) for bit in box.bitstring]) @ scalar(pow(2, -len(box.bitstring)/2))
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, CRz):
