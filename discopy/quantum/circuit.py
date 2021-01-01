@@ -38,7 +38,6 @@ from itertools import takewhile
 from collections.abc import Mapping
 
 from discopy import messages, monoidal, rigid, tensor
-from discopy.monoidal import Functor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor
@@ -116,8 +115,7 @@ class Circuit(tensor.Diagram):
 
     def subs(self, *args):
         return self.upgrade(
-            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args),
-                    ob_factory=BitsAndQubits)(self))
+            CircuitFunctor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
     @property
     def is_mixed(self):
