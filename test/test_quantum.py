@@ -275,6 +275,10 @@ def test_subs():
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(phi) >> CX >> Bra(0, 1)
     assert circuit.subs(phi, 0.5)\
         == sqrt(2) @ Ket(0, 0) >> H @ Rx(0.5) >> CX >> Bra(0, 1)
+    
+    assert (Id(1) @ scalar(phi)).subs(phi, 1).dom == qubit
+    # Once 'scalar' is supported by circuit2zx, test also
+    # circuit2zx((Id(1) @ scalar(phi)).subs(phi, 1))
 
 
 def test_grad():
