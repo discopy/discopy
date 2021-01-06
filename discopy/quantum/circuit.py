@@ -42,6 +42,7 @@ from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor
 from math import pi
+from functools import reduce
 
 
 def index2bitstring(i, length):
@@ -752,6 +753,35 @@ class IQPansatz(Circuit):
                 layer(params[i]) for i in range(depth)))
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
+
+
+def real_amp_ansatz(params: np.ndarray, *, entanglement='linear'): # TODO default full
+    """
+    The real-amplitudes 2-local circuit. The shape of the params determines the number of
+    layers and the number of qubits (layers, qubit). This heuristic generates orthogonal
+    operators so the imaginary part of the correponding matrix is always the zero matrix.
+    """
+    from discopy.quantum.gates import CX, Ry, ext_cx
+    assert entanglement in ('linear', 'circular')   # TODO full
+    params = np.asarray(params)
+    assert params.ndim == 2
+    dom = qubit**params.shape[1]
+
+    def layer(v, is_last=False):
+        n = len(dom)
+        rys = Id(0).tensor(*(Ry(v[k]) for k in range(n)))
+        if is_last:
+            return rys
+        cxs = [ext_cx(k-1, k, dom=dom) for k in range(1, n)]
+        cxs = reduce(lambda a, b: a >> b, cxs)
+        if entanglement == 'circular':
+            # TODO Note that if len(dom) == 2 => this can be simplified...
+            cxs = ext_cx(n-1, 0, dom=dom) >> cxs
+        return rys >> cxs
+
+    circuit = [layer(v, is_last=idx==(len(params) - 1)) for idx, v in enumerate(params)]
+    circuit = reduce(lambda a, b: a >> b, circuit)
+    return circuit
 
 
 def random_tiling(n_qubits, depth=3, gateset=None, seed=None):

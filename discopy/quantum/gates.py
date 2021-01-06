@@ -455,6 +455,21 @@ Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 
 
+def ext_cx(c: int, t: int, *, dom=None):
+    """
+    An extension of CX parameterized by the indices of the qubits
+    corresponding to control and target respectively.
+    :param c: The control qubit index.
+    :param t: The target qubit index.
+    """
+    dom = qubit ** (max(c, t) + 1) if dom is None else dom
+    perm = list(range(len(dom)))
+    perm[0], perm[t] = t, 0
+    perm[1], perm[c] = perm[c], perm[1]
+    perm = Box.permutation(perm, dom=dom)
+    return perm >> CX @ Box.id(len(dom)-2) >> perm.dagger()
+
+
 def sqrt(expr):
     """ Returns a 0-qubit quantum gate that scales by a square root. """
     return Sqrt(expr)
