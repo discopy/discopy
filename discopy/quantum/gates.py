@@ -301,6 +301,22 @@ class Rz(Rotation):
             [[self._exp(-1j * half_theta), 0], [0, self._exp(1j * half_theta)]])
 
 
+class Ry(Rotation):
+    """ Y rotations. """
+    def __init__(self, phase):
+        super().__init__(phase, name="Ry")
+
+    @property
+    def array(self):
+        half_theta = self._pi * self.phase
+        sin, cos = self._sin(half_theta), self._cos(half_theta)
+        return np.array([[cos, -1 * sin], [sin, cos]])
+
+
+def _outer_prod_diag(*bitstring):
+    return Bra(*bitstring) >> Ket(*bitstring)
+
+
 class CU1(Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
@@ -313,6 +329,14 @@ class CU1(Rotation):
                          0, 1, 0, 0,
                          0, 0, 1, 0,
                          0, 0, 0, self._exp(1j * theta)])
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        _i_2_pi = 1j * 2 * self._pi
+        return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
 
 class CRz(Rotation):
@@ -328,6 +352,16 @@ class CRz(Rotation):
                          0, 0, self._exp(-1j * half_theta), 0,
                          0, 0, 0, self._exp(1j * half_theta)])
 
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        _i_pi = 1j * self._pi
+        op1 = _outer_prod_diag(1, 0) @ scalar(-_i_pi * gradient * self._exp(-_i_pi * self.phase))
+        op2 = _outer_prod_diag(1, 1) @ scalar(_i_pi * gradient * self._exp(_i_pi * self.phase))
+        return op1 + op2
+
 
 class CRx(Rotation):
     """ Controlled Z rotations. """
@@ -342,6 +376,18 @@ class CRx(Rotation):
                          0, 1, 0, 0,
                          0, 0, cos, -1j * sin,
                          0, 0, -1j * sin, cos])
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        half_theta = self._pi * self.phase
+        op1 = _outer_prod_diag(1, 0) + _outer_prod_diag(1, 1)
+        op1 = op1 @ scalar(-self._pi * gradient * self._sin(half_theta))
+        op2 = (Bra(1, 0) >> Ket(1, 1)) + (Bra(1, 1) >> Ket(1, 0))
+        op2 = op2 @ scalar(-1j * self._pi * gradient * self._cos(half_theta))
+        return op1 + op2
 
 
 class Scalar(Parametrized):

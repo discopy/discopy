@@ -1,6 +1,7 @@
 from pytest import raises
 from discopy import *
 from discopy.quantum.zx import *
+import numpy as np
 
 
 def test_Diagram():
@@ -74,6 +75,14 @@ def test_grad():
            + (Z(1, 1, phi / 2) >> scalar(pi) @ Id(1) >> Z(1, 1, phi + 1.5))
 
 
+def test_grad_to_pyzx():
+    from sympy.abc import theta
+    m1 = circuit2zx(CU1(theta).grad(theta)).subs(theta, 1/2).to_pyzx().to_matrix()
+    e3 = _std_basis_v(1, 1)
+    m2 = (e3 @ e3.T) * (-2j*np.pi)
+    assert np.isclose(np.linalg.norm(m1 - m2), 0)
+
+
 def test_to_pyzx_errors():
     with raises(TypeError):
         Diagram.to_pyzx(quantum.H)
@@ -81,6 +90,14 @@ def test_to_pyzx_errors():
 
 def test_to_pyzx():
     Diagram.from_pyzx(Z(0, 2).to_pyzx()) == Z(0, 2) >> SWAP
+
+
+def test_to_pyzx_scalar():
+    # Test that a scalar is translated to the corresponding pyzx object.
+    k = np.exp(np.pi/4*1j)
+    m = (scalar(k) @ scalar(k) @ Id(1)).to_pyzx().to_matrix()
+    m = np.linalg.norm(m/(1j) - np.eye(2))
+    assert np.isclose(m, 0)
 
 
 def test_from_pyzx_errors():
@@ -104,6 +121,12 @@ def test_backnforth_pyzx():
     assert backnforth(diagram) == diagram
 
 
+def _std_basis_v(*c):
+    v = np.zeros(2**len(c), dtype=np.complex)
+    v[np.sum((np.array(c)!=0) * 2**np.arange(len(c)))] = 1
+    return np.expand_dims(v, -1)
+
+
 def test_circui2zx():
     circuit = Ket(0, 0) >> quantum.H @ Rx(0) >> CRz(0) >> CRx(0) >> CU1(0)
     circuit2zx(circuit) == Diagram(
@@ -113,3 +136,20 @@ def test_circui2zx():
             X(1, 2), X(1, 2), Z(2, 1), X(1, 0),
             Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0)],
         offsets=[0, 1, 0, 1, 0, 2, 1, 1, 0, 2, 1, 1, 0, 2, 1, 1])
+
+    # Verify XYZ=iI
+    t = circuit2zx(quantum.Z >> quantum.Y >> quantum.X)
+    t = t.to_pyzx().to_matrix() - 1j*np.eye(2)
+    assert np.isclose(np.linalg.norm(t), 0)
+
+    # Check scalar translation
+    t = circuit2zx(quantum.X >> quantum.X @ quantum.scalar(1j)).to_pyzx().to_matrix()
+    assert np.isclose(np.linalg.norm(t - 1j*np.eye(2)), 0)
+
+    with raises(NotImplementedError):
+        circuit2zx(quantum.scalar(1, is_mixed=True))
+
+    t = circuit2zx(Ket(0)).to_pyzx().to_matrix() - _std_basis_v(0)
+    assert np.isclose(np.linalg.norm(t), 0)
+    t = circuit2zx(Ket(0, 0)).to_pyzx().to_matrix() - _std_basis_v(0, 0)
+    assert np.isclose(np.linalg.norm(t), 0)
