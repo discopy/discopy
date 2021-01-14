@@ -460,10 +460,15 @@ def ext_cx(c: int, t: int, *, dom=None):
     """
     An extension of CX parameterized by the indices of the qubits
     corresponding to control and target respectively.
-    :param c: The control qubit index.
+    :param c: The control qubit index, where 0 is on the left.
     :param t: The target qubit index.
+    :param dom: Optional domain/codomain for the circuit.
     """
+    if len(set([c, t])) != 2:
+        raise ValueError('Control and target must be distinct')
     dom = qubit ** (max(c, t) + 1) if dom is None else dom
+    if len(dom) < 2:
+        raise ValueError('Dom size expected at least 2')
     perm = list(range(len(dom)))
     perm[0], perm[t] = t, 0
     perm[1], perm[c] = perm[c], perm[1]

@@ -347,3 +347,13 @@ def test_non_linear_AxiomError():
 
 def test_Sum_get_counts():
     assert Sum([], qubit, qubit).get_counts() == {}
+
+
+def test_ext_cx():
+    assert ext_cx(0, 1) == CX
+    assert ext_cx(0, 1, dom=qubit**2) == CX
+    assert ext_cx(1, 0) != CX   # FIXME
+    with raises(ValueError):    
+        ext_cx(0, 0)
+    with raises(ValueError):    
+        ext_cx(0, 1, dom=qubit**0)
