@@ -2,7 +2,7 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, monoidal, rigid, quantum, tensor
+from discopy import messages, cat, monoidal, rigid, quantum, tensor
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
@@ -283,8 +283,8 @@ class Spider(Box):
         return type(self)(len(self.cod), len(self.dom), -self.phase)
 
     def subs(self, *args):
-        return type(self)(len(self.dom), len(self.cod),
-                          phase=super().subs(*args).data)
+        data = cat.recursive_subs(self.data, *args)
+        return type(self)(len(self.dom), len(self.cod), phase=data)
 
     def grad(self, var):
         if var not in self.free_symbols:
@@ -348,7 +348,8 @@ class Scalar(Box):
         return self.name
 
     def subs(self, *args):
-        return Scalar(super().subs(*args).data)
+        data = cat.recursive_subs(self.data, *args)
+        return Scalar(data)
 
     def dagger(self):
         return Scalar(self.data.conjugate())

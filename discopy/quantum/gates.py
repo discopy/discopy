@@ -3,7 +3,7 @@
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
 from collections.abc import Callable
-from discopy.cat import AxiomError
+from discopy.cat import AxiomError, recursive_subs
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum
 
@@ -102,8 +102,8 @@ class ClassicalGate(Box):
             _dagger=None if self._dagger is None else not self._dagger)
 
     def subs(self, *args):
-        return ClassicalGate(
-            self.name, len(self.cod), len(self.dom), super().subs(*args).data)
+        data = recursive_subs(self.data, *args)
+        return ClassicalGate(self.name, len(self.cod), len(self.dom), data)
 
     def grad(self, var):
         if var not in self.free_symbols:
@@ -241,7 +241,8 @@ class Parametrized(Box):
             self._cos, self._sin = np.cos, np.sin
 
     def subs(self, *args):
-        return type(self)(super().subs(*args).data)
+        data = recursive_subs(self.data, *args)
+        return type(self)(data)
 
     @property
     def name(self):

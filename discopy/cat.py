@@ -498,16 +498,9 @@ class Box(Arrow):
         if not any(var in self.free_symbols for var in (
                 {var for var, _ in args[0]} if len(args) == 1 else {args[0]})):
             return self
-
-        def recursive_subs(data, *args):
-            if isinstance(data, Mapping):
-                return {key: recursive_subs(value, *args)
-                        for key, value in data.items()}
-            if isinstance(data, Iterable):
-                return [recursive_subs(elem, *args) for elem in data]
-            return getattr(data, "subs", lambda *_: data)(*args)
-        return Box(self.name, self.dom, self.cod, _dagger=self._dagger,
-                   data=recursive_subs(self.data, *args))
+        return type(self)(
+            self.name, self.dom, self.cod, _dagger=self._dagger,
+            data=recursive_subs(self.data, *args))
 
     @property
     def is_dagger(self):
@@ -838,3 +831,13 @@ class Quiver:
 
     def __repr__(self):
         return "Quiver({})".format(repr(self._func))
+
+
+def recursive_subs(data, *args):
+    """ Substitute recursively along nested data. """
+    if isinstance(data, Mapping):
+        return {key: recursive_subs(value, *args)
+                for key, value in data.items()}
+    if isinstance(data, Iterable):
+        return [recursive_subs(elem, *args) for elem in data]
+    return getattr(data, "subs", lambda *_: data)(*args)
