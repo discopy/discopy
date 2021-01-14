@@ -571,8 +571,10 @@ class Sum(monoidal.Sum, Box):
     def eval(self, backend=None, mixed=False, **params):
         if not self.terms:
             return 0
-        return sum(Circuit.eval(
-            *self.terms, backend=backend, mixed=mixed, **params))
+        if len(self.terms) == 1:
+            return self.terms[0].eval(backend=backend, mixed=mixed, **params)
+        return sum(
+            Circuit.eval(*self.terms, backend=backend, mixed=mixed, **params))
 
     def grad(self, var):
         return sum(circuit.grad(var) for circuit in self.terms)
