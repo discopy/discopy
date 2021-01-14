@@ -270,6 +270,7 @@ def test_Sum():
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
+    assert Sum([Id(1)]).eval() == Id(1).eval()
 
 
 def test_subs():
