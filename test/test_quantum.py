@@ -352,7 +352,9 @@ def test_Sum_get_counts():
 def test_ext_cx():
     assert ext_cx(0, 1) == CX
     assert ext_cx(0, 1, dom=qubit**2) == CX
-    assert ext_cx(1, 0) != CX   # FIXME
+    assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
+    assert ext_cx(2, 1).eval() == (Id(1) @ (SWAP >> CX >> SWAP)).eval()
+    assert ext_cx(1, 2).dom == qubit**3
     with raises(ValueError):    
         ext_cx(0, 0)
     with raises(ValueError):    
