@@ -469,15 +469,23 @@ def ext_cx(c: int, t: int, *, dom=None):
     dom = qubit ** (max(c, t) + 1) if dom is None else dom
     if len(dom) < 2:
         raise ValueError('Dom size expected at least 2')
-    perm = list(range(len(dom)))
+
+    if (t - c) == 1:
+        # c, t contiguous and not reversed
+        return Box.id(c) @ CX @ Box.id(len(dom)-(t+1))
+    if (t - c) == -1:
+        # c, t contiguous and reversed
+        return Box.id(t) @ (SWAP >> CX >> SWAP) @ Box.id(len(dom)-(c+1))
+
     reverse = c > t
     c, t = min(c, t), max(c, t)
+    perm = list(range(len(dom)))
     perm[0], perm[c] = c, 0
     perm[1], perm[t] = perm[t], perm[1]
     if reverse:
         perm[0], perm[1] = perm[1], perm[0]
     perm = Box.permutation(perm, dom=dom)
-    return perm >> CX @ Box.id(len(dom)-2) >> perm.dagger()
+    return perm.dagger() >> (CX @ Box.id(len(dom)-2)) >> perm
 
 
 def sqrt(expr):

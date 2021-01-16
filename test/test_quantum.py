@@ -349,12 +349,54 @@ def test_Sum_get_counts():
     assert Sum([], qubit, qubit).get_counts() == {}
 
 
+def sy_cx(c, t, n):
+    """
+    A sympy CX factory with arbitrary control and target wires.
+    The returned function accepts a tuple of integers (representing the
+    bits state) or a binary string. The input is assumed in big endian
+    ordering.
+    :param c: The index of the control bit.
+    :param t: The index of the target bit.
+    :param n: The total number of bits.
+    """
+    assert c!=t
+    assert c in range(n)
+    assert t in range(n)
+
+    import sympy as sy
+    x = list(sy.symbols(f'x:{n}'))
+    x[t] = (x[c] + x[t]) % 2
+    x = sy.Array(x)
+    def f(v):
+        v = map(int, list(v)) if isinstance(v, str) else v
+        v = x.subs(zip(sy.symbols(f'x:{n}'), v))
+        return tuple(v)
+    return f
+
+
+def verify_ext_cx_case(c, t, n):
+    op = ext_cx(c, t, dom=qubit**n)
+    cx1 = sy_cx(c, t, n)
+
+    for k in range(2**n):
+        v = format(k, 'b').zfill(n)
+        v = tuple(map(int, list(v)))
+        c = Ket(*v) >> op >> Bra(*cx1(v))
+        assert np.isclose(c.eval().array, 1)
+
+
 def test_ext_cx():
     assert ext_cx(0, 1) == CX
     assert ext_cx(0, 1, dom=qubit**2) == CX
     assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
+
     assert ext_cx(2, 1).eval() == (Id(1) @ (SWAP >> CX >> SWAP)).eval()
+    assert ext_cx(1, 2).eval() == (Id(1) @ CX).eval()
     assert ext_cx(1, 2).dom == qubit**3
+
+    for params in [(0, 2, 3), (2, 0, 3), (1, 3, 4)]:
+        verify_ext_cx_case(*params)
+
     with raises(ValueError):    
         ext_cx(0, 0)
     with raises(ValueError):    
