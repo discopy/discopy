@@ -42,7 +42,7 @@ from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor
 from math import pi
-from functools import reduce
+from functools import reduce, partial
 
 
 def index2bitstring(i, length):
@@ -760,10 +760,13 @@ class IQPansatz(Circuit):
 def real_amp_ansatz(params: np.ndarray, *, entanglement='linear'): # TODO default full
     """
     The real-amplitudes 2-local circuit. The shape of the params determines the number of
-    layers and the number of qubits (layers, qubit). This heuristic generates orthogonal
-    operators so the imaginary part of the correponding matrix is always the zero matrix.
+    layers and the number of qubits respectively (layers, qubit).
+    This heuristic generates orthogonal operators so the imaginary part of the correponding
+    matrix is always the zero matrix.
     """
-    from discopy.quantum.gates import CX, Ry, ext_cx
+    # TODO Reverse shape, columns qubits, rows, layers
+    from discopy.quantum.gates import CX, Ry, rewire
+    ext_cx = partial(rewire, CX)
     assert entanglement in ('linear', 'circular')   # TODO full
     params = np.asarray(params)
     assert params.ndim == 2
@@ -774,7 +777,7 @@ def real_amp_ansatz(params: np.ndarray, *, entanglement='linear'): # TODO defaul
         rys = Id(0).tensor(*(Ry(v[k]) for k in range(n)))
         if is_last:
             return rys
-        cxs = [ext_cx(k-1, k, dom=dom) for k in range(1, n)]
+        cxs = [ext_cx(k, k+1, dom=dom) for k in range(n-1)]
         cxs = reduce(lambda a, b: a >> b, cxs)
         if entanglement == 'circular':
             # TODO Note that if len(dom) == 2 => this can be simplified...

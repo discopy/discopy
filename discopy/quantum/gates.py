@@ -456,36 +456,35 @@ Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 
 
-def ext_cx(c: int, t: int, *, dom=None):
+def rewire(op, a: int, b: int, *, dom=None):
     """
-    An extension of CX parameterized by the indices of the qubits
-    corresponding to control and target respectively.
-    :param c: The control qubit index, where 0 is on the left.
-    :param t: The target qubit index.
-    :param dom: Optional domain/codomain for the circuit.
+    Rewire a two-qubits gate (circuit) to arbitrary qubits.
+    :param a: The qubit index of the leftmost wire of the input gate.
+    :param b: The qubit index of the rightmost wire of the input gate.
+    :param dom: Optional domain/codomain for the resulting circuit.
     """
-    if len(set([c, t])) != 2:
-        raise ValueError('Control and target must be distinct')
-    dom = qubit ** (max(c, t) + 1) if dom is None else dom
+    if len(set([a, b])) != 2:
+        raise ValueError('The destination indices must be distinct')
+    dom = qubit ** (max(a, b) + 1) if dom is None else dom
     if len(dom) < 2:
         raise ValueError('Dom size expected at least 2')
 
-    if (t - c) == 1:
-        # c, t contiguous and not reversed
-        return Box.id(c) @ CX @ Box.id(len(dom)-(t+1))
-    if (t - c) == -1:
-        # c, t contiguous and reversed
-        return Box.id(t) @ (SWAP >> CX >> SWAP) @ Box.id(len(dom)-(c+1))
+    if (b - a) == 1:
+        # a, b contiguous and not reversed
+        return Box.id(a) @ op @ Box.id(len(dom)-(b+1))
+    if (b - a) == -1:
+        # a, b contiguous and reversed
+        return Box.id(b) @ (SWAP >> op >> SWAP) @ Box.id(len(dom)-(a+1))
 
-    reverse = c > t
-    c, t = min(c, t), max(c, t)
+    reverse = a > b
+    a, b = min(a, b), max(a, b)
     perm = list(range(len(dom)))
-    perm[0], perm[c] = c, 0
-    perm[1], perm[t] = perm[t], perm[1]
+    perm[0], perm[a] = a, 0
+    perm[1], perm[b] = perm[b], perm[1]
     if reverse:
         perm[0], perm[1] = perm[1], perm[0]
     perm = Box.permutation(perm, dom=dom)
-    return perm.dagger() >> (CX @ Box.id(len(dom)-2)) >> perm
+    return perm.dagger() >> (op @ Box.id(len(dom)-2)) >> perm
 
 
 def sqrt(expr):

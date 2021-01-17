@@ -6,6 +6,7 @@ from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
+from functools import reduce, partial
 
 
 def test_index2bitstring():
@@ -300,8 +301,15 @@ def test_grad():
 
 
 def _to_square_mat(m):
+    if isinstance(m, Circuit):
+        m = m.eval().array
     m = np.asarray(m).flatten()
     return m.reshape((int(np.sqrt(len(m))), )*2)
+
+
+def _assert_is_close_to_iden(m):
+    m = _to_square_mat(m)
+    assert np.isclose(np.linalg.norm(m - np.eye(len(m))), 0)
 
 
 def test_rot_grad():
@@ -374,18 +382,23 @@ def sy_cx(c, t, n):
     return f
 
 
-def verify_ext_cx_case(c, t, n):
+def verify_rewire_cx_case(c, t, n):
+    ext_cx = partial(rewire, CX)
     op = ext_cx(c, t, dom=qubit**n)
     cx1 = sy_cx(c, t, n)
 
     for k in range(2**n):
         v = format(k, 'b').zfill(n)
         v = tuple(map(int, list(v)))
+        # <f(i)| CX_{c, t} |i>, where f is the classical
+        # implementation of CX_{c, t}.
         c = Ket(*v) >> op >> Bra(*cx1(v))
         assert np.isclose(c.eval().array, 1)
 
 
-def test_ext_cx():
+def test_rewire_cx():
+    ext_cx = partial(rewire, CX)
+
     assert ext_cx(0, 1) == CX
     assert ext_cx(0, 1, dom=qubit**2) == CX
     assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
@@ -395,9 +408,35 @@ def test_ext_cx():
     assert ext_cx(1, 2).dom == qubit**3
 
     for params in [(0, 2, 3), (2, 0, 3), (1, 3, 4)]:
-        verify_ext_cx_case(*params)
+        verify_rewire_cx_case(*params)
 
     with raises(ValueError):    
         ext_cx(0, 0)
     with raises(ValueError):    
         ext_cx(0, 1, dom=qubit**0)
+
+
+def test_rewire_cz():
+    ext_cz = partial(rewire, CZ)
+    c = ext_cz(1, 2, dom=qubit**3) >> ext_cz(2, 1, dom=qubit**3)
+    _assert_is_close_to_iden(c)
+
+    m = _to_square_mat(ext_cz(1, 2, dom=qubit**3))
+    m = np.diagonal(m) - np.array([1, 1, 1, -1]*2)
+    assert np.isclose(np.linalg.norm(m), 0)
+
+
+def _test_real_amp_ansatz_0(n):
+    ext_cx = partial(rewire, CX)
+    # Test all params 0
+    assert n >= 2
+    cxs_layer = reduce(lambda a, b: a >> b,
+                       [ext_cx(k, k+1, dom=qubit**n) for k in range(n-1)])
+    # Two layers
+    circ = real_amp_ansatz([[0]*n, [0]*n], entanglement='linear') >> cxs_layer.dagger()
+    _assert_is_close_to_iden(circ)
+
+
+def test_real_amp_ansatz():
+    for k in range(2, 5):
+        _test_real_amp_ansatz_0(k)
