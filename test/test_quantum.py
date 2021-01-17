@@ -7,6 +7,7 @@ from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
 from functools import reduce, partial
+import itertools
 
 
 def test_index2bitstring():
@@ -302,6 +303,7 @@ def test_grad():
 
 def _to_square_mat(m):
     if isinstance(m, Circuit):
+        assert m.dom == m.cod
         m = m.eval().array
     m = np.asarray(m).flatten()
     return m.reshape((int(np.sqrt(len(m))), )*2)
@@ -310,6 +312,22 @@ def _to_square_mat(m):
 def _assert_is_close_to_iden(m):
     m = _to_square_mat(m)
     assert np.isclose(np.linalg.norm(m - np.eye(len(m))), 0)
+
+
+def _assert_is_close_to_0(m):
+    if isinstance(m, Circuit):
+        assert m.dom == m.cod
+        m = m.eval().array
+    m = np.asarray(m).flatten()
+    assert np.isclose(np.linalg.norm(m), 0)
+
+
+def test_testing_utils():
+    for k in range(1, 4):
+        _assert_is_close_to_iden(np.eye(k))
+        _assert_is_close_to_iden(Id(k))
+        _assert_is_close_to_0(np.zeros(k))
+        _assert_is_close_to_0(Ket(*[0]*k) >> Bra(*[1]*k))
 
 
 def test_rot_grad():
@@ -426,17 +444,45 @@ def test_rewire_cz():
     assert np.isclose(np.linalg.norm(m), 0)
 
 
-def _test_real_amp_ansatz_0(n):
-    ext_cx = partial(rewire, CX)
+def test_rewire():
+    with raises(NotImplementedError):
+        # Case cod != qubit**2 and non-contiguous rewiring
+        rewire(Circuit.cups(qubit, qubit), 0, 2)
+    with raises(ValueError):
+        # Case dom != qubit**2
+        rewire(X, 1, 2)
+
+    for k, params in itertools.product(range(2), [(1, 2), (2, 1)]):
+        c = (Id(1) @ Ket(k, k)) >> rewire(Circuit.cups(qubit, qubit),
+                                          *params)
+        assert c.cod==qubit
+        _assert_is_close_to_iden(c)
+
+        c = (Id(1) @ Ket(k, 1-k)) >> rewire(Circuit.cups(qubit, qubit),
+                                            *params)
+        assert c.cod==qubit
+        _assert_is_close_to_0(c)
+
+
+def _test_real_amp_ansatz_0(n, entg=None):
     # Test all params 0
+    ext_cx = partial(rewire, CX)
     assert n >= 2
     cxs_layer = reduce(lambda a, b: a >> b,
                        [ext_cx(k, k+1, dom=qubit**n) for k in range(n-1)])
+    if entg == 'circular':
+        cxs_layer = ext_cx(n-1, 0, dom=qubit**n) >> cxs_layer
+
     # Two layers
-    circ = real_amp_ansatz([[0]*n, [0]*n], entanglement='linear') >> cxs_layer.dagger()
+    circ = real_amp_ansatz([[0]*n, [0]*n], entanglement=entg) >> cxs_layer.dagger()
     _assert_is_close_to_iden(circ)
 
 
 def test_real_amp_ansatz():
-    for k in range(2, 5):
-        _test_real_amp_ansatz_0(k)
+    for n, entg in itertools.product(range(2, 5), ('linear', 'circular')):
+        _test_real_amp_ansatz_0(n, entg=entg)
+
+    c = real_amp_ansatz(np.zeros((2, 2)), entanglement='full') >> CX
+    _assert_is_close_to_iden(c)
+    c = real_amp_ansatz(np.zeros((3, 2)), entanglement='full')
+    _assert_is_close_to_iden(c)

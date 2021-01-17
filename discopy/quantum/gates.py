@@ -459,8 +459,8 @@ GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 def rewire(op, a: int, b: int, *, dom=None):
     """
     Rewire a two-qubits gate (circuit) to arbitrary qubits.
-    :param a: The qubit index of the leftmost wire of the input gate.
-    :param b: The qubit index of the rightmost wire of the input gate.
+    :param a: The destination qubit index of the leftmost wire of the input gate.
+    :param b: The destination qubit index of the rightmost wire of the input gate.
     :param dom: Optional domain/codomain for the resulting circuit.
     """
     if len(set([a, b])) != 2:
@@ -468,14 +468,19 @@ def rewire(op, a: int, b: int, *, dom=None):
     dom = qubit ** (max(a, b) + 1) if dom is None else dom
     if len(dom) < 2:
         raise ValueError('Dom size expected at least 2')
+    if op.dom != qubit**2:
+        raise ValueError('Input gate\'s dom expected qubit**2')
 
     if (b - a) == 1:
         # a, b contiguous and not reversed
         return Box.id(a) @ op @ Box.id(len(dom)-(b+1))
     if (b - a) == -1:
         # a, b contiguous and reversed
-        return Box.id(b) @ (SWAP >> op >> SWAP) @ Box.id(len(dom)-(a+1))
+        op = (SWAP >> op >> SWAP) if op.cod==op.dom else (SWAP >> op)
+        return Box.id(b) @ op @ Box.id(len(dom)-(a+1))
 
+    if op.cod != op.dom:
+        raise NotImplementedError
     reverse = a > b
     a, b = min(a, b), max(a, b)
     perm = list(range(len(dom)))
