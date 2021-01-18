@@ -347,3 +347,12 @@ def test_non_linear_AxiomError():
 
 def test_Sum_get_counts():
     assert Sum([], qubit, qubit).get_counts() == {}
+
+
+def test_3_qubits_gates():
+    # TODO assert is iden: Ket(0) @ Id(2) >> CCX >> Bra(0) @ Id(2)
+    # TODO assert is iden: Ket(1) @ Id(2) >> CCX >> Bra(1) @ CX
+
+    # TODO assert is iden: Ket(0) @ Id(2) >> CSWAP >> Bra(0) @ Id(2)
+    # TODO assert is iden: Ket(1) @ Id(2) >> CSWAP >> Bra(1) @ SWAP
+    pass
