@@ -301,7 +301,7 @@ def test_grad():
 
 def _to_square_mat(m):
     m = np.asarray(m).flatten()
-    return m.reshape((int(np.sqrt(len(m))), )*2)
+    return m.reshape(2 * (int(np.sqrt(len(m))), ))
 
 
 def test_rot_grad():
