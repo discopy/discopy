@@ -70,6 +70,8 @@ def test_Circuit_to_tk():
     assert repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())\
         == "tk.Circuit(1, 3).Measure(0, 1)"\
            ".post_select({1: 0}).post_process(Swap(bit, bit))"
+    assert repr(CSWAP.to_tk()) == 'tk.Circuit(3).CSWAP(0, 1, 2)'
+    assert repr(CCX.to_tk()) == 'tk.Circuit(3).CCX(0, 1, 2)'
 
 
 def test_Sum_from_tk():
@@ -84,8 +86,6 @@ def test_tk_err():
         QuantumGate("foo", 1, [1, 2, 3, 4]).to_tk()
     with raises(NotImplementedError):
         Bits(1).to_tk()
-    with raises(NotImplementedError):
-        Circuit.from_tk(tk.Circuit(3).CSWAP(0, 1, 2))
 
 
 def test_Circuit_from_tk():
@@ -350,9 +350,11 @@ def test_Sum_get_counts():
 
 
 def test_3_qubits_gates():
-    # TODO assert is iden: Ket(0) @ Id(2) >> CCX >> Bra(0) @ Id(2)
-    # TODO assert is iden: Ket(1) @ Id(2) >> CCX >> Bra(1) @ CX
-
-    # TODO assert is iden: Ket(0) @ Id(2) >> CSWAP >> Bra(0) @ Id(2)
-    # TODO assert is iden: Ket(1) @ Id(2) >> CSWAP >> Bra(1) @ SWAP
-    pass
+    # Test the function used to generate the matrix of
+    # CCX and CSWAP
+    from discopy.quantum.gates import _diag_shift_x
+    mat_x = X.array.reshape((2, 2))
+    assert np.all(_diag_shift_x(n=3, k=0)[:2, :2] == mat_x)
+    assert np.any(_diag_shift_x(n=3, k=0)[1:, 1:] != mat_x)
+    assert np.any(_diag_shift_x(n=3, k=1)[:2, :2] != mat_x)
+    assert np.all(_diag_shift_x(n=3, k=1)[1:, 1:] == mat_x)

@@ -441,8 +441,12 @@ class Sqrt(Scalar):
         return [self.data ** .5]
 
 
-def _shift_x(n, k):
-    m = np.eye(n)
+def _diag_shift_x(n, k):
+    """
+    Shift the Pauli X matrix along the diagonal
+    of an identity matrix.
+    """
+    m = np.eye(n, dtype=np.int)
     m[k:k+2, k:k+2] = np.array([[0, 1], [1, 0]])
     return m
 
@@ -463,11 +467,11 @@ X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None)
 Y = QuantumGate('Y', 1, [0, -1j, 1j, 0])
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 
-# CCX (Toffoli): |0><0| ⊗ I^{⊗2} + |1><1| ⊗ CX 
-CCX = QuantumGate('CCX', 3, _shift_x(n=8, k=6))
+# CCX (Toffoli): |0><0| ⊗ I^{⊗2} + |1><1| ⊗ CX
+CCX = QuantumGate('CCX', 3, _diag_shift_x(n=8, k=6))
 
 # CSWAP (Fredkin): |0><0| ⊗ I^{⊗2} + |1><1| ⊗ SWAP
-CSWAP = QuantumGate('CSWAP', 3, _shift_x(n=8, k=5))
+CSWAP = QuantumGate('CSWAP', 3, _diag_shift_x(n=8, k=5))
 
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z, CCX, CSWAP]
 
