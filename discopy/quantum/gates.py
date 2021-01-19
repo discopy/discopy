@@ -299,7 +299,8 @@ class Rz(Rotation):
     def array(self):
         half_theta = self._pi * self.phase
         return np.array(
-            [[self._exp(-1j * half_theta), 0], [0, self._exp(1j * half_theta)]])
+            [[self._exp(-1j * half_theta), 0],
+             [0, self._exp(1j * half_theta)]])
 
 
 class Ry(Rotation):
@@ -337,7 +338,8 @@ class CU1(Rotation):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         _i_2_pi = 1j * 2 * self._pi
-        return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+        return _outer_prod_diag(1, 1) @ scalar(
+            _i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
 
 class CRz(Rotation):
@@ -385,7 +387,7 @@ class CRx(Rotation):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        
+
         _i_half_pi = .5j * self._pi
         op1 = Z @ X @ scalar(_i_half_pi * gradient)
         op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)

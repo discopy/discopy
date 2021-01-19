@@ -6,6 +6,7 @@ def test_Box_repr():
     f = Box('f', 1, 2, lambda x: (x, x))
     assert "Box('f', 1, 2" in repr(f)
 
+
 def test_Function_str():
     f = Function(2, 1, lambda x, y: x + y)
     assert 'Function(dom=2, cod=1,' in str(f)
