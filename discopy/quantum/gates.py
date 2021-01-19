@@ -479,11 +479,11 @@ def rewire(op, a: int, b: int, *, dom=None):
 
     if (b - a) == 1:
         # a, b contiguous and not reversed
-        return Box.id(a) @ op @ Box.id(len(dom)-(b+1))
+        return Box.id(a) @ op @ Box.id(len(dom) - (b + 1))
     if (b - a) == -1:
         # a, b contiguous and reversed
         op = (SWAP >> op >> SWAP) if op.cod == op.dom else (SWAP >> op)
-        return Box.id(b) @ op @ Box.id(len(dom)-(a+1))
+        return Box.id(b) @ op @ Box.id(len(dom) - (a + 1))
 
     if op.cod != op.dom:
         raise NotImplementedError
@@ -495,7 +495,7 @@ def rewire(op, a: int, b: int, *, dom=None):
     if reverse:
         perm[0], perm[1] = perm[1], perm[0]
     perm = Box.permutation(perm, dom=dom)
-    return perm.dagger() >> (op @ Box.id(len(dom)-2)) >> perm
+    return perm.dagger() >> (op @ Box.id(len(dom) - 2)) >> perm
 
 
 def sqrt(expr):

@@ -327,7 +327,7 @@ def test_testing_utils():
         _assert_is_close_to_iden(np.eye(k))
         _assert_is_close_to_iden(Id(k))
         _assert_is_close_to_0(np.zeros(k))
-        _assert_is_close_to_0(Ket(*[0]*k) >> Bra(*[1]*k))
+        _assert_is_close_to_0(Ket(*([0] * k)) >> Bra(*([1] * k)))
 
 
 def test_rot_grad():
@@ -441,7 +441,7 @@ def test_rewire_cz():
     _assert_is_close_to_iden(c)
 
     m = _to_square_mat(ext_cz(1, 2, dom=qubit**3))
-    m = np.diagonal(m) - np.array([1, 1, 1, -1]*2)
+    m = np.diagonal(m) - np.array([1, 1, 1, -1] * 2)
     assert np.isclose(np.linalg.norm(m), 0)
 
 
@@ -459,8 +459,8 @@ def test_rewire():
         assert c.cod == qubit
         _assert_is_close_to_iden(c)
 
-        c = (Id(1) @ Ket(k, 1-k)) >> rewire(Circuit.cups(qubit, qubit),
-                                            *params)
+        c = (Id(1) @ Ket(k, 1 - k)) >> rewire(Circuit.cups(qubit, qubit),
+                                              *params)
         assert c.cod == qubit
         _assert_is_close_to_0(c)
 
@@ -470,12 +470,12 @@ def _test_real_amp_ansatz_0(n, entg=None):
     ext_cx = partial(rewire, CX)
     assert n >= 2
     cxs_layer = reduce(lambda a, b: a >> b,
-                       [ext_cx(k, k+1, dom=qubit**n) for k in range(n-1)])
+                       [ext_cx(k, k + 1, dom=qubit**n) for k in range(n - 1)])
     if entg == 'circular':
-        cxs_layer = ext_cx(n-1, 0, dom=qubit**n) >> cxs_layer
+        cxs_layer = ext_cx(n - 1, 0, dom=qubit**n) >> cxs_layer
 
     # Two layers
-    circ = real_amp_ansatz([[0]*n, [0]*n], entanglement=entg) \
+    circ = real_amp_ansatz([[0] * n, [0] * n], entanglement=entg) \
         >> cxs_layer.dagger()
     _assert_is_close_to_iden(circ)
 

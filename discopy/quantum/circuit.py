@@ -780,14 +780,14 @@ def real_amp_ansatz(params: np.ndarray, *, entanglement='full'):
         if is_last:
             return rys
         if entanglement == 'full':
-            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1+1, n)] for
-                   k1 in range(n-1)]
+            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1 + 1, n)] for
+                   k1 in range(n - 1)]
             cxs = reduce(lambda a, b: a >> b, chain(*cxs))
         else:
-            cxs = [ext_cx(k, k+1, dom=dom) for k in range(n-1)]
+            cxs = [ext_cx(k, k + 1, dom=dom) for k in range(n - 1)]
             cxs = reduce(lambda a, b: a >> b, cxs)
             if entanglement == 'circular':
-                cxs = ext_cx(n-1, 0, dom=dom) >> cxs
+                cxs = ext_cx(n - 1, 0, dom=dom) >> cxs
         return rys >> cxs
 
     circuit = [layer(v, is_last=idx == (len(params) - 1)) for
