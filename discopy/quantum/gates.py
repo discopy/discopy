@@ -299,7 +299,8 @@ class Rz(Rotation):
     def array(self):
         half_theta = self._pi * self.phase
         return np.array(
-            [[self._exp(-1j * half_theta), 0], [0, self._exp(1j * half_theta)]])
+            [[self._exp(-1j * half_theta), 0],
+             [0, self._exp(1j * half_theta)]])
 
 
 class Ry(Rotation):
@@ -337,7 +338,8 @@ class CU1(Rotation):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         _i_2_pi = 1j * 2 * self._pi
-        return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+        return _outer_prod_diag(1, 1) @ \
+            scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
 
 class CRz(Rotation):
@@ -359,8 +361,10 @@ class CRz(Rotation):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         _i_pi = 1j * self._pi
-        op1 = _outer_prod_diag(1, 0) @ scalar(-_i_pi * gradient * self._exp(-_i_pi * self.phase))
-        op2 = _outer_prod_diag(1, 1) @ scalar(_i_pi * gradient * self._exp(_i_pi * self.phase))
+        op1 = _outer_prod_diag(1, 0) @ \
+            scalar(-_i_pi * gradient * self._exp(-_i_pi * self.phase))
+        op2 = _outer_prod_diag(1, 1) @ \
+            scalar(_i_pi * gradient * self._exp(_i_pi * self.phase))
         return op1 + op2
 
 
@@ -459,8 +463,10 @@ GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 def rewire(op, a: int, b: int, *, dom=None):
     """
     Rewire a two-qubits gate (circuit) to arbitrary qubits.
-    :param a: The destination qubit index of the leftmost wire of the input gate.
-    :param b: The destination qubit index of the rightmost wire of the input gate.
+    :param a: The destination qubit index of the leftmost wire of the
+    input gate.
+    :param b: The destination qubit index of the rightmost wire of the
+    input gate.
     :param dom: Optional domain/codomain for the resulting circuit.
     """
     if len(set([a, b])) != 2:
@@ -476,7 +482,7 @@ def rewire(op, a: int, b: int, *, dom=None):
         return Box.id(a) @ op @ Box.id(len(dom)-(b+1))
     if (b - a) == -1:
         # a, b contiguous and reversed
-        op = (SWAP >> op >> SWAP) if op.cod==op.dom else (SWAP >> op)
+        op = (SWAP >> op >> SWAP) if op.cod == op.dom else (SWAP >> op)
         return Box.id(b) @ op @ Box.id(len(dom)-(a+1))
 
     if op.cod != op.dom:

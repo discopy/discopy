@@ -759,13 +759,13 @@ class IQPansatz(Circuit):
 
 def real_amp_ansatz(params: np.ndarray, *, entanglement='full'):
     """
-    The real-amplitudes 2-local circuit. The shape of the params determines the number of
-    layers and the number of qubits respectively (layers, qubit).
-    This heuristic generates orthogonal operators so the imaginary part of the correponding
-    matrix is always the zero matrix.
+    The real-amplitudes 2-local circuit. The shape of the params determines
+    the number of layers and the number of qubits respectively (layers, qubit).
+    This heuristic generates orthogonal operators so the imaginary part of the
+    correponding matrix is always the zero matrix.
     :param params: A 2D numpy array of parameters.
-    :param entanglement: Configuration for the entaglement, currently either 'full' (default),
-    'linear' or 'circular'.
+    :param entanglement: Configuration for the entaglement, currently either
+    'full' (default), 'linear' or 'circular'.
     """
     from discopy.quantum.gates import CX, Ry, rewire
     ext_cx = partial(rewire, CX)
@@ -780,7 +780,8 @@ def real_amp_ansatz(params: np.ndarray, *, entanglement='full'):
         if is_last:
             return rys
         if entanglement == 'full':
-            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1+1, n)] for k1 in range(n-1)]
+            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1+1, n)] for
+                   k1 in range(n-1)]
             cxs = reduce(lambda a, b: a >> b, chain(*cxs))
         else:
             cxs = [ext_cx(k, k+1, dom=dom) for k in range(n-1)]
@@ -789,7 +790,8 @@ def real_amp_ansatz(params: np.ndarray, *, entanglement='full'):
                 cxs = ext_cx(n-1, 0, dom=dom) >> cxs
         return rys >> cxs
 
-    circuit = [layer(v, is_last=idx==(len(params) - 1)) for idx, v in enumerate(params)]
+    circuit = [layer(v, is_last=idx == (len(params) - 1)) for
+               idx, v in enumerate(params)]
     circuit = reduce(lambda a, b: a >> b, circuit)
     return circuit
 

@@ -385,7 +385,7 @@ def sy_cx(c, t, n):
     :param t: The index of the target bit.
     :param n: The total number of bits.
     """
-    assert c!=t
+    assert c != t
     assert c in range(n)
     assert t in range(n)
 
@@ -393,6 +393,7 @@ def sy_cx(c, t, n):
     x = list(sy.symbols(f'x:{n}'))
     x[t] = (x[c] + x[t]) % 2
     x = sy.Array(x)
+
     def f(v):
         v = map(int, list(v)) if isinstance(v, str) else v
         v = x.subs(zip(sy.symbols(f'x:{n}'), v))
@@ -428,9 +429,9 @@ def test_rewire_cx():
     for params in [(0, 2, 3), (2, 0, 3), (1, 3, 4)]:
         verify_rewire_cx_case(*params)
 
-    with raises(ValueError):    
+    with raises(ValueError):
         ext_cx(0, 0)
-    with raises(ValueError):    
+    with raises(ValueError):
         ext_cx(0, 1, dom=qubit**0)
 
 
@@ -455,12 +456,12 @@ def test_rewire():
     for k, params in itertools.product(range(2), [(1, 2), (2, 1)]):
         c = (Id(1) @ Ket(k, k)) >> rewire(Circuit.cups(qubit, qubit),
                                           *params)
-        assert c.cod==qubit
+        assert c.cod == qubit
         _assert_is_close_to_iden(c)
 
         c = (Id(1) @ Ket(k, 1-k)) >> rewire(Circuit.cups(qubit, qubit),
                                             *params)
-        assert c.cod==qubit
+        assert c.cod == qubit
         _assert_is_close_to_0(c)
 
 
@@ -474,7 +475,8 @@ def _test_real_amp_ansatz_0(n, entg=None):
         cxs_layer = ext_cx(n-1, 0, dom=qubit**n) >> cxs_layer
 
     # Two layers
-    circ = real_amp_ansatz([[0]*n, [0]*n], entanglement=entg) >> cxs_layer.dagger()
+    circ = real_amp_ansatz([[0]*n, [0]*n], entanglement=entg) \
+        >> cxs_layer.dagger()
     _assert_is_close_to_iden(circ)
 
 
