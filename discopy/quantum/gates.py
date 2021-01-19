@@ -447,7 +447,7 @@ def _diag_shift_x(n, k):
     of an identity matrix.
     """
     m = np.eye(n, dtype=np.int)
-    m[k:k+2, k:k+2] = np.array([[0, 1], [1, 0]])
+    m[k:(k + 2), k:(k + 2)] = np.array([[0, 1], [1, 0]])
     return m
 
 
