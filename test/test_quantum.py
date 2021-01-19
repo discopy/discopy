@@ -306,7 +306,7 @@ def _to_square_mat(m):
         assert m.dom == m.cod
         m = m.eval().array
     m = np.asarray(m).flatten()
-    return m.reshape((int(np.sqrt(len(m))), )*2)
+    return m.reshape(2 * (int(np.sqrt(len(m))), ))
 
 
 def _assert_is_close_to_iden(m):

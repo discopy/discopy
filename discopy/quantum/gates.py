@@ -5,7 +5,7 @@
 from collections.abc import Callable
 from discopy.cat import AxiomError, recursive_subs
 from discopy.tensor import np, Dim, Tensor
-from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum
+from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum, Id
 
 
 def format_number(data):
@@ -338,8 +338,8 @@ class CU1(Rotation):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         _i_2_pi = 1j * 2 * self._pi
-        return _outer_prod_diag(1, 1) @ \
-            scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+        return _outer_prod_diag(1, 1) @ scalar(
+            _i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
 
 class CRz(Rotation):
@@ -360,12 +360,12 @@ class CRz(Rotation):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        _i_pi = 1j * self._pi
-        op1 = _outer_prod_diag(1, 0) @ \
-            scalar(-_i_pi * gradient * self._exp(-_i_pi * self.phase))
-        op2 = _outer_prod_diag(1, 1) @ \
-            scalar(_i_pi * gradient * self._exp(_i_pi * self.phase))
-        return op1 + op2
+
+        _i_half_pi = .5j * self._pi
+        op1 = Z @ Z @ scalar(_i_half_pi * gradient)
+        op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
+
+        return self >> (op1 + op2)
 
 
 class CRx(Rotation):
@@ -387,12 +387,12 @@ class CRx(Rotation):
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        half_theta = self._pi * self.phase
-        op1 = _outer_prod_diag(1, 0) + _outer_prod_diag(1, 1)
-        op1 = op1 @ scalar(-self._pi * gradient * self._sin(half_theta))
-        op2 = (Bra(1, 0) >> Ket(1, 1)) + (Bra(1, 1) >> Ket(1, 0))
-        op2 = op2 @ scalar(-1j * self._pi * gradient * self._cos(half_theta))
-        return op1 + op2
+
+        _i_half_pi = .5j * self._pi
+        op1 = Z @ X @ scalar(_i_half_pi * gradient)
+        op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
+
+        return self >> (op1 + op2)
 
 
 class Scalar(Parametrized):
