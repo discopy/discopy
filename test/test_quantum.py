@@ -415,76 +415,44 @@ def verify_rewire_cx_case(c, t, n):
         assert np.isclose(c.eval().array, 1)
 
 
-def test_rewire_cx():
+def test_rewire():
     ext_cx = partial(rewire, CX)
 
     assert ext_cx(0, 1) == CX
-    assert ext_cx(0, 1, dom=qubit**2) == CX
     assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
+    assert ext_cx(0, 1, dom=qubit**2) == CX
+    assert ext_cx(2, 1) == Id(1) @ (SWAP >> CX >> SWAP)
+    assert rewire(CZ, 1, 2) == Id(1) @ CZ
+    assert rewire(Id(2), 1, 0) == SWAP >> SWAP
+    assert rewire(Circuit.cups(qubit, qubit), 1, 2).cod == qubit
 
-    assert ext_cx(2, 1).eval() == (Id(1) @ (SWAP >> CX >> SWAP)).eval()
-    assert ext_cx(1, 2).eval() == (Id(1) @ CX).eval()
-    assert ext_cx(1, 2).dom == qubit**3
-
-    for params in [(0, 2, 3), (2, 0, 3), (1, 3, 4)]:
-        verify_rewire_cx_case(*params)
-
-    with raises(ValueError):
-        ext_cx(0, 0)
-    with raises(ValueError):
-        ext_cx(0, 1, dom=qubit**0)
-
-
-def test_rewire_cz():
-    ext_cz = partial(rewire, CZ)
-    c = ext_cz(1, 2, dom=qubit**3) >> ext_cz(2, 1, dom=qubit**3)
-    _assert_is_close_to_iden(c)
-
-    m = _to_square_mat(ext_cz(1, 2, dom=qubit**3))
-    m = np.diagonal(m) - np.array([1, 1, 1, -1] * 2)
-    assert np.isclose(np.linalg.norm(m), 0)
-
-
-def test_rewire():
     with raises(NotImplementedError):
         # Case cod != qubit**2 and non-contiguous rewiring
         rewire(Circuit.cups(qubit, qubit), 0, 2)
     with raises(ValueError):
         # Case dom != qubit**2
         rewire(X, 1, 2)
+    with raises(ValueError):
+        ext_cx(0, 0)
+    with raises(ValueError):
+        ext_cx(0, 1, dom=qubit**0)
 
-    for k, params in itertools.product(range(2), [(1, 2), (2, 1)]):
-        c = (Id(1) @ Ket(k, k)) >> rewire(Circuit.cups(qubit, qubit),
-                                          *params)
-        assert c.cod == qubit
-        _assert_is_close_to_iden(c)
-
-        c = (Id(1) @ Ket(k, 1 - k)) >> rewire(Circuit.cups(qubit, qubit),
-                                              *params)
-        assert c.cod == qubit
-        _assert_is_close_to_0(c)
-
-
-def _test_real_amp_ansatz_0(n, entg=None):
-    # Test all params 0
-    ext_cx = partial(rewire, CX)
-    assert n >= 2
-    cxs_layer = reduce(lambda a, b: a >> b,
-                       [ext_cx(k, k + 1, dom=qubit**n) for k in range(n - 1)])
-    if entg == 'circular':
-        cxs_layer = ext_cx(n - 1, 0, dom=qubit**n) >> cxs_layer
-
-    # Two layers
-    circ = real_amp_ansatz([[0] * n, [0] * n], entanglement=entg) \
-        >> cxs_layer.dagger()
-    _assert_is_close_to_iden(circ)
+    for params in [(0, 2, 3), (2, 0, 3)]:
+        verify_rewire_cx_case(*params)
 
 
 def test_real_amp_ansatz():
-    for n, entg in itertools.product(range(2, 5), ('linear', 'circular')):
-        _test_real_amp_ansatz_0(n, entg=entg)
+    rys_layer = (Ry(0) @ Ry(0))
+    step = CX >> rys_layer
 
-    c = real_amp_ansatz(np.zeros((2, 2)), entanglement='full') >> CX
-    _assert_is_close_to_iden(c)
-    c = real_amp_ansatz(np.zeros((3, 2)), entanglement='full')
-    _assert_is_close_to_iden(c)
+    for entg in ('full', 'linear'):
+        c = rys_layer >> step
+        assert real_amp_ansatz(np.zeros((2, 2)), entanglement=entg) == c
+        c = rys_layer >> step >> step
+        assert real_amp_ansatz(np.zeros((3, 2)), entanglement=entg) == c
+
+    step = (SWAP >> CX >> SWAP) >> CX >> (Ry(0) @ Ry(0))
+    c = rys_layer >> step
+    assert real_amp_ansatz(np.zeros((2, 2)), entanglement='circular') == c
+    c = rys_layer >> step >> step
+    assert real_amp_ansatz(np.zeros((3, 2)), entanglement='circular') == c
