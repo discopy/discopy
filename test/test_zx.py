@@ -13,6 +13,7 @@ def test_Diagram():
                       ">> Id(1) @ SWAP @ Id(1)"\
                       ">> X(2, 1) @ Id(2) >> Id(1) @ X(2, 1)"
 
+
 def test_Swap():
     x = Ty('x')
     with raises(TypeError):
@@ -71,15 +72,16 @@ def test_grad():
     assert not Z(1, 1, phi).grad(psi)
     assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
-        == (scalar(pi/2) @ Z(1, 1, phi / 2 + .5) >> Z(1, 1, phi + 1))\
+        == (scalar(pi / 2) @ Z(1, 1, phi / 2 + .5) >> Z(1, 1, phi + 1))\
            + (Z(1, 1, phi / 2) >> scalar(pi) @ Id(1) >> Z(1, 1, phi + 1.5))
 
 
 def test_grad_to_pyzx():
     from sympy.abc import theta
-    m1 = circuit2zx(CU1(theta).grad(theta)).subs(theta, 1/2).to_pyzx().to_matrix()
+    m1 = circuit2zx(
+        CU1(theta).grad(theta)).subs(theta, 1 / 2).to_pyzx().to_matrix()
     e3 = _std_basis_v(1, 1)
-    m2 = (e3 @ e3.T) * (-2j*np.pi)
+    m2 = (e3 @ e3.T) * (-2j * np.pi)
     assert np.isclose(np.linalg.norm(m1 - m2), 0)
 
 
@@ -94,9 +96,9 @@ def test_to_pyzx():
 
 def test_to_pyzx_scalar():
     # Test that a scalar is translated to the corresponding pyzx object.
-    k = np.exp(np.pi/4*1j)
+    k = np.exp(np.pi / 4 * 1j)
     m = (scalar(k) @ scalar(k) @ Id(1)).to_pyzx().to_matrix()
-    m = np.linalg.norm(m/(1j) - np.eye(2))
+    m = np.linalg.norm(m / 1j - np.eye(2))
     assert np.isclose(m, 0)
 
 
@@ -111,7 +113,6 @@ def test_from_pyzx_errors():
         Diagram.from_pyzx(graph)
 
 
-
 def test_backnforth_pyzx():
     from pyzx import Graph
     path = 'test/src/zx-graph.json'
@@ -123,7 +124,7 @@ def test_backnforth_pyzx():
 
 def _std_basis_v(*c):
     v = np.zeros(2**len(c), dtype=np.complex)
-    v[np.sum((np.array(c)!=0) * 2**np.arange(len(c)))] = 1
+    v[np.sum((np.array(c) != 0) * 2**np.arange(len(c)))] = 1
     return np.expand_dims(v, -1)
 
 
@@ -139,12 +140,13 @@ def test_circui2zx():
 
     # Verify XYZ=iI
     t = circuit2zx(quantum.Z >> quantum.Y >> quantum.X)
-    t = t.to_pyzx().to_matrix() - 1j*np.eye(2)
+    t = t.to_pyzx().to_matrix() - 1j * np.eye(2)
     assert np.isclose(np.linalg.norm(t), 0)
 
     # Check scalar translation
-    t = circuit2zx(quantum.X >> quantum.X @ quantum.scalar(1j)).to_pyzx().to_matrix()
-    assert np.isclose(np.linalg.norm(t - 1j*np.eye(2)), 0)
+    t = circuit2zx(
+        quantum.X >> quantum.X @ quantum.scalar(1j)).to_pyzx().to_matrix()
+    assert np.isclose(np.linalg.norm(t - 1j * np.eye(2)), 0)
 
     with raises(NotImplementedError):
         circuit2zx(quantum.scalar(1, is_mixed=True))

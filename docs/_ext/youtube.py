@@ -10,18 +10,23 @@ from docutils.parsers.rst import directives, Directive
 
 CONTROL_HEIGHT = 30
 
+
 def get_size(d, key):
     if key not in d:
         return None
-    m = re.match("(\d+)(|%|px)$", d[key])
+    m = re.match('(\\d+)(|%|px)$', d[key])
     if not m:
         raise ValueError("invalid size %r" % d[key])
     return int(m.group(1)), m.group(2) or "px"
 
+
 def css(d):
     return "; ".join(sorted("%s: %s" % kv for kv in d.items()))
 
-class youtube(nodes.General, nodes.Element): pass
+
+class youtube(nodes.General, nodes.Element):
+    pass
+
 
 def visit_youtube_node(self, node):
     aspect = node["aspect"]
@@ -77,11 +82,16 @@ def visit_youtube_node(self, node):
     self.body.append(self.starttag(node, "iframe", **attrs))
     self.body.append("</iframe></div>")
 
+
 def depart_youtube_node(self, node):
     pass
 
-def visit_youtube_node_latex(self,node):
-    self.body.append(r'\begin{quote}\begin{center}\fbox{\url{https://youtu.be/%s}}\end{center}\end{quote}'%node['id'])
+
+def visit_youtube_node_latex(self, node):
+    self.body.append(
+        '\\begin{quote}\\begin{center}\\fbox{'
+        '\\url{https://youtu.be/%s}}\\end{center}\\end{quote}' %
+        node['id'])
 
 
 class YouTube(Directive):
@@ -98,7 +108,7 @@ class YouTube(Directive):
     def run(self):
         if "aspect" in self.options:
             aspect = self.options.get("aspect")
-            m = re.match("(\d+):(\d+)", aspect)
+            m = re.match(r"(\d+):(\d+)", aspect)
             if m is None:
                 raise ValueError("invalid aspect ratio %r" % aspect)
             aspect = tuple(int(x) for x in m.groups())
@@ -106,7 +116,12 @@ class YouTube(Directive):
             aspect = None
         width = get_size(self.options, "width")
         height = get_size(self.options, "height")
-        return [youtube(id=self.arguments[0], aspect=aspect, width=width, height=height)]
+        return [
+            youtube(
+                id=self.arguments[0],
+                aspect=aspect,
+                width=width,
+                height=height)]
 
 
 def unsupported_visit_youtube(self, node):
