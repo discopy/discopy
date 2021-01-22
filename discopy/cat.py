@@ -551,6 +551,11 @@ class Box(Arrow):
     def __lt__(self, other):
         return self.name < other.name
 
+    def __call__(self, *args, **kwargs):
+        if hasattr(self, "_apply"):
+            return self._apply(self, *args, **kwargs)
+        raise TypeError("Box is not callable, try drawing.diagramize.")
+
 
 class Sum(Box):
     """

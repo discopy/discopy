@@ -80,7 +80,7 @@ class Node:
     __str__ = __repr__
 
 
-def diagram_to_nx(diagram):
+def diagram2nx(diagram):
     """
     Builds a networkx graph, called by :meth:`Diagram.draw`.
 
@@ -91,8 +91,8 @@ def diagram_to_nx(diagram):
 
     Returns
     -------
-    graph : networkx.Graph
-        with nodes for inputs, outputs, boxes and wires.
+    graph : networkx.DiGraph
+        with nodes for inputs, outputs, boxes and their co/domain.
 
     positions : Mapping[Node, Tuple[float, float]]
         from nodes to pairs of floats.
@@ -184,6 +184,60 @@ def diagram_to_nx(diagram):
         add_node(node, (pos[scan[i]][0], 0))
         graph.add_edge(scan[i], node)
     return graph, pos
+
+
+def nx2diagram(graph, ob_factory, id_factory):
+    """
+    Builds a diagram given a networkx graph,
+    this is called by :meth:`diagramize`.
+
+    Parameters
+    ----------
+    graph : networkx.DiGraph
+        with nodes for inputs, outputs, boxes and their co/domain.
+    ob_factory, id_factory : type
+        e.g. :class:`discopy.monoidal.Ty` and :class:`discopy.monoidal.Id`.
+
+    Returns
+    -------
+    diagram : :class:`discopy.monoidal.Diagram`
+        Returns the diagram encoded by the graph.
+
+    Note
+    ----
+    Box nodes need an offset attribute.
+    """
+    _id, _ty = id_factory, ob_factory
+    inputs, outputs, boxes = [], [], []
+    for node in graph.nodes:
+        for kind, nodelist in zip(
+                ["input", "output", "box"],
+                [inputs, outputs, boxes]):
+            if node.kind == kind:
+                nodelist.append(node)
+    scan, diagram = inputs, _id(_ty(*[node.obj for node in inputs]))
+    for depth, box_node in enumerate(boxes):
+        box = box_node.box
+        offset = box_node.offset if box_node.offset is not None else 0
+        for i, obj in enumerate(box.dom):
+            dom_node = Node("dom", obj=obj, i=i, depth=depth)
+            edge, = graph.in_edges(dom_node)
+            wire, _ = edge
+            if i == 0:
+                offset = scan.index(wire)
+            elif scan.index(wire) != offset + i:
+                raise AxiomError
+        outputs = sorted(
+            [node for _, node in graph.out_edges(box_node)],
+            key=lambda node: node.i)
+        for i, obj in enumerate(box.cod):
+            if outputs[i].obj != obj:
+                raise AxiomError
+            outputs[i].offset = offset + i
+        left, right = diagram.cod[:offset], diagram.cod[offset + len(box.dom):]
+        scan = scan[:offset] + outputs + scan[offset + len(box.dom):]
+        diagram = diagram >> _id(left) @ box @ _id(right)
+    return diagram
 
 
 class Backend(ABC):
@@ -511,7 +565,7 @@ def draw(diagram, **params):
         return pos
 
     scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
-    graph, positions = diagram_to_nx(diagram)
+    graph, positions = diagram2nx(diagram)
     positions = scale_and_pad(graph, positions, scale, pad)
     backend = params.pop('backend') if 'backend' in params else\
         TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
@@ -715,3 +769,128 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
         show=params.get("show", True),
         margins=params.get('margins', DEFAULT['margins']),
         aspect=params.get('aspect', DEFAULT['aspect']))
+
+
+class Equation:
+    """
+    An equation is a list of diagrams with a dedicated draw method.
+
+    Example
+    -------
+    >>> from discopy.tensor import Spider, Swap, Dim, Id
+    >>> dim = Dim(2)
+    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
+    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
+    >>> special = Equation(mu >> delta, Id(dim))
+    >>> special  # doctest: +ELLIPSIS
+    Equation(Diagram(...), Id(Dim(2)))
+    >>> frobenius = Equation(
+    ...     delta @ Id(dim) >> Id(dim) @ mu,
+    ...     mu >> delta,
+    ...     Id(dim) @ delta >> mu @ Id(dim))
+    >>> print(frobenius)  # doctest: +ELLIPSIS
+    Spider... @ Spider... = Spider... >> Spider... = Id... @ Spider...
+    >>> equation(special, frobenius, symbol=', ',
+    ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
+    ...          path='docs/_static/imgs/drawing/frobenius-axioms.png')
+
+    .. image:: ../_static/imgs/drawing/frobenius-axioms.png
+        :align: center
+    """
+    def __init__(self, *terms, symbol='='):
+        self.terms, self.symbol = terms, symbol
+
+    def __repr__(self):
+        return "Equation({})".format(', '.join(map(repr, self.terms)))
+
+    def __str__(self):
+        return " {} ".format(self.symbol).join(map(str, self.terms))
+
+    def draw(self, **params):
+        """ Drawing an equation. """
+        return equation(*self.terms, **dict(params, symbol=self.symbol))
+
+
+def diagramize(dom, cod, boxes, id_factory=None):
+    """
+    Define a diagram using the syntax for Python functions.
+
+    Parameters
+    ----------
+    dom, cod : :class:`discopy.monoidal.Ty`
+        Domain and codomain of the diagram.
+    boxes : list
+        List of boxes in the signature.
+    id_factory : type
+        e.g. `discopy.monoidal.Id`, only needed when there are no boxes.
+
+    Returns
+    -------
+    decorator : function
+        Decorator which turns a function into a diagram.
+
+    Example
+    -------
+    >>> from discopy import Ty, Cup, Cap
+    >>> x = Ty('x')
+    >>> cup, cap = Cup(x, x.r), Cap(x.r, x)
+    >>> @diagramize(dom=x, cod=x, boxes=[cup, cap])
+    ... def snake(left):
+    ...     middle, right = cap(offset=1)
+    ...     cup(left, middle)
+    ...     return right
+    >>> snake.draw(
+    ...     figsize=(3, 3), path='docs/_static/imgs/drawing/diagramize.png')
+
+    .. image:: ../_static/imgs/drawing/diagramize.png
+        :align: center
+    """
+    if id_factory is None and not boxes:
+        raise ValueError("If not boxes you need to specify id_factory.")
+    id_factory = id_factory or boxes[0].id
+
+    def decorator(func):
+        from discopy import messages
+        from discopy.cat import AxiomError
+        from discopy.cartesian import tuplify, untuplify
+        graph, box_nodes = nx.DiGraph(), []
+
+        def apply(box, *inputs, offset=None):
+            for node in inputs:
+                if not isinstance(node, Node):
+                    raise TypeError(messages.type_err(Node, node))
+            if len(inputs) != len(box.dom):
+                raise AxiomError
+            depth = len(box_nodes)
+            box_node = Node("box", box=box, depth=depth, offset=offset)
+            box_nodes.append(box_node)
+            graph.add_node(box_node)
+            for i, obj in enumerate(box.dom):
+                if inputs[i].obj != obj:
+                    raise AxiomError
+                dom_node = Node("dom", obj=obj, i=i, depth=depth)
+                graph.add_edge(inputs[i], dom_node)
+                graph.add_edge(dom_node, box_node)
+            outputs = []
+            for i, obj in enumerate(box.cod):
+                cod_node = Node("cod", obj=obj, i=i, depth=depth)
+                graph.add_edge(box_node, cod_node)
+                outputs.append(cod_node)
+            return untuplify(*outputs)
+        for box in boxes:
+            box._apply = apply
+        inputs = []
+        for i, obj in enumerate(dom):
+            node = Node("input", obj=obj, i=i)
+            inputs.append(node)
+            graph.add_node(node)
+        outputs = tuplify(func(*inputs))
+        for i, obj in enumerate(cod):
+            if outputs[i].obj != obj:
+                raise AxiomError
+            node = Node("output", obj=obj, i=i)
+            graph.add_edge(outputs[i], node)
+        for box in boxes:
+            del box._apply
+        return nx2diagram(graph, ob_factory=type(dom), id_factory=id_factory)
+    return decorator
