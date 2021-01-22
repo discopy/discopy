@@ -331,6 +331,10 @@ class Circuit(tensor.Diagram):
         --------
         >>> from discopy.quantum import *
 
+        >>> bell_test = H @ Id(1) >> CX >> Measure() @ Measure()
+        >>> bell_test.to_tk()
+        tk.Circuit(2, 2).H(0).CX(0, 1).Measure(0, 0).Measure(1, 1)
+
         >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
         >>> circuit0.to_tk()
         tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(2)
