@@ -326,24 +326,5 @@ def test_Copy_Match():
     assert Match().dagger() == Copy() and Copy().dagger() == Match()
 
 
-def test_non_linear_ClassicalGate():
-    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
-    state = Bits(0, 0) + Bits(0, 1) + Bits(1, 0) + Bits(1, 1)
-    vector = (state >> f).eval().array.flatten()
-    assert np.all(vector == 4 * [np.sin(1) ** 2])
-
-
-def test_non_linear_AxiomError():
-    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
-    with raises(AttributeError):
-        f.array
-    with raises(AxiomError):
-        f.eval()
-    with raises(AxiomError):
-        (f @ f).eval()
-    with raises(AxiomError):
-        (f >> Discard(bit ** 2)).eval()
-
-
 def test_Sum_get_counts():
     assert Sum([], qubit, qubit).get_counts() == {}

@@ -201,22 +201,9 @@ class Circuit(tensor.Diagram):
             if others:
                 return [circuit.eval(mixed=mixed, **params)
                         for circuit in (self, ) + others]
-            post_processes = Id(self.cod)
-            for left, box, right in self.layers:
-                if isinstance(box, ClassicalGate) and not box.is_linear:
-                    if left.count(bit) or right.count(bit):
-                        raise AxiomError("You can't tensor non-linear gates.")
-                    post_processes = (post_processes or Id(box.dom)) >> box
-                elif post_processes and not isinstance(box, ClassicalGate):
-                    raise AxiomError("You can't do anything quantum "
-                                     "after non-linear gates.")
-            circuit = self[:-len(post_processes) or len(self)]
             functor = cqmap.Functor() if mixed or self.is_mixed\
                 else tensor.Functor(lambda x: 2, lambda f: f.array)
-            result = functor(circuit)
-            for process in post_processes.boxes:
-                result = process(result)
-            return result
+            return functor(self)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(
             *circuits[1:], backend=backend, **params)
@@ -225,8 +212,8 @@ class Circuit(tensor.Diagram):
             result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
             for bitstring, count in counts[i].items():
                 result += (scalar(count) @ Bits(*bitstring)).eval()
-            for process in circuit.post_processing.boxes:
-                result = process(result)
+            if circuit.post_processing:
+                result = result >> circuit.post_processing.eval()
             results.append(result)
         return results if len(results) > 1 else results[0]
 
@@ -550,7 +537,7 @@ class Box(rigid.Box, Circuit):
         return self.name
 
 
-class Sum(monoidal.Sum, Box):
+class Sum(tensor.Sum, Box):
     """ Sums of circuits. """
     @staticmethod
     def upgrade(old):
@@ -573,6 +560,7 @@ class Sum(monoidal.Sum, Box):
         return result
 
     def eval(self, backend=None, mixed=False, **params):
+        mixed = mixed or any(t.is_mixed for t in self.terms)
         if not self.terms:
             return 0
         if len(self.terms) == 1:

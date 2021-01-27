@@ -48,38 +48,15 @@ class ClassicalGate(Box):
     """ Classical gates, i.e. from bits to bits. """
     def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
-        if isinstance(data, Callable):
-            self.is_linear = False
-        else:
-            self.is_linear = True
-            data = np.array(data).reshape(
-                (n_bits_in + n_bits_out) * (2, ) or (1, ))
+        data = np.array(data).reshape(
+            (n_bits_in + n_bits_out) * (2, ) or (1, ))
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
     @property
     def array(self):
         """ The array of a classical gate. """
-        if self.is_linear:
-            return self.data
-        raise AttributeError("{} is non-linear.".format(self))
-
-    @property
-    def func(self):
-        """ The underlying function of a classical gate. """
-        if self.is_linear:
-            return lambda other: other >> self.eval()
-
-        def apply(state):
-            dom, cod = Dim(*(len(self.dom) * [2])), Dim(*(len(self.cod) * [2]))
-            if (state.dom, state.cod) != (Dim(1), dom):
-                raise AxiomError("Non-linear gates can only be applied "
-                                 "to states, not processes.")
-            return Tensor(Dim(1), cod, self.data(state.array))
-        return apply
-
-    def __call__(self, other):
-        return self.func(other)
+        return self.data
 
     def __eq__(self, other):
         if not isinstance(other, ClassicalGate):
@@ -91,8 +68,7 @@ class ClassicalGate(Box):
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        data = np.array2string(self.array.flatten())\
-            if self.is_linear else self.data
+        data = np.array2string(self.array.flatten())
         return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, data={})"\
             .format(repr(self.name), len(self.dom), len(self.cod), data)
 
