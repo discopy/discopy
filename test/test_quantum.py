@@ -62,8 +62,7 @@ def test_Circuit_to_tk():
         '.H(0)'\
         '.Measure(0, 0)'\
         '.post_select({0: 0, 1: 0})'\
-        '.scale(2)'
-    assert np.isclose(tk_circ.scalar, 2)
+        '.scale(4)'
     assert repr((CX >> Measure(2) >> Swap(bit, bit)).to_tk())\
         == "tk.Circuit(2, 2).CX(0, 1).Measure(1, 0).Measure(0, 1)"
     assert repr((Bits(0) >> Id(bit) @ Bits(0)).to_tk())\
@@ -168,7 +167,7 @@ def test_Bra_and_Measure_to_tk():
         ".Measure(3, 0)"\
         ".Measure(0, 2)"\
         ".post_select({0: 0, 1: 0, 2: 0, 3: 0})"\
-        ".scale(2)"
+        ".scale(4)"
 
 
 def test_ClassicalGate_eval():
@@ -229,6 +228,10 @@ def test_Rx():
     assert Rx(0).eval() == Rx(0).dagger().eval() == Id(1).eval()
 
 
+def test_Ry():
+    assert Ry(0).eval() == Id(1).eval()
+
+
 def test_Rz():
     assert Rz(0).eval() == Id(1).eval()
 
@@ -267,10 +270,12 @@ def test_Sum():
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
+    assert Sum([Id(1)]).eval() == Id(1).eval()
 
 
 def test_subs():
     from sympy.abc import phi
+    assert list(Rz(phi).subs(phi, 0).array.flatten()) == [1, 0, 0, 1]
     assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(phi) >> CX >> Bra(0, 1)
     assert circuit.subs(phi, 0.5)\
@@ -282,12 +287,33 @@ def test_grad():
     with raises(NotImplementedError):
         Box('f', qubit, qubit, data=phi).grad(phi)
     with raises(NotImplementedError):
-        CRz(phi).grad(phi)
+        super(CRz, CRz(phi)).grad(phi)
+
     assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
     assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)
     assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
+
+    for op in (CU1, CRx, CRz):
+        assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
+
+
+def _to_square_mat(m):
+    m = np.asarray(m).flatten()
+    return m.reshape(2 * (int(np.sqrt(len(m))), ))
+
+
+def test_rot_grad():
+    from sympy.abc import phi
+    import sympy as sy
+    for gate in (Rx, Ry, Rz, CU1, CRx, CRz):
+        # Compare the grad discopy vs sympy
+        op = gate(phi)
+        d_op_sym = sy.Matrix(_to_square_mat(op.eval().array)).diff(phi)
+        d_op_disco = sy.Matrix(_to_square_mat(op.grad(phi).eval().array))
+        diff = sy.simplify(d_op_disco - d_op_sym).evalf()
+        assert np.isclose(float(diff.norm()), 0.)
 
 
 def test_ClassicalGate_grad_subs():
@@ -298,25 +324,6 @@ def test_ClassicalGate_grad_subs():
 
 def test_Copy_Match():
     assert Match().dagger() == Copy() and Copy().dagger() == Match()
-
-
-def test_non_linear_ClassicalGate():
-    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
-    state = Bits(0, 0) + Bits(0, 1) + Bits(1, 0) + Bits(1, 1)
-    vector = (state >> f).eval().array.flatten()
-    assert np.all(vector == 4 * [np.sin(1) ** 2])
-
-
-def test_non_linear_AxiomError():
-    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
-    with raises(AttributeError):
-        f.array
-    with raises(AxiomError):
-        f.eval()
-    with raises(AxiomError):
-        (f @ f).eval()
-    with raises(AxiomError):
-        (f >> Discard(bit ** 2)).eval()
 
 
 def test_Sum_get_counts():

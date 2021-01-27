@@ -26,6 +26,7 @@ def test_Diagram():
     with raises(AxiomError):
         Diagram.fa(y << x, y)
 
+
 def test_BA():
     x, y = Ty('x'), Ty('y')
     with raises(TypeError):

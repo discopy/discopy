@@ -79,7 +79,8 @@ def test_draw_eggs():
 
 
 @draw_and_compare(
-    'spiral.png', draw_type_labels=False, draw_box_labels=False, aspect='equal')
+    'spiral.png', draw_type_labels=False,
+    draw_box_labels=False, aspect='equal')
 def test_draw_spiral():
     return spiral(2)
 

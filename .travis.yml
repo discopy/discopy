@@ -4,12 +4,12 @@ python:
 before_install:
   - python --version
   - pip install -U pip
-  - pip install -U pytest
+  - pip install -U pytest-pycodestyle
   - pip install -U pylint
   - pip install codecov
 install:
   - pip install ".[test]" . # install package + test dependencies
-script: coverage run -m py.test test/*.py discopy/*.py discopy/*/*.py --doctest-modules # run tests
+script: coverage run -m py.test test/*.py discopy/*.py discopy/*/*.py --doctest-modules --pycodestyle # run tests
 after_success:
   - coverage report -m discopy/*.py discopy/*/*.py
   - coverage xml discopy/*.py discopy/*/*.py

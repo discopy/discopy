@@ -15,7 +15,7 @@ from discopy.quantum.circuit import (
     CircuitFunctor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
     ClassicalGate, QuantumGate, Bits, Bra, Ket,
-    Swap, Scalar, GATES, X, Rx, Rz, CRz, format_number)
+    Swap, Scalar, MixedScalar, GATES, X, Rx, Rz, CRz, format_number)
 
 
 class Circuit(tk.Circuit):
@@ -131,7 +131,7 @@ class Circuit(tk.Circuit):
         if scale:
             for i, _ in enumerate((self, ) + others):
                 for bitstring in counts[i]:
-                    counts[i][bitstring] *= abs(self.scalar) ** 2
+                    counts[i][bitstring] *= self.scalar
         return counts
 
 
@@ -193,7 +193,8 @@ def to_tk(circuit):
                 tk_circ.post_select({i_bit: box.bitstring[j]})
             if isinstance(box, Measure):
                 bits = bits[:bit_offset + j] + [i_bit] + bits[bit_offset + j:]
-        if isinstance(box, Bra):
+        if isinstance(box, Bra)\
+                or isinstance(box, Measure) and box.destructive:
             qubits = qubits[:qubit_offset]\
                 + qubits[qubit_offset + len(box.dom):]
         return bits, qubits
@@ -247,7 +248,8 @@ def to_tk(circuit):
             else:  # pragma: no cover
                 continue  # bits and qubits live in different registers.
         elif isinstance(box, Scalar):
-            tk_circ.scale(box.array[0])
+            tk_circ.scale(
+                box.array[0] if box.is_mixed else abs(box.array[0]) ** 2)
         elif isinstance(box, ClassicalGate)\
                 or isinstance(box, Bits) and box.is_dagger:
             off = left.count(bit)
@@ -329,7 +331,7 @@ def from_tk(tk_circuit):
         else Discard() if x.name == 'qubit' else Id(bit)
         for i, x in enumerate(circuit.cod)))
     if tk_circuit.scalar != 1:
-        circuit = circuit @ Scalar(tk_circuit.scalar)
+        circuit = circuit @ MixedScalar(tk_circuit.scalar)
     return circuit >> tk_circuit.post_processing
 
 

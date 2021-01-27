@@ -42,6 +42,7 @@ from discopy import messages, monoidal, rigid, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import np, Dim, Tensor
+from math import pi
 
 
 def index2bitstring(i, length):
@@ -201,22 +202,9 @@ class Circuit(tensor.Diagram):
             if others:
                 return [circuit.eval(mixed=mixed, **params)
                         for circuit in (self, ) + others]
-            post_processes = Id(self.cod)
-            for left, box, right in self.layers:
-                if isinstance(box, ClassicalGate) and not box.is_linear:
-                    if left.count(bit) or right.count(bit):
-                        raise AxiomError("You can't tensor non-linear gates.")
-                    post_processes = (post_processes or Id(box.dom)) >> box
-                elif post_processes and not isinstance(box, ClassicalGate):
-                    raise AxiomError("You can't do anything quantum "
-                                     "after non-linear gates.")
-            circuit = self[:-len(post_processes) or len(self)]
             functor = cqmap.Functor() if mixed or self.is_mixed\
                 else tensor.Functor(lambda x: 2, lambda f: f.array)
-            result = functor(circuit)
-            for process in post_processes.boxes:
-                result = process(result)
-            return result
+            return functor(self)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(
             *circuits[1:], backend=backend, **params)
@@ -225,8 +213,8 @@ class Circuit(tensor.Diagram):
             result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
             for bitstring, count in counts[i].items():
                 result += (scalar(count) @ Bits(*bitstring)).eval()
-            for process in circuit.post_processing.boxes:
-                result = process(result)
+            if circuit.post_processing:
+                result = result >> circuit.post_processing.eval()
             results.append(result)
         return results if len(results) > 1 else results[0]
 
@@ -331,9 +319,13 @@ class Circuit(tensor.Diagram):
         --------
         >>> from discopy.quantum import *
 
+        >>> bell_test = H @ Id(1) >> CX >> Measure() @ Measure()
+        >>> bell_test.to_tk()
+        tk.Circuit(2, 2).H(0).CX(0, 1).Measure(0, 0).Measure(1, 1)
+
         >>> circuit0 = sqrt(2) @ H @ Rx(0.5) >> CX >> Measure() @ Discard()
-        >>> circuit0.to_tk()  # doctest: +ELLIPSIS
-        tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(1.41...)
+        >>> circuit0.to_tk()
+        tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(2)
 
         >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
         >>> circuit1.to_tk()
@@ -414,7 +406,7 @@ class Circuit(tensor.Diagram):
           >> Bra(0) @ Id(2)
           >> Bra(0) @ Id(1)
           >> Bra(0)
-          >> scalar(2)
+          >> scalar(4+0j)
         """
         # pylint: disable=import-outside-toplevel
         from discopy.quantum.tk import from_tk
@@ -443,8 +435,8 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi)\\
-        ...     == (Rz(phi / 2) @ scalar(0+0.5j) @ Rz(phi + .5) >> CX)\\
-        ...     + (scalar(0+0.25j) @ Rz(phi/2 - .5) @ Rz(phi + 1) >> CX)
+        ...     == (Rz(phi / 2) @ scalar(pi) @ Rz(phi + 1.5) >> CX)\\
+        ...     + (scalar(pi/2) @ Rz(phi/2 + .5) @ Rz(phi + 1) >> CX)
         """
         return super().grad(var)
 
@@ -546,7 +538,7 @@ class Box(rigid.Box, Circuit):
         return self.name
 
 
-class Sum(monoidal.Sum, Box):
+class Sum(tensor.Sum, Box):
     """ Sums of circuits. """
     @staticmethod
     def upgrade(old):
@@ -569,10 +561,13 @@ class Sum(monoidal.Sum, Box):
         return result
 
     def eval(self, backend=None, mixed=False, **params):
+        mixed = mixed or any(t.is_mixed for t in self.terms)
         if not self.terms:
             return 0
-        return sum(Circuit.eval(
-            *self.terms, backend=backend, mixed=mixed, **params))
+        if len(self.terms) == 1:
+            return self.terms[0].eval(backend=backend, mixed=mixed, **params)
+        return sum(
+            Circuit.eval(*self.terms, backend=backend, mixed=mixed, **params))
 
     def grad(self, var):
         return sum(circuit.grad(var) for circuit in self.terms)

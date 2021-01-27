@@ -66,7 +66,8 @@ def test_Diagram_normal_form():
     assert f.normal_form() == f
     assert f.transpose().transpose(left=True).normal_form() == f
     assert f.transpose(left=True).transpose().normal_form() == f
-    diagram = f.transpose(left=True).transpose(left=True).transpose().transpose()
+    diagram = f\
+        .transpose(left=True).transpose(left=True).transpose().transpose()
     assert diagram.normal_form() == f
 
     Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
