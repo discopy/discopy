@@ -299,21 +299,20 @@ def test_grad():
         assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
 
 
-def _to_square_mat(m):
-    m = np.asarray(m).flatten()
-    return m.reshape(2 * (int(np.sqrt(len(m))), ))
-
-
-def test_rot_grad():
+def test_CRz_grad():
     from sympy.abc import phi
-    import sympy as sy
-    for gate in (Rx, Ry, Rz, CU1, CRx, CRz):
-        # Compare the grad discopy vs sympy
-        op = gate(phi)
-        d_op_sym = sy.Matrix(_to_square_mat(op.eval().array)).diff(phi)
-        d_op_disco = sy.Matrix(_to_square_mat(op.grad(phi).eval().array))
-        diff = sy.simplify(d_op_disco - d_op_sym).evalf()
-        assert np.isclose(float(diff.norm()), 0.)
+    i_half_pi = .5j * np.pi
+    assert CRz(phi).grad(phi)\
+        == (CRz(phi) >> Z @ Id(1) >> Id(1) @ Z >> Id(2) @ scalar(i_half_pi))\
+        + (CRz(phi) >> Id(1) @ Z >> Id(2) @ scalar(-i_half_pi))
+
+
+def test_CRx_grad():
+    from sympy.abc import phi
+    i_half_pi = .5j * np.pi
+    assert CRx(phi).grad(phi)\
+        == (CRx(phi) >> Z @ Id(1) >> Id(1) @ X >> Id(2) @ scalar(i_half_pi))\
+        + (CRx(phi) >> Id(1) @ X >> Id(2) @ scalar(-i_half_pi))
 
 
 def test_ClassicalGate_grad_subs():

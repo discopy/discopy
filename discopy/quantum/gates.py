@@ -48,8 +48,9 @@ class ClassicalGate(Box):
     """ Classical gates, i.e. from bits to bits. """
     def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
-        data = np.array(data).reshape(
-            (n_bits_in + n_bits_out) * (2, ) or (1, ))
+        if data is not None:
+            data = np.array(data).reshape(
+                (n_bits_in + n_bits_out) * (2, ) or (1, ))
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
@@ -121,19 +122,23 @@ class Bits(ClassicalGate):
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring, _dagger=False):
-        utensor = Tensor.id(Dim(1)).tensor(*(
-            Tensor(Dim(1), Dim(2), [0, 1] if bit else [1, 0])
-            for bit in bitstring))
+        self.bitstring = bitstring
         name = "Bits({})".format(', '.join(map(str, bitstring)))
         dom, cod = (len(bitstring), 0) if _dagger else (0, len(bitstring))
-        super().__init__(name, dom, cod, data=utensor.array, _dagger=_dagger)
-        self.bitstring = bitstring
+        super().__init__(name, dom, cod, _dagger=_dagger)
 
     def __repr__(self):
         return self.name + (".dagger()" if self._dagger else "")
 
     def dagger(self):
         return Bits(*self.bitstring, _dagger=not self._dagger)
+
+    @property
+    def array(self):
+        import numpy
+        array = numpy.zeros(len(self.bitstring) * (2, ) or (1, ))
+        array[self.bitstring] = 1
+        return array
 
 
 class Ket(Box):
@@ -149,10 +154,11 @@ class Ket(Box):
         name = "Ket({})".format(', '.join(map(str, bitstring)))
         super().__init__(name, dom, cod, is_mixed=False)
         self.bitstring = bitstring
-        self.array = Bits(*bitstring).array
 
     def dagger(self):
         return Bra(*self.bitstring)
+
+    array = Bits.array
 
 
 class Bra(Box):
@@ -168,10 +174,11 @@ class Bra(Box):
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod, is_mixed=False)
         self.bitstring = bitstring
-        self.array = Bits(*bitstring).array
 
     def dagger(self):
         return Ket(*self.bitstring)
+
+    array = Bits.array
 
 
 class Parametrized(Box):
