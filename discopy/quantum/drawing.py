@@ -62,7 +62,8 @@ def draw_controlled_gate(backend, positions, node, **params):
     controlled = Node("box", box=controlled_box, depth=depth)
     c_dom = Node("dom", obj=box.dom[0], i=1, depth=depth)
     c_cod = Node("cod", obj=box.cod[0], i=1, depth=depth)
-    c_middle = positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
+    c_middle =\
+        positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
     target = (positions[c_dom][0],
               (positions[c_dom][1] + positions[c_cod][1]) / 2)
     if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
@@ -70,7 +71,8 @@ def draw_controlled_gate(backend, positions, node, **params):
         eps = 1e-10
         perturbed_target = target[0], target[1]+eps
         backend.draw_node(
-            *perturbed_target, shape="circle", color="white", edgecolor="black",
+            *perturbed_target,
+            shape="circle", color="white", edgecolor="black",
             nodesize=2 * params.get("nodesize", 1))
         backend.draw_node(
             *target, shape="plus",

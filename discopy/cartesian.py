@@ -267,6 +267,8 @@ class Box(rigid.Box, Diagram):
             ', function=' + repr(self.function) if self.function else '',
             ', data=' + repr(self.data) if self.data else '')
 
+    __call__ = Diagram.__call__
+
 
 class Swap(Diagram):
     """

@@ -180,17 +180,17 @@ class Controlled(QuantumGate):
 
     Parameters
     ----------
-    name : str
-        Name of the gate being controlled.
-    data : list of complex
-        Array of the gate being controlled.
+    controlled : QuantumGate
+        Gate to control, e.g. :code:`CX = Controlled(X)`.
     distance : int, optional
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
-    _dagger : bool, optional
-        If set to :code:`None` then the gate is self-adjoint.
     """
     def __init__(self, controlled, distance=0):
+        if not isinstance(controlled, QuantumGate):
+            raise TypeError
+        self.controlled, self.distance = controlled, distance
+        self.draw_as_controlled = True
         import numpy
         array = numpy.zeros((4, 4))
         array[:2, :2] = numpy.eye(2)
@@ -198,8 +198,12 @@ class Controlled(QuantumGate):
         if distance != 0:
             raise NotImplementedError
         name = "C" + controlled.name
-        self.controlled, self.draw_as_controlled = controlled, True
-        super().__init__(name, 2 + distance, array, _dagger=controlled._dagger)
+        n_qubits = len(controlled.dom) + (
+            distance + 1 if distance >= 0 else -distance)
+        super().__init__(name, n_qubits, array)
+
+    def dagger(self):
+        return Controlled(self.controlled.dagger(), distance=self.distance)
 
 
 class Parametrized(Box):

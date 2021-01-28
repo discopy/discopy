@@ -656,7 +656,7 @@ class Measure(Box):
         super().__init__(name, dom, cod, is_mixed=True)
         self.destructive, self.override_bits = destructive, override_bits
         self.n_qubits = n_qubits
-        self.drawing_as_measures = True
+        self.draw_as_measures = True
 
     def dagger(self):
         return Encode(self.n_qubits,

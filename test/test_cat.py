@@ -264,3 +264,9 @@ def test_Bubble():
     f = Box('f', Ob('x'), Ob('y'))
     assert repr((f).bubble()) == "Bubble(Box('f', Ob('x'), Ob('y')))"
     assert str(f.bubble()) == "(f).bubble()"
+
+
+def test_Box_call():
+    f = Box('f', Ob('x'), Ob('y'))
+    with raises(TypeError):
+        f(42)
