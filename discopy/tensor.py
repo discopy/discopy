@@ -250,9 +250,10 @@ class Tensor(rigid.Box):
     def subs(self, *args):
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """ Gradient with respect to variables. """
-        return self.map(lambda x: getattr(x, "diff", lambda _: 0)(var))
+        return self.map(lambda x:
+                        getattr(x, "diff", lambda _: 0)(var, **params))
 
 
 class Functor(rigid.Functor):
@@ -412,13 +413,15 @@ class Diagram(rigid.Diagram):
         return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
             return self.sum([], self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
-            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
+
+        t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
+        t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
+        return t1 + t2
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
@@ -478,10 +481,10 @@ class Box(rigid.Box, Diagram):
         """ The array inside the box. """
         return np.array(self.data).reshape(self.dom @ self.cod or (1, ))
 
-    def grad(self, var):
+    def grad(self, var, **params):
         return self.bubble(
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
-            drawing_name="d${}$".format(var))
+            drawing_name="$\\partial {}$".format(var))
 
     def __repr__(self):
         return super().__repr__().replace("Box", "tensor.Box")
@@ -590,7 +593,7 @@ class Bubble(monoidal.Bubble, Box):
         self.func = func
         super().__init__(inside, **params)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """
         The gradient of a bubble is given by the chain rule.
 
@@ -607,10 +610,11 @@ class Bubble(monoidal.Bubble, Box):
         """
         from sympy import Symbol
         tmp = Symbol("tmp")
+        name = "$\\frac{{\\partial {}}}{{\\partial {}}}$"
         return Spider(1, 2, dim=self.dom)\
             >> self.inside.bubble(
                 func=lambda x: self.func(tmp).diff(tmp).subs(tmp, x),
-                drawing_name="({})/d${}$".format(self.drawing_name, var))\
+                drawing_name=name.format(self.drawing_name, var))\
             @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
 
 

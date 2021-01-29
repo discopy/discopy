@@ -193,7 +193,8 @@ def to_tk(circuit):
                 tk_circ.post_select({i_bit: box.bitstring[j]})
             if isinstance(box, Measure):
                 bits = bits[:bit_offset + j] + [i_bit] + bits[bit_offset + j:]
-        if isinstance(box, Bra):
+        if isinstance(box, Bra)\
+                or isinstance(box, Measure) and box.destructive:
             qubits = qubits[:qubit_offset]\
                 + qubits[qubit_offset + len(box.dom):]
         return bits, qubits
