@@ -462,6 +462,44 @@ Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 
 
+def rewire(op, a: int, b: int, *, dom=None):
+    """
+    Rewire a two-qubits gate (circuit) to arbitrary qubits.
+    :param a: The destination qubit index of the leftmost wire of the
+    input gate.
+    :param b: The destination qubit index of the rightmost wire of the
+    input gate.
+    :param dom: Optional domain/codomain for the resulting circuit.
+    """
+    if len(set([a, b])) != 2:
+        raise ValueError('The destination indices must be distinct')
+    dom = qubit ** (max(a, b) + 1) if dom is None else dom
+    if len(dom) < 2:
+        raise ValueError('Dom size expected at least 2')
+    if op.dom != qubit**2:
+        raise ValueError('Input gate\'s dom expected qubit**2')
+
+    if (b - a) == 1:
+        # a, b contiguous and not reversed
+        return Box.id(a) @ op @ Box.id(len(dom) - (b + 1))
+    if (b - a) == -1:
+        # a, b contiguous and reversed
+        op = (SWAP >> op >> SWAP) if op.cod == op.dom else (SWAP >> op)
+        return Box.id(b) @ op @ Box.id(len(dom) - (a + 1))
+
+    if op.cod != op.dom:
+        raise NotImplementedError
+    reverse = a > b
+    a, b = min(a, b), max(a, b)
+    perm = list(range(len(dom)))
+    perm[0], perm[a] = a, 0
+    perm[1], perm[b] = perm[b], perm[1]
+    if reverse:
+        perm[0], perm[1] = perm[1], perm[0]
+    perm = Box.permutation(perm, dom=dom)
+    return perm.dagger() >> (op @ Box.id(len(dom) - 2)) >> perm
+
+
 def sqrt(expr):
     """ Returns a 0-qubit quantum gate that scales by a square root. """
     return Sqrt(expr)
