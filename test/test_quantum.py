@@ -282,37 +282,64 @@ def test_subs():
         == sqrt(2) @ Ket(0, 0) >> H @ Rx(0.5) >> CX >> Bra(0, 1)
 
 
-def test_grad():
+def _to_square_mat(m):
+    m = np.asarray(m).flatten()
+    return m.reshape(2 * (int(np.sqrt(len(m))), ))
+
+
+def test_grad_basic():
     from sympy.abc import phi
+    assert Rz(0).grad(phi).eval() == 0
+    assert CU1(1).grad(phi).eval() == 0
+    assert CRz(0).grad(phi).eval() == 0
+    assert CRx(1).grad(phi).eval() == 0
+
+    assert scalar(2 * phi).grad(phi).eval() == 2
+    assert scalar(1.23).grad(phi).eval() == 0
+    assert (scalar(2 * phi) + scalar(3 * phi)).grad(phi).eval() == 5
+
+    assert Measure().grad(phi).eval() == 0
     with raises(NotImplementedError):
-        Box('f', qubit, qubit, data=phi).grad(phi)
-    with raises(NotImplementedError):
-        super(CRz, CRz(phi)).grad(phi)
-
-    assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
-    assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
-        == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
-    assert scalar(phi).grad(phi) == scalar(1)
-    assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
-
-    for op in (CU1, CRx, CRz):
-        assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
+        Box("dummy box", qubit, qubit, data=phi).grad(phi)
 
 
-def test_CRz_grad():
+def test_rot_grad():
     from sympy.abc import phi
-    i_half_pi = .5j * np.pi
-    assert CRz(phi).grad(phi)\
-        == (CRz(phi) >> Z @ Id(1) >> Id(1) @ Z >> Id(2) @ scalar(i_half_pi))\
-        + (CRz(phi) >> Id(1) @ Z >> Id(2) @ scalar(-i_half_pi))
+    import sympy as sy
+    for gate in (Rx, Ry, Rz, CU1, CRx, CRz):
+        # Compare the grad discopy vs sympy
+        op = gate(phi)
+        d_op_sym = sy.Matrix(_to_square_mat(op.eval().array)).diff(phi)
+        d_op_disco = sy.Matrix(
+            _to_square_mat(op.grad(phi, mixed=False).eval().array))
+        diff = sy.simplify(d_op_disco - d_op_sym).evalf()
+        assert np.isclose(float(diff.norm()), 0.)
 
 
-def test_CRx_grad():
-    from sympy.abc import phi
-    i_half_pi = .5j * np.pi
-    assert CRx(phi).grad(phi)\
-        == (CRx(phi) >> Z @ Id(1) >> Id(1) @ X >> Id(2) @ scalar(i_half_pi))\
-        + (CRx(phi) >> Id(1) @ X >> Id(2) @ scalar(-i_half_pi))
+def test_rot_grad_mixed():
+    from sympy.abc import symbols
+    from sympy import Matrix
+
+    z = symbols('z', real=True)
+    random_values = [0., 1., 0.123, 0.321, 1.234]
+
+    for gate in (Rx, Ry, Rz):
+        qubits = 1 if gate in (Rx, Ry, Rz) else 2
+        cq_shape = (4, 4) if qubits == 1 else (16, 16)
+        v1 = Matrix((gate(z).eval().conjugate() @ gate(z).eval())
+                    .array.reshape(*cq_shape)).diff(z)
+        v2 = Matrix(gate(z).grad(z).eval(mixed=True).array.reshape(*cq_shape))
+
+        for random_value in random_values:
+            v1_sub = v1.subs(z, random_value).evalf()
+            v2_sub = v2.subs(z, random_value).evalf()
+
+            difference = (v1_sub - v2_sub).norm()
+            assert np.isclose(float(difference), 0.)
+
+    for gate in (CRx, CRz, CU1):
+        with raises(NotImplementedError):
+            gate(z).grad(z, mixed=True)
 
 
 def test_ClassicalGate_grad_subs():

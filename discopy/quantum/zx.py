@@ -44,7 +44,7 @@ class Diagram(tensor.Diagram):
         """ ZX diagrams don't have labels on wires. """
         return super().draw(**dict(params, draw_type_labels=False))
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """
         Gradient with respect to `var`.
 
@@ -62,7 +62,7 @@ class Diagram(tensor.Diagram):
         >>> from sympy.abc import phi
         >>> assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
         """
-        return super().grad(var)
+        return super().grad(var, **params)
 
     def to_pyzx(self):
         """
@@ -286,7 +286,7 @@ class Spider(Box):
         data = cat.recursive_subs(self.data, *args)
         return type(self)(len(self.dom), len(self.cod), phase=data)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
@@ -354,7 +354,7 @@ class Scalar(Box):
     def dagger(self):
         return Scalar(self.data.conjugate())
 
-    def grad(self, var):
+    def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         return Scalar(self.data.diff(var))

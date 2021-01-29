@@ -415,7 +415,7 @@ class Circuit(tensor.Diagram):
             return from_tk(tk_circuits[0])
         return sum(Circuit.from_tk(c) for c in tk_circuits)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """
         Gradient with respect to `var`.
 
@@ -433,11 +433,11 @@ class Circuit(tensor.Diagram):
         >>> from sympy.abc import phi
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
-        >>> assert circuit.grad(phi)\\
+        >>> assert circuit.grad(phi, mixed=False)\\
         ...     == (Rz(phi / 2) @ scalar(pi) @ Rz(phi + 1.5) >> CX)\\
         ...     + (scalar(pi/2) @ Rz(phi/2 + .5) @ Rz(phi + 1) >> CX)
         """
-        return super().grad(var)
+        return super().grad(var, **params)
 
     def draw(self, **params):
         """ We draw the labels of a circuit whenever it's mixed. """
@@ -524,7 +524,7 @@ class Box(rigid.Box, Circuit):
                     "dom and cod should be bits only or qubits only.")
         self._mixed = is_mixed
 
-    def grad(self, var):
+    def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         raise NotImplementedError
@@ -568,8 +568,8 @@ class Sum(tensor.Sum, Box):
         return sum(
             Circuit.eval(*self.terms, backend=backend, mixed=mixed, **params))
 
-    def grad(self, var):
-        return sum(circuit.grad(var) for circuit in self.terms)
+    def grad(self, var, **params):
+        return sum(circuit.grad(var, **params) for circuit in self.terms)
 
     def to_tk(self):
         return [circuit.to_tk() for circuit in self.terms]
