@@ -105,12 +105,12 @@ class ClassicalGate(Box):
         return ClassicalGate(
             self.name, len(self.cod), len(self.dom), super().subs(*args).data)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         name = "{}.grad({})".format(self.name, var)
         n_bits_in, n_bits_out = len(self.dom), len(self.cod)
-        array = self.eval().grad(var).array
+        array = self.eval().grad(var, **params).array
         return ClassicalGate(name, n_bits_in, n_bits_out, array)
 
 
@@ -267,21 +267,21 @@ class Rotation(Parametrized, QuantumGate):
     def dagger(self):
         return type(self)(-self.phase)
 
-    def subs(self, *args):
-        subbed = super().subs(*args)
-        if not subbed.free_symbols:
-            return type(self)(float(subbed.data))
-        return type(self)(subbed.data)
-
-    def grad(self, var):
+    def grad(self, var, **params):
+        if len(self.dom) != 1:
+            raise NotImplementedError
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        circ1 = scalar(.5 * gradient) @ type(self)(self.phase + .25)
-        circ2 = scalar(-.5 * gradient) @ type(self)(self.phase - .25)
-        return circ1 + circ2
 
+        if params.get('mixed', True):
+            s = scalar(np.pi * gradient, is_mixed=True)
+            t1 =  type(self)(self.phase + .25)
+            t2 =  type(self)(self.phase - .25)
+            return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
+        
+        return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
 
 
 class Rx(Rotation):
@@ -319,7 +319,22 @@ class CU1(Rotation):
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, 1, 0,
-                         0, 0, 0, self._exp(1j * theta)])
+                         0, 0, 0, self._exp(1j * theta)]).reshape(2,2,2,2)
+
+    def grad(self, var, **params):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        _i_2_pi = 1j * 2 * self._pi
+
+        if params.get('mixed', True):
+            s = scalar(np.pi * gradient, is_mixed=True)
+            t1 =  type(self)(self.phase + .25)
+            t2 =  type(self)(self.phase - .25)
+            return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
+
+        return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
 
 class CRz(Rotation):
@@ -333,7 +348,25 @@ class CRz(Rotation):
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, self._exp(-1j * half_theta), 0,
-                         0, 0, 0, self._exp(1j * half_theta)])
+                         0, 0, 0, self._exp(1j * half_theta)]).reshape(2,2,2,2)
+
+    def grad(self, var, **params):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+
+        _i_half_pi = .5j * self._pi
+        op1 = Z @ Z @ scalar(_i_half_pi * gradient)
+        op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
+
+        if params.get('mixed', True):
+            s = scalar(np.pi * gradient, is_mixed=True)
+            t1 =  type(self)(self.phase + .25)
+            t2 =  type(self)(self.phase - .25)
+            return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
+
+        return self >> (op1 + op2)
 
 
 class CRx(Rotation):
@@ -348,7 +381,25 @@ class CRx(Rotation):
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, cos, -1j * sin,
-                         0, 0, -1j * sin, cos])
+                         0, 0, -1j * sin, cos]).reshape(2,2,2,2)
+
+    def grad(self, var, **params):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+
+        _i_half_pi = .5j * self._pi
+        op1 = Z @ X @ scalar(_i_half_pi * gradient)
+        op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
+
+        if params.get('mixed', True):
+            s = scalar(np.pi * gradient, is_mixed=True)
+            t1 =  type(self)(self.phase + .25)
+            t2 =  type(self)(self.phase - .25)
+            return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
+
+        return self >> (op1 + op2)
 
 
 class Scalar(Parametrized):
@@ -370,13 +421,7 @@ class Scalar(Parametrized):
     def array(self):
         return [self.data]
 
-    def subs(self, *args):
-        subbed = super().subs(*args)
-        if not subbed.free_symbols:
-            return type(self)(complex(subbed.data))
-        return type(self)(subbed.data)
-
-    def grad(self, var):
+    def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         return Scalar(self.array[0].diff(var))

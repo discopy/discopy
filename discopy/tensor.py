@@ -250,9 +250,9 @@ class Tensor(rigid.Box):
     def subs(self, *args):
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """ Gradient with respect to variables. """
-        return self.map(lambda x: getattr(x, "diff", lambda _: 0)(var))
+        return self.map(lambda x: getattr(x, "diff", lambda _: 0)(var, **params))
 
 
 class Functor(rigid.Functor):
@@ -412,13 +412,13 @@ class Diagram(rigid.Diagram):
         return monoidal.Diagram.swap(
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
             return self.sum([], self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-        return (self.id(left) @ box.grad(var) @ self.id(right) >> tail)\
-            + (self.id(left) @ box @ self.id(right) >> tail.grad(var))
+        return (self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail)\
+            + (self.id(left) @ box @ self.id(right) >> tail.grad(var, **params))
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
@@ -478,9 +478,9 @@ class Box(rigid.Box, Diagram):
         """ The array inside the box. """
         return np.array(self.data).reshape(self.dom @ self.cod or (1, ))
 
-    def grad(self, var):
+    def grad(self, var, **params):
         return self.bubble(
-            func=lambda x: getattr(x, "diff", lambda _: 0)(var),
+            func=lambda x: getattr(x, "diff", lambda _: 0)(var, **params),
             drawing_name="d${}$".format(var))
 
     def __repr__(self):
@@ -590,7 +590,7 @@ class Bubble(monoidal.Bubble, Box):
         self.func = func
         super().__init__(inside, **params)
 
-    def grad(self, var):
+    def grad(self, var, **params):
         """
         The gradient of a bubble is given by the chain rule.
 
@@ -611,7 +611,7 @@ class Bubble(monoidal.Bubble, Box):
             >> self.inside.bubble(
                 func=lambda x: self.func(tmp).diff(tmp).subs(tmp, x),
                 drawing_name="({})/d${}$".format(self.drawing_name, var))\
-            @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
+            @ self.inside.grad(var, **params) >> Spider(2, 1, dim=self.cod)
 
 
 Diagram.bubble_factory = Bubble
