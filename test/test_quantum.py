@@ -298,6 +298,27 @@ def test_rot_grad():
         diff = sy.simplify(d_op_disco - d_op_sym).evalf()
         assert np.isclose(float(diff.norm()), 0.)
 
+def test_rot_grad_mixed():
+    from sympy.abc import symbols
+    from sympy import Matrix
+
+    z = symbols('z', real=True)
+    random_values = [0., 1., 0.123, 0.321, 1.234]
+
+    for gate in (Rx, Ry, Rz):
+        qubits = 1 if gate in (Rx, Ry, Rz) else 2
+        cq_shape = (4,4) if qubits == 1 else (16,16)
+        v1 = Matrix((gate(z).eval().conjugate() @ gate(z).eval())\
+                            .array.reshape(*cq_shape)).diff(z)
+        v2 = Matrix(gate(z).grad(z).eval(mixed=True).array.reshape(*cq_shape))
+
+        for random_value in random_values:
+            v1_sub = v1.subs(z, random_value).evalf()
+            v2_sub = v2.subs(z, random_value).evalf()
+            
+            difference = (v1_sub - v2_sub).norm()
+            assert np.isclose(float(difference), 0.)
+
 def test_ClassicalGate_grad_subs():
     from sympy.abc import x, y
     s = ClassicalGate('s', 0, 0, [x])
