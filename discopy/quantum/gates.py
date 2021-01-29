@@ -3,9 +3,9 @@
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
 from collections.abc import Callable
-from discopy.cat import AxiomError
+from discopy.cat import AxiomError, recursive_subs
 from discopy.tensor import np, Dim, Tensor
-from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum
+from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum, Id
 
 
 def format_number(data):
@@ -48,10 +48,7 @@ class ClassicalGate(Box):
     """ Classical gates, i.e. from bits to bits. """
     def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
-        if isinstance(data, Callable):
-            self.is_linear = False
-        else:
-            self.is_linear = True
+        if data is not None:
             data = np.array(data).reshape(
                 (n_bits_in + n_bits_out) * (2, ) or (1, ))
         super().__init__(
@@ -60,26 +57,7 @@ class ClassicalGate(Box):
     @property
     def array(self):
         """ The array of a classical gate. """
-        if self.is_linear:
-            return self.data
-        raise AttributeError("{} is non-linear.".format(self))
-
-    @property
-    def func(self):
-        """ The underlying function of a classical gate. """
-        if self.is_linear:
-            return lambda other: other >> self.eval()
-
-        def apply(state):
-            dom, cod = Dim(*(len(self.dom) * [2])), Dim(*(len(self.cod) * [2]))
-            if (state.dom, state.cod) != (Dim(1), dom):
-                raise AxiomError("Non-linear gates can only be applied "
-                                 "to states, not processes.")
-            return Tensor(Dim(1), cod, self.data(state.array))
-        return apply
-
-    def __call__(self, other):
-        return self.func(other)
+        return self.data
 
     def __eq__(self, other):
         if not isinstance(other, ClassicalGate):
@@ -91,8 +69,7 @@ class ClassicalGate(Box):
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        data = np.array2string(self.array.flatten())\
-            if self.is_linear else self.data
+        data = np.array2string(self.array.flatten())
         return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, data={})"\
             .format(repr(self.name), len(self.dom), len(self.cod), data)
 
@@ -102,8 +79,8 @@ class ClassicalGate(Box):
             _dagger=None if self._dagger is None else not self._dagger)
 
     def subs(self, *args):
-        return ClassicalGate(
-            self.name, len(self.cod), len(self.dom), super().subs(*args).data)
+        data = recursive_subs(self.data, *args)
+        return ClassicalGate(self.name, len(self.cod), len(self.dom), data)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -145,19 +122,23 @@ class Bits(ClassicalGate):
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring, _dagger=False):
-        utensor = Tensor.id(Dim(1)).tensor(*(
-            Tensor(Dim(1), Dim(2), [0, 1] if bit else [1, 0])
-            for bit in bitstring))
+        self.bitstring = bitstring
         name = "Bits({})".format(', '.join(map(str, bitstring)))
         dom, cod = (len(bitstring), 0) if _dagger else (0, len(bitstring))
-        super().__init__(name, dom, cod, data=utensor.array, _dagger=_dagger)
-        self.bitstring = bitstring
+        super().__init__(name, dom, cod, _dagger=_dagger)
 
     def __repr__(self):
         return self.name + (".dagger()" if self._dagger else "")
 
     def dagger(self):
         return Bits(*self.bitstring, _dagger=not self._dagger)
+
+    @property
+    def array(self):
+        import numpy
+        array = numpy.zeros(len(self.bitstring) * (2, ) or (1, ))
+        array[self.bitstring] = 1
+        return array
 
 
 class Ket(Box):
@@ -173,10 +154,11 @@ class Ket(Box):
         name = "Ket({})".format(', '.join(map(str, bitstring)))
         super().__init__(name, dom, cod, is_mixed=False)
         self.bitstring = bitstring
-        self.array = Bits(*bitstring).array
 
     def dagger(self):
         return Bra(*self.bitstring)
+
+    array = Bits.array
 
 
 class Bra(Box):
@@ -192,10 +174,11 @@ class Bra(Box):
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod, is_mixed=False)
         self.bitstring = bitstring
-        self.array = Bits(*bitstring).array
 
     def dagger(self):
         return Ket(*self.bitstring)
+
+    array = Bits.array
 
 
 class Parametrized(Box):
@@ -241,7 +224,8 @@ class Parametrized(Box):
             self._cos, self._sin = np.cos, np.sin
 
     def subs(self, *args):
-        return type(self)(super().subs(*args).data)
+        data = recursive_subs(self.data, *args)
+        return type(self)(data)
 
     @property
     def name(self):
@@ -321,7 +305,24 @@ class Rz(Rotation):
     def array(self):
         half_theta = self._pi * self.phase
         return np.array(
-            [[self._exp(-1j * half_theta), 0], [0, self._exp(1j * half_theta)]])
+            [[self._exp(-1j * half_theta), 0],
+             [0, self._exp(1j * half_theta)]])
+
+
+class Ry(Rotation):
+    """ Y rotations. """
+    def __init__(self, phase):
+        super().__init__(phase, name="Ry")
+
+    @property
+    def array(self):
+        half_theta = self._pi * self.phase
+        sin, cos = self._sin(half_theta), self._cos(half_theta)
+        return np.array([[cos, -1 * sin], [sin, cos]])
+
+
+def _outer_prod_diag(*bitstring):
+    return Bra(*bitstring) >> Ket(*bitstring)
 
 
 class CU1(Rotation):
@@ -351,6 +352,15 @@ class CU1(Rotation):
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
         return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+        _i_2_pi = 1j * 2 * self._pi
+        return _outer_prod_diag(1, 1) @ scalar(
+            _i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
 
 class CRz(Rotation):
@@ -384,6 +394,18 @@ class CRz(Rotation):
 
         return self >> (op1 + op2)
 
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+
+        _i_half_pi = .5j * self._pi
+        op1 = Z @ Z @ scalar(_i_half_pi * gradient)
+        op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
+
+        return self >> (op1 + op2)
+
 
 class CRx(Rotation):
     """ Controlled Z rotations. """
@@ -414,6 +436,18 @@ class CRx(Rotation):
             t1 =  type(self)(self.phase + .25)
             t2 =  type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
+
+        return self >> (op1 + op2)
+
+    def grad(self, var):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        gradient = self.phase.diff(var)
+        gradient = complex(gradient) if not gradient.free_symbols else gradient
+
+        _i_half_pi = .5j * self._pi
+        op1 = Z @ X @ scalar(_i_half_pi * gradient)
+        op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
 
         return self >> (op1 + op2)
 

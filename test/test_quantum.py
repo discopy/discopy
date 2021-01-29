@@ -228,6 +228,10 @@ def test_Rx():
     assert Rx(0).eval() == Rx(0).dagger().eval() == Id(1).eval()
 
 
+def test_Ry():
+    assert Ry(0).eval() == Id(1).eval()
+
+
 def test_Rz():
     assert Rz(0).eval() == Id(1).eval()
 
@@ -266,6 +270,7 @@ def test_Sum():
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
+    assert Sum([Id(1)]).eval() == Id(1).eval()
 
 
 def test_subs():
@@ -282,12 +287,32 @@ def test_grad():
     with raises(NotImplementedError):
         Box('f', qubit, qubit, data=phi).grad(phi)
     with raises(NotImplementedError):
-        CRz(phi).grad(phi)
+        super(CRz, CRz(phi)).grad(phi)
+
     assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
     assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
         == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
     assert scalar(phi).grad(phi) == scalar(1)
     assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
+
+    for op in (CU1, CRx, CRz):
+        assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
+
+
+def test_CRz_grad():
+    from sympy.abc import phi
+    i_half_pi = .5j * np.pi
+    assert CRz(phi).grad(phi)\
+        == (CRz(phi) >> Z @ Id(1) >> Id(1) @ Z >> Id(2) @ scalar(i_half_pi))\
+        + (CRz(phi) >> Id(1) @ Z >> Id(2) @ scalar(-i_half_pi))
+
+
+def test_CRx_grad():
+    from sympy.abc import phi
+    i_half_pi = .5j * np.pi
+    assert CRx(phi).grad(phi)\
+        == (CRx(phi) >> Z @ Id(1) >> Id(1) @ X >> Id(2) @ scalar(i_half_pi))\
+        + (CRx(phi) >> Id(1) @ X >> Id(2) @ scalar(-i_half_pi))
 
 
 def test_ClassicalGate_grad_subs():
@@ -298,25 +323,6 @@ def test_ClassicalGate_grad_subs():
 
 def test_Copy_Match():
     assert Match().dagger() == Copy() and Copy().dagger() == Match()
-
-
-def test_non_linear_ClassicalGate():
-    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
-    state = Bits(0, 0) + Bits(0, 1) + Bits(1, 0) + Bits(1, 1)
-    vector = (state >> f).eval().array.flatten()
-    assert np.all(vector == 4 * [np.sin(1) ** 2])
-
-
-def test_non_linear_AxiomError():
-    f = ClassicalGate("f", 2, 2, lambda array: np.sin(array) ** 2)
-    with raises(AttributeError):
-        f.array
-    with raises(AxiomError):
-        f.eval()
-    with raises(AxiomError):
-        (f @ f).eval()
-    with raises(AxiomError):
-        (f >> Discard(bit ** 2)).eval()
 
 
 def test_Sum_get_counts():

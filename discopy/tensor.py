@@ -480,8 +480,8 @@ class Box(rigid.Box, Diagram):
 
     def grad(self, var, **params):
         return self.bubble(
-            func=lambda x: getattr(x, "diff", lambda _: 0)(var, **params),
-            drawing_name="d${}$".format(var))
+            func=lambda x: getattr(x, "diff", lambda _: 0)(var),
+            drawing_name="$\\partial {}$".format(var))
 
     def __repr__(self):
         return super().__repr__().replace("Box", "tensor.Box")
@@ -607,11 +607,12 @@ class Bubble(monoidal.Bubble, Box):
         """
         from sympy import Symbol
         tmp = Symbol("tmp")
+        name = "$\\frac{{\\partial {}}}{{\\partial {}}}$"
         return Spider(1, 2, dim=self.dom)\
             >> self.inside.bubble(
                 func=lambda x: self.func(tmp).diff(tmp).subs(tmp, x),
-                drawing_name="({})/d${}$".format(self.drawing_name, var))\
-            @ self.inside.grad(var, **params) >> Spider(2, 1, dim=self.cod)
+                drawing_name=name.format(self.drawing_name, var))\
+            @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
 
 
 Diagram.bubble_factory = Bubble
