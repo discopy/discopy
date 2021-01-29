@@ -282,38 +282,21 @@ def test_subs():
         == sqrt(2) @ Ket(0, 0) >> H @ Rx(0.5) >> CX >> Bra(0, 1)
 
 
-def test_grad():
+def _to_square_mat(m):
+    m = np.asarray(m).flatten()
+    return m.reshape(2 * (int(np.sqrt(len(m))), ))
+
+
+def test_rot_grad():
     from sympy.abc import phi
-    with raises(NotImplementedError):
-        Box('f', qubit, qubit, data=phi).grad(phi)
-    with raises(NotImplementedError):
-        super(CRz, CRz(phi)).grad(phi)
-
-    assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
-    assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
-        == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
-    assert scalar(phi).grad(phi) == scalar(1)
-    assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
-
-    for op in (CU1, CRx, CRz):
-        assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
-
-
-def test_CRz_grad():
-    from sympy.abc import phi
-    i_half_pi = .5j * np.pi
-    assert CRz(phi).grad(phi)\
-        == (CRz(phi) >> Z @ Id(1) >> Id(1) @ Z >> Id(2) @ scalar(i_half_pi))\
-        + (CRz(phi) >> Id(1) @ Z >> Id(2) @ scalar(-i_half_pi))
-
-
-def test_CRx_grad():
-    from sympy.abc import phi
-    i_half_pi = .5j * np.pi
-    assert CRx(phi).grad(phi)\
-        == (CRx(phi) >> Z @ Id(1) >> Id(1) @ X >> Id(2) @ scalar(i_half_pi))\
-        + (CRx(phi) >> Id(1) @ X >> Id(2) @ scalar(-i_half_pi))
-
+    import sympy as sy
+    for gate in (Rx, Ry, Rz, CU1, CRx, CRz):
+        # Compare the grad discopy vs sympy
+        op = gate(phi)
+        d_op_sym = sy.Matrix(_to_square_mat(op.eval().array)).diff(phi)
+        d_op_disco = sy.Matrix(_to_square_mat(op.grad(phi, mixed=False).eval().array))
+        diff = sy.simplify(d_op_disco - d_op_sym).evalf()
+        assert np.isclose(float(diff.norm()), 0.)
 
 def test_ClassicalGate_grad_subs():
     from sympy.abc import x, y

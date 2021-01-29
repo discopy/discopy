@@ -337,15 +337,6 @@ class CU1(Rotation):
 
         return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
 
-    def grad(self, var):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        gradient = self.phase.diff(var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-        _i_2_pi = 1j * 2 * self._pi
-        return _outer_prod_diag(1, 1) @ scalar(
-            _i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
-
 
 class CRz(Rotation):
     """ Controlled Z rotations. """
@@ -375,18 +366,6 @@ class CRz(Rotation):
             t1 =  type(self)(self.phase + .25)
             t2 =  type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
-
-        return self >> (op1 + op2)
-
-    def grad(self, var):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        gradient = self.phase.diff(var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-
-        _i_half_pi = .5j * self._pi
-        op1 = Z @ Z @ scalar(_i_half_pi * gradient)
-        op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
 
         return self >> (op1 + op2)
 
@@ -420,18 +399,6 @@ class CRx(Rotation):
             t1 =  type(self)(self.phase + .25)
             t2 =  type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
-
-        return self >> (op1 + op2)
-
-    def grad(self, var):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        gradient = self.phase.diff(var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-
-        _i_half_pi = .5j * self._pi
-        op1 = Z @ X @ scalar(_i_half_pi * gradient)
-        op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
 
         return self >> (op1 + op2)
 
