@@ -280,20 +280,36 @@ class Rotation(Parametrized, QuantumGate):
             t1 =  type(self)(self.phase + .25)
             t2 =  type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
-        
+
         return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
 
 
-class Rx(Rotation):
-    """ X rotations. """
+class Ry(Rotation):
+    """ Y rotations. """
     def __init__(self, phase):
-        super().__init__(phase, name="Rx")
+        super().__init__(phase, name="Ry")
 
     @property
     def array(self):
         half_theta = self._pi * self.phase
         sin, cos = self._sin(half_theta), self._cos(half_theta)
-        return np.array([[cos, -1j * sin], [-1j * sin, cos]])
+        return np.array([[cos, -1 * sin], [sin, cos]])
+
+
+def _outer_prod_diag(*bitstring):
+    return Bra(*bitstring) >> Ket(*bitstring)
+
+
+class Ry(Rotation):
+    """ Y rotations. """
+    def __init__(self, phase):
+        super().__init__(phase, name="Ry")
+
+    @property
+    def array(self):
+        half_theta = self._pi * self.phase
+        sin, cos = self._sin(half_theta), self._cos(half_theta)
+        return np.array([[cos, -1 * sin], [sin, cos]])
 
 
 class Rz(Rotation):
