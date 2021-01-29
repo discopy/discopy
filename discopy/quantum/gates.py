@@ -261,8 +261,8 @@ class Rotation(Parametrized, QuantumGate):
 
         if params.get('mixed', True):
             s = scalar(np.pi * gradient, is_mixed=True)
-            t1 =  type(self)(self.phase + .25)
-            t2 =  type(self)(self.phase - .25)
+            t1 = type(self)(self.phase + .25)
+            t2 = type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
         return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
@@ -320,7 +320,7 @@ class CU1(Rotation):
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, 1, 0,
-                         0, 0, 0, self._exp(1j * theta)]).reshape(2,2,2,2)
+                         0, 0, 0, self._exp(1j * theta)]).reshape(2, 2, 2, 2)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -331,11 +331,12 @@ class CU1(Rotation):
 
         if params.get('mixed', True):
             s = scalar(np.pi * gradient, is_mixed=True)
-            t1 =  type(self)(self.phase + .25)
-            t2 =  type(self)(self.phase - .25)
+            t1 = type(self)(self.phase + .25)
+            t2 = type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
-        return _outer_prod_diag(1, 1) @ scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+        s = scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+        return _outer_prod_diag(1, 1) @ s
 
 
 class CRz(Rotation):
@@ -346,10 +347,12 @@ class CRz(Rotation):
     @property
     def array(self):
         half_theta = self._pi * self.phase
+        exp_m = self._exp(-1j * half_theta)
+        exp_p = self._exp(1j * half_theta)
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
-                         0, 0, self._exp(-1j * half_theta), 0,
-                         0, 0, 0, self._exp(1j * half_theta)]).reshape(2,2,2,2)
+                         0, 0, exp_m, 0,
+                         0, 0, 0, exp_p]).reshape(2, 2, 2, 2)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -363,8 +366,8 @@ class CRz(Rotation):
 
         if params.get('mixed', True):
             s = scalar(np.pi * gradient, is_mixed=True)
-            t1 =  type(self)(self.phase + .25)
-            t2 =  type(self)(self.phase - .25)
+            t1 = type(self)(self.phase + .25)
+            t2 = type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
         return self >> (op1 + op2)
@@ -382,7 +385,7 @@ class CRx(Rotation):
         return np.array([1, 0, 0, 0,
                          0, 1, 0, 0,
                          0, 0, cos, -1j * sin,
-                         0, 0, -1j * sin, cos]).reshape(2,2,2,2)
+                         0, 0, -1j * sin, cos]).reshape(2, 2, 2, 2)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -396,8 +399,8 @@ class CRx(Rotation):
 
         if params.get('mixed', True):
             s = scalar(np.pi * gradient, is_mixed=True)
-            t1 =  type(self)(self.phase + .25)
-            t2 =  type(self)(self.phase - .25)
+            t1 = type(self)(self.phase + .25)
+            t2 = type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
         return self >> (op1 + op2)

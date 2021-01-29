@@ -252,7 +252,8 @@ class Tensor(rigid.Box):
 
     def grad(self, var, **params):
         """ Gradient with respect to variables. """
-        return self.map(lambda x: getattr(x, "diff", lambda _: 0)(var, **params))
+        return self.map(lambda x:
+                        getattr(x, "diff", lambda _: 0)(var, **params))
 
 
 class Functor(rigid.Functor):
@@ -417,8 +418,10 @@ class Diagram(rigid.Diagram):
         if var not in self.free_symbols:
             return self.sum([], self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-        return (self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail)\
-            + (self.id(left) @ box @ self.id(right) >> tail.grad(var, **params))
+
+        t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
+        t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
+        return t1 + t2
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
