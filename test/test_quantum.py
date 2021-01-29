@@ -287,6 +287,22 @@ def _to_square_mat(m):
     return m.reshape(2 * (int(np.sqrt(len(m))), ))
 
 
+def test_grad_basic():
+    from sympy.abc import phi
+    assert Rz(0).grad(phi).eval() == 0
+    assert CU1(1).grad(phi).eval() == 0
+    assert CRz(0).grad(phi).eval() == 0
+    assert CRx(1).grad(phi).eval() == 0
+
+    assert scalar(2*phi).grad(phi).eval() == 2
+    assert scalar(1.23).grad(phi).eval() == 0
+    assert (scalar(2*phi) + scalar(3*phi)).grad(phi).eval() == 5
+
+    assert Measure().grad(phi).eval() == 0
+    with raises(NotImplementedError):
+        Box("dummy box", qubit, qubit, data=phi).grad(phi)
+
+
 def test_rot_grad():
     from sympy.abc import phi
     import sympy as sy
@@ -320,6 +336,10 @@ def test_rot_grad_mixed():
 
             difference = (v1_sub - v2_sub).norm()
             assert np.isclose(float(difference), 0.)
+    
+    for gate in (CRx, CRz, CU1):
+        with raises(NotImplementedError):
+            gate(z).grad(z, mixed=True)
 
 
 def test_ClassicalGate_grad_subs():
