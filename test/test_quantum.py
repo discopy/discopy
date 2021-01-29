@@ -294,9 +294,9 @@ def test_grad_basic():
     assert CRz(0).grad(phi).eval() == 0
     assert CRx(1).grad(phi).eval() == 0
 
-    assert scalar(2*phi).grad(phi).eval() == 2
+    assert scalar(2 * phi).grad(phi).eval() == 2
     assert scalar(1.23).grad(phi).eval() == 0
-    assert (scalar(2*phi) + scalar(3*phi)).grad(phi).eval() == 5
+    assert (scalar(2 * phi) + scalar(3 * phi)).grad(phi).eval() == 5
 
     assert Measure().grad(phi).eval() == 0
     with raises(NotImplementedError):
@@ -336,7 +336,7 @@ def test_rot_grad_mixed():
 
             difference = (v1_sub - v2_sub).norm()
             assert np.isclose(float(difference), 0.)
-    
+
     for gate in (CRx, CRz, CU1):
         with raises(NotImplementedError):
             gate(z).grad(z, mixed=True)
