@@ -90,6 +90,14 @@ def test_tk_err():
         Circuit.from_tk(tk.Circuit(3).CSWAP(0, 1, 2))
 
 
+def test_bra_ket_inputs():
+    bad_inputs = ['0', '1', 2]
+    for box in [Bra, Ket]:
+        for bad_input in bad_inputs:
+            with raises(Exception):
+                box(bad_input)
+
+
 def test_Circuit_from_tk():
     def back_n_forth(f):
         return Circuit.from_tk(f.to_tk())

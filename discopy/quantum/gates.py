@@ -150,6 +150,9 @@ class Ket(Box):
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring):
+        if not all([bit in [0, 1] for bit in bitstring]):
+            raise Exception('Bitstring can only contain integers 0 or 1.')
+
         dom, cod = qubit ** 0, qubit ** len(bitstring)
         name = "Ket({})".format(', '.join(map(str, bitstring)))
         super().__init__(name, dom, cod, is_mixed=False)
@@ -170,6 +173,9 @@ class Bra(Box):
     ...     == Tensor(dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring):
+        if not all([bit in [0, 1] for bit in bitstring]):
+            raise Exception('Bitstring can only contain integers 0 or 1.')
+
         name = "Bra({})".format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod, is_mixed=False)
