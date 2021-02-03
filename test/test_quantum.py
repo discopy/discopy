@@ -468,3 +468,17 @@ def test_real_amp_ansatz():
     assert real_amp_ansatz(np.zeros((2, 2)), entanglement='circular') == c
     c = rys_layer >> step >> step
     assert real_amp_ansatz(np.zeros((3, 2)), entanglement='circular') == c
+
+
+def test_jacobian():
+    from sympy.abc import x, y
+    c = Ket(0) >> Rx(x) >> Rz(y)
+    jm = jacobian(c, [x, y])
+    for i in range(2):
+        assert jm[i, 0] == (c >> Bra(i)).grad(x)
+        assert jm[i, 1] == (c >> Bra(i)).grad(y)
+
+    from discopy.tensor import Box
+    c = tensor.Box('f', Dim(1), Dim(2), [x + 1, -y * 2])
+    with raises(NotImplementedError):
+        jm = jacobian(c, [x, y])
