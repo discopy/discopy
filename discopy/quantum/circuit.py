@@ -828,12 +828,12 @@ def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
 
 def _prepare_vars(variables):
     """
-    Take a list or numpy array of sympy variables or variable names (as strings)
-    and return a list of corresponding sympy symbols.
+    Take a list or numpy array of sympy variables or variable names
+    (as strings) and return a list of corresponding sympy symbols.
     """
     from sympy import symbols
     variables = np.asarray(variables, dtype=np.object).flatten()
-    variables = [symbols(v) if isinstance(v, str) else v\
+    variables = [symbols(v) if isinstance(v, str) else v
                  for v in variables]
     return variables
 
