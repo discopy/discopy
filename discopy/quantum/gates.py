@@ -80,7 +80,7 @@ class ClassicalGate(Box):
 
     def subs(self, *args):
         data = recursive_subs(self.data, *args)
-        return ClassicalGate(self.name, len(self.cod), len(self.dom), data)
+        return ClassicalGate(self.name, len(self.dom), len(self.cod), data)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
