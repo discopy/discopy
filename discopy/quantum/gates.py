@@ -3,7 +3,7 @@
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
 from collections.abc import Callable
-from discopy.cat import AxiomError, recursive_subs
+from discopy.cat import AxiomError, rsubs
 from discopy.tensor import np, Dim, Tensor
 from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum, Id
 
@@ -45,7 +45,17 @@ class QuantumGate(Box):
 
 
 class ClassicalGate(Box):
-    """ Classical gates, i.e. from bits to bits. """
+    """
+    Classical gates, i.e. from bits to bits.
+
+    >>> from sympy import symbols
+    >>> array = symbols("a b c d")
+    >>> f = ClassicalGate('f', 1, 1, array)
+    >>> f
+    ClassicalGate('f', n_bits_in=1, n_bits_out=1, data=[a, b, c, d])
+    >>> f.lambdify(*array)(1, 2, 3, 4)
+    ClassicalGate('f', n_bits_in=1, n_bits_out=1, data=[1, 2, 3, 4])
+    """
     def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
         if data is not None:
@@ -79,8 +89,14 @@ class ClassicalGate(Box):
             _dagger=None if self._dagger is None else not self._dagger)
 
     def subs(self, *args):
-        data = recursive_subs(self.data, *args)
+        data = rsubs(list(self.data.flatten()), *args)
         return ClassicalGate(self.name, len(self.dom), len(self.cod), data)
+
+    def lambdify(self, *symbols, **kwargs):
+        from sympy import lambdify
+        data = lambdify(symbols, self.data, dict(kwargs, modules=np))
+        return lambda *xs: ClassicalGate(
+            self.name, len(self.dom), len(self.cod), data(*xs))
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -209,8 +225,9 @@ class Parametrized(Box):
     >>> assert Rz(phi)\\
     ...     == Parametrized('Rz', qubit, qubit, data=phi, is_mixed=False)
     >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
-    >>> assert list((Rz(phi) >> Rz(-phi)).eval()
-    ...             .array.flatten()) == [1, 0, 0, 1]
+    >>> c = Rz(phi) >> Rz(-phi)
+    >>> assert list(c.eval().array.flatten()) == [1, 0, 0, 1]
+    >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
         self._datatype = params.get('datatype', None)
@@ -230,8 +247,13 @@ class Parametrized(Box):
             self._cos, self._sin = np.cos, np.sin
 
     def subs(self, *args):
-        data = recursive_subs(self.data, *args)
+        data = rsubs(self.data, *args)
         return type(self)(data)
+
+    def lambdify(self, *symbols, **kwargs):
+        from sympy import lambdify
+        data = lambdify(symbols, self.data, dict(kwargs, modules=np))
+        return lambda *xs: type(self)(data(*xs))
 
     @property
     def name(self):

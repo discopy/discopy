@@ -475,6 +475,11 @@ class Diagram(cat.Arrow):
             self.id(left) @ box.subs(*args) @ self.id(right)
             for left, box, right in self.layers))
 
+    def lambdify(self, *symbols, **kwargs):
+        return lambda *xs: self.id(self.dom).then(*(
+            self.id(left) @ box.lambdify(*symbols, **kwargs)(*xs)
+            @ self.id(right) for left, box, right in self.layers))
+
     @staticmethod
     def swap(left, right, ar_factory=None, swap_factory=None):
         """

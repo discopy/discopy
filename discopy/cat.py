@@ -21,10 +21,32 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import total_ordering
+from functools import total_ordering, reduce
 from collections.abc import Mapping, Iterable
 
 from discopy import messages
+
+
+def rmap(func, data):
+    """
+    Apply :code:`func` recursively to :code:`data`.
+
+    Examples
+    --------
+    >>> data = {'A': [0, 1, 2], 'B': ({'C': 3, 'D': [4, 5, 6]}, {7, 8, 9})}
+    >>> rmap(lambda x: x + 1, data)
+    {'A': [1, 2, 3], 'B': ({'C': 4, 'D': [5, 6, 7]}, {8, 9, 10})}
+    """
+    if isinstance(data, Mapping):
+        return {key: rmap(func, value) for key, value in data.items()}
+    if isinstance(data, Iterable):
+        return type(data)([rmap(func, elem) for elem in data])
+    return func(data)
+
+
+def rsubs(data, *args):
+    """ Substitute recursively along nested data. """
+    return rmap(lambda x: getattr(x, "subs", lambda *_: x)(*args), data)
 
 
 @total_ordering
@@ -381,6 +403,34 @@ class Arrow:
         return self.upgrade(
             Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
 
+    def lambdify(self, *symbols, **kwargs):
+        """
+        Turns a symbolic diagram into a function from parameters to diagram.
+
+        Parameters
+        ----------
+        symbols : list of sympy.Symbol
+            Inputs of the lambda.
+        kwargs : any
+            Passed to sympy.lambdify
+
+        Returns
+        -------
+        lambda : callable
+            Takes concrete values returns concrete diagrams.
+
+        Examples
+        --------
+        >>> from sympy.abc import phi, psi
+        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
+        >>> f, g = Box('f', x, y, data=phi), Box('g', y, z, data=psi)
+        >>> assert f.lambdify(psi)(42) == f
+        >>> assert (f >> g).lambdify(phi, psi)(42, 43)\\
+        ...     == Box('f', x, y, data=42) >> Box('g', y, z, data=43)
+        """
+        return lambda *xs: self.id(self.dom).then(*(
+            box.lambdify(*symbols, **kwargs)(*xs) for box in self.boxes))
+
     def bubble(self, **params):
         """ Returns a :class:`cat.Bubble` with the diagram inside. """
         return self.bubble_factory(self, **params)
@@ -486,13 +536,11 @@ class Box(Arrow):
     def free_symbols(self):
         def recursive_free_symbols(data):
             if isinstance(data, Mapping):
-                return sum(map(recursive_free_symbols, data.values()), [])
+                data = data.values()
             if isinstance(data, Iterable):
-                return sum(map(recursive_free_symbols, data), [])
-            if hasattr(data, "free_symbols"):
-                return list(data.free_symbols)
-            return []
-        return set(recursive_free_symbols(self.data))
+                return set().union(*map(recursive_free_symbols, data))
+            return data.free_symbols if hasattr(data, "free_symbols") else {}
+        return recursive_free_symbols(self.data)
 
     def subs(self, *args):
         if not any(var in self.free_symbols for var in (
@@ -500,7 +548,15 @@ class Box(Arrow):
             return self
         return type(self)(
             self.name, self.dom, self.cod, _dagger=self._dagger,
-            data=recursive_subs(self.data, *args))
+            data=rsubs(self.data, *args))
+
+    def lambdify(self, *symbols, **kwargs):
+        if not any(x in self.free_symbols for x in symbols):
+            return lambda *xs: self
+        from sympy import lambdify
+        return lambda *xs: type(self)(
+            self.name, self.dom, self.cod, _dagger=self._dagger,
+            data=lambdify(symbols, self.data, **kwargs)(*xs))
 
     @property
     def is_dagger(self):
@@ -831,13 +887,3 @@ class Quiver:
 
     def __repr__(self):
         return "Quiver({})".format(repr(self._func))
-
-
-def recursive_subs(data, *args):
-    """ Substitute recursively along nested data. """
-    if isinstance(data, Mapping):
-        return {key: recursive_subs(value, *args)
-                for key, value in data.items()}
-    if isinstance(data, Iterable):
-        return [recursive_subs(elem, *args) for elem in data]
-    return getattr(data, "subs", lambda *_: data)(*args)

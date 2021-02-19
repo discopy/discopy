@@ -283,7 +283,7 @@ class Spider(Box):
         return type(self)(len(self.cod), len(self.dom), -self.phase)
 
     def subs(self, *args):
-        data = cat.recursive_subs(self.data, *args)
+        data = cat.rsubs(self.data, *args)
         return type(self)(len(self.dom), len(self.cod), phase=data)
 
     def grad(self, var, **params):
@@ -348,7 +348,7 @@ class Scalar(Box):
         return self.name
 
     def subs(self, *args):
-        data = cat.recursive_subs(self.data, *args)
+        data = cat.rsubs(self.data, *args)
         return Scalar(data)
 
     def dagger(self):
