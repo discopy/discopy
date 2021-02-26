@@ -116,7 +116,7 @@ class Tensor(rigid.Box):
     ...     Tensor.np, tmp = jax.numpy, Tensor.np
     ...     yield
     ...     Tensor.np = tmp
-    >>> with jaxify:
+    >>> with jaxify():
     ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array[0]
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
