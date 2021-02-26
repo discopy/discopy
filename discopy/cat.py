@@ -497,7 +497,16 @@ class Box(Arrow):
 
     """
     def __init__(self, name, dom, cod, **params):
+        def recursive_free_symbols(data):
+            if isinstance(data, Mapping):
+                data = data.values()
+            if isinstance(data, Iterable):
+                # Handles numpy 0-d arrays, which are actually not iterable.
+                if not hasattr(data, "shape") or data.shape != ():
+                    return set().union(*map(recursive_free_symbols, data))
+            return data.free_symbols if hasattr(data, "free_symbols") else {}
         data, _dagger = params.get("data", None), params.get("_dagger", False)
+        self._free_symbols = recursive_free_symbols(data)
         self._name, self._dom, self._cod = name, dom, cod
         self._boxes, self._dagger, self._data = [self], _dagger, data
         Arrow.__init__(self, dom, cod, [self], _scan=False)
@@ -534,13 +543,7 @@ class Box(Arrow):
 
     @property
     def free_symbols(self):
-        def recursive_free_symbols(data):
-            if isinstance(data, Mapping):
-                data = data.values()
-            if isinstance(data, Iterable):
-                return set().union(*map(recursive_free_symbols, data))
-            return data.free_symbols if hasattr(data, "free_symbols") else {}
-        return recursive_free_symbols(self.data)
+        return self._free_symbols
 
     def subs(self, *args):
         if not any(var in self.free_symbols for var in (
@@ -710,12 +713,13 @@ class Bubble(Box):
     def __init__(self, inside, dom=None, cod=None):
         dom = inside.dom if dom is None else dom
         cod = inside.cod if cod is None else cod
-        super().__init__("Bubble", dom, cod, data=inside)
+        self._inside = inside
+        Box.__init__(self, "Bubble", dom, cod)
 
     @property
     def inside(self):
         """ The diagram inside a bubble. """
-        return self.data
+        return self._inside
 
     def __str__(self):
         return "({}).bubble({})".format(

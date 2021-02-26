@@ -230,9 +230,6 @@ class Parametrized(Box):
     >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
-        self._datatype = params.get('datatype', None)
-        data = data\
-            if getattr(data, "free_symbols", False) else self._datatype(data)
         self.drawing_name = '{}({})'.format(name, data)
         Box.__init__(
             self, name, dom, cod, data=data,

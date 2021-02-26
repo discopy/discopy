@@ -260,7 +260,7 @@ class Layer(cat.Box):
     def __init__(self, left, box, right):
         self._left, self._box, self._right = left, box, right
         dom, cod = left @ box.dom @ right, left @ box.cod @ right
-        super().__init__("Layer", dom, cod, data=box)
+        super().__init__("Layer", dom, cod)
 
     def __iter__(self):
         yield self._left
