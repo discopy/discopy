@@ -98,6 +98,7 @@ class Tensor(rigid.Box):
 
     >>> from sympy.abc import phi, psi
     >>> v = Tensor(Dim(1), Dim(2), [phi, psi])
+    >>> d = v >> v.dagger()
     >>> assert v >> v.dagger() == Tensor(
     ...     Dim(1), Dim(1), [phi * phi.conjugate() + psi * psi.conjugate()])
 
@@ -106,15 +107,18 @@ class Tensor(rigid.Box):
     >>> v.subs(phi, 0).lambdify(psi)(1)
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
 
-    We can also use jax.numpy instead of pure numpy by changing the class
-    variable :code:`Tensor.np`.
+    We can also use jax.numpy by changing the class variable :code:`Tensor.np`.
 
+    >>> from contextlib import contextmanager
     >>> import jax
-    >>> d = v >> v.dagger()
-    >>> Tensor.np = jax.numpy
-    >>> f = lambda *xs: d.lambdify(phi, psi)(*xs).array[0]
-    >>> assert jax.grad(f)(1., 2.) == 2.
-    >>> Tensor.np = numpy
+    >>> @contextmanager
+    ... def jaxify():
+    ...     Tensor.np, tmp = jax.numpy, Tensor.np
+    ...     yield
+    ...     Tensor.np = tmp
+    >>> with jaxify:
+    ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array[0]
+    ...     assert jax.grad(f)(1., 2.) == 2.
     """
     np = jax.numpy if config.IMPORT_JAX else numpy
 
