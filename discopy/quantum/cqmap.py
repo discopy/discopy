@@ -17,7 +17,7 @@ CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5, 0.5, 0.5, 0.5])
 from discopy import monoidal, rigid, messages, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
-from discopy.tensor import np, Dim, Tensor
+from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import (
     bit, qubit, Box, Sum, Swap, Discard, Measure, MixedState, Encode)
 from discopy.quantum.gates import Scalar
@@ -195,16 +195,16 @@ class CQMap(Tensor):
     def measure(dim, destructive=True):
         """ Measure a quantum dimension into a classical dimension. """
         if not dim:
-            return CQMap(CQ(), CQ(), np.array(1))
+            return CQMap(CQ(), CQ(), Tensor.np.array(1))
         if len(dim) == 1:
             if destructive:
-                array = np.array([
+                array = Tensor.np.array([
                     int(i == j == k)
                     for i in range(dim[0])
                     for j in range(dim[0])
                     for k in range(dim[0])])
                 return CQMap(Q(dim), C(dim), array)
-            array = np.array([
+            array = Tensor.np.array([
                 int(i == j == k == l == m)
                 for i in range(dim[0])
                 for j in range(dim[0])
@@ -234,8 +234,8 @@ class CQMap(Tensor):
     @staticmethod
     def discard(dom):
         """ Discard a quantum dimension or take the marginal distribution. """
-        array = np.tensordot(
-            np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
+        array = Tensor.np.tensordot(
+            Tensor.np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
         return CQMap(dom, CQ(), array)
 
     @staticmethod

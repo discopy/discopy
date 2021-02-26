@@ -3,8 +3,10 @@
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
 from collections.abc import Callable
+import numpy
+
 from discopy.cat import AxiomError, rsubs
-from discopy.tensor import np, Dim, Tensor
+from discopy.tensor import array2string, Dim, Tensor
 from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum, Id
 
 
@@ -21,7 +23,7 @@ class QuantumGate(Box):
     def __init__(self, name, n_qubits, array=None, data=None, _dagger=False):
         dom = qubit ** n_qubits
         if array is not None:
-            self._array = np.array(array).reshape(
+            self._array = Tensor.np.array(array).reshape(
                 2 * n_qubits * (2, ) or (1, ))
         super().__init__(
             name, dom, dom, is_mixed=False, data=data, _dagger=_dagger)
@@ -36,7 +38,7 @@ class QuantumGate(Box):
             return self.name
         return "QuantumGate({}, n_qubits={}, array={})".format(
             repr(self.name), len(self.dom),
-            np.array2string(self.array.flatten()))
+            array2string(self.array.flatten()))
 
     def dagger(self):
         return QuantumGate(
@@ -59,7 +61,7 @@ class ClassicalGate(Box):
     def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
         dom, cod = bit ** n_bits_in, bit ** n_bits_out
         if data is not None:
-            data = np.array(data).reshape(
+            data = Tensor.np.array(data).reshape(
                 (n_bits_in + n_bits_out) * (2, ) or (1, ))
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
@@ -74,12 +76,12 @@ class ClassicalGate(Box):
             return super().__eq__(other)
         return (self.name, self.dom, self.cod)\
             == (other.name, other.dom, other.cod)\
-            and np.all(self.array == other.array)
+            and Tensor.np.all(self.array == other.array)
 
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        data = np.array2string(self.array.flatten())
+        data = array2string(self.array.flatten())
         return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, data={})"\
             .format(repr(self.name), len(self.dom), len(self.cod), data)
 
@@ -94,7 +96,7 @@ class ClassicalGate(Box):
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
-        data = lambdify(symbols, self.data, dict(kwargs, modules=np))
+        data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
         return lambda *xs: ClassicalGate(
             self.name, len(self.dom), len(self.cod), data(*xs))
 
@@ -235,13 +237,14 @@ class Parametrized(Box):
             self, name, dom, cod, data=data,
             is_mixed=params.get('is_mixed', True),
             _dagger=params.get('_dagger', False))
+
+    @property
+    def modules(self):
         if self.free_symbols:
             import sympy
-            self._pi, self._exp = sympy.pi, sympy.exp
-            self._cos, self._sin = sympy.cos, sympy.sin
+            return sympy
         else:
-            self._pi, self._exp = np.pi, np.exp
-            self._cos, self._sin = np.cos, np.sin
+            return Tensor.np
 
     def subs(self, *args):
         data = rsubs(self.data, *args)
@@ -249,7 +252,7 @@ class Parametrized(Box):
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
-        data = lambdify(symbols, self.data, dict(kwargs, modules=np))
+        data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
         return lambda *xs: type(self)(data(*xs))
 
     @property
@@ -285,12 +288,12 @@ class Rotation(Parametrized, QuantumGate):
         if params.get('mixed', True):
             if len(self.dom) != 1:
                 raise NotImplementedError
-            s = scalar(np.pi * gradient, is_mixed=True)
+            s = scalar(Tensor.np.pi * gradient, is_mixed=True)
             t1 = type(self)(self.phase + .25)
             t2 = type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
-        return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
+        return scalar(Tensor.np.pi * gradient) @ type(self)(self.phase + .5)
 
 
 class Rx(Rotation):
@@ -300,9 +303,9 @@ class Rx(Rotation):
 
     @property
     def array(self):
-        half_theta = self._pi * self.phase
-        sin, cos = self._sin(half_theta), self._cos(half_theta)
-        return np.array([[cos, -1j * sin], [-1j * sin, cos]])
+        half_theta = self.modules.pi * self.phase
+        sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
+        return Tensor.np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
 class Ry(Rotation):
@@ -312,9 +315,9 @@ class Ry(Rotation):
 
     @property
     def array(self):
-        half_theta = self._pi * self.phase
-        sin, cos = self._sin(half_theta), self._cos(half_theta)
-        return np.array([[cos, -1 * sin], [sin, cos]])
+        half_theta = self.modules.pi * self.phase
+        sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
+        return Tensor.np.array([[cos, -1 * sin], [sin, cos]])
 
 
 class Rz(Rotation):
@@ -324,10 +327,10 @@ class Rz(Rotation):
 
     @property
     def array(self):
-        half_theta = self._pi * self.phase
-        return np.array(
-            [[self._exp(-1j * half_theta), 0],
-             [0, self._exp(1j * half_theta)]])
+        half_theta = self.modules.pi * self.phase
+        return Tensor.np.array(
+            [[self.modules.exp(-1j * half_theta), 0],
+             [0, self.modules.exp(1j * half_theta)]])
 
 
 def _outer_prod_diag(*bitstring):
@@ -341,23 +344,24 @@ class CU1(Rotation):
 
     @property
     def array(self):
-        theta = 2 * self._pi * self.phase
-        return np.array([1, 0, 0, 0,
-                         0, 1, 0, 0,
-                         0, 0, 1, 0,
-                         0, 0, 0, self._exp(1j * theta)]).reshape(2, 2, 2, 2)
+        theta = 2 * self.modules.pi * self.phase
+        return Tensor.np.array(
+            [1, 0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, 1, 0,
+             0, 0, 0, self.modules.exp(1j * theta)]).reshape(2, 2, 2, 2)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
-        _i_2_pi = 1j * 2 * self._pi
+        _i_2_pi = 1j * 2 * self.modules.pi
 
         if params.get('mixed', True):
             return super().grad(var, **params)
 
-        s = scalar(_i_2_pi * gradient * self._exp(_i_2_pi * self.phase))
+        s = scalar(_i_2_pi * gradient * self.modules.exp(_i_2_pi * self.phase))
         return _outer_prod_diag(1, 1) @ s
 
 
@@ -368,13 +372,14 @@ class CRz(Rotation):
 
     @property
     def array(self):
-        half_theta = self._pi * self.phase
-        exp_m = self._exp(-1j * half_theta)
-        exp_p = self._exp(1j * half_theta)
-        return np.array([1, 0, 0, 0,
-                         0, 1, 0, 0,
-                         0, 0, exp_m, 0,
-                         0, 0, 0, exp_p]).reshape(2, 2, 2, 2)
+        half_theta = self.modules.pi * self.phase
+        exp_m = self.modules.exp(-1j * half_theta)
+        exp_p = self.modules.exp(1j * half_theta)
+        return Tensor.np.array(
+            [1, 0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, exp_m, 0,
+             0, 0, 0, exp_p]).reshape(2, 2, 2, 2)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -382,7 +387,7 @@ class CRz(Rotation):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
 
-        _i_half_pi = .5j * self._pi
+        _i_half_pi = .5j * self.modules.pi
         op1 = Z @ Z @ scalar(_i_half_pi * gradient)
         op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
 
@@ -399,12 +404,13 @@ class CRx(Rotation):
 
     @property
     def array(self):
-        half_theta = self._pi * self.phase
-        cos, sin = self._cos(half_theta), self._sin(half_theta)
-        return np.array([1, 0, 0, 0,
-                         0, 1, 0, 0,
-                         0, 0, cos, -1j * sin,
-                         0, 0, -1j * sin, cos]).reshape(2, 2, 2, 2)
+        half_theta = self.modules.pi * self.phase
+        cos, sin = self.modules.cos(half_theta), self.modules.sin(half_theta)
+        return Tensor.np.array(
+            [1, 0, 0, 0,
+             0, 1, 0, 0,
+             0, 0, cos, -1j * sin,
+             0, 0, -1j * sin, cos]).reshape(2, 2, 2, 2)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -412,7 +418,7 @@ class CRx(Rotation):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
 
-        _i_half_pi = .5j * self._pi
+        _i_half_pi = .5j * self.modules.pi
         op1 = Z @ X @ scalar(_i_half_pi * gradient)
         op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
 
@@ -477,9 +483,10 @@ CZ = QuantumGate('CZ', 2, [1, 0, 0, 0,
                            0, 1, 0, 0,
                            0, 0, 1, 0,
                            0, 0, 0, -1], _dagger=None)
-H = QuantumGate('H', 1, 1 / np.sqrt(2) * np.array([1, 1, 1, -1]), _dagger=None)
+H = QuantumGate(
+    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]), _dagger=None)
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
-T = QuantumGate('T', 1, [1, 0, 0, np.exp(1j * np.pi / 4)])
+T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
 X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None)
 Y = QuantumGate('Y', 1, [0, -1j, 1j, 0])
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)

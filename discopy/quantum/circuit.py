@@ -40,7 +40,7 @@ from collections.abc import Mapping
 from discopy import messages, monoidal, rigid, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
-from discopy.tensor import np, Dim, Tensor
+from discopy.tensor import Dim, Tensor
 from math import pi
 from functools import reduce, partial
 
@@ -293,9 +293,10 @@ class Circuit(tensor.Diagram):
         state = (Ket(*(len(self.dom) * [0])) >> self).eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
-        array = np.zeros(len(self.cod) * (2, ) or (1, ))
+        array = Tensor.np.zeros(len(self.cod) * (2, ) or (1, ))
         for effect in effects:
-            array += effect.array * np.absolute((state >> effect).array) ** 2
+            array +=\
+                effect.array * Tensor.np.absolute((state >> effect).array) ** 2
         return array
 
     def to_tk(self):
@@ -738,18 +739,19 @@ class IQPansatz(Circuit):
             return hadamards >> rotations
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
-        elif len(np.shape(params)) != 2 or np.shape(params)[1] != n_qubits - 1:
+        elif len(Tensor.np.shape(params)) != 2\
+                or Tensor.np.shape(params)[1] != n_qubits - 1:
             raise ValueError(
                 "Expected params of shape (depth, {})".format(n_qubits - 1))
         else:
-            depth = np.shape(params)[0]
+            depth = Tensor.np.shape(params)[0]
             circuit = Id(n_qubits).then(*(
                 layer(params[i]) for i in range(depth)))
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
 
 
-def real_amp_ansatz(params: np.ndarray, *, entanglement='full'):
+def real_amp_ansatz(params: Tensor.np.ndarray, *, entanglement='full'):
     """
     The real-amplitudes 2-local circuit. The shape of the params determines
     the number of layers and the number of qubits respectively (layers, qubit).
@@ -762,7 +764,7 @@ def real_amp_ansatz(params: np.ndarray, *, entanglement='full'):
     from discopy.quantum.gates import CX, Ry, rewire
     ext_cx = partial(rewire, CX)
     assert entanglement in ('linear', 'circular', 'full')
-    params = np.asarray(params)
+    params = Tensor.np.asarray(params)
     assert params.ndim == 2
     dom = qubit**params.shape[1]
 

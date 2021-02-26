@@ -1,4 +1,5 @@
 from pytest import raises
+import numpy as np
 from discopy.tensor import *
 
 

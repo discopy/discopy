@@ -11,6 +11,8 @@ Implements dagger monoidal functors into tensors.
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
+import numpy
+
 from discopy import messages, monoidal, rigid, config
 from discopy.cat import AxiomError
 from discopy.monoidal import Sum
@@ -21,25 +23,15 @@ if config.IMPORT_JAX:  # pragma: no cover
     import warnings
     for msg in config.IGNORE_WARNINGS:
         warnings.filterwarnings("ignore", message=msg)
-    import jax.numpy as np
+    import jax
 
-    def array2string(array, max_length=config.NUMPY_THRESHOLD):
-        """ array2string is not implemented in jax.numpy """
-        flat = list(array)
-        flat = flat if len(flat) <= max_length else\
-            flat[:max_length // 2] + ["..."] + flat[1 - max_length // 2:]
-        return "[{}]".format(", ".join(map(str, flat)))
-    np.array2string = array2string
-else:
-    import numpy as np
-    from numpy import array2string as _array2string
-    np.set_printoptions(threshold=config.NUMPY_THRESHOLD)
+numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
 
-    def array2string(array, **params):
-        """ makes sure we get the same doctest with numpy and jax.numpy """
-        return _array2string(array, **dict(params, separator=', '))\
-            .replace('[ ', '[').replace('  ', ' ')
-    np.array2string = array2string
+
+def array2string(array, **params):
+    """ Numpy array pretty print. """
+    return numpy.array2string(array, **dict(params, separator=', '))\
+        .replace('[ ', '[').replace('  ', ' ')
 
 
 class Dim(Ty):
@@ -98,8 +90,10 @@ class Tensor(rigid.Box):
     >>> v >> m >> v.dagger()
     Tensor(dom=Dim(1), cod=Dim(1), array=[0])
     """
+    np = jax.numpy if config.IMPORT_JAX else numpy
+
     def __init__(self, dom, cod, array):
-        self._array = np.array(array).reshape(dom @ cod or (1, ))
+        self._array = Tensor.np.array(array).reshape(dom @ cod or (1, ))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -125,8 +119,7 @@ class Tensor(rigid.Box):
 
     def __repr__(self):
         return "Tensor(dom={}, cod={}, array={})".format(
-            self.dom, self.cod,
-            np.array2string(self.array.flatten()))
+            self.dom, self.cod, array2string(self.array.flatten()))
 
     def __str__(self):
         return repr(self)
@@ -145,9 +138,9 @@ class Tensor(rigid.Box):
 
     def __eq__(self, other):
         if not isinstance(other, Tensor):
-            return np.all(self.array == other)
+            return Tensor.np.all(self.array == other)
         return (self.dom, self.cod) == (other.dom, other.cod)\
-            and np.all(self.array == other.array)
+            and Tensor.np.all(self.array == other.array)
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
@@ -157,7 +150,7 @@ class Tensor(rigid.Box):
             raise TypeError(messages.type_err(Tensor, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        array = np.tensordot(self.array, other.array, len(self.cod))\
+        array = Tensor.np.tensordot(self.array, other.array, len(self.cod))\
             if self.array.shape and other.array.shape\
             else self.array * other.array
         return Tensor(self.dom, other.cod, array)
@@ -169,7 +162,7 @@ class Tensor(rigid.Box):
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        array = np.tensordot(self.array, other.array, 0)\
+        array = Tensor.np.tensordot(self.array, other.array, 0)\
             if self.array.shape and other.array.shape\
             else self.array * other.array
         source = range(len(dom @ cod))
@@ -177,19 +170,19 @@ class Tensor(rigid.Box):
             i if i < len(self.dom) or i >= len(self.dom @ self.cod @ other.dom)
             else i - len(self.cod) if i >= len(self.dom @ self.cod)
             else i + len(other.dom) for i in source]
-        return Tensor(dom, cod, np.moveaxis(array, source, target))
+        return Tensor(dom, cod, Tensor.np.moveaxis(array, source, target))
 
     def dagger(self):
-        array = np.moveaxis(
+        array = Tensor.np.moveaxis(
             self.array, range(len(self.dom @ self.cod)),
             [i + len(self.cod) if i < len(self.dom) else
              i - len(self.dom) for i in range(len(self.dom @ self.cod))])
-        return Tensor(self.cod, self.dom, np.conjugate(array))
+        return Tensor(self.cod, self.dom, Tensor.np.conjugate(array))
 
     @staticmethod
     def id(dom):
         from numpy import prod
-        return Tensor(dom, dom, np.identity(int(prod(dom))))
+        return Tensor(dom, dom, Tensor.np.identity(int(prod(dom))))
 
     @staticmethod
     def cups(left, right):
@@ -209,7 +202,7 @@ class Tensor(rigid.Box):
         target = [i + len(right) if i < len(left @ right @ left)
                   else i - len(left) for i in source]
         return Tensor(left @ right, right @ left,
-                      np.moveaxis(array, source, target))
+                      Tensor.np.moveaxis(array, source, target))
 
     def transpose(self, left=False):
         """
@@ -223,12 +216,12 @@ class Tensor(rigid.Box):
 
     def conjugate(self):
         """ Returns the conjugate of a tensor. """
-        return Tensor(self.dom, self.cod, np.conjugate(self.array))
+        return Tensor(self.dom, self.cod, Tensor.np.conjugate(self.array))
 
     def round(self, decimals=0):
         """ Rounds the entries of a tensor up to a number of decimals. """
         return Tensor(self.dom, self.cod,
-                      np.around(self.array, decimals=decimals))
+                      Tensor.np.around(self.array, decimals=decimals))
 
     def map(self, func):
         """ Apply a function elementwise. """
@@ -245,7 +238,7 @@ class Tensor(rigid.Box):
         >>> assert Tensor.zeros(Dim(2), Dim(2))\\
         ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
         """
-        return Tensor(dom, cod, np.zeros(dom @ cod))
+        return Tensor(dom, cod, Tensor.np.zeros(dom @ cod))
 
     def subs(self, *args):
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
@@ -307,18 +300,19 @@ class Functor(rigid.Functor):
                     i + dim(box.right)
                     if i < dim(diagram.dom @ scan[:off]) + dim(box.left)
                     else i - dim(box.left) for i in source]
-                array = np.moveaxis(array, list(source), list(target))
+                array = Tensor.np.moveaxis(array, list(source), list(target))
                 scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
                 continue
             left = dim(scan[:off])
             source = list(range(dim(diagram.dom) + left,
                                 dim(diagram.dom) + left + dim(box.dom)))
             target = list(range(dim(box.dom)))
-            array = np.tensordot(array, self(box).array, (source, target))
+            array =\
+                Tensor.np.tensordot(array, self(box).array, (source, target))
             source = range(len(array.shape) - dim(box.cod), len(array.shape))
             target = range(dim(diagram.dom) + left,
                            dim(diagram.dom) + left + dim(box.cod))
-            array = np.moveaxis(array, list(source), list(target))
+            array = Tensor.np.moveaxis(array, list(source), list(target))
             scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
         return Tensor(self(diagram.dom), self(diagram.cod), array)
 
@@ -376,6 +370,7 @@ class Diagram(rigid.Diagram):
 
         Examples
         --------
+        >>> import numpy as np
         >>> from tensornetwork import Node, Edge
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> nodes, output_edge_order = vector.to_tn()
@@ -384,7 +379,7 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        nodes = [tn.Node(np.eye(dim), 'input_{}'.format(i))
+        nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i))
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
@@ -479,7 +474,7 @@ class Box(rigid.Box, Diagram):
     @property
     def array(self):
         """ The array inside the box. """
-        return np.array(self.data).reshape(self.dom @ self.cod or (1, ))
+        return Tensor.np.array(self.data).reshape(self.dom @ self.cod or (1, ))
 
     def grad(self, var, **params):
         return self.bubble(
@@ -492,7 +487,7 @@ class Box(rigid.Box, Diagram):
     def __eq__(self, other):
         if not isinstance(other, Box):
             return False
-        return np.all(self.array == other.array)\
+        return Tensor.np.all(self.array == other.array)\
             and (self.name, self.dom, self.cod)\
             == (other.name, other.dom, other.cod)
 

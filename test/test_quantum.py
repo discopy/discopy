@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from pytest import raises
 from unittest.mock import Mock
+from functools import reduce, partial
+import itertools
+from pytest import raises
+import numpy as np
 from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
-from functools import reduce, partial
-import itertools
 
 
 def test_index2bitstring():
