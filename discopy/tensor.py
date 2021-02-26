@@ -85,10 +85,36 @@ class Dim(Ty):
 class Tensor(rigid.Box):
     """ Implements a tensor with dom, cod and numpy array.
 
+    Examples
+    --------
     >>> m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
     >>> v = Tensor(Dim(1), Dim(2), [0, 1])
     >>> v >> m >> v.dagger()
     Tensor(dom=Dim(1), cod=Dim(1), array=[0])
+
+    Notes
+    -----
+    Tensors can have sympy symbols as free variables.
+
+    >>> from sympy.abc import phi, psi
+    >>> v = Tensor(Dim(1), Dim(2), [phi, psi])
+    >>> assert v >> v.dagger() == Tensor(
+    ...     Dim(1), Dim(1), [phi * phi.conjugate() + psi * psi.conjugate()])
+
+    These can be substituted and lambdifed.
+
+    >>> v.subs(phi, 0).lambdify(psi)(1)
+    Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
+
+    We can also use jax.numpy instead of pure numpy by changing the class
+    variable :code:`Tensor.np`.
+
+    >>> import jax
+    >>> d = v >> v.dagger()
+    >>> Tensor.np = jax.numpy
+    >>> f = lambda *xs: d.lambdify(phi, psi)(*xs).array[0]
+    >>> assert jax.grad(f)(1., 2.) == 2.
+    >>> Tensor.np = numpy
     """
     np = jax.numpy if config.IMPORT_JAX else numpy
 
@@ -247,6 +273,12 @@ class Tensor(rigid.Box):
         """ Gradient with respect to variables. """
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
+
+    def lambdify(self, *symbols, **kwargs):
+        from sympy import lambdify
+        array = lambdify(
+            symbols, self.array, **dict({'modules': Tensor.np}, **kwargs))
+        return lambda *xs: Tensor(self.dom, self.cod, array(*xs))
 
 
 class Functor(rigid.Functor):
