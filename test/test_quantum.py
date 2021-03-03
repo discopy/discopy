@@ -21,9 +21,11 @@ def test_bitstring2index():
     assert bitstring2index((0, 0, 1, 0, 1, 0, 1, 0)) == 42
 
 
-def test_BitsAndQubits():
-    with raises(TypeError):
-        qubit @ Ty('x')
+def test_Circuit_ob():
+    with raises(AxiomError):
+        Ob("x", z=-1)
+    with raises(ValueError):
+        Ob("x", dim=-1)
 
 
 def test_Circuit_repr():
@@ -39,7 +41,7 @@ def test_Circuit_permutation():
 
 
 def test_Circuit_eval():
-    with raises(AttributeError):
+    with raises(KeyError):
         Box('f', qubit, qubit).eval()
     assert MixedState().eval() == Discard().eval().dagger()
 
@@ -190,9 +192,9 @@ def test_ClassicalGate_eval():
 
 def test_Box():
     with raises(TypeError):
-        Box('f', Ty('x'), bit)
+        Box('f', rigid.Ty('x'), bit)
     with raises(TypeError):
-        Box('f', bit, Ty('x'))
+        Box('f', bit, rigid.Ty('x'))
 
 
 def test_pure_Box():
@@ -260,7 +262,7 @@ def test_CRx():
 
 
 def test_CircuitFunctor():
-    x, y = Ty('x'), Ty('y')
+    x, y = rigid.Ty('x'), rigid.Ty('y')
     f = rigid.Box('f', x, y)
     ob, ar = {x: qubit, y: bit}, {f: Measure()}
     assert repr(CircuitFunctor(ob, ar))\

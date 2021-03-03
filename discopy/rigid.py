@@ -405,6 +405,8 @@ class Functor(monoidal.Functor):
     def __call__(self, diagram):
         if isinstance(diagram, monoidal.Ty):
             def adjoint(obj):
+                if not hasattr(obj, "z") or not obj.z:
+                    return self.ob[type(diagram)(obj)]
                 result = self.ob[type(diagram)(type(obj)(obj.name, z=0))]
                 if obj.z < 0:
                     for _ in range(-obj.z):

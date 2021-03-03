@@ -91,7 +91,7 @@ class Ob:
         >>> x = Ob('x')
         >>> x.name
         'x'
-        >>> x.name = 'y'  # doctest: +ELLIPSIS
+        >>> x.name = 'y'
         Traceback (most recent call last):
         ...
         AttributeError: can't set attribute
@@ -804,8 +804,7 @@ class Functor:
         >>> F = Functor({Ob('x'): Ob('y')}, {})
         >>> assert F.ob == {Ob('x'): Ob('y')}
         """
-        return self._ob\
-            if hasattr(self._ob, "__getitem__") else Quiver(self._ob)
+        return self._ob if isinstance(self._ob, Mapping) else Quiver(self._ob)
 
     @property
     def ar(self):
@@ -843,7 +842,7 @@ class Functor:
         raise TypeError(messages.type_err(Arrow, arrow))
 
 
-class Quiver:
+class Quiver(Mapping):
     """
     Wraps a function into an immutable dict-like object, used as input for a
     :class:`Functor`.
@@ -891,3 +890,14 @@ class Quiver:
 
     def __repr__(self):
         return "Quiver({})".format(repr(self._func))
+
+    def __len__(self):
+        """
+        >>> dict(Quiver(lambda x: x))   # doctest: +ELLIPSIS
+        Traceback (most recent call last):
+        ...
+        TypeError: Quivers have no length, you can't iterate them.
+        """
+        raise TypeError("Quivers have no length, you can't iterate them.")
+
+    __iter__ = __len__

@@ -46,12 +46,14 @@ class Dim(Ty):
         return Dim(*[x.name for x in old.objects])
 
     def __init__(self, *dims):
+        dims = map(lambda x: x if isinstance(x, monoidal.Ob) else Ob(x), dims)
+        dims = list(filter(lambda x: x.name != 1, dims))  # Dim(1) == Dim()
         for dim in dims:
-            if not isinstance(dim, int):
-                raise TypeError(messages.type_err(int, dim))
-            if dim < 1:
+            if not isinstance(dim.name, int):
+                raise TypeError(messages.type_err(int, dim.name))
+            if dim.name < 1:
                 raise ValueError
-        super().__init__(*[Ob(dim) for dim in dims if dim > 1])
+        super().__init__(*dims)
 
     def __getitem__(self, key):
         if isinstance(key, slice):
@@ -308,7 +310,9 @@ class Functor(rigid.Functor):
             return sum(map(self, diagram), Tensor.zeros(dom, cod))
         if isinstance(diagram, monoidal.Ty):
             def obj_to_dim(obj):
-                result = self.ob[type(diagram)(obj.name)]
+                if isinstance(obj, rigid.Ob) and obj.z != 0:
+                    obj = type(obj)(obj.name)  # sets z=0
+                result = self.ob[type(diagram)(obj)]
                 return result if isinstance(result, Dim) else Dim(result)
             return Dim(1).tensor(*map(obj_to_dim, diagram.objects))
         if isinstance(diagram, Cup):

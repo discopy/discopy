@@ -213,7 +213,7 @@ class Parametrized(Box):
     ----------
     name : str
         Name of the parametrized class, e.g. :code:`"CRz"`.
-    dom, cod : BitsAndQubits
+    dom, cod : discopy.quantum.circuit.Ty
         Domain and codomain.
     data : any
         Data of the box, potentially with free symbols.
