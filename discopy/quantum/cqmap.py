@@ -17,9 +17,10 @@ CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5, 0.5, 0.5, 0.5])
 from discopy import monoidal, rigid, messages, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
-from discopy.tensor import np, Dim, Tensor
+from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import (
-    bit, qubit, Box, Sum, Swap, Discard, Measure, MixedState, Encode)
+    bit, qubit, Digit, Qudit,
+    Box, Sum, Swap, Discard, Measure, MixedState, Encode)
 from discopy.quantum.gates import Scalar
 
 
@@ -195,16 +196,16 @@ class CQMap(Tensor):
     def measure(dim, destructive=True):
         """ Measure a quantum dimension into a classical dimension. """
         if not dim:
-            return CQMap(CQ(), CQ(), np.array(1))
+            return CQMap(CQ(), CQ(), Tensor.np.array(1))
         if len(dim) == 1:
             if destructive:
-                array = np.array([
+                array = Tensor.np.array([
                     int(i == j == k)
                     for i in range(dim[0])
                     for j in range(dim[0])
                     for k in range(dim[0])])
                 return CQMap(Q(dim), C(dim), array)
-            array = np.array([
+            array = Tensor.np.array([
                 int(i == j == k == l == m)
                 for i in range(dim[0])
                 for j in range(dim[0])
@@ -234,8 +235,8 @@ class CQMap(Tensor):
     @staticmethod
     def discard(dom):
         """ Discard a quantum dimension or take the marginal distribution. """
-        array = np.tensordot(
-            np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
+        array = Tensor.np.tensordot(
+            Tensor.np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
         return CQMap(dom, CQ(), array)
 
     @staticmethod
@@ -254,20 +255,26 @@ class CQMap(Tensor):
 
 class Functor(rigid.Functor):
     """
-    Implements functors into :class:`CQMap`.
+    Functors from :class:`Circuit` into :class:`CQMap`.
     """
     def __init__(self, ob=None, ar=None):
-        ob, ar = ob or {bit: C(Dim(2)), qubit: Q(Dim(2))}, ar or {}
-        super().__init__(ob, ar, ob_factory=CQ, ar_factory=CQMap)
+        self.__ob, self.__ar = ob or {}, ar or {}
+        super().__init__(self._ob, self._ar, ob_factory=CQ, ar_factory=CQMap)
 
     def __repr__(self):
-        return super().__repr__().replace("Functor", "cqmap.Functor")
+        return "cqmap.Functor(ob={}, ar={})".format(self.__ob, self.__ar)
 
-    def __call__(self, box):
-        if isinstance(box, Sum) or not isinstance(box, Box):
-            return super().__call__(box)
-        if isinstance(box, Swap):
-            return CQMap.swap(self(box.dom[:1]), self(box.dom[1:]))
+    def _ob(self, typ):
+        """ Overrides the input mapping on objects for Digit and Qudit. """
+        obj, = typ
+        if isinstance(obj, Digit):
+            return C(Dim(obj.dim))
+        if isinstance(obj, Qudit):
+            return Q(Dim(obj.dim))
+        return self.__ob[typ]
+
+    def _ar(self, box):
+        """ Overrides the input mapping on arrows. """
         if isinstance(box, Discard):
             return CQMap.discard(self(box.dom))
         if isinstance(box, Measure):
@@ -286,4 +293,6 @@ class Functor(rigid.Functor):
         if not box.is_mixed:
             dom, cod = self(box.dom).quantum, self(box.cod).quantum
             return CQMap.pure(Tensor(dom, cod, box.array))
-        return CQMap(self(box.dom), self(box.cod), box.array)
+        if hasattr(box, "array"):
+            return CQMap(self(box.dom), self(box.cod), box.array)
+        return self.__ar[box]

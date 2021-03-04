@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 
-from pytest import raises
 from unittest.mock import Mock
+from functools import reduce, partial
+import itertools
+from pytest import raises
+import numpy as np
 from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
@@ -18,9 +21,11 @@ def test_bitstring2index():
     assert bitstring2index((0, 0, 1, 0, 1, 0, 1, 0)) == 42
 
 
-def test_BitsAndQubits():
-    with raises(TypeError):
-        qubit @ Ty('x')
+def test_Circuit_ob():
+    with raises(AxiomError):
+        Ob("x", z=-1)
+    with raises(ValueError):
+        Ob("x", dim=-1)
 
 
 def test_Circuit_repr():
@@ -36,7 +41,7 @@ def test_Circuit_permutation():
 
 
 def test_Circuit_eval():
-    with raises(AttributeError):
+    with raises(KeyError):
         Box('f', qubit, qubit).eval()
     assert MixedState().eval() == Discard().eval().dagger()
 
@@ -88,6 +93,14 @@ def test_tk_err():
         Circuit.from_tk(tk.Circuit(3).CSWAP(0, 1, 2))
 
 
+def test_bra_ket_inputs():
+    bad_inputs = ['0', '1', 2]
+    for box in [Bra, Ket]:
+        for bad_input in bad_inputs:
+            with raises(Exception):
+                box(bad_input)
+
+
 def test_Circuit_from_tk():
     def back_n_forth(f):
         return Circuit.from_tk(f.to_tk())
@@ -101,7 +114,7 @@ def test_Circuit_from_tk():
 
 
 def test_ClassicalGate_to_tk():
-    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, data=[0, 0, 0, 1])
+    post = ClassicalGate('post', 2, 0, data=[0, 0, 0, 1])
     assert (post[::-1] >> Swap(bit, bit)).to_tk().post_processing\
         == post[::-1] >> Swap(bit, bit)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
@@ -179,9 +192,9 @@ def test_ClassicalGate_eval():
 
 def test_Box():
     with raises(TypeError):
-        Box('f', Ty('x'), bit)
+        Box('f', rigid.Ty('x'), bit)
     with raises(TypeError):
-        Box('f', bit, Ty('x'))
+        Box('f', bit, rigid.Ty('x'))
 
 
 def test_pure_Box():
@@ -214,8 +227,15 @@ def test_QuantumGate():
 def test_ClassicalGate():
     f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
     assert repr(f.dagger())\
-        == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, "\
-           "data=[0, 1, 1, 0]).dagger()"
+        == "ClassicalGate('f', bit, bit, data=[0, 1, 1, 0]).dagger()"
+
+
+def test_Digits():
+    with raises(TypeError):
+        Digits()
+    d = Digits(0, 1, 2, dim=3)
+    assert d.digits == [0, 1, 2]
+    assert d.dagger().dagger() == d
 
 
 def test_Bits():
@@ -249,7 +269,7 @@ def test_CRx():
 
 
 def test_CircuitFunctor():
-    x, y = Ty('x'), Ty('y')
+    x, y = rigid.Ty('x'), rigid.Ty('y')
     f = rigid.Box('f', x, y)
     ob, ar = {x: qubit, y: bit}, {f: Measure()}
     assert repr(CircuitFunctor(ob, ar))\
@@ -275,28 +295,15 @@ def test_Sum():
 
 def test_subs():
     from sympy.abc import phi
-    assert list(Rz(phi).subs(phi, 0).array.flatten()) == [1, 0, 0, 1]
     assert (Rz(phi) + Rz(phi + 1)).subs(phi, 1) == Rz(1) + Rz(2)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(phi) >> CX >> Bra(0, 1)
     assert circuit.subs(phi, 0.5)\
         == sqrt(2) @ Ket(0, 0) >> H @ Rx(0.5) >> CX >> Bra(0, 1)
 
 
-def test_grad():
+def test_lambdify():
     from sympy.abc import phi
-    with raises(NotImplementedError):
-        Box('f', qubit, qubit, data=phi).grad(phi)
-    with raises(NotImplementedError):
-        super(CRz, CRz(phi)).grad(phi)
-
-    assert scalar(1).grad(phi) == Sum([], qubit ** 0, qubit ** 0)
-    assert (Rz(phi) + Rz(2 * phi)).grad(phi)\
-        == Rz(phi).grad(phi) + Rz(2 * phi).grad(phi)
-    assert scalar(phi).grad(phi) == scalar(1)
-    assert Rz(0).grad(phi) == X.grad(phi) == Sum([], qubit, qubit)
-
-    for op in (CU1, CRx, CRz):
-        assert op(0).grad(phi) == Sum([], qubit**2, qubit**2)
+    assert list(Rz(phi).lambdify(phi)(0).array.flatten()) == [1, 0, 0, 1]
 
 
 def _to_square_mat(m):
@@ -304,16 +311,59 @@ def _to_square_mat(m):
     return m.reshape(2 * (int(np.sqrt(len(m))), ))
 
 
-def test_rot_grad():
+def test_grad_basic():
     from sympy.abc import phi
-    import sympy as sy
-    for gate in (Rx, Ry, Rz, CU1, CRx, CRz):
-        # Compare the grad discopy vs sympy
-        op = gate(phi)
-        d_op_sym = sy.Matrix(_to_square_mat(op.eval().array)).diff(phi)
-        d_op_disco = sy.Matrix(_to_square_mat(op.grad(phi).eval().array))
-        diff = sy.simplify(d_op_disco - d_op_sym).evalf()
-        assert np.isclose(float(diff.norm()), 0.)
+    assert Rz(0).grad(phi).eval() == 0
+    assert CU1(1).grad(phi).eval() == 0
+    assert CRz(0).grad(phi).eval() == 0
+    assert CRx(1).grad(phi).eval() == 0
+
+    assert scalar(2 * phi).grad(phi).eval() == 2
+    assert scalar(1.23).grad(phi).eval() == 0
+    assert (scalar(2 * phi) + scalar(3 * phi)).grad(phi).eval() == 5
+
+    assert Measure().grad(phi).eval() == 0
+    with raises(NotImplementedError):
+        Box("dummy box", qubit, qubit, data=phi).grad(phi)
+
+
+def _assert_is_close_to_iden(m):
+    m = _to_square_mat(m)
+    assert np.isclose(np.linalg.norm(m - np.eye(len(m))), 0)
+
+
+def _assert_is_close_to_0(m):
+    if isinstance(m, Circuit):
+        assert m.dom == m.cod
+        m = m.eval().array
+    m = np.asarray(m).flatten()
+    assert np.isclose(np.linalg.norm(m), 0)
+
+
+def test_testing_utils():
+    for k in range(1, 4):
+        _assert_is_close_to_iden(np.eye(k))
+        _assert_is_close_to_iden(Id(k))
+        _assert_is_close_to_0(np.zeros(k))
+        _assert_is_close_to_0(Ket(*([0] * k)) >> Bra(*([1] * k)))
+
+
+def test_rot_grad():
+    from sympy import I, pi
+    from sympy.abc import phi
+    assert CRz(phi).grad(phi, mixed=False)\
+        == (CRz(phi) >> Z @ Z @ scalar(0.5 * I * pi))\
+        + (CRz(phi) >> Id(1) @ Z @ scalar(-0.5 * I * pi))
+    assert CRx(phi).grad(phi, mixed=False)\
+        == (CRx(phi) >> Z @ X @ scalar(0.5 * I * pi))\
+        + (CRx(phi) >> Id(1) @ X @ scalar(-0.5 * I * pi))
+
+
+def test_rot_grad_NotImplemented():
+    from sympy.abc import z
+    for gate in (CRx, CRz, CU1):
+        with raises(NotImplementedError):
+            gate(z).grad(z, mixed=True)
 
 
 def test_ClassicalGate_grad_subs():
@@ -328,3 +378,86 @@ def test_Copy_Match():
 
 def test_Sum_get_counts():
     assert Sum([], qubit, qubit).get_counts() == {}
+
+
+def sy_cx(c, t, n):
+    """
+    A sympy CX factory with arbitrary control and target wires.
+    The returned function accepts a tuple of integers (representing the
+    bits state) or a binary string. The input is assumed in big endian
+    ordering.
+    :param c: The index of the control bit.
+    :param t: The index of the target bit.
+    :param n: The total number of bits.
+    """
+    assert c != t
+    assert c in range(n)
+    assert t in range(n)
+
+    import sympy as sy
+    x = list(sy.symbols(f'x:{n}'))
+    x[t] = (x[c] + x[t]) % 2
+    x = sy.Array(x)
+
+    def f(v):
+        v = map(int, list(v)) if isinstance(v, str) else v
+        v = x.subs(zip(sy.symbols(f'x:{n}'), v))
+        return tuple(v)
+    return f
+
+
+def verify_rewire_cx_case(c, t, n):
+    ext_cx = partial(rewire, CX)
+    op = ext_cx(c, t, dom=qubit**n)
+    cx1 = sy_cx(c, t, n)
+
+    for k in range(2**n):
+        v = format(k, 'b').zfill(n)
+        v = tuple(map(int, list(v)))
+        # <f(i)| CX_{c, t} |i>, where f is the classical
+        # implementation of CX_{c, t}.
+        c = Ket(*v) >> op >> Bra(*cx1(v))
+        assert np.isclose(c.eval().array, 1)
+
+
+def test_rewire():
+    ext_cx = partial(rewire, CX)
+
+    assert ext_cx(0, 1) == CX
+    assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
+    assert ext_cx(0, 1, dom=qubit**2) == CX
+    assert ext_cx(2, 1) == Id(1) @ (SWAP >> CX >> SWAP)
+    assert rewire(CZ, 1, 2) == Id(1) @ CZ
+    assert rewire(Id(2), 1, 0) == SWAP >> SWAP
+    assert rewire(Circuit.cups(qubit, qubit), 1, 2).cod == qubit
+
+    with raises(NotImplementedError):
+        # Case cod != qubit**2 and non-contiguous rewiring
+        rewire(Circuit.cups(qubit, qubit), 0, 2)
+    with raises(ValueError):
+        # Case dom != qubit**2
+        rewire(X, 1, 2)
+    with raises(ValueError):
+        ext_cx(0, 0)
+    with raises(ValueError):
+        ext_cx(0, 1, dom=qubit**0)
+
+    for params in [(0, 2, 3), (2, 0, 3)]:
+        verify_rewire_cx_case(*params)
+
+
+def test_real_amp_ansatz():
+    rys_layer = (Ry(0) @ Ry(0))
+    step = CX >> rys_layer
+
+    for entg in ('full', 'linear'):
+        c = rys_layer >> step
+        assert real_amp_ansatz(np.zeros((2, 2)), entanglement=entg) == c
+        c = rys_layer >> step >> step
+        assert real_amp_ansatz(np.zeros((3, 2)), entanglement=entg) == c
+
+    step = (SWAP >> CX >> SWAP) >> CX >> (Ry(0) @ Ry(0))
+    c = rys_layer >> step
+    assert real_amp_ansatz(np.zeros((2, 2)), entanglement='circular') == c
+    c = rys_layer >> step >> step
+    assert real_amp_ansatz(np.zeros((3, 2)), entanglement='circular') == c

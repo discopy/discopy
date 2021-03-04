@@ -1,4 +1,5 @@
 from pytest import raises
+import numpy as np
 from discopy.tensor import *
 
 
@@ -66,6 +67,8 @@ def test_Tensor_transpose():
 
 
 def test_Tensor_tensor():
+    assert Tensor.tensor(Tensor.id(Dim(2))) == Tensor.id(Dim(2))
+
     assert Tensor.id(Dim(2)) @ Tensor.id(Dim(3)) == Tensor.id(Dim(2, 3))
 
     v = Tensor(Dim(1), Dim(2), [1, 0])

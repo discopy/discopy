@@ -78,8 +78,8 @@ def test_grad():
 
 def test_grad_to_pyzx():
     from sympy.abc import theta
-    m1 = circuit2zx(
-        CU1(theta).grad(theta)).subs(theta, 1 / 2).to_pyzx().to_matrix()
+    m1 = circuit2zx(CU1(theta).grad(theta, mixed=False))\
+        .subs(theta, 1 / 2).to_pyzx().to_matrix()
     e3 = _std_basis_v(1, 1)
     m2 = (e3 @ e3.T) * (-2j * np.pi)
     assert np.isclose(np.linalg.norm(m1 - m2), 0)

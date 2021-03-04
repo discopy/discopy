@@ -26,9 +26,13 @@ def test_CQMap():
 
 
 def test_Functor():
-    assert repr(Functor({}, {}))\
-        == "cqmap.Functor(ob={bit: C(Dim(2)), qubit: Q(Dim(2))}, ar={})"
-    assert Functor()(sqrt(4)) == CQMap(dom=CQ(), cod=CQ(), array=[4])
+    x = circuit.Ty('x')
+    f = circuit.Box('f', x, x)
+    f.array = [1]
+    functor = Functor({x: CQ()}, {})
+    assert repr(functor) == "cqmap.Functor(ob={x: CQ()}, ar={})"
+    assert functor(f) == CQMap(dom=CQ(), cod=CQ(), array=[1])
+    assert functor(sqrt(4)) == CQMap(dom=CQ(), cod=CQ(), array=[4])
 
 
 def test_CQMap_measure():

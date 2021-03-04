@@ -2,3 +2,5 @@ pytket
 pyzx
 sympy
 tensornetwork
+jax
+jaxlib

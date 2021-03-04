@@ -12,6 +12,7 @@ quantum.gates
    discopy.quantum.gates.ClassicalGate
    discopy.quantum.gates.Copy
    discopy.quantum.gates.Match
+   discopy.quantum.gates.Digits
    discopy.quantum.gates.Bits
    discopy.quantum.gates.Ket
    discopy.quantum.gates.Bra

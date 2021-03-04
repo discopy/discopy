@@ -183,6 +183,42 @@ class FC(Box):
         super().__init__(name, dom, cod)
 
 
+class BC(Box):
+    """ Backward composition box. """
+    def __init__(self, left, right):
+        if not isinstance(left, Under):
+            raise TypeError(messages.type_err(Under, left))
+        if not isinstance(right, Under):
+            raise TypeError(messages.type_err(Under, right))
+        name = "BC({}, {})".format(left, right)
+        dom, cod = left @ right, left.left >> right.right
+        super().__init__(name, dom, cod)
+
+
+class FX(Box):
+    """ Forward cross-composition box. """
+    def __init__(self, left, right):
+        if not isinstance(left, Over):
+            raise TypeError(messages.type_err(Over, left))
+        if not isinstance(right, Under):
+            raise TypeError(messages.type_err(Over, right))
+        name = "FX({}, {})".format(left, right)
+        dom, cod = left @ right, right.left >> left.left
+        super().__init__(name, dom, cod)
+
+
+class BX(Box):
+    """ Backward cross-composition box. """
+    def __init__(self, left, right):
+        if not isinstance(left, Over):
+            raise TypeError(messages.type_err(Under, left))
+        if not isinstance(right, Under):
+            raise TypeError(messages.type_err(Under, right))
+        name = "BX({}, {})".format(left, right)
+        dom, cod = left @ right, right.right << left.right
+        super().__init__(name, dom, cod)
+
+
 class Functor(monoidal.Functor):
     """
     Functors into biclosed monoidal categories.

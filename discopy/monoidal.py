@@ -263,7 +263,7 @@ class Layer(cat.Box):
     def __init__(self, left, box, right):
         self._left, self._box, self._right = left, box, right
         dom, cod = left @ box.dom @ right, left @ box.cod @ right
-        super().__init__("Layer", dom, cod, data=box)
+        super().__init__("Layer", dom, cod)
 
     def __iter__(self):
         yield self._left
@@ -477,6 +477,11 @@ class Diagram(cat.Arrow):
         return self.id(self.dom).then(*(
             self.id(left) @ box.subs(*args) @ self.id(right)
             for left, box, right in self.layers))
+
+    def lambdify(self, *symbols, **kwargs):
+        return lambda *xs: self.id(self.dom).then(*(
+            self.id(left) @ box.lambdify(*symbols, **kwargs)(*xs)
+            @ self.id(right) for left, box, right in self.layers))
 
     @staticmethod
     def swap(left, right, ar_factory=None, swap_factory=None):

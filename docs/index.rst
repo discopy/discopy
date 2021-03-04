@@ -25,6 +25,7 @@ discopy
     notebooks/rewriting-diagrams
     notebooks/new-features-0.3.3
     notebooks/your-own-category
+    notebooks/diag-diff
 
 .. toctree::
    :maxdepth: 2

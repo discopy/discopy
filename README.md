@@ -133,13 +133,13 @@ cd discopy
 pip install .
 ```
 
-You can check you haven't broken anything by running the test suite:
+You should check you haven't broken anything by running the test suite:
 
 ```shell
 pip install ".[test]" .
-pip install pytest coverage
-coverage run -m pytest --doctest-modules
-coverage report -m
+pip install pytest coverage pycodestyle
+coverage run -m pytest --doctest-modules --pycodestyle
+coverage report -m discopy/*.py discopy/*/*.py
 ```
 
 The documentation is built automatically from the source code using
