@@ -180,7 +180,6 @@ class Digits(ClassicalGate):
         return Digits(*self.digits, dim=self.dim, _dagger=not self._dagger)
 
 
-
 class Bits(Digits):
     """
     Implements bit preparation for a given bitstring.
