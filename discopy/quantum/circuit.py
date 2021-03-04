@@ -455,7 +455,7 @@ class Circuit(tensor.Diagram):
 
     def grad(self, var, **params):
         """
-        Gradient with respect to `var`.
+        Gradient with respect to :code:`var`.
 
         Parameters
         ----------
@@ -464,7 +464,7 @@ class Circuit(tensor.Diagram):
 
         Returns
         -------
-        circuits : `discopy.quantum.circuit.Sum`
+        circuit : `discopy.quantum.circuit.Sum`
 
         Examples
         --------
@@ -476,6 +476,36 @@ class Circuit(tensor.Diagram):
         ...     + (scalar(pi/2) @ Rz(phi/2 + .5) @ Rz(phi + 1) >> CX)
         """
         return super().grad(var, **params)
+
+    def jacobian(self, variables, **params):
+        """
+        Jacobian with respect to :code:`variables`.
+
+        Parameters
+        ----------
+        variables : List[sympy.Symbol]
+            Differentiated variables.
+
+        Returns
+        -------
+        circuit : `discopy.quantum.circuit.Sum`
+            with :code`circuit.dom == self.dom`
+            and :code:`circuit.cod == Digit(len(variables)) @ self.cod`.
+
+        Examples
+        --------
+        >>> from sympy.abc import x, y
+        >>> from discopy.quantum.gates import Bits, Ket, Rx, Rz
+        >>> c = Ket(0) >> Rx(x) >> Rz(y)
+        >>> assert c.jacobian([x, y])\\
+        ...     == (Bits(0) @ c.grad(x)) + (Bits(1) @ c.grad(y))
+        >>> assert not c.jacobian([])
+        """
+        if not variables:
+            return Sum([], self.dom, self.cod)
+        from discopy.quantum.gates import Digits
+        return sum(Digits(i, dim=len(variables)) @ self.grad(x)
+                   for i, x in enumerate(variables))
 
     def draw(self, **params):
         """ We draw the labels of a circuit whenever it's mixed. """
@@ -553,13 +583,13 @@ class Box(rigid.Box, Circuit):
         rigid.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
         Circuit.__init__(self, dom, cod, [self], [0])
         if not is_mixed:
-            if all(x.name == "bit" for x in dom @ cod):
+            if all(isinstance(x, Digit) for x in dom @ cod):
                 self.classical = True
-            elif all(x.name == "qubit" for x in dom @ cod):
+            elif all(isinstance(x, Qudit) for x in dom @ cod):
                 self.classical = False
             else:
                 raise ValueError(
-                    "dom and cod should be bits only or qubits only.")
+                    "dom and cod should be Digits only or Qudits only.")
         self._mixed = is_mixed
 
     def grad(self, var, **params):

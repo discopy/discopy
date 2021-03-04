@@ -7,7 +7,7 @@ import numpy
 
 from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor
-from discopy.quantum.circuit import bit, qubit, Box, Swap, Sum, Id
+from discopy.quantum.circuit import Digit, Ty, bit, qubit, Box, Swap, Sum, Id
 
 
 def format_number(data):
@@ -48,21 +48,24 @@ class QuantumGate(Box):
 
 class ClassicalGate(Box):
     """
-    Classical gates, i.e. from bits to bits.
+    Classical gates, i.e. from digits to digits.
 
     >>> from sympy import symbols
     >>> array = symbols("a b c d")
     >>> f = ClassicalGate('f', 1, 1, array)
     >>> f
-    ClassicalGate('f', n_bits_in=1, n_bits_out=1, data=[a, b, c, d])
+    ClassicalGate('f', bit, bit, data=[a, b, c, d])
     >>> f.lambdify(*array)(1, 2, 3, 4)
-    ClassicalGate('f', n_bits_in=1, n_bits_out=1, data=[1, 2, 3, 4])
+    ClassicalGate('f', bit, bit, data=[1, 2, 3, 4])
     """
-    def __init__(self, name, n_bits_in, n_bits_out, data=None, _dagger=False):
-        dom, cod = bit ** n_bits_in, bit ** n_bits_out
+    def __init__(self, name, dom, cod, data=None, _dagger=False):
+        if isinstance(dom, int):
+            dom = bit ** dom
+        if isinstance(cod, int):
+            cod = bit ** cod
         if data is not None:
             data = Tensor.np.array(data).reshape(
-                (n_bits_in + n_bits_out) * (2, ) or (1, ))
+                (len(dom) + len(cod)) * (2, ) or (1, ))
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
@@ -82,31 +85,30 @@ class ClassicalGate(Box):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
         data = array2string(self.array.flatten())
-        return "ClassicalGate({}, n_bits_in={}, n_bits_out={}, data={})"\
-            .format(repr(self.name), len(self.dom), len(self.cod), data)
+        return "ClassicalGate({}, {}, {}, data={})"\
+            .format(repr(self.name), self.dom, self.cod, data)
 
     def dagger(self):
+        _dagger = None if self._dagger is None else not self._dagger
         return ClassicalGate(
-            self.name, len(self.cod), len(self.dom), self.array,
-            _dagger=None if self._dagger is None else not self._dagger)
+            self.name, self.cod, self.dom, self.array, _dagger)
 
     def subs(self, *args):
         data = rsubs(list(self.data.flatten()), *args)
-        return ClassicalGate(self.name, len(self.dom), len(self.cod), data)
+        return ClassicalGate(self.name, self.dom, self.cod, data)
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
         data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
         return lambda *xs: ClassicalGate(
-            self.name, len(self.dom), len(self.cod), data(*xs))
+            self.name, self.dom, self.cod, data(*xs))
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         name = "{}.grad({})".format(self.name, var)
-        n_bits_in, n_bits_out = len(self.dom), len(self.cod)
-        array = self.eval().grad(var, **params).array
-        return ClassicalGate(name, n_bits_in, n_bits_out, array)
+        data = self.eval().grad(var, **params).array
+        return ClassicalGate(name, self.dom, self.cod, data)
 
 
 class Copy(ClassicalGate):
@@ -131,7 +133,55 @@ class Match(ClassicalGate):
         return Copy()
 
 
-class Bits(ClassicalGate):
+class Digits(ClassicalGate):
+    """
+    Classical state for a given string of digits of a given dimension.
+
+    Examples
+    --------
+    >>> assert Bits(1, 0) == Digits(1, 0, dim=2)
+    >>> assert Digits(2, dim=4).eval()\\
+    ...     == Tensor(dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
+    """
+    def __init__(self, *digits, dim=None, _dagger=False):
+        if not isinstance(dim, int):
+            raise TypeError(int, dim)
+        self._digits, self._dim = digits, dim
+        name = "Digits({}, dim={})".format(', '.join(map(str, digits)), dim)\
+            if dim != 2 else "Bits({})".format(', '.join(map(str, digits)))
+        dom, cod = Ty(), Ty(Digit(dim)) ** len(digits)
+        dom, cod = (cod, dom) if _dagger else (dom, cod)
+        super().__init__(name, dom, cod, _dagger=_dagger)
+
+    def __repr__(self):
+        return self.name + (".dagger()" if self._dagger else "")
+
+    @property
+    def dim(self):
+        """
+        The dimension of the information units.
+
+        >>> assert Bits(1, 0).dim == 2
+        """
+        return self._dim
+
+    @property
+    def digits(self):
+        """ The digits of a classical state. """
+        return list(self._digits)
+
+    @property
+    def array(self):
+        array = numpy.zeros(len(self._digits) * (self._dim, ) or (1, ))
+        array[self._digits] = 1
+        return array
+
+    def dagger(self):
+        return Digits(*self.digits, dim=self.dim, _dagger=not self._dagger)
+
+
+
+class Bits(Digits):
     """
     Implements bit preparation for a given bitstring.
 
@@ -140,23 +190,15 @@ class Bits(ClassicalGate):
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring, _dagger=False):
-        self.bitstring = bitstring
-        name = "Bits({})".format(', '.join(map(str, bitstring)))
-        dom, cod = (len(bitstring), 0) if _dagger else (0, len(bitstring))
-        super().__init__(name, dom, cod, _dagger=_dagger)
+        super().__init__(*bitstring, dim=2, _dagger=_dagger)
 
-    def __repr__(self):
-        return self.name + (".dagger()" if self._dagger else "")
+    @property
+    def bitstring(self):
+        """ The bitstring of a classical state. """
+        return list(self._digits)
 
     def dagger(self):
         return Bits(*self.bitstring, _dagger=not self._dagger)
-
-    @property
-    def array(self):
-        import numpy
-        array = numpy.zeros(len(self.bitstring) * (2, ) or (1, ))
-        array[self.bitstring] = 1
-        return array
 
 
 class Ket(Box):
@@ -174,7 +216,12 @@ class Ket(Box):
         dom, cod = qubit ** 0, qubit ** len(bitstring)
         name = "Ket({})".format(', '.join(map(str, bitstring)))
         super().__init__(name, dom, cod, is_mixed=False)
-        self.bitstring = bitstring
+        self._digits, self._dim = bitstring, 2
+
+    @property
+    def bitstring(self):
+        """ The bitstring of a Ket. """
+        return list(self._digits)
 
     def dagger(self):
         return Bra(*self.bitstring)
@@ -197,7 +244,12 @@ class Bra(Box):
         name = "Bra({})".format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod, is_mixed=False)
-        self.bitstring = bitstring
+        self._digits, self._dim = bitstring, 2
+
+    @property
+    def bitstring(self):
+        """ The bitstring of a Bra. """
+        return list(self._digits)
 
     def dagger(self):
         return Ket(*self.bitstring)

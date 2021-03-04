@@ -453,7 +453,6 @@ class Diagram(rigid.Diagram):
         if var not in self.free_symbols:
             return self.sum([], self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
-
         t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
         return t1 + t2

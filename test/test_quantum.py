@@ -114,7 +114,7 @@ def test_Circuit_from_tk():
 
 
 def test_ClassicalGate_to_tk():
-    post = ClassicalGate('post', n_bits_in=2, n_bits_out=0, data=[0, 0, 0, 1])
+    post = ClassicalGate('post', 2, 0, data=[0, 0, 0, 1])
     assert (post[::-1] >> Swap(bit, bit)).to_tk().post_processing\
         == post[::-1] >> Swap(bit, bit)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
@@ -227,8 +227,15 @@ def test_QuantumGate():
 def test_ClassicalGate():
     f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
     assert repr(f.dagger())\
-        == "ClassicalGate('f', n_bits_in=1, n_bits_out=1, "\
-           "data=[0, 1, 1, 0]).dagger()"
+        == "ClassicalGate('f', bit, bit, data=[0, 1, 1, 0]).dagger()"
+
+
+def test_Digits():
+    with raises(TypeError):
+        Digits()
+    d = Digits(0, 1, 2, dim=3)
+    assert d.digits == [0, 1, 2]
+    assert d.dagger().dagger() == d
 
 
 def test_Bits():
