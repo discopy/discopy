@@ -49,13 +49,40 @@ def test_FC():
         FC(x << y, y >> x)
 
 
-def test_Functor():
+def test_BC():
     x, y = Ty('x'), Ty('y')
+    with raises(TypeError):
+        BC(x << y, y << x)
+    with raises(TypeError):
+        BC(x >> y, y << x)
+
+
+def test_FX():
+    x, y = Ty('x'), Ty('y')
+    with raises(TypeError):
+        FX(x >> y, y >> x)
+    with raises(TypeError):
+        FX(x << y, y << x)
+
+
+def test_BX():
+    x, y = Ty('x'), Ty('y')
+    with raises(TypeError):
+        BX(x >> y, y >> x)
+    with raises(TypeError):
+        BX(x << y, y << x)
+
+
+def test_Functor():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
     f = Box('f', x, y)
     IdF = Functor(lambda x: x, lambda f: f)
     assert IdF(x >> y << x) == x >> y << x
     assert IdF(Curry(f)) == Curry(f)
     assert IdF(FC(x << y, y << x)) == FC(x << y, y << x)
+    assert IdF(BC(x >> y, y >> x)) == BC(x >> y, y >> x)
+    assert IdF(FX(x << y, z >> y)) == FX(x << y, z >> y)
+    assert IdF(BX(x << y, y >> z)) == BX(x << y, y >> z)
 
 
 def test_biclosed2rigid():
