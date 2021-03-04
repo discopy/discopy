@@ -13,7 +13,7 @@ from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
 
-# Mapping from attributes to mappings from box to default value.
+# Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
     "draw_as_wires": lambda _: False,
     "draw_as_spider": lambda _: False,
@@ -205,7 +205,7 @@ def nx2diagram(graph, ob_factory, id_factory):
 
     Note
     ----
-    Box nodes need an offset attribute.
+    Box nodes with no inputs need an offset attribute.
     """
     _id, _ty = id_factory, ob_factory
     inputs, outputs, boxes = [], [], []
@@ -218,21 +218,17 @@ def nx2diagram(graph, ob_factory, id_factory):
     scan, diagram = inputs, _id(_ty(*[node.obj for node in inputs]))
     for depth, box_node in enumerate(boxes):
         box = box_node.box
-        offset = box_node.offset if box_node.offset is not None else 0
+        offset = getattr(box_node, "offset", 0)
         for i, obj in enumerate(box.dom):
             dom_node = Node("dom", obj=obj, i=i, depth=depth)
             edge, = graph.in_edges(dom_node)
             wire, _ = edge
             if i == 0:
                 offset = scan.index(wire)
-            elif scan.index(wire) != offset + i:
-                raise AxiomError
         outputs = sorted(
             [node for _, node in graph.out_edges(box_node)],
             key=lambda node: node.i)
         for i, obj in enumerate(box.cod):
-            if outputs[i].obj != obj:
-                raise AxiomError
             outputs[i].offset = offset + i
         left, right = diagram.cod[:offset], diagram.cod[offset + len(box.dom):]
         scan = scan[:offset] + outputs + scan[offset + len(box.dom):]
@@ -365,7 +361,8 @@ class TikzBackend(Backend):
             else:
                 options = "{}, fill={}".format(shape, color)
             if params.get("nodesize", 1) != 1:
-                options += ", scale={}".format(params.get("nodesize"))
+                options += ", scale={}".format(
+                    params.get("nodesize"))  # pragma: no cover
             self.add_node(i, j, text, options)
         super().draw_spiders(graph, positions, draw_box_labels)
 
@@ -426,7 +423,7 @@ class MatBackend(Backend):
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None):
-        if style == '->':
+        if style == '->':  # pragma: no cover
             self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
                 head_width=.02, color="black")
@@ -860,14 +857,16 @@ def diagramize(dom, cod, boxes, id_factory=None):
                 if not isinstance(node, Node):
                     raise TypeError(messages.type_err(Node, node))
             if len(inputs) != len(box.dom):
-                raise AxiomError
+                raise AxiomError("Expected {} inputs, got {} instead."
+                                 .format(len(box.dom), len(inputs)))
             depth = len(box_nodes)
             box_node = Node("box", box=box, depth=depth, offset=offset)
             box_nodes.append(box_node)
             graph.add_node(box_node)
             for i, obj in enumerate(box.dom):
                 if inputs[i].obj != obj:
-                    raise AxiomError
+                    raise AxiomError("Expected {} as input, got {} instead."
+                                     .format(obj, inputs[i].obj))
                 dom_node = Node("dom", obj=obj, i=i, depth=depth)
                 graph.add_edge(inputs[i], dom_node)
                 graph.add_edge(dom_node, box_node)
@@ -887,10 +886,16 @@ def diagramize(dom, cod, boxes, id_factory=None):
         outputs = tuplify(func(*inputs))
         for i, obj in enumerate(cod):
             if outputs[i].obj != obj:
-                raise AxiomError
+                raise AxiomError("Expected {} as output, got {} instead."
+                                 .format(obj, outputs[i].obj))
             node = Node("output", obj=obj, i=i)
             graph.add_edge(outputs[i], node)
         for box in boxes:
             del box._apply
-        return nx2diagram(graph, ob_factory=type(dom), id_factory=id_factory)
+        result = nx2diagram(graph, ob_factory=type(dom), id_factory=id_factory)
+        if result.cod != cod:
+            raise AxiomError(
+                "Expected diagram.cod == {}, got {} instead."
+                .format(cod, result.cod))  # pragma: no cover
+        return result
     return decorator

@@ -270,11 +270,10 @@ class Controlled(QuantumGate):
     """
     def __init__(self, controlled, distance=0):
         if not isinstance(controlled, QuantumGate):
-            raise TypeError
+            raise TypeError(QuantumGate, controlled)
         self.controlled, self.distance = controlled, distance
         self.draw_as_controlled = True
-        import numpy
-        array = numpy.zeros((4, 4))
+        array = numpy.zeros((4, 4), dtype=complex)
         array[:2, :2] = numpy.eye(2)
         array[2:, 2:] = controlled.array
         if distance != 0:

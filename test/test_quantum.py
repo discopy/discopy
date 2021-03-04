@@ -461,3 +461,10 @@ def test_real_amp_ansatz():
     assert real_amp_ansatz(np.zeros((2, 2)), entanglement='circular') == c
     c = rys_layer >> step >> step
     assert real_amp_ansatz(np.zeros((3, 2)), entanglement='circular') == c
+
+
+def test_Controlled():
+    with raises(TypeError):
+        Controlled(None)
+    with raises(NotImplementedError):
+        Controlled(X, distance=-1)

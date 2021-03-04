@@ -218,3 +218,32 @@ def test_tikz_eggs():
 def test_Node_repr():
     assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
         == "Node('dom', depth=1, i=0, obj=Ob('x'))"
+
+
+def test_diagramize():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    with raises(cat.AxiomError):
+        @diagramize(y, x, [f])
+        def diagram(wire):
+            return f(wire)
+    with raises(cat.AxiomError):
+        @diagramize(x, x, [f])
+        def diagram(wire):
+            return f(wire)
+    with raises(cat.AxiomError):
+        @diagramize(x @ x, x, [f])
+        def diagram(left, right):
+            return f(left, right)
+    with raises(cat.AxiomError):
+        @diagramize(x, x @ y, [f])
+        def diagram(wire):
+            return wire, f(offset=0)
+    with raises(TypeError):
+        @diagramize(x, y, [f])
+        def diagram(wire):
+            return f(x)
+    with raises(ValueError):
+        @diagramize(x, x, [])
+        def diagram(wire):
+            return wire

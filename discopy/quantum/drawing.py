@@ -35,7 +35,7 @@ def draw_brakets(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.gates.Ket` box. """
     box, depth = node.box, node.depth
     is_bra = len(box.dom) > 0
-    for i, bit in enumerate(box.bitstring):
+    for i, bit in enumerate(box._digits):
         kind = "dom" if is_bra else "cod"
         obj = box.dom[i] if is_bra else box.cod[i]
         wire = Node(kind, obj=obj, depth=depth, i=i)
@@ -69,7 +69,7 @@ def draw_controlled_gate(backend, positions, node, **params):
     if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
         backend.draw_wire(positions[c_dom], positions[c_cod])
         eps = 1e-10
-        perturbed_target = target[0], target[1]+eps
+        perturbed_target = target[0], target[1] + eps
         backend.draw_node(
             *perturbed_target,
             shape="circle", color="white", edgecolor="black",
