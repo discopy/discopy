@@ -496,21 +496,25 @@ class Circuit(tensor.Diagram):
         --------
         >>> from sympy.abc import x, y
         >>> from discopy.quantum.gates import Bits, Ket, Rx, Rz
-        >>> c = Ket(0) >> Rx(x) >> Rz(y)
-        >>> assert c.jacobian([x, y])\\
-        ...     == (Bits(0) @ c.grad(x)) + (Bits(1) @ c.grad(y))
-        >>> assert not c.jacobian([])
+        >>> circuit = Ket(0) >> Rx(x) >> Rz(y)
+        >>> assert circuit.jacobian([x, y])\\
+        ...     == (Bits(0) @ circuit.grad(x)) + (Bits(1) @ circuit.grad(y))
+        >>> assert not circuit.jacobian([])
+        >>> assert circuit.jacobian([x]) == circuit.grad(x)
         """
         if not variables:
             return Sum([], self.dom, self.cod)
+        if len(variables) == 1:
+            return self.grad(variables[0], **params)
         from discopy.quantum.gates import Digits
-        return sum(Digits(i, dim=len(variables)) @ self.grad(x)
+        return sum(Digits(i, dim=len(variables)) @ self.grad(x, **params)
                    for i, x in enumerate(variables))
 
     def draw(self, **params):
         """ We draw the labels of a circuit whenever it's mixed. """
         draw_type_labels = params.get('draw_type_labels') or self.is_mixed
-        return super().draw(**dict(params, draw_type_labels=draw_type_labels))
+        params = dict({'draw_type_labels': draw_type_labels}, **params)
+        return super().draw(**params)
 
     @staticmethod
     def swap(left, right):

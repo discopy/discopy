@@ -280,6 +280,36 @@ class Tensor(rigid.Box):
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
 
+    def jacobian(self, variables, **params):
+        """
+        Jacobian with respect to :code:`variables`.
+
+        Parameters
+        ----------
+        variables : List[sympy.Symbol]
+            Differentiated variables.
+
+        Returns
+        -------
+        tensor : Tensor
+            with :code:`tensor.dom == self.dom`
+            and :code:`tensor.cod == Dim(len(variables)) @ self.cod`.
+
+        Examples
+        --------
+        >>> from sympy.abc import x, y, z
+        >>> vector = Tensor(Dim(1), Dim(2), [x ** 2, y * z])
+        >>> vector.jacobian([x, y, z])
+        Tensor(dom=Dim(1), cod=Dim(3, 2), array=[2.0*x, 0, 0, 1.0*z, 0, 1.0*y])
+        """
+        dim = Dim(len(variables) or 1)
+        result = Tensor.zeros(self.dom, dim @ self.cod)
+        for i, var in enumerate(variables):
+            onehot = numpy.zeros(dim or (1, ))
+            onehot[i] = 1
+            result += Tensor(Dim(1), dim, onehot) @ self.grad(var)
+        return result
+
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
         array = lambdify(
@@ -457,6 +487,36 @@ class Diagram(rigid.Diagram):
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
         return t1 + t2
 
+    def jacobian(self, variables, **params):
+        """
+        Diagrammatic jacobian with respect to :code:`variables`.
+
+        Parameters
+        ----------
+        variables : List[sympy.Symbol]
+            Differentiated variables.
+
+        Returns
+        -------
+        tensor : Tensor
+            with :code:`tensor.dom == self.dom`
+            and :code:`tensor.cod == Dim(len(variables)) @ self.cod`.
+
+        Examples
+        --------
+        >>> from sympy.abc import x, y, z
+        >>> vector = Box("v", Dim(1), Dim(2), [x ** 2, y * z])
+        >>> vector.jacobian([x, y, z]).eval()
+        Tensor(dom=Dim(1), cod=Dim(3, 2), array=[2.0*x, 0, 0, 1.0*z, 0, 1.0*y])
+        """
+        dim = Dim(len(variables) or 1)
+        result = Sum([], self.dom, dim @ self.cod)
+        for i, var in enumerate(variables):
+            onehot = numpy.zeros(dim or (1, ))
+            onehot[i] = 1
+            result += Box(var, Dim(1), dim, onehot) @ self.grad(var)
+        return result
+
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
         """
@@ -559,7 +619,6 @@ class Spider(Box):
         :align: center
     """
     def __init__(self, n_legs_in, n_legs_out, dim):
-        import numpy
         dim = dim if isinstance(dim, Dim) else Dim(dim)
         if len(dim) > 1:
             raise ValueError(
