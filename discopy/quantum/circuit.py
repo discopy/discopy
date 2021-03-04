@@ -489,7 +489,7 @@ class Circuit(tensor.Diagram):
         Returns
         -------
         circuit : `discopy.quantum.circuit.Sum`
-            with :code`circuit.dom == self.dom`
+            with :code:`circuit.dom == self.dom`
             and :code:`circuit.cod == Digit(len(variables)) @ self.cod`.
 
         Examples

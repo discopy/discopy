@@ -349,39 +349,18 @@ def test_testing_utils():
 
 
 def test_rot_grad():
+    from sympy import I, pi
     from sympy.abc import phi
-    import sympy as sy
-    for gate in (Rx, Ry, Rz, CU1, CRx, CRz):
-        # Compare the grad discopy vs sympy
-        op = gate(phi)
-        d_op_sym = sy.Matrix(_to_square_mat(op.eval().array)).diff(phi)
-        d_op_disco = sy.Matrix(
-            _to_square_mat(op.grad(phi, mixed=False).eval().array))
-        diff = sy.simplify(d_op_disco - d_op_sym).evalf()
-        assert np.isclose(float(diff.norm()), 0.)
+    assert CRz(phi).grad(phi, mixed=False)\
+        == (CRz(phi) >> Z @ Z @ scalar(0.5 * I * pi))\
+        + (CRz(phi) >> Id(1) @ Z @ scalar(-0.5 * I * pi))
+    assert CRx(phi).grad(phi, mixed=False)\
+        == (CRx(phi) >> Z @ X @ scalar(0.5 * I * pi))\
+        + (CRx(phi) >> Id(1) @ X @ scalar(-0.5 * I * pi))
 
 
-def test_rot_grad_mixed():
-    from sympy.abc import symbols
-    from sympy import Matrix
-
-    z = symbols('z', real=True)
-    random_values = [0., 1., 0.123, 0.321, 1.234]
-
-    for gate in (Rx, Ry, Rz):
-        qubits = 1 if gate in (Rx, Ry, Rz) else 2
-        cq_shape = (4, 4) if qubits == 1 else (16, 16)
-        v1 = Matrix((gate(z).eval().conjugate() @ gate(z).eval())
-                    .array.reshape(*cq_shape)).diff(z)
-        v2 = Matrix(gate(z).grad(z).eval(mixed=True).array.reshape(*cq_shape))
-
-        for random_value in random_values:
-            v1_sub = v1.subs(z, random_value).evalf()
-            v2_sub = v2.subs(z, random_value).evalf()
-
-            difference = (v1_sub - v2_sub).norm()
-            assert np.isclose(float(difference), 0.)
-
+def test_rot_grad_NotImplemented():
+    from sympy.abc import z
     for gate in (CRx, CRz, CU1):
         with raises(NotImplementedError):
             gate(z).grad(z, mixed=True)
