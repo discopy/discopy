@@ -5,6 +5,7 @@ Quantum natural language processing
     notebooks/alice-loves-bob
     notebooks/bob-is-rich
     notebooks/qnlp-experiment
+    notebooks/qnlp-tutorial
     notebooks/snake-removal
     notebooks/frobenius-anatomy
     notebooks/functorial-learning
