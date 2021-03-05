@@ -274,17 +274,29 @@ class Functor(monoidal.Functor):
             if isinstance(diagram, cls):
                 return getattr(self.ar_factory, method)(
                     self(diagram.dom[:1]), self(diagram.dom[1:]))
-        for cls, method in [(FC, 'fc')]:
+        for cls, method in [(FC, 'fc'), (BC, 'bc')]:
             if isinstance(diagram, cls):
                 left, right = diagram.dom[:1].left, diagram.dom[1:].right
                 middle = diagram.dom[:1].right
                 return getattr(self.ar_factory, method)(
                     self(left), self(middle), self(right))
+        if isinstance(diagram, FX):
+            left, right = diagram.dom[:1].left, diagram.dom[1:].left
+            middle = diagram.dom[:1].right
+            return getattr(self.ar_factory, 'fx')(
+                self(left), self(middle), self(right))
+        if isinstance(diagram, BX):
+            left, right = diagram.dom[:1].right, diagram.dom[1:].right
+            middle = diagram.dom[:1].left
+            return getattr(self.ar_factory, 'bx')(
+                self(left), self(middle), self(right))
         return super().__call__(diagram)
 
 
 biclosed2rigid_ob = Functor(
     ob=lambda x: rigid.Ty(x[0].name), ar={}, ob_factory=rigid.Ty)
+
+
 biclosed2rigid = Functor(
     ob=biclosed2rigid_ob,
     ar=lambda f: rigid.Box(

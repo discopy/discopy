@@ -222,6 +222,23 @@ class Diagram(monoidal.Diagram):
         return Id(left) @ Diagram.cups(middle.l, middle) @ Id(right.l)
 
     @staticmethod
+    def bc(left, middle, right):
+        """ Backward composition. """
+        return Id(left.r) @ Diagram.cups(middle, middle.r) @ Id(right)
+
+    @staticmethod
+    def fx(left, middle, right):
+        """ Forward crossed composition. """
+        return Id(left) @ Diagram.swap(middle.l, right.r) @ Id(middle) >>\
+            Diagram.swap(left, right.r) @ Diagram.cups(middle.l, middle)
+
+    @staticmethod
+    def bx(left, middle, right):
+        """ Backward crossed composition. """
+        return Id(middle) @ Diagram.swap(left.l, middle.r) @ Id(right) >>\
+            Diagram.cups(middle, middle.r) @ Diagram.swap(left.l, right)
+
+    @staticmethod
     def curry(diagram, n_wires=1, left=False):
         """ Diagram currying. """
         if left:
