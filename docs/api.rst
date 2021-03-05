@@ -1,7 +1,7 @@
 API
 ===
 
-..automodule:: discopy
+.. automodule:: discopy
 
 .. toctree::
    :maxdepth: 2
