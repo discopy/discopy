@@ -108,3 +108,11 @@ def test_biclosed2rigid():
         == rigid.Id(y_) @ rigid.Cap(x_.r, x_)
     assert biclosed2rigid(FC(x << y, y << x))\
         == rigid.Id(x_) @ rigid.Cup(y_.l, y_) @ rigid.Id(x_.l)
+    assert biclosed2rigid(BC(x >> y, y >> x))\
+        == rigid.Id(x_.r) @ rigid.Cup(y_, y_.r) @ rigid.Id(x_)
+    assert biclosed2rigid(FX(x << y, x >> y))\
+        == rigid.Id(x_) @ rigid.Swap(y_.l, x_.r) @ Id(y_) >>\
+        rigid.Swap(x_, x_.r) @ rigid.Cup(y_.l, y_)
+    assert biclosed2rigid(BX(y << x, y >> x))\
+        == rigid.Id(y_) @ rigid.Swap(x_.l, y_.r) @ Id(x_) >>\
+        rigid.Cup(y_, y_.r) @ rigid.Swap(x_.l, x_)
