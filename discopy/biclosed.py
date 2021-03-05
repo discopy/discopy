@@ -86,21 +86,32 @@ class Diagram(monoidal.Diagram):
     @staticmethod
     def fa(left, right):
         """ Forward application. """
-        if left.right != right:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        return FA(left)
+        return FA(left << right)
 
     @staticmethod
     def ba(left, right):
         """ Backward application. """
-        if right.left != left:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        return BA(right)
+        return BA(left >> right)
 
     @staticmethod
     def fc(left, middle, right):
         """ Forward composition. """
         return FC(left << middle, middle << right)
+
+    @staticmethod
+    def bc(left, middle, right):
+        """ Backward composition. """
+        return BC(left >> middle, middle >> right)
+
+    @staticmethod
+    def fx(left, middle, right):
+        """ Forward crossed composition. """
+        return FX(left << middle, right >> middle)
+
+    @staticmethod
+    def bx(left, middle, right):
+        """ Backward crossed composition. """
+        return BX(middle << left, middle >> right)
 
     @staticmethod
     def curry(diagram, n_wires=1, left=False):
@@ -178,6 +189,8 @@ class FC(Box):
             raise TypeError(messages.type_err(Over, left))
         if not isinstance(right, Over):
             raise TypeError(messages.type_err(Over, right))
+        if left.right != right.left:
+            raise TypeError(messages.does_not_compose(left, right))
         name = "FC({}, {})".format(left, right)
         dom, cod = left @ right, left.left << right.right
         super().__init__(name, dom, cod)
@@ -190,30 +203,36 @@ class BC(Box):
             raise TypeError(messages.type_err(Under, left))
         if not isinstance(right, Under):
             raise TypeError(messages.type_err(Under, right))
+        if left.right != right.left:
+            raise TypeError(messages.does_not_compose(left, right))
         name = "BC({}, {})".format(left, right)
         dom, cod = left @ right, left.left >> right.right
         super().__init__(name, dom, cod)
 
 
 class FX(Box):
-    """ Forward cross-composition box. """
+    """ Forward crossed composition box. """
     def __init__(self, left, right):
         if not isinstance(left, Over):
             raise TypeError(messages.type_err(Over, left))
         if not isinstance(right, Under):
             raise TypeError(messages.type_err(Over, right))
+        if left.right != right.right:
+            raise TypeError(messages.does_not_compose(left, right))
         name = "FX({}, {})".format(left, right)
         dom, cod = left @ right, right.left >> left.left
         super().__init__(name, dom, cod)
 
 
 class BX(Box):
-    """ Backward cross-composition box. """
+    """ Backward crossed composition box. """
     def __init__(self, left, right):
         if not isinstance(left, Over):
             raise TypeError(messages.type_err(Under, left))
         if not isinstance(right, Under):
             raise TypeError(messages.type_err(Under, right))
+        if left.left != right.left:
+            raise TypeError(messages.does_not_compose(left, right))
         name = "BX({}, {})".format(left, right)
         dom, cod = left @ right, right.right << left.right
         super().__init__(name, dom, cod)
