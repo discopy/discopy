@@ -104,6 +104,12 @@ def test_Cap_init():
     assert str(err.value) == messages.cap_vs_caps(Ty(), Ty())
 
 
+def test_Cup_Cap_dagger():
+    n = Ty('n')
+    assert Cap(n, n.l).dagger() == Cup(n, n.l)
+    assert Cup(n, n.l).dagger() == Cap(n, n.l)
+
+
 def test_AxiomError():
     n, s = Ty('n'), Ty('s')
     with raises(AxiomError) as err:
@@ -118,14 +124,6 @@ def test_AxiomError():
     with raises(AxiomError) as err:
         Cap(n, n.l.l)
     assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
-    with raises(AxiomError):
-        Cap(n, n.r)
-    with raises(AxiomError):
-        Cap(n, n.l).dagger()
-    with raises(AxiomError):
-        Cup(n, n.l)
-    with raises(AxiomError):
-        Cup(n, n.r).dagger()
 
 
 def test_Functor_call():

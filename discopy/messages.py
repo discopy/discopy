@@ -37,13 +37,6 @@ def are_not_adjoints(left, right):
     return "{} and {} are not adjoints.".format(left, right)
 
 
-def wrong_adjunction(left, right, cup):
-    """ Wrong adjunction error. """
-    return "There is no {0}({2}, {3}) in a rigid category. "\
-           "Maybe you meant {1}({2}, {3})?".format(
-               "Cup" if cup else "Cap", "Cap" if cup else "Cup", left, right)
-
-
 def cup_vs_cups(left, right):
     """ Simple type error. """
     return "Cup can only witness adjunctions between simple types. "\

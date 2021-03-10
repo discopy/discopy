@@ -344,8 +344,6 @@ class Cup(Box):
             raise ValueError(messages.cup_vs_cups(left, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        if left == right.r:
-            raise AxiomError(messages.wrong_adjunction(left, right, cup=True))
         self.left, self.right = left, right
         super().__init__("Cup({}, {})".format(left, right), left @ right, Ty())
         self.draw_as_wires = True
@@ -379,8 +377,6 @@ class Cap(Box):
             raise ValueError(messages.cap_vs_caps(left, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        if left.r == right:
-            raise AxiomError(messages.wrong_adjunction(left, right, cup=False))
         self.left, self.right = left, right
         super().__init__("Cap({}, {})".format(left, right), Ty(), left @ right)
         self.draw_as_wires = True
