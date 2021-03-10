@@ -36,7 +36,8 @@ from discopy.quantum import cqmap, zx
 from discopy.quantum.zx import Z, X, H, SWAP
 from discopy.quantum.cqmap import C, Q, CQMap
 from discopy.quantum.circuit import (
-    bit, qubit, Circuit, CircuitFunctor, Discard, MixedState, Measure, Encode)
+    bit, qubit, Circuit, Functor as CircuitFunctor,
+    Discard, MixedState, Measure, Encode)
 from discopy.quantum.gates import (
     Ket, Bra, Bits, Copy, Match, Rx, Rz, CU1, CRz, CRx, CZ, CX)
 

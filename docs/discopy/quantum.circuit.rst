@@ -21,6 +21,6 @@ quantum.circuit
    discopy.quantum.circuit.MixedState
    discopy.quantum.circuit.Measure
    discopy.quantum.circuit.Encode
-   discopy.quantum.circuit.CircuitFunctor
+   discopy.quantum.circuit.Functor
    discopy.quantum.circuit.random_tiling
    discopy.quantum.circuit.IQPansatz

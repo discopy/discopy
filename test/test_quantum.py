@@ -272,8 +272,8 @@ def test_CircuitFunctor():
     x, y = rigid.Ty('x'), rigid.Ty('y')
     f = rigid.Box('f', x, y)
     ob, ar = {x: qubit, y: bit}, {f: Measure()}
-    assert repr(CircuitFunctor(ob, ar))\
-        == "CircuitFunctor(ob={Ty('x'): qubit, Ty('y'): bit}, "\
+    assert repr(Functor(ob, ar))\
+        == "circuit.Functor(ob={Ty('x'): qubit, Ty('y'): bit}, "\
            "ar={Box('f', Ty('x'), Ty('y')): Measure()})"
 
 

@@ -12,7 +12,7 @@ from pytket.utils import probs_from_counts
 
 from discopy import messages
 from discopy.quantum.circuit import (
-    CircuitFunctor, Id, bit, qubit, Discard, Measure)
+    Functor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
     ClassicalGate, QuantumGate, Bits, Bra, Ket,
     Swap, Scalar, MixedScalar, GATES, X, Rx, Rz, CRz, format_number)
@@ -217,7 +217,7 @@ def to_tk(circuit):
         else:
             raise NotImplementedError
 
-    circuit = CircuitFunctor(ob=lambda x: x, ar=remove_ket1)(circuit)
+    circuit = Functor(ob=lambda x: x, ar=remove_ket1)(circuit)
     for left, box, _ in circuit.layers:
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
