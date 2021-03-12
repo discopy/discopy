@@ -151,7 +151,7 @@ class Ty(Ob):
         >>> assert xs.count(x) == xs.count(x[0]) == xs.objects.count(Ob('x'))
         """
         obj, = obj if isinstance(obj, Ty) else (obj, )
-        return self.objects.count(obj)
+        return self._objects.count(obj)
 
     @staticmethod
     def upgrade(old):
@@ -163,21 +163,19 @@ class Ty(Ob):
         return Ty(*self)
 
     def __eq__(self, other):
-        if not isinstance(other, Ty):
-            return False
-        return self.objects == other.objects
+        return isinstance(other, Ty) and self._objects == other._objects
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
-        return "Ty({})".format(', '.join(repr(x.name) for x in self.objects))
+        return "Ty({})".format(', '.join(repr(x.name) for x in self._objects))
 
     def __str__(self):
-        return ' @ '.join(map(str, self)) or 'Ty()'
+        return ' @ '.join(map(str, self._objects)) or 'Ty()'
 
     def __len__(self):
-        return len(self.objects)
+        return len(self._objects)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -185,8 +183,8 @@ class Ty(Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.upgrade(Ty(*self.objects[key]))
-        return self.objects[key]
+            return self.upgrade(Ty(*self._objects[key]))
+        return self._objects[key]
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -390,7 +388,7 @@ class Diagram(cat.Arrow):
                     self.offsets + other.offsets,
                     layers=self.layers >> other.layers))
 
-    def tensor(self, *others):
+    def tensor(self, other=None, *rest):
         """
         Returns the horizontal composition of 'self' with a diagram 'other'.
 
@@ -416,11 +414,10 @@ class Diagram(cat.Arrow):
         diagram : :class:`Diagram`
             the tensor of 'self' and 'other'.
         """
-        if not others:
+        if other is None:
             return self
-        if len(others) > 1:
-            return self.tensor(others[0]).tensor(*others[1:])
-        other, = others
+        if rest:
+            return self.tensor(other).tensor(*rest)
         if isinstance(other, Sum):
             return self.sum([self]).tensor(other)
         if not isinstance(other, Diagram):

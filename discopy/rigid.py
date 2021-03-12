@@ -213,7 +213,7 @@ class Diagram(monoidal.Diagram):
     @staticmethod
     def ba(left, right):
         """ Backward application. """
-        off = -len(left) or len(right)
+        off = len(left) or -len(right)
         return Diagram.cups(left, right[:off]) @ Id(right[off:])
 
     @staticmethod
