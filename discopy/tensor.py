@@ -13,9 +13,8 @@ Implements dagger monoidal functors into tensors.
 
 import numpy
 
-from discopy import messages, monoidal, rigid, config
+from discopy import cat, config, messages, monoidal, rigid
 from discopy.cat import AxiomError
-from discopy.monoidal import Sum
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
@@ -552,6 +551,9 @@ class Diagram(rigid.Diagram):
 
 class Id(rigid.Id, Diagram):
     """ Identity tensor.Diagram """
+    def __init__(self, dom=Dim()):
+        rigid.Id.__init__(self, dom)
+        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
 
 class Sum(monoidal.Sum, Diagram):

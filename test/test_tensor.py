@@ -104,13 +104,15 @@ def test_Functor_call():
     assert list(F(g.transpose(left=True)).array.flatten()) == [0.0, 1.0, 2.0]
     with raises(TypeError):
         F("Alice")
+    assert Functor(ob={x: Ty(2, 3)}, ar=None)(x) == Dim(2, 3)
 
 
 def test_Functor_swap():
     x, y = Ty('x'), Ty('y')
     f, g = rigid.Box('f', x, x), rigid.Box('g', y, y)
     F = Functor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
-    assert F(f @ g >> Diagram.swap(x, y)) == F(Diagram.swap(x, y) >> g @ f)
+    assert F(f @ g >> rigid.Diagram.swap(x, y)) == \
+           F(rigid.Diagram.swap(x, y) >> g @ f)
 
 
 def test_AxiomError():
@@ -151,6 +153,12 @@ def test_Diagram_cups_and_caps():
     assert Id(Dim(2)).transpose()\
         == Spider(0, 2, dim=2) @ Id(Dim(2))\
         >> Id(Dim(2)) @ Spider(2, 0, dim=2)
+
+
+def test_Diagram_swap():
+    x, y, z = Dim(2), Dim(3), Dim(4)
+    assert Diagram.swap(x, y @ z) == \
+           (Swap(x, y) @ Id(z)) >> (Id(y) @ Swap(x, z))
 
 
 def test_Box():
