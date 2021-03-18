@@ -669,14 +669,17 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
             return '<img src="{}">'.format(path)
 
 
-def pregroup_draw(words, cups, **params):
+def pregroup_draw(words, layers, **params):
     """
-    Draws pregroup words and cups.
+    Draws pregroup words, cups and swaps.
     """
+    from discopy.rigid import Cup, Swap
+    has_swaps = any(
+        [isinstance(box, Swap) for layer in layers for box in layer.boxes])
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
     space = params.get('space', .5)
-    width = params.get('width', 2.)
+    width = params.get('width', 3. if has_swaps else 2)
     fontsize = params.get('fontsize', None)
 
     backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
@@ -704,29 +707,60 @@ def pregroup_draw(words, cups, **params):
                 textpad_words[1], ha='center', fontsize=fontsize)
         return scan
 
-    def draw_cups_and_wires(cups, scan):
-        for j, off in [(j, off)
-                       for j, s in enumerate(cups) for off in s.offsets]:
-            middle = (scan[off] + scan[off + 1]) / 2
-            backend.draw_wire((scan[off], 0), (middle, - j - 1), bend_in=True)
+    def draw_grammar(wires, scan_x):
+        # the even indices 2*n represent the depth for wire n
+        # the odd incides 2*n + 1 represent the depths
+        # of wires that are between wires n and n+1
+        scan_y = [0.] * 2 * len(scan_x)
+        h = .5
+        for off, box in [(s.offsets[i], s.boxes[i])
+                         for s in wires for i in range(len(s))]:
+            x1, y1 = scan_x[off], scan_y[2 * off]
+            x2, y2 = scan_x[off + 1], scan_y[2 * (off + 1)]
+            middle = (x1 + x2) / 2
+            y = max(scan_y[2 * off:2 * (off + 1) + 1])
+            if isinstance(box, Cup):
+                backend.draw_wire((x1, -y), (middle, - y - h), bend_in=True)
+                backend.draw_wire((x2, -y), (middle, - y - h), bend_in=True)
+                depths_to_remove = scan_y[2 * off - 1:2 * (off + 2)]
+                new_gap_depth = 0.
+                if len(depths_to_remove) > 0:
+                    new_gap_depth = max(depths_to_remove)
+                scan_x = scan_x[:off] + scan_x[off + 2:]
+                scan_y = scan_y[:2 * off] + scan_y[2 * (off + 2):]
+                if off > 0:
+                    scan_y[2 * off - 1] = new_gap_depth + h
+            if isinstance(box, Swap):
+                midpoint = (middle, - y - h)
+                backend.draw_wire((x1, -y), midpoint, bend_in=True)
+                backend.draw_wire((x2, -y), midpoint, bend_in=True)
+                backend.draw_wire(midpoint, (x1, - y - h - h), bend_out=True)
+                backend.draw_wire(midpoint, (x2, - y - h - h), bend_out=True)
+                scan_y[2 * off] = y + h + h
+                scan_y[2 * (off + 1)] = y + h + h
+
+            if y1 != y:
+                backend.draw_wire((x1, -y1), (x1, -y), bend_in=True)
+            if y2 != y:
+                backend.draw_wire((x2, -y2), (x2, -y), bend_in=True)
+
+        for i, _ in enumerate(wires[-1].cod if wires else words.cod):
+            label = str(wires[-1].cod[i]) if wires else ""
             backend.draw_wire(
-                (scan[off + 1], 0), (middle, - j - 1), bend_in=True)
-            scan = scan[:off] + scan[off + 2:]
-        for i, _ in enumerate(cups[-1].cod if cups else words.cod):
-            label = str(cups[-1].cod[i]) if cups else ""
-            backend.draw_wire((scan[i], 0), (scan[i], - (len(cups) or 1) - 1))
+                (scan_x[i], -scan_y[2 * i]),
+                (scan_x[i], - (len(wires) or 1) - 1))
             if params.get('draw_type_labels', True):
                 backend.draw_text(
-                    label, scan[i] + textpad[0], - (len(cups) or 1) - space,
+                    label, scan_x[i] + textpad[0], - (len(wires) or 1) - space,
                     fontsize=params.get('fontsize_types', fontsize))
 
     scan = draw_triangles(words.normal_form())
-    draw_cups_and_wires(cups, scan)
+    draw_grammar(layers, scan)
     backend.output(
         params.get('path', None),
         tikz_options=params.get('tikz_options', None),
         xlim=(0, (space + width) * len(words.boxes) - space),
-        ylim=(- len(cups) - space, 1),
+        ylim=(- len(layers) - space, 1),
         margins=params.get('margins', DEFAULT['margins']),
         aspect=params.get('aspect', 'equal'))
 

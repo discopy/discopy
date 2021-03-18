@@ -113,6 +113,17 @@ def test_pregroup_draw():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
+@draw_and_compare('gave-up.png', draw=grammar.draw)
+def test_cross_composition_draw():
+    s, n = Ty('s'), Ty('n')
+    gave, up = Word('gave', n.r @ s @ n.l), Word('up', s.r @ n.r.r @ n.r @ s)
+    swap, cups = Diagram.swap, Diagram.cups
+    diagram = gave @ up >> Id(n.r @ s) @ swap(n.l, s.r @ n.r.r) @ Id(n.r @ s)\
+                        >> cups(n.r @ s, s.r @ n.r.r) @ swap(n.l, n.r @ s)
+    grammar.draw(diagram, path='.')
+    return diagram
+
+
 @draw_and_compare('bell-state.png', draw=Circuit.draw, aspect='equal')
 def test_draw_bell_state():
     from discopy.quantum import H, sqrt, Bra, Ket, Id, CX
