@@ -65,6 +65,18 @@ def test_brute_force():
     assert next(gen) == Word('Bob', Ty('n'))
 
 
+def test_normal_form():
+    n = Ty('n')
+    w1, w2 = Word('a', n), Word('b', n)
+    diagram = w1 @ w2 >>\
+        Id(n) @ Cap(n, n.r) @ Id(n) >> Id(n @ n) @ Cup(n.r, n)
+    expected_result = w1 @ w2
+    assert expected_result == normal_form(diagram)
+
+    with raises(ValueError) as err:
+        normal_form(w2 >> w1 @ Id(n))
+
+
 def test_pregroup_draw_errors():
     n = Ty('n')
     with raises(TypeError):

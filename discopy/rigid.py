@@ -283,16 +283,8 @@ class Diagram(monoidal.Diagram):
         Implements the normalisation of rigid monoidal categories,
         see arxiv:1601.05372, definition 2.12.
         """
-        from discopy import Word
-        n = 0
-        while n < len(self) and isinstance(self.boxes[n], Word):
-            n += 1
-
-        normal_form = lambda d: monoidal.Diagram.normal_form(
-            d, normalizer=normalizer or Diagram.normalize, **params)
-
-        words, grammar = map(normal_form, (self[:n], self[n:]))
-        return words >> grammar
+        return super().normal_form(
+            normalizer=normalizer or Diagram.normalize, **params)
 
     normalize = rewriting.snake_removal
 

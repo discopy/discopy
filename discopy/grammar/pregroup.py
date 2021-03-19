@@ -22,9 +22,9 @@ Implements pregroup grammars and distributional compositional models.
     :align: center
 """
 
-from discopy import messages, drawing
+from discopy import messages, drawing, rewriting, monoidal
 from discopy.grammar import cfg
-from discopy.rigid import Ty, Box, Diagram, Id, Cup
+from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap, Swap
 
 
 class Word(cfg.Word, Box):
@@ -50,6 +50,38 @@ def eager_parse(*words, target=Ty('s')):
             return result
         if fail:
             raise NotImplementedError
+
+
+def normal_form(diagram, normalizer=None, **params):
+    """
+    Applies normal form to a pregroup diagram of the form
+    `word @ ... @ word >> cups` by normalising the words and the sentences
+    seperately before combining them, so it can be drawn using `grammar.draw`.
+    """
+    words, is_pregroup = Id(Ty()), True
+    for _, box, right in diagram.layers:
+        if isinstance(box, Word):
+            if right:  # word boxes should be tensored left to right.
+                is_pregroup = False
+                break
+            words = words @ box
+        else:
+            break
+
+    wires = diagram[len(words):]
+    is_pregroup = is_pregroup and all(
+        isinstance(box, Cup) or isinstance(box, Swap) or isinstance(box, Cap)
+        for box in wires.boxes)
+    if not is_pregroup:
+        raise ValueError(messages.expected_pregroup())
+
+    norm = lambda d: monoidal.Diagram.normal_form(
+        d, normalizer=normalizer or Diagram.normalize, **params)
+
+    return norm(words) >> norm(wires)
+
+
+normalize = rewriting.snake_removal
 
 
 def brute_force(*vocab, target=Ty('s')):
