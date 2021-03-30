@@ -112,6 +112,8 @@ def draw(diagram, **params):
         Padding between text and wires, default is :code:`(0.1, 0.2)`.
     draw_type_labels : bool, optional
         Whether to draw type labels, default is :code:`True`.
+    pretty_labels : bool, optional
+        Whether to draw type labels with superscript, default is :code:`False`.
     aspect : string, optional
         Aspect ratio, one of :code:`['equal', 'auto']`.
     margins : tuple, optional

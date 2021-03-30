@@ -11,6 +11,7 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
+from math import sqrt
 
 
 # Mapping from attribute to function from box to default value.
@@ -28,7 +29,7 @@ ATTRIBUTES = {
 DEFAULT = {
     "aspect": "auto",
     "fontsize": 12,
-    "margins": (.05, .05),
+    "margins": (.05, .1),
     "textpad": (.1, .1),
     "color": 'white',
     "use_tikzstyles": False,
@@ -302,7 +303,9 @@ class TikzBackend(Backend):
         super().draw_node(i, j, **params)
 
     def draw_text(self, text, i, j, **params):
-        options = "style=none"
+        options = "style=none, fill=white"
+        if params.get('horizontalalignment', 'center') == 'left':
+            options += ", anchor=west"
         if params.get("verticalalignment", "center") == "top":  # wire labels
             options += ", right"
         if 'fontsize' in params and params['fontsize'] is not None:
@@ -335,13 +338,27 @@ class TikzBackend(Backend):
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
             else (180 if source[0] < target[0] else 0)
-        cmd = "\\draw [in={}, out={}{}] ({}.center) to ({}.center);\n"
+        looseness = 1
+        if not (source[0] == target[0] or source[1] == target[1]):
+            dx, dy = abs(source[0] - target[0]), abs(source[1] - target[1])
+            length = sqrt(dx * dx + dy * dy)
+            distance = min(dx, dy)
+            looseness = round(distance / length * 2.1, 4)
+        if looseness != 1:
+            if style is None:
+                style = ''
+            style += f'looseness={looseness}'
+
+        cmd = (
+            "\\draw [in={}, out={}{}] "
+            "({}.center) to ({}.center);\n")
         if source not in self.nodes:
             self.add_node(*source)
         if target not in self.nodes:
             self.add_node(*target)
         self.edgelayer.append(cmd.format(
-            inp, out, ", {}".format(style) if style is not None else "",
+            inp, out,
+            ", {}".format(style) if style is not None else "",
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
@@ -686,6 +703,12 @@ def pregroup_draw(words, layers, **params):
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
+    def pretty_type(t):
+        type_str = t.name
+        if t.z:
+            type_str += "^{" + 'l' * -t.z + 'r' * t.z + "}"
+        return f'${type_str}$'
+
     def draw_triangles(words):
         scan = []
         for i, word in enumerate(words.boxes):
@@ -694,9 +717,15 @@ def pregroup_draw(words, layers, **params):
                     + (width / (len(word.cod) + 1)) * (j + 1)
                 scan.append(x_wire)
                 if params.get('draw_type_labels', True):
+                    type_str = str(word.cod[j])
+                    if params.get('pretty_types', False):
+                        type_str = pretty_type(word.cod[j])
+
                     backend.draw_text(
-                        str(word.cod[j]), x_wire + textpad[0], -textpad[1],
-                        fontsize=params.get('fontsize_types', fontsize))
+                        type_str, x_wire + textpad[0], -textpad[1],
+                        fontsize=params.get('fontsize_types', fontsize),
+                        horizontalalignment='left', verticalalignment='bottom')
+                    backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
             backend.draw_polygon(
                 ((space + width) * i, 0),
                 ((space + width) * i + width, 0),
@@ -711,7 +740,7 @@ def pregroup_draw(words, layers, **params):
         # the even indices 2*n represent the depth for wire n
         # the odd incides 2*n + 1 represent the depths
         # of wires that are between wires n and n+1
-        scan_y = [0.] * 2 * len(scan_x)
+        scan_y = [2 * textpad[1]] * 2 * len(scan_x)
         h = .5
         for off, box in [(s.offsets[i], s.boxes[i])
                          for s in wires for i in range(len(s))]:
@@ -745,14 +774,20 @@ def pregroup_draw(words, layers, **params):
                 backend.draw_wire((x2, -y2), (x2, -y), bend_in=True)
 
         for i, _ in enumerate(wires[-1].cod if wires else words.cod):
-            label = str(wires[-1].cod[i]) if wires else ""
+            label = ""
+            if wires:
+                if params.get('pretty_types', False):
+                    label = pretty_type(wires[-1].cod[i])
+                else:
+                    label = str(wires[-1].cod[i])
             backend.draw_wire(
                 (scan_x[i], -scan_y[2 * i]),
                 (scan_x[i], - (len(wires) or 1) - 1))
             if params.get('draw_type_labels', True):
                 backend.draw_text(
                     label, scan_x[i] + textpad[0], - (len(wires) or 1) - space,
-                    fontsize=params.get('fontsize_types', fontsize))
+                    fontsize=params.get('fontsize_types', fontsize),
+                    horizontalalignment='left', verticalalignment='bottom')
 
     scan = draw_triangles(words.normal_form())
     draw_grammar(layers, scan)
