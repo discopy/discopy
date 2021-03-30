@@ -211,7 +211,7 @@ def types(names):
 
 
 class PRO(Ty):
-    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
+    """ Implements the objects of a PRO, i.e. a non-hypergraph PROP.
     Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
 
     Parameters

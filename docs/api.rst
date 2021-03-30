@@ -10,7 +10,7 @@ API
    discopy/monoidal
    discopy/rigid
    discopy/biclosed
-   discopy/symmetric
+   discopy/hypergraph
    discopy/tensor
    discopy/quantum
    discopy/grammar
