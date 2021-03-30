@@ -724,7 +724,7 @@ def pregroup_draw(words, layers, **params):
                     backend.draw_text(
                         type_str, x_wire + textpad[0], -textpad[1],
                         fontsize=params.get('fontsize_types', fontsize),
-                        horizontalalignment='left', verticalalignment='bottom')
+                        horizontalalignment='left')
                     backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
             backend.draw_polygon(
                 ((space + width) * i, 0),
@@ -751,14 +751,17 @@ def pregroup_draw(words, layers, **params):
             if isinstance(box, Cup):
                 backend.draw_wire((x1, -y), (middle, - y - h), bend_in=True)
                 backend.draw_wire((x2, -y), (middle, - y - h), bend_in=True)
-                depths_to_remove = scan_y[2 * off - 1:2 * (off + 2)]
+                depths_to_remove = scan_y[2 * off:2 * (off + 1) + 1]
                 new_gap_depth = 0.
                 if len(depths_to_remove) > 0:
-                    new_gap_depth = max(depths_to_remove)
+                    new_gap_depth = max(
+                        max(depths_to_remove) + h,
+                        scan_y[2 * off - 1],
+                        scan_y[2 * (off + 1) + 1])
                 scan_x = scan_x[:off] + scan_x[off + 2:]
                 scan_y = scan_y[:2 * off] + scan_y[2 * (off + 2):]
                 if off > 0:
-                    scan_y[2 * off - 1] = new_gap_depth + h
+                    scan_y[2 * off - 1] = new_gap_depth
             if isinstance(box, Swap):
                 midpoint = (middle, - y - h)
                 backend.draw_wire((x1, -y), midpoint, bend_in=True)
@@ -787,7 +790,7 @@ def pregroup_draw(words, layers, **params):
                 backend.draw_text(
                     label, scan_x[i] + textpad[0], - (len(wires) or 1) - space,
                     fontsize=params.get('fontsize_types', fontsize),
-                    horizontalalignment='left', verticalalignment='bottom')
+                    horizontalalignment='left')
 
     scan = draw_triangles(words.normal_form())
     draw_grammar(layers, scan)
