@@ -198,6 +198,18 @@ class Ty(Ob):
         return result
 
 
+def types(names):
+    """ Transforms strings into instances of :class:`discopy.monoidal.Ty`.
+
+    Examples
+    --------
+    >>> x, y, z = types("x y z")
+    >>> x, y, z
+    (Ty('x'), Ty('y'), Ty('z'))
+    """
+    return list(map(Ty, names.split()))
+
+
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
     Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
