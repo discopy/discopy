@@ -10,7 +10,7 @@ def test_ValueError():
     with raises(ValueError):
         Diagram(x, x @ x, [], [(0, 1), (0, 2)])
     with raises(ValueError):
-        Diagram(x, x, [(1, 0)])
+        Diagram(x, x, [], [(1, 0)])
 
 
 def test_AxiomError():

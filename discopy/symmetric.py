@@ -198,3 +198,7 @@ class Id(Diagram):
     def __init__(self, dom):
         super().__init__(dom, dom, [], [
             (i, len(dom) + i) for i, _ in enumerate(dom)])
+
+
+Diagram.id = Id
+Diagram.swap = Swap
