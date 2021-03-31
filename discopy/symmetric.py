@@ -34,7 +34,7 @@ Naturality:
 """
 
 import networkx as nx
-from networkx import DiGraph as Graph, subgraph_view as subgraph
+from networkx import Graph
 
 from discopy import cat, monoidal
 from discopy.cat import AxiomError
@@ -49,23 +49,51 @@ class Diagram(cat.Arrow):
     """
     Diagram in a symmetric monoidal category.
 
+    Parameters
+    ----------
+    dom : discopy.monoidal.Ty
+        Domain of the diagram.
+    cod : discopy.monoidal.Ty
+        Codomain of the diagram.
+    boxes : List[Box]
+        List of :class:`discopy.symmetric.Box`.
+    wires : List[Tuple[Int, Int]]
+        List of edges defining the connectivity graph.
+
+    Note
+    ----
+
+    Nodes are given by the range of::
+
+        len(dom) + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod)
+
+    The edges are wires (i, j) with i < j.
+    The graph is monogamous, i.e. each node has degree exactly one.
+
+    Examples
+    --------
+
     >>> x, y, z = types("x y z")
     >>> f, g = Box("f", x, y @ z), Box("g", z @ y, x)
     >>> diagram = f >> Swap(y, z) >> g
-    >>> assert set(diagram.nodes) == set(range(
-    ...     len(diagram.dom)
-    ...     + sum(len(box.dom @ box.cod) for box in diagram.boxes)
-    ...     + len(diagram.cod)))
+    >>> diagram.nodes
+    NodeView((0, 1, 2, 5, 3, 4, 6, 7))
     >>> diagram.edges
-    OutEdgeView([(0, 1), (2, 5), (3, 4), (6, 7)])
+    EdgeView([(0, 1), (2, 5), (3, 4), (6, 7)])
     """
-    def __init__(self, dom, cod, boxes, graph, _scan=True):
+    def __init__(self, dom, cod, boxes, wires, _scan=True):
         super().__init__(dom, cod, boxes, _scan=False)
+        graph = Graph(wires)
         if _scan:
-            assert sorted(list(graph.nodes)) == list(range(
-                len(dom) + sum(len(box.dom) for box in boxes)
-                + sum(len(box.cod) for box in boxes) + len(cod)))
-
+            n_nodes = len(dom)\
+                + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod)
+            if set(graph.nodes) != set(range(n_nodes)):
+                raise ValueError
+            if set(dict(graph.degree).values()) not in (set(), {1}):
+                raise ValueError
+            for i, j in graph.edges:
+                if i >= j:
+                    raise ValueError
         self._graph = graph
 
     @property
@@ -84,7 +112,7 @@ class Diagram(cat.Arrow):
         return self.graph.edges
 
     def __repr__(self):
-        return "Diagram({}, {}, {}, nx.DiGraph({}))".format(*map(repr, [
+        return "Diagram({}, {}, {}, {})".format(*map(repr, [
             self.dom, self.cod, self.boxes, list(self.edges)]))
 
     def then(self, other):
@@ -96,13 +124,12 @@ class Diagram(cat.Arrow):
             i: len(self.nodes) - len(self.cod) + i for i in other.nodes}))
         boundary = range(len(self.nodes) - len(self.cod), len(self.nodes))
         for i in boundary:
-            source, = graph.predecessors(i)
-            target, = graph.successors(i)
+            source, target = sorted(graph.neighbors(i))
             graph.add_edge(source, target)
             graph.remove_node(i)
-        graph.relabel(copy=False, mapping={
+        graph = graph.relabel({
             i: i - len(boundary) for i in graph.nodes if i > boundary[-1]})
-        return Diagram(dom, cod, boxes, graph)
+        return Diagram(dom, cod, boxes, graph.edges)
 
     def tensor(self, other):
         """ Tensor product of two symmetric monoidal diagrams. """
@@ -113,8 +140,8 @@ class Diagram(cat.Arrow):
             i: len(other.nodes) - len(other.cod) + i
             for i in range(len(self.nodes) - len(self.cod), len(self.nodes))})
         # make space for other.dom
-        self_graph.relabel({i: i + len(other.dom) for i in range(
-            len(self.dom), len(self.nodes) - len(self.cod))}, copy=False)
+        self_graph = self_graph.relabel({i: i + len(other.dom) for i in range(
+            len(self.dom), len(self.nodes) - len(self.cod))})
         # move other.dom to the start, other.cod to the end
         # and the nodes for other.boxes to just before self.cod
         other_graph = other.graph.relabel({
@@ -123,7 +150,7 @@ class Diagram(cat.Arrow):
             else len(self.nodes) - len(self.cod) + i
             for i in range(len(other.nodes))})
         graph = nx.union(self_graph, other_graph)
-        return Diagram(dom, cod, boxes, graph)
+        return Diagram(dom, cod, boxes, graph.edges)
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -149,26 +176,25 @@ class Box(cat.Box, Diagram):
     """
     def __init__(self, name, dom, cod, **params):
         cat.Box.__init__(self, name, dom, cod, **params)
-        boxes, graph = [self], Graph(
-            [(i, len(dom) + i) for i, _ in enumerate(dom)] + [
-                (len(dom @ dom) + i, len(dom @ dom @ cod) + i)
-                for i, _ in enumerate(cod)])
-        Diagram.__init__(self, dom, cod, [self], graph)
+        boxes, wires = [self], [
+            (i, len(dom) + i) for i, _ in enumerate(dom)] + [
+            (len(dom @ dom) + i, len(dom @ dom @ cod) + i)
+            for i, _ in enumerate(cod)]
+        Diagram.__init__(self, dom, cod, [self], wires)
 
 
 class Swap(Diagram):
     """ Swap in a symmetric monoidal diagram. """
     def __init__(self, left, right):
         dom, cod = left @ right, right @ left
-        boxes, graph = [], Graph(
-            [(i, len(dom @ right) + i) for i, _ in enumerate(left)] + [
-                (len(left) + i, len(dom) + i) for i, _ in enumerate(right)])
-        super().__init__(dom, cod, boxes, graph)
+        boxes, wires = [], [
+            (i, len(dom @ right) + i) for i, _ in enumerate(left)] + [
+            (len(left) + i, len(dom) + i) for i, _ in enumerate(right)]
+        super().__init__(dom, cod, boxes, wires)
 
 
 class Id(Diagram):
     """ Identity diagram. """
     def __init__(self, dom):
-        dom, cod, boxes, graph = dom, dom, [], Graph(
-            [(i, len(dom) + i) for i, _ in enumerate(dom)])
-        super().__init__(dom, cod, boxes, graph)
+        super().__init__(dom, dom, [], [
+            (i, len(dom) + i) for i, _ in enumerate(dom)])
