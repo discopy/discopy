@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-""" Hypergraph categories.
+""" Symmetric monoidal categories.
 
 Notes
 -----
-
 We can check that the axioms for symmetry hold on the nose.
 
 >>> x, y, z = types("x y z")
@@ -32,40 +31,10 @@ Naturality:
 
 >>> f = Box("f", x, y)
 >>> assert f @ Id(z) >> Swap(f.cod, z) == Swap(f.dom, z) >> Id(z) @ f
-
-We can also check spider fusion, i.e. special commutative Frobenius algebra.
-
->>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
->>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
-
-Monoid and comonoid:
-
->>> assert unit @ Id(x) >> merge == Id(x) == Id(x) @ unit >> merge
->>> assert merge @ Id(x) >> merge == Id(x) @ merge >> merge
->>> assert split >> counit @ Id(x) == Id(x) == split >> Id(x) @ counit
->>> assert split >> split @ Id(x) == split >> Id(x) @ split
-
-Frobenius:
-
->>> assert split @ Id(x) >> Id(x) @ merge\\
-...     == merge >> split\\
-...     == Id(x) @ split >> merge @ Id(x)\\
-...     == Spider(2, 2, x)
-
-Speciality:
-
->>> assert split >> merge == Spider(1, 1, x) == Id(x)
-
-Coherence:
-
->>> assert Spider(0, 1, x @ x) == unit @ unit
->>> assert Spider(2, 1, x @ x) == Id(x) @ Swap(x, x) @ Id(x) >> merge @ merge
->>> assert Spider(1, 0, x @ x) == counit @ counit
->>> assert Spider(1, 2, x @ x) == split @ split >> Id(x) @ Swap(x, x) @ Id(x)
 """
 
 import networkx as nx
-from networkx import Graph, subgraph_view as subgraph
+from networkx import DiGraph as Graph, subgraph_view as subgraph
 
 from discopy import cat, monoidal
 from discopy.cat import AxiomError
@@ -78,7 +47,7 @@ Graph.relabel = nx.relabel_nodes
 
 class Diagram(cat.Arrow):
     """
-    Diagram in a hypergraph monoidal category.
+    Diagram in a symmetric monoidal category.
 
     >>> x, y, z = types("x y z")
     >>> f, g = Box("f", x, y @ z), Box("g", z @ y, x)
@@ -88,16 +57,14 @@ class Diagram(cat.Arrow):
     ...     + sum(len(box.dom @ box.cod) for box in diagram.boxes)
     ...     + len(diagram.cod)))
     >>> diagram.edges
-    EdgeView([(0, 1), (2, 5), (3, 4), (6, 7)])
+    OutEdgeView([(0, 1), (2, 5), (3, 4), (6, 7)])
     """
     def __init__(self, dom, cod, boxes, graph, _scan=True):
         super().__init__(dom, cod, boxes, _scan=False)
         if _scan:
-            n_nodes = len(dom) + sum(len(box.dom) for box in boxes)
-            n_nodes += sum(len(box.cod) for box in boxes) + len(cod)
-            assert set(graph.nodes) == set(range(n_nodes))
-            for i, j in graph.edges:
-                assert i < j
+            assert sorted(list(graph.nodes)) == list(range(
+                len(dom) + sum(len(box.dom) for box in boxes)
+                + sum(len(box.cod) for box in boxes) + len(cod)))
 
         self._graph = graph
 
@@ -117,7 +84,7 @@ class Diagram(cat.Arrow):
         return self.graph.edges
 
     def __repr__(self):
-        return "Diagram({}, {}, {}, Graph({}))".format(*map(repr, [
+        return "Diagram({}, {}, {}, nx.DiGraph({}))".format(*map(repr, [
             self.dom, self.cod, self.boxes, list(self.edges)]))
 
     def then(self, other):
@@ -129,17 +96,16 @@ class Diagram(cat.Arrow):
             i: len(self.nodes) - len(self.cod) + i for i in other.nodes}))
         boundary = range(len(self.nodes) - len(self.cod), len(self.nodes))
         for i in boundary:
-            for source in graph.neighbors(i):
-                for target in graph.neighbors(i):
-                    if source < target:
-                        graph.add_edge(source, target)
+            source, = graph.predecessors(i)
+            target, = graph.successors(i)
+            graph.add_edge(source, target)
             graph.remove_node(i)
-        graph = graph.relabel({
+        graph.relabel(copy=False, mapping={
             i: i - len(boundary) for i in graph.nodes if i > boundary[-1]})
         return Diagram(dom, cod, boxes, graph)
 
     def tensor(self, other):
-        """ Tensor product of two hypergraph monoidal diagrams. """
+        """ Tensor product of two symmetric monoidal diagrams. """
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         boxes = self.boxes + other.boxes
         # move self.cod to the end
@@ -147,8 +113,8 @@ class Diagram(cat.Arrow):
             i: len(other.nodes) - len(other.cod) + i
             for i in range(len(self.nodes) - len(self.cod), len(self.nodes))})
         # make space for other.dom
-        self_graph = self_graph.relabel({i: i + len(other.dom) for i in range(
-            len(self.dom), len(self.nodes) - len(self.cod))})
+        self_graph.relabel({i: i + len(other.dom) for i in range(
+            len(self.dom), len(self.nodes) - len(self.cod))}, copy=False)
         # move other.dom to the start, other.cod to the end
         # and the nodes for other.boxes to just before self.cod
         other_graph = other.graph.relabel({
@@ -172,7 +138,7 @@ class Diagram(cat.Arrow):
 
 
 class Box(cat.Box, Diagram):
-    """ Box in a hypergraph monoidal diagram.
+    """ Box in a symmetric monoidal diagram.
 
     Examples
     --------
@@ -191,7 +157,7 @@ class Box(cat.Box, Diagram):
 
 
 class Swap(Diagram):
-    """ Swap in a hypergraph monoidal diagram. """
+    """ Swap in a symmetric monoidal diagram. """
     def __init__(self, left, right):
         dom, cod = left @ right, right @ left
         boxes, graph = [], Graph(
@@ -205,18 +171,4 @@ class Id(Diagram):
     def __init__(self, dom):
         dom, cod, boxes, graph = dom, dom, [], Graph(
             [(i, len(dom) + i) for i, _ in enumerate(dom)])
-        super().__init__(dom, cod, boxes, graph)
-
-
-class Spider(Diagram):
-    """ Spider diagrams, i.e. special commutative Frobenius algebra. """
-    def __init__(self, n_legs_in, n_legs_out, typ):
-        dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        boxes, graph = [], Graph()
-        graph.add_nodes_from(range(len(dom @ cod)))
-        for i, _ in enumerate(typ):
-            nodes = [len(typ) * j + i for j in range(n_legs_in)]
-            nodes += [len(dom) + len(typ) * j + i for j in range(n_legs_out)]
-            graph.add_edges_from(
-                (i, j) for i in nodes for j in nodes if i < j)
         super().__init__(dom, cod, boxes, graph)
