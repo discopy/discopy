@@ -52,18 +52,25 @@ Special commutative Frobenius algebras imply compact-closedness, i.e.
 >>> assert left_snake(x) == Id(x) == right_snake(x)
 >>> assert left_snake(x @ y) == Id(x @ y) == right_snake(x @ y)
 
-* Reidemeister move 1:
+* Yanking (a.k.a. Reidemeister move 1):
 
->>> reidermeister1 = lambda x:\\
-...     Cap(x, x.r) >> Swap(x, x.r) == Cap(x.r, x)\\
-...     and Swap(x, x.r) >> Cup(x.r, x) == Cup(x, x.r)
->>> assert reidermeister1(x) and reidermeister1(x @ y)
+>>> right_loop = lambda x: Id(x) @ Cap(x, x.r)\\
+...     >> Swap(x, x) @ Id(x.r) >> Id(x) @ Cup(x, x.r)
+>>> left_loop = lambda x: Cap(x.r, x) @ Id(x)\\
+...     >> Id(x.r) @ Swap(x, x) >> Cup(x.r, x) @ Id(x)
+>>> top_loop = lambda x: Cap(x, x.r) >> Swap(x, x.r)
+>>> bottom_loop = lambda x: Swap(x, x.r) >> Cup(x.r, x)
+>>> reidemeister1 = lambda x:\\
+...     top_loop(x) == Cap(x.r, x) and bottom_loop(x) == Cup(x, x.r)\\
+...     and left_loop(x) == Id(x) == right_loop(x)
+>>> assert reidemeister1(x) and reidemeister1(x @ y) and reidemeister1(Ty())
 
 * Coherence:
 
 >>> assert Cap(x @ y, y @ x)\\
 ...     == Cap(x, x) @ Cap(y, y) >> Id(x) @ Swap(x, y @ y)\\
 ...     == Spider(0, 2, x @ y) >> Id(x @ y) @ Swap(x, y)
+>>> assert Cap(x, x) >> Cup(x, x) == Spider(0, 0, x)
 
 **Swaps**
 
@@ -242,6 +249,88 @@ class Diagram(cat.Arrow):
         return input_ports + box_ports + output_ports
 
     @property
+    def is_hetero_monogamous(self):
+        """
+        Checks hetero-monogamy, i.e. whether self.wires induces a bijection::
+
+            len(self.dom) + sum(len(box.dom) for box in boxes)
+            == self.n_spiders - len(self._scalar_spiders)
+            == sum(len(box.cod) for box in boxes) + len(self.dom)
+
+        In that case, the diagram actually lives in a traced category.
+
+        Examples
+        --------
+
+        >>> x, y = types(" x y")
+        >>> f = Box('f', x, y)
+        >>> assert f.is_hetero_monogamous
+        >>> assert (f >> f[::-1]).is_hetero_monogamous
+
+        >>> assert Spider(0, 0, x).is_hetero_monogamous
+
+        >>> cycle = Cap(x, x) >> Id(x) @ (f >> f[::-1]) >> Cup(x, x)
+        >>> assert cycle.is_hetero_monogamous
+
+        >>> assert not f.transpose().is_hetero_monogamous
+        >>> assert not Cup(x, x).is_hetero_monogamous
+        >>> assert not Spider(1, 2, x).is_hetero_monogamous
+        """
+        inputs = self.wires[:len(self.dom)]
+        outputs = self.wires[len(self.wires) - len(self.cod):]
+        for dom_wires, cod_wires in self.box_wires:
+            inputs += cod_wires
+            outputs += dom_wires
+        return sorted(inputs) == sorted(outputs)\
+            == list(range(self.n_spiders - len(self._scalar_spiders)))
+
+    @property
+    def is_monogamous(self):
+        """
+        Checks monogamy, i.e. each spider is connected to two or zero ports.
+        In that case, the diagram actually lives in a compact-closed category,
+        i.e. it can be drawn using only swaps, cups and caps.
+
+        Examples
+        --------
+
+        >>> x, y = types(" x y")
+        >>> f = Box('f', x, y)
+        >>> assert f.is_monogamous and f.transpose().is_monogamous
+        >>> assert Cup(x, x).is_monogamous and Cap(x, x).is_monogamous
+        >>> assert Spider(0, 0, x).is_monogamous
+        >>> assert not Spider(1, 2, x).is_monogamous
+        """
+        return all(
+            self.wires.count(i) in [0, 2] for i in range(self.n_spiders))
+
+    @property
+    def is_progressive(self):
+        """
+        Checks progressivity, i.e. wires are monotone w.r.t. box index.
+        If the diagram is progressive, hetero-monogamous and it doesn't have
+        any scalar spiders, then it actually lives in a symmetric monoidal
+        category, i.e. it can be drawn using only swaps.
+
+        Examples
+        --------
+
+        >>> x, y = types(" x y")
+        >>> f = Box('f', x, y)
+        >>> assert f.is_progressive
+        >>> assert (f >> f[::-1]).is_progressive
+
+        >>> cycle = Cap(x, x) >> Id(x) @ (f >> f[::-1]) >> Cup(x, x)
+        >>> assert not cycle.is_progressive
+        """
+        scan = set(self.wires[:len(self.dom)])
+        for dom_wires, cod_wires in self.box_wires:
+            if not set(dom_wires) <= scan:
+                return False
+            scan = scan.union(set(cod_wires))
+        return True
+
+    @property
     def box_wires(self):
         """
         The wires connecting the boxes of a hypergraph diagram.
@@ -253,7 +342,7 @@ class Diagram(cat.Arrow):
 
         for :code:`box = self.boxes[i]`.
         """
-        result, i = [], 0
+        result, i = [], len(self.dom)
         for box in self.boxes:
             dom_wires = self.wires[i:i + len(box.dom)]
             cod_wires = self.wires[i + len(box.dom):i + len(box.dom @ box.cod)]
@@ -341,6 +430,8 @@ class Diagram(cat.Arrow):
             ", n_spiders={}".format(self.n_spiders)
             if self.scalar_spiders else ""]
         return "Diagram({}, {}, {}, {}{})".format(*data)
+
+    transpose = rigid.Diagram.transpose
 
 
 class Box(cat.Box, Diagram):
