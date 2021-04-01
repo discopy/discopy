@@ -6,8 +6,7 @@ Hypergraph categories.
 Note
 ----
 
-Spiders
-^^^^^^^
+**Spiders**
 
 We can check spider fusion, i.e. special commutative Frobenius algebra.
 
@@ -42,8 +41,7 @@ We can check spider fusion, i.e. special commutative Frobenius algebra.
 >>> assert Spider(1, 0, x @ x) == counit @ counit
 >>> assert Spider(1, 2, x @ x) == split @ split >> Id(x) @ Swap(x, x) @ Id(x)
 
-Snakes
-^^^^^^
+**Snakes**
 
 Special commutative Frobenius algebras imply compact-closedness, i.e.
 
@@ -61,8 +59,13 @@ Special commutative Frobenius algebras imply compact-closedness, i.e.
 ...     and Swap(x, x.r) >> Cup(x.r, x) == Cup(x, x.r)
 >>> assert reidermeister1(x) and reidermeister1(x @ y)
 
-Swaps
-^^^^^
+* Coherence:
+
+>>> assert Cap(x @ y, y @ x)\\
+...     == Cap(x, x) @ Cap(y, y) >> Id(x) @ Swap(x, y @ y)\\
+...     == Spider(0, 2, x @ y) >> Id(x @ y) @ Swap(x, y)
+
+**Swaps**
 
 We can also check that the axioms for symmetry hold on the nose.
 
@@ -70,11 +73,6 @@ We can also check that the axioms for symmetry hold on the nose.
 
 >>> reidermeister2 = lambda x, y: Swap(x, y) >> Swap(y, x) == Id(x @ y)
 >>> assert reidermeister2(x, y) and reidermeister2(x @ y, z)
-
-* Pentagons:
-
->>> assert Swap(x, y @ z) == Swap(x, y) @ Id(z) >> Id(y) @ Swap(x, z)
->>> assert Swap(x @ y, z) == Id(x) @ Swap(y, z) >> Swap(x, z) @ Id(y)
 
 * Yang-Baxter (a.k.a. Reidemeister move 3):
 
@@ -86,10 +84,16 @@ We can also check that the axioms for symmetry hold on the nose.
 ...     >> Id(z) @ Swap(x, y)
 >>> assert left == right
 
+* Coherence (a.k.a. pentagon equations):
+
+>>> assert Swap(x, y @ z) == Swap(x, y) @ Id(z) >> Id(y) @ Swap(x, z)
+>>> assert Swap(x @ y, z) == Id(x) @ Swap(y, z) >> Swap(x, z) @ Id(y)
+
 * Naturality:
 
 >>> f = Box("f", x, y)
 >>> assert f @ Id(z) >> Swap(f.cod, z) == Swap(f.dom, z) >> Id(z) @ f
+>>> assert Id(z) @ f >> Swap(z, f.cod) == Swap(z, f.dom) >> f @ Id(z)
 """
 
 from networkx import Graph, connected_components
