@@ -39,6 +39,7 @@ Coherence:
 >>> assert Spider(1, 2, x @ x) == split @ split >> Id(x) @ Swap(x, x) @ Id(x)
 """
 
+from networkx import Graph, connected_components
 
 from discopy import cat
 
@@ -50,12 +51,14 @@ def relabel(wires):
 
 class Diagram(cat.Arrow):
     """ Diagram in a hypergraph category. """
-    def __init__(self, dom, cod, boxes, wires):
+    def __init__(self, dom, cod, boxes, wires, n_spiders=None):
         super().__init__(dom, cod, boxes, _scan=False)
         if len(wires) != len(dom)\
                 + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod):
             raise ValueError
-        nodes = set(wires)
+        nodes = set(wires) if n_spiders is None else set(range(n_spiders))
+        if not set(wires) <= nodes:
+            raise ValueError
         if nodes != set(range(len(nodes))):
             raise ValueError
         if relabel(wires) != wires:
@@ -66,27 +69,35 @@ class Diagram(cat.Arrow):
         if not self.cod == other.dom:
             raise AxiomError
         dom, cod, boxes = self.dom, other.cod, self.boxes + other.boxes
-        self_boundary = set(
-            self.wires[-len(self.cod) + i] for i, _ in enumerate(self.cod))
-        other_boundary = set(other.wires[i] for i, _ in enumerate(other.dom))
-        self_nodes = self.nodes - self_boundary
-        other_nodes = other.nodes - other_boundary
-        nodes = list(range(len(self_nodes) + len(self.cod) + len(other_nodes)))
-        self_pushout = {j: i for i, j in enumerate(self_nodes)}
+        self_boundary = self.wires[len(self.wires) - len(self.cod):]
+        other_boundary = other.wires[:len(other.dom)]
+        graph = Graph([
+            (("b", i), ("self", j)) for i, j in enumerate(self_boundary)
+            ] + [
+            (("b", i), ("other", j)) for i, j in enumerate(other_boundary)])
+        components, self_pushout, other_pushout = set(), dict(), dict()
+        for i, component in enumerate(connected_components(graph)):
+            components.add(i)
+            for case, j in component:
+                if case == "self":
+                    self_pushout[j] = i
+                if case == "other":
+                    other_pushout[j] = i
+        self_nodes = self.nodes - set(self_boundary)
         self_pushout.update({
-            self.wires[-len(self.cod) + i]: len(self_nodes) + i
-            for i, _ in enumerate(self.cod)})
-        other_pushout = {
-            other.wires[i]: len(self_nodes) + i
-            for i, _ in enumerate(other.dom)}
+            j: len(components) + j
+            for i, j in enumerate(self.wires) if j in self_nodes})
+        other_nodes = other.nodes - set(other_boundary)
         other_pushout.update({
-            j: len(self_nodes) + len(self.cod) + i
-            for i, j in enumerate(other_nodes)})
+            j: len(components) + len(self_nodes) + j
+            for i, j in enumerate(other.wires) if j in other_nodes})
         wires = [
             self_pushout[i] for i in self.wires[:
                 len(self.wires) - len(self.cod)]]\
             + [other_pushout[i] for i in other.wires[len(other.dom):]]
-        return Diagram(dom, cod, boxes, relabel(wires))
+        n_spiders = len(self.nodes) - len(set(self_boundary))\
+            + len(components) + len(other.nodes) - len(set(other_boundary))
+        return Diagram(dom, cod, boxes, relabel(wires), n_spiders)
 
     def tensor(self, other):
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -100,7 +111,8 @@ class Diagram(cat.Arrow):
             len(self.nodes) + i
             for i in other.wires[len(other.wires) - len(other.cod):]]
         wires = relabel(dom_wires + box_wires + cod_wires)
-        return Diagram(dom, cod, boxes, wires)
+        n_spiders = len(self.nodes) + len(other.nodes)
+        return Diagram(dom, cod, boxes, wires, n_spiders)
 
     __matmul__ = tensor
 
@@ -111,8 +123,10 @@ class Diagram(cat.Arrow):
                    for attr in ['dom', 'cod', 'boxes', 'wires'])
 
     def __repr__(self):
-        return "Diagram({}, {}, {}, {})".format(*map(repr, [
-            self.dom, self.cod, self.boxes, self.wires]))
+        data = list(map(repr, [self.dom, self.cod, self.boxes, self.wires]))
+        data += [", n_spiders={}".format(len(self.nodes))\
+            if set(self.nodes) != set(self.wires) else ""]
+        return "Diagram({}, {}, {}, {}{})".format(*data)
 
 
 class Box(cat.Box, Diagram):
@@ -135,8 +149,7 @@ class Swap(Diagram):
     """ Swap diagram. """
     def __init__(self, left, right):
         dom, cod = left @ right, right @ left
-        boxes, nodes = [], list(range(len(dom)))
-        wires = nodes\
+        boxes, wires = [], list(range(len(dom)))\
             + list(range(len(left), len(dom))) + list(range(len(left)))
         super().__init__(dom, cod, boxes, wires)
 
@@ -145,8 +158,9 @@ class Spider(Diagram):
     """ Spider diagram. """
     def __init__(self, n_legs_in, n_legs_out, typ):
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        boxes, wires = [], len(dom @ cod) * [0]
-        super().__init__(dom, cod, boxes, wires)
+        boxes, n_spiders = [], len(typ)
+        wires = (n_legs_in + n_legs_out) * list(range(n_spiders))
+        super().__init__(dom, cod, boxes, wires, n_spiders)
 
 
 Diagram.id = Id
