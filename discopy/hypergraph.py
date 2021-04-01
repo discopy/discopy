@@ -8,8 +8,7 @@ Note
 
 We can check spider fusion, i.e. special commutative Frobenius algebra.
 
->>> from discopy.monoidal import Ty
->>> x = Ty('x')
+>>> x, y, z = types("x y z")
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
 >>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
 
@@ -37,35 +36,140 @@ Coherence:
 >>> assert Spider(2, 1, x @ x) == Id(x) @ Swap(x, x) @ Id(x) >> merge @ merge
 >>> assert Spider(1, 0, x @ x) == counit @ counit
 >>> assert Spider(1, 2, x @ x) == split @ split >> Id(x) @ Swap(x, x) @ Id(x)
+
+We can also check that the axioms for symmetry hold on the nose.
+
+Involution:
+
+>>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+
+Pentagons:
+
+>>> assert Swap(x, y @ z) == Swap(x, y) @ Id(z) >> Id(y) @ Swap(x, z)
+>>> assert Swap(x @ y, z) == Id(x) @ Swap(y, z) >> Swap(x, z) @ Id(y)
+
+Yang-Baxter:
+
+>>> left = Swap(x, y) @ Id(z)\\
+...     >> Id(y) @ Swap(x, z)\\
+...     >> Swap(y, z) @ Id(x)
+>>> right = Id(x) @ Swap(y, z)\\
+...     >> Swap(x, z) @ Id(y)\\
+...     >> Id(z) @ Swap(x, y)
+>>> assert left == right
+
+Naturality:
+
+>>> f = Box("f", x, y)
+>>> assert f @ Id(z) >> Swap(f.cod, z) == Swap(f.dom, z) >> Id(z) @ f
 """
 
 from networkx import Graph, connected_components
 
-from discopy import cat
+from discopy import cat, monoidal, rigid
 
 
-def relabel(wires):
-    ordered = sorted(set(wires), key=lambda i: wires.index(i))
-    return [ordered.index(i) for i in wires]
+class Ty(rigid.Ty):
+    @staticmethod
+    def upgrade(old):
+        return Ty(*old.objects)
+
+    @property
+    def l(self):
+        return Ty(*self.objects[::-1])
+
+    r = l
+
+
+def types(names):
+    """ Transforms strings into lists of :class:`discopy.hypergraph.Ty`. """
+    return map(Ty.upgrade, monoidal.types(names))
+
 
 
 class Diagram(cat.Arrow):
-    """ Diagram in a hypergraph category. """
+    """
+    Diagram in a hypergraph category.
+
+    Parameters
+    ----------
+
+    dom : discopy.hypergraph.Ty
+        Domain of the diagram.
+    cod : discopy.hypergraph.Ty
+        Codomain of the diagram.
+    boxes : List[discopy.hypergraph.Box]
+        List of :class:`discopy.symmetric.Box`.
+    wires : List[int]
+        List of wires from ports to spiders.
+    n_spiders : int, optional
+        Number of spiders, default is :code:`len(set(wires))`.
+
+    Note
+    ----
+
+    The wires of the diagram are given as a list of length::
+
+        len(dom) + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod)
+
+    The values themselves don't matter, they are simply labels for the spiders.
+    We must have :code:`n_spiders >= len(set(wires))`, the spiders that don't
+    appear as the target of a wire are zero-legged spiders.
+
+    Examples
+    --------
+
+    >>> x, y, z = types("x y z")
+
+    >>> assert Id(x @ y @ z).n_spiders == 3
+    >>> assert Id(x @ y @ z).wires == [0, 1, 2, 0, 1, 2]
+
+    >>> assert Swap(x, y).n_spiders == 2
+    >>> assert Swap(x, y).wires == [0, 1, 1, 0]
+
+    >>> assert Spider(1, 2, x @ y).n_spiders == 2
+    >>> assert Spider(1, 2, x @ y).wires == [0, 1, 0, 1, 0, 1]
+    >>> assert Spider(0, 0, x @ y @ z).n_spiders == 3
+    >>> assert Spider(0, 0, x @ y @ z).wires == []
+
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+
+    >>> assert f.n_spiders == g.n_spiders == 2
+    >>> assert f.wires == g.wires == [0, 0, 1, 1]
+
+    >>> assert (f >> g).n_spiders == 3
+    >>> assert (f >> g).wires == [0, 0, 1, 1, 2, 2]
+
+    >>> assert (f @ g).n_spiders == 4
+    >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
+
+
+    """
     def __init__(self, dom, cod, boxes, wires, n_spiders=None):
-        super().__init__(dom, cod, boxes, _scan=False)
         if len(wires) != len(dom)\
                 + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod):
             raise ValueError
-        nodes = set(wires) if n_spiders is None else set(range(n_spiders))
-        if not set(wires) <= nodes:
+        ordered = sorted(set(wires), key=lambda i: wires.index(i))
+        wires = [ordered.index(i) for i in wires]
+        if n_spiders is None:
+            n_spiders = len(set(wires))
+        elif n_spiders < len(set(wires)):
             raise ValueError
-        if nodes != set(range(len(nodes))):
-            raise ValueError
-        if relabel(wires) != wires:
-            raise ValueError
-        self.nodes, self.wires = nodes, wires
+        self.n_spiders, self.wires = n_spiders, wires
+        super().__init__(dom, cod, boxes, _scan=False)
+
+    @property
+    def nodes(self):
+        return set(range(self.n_spiders))
 
     def then(self, other):
+        """ The composition of two hypergraph diagrams.
+
+        Note
+        ----
+
+        This is implemented as a pushout
+        """
         if not self.cod == other.dom:
             raise AxiomError
         dom, cod, boxes = self.dom, other.cod, self.boxes + other.boxes
@@ -97,7 +201,7 @@ class Diagram(cat.Arrow):
             + [other_pushout[i] for i in other.wires[len(other.dom):]]
         n_spiders = len(self.nodes) - len(set(self_boundary))\
             + len(components) + len(other.nodes) - len(set(other_boundary))
-        return Diagram(dom, cod, boxes, relabel(wires), n_spiders)
+        return Diagram(dom, cod, boxes, wires, n_spiders)
 
     def tensor(self, other):
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -110,7 +214,7 @@ class Diagram(cat.Arrow):
         cod_wires = self.wires[len(self.wires) - len(self.cod):] + [
             len(self.nodes) + i
             for i in other.wires[len(other.wires) - len(other.cod):]]
-        wires = relabel(dom_wires + box_wires + cod_wires)
+        wires = dom_wires + box_wires + cod_wires
         n_spiders = len(self.nodes) + len(other.nodes)
         return Diagram(dom, cod, boxes, wires, n_spiders)
 
