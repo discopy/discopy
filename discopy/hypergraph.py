@@ -103,11 +103,14 @@ We can also check that the axioms for symmetry hold on the nose.
 >>> assert Id(z) @ f >> Swap(z, f.cod) == Swap(z, f.dom) >> f @ Id(z)
 """
 
-from networkx import Graph, connected_components
+import random
+
+import matplotlib.pyplot as plt
+from networkx import Graph, connected_components, spring_layout, draw_networkx
 
 from discopy import cat, monoidal, rigid
 from discopy.cat import AxiomError
-from discopy.drawing import Node
+from discopy.drawing import Node, COLORS
 
 
 class Ty(rigid.Ty):
@@ -141,10 +144,11 @@ class Diagram(cat.Arrow):
         Codomain of the diagram.
     boxes : List[discopy.hypergraph.Box]
         List of :class:`discopy.symmetric.Box`.
-    wires : List[int]
+    wires : List[Any]
         List of wires from ports to spiders.
-    n_spiders : int, optional
-        Number of spiders, default is :code:`len(set(wires))`.
+    spider_types : Mapping[Any, discopy.hypergraph.Ty], optional
+        Mapping from spiders to basic types, if :code:`None` then this is
+        computed from the types of ports.
 
     Note
     ----
@@ -154,7 +158,7 @@ class Diagram(cat.Arrow):
         len(dom) + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod)
 
     The values themselves don't matter, they are simply labels for the spiders.
-    We must have :code:`n_spiders >= len(set(wires))`, the spiders that don't
+    We must have :code:`len(types) >= len(set(wires))`, the spiders that don't
     appear as the target of a wire are scalar spiders, i.e. with zero legs.
 
     Abstractly, a hypergraph diagram can be seen as a cospan for the boundary::
@@ -196,27 +200,34 @@ class Diagram(cat.Arrow):
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
     """
-    def __init__(self, dom, cod, boxes, wires, n_spiders=None, _scan=True):
+    def __init__(self, dom, cod, boxes, wires, spider_types=None):
         super().__init__(dom, cod, boxes, _scan=False)
         if len(wires) != len(dom)\
                 + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod):
             raise ValueError
-        relabeling = sorted(set(wires), key=lambda i: wires.index(i))
-        wires = [relabeling.index(i) for i in wires]
-        n_connected_spiders = len(set(wires))
-        if n_spiders is None:
-            n_spiders = n_connected_spiders
-        elif n_spiders < n_connected_spiders:
-            raise ValueError
-        self._n_spiders, self._wires = n_spiders, wires
-        self._scalar_spiders = set(range(n_connected_spiders, n_spiders))
-        if _scan:
+        relabeling = list(sorted(set(wires), key=lambda i: wires.index(i)))
+        wires = [relabeling.index(spider) for spider in wires]
+        n_connected_spiders = len(relabeling)
+        if spider_types is None:
+            port_types = list(map(Ty, self.dom)) + sum(
+                [list(map(Ty, box.dom @ box.cod)) for box in boxes], [])\
+                + list(map(Ty, self.cod))
             spider_types = {}
-            for port, spider in zip(self.ports, wires):
-                if spider in spider_types and spider_types[spider] != port.obj:
-                    raise AxiomError
-                elif spider not in spider_types:
-                    spider_types[spider] = port.obj
+            for spider, typ in zip(wires, port_types):
+                if spider in spider_types:
+                    if spider_types[spider] != typ:
+                        raise AxiomError
+                else:
+                    spider_types[spider] = typ
+            spider_types = [spider_types[i] for i in sorted(spider_types)]
+        else:
+            spider_types = {i: t for i, t in enumerate(spider_types)}\
+                if isinstance(spider_types, list) else spider_types
+            relabeling += list(sorted(set(spider_types) - set(relabeling)))
+            spider_types = [spider_types[spider] for spider in relabeling]
+        self._wires, self._spider_types = wires, spider_types
+        self._n_spiders = len(spider_types)
+        self._scalar_spiders = set(range(n_connected_spiders, self._n_spiders))
 
     @property
     def scalar_spiders(self):
@@ -234,19 +245,14 @@ class Diagram(cat.Arrow):
         return self._wires
 
     @property
+    def spider_types(self):
+        """ Mapping from spider to type. """
+        return self._spider_types
+
+    @property
     def ports(self):
         """ The ports of a hypergraph diagram. """
-        input_ports = [
-            Node("input", i=i, obj=obj) for i, obj in enumerate(self.dom)]
-        box_ports = sum([[
-            Node("dom", i=i, obj=obj, depth=depth)
-            for i, obj in enumerate(box.dom)] + [
-            Node("cod", i=i, obj=obj, depth=depth)
-            for i, obj in enumerate(box.cod)]
-            for depth, box in enumerate(self.boxes)], [])
-        output_ports = [
-            Node("output", i=i, obj=obj) for i, obj in enumerate(self.cod)]
-        return input_ports + box_ports + output_ports
+        return self._ports
 
     @property
     def is_hetero_monogamous(self):
@@ -315,7 +321,7 @@ class Diagram(cat.Arrow):
         Examples
         --------
 
-        >>> x, y = types(" x y")
+        >>> x, y = types("x y")
         >>> f = Box('f', x, y)
         >>> assert f.is_progressive
         >>> assert (f >> f[::-1]).is_progressive
@@ -329,6 +335,54 @@ class Diagram(cat.Arrow):
                 return False
             scan = scan.union(set(cod_wires))
         return True
+
+    def draw(self, seed=None, k=1):
+        if seed is not None:
+            random.seed(seed)
+        graph, pos, labels = Graph(), {}, {}
+        nodes, fixed, sizes = [], [], []
+        height = len(self.boxes) + self.n_spiders
+        width = max(len(self.dom), len(self.cod))
+        for i in range(self.n_spiders):
+            node = Node("spider", i=i)
+            graph.add_node(node)
+            pos[node] = (
+                random.uniform(-width/2, width/2), random.uniform(0, height))
+            labels[node] = self.spider_types[i]
+            nodes.append(node)
+            sizes.append(300)
+        for i, obj in enumerate(self.dom):
+            node = Node("input", i=i)
+            graph.add_edge(node, Node("spider", i=self.wires[i]))
+            pos[node] = (i, height)
+            fixed.append(node)
+            nodes.append(node)
+            sizes.append(0)
+        for i, (box, (dom_wires, cod_wires)) in enumerate(
+                zip(self.boxes, self.box_wires)):
+            node = Node("box", box=box, i=i)
+            graph.add_node(node)
+            pos[node] = (random.uniform(-width / 2, width / 2),
+                         random.uniform(0, height))
+            labels[node] = box.name
+            nodes.append(node)
+            sizes.append(300)
+            for spider in dom_wires + cod_wires:
+                graph.add_edge(node, Node("spider", i=spider))
+        for i, obj in enumerate(self.cod):
+            node = Node("output", i=i)
+            spider = self.wires[len(self.wires) - len(self.cod) + i]
+            graph.add_edge(node, Node("spider", i=spider))
+            pos[node] = (i, 0)
+            fixed.append(node)
+            nodes.append(node)
+            sizes.append(0)
+        pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
+        draw_networkx(
+            graph, pos=pos, labels=labels,
+            nodelist=nodes, node_size=sizes,
+            node_color="white", edgecolors="black")
+        plt.show()
 
     @property
     def box_wires(self):
@@ -381,9 +435,11 @@ class Diagram(cat.Arrow):
             self_pushout[i] for i in self.wires[:
                 len(self.wires) - len(self.cod)]]\
             + [other_pushout[i] for i in other.wires[len(other.dom):]]
-        n_spiders = self.n_spiders - len(set(self_boundary))\
-            + len(components) + other.n_spiders - len(set(other_boundary))
-        return Diagram(dom, cod, boxes, wires, n_spiders, _scan=False)
+        spider_types = {
+            self_pushout[i]: t for i, t in enumerate(self.spider_types)}
+        spider_types.update({
+            other_pushout[i]: t for i, t in enumerate(other.spider_types)})
+        return Diagram(dom, cod, boxes, wires, spider_types)
 
     def tensor(self, other):
         """ Tensor of two hypergraph diagrams, i.e. their disjoint union. """
@@ -398,8 +454,8 @@ class Diagram(cat.Arrow):
             self.n_spiders + i
             for i in other.wires[len(other.wires) - len(other.cod):]]
         wires = dom_wires + box_wires + cod_wires
-        n_spiders = self.n_spiders + other.n_spiders
-        return Diagram(dom, cod, boxes, wires, n_spiders, _scan=False)
+        spider_types = self.spider_types + other.spider_types
+        return Diagram(dom, cod, boxes, wires, spider_types)
 
     __matmul__ = tensor
 
@@ -411,7 +467,7 @@ class Diagram(cat.Arrow):
             for dom_wires, cod_wires in self.box_wires[::-1]], [])
         cod_wires = self.wires[:len(self.dom)]
         wires = dom_wires + box_wires + cod_wires
-        return Diagram(dom, cod, boxes, wires, self.n_spiders, _scan=False)
+        return Diagram(dom, cod, boxes, wires, self.spider_types)
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -463,9 +519,9 @@ class Spider(Diagram):
     """ Spider diagram. """
     def __init__(self, n_legs_in, n_legs_out, typ):
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        boxes, n_spiders = [], len(typ)
-        wires = (n_legs_in + n_legs_out) * list(range(n_spiders))
-        super().__init__(dom, cod, boxes, wires, n_spiders)
+        boxes, spider_types = [], list(map(Ty, typ))
+        wires = (n_legs_in + n_legs_out) * list(range(len(typ)))
+        super().__init__(dom, cod, boxes, wires, spider_types)
 
 
 class Cup(Diagram):
