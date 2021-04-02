@@ -360,7 +360,7 @@ class Diagram(cat.Arrow):
             sizes.append(0)
         for i, (box, (dom_wires, cod_wires)) in enumerate(
                 zip(self.boxes, self.box_wires)):
-            node = Node("box", box=box, i=i)
+            node = Node("box", i=i)
             graph.add_node(node)
             pos[node] = (random.uniform(-width / 2, width / 2),
                          random.uniform(0, height))
@@ -378,6 +378,32 @@ class Diagram(cat.Arrow):
             nodes.append(node)
             sizes.append(0)
         pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
+        for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
+            box_node = Node("box", i=i)
+            for j, spider in enumerate(dom_wires):
+                spider_node = Node("spider", i=spider)
+                dom_node = Node("dom", i=i, j=j)
+                nodes.append(dom_node)
+                sizes.append(0)
+                graph.remove_edge(box_node, spider_node)
+                graph.add_edge(box_node, dom_node)
+                graph.add_edge(dom_node, spider_node)
+                x, y = pos[box_node]
+                y += .25
+                x -= .1 * (len(dom_wires[:-1]) / 2 - j)
+                pos[dom_node] = x, y
+            for j, spider in enumerate(cod_wires):
+                spider_node = Node("spider", i=spider)
+                cod_node = Node("cod", i=i, j=j)
+                nodes.append(cod_node)
+                sizes.append(0)
+                graph.remove_edge(box_node, spider_node)
+                graph.add_edge(box_node, cod_node)
+                graph.add_edge(cod_node, spider_node)
+                x, y = pos[box_node]
+                y -= .25
+                x -= .25 * (len(cod_wires[:-1]) / 2 - j)
+                pos[cod_node] = x, y
         draw_networkx(
             graph, pos=pos, labels=labels,
             nodelist=nodes, node_size=sizes,
