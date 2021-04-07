@@ -309,26 +309,7 @@ class Diagram(cat.Arrow):
             for i in other.wires[len(other.wires) - len(other.cod):]]
         wires = dom_wires + box_wires + cod_wires
         spiders = self.spiders + other.spiders
-        if self.pos is None or other.pos is None:
-            pos = None
-        else:
-            pos, other_height = self.pos, max(y for _, y in other.pos.values())
-            self_width, self_height = map(max, zip(*self.pos.values()))
-            height = max(self_height, other_height)
-            if self_height < other_height:
-                pos.update({
-                    Node("input", i=i): (x, height)
-                    for i, _ in enumerate(self.dom)
-                    for x, y in (self.pos[Node("input", i=i)], )})
-            for kind, attr in [
-                    ("input", "dom"), ("box", "boxes"),
-                    ("spider", "spiders"), ("output", "cod")]:
-                pos.update({
-                    Node(kind, i=len(getattr(self, attr)) + i):
-                    (x + self_width + 1, height if kind == "input" else y)
-                    for i, _ in enumerate(getattr(other, attr))
-                    for x, y in (other.pos[Node(kind, i=i)], )})
-        return Diagram(dom, cod, boxes, wires, spiders, _pos=pos)
+        return Diagram(dom, cod, boxes, wires, spiders)
 
     __matmul__ = tensor
 
@@ -421,8 +402,8 @@ class Diagram(cat.Arrow):
     def is_progressive(self):
         """
         Checks progressivity, i.e. wires are monotone w.r.t. box index.
-        If the diagram is progressive, hetero-monogamous and it doesn't have
-        any scalar spiders, then it actually lives in a symmetric monoidal
+        If the diagram is progressive, monogamous and it doesn't have any
+        scalar spiders, then it actually lives in a symmetric monoidal
         category, i.e. it can be drawn using only swaps.
 
         Examples
@@ -539,10 +520,7 @@ class Box(cat.Box, Diagram):
 class Id(Diagram):
     """ Identity diagram. """
     def __init__(self, dom=Ty()):
-        pos = {Node("input", i=i): (i, 2) for i, _ in enumerate(dom)}
-        pos.update({Node("spider", i=i): (i, 1) for i, _ in enumerate(dom)})
-        pos.update({Node("output", i=i): (i, 0) for i, _ in enumerate(dom)})
-        super().__init__(dom, dom, [], 2 * list(range(len(dom))), _pos=pos)
+        super().__init__(dom, dom, [], 2 * list(range(len(dom))))
 
 
 class Swap(Diagram):
@@ -569,14 +547,7 @@ class Cup(Diagram):
         if not left.r == right:
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
-        spiders = list(map(Ty, left))
-        pos = {
-            Node("input", i=i): (i, len(left) + 1)
-            for i in range(2 * len(left))}
-        pos.update({
-            Node("spider", i=i): (len(left) - .5, i + 1)
-            for i, _ in enumerate(spiders)})
-        super().__init__(left @ right, Ty(), [], wires, spiders, _pos=pos)
+        super().__init__(left @ right, Ty(), [], wires)
 
 
 class Cap(Diagram):
@@ -585,13 +556,7 @@ class Cap(Diagram):
         if not left.r == right:
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
-        spiders = list(map(Ty, left))
-        pos = {
-            Node("spider", i=i): (len(left) - .5, i + 1)
-            for i, _ in enumerate(spiders)}
-        pos.update({
-            Node("output", i=i): (i, 0) for i, _ in enumerate(wires)})
-        super().__init__(Ty(), left @ right, [], wires, spiders, _pos=pos)
+        super().__init__(Ty(), left @ right, [], wires)
 
 
 Diagram.id = Id
