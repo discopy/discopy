@@ -92,15 +92,24 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             (e.g. from thewalrus)
 
+        >>> network = PhaseShift(0.4) @ Id(2) @ PhaseShift(0.5)\
+                      >> MZI(0.4, 0.3) @ MZI(0.2, 0.5)
+        >>> amplitude = network.amp(2, [1, 0, 0, 1], [0, 1, 1, 0])
+        >>> amplitude
+        (0.2562725928380136+0.9231201340089097j)
+        >>> probability = np.abs(amplitude) ** 2
+        >>> probability
+        0.9178264236525457
         >>> MZI(0, 0).amp(1, [1, 0], [0, 1])
         (1+0j)
         >>> MZI(0, np.pi).amp(1, [1, 0], [1, 0])
         (1+0j)
+        >>> MZI(0, 0).amp(2, [1, 1], [1, 0])
+        0
         """
         if sum(x) != sum(y):
-            return np.array(0)
+            return 0
         n_modes = len(self.dom)
-        assert len(x) == len(y) == n_modes
         unitary = self.array
         matrix = np.stack([unitary[:, i] for i in range(n_modes)
                           for j in range(y[i])], axis=1)
