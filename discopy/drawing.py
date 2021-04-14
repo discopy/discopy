@@ -696,7 +696,7 @@ def pregroup_draw(words, layers, **params):
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
     space = params.get('space', .5)
-    width = params.get('width', 3. if has_swaps else 2)
+    width = params.get('width', 2.)
     fontsize = params.get('fontsize', None)
 
     backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
@@ -709,7 +709,7 @@ def pregroup_draw(words, layers, **params):
             type_str += "^{" + 'l' * -t.z + 'r' * t.z + "}"
         return f'${type_str}$'
 
-    def draw_triangles(words):
+    def draw_words(words):
         scan = []
         for i, word in enumerate(words.boxes):
             for j, _ in enumerate(word.cod):
@@ -726,11 +726,20 @@ def pregroup_draw(words, layers, **params):
                         fontsize=params.get('fontsize_types', fontsize),
                         horizontalalignment='left')
                     backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
-            backend.draw_polygon(
-                ((space + width) * i, 0),
-                ((space + width) * i + width, 0),
-                ((space + width) * i + width / 2, 1),
-                color=DEFAULT["color"])
+            if params.get('triangles', False):
+                backend.draw_polygon(
+                    ((space + width) * i, 0),
+                    ((space + width) * i + width, 0),
+                    ((space + width) * i + width / 2, 1),
+                    color=DEFAULT["color"])
+            else:
+                backend.draw_polygon(
+                    ((space + width) * i, 0),
+                    ((space + width) * i + width, 0),
+                    ((space + width) * i + width, 0.4),
+                    ((space + width) * i + width / 2, 0.5),
+                    ((space + width) * i, 0.4),
+                    color=DEFAULT["color"])
             backend.draw_text(
                 str(word), (space + width) * i + width / 2 + textpad_words[0],
                 textpad_words[1], ha='center', fontsize=fontsize)
@@ -792,7 +801,7 @@ def pregroup_draw(words, layers, **params):
                     fontsize=params.get('fontsize_types', fontsize),
                     horizontalalignment='left')
 
-    scan = draw_triangles(words.normal_form())
+    scan = draw_words(words.normal_form())
     draw_grammar(layers, scan)
     backend.output(
         params.get('path', None),

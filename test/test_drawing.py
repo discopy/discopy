@@ -113,7 +113,8 @@ def test_pregroup_draw():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('gave-up.png', draw=grammar.draw, pretty_types=True)
+@draw_and_compare(
+    'gave-up.png', draw=grammar.draw, pretty_types=True, triangles=True)
 def test_cross_composition_draw():
     s, n = Ty('s'), Ty('n')
     gave, up = Word('gave', n.r @ s @ n.l), Word('up', s.r @ n.r.r @ n.r @ s)

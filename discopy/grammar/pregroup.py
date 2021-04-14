@@ -112,8 +112,6 @@ def draw(diagram, **params):
         Padding between text and wires, default is :code:`(0.1, 0.2)`.
     draw_type_labels : bool, optional
         Whether to draw type labels, default is :code:`True`.
-    pretty_labels : bool, optional
-        Whether to draw type labels with superscript, default is :code:`False`.
     aspect : string, optional
         Aspect ratio, one of :code:`['equal', 'auto']`.
     margins : tuple, optional
@@ -126,6 +124,10 @@ def draw(diagram, **params):
         Figure size.
     path : str, optional
         Where to save the image, if :code:`None` we call :code:`plt.show()`.
+    pretty_types : bool, optional
+        Whether to draw type labels with superscript, default is :code:`False`.
+    triangles : bool, optional
+        Whether to draw words as triangular states, default is :code:`False`.
 
     Raises
     ------
