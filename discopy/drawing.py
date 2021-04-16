@@ -291,15 +291,20 @@ class TikzBackend(Backend):
     def add_node(self, i, j, text=None, options=None):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
+        text = "" if text is None else text
         self.nodelayer.append(
             "\\node [{}] ({}) at ({}, {}) {{{}}};\n".format(
-                options or "", node, i, j, text or ""))
+                options or "", node, i, j, text))
         self.nodes.update({(i, j): node})
         return node
 
-    def draw_node(self, i, j, **params):
-        options = [params.get('shape', 'circle'), params.get('color', 'black')]
-        self.add_node(i, j, options=", ".join(options))
+    def draw_node(self, i, j, text=None, **params):
+        options = []
+        if 'shape' in params:
+            options.append(params['shape'])
+        if 'color' in params:
+            options.append(params['color'])
+        self.add_node(i, j, text, options=", ".join(options))
         super().draw_node(i, j, **params)
 
     def draw_text(self, text, i, j, **params):

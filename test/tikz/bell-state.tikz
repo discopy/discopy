@@ -26,19 +26,19 @@
 \node [] (22) at (-0.25, 3.25) {};
 \node [] (23) at (0.25, 3.25) {};
 \node [] (24) at (0.0, 3.75) {};
-\node [style=none, fill=white] (25) at (0.0, 3.45) {};
+\node [style=none, fill=white] (25) at (0.0, 3.45) {0};
 \node [] (26) at (0.75, 3.25) {};
 \node [] (27) at (1.25, 3.25) {};
 \node [] (28) at (1.0, 3.75) {};
-\node [style=none, fill=white] (29) at (1.0, 3.45) {};
+\node [style=none, fill=white] (29) at (1.0, 3.45) {0};
 \node [circle, white] (30) at (1.0, 1.5000000001) {};
-\node [plus, black] (31) at (1.0, 1.5) {};
+\node [plus] (31) at (1.0, 1.5) {};
 \node [] (32) at (0.0, 1.5) {};
 \node [circle, black] (33) at (0.0, 1.5) {};
 \node [] (33) at (-0.25, 0.75) {};
 \node [] (34) at (0.25, 0.75) {};
 \node [] (35) at (0.0, 0.25) {};
-\node [style=none, fill=white] (36) at (0.0, 0.5) {};
+\node [style=none, fill=white] (36) at (0.0, 0.5) {0};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [in=90, out=-90] (1.center) to (2.center);
