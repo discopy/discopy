@@ -15,6 +15,13 @@ def test_Diagram_init():
         Diagram(x, y, [], [0, 0])
 
 
+def test_Diagram_str():
+    x, y = types('x y')
+    assert str(Swap(x, y)) == "Swap(x, y)"
+    assert str(Spider(1, 0, x @ y))\
+        == "Id(x) @ Spider(1, 0, y) >> Spider(1, 0, x)"
+
+
 def test_Diagram_then():
     x, y = types('x y')
     with raises(AxiomError):

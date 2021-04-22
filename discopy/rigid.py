@@ -411,14 +411,15 @@ class Spider(Box):
             raise ValueError(
                 "Spider boxes can only have len(typ) == 1, "
                 "try Diagram.spiders instead.")
-        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, repr(typ))
+        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         params = dict(dict(
             draw_as_spider=True, color="black", drawing_name=""), **params)
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
-        return self.name
+        return "Spider({}, {}, {})".format(
+            len(self.dom), len(self.cod), repr(self.typ))
 
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), self.typ)

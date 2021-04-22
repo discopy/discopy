@@ -418,6 +418,9 @@ class Diagram(cat.Arrow):
             self.spider_types) if self.scalar_spiders else ""]
         return "Diagram({}, {}, {}, {}{})".format(*data)
 
+    def __str__(self):
+        return str(self.downgrade())
+
     @property
     def is_monogamous(self):
         """
