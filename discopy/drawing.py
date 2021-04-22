@@ -248,16 +248,11 @@ def nx2diagram(graph, ob_factory, id_factory):
     for i, target in enumerate(outputs):
         source, = graph.neighbors(target)
         j = scan.index(source)
-        if j > i:
+        if i < j:
             swaps = swaps >> _id(swaps.cod[:i])\
                 @ _swap(swaps.cod[i:j], swaps.cod[j:j + 1])\
                 @ _id(swaps.cod[j + 1:])
             scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
-        elif j < i:
-            swaps = swaps >> _id(swaps.cod[:j])\
-                @ _swap(swaps.cod[j:j + 1], swaps.cod[j + 1:i])\
-                @ _id(swaps.cod[i:])
-            scan = scan[:j] + scan[j + 1:i] + scan[j:j + 1] + scan[i:]
     return diagram >> swaps
 
 

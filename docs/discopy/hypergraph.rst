@@ -1,5 +1,5 @@
 hypergraph
-=========
+==========
 
 .. automodule:: discopy.hypergraph
     :no-members:
@@ -8,8 +8,12 @@ hypergraph
    :template: class.rst
    :toctree: ../_autosummary
 
+   discopy.hypergraph.pushout
+   discopy.hypergraph.Ty
    discopy.hypergraph.Diagram
    discopy.hypergraph.Box
+   discopy.hypergraph.Id
    discopy.hypergraph.Swap
    discopy.hypergraph.Spider
-   discopy.hypergraph.Id
+   discopy.hypergraph.Cup
+   discopy.hypergraph.Cap

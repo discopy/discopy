@@ -244,6 +244,4 @@ def test_diagramize():
         def diagram(wire):
             return f(x)
     with raises(ValueError):
-        @diagramize(x, x, [])
-        def diagram(wire):
-            return wire
+        diagramize(x, x, [])

@@ -344,7 +344,9 @@ class Diagram(cat.Arrow):
         return self._pos
 
     def then(self, other):
-        """ Composition of two hypergraph diagrams, i.e. their pushout. """
+        """
+        Composition of two hypergraph diagrams, i.e. their :func:`pushout`.
+        """
         if not self.cod == other.dom:
             raise AxiomError
         dom, cod, boxes = self.dom, other.cod, self.boxes + other.boxes
@@ -383,7 +385,18 @@ class Diagram(cat.Arrow):
     __matmul__ = tensor
 
     def dagger(self):
-        dom, cod = self.cod, self.cod
+        """
+        Dagger of a hypergraph diagram, called with :code:`[::-1]`.
+
+        Examples
+        --------
+        >>> x, y, z = types('x y z')
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> assert (f >> g)[::-1] == g[::-1] >> f[::-1]
+        >>> assert Spider(1, 2, x @ y)[::-1] == Spider(2, 1, x @ y)
+        """
+        dom, cod = self.cod, self.dom
+        boxes = [box.dagger() for box in self.boxes[::-1]]
         dom_wires = self.wires[len(self.wires) - len(self.cod):]
         box_wires = sum([
             cod_wires + dom_wires
@@ -506,6 +519,8 @@ class Diagram(cat.Arrow):
 
         >>> cycle = Cap(x, x) >> Id(x) @ (f >> f[::-1]) >> Cup(x, x)
         >>> assert not cycle.is_progressive
+
+        >>> assert not Cup(x, x).is_progressive
         """
         if not self.is_monogamous:
             return False
@@ -597,11 +612,19 @@ class Diagram(cat.Arrow):
 
         Examples
         --------
+        >>> trace = lambda d:\\
+        ...     Cap(d.dom, d.dom) >> Id(d.dom) @ d >> Cup(d.dom, d.dom)
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
-        >>> trace = (Cap(x, x) >> f @ Id(x) >> Cup(x, x)).make_progressive()
-        >>> assert trace.boxes == [rigid.Cap(x, x), f, rigid.Cup(x, x)]
-        >>> assert trace.wires == [0, 1, 0, 2, 2, 1]
+        >>> diagram = trace(f).make_progressive()
+        >>> assert diagram.boxes == [rigid.Cap(x, x), f, rigid.Cup(x, x)]
+        >>> assert diagram.wires == [0, 1, 0, 2, 2, 1]
+
+        >>> g = Box('g', x @ x, x @ x)
+        >>> assert trace(g).make_progressive().boxes\\
+        ...     == [rigid.Cap(x, x), rigid.Cap(x, x),
+        ...         g,
+        ...         rigid.Cup(x, x), rigid.Cup(x, x)]
         """
         diagram = self if self.is_monogamous else self.make_monogamous()
         if diagram.is_progressive:
@@ -633,6 +656,15 @@ class Diagram(cat.Arrow):
     def downgrade(self):
         """
         Downgrade hypergraph diagram to :class:`discopy.rigid.Diagram`.
+
+        Examples
+        --------
+        >>> x = Ty('x')
+        >>> v = Box('v', Ty(), x @ x)
+        >>> print((v >> Swap(x, x) >> v[::-1]).downgrade())
+        v >> Swap(x, x) >> v[::-1]
+        >>> print((Id(x) @ Swap(x, x) >> v[::-1] @ Id(x)).downgrade())
+        Id(x) @ Swap(x, x) >> v[::-1] @ Id(x)
         """
         diagram = self.make_progressive()
         graph = Graph()
@@ -642,7 +674,9 @@ class Diagram(cat.Arrow):
             for i, j in enumerate(diagram.bijection)])
         graph.add_nodes_from([
             Node("box", depth=depth, box=box if isinstance(box, rigid.Box)
-                 else rigid.Box(box.name, box.dom, box.cod))
+                 else rigid.Box(
+                     box.name, box.dom, box.cod,
+                     _dagger=box._dagger, data=box._data))
             for depth, box in enumerate(diagram.boxes)])
         graph.add_nodes_from([
             Node("box", depth=len(diagram.boxes) + i,
@@ -711,7 +745,26 @@ class Diagram(cat.Arrow):
         self._pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
         return self._pos
 
-    def draw(self, seed=None, k=.25):
+    def draw(self, seed=None, k=.25, figsize=None, path=None):
+        """
+        Draw a hypegraph diagram.
+
+        Examples
+        --------
+        >>> x, y, z = types('x y z')
+        >>> f = Box('f', x, y @ z)
+        >>> f.draw(
+        ...     path='docs/_static/imgs/hypergraph/box.png', seed=42)
+
+        .. image:: ../_static/imgs/hypergraph/box.png
+            :align: center
+
+        >>> (Spider(2, 2, x) >> f @ Id(x)).draw(
+        ...     path='docs/_static/imgs/hypergraph/diagram.png', seed=42)
+
+        .. image:: ../_static/imgs/hypergraph/diagram.png
+            :align: center
+        """
         if self.pos is None:
             self.spring_layout(seed=seed, k=k)
         graph, pos = self.to_nx(), self.pos
@@ -737,6 +790,9 @@ class Diagram(cat.Arrow):
             graph, pos=pos, labels=labels,
             nodelist=nodelist, node_size=node_size,
             node_color="white", edgecolors="black")
+        if path is not None:
+            plt.savefig(path)
+            plt.close()
         plt.show()
 
     transpose = rigid.Diagram.transpose
