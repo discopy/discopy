@@ -66,7 +66,8 @@ def missing_types_for_empty_sum():
 
 def expected_pregroup():
     """ pregroup.draw error. """
-    return "Expected a pregroup diagram of shape `word @ ... @ word >> cups`,"\
+    return "Expected a pregroup diagram of shape"\
+           "`word @ ... @ word >> cups_and_swaps`,"\
            " use diagram.draw() instead."
 
 

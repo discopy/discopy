@@ -124,12 +124,17 @@ def draw(diagram, **params):
         Figure size.
     path : str, optional
         Where to save the image, if :code:`None` we call :code:`plt.show()`.
+    pretty_types : bool, optional
+        Whether to draw type labels with superscript, default is :code:`False`.
+    triangles : bool, optional
+        Whether to draw words as triangular states, default is :code:`False`.
 
     Raises
     ------
     ValueError
         Whenever the input is not a pregroup diagram.
     """
+    from discopy.rigid import Swap
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
     words, is_pregroup = Id(Ty()), True
@@ -144,7 +149,8 @@ def draw(diagram, **params):
     cups = diagram[len(words):].foliation().boxes\
         if len(words) < len(diagram) else []
     is_pregroup = is_pregroup and words and all(
-        isinstance(box, Cup) for s in cups for box in s.boxes)
+        isinstance(box, Cup) or isinstance(box, Swap)
+        for s in cups for box in s.boxes)
     if not is_pregroup:
         raise ValueError(messages.expected_pregroup())
     drawing.pregroup_draw(words, cups, **params)
