@@ -388,6 +388,42 @@ class Cap(Box):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))
 
 
+class Spider(Box):
+    """
+    Spider box.
+
+    Parameters
+    ----------
+    n_legs_in, n_legs_out : int
+        Number of legs in and out.
+    typ : discopy.rigid.Ty
+        The type of the spider, needs to be atomic.
+
+    Examples
+    --------
+    >>> x = Ty('x')
+    >>> spider = Spider(1, 2, x)
+    >>> assert spider.dom == x and spider.cod == x @ x
+    """
+    def __init__(self, n_legs_in, n_legs_out, typ, **params):
+        self.typ = typ
+        if len(typ) > 1:
+            raise ValueError(
+                "Spider boxes can only have len(typ) == 1, "
+                "try Diagram.spiders instead.")
+        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, repr(typ))
+        dom, cod = typ ** n_legs_in, typ ** n_legs_out
+        params = dict(dict(
+            draw_as_spider=True, color="black", drawing_name=""), **params)
+        Box.__init__(self, name, dom, cod, **params)
+
+    def __repr__(self):
+        return self.name
+
+    def dagger(self):
+        return type(self)(len(self.cod), len(self.dom), self.typ)
+
+
 class Functor(monoidal.Functor):
     """
     Implements rigid monoidal functors, i.e. preserving cups and caps.
@@ -434,6 +470,9 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Cap):
             return self.ar_factory.caps(
                 self(diagram.cod[:1]), self(diagram.cod[1:]))
+        if isinstance(diagram, Spider):
+            return self.ar_factory.spiders(
+                len(diagram.dom), len(diagram.cod), diagram.typ)
         if isinstance(diagram, monoidal.Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))

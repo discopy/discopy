@@ -207,7 +207,7 @@ def nx2diagram(graph, ob_factory, id_factory):
     ----
     Box nodes with no inputs need an offset attribute.
     """
-    _id, _ty = id_factory, ob_factory
+    _id, _ty, _swap = id_factory, ob_factory, id_factory.swap
     inputs, outputs, boxes = [], [], []
     for node in graph.nodes:
         for kind, nodelist in zip(
@@ -217,23 +217,48 @@ def nx2diagram(graph, ob_factory, id_factory):
                 nodelist.append(node)
     scan, diagram = inputs, _id(_ty(*[node.obj for node in inputs]))
     for depth, box_node in enumerate(boxes):
-        box = box_node.box
-        offset = getattr(box_node, "offset", 0)
+        box, offset = box_node.box, getattr(box_node, "offset", 0)
+        swaps = _id(diagram.cod)
         for i, obj in enumerate(box.dom):
-            dom_node = Node("dom", obj=obj, i=i, depth=depth)
-            edge, = graph.in_edges(dom_node)
-            wire, _ = edge
+            target = Node("dom", obj=obj, i=i, depth=depth)
+            source, = graph.neighbors(target)
+            j = scan.index(source)
             if i == 0:
-                offset = scan.index(wire)
-        outputs = sorted(
-            [node for _, node in graph.out_edges(box_node)],
-            key=lambda node: node.i)
-        for i, obj in enumerate(box.cod):
-            outputs[i].offset = offset + i
-        left, right = diagram.cod[:offset], diagram.cod[offset + len(box.dom):]
-        scan = scan[:offset] + outputs + scan[offset + len(box.dom):]
-        diagram = diagram >> _id(left) @ box @ _id(right)
-    return diagram
+                offset = j
+            elif j > offset + i:
+                swaps = swaps >> _id(swaps.cod[:offset + i])\
+                    @ _swap(swaps.cod[offset + i:j], swaps.cod[j:j + 1])\
+                    @ _id(swaps.cod[j + 1:])
+                scan = scan[:offset + i] + scan[j:j + 1] + scan[offset + i:j]\
+                    + scan[j + 1:]
+            elif j < offset + i:
+                swaps = swaps >> _id(swaps.cod[:j])\
+                    @ _swap(swaps.cod[j:j + 1], swaps.cod[j + 1:offset + i])\
+                    @ _id(swaps.cod[offset + i:])
+                scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j + 1]\
+                    + scan[offset + i:]
+                offset -= 1
+        cod_nodes = [
+            Node("cod", obj=obj, i=i, depth=depth)
+            for i, obj in enumerate(box.cod)]
+        left, right = swaps.cod[:offset], swaps.cod[offset + len(box.dom):]
+        scan = scan[:offset] + cod_nodes + scan[offset + len(box.dom):]
+        diagram = diagram >> swaps >> _id(left) @ box @ _id(right)
+    swaps = _id(diagram.cod)
+    for i, target in enumerate(outputs):
+        source, = graph.neighbors(target)
+        j = scan.index(source)
+        if j > i:
+            swaps = swaps >> _id(swaps.cod[:i])\
+                @ _swap(swaps.cod[i:j], swaps.cod[j:j + 1])\
+                @ _id(swaps.cod[j + 1:])
+            scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
+        elif j < i:
+            swaps = swaps >> _id(swaps.cod[:j])\
+                @ _swap(swaps.cod[j:j + 1], swaps.cod[j + 1:i])\
+                @ _id(swaps.cod[i:])
+            scan = scan[:j] + scan[j + 1:i] + scan[j:j + 1] + scan[i:]
+    return diagram >> swaps
 
 
 class Backend(ABC):
@@ -850,7 +875,7 @@ def diagramize(dom, cod, boxes, id_factory=None):
         from discopy import messages
         from discopy.cat import AxiomError
         from discopy.cartesian import tuplify, untuplify
-        graph, box_nodes = nx.DiGraph(), []
+        graph, box_nodes = nx.Graph(), []
 
         def apply(box, *inputs, offset=None):
             for node in inputs:
@@ -869,11 +894,9 @@ def diagramize(dom, cod, boxes, id_factory=None):
                                      .format(obj, inputs[i].obj))
                 dom_node = Node("dom", obj=obj, i=i, depth=depth)
                 graph.add_edge(inputs[i], dom_node)
-                graph.add_edge(dom_node, box_node)
             outputs = []
             for i, obj in enumerate(box.cod):
                 cod_node = Node("cod", obj=obj, i=i, depth=depth)
-                graph.add_edge(box_node, cod_node)
                 outputs.append(cod_node)
             return untuplify(*outputs)
         for box in boxes:
