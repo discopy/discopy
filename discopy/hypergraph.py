@@ -110,7 +110,7 @@ from networkx import Graph, connected_components, spring_layout, draw_networkx
 
 from discopy import cat, monoidal, rigid, drawing
 from discopy.cat import AxiomError
-from discopy.drawing import Node, COLORS
+from discopy.drawing import Node
 
 
 def pushout(left, right, left_boundary, right_boundary):
@@ -161,6 +161,7 @@ def pushout(left, right, left_boundary, right_boundary):
 
 
 class Ty(rigid.Ty):
+    """ Self-dual types in a hypergraph diagram. """
     @staticmethod
     def upgrade(old):
         return Ty(*old.objects)
@@ -246,7 +247,7 @@ class Diagram(cat.Arrow):
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
     """
-    def __init__(self, dom, cod, boxes, wires, spider_types=None, _pos=None):
+    def __init__(self, dom, cod, boxes, wires, spider_types=None):
         super().__init__(dom, cod, boxes, _scan=False)
         if len(wires) != len(dom)\
                 + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod):
@@ -269,7 +270,7 @@ class Diagram(cat.Arrow):
             if isinstance(spider_types, list) else spider_types
         relabeling += list(sorted(set(spider_types) - set(relabeling)))
         spider_types = [spider_types[spider] for spider in relabeling]
-        self._wires, self._spider_types, self._pos = wires, spider_types, _pos
+        self._wires, self._spider_types = wires, spider_types
 
     @property
     def wires(self):
@@ -337,11 +338,6 @@ class Diagram(cat.Arrow):
     def scalar_spiders(self):
         """ The zero-legged spiders in a hypergraph diagram. """
         return [i for i in range(self.n_spiders) if not self.wires.count(i)]
-
-    @property
-    def pos(self):
-        """ The planar coordinates of inputs, outputs, boxes and spiders. """
-        return self._pos
 
     def then(self, other):
         """
@@ -576,7 +572,7 @@ class Diagram(cat.Arrow):
             return diagram
         dom, cod = diagram.dom, diagram.cod
         boxes, wires = list(diagram.boxes), list(diagram.wires)
-        spider_types = {i: x for i, x in enumerate(diagram.spider_types)}
+        spider_types = dict(enumerate(diagram.spider_types))
         for kinds, box_cls in [
                 (["input", "cod"], rigid.Cup),
                 (["dom", "output"], rigid.Cap)]:
@@ -634,7 +630,7 @@ class Diagram(cat.Arrow):
         spider_types = {i: x for i, x in enumerate(diagram.spider_types)}
         bijection = diagram.bijection
         port = len(diagram.dom)
-        for i, box in enumerate(diagram.boxes):
+        for box in diagram.boxes:
             for j, typ in enumerate(map(Ty, box.dom)):
                 source = port + j
                 spider, target = wires[source], bijection[source]
@@ -676,7 +672,7 @@ class Diagram(cat.Arrow):
             Node("box", depth=depth, box=box if isinstance(box, rigid.Box)
                  else rigid.Box(
                      box.name, box.dom, box.cod,
-                     _dagger=box._dagger, data=box._data))
+                     _dagger=box.is_dagger, data=box.data))
             for depth, box in enumerate(diagram.boxes)])
         graph.add_nodes_from([
             Node("box", depth=len(diagram.boxes) + i,
@@ -684,6 +680,7 @@ class Diagram(cat.Arrow):
             for i, s in enumerate(diagram.scalar_spiders)])
         return drawing.nx2diagram(graph, rigid.Ty, rigid.Id)
 
+    @staticmethod
     def upgrade(old):
         """
         >>> x, y = types("x y")
@@ -696,8 +693,13 @@ class Diagram(cat.Arrow):
             ar=lambda box: Box(box.name, box.dom, box.cod),
             ob_factory=Ty, ar_factory=Diagram)(old)
 
-    def to_nx(self):
-        graph = Graph()
+    def spring_layout(self, seed=None, k=None):
+        """ Computes planar position using a force-directed layout. """
+        if seed is not None:
+            random.seed(seed)
+        height = len(self.boxes) + self.n_spiders
+        width = max(len(self.dom), len(self.cod))
+        graph, pos = Graph(), {}
         graph.add_nodes_from(
             Node("spider", i=i) for i in range(self.n_spiders))
         graph.add_edges_from(
@@ -716,14 +718,6 @@ class Diagram(cat.Arrow):
             (Node("output", i=i), Node("spider", i=j))
             for i, j in enumerate(
                 self.wires[len(self.wires) - len(self.cod):]))
-        return graph
-
-    def spring_layout(self, seed=None, k=None):
-        if seed is not None:
-            random.seed(seed)
-        graph, pos = self.to_nx(), {}
-        height = len(self.boxes) + self.n_spiders
-        width = max(len(self.dom), len(self.cod))
         for i, _ in enumerate(self.dom):
             pos[Node("input", i=i)] = (i, height)
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
@@ -742,10 +736,10 @@ class Diagram(cat.Arrow):
             pos[Node("output", i=i)] = (i, 0)
         fixed = [Node("input", i=i) for i, _ in enumerate(self.dom)] + [
             Node("output", i=i) for i, _ in enumerate(self.cod)] or None
-        self._pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
-        return self._pos
+        pos = spring_layout(graph, pos=pos, fixed=fixed, k=k, seed=seed)
+        return graph, pos
 
-    def draw(self, seed=None, k=.25, figsize=None, path=None):
+    def draw(self, seed=None, k=.25, path=None):
         """
         Draw a hypegraph diagram.
 
@@ -765,14 +759,11 @@ class Diagram(cat.Arrow):
         .. image:: ../_static/imgs/hypergraph/diagram.png
             :align: center
         """
-        if self.pos is None:
-            self.spring_layout(seed=seed, k=k)
-        graph, pos = self.to_nx(), self.pos
+        graph, pos = self.spring_layout(seed=seed, k=k)
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
             box_node = Node("box", i=i)
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
-                    spider_node = Node("spider", i=spider)
                     port_node = Node(kind, i=i, j=j)
                     x, y = pos[box_node]
                     if not isinstance(self.boxes[i], rigid.Spider):
@@ -802,22 +793,10 @@ class Box(cat.Box, Diagram):
     """ Box in a :class:`discopy.hypergraph.Diagram`. """
     def __init__(self, name, dom, cod, **params):
         cat.Box.__init__(self, name, dom, cod, **params)
-        boxes, spider_types = [self], list(range(len(dom @ cod)))
+        boxes, spider_types = [self], list(map(Ty, dom @ cod))
         wires = 2 * list(range(len(dom)))\
             + 2 * list(range(len(dom), len(dom @ cod)))
-        middle = max(len(dom[:-1]), len(cod[:-1])) / 2
-        pos = {Node("input", i=i): (middle - len(dom[:-1]) / 2 + i, 1)
-               for i, _ in enumerate(dom)}
-        pos.update({Node("spider", i=i):
-                    (middle - .25 * (len(dom[:-1]) / 2 - i), .75)
-                    for i, _ in enumerate(dom)})
-        pos[Node("box", i=0)] = (middle, .5)
-        pos.update({Node("spider", i=i + len(dom)):
-                    (middle - .25 * (len(cod[:-1]) / 2 - i), .25)
-                    for i, _ in enumerate(cod)})
-        pos.update({Node("output", i=i): (middle - len(cod[:-1]) / 2 + i, 0)
-                    for i, _ in enumerate(cod)})
-        Diagram.__init__(self, dom, cod, boxes, wires, _pos=pos)
+        Diagram.__init__(self, dom, cod, boxes, wires, spider_types)
 
     def __eq__(self, other):
         if isinstance(other, Box):
