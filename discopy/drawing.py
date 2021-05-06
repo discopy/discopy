@@ -688,7 +688,7 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
     params : any, optional
         Passed to :meth:`Diagram.draw`.
     """
-    path = params.get("path", None)
+    path = params.pop("path", None)
     timestep = params.get("timestep", 500)
     loop = params.get("loop", False)
     steps, frames = (diagram, ) + diagrams, []
