@@ -134,6 +134,20 @@ class PRO(monoidal.PRO, Ty):
         return self
 
 
+class Layer(monoidal.Layer):
+    @staticmethod
+    def upgrade(old):
+        return Layer(old._left, old._box, old._right)
+
+    @property
+    def l(self):
+        return Layer(self._right.l, self._box.l, self._left.l)
+
+    @property
+    def r(self):
+        return Layer(self._right.r, self._box.r, self._left.r)
+
+
 @monoidal.Diagram.subclass
 class Diagram(monoidal.Diagram):
     """ Implements diagrams in the free rigid monoidal category.
@@ -151,6 +165,22 @@ class Diagram(monoidal.Diagram):
     .. image:: ../_static/imgs/rigid/diagram-example.png
         :align: center
     """
+    def __init__(self, dom, cod, boxes, offsets, layers=None):
+        super().__init__(dom, cod, boxes, offsets, layers=layers)
+        if layers is None:
+            layers = cat.Id(dom)
+            for box, off in zip(boxes, offsets):
+                if not isinstance(box, Diagram):
+                    raise TypeError(messages.type_err(Diagram, box))
+                if not isinstance(off, int):
+                    raise TypeError(messages.type_err(int, off))
+                left = layers.cod[:off] if layers else dom[:off]
+                right = layers.cod[off + len(box.dom):]\
+                    if layers else dom[off + len(box.dom):]
+                layers = layers >> Layer(left, box, right)
+            layers = layers >> cat.Id(cod)
+        self._layers, self._offsets = layers, tuple(offsets)
+
     @staticmethod
     def swap(left, right):
         return monoidal.Diagram.swap(
@@ -249,6 +279,31 @@ class Diagram(monoidal.Diagram):
         return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
             >> diagram @ Id(wires.l)
 
+    @property
+    def l(self):
+        o_layers = self.layers
+        layers = type(o_layers)(
+            o_layers.dom.l, o_layers.cod.l, [b.l for b in o_layers._boxes])
+        boxes_and_offsets = tuple(zip(*(
+            (box, len(left)) for left, box, _ in layers))) or ([], [])
+        inputs = (layers.dom, layers.cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers))
+
+    @property
+    def r(self):
+        o_layers = self.layers
+        layers = type(o_layers)(
+            o_layers.dom.r, o_layers.cod.r, [b.r for b in o_layers._boxes])
+        boxes_and_offsets = tuple(zip(*(
+            (box, len(left)) for left, box, _ in layers))) or ([], [])
+        inputs = (layers.dom, layers.cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers))
+
+    def dagger(self):
+        d = super().dagger()
+        d._layers._boxes = [Layer.upgrade(b) for b in d._layers._boxes]
+        return d
+
     def transpose(self, left=False):
         """
         >>> a, b = Ty('a'), Ty('b')
@@ -313,6 +368,23 @@ class Box(monoidal.Box, Diagram):
     def __init__(self, name, dom, cod, **params):
         monoidal.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
+        self._z = params.get("_z", 0)
+
+    @property
+    def z(self):
+        return self._z
+
+    @property
+    def l(self):
+        return type(self)(
+            name=self.name, dom=self.dom.l, cod=self.cod.l,
+            data=self.data, _dagger=self._dagger, _z=self._z - 1)
+
+    @property
+    def r(self):
+        return type(self)(
+            name=self.name, dom=self.dom.r, cod=self.cod.r,
+            data=self.data, _dagger=self._dagger, _z=self._z + 1)
 
 
 class Swap(monoidal.Swap, Box):
@@ -351,6 +423,14 @@ class Cup(Box):
     def dagger(self):
         return Cap(self.left, self.right)
 
+    @property
+    def l(self):
+        return Cup(self.right.l, self.left.l)
+
+    @property
+    def r(self):
+        return Cup(self.right.r, self.left.r)
+
     def __repr__(self):
         return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
@@ -383,6 +463,14 @@ class Cap(Box):
 
     def dagger(self):
         return Cup(self.left, self.right)
+
+    @property
+    def l(self):
+        return Cap(self.right.l, self.left.l)
+
+    @property
+    def r(self):
+        return Cap(self.right.r, self.left.r)
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))

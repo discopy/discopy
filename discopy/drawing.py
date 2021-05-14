@@ -616,11 +616,14 @@ def draw_box(backend, positions, node, **params):
         right = max(top_right, bottom_right)
     height = positions[node][1] - .25
     left, right = left - .25, right + .25
-    points = [
-        (left, height),
-        (right + (asymmetry if box.is_dagger else 0), height),
-        (right + (0 if box.is_dagger else asymmetry), height + .5),
-        (left, height + .5)]
+    if box.is_dagger:
+        points = [
+            (left, height), (right + asymmetry, height),
+            (right, height + .5), (left, height + .5)]
+    else:
+        points = [
+            (left, height), (right, height),
+            (right + asymmetry, height + .5), (left, height + .5)]
     backend.draw_polygon(*points, color=box.color)
     if params.get('draw_box_labels', True):
         backend.draw_text(box.drawing_name, *positions[node],
