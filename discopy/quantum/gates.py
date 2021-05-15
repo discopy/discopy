@@ -558,7 +558,7 @@ H = QuantumGate(
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
 T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
 X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None)
-Y = QuantumGate('Y', 1, [0, -1j, 1j, 0])
+Y = QuantumGate('Y', 1, [0, -1j, 1j, 0], _dagger=None)
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
 CX = Controlled(X)
 
