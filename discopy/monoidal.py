@@ -348,7 +348,7 @@ class Diagram(cat.Arrow):
                 left = layers.cod[:off] if layers else dom[:off]
                 right = layers.cod[off + len(box.dom):]\
                     if layers else dom[off + len(box.dom):]
-                layers = layers >> Layer(left, box, right)
+                layers = layers >> self.layer_factory(left, box, right)
             layers = layers >> cat.Id(cod)
         self._layers, self._offsets = layers, tuple(offsets)
         super().__init__(dom, cod, boxes, _scan=False)
@@ -427,9 +427,9 @@ class Diagram(cat.Arrow):
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
         layers = cat.Id(dom)
         for left, box, right in self.layers:
-            layers = layers >> Layer(left, box, right @ other.dom)
+            layers = layers >> self.layer_factory(left, box, right @ other.dom)
         for left, box, right in other.layers:
-            layers = layers >> Layer(self.cod @ left, box, right)
+            layers = layers >> self.layer_factory(self.cod @ left, box, right)
         return self.upgrade(Diagram(dom, cod, boxes, offsets, layers=layers))
 
     def __matmul__(self, other):
@@ -620,6 +620,7 @@ class Diagram(cat.Arrow):
     foliation = rewriting.foliation
     depth = rewriting.depth
     width = rewriting.width
+    layer_factory = Layer
 
 
 class Id(cat.Id, Diagram):
@@ -691,7 +692,7 @@ class Box(cat.Box, Diagram):
 
     def __init__(self, name, dom, cod, **params):
         cat.Box.__init__(self, name, dom, cod, **params)
-        layer = Layer(dom[0:0], self, dom[0:0])
+        layer = self.layer_factory(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
         for attr, value in params.items():
