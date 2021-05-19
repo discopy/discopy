@@ -20,8 +20,11 @@ def format_number(data):
 
 class QuantumGate(Box):
     """ Quantum gates, i.e. unitaries on n qubits. """
-    def __init__(self, name, n_qubits, array=None, data=None, _dagger=False):
+    def __init__(
+            self, name, n_qubits, array=None, data=None,
+            _dagger=False, _conjugate=False):
         dom = qubit ** n_qubits
+        self._conjugate = _conjugate
         if array is not None:
             self._array = Tensor.np.array(array).reshape(
                 2 * n_qubits * (2, ) or (1, ))
@@ -41,9 +44,19 @@ class QuantumGate(Box):
             array2string(self.array.flatten()))
 
     def dagger(self):
+        dagger = None if self._dagger is None else not self._dagger
         return QuantumGate(
             self.name, len(self.dom), self.array,
-            _dagger=None if self._dagger is None else not self._dagger)
+            _conjugate=self._conjugate, _dagger=dagger)
+
+    @property
+    def r(self):
+        conjugate = (None if self._conjugate is None else not self._conjugate)
+        return QuantumGate(
+            self.name, len(self.dom), self.array,
+            _dagger=self._dagger, _conjugate=conjugate)
+
+    l = r
 
 
 class ClassicalGate(Box):
@@ -225,6 +238,11 @@ class Ket(Box):
     def dagger(self):
         return Bra(*self.bitstring)
 
+    @property
+    def r(self):
+        return self
+    l = r
+
     array = Bits.array
 
 
@@ -252,6 +270,11 @@ class Bra(Box):
 
     def dagger(self):
         return Ket(*self.bitstring)
+
+    @property
+    def r(self):
+        return self
+    l = r
 
     array = Bits.array
 
@@ -389,6 +412,11 @@ class Rx(Rotation):
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
         return Tensor.np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
+    @property
+    def r(self):
+        return type(self)(-self.phase)
+    l = r
+
 
 class Ry(Rotation):
     """ Y rotations. """
@@ -400,6 +428,13 @@ class Ry(Rotation):
         half_theta = self.modules.pi * self.phase
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
         return Tensor.np.array([[cos, -1 * sin], [sin, cos]])
+
+    @property
+    def r(self):
+        # special case: the conjugate of RY is itself, unlike RZ and RX
+        return type(self)(self.phase)
+
+    l = r
 
 
 class Rz(Rotation):
@@ -413,6 +448,12 @@ class Rz(Rotation):
         return Tensor.np.array(
             [[self.modules.exp(-1j * half_theta), 0],
              [0, self.modules.exp(1j * half_theta)]])
+
+    @property
+    def r(self):
+        return type(self)(-self.phase)
+
+    l = r
 
 
 def _outer_prod_diag(*bitstring):
@@ -444,6 +485,12 @@ class CU1(Rotation):
         s = scalar(_i_2_pi * gradient * self.modules.exp(_i_2_pi * self.phase))
         return _outer_prod_diag(1, 1) @ s
 
+    @property
+    def r(self):
+        algebraic_conj = type(self)(-self.phase)
+        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
+    l = r
+
 
 class CRz(Rotation):
     """ Controlled Z rotations. """
@@ -473,6 +520,12 @@ class CRz(Rotation):
         op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
         return self >> (op1 + op2)
 
+    @property
+    def r(self):
+        algebraic_conj = type(self)(-self.phase)
+        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
+    l = r
+
 
 class CRx(Rotation):
     """ Controlled Z rotations. """
@@ -500,6 +553,13 @@ class CRx(Rotation):
         op1 = Z @ X @ scalar(_i_half_pi * gradient)
         op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
         return self >> (op1 + op2)
+
+    @property
+    def r(self):
+        algebraic_conj = type(self)(-self.phase)
+        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
+
+    l = r
 
 
 class Scalar(Parametrized):
@@ -529,6 +589,11 @@ class Scalar(Parametrized):
     def dagger(self):
         return self if self._dagger is None\
             else Scalar(self.array[0].conjugate())
+
+    @property
+    def r(self):
+        return Scalar(self.array[0].conjugate())
+    l = r
 
 
 class MixedScalar(Scalar):

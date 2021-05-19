@@ -281,28 +281,52 @@ class Diagram(monoidal.Diagram):
 
     @property
     def l(self):
-        o_layers = self.layers
-        layers = type(o_layers)(
-            o_layers.dom.l, o_layers.cod.l, [b.l for b in o_layers._boxes])
+        layers = self.layers
+        list_of_layers = []
+        for layer in layers._boxes:
+            layer_l = layer.l
+            left, box, right = layer_l._left, layer_l._box, layer_l._right
+            list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
+        layers_l = type(layers)(layers.dom.r, layers.cod.r, list_of_layers)
         boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers))) or ([], [])
-        inputs = (layers.dom, layers.cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers))
+            (box, len(left)) for left, box, _ in layers_l))) or ([], [])
+        inputs = (layers_l.dom, layers_l.cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers_l))
 
     @property
     def r(self):
-        o_layers = self.layers
-        layers = type(o_layers)(
-            o_layers.dom.r, o_layers.cod.r, [b.r for b in o_layers._boxes])
+        layers = self.layers
+        list_of_layers = []
+        for layer in layers._boxes:
+            layer_r = layer.r
+            left, box, right = layer_r._left, layer_r._box, layer_r._right
+            list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
+        layers_r = type(layers)(layers.dom.r, layers.cod.r, list_of_layers)
         boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers))) or ([], [])
-        inputs = (layers.dom, layers.cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers))
+            (box, len(left)) for left, box, _ in layers_r))) or ([], [])
+        inputs = (layers_r.dom, layers_r.cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers_r))
 
     def dagger(self):
         d = super().dagger()
         d._layers._boxes = [Layer.upgrade(b) for b in d._layers._boxes]
         return d
+
+    def transpose_box(self, i, left=False):
+        bend_left = left
+        layers = self.layers
+        if bend_left:
+            box_T = layers[i]._box.r.dagger().transpose(left=True)
+        else:
+            box_T = layers[i]._box.l.dagger().transpose(left=False)
+        left, right = layers[i]._left, layers[i]._right
+        layers_T = (Id(left) @ box_T @ Id(right)).layers.boxes
+        list_of_layers = layers._boxes[:i] + layers_T + layers._boxes[i + 1:]
+        layers = type(layers)(layers.dom, layers.cod, list_of_layers)
+        boxes_and_offsets = tuple(zip(*(
+            (box, len(left)) for left, box, _ in layers))) or ([], [])
+        inputs = (layers.dom, layers.cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers))
 
     def transpose(self, left=False):
         """
