@@ -342,6 +342,7 @@ class Diagram(monoidal.Diagram):
             normalizer=normalizer or Diagram.normalize, **params)
 
     normalize = rewriting.snake_removal
+    layer_factory = Layer
 
 
 class Id(monoidal.Id, Diagram):
