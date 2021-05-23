@@ -166,7 +166,12 @@ class Diagram(monoidal.Diagram):
         :align: center
     """
     def __init__(self, dom, cod, boxes, offsets, layers=None):
-        super().__init__(dom, cod, boxes, offsets, layers=layers)
+        if not isinstance(dom, Ty):
+            raise TypeError(messages.type_err(Ty, dom))
+        if not isinstance(cod, Ty):
+            raise TypeError(messages.type_err(Ty, cod))
+        if len(boxes) != len(offsets):
+            raise ValueError(messages.boxes_and_offsets_must_have_same_len())
         if layers is None:
             layers = cat.Id(dom)
             for box, off in zip(boxes, offsets):
@@ -177,9 +182,10 @@ class Diagram(monoidal.Diagram):
                 left = layers.cod[:off] if layers else dom[:off]
                 right = layers.cod[off + len(box.dom):]\
                     if layers else dom[off + len(box.dom):]
-                layers = layers >> Layer(left, box, right)
+                layers = layers >> self.layer_factory(left, box, right)
             layers = layers >> cat.Id(cod)
         self._layers, self._offsets = layers, tuple(offsets)
+        cat.Arrow.__init__(self, dom, cod, boxes, _scan=False)
 
     @staticmethod
     def swap(left, right):
@@ -287,7 +293,7 @@ class Diagram(monoidal.Diagram):
             layer_l = layer.l
             left, box, right = layer_l._left, layer_l._box, layer_l._right
             list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
-        layers_l = type(layers)(layers.dom.r, layers.cod.r, list_of_layers)
+        layers_l = type(layers)(layers.dom.l, layers.cod.l, list_of_layers)
         boxes_and_offsets = tuple(zip(*(
             (box, len(left)) for left, box, _ in layers_l))) or ([], [])
         inputs = (layers_l.dom, layers_l.cod) + boxes_and_offsets
@@ -395,9 +401,25 @@ class Box(monoidal.Box, Diagram):
         Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
         self._z = params.get("_z", 0)
 
+    def __eq__(self, other):
+        if isinstance(other, Box):
+            return self._z == other._z and monoidal.Box.__eq__(self, other)
+        if isinstance(other, Diagram):
+            return len(other) == 1 and other.boxes[0] == self\
+                and (other.dom, other.cod) == (self.dom, self.cod)
+        return False
+
+    def __hash__(self):
+        return hash(repr(self))
+
     @property
     def z(self):
         return self._z
+
+    def dagger(self):
+        return type(self)(
+            name=self.name, dom=self.cod, cod=self.dom,
+            data=self.data, _dagger=not self._dagger, _z=self._z)
 
     @property
     def l(self):
@@ -547,8 +569,28 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Cap):
             return self.ar_factory.caps(
                 self(diagram.cod[:1]), self(diagram.cod[1:]))
+        if isinstance(diagram, Box):
+            if not hasattr(diagram, "z") or not diagram.z:
+                return super().__call__(diagram)
+            z = diagram.z
+            for _ in range(-z):
+                diagram = diagram.r
+            for _ in range(z):
+                diagram = diagram.l
+            result = super().__call__(diagram)
+            for _ in range(-z):
+                result = result.l
+            for _ in range(z):
+                result = result.r
+            return result
         if isinstance(diagram, monoidal.Diagram):
-            return super().__call__(diagram)
+            scan, result = diagram.dom, self.ar_factory.id(self(diagram.dom))
+            for box, off in zip(diagram.boxes, diagram.offsets):
+                id_l = self.ar_factory.id(self(scan[:off]))
+                id_r = self.ar_factory.id(self(scan[off + len(box.dom):]))
+                result = result >> id_l @ self(box) @ id_r
+                scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
+            return result
         raise TypeError(messages.type_err(Diagram, diagram))
 
 

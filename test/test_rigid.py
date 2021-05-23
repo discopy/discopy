@@ -110,6 +110,14 @@ def test_Cup_Cap_dagger():
     assert Cup(n, n.l).dagger() == Cap(n, n.l)
 
 
+def test_Cup_Cap_adjoint():
+    n = Ty('n')
+    assert Cap(n, n.l).l == Cap(n.l.l, n.l)
+    assert Cap(n, n.l).r == Cap(n, n.r)
+    assert Cup(n, n.r).l == Cup(n, n.l)
+    assert Cup(n, n.r).r == Cup(n.r.r, n.r)
+
+
 def test_AxiomError():
     n, s = Ty('n'), Ty('s')
     with raises(AxiomError) as err:
@@ -129,9 +137,12 @@ def test_AxiomError():
 def test_Functor_call():
     x = Ty('x')
     cup, cap = Cup(x, x.r), Cap(x.r, x)
-    F = Functor(lambda x: x @ x, {})
+    box1, box2 = Box('box', x, x), Box('box', x @ x, x @ x)
+    F = Functor(lambda x: x @ x, {box1: box2})
     assert F(cup) == Id(x) @ cup @ Id(x.r) >> cup
     assert F(cap) == Id(x.r) @ cap @ Id(x) << cap
+    assert F(box1) == box2
+    assert F(box1.l) == box2.l and F(box1.r) == box2.r
     with raises(TypeError):
         F(F)
 
@@ -140,3 +151,47 @@ def test_Diagram_permutation():
     assert Diagram.permutation([2, 0, 1])\
         == Diagram.swap(PRO(1), PRO(1)) @ Id(PRO(1))\
         >> Id(PRO(1)) @ Diagram.swap(PRO(1), PRO(1))
+
+
+def test_adjoint():
+    n, s = map(Ty, 'ns')
+    Bob = Box('Bob', Ty(), n)
+    eats = Box('eats', Ty(), n.r @ s)
+    Bob_l = Box('Bob', Ty(), n.l, _z=-1)
+    Bob_r = Box('Bob', Ty(), n.r, _z=1)
+    eats_l = Box('eats', Ty(), s.l @ n, _z=-1)
+    eats_r = Box('eats', Ty(), s.r @ n.r.r, _z=1)
+    assert Bob.l.z == -1 and Bob.z == 0 and Bob.r.z == 1
+    assert Bob.l == Bob_l and Bob.r == Bob_r
+    assert eats.l == eats_l and eats.r == eats_r
+    diagram = Bob @ eats >> Cup(n, n.r) @ Id(s)
+    assert diagram.l == Bob_l >> eats_l @ Id(n.l) >> Id(s.l) @ Cup(n, n.l)
+    assert diagram.r == Bob_r >> eats_r @ Id(n.r) >> Id(s.r) @ Cup(n.r.r, n.r)
+
+
+def test_transpose_box():
+    n = Ty('s')
+    Bob = Box('Bob', Ty(), n)
+    Bob_Tl = Box('Bob', n.l, Ty(), _z=-1, _dagger=True)
+    Bob_Tr = Box('Bob', n.r, Ty(), _z=1, _dagger=True)
+    Bob.transpose_box(0, left=True) == Cap(n.r, n) >> Bob_Tr @ Id(n)
+    Bob.transpose_box(0) == Cap(n, n.l) >> Id(n) @ Bob_Tl
+
+
+def test_Diagram_init():
+    with raises(TypeError) as err:
+        Diagram('x', Ty('x'), [], [])
+    print(err.value)
+    assert str(err.value) == messages.type_err(Ty, 'x')
+    with raises(TypeError) as err:
+        Diagram(Ty('x'), 'x', [], [])
+    assert str(err.value) == messages.type_err(Ty, 'x')
+    with raises(ValueError) as err:
+        Diagram(Ty('x'), Ty('x'), [], [1])
+    assert "Boxes and offsets must have the same length." in str(err.value)
+    with raises(TypeError) as err:
+        Diagram(Ty('x'), Ty('x'), [1], [1])
+    assert str(err.value) == messages.type_err(Diagram, 1)
+    with raises(TypeError) as err:
+        Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
+    assert str(err.value) == messages.type_err(int, Ty('x'))

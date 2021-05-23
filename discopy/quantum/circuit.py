@@ -589,12 +589,15 @@ class Box(rigid.Box, Circuit):
         If set to :code:`None` then the box is self-adjoint.
     """
     def __init__(self, name, dom, cod,
-                 is_mixed=True, data=None, _dagger=False):
+                 is_mixed=True, data=None, _dagger=False, _conjugate=False):
         if dom and not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
         if cod and not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
-        rigid.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+        z = 1 if _conjugate else 0
+        self._conjugate = _conjugate
+        rigid.Box.__init__(
+            self, name, dom, cod, data=data, _dagger=_dagger, _z=z)
         Circuit.__init__(self, dom, cod, [self], [0])
         if not is_mixed:
             if all(isinstance(x, Digit) for x in dom @ cod):

@@ -24,12 +24,12 @@ class QuantumGate(Box):
             self, name, n_qubits, array=None, data=None,
             _dagger=False, _conjugate=False):
         dom = qubit ** n_qubits
-        self._conjugate = _conjugate
         if array is not None:
             self._array = Tensor.np.array(array).reshape(
                 2 * n_qubits * (2, ) or (1, ))
         super().__init__(
-            name, dom, dom, is_mixed=False, data=data, _dagger=_dagger)
+            name, dom, dom, is_mixed=False, data=data,
+            _dagger=_dagger, _conjugate=_conjugate)
 
     @property
     def array(self):
@@ -39,9 +39,18 @@ class QuantumGate(Box):
     def __repr__(self):
         if self in GATES:
             return self.name
-        return "QuantumGate({}, n_qubits={}, array={})".format(
+        elif self.r in GATES:
+            return self.name + '.l'
+        elif self.dagger() in GATES:
+            return self.name + '.dagger()'
+        elif self.r.dagger() in GATES:
+            return self.name + '.dagger().l'
+        more_info = ", _dagger=True" if self._dagger else ""
+        more_info += ", _conjugate=True" if self._conjugate else ""
+
+        return ("QuantumGate({}, n_qubits={}, array={}{})").format(
             repr(self.name), len(self.dom),
-            array2string(self.array.flatten()))
+            array2string(self.array.flatten()), more_info)
 
     def dagger(self):
         dagger = None if self._dagger is None else not self._dagger
@@ -619,12 +628,13 @@ CZ = QuantumGate('CZ', 2, [1, 0, 0, 0,
                            0, 0, 1, 0,
                            0, 0, 0, -1], _dagger=None)
 H = QuantumGate(
-    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]), _dagger=None)
+    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
+    _dagger=None, _conjugate=None)
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
 T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
-X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None)
+X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
 Y = QuantumGate('Y', 1, [0, -1j, 1j, 0], _dagger=None)
-Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
+Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
 CX = Controlled(X)
 
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]

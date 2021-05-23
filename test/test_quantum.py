@@ -137,6 +137,13 @@ def test_Circuit_get_counts_snake():
     assert result == 1
 
 
+def test_QuantumGate_repr():
+    assert repr(Y.l) == repr(Y.r) == "Y.l"
+    assert repr(Z.l) == repr(Z) == repr(Z.r) == "Z"
+    assert repr(S.dagger()) == "S.dagger()"
+    assert repr(S.l.dagger()) == "S.dagger().l"
+
+
 def test_Circuit_get_counts_empty():
     backend = tk.mockBackend({})
     assert not Id(1).get_counts(backend)
@@ -468,3 +475,36 @@ def test_Controlled():
         Controlled(None)
     with raises(NotImplementedError):
         Controlled(X, distance=-1)
+
+
+def test_adjoint():
+    n, s = map(rigid.Ty, 'ns')
+    Bob = rigid.Box('Bob', rigid.Ty(), n)
+    eats = rigid.Box('eats', rigid.Ty(), n.r @ s)
+    diagram = Bob @ eats >> rigid.Cup(n, n.r) @ rigid.Id(s)
+
+    func_ob = {n: qubit, s: qubit}
+    func_ar = {Bob: Ket(0), eats: Ket(1, 1)}
+    F = Functor(ob=func_ob, ar=func_ar)
+
+    assert F(diagram.transpose_box(0, left=True).normal_form()) == Circuit(
+        dom=Ty(), cod=qubit, boxes=[Ket(1, 1), Bra(0)], offsets=[0, 0])
+
+    gates = [
+        Bra(0), Ket(0, 0), Rx(0.1), Ry(0.2), Rz(0.3),
+        CU1(0.4), CRx(0.5), CRz(0.7), Scalar(1 + 2j), CX
+    ]
+
+    gates_l = [
+        Bra(0), Ket(0, 0), Rx(-0.1), Ry(0.2), Rz(-0.3),
+        Swap(qubit, qubit) >> CU1(-0.4) >> Swap(qubit, qubit),
+        Swap(qubit, qubit) >> CRx(-0.5) >> Swap(qubit, qubit),
+        Swap(qubit, qubit) >> CRz(-0.7) >> Swap(qubit, qubit),
+        Scalar(1 - 2j),
+        QuantumGate(
+            'CX', n_qubits=2, _conjugate=True,
+            array=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
+    ]
+
+    for g, g_l in zip(gates, gates_l):
+        assert g.l == g_l
