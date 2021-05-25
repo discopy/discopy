@@ -673,6 +673,11 @@ class Swap(rigid.Swap, Box):
     def dagger(self):
         return Swap(self.right, self.left)
 
+    @property
+    def l(self):
+        return Swap(self.right, self.left)
+    r = l
+
     def __repr__(self):
         return "SWAP"\
             if self.left == self.right == qubit else super().__repr__()
