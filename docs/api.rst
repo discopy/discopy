@@ -15,3 +15,4 @@ API
    discopy/quantum
    discopy/grammar
    discopy/drawing
+   discopy/utils
