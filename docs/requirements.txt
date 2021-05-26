@@ -1,4 +1,5 @@
 sphinx==3.2.1
 nbsphinx==0.8.0
 ipykernel==5.3.4
+jinja2=2.11.2
 ytsphinx
