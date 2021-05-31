@@ -1,32 +1,16 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements linear optics
+Implements linear optical networks
 """
 
 import numpy as np
 from scipy.linalg import block_diag
 from math import factorial
-from itertools import permutations
 
 from discopy import cat, monoidal
 from discopy.monoidal import PRO
 from discopy.tensor import Dim
-
-
-def occupation_numbers(n_photons, m_modes):
-    """
-    Returns vectors of occupation numbers for n_photons in m_modes.
-
-    >>> occupation_numbers(3, 2)
-    [[3, 0], [2, 1], [1, 2], [0, 3]]
-    >>> occupation_numbers(2, 3)
-    [[2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]]
-    """
-    if m_modes <= 1:
-        return m_modes * [[n_photons]]
-    return [[head] + tail for head in range(n_photons, -1, -1)
-            for tail in occupation_numbers(n_photons - head, m_modes - 1)]
 
 
 def npperm(M):
@@ -60,8 +44,15 @@ class Diagram(monoidal.Diagram):
     Linear optical network seen as a diagram of beam splitters, phase shifters
     and Mach-Zender interferometers.
 
-    >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> Id(1) @ MZI(0.5, 0.3) @ Id(1)
-    >>> assert np.allclose((grid >> grid.dagger()).eval(3), Id(4).eval(3))
+    >>> mach = lambda x, y: PhaseShift(x) @ Id(PRO(1)) >> BeamSplitter(y)
+    >>> assert np.allclose(MZI(0.4, 0.9).array, mach(0.4, 0.9).array)
+    >>> MZI(0, 0).amp(1, [1, 0], [0, 1])
+    (1+0j)
+    >>> assert np.allclose((BeamSplitter(0.4) >> BeamSplitter(0.4)).array,\
+                           Id(PRO(2)).array)
+    >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> MZI(0.5, 0.3) @ MZI(0.5, 0.3)
+    >>> np.absolute(grid.amp(7, [1, 3, 2, 1], [1, 3, 3, 0])) ** 2
+    0.01503226280870989
     """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'optics.Diagram')
@@ -73,15 +64,9 @@ class Diagram(monoidal.Diagram):
         Builds a block diagonal matrix for each layer and then multiplies them
         in sequence.
 
-        >>> BS = BeamSplitter(0.5)
-        >>> np.shape(BS.array)
-        (2, 2)
-        >>> np.shape((BS >> BS).array)
-        (2, 2)
-        >>> np.shape((BS @ BS @ BS).array)
-        (6, 6)
-        >>> assert np.allclose(MZI(0, 0).array, np.array([0, 1], [1, 0])
-        >>> assert np.allclose((MZI(0, 0) >> MZI(0, 0)).array, Id(2).array)
+        >>> MZI(0, 0).array
+        array([[ 0.+0.j,  1.+0.j],
+               [ 1.+0.j, -0.+0.j]])
         """
         scan, array = self.dom, np.identity(len(self.dom))
         for box, off in zip(self.boxes, self.offsets):
@@ -90,73 +75,15 @@ class Diagram(monoidal.Diagram):
                                                 np.identity(right)))
         return array
 
-    def amp(self, x, y, permanent=npperm):
+    def amp(self, n_photons, x, y, permanent=npperm):
         """
         Evaluates the amplitude of an optics.Diagram on input x and output y,
-        when sending INDISTINGUISHABLE photons.
-
-        Parameters
-        ----------
-        x : List[int]
-            Input vector of occupation numbers
-        y : List[int]
-            Output vector of occupation numbers
-        permanent : callable, optional
-            Use another function for computing the permanent
-            or set permanent = np.determinant to compute fermionic statistics
-
-        >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
-                      >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
-        >>> amplitude = network.amp([1, 0, 0, 1], [1, 0, 1, 0])
-        >>> amplitude
-        (-0.08637287570313157-0.26582837761001243j)
-        >>> probability = np.abs(amplitude) ** 2
-        >>> probability
-        0.07812499999999997
-        """
-        if sum(x) != sum(y):
-            return 0
-        n_modes = len(self.dom)
-        matrix = np.stack([self.array[:, i] for i in range(n_modes)
-                          for _ in range(y[i])], axis=1)
-        matrix = np.stack([matrix[i] for i in range(n_modes)
-                          for _ in range(x[i])], axis=0)
-        divisor = np.sqrt(np.prod([factorial(n) for n in x + y]))
-        return permanent(matrix) / divisor
-
-    def eval(self, n_photons, permanent=npperm):
-        """
-        Evaluates the matrix acting on the Fock space given number of photons.
+        where x and y are lists of natural numbers summing to n_photons.
 
         Parameters
         ----------
         n_photons : int
             Number of photons
-        permanent : callable, optional
-            Use another function for computing the permanent
-            (e.g. from thewalrus)
-
-        >>> for i, _ in enumerate(occupation_numbers(3, 2)): assert np.isclose(
-        ...       sum(np.absolute(MZI(0.2, 0.4).eval(3)[i])**2), 1)
-        >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
-                      >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
-        >>> for i, _ in enumerate(occupation_numbers(2, 4)): assert np.isclose(
-        ...       sum(np.absolute(network.eval(2)[i])**2), 1)
-        """
-        basis = occupation_numbers(n_photons, len(self.dom))
-        matrix = np.zeros(dtype=complex, shape=(len(basis), len(basis)))
-        for i, x in enumerate(basis):
-            for j, y in enumerate(basis):
-                matrix[i, j] = self.amp(x, y, permanent=permanent)
-        return matrix
-
-    def indist_prob(self, x, y, permanent=npperm):
-        """
-        Evaluates the probability for indistinguishable bosons by taking
-        the born rule of the amplitude.
-
-        Parameters
-        ----------
         x : List[int]
             Input vector of occupation numbers
         y : List[int]
@@ -165,113 +92,32 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             (e.g. from thewalrus)
 
-        >>> box = MZI(1.2, 0.6)
-        >>> assert np.isclose(sum([box.indist_prob([3, 0], y)
-        ...                        for y in occupation_numbers(3, 2)]), 1)
-        >>> network = box @ box @ box >> Id(1) @ box @ box @ Id(1)
-        >>> assert np.isclose(sum([network.indist_prob([0, 1, 0, 1, 1, 1], y)
-        ...                        for y in occupation_numbers(4, 6)]), 1)
+        >>> network = PhaseShift(0.4) @ Id(2) @ PhaseShift(0.5)\
+                      >> MZI(0.4, 0.3) @ MZI(0.2, 0.5)
+        >>> amplitude = network.amp(2, [1, 0, 0, 1], [0, 1, 1, 0])
+        >>> amplitude
+        (0.2562725928380136+0.9231201340089097j)
+        >>> probability = np.abs(amplitude) ** 2
+        >>> probability
+        0.9178264236525457
+        >>> MZI(0, 0).amp(1, [1, 0], [0, 1])
+        (1+0j)
+        >>> MZI(0, np.pi).amp(1, [1, 0], [1, 0])
+        (1+0j)
+        >>> MZI(0, 0).amp(2, [1, 1], [1, 0])
+        0
         """
-        return np.absolute(self.amp(x, y, permanent=permanent)) ** 2
-
-    def dist_prob(self, x, y, permanent=npperm):
-        """
-        Evaluates probability of an optics.Diagram for input x and output y,
-        when sending distinguishable particles.
-
-        Parameters
-        ----------
-        x : List[int]
-            Input vector of occupation numbers
-        y : List[int]
-            Output vector of occupation numbers
-        permanent : callable, optional
-            Use another function for computing the permanent
-            (e.g. from thewalrus)
-
-        >>> box = MZI(1.2, 0.6)
-        >>> assert np.isclose(sum([box.dist_prob([3, 0], y)
-        ...                        for y in occupation_numbers(3, 2)]), 1)
-        >>> network = box @ box @ box >> Id(1) @ box @ box @ Id(1)
-        >>> assert np.isclose(sum([network.dist_prob([0, 1, 0, 1, 1, 1], y)
-        ...                        for y in occupation_numbers(4, 6)]), 1)
-        """
-        n_modes = len(self.dom)
         if sum(x) != sum(y):
             return 0
-        matrix = np.stack([self.array[:, i] for i in range(n_modes)
-                          for _ in range(y[i])], axis=1)
-        matrix = np.stack([matrix[i] for i in range(n_modes)
-                          for _ in range(x[i])], axis=0)
-        divisor = np.prod([factorial(n) for n in y])
-        return permanent(np.absolute(matrix)**2) / divisor
-
-    def pdist_prob(self, x, y, S, permanent=npperm):
-        """
-        Calculates the probabilities for partially distinguishable photons.
-
-        Parameters
-        ----------
-        x : List[int]
-            Input vector of occupation numbers
-        y : List[int]
-            Output vector of occupation numbers
-        S : np.array
-            Symmetric matrix of mutual distinguishabilities
-            of shape (n_photons, n_photons)
-        permanent : callable, optional
-            Use another function for computing the permanent
-
-        Check Hong-Ou-Mandel
-        >>> BS = BeamSplitter(0.5)
-        >>> x = [1, 1]
-        >>> S = np.eye(2)
-        >>> assert np.isclose(BS.pdist_prob(x, x, S), 0.5)
-        >>> S = np.ones((2, 2))
-        >>> assert np.isclose(BS.pdist_prob(x, x, S), 0.0)
-        >>> S = lambda p: np.array([[1, p], [p, 1]])
-        >>> for p in [0.1*x for x in range(11)]:
-        ...     assert np.isclose(BS.pdist_prob(x, x, S(p)), 0.5 * (1 - p **2))
-        """
         n_modes = len(self.dom)
-        n_photons = sum(x)
-        if sum(x) != sum(y):
-            return 0
-        matrix = np.stack([self.array[:, i] for i in range(n_modes)
-                          for _ in range(y[i])], axis=1)
+        unitary = self.array
+        matrix = np.stack([unitary[:, i] for i in range(n_modes)
+                          for j in range(y[i])], axis=1)
         matrix = np.stack([matrix[i] for i in range(n_modes)
-                          for _ in range(x[i])], axis=0)
-        photons = list(range(n_photons))
-        prob = 0
-        for sigma in permutations(photons):
-            for rho in permutations(photons):
-                prob += np.prod([matrix[sigma[j], j]
-                                 * np.conjugate(matrix[rho[j], j])
-                                 * S[rho[j], sigma[j]] for j in photons])
-        return prob
-
-    def cl_distribution(self, x):
-        """
-        Computes the distribution of classical light in the outputs given
-        an input distribution x.
-
-        Parameters
-        ----------
-        x : List[float]
-            Input vector of positive reals (intensities), expected to sum to 1.
-            If the vector is not normalised the output will have the same
-            normalisation factor.
-
-        >>> BeamSplitter(0.5).cl_distribution([2/3, 1/3])
-        array([0.5, 0.5])
-        >>> assert np.allclose(BeamSplitter(0.5).cl_distribution([2/3, 1/3]),
-        ...                    BeamSplitter(0.5).cl_distribution([1/5, 4/5]))
-        >>> BS = BeamSplitter(0.25)
-        >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
-        >>> d.cl_distribution([0, 1/2, 1/2, 0])
-        array([0.4267767, 0.0732233, 0.0732233, 0.4267767])
-        """
-        return np.matmul(np.absolute(self.array)**2, np.array(x))
+                          for j in range(x[i])], axis=0)
+        divisor = np.sqrt(np.prod([factorial(n) for n in x + y]))
+        amp = permanent(matrix) / divisor
+        return amp
 
 
 class Box(Diagram, monoidal.Box):
@@ -291,9 +137,18 @@ class Box(Diagram, monoidal.Box):
 
     @property
     def array(self):
-        """ The array or unitary inside the box. """
-        return np.array(self.data).reshape(
-            Dim(len(self.dom)) @ Dim(len(self.cod)) or (1, ))
+        """ The array inside the box. """
+        if isinstance(self, PhaseShift):
+            return np.array(np.exp(self.data[0] * 1j))
+        if isinstance(self, BeamSplitter):
+            cos, sin = np.cos(self.data[0] / 2), np.sin(self.data[0] / 2)
+            return np.array([sin, cos, cos, -sin]).reshape((2, 2))
+        if isinstance(self, MZI):
+            cos, sin = np.cos(self.data[1] / 2), np.sin(self.data[1] / 2)
+            exp = np.exp(1j * self.data[0])
+            return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
+        return np.array(self.data).reshape(Dim(len(self.dom))
+                                           @ Dim(len(self.cod)) or (1, ))
 
 
 class Id(monoidal.Id, Diagram):
@@ -317,22 +172,9 @@ class PhaseShift(Box):
     Parameters
     ----------
     phase : float
-
-    >>> PhaseShift(0.4).array
-    array(-0.80901699+0.58778525j)
-    >>> assert np.allclose((PhaseShift(0.4) >> PhaseShift(0.4).dagger()).array
-    ...                    , Id(1).array)
     """
     def __init__(self, phase):
-        self.phase = phase
         super().__init__('Phase shift', PRO(1), PRO(1), [phase])
-
-    @property
-    def array(self):
-        return np.array(np.exp(2j * np.pi * self.phase))
-
-    def dagger(self):
-        return PhaseShift(-self.phase)
 
 
 class BeamSplitter(Box):
@@ -342,32 +184,9 @@ class BeamSplitter(Box):
     Parameters
     ----------
     angle : float
-
-    >>> y = BeamSplitter(0.4)
-    >>> assert np.allclose((y>>y).eval(2), Id(2).eval(2))
-    >>> assert y == y.dagger()
-    >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
-    ...   ).dagger()
-    >>> assert np.allclose(comp.eval(2), Id(4).eval(2))
-
-    We can check the Hong-Ou-Mandel effect:
-    >>> BS = BeamSplitter(0.5)
-    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [0, 2])) **2, 0.5)
-    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
-    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
     """
     def __init__(self, angle):
-        self.angle = angle
         super().__init__('Beam splitter', PRO(2), PRO(2), [angle])
-
-    @property
-    def array(self):
-        cos = np.cos(np.pi * self.angle / 2)
-        sin = np.sin(np.pi * self.angle / 2)
-        return np.array([sin, cos, cos, -sin]).reshape((2, 2))
-
-    def dagger(self):
-        return BeamSplitter(self.angle)
 
 
 class MZI(Box):
@@ -377,84 +196,15 @@ class MZI(Box):
     Parameters
     ----------
     phase, angle : float
-
-    >>> MZI(0, 0).amp([1, 0], [0, 1])
-    (1+0j)
-    >>> MZI(0, 0).amp([1, 0], [1, 0])
-    0j
-    >>> mach = lambda x, y: PhaseShift(x) @ Id(1) >> BeamSplitter(y)
-    >>> assert np.allclose(MZI(0.4, 0.9).eval(4), mach(0.4, 2 * 0.9).eval(4))
-    >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
-    ...                     Id(2).eval(3))
     """
-    def __init__(self, phase, angle, _dagger=False):
-        self.phase, self.angle, self._dagger = phase, angle, _dagger
-        super().__init__('MZI', PRO(2), PRO(2), data=[phase, angle],
-                         _dagger=_dagger)
-
-    @property
-    def array(self):
-        cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
-        if not self._dagger:
-            exp = np.exp(2j * np.pi * self.phase)
-            return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
-        else:
-            exp = np.exp(- 2j * np.pi * self.phase)
-            return np.array([exp * sin, cos, exp * cos, -sin]).reshape((2, 2))
+    def __init__(self, phase, angle):
+        super().__init__('MZI', PRO(2), PRO(2), [phase, angle])
 
     def dagger(self):
-        return MZI(self.phase, self.angle, _dagger=not self._dagger)
+        phase, angle = self.data
+        return MZI(-phase, angle)
 
 
 class Functor(monoidal.Functor):
-    """ Can be used for catching lions """
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
-
-
-def params_shape(width, depth):
-    """ Returns the shape of parameters given width and depth. """
-    even_width = not width % 2
-    even_depth = not depth % 2
-    if even_width:
-        if even_depth:
-            # we have width // 2 MZIs on the first row
-            # followed by width // 2 - 1 equals width - 1
-            return (depth // 2, width - 1, 2)
-        else:
-            # we have the parameters for even depths plus
-            # a last layer of width // 2 MZIs
-            return (depth // 2 * (width - 1) + width // 2, 2)
-    else:
-        # we have width // 2 MZIs on each row, where
-        # the even layers are tensored by Id on the right
-        # and the odd layers are tensored on the left.
-        return (depth, width // 2, 2)
-
-
-def ansatz(width, depth, x):
-    """ Returns an array of MZIs given width, depth and parameters x"""
-    params = x.reshape(params_shape(width, depth))
-    chip = Id(width)
-    if not width % 2:
-        if depth % 2:
-            params, last_layer = params[:-width // 2].reshape(
-                params_shape(width, depth - 1)), params[-width // 2:]
-        for i in range(depth // 2):
-            chip = chip\
-                >> Id().tensor(*[
-                    MZI(*params[i, j])
-                    for j in range(width // 2)])\
-                >> Id(1) @ Id().tensor(*[
-                    MZI(*params[i, j + width // 2])
-                    for j in range(width // 2 - 1)]) @ Id(1)
-        if depth % 2:
-            chip = chip >> Id().tensor(*[
-                MZI(*last_layer[j]) for j in range(width // 2)])
-    else:
-        for i in range(depth):
-            left, right = (Id(1), Id()) if i % 2 else (Id(), Id(1))
-            chip >>= left.tensor(*[
-                MZI(*params[i, j])
-                for j in range(width // 2)]) @ right
-    return chip
