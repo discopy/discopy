@@ -162,6 +162,9 @@ class Id(monoidal.Id, Diagram):
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
 
+Diagram.id = Id
+
+
 class PhaseShift(Box):
     """
     Phase shifter
@@ -196,3 +199,12 @@ class MZI(Box):
     """
     def __init__(self, phase, angle):
         super().__init__('MZI', PRO(2), PRO(2), [phase, angle])
+
+    def dagger(self):
+        phase, angle = self.data
+        return MZI(-phase, angle)
+
+
+class Functor(monoidal.Functor):
+    def __init__(self, ob, ar):
+        super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
