@@ -138,17 +138,8 @@ class Box(Diagram, monoidal.Box):
     @property
     def array(self):
         """ The array inside the box. """
-        if isinstance(self, PhaseShift):
-            return np.array(np.exp(self.data[0] * 1j))
-        if isinstance(self, BeamSplitter):
-            cos, sin = np.cos(self.data[0] / 2), np.sin(self.data[0] / 2)
-            return np.array([sin, cos, cos, -sin]).reshape((2, 2))
-        if isinstance(self, MZI):
-            cos, sin = np.cos(self.data[1] / 2), np.sin(self.data[1] / 2)
-            exp = np.exp(1j * self.data[0])
-            return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
-        return np.array(self.data).reshape(Dim(len(self.dom))
-                                           @ Dim(len(self.cod)) or (1, ))
+        return np.array(self.data).reshape(
+            Dim(len(self.dom)) @ Dim(len(self.cod)) or (1, ))
 
 
 class Id(monoidal.Id, Diagram):
@@ -174,7 +165,12 @@ class PhaseShift(Box):
     phase : float
     """
     def __init__(self, phase):
+        self.phase = phase
         super().__init__('Phase shift', PRO(1), PRO(1), [phase])
+
+    @property
+    def array(self):
+        return np.array(np.exp(2j * np.pi * self.phase))
 
 
 class BeamSplitter(Box):
@@ -186,7 +182,13 @@ class BeamSplitter(Box):
     angle : float
     """
     def __init__(self, angle):
+        self.angle = angle
         super().__init__('Beam splitter', PRO(2), PRO(2), [angle])
+
+    @property
+    def array(self):
+        cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
+        return np.array([sin, cos, cos, -sin]).reshape((2, 2))
 
 
 class MZI(Box):
@@ -198,11 +200,17 @@ class MZI(Box):
     phase, angle : float
     """
     def __init__(self, phase, angle):
+        self.phase, self.angle = phase, angle
         super().__init__('MZI', PRO(2), PRO(2), [phase, angle])
 
+    @property
+    def array(self):
+        cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
+        exp = np.exp(2j * np.pi * self.phase)
+        return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
+
     def dagger(self):
-        phase, angle = self.data
-        return MZI(-phase, angle)
+        return MZI(-self.phase, self.angle)
 
 
 class Functor(monoidal.Functor):
