@@ -21,32 +21,11 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import total_ordering, reduce
+from functools import total_ordering
 from collections.abc import Mapping, Iterable
 
 from discopy import messages
-
-
-def rmap(func, data):
-    """
-    Apply :code:`func` recursively to :code:`data`.
-
-    Examples
-    --------
-    >>> data = {'A': [0, 1, 2], 'B': ({'C': 3, 'D': [4, 5, 6]}, {7, 8, 9})}
-    >>> rmap(lambda x: x + 1, data)
-    {'A': [1, 2, 3], 'B': ({'C': 4, 'D': [5, 6, 7]}, {8, 9, 10})}
-    """
-    if isinstance(data, Mapping):
-        return {key: rmap(func, value) for key, value in data.items()}
-    if isinstance(data, Iterable):
-        return type(data)([rmap(func, elem) for elem in data])
-    return func(data)
-
-
-def rsubs(data, *args):
-    """ Substitute recursively along nested data. """
-    return rmap(lambda x: getattr(x, "subs", lambda *_: x)(*args), data)
+from discopy.utils import factory_name, from_tree, rsubs, rmap
 
 
 @total_ordering
@@ -114,6 +93,13 @@ class Ob:
 
     def __lt__(self, other):
         return self.name < other.name
+
+    def to_tree(self):
+        return {'factory': factory_name(self), 'name': self.name}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['name'])
 
 
 class Arrow:
@@ -435,6 +421,20 @@ class Arrow:
         """ Returns a :class:`cat.Bubble` with the diagram inside. """
         return self.bubble_factory(self, **params)
 
+    def to_tree(self):
+        """ Encodes an arrow as a tree. """
+        return {
+            'factory': factory_name(self),
+            'dom': self.dom.to_tree(), 'cod': self.cod.to_tree(),
+            'boxes': [box.to_tree() for box in self.boxes]}
+
+    @classmethod
+    def from_tree(cls, tree):
+        """ Decodes a tree as an arrow. """
+        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
+        boxes = list(map(from_tree, tree['boxes']))
+        return cls(dom, cod, boxes, _scan=False)
+
 
 class Id(Arrow):
     """
@@ -463,6 +463,8 @@ class Id(Arrow):
 
     def __str__(self):
         return "Id({})".format(str(self.dom))
+
+    from_tree = Arrow.from_tree
 
 
 class AxiomError(Exception):
@@ -608,6 +610,25 @@ class Box(Arrow):
             return self._apply(self, *args, **kwargs)
         raise TypeError("Box is not callable, try drawing.diagramize.")
 
+    def to_tree(self):
+        tree = {
+            'factory': factory_name(self),
+            'name': self.name,
+            'dom': self.dom.to_tree(),
+            'cod': self.cod.to_tree()}
+        if self.is_dagger:
+            tree['is_dagger'] = True
+        if self.data is not None:
+            tree['data'] = self.data
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        name = tree['name']
+        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
+        data, _dagger = tree.get('data', None), 'is_dagger' in tree
+        return cls(name=name, dom=dom, cod=cod, data=data, _dagger=_dagger)
+
 
 class Sum(Box):
     """
@@ -712,6 +733,19 @@ class Sum(Box):
         unit = Sum([], self.dom, self.cod)
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
+    def to_tree(self):
+        return {
+            'factory': factory_name(self),
+            'terms': [t.to_tree() for t in self.terms],
+            'dom': self.dom.to_tree(),
+            'cod': self.cod.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
+        terms = list(map(from_tree, tree['terms']))
+        return cls(terms=terms, dom=dom, cod=cod)
+
 
 class Bubble(Box):
     """ A unary operator on homsets. """
@@ -737,6 +771,19 @@ class Bubble(Box):
             repr(self.inside),
             "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
             else ", dom={}, cod={})".format(repr(self.dom), repr(self.cod)))
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(self),
+            'inside': self.inside.to_tree(),
+            'dom': self.dom.to_tree(),
+            'cod': self.cod.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        dom, cod, inside = map(from_tree, (
+            tree['dom'], tree['cod'], tree['inside']))
+        return cls(dom=dom, cod=cod, inside=inside)
 
 
 Arrow.sum = Sum

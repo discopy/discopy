@@ -41,6 +41,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob
+from discopy.utils import factory_name, from_tree
 
 
 class Ty(Ob):
@@ -197,6 +198,27 @@ class Ty(Ob):
             result = result @ self
         return result
 
+    def to_tree(self):
+        return {
+            'factory': factory_name(self),
+            'objects': [x.to_tree() for x in self.objects]}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, tree['objects']))
+
+
+def types(names):
+    """ Transforms strings into instances of :class:`discopy.monoidal.Ty`.
+
+    Examples
+    --------
+    >>> x, y, z = types("x y z")
+    >>> x, y, z
+    (Ty('x'), Ty('y'), Ty('z'))
+    """
+    return list(map(Ty, names.split()))
+
 
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
@@ -352,6 +374,14 @@ class Diagram(cat.Arrow):
             layers = layers >> cat.Id(cod)
         self._layers, self._offsets = layers, tuple(offsets)
         super().__init__(dom, cod, boxes, _scan=False)
+
+    def to_tree(self):
+        return dict(cat.Arrow.to_tree(self), offsets=self.offsets)
+
+    @classmethod
+    def from_tree(cls, tree):
+        arrow = cat.Arrow.from_tree(tree)
+        return cls(arrow.dom, arrow.cod, arrow.boxes, tree['offsets'])
 
     @property
     def offsets(self):
@@ -633,6 +663,8 @@ class Id(cat.Id, Diagram):
         cat.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
+    from_tree = Diagram.from_tree
+
 
 Diagram.id = Id
 
@@ -710,7 +742,21 @@ class Box(cat.Box, Diagram):
         return hash(repr(self))
 
 
-class Swap(Box):
+class BinaryConstructor:
+    """ Box constructor with left and right as input. """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def to_tree(self):
+        left, right = self.left.to_tree(), self.right.to_tree()
+        return dict(Box.to_tree(self), left=left, right=right)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, (tree['left'], tree['right'])))
+
+
+class Swap(BinaryConstructor, Box):
     """
     Implements the symmetry of atomic types.
 
@@ -724,9 +770,10 @@ class Swap(Box):
     def __init__(self, left, right):
         if len(left) != 1 or len(right) != 1:
             raise ValueError(messages.swap_vs_swaps(left, right))
-        self.left, self.right = left, right
-        super().__init__(
-            "Swap({}, {})".format(left, right), left @ right, right @ left)
+        name, dom, cod =\
+            "Swap({}, {})".format(left, right), left @ right, right @ left
+        BinaryConstructor.__init__(self, left, right)
+        Box.__init__(self, name, dom, cod)
         self.draw_as_wires = True
 
     def __repr__(self):

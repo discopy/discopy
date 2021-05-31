@@ -70,6 +70,17 @@ class Ob(cat.Ob):
         return str(self.name) + (
             - self.z * '.l' if self.z < 0 else self.z * '.r')
 
+    def to_tree(self):
+        tree = super().to_tree()
+        if self.z:
+            tree['z'] = self.z
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        name, z = tree['name'], tree.get('z', 0)
+        return cls(name=name, z=z)
+
 
 class Ty(monoidal.Ty, Ob):
     """ Implements pregroup types as lists of simple types.
@@ -322,7 +333,7 @@ class Swap(monoidal.Swap, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
 
 
-class Cup(Box):
+class Cup(monoidal.BinaryConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -344,8 +355,9 @@ class Cup(Box):
             raise ValueError(messages.cup_vs_cups(left, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        self.left, self.right = left, right
-        super().__init__("Cup({}, {})".format(left, right), left @ right, Ty())
+        monoidal.BinaryConstructor.__init__(self, left, right)
+        Box.__init__(
+            self, "Cup({}, {})".format(left, right), left @ right, Ty())
         self.draw_as_wires = True
 
     def dagger(self):
@@ -355,7 +367,7 @@ class Cup(Box):
         return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
 
-class Cap(Box):
+class Cap(monoidal.BinaryConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -377,8 +389,9 @@ class Cap(Box):
             raise ValueError(messages.cap_vs_caps(left, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        self.left, self.right = left, right
-        super().__init__("Cap({}, {})".format(left, right), Ty(), left @ right)
+        monoidal.BinaryConstructor.__init__(self, left, right)
+        Box.__init__(
+            self, "Cap({}, {})".format(left, right), Ty(), left @ right)
         self.draw_as_wires = True
 
     def dagger(self):
@@ -386,6 +399,43 @@ class Cap(Box):
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))
+
+
+class Spider(Box):
+    """
+    Spider box.
+
+    Parameters
+    ----------
+    n_legs_in, n_legs_out : int
+        Number of legs in and out.
+    typ : discopy.rigid.Ty
+        The type of the spider, needs to be atomic.
+
+    Examples
+    --------
+    >>> x = Ty('x')
+    >>> spider = Spider(1, 2, x)
+    >>> assert spider.dom == x and spider.cod == x @ x
+    """
+    def __init__(self, n_legs_in, n_legs_out, typ, **params):
+        self.typ = typ
+        if len(typ) > 1:
+            raise ValueError(
+                "Spider boxes can only have len(typ) == 1, "
+                "try Diagram.spiders instead.")
+        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
+        dom, cod = typ ** n_legs_in, typ ** n_legs_out
+        params = dict(dict(
+            draw_as_spider=True, color="black", drawing_name=""), **params)
+        Box.__init__(self, name, dom, cod, **params)
+
+    def __repr__(self):
+        return "Spider({}, {}, {})".format(
+            len(self.dom), len(self.cod), repr(self.typ))
+
+    def dagger(self):
+        return type(self)(len(self.cod), len(self.dom), self.typ)
 
 
 class Functor(monoidal.Functor):
@@ -434,6 +484,9 @@ class Functor(monoidal.Functor):
         if isinstance(diagram, Cap):
             return self.ar_factory.caps(
                 self(diagram.cod[:1]), self(diagram.cod[1:]))
+        if isinstance(diagram, Spider):
+            return self.ar_factory.spiders(
+                len(diagram.dom), len(diagram.cod), diagram.typ)
         if isinstance(diagram, monoidal.Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
