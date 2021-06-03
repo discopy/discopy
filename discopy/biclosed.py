@@ -6,6 +6,7 @@ Implements the free biclosed monoidal category.
 
 from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
+from discopy.utils import factory_name, from_tree
 
 
 class Ty(monoidal.Ty):
@@ -40,10 +41,27 @@ class Ty(monoidal.Ty):
         return Under(self, other)
 
 
-class Over(Ty):
+class BinaryTyConstructor:
+    """ Ty constructor with left and right as input. """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(self),
+            'left': self.left.to_tree(),
+            'right': self.right.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, (tree['left'], tree['right'])))
+
+
+class Over(BinaryTyConstructor, Ty):
     """ Forward slash types. """
     def __init__(self, left=None, right=None):
-        super().__init__(self, left=left, right=right)
+        Ty.__init__(self, self)
+        BinaryTyConstructor.__init__(self, left, right)
 
     def __repr__(self):
         return "Over({}, {})".format(repr(self.left), repr(self.right))
@@ -60,10 +78,11 @@ class Over(Ty):
         return hash(repr(self))
 
 
-class Under(Ty):
+class Under(BinaryTyConstructor, Ty):
     """ Backward slash types. """
     def __init__(self, left=None, right=None):
-        super().__init__(self, left=left, right=right)
+        Ty.__init__(self, self)
+        BinaryTyConstructor.__init__(self, left, right)
 
     def __repr__(self):
         return "Under({}, {})".format(repr(self.left), repr(self.right))

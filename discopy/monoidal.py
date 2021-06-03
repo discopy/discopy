@@ -742,7 +742,7 @@ class Box(cat.Box, Diagram):
         return hash(repr(self))
 
 
-class BinaryConstructor:
+class BinaryBoxConstructor:
     """ Box constructor with left and right as input. """
     def __init__(self, left, right):
         self.left, self.right = left, right
@@ -756,7 +756,7 @@ class BinaryConstructor:
         return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
-class Swap(BinaryConstructor, Box):
+class Swap(BinaryBoxConstructor, Box):
     """
     Implements the symmetry of atomic types.
 
@@ -772,7 +772,7 @@ class Swap(BinaryConstructor, Box):
             raise ValueError(messages.swap_vs_swaps(left, right))
         name, dom, cod =\
             "Swap({}, {})".format(left, right), left @ right, right @ left
-        BinaryConstructor.__init__(self, left, right)
+        BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod)
         self.draw_as_wires = True
 

@@ -333,7 +333,7 @@ class Swap(monoidal.Swap, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
 
 
-class Cup(monoidal.BinaryConstructor, Box):
+class Cup(monoidal.BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -355,7 +355,7 @@ class Cup(monoidal.BinaryConstructor, Box):
             raise ValueError(messages.cup_vs_cups(left, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryConstructor.__init__(self, left, right)
+        monoidal.BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(
             self, "Cup({}, {})".format(left, right), left @ right, Ty())
         self.draw_as_wires = True
@@ -367,7 +367,7 @@ class Cup(monoidal.BinaryConstructor, Box):
         return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
 
-class Cap(monoidal.BinaryConstructor, Box):
+class Cap(monoidal.BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -389,7 +389,7 @@ class Cap(monoidal.BinaryConstructor, Box):
             raise ValueError(messages.cap_vs_caps(left, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryConstructor.__init__(self, left, right)
+        monoidal.BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(
             self, "Cap({}, {})".format(left, right), Ty(), left @ right)
         self.draw_as_wires = True
