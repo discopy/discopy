@@ -119,5 +119,12 @@ def test_biclosed2rigid():
 
 
 def test_to_tree():
-    x, y = Ty('x'), Ty('y')
-    assert from_tree((y << x >> y).to_tree()) == y << x >> y
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    for diagram in [
+            FA(x << y),
+            BA(x >> y),
+            FC(x << y, y << x),
+            BC(x >> y, y >> x),
+            FX(x << y, z >> y),
+            BX(y << x, y >> z)]:
+        assert from_tree(diagram.to_tree()) == diagram
