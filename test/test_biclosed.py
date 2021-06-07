@@ -120,4 +120,7 @@ def test_biclosed2rigid():
 
 def test_to_tree():
     x, y = Ty('x'), Ty('y')
-    assert from_tree((y << x >> y).to_tree()) == y << x >> y
+    objects = [y << x >> y, BA(x >> y), FA(x << y)]
+    for o in objects:
+        print(o)
+        assert from_tree(o.to_tree()) == o
