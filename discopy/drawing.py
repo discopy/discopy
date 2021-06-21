@@ -750,7 +750,7 @@ def pregroup_draw(words, layers, **params):
                         type_str, x_wire + textpad[0], -textpad[1],
                         fontsize=params.get('fontsize_types', fontsize),
                         horizontalalignment='left')
-                    backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
+                backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
             if params.get('triangles', False):
                 backend.draw_polygon(
                     ((space + width) * i, 0),
