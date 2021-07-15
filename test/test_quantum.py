@@ -53,6 +53,13 @@ def test_Circuit_cups_and_caps():
         Circuit.cups(Ty('x'), Ty('x').r)
 
 
+def test_Circuit_spiders():
+    assert Circuit.spiders(0, 0, qubit) == Ket(0) >> H >> H >> Bra(0)
+    assert Circuit.spiders(1, 1, qubit) == Id(qubit)
+    assert Circuit.spiders(0, 1, qubit ** 2) == (Ket(0) >> H) @ Ket(0) >> CX
+    assert Circuit.spiders(1, 0, qubit ** 2) == Circuit.spiders(2, 0, qubit)
+
+
 def test_Circuit_to_tk():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]

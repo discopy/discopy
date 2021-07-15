@@ -486,7 +486,7 @@ class Functor(monoidal.Functor):
                 self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, Spider):
             return self.ar_factory.spiders(
-                len(diagram.dom), len(diagram.cod), diagram.typ)
+                len(diagram.dom), len(diagram.cod), self(diagram.typ))
         if isinstance(diagram, monoidal.Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))

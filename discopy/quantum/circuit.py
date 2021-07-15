@@ -554,6 +554,26 @@ class Circuit(tensor.Diagram):
     def caps(left, right):
         return Circuit.cups(left, right).dagger()
 
+    @staticmethod
+    def spiders(n_legs_in, n_legs_out, dim):
+        n_legs_in *= len(dim)
+        n_legs_out *= len(dim)
+        from discopy.quantum.gates import Bra, CX, H, Ket
+        if n_legs_in == 0:
+            d1 = Ket(0) >> H
+        else:
+            d1 = Id(qubit)
+            for _ in range(n_legs_in - 1):
+                d1 = d1 @ Id(qubit) >> CX >> Id(qubit) @ Bra(0)
+
+        if n_legs_out == 0:
+            d2 = H >> Bra(0)
+        else:
+            d2 = Id(qubit)
+            for _ in range(n_legs_out - 1):
+                d2 = Id(qubit) @ Ket(0) >> CX >> d2 @ Id(qubit)
+        return d1 >> d2
+
 
 class Id(rigid.Id, Circuit):
     """ Identity circuit. """
