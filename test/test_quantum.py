@@ -54,10 +54,23 @@ def test_Circuit_cups_and_caps():
 
 
 def test_Circuit_spiders():
+    assert Circuit.spiders(123, 456, qubit ** 0) == Id()
     assert Circuit.spiders(0, 0, qubit) == Ket(0) >> H >> H >> Bra(0)
     assert Circuit.spiders(1, 1, qubit) == Id(qubit)
-    assert Circuit.spiders(0, 1, qubit ** 2) == (Ket(0) >> H) @ Ket(0) >> CX
-    assert Circuit.spiders(1, 0, qubit ** 2) == Circuit.spiders(2, 0, qubit)
+    assert Circuit.spiders(0, 1, qubit ** 2) == (Ket(0) >> H) @ (Ket(0) >> H)
+
+    mul2 = Circuit(
+        dom=qubit @ qubit @ qubit @ qubit, cod=qubit @ qubit,
+        boxes=[SWAP, CX, Bra(0), CX, Bra(0)], offsets=[1, 0, 1, 1, 2])
+    assert Circuit.spiders(2, 1, qubit ** 2) == mul2
+
+    ghz2 = Circuit(
+        dom=Ty(), cod=qubit @ qubit @ qubit @ qubit @ qubit @ qubit,
+        boxes=[
+            Ket(0), H, Ket(0), CX, Ket(0), CX, Ket(0), H, Ket(0), CX, Ket(0),
+            CX, SWAP, SWAP, SWAP],
+        offsets=[0, 0, 1, 0, 1, 0, 3, 3, 4, 3, 4, 3, 2, 1, 3])
+    assert Circuit.spiders(0, 3, qubit ** 2) == ghz2
 
 
 def test_Circuit_to_tk():
