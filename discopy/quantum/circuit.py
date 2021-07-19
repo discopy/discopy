@@ -695,6 +695,11 @@ class Discard(Box):
             "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
         self.draw_as_discards = True
 
+    @property
+    def l(self):
+        return self
+    r = l
+
     def dagger(self):
         return MixedState(self.dom)
 
@@ -713,6 +718,11 @@ class MixedState(Box):
         if cod == bit:
             self.drawing_name = ""
             self.draw_as_spider, self.color = True, "black"
+
+    @property
+    def l(self):
+        return self
+    r = l
 
     def dagger(self):
         return Discard(self.cod)
@@ -747,6 +757,11 @@ class Measure(Box):
         self.n_qubits = n_qubits
         self.draw_as_measures = True
 
+    @property
+    def l(self):
+        return self
+    r = l
+
     def dagger(self):
         return Encode(self.n_qubits,
                       constructive=self.destructive,
@@ -775,6 +790,11 @@ class Encode(Box):
         super().__init__(name, dom, cod, is_mixed=True)
         self.constructive, self.reset_bits = constructive, reset_bits
         self.n_bits = n_bits
+
+    @property
+    def l(self):
+        return self
+    r = l
 
     def dagger(self):
         return Measure(self.n_bits,

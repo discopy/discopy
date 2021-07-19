@@ -375,6 +375,12 @@ class Diagram(monoidal.Diagram):
     layer_factory = Layer
 
 
+Sum = cat.Sum
+
+Sum.l = property(cat.Sum.fmap(lambda d: d.l))
+Sum.r = property(cat.Sum.fmap(lambda d: d.r))
+
+
 class Id(monoidal.Id, Diagram):
     """ Define an identity arrow in a free rigid category
 
