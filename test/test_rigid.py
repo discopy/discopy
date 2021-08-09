@@ -178,20 +178,9 @@ def test_transpose_box():
     Bob.transpose_box(0) == Cap(n, n.l) >> Id(n) @ Bob_Tl
 
 
-def test_Diagram_init():
-    with raises(TypeError) as err:
-        Diagram('x', Ty('x'), [], [])
-    print(err.value)
-    assert str(err.value) == messages.type_err(Ty, 'x')
-    with raises(TypeError) as err:
-        Diagram(Ty('x'), 'x', [], [])
-    assert str(err.value) == messages.type_err(Ty, 'x')
-    with raises(ValueError) as err:
-        Diagram(Ty('x'), Ty('x'), [], [1])
-    assert "Boxes and offsets must have the same length." in str(err.value)
-    with raises(TypeError) as err:
-        Diagram(Ty('x'), Ty('x'), [1], [1])
-    assert str(err.value) == messages.type_err(Diagram, 1)
-    with raises(TypeError) as err:
-        Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
-    assert str(err.value) == messages.type_err(int, Ty('x'))
+def test_sum_adjoint():
+    x = Ty('x')
+    two, boxes = Box('two', x, x), Box('boxes', x, x)
+    two_boxes = two + boxes
+    assert two_boxes.l == two.l + boxes.l
+    assert two_boxes.l.r == two_boxes

@@ -123,7 +123,7 @@ def test_backnforth_pyzx():
 
 
 def _std_basis_v(*c):
-    v = np.zeros(2**len(c), dtype=np.complex)
+    v = np.zeros(2**len(c), dtype=complex)
     v[np.sum((np.array(c) != 0) * 2**np.arange(len(c)))] = 1
     return np.expand_dims(v, -1)
 

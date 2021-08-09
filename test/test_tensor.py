@@ -184,3 +184,41 @@ def test_Tensor_scalar():
     s = Tensor(Dim(1), Dim(1), [1])
     for ptype in [int, float, complex]:
         assert isinstance(ptype(s), ptype)
+
+
+def test_Tensor_adjoint_functor():
+    from discopy.rigid import Ty, Cup
+    from discopy.grammar import Word
+
+    n, s = map(Ty, 'ns')
+    alice = Word("Alice", n)
+    eats = Word("eats", n.r @ s @ n.l)
+    food = Word("food", n)
+
+    diagram = alice @ eats @ food >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+
+    f = Functor(
+            ob={n: Dim(2), s: Dim(3)},
+            ar={
+                alice: Tensor(Dim(1), Dim(2), [1, 2]),
+                eats: Tensor(Dim(1), Dim(2, 3, 2), [3] * 12),
+                food: Tensor(Dim(1), Dim(2), [4, 5])
+            }
+        )
+
+    tensor1 = f(diagram)
+    tensor2 = f(diagram.transpose_box(2).transpose_box(0))
+    assert tensor1 == tensor2
+
+
+def test_Tensor_adjoint_eval():
+    alice = Box("Alice", Dim(1), Dim(2), [1, 2])
+    eats = Box("eats", Dim(1), Dim(2, 3, 2), [3] * 12)
+    food = Box("food", Dim(1), Dim(2), [4, 5])
+
+    diagram = alice @ eats @ food >>\
+        Cup(Dim(2), Dim(2)) @ Id(Dim(3)) @ Cup(Dim(2), Dim(2))
+
+    tensor1 = diagram.eval()
+    tensor2 = diagram.transpose_box(2).transpose_box(0, left=True).eval()
+    assert tensor1 == tensor2

@@ -22,6 +22,7 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 
 from discopy import cat, monoidal, messages, rewriting
 from discopy.cat import AxiomError
+from discopy import drawing
 
 
 class Ob(cat.Ob):
@@ -165,28 +166,6 @@ class Diagram(monoidal.Diagram):
     .. image:: ../_static/imgs/rigid/diagram-example.png
         :align: center
     """
-    def __init__(self, dom, cod, boxes, offsets, layers=None):
-        if not isinstance(dom, Ty):
-            raise TypeError(messages.type_err(Ty, dom))
-        if not isinstance(cod, Ty):
-            raise TypeError(messages.type_err(Ty, cod))
-        if len(boxes) != len(offsets):
-            raise ValueError(messages.boxes_and_offsets_must_have_same_len())
-        if layers is None:
-            layers = cat.Id(dom)
-            for box, off in zip(boxes, offsets):
-                if not isinstance(box, Diagram):
-                    raise TypeError(messages.type_err(Diagram, box))
-                if not isinstance(off, int):
-                    raise TypeError(messages.type_err(int, off))
-                left = layers.cod[:off] if layers else dom[:off]
-                right = layers.cod[off + len(box.dom):]\
-                    if layers else dom[off + len(box.dom):]
-                layers = layers >> self.layer_factory(left, box, right)
-            layers = layers >> cat.Id(cod)
-        self._layers, self._offsets = layers, tuple(offsets)
-        cat.Arrow.__init__(self, dom, cod, boxes, _scan=False)
-
     @staticmethod
     def swap(left, right):
         return monoidal.Diagram.swap(
@@ -285,33 +264,30 @@ class Diagram(monoidal.Diagram):
         return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
             >> diagram @ Id(wires.l)
 
-    @property
-    def l(self):
+    def _adjoint(self, use_left):
         layers = self.layers
         list_of_layers = []
         for layer in layers._boxes:
-            layer_l = layer.l
-            left, box, right = layer_l._left, layer_l._box, layer_l._right
+            layer_adj = layer.l if use_left else layer.r
+            left, right = layer_adj._left, layer_adj._right
+            box = layer_adj._box
             list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
-        layers_l = type(layers)(layers.dom.l, layers.cod.l, list_of_layers)
+
+        dom = layers.dom.l if use_left else layers.dom.r
+        cod = layers.cod.l if use_left else layers.cod.r
+        layers_adj = type(layers)(dom, cod, list_of_layers)
         boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers_l))) or ([], [])
-        inputs = (layers_l.dom, layers_l.cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers_l))
+            (box, len(left)) for left, box, _ in layers_adj))) or ([], [])
+        inputs = (dom, cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers_adj))
+
+    @property
+    def l(self):
+        return self._adjoint(use_left=True)
 
     @property
     def r(self):
-        layers = self.layers
-        list_of_layers = []
-        for layer in layers._boxes:
-            layer_r = layer.r
-            left, box, right = layer_r._left, layer_r._box, layer_r._right
-            list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
-        layers_r = type(layers)(layers.dom.r, layers.cod.r, list_of_layers)
-        boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers_r))) or ([], [])
-        inputs = (layers_r.dom, layers_r.cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers_r))
+        return self._adjoint(use_left=False)
 
     def dagger(self):
         d = super().dagger()

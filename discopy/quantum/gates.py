@@ -7,7 +7,9 @@ import numpy
 
 from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor
-from discopy.quantum.circuit import Digit, Ty, bit, qubit, Box, Swap, Sum, Id
+from discopy.quantum.circuit import (
+    Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
+    AntiConjugate, RealConjugate, Anti2QubitConjugate)
 
 
 def format_number(data):
@@ -39,12 +41,12 @@ class QuantumGate(Box):
     def __repr__(self):
         if self in GATES:
             return self.name
-        elif self.r in GATES:
-            return self.name + '.l'
+        elif self.conjugate() in GATES:
+            return self.name + '.conjugate()'
         elif self.dagger() in GATES:
             return self.name + '.dagger()'
-        elif self.r.dagger() in GATES:
-            return self.name + '.dagger().l'
+        elif self.dagger().conjugate() in GATES:
+            return self.name + '.conjugate().dagger()'
         more_info = ", _dagger=True" if self._dagger else ""
         more_info += ", _conjugate=True" if self._conjugate else ""
 
@@ -58,14 +60,13 @@ class QuantumGate(Box):
             self.name, len(self.dom), self.array,
             _conjugate=self._conjugate, _dagger=dagger)
 
-    @property
-    def r(self):
+    def conjugate(self):
         conjugate = (None if self._conjugate is None else not self._conjugate)
         return QuantumGate(
             self.name, len(self.dom), self.array,
             _dagger=self._dagger, _conjugate=conjugate)
 
-    l = r
+    l = r = property(conjugate)
 
 
 class ClassicalGate(Box):
@@ -133,7 +134,7 @@ class ClassicalGate(Box):
         return ClassicalGate(name, self.dom, self.cod, data)
 
 
-class Copy(ClassicalGate):
+class Copy(RealConjugate, ClassicalGate):
     """ Takes a bit, returns two copies of it. """
     def __init__(self):
         super().__init__("Copy", 1, 2, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -144,7 +145,7 @@ class Copy(ClassicalGate):
         return Match()
 
 
-class Match(ClassicalGate):
+class Match(RealConjugate, ClassicalGate):
     """ Takes two bits in, returns them if they are equal. """
     def __init__(self):
         super().__init__("Match", 2, 1, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -222,7 +223,7 @@ class Bits(Digits):
         return Bits(*self.bitstring, _dagger=not self._dagger)
 
 
-class Ket(Box):
+class Ket(RealConjugate, Box):
     """
     Implements qubit preparation for a given bitstring.
 
@@ -247,15 +248,10 @@ class Ket(Box):
     def dagger(self):
         return Bra(*self.bitstring)
 
-    @property
-    def r(self):
-        return self
-    l = r
-
     array = Bits.array
 
 
-class Bra(Box):
+class Bra(RealConjugate, Box):
     """
     Implements qubit post-selection for a given bitstring.
 
@@ -279,11 +275,6 @@ class Bra(Box):
 
     def dagger(self):
         return Ket(*self.bitstring)
-
-    @property
-    def r(self):
-        return self
-    l = r
 
     array = Bits.array
 
@@ -379,8 +370,8 @@ class Parametrized(Box):
 
 class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
-    def __init__(self, phase, name=None, n_qubits=1):
-        QuantumGate.__init__(self, name, n_qubits)
+    def __init__(self, phase, name=None, n_qubits=1, _conjugate=False):
+        QuantumGate.__init__(self, name, n_qubits, _conjugate=_conjugate)
         Parametrized.__init__(
             self, name, self.dom, self.cod,
             datatype=float, is_mixed=False, data=phase)
@@ -410,7 +401,7 @@ class Rotation(Parametrized, QuantumGate):
         return scalar(Tensor.np.pi * gradient) @ type(self)(self.phase + .5)
 
 
-class Rx(Rotation):
+class Rx(AntiConjugate, Rotation):
     """ X rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Rx")
@@ -421,16 +412,11 @@ class Rx(Rotation):
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
         return Tensor.np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
-    @property
-    def r(self):
-        return type(self)(-self.phase)
-    l = r
 
-
-class Ry(Rotation):
+class Ry(RealConjugate, Rotation):
     """ Y rotations. """
     def __init__(self, phase):
-        super().__init__(phase, name="Ry")
+        super().__init__(phase, name="Ry", _conjugate=None)
 
     @property
     def array(self):
@@ -438,15 +424,8 @@ class Ry(Rotation):
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
         return Tensor.np.array([[cos, -1 * sin], [sin, cos]])
 
-    @property
-    def r(self):
-        # special case: the conjugate of RY is itself, unlike RZ and RX
-        return type(self)(self.phase)
 
-    l = r
-
-
-class Rz(Rotation):
+class Rz(AntiConjugate, Rotation):
     """ Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Rz")
@@ -458,18 +437,12 @@ class Rz(Rotation):
             [[self.modules.exp(-1j * half_theta), 0],
              [0, self.modules.exp(1j * half_theta)]])
 
-    @property
-    def r(self):
-        return type(self)(-self.phase)
-
-    l = r
-
 
 def _outer_prod_diag(*bitstring):
     return Bra(*bitstring) >> Ket(*bitstring)
 
 
-class CU1(Rotation):
+class CU1(Anti2QubitConjugate, Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CU1", n_qubits=2)
@@ -494,14 +467,8 @@ class CU1(Rotation):
         s = scalar(_i_2_pi * gradient * self.modules.exp(_i_2_pi * self.phase))
         return _outer_prod_diag(1, 1) @ s
 
-    @property
-    def r(self):
-        algebraic_conj = type(self)(-self.phase)
-        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
-    l = r
 
-
-class CRz(Rotation):
+class CRz(Anti2QubitConjugate, Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CRz", n_qubits=2)
@@ -529,14 +496,8 @@ class CRz(Rotation):
         op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
         return self >> (op1 + op2)
 
-    @property
-    def r(self):
-        algebraic_conj = type(self)(-self.phase)
-        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
-    l = r
 
-
-class CRx(Rotation):
+class CRx(Anti2QubitConjugate, Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CRx", n_qubits=2)
@@ -562,13 +523,6 @@ class CRx(Rotation):
         op1 = Z @ X @ scalar(_i_half_pi * gradient)
         op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
         return self >> (op1 + op2)
-
-    @property
-    def r(self):
-        algebraic_conj = type(self)(-self.phase)
-        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
-
-    l = r
 
 
 class Scalar(Parametrized):

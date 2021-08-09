@@ -270,3 +270,8 @@ def test_Box_call():
     f = Box('f', Ob('x'), Ob('y'))
     with raises(TypeError):
         f(42)
+
+
+def test_fmap():
+    f = Box('f', Ob('x'), Ob('y'))
+    assert f.fmap(lambda x: x + x) == f + f

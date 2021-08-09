@@ -237,17 +237,30 @@ class Tensor(rigid.Box):
 
     def transpose(self, left=False):
         """
-        Returns the algebraic transpose.
+        Returns the diagrammatic transpose.
 
         Note
         ----
-        This is *not* the same as the diagrammatic transpose for complex dims.
+        This is *not* the same as the algebraic transpose for complex dims.
         """
         return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
 
     def conjugate(self):
-        """ Returns the conjugate of a tensor. """
-        return Tensor(self.dom, self.cod, Tensor.np.conjugate(self.array))
+        """
+        Returns the diagrammatic conjugate of a tensor.
+
+        Note
+        ----
+        This is *not* the same as the algebraic conjugate for complex dims.
+        """
+        # reverse the wires for both inputs and outputs
+        dom, cod = self.dom, self.cod
+        array = Tensor.np.moveaxis(
+            self.array, range(len(dom @ cod)),
+            [len(dom) - i - 1 for i in range(len(dom @ cod))])
+        return Tensor(dom[::-1], cod[::-1], Tensor.np.conjugate(array))
+
+    l = r = property(conjugate)
 
     def round(self, decimals=0):
         """ Rounds the entries of a tensor up to a number of decimals. """
@@ -354,6 +367,12 @@ class Functor(rigid.Functor):
             return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, monoidal.Box)\
                 and not isinstance(diagram, monoidal.Swap):
+            if diagram.z % 2 != 0:
+                while diagram.z > 0:
+                    diagram = diagram.l
+                while diagram.z < 0:
+                    diagram = diagram.r
+                return self(diagram).conjugate()
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
             return Tensor(self(diagram.dom), self(diagram.cod),

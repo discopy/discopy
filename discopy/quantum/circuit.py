@@ -55,6 +55,28 @@ from math import pi
 from functools import reduce, partial
 
 
+class AntiConjugate:
+    def conjugate(self):
+        return type(self)(-self.phase)
+
+    l = r = property(conjugate)
+
+
+class RealConjugate:
+    def conjugate(self):
+        return self
+
+    l = r = property(conjugate)
+
+
+class Anti2QubitConjugate:
+    def conjugate(self):
+        algebraic_conj = type(self)(-self.phase)
+        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
+
+    l = r = property(conjugate)
+
+
 def index2bitstring(i, length):
     """ Turns an index into a bitstring of a given length. """
     if i >= 2 ** length:
@@ -69,7 +91,7 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
-class Ob(rigid.Ob):
+class Ob(RealConjugate, rigid.Ob):
     """
     Implements the generating objects of :class:`Circuit`, i.e.
     information units of some integer dimension greater than 1.
@@ -91,12 +113,6 @@ class Ob(rigid.Ob):
     def dim(self):
         """ Dimension of the unit, e.g. :code:`dim=2` for bits and qubits. """
         return self._dim
-
-    @property
-    def l(self):
-        return self
-
-    r = l
 
     def __repr__(self):
         return self.name
@@ -159,6 +175,9 @@ class Circuit(tensor.Diagram):
     """ Classical-quantum circuits. """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
+
+    def conjugate(self):
+        return self.l
 
     @property
     def is_mixed(self):
@@ -673,10 +692,10 @@ class Swap(rigid.Swap, Box):
     def dagger(self):
         return Swap(self.right, self.left)
 
-    @property
-    def l(self):
+    def conjugate(self):
         return Swap(self.right, self.left)
-    r = l
+
+    l = r = property(conjugate)
 
     def __repr__(self):
         return "SWAP"\
@@ -686,7 +705,7 @@ class Swap(rigid.Swap, Box):
         return repr(self)
 
 
-class Discard(Box):
+class Discard(RealConjugate, Box):
     """ Discard n qubits. If :code:`dom == bit` then marginal distribution. """
     def __init__(self, dom=1):
         if isinstance(dom, int):
@@ -695,16 +714,11 @@ class Discard(Box):
             "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
         self.draw_as_discards = True
 
-    @property
-    def l(self):
-        return self
-    r = l
-
     def dagger(self):
         return MixedState(self.dom)
 
 
-class MixedState(Box):
+class MixedState(RealConjugate, Box):
     """
     Maximally-mixed state on n qubits.
     If :code:`cod == bit` then uniform distribution.
@@ -719,16 +733,11 @@ class MixedState(Box):
             self.drawing_name = ""
             self.draw_as_spider, self.color = True, "black"
 
-    @property
-    def l(self):
-        return self
-    r = l
-
     def dagger(self):
         return Discard(self.cod)
 
 
-class Measure(Box):
+class Measure(RealConjugate, Box):
     """
     Measure n qubits into n bits.
 
@@ -757,18 +766,13 @@ class Measure(Box):
         self.n_qubits = n_qubits
         self.draw_as_measures = True
 
-    @property
-    def l(self):
-        return self
-    r = l
-
     def dagger(self):
         return Encode(self.n_qubits,
                       constructive=self.destructive,
                       reset_bits=self.override_bits)
 
 
-class Encode(Box):
+class Encode(RealConjugate, Box):
     """
     Controlled preparation, i.e. encode n bits into n qubits.
 
@@ -790,11 +794,6 @@ class Encode(Box):
         super().__init__(name, dom, cod, is_mixed=True)
         self.constructive, self.reset_bits = constructive, reset_bits
         self.n_bits = n_bits
-
-    @property
-    def l(self):
-        return self
-    r = l
 
     def dagger(self):
         return Measure(self.n_bits,

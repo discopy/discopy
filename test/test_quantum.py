@@ -138,10 +138,10 @@ def test_Circuit_get_counts_snake():
 
 
 def test_QuantumGate_repr():
-    assert repr(Y.l) == repr(Y.r) == "Y.l"
+    assert repr(Y.l) == repr(Y.r) == "Y.conjugate()"
     assert repr(Z.l) == repr(Z) == repr(Z.r) == "Z"
     assert repr(S.dagger()) == "S.dagger()"
-    assert repr(S.l.dagger()) == "S.dagger().l"
+    assert repr(S.l.dagger()) == "S.conjugate().dagger()"
 
 
 def test_Circuit_get_counts_empty():
@@ -492,10 +492,11 @@ def test_adjoint():
 
     gates = [
         Bra(0), Ket(0, 0), Rx(0.1), Ry(0.2), Rz(0.3),
-        CU1(0.4), CRx(0.5), CRz(0.7), Scalar(1 + 2j), CX
+        CU1(0.4), CRx(0.5), CRz(0.7), Scalar(1 + 2j), CX,
+        Swap(bit, qubit), Copy(), Match()
     ]
 
-    gates_l = [
+    gates_conj = [
         Bra(0), Ket(0, 0), Rx(-0.1), Ry(0.2), Rz(-0.3),
         Swap(qubit, qubit) >> CU1(-0.4) >> Swap(qubit, qubit),
         Swap(qubit, qubit) >> CRx(-0.5) >> Swap(qubit, qubit),
@@ -503,8 +504,9 @@ def test_adjoint():
         Scalar(1 - 2j),
         QuantumGate(
             'CX', n_qubits=2, _conjugate=True,
-            array=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0])
+            array=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0]),
+        Swap(qubit, bit), Copy(), Match()
     ]
 
-    for g, g_l in zip(gates, gates_l):
-        assert g.l == g_l
+    for g, g_conj in zip(gates, gates_conj):
+        assert g.conjugate() == g_conj
