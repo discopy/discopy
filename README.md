@@ -112,6 +112,15 @@ sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
 ![autonomisation](docs/_static/imgs/autonomisation.gif)
 
 
+### Loading Corpora
+You can load "Alice in Wonderland" in DisCoCat form with a single command:
+```python
+from discopy import utils
+url = "https://qnlp.cambridgequantum.com/corpora/alice/discocat.zip"
+diagrams = utils.load_corpus(url)
+```
+Find more DisCoCat resources at https://qnlp.cambridgequantum.com/downloads.html.
+
 ## Getting Started
 
 ```shell

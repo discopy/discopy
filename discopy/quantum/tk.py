@@ -129,9 +129,9 @@ class Circuit(tk.Circuit):
                         post_selected.update({key: count})
                 counts[i] = post_selected
         if scale:
-            for i, _ in enumerate((self, ) + others):
+            for i, circuit in enumerate((self, ) + others):
                 for bitstring in counts[i]:
-                    counts[i][bitstring] *= self.scalar
+                    counts[i][bitstring] *= circuit.scalar
         return counts
 
 

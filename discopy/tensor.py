@@ -620,7 +620,7 @@ class Box(rigid.Box, Diagram):
             (self.name, self.dom, self.cod, tuple(self.array.flatten())))
 
 
-class Spider(Box):
+class Spider(rigid.Spider, Box):
     """
     Spider box.
 
@@ -645,25 +645,12 @@ class Spider(Box):
     """
     def __init__(self, n_legs_in, n_legs_out, dim):
         dim = dim if isinstance(dim, Dim) else Dim(dim)
-        if len(dim) > 1:
-            raise ValueError(
-                "Spider boxes can only have len(dim) <= 1, "
-                "try Diagram.spiders instead.")
-        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, dim)
-        dom, cod = dim ** n_legs_in, dim ** n_legs_out
-        array = numpy.zeros(dom @ cod)
+        rigid.Spider.__init__(self, n_legs_in, n_legs_out, dim)
+        array = numpy.zeros(self.dom @ self.cod)
         for i in range(int(numpy.prod(dim))):
-            array[len(dom @ cod) * (i, )] = 1
-        super().__init__(
-            name, dom, cod, data=array,
-            draw_as_spider=True, color="black", drawing_name="")
+            array[len(self.dom @ self.cod) * (i, )] = 1
+        Box.__init__(self, self.name, self.dom, self.cod, array)
         self.dim = dim
-
-    def __repr__(self):
-        return self.name
-
-    def dagger(self):
-        return Spider(len(self.cod), len(self.dom), self.dim)
 
 
 class Bubble(monoidal.Bubble, Box):

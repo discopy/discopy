@@ -198,13 +198,12 @@ def test_Tensor_adjoint_functor():
     diagram = alice @ eats @ food >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
     f = Functor(
-            ob={n: Dim(2), s: Dim(3)},
-            ar={
-                alice: Tensor(Dim(1), Dim(2), [1, 2]),
-                eats: Tensor(Dim(1), Dim(2, 3, 2), [3] * 12),
-                food: Tensor(Dim(1), Dim(2), [4, 5])
-            }
-        )
+        ob={n: Dim(2), s: Dim(3)},
+        ar={
+            alice: Tensor(Dim(1), Dim(2), [1, 2]),
+            eats: Tensor(Dim(1), Dim(2, 3, 2), [3] * 12),
+            food: Tensor(Dim(1), Dim(2), [4, 5])
+        })
 
     tensor1 = f(diagram)
     tensor2 = f(diagram.transpose_box(2).transpose_box(0))

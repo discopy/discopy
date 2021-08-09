@@ -26,6 +26,7 @@ discopy computes natural language meaning in pictures.
 
 from discopy import (
     config, cat, monoidal, rigid, biclosed, tensor, quantum, grammar)
+from discopy.utils import from_tree
 from discopy.cat import Quiver
 from discopy.monoidal import Sum
 from discopy.rigid import (
