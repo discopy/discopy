@@ -61,7 +61,7 @@ class QuantumGate(Box):
             _conjugate=self._conjugate, _dagger=dagger)
 
     def conjugate(self):
-        conjugate = (None if self._conjugate is None else not self._conjugate)
+        conjugate = None if self._conjugate is None else not self._conjugate
         return QuantumGate(
             self.name, len(self.dom), self.array,
             _dagger=self._dagger, _conjugate=conjugate)
@@ -553,10 +553,10 @@ class Scalar(Parametrized):
         return self if self._dagger is None\
             else Scalar(self.array[0].conjugate())
 
-    @property
-    def r(self):
+    def conjugate(self):
         return Scalar(self.array[0].conjugate())
-    l = r
+
+    l = r = property(conjugate)
 
 
 class MixedScalar(Scalar):

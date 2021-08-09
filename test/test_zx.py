@@ -56,7 +56,7 @@ def test_Functor():
     assert F(rigid.Swap(x, x)) == Diagram.permutation([1, 0]) == SWAP
     assert F(Cup(x.l, x)) == Z(2, 0)
     assert F(Cap(x.r, x)) == Z(0, 2)
-    # assert F(f + f) == Z(1, 1) + Z(1, 1)
+    assert F(f + f) == Z(1, 1) + Z(1, 1)
 
 
 def test_subs():

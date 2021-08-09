@@ -164,6 +164,10 @@ def test_QuantumGate_repr():
     assert repr(S.l.dagger()) == "S.conjugate().dagger()"
 
 
+def test_Circuit_conjugate():
+    assert (Rz(0.1) >> H).conjugate() == Rz(-0.1) >> H
+
+
 def test_Circuit_get_counts_empty():
     backend = tk.mockBackend({})
     assert not Id(1).get_counts(backend)

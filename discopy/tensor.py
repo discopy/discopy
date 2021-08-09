@@ -368,10 +368,8 @@ class Functor(rigid.Functor):
         if isinstance(diagram, monoidal.Box)\
                 and not isinstance(diagram, monoidal.Swap):
             if diagram.z % 2 != 0:
-                while diagram.z > 0:
-                    diagram = diagram.l
-                while diagram.z < 0:
-                    diagram = diagram.r
+                while diagram.z != 0:
+                    diagram = diagram.l if diagram.z > 0 else diagram.r
                 return self(diagram).conjugate()
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()

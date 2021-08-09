@@ -22,7 +22,6 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 
 from discopy import cat, monoidal, messages, rewriting
 from discopy.cat import AxiomError
-from discopy import drawing
 
 
 class Ob(cat.Ob):
@@ -275,13 +274,12 @@ class Diagram(monoidal.Diagram):
         return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
             >> diagram @ Id(wires.l)
 
-    def _adjoint(self, use_left):
+    def _conjugate(self, use_left):
         layers = self.layers
         list_of_layers = []
         for layer in layers._boxes:
             layer_adj = layer.l if use_left else layer.r
-            left, right = layer_adj._left, layer_adj._right
-            box = layer_adj._box
+            left, box, right = layer_adj
             list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
 
         dom = layers.dom.l if use_left else layers.dom.r
@@ -294,11 +292,11 @@ class Diagram(monoidal.Diagram):
 
     @property
     def l(self):
-        return self._adjoint(use_left=True)
+        return self._conjugate(use_left=True)
 
     @property
     def r(self):
-        return self._adjoint(use_left=False)
+        return self._conjugate(use_left=False)
 
     def dagger(self):
         d = super().dagger()
@@ -312,7 +310,7 @@ class Diagram(monoidal.Diagram):
             box_T = layers[i]._box.r.dagger().transpose(left=True)
         else:
             box_T = layers[i]._box.l.dagger().transpose(left=False)
-        left, right = layers[i]._left, layers[i]._right
+        left, _, right = layers[i]
         layers_T = (Id(left) @ box_T @ Id(right)).layers.boxes
         list_of_layers = layers._boxes[:i] + layers_T + layers._boxes[i + 1:]
         layers = type(layers)(layers.dom, layers.cod, list_of_layers)
@@ -608,24 +606,14 @@ class Functor(monoidal.Functor):
             if not hasattr(diagram, "z") or not diagram.z:
                 return super().__call__(diagram)
             z = diagram.z
-            for _ in range(-z):
-                diagram = diagram.r
-            for _ in range(z):
-                diagram = diagram.l
+            for _ in range(abs(z)):
+                diagram = diagram.l if z > 0 else diagram.r
             result = super().__call__(diagram)
-            for _ in range(-z):
-                result = result.l
-            for _ in range(z):
-                result = result.r
+            for _ in range(abs(z)):
+                result = result.l if z < 0 else result.r
             return result
         if isinstance(diagram, monoidal.Diagram):
-            scan, result = diagram.dom, self.ar_factory.id(self(diagram.dom))
-            for box, off in zip(diagram.boxes, diagram.offsets):
-                id_l = self.ar_factory.id(self(scan[:off]))
-                id_r = self.ar_factory.id(self(scan[off + len(box.dom):]))
-                result = result >> id_l @ self(box) @ id_r
-                scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
-            return result
+            return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
 
 
