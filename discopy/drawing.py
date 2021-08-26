@@ -635,8 +635,10 @@ def draw_box(backend, positions, node, **params):
     box, depth = node.box, node.depth
     asymmetry = params.get(
         'asymmetry', .25 * any(
-            node.kind == "box" and node.box.is_dagger
-            for box in positions.keys()))
+            pos.kind == "box" and (
+                pos.box.is_dagger or (
+                    hasattr(pos.box, "_z") and pos.box._z != 0))
+            for pos in positions.keys()))
     if not box.dom and not box.cod:
         left, right = positions[node][0], positions[node][0]
     elif not box.dom:
@@ -658,11 +660,23 @@ def draw_box(backend, positions, node, **params):
         right = max(top_right, bottom_right)
     height = positions[node][1] - .25
     left, right = left - .25, right + .25
-    points = [
-        (left, height),
-        (right + (asymmetry if box.is_dagger else 0), height),
-        (right + (0 if box.is_dagger else asymmetry), height + .5),
-        (left, height + .5)]
+
+    # dictionary key is (is_dagger, z % 2)
+    points_dict = {
+        (1, 1): [(left - asymmetry, height), (right, height),
+                 (right, height + .5), (left, height + .5)],
+        (1, 0): [(left, height), (right + asymmetry, height),
+                 (right, height + .5), (left, height + .5)],
+        (0, 0): [(left, height), (right, height),
+                 (right + asymmetry, height + .5), (left, height + .5)],
+        (0, 1): [(left, height), (right, height),
+                 (right, height + .5), (left - asymmetry, height + .5)]
+    }
+
+    is_dagger = 1 if box.is_dagger else 0
+    z = box._z if hasattr(box, '_z') else 0
+
+    points = points_dict[is_dagger, z % 2]
     backend.draw_polygon(*points, color=box.color)
     if params.get('draw_box_labels', True):
         backend.draw_text(box.drawing_name, *positions[node],

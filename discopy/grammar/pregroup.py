@@ -30,6 +30,13 @@ from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap, Swap
 class Word(cfg.Word, Box):
     """ Word with a :class:`discopy.rigid.Ty` as codomain. """
 
+    def __repr__(self):
+        extra = ", dom={}".format(repr(self.dom)) if self.dom else ""
+        extra += ", _dagger=True" if self._dagger else ""
+        extra += ", _z={}".format(self._z) if self._z != 0 else ""
+        return "Word({}, {}{})".format(
+            repr(self.name), repr(self.cod), extra)
+
 
 def eager_parse(*words, target=Ty('s')):
     """

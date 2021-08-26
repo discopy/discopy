@@ -7,7 +7,9 @@ import numpy
 
 from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor
-from discopy.quantum.circuit import Digit, Ty, bit, qubit, Box, Swap, Sum, Id
+from discopy.quantum.circuit import (
+    Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
+    AntiConjugate, RealConjugate, Anti2QubitConjugate)
 
 
 def format_number(data):
@@ -20,13 +22,16 @@ def format_number(data):
 
 class QuantumGate(Box):
     """ Quantum gates, i.e. unitaries on n qubits. """
-    def __init__(self, name, n_qubits, array=None, data=None, _dagger=False):
+    def __init__(
+            self, name, n_qubits, array=None, data=None,
+            _dagger=False, _conjugate=False):
         dom = qubit ** n_qubits
         if array is not None:
             self._array = Tensor.np.array(array).reshape(
                 2 * n_qubits * (2, ) or (1, ))
         super().__init__(
-            name, dom, dom, is_mixed=False, data=data, _dagger=_dagger)
+            name, dom, dom, is_mixed=False, data=data,
+            _dagger=_dagger, _conjugate=_conjugate)
 
     @property
     def array(self):
@@ -36,14 +41,32 @@ class QuantumGate(Box):
     def __repr__(self):
         if self in GATES:
             return self.name
-        return "QuantumGate({}, n_qubits={}, array={})".format(
+        elif self.conjugate() in GATES:
+            return self.name + '.conjugate()'
+        elif self.dagger() in GATES:
+            return self.name + '.dagger()'
+        elif self.dagger().conjugate() in GATES:
+            return self.name + '.conjugate().dagger()'
+        more_info = ", _dagger=True" if self._dagger else ""
+        more_info += ", _conjugate=True" if self._conjugate else ""
+
+        return ("QuantumGate({}, n_qubits={}, array={}{})").format(
             repr(self.name), len(self.dom),
-            array2string(self.array.flatten()))
+            array2string(self.array.flatten()), more_info)
 
     def dagger(self):
+        dagger = None if self._dagger is None else not self._dagger
         return QuantumGate(
             self.name, len(self.dom), self.array,
-            _dagger=None if self._dagger is None else not self._dagger)
+            _conjugate=self._conjugate, _dagger=dagger)
+
+    def conjugate(self):
+        conjugate = None if self._conjugate is None else not self._conjugate
+        return QuantumGate(
+            self.name, len(self.dom), self.array,
+            _dagger=self._dagger, _conjugate=conjugate)
+
+    l = r = property(conjugate)
 
 
 class ClassicalGate(Box):
@@ -111,7 +134,7 @@ class ClassicalGate(Box):
         return ClassicalGate(name, self.dom, self.cod, data)
 
 
-class Copy(ClassicalGate):
+class Copy(RealConjugate, ClassicalGate):
     """ Takes a bit, returns two copies of it. """
     def __init__(self):
         super().__init__("Copy", 1, 2, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -122,7 +145,7 @@ class Copy(ClassicalGate):
         return Match()
 
 
-class Match(ClassicalGate):
+class Match(RealConjugate, ClassicalGate):
     """ Takes two bits in, returns them if they are equal. """
     def __init__(self):
         super().__init__("Match", 2, 1, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -200,7 +223,7 @@ class Bits(Digits):
         return Bits(*self.bitstring, _dagger=not self._dagger)
 
 
-class Ket(Box):
+class Ket(RealConjugate, Box):
     """
     Implements qubit preparation for a given bitstring.
 
@@ -228,7 +251,7 @@ class Ket(Box):
     array = Bits.array
 
 
-class Bra(Box):
+class Bra(RealConjugate, Box):
     """
     Implements qubit post-selection for a given bitstring.
 
@@ -347,8 +370,8 @@ class Parametrized(Box):
 
 class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
-    def __init__(self, phase, name=None, n_qubits=1):
-        QuantumGate.__init__(self, name, n_qubits)
+    def __init__(self, phase, name=None, n_qubits=1, _conjugate=False):
+        QuantumGate.__init__(self, name, n_qubits, _conjugate=_conjugate)
         Parametrized.__init__(
             self, name, self.dom, self.cod,
             datatype=float, is_mixed=False, data=phase)
@@ -378,7 +401,7 @@ class Rotation(Parametrized, QuantumGate):
         return scalar(Tensor.np.pi * gradient) @ type(self)(self.phase + .5)
 
 
-class Rx(Rotation):
+class Rx(AntiConjugate, Rotation):
     """ X rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Rx")
@@ -390,10 +413,10 @@ class Rx(Rotation):
         return Tensor.np.array([[cos, -1j * sin], [-1j * sin, cos]])
 
 
-class Ry(Rotation):
+class Ry(RealConjugate, Rotation):
     """ Y rotations. """
     def __init__(self, phase):
-        super().__init__(phase, name="Ry")
+        super().__init__(phase, name="Ry", _conjugate=None)
 
     @property
     def array(self):
@@ -402,7 +425,7 @@ class Ry(Rotation):
         return Tensor.np.array([[cos, -1 * sin], [sin, cos]])
 
 
-class Rz(Rotation):
+class Rz(AntiConjugate, Rotation):
     """ Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Rz")
@@ -419,7 +442,7 @@ def _outer_prod_diag(*bitstring):
     return Bra(*bitstring) >> Ket(*bitstring)
 
 
-class CU1(Rotation):
+class CU1(Anti2QubitConjugate, Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CU1", n_qubits=2)
@@ -445,7 +468,7 @@ class CU1(Rotation):
         return _outer_prod_diag(1, 1) @ s
 
 
-class CRz(Rotation):
+class CRz(Anti2QubitConjugate, Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CRz", n_qubits=2)
@@ -474,7 +497,7 @@ class CRz(Rotation):
         return self >> (op1 + op2)
 
 
-class CRx(Rotation):
+class CRx(Anti2QubitConjugate, Rotation):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CRx", n_qubits=2)
@@ -530,6 +553,11 @@ class Scalar(Parametrized):
         return self if self._dagger is None\
             else Scalar(self.array[0].conjugate())
 
+    def conjugate(self):
+        return Scalar(self.array[0].conjugate())
+
+    l = r = property(conjugate)
+
 
 class MixedScalar(Scalar):
     """ Mixed scalar, i.e. where the Born rule has already been applied. """
@@ -554,12 +582,13 @@ CZ = QuantumGate('CZ', 2, [1, 0, 0, 0,
                            0, 0, 1, 0,
                            0, 0, 0, -1], _dagger=None)
 H = QuantumGate(
-    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]), _dagger=None)
+    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
+    _dagger=None, _conjugate=None)
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
 T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
-X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None)
-Y = QuantumGate('Y', 1, [0, -1j, 1j, 0])
-Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None)
+X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
+Y = QuantumGate('Y', 1, [0, -1j, 1j, 0], _dagger=None)
+Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
 CX = Controlled(X)
 
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]

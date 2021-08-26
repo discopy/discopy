@@ -273,6 +273,11 @@ def test_Box_call():
         f(42)
 
 
+def test_fmap():
+    f = Box('f', Ob('x'), Ob('y'))
+    assert f.fmap(lambda x: x + x) == f + f
+
+
 def test_from_tree():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
     d = (f >> f[::-1].bubble()) + Id(Ob('x'))

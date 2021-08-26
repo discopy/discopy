@@ -55,6 +55,28 @@ from math import pi
 from functools import reduce, partial
 
 
+class AntiConjugate:
+    def conjugate(self):
+        return type(self)(-self.phase)
+
+    l = r = property(conjugate)
+
+
+class RealConjugate:
+    def conjugate(self):
+        return self
+
+    l = r = property(conjugate)
+
+
+class Anti2QubitConjugate:
+    def conjugate(self):
+        algebraic_conj = type(self)(-self.phase)
+        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
+
+    l = r = property(conjugate)
+
+
 def index2bitstring(i, length):
     """ Turns an index into a bitstring of a given length. """
     if i >= 2 ** length:
@@ -69,7 +91,7 @@ def bitstring2index(bitstring):
     return sum(value * 2 ** i for i, value in enumerate(bitstring[::-1]))
 
 
-class Ob(rigid.Ob):
+class Ob(RealConjugate, rigid.Ob):
     """
     Implements the generating objects of :class:`Circuit`, i.e.
     information units of some integer dimension greater than 1.
@@ -91,12 +113,6 @@ class Ob(rigid.Ob):
     def dim(self):
         """ Dimension of the unit, e.g. :code:`dim=2` for bits and qubits. """
         return self._dim
-
-    @property
-    def l(self):
-        return self
-
-    r = l
 
     def __repr__(self):
         return self.name
@@ -159,6 +175,9 @@ class Circuit(tensor.Diagram):
     """ Classical-quantum circuits. """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'Circuit')
+
+    def conjugate(self):
+        return self.l
 
     @property
     def is_mixed(self):
@@ -617,12 +636,15 @@ class Box(rigid.Box, Circuit):
         If set to :code:`None` then the box is self-adjoint.
     """
     def __init__(self, name, dom, cod,
-                 is_mixed=True, data=None, _dagger=False):
+                 is_mixed=True, data=None, _dagger=False, _conjugate=False):
         if dom and not isinstance(dom, Ty):
             raise TypeError(messages.type_err(Ty, dom))
         if cod and not isinstance(cod, Ty):
             raise TypeError(messages.type_err(Ty, cod))
-        rigid.Box.__init__(self, name, dom, cod, data=data, _dagger=_dagger)
+        z = 1 if _conjugate else 0
+        self._conjugate = _conjugate
+        rigid.Box.__init__(
+            self, name, dom, cod, data=data, _dagger=_dagger, _z=z)
         Circuit.__init__(self, dom, cod, [self], [0])
         if not is_mixed:
             if all(isinstance(x, Digit) for x in dom @ cod):
@@ -698,6 +720,11 @@ class Swap(rigid.Swap, Box):
     def dagger(self):
         return Swap(self.right, self.left)
 
+    def conjugate(self):
+        return Swap(self.right, self.left)
+
+    l = r = property(conjugate)
+
     def __repr__(self):
         return "SWAP"\
             if self.left == self.right == qubit else super().__repr__()
@@ -706,7 +733,7 @@ class Swap(rigid.Swap, Box):
         return repr(self)
 
 
-class Discard(Box):
+class Discard(RealConjugate, Box):
     """ Discard n qubits. If :code:`dom == bit` then marginal distribution. """
     def __init__(self, dom=1):
         if isinstance(dom, int):
@@ -719,7 +746,7 @@ class Discard(Box):
         return MixedState(self.dom)
 
 
-class MixedState(Box):
+class MixedState(RealConjugate, Box):
     """
     Maximally-mixed state on n qubits.
     If :code:`cod == bit` then uniform distribution.
@@ -738,7 +765,7 @@ class MixedState(Box):
         return Discard(self.cod)
 
 
-class Measure(Box):
+class Measure(RealConjugate, Box):
     """
     Measure n qubits into n bits.
 
@@ -773,7 +800,7 @@ class Measure(Box):
                       reset_bits=self.override_bits)
 
 
-class Encode(Box):
+class Encode(RealConjugate, Box):
     """
     Controlled preparation, i.e. encode n bits into n qubits.
 

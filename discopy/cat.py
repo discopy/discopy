@@ -421,6 +421,9 @@ class Arrow:
         """ Returns a :class:`cat.Bubble` with the diagram inside. """
         return self.bubble_factory(self, **params)
 
+    def fmap(self, func):
+        return func(self)
+
     def to_tree(self):
         """ Encodes an arrow as a tree. """
         return {
@@ -732,6 +735,12 @@ class Sum(Box):
     def subs(self, *args):
         unit = Sum([], self.dom, self.cod)
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
+
+    @staticmethod
+    def fmap(func):
+        def sum_func(diagram):
+            return type(diagram)([func(term) for term in diagram.terms])
+        return sum_func
 
     def to_tree(self):
         return {
