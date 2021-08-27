@@ -611,6 +611,9 @@ def draw(diagram, **params):
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
+    max_v = max(v for p in positions.values() for v in p)
+    params['nodesize'] = round(params.get('nodesize', 1.) / max_v, 3)
+
     backend = draw_wires(backend, graph, positions)
     backend.draw_spiders(graph, positions, **params)
     box_nodes = [node for node in graph.nodes if node.kind == "box"]

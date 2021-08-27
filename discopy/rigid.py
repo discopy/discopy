@@ -541,8 +541,11 @@ class Spider(Box):
                 "try Diagram.spiders instead.")
         name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
+        cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
         params = dict(dict(
-            draw_as_spider=True, color="black", drawing_name=""), **params)
+            draw_as_spider=not cup_like,
+            draw_as_wires=cup_like,
+            color="black", drawing_name=""), **params)
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):

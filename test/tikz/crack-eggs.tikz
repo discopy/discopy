@@ -34,8 +34,8 @@
 \node [] (31) at (2.5, 0.25) {};
 \node [] (32) at (2.5, 0) {};
 \node [style=none, fill=white, right] (33) at (2.6, 0.15) {yolk};
-\node [circle, fill=red] (34) at (0.5, 1.5) {merge};
-\node [circle, fill=red] (34) at (2.5, 0.5) {merge};
+\node [circle, fill=red, scale=0.2] (34) at (0.5, 1.5) {merge};
+\node [circle, fill=red, scale=0.2] (34) at (2.5, 0.5) {merge};
 \node [] (34) at (-0.25, 4.25) {};
 \node [] (35) at (1.25, 4.25) {};
 \node [] (36) at (1.25, 4.75) {};
