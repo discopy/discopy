@@ -184,3 +184,13 @@ def test_sum_adjoint():
     two_boxes = two + boxes
     assert two_boxes.l == two.l + boxes.l
     assert two_boxes.l.r == two_boxes
+
+
+def test_spider_adjoint():
+    n = Ty('n')
+    one = Box('one', Ty(), n)
+    two = Box('two', Ty(), n)
+    diagram = one @ two >> Spider(2, 1, n)
+
+    assert diagram.l == one.l >> two.l @ Id(n.l) >> Spider(2, 1, n.l)
+    assert diagram.r == one.r >> two.r @ Id(n.r) >> Spider(2, 1, n.r)

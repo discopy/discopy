@@ -555,6 +555,14 @@ class Spider(Box):
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), self.typ)
 
+    @property
+    def l(self):
+        return type(self)(len(self.dom), len(self.cod), self.typ.l)
+
+    @property
+    def r(self):
+        return type(self)(len(self.dom), len(self.cod), self.typ.r)
+
 
 class Functor(monoidal.Functor):
     """
