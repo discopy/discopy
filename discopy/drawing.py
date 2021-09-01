@@ -612,7 +612,7 @@ def draw(diagram, **params):
         else MatBackend(figsize=params.get('figsize', None))
 
     max_v = max(v for p in positions.values() for v in p)
-    params['nodesize'] = round(params.get('nodesize', 1.) / max_v, 3)
+    params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend = draw_wires(backend, graph, positions)
     backend.draw_spiders(graph, positions, **params)
@@ -845,10 +845,11 @@ def pregroup_draw(words, layers, **params):
 
     scan = draw_words(words.normal_form())
     draw_grammar(layers, scan)
+    edge_padding = 0.01  # to show rightmost edge
     backend.output(
         params.get('path', None),
         tikz_options=params.get('tikz_options', None),
-        xlim=(0, (space + width) * len(words.boxes) - space),
+        xlim=(0, (space + width) * len(words.boxes) - space + edge_padding),
         ylim=(- len(layers) - space, 1),
         margins=params.get('margins', DEFAULT['margins']),
         aspect=params.get('aspect', 'equal'))

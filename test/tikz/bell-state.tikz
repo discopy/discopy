@@ -17,7 +17,7 @@
 \node [] (14) at (1.0, 1.25) {};
 \node [] (15) at (1.0, 0) {};
 \node [style=none, fill=white, right] (16) at (1.1, 1.15) {qubit};
-\node [style=H, scale=0.222] (17) at (0.0, 2.5) {};
+\node [style=H, scale=0.471] (17) at (0.0, 2.5) {};
 \node [] (17) at (0.25, 4.25) {};
 \node [] (18) at (0.75, 4.25) {};
 \node [] (19) at (0.75, 4.75) {};
