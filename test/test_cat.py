@@ -282,3 +282,12 @@ def test_from_tree():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
     d = (f >> f[::-1].bubble()) + Id(Ob('x'))
     assert from_tree(d.to_tree()) == d
+
+
+def test_sum_lambdify():
+    from sympy.abc import phi
+    f = Box('f', Ob('x'), Ob('y'), data=[phi])
+    g = Box('g', Ob('x'), Ob('y'), data=[phi])
+
+    assert (f + g).free_symbols == {phi}
+    assert (f + g).lambdify(phi)(1) == f.lambdify(phi)(1) + g.lambdify(phi)(1)

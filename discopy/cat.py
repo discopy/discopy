@@ -732,9 +732,17 @@ class Sum(Box):
         unit = Sum([], self.cod, self.dom)
         return self.upgrade(sum([f.dagger() for f in self.terms], unit))
 
+    @property
+    def free_symbols(self):
+        return {x for box in self.terms for x in box.free_symbols}
+
     def subs(self, *args):
         unit = Sum([], self.dom, self.cod)
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
+
+    def lambdify(self, *symbols, **kwargs):
+        return lambda *xs: self.sum(
+            [box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms])
 
     @staticmethod
     def fmap(func):
