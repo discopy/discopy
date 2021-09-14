@@ -21,8 +21,12 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
-from functools import total_ordering
+from abc import ABC
 from collections.abc import Mapping, Iterable
+from dataclasses import dataclass
+from functools import total_ordering
+import itertools
+import typing
 
 from discopy import messages
 from discopy.utils import factory_name, from_tree, rsubs, rmap
@@ -438,6 +442,50 @@ class Arrow:
         boxes = list(map(from_tree, tree['boxes']))
         return cls(dom, cod, boxes, _scan=False)
 
+    def data_tree(self):
+        """
+        Structure the data contained in a composite arrow.
+        """
+        return ThenData([box.data_tree() for box in self.boxes])
+
+class Data(ABC):
+    """Implements the key-value extra data stored along with an arrow, while
+       tracking the composition structure underlying that arrow.
+    """
+
+    @staticmethod
+    def upgrade(old):
+        """Allows class inheritance for structured data"""
+        return old
+
+    def collapse(self, falg):
+        """Collapse the extra data along an entire diagram into a single value
+        """
+        return falg({})
+
+    def then(self, other):
+        return self.upgrade(ThenData([self, other]))
+
+    def __rshift__(self, other):
+        return self.then(other)
+
+@dataclass
+class ThenData(Data):
+    arrows: typing.Sequence['Data']
+
+    def __post_init__(self):
+        super().__init__()
+        def process_arrows(arrows):
+            for arr in arrows:
+                if not isinstance(arr, IdData):
+                    if isinstance(arr, ThenData):
+                        yield arr.arrows
+                    else:
+                        yield [arr]
+        self.arrows = itertools.chain(process_arrows(self.arrows))
+
+    def collapse(self, falg):
+        return falg(ThenData([f.collapse(falg) for f in self.arrows]))
 
 class Id(Arrow):
     """
@@ -467,8 +515,17 @@ class Id(Arrow):
     def __str__(self):
         return "Id({})".format(str(self.dom))
 
+    def data_tree(self):
+        """
+        An identity morphism contains no data, only structure.
+        """
+        return IdData(self)
+
     from_tree = Arrow.from_tree
 
+@dataclass
+class IdData(Data):
+    arrow: Id
 
 class AxiomError(Exception):
     """
@@ -545,6 +602,13 @@ class Box(Arrow):
         >>> assert f.data == [42, {0: 2}]
         """
         return self._data
+
+    def data_tree(self):
+        """
+        The attribute `data` is immutable, but it can hold a mutable object and
+        be returned in a structured form.
+        """
+        return BoxData(self, self.data)
 
     @property
     def free_symbols(self):
@@ -632,6 +696,22 @@ class Box(Arrow):
         data, _dagger = tree.get('data', None), 'is_dagger' in tree
         return cls(name=name, dom=dom, cod=cod, data=data, _dagger=_dagger)
 
+@dataclass
+class BoxData(Data):
+    """Implements the key-value extra data stored along with a box
+
+    Parameters
+    ----------
+
+    data : Extra data in the box, default is `None`.
+    """
+    box: Box
+    data: typing.Optional[Mapping]
+
+    def collapse(self):
+        if isinstance(self.data, dict):
+            return self.data
+        return {self.box.name: self.data}
 
 class Sum(Box):
     """
