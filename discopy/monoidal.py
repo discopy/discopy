@@ -39,6 +39,10 @@ We can check the Eckmann-Hilton argument, up to interchanger.
     :align: center
 """
 
+from dataclasses import dataclass
+import numpy as np
+import typing
+
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob
 from discopy.utils import factory_name, from_tree
@@ -219,6 +223,21 @@ def types(names):
     """
     return list(map(Ty, names.split()))
 
+class Data(cat.Data):
+    @staticmethod
+    def upgrade(old):
+        if isinstance(old, cat.BoxData):
+            return BoxData(old.box, old.data)
+        if isinstance(old, cat.ThenData):
+            return ThenData(old.arrows)
+        if isinstance(old, cat.IdData):
+            return IdData(old.arrow)
+
+    def tensor(self, other):
+        return self.upgrade(TensorData(self, other))
+
+    def __matmul__(self, other):
+        return self.tensor(other)
 
 class PRO(Ty):
     """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
@@ -305,6 +324,26 @@ class Layer(cat.Box):
             return Layer(self._left, self._box[::-1], self._right)
         return super().__getitem__(key)
 
+@dataclass
+class TensorData(Data):
+    factors: typing.Sequence['Data']
+
+    def __post_init__(self):
+        super().__init__()
+        def process_factors(factors):
+            for f in factors:
+                if isinstance(f, cat.IdData) and len(f.dom) == 0:
+                    continue
+                if isinstance(f, TensorData):
+                    yield f.factors
+        self.factors = [f for f in self.factors
+                        if not (isinstance(f, cat.IdData) and len(f.dom) == 0)]
+
+    def collapse(self):
+        result = {}
+        for f in self.factors:
+            result = {**result, **f.collapse()}
+        return result
 
 class Diagram(cat.Arrow):
     """
@@ -640,6 +679,30 @@ class Diagram(cat.Arrow):
                 return super().__call__(diagram)
         return OpenBubbles(lambda x: x, lambda f: f)(self)
 
+    def data_tree(self):
+        """
+        Structure the data contained in a monoidal diagram.
+        """
+        layers = [TensorData([])]
+
+        wires = np.array([False] * len(self.dom), dtype=np.bool_)
+        for layer in self.layers:
+            left, box, right = layer
+            left, box, right = IdData(left), box.data_tree(), IdData(right)
+
+            layer_wires = [False] * len(left.arrow.dom) +\
+                          [True] * len(box.box.dom) +\
+                          [False] * len(right.arrow.dom)
+            layer_wires = np.array(layer_wires, dtype=np.bool_)
+
+            if np.all(wires ^ layer_wires):
+                layers[-1] = TensorData(layers[-1].factors + [box])
+            else:
+                layers.append(TensorData([box]))
+                wires = np.array([False] * len(layer.dom), dtype=np.bool_)
+
+        return cat.ThenData(layers)
+
     draw = drawing.draw
     to_gif = drawing.to_gif
     interchange = rewriting.interchange
@@ -669,6 +732,8 @@ class Id(cat.Id, Diagram):
 
 Diagram.id = Id
 
+class IdData(Data, cat.IdData):
+    pass
 
 class Box(cat.Box, Diagram):
     """
@@ -742,6 +807,11 @@ class Box(cat.Box, Diagram):
     def __hash__(self):
         return hash(repr(self))
 
+class BoxData(Data, cat.BoxData):
+    pass
+
+class ThenData(Data, cat.ThenData):
+    pass
 
 class BinaryBoxConstructor:
     """ Box constructor with left and right as input. """
