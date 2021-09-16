@@ -124,7 +124,7 @@ class Tensor(rigid.Box):
     np = jax.numpy if config.IMPORT_JAX else numpy
 
     def __init__(self, dom, cod, array):
-        self._array = Tensor.np.array(array).reshape(dom @ cod or (1, ))
+        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod) or (1, ))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -441,6 +441,10 @@ class Diagram(rigid.Diagram):
         >>> import tensornetwork as tn
         >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
         """
+        if contractor is None and "numpy" not in Tensor.np.__package__:
+            raise Exception(
+                'Please provide a contractor when using a non-numpy backend.')
+
         if contractor is None:
             return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
         array = contractor(*self.to_tn()).tensor
@@ -596,7 +600,8 @@ class Box(rigid.Box, Diagram):
     @property
     def array(self):
         """ The array inside the box. """
-        return Tensor.np.array(self.data).reshape(self.dom @ self.cod or (1, ))
+        dom, cod = self.dom, self.cod
+        return Tensor.np.array(self.data).reshape(tuple(dom @ cod) or (1, ))
 
     def grad(self, var, **params):
         return self.bubble(

@@ -1,4 +1,5 @@
 from pytest import raises
+from unittest.mock import Mock
 import numpy as np
 from discopy.tensor import *
 
@@ -221,3 +222,10 @@ def test_Tensor_adjoint_eval():
     tensor1 = diagram.eval()
     tensor2 = diagram.transpose_box(2).transpose_box(0, left=True).eval()
     assert tensor1 == tensor2
+
+
+def test_non_numpy_eval():
+    Tensor.np = Mock(__package__='pytorch')
+    with raises(Exception):
+        Swap(Dim(2), Dim(2)).eval()
+    Tensor.np = np
