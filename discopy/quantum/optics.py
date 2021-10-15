@@ -50,8 +50,8 @@ class Diagram(monoidal.Diagram):
     (1+0j)
     >>> assert np.allclose((BeamSplitter(0.4) >> BeamSplitter(0.4)).array,\
                            Id(PRO(2)).array)
-    >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> MZI(0.5, 0.3) @ MZI(0.5, 0.3)
-    >>> np.absolute(grid.amp(7, [1, 3, 2, 1], [1, 3, 3, 0])) ** 2
+    >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> Id(1) @ MZI(0.5, 0.3) @ Id(1)
+    >>> np.absolute(grid.amp(7, [1, 3, 2, 1], [1, 3, 3, 0]))
     0.01503226280870989
     """
     def __repr__(self):
@@ -75,7 +75,7 @@ class Diagram(monoidal.Diagram):
                                                 np.identity(right)))
         return array
 
-    def amp(self, n_photons, x, y, permanent=npperm):
+    def amp(self, x, y, permanent=npperm):
         """
         Evaluates the amplitude of an optics.Diagram on input x and output y,
         where x and y are lists of natural numbers summing to n_photons.
@@ -110,14 +110,22 @@ class Diagram(monoidal.Diagram):
         if sum(x) != sum(y):
             return 0
         n_modes = len(self.dom)
-        unitary = self.array
-        matrix = np.stack([unitary[:, i] for i in range(n_modes)
-                          for j in range(y[i])], axis=1)
+        matrix = np.stack([self.array[:, i] for i in range(n_modes)
+                          for _ in range(y[i])], axis=1)
         matrix = np.stack([matrix[i] for i in range(n_modes)
-                          for j in range(x[i])], axis=0)
+                          for _ in range(x[i])], axis=0)
         divisor = np.sqrt(np.prod([factorial(n) for n in x + y]))
-        amp = permanent(matrix) / divisor
-        return amp
+        return permanent(matrix) / divisor
+
+    def eval(self, n_photons, permanent=npperm):
+        """
+        """
+        basis = occupation_numbers(n_photons, len(self.dom))
+        matrix = np.zeros(dtype=complex, shape=(len(basis), len(basis)))
+        for i, x in enumerate(basis):
+            for j, y in enumerate(basis):
+                matrix[i, j] = self.amp(x, y, permanent=permanent)
+        return matrix
 
 
 class Box(Diagram, monoidal.Box):
@@ -216,3 +224,16 @@ class MZI(Box):
 class Functor(monoidal.Functor):
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
+
+
+def occupation_numbers(n_photons, m_modes):
+    """
+    >>> occupation_numbers(3, 2)
+    [[3, 0], [2, 1], [1, 2], [0, 3]]
+    >>> occupation_numbers(2, 3)
+    [[0, 0, 2], [0, 1, 1], [0, 2, 0], [1, 0, 1], [1, 1, 0], [2, 0, 0]]
+    """
+    if m_modes <= 1:
+        return m_modes * [[n_photons]]
+    return [[head] + tail for head in range(n_photons, -1, -1)
+            for tail in occupation_numbers(n_photons - head, m_modes - 1)]
