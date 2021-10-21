@@ -44,11 +44,10 @@ class Diagram(monoidal.Diagram):
     Linear optical network seen as a diagram of beam splitters, phase shifters
     and Mach-Zender interferometers.
 
-    >>> assert np.allclose((BeamSplitter(0.4) >> BeamSplitter(0.4)).array,\
-                           Id(PRO(2)).array)
     >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> Id(1) @ MZI(0.5, 0.3) @ Id(1)
     >>> np.absolute(grid.amp([1, 3, 2, 1], [1, 3, 3, 0]))
     0.06492701974296845
+    >>> assert np.allclose((grid >> grid.dagger()).eval(3), Id(4).eval(3))
     """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'optics.Diagram')
@@ -63,6 +62,9 @@ class Diagram(monoidal.Diagram):
         >>> MZI(0, 0).array
         array([[ 0.+0.j,  1.+0.j],
                [ 1.+0.j, -0.+0.j]])
+        >>> (MZI(0, 0) >> MZI(0, 0)).array
+        array([[1.+0.j, 0.+0.j],
+               [0.+0.j, 1.+0.j]])
         """
         scan, array = self.dom, np.identity(len(self.dom))
         for box, off in zip(self.boxes, self.offsets):
@@ -86,14 +88,14 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             (e.g. from thewalrus)
 
-        >>> network = PhaseShift(0.4) @ Id(2) @ PhaseShift(0.5)\
-                      >> MZI(0.4, 0.3) @ MZI(0.2, 0.5)
+        >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
+                      >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
         >>> amplitude = network.amp([1, 0, 0, 1], [1, 0, 1, 0])
         >>> amplitude
-        (-1.53080849893419e-17+4.711344115737722e-17j)
+        (-0.08637287570313157-0.26582837761001243j)
         >>> probability = np.abs(amplitude) ** 2
         >>> probability
-        2.454013803730561e-33
+        0.07812499999999997
         """
         if sum(x) != sum(y):
             return 0
@@ -107,8 +109,14 @@ class Diagram(monoidal.Diagram):
 
     def eval(self, n_photons, permanent=npperm):
         """
+        Evaluates the matrix acting on the Fock space given number of photons.
+
         >>> for i, _ in enumerate(occupation_numbers(3, 2)): assert np.isclose(
-        ...       sum(np.absolute(MZI(0.2, 0.4).eval(3)[0])**2), 1)
+        ...       sum(np.absolute(MZI(0.2, 0.4).eval(3)[i])**2), 1)
+        >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
+                      >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
+        >>> for i, _ in enumerate(occupation_numbers(2, 4)): assert np.isclose(
+        ...       sum(np.absolute(network.eval(2)[i])**2), 1)
         """
         basis = occupation_numbers(n_photons, len(self.dom))
         matrix = np.zeros(dtype=complex, shape=(len(basis), len(basis)))
@@ -161,6 +169,11 @@ class PhaseShift(Box):
     Parameters
     ----------
     phase : float
+
+    >>> PhaseShift(0.4).array
+    array(-0.80901699+0.58778525j)
+    >>> assert np.allclose((PhaseShift(0.4) >> PhaseShift(0.4).dagger()).array
+    ...                    , Id(1).array)
     """
     def __init__(self, phase):
         self.phase = phase
