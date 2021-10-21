@@ -44,10 +44,6 @@ class Diagram(monoidal.Diagram):
     Linear optical network seen as a diagram of beam splitters, phase shifters
     and Mach-Zender interferometers.
 
-    >>> mach = lambda x, y: PhaseShift(x) @ Id(PRO(1)) >> BeamSplitter(y)
-    >>> assert np.allclose(MZI(0.4, 0.9).array, mach(0.4, 0.9).array)
-    >>> MZI(0, 0).amp([1, 0], [0, 1])
-    (1+0j)
     >>> assert np.allclose((BeamSplitter(0.4) >> BeamSplitter(0.4)).array,\
                            Id(PRO(2)).array)
     >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> Id(1) @ MZI(0.5, 0.3) @ Id(1)
@@ -98,10 +94,6 @@ class Diagram(monoidal.Diagram):
         >>> probability = np.abs(amplitude) ** 2
         >>> probability
         2.454013803730561e-33
-        >>> MZI(0, 0).amp([1, 0], [0, 1])
-        (1+0j)
-        >>> MZI(0, 0).amp([1, 0], [1, 0])
-        0j
         """
         if sum(x) != sum(y):
             return 0
@@ -217,6 +209,15 @@ class MZI(Box):
     Parameters
     ----------
     phase, angle : float
+
+    >>> MZI(0, 0).amp([1, 0], [0, 1])
+    (1+0j)
+    >>> MZI(0, 0).amp([1, 0], [1, 0])
+    0j
+    >>> mach = lambda x, y: PhaseShift(x) @ Id(1) >> BeamSplitter(y)
+    >>> assert np.allclose(MZI(0.4, 0.9).eval(4), mach(0.4, 0.9).eval(4))
+    >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
+    ...                     Id(2).eval(3))
     """
     def __init__(self, phase, angle):
         self.phase, self.angle = phase, angle
@@ -229,7 +230,7 @@ class MZI(Box):
         return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
 
     def dagger(self):
-        return MZI(-self.phase, self.angle)
+        return BeamSplitter(self.angle) >> PhaseShift(-self.phase) @ Id(1)
 
 
 class Functor(monoidal.Functor):
@@ -239,6 +240,8 @@ class Functor(monoidal.Functor):
 
 def occupation_numbers(n_photons, m_modes):
     """
+    Returns vectors of occupation numbers for n_photons in m_modes.
+
     >>> occupation_numbers(3, 2)
     [[3, 0], [2, 1], [1, 2], [0, 3]]
     >>> occupation_numbers(2, 3)
