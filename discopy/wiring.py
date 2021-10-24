@@ -77,10 +77,10 @@ class Id(Wiring):
 class Box(Wiring):
     """ Implements boxes in wiring diagrams. """
     def __init__(self, name, dom, cod, **params):
-        if not isinstance(dom, PRO):
-            raise TypeError(messages.type_err(PRO, dom))
-        if not isinstance(cod, PRO):
-            raise TypeError(messages.type_err(PRO, cod))
+        if not isinstance(dom, Ty):
+            raise TypeError(messages.type_err(Ty, dom))
+        if not isinstance(cod, Ty):
+            raise TypeError(messages.type_err(Ty, cod))
         super().__init__(name, dom, cod, **params)
 
     def __repr__(self):
