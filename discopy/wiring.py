@@ -148,10 +148,10 @@ class Parallel(Wiring):
         self.factors = list(itertools.chain(*_flatten_factors(factors)))
         if dom is None:
             dom = functools.reduce(lambda f, g: f @ g,
-                                   (f.dom for f in self.factors), PRO(0))
+                                   (f.dom for f in self.factors), Ty())
         if cod is None:
             cod = functools.reduce(lambda f, g: f @ g,
-                                   (f.cod for f in self.factors), PRO(0))
+                                   (f.cod for f in self.factors), Ty())
         super().__init__(repr(self), dom, cod)
 
     def __repr__(self):
