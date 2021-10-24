@@ -9,7 +9,7 @@ import functools
 import itertools
 
 from discopy import cat, messages, monoidal
-from discopy.monoidal import PRO
+from discopy.monoidal import PRO, Ty
 
 class Wiring(ABC, monoidal.Box):
     """
@@ -49,8 +49,8 @@ class Wiring(ABC, monoidal.Box):
 class Id(Wiring):
     """ Empty wiring diagram in a free dagger PROP. """
     def __init__(self, dom):
-        if not isinstance(dom, PRO):
-            raise TypeError(messages.type_err(PRO, dom))
+        if not isinstance(dom, Ty):
+            raise TypeError(messages.type_err(Ty, dom))
         super().__init__("Id(dom={})".format(dom), dom, dom)
 
     def __repr__(self):
@@ -67,6 +67,8 @@ class Id(Wiring):
     def tensor(self, other):
         if not self.dom:
             return other
+        if isinstance(other, Id):
+            return Id(self.dom @ other.dom)
         return super().tensor(other)
 
     def dagger(self):
