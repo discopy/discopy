@@ -232,18 +232,23 @@ class MZI(Box):
     >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
     ...                     Id(2).eval(3))
     """
-    def __init__(self, phase, angle):
-        self.phase, self.angle = phase, angle
-        super().__init__('MZI', PRO(2), PRO(2), [phase, angle])
+    def __init__(self, phase, angle, _dagger=False):
+        self.phase, self.angle, self._dagger = phase, angle, _dagger
+        super().__init__('MZI', PRO(2), PRO(2), data=[phase, angle],
+                         _dagger=_dagger)
 
     @property
     def array(self):
         cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
-        exp = np.exp(2j * np.pi * self.phase)
-        return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
+        if not self._dagger:
+            exp = np.exp(2j * np.pi * self.phase)
+            return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
+        else:
+            exp = np.exp(- 2j * np.pi * self.phase)
+            return np.array([exp * sin, cos, exp * cos, -sin]).reshape((2, 2))
 
     def dagger(self):
-        return BeamSplitter(self.angle) >> PhaseShift(-self.phase) @ Id(1)
+        return MZI(self.phase, self.angle, _dagger=not self._dagger)
 
 
 class Functor(monoidal.Functor):
