@@ -505,7 +505,7 @@ class Box(Arrow):
         def recursive_free_symbols(data):
             if isinstance(data, Mapping):
                 data = data.values()
-            if isinstance(data, Iterable):
+            if not isinstance(data, str) and isinstance(data, Iterable):
                 # Handles numpy 0-d arrays, which are actually not iterable.
                 if not hasattr(data, "shape") or data.shape != ():
                     return set().union(*map(recursive_free_symbols, data))
