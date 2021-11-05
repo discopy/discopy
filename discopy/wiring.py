@@ -164,7 +164,27 @@ class Parallel(Wiring):
     def dagger(self):
         return Parallel([f.dagger() for f in self.factors])
 
-class WiringFunctor(monoidal.Functor):
+class Functor(monoidal.Functor):
+    def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Box):
+        super().__init__(ob, ar, ob_factory, ar_factory)
+
+    def __functor_falg__(self, f):
+        if isinstance(f, Id):
+            return self.ar_factory.id(f.dom)
+        if isinstance(f, Box):
+            return self.ar[f]
+        if isinstance(f, Sequential):
+            return functools.reduce(lambda a, b: a >> b, f.arrows)
+        if isinstance(f, Parallel):
+            return functools.reduce(lambda a, b: a @ b, f.factors)
+        return f
+
+    def __call__(self, diagram):
+        if isinstance(diagram, Wiring):
+            return diagram.collapse(self.__functor_falg__)
+        return super().__call__(diagram)
+
+class WiringFunctor(Functor):
     def __init__(self):
         ob = lambda t: PRO(len(t))
         ar = lambda f: Box(f.name, PRO(len(f.dom)), PRO(len(f.cod)),
