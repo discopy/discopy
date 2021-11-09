@@ -230,6 +230,11 @@ class Diagram(monoidal.Diagram):
         return caps(left, right)
 
     @staticmethod
+    def spiders(n_legs_in, n_legs_out, typ):
+        """ Constructs spiders with compound types."""
+        return spiders(n_legs_in, n_legs_out, typ)
+
+    @staticmethod
     def fa(left, right):
         """ Forward application. """
         off = -len(right) or len(left)
@@ -647,3 +652,24 @@ def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
 def caps(left, right, ar_factory=Diagram, cap_factory=Cap):
     """ Constructs a diagram of nested caps. """
     return cups(left, right, ar_factory, cap_factory, reverse=True)
+
+
+def spiders(
+        n_legs_in, n_legs_out, typ,
+        ar_factory=Diagram, spider_factory=Spider):
+    """ Constructs a diagram of interleaving spiders. """
+    id, swap, spider = ar_factory.id, ar_factory.swap, spider_factory
+    ts = [typ[i:i + 1] for i in range(len(typ))]
+    result = id().tensor(*[spider(n_legs_in, n_legs_out, t) for t in ts])
+
+    for i, t in enumerate(ts):
+        for j in range(n_legs_in - 1):
+            result <<= id(result.dom[:i * j + i + j]) @ swap(
+                t, result.dom[i * j + i + j:i * n_legs_in + j]
+            ) @ id(result.dom[i * n_legs_in + j + 1:])
+
+        for j in range(n_legs_out - 1):
+            result >>= id(result.cod[:i * j + i + j]) @ swap(
+                result.cod[i * j + i + j:i * n_legs_out + j], t
+            ) @ id(result.cod[i * n_legs_out + j + 1:])
+    return result

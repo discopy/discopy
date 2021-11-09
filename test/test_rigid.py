@@ -138,11 +138,13 @@ def test_Functor_call():
     x = Ty('x')
     cup, cap = Cup(x, x.r), Cap(x.r, x)
     box1, box2 = Box('box', x, x), Box('box', x @ x, x @ x)
+    spider = Spider(0, 2, x)
     F = Functor(lambda x: x @ x, {box1: box2})
     assert F(cup) == Id(x) @ cup @ Id(x.r) >> cup
     assert F(cap) == Id(x.r) @ cap @ Id(x) << cap
     assert F(box1) == box2
     assert F(box1.l) == box2.l and F(box1.r) == box2.r
+    assert F(spider) == spider @ spider >> Id(x) @ Swap(x, x) @ Id(x)
     with raises(TypeError):
         F(F)
 
@@ -194,3 +196,15 @@ def test_spider_adjoint():
 
     assert diagram.l == one.l >> two.l @ Id(n.l) >> Spider(2, 1, n.l)
     assert diagram.r == one.r >> two.r @ Id(n.r) >> Spider(2, 1, n.r)
+
+
+def test_spider_factory():
+    a, b, c = map(Ty, 'abc')
+    ts = [a, a @ b, a @ b @ c]
+    for i in range(5):
+        for j in range(5):
+            for t in ts:
+                s = spiders(i, j, t)
+                for k, ob in enumerate(t):
+                    assert all(map(ob.__eq__, s.dom[k::len(t)]))
+                    assert all(map(ob.__eq__, s.cod[k::len(t)]))
