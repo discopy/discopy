@@ -158,8 +158,8 @@ class Parallel(Wiring):
         return "Parallel(factors={})".format(repr(self.factors))
 
     def collapse(self, falg):
-        return falg(Parallel([f.collapse(falg) for f in self.factors],
-                             dom=self.dom, cod=self.cod))
+        return falg(functools.reduce(lambda f, g: f @ g,
+                                     [f.collapse(falg) for f in self.factors]))
 
     def dagger(self):
         return Parallel([f.dagger() for f in self.factors])
