@@ -127,8 +127,8 @@ class Sequential(Wiring):
         return "Sequential(arrows={})".format(repr(self.arrows))
 
     def collapse(self, falg):
-        return falg(Sequential([f.collapse(falg) for f in self.arrows],
-                               dom=self.dom, cod=self.cod))
+        return falg(functools.reduce(lambda f, g: f >> g,
+                                     [f.collapse(falg) for f in self.arrows]))
 
     def dagger(self):
         return Sequential(reversed([f.dagger() for f in self.arrows]))
