@@ -7,6 +7,7 @@ Implements linear optical networks
 import numpy as np
 from scipy.linalg import block_diag
 from math import factorial
+from itertools import permutations
 
 from discopy import cat, monoidal
 from discopy.monoidal import PRO
@@ -76,7 +77,7 @@ class Diagram(monoidal.Diagram):
     def amp(self, x, y, permanent=npperm):
         """
         Evaluates the amplitude of an optics.Diagram on input x and output y,
-        where x and y are lists of natural numbers summing to n_photons.
+        when sending INDISTINGUISHABLE photons.
 
         Parameters
         ----------
@@ -111,6 +112,14 @@ class Diagram(monoidal.Diagram):
         """
         Evaluates the matrix acting on the Fock space given number of photons.
 
+        Parameters
+        ----------
+        n_photons : int
+            Number of photons
+        permanent : callable, optional
+            Use another function for computing the permanent
+            (e.g. from thewalrus)
+
         >>> for i, _ in enumerate(occupation_numbers(3, 2)): assert np.isclose(
         ...       sum(np.absolute(MZI(0.2, 0.4).eval(3)[i])**2), 1)
         >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
@@ -124,6 +133,39 @@ class Diagram(monoidal.Diagram):
             for j, y in enumerate(basis):
                 matrix[i, j] = self.amp(x, y, permanent=permanent)
         return matrix
+
+    def amp_dist(self, x, y, permanent=npperm):
+        """
+        Evaluates probability of an optics.Diagram for input x and output y,
+        when sending DISTINGUISHABLE photons.
+
+        Parameters
+        ----------
+        x : List[int]
+            Input vector of occupation numbers
+        y : List[int]
+            Output vector of occupation numbers
+        permanent : callable, optional
+            Use another function for computing the permanent
+            (e.g. from thewalrus)
+
+        >>> box = MZI(1.2, 0.6)
+        >>> assert np.isclose(sum([box.amp_dist([3, 0], y)
+        ...                        for y in occupation_numbers(3, 2)]), 1)
+        >>> network = box @ box @ box >> Id(1) @ box @ box @ Id(1)
+        >>> assert np.isclose(sum([network.amp_dist([0, 1, 0, 1, 1, 1], y)
+        ...                        for y in occupation_numbers(4, 6)]), 1)
+        """
+        n_modes = len(self.dom)
+        unitary = self.array
+        if sum(x) != sum(y):
+            return 0
+        matrix = np.stack([self.array[:, i] for i in range(n_modes)
+                          for _ in range(y[i])], axis=1)
+        matrix = np.stack([matrix[i] for i in range(n_modes)
+                          for _ in range(x[i])], axis=0)
+        divisor = np.prod([factorial(n) for n in y])
+        return permanent(np.absolute(matrix)**2) / divisor
 
 
 class Box(Diagram, monoidal.Box):
