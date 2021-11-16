@@ -243,6 +243,12 @@ class BeamSplitter(Box):
     >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
     ...   ).dagger()
     >>> assert np.allclose(comp.eval(2), Id(4).eval(2))
+
+    We can check the Hong-Ou-Mandel effect:
+    >>> BS = BeamSplitter(0.25)
+    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [0, 2])) **2, 0.5)
+    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
+    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
     """
     def __init__(self, angle):
         self.angle = angle
