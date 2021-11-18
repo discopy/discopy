@@ -14,6 +14,21 @@ from discopy.monoidal import PRO
 from discopy.tensor import Dim
 
 
+def occupation_numbers(n_photons, m_modes):
+    """
+    Returns vectors of occupation numbers for n_photons in m_modes.
+
+    >>> occupation_numbers(3, 2)
+    [[3, 0], [2, 1], [1, 2], [0, 3]]
+    >>> occupation_numbers(2, 3)
+    [[2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]]
+    """
+    if m_modes <= 1:
+        return m_modes * [[n_photons]]
+    return [[head] + tail for head in range(n_photons, -1, -1)
+            for tail in occupation_numbers(n_photons - head, m_modes - 1)]
+
+
 def npperm(M):
     """
     Numpy code for computing the permanent of a matrix,
@@ -66,6 +81,11 @@ class Diagram(monoidal.Diagram):
         >>> (MZI(0, 0) >> MZI(0, 0)).array
         array([[1.+0.j, 0.+0.j],
                [0.+0.j, 1.+0.j]])
+        >>> (MZI(0, 0) @ MZI(0, 0)).array
+        array([[0.+0.j, 1.+0.j, 0.+0.j, 0.+0.j],
+               [1.+0.j, 0.+0.j, 0.+0.j, 0.+0.j],
+               [0.+0.j, 0.+0.j, 0.+0.j, 1.+0.j],
+               [0.+0.j, 0.+0.j, 1.+0.j, 0.+0.j]])
         """
         scan, array = self.dom, np.identity(len(self.dom))
         for box, off in zip(self.boxes, self.offsets):
@@ -134,7 +154,7 @@ class Diagram(monoidal.Diagram):
                 matrix[i, j] = self.amp(x, y, permanent=permanent)
         return matrix
 
-    def amp_dist(self, x, y, permanent=npperm):
+    def D_prob(self, x, y, permanent=npperm):
         """
         Evaluates probability of an optics.Diagram for input x and output y,
         when sending DISTINGUISHABLE photons.
@@ -150,10 +170,10 @@ class Diagram(monoidal.Diagram):
             (e.g. from thewalrus)
 
         >>> box = MZI(1.2, 0.6)
-        >>> assert np.isclose(sum([box.amp_dist([3, 0], y)
+        >>> assert np.isclose(sum([box.D_prob([3, 0], y)
         ...                        for y in occupation_numbers(3, 2)]), 1)
         >>> network = box @ box @ box >> Id(1) @ box @ box @ Id(1)
-        >>> assert np.isclose(sum([network.amp_dist([0, 1, 0, 1, 1, 1], y)
+        >>> assert np.isclose(sum([network.D_prob([0, 1, 0, 1, 1, 1], y)
         ...                        for y in occupation_numbers(4, 6)]), 1)
         """
         n_modes = len(self.dom)
@@ -166,6 +186,22 @@ class Diagram(monoidal.Diagram):
                           for _ in range(x[i])], axis=0)
         divisor = np.prod([factorial(n) for n in y])
         return permanent(np.absolute(matrix)**2) / divisor
+
+    def cl_distribution(self, x):
+        """
+        Computes the distribution of classical light in the outputs given
+        an input distribution x.
+
+        Parameters
+        ----------
+        x : List[float]
+            Input vector of positive reals (intensities), expected to sum to 1.
+            If the vector is not normalised the output will have the same
+            normalisation factor.
+        """
+        n_modes = len(self.dom)
+        unitary = self.array
+        return np.matmul(np.absolute(unitary)**2, np.array(x))
 
 
 class Box(Diagram, monoidal.Box):
@@ -245,7 +281,7 @@ class BeamSplitter(Box):
     >>> assert np.allclose(comp.eval(2), Id(4).eval(2))
 
     We can check the Hong-Ou-Mandel effect:
-    >>> BS = BeamSplitter(0.25)
+    >>> BS = BeamSplitter(0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [0, 2])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
@@ -256,7 +292,8 @@ class BeamSplitter(Box):
 
     @property
     def array(self):
-        cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
+        cos = np.cos(np.pi * self.angle / 2)
+        sin = np.sin(np.pi * self.angle / 2)
         return np.array([sin, cos, cos, -sin]).reshape((2, 2))
 
     def dagger(self):
@@ -302,18 +339,3 @@ class MZI(Box):
 class Functor(monoidal.Functor):
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
-
-
-def occupation_numbers(n_photons, m_modes):
-    """
-    Returns vectors of occupation numbers for n_photons in m_modes.
-
-    >>> occupation_numbers(3, 2)
-    [[3, 0], [2, 1], [1, 2], [0, 3]]
-    >>> occupation_numbers(2, 3)
-    [[2, 0, 0], [1, 1, 0], [1, 0, 1], [0, 2, 0], [0, 1, 1], [0, 0, 2]]
-    """
-    if m_modes <= 1:
-        return m_modes * [[n_photons]]
-    return [[head] + tail for head in range(n_photons, -1, -1)
-            for tail in occupation_numbers(n_photons - head, m_modes - 1)]
