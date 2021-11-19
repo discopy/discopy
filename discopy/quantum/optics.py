@@ -198,10 +198,17 @@ class Diagram(monoidal.Diagram):
             Input vector of positive reals (intensities), expected to sum to 1.
             If the vector is not normalised the output will have the same
             normalisation factor.
+
+        >>> BeamSplitter(0.5).cl_distribution([2/3, 1/3])
+        array([0.5, 0.5])
+        >>> assert np.allclose(BeamSplitter(0.5).cl_distribution([2/3, 1/3]),
+        ...                    BeamSplitter(0.5).cl_distribution([1/5, 4/5]))
+        >>> BS = BeamSplitter(0.25)
+        >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
+        >>> d.cl_distribution([0, 1/2, 1/2, 0])
+        array([0.4267767, 0.0732233, 0.0732233, 0.4267767])
         """
-        n_modes = len(self.dom)
-        unitary = self.array
-        return np.matmul(np.absolute(unitary)**2, np.array(x))
+        return np.matmul(np.absolute(self.array)**2, np.array(x))
 
 
 class Box(Diagram, monoidal.Box):
@@ -313,7 +320,7 @@ class MZI(Box):
     >>> MZI(0, 0).amp([1, 0], [1, 0])
     0j
     >>> mach = lambda x, y: PhaseShift(x) @ Id(1) >> BeamSplitter(y)
-    >>> assert np.allclose(MZI(0.4, 0.9).eval(4), mach(0.4, 0.9).eval(4))
+    >>> assert np.allclose(MZI(0.4, 0.9).eval(4), mach(0.4, 2 * 0.9).eval(4))
     >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
     ...                     Id(2).eval(3))
     """
