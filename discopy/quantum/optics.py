@@ -154,7 +154,10 @@ class Diagram(monoidal.Diagram):
                 matrix[i, j] = self.amp(x, y, permanent=permanent)
         return matrix
 
-    def D_prob(self, x, y, permanent=npperm):
+    def indist_prob(self, x, y, permanent=npperm):
+        return np.absolute(self.amp(x, y, permanent=npperm))**2
+
+    def dist_prob(self, x, y, permanent=npperm):
         """
         Evaluates probability of an optics.Diagram for input x and output y,
         when sending DISTINGUISHABLE photons.
@@ -346,3 +349,51 @@ class MZI(Box):
 class Functor(monoidal.Functor):
     def __init__(self, ob, ar):
         super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
+
+
+def params_shape(width, depth):
+    """ Returns the shape of parameters given width and depth. """
+    even_width = not width % 2
+    even_depth = not depth % 2
+    if even_width:
+        if even_depth:
+            # we have width // 2 MZIs on the first row
+            # followed by width // 2 - 1 equals width - 1
+            return (depth // 2, width - 1, 2)
+        else:
+            # we have the parameters for even depths plus
+            # a last layer of width // 2 MZIs
+            return (depth // 2 * (width - 1) + width // 2, 2)
+    else:
+        # we have width // 2 MZIs on each row, where
+        # the even layers are tensored by Id on the right
+        # and the odd layers are tensored on the left.
+        return (depth, width // 2, 2)
+
+
+def ansatz(width, depth, x):
+    """ Returns a photonic chip given width, depth and parameters x"""
+    params = x.reshape(params_shape(width, depth))
+    chip = Id(width)
+    if not width % 2:
+        if depth % 2:
+            params, last_layer = params[:-width // 2].reshape(
+                params_shape(width, depth - 1)), params[-width // 2:]
+        for i in range(depth // 2):
+            chip = chip\
+                >> Id().tensor(*[
+                    MZI(*params[i, j])
+                    for j in range(width // 2)])\
+                >> Id(1) @ Id().tensor(*[
+                    MZI(*params[i, j + width // 2])
+                    for j in range(width // 2 - 1)]) @ Id(1)
+        if depth % 2:
+            chip = chip >> Id().tensor(*[
+                MZI(*last_layer[j]) for j in range(width // 2)])
+    else:
+        for i in range(depth):
+            left, right = (Id(1), Id()) if i % 2 else (Id(), Id(1))
+            chip >>= left.tensor(*[
+                MZI(*params[i, j])
+                for j in range(width // 2)]) @ right
+    return chip
