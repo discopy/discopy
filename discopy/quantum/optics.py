@@ -155,7 +155,17 @@ class Diagram(monoidal.Diagram):
         return matrix
 
     def indist_prob(self, x, y, permanent=npperm):
-        return np.absolute(self.amp(x, y, permanent=npperm))**2
+        return np.absolute(self.amp(x, y, permanent=npperm)) ** 2
+
+    def prob(self, x, y, dist=0.0, permanent=npperm):
+        if dist == 0:
+            return self.indist_prob(x, y, permanent=permanent)
+        elif dist == 1:
+            return self.dist_prob(x, y, permanent=permanent)
+        else:
+            p0 = self.indist_prob(x, y, permanent=permanent)
+            p1 = self.dist_prob(x, y, permanent=permanent)
+            return (1 - dist) * p0 + dist * p1
 
     def dist_prob(self, x, y, permanent=npperm):
         """
