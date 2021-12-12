@@ -61,8 +61,6 @@ class Diagram(monoidal.Diagram):
     and Mach-Zender interferometers.
 
     >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> Id(1) @ MZI(0.5, 0.3) @ Id(1)
-    >>> np.absolute(grid.amp([1, 3, 2, 1], [1, 3, 3, 0]))
-    0.06492701974296845
     >>> assert np.allclose((grid >> grid.dagger()).eval(3), Id(4).eval(3))
     """
     def __repr__(self):
@@ -75,17 +73,15 @@ class Diagram(monoidal.Diagram):
         Builds a block diagonal matrix for each layer and then multiplies them
         in sequence.
 
-        >>> MZI(0, 0).array
-        array([[ 0.+0.j,  1.+0.j],
-               [ 1.+0.j, -0.+0.j]])
-        >>> (MZI(0, 0) >> MZI(0, 0)).array
-        array([[1.+0.j, 0.+0.j],
-               [0.+0.j, 1.+0.j]])
-        >>> (MZI(0, 0) @ MZI(0, 0)).array
-        array([[0.+0.j, 1.+0.j, 0.+0.j, 0.+0.j],
-               [1.+0.j, 0.+0.j, 0.+0.j, 0.+0.j],
-               [0.+0.j, 0.+0.j, 0.+0.j, 1.+0.j],
-               [0.+0.j, 0.+0.j, 1.+0.j, 0.+0.j]])
+        >>> BS = BeamSplitter(0.5)
+        >>> np.shape(BS.array)
+        (2, 2)
+        >>> np.shape((BS >> BS).array)
+        (2, 2)
+        >>> np.shape((BS @ BS @ BS).array)
+        (6, 6)
+        >>> assert np.allclose(MZI(0, 0).array, np.array([0, 1], [1, 0])
+        >>> assert np.allclose((MZI(0, 0) >> MZI(0, 0)).array, Id(2).array)
         """
         scan, array = self.dom, np.identity(len(self.dom))
         for box, off in zip(self.boxes, self.offsets):
