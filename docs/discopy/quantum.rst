@@ -11,3 +11,4 @@ quantum
    quantum.gates
    quantum.tk
    quantum.zx
+   quantum.optics
