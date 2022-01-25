@@ -480,7 +480,17 @@ class Diagram(rigid.Diagram):
             if isinstance(box, Swap):
                 scan[offset], scan[offset + 1] = scan[offset + 1], scan[offset]
                 continue
-            node = tn.Node(box.array, str(box))
+            if isinstance(box, Spider):
+                dims = (len(box.dom), len(box.cod))
+                if dims == (1, 1):  # identity
+                    continue
+                if dims == (2, 0):  # cup
+                    tn.connect(*scan[offset:offset + 2])
+                    del scan[offset:offset + 2]
+                    continue
+                node = tn.CopyNode(sum(dims), scan[offset].dimension)
+            else:
+                node = tn.Node(box.array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
             edges = [node[len(box.dom) + i] for i, _ in enumerate(box.cod)]

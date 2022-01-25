@@ -1,6 +1,7 @@
 from pytest import raises
 from unittest.mock import Mock
 import numpy as np
+import tensornetwork as tn
 from discopy.tensor import *
 
 
@@ -40,6 +41,13 @@ def test_Tensor():
     assert m == m and np.all(m == arr)
     m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
     assert Tensor.id(Dim(2)).then(*(m, m)) == m >> m.dagger()
+
+
+def test_Spider_to_tn():
+    d = Dim(2)
+    tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
+    result = tensor.eval(contractor=tn.contractors.auto).array
+    assert all(result == np.array([1, 1]))
 
 
 def test_Tensor_cups():
