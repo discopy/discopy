@@ -33,6 +33,21 @@ def array2string(array, **params):
         .replace('[ ', '[').replace('  ', ' ')
 
 
+def get_dtype(array):
+    while True:
+        # minimise data to potentially copy
+        try:
+            array = array[0]
+        except IndexError:
+            break
+    try:
+        dtype = numpy.asarray(array).dtype
+    except RuntimeError:
+        # pytorch tensor
+        dtype = array.detach().cpu().numpy().dtype
+    return dtype
+
+
 class Dim(Ty):
     """ Implements dimensions as tuples of positive integers.
     Dimensions form a monoid with product @ and unit Dim(1).
@@ -473,6 +488,7 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
+        dtype = None
         nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i))
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
@@ -484,13 +500,24 @@ class Diagram(rigid.Diagram):
                 dims = (len(box.dom), len(box.cod))
                 if dims == (1, 1):  # identity
                     continue
-                if dims == (2, 0):  # cup
+                elif dims == (2, 0):  # cup
                     tn.connect(*scan[offset:offset + 2])
                     del scan[offset:offset + 2]
                     continue
-                node = tn.CopyNode(sum(dims), scan[offset].dimension)
+                else:
+                    if dtype is None:
+                        for box in self.boxes:
+                            if not isinstance(box, Spider):
+                                dtype = get_dtype(box.array)
+                        else:
+                            dtype = numpy.float64
+                    node = tn.CopyNode(sum(dims),
+                                       scan[offset].dimension,
+                                       dtype=dtype)
             else:
                 node = tn.Node(box.array, str(box))
+                if dtype is None:
+                    dtype = get_dtype(box.array)
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
             edges = [node[len(box.dom) + i] for i, _ in enumerate(box.cod)]
