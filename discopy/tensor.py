@@ -245,16 +245,19 @@ class Tensor(rigid.Box):
         """
         return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
 
-    def conjugate(self):
+    def conjugate(self, diagrammatic=True):
         """
-        Returns the diagrammatic conjugate of a tensor.
+        Returns the conjugate of a tensor.
 
-        Note
-        ----
-        This is *not* the same as the algebraic conjugate for complex dims.
+        Parameters
+        ----------
+        diagrammatic : bool, default: True
+            Whether to use the diagrammatic or algebraic conjugate.
         """
-        # reverse the wires for both inputs and outputs
         dom, cod = self.dom, self.cod
+        if not diagrammatic:
+            return Tensor(dom, cod, Tensor.np.conjugate(self.array))
+        # reverse the wires for both inputs and outputs
         array = Tensor.np.moveaxis(
             self.array, range(len(dom @ cod)),
             [len(dom) - i - 1 for i in range(len(dom @ cod))])

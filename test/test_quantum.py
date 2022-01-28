@@ -534,3 +534,7 @@ def test_adjoint():
 
     for g, g_conj in zip(gates, gates_conj):
         assert g.conjugate() == g_conj
+
+
+def test_causal_cx():
+    assert np.allclose((CX >> Discard(2)).eval(), Discard(2).eval())
