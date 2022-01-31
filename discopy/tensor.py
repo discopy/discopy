@@ -434,7 +434,7 @@ class Diagram(rigid.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Id(Dim(2)) @ vector
     """
-    def eval(self, contractor=None):
+    def eval(self, contractor=None, dtype=None):
         """
         Diagram evaluation.
 
@@ -443,6 +443,8 @@ class Diagram(rigid.Diagram):
         contractor : callable, optional
             Use :class:`tensornetwork` contraction
             instead of :class:`tensor.Functor`.
+        dtype : type of np.Number, optional
+            dtype to be used for spiders.
 
         Returns
         -------
@@ -462,12 +464,17 @@ class Diagram(rigid.Diagram):
 
         if contractor is None:
             return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
-        array = contractor(*self.to_tn()).tensor
+        array = contractor(*self.to_tn(dtype=dtype)).tensor
         return Tensor(self.dom, self.cod, array)
 
-    def to_tn(self):
+    def to_tn(self, dtype=None):
         """
         Sends a diagram to :code:`tensornetwork`.
+
+        Parameters
+        ----------
+        dtype : type of np.Number, optional
+            dtype to be used for spiders.
 
         Returns
         -------
@@ -488,7 +495,6 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        dtype = None
         nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i))
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
