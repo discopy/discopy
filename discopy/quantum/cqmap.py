@@ -222,10 +222,10 @@ class CQMap(Tensor):
         return CQMap.measure(dim, destructive=constructive).dagger()
 
     @staticmethod
-    def pure(utensor):
+    def double(utensor):
         """ Takes a tensor, returns a pure quantum CQMap. """
         return CQMap(Q(utensor.dom), Q(utensor.cod),
-                     (utensor.conjugate() @ utensor).array)
+                     (utensor.conjugate(diagrammatic=False) @ utensor).array)
 
     @staticmethod
     def classical(utensor):
@@ -242,7 +242,7 @@ class CQMap(Tensor):
     @staticmethod
     def cups(left, right):
         return CQMap.classical(Tensor.cups(left.classical, right.classical))\
-            @ CQMap.pure(Tensor.cups(left.quantum, right.quantum))
+            @ CQMap.double(Tensor.cups(left.quantum, right.quantum))
 
     @staticmethod
     def caps(left, right):
@@ -292,7 +292,7 @@ class Functor(rigid.Functor):
             return CQMap(self(box.dom), self(box.cod), box.array)
         if not box.is_mixed:
             dom, cod = self(box.dom).quantum, self(box.cod).quantum
-            return CQMap.pure(Tensor(dom, cod, box.array))
+            return CQMap.double(Tensor(dom, cod, box.array))
         if hasattr(box, "array"):
             return CQMap(self(box.dom), self(box.cod), box.array)
         return self.__ar[box]
