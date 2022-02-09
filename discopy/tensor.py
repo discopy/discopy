@@ -512,9 +512,9 @@ class Diagram(rigid.Diagram):
                     continue
                 else:
                     if dtype is None:
-                        for box in self.boxes:
-                            if not isinstance(box, Spider):
-                                dtype = get_dtype(box.array)
+                        for b in self.boxes:
+                            if not isinstance(b, Spider):
+                                dtype = get_dtype(b.array)
                         else:
                             dtype = numpy.float64
                     node = tn.CopyNode(sum(dims),
@@ -526,8 +526,7 @@ class Diagram(rigid.Diagram):
                     dtype = get_dtype(box.array)
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
-            edges = [node[len(box.dom) + i] for i, _ in enumerate(box.cod)]
-            scan = scan[:offset] + edges + scan[offset + len(box.dom):]
+            scan[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
         return nodes, inputs + scan
 
