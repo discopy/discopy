@@ -50,6 +50,20 @@ def test_Spider_to_tn():
     assert all(result == np.array([1, 1]))
 
 
+def test_Spider_to_tn_pytorch():
+    try:
+        import torch
+        Tensor.np = torch
+        torch.array = torch.as_tensor
+
+        d = Dim(2)
+        tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
+        result = tensor.eval(contractor=tn.contractors.auto).array
+        assert all(result == torch.tensor([1., 1.]))
+    finally:
+        Tensor.np = np
+
+
 def test_Tensor_cups():
     assert np.all(Tensor.cups(Dim(2), Dim(2)).array == np.identity(2))
     with raises(TypeError):
