@@ -495,7 +495,13 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i))
+        if dtype is None:
+            for b in self.boxes:
+                if not isinstance(b, Spider):
+                    dtype = get_dtype(b.array)
+            else:
+                dtype = numpy.float64
+        nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i), dtype=dtype)
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
@@ -511,19 +517,11 @@ class Diagram(rigid.Diagram):
                     del scan[offset:offset + 2]
                     continue
                 else:
-                    if dtype is None:
-                        for b in self.boxes:
-                            if not isinstance(b, Spider):
-                                dtype = get_dtype(b.array)
-                        else:
-                            dtype = numpy.float64
                     node = tn.CopyNode(sum(dims),
                                        scan[offset].dimension,
                                        dtype=dtype)
             else:
                 node = tn.Node(box.array, str(box))
-                if dtype is None:
-                    dtype = get_dtype(box.array)
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
             scan[offset:offset + len(box.dom)] = node[len(box.dom):]

@@ -55,6 +55,7 @@ def test_Spider_to_tn_pytorch():
         import torch
         Tensor.np = torch
         torch.array = torch.as_tensor
+        tn.set_default_backend('pytorch')
 
         d = Dim(2)
         tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
@@ -62,6 +63,7 @@ def test_Spider_to_tn_pytorch():
         assert all(result == torch.tensor([1., 1.]))
     finally:
         Tensor.np = np
+        tn.set_default_backend('numpy')
 
 
 def test_Tensor_cups():
