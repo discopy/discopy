@@ -4,3 +4,4 @@ sympy
 tensornetwork
 jax
 jaxlib
+torch
