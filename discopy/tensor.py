@@ -499,6 +499,7 @@ class Diagram(rigid.Diagram):
             for b in self.boxes:
                 if not isinstance(b, (Spider, Swap)):
                     dtype = get_dtype(b.array)
+                    break
             else:
                 dtype = numpy.float64
         nodes = [tn.CopyNode(2, dim, 'input_{}'.format(i), dtype=dtype)

@@ -58,9 +58,11 @@ def test_Spider_to_tn_pytorch():
         tn.set_default_backend('pytorch')
 
         d = Dim(2)
-        tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
+
+        alice = Box("Alice", Dim(1), d, torch.as_tensor([1., 2.]).requires_grad_(True))
+        tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
         result = tensor.eval(contractor=tn.contractors.auto).array
-        assert all(result == torch.tensor([1., 1.]))
+        assert result.item() == 3
     finally:
         Tensor.np = np
         tn.set_default_backend('numpy')
