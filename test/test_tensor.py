@@ -59,7 +59,8 @@ def test_Spider_to_tn_pytorch():
 
         d = Dim(2)
 
-        alice = Box("Alice", Dim(1), d, torch.as_tensor([1., 2.]).requires_grad_(True))
+        alice = Box("Alice", Dim(1), d,
+                    torch.as_tensor([1., 2.]).requires_grad_(True))
         tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
         result = tensor.eval(contractor=tn.contractors.auto).array
         assert result.item() == 3
