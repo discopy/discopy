@@ -43,7 +43,7 @@ def get_dtype(array):
     try:
         dtype = numpy.asarray(array).dtype
     except RuntimeError:
-        # pytorch tensor
+        # assume that the array is actually a PyTorch tensor
         dtype = array.detach().cpu().numpy().dtype
     return dtype
 
@@ -497,11 +497,11 @@ class Diagram(rigid.Diagram):
         import tensornetwork as tn
         if dtype is None:
             for b in self.boxes:
-                if not isinstance(b, Spider):
+                if not isinstance(b, (Spider, Swap)):
                     dtype = get_dtype(b.array)
             else:
                 dtype = numpy.float64
-        nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i), dtype=dtype)
+        nodes = [tn.CopyNode(2, dim, 'input_{}'.format(i), dtype=dtype)
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
