@@ -422,7 +422,7 @@ class Diagram(rigid.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Id(Dim(2)) @ vector
     """
-    def eval(self, contractor=None):
+    def eval(self, contractor=None, dtype=None):
         """
         Diagram evaluation.
 
@@ -431,6 +431,8 @@ class Diagram(rigid.Diagram):
         contractor : callable, optional
             Use :class:`tensornetwork` contraction
             instead of :class:`tensor.Functor`.
+        dtype : type of np.Number, optional
+            dtype to be used for spiders.
 
         Returns
         -------
@@ -450,12 +452,17 @@ class Diagram(rigid.Diagram):
 
         if contractor is None:
             return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
-        array = contractor(*self.to_tn()).tensor
+        array = contractor(*self.to_tn(dtype=dtype)).tensor
         return Tensor(self.dom, self.cod, array)
 
-    def to_tn(self):
+    def to_tn(self, dtype=None):
         """
         Sends a diagram to :code:`tensornetwork`.
+
+        Parameters
+        ----------
+        dtype : type of np.Number, optional
+            dtype to be used for spiders.
 
         Returns
         -------
@@ -476,7 +483,9 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i))
+        if dtype is None:
+            dtype = self._infer_dtype()
+        nodes = [tn.CopyNode(2, dim, 'input_{}'.format(i), dtype=dtype)
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
@@ -487,19 +496,40 @@ class Diagram(rigid.Diagram):
                 dims = (len(box.dom), len(box.cod))
                 if dims == (1, 1):  # identity
                     continue
-                if dims == (2, 0):  # cup
+                elif dims == (2, 0):  # cup
                     tn.connect(*scan[offset:offset + 2])
                     del scan[offset:offset + 2]
                     continue
-                node = tn.CopyNode(sum(dims), scan[offset].dimension)
+                else:
+                    node = tn.CopyNode(sum(dims),
+                                       scan[offset].dimension,
+                                       dtype=dtype)
             else:
                 node = tn.Node(box.array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
-            edges = [node[len(box.dom) + i] for i, _ in enumerate(box.cod)]
-            scan = scan[:offset] + edges + scan[offset + len(box.dom):]
+            scan[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
         return nodes, inputs + scan
+
+    def _infer_dtype(self):
+        for box in self.boxes:
+            if not isinstance(box, (Spider, Swap)):
+                array = box.array
+                while True:
+                    # minimise data to potentially copy
+                    try:
+                        array = array[0]
+                    except IndexError:
+                        break
+
+                try:
+                    return numpy.asarray(array).dtype
+                except RuntimeError:
+                    # assume that the array is actually a PyTorch tensor
+                    return array.detach().cpu().numpy().dtype
+        else:
+            return numpy.float64
 
     @staticmethod
     def cups(left, right):
