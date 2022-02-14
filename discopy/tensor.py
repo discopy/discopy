@@ -33,19 +33,24 @@ def array2string(array, **params):
         .replace('[ ', '[').replace('  ', ' ')
 
 
-def get_dtype(array):
-    while True:
-        # minimise data to potentially copy
-        try:
-            array = array[0]
-        except IndexError:
-            break
-    try:
-        dtype = numpy.asarray(array).dtype
-    except RuntimeError:
-        # assume that the array is actually a PyTorch tensor
-        dtype = array.detach().cpu().numpy().dtype
-    return dtype
+def infer_dtype(diagram):
+    for box in diagram.boxes:
+        if not isinstance(box, (Spider, Swap)):
+            array = box.array
+            while True:
+                # minimise data to potentially copy
+                try:
+                    array = array[0]
+                except IndexError:
+                    break
+
+            try:
+                return numpy.asarray(array).dtype
+            except RuntimeError:
+                # assume that the array is actually a PyTorch tensor
+                return array.detach().cpu().numpy().dtype
+    else:
+        return numpy.float64
 
 
 class Dim(Ty):
@@ -496,12 +501,7 @@ class Diagram(rigid.Diagram):
         """
         import tensornetwork as tn
         if dtype is None:
-            for b in self.boxes:
-                if not isinstance(b, (Spider, Swap)):
-                    dtype = get_dtype(b.array)
-                    break
-            else:
-                dtype = numpy.float64
+            dtype = infer_dtype(self)
         nodes = [tn.CopyNode(2, dim, 'input_{}'.format(i), dtype=dtype)
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
