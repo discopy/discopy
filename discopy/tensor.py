@@ -33,26 +33,6 @@ def array2string(array, **params):
         .replace('[ ', '[').replace('  ', ' ')
 
 
-def infer_dtype(diagram):
-    for box in diagram.boxes:
-        if not isinstance(box, (Spider, Swap)):
-            array = box.array
-            while True:
-                # minimise data to potentially copy
-                try:
-                    array = array[0]
-                except IndexError:
-                    break
-
-            try:
-                return numpy.asarray(array).dtype
-            except RuntimeError:
-                # assume that the array is actually a PyTorch tensor
-                return array.detach().cpu().numpy().dtype
-    else:
-        return numpy.float64
-
-
 class Dim(Ty):
     """ Implements dimensions as tuples of positive integers.
     Dimensions form a monoid with product @ and unit Dim(1).
@@ -501,7 +481,7 @@ class Diagram(rigid.Diagram):
         """
         import tensornetwork as tn
         if dtype is None:
-            dtype = infer_dtype(self)
+            dtype = self._infer_dtype()
         nodes = [tn.CopyNode(2, dim, 'input_{}'.format(i), dtype=dtype)
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
@@ -528,6 +508,25 @@ class Diagram(rigid.Diagram):
             scan[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
         return nodes, inputs + scan
+
+    def _infer_dtype(self):
+        for box in self.boxes:
+            if not isinstance(box, (Spider, Swap)):
+                array = box.array
+                while True:
+                    # minimise data to potentially copy
+                    try:
+                        array = array[0]
+                    except IndexError:
+                        break
+
+                try:
+                    return numpy.asarray(array).dtype
+                except RuntimeError:
+                    # assume that the array is actually a PyTorch tensor
+                    return array.detach().cpu().numpy().dtype
+        else:
+            return numpy.float64
 
     @staticmethod
     def cups(left, right):
