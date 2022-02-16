@@ -647,7 +647,7 @@ class Box(rigid.Box, Diagram):
         data = self.data
         try:
             return Tensor.np.array(data).reshape(tuple(dom @ cod) or (1, ))
-        except ValueError:
+        except Exception:
             return data
 
     def grad(self, var, **params):
