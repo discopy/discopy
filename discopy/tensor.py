@@ -169,9 +169,9 @@ class Tensor(rigid.Box):
 
     def __eq__(self, other):
         if not isinstance(other, Tensor):
-            return Tensor.np.all(self.array == other)
+            return Tensor.np.all(Tensor.np.array(self.array == other))
         return (self.dom, self.cod) == (other.dom, other.cod)\
-            and Tensor.np.all(self.array == other.array)
+            and Tensor.np.all(Tensor.np.array(self.array == other.array))
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
