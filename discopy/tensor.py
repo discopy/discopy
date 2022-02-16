@@ -661,7 +661,7 @@ class Box(rigid.Box, Diagram):
     def __eq__(self, other):
         if not isinstance(other, Box):
             return False
-        return Tensor.np.all(self.array == other.array)\
+        return Tensor.np.all(Tensor.np.array(self.array == other.array))\
             and (self.name, self.dom, self.cod)\
             == (other.name, other.dom, other.cod)
 
