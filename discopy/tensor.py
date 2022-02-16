@@ -169,9 +169,9 @@ class Tensor(rigid.Box):
 
     def __eq__(self, other):
         if not isinstance(other, Tensor):
-            return Tensor.np.all(self.array == other)
+            return Tensor.np.all(Tensor.np.array(self.array == other))
         return (self.dom, self.cod) == (other.dom, other.cod)\
-            and Tensor.np.all(self.array == other.array)
+            and Tensor.np.all(Tensor.np.array(self.array == other.array))
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
@@ -644,7 +644,11 @@ class Box(rigid.Box, Diagram):
     def array(self):
         """ The array inside the box. """
         dom, cod = self.dom, self.cod
-        return Tensor.np.array(self.data).reshape(tuple(dom @ cod) or (1, ))
+        data = self.data
+        try:
+            return Tensor.np.array(data).reshape(tuple(dom @ cod) or (1, ))
+        except Exception:
+            return data
 
     def grad(self, var, **params):
         return self.bubble(
@@ -657,7 +661,7 @@ class Box(rigid.Box, Diagram):
     def __eq__(self, other):
         if not isinstance(other, Box):
             return False
-        return Tensor.np.all(self.array == other.array)\
+        return Tensor.np.all(Tensor.np.array(self.array == other.array))\
             and (self.name, self.dom, self.cod)\
             == (other.name, other.dom, other.cod)
 
