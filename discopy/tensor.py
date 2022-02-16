@@ -644,7 +644,11 @@ class Box(rigid.Box, Diagram):
     def array(self):
         """ The array inside the box. """
         dom, cod = self.dom, self.cod
-        return Tensor.np.array(self.data).reshape(tuple(dom @ cod) or (1, ))
+        data = self.data
+        try:
+            return Tensor.np.array(data).reshape(tuple(dom @ cod) or (1, ))
+        except ValueError:
+            return data
 
     def grad(self, var, **params):
         return self.bubble(

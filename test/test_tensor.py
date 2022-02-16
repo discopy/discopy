@@ -256,3 +256,8 @@ def test_non_numpy_eval():
     with raises(Exception):
         Swap(Dim(2), Dim(2)).eval()
     Tensor.np = np
+
+
+def test_Tensor_array():
+    box = Box("box", Dim(2), Dim(2), None)
+    assert box.array is None
