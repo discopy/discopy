@@ -525,7 +525,7 @@ class Diagram(rigid.Diagram):
 
                 try:
                     return numpy.asarray(array).dtype
-                except RuntimeError:
+                except (RuntimeError, TypeError):
                     # assume that the array is actually a PyTorch tensor
                     return array.detach().cpu().numpy().dtype
         else:
