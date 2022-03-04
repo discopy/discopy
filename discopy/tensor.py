@@ -10,6 +10,7 @@ Implements dagger monoidal functors into tensors.
 >>> F = Functor(ob, ar)
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
+from contextlib import contextmanager
 
 import numpy
 
@@ -17,12 +18,6 @@ from discopy import cat, config, messages, monoidal, rigid
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Cup, Cap
 
-
-if config.IMPORT_JAX:  # pragma: no cover
-    import warnings
-    for msg in config.IGNORE_WARNINGS:
-        warnings.filterwarnings("ignore", message=msg)
-    import jax
 
 numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
 
@@ -83,7 +78,64 @@ class Dim(Ty):
         return Dim(*self[::-1])
 
 
-class Tensor(rigid.Box):
+class TensorBackend:
+    module = None
+
+    def __getattr__(self, attr):
+        return getattr(self.module, attr)
+
+
+class NumPyBackend(TensorBackend):
+    def __init__(self):
+        self.module = numpy
+
+
+class JAXBackend(TensorBackend):
+    def __init__(self):
+        import jax
+        self.module = jax.numpy
+
+
+class PyTorchBackend(TensorBackend):
+    def __init__(self):
+        import torch
+        self.module = torch
+        self.array = torch.as_tensor
+
+
+BACKENDS = {'numpy': NumPyBackend,
+            'jax': JAXBackend,
+            'pytorch': PyTorchBackend}
+INSTANTIATED_BACKENDS = {}
+
+
+def get_backend(backend):
+    try:
+        return INSTANTIATED_BACKENDS[backend]
+    except KeyError:
+        try:
+            backend = INSTANTIATED_BACKENDS[backend] = BACKENDS[backend]()
+        except KeyError:
+            raise ValueError(f'Invalid backend: {backend!r}')
+        else:
+            return backend
+
+
+class TensorType(type):
+    @property
+    def np(cls):
+        return cls.get_backend()
+
+    @np.setter
+    def np(cls, module):
+        # for backwards compatibility
+        MODULE_MAPPING = {'numpy': 'numpy',
+                          'jax.numpy': 'jax',
+                          'torch': 'pytorch'}
+        cls.set_backend(MODULE_MAPPING[module.__name__])
+
+
+class Tensor(rigid.Box, metaclass=TensorType):
     """ Implements a tensor with dom, cod and numpy array.
 
     Examples
@@ -108,20 +160,29 @@ class Tensor(rigid.Box):
     >>> v.subs(phi, 0).lambdify(psi)(1)
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
 
-    We can also use jax.numpy by changing the class variable :code:`Tensor.np`.
+    We can also use jax.numpy using Tensor.backend.
 
-    >>> from contextlib import contextmanager
-    >>> import jax
-    >>> @contextmanager
-    ... def jaxify():
-    ...     Tensor.np, tmp = jax.numpy, Tensor.np
-    ...     yield
-    ...     Tensor.np = tmp
-    >>> with jaxify():
+    >>> with Tensor.backend('jax'):
     ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    np = jax.numpy if config.IMPORT_JAX else numpy
+    _backend_stack = [get_backend('jax' if config.IMPORT_JAX else 'numpy')]
+
+    @classmethod
+    def get_backend(cls):
+        return cls._backend_stack[-1]
+
+    @classmethod
+    def set_backend(cls, value):
+        backend = get_backend(value)
+        cls._backend_stack.append(backend)
+        return backend
+
+    @classmethod
+    @contextmanager
+    def backend(cls, value):
+        yield cls.set_backend(value)
+        cls._backend_stack.pop()
 
     def __init__(self, dom, cod, array):
         self._array = Tensor.np.array(array).reshape(tuple(dom @ cod))
