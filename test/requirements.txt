@@ -1,5 +1,5 @@
 pytket==0.15.0rc5
-pyzx
+pyzx==0.6.4
 sympy
 tensornetwork
 jax
