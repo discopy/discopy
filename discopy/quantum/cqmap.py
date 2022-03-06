@@ -11,7 +11,7 @@ For example, states of type :class:`Q` are density matrices:
 
 >>> from discopy.quantum import Ket, H
 >>> (Ket(0) >> H).eval(mixed=True).round(1)
-CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5, 0.5, 0.5, 0.5])
+CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j])
 """
 
 from discopy import monoidal, rigid, messages, tensor
@@ -224,8 +224,8 @@ class CQMap(Tensor):
     @staticmethod
     def double(utensor):
         """ Takes a tensor, returns a pure quantum CQMap. """
-        return CQMap(Q(utensor.dom), Q(utensor.cod),
-                     (utensor.conjugate(diagrammatic=False) @ utensor).array)
+        density = (utensor.conjugate(diagrammatic=False) @ utensor).array
+        return CQMap(Q(utensor.dom), Q(utensor.cod), density)
 
     @staticmethod
     def classical(utensor):
@@ -286,7 +286,7 @@ class Functor(rigid.Functor):
         if isinstance(box, (MixedState, Encode)):
             return self(box.dagger()).dagger()
         if isinstance(box, Scalar):
-            scalar = box.array[0] if box.is_mixed else abs(box.array[0]) ** 2
+            scalar = box.array if box.is_mixed else abs(box.array) ** 2
             return CQMap(CQ(), CQ(), scalar)
         if not box.is_mixed and box.classical:
             return CQMap(self(box.dom), self(box.cod), box.array)

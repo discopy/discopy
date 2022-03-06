@@ -252,7 +252,7 @@ def test_Measure():
 def test_QuantumGate():
     assert repr(X) == "X"
     assert repr(QuantumGate("s", 0, [1]))\
-        == "QuantumGate('s', n_qubits=0, array=[1])"
+        == "QuantumGate('s', n_qubits=0, array=[1.+0.j])"
 
 
 def test_ClassicalGate():
@@ -543,6 +543,12 @@ def test_adjoint():
 
 def test_causal_cx():
     assert np.allclose((CX >> Discard(2)).eval(), Discard(2).eval())
+
+
+def test_eval_no_qutrits():
+    qutrit = Ty(Qudit(3))
+    with raises(Exception):
+        Box('qutrit box', qutrit, qutrit).to_tn(mixed=True)
 
 
 def test_grad_unknown_controlled():

@@ -118,13 +118,13 @@ class Tensor(rigid.Box):
     ...     yield
     ...     Tensor.np = tmp
     >>> with jaxify():
-    ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array[0]
+    ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
     np = jax.numpy if config.IMPORT_JAX else numpy
 
     def __init__(self, dom, cod, array):
-        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod) or (1, ))
+        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod) or ())
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -448,7 +448,8 @@ class Diagram(rigid.Diagram):
         """
         if contractor is None and "numpy" not in Tensor.np.__package__:
             raise Exception(
-                'Please provide a contractor when using a non-numpy backend.')
+                'Provide a tensornetwork contractor'
+                'when using a non-numpy backend.')
 
         if contractor is None:
             return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
@@ -483,13 +484,15 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
+        from discopy.quantum import circuit
         if dtype is None:
             dtype = self._infer_dtype()
-        nodes = [tn.CopyNode(2, dim, 'input_{}'.format(i), dtype=dtype)
+        nodes = [tn.CopyNode(2, dim.dim if hasattr(dim, 'dim') else dim,
+                             'input_{}'.format(i), dtype=dtype)
                  for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
-            if isinstance(box, Swap):
+            if isinstance(box, rigid.Swap):
                 scan[offset], scan[offset + 1] = scan[offset + 1], scan[offset]
                 continue
             if isinstance(box, Spider):
@@ -505,7 +508,10 @@ class Diagram(rigid.Diagram):
                                        scan[offset].dimension,
                                        dtype=dtype)
             else:
-                node = tn.Node(box.array, str(box))
+                array = box.eval().array
+                if isinstance(box, circuit.Box):
+                    array = array + 0j  # cast to complex tensor
+                node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
             scan[offset:offset + len(box.dom)] = node[len(box.dom):]
@@ -514,7 +520,7 @@ class Diagram(rigid.Diagram):
 
     def _infer_dtype(self):
         for box in self.boxes:
-            if not isinstance(box, (Spider, Swap)):
+            if not isinstance(box, (Spider, rigid.Swap)):
                 array = box.array
                 while True:
                     # minimise data to potentially copy
@@ -646,7 +652,7 @@ class Box(rigid.Box, Diagram):
         dom, cod = self.dom, self.cod
         data = self.data
         try:
-            return Tensor.np.array(data).reshape(tuple(dom @ cod) or (1, ))
+            return Tensor.np.array(data).reshape(tuple(dom @ cod) or ())
         except Exception:
             return data
 
@@ -668,6 +674,9 @@ class Box(rigid.Box, Diagram):
     def __hash__(self):
         return hash(
             (self.name, self.dom, self.cod, tuple(self.array.flatten())))
+
+    def eval(self, contractor=None):
+        return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
 
 
 class Spider(rigid.Spider, Box):
