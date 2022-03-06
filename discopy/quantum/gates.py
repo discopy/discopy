@@ -8,7 +8,7 @@ import numpy
 from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor
 from discopy.quantum.circuit import (
-    Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
+    Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
     AntiConjugate, RealConjugate, Anti2QubitConjugate)
 
 
@@ -291,23 +291,101 @@ class Controlled(QuantumGate):
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
     """
-    def __init__(self, controlled, distance=0):
+    def __init__(self, controlled, distance=1):
         if not isinstance(controlled, QuantumGate):
             raise TypeError(QuantumGate, controlled)
+        if distance == 0:
+            raise NotImplementedError
+        n_qubits = len(controlled.dom) + abs(distance)
         self.controlled, self.distance = controlled, distance
         self.draw_as_controlled = True
-        array = numpy.zeros((4, 4), dtype=complex)
-        array[:2, :2] = numpy.eye(2)
-        array[2:, 2:] = controlled.array
-        if distance != 0:
-            raise NotImplementedError
-        name = "C" + controlled.name
-        n_qubits = len(controlled.dom) + (
-            distance + 1 if distance >= 0 else -distance)
-        super().__init__(name, n_qubits, array)
+        array = None
+        super().__init__(self.name, n_qubits, array, data=controlled.data)
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
+
+    def conjugate(self):
+        controlled_conj = self.controlled.conjugate()
+        return Controlled(controlled_conj, distance=-self.distance)
+
+    def lambdify(self, *symbols, **kwargs):
+        c_fn = self.controlled.lambdify(*symbols)
+        return lambda *xs: type(self)(c_fn(*xs), distance=self.distance)
+
+    def __repr__(self):
+        if self in GATES:
+            return self.name
+        return f'Controlled({self.controlled}, distance={self.distance})'
+
+    def __eq__(self, other):
+        if isinstance(other, Controlled):
+            return (self.distance == other.distance
+                    and self.controlled == other.controlled)
+        return super().__eq__(other)
+
+    @property
+    def name(self):
+        return "C" + self.controlled.name
+
+    @property
+    def phase(self):
+        if hasattr(self.controlled, 'phase'):
+            return self.controlled.phase
+
+    __hash__ = QuantumGate.__hash__
+    l = r = property(conjugate)
+
+    @property
+    def modules(self):
+        if self.free_symbols:
+            import sympy
+            sympy.array = sympy.Array
+            return sympy
+        else:
+            return Tensor.np
+
+    def _decompose(self):
+        controlled, distance = self.controlled, self.distance
+        if isinstance(controlled, (Rx, Rz)):
+            phase = self.phase
+            decomp = (
+                Controlled(X, distance=distance)
+                >> Id(distance) @ Rz(-phase / 2) @ Id(-distance)
+                >> Controlled(X, distance=distance)
+                >> Id(distance) @ Rz(phase / 2) @ Id(-distance))
+            if isinstance(controlled, Rx):
+                decomp <<= Id(distance) @ H @ Id(-distance)
+                decomp >>= Id(distance) @ H @ Id(-distance)
+            return decomp
+        return self
+
+    def grad(self, var, **params):
+        if var not in self.free_symbols:
+            return Sum([], self.dom, self.cod)
+        decomp = self._decompose()
+        if decomp == self:
+            raise NotImplementedError()
+        return decomp.grad(var, **params)
+
+    @property
+    def array(self):
+        controlled, distance = self.controlled, self.distance
+        n_qubits = len(self.dom)
+        if distance == 1:
+            d = 1 << n_qubits - 1
+            array = self.modules.eye(2 * d) * (1 + 0j)
+            array[d:, d:] = controlled.array.reshape(d, d)
+            array = self.modules.array(array)
+        else:
+            src, tgt = (0, 1) if distance > 0 else (1, 0)
+            middle = list(range(2, n_qubits))
+            perm = Circuit.permutation([src] + middle + [tgt])
+            diagram = (perm
+                       >> type(self)(controlled) @ Id(abs(distance) - 1)
+                       >> perm[::-1])
+            array = diagram.eval().array
+        return array.reshape(*[2] * 2 * n_qubits)
 
 
 class Parametrized(Box):
@@ -328,12 +406,11 @@ class Parametrized(Box):
     Example
     -------
     >>> from sympy.abc import phi
-    >>> from sympy import pi, exp, I
+    >>> from sympy import Array, pi, I
     >>> assert Rz(phi)\\
     ...     == Parametrized('Rz', qubit, qubit, data=phi, is_mixed=False)
-    >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
+    >>> assert Rz(phi).array[0,0].exp == Array(-1.0 * I * pi * phi)
     >>> c = Rz(phi) >> Rz(-phi)
-    >>> assert list(c.eval().array.flatten()) == [1, 0, 0, 1]
     >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
@@ -347,6 +424,7 @@ class Parametrized(Box):
     def modules(self):
         if self.free_symbols:
             import sympy
+            sympy.array = sympy.Array
             return sympy
         else:
             return Tensor.np
@@ -432,14 +510,10 @@ class Rz(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = self.modules.pi * self.phase
+        half_theta = self.modules.array(self.modules.pi * self.phase)
         return Tensor.np.array(
             [[self.modules.exp(-1j * half_theta), 0],
              [0, self.modules.exp(1j * half_theta)]])
-
-
-def _outer_prod_diag(*bitstring):
-    return Bra(*bitstring) >> Ket(*bitstring)
 
 
 class CU1(Anti2QubitConjugate, Rotation):
@@ -449,80 +523,12 @@ class CU1(Anti2QubitConjugate, Rotation):
 
     @property
     def array(self):
-        theta = 2 * self.modules.pi * self.phase
+        theta = self.modules.array(2 * self.modules.pi * self.phase)
         return Tensor.np.array(
             [1, 0, 0, 0,
              0, 1, 0, 0,
              0, 0, 1, 0,
              0, 0, 0, self.modules.exp(1j * theta)]).reshape(2, 2, 2, 2)
-
-    def grad(self, var, **params):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        if params.get('mixed', True):
-            return super().grad(var, **params)
-        gradient = self.phase.diff(var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-        _i_2_pi = 1j * 2 * self.modules.pi
-        s = scalar(_i_2_pi * gradient * self.modules.exp(_i_2_pi * self.phase))
-        return _outer_prod_diag(1, 1) @ s
-
-
-class CRz(Anti2QubitConjugate, Rotation):
-    """ Controlled Z rotations. """
-    def __init__(self, phase):
-        super().__init__(phase, name="CRz", n_qubits=2)
-
-    @property
-    def array(self):
-        half_theta = self.modules.pi * self.phase
-        exp_m = self.modules.exp(-1j * half_theta)
-        exp_p = self.modules.exp(1j * half_theta)
-        return Tensor.np.array(
-            [1, 0, 0, 0,
-             0, 1, 0, 0,
-             0, 0, exp_m, 0,
-             0, 0, 0, exp_p]).reshape(2, 2, 2, 2)
-
-    def grad(self, var, **params):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        if params.get('mixed', True):
-            return super().grad(var, **params)
-        gradient = self.phase.diff(var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-        _i_half_pi = .5j * self.modules.pi
-        op1 = Z @ Z @ scalar(_i_half_pi * gradient)
-        op2 = Id(qubit) @ Z @ scalar(-_i_half_pi * gradient)
-        return self >> (op1 + op2)
-
-
-class CRx(Anti2QubitConjugate, Rotation):
-    """ Controlled Z rotations. """
-    def __init__(self, phase):
-        super().__init__(phase, name="CRx", n_qubits=2)
-
-    @property
-    def array(self):
-        half_theta = self.modules.pi * self.phase
-        cos, sin = self.modules.cos(half_theta), self.modules.sin(half_theta)
-        return Tensor.np.array(
-            [1, 0, 0, 0,
-             0, 1, 0, 0,
-             0, 0, cos, -1j * sin,
-             0, 0, -1j * sin, cos]).reshape(2, 2, 2, 2)
-
-    def grad(self, var, **params):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        if params.get('mixed', True):
-            return super().grad(var, **params)
-        gradient = self.phase.diff(var)
-        gradient = complex(gradient) if not gradient.free_symbols else gradient
-        _i_half_pi = .5j * self.modules.pi
-        op1 = Z @ X @ scalar(_i_half_pi * gradient)
-        op2 = Id(qubit) @ X @ scalar(-_i_half_pi * gradient)
-        return self >> (op1 + op2)
 
 
 class Scalar(Parametrized):
@@ -577,10 +583,6 @@ class Sqrt(Scalar):
 
 
 SWAP = Swap(qubit, qubit)
-CZ = QuantumGate('CZ', 2, [1, 0, 0, 0,
-                           0, 1, 0, 0,
-                           0, 0, 1, 0,
-                           0, 0, 0, -1], _dagger=None)
 H = QuantumGate(
     'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
     _dagger=None, _conjugate=None)
@@ -590,6 +592,18 @@ X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
 Y = QuantumGate('Y', 1, [0, -1j, 1j, 0], _dagger=None)
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
 CX = Controlled(X)
+CZ = Controlled(Z)
+
+
+def CRz(phase):
+    """ Controlled Z rotations. """
+    return Controlled(Rz(phase))
+
+
+def CRx(phase):
+    """ Controlled X rotations. """
+    return Controlled(Rx(phase))
+
 
 GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 

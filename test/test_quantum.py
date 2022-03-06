@@ -380,21 +380,28 @@ def test_testing_utils():
 
 
 def test_rot_grad():
-    from sympy import I, pi
+    from sympy import pi
     from sympy.abc import phi
-    assert CRz(phi).grad(phi, mixed=False)\
-        == (CRz(phi) >> Z @ Z @ scalar(0.5 * I * pi))\
-        + (CRz(phi) >> Id(1) @ Z @ scalar(-0.5 * I * pi))
-    assert CRx(phi).grad(phi, mixed=False)\
-        == (CRx(phi) >> Z @ X @ scalar(0.5 * I * pi))\
-        + (CRx(phi) >> Id(1) @ X @ scalar(-0.5 * I * pi))
+    x = 0.7
+    crz_diff = CRz(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
+    crz_res = (
+        (CRz(phi) >> Z @ Z @ scalar(0.5j * pi))
+        + (CRz(phi) >> Id(1) @ Z @ scalar(-0.5j * pi))
+    ).lambdify(phi)(x).eval()
+    assert np.allclose(crz_diff, crz_res)
+
+    crx_diff = CRx(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
+    crx_res = (
+        (CRx(phi) >> Z @ X @ scalar(0.5j * pi))
+        + (CRx(phi) >> Id(1) @ X @ scalar(-0.5j * pi))
+    ).lambdify(phi)(x).eval()
+    assert np.allclose(crx_diff, crx_res)
 
 
 def test_rot_grad_NotImplemented():
     from sympy.abc import z
-    for gate in (CRx, CRz, CU1):
-        with raises(NotImplementedError):
-            gate(z).grad(z, mixed=True)
+    with raises(NotImplementedError):
+        CU1(z).grad(z, mixed=True)
 
 
 def test_ClassicalGate_grad_subs():
@@ -498,7 +505,7 @@ def test_Controlled():
     with raises(TypeError):
         Controlled(None)
     with raises(NotImplementedError):
-        Controlled(X, distance=-1)
+        Controlled(X, distance=0)
 
 
 def test_adjoint():
@@ -523,12 +530,10 @@ def test_adjoint():
     gates_conj = [
         Bra(0), Ket(0, 0), Rx(-0.1), Ry(0.2), Rz(-0.3),
         Swap(qubit, qubit) >> CU1(-0.4) >> Swap(qubit, qubit),
-        Swap(qubit, qubit) >> CRx(-0.5) >> Swap(qubit, qubit),
-        Swap(qubit, qubit) >> CRz(-0.7) >> Swap(qubit, qubit),
+        Controlled(Rx(-0.5), distance=-1),
+        Controlled(Rz(-0.7), distance=-1),
         Scalar(1 - 2j),
-        QuantumGate(
-            'CX', n_qubits=2, _conjugate=True,
-            array=[1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0]),
+        Controlled(X, distance=-1),
         Swap(qubit, bit), Copy(), Match()
     ]
 
@@ -538,3 +543,18 @@ def test_adjoint():
 
 def test_causal_cx():
     assert np.allclose((CX >> Discard(2)).eval(), Discard(2).eval())
+
+
+def test_grad_unknown_controlled():
+    from sympy.abc import phi
+    unknown = QuantumGate('gate', 1, data=phi)
+    with raises(NotImplementedError):
+        Controlled(unknown).grad(phi)
+
+
+def test_symbolic_controlled():
+    from sympy.abc import phi
+    crz = lambda x, d: Controlled(Rz(x), distance=d)
+    assert np.all(
+        crz(phi, -1).eval().array
+        == (SWAP >> crz(phi, 1) >> SWAP).eval().array)
