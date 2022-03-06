@@ -257,3 +257,8 @@ def test_diagramize():
             return f(x)
     with raises(ValueError):
         diagramize(x, x, [])
+
+
+@draw_and_compare('empty_diagram.png')
+def test_empty_diagram():
+    return Id()
