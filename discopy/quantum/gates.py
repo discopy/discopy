@@ -26,9 +26,10 @@ class QuantumGate(Box):
             self, name, n_qubits, array=None, data=None,
             _dagger=False, _conjugate=False):
         dom = qubit ** n_qubits
-        if array is not None:
+        self._array = array
+        if self._array is not None:
             self._array = Tensor.np.array(array).reshape(
-                2 * n_qubits * (2, ) or (1, ))
+                2 * n_qubits * (2, ) or ()) + 0j
         super().__init__(
             name, dom, dom, is_mixed=False, data=data,
             _dagger=_dagger, _conjugate=_conjugate)
@@ -50,9 +51,10 @@ class QuantumGate(Box):
         more_info = ", _dagger=True" if self._dagger else ""
         more_info += ", _conjugate=True" if self._conjugate else ""
 
+        array_info = (array2string(self.array.flatten())
+                      if hasattr(self.array, 'flatten') else self.array)
         return ("QuantumGate({}, n_qubits={}, array={}{})").format(
-            repr(self.name), len(self.dom),
-            array2string(self.array.flatten()), more_info)
+            repr(self.name), len(self.dom), array_info, more_info)
 
     def dagger(self):
         dagger = None if self._dagger is None else not self._dagger
@@ -408,8 +410,6 @@ class Parametrized(Box):
     >>> assert Rz(phi)\\
     ...     == Parametrized('Rz', qubit, qubit, data=phi, is_mixed=False)
     >>> assert Rz(phi).array[0,0].exp == Array(-1.0 * I * pi * phi)
-    >>> c = Rz(phi) >> Rz(-phi)
-    >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
         self.drawing_name = '{}({})'.format(name, data)
@@ -577,7 +577,7 @@ class Sqrt(Scalar):
 
     @property
     def array(self):
-        return [self.data ** .5]
+        return Tensor.np.array(self.data ** .5)
 
 
 SWAP = Swap(qubit, qubit)

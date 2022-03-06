@@ -166,7 +166,9 @@ def test_Tensor_iter():
     v = Tensor(Dim(1), Dim(2), [0, 1])
     assert list(v) == [0, 1]
     s = Tensor(Dim(1), Dim(1), [1])
-    assert list(s) == [1]
+    with raises(TypeError):
+        # how does one iterate over a scalar?
+        list(s)
 
 
 def test_Tensor_subs():
@@ -186,7 +188,7 @@ def test_Diagram_cups_and_caps():
 def test_Diagram_swap():
     x, y, z = Dim(2), Dim(3), Dim(4)
     assert Diagram.swap(x, y @ z) == \
-           (Swap(x, y) @ Id(z)) >> (Id(y) @ Swap(x, z))
+        (Swap(x, y) @ Id(z)) >> (Id(y) @ Swap(x, z))
 
 
 def test_Box():

@@ -264,7 +264,7 @@ def to_tk(circuit):
                 continue  # bits and qubits live in different registers.
         elif isinstance(box, Scalar):
             tk_circ.scale(
-                box.array if box.is_mixed else abs(box.array[0]) ** 2)
+                box.array if box.is_mixed else abs(box.array) ** 2)
         elif isinstance(box, ClassicalGate)\
                 or isinstance(box, Bits) and box.is_dagger:
             off = left.count(bit)
