@@ -55,17 +55,23 @@ def draw_brakets(backend, positions, node, **params):
 def draw_controlled_gate(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.gates.Controlled` gate. """
     box, depth = node.box, node.depth
-    dom = Node("dom", obj=box.dom[0], i=0, depth=depth)
-    cod = Node("cod", obj=box.cod[0], i=0, depth=depth)
+    distance = box.distance
+    c_size = len(box.controlled.dom)
+
+    index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
+    dom = Node("dom", obj=box.dom[0], i=index[0], depth=depth)
+    cod = Node("cod", obj=box.cod[0], i=index[0], depth=depth)
     middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
     controlled_box = add_drawing_attributes(box.controlled.downgrade())
     controlled = Node("box", box=controlled_box, depth=depth)
-    c_dom = Node("dom", obj=box.dom[0], i=1, depth=depth)
-    c_cod = Node("cod", obj=box.cod[0], i=1, depth=depth)
+    # TODO select obj properly for classical gates
+    c_dom = Node("dom", obj=box.dom[0], i=index[1], depth=depth)
+    c_cod = Node("cod", obj=box.cod[0], i=index[1], depth=depth)
     c_middle =\
         positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
-    target = (positions[c_dom][0],
+    target = (positions[c_dom][0] + (c_size - 1) / 2,
               (positions[c_dom][1] + positions[c_cod][1]) / 2)
+    target_boundary = target
     if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
         backend.draw_wire(positions[c_dom], positions[c_cod])
         eps = 1e-10
@@ -77,15 +83,55 @@ def draw_controlled_gate(backend, positions, node, **params):
         backend.draw_node(
             *target, shape="plus",
             nodesize=2 * params.get("nodesize", 1))
-        left_of_target = target
     else:
-        left_of_target = c_middle[0] - .25, c_middle[1]
-        fake_positions = {
-            controlled: target, dom: positions[c_dom], cod: positions[c_cod]}
-        backend = draw_box(backend, fake_positions, controlled, **params)
+        fake_positions = {controlled: target}
+        for i in range(c_size):
+            dom_node = Node("dom", obj=box.dom[i], i=i, depth=depth)
+            x, y = positions[c_dom][0] + i, positions[c_dom][1]
+            fake_positions[dom_node] = x, y
+
+            cod_node = Node("cod", obj=box.cod[i], i=i, depth=depth)
+            x, y = positions[c_cod][0] + i, positions[c_cod][1]
+            fake_positions[cod_node] = x, y
+
+        shift_boundary = True
+        if hasattr(box.controlled, "draw_as_controlled"):
+            backend = draw_controlled_gate(
+                backend, fake_positions, controlled, **params)
+
+            next_box = box.controlled
+            while hasattr(next_box, "controlled"):
+                if controlled_box.distance * next_box.distance < 0:
+                    shift_boundary = False
+                    break
+                next_box = next_box.controlled
+            if next_box.name == "X":
+                shift_boundary = False
+        else:
+            backend = draw_box(backend, fake_positions, controlled, **params)
+
+        if shift_boundary:
+            if box.distance > 0:
+                target_boundary = c_middle[0] - .25, c_middle[1]
+            else:
+                target_boundary = c_middle[0] + c_size - 1 + .25, c_middle[1]
+        else:
+            if box.distance > 0:
+                target_boundary = c_middle[0], c_middle[1]
+            else:
+                target_boundary = c_middle[0] + c_size - 1, c_middle[1]
     backend.draw_wire(positions[dom], positions[cod])
+
+    # draw all the other vertical wires
+    extra_offset = 1 if distance > 0 else len(box.controlled.dom)
+    for i in range(extra_offset, extra_offset + abs(distance) - 1):
+        node1 = Node("dom", obj=box.dom[i], i=i, depth=depth)
+        node2 = Node("cod", obj=box.cod[i], i=i, depth=depth)
+        backend.draw_wire(positions[node1], positions[node2])
+
     # TODO change bend_in and bend_out for tikz backend
-    backend.draw_wire(middle, left_of_target, bend_in=True, bend_out=True)
+    backend.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
+
     backend.draw_node(
         *middle, color="black", shape="circle",
         nodesize=params.get("nodesize", 1))
