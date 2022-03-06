@@ -742,7 +742,8 @@ class Sum(Box):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: self.sum(
-            [box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms])
+            [box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms],
+            dom=self.dom, cod=self.cod)
 
     @staticmethod
     def fmap(func):
