@@ -586,6 +586,8 @@ def draw(diagram, **params):
         return backend
 
     def scale_and_pad(graph, pos, scale, pad):
+        if len(pos) == 0:
+            return pos
         widths, heights = zip(*pos.values())
         min_width, min_height = min(widths), min(heights)
         pos = {n: ((x - min_width) * scale[0] + pad[0],
@@ -611,7 +613,8 @@ def draw(diagram, **params):
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
-    max_v = max(v for p in positions.values() for v in p)
+    min_size = 0.01
+    max_v = max([v for p in positions.values() for v in p] + [min_size])
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend = draw_wires(backend, graph, positions)
