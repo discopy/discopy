@@ -4,14 +4,15 @@
 Implements linear optics
 """
 
+from cmath import phase
 import numpy as np
-from scipy.linalg import block_diag
-from math import factorial
+from math import factorial, sqrt
 from itertools import permutations
 
 from discopy import cat, monoidal
 from discopy.monoidal import PRO
-from discopy.tensor import Dim
+
+from discopy.quantum.oplus import Matrix
 
 
 def occupation_numbers(n_photons, m_modes):
@@ -74,21 +75,18 @@ class Diagram(monoidal.Diagram):
         in sequence.
 
         >>> BS = BeamSplitter(0.5)
-        >>> np.shape(BS.array)
+        >>> np.shape(to_matrix(BS).array)
         (2, 2)
-        >>> np.shape((BS >> BS).array)
+        >>> np.shape(to_matrix(BS >> BS).array)
         (2, 2)
-        >>> np.shape((BS @ BS @ BS).array)
+        >>> np.shape(to_matrix(BS @ BS @ BS).array)
         (6, 6)
-        >>> assert np.allclose(MZI(0, 0).array, np.array([0, 1], [1, 0])
-        >>> assert np.allclose((MZI(0, 0) >> MZI(0, 0)).array, Id(2).array)
+        >>> assert np.allclose(
+        ...     to_matrix(MZI(0, 0)).array, np.array([[0, 1], [1, 0]])
+        >>> assert np.allclose(
+        ...     to_matrix(MZI(0, 0) >> MZI(0, 0)).array, to_matrix(Id(2)).array)
         """
-        scan, array = self.dom, np.identity(len(self.dom))
-        for box, off in zip(self.boxes, self.offsets):
-            left, right = len(scan[:off]), len(scan[off + len(box.dom):])
-            array = np.matmul(array, block_diag(np.identity(left), box.array,
-                                                np.identity(right)))
-        return array
+        return to_matrix(self)
 
     def amp(self, x, y, permanent=npperm):
         """
@@ -292,8 +290,106 @@ class Box(Diagram, monoidal.Box):
     @property
     def array(self):
         """ The array or unitary inside the box. """
-        return np.array(self.data).reshape(
-            Dim(len(self.dom)) @ Dim(len(self.cod)) or (1, ))
+        return Matrix(self.dom, self.cod, self.data)
+
+
+class PathBox(Box):
+    """
+    Box in Path category.
+    """
+    def __repr__(self):
+        return super().__repr__().replace('Box', 'PathBox')
+
+
+class Monoid(PathBox):
+    """W spider"""
+    def __init__(self):
+        super().__init__('Monoid', PRO(2), PRO(1), [])
+        self.drawing_name = ''
+        self.draw_as_spider = True
+        self.shape = 'triangle_up'
+        self.color = 'black'
+
+    def dagger(self):
+        return Comonoid()
+
+    @property
+    def array(self):
+        return Matrix(self.dom, self.cod, [1, 1])
+
+
+class Comonoid(PathBox):
+    """W spider"""
+    def __init__(self):
+        super().__init__('Comonoid', PRO(1), PRO(2), [])
+        self.drawing_name = ''
+        self.draw_as_spider = True
+        self.shape = 'triangle_down'
+        self.color = 'black'
+
+    def dagger(self):
+        return Monoid()
+
+    @property
+    def array(self):
+        return Matrix(self.dom, self.cod, [1, 1])
+
+
+class Unit(PathBox):
+    """Red node"""
+    def __init__(self):
+        super().__init__('Unit', PRO(0), PRO(1), [])
+        self.drawing_name = ''
+        self.draw_as_spider = True
+        self.color = 'red'
+
+    def dagger(self):
+        return Counit()
+
+    @property
+    def array(self):
+        return Matrix(self.dom, self.cod, [])
+
+
+class Counit(PathBox):
+    """Red node"""
+    def __init__(self):
+        super().__init__('Unit', PRO(1), PRO(0), [])
+        self.drawing_name = ''
+        self.draw_as_spider = True
+        self.color = 'red'
+
+    def dagger(self):
+        return Counit()
+
+    @property
+    def array(self):
+        return Matrix(self.dom, self.cod, [])
+
+
+class Endo(PathBox):
+    """Green box"""
+    def __init__(self, scalar):
+        super().__init__('Endo', PRO(1), PRO(1), scalar)
+        self.scalar = scalar
+        try:
+            self.drawing_name = f'{scalar:.3f}'
+        except Exception:
+            self.drawing_name = str(scalar)
+        self.draw_as_spider = True
+        self.shape = 'rectangle'
+        self.color = 'green'
+
+    @property
+    def name(self):
+        return f'Endo({self.scalar})'
+
+    def dagger(self):
+        return Endo(phase.conjugate())
+
+    @property
+    def array(self):
+        return Matrix(self.dom, self.cod, [self.scalar])
 
 
 class Id(monoidal.Id, Diagram):
@@ -325,11 +421,12 @@ class PhaseShift(Box):
     """
     def __init__(self, phase):
         self.phase = phase
-        super().__init__('Phase shift', PRO(1), PRO(1), [phase])
+        super().__init__('Phase shift', PRO(1), PRO(1), phase)
 
     @property
     def array(self):
-        return np.array(np.exp(2j * np.pi * self.phase))
+        array = np.exp(2j * np.pi * self.phase)
+        return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
         return PhaseShift(-self.phase)
@@ -356,15 +453,16 @@ class BeamSplitter(Box):
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
     """
-    def __init__(self, angle):
-        self.angle = angle
-        super().__init__('Beam splitter', PRO(2), PRO(2), [angle])
+    def __init__(self, r, t):
+        self.r = r
+        self.t = t
+        super().__init__('Beam splitter', PRO(2), PRO(2), [r, t])
 
     @property
     def array(self):
-        cos = np.cos(np.pi * self.angle / 2)
-        sin = np.sin(np.pi * self.angle / 2)
-        return np.array([sin, cos, cos, -sin]).reshape((2, 2))
+        r, t = self.r, self.t
+        array = [r, t, t.conjugate(), -r.conjugate()]
+        return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
         return BeamSplitter(self.angle)
@@ -395,12 +493,9 @@ class MZI(Box):
     @property
     def array(self):
         cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
-        if not self._dagger:
-            exp = np.exp(2j * np.pi * self.phase)
-            return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
-        else:
-            exp = np.exp(- 2j * np.pi * self.phase)
-            return np.array([exp * sin, cos, exp * cos, -sin]).reshape((2, 2))
+        exp = np.exp(2j * np.pi * self.phase)
+        array = np.array([exp * sin, exp * cos, cos, -sin])
+        return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
         return MZI(self.phase, self.angle, _dagger=not self._dagger)
@@ -458,3 +553,33 @@ def ansatz(width, depth, x):
                 MZI(*params[i, j])
                 for j in range(width // 2)]) @ right
     return chip
+
+
+beam_splitter = BeamSplitter(1j * 2 ** -0.5, 2 ** -0.5)
+
+
+def to_matrix(diagram):
+    return monoidal.Functor(
+        ob=lambda x: x, ar=lambda x: x.array,
+        ob_factory=PRO, ar_factory=Matrix)(diagram)
+
+
+def ar_to_path(box):
+    if isinstance(box, PhaseShift):
+        return Endo(np.exp(2j * np.pi * box.phase))
+    if isinstance(box, BeamSplitter):
+        r, t = box.r, box.t
+        array = 0.1, 0.2, 0.3, 0.4
+        w1, w2 = Comonoid(), Monoid()
+        return (
+            (w1 @ w1).permute(2, 1) >>
+            Id().tensor(*map(Endo, array)) >> w2 @ w2)
+    if isinstance(box, MZI):
+        phase, angle = box.phase, box.angle
+        diagram = (
+            beam_splitter >> Id(PRO(1)) @ PhaseShift(phase) >>
+            beam_splitter >> Id(PRO(1)) @ PhaseShift(angle))
+        return to_path(diagram)
+
+
+to_path = Functor(ob=lambda x: x, ar=ar_to_path)
