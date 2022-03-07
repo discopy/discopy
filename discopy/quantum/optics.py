@@ -13,6 +13,8 @@ from discopy import cat, monoidal
 from discopy.monoidal import PRO
 from discopy.tensor import Dim
 
+from discopy.quantum.oplus import Matrix
+
 
 def occupation_numbers(n_photons, m_modes):
     """
@@ -74,21 +76,18 @@ class Diagram(monoidal.Diagram):
         in sequence.
 
         >>> BS = BeamSplitter(0.5)
-        >>> np.shape(BS.array)
+        >>> np.shape(to_matrix(BS).array)
         (2, 2)
-        >>> np.shape((BS >> BS).array)
+        >>> np.shape(to_matrix(BS >> BS).array)
         (2, 2)
-        >>> np.shape((BS @ BS @ BS).array)
+        >>> np.shape(to_matrix(BS @ BS @ BS).array)
         (6, 6)
-        >>> assert np.allclose(MZI(0, 0).array, np.array([0, 1], [1, 0])
-        >>> assert np.allclose((MZI(0, 0) >> MZI(0, 0)).array, Id(2).array)
+        >>> assert np.allclose(
+        ...     to_matrix(MZI(0, 0)).array, np.array([[0, 1], [1, 0]])
+        >>> assert np.allclose(
+        ...     to_matrix(MZI(0, 0) >> MZI(0, 0)).array, to_matrix(Id(2)).array)
         """
-        scan, array = self.dom, np.identity(len(self.dom))
-        for box, off in zip(self.boxes, self.offsets):
-            left, right = len(scan[:off]), len(scan[off + len(box.dom):])
-            array = np.matmul(array, block_diag(np.identity(left), box.array,
-                                                np.identity(right)))
-        return array
+        return to_matrix(self)
 
     def amp(self, x, y, permanent=npperm):
         """
@@ -292,8 +291,7 @@ class Box(Diagram, monoidal.Box):
     @property
     def array(self):
         """ The array or unitary inside the box. """
-        return np.array(self.data).reshape(
-            Dim(len(self.dom)) @ Dim(len(self.cod)) or (1, ))
+        return Matrix(self.dom, self.cod, self.data)
 
 
 class Id(monoidal.Id, Diagram):
@@ -325,11 +323,12 @@ class PhaseShift(Box):
     """
     def __init__(self, phase):
         self.phase = phase
-        super().__init__('Phase shift', PRO(1), PRO(1), [phase])
+        super().__init__('Phase shift', PRO(1), PRO(1), phase)
 
     @property
     def array(self):
-        return np.array(np.exp(2j * np.pi * self.phase))
+        array = np.exp(2j * np.pi * self.phase)
+        return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
         return PhaseShift(-self.phase)
@@ -364,7 +363,8 @@ class BeamSplitter(Box):
     def array(self):
         cos = np.cos(np.pi * self.angle / 2)
         sin = np.sin(np.pi * self.angle / 2)
-        return np.array([sin, cos, cos, -sin]).reshape((2, 2))
+        array = [sin, cos, cos, -sin]
+        return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
         return BeamSplitter(self.angle)
@@ -395,12 +395,9 @@ class MZI(Box):
     @property
     def array(self):
         cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
-        if not self._dagger:
-            exp = np.exp(2j * np.pi * self.phase)
-            return np.array([exp * sin, exp * cos, cos, -sin]).reshape((2, 2))
-        else:
-            exp = np.exp(- 2j * np.pi * self.phase)
-            return np.array([exp * sin, cos, exp * cos, -sin]).reshape((2, 2))
+        exp = np.exp(2j * np.pi * self.phase)
+        array = np.array([exp * sin, exp * cos, cos, -sin])
+        return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
         return MZI(self.phase, self.angle, _dagger=not self._dagger)
@@ -458,3 +455,8 @@ def ansatz(width, depth, x):
                 MZI(*params[i, j])
                 for j in range(width // 2)]) @ right
     return chip
+
+def to_matrix(diagram):
+    return monoidal.Functor(
+        ob=lambda x: x, ar=lambda x: x.array,
+        ob_factory=PRO, ar_factory=Matrix)(diagram)
