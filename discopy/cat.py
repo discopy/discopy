@@ -503,6 +503,8 @@ class Box(Arrow):
     """
     def __init__(self, name, dom, cod, **params):
         def recursive_free_symbols(data):
+            if hasattr(data, 'tolist'):
+                data = data.tolist()
             if isinstance(data, Mapping):
                 data = data.values()
             if isinstance(data, Iterable):
