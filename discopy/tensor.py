@@ -164,6 +164,7 @@ class Tensor(rigid.Box, metaclass=TensorType):
 
     >>> with Tensor.backend('jax'):
     ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array
+    ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
     _backend_stack = [get_backend('jax' if config.IMPORT_JAX else 'numpy')]
@@ -389,7 +390,7 @@ class Tensor(rigid.Box, metaclass=TensorType):
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
         array = lambdify(
-            symbols, self.array, **dict({'modules': Tensor.np}, **kwargs))
+            symbols, self.array, modules=Tensor.np.module, **kwargs)
         return lambda *xs: Tensor(self.dom, self.cod, array(*xs))
 
 
