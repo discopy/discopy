@@ -504,7 +504,7 @@ def test_real_amp_ansatz():
 def test_Controlled():
     with raises(TypeError):
         Controlled(None)
-    with raises(NotImplementedError):
+    with raises(ValueError):
         Controlled(X, distance=0)
 
 
