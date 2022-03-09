@@ -171,6 +171,12 @@ def test_adjoint():
     assert diagram.r == Bob_r >> eats_r @ Id(n.r) >> Id(s.r) @ Cup(n.r.r, n.r)
 
 
+def test_id_adjoint():
+    assert Id(Ty('n')).r == Id(Ty('n').r)
+    assert Id(Ty('n')).l == Id(Ty('n').l)
+    assert Id().l == Id() == Id().r
+
+
 def test_transpose_box():
     n = Ty('s')
     Bob = Box('Bob', Ty(), n)

@@ -381,6 +381,14 @@ class Id(monoidal.Id, Diagram):
         monoidal.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
+    @property
+    def l(self):
+        return type(self)(self.dom.l)
+
+    @property
+    def r(self):
+        return type(self)(self.dom.r)
+
 
 Diagram.id = Id
 
