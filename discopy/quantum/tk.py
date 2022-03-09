@@ -209,7 +209,7 @@ def to_tk(circuit):
     def add_gate(qubits, box, offset):
         i_qubits = [qubits[offset + j] for j in range(len(box.dom))]
         if isinstance(box, (Rx, Rz)):
-            tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *i_qubits)
+            getattr(tk_circ, box.name[:2])(2 * box.phase, *i_qubits)
         elif isinstance(box, Controlled):
             i_qubits = []
             idx = offset if box.distance > 0 else offset - box.distance
@@ -223,12 +223,12 @@ def to_tk(circuit):
             name = box.name.split('(')[0]
             if '(' not in box.name:
                 # CX, CZ, CCX
-                tk_circ.__getattribute__(name)(*i_qubits)
+                getattr(tk_circ, name)(*i_qubits)
             elif name in ('CRx', 'CRz'):
                 tket_phase = 2 * box.phase
-                return tk_circ.__getattribute__(name)(tket_phase, *i_qubits)
+                return getattr(tk_circ, name)(tket_phase, *i_qubits)
         elif hasattr(tk_circ, box.name):
-            tk_circ.__getattribute__(box.name)(*i_qubits)
+            getattr(tk_circ, box.name)(*i_qubits)
         else:
             raise NotImplementedError
 

@@ -295,7 +295,7 @@ class Controlled(QuantumGate):
         if not isinstance(controlled, QuantumGate):
             raise TypeError(QuantumGate, controlled)
         if distance == 0:
-            raise NotImplementedError
+            raise ValueError("Zero-distance controlled gates are ill-defined.")
         n_qubits = len(controlled.dom) + abs(distance)
         self.controlled, self.distance = controlled, distance
         self.draw_as_controlled = True
@@ -330,8 +330,7 @@ class Controlled(QuantumGate):
 
     @property
     def phase(self):
-        if hasattr(self.controlled, 'phase'):
-            return self.controlled.phase
+        return self.controlled.phase
 
     __hash__ = QuantumGate.__hash__
     l = r = property(conjugate)
@@ -379,8 +378,7 @@ class Controlled(QuantumGate):
             array = self.modules.array(array)
         else:
             src, tgt = (0, 1) if distance > 0 else (1, 0)
-            middle = list(range(2, n_qubits))
-            perm = Circuit.permutation([src] + middle + [tgt])
+            perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
             diagram = (perm
                        >> type(self)(controlled) @ Id(abs(distance) - 1)
                        >> perm[::-1])
