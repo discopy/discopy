@@ -124,7 +124,7 @@ class Tensor(rigid.Box):
     np = jax.numpy if config.IMPORT_JAX else numpy
 
     def __init__(self, dom, cod, array):
-        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod) or ())
+        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -487,9 +487,9 @@ class Diagram(rigid.Diagram):
         from discopy.quantum import circuit
         if dtype is None:
             dtype = self._infer_dtype()
-        nodes = [tn.CopyNode(2, dim.dim if hasattr(dim, 'dim') else dim,
-                             'input_{}'.format(i), dtype=dtype)
-                 for i, dim in enumerate(self.dom)]
+        nodes = [
+            tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
+            for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
             if isinstance(box, rigid.Swap):
@@ -509,8 +509,6 @@ class Diagram(rigid.Diagram):
                                        dtype=dtype)
             else:
                 array = box.eval().array
-                if isinstance(box, circuit.Box):
-                    array = array + 0j  # cast to complex tensor
                 node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])

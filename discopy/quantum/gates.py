@@ -29,7 +29,7 @@ class QuantumGate(Box):
         self._array = array
         if self._array is not None:
             self._array = Tensor.np.array(array).reshape(
-                2 * n_qubits * (2, ) or ()) + 0j
+                2 * n_qubits * (2, )) + 0j
         super().__init__(
             name, dom, dom, is_mixed=False, data=data,
             _dagger=_dagger, _conjugate=_conjugate)
@@ -89,8 +89,7 @@ class ClassicalGate(Box):
         if isinstance(cod, int):
             cod = bit ** cod
         if data is not None:
-            data = Tensor.np.array(data).reshape(
-                (len(dom) + len(cod)) * (2, ) or (1, ))
+            data = Tensor.np.array(data).reshape((len(dom) + len(cod)) * (2, ))
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
@@ -197,7 +196,7 @@ class Digits(ClassicalGate):
 
     @property
     def array(self):
-        array = numpy.zeros(len(self._digits) * (self._dim, ) or (1, ))
+        array = numpy.zeros(len(self._digits) * (self._dim, ))
         array[self._digits] = 1
         return array
 

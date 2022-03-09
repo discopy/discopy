@@ -282,7 +282,8 @@ class Circuit(tensor.Diagram):
                         for circuit in (self, ) + others]
             functor = cqmap.Functor() if mixed or self.is_mixed\
                 else tensor.Functor(lambda x: x[0].dim, lambda f: f.array)
-            return functor(self)
+            box = functor(self)
+            return type(box)(box.dom, box.cod, box.array + 0j)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(
             *circuits[1:], backend=backend, **params)
@@ -371,7 +372,7 @@ class Circuit(tensor.Diagram):
         state = (Ket(*(len(self.dom) * [0])) >> self).eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
-        array = Tensor.np.zeros(len(self.cod) * (2, ) or (1, ))
+        array = Tensor.np.zeros(len(self.cod) * (2, )) + 0j
         for effect in effects:
             array +=\
                 effect.array * Tensor.np.absolute((state >> effect).array) ** 2
@@ -401,10 +402,9 @@ class Circuit(tensor.Diagram):
         import tensornetwork as tn
         from discopy.quantum import qubit, bit, Encode, ClassicalGate
         for box in self.boxes + [self]:
-            for t in box.dom @ box.cod:
-                if t not in (qubit, bit):
-                    raise Exception(
-                        "Only circuits with qubits and bits are supported.")
+            if not all(map((bit, qubit).__contains__, box.dom @ box.cod)):
+                raise ValueError(
+                    "Only circuits with qubits and bits are supported.")
         c_nodes = [tn.CopyNode(2, 2, f'c_input_{i}', dtype=complex)
                    for i in range(self.dom.count(bit))]
         q_nodes1 = [tn.CopyNode(2, 2, f'q1_input_{i}', dtype=complex)
@@ -454,7 +454,10 @@ class Circuit(tensor.Diagram):
                            + q_scan2[q_offset + q_dom:])
                 nodes.append(node)
             else:
-                utensor = (box if hasattr(box, 'array') else box.eval()).array
+                try:
+                    utensor = box.array
+                except AttributeError:
+                    utensor = box.eval().array
                 left, _, _ = layer
                 q_offset = left[:offset + 1].count(qubit)
                 node1 = tn.Node(utensor.conjugate() + 0j, 'q1_' + str(box))
