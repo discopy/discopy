@@ -374,8 +374,11 @@ class Controlled(QuantumGate):
         n_qubits = len(self.dom)
         if distance == 1:
             d = 1 << n_qubits - 1
-            array = self.modules.eye(2 * d) * (1 + 0j)
-            array[d:, d:] = controlled.array.reshape(d, d)
+            part1 = Tensor.np.array([[1, 0], [0, 0]])
+            part2 = Tensor.np.array([[0, 0], [0, 1]])
+            array = (
+                Tensor.np.kron(part1, Tensor.np.eye(d))
+                + Tensor.np.kron(part2, controlled.array.reshape(d, d)))
             array = self.modules.array(array)
         else:
             src, tgt = (0, 1) if distance > 0 else (1, 0)
