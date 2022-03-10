@@ -402,7 +402,7 @@ class Circuit(tensor.Diagram):
         import tensornetwork as tn
         from discopy.quantum import qubit, bit, Encode, ClassicalGate
         for box in self.boxes + [self]:
-            if not all(map((bit, qubit).__contains__, box.dom @ box.cod)):
+            if set(box.dom @ box.cod) - set(bit @ qubit):
                 raise ValueError(
                     "Only circuits with qubits and bits are supported.")
         c_nodes = [tn.CopyNode(2, 2, f'c_input_{i}', dtype=complex)
