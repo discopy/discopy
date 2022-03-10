@@ -15,6 +15,9 @@ def test_backend():
         assert Tensor.np.module == jax.numpy
     assert Tensor.np.module == np
 
+    with raises(ValueError):
+        Tensor.backend('nonexistent')
+
 
 def test_Dim():
     with raises(TypeError):
