@@ -16,7 +16,7 @@ def test_backend():
     assert Tensor.np.module == np
 
     with raises(ValueError):
-        Tensor.backend('nonexistent')
+        Tensor.set_backend('nonexistent')
 
 
 def test_Dim():

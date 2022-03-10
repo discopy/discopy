@@ -103,22 +103,25 @@ class PyTorchBackend(TensorBackend):
         self.array = torch.as_tensor
 
 
-BACKENDS = {'numpy': NumPyBackend,
+BACKENDS = {'np': NumPyBackend,
+            'numpy': NumPyBackend,
             'jax': JAXBackend,
-            'pytorch': PyTorchBackend}
+            'jax.numpy': JAXBackend,
+            'pytorch': PyTorchBackend,
+            'torch': PyTorchBackend}
 INSTANTIATED_BACKENDS = {}
 
 
-def get_backend(backend):
+def get_backend(name):
+    try:
+        backend = BACKENDS[name]
+    except KeyError:
+        raise ValueError(f'Invalid backend: {name!r}')
     try:
         return INSTANTIATED_BACKENDS[backend]
     except KeyError:
-        try:
-            backend = INSTANTIATED_BACKENDS[backend] = BACKENDS[backend]()
-        except KeyError:
-            raise ValueError(f'Invalid backend: {backend!r}')
-        else:
-            return backend
+        ret = INSTANTIATED_BACKENDS[backend] = backend()
+        return ret
 
 
 class TensorType(type):
@@ -129,10 +132,7 @@ class TensorType(type):
     @np.setter
     def np(cls, module):
         # for backwards compatibility
-        MODULE_MAPPING = {'numpy': 'numpy',
-                          'jax.numpy': 'jax',
-                          'torch': 'pytorch'}
-        cls.set_backend(MODULE_MAPPING[module.__name__])
+        cls.set_backend(module.__name__)
 
 
 class Tensor(rigid.Box, metaclass=TensorType):
