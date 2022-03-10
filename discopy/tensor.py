@@ -125,13 +125,14 @@ def get_backend(name):
 
 
 class TensorType(type):
+    # for backwards compatibility
+
     @property
     def np(cls):
         return cls.get_backend()
 
     @np.setter
     def np(cls, module):
-        # for backwards compatibility
         cls.set_backend(module.__name__)
 
 
