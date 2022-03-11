@@ -540,19 +540,19 @@ class Scalar(Parametrized):
 
     @property
     def array(self):
-        return [self.data]
+        return Tensor.np.array(self.data)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
-        return Scalar(self.array[0].diff(var))
+        return Scalar(self.data.diff(var))
 
     def dagger(self):
         return self if self._dagger is None\
-            else Scalar(self.array[0].conjugate())
+            else Scalar(self.data.conjugate())
 
     def conjugate(self):
-        return Scalar(self.array[0].conjugate())
+        return Scalar(self.data.conjugate())
 
     l = r = property(conjugate)
 
