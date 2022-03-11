@@ -1,8 +1,22 @@
 from pytest import raises
-from unittest.mock import Mock
 import numpy as np
 import tensornetwork as tn
 from discopy.tensor import *
+
+
+def test_backend():
+    import jax.numpy
+    import torch
+    assert Tensor.np.module == np
+    with Tensor.backend('jax'):
+        assert Tensor.np.module == jax.numpy
+        with Tensor.backend('pytorch'):
+            assert Tensor.np.module == torch
+        assert Tensor.np.module == jax.numpy
+    assert Tensor.np.module == np
+
+    with raises(ValueError):
+        Tensor.set_backend('nonexistent')
 
 
 def test_Dim():
@@ -254,7 +268,8 @@ def test_Tensor_adjoint_eval():
 
 
 def test_non_numpy_eval():
-    Tensor.np = Mock(__package__='pytorch')
+    import torch
+    Tensor.np = torch
     with raises(Exception):
         Swap(Dim(2), Dim(2)).eval()
     Tensor.np = np
