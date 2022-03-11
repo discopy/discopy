@@ -336,15 +336,6 @@ class Controlled(QuantumGate):
     __hash__ = QuantumGate.__hash__
     l = r = property(conjugate)
 
-    @property
-    def modules(self):
-        if self.free_symbols:
-            import sympy
-            sympy.array = sympy.Array
-            return sympy
-        else:
-            return Tensor.np
-
     def _decompose(self):
         controlled, distance = self.controlled, self.distance
         if isinstance(controlled, (Rx, Rz)):
@@ -379,7 +370,6 @@ class Controlled(QuantumGate):
             array = (
                 Tensor.np.kron(part1, Tensor.np.eye(d))
                 + Tensor.np.kron(part2, controlled.array.reshape(d, d)))
-            array = self.modules.array(array)
         else:
             src, tgt = (0, 1) if distance > 0 else (1, 0)
             perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
@@ -408,10 +398,13 @@ class Parametrized(Box):
     Example
     -------
     >>> from sympy.abc import phi
-    >>> from sympy import Array, pi, I
+    >>> from sympy import pi, exp, I
     >>> assert Rz(phi)\\
     ...     == Parametrized('Rz', qubit, qubit, data=phi, is_mixed=False)
-    >>> assert Rz(phi).array[0,0].exp == Array(-1.0 * I * pi * phi)
+    >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
+    >>> c = Rz(phi) >> Rz(-phi)
+    >>> assert list(c.eval().array.flatten()) == [1, 0, 0, 1]
+    >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
         self.drawing_name = '{}({})'.format(name, data)
@@ -424,7 +417,6 @@ class Parametrized(Box):
     def modules(self):
         if self.free_symbols:
             import sympy
-            sympy.array = sympy.Array
             return sympy
         else:
             return Tensor.np
@@ -510,7 +502,7 @@ class Rz(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = self.modules.array(self.modules.pi * self.phase)
+        half_theta = Tensor.np.array(self.modules.pi * self.phase)
         return Tensor.np.array(
             [[self.modules.exp(-1j * half_theta), 0],
              [0, self.modules.exp(1j * half_theta)]])
@@ -523,7 +515,7 @@ class CU1(Anti2QubitConjugate, Rotation):
 
     @property
     def array(self):
-        theta = self.modules.array(2 * self.modules.pi * self.phase)
+        theta = Tensor.np.array(2 * self.modules.pi * self.phase)
         return Tensor.np.array(
             [1, 0, 0, 0,
              0, 1, 0, 0,
