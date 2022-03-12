@@ -314,6 +314,10 @@ class Controlled(QuantumGate):
         c_fn = self.controlled.lambdify(*symbols)
         return lambda *xs: type(self)(c_fn(*xs), distance=self.distance)
 
+    def subs(self, *args):
+        controlled = self.controlled.subs(*args)
+        return type(self)(controlled, distance=self.distance)
+
     def __repr__(self):
         if self in GATES:
             return self.name

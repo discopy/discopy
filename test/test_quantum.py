@@ -564,3 +564,9 @@ def test_symbolic_controlled():
     assert np.all(
         crz(phi, -1).eval().array
         == (SWAP >> crz(phi, 1) >> SWAP).eval().array)
+
+
+def test_controlled_subs():
+    from sympy.abc import phi, psi
+    assert CRz(phi).subs(phi, 0.1) == CRz(0.1)
+    assert CRx(psi).l.subs((phi, 0.1), (psi, 0.2)) == CRx(0.2).l
