@@ -249,6 +249,9 @@ class Ket(RealConjugate, Box):
     def dagger(self):
         return Bra(*self.bitstring)
 
+    def _decompose(self):
+        return Id().tensor(*[Ket(b) for b in self.bitstring])
+
     array = Bits.array
 
 
@@ -276,6 +279,9 @@ class Bra(RealConjugate, Box):
 
     def dagger(self):
         return Ket(*self.bitstring)
+
+    def _decompose(self):
+        return Id().tensor(*[Bra(b) for b in self.bitstring])
 
     array = Bits.array
 
@@ -340,7 +346,7 @@ class Controlled(QuantumGate):
     __hash__ = QuantumGate.__hash__
     l = r = property(conjugate)
 
-    def _decompose(self):
+    def _decompose_grad(self):
         controlled, distance = self.controlled, self.distance
         if isinstance(controlled, (Rx, Rz)):
             phase = self.phase
@@ -355,10 +361,22 @@ class Controlled(QuantumGate):
             return decomp
         return self
 
+    def _decompose(self):
+        controlled, distance = self.controlled, self.distance
+        n_qubits = len(self.dom)
+        if distance == 1:
+            return self
+        src, tgt = (0, 1) if distance > 0 else (1, 0)
+        perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
+        diagram = (perm
+                   >> type(self)(controlled) @ Id(abs(distance) - 1)
+                   >> perm[::-1])
+        return diagram
+
     def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
-        decomp = self._decompose()
+        decomp = self._decompose_grad()
         if decomp == self:
             raise NotImplementedError()
         return decomp.grad(var, **params)
@@ -375,12 +393,7 @@ class Controlled(QuantumGate):
                 Tensor.np.kron(part1, Tensor.np.eye(d))
                 + Tensor.np.kron(part2, controlled.array.reshape(d, d)))
         else:
-            src, tgt = (0, 1) if distance > 0 else (1, 0)
-            perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
-            diagram = (perm
-                       >> type(self)(controlled) @ Id(abs(distance) - 1)
-                       >> perm[::-1])
-            array = diagram.eval().array
+            array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)
 
 

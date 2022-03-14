@@ -400,11 +400,27 @@ class Circuit(tensor.Diagram):
             return super().to_tn()
 
         import tensornetwork as tn
-        from discopy.quantum import qubit, bit, Encode, ClassicalGate
+        from discopy.quantum import (
+            qubit, bit, ClassicalGate, Copy, Discard, SWAP)
         for box in self.boxes + [self]:
             if set(box.dom @ box.cod) - set(bit @ qubit):
                 raise ValueError(
                     "Only circuits with qubits and bits are supported.")
+
+        # try to decompose some gates
+        diag = Id(self.dom)
+        last_i = 0
+        for i, box in enumerate(self.boxes):
+            if hasattr(box, '_decompose'):
+                decomp = box._decompose()
+                if box != decomp:
+                    diag >>= self[last_i:i]
+                    left, _, right = self.layers[i]
+                    diag >>= Id(left) @ decomp @ Id(right)
+                    last_i = i + 1
+        diag >>= self[last_i:]
+        self = diag
+
         c_nodes = [tn.CopyNode(2, 2, f'c_input_{i}', dtype=complex)
                    for i in range(self.dom.count(bit))]
         q_nodes1 = [tn.CopyNode(2, 2, f'q1_input_{i}', dtype=complex)
@@ -418,34 +434,41 @@ class Circuit(tensor.Diagram):
         q_scan2 = [n[1] for n in q_nodes2]
         nodes = c_nodes + q_nodes1 + q_nodes2
         for box, layer, offset in zip(self.boxes, self.layers, self.offsets):
-            if box.is_mixed or isinstance(box, ClassicalGate):
-                array = box.eval(mixed=True).array
-                if isinstance(box, Encode):
-                    n_qubits = len(box.cod)
-                    orig_axis = Tensor.np.arange(n_qubits, 3 * n_qubits)
-                    dest_axis = Tensor.np.arange(0, 2 * n_qubits) * 2
-                    dest_axis %= (2 * n_qubits)
-                    dest_axis[n_qubits:] += 1
-                    dest_axis += n_qubits
-
-                    array = Tensor.np.moveaxis(array, orig_axis, dest_axis)
-
-                node = tn.Node(array + 0j, 'cq_' + str(box))
+            if box == Circuit.swap(bit, bit):
+                left, _, _ = layer
+                c_offset = left.count(bit)
+                c_scan[c_offset], c_scan[c_offset + 1] =\
+                    c_scan[c_offset + 1], c_scan[c_offset]
+            elif box.is_mixed or isinstance(box, ClassicalGate):
                 c_dom = box.dom.count(bit)
                 q_dom = box.dom.count(qubit)
                 c_cod = box.cod.count(bit)
                 left, _, _ = layer
                 c_offset = left.count(bit)
                 q_offset = left.count(qubit)
+                if isinstance(box, Discard):
+                    assert box.n_qubits == 1
+                    tn.connect(q_scan1[q_offset], q_scan2[q_offset])
+                    del q_scan1[q_offset]
+                    del q_scan2[q_offset]
+                    continue
+                if isinstance(box, (Copy, Measure, Encode)):
+                    assert len(box.dom) == 1 or len(box.cod) == 1
+                    node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=complex)
+                else:
+                    assert box == MixedState()  # only unoptimised gate
+                    array = box.eval(mixed=True).array
+                    node = tn.Node(array + 0j, 'cq_' + str(box))
                 for i in range(c_dom):
                     tn.connect(c_scan[c_offset + i], node[i])
                 for i in range(q_dom):
                     tn.connect(q_scan1[q_offset + i], node[c_dom + i])
                 for i in range(q_dom):
                     tn.connect(q_scan2[q_offset + i], node[c_dom + q_dom + i])
-                c_edges = node[c_dom + 2 * q_dom:c_dom + 2 * q_dom + c_cod]
-                q_edges1 = node[c_dom + 2 * q_dom + c_cod::2]
-                q_edges2 = node[c_dom + 2 * q_dom + c_cod + 1::2]
+                cq_dom = c_dom + 2 * q_dom
+                c_edges = node[cq_dom:cq_dom + c_cod]
+                q_edges1 = node[cq_dom + c_cod::2]
+                q_edges2 = node[cq_dom + c_cod + 1::2]
                 c_scan = (c_scan[:c_offset] + c_edges
                           + c_scan[c_offset + c_dom:])
                 q_scan1 = (q_scan1[:q_offset] + q_edges1
@@ -454,12 +477,15 @@ class Circuit(tensor.Diagram):
                            + q_scan2[q_offset + q_dom:])
                 nodes.append(node)
             else:
-                try:
-                    utensor = box.array
-                except AttributeError:
-                    utensor = box.eval().array
                 left, _, _ = layer
                 q_offset = left[:offset + 1].count(qubit)
+                if box == SWAP:
+                    q_scan1[q_offset], q_scan1[q_offset + 1] =\
+                        q_scan1[q_offset + 1], q_scan1[q_offset]
+                    q_scan2[q_offset], q_scan2[q_offset + 1] =\
+                        q_scan2[q_offset + 1], q_scan2[q_offset]
+                    continue
+                utensor = box.array
                 node1 = tn.Node(utensor.conjugate() + 0j, 'q1_' + str(box))
                 node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
 
@@ -859,6 +885,9 @@ class Discard(RealConjugate, Box):
     def dagger(self):
         return MixedState(self.dom)
 
+    def _decompose(self):
+        return Id().tensor(*[Discard()] * self.n_qubits)
+
 
 class MixedState(RealConjugate, Box):
     """
@@ -877,6 +906,9 @@ class MixedState(RealConjugate, Box):
 
     def dagger(self):
         return Discard(self.cod)
+
+    def _decompose(self):
+        return Id().tensor(*[MixedState()] * len(self.cod))
 
 
 class Measure(RealConjugate, Box):
@@ -913,6 +945,11 @@ class Measure(RealConjugate, Box):
                       constructive=self.destructive,
                       reset_bits=self.override_bits)
 
+    def _decompose(self):
+        return Id().tensor(*[
+            Measure(destructive=self.destructive,
+                    override_bits=self.override_bits)] * self.n_qubits)
+
 
 class Encode(RealConjugate, Box):
     """
@@ -941,6 +978,11 @@ class Encode(RealConjugate, Box):
         return Measure(self.n_bits,
                        destructive=self.constructive,
                        override_bits=self.reset_bits)
+
+    def _decompose(self):
+        return Id().tensor(*[
+            Encode(constructive=self.constructive,
+                   reset_bits=self.reset_bits)] * self.n_bits)
 
 
 class Functor(rigid.Functor):

@@ -6,7 +6,7 @@ import tensornetwork as tn
 
 from discopy.quantum import (
     Circuit, IQPansatz,
-    Bra, Copy, CRz, Encode, Id, Ket, Rx, Rz, Measure, Discard,
+    Bra, Copy, CRz, Encode, Id, Ket, Rx, Rz, Measure, MixedState, Discard,
     bit, sqrt, CX, H, SWAP, X, Y, Z)
 
 mixed_circuits = [
@@ -17,7 +17,7 @@ mixed_circuits = [
         >> CX @ Id(2) >> Id(2) @ CX >> Rx(0.3) @ Id(3)
         >> Id(1) @ CX @ Id(1) >> Id(3) @ H >> Measure(4)),
     Ket(0, 0, 0, 0) >> Discard(2) @ Measure(2) @ sqrt(2),
-    Circuit.swap(bit, bit)
+    Circuit.swap(bit, bit) @ (MixedState(2) >> SWAP)
 ]
 
 pure_circuits = [
