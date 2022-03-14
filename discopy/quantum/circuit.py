@@ -740,6 +740,93 @@ class Circuit(tensor.Diagram):
         ds = p1 >> Circuit.tensor(*[d] * len(dim)) >> p2
         return ds
 
+    def _apply_gate(self, gate, position):
+        """ Apply gate at position """
+        if position < 0 or position >= len(self.cod):
+            raise ValueError(f'Index {position} out of range.')
+        left = Id(position)
+        right = Id(len(self.cod) - len(left.cod) - len(gate.cod))
+        return self >> left @ gate @ right
+
+    def _apply_controlled(self, base_gate, *xs):
+        from discopy.quantum import Controlled
+        if len(set(xs)) != len(xs):
+            raise ValueError(f'Indices {xs} not unique.')
+        if min(xs) < 0 or max(xs) >= len(self.cod):
+            raise ValueError(f'Indices {xs} out of range.')
+        before = sorted(filter(lambda x: x < xs[-1], xs[:-1]))
+        after = sorted(filter(lambda x: x > xs[-1], xs[:-1]))
+        gate = base_gate
+        last_x = xs[-1]
+        for x in before[::-1]:
+            gate = Controlled(gate, distance=last_x - x)
+            last_x = x
+        last_x = xs[-1]
+        for x in after[::-1]:
+            gate = Controlled(gate, distance=last_x - x)
+            last_x = x
+        return self._apply_gate(gate, min(xs))
+
+    def H(self, x):
+        """ Apply Hadamard gate to circuit. """
+        from discopy.quantum import H
+        return self._apply_gate(H, x)
+
+    def S(self, x):
+        """ Apply S gate to circuit. """
+        from discopy.quantum import S
+        return self._apply_gate(S, x)
+
+    def X(self, x):
+        """ Apply Pauli X gate to circuit. """
+        from discopy.quantum import X
+        return self._apply_gate(X, x)
+
+    def Y(self, x):
+        """ Apply Pauli Y gate to circuit. """
+        from discopy.quantum import Y
+        return self._apply_gate(Y, x)
+
+    def Z(self, x):
+        """ Apply Pauli Z gate to circuit. """
+        from discopy.quantum import Z
+        return self._apply_gate(Z, x)
+
+    def CX(self, x, y):
+        """ Apply Controlled X / CNOT gate to circuit. """
+        from discopy.quantum import X
+        return self._apply_controlled(X, x, y)
+
+    def CY(self, x, y):
+        """ Apply Controlled Y gate to circuit. """
+        from discopy.quantum import Y
+        return self._apply_controlled(Y, x, y)
+
+    def CZ(self, x, y):
+        """ Apply Controlled Z gate to circuit. """
+        from discopy.quantum import Z
+        return self._apply_controlled(Z, x, y)
+
+    def CCX(self, x, y, z):
+        """ Apply Controlled CX / Toffoli gate to circuit. """
+        from discopy.quantum import X
+        return self._apply_controlled(X, x, y, z)
+
+    def CCZ(self, x, y, z):
+        """ Apply Controlled CZ gate to circuit. """
+        from discopy.quantum import Z
+        return self._apply_controlled(Z, x, y, z)
+
+    def CRx(self, phase, x, y):
+        """ Apply Controlled Rx gate to circuit. """
+        from discopy.quantum import Rx
+        return self._apply_controlled(Rx(phase), x, y)
+
+    def CRz(self, phase, x, y):
+        """ Apply Controlled Rz gate to circuit. """
+        from discopy.quantum import Rz
+        return self._apply_controlled(Rz(phase), x, y)
+
 
 class Id(rigid.Id, Circuit):
     """ Identity circuit. """
