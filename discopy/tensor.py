@@ -547,7 +547,6 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        from discopy.quantum import circuit
         if dtype is None:
             dtype = self._infer_dtype()
         nodes = [
