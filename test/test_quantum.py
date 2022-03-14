@@ -570,3 +570,32 @@ def test_controlled_subs():
     from sympy.abc import phi, psi
     assert CRz(phi).subs(phi, 0.1) == CRz(0.1)
     assert CRx(psi).l.subs((phi, 0.1), (psi, 0.2)) == CRx(0.2).l
+
+
+def test_circuit_chaining():
+    circuit = Id(5).CX(0, 2).X(4).CRz(0.2, 4, 2).H(2)
+    expected_circuit = Circuit(
+        dom=qubit @ qubit @ qubit @ qubit @ qubit,
+        cod=qubit @ qubit @ qubit @ qubit @ qubit,
+        boxes=[
+            Controlled(X, distance=2), X, Controlled(Rz(0.2), distance=-2), H],
+        offsets=[0, 4, 2, 2])
+    assert circuit == expected_circuit
+
+    circuit = Id(3).CZ(0, 1).CX(2, 0).CCX(1, 0, 2).CCZ(2, 0, 1).X(0).Y(1).Z(2)
+    expected_circuit = Circuit(
+        dom=qubit @ qubit @ qubit, cod=qubit @ qubit @ qubit,
+        boxes=[
+            CZ, Controlled(X, distance=-2), Controlled(CX, distance=1),
+            Controlled(CZ, distance=-1), X, Y, Z],
+        offsets=[0, 0, 0, 0, 0, 1, 2])
+    assert circuit == expected_circuit
+
+    assert Id(1).S(0) == S
+
+    with raises(ValueError):
+        Id(3).CY(0, 0)
+    with raises(ValueError):
+        Id(1).CRx(0.7, 1, 0)
+    with raises(ValueError):
+        Id(2).X(999)
