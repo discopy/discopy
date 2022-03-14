@@ -364,6 +364,17 @@ class Diagram(monoidal.Diagram):
     normalize = rewriting.snake_removal
     layer_factory = Layer
 
+    def cup(self, x, y):
+        if min(x, y) < 0 or max(x, y) >= len(self.cod):
+            raise ValueError(f'Indices {x, y} are out of range.')
+        x, y = min(x, y), max(x, y)
+        for i in range(x, y - 1):
+            t0, t1 = self.cod[i:i + 1], self.cod[i + 1:i + 2]
+            self >>= Id(self.cod[:i]) @ Swap(t0, t1) @ Id(self.cod[i + 2:])
+        t0, t1 = self.cod[y - 1:y], self.cod[y:y + 1]
+        self >>= Id(self.cod[:y - 1]) @ Cup(t0, t1) @ Id(self.cod[y + 1:])
+        return self
+
 
 Sum = cat.Sum
 
