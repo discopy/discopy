@@ -541,6 +541,36 @@ class Diagram(cat.Arrow):
             >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
 
     @staticmethod
+    def braid(left, right, ar_factory=None, braid_factory=None):
+        """
+        Returns a diagram that braids the left with the right wires.
+
+        Parameters
+        ----------
+        left : monoidal.Ty
+            left hand-side of the domain.
+        right : monoidal.Ty
+            right hand-side of the domain.
+
+        Returns
+        -------
+        diagram : monoidal.Diagram
+            with :code:`diagram.dom == left @ right`
+        """
+        ar_factory = ar_factory or Diagram
+        braid_factory = braid_factory or Braid
+        if not left:
+            return ar_factory.id(right)
+        if len(left) == 1:
+            boxes = [
+                braid_factory(left, right[i: i + 1])
+                for i, _ in enumerate(right)]
+            offsets = range(len(right))
+            return ar_factory(left @ right, right @ left, boxes, offsets)
+        return ar_factory.id(left[:1]) @ ar_factory.braid(left[1:], right)\
+            >> ar_factory.braid(left[:1], right) @ ar_factory.id(left[1:])
+
+    @staticmethod
     def permutation(perm, dom=None, ar_factory=None):
         """
         Returns the diagram that encodes a permutation of wires.
@@ -782,6 +812,29 @@ class Swap(BinaryBoxConstructor, Box):
 
     def dagger(self):
         return type(self)(self.right, self.left)
+
+
+class Braid(Swap, Box):
+    """
+    Implements the braiding of atomic types.
+
+    Parameters
+    ----------
+    left : monoidal.Ty
+        of length 1.
+    right : monoidal.Ty
+        of length 1.
+    """
+    def __init__(self, left, right, _dagger=True):
+        super().__init__(left, right)
+        self._name = self.name.replace("Swap", "Braid")
+        self._dagger, self.draw_as_braid = _dagger, True
+
+    def __repr__(self):
+        return super().__repr__().replace("Swap", "Braid")
+
+    def dagger(self):
+        return type(self)(self.right, self.left, not self.is_dagger)
 
 
 class Sum(cat.Sum, Box):

@@ -182,6 +182,11 @@ class Diagram(monoidal.Diagram):
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
+    def braid(left, right):
+        return monoidal.Diagram.braid(
+            left, right, ar_factory=Diagram, braid_factory=Braid)
+
+    @staticmethod
     def permutation(perm, dom=None):
         if dom is None:
             dom = PRO(len(perm))
@@ -435,6 +440,13 @@ class Swap(monoidal.Swap, Box):
     def __init__(self, left, right):
         monoidal.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
+
+
+class Braid(monoidal.Braid, Swap):
+    """ Implements braidings of basic types in a rigid category. """
+    def __init__(self, left, right, _dagger=False):
+        Swap.__init__(self, left, right)
+        monoidal.Braid.__init__(self, left, right, _dagger=_dagger)
 
 
 class Cup(monoidal.BinaryBoxConstructor, Box):
