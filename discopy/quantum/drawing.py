@@ -7,16 +7,17 @@ from discopy.drawing import Node, draw_box, add_drawing_attributes
 def draw_discard(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
     box, depth = node.box, node.depth
-    left_dom, right_dom = (
-        Node("dom", obj=box.dom[i], i=i, depth=depth)
-        for i in [0, len(box.dom) - 1])
-    left, right = (positions[n][0] for n in [left_dom, right_dom])
-    left, right = left - .25, right + .25
-    height = positions[node][1] + .25
-    for i in range(3):
-        source = (left + .1 * i, height - .1 * i)
-        target = (right - .1 * i, height - .1 * i)
-        backend.draw_wire(source, target)
+    for i in range(box.n_qubits):
+        obj = box.dom[i]
+        wire = Node("dom", obj=obj, depth=depth, i=i)
+        middle = positions[wire]
+        left, right = middle[0] - .25, middle[0] + .25
+        height = positions[node][1] + .25
+        for j in range(3):
+            source = (left + .1 * j, height - .1 * j)
+            target = (right - .1 * j, height - .1 * j)
+            backend.draw_wire(source, target)
+
     return backend
 
 
