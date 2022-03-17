@@ -183,8 +183,10 @@ class Tensor(rigid.Box, metaclass=TensorType):
     @classmethod
     @contextmanager
     def backend(cls, value):
-        yield cls.set_backend(value)
-        cls._backend_stack.pop()
+        try:
+            yield cls.set_backend(value)
+        finally:
+            cls._backend_stack.pop()
 
     def __init__(self, dom, cod, array):
         self._array = Tensor.np.array(array).reshape(tuple(dom @ cod))
