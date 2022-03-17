@@ -276,7 +276,7 @@ class Tensor(rigid.Box, metaclass=TensorType):
     @staticmethod
     def id(dom=Dim(1)):
         from numpy import prod
-        return Tensor(dom, dom, Tensor.np.identity(int(prod(dom))))
+        return Tensor(dom, dom, Tensor.np.eye(int(prod(dom))))
 
     @staticmethod
     def cups(left, right):

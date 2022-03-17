@@ -495,9 +495,9 @@ class Rx(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = self.modules.pi * self.phase
+        half_theta = Tensor.np.array(self.modules.pi * self.phase)
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.array([[cos, -1j * sin], [-1j * sin, cos]])
+        return Tensor.np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
 
 
 class Ry(RealConjugate, Rotation):
@@ -507,9 +507,9 @@ class Ry(RealConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = self.modules.pi * self.phase
+        half_theta = Tensor.np.array(self.modules.pi * self.phase)
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.array([[cos, -1 * sin], [sin, cos]])
+        return Tensor.np.stack((cos, -1 * sin, sin, cos)).reshape(2, 2)
 
 
 class Rz(AntiConjugate, Rotation):
@@ -520,9 +520,10 @@ class Rz(AntiConjugate, Rotation):
     @property
     def array(self):
         half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        return Tensor.np.array(
-            [[self.modules.exp(-1j * half_theta), 0],
-             [0, self.modules.exp(1j * half_theta)]])
+        e1 = self.modules.exp(-1j * half_theta)
+        e2 = self.modules.exp(1j * half_theta)
+        z = Tensor.np.array(0)
+        return Tensor.np.stack((e1, z, z, e2)).reshape(2, 2)
 
 
 class CU1(Anti2QubitConjugate, Rotation):
@@ -533,11 +534,11 @@ class CU1(Anti2QubitConjugate, Rotation):
     @property
     def array(self):
         theta = Tensor.np.array(2 * self.modules.pi * self.phase)
-        return Tensor.np.array(
-            [1, 0, 0, 0,
+        return Tensor.np.stack(
+            (1, 0, 0, 0,
              0, 1, 0, 0,
              0, 0, 1, 0,
-             0, 0, 0, self.modules.exp(1j * theta)]).reshape(2, 2, 2, 2)
+             0, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2, 2, 2)
 
 
 class Scalar(Parametrized):
