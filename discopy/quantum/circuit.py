@@ -401,7 +401,7 @@ class Circuit(tensor.Diagram):
 
         import tensornetwork as tn
         from discopy.quantum import (
-            qubit, bit, ClassicalGate, Copy, Discard, SWAP)
+            qubit, bit, ClassicalGate, Copy, Match, Discard, SWAP)
         for box in self.boxes + [self]:
             if set(box.dom @ box.cod) - set(bit @ qubit):
                 raise ValueError(
@@ -452,11 +452,11 @@ class Circuit(tensor.Diagram):
                     del q_scan1[q_offset]
                     del q_scan2[q_offset]
                     continue
-                if isinstance(box, (Copy, Measure, Encode)):
+                if isinstance(box, (Copy, Match, Measure, Encode)):
                     assert len(box.dom) == 1 or len(box.cod) == 1
                     node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=complex)
                 else:
-                    assert box == MixedState()  # only unoptimised gate
+                    # only unoptimised gate is MixedState()
                     array = box.eval(mixed=True).array
                     node = tn.Node(array + 0j, 'cq_' + str(box))
                 for i in range(c_dom):
@@ -791,6 +791,21 @@ class Circuit(tensor.Diagram):
         """ Apply Pauli Z gate to circuit. """
         from discopy.quantum import Z
         return self._apply_gate(Z, x)
+
+    def Rx(self, phase, x):
+        """ Apply Rx gate to circuit. """
+        from discopy.quantum import Rx
+        return self._apply_gate(Rx(phase), x)
+
+    def Ry(self, phase, x):
+        """ Apply Rx gate to circuit. """
+        from discopy.quantum import Ry
+        return self._apply_gate(Ry(phase), x)
+
+    def Rz(self, phase, x):
+        """ Apply Rz gate to circuit. """
+        from discopy.quantum import Rz
+        return self._apply_gate(Rz(phase), x)
 
     def CX(self, x, y):
         """ Apply Controlled X / CNOT gate to circuit. """

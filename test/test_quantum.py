@@ -591,6 +591,10 @@ def test_circuit_chaining():
         offsets=[0, 0, 0, 0, 0, 1, 2])
     assert circuit == expected_circuit
 
+    circuit = Id(1).Rx(0.1, 0).Ry(0.2, 0).Rz(0.3, 0)
+    expected_circuit = Rx(0.1) >> Ry(0.2) >> Rz(0.3)
+    assert circuit == expected_circuit
+
     assert Id(1).S(0) == S
 
     with raises(ValueError):
