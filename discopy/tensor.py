@@ -103,12 +103,22 @@ class PyTorchBackend(TensorBackend):
         self.array = torch.as_tensor
 
 
+class TensorFlowBackend(TensorBackend):
+    def __init__(self):
+        import tensorflow as tf
+        from tensorflow.python.ops.numpy_ops import np_config
+        np_config.enable_numpy_behavior()
+        self.module = tf
+        self.array = tf.constant
+
+
 BACKENDS = {'np': NumPyBackend,
             'numpy': NumPyBackend,
             'jax': JAXBackend,
             'jax.numpy': JAXBackend,
             'pytorch': PyTorchBackend,
-            'torch': PyTorchBackend}
+            'torch': PyTorchBackend,
+            'tensorflow': TensorFlowBackend}
 INSTANTIATED_BACKENDS = {}
 
 
