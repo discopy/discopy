@@ -2,7 +2,7 @@
 
 """ DisCoPy quantum submodule: cqmap, circuit, gates, tk and zx. """
 
-from discopy.quantum import cqmap, circuit, gates, zx
+from discopy.quantum import cqmap, circuit, gates, oplus, optics, zx
 from discopy.quantum.cqmap import C, Q, CQ, CQMap
 from discopy.quantum.circuit import (
     bit, qubit, Digit, Qudit, Circuit, Id, Box, Sum, Swap,
