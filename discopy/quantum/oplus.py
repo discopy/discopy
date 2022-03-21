@@ -1,5 +1,6 @@
-from discopy import Sum, messages, monoidal, PRO
+from discopy import messages, monoidal
 from discopy.cat import AxiomError
+from discopy.monoidal import PRO
 from discopy.tensor import array2string
 from scipy.linalg import block_diag
 import numpy as np
@@ -24,6 +25,7 @@ class Matrix(monoidal.Box):
         return repr(self)
 
     def then(self, *others):
+        from discopy import Sum
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.then(self, *others)
         other, = others
@@ -35,6 +37,7 @@ class Matrix(monoidal.Box):
         return Matrix(self.dom, other.cod, array)
 
     def tensor(self, *others):
+        from discopy import Sum
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.tensor(self, *others)
         other = others[0]
@@ -63,3 +66,9 @@ class Matrix(monoidal.Box):
     @staticmethod
     def id(dom=PRO()):
         return Matrix(dom, dom, np.identity(len(dom)))
+
+    @staticmethod
+    def swap(left, right):
+        if left == PRO(1) and right == PRO(1):
+            return Matrix(left @ right, left @ right, np.array([0, 1, 0, 1]))
+        raise NotImplementedError
