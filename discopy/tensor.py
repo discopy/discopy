@@ -103,12 +103,21 @@ class PyTorchBackend(TensorBackend):
         self.array = torch.as_tensor
 
 
+class TFQuantumBackend(TensorBackend):
+    def __init__(self):
+        import tensorflow_quantum as tfq
+        import tensorflow as tf
+        self.module = tfq
+        self.array = tf.constant
+
+
 BACKENDS = {'np': NumPyBackend,
             'numpy': NumPyBackend,
             'jax': JAXBackend,
             'jax.numpy': JAXBackend,
             'pytorch': PyTorchBackend,
-            'torch': PyTorchBackend}
+            'torch': PyTorchBackend,
+            'tf_quantum': TFQuantumBackend}
 INSTANTIATED_BACKENDS = {}
 
 
