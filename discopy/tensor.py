@@ -109,7 +109,7 @@ class TensorFlowBackend(TensorBackend):
         from tensorflow.python.ops.numpy_ops import np_config
         np_config.enable_numpy_behavior()
         self.module = tf
-        self.array = tf.constant
+        self.array = tf.Variable
 
 
 BACKENDS = {'np': NumPyBackend,
