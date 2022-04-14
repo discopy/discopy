@@ -580,26 +580,27 @@ class Spider(Box):
         return type(self)(len(self.cod), len(self.dom), self.typ)
     
     def decompose(self):
-        n_legs_out = len(self.cod)
-        n_legs_in = len(self.dom)
-        
+        return Spider._decompose_spiders(len(self.dom), len(self.cod), self.typ)
+    
+    @staticmethod
+    def _decompose_spiders(n_legs_in, n_legs_out, typ):
         if n_legs_out > n_legs_in:
-            return spiders(n_legs_out, n_legs_in, self.typ).dagger() 
+            return Spider._decompose_spiders(n_legs_out, n_legs_in, typ).dagger() 
         
         if n_legs_in == 0:
-            return Id(self.typ)
+            return Id(typ)
         
         if n_legs_out > 1:
-            return spiders(n_legs_in, 1, self.typ) >> spiders(n_legs_out, 1, self.typ).dagger()
+            return Spider._decompose_spiders(n_legs_in, 1, typ) >> Spider._decompose_spiders(n_legs_out, 1, typ).dagger()
         
         if n_legs_in == 2:
-            return Spider(2, n_legs_out, self.typ)
+            return Spider(2, n_legs_out, typ)
         
         if n_legs_in % 2 == 1:
-            return spiders(n_legs_in - 1, 1, self.typ) @ Id(self.typ) >> Spider(2, n_legs_out, self.typ)
+            return Spider._decompose_spiders(n_legs_in - 1, 1, typ) @ Id(typ) >> Spider(2, n_legs_out, typ)
         
         new_in = n_legs_in // 2
-        return spiders(new_in, 1, self.typ) @ spiders(new_in, 1, self.typ) >> Spider(2, n_legs_out, self.typ)
+        return Spider._decompose_spiders(new_in, 1, typ) @ Spider._decompose_spiders(new_in, 1, typ) >> Spider(2, n_legs_out, typ)
 
     @property
     def l(self):
