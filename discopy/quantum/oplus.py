@@ -70,5 +70,5 @@ class Matrix(monoidal.Box):
     @staticmethod
     def swap(left, right):
         if left == PRO(1) and right == PRO(1):
-            return Matrix(left @ right, left @ right, np.array([0, 1, 0, 1]))
+            return Matrix(left @ right, left @ right, np.array([0, 1, 1, 0]))
         raise NotImplementedError
