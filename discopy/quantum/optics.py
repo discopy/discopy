@@ -368,6 +368,38 @@ class Counit(PathBox):
         return Matrix(self.dom, self.cod, [])
 
 
+class Create(PathBox):
+    """Black node"""
+    def __init__(self):
+        super().__init__('Create', PRO(0), PRO(1), [])
+        self.drawing_name = ''
+        self.draw_as_spider = True
+        self.color = 'black'
+
+    def dagger(self):
+        return Annil()
+
+    @property
+    def array(self):
+        raise Exception('Create has no Matrix semantics.')
+
+
+class Annil(PathBox):
+    """Black node"""
+    def __init__(self):
+        super().__init__('Annil', PRO(1), PRO(0), [])
+        self.drawing_name = ''
+        self.draw_as_spider = True
+        self.color = 'black'
+
+    def dagger(self):
+        return Create()
+
+    @property
+    def array(self):
+        raise Exception('Annil has no Matrix semantics.')
+
+
 class Endo(PathBox):
     """Green box"""
     def __init__(self, scalar):
@@ -586,3 +618,32 @@ def ar_to_path(box):
 
 
 to_path = Functor(ob=lambda x: x, ar=ar_to_path)
+
+
+def qpath_drag(diagram):
+    done = False
+    j = 0
+    while not done:
+        for i in range(j, len(diagram)):
+            box = diagram.boxes[i]
+            if box.name == 'Create':
+                while i > j:
+                    diagram = diagram.interchange(i - 1, i)
+                    i -= 1
+                j += 1
+                break
+        done = i == len(diagram) - 1
+    done = False
+    j = len(diagram) - 1
+    while not done:
+        for i in range(j, 0, -1):
+            box = diagram.boxes[i]
+            if box.name == 'Annil':
+                while i < j:
+                    diagram = diagram.interchange(i, i + 1)
+                    i += 1
+                j -= 1
+                break
+        done = i == 1
+    return diagram
+ 
