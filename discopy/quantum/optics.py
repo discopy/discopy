@@ -13,6 +13,7 @@ from discopy import cat, monoidal
 from discopy.monoidal import PRO
 
 from discopy.quantum.oplus import Matrix
+import sympy
 
 
 def occupation_numbers(n_photons, m_modes):
@@ -425,7 +426,8 @@ class PhaseShift(Box):
 
     @property
     def array(self):
-        array = np.exp(2j * np.pi * self.phase)
+        backend = sympy if hasattr(self.phase, 'free_symbols') else np
+        array = backend.exp(2j * backend.pi * self.phase)
         return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
@@ -492,8 +494,10 @@ class MZI(Box):
 
     @property
     def array(self):
-        cos, sin = np.cos(np.pi * self.angle), np.sin(np.pi * self.angle)
-        exp = np.exp(2j * np.pi * self.phase)
+        backend = sympy if hasattr(self.angle, 'free_symbols') else np
+        cos = backend.cos(backend.pi * self.angle)
+        sin = backend.sin(backend.pi * self.angle)
+        exp = backend.exp(2j * backend.pi * self.phase)
         array = np.array([exp * sin, exp * cos, cos, -sin])
         return Matrix(self.dom, self.cod, array)
 
@@ -566,14 +570,13 @@ def to_matrix(diagram):
 
 def ar_to_path(box):
     if isinstance(box, PhaseShift):
-        return Endo(np.exp(2j * np.pi * box.phase))
+        backend = sympy if hasattr(box.phase, 'free_symbols') else np
+        return Endo(backend.exp(2j * backend.pi * box.phase))
     if isinstance(box, BeamSplitter):
         r, t = box.r, box.t
-        array = 0.1, 0.2, 0.3, 0.4
+        array = Id().tensor(*map(Endo, (r, t, t.conjugate(), -r.conjugate())))
         w1, w2 = Comonoid(), Monoid()
-        return (
-            (w1 @ w1).permute(2, 1) >>
-            Id().tensor(*map(Endo, array)) >> w2 @ w2)
+        return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     if isinstance(box, MZI):
         phase, angle = box.phase, box.angle
         diagram = (
