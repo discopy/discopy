@@ -717,24 +717,24 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.gates import CX, H, Bra, Ket
         from discopy.rigid import Spider
         FOO = Ty("foo")
-        
+
         if len(dim) == 0 or (n_legs_in == 0 and n_legs_out == 0):
             return Id()
         elif n_legs_in == 0:
             return Ket(0) >> H >> Circuit.spider_circuit(1, n_legs_out, dim)
         elif n_legs_out == 0:
             return Circuit.spider_circuit(n_legs_in, 1, dim) >> H >> Bra(0)
-        
+
         def spider_ar(spider):
             if len(spider.dom) == 2:
                 return CX >> Id(qubit) @ Bra(0)
             elif len(spider.cod) == 2:
                 return Id(qubit) @ Ket(0) >> CX
-            
+
         diag = Spider(n_legs_in, n_legs_out, FOO).decompose()
         f = Functor(ob={FOO: qubit}, ar=spider_ar)
         circ = f(diag)
-        
+
         i, j, k = n_legs_in, n_legs_out, len(dim)
         permutation = Circuit.permutation
         p1 = permutation([i * (x % k) + (x // k) for x in range(i * k)])
