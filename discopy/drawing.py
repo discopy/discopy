@@ -46,6 +46,8 @@ COLORS = {
 # Mapping from tikz shapes to matplotlib shapes.
 SHAPES = {
     "rectangle": 's',
+    "triangle_up": '^',
+    "triangle_down": 'v',
     "circle": 'o',
     "plus": '+',
 }
@@ -586,6 +588,8 @@ def draw(diagram, **params):
         return backend
 
     def scale_and_pad(graph, pos, scale, pad):
+        if len(pos) == 0:
+            return pos
         widths, heights = zip(*pos.values())
         min_width, min_height = min(widths), min(heights)
         pos = {n: ((x - min_width) * scale[0] + pad[0],
@@ -611,6 +615,10 @@ def draw(diagram, **params):
         if params.get('to_tikz', False)\
         else MatBackend(figsize=params.get('figsize', None))
 
+    min_size = 0.01
+    max_v = max([v for p in positions.values() for v in p] + [min_size])
+    params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
+
     backend = draw_wires(backend, graph, positions)
     backend.draw_spiders(graph, positions, **params)
     box_nodes = [node for node in graph.nodes if node.kind == "box"]
@@ -635,8 +643,10 @@ def draw_box(backend, positions, node, **params):
     box, depth = node.box, node.depth
     asymmetry = params.get(
         'asymmetry', .25 * any(
-            node.kind == "box" and node.box.is_dagger
-            for box in positions.keys()))
+            pos.kind == "box" and (
+                pos.box.is_dagger or (
+                    hasattr(pos.box, "_z") and pos.box._z != 0))
+            for pos in positions.keys()))
     if not box.dom and not box.cod:
         left, right = positions[node][0], positions[node][0]
     elif not box.dom:
@@ -658,11 +668,23 @@ def draw_box(backend, positions, node, **params):
         right = max(top_right, bottom_right)
     height = positions[node][1] - .25
     left, right = left - .25, right + .25
-    points = [
-        (left, height),
-        (right + (asymmetry if box.is_dagger else 0), height),
-        (right + (0 if box.is_dagger else asymmetry), height + .5),
-        (left, height + .5)]
+
+    # dictionary key is (is_dagger, z % 2)
+    points_dict = {
+        (1, 1): [(left - asymmetry, height), (right, height),
+                 (right, height + .5), (left, height + .5)],
+        (1, 0): [(left, height), (right + asymmetry, height),
+                 (right, height + .5), (left, height + .5)],
+        (0, 0): [(left, height), (right, height),
+                 (right + asymmetry, height + .5), (left, height + .5)],
+        (0, 1): [(left, height), (right, height),
+                 (right, height + .5), (left - asymmetry, height + .5)]
+    }
+
+    is_dagger = 1 if box.is_dagger else 0
+    z = box._z if hasattr(box, '_z') else 0
+
+    points = points_dict[is_dagger, z % 2]
     backend.draw_polygon(*points, color=box.color)
     if params.get('draw_box_labels', True):
         backend.draw_text(box.drawing_name, *positions[node],
@@ -750,7 +772,7 @@ def pregroup_draw(words, layers, **params):
                         type_str, x_wire + textpad[0], -textpad[1],
                         fontsize=params.get('fontsize_types', fontsize),
                         horizontalalignment='left')
-                    backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
+                backend.draw_wire((x_wire, 0), (x_wire, -2 * textpad[1]))
             if params.get('triangles', False):
                 backend.draw_polygon(
                     ((space + width) * i, 0),
@@ -828,10 +850,11 @@ def pregroup_draw(words, layers, **params):
 
     scan = draw_words(words.normal_form())
     draw_grammar(layers, scan)
+    edge_padding = 0.01  # to show rightmost edge
     backend.output(
         params.get('path', None),
         tikz_options=params.get('tikz_options', None),
-        xlim=(0, (space + width) * len(words.boxes) - space),
+        xlim=(0, (space + width) * len(words.boxes) - space + edge_padding),
         ylim=(- len(layers) - space, 1),
         margins=params.get('margins', DEFAULT['margins']),
         aspect=params.get('aspect', 'equal'))

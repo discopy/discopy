@@ -1,6 +1,22 @@
 from pytest import raises
 import numpy as np
+import tensornetwork as tn
 from discopy.tensor import *
+
+
+def test_backend():
+    import jax.numpy
+    import torch
+    assert Tensor.np.module == np
+    with Tensor.backend('jax'):
+        assert Tensor.np.module == jax.numpy
+        with Tensor.backend('pytorch'):
+            assert Tensor.np.module == torch
+        assert Tensor.np.module == jax.numpy
+    assert Tensor.np.module == np
+
+    with raises(ValueError):
+        Tensor.set_backend('nonexistent')
 
 
 def test_Dim():
@@ -39,6 +55,32 @@ def test_Tensor():
     assert m == m and np.all(m == arr)
     m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
     assert Tensor.id(Dim(2)).then(*(m, m)) == m >> m.dagger()
+
+
+def test_Spider_to_tn():
+    d = Dim(2)
+    tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
+    result = tensor.eval(contractor=tn.contractors.auto).array
+    assert all(result == np.array([1, 1]))
+
+
+def test_Spider_to_tn_pytorch():
+    try:
+        import torch
+        Tensor.np = torch
+        torch.array = torch.as_tensor
+        tn.set_default_backend('pytorch')
+
+        d = Dim(2)
+
+        alice = Box("Alice", Dim(1), d,
+                    torch.as_tensor([1., 2.]).requires_grad_(True))
+        tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
+        result = tensor.eval(contractor=tn.contractors.auto).array
+        assert result.item() == 3
+    finally:
+        Tensor.np = np
+        tn.set_default_backend('numpy')
 
 
 def test_Tensor_cups():
@@ -138,7 +180,9 @@ def test_Tensor_iter():
     v = Tensor(Dim(1), Dim(2), [0, 1])
     assert list(v) == [0, 1]
     s = Tensor(Dim(1), Dim(1), [1])
-    assert list(s) == [1]
+    with raises(TypeError):
+        # how does one iterate over a scalar?
+        list(s)
 
 
 def test_Tensor_subs():
@@ -158,7 +202,7 @@ def test_Diagram_cups_and_caps():
 def test_Diagram_swap():
     x, y, z = Dim(2), Dim(3), Dim(4)
     assert Diagram.swap(x, y @ z) == \
-           (Swap(x, y) @ Id(z)) >> (Id(y) @ Swap(x, z))
+        (Swap(x, y) @ Id(z)) >> (Id(y) @ Swap(x, z))
 
 
 def test_Box():
@@ -184,3 +228,53 @@ def test_Tensor_scalar():
     s = Tensor(Dim(1), Dim(1), [1])
     for ptype in [int, float, complex]:
         assert isinstance(ptype(s), ptype)
+
+
+def test_Tensor_adjoint_functor():
+    from discopy.rigid import Ty, Cup
+    from discopy.grammar import Word
+
+    n, s = map(Ty, 'ns')
+    alice = Word("Alice", n)
+    eats = Word("eats", n.r @ s @ n.l)
+    food = Word("food", n)
+
+    diagram = alice @ eats @ food >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+
+    f = Functor(
+        ob={n: Dim(2), s: Dim(3)},
+        ar={
+            alice: Tensor(Dim(1), Dim(2), [1, 2]),
+            eats: Tensor(Dim(1), Dim(2, 3, 2), [3] * 12),
+            food: Tensor(Dim(1), Dim(2), [4, 5])
+        })
+
+    tensor1 = f(diagram)
+    tensor2 = f(diagram.transpose_box(2).transpose_box(0))
+    assert tensor1 == tensor2
+
+
+def test_Tensor_adjoint_eval():
+    alice = Box("Alice", Dim(1), Dim(2), [1, 2])
+    eats = Box("eats", Dim(1), Dim(2, 3, 2), [3] * 12)
+    food = Box("food", Dim(1), Dim(2), [4, 5])
+
+    diagram = alice @ eats @ food >>\
+        Cup(Dim(2), Dim(2)) @ Id(Dim(3)) @ Cup(Dim(2), Dim(2))
+
+    tensor1 = diagram.eval()
+    tensor2 = diagram.transpose_box(2).transpose_box(0, left=True).eval()
+    assert tensor1 == tensor2
+
+
+def test_non_numpy_eval():
+    import torch
+    Tensor.np = torch
+    with raises(Exception):
+        Swap(Dim(2), Dim(2)).eval()
+    Tensor.np = np
+
+
+def test_Tensor_array():
+    box = Box("box", Dim(2), Dim(2), None)
+    assert box.array is None

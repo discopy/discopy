@@ -17,12 +17,12 @@
 \node [] (14) at (2.0, 2.0) {};
 \node [] (15) at (2.0, 1.0) {};
 \node [] (16) at (2.0, 0.0) {};
-\node [style=unit] (17) at (4.0, 5.0) {};
-\node [style=cap] (17) at (1.5, 4.0) {};
-\node [style=cap] (17) at (1.5, 3.0) {};
-\node [style=counit] (17) at (2.0, 2.0) {};
-\node [style=cup] (17) at (2.0, 1.0) {};
-\node [style=cup] (17) at (2.0, 0.0) {};
+\node [style=unit, scale=0.447] (17) at (4.0, 5.0) {};
+\node [style=cap, scale=0.447] (17) at (1.5, 4.0) {};
+\node [style=cap, scale=0.447] (17) at (1.5, 3.0) {};
+\node [style=counit, scale=0.447] (17) at (2.0, 2.0) {};
+\node [style=cup, scale=0.447] (17) at (2.0, 1.0) {};
+\node [style=cup, scale=0.447] (17) at (2.0, 0.0) {};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [in=90, out=-90] (1.center) to (2.center);

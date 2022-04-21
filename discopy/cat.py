@@ -421,6 +421,9 @@ class Arrow:
         """ Returns a :class:`cat.Bubble` with the diagram inside. """
         return self.bubble_factory(self, **params)
 
+    def fmap(self, func):
+        return func(self)
+
     def to_tree(self):
         """ Encodes an arrow as a tree. """
         return {
@@ -500,6 +503,8 @@ class Box(Arrow):
     """
     def __init__(self, name, dom, cod, **params):
         def recursive_free_symbols(data):
+            if hasattr(data, 'tolist'):
+                data = data.tolist()
             if isinstance(data, Mapping):
                 data = data.values()
             if isinstance(data, Iterable):
@@ -729,9 +734,24 @@ class Sum(Box):
         unit = Sum([], self.cod, self.dom)
         return self.upgrade(sum([f.dagger() for f in self.terms], unit))
 
+    @property
+    def free_symbols(self):
+        return {x for box in self.terms for x in box.free_symbols}
+
     def subs(self, *args):
         unit = Sum([], self.dom, self.cod)
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
+
+    def lambdify(self, *symbols, **kwargs):
+        return lambda *xs: self.sum(
+            [box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms],
+            dom=self.dom, cod=self.cod)
+
+    @staticmethod
+    def fmap(func):
+        def sum_func(diagram):
+            return type(diagram)([func(term) for term in diagram.terms])
+        return sum_func
 
     def to_tree(self):
         return {

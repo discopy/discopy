@@ -76,15 +76,6 @@ def test_grad():
            + (Z(1, 1, phi / 2) >> scalar(pi) @ Id(1) >> Z(1, 1, phi + 1.5))
 
 
-def test_grad_to_pyzx():
-    from sympy.abc import theta
-    m1 = circuit2zx(CU1(theta).grad(theta, mixed=False))\
-        .subs(theta, 1 / 2).to_pyzx().to_matrix()
-    e3 = _std_basis_v(1, 1)
-    m2 = (e3 @ e3.T) * (-2j * np.pi)
-    assert np.isclose(np.linalg.norm(m1 - m2), 0)
-
-
 def test_to_pyzx_errors():
     with raises(TypeError):
         Diagram.to_pyzx(quantum.H)
@@ -123,7 +114,7 @@ def test_backnforth_pyzx():
 
 
 def _std_basis_v(*c):
-    v = np.zeros(2**len(c), dtype=np.complex)
+    v = np.zeros(2**len(c), dtype=complex)
     v[np.sum((np.array(c) != 0) * 2**np.arange(len(c)))] = 1
     return np.expand_dims(v, -1)
 

@@ -145,6 +145,20 @@ class PRO(monoidal.PRO, Ty):
         return self
 
 
+class Layer(monoidal.Layer):
+    @staticmethod
+    def upgrade(old):
+        return Layer(old._left, old._box, old._right)
+
+    @property
+    def l(self):
+        return Layer(self._right.l, self._box.l, self._left.l)
+
+    @property
+    def r(self):
+        return Layer(self._right.r, self._box.r, self._left.r)
+
+
 @monoidal.Diagram.subclass
 class Diagram(monoidal.Diagram):
     """ Implements diagrams in the free rigid monoidal category.
@@ -216,6 +230,11 @@ class Diagram(monoidal.Diagram):
         return caps(left, right)
 
     @staticmethod
+    def spiders(n_legs_in, n_legs_out, typ):
+        """ Constructs spiders with compound types."""
+        return spiders(n_legs_in, n_legs_out, typ)
+
+    @staticmethod
     def fa(left, right):
         """ Forward application. """
         off = -len(right) or len(left)
@@ -260,6 +279,51 @@ class Diagram(monoidal.Diagram):
         return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
             >> diagram @ Id(wires.l)
 
+    def _conjugate(self, use_left):
+        layers = self.layers
+        list_of_layers = []
+        for layer in layers._boxes:
+            layer_adj = layer.l if use_left else layer.r
+            left, box, right = layer_adj
+            list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
+
+        dom = layers.dom.l if use_left else layers.dom.r
+        cod = layers.cod.l if use_left else layers.cod.r
+        layers_adj = type(layers)(dom, cod, list_of_layers)
+        boxes_and_offsets = tuple(zip(*(
+            (box, len(left)) for left, box, _ in layers_adj))) or ([], [])
+        inputs = (dom, cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers_adj))
+
+    @property
+    def l(self):
+        return self._conjugate(use_left=True)
+
+    @property
+    def r(self):
+        return self._conjugate(use_left=False)
+
+    def dagger(self):
+        d = super().dagger()
+        d._layers._boxes = [Layer.upgrade(b) for b in d._layers._boxes]
+        return d
+
+    def transpose_box(self, i, left=False):
+        bend_left = left
+        layers = self.layers
+        if bend_left:
+            box_T = layers[i]._box.r.dagger().transpose(left=True)
+        else:
+            box_T = layers[i]._box.l.dagger().transpose(left=False)
+        left, _, right = layers[i]
+        layers_T = (Id(left) @ box_T @ Id(right)).layers.boxes
+        list_of_layers = layers._boxes[:i] + layers_T + layers._boxes[i + 1:]
+        layers = type(layers)(layers.dom, layers.cod, list_of_layers)
+        boxes_and_offsets = tuple(zip(*(
+            (box, len(left)) for left, box, _ in layers))) or ([], [])
+        inputs = (layers.dom, layers.cod) + boxes_and_offsets
+        return self.upgrade(Diagram(*inputs, layers=layers))
+
     def transpose(self, left=False):
         """
         >>> a, b = Ty('a'), Ty('b')
@@ -298,6 +362,24 @@ class Diagram(monoidal.Diagram):
             normalizer=normalizer or Diagram.normalize, **params)
 
     normalize = rewriting.snake_removal
+    layer_factory = Layer
+
+    def cup(self, x, y):
+        if min(x, y) < 0 or max(x, y) >= len(self.cod):
+            raise ValueError(f'Indices {x, y} are out of range.')
+        x, y = min(x, y), max(x, y)
+        for i in range(x, y - 1):
+            t0, t1 = self.cod[i:i + 1], self.cod[i + 1:i + 2]
+            self >>= Id(self.cod[:i]) @ Swap(t0, t1) @ Id(self.cod[i + 2:])
+        t0, t1 = self.cod[y - 1:y], self.cod[y:y + 1]
+        self >>= Id(self.cod[:y - 1]) @ Cup(t0, t1) @ Id(self.cod[y + 1:])
+        return self
+
+
+Sum = cat.Sum
+
+Sum.l = property(cat.Sum.fmap(lambda d: d.l))
+Sum.r = property(cat.Sum.fmap(lambda d: d.r))
 
 
 class Id(monoidal.Id, Diagram):
@@ -309,6 +391,14 @@ class Id(monoidal.Id, Diagram):
     def __init__(self, dom=Ty()):
         monoidal.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+
+    @property
+    def l(self):
+        return type(self)(self.dom.l)
+
+    @property
+    def r(self):
+        return type(self)(self.dom.r)
 
 
 Diagram.id = Id
@@ -324,6 +414,39 @@ class Box(monoidal.Box, Diagram):
     def __init__(self, name, dom, cod, **params):
         monoidal.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
+        self._z = params.get("_z", 0)
+
+    def __eq__(self, other):
+        if isinstance(other, Box):
+            return self._z == other._z and monoidal.Box.__eq__(self, other)
+        if isinstance(other, Diagram):
+            return len(other) == 1 and other.boxes[0] == self\
+                and (other.dom, other.cod) == (self.dom, self.cod)
+        return False
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    @property
+    def z(self):
+        return self._z
+
+    def dagger(self):
+        return type(self)(
+            name=self.name, dom=self.cod, cod=self.dom,
+            data=self.data, _dagger=not self._dagger, _z=self._z)
+
+    @property
+    def l(self):
+        return type(self)(
+            name=self.name, dom=self.dom.l, cod=self.cod.l,
+            data=self.data, _dagger=self._dagger, _z=self._z - 1)
+
+    @property
+    def r(self):
+        return type(self)(
+            name=self.name, dom=self.dom.r, cod=self.cod.r,
+            data=self.data, _dagger=self._dagger, _z=self._z + 1)
 
 
 class Swap(monoidal.Swap, Box):
@@ -333,7 +456,7 @@ class Swap(monoidal.Swap, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
 
 
-class Cup(monoidal.BinaryConstructor, Box):
+class Cup(monoidal.BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -355,7 +478,7 @@ class Cup(monoidal.BinaryConstructor, Box):
             raise ValueError(messages.cup_vs_cups(left, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryConstructor.__init__(self, left, right)
+        monoidal.BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(
             self, "Cup({}, {})".format(left, right), left @ right, Ty())
         self.draw_as_wires = True
@@ -363,11 +486,19 @@ class Cup(monoidal.BinaryConstructor, Box):
     def dagger(self):
         return Cap(self.left, self.right)
 
+    @property
+    def l(self):
+        return Cup(self.right.l, self.left.l)
+
+    @property
+    def r(self):
+        return Cup(self.right.r, self.left.r)
+
     def __repr__(self):
         return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
 
-class Cap(monoidal.BinaryConstructor, Box):
+class Cap(monoidal.BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -389,13 +520,21 @@ class Cap(monoidal.BinaryConstructor, Box):
             raise ValueError(messages.cap_vs_caps(left, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryConstructor.__init__(self, left, right)
+        monoidal.BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(
             self, "Cap({}, {})".format(left, right), Ty(), left @ right)
         self.draw_as_wires = True
 
     def dagger(self):
         return Cup(self.left, self.right)
+
+    @property
+    def l(self):
+        return Cap(self.right.l, self.left.l)
+
+    @property
+    def r(self):
+        return Cap(self.right.r, self.left.r)
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))
@@ -426,8 +565,11 @@ class Spider(Box):
                 "try Diagram.spiders instead.")
         name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
+        cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
         params = dict(dict(
-            draw_as_spider=True, color="black", drawing_name=""), **params)
+            draw_as_spider=not cup_like,
+            draw_as_wires=cup_like,
+            color="black", drawing_name=""), **params)
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
@@ -436,6 +578,14 @@ class Spider(Box):
 
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), self.typ)
+
+    @property
+    def l(self):
+        return type(self)(len(self.dom), len(self.cod), self.typ.l)
+
+    @property
+    def r(self):
+        return type(self)(len(self.dom), len(self.cod), self.typ.r)
 
 
 class Functor(monoidal.Functor):
@@ -486,7 +636,17 @@ class Functor(monoidal.Functor):
                 self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, Spider):
             return self.ar_factory.spiders(
-                len(diagram.dom), len(diagram.cod), diagram.typ)
+                len(diagram.dom), len(diagram.cod), self(diagram.typ))
+        if isinstance(diagram, Box):
+            if not hasattr(diagram, "z") or not diagram.z:
+                return super().__call__(diagram)
+            z = diagram.z
+            for _ in range(abs(z)):
+                diagram = diagram.l if z > 0 else diagram.r
+            result = super().__call__(diagram)
+            for _ in range(abs(z)):
+                result = result.l if z < 0 else result.r
+            return result
         if isinstance(diagram, monoidal.Diagram):
             return super().__call__(diagram)
         raise TypeError(messages.type_err(Diagram, diagram))
@@ -511,3 +671,24 @@ def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
 def caps(left, right, ar_factory=Diagram, cap_factory=Cap):
     """ Constructs a diagram of nested caps. """
     return cups(left, right, ar_factory, cap_factory, reverse=True)
+
+
+def spiders(
+        n_legs_in, n_legs_out, typ,
+        ar_factory=Diagram, spider_factory=Spider):
+    """ Constructs a diagram of interleaving spiders. """
+    id, swap, spider = ar_factory.id, ar_factory.swap, spider_factory
+    ts = [typ[i:i + 1] for i in range(len(typ))]
+    result = id().tensor(*[spider(n_legs_in, n_legs_out, t) for t in ts])
+
+    for i, t in enumerate(ts):
+        for j in range(n_legs_in - 1):
+            result <<= id(result.dom[:i * j + i + j]) @ swap(
+                t, result.dom[i * j + i + j:i * n_legs_in + j]
+            ) @ id(result.dom[i * n_legs_in + j + 1:])
+
+        for j in range(n_legs_out - 1):
+            result >>= id(result.cod[:i * j + i + j]) @ swap(
+                result.cod[i * j + i + j:i * n_legs_out + j], t
+            ) @ id(result.cod[i * n_legs_out + j + 1:])
+    return result

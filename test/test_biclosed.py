@@ -116,3 +116,15 @@ def test_biclosed2rigid():
     assert biclosed2rigid(BX(y << x, y >> x))\
         == rigid.Id(y_) @ rigid.Swap(x_.l, y_.r) @ Id(x_) >>\
         rigid.Cup(y_, y_.r) @ rigid.Swap(x_.l, x_)
+
+
+def test_to_tree():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    for diagram in [
+            FA(x << y),
+            BA(x >> y),
+            FC(x << y, y << x),
+            BC(x >> y, y >> x),
+            FX(x << y, z >> y),
+            BX(y << x, y >> z)]:
+        assert from_tree(diagram.to_tree()) == diagram

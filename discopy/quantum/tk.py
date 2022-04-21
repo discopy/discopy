@@ -14,7 +14,7 @@ from discopy import messages
 from discopy.quantum.circuit import (
     Functor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
-    ClassicalGate, QuantumGate, Bits, Bra, Ket,
+    ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
     Swap, Scalar, MixedScalar, GATES, X, Rx, Rz, CRz, format_number)
 
 
@@ -129,9 +129,9 @@ class Circuit(tk.Circuit):
                         post_selected.update({key: count})
                 counts[i] = post_selected
         if scale:
-            for i, _ in enumerate((self, ) + others):
+            for i, circuit in enumerate((self, ) + others):
                 for bitstring in counts[i]:
-                    counts[i][bitstring] *= self.scalar
+                    counts[i][bitstring] *= circuit.scalar
         return counts
 
 
@@ -209,11 +209,26 @@ def to_tk(circuit):
     def add_gate(qubits, box, offset):
         i_qubits = [qubits[offset + j] for j in range(len(box.dom))]
         if isinstance(box, (Rx, Rz)):
-            tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *i_qubits)
-        elif isinstance(box, CRz):
-            tk_circ.__getattribute__(box.name[:3])(2 * box.phase, *i_qubits)
+            getattr(tk_circ, box.name[:2])(2 * box.phase, *i_qubits)
+        elif isinstance(box, Controlled):
+            i_qubits = []
+            idx = offset if box.distance > 0 else offset - box.distance
+            curr_box = box
+            while isinstance(curr_box, Controlled):
+                i_qubits.append(qubits[idx])
+                idx += curr_box.distance
+                curr_box = curr_box.controlled
+            i_qubits.append(qubits[idx])
+
+            name = box.name.split('(')[0]
+            if '(' not in box.name:
+                # CX, CZ, CCX
+                getattr(tk_circ, name)(*i_qubits)
+            elif name in ('CRx', 'CRz'):
+                tket_phase = 2 * box.phase
+                return getattr(tk_circ, name)(tket_phase, *i_qubits)
         elif hasattr(tk_circ, box.name):
-            tk_circ.__getattribute__(box.name)(*i_qubits)
+            getattr(tk_circ, box.name)(*i_qubits)
         else:
             raise NotImplementedError
 
@@ -249,7 +264,7 @@ def to_tk(circuit):
                 continue  # bits and qubits live in different registers.
         elif isinstance(box, Scalar):
             tk_circ.scale(
-                box.array[0] if box.is_mixed else abs(box.array[0]) ** 2)
+                box.array if box.is_mixed else abs(box.array) ** 2)
         elif isinstance(box, ClassicalGate)\
                 or isinstance(box, Bits) and box.is_dagger:
             off = left.count(bit)

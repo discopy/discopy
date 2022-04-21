@@ -1,6 +1,7 @@
-pytket
-pyzx
-sympy
+pytket==0.15.0rc5
+pyzx==0.6.4
+sympy==1.9
 tensornetwork
 jax
 jaxlib
+torch

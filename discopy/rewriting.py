@@ -57,18 +57,18 @@ def interchange(self, i, j, left=False):
     if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
         off1 = off1 - len(box0.cod) + len(box0.dom)
         middle = left1[len(left0 @ box0.cod):]
-        layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
-        layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
+        layer0 = self.layer_factory(left0, box0, middle @ box1.cod @ right1)
+        layer1 = self.layer_factory(left0 @ box0.dom @ middle, box1, right1)
     elif off0 >= off1 + len(box1.dom):  # box0 right of box1
         off0 = off0 - len(box1.dom) + len(box1.cod)
         middle = left0[len(left1 @ box1.dom):]
-        layer0 = Layer(left1 @ box1.cod @ middle, box0, right0)
-        layer1 = Layer(left1, box1, middle @ box0.dom @ right0)
+        layer0 = self.layer_factory(left1 @ box1.cod @ middle, box0, right0)
+        layer1 = self.layer_factory(left1, box1, middle @ box0.dom @ right0)
     elif off1 >= off0 + len(box0.cod):  # box0 left of box1
         off1 = off1 - len(box0.cod) + len(box0.dom)
         middle = left1[len(left0 @ box0.cod):]
-        layer0 = Layer(left0, box0, middle @ box1.cod @ right1)
-        layer1 = Layer(left0 @ box0.dom @ middle, box1, right1)
+        layer0 = self.layer_factory(left0, box0, middle @ box1.cod @ right1)
+        layer1 = self.layer_factory(left0 @ box0.dom @ middle, box1, right1)
     else:
         raise InterchangerError(box0, box1)
     boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]

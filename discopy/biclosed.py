@@ -6,6 +6,8 @@ Implements the free biclosed monoidal category.
 
 from discopy import messages, monoidal, rigid
 from discopy.cat import AxiomError
+from discopy.monoidal import BinaryBoxConstructor
+from discopy.utils import factory_name, from_tree
 
 
 class Ty(monoidal.Ty):
@@ -40,10 +42,27 @@ class Ty(monoidal.Ty):
         return Under(self, other)
 
 
-class Over(Ty):
+class BinaryTyConstructor:
+    """ Ty constructor with left and right as input. """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(self),
+            'left': self.left.to_tree(),
+            'right': self.right.to_tree()}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, (tree['left'], tree['right'])))
+
+
+class Over(BinaryTyConstructor, Ty):
     """ Forward slash types. """
     def __init__(self, left=None, right=None):
-        super().__init__(self, left=left, right=right)
+        Ty.__init__(self, self)
+        BinaryTyConstructor.__init__(self, left, right)
 
     def __repr__(self):
         return "Over({}, {})".format(repr(self.left), repr(self.right))
@@ -60,10 +79,11 @@ class Over(Ty):
         return hash(repr(self))
 
 
-class Under(Ty):
+class Under(BinaryTyConstructor, Ty):
     """ Backward slash types. """
     def __init__(self, left=None, right=None):
-        super().__init__(self, left=left, right=right)
+        Ty.__init__(self, self)
+        BinaryTyConstructor.__init__(self, left, right)
 
     def __repr__(self):
         return "Under({}, {})".format(repr(self.left), repr(self.right))
@@ -158,11 +178,25 @@ class Curry(Box):
         super().__init__(name, dom, cod)
 
 
-class FA(Box):
+def unaryBoxConstructor(attr):
+    class Constructor:
+        @classmethod
+        def from_tree(cls, tree):
+            return cls(from_tree(tree[attr]))
+
+        def to_tree(self):
+            return {
+                'factory': factory_name(self),
+                attr: getattr(self, attr).to_tree()}
+    return Constructor
+
+
+class FA(unaryBoxConstructor("over"), Box):
     """ Forward application box. """
     def __init__(self, over):
         if not isinstance(over, Over):
             raise TypeError(messages.type_err(Over, over))
+        self.over = over
         dom, cod = over @ over.right, over.left
         super().__init__("FA{}".format(over), dom, cod)
 
@@ -170,11 +204,12 @@ class FA(Box):
         return "FA({})".format(repr(self.dom[:1]))
 
 
-class BA(Box):
+class BA(unaryBoxConstructor("under"), Box):
     """ Backward application box. """
     def __init__(self, under):
         if not isinstance(under, Under):
             raise TypeError(Under, under)
+        self.under = under
         dom, cod = under.left @ under, under.right
         super().__init__("BA{}".format(under), dom, cod)
 
@@ -182,7 +217,7 @@ class BA(Box):
         return "BA({})".format(repr(self.dom[1:]))
 
 
-class FC(Box):
+class FC(BinaryBoxConstructor, Box):
     """ Forward composition box. """
     def __init__(self, left, right):
         if not isinstance(left, Over):
@@ -193,10 +228,11 @@ class FC(Box):
             raise TypeError(messages.does_not_compose(left, right))
         name = "FC({}, {})".format(left, right)
         dom, cod = left @ right, left.left << right.right
-        super().__init__(name, dom, cod)
+        Box.__init__(self, name, dom, cod)
+        BinaryBoxConstructor.__init__(self, left, right)
 
 
-class BC(Box):
+class BC(BinaryBoxConstructor, Box):
     """ Backward composition box. """
     def __init__(self, left, right):
         if not isinstance(left, Under):
@@ -207,10 +243,11 @@ class BC(Box):
             raise TypeError(messages.does_not_compose(left, right))
         name = "BC({}, {})".format(left, right)
         dom, cod = left @ right, left.left >> right.right
-        super().__init__(name, dom, cod)
+        Box.__init__(self, name, dom, cod)
+        BinaryBoxConstructor.__init__(self, left, right)
 
 
-class FX(Box):
+class FX(BinaryBoxConstructor, Box):
     """ Forward crossed composition box. """
     def __init__(self, left, right):
         if not isinstance(left, Over):
@@ -221,10 +258,11 @@ class FX(Box):
             raise TypeError(messages.does_not_compose(left, right))
         name = "FX({}, {})".format(left, right)
         dom, cod = left @ right, right.left >> left.left
-        super().__init__(name, dom, cod)
+        Box.__init__(self, name, dom, cod)
+        BinaryBoxConstructor.__init__(self, left, right)
 
 
-class BX(Box):
+class BX(BinaryBoxConstructor, Box):
     """ Backward crossed composition box. """
     def __init__(self, left, right):
         if not isinstance(left, Over):
@@ -235,7 +273,8 @@ class BX(Box):
             raise TypeError(messages.does_not_compose(left, right))
         name = "BX({}, {})".format(left, right)
         dom, cod = left @ right, right.right << left.right
-        super().__init__(name, dom, cod)
+        Box.__init__(self, name, dom, cod)
+        BinaryBoxConstructor.__init__(self, left, right)
 
 
 class Functor(monoidal.Functor):

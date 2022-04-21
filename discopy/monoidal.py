@@ -370,7 +370,7 @@ class Diagram(cat.Arrow):
                 left = layers.cod[:off] if layers else dom[:off]
                 right = layers.cod[off + len(box.dom):]\
                     if layers else dom[off + len(box.dom):]
-                layers = layers >> Layer(left, box, right)
+                layers = layers >> self.layer_factory(left, box, right)
             layers = layers >> cat.Id(cod)
         self._layers, self._offsets = layers, tuple(offsets)
         super().__init__(dom, cod, boxes, _scan=False)
@@ -457,9 +457,9 @@ class Diagram(cat.Arrow):
         offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
         layers = cat.Id(dom)
         for left, box, right in self.layers:
-            layers = layers >> Layer(left, box, right @ other.dom)
+            layers = layers >> self.layer_factory(left, box, right @ other.dom)
         for left, box, right in other.layers:
-            layers = layers >> Layer(self.cod @ left, box, right)
+            layers = layers >> self.layer_factory(self.cod @ left, box, right)
         return self.upgrade(Diagram(dom, cod, boxes, offsets, layers=layers))
 
     def __matmul__(self, other):
@@ -587,8 +587,17 @@ class Diagram(cat.Arrow):
         --------
         >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
         >>> assert Id(x @ y @ z).permute(2, 1, 0).cod == z @ y @ x
+        >>> assert Id(x @ y @ z).permute(2, 0).cod == z @ y @ x
         """
-        return self >> self.permutation(list(perm), self.dom)
+        if min(perm) < 0 or max(perm) >= len(self.cod):
+            raise IndexError(f'{self} index out of bounds.')
+        if len(set(perm)) != len(perm):
+            raise ValueError('{perm} is not a permutation.')
+        sorted_perm = sorted(perm)
+        perm = [
+            i if i not in perm else sorted_perm[perm.index(i)]
+            for i in range(len(self.cod))]
+        return self >> self.permutation(list(perm), self.cod)
 
     @staticmethod
     def subclass(ar_factory):
@@ -650,6 +659,7 @@ class Diagram(cat.Arrow):
     foliation = rewriting.foliation
     depth = rewriting.depth
     width = rewriting.width
+    layer_factory = Layer
 
 
 class Id(cat.Id, Diagram):
@@ -723,7 +733,7 @@ class Box(cat.Box, Diagram):
 
     def __init__(self, name, dom, cod, **params):
         cat.Box.__init__(self, name, dom, cod, **params)
-        layer = Layer(dom[0:0], self, dom[0:0])
+        layer = self.layer_factory(dom[0:0], self, dom[0:0])
         layers = cat.Arrow(dom, cod, [layer], _scan=False)
         Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
         for attr, value in params.items():
@@ -742,7 +752,7 @@ class Box(cat.Box, Diagram):
         return hash(repr(self))
 
 
-class BinaryConstructor:
+class BinaryBoxConstructor:
     """ Box constructor with left and right as input. """
     def __init__(self, left, right):
         self.left, self.right = left, right
@@ -756,7 +766,7 @@ class BinaryConstructor:
         return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
-class Swap(BinaryConstructor, Box):
+class Swap(BinaryBoxConstructor, Box):
     """
     Implements the symmetry of atomic types.
 
@@ -772,7 +782,7 @@ class Swap(BinaryConstructor, Box):
             raise ValueError(messages.swap_vs_swaps(left, right))
         name, dom, cod =\
             "Swap({}, {})".format(left, right), left @ right, right @ left
-        BinaryConstructor.__init__(self, left, right)
+        BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod)
         self.draw_as_wires = True
 

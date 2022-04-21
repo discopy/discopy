@@ -7,7 +7,7 @@ from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
-    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, format_number)
+    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
 from math import pi
 
@@ -373,10 +373,10 @@ def gate2zx(box):
         return Id(0).tensor(*spiders) @ scalar(pow(2, -len(box.bitstring) / 2))
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
-    if isinstance(box, CRz):
+    if isinstance(box, Controlled) and box.name.startswith('CRz'):
         return Z(1, 2) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
-    if isinstance(box, CRx):
+    if isinstance(box, Controlled) and box.name.startswith('CRx'):
         return X(1, 2) @ X(1, 2, box.phase)\
             >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
     if isinstance(box, quantum.CU1):

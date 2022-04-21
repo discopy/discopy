@@ -57,7 +57,10 @@ def dumps(obj):
 
 def loads(raw):
     """ Loads a serialised DisCoPy object. """
-    return from_tree(json.loads(raw))
+    obj = json.loads(raw)
+    if isinstance(obj, list):
+        return [from_tree(o) for o in obj]
+    return from_tree(obj)
 
 
 def rmap(func, data):
@@ -79,4 +82,21 @@ def rmap(func, data):
 
 def rsubs(data, *args):
     """ Substitute recursively along nested data. """
-    return rmap(lambda x: getattr(x, "subs", lambda *_: x)(*args), data)
+    from sympy import lambdify
+    if isinstance(args, Iterable) and not isinstance(args[0], Iterable):
+        args = (args, )
+    keys, values = zip(*args)
+    return rmap(lambda x: lambdify(keys, x)(*values), data)
+
+
+def load_corpus(url):
+    import urllib.request as urllib
+    import zipfile
+
+    fd, _ = urllib.urlretrieve(url)
+    zip_file = zipfile.ZipFile(fd, 'r')
+    first_file = zip_file.namelist()[0]
+    with zip_file.open(first_file) as f:
+        diagrams = loads(f.read())
+
+    return diagrams
