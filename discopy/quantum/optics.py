@@ -83,11 +83,11 @@ class Diagram(monoidal.Diagram):
         >>> np.shape(to_matrix(BS @ BS @ BS).array)
         (6, 6)
         >>> assert np.allclose(
-        ...     to_matrix(MZI(0, 0)).array, np.array([[0, 1], [1, 0]])
+        ...     to_matrix(MZI(0, 0)).array, np.array([[0, 1], [1, 0]]))
         >>> assert np.allclose(
         ...     to_matrix(MZI(0, 0) >> MZI(0, 0)).array, to_matrix(Id(2)).array)
         """
-        return to_matrix(self)
+        return to_matrix(self).array
 
     def amp(self, x, y, permanent=npperm):
         """
@@ -107,8 +107,6 @@ class Diagram(monoidal.Diagram):
         >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
                       >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
         >>> amplitude = network.amp([1, 0, 0, 1], [1, 0, 1, 0])
-        >>> amplitude
-        (-0.08637287570313157-0.26582837761001243j)
         >>> probability = np.abs(amplitude) ** 2
         >>> probability
         0.07812499999999997
@@ -227,7 +225,7 @@ class Diagram(monoidal.Diagram):
         >>> S = np.eye(2)
         >>> assert np.isclose(BS.pdist_prob(x, x, S), 0.5)
         >>> S = np.ones((2, 2))
-        >>> assert np.isclose(BS.pdist_prob(x, x, S), 0.0)
+        >>> assert np.isclose(BS.pdist_prob(x, x, S), 0)
         >>> S = lambda p: np.array([[1, p], [p, 1]])
         >>> for p in [0.1*x for x in range(11)]:
         ...     assert np.isclose(BS.pdist_prob(x, x, S(p)), 0.5 * (1 - p **2))
@@ -268,7 +266,7 @@ class Diagram(monoidal.Diagram):
         >>> BS = BeamSplitter(0.25)
         >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
         >>> d.cl_distribution([0, 1/2, 1/2, 0])
-        array([0.4267767, 0.0732233, 0.0732233, 0.4267767])
+        array([0.0732233, 0.4267767, 0.4267767, 0.0732233])
         """
         return np.matmul(np.absolute(self.array)**2, np.array(x))
 
@@ -289,7 +287,7 @@ class Box(Diagram, monoidal.Box):
         return super().__repr__().replace('Box', 'optics.Box')
 
     @property
-    def array(self):
+    def matrix(self):
         """ The array or unitary inside the box. """
         return Matrix(self.dom, self.cod, self.data)
 
@@ -315,7 +313,7 @@ class Monoid(PathBox):
         return Comonoid()
 
     @property
-    def array(self):
+    def matrix(self):
         return Matrix(self.dom, self.cod, [1, 1])
 
 
@@ -332,7 +330,7 @@ class Comonoid(PathBox):
         return Monoid()
 
     @property
-    def array(self):
+    def matrix(self):
         return Matrix(self.dom, self.cod, [1, 1])
 
 
@@ -348,7 +346,7 @@ class Unit(PathBox):
         return Counit()
 
     @property
-    def array(self):
+    def matrix(self):
         return Matrix(self.dom, self.cod, [])
 
 
@@ -364,7 +362,7 @@ class Counit(PathBox):
         return Counit()
 
     @property
-    def array(self):
+    def matrix(self):
         return Matrix(self.dom, self.cod, [])
 
 
@@ -380,7 +378,7 @@ class Create(PathBox):
         return Annil()
 
     @property
-    def array(self):
+    def matrix(self):
         raise Exception('Create has no Matrix semantics.')
 
 
@@ -396,7 +394,7 @@ class Annil(PathBox):
         return Create()
 
     @property
-    def array(self):
+    def matrix(self):
         raise Exception('Annil has no Matrix semantics.')
 
 
@@ -421,7 +419,7 @@ class Endo(PathBox):
         return Endo(phase.conjugate())
 
     @property
-    def array(self):
+    def matrix(self):
         return Matrix(self.dom, self.cod, [self.scalar])
 
 
@@ -447,8 +445,8 @@ class PhaseShift(Box):
     ----------
     phase : float
 
-    >>> PhaseShift(0.4).array
-    array(-0.80901699+0.58778525j)
+    >>> PhaseShift(0.8).array
+    array([[-0.80901699+0.58778525j]])
     >>> assert np.allclose((PhaseShift(0.4) >> PhaseShift(0.4).dagger()).array
     ...                    , Id(1).array)
     """
@@ -457,9 +455,9 @@ class PhaseShift(Box):
         super().__init__('Phase shift', PRO(1), PRO(1), phase)
 
     @property
-    def array(self):
+    def matrix(self):
         backend = sympy if hasattr(self.phase, 'free_symbols') else np
-        array = backend.exp(2j * backend.pi * self.phase)
+        array = backend.exp(1j * backend.pi * self.phase)
         return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
@@ -475,8 +473,7 @@ class BeamSplitter(Box):
     angle : float
 
     >>> y = BeamSplitter(0.4)
-    >>> assert np.allclose((y>>y).eval(2), Id(2).eval(2))
-    >>> assert y == y.dagger()
+    >>> assert np.allclose((y >> y.dagger()).eval(2), Id(2).eval(2))
     >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
     ...   ).dagger()
     >>> assert np.allclose(comp.eval(2), Id(4).eval(2))
@@ -487,19 +484,19 @@ class BeamSplitter(Box):
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
     """
-    def __init__(self, r, t):
-        self.r = r
-        self.t = t
-        super().__init__('Beam splitter', PRO(2), PRO(2), [r, t])
+    def __init__(self, angle):
+        self.angle = angle
+        super().__init__('Beam splitter', PRO(2), PRO(2), [angle])
 
     @property
-    def array(self):
-        r, t = self.r, self.t
-        array = [r, t, t.conjugate(), -r.conjugate()]
+    def matrix(self):
+        sin = np.sin(self.angle * np.pi / 2)
+        cos = np.cos(self.angle * np.pi / 2)
+        array = [1j * cos, sin, sin, 1j * cos]
         return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
-        return BeamSplitter(self.angle)
+        return BeamSplitter(- self.angle)
 
 
 class MZI(Box):
@@ -514,27 +511,27 @@ class MZI(Box):
     (1+0j)
     >>> MZI(0, 0).amp([1, 0], [1, 0])
     0j
-    >>> mach = lambda x, y: PhaseShift(x) @ Id(1) >> BeamSplitter(y)
-    >>> assert np.allclose(MZI(0.4, 0.9).eval(4), mach(0.4, 2 * 0.9).eval(4))
+    >>> mach = lambda x, y: BeamSplitter(x) >> PhaseShift(y) @ Id(1)
+    >>> assert np.allclose(MZI(0.4, 0.9).array, 1j * np.exp(1j * 0.2) * mach(0.4, 0.9).array)
     >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
     ...                     Id(2).eval(3))
     """
-    def __init__(self, phase, angle, _dagger=False):
-        self.phase, self.angle, self._dagger = phase, angle, _dagger
+    def __init__(self, angle, phase, _dagger=False):
+        self.phase, self.angle, self._dagger = angle, phase, _dagger
         super().__init__('MZI', PRO(2), PRO(2), data=[phase, angle],
                          _dagger=_dagger)
 
     @property
-    def array(self):
+    def matrix(self):
         backend = sympy if hasattr(self.angle, 'free_symbols') else np
-        cos = backend.cos(backend.pi * self.angle)
-        sin = backend.sin(backend.pi * self.angle)
-        exp = backend.exp(2j * backend.pi * self.phase)
-        array = np.array([exp * sin, exp * cos, cos, -sin])
+        cos = backend.cos(backend.pi * self.angle / 2)
+        sin = backend.sin(backend.pi * self.angle / 2)
+        exp = backend.exp(1j * backend.pi * self.phase)
+        array = np.array([exp * sin, cos, exp * cos, -sin])
         return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
-        return MZI(self.phase, self.angle, _dagger=not self._dagger)
+        return MZI(self.angle, self.phase, _dagger=not self._dagger)
 
 
 class Functor(monoidal.Functor):
@@ -591,12 +588,12 @@ def ansatz(width, depth, x):
     return chip
 
 
-beam_splitter = BeamSplitter(1j * 2 ** -0.5, 2 ** -0.5)
+beam_splitter = BeamSplitter(0.5)
 
 
 def to_matrix(diagram):
     return monoidal.Functor(
-        ob=lambda x: x, ar=lambda x: x.array,
+        ob=lambda x: x, ar=lambda x: x.matrix,
         ob_factory=PRO, ar_factory=Matrix)(diagram)
 
 
