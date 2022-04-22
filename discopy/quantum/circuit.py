@@ -724,9 +724,9 @@ class Circuit(tensor.Diagram):
 
         def spider_ar(spider):
             if len(spider.dom) == 2:
-                new_spider =  CX >> Id(qubit) @ Bra(0)
+                new_spider = CX >> Id(qubit) @ Bra(0)
             elif len(spider.cod) == 2:
-                new_spider =  Id(qubit) @ Ket(0) >> CX
+                new_spider = Id(qubit) @ Ket(0) >> CX
 
             if len(spider.dom) == 0:
                 new_spider = Ket(0) >> H >> new_spider
