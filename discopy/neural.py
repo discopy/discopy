@@ -34,10 +34,10 @@ class Network(monoidal.Box):
         dom = len(self.dom) + len(other.dom)
         cod = len(self.cod) + len(other.cod)
         inputs = keras.Input(shape=(dom,))
-        model1 = keras.layers.Lambda(lambda x: x[:len(self.dom)])(inputs)
-        model2 = keras.layers.Lambda(lambda x: x[len(self.dom):])(inputs)
-        print(model1)
-        print(model2)
+        model1 = keras.layers.Lambda(
+            lambda x: x[:, :len(self.dom)],)(inputs)
+        model2 = keras.layers.Lambda(
+            lambda x: x[:, len(self.dom):],)(inputs)
         for layer in self.model.layers[1:]:
             model1 = layer(model1)
         for layer in other.model.layers[1:]:
