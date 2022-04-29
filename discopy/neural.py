@@ -24,10 +24,9 @@ class Network(monoidal.Box):
 
     def then(self, other):
         inputs = keras.Input(shape=(len(self.dom),))
-        model = inputs
-        for layer in self.model.layers[1:] + other.model.layers[1:]:
-            model = layer(model)
-        composition = keras.Model(inputs=inputs, outputs=model)
+        output = self.model(inputs)
+        output = other.model(output)
+        composition = keras.Model(inputs=inputs, outputs=output)
         return Network(len(self.dom), len(other.cod), composition)
 
     def tensor(self, other):
@@ -38,10 +37,8 @@ class Network(monoidal.Box):
             lambda x: x[:, :len(self.dom)],)(inputs)
         model2 = keras.layers.Lambda(
             lambda x: x[:, len(self.dom):],)(inputs)
-        for layer in self.model.layers[1:]:
-            model1 = layer(model1)
-        for layer in other.model.layers[1:]:
-            model2 = layer(model2)
+        model1 = self.model(model1)
+        model2 = other.model(model2)
         outputs = keras.layers.Concatenate()([model1, model2])
         model = keras.Model(inputs=inputs, outputs=outputs)
         return Network(dom, cod, model)
