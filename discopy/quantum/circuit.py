@@ -715,8 +715,9 @@ class Circuit(tensor.Diagram):
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
         from discopy.quantum.gates import CX, H, Bra, Ket
-        from discopy.rigid import Spider
-        FOO = Ty("foo")
+        from discopy.rigid import Spider, Ty as RTy
+        from discopy.monoidal import Functor as MFunctor
+        PRO = RTy("pro")
 
         if len(dim) == 0 or (n_legs_in == 0 and n_legs_out == 0):
             return Id()
@@ -734,8 +735,8 @@ class Circuit(tensor.Diagram):
 
             return new_spider
 
-        diag = Spider(n_legs_in, n_legs_out, FOO).decompose()
-        f = Functor(ob={FOO: qubit}, ar=spider_ar)
+        diag = Spider(n_legs_in, n_legs_out, PRO).decompose()
+        f = MFunctor(ob={PRO: qubit}, ar=spider_ar)
         circ = f(diag)
 
         i, j, k = n_legs_in, n_legs_out, len(dim)
