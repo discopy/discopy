@@ -589,10 +589,12 @@ class Spider(Box):
             return Spider._decompose_spiders(n_legs_out, n_legs_in,
                                              typ).dagger()
 
-        if n_legs_in == 0:
+        if n_legs_in == 1 and n_legs_out == 0:
+            return Spider(1, 0, typ)
+        if n_legs_in == 1 and n_legs_out == 1:
             return Id(typ)
 
-        if n_legs_out > 1:
+        if n_legs_out != 1:
             return (Spider._decompose_spiders(n_legs_in, 1, typ)
                     >> Spider._decompose_spiders(n_legs_out, 1,
                                                  typ).dagger())
