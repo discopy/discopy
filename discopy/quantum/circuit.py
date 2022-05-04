@@ -714,38 +714,33 @@ class Circuit(tensor.Diagram):
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
-        from discopy.quantum.gates import CX, H, Bra, Ket
-        from discopy.rigid import Spider, Ty as RTy
-        from discopy.monoidal import Functor as MFunctor
-        PRO = RTy("pro")
+        from discopy.quantum.gates import CX, H, Bra, sqrt
+        t = rigid.Ty('PRO')
 
         if len(dim) == 0 or (n_legs_in == 0 and n_legs_out == 0):
             return Id()
 
+        def decomp_ar(spider):
+            return spider.decompose()
+
         def spider_ar(spider):
-            if len(spider.dom) == 2:
-                new_spider = CX >> Id(qubit) @ Bra(0)
-            elif len(spider.cod) == 2:
-                new_spider = Id(qubit) @ Ket(0) >> CX
+            dom, cod = len(spider.dom), len(spider.cod)
+            if dom < cod:
+                return spider_ar(spider.dagger()).dagger()
+            circ = Id(1)
+            if dom == 2:
+                circ = CX >> Id(qubit) @ Bra(0)
+            if cod == 0:
+                circ >>= H >> Bra(0) @ sqrt(2)
 
-            if len(spider.dom) == 0:
-                new_spider = Ket(0) >> H >> new_spider
-            elif len(spider.cod) == 0:
-                new_spider = new_spider >> H >> Bra(0)
+            return circ
 
-            return new_spider
-
-        diag = Spider(n_legs_in, n_legs_out, PRO).decompose()
-        f = MFunctor(ob={PRO: qubit}, ar=spider_ar)
-        circ = f(diag)
-
-        i, j, k = n_legs_in, n_legs_out, len(dim)
-        permutation = Circuit.permutation
-        p1 = permutation([i * (x % k) + (x // k) for x in range(i * k)])
-        p2 = permutation([k * (x % j) + (x // j) for x in range(j * k)])
-
-        ds = p1 >> Circuit.tensor(*[circ] * len(dim)) >> p2
-        return ds
+        diag = Diagram.spiders(n_legs_in, n_legs_out, t ** len(dim))
+        decomp = monoidal.Functor(ob={t: t}, ar=decomp_ar)
+        to_circ = monoidal.Functor(ob={t: qubit}, ar=spider_ar,
+                                   ar_factory=Circuit)
+        circ = to_circ(decomp(diag))
+        return circ
 
     def _apply_gate(self, gate, position):
         """ Apply gate at position """
