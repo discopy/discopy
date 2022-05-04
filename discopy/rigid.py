@@ -590,6 +590,11 @@ class Spider(Box):
                                              typ).dagger()
 
         if n_legs_in == 0:
+            return Spider(0, 0, typ)
+
+        if n_legs_in == 1 and n_legs_out == 0:
+            return Spider(1, 0, typ)
+        if n_legs_in == 1 and n_legs_out == 0:
             return Id(typ)
 
         if n_legs_out > 1:
