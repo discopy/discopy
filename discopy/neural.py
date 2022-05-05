@@ -20,14 +20,14 @@ class Network(monoidal.Box):
 
     def __init__(self, dom, cod, model):
         self.model = model
-        super().__init__("Network", PRO(dom), PRO(cod))
+        super().__init__("Network", dom, cod)
 
     def then(self, other):
         inputs = keras.Input(shape=(len(self.dom),))
         output = self.model(inputs)
         output = other.model(output)
         composition = keras.Model(inputs=inputs, outputs=output)
-        return Network(len(self.dom), len(other.cod), composition)
+        return Network(self.dom, other.cod, composition)
 
     def tensor(self, other):
         dom = len(self.dom) + len(other.dom)
@@ -41,11 +41,11 @@ class Network(monoidal.Box):
         model2 = other.model(model2)
         outputs = keras.layers.Concatenate()([model1, model2])
         model = keras.Model(inputs=inputs, outputs=outputs)
-        return Network(dom, cod, model)
+        return Network(PRO(dom), PRO(cod), model)
 
     @staticmethod
     def id(dim):
-        inputs = keras.Input(shape=(dim,))
+        inputs = keras.Input(shape=(len(dim),))
         return Network(dim, dim, keras.Model(inputs=inputs, outputs=inputs))
 
     @staticmethod
@@ -56,4 +56,4 @@ class Network(monoidal.Box):
             model = keras.layers.Dense(dim, activation=activation)(model)
         outputs = keras.layers.Dense(cod, activation=activation)(model)
         model = keras.Model(inputs=inputs, outputs=outputs)
-        return Network(dom, cod, model)
+        return Network(PRO(dom), PRO(cod), model)
