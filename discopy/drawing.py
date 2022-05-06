@@ -439,7 +439,7 @@ class TikzBackend(Backend):
 class MatBackend(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None):
-        self.axis = axis or plt.subplots(figsize=figsize)[1]
+        self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
         super().__init__()
 
     def draw_text(self, text, i, j, **params):
