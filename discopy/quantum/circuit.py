@@ -717,7 +717,7 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.gates import CX, H, Bra, sqrt
         t = rigid.Ty('PRO')
 
-        if len(dim) == 0 or (n_legs_in == 0 and n_legs_out == 0):
+        if len(dim) == 0:
             return Id()
 
         def decomp_ar(spider):

@@ -580,7 +580,7 @@ class Spider(Box):
         return type(self)(len(self.cod), len(self.dom), self.typ)
 
     def decompose(self):
-        return Spider._decompose_spiders(len(self.dom), len(self.cod),
+        return self._decompose_spiders(len(self.dom), len(self.cod),
                                          self.typ)
 
     @classmethod
