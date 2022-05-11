@@ -727,7 +727,7 @@ class Circuit(tensor.Diagram):
             dom, cod = len(spider.dom), len(spider.cod)
             if dom < cod:
                 return spider_ar(spider.dagger()).dagger()
-            circ = Id(1)
+            circ = Id(qubit)
             if dom == 2:
                 circ = CX >> Id(qubit) @ Bra(0)
             if cod == 0:
@@ -738,7 +738,7 @@ class Circuit(tensor.Diagram):
         diag = Diagram.spiders(n_legs_in, n_legs_out, t ** len(dim))
         decomp = monoidal.Functor(ob={t: t}, ar=decomp_ar)
         to_circ = monoidal.Functor(ob={t: qubit}, ar=spider_ar,
-                                   ar_factory=Circuit)
+                                   ar_factory=Circuit, ob_factory=Ty)
         circ = to_circ(decomp(diag))
         return circ
 
