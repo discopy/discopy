@@ -581,13 +581,13 @@ class Spider(Box):
 
     def decompose(self):
         return self._decompose_spiders(len(self.dom), len(self.cod),
-                                         self.typ)
+                                       self.typ)
 
     @classmethod
     def _decompose_spiders(cls, n_legs_in, n_legs_out, typ):
         if n_legs_out > n_legs_in:
             return cls._decompose_spiders(n_legs_out, n_legs_in,
-                                             typ).dagger()
+                                          typ).dagger()
 
         if n_legs_in == 1 and n_legs_out == 0:
             return cls(1, 0, typ)

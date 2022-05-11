@@ -225,8 +225,9 @@ def test_spider_decomposition():
     assert Spider(2, 1, n).decompose() == Spider(2, 1, n)
 
     # 5 is the smallest number including both an even and odd decomposition
-    assert Spider(5, 1, n).decompose() == (Spider(2, 1, n) @ Spider(2, 1, n) @ Id(n) >>
-                                           Spider(2, 1, n) @ Id(n) >> Spider(2, 1, n))
+    assert Spider(5, 1, n).decompose() == (Spider(2, 1, n) @ Spider(2, 1, n)
+                                           @ Id(n) >> Spider(2, 1, n) @ Id(n)
+                                           >> Spider(2, 1, n))
 
 
 def test_cup_chaining():

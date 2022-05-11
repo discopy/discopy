@@ -55,9 +55,12 @@ def test_Circuit_cups_and_caps():
 
 def test_Circuit_spiders():
     assert Circuit.spiders(123, 456, qubit ** 0) == Id()
-    assert Circuit.spiders(0, 0, qubit) == sqrt(2) >> Ket(0) >> H >> H >> Bra(0) >> sqrt(2)
+    assert Circuit.spiders(0, 0, qubit) == (sqrt(2) >> Ket(0)
+                                            >> H >> H
+                                            >> Bra(0) >> sqrt(2))
     assert Circuit.spiders(1, 1, qubit) == Id(qubit)
-    assert Circuit.spiders(0, 1, qubit ** 2) == (sqrt(2) >> Ket(0) >> H) @ (sqrt(2) >> Ket(0) >> H)
+    assert Circuit.spiders(0, 1, qubit ** 2) == ((sqrt(2) >> Ket(0) >> H)
+                                                 @ (sqrt(2) >> Ket(0) >> H))
 
     mul2 = Circuit(dom=qubit @ qubit @ qubit @ qubit,
                    cod=qubit @ qubit,
@@ -78,7 +81,8 @@ def test_Circuit_spiders():
 
     combos = [(2, 3), (5, 4), (0, 1)]
     for n_legs_in, n_legs_out in combos:
-        flat_tensor = np.abs(Circuit.spiders(n_legs_in, n_legs_out, qubit).eval().array.flatten())
+        flat_tensor = np.abs(Circuit.spiders(n_legs_in, n_legs_out, qubit)
+                             .eval().array.flatten())
         assert flat_tensor[0] == flat_tensor[-1] == 1
 
 
