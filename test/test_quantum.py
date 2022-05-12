@@ -55,22 +55,35 @@ def test_Circuit_cups_and_caps():
 
 def test_Circuit_spiders():
     assert Circuit.spiders(123, 456, qubit ** 0) == Id()
-    assert Circuit.spiders(0, 0, qubit) == Ket(0) >> H >> H >> Bra(0)
+    assert Circuit.spiders(0, 0, qubit) == (sqrt(2) >> Ket(0)
+                                            >> H >> H
+                                            >> Bra(0) >> sqrt(2))
     assert Circuit.spiders(1, 1, qubit) == Id(qubit)
-    assert Circuit.spiders(0, 1, qubit ** 2) == (Ket(0) >> H) @ (Ket(0) >> H)
+    assert Circuit.spiders(0, 1, qubit ** 2) == ((sqrt(2) >> Ket(0) >> H)
+                                                 @ (sqrt(2) >> Ket(0) >> H))
 
-    mul2 = Circuit(
-        dom=qubit @ qubit @ qubit @ qubit, cod=qubit @ qubit,
-        boxes=[SWAP, CX, Bra(0), CX, Bra(0)], offsets=[1, 0, 1, 1, 2])
+    mul2 = Circuit(dom=qubit @ qubit @ qubit @ qubit,
+                   cod=qubit @ qubit,
+                   boxes=[SWAP, CX, Bra(0), CX, Bra(0)],
+                   offsets=[1, 0, 1, 1, 2])
     assert Circuit.spiders(2, 1, qubit ** 2) == mul2
 
-    ghz2 = Circuit(
-        dom=Ty(), cod=qubit @ qubit @ qubit @ qubit @ qubit @ qubit,
-        boxes=[
-            Ket(0), H, Ket(0), CX, Ket(0), CX, Ket(0), H, Ket(0), CX, Ket(0),
-            CX, SWAP, SWAP, SWAP],
-        offsets=[0, 0, 1, 0, 1, 0, 3, 3, 4, 3, 4, 3, 2, 1, 3])
+    ghz2 = Circuit(dom=Ty(),
+                   cod=qubit @ qubit @ qubit @ qubit @ qubit @ qubit,
+                   boxes=[sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
+                          sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
+                          SWAP, SWAP, SWAP],
+                   offsets=[0, 0, 0, 1, 0, 1, 0, 3, 3, 3, 4, 3, 4,
+                            3, 2, 1, 3])
     assert Circuit.spiders(0, 3, qubit ** 2) == ghz2
+
+    assert np.abs(Circuit.spiders(0, 0, qubit).eval().array) == 2
+
+    combos = [(2, 3), (5, 4), (0, 1)]
+    for n_legs_in, n_legs_out in combos:
+        flat_tensor = np.abs(Circuit.spiders(n_legs_in, n_legs_out, qubit)
+                             .eval().array.flatten())
+        assert flat_tensor[0] == flat_tensor[-1] == 1
 
 
 def test_Circuit_to_tk():

@@ -714,31 +714,33 @@ class Circuit(tensor.Diagram):
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, dim):
+        from discopy.quantum.gates import CX, H, Bra, sqrt
+        t = rigid.Ty('PRO')
+
         if len(dim) == 0:
             return Id()
 
-        from discopy.quantum.gates import Bra, CX, H, Ket
-        if n_legs_in == 0:
-            d1 = Ket(0) >> H
-        else:
-            d1 = Id(qubit)
-            for _ in range(n_legs_in - 1):
-                d1 = d1 @ Id(qubit) >> CX >> Id(qubit) @ Bra(0)
-        if n_legs_out == 0:
-            d2 = H >> Bra(0)
-        else:
-            d2 = Id(qubit)
-            for _ in range(n_legs_out - 1):
-                d2 = Id(qubit) @ Ket(0) >> CX >> d2 @ Id(qubit)
-        d = d1 >> d2
+        def decomp_ar(spider):
+            return spider.decompose()
 
-        i, j, k = n_legs_in, n_legs_out, len(dim)
-        permutation = Circuit.permutation
-        p1 = permutation([i * (x % k) + (x // k) for x in range(i * k)])
-        p2 = permutation([k * (x % j) + (x // j) for x in range(j * k)])
+        def spider_ar(spider):
+            dom, cod = len(spider.dom), len(spider.cod)
+            if dom < cod:
+                return spider_ar(spider.dagger()).dagger()
+            circ = Id(qubit)
+            if dom == 2:
+                circ = CX >> Id(qubit) @ Bra(0)
+            if cod == 0:
+                circ >>= H >> Bra(0) @ sqrt(2)
 
-        ds = p1 >> Circuit.tensor(*[d] * len(dim)) >> p2
-        return ds
+            return circ
+
+        diag = Diagram.spiders(n_legs_in, n_legs_out, t ** len(dim))
+        decomp = monoidal.Functor(ob={t: t}, ar=decomp_ar)
+        to_circ = monoidal.Functor(ob={t: qubit}, ar=spider_ar,
+                                   ar_factory=Circuit, ob_factory=Ty)
+        circ = to_circ(decomp(diag))
+        return circ
 
     def _apply_gate(self, gate, position):
         """ Apply gate at position """

@@ -579,6 +579,36 @@ class Spider(Box):
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), self.typ)
 
+    def decompose(self):
+        return self._decompose_spiders(len(self.dom), len(self.cod),
+                                       self.typ)
+
+    @classmethod
+    def _decompose_spiders(cls, n_legs_in, n_legs_out, typ):
+        if n_legs_out > n_legs_in:
+            return cls._decompose_spiders(n_legs_out, n_legs_in,
+                                          typ).dagger()
+
+        if n_legs_in == 1 and n_legs_out == 0:
+            return cls(1, 0, typ)
+        if n_legs_in == 1 and n_legs_out == 1:
+            return Id(typ)
+
+        if n_legs_out != 1:
+            return (cls._decompose_spiders(n_legs_in, 1, typ)
+                    >> cls._decompose_spiders(1, n_legs_out, typ))
+
+        if n_legs_in == 2:
+            return cls(2, 1, typ)
+
+        if n_legs_in % 2 == 1:
+            return (cls._decompose_spiders(n_legs_in - 1, 1, typ)
+                    @ Id(typ) >> cls(2, 1, typ))
+
+        new_in = n_legs_in // 2
+        half_spider = cls._decompose_spiders(new_in, 1, typ)
+        return half_spider @ half_spider >> cls(2, 1, typ)
+
     @property
     def l(self):
         return type(self)(len(self.dom), len(self.cod), self.typ.l)
