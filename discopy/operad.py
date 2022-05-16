@@ -168,3 +168,25 @@ def from_nltk(tree, lexicalised=True):
             return Box(tree.label(), Ob(tree.label()),
                        cod)(*[from_nltk(branch, lexicalised=False)
                               for branch in tree])
+
+
+def from_spacy(doc):
+    """
+    Interface with SpaCy dependency parser
+    """
+    root = find_root(doc)
+    return doc2tree(root)
+
+
+def find_root(doc):
+    for word in doc:
+        if word.dep_ == 'ROOT':
+            return word
+
+
+def doc2tree(root):
+    if not root.children:
+        return Box(root.text, Ob(root.dep_), [])
+    box = Box(root.text, Ob(root.dep_),
+              [Ob(child.dep_) for child in root.children])
+    return box(*[doc2tree(child) for child in root.children])
