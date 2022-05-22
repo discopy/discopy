@@ -139,7 +139,7 @@ node2box = lambda node: monoidal.Box(node.name, monoidal.Ty(node.dom),
 tree2diagram = Algebra(ob2ty, node2box, cod=monoidal.Diagram)
 
 
-def from_nltk(tree, lexicalised=True):
+def from_nltk(tree, lexicalised=True, word_types=False):
     """
     Interface with NLTK
 
@@ -148,32 +148,36 @@ def from_nltk(tree, lexicalised=True):
     S(I, VP(saw, him))
     >>> print(from_nltk(t, lexicalised=False))
     S(NP(I), VP(V(saw), NP(him)))
+    >>> from_nltk(t, word_types=True).branches[0]
+    Box('I', NP, [Ob('I')])
     """
     if lexicalised:
         branches, cod = [], []
         for branch in tree:
             if isinstance(branch, str):
-                return Box(branch, Ob(tree.label()), [])
+                return Box(branch, Ob(tree.label()), [Ob(branch)])\
+                    if word_types else Box(branch, Ob(tree.label()), [])
             else:
-                branches += [from_nltk(branch)]
+                branches += [from_nltk(branch, word_types=word_types)]
                 cod += [Ob(branch.label())]
         root = Box(tree.label(), Ob(tree.label()), cod)
         return root(*branches)
     else:
         if isinstance(tree, str):
-            return Box(tree, Ob(tree), [])
+            return Box(tree, Ob(tree), [Ob(tree)]) \
+                if word_types else Box(tree, Ob(tree), [])
         else:
             cod = [Ob(branch) if isinstance(branch, str)
                    else Ob(branch.label()) for branch in tree]
-            return Box(tree.label(), Ob(tree.label()),
-                       cod)(*[from_nltk(branch, lexicalised=False)
-                              for branch in tree])
+            return Box(tree.label(), Ob(tree.label()), cod)(
+                *[from_nltk(branch, lexicalised=False, word_types=word_types)
+                  for branch in tree])
 
 
-def from_spacy(doc, lexicalised=False):
+def from_spacy(doc, word_types=False):
     """ Interface with SpaCy dependency parser """
     root = find_root(doc)
-    return doc2tree(root, lexicalised=lexicalised)
+    return doc2tree(root, word_types=word_types)
 
 
 def find_root(doc):
@@ -182,12 +186,12 @@ def find_root(doc):
             return word
 
 
-def doc2tree(root, lexicalised=False):
+def doc2tree(root, word_types=False):
     children = list(root.children)
     if not children:
-        return Box(root.text, Box(root.dep_), [Box(root.text)]) \
-            if lexicalised else Box(root.text, Box(root.dep_), [])
-    box = Box(root.text, Box(root.dep_),
-              [Box(child.dep_) for child in children])
-    return box(*[doc2tree(child, lexicalised=lexicalised)
+        return Box(root.text, Ob(root.dep_), [Ob(root.text)]) \
+            if word_types else Box(root.text, Ob(root.dep_), [])
+    box = Box(root.text, Ob(root.dep_),
+              [Ob(child.dep_) for child in children])
+    return box(*[doc2tree(child, word_types=word_types)
                  for child in children])
