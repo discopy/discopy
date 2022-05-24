@@ -116,8 +116,9 @@ class Id(Box):
 
 
 class Algebra:
-    def __init__(self, ob, ar, cod=Tree):
-        self.cod = cod
+    """ Algebras of free operads. """
+    def __init__(self, ob, ar, cod=Tree, contravariant=False):
+        self.cod, self.contravariant = cod, contravariant
         self.ob = Quiver(ob) if callable(ob) else ob
         self.ar = Quiver(ar) if callable(ar) else ar
 
@@ -128,6 +129,9 @@ class Algebra:
             return self.ar[tree]
         box = self.ar[tree.root]
         if isinstance(box, monoidal.Diagram):
+            if self.contravariant:
+                return box << monoidal.Diagram.tensor(
+                    *[self(branch) for branch in tree.branches])
             return box >> monoidal.Diagram.tensor(
                 *[self(branch) for branch in tree.branches])
         return box(*[self(branch) for branch in tree.branches])
@@ -136,7 +140,27 @@ class Algebra:
 ob2ty = lambda ob: monoidal.Ty(ob)
 node2box = lambda node: monoidal.Box(node.name, monoidal.Ty(node.dom),
                                      monoidal.Ty(*node.cod))
-tree2diagram = Algebra(ob2ty, node2box, cod=monoidal.Diagram)
+t2d = Algebra(ob2ty, node2box, cod=monoidal.Diagram)
+node2boxc = lambda node: monoidal.Box(node.name, monoidal.Ty(*node.cod),
+                                      monoidal.Ty(node.dom))
+t2dc = Algebra(ob2ty, node2boxc, cod=monoidal.Diagram, contravariant=True)
+
+
+def tree2diagram(tree, contravariant=False):
+    """
+    Interface between operad.Tree and monoidal.Diagram.
+    
+    >>> import spacy
+    >>> nlp = spacy.load("en_core_web_sm")
+    >>> doc = nlp("Fifty four was my number")
+    >>> tree2diagram(from_spacy(doc)).cod
+    Ty()
+    >>> tree2diagram(from_spacy(doc), contravariant=True).cod
+    Ty('ROOT')
+    """
+    if contravariant:
+        return t2dc(tree)
+    return t2d(tree)
 
 
 def from_nltk(tree, lexicalised=True, word_types=False):
