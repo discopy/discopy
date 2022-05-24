@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
 from unittest.mock import Mock
-from functools import reduce, partial
-import itertools
+from functools import partial
 from pytest import raises
 import numpy as np
 from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
+from discopy.quantum import pennylane
+from sympy import symbols
 
 
 def test_index2bitstring():
@@ -108,6 +109,88 @@ def test_Circuit_to_tk():
     assert repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())\
         == "tk.Circuit(1, 3).Measure(0, 1)"\
            ".post_select({1: 0}).post_process(Swap(bit, bit))"
+
+
+def test_Circuit_to_pennylane(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+    p_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭C──H─┤0>\n"
+         "1: ──H─╭C─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+    assert np.allclose(p_circ().numpy(), np.array([0.5 + 0j, 0 + 0j]))
+
+    var_circ = Circuit(
+        dom=qubit ** 0, cod=qubit, boxes=[
+            Ket(0), Rx(0.552), Rz(1), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(2), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(3), CX, H, sqrt(2), Bra(0, 0)],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+
+    p_var_circ = var_circ.to_pennylane()
+    p_var_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ('0: ──RX(2.80)──RZ(1.61)──RX(6.28)─╭C──H─┤0>\n'
+         '1: ──H────────╭C──────────────────╰X────┤0>\n'
+         '2: ──H────────╰RZ(1.13)─╭C──────────────┤0>\n'
+         '3: ──H──────────────────╰RZ(0.00)─╭C──H─┤0>\n'
+         '4: ──RX(3.47)──RZ(6.28)──RX(5.76)─╰X────┤  State\n')
+
+    assert np.allclose(p_var_circ().numpy(),
+                       np.array([0.18387039 + 0.08016861j,
+                                 0.18387039 + 0.08016861j]))
+
+
+def test_PennylaneCircuit_draw(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+    p_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭C──H─┤0>\n"
+         "1: ──H─╭C─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+
+def test_pennylane_symbol_type_error():
+    with raises(TypeError):
+        x = symbols('x')
+        circuit = Rx(x)
+        circuit.to_pennylane()
+
+
+def test_pennylane_ops():
+    ops = [X, Y, Z, S, T, H, CX, CZ]
+
+    for op in ops:
+        disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
+        plane = op.to_pennylane()().numpy()
+
+        assert np.all(np.isclose(disco, plane))
+
+
+def test_pennylane_parameterized_ops():
+    ops = [Rx, Ry, Rz, CRx, CRz]
+
+    for op in ops:
+        p_op = op(0.5)
+        disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
+        plane = p_op.to_pennylane()().numpy()
+
+        assert np.all(np.isclose(disco, plane, atol=10e-5))
 
 
 def test_Sum_from_tk():
