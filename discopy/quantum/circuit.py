@@ -552,6 +552,19 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.tk import to_tk
         return to_tk(self)
 
+    def to_pennylane(self):
+        """
+        Export DisCoPy circuit to Pennylane QNode.
+
+        Returns
+        -------
+        pennylane_circuit : discopy.quantum.pennylane.PennylaneCircuit
+        """
+
+        # pylint: disable=import-outside-toplevel
+        from discopy.quantum.pennylane import to_pennylane
+        return to_pennylane(self)
+
     @staticmethod
     def from_tk(*tk_circuits):
         """

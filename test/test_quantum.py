@@ -1,14 +1,16 @@
 # -*- coding: utf-8 -*-
 
 from unittest.mock import Mock
-from functools import reduce, partial
-import itertools
+from functools import partial
 from pytest import raises
 import numpy as np
 from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
+from discopy.quantum import pennylane
+import torch
+import sympy
 
 
 def test_index2bitstring():
@@ -110,6 +112,87 @@ def test_Circuit_to_tk():
            ".post_select({1: 0}).post_process(Swap(bit, bit))"
 
 
+def test_Circuit_to_pennylane(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+    p_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭C──H─┤0>\n"
+         "1: ──H─╭C─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+    assert np.allclose(p_circ.eval().numpy(), snake.eval().array)
+
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+    weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
+
+    var_circ = Circuit(
+        dom=qubit ** 0, cod=qubit, boxes=[
+            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+
+    p_var_circ = var_circ.to_pennylane()
+    p_var_circ.draw(symbols, weights)
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭C──H─┤0>\n"
+         "1: ──H────────╭C───────────────────╰X────┤0>\n"
+         "2: ──H────────╰RZ(1.13)─╭C───────────────┤  State\n"
+         "3: ──H──────────────────╰RZ(12.57)─╭C──H─┤0>\n"
+         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤0>\n")
+
+    var_f = var_circ.lambdify(*symbols)
+    conc_circ = var_f(*[a.item() for a in weights])
+
+    assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
+                       conc_circ.eval().array)
+
+
+def test_PennylaneCircuit_draw(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+    p_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭C──H─┤0>\n"
+         "1: ──H─╭C─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+
+def test_pennylane_ops():
+    ops = [X, Y, Z, S, T, H, CX, CZ]
+
+    for op in ops:
+        disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
+        plane = op.to_pennylane().eval().numpy()
+
+        assert np.allclose(disco, plane)
+
+
+def test_pennylane_parameterized_ops():
+    ops = [Rx, Ry, Rz, CRx, CRz]
+
+    for op in ops:
+        p_op = op(0.5)
+        disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
+        plane = p_op.to_pennylane().eval().numpy()
+
+        assert np.allclose(disco, plane, atol=10e-5)
+
+
 def test_Sum_from_tk():
     assert Circuit.from_tk(*(X + X).to_tk()) == (X + X).init_and_discard()
     assert Circuit.from_tk() == Sum([], qubit ** 0, qubit ** 0)
@@ -140,6 +223,8 @@ def test_Circuit_from_tk():
 
     m = Measure(1, destructive=False, override_bits=True)
     assert back_n_forth(m) == m.init_and_discard()
+    assert back_n_forth(CRx(0.5)) ==\
+        Ket(0) @ Ket(0) >> CRx(0.5) >> Discard() @ Discard()
     assert back_n_forth(CRz(0.5)) ==\
         Ket(0) @ Ket(0) >> CRz(0.5) >> Discard() @ Discard()
     assert Id(qubit @ bit).init_and_discard()\
@@ -152,6 +237,11 @@ def test_ClassicalGate_to_tk():
         == post[::-1] >> Swap(bit, bit)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
     assert Circuit.from_tk(circuit.to_tk())[-1] == post
+
+
+def test_tk_dagger():
+    assert S.dagger().to_tk() == tk.Circuit(1).Sdg(0)
+    assert T.dagger().to_tk() == tk.Circuit(1).Tdg(0)
 
 
 def test_Circuit_get_counts():
