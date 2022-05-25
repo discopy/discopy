@@ -216,6 +216,20 @@ def test_spider_factory():
                     assert all(map(ob.__eq__, s.cod[k::len(t)]))
 
 
+def test_spider_decomposition():
+    n = Ty('n')
+
+    assert Spider(0, 0, n).decompose() == Spider(0, 1, n) >> Spider(1, 0, n)
+    assert Spider(1, 0, n).decompose() == Spider(1, 0, n)
+    assert Spider(1, 1, n).decompose() == Id(n)
+    assert Spider(2, 1, n).decompose() == Spider(2, 1, n)
+
+    # 5 is the smallest number including both an even and odd decomposition
+    assert Spider(5, 1, n).decompose() == (Spider(2, 1, n) @ Spider(2, 1, n)
+                                           @ Id(n) >> Spider(2, 1, n) @ Id(n)
+                                           >> Spider(2, 1, n))
+
+
 def test_cup_chaining():
     n, s, p = map(Ty, "nsp")
     A = Box('A', Ty(), n @ p)

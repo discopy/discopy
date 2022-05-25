@@ -73,7 +73,7 @@ class Ob:
         >>> x.name = 'y'
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._name
 
@@ -163,7 +163,7 @@ class Arrow:
         >>> arrow.dom = Ob('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._dom
 
@@ -177,7 +177,7 @@ class Arrow:
         >>> arrow.cod = Ob('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._cod
 
@@ -528,7 +528,7 @@ class Box(Arrow):
         >>> f.name = 'g'  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._name
 
@@ -542,7 +542,7 @@ class Box(Arrow):
         >>> f.data = [42, {0: 2}]  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         >>> f.data[1][0] = 2
         >>> assert f.data == [42, {0: 2}]
         """
