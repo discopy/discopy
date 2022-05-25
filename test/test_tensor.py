@@ -7,11 +7,14 @@ from discopy.tensor import *
 def test_backend():
     import jax.numpy
     import torch
+    import tensorflow
     assert Tensor.np.module == np
     with Tensor.backend('jax'):
         assert Tensor.np.module == jax.numpy
         with Tensor.backend('pytorch'):
             assert Tensor.np.module == torch
+            with Tensor.backend('tensorflow'):
+                assert Tensor.np.module == tensorflow
         assert Tensor.np.module == jax.numpy
     assert Tensor.np.module == np
 
