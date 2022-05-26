@@ -89,7 +89,8 @@ def extract_ops_from_tk(tk_circ: Circuit):
                                                       for p in params]))
             except TypeError:
                 raise TypeError(("Parameters must be floats or ints (symbol "
-                                 "substitution must occur prior to conversion"))
+                                 "substitution must occur prior to "
+                                 "conversion"))
             wires_list.append(wires)
 
     return op_list, params_list, wires_list
