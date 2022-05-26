@@ -72,7 +72,7 @@ def tk_op_to_pennylane(tk_op):
     return OP_MAP[tk_op.op.type], params, wires
 
 
-def get_valid_states(post_sel: dict[int, int], n_wires: int):
+def get_valid_states(post_sel: dict, n_wires: int):
     keep_indices = []
     fixed = ['0' if post_sel.get(i, 0) == 0 else '1' for i in range(n_wires)]
     open_wires = set(range(n_wires)) - post_sel.keys()
@@ -128,7 +128,7 @@ def to_pennylane(circuit: Circuit):
 
 class PennylaneCircuit:
     def __init__(self, circuit: qml.QNode,
-                 post_selected_circuit: qml.QNode,
+                 post_selected_circuit,
                  params_list: list):
         self.circuit = circuit
         self.post_selected_circuit = post_selected_circuit
