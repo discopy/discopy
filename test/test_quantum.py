@@ -124,7 +124,7 @@ def test_Circuit_to_pennylane():
          "1: ──H─╭C─╰X────┤  State\n"
          "2: ────╰X───────┤  State")
 
-    assert np.allclose(p_circ({}).numpy(), np.array([0.5+0j, 0+0j]))
+    assert np.allclose(p_circ({}).numpy(), np.array([0.5 + 0j, 0 + 0j]))
 
     x, y, z = symbols('x y z')
     var_circ = Circuit(
@@ -149,14 +149,15 @@ def test_Circuit_to_pennylane():
         conc_params.append(conc_list)
 
     assert qml.draw(p_var_circ.circuit)(conc_params) == \
-    ('0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭C──H─┤  State\n'
-     '1: ──H────────╭C───────────────────╰X────┤  State\n'
-     '2: ──H────────╰RZ(1.13)─╭C───────────────┤  State\n'
-     '3: ──H──────────────────╰RZ(12.57)─╭C──H─┤  State\n'
-     '4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤  State')
+        ('0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭C──H─┤  State\n'
+         '1: ──H────────╭C───────────────────╰X────┤  State\n'
+         '2: ──H────────╰RZ(1.13)─╭C───────────────┤  State\n'
+         '3: ──H──────────────────╰RZ(12.57)─╭C──H─┤  State\n'
+         '4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤  State')
 
     assert np.allclose(p_var_circ(var_assignment).numpy(),
-                       np.array([0.18387039+0.08016861j, 0.18387039+0.08016861j]))
+                       np.array([0.18387039 + 0.08016861j,
+                                 0.18387039 + 0.08016861j]))
 
 
 def test_Sum_from_tk():
