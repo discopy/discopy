@@ -21,8 +21,8 @@ OP_MAP = {
     OpType.Sdg: lambda wires: qml.S(wires=wires).inv(),
     OpType.T: qml.T,
     OpType.Tdg: lambda wires: qml.T(wires=wires).inv(),
-    OpType.V: lambda wires: qml.RX(1 / 2, wires=wires),
-    OpType.Vdg: lambda wires: qml.RX(-1 / 2, wires=wires),
+    OpType.V: lambda wires: qml.RX(1 / 2 * np.pi, wires=wires),
+    OpType.Vdg: lambda wires: qml.RX(-1 / 2 * np.pi, wires=wires),
     OpType.SX: qml.SX,
     OpType.SXdg: lambda wires: qml.SX(wires=wires).inv(),
     OpType.H: qml.Hadamard,
@@ -38,9 +38,9 @@ OP_MAP = {
     OpType.CZ: qml.CZ,
     OpType.CH: lambda wires: qml.ctrl(qml.Hadamard(wires=wires[1]),
                                       control=wires[0]),
-    OpType.CV: lambda wires: qml.ctrl(qml.RX(1 / 2, wires=wires[1]),
+    OpType.CV: lambda wires: qml.ctrl(qml.RX(1 / 2 * np.pi, wires=wires[1]),
                                       control=wires[0]),
-    OpType.CVdg: lambda wires: qml.ctrl(qml.RX(-1 / 2, wires=wires[1]),
+    OpType.CVdg: lambda wires: qml.ctrl(qml.RX(-1 / 2 * np.pi, wires=wires[1]),
                                         control=wires[0]),
     OpType.CSX: lambda wires: qml.ctrl(qml.SX(wires=wires[1]),
                                        control=wires[0]),
@@ -85,35 +85,38 @@ def get_valid_states(post_sel: dict, n_wires: int):
     return keep_indices
 
 
-def char_name(i):
-    num_list = [int(j) for j in str(i)]
-    chars = [chr(97 + num) for num in num_list]
-
-    return "".join(chars)
-
-
-def to_pennylane(circuit: Circuit):
-    tk_circ = circuit.to_tk()
-
-    dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
+def extract_ops_from_tk(tk_circ: Circuit):
     op_list, params_list, wires_list = [], [], []
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
             op, params, wires = tk_op_to_pennylane(op)
             op_list.append(op)
-            params_list.append([np.pi * p for p in params])
+            try:
+                params_list.append(torch.FloatTensor([np.pi * p for p in params]))
+            except TypeError:
+                raise TypeError(("Parameters must be floats or ints (symbol substitution "
+                                "must occur prior to conversion"))
             wires_list.append(wires)
 
+    return op_list, params_list, wires_list
+
+
+def to_pennylane(circuit: Circuit):
+    tk_circ = circuit.to_tk()
+    op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk())
+
+    dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
+
     @qml.qnode(dev, interface="torch")
-    def circuit(circ_params: list):
-        for op, params, wires in zip(op_list, circ_params, wires_list):
+    def circuit():
+        for op, params, wires in zip(op_list, params_list, wires_list):
             op(*params, wires=wires)
 
         return qml.state()
 
-    def post_selected_circuit(circ_params: list):
-        probs = circuit(circ_params)
+    def post_selected_circuit():
+        probs = circuit()
 
         post_selection = tk_circ.post_selection
         open_wires = tk_circ.n_qubits - len(post_selection)
@@ -141,35 +144,5 @@ class PennylaneCircuit:
 
         return print(qml.draw(self.circuit)(flattened_random))
 
-    def __call__(self, discopy_param_dict):
-        concrete_params = []
-
-        for expr_list in self.params:
-            conc_list = []
-            for expr in expr_list:
-                if isinstance(expr, Expr):
-
-                    # This is digusting and likely unnecessary, but it
-                    # allows us to do the correct
-                    # substitution in expression with more than
-                    # one free symbol, while using torch
-                    # tensors (this may never actually come up).
-
-                    free_symbols = list(expr.free_symbols)
-                    nice_var_mapping = {k: Symbol(char_name(v)) for k, v in
-                                        zip(free_symbols,
-                                            range(len(free_symbols)))}
-                    subs = {nice_var_mapping[s].name: discopy_param_dict[s]
-                            for s in free_symbols}
-                    lambda_expr = lambdify([nice_var_mapping[s] for s in
-                                            free_symbols],
-                                           expr.xreplace(nice_var_mapping))
-                    conc = lambda_expr(**subs)
-
-                    conc_list.append(conc)
-                else:
-                    conc_list.append(torch.tensor(expr))
-
-            concrete_params.append(conc_list)
-
-        return self.post_selected_circuit(concrete_params)
+    def __call__(self):
+        return self.post_selected_circuit()
