@@ -106,13 +106,13 @@ def to_pennylane(circuit: Circuit):
             wires_list.append(wires)
 
     @qml.qnode(dev, interface="torch")
-    def circuit(circ_params: list[torch.FloatTensor]):
+    def circuit(circ_params: list):
         for op, params, wires in zip(op_list, circ_params, wires_list):
             op(*params, wires=wires)
 
         return qml.state()
 
-    def post_selected_circuit(circ_params: list[torch.FloatTensor]):
+    def post_selected_circuit(circ_params: list):
         probs = circuit(circ_params)
 
         post_selection = tk_circ.post_selection
