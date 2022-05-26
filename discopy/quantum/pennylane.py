@@ -4,7 +4,6 @@ import numpy as np
 import pennylane as qml
 from pytket import OpType
 import torch
-from sympy import lambdify, Expr, Symbol
 
 
 def TK1(a, b, c, wire):
@@ -93,10 +92,11 @@ def extract_ops_from_tk(tk_circ: Circuit):
             op, params, wires = tk_op_to_pennylane(op)
             op_list.append(op)
             try:
-                params_list.append(torch.FloatTensor([np.pi * p for p in params]))
+                params_list.append(torch.FloatTensor([np.pi * p
+                                                      for p in params]))
             except TypeError:
-                raise TypeError(("Parameters must be floats or ints (symbol substitution "
-                                "must occur prior to conversion"))
+                raise TypeError(("Parameters must be floats or ints (symbol "
+                                 "substitution must occur prior to conversion"))
             wires_list.append(wires)
 
     return op_list, params_list, wires_list
@@ -138,11 +138,7 @@ class PennylaneCircuit:
         self.params = params_list
 
     def draw(self):
-        param_len = sum([len(x) for x in self.params])
-        flattened_random = 2 * np.pi * torch.rand([param_len],
-                                                  requires_grad=False)
-
-        return print(qml.draw(self.circuit)(flattened_random))
+        return print(qml.draw(self.circuit)())
 
     def __call__(self):
         return self.post_selected_circuit()
