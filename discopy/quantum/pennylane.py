@@ -6,12 +6,6 @@ from pytket import OpType
 import torch
 
 
-def TK1(a, b, c, wire):
-    qml.RZ(a, wires=wire)
-    qml.RX(b, wires=wire)
-    qml.RZ(c, wires=wire)
-
-
 OP_MAP = {
     OpType.X: qml.PauliX,
     OpType.Y: qml.PauliY,
@@ -31,7 +25,6 @@ OP_MAP = {
     OpType.U1: qml.U1,
     OpType.U2: qml.U2,
     OpType.U3: qml.U3,
-    OpType.TK1: TK1,
     OpType.CX: qml.CNOT,
     OpType.CY: qml.CY,
     OpType.CZ: qml.CZ,
