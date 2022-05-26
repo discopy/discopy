@@ -9,7 +9,9 @@ from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
 import pennylane as qml
-from pytket import Circuit as PyTketCircuit, OpType
+from sympy import symbols
+
+from discopy.quantum.pennylane import to_pennylane
 
 
 def test_index2bitstring():
@@ -159,6 +161,13 @@ def test_PennylaneCircuit_draw(capsys):
         ("0: ───────╭C──H─┤  State\n"
          "1: ──H─╭C─╰X────┤  State\n"
          "2: ────╰X───────┤  State\n")
+
+
+def test_pennylane_type_error():
+    with raises(TypeError):
+        x = symbols('x')
+        circuit = Rx(x)
+        circuit.to_pennylane()
 
 
 def test_Sum_from_tk():
