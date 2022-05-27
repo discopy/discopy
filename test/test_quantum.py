@@ -154,6 +154,11 @@ def test_ClassicalGate_to_tk():
     assert Circuit.from_tk(circuit.to_tk())[-1] == post
 
 
+def test_tk_dagger():
+    assert S.dagger().to_tk() == tk.Circuit(1).Sdg(0)
+    assert T.dagger().to_tk() == tk.Circuit(1).Tdg(0)
+
+
 def test_Circuit_get_counts():
     assert Id(1).get_counts() == {(): 1.0}
 

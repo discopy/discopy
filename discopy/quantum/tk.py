@@ -7,7 +7,8 @@ Implements the translation between discopy and pytket.
 from unittest.mock import Mock
 
 import pytket as tk
-from pytket.circuit import Bit, Op, OpType, Qubit  # pylint: disable=no-name-in-module
+from pytket.circuit import (Bit, Op, OpType,
+                            Qubit)  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
 
 from discopy import messages
@@ -34,6 +35,7 @@ OPTYPE_MAP = {"H": OpType.H,
               "CRz": OpType.CRz,
               "Swap": OpType.SWAP,
               }
+
 
 class Circuit(tk.Circuit):
     """
@@ -227,7 +229,7 @@ def to_tk(circuit):
         i_qubits = [qubits[offset + j] for j in range(len(box.dom))]
 
         if isinstance(box, (Rx, Ry, Rz)):
-            op = Op.create(OPTYPE_MAP[box.name[:2]], 2*box.phase)
+            op = Op.create(OPTYPE_MAP[box.name[:2]], 2 * box.phase)
         elif isinstance(box, Controlled):
             i_qubits = []
             idx = offset if box.distance > 0 else offset - box.distance
