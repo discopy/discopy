@@ -140,6 +140,8 @@ def test_Circuit_from_tk():
 
     m = Measure(1, destructive=False, override_bits=True)
     assert back_n_forth(m) == m.init_and_discard()
+    assert back_n_forth(CRx(0.5)) ==\
+        Ket(0) @ Ket(0) >> CRx(0.5) >> Discard() @ Discard()
     assert back_n_forth(CRz(0.5)) ==\
         Ket(0) @ Ket(0) >> CRz(0.5) >> Discard() @ Discard()
     assert Id(qubit @ bit).init_and_discard()\
