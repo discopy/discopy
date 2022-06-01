@@ -70,6 +70,14 @@ def extract_ops_from_tk(tk_circ: Circuit):
     return op_list, params_list, wires_list
 
 
+def get_string_repr(circuit: Circuit, post_selection):
+    wires = qml.draw(circuit)().split("\n")
+    for k, v in post_selection.items():
+        wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
+
+    return "\n".join(wires)
+
+
 def to_pennylane(circuit: Circuit):
     tk_circ = circuit.to_tk()
     op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk())
@@ -94,19 +102,17 @@ def to_pennylane(circuit: Circuit):
 
         return torch.reshape(post_selected_probs, (2,) * open_wires)
 
-    return PennylaneCircuit(circuit, post_selected_circuit, params_list)
+    return PennylaneCircuit(post_selected_circuit,
+                            get_string_repr(circuit, tk_circ.post_selection))
 
 
 class PennylaneCircuit:
-    def __init__(self, circuit: qml.QNode,
-                 post_selected_circuit,
-                 params_list: list):
+    def __init__(self, circuit, string_repr):
         self.circuit = circuit
-        self.post_selected_circuit = post_selected_circuit
-        self.params = params_list
+        self.string_repr = string_repr
 
     def draw(self):
-        return print(qml.draw(self.circuit)())
+        print(self.string_repr)
 
     def __call__(self):
-        return self.post_selected_circuit()
+        return self.circuit()
