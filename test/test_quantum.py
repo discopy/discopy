@@ -113,16 +113,18 @@ def test_Circuit_to_tk():
            ".post_select({1: 0}).post_process(Swap(bit, bit))"
 
 
-def test_Circuit_to_pennylane():
+def test_Circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
     p_circ = snake.to_pennylane()
+    p_circ.draw()
 
-    assert qml.draw(p_circ.circuit)() == \
-        ("0: ───────╭C──H─┤  State\n"
-         "1: ──H─╭C─╰X────┤  State\n"
-         "2: ────╰X───────┤  State")
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭C──H─┤0>\n"
+         "1: ──H─╭C─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
 
     assert np.allclose(p_circ().numpy(), np.array([0.5 + 0j, 0 + 0j]))
 
@@ -136,13 +138,15 @@ def test_Circuit_to_pennylane():
             3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
 
     p_var_circ = var_circ.to_pennylane()
+    p_var_circ.draw()
 
-    assert qml.draw(p_var_circ.circuit)() == \
-        ('0: ──RX(2.80)──RZ(1.61)──RX(6.28)─╭C──H─┤  State\n'
-         '1: ──H────────╭C──────────────────╰X────┤  State\n'
-         '2: ──H────────╰RZ(1.13)─╭C──────────────┤  State\n'
-         '3: ──H──────────────────╰RZ(0.00)─╭C──H─┤  State\n'
-         '4: ──RX(3.47)──RZ(6.28)──RX(5.76)─╰X────┤  State')
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ('0: ──RX(2.80)──RZ(1.61)──RX(6.28)─╭C──H─┤0>\n'
+         '1: ──H────────╭C──────────────────╰X────┤0>\n'
+         '2: ──H────────╰RZ(1.13)─╭C──────────────┤0>\n'
+         '3: ──H──────────────────╰RZ(0.00)─╭C──H─┤0>\n'
+         '4: ──RX(3.47)──RZ(6.28)──RX(5.76)─╰X────┤  State\n')
 
     assert np.allclose(p_var_circ().numpy(),
                        np.array([0.18387039 + 0.08016861j,
@@ -158,8 +162,8 @@ def test_PennylaneCircuit_draw(capsys):
 
     captured = capsys.readouterr()
     assert captured.out == \
-        ("0: ───────╭C──H─┤  State\n"
-         "1: ──H─╭C─╰X────┤  State\n"
+        ("0: ───────╭C──H─┤0>\n"
+         "1: ──H─╭C─╰X────┤0>\n"
          "2: ────╰X───────┤  State\n")
 
 
