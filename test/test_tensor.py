@@ -20,7 +20,11 @@ def test_backend():
 
     with raises(ValueError):
         Tensor.set_backend('nonexistent')
-
+    
+def test_Tensor_repr_with_tf():
+    alice = Tensor(Dim(1), Dim(2), [1, 2])
+    with Tensor.backend('tensorflow'):
+        assert repr(alice) == 'Tensor(dom=Dim(1), cod=Dim(2), array=[1, 2])'
 
 def test_Dim():
     with raises(TypeError):
