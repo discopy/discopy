@@ -23,8 +23,8 @@ def test_backend():
 
 
 def test_Tensor_repr_with_tf():
-    alice = Tensor(Dim(1), Dim(2), [1, 2])
     with Tensor.backend('tensorflow'):
+        alice = Tensor(Dim(1), Dim(2), [1, 2])
         assert repr(alice) == 'Tensor(dom=Dim(1), cod=Dim(2), array=[1, 2])'
 
 
