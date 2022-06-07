@@ -509,7 +509,7 @@ class Ry(RealConjugate, Rotation):
     def array(self):
         half_theta = Tensor.np.array(self.modules.pi * self.phase)
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.stack((cos, -sin, -1 * sin, cos)).reshape(2, 2)
+        return Tensor.np.stack((cos, sin, -sin, cos)).reshape(2, 2)
 
 
 class Rz(AntiConjugate, Rotation):
