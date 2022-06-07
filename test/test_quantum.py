@@ -8,10 +8,8 @@ from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
-import pennylane as qml
+from discopy.quantum import pennylane
 from sympy import symbols
-
-from discopy.quantum.pennylane import to_pennylane
 
 
 def test_index2bitstring():
@@ -167,11 +165,32 @@ def test_PennylaneCircuit_draw(capsys):
          "2: ────╰X───────┤  State\n")
 
 
-def test_pennylane_type_error():
+def test_pennylane_symbol_type_error():
     with raises(TypeError):
         x = symbols('x')
         circuit = Rx(x)
         circuit.to_pennylane()
+
+
+def test_pennylane_ops():
+    ops = [X, Y, Z, S, T, H, CX, CZ]
+
+    for op in ops:
+        disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
+        plane = op.to_pennylane()().numpy()
+
+        assert np.all(np.isclose(disco, plane))
+
+
+def test_pennylane_parameterized_ops():
+    ops = [Rx, Ry, Rz, CRx, CRz]
+
+    for op in ops:
+        p_op = op(0.5)
+        disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
+        plane = p_op.to_pennylane()().numpy()
+
+        assert np.all(np.isclose(disco, plane, atol=10e-5))
 
 
 def test_Sum_from_tk():
