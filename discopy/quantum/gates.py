@@ -509,7 +509,7 @@ class Ry(RealConjugate, Rotation):
     def array(self):
         half_theta = Tensor.np.array(self.modules.pi * self.phase)
         sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.stack((cos, -1 * sin, sin, cos)).reshape(2, 2)
+        return Tensor.np.stack((cos, -sin, -1 * sin, cos)).reshape(2, 2)
 
 
 class Rz(AntiConjugate, Rotation):
@@ -599,7 +599,7 @@ H = QuantumGate(
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
 T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
 X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
-Y = QuantumGate('Y', 1, [0, -1j, 1j, 0], _dagger=None)
+Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
 CX = Controlled(X)
 CZ = Controlled(Z)
