@@ -3,7 +3,10 @@ from itertools import product
 import numpy as np
 import pennylane as qml
 from pytket import OpType
+<<<<<<< HEAD
 import sympy
+=======
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
 import torch
 
 
@@ -32,6 +35,7 @@ OP_MAP = {
 }
 
 
+<<<<<<< HEAD
 def tk_op_to_pennylane(tk_op, str_map):
     wires = [x.index[0] for x in tk_op.qubits]
     params = tk_op.op.params
@@ -48,6 +52,13 @@ def tk_op_to_pennylane(tk_op, str_map):
         remapped_params.append(param)
 
     return OP_MAP[tk_op.op.type], remapped_params, wires
+=======
+def tk_op_to_pennylane(tk_op):
+    wires = [x.index[0] for x in tk_op.qubits]
+    params = tk_op.op.params
+
+    return OP_MAP[tk_op.op.type], params, wires
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
 
 
 def get_valid_states(post_sel: dict, n_wires: int):
@@ -63,14 +74,30 @@ def get_valid_states(post_sel: dict, n_wires: int):
     return keep_indices
 
 
+<<<<<<< HEAD
 def extract_ops_from_tk(tk_circ: Circuit, str_map):
+=======
+def extract_ops_from_tk(tk_circ: Circuit):
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
     op_list, params_list, wires_list = [], [], []
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
+<<<<<<< HEAD
             op, params, wires = tk_op_to_pennylane(op, str_map)
             op_list.append(op)
             params_list.append([np.pi * p for p in params])
+=======
+            op, params, wires = tk_op_to_pennylane(op)
+            op_list.append(op)
+            try:
+                params_list.append(torch.FloatTensor([np.pi * p
+                                                      for p in params]))
+            except TypeError:
+                raise TypeError(("Parameters must be floats or ints (symbol "
+                                 "substitution must occur prior to "
+                                 "conversion"))
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
             wires_list.append(wires)
 
     return op_list, params_list, wires_list
@@ -85,24 +112,39 @@ def get_string_repr(circuit: Circuit, post_selection):
 
 
 def to_pennylane(circuit: Circuit):
+<<<<<<< HEAD
     symbols = circuit.free_symbols
     str_map = {str(s): s for s in symbols}
 
     tk_circ = circuit.to_tk()
     op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk(),
                                                            str_map)
+=======
+    tk_circ = circuit.to_tk()
+    op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk())
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
 
     dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
 
     @qml.qnode(dev, interface="torch")
+<<<<<<< HEAD
     def circuit(circ_params):
         for op, params, wires in zip(op_list, circ_params, wires_list):
+=======
+    def circuit():
+        for op, params, wires in zip(op_list, params_list, wires_list):
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
             op(*params, wires=wires)
 
         return qml.state()
 
+<<<<<<< HEAD
     def post_selected_circuit(circ_params):
         probs = circuit(circ_params)
+=======
+    def post_selected_circuit():
+        probs = circuit()
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
 
         post_selection = tk_circ.post_selection
         open_wires = tk_circ.n_qubits - len(post_selection)
@@ -113,6 +155,7 @@ def to_pennylane(circuit: Circuit):
         return torch.reshape(post_selected_probs, (2,) * open_wires)
 
     return PennylaneCircuit(post_selected_circuit,
+<<<<<<< HEAD
                             params_list,
                             "")
 
@@ -155,3 +198,18 @@ class PennylaneCircuit:
         else:
             return self.circuit([torch.cat(p) if len(p) > 0 else p
                                  for p in self.params])
+=======
+                            get_string_repr(circuit, tk_circ.post_selection))
+
+
+class PennylaneCircuit:
+    def __init__(self, circuit, string_repr):
+        self.circuit = circuit
+        self.string_repr = string_repr
+
+    def draw(self):
+        print(self.string_repr)
+
+    def __call__(self):
+        return self.circuit()
+>>>>>>> 272637e3ebc6909e8db7e28e2fa2ac5b71877cd5
