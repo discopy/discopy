@@ -9,7 +9,8 @@ from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
 from discopy.quantum import pennylane
-from sympy import symbols
+import torch
+import sympy
 
 
 def test_index2bitstring():
@@ -126,27 +127,31 @@ def test_Circuit_to_pennylane(capsys):
 
     assert np.allclose(p_circ().numpy(), np.array([0.5 + 0j, 0 + 0j]))
 
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+    weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
+
     var_circ = Circuit(
         dom=qubit ** 0, cod=qubit, boxes=[
-            Ket(0), Rx(0.552), Rz(1), Rx(0.917), Ket(0, 0, 0), H, H, H,
-            CRz(0.18), CRz(2), CX, H, sqrt(2), Bra(0, 0), Ket(0),
-            Rx(0.446), Rz(0.256), Rx(3), CX, H, sqrt(2), Bra(0, 0)],
+            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
         offsets=[
             0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
             3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
 
     p_var_circ = var_circ.to_pennylane()
-    p_var_circ.draw()
+    p_var_circ.draw(symbols, weights)
 
     captured = capsys.readouterr()
     assert captured.out == \
-        ('0: ──RX(2.80)──RZ(1.61)──RX(6.28)─╭C──H─┤0>\n'
-         '1: ──H────────╭C──────────────────╰X────┤0>\n'
-         '2: ──H────────╰RZ(1.13)─╭C──────────────┤0>\n'
-         '3: ──H──────────────────╰RZ(0.00)─╭C──H─┤0>\n'
-         '4: ──RX(3.47)──RZ(6.28)──RX(5.76)─╰X────┤  State\n')
+        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭C──H─┤0>\n"
+         "1: ──H────────╭C───────────────────╰X────┤0>\n"
+         "2: ──H────────╰RZ(1.13)─╭C───────────────┤0>\n"
+         "3: ──H──────────────────╰RZ(12.57)─╭C──H─┤0>\n"
+         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤  State\n")
 
-    assert np.allclose(p_var_circ().numpy(),
+    assert np.allclose(p_var_circ(symbols, weights).numpy(),
                        np.array([0.18387039 + 0.08016861j,
                                  0.18387039 + 0.08016861j]))
 
