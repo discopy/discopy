@@ -50,19 +50,6 @@ def tk_op_to_pennylane(tk_op, str_map):
     return OP_MAP[tk_op.op.type], remapped_params, wires
 
 
-def get_valid_states(post_sel: dict, n_wires: int):
-    keep_indices = []
-    fixed = ['0' if post_sel.get(i, 0) == 0 else '1' for i in range(n_wires)]
-    open_wires = set(range(n_wires)) - post_sel.keys()
-    permutations = [''.join(s) for s in product('01', repeat=len(open_wires))]
-    for perm in permutations:
-        new = fixed.copy()
-        for i, open in enumerate(open_wires):
-            new[open] = perm[i]
-        keep_indices.append(int(''.join(new), 2))
-    return keep_indices
-
-
 def extract_ops_from_tk(tk_circ: Circuit, str_map):
     op_list, params_list, wires_list = [], [], []
 
@@ -74,6 +61,7 @@ def extract_ops_from_tk(tk_circ: Circuit, str_map):
             wires_list.append(wires)
 
     return op_list, params_list, wires_list
+
 
 def to_pennylane(disco_circuit: Circuit):
     symbols = disco_circuit.free_symbols
@@ -124,6 +112,20 @@ class PennylaneCircuit:
 
         print("\n".join(wires))
 
+    def get_valid_states(self):
+        keep_indices = []
+        fixed = ['0' if self.post_selection.get(i, 0) == 0 else
+                 '1' for i in range(self.n_qubits)]
+        open_wires = set(range(self.n_qubits)) - self.post_selection.keys()
+        permutations = [''.join(s) for s in product('01',
+                                                    repeat=len(open_wires))]
+        for perm in permutations:
+            new = fixed.copy()
+            for i, open in enumerate(open_wires):
+                new[open] = perm[i]
+            keep_indices.append(int(''.join(new), 2))
+        return keep_indices
+
     def make_circuit(self):
 
         @qml.qnode(self.device, interface="torch")
@@ -138,9 +140,8 @@ class PennylaneCircuit:
     def post_selected_circuit(self, params):
         probs = self.make_circuit()(params)
 
-        post_selection = self.post_selection
-        open_wires = self.n_qubits - len(post_selection)
-        valid_states = get_valid_states(post_selection, self.n_qubits)
+        open_wires = self.n_qubits - len(self.post_selection)
+        valid_states = self.get_valid_states()
 
         post_selected_probs = probs[list(valid_states)]
 
@@ -165,5 +166,5 @@ class PennylaneCircuit:
             concrete_params = self.param_substitution(symbols, weights)
             return self.post_selected_circuit(concrete_params)
         else:
-            return self.post_selected_circuit([torch.cat(p) if len(p) > 0 else p
-                                 for p in self.params])
+            return self.post_selected_circuit([torch.cat(p) if len(p) > 0
+                                               else p for p in self.params])
