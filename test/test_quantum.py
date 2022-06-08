@@ -165,13 +165,6 @@ def test_PennylaneCircuit_draw(capsys):
          "2: ────╰X───────┤  State\n")
 
 
-def test_pennylane_symbol_type_error():
-    with raises(TypeError):
-        x = symbols('x')
-        circuit = Rx(x)
-        circuit.to_pennylane()
-
-
 def test_pennylane_ops():
     ops = [X, Y, Z, S, T, H, CX, CZ]
 
