@@ -84,12 +84,12 @@ def get_string_repr(circuit: Circuit, post_selection):
     return "\n".join(wires)
 
 
-def to_pennylane(circuit: Circuit):
-    symbols = circuit.free_symbols
+def to_pennylane(disco_circuit: Circuit):
+    symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
 
-    tk_circ = circuit.to_tk()
-    op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk(),
+    tk_circ = disco_circuit.to_tk()
+    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ,
                                                            str_map)
 
     dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
@@ -112,17 +112,21 @@ def to_pennylane(circuit: Circuit):
 
         return torch.reshape(post_selected_probs, (2,) * open_wires)
 
-    return PennylaneCircuit(post_selected_circuit,
+    return PennylaneCircuit(circuit,
+                            post_selected_circuit,
                             params_list,
-                            "")
+                            tk_circ.post_selection)
 
 
 class PennylaneCircuit:
-    def __init__(self, circuit, params, string_repr):
-        self.circuit = circuit
+    def __init__(self, circuit, post_selected_circuit, params, post_selection):
+        self.circuit = post_selected_circuit
         self.params = params
         self._contains_sympy = self.contains_sympy()
-        self.string_repr = string_repr
+
+        # for drawing
+        self._circuit = circuit
+        self.post_selection = post_selection
 
     def contains_sympy(self):
         for expr_list in self.params:
@@ -131,8 +135,18 @@ class PennylaneCircuit:
                 return True
         return False
 
-    def draw(self):
-        print(self.string_repr)
+    def draw(self, symbols=None, weights=None):
+        if self._contains_sympy:
+            params = self.param_substitution(symbols, weights)
+        else:
+            params = [torch.cat(p) if len(p) > 0 else p
+                      for p in self.params]
+
+        wires = qml.draw(self._circuit)(params).split("\n")
+        for k, v in self.post_selection.items():
+            wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
+
+        print("\n".join(wires))
 
     def param_substitution(self, symbols, weights):
         concrete_params = []
