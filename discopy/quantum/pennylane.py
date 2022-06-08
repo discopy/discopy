@@ -3,6 +3,7 @@ from itertools import product
 import numpy as np
 import pennylane as qml
 from pytket import OpType
+import sympy
 import torch
 
 
@@ -31,11 +32,22 @@ OP_MAP = {
 }
 
 
-def tk_op_to_pennylane(tk_op):
+def tk_op_to_pennylane(tk_op, str_map):
     wires = [x.index[0] for x in tk_op.qubits]
     params = tk_op.op.params
 
-    return OP_MAP[tk_op.op.type], params, wires
+    remapped_params = []
+    for param in params:
+        if isinstance(param, sympy.Expr):
+            free_symbols = param.free_symbols
+            sym_subs = {f: str_map[str(f)] for f in free_symbols}
+            param = param.subs(sym_subs)
+        else:
+            param = torch.tensor([param])
+
+        remapped_params.append(param)
+
+    return OP_MAP[tk_op.op.type], remapped_params, wires
 
 
 def get_valid_states(post_sel: dict, n_wires: int):
@@ -51,20 +63,14 @@ def get_valid_states(post_sel: dict, n_wires: int):
     return keep_indices
 
 
-def extract_ops_from_tk(tk_circ: Circuit):
+def extract_ops_from_tk(tk_circ: Circuit, str_map):
     op_list, params_list, wires_list = [], [], []
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
-            op, params, wires = tk_op_to_pennylane(op)
+            op, params, wires = tk_op_to_pennylane(op, str_map)
             op_list.append(op)
-            try:
-                params_list.append(torch.FloatTensor([np.pi * p
-                                                      for p in params]))
-            except TypeError:
-                raise TypeError(("Parameters must be floats or ints (symbol "
-                                 "substitution must occur prior to "
-                                 "conversion"))
+            params_list.append([np.pi * p for p in params])
             wires_list.append(wires)
 
     return op_list, params_list, wires_list
@@ -79,20 +85,24 @@ def get_string_repr(circuit: Circuit, post_selection):
 
 
 def to_pennylane(circuit: Circuit):
+    symbols = circuit.free_symbols
+    str_map = {str(s): s for s in symbols}
+
     tk_circ = circuit.to_tk()
-    op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk())
+    op_list, params_list, wires_list = extract_ops_from_tk(circuit.to_tk(),
+                                                           str_map)
 
     dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
 
     @qml.qnode(dev, interface="torch")
-    def circuit():
-        for op, params, wires in zip(op_list, params_list, wires_list):
+    def circuit(circ_params):
+        for op, params, wires in zip(op_list, circ_params, wires_list):
             op(*params, wires=wires)
 
         return qml.state()
 
-    def post_selected_circuit():
-        probs = circuit()
+    def post_selected_circuit(circ_params):
+        probs = circuit(circ_params)
 
         post_selection = tk_circ.post_selection
         open_wires = tk_circ.n_qubits - len(post_selection)
@@ -103,16 +113,45 @@ def to_pennylane(circuit: Circuit):
         return torch.reshape(post_selected_probs, (2,) * open_wires)
 
     return PennylaneCircuit(post_selected_circuit,
-                            get_string_repr(circuit, tk_circ.post_selection))
+                            params_list,
+                            "")
 
 
 class PennylaneCircuit:
-    def __init__(self, circuit, string_repr):
+    def __init__(self, circuit, params, string_repr):
         self.circuit = circuit
+        self.params = params
+        self._contains_sympy = self.contains_sympy()
         self.string_repr = string_repr
+
+    def contains_sympy(self):
+        for expr_list in self.params:
+            if any(isinstance(expr, sympy.Expr) for
+                   expr in expr_list):
+                return True
+        return False
 
     def draw(self):
         print(self.string_repr)
 
-    def __call__(self):
-        return self.circuit()
+    def param_substitution(self, symbols, weights):
+        concrete_params = []
+        for expr_list in self.params:
+            concrete_list = []
+            for expr in expr_list:
+                if isinstance(expr, sympy.Expr):
+                    f_expr = sympy.lambdify([symbols], expr)
+                    expr = f_expr(weights)
+                concrete_list.append(expr)
+            concrete_params.append(concrete_list)
+
+        return [torch.cat(p) if len(p) > 0 else p
+                for p in concrete_params]
+
+    def __call__(self, symbols=None, weights=None):
+        if self._contains_sympy:
+            concrete_params = self.param_substitution(symbols, weights)
+            return self.circuit(concrete_params)
+        else:
+            return self.circuit([torch.cat(p) if len(p) > 0 else p
+                                 for p in self.params])
