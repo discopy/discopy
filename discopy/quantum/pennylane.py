@@ -75,15 +75,6 @@ def extract_ops_from_tk(tk_circ: Circuit, str_map):
 
     return op_list, params_list, wires_list
 
-
-def get_string_repr(circuit: Circuit, post_selection):
-    wires = qml.draw(circuit)().split("\n")
-    for k, v in post_selection.items():
-        wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
-
-    return "\n".join(wires)
-
-
 def to_pennylane(disco_circuit: Circuit):
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
@@ -94,39 +85,24 @@ def to_pennylane(disco_circuit: Circuit):
 
     dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
 
-    @qml.qnode(dev, interface="torch")
-    def circuit(circ_params):
-        for op, params, wires in zip(op_list, circ_params, wires_list):
-            op(*params, wires=wires)
-
-        return qml.state()
-
-    def post_selected_circuit(circ_params):
-        probs = circuit(circ_params)
-
-        post_selection = tk_circ.post_selection
-        open_wires = tk_circ.n_qubits - len(post_selection)
-        valid_states = get_valid_states(post_selection, tk_circ.n_qubits)
-
-        post_selected_probs = probs[list(valid_states)]
-
-        return torch.reshape(post_selected_probs, (2,) * open_wires)
-
-    return PennylaneCircuit(circuit,
-                            post_selected_circuit,
+    return PennylaneCircuit(op_list,
                             params_list,
-                            tk_circ.post_selection)
+                            wires_list,
+                            tk_circ.post_selection,
+                            tk_circ.n_qubits,
+                            dev)
 
 
 class PennylaneCircuit:
-    def __init__(self, circuit, post_selected_circuit, params, post_selection):
-        self.circuit = post_selected_circuit
+    def __init__(self, ops, params, wires, post_selection,
+                 n_qubits, device):
+        self.ops = ops
         self.params = params
+        self.wires = wires
         self._contains_sympy = self.contains_sympy()
-
-        # for drawing
-        self._circuit = circuit
+        self.n_qubits = n_qubits
         self.post_selection = post_selection
+        self.device = device
 
     def contains_sympy(self):
         for expr_list in self.params:
@@ -142,11 +118,33 @@ class PennylaneCircuit:
             params = [torch.cat(p) if len(p) > 0 else p
                       for p in self.params]
 
-        wires = qml.draw(self._circuit)(params).split("\n")
+        wires = qml.draw(self.make_circuit())(params).split("\n")
         for k, v in self.post_selection.items():
             wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
 
         print("\n".join(wires))
+
+    def make_circuit(self):
+
+        @qml.qnode(self.device, interface="torch")
+        def circuit(circ_params):
+            for op, params, wires in zip(self.ops, circ_params, self.wires):
+                op(*params, wires=wires)
+
+            return qml.state()
+
+        return circuit
+
+    def post_selected_circuit(self, params):
+        probs = self.make_circuit()(params)
+
+        post_selection = self.post_selection
+        open_wires = self.n_qubits - len(post_selection)
+        valid_states = get_valid_states(post_selection, self.n_qubits)
+
+        post_selected_probs = probs[list(valid_states)]
+
+        return torch.reshape(post_selected_probs, (2,) * open_wires)
 
     def param_substitution(self, symbols, weights):
         concrete_params = []
@@ -165,7 +163,7 @@ class PennylaneCircuit:
     def __call__(self, symbols=None, weights=None):
         if self._contains_sympy:
             concrete_params = self.param_substitution(symbols, weights)
-            return self.circuit(concrete_params)
+            return self.post_selected_circuit(concrete_params)
         else:
-            return self.circuit([torch.cat(p) if len(p) > 0 else p
+            return self.post_selected_circuit([torch.cat(p) if len(p) > 0 else p
                                  for p in self.params])
