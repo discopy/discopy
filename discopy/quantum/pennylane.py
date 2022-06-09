@@ -1,3 +1,4 @@
+from operator import pos
 from discopy.quantum import Circuit
 from itertools import product
 import numpy as np
@@ -63,6 +64,14 @@ def extract_ops_from_tk(tk_circ: Circuit, str_map):
     return op_list, params_list, wires_list
 
 
+def get_post_selection_dict(tk_circ):
+    """Return post selections based on qubit indices."""
+    q_post_sels = {}
+    for q, c in tk_circ.qubit_to_bit_map.items():
+        q_post_sels[q.index[0]] = tk_circ.post_selection[c.index[0]]
+    return q_post_sels
+
+
 def to_pennylane(disco_circuit: Circuit):
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
@@ -72,11 +81,12 @@ def to_pennylane(disco_circuit: Circuit):
                                                            str_map)
 
     dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
+    post_selection = get_post_selection_dict(tk_circ)
 
     return PennylaneCircuit(op_list,
                             params_list,
                             wires_list,
-                            tk_circ.post_selection,
+                            post_selection,
                             tk_circ.n_qubits,
                             dev)
 
@@ -138,14 +148,14 @@ class PennylaneCircuit:
         return circuit
 
     def post_selected_circuit(self, params):
-        probs = self.make_circuit()(params)
+        states = self.make_circuit()(params)
 
         open_wires = self.n_qubits - len(self.post_selection)
         valid_states = self.get_valid_states()
 
-        post_selected_probs = probs[list(valid_states)]
+        post_selected_states = states[list(valid_states)]
 
-        return torch.reshape(post_selected_probs, (2,) * open_wires)
+        return torch.reshape(post_selected_states, (2,) * open_wires)
 
     def param_substitution(self, symbols, weights):
         concrete_params = []
