@@ -1,5 +1,5 @@
-from operator import pos
 from discopy.quantum import Circuit
+from discopy.quantum.gates import Scalar
 from itertools import product
 import numpy as np
 import pennylane as qml
@@ -83,23 +83,30 @@ def to_pennylane(disco_circuit: Circuit):
     dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
     post_selection = get_post_selection_dict(tk_circ)
 
+    scalar = 1
+    for box in disco_circuit.boxes:
+        if isinstance(box, Scalar):
+            scalar *= box.array
+
     return PennylaneCircuit(op_list,
                             params_list,
                             wires_list,
                             post_selection,
+                            scalar,
                             tk_circ.n_qubits,
                             dev)
 
 
 class PennylaneCircuit:
     def __init__(self, ops, params, wires, post_selection,
-                 n_qubits, device):
+                 scale, n_qubits, device):
         self.ops = ops
         self.params = params
-        self.wires = wires
         self._contains_sympy = self.contains_sympy()
-        self.n_qubits = n_qubits
+        self.wires = wires
         self.post_selection = post_selection
+        self.scale = scale
+        self.n_qubits = n_qubits
         self.device = device
 
     def contains_sympy(self):
@@ -155,7 +162,8 @@ class PennylaneCircuit:
 
         post_selected_states = states[list(valid_states)]
 
-        return torch.reshape(post_selected_states, (2,) * open_wires)
+        return self.scale * torch.reshape(post_selected_states,
+                                          (2,) * open_wires)
 
     def param_substitution(self, symbols, weights):
         concrete_params = []
@@ -171,7 +179,7 @@ class PennylaneCircuit:
         return [torch.cat(p) if len(p) > 0 else p
                 for p in concrete_params]
 
-    def __call__(self, symbols=None, weights=None):
+    def eval(self, symbols=None, weights=None):
         if self._contains_sympy:
             concrete_params = self.param_substitution(symbols, weights)
             return self.post_selected_circuit(concrete_params)
