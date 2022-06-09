@@ -115,7 +115,7 @@ def test_Circuit_to_tk():
 def test_Circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
     p_circ = snake.to_pennylane()
     p_circ.draw()
 
@@ -125,7 +125,7 @@ def test_Circuit_to_pennylane(capsys):
          "1: ──H─╭C─╰X────┤0>\n"
          "2: ────╰X───────┤  State\n")
 
-    assert np.allclose(p_circ().numpy(), np.array([0.5 + 0j, 0 + 0j]))
+    assert np.allclose(p_circ.eval().numpy(), snake.eval().array)
 
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
@@ -147,13 +147,15 @@ def test_Circuit_to_pennylane(capsys):
     assert captured.out == \
         ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭C──H─┤0>\n"
          "1: ──H────────╭C───────────────────╰X────┤0>\n"
-         "2: ──H────────╰RZ(1.13)─╭C───────────────┤0>\n"
+         "2: ──H────────╰RZ(1.13)─╭C───────────────┤  State\n"
          "3: ──H──────────────────╰RZ(12.57)─╭C──H─┤0>\n"
-         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤  State\n")
+         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤0>\n")
 
-    assert np.allclose(p_var_circ(symbols, weights).numpy(),
-                       np.array([0.18387039 + 0.08016861j,
-                                 0.18387039 + 0.08016861j]))
+    var_f = var_circ.lambdify(*symbols)
+    conc_circ = var_f(*[a.item() for a in weights])
+
+    assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
+                       conc_circ.eval().array)
 
 
 def test_PennylaneCircuit_draw(capsys):
@@ -175,9 +177,9 @@ def test_pennylane_ops():
 
     for op in ops:
         disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
-        plane = op.to_pennylane()().numpy()
+        plane = op.to_pennylane().eval().numpy()
 
-        assert np.all(np.isclose(disco, plane))
+        assert np.allclose(disco, plane)
 
 
 def test_pennylane_parameterized_ops():
@@ -186,9 +188,9 @@ def test_pennylane_parameterized_ops():
     for op in ops:
         p_op = op(0.5)
         disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
-        plane = p_op.to_pennylane()().numpy()
+        plane = p_op.to_pennylane().eval().numpy()
 
-        assert np.all(np.isclose(disco, plane, atol=10e-5))
+        assert np.allclose(disco, plane, atol=10e-5)
 
 
 def test_Sum_from_tk():
