@@ -163,12 +163,13 @@ def test_Circuit_to_pennylane(capsys):
     assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
                        conc_circ.eval().array)
 
-    p_var_circ_prob = var_circ.to_pennylane(output_type=CircuitOutput.Probability)
+    p_var_circ_prob = var_circ.to_pennylane(
+        output_type=CircuitOutput.Probability)
     var_circ_prob = np.square(np.abs(conc_circ.eval().array))
     var_circ_prob = var_circ_prob / np.sum(var_circ_prob)
 
     assert(np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
-                        var_circ_prob))
+                       var_circ_prob))
 
 
 def test_PennylaneCircuit_draw(capsys):
