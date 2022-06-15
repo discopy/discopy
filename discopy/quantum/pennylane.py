@@ -1,5 +1,6 @@
 from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
+from enum import Enum
 from itertools import product
 import numpy as np
 import pennylane as qml
@@ -31,6 +32,12 @@ OP_MAP = {
     OpType.SWAP: qml.SWAP,
     OpType.noop: qml.Identity,
 }
+
+
+class CircuitOutput(Enum):
+    """Enum for the possible output types of a circuit."""
+    Probability = 1
+    State = 2
 
 
 def tk_op_to_pennylane(tk_op, str_map):
@@ -72,7 +79,7 @@ def get_post_selection_dict(tk_circ):
     return q_post_sels
 
 
-def to_pennylane(disco_circuit: Circuit):
+def to_pennylane(disco_circuit: Circuit, output_type=CircuitOutput.State):
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
 
@@ -91,6 +98,7 @@ def to_pennylane(disco_circuit: Circuit):
     return PennylaneCircuit(op_list,
                             params_list,
                             wires_list,
+                            output_type,
                             post_selection,
                             scalar,
                             tk_circ.n_qubits,
@@ -98,12 +106,13 @@ def to_pennylane(disco_circuit: Circuit):
 
 
 class PennylaneCircuit:
-    def __init__(self, ops, params, wires, post_selection,
-                 scale, n_qubits, device):
+    def __init__(self, ops, params, wires, output_type,
+                 post_selection, scale, n_qubits, device):
         self.ops = ops
         self.params = params
         self._contains_sympy = self.contains_sympy()
         self.wires = wires
+        self.output_type = output_type
         self.post_selection = post_selection
         self.scale = scale
         self.n_qubits = n_qubits
@@ -150,7 +159,10 @@ class PennylaneCircuit:
             for op, params, wires in zip(self.ops, circ_params, self.wires):
                 op(*params, wires=wires)
 
-            return qml.state()
+            if self.output_type == CircuitOutput.State:
+                return qml.state()
+            else:
+                return qml.probs(wires=range(self.n_qubits))
 
         return circuit
 
@@ -162,8 +174,13 @@ class PennylaneCircuit:
 
         post_selected_states = states[list(valid_states)]
 
-        return self.scale * torch.reshape(post_selected_states,
-                                          (2,) * open_wires)
+        if self.output_type == CircuitOutput.State:
+            post_selected_states = self.scale * post_selected_states
+        else:
+            post_selected_states = \
+                post_selected_states / post_selected_states.sum().item()
+
+        return torch.reshape(post_selected_states, (2,) * open_wires)
 
     def param_substitution(self, symbols, weights):
         concrete_params = []

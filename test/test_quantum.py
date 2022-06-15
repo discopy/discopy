@@ -8,7 +8,7 @@ from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
-from discopy.quantum import pennylane
+from discopy.quantum.pennylane import CircuitOutput
 import torch
 import sympy
 
@@ -127,6 +127,12 @@ def test_Circuit_to_pennylane(capsys):
 
     assert np.allclose(p_circ.eval().numpy(), snake.eval().array)
 
+    p_circ_prob = snake.to_pennylane(output_type=CircuitOutput.Probability)
+    circ_prob = np.square(np.abs(snake.eval().array))
+    circ_prob = circ_prob / np.sum(circ_prob)
+
+    assert(np.allclose(p_circ_prob.eval().numpy(), circ_prob))
+
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
     weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
@@ -156,6 +162,13 @@ def test_Circuit_to_pennylane(capsys):
 
     assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
                        conc_circ.eval().array)
+
+    p_var_circ_prob = var_circ.to_pennylane(output_type=CircuitOutput.Probability)
+    var_circ_prob = np.square(np.abs(conc_circ.eval().array))
+    var_circ_prob = var_circ_prob / np.sum(var_circ_prob)
+
+    assert(np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
+                        var_circ_prob))
 
 
 def test_PennylaneCircuit_draw(capsys):
