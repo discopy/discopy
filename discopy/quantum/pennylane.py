@@ -34,12 +34,6 @@ OP_MAP = {
 }
 
 
-class CircuitOutput(Enum):
-    """Enum for the possible output types of a circuit."""
-    Probability = 1
-    State = 2
-
-
 def tk_op_to_pennylane(tk_op, str_map):
     wires = [x.index[0] for x in tk_op.qubits]
     params = tk_op.op.params
@@ -79,7 +73,7 @@ def get_post_selection_dict(tk_circ):
     return q_post_sels
 
 
-def to_pennylane(disco_circuit: Circuit, output_type=CircuitOutput.State):
+def to_pennylane(disco_circuit: Circuit, probabilities=False):
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
 
@@ -98,7 +92,7 @@ def to_pennylane(disco_circuit: Circuit, output_type=CircuitOutput.State):
     return PennylaneCircuit(op_list,
                             params_list,
                             wires_list,
-                            output_type,
+                            probabilities,
                             post_selection,
                             scalar,
                             tk_circ.n_qubits,
@@ -106,13 +100,13 @@ def to_pennylane(disco_circuit: Circuit, output_type=CircuitOutput.State):
 
 
 class PennylaneCircuit:
-    def __init__(self, ops, params, wires, output_type,
+    def __init__(self, ops, params, wires, probabilities,
                  post_selection, scale, n_qubits, device):
         self.ops = ops
         self.params = params
         self._contains_sympy = self.contains_sympy()
         self.wires = wires
-        self.output_type = output_type
+        self.probs = probabilities
         self.post_selection = post_selection
         self.scale = scale
         self.n_qubits = n_qubits
@@ -159,10 +153,10 @@ class PennylaneCircuit:
             for op, params, wires in zip(self.ops, circ_params, self.wires):
                 op(*params, wires=wires)
 
-            if self.output_type == CircuitOutput.State:
-                return qml.state()
-            else:
+            if self.probs:
                 return qml.probs(wires=range(self.n_qubits))
+            else:
+                return qml.state()
 
         return circuit
 
@@ -174,11 +168,11 @@ class PennylaneCircuit:
 
         post_selected_states = states[list(valid_states)]
 
-        if self.output_type == CircuitOutput.State:
-            post_selected_states = self.scale * post_selected_states
-        else:
+        if self.probs:
             post_selected_states = \
                 post_selected_states / post_selected_states.sum().item()
+        else:
+            post_selected_states = self.scale * post_selected_states
 
         return torch.reshape(post_selected_states, (2,) * open_wires)
 
