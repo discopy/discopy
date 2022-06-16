@@ -369,6 +369,17 @@ class Diagram(monoidal.Diagram):
     normalize = rewriting.snake_removal
     layer_factory = Layer
 
+    def cup(self, x, y):
+        if min(x, y) < 0 or max(x, y) >= len(self.cod):
+            raise ValueError(f'Indices {x, y} are out of range.')
+        x, y = min(x, y), max(x, y)
+        for i in range(x, y - 1):
+            t0, t1 = self.cod[i:i + 1], self.cod[i + 1:i + 2]
+            self >>= Id(self.cod[:i]) @ Swap(t0, t1) @ Id(self.cod[i + 2:])
+        t0, t1 = self.cod[y - 1:y], self.cod[y:y + 1]
+        self >>= Id(self.cod[:y - 1]) @ Cup(t0, t1) @ Id(self.cod[y + 1:])
+        return self
+
 
 Sum = cat.Sum
 
@@ -385,6 +396,14 @@ class Id(monoidal.Id, Diagram):
     def __init__(self, dom=Ty()):
         monoidal.Id.__init__(self, dom)
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+
+    @property
+    def l(self):
+        return type(self)(self.dom.l)
+
+    @property
+    def r(self):
+        return type(self)(self.dom.r)
 
 
 Diagram.id = Id
@@ -571,6 +590,36 @@ class Spider(Box):
 
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), self.typ)
+
+    def decompose(self):
+        return self._decompose_spiders(len(self.dom), len(self.cod),
+                                       self.typ)
+
+    @classmethod
+    def _decompose_spiders(cls, n_legs_in, n_legs_out, typ):
+        if n_legs_out > n_legs_in:
+            return cls._decompose_spiders(n_legs_out, n_legs_in,
+                                          typ).dagger()
+
+        if n_legs_in == 1 and n_legs_out == 0:
+            return cls(1, 0, typ)
+        if n_legs_in == 1 and n_legs_out == 1:
+            return Id(typ)
+
+        if n_legs_out != 1:
+            return (cls._decompose_spiders(n_legs_in, 1, typ)
+                    >> cls._decompose_spiders(1, n_legs_out, typ))
+
+        if n_legs_in == 2:
+            return cls(2, 1, typ)
+
+        if n_legs_in % 2 == 1:
+            return (cls._decompose_spiders(n_legs_in - 1, 1, typ)
+                    @ Id(typ) >> cls(2, 1, typ))
+
+        new_in = n_legs_in // 2
+        half_spider = cls._decompose_spiders(new_in, 1, typ)
+        return half_spider @ half_spider >> cls(2, 1, typ)
 
     @property
     def l(self):

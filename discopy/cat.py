@@ -73,7 +73,7 @@ class Ob:
         >>> x.name = 'y'
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._name
 
@@ -163,7 +163,7 @@ class Arrow:
         >>> arrow.dom = Ob('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._dom
 
@@ -177,7 +177,7 @@ class Arrow:
         >>> arrow.cod = Ob('y')  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._cod
 
@@ -503,6 +503,8 @@ class Box(Arrow):
     """
     def __init__(self, name, dom, cod, **params):
         def recursive_free_symbols(data):
+            if hasattr(data, 'tolist'):
+                data = data.tolist()
             if isinstance(data, Mapping):
                 data = data.values()
             if isinstance(data, Iterable):
@@ -526,7 +528,7 @@ class Box(Arrow):
         >>> f.name = 'g'  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._name
 
@@ -540,7 +542,7 @@ class Box(Arrow):
         >>> f.data = [42, {0: 2}]  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         >>> f.data[1][0] = 2
         >>> assert f.data == [42, {0: 2}]
         """
@@ -742,7 +744,8 @@ class Sum(Box):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: self.sum(
-            [box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms])
+            [box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms],
+            dom=self.dom, cod=self.cod)
 
     @staticmethod
     def fmap(func):

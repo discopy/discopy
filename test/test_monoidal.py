@@ -349,3 +349,10 @@ def test_Sum():
     assert {Sum([f]): 42}[Sum([f])] == 42
     assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
     assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])
+
+
+def test_bad_permute():
+    with raises(IndexError):
+        Id(Ty('n')).permute(1)
+    with raises(ValueError):
+        Id(Ty('n')).permute(0, 0)

@@ -617,8 +617,17 @@ class Diagram(cat.Arrow):
         --------
         >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
         >>> assert Id(x @ y @ z).permute(2, 1, 0).cod == z @ y @ x
+        >>> assert Id(x @ y @ z).permute(2, 0).cod == z @ y @ x
         """
-        return self >> self.permutation(list(perm), self.dom)
+        if min(perm) < 0 or max(perm) >= len(self.cod):
+            raise IndexError(f'{self} index out of bounds.')
+        if len(set(perm)) != len(perm):
+            raise ValueError('{perm} is not a permutation.')
+        sorted_perm = sorted(perm)
+        perm = [
+            i if i not in perm else sorted_perm[perm.index(i)]
+            for i in range(len(self.cod))]
+        return self >> self.permutation(list(perm), self.cod)
 
     @staticmethod
     def subclass(ar_factory):

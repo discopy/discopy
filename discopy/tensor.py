@@ -10,6 +10,7 @@ Implements dagger monoidal functors into tensors.
 >>> F = Functor(ob, ar)
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
+from contextlib import contextmanager
 
 import numpy
 
@@ -17,12 +18,6 @@ from discopy import cat, config, messages, monoidal, rigid
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Cup, Cap
 
-
-if config.IMPORT_JAX:  # pragma: no cover
-    import warnings
-    for msg in config.IGNORE_WARNINGS:
-        warnings.filterwarnings("ignore", message=msg)
-    import jax
 
 numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
 
@@ -83,7 +78,65 @@ class Dim(Ty):
         return Dim(*self[::-1])
 
 
-class Tensor(rigid.Box):
+class TensorBackend:
+    module = None
+
+    def __getattr__(self, attr):
+        return getattr(self.module, attr)
+
+
+class NumPyBackend(TensorBackend):
+    def __init__(self):
+        self.module = numpy
+
+
+class JAXBackend(TensorBackend):
+    def __init__(self):
+        import jax
+        self.module = jax.numpy
+
+
+class PyTorchBackend(TensorBackend):
+    def __init__(self):
+        import torch
+        self.module = torch
+        self.array = torch.as_tensor
+
+
+BACKENDS = {'np': NumPyBackend,
+            'numpy': NumPyBackend,
+            'jax': JAXBackend,
+            'jax.numpy': JAXBackend,
+            'pytorch': PyTorchBackend,
+            'torch': PyTorchBackend}
+INSTANTIATED_BACKENDS = {}
+
+
+def get_backend(name):
+    try:
+        backend = BACKENDS[name]
+    except KeyError:
+        raise ValueError(f'Invalid backend: {name!r}')
+    try:
+        return INSTANTIATED_BACKENDS[backend]
+    except KeyError:
+        ret = INSTANTIATED_BACKENDS[backend] = backend()
+        return ret
+
+
+class TensorType(type):
+    # for backwards compatibility
+
+    @property
+    def np(cls):
+        return cls.get_backend()
+
+    @np.setter
+    def np(cls, module):
+        cls.set_backend(module.__name__)
+
+
+class Tensor(rigid.Box, metaclass=TensorType):
     """ Implements a tensor with dom, cod and numpy array.
 
     Examples
@@ -108,23 +161,35 @@ class Tensor(rigid.Box):
     >>> v.subs(phi, 0).lambdify(psi)(1)
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
 
-    We can also use jax.numpy by changing the class variable :code:`Tensor.np`.
+    We can also use jax.numpy using Tensor.backend.
 
-    >>> from contextlib import contextmanager
-    >>> import jax
-    >>> @contextmanager
-    ... def jaxify():
-    ...     Tensor.np, tmp = jax.numpy, Tensor.np
-    ...     yield
-    ...     Tensor.np = tmp
-    >>> with jaxify():
-    ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array[0]
+    >>> with Tensor.backend('jax'):
+    ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array
+    ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    np = jax.numpy if config.IMPORT_JAX else numpy
+    _backend_stack = [get_backend('jax' if config.IMPORT_JAX else 'numpy')]
+
+    @classmethod
+    def get_backend(cls):
+        return cls._backend_stack[-1]
+
+    @classmethod
+    def set_backend(cls, value):
+        backend = get_backend(value)
+        cls._backend_stack.append(backend)
+        return backend
+
+    @classmethod
+    @contextmanager
+    def backend(cls, value):
+        try:
+            yield cls.set_backend(value)
+        finally:
+            cls._backend_stack.pop()
 
     def __init__(self, dom, cod, array):
-        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod) or (1, ))
+        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -169,9 +234,9 @@ class Tensor(rigid.Box):
 
     def __eq__(self, other):
         if not isinstance(other, Tensor):
-            return Tensor.np.all(self.array == other)
+            return Tensor.np.all(Tensor.np.array(self.array == other))
         return (self.dom, self.cod) == (other.dom, other.cod)\
-            and Tensor.np.all(self.array == other.array)
+            and Tensor.np.all(Tensor.np.array(self.array == other.array))
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
@@ -213,7 +278,7 @@ class Tensor(rigid.Box):
     @staticmethod
     def id(dom=Dim(1)):
         from numpy import prod
-        return Tensor(dom, dom, Tensor.np.identity(int(prod(dom))))
+        return Tensor(dom, dom, Tensor.np.eye(int(prod(dom))))
 
     @staticmethod
     def cups(left, right):
@@ -245,16 +310,19 @@ class Tensor(rigid.Box):
         """
         return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
 
-    def conjugate(self):
+    def conjugate(self, diagrammatic=True):
         """
-        Returns the diagrammatic conjugate of a tensor.
+        Returns the conjugate of a tensor.
 
-        Note
-        ----
-        This is *not* the same as the algebraic conjugate for complex dims.
+        Parameters
+        ----------
+        diagrammatic : bool, default: True
+            Whether to use the diagrammatic or algebraic conjugate.
         """
-        # reverse the wires for both inputs and outputs
         dom, cod = self.dom, self.cod
+        if not diagrammatic:
+            return Tensor(dom, cod, Tensor.np.conjugate(self.array))
+        # reverse the wires for both inputs and outputs
         array = Tensor.np.moveaxis(
             self.array, range(len(dom @ cod)),
             [len(dom) - i - 1 for i in range(len(dom @ cod))])
@@ -325,7 +393,7 @@ class Tensor(rigid.Box):
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
         array = lambdify(
-            symbols, self.array, **dict({'modules': Tensor.np}, **kwargs))
+            symbols, self.array, modules=Tensor.np.module, **kwargs)
         return lambda *xs: Tensor(self.dom, self.cod, array(*xs))
 
 
@@ -419,7 +487,7 @@ class Diagram(rigid.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Id(Dim(2)) @ vector
     """
-    def eval(self, contractor=None):
+    def eval(self, contractor=None, dtype=None):
         """
         Diagram evaluation.
 
@@ -428,6 +496,8 @@ class Diagram(rigid.Diagram):
         contractor : callable, optional
             Use :class:`tensornetwork` contraction
             instead of :class:`tensor.Functor`.
+        dtype : type of np.Number, optional
+            dtype to be used for spiders.
 
         Returns
         -------
@@ -443,16 +513,22 @@ class Diagram(rigid.Diagram):
         """
         if contractor is None and "numpy" not in Tensor.np.__package__:
             raise Exception(
-                'Please provide a contractor when using a non-numpy backend.')
+                'Provide a tensornetwork contractor'
+                'when using a non-numpy backend.')
 
         if contractor is None:
             return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
-        array = contractor(*self.to_tn()).tensor
+        array = contractor(*self.to_tn(dtype=dtype)).tensor
         return Tensor(self.dom, self.cod, array)
 
-    def to_tn(self):
+    def to_tn(self, dtype=None):
         """
         Sends a diagram to :code:`tensornetwork`.
+
+        Parameters
+        ----------
+        dtype : type of np.Number, optional
+            dtype to be used for spiders.
 
         Returns
         -------
@@ -473,30 +549,55 @@ class Diagram(rigid.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        nodes = [tn.Node(Tensor.np.eye(dim), 'input_{}'.format(i))
-                 for i, dim in enumerate(self.dom)]
+        if dtype is None:
+            dtype = self._infer_dtype()
+        nodes = [
+            tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
+            for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
-            if isinstance(box, Swap):
+            if isinstance(box, rigid.Swap):
                 scan[offset], scan[offset + 1] = scan[offset + 1], scan[offset]
                 continue
             if isinstance(box, Spider):
                 dims = (len(box.dom), len(box.cod))
                 if dims == (1, 1):  # identity
                     continue
-                if dims == (2, 0):  # cup
+                elif dims == (2, 0):  # cup
                     tn.connect(*scan[offset:offset + 2])
                     del scan[offset:offset + 2]
                     continue
-                node = tn.CopyNode(sum(dims), scan[offset].dimension)
+                else:
+                    node = tn.CopyNode(sum(dims),
+                                       scan[offset].dimension,
+                                       dtype=dtype)
             else:
-                node = tn.Node(box.array, str(box))
+                array = box.eval().array
+                node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(scan[offset + i], node[i])
-            edges = [node[len(box.dom) + i] for i, _ in enumerate(box.cod)]
-            scan = scan[:offset] + edges + scan[offset + len(box.dom):]
+            scan[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
         return nodes, inputs + scan
+
+    def _infer_dtype(self):
+        for box in self.boxes:
+            if not isinstance(box, (Spider, rigid.Swap)):
+                array = box.array
+                while True:
+                    # minimise data to potentially copy
+                    try:
+                        array = array[0]
+                    except IndexError:
+                        break
+
+                try:
+                    return numpy.asarray(array).dtype
+                except (RuntimeError, TypeError):
+                    # assume that the array is actually a PyTorch tensor
+                    return array.detach().cpu().numpy().dtype
+        else:
+            return numpy.float64
 
     @staticmethod
     def cups(left, right):
@@ -611,7 +712,11 @@ class Box(rigid.Box, Diagram):
     def array(self):
         """ The array inside the box. """
         dom, cod = self.dom, self.cod
-        return Tensor.np.array(self.data).reshape(tuple(dom @ cod) or (1, ))
+        data = self.data
+        try:
+            return Tensor.np.array(data).reshape(tuple(dom @ cod) or ())
+        except Exception:
+            return data
 
     def grad(self, var, **params):
         return self.bubble(
@@ -624,13 +729,16 @@ class Box(rigid.Box, Diagram):
     def __eq__(self, other):
         if not isinstance(other, Box):
             return False
-        return Tensor.np.all(self.array == other.array)\
+        return Tensor.np.all(Tensor.np.array(self.array == other.array))\
             and (self.name, self.dom, self.cod)\
             == (other.name, other.dom, other.cod)
 
     def __hash__(self):
         return hash(
             (self.name, self.dom, self.cod, tuple(self.array.flatten())))
+
+    def eval(self, contractor=None):
+        return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
 
 
 class Spider(rigid.Spider, Box):

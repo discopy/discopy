@@ -441,7 +441,7 @@ class TikzBackend(Backend):
 class MatBackend(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None, linewidth=1):
-        self.axis = axis or plt.subplots(figsize=figsize)[1]
+        self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
         self.linewidth = linewidth
         super().__init__()
 
@@ -615,6 +615,8 @@ def draw(diagram, **params):
         return backend
 
     def scale_and_pad(graph, pos, scale, pad):
+        if len(pos) == 0:
+            return pos
         widths, heights = zip(*pos.values())
         min_width, min_height = min(widths), min(heights)
         pos = {n: ((x - min_width) * scale[0] + pad[0],
@@ -641,7 +643,8 @@ def draw(diagram, **params):
         else MatBackend(figsize=params.get('figsize', None),
                         linewidth=params.get('linewidth', 1))
 
-    max_v = max(v for p in positions.values() for v in p)
+    min_size = 0.01
+    max_v = max([v for p in positions.values() for v in p] + [min_size])
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend = draw_wires(backend, graph, positions)

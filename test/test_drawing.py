@@ -257,3 +257,24 @@ def test_diagramize():
             return f(x)
     with raises(ValueError):
         diagramize(x, x, [])
+
+
+@draw_and_compare('empty_diagram.png')
+def test_empty_diagram():
+    return Id()
+
+
+@draw_and_compare('long-controlled.png', draw_type_labels=False, tol=5)
+def test_draw_long_controlled():
+    from discopy.quantum import Controlled, CZ, CX
+    return (
+        Controlled(CX.l, distance=3)
+        >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
+
+
+@tikz_and_compare('long-controlled.tikz', draw_type_labels=False)
+def test_tikz_long_controlled():
+    from discopy.quantum import Controlled, CZ, CX
+    return (
+        Controlled(CX.l, distance=3)
+        >> Controlled(Controlled(CZ.l, distance=2), distance=-1))

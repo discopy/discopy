@@ -171,6 +171,12 @@ def test_adjoint():
     assert diagram.r == Bob_r >> eats_r @ Id(n.r) >> Id(s.r) @ Cup(n.r.r, n.r)
 
 
+def test_id_adjoint():
+    assert Id(Ty('n')).r == Id(Ty('n').r)
+    assert Id(Ty('n')).l == Id(Ty('n').l)
+    assert Id().l == Id() == Id().r
+
+
 def test_transpose_box():
     n = Ty('s')
     Bob = Box('Bob', Ty(), n)
@@ -208,3 +214,36 @@ def test_spider_factory():
                 for k, ob in enumerate(t):
                     assert all(map(ob.__eq__, s.dom[k::len(t)]))
                     assert all(map(ob.__eq__, s.cod[k::len(t)]))
+
+
+def test_spider_decomposition():
+    n = Ty('n')
+
+    assert Spider(0, 0, n).decompose() == Spider(0, 1, n) >> Spider(1, 0, n)
+    assert Spider(1, 0, n).decompose() == Spider(1, 0, n)
+    assert Spider(1, 1, n).decompose() == Id(n)
+    assert Spider(2, 1, n).decompose() == Spider(2, 1, n)
+
+    # 5 is the smallest number including both an even and odd decomposition
+    assert Spider(5, 1, n).decompose() == (Spider(2, 1, n) @ Spider(2, 1, n)
+                                           @ Id(n) >> Spider(2, 1, n) @ Id(n)
+                                           >> Spider(2, 1, n))
+
+
+def test_cup_chaining():
+    n, s, p = map(Ty, "nsp")
+    A = Box('A', Ty(), n @ p)
+    V = Box('V', Ty(), n.r @ s @ n.l)
+    B = Box('B', Ty(), p.r @ n)
+
+    diagram = (A @ V @ B).cup(1, 5).cup(0, 1).cup(1, 2)
+    expected_diagram = Diagram(
+        dom=Ty(), cod=Ty('s'),
+        boxes=[
+            A, V, B, Swap(p, n.r), Swap(p, s), Swap(p, n.l), Cup(p, p.r),
+            Cup(n, n.r), Cup(n.l, n)],
+        offsets=[0, 2, 5, 1, 2, 3, 4, 0, 1])
+    assert diagram == expected_diagram
+
+    with raises(ValueError):
+        Id(n @ n.r).cup(0, 2)

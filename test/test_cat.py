@@ -291,3 +291,6 @@ def test_sum_lambdify():
 
     assert (f + g).free_symbols == {phi}
     assert (f + g).lambdify(phi)(1) == f.lambdify(phi)(1) + g.lambdify(phi)(1)
+
+    empty_sum = Sum([], Ob('x'), Ob('y'))
+    assert empty_sum.lambdify(phi)(123) == empty_sum

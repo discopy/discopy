@@ -7,15 +7,34 @@ Implements the translation between discopy and pytket.
 from unittest.mock import Mock
 
 import pytket as tk
-from pytket.circuit import Bit, Qubit  # pylint: disable=no-name-in-module
+from pytket.circuit import (Bit, Op, OpType,
+                            Qubit)  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
 
 from discopy import messages
 from discopy.quantum.circuit import (
     Functor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
-    ClassicalGate, QuantumGate, Bits, Bra, Ket,
-    Swap, Scalar, MixedScalar, GATES, X, Rx, Rz, CRz, format_number)
+    ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
+    Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
+    CRz, format_number)
+
+
+OPTYPE_MAP = {"H": OpType.H,
+              "X": OpType.X,
+              "Y": OpType.Y,
+              "Z": OpType.Z,
+              "S": OpType.S,
+              "T": OpType.T,
+              "Rx": OpType.Rx,
+              "Ry": OpType.Ry,
+              "Rz": OpType.Rz,
+              "CX": OpType.CX,
+              "CZ": OpType.CZ,
+              "CRx": OpType.CRx,
+              "CRz": OpType.CRz,
+              "Swap": OpType.SWAP,
+              }
 
 
 class Circuit(tk.Circuit):
@@ -208,14 +227,34 @@ def to_tk(circuit):
 
     def add_gate(qubits, box, offset):
         i_qubits = [qubits[offset + j] for j in range(len(box.dom))]
-        if isinstance(box, (Rx, Rz)):
-            tk_circ.__getattribute__(box.name[:2])(2 * box.phase, *i_qubits)
-        elif isinstance(box, CRz):
-            tk_circ.__getattribute__(box.name[:3])(2 * box.phase, *i_qubits)
-        elif hasattr(tk_circ, box.name):
-            tk_circ.__getattribute__(box.name)(*i_qubits)
+
+        if isinstance(box, (Rx, Ry, Rz)):
+            op = Op.create(OPTYPE_MAP[box.name[:2]], 2 * box.phase)
+        elif isinstance(box, Controlled):
+            i_qubits = []
+            idx = offset if box.distance > 0 else offset - box.distance
+            curr_box = box
+            while isinstance(curr_box, Controlled):
+                i_qubits.append(qubits[idx])
+                idx += curr_box.distance
+                curr_box = curr_box.controlled
+            i_qubits.append(qubits[idx])
+
+            name = box.name.split('(')[0]
+            if '(' not in box.name:
+                # CX, CZ, CCX
+                op = Op.create(OPTYPE_MAP[name])
+            elif name in ('CRx', 'CRz'):
+                op = Op.create(OPTYPE_MAP[name], 2 * box.phase)
+        elif box.name in OPTYPE_MAP:
+            op = Op.create(OPTYPE_MAP[box.name])
         else:
             raise NotImplementedError
+
+        if box.is_dagger:
+            op = op.dagger
+
+        tk_circ.add_gate(op, i_qubits)
 
     circuit = Functor(ob=lambda x: x, ar=remove_ket1)(circuit)
     for left, box, _ in circuit.layers:
@@ -249,7 +288,7 @@ def to_tk(circuit):
                 continue  # bits and qubits live in different registers.
         elif isinstance(box, Scalar):
             tk_circ.scale(
-                box.array[0] if box.is_mixed else abs(box.array[0]) ** 2)
+                box.array if box.is_mixed else abs(box.array) ** 2)
         elif isinstance(box, ClassicalGate)\
                 or isinstance(box, Bits) and box.is_dagger:
             off = left.count(bit)
@@ -279,6 +318,8 @@ def from_tk(tk_circuit):
             return Rx(tk_gate.op.params[0] / 2)
         if name == 'Rz':
             return Rz(tk_gate.op.params[0] / 2)
+        if name == 'CRx':
+            return CRx(tk_gate.op.params[0] / 2)
         if name == 'CRz':
             return CRz(tk_gate.op.params[0] / 2)
         for gate in GATES:

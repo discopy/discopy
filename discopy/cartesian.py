@@ -83,7 +83,7 @@ class Function(rigid.Box):
         >>> f.function = lambda x: 2*x  # doctest: +ELLIPSIS
         Traceback (most recent call last):
         ...
-        AttributeError: can't set attribute
+        AttributeError: can't set attribute...
         """
         return self._function
 
