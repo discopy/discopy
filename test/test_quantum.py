@@ -120,8 +120,8 @@ def test_Circuit_to_pennylane(capsys):
 
     captured = capsys.readouterr()
     assert captured.out == \
-        ("0: ───────╭C──H─┤0>\n"
-         "1: ──H─╭C─╰X────┤0>\n"
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
          "2: ────╰X───────┤  State\n")
 
     assert np.allclose(p_circ.eval().numpy(), snake.eval().array)
@@ -150,10 +150,10 @@ def test_Circuit_to_pennylane(capsys):
 
     captured = capsys.readouterr()
     assert captured.out == \
-        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭C──H─┤0>\n"
-         "1: ──H────────╭C───────────────────╰X────┤0>\n"
-         "2: ──H────────╰RZ(1.13)─╭C───────────────┤  State\n"
-         "3: ──H──────────────────╰RZ(12.57)─╭C──H─┤0>\n"
+        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭●──H─┤0>\n"
+         "1: ──H────────╭●───────────────────╰X────┤0>\n"
+         "2: ──H────────╰RZ(1.13)─╭●───────────────┤  State\n"
+         "3: ──H──────────────────╰RZ(12.57)─╭●──H─┤0>\n"
          "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤0>\n")
 
     var_f = var_circ.lambdify(*symbols)
@@ -179,8 +179,8 @@ def test_PennylaneCircuit_draw(capsys):
 
     captured = capsys.readouterr()
     assert captured.out == \
-        ("0: ───────╭C──H─┤0>\n"
-         "1: ──H─╭C─╰X────┤0>\n"
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
          "2: ────╰X───────┤  State\n")
 
 
