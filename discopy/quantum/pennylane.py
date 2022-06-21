@@ -1,6 +1,5 @@
 from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
-from enum import Enum
 from itertools import product
 import numpy as np
 import pennylane as qml
