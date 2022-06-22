@@ -554,15 +554,19 @@ class Circuit(tensor.Diagram):
 
     def to_pennylane(self, probabilities=False):
         """
-        Export DisCoPy circuit to Pennylane QNode.
+        Export DisCoPy circuit to PennylaneCircuit.
 
         Parameters
         ----------
-        probabilties : bool, optional
+        probabilties : bool, default False
+            If True, the PennylaneCircuit will return the normalized
+            probabilties of measuring the computational basis states
+            when run. If False, it returns the unnormalized quantum
+            states in the computational basis.
 
         Returns
         -------
-        pennylane_circuit : discopy.quantum.pennylane.PennylaneCircuit
+        discopy.quantum.pennylane.PennylaneCircuit
         """
 
         # pylint: disable=import-outside-toplevel
