@@ -556,6 +556,10 @@ class Circuit(tensor.Diagram):
         """
         Export DisCoPy circuit to Pennylane QNode.
 
+        Parameters
+        ----------
+        probabilties : bool, optional
+
         Returns
         -------
         pennylane_circuit : discopy.quantum.pennylane.PennylaneCircuit
