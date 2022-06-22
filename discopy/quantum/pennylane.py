@@ -80,7 +80,7 @@ def extract_ops_from_tk(tk_circ, str_map):
 
     Parameters
     -----------
-        tk_circ : discopy.quantum.tk.Circuit
+        tk_circ : :class:`discopy.quantum.tk.Circuit`
             The pytket circuit to extract the operations from.
         str_map : dict[str, sympy.core.symbol]
             A mapping from strings to SymPy symbols.
@@ -112,7 +112,7 @@ def get_post_selection_dict(tk_circ):
 
     Parameters
     -----------
-        tk_circ : discopy.quantum.tk.Circuit
+        tk_circ : :class:`discopy.quantum.tk.Circuit`
             The pytket circuit to extract the post-selections from.
 
     Returns
@@ -135,7 +135,7 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
 
     Parameters
     -----------
-        disco_circuit : discopy.quantum.Circuit
+        disco_circuit : :class:`discopy.quantum.circuit.Circuit`
             The DisCoPy circuit to convert to PennyLane.
         probabilities : bool, default False
             Determines whether the PennyLane
@@ -145,7 +145,7 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
 
     Returns
     --------
-        PennyLaneCircuit
+        :class:`PennyLaneCircuit`
             The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
     symbols = disco_circuit.free_symbols
@@ -192,6 +192,9 @@ class PennyLaneCircuit:
 
     @property
     def post_selection(self):
+        """
+        The post-selection dictionary.
+        """
         return self._post_selection
 
     @post_selection.setter
@@ -201,6 +204,9 @@ class PennyLaneCircuit:
 
     @property
     def valid_states(self):
+        """
+        The states compatible with the post-selections.
+        """
         return self._valid_states
 
     def contains_sympy(self):
