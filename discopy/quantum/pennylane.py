@@ -135,7 +135,7 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
 
     Parameters
     -----------
-        disco_circuit : discopy.quantum.Circuit)
+        disco_circuit : discopy.quantum.Circuit
             The DisCoPy circuit to convert to PennyLane.
         probabilities : bool, default False
             Determines whether the PennyLane
