@@ -35,25 +35,25 @@ OP_MAP = {
 
 def tk_op_to_pennylane(tk_op, str_map):
     """
-    Extracts the operation, parameters and wires from
+    Extract the operation, parameters and wires from
     a pytket `Op`, and return the corresponding PennyLane operation.
 
     Parameters
-    -----------
-        tk_op : pytket.circuit.Op
-            The pytket `Op` to convert.
-        str_map : dict[str, sympy.core.symbol]
-            A mapping from strings to SymPy symbols (necessary as
-            `circ.to_tk()` does not copy symbol references).
+    ----------
+    tk_op : `pytket.circuit.Op`
+        The pytket `Op` to convert.
+    str_map : dict[str, sympy.core.symbol]
+        A mapping from strings to SymPy symbols (necessary as
+        `circ.to_tk()` does not copy symbol references).
 
     Returns
-    --------
-        qml.operation.Operation
-            The PennyLane operation equivalent to the input pytket Op.
-        list[Union[torch.FloatTensor, sympy.core.symbol]]
-            The parameters of the operation.
-        list[int]
-            The wires/qubits to apply the operation to.
+    -------
+    `qml.operation.Operation`
+        The PennyLane operation equivalent to the input pytket Op.
+    list of (`torch.FloatTensor` or `sympy.core.symbol`)
+        The parameters of the operation.
+    list of int
+        The wires/qubits to apply the operation to.
     """
     wires = [x.index[0] for x in tk_op.qubits]
     params = tk_op.op.params
@@ -74,25 +74,25 @@ def tk_op_to_pennylane(tk_op, str_map):
 
 def extract_ops_from_tk(tk_circ, str_map):
     """
-    Extracts the operations, and corresponding parameters and wires,
-    from a pytket Circuit. Returns these as lists to use in
+    Extract the operations, and corresponding parameters and wires,
+    from a pytket Circuit. Return these as lists to use in
     constructing PennyLane circuit.
 
     Parameters
-    -----------
-        tk_circ : :class:`discopy.quantum.tk.Circuit`
-            The pytket circuit to extract the operations from.
-        str_map : dict[str, sympy.core.symbol]
-            A mapping from strings to SymPy symbols.
+    ----------
+    tk_circ : :class:`discopy.quantum.tk.Circuit`
+        The pytket circuit to extract the operations from.
+    str_map : dict of str: `sympy.core.symbol`
+        A mapping from strings to SymPy symbols.
 
     Returns
-    --------
-        list[qml.operation.Operation]
-            The PennyLane operations extracted from the pytket circuit.
-        list[list[Union[torch.FloatTensor, sympy.core.symbol]]]
-            The corresponding parameters of the operations.
-        list[list[int]]
-            The corresponding wires of the operations.
+    -------
+    list of `qml.operation.Operation`
+        The PennyLane operations extracted from the pytket circuit.
+    list of list of (`torch.FloatTensor` or `sympy.core.symbol`)
+        The corresponding parameters of the operations.
+    list of list of int
+        The corresponding wires of the operations.
     """
     op_list, params_list, wires_list = [], [], []
 
@@ -108,17 +108,17 @@ def extract_ops_from_tk(tk_circ, str_map):
 
 def get_post_selection_dict(tk_circ):
     """
-    Returns post-selections based on qubit indices.
+    Return post-selections based on qubit indices.
 
     Parameters
-    -----------
-        tk_circ : :class:`discopy.quantum.tk.Circuit`
-            The pytket circuit to extract the post-selections from.
+    ----------
+    tk_circ : :class:`discopy.quantum.tk.Circuit`
+        The pytket circuit to extract the post-selections from.
 
     Returns
-    --------
-        dict[int, int]
-            A mapping from qubit indices to pytket classical indices.
+    -------
+    dict of int: int
+        A mapping from qubit indices to pytket classical indices.
     """
     q_post_sels = {}
     for q, c in tk_circ.qubit_to_bit_map.items():
@@ -128,25 +128,25 @@ def get_post_selection_dict(tk_circ):
 
 def to_pennylane(disco_circuit: Circuit, probabilities=False):
     """
-    Returns a PennyLaneCircuit equivalent to the input DisCoPy
+    Return a PennyLaneCircuit equivalent to the input DisCoPy
     circuit. `probabilties` determines whether the PennyLaneCircuit
     returns states (as in DisCoPy), or probabilties (to be more
     compatible with automatic differentiation in PennyLane).
 
     Parameters
-    -----------
-        disco_circuit : :class:`discopy.quantum.circuit.Circuit`
-            The DisCoPy circuit to convert to PennyLane.
-        probabilities : bool, default False
-            Determines whether the PennyLane
-            circuit outputs states or normalized probabilities. Probabilities
-            can be used with more PennyLane backpropagation methods.
-            Defaults to False.
+    ----------
+    disco_circuit : :class:`discopy.quantum.circuit.Circuit`
+        The DisCoPy circuit to convert to PennyLane.
+    probabilities : bool, default: False
+        Determines whether the PennyLane
+        circuit outputs states or normalized probabilities. Probabilities
+        can be used with more PennyLane backpropagation methods.
+        Defaults to False.
 
     Returns
-    --------
-        :class:`PennyLaneCircuit`
-            The PennyLane circuit equivalent to the input DisCoPy circuit.
+    -------
+    :class:`PennyLaneCircuit`
+        The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
@@ -175,7 +175,7 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
 
 class PennyLaneCircuit:
     """
-    Implements a pennylane circuit with post-selection.
+    Implement a pennylane circuit with post-selection.
     """
     def __init__(self, ops, params, wires, probabilities,
                  post_selection, scale, n_qubits, device):
@@ -192,9 +192,7 @@ class PennyLaneCircuit:
 
     @property
     def post_selection(self):
-        """
-        The post-selection dictionary.
-        """
+        """The post-selection dictionary."""
         return self._post_selection
 
     @post_selection.setter
@@ -204,38 +202,33 @@ class PennyLaneCircuit:
 
     @property
     def valid_states(self):
-        """
-        The states compatible with the post-selections.
-        """
+        """The states compatible with the post-selections."""
         return self._valid_states
 
     def contains_sympy(self):
         """
-        Determines if the circuit parameters are
+        Determine if the circuit parameters are
         concrete or contain SymPy symbols.
 
         Returns
-        --------
-            bool
-                Whether the circuit parameters contain SymPy symbols.
+        -------
+        bool
+            Whether the circuit parameters contain SymPy symbols.
         """
-        for expr_list in self.params:
-            if any(isinstance(expr, sympy.Expr) for
-                   expr in expr_list):
-                return True
-        return False
+        return any(isinstance(expr, sympy.Expr) for expr_list in
+                   self.params for expr in expr_list)
 
     def draw(self, symbols=None, weights=None):
         """
-        Prints a string representation of the circuit
+        Print a string representation of the circuit
         similar to `qml.draw`, but including post-selection.
 
         Parameters
-        -----------
-            symbols : list[sympy.core.symbol], default None
-                The symbols from the original DisCoPy circuit.
-            weights : list[float], default None
-                The weights to substitute for the symbols.
+        ----------
+        symbols : list of `sympy.core.symbol`, default: None
+            The symbols from the original DisCoPy circuit.
+        weights : list of float, default: None
+            The weights to substitute for the symbols.
         """
         if self._contains_sympy:
             params = self.param_substitution(symbols, weights)
@@ -251,14 +244,14 @@ class PennyLaneCircuit:
 
     def get_valid_states(self):
         """
-        Determines which of the output states of the circuit are
+        Determine which of the output states of the circuit are
         compatible with the post-selections.
 
         Returns
-        --------
-            list[int]
-                The indices of the circuit output that are
-                compatible with the post-selections.
+        -------
+        list of int
+            The indices of the circuit output that are
+            compatible with the post-selections.
         """
         keep_indices = []
         fixed = ['0' if self._post_selection.get(i, 0) == 0 else
@@ -279,9 +272,9 @@ class PennyLaneCircuit:
         autograd to construct hybrid models.
 
         Returns
-        --------
-            qml.qnode
-                A Pennylane circuit without post-selection.
+        -------
+        qml.qnode
+            A Pennylane circuit without post-selection.
         """
         @qml.qnode(self.device, interface="torch")
         def circuit(circ_params):
@@ -297,18 +290,18 @@ class PennyLaneCircuit:
 
     def post_selected_circuit(self, params):
         """
-        Runs the circuit with the given parameters and returns
+        Run the circuit with the given parameters and return
         the post-selected output.
 
         Parameters
-        -----------
-            params : torch.FloatTensor
-                The concrete parameters for the gates in the circuit.
+        ----------
+        params : `torch.FloatTensor`
+            The concrete parameters for the gates in the circuit.
 
         Returns
-        --------
-            torch.Tensor
-                The post-selected output of the circuit.
+        -------
+        `torch.Tensor`
+            The post-selected output of the circuit.
         """
         states = self.make_circuit()(params)
 
@@ -325,20 +318,20 @@ class PennyLaneCircuit:
 
     def param_substitution(self, symbols, weights):
         """
-        Substitutes symbolic parameters (SymPy symbols) with floats.
+        Substitute symbolic parameters (SymPy symbols) with floats.
 
         Parameters
-        -----------
-            symbols : list[sympy.core.symbol]
-                The symbols from the original DisCoPy circuit.
-            weights : list[torch.FloatTensor]
-                The weights to substitute for the symbols.
+        ----------
+        symbols : list of `sympy.core.symbol`
+            The symbols from the original DisCoPy circuit.
+        weights : list of `torch.FloatTensor`
+            The weights to substitute for the symbols.
 
         Returns
-        --------
-            torch.FloatTensor
-                The concrete (non-symbolic) parameters for the
-                circuit.
+        -------
+        `torch.FloatTensor`
+            The concrete (non-symbolic) parameters for the
+            circuit.
         """
         concrete_params = []
         for expr_list in self.params:
@@ -355,21 +348,21 @@ class PennyLaneCircuit:
 
     def eval(self, symbols=None, weights=None):
         """
-        Evaluates the circuit. The symbols should be those
+        Evaluate the circuit. The symbols should be those
         from the original DisCoPy diagram, which will be substituted
         for the concrete parameters in weights.
 
         Parameters
-        -----------
-            symbols : list[sympy.core.symbol]
-                The symbols from the original DisCoPy circuit.
-            weights : list[torch.FloatTensor]
-                The weights to substitute for the symbols.
+        ----------
+        symbols : list of `sympy.core.symbol`
+            The symbols from the original DisCoPy circuit.
+        weights : list of `torch.FloatTensor`
+            The weights to substitute for the symbols.
 
         Returns
-        --------
-            torch.Tensor
-                The post-selected output of the circuit.
+        -------
+        `torch.Tensor`
+            The post-selected output of the circuit.
         """
         if self._contains_sympy:
             concrete_params = self.param_substitution(symbols, weights)

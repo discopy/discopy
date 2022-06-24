@@ -558,7 +558,7 @@ class Circuit(tensor.Diagram):
 
         Parameters
         ----------
-        probabilties : bool, default False
+        probabilties : bool, default: False
             If True, the PennylaneCircuit will return the normalized
             probabilties of measuring the computational basis states
             when run. If False, it returns the unnormalized quantum
@@ -566,7 +566,7 @@ class Circuit(tensor.Diagram):
 
         Returns
         -------
-        discopy.quantum.pennylane.PennylaneCircuit
+        :class:`discopy.quantum.pennylane.PennylaneCircuit`
         """
 
         # pylint: disable=import-outside-toplevel
