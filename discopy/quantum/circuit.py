@@ -93,7 +93,7 @@ def bitstring2index(bitstring):
 
 class Ob(RealConjugate, rigid.Ob):
     """
-    Implements the generating objects of :class:`Circuit`, i.e.
+    Implement the generating objects of :class:`Circuit`, i.e.
     information units of some integer dimension greater than 1.
 
     Examples
@@ -146,7 +146,7 @@ class Qudit(Ob):
 
 class Ty(rigid.Ty):
     """
-    Implements the input and output types of :class:`Circuit`.
+    Implement the input and output types of :class:`Circuit`.
 
     Examples
     --------
@@ -355,7 +355,7 @@ class Circuit(tensor.Diagram):
 
     def measure(self, mixed=False):
         """
-        Measures a circuit on the computational basis using :code:`numpy`.
+        Measure a circuit on the computational basis using :code:`numpy`.
 
         Parameters
         ----------
@@ -380,7 +380,7 @@ class Circuit(tensor.Diagram):
 
     def to_tn(self, mixed=False):
         """
-        Sends a diagram to a mixed :code:`tensornetwork`.
+        Send a diagram to a mixed :code:`tensornetwork`.
 
         Parameters
         ----------
@@ -576,7 +576,7 @@ class Circuit(tensor.Diagram):
     @staticmethod
     def from_tk(*tk_circuits):
         """
-        Translates a :class:`pytket.Circuit` into a :class:`Circuit`, or
+        Translate a :class:`pytket.Circuit` into a :class:`Circuit`, or
         a list of :class:`pytket` circuits into a :class:`Sum`.
 
         Parameters
@@ -1124,7 +1124,7 @@ class Functor(rigid.Functor):
 
 class IQPansatz(Circuit):
     """
-    Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
+    Build an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
     >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
