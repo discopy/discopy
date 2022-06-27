@@ -89,7 +89,8 @@ def extract_ops_from_tk(tk_circ, str_map):
     -------
     list of :class:`qml.operation.Operation`
         The PennyLane operations extracted from the pytket circuit.
-    list of list of (:class:`torch.FloatTensor` or :class:`sympy.core.symbol.Symbol`)
+    list of list of (:class:`torch.FloatTensor` or
+                     :class:`sympy.core.symbol.Symbol`)
         The corresponding parameters of the operations.
     list of list of int
         The corresponding wires of the operations.
