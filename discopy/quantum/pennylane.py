@@ -36,21 +36,21 @@ OP_MAP = {
 def tk_op_to_pennylane(tk_op, str_map):
     """
     Extract the operation, parameters and wires from
-    a pytket `Op`, and return the corresponding PennyLane operation.
+    a pytket :class:`Op`, and return the corresponding PennyLane operation.
 
     Parameters
     ----------
-    tk_op : `pytket.circuit.Op`
-        The pytket `Op` to convert.
-    str_map : dict[str, sympy.core.symbol]
+    tk_op : :class:`pytket.circuit.Op`
+        The pytket :class:`Op` to convert.
+    str_map : dict[str, :class:`sympy.core.symbol.Symbol`]
         A mapping from strings to SymPy symbols (necessary as
         `circ.to_tk()` does not copy symbol references).
 
     Returns
     -------
-    `qml.operation.Operation`
+    :class:`qml.operation.Operation`
         The PennyLane operation equivalent to the input pytket Op.
-    list of (`torch.FloatTensor` or `sympy.core.symbol`)
+    list of (:class:`torch.FloatTensor` or :class:`sympy.core.symbol.Symbol`)
         The parameters of the operation.
     list of int
         The wires/qubits to apply the operation to.
@@ -82,14 +82,14 @@ def extract_ops_from_tk(tk_circ, str_map):
     ----------
     tk_circ : :class:`discopy.quantum.tk.Circuit`
         The pytket circuit to extract the operations from.
-    str_map : dict of str: `sympy.core.symbol`
+    str_map : dict of str: :class:`sympy.core.symbol.Symbol`
         A mapping from strings to SymPy symbols.
 
     Returns
     -------
-    list of `qml.operation.Operation`
+    list of :class:`qml.operation.Operation`
         The PennyLane operations extracted from the pytket circuit.
-    list of list of (`torch.FloatTensor` or `sympy.core.symbol`)
+    list of list of (:class:`torch.FloatTensor` or :class:`sympy.core.symbol.Symbol`)
         The corresponding parameters of the operations.
     list of list of int
         The corresponding wires of the operations.
@@ -141,7 +141,6 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
         Determines whether the PennyLane
         circuit outputs states or normalized probabilities. Probabilities
         can be used with more PennyLane backpropagation methods.
-        Defaults to False.
 
     Returns
     -------
@@ -225,9 +224,9 @@ class PennyLaneCircuit:
 
         Parameters
         ----------
-        symbols : list of `sympy.core.symbol`, default: None
+        symbols : list of :class:`sympy.core.symbol.Symbol`, default: None
             The symbols from the original DisCoPy circuit.
-        weights : list of float, default: None
+        weights : list of :class:`torch.FloatTensor`, default: None
             The weights to substitute for the symbols.
         """
         if self._contains_sympy:
@@ -268,12 +267,12 @@ class PennyLaneCircuit:
 
     def make_circuit(self):
         """
-        Construct the `qml.qnode`, a circuit that can be used with
+        Construct the :class:`qml.Qnode`, a circuit that can be used with
         autograd to construct hybrid models.
 
         Returns
         -------
-        qml.qnode
+        :class:`qml.Qnode`
             A Pennylane circuit without post-selection.
         """
         @qml.qnode(self.device, interface="torch")
@@ -295,12 +294,12 @@ class PennyLaneCircuit:
 
         Parameters
         ----------
-        params : `torch.FloatTensor`
+        params : :class:`torch.FloatTensor`
             The concrete parameters for the gates in the circuit.
 
         Returns
         -------
-        `torch.Tensor`
+        :class:`torch.Tensor`
             The post-selected output of the circuit.
         """
         states = self.make_circuit()(params)
@@ -322,14 +321,14 @@ class PennyLaneCircuit:
 
         Parameters
         ----------
-        symbols : list of `sympy.core.symbol`
+        symbols : list of :class:`sympy.core.symbol.Symbol`
             The symbols from the original DisCoPy circuit.
-        weights : list of `torch.FloatTensor`
+        weights : list of :class:`torch.FloatTensor`
             The weights to substitute for the symbols.
 
         Returns
         -------
-        `torch.FloatTensor`
+        :class:`torch.FloatTensor`
             The concrete (non-symbolic) parameters for the
             circuit.
         """
@@ -354,14 +353,14 @@ class PennyLaneCircuit:
 
         Parameters
         ----------
-        symbols : list of `sympy.core.symbol`
+        symbols : list of :class:`sympy.core.symbol.Symbol`, default: None
             The symbols from the original DisCoPy circuit.
-        weights : list of `torch.FloatTensor`
+        weights : list of :class:`torch.FloatTensor`, default: None
             The weights to substitute for the symbols.
 
         Returns
         -------
-        `torch.Tensor`
+        :class:`torch.Tensor`
             The post-selected output of the circuit.
         """
         if self._contains_sympy:
