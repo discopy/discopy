@@ -303,11 +303,14 @@ class PennyLaneCircuit:
         open_wires = self.n_qubits - len(self._post_selection)
         post_selected_states = states[list(self._valid_states)]
 
-        if self.probs:
+        if self.probs and post_selected_states.shape[0] > 1:
             post_selected_states = \
                 post_selected_states / post_selected_states.sum().item()
-        else:
+        elif not self.probs:
             post_selected_states = self.scale * post_selected_states
+
+        if post_selected_states.shape[0] == 1:
+            return post_selected_states
 
         return torch.reshape(post_selected_states, (2,) * open_wires)
 

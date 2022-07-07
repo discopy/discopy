@@ -115,8 +115,8 @@ def test_Circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
-    p_circ = snake.to_pennylane()
-    p_circ.draw()
+    p_snake = snake.to_pennylane()
+    p_snake.draw()
 
     captured = capsys.readouterr()
     assert captured.out == \
@@ -124,13 +124,30 @@ def test_Circuit_to_pennylane(capsys):
          "1: ──H─╭●─╰X────┤0>\n"
          "2: ────╰X───────┤  State\n")
 
-    assert np.allclose(p_circ.eval().numpy(), snake.eval().array)
+    assert np.allclose(p_snake.eval().numpy(), snake.eval().array)
 
-    p_circ_prob = snake.to_pennylane(probabilities=True)
-    circ_prob = np.square(np.abs(snake.eval().array))
-    circ_prob = circ_prob / np.sum(circ_prob)
+    p_snake_prob = snake.to_pennylane(probabilities=True)
+    snake_prob = np.square(np.abs(snake.eval().array))
+    snake_prob = snake_prob / np.sum(snake_prob)
 
-    assert(np.allclose(p_circ_prob.eval().numpy(), circ_prob))
+    assert(np.allclose(p_snake_prob.eval().numpy(), snake_prob))
+
+    no_open_snake = (bell_state @ Ket(0) >> Bra(0) @ bell_effect)[::-1]
+    p_no_open_snake = no_open_snake.to_pennylane()
+    p_no_open_snake.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤0>\n")
+
+    assert np.allclose(p_no_open_snake.eval().numpy(), no_open_snake.eval().array)
+
+    # probabilities should not be normalized if all wires are post-selected
+    p_no_open_snake_prob = no_open_snake.to_pennylane(probabilities=True)
+
+    assert np.allclose(p_no_open_snake_prob.eval().numpy(), np.array([0.25]))
 
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
@@ -173,7 +190,7 @@ def test_Circuit_to_pennylane(capsys):
 def test_PennylaneCircuit_draw(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
     p_circ = snake.to_pennylane()
     p_circ.draw()
 
