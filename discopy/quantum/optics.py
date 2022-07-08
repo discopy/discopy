@@ -548,25 +548,33 @@ class MZI(Box):
     >>> assert np.allclose((MZI(0.28, 0.34) >> MZI(0.28, 0.34).dagger()).array,
     ...                    Id(2).array)
     """
-    def __init__(self, theta, phi):
-        self.theta, self.phi = theta, phi
-        super().__init__('MZI({}, {})'.format(theta, phi), PRO(2), PRO(2))
+    def __init__(self, theta, phi, _dagger=False):
+        self.theta, self.phi, self._dagger = theta, phi, _dagger
+        super().__init__('MZI', PRO(2), PRO(2), _dagger=_dagger)
 
     @property
     def global_phase(self):
-        return 1j * np.exp(1j * self.theta * np.pi)
+        if not self._dagger:
+            return 1j * np.exp(1j * self.theta * np.pi)
+        else:
+            return - 1j * np.exp(- 1j * self.theta * np.pi)
 
     @property
     def matrix(self):
         backend = sympy if hasattr(self.theta, 'free_symbols') else np
         cos = backend.cos(backend.pi * self.theta)
         sin = backend.sin(backend.pi * self.theta)
-        exp = backend.exp(1j * 2 * backend.pi * self.phi)
-        array = np.array([exp * sin, cos, exp * cos, -sin])
-        return Matrix(self.dom, self.cod, array)
+        if self._dagger:
+            exp = backend.exp(- 1j * 2 * backend.pi * self.phi)
+            array = np.array([exp * sin, exp * cos, cos, -sin])
+            return Matrix(self.dom, self.cod, array)
+        else:
+            exp = backend.exp(1j * 2 * backend.pi * self.phi)
+            array = np.array([exp * sin, cos, exp * cos, -sin])
+            return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
-        return Phase(-self.phi) @ Id(1) >> TBS(self.theta).dagger()
+        return MZI(self.theta, self.phi, _dagger=not self._dagger)
 
 
 class Functor(monoidal.Functor):
