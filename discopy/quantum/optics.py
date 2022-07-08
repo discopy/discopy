@@ -61,9 +61,6 @@ class Diagram(monoidal.Diagram):
     """
     Linear optical network seen as a diagram of beam splitters, phase shifters
     and Mach-Zender interferometers.
-
-    >>> grid = MZI(0.5, 0.3) @ MZI(0.5, 0.3) >> Id(1) @ MZI(0.5, 0.3) @ Id(1)
-    >>> assert np.allclose((grid >> grid.dagger()).eval(3), Id(4).eval(3))
     """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'optics.Diagram')
@@ -75,7 +72,6 @@ class Diagram(monoidal.Diagram):
         Builds a block diagonal matrix for each layer and then multiplies them
         in sequence.
 
-        >>> BS = BeamSplitter(0.25)
         >>> np.shape(to_matrix(BS).array)
         (2, 2)
         >>> np.shape(to_matrix(BS >> BS).array)
@@ -219,7 +215,7 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
 
         Check Hong-Ou-Mandel
-        >>> BS = BeamSplitter(0.25)
+        >>> BS = BBS(0)
         >>> x = [1, 1]
         >>> S = np.eye(2)
         >>> assert np.isclose(BS.pdist_prob(x, x, S), 0.5)
@@ -258,11 +254,11 @@ class Diagram(monoidal.Diagram):
             If the vector is not normalised the output will have the same
             normalisation factor.
 
-        >>> BeamSplitter(0.25).cl_distribution([2/3, 1/3])
+        >>> TBS(0.25).cl_distribution([2/3, 1/3])
         array([0.5, 0.5])
-        >>> assert np.allclose(BeamSplitter(0.25).cl_distribution([2/3, 1/3]),
-        ...                    BeamSplitter(0.25).cl_distribution([1/5, 4/5]))
-        >>> BS = BeamSplitter(0.25)
+        >>> assert np.allclose(TBS(0.25).cl_distribution([2/3, 1/3]),
+        ...                    TBS(0.25).cl_distribution([1/5, 4/5]))
+        >>> BS = TBS(0.25)
         >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
         >>> d.cl_distribution([0, 1/2, 1/2, 0])
         array([0.25, 0.25, 0.25, 0.25])
@@ -464,40 +460,73 @@ class PhaseShift(Box):
         return PhaseShift(-self.phi)
 
 
-class BeamSplitter(Box):
+class BBS(Box):
     """
-    Tunable beam splitter.
+    Beam splitter with a bias.
+
+    Parameters
+    ----------
+    bias : float
+    Bias angle from standard 50/50 beam splitter, parameter between 0 and 1.
+
+    The standard beam splitter is:
+    >>> BS = BBS(0)
+
+    We can check the Hong-Ou-Mandel effect:
+    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [0, 2])) **2, 0.5)
+    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
+    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
+
+    Check the dagger.
+    >>> y = BBS(0.4)
+    >>> assert np.allclose((y >> y.dagger()).eval(2), Id(2).eval(2))
+    >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
+    ...   ).dagger()
+    >>> assert np.allclose(comp.eval(2), Id(4).eval(2))
+    """
+    def __init__(self, bias):
+        self.bias = bias
+        super().__init__('BBS', PRO(2), PRO(2), [bias])
+
+    @property
+    def matrix(self):
+        sin = np.sin((0.25 + self.bias) * np.pi)
+        cos = np.cos((0.25 + self.bias) * np.pi)
+        array = [sin, 1j * cos, 1j * cos, sin]
+        return Matrix(self.dom, self.cod, array)
+
+    def dagger(self):
+        return BBS(0.5 - self.bias)
+
+
+class TBS(Box):
+    """
+    Tunable Beam Splitter.
 
     Parameters
     ----------
     theta : float
     Beam splitter parameter ranging from 0 to 1.
 
-    >>> y = BeamSplitter(0.4)
-    >>> assert np.allclose((y >> y.dagger()).eval(2), Id(2).eval(2))
-    >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
-    ...   ).dagger()
-    >>> assert np.allclose(comp.eval(2), Id(4).eval(2))
-
-    We can check the Hong-Ou-Mandel effect:
-    >>> BS = BeamSplitter(0.25)
-    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [0, 2])) **2, 0.5)
-    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
-    >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
+    Relationship with standard beam spitter:
+    >>> BS = BBS(0)
+    >>> tbs = lambda x: BS >> PhaseShift(x) @ Id(1) >> BS
+    >>> assert np.allclose(TBS(0.15).array * TBS(0.15).global_phase, tbs(0.15).array)
     """
     def __init__(self, theta):
         self.theta = theta
         super().__init__('Beam splitter', PRO(2), PRO(2), [theta])
 
     @property
+    def global_phase(self):
+        return 1j * np.exp(1j * self.theta * np.pi)
+
+    @property
     def matrix(self):
         sin = np.sin(self.theta * np.pi)
         cos = np.cos(self.theta * np.pi)
-        array = [sin, 1j * cos, 1j * cos, -sin]
+        array = [sin, cos, cos, -sin]
         return Matrix(self.dom, self.cod, array)
-
-    def dagger(self):
-        return BeamSplitter(1 - self.theta)
 
 
 class MZI(Box):
@@ -513,15 +542,19 @@ class MZI(Box):
     (1+0j)
     >>> MZI(0, 0).amp([1, 0], [1, 0])
     0j
-    >>> mach = lambda x, y: BeamSplitter(x) >> PhaseShift(y) @ Id(1)
-    >>> assert np.allclose(MZI(0.4, 0.9).array, 1j * np.exp(1j * 0.2) * mach(0.4, 0.9).array)
+    >>> mach = lambda x, y: TBS(x) >> PhaseShift(y) @ Id(1)
+    >>> assert np.allclose(MZI(0.4, 0.9).array, mach(0.4, 0.9).array)
     >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
     ...                     Id(2).eval(3))
     """
     def __init__(self, theta, phi, _dagger=False):
-        self.phi, self.theta, self._dagger = theta, phi, _dagger
+        self.theta, self.phi, self._dagger = theta, phi, _dagger
         super().__init__('MZI', PRO(2), PRO(2), data=[phi, theta],
                          _dagger=_dagger)
+
+    @property
+    def global_phase(self):
+        return 1j * np.exp(1j * self.theta * np.pi)
 
     @property
     def matrix(self):
@@ -531,9 +564,6 @@ class MZI(Box):
         exp = backend.exp(1j * 2 * backend.pi * self.phi)
         array = np.array([exp * sin, cos, exp * cos, -sin])
         return Matrix(self.dom, self.cod, array)
-
-    def dagger(self):
-        return MZI(self.theta, self.phi, _dagger=not self._dagger)
 
 
 class Functor(monoidal.Functor):
@@ -590,7 +620,7 @@ def ansatz(width, depth, x):
     return chip
 
 
-beam_splitter = BeamSplitter(0.25)
+BS = BBS(0)
 
 
 def to_matrix(diagram):
@@ -603,7 +633,7 @@ def ar_to_path(box):
     if isinstance(box, PhaseShift):
         backend = sympy if hasattr(box.phi, 'free_symbols') else np
         return Endo(backend.exp(2j * backend.pi * box.phi))
-    if isinstance(box, BeamSplitter):
+    if isinstance(box, TBS):
         r, t = box.r, box.t
         array = Id().tensor(*map(Endo, (r, t, t.conjugate(), -r.conjugate())))
         w1, w2 = Comonoid(), Monoid()
