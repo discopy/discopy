@@ -80,8 +80,8 @@ class Diagram(monoidal.Diagram):
         (6, 6)
         >>> assert np.allclose(
         ...     to_matrix(MZI(0, 0)).array, np.array([[0, 1], [1, 0]]))
-        >>> assert np.allclose(
-        ...     to_matrix(MZI(0, 0) >> MZI(0, 0)).array, to_matrix(Id(2)).array)
+        >>> assert np.allclose(to_matrix(MZI(0, 0) >> MZI(0, 0)).array,
+        ...                    to_matrix(Id(2)).array)
         """
         return to_matrix(self).array
 
@@ -281,6 +281,7 @@ class Box(Diagram, monoidal.Box):
     def __repr__(self):
         return super().__repr__().replace('Box', 'optics.Box')
 
+
 class PathBox(Box):
     """
     Box in Path category.
@@ -426,7 +427,7 @@ class Id(monoidal.Id, Diagram):
 Diagram.id = Id
 
 
-class PhaseShift(Box):
+class Phase(Box):
     """
     Phase shifter.
 
@@ -435,14 +436,14 @@ class PhaseShift(Box):
     phi : float
     Phase parameter ranging from 0 to 1.
 
-    >>> PhaseShift(0.8).array
+    >>> Phase(0.8).array
     array([[0.30901699-0.95105652j]])
-    >>> assert np.allclose((PhaseShift(0.4) >> PhaseShift(0.4).dagger()).array
+    >>> assert np.allclose((Phase(0.4) >> Phase(0.4).dagger()).array
     ...                    , Id(1).array)
     """
     def __init__(self, phi):
         self.phi = phi
-        super().__init__('Phase shift', PRO(1), PRO(1))
+        super().__init__('Phase({})'.format({phi}), PRO(1), PRO(1))
 
     @property
     def matrix(self):
@@ -451,7 +452,7 @@ class PhaseShift(Box):
         return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
-        return PhaseShift(-self.phi)
+        return Phase(-self.phi)
 
 
 class BBS(Box):
@@ -471,7 +472,7 @@ class BBS(Box):
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
 
-    Check the dagger.
+    Check the dagger:
     >>> y = BBS(0.4)
     >>> assert np.allclose((y >> y.dagger()).eval(2), Id(2).eval(2))
     >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
@@ -502,19 +503,23 @@ class TBS(Box):
     theta : float
     Beam splitter parameter ranging from 0 to 1.
 
-    Relationship with standard beam spitter:
     >>> BS = BBS(0)
-    >>> tbs = lambda x: BS >> PhaseShift(x) @ Id(1) >> BS
+    >>> tbs = lambda x: BS >> Phase(x) @ Id(1) >> BS
     >>> assert np.allclose(TBS(0.15).array * TBS(0.15).global_phase,
     ...                    tbs(0.15).array)
+    >>> assert np.allclose((TBS(0.25) >> TBS(0.25).dagger()).array, Id(2).array)
+    >>> assert TBS(0.25).dagger().global_phase == np.conjugate(TBS(0.25).global_phase)
     """
-    def __init__(self, theta):
-        self.theta = theta
-        super().__init__('TBS({})'.format(theta), PRO(2), PRO(2))
+    def __init__(self, theta, _dagger=False):
+        self.theta, self._dagger = theta, _dagger
+        super().__init__('TBS({})'.format(theta), PRO(2), PRO(2), _dagger=_dagger)
 
     @property
     def global_phase(self):
-        return 1j * np.exp(1j * self.theta * np.pi)
+        if self._dagger:
+            return - 1j * np.exp(- 1j * self.theta * np.pi)
+        else:
+            return 1j * np.exp(1j * self.theta * np.pi)
 
     @property
     def matrix(self):
@@ -522,6 +527,9 @@ class TBS(Box):
         cos = np.cos(self.theta * np.pi)
         array = [sin, cos, cos, -sin]
         return Matrix(self.dom, self.cod, array)
+
+    def dagger(self):
+        return TBS(self.theta, _dagger=True)
 
 
 class MZI(Box):
@@ -533,14 +541,10 @@ class MZI(Box):
     theta, phi : float
     Internal and external phase parameters of the MZI, ranging from 0 to 1.
 
-    >>> MZI(0, 0).amp([1, 0], [0, 1])
-    (1+0j)
-    >>> MZI(0, 0).amp([1, 0], [1, 0])
-    0j
-    >>> mach = lambda x, y: TBS(x) >> PhaseShift(y) @ Id(1)
-    >>> assert np.allclose(MZI(0.4, 0.9).array, mach(0.4, 0.9).array)
-    >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
-    ...                     Id(2).eval(3))
+    >>> assert np.allclose(MZI(0.28, 0).array, TBS(0.28).array)
+    >>> assert np.isclose(MZI(0.28, 0.3).global_phase, TBS(0.28).global_phase)
+    >>> mach = lambda x, y: TBS(x) >> Phase(y) @ Id(1)
+    >>> assert np.allclose(MZI(0.28, 0.9).array, mach(0.28, 0.9).array)
     """
     def __init__(self, theta, phi):
         self.theta, self.phi = theta, phi
@@ -624,7 +628,7 @@ def to_matrix(diagram):
 
 
 def ar_to_path(box):
-    if isinstance(box, PhaseShift):
+    if isinstance(box, Phase):
         backend = sympy if hasattr(box.phi, 'free_symbols') else np
         return Endo(backend.exp(2j * backend.pi * box.phi))
     if isinstance(box, TBS):
@@ -635,8 +639,8 @@ def ar_to_path(box):
     if isinstance(box, MZI):
         phi, theta = box.phi, box.theta
         diagram = (
-            beam_splitter >> Id(PRO(1)) @ PhaseShift(phi) >>
-            beam_splitter >> Id(PRO(1)) @ PhaseShift(theta))
+            beam_splitter >> Id(PRO(1)) @ Phase(phi) >>
+            beam_splitter >> Id(PRO(1)) @ Phase(theta))
         return to_path(diagram)
 
 
