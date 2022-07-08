@@ -545,6 +545,8 @@ class MZI(Box):
     >>> assert np.isclose(MZI(0.28, 0.3).global_phase, TBS(0.28).global_phase)
     >>> mach = lambda x, y: TBS(x) >> Phase(y) @ Id(1)
     >>> assert np.allclose(MZI(0.28, 0.9).array, mach(0.28, 0.9).array)
+    >>> assert np.allclose((MZI(0.28, 0.34) >> MZI(0.28, 0.34).dagger()).array,
+    ...                    Id(2).array)
     """
     def __init__(self, theta, phi):
         self.theta, self.phi = theta, phi
@@ -562,6 +564,9 @@ class MZI(Box):
         exp = backend.exp(1j * 2 * backend.pi * self.phi)
         array = np.array([exp * sin, cos, exp * cos, -sin])
         return Matrix(self.dom, self.cod, array)
+
+    def dagger(self):
+        return Phase(-self.phi) @ Id(1) >> TBS(self.theta).dagger()
 
 
 class Functor(monoidal.Functor):
