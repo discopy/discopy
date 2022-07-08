@@ -270,22 +270,16 @@ class Box(Diagram, monoidal.Box):
     """
     Box in an optics.Diagram
     """
-    def __init__(self, name, dom, cod, data, **params):
+    def __init__(self, name, dom, cod, **params):
         if not isinstance(dom, PRO):
             raise TypeError(messages.type_err(PRO, dom))
         if not isinstance(cod, PRO):
             raise TypeError(messages.type_err(PRO, cod))
-        monoidal.Box.__init__(self, name, dom, cod, data=data, **params)
+        monoidal.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
 
     def __repr__(self):
         return super().__repr__().replace('Box', 'optics.Box')
-
-    @property
-    def matrix(self):
-        """ The array or unitary inside the box. """
-        return Matrix(self.dom, self.cod, self.data)
-
 
 class PathBox(Box):
     """
@@ -315,7 +309,7 @@ class Monoid(PathBox):
 class Comonoid(PathBox):
     """W spider"""
     def __init__(self):
-        super().__init__('Comonoid', PRO(1), PRO(2), [])
+        super().__init__('Comonoid', PRO(1), PRO(2))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.shape = 'triangle_down'
@@ -332,7 +326,7 @@ class Comonoid(PathBox):
 class Unit(PathBox):
     """Red node"""
     def __init__(self):
-        super().__init__('Unit', PRO(0), PRO(1), [])
+        super().__init__('Unit', PRO(0), PRO(1))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'red'
@@ -348,7 +342,7 @@ class Unit(PathBox):
 class Counit(PathBox):
     """Red node"""
     def __init__(self):
-        super().__init__('Unit', PRO(1), PRO(0), [])
+        super().__init__('Unit', PRO(1), PRO(0))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'red'
@@ -364,7 +358,7 @@ class Counit(PathBox):
 class Create(PathBox):
     """Black node"""
     def __init__(self):
-        super().__init__('Create', PRO(0), PRO(1), [])
+        super().__init__('Create', PRO(0), PRO(1))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'black'
@@ -380,7 +374,7 @@ class Create(PathBox):
 class Annil(PathBox):
     """Black node"""
     def __init__(self):
-        super().__init__('Annil', PRO(1), PRO(0), [])
+        super().__init__('Annil', PRO(1), PRO(0))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'black'
@@ -396,7 +390,7 @@ class Annil(PathBox):
 class Endo(PathBox):
     """Green box"""
     def __init__(self, scalar):
-        super().__init__('Endo', PRO(1), PRO(1), scalar)
+        super().__init__('Endo({})'.format(scalar), PRO(1), PRO(1))
         self.scalar = scalar
         try:
             self.drawing_name = f'{scalar:.3f}'
@@ -448,7 +442,7 @@ class PhaseShift(Box):
     """
     def __init__(self, phi):
         self.phi = phi
-        super().__init__('Phase shift', PRO(1), PRO(1), phi)
+        super().__init__('Phase shift', PRO(1), PRO(1))
 
     @property
     def matrix(self):
@@ -486,7 +480,7 @@ class BBS(Box):
     """
     def __init__(self, bias):
         self.bias = bias
-        super().__init__('BBS', PRO(2), PRO(2), [bias])
+        super().__init__('BBS({})'.format(bias), PRO(2), PRO(2))
 
     @property
     def matrix(self):
@@ -511,11 +505,12 @@ class TBS(Box):
     Relationship with standard beam spitter:
     >>> BS = BBS(0)
     >>> tbs = lambda x: BS >> PhaseShift(x) @ Id(1) >> BS
-    >>> assert np.allclose(TBS(0.15).array * TBS(0.15).global_phase, tbs(0.15).array)
+    >>> assert np.allclose(TBS(0.15).array * TBS(0.15).global_phase,
+    ...                    tbs(0.15).array)
     """
     def __init__(self, theta):
         self.theta = theta
-        super().__init__('Beam splitter', PRO(2), PRO(2), [theta])
+        super().__init__('TBS({})'.format(theta), PRO(2), PRO(2))
 
     @property
     def global_phase(self):
@@ -547,10 +542,9 @@ class MZI(Box):
     >>> assert np.allclose((MZI(0.4, 0.9) >> MZI(0.4, 0.9).dagger()).eval(3),
     ...                     Id(2).eval(3))
     """
-    def __init__(self, theta, phi, _dagger=False):
-        self.theta, self.phi, self._dagger = theta, phi, _dagger
-        super().__init__('MZI', PRO(2), PRO(2), data=[phi, theta],
-                         _dagger=_dagger)
+    def __init__(self, theta, phi):
+        self.theta, self.phi = theta, phi
+        super().__init__('MZI({}, {})'.format(theta, phi), PRO(2), PRO(2))
 
     @property
     def global_phase(self):
