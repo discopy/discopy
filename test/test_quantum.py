@@ -147,7 +147,8 @@ def test_Circuit_to_pennylane(capsys):
     # probabilities should not be normalized if all wires are post-selected
     p_no_open_snake_prob = no_open_snake.to_pennylane(probabilities=True)
 
-    assert np.allclose(p_no_open_snake_prob.eval().numpy(), no_open_snake.eval().array)
+    assert np.allclose(p_no_open_snake_prob.eval().numpy(),
+                       no_open_snake.eval().array)
 
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
