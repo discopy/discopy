@@ -268,7 +268,8 @@ class Diagram(monoidal.Diagram):
     def indist_prob_ub(self, x, y):
         """
         Evaluates probability of an optics.Diagram for input x and output y,
-        when sending distinguishable particles, exclduing bunching output probabilities.
+        when sending distinguishable particles,
+        excluding bunching output probabilities.
 
         Parameters
         ----------
@@ -276,17 +277,19 @@ class Diagram(monoidal.Diagram):
             Input vector of occupation numbers
         y : List[int]
             Output vector of occupation numbers
-        
+
         >>> BS = TBS(0.25)
         >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
-        >>> unbunch = [s for s in occupation_numbers(2,4) if set(s)=={0,1}]
-        >>> assert np.isclose(sum([d.indist_prob_ub([1,1,0,0], y) for y in unbunch]),1)
+        >>> unbunch = [s for s in occupation_numbers(2, 4) if set(s)=={0,1}]
+        >>> assert np.isclose(sum([d.indist_prob_ub([1, 1, 0, 0], y)
+                                   for y in unbunch]), 1)
         """
 
         states = occupation_numbers(sum(x), len(x))
-        bunch_states = [i for i in states if set(i) != {0,1}]
-        p_total = [self.indist_prob(x, i) for i in bunch_states] 
-        return self.indist_prob(x, y)/(1-sum(p_total))
+        bunch_states = [i for i in states if set(i) != {0, 1}]
+        p_total = [self.indist_prob(x, i) for i in bunch_states]
+        return self.indist_prob(x, y) / (1 - sum(p_total))
+
 
 class Box(Diagram, monoidal.Box):
     """
