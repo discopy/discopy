@@ -303,9 +303,8 @@ class PennyLaneCircuit:
         open_wires = self.n_qubits - len(self._post_selection)
         post_selected_states = states[list(self._valid_states)]
 
-        if self.probs and post_selected_states.shape[0] > 1:
-            post_selected_states = \
-                post_selected_states / post_selected_states.sum().item()
+        if self.probs:
+            post_selected_states = self.scale**2 * post_selected_states
         elif not self.probs:
             post_selected_states = self.scale * post_selected_states
 

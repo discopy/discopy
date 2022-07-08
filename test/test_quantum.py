@@ -127,10 +127,9 @@ def test_Circuit_to_pennylane(capsys):
     assert np.allclose(p_snake.eval().numpy(), snake.eval().array)
 
     p_snake_prob = snake.to_pennylane(probabilities=True)
-    snake_prob = np.square(np.abs(snake.eval().array))
-    snake_prob = snake_prob / np.sum(snake_prob)
+    snake_prob = (snake >> Measure())
 
-    assert(np.allclose(p_snake_prob.eval().numpy(), snake_prob))
+    assert(np.allclose(p_snake_prob.eval().numpy(), snake_prob.eval().array))
 
     no_open_snake = (bell_state @ Ket(0) >> Bra(0) @ bell_effect)[::-1]
     p_no_open_snake = no_open_snake.to_pennylane()
@@ -148,7 +147,7 @@ def test_Circuit_to_pennylane(capsys):
     # probabilities should not be normalized if all wires are post-selected
     p_no_open_snake_prob = no_open_snake.to_pennylane(probabilities=True)
 
-    assert np.allclose(p_no_open_snake_prob.eval().numpy(), np.array([0.25]))
+    assert np.allclose(p_no_open_snake_prob.eval().numpy(), no_open_snake.eval().array)
 
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
@@ -181,11 +180,10 @@ def test_Circuit_to_pennylane(capsys):
                        conc_circ.eval().array)
 
     p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
-    var_circ_prob = np.square(np.abs(conc_circ.eval().array))
-    var_circ_prob = var_circ_prob / np.sum(var_circ_prob)
+    conc_circ_prob = (conc_circ >> Measure())
 
     assert(np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
-                       var_circ_prob))
+                       conc_circ_prob.eval().array))
 
 
 def test_PennylaneCircuit_draw(capsys):
