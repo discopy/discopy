@@ -123,7 +123,8 @@ def get_post_selection_dict(tk_circ):
     """
     q_post_sels = {}
     for q, c in tk_circ.qubit_to_bit_map.items():
-        q_post_sels[q.index[0]] = tk_circ.post_selection[c.index[0]]
+        if c.index[0] in tk_circ.post_selection.keys():
+            q_post_sels[q.index[0]] = tk_circ.post_selection[c.index[0]]
     return q_post_sels
 
 
