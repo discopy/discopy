@@ -1,3 +1,26 @@
+"""
+Implements a conversion from quantum DisCoPy circuits to
+PennyLane circuits.
+
+If `probabilities` is set to False, the output states of the PennyLane
+circuit will be exactly equivalent to those of the DisCoPy circuit
+(for the same parameters).
+
+If `probabilities` is set to True, the output states of the PennyLane
+circuit will be the probabilities of the output states, equivalent
+to appending :class:`discopy.quantum.circuit.Measure` to all the
+open wires in the DisCoPy circuit.
+
+Once a :class:`PennyLaneCircuit` has been constructed, it
+can be evaluated with :func:`.eval()`. If the circuit contains only
+concrete parameters (i.e. no symbolic parameters), no arguments
+should be passed to `eval()`. If the circuit contains symbolic
+parameters, a list of the symbolic parameters and a list of their
+associated weights should be passed to `eval()` as `symbols=` and
+`weights=`.
+"""
+
+
 from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
 from itertools import product
@@ -140,14 +163,19 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
         The DisCoPy circuit to convert to PennyLane.
     probabilities : bool, default: False
         Determines whether the PennyLane
-        circuit outputs states or normalized probabilities. Probabilities
-        can be used with more PennyLane backpropagation methods.
+        circuit outputs states or un-normalized probabilities.
+        Probabilities can be used with more PennyLane backpropagation
+        methods.
 
     Returns
     -------
     :class:`PennyLaneCircuit`
         The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
+    if disco_circuit.is_mixed:
+        raise ValueError("Only pure quantum circuits are currently "
+                         "supported.")
+
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
 
@@ -199,11 +227,6 @@ class PennyLaneCircuit:
     def post_selection(self, post_selection_dict):
         self._post_selection = post_selection_dict
         self._valid_states = self.get_valid_states()
-
-    @property
-    def valid_states(self):
-        """The states compatible with the post-selections."""
-        return self._valid_states
 
     def contains_sympy(self):
         """
@@ -306,15 +329,13 @@ class PennyLaneCircuit:
         states = self.make_circuit()(params)
 
         open_wires = self.n_qubits - len(self._post_selection)
-        post_selected_states = states[list(self._valid_states)]
+        post_selected_states = states[self._valid_states]
+        post_selected_states *= self.scale ** 2 if self.probs else self.scale
 
-        if self.probs:
-            post_selected_states = \
-                post_selected_states / post_selected_states.sum().item()
+        if post_selected_states.shape[0] == 1:
+            return post_selected_states
         else:
-            post_selected_states = self.scale * post_selected_states
-
-        return torch.reshape(post_selected_states, (2,) * open_wires)
+            return torch.reshape(post_selected_states, (2,) * open_wires)
 
     def param_substitution(self, symbols, weights):
         """
