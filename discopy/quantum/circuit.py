@@ -1193,7 +1193,6 @@ class Sim14ansatz(Circuit):
         from discopy.quantum.gates import Rx, Ry, Rz
 
         def layer(thetas):
-
             sublayer1 = Id(0).tensor(
                 *([Ry(theta) for theta in thetas[:n_qubits]]))
 
@@ -1256,7 +1255,6 @@ class Sim15ansatz(Circuit):
         from discopy.quantum.gates import Rx, Ry, Rz
 
         def layer(thetas):
-
             sublayer1 = Id(0).tensor(
                 *([Ry(theta) for theta in thetas[:n_qubits]]))
 
