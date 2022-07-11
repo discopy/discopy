@@ -187,6 +187,15 @@ def test_Circuit_to_pennylane(capsys):
                        conc_circ_prob.eval().array))
 
 
+def test_PennyLaneCircuit_mixed_error():
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (snake >> Measure())
+    with raises(ValueError):
+        snake.to_pennylane()
+
+
 def test_PennylaneCircuit_draw(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
