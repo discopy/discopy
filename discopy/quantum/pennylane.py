@@ -2,12 +2,12 @@
 Implements a conversion from quantum DisCoPy circuits to
 PennyLane circuits.
 
-If `probabilities` is set to False, the ouput states of the PennyLane
+If `probabilities` is set to False, the output states of the PennyLane
 circuit will be exactly equivalent to those of the DisCoPy circuit
 (for the same parameters).
 
 If `probabilities` is set to True, the output states of the PennyLane
-circuit will be the probabilities of the ouput states, equivalent
+circuit will be the probabilities of the output states, equivalent
 to appending :class:`discopy.quantum.circuit.Measure` to all the
 open wires in the DisCoPy circuit.
 
