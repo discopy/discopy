@@ -1,3 +1,27 @@
+"""
+Implements a conversion from quantum DisCoPy circuits to
+PennyLane circuits.
+
+If `probabilities` is set to False, the ouput states of the PennyLane
+circuit will be exactly equivalent to those of the DisCoPy circuit
+(for the same parameters).
+
+If `probabilities` is set to True, the output states of the PennyLane
+circuit will be the probabilities of the ouput states, equivalent
+to appending :class:`discopy.quantum.circuit.Measure` to all the
+open wires in the DisCoPy circuit.
+
+Once a :class:`PennyLaneCircuit` has been constructed, it
+can be evaluated with :func:`.eval()`. If the circuit contains only
+concrete parameters (i.e. no symbolic parameters), no arguments
+should be passed to `eval()`. If the circuit contains symbolic
+parameters, a list of the symbolic parameters and a list of their
+associated weights should be passed to `eval()` as `symbols=` and
+`weights=`.
+"""
+
+
+
 from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
 from itertools import product
@@ -123,8 +147,7 @@ def get_post_selection_dict(tk_circ):
     """
     q_post_sels = {}
     for q, c in tk_circ.qubit_to_bit_map.items():
-        if c.index[0] in tk_circ.post_selection.keys():
-            q_post_sels[q.index[0]] = tk_circ.post_selection[c.index[0]]
+        q_post_sels[q.index[0]] = tk_circ.post_selection[c.index[0]]
     return q_post_sels
 
 
@@ -141,14 +164,19 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
         The DisCoPy circuit to convert to PennyLane.
     probabilities : bool, default: False
         Determines whether the PennyLane
-        circuit outputs states or normalized probabilities. Probabilities
-        can be used with more PennyLane backpropagation methods.
+        circuit outputs states or un-normalized probabilities.
+        Probabilities can be used with more PennyLane backpropagation
+        methods.
 
     Returns
     -------
     :class:`PennyLaneCircuit`
         The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
+    if disco_circuit.is_mixed:
+        raise ValueError("Only pure quantum circuits are currently "
+                         "supported.")
+
     symbols = disco_circuit.free_symbols
     str_map = {str(s): s for s in symbols}
 
@@ -302,17 +330,13 @@ class PennyLaneCircuit:
         states = self.make_circuit()(params)
 
         open_wires = self.n_qubits - len(self._post_selection)
-        post_selected_states = states[list(self._valid_states)]
-
-        if self.probs:
-            post_selected_states = self.scale**2 * post_selected_states
-        elif not self.probs:
-            post_selected_states = self.scale * post_selected_states
+        post_selected_states = states[self._valid_states]
+        post_selected_states *= self.scale ** 2 if self.probs else self.scale
 
         if post_selected_states.shape[0] == 1:
             return post_selected_states
-
-        return torch.reshape(post_selected_states, (2,) * open_wires)
+        else:
+            return torch.reshape(post_selected_states, (2,) * open_wires)
 
     def param_substitution(self, symbols, weights):
         """
