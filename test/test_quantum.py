@@ -469,6 +469,16 @@ def test_IQPAnsatz():
         IQPansatz(10, np.array([]))
 
 
+def test_Sim14Ansatz():
+    with raises(ValueError):
+        Sim14ansatz(10, np.array([]))
+
+
+def test_Sim15Ansatz():
+    with raises(ValueError):
+        Sim15ansatz(10, np.array([]))
+
+
 def test_Sum():
     assert not Sum([], qubit, qubit).eval()
     assert Sum([Id(0)]).get_counts() == Id(0).get_counts()
