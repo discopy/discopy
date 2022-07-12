@@ -1193,32 +1193,33 @@ class Sim14ansatz(Circuit):
         from discopy.quantum.gates import Rx, Ry, Rz
 
         def layer(thetas):
-            sublayer1 = Id(0).tensor(
+            sublayer1 = Id().tensor(
                 *([Ry(theta) for theta in thetas[:n_qubits]]))
 
             for i in range(n_qubits):
-                sublayer1 = sublayer1.CRx(thetas[n_qubits + i],
-                                          i,
-                                          (i - 1) % n_qubits)
+                src = i
+                tgt = (i - 1) % n_qubits
+                sublayer1 = sublayer1.CRx(thetas[n_qubits + i], src, tgt)
 
-            sublayer2 = Id(0).tensor(
+            sublayer2 = Id().tensor(
                 *([Ry(theta) for theta in thetas[2 * n_qubits: 3 * n_qubits]]))
 
             for i in range(n_qubits, 0, -1):
-                sublayer2 = sublayer2.CRx(thetas[-i],
-                                          i % n_qubits,
-                                          (i + 1) % n_qubits)
+                src = i % n_qubits
+                tgt = (i + 1) % n_qubits
+                sublayer2 = sublayer2.CRx(thetas[-i], src, tgt)
 
             return sublayer1 >> sublayer2
 
+        params_shape = Tensor.np.shape(params)
+
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
-        elif len(Tensor.np.shape(params)) != 2\
-                or Tensor.np.shape(params)[1] != 4 * n_qubits:
+        elif (len(params_shape) != 2) or (params_shape[1] != 4 * n_qubits):
             raise ValueError(
                 "Expected params of shape (depth, {})".format(4 * n_qubits))
         else:
-            depth = Tensor.np.shape(params)[0]
+            depth = params_shape[0]
             circuit = Id(n_qubits).then(*(
                 layer(params[i]) for i in range(depth)))
 
@@ -1255,28 +1256,33 @@ class Sim15ansatz(Circuit):
         from discopy.quantum.gates import Rx, Ry, Rz
 
         def layer(thetas):
-            sublayer1 = Id(0).tensor(
+            sublayer1 = Id().tensor(
                 *([Ry(theta) for theta in thetas[:n_qubits]]))
 
             for i in range(n_qubits):
-                sublayer1 = sublayer1.CX(i, (i - 1) % n_qubits)
+                src = i
+                tgt = (i - 1) % n_qubits
+                sublayer1 = sublayer1.CX(src, tgt)
 
-            sublayer2 = Id(0).tensor(
+            sublayer2 = Id().tensor(
                 *([Ry(theta) for theta in thetas[n_qubits:]]))
 
             for i in range(n_qubits, 0, -1):
-                sublayer2 = sublayer2.CX(i % n_qubits, (i + 1) % n_qubits)
+                src = i % n_qubits
+                tgt = (i + 1) % n_qubits
+                sublayer2 = sublayer2.CX(src, tgt)
 
             return sublayer1 >> sublayer2
 
+        params_shape = Tensor.np.shape(params)
+
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
-        elif len(Tensor.np.shape(params)) != 2\
-                or Tensor.np.shape(params)[1] != 2 * n_qubits:
+        elif (len(params_shape) != 2) or (params_shape[1] != 2 * n_qubits):
             raise ValueError(
                 "Expected params of shape (depth, {})".format(2 * n_qubits))
         else:
-            depth = Tensor.np.shape(params)[0]
+            depth = params_shape[0]
             circuit = Id(n_qubits).then(*(
                 layer(params[i]) for i in range(depth)))
 
