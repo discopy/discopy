@@ -7,7 +7,33 @@ import numpy as np
 
 
 class Matrix(monoidal.Box):
+    """ Implements a matrix with dom, cod and numpy array.
 
+    Examples
+    --------
+    >>> m = Matrix(PRO(2), PRO(2), [0, 1, 1, 0])
+    >>> v = Matrix(PRO(1), PRO(2), [0, 1])
+    >>> assert (str(v) == repr(v)
+    ...                == 'Matrix(dom=PRO(1), cod=PRO(2), array=[0, 1])')
+    >>> v >> m >> v.dagger()
+    Matrix(dom=PRO(1), cod=PRO(1), array=[0])
+    >>> m + m
+    Matrix(dom=PRO(2), cod=PRO(2), array=[0, 2, 2, 0])
+    >>> assert m.then(m, m, m, m) == m == m >> m >> m >> m >> m
+
+    The monoidal product for Matrix is the direct product:
+    >>> x = Matrix(PRO(2), PRO(1), [2, 4])
+    >>> x.array
+    array([[2],
+           [4]])
+    >>> x @ x
+    Matrix(dom=PRO(4), cod=PRO(2), array=[2, 0, 4, 0, 0, 2, 0, 4])
+    >>> (x @ x).array
+    array([[2, 0],
+           [4, 0],
+           [0, 2],
+           [0, 4]])
+    """
     def __init__(self, dom, cod, array):
         self._array = np.array(array).reshape((len(dom), len(cod)))
         super().__init__("O Tensor", dom, cod)
@@ -18,7 +44,7 @@ class Matrix(monoidal.Box):
         return self._array
 
     def __repr__(self):
-        return "Matrix(dom={}, cod={}, array={})".format(
+        return "Matrix(dom={!r}, cod={!r}, array={})".format(
             self.dom, self.cod, array2string(self.array.flatten()))
 
     def __str__(self):

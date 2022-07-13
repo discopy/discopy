@@ -12,7 +12,7 @@ from itertools import permutations
 from discopy import cat, monoidal
 from discopy.monoidal import PRO
 
-from discopy.quantum.oplus import Matrix
+from discopy.matrix import Matrix
 import sympy
 
 
@@ -282,7 +282,7 @@ class Diagram(monoidal.Diagram):
         >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
         >>> unbunch = [s for s in occupation_numbers(2, 4) if set(s)=={0,1}]
         >>> assert np.isclose(sum([d.indist_prob_ub([1, 1, 0, 0], y)
-                                   for y in unbunch]), 1)
+        ...                        for y in unbunch]), 1)
         """
 
         states = occupation_numbers(sum(x), len(x))
@@ -318,7 +318,7 @@ class PathBox(Box):
 class Monoid(PathBox):
     """W spider"""
     def __init__(self):
-        super().__init__('Monoid', PRO(2), PRO(1), [])
+        super().__init__('Monoid', PRO(2), PRO(1))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.shape = 'triangle_up'
