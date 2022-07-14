@@ -9,7 +9,7 @@ import numpy as np
 from math import factorial, sqrt
 from itertools import permutations
 
-from discopy import cat, monoidal
+from discopy import cat, messages, monoidal
 from discopy.monoidal import PRO
 
 from discopy.matrix import Matrix
@@ -61,6 +61,11 @@ class Diagram(monoidal.Diagram):
     """
     Linear optical network seen as a diagram of beam splitters, phase shifters
     and Mach-Zender interferometers.
+
+    Example
+    -------
+    >>> BS >> BS
+    optics.Diagram(dom=PRO(2), cod=PRO(2), boxes=[BS, BS], offsets=[0, 0])
     """
     def __repr__(self):
         return super().__repr__().replace('Diagram', 'optics.Diagram')
@@ -107,7 +112,7 @@ class Diagram(monoidal.Diagram):
         >>> assert probability > 0.05
         """
         if sum(x) != sum(y):
-            return 0
+            raise ValueError("Number of photons in != Number of photons out.")
         n_modes = len(self.dom)
         matrix = np.stack([self.array[:, i] for i in range(n_modes)
                           for _ in range(y[i])], axis=1)
@@ -130,9 +135,8 @@ class Diagram(monoidal.Diagram):
 
         >>> for i, _ in enumerate(occupation_numbers(3, 2)): assert np.isclose(
         ...       sum(np.absolute(MZI(0.2, 0.4).eval(3)[i])**2), 1)
-        >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
-                      >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
-        >>> for i, _ in enumerate(occupation_numbers(2, 4)): assert np.isclose(
+        >>> network = MZI(0.2, 0.4) @ Id(1) >> Id(1) @ MZI(0.2, 0.4)
+        >>> for i, _ in enumerate(occupation_numbers(2, 3)): assert np.isclose(
         ...       sum(np.absolute(network.eval(2)[i])**2), 1)
         """
         basis = occupation_numbers(n_photons, len(self.dom))
@@ -190,7 +194,7 @@ class Diagram(monoidal.Diagram):
         """
         n_modes = len(self.dom)
         if sum(x) != sum(y):
-            return 0
+            raise ValueError("Number of photons in != Number of photons out.")
         matrix = np.stack([self.array[:, i] for i in range(n_modes)
                           for _ in range(y[i])], axis=1)
         matrix = np.stack([matrix[i] for i in range(n_modes)
@@ -228,7 +232,7 @@ class Diagram(monoidal.Diagram):
         n_modes = len(self.dom)
         n_photons = sum(x)
         if sum(x) != sum(y):
-            return 0
+            raise ValueError("Number of photons in != Number of photons out.")
         matrix = np.stack([self.array[:, i] for i in range(n_modes)
                           for _ in range(y[i])], axis=1)
         matrix = np.stack([matrix[i] for i in range(n_modes)
@@ -368,7 +372,7 @@ class Unit(PathBox):
 class Counit(PathBox):
     """Red node"""
     def __init__(self):
-        super().__init__('Unit', PRO(1), PRO(0))
+        super().__init__('Counit', PRO(1), PRO(0))
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'red'
@@ -431,11 +435,24 @@ class Endo(PathBox):
         return f'Endo({self.scalar})'
 
     def dagger(self):
-        return Endo(phase.conjugate())
+        scalar = self.scalar
+        try:
+            new_scalar = scalar.conjugate()
+        except (SyntaxError, AttributeError):
+            new_scalar = scalar
+        return Endo(new_scalar)
 
     @property
     def matrix(self):
         return Matrix(self.dom, self.cod, [self.scalar])
+
+
+monoid = Monoid()
+comonoid = Comonoid()
+unit = Unit()
+counit = Counit()
+create = Create()
+annil = Annil()
 
 
 class Id(monoidal.Id, Diagram):
@@ -507,6 +524,9 @@ class BBS(Box):
     def __init__(self, bias):
         self.bias = bias
         super().__init__('BBS({})'.format(bias), PRO(2), PRO(2))
+
+    def __repr__(self):
+        return 'BS' if self.bias == 0 else super().__repr__()
 
     @property
     def matrix(self):
@@ -670,16 +690,24 @@ def ar_to_path(box):
         backend = sympy if hasattr(box.phi, 'free_symbols') else np
         return Endo(backend.exp(2j * backend.pi * box.phi))
     if isinstance(box, TBS):
-        r, t = box.r, box.t
-        array = Id().tensor(*map(Endo, (r, t, t.conjugate(), -r.conjugate())))
+        sin = np.sin(box.theta * np.pi)
+        cos = np.cos(box.theta * np.pi)
+        array = Id().tensor(*map(Endo, (sin, cos, cos, -sin)))
+        w1, w2 = Comonoid(), Monoid()
+        return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
+    if isinstance(box, BBS):
+        sin = np.sin((0.25 + box.bias) * np.pi)
+        cos = np.cos((0.25 + box.bias) * np.pi)
+        array = Id().tensor(*map(Endo, (sin, 1j * cos, 1j * cos, sin)))
         w1, w2 = Comonoid(), Monoid()
         return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     if isinstance(box, MZI):
         phi, theta = box.phi, box.theta
         diagram = (
-            beam_splitter >> Id(PRO(1)) @ Phase(phi) >>
-            beam_splitter >> Id(PRO(1)) @ Phase(theta))
+            BS >> Phase(phi) @ Id(PRO(1)) >>
+            BS >> Phase(theta) @ Id(PRO(1)))
         return to_path(diagram)
+    raise NotImplementedError
 
 
 to_path = Functor(ob=lambda x: x, ar=ar_to_path)
