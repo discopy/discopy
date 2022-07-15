@@ -4,16 +4,17 @@
 Implements linear optics
 """
 
-from cmath import phase
 import numpy as np
-from math import factorial, sqrt
+from math import factorial, pi
 from itertools import permutations
+
+import sympy
 
 from discopy import cat, messages, monoidal
 from discopy.monoidal import PRO
 
 from discopy.matrix import Matrix
-import sympy
+from discopy.rewriting import InterchangerError
 
 
 def occupation_numbers(n_photons, m_modes):
@@ -712,31 +713,136 @@ def ar_to_path(box):
 
 to_path = Functor(ob=lambda x: x, ar=ar_to_path)
 
+def ar_zx_to_path(box):
+    from discopy.quantum.zx import Z, X, H
+    n, m = len(box.dom), len(box.cod)
+    if isinstance(box, X):
+        phase = box.phase
+        if (n, m, phase) == (0, 1, 0):
+            return Unit() @ Create()
+        if (n, m, phase) == (0, 1, 0.5):
+            return Create() @ Unit()
+        if (n, m, phase) == (1, 0, 0):
+            return Counit() @ Annil()
+        if (n, m, phase) == (1, 0, 0.5):
+            return Annil() @ Counit()
+        if (n, m, phase) == (1, 1, 0.25):
+            return BBS(0.5)  # GIO
+        if (n, m, phase) == (1, 1, -0.25):
+            return BBS(0.5).dagger()  # GIO
+    if isinstance(box, Z):
+        phase = box.phase
+        if (n, m, phase) == (0, 2, 0):
+            plus = Create() >> Comonoid()
+            fusion = plus >> Id(1) @ plus @ Id(1)
+            d = (fusion @ fusion
+                 >> Id(2) @ zx_to_path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
+                 >> Id(2) @ fusion.dagger() @ Id(2))
+            return d
+        if (n, m) == (0, 1):
+            return Create() >> Comonoid()
+        if (n, m) == (1, 1):
+            exp_phase = np.exp(1j * 2*math.pi * phase)
+            array = Id().tensor(*map(Endo, [1, 0, 0, exp_phase]))
+            w1, w2 = Comonoid(), Monoid()
+            return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
+        if (n, m, phase) == (2, 1, 0):
+            return Id(1) @ (Monoid() >> Annil()) @ Id(1)
+        if (n, m, phase) == (1, 2, 0):
+            flex = Id(1) @ Z(0, 2) >> Z(2, 1) @ Id(1)
+            return zx_to_path(flex)
+    if box == H:
+        return MZI(-0.5, 0)  # GIO
+    print("Not Implemented", repr(box))
+    raise NotImplementedError
+
+
+zx_to_path = Functor(ob=lambda x: x @ x, ar=ar_zx_to_path)
+
+
+def swap_right(diagram, i):
+    left, box, right = diagram.layers[i]
+    if box.dom:
+        raise ValueError(f"{box} is not a word.")
+
+    new_left, new_right = left @ right[0:1], right[1:]
+    new_layer = diagram.id(new_left) @ box @ diagram.Id(new_right)
+    return (
+        diagram[:i]
+        >> new_layer.permute(len(new_left), len(new_left) - 1)
+        >> diagram[i+1:])
+
+
+def drag_out(diagram, i):
+    box = diagram.boxes[i]
+    if box.dom:
+        raise ValueError(f"{box} is not a word.")
+    while i > 0:
+        try:
+            diagram = diagram.interchange(i-1, i)
+            i -= 1
+        except InterchangerError:
+            diagram = swap_right(diagram, i)
+    return diagram
+
+
+def drag_all(diagram):
+    i = len(diagram) - 1
+    stop = 0
+    while i >= stop:
+        box = diagram.boxes[i]
+        if not box.dom:  # is word
+            diagram = drag_out(diagram, i)
+            i = len(diagram) - 1
+            stop += 1
+        i -= 1
+    return diagram
+
 
 def qpath_drag(diagram):
-    done = False
-    j = 0
-    while not done:
-        for i in range(j, len(diagram)):
-            box = diagram.boxes[i]
-            if box.name == 'Create':
-                while i > j:
-                    diagram = diagram.interchange(i - 1, i)
-                    i -= 1
-                j += 1
-                break
-        done = i == len(diagram) - 1
-    done = False
-    j = len(diagram) - 1
-    while not done:
-        for i in range(j, 0, -1):
-            box = diagram.boxes[i]
-            if box.name == 'Annil':
-                while i < j:
-                    diagram = diagram.interchange(i, i + 1)
-                    i += 1
-                j -= 1
-                break
-        done = i == 1
-    return diagram
- 
+    """ drag `Create`s and `Annil`s to the top and bottom of the diagram """
+    diagram = drag_all(diagram)
+    diagram = drag_all(diagram.dagger()).dagger()
+    n_state = len([b for b in diagram.boxes if isinstance(b, Create)])
+    n_costate = len([b for b in diagram.boxes if isinstance(b, Annil)])
+    top, bot = diagram[:n_state], diagram[-n_costate:]
+    mat = diagram[n_state:-n_costate]
+    return top, bot, mat
+
+
+def evaluate(diagram, inp, out):
+    """ evaluate the amplitude of <J|Diagram|I>. """
+    assert len(inp) == len(diagram.dom) and len(out) == len(diagram.cod)
+    x, y, drag = qpath_drag(diagram)
+    matrix = to_matrix(drag).array
+    inp, out = inp[:], out[:]
+    for off in x.normal_form().offsets:
+        inp.insert(off, 1)
+    for off in y.dagger().normal_form().offsets:
+        out.insert(off, 1)
+    print(f'{inp=} {out=}')
+    if sum(inp) != sum(out):
+        raise ValueError('# of photons in != # of photons out')
+    n_modes_in = len(drag.dom)
+    n_modes_out = len(drag.cod)
+    matrix = np.stack([matrix[:, i] for i in range(n_modes_out)
+                      for _ in range(out[i])], axis=1)
+    matrix = np.stack([matrix[i] for i in range(n_modes_in)
+                      for _ in range(inp[i])], axis=0)
+    divisor = np.sqrt(np.prod([factorial(n) for n in inp + out]))
+    return npperm(matrix) / divisor
+
+
+def ar_make_square(box):
+    mon = (Unit() @ Id(1) >>
+           BS >>
+           Endo(2 ** 0.5) @ Endo(-1j * 2 ** 0.5))
+    comon = mon.dagger()
+    if isinstance(box, Monoid):
+        return mon
+    if isinstance(box, Comonoid):
+        return comon
+    return box
+
+
+make_square = Functor(ob=lambda x: x, ar=ar_make_square)
