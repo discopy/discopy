@@ -10,4 +10,5 @@ quantum
    quantum.circuit
    quantum.gates
    quantum.tk
+   quantum.pennylane
    quantum.zx

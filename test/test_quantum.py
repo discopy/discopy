@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 
 from unittest.mock import Mock
-from functools import reduce, partial
-import itertools
+from functools import partial
 from pytest import raises
 import numpy as np
 from discopy.quantum.cqmap import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
+import torch
+import sympy
 
 
 def test_index2bitstring():
@@ -108,6 +109,141 @@ def test_Circuit_to_tk():
     assert repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())\
         == "tk.Circuit(1, 3).Measure(0, 1)"\
            ".post_select({1: 0}).post_process(Swap(bit, bit))"
+
+
+def test_Circuit_to_pennylane(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    p_snake = snake.to_pennylane()
+    p_snake.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+    assert np.allclose(p_snake.eval().numpy(), snake.eval().array)
+
+    p_snake_prob = snake.to_pennylane(probabilities=True)
+    snake_prob = (snake >> Measure())
+
+    assert(np.allclose(p_snake_prob.eval().numpy(), snake_prob.eval().array))
+
+    no_open_snake = (bell_state @ Ket(0) >> Bra(0) @ bell_effect)[::-1]
+    p_no_open_snake = no_open_snake.to_pennylane()
+    p_no_open_snake.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤0>\n")
+
+    assert np.allclose(p_no_open_snake.eval().numpy(),
+                       no_open_snake.eval().array)
+
+    # probabilities should not be normalized if all wires are post-selected
+    p_no_open_snake_prob = no_open_snake.to_pennylane(probabilities=True)
+
+    assert np.allclose(p_no_open_snake_prob.eval().numpy(),
+                       no_open_snake.eval().array)
+
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+    weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
+
+    var_circ = Circuit(
+        dom=qubit ** 0, cod=qubit, boxes=[
+            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+
+    p_var_circ = var_circ.to_pennylane()
+    p_var_circ.draw(symbols, weights)
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭●──H─┤0>\n"
+         "1: ──H────────╭●───────────────────╰X────┤0>\n"
+         "2: ──H────────╰RZ(1.13)─╭●───────────────┤  State\n"
+         "3: ──H──────────────────╰RZ(12.57)─╭●──H─┤0>\n"
+         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤0>\n")
+
+    var_f = var_circ.lambdify(*symbols)
+    conc_circ = var_f(*[a.item() for a in weights])
+
+    assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
+                       conc_circ.eval().array)
+
+    p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
+    conc_circ_prob = (conc_circ >> Measure())
+
+    assert(np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
+                       conc_circ_prob.eval().array))
+
+
+def test_PennyLaneCircuit_mixed_error():
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (snake >> Measure())
+    with raises(ValueError):
+        snake.to_pennylane()
+
+
+def test_PennylaneCircuit_draw(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+    p_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+
+def test_pennylane_ops():
+    ops = [X, Y, Z, S, T, H, CX, CZ]
+
+    for op in ops:
+        disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
+        plane = op.to_pennylane().eval().numpy()
+
+        assert np.allclose(disco, plane)
+
+
+def test_pennylane_parameterized_ops():
+    ops = [Rx, Ry, Rz, CRx, CRz]
+
+    for op in ops:
+        p_op = op(0.5)
+        disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
+        plane = p_op.to_pennylane().eval().numpy()
+
+        assert np.allclose(disco, plane, atol=10e-5)
+
+
+def test_pennylane_update_post_selection():
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+
+    assert p_circ.post_selection == {0: 0, 1: 0}
+    assert p_circ._valid_states == [0, 1]
+
+    p_circ.post_selection = {0: 0, 2: 0}
+
+    assert p_circ.post_selection == {0: 0, 2: 0}
+    assert p_circ._valid_states == [0, 2]
 
 
 def test_Sum_from_tk():
@@ -331,6 +467,16 @@ def test_CircuitFunctor():
 def test_IQPAnsatz():
     with raises(ValueError):
         IQPansatz(10, np.array([]))
+
+
+def test_Sim14Ansatz():
+    with raises(ValueError):
+        Sim14ansatz(10, np.array([]))
+
+
+def test_Sim15Ansatz():
+    with raises(ValueError):
+        Sim15ansatz(10, np.array([]))
 
 
 def test_Sum():
