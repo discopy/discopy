@@ -1,7 +1,35 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements linear optics
+This module is an implementation of linear optical circuits as diagrams built
+from beam splitters, phases and Mach-Zender interferometers.
+
+One may compute the bosonic statistics of these devices using
+:py:meth:`.Diagram.indist_prob` and the statistics for distinguishable or
+partially distinguishable particles using :py:meth:`.Diagram.dist_prob` and
+:py:meth:`.Diagram.pdist_prob`. Amplitudes for pairs of input and output
+occupation numbers are computed using :py:meth:`.Diagram.amp` and the full
+matrix of amplitudes over occupation numbers is obtained using
+:py:meth:`.Diagram.eval`.
+
+One may also use the QPath calculus as defined in
+https://arxiv.org/abs/2204.12985. The functor :py:func:`to_path` decomposes
+linear optical circuits into QPath diagrams. The functor :py:func:`zx_to_path`
+turns instances of :py:class:`.zx.Diagram` into QPath diagrams
+via the dual-rail encoding.
+
+Example
+-------
+
+>>> from discopy.quantum.optics import zx_to_path
+>>> from discopy.quantum.zx import Z
+>>> from discopy import drawing
+>>> drawing.equation(Z(2, 1), zx_to_path(Z(2, 1)), symbol='->',
+...                  draw_type_labels=False, figsize=(6, 4),
+...                  path='docs/_static/imgs/optics-fusion.png')
+
+.. image:: ../_static/imgs/optics-fusion.png
+    :align: center
 """
 
 import numpy as np
@@ -342,7 +370,7 @@ class PathBox(Box):
 class Monoid(PathBox):
     """Monoid :py:class:`~PathBox` in the Path category.
 
-    Has :py:class:`Matrix` semantics
+    Corresponds to :py:class:`Matrix`
     :math:`\\begin{pmatrix}1 \\\\ 1\\end{pmatrix}`.
 
     Also available under alias :py:obj:`monoid`.
@@ -366,7 +394,7 @@ class Monoid(PathBox):
 class Comonoid(PathBox):
     """Comonoid :py:class:`~PathBox` in the Path category.
 
-    Has :py:class:`Matrix` semantics
+    Corresponds to :py:class:`Matrix`
     :math:`\\begin{pmatrix}1 & 1\\end{pmatrix}`.
 
     Also available under alias :py:obj:`comonoid`.
@@ -390,7 +418,8 @@ class Comonoid(PathBox):
 class Unit(PathBox):
     """Unit :py:class:`~PathBox` in the Path category.
 
-    Has :py:class:`Matrix` semantics :math:`\\begin{pmatrix}\\end{pmatrix}`.
+    Corresponds to :py:class:`Matrix`
+    :math:`\\begin{pmatrix}\\end{pmatrix}`.
 
     Also available under alias :py:obj:`unit`.
     For more details see https://arxiv.org/abs/2204.12985."""
@@ -412,7 +441,8 @@ class Unit(PathBox):
 class Counit(PathBox):
     """Counit :py:class:`~PathBox` in the Path category.
 
-    Has :py:class:`.Matrix` semantics :math:`\\begin{pmatrix}\\end{pmatrix}`.
+    Corresponds to :py:class:`.Matrix`
+    :math:`\\begin{pmatrix}\\end{pmatrix}`.
 
     Also available under alias :py:obj:`counit`.
     For more details see https://arxiv.org/abs/2204.12985."""
@@ -474,8 +504,8 @@ class Annil(PathBox):
 class Endo(PathBox):
     """Endomorphism :py:class:`~PathBox` in the Path category.
 
-    Has :py:class:`.Matrix` semantics
-    :math:`\\begin{pmatrix}e^{i\\theta}\\end{pmatrix}`.
+    Corresponds to :py:class:`.Matrix`:
+    :math:`\\begin{pmatrix} scalar \\end{pmatrix}`.
 
     For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self, scalar):
@@ -534,6 +564,9 @@ class Phase(Box):
     """
     Phase shifter.
 
+    Corresponds to :py:class:`Matrix`
+    :math:`\\begin{pmatrix} e^{2\\pi i \\phi} \\end{pmatrix}`.
+
     Parameters
     ----------
     phi : float
@@ -564,10 +597,17 @@ class BBS(Box):
     """
     Beam splitter with a bias.
 
+    Corresponds to :py:class:`Matrix`
+    :math:`\\begin{pmatrix}
+    \\tt{sin}((0.25 + bias)\\pi)
+    & i \\tt{cos}((0.25 + bias)\\pi) \\\\
+    i \\tt{cos}((0.25 + bias)\\pi)
+    & \\tt{sin}((0.25 + bias)\\pi) \\end{pmatrix}`.
+
     Parameters
     ----------
     bias : float
-    Bias angle from standard 50/50 beam splitter, parameter between 0 and 1.
+        Bias from standard 50/50 beam splitter, parameter between 0 and 1.
 
     Example
     -------
@@ -611,10 +651,17 @@ class TBS(Box):
     """
     Tunable Beam Splitter.
 
+    Corresponds to :py:class:`Matrix`
+    :math:`\\begin{pmatrix}
+    \\tt{sin}(\\theta \\, \\pi)
+    & \\tt{cos}(\\theta \\, \\pi) \\\\
+    \\tt{cos}(\\theta \\, \\pi) & - \\tt{sin}(\\theta \\, \\pi)
+    \\end{pmatrix}`.
+
     Parameters
     ----------
     theta : float
-    Beam splitter parameter ranging from 0 to 1.
+        TBS parameter ranging from 0 to 1.
 
     Example
     -------
@@ -654,10 +701,19 @@ class MZI(Box):
     """
     Mach-Zender interferometer.
 
+    Corresponds to :py:class:`Matrix`
+    :math:`\\begin{pmatrix}
+    e^{2\\pi i \\phi} \\tt{sin}(\\theta \\, \\pi)
+    & \\tt{cos}(\\theta \\, \\pi) \\\\
+    e^{2\\pi i \\phi} \\tt{cos}(\\theta \\, \\pi)
+    & - \\tt{sin}(\\theta \\, \\pi) \\end{pmatrix}`.
+
     Parameters
     ----------
-    theta, phi : float
-    Internal and external phase parameters of the MZI, ranging from 0 to 1.
+    theta: float
+        Internal phase parameter, ranging from 0 to 1.
+    phi: float
+        External phase parameter, ranging from 0 to 1.
 
     Example
     -------
