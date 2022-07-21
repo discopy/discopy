@@ -123,8 +123,8 @@ def test_bell_zx_to_path():
         X(0, 1, 0.5) >> X(1, 0, 0.5) @ Z(0, 2),
         decomp(Z(0, 3) >> Z(1, 0) @ zx.Id(2)),
         Z(0, 2) >> decomp(X(1, 2) >> X(1, 0) @ zx.Id(1)) @ zx.Id(1),
-        (X(0, 1) >> H >> Z(1, 2) >>
-            zx.Id(2) @ X(0, 1) >> zx.Id(1) @ decomp(X(2, 1)))
+        (X(0, 1) >> H >> Z(1, 2)
+            >> zx.Id(2) @ X(0, 1) >> zx.Id(1) @ decomp(X(2, 1)))
     ]
     zx_circs += [decomp(zx_circ) for zx_circ in zx_circs]
     for zx_circ in zx_circs:
