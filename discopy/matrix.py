@@ -22,6 +22,7 @@ class Matrix(monoidal.Box):
     >>> assert m.then(m, m, m, m) == m == m >> m >> m >> m >> m
 
     The monoidal product for Matrix is the direct product:
+
     >>> x = Matrix(PRO(2), PRO(1), [2, 4])
     >>> x.array
     array([[2],

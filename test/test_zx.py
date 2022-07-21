@@ -147,7 +147,7 @@ def test_circuit2zx():
     t = circuit2zx(Ket(0, 0)).to_pyzx().to_matrix() - _std_basis_v(0, 0)
     assert np.isclose(np.linalg.norm(t), 0)
 
-    assert (circuit2zx(quantum.Id(3).CX(0, 2)) ==
-            Diagram(dom=PRO(3), cod=PRO(3),
-                    boxes=[SWAP, Z(1, 2), X(2, 1), SWAP],
-                    offsets=[1, 0, 1, 1]))
+    assert (circuit2zx(quantum.Id(3).CX(0, 2))
+            == Diagram(dom=PRO(3), cod=PRO(3),
+                       boxes=[SWAP, Z(1, 2), X(2, 1), SWAP],
+                       offsets=[1, 0, 1, 1]))

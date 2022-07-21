@@ -21,6 +21,8 @@ def occupation_numbers(n_photons, m_modes):
     """
     Returns vectors of occupation numbers for n_photons in m_modes.
 
+    Example
+    -------
     >>> occupation_numbers(3, 2)
     [[3, 0], [2, 1], [1, 2], [0, 3]]
     >>> occupation_numbers(2, 3)
@@ -35,7 +37,7 @@ def occupation_numbers(n_photons, m_modes):
 def npperm(M):
     """
     Numpy code for computing the permanent of a matrix,
-    from https://github.com/scipy/scipy/issues/7151
+    from https://github.com/scipy/scipy/issues/7151.
     """
     n = M.shape[0]
     d = np.ones(n)
@@ -78,6 +80,8 @@ class Diagram(monoidal.Diagram):
         Builds a block diagonal matrix for each layer and then multiplies them
         in sequence.
 
+        Example
+        -------
         >>> np.shape(to_matrix(BS).array)
         (2, 2)
         >>> np.shape(to_matrix(BS >> BS).array)
@@ -94,7 +98,7 @@ class Diagram(monoidal.Diagram):
     def amp(self, x, y, permanent=npperm):
         """
         Evaluates the amplitude of an optics.Diagram on input x and output y,
-        when sending INDISTINGUISHABLE photons.
+        when sending indistinguishable photons.
 
         Parameters
         ----------
@@ -106,6 +110,8 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             or set permanent = np.determinant to compute fermionic statistics
 
+        Example
+        -------
         >>> network = MZI(0.2, 0.4) @ MZI(0.2, 0.4)\
                       >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
         >>> amplitude = network.amp([1, 0, 0, 1], [1, 0, 1, 0])
@@ -134,6 +140,8 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             (e.g. from thewalrus)
 
+        Example
+        -------
         >>> for i, _ in enumerate(occupation_numbers(3, 2)): assert np.isclose(
         ...       sum(np.absolute(MZI(0.2, 0.4).eval(3)[i])**2), 1)
         >>> network = MZI(0.2, 0.4) @ Id(1) >> Id(1) @ MZI(0.2, 0.4)
@@ -162,6 +170,8 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             (e.g. from thewalrus)
 
+        Example
+        -------
         >>> box = MZI(0.2, 0.6)
         >>> assert np.isclose(sum([box.indist_prob([3, 0], y)
         ...                        for y in occupation_numbers(3, 2)]), 1)
@@ -186,6 +196,8 @@ class Diagram(monoidal.Diagram):
             Use another function for computing the permanent
             (e.g. from thewalrus)
 
+        Example
+        -------
         >>> box = MZI(1.2, 0.6)
         >>> assert np.isclose(sum([box.dist_prob([3, 0], y)
         ...                        for y in occupation_numbers(3, 2)]), 1)
@@ -219,7 +231,10 @@ class Diagram(monoidal.Diagram):
         permanent : callable, optional
             Use another function for computing the permanent
 
-        Check Hong-Ou-Mandel
+        Example
+        -------
+        Check the Hong-Ou-Mandel effect:
+
         >>> BS = BBS(0)
         >>> x = [1, 1]
         >>> S = np.eye(2)
@@ -259,6 +274,8 @@ class Diagram(monoidal.Diagram):
             If the vector is not normalised the output will have the same
             normalisation factor.
 
+        Example
+        -------
         >>> TBS(0.25).cl_distribution([2/3, 1/3])
         array([0.5, 0.5])
         >>> assert np.allclose(TBS(0.25).cl_distribution([2/3, 1/3]),
@@ -283,6 +300,8 @@ class Diagram(monoidal.Diagram):
         y : List[int]
             Output vector of occupation numbers
 
+        Example
+        -------
         >>> BS = TBS(0.25)
         >>> d = BS @ BS >> Id(1) @ BS @ Id(1)
         >>> unbunch = [s for s in occupation_numbers(2, 4) if set(s)=={0,1}]
@@ -298,7 +317,7 @@ class Diagram(monoidal.Diagram):
 
 class Box(Diagram, monoidal.Box):
     """
-    Box in an optics.Diagram
+    Box in an :py:class:`.optics.Diagram`.
     """
     def __init__(self, name, dom, cod, **params):
         if not isinstance(dom, PRO):
@@ -314,14 +333,20 @@ class Box(Diagram, monoidal.Box):
 
 class PathBox(Box):
     """
-    Box in Path category.
+    Box in Path category, see https://arxiv.org/abs/2204.12985.
     """
     def __repr__(self):
         return super().__repr__().replace('Box', 'PathBox')
 
 
 class Monoid(PathBox):
-    """W spider"""
+    """Monoid :py:class:`~PathBox` in the Path category.
+
+    Has :py:class:`Matrix` semantics
+    :math:`\\begin{pmatrix}1 \\\\ 1\\end{pmatrix}`.
+
+    Also available under alias :py:obj:`monoid`.
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self):
         super().__init__('Monoid', PRO(2), PRO(1))
         self.drawing_name = ''
@@ -339,7 +364,13 @@ class Monoid(PathBox):
 
 
 class Comonoid(PathBox):
-    """W spider"""
+    """Comonoid :py:class:`~PathBox` in the Path category.
+
+    Has :py:class:`Matrix` semantics
+    :math:`\\begin{pmatrix}1 & 1\\end{pmatrix}`.
+
+    Also available under alias :py:obj:`comonoid`.
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self):
         super().__init__('Comonoid', PRO(1), PRO(2))
         self.drawing_name = ''
@@ -357,7 +388,12 @@ class Comonoid(PathBox):
 
 
 class Unit(PathBox):
-    """Red node"""
+    """Unit :py:class:`~PathBox` in the Path category.
+
+    Has :py:class:`Matrix` semantics :math:`\\begin{pmatrix}\\end{pmatrix}`.
+
+    Also available under alias :py:obj:`unit`.
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self):
         super().__init__('Unit', PRO(0), PRO(1))
         self.drawing_name = ''
@@ -374,7 +410,12 @@ class Unit(PathBox):
 
 
 class Counit(PathBox):
-    """Red node"""
+    """Counit :py:class:`~PathBox` in the Path category.
+
+    Has :py:class:`.Matrix` semantics :math:`\\begin{pmatrix}\\end{pmatrix}`.
+
+    Also available under alias :py:obj:`counit`.
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self):
         super().__init__('Counit', PRO(1), PRO(0))
         self.drawing_name = ''
@@ -391,7 +432,10 @@ class Counit(PathBox):
 
 
 class Create(PathBox):
-    """Black node"""
+    """Creation :py:class:`~PathBox` in the QPath category.
+
+    Also available under alias :py:obj:`create`.
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self):
         super().__init__('Create', PRO(0), PRO(1))
         self.drawing_name = ''
@@ -408,7 +452,10 @@ class Create(PathBox):
 
 
 class Annil(PathBox):
-    """Black node"""
+    """Annilation :py:class:`~PathBox` in the QPath category.
+
+    Also available under alias :py:obj:`annil`.
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self):
         super().__init__('Annil', PRO(1), PRO(0))
         self.drawing_name = ''
@@ -425,7 +472,12 @@ class Annil(PathBox):
 
 
 class Endo(PathBox):
-    """Green box"""
+    """Endomorphism :py:class:`~PathBox` in the Path category.
+
+    Has :py:class:`.Matrix` semantics
+    :math:`\\begin{pmatrix}e^{i\\theta}\\end{pmatrix}`.
+
+    For more details see https://arxiv.org/abs/2204.12985."""
     def __init__(self, scalar):
         super().__init__('Endo({})'.format(scalar), PRO(1), PRO(1))
         self.scalar = scalar
@@ -450,17 +502,23 @@ class Endo(PathBox):
         return Matrix(self.dom, self.cod, [self.scalar])
 
 
+#: Alias for :py:class:`Monoid() <discopy.quantum.optics.Monoid>`.
 monoid = Monoid()
+#: Alias for :py:class:`Monoid() <discopy.quantum.optics.Comonoid>`.
 comonoid = Comonoid()
+#: Alias for :py:class:`Unit() <discopy.quantum.optics.Unit>`.
 unit = Unit()
+#: Alias for :py:class:`Counit() <discopy.quantum.optics.Counit>`.
 counit = Counit()
+#: Alias for :py:class:`Create() <discopy.quantum.optics.Create>`.
 create = Create()
+#: Alias for :py:class:`Annil() <discopy.quantum.optics.Annil>`.
 annil = Annil()
 
 
 class Id(monoidal.Id, Diagram):
     """
-    Identity optics.Diagram
+    Identity for :py:class:`.optics.Diagram`.
     """
     def __init__(self, dom=PRO()):
         if isinstance(dom, int):
@@ -481,6 +539,8 @@ class Phase(Box):
     phi : float
     Phase parameter ranging from 0 to 1.
 
+    Example
+    -------
     >>> Phase(0.8).array
     array([[0.30901699-0.95105652j]])
     >>> assert np.allclose((Phase(0.4) >> Phase(0.4).dagger()).array
@@ -509,15 +569,20 @@ class BBS(Box):
     bias : float
     Bias angle from standard 50/50 beam splitter, parameter between 0 and 1.
 
+    Example
+    -------
     The standard beam splitter is:
+
     >>> BS = BBS(0)
 
     We can check the Hong-Ou-Mandel effect:
+
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [0, 2])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [2, 0])) **2, 0.5)
     >>> assert np.isclose(np.absolute(BS.amp([1, 1], [1, 1])) **2, 0)
 
     Check the dagger:
+
     >>> y = BBS(0.4)
     >>> assert np.allclose((y >> y.dagger()).eval(2), Id(2).eval(2))
     >>> comp = (y @ y >> Id(1) @ y @ Id(1)) >> (y @ y >> Id(1) @ y @ Id(1)
@@ -551,16 +616,21 @@ class TBS(Box):
     theta : float
     Beam splitter parameter ranging from 0 to 1.
 
+    Example
+    -------
     >>> BS = BBS(0)
     >>> tbs = lambda x: BS >> Phase(x) @ Id(1) >> BS
     >>> assert np.allclose(TBS(0.15).array * TBS(0.15).global_phase,
     ...                    tbs(0.15).array)
-    >>> assert np.allclose((TBS(0.25) >> TBS(0.25).dagger()).array, Id(2).array)
-    >>> assert TBS(0.25).dagger().global_phase == np.conjugate(TBS(0.25).global_phase)
+    >>> assert np.allclose((TBS(0.25) >> TBS(0.25).dagger()).array,
+    ...                    Id(2).array)
+    >>> assert (TBS(0.25).dagger().global_phase ==
+    ...         np.conjugate(TBS(0.25).global_phase))
     """
     def __init__(self, theta, _dagger=False):
         self.theta, self._dagger = theta, _dagger
-        super().__init__('TBS({})'.format(theta), PRO(2), PRO(2), _dagger=_dagger)
+        name = 'TBS({})'.format(theta)
+        super().__init__(name, PRO(2), PRO(2), _dagger=_dagger)
 
     @property
     def global_phase(self):
@@ -582,13 +652,15 @@ class TBS(Box):
 
 class MZI(Box):
     """
-    Mach-Zender interferometer
+    Mach-Zender interferometer.
 
     Parameters
     ----------
     theta, phi : float
     Internal and external phase parameters of the MZI, ranging from 0 to 1.
 
+    Example
+    -------
     >>> assert np.allclose(MZI(0.28, 0).array, TBS(0.28).array)
     >>> assert np.isclose(MZI(0.28, 0.3).global_phase, TBS(0.28).global_phase)
     >>> assert np.isclose(MZI(0.12, 0.3).global_phase.conjugate(),
@@ -651,7 +723,7 @@ def params_shape(width, depth):
 
 
 def ansatz(width, depth, x):
-    """ Returns an array of MZIs given width, depth and parameters x"""
+    """ Returns an array of MZIs given width, depth and parameters x. """
     params = x.reshape(params_shape(width, depth))
     chip = Id(width)
     if not width % 2:
@@ -678,6 +750,7 @@ def ansatz(width, depth, x):
     return chip
 
 
+#: Alias for :py:class:`BBS(0) <discopy.quantum.optics.BBS>`.
 BS = BBS(0)
 
 
@@ -705,14 +778,14 @@ def ar_to_path(box):
         return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     if isinstance(box, MZI):
         phi, theta = box.phi, box.theta
-        diagram = (
-            BS >> Phase(phi) @ Id(PRO(1)) >>
-            BS >> Phase(theta) @ Id(PRO(1)))
+        diagram = (BS >> Phase(phi) @ Id(PRO(1))
+                   >> BS >> Phase(theta) @ Id(PRO(1)))
         return to_path(diagram)
     raise NotImplementedError
 
 
 to_path = Functor(ob=lambda x: x, ar=ar_to_path)
+
 
 def ar_zx_to_path(box):
     from discopy.quantum.zx import Z, X, H
@@ -770,7 +843,7 @@ def swap_right(diagram, i):
     return (
         diagram[:i]
         >> new_layer.permute(len(new_left), len(new_left) - 1)
-        >> diagram[i+1:])
+        >> diagram[i + 1:])
 
 
 def drag_out(diagram, i):
@@ -779,7 +852,7 @@ def drag_out(diagram, i):
         raise ValueError(f"{box} is not a state.")
     while i > 0:
         try:
-            diagram = diagram.interchange(i-1, i)
+            diagram = diagram.interchange(i - 1, i)
             i -= 1
         except InterchangerError:
             diagram = swap_right(diagram, i)
@@ -833,9 +906,7 @@ def evaluate(diagram, inp, out):
 
 
 def ar_make_square(box):
-    comon = (Unit() @ Id(1) >>
-             BS >>
-             Endo(2 ** 0.5) @ Endo(-1j * 2 ** 0.5))
+    comon = Unit() @ Id(1) >> BS >> Endo(2 ** 0.5) @ Endo(-1j * 2 ** 0.5)
     mon = comon.dagger()
     if isinstance(box, Monoid):
         return mon
