@@ -1,3 +1,36 @@
+"""
+Implements the semantic category :py:class:`.Matrix`.
+
+In this category, a box with domain :py:class:`PRO(n) <.monoidal.PRO>`
+and codomain :py:class:`PRO(m) <.monoidal.PRO>` represents
+an :math:`n \\times m` matrix.
+The ``>>`` and ``<<`` operations correspond to matrix multiplication
+and ``@`` operation corresponds to the direct sum of matrices:
+
+.. math::
+
+    \\mathbf{A} \\oplus \\mathbf{B}
+    = \\begin{pmatrix} \\mathbf{A} & 0 \\\\ 0 & \\mathbf{B}  \\end{pmatrix}
+
+Example
+-------
+>>> x = Matrix(PRO(2), PRO(1), [2, 4])
+>>> x.array
+array([[2],
+       [4]])
+>>> x @ x
+Matrix(dom=PRO(4), cod=PRO(2), array=[2, 0, 4, 0, 0, 2, 0, 4])
+>>> (x @ x).array
+array([[2, 0],
+       [4, 0],
+       [0, 2],
+       [0, 4]])
+
+:py:class:`.Matrix` can be used to evaluate
+:py:class:`.optics.Diagram` s from :py:mod:`.quantum.optics`.
+
+"""
+
 from discopy import messages, monoidal
 from discopy.cat import AxiomError
 from discopy.monoidal import PRO
@@ -21,7 +54,7 @@ class Matrix(monoidal.Box):
     Matrix(dom=PRO(2), cod=PRO(2), array=[0, 2, 2, 0])
     >>> assert m.then(m, m, m, m) == m == m >> m >> m >> m >> m
 
-    The monoidal product for Matrix is the direct product:
+    The monoidal product for :py:class:`.Matrix` is the direct sum:
 
     >>> x = Matrix(PRO(2), PRO(1), [2, 4])
     >>> x.array
