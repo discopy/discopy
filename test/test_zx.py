@@ -119,7 +119,7 @@ def _std_basis_v(*c):
     return np.expand_dims(v, -1)
 
 
-def test_circui2zx():
+def test_circuit2zx():
     circuit = Ket(0, 0) >> quantum.H @ Rx(0) >> CRz(0) >> CRx(0) >> CU1(0)
     circuit2zx(circuit) == Diagram(
         dom=PRO(0), cod=PRO(2), boxes=[
@@ -146,3 +146,8 @@ def test_circui2zx():
     assert np.isclose(np.linalg.norm(t), 0)
     t = circuit2zx(Ket(0, 0)).to_pyzx().to_matrix() - _std_basis_v(0, 0)
     assert np.isclose(np.linalg.norm(t), 0)
+
+    assert (circuit2zx(quantum.Id(3).CX(0, 2)) ==
+            Diagram(dom=PRO(3), cod=PRO(3),
+                    boxes=[SWAP, Z(1, 2), X(2, 1), SWAP],
+                    offsets=[1, 0, 1, 1]))
