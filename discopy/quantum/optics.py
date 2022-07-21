@@ -326,11 +326,12 @@ class Monoid(PathBox):
         super().__init__('Monoid', PRO(2), PRO(1))
         self.drawing_name = ''
         self.draw_as_spider = True
-        self.shape = 'triangle_up'
+        self.shape = 'triangle_down'
         self.color = 'black'
+        self.__class__.__repr__ = lambda _: 'monoid'
 
     def dagger(self):
-        return Comonoid()
+        return comonoid
 
     @property
     def matrix(self):
@@ -343,11 +344,12 @@ class Comonoid(PathBox):
         super().__init__('Comonoid', PRO(1), PRO(2))
         self.drawing_name = ''
         self.draw_as_spider = True
-        self.shape = 'triangle_down'
+        self.shape = 'triangle_up'
         self.color = 'black'
+        self.__class__.__repr__ = lambda _: 'comonoid'
 
     def dagger(self):
-        return Monoid()
+        return monoid
 
     @property
     def matrix(self):
@@ -361,9 +363,10 @@ class Unit(PathBox):
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'red'
+        self.__class__.__repr__ = lambda _: 'unit'
 
     def dagger(self):
-        return Counit()
+        return counit
 
     @property
     def matrix(self):
@@ -377,9 +380,10 @@ class Counit(PathBox):
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'red'
+        self.__class__.__repr__ = lambda _: 'counit'
 
     def dagger(self):
-        return Counit()
+        return unit
 
     @property
     def matrix(self):
@@ -393,9 +397,10 @@ class Create(PathBox):
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'black'
+        self.__class__.__repr__ = lambda _: 'create'
 
     def dagger(self):
-        return Annil()
+        return annil
 
     @property
     def matrix(self):
@@ -409,9 +414,10 @@ class Annil(PathBox):
         self.drawing_name = ''
         self.draw_as_spider = True
         self.color = 'black'
+        self.__class__.__repr__ = lambda _: 'annil'
 
     def dagger(self):
-        return Create()
+        return create
 
     @property
     def matrix(self):
@@ -430,18 +436,14 @@ class Endo(PathBox):
         self.draw_as_spider = True
         self.shape = 'rectangle'
         self.color = 'green'
+        self.__class__.__repr__ = lambda self: f'Endo({self.scalar})'
 
     @property
     def name(self):
         return f'Endo({self.scalar})'
 
     def dagger(self):
-        scalar = self.scalar
-        try:
-            new_scalar = scalar.conjugate()
-        except (SyntaxError, AttributeError):
-            new_scalar = scalar
-        return Endo(new_scalar)
+        return Endo(self.scalar.conjugate())
 
     @property
     def matrix(self):
@@ -589,6 +591,8 @@ class MZI(Box):
 
     >>> assert np.allclose(MZI(0.28, 0).array, TBS(0.28).array)
     >>> assert np.isclose(MZI(0.28, 0.3).global_phase, TBS(0.28).global_phase)
+    >>> assert np.isclose(MZI(0.12, 0.3).global_phase.conjugate(),
+    ...                   MZI(0.12, 0.3).dagger().global_phase)
     >>> mach = lambda x, y: TBS(x) >> Phase(y) @ Id(1)
     >>> assert np.allclose(MZI(0.28, 0.9).array, mach(0.28, 0.9).array)
     >>> assert np.allclose((MZI(0.28, 0.34) >> MZI(0.28, 0.34).dagger()).array,
@@ -610,14 +614,11 @@ class MZI(Box):
         backend = sympy if hasattr(self.theta, 'free_symbols') else np
         cos = backend.cos(backend.pi * self.theta)
         sin = backend.sin(backend.pi * self.theta)
-        if self._dagger:
-            exp = backend.exp(- 1j * 2 * backend.pi * self.phi)
-            array = np.array([exp * sin, exp * cos, cos, -sin])
-            return Matrix(self.dom, self.cod, array)
-        else:
-            exp = backend.exp(1j * 2 * backend.pi * self.phi)
-            array = np.array([exp * sin, cos, exp * cos, -sin])
-            return Matrix(self.dom, self.cod, array)
+        exp = backend.exp(1j * 2 * backend.pi * self.phi)
+        array = np.array([exp * sin, cos, exp * cos, -sin])
+        matrix = Matrix(self.dom, self.cod, array)
+        matrix = matrix.dagger() if self._dagger else matrix
+        return matrix
 
     def dagger(self):
         return MZI(self.theta, self.phi, _dagger=not self._dagger)
@@ -719,13 +720,13 @@ def ar_zx_to_path(box):
     if isinstance(box, X):
         phase = box.phase
         if (n, m, phase) == (0, 1, 0):
-            return Unit() @ Create()
+            return create @ unit
         if (n, m, phase) == (0, 1, 0.5):
-            return Create() @ Unit()
+            return unit @ create
         if (n, m, phase) == (1, 0, 0):
-            return Counit() @ Annil()
+            return annil @ counit
         if (n, m, phase) == (1, 0, 0.5):
-            return Annil() @ Counit()
+            return counit @ annil
         if (n, m, phase) == (1, 1, 0.25):
             return BBS(0.5)  # GIO
         if (n, m, phase) == (1, 1, -0.25):
@@ -742,7 +743,7 @@ def ar_zx_to_path(box):
         if (n, m) == (0, 1):
             return Create() >> Comonoid()
         if (n, m) == (1, 1):
-            exp_phase = np.exp(1j * 2*math.pi * phase)
+            exp_phase = np.exp(1j * 2 * pi * phase)
             array = Id().tensor(*map(Endo, [1, 0, 0, exp_phase]))
             w1, w2 = Comonoid(), Monoid()
             return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
@@ -752,9 +753,8 @@ def ar_zx_to_path(box):
             flex = Id(1) @ Z(0, 2) >> Z(2, 1) @ Id(1)
             return zx_to_path(flex)
     if box == H:
-        return MZI(-0.5, 0)  # GIO
-    print("Not Implemented", repr(box))
-    raise NotImplementedError
+        return MZI(0.25, 0)
+    raise NotImplementedError(f'No translation from {box} to ZX.')
 
 
 zx_to_path = Functor(ob=lambda x: x @ x, ar=ar_zx_to_path)
@@ -763,10 +763,10 @@ zx_to_path = Functor(ob=lambda x: x @ x, ar=ar_zx_to_path)
 def swap_right(diagram, i):
     left, box, right = diagram.layers[i]
     if box.dom:
-        raise ValueError(f"{box} is not a word.")
+        raise ValueError(f"{box} is not a state.")
 
     new_left, new_right = left @ right[0:1], right[1:]
-    new_layer = diagram.id(new_left) @ box @ diagram.Id(new_right)
+    new_layer = diagram.id(new_left) @ box @ diagram.id(new_right)
     return (
         diagram[:i]
         >> new_layer.permute(len(new_left), len(new_left) - 1)
@@ -776,7 +776,7 @@ def swap_right(diagram, i):
 def drag_out(diagram, i):
     box = diagram.boxes[i]
     if box.dom:
-        raise ValueError(f"{box} is not a word.")
+        raise ValueError(f"{box} is not a state.")
     while i > 0:
         try:
             diagram = diagram.interchange(i-1, i)
@@ -791,7 +791,7 @@ def drag_all(diagram):
     stop = 0
     while i >= stop:
         box = diagram.boxes[i]
-        if not box.dom:  # is word
+        if box == create:
             diagram = drag_out(diagram, i)
             i = len(diagram) - 1
             stop += 1
@@ -805,8 +805,8 @@ def qpath_drag(diagram):
     diagram = drag_all(diagram.dagger()).dagger()
     n_state = len([b for b in diagram.boxes if isinstance(b, Create)])
     n_costate = len([b for b in diagram.boxes if isinstance(b, Annil)])
-    top, bot = diagram[:n_state], diagram[-n_costate:]
-    mat = diagram[n_state:-n_costate]
+    top, bot = diagram[:n_state], diagram[len(diagram) - n_costate:]
+    mat = diagram[n_state:len(diagram) - n_costate]
     return top, bot, mat
 
 
@@ -814,15 +814,14 @@ def evaluate(diagram, inp, out):
     """ evaluate the amplitude of <J|Diagram|I>. """
     assert len(inp) == len(diagram.dom) and len(out) == len(diagram.cod)
     x, y, drag = qpath_drag(diagram)
-    matrix = to_matrix(drag).array
     inp, out = inp[:], out[:]
     for off in x.normal_form().offsets:
         inp.insert(off, 1)
     for off in y.dagger().normal_form().offsets:
         out.insert(off, 1)
-    print(f'{inp=} {out=}')
     if sum(inp) != sum(out):
         raise ValueError('# of photons in != # of photons out')
+    matrix = to_matrix(drag).array
     n_modes_in = len(drag.dom)
     n_modes_out = len(drag.cod)
     matrix = np.stack([matrix[:, i] for i in range(n_modes_out)
@@ -834,10 +833,10 @@ def evaluate(diagram, inp, out):
 
 
 def ar_make_square(box):
-    mon = (Unit() @ Id(1) >>
-           BS >>
-           Endo(2 ** 0.5) @ Endo(-1j * 2 ** 0.5))
-    comon = mon.dagger()
+    comon = (Unit() @ Id(1) >>
+             BS >>
+             Endo(2 ** 0.5) @ Endo(-1j * 2 ** 0.5))
+    mon = comon.dagger()
     if isinstance(box, Monoid):
         return mon
     if isinstance(box, Comonoid):

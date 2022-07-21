@@ -1,10 +1,12 @@
+from multiprocessing.sharedctypes import Value
+from re import L
 from pytest import raises
 
 import numpy as np
+from sympy.abc import phi
 
-from discopy.quantum.optics import (ar_to_path, BBS, Box, Comonoid, Counit, Endo, Monoid,
-                                    Unit, to_matrix, to_path, Id, MZI, PathBox,
-                                    PRO, TBS)
+from discopy.quantum.optics import *
+from discopy.quantum.zx import decomp, H, X, Z
 from discopy.monoidal import Swap
 
 unit = Unit()
@@ -93,3 +95,73 @@ def test_to_matrix():
 
     with raises(NotImplementedError):
         ar_to_path(123)
+    with raises(Exception):
+        to_matrix(annil)
+    with raises(Exception):
+        to_matrix(create)
+
+
+def test_fusion_zx_to_path():
+    fusion = Z(2, 1)
+    path_fusion = zx_to_path(fusion)
+    expect = Diagram(dom=PRO(4), cod=PRO(2),
+                     boxes=[monoid, annil], offsets=[1, 1])
+    assert path_fusion == expect
+    assert evaluate(path_fusion, [1, 0, 1, 0], [1, 0]) == 1.0
+    assert evaluate(path_fusion, [0, 1, 0, 1], [0, 1]) == 1.0
+    assert evaluate(path_fusion, [0, 1, 1, 0], [0, 1]) == 0.0
+
+
+def test_bell_zx_to_path():
+    from discopy.quantum import zx
+
+    zx_circs = [
+        Z(0, 2),
+        Z(0, 1) >> Z(1, 2),
+        Z(0, 1) >> Z(1, 1) >> Z(1, 2),
+        X(0, 1) >> H >> Z(1, 2),
+        X(0, 1, 0.5) >> X(1, 0, 0.5) @ Z(0, 2),
+        decomp(Z(0, 3) >> Z(1, 0) @ zx.Id(2)),
+        Z(0, 2) >> decomp(X(1, 2) >> X(1, 0) @ zx.Id(1)) @ zx.Id(1),
+        (X(0, 1) >> H >> Z(1, 2) >>
+            zx.Id(2) @ X(0, 1) >> zx.Id(1) @ decomp(X(2, 1)))
+    ]
+    zx_circs += [decomp(zx_circ) for zx_circ in zx_circs]
+    for zx_circ in zx_circs:
+        path = zx_to_path(zx_circ)
+        a = evaluate(path, [], [1, 0, 1, 0])
+        b = evaluate(path, [], [1, 0, 0, 1])
+        c = evaluate(path, [], [0, 1, 1, 0])
+        d = evaluate(path, [], [0, 1, 0, 1])
+        with raises(ValueError):
+            evaluate(path, [], [1, 2, 3, 4])
+        assert np.round(a, 3) == np.round(d, 3) != 0
+        assert np.round(b, 3) == np.round(c, 3) == 0
+
+
+def test_bad_zx_to_path():
+    with raises(NotImplementedError):
+        zx_to_path(Z(42, 21))
+
+
+def test_endo_repr():
+    assert Endo(phi).name == 'Endo(phi)'
+    assert Endo(1).dagger() == Endo(1)
+
+
+def test_bad_drags():
+    with raises(ValueError):
+        swap_right(comonoid, 0)
+    with raises(ValueError):
+        drag_out(comonoid, 0)
+
+
+def test_make_square():
+    d = monoid >> Endo(0.5) >> comonoid
+    assert to_matrix(d) == to_matrix(make_square(d))
+
+
+def test_ansatz():
+    dims = [(1, 2), (2, 1), (3, 1), (2, 2)]
+    for width, depth in dims:
+        ansatz(width, depth, np.zeros(params_shape(width, depth)))
