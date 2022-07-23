@@ -1,5 +1,3 @@
-from multiprocessing.sharedctypes import Value
-from re import L
 from pytest import raises
 
 import numpy as np
@@ -88,13 +86,14 @@ def test_to_matrix():
     tbs = TBS(0.321)
     bbs2 = BBS(0)
     network = mzi >> bbs1 >> tbs >> bbs2
-    assert to_matrix(to_path(network)) == to_matrix(network)
-    assert to_matrix(to_path(network).dagger()) == to_matrix(network).dagger()
+    path = optics2path(network)
+    assert to_matrix(path) == to_matrix(network)
+    assert to_matrix(path) == to_matrix(network).dagger()
 
     assert np.allclose((mzi >> mzi.dagger()).array, np.eye(2))
 
     with raises(NotImplementedError):
-        ar_to_path(123)
+        ar_optics2path(123)
     with raises(Exception):
         to_matrix(annil)
     with raises(Exception):
