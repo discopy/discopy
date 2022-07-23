@@ -46,6 +46,8 @@ COLORS = {
 # Mapping from tikz shapes to matplotlib shapes.
 SHAPES = {
     "rectangle": 's',
+    "triangle_up": '^',
+    "triangle_down": 'v',
     "circle": 'o',
     "plus": '+',
 }

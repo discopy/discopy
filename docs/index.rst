@@ -1,8 +1,4 @@
-discopy
-=======
-
-.. image:: _static/imgs/snake-equation.png
-   :align: center
+.. mdinclude:: ../README.md
 
 .. toctree::
    :maxdepth: 3

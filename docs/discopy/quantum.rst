@@ -12,3 +12,4 @@ quantum
    quantum.tk
    quantum.pennylane
    quantum.zx
+   quantum.optics
