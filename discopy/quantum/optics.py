@@ -954,10 +954,16 @@ def evaluate(diagram, inp, out):
     assert len(inp) == len(diagram.dom) and len(out) == len(diagram.cod)
     x, y, drag = qpath_drag(diagram)
     inp, out = inp[:], out[:]
-    for off in x.normal_form().offsets:
-        inp.insert(off, 1)
-    for off in y.dagger().normal_form().offsets:
-        out.insert(off, 1)
+    for box, off in zip(x.normal_form().boxes, x.normal_form().offsets):
+        if isinstance(box, Create):
+            inp.insert(off, 1)
+        elif isinstance(box, Unit):
+            inp.insert(off, 0)
+    for box, off in zip(y.normal_form().boxes, y.normal_form().offsets):
+        if isinstance(box, Annil):
+            out.insert(off, 1)
+        elif isinstance(box, Counit):
+            out.insert(off, 0)
     if sum(inp) != sum(out):
         raise ValueError('# of photons in != # of photons out')
     matrix = to_matrix(drag).array
