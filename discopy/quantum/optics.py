@@ -922,7 +922,7 @@ def drag_all(diagram):
     stop = 0
     while i >= stop:
         box = diagram.boxes[i]
-        if box == create:
+        if box == create or box == unit:
             diagram = drag_out(diagram, i)
             i = len(diagram) - 1
             stop += 1
@@ -931,11 +931,16 @@ def drag_all(diagram):
 
 
 def qpath_drag(diagram):
-    """ drag `Create`s and `Annil`s to the top and bottom of the diagram """
+    """
+    Drag `Create`s, `Annil`s, `Unit`s and 'Counit's to the top
+    and bottom of the diagram
+    """
     diagram = drag_all(diagram)
     diagram = drag_all(diagram.dagger()).dagger()
-    n_state = len([b for b in diagram.boxes if isinstance(b, Create)])
-    n_costate = len([b for b in diagram.boxes if isinstance(b, Annil)])
+    n_state = len([b for b in diagram.boxes if (isinstance(b, Create)
+                                                or isinstance(b, Unit))])
+    n_costate = len([b for b in diagram.boxes if (isinstance(b, Annil)
+                                                  or isinstance(b, Counit))])
     top, bot = diagram[:n_state], diagram[len(diagram) - n_costate:]
     mat = diagram[n_state:len(diagram) - n_costate]
     return top, bot, mat
@@ -964,7 +969,7 @@ def evaluate(diagram, inp, out):
 
 
 def ar_make_square(box):
-    comon = Unit() @ Id(1) >> BS >> Endo(2 ** 0.5) @ Endo(-1j * 2 ** 0.5)
+    comon = Unit() @ Id(1) >> BS >> Id(1) @ Endo(-1j)
     mon = comon.dagger()
     if isinstance(box, Monoid):
         return mon
