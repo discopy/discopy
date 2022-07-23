@@ -881,8 +881,11 @@ def ar_zx2path(box):
         if (n, m, phase) == (2, 1, 0):
             return Id(1) @ (Monoid() >> Annil()) @ Id(1)
         if (n, m, phase) == (1, 2, 0):
-            flex = Id(1) @ Z(0, 2) >> Z(2, 1) @ Id(1)
-            return zx2path(flex)
+            plus = Create() >> Comonoid()
+            bot = (plus >> Id(1) @ plus @ Id(1)) @ (Id(1) @ plus @ Id(1))
+            mid = Id(2) @ BS.dagger() @ BS @ Id(2)
+            fusion = Id(1) @ plus.dagger() @ Id(1) >> plus.dagger()
+            return bot >> mid >> (Id(2) @ fusion @ Id(2))
     if box == H:
         return TBS(0.25)
     raise NotImplementedError(f'No translation of {box} in QPath.')
