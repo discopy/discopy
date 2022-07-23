@@ -14,17 +14,17 @@ matrix of amplitudes over occupation numbers is obtained using
 
 One may also use the QPath calculus as defined in
 https://arxiv.org/abs/2204.12985. The functor :py:func:`to_path` decomposes
-linear optical circuits into QPath diagrams. The functor :py:func:`zx_to_path`
+linear optical circuits into QPath diagrams. The functor :py:func:`zx2path`
 turns instances of :py:class:`.zx.Diagram` into QPath diagrams
 via the dual-rail encoding.
 
 Example
 -------
 
->>> from discopy.quantum.optics import zx_to_path
+>>> from discopy.quantum.optics import zx2path
 >>> from discopy.quantum.zx import Z
 >>> from discopy import drawing
->>> drawing.equation(Z(2, 1), zx_to_path(Z(2, 1)), symbol='->',
+>>> drawing.equation(Z(2, 1), zx2path(Z(2, 1)), symbol='->',
 ...                  draw_type_labels=False, figsize=(6, 4),
 ...                  path='docs/_static/imgs/optics-fusion.png')
 
@@ -570,7 +570,7 @@ class Phase(Box):
     Parameters
     ----------
     phi : float
-    Phase parameter ranging from 0 to 1.
+        Phase parameter ranging from 0 to 1.
 
     Example
     -------
@@ -759,7 +759,9 @@ class Functor(monoidal.Functor):
 
 
 def params_shape(width, depth):
-    """ Returns the shape of parameters given width and depth. """
+    """
+    Returns shape of parameters for :py:func:`ansatz` given width and depth.
+    """
     even_width = not width % 2
     even_depth = not depth % 2
     if even_width:
@@ -779,7 +781,10 @@ def params_shape(width, depth):
 
 
 def ansatz(width, depth, x):
-    """ Returns an array of MZIs given width, depth and parameters x. """
+    """
+    Returns a universal interferometer given width, depth and parameters x,
+    based on https://arxiv.org/abs/1603.08788.
+    """
     params = x.reshape(params_shape(width, depth))
     chip = Id(width)
     if not width % 2:
@@ -843,7 +848,7 @@ def ar_to_path(box):
 to_path = Functor(ob=lambda x: x, ar=ar_to_path)
 
 
-def ar_zx_to_path(box):
+def ar_zx2path(box):
     from discopy.quantum.zx import Z, X, H
     n, m = len(box.dom), len(box.cod)
     if isinstance(box, X):
@@ -857,36 +862,33 @@ def ar_zx_to_path(box):
         if (n, m, phase) == (1, 0, 0.5):
             return counit @ annil
         if (n, m, phase) == (1, 1, 0.25):
-            return BBS(0.5)  # GIO
+            return BBS(0.5)  # = BS.dagger()
         if (n, m, phase) == (1, 1, -0.25):
-            return BBS(0.5).dagger()  # GIO
+            return BS
     if isinstance(box, Z):
         phase = box.phase
         if (n, m, phase) == (0, 2, 0):
             plus = Create() >> Comonoid()
             fusion = plus >> Id(1) @ plus @ Id(1)
             d = (fusion @ fusion
-                 >> Id(2) @ zx_to_path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
+                 >> Id(2) @ zx2path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
                  >> Id(2) @ fusion.dagger() @ Id(2))
             return d
         if (n, m) == (0, 1):
             return Create() >> Comonoid()
         if (n, m) == (1, 1):
-            exp_phase = np.exp(1j * 2 * pi * phase)
-            array = Id().tensor(*map(Endo, [1, 0, 0, exp_phase]))
-            w1, w2 = Comonoid(), Monoid()
-            return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
+            return Phase(-phase / 2) @ Phase(phase / 2)
         if (n, m, phase) == (2, 1, 0):
             return Id(1) @ (Monoid() >> Annil()) @ Id(1)
         if (n, m, phase) == (1, 2, 0):
             flex = Id(1) @ Z(0, 2) >> Z(2, 1) @ Id(1)
-            return zx_to_path(flex)
+            return zx2path(flex)
     if box == H:
-        return MZI(0.25, 0)
-    raise NotImplementedError(f'No translation from {box} to ZX.')
+        return TBS(0.25)
+    raise NotImplementedError(f'No translation of {box} in QPath.')
 
 
-zx_to_path = Functor(ob=lambda x: x @ x, ar=ar_zx_to_path)
+zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
 
 
 def swap_right(diagram, i):

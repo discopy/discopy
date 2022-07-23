@@ -101,9 +101,9 @@ def test_to_matrix():
         to_matrix(create)
 
 
-def test_fusion_zx_to_path():
+def test_fusion_zx2path():
     fusion = Z(2, 1)
-    path_fusion = zx_to_path(fusion)
+    path_fusion = zx2path(fusion)
     expect = Diagram(dom=PRO(4), cod=PRO(2),
                      boxes=[monoid, annil], offsets=[1, 1])
     assert path_fusion == expect
@@ -112,7 +112,7 @@ def test_fusion_zx_to_path():
     assert evaluate(path_fusion, [0, 1, 1, 0], [0, 1]) == 0.0
 
 
-def test_bell_zx_to_path():
+def test_bell_zx2path():
     from discopy.quantum import zx
 
     zx_circs = [
@@ -128,7 +128,7 @@ def test_bell_zx_to_path():
     ]
     zx_circs += [decomp(zx_circ) for zx_circ in zx_circs]
     for zx_circ in zx_circs:
-        path = zx_to_path(zx_circ)
+        path = zx2path(zx_circ)
         a = evaluate(path, [], [1, 0, 1, 0])
         b = evaluate(path, [], [1, 0, 0, 1])
         c = evaluate(path, [], [0, 1, 1, 0])
@@ -139,9 +139,9 @@ def test_bell_zx_to_path():
         assert np.round(b, 3) == np.round(c, 3) == 0
 
 
-def test_bad_zx_to_path():
+def test_bad_zx2path():
     with raises(NotImplementedError):
-        zx_to_path(Z(42, 21))
+        zx2path(Z(42, 21))
 
 
 def test_endo_repr():
