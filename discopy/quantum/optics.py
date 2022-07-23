@@ -13,7 +13,7 @@ matrix of amplitudes over occupation numbers is obtained using
 :py:meth:`.Diagram.eval`.
 
 One may also use the QPath calculus as defined in
-https://arxiv.org/abs/2204.12985. The functor :py:func:`to_path` decomposes
+https://arxiv.org/abs/2204.12985. The functor :py:func:`optics2path` decomposes
 linear optical circuits into QPath diagrams. The functor :py:func:`zx2path`
 turns instances of :py:class:`.zx.Diagram` into QPath diagrams
 via the dual-rail encoding.
@@ -821,7 +821,7 @@ def to_matrix(diagram):
         ob_factory=PRO, ar_factory=Matrix)(diagram)
 
 
-def ar_to_path(box):
+def ar_optics2path(box):
     if isinstance(box, Phase):
         backend = sympy if hasattr(box.phi, 'free_symbols') else np
         return Endo(backend.exp(2j * backend.pi * box.phi))
@@ -841,11 +841,11 @@ def ar_to_path(box):
         phi, theta = box.phi, box.theta
         diagram = (BS >> Phase(phi) @ Id(PRO(1))
                    >> BS >> Phase(theta) @ Id(PRO(1)))
-        return to_path(diagram)
+        return optics2path(diagram)
     raise NotImplementedError
 
 
-to_path = Functor(ob=lambda x: x, ar=ar_to_path)
+optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
 
 
 def ar_zx2path(box):
