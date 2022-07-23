@@ -13,18 +13,18 @@ matrix of amplitudes over occupation numbers is obtained using
 :py:meth:`.Diagram.eval`.
 
 One may also use the QPath calculus as defined in
-https://arxiv.org/abs/2204.12985. The functor :py:func:`to_path` decomposes
-linear optical circuits into QPath diagrams. The functor :py:func:`zx_to_path`
+https://arxiv.org/abs/2204.12985. The functor :py:func:`optics2path` decomposes
+linear optical circuits into QPath diagrams. The functor :py:func:`zx2path`
 turns instances of :py:class:`.zx.Diagram` into QPath diagrams
 via the dual-rail encoding.
 
 Example
 -------
 
->>> from discopy.quantum.optics import zx_to_path
+>>> from discopy.quantum.optics import zx2path
 >>> from discopy.quantum.zx import Z
 >>> from discopy import drawing
->>> drawing.equation(Z(2, 1), zx_to_path(Z(2, 1)), symbol='->',
+>>> drawing.equation(Z(2, 1), zx2path(Z(2, 1)), symbol='->',
 ...                  draw_type_labels=False, figsize=(6, 4),
 ...                  path='docs/_static/imgs/optics-fusion.png')
 
@@ -816,7 +816,7 @@ def to_matrix(diagram):
         ob_factory=PRO, ar_factory=Matrix)(diagram)
 
 
-def ar_to_path(box):
+def ar_optics2path(box):
     if isinstance(box, Phase):
         backend = sympy if hasattr(box.phi, 'free_symbols') else np
         return Endo(backend.exp(2j * backend.pi * box.phi))
@@ -836,14 +836,14 @@ def ar_to_path(box):
         phi, theta = box.phi, box.theta
         diagram = (BS >> Phase(phi) @ Id(PRO(1))
                    >> BS >> Phase(theta) @ Id(PRO(1)))
-        return to_path(diagram)
+        return optics2path(diagram)
     raise NotImplementedError
 
 
-to_path = Functor(ob=lambda x: x, ar=ar_to_path)
+optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
 
 
-def ar_zx_to_path(box):
+def ar_zx2path(box):
     from discopy.quantum.zx import Z, X, H
     n, m = len(box.dom), len(box.cod)
     if isinstance(box, X):
@@ -866,7 +866,7 @@ def ar_zx_to_path(box):
             plus = Create() >> Comonoid()
             fusion = plus >> Id(1) @ plus @ Id(1)
             d = (fusion @ fusion
-                 >> Id(2) @ zx_to_path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
+                 >> Id(2) @ zx2path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
                  >> Id(2) @ fusion.dagger() @ Id(2))
             return d
         if (n, m) == (0, 1):
@@ -880,13 +880,13 @@ def ar_zx_to_path(box):
             return Id(1) @ (Monoid() >> Annil()) @ Id(1)
         if (n, m, phase) == (1, 2, 0):
             flex = Id(1) @ Z(0, 2) >> Z(2, 1) @ Id(1)
-            return zx_to_path(flex)
+            return zx2path(flex)
     if box == H:
         return MZI(0.25, 0)
     raise NotImplementedError(f'No translation from {box} to ZX.')
 
 
-zx_to_path = Functor(ob=lambda x: x @ x, ar=ar_zx_to_path)
+zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
 
 
 def swap_right(diagram, i):

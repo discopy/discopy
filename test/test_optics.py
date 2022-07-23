@@ -1,5 +1,3 @@
-from multiprocessing.sharedctypes import Value
-from re import L
 from pytest import raises
 
 import numpy as np
@@ -88,22 +86,23 @@ def test_to_matrix():
     tbs = TBS(0.321)
     bbs2 = BBS(0)
     network = mzi >> bbs1 >> tbs >> bbs2
-    assert to_matrix(to_path(network)) == to_matrix(network)
-    assert to_matrix(to_path(network).dagger()) == to_matrix(network).dagger()
+    path = optics2path(network)
+    assert to_matrix(path) == to_matrix(network)
+    assert to_matrix(path) == to_matrix(network).dagger()
 
     assert np.allclose((mzi >> mzi.dagger()).array, np.eye(2))
 
     with raises(NotImplementedError):
-        ar_to_path(123)
+        ar_optics2path(123)
     with raises(Exception):
         to_matrix(annil)
     with raises(Exception):
         to_matrix(create)
 
 
-def test_fusion_zx_to_path():
+def test_fusion_zx2path():
     fusion = Z(2, 1)
-    path_fusion = zx_to_path(fusion)
+    path_fusion = zx2path(fusion)
     expect = Diagram(dom=PRO(4), cod=PRO(2),
                      boxes=[monoid, annil], offsets=[1, 1])
     assert path_fusion == expect
@@ -112,7 +111,7 @@ def test_fusion_zx_to_path():
     assert evaluate(path_fusion, [0, 1, 1, 0], [0, 1]) == 0.0
 
 
-def test_bell_zx_to_path():
+def test_bell_zx2path():
     from discopy.quantum import zx
 
     zx_circs = [
@@ -128,7 +127,7 @@ def test_bell_zx_to_path():
     ]
     zx_circs += [decomp(zx_circ) for zx_circ in zx_circs]
     for zx_circ in zx_circs:
-        path = zx_to_path(zx_circ)
+        path = zx2path(zx_circ)
         a = evaluate(path, [], [1, 0, 1, 0])
         b = evaluate(path, [], [1, 0, 0, 1])
         c = evaluate(path, [], [0, 1, 1, 0])
@@ -139,9 +138,9 @@ def test_bell_zx_to_path():
         assert np.round(b, 3) == np.round(c, 3) == 0
 
 
-def test_bad_zx_to_path():
+def test_bad_zx2path():
     with raises(NotImplementedError):
-        zx_to_path(Z(42, 21))
+        zx2path(Z(42, 21))
 
 
 def test_endo_repr():
