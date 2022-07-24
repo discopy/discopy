@@ -853,14 +853,15 @@ def ar_zx2path(box):
     n, m = len(box.dom), len(box.cod)
     if isinstance(box, X):
         phase = box.phase
+        root2 = Endo(2 ** 0.5)
         if (n, m, phase) == (0, 1, 0):
-            return create @ unit
+            return create @ unit >> root2 @ root2
         if (n, m, phase) == (0, 1, 0.5):
-            return unit @ create
+            return unit @ create >> root2 @ root2
         if (n, m, phase) == (1, 0, 0):
-            return annil @ counit
+            return root2 @ root2 >> annil @ counit
         if (n, m, phase) == (1, 0, 0.5):
-            return counit @ annil
+            return root2 @ root2 >> counit @ annil
         if (n, m, phase) == (1, 1, 0.25):
             return BBS(0.5)  # = BS.dagger()
         if (n, m, phase) == (1, 1, -0.25):
