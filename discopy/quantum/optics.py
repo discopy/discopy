@@ -935,34 +935,34 @@ def drag_all(diagram):
 
 def qpath_drag(diagram):
     """
-    Drag `Create`s, `Annil`s, `Unit`s and 'Counit's to the top
-    and bottom of the diagram
+    Drag :py:class:`.Create`s, :py:class:`.Annil`s, :py:class:`.Unit`s and
+    :py:class:`.Counit`s to the top and bottom of the diagram.
     """
     diagram = drag_all(diagram)
     diagram = drag_all(diagram.dagger()).dagger()
-    n_state = len([b for b in diagram.boxes if (isinstance(b, Create)
-                                                or isinstance(b, Unit))])
-    n_costate = len([b for b in diagram.boxes if (isinstance(b, Annil)
-                                                  or isinstance(b, Counit))])
+    n_state = len([b for b in diagram.boxes if b in (create, unit)])
+    n_costate = len([b for b in diagram.boxes if b in (annil, counit)])
     top, bot = diagram[:n_state], diagram[len(diagram) - n_costate:]
     mat = diagram[n_state:len(diagram) - n_costate]
     return top, bot, mat
 
 
 def evaluate(diagram, inp, out):
-    """ evaluate the amplitude of <J|Diagram|I>. """
+    """ Evaluate the amplitude of <J|Diagram|I>. """
     assert len(inp) == len(diagram.dom) and len(out) == len(diagram.cod)
-    x, y, drag = qpath_drag(diagram)
+    top, bot, drag = qpath_drag(diagram)
     inp, out = inp[:], out[:]
-    for box, off in zip(x.normal_form().boxes, x.normal_form().offsets):
-        if isinstance(box, Create):
+    x = top.normal_form()
+    y = bot.dagger().normal_form()
+    for box, off in zip(x.boxes, x.offsets):
+        if box == create:
             inp.insert(off, 1)
-        elif isinstance(box, Unit):
+        if box == unit:
             inp.insert(off, 0)
-    for box, off in zip(y.normal_form().boxes, y.normal_form().offsets):
-        if isinstance(box, Annil):
+    for box, off in zip(y.boxes, y.offsets):
+        if box == create:
             out.insert(off, 1)
-        elif isinstance(box, Counit):
+        if box == unit:
             out.insert(off, 0)
     if sum(inp) != sum(out):
         raise ValueError('# of photons in != # of photons out')
