@@ -829,13 +829,13 @@ def ar_optics2path(box):
         sin = np.sin(box.theta * np.pi)
         cos = np.cos(box.theta * np.pi)
         array = Id().tensor(*map(Endo, (sin, cos, cos, -sin)))
-        w1, w2 = Comonoid(), Monoid()
+        w1, w2 = comonoid, monoid
         return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     if isinstance(box, BBS):
         sin = np.sin((0.25 + box.bias) * np.pi)
         cos = np.cos((0.25 + box.bias) * np.pi)
         array = Id().tensor(*map(Endo, (sin, 1j * cos, 1j * cos, sin)))
-        w1, w2 = Comonoid(), Monoid()
+        w1, w2 = comonoid, monoid
         return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     if isinstance(box, MZI):
         phi, theta = box.phi, box.theta
@@ -868,20 +868,20 @@ def ar_zx2path(box):
     if isinstance(box, Z):
         phase = box.phase
         if (n, m, phase) == (0, 2, 0):
-            plus = Create() >> Comonoid()
+            plus = create >> comonoid
             fusion = plus >> Id(1) @ plus @ Id(1)
             d = (fusion @ fusion
                  >> Id(2) @ zx2path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
                  >> Id(2) @ fusion.dagger() @ Id(2))
             return d
         if (n, m) == (0, 1):
-            return Create() >> Comonoid()
+            return create >> comonoid
         if (n, m) == (1, 1):
             return Phase(-phase / 2) @ Phase(phase / 2)
         if (n, m, phase) == (2, 1, 0):
-            return Id(1) @ (Monoid() >> Annil()) @ Id(1)
+            return Id(1) @ (Monoid() >> annil) @ Id(1)
         if (n, m, phase) == (1, 2, 0):
-            plus = Create() >> Comonoid()
+            plus = create >> comonoid
             bot = (plus >> Id(1) @ plus @ Id(1)) @ (Id(1) @ plus @ Id(1))
             mid = Id(2) @ BS.dagger() @ BS @ Id(2)
             fusion = Id(1) @ plus.dagger() @ Id(1) >> plus.dagger()
@@ -978,11 +978,11 @@ def evaluate(diagram, inp, out):
 
 
 def ar_make_square(box):
-    comon = Unit() @ Id(1) >> BS >> Id(1) @ Endo(-1j)
+    comon = unit @ Id(1) >> BS >> Id(1) @ Endo(-1j)
     mon = comon.dagger()
-    if isinstance(box, Monoid):
+    if box == monoid:
         return mon
-    if isinstance(box, Comonoid):
+    if box == comonoid:
         return comon
     return box
 
