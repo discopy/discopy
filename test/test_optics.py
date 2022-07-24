@@ -119,7 +119,8 @@ def test_bell_zx2path():
         Z(0, 1) >> Z(1, 2),
         Z(0, 1) >> Z(1, 1) >> Z(1, 2),
         X(0, 1) >> H >> Z(1, 2),
-        X(0, 1, 0.5) >> X(1, 0, 0.5) @ Z(0, 2),
+        (X(0, 1, 0.5) >> decomp(X(1, 2)) >> X(1, 0, 0.5) @ zx.Id(1)
+                      >> decomp(X(1, 2))),
         decomp(Z(0, 3) >> Z(1, 0) @ zx.Id(2)),
         Z(0, 2) >> decomp(X(1, 2) >> X(1, 0) @ zx.Id(1)) @ zx.Id(1),
         (X(0, 1) >> H >> Z(1, 2)
@@ -134,7 +135,7 @@ def test_bell_zx2path():
         d = evaluate(path, [], [0, 1, 0, 1])
         with raises(ValueError):
             evaluate(path, [], [1, 2, 3, 4])
-        assert np.round(a, 3) == np.round(d, 3) != 0
+        assert np.round(a, 3) == np.round(d, 3) == 1
         assert np.round(b, 3) == np.round(c, 3) == 0
 
 
