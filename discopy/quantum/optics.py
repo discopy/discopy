@@ -849,8 +849,10 @@ optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
 
 
 def ar_zx2path(box):
-    from discopy.quantum.zx import Z, X, H
+    from discopy.quantum.zx import Z, X, H, Scalar
     n, m = len(box.dom), len(box.cod)
+    if isinstance(box, Scalar):
+        return Id()
     if isinstance(box, X):
         phase = box.phase
         root2 = Endo(2 ** 0.5)
@@ -872,7 +874,7 @@ def ar_zx2path(box):
             plus = create >> comonoid
             fusion = plus >> Id(1) @ plus @ Id(1)
             d = (fusion @ fusion
-                 >> Id(2) @ zx2path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
+                 >> Id(2) @ _zx2path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
                  >> Id(2) @ fusion.dagger() @ Id(2))
             return d
         if (n, m) == (0, 1):
@@ -892,7 +894,22 @@ def ar_zx2path(box):
     raise NotImplementedError(f'No translation of {box} in QPath.')
 
 
-zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
+_zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
+
+
+def zx2path(diagram):
+    """ Convert a ZX diagram into a QPath diagram via dual-rail encoding. """
+    from discopy.quantum.zx import Scalar
+    scale = 1.0
+    for box in diagram.boxes:
+        if isinstance(box, Scalar):
+            scale *= box.data
+    path = _zx2path(diagram)
+    if scale != 1.0 and len(path.cod) > 0:
+        # scale the amplitude by scaling each column
+        endo = Endo(scale ** (1 / len(diagram.cod)))
+        path >>= Id().tensor(*[endo] * len(path.cod))
+    return path
 
 
 def swap_right(diagram, i):

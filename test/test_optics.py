@@ -135,8 +135,26 @@ def test_bell_zx2path():
         d = evaluate(path, [], [0, 1, 0, 1])
         with raises(ValueError):
             evaluate(path, [], [1, 2, 3, 4])
-        assert np.round(a, 3) == np.round(d, 3) == 1
-        assert np.round(b, 3) == np.round(c, 3) == 0
+        assert np.round(a, 5) == np.round(d, 5) == 1
+        assert np.round(b, 5) == np.round(c, 5) == 0
+
+
+def test_tk_ghz_zx2path():
+    from discopy.quantum import zx, Ket
+
+    tket_circ = Ket(0, 0, 0).H(0).CX(0, 1).CX(0, 2)
+    path = zx2path(decomp(zx.circuit2zx(tket_circ)))
+    encodings = [
+        [1, 0, 1, 0, 1, 0], [0, 1, 1, 0, 1, 0],
+        [1, 0, 1, 0, 0, 1], [0, 1, 1, 0, 0, 1],
+        [1, 0, 0, 1, 1, 0], [0, 1, 0, 1, 1, 0],
+        [1, 0, 0, 1, 0, 1], [0, 1, 0, 1, 0, 1]
+    ]
+
+    amps = [np.round(evaluate(path, [], code), 5) for code in encodings]
+    print(amps)
+    assert amps[0] == amps[-1] == np.round(2 ** -0.5, 5)
+    assert all(amp == 0 for amp in amps[1:-1])
 
 
 def test_bad_zx2path():
