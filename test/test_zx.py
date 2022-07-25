@@ -149,5 +149,5 @@ def test_circuit2zx():
 
     assert (circuit2zx(quantum.Id(3).CX(0, 2))
             == Diagram(dom=PRO(3), cod=PRO(3),
-                       boxes=[SWAP, Z(1, 2), X(2, 1), SWAP],
-                       offsets=[1, 0, 1, 1]))
+                       boxes=[SWAP, Z(1, 2), X(2, 1), scalar(2 ** 0.5), SWAP],
+                       offsets=[1, 0, 1, 2, 1]))
