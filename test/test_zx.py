@@ -96,7 +96,7 @@ def test_to_pyzx_scalar():
 def test_from_pyzx_errors():
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
     graph = bialgebra.to_pyzx()
-    graph.set_inputs(()) 
+    graph.set_inputs(())
     graph.set_outputs(())
     with raises(ValueError):  # missing_boundary
         Diagram.from_pyzx(graph)

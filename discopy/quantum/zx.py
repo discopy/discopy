@@ -144,7 +144,8 @@ class Diagram(tensor.Diagram):
 
         Raises :code:`ValueError` if either:
         * a boundary node is not in :code:`graph.inputs() + graph.outputs()`,
-        * :code:`set(graph.inputs()).intersection(graph.outputs())` is non-empty.
+        * or :code:`set(graph.inputs()).intersection(graph.outputs())`
+          is non-empty.
         """
         from pyzx import VertexType, EdgeType
 
