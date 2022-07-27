@@ -11,6 +11,7 @@ API
    discopy/rigid
    discopy/biclosed
    discopy/hypergraph
+   discopy/matrix
    discopy/tensor
    discopy/quantum
    discopy/grammar
