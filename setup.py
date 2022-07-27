@@ -21,6 +21,14 @@ if __name__ == '__main__':  # pragma: no cover
         warn("test/requirements.txt not found")
         TEST_REQ = []
 
+    try:
+        with open('requirements_pyzx.txt', 'r') as file:
+            PYZX_REQ = [line.strip() for line in file.readlines()]
+    except FileNotFoundError:
+        from warnings import warn
+        warn("requirements_pyzx.txt not found")
+        PYZX_REQ = []
+
     setup(name='discopy',
           version=VERSION,
           package_dir={'discopy': 'discopy'},
@@ -37,7 +45,7 @@ if __name__ == '__main__':  # pragma: no cover
           install_requires=[
               l.strip() for l in open('requirements.txt').readlines()],
           tests_require=TEST_REQ,
-          extras_require={'test': TEST_REQ},
+          extras_require={'test': TEST_REQ, 'pyzx': PYZX_REQ},
           data_file=[('test', ['test/requirements.txt'])],
           python_requires='>=3',
           )
