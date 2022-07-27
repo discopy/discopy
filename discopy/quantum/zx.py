@@ -72,7 +72,7 @@ class Diagram(tensor.Diagram):
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert len(graph.vertices()) == 8
-        >>> assert (graph.inputs(), graph.outputs()) == ([0, 1], [6, 7])
+        >>> assert (graph.inputs(), graph.outputs()) == ((0, 1), (6, 7))
         >>> from pyzx import VertexType
         >>> assert graph.type(2) == graph.type(3) == VertexType.Z
         >>> assert graph.phase(2) == 2 * .25 and graph.phase(3) == 2 * .75
