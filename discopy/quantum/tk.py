@@ -75,6 +75,10 @@ class Circuit(tk.Circuit):
                         for d in [self.post_processing] if d]
         return '.'.join(init + gates + post_select + scalar + post_process)
 
+    def _ipython_display_(self):
+        from pytket.circuit.display import render_circuit_jupyter
+        render_circuit_jupyter(self)
+
     @property
     def n_bits(self):
         """ Number of bits in a circuit. """
