@@ -111,7 +111,7 @@ rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
 ```
 
-![autonomisation](docs/_static/imgs/autonomisation.gif)
+![autonomisation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/autonomisation.gif)
 
 
 ### Loading Corpora

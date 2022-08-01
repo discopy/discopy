@@ -93,7 +93,7 @@ def bitstring2index(bitstring):
 
 class Ob(RealConjugate, rigid.Ob):
     """
-    Implements the generating objects of :class:`Circuit`, i.e.
+    Implement the generating objects of :class:`Circuit`, i.e.
     information units of some integer dimension greater than 1.
 
     Examples
@@ -146,7 +146,7 @@ class Qudit(Ob):
 
 class Ty(rigid.Ty):
     """
-    Implements the input and output types of :class:`Circuit`.
+    Implement the input and output types of :class:`Circuit`.
 
     Examples
     --------
@@ -355,7 +355,7 @@ class Circuit(tensor.Diagram):
 
     def measure(self, mixed=False):
         """
-        Measures a circuit on the computational basis using :code:`numpy`.
+        Measure a circuit on the computational basis using :code:`numpy`.
 
         Parameters
         ----------
@@ -380,7 +380,7 @@ class Circuit(tensor.Diagram):
 
     def to_tn(self, mixed=False):
         """
-        Sends a diagram to a mixed :code:`tensornetwork`.
+        Send a diagram to a mixed :code:`tensornetwork`.
 
         Parameters
         ----------
@@ -552,10 +552,31 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.tk import to_tk
         return to_tk(self)
 
+    def to_pennylane(self, probabilities=False):
+        """
+        Export DisCoPy circuit to PennylaneCircuit.
+
+        Parameters
+        ----------
+        probabilties : bool, default: False
+            If True, the PennylaneCircuit will return the normalized
+            probabilties of measuring the computational basis states
+            when run. If False, it returns the unnormalized quantum
+            states in the computational basis.
+
+        Returns
+        -------
+        :class:`discopy.quantum.pennylane.PennylaneCircuit`
+        """
+
+        # pylint: disable=import-outside-toplevel
+        from discopy.quantum.pennylane import to_pennylane
+        return to_pennylane(self, probabilities=probabilities)
+
     @staticmethod
     def from_tk(*tk_circuits):
         """
-        Translates a :class:`pytket.Circuit` into a :class:`Circuit`, or
+        Translate a :class:`pytket.Circuit` into a :class:`Circuit`, or
         a list of :class:`pytket` circuits into a :class:`Sum`.
 
         Parameters
@@ -1103,7 +1124,7 @@ class Functor(rigid.Functor):
 
 class IQPansatz(Circuit):
     """
-    Builds an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
+    Build an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
     >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
@@ -1139,6 +1160,132 @@ class IQPansatz(Circuit):
             depth = Tensor.np.shape(params)[0]
             circuit = Id(n_qubits).then(*(
                 layer(params[i]) for i in range(depth)))
+        super().__init__(
+            circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
+
+
+class Sim14ansatz(Circuit):
+    """
+    Builds an ansatz on n qubits matching circuit 14 from arXiv:1905.10876
+        If n=1, returns Euler decomposition.
+
+    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
+    >>> pprint(Sim14ansatz(3, [[i/10 for i in range(12)]]))
+    Ry(0) @ Id(2)
+      >> Id(1) @ Ry(0.1) @ Id(1)
+      >> Id(2) @ Ry(0.2)
+      >> CRx(0.3)
+      >> CRx(0.4) @ Id(1)
+      >> Id(1) @ CRx(0.5)
+      >> Ry(0.6) @ Id(2)
+      >> Id(1) @ Ry(0.7) @ Id(1)
+      >> Id(2) @ Ry(0.8)
+      >> CRx(0.9) @ Id(1)
+      >> CRx(1)
+      >> Id(1) @ CRx(1.1)
+    >>> pprint(Sim14ansatz(1, [0.1, 0.2, 0.3]))
+    Rx(0.1)
+      >> Rz(0.2)
+      >> Rx(0.3)
+    """
+
+    def __init__(self, n_qubits, params):
+        from discopy.quantum.gates import Rx, Ry, Rz
+
+        def layer(thetas):
+            sublayer1 = Id().tensor(
+                *([Ry(theta) for theta in thetas[:n_qubits]]))
+
+            for i in range(n_qubits):
+                src = i
+                tgt = (i - 1) % n_qubits
+                sublayer1 = sublayer1.CRx(thetas[n_qubits + i], src, tgt)
+
+            sublayer2 = Id().tensor(
+                *([Ry(theta) for theta in thetas[2 * n_qubits: 3 * n_qubits]]))
+
+            for i in range(n_qubits, 0, -1):
+                src = i % n_qubits
+                tgt = (i + 1) % n_qubits
+                sublayer2 = sublayer2.CRx(thetas[-i], src, tgt)
+
+            return sublayer1 >> sublayer2
+
+        params_shape = Tensor.np.shape(params)
+
+        if n_qubits == 1:
+            circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
+        elif (len(params_shape) != 2) or (params_shape[1] != 4 * n_qubits):
+            raise ValueError(
+                "Expected params of shape (depth, {})".format(4 * n_qubits))
+        else:
+            depth = params_shape[0]
+            circuit = Id(n_qubits).then(*(
+                layer(params[i]) for i in range(depth)))
+
+        super().__init__(
+            circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
+
+
+class Sim15ansatz(Circuit):
+    """
+    Builds an ansatz on n qubits matching circuit 15 from arXiv:1905.10876
+        If n=1, returns Euler decomposition.
+
+    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
+    >>> pprint(Sim15ansatz(3, [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]))
+    Ry(0.1) @ Id(2)
+      >> Id(1) @ Ry(0.2) @ Id(1)
+      >> Id(2) @ Ry(0.3)
+      >> CX
+      >> CX @ Id(1)
+      >> Id(1) @ CX
+      >> Ry(0.4) @ Id(2)
+      >> Id(1) @ Ry(0.5) @ Id(1)
+      >> Id(2) @ Ry(0.6)
+      >> CX @ Id(1)
+      >> CX
+      >> Id(1) @ CX
+    >>> pprint(Sim15ansatz(1, [0.1, 0.2, 0.3]))
+    Rx(0.1)
+      >> Rz(0.2)
+      >> Rx(0.3)
+    """
+
+    def __init__(self, n_qubits, params):
+        from discopy.quantum.gates import Rx, Ry, Rz
+
+        def layer(thetas):
+            sublayer1 = Id().tensor(
+                *([Ry(theta) for theta in thetas[:n_qubits]]))
+
+            for i in range(n_qubits):
+                src = i
+                tgt = (i - 1) % n_qubits
+                sublayer1 = sublayer1.CX(src, tgt)
+
+            sublayer2 = Id().tensor(
+                *([Ry(theta) for theta in thetas[n_qubits:]]))
+
+            for i in range(n_qubits, 0, -1):
+                src = i % n_qubits
+                tgt = (i + 1) % n_qubits
+                sublayer2 = sublayer2.CX(src, tgt)
+
+            return sublayer1 >> sublayer2
+
+        params_shape = Tensor.np.shape(params)
+
+        if n_qubits == 1:
+            circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
+        elif (len(params_shape) != 2) or (params_shape[1] != 2 * n_qubits):
+            raise ValueError(
+                "Expected params of shape (depth, {})".format(2 * n_qubits))
+        else:
+            depth = params_shape[0]
+            circuit = Id(n_qubits).then(*(
+                layer(params[i]) for i in range(depth)))
+
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
 

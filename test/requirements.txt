@@ -6,3 +6,4 @@ tensornetwork
 jax
 jaxlib
 torch
+pennylane
