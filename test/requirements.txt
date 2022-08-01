@@ -1,6 +1,7 @@
 pytket==1.1.0
 pyzx==0.6.4
 sympy==1.9
+tensorflow
 tensornetwork
 jax
 jaxlib

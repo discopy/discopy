@@ -7,16 +7,25 @@ from discopy.tensor import *
 def test_backend():
     import jax.numpy
     import torch
+    import tensorflow.experimental.numpy as tnp
     assert Tensor.np.module == np
     with Tensor.backend('jax'):
         assert Tensor.np.module == jax.numpy
         with Tensor.backend('pytorch'):
             assert Tensor.np.module == torch
+            with Tensor.backend('tensorflow'):
+                assert Tensor.np.module == tnp
         assert Tensor.np.module == jax.numpy
     assert Tensor.np.module == np
 
     with raises(ValueError):
         Tensor.set_backend('nonexistent')
+
+
+def test_Tensor_repr_with_tf():
+    with Tensor.backend('tensorflow'):
+        alice = Tensor(Dim(1), Dim(2), [1, 2])
+        assert repr(alice) == 'Tensor(dom=Dim(1), cod=Dim(2), array=[1, 2])'
 
 
 def test_Dim():

@@ -391,7 +391,9 @@ class Controlled(QuantumGate):
             part2 = Tensor.np.array([[0, 0], [0, 1]])
             array = (
                 Tensor.np.kron(part1, Tensor.np.eye(d))
-                + Tensor.np.kron(part2, controlled.array.reshape(d, d)))
+                + Tensor.np.kron(part2,
+                                 Tensor.np.array(controlled.array.reshape(d,
+                                                                          d))))
         else:
             array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)
