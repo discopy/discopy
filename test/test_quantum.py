@@ -184,7 +184,7 @@ def test_Circuit_to_pennylane(capsys):
     conc_circ_prob = (conc_circ >> Measure())
 
     assert (np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
-                       conc_circ_prob.eval().array))
+                        conc_circ_prob.eval().array))
 
 
 def test_PennyLaneCircuit_mixed_error():
