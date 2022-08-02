@@ -410,7 +410,7 @@ def gate2zx(box):
     if isinstance(box, (Bra, Ket)):
         dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
         spiders = [X(dom, cod, phase=.5 * bit) for bit in box.bitstring]
-        return Id(0).tensor(*spiders) @ scalar(pow(2, -len(box.bitstring) / 2))
+        return Id(0).tensor(*spiders)
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
