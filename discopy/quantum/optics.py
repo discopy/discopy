@@ -43,6 +43,7 @@ from discopy.monoidal import PRO
 
 from discopy.matrix import Matrix
 from discopy.rewriting import InterchangerError
+from discopy.quantum.gates import format_number
 
 
 def occupation_numbers(n_photons, m_modes):
@@ -501,6 +502,20 @@ class Annil(PathBox):
         raise Exception('Annil has no Matrix semantics.')
 
 
+class Scalar(PathBox):
+    """ Scalar in QPath """
+    def __init__(self, data):
+        super().__init__("scalar", PRO(0), PRO(0), data=data)
+        self.drawing_name = format_number(data)
+
+    def dagger(self):
+        return Scalar(self.data.conjugate())
+
+    @property
+    def matrix(self):
+        raise Exception('Scalar has no Matrix semantics.')
+
+
 class Endo(PathBox):
     """Endomorphism :py:class:`~PathBox` in the Path category.
 
@@ -849,31 +864,32 @@ optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
 
 
 def ar_zx2path(box):
-    from discopy.quantum.zx import Z, X, H, Scalar
+    from discopy.quantum import zx
     n, m = len(box.dom), len(box.cod)
-    if isinstance(box, Scalar):
-        return Id()
-    if isinstance(box, X):
+    if isinstance(box, zx.Scalar):
+        return Scalar(box.data)
+    if isinstance(box, zx.X):
         phase = box.phase
+        root2 = Scalar(2 ** 0.5)
         if (n, m, phase) == (0, 1, 0):
-            return create @ unit
+            return create @ unit @ root2
         if (n, m, phase) == (0, 1, 0.5):
-            return unit @ create
+            return unit @ create @ root2
         if (n, m, phase) == (1, 0, 0):
-            return annil @ counit
+            return annil @ counit @ root2
         if (n, m, phase) == (1, 0, 0.5):
-            return counit @ annil
+            return counit @ annil @ root2
         if (n, m, phase) == (1, 1, 0.25):
             return BBS(0.5)  # = BS.dagger()
         if (n, m, phase) == (1, 1, -0.25):
             return BS
-    if isinstance(box, Z):
+    if isinstance(box, zx.Z):
         phase = box.phase
         if (n, m, phase) == (0, 2, 0):
             plus = create >> comonoid
             fusion = plus >> Id(1) @ plus @ Id(1)
             d = (fusion @ fusion
-                 >> Id(2) @ _zx2path(X(1, 1, 0.25) @ X(1, 1, -0.25)) @ Id(2)
+                 >> Id(2) @ BBS(0.5) @ BS @ Id(2)
                  >> Id(2) @ fusion.dagger() @ Id(2))
             return d
         if (n, m) == (0, 1):
@@ -888,27 +904,12 @@ def ar_zx2path(box):
             mid = Id(2) @ BS.dagger() @ BS @ Id(2)
             fusion = Id(1) @ plus.dagger() @ Id(1) >> plus.dagger()
             return bot >> mid >> (Id(2) @ fusion @ Id(2))
-    if box == H:
+    if box == zx.H:
         return TBS(0.25)
     raise NotImplementedError(f'No translation of {box} in QPath.')
 
 
-_zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
-
-
-def zx2path(diagram):
-    """ Convert a ZX diagram into a QPath diagram via dual-rail encoding. """
-    from discopy.quantum.zx import Scalar
-    scale = 1.0
-    for box in diagram.boxes:
-        if isinstance(box, Scalar):
-            scale *= box.data
-    path = _zx2path(diagram)
-    if scale != 1.0 and len(path.cod) > 0:
-        # scale the amplitude by scaling each column
-        endo = Endo(scale ** (1 / len(diagram.cod)))
-        path >>= Id().tensor(*[endo] * len(path.cod))
-    return path
+zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
 
 
 def swap_right(diagram, i):
@@ -950,24 +951,36 @@ def drag_all(diagram):
     return diagram
 
 
+def remove_scalars(diagram):
+    new_diagram = diagram
+    scalar, num = 1, 0
+    for i, box in enumerate(diagram.boxes):
+        if isinstance(box, Scalar):
+            new_diagram = new_diagram[:i - num] >> new_diagram[i + 1 - num:]
+            num += 1
+            scalar *= box.data
+    return new_diagram, scalar
+
+
 def qpath_drag(diagram):
     """
     Drag :py:class:`.Create`s, :py:class:`.Annil`s, :py:class:`.Unit`s and
     :py:class:`.Counit`s to the top and bottom of the diagram.
     """
+    diagram, scalar = remove_scalars(diagram)
     diagram = drag_all(diagram)
     diagram = drag_all(diagram.dagger()).dagger()
     n_state = len([b for b in diagram.boxes if b in (create, unit)])
     n_costate = len([b for b in diagram.boxes if b in (annil, counit)])
     top, bot = diagram[:n_state], diagram[len(diagram) - n_costate:]
     mat = diagram[n_state:len(diagram) - n_costate]
-    return top, bot, mat
+    return top, bot, mat, scalar
 
 
 def evaluate(diagram, inp, out):
     """ Evaluate the amplitude of <J|Diagram|I>. """
     assert len(inp) == len(diagram.dom) and len(out) == len(diagram.cod)
-    top, bot, drag = qpath_drag(diagram)
+    top, bot, drag, scalar = qpath_drag(diagram)
     inp, out = inp[:], out[:]
     x = top.normal_form()
     y = bot.dagger().normal_form()
@@ -991,7 +1004,7 @@ def evaluate(diagram, inp, out):
     matrix = np.stack([matrix[i] for i in range(n_modes_in)
                       for _ in range(inp[i])], axis=0)
     divisor = np.sqrt(np.prod([factorial(n) for n in inp + out]))
-    return npperm(matrix) / divisor
+    return scalar * npperm(matrix) / divisor
 
 
 def ar_make_square(box):

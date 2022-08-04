@@ -55,6 +55,10 @@ def test_homomorphism():
     check(x >> y, Endo(0.123 * 0.321))
 
 
+def test_scalar():
+    assert Scalar(1j).dagger() == Scalar(-1j)
+
+
 def test_bad_queries():
     network = MZI(0.2, 0.4) @ MZI(0.2, 0.4) >> Id(1) @ MZI(0.2, 0.4) @ Id(1)
     with raises(ValueError):
@@ -116,8 +120,8 @@ def test_bell_zx2path():
 
     zx_circs = [
         Z(0, 2),
-        Z(0, 1) >> Z(1, 2),
         Z(0, 1) >> Z(1, 1) >> Z(1, 2),
+        Z(0, 1) >> X(1, 1, 0.25) >> X(1, 1, -0.25) >> Z(1, 2),
         X(0, 1) >> H >> Z(1, 2),
         (X(0, 1, 0.5) >> decomp(X(1, 2)) >> X(1, 0, 0.5) @ zx.Id(1)
                       >> decomp(X(1, 2))),
