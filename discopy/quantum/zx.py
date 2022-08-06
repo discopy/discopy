@@ -72,7 +72,7 @@ class Diagram(tensor.Diagram):
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert len(graph.vertices()) == 8
-        >>> assert (graph.inputs, graph.outputs) == ([0, 1], [6, 7])
+        >>> assert (graph.inputs(), graph.outputs()) == ((0, 1), (6, 7))
         >>> from pyzx import VertexType
         >>> assert graph.type(2) == graph.type(3) == VertexType.Z
         >>> assert graph.phase(2) == 2 * .25 and graph.phase(3) == 2 * .75
@@ -93,7 +93,7 @@ class Diagram(tensor.Diagram):
         for i, _ in enumerate(self.dom):
             node, hadamard = graph.add_vertex(VertexType.BOUNDARY), False
             scan.append((node, hadamard))
-            graph.inputs.append(node)
+            graph.set_inputs(graph.inputs() + (node,))
             graph.set_position(node, i, 0)
         for row, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             if isinstance(box, Spider):
@@ -123,7 +123,7 @@ class Diagram(tensor.Diagram):
             etype = EdgeType.HADAMARD if hadamard else EdgeType.SIMPLE
             graph.add_edge((source, target), etype)
             graph.set_position(target, i, len(self) + 1)
-            graph.outputs.append(target)
+            graph.set_outputs(graph.outputs() + (target,))
         return graph
 
     @staticmethod
@@ -143,8 +143,9 @@ class Diagram(tensor.Diagram):
         ----
 
         Raises :code:`ValueError` if either:
-        * a boundary node is not in :code:`graph.inputs + graph.outputs`,
-        * :code:`set(graph.inputs).intersection(graph.outputs)` is non-empty.
+        * a boundary node is not in :code:`graph.inputs() + graph.outputs()`,
+        * or :code:`set(graph.inputs()).intersection(graph.outputs())`
+          is non-empty.
         """
         from pyzx import VertexType, EdgeType
 
@@ -159,14 +160,14 @@ class Diagram(tensor.Diagram):
                 swaps = Id(target)\
                     @ Diagram.swap(source - target, 1)\
                     @ Id(len(scan) - source - 1)
-                scan = scan[:target] + [node]\
+                scan = scan[:target] + (node,)\
                     + scan[target:source] + scan[source + 1:]
             elif target > source:
                 swaps = Id(source)\
                     @ Diagram.swap(1, target - source)\
                     @ Id(len(scan) - target - 1)
                 scan = scan[:source] + scan[source + 1:target]\
-                    + [node] + scan[target:]
+                    + (node,) + scan[target:]
             else:
                 swaps = Id(len(scan))
             return scan, swaps
@@ -183,21 +184,21 @@ class Diagram(tensor.Diagram):
 
         missing_boundary = any(
             graph.type(node) == VertexType.BOUNDARY
-            and node not in graph.inputs + graph.outputs
+            and node not in graph.inputs() + graph.outputs()
             for node in graph.vertices())
         if missing_boundary:
             raise ValueError
-        duplicate_boundary = set(graph.inputs).intersection(graph.outputs)
+        duplicate_boundary = set(graph.inputs()).intersection(graph.outputs())
         if duplicate_boundary:
             raise ValueError
-        diagram, scan = Id(len(graph.inputs)), graph.inputs
+        diagram, scan = Id(len(graph.inputs())), graph.inputs()
         for node in [v for v in graph.vertices()
-                     if v not in graph.inputs + graph.outputs]:
+                     if v not in graph.inputs() + graph.outputs()]:
             inputs = [v for v in graph.neighbors(node) if v < node
-                      and v not in graph.outputs or v in graph.inputs]
+                      and v not in graph.outputs() or v in graph.inputs()]
             inputs.sort(key=scan.index)
             outputs = [v for v in graph.neighbors(node) if v > node
-                       and v not in graph.inputs or v in graph.outputs]
+                       and v not in graph.inputs() or v in graph.outputs()]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
             hadamards = Id(0).tensor(*[
                 H if graph.edge_type((i, node)) == EdgeType.HADAMARD else Id(1)
@@ -205,9 +206,9 @@ class Diagram(tensor.Diagram):
             box = node2box(node, len(inputs), len(outputs))
             diagram = diagram >> Id(offset) @ (hadamards >> box)\
                 @ Id(len(diagram.cod) - offset - len(inputs))
-            scan = scan[:offset] + len(outputs) * [node]\
+            scan = scan[:offset] + len(outputs) * (node,)\
                 + scan[offset + len(inputs):]
-        for target, output in enumerate(graph.outputs):
+        for target, output in enumerate(graph.outputs()):
             node, = graph.neighbors(output)
             etype = graph.edge_type((node, output))
             hadamard = H if etype == EdgeType.HADAMARD else Id(1)

@@ -768,7 +768,7 @@ class Circuit(tensor.Diagram):
         if position < 0 or position >= len(self.cod):
             raise ValueError(f'Index {position} out of range.')
         left = Id(position)
-        right = Id(len(self.cod) - len(left.cod) - len(gate.cod))
+        right = Id(len(self.cod) - position - len(gate.dom))
         return self >> left @ gate @ right
 
     def _apply_controlled(self, base_gate, *xs):
