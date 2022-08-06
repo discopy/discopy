@@ -102,6 +102,8 @@ def test_to_matrix():
         to_matrix(annil)
     with raises(Exception):
         to_matrix(create)
+    with raises(Exception):
+        to_matrix(Scalar(2.))
 
 
 def test_fusion_zx2path():
