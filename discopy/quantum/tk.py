@@ -75,7 +75,7 @@ class Circuit(tk.Circuit):
                         for d in [self.post_processing] if d]
         return '.'.join(init + gates + post_select + scalar + post_process)
 
-    def _ipython_display_(self):
+    def _ipython_display_(self):  # pragma: no cover
         from pytket.circuit.display import render_circuit_jupyter
         render_circuit_jupyter(self)
 

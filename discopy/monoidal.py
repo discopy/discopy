@@ -480,10 +480,10 @@ class Diagram(cat.Arrow):
             repr(self.dom), repr(self.cod),
             repr(self.boxes), repr(self.offsets))
 
-    def _repr_png_(self):
+    def _repr_png_(self, **params):
         from io import BytesIO
         with BytesIO() as b:
-            self.draw(path=b)
+            self.draw(path=b, **params)
             return b.getvalue()
 
     def __hash__(self):

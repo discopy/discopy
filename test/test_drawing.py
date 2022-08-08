@@ -278,3 +278,16 @@ def test_tikz_long_controlled():
     return (
         Controlled(CX.l, distance=3)
         >> Controlled(Controlled(CZ.l, distance=2), distance=-1))
+
+
+def repr_png(diagram, path, show, **params):
+    with open(path, 'wb') as f:
+        f.write(diagram._repr_png_(**params))
+
+
+@draw_and_compare('sentence-as-diagram.png', aspect='equal', draw=repr_png)
+def test_repr_png():
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r @ s @ n.l)
+    return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
