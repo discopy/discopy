@@ -12,6 +12,11 @@ def type_err(expected, got):
         repr(got), type(got).__module__, type(got).__name__)
 
 
+def types_do_not_compose(left, right):
+    """ Composition error. """
+    return "{} does not compose with {}.".format(left, right)
+
+
 def does_not_compose(left, right):
     """ Composition error. """
     return "{} does not compose with {}: cod={}, dom={}.".format(

@@ -225,7 +225,7 @@ class FC(BinaryBoxConstructor, Box):
         if not isinstance(right, Over):
             raise TypeError(messages.type_err(Over, right))
         if left.right != right.left:
-            raise TypeError(messages.does_not_compose(left, right))
+            raise TypeError(messages.types_do_not_compose(left, right))
         name = "FC({}, {})".format(left, right)
         dom, cod = left @ right, left.left << right.right
         Box.__init__(self, name, dom, cod)
@@ -240,7 +240,7 @@ class BC(BinaryBoxConstructor, Box):
         if not isinstance(right, Under):
             raise TypeError(messages.type_err(Under, right))
         if left.right != right.left:
-            raise TypeError(messages.does_not_compose(left, right))
+            raise TypeError(messages.types_do_not_compose(left, right))
         name = "BC({}, {})".format(left, right)
         dom, cod = left @ right, left.left >> right.right
         Box.__init__(self, name, dom, cod)
@@ -255,7 +255,7 @@ class FX(BinaryBoxConstructor, Box):
         if not isinstance(right, Under):
             raise TypeError(messages.type_err(Over, right))
         if left.right != right.right:
-            raise TypeError(messages.does_not_compose(left, right))
+            raise TypeError(messages.types_do_not_compose(left, right))
         name = "FX({}, {})".format(left, right)
         dom, cod = left @ right, right.left >> left.left
         Box.__init__(self, name, dom, cod)
@@ -270,7 +270,7 @@ class BX(BinaryBoxConstructor, Box):
         if not isinstance(right, Under):
             raise TypeError(messages.type_err(Under, right))
         if left.left != right.left:
-            raise TypeError(messages.does_not_compose(left, right))
+            raise TypeError(messages.types_do_not_compose(left, right))
         name = "BX({}, {})".format(left, right)
         dom, cod = left @ right, right.right << left.right
         Box.__init__(self, name, dom, cod)
