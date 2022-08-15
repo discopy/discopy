@@ -795,10 +795,17 @@ class Swap(BinaryBoxConstructor, Box):
 
 class AbstractSum():
     """ Sum of monoidal diagrams. """
+
+    def draw(self, **params):
+        """ Drawing a sum as an equation with :code:`symbol='+'`. """
+        return drawing.equation(*self.terms, symbol='+', **params)
+
+
+class Sum(AbstractSum, cat.Sum, Box):
     @staticmethod
     def upgrade(old):
         if not isinstance(old, cat.Sum):
-            raise TypeError(messages.type_err(cat.Sum, old))
+            raise TypeError(messages.type_err(cat.Sum, old)) 
         return Sum(old.terms, old.dom, old.cod)
 
     def tensor(self, *others):
@@ -809,17 +816,18 @@ class AbstractSum():
         terms = [f.tensor(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))
 
-    def draw(self, **params):
-        """ Drawing a sum as an equation with :code:`symbol='+'`. """
-        return drawing.equation(*self.terms, symbol='+', **params)
-
-
-class Sum(AbstractSum, cat.Sum, Box):
-    pass
-
-
 class LocalSum(AbstractSum, cat.LocalSum, Box):
-    pass
+    @staticmethod
+    def upgrade(old):
+        if isinstance(old, cat.LocalSum):
+            return LocalSum(old.terms, old.dom, old.cod)
+        elif isinstance(old, Diagram): # TODO: is this fine, i'm unsure on how to solve this
+            return old
+        raise TypeError(messages.type_err(cat.LocalSum, old)) #TODO: proper error message
+
+    
+    def tensor(self, *others):
+        return super().tensor(*others)
 
 
 class Bubble(cat.Bubble, Box):

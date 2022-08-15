@@ -704,7 +704,7 @@ class AbstractSum(Box):
     def __str__(self):
         if not self.terms:
             return "{}([], {}, {})".format(self.name_prefix, self.dom, self.cod)
-        return " + ".join("({})".format(arrow) for arrow in self.terms)
+        return " (" + " + ".join("({})".format(arrow) for arrow in self.terms) + ") "
 
     def __add__(self, other):
         if other == 0:
@@ -721,14 +721,6 @@ class AbstractSum(Box):
 
     def __len__(self):
         return len(self.terms)
-
-    def then(self, *others):
-        if len(others) != 1:
-            return super().then(*others)
-        other = others[0] if isinstance(others[0], self.__class__) else self.__class__(list(others))
-        unit = self.__class__([], self.dom, other.cod)
-        terms = [f.then(g) for f in self.terms for g in other.terms]
-        return self.upgrade(sum(terms, unit))
 
     def dagger(self):
         unit = self.__class__([], self.cod, self.dom)
@@ -772,10 +764,24 @@ class LocalSum(AbstractSum):
         self.name_prefix = "LocalSum"
         super().__init__(terms, dom, cod)
 
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        return Arrow(self.dom, others[0].cod, [self] + others[0].boxes)
+
+
 class Sum(AbstractSum):
     def __init__(self, terms, dom=None, cod=None):
         self.name_prefix = "Sum"
         super().__init__(terms, dom, cod)
+
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0] if isinstance(others[0], self.__class__) else self.__class__(list(others))
+        unit = self.__class__([], self.dom, other.cod)
+        terms = [f.then(g) for f in self.terms for g in other.terms]
+        return self.upgrade(sum(terms, unit))
 
 Arrow.sum = Sum
 
