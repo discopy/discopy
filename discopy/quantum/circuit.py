@@ -933,7 +933,7 @@ class Box(rigid.Box, Circuit):
         return self.name
 
 
-class Sum(tensor.Sum, Box):
+class AbstractSum():
     """ Sums of circuits. """
     @staticmethod
     def upgrade(old):
@@ -969,6 +969,14 @@ class Sum(tensor.Sum, Box):
 
     def to_tk(self):
         return [circuit.to_tk() for circuit in self.terms]
+
+
+class Sum(AbstractSum, tensor.Sum, Box):
+    pass
+
+
+class LocalSum(AbstractSum, tensor.LocalSum, Box):
+    pass
 
 
 Circuit.sum = Sum

@@ -793,7 +793,7 @@ class Swap(BinaryBoxConstructor, Box):
         return type(self)(self.right, self.left)
 
 
-class Sum(cat.Sum, Box):
+class AbstractSum(Box):
     """ Sum of monoidal diagrams. """
     @staticmethod
     def upgrade(old):
@@ -812,6 +812,14 @@ class Sum(cat.Sum, Box):
     def draw(self, **params):
         """ Drawing a sum as an equation with :code:`symbol='+'`. """
         return drawing.equation(*self.terms, symbol='+', **params)
+
+
+class Sum(cat.Sum, AbstractSum):
+    pass
+
+
+class LocalSum(cat.LocalSum, AbstractSum):
+    pass
 
 
 class Bubble(cat.Bubble, Box):

@@ -688,10 +688,18 @@ class Id(rigid.Id, Diagram):
         Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
 
 
-class Sum(monoidal.Sum, Diagram):
+class AbstractSum():
     """ Sums of tensor diagrams. """
     def eval(self, contractor=None):
         return sum(term.eval(contractor=contractor) for term in self.terms)
+
+
+class Sum(AbstractSum, monoidal.Sum, Diagram):
+    pass
+
+
+class LocalSum(AbstractSum, monoidal.LocalSum, Diagram):
+    pass
 
 
 Diagram.id = Id
