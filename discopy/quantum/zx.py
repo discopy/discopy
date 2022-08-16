@@ -5,11 +5,12 @@
 from discopy import messages, cat, monoidal, rigid, quantum, tensor
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
-from discopy.quantum.circuit import Circuit, qubit
+from discopy.quantum.circuit import Discard, Measure, MixedState, bit, qubit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
 from math import pi
+import warnings
 
 
 @monoidal.Diagram.subclass
@@ -64,10 +65,21 @@ class Diagram(tensor.Diagram):
         """
         return super().grad(var, **params)
 
-    def to_pyzx(self):
+    def to_pyzx(self, show_swaps=False):
         """
         Returns a :class:`pyzx.Graph`.
 
+        Parameters
+        ----------
+        show_swaps : bool, default: False
+            Whether to show swaps explicitly using Z nodes.
+
+        Returns
+        -------
+        graph : pyzx.Graph
+
+        Examples
+        --------
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
         ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
@@ -100,6 +112,8 @@ class Diagram(tensor.Diagram):
                 node = graph.add_vertex(
                     VertexType.Z if isinstance(box, Z) else VertexType.X,
                     phase=box.phase * 2 if box.phase else None)
+                if getattr(box, 'ground', False):
+                    graph.set_ground(node, True)
                 graph.set_position(node, offset, row + 1)
                 for i, _ in enumerate(box.dom):
                     source, hadamard = scan[offset + i]
@@ -107,7 +121,32 @@ class Diagram(tensor.Diagram):
                     graph.add_edge((source, node), etype)
                 scan = scan[:offset] + len(box.cod) * [(node, False)]\
                     + scan[offset + len(box.dom):]
-            elif isinstance(box, Swap):
+            elif isinstance(box, Swap) and show_swaps:
+                vtype = VertexType.Z
+                source1, hadamard1 = scan[offset]
+                source2, hadamard2 = scan[offset + 1]
+                etype1 = EdgeType.HADAMARD if hadamard1 else EdgeType.SIMPLE
+                etype2 = EdgeType.HADAMARD if hadamard2 else EdgeType.SIMPLE
+                if graph.rows()[source1] != row:
+                    new_source1 = graph.add_vertex(vtype, phase=0)
+                    graph.set_position(new_source1, offset, row)
+                    graph.add_edge((source1, new_source1), etype1)
+                    etype1 = EdgeType.SIMPLE
+                    source1 = new_source1
+                if graph.rows()[source2] != row:
+                    new_source2 = graph.add_vertex(vtype, phase=0)
+                    graph.set_position(new_source2, offset + 1, row)
+                    graph.add_edge((source2, new_source2), etype1)
+                    etype2 = EdgeType.SIMPLE
+                    source2 = new_source2
+                node1 = graph.add_vertex(vtype, phase=0)
+                node2 = graph.add_vertex(vtype, phase=0)
+                graph.set_position(node1, offset + 1, row + 1)
+                graph.set_position(node2, offset, row + 1)
+                graph.add_edge((source1, node1), etype1)
+                graph.add_edge((source2, node2), etype2)
+                scan[offset:offset + 2] = [(node2, False), (node1, False)]
+            elif isinstance(box, Swap) and not show_swaps:
                 scan = scan[:offset] + [scan[offset + 1], scan[offset]]\
                     + scan[offset + 2:]
             elif isinstance(box, Scalar):
@@ -338,9 +377,10 @@ class Spider(Box):
 
 class Z(Spider):
     """ Z spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
+    def __init__(self, n_legs_in, n_legs_out, phase=0, ground=False):
         super().__init__(n_legs_in, n_legs_out, phase, name='Z')
         self.color = "green"
+        self.ground = ground
 
 
 class Y(Spider):
@@ -429,6 +469,18 @@ def gate2zx(box):
         return scalar(box.data)
     if isinstance(box, Controlled) and box.distance != 1:
         return circuit2zx(box._decompose())
+    if isinstance(box, Discard):
+        z_discard = Z(1, 0, ground=True)
+        return Id().tensor(*[z_discard] * len(box.dom))
+    if isinstance(box, MixedState):
+        z_discard = Z(0, 1, ground=True)
+        return Id().tensor(*[z_discard] * len(box.cod))
+    if isinstance(box, Measure):
+        if box.destructive:
+            z_discard = Z(1, 1, ground=True)
+        else:
+            z_discard = Z(1, 2, ground=True)
+        return Id().tensor(*[z_discard] * len(box.dom))
     standard_gates = {
         quantum.H: H,
         quantum.Z: Z(1, 1, .5),
@@ -439,9 +491,20 @@ def gate2zx(box):
     return standard_gates[box]
 
 
-circuit2zx = Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
+_circuit2zx = Functor(
+    ob={qubit: PRO(1), bit: PRO(1)}, ar=gate2zx,
     ob_factory=PRO, ar_factory=Diagram)
+
+
+def circuit2zx(x):
+    has_bit = isinstance(x, monoidal.Ty) and bit[0] in x
+    has_bit |= isinstance(x, monoidal.Diagram) and bit[0] in x.dom @ x.cod
+    if has_bit:
+        ground_zx_warn_msg = ('Converting bit types into qubits via the '
+                              'grounded ZX calculus, see '
+                              'https://arxiv.org/abs/2109.06071.')
+        warnings.warn(ground_zx_warn_msg)
+    return _circuit2zx(x)
 
 
 def decomp_ar(box):

@@ -1,7 +1,14 @@
+import os
 from pytest import raises
+
+import numpy as np
+from matplotlib.testing.compare import compare_images
+from pyzx import draw_matplotlib, id_simp
+
 from discopy import *
 from discopy.quantum.zx import *
-import numpy as np
+
+from test_drawing import draw_and_compare, IMG_FOLDER, TOL
 
 
 def test_Diagram():
@@ -153,3 +160,30 @@ def test_circuit2zx():
             == Diagram(dom=PRO(3), cod=PRO(3),
                        boxes=[SWAP, Z(1, 2), X(2, 1), scalar(2 ** 0.5), SWAP],
                        offsets=[1, 0, 1, 2, 1]))
+
+
+def test_draw_ghz_pyzx():
+    circuit = Ket(0, 0, 0).H(0).CX(0, 1).CX(0, 2)
+    zx_circ = circuit2zx(circuit)
+    fig = draw_matplotlib(zx_circ.to_pyzx(show_swaps=True))
+
+    file = 'ghz.png'
+    true_path = os.path.join(IMG_FOLDER, 'pyzx', file)
+    test_path = os.path.join(IMG_FOLDER, 'pyzx', '.' + file)
+    fig.savefig(fname=test_path)
+    test = compare_images(true_path, test_path, TOL)
+    assert test is None
+
+
+def test_draw_mixed_pyzx():
+    circuit = Ket(0, 0, 0).H(0).CX(0, 1).CX(0, 2) >> Discard(3)
+    circuit @= MixedState(2) >> Measure() @ Measure(destructive=False)
+    zx_circ = circuit2zx(circuit)
+    fig = draw_matplotlib(zx_circ.to_pyzx(show_swaps=True))
+
+    file = 'mixed.png'
+    true_path = os.path.join(IMG_FOLDER, 'pyzx', file)
+    test_path = os.path.join(IMG_FOLDER, 'pyzx', '.' + file)
+    fig.savefig(fname=test_path)
+    test = compare_images(true_path, test_path, TOL)
+    assert test is None
