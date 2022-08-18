@@ -434,6 +434,8 @@ def gate2zx(box):
         quantum.Z: Z(1, 1, .5),
         quantum.X: X(1, 1, .5),
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
+        quantum.S: Z(1, 1, .25),
+        quantum.T: Z(1, 1, .125),
         CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
     return standard_gates[box]
