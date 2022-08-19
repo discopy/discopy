@@ -282,6 +282,8 @@ def test_Circuit_from_tk():
         Ket(0) @ Ket(0) >> CRz(0.5) >> Discard() @ Discard()
     assert Id(qubit @ bit).init_and_discard()\
         == back_n_forth(Swap(qubit, bit)) == back_n_forth(Swap(bit, qubit))
+    c = (T >> T.dagger()).init_and_discard()
+    assert c == back_n_forth(c)
 
 
 def test_ClassicalGate_to_tk():
