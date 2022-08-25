@@ -854,9 +854,12 @@ def ar_optics2path(box):
         return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     if isinstance(box, MZI):
         phi, theta = box.phi, box.theta
-        diagram = (BS >> Phase(phi) @ Id(PRO(1))
-                   >> BS >> Phase(theta) @ Id(PRO(1)))
-        return optics2path(diagram)
+        cos = np.cos(np.pi * theta)
+        sin = np.sin(np.pi * theta)
+        exp = np.exp(1j * 2 * np.pi * phi)
+        array = Id().tensor(*map(Endo, (exp * sin, cos, exp * cos, -sin)))
+        w1, w2 = comonoid, monoid
+        return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     raise NotImplementedError
 
 
