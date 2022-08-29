@@ -67,3 +67,33 @@ def test_distribute_composition_cat_right2(localsum_testdata_cat):
     assert a.boxes[2].terms[1].boxes[0].name == "d"
     assert a.boxes[2].terms[1].boxes[1].name == "e"
     assert a.boxes[2].terms[1].boxes[2].name == "f"
+
+
+@fixture
+def localsum_testdata_monoidal():
+    x, y, z = monoidal.Ty('x'), monoidal.Ty('y'), monoidal.Ty('z')
+    f = monoidal.Box('f', x, y)
+    g = monoidal.Box('g', x, y)
+    h = monoidal.Box('h', y, z)
+    diag = monoidal.LocalSum([f, g]) @ h
+    diag = f @ (diag >> monoidal.Box("t", y @ z, x) >> f) @ g
+    return diag
+
+
+def test_distribute_tensor(localsum_testdata_monoidal):
+    diag = localsum_testdata_monoidal.normal_form()
+    a = str(diag)
+    diag = distribute_tensor(diag, 1, 2)
+    b = str(diag)
+    assert isinstance(diag.boxes[1], monoidal.LocalSum)
+    assert len(diag.boxes[1].terms) == 2
+    assert len(diag.boxes[1].terms[0].boxes) == 2
+    assert len(diag.boxes[1].terms[1].boxes) == 2
+    assert diag.boxes[1].terms[0].boxes[0].name == "f"
+    assert diag.boxes[1].terms[0].boxes[1].name == "h"
+    assert diag.boxes[1].terms[0].boxes[0].name == "f"
+    assert diag.boxes[1].terms[1].boxes[1].name == "h"
+    assert len(diag.boxes[1].terms[0].layers.boxes) == 2
+    assert len(diag.boxes[1].terms[1].layers.boxes) == 2
+    assert diag.boxes[1].terms[0].offsets == [0,1]
+    assert diag.boxes[1].terms[1].offsets == [0,1]
