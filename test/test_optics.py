@@ -89,7 +89,7 @@ def test_to_matrix():
     bbs1 = BBS(0.123)
     tbs = TBS(0.321)
     bbs2 = BBS(0)
-    network = mzi >> bbs1 >> tbs >> bbs2
+    network = mzi >> bbs1 >> tbs >> bbs2 >> Phase(0.34) @ Id(1)
     path = optics2path(network)
     assert np.allclose(to_matrix(path).array, to_matrix(network).array)
 
@@ -179,9 +179,10 @@ def test_bad_drags():
         drag_out(comonoid, 0)
 
 
-# def test_make_square():
-#     d = monoid >> Endo(0.5) >> comonoid
-#     assert to_matrix(d) == to_matrix(make_square(d))
+def test_make_square():
+    d = comonoid >> Phase(.25) @ Id(1) >> monoid
+    assert np.allclose(evaluate(d, [1], [1]),
+                       evaluate(make_square(d), [1], [1]))
 
 
 def test_ansatz():

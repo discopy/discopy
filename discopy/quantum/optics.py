@@ -1011,7 +1011,7 @@ def evaluate(diagram, inp, out):
 
 
 def ar_make_square(box):
-    comon = unit @ Id(1) >> BS >> Id(1) @ Endo(-1j)
+    comon = unit @ Id(1) >> BS >> Endo(-1j) @ Id(1) @ Scalar(2 ** .5)
     mon = comon.dagger()
     if box == monoid:
         return mon
