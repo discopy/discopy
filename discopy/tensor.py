@@ -103,12 +103,21 @@ class PyTorchBackend(TensorBackend):
         self.array = torch.as_tensor
 
 
+class TensorFlowBackend(TensorBackend):
+    def __init__(self):
+        import tensorflow.experimental.numpy as tnp
+        from tensorflow.python.ops.numpy_ops import np_config
+        np_config.enable_numpy_behavior()
+        self.module = tnp
+
+
 BACKENDS = {'np': NumPyBackend,
             'numpy': NumPyBackend,
             'jax': JAXBackend,
             'jax.numpy': JAXBackend,
             'pytorch': PyTorchBackend,
-            'torch': PyTorchBackend}
+            'torch': PyTorchBackend,
+            'tensorflow': TensorFlowBackend}
 INSTANTIATED_BACKENDS = {}
 
 
@@ -214,8 +223,12 @@ class Tensor(rigid.Box, metaclass=TensorType):
         return complex(self.array)
 
     def __repr__(self):
+        if hasattr(self.array, 'numpy'):
+            np_array = self.array.numpy()
+        else:
+            np_array = self.array
         return "Tensor(dom={}, cod={}, array={})".format(
-            self.dom, self.cod, array2string(self.array.flatten()))
+            self.dom, self.cod, array2string(np_array.reshape(-1)))
 
     def __str__(self):
         return repr(self)
@@ -338,7 +351,7 @@ class Tensor(rigid.Box, metaclass=TensorType):
     def map(self, func):
         """ Apply a function elementwise. """
         return Tensor(
-            self.dom, self.cod, list(map(func, self.array.flatten())))
+            self.dom, self.cod, list(map(func, self.array.reshape(-1))))
 
     @staticmethod
     def zeros(dom, cod):
@@ -743,7 +756,7 @@ class Box(rigid.Box, Diagram):
 
     def __hash__(self):
         return hash(
-            (self.name, self.dom, self.cod, tuple(self.array.flatten())))
+            (self.name, self.dom, self.cod, tuple(self.array.reshape(-1))))
 
     def eval(self, contractor=None):
         return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)

@@ -35,7 +35,6 @@ from discopy import messages, monoidal
 from discopy.cat import AxiomError
 from discopy.monoidal import PRO
 from discopy.tensor import array2string
-from scipy.linalg import block_diag
 import numpy as np
 
 
@@ -132,3 +131,26 @@ class Matrix(monoidal.Box):
         if left == PRO(1) and right == PRO(1):
             return Matrix(left @ right, left @ right, np.array([0, 1, 1, 0]))
         raise NotImplementedError
+
+
+def block_diag(*arrs):
+    """Compute the block diagonal of matrices, taken from scipy."""
+    if arrs == ():
+        arrs = ([],)
+    arrs = [np.atleast_2d(a) for a in arrs]
+
+    bad_args = [k for k in range(len(arrs)) if arrs[k].ndim > 2]
+    if bad_args:
+        raise ValueError("arguments in the following positions have dimension "
+                         "greater than 2: %s" % bad_args)
+
+    shapes = np.array([a.shape for a in arrs])
+    out_dtype = np.find_common_type([arr.dtype for arr in arrs], [])
+    out = np.zeros(np.sum(shapes, axis=0), dtype=out_dtype)
+
+    r, c = 0, 0
+    for i, (rr, cc) in enumerate(shapes):
+        out[r:r + rr, c:c + cc] = arrs[i]
+        r += rr
+        c += cc
+    return out

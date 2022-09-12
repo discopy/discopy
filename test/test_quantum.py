@@ -129,7 +129,7 @@ def test_Circuit_to_pennylane(capsys):
     p_snake_prob = snake.to_pennylane(probabilities=True)
     snake_prob = (snake >> Measure())
 
-    assert(np.allclose(p_snake_prob.eval().numpy(), snake_prob.eval().array))
+    assert np.allclose(p_snake_prob.eval().numpy(), snake_prob.eval().array)
 
     no_open_snake = (bell_state @ Ket(0) >> Bra(0) @ bell_effect)[::-1]
     p_no_open_snake = no_open_snake.to_pennylane()
@@ -183,8 +183,8 @@ def test_Circuit_to_pennylane(capsys):
     p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
     conc_circ_prob = (conc_circ >> Measure())
 
-    assert(np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
-                       conc_circ_prob.eval().array))
+    assert (np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
+                        conc_circ_prob.eval().array))
 
 
 def test_PennyLaneCircuit_mixed_error():
@@ -282,6 +282,8 @@ def test_Circuit_from_tk():
         Ket(0) @ Ket(0) >> CRz(0.5) >> Discard() @ Discard()
     assert Id(qubit @ bit).init_and_discard()\
         == back_n_forth(Swap(qubit, bit)) == back_n_forth(Swap(bit, qubit))
+    c = (T >> T.dagger()).init_and_discard()
+    assert c == back_n_forth(c)
 
 
 def test_ClassicalGate_to_tk():

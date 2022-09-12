@@ -486,7 +486,7 @@ class Circuit(tensor.Diagram):
                         q_scan2[q_offset + 1], q_scan2[q_offset]
                     continue
                 utensor = box.array
-                node1 = tn.Node(utensor.conjugate() + 0j, 'q1_' + str(box))
+                node1 = tn.Node(Tensor.np.conj(utensor) + 0j, 'q1_' + str(box))
                 node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
 
                 for i in range(len(box.dom)):
@@ -768,7 +768,7 @@ class Circuit(tensor.Diagram):
         if position < 0 or position >= len(self.cod):
             raise ValueError(f'Index {position} out of range.')
         left = Id(position)
-        right = Id(len(self.cod) - len(left.cod) - len(gate.cod))
+        right = Id(len(self.cod) - position - len(gate.dom))
         return self >> left @ gate @ right
 
     def _apply_controlled(self, base_gate, *xs):

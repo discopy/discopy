@@ -12,9 +12,15 @@ def type_err(expected, got):
         repr(got), type(got).__module__, type(got).__name__)
 
 
-def does_not_compose(left, right):
+def types_do_not_compose(left, right):
     """ Composition error. """
     return "{} does not compose with {}.".format(left, right)
+
+
+def does_not_compose(left, right):
+    """ Composition error. """
+    return "{} does not compose with {}: cod={}, dom={}.".format(
+        left, right, left.cod, right.dom)
 
 
 def is_not_connected(diagram):

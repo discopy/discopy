@@ -1,6 +1,6 @@
 from pytest import raises
 
-from discopy.matrix import Matrix
+from discopy.matrix import Matrix, block_diag
 from discopy import PRO
 from discopy.cat import AxiomError
 
@@ -35,3 +35,9 @@ def test_matrix_add():
 def test_bad_swap():
     with raises(NotImplementedError):
         Matrix.swap(PRO(1), PRO(2))
+
+
+def test_block_diag():
+    assert np.all(block_diag() == np.array([]))
+    with raises(ValueError):
+        block_diag([[[1]]])

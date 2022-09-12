@@ -325,6 +325,8 @@ def from_tk(tk_circuit):
         for gate in GATES:
             if name == gate.name:
                 return gate
+            if name == gate.name + 'dg':
+                return gate.dagger()
         raise NotImplementedError
 
     def make_units_adjacent(tk_gate):
