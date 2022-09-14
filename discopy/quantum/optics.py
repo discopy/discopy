@@ -32,18 +32,16 @@ Example
     :align: center
 """
 
-import numpy as np
-from math import factorial, pi
 from itertools import permutations
+from math import factorial
 
-import sympy
+import numpy as np
 
 from discopy import cat, messages, monoidal
-from discopy.monoidal import PRO
-
 from discopy.matrix import Matrix
-from discopy.rewriting import InterchangerError
+from discopy.monoidal import PRO
 from discopy.quantum.gates import format_number
+from discopy.rewriting import InterchangerError
 
 
 def occupation_numbers(n_photons, m_modes):
@@ -600,6 +598,7 @@ class Phase(Box):
 
     @property
     def matrix(self):
+        import sympy
         backend = sympy if hasattr(self.phi, 'free_symbols') else np
         array = backend.exp(1j * 2 * backend.pi * self.phi)
         return Matrix(self.dom, self.cod, array)
@@ -754,6 +753,7 @@ class MZI(Box):
 
     @property
     def matrix(self):
+        import sympy
         backend = sympy if hasattr(self.theta, 'free_symbols') else np
         cos = backend.cos(backend.pi * self.theta)
         sin = backend.sin(backend.pi * self.theta)
@@ -838,6 +838,7 @@ def to_matrix(diagram):
 
 def ar_optics2path(box):
     if isinstance(box, Phase):
+        import sympy
         backend = sympy if hasattr(box.phi, 'free_symbols') else np
         return Endo(backend.exp(2j * backend.pi * box.phi))
     if isinstance(box, TBS):
