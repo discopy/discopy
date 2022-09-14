@@ -1,17 +1,19 @@
 # -*- coding: utf-8 -*-
 """ Drawing module. """
 
-import os
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from math import sqrt
+import os
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-import networkx as nx
 from PIL import Image
-import matplotlib.pyplot as plt
-from matplotlib.path import Path
-from matplotlib.patches import PathPatch
-from math import sqrt
+
+
+def _import_matplotlib():
+    global plt, Path, PathPatch
+    import matplotlib.pyplot as plt
+    from matplotlib.path import Path
+    from matplotlib.patches import PathPatch
 
 
 # Mapping from attribute to function from box to default value.
@@ -100,6 +102,7 @@ def diagram2nx(diagram):
     positions : Mapping[Node, Tuple[float, float]]
         from nodes to pairs of floats.
     """
+    import networkx as nx
     diagram = add_drawing_attributes(diagram.open_bubbles())
     graph, pos = nx.DiGraph(), dict()
 
@@ -289,6 +292,7 @@ class Backend(ABC):
         if spider_widths:
             self.max_width = max(self.max_width, max(spider_widths))
 
+    @abstractmethod
     def output(self, path=None, show=True, **params):
         """ Output the drawing. """
 
@@ -441,6 +445,8 @@ class TikzBackend(Backend):
 class MatBackend(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None):
+        _import_matplotlib()
+
         self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
         super().__init__()
 
@@ -480,6 +486,7 @@ class MatBackend(Backend):
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
+        import networkx as nx
         nodes = {node for node in graph.nodes
                  if node.kind == "box" and node.box.draw_as_spider}
         shapes = {node: node.box.shape for node in nodes}
@@ -976,6 +983,7 @@ def diagramize(dom, cod, boxes, id_factory=None):
     id_factory = id_factory or boxes[0].id
 
     def decorator(func):
+        import networkx as nx
         from discopy import messages
         from discopy.cat import AxiomError
         from discopy.cartesian import tuplify, untuplify
