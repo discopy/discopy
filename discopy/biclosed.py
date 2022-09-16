@@ -309,10 +309,12 @@ class Functor(monoidal.Functor):
                 diagram.cod, 'left' if diagram.left else 'right')))
             return self.ar_factory.curry(
                 self(diagram.diagram), n_wires, diagram.left)
-        for cls, method in [(FA, 'fa'), (BA, 'ba')]:
-            if isinstance(diagram, cls):
-                return getattr(self.ar_factory, method)(
-                    self(diagram.dom[:1]), self(diagram.dom[1:]))
+        if isinstance(diagram, FA):
+            left, right = diagram.over.left, diagram.over.right
+            return self.ar_factory.fa(self(left), self(right))
+        if isinstance(diagram, BA):
+            left, right = diagram.under.left, diagram.under.right
+            return self.ar_factory.ba(self(left), self(right))
         for cls, method in [(FC, 'fc'), (BC, 'bc')]:
             if isinstance(diagram, cls):
                 left, right = diagram.dom[:1].left, diagram.dom[1:].right
