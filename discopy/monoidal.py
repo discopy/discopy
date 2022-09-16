@@ -39,6 +39,8 @@ We can check the Eckmann-Hilton argument, up to interchanger.
     :align: center
 """
 
+import warnings
+
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob
 from discopy.utils import factory_name, from_tree
@@ -541,9 +543,13 @@ class Diagram(cat.Arrow):
             >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
 
     @staticmethod
-    def permutation(perm, dom=None, ar_factory=None):
+    def permutation(perm, dom=None, ar_factory=None, inverse=False):
         """
         Returns the diagram that encodes a permutation of wires.
+
+        .. warning::
+            This method used to return the inverse permutation up to and
+            including discopy v0.4.2.
 
         Parameters
         ----------
@@ -552,6 +558,8 @@ class Diagram(cat.Arrow):
         dom : monoidal.Ty, optional
             of the same length as :code:`perm`,
             default is :code:`PRO(len(perm))`.
+        inverse : bool
+            whether to return the inverse permutation.
 
         Returns
         -------
@@ -562,6 +570,11 @@ class Diagram(cat.Arrow):
             raise ValueError("Input should be a permutation of range(n).")
         if dom is None:
             dom = PRO(len(perm))
+        if not inverse:
+            warnings.warn('Since discopy v0.4.3 the behaviour of '
+                          'permutation has changed. Pass inverse=False '
+                          'to get the default behaviour.')
+            perm = [perm.index(i) for i in range(len(perm))]
         if len(dom) != len(perm):
             raise ValueError(
                 "Domain and permutation should have the same length.")
@@ -574,7 +587,7 @@ class Diagram(cat.Arrow):
             perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
         return diagram
 
-    def permute(self, *perm):
+    def permute(self, *perm, inverse=False):
         """
         Returns :code:`self >> self.permutation(perm, self.dom)`.
 
@@ -582,6 +595,8 @@ class Diagram(cat.Arrow):
         ----------
         perm : list of int
             such that :code:`i` goes to :code:`perm[i]`
+        inverse : bool
+            whether to return the inverse permutation.
 
         Examples
         --------
@@ -597,7 +612,7 @@ class Diagram(cat.Arrow):
         perm = [
             i if i not in perm else sorted_perm[perm.index(i)]
             for i in range(len(self.cod))]
-        return self >> self.permutation(list(perm), self.cod)
+        return self >> self.permutation(list(perm), self.cod, inverse)
 
     @staticmethod
     def subclass(ar_factory):

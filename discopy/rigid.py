@@ -182,10 +182,11 @@ class Diagram(monoidal.Diagram):
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
-    def permutation(perm, dom=None):
+    def permutation(perm, dom=None, inverse=False):
         if dom is None:
             dom = PRO(len(perm))
-        return monoidal.Diagram.permutation(perm, dom, ar_factory=Diagram)
+        return monoidal.Diagram.permutation(
+            perm, dom, ar_factory=Diagram, inverse=inverse)
 
     def foliate(self, yield_slices=False):
         """
