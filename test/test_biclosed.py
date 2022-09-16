@@ -88,7 +88,7 @@ def test_Functor():
     assert IdF(x >> y << x) == x >> y << x
     assert IdF(Curry(f)) == Curry(f)
     assert IdF(FA(x << y)) == FA(x << y)
-    assert IdF(BA(x << y)) == BA(x << y)
+    assert IdF(BA(x >> y)) == BA(x >> y)
     assert IdF(FC(x << y, y << x)) == FC(x << y, y << x)
     assert IdF(BC(x >> y, y >> x)) == BC(x >> y, y >> x)
     assert IdF(FX(x << y, z >> y)) == FX(x << y, z >> y)
