@@ -656,7 +656,7 @@ def rewire(op, a: int, b: int, *, dom=None):
     if reverse:
         perm[0], perm[1] = perm[1], perm[0]
     with warnings.catch_warnings():
-        warnings.simplefilter("error")
+        warnings.simplefilter("ignore")
         perm = Box.permutation(perm, dom=dom, inverse=True)
     return perm.dagger() >> (op @ Box.id(len(dom) - 2)) >> perm
 

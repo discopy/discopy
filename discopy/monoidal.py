@@ -38,12 +38,12 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 .. image:: ../_static/imgs/EckmannHilton.gif
     :align: center
 """
-
-import warnings
-
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob
+from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree
+
+warn_permutation = WarnOnce()
 
 
 class Ty(Ob):
@@ -571,9 +571,10 @@ class Diagram(cat.Arrow):
         if dom is None:
             dom = PRO(len(perm))
         if not inverse:
-            warnings.warn('Since discopy v0.4.3 the behaviour of '
-                          'permutation has changed. Pass inverse=False '
-                          'to get the default behaviour.')
+            warn_permutation.warn(
+                'Since discopy v0.4.3 the behaviour of '
+                'permutation has changed. Pass inverse=False '
+                'to get the default behaviour.')
             perm = [perm.index(i) for i in range(len(perm))]
         if len(dom) != len(perm):
             raise ValueError(

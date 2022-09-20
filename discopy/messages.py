@@ -3,6 +3,7 @@
 """
 discopy error messages.
 """
+import warnings
 
 
 def type_err(expected, got):
@@ -81,3 +82,15 @@ def expected_input_length(function, values):
     """ Unexpected input length error. """
     return "Expected input of length {}, got {} instead.".format(
         len(function.dom), len(values))
+
+
+class WarnOnce:
+    warned = False
+
+    def __init__(self):
+        self.warned = False
+
+    def warn(self, message):
+        if not self.warned:
+            warnings.warn(message)
+        self.warned = True
