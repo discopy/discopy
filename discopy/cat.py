@@ -635,7 +635,7 @@ class Box(Arrow):
         return cls(name=name, dom=dom, cod=cod, data=data, _dagger=_dagger)
 
 
-class Sum(Box):
+class AbstractSum(Box):
     """
     Implements enrichment over monoids, i.e. formal sums of diagrams.
 
@@ -685,8 +685,8 @@ class Sum(Box):
         for arrow in terms:
             if (arrow.dom, arrow.cod) != (dom, cod):
                 raise AxiomError(messages.cannot_add(terms[0], arrow))
-        name = "Sum({})".format(repr(terms)) if terms\
-            else "Sum([], dom={}, cod={})".format(repr(dom), repr(cod))
+        name = "{}({})".format(self.name_prefix, repr(terms)) if terms\
+            else "{}([], dom={}, cod={})".format(self.name_prefix, repr(dom), repr(cod))
         super().__init__(name, dom, cod)
 
     def __eq__(self, other):
@@ -703,8 +703,8 @@ class Sum(Box):
 
     def __str__(self):
         if not self.terms:
-            return "Sum([], {}, {})".format(self.dom, self.cod)
-        return " + ".join("({})".format(arrow) for arrow in self.terms)
+            return "{}([], {}, {})".format(self.name_prefix, self.dom, self.cod)
+        return " (" + " + ".join("({})".format(arrow) for arrow in self.terms) + ") "
 
     def __add__(self, other):
         if other == 0:
@@ -722,16 +722,8 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    def then(self, *others):
-        if len(others) != 1:
-            return super().then(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(list(others))
-        unit = Sum([], self.dom, other.cod)
-        terms = [f.then(g) for f in self.terms for g in other.terms]
-        return self.upgrade(sum(terms, unit))
-
     def dagger(self):
-        unit = Sum([], self.cod, self.dom)
+        unit = self.__class__([], self.cod, self.dom)
         return self.upgrade(sum([f.dagger() for f in self.terms], unit))
 
     @property
@@ -739,7 +731,7 @@ class Sum(Box):
         return {x for box in self.terms for x in box.free_symbols}
 
     def subs(self, *args):
-        unit = Sum([], self.dom, self.cod)
+        unit = self.__class__([], self.dom, self.cod)
         return self.upgrade(sum([f.subs(*args) for f in self.terms], unit))
 
     def lambdify(self, *symbols, **kwargs):
@@ -765,6 +757,33 @@ class Sum(Box):
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
         terms = list(map(from_tree, tree['terms']))
         return cls(terms=terms, dom=dom, cod=cod)
+
+
+class LocalSum(AbstractSum):
+    def __init__(self, terms, dom=None, cod=None):
+        self.name_prefix = "LocalSum"
+        super().__init__(terms, dom, cod)
+
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        return Arrow(self.dom, others[0].cod, [self] + others[0].boxes)
+
+
+class Sum(AbstractSum):
+    def __init__(self, terms, dom=None, cod=None):
+        self.name_prefix = "Sum"
+        super().__init__(terms, dom, cod)
+
+    def then(self, *others):
+        if len(others) != 1:
+            return super().then(*others)
+        other = others[0] if isinstance(others[0], self.__class__) else self.__class__(list(others))
+        unit = self.__class__([], self.dom, other.cod)
+        terms = [f.then(g) for f in self.terms for g in other.terms]
+        return self.upgrade(sum(terms, unit))
+
+Arrow.sum = Sum
 
 
 class Bubble(Box):
@@ -806,7 +825,6 @@ class Bubble(Box):
         return cls(dom=dom, cod=cod, inside=inside)
 
 
-Arrow.sum = Sum
 Arrow.bubble_factory = Bubble
 
 
