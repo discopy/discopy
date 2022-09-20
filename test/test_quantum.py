@@ -38,7 +38,10 @@ def test_Circuit_permutation():
     x = qubit
     assert Circuit.swap(x, x ** 2)\
         == Circuit.swap(x, x) @ Id(x) >> Id(x) @ Circuit.swap(x, x)\
-        == Circuit.permutation([2, 0, 1])
+        == Circuit.permutation([2, 0, 1], inverse=True)
+    assert Circuit.swap(x, x ** 2)\
+        == Circuit.swap(x, x) @ Id(x) >> Id(x) @ Circuit.swap(x, x)\
+        == Circuit.permutation([2, 0, 1]).dagger()
 
 
 def test_Circuit_eval():

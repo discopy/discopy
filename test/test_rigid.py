@@ -150,7 +150,11 @@ def test_Functor_call():
 
 
 def test_Diagram_permutation():
-    assert Diagram.permutation([2, 0, 1])\
+    assert Diagram.permutation([2, 0, 1], inverse=True)\
+        == Diagram.swap(PRO(1), PRO(1)) @ Id(PRO(1))\
+        >> Id(PRO(1)) @ Diagram.swap(PRO(1), PRO(1))
+
+    assert Diagram.permutation([2, 0, 1]).dagger()\
         == Diagram.swap(PRO(1), PRO(1)) @ Id(PRO(1))\
         >> Id(PRO(1)) @ Diagram.swap(PRO(1), PRO(1))
 

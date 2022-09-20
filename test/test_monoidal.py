@@ -143,7 +143,10 @@ def test_Diagram_permutation():
     x = PRO(1)
     assert Diagram.swap(x, x ** 2)\
         == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
-        == Diagram.permutation([2, 0, 1])
+        == Diagram.permutation([2, 0, 1], inverse=True)
+    assert Diagram.swap(x, x ** 2)\
+        == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
+        == Diagram.permutation([2, 0, 1]).dagger()
     with raises(ValueError):
         Diagram.permutation([2, 0])
     with raises(ValueError):

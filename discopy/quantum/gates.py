@@ -2,7 +2,8 @@
 
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
-from collections.abc import Callable
+import warnings
+
 import numpy
 
 from discopy.cat import AxiomError, rsubs
@@ -654,7 +655,9 @@ def rewire(op, a: int, b: int, *, dom=None):
     perm[1], perm[b] = perm[b], perm[1]
     if reverse:
         perm[0], perm[1] = perm[1], perm[0]
-    perm = Box.permutation(perm, dom=dom)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        perm = Box.permutation(perm, dom=dom, inverse=True)
     return perm.dagger() >> (op @ Box.id(len(dom) - 2)) >> perm
 
 
