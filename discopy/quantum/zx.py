@@ -26,9 +26,10 @@ class Diagram(tensor.Diagram):
             left, right, ar_factory=Diagram, swap_factory=Swap)
 
     @staticmethod
-    def permutation(perm, dom=None):
+    def permutation(perm, dom=None, inverse=False):
         dom = PRO(len(perm)) if dom is None else dom
-        return monoidal.Diagram.permutation(perm, dom, ar_factory=Diagram)
+        return monoidal.Diagram.permutation(
+            perm, dom, ar_factory=Diagram, inverse=inverse)
 
     @staticmethod
     def cups(left, right):

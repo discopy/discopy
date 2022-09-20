@@ -711,10 +711,11 @@ class Circuit(tensor.Diagram):
             left, right, ar_factory=Circuit, swap_factory=Swap)
 
     @staticmethod
-    def permutation(perm, dom=None):
+    def permutation(perm, dom=None, inverse=False):
         if dom is None:
             dom = qubit ** len(perm)
-        return monoidal.Diagram.permutation(perm, dom, ar_factory=Circuit)
+        return monoidal.Diagram.permutation(
+            perm, dom, ar_factory=Circuit, inverse=inverse)
 
     @staticmethod
     def cups(left, right):
