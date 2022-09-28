@@ -364,7 +364,7 @@ class PennyLaneCircuit:
                 concrete_list.append(expr)
             concrete_params.append(concrete_list)
 
-        return [torch.cat(p) if len(p) > 0 else p
+        return [torch.cat(p).squeeze(-1) if len(p) > 0 else p
                 for p in concrete_params]
 
     def eval(self, symbols=None, weights=None):
