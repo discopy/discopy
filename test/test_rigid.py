@@ -186,8 +186,8 @@ def test_transpose_box():
     Bob = Box('Bob', Ty(), n)
     Bob_Tl = Box('Bob', n.l, Ty(), _z=-1, _dagger=True)
     Bob_Tr = Box('Bob', n.r, Ty(), _z=1, _dagger=True)
-    Bob.transpose_box(0, left=True) == Cap(n.r, n) >> Bob_Tr @ Id(n)
-    Bob.transpose_box(0) == Cap(n, n.l) >> Id(n) @ Bob_Tl
+    assert Bob.transpose_box(0, left=True) == Cap(n.r, n) >> Bob_Tr @ Id(n)
+    assert Bob.transpose_box(0) == Cap(n, n.l) >> Id(n) @ Bob_Tl
 
 
 def test_sum_adjoint():

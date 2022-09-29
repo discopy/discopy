@@ -107,4 +107,4 @@ def test_from_tree():
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-    sentence == from_tree(sentence.to_tree())
+    assert sentence == from_tree(sentence.to_tree())
