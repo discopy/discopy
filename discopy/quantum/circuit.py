@@ -413,11 +413,10 @@ class Circuit(tensor.Diagram):
         for i, box in enumerate(self.boxes):
             if hasattr(box, '_decompose'):
                 decomp = box._decompose()
-                if box != decomp:
-                    diag >>= self[last_i:i]
-                    left, _, right = self.layers[i]
-                    diag >>= Id(left) @ decomp @ Id(right)
-                    last_i = i + 1
+                diag >>= self[last_i:i]
+                left, _, right = self.layers[i]
+                diag >>= Id(left) @ decomp @ Id(right)
+                last_i = i + 1
         diag >>= self[last_i:]
         self = diag
 
