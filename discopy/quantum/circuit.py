@@ -1166,8 +1166,10 @@ class IQPansatz(Circuit):
 
 class Sim14ansatz(Circuit):
     """
-    Builds an ansatz on n qubits matching circuit 14 from arXiv:1905.10876
-        If n=1, returns Euler decomposition.
+    Builds a modified version of circuit 14 from arXiv:1905.10876
+
+    Replaces circuit-block construction with two rings of CRx gates, in
+    opposite orientation.
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
     >>> pprint(Sim14ansatz(3, [[i/10 for i in range(12)]]))
@@ -1229,8 +1231,10 @@ class Sim14ansatz(Circuit):
 
 class Sim15ansatz(Circuit):
     """
-    Builds an ansatz on n qubits matching circuit 15 from arXiv:1905.10876
-        If n=1, returns Euler decomposition.
+    Builds a modified version of circuit 15 from arXiv:1905.10876
+
+    Replaces circuit-block construction with two rings of CNOT gates, in
+    opposite orientation.
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
     >>> pprint(Sim15ansatz(3, [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]))
