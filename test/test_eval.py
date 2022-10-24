@@ -2,6 +2,7 @@
 
 
 import numpy as np
+import pytest
 import tensornetwork as tn
 
 from discopy.quantum import (
@@ -34,45 +35,40 @@ pure_circuits = [
 contractor = tn.contractors.auto
 
 
-def test_mixed_eval():
-    for c in mixed_circuits:
+@pytest.mark.parametrize('c', pure_circuits + mixed_circuits)
+def test_mixed_eval(c):
+    assert np.allclose(c.eval(contractor=contractor), c.eval())
+
+
+@pytest.mark.parametrize('c', pure_circuits)
+def test_consistent_eval(c):
+    pure_result = c.eval(mixed=False, contractor=contractor)
+    mixed_result = c.eval(mixed=True, contractor=contractor)
+
+    doubled_result = (pure_result
+                      @ pure_result.conjugate(diagrammatic=False))
+    np.allclose(doubled_result, mixed_result)
+
+
+@pytest.mark.parametrize('c', mixed_circuits)
+def test_pytorch_mixed_eval(c):
+    with tn.DefaultBackend('pytorch'):
         assert np.allclose(c.eval(contractor=contractor), c.eval())
 
 
-def test_pure_eval():
-    for c in pure_circuits:
+@pytest.mark.parametrize('c', pure_circuits)
+def test_pytorch_pure_eval(c):
+    with tn.DefaultBackend('pytorch'):
         assert np.allclose(c.eval(contractor=contractor), c.eval())
 
 
-def test_consistent_eval():
-    for c in pure_circuits:
+@pytest.mark.parametrize('c', pure_circuits)
+def test_pytorch_consistent_eval(c):
+    with tn.DefaultBackend('pytorch'):
         pure_result = c.eval(mixed=False, contractor=contractor)
         mixed_result = c.eval(mixed=True, contractor=contractor)
 
-        doubled_result = (pure_result
-                          @ pure_result.conjugate(diagrammatic=False))
+        doubled_result = (
+            pure_result
+            @ pure_result.conjugate(diagrammatic=False))
         np.allclose(doubled_result, mixed_result)
-
-
-def test_pytorch_mixed_eval():
-    with tn.DefaultBackend('pytorch'):
-        for c in mixed_circuits:
-            assert np.allclose(c.eval(contractor=contractor), c.eval())
-
-
-def test_pytorch_pure_eval():
-    with tn.DefaultBackend('pytorch'):
-        for c in pure_circuits:
-            assert np.allclose(c.eval(contractor=contractor), c.eval())
-
-
-def test_pytorch_consistent_eval():
-    with tn.DefaultBackend('pytorch'):
-        for c in pure_circuits:
-            pure_result = c.eval(mixed=False, contractor=contractor)
-            mixed_result = c.eval(mixed=True, contractor=contractor)
-
-            doubled_result = (
-                pure_result
-                @ pure_result.conjugate(diagrammatic=False))
-            np.allclose(doubled_result, mixed_result)
