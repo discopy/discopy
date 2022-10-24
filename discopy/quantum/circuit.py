@@ -442,6 +442,7 @@ class Circuit(tensor.Diagram):
                 c_dom = box.dom.count(bit)
                 q_dom = box.dom.count(qubit)
                 c_cod = box.cod.count(bit)
+                q_cod = box.cod.count(qubit)
                 left, _, _ = layer
                 c_offset = left.count(bit)
                 q_offset = left.count(qubit)
@@ -466,8 +467,8 @@ class Circuit(tensor.Diagram):
                     tn.connect(q_scan2[q_offset + i], node[c_dom + q_dom + i])
                 cq_dom = c_dom + 2 * q_dom
                 c_edges = node[cq_dom:cq_dom + c_cod]
-                q_edges1 = node[cq_dom + c_cod::2]
-                q_edges2 = node[cq_dom + c_cod + 1::2]
+                q_edges1 = node[cq_dom + c_cod:cq_dom + c_cod + q_cod]
+                q_edges2 = node[cq_dom + c_cod + q_cod:]
                 c_scan = (c_scan[:c_offset] + c_edges
                           + c_scan[c_offset + c_dom:])
                 q_scan1 = (q_scan1[:q_offset] + q_edges1
