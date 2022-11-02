@@ -413,11 +413,10 @@ class Circuit(tensor.Diagram):
         for i, box in enumerate(self.boxes):
             if hasattr(box, '_decompose'):
                 decomp = box._decompose()
-                if box != decomp:
-                    diag >>= self[last_i:i]
-                    left, _, right = self.layers[i]
-                    diag >>= Id(left) @ decomp @ Id(right)
-                    last_i = i + 1
+                diag >>= self[last_i:i]
+                left, _, right = self.layers[i]
+                diag >>= Id(left) @ decomp @ Id(right)
+                last_i = i + 1
         diag >>= self[last_i:]
         self = diag
 
@@ -443,6 +442,7 @@ class Circuit(tensor.Diagram):
                 c_dom = box.dom.count(bit)
                 q_dom = box.dom.count(qubit)
                 c_cod = box.cod.count(bit)
+                q_cod = box.cod.count(qubit)
                 left, _, _ = layer
                 c_offset = left.count(bit)
                 q_offset = left.count(qubit)
@@ -467,8 +467,8 @@ class Circuit(tensor.Diagram):
                     tn.connect(q_scan2[q_offset + i], node[c_dom + q_dom + i])
                 cq_dom = c_dom + 2 * q_dom
                 c_edges = node[cq_dom:cq_dom + c_cod]
-                q_edges1 = node[cq_dom + c_cod::2]
-                q_edges2 = node[cq_dom + c_cod + 1::2]
+                q_edges1 = node[cq_dom + c_cod:cq_dom + c_cod + q_cod]
+                q_edges2 = node[cq_dom + c_cod + q_cod:]
                 c_scan = (c_scan[:c_offset] + c_edges
                           + c_scan[c_offset + c_dom:])
                 q_scan1 = (q_scan1[:q_offset] + q_edges1
@@ -1167,8 +1167,15 @@ class IQPansatz(Circuit):
 
 class Sim14ansatz(Circuit):
     """
+<<<<<<< HEAD
     Builds an ansatz on n qubits matching circuit 14 from arXiv:1905.10876
         If n=1, returns Euler decomposition.
+=======
+    Builds a modified version of circuit 14 from arXiv:1905.10876
+
+    Replaces circuit-block construction with two rings of CRx gates, in
+    opposite orientation.
+>>>>>>> upstream/main
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
     >>> pprint(Sim14ansatz(3, [[i/10 for i in range(12)]]))
@@ -1230,8 +1237,15 @@ class Sim14ansatz(Circuit):
 
 class Sim15ansatz(Circuit):
     """
+<<<<<<< HEAD
     Builds an ansatz on n qubits matching circuit 15 from arXiv:1905.10876
         If n=1, returns Euler decomposition.
+=======
+    Builds a modified version of circuit 15 from arXiv:1905.10876
+
+    Replaces circuit-block construction with two rings of CNOT gates, in
+    opposite orientation.
+>>>>>>> upstream/main
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
     >>> pprint(Sim15ansatz(3, [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]))

@@ -161,14 +161,22 @@ class Diagram(tensor.Diagram):
                 swaps = Id(target)\
                     @ Diagram.swap(source - target, 1)\
                     @ Id(len(scan) - source - 1)
+<<<<<<< HEAD
                 scan = scan[:target] + (node,)\
+=======
+                scan = scan[:target] + (scan[source],)\
+>>>>>>> upstream/main
                     + scan[target:source] + scan[source + 1:]
             elif target > source:
                 swaps = Id(source)\
                     @ Diagram.swap(1, target - source)\
                     @ Id(len(scan) - target - 1)
                 scan = scan[:source] + scan[source + 1:target]\
+<<<<<<< HEAD
                     + (node,) + scan[target:]
+=======
+                    + (scan[source],) + scan[target:]
+>>>>>>> upstream/main
             else:
                 swaps = Id(len(scan))
             return scan, swaps

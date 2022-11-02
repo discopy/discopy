@@ -26,7 +26,7 @@ def test_Ty_repr():
 
 
 def test_Ty_str():
-    str(Ty('x')) == 'x'
+    assert str(Ty('x')) == 'x'
 
 
 def test_Ty_getitem():

@@ -33,7 +33,7 @@ def test_Ob_repr():
 
 
 def test_Ob_str():
-    str(Ob('x')) == 'x'
+    assert str(Ob('x')) == 'x'
 
 
 def test_Ob_eq():
@@ -144,7 +144,7 @@ def test_Id_init():
 
 
 def test_Id_repr():
-    repr(Id(Ob('x'))) == Id(Ob('x'))
+    assert repr(Id(Ob('x'))) == "Id(Ob('x'))"
 
 
 def test_Id_str():
@@ -247,7 +247,7 @@ def test_Quiver_getitem():
     assert Quiver(lambda x: x * 10)[42] == 420
     with raises(TypeError) as err:
         Quiver(lambda x: x * 10)[42] = 421
-    "does not support item assignment" in str(err.value)
+    assert "does not support item assignment" in str(err.value)
 
 
 def test_Quiver_repr():
