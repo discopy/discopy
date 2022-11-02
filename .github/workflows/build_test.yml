@@ -1,4 +1,4 @@
-name: Build, lint and test package
+name: build
 
 on: [push, pull_request]
 
@@ -20,7 +20,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install linter
       run:
-        python -m pip install coverage pycodestyle
+        python -m pip install pycodestyle coverage
     - name: Check for errors
       run:
         # stop the build if there are Python syntax errors or undefined names
