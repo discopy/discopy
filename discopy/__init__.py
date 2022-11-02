@@ -46,8 +46,4 @@ from discopy.grammar import cfg, ccg, pregroup
 from discopy.grammar.pregroup import Word
 
 
-<<<<<<< HEAD
-__version__ = '0.4.2'
-=======
 __version__ = '0.4.3'
->>>>>>> upstream/main
