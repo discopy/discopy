@@ -1,6 +1,11 @@
 
 ![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/snake-equation.png)
 
+[![build](https://github.com/oxford-quantum-group/discopy/actions/workflows/build_test.yml/badge.svg)](https://github.com/oxford-quantum-group/discopy/actions/workflows/build_test.yml)
+[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
+[![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
+[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)
+
 # Distributional Compositional Python
 
 DisCoPy is a tool box for computing with monoidal categories.
@@ -167,9 +172,3 @@ The tool paper is now available on [arXiv:2005.02975](https://arxiv.org/abs/2005
 
 The documentation is hosted at [readthedocs.io](https://discopy.readthedocs.io/),
 you can also checkout the [notebooks](https://discopy.readthedocs.io/en/main/notebooks.html) for a demo!
-
-[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
-[![Build Status](https://travis-ci.com/oxford-quantum-group/discopy.svg?branch=main)](https://travis-ci.com/oxford-quantum-group/discopy)
-[![codecov](https://codecov.io/gh/oxford-quantum-group/discopy/branch/main/graph/badge.svg)](https://codecov.io/gh/oxford-quantum-group/discopy)
-[![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
-[![arXiv:2005.02975](http://img.shields.io/badge/math.CT-arXiv%3A2005.02975-brightgreen.svg)](https://arxiv.org/abs/2005.02975)
