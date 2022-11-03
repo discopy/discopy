@@ -14,7 +14,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath('..'))
-
 sys.path.append(os.path.abspath("./_ext"))
 
 
@@ -25,7 +24,7 @@ def get_version():
 
 # -- Project information -----------------------------------------------------
 
-project = 'discopy'
+project = 'DisCoPy'
 copyright = '2019, Oxford Quantum Group'
 author = 'Oxford Quantum Group'
 
@@ -51,7 +50,7 @@ autosummary_generate = True
 
 autosummary_context = {"excluded": ["__init__", "upgrade"]}
 
-autodoc_mock_imports = ["pytket"]
+autodoc_mock_imports = ["pytket", "pennylane", "torch"]
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -68,12 +67,19 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_book_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
+html_title = "DisCoPy"
+
+html_theme_options = {
+    "repository_url": "https://github.com/oxford-quantum-group/discopy",
+    "use_repository_button": True,
+    "path_to_docs": "docs"
+}
 
 master_doc = 'index'
