@@ -7,47 +7,26 @@ DisCoPy documentation
 .. mdinclude:: what-is-discopy.md
 
 .. toctree::
-    :caption: Basics
+    :caption: Theory
     :hidden:
 
-    notebooks/crema-di-mascarpone
-    notebooks/lasagna-recursion
-    notebooks/bell-test
-    notebooks/pixels2diagram
-    notebooks/diagramification
-
-.. toctree::
-    :caption: Advanced
-    :hidden:
-
-    notebooks/rewriting-diagrams
-    notebooks/new-features-0.3.3
     notebooks/your-own-category
+    notebooks/rewriting-diagrams
+
+.. toctree::
+    :caption: Applications
+    :hidden:
+
     notebooks/diag-diff
-    notebooks/quantum-lunch-talk
-    notebooks/discopy2pyzx
-    notebooks/monoid-delooping
-
-.. toctree::
-    :caption: QNLP
-    :hidden:
-
-    notebooks/alice-loves-bob
-    notebooks/bob-is-rich
-    notebooks/qnlp-experiment
     notebooks/qnlp-tutorial
-    notebooks/snake-removal
-    notebooks/frobenius-anatomy
-    notebooks/functorial-learning
 
 .. toctree::
-    :caption: Talks
+    :caption: Extra
     :hidden:
 
-    talks/qnlp19
-    talks/qnlp20
-    talks/act20
-    talks/pydata.berlin
+    talks
+    papers
+    blogs
 
 .. toctree::
     :caption: API

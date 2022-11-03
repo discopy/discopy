@@ -1,5 +1,22 @@
+# What is DisCoPy?
+
 DisCoPy is a Python toolkit for computing with string diagrams.
-The name stands for *Distributional Compositional Python*, indeed the library was born as an implementation of [DisCoCat](https://ncatlab.org/nlab/show/DisCoCat): a framework which combines [natural language processing](https://en.wikipedia.org/wiki/Natural_language_processing) and [quantum computing](https://en.wikipedia.org/wiki/Quantum_computing) using [category theory](https://en.wikipedia.org/wiki/Category_theory).
 
+* Theory
+  - diagrams (extra: dagger, sums, bubbles)
+  - rewriting (interchangers, snakes)
+  - functors (e.g. bialgebra in Matrix and Tensor)
+  - hierarchy (ref to Selinger's survey)
+  - build-your-own (e.g. Lawvere theory)
+* Applications
+  - formal grammars
+  - tensor networks
+  - quantum channels
+  - quantum optics
+  - diag diff
+  - QNLP
 
-## Getting started
+String diagrams are a formal graphical language for describing **systems** and **processes**.
+Concretely, diagrams are built from **boxes** and **wires**.
+Each box represents a process with some **input** and **output** wires.
+For example:
