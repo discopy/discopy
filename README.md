@@ -13,7 +13,8 @@ DisCoPy is a Python toolkit for computing with string diagrams.
 
 * **Documentation:** https://discopy.readthedocs.org/
 * **Source code:** https://github.com/oxford-quantum-group/discopy
-* **Tool paper:** https://doi.org/10.4204/EPTCS.333.13
+* **Paper (for category theorists):** https://doi.org/10.4204/EPTCS.333.13
+* **Paper (for quantum computer scientists):** https://arxiv.org/abs/2205.05190
 
 It provides:
 
@@ -29,11 +30,6 @@ It provides:
 ```shell
 pip install discopy
 ```
-
-## Contribute
-
-Contributions are welcome, please drop one of us an email or
-[open an issue](https://github.com/oxford-quantum-group/discopy/issues/new).
 
 ## Test
 
@@ -62,22 +58,17 @@ You can build it locally with:
 (cd docs && (make clean; make html))
 ```
 
-## Cite
+## Contribute
 
-If you wish to cite DisCoPy in an academic work, please cite the [tool paper](
-https://doi.org/10.4204/EPTCS.333.13):
+Contributions are welcome, please get in touch or
+[open an issue](https://github.com/oxford-quantum-group/discopy/issues/new).
 
-```
-@article{de_Felice_2021,
-	doi = {10.4204/eptcs.333.13},
-	url = {https://doi.org/10.4204%2Feptcs.333.13},
-	year = 2021,
-	month = {feb},
-	publisher = {Open Publishing Association},
-	volume = {333},
-	pages = {183--197},
-	author = {Giovanni de Felice and Alexis Toumi and Bob Coecke},
-	title = {{DisCoPy}: Monoidal Categories in Python},
-	journal = {Electronic Proceedings in Theoretical Computer Science}
-}
-```
+## How to cite
+
+If you wish to cite DisCoPy in an academic publication, we suggest you cite:
+
+* G. de Felice, A. Toumi & B. Coecke, _DisCoPy: Monoidal Categories in Python_, EPTCS 333, 2021, pp. 183-197, [DOI: 10.4204/EPTCS.333.13](https://doi.org/10.4204/EPTCS.333.13)
+
+If furthermore your work is related to quantum computing, you can also cite:
+
+* A. Toumi, G. de Felice & R. Yeung, _DisCoPy for the quantum computer scientist_, [arXiv:2205.05190](https://arxiv.org/abs/2205.05190)

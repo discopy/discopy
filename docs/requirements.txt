@@ -4,3 +4,4 @@ nbsphinx==0.8.0
 ipykernel==5.3.4
 jinja2~=3.0
 ytsphinx
+sphinx-book-theme
