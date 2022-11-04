@@ -145,8 +145,7 @@ class Diagram(tensor.Diagram):
 
         Raises :code:`ValueError` if either:
         * a boundary node is not in :code:`graph.inputs() + graph.outputs()`,
-        * or :code:`set(graph.inputs()).intersection(graph.outputs())`
-          is non-empty.
+        * or :code:`set(graph.inputs()).intersection(graph.outputs())`.
         """
         from pyzx import VertexType, EdgeType
 
@@ -308,7 +307,7 @@ class Spider(Box):
         >>> equation(orig, decomp, symbol='->',
         ...     path='docs/_static/imgs/spider-decomp.png')
 
-        .. image:: ../../../_static/imgs/spider-decomp.png
+        .. image:: ../_static/imgs/spider-decomp.png
             :align: center
 
         """

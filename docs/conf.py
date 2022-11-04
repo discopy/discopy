@@ -25,8 +25,8 @@ def get_version():
 # -- Project information -----------------------------------------------------
 
 project = 'DisCoPy'
-copyright = '2019, Oxford Quantum Group'
-author = 'Oxford Quantum Group'
+copyright = '2019, DisCoPy'
+author = 'oxford-quantum-group'
 
 # The full version, including alpha/beta/rc tags
 release = get_version()
@@ -79,7 +79,8 @@ html_title = "DisCoPy"
 html_theme_options = {
     "repository_url": "https://github.com/oxford-quantum-group/discopy",
     "use_repository_button": True,
-    "path_to_docs": "docs"
+    "path_to_docs": "docs",
+    "extra_navbar": "",
 }
 
 master_doc = 'index'
