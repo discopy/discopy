@@ -38,24 +38,14 @@ DisCoPy is a Python toolkit for computing with string diagrams.
 
 .. toctree::
     :caption: API
-    :maxdepth: 2
     :hidden:
 
-    discopy/cat
-    discopy/monoidal
-    discopy/rigid
-    discopy/biclosed
-    discopy/hypergraph
-    discopy/matrix
-    discopy/tensor
-    discopy/quantum
-    discopy/grammar
-    discopy/drawing
-    discopy/utils
+    api/core
+    api/quantum
+    api/grammar
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
