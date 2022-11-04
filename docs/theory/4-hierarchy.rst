@@ -1,0 +1,2 @@
+Categories with extra structure
+===============================

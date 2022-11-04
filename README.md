@@ -21,13 +21,13 @@ While most of the current features focus on quantum computing
 ([circuits](https://discopy.readthedocs.io/en/main/discopy/quantum.circuit.html),
 [ZX calculus](https://discopy.readthedocs.io/en/main/discopy/quantum.zx.html),
 [photonics](https://discopy.readthedocs.io/en/main/discopy/quantum.optics.html)) and natural language processing ([pregroup](https://discopy.readthedocs.io/en/main/discopy/grammar.pregroup.html), [CCG](https://discopy.readthedocs.io/en/main/discopy/grammar.ccg.html), [formal grammars](https://discopy.readthedocs.io/en/main/discopy/grammar.html)),
-the toolkit is flexible enough for all the applications of string diagrams:
+the toolkit is flexible enough for all the [applied category theory](https://en.wikipedia.org/wiki/Applied_category_theory) based on string diagrams:
 [neural networks](https://arxiv.org/abs/1711.10455),
 [probabilistic programs](https://arxiv.org/abs/1908.07021),
 [concurrent processes](https://hal.archives-ouvertes.fr/hal-02134182/),
 [electric circuits](https://arxiv.org/abs/2106.07763),
 [database queries](https://arxiv.org/abs/1804.07626),
-[logical formulae](https://link.springer.com/chapter/10.1007/978-3-030-54249-8_32), etc.
+[logical formulae](https://www.ioc.ee/~pawel/papers/peirce.pdf), etc.
 
 It provides:
 
@@ -69,7 +69,8 @@ The documentation is built using
 You can build it locally with:
 
 ```shell
-(cd docs && (make clean; make html))
+pip install -r docs/requirements.txt
+sphinx-build docs docs/_build/html
 ```
 
 ## Contribute

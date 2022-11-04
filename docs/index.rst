@@ -4,29 +4,37 @@
 DisCoPy documentation
 #####################
 
-.. mdinclude:: what-is-discopy.md
+DisCoPy is a Python toolkit for computing with string diagrams.
 
 .. toctree::
     :caption: Theory
     :hidden:
 
-    notebooks/your-own-category
-    notebooks/rewriting-diagrams
+    theory/1-diagrams
+    theory/2-rewriting
+    theory/3-functors
+    theory/4-hierarchy
+    theory/5-custom
 
 .. toctree::
     :caption: Applications
     :hidden:
 
-    notebooks/diag-diff
-    notebooks/qnlp-tutorial
+    applications/1-grammars
+    applications/2-tensors
+    applications/3-peirce
+    applications/4-channels
+    applications/5-optics
+    applications/6-diag-diff
+    applications/7-qnlp-tutorial
 
 .. toctree::
     :caption: Extra
     :hidden:
 
-    talks
-    papers
-    blogs
+    extra/talks
+    extra/slides
+    extra/papers
 
 .. toctree::
     :caption: API
