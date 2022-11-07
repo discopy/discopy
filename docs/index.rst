@@ -4,7 +4,8 @@
 DisCoPy documentation
 #####################
 
-DisCoPy is a Python toolkit for computing with string diagrams.
+.. mdinclude:: ../README.md
+   :start-line: 10
 
 .. toctree::
     :caption: Theory
@@ -34,28 +35,17 @@ DisCoPy is a Python toolkit for computing with string diagrams.
 
     extra/talks
     extra/slides
+    extra/blogs
     extra/papers
 
 .. toctree::
-    :caption: API
-    :maxdepth: 2
+    :caption: Reference
     :hidden:
 
-    discopy/cat
-    discopy/monoidal
-    discopy/rigid
-    discopy/biclosed
-    discopy/hypergraph
-    discopy/matrix
-    discopy/tensor
-    discopy/quantum
-    discopy/grammar
-    discopy/drawing
-    discopy/utils
+    api/index
 
 Indices and tables
-==================
+------------------
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`
