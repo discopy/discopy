@@ -56,7 +56,6 @@ You should check you haven't broken anything by running the test suite:
 
 ```shell
 pip install ".[test]" .
-pip install pytest coverage pycodestyle
 coverage run -m pytest --doctest-modules --pycodestyle
 coverage report -m discopy/*.py discopy/*/*.py
 ```
@@ -66,7 +65,7 @@ The documentation is built using
 You can build it locally with:
 
 ```shell
-pip install -r docs/requirements.txt
+pip install ".[docs]" .
 sphinx-build docs docs/_build/html
 ```
 
