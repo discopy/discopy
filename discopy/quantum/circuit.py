@@ -1326,11 +1326,9 @@ class Sim8ansatz(Circuit):
 
         def layer(thetas):
 
-            RXs_1 = Id().tensor(
-                *([Rx(theta) for theta in thetas[:n_qubits]]))
+            RXs_1 = Id().tensor(*map(Rx, thetas[:n_qubits]))
 
-            RZs_1 = Id().tensor(
-                *([Rz(theta) for theta in thetas[n_qubits: 2 * n_qubits]]))
+            RZs_1 = Id().tensor(*map(Rz, thetas[n_qubits: 2 * n_qubits]))
 
             bricks_1 = Id(n_qubits)
             for i, tgt in enumerate(range(1, n_qubits, 2)):
@@ -1344,12 +1342,11 @@ class Sim8ansatz(Circuit):
             sl1_thetas = 2 * n_qubits + i + 1
 
             RXs_2 = Id().tensor(
-                *([Rx(theta) for theta in
-                    thetas[sl1_thetas: sl1_thetas + n_qubits]]))
+                *map(Rx, thetas[sl1_thetas: sl1_thetas + n_qubits]))
 
             RZs_2 = Id().tensor(
-                *([Rz(theta) for theta in
-                    thetas[sl1_thetas + n_qubits: sl1_thetas + 2 * n_qubits]]))
+                *map(Rz,
+                     thetas[sl1_thetas + n_qubits: sl1_thetas + 2 * n_qubits]))
 
             thetas_used = sl1_thetas + 2 * n_qubits
 
