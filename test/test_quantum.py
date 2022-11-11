@@ -484,6 +484,11 @@ def test_Sim15Ansatz():
         Sim15ansatz(10, np.array([]))
 
 
+def test_Sim8Ansatz():
+    with raises(ValueError):
+        Sim8ansatz(10, np.array([]))
+
+
 def test_Sum():
     assert not Sum([], qubit, qubit).eval()
     assert Sum([Id(0)]).get_counts() == Id(0).get_counts()

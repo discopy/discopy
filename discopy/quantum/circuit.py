@@ -1295,6 +1295,87 @@ class Sim15ansatz(Circuit):
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
 
 
+class Sim8ansatz(Circuit):
+    """
+    Builds circuit 8 from arXiv:1905.10876
+
+    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
+    >>> pprint(Sim8ansatz(3, [[i/10 for i in range(14)]]))
+    Rx(0) @ Id(2)
+      >> Id(1) @ Rx(0.1) @ Id(1)
+      >> Id(2) @ Rx(0.2)
+      >> Rz(0.3) @ Id(2)
+      >> Id(1) @ Rz(0.4) @ Id(1)
+      >> Id(2) @ Rz(0.5)
+      >> CRx(0.6) @ Id(1)
+      >> Rx(0.7) @ Id(2)
+      >> Id(1) @ Rx(0.8) @ Id(1)
+      >> Id(2) @ Rx(0.9)
+      >> Rz(1) @ Id(2)
+      >> Id(1) @ Rz(1.1) @ Id(1)
+      >> Id(2) @ Rz(1.2)
+      >> Id(1) @ CRx(1.3)
+    >>> pprint(Sim8ansatz(1, [0.1, 0.2, 0.3]))
+    Rx(0.1)
+      >> Rz(0.2)
+      >> Rx(0.3)
+    """
+
+    def __init__(self, n_qubits, params):
+        from discopy.quantum.gates import Rx, Rz
+
+        def layer(thetas):
+
+            RXs_1 = Id().tensor(*map(Rx, thetas[:n_qubits]))
+
+            RZs_1 = Id().tensor(*map(Rz, thetas[n_qubits: 2 * n_qubits]))
+
+            bricks_1 = Id(n_qubits)
+            for i, tgt in enumerate(range(1, n_qubits, 2)):
+                src = tgt - 1
+                bricks_1 = bricks_1.CRx(thetas[2 * n_qubits + i], src, tgt)
+
+            sublayer1 = RXs_1 >> RZs_1 >> bricks_1
+
+            # Params used by the first sublayer
+            # Used as offset for second sublayer
+            sl1_thetas = 2 * n_qubits + i + 1
+
+            RXs_2 = Id().tensor(
+                *map(Rx, thetas[sl1_thetas: sl1_thetas + n_qubits]))
+
+            RZs_2 = Id().tensor(
+                *map(Rz,
+                     thetas[sl1_thetas + n_qubits: sl1_thetas + 2 * n_qubits]))
+
+            thetas_used = sl1_thetas + 2 * n_qubits
+
+            bricks_2 = Id(n_qubits)
+            for i, tgt in enumerate(range(2, n_qubits, 2)):
+                src = tgt - 1
+                bricks_2 = bricks_2.CRx(thetas[thetas_used + i], src, tgt)
+
+            sublayer2 = RXs_2 >> RZs_2 >> bricks_2
+
+            return sublayer1 >> sublayer2
+
+        params_shape = Tensor.np.shape(params)
+
+        if n_qubits == 1:
+            circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
+        elif (len(params_shape) != 2) or (params_shape[1] != 5 * n_qubits - 1):
+            raise ValueError(
+                "Expected params of shape (depth, {})".format(
+                    5 * n_qubits - 1))
+        else:
+            depth = params_shape[0]
+            circuit = Id(n_qubits).then(*(
+                layer(params[i]) for i in range(depth)))
+
+        super().__init__(
+            circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
+
+
 def real_amp_ansatz(params: Tensor.np.ndarray, *, entanglement='full'):
     """
     The real-amplitudes 2-local circuit. The shape of the params determines
