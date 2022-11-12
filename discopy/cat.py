@@ -1,7 +1,50 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements free dagger categories and functors.
+Free dagger categories enriched in monoids, with unary operators on homsets.
+
+Notes
+-----
+
+An :class:`Ob` is just an object with a name :meth:`Ob.name`.
+
+An :class:`Arrow` is given by:
+
+- a tuple of composable boxes :meth:`Arrow.inside`
+- an input :class:`Ob` called the domain :meth:`Arrow.dom`
+- an output :class:`Ob` called the codomain :meth:`Arrow.cod`
+
+A :class:`Box` is an arrow with a name :meth:`Box.name` and the list of
+just itself inside.
+The identity :meth:`Arrow.id` is the empty list with a given :class:`Ob` as
+both domain and codomain.
+The composition :class:`Arrow.then`, shortened to :code:`>>`, concatenates two
+given arrows or raises :class:`AxiomError` if they do not compose.
+
+A :class:`Category` is just a pair of Python types:
+
+- :class:`Category.ob` for objects, :class:`Ob` by default
+- :class:`Category.ar` for arrows with methods :code:`dom`, :code:`cod`,
+  :code:`id` and :code:`then`, :class:`Arrow` by default
+
+A :class:`Functor` is given by an optional codomain category
+:meth:`Functor.cod` and a pair of mappings:
+
+- :meth:`Functor.ob` from :class:`Ob` to :code:`Functor.cod.ob`
+- :meth:`Functor.ar` from :class:`Box` to :code:`Functor.cod.ar`
+
+Functors can be applied to any :class:`Arrow` to compute an instance of their
+codomain.
+
+Examples
+--------
+
+- free functors
+- python functions
+- matrix
+
+Axioms
+------
 
 We can create boxes with objects as domain and codomain:
 
