@@ -1145,12 +1145,6 @@ class IQPansatz(Circuit):
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import H, Rx, Rz, CRz
 
-        def layer(thetas):
-            hadamards = Id(0).tensor(*(n_qubits * [H]))
-            rotations = Id(n_qubits).then(*(
-                Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
-                for i in range(n_qubits - 1)))
-            return hadamards >> rotations
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
         elif len(Tensor.np.shape(params)) != 2\
@@ -1159,8 +1153,15 @@ class IQPansatz(Circuit):
                 "Expected params of shape (depth, {})".format(n_qubits - 1))
         else:
             depth = Tensor.np.shape(params)[0]
-            circuit = Id(n_qubits).then(*(
-                layer(params[i]) for i in range(depth)))
+            circuit = Id(n_qubits)
+
+            for thetas in params:
+                hadamards = Id(0).tensor(*(n_qubits * [H]))
+                rotations = Id(n_qubits).then(*(
+                    Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
+                    for i in range(n_qubits - 1)))
+                circuit >>= hadamards >> rotations
+
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
 
@@ -1195,25 +1196,6 @@ class Sim14ansatz(Circuit):
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import Rx, Ry, Rz
 
-        def layer(thetas):
-            sublayer1 = Id().tensor(
-                *([Ry(theta) for theta in thetas[:n_qubits]]))
-
-            for i in range(n_qubits):
-                src = i
-                tgt = (i - 1) % n_qubits
-                sublayer1 = sublayer1.CRx(thetas[n_qubits + i], src, tgt)
-
-            sublayer2 = Id().tensor(
-                *([Ry(theta) for theta in thetas[2 * n_qubits: 3 * n_qubits]]))
-
-            for i in range(n_qubits, 0, -1):
-                src = i % n_qubits
-                tgt = (i + 1) % n_qubits
-                sublayer2 = sublayer2.CRx(thetas[-i], src, tgt)
-
-            return sublayer1 >> sublayer2
-
         params_shape = Tensor.np.shape(params)
 
         if n_qubits == 1:
@@ -1223,8 +1205,25 @@ class Sim14ansatz(Circuit):
                 "Expected params of shape (depth, {})".format(4 * n_qubits))
         else:
             depth = params_shape[0]
-            circuit = Id(n_qubits).then(*(
-                layer(params[i]) for i in range(depth)))
+            circuit = Id(n_qubits)
+
+            for thetas in params:
+                sublayer1 = Id().tensor(*map(Ry, thetas[:n_qubits]))
+
+                for i in range(n_qubits):
+                    src = i
+                    tgt = (i - 1) % n_qubits
+                    sublayer1 = sublayer1.CRx(thetas[n_qubits + i], src, tgt)
+
+                sublayer2 = Id().tensor(
+                    *map(Ry, thetas[2 * n_qubits: 3 * n_qubits]))
+
+                for i in range(n_qubits, 0, -1):
+                    src = i % n_qubits
+                    tgt = (i + 1) % n_qubits
+                    sublayer2 = sublayer2.CRx(thetas[-i], src, tgt)
+
+                circuit >>= sublayer1 >> sublayer2
 
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
@@ -1260,25 +1259,6 @@ class Sim15ansatz(Circuit):
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import Rx, Ry, Rz
 
-        def layer(thetas):
-            sublayer1 = Id().tensor(
-                *([Ry(theta) for theta in thetas[:n_qubits]]))
-
-            for i in range(n_qubits):
-                src = i
-                tgt = (i - 1) % n_qubits
-                sublayer1 = sublayer1.CX(src, tgt)
-
-            sublayer2 = Id().tensor(
-                *([Ry(theta) for theta in thetas[n_qubits:]]))
-
-            for i in range(n_qubits, 0, -1):
-                src = i % n_qubits
-                tgt = (i + 1) % n_qubits
-                sublayer2 = sublayer2.CX(src, tgt)
-
-            return sublayer1 >> sublayer2
-
         params_shape = Tensor.np.shape(params)
 
         if n_qubits == 1:
@@ -1288,8 +1268,24 @@ class Sim15ansatz(Circuit):
                 "Expected params of shape (depth, {})".format(2 * n_qubits))
         else:
             depth = params_shape[0]
-            circuit = Id(n_qubits).then(*(
-                layer(params[i]) for i in range(depth)))
+            circuit = Id(n_qubits)
+
+            for thetas in params:
+                sublayer1 = Id().tensor(*map(Ry, thetas[:n_qubits]))
+
+                for i in range(n_qubits):
+                    src = i
+                    tgt = (i - 1) % n_qubits
+                    sublayer1 = sublayer1.CX(src, tgt)
+
+                sublayer2 = Id().tensor(*map(Ry, thetas[n_qubits:]))
+
+                for i in range(n_qubits, 0, -1):
+                    src = i % n_qubits
+                    tgt = (i + 1) % n_qubits
+                    sublayer2 = sublayer2.CX(src, tgt)
+
+                circuit >>= sublayer1 >> sublayer2
 
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
@@ -1324,41 +1320,6 @@ class Sim8ansatz(Circuit):
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import Rx, Rz
 
-        def layer(thetas):
-
-            RXs_1 = Id().tensor(*map(Rx, thetas[:n_qubits]))
-
-            RZs_1 = Id().tensor(*map(Rz, thetas[n_qubits: 2 * n_qubits]))
-
-            bricks_1 = Id(n_qubits)
-            for i, tgt in enumerate(range(1, n_qubits, 2)):
-                src = tgt - 1
-                bricks_1 = bricks_1.CRx(thetas[2 * n_qubits + i], src, tgt)
-
-            sublayer1 = RXs_1 >> RZs_1 >> bricks_1
-
-            # Params used by the first sublayer
-            # Used as offset for second sublayer
-            sl1_thetas = 2 * n_qubits + i + 1
-
-            RXs_2 = Id().tensor(
-                *map(Rx, thetas[sl1_thetas: sl1_thetas + n_qubits]))
-
-            RZs_2 = Id().tensor(
-                *map(Rz,
-                     thetas[sl1_thetas + n_qubits: sl1_thetas + 2 * n_qubits]))
-
-            thetas_used = sl1_thetas + 2 * n_qubits
-
-            bricks_2 = Id(n_qubits)
-            for i, tgt in enumerate(range(2, n_qubits, 2)):
-                src = tgt - 1
-                bricks_2 = bricks_2.CRx(thetas[thetas_used + i], src, tgt)
-
-            sublayer2 = RXs_2 >> RZs_2 >> bricks_2
-
-            return sublayer1 >> sublayer2
-
         params_shape = Tensor.np.shape(params)
 
         if n_qubits == 1:
@@ -1369,8 +1330,41 @@ class Sim8ansatz(Circuit):
                     5 * n_qubits - 1))
         else:
             depth = params_shape[0]
-            circuit = Id(n_qubits).then(*(
-                layer(params[i]) for i in range(depth)))
+            circuit = Id(n_qubits)
+            for thetas in params:
+                RXs_1 = Id().tensor(*map(Rx, thetas[:n_qubits]))
+
+                RZs_1 = Id().tensor(*map(Rz, thetas[n_qubits: 2 * n_qubits]))
+
+                bricks_1 = Id(n_qubits)
+                for i, tgt in enumerate(range(1, n_qubits, 2)):
+                    src = tgt - 1
+                    bricks_1 = bricks_1.CRx(thetas[2 * n_qubits + i], src, tgt)
+
+                sublayer1 = RXs_1 >> RZs_1 >> bricks_1
+
+                # Params used by the first sublayer
+                # Used as offset for second sublayer
+                sl1_thetas = 2 * n_qubits + i + 1
+
+                RXs_2 = Id().tensor(
+                    *map(Rx, thetas[sl1_thetas: sl1_thetas + n_qubits]))
+
+                RZs_2 = Id().tensor(
+                    *map(Rz,
+                         thetas[sl1_thetas + n_qubits:
+                                sl1_thetas + 2 * n_qubits]))
+
+                thetas_used = sl1_thetas + 2 * n_qubits
+
+                bricks_2 = Id(n_qubits)
+                for i, tgt in enumerate(range(2, n_qubits, 2)):
+                    src = tgt - 1
+                    bricks_2 = bricks_2.CRx(thetas[thetas_used + i], src, tgt)
+
+                sublayer2 = RXs_2 >> RZs_2 >> bricks_2
+
+                circuit >>= sublayer1 >> sublayer2
 
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
@@ -1392,26 +1386,25 @@ def real_amp_ansatz(params: Tensor.np.ndarray, *, entanglement='full'):
     params = Tensor.np.asarray(params)
     assert params.ndim == 2
     dom = qubit**params.shape[1]
+    n_qbs = params.shape[1]
 
-    def layer(v, is_last=False):
-        n = len(dom)
-        rys = Id(0).tensor(*(Ry(v[k]) for k in range(n)))
-        if is_last:
-            return rys
+    circuit = Id(n_qbs)
+
+    for v in params[:-1]:
+        rys = Id(0).tensor(*(Ry(v[k]) for k in range(n_qbs)))
         if entanglement == 'full':
-            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1 + 1, n)] for
-                   k1 in range(n - 1)]
+            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1 + 1, n_qbs)] for
+                   k1 in range(n_qbs - 1)]
             cxs = reduce(lambda a, b: a >> b, chain(*cxs))
         else:
-            cxs = [ext_cx(k, k + 1, dom=dom) for k in range(n - 1)]
+            cxs = [ext_cx(k, k + 1, dom=dom) for k in range(n_qbs - 1)]
             cxs = reduce(lambda a, b: a >> b, cxs)
             if entanglement == 'circular':
-                cxs = ext_cx(n - 1, 0, dom=dom) >> cxs
-        return rys >> cxs
+                cxs = ext_cx(n_qbs - 1, 0, dom=dom) >> cxs
+        circuit >>= rys >> cxs
 
-    circuit = [layer(v, is_last=idx == (len(params) - 1)) for
-               idx, v in enumerate(params)]
-    circuit = reduce(lambda a, b: a >> b, circuit)
+    circuit >>= Id(0).tensor(*(Ry(params[-1][k]) for k in range(n_qbs)))
+
     return circuit
 
 
