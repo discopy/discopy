@@ -1156,7 +1156,7 @@ class IQPansatz(Circuit):
             circuit = Id(n_qubits)
 
             for thetas in params:
-                hadamards = Id(0).tensor(*(n_qubits * [H]))
+                hadamards = Id().tensor(*(n_qubits * [H]))
                 rotations = Id(n_qubits).then(*(
                     Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
                     for i in range(n_qubits - 1)))
@@ -1391,7 +1391,7 @@ def real_amp_ansatz(params: Tensor.np.ndarray, *, entanglement='full'):
     circuit = Id(n_qbs)
 
     for v in params[:-1]:
-        rys = Id(0).tensor(*(Ry(v[k]) for k in range(n_qbs)))
+        rys = Id().tensor(*(Ry(v[k]) for k in range(n_qbs)))
         if entanglement == 'full':
             cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1 + 1, n_qbs)] for
                    k1 in range(n_qbs - 1)]
@@ -1403,7 +1403,7 @@ def real_amp_ansatz(params: Tensor.np.ndarray, *, entanglement='full'):
                 cxs = ext_cx(n_qbs - 1, 0, dom=dom) >> cxs
         circuit >>= rys >> cxs
 
-    circuit >>= Id(0).tensor(*(Ry(params[-1][k]) for k in range(n_qbs)))
+    circuit >>= Id().tensor(*(Ry(params[-1][k]) for k in range(n_qbs)))
 
     return circuit
 
