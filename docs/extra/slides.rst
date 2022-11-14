@@ -11,3 +11,4 @@ Slides and lecture notes written with DisCoPy.
     21-06-08-qpl.ipynb
     22-05-30-QNLP.ipynb
     22-06-24-CT-for-QNLP.ipynb
+    22-11-15-CT-for-QNLP.md
