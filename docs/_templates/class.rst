@@ -1,4 +1,4 @@
-{{ '.'.join(fullname.split('.')[1:]) | escape | underline}}
+{{ objname | escape | underline}}
 
 .. currentmodule:: {{ module }}
 

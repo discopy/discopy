@@ -25,25 +25,34 @@ discopy computes natural language meaning in pictures.
 
 
 from discopy import (
-    config, cat, monoidal, rigid, biclosed, tensor, matrix, quantum, grammar)
-from discopy.utils import from_tree
-from discopy.cat import Quiver
-from discopy.monoidal import Sum
-from discopy.rigid import (
-    Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Swap, Functor)
-from discopy.tensor import Dim, Tensor, Functor as TensorFunctor
-
-from discopy.quantum import circuit, cqmap, zx, optics
-from discopy.quantum.zx import Z, X, H, SWAP
-from discopy.quantum.cqmap import C, Q, CQMap
-from discopy.quantum.circuit import (
-    bit, qubit, Circuit, Functor as CircuitFunctor,
-    Discard, MixedState, Measure, Encode)
-from discopy.quantum.gates import (
-    Ket, Bra, Bits, Copy, Match, Rx, Rz, CU1, CRz, CRx, CZ, CX)
-
-from discopy.grammar import cfg, ccg, pregroup
-from discopy.grammar.pregroup import Word
+    cat,
+    # monoidal,
+    # rigid,
+    # biclosed,
+    # tensor,
+    # matrix,
+    # quantum,
+    # grammar,
+    # config,
+)
+# from discopy.utils import from_tree
+# from discopy.cat import Quiver
+# from discopy.monoidal import Sum
+# from discopy.rigid import (
+#     Ob, Ty, PRO, Box, Diagram, Id, Cup, Cap, Swap, Functor)
+# from discopy.tensor import Dim, Tensor, Functor as TensorFunctor
+#
+# from discopy.quantum import circuit, cqmap, zx, optics
+# from discopy.quantum.zx import Z, X, H, SWAP
+# from discopy.quantum.cqmap import C, Q, CQMap
+# from discopy.quantum.circuit import (
+#     bit, qubit, Circuit, Functor as CircuitFunctor,
+#     Discard, MixedState, Measure, Encode)
+# from discopy.quantum.gates import (
+#     Ket, Bra, Bits, Copy, Match, Rx, Rz, CU1, CRz, CRx, CZ, CX)
+#
+# from discopy.grammar import cfg, ccg, pregroup
+# from discopy.grammar.pregroup import Word
 
 
 __version__ = '0.4.3'

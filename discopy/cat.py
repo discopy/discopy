@@ -1,40 +1,27 @@
 # -*- coding: utf-8 -*-
 
 """
+discopy.cat
+===========
+
 Free dagger categories enriched in monoids, with unary operators on homsets.
 
-Notes
------
+Classes
+-------
 
-An :class:`Ob` is just an object with a name :meth:`Ob.name`.
+.. autosummary::
+   :template: class.rst
+   :nosignatures:
+   :toctree: ../_autosummary
 
-An :class:`Arrow` is given by:
-
-- a tuple of composable boxes :meth:`Arrow.inside`
-- an input :class:`Ob` called the domain :meth:`Arrow.dom`
-- an output :class:`Ob` called the codomain :meth:`Arrow.cod`
-
-A :class:`Box` is an arrow with a name :meth:`Box.name` and the list of
-just itself inside.
-The identity :meth:`Arrow.id` is the empty list with a given :class:`Ob` as
-both domain and codomain.
-The composition :class:`Arrow.then`, shortened to :code:`>>`, concatenates two
-given arrows or raises :class:`AxiomError` if they do not compose.
-
-A :class:`Category` is just a pair of Python types:
-
-- :class:`Category.ob` for objects, :class:`Ob` by default
-- :class:`Category.ar` for arrows with methods :code:`dom`, :code:`cod`,
-  :code:`id` and :code:`then`, :class:`Arrow` by default
-
-A :class:`Functor` is given by an optional codomain category
-:meth:`Functor.cod` and a pair of mappings:
-
-- :meth:`Functor.ob` from :class:`Ob` to :code:`Functor.cod.ob`
-- :meth:`Functor.ar` from :class:`Box` to :code:`Functor.cod.ar`
-
-Functors can be applied to any :class:`Arrow` to compute an instance of their
-codomain.
+   Ob
+   Arrow
+   Box
+   Sum
+   Bubble
+   Category
+   Functor
+   AxiomError
 
 Examples
 --------
@@ -51,9 +38,9 @@ We can create boxes with objects as domain and codomain:
 >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
 >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
 
-We can create arbitrary arrows with composition:
+We can create arbitrary arrows with identity and composition:
 
->>> arrow = Arrow(x, x, [f, g, h])
+>>> arrow = Arrow.id(x).then(f, g, h)
 >>> assert arrow == f >> g >> h == h << g << f
 
 We can create dagger functors from the free category to itself:
@@ -64,6 +51,7 @@ We can create dagger functors from the free category to itself:
 >>> assert F(arrow) == (h >> f >> g)[::-1]
 """
 
+from __future__ import annotations
 from functools import total_ordering
 from collections.abc import Mapping, Iterable
 
@@ -73,55 +61,18 @@ from discopy.utils import factory_name, from_tree, rsubs, rmap
 
 @total_ordering
 class Ob:
-    """
-    Defines an object in a free category, only distinguished by its name.
-
-    Parameters
-    ----------
-    name : any
-        Name of the object.
-
-    Note
-    ----
-    When printing an object, we only print its name.
-
-    >>> x = Ob('x')
-    >>> print(x)
-    x
-
-    Objects are equal only to objects with equal names.
-
-    >>> x = Ob('x')
-    >>> assert x == Ob('x') and x != 'x' and x != Ob('y')
-
-    Objects are hashable whenever their name is.
-
-    >>> d = {Ob(['x', 'y']): 42}
-    Traceback (most recent call last):
-    ...
-    TypeError: unhashable type: 'list'
-
-    """
-    def __init__(self, name):
+    """ An object with a :code:`name`. """
+    def __init__(self, name: str):
         self._name = name
 
     @property
-    def name(self):
-        """
-        The name of an object is immutable, it cannot be empty.
-
-        >>> x = Ob('x')
-        >>> x.name
-        'x'
-        >>> x.name = 'y'
-        Traceback (most recent call last):
-        ...
-        AttributeError: can't set attribute...
-        """
+    def name(self) -> str:
+        """ Name of the object. """
         return self._name
 
     def __repr__(self):
-        return "Ob({})".format(repr(self.name))
+        return "{}.{}({})".format(
+            type(self).__module__, type(self).__name__, repr(self.name))
 
     def __str__(self):
         return str(self.name)
@@ -138,146 +89,127 @@ class Ob:
         return self.name < other.name
 
     def to_tree(self):
+        """ See :func:`discopy.utils.dumps`. """
         return {'factory': factory_name(self), 'name': self.name}
 
     @classmethod
     def from_tree(cls, tree):
+        """ See :func:`discopy.utils.loads`. """
         return cls(tree['name'])
 
 
+def factory(cls):
+    """
+    Inheritance mechanism for :meth:`Arrow.id` and :meth:`Arrow.then`.
+    """
+    cls._factory = cls
+    return cls
+
+
+@factory
 class Arrow:
     """
-    Defines an arrow in a free dagger category.
-
-    Parameters
-    ----------
-    dom : cat.Ob
-        Domain of the arrow.
-    cod : cat.Ob
-        Codomain of the arrow.
-    boxes : list of :class:`Arrow`
-        Boxes of the arrow.
+    An arrow is a tuple of composable arrows :code:`inside` with a pair of
+    objects :code:`dom` and :code:`cod` as domain and codomain.
 
     Raises
     ------
     :class:`cat.AxiomError`
-        Whenever the boxes do not compose.
+        Whenever the arrows inside do not compose.
 
-    Examples
-    --------
+    Notes
+    -----
 
-    >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-    >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-    >>> arrow = Arrow(x, x, [f, g, h])
-    >>> print(arrow[::-1])
-    h[::-1] >> g[::-1] >> f[::-1]
+    The Boolean argument :code:`_scan` allows to avoid checking composition.
+
+    For code clarity, it is recommended not to initialise arrows directly: use
+    :meth:`Arrow.id` and :meth`Arrow.then` instead. For example:
+
+    >>> x, y, z = map(Ob, "xyz")
+    >>> f, g = Box('f', x, y), Box('g', y, z)
+    >>> arrow = Arrow((f, g), x, z)  # Don't do this...
+    >>> arrow_ = Arrow.id(x).then(f, g)  # ...do this instead!
+    >>> assert arrow == arrow_
     """
-    def __init__(self, dom, cod, boxes, _scan=True):
+    def __init__(self, inside: tuple[Arrow], dom: Ob, cod: Ob, _scan=True):
         if not isinstance(dom, Ob):
             raise TypeError(messages.type_err(Ob, dom))
         if not isinstance(cod, Ob):
             raise TypeError(messages.type_err(Ob, cod))
         if _scan:
             scan = dom
-            for depth, box in enumerate(boxes):
+            for depth, box in enumerate(inside):
                 if not isinstance(box, Arrow):
                     raise TypeError(messages.type_err(Arrow, box))
                 if box.dom != scan:
                     raise AxiomError(messages.does_not_compose(
-                        boxes[depth - 1] if depth else Id(dom), box))
+                        inside[depth - 1] if depth else Id(dom), box))
                 scan = box.cod
             if scan != cod:
                 raise AxiomError(messages.does_not_compose(
-                    boxes[-1] if boxes else Id(dom), Id(cod)))
-        self._dom, self._cod, self._boxes = dom, cod, boxes
-
-    @staticmethod
-    def upgrade(old):
-        """ Allows class inheritance. """
-        return old
+                    inside[-1] if inside else Id(dom), Id(cod)))
+        self._dom, self._cod, self._inside = dom, cod, inside
 
     @property
     def dom(self):
-        """
-        The domain of an arrow is immutable.
-
-        >>> arrow = Arrow(Ob('x'), Ob('x'), [])
-        >>> assert arrow.dom == Ob('x')
-        >>> arrow.dom = Ob('y')  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        AttributeError: can't set attribute...
-        """
+        """ The domain of an arrow, i.e. its input. """
         return self._dom
 
     @property
     def cod(self):
-        """
-        The codomain of an arrow is immutable.
-
-        >>> arrow = Arrow(Ob('x'), Ob('x'), [])
-        >>> assert arrow.cod == Ob('x')
-        >>> arrow.cod = Ob('y')  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        AttributeError: can't set attribute...
-        """
+        """ The codomain of an arrow, i.e. its output. """
         return self._cod
 
     @property
-    def boxes(self):
-        """
-        The list of boxes in an arrow is immutable. Use composition instead.
+    def inside(self):
+        """ The list of boxes inside an arrow. """
+        return self._inside
 
-        >>> f = Box('f', Ob('x'), Ob('y'))
-        >>> arrow = Arrow(Ob('x'), Ob('x'), [])
-        >>> arrow.boxes.append(f)  # This does nothing.
-        >>> assert f not in arrow.boxes
-        """
-        return list(self._boxes)
+    boxes = inside
 
     def __iter__(self):
-        for box in self.boxes:
+        for box in self.inside:
             yield box
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             if key.step == -1:
-                boxes = [box[::-1] for box in self.boxes[key]]
-                return self.upgrade(
-                    Arrow(self.cod, self.dom, boxes, _scan=False))
+                inside = tuple(box[::-1] for box in self.inside[key])
+                return self._factory(inside, self.cod, self.dom, _scan=False)
             if (key.step or 1) != 1:
                 raise IndexError
-            boxes = self.boxes[key]
-            if not boxes:
+            inside = self.inside[key]
+            if not inside:
                 if (key.start or 0) >= len(self):
-                    return Id(self.cod)
+                    return self.id(self.cod)
                 if (key.start or 0) <= -len(self):
-                    return Id(self.dom)
-                return Id(self.boxes[key.start or 0].dom)
-            return self.upgrade(
-                Arrow(boxes[0].dom, boxes[-1].cod, boxes, _scan=False))
-        return self.boxes[key]
+                    return self.id(self.dom)
+                return self.id(self.inside[key.start or 0].dom)
+            return self._factory(
+                inside, inside[0].dom, inside[-1].cod, _scan=False)
+        return self.inside[key]
 
     def __len__(self):
-        return len(self.boxes)
+        return len(self.inside)
 
     def __repr__(self):
-        if not self.boxes:  # i.e. self is identity.
-            return repr(Id(self.dom))
-        if len(self.boxes) == 1:  # i.e. self is a box.
-            return repr(self.boxes[0])
-        return "Arrow(dom={}, cod={}, boxes={})".format(
-            repr(self.dom), repr(self.cod), repr(self.boxes))
+        if not self.inside:  # i.e. self is identity.
+            return "{}.{}.id({})".format(
+                type(self).__module__, type(self).__name__, repr(self.dom))
+        if len(self.inside) == 1:  # i.e. self is a box.
+            return repr(self.inside[0])
+        return "{}.{}(inside={}, dom={}, cod={})".format(
+            type(self).__module__, type(self).__name__,
+            repr(self.inside), repr(self.dom), repr(self.cod))
 
     def __str__(self):
-        return ' >> '.join(map(str, self)) or str(self.id(self.dom))
+        return ' >> '.join(map(str, self.inside))\
+            or str(self.id(self.dom))
 
     def __eq__(self, other):
-        if not isinstance(other, Arrow):
-            return False
-        return all(getattr(self, a) == getattr(other, a)
-                   for a in ["dom", "cod", "boxes"])
+        return isinstance(other, Arrow) and all(
+            getattr(self, a) == getattr(other, a)
+            for a in ["inside", "dom", "cod"])
 
     def __hash__(self):
         return hash(repr(self))
@@ -288,15 +220,9 @@ class Arrow:
     def __radd__(self, other):
         return self + other
 
-    def then(self, *others):
+    def then(self, *others: Arrow) -> Arrow:
         """
-        Returns the composition of `self` with arrows `others`.
-
-        This method is called using the binary operators `>>` and `<<`:
-
-        >>> x, y, z = Ob('x'), Ob('y'), Ob('z')
-        >>> f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
-        >>> assert f.then(g) == f >> g == g << f
+        Sequential composition, called with `>>` and `<<`.
 
         Parameters
         ----------
@@ -307,22 +233,13 @@ class Arrow:
         Returns
         -------
         arrow : cat.Arrow
-            such that :code:`arrow.boxes == self.boxes
-            + sum(other.boxes for other in others, [])`.
+            such that :code:`arrow.inside == self.inside
+            + sum(other.inside for other in others, ())`.
 
         Raises
         ------
         :class:`cat.AxiomError`
             whenever `self` and `others` do not compose.
-
-        Notes
-        -----
-
-        We can check the axioms of categories
-        (i.e. composition is unital and associative):
-
-        >>> assert f >> Id(y) == f == Id(x) >> f
-        >>> assert (f >> g) >> h == f >> (g >> h)
         """
         if not others:
             return self
@@ -335,8 +252,8 @@ class Arrow:
             raise TypeError(messages.type_err(Arrow, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        return self.upgrade(Arrow(
-            self.dom, other.cod, self.boxes + other.boxes, _scan=False))
+        return self._factory(
+            self.inside + other.inside, self.dom, other.cod, _scan=False)
 
     def __rshift__(self, other):
         return self.then(other)
@@ -346,14 +263,13 @@ class Arrow:
 
     def dagger(self):
         """
-        Returns the dagger of `self`, this method is called using the unary
-        operator :code:`[::-1]`, i.e. :code:`self[::-1] == self.dagger()`.
+        Contravariant involution, called with :code:`[::-1]`.
 
         Returns
         -------
         arrow : cat.Arrow
             Such that
-            :code:`arrow.boxes == [box[::-1] for box in self[::-1]]`.
+            :code:`arrow.inside == [box[::-1] for box in self.inside[::-1]]`.
 
         Notes
         -----
@@ -368,24 +284,15 @@ class Arrow:
         """
         return self[::-1]
 
-    @staticmethod
-    def id(dom):
+    @classmethod
+    def id(cls, dom: Ob) -> Arrow:
         """
-        Returns the identity arrow on `dom`.
+        The identity arrow on `dom`, i.e. with the empty tuple inside.
 
         >>> x = Ob('x')
-        >>> assert Arrow.id(x) == Id(x) == Arrow(x, x, [])
-
-        Parameters
-        ----------
-        dom : cat.Ob
-            Any object.
-
-        Returns
-        -------
-        cat.Id
+        >>> assert Arrow.id(x) == Id(x) == Arrow((), x, x)
         """
-        return Id(dom)
+        return cls._factory((), dom, dom, _scan=False)
 
     @property
     def free_symbols(self):
@@ -398,7 +305,7 @@ class Arrow:
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
         >>> assert (f >> g).free_symbols == {phi, psi}
         """
-        return {x for box in self.boxes for x in box.free_symbols}
+        return {x for box in self.inside for x in box.free_symbols}
 
     def subs(self, *args):
         """
@@ -429,8 +336,7 @@ class Arrow:
         >>> assert (f >> g).subs(phi, 1) == f.subs(phi, 1) >> g
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
-        return self.upgrade(
-            Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self))
+        return Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self)
 
     def lambdify(self, *symbols, **kwargs):
         """
@@ -458,7 +364,7 @@ class Arrow:
         ...     == Box('f', x, y, data=42) >> Box('g', y, z, data=43)
         """
         return lambda *xs: self.id(self.dom).then(*(
-            box.lambdify(*symbols, **kwargs)(*xs) for box in self.boxes))
+            box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
 
     def bubble(self, **params):
         """ Returns a :class:`cat.Bubble` with the diagram inside. """
@@ -472,56 +378,27 @@ class Arrow:
         return {
             'factory': factory_name(self),
             'dom': self.dom.to_tree(), 'cod': self.cod.to_tree(),
-            'boxes': [box.to_tree() for box in self.boxes]}
+            'inside': [box.to_tree() for box in self.inside]}
 
     @classmethod
     def from_tree(cls, tree):
         """ Decodes a tree as an arrow. """
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
-        boxes = list(map(from_tree, tree['boxes']))
-        return cls(dom, cod, boxes, _scan=False)
+        inside = list(map(from_tree, tree['inside']))
+        return cls(dom, cod, inside, _scan=False)
 
 
-class Id(Arrow):
-    """
-    Defines the identity arrow on `dom`, i.e. with an empty list of boxes.
-
-    Parameters
-    ----------
-    dom : cat.Ob
-        Any object.
-
-    Examples
-    --------
-
-    >>> x = Ob('x')
-    >>> assert Id(x) == Arrow(x, x, [])
-
-    See also
-    --------
-        cat.Arrow.id
-    """
-    def __init__(self, dom):
-        Arrow.__init__(self, dom, dom, [], _scan=False)
-
-    def __repr__(self):
-        return "Id({})".format(repr(self.dom))
-
-    def __str__(self):
-        return "Id({})".format(str(self.dom))
-
-    from_tree = Arrow.from_tree
+Id = Arrow.id
 
 
 class AxiomError(Exception):
-    """
-    This is raised whenever we try to build an invalid arrow.
-    """
+    """ When arrows do not compose. """
 
 
 @total_ordering
 class Box(Arrow):
-    """ Defines a box as an arrow with the list of only itself as boxes.
+    """
+    A box is an arrow with a :code:`name` and the tuple of just itself inside.
 
     Parameters
     ----------
@@ -533,15 +410,15 @@ class Box(Arrow):
             Codomain.
         data : any
             Extra data in the box, default is `None`.
+        is_dagger : bool, optional
+            Whether the box is dagger.
 
     Examples
     --------
 
     >>> x, y = Ob('x'), Ob('y')
     >>> f = Box('f', x, y, data=[42])
-    >>> assert f == Arrow(x, y, [f])
-    >>> assert f.boxes == [f]
-    >>> assert f[:0] == Id(f.dom) and f[1:] == Id(f.cod)
+    >>> assert f.inside == (f, )
 
     """
     def __init__(self, name, dom, cod, **params):
@@ -557,9 +434,8 @@ class Box(Arrow):
             return data.free_symbols if hasattr(data, "free_symbols") else {}
         data, _dagger = params.get("data", None), params.get("_dagger", False)
         self._free_symbols = recursive_free_symbols(data)
-        self._name, self._dom, self._cod = name, dom, cod
-        self._boxes, self._dagger, self._data = [self], _dagger, data
-        Arrow.__init__(self, dom, cod, [self], _scan=False)
+        self._name, self._dagger, self._data = name, _dagger, data
+        Arrow.__init__(self, (self, ), dom, cod, _scan=False)
 
     @property
     def name(self):
@@ -680,7 +556,8 @@ class Box(Arrow):
 
 class Sum(Box):
     """
-    Implements enrichment over monoids, i.e. formal sums of diagrams.
+    A sum is a tuple of arrows with the same domain and codomain, i.e.
+    it implements enrichment in monoids.
 
     Parameters
     ----------
@@ -697,8 +574,6 @@ class Sum(Box):
     --------
     >>> x, y = Ob('x'), Ob('y')
     >>> f, g = Box('f', x, y), Box('g', x, y)
-    >>> f + g
-    Sum([Box('f', Ob('x'), Ob('y')), Box('g', Ob('x'), Ob('y'))])
     >>> unit = Sum([], x, y)
     >>> assert (f + unit) == Sum([f]) == (unit + f)
     >>> print((f + g) >> (f + g)[::-1])
@@ -811,71 +686,64 @@ class Sum(Box):
 
 
 class Bubble(Box):
-    """ A unary operator on homsets. """
-    def __init__(self, inside, dom=None, cod=None):
-        dom = inside.dom if dom is None else dom
-        cod = inside.cod if cod is None else cod
-        self._inside = inside
+    """
+    A unary operator on homsets, i.e. a box with an arrow :code:`other`
+    inside and an optional pair of objects :code:`dom` and :code:`cod`.
+    """
+    def __init__(self, other, dom: Ob = None, cod: Ob = None):
+        dom = other.dom if dom is None else dom
+        cod = other.cod if cod is None else cod
+        self._other = other
         Box.__init__(self, "Bubble", dom, cod)
 
     @property
-    def inside(self):
+    def other(self):
         """ The diagram inside a bubble. """
-        return self._inside
+        return self._other
 
     def __str__(self):
         return "({}).bubble({})".format(
-            self.inside,
-            "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+            self.other,
+            "" if (self.dom, self.cod) == (self.other.dom, self.other.cod)
             else "dom={}, cod={}".format(self.dom, self.cod))
 
     def __repr__(self):
         return "Bubble({}{})".format(
-            repr(self.inside),
-            "" if (self.dom, self.cod) == (self.inside.dom, self.inside.cod)
+            repr(self.other),
+            "" if (self.dom, self.cod) == (self.other.dom, self.other.cod)
             else ", dom={}, cod={})".format(repr(self.dom), repr(self.cod)))
 
     def to_tree(self):
         return {
             'factory': factory_name(self),
-            'inside': self.inside.to_tree(),
+            'other': self.other.to_tree(),
             'dom': self.dom.to_tree(),
             'cod': self.cod.to_tree()}
 
     @classmethod
     def from_tree(cls, tree):
-        dom, cod, inside = map(from_tree, (
-            tree['dom'], tree['cod'], tree['inside']))
-        return cls(dom=dom, cod=cod, inside=inside)
+        dom, cod, other = map(from_tree, (
+            tree['dom'], tree['cod'], tree['other']))
+        return cls(dom=dom, cod=cod, other=other)
 
 
 Arrow.sum = Sum
 Arrow.bubble_factory = Bubble
 
 
+class Category:
+    """
+    A category is just a pair of Python types :code:`ob` and :code:`ar` with
+    appropriate methods :code:`dom`, :code:`cod`, :code:`id` and :code:`then`.
+    """
+    def __init__(self, ob: type = None, ar: type = None):
+        self.ob, self.ar = (ob or Ob), (ar or Arrow)
+
+
 class Functor:
     """
-    Defines a dagger functor which can be applied to objects and arrows.
-
-    By default, `Functor` defines an endofunctor from the free dagger category
-    to itself. The codomain can be changed with the optional parameters
-    `ob_factory` and `ar_factory`.
-
-    Parameters
-    ----------
-    ob : dict_like
-        Mapping from :class:`cat.Ob` to `ob_factory`.
-    ar : dict_like
-        Mapping from :class:`cat.Box` to `ar_factory`.
-
-    Other Parameters
-    ----------------
-    ob_factory : type, optional
-        Class to be used as objects for the codomain of the functor.
-        If None, this will be set to :class:`cat.Ob`.
-    ar_factory : type, optional
-        Class to be used as arrows for the codomain of the functor.
-        If None, this will be set to :class:`cat.Arrow`.
+    A functor is a pair of maps :code:`ob` and :code:`ar` and a codomain
+    category :code:`cod`, :code:`Category(Ob, Arrow)` by default.
 
     Examples
     --------
@@ -903,12 +771,10 @@ class Functor:
     Quiver : For functors from infinitely-generated categories,
              use quivers to create dict-like objects from functions.
     """
-    def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
-        if ob_factory is None:
-            ob_factory = Ob
-        if ar_factory is None:
-            ar_factory = Arrow
-        self.ob_factory, self.ar_factory = ob_factory, ar_factory
+    cod = Category(Ob, Arrow)
+
+    def __init__(self, ob: dict | Callable, ar: dict | Callable, cod=None):
+        self.cod = cod or type(self).cod
         self._ob, self._ar = ob, ar
 
     @property
@@ -941,10 +807,10 @@ class Functor:
 
     def __call__(self, arrow):
         if isinstance(arrow, Sum):
-            return self.ar_factory.sum(
+            return self.cod.ar.sum(
                 list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Bubble):
-            return self(arrow.inside).bubble(
+            return self(arrow.other).bubble(
                 dom=self(arrow.dom), cod=self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
@@ -953,7 +819,7 @@ class Functor:
                 return self.ar[arrow.dagger()].dagger()
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
-            return self.ar_factory.id(self(arrow.dom)).then(*map(self, arrow))
+            return self.cod.ar.id(self(arrow.dom)).then(*map(self, arrow))
         raise TypeError(messages.type_err(Arrow, arrow))
 
 
