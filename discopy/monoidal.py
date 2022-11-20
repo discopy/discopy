@@ -3,7 +3,7 @@
 """
 The free (pre)monoidal category.
 
-Classes
+Summary
 -------
 
 .. autosummary::
@@ -16,9 +16,9 @@ Classes
     Diagram
     Encoding
     Box
-    Id
     Sum
     Bubble
+    Category
     Functor
     Tensorable
 
@@ -64,8 +64,7 @@ warn_permutation = WarnOnce()
 @factory
 class Ty(Ob):
     """
-    A type is a tuple of objects with :code:`@` as product and :code:`Ty()`
-    as unit.
+    A type is a tuple of objects.
 
     Parameters:
         inside : The list of objects (or their names).
@@ -174,11 +173,11 @@ class Ty(Ob):
     def to_tree(self):
         return {
             'factory': factory_name(self),
-            'objects': [x.to_tree() for x in self.inside]}
+            'inside': [x.to_tree() for x in self.inside]}
 
     @classmethod
     def from_tree(cls, tree):
-        return cls(*map(from_tree, tree['objects']))
+        return cls(*map(from_tree, tree['inside']))
 
 
 def types(names):
@@ -274,7 +273,7 @@ class Layer(cat.Box):
         Turns a box into a layer with empty types on the left and right.
 
         Parameters:
-            old : The box in the middle of empty types.
+            box : The box in the middle of empty types.
 
         Example
         -------
@@ -293,7 +292,7 @@ class Tensorable:
     and parallel composition with some method :code:`tensor`.
     """
     @classmethod
-    def id(cls, dom: any) -> Composable:
+    def id(cls, dom: any) -> Tensorable:
         """
         Identity on a given domain, to be instantiated.
 
@@ -302,7 +301,7 @@ class Tensorable:
         """
         raise NotImplementedError
 
-    def tensor(self, other: Composable) -> Composable:
+    def tensor(self, other: Tensorable) -> Tensorable:
         """
         Parallel composition, to be instantiated.
 
@@ -312,10 +311,10 @@ class Tensorable:
         raise NotImplementedError
 
     @classmethod
-    def whisker(cls, other: any) -> Composable:
+    def whisker(cls, other: any) -> Tensorable:
         """
-        Apply :meth:`Tensorable.id` if :code:`other` is not tensorable, i.e.
-        if it is an object rather than an arrow.
+        Apply :meth:`Tensorable.id` if :code:`other` is not tensorable else do
+        nothing.
 
         Parameters:
             other : The whiskering object.
@@ -329,7 +328,7 @@ class Tensorable:
 @dataclass
 class Encoding:
     """
-    Encoding of a diagram as a tuple of boxes and offsets.
+    Compact encoding of a diagram as a tuple of boxes and offsets.
 
     Parameters:
         dom : The domain of the diagram.
@@ -342,7 +341,8 @@ class Encoding:
     >>> diagram = f0 @ f1 >> g
     >>> encoding = diagram.encode()
     >>> assert encoding.dom == x @ z
-    >>> assert encoding.boxes_and_offsets == ((f0, 0), (f1, 1), (g, 0))
+    >>> assert encoding.boxes_and_offsets\
+    ...     == ((f0, 0), (f1, 1), (g, 0))
     >>> assert diagram == Diagram.decode(diagram.encode())
     >>> diagram.draw(figsize=(2, 2),
     ...        path='docs/_static/imgs/monoidal/arrow-example.png')
@@ -370,14 +370,14 @@ class Diagram(cat.Arrow, Tensorable):
 
         .. autosummary::
 
+            tensor
             boxes
             offsets
-            tensor
+            width
             draw
             interchange
             normalize
             normal_form
-            width
     """
     def __init__(self, inside: tuple[Layer], dom: Ty, cod: Ty, _scan=True):
         assert_isinstance(dom, Ty)
@@ -593,7 +593,15 @@ class Box(cat.Box, Diagram):
 
 
 class Sum(cat.Sum, Box):
-    """ Sum of monoidal diagrams. """
+    """
+    A sum is a tuple of diagrams :code:`terms`
+    with the same domain and codomain.
+
+    Parameters:
+        terms (tuple[Diagram]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
     def tensor(self, *others):
         if len(others) != 1:
             return super().tensor(*others)
@@ -610,16 +618,13 @@ class Sum(cat.Sum, Box):
 
 class Bubble(cat.Bubble, Box):
     """
-    Bubble in a monoidal diagram, i.e. a unary operator on homsets.
+    A bubble is a box with a diagram :code:`arg` inside and an optional pair of
+    types :code:`dom` and :code:`cod`.
 
-    Parameters
-    ----------
-    inside : discopy.monoidal.Diagram
-        The diagram inside the bubble.
-    dom : discopy.monoidal.Ty, optional
-        The domain of the bubble, default is :code:`inside.dom`.
-    cod : discopy.monoidal.Ty, optional
-        The codomain of the bubble, default is :code:`inside.cod`.
+    Parameters:
+        arg : The diagram inside the bubble.
+        dom : The domain of the bubble, default is that of :code:`other`.
+        cod : The codomain of the bubble, default is that of :code:`other`.
 
     Examples
     --------
@@ -663,7 +668,7 @@ class Category(cat.Category):
 class Functor(cat.Functor):
     """
     A monoidal functor is a pair of maps :code:`ob` and :code:`ar` and an
-    optional codomain category :code:`cod`.
+    optional monoidal category :code:`cod`.
 
     Parameters:
         ob : Mapping from :class:`Ty` to :code:`cod.ob`.

@@ -4,7 +4,7 @@
 The free category
 (enriched in monoids, unary operators and :code:`sympy` symbols).
 
-Classes
+Summary
 -------
 
 .. autosummary::
@@ -22,15 +22,6 @@ Classes
     Functor
     Composable
     AxiomError
-
-Functions
----------
-
-.. autosummary::
-    :template: function.rst
-    :toctree: ../_autosummary
-    :nosignatures:
-
     factory
 
 Axioms
@@ -139,7 +130,7 @@ class Ob:
 
 def factory(cls: type) -> type:
     """
-    Allows composition and identity of a subclass to remain in the subclass.
+    Allows the composition of a subclass to remain in the subclass.
 
     Parameters:
         cls : Some subclass of :class:`Arrow`.
@@ -663,8 +654,8 @@ class Sum(Box):
 
 class Bubble(Box):
     """
-    A unary operator on homsets, i.e. a box with an arrow :code:`arg`
-    inside and an optional pair of objects :code:`dom` and :code:`cod`.
+    A bubble is a box with an arrow :code:`arg` inside and an optional pair of
+    objects :code:`dom` and :code:`cod`.
 
     Parameters:
         arg : The arrow inside the bubble.

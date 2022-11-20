@@ -1,5 +1,8 @@
-core
-====
+DisCoPy's API
+=============
+
+Core
+----
 
 .. autosummary::
     :template: module.rst

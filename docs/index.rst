@@ -42,7 +42,7 @@ DisCoPy documentation
     :caption: Reference
     :hidden:
 
-    api/index
+    api
 
 Indices and tables
 ------------------
