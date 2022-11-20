@@ -5,5 +5,3 @@ DisCoPy's API
     :maxdepth: 2
 
     core
-    quantum
-    grammar

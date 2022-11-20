@@ -8,13 +8,14 @@ import json
 
 
 def factory_name(obj):
-    """ Returns a string describing a DisCoPy object. """
-    return '{}.{}'.format(type(obj).__module__, type(obj).__name__)
+    """ Returns a string describing a DisCoPy class. """
+    return "{}.{}".format(
+        type(obj).__module__.removeprefix("discopy."), type(obj).__name__)
 
 
 def from_tree(tree):
     """ Decodes a tree as a DisCoPy object. """
-    package, *modules, factory = tree['factory'].split('.')
+    *modules, factory = tree['factory'].split('.')
     import discopy
     module = discopy
     for attr in modules:

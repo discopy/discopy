@@ -1,15 +1,8 @@
 core
 ====
 
-.. toctree::
-    :maxdepth: 2
+.. autosummary::
+    :template: module.rst
+    :toctree: ../_autosummary
 
-    cat
-    monoidal
-    rigid
-    biclosed
-    hypergraph
-    matrix
-    tensor
-    drawing
-    utils
+    discopy.cat

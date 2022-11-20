@@ -29,7 +29,7 @@ def test_Ob_name():
 
 
 def test_Ob_repr():
-    assert repr(Ob('x')) == "Ob('x')"
+    assert repr(Ob('x')) == "cat.Ob('x')"
 
 
 def test_Ob_str():
@@ -49,23 +49,23 @@ def test_Ob_hash():
 def test_Arrow():
     x, y, z, w = Ob('x'), Ob('y'), Ob('z'), Ob('w')
     f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, w)
-    assert f >> g >> h == Arrow(x, w, [f, g, h])
+    assert f >> g >> h == Arrow((f, g, h), x, w)
 
 
 def test_Arrow_init():
     with raises(TypeError) as err:
-        Arrow('x', Ob('x'), [])
+        Arrow((), 'x', Ob('x'))
     assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
-        Arrow(Ob('x'), 'x', [])
+        Arrow((), Ob('x'), 'x')
     assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
-        Arrow(Ob('x'), Ob('x'), [Ob('x')])
+        Arrow((Ob('x'), ), Ob('x'), Ob('x'))
     assert str(err.value) == messages.type_err(Arrow, Ob('x'))
 
 
 def test_Arrow_len():
-    assert len(Arrow(Ob('x'), Ob('x'), [])) == 0
+    assert len(Arrow((), Ob('x'), Ob('x'))) == 0
 
 
 def test_Arrow_getitem():
@@ -83,37 +83,38 @@ def test_Arrow_getitem():
     assert arrow[:0] == arrow[:-8] == arrow[-9:-9] == Id(arrow.dom)
     for depth, box in enumerate(arrow):
         assert arrow[depth] == box
-        assert arrow[-depth] == arrow.boxes[-depth]
+        assert arrow[-depth] == arrow.inside[-depth]
         assert arrow[depth:depth] == Id(box.dom)
-        assert arrow[depth:] == Id(box.dom).then(*arrow.boxes[depth:])
+        assert arrow[depth:] == Id(box.dom).then(*arrow.inside[depth:])
         assert arrow[:depth] == Id(arrow.dom).then(
-            *arrow.boxes[:depth])
+            *arrow.inside[:depth])
         assert arrow[depth: depth + 2] == Id(box.dom).then(
-            *arrow.boxes[depth: depth + 2])
+            *arrow.inside[depth: depth + 2])
 
 
 def test_Arrow_repr():
-    assert repr(Arrow(Ob('x'), Ob('x'), [])) == "Id(Ob('x'))"
-    assert repr(Arrow(Ob('x'), Ob('y'), [Box('f', Ob('x'), Ob('y'))]))\
-        == "Box('f', Ob('x'), Ob('y'))"
-    assert repr(Arrow(Ob('x'), Ob('z'),
-                [Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))]))\
-        == "Arrow(dom=Ob('x'), cod=Ob('z'), "\
-           "boxes=[Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))])"
+    assert repr(Arrow((), Ob('x'), Ob('x'))) == "cat.Arrow.id(cat.Ob('x'))"
+    assert repr(Arrow((Box('f', Ob('x'), Ob('y')), ), Ob('x'), Ob('y')))\
+        == "cat.Box('f', cat.Ob('x'), cat.Ob('y'))"
+    inside = (Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z')))
+    assert repr(Arrow(inside, Ob('x'), Ob('z')))\
+        == "cat.Arrow(inside=(cat.Box('f', cat.Ob('x'), cat.Ob('y')), "\
+           "cat.Box('g', cat.Ob('y'), cat.Ob('z'))), dom=cat.Ob('x'), "\
+           "cod=cat.Ob('z'))"
 
 
 def test_Arrow_str():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    assert str(Arrow(x, x, []) == "Id(x)")
-    assert str(Arrow(x, y, [f]) == "f")
-    assert str(Arrow(x, z, [f, g])) == "f >> g"
+    assert str(Arrow((), x, x) == "Id(x)")
+    assert str(Arrow((f, ), x, y) == "f")
+    assert str(Arrow((f, g), x, z)) == "f >> g"
 
 
 def test_Arrow_eq():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    assert f >> g == Arrow(x, z, [f, g])
+    assert f >> g == Arrow((f, g), x, z)
 
 
 def test_Arrow_hash():
@@ -132,7 +133,7 @@ def test_Arrow_then():
 def test_Arrow_dagger():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    h = Arrow(x, z, [f, g])
+    h = Arrow((f, g), x, z)
     assert h.dagger() == g.dagger() >> f.dagger()
     assert h.dagger().dagger() == h
 
@@ -144,7 +145,7 @@ def test_Id_init():
 
 
 def test_Id_repr():
-    assert repr(Id(Ob('x'))) == "Id(Ob('x'))"
+    assert repr(Id(Ob('x'))) == "cat.Arrow.id(cat.Ob('x'))"
 
 
 def test_Id_str():
@@ -156,10 +157,10 @@ def test_AxiomError():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     f, g = Box('f', x, y), Box('g', y, z)
     with raises(AxiomError) as err:
-        Arrow(x, y, [g])
+        Arrow((g, ), x, y)
     assert str(err.value) == messages.does_not_compose(Id(x), g)
     with raises(AxiomError) as err:
-        Arrow(x, z, [f])
+        Arrow((f, ), x, z)
     assert str(err.value) == messages.does_not_compose(f, Id(z))
     with raises(AxiomError) as err:
         g >> f
@@ -179,8 +180,9 @@ def test_Box_dagger():
 
 def test_Box_repr():
     f = Box('f', Ob('x'), Ob('y'), data=42)
-    assert repr(f) == "Box('f', Ob('x'), Ob('y'), data=42)"
-    assert repr(f.dagger()) == "Box('f', Ob('x'), Ob('y'), data=42).dagger()"
+    assert repr(f) == "cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42)"
+    assert repr(f.dagger())\
+        == "cat.Box('f', cat.Ob('x'), cat.Ob('y'), data=42).dagger()"
 
 
 def test_Box_str():
@@ -195,7 +197,7 @@ def test_Box_hash():
 
 def test_Box_eq():
     f = Box('f', Ob('x'), Ob('y'), data=[42, {0: 1}])
-    assert f == Arrow(Ob('x'), Ob('y'), [f]) and f != Ob('x')
+    assert f == Arrow((f, ), Ob('x'), Ob('y')) and f != Ob('x')
 
 
 def test_Functor():
@@ -229,31 +231,6 @@ def test_Functor_call():
     assert F(f >> g) == f.dagger() >> f >> g
 
 
-def test_Quiver():
-    x, y, z = Ob('x'), Ob('y'), Ob('z')
-    F = Functor({x: x, y: y, z: z}, Quiver(lambda x: x))
-    f = Box('f', x, y, data=[0, 1])
-    assert F(f) == Box('f', Ob('x'), Ob('y'), data=[0, 1])
-    f.data.append(2)
-    assert F(f) == Box('f', Ob('x'), Ob('y'), data=[0, 1, 2])
-
-
-def test_Quiver_init():
-    ar = Quiver(lambda x: x ** 2)
-    assert ar[3] == 9
-
-
-def test_Quiver_getitem():
-    assert Quiver(lambda x: x * 10)[42] == 420
-    with raises(TypeError) as err:
-        Quiver(lambda x: x * 10)[42] = 421
-    assert "does not support item assignment" in str(err.value)
-
-
-def test_Quiver_repr():
-    assert "Quiver(<function " in repr(Quiver(lambda x: x))
-
-
 def test_total_ordering():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     assert sorted([z, y, x]) == [x, y, z]
@@ -263,7 +240,8 @@ def test_total_ordering():
 
 def test_Bubble():
     f = Box('f', Ob('x'), Ob('y'))
-    assert repr((f).bubble()) == "Bubble(Box('f', Ob('x'), Ob('y')))"
+    assert repr((f).bubble())\
+        == "cat.Bubble(cat.Box('f', cat.Ob('x'), cat.Ob('y')))"
     assert str(f.bubble()) == "(f).bubble()"
 
 
@@ -292,5 +270,28 @@ def test_sum_lambdify():
     assert (f + g).free_symbols == {phi}
     assert (f + g).lambdify(phi)(1) == f.lambdify(phi)(1) + g.lambdify(phi)(1)
 
-    empty_sum = Sum([], Ob('x'), Ob('y'))
+    empty_sum = Sum((), Ob('x'), Ob('y'))
     assert empty_sum.lambdify(phi)(123) == empty_sum
+
+    assert empty_sum.subs(phi, 0) == empty_sum
+
+
+def test_Sum():
+    x, y, z = map(Ob, "xyz")
+    f = Box('f', x, y)
+    g = Box('g', y, z)
+    with raises(ValueError):
+        Sum(())
+    with raises(AxiomError):
+        Sum((), x, y) + Sum((), y, z)
+    with raises(AxiomError):
+        Sum((f, ), y, z)
+    with raises(AxiomError):
+        Sum((f, g))
+    assert hash(Sum((), x, y)) == hash(Sum((), x, y))
+    assert repr(Sum((), x, y))\
+        == "cat.Sum(terms=(), dom=cat.Ob('x'), cod=cat.Ob('y'))"
+    assert list(Sum((f, ), x, y)) == [f]
+    assert len(Sum((), x, y)) == 0
+    assert Sum((), x, x).then(f, g) == Sum((), x, z)
+    assert Sum((), x, y).dagger() == Sum((), y, x)

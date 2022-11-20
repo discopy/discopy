@@ -52,6 +52,11 @@ autosummary_context = {"excluded": ["__init__", "upgrade"]}
 
 autodoc_mock_imports = ["pytket", "pennylane", "torch"]
 
+autodoc_typehints = "description"
+autodoc_typehints_format = "short"
+autodoc_inherit_docstrings = False
+
+napoleon_use_admonition_for_examples = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
