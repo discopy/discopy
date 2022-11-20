@@ -9,6 +9,6 @@ from discopy.quantum.circuit import (
     Functor as CircuitFunctor,
     Discard, MixedState, Measure, Encode, IQPansatz, Sim14ansatz, Sim15ansatz,
     random_tiling, real_amp_ansatz)
-from discopy.quantum.gates import (
-    SWAP, ClassicalGate, QuantumGate, Controlled, Ket, Bra, Bits, Copy, Match,
-    Rx, Ry, Rz, CU1, CRz, CRx, CZ, CX, X, Y, Z, H, S, T, scalar, sqrt, rewire)
+# from discopy.quantum.gates import (
+#     SWAP, ClassicalGate, QuantumGate, Controlled, Ket, Bra, Bits, Copy, Match,
+#     Rx, Ry, Rz, CU1, CRz, CRx, CZ, CX, X, Y, Z, H, S, T, scalar, sqrt, rewire)

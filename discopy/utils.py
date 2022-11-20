@@ -2,9 +2,11 @@
 
 """ DisCoPy utility functions. """
 
+import json
+
 from collections.abc import Mapping, Iterable
 
-import json
+from discopy import messages
 
 
 def factory_name(obj):
@@ -101,3 +103,22 @@ def load_corpus(url):
         diagrams = loads(f.read())
 
     return diagrams
+
+
+def assert_isinstance(object, cls):
+    if not isinstance(object, cls):
+        raise TypeError(messages.type_err(cls, object))
+
+
+class BinaryBoxConstructor:
+    """ Box constructor with left and right as input. """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def to_tree(self):
+        left, right = self.left.to_tree(), self.right.to_tree()
+        return dict(Box.to_tree(self), left=left, right=right)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, (tree['left'], tree['right'])))

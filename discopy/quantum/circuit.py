@@ -48,7 +48,7 @@ from itertools import takewhile, chain
 from collections.abc import Mapping
 
 from discopy import messages, monoidal, rigid, tensor
-from discopy.cat import AxiomError
+from discopy.cat import AxiomError, factory
 from discopy.rigid import Diagram
 from discopy.tensor import Dim, Tensor
 from math import pi
@@ -170,7 +170,7 @@ class Ty(rigid.Ty):
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 
 
-@monoidal.Diagram.subclass
+@factory
 class Circuit(tensor.Diagram):
     """ Classical-quantum circuits. """
     def __repr__(self):

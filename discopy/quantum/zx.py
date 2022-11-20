@@ -3,16 +3,17 @@
 """ Implements ZX diagrams. """
 
 from discopy import messages, cat, monoidal, rigid, quantum, tensor
+from discopy.cat import factory
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
-from discopy.quantum.gates import (
-    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
+# from discopy.quantum.gates import (
+#     Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
 from math import pi
 
 
-@monoidal.Diagram.subclass
+@factory
 class Diagram(tensor.Diagram):
     """ ZX Diagram. """
     def __repr__(self):
@@ -255,7 +256,8 @@ class Swap(rigid.Swap, Box):
     __str__ = __repr__
 
 
-SWAP = Swap(PRO(1), PRO(1))
+# TODO : fix symmetric
+# SWAP = Swap(PRO(1), PRO(1))
 
 
 class Spider(Box):
@@ -372,7 +374,8 @@ class Had(Box):
         return self
 
 
-H = Had()
+# TODO
+# H = Had()
 
 
 class Scalar(Box):
@@ -441,9 +444,10 @@ def gate2zx(box):
     return standard_gates[box]
 
 
-circuit2zx = Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
-    ob_factory=PRO, ar_factory=Diagram)
+# TODO
+# circuit2zx = Functor(
+#     ob={qubit: PRO(1)}, ar=gate2zx,
+#     ob_factory=PRO, ar_factory=Diagram)
 
 
 def decomp_ar(box):
@@ -465,4 +469,5 @@ def decomp_ar(box):
     return box
 
 
-decomp = Functor(ob=lambda x: x, ar=decomp_ar)
+# TODO
+# decomp = Functor(ob=lambda x: x, ar=decomp_ar)

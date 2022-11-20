@@ -38,6 +38,7 @@ from math import factorial
 import numpy as np
 
 from discopy import cat, messages, monoidal
+from discopy.cat import factory
 from discopy.matrix import Matrix
 from discopy.monoidal import PRO
 from discopy.quantum.gates import format_number
@@ -86,7 +87,7 @@ def npperm(M):
     return p / 2 ** (n - 1)
 
 
-@monoidal.Diagram.subclass
+@factory
 class Diagram(monoidal.Diagram):
     """
     Linear optical network seen as a diagram of beam splitters, phase shifters
@@ -545,21 +546,22 @@ class Endo(PathBox):
         return Matrix(self.dom, self.cod, [self.scalar])
 
 
-#: Alias for :py:class:`Monoid() <discopy.quantum.optics.Monoid>`.
-monoid = Monoid()
-#: Alias for :py:class:`Monoid() <discopy.quantum.optics.Comonoid>`.
-comonoid = Comonoid()
-#: Alias for :py:class:`Unit() <discopy.quantum.optics.Unit>`.
-unit = Unit()
-#: Alias for :py:class:`Counit() <discopy.quantum.optics.Counit>`.
-counit = Counit()
-#: Alias for :py:class:`Create() <discopy.quantum.optics.Create>`.
-create = Create()
-#: Alias for :py:class:`Annil() <discopy.quantum.optics.Annil>`.
-annil = Annil()
+# TODO : fix optics.Diagram
+# #: Alias for :py:class:`Monoid() <discopy.quantum.optics.Monoid>`.
+# monoid = Monoid()
+# #: Alias for :py:class:`Monoid() <discopy.quantum.optics.Comonoid>`.
+# comonoid = Comonoid()
+# #: Alias for :py:class:`Unit() <discopy.quantum.optics.Unit>`.
+# unit = Unit()
+# #: Alias for :py:class:`Counit() <discopy.quantum.optics.Counit>`.
+# counit = Counit()
+# #: Alias for :py:class:`Create() <discopy.quantum.optics.Create>`.
+# create = Create()
+# #: Alias for :py:class:`Annil() <discopy.quantum.optics.Annil>`.
+# annil = Annil()
 
 
-class Id(monoidal.Id, Diagram):
+class Id(Diagram):
     """
     Identity for :py:class:`.optics.Diagram`.
     """
@@ -826,8 +828,9 @@ def ansatz(width, depth, x):
     return chip
 
 
-#: Alias for :py:class:`BBS(0) <discopy.quantum.optics.BBS>`.
-BS = BBS(0)
+# TODO : fix optics.Diagram
+# #: Alias for :py:class:`BBS(0) <discopy.quantum.optics.BBS>`.
+# BS = BBS(0)
 
 
 def to_matrix(diagram):
@@ -864,7 +867,8 @@ def ar_optics2path(box):
     raise NotImplementedError
 
 
-optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
+# TODO : fix optics.Diagram
+# optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
 
 
 def ar_zx2path(box):
@@ -913,7 +917,8 @@ def ar_zx2path(box):
     raise NotImplementedError(f'No translation of {box} in QPath.')
 
 
-zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
+# TODO : fix optics.Diagram
+# zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
 
 
 def swap_right(diagram, i):
@@ -1021,4 +1026,5 @@ def ar_make_square(box):
     return box
 
 
-make_square = Functor(ob=lambda x: x, ar=ar_make_square)
+# TODO
+# make_square = Functor(ob=lambda x: x, ar=ar_make_square)

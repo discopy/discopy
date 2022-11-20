@@ -872,8 +872,8 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
     def height(diagram):
         if hasattr(diagram, "terms"):  # i.e. if isinstance(diagram, Sum)
             return max(height(d) for d in diagram.terms)
-        if hasattr(diagram, "inside"):  # i.e. if isinstance(diagram, Bubble)
-            return height(diagram.inside) + 2
+        if hasattr(diagram, "arg"):  # i.e. if isinstance(diagram, Bubble)
+            return height(diagram.arg) + 2
         if len(diagram) > 1:
             return sum(height(d) for d in diagram.boxes)
         return 1

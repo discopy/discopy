@@ -595,17 +595,17 @@ class Sqrt(Scalar):
         return Tensor.np.array(self.data ** .5)
 
 
-SWAP = Swap(qubit, qubit)
-H = QuantumGate(
-    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
-    _dagger=None, _conjugate=None)
-S = QuantumGate('S', 1, [1, 0, 0, 1j])
-T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
-X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
-Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
-Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
-CX = Controlled(X)
-CZ = Controlled(Z)
+# SWAP = Swap(qubit, qubit)  # TODO: fix swaps
+# H = QuantumGate(
+#     'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
+#     _dagger=None, _conjugate=None)
+# S = QuantumGate('S', 1, [1, 0, 0, 1j])
+# T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
+# X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
+# Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
+# Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
+# CX = Controlled(X)
+# CZ = Controlled(Z)
 
 
 def CRz(phase):
@@ -618,7 +618,7 @@ def CRx(phase):
     return Controlled(Rx(phase))
 
 
-GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
+# GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 
 
 def rewire(op, a: int, b: int, *, dom=None):

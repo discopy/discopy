@@ -20,8 +20,9 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
     :align: center
 """
 
-from discopy import cat, monoidal, messages, rewriting
-from discopy.cat import AxiomError
+from discopy import cat, monoidal, symmetric, messages, rewriting
+from discopy.cat import AxiomError, factory
+from discopy.utils import BinaryBoxConstructor
 
 
 class Ob(cat.Ob):
@@ -159,7 +160,7 @@ class Layer(monoidal.Layer):
         return Layer(self._right.r, self._box.r, self._left.r)
 
 
-@monoidal.Diagram.subclass
+@factory
 class Diagram(monoidal.Diagram):
     """ Implements diagrams in the free rigid monoidal category.
 
@@ -361,7 +362,6 @@ class Diagram(monoidal.Diagram):
             normalizer=normalizer or Diagram.normalize, **params)
 
     normalize = rewriting.snake_removal
-    layer_factory = Layer
 
     def cup(self, x, y):
         if min(x, y) < 0 or max(x, y) >= len(self.cod):
@@ -381,7 +381,7 @@ Sum.l = property(cat.Sum.fmap(lambda d: d.l))
 Sum.r = property(cat.Sum.fmap(lambda d: d.r))
 
 
-class Id(monoidal.Id, Diagram):
+class Id(Diagram):
     """ Define an identity arrow in a free rigid category
 
     >>> t = Ty('a', 'b', 'c')
@@ -448,14 +448,14 @@ class Box(monoidal.Box, Diagram):
             data=self.data, _dagger=self._dagger, _z=self._z + 1)
 
 
-class Swap(monoidal.Swap, Box):
+class Swap(symmetric.Swap, Box):
     """ Implements swaps of basic types in a rigid category. """
     def __init__(self, left, right):
-        monoidal.Swap.__init__(self, left, right)
+        symmetric.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
 
 
-class Cup(monoidal.BinaryBoxConstructor, Box):
+class Cup(BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -477,7 +477,7 @@ class Cup(monoidal.BinaryBoxConstructor, Box):
             raise ValueError(messages.cup_vs_cups(left, right))
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryBoxConstructor.__init__(self, left, right)
+        BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(
             self, "Cup({}, {})".format(left, right), left @ right, Ty())
         self.draw_as_wires = True
@@ -497,7 +497,7 @@ class Cup(monoidal.BinaryBoxConstructor, Box):
         return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
 
-class Cap(monoidal.BinaryBoxConstructor, Box):
+class Cap(BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
 
     >>> n = Ty('n')
@@ -519,7 +519,7 @@ class Cap(monoidal.BinaryBoxConstructor, Box):
             raise ValueError(messages.cap_vs_caps(left, right))
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryBoxConstructor.__init__(self, left, right)
+        BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(
             self, "Cap({}, {})".format(left, right), Ty(), left @ right)
         self.draw_as_wires = True

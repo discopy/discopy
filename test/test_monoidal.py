@@ -44,8 +44,6 @@ def test_PRO_init():
     assert list(PRO(0)) == []
     assert PRO(PRO(2)) == PRO(2)
     assert all(len(PRO(n)) == n for n in range(5))
-    with raises(TypeError):
-        PRO.upgrade(Ty('x'))
 
 
 def test_PRO_tensor():
@@ -68,35 +66,18 @@ def test_PRO_getitem():
     assert all(PRO(42)[i].name == 1 for i in range(42))
 
 
-def test_Layer_getitem():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f = Box('f', y, z)
-    layer = Layer(x, f, z)
-    assert layer[::-1] == Layer(x, f[::-1], z)
-    assert layer[0] == layer
-
-
 def test_Diagram_init():
     with raises(TypeError) as err:
-        Diagram('x', Ty('x'), [], [])
-    assert str(err.value) == messages.type_err(Ty, 'x')
+        Diagram((), 'x', Ty('x'))
     with raises(TypeError) as err:
-        Diagram(Ty('x'), 'x', [], [])
-    assert str(err.value) == messages.type_err(Ty, 'x')
-    with raises(ValueError) as err:
-        Diagram(Ty('x'), Ty('x'), [], [1])
-    assert "Boxes and offsets must have the same length." in str(err.value)
+        Diagram((), Ty('x'), 'x')
     with raises(TypeError) as err:
-        Diagram(Ty('x'), Ty('x'), [1], [1])
-    assert str(err.value) == messages.type_err(Diagram, 1)
-    with raises(TypeError) as err:
-        Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [Ty('x')])
-    assert str(err.value) == messages.type_err(int, Ty('x'))
+        Diagram((1, ), Ty('x'), Ty('x'))
 
 
 def test_Diagram_eq():
-    assert Diagram(Ty('x'), Ty('x'), [], []) != Ty('x')
-    assert Diagram(Ty('x'), Ty('x'), [], []) == Id(Ty('x'))
+    assert Diagram((), Ty('x'), Ty('x')) != Ty('x')
+    assert Diagram((), Ty('x'), Ty('x')) == Id(Ty('x'))
 
 
 def test_Diagram_iter():
@@ -105,7 +86,8 @@ def test_Diagram_iter():
     g0 = Box('g', y @ y, x)
     g1 = g0.dagger()
     d = (f0 >> f1) @ Id(y @ x) >> g0 @ g1 >> f0 @ g0
-    assert Id(x @ y @ x).then(*(layer for layer in d)) == d
+    assert Id(x @ y @ x).then(*(left @ box @ right for left, box, right in d))\
+        == d
 
 
 def test_Diagram_getitem():
@@ -121,55 +103,33 @@ def test_Diagram_getitem():
     assert diagram[::-1] == diagram.dagger()
     with raises(TypeError):
         diagram["Alice"]
-    for depth, (left, box, right) in enumerate(diagram.layers):
+    for depth, (left, box, right) in enumerate(diagram.inside):
         layer = Id(left) @ box @ Id(right)
         assert diagram[depth] == layer
         assert (diagram[-depth], ) == tuple(
             Id(left) @ box @ Id(right)
-            for left, box, right in (diagram.layers[-depth], ))
+            for left, box, right in (diagram.inside[-depth], ))
         assert diagram[depth:depth] == Id(layer.dom)
         assert diagram[depth:] == Id(layer.dom).then(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram.layers[depth:]))
+            for left, box, right in diagram.inside[depth:]))
         assert diagram[:depth] == Id(diagram.dom).then(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram.layers[:depth]))
+            for left, box, right in diagram.inside[:depth]))
         assert diagram[depth: depth + 2] == Id(layer.dom).then(*(
             Id(left) @ box @ Id(right)
-            for left, box, right in diagram.layers[depth: depth + 2]))
-
-
-def test_Diagram_permutation():
-    x = PRO(1)
-    assert Diagram.swap(x, x ** 2)\
-        == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
-        == Diagram.permutation([2, 0, 1], inverse=True)
-    assert Diagram.swap(x, x ** 2)\
-        == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
-        == Diagram.permutation([2, 0, 1]).dagger()
-    with raises(ValueError):
-        Diagram.permutation([2, 0])
-    with raises(ValueError):
-        Diagram.permutation([2, 0, 1], x ** 2)
-
-
-def test_Diagram_tensor():
-    with raises(TypeError) as err:
-        Id(Ty('x')) @ Ty('x')
-    assert str(err.value) == messages.type_err(Diagram, Ty('x'))
+            for left, box, right in diagram.inside[depth: depth + 2]))
 
 
 def test_Diagram_offsets():
-    assert Diagram(Ty('x'), Ty('x'), [], []).offsets == []
+    assert Diagram((), Ty('x'), Ty('x')).offsets == ()
 
 
 def test_Diagram_repr():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    assert repr(Diagram(x, x, [], [])) == "Id(Ty('x'))"
+    assert repr(Diagram((), x, x)) == "monoidal.Diagram.id(Ty('x'))"
     f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    assert repr(Diagram(x, y, [f0], [0])) == "Box('f0', Ty('x'), Ty('y'))"
-    assert "Diagram(dom=Ty('x', 'z'), cod=Ty('y', 'w')" in repr(f0 @ f1)
-    assert "offsets=[0, 1]" in repr(f0 @ f1)
+    assert "dom=Ty('x', 'z'), cod=Ty('y', 'w')" in repr(f0 @ f1)
 
 
 def test_Diagram_hash():
@@ -178,9 +138,9 @@ def test_Diagram_hash():
 
 def test_Diagram_str():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    assert str(Diagram(x, x, [], [])) == "Id(x)"
+    assert str(Diagram((), x, x)) == "Id(x)"
     f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    assert str(Diagram(x, y, [f0], [0])) == "f0"
+    assert str(Diagram((Layer.cast(f0), ), x, y)) == "f0"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ Id(z) >> Id(y) @ f1"
     assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ Id(z) >> Id(y) @ f1"
 
@@ -234,10 +194,11 @@ def test_Diagram_normal_form():
 
 
 def test_AxiomError():
+    inside = (Layer.cast(Box('f', Ty('x'), Ty('y'))), )
     with raises(AxiomError) as err:
-        Diagram(Ty('x'), Ty('x'), [Box('f', Ty('x'), Ty('y'))], [0])
+        Diagram(inside, Ty('x'), Ty('x'))
     with raises(AxiomError) as err:
-        Diagram(Ty('y'), Ty('y'), [Box('f', Ty('x'), Ty('y'))], [0])
+        Diagram(inside, Ty('y'), Ty('y'))
 
 
 def test_InterchangerError():
@@ -276,7 +237,7 @@ def test_Id_init():
 
 
 def test_Id_repr():
-    assert repr(Id(Ty('x'))) == "Id(Ty('x'))"
+    assert repr(Id(Ty('x'))) == "monoidal.Diagram.id(Ty('x'))"
 
 
 def test_Id_str():
@@ -295,15 +256,7 @@ def test_Box_hash():
 
 def test_Box_eq():
     f = Box('f', Ty('x', 'y'), Ty('z'), data=42)
-    assert f == Diagram(Ty('x', 'y'), Ty('z'), [f], [0]) and f != 'f'
-
-
-def test_Swap():
-    x, y = Ty('x'), Ty('y')
-    assert repr(Swap(x, y)) == "Swap(Ty('x'), Ty('y'))"
-    assert Swap(x, y).dagger() == Swap(y, x)
-    with raises(ValueError):
-        Swap(x ** 2, Ty())
+    assert f == Diagram((Layer.cast(f), ), Ty('x', 'y'), Ty('z')) and f != 'f'
 
 
 def test_Functor_init():
@@ -327,7 +280,6 @@ def test_Functor_call():
     assert F(f @ f.dagger()) == f.dagger() @ Id(x) >> Id(x) @ f
     with raises(TypeError) as err:
         F(F)
-    assert str(err.value) == messages.type_err(Diagram, F)
 
 
 def test_Functor_sum():
@@ -341,21 +293,12 @@ def test_Sum():
     x = Ty('x')
     f = Box('f', x, x)
     with raises(ValueError):
-        Sum([])
+        Sum(())
     with raises(AxiomError):
-        Sum([f], dom=Ty())
+        Sum((f, ), dom=Ty())
     with raises(AxiomError):
         f + Box('g', Ty(), x)
-    with raises(TypeError):
-        Sum.upgrade(f)
-    assert Sum([f]) != f
+    assert Sum([f]) == f
     assert {Sum([f]): 42}[Sum([f])] == 42
     assert Id(x).then(*(3 * (f + f, ))) == sum(8 * [f >> f >> f])
     assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])
-
-
-def test_bad_permute():
-    with raises(IndexError):
-        Id(Ty('n')).permute(1)
-    with raises(ValueError):
-        Id(Ty('n')).permute(0, 0)

@@ -15,7 +15,7 @@ from contextlib import contextmanager
 import numpy
 
 from discopy import cat, config, messages, monoidal, rigid
-from discopy.cat import AxiomError
+from discopy.cat import AxiomError, factory
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
@@ -488,7 +488,7 @@ class Functor(rigid.Functor):
         return Tensor(self(diagram.dom), self(diagram.cod), array)
 
 
-@monoidal.Diagram.subclass
+@factory
 class Diagram(rigid.Diagram):
     """
     Diagram with Tensor boxes.

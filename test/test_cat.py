@@ -94,8 +94,6 @@ def test_Arrow_getitem():
 
 def test_Arrow_repr():
     assert repr(Arrow((), Ob('x'), Ob('x'))) == "cat.Arrow.id(cat.Ob('x'))"
-    assert repr(Arrow((Box('f', Ob('x'), Ob('y')), ), Ob('x'), Ob('y')))\
-        == "cat.Box('f', cat.Ob('x'), cat.Ob('y'))"
     inside = (Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z')))
     assert repr(Arrow(inside, Ob('x'), Ob('z')))\
         == "cat.Arrow(inside=(cat.Box('f', cat.Ob('x'), cat.Ob('y')), "\
@@ -223,7 +221,6 @@ def test_Functor_call():
     F = Functor({x: y, y: x, z: z}, {f: f.dagger(), g: f >> g})
     with raises(TypeError) as err:
         F(F)
-    assert str(err.value) == messages.type_err(Arrow, F)
     assert F(x) == y
     assert F(f) == f.dagger()
     assert F(f.dagger()) == f

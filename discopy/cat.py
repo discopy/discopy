@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Free dagger categories enriched in monoids and with unary operators on homsets.
+The free category
+(enriched in monoids, unary operators and :code:`sympy` symbols).
 
 Classes
 -------
@@ -12,13 +13,14 @@ Classes
     :toctree: ../_autosummary
 
     Ob
-    Composable
     Arrow
     Box
+    Id
     Sum
     Bubble
     Category
     Functor
+    Composable
     AxiomError
 
 Functions
@@ -73,11 +75,18 @@ Functors are bubble-preserving.
 """
 
 from __future__ import annotations
+
 from functools import total_ordering, cached_property
 from collections.abc import Callable, Mapping, Iterable
 
 from discopy import messages
-from discopy.utils import (factory_name, from_tree, rsubs, rmap)
+from discopy.utils import (
+    factory_name,
+    from_tree,
+    rsubs,
+    rmap,
+    assert_isinstance,
+)
 
 
 @total_ordering
@@ -128,9 +137,12 @@ class Ob:
         return cls(tree['name'])
 
 
-def factory(cls):
+def factory(cls: type) -> type:
     """
     Allows composition and identity of a subclass to remain in the subclass.
+
+    Parameters:
+        cls : Some subclass of :class:`Arrow`.
 
     Example
     -------
@@ -144,13 +156,32 @@ def factory(cls):
     >>> assert isinstance(X >> X, Circuit)
     >>> assert isinstance(Circuit.id(qubit), Circuit)
     """
-    cls._factory = cls
+    cls.factory = cls
     return cls
 
 
-
 class Composable:
-    """ Syntactic sugar for :code:`>>` and :code:`<<`. """
+    """
+    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
+    for forward and backward composition with some method :code:`then`.
+
+    Example
+    -------
+    >>> class List(list, Composable):
+    ...     def then(self, other):
+    ...         return self + other
+    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
+    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
+    """
+    def then(self, other: Composable) -> Composable:
+        """
+        Sequential composition, to be instantiated.
+
+        Parameters:
+            other : The other arrow to compose sequentially.
+        """
+        raise NotImplementedError
+
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
@@ -179,7 +210,6 @@ class Arrow(Composable):
 
     Tip
     ---
-
     For code clarity, it is recommended not to initialise arrows directly and
     use :meth:`Arrow.id` and :meth:`Arrow.then` instead. For example:
 
@@ -189,23 +219,21 @@ class Arrow(Composable):
     >>> arrow_ = Arrow((f, g), x, z)    # ...rather than that!
     >>> assert arrow == arrow_
 
-    Note
-    ----
-    Arrows can be sliced like ordinary Python lists. For example:
+    Tip
+    ---
+    Arrows can be indexed and sliced like ordinary Python lists. For example:
 
-    >>> assert (f >> g)[:1] == f and (f >> g)[1:] == g
-    >>> assert f[:0] == Arrow.id(f.dom) and f[1:] == Arrow.id(f.cod)
+    >>> assert (f >> g)[0] == f and (f >> g)[1] == g
+    >>> assert f[:0] == Arrow.id(f.dom)
+    >>> assert f[1:] == Arrow.id(f.cod)
     """
     def __init__(self, inside: tuple[Arrow], dom: Ob, cod: Ob, _scan=True):
-        if not isinstance(dom, Ob):
-            raise TypeError(messages.type_err(Ob, dom))
-        if not isinstance(cod, Ob):
-            raise TypeError(messages.type_err(Ob, cod))
+        assert_isinstance(dom, Ob)
+        assert_isinstance(cod, Ob)
         if _scan:
             scan = dom
             for depth, box in enumerate(inside):
-                if not isinstance(box, Arrow):
-                    raise TypeError(messages.type_err(Arrow, box))
+                assert_isinstance(box, Arrow)
                 if box.dom != scan:
                     raise AxiomError(messages.does_not_compose(
                         inside[depth - 1] if depth else Id(dom), box))
@@ -223,7 +251,7 @@ class Arrow(Composable):
         if isinstance(key, slice):
             if key.step == -1:
                 inside = tuple(box[::-1] for box in self.inside[key])
-                return self._factory(inside, self.cod, self.dom, _scan=False)
+                return self.factory(inside, self.cod, self.dom, _scan=False)
             if (key.step or 1) != 1:
                 raise IndexError
             inside = self.inside[key]
@@ -233,9 +261,15 @@ class Arrow(Composable):
                 if (key.start or 0) <= -len(self):
                     return self.id(self.dom)
                 return self.id(self.inside[key.start or 0].dom)
-            return self._factory(
+            return self.factory(
                 inside, inside[0].dom, inside[-1].cod, _scan=False)
-        return self.inside[key]
+        if isinstance(key, int):
+            if key < 0:
+                return self[len(self) + key]
+            if key >= len(self):
+                raise IndexError
+            return self[key:key + 1]
+        raise TypeError
 
     def __len__(self):
         return len(self.inside)
@@ -243,8 +277,6 @@ class Arrow(Composable):
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
             return "{}.id({})".format(factory_name(self), repr(self.dom))
-        if len(self.inside) == 1:  # i.e. self is a box.
-            return repr(self.inside[0])
         return "{}(inside={}, dom={}, cod={})".format(
             factory_name(self),
             repr(self.inside), repr(self.dom), repr(self.cod))
@@ -263,6 +295,9 @@ class Arrow(Composable):
     def __add__(self, other):
         return self.sum((self, )) + other
 
+    def __radd__(self, other):
+        return self if other == 0 else NotImplemented
+
     @classmethod
     def id(cls, dom: Ob) -> Arrow:
         """
@@ -271,12 +306,11 @@ class Arrow(Composable):
         Parameters:
             dom : The domain (and codomain) of the identity.
         """
-        return cls._factory((), dom, dom, _scan=False)
+        return cls.factory((), dom, dom, _scan=False)
 
     def then(self, *others: Arrow) -> Arrow:
         """
-        Sequential composition,
-        called with the binary operators :code:`>>` and :code:`<<`.
+        Sequential composition, called with :code:`>>` and :code:`<<`.
 
         Parameters:
             others : The other arrows to compose.
@@ -289,13 +323,12 @@ class Arrow(Composable):
         if len(others) > 1:
             return self.then(others[0]).then(*others[1:])
         other, = others
-        if isinstance(other, Sum):
+        if isinstance(other, self.sum):
             return self.sum((self, )).then(other)
-        if not isinstance(other, Arrow):
-            raise TypeError(messages.type_err(Arrow, other))
+        assert_isinstance(other, self.factory)
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        return self._factory(
+        return self.factory(
             self.inside + other.inside, self.dom, other.cod, _scan=False)
 
     def dagger(self) -> Arrow:
@@ -326,8 +359,8 @@ class Arrow(Composable):
             var (sympy.Symbol) : The subtituted variable.
             expr (sympy.Expr) : The substituting expression.
 
-        Note
-        ----
+        Tip
+        ---
         You can give a list of :code:`(var, expr)` for multiple substitution.
 
         Example
@@ -479,9 +512,7 @@ class Box(Arrow):
             attributes = ['name', 'dom', 'cod', 'data', 'is_dagger']
             return all(
                 getattr(self, x) == getattr(other, x) for x in attributes)
-        if isinstance(other, Arrow):
-            return len(other) == 1 and other[0] == self
-        return False
+        return isinstance(other, Arrow) and other.inside == (self, )
 
     def __lt__(self, other):
         return self.name < other.name
@@ -578,9 +609,6 @@ class Sum(Box):
         other = other if isinstance(other, Sum) else self.sum((other, ))
         return self.sum(self.terms + other.terms, self.dom, self.cod)
 
-    def __radd__(self, other):
-        return self if other == 0 else NotImplemented
-
     def __iter__(self):
         for arrow in self.terms:
             yield arrow
@@ -635,44 +663,48 @@ class Sum(Box):
 
 class Bubble(Box):
     """
-    A unary operator on homsets, i.e. a box with an arrow :code:`other`
+    A unary operator on homsets, i.e. a box with an arrow :code:`arg`
     inside and an optional pair of objects :code:`dom` and :code:`cod`.
 
     Parameters:
-        other : The arrow inside the bubble.
+        arg : The arrow inside the bubble.
         dom : The domain of the bubble, default is that of :code:`other`.
         cod : The codomain of the bubble, default is that of :code:`other`.
     """
-    def __init__(self, other: Arrow, dom: Ob = None, cod: Ob = None):
-        dom = other.dom if dom is None else dom
-        cod = other.cod if cod is None else cod
-        self.other = other
+    def __init__(self, arg: Arrow, dom: Ob = None, cod: Ob = None):
+        dom = arg.dom if dom is None else dom
+        cod = arg.cod if cod is None else cod
+        self.arg = arg
         Box.__init__(self, "Bubble", dom, cod)
+
+    @property
+    def is_id_on_objects(self):
+        """ Whether the bubble is identity on objects. """
+        return (self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
     def __str__(self):
         return "({}).bubble({})".format(
-            self.other,
-            "" if (self.dom, self.cod) == (self.other.dom, self.other.cod)
+            self.arg, "" if self.is_id_on_objects
             else "dom={}, cod={}".format(self.dom, self.cod))
 
     def __repr__(self):
-        return "{}({}{})".format(
-            factory_name(self), repr(self.other),
-            "" if (self.dom, self.cod) == (self.other.dom, self.other.cod)
-            else ", dom={}, cod={})".format(repr(self.dom), repr(self.cod)))
+        return factory_name(self) + "({})".format(
+            repr(self.arg) if self.is_id_on_objects
+            else "{}, dom={}, cod={})".format(*map(repr, [
+                self.arg, self.dom, self.cod])))
 
     def to_tree(self):
         return {
             'factory': factory_name(self),
-            'other': self.other.to_tree(),
+            'arg': self.arg.to_tree(),
             'dom': self.dom.to_tree(),
             'cod': self.cod.to_tree()}
 
     @classmethod
     def from_tree(cls, tree):
-        dom, cod, other = map(from_tree, (
-            tree['dom'], tree['cod'], tree['other']))
-        return cls(dom=dom, cod=cod, other=other)
+        dom, cod, arg = map(from_tree, (
+            tree['dom'], tree['cod'], tree['arg']))
+        return cls(arg=arg, dom=dom, cod=cod)
 
 
 Arrow.sum = Sum
@@ -688,8 +720,10 @@ class Category:
         ob : The objects of the category, default is :class:`Ob`.
         ar : The arrows of the category, default is :class:`Arrow`.
     """
+    ob, ar = Ob, Arrow
+
     def __init__(self, ob: type = None, ar: type = None):
-        self.ob, self.ar = (ob or Ob), (ar or Arrow)
+        self.ob, self.ar = (ob or type(self).ob), (ar or type(self).ar)
 
 
 class Functor:
@@ -710,8 +744,8 @@ class Functor:
     >>> F = Functor(ob, ar)
     >>> assert F(x) == y and F(f) == g
 
-    Note
-    ----
+    Tip
+    ---
     Both :code:`ob` and :code:`ar` can be a function rather than a dictionary.
     In conjunction with :attr:`Box.data`, this can be used to create a
     :class:`Functor` from a free category with infinitely many generators.
@@ -756,9 +790,9 @@ class Functor:
     def __call__(self, arrow):
         if isinstance(arrow, Sum):
             return self.cod.ar.sum(
-                list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
+                tuple(map(self, arrow)), self(arrow.dom), self(arrow.cod))
         if isinstance(arrow, Bubble):
-            return self(arrow.other).bubble(
+            return self(arrow.arg).bubble(
                 dom=self(arrow.dom), cod=self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
@@ -768,4 +802,4 @@ class Functor:
             return self.ar[arrow]
         if isinstance(arrow, Arrow):
             return self.cod.ar.id(self(arrow.dom)).then(*map(self, arrow))
-        raise TypeError(messages.type_err(Arrow, arrow))
+        raise TypeError

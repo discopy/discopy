@@ -5,7 +5,7 @@ Implements the free biclosed monoidal category.
 """
 
 from discopy import messages, monoidal, rigid
-from discopy.cat import AxiomError
+from discopy.cat import AxiomError, factory
 from discopy.monoidal import BinaryBoxConstructor
 from discopy.utils import factory_name, from_tree
 
@@ -100,7 +100,7 @@ class Under(BinaryTyConstructor, Ty):
         return hash(repr(self))
 
 
-@monoidal.Diagram.subclass
+@factory
 class Diagram(monoidal.Diagram):
     """ Diagrams in a biclosed monoidal category. """
     @staticmethod

@@ -51,31 +51,27 @@ def interchange(self, i, j, left=False):
     if j < i:
         i, j = j, i
     off0, off1 = self.offsets[i], self.offsets[j]
-    left0, box0, right0 = self.layers[i]
-    left1, box1, right1 = self.layers[j]
+    left0, box0, right0 = self.inside[i]
+    left1, box1, right1 = self.inside[j]
     # By default, we check if box0 is to the right first, then to the left.
     if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
         off1 = off1 - len(box0.cod) + len(box0.dom)
         middle = left1[len(left0 @ box0.cod):]
-        layer0 = self.layer_factory(left0, box0, middle @ box1.cod @ right1)
-        layer1 = self.layer_factory(left0 @ box0.dom @ middle, box1, right1)
+        layer0 = left0 @ box0 @ middle @ box1.cod @ right1
+        layer1 = left0 @ box0.dom @ middle @ box1 @ right1
     elif off0 >= off1 + len(box1.dom):  # box0 right of box1
         off0 = off0 - len(box1.dom) + len(box1.cod)
         middle = left0[len(left1 @ box1.dom):]
-        layer0 = self.layer_factory(left1 @ box1.cod @ middle, box0, right0)
-        layer1 = self.layer_factory(left1, box1, middle @ box0.dom @ right0)
+        layer0 = left1 @ box1.cod @ middle @ box0 @ right0
+        layer1 = left1 @ box1 @ middle @ box0.dom @ right0
     elif off1 >= off0 + len(box0.cod):  # box0 left of box1
         off1 = off1 - len(box0.cod) + len(box0.dom)
         middle = left1[len(left0 @ box0.cod):]
-        layer0 = self.layer_factory(left0, box0, middle @ box1.cod @ right1)
-        layer1 = self.layer_factory(left0 @ box0.dom @ middle, box1, right1)
+        layer0 = left0 @ box0 @ middle @ box1.cod @ right1
+        layer1 = left0 @ box0.dom @ middle @ box1 @ right1
     else:
         raise InterchangerError(box0, box1)
-    boxes = self.boxes[:i] + [box1, box0] + self.boxes[i + 2:]
-    offsets = self.offsets[:i] + [off1, off0] + self.offsets[i + 2:]
-    layers = self.layers[:i] >> layer1 >> layer0 >> self.layers[i + 2:]
-    return self.upgrade(
-        Diagram(self.dom, self.cod, boxes, offsets, layers=layers))
+    return self[:i] >> layer1 >> layer0 >> self[i + 2:]
 
 
 class InterchangerError(cat.AxiomError):
@@ -316,20 +312,6 @@ def depth(self):
     return len(slices)
 
 
-def width(self):
-    """
-    Computes the width of a diagram,
-    i.e. the maximum number of parallel wires.
-
-    >>> from discopy.monoidal import *
-    >>> x = Ty('x')
-    >>> f = Box('f', x, x ** 4)
-    >>> assert (f @ Id(x ** 2) >> Id(x ** 2) @ f.dagger()).width() == 6
-    """
-    return max(len(self.dom), max(
-        len(left @ box.cod @ right) for left, box, right in self.layers))
-
-
 def snake_removal(self, left=False):
     """
     Return a generator which yields normalization steps.
@@ -426,10 +408,8 @@ def snake_removal(self, left=False):
                 diagram = diagram.interchange(box, cap)
                 yield diagram
                 cap += 1
-        boxes = diagram.boxes[:cap] + diagram.boxes[cup + 1:]
-        offsets = diagram.offsets[:cap] + diagram.offsets[cup + 1:]
-        layers = diagram.layers[:cap] >> diagram.layers[cup + 1:]
-        yield Diagram(diagram.dom, diagram.cod, boxes, offsets, layers)
+        inside = diagram.inside[:cap] >> diagram.inside[cup + 1:]
+        yield diagram.factory(inside, diagram.dom, diagram.cod)
 
     diagram = self
     while True:

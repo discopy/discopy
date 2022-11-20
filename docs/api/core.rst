@@ -6,3 +6,4 @@ core
     :toctree: ../_autosummary
 
     discopy.cat
+    discopy.monoidal

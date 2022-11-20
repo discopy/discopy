@@ -23,10 +23,9 @@ discopy computes natural language meaning in pictures.
 >>> assert A(sentence).normal_form() == Alice @ Bob >> love_box
 """
 
-
 from discopy import (
     cat,
-    # monoidal,
+    monoidal,
     # rigid,
     # biclosed,
     # tensor,
