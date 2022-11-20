@@ -137,15 +137,22 @@ def factory(cls: type) -> type:
 
     Example
     -------
+    Let's create :code:`Circuit` as a subclass of :class:`Arrow`.
+
     >>> @factory
     ... class Circuit(Arrow):
     ...     pass
+
+    The :code:`Circuit` subclass itself has a subclass :code:`Gate` as boxes.
+
     >>> class Gate(Box, Circuit):
     ...     pass
-    >>> qubit = Ob('qubit')
-    >>> X = Gate('X', qubit, qubit)
+
+    The identity and composition of :code:`Circuit` is again a :code:`Circuit`.
+
+    >>> X = Gate('X', Ob('qubit'), Ob('qubit'))
     >>> assert isinstance(X >> X, Circuit)
-    >>> assert isinstance(Circuit.id(qubit), Circuit)
+    >>> assert isinstance(Circuit.id(Ob('qubit')), Circuit)
     """
     cls.factory = cls
     return cls
