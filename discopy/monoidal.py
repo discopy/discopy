@@ -9,7 +9,7 @@ Summary
 .. autosummary::
     :template: class.rst
     :nosignatures:
-    :toctree: ../_autosummary
+    :toctree:
 
     Ty
     Layer
