@@ -21,7 +21,7 @@ Summary
     Bubble
     Category
     Functor
-    Tensorable
+    Whiskerable
 
 Axioms
 ------
@@ -141,7 +141,8 @@ class Ty(cat.Ob):
         return hash(repr(self))
 
     def __repr__(self):
-        return "Ty({})".format(', '.join(repr(x.name) for x in self.inside))
+        return factory_name(type(self)) + "({})".format(
+            ', '.join(repr(x.name) for x in self.inside))
 
     def __str__(self):
         return ' @ '.join(map(str, self.inside)) or 'Ty()'
@@ -184,7 +185,7 @@ def types(names):
     --------
     >>> x, y, z = types("x y z")
     >>> x, y, z
-    (Ty('x'), Ty('y'), Ty('z'))
+    (monoidal.Ty('x'), monoidal.Ty('y'), monoidal.Ty('z'))
     """
     return list(map(Ty, names.split()))
 
@@ -200,8 +201,7 @@ class PRO(Ty):
 
     Examples
     --------
-    >>> PRO(1) @ PRO(1)
-    PRO(2)
+    >>> assert PRO(1) @ PRO(1) == PRO(2)
     >>> assert PRO(3) == Ty(1, 1, 1)
     >>> assert PRO(1) == PRO(Ob(1))
     """
@@ -217,7 +217,7 @@ class PRO(Ty):
         super().__init__(*(n * [1]))
 
     def __repr__(self):
-        return "PRO({})".format(len(self))
+        return factory_name(type(self)) + "({})".format(len(self))
 
     def __str__(self):
         return repr(len(self))
@@ -283,13 +283,13 @@ class Layer(cat.Box):
         return type(self)(self.left, self.box.dagger(), self.right)
 
 
-class Tensorable:
+class Whiskerable:
     """
     Abstract class implementing the syntactic sugar :code:`@` for whiskering
     and parallel composition with some method :code:`tensor`.
     """
     @classmethod
-    def id(cls, dom: any) -> Tensorable:
+    def id(cls, dom: any) -> Whiskerable:
         """
         Identity on a given domain, to be instantiated.
 
@@ -298,7 +298,7 @@ class Tensorable:
         """
         raise NotImplementedError
 
-    def tensor(self, other: Tensorable) -> Tensorable:
+    def tensor(self, other: Whiskerable) -> Whiskerable:
         """
         Parallel composition, to be instantiated.
 
@@ -308,15 +308,15 @@ class Tensorable:
         raise NotImplementedError
 
     @classmethod
-    def whisker(cls, other: any) -> Tensorable:
+    def whisker(cls, other: any) -> Whiskerable:
         """
-        Apply :meth:`Tensorable.id` if :code:`other` is not tensorable else do
+        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
         nothing.
 
         Parameters:
             other : The whiskering object.
         """
-        return other if isinstance(other, Tensorable) else cls.id(other)
+        return other if isinstance(other, Whiskerable) else cls.id(other)
 
     __matmul__ = lambda self, other: self.tensor(self.whisker(other))
     __rmatmul__ = lambda self, other: self.whisker(other).tensor(self)
@@ -352,7 +352,7 @@ class Encoding:
 
 
 @factory
-class Diagram(cat.Arrow, Tensorable):
+class Diagram(cat.Arrow, Whiskerable):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.

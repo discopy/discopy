@@ -22,7 +22,7 @@ def test_Ty_eq():
 
 
 def test_Ty_repr():
-    assert repr(Ty('x', 'y')) == "Ty('x', 'y')"
+    assert repr(Ty('x', 'y')) == "monoidal.Ty('x', 'y')"
 
 
 def test_Ty_str():
@@ -54,7 +54,7 @@ def test_PRO_tensor():
 
 
 def test_PRO_repr():
-    assert repr((PRO(0), PRO(1))) == "(PRO(0), PRO(1))"
+    assert repr((PRO(0), PRO(1))) == "(monoidal.PRO(0), monoidal.PRO(1))"
 
 
 def test_PRO_str():
@@ -127,9 +127,9 @@ def test_Diagram_offsets():
 
 def test_Diagram_repr():
     x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    assert repr(Diagram((), x, x)) == "monoidal.Diagram.id(Ty('x'))"
+    assert repr(Diagram((), x, x)) == "monoidal.Diagram.id(monoidal.Ty('x'))"
     f0, f1 = Box('f0', x, y), Box('f1', z, w)
-    assert "dom=Ty('x', 'z'), cod=Ty('y', 'w')" in repr(f0 @ f1)
+    assert "dom=monoidal.Ty('x', 'z')" in repr(f0 @ f1)
 
 
 def test_Diagram_hash():
@@ -237,7 +237,7 @@ def test_Id_init():
 
 
 def test_Id_repr():
-    assert repr(Id(Ty('x'))) == "monoidal.Diagram.id(Ty('x'))"
+    assert repr(Id(Ty('x'))) == "monoidal.Diagram.id(monoidal.Ty('x'))"
 
 
 def test_Id_str():
@@ -266,7 +266,7 @@ def test_Functor_init():
 
 def test_Functor_repr():
     assert repr(Functor({Ty('x'): Ty('y')}, {})) ==\
-        "Functor(ob={Ty('x'): Ty('y')}, ar={})"
+        "monoidal.Functor(ob={monoidal.Ty('x'): monoidal.Ty('y')}, ar={})"
 
 
 def test_Functor_call():

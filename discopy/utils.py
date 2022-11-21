@@ -130,3 +130,11 @@ class BinaryBoxConstructor:
     @classmethod
     def from_tree(cls, tree):
         return cls(*map(from_tree, (tree['left'], tree['right'])))
+
+
+def inductive(method):
+    def result(self, *others):
+        if not others: return self
+        if len(others) == 1: return method(self, others[0])
+        if len(others) > 1: return result(method(self, others[0]), *others[1:])
+    return result

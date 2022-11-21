@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free rigid monoidal category,
-i.e. with left and right adjoints for each object.
+The free rigid category, i.e. with left and right adjoints for each object.
 
 Summary
 -------
@@ -59,7 +58,7 @@ from discopy.utils import BinaryBoxConstructor, assert_isinstance, factory_name
 
 class Ob(cat.Ob):
     """
-    A rigid object has a :code:`name` and a winding number :code:`z`.
+    A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
     Parameters:
         name : The name of the object.
@@ -663,7 +662,7 @@ class Spider(Box):
 class Category(monoidal.Category):
     """
     A rigid category is a monoidal category
-    with methods :code:`cups` and :code:`caps`.
+    with methods :code:`l`, :code:`r`, :code:`cups` and :code:`caps`.
 
     Parameters:
         ob : The type of objects.

@@ -794,21 +794,26 @@ class Functor:
         return self.ob == other.ob and self.ar == other.ar
 
     def __repr__(self):
-        return "Functor(ob={}, ar={})".format(repr(self.ob), repr(self.ar))
+        return factory_name(type(self)) + "(ob={}, ar={})".format(
+            repr(self.ob), repr(self.ar))
 
-    def __call__(self, arrow):
-        if isinstance(arrow, Sum):
+    def __call__(self, other):
+        if isinstance(other, Sum):
             return self.cod.ar.sum(
-                tuple(map(self, arrow)), self(arrow.dom), self(arrow.cod))
-        if isinstance(arrow, Bubble):
-            return self(arrow.arg).bubble(
-                dom=self(arrow.dom), cod=self(arrow.cod))
-        if isinstance(arrow, Ob):
-            return self.ob[arrow]
-        if isinstance(arrow, Box):
-            if arrow.is_dagger:
-                return self.ar[arrow.dagger()].dagger()
-            return self.ar[arrow]
-        if isinstance(arrow, Arrow):
-            return self.cod.ar.id(self(arrow.dom)).then(*map(self, arrow))
+                tuple(map(self, other)), self(other.dom), self(other.cod))
+        if isinstance(other, Bubble):
+            return self(other.arg).bubble(
+                dom=self(other.dom), cod=self(other.cod))
+        if isinstance(other, Ob):
+            return self.ob[other]
+        if isinstance(other, Box) and other.is_dagger:
+            return self.ar[other.dagger()].dagger()
+        if isinstance(other, Box):
+            result = self.ar[other]
+            if isinstance(result, self.cod.ar): return result
+            # This allows some nice syntactic sugar for the ar mapping.
+            return self.cod.ar(result, self(other.dom), self(other.cod))
+            return self.ar[other]
+        if isinstance(other, Arrow):
+            return self.cod.ar.id(self(other.dom)).then(*map(self, other))
         raise TypeError

@@ -26,7 +26,11 @@ discopy computes natural language meaning in pictures.
 from discopy import (
     cat,
     monoidal,
+    braided,
+    symmetric,
+    closed,
     rigid,
+    python,
     # biclosed,
     # tensor,
     # matrix,

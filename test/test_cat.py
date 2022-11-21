@@ -208,7 +208,7 @@ def test_Functor_eq():
 
 
 def test_Functor_repr():
-    assert repr(Functor({}, {})) == "Functor(ob={}, ar={})"
+    assert repr(Functor({}, {})) == "cat.Functor(ob={}, ar={})"
 
 
 def test_Functor_call():
