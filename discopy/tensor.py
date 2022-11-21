@@ -597,6 +597,13 @@ class Diagram(rigid.Diagram):
         for box in self.boxes:
             if not isinstance(box, (Spider, rigid.Swap)):
                 array = box.array
+
+                # try to return the dtype directly
+                dtype = array.dtype
+                if isinstance(dtype, numpy.dtype):
+                    return dtype
+
+                # else turn the array into a numpy array and return that dtype
                 while True:
                     # minimise data to potentially copy
                     try:
@@ -610,7 +617,7 @@ class Diagram(rigid.Diagram):
                     # assume that the array is actually a PyTorch tensor
                     return array.detach().cpu().numpy().dtype
         else:
-            return numpy.float64
+            return numpy.float64  # fallback
 
     @staticmethod
     def cups(left, right):
