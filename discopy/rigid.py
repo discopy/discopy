@@ -241,9 +241,10 @@ class Diagram(monoidal.Diagram):
         return base @ cls.cups(exponent.l, exponent) if left\
             else cls.cups(exponent, exponent.r) @ base
 
-    @staticmethod
-    def cups(left, right):
-        """ Constructs nested cups witnessing adjointness of x and y.
+    @classmethod
+    def cups(cls, left: Ty, right: Ty) -> Diagram:
+        """
+        Constructs nested cups witnessing adjointness of x and y.
 
         >>> a, b = Ty('a'), Ty('b')
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
@@ -253,13 +254,13 @@ class Diagram(monoidal.Diagram):
         >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
         ... margins=(0.3, 0.05), path='docs/_static/imgs/rigid/cups.png')
 
-    .. image:: ../_static/imgs/rigid/cups.png
-        :align: center
+        .. image:: ../_static/imgs/rigid/cups.png
+            :align: center
         """
-        return cups(left, right)
+        return nesting(cls.cup_factory)(left, right)
 
-    @staticmethod
-    def caps(left, right):
+    @classmethod
+    def caps(cls, left, right):
         """ Constructs nested cups witnessing adjointness of x and y.
 
         >>> a, b = Ty('a'), Ty('b')
@@ -267,7 +268,7 @@ class Diagram(monoidal.Diagram):
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        return caps(left, right)
+        return nesting(cls.cap_factory)(left, right)
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, typ):
@@ -306,16 +307,14 @@ class Diagram(monoidal.Diagram):
         return Id(middle) @ Diagram.swap(left.l, middle.r) @ Id(right) >>\
             Diagram.cups(middle, middle.r) @ Diagram.swap(left.l, right)
 
-    @staticmethod
-    def curry(diagram, n_wires=1, left=False):
+    def curry(self, n=1, left=True) -> Diagram:
         """ Diagram currying. """
         if left:
-            wires = diagram.dom[:n_wires]
-            return Diagram.caps(wires.r, wires) @ diagram.dom[n_wires:]\
-                >> wires.r @ diagram
-        wires = diagram.dom[-n_wires or len(diagram.dom):]
-        return diagram.dom[:-n_wires] @ Diagram.caps(wires, wires.l)\
-            >> diagram @ wires.l
+            base, exponent = self.dom[:n], self.dom[n:]
+            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
+        offset = len(self.dom) - n
+        base, exponent = self.dom[offset:], self.dom[:offset]
+        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def _conjugate(self, use_left):
         layers = self.inside
@@ -735,6 +734,8 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
 def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
     """ Constructs a diagram of nested cups. """
     for typ in left, right:
@@ -775,3 +776,23 @@ def spiders(
                 result.cod[i * j + i + j:i * n_legs_out + j], t
             ) @ id(result.cod[i * n_legs_out + j + 1:])
     return result
+
+
+def nesting(factory):
+    """
+    Take a :code:`factory` for cups or caps of atomic types
+    and extends it recursively.
+
+    Parameters:
+        factory :
+            The factory for cups or caps of atomic types, i.e. of length 1.
+    """
+    def method(x: Ty, y: Ty) -> Diagram:
+        if len(x) == 0: return factory.id(x[:0])
+        if len(x) == 1: return factory(x, y)
+        head = factory(x[0], y[-1])
+        if head.dom:  # We are nesting cups.
+            return x[0] @ method(cls, x[1:], y[:-1]) @ y[-1] >> head
+        return head >> x[0] @ method(cls, x[1:], y[:-1]) @ y[-1]
+
+    return method

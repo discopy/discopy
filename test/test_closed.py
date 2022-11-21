@@ -28,30 +28,3 @@ def test_Functor():
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.uncurry(left=False).curry(left=False))(True)(1.2) == F(g)(True)(1.2)
-
-
-def test_drawing():
-    from discopy import rigid
-
-    @factory
-    class ClosedDrawing(rigid.Diagram):
-        eval = staticmethod(lambda base, exponent, left=True:
-            rigid.Diagram.eval(base, exponent, left).bubble())
-        curry = lambda self, n=1, left=True:\
-            rigid.Diagram.curry(self, n, left).bubble()
-
-    class DrawingBox(rigid.Box, ClosedDrawing):
-        pass
-
-    Draw = Functor(
-        lambda x: rigid.Ty(x.name),
-        lambda f: DrawingBox(f.name, Draw(f.dom), Draw(f.cod)),
-        cod=Category(rigid.Ty, ClosedDrawing))
-    Diagram.draw = lambda self, **params: Draw(self)
-
-    x, y, z = map(Ty, "xyz")
-    f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
-    f.uncurry().draw()
-    f.uncurry().curry().draw()
-    h.uncurry(left=False).curry(left=False).draw()
-    g.curry().uncurry().draw(), g, g.curry(left=False).uncurry(left=False).draw()

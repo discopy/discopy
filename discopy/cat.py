@@ -815,5 +815,8 @@ class Functor:
             return self.cod.ar(result, self(other.dom), self(other.cod))
             return self.ar[other]
         if isinstance(other, Arrow):
-            return self.cod.ar.id(self(other.dom)).then(*map(self, other))
+            result = self.cod.ar.id(self(other.dom))
+            for box in other.inside:
+                result = result >> self(box)
+            return result
         raise TypeError
