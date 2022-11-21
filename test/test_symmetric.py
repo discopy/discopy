@@ -7,7 +7,8 @@ from discopy.symmetric import *
 
 def test_Swap():
     x, y = Ty('x'), Ty('y')
-    assert repr(Swap(x, y)) == "symmetric.Swap(Ty('x'), Ty('y'))"
+    assert repr(Swap(x, y))\
+        == "symmetric.Swap(monoidal.Ty('x'), monoidal.Ty('y'))"
     assert Swap(x, y).dagger() == Swap(y, x)
     with raises(ValueError):
         Swap(x ** 2, Ty())

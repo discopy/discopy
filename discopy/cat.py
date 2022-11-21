@@ -333,6 +333,7 @@ class Arrow(Composable):
         if isinstance(other, self.sum):
             return self.sum((self, )).then(other)
         assert_isinstance(other, self.factory)
+        assert_isinstance(self, other.factory)
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
         return self.factory(

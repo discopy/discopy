@@ -417,6 +417,7 @@ class Diagram(cat.Arrow, Whiskerable):
         if isinstance(other, Sum):
             return self.sum([self]).tensor(other)
         assert_isinstance(other, self.factory)
+        assert_isinstance(self, other.factory)
         if isinstance(other, Sum):
             self.sum.cast(self).tensor(other)
         inside = tuple(layer @ other.dom for layer in self.inside)\

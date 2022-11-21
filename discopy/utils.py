@@ -125,7 +125,7 @@ class BinaryBoxConstructor:
 
     def to_tree(self):
         left, right = self.left.to_tree(), self.right.to_tree()
-        return dict(Box.to_tree(self), left=left, right=right)
+        return dict(factory=factory_name(type(self)), left=left, right=right)
 
     @classmethod
     def from_tree(cls, tree):
