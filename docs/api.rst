@@ -10,3 +10,4 @@ Core
 
     discopy.cat
     discopy.monoidal
+    discopy.rigid

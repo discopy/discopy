@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The free (pre)monoidal category.
+The free (pre)monoidal category,
+i.e. with an associative and unital tensor product.
 
 Summary
 -------
@@ -67,7 +68,7 @@ class Ty(Ob):
     A type is a tuple of objects.
 
     Parameters:
-        inside : The list of objects (or their names).
+        inside (tuple[cat.Ob, ...]) : The list of objects (or their names).
 
     Tip
     ---
@@ -364,7 +365,6 @@ class Diagram(cat.Arrow, Tensorable):
         inside : The layers of the diagram.
         dom : The domain of the diagram, i.e. its input.
         cod : The codomain of the diagram, i.e. its output.
-        _scan : Whether to check composition.
 
     .. admonition:: Summary
 
@@ -379,7 +379,8 @@ class Diagram(cat.Arrow, Tensorable):
             normalize
             normal_form
     """
-    def __init__(self, inside: tuple[Layer], dom: Ty, cod: Ty, _scan=True):
+    def __init__(
+            self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
         assert_isinstance(dom, Ty)
         assert_isinstance(cod, Ty)
         for layer in inside:
@@ -428,12 +429,12 @@ class Diagram(cat.Arrow, Tensorable):
         return self.factory(inside, dom, cod)
 
     @property
-    def boxes(self) -> tuple[Box]:
+    def boxes(self) -> tuple[Box, ...]:
         """ The boxes in each layer of the diagram. """
         return tuple(box for _, box, _ in self)
 
     @property
-    def offsets(self) -> tuple[int]:
+    def offsets(self) -> tuple[int, ...]:
         """ The offset of a box is the length of the type on its left. """
         return tuple(len(left) for left, _, _ in self)
 
@@ -598,7 +599,7 @@ class Sum(cat.Sum, Box):
     with the same domain and codomain.
 
     Parameters:
-        terms (tuple[Diagram]) : The terms of the formal sum.
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
@@ -671,9 +672,9 @@ class Functor(cat.Functor):
     optional monoidal category :code:`cod`.
 
     Parameters:
-        ob : Mapping from :class:`Ty` to :code:`cod.ob`.
-        ar : Mapping from :class:`Box` to :code:`cod.ar`.
-        cod : The codomain, :code:`Category(Ty, Diagram)` by default.
+        ob (Mapping[Ty, Ty]) : Map from :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain, :code:`Category(Ty, Diagram)` by default.
 
     Example
     -------

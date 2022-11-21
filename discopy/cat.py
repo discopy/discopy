@@ -22,7 +22,15 @@ Summary
     Functor
     Composable
     AxiomError
-    factory
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        factory
 
 Axioms
 ------
@@ -225,7 +233,8 @@ class Arrow(Composable):
     >>> assert f[:0] == Arrow.id(f.dom)
     >>> assert f[1:] == Arrow.id(f.cod)
     """
-    def __init__(self, inside: tuple[Arrow], dom: Ob, cod: Ob, _scan=True):
+    def __init__(
+            self, inside: tuple[Arrow, ...], dom: Ob, cod: Ob, _scan=True):
         assert_isinstance(dom, Ob)
         assert_isinstance(cod, Ob)
         if _scan:
@@ -565,7 +574,8 @@ class Sum(Box):
     ----
     The sum is non-commutative, i.e. :code:`Sum([f, g]) != Sum([g, f])`.
     """
-    def __init__(self, terms: tuple[Arrow], dom: Ob = None, cod: Ob = None):
+    def __init__(
+            self, terms: tuple[Arrow, ...], dom: Ob = None, cod: Ob = None):
         if not terms:
             if dom is None or cod is None:
                 raise ValueError(messages.missing_types_for_empty_sum())
