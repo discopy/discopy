@@ -59,7 +59,7 @@ from discopy.utils import BinaryBoxConstructor, assert_isinstance, factory_name
 
 class Ob(cat.Ob):
     """
-    An object with a :code:`name` and a winding number :code:`z`.
+    A rigid object has a :code:`name` and a winding number :code:`z`.
 
     Parameters:
         name : The name of the object.
@@ -127,7 +127,7 @@ class Ob(cat.Ob):
 @factory
 class Ty(monoidal.Ty, Ob):
     """
-    A type is a tuple of objects.
+    A rigid type is a monoidal type with rigid objects inside.
 
     Parameters:
         inside (tuple[Ob, ...]) : The objects inside the type.
@@ -141,19 +141,19 @@ class Ty(monoidal.Ty, Ob):
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
-        return Ty(*[x.l for x in self.objects[::-1]])
+        return Ty(*[x.l for x in self.inside[::-1]])
 
     @property
     def r(self) -> Ty:
         """ The right adjoint of the type. """
-        return Ty(*[x.r for x in self.objects[::-1]])
+        return Ty(*[x.r for x in self.inside[::-1]])
 
     @property
     def z(self) -> int:
         """ The winding number is only defined for types of length 1. """
         if len(self) != 1:
             raise TypeError(messages.no_winding_number_for_complex_types())
-        return self[0].z
+        return self.inside[0].z
 
     def __init__(self, *inside):
         inside = [x if isinstance(x, Ob)
@@ -164,7 +164,7 @@ class Ty(monoidal.Ty, Ob):
 
     def __repr__(self):
         return factory_name(type(self)) + "({})".format(', '.join(
-            repr(x if x.z else x.name) for x in self.objects))
+            repr(x if x.z else x.name) for x in self.inside))
 
     def __lshift__(self, other):
         return self @ other.l
@@ -193,8 +193,7 @@ class PRO(monoidal.PRO, Ty):
 
 class Layer(monoidal.Layer):
     """
-    A layer is a :code:`box` in the middle of a pair of types
-    :code:`left` and :code:`right`.
+    A rigid layer is a monoidal layer that can be transposed.
 
     Parameters:
         left (Ty) : The type on the left of the layer.
@@ -215,8 +214,8 @@ class Layer(monoidal.Layer):
 @factory
 class Diagram(monoidal.Diagram):
     """
-    A diagram is a tuple of composable layers :code:`inside` with a pair of
-    types :code:`dom` and :code:`cod` as domain and codomain
+    A rigid diagram is a monoidal diagram
+    with :class:`Cup` and :class:`Cap` boxes.
 
     Parameters:
         inside (tuple[Layer, ...]) : The layers of the diagram.
@@ -228,43 +227,13 @@ class Diagram(monoidal.Diagram):
     -------
     >>> I, n, s = Ty(), Ty('n'), Ty('s')
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
-    >>> boxes, offsets = [Alice, jokes, Cup(n, n.r)], [0, 1, 0]
-    >>> d = Diagram(Alice.dom @ jokes.dom, s, boxes, offsets)
-    >>> print(d)
-    Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
-
+    >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
     ...        path='docs/_static/imgs/rigid/diagram-example.png')
 
     .. image:: ../_static/imgs/rigid/diagram-example.png
         :align: center
     """
-    @staticmethod
-    def swap(left, right):
-        return monoidal.Diagram.swap(
-            left, right, ar_factory=Diagram, swap_factory=Swap)
-
-    @staticmethod
-    def permutation(perm, dom=None, inverse=False):
-        if dom is None:
-            dom = PRO(len(perm))
-        return monoidal.Diagram.permutation(
-            perm, dom, ar_factory=Diagram, inverse=inverse)
-
-    def foliate(self, yield_slices=False):
-        """
-        >>> x = Ty('x')
-        >>> f = Box('f', x, x)
-        >>> gen = (f @ Id(x) >> (f @ f)).foliate()
-        >>> print(next(gen))
-        f @ Id(x) >> Id(x) @ f >> f @ Id(x)
-        """
-        for diagram in super().foliate(yield_slices=yield_slices):
-            if isinstance(diagram, cat.Arrow):
-                yield self.upgrade(diagram)
-            else:
-                yield [self.upgrade(diagram[i]) for i in range(len(diagram))]
-
     @staticmethod
     def cups(left, right):
         """ Constructs nested cups witnessing adjointness of x and y.
@@ -342,12 +311,12 @@ class Diagram(monoidal.Diagram):
             >> diagram @ Id(wires.l)
 
     def _conjugate(self, use_left):
-        layers = self.layers
+        layers = self.inside
         list_of_layers = []
         for layer in layers._boxes:
             layer_adj = layer.l if use_left else layer.r
             left, box, right = layer_adj
-            list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
+            list_of_layers += (Id(left) @ box @ Id(right)).inside.boxes
 
         dom = layers.dom.l if use_left else layers.dom.r
         cod = layers.cod.l if use_left else layers.cod.r
@@ -372,13 +341,13 @@ class Diagram(monoidal.Diagram):
 
     def transpose_box(self, i, left=False):
         bend_left = left
-        layers = self.layers
+        layers = self.inside
         if bend_left:
             box_T = layers[i]._box.r.dagger().transpose(left=True)
         else:
             box_T = layers[i]._box.l.dagger().transpose(left=False)
         left, _, right = layers[i]
-        layers_T = (Id(left) @ box_T @ Id(right)).layers.boxes
+        layers_T = (Id(left) @ box_T @ Id(right)).inside.boxes
         list_of_layers = layers._boxes[:i] + layers_T + layers._boxes[i + 1:]
         layers = type(layers)(layers.dom, layers.cod, list_of_layers)
         boxes_and_offsets = tuple(zip(*(
@@ -447,11 +416,11 @@ class Id(Diagram):
     """ Define an identity arrow in a free rigid category
 
     >>> t = Ty('a', 'b', 'c')
-    >>> assert Id(t) == Diagram(t, t, [], [])
+    >>> assert Id(t) == Diagram((), t, t)
     """
     def __init__(self, dom=Ty()):
         monoidal.Id.__init__(self, dom)
-        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+        Diagram.__init__(self, (), dom, dom)
 
     @property
     def l(self):
@@ -462,24 +431,29 @@ class Id(Diagram):
         return type(self)(self.dom.r)
 
 
-Diagram.id = Id
-
-
 class Box(monoidal.Box, Diagram):
-    """ Implements generators of rigid monoidal diagrams.
-
-    >>> a, b = Ty('a'), Ty('b')
-    >>> Box('f', a, b.l @ b, data={42})
-    Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
     """
-    def __init__(self, name, dom, cod, **params):
-        monoidal.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
+    A rigid box is a monoidal box in a rigid diagram.
+
+    Parameters:
+        name : The name of the box.
+        dom : The domain of the box, i.e. its input.
+        cod : The codomain of the box, i.e. its output.
+
+    Example
+    -------
+    >>> a, b = Ty('a'), Ty('b')
+    >>> Box('f', a, b.l @ b)
+    rigid.Box('f', rigid.Ty('a'), rigid.Ty(rigid.Ob('b', z=-1), 'b'))
+    """
+    def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         self._z = params.get("_z", 0)
+        monoidal.Box.__init__(self, name, dom, cod, **params)
+        Diagram.__init__(self, self.inside, dom, cod)
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return self._z == other._z and monoidal.Box.__eq__(self, other)
+            return self._z == other._z and cat.Box.__eq__(self, other)
         if isinstance(other, Diagram):
             return len(other) == 1 and other.boxes[0] == self\
                 and (other.dom, other.cod) == (self.dom, self.cod)
@@ -501,21 +475,28 @@ class Box(monoidal.Box, Diagram):
     def l(self):
         return type(self)(
             name=self.name, dom=self.dom.l, cod=self.cod.l,
-            data=self.data, _dagger=self._dagger, _z=self._z - 1)
+            data=self.data, is_dagger=self.is_dagger, _z=self._z - 1)
 
     @property
     def r(self):
         return type(self)(
             name=self.name, dom=self.dom.r, cod=self.cod.r,
-            data=self.data, _dagger=self._dagger, _z=self._z + 1)
+            data=self.data, is_dagger=self.is_dagger, _z=self._z + 1)
 
 
 class Cup(BinaryBoxConstructor, Box):
-    """ Defines cups for simple types.
+    """
+    The counit of the adjunction for an atomic type.
 
+    Parameters:
+        left : The atomic type.
+        right : Its right adjoint.
+
+    Example
+    -------
     >>> n = Ty('n')
     >>> Cup(n, n.r)
-    Cup(Ty('n'), Ty(Ob('n', z=1)))
+    Cup(rigid.Ty('n'), rigid.Ty(rigid.Ob('n', z=1)))
 
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cup.png')
@@ -523,7 +504,7 @@ class Cup(BinaryBoxConstructor, Box):
     .. image:: ../_static/imgs/rigid/cup.png
         :align: center
     """
-    def __init__(self, left, right):
+    def __init__(self, left: Ty, right: Ty):
         if not isinstance(left, Ty):
             raise TypeError(messages.type_err(Ty, left))
         if not isinstance(right, Ty):
@@ -553,11 +534,18 @@ class Cup(BinaryBoxConstructor, Box):
 
 
 class Cap(BinaryBoxConstructor, Box):
-    """ Defines cups for simple types.
+    """
+    The unit of the adjunction for an atomic type.
 
+    Parameters:
+        left : The atomic type.
+        right : Its left adjoint.
+
+    Example
+    -------
     >>> n = Ty('n')
     >>> Cap(n, n.l)
-    Cap(Ty('n'), Ty(Ob('n', z=-1)))
+    Cap(rigid.Ty('n'), rigid.Ty(rigid.Ob('n', z=-1)))
 
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cap.png')
@@ -673,13 +661,28 @@ class Spider(Box):
 
 
 class Category(monoidal.Category):
+    """
+    A rigid category is a monoidal category
+    with methods :code:`cups` and :code:`caps`.
+
+    Parameters:
+        ob : The type of objects.
+        ar : The type of arrows.
+    """
     ob, ar = Ty, Diagram
 
 
 class Functor(monoidal.Functor):
     """
-    Implements rigid monoidal functors, i.e. preserving cups and caps.
+    A rigid functor is a monoidal functor that preserves cups and caps.
 
+    Parameters:
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
+
+    Example
+    -------
     >>> s, n = Ty('s'), Ty('n')
     >>> Alice, Bob = Box("Alice", Ty(), n), Box("Bob", Ty(), n)
     >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
@@ -699,45 +702,30 @@ class Functor(monoidal.Functor):
     .. image:: ../_static/imgs/rigid/functor-example.png
         :align: center
     """
-    def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):
-        super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
+    dom = cod = Category(Ty, Diagram)
 
-    def __call__(self, diagram):
-        if isinstance(diagram, monoidal.Ty):
-            def adjoint(obj):
-                if not hasattr(obj, "z") or not obj.z:
-                    return self.ob[type(diagram)(obj)]
-                result = self.ob[type(diagram)(type(obj)(obj.name, z=0))]
-                if obj.z < 0:
-                    for _ in range(-obj.z):
-                        result = result.l
-                elif obj.z > 0:
-                    for _ in range(obj.z):
-                        result = result.r
-                return result
-            return self.ob_factory().tensor(*map(adjoint, diagram.objects))
-        if isinstance(diagram, Cup):
-            return self.ar_factory.cups(
-                self(diagram.dom[:1]), self(diagram.dom[1:]))
-        if isinstance(diagram, Cap):
-            return self.ar_factory.caps(
-                self(diagram.cod[:1]), self(diagram.cod[1:]))
-        if isinstance(diagram, Spider):
-            return self.ar_factory.spiders(
-                len(diagram.dom), len(diagram.cod), self(diagram.typ))
-        if isinstance(diagram, Box):
-            if not hasattr(diagram, "z") or not diagram.z:
-                return super().__call__(diagram)
-            z = diagram.z
+    def __call__(self, other):
+        if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
+            return super().__call__(other)
+        if isinstance(other, Ob):
+            if not hasattr(self.cod.ob, 'l' if other.z < 0 else 'r'):
+                return self(Ob(other.name, z=0))[::-1]
+            return self(other.r).l if other.z < 0 else self(other.l).r
+        if isinstance(other, Cup):
+            return self.cod.ar.cups(self(other.dom[:1]), self(other.dom[1:]))
+        if isinstance(other, Cap):
+            return self.cod.ar.caps(self(other.cod[:1]), self(other.cod[1:]))
+        if isinstance(other, Box):
+            if not hasattr(other, "z") or not other.z:
+                return super().__call__(other)
+            z = other.z
             for _ in range(abs(z)):
-                diagram = diagram.l if z > 0 else diagram.r
-            result = super().__call__(diagram)
+                other = other.l if z > 0 else other.r
+            result = super().__call__(other)
             for _ in range(abs(z)):
                 result = result.l if z < 0 else result.r
             return result
-        if isinstance(diagram, monoidal.Diagram):
-            return super().__call__(diagram)
-        raise TypeError(messages.type_err(Diagram, diagram))
+        return super().__call__(other)
 
 
 def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):

@@ -63,7 +63,7 @@ from discopy.utils import factory_name, from_tree, assert_isinstance
 @factory
 class Ty(cat.Ob):
     """
-    A type is a tuple of objects.
+    A type is a tuple of objects with :meth:`Ty.tensor` as concatenation.
 
     Parameters:
         inside : The objects inside the type (or their names).
@@ -96,7 +96,7 @@ class Ty(cat.Ob):
     def tensor(self, *others: Ty) -> Ty:
         """
         Returns the tensor of types, i.e. the concatenation of their lists
-        of objects. This is called with the binary operator `@`.
+        of objects. This is called with the binary operator :code:`@`.
 
         Parameters:
             others : The other types to tensor.
@@ -654,9 +654,7 @@ Diagram.bubble_factory = Bubble
 
 class Category(cat.Category):
     """
-    A monoidal category is just a pair of Python types :code:`ob` and
-    :code:`ar` with appropriate methods :code:`dom`, :code:`cod`, :code:`id`,
-    :code:`then` and :code:`tensor`.
+    A monoidal category is a category with a method :code:`tensor`.
 
     Parameters:
         ob : The type of objects.
@@ -667,8 +665,7 @@ class Category(cat.Category):
 
 class Functor(cat.Functor):
     """
-    A monoidal functor is a pair of maps :code:`ob` and :code:`ar` and an
-    optional monoidal category :code:`cod`.
+    A monoidal functor is a functor that preserves the tensor product.
 
     Parameters:
         ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.

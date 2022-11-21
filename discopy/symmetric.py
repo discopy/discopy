@@ -60,7 +60,7 @@ from discopy.utils import BinaryBoxConstructor, assert_isatomic, factory_name
 @factory
 class Diagram(braided.Diagram):
     """
-    A symmetric diagram is a monoidal diagram with :class:`Swap` boxes.
+    A symmetric diagram is a braided diagram with :class:`Swap` boxes.
 
     Parameters:
         inside (tuple[monoidal.Layer, ...]) : The layers inside the diagram.
@@ -122,7 +122,7 @@ class Diagram(braided.Diagram):
 
 class Box(braided.Box, Diagram):
     """
-    A symmetric box is a monoidal box in a braided diagram.
+    A symmetric box is a braided box in a symmetric diagram.
 
     Parameters:
         name (str) : The name of the box.

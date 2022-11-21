@@ -408,7 +408,7 @@ def snake_removal(self, left=False):
                 diagram = diagram.interchange(box, cap)
                 yield diagram
                 cap += 1
-        inside = diagram.inside[:cap] >> diagram.inside[cup + 1:]
+        inside = diagram.inside[:cap] + diagram.inside[cup + 1:]
         yield diagram.factory(inside, diagram.dom, diagram.cod)
 
     diagram = self
