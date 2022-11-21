@@ -59,8 +59,6 @@ from discopy.cat import factory, Ob
 from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree, assert_isinstance
 
-warn_permutation = WarnOnce()
-
 
 @factory
 class Ty(cat.Ob):
@@ -661,8 +659,8 @@ class Category(cat.Category):
     :code:`then` and :code:`tensor`.
 
     Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
+        ob : The type of objects.
+        ar : The type of arrows.
     """
     ob, ar = Ty, Diagram
 
@@ -673,10 +671,13 @@ class Functor(cat.Functor):
     optional monoidal category :code:`cod`.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from :class:`Ty` to :code:`cod.ob`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
-        cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+        cod (Category) : The codomain of the functor.
+
+    Important
+    ---------
+    The keys of the objects mapping must be atomic types, i.e. of length 1.
 
     Example
     -------

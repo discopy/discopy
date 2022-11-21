@@ -66,7 +66,7 @@ from discopy.utils import BinaryBoxConstructor, assert_isatomic, factory_name
 @factory
 class Diagram(monoidal.Diagram):
     """
-    A braided diagram is a monoidal diagram with braids.
+    A braided diagram is a monoidal diagram with :class:`Braid` boxes.
 
     Parameters:
         inside (tuple[monoidal.Layer, ...]) : The layers inside the diagram.
@@ -146,17 +146,17 @@ Diagram.braid_factory = Braid
 Id = Diagram.id
 
 
-def hexagon(factory: Callable) -> Callable:
+def hexagon(braid_factory: Callable) -> Callable:
     """
-    Take a binary braid :code:`factory` and extend it recursively.
+    Take a :code:`braid_factory` for atomic types and extend it recursively.
 
     Parameters:
-        factory : A binary braid constructor, e.g. :class:`Braid`.
+        braid_factory : A braid factory for atomic types, e.g. :class:`Braid`.
     """
     def method(x: Ty, y: Ty) -> Diagram:
-        if len(x) == 0: return factory.id(y)
+        if len(x) == 0: return braid_factory.id(y)
         if len(x) == 1:
-            if len(y) == 1: return factory(x[0], y[0])
+            if len(y) == 1: return braid_factory(x[0], y[0])
             return method(x, y[:1]) @ y[1:] >> y[:1] @ method(x, y[1:])
         return x[:1] @ method(x[1:], y) >> method(x[:1], y) @ x[1:]
 
@@ -165,9 +165,7 @@ def hexagon(factory: Callable) -> Callable:
 
 class Category(monoidal.Category):
     """
-    A braided category is just a pair of Python types :code:`ob` and
-    :code:`ar` with appropriate methods :code:`dom`, :code:`cod`, :code:`id`,
-    :code:`then`, :code:`tensor` and :code:`braid`.
+    A braided category is a monoidal category with a method :code:`braid`.
 
     Parameters:
         ob : The objects of the category, default is :class:`Ty`.
@@ -178,8 +176,7 @@ class Category(monoidal.Category):
 
 class Functor(monoidal.Functor):
     """
-    A braided functor is a pair of maps :code:`ob` and :code:`ar` and an
-    optional braided category :code:`cod`.
+    A braided functor is a monoidal functor that preserves braids.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :

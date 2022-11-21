@@ -1,140 +1,187 @@
-from discopy import monoidal
+# -*- coding: utf-8 -*-
+
+"""
+The free symmetric category,
+i.e. with four-dimensional diagrams where wires can cross.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Diagram
+    Box
+    Swap
+    Category
+    Functor
+
+Axioms
+------
+The dagger of :code:`Swap(x, y)` is :code:`Swap(y, x)`.
+
+>>> x, y, z = map(Ty, "xyz")
+>>> assert Diagram.swap(x, y @ z)[::-1] == Diagram.swap(y @ z, x)
+
+Swaps have their dagger as inverse, up to :meth:`braided.Diagram.simplify`.
+
+>>> swap_unswap = Swap(x, y) >> Swap(y, x)
+>>> assert swap_unswap.simplify() == Id(x @ y)
+>>> from discopy import drawing
+>>> drawing.equation(swap_unswap, Id(x @ y),
+...     path='docs/_static/imgs/symmetric/inverse.png', figsize=(3, 2))
+
+.. image:: ../_static/imgs/symmetric/inverse.png
+    :align: center
+
+The hexagon equations hold on the nose.
+
+>>> left_hexagon = Swap(x, y) @ z >> y @ Swap(x, z)
+>>> assert left_hexagon == Diagram.swap(x, y @ z)
+>>> right_hexagon = x @ Swap(y, z) >> Swap(x, z) @ y
+>>> assert right_hexagon == Diagram.swap(x @ y, z)
+>>> drawing.equation(left_hexagon, right_hexagon, symbol='', space=2,
+...     path='docs/_static/imgs/symmetric/hexagons.png', figsize=(5, 2))
+
+.. image:: ../_static/imgs/symmetric/hexagons.png
+    :align: center
+"""
+
+from __future__ import annotations
+
+from discopy import monoidal, braided
 from discopy.cat import factory
-from discopy.utils import BinaryBoxConstructor
+from discopy.monoidal import Ty, PRO
+from discopy.utils import BinaryBoxConstructor, assert_isatomic, factory_name
 
 
 @factory
-class Diagram(monoidal.Diagram):
-    @staticmethod
-    def swap(left, right, ar_factory=None, swap_factory=None):
+class Diagram(braided.Diagram):
+    """
+    A symmetric diagram is a monoidal diagram with :class:`Swap` boxes.
+
+    Parameters:
+        inside (tuple[monoidal.Layer, ...]) : The layers inside the diagram.
+        dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
+        cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+    """
+    @classmethod
+    def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
         """
         Returns a diagram that swaps the left with the right wires.
 
-        Parameters
-        ----------
-        left : monoidal.Ty
-            left hand-side of the domain.
-        right : monoidal.Ty
-            right hand-side of the domain.
+        Parameters:
+            left : The type at the top left and bottom right.
+            right : The type at the top right and bottom left.
 
-        Returns
-        -------
-        diagram : monoidal.Diagram
-            with :code:`diagram.dom == left @ right`
+        Note
+        ----
+        This calls :func:`braided.hexagon` and :attr:`braid_factory`.
         """
-        ar_factory = ar_factory or Diagram
-        swap_factory = swap_factory or Swap
-        if not left:
-            return ar_factory.id(right)
-        if len(left) == 1:
-            boxes = [
-                swap_factory(left, right[i: i + 1])
-                for i, _ in enumerate(right)]
-            offsets = range(len(right))
-            return ar_factory(left @ right, right @ left, boxes, offsets)
-        return ar_factory.id(left[:1]) @ ar_factory.swap(left[1:], right)\
-            >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
+        return cls.braid(left, right)
 
-    @staticmethod
-    def permutation(perm, dom=None, ar_factory=None, inverse=False):
+    @classmethod
+    def permutation(cls, xs: list[int], dom: monoidal.Ty = None) -> Diagram:
         """
-        Returns the diagram that encodes a permutation of wires.
+        Construct the diagram representing a given permutation.
 
-        .. warning::
-            This method used to return the inverse permutation up to and
-            including discopy v0.4.2.
-
-        Parameters
-        ----------
-        perm : list of int
-            such that :code:`i` goes to :code:`perm[i]`
-        dom : monoidal.Ty, optional
-            of the same length as :code:`perm`,
-            default is :code:`PRO(len(perm))`.
-        inverse : bool
-            whether to return the inverse permutation.
-
-        Returns
-        -------
-        diagram : monoidal.Diagram
+        Parameters:
+            xs : A list of integers representing a permutation.
+            dom : A type of the same length as :code:`permutation`,
+                  default is :code:`PRO(len(permutation))`.
         """
-        ar_factory = ar_factory or Diagram
-        if set(range(len(perm))) != set(perm):
+        if set(range(len(xs))) != set(xs):
             raise ValueError("Input should be a permutation of range(n).")
-        if dom is None:
-            dom = PRO(len(perm))
-        if not inverse:
-            warn_permutation.warn(
-                'Since discopy v0.4.3 the behaviour of '
-                'permutation has changed. Pass inverse=False '
-                'to get the default behaviour.')
-            perm = [perm.index(i) for i in range(len(perm))]
-        if len(dom) != len(perm):
+        dom = PRO(len(xs)) if dom is None else dom
+        if len(dom) != len(xs):
             raise ValueError(
                 "Domain and permutation should have the same length.")
-        diagram = ar_factory.id(dom)
-        for i in range(len(dom)):
-            j = perm.index(i)
-            diagram = diagram >> ar_factory.id(diagram.cod[:i])\
-                @ ar_factory.swap(diagram.cod[i:j], diagram.cod[j:j + 1])\
-                @ ar_factory.id(diagram.cod[j + 1:])
-            perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
-        return diagram
+        if len(dom) <= 1:
+            return cls.id(dom)
+        i = xs[0]
+        return cls.swap(dom[:i], dom[i]) @ dom[i + 1:]\
+            >> dom[i] @ cls.permutation(
+                [x - 1 if x > i else x for x in xs[1:]], dom[:i] + dom[i + 1:])
 
-    def permute(self, *perm, inverse=False):
+    def permute(self, *xs: int) -> Diagram:
         """
-        Returns :code:`self >> self.permutation(perm, self.dom)`.
+        Returns :code:`self >> self.permutation(list(xs), self.dom)`.
 
-        Parameters
-        ----------
-        perm : list of int
-            such that :code:`i` goes to :code:`perm[i]`
-        inverse : bool
-            whether to return the inverse permutation.
+        Parameters:
+            xs : A list of integers representing a permutation.
 
         Examples
         --------
         >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
         >>> assert Id(x @ y @ z).permute(2, 1, 0).cod == z @ y @ x
-        >>> assert Id(x @ y @ z).permute(2, 0).cod == z @ y @ x
         """
-        if min(perm) < 0 or max(perm) >= len(self.cod):
-            raise IndexError(f'{self} index out of bounds.')
-        if len(set(perm)) != len(perm):
-            raise ValueError('{perm} is not a permutation.')
-        sorted_perm = sorted(perm)
-        perm = [
-            i if i not in perm else sorted_perm[perm.index(i)]
-            for i in range(len(self.cod))]
-        return self >> self.permutation(list(perm), self.cod, inverse)
+        return self >> self.permutation(list(xs), self.cod)
 
 
-class Box(monoidal.Box, Diagram):
-    pass
-
-
-class Swap(BinaryBoxConstructor, Box):
+class Box(braided.Box, Diagram):
     """
-    Implements the symmetry of atomic types.
+    A symmetric box is a monoidal box in a braided diagram.
 
-    Parameters
-    ----------
-    left : monoidal.Ty
-        of length 1.
-    right : monoidal.Ty
-        of length 1.
+    Parameters:
+        name (str) : The name of the box.
+        dom (monoidal.Ty) : The domain of the box, i.e. its input.
+        cod (monoidal.Ty) : The codomain of the box, i.e. its output.
+    """
+
+
+class Swap(braided.Braid, Box):
+    """
+    The swap of atomic types :code:`left` and :code:`right`.
+
+    Parameters:
+        left : The type on the top left and bottom right.
+        right : The type on the top right and bottom left.
+
+    Important
+    ---------
+    :class:`Swap` is only defined for atomic types (i.e. of length 1).
+    For complex types, use :meth:`Diagram.swap` instead.
     """
     def __init__(self, left, right):
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.swap_vs_swaps(left, right))
-        name, dom, cod =\
-            "Swap({}, {})".format(left, right), left @ right, right @ left
-        BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod)
-        self.draw_as_wires = True
-
-    def __repr__(self):
-        return "Swap({}, {})".format(repr(self.left), repr(self.right))
+        braided.Braid.__init__(self, left, right)
+        Box.__init__(self, self.name, self.dom, self.cod,
+                     draw_as_wires=True, draw_as_braid=False)
 
     def dagger(self):
         return type(self)(self.right, self.left)
+
+
+class Category(braided.Category):
+    """
+    A symmetric category is a braided category with a method :code:`swap`.
+
+    Parameters:
+        ob : The objects of the category, default is :class:`Ty`.
+        ar : The arrows of the category, default is :class:`Diagram`.
+    """
+    ob, ar = Ty, Diagram
+
+
+class Functor(monoidal.Functor):
+    """
+    A symmetric functor is a monoidal functor that preserves swaps.
+
+    Parameters:
+        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) :
+            The codomain, :code:`Category(Ty, Diagram)` by default.
+    """
+    dom = cod = Category(Ty, Diagram)
+
+    def __call__(self, other):
+        if isinstance(other, Swap):
+            return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
+        return super().__call__(other)
+
+
+Diagram.braid_factory = Swap
+Id = Diagram.id

@@ -11,4 +11,5 @@ Core
     discopy.cat
     discopy.monoidal
     discopy.braided
+    discopy.symmetric
     discopy.rigid

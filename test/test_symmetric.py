@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from pytest import raises
+from discopy.monoidal import PRO
 from discopy.symmetric import *
 
 
 def test_Swap():
     x, y = Ty('x'), Ty('y')
-    assert repr(Swap(x, y)) == "Swap(Ty('x'), Ty('y'))"
+    assert repr(Swap(x, y)) == "symmetric.Swap(Ty('x'), Ty('y'))"
     assert Swap(x, y).dagger() == Swap(y, x)
     with raises(ValueError):
         Swap(x ** 2, Ty())
@@ -16,9 +17,7 @@ def test_Diagram_permutation():
     x = PRO(1)
     assert Diagram.swap(x, x ** 2)\
         == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
-        == Diagram.permutation([2, 0, 1], inverse=True)
-    assert Diagram.swap(x, x ** 2)\
-        == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
+        == Diagram.permutation([1, 2, 0])\
         == Diagram.permutation([2, 0, 1]).dagger()
     with raises(ValueError):
         Diagram.permutation([2, 0])
@@ -27,7 +26,7 @@ def test_Diagram_permutation():
 
 
 def test_bad_permute():
-    with raises(IndexError):
+    with raises(ValueError):
         Id(Ty('n')).permute(1)
     with raises(ValueError):
         Id(Ty('n')).permute(0, 0)
