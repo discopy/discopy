@@ -469,5 +469,4 @@ def decomp_ar(box):
     return box
 
 
-# TODO
 # decomp = Functor(ob=lambda x: x, ar=decomp_ar)

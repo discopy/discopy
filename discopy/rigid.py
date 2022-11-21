@@ -59,7 +59,7 @@ from discopy.utils import BinaryBoxConstructor, assert_isinstance, factory_name
 
 class Ob(cat.Ob):
     """
-    An object with a :code:`str` and a winding number :code:`z`.
+    An object with a :code:`name` and a winding number :code:`z`.
 
     Parameters:
         name : The name of the object.
@@ -77,7 +77,10 @@ class Ob(cat.Ob):
 
     @property
     def z(self) -> int:
-        """ The winding number of the object. """
+        """
+        The winding number of the object: :code:`z == 0` for generators,
+        :code:`z < 0` for left adjoints and :code:`z > 0` for right adjoints.
+        """
         return self._z
 
     @property
@@ -127,7 +130,7 @@ class Ty(monoidal.Ty, Ob):
     A type is a tuple of objects.
 
     Parameters:
-        inside : tuple[Ob, ...]
+        inside (tuple[Ob, ...]) : The objects inside the type.
 
     Example
     -------
@@ -136,27 +139,27 @@ class Ty(monoidal.Ty, Ob):
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
     @property
-    def l(self):
+    def l(self) -> Ty:
         """ The left adjoint of the type. """
         return Ty(*[x.l for x in self.objects[::-1]])
 
     @property
-    def r(self):
+    def r(self) -> Ty:
         """ The right adjoint of the type. """
         return Ty(*[x.r for x in self.objects[::-1]])
 
     @property
-    def z(self):
+    def z(self) -> int:
         """ The winding number is only defined for types of length 1. """
         if len(self) != 1:
             raise TypeError(messages.no_winding_number_for_complex_types())
         return self[0].z
 
-    def __init__(self, *t):
-        t = [x if isinstance(x, Ob)
-             else Ob(x.name) if isinstance(x, cat.Ob)
-             else Ob(x) for x in t]
-        monoidal.Ty.__init__(self, *t)
+    def __init__(self, *inside):
+        inside = [x if isinstance(x, Ob)
+                  else Ob(x.name) if isinstance(x, cat.Ob)
+                  else Ob(x) for x in inside]
+        monoidal.Ty.__init__(self, *inside)
         Ob.__init__(self, str(self))
 
     def __repr__(self):
@@ -199,12 +202,12 @@ class Layer(monoidal.Layer):
         right (Ty) : The type on the right of the layer.
     """
     @property
-    def l(self):
+    def l(self) -> Layer:
         """ The left-transpose of the layer. """
         return type(self)(self.right.l, self.box.l, self.left.l)
 
     @property
-    def r(self):
+    def r(self) -> Layer:
         """ The right-transpose of the layer. """
         return type(self)(self.right.r, self.box.r, self.left.r)
 

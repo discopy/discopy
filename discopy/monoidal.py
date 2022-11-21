@@ -674,7 +674,8 @@ class Functor(cat.Functor):
     Parameters:
         ob (Mapping[Ty, Ty]) : Map from :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
-        cod (Category) : The codomain, :code:`Category(Ty, Diagram)` by default.
+        cod (Category) :
+            The codomain, :code:`Category(Ty, Diagram)` by default.
 
     Example
     -------
