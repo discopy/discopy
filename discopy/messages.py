@@ -6,6 +6,9 @@ discopy error messages.
 import warnings
 
 
+TYPE_ERROR = "Expected {}, got {} instead."
+ATOMIC_TYPE_ERROR = "Expected {} of length 1, got length {} instead."
+
 def type_err(expected, got):
     """ Type error. """
     return "Expected {}.{}, got {} of type {}.{} instead.".format(
@@ -42,6 +45,12 @@ def no_winding_number_for_complex_types():
 def are_not_adjoints(left, right):
     """ Adjunction error. """
     return "{} and {} are not adjoints.".format(left, right)
+
+
+def expected_atomic_type(typ, cls):
+    """ Expected type of length 1. """
+    return "Expected {} of length 1, got {} of length {}.".format(
+        cls, typ, len(typ))
 
 
 def cup_vs_cups(left, right):

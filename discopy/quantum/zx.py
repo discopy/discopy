@@ -2,7 +2,7 @@
 
 """ Implements ZX diagrams. """
 
-from discopy import messages, cat, monoidal, rigid, quantum, tensor
+from discopy import messages, cat, monoidal, rigid, quantum, tensor, symmetric
 from discopy.cat import factory
 from discopy.monoidal import Sum
 from discopy.rigid import Functor, PRO
@@ -244,10 +244,10 @@ class Box(rigid.Box, Diagram):
         Diagram.__init__(self, dom, cod, [self], [0])
 
 
-class Swap(rigid.Swap, Box):
+class Swap(symmetric.Swap, Box):
     """ Swap in a ZX diagram. """
     def __init__(self, left, right):
-        rigid.Swap.__init__(self, left, right)
+        symmetric.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
 
     def __repr__(self):

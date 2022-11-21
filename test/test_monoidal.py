@@ -14,7 +14,7 @@ def test_Ty():
 
 
 def test_Ty_init():
-    assert list(Ty('x', 'y', 'z')) == [Ob('x'), Ob('y'), Ob('z')]
+    assert list(Ty('x', 'y', 'z')) == [Ty('x'), Ty('y'), Ty('z')]
 
 
 def test_Ty_eq():
@@ -63,7 +63,7 @@ def test_PRO_str():
 
 def test_PRO_getitem():
     assert PRO(42)[2: 4] == PRO(2)
-    assert all(PRO(42)[i].name == 1 for i in range(42))
+    assert all(PRO(42).inside[i].name == 1 for i in range(42))
 
 
 def test_Diagram_init():

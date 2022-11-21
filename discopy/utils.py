@@ -9,10 +9,10 @@ from collections.abc import Mapping, Iterable
 from discopy import messages
 
 
-def factory_name(obj):
+def factory_name(cls: type) -> str:
     """ Returns a string describing a DisCoPy class. """
     return "{}.{}".format(
-        type(obj).__module__.removeprefix("discopy."), type(obj).__name__)
+        cls.__module__.removeprefix("discopy."), cls.__name__)
 
 
 def from_tree(tree):
@@ -107,7 +107,15 @@ def load_corpus(url):
 
 def assert_isinstance(object, cls):
     if not isinstance(object, cls):
-        raise TypeError(messages.type_err(cls, object))
+        raise TypeError(messages.TYPE_ERROR.format(
+            factory_name(cls), factory_name(type(object))))
+
+
+def assert_isatomic(typ, cls):
+    assert_isinstance(typ, cls)
+    if len(typ) != 1:
+        raise ValueError(messages.ATOMIC_TYPE_ERROR.format(
+            factory_name(cls), len(typ)))
 
 
 class BinaryBoxConstructor:

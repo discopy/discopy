@@ -14,7 +14,7 @@ from contextlib import contextmanager
 
 import numpy
 
-from discopy import cat, config, messages, monoidal, rigid
+from discopy import cat, config, messages, monoidal, rigid, symmetric
 from discopy.cat import AxiomError, factory
 from discopy.rigid import Ob, Ty, Cup, Cap
 
@@ -40,7 +40,7 @@ class Dim(Ty):
         return Dim(*[x.name for x in old.objects])
 
     def __init__(self, *dims):
-        dims = map(lambda x: x if isinstance(x, monoidal.Ob) else Ob(x), dims)
+        dims = map(lambda x: x if isinstance(x, cat.Ob) else Ob(x), dims)
         dims = list(filter(lambda x: x.name != 1, dims))  # Dim(1) == Dim()
         for dim in dims:
             if not isinstance(dim.name, int):
@@ -447,7 +447,7 @@ class Functor(rigid.Functor):
         if isinstance(diagram, Cap):
             return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, monoidal.Box)\
-                and not isinstance(diagram, monoidal.Swap):
+                and not isinstance(diagram, symmetric.Swap):
             if diagram.z % 2 != 0:
                 while diagram.z != 0:
                     diagram = diagram.l if diagram.z > 0 else diagram.r
@@ -463,7 +463,7 @@ class Functor(rigid.Functor):
             return len(self(scan))
         scan, array = diagram.dom, Tensor.id(self(diagram.dom)).array
         for box, off in zip(diagram.boxes, diagram.offsets):
-            if isinstance(box, monoidal.Swap):
+            if isinstance(box, symmetric.Swap):
                 source = range(
                     dim(diagram.dom @ scan[:off]),
                     dim(diagram.dom @ scan[:off] @ box.dom))
@@ -569,7 +569,7 @@ class Diagram(rigid.Diagram):
             for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
-            if isinstance(box, rigid.Swap):
+            if isinstance(box, symmetric.Swap):
                 scan[offset], scan[offset + 1] = scan[offset + 1], scan[offset]
                 continue
             if isinstance(box, Spider):
@@ -595,7 +595,7 @@ class Diagram(rigid.Diagram):
 
     def _infer_dtype(self):
         for box in self.boxes:
-            if not isinstance(box, (Spider, rigid.Swap)):
+            if not isinstance(box, (Spider, symmetric.Swap)):
                 array = box.array
                 while True:
                     # minimise data to potentially copy
@@ -711,7 +711,7 @@ Diagram.id = Id
 Diagram.sum = Sum
 
 
-class Swap(rigid.Swap, Diagram):
+class Swap(symmetric.Swap, Diagram):
     """ Symmetry in a tensor.Diagram """
 
 

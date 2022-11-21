@@ -105,7 +105,7 @@ class Ob(cat.Ob):
 
     def __repr__(self):
         return "{}({}{})".format(
-            factory_name(self), repr(self.name),
+            factory_name(type(self)), repr(self.name),
             ", z=" + repr(self.z) if self.z else "")
 
     def __str__(self):
@@ -163,7 +163,7 @@ class Ty(monoidal.Ty, Ob):
         Ob.__init__(self, str(self))
 
     def __repr__(self):
-        return factory_name(self) + "({})".format(', '.join(
+        return factory_name(type(self)) + "({})".format(', '.join(
             repr(x if x.z else x.name) for x in self.objects))
 
     def __lshift__(self, other):
@@ -508,13 +508,6 @@ class Box(monoidal.Box, Diagram):
         return type(self)(
             name=self.name, dom=self.dom.r, cod=self.cod.r,
             data=self.data, _dagger=self._dagger, _z=self._z + 1)
-
-
-class Swap(symmetric.Swap, Box):
-    """ Implements swaps of basic types in a rigid category. """
-    def __init__(self, left, right):
-        symmetric.Swap.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod)
 
 
 class Cup(BinaryBoxConstructor, Box):

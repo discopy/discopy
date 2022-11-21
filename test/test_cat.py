@@ -55,13 +55,10 @@ def test_Arrow():
 def test_Arrow_init():
     with raises(TypeError) as err:
         Arrow((), 'x', Ob('x'))
-    assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
         Arrow((), Ob('x'), 'x')
-    assert str(err.value) == messages.type_err(Ob, 'x')
     with raises(TypeError) as err:
         Arrow((Ob('x'), ), Ob('x'), Ob('x'))
-    assert str(err.value) == messages.type_err(Arrow, Ob('x'))
 
 
 def test_Arrow_len():
@@ -125,7 +122,6 @@ def test_Arrow_then():
     assert f.then(g) == f >> g == g << f
     with raises(TypeError) as err:
         f >> x
-    assert str(err.value) == messages.type_err(Arrow, x)
 
 
 def test_Arrow_dagger():

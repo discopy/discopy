@@ -47,7 +47,7 @@ import random
 from itertools import takewhile, chain
 from collections.abc import Mapping
 
-from discopy import messages, monoidal, rigid, tensor
+from discopy import messages, monoidal, rigid, tensor, symmetric
 from discopy.cat import AxiomError, factory
 from discopy.rigid import Diagram
 from discopy.tensor import Dim, Tensor
@@ -975,10 +975,10 @@ class Sum(tensor.Sum, Box):
 Circuit.sum = Sum
 
 
-class Swap(rigid.Swap, Box):
+class Swap(symmetric.Swap, Box):
     """ Implements swaps of circuit wires. """
     def __init__(self, left, right):
-        rigid.Swap.__init__(self, left, right)
+        symmetric.Swap.__init__(self, left, right)
         Box.__init__(
             self, self.name, self.dom, self.cod, is_mixed=left != right)
 

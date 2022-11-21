@@ -8,17 +8,15 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 
 from PIL import Image
 
-
-def _import_matplotlib():
-    global plt, Path, PathPatch
-    import matplotlib.pyplot as plt
-    from matplotlib.path import Path
-    from matplotlib.patches import PathPatch
+import matplotlib.pyplot as plt
+from matplotlib.path import Path
+from matplotlib.patches import PathPatch
 
 
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
     "draw_as_wires": lambda _: False,
+    "draw_as_braid": lambda _: False,
     "draw_as_spider": lambda _: False,
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
@@ -35,11 +33,12 @@ DEFAULT = {
     "textpad": (.1, .1),
     "color": 'white',
     "use_tikzstyles": False,
+    "braid_shadow": (.3, .1)
 }
 # Mapping from tikz colors to hexcodes.
 COLORS = {
     "white": '#ffffff',
-    "red": '#e8a5a5',
+    "red": '#ff0000',
     "green": '#d8f8d8',
     "blue": '#776ff3',
     "yellow": '#f7f700',
@@ -264,7 +263,7 @@ def nx2diagram(graph, ob_factory, id_factory):
 
 class Backend(ABC):
     """ Abstract drawing backend. """
-    def __init__(self):
+    def __init__(self, linewidth=1):
         self.max_width = 0
 
     def draw_text(self, text, i, j, **params):
@@ -444,10 +443,9 @@ class TikzBackend(Backend):
 
 class MatBackend(Backend):
     """ Matplotlib drawing backend. """
-    def __init__(self, axis=None, figsize=None):
-        _import_matplotlib()
-
+    def __init__(self, axis=None, figsize=None, linewidth=1):
         self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
+        self.linewidth = linewidth
         super().__init__()
 
     def draw_text(self, text, i, j, **params):
@@ -468,7 +466,8 @@ class MatBackend(Backend):
         codes = [Path.MOVETO]
         codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
         path = Path(points + points[:1], codes)
-        self.axis.add_patch(PathPatch(path, facecolor=COLORS[color]))
+        self.axis.add_patch(PathPatch(
+            path, facecolor=COLORS[color], linewidth=self.linewidth))
         super().draw_polygon(*points, color=color)
 
     def draw_wire(self, source, target,
@@ -482,7 +481,8 @@ class MatBackend(Backend):
                 if bend_out else (source[0], target[1])
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
-            self.axis.add_patch(PathPatch(path, facecolor='none'))
+            self.axis.add_patch(PathPatch(
+                path, facecolor='none', linewidth=self.linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
@@ -577,9 +577,33 @@ def draw(diagram, **params):
                     and not node.box.draw_as_spider
             if inside_a_box(source) or inside_a_box(target):
                 continue  # no need to draw wires inside a box
+            braid_shadow, source_position, target_position =\
+                DEFAULT["braid_shadow"], positions[source], positions[target]
+            bend_out, bend_in = source.kind == "box", target.kind == "box"
+            if source.kind == "box" and source.box.draw_as_braid:
+                if source.box.is_dagger and target.i == 0:
+                    source_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(source_position
+                            , [-1, -1], braid_shadow))
+                if not source.box.is_dagger and target.i == 1:
+                    source_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(source_position
+                            , [1, -1], braid_shadow))
+            if target.kind == "box" and target.box.draw_as_braid:
+                if target.box.is_dagger and source.i == 1:
+                    target_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            target_position, [1, 1], braid_shadow))
+                if not target.box.is_dagger and source.i == 0:
+                    target_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            target_position, [-1, 1], braid_shadow))
             backend.draw_wire(
-                positions[source], positions[target],
-                bend_out=source.kind == "box", bend_in=target.kind == "box")
+                source_position, target_position, bend_out, bend_in)
             if source.kind in ["input", "cod"]\
                     and (params.get('draw_type_labels', True)
                          or getattr(source.obj, "draw_as_box", False)
@@ -620,7 +644,8 @@ def draw(diagram, **params):
     backend = params.pop('backend') if 'backend' in params else\
         TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
-        else MatBackend(figsize=params.get('figsize', None))
+        else MatBackend(figsize=params.get('figsize', None),
+                        linewidth=params.get('linewidth', 1))
 
     min_size = 0.01
     max_v = max([v for p in positions.values() for v in p] + [min_size])
@@ -755,7 +780,8 @@ def pregroup_draw(words, layers, **params):
 
     backend = TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
-        else MatBackend(figsize=params.get('figsize', None))
+        else MatBackend(figsize=params.get('figsize', None),
+                        linewidth=params.get('linewidth', 1))
 
     def pretty_type(t):
         type_str = t.name

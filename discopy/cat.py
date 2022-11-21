@@ -105,7 +105,7 @@ class Ob:
         self.name = name
 
     def __repr__(self):
-        return "{}({})".format(factory_name(self), repr(self.name))
+        return "{}({})".format(factory_name(type(self)), repr(self.name))
 
     def __str__(self):
         return str(self.name)
@@ -123,7 +123,7 @@ class Ob:
 
     def to_tree(self) -> dict:
         """ See :func:`discopy.utils.dumps`. """
-        return {'factory': factory_name(self), 'name': self.name}
+        return {'factory': factory_name(type(self)), 'name': self.name}
 
     @classmethod
     def from_tree(cls, tree: dict) -> Ob:
@@ -283,9 +283,9 @@ class Arrow(Composable):
 
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
-            return "{}.id({})".format(factory_name(self), repr(self.dom))
+            return "{}.id({})".format(factory_name(type(self)), repr(self.dom))
         return "{}(inside={}, dom={}, cod={})".format(
-            factory_name(self),
+            factory_name(type(self)),
             repr(self.inside), repr(self.dom), repr(self.cod))
 
     def __str__(self):
@@ -412,7 +412,7 @@ class Arrow(Composable):
     def to_tree(self) -> dict:
         """ See :func:`discopy.utils.dumps`. """
         return {
-            'factory': factory_name(self),
+            'factory': factory_name(type(self)),
             'dom': self.dom.to_tree(), 'cod': self.cod.to_tree(),
             'inside': [box.to_tree() for box in self.inside]}
 
@@ -505,7 +505,8 @@ class Box(Arrow):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
         return "{}({}, {}, {}{})".format(
-            factory_name(self), *map(repr, [self.name, self.dom, self.cod]),
+            factory_name(type(self)),
+            *map(repr, [self.name, self.dom, self.cod]),
             '' if self.data is None else ", data=" + repr(self.data))
 
     def __str__(self):
@@ -531,7 +532,7 @@ class Box(Arrow):
 
     def to_tree(self) -> dict:
         tree = {
-            'factory': factory_name(self),
+            'factory': factory_name(type(self)),
             'name': self.name,
             'dom': self.dom.to_tree(),
             'cod': self.cod.to_tree()}
@@ -589,7 +590,7 @@ class Sum(Box):
             if (arrow.dom, arrow.cod) != (dom, cod):
                 raise AxiomError(messages.cannot_add(terms[0], arrow))
         name = "{}(terms={}{})".format(
-            factory_name(self), repr(terms), ", dom={}, cod={}".format(
+            factory_name(type(self)), repr(terms), ", dom={}, cod={}".format(
                 repr(dom), repr(cod)) if not terms else "")
         self.terms = terms
         super().__init__(name, dom, cod)
@@ -609,7 +610,7 @@ class Sum(Box):
     def __str__(self):
         return " + ".join("({})".format(arrow) for arrow in self.terms)\
             if self.terms else "{}((), {}, {})".format(
-                factory_name(self), self.dom, self.cod)
+                factory_name(type(self)), self.dom, self.cod)
 
     def __add__(self, other):
         if (self.dom, self.cod) != (other.dom, other.cod):
@@ -657,7 +658,7 @@ class Sum(Box):
 
     def to_tree(self):
         return {
-            'factory': factory_name(self),
+            'factory': factory_name(type(self)),
             'terms': [t.to_tree() for t in self.terms],
             'dom': self.dom.to_tree(),
             'cod': self.cod.to_tree()}
@@ -696,14 +697,14 @@ class Bubble(Box):
             else "dom={}, cod={}".format(self.dom, self.cod))
 
     def __repr__(self):
-        return factory_name(self) + "({})".format(
+        return factory_name(type(self)) + "({})".format(
             repr(self.arg) if self.is_id_on_objects
             else "{}, dom={}, cod={})".format(*map(repr, [
                 self.arg, self.dom, self.cod])))
 
     def to_tree(self):
         return {
-            'factory': factory_name(self),
+            'factory': factory_name(type(self)),
             'arg': self.arg.to_tree(),
             'dom': self.dom.to_tree(),
             'cod': self.cod.to_tree()}

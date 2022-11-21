@@ -49,7 +49,7 @@ class BinaryTyConstructor:
 
     def to_tree(self):
         return {
-            'factory': factory_name(self),
+            'factory': factory_name(type(self)),
             'left': self.left.to_tree(),
             'right': self.right.to_tree()}
 
@@ -186,7 +186,7 @@ def unaryBoxConstructor(attr):
 
         def to_tree(self):
             return {
-                'factory': factory_name(self),
+                'factory': factory_name(type(self)),
                 attr: getattr(self, attr).to_tree()}
     return Constructor
 

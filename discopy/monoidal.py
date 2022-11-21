@@ -55,7 +55,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from discopy import cat, drawing, rewriting
-from discopy.cat import Ob, factory
+from discopy.cat import factory, Ob
 from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree, assert_isinstance
 
@@ -63,27 +63,26 @@ warn_permutation = WarnOnce()
 
 
 @factory
-class Ty(Ob):
+class Ty(cat.Ob):
     """
     A type is a tuple of objects.
 
     Parameters:
-        inside (tuple[cat.Ob, ...]) : The list of objects (or their names).
+        inside : The objects inside the type (or their names).
 
     Tip
     ---
     Types can be instantiated with a name rather than object.
 
-    >>> assert Ty('x') == Ty(Ob('x'))
+    >>> assert Ty('x') == Ty(cat.Ob('x'))
 
     Tip
     ---
     Types can be indexed and sliced like ordinary Python lists.
 
     >>> t = Ty('x', 'y', 'z')
-    >>> assert t[0] == Ob('x')
-    >>> assert t[:1] == Ty('x')
-    >>> assert t[1:] == Ty('y', 'z')
+    >>> assert t[0] == t[:1] == Ty('x')
+    >>> assert t[1:] == t[-2:] == Ty('y', 'z')
 
     Tip
     ---
@@ -91,9 +90,9 @@ class Ty(Ob):
 
     >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
     """
-    def __init__(self, *inside: Ob):
+    def __init__(self, *inside: cat.Ob):
         self.inside = tuple(
-            x if isinstance(x, Ob) else Ob(x) for x in inside)
+            x if isinstance(x, cat.Ob) else cat.Ob(x) for x in inside)
         super().__init__(self)
 
     def tensor(self, *others: Ty) -> Ty:
@@ -116,7 +115,7 @@ class Ty(Ob):
         inside = self.inside + tuple(x for t in others for x in t.inside)
         return self.factory(*inside)
 
-    def count(self, obj: Ob) -> int:
+    def count(self, obj: cat.Ob) -> int:
         """
         Counts the occurrence of a given object (or a type of length 1).
 
@@ -128,14 +127,14 @@ class Ty(Ob):
 
         >>> x = Ty('x')
         >>> xs = x ** 5
-        >>> assert xs.count(x) == xs.count(x[0]) == xs.inside.count(Ob('x'))
+        >>> assert xs.count(x) == xs.inside.count(x.inside[0])
         """
-        obj, = obj if isinstance(obj, Ty) else (obj, )
+        obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
     def downgrade(self):
         """ Downgrades to :class:`discopy.monoidal.Ty`. """
-        return Ty(*self)
+        return Ty(*self.inside)
 
     def __eq__(self, other):
         return isinstance(other, Ty) and self.inside == other.inside
@@ -159,10 +158,7 @@ class Ty(Ob):
     def __getitem__(self, key):
         if isinstance(key, slice):
             return self.factory(*self.inside[key])
-        return self.inside[key]
-
-    def __matmul__(self, other):
-        return self.tensor(other)
+        return cat.Arrow.__getitem__(self, key)
 
     def __pow__(self, n_times):
         assert_isinstance(n_times, int)
@@ -173,12 +169,14 @@ class Ty(Ob):
 
     def to_tree(self):
         return {
-            'factory': factory_name(self),
+            'factory': factory_name(type(self)),
             'inside': [x.to_tree() for x in self.inside]}
 
     @classmethod
     def from_tree(cls, tree):
         return cls(*map(from_tree, tree['inside']))
+
+    __matmul__ = __add__ = tensor
 
 
 def types(names):
@@ -253,8 +251,8 @@ class Layer(cat.Box):
             == (other.left, other.box, other.right)
 
     def __repr__(self):
-        return "{}({}, {}, {})".format(
-            factory_name(self), *map(repr, (self.left, self.box, self.right)))
+        return factory_name(type(self)) + "({}, {}, {})".format(
+            *map(repr, (self.left, self.box, self.right)))
 
     def __str__(self):
         left, box, right = self
@@ -342,7 +340,7 @@ class Encoding:
     >>> diagram = f0 @ f1 >> g
     >>> encoding = diagram.encode()
     >>> assert encoding.dom == x @ z
-    >>> assert encoding.boxes_and_offsets\
+    >>> assert encoding.boxes_and_offsets\\
     ...     == ((f0, 0), (f1, 1), (g, 0))
     >>> assert diagram == Diagram.decode(diagram.encode())
     >>> diagram.draw(figsize=(2, 2),
@@ -359,7 +357,7 @@ class Encoding:
 class Diagram(cat.Arrow, Tensorable):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
-    types :code:`dom` and :code:`cod` as domain and codomain
+    types :code:`dom` and :code:`cod` as domain and codomain.
 
     Parameters:
         inside : The layers of the diagram.
@@ -442,7 +440,6 @@ class Diagram(cat.Arrow, Tensorable):
     def width(self):
         """
         The width of a diagram, i.e. the maximum number of parallel wires.
-
         >>> x = Ty('x')
         >>> f = Box('f', x, x ** 4)
         >>> diagram = f @ x ** 2 >> x ** 2 @ f.dagger()
@@ -471,7 +468,7 @@ class Diagram(cat.Arrow, Tensorable):
 
     def downgrade(self):
         """ Downcasting to :class:`discopy.monoidal.Diagram`. """
-        dom, cod = Ty(*self.dom), Ty(*self.cod)
+        dom, cod = self.dom.downgrade(), self.cod.downgrade()
         boxes, offsets = [box.downgrade() for box in self.boxes], self.offsets
         return Diagram.decode(Encoding(dom, zip(boxes, offsets)))
 
@@ -494,9 +491,10 @@ class Diagram(cat.Arrow, Tensorable):
 
         class OpenBubbles(Functor):
             def __call__(self, diagram):
-                diagram = diagram.downgrade()
+                if isinstance(diagram, (Ty, Diagram)):
+                    diagram = diagram.downgrade()
                 if isinstance(diagram, Bubble):
-                    obj = Ob(diagram.drawing_name)
+                    obj = cat.Ob(diagram.drawing_name)
                     obj.draw_as_box = True
                     left, right = Ty(obj), Ty("")
                     open_bubble = Box(
@@ -534,7 +532,7 @@ Id = Diagram.id
 
 class Box(cat.Box, Diagram):
     """
-    A box is a diagram with the layer of just itself inside.
+    A box is a diagram with a :code:`name` and the layer of just itself inside.
 
     Parameters:
         name : The name of the box.
@@ -550,6 +548,8 @@ class Box(cat.Box, Diagram):
         Whether to draw the box as a spider.
     draw_as_wires : bool, optional
         Whether to draw the box as wires, e.g. :class:`discopy.symmetric.Swap`.
+    draw_as_braid : bool, optional
+        Whether to draw the box as a a braid, e.g. :class:`braided.Braid`.
     drawing_name : str, optional
         The name to use when drawing the box.
     tikzstyle_name : str, optional
@@ -644,7 +644,8 @@ class Bubble(cat.Bubble, Box):
 
     def downgrade(self):
         """ Downcasting to :class:`discopy.monoidal.Bubble`. """
-        result = Bubble(self.arg.downgrade(), Ty(*self.dom), Ty(*self.cod))
+        result = Bubble(
+            self.arg.downgrade(), self.dom.downgrade(), self.cod.downgrade())
         result.drawing_name = self.drawing_name
         return result
 
@@ -696,17 +697,14 @@ class Functor(cat.Functor):
     """
     dom = cod = Category(Ty, Diagram)
 
-    def __call__(self, diagram):
-        if isinstance(diagram, (Sum, Bubble)):
-            super().__call__(diagram)
-        if isinstance(diagram, Ty):
-            return self.cod.ob().tensor(*[
-                self.ob[type(diagram)(x)] for x in diagram])
-        if isinstance(diagram, Box):
-            return super().__call__(diagram)
-        if isinstance(diagram, Diagram):
-            result = self.cod.ar.id(self(diagram.dom))
-            for left, box, right in diagram:
-                result = result >> self(left) @ self(box) @ self(right)
-            return result
-        raise TypeError
+    def __call__(self, other):
+        if isinstance(other, Ty):
+            return sum([self(obj) for obj in other.inside], self.cod.ob())
+        if isinstance(other, cat.Ob):
+            result = self.ob[self.dom.ob(other)]
+            dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
+            return result if isinstance(result, dtype)\
+                else self.cod.ob((result, ))  # Syntactic sugar for {x: n}.
+        if isinstance(other, Layer):
+            return self(other.left) @ self(other.box) @ self(other.right)
+        return super().__call__(other)
