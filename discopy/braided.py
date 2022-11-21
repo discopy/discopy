@@ -26,6 +26,33 @@ Summary
         :toctree:
 
         hexagon
+
+Axioms
+------
+Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
+
+>>> x, y, z = map(Ty, "xyz")
+>>> LHS = Braid(x, y) >> Braid(x, y)[::-1]
+>>> RHS = Braid(y, x)[::-1] >> Braid(y, x)
+>>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
+>>> from discopy import drawing
+>>> drawing.equation(LHS, Id(x @ y), RHS,
+...     path='docs/_static/imgs/braided/inverse.png', figsize=(5, 2))
+
+.. image:: ../_static/imgs/braided/inverse.png
+    :align: center
+
+The hexagon equations hold on the nose.
+
+>>> left_hexagon = Braid(x, y) @ z >> y @ Braid(x, z)
+>>> assert left_hexagon == Diagram.braid(x, y @ z)
+>>> right_hexagon = x @ Braid(y, z) >> Braid(x, z) @ y
+>>> assert right_hexagon == Diagram.braid(x @ y, z)
+>>> drawing.equation(left_hexagon, right_hexagon, symbol='', space=2,
+...     path='docs/_static/imgs/braided/hexagons.png', figsize=(5, 2))
+
+.. image:: ../_static/imgs/braided/hexagons.png
+    :align: center
 """
 
 from __future__ import annotations
@@ -99,9 +126,8 @@ class Braid(BinaryBoxConstructor, Box):
     def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
         assert_isatomic(left, monoidal.Ty)
         assert_isatomic(right, monoidal.Ty)
-        name = factory_name(type(self)) + (
-            "({}, {})[::-1]".format(right, left) if is_dagger
-            else "({}, {})".format(left, right))
+        name = type(self).__name__ + "({}, {})".format(*(
+            (right, left) if is_dagger else (left, right)))
         dom, cod = left @ right, right @ left
         Box.__init__(
             self, name, dom, cod, is_dagger=is_dagger, draw_as_braid=True)
@@ -117,6 +143,7 @@ class Braid(BinaryBoxConstructor, Box):
 
 
 Diagram.braid_factory = Braid
+Id = Diagram.id
 
 
 def hexagon(factory: Callable) -> Callable:

@@ -15,8 +15,8 @@ from matplotlib.patches import PathPatch
 
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
-    "draw_as_wires": lambda _: False,
     "draw_as_braid": lambda _: False,
+    "draw_as_wires": lambda box: box.draw_as_braid,
     "draw_as_spider": lambda _: False,
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
