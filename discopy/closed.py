@@ -51,7 +51,7 @@ class Ty(monoidal.Ty):
         return Over(self, other)
 
     def __rshift__(self, other):
-        return Under(self, other)
+        return Under(other, self)
 
 
 class Exp(Ty):

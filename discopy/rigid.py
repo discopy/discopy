@@ -233,6 +233,14 @@ class Diagram(monoidal.Diagram):
     .. image:: ../_static/imgs/rigid/diagram-example.png
         :align: center
     """
+    over = staticmethod(lambda base, exponent: base << exponent)
+    under = staticmethod(lambda base, exponent: exponent >> base)
+
+    @classmethod
+    def eval(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
+        return base @ cls.cups(exponent.l, exponent) if left\
+            else cls.cups(exponent, exponent.r) @ base
+
     @staticmethod
     def cups(left, right):
         """ Constructs nested cups witnessing adjointness of x and y.
@@ -303,11 +311,11 @@ class Diagram(monoidal.Diagram):
         """ Diagram currying. """
         if left:
             wires = diagram.dom[:n_wires]
-            return Diagram.caps(wires.r, wires) @ Id(diagram.dom[n_wires:])\
-                >> Id(wires.r) @ diagram
+            return Diagram.caps(wires.r, wires) @ diagram.dom[n_wires:]\
+                >> wires.r @ diagram
         wires = diagram.dom[-n_wires or len(diagram.dom):]
-        return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
-            >> diagram @ Id(wires.l)
+        return diagram.dom[:-n_wires] @ Diagram.caps(wires, wires.l)\
+            >> diagram @ wires.l
 
     def _conjugate(self, use_left):
         layers = self.inside

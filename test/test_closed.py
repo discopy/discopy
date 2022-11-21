@@ -33,17 +33,25 @@ def test_Functor():
 def test_drawing():
     from discopy import rigid
 
+    @factory
     class ClosedDrawing(rigid.Diagram):
-        ev = staticmethod(lambda base, exponent, left=True:
-            rigid.Diagram.ev(base, exponent, left).bubble())
+        eval = staticmethod(lambda base, exponent, left=True:
+            rigid.Diagram.eval(base, exponent, left).bubble())
         curry = lambda self, n=1, left=True:\
             rigid.Diagram.curry(self, n, left).bubble()
 
-    Draw = Functor(lambda x: x, lambda f: f, cod=Category(rigid.Ty, ClosedDrawing))
+    class DrawingBox(rigid.Box, ClosedDrawing):
+        pass
+
+    Draw = Functor(
+        lambda x: rigid.Ty(x.name),
+        lambda f: DrawingBox(f.name, Draw(f.dom), Draw(f.cod)),
+        cod=Category(rigid.Ty, ClosedDrawing))
     Diagram.draw = lambda self, **params: Draw(self)
 
     x, y, z = map(Ty, "xyz")
     f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
+    f.uncurry().draw()
     f.uncurry().curry().draw()
     h.uncurry(left=False).curry(left=False).draw()
     g.curry().uncurry().draw(), g, g.curry(left=False).uncurry(left=False).draw()

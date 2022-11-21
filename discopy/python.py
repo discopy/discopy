@@ -102,7 +102,7 @@ class Function(Composable, Whiskerable):
         return Function(inside, dom, cod)
 
     @staticmethod
-    def ev(base: Ty, exponent: Ty, left=True) -> Function:
+    def eval(base: Ty, exponent: Ty, left=True) -> Function:
         if left:
             inside = lambda f, *xs: f(*xs)
             return Function(inside, exp(base, exponent) + exponent, base)
@@ -112,8 +112,8 @@ class Function(Composable, Whiskerable):
     def uncurry(self, left=True) -> Function:
         base, exponent = self.cod[0].__args__[-1], self.cod[0].__args__[:-1]
         base = tuple(base.__args__) if is_tuple(base) else (base, )
-        return self @ exponent >> Function.ev(base, exponent) if left\
-            else exponent @ self >> Function.ev(base, exponent, left=False)
+        return self @ exponent >> Function.eval(base, exponent) if left\
+            else exponent @ self >> Function.eval(base, exponent, left=False)
 
     exp = under = over = staticmethod(exp)
 

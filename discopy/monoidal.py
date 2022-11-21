@@ -701,8 +701,9 @@ class Functor(cat.Functor):
         if isinstance(other, cat.Ob):
             result = self.ob[self.dom.ob(other)]
             dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
-            return result if isinstance(result, dtype)\
-                else self.cod.ob((result, ))  # Syntactic sugar for {x: n}.
+            if not isinstance(result, dtype) and dtype in (tuple, list):
+                return (result, )  # Allows syntactic sugar {x: n}.
+            return result
         if isinstance(other, Layer):
             return self(other.left) @ self(other.box) @ self(other.right)
         return super().__call__(other)
