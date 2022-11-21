@@ -454,6 +454,14 @@ class Swap(monoidal.Swap, Box):
         monoidal.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
 
+    @property
+    def l(self):
+        return Swap(self.right.l, self.left.l)
+
+    @property
+    def r(self):
+        return Swap(self.right.r, self.left.r)
+
 
 class Cup(monoidal.BinaryBoxConstructor, Box):
     """ Defines cups for simple types.
