@@ -1,25 +1,8 @@
 DisCoPy's API
 =============
 
-Core
-----
+.. toctree::
+    :maxdepth: 2
 
-.. autosummary::
-    :template: module.rst
-    :toctree: api
-
-    discopy.cat
-    discopy.monoidal
-    discopy.braided
-    discopy.symmetric
-    discopy.closed
-    discopy.rigid
-
-Concrete
---------
-
-.. autosummary::
-    :template: module.rst
-    :toctree: api
-
-    discopy.python
+    api-core
+    api-concrete

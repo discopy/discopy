@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free symmetric category,
-i.e. with four-dimensional diagrams where wires can cross.
+The free symmetric category, i.e. diagrams with swaps.
 
 Summary
 -------

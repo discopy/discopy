@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free rigid category, i.e. with left and right adjoints for each object.
+The free rigid category, i.e. diagrams with cups and caps.
 
 Summary
 -------
@@ -115,7 +115,7 @@ class Ob(cat.Ob):
 
 
 @factory
-class Ty(monoidal.Ty, Ob):
+class Ty(monoidal.Ty):
     """
     A rigid type is a monoidal type with rigid objects inside.
 
@@ -128,6 +128,8 @@ class Ty(monoidal.Ty, Ob):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    ob_factory = Ob
+
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
@@ -144,13 +146,6 @@ class Ty(monoidal.Ty, Ob):
         if len(self) != 1:
             raise TypeError(messages.no_winding_number_for_complex_types())
         return self.inside[0].z
-
-    def __init__(self, *inside):
-        inside = [x if isinstance(x, Ob)
-                  else Ob(x.name) if isinstance(x, cat.Ob)
-                  else Ob(x) for x in inside]
-        monoidal.Ty.__init__(self, *inside)
-        Ob.__init__(self, str(self))
 
     def __repr__(self):
         return factory_name(type(self)) + "({})".format(', '.join(
@@ -317,10 +312,6 @@ class Diagram(monoidal.Diagram):
     @property
     def r(self):
         return self._conjugate(use_left=False)
-
-    def dagger(self):
-        raise AxiomError(
-            "Rigid categories have no dagger, use pivotal instead.")
 
     def transpose_box(self, i, left=False):
         bend_left = left
@@ -516,6 +507,16 @@ class Cup(BinaryBoxConstructor, Box):
     def r(self):
         return Cup(self.right.r, self.left.r)
 
+    def dagger(self):
+        """
+        The dagger of a rigid cup is ill-defined.
+
+        See also
+        --------
+        Use a :class:`pivotal.Cup` instead.
+        """
+        raise AxiomError("Rigid cups have no dagger, use pivotal instead.")
+
     def __repr__(self):
         return "Cup({}, {})".format(repr(self.left), repr(self.right))
 
@@ -561,6 +562,16 @@ class Cap(BinaryBoxConstructor, Box):
     @property
     def r(self):
         return Cap(self.right.r, self.left.r)
+
+    def dagger(self):
+        """
+        The dagger of a rigid cap is ill-defined.
+
+        See also
+        --------
+        Use a :class:`pivotal.Cap` instead.
+        """
+        raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))

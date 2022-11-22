@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free braided category,
-i.e. with three-dimensional diagrams where wires can knot.
+The free braided category, i.e. diagrams with braids.
 
 Summary
 -------

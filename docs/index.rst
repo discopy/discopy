@@ -8,6 +8,12 @@ DisCoPy documentation
    :start-line: 10
 
 .. toctree::
+   :caption: Reference
+   :hidden:
+
+   api
+
+.. toctree::
     :caption: Theory
     :hidden:
 
@@ -37,12 +43,6 @@ DisCoPy documentation
     extra/slides
     extra/blogs
     extra/papers
-
-.. toctree::
-    :caption: Reference
-    :hidden:
-
-    api
 
 Indices and tables
 ------------------

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free pivotal category, i.e. rigid where left and right adjoints coincide.
+The free pivotal category, i.e. planar diagrams that can rotate by a full turn.
 
 Summary
 -------
@@ -13,69 +13,114 @@ Summary
 
     Ob
     Ty
-    Layer
     Diagram
     Box
     Cup
     Cap
     Category
     Functor
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        cups
-        caps
-
-Axioms
-------
-
->>> unit, s, n = Ty(), Ty('s'), Ty('n')
->>> t = n.r @ s @ n.l
->>> assert t @ unit == t == unit @ t
->>> assert t.l.r == t == t.r.l
->>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
->>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
->>> from discopy import drawing
->>> drawing.equation(
-...     left_snake, Id(n), right_snake, figsize=(4, 2),
-...     path='docs/_static/imgs/rigid/snake-equation.png')
-
-.. image:: ../_static/imgs/rigid/snake-equation.png
-    :align: center
 """
+
+from __future__ import annotations
 
 from discopy import rigid
 from discopy.cat import factory
-from discopy.rigid import nesting
 
 
 class Ob(rigid.Ob):
-    l = r = property(lambda self: self.cast(Ob(self.name, (self.z + 1) % 2)))
+    """
+    A pivotal object is a rigid object where left and right adjoints coincide.
+
+    Parameters:
+        name : The name of the object.
+        z (bool) : Whether the object is an adjoint or not.
+    """
+    l = r = property(lambda self: type(self)(self.name, (self.z + 1) % 2))
+
 
 @factory
-class Ty(rigid.Ty, Ob):
-    def __init__(self, inside=()):
-        rigid.Ty.__init__(self, inside=tuple(map(Ob.cast, inside)))
+class Ty(rigid.Ty):
+    """
+    A pivotal type is a rigid type with pivotal objects inside.
 
-class Diagram(rigid.Diagram): pass
+    Parameters:
+        inside (tuple[Ob, ...]) : The objects inside the type.
+    """
+    ob_factory = Ob
+
+
+@factory
+class Diagram(rigid.Diagram):
+    """
+    A pivotal diagram is a rigid diagram
+    with pivotal types as domain and codomain.
+
+    Parameters:
+        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        dom (Ty) : The domain of the diagram, i.e. its input.
+        cod (Ty) : The codomain of the diagram, i.e. its output.
+    """
+
 
 class Box(rigid.Box, Diagram):
-    cast = Diagram.cast
+    """
+    A pivotal box is a rigid box in a pivotal diagram.
+
+    Parameters:
+        name (str) : The name of the box.
+        dom (Ty) : The domain of the box, i.e. its input.
+        cod (Ty) : The codomain of the box, i.e. its output.
+    """
+
 
 class Cup(rigid.Cup, Box):
-    def dagger(self):
+    """
+    A pivotal cup is a rigid cup of pivotal types.
+
+    Parameters:
+        left (Ty) : The atomic type.
+        right (Ty) : Its adjoint.
+    """
+    def dagger(self) -> Cap:
+        """ The dagger of a pivotal cup. """
         return Cap(self.dom[0], self.dom[1])
 
+
 class Cap(rigid.Cap, Box):
-    def dagger(self):
+    """
+    A pivotal cap is a rigid cap of pivotal types.
+
+    Parameters:
+        left (Ty) : The atomic type.
+        right (Ty) : Its adjoint.
+    """
+    def dagger(self) -> Cup:
+        """ The dagger of a pivotal cap. """
         return Cup(self.cod[0], self.cod[1])
 
-Diagram.cups, Diagram.caps = nesting(Cup), nesting(Cap)
+
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
+
+class Category(rigid.Category):
+    """
+    A pivotal category is a rigid category
+    where left and right adjoints coincide.
+
+    Parameters:
+    ob : The type of objects.
+    ar : The type of arrows.
+    """
+    ob, ar = Ty, Diagram
+
 
 class Functor(rigid.Functor):
+    """
+    A pivotal functor is a rigid functor on a pivotal category.
+
+    Parameters:
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
+    """
     dom = cod = Category(Ty, Diagram)

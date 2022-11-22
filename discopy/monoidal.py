@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free (pre)monoidal category,
-i.e. with an associative and unital tensor product.
+The free (pre)monoidal category, i.e. planar diagrams.
 
 Summary
 -------
@@ -88,10 +87,13 @@ class Ty(cat.Ob):
 
     >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
     """
-    def __init__(self, *inside: cat.Ob):
+    ob_factory = cat.Ob
+
+    def __init__(self, *inside: ob_factory):
         self.inside = tuple(
-            x if isinstance(x, cat.Ob) else cat.Ob(x) for x in inside)
-        super().__init__(self)
+            x if isinstance(x, self.ob_factory) else self.ob_factory(x)
+            for x in inside)
+        super().__init__(str(self))
 
     def tensor(self, *others: Ty) -> Ty:
         """

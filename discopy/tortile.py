@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free compact category, i.e. diagrams with swaps, cups and caps.
+The free tortile category, i.e. diagrams with braids, cups and caps.
 
 Summary
 -------
@@ -15,41 +15,32 @@ Summary
     Box
     Cup
     Cap
-    Swap
+    Braid
     Category
     Functor
 """
 
-from discopy import symmetric, tortile
+from __future__ import annotations
+
+from discopy import braided, pivotal
 from discopy.cat import factory
-from discopy.tortile import Ty
+from discopy.pivotal import Ty
 
 
 @factory
-class Diagram(symmetric.Diagram, tortile.Diagram):
+class Diagram(pivotal.Diagram, braided.Diagram):
     """
-    A compact diagram is a symmetric diagram and a tortile diagram.
+    A tortile diagram is a pivotal diagram and a braided diagram.
 
     Parameters:
         inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
-    def trace(self, n=1):
-        """
-        The trace of a compact diagram.
 
-        Parameters:
-            n : The number of wires to trace.
-        """
-        return self.dom[:-n] @ self.caps(self.dom[-n:], self.dom[-n:].r)\
-            >> self @ self.dom[-n:].r\
-            >> self.cod[:-n] @ self.cups(self.cod[-n:], self.cod[-n:].r)
-
-
-class Box(symmetric.Box, tortile.Box, Diagram):
+class Box(pivotal.Box, braided.Box, Diagram):
     """
-    A compact box is a symmetric and tortile box in a compact diagram.
+    A tortile box is a pivotal and braided box in a tortile diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -57,41 +48,41 @@ class Box(symmetric.Box, tortile.Box, Diagram):
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
 
-class Cup(tortile.Cup, Box):
+class Cup(pivotal.Cup, Box):
     """
-    A compact cup is a tortile cup in a compact diagram.
+    A tortile cup is a pivotal cup in a tortile diagram.
 
     Parameters:
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
 
-class Cap(tortile.Cap, Box):
+class Cap(pivotal.Cap, Box):
     """
-    A compact cap is a tortile cap in a compact diagram.
+    A tortile cap is a pivotal cap in a tortile diagram.
 
     Parameters:
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
 
-class Swap(symmetric.Swap, tortile.Braid, Box):
+class Braid(braided.Braid, Box):
     """
-    A compact swap is a symmetric swap and a tortile braid.
+    A tortile braid is a braided braid in a tortile diagram.
 
     Parameters:
         left (pivotal.Ty) : The type on the top left and bottom right.
         right (pivotal.Ty) : The type on the top right and bottom left.
+        is_dagger (bool) : Braiding over or under.
     """
 
-
-Diagram.braid_factory = Swap
+Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 
-class Category(symmetric.Category, tortile.Category):
+class Category(pivotal.Category, braided.Category):
     """
-    A compact category is both a symmetric category and a tortile category.
+    A tortile category is both a pivotal category and a braided category.
 
     Parameters:
         ob : The objects of the category, default is :class:`Ty`.
@@ -100,9 +91,9 @@ class Category(symmetric.Category, tortile.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(symmetric.Functor, tortile.Functor):
+class Functor(pivotal.Functor, braided.Functor):
     """
-    A compact functor is both a symmetric functor and a tortile functor.
+    A tortile functor is both a pivotal functor and a braided functor.
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :
@@ -113,6 +104,6 @@ class Functor(symmetric.Functor, tortile.Functor):
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
-        if isinstance(other, Swap):
-            return symmetric.Functor.__call__(self, other)
-        return tortile.Functor.__call__(self, other)
+        if isinstance(other, Braid):
+            return braided.Functor.__call__(self, other)
+        return pivotal.Functor.__call__(self, other)

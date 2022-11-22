@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The free category
-(enriched in monoids, unary operators and :code:`sympy` symbols).
+The free (dagger) category
+with formal sums, unary operators and :code:`sympy` symbols.
 
 Summary
 -------
