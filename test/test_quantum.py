@@ -236,21 +236,6 @@ def test_pennylane_parameterized_ops():
         assert np.allclose(disco, plane, atol=10e-5)
 
 
-def test_pennylane_update_post_selection():
-    bell_state = Circuit.caps(qubit, qubit)
-    bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
-    p_circ = snake.to_pennylane()
-
-    assert p_circ.post_selection == {0: 0, 1: 0}
-    assert p_circ._valid_states == [0, 1]
-
-    p_circ.post_selection = {0: 0, 2: 0}
-
-    assert p_circ.post_selection == {0: 0, 2: 0}
-    assert p_circ._valid_states == [0, 2]
-
-
 def test_Sum_from_tk():
     assert Circuit.from_tk(*(X + X).to_tk()) == (X + X).init_and_discard()
     assert Circuit.from_tk() == Sum([], qubit ** 0, qubit ** 0)
