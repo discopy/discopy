@@ -407,9 +407,6 @@ class Arrow(Composable):
         """ Unary operator on homsets. """
         return self.bubble_factory(self, **params)
 
-    def fmap(self, func):
-        return func(self)
-
     def to_tree(self) -> dict:
         """ See :func:`discopy.utils.dumps`. """
         return {
@@ -650,12 +647,6 @@ class Sum(Box):
         return lambda *xs: self.sum(
             tuple(box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms),
             dom=self.dom, cod=self.cod)
-
-    @staticmethod
-    def fmap(func):
-        def sum_func(diagram):
-            return type(diagram)([func(term) for term in diagram.terms])
-        return sum_func
 
     def to_tree(self):
         return {

@@ -12,8 +12,18 @@ Summary
     :toctree:
 
     Ty
-    exp
     Function
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        tuplify
+        untuplify
+        is_tuple
 """
 
 from __future__ import annotations
@@ -28,20 +38,37 @@ from discopy.monoidal import Whiskerable
 
 Ty = tuple[type, ...]
 
-tuplify = lambda stuff: stuff if isinstance(stuff, tuple) else (stuff, )
-untuplify = lambda stuff: stuff[0] if len(stuff) == 1 else stuff
-is_tuple = lambda typ: getattr(typ, "__origin__", None) is tuple
 
-
-def exp(base: Ty, exponent: Ty) -> Ty:
+def tuplify(stuff: any) -> tuple:
     """
-    The exponential of a tuple of Python types by another.
+    Turns anything into a tuple, do nothing if it is already.
 
     Parameters:
-        base (python.Ty) : The base type.
-        exponent (python.Ty) : The exponent type.
+        stuff : The stuff to turn into a tuple.
     """
-    return (Callable[exponent, tuple[base]], )
+    return stuff if isinstance(stuff, tuple) else (stuff, )
+
+def untuplify(stuff: tuple) -> any:
+    """
+    Takes the element out of a tuple if it has length 1, otherwise do nothing.
+
+    Parameters:
+        stuff : The tuple out of which to take the element.
+
+    Important
+    ---------
+    This is the inverse of :func:`tuplify`, except on tuples of length 1.
+    """
+    return stuff[0] if len(stuff) == 1 else stuff
+
+def is_tuple(typ: type) -> bool:
+    """
+    Whether a given type is tuple or a paramaterised tuple.
+
+    Parameters:
+        typ : The type to check for equality with tuple.
+    """
+    return getattr(typ, "__origin__", typ) is tuple
 
 
 @dataclass
@@ -59,6 +86,7 @@ class Function(Composable, Whiskerable):
 
         .. autosummary::
 
+            exp
             id
             then
             tensor
@@ -74,6 +102,19 @@ class Function(Composable, Whiskerable):
     inside: Callable
     dom: Ty
     cod: Ty
+
+    @staticmethod
+    def exp(base: Ty, exponent: Ty) -> Ty:
+        """
+        The exponential of a tuple of Python types by another.
+
+        Parameters:
+            base (python.Ty) : The base type.
+            exponent (python.Ty) : The exponent type.
+        """
+        return (Callable[exponent, tuple[base]], )
+
+    over = under = exp
 
     @classmethod
     def id(cls, dom: Ty) -> Function:
@@ -191,8 +232,6 @@ class Function(Composable, Whiskerable):
         base = tuple(base.__args__) if is_tuple(base) else (base, )
         return self @ exponent >> Function.eval(base, exponent) if left\
             else exponent @ self >> Function.eval(base, exponent, left=False)
-
-    exp = under = over = staticmethod(exp)
 
     def fix(self, n=1) -> Function:
         """

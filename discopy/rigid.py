@@ -388,12 +388,6 @@ class Diagram(monoidal.Diagram):
         return self
 
 
-Sum = cat.Sum
-
-Sum.l = property(cat.Sum.fmap(lambda d: d.l))
-Sum.r = property(cat.Sum.fmap(lambda d: d.r))
-
-
 class Id(Diagram):
     """ Define an identity arrow in a free rigid category
 
@@ -463,6 +457,21 @@ class Box(monoidal.Box, Diagram):
     def dagger(self):
         raise AxiomError(
             "Rigid categories have no dagger, use pivotal instead.")
+
+
+class Sum(monoidal.Sum, Box):
+    """ A rigid sum is a monoidal sum that can be transposed. """
+    @property
+    def l(self) -> Sum:
+        """ The left transpose of a sum, i.e. the sum of left transposes. """
+        return self.sum(
+            tuple(term.l for term in self.terms), self.dom.l, self.cod.l)
+
+    @property
+    def r(self) -> Sum:
+        """ The right transpose of a sum, i.e. the sum of right transposes. """
+        return self.sum(
+            tuple(term.r for term in self.terms), self.dom.r, self.cod.r)
 
 
 class Cup(BinaryBoxConstructor, Box):
@@ -625,6 +634,7 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
+Diagram.sum = Sum
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 
