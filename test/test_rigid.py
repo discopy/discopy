@@ -173,6 +173,8 @@ def test_adjoint():
     diagram = Bob @ eats >> Cup(n, n.r) @ Id(s)
     assert diagram.l == Bob_l >> eats_l @ Id(n.l) >> Id(s.l) @ Cup(n, n.l)
     assert diagram.r == Bob_r >> eats_r @ Id(n.r) >> Id(s.r) @ Cup(n.r.r, n.r)
+    assert (eats >> Swap(n.r, s)).l == eats_l >> Swap(s.l, n)
+    assert (eats >> Swap(n.r, s)).r == eats_r >> Swap(s.r, n.r.r)
 
 
 def test_id_adjoint():
