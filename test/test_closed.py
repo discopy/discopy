@@ -134,3 +134,18 @@ def test_to_tree():
             FX(x << y, z >> y),
             BX(y << x, y >> z)]:
         assert from_tree(diagram.to_tree()) == diagram
+
+
+def test_python_Functor():
+    x, y, z = map(Ty, "xyz")
+    f, g = Box('f', y, z << x), Box('g', y, z >> x)
+
+    from discopy.python import Function
+    F = Functor(
+        ob={x: complex, y: bool, z: float},
+        ar={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
+            g: lambda y: lambda z: z + 1j if y else -1j},
+        cod=Category(tuple[type, ...], Function))
+
+    assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
+    assert F(g.uncurry(left=False).curry(left=False))(True)(1.2) == F(g)(True)(1.2)

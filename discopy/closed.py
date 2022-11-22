@@ -28,17 +28,27 @@ Axioms
 :meth:`Diagram.curry` and :meth:`Diagram.uncurry` are inverses.
 
 >>> x, y, z = map(Ty, "xyz")
->>> f, g = Box('f', y, z << x), Box('g', y, z >> x)
+>>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
->>> from discopy.python import Function
->>> F = Functor(
-...     ob={x: complex, y: bool, z: float},
-...     ar={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
-...         g: lambda y: lambda z: z + 1j if y else -1j},
-...     cod=Category(tuple[type, ...], Function))
+>>> from discopy import drawing
+>>> drawing.equation(f.uncurry().curry(), f,
+...     path='docs/_static/imgs/closed/curry-left.png', margins=(0.1, 0.05))
 
->>> assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
->>> assert F(g.uncurry(left=False).curry(left=False))(True)(1.2) == F(g)(True)(1.2)
+.. image:: ../_static/imgs/closed/curry-left.png
+    :align: center
+
+>>> drawing.equation(h.uncurry(left=False).curry(left=False), h,
+...     path='docs/_static/imgs/closed/curry-right.png', margins=(0.1, 0.05))
+
+.. image:: ../_static/imgs/closed/curry-right.png
+    :align: center
+
+>>> drawing.equation(
+...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False),
+...     path='docs/_static/imgs/closed/uncurry.png')
+
+.. image:: ../_static/imgs/closed/uncurry.png
+    :align: center
 """
 
 from __future__ import annotations
