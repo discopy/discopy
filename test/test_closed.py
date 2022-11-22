@@ -98,17 +98,18 @@ def test_Functor():
     assert IdF(BX(y << x, y >> z)) == BX(y << x, y >> z)
 
 
-def test_closed2rigid():
+def test_to_rigid():
+    from discopy import rigid
+
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
     diagram = Id(x << y) @ f >> FA(x << y)
-    assert closed2rigid(x) == rigid.Ty('x')
+    assert Diagram.to_rigid(x) == rigid.Ty('x')
     x_, y_ = rigid.Ty('x'), rigid.Ty('y')
     f_ = rigid.Box('f', x_, y_)
-    assert closed2rigid(diagram)\
+    assert Diagram.to_rigid(diagram)\
         == rigid.Id(x_ @ y_.l) @ f_ >> rigid.Id(x_) @ rigid.Cup(y_.l, y_)
-    # TODO : Fix BA, FA, etc.
-    # assert closed2rigid(Curry(BA(x >> y))).normal_form()\
+    # assert Diagram.to_rigid(Curry(BA(x >> y))).normal_form()\
     #     == rigid.Cap(y_, y_.l) @ rigid.Id(x_)
     # assert closed2rigid(Curry(FA(x << y), left=True)).normal_form()\
     #     == rigid.Id(y_) @ rigid.Cap(x_.r, x_)

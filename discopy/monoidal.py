@@ -110,8 +110,11 @@ class Ty(cat.Ob):
         >>> list_of_types = [Ty('x'), Ty('y'), Ty('z')]
         >>> assert Ty().tensor(*list_of_types) == Ty('x', 'y', 'z')
         """
-        if any(not isinstance(other, Ty) for other in others):
-            return NotImplemented  # This allows whiskering on the left.
+        for other in others:
+            if not isinstance(other, Ty):
+                return NotImplemented  # This allows whiskering on the left.
+            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.factory)
         inside = self.inside + tuple(x for t in others for x in t.inside)
         return self.factory(*inside)
 
@@ -285,6 +288,9 @@ class Layer(cat.Box):
         >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
         """
         return cls(box.dom[:0], box, box.dom[len(box.dom):])
+
+    def downgrade(self) -> Layer:
+        return Layer(*(x.downgrade() for x in self))
 
     def dagger(self) -> Layer:
         return type(self)(self.left, self.box.dagger(), self.right)
@@ -474,53 +480,9 @@ class Diagram(cat.Arrow, Whiskerable):
 
     def downgrade(self):
         """ Downcasting to :class:`discopy.monoidal.Diagram`. """
+        inside = tuple(layer.downgrade() for layer in self.inside)
         dom, cod = self.dom.downgrade(), self.cod.downgrade()
-        boxes, offsets = [box.downgrade() for box in self.boxes], self.offsets
-        return Diagram.decode(Encoding(dom, zip(boxes, offsets)))
-
-    def open_bubbles(self):
-        """
-        Called when drawing bubbles. Replace each :code:`bubble` by::
-
-            opening >> left @ open_bubbles(bubble.other) @ right >> closing
-
-        where::
-
-            left, right = Ty(bubble.drawing_name), Ty("")
-            opening = Box("", bubble.dom, left @ bubble.dom @ right)
-            closing = Box("", left @ bubble.cod @ right, bubble.cod)
-
-        :meth:`Diagram.downgrade` gets called in the process.
-        """
-        if not any(isinstance(box, Bubble) for box in self.boxes):
-            return self.downgrade()
-
-        class OpenBubbles(Functor):
-            def __call__(self, diagram):
-                if isinstance(diagram, (Ty, Diagram)):
-                    diagram = diagram.downgrade()
-                if isinstance(diagram, Bubble):
-                    obj = cat.Ob(diagram.drawing_name)
-                    obj.draw_as_box = True
-                    left, right = Ty(obj), Ty("")
-                    open_bubble = Box(
-                        "open_bubble",
-                        diagram.dom, left @ diagram.arg.dom @ right)
-                    close_bubble = Box(
-                        "_close",
-                        left @ diagram.arg.cod @ right, diagram.cod)
-                    open_bubble.draw_as_wires = True
-                    close_bubble.draw_as_wires = True
-                    # Wires can go straight only if types have the same length.
-                    if len(diagram.dom) == len(diagram.arg.dom):
-                        open_bubble.bubble_opening = True
-                    if len(diagram.cod) == len(diagram.arg.cod):
-                        close_bubble.bubble_closing = True
-                    return open_bubble\
-                        >> Id(left) @ self(diagram.arg) @ Id(right)\
-                        >> close_bubble
-                return super().__call__(diagram)
-        return OpenBubbles(lambda x: x, lambda f: f)(self)
+        return Diagram(inside, dom, cod)
 
     draw = drawing.draw
     to_gif = drawing.to_gif
@@ -655,11 +617,18 @@ class Bubble(cat.Bubble, Box):
         Box.__init__(self, self.name, self.dom, self.cod, data=self.data)
 
     def downgrade(self):
-        """ Downcasting to :class:`discopy.monoidal.Bubble`. """
-        result = Bubble(
-            self.arg.downgrade(), self.dom.downgrade(), self.cod.downgrade())
-        result.drawing_name = self.drawing_name
-        return result
+        dom, cod = self.dom.downgrade(), self.cod.downgrade()
+        argdom, argcod = self.arg.dom.downgrade(), self.arg.cod.downgrade()
+        obj = cat.Ob(self.drawing_name)
+        obj.draw_as_box = True
+        left, right = Ty(obj), Ty("")
+        _open = Box("_open", dom, left @ argdom @ right)
+        _close = Box("_close", left @ argcod @ right, cod)
+        _open.draw_as_wires = _close.draw_as_wires = True
+        # Wires can go straight only if types have the same length.
+        _open.bubble_opening = len(dom) == len(argdom)
+        _close.bubble_closing = len(cod) == len(argcod)
+        return _open >> left @ self.arg.downgrade() @ right >> _close
 
 
 Diagram.sum = Sum

@@ -42,10 +42,15 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, symmetric, messages, rewriting
+from discopy import cat, monoidal, closed, messages, rewriting
 from discopy.cat import AxiomError, factory
 from discopy.monoidal import Encoding
-from discopy.utils import BinaryBoxConstructor, assert_isinstance, factory_name
+from discopy.utils import (
+    BinaryBoxConstructor,
+    assert_isinstance,
+    assert_isatomic,
+    factory_name,
+)
 
 
 class Ob(cat.Ob):
@@ -118,9 +123,9 @@ class Ob(cat.Ob):
 
 
 @factory
-class Ty(monoidal.Ty):
+class Ty(closed.Ty):
     """
-    A rigid type is a monoidal type with rigid objects inside.
+    A rigid type is a closed type with rigid objects inside.
 
     Parameters:
         inside (tuple[Ob, ...]) : The objects inside the type.
@@ -144,8 +149,7 @@ class Ty(monoidal.Ty):
     @property
     def z(self) -> int:
         """ The winding number is only defined for types of length 1. """
-        if len(self) != 1:
-            raise TypeError(messages.no_winding_number_for_complex_types())
+        assert_isatomic(self)
         return self.inside[0].z
 
     def __repr__(self):
@@ -202,9 +206,9 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(monoidal.Diagram):
+class Diagram(closed.Diagram):
     """
-    A rigid diagram is a monoidal diagram
+    A rigid diagram is a closed diagram
     with :class:`Cup` and :class:`Cap` boxes.
 
     Parameters:
@@ -265,38 +269,31 @@ class Diagram(monoidal.Diagram):
 
     @staticmethod
     def fa(left, right):
-        """ Forward application. """
         return Id(left) @ Diagram.cups(right.l, right)
 
     @staticmethod
     def ba(left, right):
-        """ Backward application. """
         return Diagram.cups(left, left.r) @ Id(right)
 
     @staticmethod
     def fc(left, middle, right):
-        """ Forward composition. """
         return Id(left) @ Diagram.cups(middle.l, middle) @ Id(right.l)
 
     @staticmethod
     def bc(left, middle, right):
-        """ Backward composition. """
         return Id(left.r) @ Diagram.cups(middle, middle.r) @ Id(right)
 
     @staticmethod
     def fx(left, middle, right):
-        """ Forward crossed composition. """
         return Id(left) @ Diagram.swap(middle.l, right.r) @ Id(middle) >>\
             Diagram.swap(left, right.r) @ Diagram.cups(middle.l, middle)
 
     @staticmethod
     def bx(left, middle, right):
-        """ Backward crossed composition. """
         return Id(middle) @ Diagram.swap(left.l, middle.r) @ Id(right) >>\
             Diagram.cups(middle, middle.r) @ Diagram.swap(left.l, right)
 
     def curry(self, n=1, left=True) -> Diagram:
-        """ Diagram currying. """
         if left:
             base, exponent = self.dom[:n], self.dom[n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
@@ -405,7 +402,7 @@ class Id(Diagram):
         return type(self)(self.dom.r)
 
 
-class Box(monoidal.Box, Diagram):
+class Box(closed.Box, Diagram):
     """
     A rigid box is a monoidal box in a rigid diagram.
 
@@ -420,11 +417,11 @@ class Box(monoidal.Box, Diagram):
     >>> Box('f', a, b.l @ b)
     rigid.Box('f', rigid.Ty('a'), rigid.Ty(rigid.Ob('b', z=-1), 'b'))
     """
-    __ambiguous_inheritance__ = (monoidal.Box, )
+    __ambiguous_inheritance__ = (closed.Box, )
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         self._z = params.get("_z", 0)
-        monoidal.Box.__init__(self, name, dom, cod, **params)
+        closed.Box.__init__(self, name, dom, cod, **params)
         Diagram.__init__(self, self.inside, dom, cod)
 
     def __eq__(self, other):
@@ -504,12 +501,8 @@ class Cup(BinaryBoxConstructor, Box):
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
-        if not isinstance(left, Ty):
-            raise TypeError(messages.type_err(Ty, left))
-        if not isinstance(right, Ty):
-            raise TypeError(messages.type_err(Ty, right))
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.cup_vs_cups(left, right))
+        assert_isatomic(left, Ty)
+        assert_isatomic(right, Ty)
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
         BinaryBoxConstructor.__init__(self, left, right)
@@ -559,13 +552,9 @@ class Cap(BinaryBoxConstructor, Box):
     .. image:: ../_static/imgs/rigid/cap.png
         :align: center
     """
-    def __init__(self, left, right):
-        if not isinstance(left, Ty):
-            raise TypeError(messages.type_err(Ty, left))
-        if not isinstance(right, Ty):
-            raise TypeError(messages.type_err(Ty, right))
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.cap_vs_caps(left, right))
+    def __init__(self, left: Ty, right: Ty):
+        assert_isatomic(left, Ty)
+        assert_isatomic(right, Ty)
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
         BinaryBoxConstructor.__init__(self, left, right)
@@ -595,7 +584,7 @@ class Cap(BinaryBoxConstructor, Box):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))
 
 
-class Category(monoidal.Category):
+class Category(closed.Category):
     """
     A rigid category is a monoidal category
     with methods :code:`l`, :code:`r`, :code:`cups` and :code:`caps`.
@@ -607,7 +596,7 @@ class Category(monoidal.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(monoidal.Functor):
+class Functor(closed.Functor):
     """
     A rigid functor is a monoidal functor that preserves cups and caps.
 

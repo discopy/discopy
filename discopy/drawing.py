@@ -102,7 +102,7 @@ def diagram2nx(diagram):
         from nodes to pairs of floats.
     """
     import networkx as nx
-    diagram = add_drawing_attributes(diagram.open_bubbles())
+    diagram = add_drawing_attributes(diagram.downgrade())
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):

@@ -27,9 +27,9 @@ def test_Ob_str():
 
 
 def test_Ty_z():
-    with raises(TypeError):
+    with raises(ValueError):
         Ty('x', 'y').z
-    with raises(TypeError):
+    with raises(ValueError):
         Ty().z
     assert Ty('x').l.z == -1
 
@@ -41,19 +41,15 @@ def test_PRO_r():
 def test_Diagram_cups():
     with raises(TypeError) as err:
         Diagram.cups('x', Ty('x'))
-    assert str(err.value) == messages.type_err(Ty, 'x')
     with raises(TypeError) as err:
         Diagram.cups(Ty('x'), 'x')
-    assert str(err.value) == messages.type_err(Ty, 'x')
 
 
 def test_Diagram_caps():
     with raises(TypeError) as err:
         Diagram.caps('x', Ty('x'))
-    assert str(err.value) == messages.type_err(Ty, 'x')
     with raises(TypeError) as err:
         Diagram.caps(Ty('x'), 'x')
-    assert str(err.value) == messages.type_err(Ty, 'x')
 
 
 def test_Diagram_normal_form():
@@ -83,10 +79,8 @@ def test_Cup_init():
     t = Ty('n', 's')
     with raises(ValueError) as err:
         Cup(t, t.r)
-    assert str(err.value) == messages.cup_vs_cups(t, t.r)
     with raises(ValueError) as err:
         Cup(Ty(), Ty())
-    assert str(err.value) == messages.cup_vs_cups(Ty(), Ty().l)
 
 
 def test_Cap_init():
@@ -97,10 +91,8 @@ def test_Cap_init():
     t = Ty('n', 's')
     with raises(ValueError) as err:
         Cap(t, t.l)
-    assert str(err.value) == messages.cap_vs_caps(t, t.l)
     with raises(ValueError) as err:
         Cap(Ty(), Ty())
-    assert str(err.value) == messages.cap_vs_caps(Ty(), Ty())
 
 
 def test_Cup_Cap_adjoint():

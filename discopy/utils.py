@@ -111,7 +111,8 @@ def assert_isinstance(object, cls):
             factory_name(cls), factory_name(type(object))))
 
 
-def assert_isatomic(typ, cls):
+def assert_isatomic(typ, cls=None):
+    cls = cls or type(typ)
     assert_isinstance(typ, cls)
     if len(typ) != 1:
         raise ValueError(messages.ATOMIC_TYPE_ERROR.format(

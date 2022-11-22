@@ -14,3 +14,8 @@ def test_Function():
     assert f.uncurry(left=False).curry(left=False)(True)(1j) == f(True)(1j)
     assert g.curry().uncurry()(True, 1j) == g(True, 1j)
     assert g.curry(left=False).uncurry(left=False)(True, 1j) == g(True, 1j)
+
+
+def test_fixed_point():
+    phi = Function(lambda x=1: 1 + 1 / x, [int], [int]).fix()
+    assert phi() == (1 + sqrt(5)) / 2

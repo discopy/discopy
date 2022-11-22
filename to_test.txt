@@ -1,0 +1,10 @@
+cat
+monoidal
+braided
+symmetric
+cartesian
+traced
+closed
+rigid
+pivotal
+tortile

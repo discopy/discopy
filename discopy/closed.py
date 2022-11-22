@@ -53,7 +53,7 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, rigid, messages
+from discopy import cat, monoidal, messages
 from discopy.cat import Category, factory
 from discopy.utils import (
     factory_name,
@@ -201,6 +201,15 @@ class Diagram(monoidal.Diagram):
         base, exponent = self.cod.base, self.cod.exponent
         return self @ exponent >> self.eval(base, exponent, True) if left\
             else exponent @ self >> self.eval(base, exponent, False)
+
+    def to_rigid(self):
+        from discopy import rigid
+
+        return Functor(
+            ob=lambda x: rigid.Ty(x.inside[0].name),
+            ar=lambda f: rigid.Box(
+                f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
+            cod=rigid.Category())(self)
 
     @staticmethod
     def fa(left, right):
@@ -438,10 +447,3 @@ class Functor(monoidal.Functor):
             return getattr(self.cod.ar, 'bx')(
                 self(left), self(middle), self(right))
         return super().__call__(other)
-
-
-closed2rigid = Functor(
-    ob=lambda x: rigid.Ty(x.inside[0].name),
-    ar=lambda f: rigid.Box(
-        f.name, closed2rigid(f.dom), closed2rigid(f.cod)),
-    cod=rigid.Category())
