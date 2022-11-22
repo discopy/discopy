@@ -48,8 +48,6 @@ extensions = ['sphinx.ext.autodoc',
 
 autosummary_generate = True
 
-autosummary_context = {"excluded": ["__init__", "upgrade"]}
-
 autodoc_mock_imports = ["pytket", "pennylane", "torch"]
 
 autodoc_typehints = "description"

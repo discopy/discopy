@@ -14,7 +14,8 @@ from contextlib import contextmanager
 
 import numpy
 
-from discopy import cat, config, messages, monoidal, rigid, symmetric
+from discopy import (
+    cat, config, messages, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import AxiomError, factory
 from discopy.rigid import Ob, Ty, Cup, Cap
 
@@ -754,7 +755,7 @@ class Box(rigid.Box, Diagram):
         return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
 
 
-class Spider(rigid.Spider, Box):
+class Spider(frobenius.Spider, Box):
     """
     Spider box.
 
@@ -779,7 +780,7 @@ class Spider(rigid.Spider, Box):
     """
     def __init__(self, n_legs_in, n_legs_out, dim):
         dim = dim if isinstance(dim, Dim) else Dim(dim)
-        rigid.Spider.__init__(self, n_legs_in, n_legs_out, dim)
+        frobenius.Spider.__init__(self, n_legs_in, n_legs_out, dim)
         array = numpy.zeros(self.dom @ self.cod)
         for i in range(int(numpy.prod(dim))):
             array[len(self.dom @ self.cod) * (i, )] = 1

@@ -21,16 +21,6 @@ Summary
     Category
     Functor
 
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        cups
-        caps
-
 Axioms
 ------
 
@@ -53,6 +43,7 @@ from __future__ import annotations
 
 from discopy import cat, monoidal, symmetric, messages, rewriting
 from discopy.cat import AxiomError, factory
+from discopy.monoidal import Encoding
 from discopy.utils import BinaryBoxConstructor, assert_isinstance, factory_name
 
 
@@ -271,11 +262,6 @@ class Diagram(monoidal.Diagram):
         return nesting(cls.cap_factory)(left, right)
 
     @staticmethod
-    def spiders(n_legs_in, n_legs_out, typ):
-        """ Constructs spiders with compound types."""
-        return spiders(n_legs_in, n_legs_out, typ)
-
-    @staticmethod
     def fa(left, right):
         """ Forward application. """
         return Id(left) @ Diagram.cups(right.l, right)
@@ -317,20 +303,12 @@ class Diagram(monoidal.Diagram):
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def _conjugate(self, use_left):
-        layers = self.inside
-        list_of_layers = []
-        for layer in layers._boxes:
-            layer_adj = layer.l if use_left else layer.r
-            left, box, right = layer_adj
-            list_of_layers += (Id(left) @ box @ Id(right)).inside.boxes
-
-        dom = layers.dom.l if use_left else layers.dom.r
-        cod = layers.cod.l if use_left else layers.cod.r
-        layers_adj = type(layers)(dom, cod, list_of_layers)
-        boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers_adj))) or ([], [])
-        inputs = (dom, cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers_adj))
+        inside = tuple(
+            layer.l if use_left else layer.r
+            for x in self.inside for layer in [Layer(*x)])
+        dom = self.dom.l if use_left else self.dom.r
+        cod = self.cod.l if use_left else self.cod.r
+        return self.factory(inside, dom, cod)
 
     @property
     def l(self):
@@ -341,25 +319,23 @@ class Diagram(monoidal.Diagram):
         return self._conjugate(use_left=False)
 
     def dagger(self):
-        d = super().dagger()
-        d._layers._boxes = [Layer.upgrade(b) for b in d._layers._boxes]
-        return d
+        raise AxiomError(
+            "Rigid categories have no dagger, use pivotal instead.")
 
     def transpose_box(self, i, left=False):
         bend_left = left
         layers = self.inside
         if bend_left:
-            box_T = layers[i]._box.r.dagger().transpose(left=True)
+            box_T = layers[i].box.r.dagger().transpose(left=True)
         else:
-            box_T = layers[i]._box.l.dagger().transpose(left=False)
+            box_T = layers[i].box.l.dagger().transpose(left=False)
         left, _, right = layers[i]
         layers_T = (Id(left) @ box_T @ Id(right)).inside.boxes
-        list_of_layers = layers._boxes[:i] + layers_T + layers._boxes[i + 1:]
+        list_of_layers = layers.boxes[:i] + layers_T + layers.boxes[i + 1:]
         layers = type(layers)(layers.dom, layers.cod, list_of_layers)
         boxes_and_offsets = tuple(zip(*(
             (box, len(left)) for left, box, _ in layers))) or ([], [])
-        inputs = (layers.dom, layers.cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers))
+        return self.decode(Encoding(dom, boxes_and_offsets))
 
     def transpose(self, left=False):
         """
@@ -472,22 +448,21 @@ class Box(monoidal.Box, Diagram):
     def z(self):
         return self._z
 
-    def dagger(self):
-        return type(self)(
-            name=self.name, dom=self.cod, cod=self.dom,
-            data=self.data, _dagger=not self._dagger, _z=self._z)
-
     @property
     def l(self):
         return type(self)(
             name=self.name, dom=self.dom.l, cod=self.cod.l,
-            data=self.data, is_dagger=self.is_dagger, _z=self._z - 1)
+            data=self.data, _z=self._z - 1)
 
     @property
     def r(self):
         return type(self)(
             name=self.name, dom=self.dom.r, cod=self.cod.r,
-            data=self.data, is_dagger=self.is_dagger, _z=self._z + 1)
+            data=self.data, _z=self._z + 1)
+
+    def dagger(self):
+        raise AxiomError(
+            "Rigid categories have no dagger, use pivotal instead.")
 
 
 class Cup(BinaryBoxConstructor, Box):
@@ -523,9 +498,6 @@ class Cup(BinaryBoxConstructor, Box):
         Box.__init__(
             self, "Cup({}, {})".format(left, right), left @ right, Ty())
         self.draw_as_wires = True
-
-    def dagger(self):
-        return Cap(self.left, self.right)
 
     @property
     def l(self):
@@ -573,9 +545,6 @@ class Cap(BinaryBoxConstructor, Box):
             self, "Cap({}, {})".format(left, right), Ty(), left @ right)
         self.draw_as_wires = True
 
-    def dagger(self):
-        return Cup(self.left, self.right)
-
     @property
     def l(self):
         return Cap(self.right.l, self.left.l)
@@ -586,84 +555,6 @@ class Cap(BinaryBoxConstructor, Box):
 
     def __repr__(self):
         return "Cap({}, {})".format(repr(self.left), repr(self.right))
-
-
-class Spider(Box):
-    """
-    Spider box.
-
-    Parameters
-    ----------
-    n_legs_in, n_legs_out : int
-        Number of legs in and out.
-    typ : discopy.rigid.Ty
-        The type of the spider, needs to be atomic.
-
-    Examples
-    --------
-    >>> x = Ty('x')
-    >>> spider = Spider(1, 2, x)
-    >>> assert spider.dom == x and spider.cod == x @ x
-    """
-    def __init__(self, n_legs_in, n_legs_out, typ, **params):
-        self.typ = typ
-        if len(typ) > 1:
-            raise ValueError(
-                "Spider boxes can only have len(typ) == 1, "
-                "try Diagram.spiders instead.")
-        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
-        dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
-        params = dict(dict(
-            draw_as_spider=not cup_like,
-            draw_as_wires=cup_like,
-            color="black", drawing_name=""), **params)
-        Box.__init__(self, name, dom, cod, **params)
-
-    def __repr__(self):
-        return "Spider({}, {}, {})".format(
-            len(self.dom), len(self.cod), repr(self.typ))
-
-    def dagger(self):
-        return type(self)(len(self.cod), len(self.dom), self.typ)
-
-    def decompose(self):
-        return self._decompose_spiders(len(self.dom), len(self.cod),
-                                       self.typ)
-
-    @classmethod
-    def _decompose_spiders(cls, n_legs_in, n_legs_out, typ):
-        if n_legs_out > n_legs_in:
-            return cls._decompose_spiders(n_legs_out, n_legs_in,
-                                          typ).dagger()
-
-        if n_legs_in == 1 and n_legs_out == 0:
-            return cls(1, 0, typ)
-        if n_legs_in == 1 and n_legs_out == 1:
-            return Id(typ)
-
-        if n_legs_out != 1:
-            return (cls._decompose_spiders(n_legs_in, 1, typ)
-                    >> cls._decompose_spiders(1, n_legs_out, typ))
-
-        if n_legs_in == 2:
-            return cls(2, 1, typ)
-
-        if n_legs_in % 2 == 1:
-            return (cls._decompose_spiders(n_legs_in - 1, 1, typ)
-                    @ Id(typ) >> cls(2, 1, typ))
-
-        new_in = n_legs_in // 2
-        half_spider = cls._decompose_spiders(new_in, 1, typ)
-        return half_spider @ half_spider >> cls(2, 1, typ)
-
-    @property
-    def l(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.l)
-
-    @property
-    def r(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.r)
 
 
 class Category(monoidal.Category):
@@ -736,47 +627,6 @@ class Functor(monoidal.Functor):
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
-def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
-    """ Constructs a diagram of nested cups. """
-    for typ in left, right:
-        if not isinstance(typ, Ty):
-            raise TypeError(messages.type_err(Ty, typ))
-    if left.r != right and right.r != left:
-        raise AxiomError(messages.are_not_adjoints(left, right))
-    result = ar_factory.id(left @ right)
-    for i in range(len(left)):
-        j = len(left) - i - 1
-        cup = cup_factory(left[j:j + 1], right[i:i + 1])
-        layer = ar_factory.id(left[:j]) @ cup @ ar_factory.id(right[i + 1:])
-        result = result << layer if reverse else result >> layer
-    return result
-
-
-def caps(left, right, ar_factory=Diagram, cap_factory=Cap):
-    """ Constructs a diagram of nested caps. """
-    return cups(left, right, ar_factory, cap_factory, reverse=True)
-
-
-def spiders(
-        n_legs_in, n_legs_out, typ,
-        ar_factory=Diagram, spider_factory=Spider):
-    """ Constructs a diagram of interleaving spiders. """
-    id, swap, spider = ar_factory.id, ar_factory.swap, spider_factory
-    ts = [typ[i:i + 1] for i in range(len(typ))]
-    result = id().tensor(*[spider(n_legs_in, n_legs_out, t) for t in ts])
-
-    for i, t in enumerate(ts):
-        for j in range(n_legs_in - 1):
-            result <<= id(result.dom[:i * j + i + j]) @ swap(
-                t, result.dom[i * j + i + j:i * n_legs_in + j]
-            ) @ id(result.dom[i * n_legs_in + j + 1:])
-
-        for j in range(n_legs_out - 1):
-            result >>= id(result.cod[:i * j + i + j]) @ swap(
-                result.cod[i * j + i + j:i * n_legs_out + j], t
-            ) @ id(result.cod[i * n_legs_out + j + 1:])
-    return result
-
 
 def nesting(factory):
     """
@@ -792,7 +642,7 @@ def nesting(factory):
         if len(x) == 1: return factory(x, y)
         head = factory(x[0], y[-1])
         if head.dom:  # We are nesting cups.
-            return x[0] @ method(cls, x[1:], y[:-1]) @ y[-1] >> head
-        return head >> x[0] @ method(cls, x[1:], y[:-1]) @ y[-1]
+            return x[0] @ method(x[1:], y[:-1]) @ y[-1] >> head
+        return head >> x[0] @ method(x[1:], y[:-1]) @ y[-1]
 
     return method
