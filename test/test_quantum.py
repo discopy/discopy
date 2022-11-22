@@ -167,7 +167,8 @@ def test_Circuit_to_pennylane(capsys):
             3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
 
     p_var_circ = var_circ.to_pennylane()
-    p_var_circ.draw(symbols, weights)
+    p_var_circ.initialise_concrete_params(symbols, weights)
+    p_var_circ.draw()
 
     captured = capsys.readouterr()
     assert captured.out == \
@@ -180,13 +181,14 @@ def test_Circuit_to_pennylane(capsys):
     var_f = var_circ.lambdify(*symbols)
     conc_circ = var_f(*[a.item() for a in weights])
 
-    assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
+    assert np.allclose(p_var_circ.eval().numpy(),
                        conc_circ.eval().array)
 
     p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
+    p_var_circ_prob.initialise_concrete_params(symbols, weights)
     conc_circ_prob = (conc_circ >> Measure())
 
-    assert (np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
+    assert (np.allclose(p_var_circ_prob.eval().numpy(),
                         conc_circ_prob.eval().array))
 
 
