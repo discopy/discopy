@@ -195,7 +195,7 @@ class Composable:
 @factory
 class Arrow(Composable):
     """
-    An arrow is a tuple of composable arrows :code:`inside` with a pair of
+    An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
 
     Parameters:
@@ -233,8 +233,7 @@ class Arrow(Composable):
     >>> assert f[:0] == Arrow.id(f.dom)
     >>> assert f[1:] == Arrow.id(f.cod)
     """
-    def __init__(
-            self, inside: tuple[Arrow, ...], dom: Ob, cod: Ob, _scan=True):
+    def __init__(self, inside: tuple[Box, ...], dom: Ob, cod: Ob, _scan=True):
         assert_isinstance(dom, Ob)
         assert_isinstance(cod, Ob)
         if _scan:

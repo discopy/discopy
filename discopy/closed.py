@@ -76,6 +76,7 @@ class Ty(monoidal.Ty):
             factory_name(type(self)), ', '.join(map(repr, self.inside)))
 
 
+
 class Exp(Ty, cat.Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.

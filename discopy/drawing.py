@@ -115,14 +115,14 @@ def diagram2nx(diagram):
         bubble = bubble_opening or bubble_closing
         node = Node("box", box=box, depth=depth)
         add_node(node, (x_pos, len(diagram) - depth - .5))
-        for i, obj in enumerate(box.dom):
+        for i, obj in enumerate(box.dom.inside):
             wire, position = Node("dom", obj=obj, i=i, depth=depth), (
                 pos[scan[off + i]][0], len(diagram) - depth - .25)
             add_node(wire, position)
             graph.add_edge(scan[off + i], wire)
             if not bubble or bubble_closing and i in [0, len(box.dom) - 1]:
                 graph.add_edge(wire, node)
-        for i, obj in enumerate(box.cod):
+        for i, obj in enumerate(box.cod.inside):
             position = (
                 pos[scan[off + i]][0] if len(box.dom) == len(box.cod)
                 else x_pos - len(box.cod[1:]) / 2 + i,
@@ -131,19 +131,19 @@ def diagram2nx(diagram):
             add_node(wire, position)
             if not bubble or bubble_opening and i in [0, len(box.cod) - 1]:
                 graph.add_edge(node, wire)
-        if bubble_opening:
-            for i, obj in enumerate(box.dom):
-                source = Node("dom", obj=obj, i=i, depth=depth)
-                target = Node("cod", obj=obj, i=i + 1, depth=depth)
-                graph.add_edge(source, target)
-        if bubble_closing:
-            for i, obj in enumerate(box.cod):
-                source = Node("dom", obj=obj, i=i + 1, depth=depth)
-                target = Node("cod", obj=obj, i=i, depth=depth)
+        if bubble_opening or bubble_closing:
+            source_ty, target_ty = (box.dom, box.cod[1:-1]) if bubble_opening\
+                else (box.dom[1:-1], box.cod)
+            for i, (source_obj, target_obj) in enumerate(zip(
+                    source_ty.inside, target_ty.inside)):
+                source_i, target_i = (i, i + 1) if bubble_opening\
+                    else (i + 1, i)
+                source = Node("dom", obj=source_obj, i=source_i, depth=depth)
+                target = Node("cod", obj=target_obj, i=target_i, depth=depth)
                 graph.add_edge(source, target)
         return scan[:off]\
             + [Node("cod", obj=obj, i=i, depth=depth)
-               for i, obj in enumerate(box.cod)]\
+               for i, obj in enumerate(box.cod.inside)]\
             + scan[off + len(box.dom):]
 
     def make_space(scan, box, off):
@@ -177,14 +177,14 @@ def diagram2nx(diagram):
         return x_pos
 
     scan = []
-    for i, obj in enumerate(diagram.dom):
+    for i, obj in enumerate(diagram.dom.inside):
         node = Node("input", obj=obj, i=i)
         add_node(node, (i, len(diagram) or 1))
         scan.append(node)
     for depth, (box, off) in enumerate(zip(diagram.boxes, diagram.offsets)):
         x_pos = make_space(scan, box, off)
         scan = add_box(scan, box, off, depth, x_pos)
-    for i, obj in enumerate(diagram.cod):
+    for i, obj in enumerate(diagram.cod.inside):
         node = Node("output", obj=obj, i=i)
         add_node(node, (pos[scan[i]][0], 0))
         graph.add_edge(scan[i], node)
@@ -224,7 +224,7 @@ def nx2diagram(graph, ob_factory, id_factory):
     for depth, box_node in enumerate(boxes):
         box, offset = box_node.box, getattr(box_node, "offset", 0)
         swaps = _id(diagram.cod)
-        for i, obj in enumerate(box.dom):
+        for i, obj in enumerate(box.dom.inside):
             target = Node("dom", obj=obj, i=i, depth=depth)
             source, = graph.neighbors(target)
             j = scan.index(source)
@@ -232,20 +232,20 @@ def nx2diagram(graph, ob_factory, id_factory):
                 offset = j
             elif j > offset + i:
                 swaps = swaps >> _id(swaps.cod[:offset + i])\
-                    @ _swap(swaps.cod[offset + i:j], swaps.cod[j:j + 1])\
+                    @ _swap(swaps.cod[offset + i:j], swaps.cod[j])\
                     @ _id(swaps.cod[j + 1:])
-                scan = scan[:offset + i] + scan[j:j + 1] + scan[offset + i:j]\
+                scan = scan[:offset + i] + scan[j:] + scan[offset + i:j]\
                     + scan[j + 1:]
             elif j < offset + i:
                 swaps = swaps >> _id(swaps.cod[:j])\
-                    @ _swap(swaps.cod[j:j + 1], swaps.cod[j + 1:offset + i])\
+                    @ _swap(swaps.cod[j], swaps.cod[j + 1:offset + i])\
                     @ _id(swaps.cod[offset + i:])
-                scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j + 1]\
+                scan = scan[:j] + scan[j + 1:offset + i] + scan[j]\
                     + scan[offset + i:]
                 offset -= 1
         cod_nodes = [
             Node("cod", obj=obj, i=i, depth=depth)
-            for i, obj in enumerate(box.cod)]
+            for i, obj in enumerate(box.cod.inside)]
         left, right = swaps.cod[:offset], swaps.cod[offset + len(box.dom):]
         scan = scan[:offset] + cod_nodes + scan[offset + len(box.dom):]
         diagram = diagram >> swaps >> _id(left) @ box @ _id(right)
@@ -628,11 +628,11 @@ def draw(diagram, **params):
                for n, (x, y) in pos.items()}
         for box_node in graph.nodes:
             if box_node.kind == "box":
-                for i, obj in enumerate(box_node.box.dom):
+                for i, obj in enumerate(box_node.box.dom.inside):
                     node = Node("dom", obj=obj, i=i, depth=box_node.depth)
                     pos[node] = (
                         pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
-                for i, obj in enumerate(box_node.box.cod):
+                for i, obj in enumerate(box_node.box.cod.inside):
                     node = Node("cod", obj=obj, i=i, depth=box_node.depth)
                     pos[node] = (
                         pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
@@ -683,18 +683,18 @@ def draw_box(backend, positions, node, **params):
         left, right = positions[node][0], positions[node][0]
     elif not box.dom:
         left, right = (
-            positions[Node("cod", obj=box.cod[i], i=i, depth=depth)][0]
+            positions[Node("cod", obj=box.cod.inside[i], i=i, depth=depth)][0]
             for i in [0, len(box.cod) - 1])
     elif not box.cod:
         left, right = (
-            positions[Node("dom", obj=box.dom[i], i=i, depth=depth)][0]
+            positions[Node("dom", obj=box.dom.inside[i], i=i, depth=depth)][0]
             for i in [0, len(box.dom) - 1])
     else:
         top_left, top_right = (
-            positions[Node("dom", obj=box.dom[i], i=i, depth=depth)][0]
+            positions[Node("dom", obj=box.dom.inside[i], i=i, depth=depth)][0]
             for i in [0, len(box.dom) - 1])
         bottom_left, bottom_right = (
-            positions[Node("cod", obj=box.cod[i], i=i, depth=depth)][0]
+            positions[Node("cod", obj=box.cod.inside[i], i=i, depth=depth)][0]
             for i in [0, len(box.cod) - 1])
         left = min(top_left, bottom_left)
         right = max(top_right, bottom_right)
@@ -1026,26 +1026,26 @@ def diagramize(dom, cod, boxes, id_factory=None):
             box_node = Node("box", box=box, depth=depth, offset=offset)
             box_nodes.append(box_node)
             graph.add_node(box_node)
-            for i, obj in enumerate(box.dom):
+            for i, obj in enumerate(box.dom.inside):
                 if inputs[i].obj != obj:
                     raise AxiomError("Expected {} as input, got {} instead."
                                      .format(obj, inputs[i].obj))
                 dom_node = Node("dom", obj=obj, i=i, depth=depth)
                 graph.add_edge(inputs[i], dom_node)
             outputs = []
-            for i, obj in enumerate(box.cod):
+            for i, obj in enumerate(box.cod.inside):
                 cod_node = Node("cod", obj=obj, i=i, depth=depth)
                 outputs.append(cod_node)
             return untuplify(*outputs)
         for box in boxes:
             box._apply = apply
         inputs = []
-        for i, obj in enumerate(dom):
+        for i, obj in enumerate(dom.inside):
             node = Node("input", obj=obj, i=i)
             inputs.append(node)
             graph.add_node(node)
         outputs = tuplify(func(*inputs))
-        for i, obj in enumerate(cod):
+        for i, obj in enumerate(cod.inside):
             if outputs[i].obj != obj:
                 raise AxiomError("Expected {} as output, got {} instead."
                                  .format(obj, outputs[i].obj))

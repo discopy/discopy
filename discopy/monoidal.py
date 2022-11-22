@@ -133,8 +133,11 @@ class Ty(cat.Ob):
         return self.inside.count(obj)
 
     def downgrade(self):
-        """ Downgrades to :class:`discopy.monoidal.Ty`. """
-        return Ty(*self.inside)
+        """
+        Downgrade to :class:`discopy.monoidal.Ty`,
+        called by :meth:`Diagram.draw`.
+        """
+        return Ty(*map(str, self.inside))
 
     def __eq__(self, other):
         return isinstance(other, Ty) and self.inside == other.inside
