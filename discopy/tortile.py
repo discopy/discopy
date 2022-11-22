@@ -47,6 +47,7 @@ class Box(pivotal.Box, braided.Box, Diagram):
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
+    __ambiguous_inheritance__ = (pivotal.Box, braided.Box, )
 
 class Cup(pivotal.Cup, Box):
     """
@@ -56,6 +57,7 @@ class Cup(pivotal.Cup, Box):
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
+    __ambiguous_inheritance__ = (pivotal.Cup, )
 
 class Cap(pivotal.Cap, Box):
     """
@@ -65,6 +67,7 @@ class Cap(pivotal.Cap, Box):
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
+    __ambiguous_inheritance__ = (pivotal.Cap, )
 
 class Braid(braided.Braid, Box):
     """
@@ -75,6 +78,7 @@ class Braid(braided.Braid, Box):
         right (pivotal.Ty) : The type on the top right and bottom left.
         is_dagger (bool) : Braiding over or under.
     """
+    __ambiguous_inheritance__ = (braided.Braid, )
 
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

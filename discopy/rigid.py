@@ -18,6 +18,7 @@ Summary
     Box
     Cup
     Cap
+    Sum
     Category
     Functor
 
@@ -60,6 +61,8 @@ class Ob(cat.Ob):
     >>> a = Ob('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
+    __ambiguous_inheritance__ = True
+
     def __init__(self, name: str, z: int = 0):
         assert_isinstance(z, int)
         self._z = z
@@ -128,8 +131,6 @@ class Ty(monoidal.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
-    ob_factory = Ob
-
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
@@ -156,6 +157,8 @@ class Ty(monoidal.Ty):
 
     def __rshift__(self, other):
         return self.r @ other
+
+    ob_factory = Ob
 
 
 class PRO(monoidal.PRO, Ty):
@@ -185,6 +188,8 @@ class Layer(monoidal.Layer):
         box (Box) : The box in the middle of the layer.
         right (Ty) : The type on the right of the layer.
     """
+    __ambiguous_inheritance__ = True
+
     @property
     def l(self) -> Layer:
         """ The left-transpose of the layer. """
@@ -219,6 +224,8 @@ class Diagram(monoidal.Diagram):
     .. image:: ../_static/imgs/rigid/diagram-example.png
         :align: center
     """
+    __ambiguous_inheritance__ = True
+
     over = staticmethod(lambda base, exponent: base << exponent)
     under = staticmethod(lambda base, exponent: exponent >> base)
 
@@ -413,6 +420,8 @@ class Box(monoidal.Box, Diagram):
     >>> Box('f', a, b.l @ b)
     rigid.Box('f', rigid.Ty('a'), rigid.Ty(rigid.Ob('b', z=-1), 'b'))
     """
+    __ambiguous_inheritance__ = (monoidal.Box, )
+
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         self._z = params.get("_z", 0)
         monoidal.Box.__init__(self, name, dom, cod, **params)
@@ -451,7 +460,16 @@ class Box(monoidal.Box, Diagram):
 
 
 class Sum(monoidal.Sum, Box):
-    """ A rigid sum is a monoidal sum that can be transposed. """
+    """
+    A rigid sum is a monoidal sum that can be transposed.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (monoidal.Sum, )
+
     @property
     def l(self) -> Sum:
         """ The left transpose of a sum, i.e. the sum of left transposes. """

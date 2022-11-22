@@ -87,7 +87,7 @@ class Ty(cat.Ob):
 
     >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
     """
-    ob_factory = cat.Ob
+    __ambiguous_inheritance__ = True
 
     def __init__(self, *inside: ob_factory):
         self.inside = tuple(
@@ -178,6 +178,8 @@ class Ty(cat.Ob):
         return cls(*map(from_tree, tree['inside']))
 
     __matmul__ = __add__ = tensor
+
+    ob_factory = cat.Ob
 
 
 def types(names):
@@ -570,6 +572,8 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
     """
+    __ambiguous_inheritance__ = (cat.Box, )
+
     def downgrade(self):
         box = Box.__new__(Box)
         for attr, value in self.__dict__.items():
@@ -604,6 +608,8 @@ class Sum(cat.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
+    __ambiguous_inheritance__ = (cat.Sum, )
+
     def tensor(self, *others):
         if len(others) != 1:
             return super().tensor(*others)
@@ -638,6 +644,8 @@ class Bubble(cat.Bubble, Box):
     .. image:: ../_static/imgs/monoidal/bubble-example.png
         :align: center
     """
+    __ambiguous_inheritance__ = (cat.Bubble, )
+
     def __init__(self, arg: Diagram, dom: Ty = None, cod: Ty = None, **params):
         self.drawing_name = params.get("drawing_name", "")
         cat.Bubble.__init__(self, arg, dom, cod)
@@ -663,6 +671,8 @@ class Category(cat.Category):
         ob : The type of objects.
         ar : The type of arrows.
     """
+    __ambiguous_inheritance__ = True
+
     ob, ar = Ty, Diagram
 
 
@@ -696,6 +706,8 @@ class Functor(cat.Functor):
     .. image:: ../_static/imgs/monoidal/functor-example.png
         :align: center
     """
+    __ambiguous_inheritance__ = True
+
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):

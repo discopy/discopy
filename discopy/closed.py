@@ -43,7 +43,7 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import monoidal, rigid, messages
+from discopy import cat, monoidal, rigid, messages
 from discopy.cat import Category, factory
 from discopy.utils import (
     factory_name,
@@ -71,8 +71,12 @@ class Ty(monoidal.Ty):
     def __rshift__(self, other):
         return Under(other, self)
 
+    def __repr__(self):
+        return "{}({})".format(
+            factory_name(type(self)), ', '.join(map(repr, self.inside)))
 
-class Exp(Ty):
+
+class Exp(Ty, cat.Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -80,6 +84,8 @@ class Exp(Ty):
         base : The base type.
         exponent : The exponent type.
     """
+    __ambiguous_inheritance__ = (cat.Ob, )
+
     def __init__(self, base: Ty, exponent: Ty):
         self.base, self.exponent = base, exponent
         # TODO : replace left and right by base and exponent
@@ -150,6 +156,8 @@ class Diagram(monoidal.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    __ambiguous_inheritance__ = True
+
     def curry(self, n=1, left=True) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
@@ -223,6 +231,7 @@ class Box(monoidal.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
+    __ambiguous_inheritance__ = (monoidal.Box, )
 
 
 class Eval(Box):

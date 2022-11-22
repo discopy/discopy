@@ -5,14 +5,16 @@ from discopy.closed import *
 
 def test_Over():
     x, y = Ty('x'), Ty('y')
-    assert repr(Over(x, y)) == "closed.Over(closed.Ty('x'), closed.Ty('y'))"
+    assert repr(Over(x, y))\
+        == "closed.Over(closed.Ty(cat.Ob('x')), closed.Ty(cat.Ob('y')))"
     assert {Over(x, y): 42}[Over(x, y)] == 42
     assert Over(x, y) != Under(x, y)
 
 
 def test_Under():
     x, y = Ty('x'), Ty('y')
-    assert repr(Under(x, y)) == "closed.Under(closed.Ty('x'), closed.Ty('y'))"
+    assert repr(Under(x, y))\
+        == "closed.Under(closed.Ty(cat.Ob('x')), closed.Ty(cat.Ob('y')))"
     assert {Under(x, y): 42}[Under(x, y)] == 42
     assert Under(x, y) != Over(x, y)
 
@@ -32,16 +34,14 @@ def test_BA():
     x, y = Ty('x'), Ty('y')
     with raises(TypeError):
         BA(x << y)
-    assert repr(BA(x >> y))\
-        == "BA(closed.Ty(closed.Under(closed.Ty('y'), closed.Ty('x'))))"
+    assert "BA(closed.Ty(closed.Under(" in repr(BA(x >> y))
 
 
 def test_FA():
     x, y = Ty('x'), Ty('y')
     with raises(TypeError):
         FA(x >> y)
-    assert repr(FA(x << y))\
-        == "FA(closed.Ty(closed.Over(closed.Ty('x'), closed.Ty('y'))))"
+    assert "FA(closed.Ty(closed.Over" in repr(FA(x << y))
 
 
 def test_FC():

@@ -56,6 +56,8 @@ class Box(symmetric.Box, tortile.Box, Diagram):
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
+    __ambiguous_inheritance__ = (symmetric.Box, tortile.Box, )
+
 
 class Cup(tortile.Cup, Box):
     """
@@ -65,6 +67,8 @@ class Cup(tortile.Cup, Box):
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
+    __ambiguous_inheritance__ = (tortile.Cup, )
+
 
 class Cap(tortile.Cap, Box):
     """
@@ -74,6 +78,8 @@ class Cap(tortile.Cap, Box):
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
+    __ambiguous_inheritance__ = (tortile.Cap, )
+
 
 class Swap(symmetric.Swap, tortile.Braid, Box):
     """
@@ -83,6 +89,7 @@ class Swap(symmetric.Swap, tortile.Braid, Box):
         left (pivotal.Ty) : The type on the top left and bottom right.
         right (pivotal.Ty) : The type on the top right and bottom left.
     """
+    __ambiguous_inheritance__ = (symmetric.Swap, tortile.Braid, )
 
 
 Diagram.braid_factory = Swap

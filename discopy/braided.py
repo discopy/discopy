@@ -72,6 +72,8 @@ class Diagram(monoidal.Diagram):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    __ambiguous_inheritance__ = True
+
     @classmethod
     def braid(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
         """
@@ -106,6 +108,7 @@ class Box(monoidal.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
+    __ambiguous_inheritance__ = (monoidal.Box, )
 
 
 class Braid(BinaryBoxConstructor, Box):

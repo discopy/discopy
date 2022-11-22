@@ -4,6 +4,6 @@
 
 .. autoclass:: {{ objname }}
    :show-inheritance:
-   :members: 
+   :members:
    :no-inherited-members:
    :member-order: bysource

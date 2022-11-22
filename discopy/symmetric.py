@@ -128,7 +128,7 @@ class Box(braided.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-
+    __ambiguous_inheritance__ = (braided.Box, )
 
 class Swap(braided.Braid, Box):
     """

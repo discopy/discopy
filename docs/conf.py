@@ -44,6 +44,7 @@ extensions = ['sphinx.ext.autodoc',
               'nbsphinx',
               'sphinx.ext.mathjax',
               'youtube',
+              'bases-fullname',
               ]
 
 autosummary_generate = True

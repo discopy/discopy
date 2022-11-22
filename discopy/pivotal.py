@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The free pivotal category, i.e. planar diagrams that can rotate by a full turn.
+The free pivotal category,
+i.e. diagrams with cups and caps that can rotate by a full turn.
 
 Summary
 -------
@@ -71,6 +72,7 @@ class Box(rigid.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
+    __ambiguous_inheritance__ = (rigid.Box, )
 
 
 class Cup(rigid.Cup, Box):
@@ -81,6 +83,8 @@ class Cup(rigid.Cup, Box):
         left (Ty) : The atomic type.
         right (Ty) : Its adjoint.
     """
+    __ambiguous_inheritance__ = (rigid.Cup, )
+
     def dagger(self) -> Cap:
         """ The dagger of a pivotal cup. """
         return Cap(self.dom[0], self.dom[1])
@@ -94,6 +98,8 @@ class Cap(rigid.Cap, Box):
         left (Ty) : The atomic type.
         right (Ty) : Its adjoint.
     """
+    __ambiguous_inheritance__ = (rigid.Cap, )
+
     def dagger(self) -> Cup:
         """ The dagger of a pivotal cap. """
         return Cup(self.cod[0], self.cod[1])

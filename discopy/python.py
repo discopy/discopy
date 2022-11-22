@@ -201,9 +201,11 @@ class Function(Composable, Whiskerable):
         """
         if left:
             inside = lambda f, *xs: f(*xs)
-            return Function(inside, exp(base, exponent) + exponent, base)
-        inside = lambda *xs: xs[-1](*xs[:-1])
-        return Function(inside, exponent + exp(base, exponent), base)
+            dom, cod = Function.exp(base, exponent) + exponent, base
+        else:
+            inside = lambda *xs: xs[-1](*xs[:-1])
+            dom, cod = exponent + Function.exp(base, exponent), base
+        return Function(inside, dom, cod)
 
     def curry(self, n=1, left=True) -> Function:
         """
@@ -216,8 +218,9 @@ class Function(Composable, Whiskerable):
         inside = lambda *xs: lambda *ys: self(*(xs + ys) if left else (ys + xs))
         if left:
             dom = self.dom[:len(self.dom) - n]
-            cod = exp(self.cod, self.dom[len(self.dom) - n:])
-        else: dom, cod = self.dom[n:], exp(self.cod, self.dom[:n])
+            cod = Function.exp(self.cod, self.dom[len(self.dom) - n:])
+        else:
+            dom, cod = self.dom[n:], Function.exp(self.cod, self.dom[:n])
         return Function(inside, dom, cod)
 
     def uncurry(self, left=True) -> Function:
