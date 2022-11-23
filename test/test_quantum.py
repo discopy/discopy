@@ -236,6 +236,51 @@ def test_pennylane_parameterized_ops():
         assert np.allclose(disco, plane, atol=10e-5)
 
 
+def test_pennylane_devices():
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+
+    h_backend = {'backend': 'honeywell.hqs', 'device': 'H1-1E'}
+    h_circ = snake.to_pennylane(probabilities=True, backend_config=h_backend)
+    assert h_circ._device is not None
+    with raises(ValueError):
+        h_circ = snake.to_pennylane(backend_config=h_backend)
+
+    h_backend_corrupt = {'backend': 'honeywell.hqs'}
+    with raises(ValueError):
+        h_circ = snake.to_pennylane(probabilities=True,
+                                    backend_config=h_backend_corrupt)
+
+    aer_backend = {'backend': 'qiskit.aer',
+                   'device': 'aer_simulator_statevector'}
+    aer_circ = snake.to_pennylane(backend_config=aer_backend)
+    assert aer_circ._device is not None
+
+    aer_backend_corrupt = {'backend': 'qiskit.aer', 'device': 'aer_simulator'}
+    with raises(ValueError):
+        aer_circ = snake.to_pennylane(backend_config=aer_backend_corrupt)
+
+
+def test_pennylane_uninitialized():
+    x, y, z = sympy.symbols('x y z')
+    var_circ = Circuit(
+        dom=qubit ** 0, cod=qubit, boxes=[
+            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+    p_var_circ = var_circ.to_pennylane()
+
+    with raises(ValueError):
+        p_var_circ.draw()
+
+    with raises(ValueError):
+        p_var_circ.eval()
+
+
 def test_Sum_from_tk():
     assert Circuit.from_tk(*(X + X).to_tk()) == (X + X).init_and_discard()
     assert Circuit.from_tk() == Sum([], qubit ** 0, qubit ** 0)

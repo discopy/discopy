@@ -254,7 +254,7 @@ class PennyLaneCircuit:
 
         if not self._probabilities:
             if backend not in STATE_BACKENDS:
-                raise ValueError(f'The {self._backend} backend is not '
+                raise ValueError(f'The {backend} backend is not '
                                  'compatible with state outputs.')
             elif ('backend' in backend_config
                   and backend_config['backend'] not in STATE_DEVICES):
