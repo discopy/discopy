@@ -21,7 +21,7 @@ def test_Ob():
 
 
 def test_Ob_init():
-    assert (Ob('x'), Ob(42), Ob('Alice')) == (Ob('x'), Ob(42), Ob('Alice'))
+    assert (Ob('x'), Ob('Alice')) == (Ob('x'), Ob('Alice'))
 
 
 def test_Ob_name():

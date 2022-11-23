@@ -93,7 +93,7 @@ class Cup(rigid.Cup, Box):
 
     def dagger(self) -> Cap:
         """ The dagger of a pivotal cup. """
-        return Cap(self.dom[0], self.dom[1])
+        return self.cap_factory(self.dom[0], self.dom[1])
 
 
 class Cap(rigid.Cap, Box):
@@ -108,7 +108,7 @@ class Cap(rigid.Cap, Box):
 
     def dagger(self) -> Cup:
         """ The dagger of a pivotal cap. """
-        return Cup(self.cod[0], self.cod[1])
+        return self.cup_factory(self.cod[0], self.cod[1])
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

@@ -294,3 +294,6 @@ class Dict(Composable, Whiskerable):
     @staticmethod
     def copy(x: int, n: int) -> Dict:
         return Dict({i: i % x for i in range(n * x)}, x, n * x)
+
+
+exp = Function.exp

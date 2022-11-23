@@ -552,14 +552,14 @@ def draw(diagram, **params):
         Make a box and its dagger mirror images, default is
         :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
-    from discopy.quantum.drawing import (
-        draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
-    drawing_methods = [
-        ("draw_as_brakets", draw_brakets),
-        ("draw_as_controlled", draw_controlled_gate),
-        ("draw_as_discards", draw_discard),
-        ("draw_as_measures", draw_measure),
-        (None, draw_box)]
+    # from discopy.quantum.drawing import (
+    #     draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
+    drawing_methods = []
+    #     ("draw_as_brakets", draw_brakets),
+    #     ("draw_as_controlled", draw_controlled_gate),
+    #     ("draw_as_discards", draw_discard),
+    #     ("draw_as_measures", draw_measure),
+    #     (None, draw_box)]
 
     def draw_wires(backend, graph, positions):
         for source, target in graph.edges():

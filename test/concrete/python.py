@@ -17,6 +17,7 @@ def test_Function():
 
 
 def test_fixed_point():
+    from math import sqrt
     phi = Function(lambda x=1: 1 + 1 / x, [int], [int]).fix()
     assert phi() == (1 + sqrt(5)) / 2
 

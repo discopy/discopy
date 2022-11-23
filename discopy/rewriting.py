@@ -172,7 +172,7 @@ def foliate(self, yield_slices=False):
     >>> d = (f0 @ Id(x) >> f0.dagger() @ f1.dagger()) @ (f0 >> f1)
     >>> *_, slices = d.foliate(yield_slices=True)
     >>> print(slices[0])
-    f0 @ Id(x @ x) >> Id(y) @ f1[::-1] @ Id(x) >> Id(y @ y) @ f0
+    f0 @ x @ x >> y @ f1[::-1] @ x >> y @ y @ f0
     >>> print(slices[1])
     f0[::-1] @ Id(y @ y) >> Id(x @ y) @ f1
 
@@ -264,8 +264,9 @@ def flatten(self):
     >>> assert d.foliation().dagger().flatten()\\
     ...     == d.foliation().flatten().dagger()
     """
-    from discopy.monoidal import Functor
-    return self.upgrade(Functor(lambda x: x, lambda f: f)(self))
+    from discopy.monoidal import Functor, Category
+    cod = Category(self.ty_factory, self.factory)
+    return Functor(lambda x: x, lambda f: f, cod=cod)(self)
 
 
 def foliation(self):
@@ -292,8 +293,8 @@ def foliation(self):
     """
     from discopy.monoidal import Diagram
     *_, slices = self.foliate(yield_slices=True)
-    return self.upgrade(
-        Diagram(self.dom, self.cod, slices, len(slices) * [0]))
+    inside = tuple(map(self.layer_factory.cast, slices))
+    return self.factory(inside, self.dom, self.cod)
 
 
 def depth(self):
@@ -322,8 +323,8 @@ def snake_removal(self, left=False):
     >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
     >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
     >>> for d in diagram.normalize(): print(d)  # doctest: +ELLIPSIS
-    g... >> Cup(n, n.r) @ Id(n)...
-    g >> f[::-1] >> Id(n) @ Cap(n.r, n) >> Cup(n, n.r) @ Id(n) >> f >> h
+    g >> f[::-1] >> n @ Cup(n.r, n) >> n @ n.r @ f >> Cup(n, n.r) @ n >> h
+    g >> f[::-1] >> n @ Cup(n.r, n) >> Cup(n, n.r) @ n >> f >> h
     g >> f[::-1] >> f >> h
     """
     from discopy import monoidal
