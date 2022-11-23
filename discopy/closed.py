@@ -240,15 +240,6 @@ class Diagram(monoidal.Diagram):
         """ Backward crossed composition. """
         return BX(middle << left, middle >> right)
 
-    def downgrade(self):
-        class DowngradedDiagram(monoidal.Diagram):
-            eval = Diagram.eval
-            over = lambda left, right: Diagram.over(left, right).downgrade()
-
-        return Functor(
-            ob=lambda x: x.downgrade(), ar=lambda f: f.downgrade(),
-            cod=Category(monoidal.Ty, DowngradedDiagram))(self)
-
     ob_factory = Ty
 
 

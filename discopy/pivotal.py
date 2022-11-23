@@ -75,6 +75,11 @@ class Box(rigid.Box, Diagram):
     """
     __ambiguous_inheritance__ = (rigid.Box, )
 
+    def dagger(self) -> Box:
+        return type(self)(
+            name=self.name, dom=self.cod, cod=self.dom,
+            data=self.data, is_dagger=not self.is_dagger, _z=self._z)
+
 
 class Cup(rigid.Cup, Box):
     """

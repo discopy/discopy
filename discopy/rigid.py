@@ -139,12 +139,12 @@ class Ty(closed.Ty):
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
-        return Ty(*[x.l for x in self.inside[::-1]])
+        return self.factory(*[x.l for x in self.inside[::-1]])
 
     @property
     def r(self) -> Ty:
         """ The right adjoint of the type. """
-        return Ty(*[x.r for x in self.inside[::-1]])
+        return self.factory(*[x.r for x in self.inside[::-1]])
 
     @property
     def z(self) -> int:
@@ -258,28 +258,28 @@ class Diagram(closed.Diagram):
 
     @staticmethod
     def fa(left, right):
-        return Id(left) @ Diagram.cups(right.l, right)
+        return left @ Diagram.cups(right.l, right)
 
     @staticmethod
     def ba(left, right):
-        return Diagram.cups(left, left.r) @ Id(right)
+        return Diagram.cups(left, left.r) @ right
 
     @staticmethod
     def fc(left, middle, right):
-        return Id(left) @ Diagram.cups(middle.l, middle) @ Id(right.l)
+        return left @ Diagram.cups(middle.l, middle) @ right.l
 
     @staticmethod
     def bc(left, middle, right):
-        return Id(left.r) @ Diagram.cups(middle, middle.r) @ Id(right)
+        return left.r @ Diagram.cups(middle, middle.r) @ right
 
     @staticmethod
     def fx(left, middle, right):
-        return Id(left) @ Diagram.swap(middle.l, right.r) @ Id(middle) >>\
+        return left @ Diagram.swap(middle.l, right.r) @ middle >>\
             Diagram.swap(left, right.r) @ Diagram.cups(middle.l, middle)
 
     @staticmethod
     def bx(left, middle, right):
-        return Id(middle) @ Diagram.swap(left.l, middle.r) @ Id(right) >>\
+        return middle @ Diagram.swap(left.l, middle.r) @ right >>\
             Diagram.cups(middle, middle.r) @ Diagram.swap(left.l, right)
 
     def curry(self, n=1, left=True) -> Diagram:
@@ -308,21 +308,6 @@ class Diagram(closed.Diagram):
         return self._conjugate(left=False)\
             if self.inside else self.id(self.dom.r)
 
-    def transpose_box(self, i, left=False):
-        bend_left = left
-        layers = self.inside
-        if bend_left:
-            box_T = layers[i].box.r.dagger().transpose(left=True)
-        else:
-            box_T = layers[i].box.l.dagger().transpose(left=False)
-        left, _, right = layers[i]
-        layers_T = (Id(left) @ box_T @ Id(right)).inside.boxes
-        list_of_layers = layers.boxes[:i] + layers_T + layers.boxes[i + 1:]
-        layers = type(layers)(layers.dom, layers.cod, list_of_layers)
-        boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers))) or ([], [])
-        return self.decode(Encoding(dom, boxes_and_offsets))
-
     def transpose(self, left=False):
         """
         >>> a, b = Ty('a'), Ty('b')
@@ -345,12 +330,12 @@ class Diagram(closed.Diagram):
         >>> f = Box('f', a, b)
         """
         if left:
-            return self.id(self.cod.l) @ self.caps(self.dom, self.dom.l)\
-                >> self.id(self.cod.l) @ self @ self.id(self.dom.l)\
-                >> self.cups(self.cod.l, self.cod) @ self.id(self.dom.l)
-        return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
-            >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
-            >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
+            return self.cod.l @ self.caps(self.dom, self.dom.l)\
+                >> self.cod.l @ self @ self.dom.l\
+                >> self.cups(self.cod.l, self.cod) @ self.dom.l
+        return self.caps(self.dom.r, self.dom) @ self.cod.r\
+            >> self.dom.r @ self @ self.cod.r\
+            >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
     def normal_form(self, normalizer=None, **params):
         """
@@ -414,10 +399,6 @@ class Box(closed.Box, Diagram):
             name=self.name, dom=self.dom.r, cod=self.cod.r,
             data=self.data, _z=self._z + 1)
 
-    def dagger(self):
-        raise AxiomError(
-            "Rigid categories have no dagger, use pivotal instead.")
-
     layer_factory = Layer
 
 
@@ -456,9 +437,6 @@ class Cup(BinaryBoxConstructor, Box):
     Example
     -------
     >>> n = Ty('n')
-    >>> Cup(n, n.r)
-    Cup(rigid.Ty('n'), rigid.Ty(rigid.Ob('n', z=1)))
-
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cup.png')
 
@@ -470,10 +448,10 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
+        name = "Cup({}, {})".format(left, right)
+        dom, cod = left @ right, self.ob_factory()
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(
-            self, "Cup({}, {})".format(left, right), left @ right, Ty())
-        self.draw_as_wires = True
+        Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
     @property
     def l(self):
@@ -505,9 +483,6 @@ class Cap(BinaryBoxConstructor, Box):
     Example
     -------
     >>> n = Ty('n')
-    >>> Cap(n, n.l)
-    Cap(rigid.Ty('n'), rigid.Ty(rigid.Ob('n', z=-1)))
-
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
     ... path='docs/_static/imgs/rigid/cap.png')
 
@@ -519,10 +494,10 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
+        name = "Cup({}, {})".format(left, right)
+        dom, cod = self.ob_factory(), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(
-            self, "Cap({}, {})".format(left, right), Ty(), left @ right)
-        self.draw_as_wires = True
+        Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
     @property
     def l(self):

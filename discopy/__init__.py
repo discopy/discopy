@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-discopy computes natural language meaning in pictures.
+DisCoPy: the Python toolkit for computing with string diagrams.
 
 >>> x = Ty('x')
 >>> left_snake = Id(x) @ Cap(x.r, x) >> Cup(x, x.r) @ Id(x)
@@ -28,15 +28,14 @@ from discopy import (
     monoidal,
     braided,
     symmetric,
+    cartesian,
+    traced,
     closed,
     rigid,
-    python,
-    # biclosed,
-    # tensor,
-    # matrix,
-    # quantum,
-    # grammar,
-    # config,
+    pivotal,
+    tortile,
+    compact,
+    drawing,
 )
 # from discopy.utils import from_tree
 # from discopy.cat import Quiver
@@ -58,4 +57,4 @@ from discopy import (
 # from discopy.grammar.pregroup import Word
 
 
-__version__ = '0.4.3'
+__version__ = '1.0.0'

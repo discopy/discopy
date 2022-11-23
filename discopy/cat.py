@@ -75,6 +75,7 @@ Functors are bubble-preserving.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from functools import total_ordering, cached_property
 from collections.abc import Callable, Mapping, Iterable
 
@@ -166,7 +167,7 @@ def factory(cls: type) -> type:
     return cls
 
 
-class Composable:
+class Composable(ABC):
     """
     Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
     for forward and backward composition with some method :code:`then`.
@@ -179,6 +180,7 @@ class Composable:
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
+    @abstractmethod
     def then(self, other: Composable) -> Composable:
         """
         Sequential composition, to be instantiated.
@@ -186,7 +188,6 @@ class Composable:
         Parameters:
             other : The other arrow to compose sequentially.
         """
-        raise NotImplementedError
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)

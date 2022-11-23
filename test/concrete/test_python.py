@@ -19,3 +19,15 @@ def test_Function():
 def test_fixed_point():
     phi = Function(lambda x=1: 1 + 1 / x, [int], [int]).fix()
     assert phi() == (1 + sqrt(5)) / 2
+
+
+def test_FinSet():
+    from discopy.cartesian import *
+
+    x = Ty('x')
+    copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)
+    F = Functor({x: 1}, {}, cod=Category(int, Dict))
+
+    assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
+    assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)
+    assert F(copy >> swap) == F(copy)

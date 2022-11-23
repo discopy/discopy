@@ -2,7 +2,7 @@
 
 """ Spiders, i.e. dagger special commutative Frobenius algebras. """
 
-from discopy.rigid import Box, Diagram
+from discopy.compact import Ty, Box, Diagram
 
 
 class Spider(Box):

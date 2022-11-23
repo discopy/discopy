@@ -16,7 +16,8 @@ import numpy
 
 from discopy import (
     cat, config, messages, monoidal, rigid, symmetric, frobenius)
-from discopy.cat import AxiomError, factory
+from discopy.cat import Composable, AxiomError, factory
+from discopy.monoidal import Whiskerable
 from discopy.rigid import Ob, Ty, Cup, Cap
 
 
@@ -134,19 +135,7 @@ def get_backend(name):
         return ret
 
 
-class TensorType(type):
-    # for backwards compatibility
-
-    @property
-    def np(cls):
-        return cls.get_backend()
-
-    @np.setter
-    def np(cls, module):
-        cls.set_backend(module.__name__)
-
-
-class Tensor(rigid.Box, metaclass=TensorType):
+class Tensor(Composable, Whiskerable):
     """ Implements a tensor with dom, cod and numpy array.
 
     Examples
@@ -189,6 +178,11 @@ class Tensor(rigid.Box, metaclass=TensorType):
         backend = get_backend(value)
         cls._backend_stack.append(backend)
         return backend
+
+    @classmethod
+    @property
+    def np(cls):
+        return cls.get_backend()
 
     @classmethod
     @contextmanager

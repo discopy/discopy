@@ -22,7 +22,7 @@ Summary
 
 from discopy import symmetric, tortile
 from discopy.cat import factory
-from discopy.tortile import Ty
+from discopy.pivotal import Ty
 
 
 @factory
@@ -57,6 +57,13 @@ class Diagram(symmetric.Diagram, tortile.Diagram):
         self >>= Id(self.cod[:y - 1]) @ Cup(t0, t1) @ Id(self.cod[y + 1:])
         return self
 
+    def transpose_box(self, i, left=False):
+        _left, box, right = self.inside[i]
+        transpoed_box = (box.r if left else box.l).dagger().transpose(left)
+        return self[:i] >> _left @ transpoed_box @ right >> self[i + 1:]
+
+    ob_factory = Ty
+
 
 class Box(symmetric.Box, tortile.Box, Diagram):
     """
@@ -68,6 +75,8 @@ class Box(symmetric.Box, tortile.Box, Diagram):
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
     __ambiguous_inheritance__ = (symmetric.Box, tortile.Box, )
+
+    ob_factory = Ty
 
 
 class Cup(tortile.Cup, Box):
@@ -101,6 +110,8 @@ class Swap(symmetric.Swap, tortile.Braid, Box):
         right (pivotal.Ty) : The type on the top right and bottom left.
     """
     __ambiguous_inheritance__ = (symmetric.Swap, tortile.Braid, )
+    _z = 0
+    ob_factory = Ty
 
 
 Diagram.braid_factory = Swap
@@ -112,7 +123,7 @@ class Category(symmetric.Category, tortile.Category):
     A compact category is both a symmetric category and a tortile category.
 
     Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
+        ob : The objects of the category, default is :class:`pivotal.Ty`.
         ar : The arrows of the category, default is :class:`Diagram`.
     """
     ob, ar = Ty, Diagram
@@ -128,9 +139,12 @@ class Functor(symmetric.Functor, tortile.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Category()
 
     def __call__(self, other):
         if isinstance(other, Swap):
             return symmetric.Functor.__call__(self, other)
         return tortile.Functor.__call__(self, other)
+
+
+Id = Diagram.id

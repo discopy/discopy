@@ -53,6 +53,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 
 from __future__ import annotations
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 from discopy import cat, drawing, rewriting
 from discopy.cat import factory, Ob
@@ -136,11 +137,8 @@ class Ty(cat.Ob):
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
-    def downgrade(self):
-        """
-        Downgrade to :class:`discopy.monoidal.Ty`,
-        called by :meth:`Diagram.draw`.
-        """
+    def drawing(self) -> Ty:
+        """ Called before :meth:`Diagram.draw`. """
         return Ty(*map(str, self.inside))
 
     def __eq__(self, other):
@@ -324,12 +322,13 @@ class Layer(cat.Box):
         return type(self)(self.left, self.box.dagger(), self.right)
 
 
-class Whiskerable:
+class Whiskerable(ABC):
     """
     Abstract class implementing the syntactic sugar :code:`@` for whiskering
     and parallel composition with some method :code:`tensor`.
     """
     @classmethod
+    @abstractmethod
     def id(cls, dom: any) -> Whiskerable:
         """
         Identity on a given domain, to be instantiated.
@@ -337,8 +336,8 @@ class Whiskerable:
         Parameters:
             dom : The object on which to take the identity.
         """
-        raise NotImplementedError
 
+    @abstractmethod
     def tensor(self, other: Whiskerable) -> Whiskerable:
         """
         Parallel composition, to be instantiated.
@@ -346,7 +345,6 @@ class Whiskerable:
         Parameters:
             other : The other diagram to compose in parallel.
         """
-        raise NotImplementedError
 
     @classmethod
     def whisker(cls, other: any) -> Whiskerable:
@@ -506,23 +504,12 @@ class Diagram(cat.Arrow, Whiskerable):
             diagram >>= left @ box @ right
         return diagram
 
-    def downgrade(self):
-        """
-        Downgrading to subclasses back to a monoidal diagram,
-        called by :meth:`Diagram.draw`.
-        """
-        return Functor(
-            ob=lambda x: x.downgrade(), ar=lambda f: f.downgrade())(self)
+    def drawing(self):
+        """ Called before :meth:`Diagram.draw`. """
+        def ar(f: Layer) -> Diagram:
+            return f.left.drawing() @ f.box.drawing() @ f.right.drawing()
 
-    draw = drawing.draw
-    to_gif = drawing.to_gif
-    interchange = rewriting.interchange
-    normalize = rewriting.normalize
-    normal_form = rewriting.normal_form
-    foliate = rewriting.foliate
-    flatten = rewriting.flatten
-    foliation = rewriting.foliation
-    depth = rewriting.depth
+        return cat.Functor(ob=Ty.drawing, ar=ar, cod=Category())(self)
 
     ob_factory = Ty
 
@@ -568,8 +555,8 @@ class Box(cat.Box, Diagram):
     """
     __ambiguous_inheritance__ = (cat.Box, )
 
-    def downgrade(self) -> Box:
-        result = Box(self.name, self.dom.downgrade(), self.cod.downgrade())
+    def drawing(self) -> Box:
+        result = Box(self.name, self.dom.drawing(), self.cod.drawing())
         for attr, value in self.__dict__.items():
             if attr in drawing.ATTRIBUTES:
                 setattr(result, attr, value)
@@ -647,9 +634,9 @@ class Bubble(cat.Bubble, Box):
         cat.Bubble.__init__(self, arg, dom, cod)
         Box.__init__(self, self.name, self.dom, self.cod, data=self.data)
 
-    def downgrade(self):
-        dom, cod = self.dom.downgrade(), self.cod.downgrade()
-        argdom, argcod = self.arg.dom.downgrade(), self.arg.cod.downgrade()
+    def drawing(self):
+        dom, cod = self.dom.drawing(), self.cod.drawing()
+        argdom, argcod = self.arg.dom.drawing(), self.arg.cod.drawing()
         obj = cat.Ob(self.drawing_name)
         obj.draw_as_box = True
         left, right = Ty(obj), Ty("")
@@ -659,7 +646,7 @@ class Bubble(cat.Bubble, Box):
         # Wires can go straight only if types have the same length.
         _open.bubble_opening = len(dom) == len(argdom)
         _close.bubble_closing = len(cod) == len(argcod)
-        return _open >> left @ self.arg.downgrade() @ right >> _close
+        return _open >> left @ self.arg.drawing() @ right >> _close
 
 
 Diagram.sum = Sum
@@ -726,5 +713,15 @@ class Functor(cat.Functor):
             return self(other.left) @ self(other.box) @ self(other.right)
         return super().__call__(other)
 
+
+Diagram.draw = drawing.draw
+Diagram.to_gif = drawing.to_gif
+Diagram.interchange = rewriting.interchange
+Diagram.normalize = rewriting.normalize
+Diagram.normal_form = rewriting.normal_form
+Diagram.foliate = rewriting.foliate
+Diagram.flatten = rewriting.flatten
+Diagram.foliation = rewriting.foliation
+Diagram.depth = rewriting.depth
 
 Id = Diagram.id

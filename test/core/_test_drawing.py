@@ -6,10 +6,11 @@ from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 
 from discopy import *
+from discopy.compact import *
 from discopy.drawing import *
 
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/imgs/', 'test/tikz/', 10
+IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/src/imgs/', 'test/src/tikz/', 10
 
 
 def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL,
