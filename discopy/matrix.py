@@ -1,5 +1,5 @@
 """
-Implements the semantic category :py:class:`.Matrix`.
+The category of matrices with the direct sum as monoidal product.
 
 In this category, a box with domain :py:class:`PRO(n) <.monoidal.PRO>`
 and codomain :py:class:`PRO(m) <.monoidal.PRO>` represents
@@ -12,34 +12,41 @@ and ``@`` operation corresponds to the direct sum of matrices:
     \\mathbf{A} \\oplus \\mathbf{B}
     = \\begin{pmatrix} \\mathbf{A} & 0 \\\\ 0 & \\mathbf{B}  \\end{pmatrix}
 
-Example
+Summary
 -------
->>> x = Matrix(PRO(2), PRO(1), [2, 4])
->>> x.array
-array([[2],
-       [4]])
->>> x @ x
-Matrix(dom=PRO(4), cod=PRO(2), array=[2, 0, 4, 0, 0, 2, 0, 4])
->>> (x @ x).array
-array([[2, 0],
-       [4, 0],
-       [0, 2],
-       [0, 4]])
 
-:py:class:`.Matrix` can be used to evaluate
-:py:class:`.optics.Diagram` s from :py:mod:`.quantum.optics`.
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Matrix
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        block_diag
+
+See also
+--------
+:class:`Matrix` is used to evaluate :class:`quantum.optics.Diagram`.
 
 """
-
-from discopy import messages, monoidal
-from discopy.cat import AxiomError
-from discopy.monoidal import PRO
-from discopy.tensor import array2string
 import numpy as np
 
+from discopy import messages, monoidal
+from discopy.cat import AxiomError, Composable
+from discopy.monoidal import PRO, Whiskerable
+from discopy.tensor import array2string
 
-class Matrix(monoidal.Box):
-    """ Implements a matrix with dom, cod and numpy array.
+
+class Matrix(Composable, Whiskerable):
+    """
+    A matrix is a numpy array with integers as domain and codomain.
 
     Examples
     --------
@@ -67,7 +74,7 @@ class Matrix(monoidal.Box):
            [0, 2],
            [0, 4]])
     """
-    def __init__(self, dom, cod, array):
+    def __init__(self, dom: int, cod: int, array):
         self._array = np.array(array).reshape((len(dom), len(cod)))
         super().__init__("O Tensor", dom, cod)
 

@@ -6,3 +6,5 @@ concrete
     :toctree: api
 
     discopy.python
+    discopy.matrix
+    discopy.tensor

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The monoidal category of Python types and functions with tuple as tensor.
+The category of Python functions with tuple as monoidal product.
 
 Summary
 -------

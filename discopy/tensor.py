@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements dagger monoidal functors into tensors.
+The category of matrices with the Kronecker product as monoidal product.
 
 >>> n = Ty('n')
 >>> Alice, Bob = rigid.Box('Alice', Ty(), n), rigid.Box('Bob', Ty(), n)
@@ -18,7 +18,8 @@ from discopy import (
     cat, config, messages, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import Composable, AxiomError, factory
 from discopy.monoidal import Whiskerable
-from discopy.rigid import Ob, Ty, Cup, Cap
+from discopy.frobenius import Ob, Ty, Cup, Cap
+from discopy.utils import assert_isinstance
 
 
 numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
@@ -30,54 +31,31 @@ def array2string(array, **params):
         .replace('[ ', '[').replace('  ', ' ')
 
 
+@factory
 class Dim(Ty):
-    """ Implements dimensions as tuples of positive integers.
-    Dimensions form a monoid with product @ and unit Dim(1).
+    """
+    A dimension is a tuple of positive integers
+    with product ``@`` and unit ``Dim(1)``.
 
+    Example
+    -------
     >>> Dim(1) @ Dim(2) @ Dim(3)
     Dim(2, 3)
     """
-    @staticmethod
-    def upgrade(old):
-        return Dim(*[x.name for x in old.objects])
+    ob_factory = int
 
-    def __init__(self, *dims):
-        dims = map(lambda x: x if isinstance(x, cat.Ob) else Ob(x), dims)
-        dims = list(filter(lambda x: x.name != 1, dims))  # Dim(1) == Dim()
-        for dim in dims:
-            if not isinstance(dim.name, int):
-                raise TypeError(messages.type_err(int, dim.name))
-            if dim.name < 1:
+    def __init__(self, *inside: int):
+        for dim in inside:
+            assert_isinstance(dim, int)
+            if dim < 1:
                 raise ValueError
-        super().__init__(*dims)
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return super().__getitem__(key)
-        return super().__getitem__(key).name
+        super().__init__(*(dim for dim in inside if dim > 1))
 
     def __repr__(self):
-        return "Dim({})".format(', '.join(map(repr, self)) or '1')
+        return "Dim({})".format(', '.join(map(repr, self.inside)) or '1')
 
-    def __str__(self):
-        return repr(self)
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    @property
-    def l(self):
-        """
-        >>> assert Dim(2, 3, 4).l == Dim(4, 3, 2)
-        """
-        return Dim(*self[::-1])
-
-    @property
-    def r(self):
-        """
-        >>> assert Dim(2, 3, 4).r == Dim(4, 3, 2)
-        """
-        return Dim(*self[::-1])
+    __str__ = __repr__
+    l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
 
 class TensorBackend:
@@ -136,7 +114,14 @@ def get_backend(name):
 
 
 class Tensor(Composable, Whiskerable):
-    """ Implements a tensor with dom, cod and numpy array.
+    """
+    A tensor is an ``array`` inside
+    and a pair of dimensions ``dom`` and ``cod``.
+
+    Parameters:
+        inside : The array inside the tensor.
+        dom : The domain dimension.
+        cod : The codomain dimension.
 
     Examples
     --------
@@ -180,11 +165,6 @@ class Tensor(Composable, Whiskerable):
         return backend
 
     @classmethod
-    @property
-    def np(cls):
-        return cls.get_backend()
-
-    @classmethod
     @contextmanager
     def backend(cls, value):
         try:
@@ -192,18 +172,16 @@ class Tensor(Composable, Whiskerable):
         finally:
             cls._backend_stack.pop()
 
-    def __init__(self, dom, cod, array):
-        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod))
-        super().__init__("Tensor", dom, cod)
+    def __init__(self, array: "array", dom: Dim, cod: Dim):
+        assert_isinstance(dom, Dim)
+        assert_isinstance(cod, Dim)
+        self.dom, self.cod = dom, cod
+        np = Tensor.get_backend()
+        self.array = np.array(array).reshape(tuple(dom @ cod))
 
     def __iter__(self):
         for i in self.array:
             yield i
-
-    @property
-    def array(self):
-        """ Numpy array. """
-        return self._array
 
     def __bool__(self):
         return bool(self.array)
@@ -218,12 +196,9 @@ class Tensor(Composable, Whiskerable):
         return complex(self.array)
 
     def __repr__(self):
-        if hasattr(self.array, 'numpy'):
-            np_array = self.array.numpy()
-        else:
-            np_array = self.array
-        return "Tensor(dom={}, cod={}, array={})".format(
-            self.dom, self.cod, array2string(np_array.reshape(-1)))
+        np_array = getattr(self.array, 'numpy', self.array)
+        return "Tensor({}, dom={}, cod={})".format(
+            array2string(np_array.reshape(-1)), self.dom, self.cod)
 
     def __str__(self):
         return repr(self)
@@ -231,30 +206,30 @@ class Tensor(Composable, Whiskerable):
     def __add__(self, other):
         if other == 0:
             return self
-        if not isinstance(other, Tensor):
-            raise TypeError(messages.type_err(Tensor, other))
+        assert_isinstance(other, Tensor)
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
         return Tensor(self.dom, self.cod, self.array + other.array)
 
-    def __radd__(self, other):
-        return self.__add__(other)
+    __radd__ = __add__
 
     def __eq__(self, other):
+        np = Tensor.get_backend()
         if not isinstance(other, Tensor):
-            return Tensor.np.all(Tensor.np.array(self.array == other))
+            return np.all(np.array(self.array == other))
         return (self.dom, self.cod) == (other.dom, other.cod)\
-            and Tensor.np.all(Tensor.np.array(self.array == other.array))
+            and np.all(np.array(self.array == other.array))
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.then(self, *others)
+            return monoidal.Diagram.then(self, *others)  # WTH
         other, = others
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        array = Tensor.np.tensordot(self.array, other.array, len(self.cod))\
+        np = Tensor.get_backend()
+        array = np.tensordot(self.array, other.array, len(self.cod))\
             if self.array.shape and other.array.shape\
             else self.array * other.array
         return Tensor(self.dom, other.cod, array)

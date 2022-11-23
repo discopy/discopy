@@ -76,6 +76,7 @@ Functors are bubble-preserving.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import Union
 from functools import total_ordering, cached_property
 from collections.abc import Callable, Mapping, Iterable
 
@@ -102,8 +103,8 @@ class Ob:
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
     """
-    def __init__(self, name: str = ""):
-        assert_isinstance(name, str)
+    def __init__(self, name: Union[str, int] = ""):
+        assert_isinstance(name, (str, int))
         self.name = name
 
     def __repr__(self):
