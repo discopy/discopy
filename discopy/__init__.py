@@ -17,11 +17,11 @@ from discopy import (
     frobenius,
     hypergraph,
     python,
-    matrix,
-    tensor,
-    drawing,
-    quantum,
+    # matrix,
+    # tensor,
+    # quantum,
     grammar,
+    drawing,
     utils,
 )
 

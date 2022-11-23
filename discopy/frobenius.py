@@ -17,6 +17,8 @@ Summary
     Ty
     Diagram
     Box
+    Cup
+    Cap
     Swap
     Spider
     Category
@@ -55,7 +57,7 @@ class Ty(pivotal.Ty):
     A hypergraph type is a pivotal type with hypergraph objects inside.
 
     Parameters:
-        inside (Ob) : The objects inside the type.
+        inside (frobenius.Ob) : The objects inside the type.
     """
     ob_factory = Ob
 

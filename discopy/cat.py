@@ -103,6 +103,7 @@ class Ob:
     >>> assert x == x_ and x != y
     """
     def __init__(self, name: str = ""):
+        assert_isinstance(name, str)
         self.name = name
 
     def __repr__(self):

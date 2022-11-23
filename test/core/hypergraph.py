@@ -8,7 +8,7 @@ def test_pushout():
 
 
 def test_Diagram_init():
-    x, y = types('x y')
+    x, y = map(Ty, "xy")
     with raises(ValueError):
         Diagram(x, x, [], [])
     with raises(AxiomError):
@@ -16,14 +16,14 @@ def test_Diagram_init():
 
 
 def test_Diagram_str():
-    x, y = types('x y')
+    x, y = map(Ty, "xy")
     assert str(Swap(x, y)) == "Swap(x, y)"
-    assert str(Spider(1, 0, x @ y))\
-        == "Id(x) @ Spider(1, 0, y) >> Spider(1, 0, x)"
+    assert str(spiders(1, 0, x @ y))\
+        == "x @ Spider(1, 0, y) >> Spider(1, 0, x)"
 
 
 def test_Diagram_then():
-    x, y = types('x y')
+    x, y = map(Ty, "xy")
     with raises(AxiomError):
         Id(x) >> Id(y)
 
@@ -34,12 +34,12 @@ def test_Diagram_tensor():
 
 def test_Diagram_getitem():
     with raises(NotImplementedError):
-        Spider(1, 2, Ty('x'))[0]
+        spiders(1, 2, Ty('x'))[0]
 
 
 def test_Diagram_bijection():
     with raises(ValueError):
-        Spider(1, 2, Ty('x')).bijection
+        spiders(1, 2, Ty('x')).bijection
 
 
 def test_Box():
@@ -48,8 +48,8 @@ def test_Box():
 
 
 def test_AxiomError():
-    x, y = types('x y')
+    x, y = map(Ty, "xy")
     with raises(AxiomError):
-        Cup(x @ y, x @ y)
+        cups(x @ y, x @ y)
     with raises(AxiomError):
-        Cap(x @ y, x @ y)
+        caps(x @ y, x @ y)
