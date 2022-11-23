@@ -62,7 +62,7 @@ class Diagram(symmetric.Diagram, tortile.Diagram):
         transpoed_box = (box.r if left else box.l).dagger().transpose(left)
         return self[:i] >> _left @ transpoed_box @ right >> self[i + 1:]
 
-    ob_factory = Ty
+    ty_factory = Ty
 
 
 class Box(symmetric.Box, tortile.Box, Diagram):
@@ -76,7 +76,7 @@ class Box(symmetric.Box, tortile.Box, Diagram):
     """
     __ambiguous_inheritance__ = (symmetric.Box, tortile.Box, )
 
-    ob_factory = Ty
+    ty_factory = Ty
 
 
 class Cup(tortile.Cup, Box):
@@ -111,11 +111,7 @@ class Swap(symmetric.Swap, tortile.Braid, Box):
     """
     __ambiguous_inheritance__ = (symmetric.Swap, tortile.Braid, )
     _z = 0
-    ob_factory = Ty
-
-
-Diagram.braid_factory = Swap
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+    ty_factory = Ty
 
 
 class Category(symmetric.Category, tortile.Category):
@@ -148,3 +144,6 @@ class Functor(symmetric.Functor, tortile.Functor):
 
 
 Id = Diagram.id
+
+Diagram.braid_factory = Swap
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

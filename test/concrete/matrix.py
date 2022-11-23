@@ -1,7 +1,7 @@
 from pytest import raises
 
 from discopy.matrix import Matrix, block_diag
-from discopy import PRO
+from discopy.rigid import PRO
 from discopy.cat import AxiomError
 
 import numpy as np

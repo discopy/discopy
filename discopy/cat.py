@@ -313,7 +313,7 @@ class Arrow(Composable):
         Parameters:
             dom : The domain (and codomain) of the identity.
         """
-        dom = cls.ob_factory() if dom is None else dom
+        dom = cls.ty_factory() if dom is None else dom
         return cls.factory((), dom, dom, _scan=False)
 
     def then(self, *others: Arrow) -> Arrow:
@@ -427,7 +427,7 @@ class Arrow(Composable):
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
 
-    ob_factory = Ob
+    ty_factory = Ob
 
 
 Id = Arrow.id

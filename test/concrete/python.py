@@ -22,7 +22,7 @@ def test_fixed_point():
 
 
 def test_FinSet():
-    from discopy.cartesian import *
+    from discopy.cartesian import Ty, Diagram, Functor, Category
 
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)

@@ -4,10 +4,9 @@ from pytest import raises
 from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 
-from discopy import rigid, messages
+from discopy import closed, rigid, messages
 from discopy.utils import from_tree
 from discopy.rigid import Id, Cup, Cap, Ty, Box
-from discopy.biclosed import biclosed2rigid
 from discopy.grammar import *
 
 
@@ -95,7 +94,7 @@ def test_tree2diagram():
     tree, boxes, offsets, rigid_boxes, rigid_offsets =\
         pickle.load(open("test/src/tree2diagram.pickle", "rb"))
     diagram = tree2diagram(tree)
-    rigid_diagram = biclosed2rigid(diagram)
+    rigid_diagram = closed.to_rigid(diagram)
     assert diagram.boxes == boxes
     assert diagram.offsets == offsets
     assert rigid_diagram.boxes == rigid_boxes

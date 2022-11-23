@@ -201,15 +201,6 @@ class Diagram(monoidal.Diagram):
         return self @ exponent >> self.eval(base, exponent, True) if left\
             else exponent @ self >> self.eval(base, exponent, False)
 
-    def to_rigid(self):
-        from discopy import rigid
-
-        return Functor(
-            ob=lambda x: rigid.Ty(x.inside[0].name),
-            ar=lambda f: rigid.Box(
-                f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
-            cod=rigid.Category())(self)
-
     @staticmethod
     def fa(left, right):
         """ Forward application. """
@@ -240,7 +231,7 @@ class Diagram(monoidal.Diagram):
         """ Backward crossed composition. """
         return BX(middle << left, middle >> right)
 
-    ob_factory = Ty
+    ty_factory = Ty
 
 
 class Box(monoidal.Box, Diagram):
@@ -448,3 +439,16 @@ class Functor(monoidal.Functor):
             return getattr(self.cod.ar, 'bx')(
                 self(left), self(middle), self(right))
         return super().__call__(other)
+
+
+def to_rigid(self):
+    from discopy import rigid
+
+    return Functor(
+        ob=lambda x: rigid.Ty(x.inside[0].name),
+        ar=lambda f: rigid.Box(
+            f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
+        cod=rigid.Category())(self)
+
+Id = Diagram.id
+Diagram.to_rigid = to_rigid

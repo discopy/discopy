@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free cartesian category, i.e. with natural cocommutative comonoids.
+The free cartesian category, i.e. diagrams with copy and discard.
 
 Summary
 -------

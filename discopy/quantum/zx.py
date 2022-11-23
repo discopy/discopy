@@ -5,7 +5,7 @@
 from discopy import messages, cat, monoidal, rigid, quantum, tensor, symmetric
 from discopy.cat import factory
 from discopy.monoidal import Sum
-from discopy.rigid import Functor, PRO
+from discopy.rigid import Functor, PRO, Category
 from discopy.quantum.circuit import Circuit, qubit
 # from discopy.quantum.gates import (
 #     Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
@@ -430,10 +430,9 @@ def gate2zx(box):
     return standard_gates[box]
 
 
-# TODO
-# circuit2zx = Functor(
-#     ob={qubit: PRO(1)}, ar=gate2zx,
-#     ob_factory=PRO, ar_factory=Diagram)
+circuit2zx = Functor(
+    ob={qubit: PRO(1)}, ar=gate2zx,
+    cod=Category(PRO, Diagram))
 
 
 def decomp_ar(box):
@@ -455,6 +454,6 @@ def decomp_ar(box):
     return box
 
 
-# decomp = Functor(ob=lambda x: x, ar=decomp_ar)
+decomp = Functor(ob=lambda x: x, ar=decomp_ar)
 
 Id = Diagram.id

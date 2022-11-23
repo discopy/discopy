@@ -45,7 +45,7 @@ class Ty(rigid.Ty):
     A pivotal type is a rigid type with pivotal objects inside.
 
     Parameters:
-        inside (tuple[Ob, ...]) : The objects inside the type.
+        inside (Ob) : The objects inside the type.
     """
     ob_factory = Ob
 
@@ -61,7 +61,7 @@ class Diagram(rigid.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    ob_factory = Ty
+    ty_factory = Ty
 
 
 class Box(rigid.Box, Diagram):

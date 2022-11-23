@@ -24,7 +24,8 @@ Implements pregroup grammars and distributional compositional models.
 
 from discopy import messages, drawing, rewriting, monoidal
 from discopy.grammar import cfg
-from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap, Swap
+from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap
+from discopy.compact import Swap
 
 
 class Word(cfg.Word, Box):

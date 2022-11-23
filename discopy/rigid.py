@@ -347,7 +347,7 @@ class Diagram(closed.Diagram):
 
     normalize = rewriting.snake_removal
 
-    ob_factory = Ty
+    ty_factory = Ty
 
 
 class Box(closed.Box, Diagram):
@@ -449,7 +449,7 @@ class Cup(BinaryBoxConstructor, Box):
         if left.r != right and left != right.r:
             raise AxiomError(messages.are_not_adjoints(left, right))
         name = "Cup({}, {})".format(left, right)
-        dom, cod = left @ right, self.ob_factory()
+        dom, cod = left @ right, self.ty_factory()
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -495,7 +495,7 @@ class Cap(BinaryBoxConstructor, Box):
         if left != right.r and left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
         name = "Cup({}, {})".format(left, right)
-        dom, cod = self.ob_factory(), left @ right
+        dom, cod = self.ty_factory(), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 

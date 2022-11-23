@@ -7,7 +7,7 @@ Implements combinatory categorial grammars.
 import re
 
 from discopy.grammar import cfg
-from discopy.biclosed import Ty, Box, Id, FA, BA, FC
+from discopy.closed import Ty, Box, Id, FA, BA, FC
 
 
 class Word(cfg.Word, Box):

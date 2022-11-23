@@ -49,7 +49,7 @@ from collections.abc import Mapping
 
 from discopy import messages, monoidal, rigid, tensor, symmetric
 from discopy.cat import AxiomError, factory
-from discopy.rigid import Diagram
+from discopy.compact import Diagram
 from discopy.tensor import Dim, Tensor
 from math import pi
 from functools import reduce, partial
@@ -144,6 +144,7 @@ class Qudit(Ob):
         super().__init__(name, dim)
 
 
+@factory
 class Ty(rigid.Ty):
     """
     Implement the input and output types of :class:`Circuit`.
@@ -159,12 +160,10 @@ class Ty(rigid.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    @staticmethod
-    def upgrade(old):
-        return Ty(*old.objects)
-
     def __repr__(self):
         return str(self)
+
+    ob_factory = Ob
 
 
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
@@ -866,6 +865,8 @@ class Circuit(tensor.Diagram):
         from discopy.quantum import Rz
         return self._apply_controlled(Rz(phase), x, y)
 
+    ty_factory = Ty
+
 
 class Box(rigid.Box, Circuit):
     """
@@ -958,10 +959,9 @@ Circuit.sum = Sum
 
 class Swap(symmetric.Swap, Box):
     """ Implements swaps of circuit wires. """
-    def __init__(self, left, right):
-        symmetric.Swap.__init__(self, left, right)
-        Box.__init__(
-            self, self.name, self.dom, self.cod, is_mixed=left != right)
+    @property
+    def is_mixed(self):
+        return self.left != self.right
 
     def dagger(self):
         return Swap(self.right, self.left)

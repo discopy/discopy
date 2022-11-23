@@ -91,7 +91,7 @@ class Ty(cat.Ob):
     """
     __ambiguous_inheritance__ = True
 
-    def __init__(self, *inside: ob_factory):
+    def __init__(self, *inside: Ty):
         self.inside = tuple(
             x if isinstance(x, self.ob_factory) else self.ob_factory(x)
             for x in inside)
@@ -293,9 +293,9 @@ class Layer(cat.Box):
 
     def __str__(self):
         left, box, right = self
-        return ("{} @ ".format(box.id(left)) if left else "")\
-            + str(box)\
-            + (" @ {}".format(box.id(right)) if right else "")
+        return ("{} @ ".format(left) if left else "")\
+            + box.name\
+            + (" @ {}".format(right) if right else "")
 
     def __matmul__(self, other: Ty) -> Layer:
         return type(self)(self.left, self.box, self.right @ other)
@@ -511,7 +511,7 @@ class Diagram(cat.Arrow, Whiskerable):
 
         return cat.Functor(ob=Ty.drawing, ar=ar, cod=Category())(self)
 
-    ob_factory = Ty
+    ty_factory = Ty
 
 
 class Box(cat.Box, Diagram):

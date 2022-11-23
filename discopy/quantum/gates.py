@@ -595,19 +595,6 @@ class Sqrt(Scalar):
         return Tensor.np.array(self.data ** .5)
 
 
-# SWAP = Swap(qubit, qubit)  # TODO: fix swaps
-# H = QuantumGate(
-#     'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
-#     _dagger=None, _conjugate=None)
-# S = QuantumGate('S', 1, [1, 0, 0, 1j])
-# T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
-# X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
-# Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
-# Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
-# CX = Controlled(X)
-# CZ = Controlled(Z)
-
-
 def CRz(phase):
     """ Controlled Z rotations. """
     return Controlled(Rz(phase))
@@ -616,9 +603,6 @@ def CRz(phase):
 def CRx(phase):
     """ Controlled X rotations. """
     return Controlled(Rx(phase))
-
-
-# GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
 
 
 def rewire(op, a: int, b: int, *, dom=None):
@@ -669,3 +653,17 @@ def sqrt(expr):
 def scalar(expr, is_mixed=False):
     """ Returns a 0-qubit quantum gate that scales by a complex number. """
     return Scalar(expr, is_mixed=is_mixed)
+
+
+# SWAP = Swap(qubit, qubit)
+# H = QuantumGate(
+#     'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
+#     _dagger=None, _conjugate=None)
+# S = QuantumGate('S', 1, [1, 0, 0, 1j])
+# T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
+# X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
+# Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
+# Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
+# CX = Controlled(X)
+# CZ = Controlled(Z)
+# GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]

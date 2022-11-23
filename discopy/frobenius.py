@@ -1,8 +1,98 @@
 # -*- coding: utf-8 -*-
 
-""" Spiders, i.e. dagger special commutative Frobenius algebras. """
+"""
+The free hypergraph category, i.e. diagrams with swaps and spiders
+(a.k.a. dagger special commutative Frobenius algebras).
 
-from discopy.compact import Ty, Box, Diagram
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Ob
+    Ty
+    Diagram
+    Box
+    Swap
+    Spider
+    Category
+    Functor
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        coherence
+"""
+
+from __future__ import annotations
+
+from discopy import compact, pivotal
+from discopy.cat import factory
+
+
+class Ob(pivotal.Ob):
+    """
+    A Frobenius object is a self-dual pivotal object.
+
+    Parameters:
+        name : The name of the object.
+    """
+    l = r = property(lambda self: self)
+
+
+class Ty(pivotal.Ty):
+    """
+    A Frobenius type is a pivotal type with Frobenius objects inside.
+
+    Parameters:
+        inside (Ob) : The objects inside the type.
+    """
+    ob_factory = Ob
+
+
+@factory
+class Diagram(compact.Diagram):
+    """
+    A frobenius diagram is a compact diagram with :class:`Spider` boxes.
+
+    Parameters:
+        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        dom (Ty) : The domain of the diagram, i.e. its input.
+        cod (Ty) : The codomain of the diagram, i.e. its output.
+    """
+    ty_factory = Ty
+
+
+class Box(compact.Box, Diagram):
+    """
+    A compact box is a symmetric and tortile box in a compact diagram.
+
+    Parameters:
+        name (str) : The name of the box.
+        dom (Ty) : The domain of the box, i.e. its input.
+        cod (Ty) : The codomain of the box, i.e. its output.
+    """
+    __ambiguous_inheritance__ = (compact.Box, )
+    ty_factory = Ty
+
+
+class Swap(compact.Swap, Box):
+    """
+    A compact swap is a symmetric swap and a tortile braid.
+
+    Parameters:
+        left (pivotal.Ty) : The type on the top left and bottom right.
+        right (pivotal.Ty) : The type on the top right and bottom left.
+    """
+    __ambiguous_inheritance__ = (compact.Swap, )
+    ty_factory = Ty
 
 
 class Spider(Box):
@@ -81,6 +171,34 @@ class Spider(Box):
     @property
     def r(self):
         return type(self)(len(self.dom), len(self.cod), self.typ.r)
+
+
+class Category(compact.Category):
+    """
+    A hypergraph category is a compact category with a method :code:`spiders`.
+
+    Parameters:
+        ob : The objects of the category, default is :class:`pivotal.Ty`.
+        ar : The arrows of the category, default is :class:`Diagram`.
+    """
+    ob, ar = Ty, Diagram
+
+
+class Functor(compact.Functor):
+    """
+    A hypergraph functor is a compact functor that preserves spiders.
+
+    Parameters:
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
+    """
+    dom = cod = Category()
+
+    def __call__(self, other):
+        if isinstance(other, Swap):
+            return symmetric.Functor.__call__(self, other)
+        return tortile.Functor.__call__(self, other)
 
 
 def spiders(

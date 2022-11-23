@@ -1,10 +1,36 @@
 # -*- coding: utf-8 -*-
 
 """
-Hypergraph categories.
+The free hypergraph category with diagrams encoded as cospans of hypergraphs.
 
-Note
-----
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Ty
+    Diagram
+    Box
+    Swap
+    Spider
+    Cup
+    Cap
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        pushout
+
+Axioms
+------
 
 **Spiders**
 
