@@ -82,8 +82,8 @@ def tk_op_to_pennylane(tk_op, str_map):
 
     remapped_params = []
     for param in params:
+        param = param / 2
         if isinstance(param, sympy.Expr):
-            param = param / 2
             free_symbols = param.free_symbols
             sym_subs = {f: str_map[str(f)] for f in free_symbols}
             param = param.subs(sym_subs)
