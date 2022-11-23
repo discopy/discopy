@@ -68,7 +68,7 @@ class Diagram(monoidal.Diagram):
     A braided diagram is a monoidal diagram with :class:`Braid` boxes.
 
     Parameters:
-        inside (tuple[monoidal.Layer, ...]) : The layers inside the diagram.
+        inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
@@ -156,9 +156,13 @@ def hexagon(braid_factory: Callable) -> Callable:
         braid_factory : A braid factory for atomic types, e.g. :class:`Braid`.
     """
     def method(x: Ty, y: Ty) -> Diagram:
-        if len(x) == 0: return braid_factory.id(y)
+        if len(x) == 0:
+            return braid_factory.id(y)
+        if len(y) == 0:
+            return braid_factory.id(x)
+        if len(x) == len(y) == 1:
+            return braid_factory(x[0], y[0])
         if len(x) == 1:
-            if len(y) == 1: return braid_factory(x[0], y[0])
             return method(x, y[:1]) @ y[1:] >> y[:1] @ method(x, y[1:])
         return x[:1] @ method(x[1:], y) >> method(x[:1], y) @ x[1:]
 

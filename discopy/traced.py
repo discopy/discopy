@@ -31,7 +31,7 @@ class Diagram(symmetric.Diagram):
     A traced diagram is a symmetric diagram with :class:`Trace` boxes.
 
     Parameters:
-        inside (tuple[monoidal.Layer, ...]) : The layers inside the diagram.
+        inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """

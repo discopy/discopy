@@ -33,7 +33,7 @@ class Diagram(pivotal.Diagram, braided.Diagram):
     A tortile diagram is a pivotal diagram and a braided diagram.
 
     Parameters:
-        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        inside(Layer) : The layers of the diagram.
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """

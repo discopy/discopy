@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-The free hypergraph category, i.e. diagrams with swaps and spiders
-(a.k.a. dagger special commutative Frobenius algebras).
+The free hypergraph category, i.e. diagrams with swaps and spiders.
+
+Spiders are also known as dagger special commutative Frobenius algebras.
 
 Summary
 -------
@@ -35,11 +36,12 @@ from __future__ import annotations
 
 from discopy import compact, pivotal
 from discopy.cat import factory
+from discopy.utils import factory_name, assert_isatomic
 
 
 class Ob(pivotal.Ob):
     """
-    A Frobenius object is a self-dual pivotal object.
+    A hypergraph object is a self-dual pivotal object.
 
     Parameters:
         name : The name of the object.
@@ -49,7 +51,7 @@ class Ob(pivotal.Ob):
 
 class Ty(pivotal.Ty):
     """
-    A Frobenius type is a pivotal type with Frobenius objects inside.
+    A hypergraph type is a pivotal type with hypergraph objects inside.
 
     Parameters:
         inside (Ob) : The objects inside the type.
@@ -60,19 +62,35 @@ class Ty(pivotal.Ty):
 @factory
 class Diagram(compact.Diagram):
     """
-    A frobenius diagram is a compact diagram with :class:`Spider` boxes.
+    A hypergraph diagram is a compact diagram with :class:`Spider` boxes.
 
     Parameters:
-        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        inside(Layer) : The layers of the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
     ty_factory = Ty
 
+    @classmethod
+    def spiders(cls, n_legs_in, n_legs_out, typ):
+        """ Constructs a diagram of interleaving spiders. """
+        result = cls.id().tensor(*[
+            cls.spider_factory(n_legs_in, n_legs_out, x) for x in typ])
+        for i, t in enumerate(typ):
+            for j in range(n_legs_in - 1):
+                result <<= result.dom[:i * j + i + j] @ cls.swap(
+                    t, result.dom[i * j + i + j:i * n_legs_in + j]
+                ) @ result.dom[i * n_legs_in + j + 1:]
+            for j in range(n_legs_out - 1):
+                result >>= result.cod[:i * j + i + j] @ cls.swap(
+                    result.cod[i * j + i + j:i * n_legs_out + j], t
+                ) @ result.cod[i * n_legs_out + j + 1:]
+        return result
+
 
 class Box(compact.Box, Diagram):
     """
-    A compact box is a symmetric and tortile box in a compact diagram.
+    A hypergraph box is a compact box in a hypergraph diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -85,7 +103,7 @@ class Box(compact.Box, Diagram):
 
 class Swap(compact.Swap, Box):
     """
-    A compact swap is a symmetric swap and a tortile braid.
+    A hypergraph swap is a compact swap in a hypergraph diagram.
 
     Parameters:
         left (pivotal.Ty) : The type on the top left and bottom right.
@@ -97,14 +115,13 @@ class Swap(compact.Swap, Box):
 
 class Spider(Box):
     """
-    Spider box.
+    The spider with :code:`n_legs_in` and :code:`n_legs_out`
+    on a given atomic type.
 
-    Parameters
-    ----------
-    n_legs_in, n_legs_out : int
-        Number of legs in and out.
-    typ : discopy.rigid.Ty
-        The type of the spider, needs to be atomic.
+    Parameters:
+        n_legs_in : The number of legs in.
+        n_legs_out : The number of legs out.
+        typ : The type of the spider.
 
     Examples
     --------
@@ -112,12 +129,9 @@ class Spider(Box):
     >>> spider = Spider(1, 2, x)
     >>> assert spider.dom == x and spider.cod == x @ x
     """
-    def __init__(self, n_legs_in, n_legs_out, typ, **params):
+    def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty, **params):
         self.typ = typ
-        if len(typ) > 1:
-            raise ValueError(
-                "Spider boxes can only have len(typ) == 1, "
-                "try Diagram.spiders instead.")
+        assert_isatomic(typ)
         name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
@@ -128,7 +142,7 @@ class Spider(Box):
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
-        return "Spider({}, {}, {})".format(
+        return factory_name(type(self)) + "({}, {}, {})".format(
             len(self.dom), len(self.cod), repr(self.typ))
 
     def dagger(self):
@@ -196,30 +210,10 @@ class Functor(compact.Functor):
     dom = cod = Category()
 
     def __call__(self, other):
-        if isinstance(other, Swap):
-            return symmetric.Functor.__call__(self, other)
-        return tortile.Functor.__call__(self, other)
-
-
-def spiders(
-        n_legs_in, n_legs_out, typ,
-        ar_factory=Diagram, spider_factory=Spider):
-    """ Constructs a diagram of interleaving spiders. """
-    id, swap, spider = ar_factory.id, ar_factory.swap, spider_factory
-    ts = [typ[i:i + 1] for i in range(len(typ))]
-    result = id().tensor(*[spider(n_legs_in, n_legs_out, t) for t in ts])
-
-    for i, t in enumerate(ts):
-        for j in range(n_legs_in - 1):
-            result <<= id(result.dom[:i * j + i + j]) @ swap(
-                t, result.dom[i * j + i + j:i * n_legs_in + j]
-            ) @ id(result.dom[i * n_legs_in + j + 1:])
-
-        for j in range(n_legs_out - 1):
-            result >>= id(result.cod[:i * j + i + j]) @ swap(
-                result.cod[i * j + i + j:i * n_legs_out + j], t
-            ) @ id(result.cod[i * n_legs_out + j + 1:])
-    return result
+        if isinstance(other, Spider):
+            return self.cod.ar.spiders(
+                len(other.dom), len(other.cod), self(other.typ))
+        return super().__call__(other)
 
 
 def coherence(factory):
@@ -248,3 +242,12 @@ def coherence(factory):
         return method(cls, a, 1, x) >> method(cls, 1, b, x)
 
     return classmethod(method)
+
+
+Diagram.braid_factory = Swap
+Diagram.spider_factory = Spider
+
+Cup = lambda x, _: Spider(2, 0, x)
+Cap = lambda x, _: Spider(0, 2, x)
+
+Id = Diagram.id

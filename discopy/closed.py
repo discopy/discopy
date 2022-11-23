@@ -162,7 +162,7 @@ class Diagram(monoidal.Diagram):
     with :class:`Curry` and :class:`Eval` boxes.
 
     Parameters:
-        inside (tuple[monoidal.Layer, ...]) : The layers inside the diagram.
+        inside(Layer) : The layers inside the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """

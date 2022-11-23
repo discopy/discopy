@@ -31,7 +31,7 @@ class Diagram(symmetric.Diagram, tortile.Diagram):
     A compact diagram is a symmetric diagram and a tortile diagram.
 
     Parameters:
-        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        inside(Layer) : The layers of the diagram.
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """

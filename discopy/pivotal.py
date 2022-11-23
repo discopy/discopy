@@ -57,7 +57,7 @@ class Diagram(rigid.Diagram):
     with pivotal types as domain and codomain.
 
     Parameters:
-        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        inside(Layer) : The layers of the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """

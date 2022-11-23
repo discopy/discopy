@@ -2,7 +2,7 @@
 
 """
 The free (dagger) category
-with formal sums, unary operators and :code:`sympy` symbols.
+with formal sums, unary operators and symbolic variables.
 
 Summary
 -------

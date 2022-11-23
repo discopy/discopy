@@ -23,8 +23,7 @@ The slides are available :doc:`here <21-06-08-qpl>`.
 PyData Berlin
 -------------
 
-The talk introduces DisCoPy to the community of Python data scientists,
-the slides are available :download:`here <20-09-16-pydata-berlin.pdf>`.
+The talk introduces DisCoPy to the community of Python data scientists.
 
 .. youtube:: 5jK8qEQvR-o
 
