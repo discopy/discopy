@@ -228,8 +228,7 @@ class PennyLaneCircuit:
         else:
             self._concrete_params = [torch.cat(p) if len(p) > 0
                                      else p for p in self._params]
-        self._device = self.get_device(copy.copy(backend_config))
-        self._circuit = self.make_circuit()
+        self.initialize_device_and_circuit()
         self._valid_states = self.get_valid_states()
 
     def get_device(self, backend_config):
@@ -263,6 +262,10 @@ class PennyLaneCircuit:
                                  'outputs.')
 
         return qml.device(backend, wires=self._n_qubits, **backend_config)
+
+    def initialize_device_and_circuit(self):
+        self._device = self.get_device(copy.copy(self._backend_config))
+        self._circuit = self.make_circuit()
 
     def contains_sympy(self):
         """
