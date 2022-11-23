@@ -36,7 +36,7 @@ Axioms
 
 We can check spider fusion, i.e. special commutative Frobenius algebra.
 
->>> x, y, z = types("x y z")
+>>> x, y, z = map(Ty, "xyz")
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
 >>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
 
@@ -129,39 +129,37 @@ We can also check that the axioms for symmetry hold on the nose.
 >>> assert Id(z) @ f >> Swap(z, f.cod) == Swap(z, f.dom) >> f @ Id(z)
 """
 
+from __future__ import annotations
+
 import random
 
 import matplotlib.pyplot as plt
 from networkx import Graph, connected_components, spring_layout, draw_networkx
 
-from discopy import cat, monoidal, rigid, drawing
-from discopy.cat import AxiomError
+from discopy import cat, monoidal, drawing, frobenius
+from discopy.cat import AxiomError, Composable
+from discopy.monoidal import Whiskerable
 from discopy.drawing import Node
+from discopy.frobenius import Ty
+from discopy.utils import assert_isinstance
 
 
-def pushout(left, right, left_boundary, right_boundary):
+Pushout = tuple[dict[int, int], dict[int, int]]
+
+def pushout(
+        left: int, right: int,
+        left_boundary: list[int], right_boundary: list[int]) -> Pushout:
     """
     Computes the pushout of two finite mappings using connected components.
 
-    Parameters
-    ----------
-    left : int
-        Size of the left set.
-    right : int
-        Size of the right set.
-    left_boundary : List[int]
-        Mapping from boundary to left.
-    right_boundary : List[int]
-        Mapping from boundary to right.
-
-    Returns
-    -------
-    left_pushout, right_pushout : Mapping[int, int]
-        Injections from left and right to their pushout.
+    Parameters:
+    left : The size of the left set.
+    right : The size of the right set.
+    left_boundary : The mapping from boundary to left.
+    right_boundary : The mapping from boundary to right.
 
     Examples
     --------
-
     >>> assert pushout(2, 3, [1], [0]) == ({0: 0, 1: 1}, {0: 1, 1: 2, 2: 3})
     """
     if len(left_boundary) != len(right_boundary):
@@ -186,46 +184,21 @@ def pushout(left, right, left_boundary, right_boundary):
     return left_pushout, right_pushout
 
 
-class Ty(rigid.Ty):
-    """ Self-dual types in a hypergraph diagram. """
-    @staticmethod
-    def upgrade(old):
-        return Ty(*old.objects)
-
-    @property
-    def l(self):
-        return Ty(*self.objects[::-1])
-
-    r = l
-
-
-def types(names):
-    """ Transforms strings into lists of :class:`discopy.hypergraph.Ty`. """
-    return map(Ty.upgrade, monoidal.types(names))
-
-
-class Diagram(cat.Arrow):
+class Diagram(Composable, Whiskerable):
     """
     Diagram in a hypergraph category.
 
-    Parameters
-    ----------
-
-    dom : discopy.hypergraph.Ty
-        Domain of the diagram.
-    cod : discopy.hypergraph.Ty
-        Codomain of the diagram.
-    boxes : List[discopy.hypergraph.Box]
-        List of :class:`discopy.symmetric.Box`.
-    wires : List[Any]
-        List of wires from ports to spiders.
-    spider_types : Mapping[Any, discopy.hypergraph.Ty], optional
-        Mapping from spiders to basic types, if :code:`None` then this is
-        computed from the types of ports.
+    Parameters:
+        dom (frobenius.Ty) : The domain of the diagram, i.e. its input.
+        cod (frobenius.Ty) : The codomain of the diagram, i.e. its output.
+        boxes (tuple[Box, ...]) : The boxes inside the diagram.
+        wires (tuple[Any]) : List of wires from ports to spiders.
+        spider_types : Mapping[Any, frobenius.Ty]
+            Mapping from spiders to atomic types, if :code:`None` then this is
+            computed from the types of ports.
 
     Note
     ----
-
     The wires go from ports to spiders, they are given as a list of length::
 
         len(dom) + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod)
@@ -248,8 +221,7 @@ class Diagram(cat.Arrow):
 
     Examples
     --------
-
-    >>> x, y, z = types("x y z")
+    >>> x, y, z = map(Ty, "xyz")
 
     >>> assert Id(x @ y @ z).n_spiders == 3
     >>> assert Id(x @ y @ z).wires == [0, 1, 2, 0, 1, 2]
@@ -273,8 +245,14 @@ class Diagram(cat.Arrow):
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
     """
-    def __init__(self, dom, cod, boxes, wires, spider_types=None):
-        super().__init__(dom, cod, boxes, _scan=False)
+    def __init__(
+            self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
+            wires: tuple[Any, ...], spider_types: Mapping[Any, Ty] = None):
+        assert_isinstance(dom, Ty)
+        assert_isinstance(cod, Ty)
+        self.dom, self.cod, self.boxes = dom, cod, boxes
+        for box in boxes:
+            assert_isinstance(box, Box)
         if len(wires) != len(dom)\
                 + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod):
             raise ValueError
@@ -330,7 +308,7 @@ class Diagram(cat.Arrow):
 
         Examples
         --------
-        >>> x, y, z = types("x y z")
+        >>> x, y, z = map(Ty, "xyz")
         >>> f, g = Box('f', x, y @ y), Box('g', y @ y, z)
         >>> for port in (f >> g).ports: print(port)
         Node('input', i=0, obj=Ob('x'))
@@ -342,13 +320,16 @@ class Diagram(cat.Arrow):
         Node('cod', depth=1, i=0, obj=Ob('z'))
         Node('output', i=0, obj=Ob('z'))
         """
-        return [Node("input", i=i, obj=obj) for i, obj in enumerate(self.dom)]\
-            + sum([[
-                Node(kind, depth=depth, i=i, obj=obj)
-                for i, obj in enumerate(typ)]
-                for depth, box in enumerate(self.boxes)
-                for kind, typ in [("dom", box.dom), ("cod", box.cod)]], [])\
-            + [Node("output", i=i, obj=obj) for i, obj in enumerate(self.cod)]
+        inputs = [Node("input", i=i, obj=obj)
+                  for i, obj in enumerate(self.dom.inside)]
+        doms_and_cods = sum([[
+            Node(kind, depth=depth, i=i, obj=obj)
+            for i, obj in enumerate(typ.inside)]
+            for depth, box in enumerate(self.boxes)
+            for kind, typ in [("dom", box.dom), ("cod", box.cod)]], [])
+        outputs = [Node("output", i=i, obj=obj)
+                   for i, obj in enumerate(self.cod.inside)]
+        return inputs + doms_and_cods + outputs
 
     @property
     def spider_types(self):
@@ -364,6 +345,10 @@ class Diagram(cat.Arrow):
     def scalar_spiders(self):
         """ The zero-legged spiders in a hypergraph diagram. """
         return [i for i in range(self.n_spiders) if not self.wires.count(i)]
+
+    @staticmethod
+    def id(dom=Ty()) -> Diagram:
+        return Diagram(dom, dom, [], 2 * list(range(len(dom))))
 
     def then(self, other):
         """
@@ -404,15 +389,13 @@ class Diagram(cat.Arrow):
         spiders = self.spider_types + other.spider_types
         return Diagram(dom, cod, boxes, wires, spiders)
 
-    __matmul__ = tensor
-
     def dagger(self):
         """
         Dagger of a hypergraph diagram, called with :code:`[::-1]`.
 
         Examples
         --------
-        >>> x, y, z = types('x y z')
+        >>> x, y, z = map(Ty, "xyz")
         >>> f, g = Box('f', x, y), Box('g', y, z)
         >>> assert (f >> g)[::-1] == g[::-1] >> f[::-1]
         >>> assert Spider(1, 2, x @ y)[::-1] == Spider(2, 1, x @ y)
@@ -426,6 +409,34 @@ class Diagram(cat.Arrow):
         cod_wires = self.wires[:len(self.dom)]
         wires = dom_wires + box_wires + cod_wires
         return Diagram(dom, cod, boxes, wires, self.spider_types)
+
+    @staticmethod
+    def swap(left, right):
+        dom, cod = left @ right, right @ left
+        boxes, wires = [], list(range(len(dom)))\
+            + list(range(len(left), len(dom))) + list(range(len(left)))
+        return Diagram(dom, cod, boxes, wires)
+
+    @staticmethod
+    def spiders(n_legs_in, n_legs_out, typ):
+        dom, cod = typ ** n_legs_in, typ ** n_legs_out
+        boxes, spider_types = [], list(map(Ty, typ))
+        wires = (n_legs_in + n_legs_out) * list(range(len(typ)))
+        return Diagram(dom, cod, boxes, wires, spider_types)
+
+    @staticmethod
+    def cups(left, right):
+        if not left.r == right:
+            raise AxiomError
+        wires = list(range(len(left))) + list(reversed(range(len(left))))
+        return Diagram(left @ right, Ty(), [], wires)
+
+    @staticmethod
+    def caps(left, right):
+        if not left.r == right:
+            raise AxiomError
+        wires = list(range(len(left))) + list(reversed(range(len(left))))
+        return Diagram(Ty(), left @ right, [], wires)
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -462,7 +473,7 @@ class Diagram(cat.Arrow):
         Examples
         --------
 
-        >>> x, y = types(" x y")
+        >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
         >>> assert f.is_monogamous
         >>> assert (f >> f[::-1]).is_monogamous
@@ -494,7 +505,7 @@ class Diagram(cat.Arrow):
         Examples
         --------
 
-        >>> x, y = types("x y")
+        >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
         >>> assert f.is_bijective and f.transpose().is_bijective
         >>> assert Cup(x, x).is_bijective and Cap(x, x).is_bijective
@@ -512,7 +523,7 @@ class Diagram(cat.Arrow):
         Examples
         --------
 
-        >>> x, y = types("x y")
+        >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
         >>> list(zip(f.wires, f.bijection))
         [(0, 1), (0, 0), (1, 3), (1, 2)]
@@ -537,7 +548,7 @@ class Diagram(cat.Arrow):
         Examples
         --------
 
-        >>> x, y = types("x y")
+        >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y)
         >>> assert f.is_progressive
         >>> assert (f >> f[::-1]).is_progressive
@@ -558,10 +569,10 @@ class Diagram(cat.Arrow):
 
     def make_bijective(self):
         """
-        Introduces :class:`discopy.rigid.Spider` boxes to make self bijective.
+        Introduces :class:`frobenius.Spider` boxes to make self bijective.
 
         >>> spider = Spider(1, 2, Ty('x')).make_bijective()
-        >>> assert spider.boxes == [rigid.Spider(3, 0, Ty('x'))]
+        >>> assert spider.boxes == [frobenius.Spider(3, 0, Ty('x'))]
         >>> assert spider.wires == [0, 0, 1, 2, 1, 2]
         """
         boxes, wires, spider_types =\
@@ -570,7 +581,7 @@ class Diagram(cat.Arrow):
             ports = [port for port, spider in enumerate(wires) if spider == i]
             n_legs = len(ports)
             if n_legs not in [0, 2]:
-                boxes.append(rigid.Spider(n_legs, 0, typ))
+                boxes.append(frobenius.Spider(n_legs, 0, typ))
                 for j, port in enumerate(ports):
                     wires[port] = len(spider_types) + j
                 new_wires =\
@@ -584,8 +595,7 @@ class Diagram(cat.Arrow):
 
     def make_monogamous(self):
         """
-        Introduces :class:`discopy.rigid.Cup` and :class:`discopy.rigid.Cap`
-        boxes to make self monogamous.
+        Introduces :class:`frobenius.Spider` boxes to make self monogamous.
 
         >>> x = Ty('x')
         >>> Cap(x, x).make_monogamous()
@@ -593,7 +603,8 @@ class Diagram(cat.Arrow):
         >>> Cup(x, x).make_monogamous()
         Diagram(Ty('x', 'x'), Ty(), [Cup(Ty('x'), Ty('x'))], [0, 1, 0, 1])
         >>> spider = Spider(2, 1, x).make_monogamous()
-        >>> assert spider.boxes == [rigid.Cap(x, x), rigid.Spider(3, 0, x)]
+        >>> assert spider.boxes == [
+        ...     frobenius.Cap(x, x), frobenius.Spider(3, 0, x)]
         >>> assert spider.wires == [0, 1, 2, 3, 0, 1, 2, 3]
         """
         diagram = self if self.is_bijective else self.make_bijective()
@@ -603,8 +614,8 @@ class Diagram(cat.Arrow):
         boxes, wires = list(diagram.boxes), list(diagram.wires)
         spider_types = dict(enumerate(diagram.spider_types))
         for kinds, box_cls in [
-                (["input", "cod"], rigid.Cup),
-                (["dom", "output"], rigid.Cap)]:
+                (["input", "cod"], frobenius.Cup),
+                (["dom", "output"], frobenius.Cap)]:
             for source, spider in [
                     (source, spider) for source, (spider, port)
                     in enumerate(zip(diagram.wires, diagram.ports))
@@ -616,7 +627,7 @@ class Diagram(cat.Arrow):
                 if diagram.ports[target].kind in kinds:
                     left, right = len(spider_types), len(spider_types) + 1
                     wires[source], wires[target] = left, right
-                    if box_cls == rigid.Cup:
+                    if box_cls == frobenius.Cup:
                         boxes.append(box_cls(typ, typ))
                         wires = wires[:len(wires) - len(diagram.cod)]\
                             + [left, right]\
@@ -632,8 +643,7 @@ class Diagram(cat.Arrow):
 
     def make_progressive(self):
         """
-        Introduce :class:`discopy.rigid.Cup` and :class:`discopy.rigid.Cap`
-        to make self progressive.
+        Introduce :class:`frobenius.Spider` boxes to make self progressive.
 
         Examples
         --------
@@ -642,14 +652,15 @@ class Diagram(cat.Arrow):
         >>> x = Ty('x')
         >>> f = Box('f', x, x)
         >>> diagram = trace(f).make_progressive()
-        >>> assert diagram.boxes == [rigid.Cap(x, x), f, rigid.Cup(x, x)]
+        >>> assert diagram.boxes == [
+        ...     frobenius.Cap(x, x), f, frobenius.Cup(x, x)]
         >>> assert diagram.wires == [0, 1, 0, 2, 2, 1]
 
         >>> g = Box('g', x @ x, x @ x)
         >>> assert trace(g).make_progressive().boxes\\
-        ...     == [rigid.Cap(x, x), rigid.Cap(x, x),
+        ...     == [frobenius.Cap(x, x), frobenius.Cap(x, x),
         ...         g,
-        ...         rigid.Cup(x, x), rigid.Cup(x, x)]
+        ...         frobenius.Cup(x, x), frobenius.Cup(x, x)]
         """
         diagram = self if self.is_monogamous else self.make_monogamous()
         if diagram.is_progressive:
@@ -664,7 +675,7 @@ class Diagram(cat.Arrow):
                 source = port + j
                 spider, target = wires[source], bijection[source]
                 if target > source:
-                    cup, cap = rigid.Cup(typ, typ), rigid.Cap(typ, typ)
+                    cup, cap = frobenius.Cup(typ, typ), frobenius.Cap(typ, typ)
                     boxes = [cap] + boxes + [cup]
                     top, middle, bottom =\
                         range(len(spider_types), len(spider_types) + 3)
@@ -680,16 +691,16 @@ class Diagram(cat.Arrow):
 
     def downgrade(self):
         """
-        Downgrade hypergraph diagram to :class:`discopy.rigid.Diagram`.
+        Downgrade to :class:`frobenius.Diagram`, called by :code:`print`.
 
         Examples
         --------
         >>> x = Ty('x')
         >>> v = Box('v', Ty(), x @ x)
-        >>> print((v >> Swap(x, x) >> v[::-1]).downgrade())
+        >>> print(v >> Swap(x, x) >> v[::-1])
         v >> Swap(x, x) >> v[::-1]
-        >>> print((Id(x) @ Swap(x, x) >> v[::-1] @ Id(x)).downgrade())
-        Id(x) @ Swap(x, x) >> v[::-1] @ Id(x)
+        >>> print(x @ Swap(x, x) >> v[::-1] @ x)
+        x @ Swap(x, x) >> v[::-1] @ x
         """
         diagram = self.make_progressive()
         graph = Graph()
@@ -698,26 +709,26 @@ class Diagram(cat.Arrow):
             (diagram.ports[i], diagram.ports[j])
             for i, j in enumerate(diagram.bijection)])
         graph.add_nodes_from([
-            Node("box", depth=depth, box=box if isinstance(box, rigid.Box)
-                 else rigid.Box(
+            Node("box", depth=depth, box=box if isinstance(box, frobenius.Box)
+                 else frobenius.Box(
                      box.name, box.dom, box.cod,
-                     _dagger=box.is_dagger, data=box.data))
+                     is_dagger=box.is_dagger, data=box.data))
             for depth, box in enumerate(diagram.boxes)])
         graph.add_nodes_from([
             Node("box", depth=len(diagram.boxes) + i,
-                 box=rigid.Spider(0, 0, diagram.spider_types[s]))
+                 box=frobenius.Spider(0, 0, diagram.spider_types[s]))
             for i, s in enumerate(diagram.scalar_spiders)])
-        return drawing.nx2diagram(graph, rigid.Ty, rigid.Id)
+        return drawing.nx2diagram(graph, frobenius.Diagram)
 
     @staticmethod
     def upgrade(old):
         """
-        >>> x, y = types("x y")
+        >>> x, y = map(Ty, "xy")
             >>> back_n_forth = lambda d: Diagram.upgrade(d.downgrade())
         >>> for d in [Spider(0, 0, x), Spider(2, 3, x), Spider(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        return rigid.Functor(
+        return frobenius.Functor(
             ob=lambda typ: Ty(typ[0]),
             ar=lambda box: Box(box.name, box.dom, box.cod),
             ob_factory=Ty, ar_factory=Diagram)(old)
@@ -774,7 +785,7 @@ class Diagram(cat.Arrow):
 
         Examples
         --------
-        >>> x, y, z = types('x y z')
+        >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z)
         >>> f.draw(
         ...     path='docs/_static/imgs/hypergraph/box.png', seed=42)
@@ -795,7 +806,7 @@ class Diagram(cat.Arrow):
                 for j, spider in enumerate(wires):
                     port_node = Node(kind, i=i, j=j)
                     x, y = pos[box_node]
-                    if not isinstance(self.boxes[i], rigid.Spider):
+                    if not isinstance(self.boxes[i], frobenius.Spider):
                         y += .25 if kind == "dom" else -.25
                         x -= .25 * (len(wires[:-1]) / 2 - j)
                     pos[port_node] = x, y
@@ -815,13 +826,14 @@ class Diagram(cat.Arrow):
             plt.close()
         plt.show()
 
-    transpose = rigid.Diagram.transpose
+    transpose = frobenius.Diagram.transpose
 
 
-class Box(cat.Box, Diagram):
+class Box(Diagram):
     """ Box in a :class:`discopy.hypergraph.Diagram`. """
-    def __init__(self, name, dom, cod, **params):
-        cat.Box.__init__(self, name, dom, cod, **params)
+    def __init__(self, name, dom, cod, is_dagger=False, data=None):
+        self.name, self.dom, self.cod = name, dom, cod
+        self.is_dagger, self.data = is_dagger, data
         boxes, spider_types = [self], list(map(Ty, dom @ cod))
         wires = 2 * list(range(len(dom)))\
             + 2 * list(range(len(dom), len(dom @ cod)))
@@ -832,48 +844,12 @@ class Box(cat.Box, Diagram):
             return cat.Box.__eq__(self, other)
         return Diagram.__eq__(self, other)
 
+    def dagger(self):
+        return Box(
+            self.name, self.cod, self.dom, not self.is_dagger, self.data)
 
-class Id(Diagram):
-    """ Identity diagram. """
-    def __init__(self, dom=Ty()):
-        super().__init__(dom, dom, [], 2 * list(range(len(dom))))
-
-
-class Swap(Diagram):
-    """ Swap diagram. """
-    def __init__(self, left, right):
-        dom, cod = left @ right, right @ left
-        boxes, wires = [], list(range(len(dom)))\
-            + list(range(len(left), len(dom))) + list(range(len(left)))
-        super().__init__(dom, cod, boxes, wires)
+    __repr__, __str__ = cat.Box.__repr__, cat.Box.__str__
 
 
-class Spider(Diagram):
-    """ Spider diagram. """
-    def __init__(self, n_legs_in, n_legs_out, typ):
-        dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        boxes, spider_types = [], list(map(Ty, typ))
-        wires = (n_legs_in + n_legs_out) * list(range(len(typ)))
-        super().__init__(dom, cod, boxes, wires, spider_types)
-
-
-class Cup(Diagram):
-    """ Cup diagram. """
-    def __init__(self, left, right):
-        if not left.r == right:
-            raise AxiomError
-        wires = list(range(len(left))) + list(reversed(range(len(left))))
-        super().__init__(left @ right, Ty(), [], wires)
-
-
-class Cap(Diagram):
-    """ Cap diagram. """
-    def __init__(self, left, right):
-        if not left.r == right:
-            raise AxiomError
-        wires = list(range(len(left))) + list(reversed(range(len(left))))
-        super().__init__(Ty(), left @ right, [], wires)
-
-
-Diagram.id, Diagram.swap, Diagram.cups, Diagram.caps, Diagram.spiders\
-    = Id, Swap, Cup, Cap, Spider
+Id, Swap, Cup, Cap, Spider\
+    = Diagram.id, Diagram.swap, Diagram.cups, Diagram.caps, Diagram.spiders

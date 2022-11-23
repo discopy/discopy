@@ -34,7 +34,7 @@ def test_spider_factory():
     for i in range(5):
         for j in range(5):
             for t in ts:
-                s = spiders(i, j, t)
+                s = Diagram.spiders(i, j, t)
                 for k, ob in enumerate(t):
                     assert all(map(ob.__eq__, s.dom[k::len(t)]))
                     assert all(map(ob.__eq__, s.cod[k::len(t)]))

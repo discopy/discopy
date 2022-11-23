@@ -517,11 +517,11 @@ class Box(Arrow):
         return hash(super().__repr__())
 
     def __eq__(self, other):
-        if isinstance(other, Box):
+        if isinstance(other, type(self)):
             attributes = ['name', 'dom', 'cod', 'data', 'is_dagger']
             return all(
                 getattr(self, x) == getattr(other, x) for x in attributes)
-        return isinstance(other, Arrow) and other.inside == (self, )
+        return isinstance(other, self.factory) and other.inside == (self, )
 
     def __lt__(self, other):
         return self.name < other.name

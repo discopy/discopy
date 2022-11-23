@@ -220,7 +220,7 @@ class Diagram(closed.Diagram):
         .. image:: ../_static/imgs/rigid/cups.png
             :align: center
         """
-        return nesting(cls.cup_factory)(left, right)
+        return nesting(cls, cls.cup_factory, left, right)
 
     @classmethod
     def caps(cls, left, right):
@@ -231,7 +231,7 @@ class Diagram(closed.Diagram):
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        return nesting(cls.cap_factory)(left, right)
+        return nesting(cls, cls.cap_factory, left, right)
 
     @staticmethod
     def fa(left, right):
@@ -269,9 +269,9 @@ class Diagram(closed.Diagram):
 
     def _conjugate(self, left):
         inside = tuple(
-            self.layer_factory(right.l, box.l, left.l) if left
-            else self.layer_factory(right.r, box.r, left.r)
-            for left, box, right in self.inside)
+            self.layer_factory(right.l, box.l, _left.l) if left
+            else self.layer_factory(right.r, box.r, _left.r)
+            for _left, box, right in self.inside)
         dom = self.dom.l if left else self.dom.r
         cod = self.cod.l if left else self.cod.r
         return self.factory(inside, dom, cod)
@@ -562,24 +562,26 @@ class Functor(closed.Functor):
         return super().__call__(other)
 
 
-def nesting(factory):
+def nesting(cls: type, factory: Callable, left: Ty, right: Ty) -> Diagram:
     """
     Take a :code:`factory` for cups or caps of atomic types
     and extends it recursively.
 
     Parameters:
-        factory :
-            The factory for cups or caps of atomic types, i.e. of length 1.
+        cls : The diagram class, used for its identity method.
+        factory : The factory for cups or caps of atomic types.
+        left : The type on the left of the cup or cap.
+        right : The type on the right of the cup or cap.
     """
-    def method(x: Ty, y: Ty) -> Diagram:
-        if len(x) == 0: return factory.id(x[:0])
-        if len(x) == 1: return factory(x, y)
-        head = factory(x[0], y[-1])
-        if head.dom:  # We are nesting cups.
-            return x[0] @ method(x[1:], y[:-1]) @ y[-1] >> head
-        return head >> x[0] @ method(x[1:], y[:-1]) @ y[-1]
-
-    return method
+    if len(left) == 0:
+        return cls.id(left[:0])
+    if len(left) == len(right) == 1:
+        return factory(left, right)
+    head = factory(left[0], right[-1])
+    tail = nesting(cls, factory, left[1:], right[:-1])
+    if head.dom:  # We are nesting cups.
+        return left[0] @ tail @ right[-1] >> head
+    return head >> left[0] @ tail @ right[-1]
 
 
 Id = Diagram.id

@@ -139,8 +139,8 @@ def test_Diagram_str():
     assert str(Diagram((), x, x)) == "Id(x)"
     f0, f1 = Box('f0', x, y), Box('f1', z, w)
     assert str(Diagram((Layer.cast(f0), ), x, y)) == "f0"
-    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ Id(z) >> Id(y) @ f1"
-    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ Id(z) >> Id(y) @ f1"
+    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
+    assert str(f0 @ Id(z) >> Id(y) @ f1) == "f0 @ z >> y @ f1"
 
 
 def test_Diagram_matmul():

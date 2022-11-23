@@ -294,7 +294,7 @@ class Layer(cat.Box):
     def __str__(self):
         left, box, right = self
         return ("{} @ ".format(left) if left else "")\
-            + box.name\
+            + str(box)\
             + (" @ {}".format(right) if right else "")
 
     def __matmul__(self, other: Ty) -> Layer:
@@ -512,6 +512,7 @@ class Diagram(cat.Arrow, Whiskerable):
         return cat.Functor(ob=Ty.drawing, ar=ar, cod=Category())(self)
 
     ty_factory = Ty
+    layer_factory = Layer
 
 
 class Box(cat.Box, Diagram):
@@ -577,8 +578,6 @@ class Box(cat.Box, Diagram):
 
     def __hash__(self):
         return hash(repr(self))
-
-    layer_factory = Layer
 
 
 class Sum(cat.Sum, Box):

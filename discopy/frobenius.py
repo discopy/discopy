@@ -49,6 +49,7 @@ class Ob(pivotal.Ob):
     l = r = property(lambda self: self)
 
 
+@factory
 class Ty(pivotal.Ty):
     """
     A hypergraph type is a pivotal type with hypergraph objects inside.
@@ -69,10 +70,8 @@ class Diagram(compact.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    ty_factory = Ty
-
     @classmethod
-    def spiders(cls, n_legs_in, n_legs_out, typ):
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty) -> Diagram:
         """ Constructs a diagram of interleaving spiders. """
         result = cls.id().tensor(*[
             cls.spider_factory(n_legs_in, n_legs_out, x) for x in typ])
@@ -98,6 +97,30 @@ class Box(compact.Box, Diagram):
         cod (Ty) : The codomain of the box, i.e. its output.
     """
     __ambiguous_inheritance__ = (compact.Box, )
+    ty_factory = Ty
+
+
+class Cup(compact.Cup, Box):
+    """
+    A hypergraph cup is a compact cup in a hypergraph diagram.
+
+    Parameters:
+        left (pivotal.Ty) : The atomic type.
+        right (pivotal.Ty) : Its adjoint.
+    """
+    __ambiguous_inheritance__ = (compact.Cup, )
+    ty_factory = Ty
+
+
+class Cap(compact.Cap, Box):
+    """
+    A hypergraph cap is a compact cap in a hypergraph diagram.
+
+    Parameters:
+        left (pivotal.Ty) : The atomic type.
+        right (pivotal.Ty) : Its adjoint.
+    """
+    __ambiguous_inheritance__ = (compact.Cap, )
     ty_factory = Ty
 
 
@@ -244,10 +267,10 @@ def coherence(factory):
     return classmethod(method)
 
 
-Diagram.braid_factory = Swap
-Diagram.spider_factory = Spider
+for cls in [Diagram, Box, Swap, Cup, Cap]:
+    cls.ty_factory = Ty
 
-Cup = lambda x, _: Spider(2, 0, x)
-Cap = lambda x, _: Spider(0, 2, x)
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 
 Id = Diagram.id

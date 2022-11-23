@@ -191,28 +191,20 @@ def diagram2nx(diagram):
     return graph, pos
 
 
-def nx2diagram(graph, ob_factory, id_factory):
+def nx2diagram(graph: "networkx.Graph", factory: type) -> "monoidal.Diagram":
     """
     Builds a diagram given a networkx graph,
     this is called by :meth:`diagramize`.
 
-    Parameters
-    ----------
-    graph : networkx.DiGraph
-        with nodes for inputs, outputs, boxes and their co/domain.
-    ob_factory, id_factory : type
-        e.g. :class:`discopy.monoidal.Ty` and :class:`discopy.monoidal.Id`.
-
-    Returns
-    -------
-    diagram : :class:`discopy.monoidal.Diagram`
-        Returns the diagram encoded by the graph.
+    Parameters:
+        graph : with nodes for inputs, outputs, boxes and their co/domain.
+        factory : e.g. :class:`discopy.monoidal.Diagram`.
 
     Note
     ----
     Box nodes with no inputs need an offset attribute.
     """
-    _id, _ty, _swap = id_factory, ob_factory, id_factory.swap
+    _id, _ty = factory.id, factory.ty_factory
     inputs, outputs, boxes = [], [], []
     for node in graph.nodes:
         for kind, nodelist in zip(
@@ -232,15 +224,15 @@ def nx2diagram(graph, ob_factory, id_factory):
                 offset = j
             elif j > offset + i:
                 swaps = swaps >> _id(swaps.cod[:offset + i])\
-                    @ _swap(swaps.cod[offset + i:j], swaps.cod[j])\
+                    @ factory.swap(swaps.cod[offset + i:j], swaps.cod[j])\
                     @ _id(swaps.cod[j + 1:])
                 scan = scan[:offset + i] + scan[j:] + scan[offset + i:j]\
                     + scan[j + 1:]
             elif j < offset + i:
                 swaps = swaps >> _id(swaps.cod[:j])\
-                    @ _swap(swaps.cod[j], swaps.cod[j + 1:offset + i])\
+                    @ factory.swap(swaps.cod[j], swaps.cod[j + 1:offset + i])\
                     @ _id(swaps.cod[offset + i:])
-                scan = scan[:j] + scan[j + 1:offset + i] + scan[j]\
+                scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j+1]\
                     + scan[offset + i:]
                 offset -= 1
         cod_nodes = [
@@ -255,7 +247,7 @@ def nx2diagram(graph, ob_factory, id_factory):
         j = scan.index(source)
         if i < j:
             swaps = swaps >> _id(swaps.cod[:i])\
-                @ _swap(swaps.cod[i:j], swaps.cod[j:j + 1])\
+                @ factory.swap(swaps.cod[i:j], swaps.cod[j:j + 1])\
                 @ _id(swaps.cod[j + 1:])
             scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
     return diagram >> swaps
@@ -970,7 +962,7 @@ class Equation:
         return equation(*self.terms, **dict(params, symbol=self.symbol))
 
 
-def diagramize(dom, cod, boxes, id_factory=None):
+def diagramize(dom, cod, boxes, factory=None):
     """
     Define a diagram using the syntax for Python functions.
 
@@ -980,8 +972,8 @@ def diagramize(dom, cod, boxes, id_factory=None):
         Domain and codomain of the diagram.
     boxes : list
         List of boxes in the signature.
-    id_factory : type
-        e.g. `discopy.monoidal.Id`, only needed when there are no boxes.
+    factory : type
+        e.g. `discopy.monoidal.Diagram`, only needed when there are no boxes.
 
     Returns
     -------
@@ -1004,9 +996,9 @@ def diagramize(dom, cod, boxes, id_factory=None):
     .. image:: ../_static/imgs/drawing/diagramize.png
         :align: center
     """
-    if id_factory is None and not boxes:
-        raise ValueError("If not boxes you need to specify id_factory.")
-    id_factory = id_factory or boxes[0].id
+    if factory is None and not boxes:
+        raise ValueError("If not boxes you need to specify factory.")
+    factory = factory or boxes[0].factory
 
     def decorator(func):
         import networkx as nx
@@ -1053,7 +1045,7 @@ def diagramize(dom, cod, boxes, id_factory=None):
             graph.add_edge(outputs[i], node)
         for box in boxes:
             del box._apply
-        result = nx2diagram(graph, ob_factory=type(dom), id_factory=id_factory)
+        result = nx2diagram(graph, factory)
         if result.cod != cod:
             raise AxiomError(
                 "Expected diagram.cod == {}, got {} instead."
