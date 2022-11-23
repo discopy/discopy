@@ -83,6 +83,7 @@ def tk_op_to_pennylane(tk_op, str_map):
     remapped_params = []
     for param in params:
         if isinstance(param, sympy.Expr):
+            param = param / 2
             free_symbols = param.free_symbols
             sym_subs = {f: str_map[str(f)] for f in free_symbols}
             param = param.subs(sym_subs)
@@ -228,7 +229,7 @@ class PennyLaneCircuit:
         else:
             self._concrete_params = [torch.cat(p) if len(p) > 0
                                      else p for p in self._params]
-        self.initialize_device_and_circuit()
+        self.initialise_device_and_circuit()
         self._valid_states = self.get_valid_states()
 
     def get_device(self, backend_config):
@@ -263,7 +264,7 @@ class PennyLaneCircuit:
 
         return qml.device(backend, wires=self._n_qubits, **backend_config)
 
-    def initialize_device_and_circuit(self):
+    def initialise_device_and_circuit(self):
         self._device = self.get_device(copy.copy(self._backend_config))
         self._circuit = self.make_circuit()
 
@@ -345,7 +346,7 @@ class PennyLaneCircuit:
                    diff_method=self.diff_method)
         def circuit(circ_params):
             for op, params, wires in zip(self._ops, circ_params, self._wires):
-                op(*[torch.pi * p for p in params], wires=wires)
+                op(*[2 * torch.pi * p for p in params], wires=wires)
 
             if self._probabilities:
                 return qml.probs(wires=range(self._n_qubits))
