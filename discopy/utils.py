@@ -124,6 +124,10 @@ class BinaryBoxConstructor:
     def __init__(self, left, right):
         self.left, self.right = left, right
 
+    def __repr__(self):
+        return "{}({}, {})".format(
+            factory_name(type(self)), repr(self.left), repr(self.right))
+
     def to_tree(self):
         left, right = self.left.to_tree(), self.right.to_tree()
         return dict(factory=factory_name(type(self)), left=left, right=right)

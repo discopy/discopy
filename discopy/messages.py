@@ -24,7 +24,7 @@ def types_do_not_compose(left, right):
 def does_not_compose(left, right):
     """ Composition error. """
     return "{} does not compose with {}: cod={}, dom={}.".format(
-        left, right, left.cod, right.dom)
+        left, right, repr(left.cod), repr(right.dom))
 
 
 def is_not_connected(diagram):

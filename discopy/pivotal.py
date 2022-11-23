@@ -61,6 +61,7 @@ class Diagram(rigid.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    ob_factory = Ty
 
 
 class Box(rigid.Box, Diagram):

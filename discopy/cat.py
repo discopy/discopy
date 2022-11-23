@@ -101,7 +101,7 @@ class Ob:
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
     """
-    def __init__(self, name: str):
+    def __init__(self, name: str = ""):
         self.name = name
 
     def __repr__(self):
@@ -305,13 +305,14 @@ class Arrow(Composable):
         return self if other == 0 else NotImplemented
 
     @classmethod
-    def id(cls, dom: Ob) -> Arrow:
+    def id(cls, dom: Ob = None) -> Arrow:
         """
         The identity arrow, i.e. with the empty tuple inside.
 
         Parameters:
             dom : The domain (and codomain) of the identity.
         """
+        dom = cls.ob_factory() if dom is None else dom
         return cls.factory((), dom, dom, _scan=False)
 
     def then(self, *others: Arrow) -> Arrow:
@@ -424,6 +425,8 @@ class Arrow(Composable):
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
+
+    ob_factory = Ob
 
 
 Id = Arrow.id

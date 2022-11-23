@@ -42,15 +42,13 @@ def test_Ty_pow():
 
 def test_PRO_init():
     assert list(PRO(0)) == []
-    assert PRO(PRO(2)) == PRO(2)
     assert all(len(PRO(n)) == n for n in range(5))
 
 
 def test_PRO_tensor():
     assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12)
-    assert PRO(2) @ Ty(1) == Ty(1) @ PRO(2) == Ty(1, 1, 1)
     with raises(TypeError) as err:
-        PRO(2) @ 3
+        PRO(2) @ Ty('x')
 
 
 def test_PRO_repr():
@@ -63,7 +61,7 @@ def test_PRO_str():
 
 def test_PRO_getitem():
     assert PRO(42)[2: 4] == PRO(2)
-    assert all(PRO(42).inside[i].name == 1 for i in range(42))
+    assert all(PRO(42).inside[i].name == "" for i in range(42))
 
 
 def test_Diagram_init():

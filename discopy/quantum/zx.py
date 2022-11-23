@@ -219,20 +219,6 @@ class Diagram(tensor.Diagram):
         return diagram
 
 
-class Id(rigid.Id, Diagram):
-    """ Identity ZX diagram. """
-    def __init__(self, dom=0):
-        super().__init__(PRO(dom))
-
-    def __repr__(self):
-        return "Id({})".format(len(self.dom))
-
-    __str__ = __repr__
-
-
-Diagram.id = Id
-
-
 class Box(rigid.Box, Diagram):
     """ Box in a ZX diagram. """
     def __init__(self, name, dom, cod, **params):
@@ -470,3 +456,5 @@ def decomp_ar(box):
 
 
 # decomp = Functor(ob=lambda x: x, ar=decomp_ar)
+
+Id = Diagram.id

@@ -867,25 +867,6 @@ class Circuit(tensor.Diagram):
         return self._apply_controlled(Rz(phase), x, y)
 
 
-class Id(rigid.Id, Circuit):
-    """ Identity circuit. """
-    def __init__(self, dom=0):
-        if isinstance(dom, int):
-            dom = qubit ** dom
-        self._qubit_only = all(x.name == "qubit" for x in dom)
-        rigid.Id.__init__(self, dom)
-        Circuit.__init__(self, dom, dom, [], [])
-
-    def __repr__(self):
-        return "Id({})".format(len(self.dom) if self._qubit_only else self.dom)
-
-    def __str__(self):
-        return repr(self)
-
-
-Circuit.id = Id
-
-
 class Box(rigid.Box, Circuit):
     """
     Boxes in a circuit diagram.
@@ -1370,3 +1351,6 @@ def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
             n_affected += len(gate.dom)
         result = result >> line
     return result
+
+
+Id = Circuit.id

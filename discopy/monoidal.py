@@ -12,6 +12,7 @@ Summary
     :toctree:
 
     Ty
+    PRO
     Layer
     Diagram
     Encoding
@@ -168,11 +169,7 @@ class Ty(cat.Ob):
         return cat.Arrow.__getitem__(self, key)
 
     def __pow__(self, n_times):
-        assert_isinstance(n_times, int)
-        result = type(self)()
-        for _ in range(n_times):
-            result = result @ self
-        return result
+        return self.factory().tensor(*n_times * [self])
 
     def to_tree(self):
         return {
@@ -183,7 +180,10 @@ class Ty(cat.Ob):
     def from_tree(cls, tree):
         return cls(*map(from_tree, tree['inside']))
 
-    __matmul__ = __add__ = tensor
+    def __matmul__(self, other):
+        return self.tensor(other)
+
+    __add__ = __matmul__
 
     ob_factory = cat.Ob
 
@@ -200,37 +200,65 @@ def types(names):
     return list(map(Ty, names.split()))
 
 
+@factory
 class PRO(Ty):
-    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
-    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
+    """
+    A PRO is a natural number :code:`n` seen as a type with unnamed objects.
 
     Parameters
     ----------
     n : int
-        Number of wires.
+        The length of the PRO type.
 
     Examples
     --------
     >>> assert PRO(1) @ PRO(1) == PRO(2)
-    >>> assert PRO(3) == Ty(1, 1, 1)
-    >>> assert PRO(1) == PRO(Ob(1))
+    >>> assert PRO(42).inside == 42 * (Ob(), )
     """
-    @staticmethod
-    def factory(*objects):
-        return PRO(len(objects))
+    def __init__(self, n: int = 0):
+        self.n = n
 
-    def __init__(self, n=0):
-        if isinstance(n, PRO):
-            n = len(n)
-        if isinstance(n, Ob):
-            n = n.name
-        super().__init__(*(n * [1]))
+    @property
+    def inside(self):
+        return self.n * (Ob(), )
+
+    def tensor(self, *others: PRO) -> PRO:
+        for other in others:
+            if not isinstance(other, Ty):
+                return NotImplemented  # This allows whiskering on the left.
+            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.factory)
+        return self.factory(self.n + sum(other.n for other in others))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self.factory(len(self.inside[key]))
+        return cat.Arrow.__getitem__(self, key)
+
+    def __len__(self):
+        return self.n
 
     def __repr__(self):
         return factory_name(type(self)) + "({})".format(len(self))
 
     def __str__(self):
-        return repr(len(self))
+        return str(self.n)
+
+    def __eq__(self, other):
+        return isinstance(other, self.factory) and self.n == other.n
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __pow__(self, n_times):
+        return self.factory(n_times * self.n)
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)), 'n': self.n}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['n'])
 
 
 class Layer(cat.Box):
@@ -244,6 +272,9 @@ class Layer(cat.Box):
         right : The type on the right of the layer.
     """
     def __init__(self, left: Ty, box: Box, right: Ty):
+        assert_isinstance(left, Ty)
+        assert_isinstance(box, Box)
+        assert_isinstance(right, Ty)
         self.left, self.box, self.right = left, box, right
         dom, cod = left @ box.dom @ right, left @ box.cod @ right
         super().__init__(str(self), dom, cod)
@@ -288,9 +319,6 @@ class Layer(cat.Box):
         >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
         """
         return cls(box.dom[:0], box, box.dom[len(box.dom):])
-
-    def downgrade(self) -> Layer:
-        return Layer(*(x.downgrade() for x in self))
 
     def dagger(self) -> Layer:
         return type(self)(self.left, self.box.dagger(), self.right)
@@ -479,10 +507,12 @@ class Diagram(cat.Arrow, Whiskerable):
         return diagram
 
     def downgrade(self):
-        """ Downcasting to :class:`discopy.monoidal.Diagram`. """
-        inside = tuple(layer.downgrade() for layer in self.inside)
-        dom, cod = self.dom.downgrade(), self.cod.downgrade()
-        return Diagram(inside, dom, cod)
+        """
+        Downgrading to subclasses back to a monoidal diagram,
+        called by :meth:`Diagram.draw`.
+        """
+        return Functor(
+            ob=lambda x: x.downgrade(), ar=lambda f: f.downgrade())(self)
 
     draw = drawing.draw
     to_gif = drawing.to_gif
@@ -494,8 +524,7 @@ class Diagram(cat.Arrow, Whiskerable):
     foliation = rewriting.foliation
     depth = rewriting.depth
 
-
-Id = Diagram.id
+    ob_factory = Ty
 
 
 class Box(cat.Box, Diagram):
@@ -539,17 +568,17 @@ class Box(cat.Box, Diagram):
     """
     __ambiguous_inheritance__ = (cat.Box, )
 
-    def downgrade(self):
-        box = Box.__new__(Box)
+    def downgrade(self) -> Box:
+        result = Box(self.name, self.dom.downgrade(), self.cod.downgrade())
         for attr, value in self.__dict__.items():
-            setattr(box, attr, value)
-        dom, cod = self.dom.downgrade(), self.cod.downgrade()
-        box.dom, box.cod, box.inside = dom, cod, (Layer.cast(box), )
-        return box
+            if attr in drawing.ATTRIBUTES:
+                setattr(result, attr, value)
+        return result
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         cat.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, (Layer.cast(self), ), dom, cod)
+        inside = (self.layer_factory.cast(self), )
+        Diagram.__init__(self, inside, dom, cod)
         for attr, value in params.items():
             if attr in drawing.ATTRIBUTES:
                 setattr(self, attr, value)
@@ -561,6 +590,8 @@ class Box(cat.Box, Diagram):
 
     def __hash__(self):
         return hash(repr(self))
+
+    layer_factory = Layer
 
 
 class Sum(cat.Sum, Box):
@@ -694,3 +725,6 @@ class Functor(cat.Functor):
         if isinstance(other, Layer):
             return self(other.left) @ self(other.box) @ self(other.right)
         return super().__call__(other)
+
+
+Id = Diagram.id

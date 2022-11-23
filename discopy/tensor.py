@@ -695,11 +695,7 @@ class Diagram(rigid.Diagram):
         raise NotImplementedError
 
 
-class Id(rigid.Id, Diagram):
-    """ Identity tensor.Diagram """
-    def __init__(self, dom=Dim()):
-        rigid.Id.__init__(self, dom)
-        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+
 
 
 class Sum(monoidal.Sum, Diagram):
@@ -708,8 +704,6 @@ class Sum(monoidal.Sum, Diagram):
         return sum(term.eval(contractor=contractor) for term in self.terms)
 
 
-Diagram.id = Id
-Diagram.sum = Sum
 
 
 class Swap(symmetric.Swap, Diagram):
@@ -858,4 +852,5 @@ class Bubble(monoidal.Bubble, Box):
             @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
 
 
-Diagram.bubble_factory = Bubble
+Diagram.sum, Diagram.bubble_factory = Bubble, Sum
+Id = Diagram.id
