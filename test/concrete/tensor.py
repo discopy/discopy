@@ -8,18 +8,16 @@ def test_backend():
     import jax.numpy
     import torch
     import tensorflow.experimental.numpy as tnp
-    assert Tensor.np.module == np
-    with Tensor.backend('jax'):
-        assert Tensor.np.module == jax.numpy
-        with Tensor.backend('pytorch'):
-            assert Tensor.np.module == torch
-            with Tensor.backend('tensorflow'):
-                assert Tensor.np.module == tnp
-        assert Tensor.np.module == jax.numpy
-    assert Tensor.np.module == np
-
-    with raises(ValueError):
-        Tensor.set_backend('nonexistent')
+    assert isinstance(Tensor.id().array, np.ndarray)
+    with backend('jax'):
+        assert isinstance(Tensor.id().array, jax.numpy.ndarray)
+        with backend('pytorch'):
+            assert isinstance(Tensor.id().array, torch.Tensor)
+            with backend('tensorflow'):
+                assert isinstance(Tensor.id().array, tnp.ndarray)
+            assert isinstance(Tensor.id().array, torch.Tensor)
+        assert isinstance(Tensor.id().array, jax.numpy.ndarray)
+    assert isinstance(Tensor.id().array, np.ndarray)
 
 
 def test_Tensor_repr_with_tf():

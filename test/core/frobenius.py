@@ -43,12 +43,12 @@ def test_spider_factory():
 def test_spider_decomposition():
     n = Ty('n')
 
-    assert Spider(0, 0, n).decompose() == Spider(0, 1, n) >> Spider(1, 0, n)
-    assert Spider(1, 0, n).decompose() == Spider(1, 0, n)
-    assert Spider(1, 1, n).decompose() == Id(n)
-    assert Spider(2, 1, n).decompose() == Spider(2, 1, n)
+    assert Spider(0, 0, n).unfuse() == Spider(0, 1, n) >> Spider(1, 0, n)
+    assert Spider(1, 0, n).unfuse() == Spider(1, 0, n)
+    assert Spider(1, 1, n).unfuse() == Id(n)
+    assert Spider(2, 1, n).unfuse() == Spider(2, 1, n)
 
     # 5 is the smallest number including both an even and odd decomposition
-    assert Spider(5, 1, n).decompose() == (Spider(2, 1, n) @ Spider(2, 1, n)
+    assert Spider(5, 1, n).unfuse() == (Spider(2, 1, n) @ Spider(2, 1, n)
                                            @ Id(n) >> Spider(2, 1, n) @ Id(n)
                                            >> Spider(2, 1, n))

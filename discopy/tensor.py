@@ -10,25 +10,16 @@ The category of matrices with the Kronecker product as monoidal product.
 >>> F = Functor(ob, ar)
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
-from contextlib import contextmanager
 
-import numpy
+from __future__ import annotations
+from contextlib import contextmanager
 
 from discopy import (
     cat, config, messages, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import Composable, AxiomError, factory
 from discopy.monoidal import Whiskerable
-from discopy.frobenius import Ob, Ty, Cup, Cap
-from discopy.utils import assert_isinstance
-
-
-numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
-
-
-def array2string(array, **params):
-    """ Numpy array pretty print. """
-    return numpy.array2string(array, **dict(params, separator=', '))\
-        .replace('[ ', '[').replace('  ', ' ')
+from discopy.frobenius import Ob, Ty, Cup, Cap, Category
+from discopy.utils import assert_isinstance, product
 
 
 @factory
@@ -56,61 +47,6 @@ class Dim(Ty):
 
     __str__ = __repr__
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
-
-
-class TensorBackend:
-    module = None
-
-    def __getattr__(self, attr):
-        return getattr(self.module, attr)
-
-
-class NumPyBackend(TensorBackend):
-    def __init__(self):
-        self.module = numpy
-
-
-class JAXBackend(TensorBackend):
-    def __init__(self):
-        import jax
-        self.module = jax.numpy
-
-
-class PyTorchBackend(TensorBackend):
-    def __init__(self):
-        import torch
-        self.module = torch
-        self.array = torch.as_tensor
-
-
-class TensorFlowBackend(TensorBackend):
-    def __init__(self):
-        import tensorflow.experimental.numpy as tnp
-        from tensorflow.python.ops.numpy_ops import np_config
-        np_config.enable_numpy_behavior()
-        self.module = tnp
-
-
-BACKENDS = {'np': NumPyBackend,
-            'numpy': NumPyBackend,
-            'jax': JAXBackend,
-            'jax.numpy': JAXBackend,
-            'pytorch': PyTorchBackend,
-            'torch': PyTorchBackend,
-            'tensorflow': TensorFlowBackend}
-INSTANTIATED_BACKENDS = {}
-
-
-def get_backend(name):
-    try:
-        backend = BACKENDS[name]
-    except KeyError:
-        raise ValueError(f'Invalid backend: {name!r}')
-    try:
-        return INSTANTIATED_BACKENDS[backend]
-    except KeyError:
-        ret = INSTANTIATED_BACKENDS[backend] = backend()
-        return ret
 
 
 class Tensor(Composable, Whiskerable):
@@ -147,37 +83,17 @@ class Tensor(Composable, Whiskerable):
 
     We can also use jax.numpy using Tensor.backend.
 
-    >>> with Tensor.backend('jax'):
+    >>> with backend('jax'):
     ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    _backend_stack = [get_backend('jax' if config.IMPORT_JAX else 'numpy')]
-
-    @classmethod
-    def get_backend(cls):
-        return cls._backend_stack[-1]
-
-    @classmethod
-    def set_backend(cls, value):
-        backend = get_backend(value)
-        cls._backend_stack.append(backend)
-        return backend
-
-    @classmethod
-    @contextmanager
-    def backend(cls, value):
-        try:
-            yield cls.set_backend(value)
-        finally:
-            cls._backend_stack.pop()
-
     def __init__(self, array: "array", dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)
         assert_isinstance(cod, Dim)
         self.dom, self.cod = dom, cod
-        np = Tensor.get_backend()
-        self.array = np.array(array).reshape(tuple(dom @ cod))
+        with backend() as np:
+            self.array = np.array(array).reshape(dom.inside + cod.inside)
 
     def __iter__(self):
         for i in self.array:
@@ -209,81 +125,76 @@ class Tensor(Composable, Whiskerable):
         assert_isinstance(other, Tensor)
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
-        return Tensor(self.dom, self.cod, self.array + other.array)
+        return Tensor(self.array + other.array, self.dom, self.cod)
 
     __radd__ = __add__
 
     def __eq__(self, other):
-        np = Tensor.get_backend()
-        if not isinstance(other, Tensor):
-            return np.all(np.array(self.array == other))
-        return (self.dom, self.cod) == (other.dom, other.cod)\
-            and np.all(np.array(self.array == other.array))
+        with backend() as np:
+            if not isinstance(other, Tensor):
+                return np.all(np.array(self.array == other))
+            return (self.dom, self.cod) == (other.dom, other.cod)\
+                and np.all(np.array(self.array == other.array))
 
-    def then(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.then(self, *others)  # WTH
-        other, = others
-        if not isinstance(other, Tensor):
-            raise TypeError(messages.type_err(Tensor, other))
+    @staticmethod
+    def id(dom=Dim(1)) -> Tensor:
+        with backend() as np:
+            return Tensor(np.eye(product(dom.inside)), dom, dom)
+
+    def then(self, other: Tensor) -> Tensor:
+        assert_isinstance(other, Tensor)
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        np = Tensor.get_backend()
-        array = np.tensordot(self.array, other.array, len(self.cod))\
-            if self.array.shape and other.array.shape\
-            else self.array * other.array
-        return Tensor(self.dom, other.cod, array)
+        with backend() as np:
+            array = np.tensordot(self.array, other.array, len(self.cod))\
+                if self.array.shape and other.array.shape\
+                else self.array * other.array
+        return Tensor(array, self.dom, other.cod)
 
-    def tensor(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.tensor(self, *others)
-        other = others[0]
-        if not isinstance(other, Tensor):
-            raise TypeError(messages.type_err(Tensor, other))
+    def tensor(self, other: Tensor) -> Tensor:
+        assert_isinstance(other, Tensor)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        array = Tensor.np.tensordot(self.array, other.array, 0)\
-            if self.array.shape and other.array.shape\
-            else self.array * other.array
         source = range(len(dom @ cod))
         target = [
             i if i < len(self.dom) or i >= len(self.dom @ self.cod @ other.dom)
             else i - len(self.cod) if i >= len(self.dom @ self.cod)
             else i + len(other.dom) for i in source]
-        return Tensor(dom, cod, Tensor.np.moveaxis(array, source, target))
+        with backend() as np:
+            array = np.tensordot(self.array, other.array, 0)\
+                if self.array.shape and other.array.shape\
+                else self.array * other.array
+            array = np.moveaxis(array, source, target)
+        return Tensor(array, dom, cod)
 
-    def dagger(self):
-        array = Tensor.np.moveaxis(
-            self.array, range(len(self.dom @ self.cod)),
-            [i + len(self.cod) if i < len(self.dom) else
-             i - len(self.dom) for i in range(len(self.dom @ self.cod))])
-        return Tensor(self.cod, self.dom, Tensor.np.conjugate(array))
-
-    @staticmethod
-    def id(dom=Dim(1)):
-        from numpy import prod
-        return Tensor(dom, dom, Tensor.np.eye(int(prod(dom))))
-
-    @staticmethod
-    def cups(left, right):
-        return rigid.cups(
-            left, right, ar_factory=Tensor,
-            cup_factory=lambda left, right:
-                Tensor(left @ right, Dim(1), Tensor.id(left).array))
+    def dagger(self) -> Tensor:
+        source = range(len(self.dom @ self.cod))
+        target = [i + len(self.cod) if i < len(self.dom) else
+                  i - len(self.dom) for i in range(len(self.dom @ self.cod))]
+        with backend() as np:
+            array = np.conjugate(np.moveaxis(self.array, source, target))
+        return Tensor(array, self.cod, self.dom)
 
     @staticmethod
-    def caps(left, right):
-        return Tensor.cups(left, right).dagger()
+    def cups(left: Dim, right: Dim) -> Tensor:
+        return rigid.nesting(Tensor, lambda x, y:
+            Tensor(Tensor.id(left).array, x @ y, Dim(1)))(left, right)
 
     @staticmethod
-    def swap(left, right):
-        array = Tensor.id(left @ right).array
+    def caps(left: Dim, right: Dim) -> Tensor:
+        return rigid.nesting(Tensor, lambda x, y:
+            Tensor(Tensor.id(left).array, Dim(1), x @ y))(left, right)
+
+    @staticmethod
+    def swap(left: Dim, right: Dim) -> Tensor:
+        dom, cod = left @ right, right @ left
         source = range(len(left @ right), 2 * len(left @ right))
         target = [i + len(right) if i < len(left @ right @ left)
                   else i - len(left) for i in source]
-        return Tensor(left @ right, right @ left,
-                      Tensor.np.moveaxis(array, source, target))
+        with backend() as np:
+            array = np.moveaxis(np.eye(dom.inside), source, target)
+        return Tensor(array, dom, cod)
 
-    def transpose(self, left=False):
+    def transpose(self, left=False) -> Tensor:
         """
         Returns the diagrammatic transpose.
 
@@ -291,9 +202,9 @@ class Tensor(Composable, Whiskerable):
         ----
         This is *not* the same as the algebraic transpose for complex dims.
         """
-        return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
+        return Tensor(self.array.transpose(), self.cod[::-1], self.dom[::-1])
 
-    def conjugate(self, diagrammatic=True):
+    def conjugate(self, diagrammatic=True) -> Tensor:
         """
         Returns the conjugate of a tensor.
 
@@ -302,29 +213,32 @@ class Tensor(Composable, Whiskerable):
         diagrammatic : bool, default: True
             Whether to use the diagrammatic or algebraic conjugate.
         """
-        dom, cod = self.dom, self.cod
         if not diagrammatic:
-            return Tensor(dom, cod, Tensor.np.conjugate(self.array))
+            with backend() as np:
+                return Tensor(np.conjugate(self.array), self.dom, self.cod)
         # reverse the wires for both inputs and outputs
-        array = Tensor.np.moveaxis(
-            self.array, range(len(dom @ cod)),
-            [len(dom) - i - 1 for i in range(len(dom @ cod))])
-        return Tensor(dom[::-1], cod[::-1], Tensor.np.conjugate(array))
+        source = range(len(self.dom @ self.cod))
+        target = [
+            len(self.dom) - i - 1 for i in range(len(self.dom @ self.cod))]
+        with backend() as np:
+            array = np.conjugate(np.moveaxis(self.array, source, target))
+        return Tensor(array, self.dom[::-1], self.cod[::-1])
 
     l = r = property(conjugate)
 
-    def round(self, decimals=0):
+    def round(self, decimals=0) -> Tensor:
         """ Rounds the entries of a tensor up to a number of decimals. """
-        return Tensor(self.dom, self.cod,
-                      Tensor.np.around(self.array, decimals=decimals))
+        with backend() as np:
+            array = np.around(self.array, decimals=decimals)
+        return Tensor(array, self.dom, self.cod)
 
-    def map(self, func):
+    def map(self, func: Callable) -> Tensor:
         """ Apply a function elementwise. """
-        return Tensor(
-            self.dom, self.cod, list(map(func, self.array.reshape(-1))))
+        array = list(map(func, self.array.reshape(-1)))
+        return Tensor(array, self.dom, self.cod)
 
     @staticmethod
-    def zeros(dom, cod):
+    def zeros(dom: Dim, cod: Dim) -> Tensor:
         """
         Returns the zero tensor of a given shape.
 
@@ -333,24 +247,23 @@ class Tensor(Composable, Whiskerable):
         >>> assert Tensor.zeros(Dim(2), Dim(2))\\
         ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
         """
-        return Tensor(dom, cod, Tensor.np.zeros(dom @ cod))
+        with backend() as np:
+            return Tensor(np.zeros((dom @ cod).inside), dom, cod)
 
-    def subs(self, *args):
+    def subs(self, *args) -> Tensor:
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
 
-    def grad(self, var, **params):
+    def grad(self, var, **params) -> Tensor:
         """ Gradient with respect to variables. """
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
 
-    def jacobian(self, variables, **params):
+    def jacobian(self, variables: "list[sympy.Symbol]", **params) -> Tensor:
         """
         Jacobian with respect to :code:`variables`.
 
-        Parameters
-        ----------
-        variables : List[sympy.Symbol]
-            Differentiated variables.
+        Parameters:
+            variables : The list of variables to differentiate.
 
         Returns
         -------
@@ -361,26 +274,26 @@ class Tensor(Composable, Whiskerable):
         Examples
         --------
         >>> from sympy.abc import x, y, z
-        >>> vector = Tensor(Dim(1), Dim(2), [x ** 2, y * z])
+        >>> vector = Tensor([x ** 2, y * z], Dim(1), Dim(2))
         >>> vector.jacobian([x, y, z])
         Tensor(dom=Dim(1), cod=Dim(3, 2), array=[2.0*x, 0, 0, 1.0*z, 0, 1.0*y])
         """
         dim = Dim(len(variables) or 1)
         result = Tensor.zeros(self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = numpy.zeros(dim or (1, ))
-            onehot[i] = 1
-            result += Tensor(Dim(1), dim, onehot) @ self.grad(var)
+            onehot = Tensor.zeros(Dim(1), dim)
+            onehot.array[i] = 1
+            result += onehot @ self.grad(var)
         return result
 
-    def lambdify(self, *symbols, **kwargs):
+    def lambdify(self, *symbols: "sympy.Symbol", **kwargs) -> Callable:
         from sympy import lambdify
-        array = lambdify(
-            symbols, self.array, modules=Tensor.np.module, **kwargs)
-        return lambda *xs: Tensor(self.dom, self.cod, array(*xs))
+        with backend() as np:
+            array = lambdify(symbols, self.array, modules=np.module, **kwargs)
+        return lambda *xs: Tensor(array(*xs), self.dom, self.cod)
 
 
-class Functor(rigid.Functor):
+class Functor(frobenius.Functor):
     """ Implements a tensor-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
@@ -390,78 +303,71 @@ class Functor(rigid.Functor):
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
     def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_factory=Dim, ar_factory=Tensor)
+        super().__init__(ob, ar, cod=Category(Dim, Tensor))
 
     def __repr__(self):
         return super().__repr__().replace("Functor", "tensor.Functor")
 
-    def __call__(self, diagram):
-        if isinstance(diagram, Bubble):
-            return self(diagram.inside).map(diagram.func)
-        if isinstance(diagram, monoidal.Sum):
-            dom, cod = self(diagram.dom), self(diagram.cod)
-            return sum(map(self, diagram), Tensor.zeros(dom, cod))
-        if isinstance(diagram, monoidal.Ty):
+    def __call__(self, other):
+        if isinstance(other, Bubble):
+            return self(other.arg).map(other.func)
+        if isinstance(other, monoidal.Ty):
             def obj_to_dim(obj):
                 if isinstance(obj, rigid.Ob) and obj.z != 0:
                     obj = type(obj)(obj.name)  # sets z=0
-                result = self.ob[type(diagram)(obj)]
+                result = self.ob[type(other)(obj)]
                 if isinstance(result, int):
                     result = Dim(result)
                 if not isinstance(result, Dim):
                     result = Dim.upgrade(result)
                 return result
-            return Dim(1).tensor(*map(obj_to_dim, diagram.objects))
-        if isinstance(diagram, Cup):
-            return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))
-        if isinstance(diagram, Cap):
-            return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
-        if isinstance(diagram, monoidal.Box)\
-                and not isinstance(diagram, symmetric.Swap):
-            if diagram.z % 2 != 0:
-                while diagram.z != 0:
-                    diagram = diagram.l if diagram.z > 0 else diagram.r
-                return self(diagram).conjugate()
-            if diagram.is_dagger:
-                return self(diagram.dagger()).dagger()
-            return Tensor(self(diagram.dom), self(diagram.cod),
-                          self.ar[diagram])
-        if not isinstance(diagram, monoidal.Diagram):
-            raise TypeError(messages.type_err(monoidal.Diagram, diagram))
+            return Dim(1).tensor(*map(obj_to_dim, other.inside))
+        if isinstance(other, monoidal.Box)\
+                and not isinstance(other, symmetric.Swap):
+            if other.z % 2 != 0:
+                while other.z != 0:
+                    other = other.l if other.z > 0 else other.r
+                return self(other).conjugate()
+            if other.is_dagger:
+                return self(other.dagger()).dagger()
+            return Tensor(self.ar[other], self(other.dom), self(other.cod))
+        assert_isinstance(other, monoidal.Diagram)
 
         def dim(scan):
             return len(self(scan))
-        scan, array = diagram.dom, Tensor.id(self(diagram.dom)).array
-        for box, off in zip(diagram.boxes, diagram.offsets):
+        scan, array = other.dom, Tensor.id(self(other.dom)).array
+        for box, off in zip(other.boxes, other.offsets):
             if isinstance(box, symmetric.Swap):
                 source = range(
-                    dim(diagram.dom @ scan[:off]),
-                    dim(diagram.dom @ scan[:off] @ box.dom))
+                    dim(other.dom @ scan[:off]),
+                    dim(other.dom @ scan[:off] @ box.dom))
                 target = [
                     i + dim(box.right)
-                    if i < dim(diagram.dom @ scan[:off]) + dim(box.left)
+                    if i < dim(other.dom @ scan[:off]) + dim(box.left)
                     else i - dim(box.left) for i in source]
-                array = Tensor.np.moveaxis(array, list(source), list(target))
+                with backend() as np:
+                    array = np.moveaxis(array, list(source), list(target))
                 scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
                 continue
             left = dim(scan[:off])
-            source = list(range(dim(diagram.dom) + left,
-                                dim(diagram.dom) + left + dim(box.dom)))
+            source = list(range(dim(other.dom) + left,
+                                dim(other.dom) + left + dim(box.dom)))
             target = list(range(dim(box.dom)))
-            array =\
-                Tensor.np.tensordot(array, self(box).array, (source, target))
+            with backend() as np:
+                array = np.tensordot(array, self(box).array, (source, target))
             source = range(len(array.shape) - dim(box.cod), len(array.shape))
-            target = range(dim(diagram.dom) + left,
-                           dim(diagram.dom) + left + dim(box.cod))
-            array = Tensor.np.moveaxis(array, list(source), list(target))
+            target = range(dim(other.dom) + left,
+                           dim(other.dom) + left + dim(box.cod))
+            with backend() as np:
+                array = np.moveaxis(array, list(source), list(target))
             scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
-        return Tensor(self(diagram.dom), self(diagram.cod), array)
+        return Tensor(array, self(other.dom), self(other.cod))
 
 
 @factory
-class Diagram(rigid.Diagram):
+class Diagram(frobenius.Diagram):
     """
-    Diagram with Tensor boxes.
+    A tensor diagram is a frobenius diagram with tensor boxes.
 
     Examples
     --------
@@ -470,22 +376,13 @@ class Diagram(rigid.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Id(Dim(2)) @ vector
     """
-    def eval(self, contractor=None, dtype=None):
+    def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """
-        Diagram evaluation.
+        Evaluate a tensor diagram as a :class:`Tensor`.
 
-        Parameters
-        ----------
-        contractor : callable, optional
-            Use :class:`tensornetwork` contraction
-            instead of :class:`tensor.Functor`.
-        dtype : type of np.Number, optional
-            dtype to be used for spiders.
-
-        Returns
-        -------
-        tensor : Tensor
-            With the same domain and codomain as self.
+        Parameters:
+            contractor : Use ``tensornetwork`` or :class:`Functor` by default.
+            dtype : Used for spiders.
 
         Examples
         --------
@@ -494,32 +391,22 @@ class Diagram(rigid.Diagram):
         >>> import tensornetwork as tn
         >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
         """
-        if contractor is None and "numpy" not in Tensor.np.__package__:
+        if contractor is None and "numpy" not in get_backend().__package__:
             raise Exception(
                 'Provide a tensornetwork contractor'
                 'when using a non-numpy backend.')
-
         if contractor is None:
             return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
         array = contractor(*self.to_tn(dtype=dtype)).tensor
-        return Tensor(self.dom, self.cod, array)
+        return Tensor(array, self.dom, self.cod)
 
-    def to_tn(self, dtype=None):
+    def to_tn(self, dtype: type = None
+            ) -> tuple[list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
         """
-        Sends a diagram to :code:`tensornetwork`.
+        Convert a tensor diagram to :code:`tensornetwork`.
 
-        Parameters
-        ----------
-        dtype : type of np.Number, optional
-            dtype to be used for spiders.
-
-        Returns
-        -------
-        nodes : :class:`tensornetwork.Node`
-            Nodes of the network.
-
-        output_edge_order : list of :class:`tensornetwork.Edge`
-            Output edges of the network.
+        Parameters:
+            dtype : Used for spiders.
 
         Examples
         --------
@@ -537,31 +424,31 @@ class Diagram(rigid.Diagram):
         nodes = [
             tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
             for i, dim in enumerate(self.dom)]
-        inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
+        inputs, outputs = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
             if isinstance(box, symmetric.Swap):
-                scan[offset], scan[offset + 1] = scan[offset + 1], scan[offset]
+                outputs[offset], outputs[offset + 1]\
+                    = outputs[offset + 1], outputs[offset]
                 continue
             if isinstance(box, Spider):
                 dims = (len(box.dom), len(box.cod))
                 if dims == (1, 1):  # identity
                     continue
                 elif dims == (2, 0):  # cup
-                    tn.connect(*scan[offset:offset + 2])
-                    del scan[offset:offset + 2]
+                    tn.connect(*outputs[offset:offset + 2])
+                    del outputs[offset:offset + 2]
                     continue
                 else:
-                    node = tn.CopyNode(sum(dims),
-                                       scan[offset].dimension,
-                                       dtype=dtype)
+                    node = tn.CopyNode(
+                        sum(dims), outputs[offset].dimension, dtype=dtype)
             else:
                 array = box.eval().array
                 node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
-                tn.connect(scan[offset + i], node[i])
-            scan[offset:offset + len(box.dom)] = node[len(box.dom):]
+                tn.connect(outputs[offset + i], node[i])
+            outputs[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
-        return nodes, inputs + scan
+        return nodes, inputs + outputs
 
     def _infer_dtype(self):
         for box in self.boxes:
@@ -573,13 +460,14 @@ class Diagram(rigid.Diagram):
                         array = array[0]
                     except IndexError:
                         break
-
                 try:
+                    import numpy
                     return numpy.asarray(array).dtype
                 except (RuntimeError, TypeError):
                     # assume that the array is actually a PyTorch tensor
                     return array.detach().cpu().numpy().dtype
         else:
+            import numpy
             return numpy.float64
 
     @staticmethod
@@ -630,9 +518,9 @@ class Diagram(rigid.Diagram):
         dim = Dim(len(variables) or 1)
         result = Sum([], self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = numpy.zeros(dim or (1, ))
-            onehot[i] = 1
-            result += Box(var, Dim(1), dim, onehot) @ self.grad(var)
+            onehot = Tensor.zeros(Dim(1), dim)
+            onehot.array[i] = 1
+            result += Box(var, Dim(1), dim, onehot.array) @ self.grad(var)
         return result
 
     @staticmethod
@@ -664,34 +552,24 @@ class Diagram(rigid.Diagram):
         raise NotImplementedError
 
 
+class Box(frobenius.Box, Diagram):
+    """
+    A tensor box is a frobenius box with an array as data.
 
-
-
-class Sum(monoidal.Sum, Diagram):
-    """ Sums of tensor diagrams. """
-    def eval(self, contractor=None):
-        return sum(term.eval(contractor=contractor) for term in self.terms)
-
-
-
-
-class Swap(symmetric.Swap, Diagram):
-    """ Symmetry in a tensor.Diagram """
-
-
-class Box(rigid.Box, Diagram):
-    """ Box in a tensor.Diagram """
-    def __init__(self, name, dom, cod, data, **params):
-        rigid.Box.__init__(self, name, dom, cod, data=data, **params)
-        Diagram.__init__(self, dom, cod, [self], [0])
-
+    Parameters:
+        name (str) : The name of the box.
+        dom (Dim) : The domain of the box, i.e. its input dimension.
+        cod (Dim) : The codomain of the box, i.e. its output dimension.
+        data (array) : The array inside the tensor box.
+    """
     @property
     def array(self):
         """ The array inside the box. """
         dom, cod = self.dom, self.cod
         data = self.data
         try:
-            return Tensor.np.array(data).reshape(tuple(dom @ cod) or ())
+            with backend() as np:
+                return np.array(data).reshape(dom.inside + cod.inside)
         except Exception:
             return data
 
@@ -700,39 +578,46 @@ class Box(rigid.Box, Diagram):
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
             drawing_name="$\\partial {}$".format(var))
 
-    def __repr__(self):
-        return super().__repr__().replace("Box", "tensor.Box")
-
     def __eq__(self, other):
-        if not isinstance(other, Box):
-            return False
-        return Tensor.np.all(Tensor.np.array(self.array == other.array))\
-            and (self.name, self.dom, self.cod)\
-            == (other.name, other.dom, other.cod)
+        if isinstance(other, Box):
+            with backend() as np:
+                return np.all(np.array(self.array == other.array))\
+                    and (self.name, self.dom, self.cod)\
+                    == (other.name, other.dom, other.cod)
+        return isinstance(other, Diagram)\
+            and other.inside == (self.layer_factory.cast(self), )
 
     def __hash__(self):
         return hash(
             (self.name, self.dom, self.cod, tuple(self.array.reshape(-1))))
 
-    def eval(self, contractor=None):
-        return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+
+class Swap(frobenius.Swap, Box):
+    """
+    A tensor swap is a frobenius swap in a tensor diagram.
+
+    Parameters:
+        left (Dim) : The type on the top left and bottom right.
+        right (Dim) : The type on the top right and bottom left.
+    """
+    @property
+    def array(self):
+        return Tensor.swap(self.left, self.right).array
 
 
 class Spider(frobenius.Spider, Box):
     """
-    Spider box.
+    A tensor spider is a frobenius spider in a tensor diagram.
 
-    Parameters
-    ----------
-    n_legs_in, n_legs_out : int
-        Number of legs in and out.
-    dim : int
-        Dimension for each leg.
+    Parameters:
+        n_legs_in : The number of legs in.
+        n_legs_out : The number of legs out.
+        typ : The type of the spider.
 
     Examples
     --------
     >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
-    >>> spider = Spider(1, 2, dim=2)
+    >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
     >>> from discopy import drawing
     >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
@@ -741,14 +626,22 @@ class Spider(frobenius.Spider, Box):
     .. image:: ../_static/imgs/tensor/frobenius-example.png
         :align: center
     """
-    def __init__(self, n_legs_in, n_legs_out, dim):
-        dim = dim if isinstance(dim, Dim) else Dim(dim)
-        frobenius.Spider.__init__(self, n_legs_in, n_legs_out, dim)
-        array = numpy.zeros(self.dom @ self.cod)
-        for i in range(int(numpy.prod(dim))):
-            array[len(self.dom @ self.cod) * (i, )] = 1
-        Box.__init__(self, self.name, self.dom, self.cod, array)
-        self.dim = dim
+    @property
+    def array(self):
+        return Tensor.spiders(len(self.dom), len(self.cod), self.typ).array
+
+
+class Sum(monoidal.Sum, Box):
+    """
+    A formal sum of tensor diagrams with the same domain and codomain.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Dim) : The domain of the formal sum.
+        cod (Dim) : The codomain of the formal sum.
+    """
+    def eval(self, contractor=None):
+        return sum(term.eval(contractor=contractor) for term in self.terms)
 
 
 class Bubble(monoidal.Bubble, Box):
@@ -821,5 +714,77 @@ class Bubble(monoidal.Bubble, Box):
             @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
 
 
-Diagram.sum, Diagram.bubble_factory = Bubble, Sum
+def array2string(array, **params):
+    """ Numpy array pretty print. """
+    import numpy
+    numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
+    return numpy.array2string(array, **dict(params, separator=', '))\
+        .replace('[ ', '[').replace('  ', ' ')
+
+
+class Backend:
+    def __init__(self, module, array=None):
+        self.module, self.array = module, array or module.array
+
+    def __getattr__(self, attr):
+        return getattr(self.module, attr)
+
+
+class NumPy(Backend):
+    def __init__(self):
+        import numpy
+        super().__init__(numpy)
+
+
+class JAX(Backend):
+    def __init__(self):
+        import jax
+        super().__init__(jax.numpy)
+
+
+class PyTorch(Backend):
+    def __init__(self):
+        import torch
+        super().__init__(torch, array=torch.as_tensor)
+
+
+class TensorFlow(Backend):
+    def __init__(self):
+        import tensorflow.experimental.numpy as tnp
+        from tensorflow.python.ops.numpy_ops import np_config
+        np_config.enable_numpy_behavior()
+        super().__init__(tnp)
+
+
+BACKENDS = {'np': NumPy,
+            'numpy': NumPy,
+            'jax': JAX,
+            'jax.numpy': JAX,
+            'pytorch': PyTorch,
+            'torch': PyTorch,
+            'tensorflow': TensorFlow,
+}
+
+@contextmanager
+def backend(name=None, _stack=list(), _instantiated=dict()):
+    name = name or (_stack[-1] if _stack else config.DEFAULT_BACKEND)
+    _stack.append(name)
+    if name not in _instantiated:
+        _instantiated[name] = BACKENDS[name]()
+    try:
+        yield _instantiated[name]
+    finally:
+        _stack.pop()
+
+def get_backend():
+    with backend() as result:
+        return result
+
+for cls in [Diagram, Box, Swap, Spider, Sum, Bubble]:
+    cls.ty_factory = Dim
+
+Diagram.braid_factory = Swap
+Diagram.spider_factory = Spider
+Diagram.bubble_factory = Bubble
+Diagram.sum = Sum
 Id = Diagram.id

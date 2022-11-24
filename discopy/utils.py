@@ -9,6 +9,11 @@ from collections.abc import Mapping, Iterable
 from discopy import messages
 
 
+def product(xs: list[int], unit=1):
+    """ The product of a list of integers ``xs``. """
+    return unit if not xs else product(xs[1:], unit * xs[0])
+
+
 def factory_name(cls: type) -> str:
     """ Returns a string describing a DisCoPy class. """
     return "{}.{}".format(

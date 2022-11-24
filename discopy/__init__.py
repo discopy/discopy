@@ -18,7 +18,7 @@ from discopy import (
     hypergraph,
     python,
     # matrix,
-    # tensor,
+    tensor,
     # quantum,
     grammar,
     drawing,

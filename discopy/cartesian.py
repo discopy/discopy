@@ -24,7 +24,6 @@ from __future__ import annotations
 from discopy import symmetric, monoidal
 from discopy.cat import factory
 from discopy.monoidal import Ty
-from discopy.frobenius import coherence
 from discopy.utils import assert_isatomic
 
 

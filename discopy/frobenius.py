@@ -35,6 +35,7 @@ Summary
 """
 
 from __future__ import annotations
+from collections.abc import Callable
 
 from discopy import compact, pivotal
 from discopy.cat import factory
@@ -43,7 +44,7 @@ from discopy.utils import factory_name, assert_isatomic
 
 class Ob(pivotal.Ob):
     """
-    A hypergraph object is a self-dual pivotal object.
+    A frobenius object is a self-dual pivotal object.
 
     Parameters:
         name : The name of the object.
@@ -54,7 +55,7 @@ class Ob(pivotal.Ob):
 @factory
 class Ty(pivotal.Ty):
     """
-    A hypergraph type is a pivotal type with hypergraph objects inside.
+    A frobenius type is a pivotal type with frobenius objects inside.
 
     Parameters:
         inside (frobenius.Ob) : The objects inside the type.
@@ -65,7 +66,7 @@ class Ty(pivotal.Ty):
 @factory
 class Diagram(compact.Diagram):
     """
-    A hypergraph diagram is a compact diagram with :class:`Spider` boxes.
+    A frobenius diagram is a compact diagram with :class:`Spider` boxes.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
@@ -73,10 +74,20 @@ class Diagram(compact.Diagram):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
     @classmethod
-    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty) -> Diagram:
-        """ Constructs a diagram of interleaving spiders. """
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty, phase=None
+            ) -> Diagram:
+        """
+        Returns a diagram of interleaving spiders.
+
+        Parameters:
+            n_legs_in : The number of legs in for each spider.
+            n_legs_out : The number of legs out for each spider.
+            typ : The type of the spiders.
+            phase : The phase for each spider.
+        """
         result = cls.id().tensor(*[
-            cls.spider_factory(n_legs_in, n_legs_out, x) for x in typ])
+            cls.spider_factory(n_legs_in, n_legs_out, x, p) for x, p in zip(
+                typ, len(typ) * [None] if phase is None else phase)])
         for i, t in enumerate(typ):
             for j in range(n_legs_in - 1):
                 result <<= result.dom[:i * j + i + j] @ cls.swap(
@@ -88,10 +99,15 @@ class Diagram(compact.Diagram):
                 ) @ result.cod[i * n_legs_out + j + 1:]
         return result
 
+    def unfuse(self) -> Diagram:
+        """ Unfuse arbitrary spiders into three- and one-legged spiders. """
+        return compact.Functor(ob=lambda x: x, ar=lambda f:
+            f.unfuse() if isinstance(f, Spider) else f)(self)
+
 
 class Box(compact.Box, Diagram):
     """
-    A hypergraph box is a compact box in a hypergraph diagram.
+    A frobenius box is a compact box in a frobenius diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -104,11 +120,11 @@ class Box(compact.Box, Diagram):
 
 class Cup(compact.Cup, Box):
     """
-    A hypergraph cup is a compact cup in a hypergraph diagram.
+    A frobenius cup is a compact cup in a frobenius diagram.
 
     Parameters:
-        left (pivotal.Ty) : The atomic type.
-        right (pivotal.Ty) : Its adjoint.
+        left (Ty) : The atomic type.
+        right (Ty) : Its adjoint.
     """
     __ambiguous_inheritance__ = (compact.Cup, )
     ty_factory = Ty
@@ -116,11 +132,11 @@ class Cup(compact.Cup, Box):
 
 class Cap(compact.Cap, Box):
     """
-    A hypergraph cap is a compact cap in a hypergraph diagram.
+    A frobenius cap is a compact cap in a frobenius diagram.
 
     Parameters:
-        left (pivotal.Ty) : The atomic type.
-        right (pivotal.Ty) : Its adjoint.
+        left (Ty) : The atomic type.
+        right (Ty) : Its adjoint.
     """
     __ambiguous_inheritance__ = (compact.Cap, )
     ty_factory = Ty
@@ -128,11 +144,11 @@ class Cap(compact.Cap, Box):
 
 class Swap(compact.Swap, Box):
     """
-    A hypergraph swap is a compact swap in a hypergraph diagram.
+    A frobenius swap is a compact swap in a frobenius diagram.
 
     Parameters:
-        left (pivotal.Ty) : The type on the top left and bottom right.
-        right (pivotal.Ty) : The type on the top right and bottom left.
+        left (Ty) : The type on the top left and bottom right.
+        right (Ty) : The type on the top right and bottom left.
     """
     __ambiguous_inheritance__ = (compact.Swap, )
     ty_factory = Ty
@@ -141,12 +157,13 @@ class Swap(compact.Swap, Box):
 class Spider(Box):
     """
     The spider with :code:`n_legs_in` and :code:`n_legs_out`
-    on a given atomic type.
+    on a given atomic type, with some optional ``phase``.
 
     Parameters:
         n_legs_in : The number of legs in.
         n_legs_out : The number of legs out.
         typ : The type of the spider.
+        phase : The phase of the spider.
 
     Examples
     --------
@@ -154,10 +171,12 @@ class Spider(Box):
     >>> spider = Spider(1, 2, x)
     >>> assert spider.dom == x and spider.cod == x @ x
     """
-    def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty, **params):
-        self.typ = typ
+    def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty, phase=None,
+                 **params):
+        self.typ, self.phase = typ, phase
         assert_isatomic(typ)
-        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
+        name = "Spider({}, {}, {}{})".format(
+            n_legs_in, n_legs_out, typ, "" if phase is None else phase)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
         params = dict(dict(
@@ -167,49 +186,42 @@ class Spider(Box):
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
-        return factory_name(type(self)) + "({}, {}, {})".format(
-            len(self.dom), len(self.cod), repr(self.typ))
+        return factory_name(type(self)) + "({}, {}, {}{})".format(
+            len(self.dom), len(self.cod), repr(self.typ),
+            "" if self.phase is None else repr(phase))
 
     def dagger(self):
-        return type(self)(len(self.cod), len(self.dom), self.typ)
-
-    def decompose(self):
-        return self._decompose_spiders(len(self.dom), len(self.cod),
-                                       self.typ)
-
-    @classmethod
-    def _decompose_spiders(cls, n_legs_in, n_legs_out, typ):
-        if n_legs_out > n_legs_in:
-            return cls._decompose_spiders(n_legs_out, n_legs_in,
-                                          typ).dagger()
-
-        if n_legs_in == 1 and n_legs_out == 0:
-            return cls(1, 0, typ)
-        if n_legs_in == 1 and n_legs_out == 1:
-            return Id(typ)
-
-        if n_legs_out != 1:
-            return (cls._decompose_spiders(n_legs_in, 1, typ)
-                    >> cls._decompose_spiders(1, n_legs_out, typ))
-
-        if n_legs_in == 2:
-            return cls(2, 1, typ)
-
-        if n_legs_in % 2 == 1:
-            return (cls._decompose_spiders(n_legs_in - 1, 1, typ)
-                    @ Id(typ) >> cls(2, 1, typ))
-
-        new_in = n_legs_in // 2
-        half_spider = cls._decompose_spiders(new_in, 1, typ)
-        return half_spider @ half_spider >> cls(2, 1, typ)
+        phase = None if self.phase is None else -self.phase
+        return type(self)(len(self.cod), len(self.dom), self.typ, phase)
 
     @property
     def l(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.l)
+        return type(self)(len(self.dom), len(self.cod), self.typ.l, self.phase)
 
     @property
     def r(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.r)
+        return type(self)(len(self.dom), len(self.cod), self.typ.r, self.phase)
+
+    def unfuse(self) -> Diagram:
+        a, b, x = len(self.dom), len(self.cod), self.typ
+        if self.phase is not None:  # Coherence for phase shifters.
+            return type(self)(a, 1, x).unfuse()\
+                >> type(self)(1, 1, x, self.phase)\
+                >> type(self)(1, b, x).unfuse()
+        if (a, b) in [(0, 1), (1, 0), (2, 1), (1, 2)]:
+            return self
+        if (a, b) == (1, 1):  # Speciality: one-to-one spiders are identity.
+            return self.id(self.dom)
+        if a < b:  # Cut the work in two.
+            return self.dagger().unfuse().dagger()
+        if b != 1:
+            return type(self)(a, 1, x).unfuse() >> type(self)(1, b, x).unfuse()
+        if a % 2:  # We can now assume a is odd and b == 1.
+            return type(self)(a - 1, 1, x).unfuse() @ x\
+                >> type(self)(2, 1, x).unfuse()
+        # We can now assume a is even and b == 1.
+        half_spiders = type(self)(a // 2, 1, x).unfuse()
+        return half_spiders @ half_spiders >> type(self)(2, 1, x)
 
 
 class Category(compact.Category):
@@ -217,7 +229,7 @@ class Category(compact.Category):
     A hypergraph category is a compact category with a method :code:`spiders`.
 
     Parameters:
-        ob : The objects of the category, default is :class:`pivotal.Ty`.
+        ob : The objects of the category, default is :class:`Ty`.
         ar : The arrows of the category, default is :class:`Diagram`.
     """
     ob, ar = Ty, Diagram
@@ -239,34 +251,6 @@ class Functor(compact.Functor):
             return self.cod.ar.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
         return super().__call__(other)
-
-
-def coherence(factory):
-    def method(cls, a: int, b: int, x: Ty, phase=None) -> Diagram:
-        if len(x) == 0 and phase is None:
-            return cls.id(x)
-        if len(x) == 1:
-            return factory(a, b, x, phase)
-        if phase is not None:  # Coherence for phase shifters.
-            shift = cls.tensor(*[factory(1, 1, obj, phase) for obj in x])
-            return method(cls, a, 1, x) >> shift >> method(cls, 1, b, x)
-        if (a, b) in [(1, 0), (0, 1)]: # Coherence for (co)units.
-            return cls.tensor(*[factory(a, b, obj) for obj in x])
-        # Coherence for binary (co)products.
-        if (a, b) in [(1, 2), (2, 1)]:
-            spiders, braids = (
-                factory(a, b, x[0], phase) @ method(cls, a, b, x[1:], phase),
-                x[0] @ cls.braid(x[0], x[1:]) @ x[1:])
-            return spiders >> braids if (a, b) == (1, 2) else braids >> spiders
-        if a == 1:  # We can now assume b > 2.
-            return method(cls, 1, b - 1, x)\
-                >> method(cls, 1, 2, x) @ (x ** (b - 2))
-        if b == 1:  # We can now assume a > 2.
-            return method(cls, 2, 1, x) @ (x ** (a - 2))\
-                >> method(cls, a - 1, 1, x)
-        return method(cls, a, 1, x) >> method(cls, 1, b, x)
-
-    return classmethod(method)
 
 
 for cls in [Diagram, Box, Swap, Cup, Cap]:

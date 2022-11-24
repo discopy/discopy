@@ -574,7 +574,7 @@ class Box(cat.Box, Diagram):
     def __eq__(self, other):
         return isinstance(other, Box) and cat.Box.__eq__(self, other)\
             or isinstance(other, Diagram)\
-            and other.inside == (Layer.cast(self), )
+            and other.inside == (self.layer_factory.cast(self), )
 
     def __hash__(self):
         return hash(repr(self))

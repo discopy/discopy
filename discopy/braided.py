@@ -55,6 +55,7 @@ The hexagon equations hold on the nose.
 """
 
 from __future__ import annotations
+from collections.abc import Callable
 
 from discopy import cat, monoidal
 from discopy.cat import factory
@@ -87,7 +88,7 @@ class Diagram(monoidal.Diagram):
         ----
         This calls :func:`hexagon` and :attr:`braid_factory`.
         """
-        return hexagon(cls.braid_factory)(left, right)
+        return hexagon(cls, cls.braid_factory)(left, right)
 
     def simplify(self) -> Diagram:
         """ Remove braids followed by their dagger. """
@@ -148,23 +149,26 @@ Diagram.braid_factory = Braid
 Id = Diagram.id
 
 
-def hexagon(braid_factory: Callable) -> Callable:
+def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     """
-    Take a :code:`braid_factory` for atomic types and extend it recursively.
+    Take a ``factory`` for braids of atomic types and extend it recursively.
 
     Parameters:
-        braid_factory : A braid factory for atomic types, e.g. :class:`Braid`.
+        cls : A diagram factory, e.g. :class:`Diagram`.
+        factory : A factory for braids of atomic types, e.g. :class:`Braid`.
     """
-    def method(x: Ty, y: Ty) -> Diagram:
-        if len(x) == 0:
-            return braid_factory.id(y)
-        if len(y) == 0:
-            return braid_factory.id(x)
-        if len(x) == len(y) == 1:
-            return braid_factory(x[0], y[0])
-        if len(x) == 1:
-            return method(x, y[:1]) @ y[1:] >> y[:1] @ method(x, y[1:])
-        return x[:1] @ method(x[1:], y) >> method(x[:1], y) @ x[1:]
+    def method(left: Ty, right: Ty) -> Diagram:
+        if len(left) == 0:
+            return cls.id(right)
+        if len(right) == 0:
+            return cls.id(left)
+        if len(left) == len(right) == 1:
+            return factory(left[0], right[0])
+        if len(left) == 1:
+            return method(left, right[:1]) @ right[1:]\
+                >> right[:1] @ method(left, right[1:])
+        return left[:1] @ method(left[1:], right)\
+            >> method(left[:1], right) @ left[1:]
 
     return method
 

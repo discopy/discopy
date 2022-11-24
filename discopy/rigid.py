@@ -40,6 +40,7 @@ Axioms
 """
 
 from __future__ import annotations
+from collections.abc import Callable
 
 from discopy import cat, monoidal, closed, messages, rewriting
 from discopy.cat import AxiomError, factory
@@ -207,7 +208,11 @@ class Diagram(closed.Diagram):
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
         """
-        Constructs nested cups witnessing adjointness of x and y.
+        Construct a diagram of nested cups for types ``left`` and ``right``.
+
+        Parameters:
+            left : The type left of the cup.
+            right : Its right adjoint.
 
         >>> a, b = Ty('a'), Ty('b')
         >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
@@ -220,18 +225,23 @@ class Diagram(closed.Diagram):
         .. image:: ../_static/imgs/rigid/cups.png
             :align: center
         """
-        return nesting(cls, cls.cup_factory, left, right)
+        return nesting(cls, cls.cup_factory)(left, right)
 
     @classmethod
-    def caps(cls, left, right):
-        """ Constructs nested cups witnessing adjointness of x and y.
+    def caps(cls, left: Ty, right: Ty) -> Diagram:
+        """
+        Construct a diagram of nested caps for types ``left`` and ``right``.
+
+        Parameters:
+            left : The type left of the cap.
+            right : Its left adjoint.
 
         >>> a, b = Ty('a'), Ty('b')
         >>> assert Diagram.caps(a, a.l) == Cap(a, a.l)
         >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
         ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
         """
-        return nesting(cls, cls.cap_factory, left, right)
+        return nesting(cls, cls.cap_factory)(left, right)
 
     @staticmethod
     def fa(left, right):
@@ -562,26 +572,25 @@ class Functor(closed.Functor):
         return super().__call__(other)
 
 
-def nesting(cls: type, factory: Callable, left: Ty, right: Ty) -> Diagram:
+def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     """
     Take a :code:`factory` for cups or caps of atomic types
     and extends it recursively.
 
     Parameters:
-        cls : The diagram class, used for its identity method.
-        factory : The factory for cups or caps of atomic types.
-        left : The type on the left of the cup or cap.
-        right : The type on the right of the cup or cap.
+        cls : A diagram factory, e.g. :class:`Diagram`.
+        factory :
+            A factory for cups (or caps) of atomic types, e.g. :class:`Cup`.
     """
-    if len(left) == 0:
-        return cls.id(left[:0])
-    if len(left) == len(right) == 1:
-        return factory(left, right)
-    head = factory(left[0], right[-1])
-    tail = nesting(cls, factory, left[1:], right[:-1])
-    if head.dom:  # We are nesting cups.
-        return left[0] @ tail @ right[-1] >> head
-    return head >> left[0] @ tail @ right[-1]
+    def method(left: Ty, right: Ty) -> Diagram:
+        if len(left) == 0:
+            return cls.id(left[:0])
+        head, tail = factory(left[0], right[-1]), method(left[1:], right[:-1])
+        if head.dom:  # We are nesting cups.
+            return left[0] @ tail @ right[-1] >> head
+        return head >> left[0] @ tail @ right[-1]
+
+    return method
 
 
 Id = Diagram.id
