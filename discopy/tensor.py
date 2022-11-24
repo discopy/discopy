@@ -4,8 +4,8 @@
 The category of matrices with the Kronecker product as monoidal product.
 
 >>> n = Ty('n')
->>> Alice, Bob = rigid.Box('Alice', Ty(), n), rigid.Box('Bob', Ty(), n)
->>> loves = rigid.Box('loves', n, n)
+>>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
+>>> loves = Box('loves', n, n)
 >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
 >>> F = Functor(ob, ar)
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
@@ -19,7 +19,7 @@ from discopy import (
 from discopy.cat import Composable, AxiomError, factory
 from discopy.monoidal import Whiskerable
 from discopy.frobenius import Ob, Ty, Cup, Cap, Category
-from discopy.utils import assert_isinstance, product
+from discopy.utils import assert_isinstance, assert_isatomic, product
 
 
 @factory
@@ -61,25 +61,25 @@ class Tensor(Composable, Whiskerable):
 
     Examples
     --------
-    >>> m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
-    >>> v = Tensor(Dim(1), Dim(2), [0, 1])
+    >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
+    >>> v = Tensor([0, 1], Dim(1), Dim(2))
     >>> v >> m >> v.dagger()
-    Tensor(dom=Dim(1), cod=Dim(1), array=[0])
+    Tensor([0], dom=Dim(1), cod=Dim(1))
 
     Notes
     -----
     Tensors can have sympy symbols as free variables.
 
     >>> from sympy.abc import phi, psi
-    >>> v = Tensor(Dim(1), Dim(2), [phi, psi])
+    >>> v = Tensor([phi, psi], Dim(1), Dim(2))
     >>> d = v >> v.dagger()
     >>> assert v >> v.dagger() == Tensor(
-    ...     Dim(1), Dim(1), [phi * phi.conjugate() + psi * psi.conjugate()])
+    ...     [phi * phi.conjugate() + psi * psi.conjugate()], Dim(1), Dim(1))
 
     These can be substituted and lambdifed.
 
     >>> v.subs(phi, 0).lambdify(psi)(1)
-    Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
+    Tensor([0, 1], dom=Dim(1), cod=Dim(2))
 
     We can also use jax.numpy using Tensor.backend.
 
@@ -112,7 +112,7 @@ class Tensor(Composable, Whiskerable):
         return complex(self.array)
 
     def __repr__(self):
-        np_array = getattr(self.array, 'numpy', self.array)
+        np_array = getattr(self.array, 'numpy', lambda: self.array)()
         return "Tensor({}, dom={}, cod={})".format(
             array2string(np_array.reshape(-1)), self.dom, self.cod)
 
@@ -141,7 +141,9 @@ class Tensor(Composable, Whiskerable):
         with backend() as np:
             return Tensor(np.eye(product(dom.inside)), dom, dom)
 
-    def then(self, other: Tensor) -> Tensor:
+    def then(self, other: Tensor = None, *others: Tensor) -> Tensor:
+        if other is None or others:
+            return Diagram.then(self, other, *others)
         assert_isinstance(other, Tensor)
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
@@ -151,7 +153,9 @@ class Tensor(Composable, Whiskerable):
                 else self.array * other.array
         return Tensor(array, self.dom, other.cod)
 
-    def tensor(self, other: Tensor) -> Tensor:
+    def tensor(self, other: Tensor = None, *others: Tensor) -> Tensor:
+        if other is None or others:
+            return Diagram.tensor(self, other, *others)
         assert_isinstance(other, Tensor)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         source = range(len(dom @ cod))
@@ -176,23 +180,53 @@ class Tensor(Composable, Whiskerable):
 
     @staticmethod
     def cups(left: Dim, right: Dim) -> Tensor:
+        assert_isinstance(left, Dim)
+        assert_isinstance(right, Dim)
+        if left.r != right:
+            raise AxiomError
         return rigid.nesting(Tensor, lambda x, y:
             Tensor(Tensor.id(left).array, x @ y, Dim(1)))(left, right)
 
     @staticmethod
     def caps(left: Dim, right: Dim) -> Tensor:
-        return rigid.nesting(Tensor, lambda x, y:
-            Tensor(Tensor.id(left).array, Dim(1), x @ y))(left, right)
+        return Tensor.cups(left, right).dagger()
 
     @staticmethod
     def swap(left: Dim, right: Dim) -> Tensor:
         dom, cod = left @ right, right @ left
-        source = range(len(left @ right), 2 * len(left @ right))
-        target = [i + len(right) if i < len(left @ right @ left)
+        array = Tensor.id(dom).array
+        source = range(len(dom), 2 * len(dom))
+        target = [i + len(right) if i < len(dom @ left)
                   else i - len(left) for i in source]
         with backend() as np:
-            array = np.moveaxis(np.eye(dom.inside), source, target)
-        return Tensor(array, dom, cod)
+            return Tensor(np.moveaxis(array, source, target), dom, cod)
+
+    @staticmethod
+    def spider_factory(
+            n_legs_in: int, n_legs_out: int, typ: Dim, phase=None) -> Tensor:
+        if phase is not None:
+            raise NotImplementedError
+        assert_isatomic(typ, Dim)
+        n, = typ.inside
+        dom, cod = typ ** n_legs_in, typ ** n_legs_out
+        result = Tensor.zeros(dom, cod)
+        for i in range(n):
+            result.array[len(dom @ cod) * (i, )] = 1
+        return result
+
+    @staticmethod
+    def spiders(
+            n_legs_in: int, n_legs_out: int, typ: Dim, phase=None) -> Tensor:
+        """
+        The tensor of interleaving spiders.
+
+        Parameters:
+            n_legs_in : The number of legs in for each spider.
+            n_legs_out : The number of legs out for each spider.
+            typ : The type of the spiders.
+        """
+        return frobenius.Diagram.spiders.__func__(
+            Tensor, n_legs_in, n_legs_out, typ, phase)
 
     def transpose(self, left=False) -> Tensor:
         """
@@ -245,7 +279,7 @@ class Tensor(Composable, Whiskerable):
         Examples
         --------
         >>> assert Tensor.zeros(Dim(2), Dim(2))\\
-        ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
+        ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
             return Tensor(np.zeros((dom @ cod).inside), dom, cod)
@@ -258,7 +292,7 @@ class Tensor(Composable, Whiskerable):
         return self.map(lambda x:
                         getattr(x, "diff", lambda _: 0)(var, **params))
 
-    def jacobian(self, variables: "list[sympy.Symbol]", **params) -> Tensor:
+    def jacobian(self, *variables: "list[sympy.Symbol]", **params) -> Tensor:
         """
         Jacobian with respect to :code:`variables`.
 
@@ -275,8 +309,8 @@ class Tensor(Composable, Whiskerable):
         --------
         >>> from sympy.abc import x, y, z
         >>> vector = Tensor([x ** 2, y * z], Dim(1), Dim(2))
-        >>> vector.jacobian([x, y, z])
-        Tensor(dom=Dim(1), cod=Dim(3, 2), array=[2.0*x, 0, 0, 1.0*z, 0, 1.0*y])
+        >>> vector.jacobian(x, y, z)
+        Tensor([2.0*x, 0, 0, 1.0*z, 0, 1.0*y], dom=Dim(1), cod=Dim(3, 2))
         """
         dim = Dim(len(variables) or 1)
         result = Tensor.zeros(self.dom, dim @ self.cod)
@@ -297,10 +331,10 @@ class Functor(frobenius.Functor):
     """ Implements a tensor-valued rigid functor.
 
     >>> x, y = Ty('x'), Ty('y')
-    >>> f = rigid.Box('f', x, x @ y)
+    >>> f = Box('f', x, x @ y)
     >>> F = Functor({x: 1, y: 2}, {f: [0, 1]})
     >>> F(f)
-    Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
+    Tensor([0, 1], dom=Dim(1), cod=Dim(2))
     """
     def __init__(self, ob, ar):
         super().__init__(ob, ar, cod=Category(Dim, Tensor))
@@ -374,7 +408,7 @@ class Diagram(frobenius.Diagram):
     >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
     >>> diagram = vector[::-1] >> vector @ vector
     >>> print(diagram)
-    vector[::-1] >> vector >> Id(Dim(2)) @ vector
+    vector[::-1] >> vector >> Dim(2) @ vector
     """
     def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """
@@ -423,7 +457,7 @@ class Diagram(frobenius.Diagram):
             dtype = self._infer_dtype()
         nodes = [
             tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
-            for i, dim in enumerate(self.dom)]
+            for i, dim in enumerate(self.dom.inside)]
         inputs, outputs = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
             if isinstance(box, symmetric.Swap):
@@ -470,24 +504,10 @@ class Diagram(frobenius.Diagram):
             import numpy
             return numpy.float64
 
-    @staticmethod
-    def cups(left, right):
-        return rigid.cups(left, right, ar_factory=Diagram,
-                          cup_factory=lambda x, _: Spider(2, 0, x[0]))
-
-    @staticmethod
-    def caps(left, right):
-        return Diagram.cups(left, right).dagger()
-
-    @staticmethod
-    def swap(left, right):
-        return monoidal.Diagram.swap(
-            left, right, ar_factory=Diagram, swap_factory=Swap)
-
     def grad(self, var, **params):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
-            return self.sum([], self.dom, self.cod)
+            return self.sum((), self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
         t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
@@ -513,43 +533,15 @@ class Diagram(frobenius.Diagram):
         >>> from sympy.abc import x, y, z
         >>> vector = Box("v", Dim(1), Dim(2), [x ** 2, y * z])
         >>> vector.jacobian([x, y, z]).eval()
-        Tensor(dom=Dim(1), cod=Dim(3, 2), array=[2.0*x, 0, 0, 1.0*z, 0, 1.0*y])
+        Tensor([2.0*x, 0, 0, 1.0*z, 0, 1.0*y], dom=Dim(1), cod=Dim(3, 2))
         """
         dim = Dim(len(variables) or 1)
-        result = Sum([], self.dom, dim @ self.cod)
+        result = Sum((), self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
             onehot = Tensor.zeros(Dim(1), dim)
             onehot.array[i] = 1
             result += Box(var, Dim(1), dim, onehot.array) @ self.grad(var)
         return result
-
-    @staticmethod
-    def spiders(n_legs_in, n_legs_out, dim):
-        """
-        Spider diagram.
-
-        Parameters
-        ----------
-        n_legs_in, n_legs_out : int
-            Number of legs in and out.
-        dim : Dim
-            Dimension for each leg.
-
-        Examples
-        --------
-        >>> assert Diagram.spiders(3, 2, Dim(1)) == Id(Dim(1))
-        >>> assert Diagram.spiders(1, 2, Dim(2)) == Spider(1, 2, Dim(2))
-        >>> Diagram.spiders(1, 2, Dim(2, 3))  # doctest: +ELLIPSIS
-        Traceback (most recent call last):
-        ...
-        NotImplementedError
-        """
-        dim = dim if isinstance(dim, Dim) else Dim(dim)
-        if not dim:
-            return Id(dim)
-        if len(dim) == 1:
-            return Spider(n_legs_in, n_legs_out, dim)
-        raise NotImplementedError
 
 
 class Box(frobenius.Box, Diagram):
@@ -588,8 +580,7 @@ class Box(frobenius.Box, Diagram):
             and other.inside == (self.layer_factory.cast(self), )
 
     def __hash__(self):
-        return hash(
-            (self.name, self.dom, self.cod, tuple(self.array.reshape(-1))))
+        return hash((self.name, self.dom, self.cod, str(self.array)))
 
 
 class Swap(frobenius.Swap, Box):
@@ -707,11 +698,11 @@ class Bubble(monoidal.Bubble, Box):
         from sympy import Symbol
         tmp = Symbol("tmp")
         name = "$\\frac{{\\partial {}}}{{\\partial {}}}$"
-        return Spider(1, 2, dim=self.dom)\
-            >> self.inside.bubble(
+        return Spider(1, 2, self.dom)\
+            >> self.arg.bubble(
                 func=lambda x: self.func(tmp).diff(tmp).subs(tmp, x),
                 drawing_name=name.format(self.drawing_name, var))\
-            @ self.inside.grad(var) >> Spider(2, 1, dim=self.cod)
+            @ self.arg.grad(var) >> Spider(2, 1, self.cod)
 
 
 def array2string(array, **params):
@@ -766,13 +757,13 @@ BACKENDS = {'np': NumPy,
 }
 
 @contextmanager
-def backend(name=None, _stack=list(), _instantiated=dict()):
-    name = name or (_stack[-1] if _stack else config.DEFAULT_BACKEND)
+def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
+    name = name or _stack[-1]
     _stack.append(name)
-    if name not in _instantiated:
-        _instantiated[name] = BACKENDS[name]()
     try:
-        yield _instantiated[name]
+        if name not in _cache:
+            _cache[name] = BACKENDS[name]()
+        yield _cache[name]
     finally:
         _stack.pop()
 

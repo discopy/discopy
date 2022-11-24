@@ -21,6 +21,7 @@ Summary
         :nosignatures:
         :toctree:
 
+        exp
         tuplify
         untuplify
         is_tuple
@@ -37,6 +38,17 @@ from discopy.monoidal import Whiskerable
 
 
 Ty = tuple[type, ...]
+
+
+def exp(base: Ty, exponent: Ty) -> Ty:
+    """
+    The exponential of a tuple of Python types by another.
+
+    Parameters:
+        base (python.Ty) : The base type.
+        exponent (python.Ty) : The exponent type.
+    """
+    return (Callable[exponent, tuple[base]], )
 
 
 def tuplify(stuff: any) -> tuple:
@@ -86,7 +98,6 @@ class Function(Composable, Whiskerable):
 
         .. autosummary::
 
-            exp
             id
             then
             tensor
@@ -103,28 +114,14 @@ class Function(Composable, Whiskerable):
     dom: Ty
     cod: Ty
 
-    @staticmethod
-    def exp(base: Ty, exponent: Ty) -> Ty:
-        """
-        The exponential of a tuple of Python types by another.
-
-        Parameters:
-            base (python.Ty) : The base type.
-            exponent (python.Ty) : The exponent type.
-        """
-        return (Callable[exponent, tuple[base]], )
-
-    over = under = exp
-
-    @classmethod
-    def id(cls, dom: Ty) -> Function:
+    def id(dom: Ty) -> Function:
         """
         The identity function on a given tuple of types :code:`dom`.
 
         Parameters:
             dom (python.Ty) : The typle of types on which to take the identity.
         """
-        return cls(lambda *xs: untuplify(xs), dom, dom)
+        return Function(lambda *xs: untuplify(xs), dom, dom)
 
     def then(self, other: Function) -> Function:
         """
@@ -152,8 +149,8 @@ class Function(Composable, Whiskerable):
             return untuplify(tuplify(self(*left)) + tuplify(other(*right)))
         return Function(inside, self.dom + other.dom, self.cod + other.cod)
 
-    @classmethod
-    def swap(cls, x: Ty, y: Ty) -> Function:
+    @staticmethod
+    def swap(x: Ty, y: Ty) -> Function:
         """
         The function for swapping two tuples of types :code:`x` and :code:`y`.
 
@@ -163,7 +160,7 @@ class Function(Composable, Whiskerable):
         """
         def inside(*xs):
             return untuplify(tuplify(xs)[len(x):] + tuplify(xs)[:len(x)])
-        return cls(inside, dom=x + y, cod=y + x)
+        return Function(inside, dom=x + y, cod=y + x)
 
     braid = swap
 
@@ -178,15 +175,15 @@ class Function(Composable, Whiskerable):
         """
         return Function(lambda *xs: n * xs, dom=x, cod=n * x)
 
-    @classmethod
-    def discard(cls, dom: Ty) -> Function:
+    @staticmethod
+    def discard(dom: Ty) -> Function:
         """
         The function discarding a tuple of types, i.e. making zero copies.
 
         Parameters:
             dom : The tuple of types to discard.
         """
-        return cls.copy(dom, 0)
+        return Function.copy(dom, 0)
 
     @staticmethod
     def eval(base: Ty, exponent: Ty, left=True) -> Function:
@@ -262,6 +259,8 @@ class Function(Composable, Whiskerable):
         return self.copy(dom) >> dom @ fixed\
             >> self >> cod @ self.discard(traced)
 
+    exp = over = under = staticmethod(lambda x, y: exp(x, y))
+
 
 @dataclass
 class Dict(Composable, Whiskerable):
@@ -294,6 +293,3 @@ class Dict(Composable, Whiskerable):
     @staticmethod
     def copy(x: int, n: int) -> Dict:
         return Dict({i: i % x for i in range(n * x)}, x, n * x)
-
-
-exp = Function.exp

@@ -21,7 +21,7 @@ Summary
 
 from __future__ import annotations
 
-from discopy import symmetric, monoidal
+from discopy import symmetric, monoidal, frobenius
 from discopy.cat import factory
 from discopy.monoidal import Ty
 from discopy.utils import assert_isatomic
@@ -46,10 +46,10 @@ class Diagram(symmetric.Diagram):
             x : The type to copy.
             n : The number of copies.
         """
-        def factory(a, b, x, _):
-            assert a == 1
-            return Copy(x, b)
-        return coherence(factory).__func__(cls, 1, n, x)
+        cls.spider_factory = lambda _a, b, x, _p: Copy(x, b)
+        result = frobenius.Diagram.spiders.__func__(cls, 1, n, x)
+        del cls.spider_factory
+        return result
 
 
 class Box(symmetric.Box, Diagram):

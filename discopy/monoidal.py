@@ -422,7 +422,7 @@ class Diagram(cat.Arrow, Whiskerable):
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
 
-    def tensor(self, other: Diagram = None, *rest: Diagram) -> Diagram:
+    def tensor(self, other: Diagram = None, *others: Diagram) -> Diagram:
         """
         Parallel composition, called using :code:`@`.
 
@@ -451,8 +451,8 @@ class Diagram(cat.Arrow, Whiskerable):
         """
         if other is None:
             return self
-        if rest:
-            return self.tensor(other).tensor(*rest)
+        if others:
+            return self.tensor(other).tensor(*others)
         if isinstance(other, Sum):
             return self.sum([self]).tensor(other)
         assert_isinstance(other, self.factory)

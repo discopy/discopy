@@ -23,15 +23,6 @@ Summary
     Spider
     Category
     Functor
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        coherence
 """
 
 from __future__ import annotations
@@ -115,7 +106,6 @@ class Box(compact.Box, Diagram):
         cod (Ty) : The codomain of the box, i.e. its output.
     """
     __ambiguous_inheritance__ = (compact.Box, )
-    ty_factory = Ty
 
 
 class Cup(compact.Cup, Box):
@@ -127,7 +117,6 @@ class Cup(compact.Cup, Box):
         right (Ty) : Its adjoint.
     """
     __ambiguous_inheritance__ = (compact.Cup, )
-    ty_factory = Ty
 
 
 class Cap(compact.Cap, Box):
@@ -139,7 +128,6 @@ class Cap(compact.Cap, Box):
         right (Ty) : Its adjoint.
     """
     __ambiguous_inheritance__ = (compact.Cap, )
-    ty_factory = Ty
 
 
 class Swap(compact.Swap, Box):
@@ -151,7 +139,6 @@ class Swap(compact.Swap, Box):
         right (Ty) : The type on the top right and bottom left.
     """
     __ambiguous_inheritance__ = (compact.Swap, )
-    ty_factory = Ty
 
 
 class Spider(Box):
@@ -178,11 +165,8 @@ class Spider(Box):
         name = "Spider({}, {}, {}{})".format(
             n_legs_in, n_legs_out, typ, "" if phase is None else phase)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
         params = dict(dict(
-            draw_as_spider=not cup_like,
-            draw_as_wires=cup_like,
-            color="black", drawing_name=""), **params)
+            draw_as_spider=True, color="black", drawing_name=""), **params)
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
@@ -202,12 +186,13 @@ class Spider(Box):
     def r(self):
         return type(self)(len(self.dom), len(self.cod), self.typ.r, self.phase)
 
-    def unfuse(self) -> Diagram:
+    def unfuse(self, factory=None) -> Diagram:
+        factory = factory or type(self)
         a, b, x = len(self.dom), len(self.cod), self.typ
         if self.phase is not None:  # Coherence for phase shifters.
-            return type(self)(a, 1, x).unfuse()\
-                >> type(self)(1, 1, x, self.phase)\
-                >> type(self)(1, b, x).unfuse()
+            return factory(a, 1, x).unfuse()\
+                >> factory(1, 1, x, self.phase)\
+                >> factory(1, b, x).unfuse()
         if (a, b) in [(0, 1), (1, 0), (2, 1), (1, 2)]:
             return self
         if (a, b) == (1, 1):  # Speciality: one-to-one spiders are identity.
@@ -215,13 +200,13 @@ class Spider(Box):
         if a < b:  # Cut the work in two.
             return self.dagger().unfuse().dagger()
         if b != 1:
-            return type(self)(a, 1, x).unfuse() >> type(self)(1, b, x).unfuse()
+            return factory(a, 1, x).unfuse() >> factory(1, b, x).unfuse()
         if a % 2:  # We can now assume a is odd and b == 1.
-            return type(self)(a - 1, 1, x).unfuse() @ x\
-                >> type(self)(2, 1, x).unfuse()
+            return factory(a - 1, 1, x).unfuse() @ x\
+                >> factory(2, 1, x).unfuse()
         # We can now assume a is even and b == 1.
-        half_spiders = type(self)(a // 2, 1, x).unfuse()
-        return half_spiders @ half_spiders >> type(self)(2, 1, x)
+        half_spiders = factory(a // 2, 1, x).unfuse()
+        return half_spiders @ half_spiders >> factory(2, 1, x)
 
 
 class Category(compact.Category):

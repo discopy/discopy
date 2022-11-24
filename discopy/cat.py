@@ -318,7 +318,7 @@ class Arrow(Composable):
         dom = cls.ty_factory() if dom is None else dom
         return cls.factory((), dom, dom, _scan=False)
 
-    def then(self, *others: Arrow) -> Arrow:
+    def then(self, other: Arrow = None, *others: Arrow) -> Arrow:
         """
         Sequential composition, called with :code:`>>` and :code:`<<`.
 
@@ -328,11 +328,10 @@ class Arrow(Composable):
         Raises:
             cat.AxiomError : Whenever `self` and `others` do not compose.
         """
-        if not others:
+        if other is None:
             return self
-        if len(others) > 1:
-            return self.then(others[0]).then(*others[1:])
-        other, = others
+        if others:
+            return self.then(other).then(*others)
         if isinstance(other, self.sum):
             return self.sum((self, )).then(other)
         assert_isinstance(other, self.factory)
@@ -458,10 +457,9 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
-    def __init__(self, name: str, dom: Ob, cod: Ob, **params):
-        self.name = name
+    def __init__(self, name: str, dom: Ob, cod: Ob, data=None, **params):
+        self.name, self.data = name, data
         self.is_dagger = params.get("is_dagger", False)
-        self.data = params.get("data", None)
         Arrow.__init__(self, (self, ), dom, cod, _scan=False)
 
     @cached_property

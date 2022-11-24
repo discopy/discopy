@@ -21,9 +21,9 @@ def test_backend():
 
 
 def test_Tensor_repr_with_tf():
-    with Tensor.backend('tensorflow'):
-        alice = Tensor(Dim(1), Dim(2), [1, 2])
-        assert repr(alice) == 'Tensor(dom=Dim(1), cod=Dim(2), array=[1, 2])'
+    with backend('tensorflow'):
+        alice = Tensor([1, 2], Dim(1), Dim(2))
+        assert repr(alice) == 'Tensor([1, 2], dom=Dim(1), cod=Dim(2))'
 
 
 def test_Dim():
@@ -35,32 +35,31 @@ def test_Dim():
     assert Dim(1) @ dim == dim @ Dim(1) == dim
     assert Dim(1).tensor(*(Dim(2, 3), Dim(4), Dim(1))) == Dim(2, 3, 4)
     assert dim[:1] == Dim(3, 2)[1:] == Dim(2)
-    assert dim[0] == Dim(3, 2)[1] == 2
+    assert dim[0] == Dim(3, 2)[1]
+    assert dim.inside[0] == 2
     assert repr(Dim(1, 2, 3)) == str(dim) == "Dim(2, 3)"
     assert {dim: 42}[dim] == 42
     assert Dim(2, 3, 4).r == Dim(4, 3, 2)
 
 
 def test_Tensor():
-    assert Tensor(Dim(1), Dim(1), [1])
-    m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
+    assert Tensor([1], Dim(1), Dim(1))
+    m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     assert repr(m) == str(m)\
-        == "Tensor(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])"
-    u = Tensor(Dim(2), Dim(2), [1, 0, 0, 0])
-    v = Tensor(Dim(2), Dim(2), [0, 0, 0, 1])
+        == "Tensor([0, 1, 1, 0], dom=Dim(2), cod=Dim(2))"
+    u = Tensor([1, 0, 0, 0], Dim(2), Dim(2))
+    v = Tensor([0, 0, 0, 1], Dim(2), Dim(2))
     assert u + v == Tensor.id(Dim(2))
     with raises(TypeError):
         u + [0, 0, 0, 1]
     with raises(AxiomError):
-        u + u @ Tensor(Dim(1), Dim(2), [1, 0])
+        u + u @ Tensor([1, 0], Dim(1), Dim(2))
     with raises(TypeError):
         u >> Dim(2)
-    with raises(TypeError):
-        u @ Dim(2)
     arr = np.array([1, 0, 0, 1, 0, 1, 1, 0]).reshape((2, 2, 2))
-    m = Tensor(Dim(2, 2), Dim(2), arr)
+    m = Tensor(arr, Dim(2, 2), Dim(2))
     assert m == m and np.all(m == arr)
-    m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
+    m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     assert Tensor.id(Dim(2)).then(*(m, m)) == m >> m.dagger()
 
 
@@ -120,8 +119,8 @@ def test_Tensor_tensor():
 
     assert Tensor.id(Dim(2)) @ Tensor.id(Dim(3)) == Tensor.id(Dim(2, 3))
 
-    v = Tensor(Dim(1), Dim(2), [1, 0])
-    assert v @ v == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[1, 0, 0, 0])
+    v = Tensor([1, 0], Dim(1), Dim(2))
+    assert v @ v == Tensor([1, 0, 0, 0], dom=Dim(1), cod=Dim(2, 2))
     assert v @ v.dagger() == v << v.dagger()
 
     x, y = Ty('x'), Ty('y')
@@ -132,20 +131,20 @@ def test_Tensor_tensor():
 
 
 def test_tensor_swap():
-    f = Tensor(Dim(2), Dim(2), [1, 0, 0, 1])
-    g = Tensor(Dim(3), Dim(3), list(range(9)))
+    f = Tensor([1, 0, 0, 1], Dim(2), Dim(2))
+    g = Tensor(list(range(9)), Dim(3), Dim(3))
     swap = Tensor.swap(Dim(2), Dim(3))
     assert f @ g >> swap == swap >> g @ f
 
 
 def test_Functor():
     assert repr(Functor({Ty('x'): 1}, {})) ==\
-        "tensor.Functor(ob={Ty('x'): 1}, ar={})"
+        "tensor.tensor.Functor(ob={frobenius.Ty('x'): 1}, ar={})"
 
 
 def test_Functor_call():
     x, y = Ty('x'), Ty('y')
-    f, g = rigid.Box('f', x @ x, y), rigid.Box('g', y, Ty())
+    f, g = Box('f', x @ x, y), Box('g', y, Ty())
     ob = {x: 2, y: 3}
     ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
     F = Functor(ob, ar)
@@ -158,14 +157,14 @@ def test_Functor_call():
 
 def test_Functor_swap():
     x, y = Ty('x'), Ty('y')
-    f, g = rigid.Box('f', x, x), rigid.Box('g', y, y)
+    f, g = Box('f', x, x), Box('g', y, y)
     F = Functor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
-    assert F(f @ g >> rigid.Diagram.swap(x, y)) == \
-           F(rigid.Diagram.swap(x, y) >> g @ f)
+    assert F(f @ g >> Diagram.swap(x, y)) == \
+           F(Diagram.swap(x, y) >> g @ f)
 
 
 def test_AxiomError():
-    m = Tensor(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
+    m = Tensor([1, 0, 0, 1, 0, 1, 1, 0], Dim(2, 2), Dim(2))
     with raises(AxiomError) as err:
         m >> m
     assert str(err.value) == messages.does_not_compose(m, m)
@@ -173,20 +172,20 @@ def test_AxiomError():
 
 def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
-    f = rigid.Box('f', x, y)
+    f = Box('f', x, y)
     F = Functor({x: 1, y: 2}, {f: [1, 0]})
     assert F(f + f) == F(f) + F(f)
 
 
 def test_Tensor_radd():
-    m = Tensor(Dim(2, 2), Dim(2), [1, 0, 0, 1, 0, 1, 1, 0])
+    m = Tensor([1, 0, 0, 1, 0, 1, 1, 0], Dim(2, 2), Dim(2))
     assert 0 + m == m
 
 
 def test_Tensor_iter():
-    v = Tensor(Dim(1), Dim(2), [0, 1])
+    v = Tensor([0, 1], Dim(1), Dim(2))
     assert list(v) == [0, 1]
-    s = Tensor(Dim(1), Dim(1), [1])
+    s = Tensor([1], Dim(1), Dim(1))
     with raises(TypeError):
         # how does one iterate over a scalar?
         list(s)
@@ -194,7 +193,7 @@ def test_Tensor_iter():
 
 def test_Tensor_subs():
     from sympy.abc import x
-    s = Tensor(Dim(1), Dim(1), [x])
+    s = Tensor([x], Dim(1), Dim(1))
     assert s.subs(x, 1) == 1
 
 
@@ -202,8 +201,8 @@ def test_Diagram_cups_and_caps():
     with raises(AxiomError):
         Diagram.cups(Dim(2), Dim(3))
     assert Id(Dim(2)).transpose()\
-        == Spider(0, 2, dim=2) @ Id(Dim(2))\
-        >> Id(Dim(2)) @ Spider(2, 0, dim=2)
+        == Spider(0, 2, Dim(2)) @ Id(Dim(2))\
+        >> Id(Dim(2)) @ Spider(2, 0, Dim(2))
 
 
 def test_Diagram_swap():
@@ -215,13 +214,12 @@ def test_Diagram_swap():
 def test_Box():
     f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
     assert repr(f) == "tensor.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
-    assert f != rigid.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])
     assert {f: 42}[f] == 42
 
 
 def test_Spider():
-    assert repr(Spider(1, 2, dim=3)) == "Spider(1, 2, Dim(3))"
-    assert Spider(1, 2, 2).dagger() == Spider(2, 1, 2)
+    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider(1, 2, Dim(3))"
+    assert Spider(1, 2, Dim(2)).dagger() == Spider(2, 1, Dim(2))
     with raises(ValueError):
         Spider(1, 2, Dim(2, 3))
 
@@ -232,7 +230,7 @@ def test_Swap_to_tn():
 
 
 def test_Tensor_scalar():
-    s = Tensor(Dim(1), Dim(1), [1])
+    s = Tensor([1], Dim(1), Dim(1))
     for ptype in [int, float, complex]:
         assert isinstance(ptype(s), ptype)
 
@@ -251,9 +249,9 @@ def test_Tensor_adjoint_functor():
     f = Functor(
         ob={n: Dim(2), s: Dim(3)},
         ar={
-            alice: Tensor(Dim(1), Dim(2), [1, 2]),
-            eats: Tensor(Dim(1), Dim(2, 3, 2), [3] * 12),
-            food: Tensor(Dim(1), Dim(2), [4, 5])
+            alice: Tensor([1, 2], Dim(1), Dim(2)),
+            eats: Tensor([3] * 12, Dim(1), Dim(2, 3, 2)),
+            food: Tensor([4, 5], Dim(1), Dim(2))
         })
 
     tensor1 = f(diagram)

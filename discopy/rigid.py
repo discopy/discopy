@@ -355,9 +355,9 @@ class Box(closed.Box, Diagram):
     """
     __ambiguous_inheritance__ = (closed.Box, )
 
-    def __init__(self, name: str, dom: Ty, cod: Ty, **params):
+    def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
         self._z = params.get("_z", 0)
-        closed.Box.__init__(self, name, dom, cod, **params)
+        closed.Box.__init__(self, name, dom, cod, data=data, **params)
         Diagram.__init__(self, self.inside, dom, cod)
 
     def __eq__(self, other):
