@@ -7,3 +7,5 @@ jax
 jaxlib
 torch
 pennylane
+pennylane-qiskit
+pennylane-honeywell
