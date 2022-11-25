@@ -110,7 +110,6 @@ class Swap(symmetric.Swap, tortile.Braid, Box):
         right (pivotal.Ty) : The type on the top right and bottom left.
     """
     __ambiguous_inheritance__ = (symmetric.Swap, tortile.Braid, )
-    _z = 0
     ty_factory = Ty
 
 

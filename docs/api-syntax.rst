@@ -1,5 +1,5 @@
-core
-====
+syntax
+======
 
 .. autosummary::
     :template: module.rst

@@ -3,6 +3,38 @@
 """
 The category of matrices with the Kronecker product as monoidal product.
 
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Dim
+    Tensor
+    Functor
+    Diagram
+    Box
+    Swap
+    Cup
+    Cap
+    Spider
+    Sum
+    Bubble
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        backend
+        get_backend
+
+Example
+-------
 >>> n = Ty('n')
 >>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
 >>> loves = Box('loves', n, n)
@@ -51,8 +83,7 @@ class Dim(Ty):
 
 class Tensor(Composable, Whiskerable):
     """
-    A tensor is an ``array`` inside
-    and a pair of dimensions ``dom`` and ``cod``.
+    A tensor is an ``array`` and a pair of dimensions ``dom`` and ``cod``.
 
     Parameters:
         inside : The array inside the tensor.
@@ -328,7 +359,7 @@ class Tensor(Composable, Whiskerable):
 
 
 class Functor(frobenius.Functor):
-    """ Implements a tensor-valued rigid functor.
+    """ Implements a tensor-valued frobenius functor.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f = Box('f', x, x @ y)
@@ -336,13 +367,11 @@ class Functor(frobenius.Functor):
     >>> F(f)
     Tensor([0, 1], dom=Dim(1), cod=Dim(2))
     """
-    def __init__(self, ob, ar):
-        super().__init__(ob, ar, cod=Category(Dim, Tensor))
-
-    def __repr__(self):
-        return super().__repr__().replace("Functor", "tensor.Functor")
+    cod = Category(Dim, Tensor)
 
     def __call__(self, other):
+        if isinstance(other, (cat.Sum)):
+            return super().__call__(other)
         if isinstance(other, Bubble):
             return self(other.arg).map(other.func)
         if isinstance(other, monoidal.Ty):
@@ -507,7 +536,7 @@ class Diagram(frobenius.Diagram):
     def grad(self, var, **params):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
-            return self.sum((), self.dom, self.cod)
+            return self.sum_factory((), self.dom, self.cod)
         left, box, right, tail = tuple(self.layers[0]) + (self[1:], )
         t1 = self.id(left) @ box.grad(var, **params) @ self.id(right) >> tail
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
@@ -549,21 +578,19 @@ class Box(frobenius.Box, Diagram):
     A tensor box is a frobenius box with an array as data.
 
     Parameters:
-        name (str) : The name of the box.
-        dom (Dim) : The domain of the box, i.e. its input dimension.
-        cod (Dim) : The codomain of the box, i.e. its output dimension.
-        data (array) : The array inside the tensor box.
+        name : The name of the box.
+        dom : The domain of the box, i.e. its input dimension.
+        cod : The codomain of the box, i.e. its output dimension.
+        array : The array inside the tensor box.
     """
-    @property
-    def array(self):
-        """ The array inside the box. """
-        dom, cod = self.dom, self.cod
-        data = self.data
-        try:
+    __ambiguous_inheritance__ = (frobenius.Box, )
+
+    def __init__(self, name: str, dom: Dim, cod: Dim, array, **params):
+        if array is not None:
             with backend() as np:
-                return np.array(data).reshape(dom.inside + cod.inside)
-        except Exception:
-            return data
+                array = np.array(data).reshape(dom.inside + cod.inside)
+        self.array = array
+        frobenius.Box.__init__(name, dom, cod, **params)
 
     def grad(self, var, **params):
         return self.bubble(
@@ -583,6 +610,28 @@ class Box(frobenius.Box, Diagram):
         return hash((self.name, self.dom, self.cod, str(self.array)))
 
 
+class Cup(frobenius.Cup, Box):
+    """
+    A tensor cup is a frobenius cup in a tensor diagram.
+
+    Parameters:
+        left (Ty) : The atomic type.
+        right (Ty) : Its adjoint.
+    """
+    __ambiguous_inheritance__ = (frobenius.Cup, )
+
+
+class Cap(frobenius.Cap, Box):
+    """
+    A tensor cap is a frobenius cap in a tensor diagram.
+
+    Parameters:
+        left (Ty) : The atomic type.
+        right (Ty) : Its adjoint.
+    """
+    __ambiguous_inheritance__ = (frobenius.Cap, )
+
+
 class Swap(frobenius.Swap, Box):
     """
     A tensor swap is a frobenius swap in a tensor diagram.
@@ -591,6 +640,8 @@ class Swap(frobenius.Swap, Box):
         left (Dim) : The type on the top left and bottom right.
         right (Dim) : The type on the top right and bottom left.
     """
+    __ambiguous_inheritance__ = (frobenius.Swap, )
+
     @property
     def array(self):
         return Tensor.swap(self.left, self.right).array
@@ -617,6 +668,8 @@ class Spider(frobenius.Spider, Box):
     .. image:: ../_static/imgs/tensor/frobenius-example.png
         :align: center
     """
+    __ambiguous_inheritance__ = (frobenius.Spider, )
+
     @property
     def array(self):
         return Tensor.spiders(len(self.dom), len(self.cod), self.typ).array
@@ -631,6 +684,8 @@ class Sum(monoidal.Sum, Box):
         dom (Dim) : The domain of the formal sum.
         cod (Dim) : The codomain of the formal sum.
     """
+    __ambiguous_inheritance__ = (monoidal.Sum, )
+
     def eval(self, contractor=None):
         return sum(term.eval(contractor=contractor) for term in self.terms)
 
@@ -676,6 +731,8 @@ class Bubble(monoidal.Bubble, Box):
     .. image:: ../_static/imgs/tensor/product-rule.png
         :align: center
     """
+    __ambiguous_inheritance__ = (monoidal.Bubble, )
+
     def __init__(self, inside, func=lambda x: int(not x), **params):
         self.func = func
         super().__init__(inside, **params)
@@ -775,7 +832,7 @@ for cls in [Diagram, Box, Swap, Spider, Sum, Bubble]:
     cls.ty_factory = Dim
 
 Diagram.braid_factory = Swap
-Diagram.spider_factory = Spider
-Diagram.bubble_factory = Bubble
-Diagram.sum = Sum
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
+Diagram.sum_factory = Sum
 Id = Diagram.id

@@ -5,7 +5,6 @@ from discopy.rigid import *
 def test_Ob_init():
     with raises(TypeError) as err:
         Ob('x', z='y')
-    assert cat.Ob('x') == Ob('x')
 
 
 def test_Ob_eq():
@@ -123,16 +122,8 @@ def test_adjoint():
     n, s = map(Ty, 'ns')
     Bob = Box('Bob', Ty(), n)
     eats = Box('eats', Ty(), n.r @ s)
-    Bob_l = Box('Bob', Ty(), n.l, _z=-1)
-    Bob_r = Box('Bob', Ty(), n.r, _z=1)
-    eats_l = Box('eats', Ty(), s.l @ n, _z=-1)
-    eats_r = Box('eats', Ty(), s.r @ n.r.r, _z=1)
-    assert Bob.l.z == -1 and Bob.z == 0 and Bob.r.z == 1
-    assert Bob.l == Bob_l and Bob.r == Bob_r
-    assert eats.l == eats_l and eats.r == eats_r
-    diagram = Bob @ eats >> Cup(n, n.r) @ Id(s)
-    assert diagram.l == Bob_l >> eats_l @ Id(n.l) >> Id(s.l) @ Cup(n, n.l)
-    assert diagram.r == Bob_r >> eats_r @ Id(n.r) >> Id(s.r) @ Cup(n.r.r, n.r)
+    diagram = Bob @ eats >> Cup(n, n.r) @ s
+    assert diagram.transpose(left=True).normal_form() == diagram.l
 
 
 def test_id_adjoint():

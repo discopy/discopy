@@ -70,16 +70,8 @@ class Ob(cat.Ob):
 
     def __init__(self, name: str, z: int = 0):
         assert_isinstance(z, int)
-        self._z = z
+        self.z = z
         super().__init__(name)
-
-    @property
-    def z(self) -> int:
-        """
-        The winding number of the object: :code:`z == 0` for generators,
-        :code:`z < 0` for left adjoints and :code:`z > 0` for right adjoints.
-        """
-        return self._z
 
     @property
     def l(self) -> Ob:
@@ -92,11 +84,8 @@ class Ob(cat.Ob):
         return type(self)(self.name, self.z + 1)
 
     def __eq__(self, other):
-        if not isinstance(other, Ob):
-            if isinstance(other, cat.Ob):
-                return self.z == 0 and self.name == other.name
-            return False
-        return (self.name, self.z) == (other.name, other.z)
+        return isinstance(other, Ob)\
+            and cat.Ob.__eq__(self, other) and self.z == other.z
 
     def __hash__(self):
         return hash(self.name if not self.z else (self.name, self.z))
@@ -151,10 +140,6 @@ class Ty(closed.Ty):
         """ The winding number is only defined for types of length 1. """
         assert_isatomic(self)
         return self.inside[0].z
-
-    def __repr__(self):
-        return factory_name(type(self)) + "({})".format(', '.join(
-            repr(x if x.z else x.name) for x in self.inside))
 
     def __lshift__(self, other):
         return self @ other.l
@@ -277,27 +262,26 @@ class Diagram(closed.Diagram):
         base, exponent = self.dom[offset:], self.dom[:offset]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
-    def _conjugate(self, left):
-        inside = tuple(
-            self.layer_factory(right.l, box.l, _left.l) if left
-            else self.layer_factory(right.r, box.r, _left.r)
-            for _left, box, right in self.inside)
-        dom = self.dom.l if left else self.dom.r
-        cod = self.cod.l if left else self.cod.r
-        return self.factory(inside, dom, cod)
-
     @property
     def l(self):
-        return self._conjugate(left=True)\
-            if self.inside else self.id(self.dom.l)
+        """ The half-turn rotation of a diagram to the left. """
+        inside = tuple(self.layer_factory(right.l, box.l, left.l)
+                       for left, box, right in self.inside[::-1])
+        return self.factory(inside, self.cod.l, self.dom.l)
 
     @property
     def r(self):
-        return self._conjugate(left=False)\
-            if self.inside else self.id(self.dom.r)
+        """ The half-turn rotation of a diagram to the right. """
+        inside = tuple(self.layer_factory(right.r, box.r, left.r)
+                       for left, box, right in self.inside[::-1])
+        return self.factory(inside, self.cod.r, self.dom.r)
 
     def transpose(self, left=False):
         """
+        The transpose of a diagram, i.e. its composition with cups and caps.
+
+        Examples
+        --------
         >>> a, b = Ty('a'), Ty('b')
         >>> double_snake = Id(a @ b).transpose()
         >>> two_snakes = Id(b).transpose() @ Id(a).transpose()
@@ -346,46 +330,49 @@ class Box(closed.Box, Diagram):
         name : The name of the box.
         dom : The domain of the box, i.e. its input.
         cod : The codomain of the box, i.e. its output.
+        z : The winding number of the box,
+            i.e. the number of half-turn rotations.
 
     Example
     -------
     >>> a, b = Ty('a'), Ty('b')
-    >>> Box('f', a, b.l @ b)
-    rigid.Box('f', rigid.Ty('a'), rigid.Ty(rigid.Ob('b', z=-1), 'b'))
+    >>> f = Box('f', a, b.l @ b)
+    >>> assert f.l.z == -1 and f.z == 0 and f.r.z == 1
+    >>> assert f.r.l == f == f.l.r
+    >>> assert f.l.l != f != f.r.r
     """
     __ambiguous_inheritance__ = (closed.Box, )
 
-    def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
-        self._z = params.get("_z", 0)
-        closed.Box.__init__(self, name, dom, cod, data=data, **params)
-        Diagram.__init__(self, self.inside, dom, cod)
+    def __init__(self, name: str, dom: Ty, cod: Ty, z=0, **params):
+        self.z = z
+        closed.Box.__init__(self, name, dom, cod, **params)
+
+    def __str__(self):
+        return str(self.r) + '.l' if self.z < 0\
+            else str(self.l) + '.r' if self.z > 0 else cat.Box.__str__(self)
+
+    def __repr__(self):
+        return closed.Box.__repr__(self)[:-1] + ', z={})'.format(self.z)
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return self._z == other._z and cat.Box.__eq__(self, other)
-        if isinstance(other, Diagram):
-            return len(other) == 1 and other.boxes[0] == self\
-                and (other.dom, other.cod) == (self.dom, self.cod)
-        return False
+            return cat.Box.__eq__(self, other) and self.z == other.z
+        return monoidal.Box.__eq__(self, other)
 
     def __hash__(self):
         return hash(repr(self))
 
     @property
-    def z(self):
-        return self._z
-
-    @property
     def l(self):
         return type(self)(
-            name=self.name, dom=self.dom.l, cod=self.cod.l,
-            data=self.data, _z=self._z - 1)
+            self.name, dom=self.cod.l, cod=self.dom.l,
+            data=self.data, is_dagger=self.is_dagger, z=self.z - 1)
 
     @property
     def r(self):
         return type(self)(
-            name=self.name, dom=self.dom.r, cod=self.cod.r,
-            data=self.data, _z=self._z + 1)
+            self.name, dom=self.cod.r, cod=self.dom.r,
+            data=self.data, is_dagger=self.is_dagger, z=self.z + 1)
 
 
 class Sum(monoidal.Sum, Box):
@@ -402,14 +389,14 @@ class Sum(monoidal.Sum, Box):
     @property
     def l(self) -> Sum:
         """ The left transpose of a sum, i.e. the sum of left transposes. """
-        return self.sum(
-            tuple(term.l for term in self.terms), self.dom.l, self.cod.l)
+        return self.sum_factory(
+            tuple(term.l for term in self.terms), self.cod.l, self.dom.l)
 
     @property
     def r(self) -> Sum:
         """ The right transpose of a sum, i.e. the sum of right transposes. """
-        return self.sum(
-            tuple(term.r for term in self.terms), self.dom.r, self.cod.r)
+        return self.sum_factory(
+            tuple(term.r for term in self.terms), self.cod.r, self.dom.r)
 
 
 class Cup(BinaryBoxConstructor, Box):
@@ -432,7 +419,7 @@ class Cup(BinaryBoxConstructor, Box):
     def __init__(self, left: Ty, right: Ty):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
-        if left.r != right and left != right.r:
+        if left.r != right:
             raise AxiomError(messages.are_not_adjoints(left, right))
         name = "Cup({}, {})".format(left, right)
         dom, cod = left @ right, self.ty_factory()
@@ -441,11 +428,11 @@ class Cup(BinaryBoxConstructor, Box):
 
     @property
     def l(self):
-        return Cup(self.right.l, self.left.l)
+        return Cap(self.right.l, self.left.l)
 
     @property
     def r(self):
-        return Cup(self.right.r, self.left.r)
+        return Cap(self.right.r, self.left.r)
 
     def dagger(self):
         """
@@ -487,11 +474,11 @@ class Cap(BinaryBoxConstructor, Box):
 
     @property
     def l(self):
-        return Cap(self.right.l, self.left.l)
+        return Cup(self.right.l, self.left.l)
 
     @property
     def r(self):
-        return Cap(self.right.r, self.left.r)
+        return Cup(self.right.r, self.left.r)
 
     def dagger(self):
         """
@@ -594,5 +581,5 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
 
 Id = Diagram.id
-Diagram.sum = Sum
+Diagram.sum_factory = Sum
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

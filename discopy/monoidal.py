@@ -149,7 +149,7 @@ class Ty(cat.Ob):
 
     def __repr__(self):
         return factory_name(type(self)) + "({})".format(
-            ', '.join(repr(x.name) for x in self.inside))
+            ', '.join(map(repr, self.inside)))
 
     def __str__(self):
         return ' @ '.join(map(str, self.inside)) or 'Ty()'
@@ -184,18 +184,6 @@ class Ty(cat.Ob):
     __add__ = __matmul__
 
     ob_factory = cat.Ob
-
-
-def types(names):
-    """ Transforms strings into instances of :class:`discopy.monoidal.Ty`.
-
-    Examples
-    --------
-    >>> x, y, z = types("x y z")
-    >>> x, y, z
-    (monoidal.Ty('x'), monoidal.Ty('y'), monoidal.Ty('z'))
-    """
-    return list(map(Ty, names.split()))
 
 
 @factory
@@ -454,11 +442,11 @@ class Diagram(cat.Arrow, Whiskerable):
         if others:
             return self.tensor(other).tensor(*others)
         if isinstance(other, Sum):
-            return self.sum([self]).tensor(other)
+            return self.sum_factory([self]).tensor(other)
         assert_isinstance(other, self.factory)
         assert_isinstance(self, other.factory)
         if isinstance(other, Sum):
-            self.sum.cast(self).tensor(other)
+            self.sum_factory.cast(self).tensor(other)
         inside = tuple(layer @ other.dom for layer in self.inside)\
             + tuple(self.cod @ layer for layer in other.inside)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
@@ -564,12 +552,13 @@ class Box(cat.Box, Diagram):
         return result
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
+        for attr in drawing.ATTRIBUTES:
+            value = params.pop(attr, None)
+            if value is not None:
+                setattr(self, attr, value)
         cat.Box.__init__(self, name, dom, cod, **params)
         inside = (self.layer_factory.cast(self), )
         Diagram.__init__(self, inside, dom, cod)
-        for attr, value in params.items():
-            if attr in drawing.ATTRIBUTES:
-                setattr(self, attr, value)
 
     def __eq__(self, other):
         return isinstance(other, Box) and cat.Box.__eq__(self, other)\
@@ -596,10 +585,10 @@ class Sum(cat.Sum, Box):
         if len(others) != 1:
             return super().tensor(*others)
         other, = others
-        other = other if isinstance(other, Sum) else self.sum((other, ))
+        other = other if isinstance(other, Sum) else self.sum_factory((other, ))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         terms = tuple(f.tensor(g) for f in self.terms for g in other.terms)
-        return self.sum(terms, dom, cod)
+        return self.sum_factory(terms, dom, cod)
 
     def draw(self, **params):
         """ Drawing a sum as an equation with :code:`symbol='+'`. """
@@ -648,7 +637,7 @@ class Bubble(cat.Bubble, Box):
         return _open >> left @ self.arg.drawing() @ right >> _close
 
 
-Diagram.sum = Sum
+Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 
 
@@ -705,7 +694,7 @@ class Functor(cat.Functor):
         if isinstance(other, cat.Ob):
             result = self.ob[self.dom.ob(other)]
             dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
-            if not isinstance(result, dtype) and dtype in (tuple, list):
+            if not isinstance(result, dtype) and dtype == tuple:
                 return (result, )  # Allows syntactic sugar {x: n}.
             return result
         if isinstance(other, Layer):

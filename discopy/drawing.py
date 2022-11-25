@@ -16,7 +16,7 @@ from matplotlib.patches import PathPatch
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
     "draw_as_braid": lambda _: False,
-    "draw_as_wires": lambda box: box.draw_as_braid,
+    "draw_as_wires": lambda _: False,
     "draw_as_spider": lambda _: False,
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
@@ -554,7 +554,7 @@ def draw(diagram, **params):
     """
     # from discopy.quantum.drawing import (
     #     draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
-    drawing_methods = []
+    drawing_methods = [(None, draw_box)]
     #     ("draw_as_brakets", draw_brakets),
     #     ("draw_as_controlled", draw_controlled_gate),
     #     ("draw_as_discards", draw_discard),
@@ -669,7 +669,7 @@ def draw_box(backend, positions, node, **params):
         'asymmetry', .25 * any(
             pos.kind == "box" and (
                 pos.box.is_dagger or (
-                    hasattr(pos.box, "_z") and pos.box._z != 0))
+                    hasattr(pos.box, "z") and pos.box.z != 0))
             for pos in positions.keys()))
     if not box.dom and not box.cod:
         left, right = positions[node][0], positions[node][0]
@@ -705,10 +705,7 @@ def draw_box(backend, positions, node, **params):
                  (right, height + .5), (left - asymmetry, height + .5)]
     }
 
-    is_dagger = 1 if box.is_dagger else 0
-    z = box._z if hasattr(box, '_z') else 0
-
-    points = points_dict[is_dagger, z % 2]
+    points = points_dict[int(box.is_dagger), getattr(box, 'z', 0) % 2]
     backend.draw_polygon(*points, color=box.color)
     if params.get('draw_box_labels', True):
         backend.draw_text(box.drawing_name, *positions[node],

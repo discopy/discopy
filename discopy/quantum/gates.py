@@ -7,10 +7,9 @@ import warnings
 import numpy
 
 from discopy.cat import AxiomError, rsubs
-from discopy.tensor import array2string, Dim, Tensor
+from discopy.tensor import array2string, Dim, Tensor, backend, get_backend
 from discopy.quantum.circuit import (
-    Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
-    AntiConjugate, RealConjugate, Anti2QubitConjugate)
+    Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
 
 
 def format_number(data):
@@ -19,6 +18,142 @@ def format_number(data):
         return '{:.3g}'.format(data)
     except TypeError:
         return data
+
+
+class AntiConjugate:
+    def conjugate(self):
+        return type(self)(-self.phase)
+
+    l = r = property(conjugate)
+
+
+class Anti2QubitConjugate:
+    def conjugate(self):
+        algebraic_conj = type(self)(-self.phase)
+        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
+
+    l = r = property(conjugate)
+
+
+class SelfConjugate:
+    """ A self-conjugate box. """
+    def conjugate(self):
+        return self
+
+    l = r = property(conjugate)
+
+
+class Discard(SelfConjugate, Box):
+    """ Discard n qubits. If :code:`dom == bit` then marginal distribution. """
+    def __init__(self, dom=1):
+        if isinstance(dom, int):
+            dom = qubit ** dom
+        super().__init__(
+            "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
+        self.draw_as_discards = True
+        self.n_qubits = len(dom)
+
+    def dagger(self):
+        return MixedState(self.dom)
+
+    def _decompose(self):
+        return Id().tensor(*[Discard()] * self.n_qubits)
+
+
+class MixedState(SelfConjugate, Box):
+    """
+    Maximally-mixed state on n qubits.
+    If :code:`cod == bit` then uniform distribution.
+    """
+    def __init__(self, cod=1):
+        if isinstance(cod, int):
+            cod = qubit ** cod
+        super().__init__(
+            "MixedState({})".format(cod), qubit ** 0, cod, is_mixed=True)
+        self.drawing_name = "MixedState"
+        if cod == bit:
+            self.drawing_name = ""
+            self.draw_as_spider, self.color = True, "black"
+
+    def dagger(self):
+        return Discard(self.cod)
+
+    def _decompose(self):
+        return Id().tensor(*[MixedState()] * len(self.cod))
+
+
+class Measure(SelfConjugate, Box):
+    """
+    Measure n qubits into n bits.
+
+    Parameters
+    ----------
+    n_qubits : int
+        Number of qubits to measure.
+    destructive : bool, optional
+        Whether to do a non-destructive measurement instead.
+    override_bits : bool, optional
+        Whether to override input bits, this is the standard behaviour of tket.
+    """
+    def __init__(self, n_qubits=1, destructive=True, override_bits=False):
+        dom, cod = qubit ** n_qubits, bit ** n_qubits
+        name = "Measure({})".format("" if n_qubits == 1 else n_qubits)
+        if not destructive:
+            cod = qubit ** n_qubits @ cod
+            name = name\
+                .replace("()", "(1)").replace(')', ", destructive=False)")
+        if override_bits:
+            dom = dom @ bit ** n_qubits
+            name = name\
+                .replace("()", "(1)").replace(')', ", override_bits=True)")
+        super().__init__(name, dom, cod, is_mixed=True)
+        self.destructive, self.override_bits = destructive, override_bits
+        self.n_qubits = n_qubits
+        self.draw_as_measures = True
+
+    def dagger(self):
+        return Encode(self.n_qubits,
+                      constructive=self.destructive,
+                      reset_bits=self.override_bits)
+
+    def _decompose(self):
+        return Id().tensor(*[
+            Measure(destructive=self.destructive,
+                    override_bits=self.override_bits)] * self.n_qubits)
+
+
+class Encode(SelfConjugate, Box):
+    """
+    Controlled preparation, i.e. encode n bits into n qubits.
+
+    Parameters
+    ----------
+    n_bits : int
+        Number of bits to encode.
+    constructive : bool, optional
+        Whether to do a classically-controlled correction instead.
+    reset_bits : bool, optional
+        Whether to reset the bits to the uniform distribution.
+    """
+    def __init__(self, n_bits=1, constructive=True, reset_bits=False):
+        dom, cod = bit ** n_bits, qubit ** n_bits
+        name = Measure(n_bits, constructive, reset_bits).name\
+            .replace("Measure", "Encode")\
+            .replace("destructive", "constructive")\
+            .replace("override_bits", "reset_bits")
+        super().__init__(name, dom, cod, is_mixed=True)
+        self.constructive, self.reset_bits = constructive, reset_bits
+        self.n_bits = n_bits
+
+    def dagger(self):
+        return Measure(self.n_bits,
+                       destructive=self.constructive,
+                       override_bits=self.reset_bits)
+
+    def _decompose(self):
+        return Id().tensor(*[
+            Encode(constructive=self.constructive,
+                   reset_bits=self.reset_bits)] * self.n_bits)
 
 
 class QuantumGate(Box):
@@ -136,7 +271,7 @@ class ClassicalGate(Box):
         return ClassicalGate(name, self.dom, self.cod, data)
 
 
-class Copy(RealConjugate, ClassicalGate):
+class Copy(SelfConjugate, ClassicalGate):
     """ Takes a bit, returns two copies of it. """
     def __init__(self):
         super().__init__("Copy", 1, 2, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -147,7 +282,7 @@ class Copy(RealConjugate, ClassicalGate):
         return Match()
 
 
-class Match(RealConjugate, ClassicalGate):
+class Match(SelfConjugate, ClassicalGate):
     """ Takes two bits in, returns them if they are equal. """
     def __init__(self):
         super().__init__("Match", 2, 1, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -225,7 +360,7 @@ class Bits(Digits):
         return Bits(*self.bitstring, _dagger=not self._dagger)
 
 
-class Ket(RealConjugate, Box):
+class Ket(SelfConjugate, Box):
     """
     Implements qubit preparation for a given bitstring.
 
@@ -256,7 +391,7 @@ class Ket(RealConjugate, Box):
     array = Bits.array
 
 
-class Bra(RealConjugate, Box):
+class Bra(SelfConjugate, Box):
     """
     Implements qubit post-selection for a given bitstring.
 
@@ -439,7 +574,7 @@ class Parametrized(Box):
             import sympy
             return sympy
         else:
-            return Tensor.np
+            return get_backend()
 
     def subs(self, *args):
         data = rsubs(self.data, *args)
@@ -503,7 +638,7 @@ class Rx(AntiConjugate, Rotation):
         return Tensor.np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
 
 
-class Ry(RealConjugate, Rotation):
+class Ry(SelfConjugate, Rotation):
     """ Y rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Ry", _conjugate=None)
@@ -655,15 +790,15 @@ def scalar(expr, is_mixed=False):
     return Scalar(expr, is_mixed=is_mixed)
 
 
-# SWAP = Swap(qubit, qubit)
-# H = QuantumGate(
-#     'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
-#     _dagger=None, _conjugate=None)
-# S = QuantumGate('S', 1, [1, 0, 0, 1j])
-# T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
-# X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
-# Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
-# Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
-# CX = Controlled(X)
-# CZ = Controlled(Z)
-# GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
+SWAP = Swap(qubit, qubit)
+H = QuantumGate(
+    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
+    _dagger=None, _conjugate=None)
+S = QuantumGate('S', 1, [1, 0, 0, 1j])
+T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
+X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
+Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
+Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
+CX = Controlled(X)
+CZ = Controlled(Z)
+GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]

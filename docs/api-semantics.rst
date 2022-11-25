@@ -1,5 +1,5 @@
-concrete
-========
+semantics
+=========
 
 .. autosummary::
     :template: module.rst

@@ -214,7 +214,6 @@ class Arrow(Composable):
             id
             then
             dagger
-            sum
             bubble
 
     Tip
@@ -302,7 +301,7 @@ class Arrow(Composable):
         return hash(repr(self))
 
     def __add__(self, other):
-        return self.sum((self, )) + other
+        return self.sum_factory((self, )) + other
 
     def __radd__(self, other):
         return self if other == 0 else NotImplemented
@@ -332,8 +331,8 @@ class Arrow(Composable):
             return self
         if others:
             return self.then(other).then(*others)
-        if isinstance(other, self.sum):
-            return self.sum((self, )).then(other)
+        if isinstance(other, self.sum_factory):
+            return self.sum_factory((self, )).then(other)
         assert_isinstance(other, self.factory)
         assert_isinstance(self, other.factory)
         if self.cod != other.dom:
@@ -448,7 +447,7 @@ class Box(Arrow):
         dom : The domain of the box, i.e. the input.
         cod : The codomain of the box, i.e. the output.
         data (any) : Extra data in the box, default is :code:`None`.
-        is_dagger (bool, optional) : Whether the box is dagger.
+        is_dagger : Whether the box is dagger.
 
     Example
     -------
@@ -457,9 +456,9 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
-    def __init__(self, name: str, dom: Ob, cod: Ob, data=None, **params):
-        self.name, self.data = name, data
-        self.is_dagger = params.get("is_dagger", False)
+    def __init__(
+            self, name: str, dom: Ob, cod: Ob, data=None, is_dagger=False):
+        self.name, self.data, self.is_dagger = name, data, is_dagger
         Arrow.__init__(self, (self, ), dom, cod, _scan=False)
 
     @cached_property
@@ -494,7 +493,7 @@ class Box(Arrow):
 
     def dagger(self) -> Box:
         return type(self)(
-            name=self.name, dom=self.cod, cod=self.dom,
+            self.name, self.cod, self.dom,
             data=self.data, is_dagger=not self.is_dagger)
 
     def __getitem__(self, key):
@@ -616,8 +615,8 @@ class Sum(Box):
     def __add__(self, other):
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
-        other = other if isinstance(other, Sum) else self.sum((other, ))
-        return self.sum(self.terms + other.terms, self.dom, self.cod)
+        other = other if isinstance(other, Sum) else self.sum_factory((other, ))
+        return self.sum_factory(self.terms + other.terms, self.dom, self.cod)
 
     def __iter__(self):
         for arrow in self.terms:
@@ -630,13 +629,13 @@ class Sum(Box):
         if len(others) != 1:
             return super().then(*others)
         other, = others
-        other = other if isinstance(other, Sum) else self.sum((other, ))
+        other = other if isinstance(other, Sum) else self.sum_factory((other, ))
         terms = tuple(f.then(g) for f in self.terms for g in other.terms)
-        return self.sum(terms, self.dom, other.cod)
+        return self.sum_factory(terms, self.dom, other.cod)
 
     def dagger(self):
         terms = tuple(f.dagger() for f in self.terms)
-        return self.sum(terms, self.cod, self.dom)
+        return self.sum_factory(terms, self.cod, self.dom)
 
     @property
     def free_symbols(self):
@@ -644,10 +643,10 @@ class Sum(Box):
 
     def subs(self, *args):
         terms = tuple(f.subs(*args) for f in self.terms)
-        return self.sum(terms, self.dom, self.cod)
+        return self.sum_factory(terms, self.dom, self.cod)
 
     def lambdify(self, *symbols, **kwargs):
-        return lambda *xs: self.sum(
+        return lambda *xs: self.sum_factory(
             tuple(box.lambdify(*symbols, **kwargs)(*xs) for box in self.terms),
             dom=self.dom, cod=self.cod)
 
@@ -711,7 +710,7 @@ class Bubble(Box):
         return cls(arg=arg, dom=dom, cod=cod)
 
 
-Arrow.sum = Sum
+Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 
 
@@ -794,7 +793,7 @@ class Functor:
 
     def __call__(self, other):
         if isinstance(other, Sum):
-            return self.cod.ar.sum(
+            return self.cod.ar.sum_factory(
                 tuple(map(self, other)), self(other.dom), self(other.cod))
         if isinstance(other, Bubble):
             return self(other.arg).bubble(
