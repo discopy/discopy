@@ -20,11 +20,27 @@ Summary
     Cap
     Category
     Functor
+
+Axioms
+------
+A pivotal category is a rigid category where left and right transpose coincide.
+
+>>> x, y = map(Ty, "xy")
+>>> assert x.r == x.l and x.l.l == x == x.r.r
+>>> f = Box('f', x, y)
+>>> assert f.r == f.l and f.l.l == f == f.r.r
+
+>>> from discopy import drawing
+>>> drawing.equation(f.transpose(left=True), f.transpose(left=False),
+...                  path="docs/imgs/pivotal/axiom.png")
+
+.. image:: /imgs/pivotal/axiom.png
+    :align: center
 """
 
 from __future__ import annotations
 
-from discopy import rigid
+from discopy import cat, monoidal, rigid
 from discopy.cat import factory
 
 
@@ -61,7 +77,44 @@ class Diagram(rigid.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    ty_factory = Ty
+    def dagger(self):
+        """
+        The dagger of a pivotal diagram is its vertical reflection.
+
+        Example
+        -------
+        >>> from discopy import drawing
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x @ y, z).curry()
+        >>> drawing.equation(f, f.dagger(), symbol="$\\mapsto$",
+        ...     path="docs/imgs/pivotal/dagger.png", asymmetry=.1)
+
+        .. image:: imgs/pivotal/dagger.png
+            :align: center
+        """
+        return cat.Arrow.dagger(self)
+
+    def conjugate(self):
+        """
+        The conjugate of a diagram is the dagger of its rotation.
+
+        Equivalently, it is the rotation of the dagger.
+
+        Example
+        -------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x @ y, z).curry()
+        >>> assert f[::-1].rotate() == f.rotate()[::-1]
+
+        >>> from discopy import drawing
+        >>> drawing.equation(f, f.conjugate(), symbol="$\\mapsto$",\\
+        ...     path="docs/imgs/pivotal/conjugate.png", asymmetry=.1)
+
+        .. image:: imgs/pivotal/conjugate.png
+            :align: center
+        """
+        return self.rotate().dagger()
 
 
 class Box(rigid.Box, Diagram):
@@ -75,10 +128,25 @@ class Box(rigid.Box, Diagram):
     """
     __ambiguous_inheritance__ = (rigid.Box, )
 
+    def rotate(self, left=False):
+        del left
+        return type(self)(
+            self.name, dom=self.cod.r, cod=self.dom.r,
+            data=self.data, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
+
+
     def dagger(self) -> Box:
         return type(self)(
             name=self.name, dom=self.cod, cod=self.dom,
             data=self.data, is_dagger=not self.is_dagger, z=self.z)
+
+    def drawing(self):
+        return monoidal.Box.drawing(self)
+
+    @property
+    def is_conjugate(self):
+        """ Whether the box is a conjugate, i.e. the transpose of a dagger. """
+        return self.is_dagger and bool(self.z)
 
 
 class Cup(rigid.Cup, Box):
@@ -93,7 +161,11 @@ class Cup(rigid.Cup, Box):
 
     def dagger(self) -> Cap:
         """ The dagger of a pivotal cup. """
-        return self.cap_factory(self.dom[0], self.dom[1])
+        return self.cap_factory(self.left, self.right)
+
+    def rotate(self, left=False):
+        del left
+        return self.cap_factory(self.right.r, self.left.r)
 
 
 class Cap(rigid.Cap, Box):
@@ -108,10 +180,11 @@ class Cap(rigid.Cap, Box):
 
     def dagger(self) -> Cup:
         """ The dagger of a pivotal cap. """
-        return self.cup_factory(self.cod[0], self.cod[1])
+        return self.cup_factory(self.left, self.right)
 
-
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+    def rotate(self, left=False):
+        del left
+        return self.cup_factory(self.right.r, self.left.r)
 
 
 class Category(rigid.Category):
@@ -136,3 +209,10 @@ class Functor(rigid.Functor):
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Category(Ty, Diagram)
+
+
+for cls in [Diagram, Box, Cup, Cap]:
+    cls.ty_factory = Ty
+
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Id = Diagram.id

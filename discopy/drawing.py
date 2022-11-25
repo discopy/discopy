@@ -668,8 +668,7 @@ def draw_box(backend, positions, node, **params):
     asymmetry = params.get(
         'asymmetry', .25 * any(
             pos.kind == "box" and (
-                pos.box.is_dagger or (
-                    hasattr(pos.box, "z") and pos.box.z != 0))
+                pos.box.is_dagger or getattr(pos.box, "is_conjugate", False))
             for pos in positions.keys()))
     if not box.dom and not box.cod:
         left, right = positions[node][0], positions[node][0]
@@ -693,19 +692,20 @@ def draw_box(backend, positions, node, **params):
     height = positions[node][1] - .25
     left, right = left - .25, right + .25
 
-    # dictionary key is (is_dagger, z % 2)
+    # dictionary key is (is_dagger, is_conjugate)
     points_dict = {
-        (1, 1): [(left - asymmetry, height), (right, height),
-                 (right, height + .5), (left, height + .5)],
-        (1, 0): [(left, height), (right + asymmetry, height),
-                 (right, height + .5), (left, height + .5)],
         (0, 0): [(left, height), (right, height),
                  (right + asymmetry, height + .5), (left, height + .5)],
-        (0, 1): [(left, height), (right, height),
-                 (right, height + .5), (left - asymmetry, height + .5)]
+        (1, 0): [(left, height), (right, height),
+                 (right, height + .5), (left - asymmetry, height + .5)],
+        (0, 1): [(left, height), (right + asymmetry, height),
+                 (right, height + .5), (left, height + .5)],
+        (1, 1): [(left - asymmetry, height), (right, height),
+                 (right, height + .5), (left, height + .5)],
     }
 
-    points = points_dict[int(box.is_dagger), getattr(box, 'z', 0) % 2]
+    points = points_dict[
+        tuple(map(int, [box.is_dagger, getattr(box, 'is_conjugate', False)]))]
     backend.draw_polygon(*points, color=box.color)
     if params.get('draw_box_labels', True):
         backend.draw_text(box.drawing_name, *positions[node],
@@ -940,9 +940,9 @@ class Equation:
     Spider... @ Spider... = Spider... >> Spider... = Id... @ Spider...
     >>> equation(special, frobenius, symbol=', ',
     ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
-    ...          path='docs/_static/imgs/drawing/frobenius-axioms.png')
+    ...          path='docs/imgs/drawing/frobenius-axioms.png')
 
-    .. image:: ../_static/imgs/drawing/frobenius-axioms.png
+    .. image:: /imgs/drawing/frobenius-axioms.png
         :align: center
     """
     def __init__(self, *terms, symbol='='):
@@ -988,9 +988,9 @@ def diagramize(dom, cod, boxes, factory=None):
     ...     cup(left, middle)
     ...     return right
     >>> snake.draw(
-    ...     figsize=(3, 3), path='docs/_static/imgs/drawing/diagramize.png')
+    ...     figsize=(3, 3), path='docs/imgs/drawing/diagramize.png')
 
-    .. image:: ../_static/imgs/drawing/diagramize.png
+    .. image:: /imgs/drawing/diagramize.png
         :align: center
     """
     if factory is None and not boxes:

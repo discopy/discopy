@@ -45,9 +45,9 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/_static/imgs/quantum/circuit-example.png')
+...     path='docs/imgs/quantum/circuit-example.png')
 
-.. image:: ../_static/imgs/quantum/circuit-example.png
+.. image:: /imgs/quantum/circuit-example.png
     :align: center
 
 
@@ -69,9 +69,9 @@ Examples
 >>> drawing.equation(
 ...     sentence, F(sentence), symbol='$\\\\mapsto$',
 ...     figsize=(6, 3), nodesize=.5,
-...     path='docs/_static/imgs/quantum/functor-example.png')
+...     path='docs/imgs/quantum/functor-example.png')
 
-.. image:: ../_static/imgs/quantum/functor-example.png
+.. image:: /imgs/quantum/functor-example.png
     :align: center
 """
 

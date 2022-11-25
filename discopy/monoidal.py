@@ -47,7 +47,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-.. image:: ../_static/imgs/EckmannHilton.gif
+.. image:: /imgs/EckmannHilton.gif
     :align: center
 """
 
@@ -369,9 +369,9 @@ class Encoding:
     ...     == ((f0, 0), (f1, 1), (g, 0))
     >>> assert diagram == Diagram.decode(diagram.encode())
     >>> diagram.draw(figsize=(2, 2),
-    ...        path='docs/_static/imgs/monoidal/arrow-example.png')
+    ...        path='docs/imgs/monoidal/arrow-example.png')
 
-    .. image:: ../_static/imgs/monoidal/arrow-example.png
+    .. image:: /imgs/monoidal/arrow-example.png
         :align: center
     """
     dom: Ty
@@ -432,9 +432,9 @@ class Diagram(cat.Arrow, Whiskerable):
 
         >>> (f0 @ f1).draw(
         ...     figsize=(2, 2),
-        ...     path='docs/_static/imgs/monoidal/tensor-example.png')
+        ...     path='docs/imgs/monoidal/tensor-example.png')
 
-        .. image:: ../_static/imgs/monoidal/tensor-example.png
+        .. image:: /imgs/monoidal/tensor-example.png
             :align: center
         """
         if other is None:
@@ -611,9 +611,9 @@ class Bubble(cat.Bubble, Box):
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
-    >>> d.draw(path='docs/_static/imgs/monoidal/bubble-example.png')
+    >>> d.draw(path='docs/imgs/monoidal/bubble-example.png')
 
-    .. image:: ../_static/imgs/monoidal/bubble-example.png
+    .. image:: /imgs/monoidal/bubble-example.png
         :align: center
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
@@ -680,9 +680,9 @@ class Functor(cat.Functor):
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
     >>> drawing.equation(
     ...     source, target, symbol='$\\\\mapsto$', figsize=(4, 2),
-    ...     path='docs/_static/imgs/monoidal/functor-example.png')
+    ...     path='docs/imgs/monoidal/functor-example.png')
 
-    .. image:: ../_static/imgs/monoidal/functor-example.png
+    .. image:: /imgs/monoidal/functor-example.png
         :align: center
     """
     __ambiguous_inheritance__ = True

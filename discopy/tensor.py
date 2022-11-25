@@ -663,9 +663,9 @@ class Spider(frobenius.Spider, Box):
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
     >>> from discopy import drawing
     >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
-    ... path='docs/_static/imgs/tensor/frobenius-example.png')
+    ... path='docs/imgs/tensor/frobenius-example.png')
 
-    .. image:: ../_static/imgs/tensor/frobenius-example.png
+    .. image:: /imgs/tensor/frobenius-example.png
         :align: center
     """
     __ambiguous_inheritance__ = (frobenius.Spider, )
@@ -709,9 +709,9 @@ class Bubble(monoidal.Bubble, Box):
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval()
     >>> men_are_mortal.draw(draw_type_labels=False,
-    ...                     path='docs/_static/imgs/tensor/men-are-mortal.png')
+    ...                     path='docs/imgs/tensor/men-are-mortal.png')
 
-    .. image:: ../_static/imgs/tensor/men-are-mortal.png
+    .. image:: /imgs/tensor/men-are-mortal.png
         :align: center
 
     >>> from sympy.abc import x
@@ -726,9 +726,9 @@ class Bubble(monoidal.Bubble, Box):
     >>> assert lhs.eval() == rhs.eval()
     >>> from discopy import drawing
     >>> drawing.equation(lhs, rhs, figsize=(5, 2), draw_type_labels=False,
-    ...                  path='docs/_static/imgs/tensor/product-rule.png')
+    ...                  path='docs/imgs/tensor/product-rule.png')
 
-    .. image:: ../_static/imgs/tensor/product-rule.png
+    .. image:: /imgs/tensor/product-rule.png
         :align: center
     """
     __ambiguous_inheritance__ = (monoidal.Bubble, )
@@ -747,9 +747,9 @@ class Bubble(monoidal.Bubble, Box):
         >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
         >>> drawing.equation(lhs, rhs, draw_type_labels=False,
-        ...                  path='docs/_static/imgs/tensor/chain-rule.png')
+        ...                  path='docs/imgs/tensor/chain-rule.png')
 
-        .. image:: ../_static/imgs/tensor/chain-rule.png
+        .. image:: /imgs/tensor/chain-rule.png
             :align: center
         """
         from sympy import Symbol

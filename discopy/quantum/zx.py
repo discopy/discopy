@@ -293,9 +293,9 @@ class Spider(Box):
         >>> orig = Z(4, 3, 0.5)
         >>> decomp = Z.make_spiders(4, 3, 0.5)
         >>> equation(orig, decomp, symbol='->',
-        ...     path='docs/_static/imgs/spider-decomp.png')
+        ...     path='docs/imgs/spider-decomp.png')
 
-        .. image:: ../_static/imgs/spider-decomp.png
+        .. image:: /imgs/spider-decomp.png
             :align: center
 
         """

@@ -26,9 +26,9 @@ Example
 >>> from discopy import drawing
 >>> drawing.equation(Z(2, 1), zx2path(Z(2, 1)), symbol='->',
 ...                  draw_type_labels=False, figsize=(6, 4),
-...                  path='docs/_static/imgs/optics-fusion.png')
+...                  path='docs/imgs/optics-fusion.png')
 
-.. image:: ../_static/imgs/optics-fusion.png
+.. image:: /imgs/optics-fusion.png
     :align: center
 """
 

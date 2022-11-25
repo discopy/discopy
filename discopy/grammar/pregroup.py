@@ -16,9 +16,9 @@ Implements pregroup grammars and distributional compositional models.
 >>> assert F(sentence) == True
 
 >>> draw(sentence, figsize=(4, 2),\\
-...      path='docs/_static/imgs/grammar/pregroup-example.png')
+...      path='docs/imgs/grammar/pregroup-example.png')
 
-.. image:: ../_static/imgs/grammar/pregroup-example.png
+.. image:: /imgs/grammar/pregroup-example.png
     :align: center
 """
 

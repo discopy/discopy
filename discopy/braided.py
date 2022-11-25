@@ -36,9 +36,9 @@ Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
 >>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
 >>> from discopy import drawing
 >>> drawing.equation(LHS, Id(x @ y), RHS,
-...     path='docs/_static/imgs/braided/inverse.png', figsize=(5, 2))
+...     path='docs/imgs/braided/inverse.png', figsize=(5, 2))
 
-.. image:: ../_static/imgs/braided/inverse.png
+.. image:: /imgs/braided/inverse.png
     :align: center
 
 The hexagon equations hold on the nose.
@@ -48,9 +48,9 @@ The hexagon equations hold on the nose.
 >>> right_hexagon = x @ Braid(y, z) >> Braid(x, z) @ y
 >>> assert right_hexagon == Diagram.braid(x @ y, z)
 >>> drawing.equation(left_hexagon, right_hexagon, symbol='', space=2,
-...     path='docs/_static/imgs/braided/hexagons.png', figsize=(5, 2))
+...     path='docs/imgs/braided/hexagons.png', figsize=(5, 2))
 
-.. image:: ../_static/imgs/braided/hexagons.png
+.. image:: /imgs/braided/hexagons.png
     :align: center
 """
 

@@ -33,9 +33,9 @@ Axioms
 >>> from discopy import drawing
 >>> drawing.equation(
 ...     left_snake, Id(n), right_snake, figsize=(4, 2),
-...     path='docs/_static/imgs/rigid/snake-equation.png')
+...     path='docs/imgs/rigid/snake-equation.png')
 
-.. image:: ../_static/imgs/rigid/snake-equation.png
+.. image:: /imgs/rigid/snake-equation.png
     :align: center
 """
 
@@ -168,16 +168,15 @@ class Diagram(closed.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
 
-
     Example
     -------
     >>> I, n, s = Ty(), Ty('n'), Ty('s')
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
     >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
-    ...        path='docs/_static/imgs/rigid/diagram-example.png')
+    ...        path='docs/imgs/rigid/diagram-example.png')
 
-    .. image:: ../_static/imgs/rigid/diagram-example.png
+    .. image:: /imgs/rigid/diagram-example.png
         :align: center
     """
     __ambiguous_inheritance__ = True
@@ -215,9 +214,9 @@ class Diagram(closed.Diagram):
         ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
 
         >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/imgs/rigid/cups.png')
+        ... margins=(0.3, 0.05), path='docs/imgs/rigid/cups.png')
 
-        .. image:: ../_static/imgs/rigid/cups.png
+        .. image:: /imgs/rigid/cups.png
             :align: center
         """
         return nesting(cls, cls.cup_factory)(left, right)
@@ -279,16 +278,15 @@ class Diagram(closed.Diagram):
         Example
         -------
         >>> from discopy import drawing
-        >>> n, s = map(Ty, 'ns')
-        >>> Bob = Box('Bob', Ty(), n)
-        >>> eats = Box('eats', Ty(), n.r @ s)
-        >>> diagram = Bob @ eats >> Cup(n, n.r) @ s
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', Ty(), x)
+        >>> g = Box('g', Ty(), x.r @ y)
+        >>> diagram = f @ g >> Cup(x, x.r) @ y
         >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\mapsfrom$")
         >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\mapsto$")
-        >>> RHS.draw(
-        ...     figsize=(10, 4), path='docs/_static/imgs/rigid/rotate.png')
+        >>> RHS.draw(figsize=(8, 3), path='docs/imgs/rigid/rotate.png')
 
-        .. image:: ../_static/imgs/rigid/rotate.png
+        .. image:: /imgs/rigid/rotate.png
             :align: center
         """
         dom, cod = (
@@ -435,9 +433,9 @@ class Cup(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/imgs/rigid/cup.png')
+    ... path='docs/imgs/rigid/cup.png')
 
-    .. image:: ../_static/imgs/rigid/cup.png
+    .. image:: /imgs/rigid/cup.png
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -452,11 +450,11 @@ class Cup(BinaryBoxConstructor, Box):
 
     @property
     def l(self):
-        return Cap(self.right.l, self.left.l)
+        return self.cap_factory(self.right.l, self.left.l)
 
     @property
     def r(self):
-        return Cap(self.right.r, self.left.r)
+        return self.cap_factory(self.right.r, self.left.r)
 
     drawing = monoidal.Box.drawing
 
@@ -473,9 +471,9 @@ class Cap(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/imgs/rigid/cap.png')
+    ... path='docs/imgs/rigid/cap.png')
 
-    .. image:: ../_static/imgs/rigid/cap.png
+    .. image:: /imgs/rigid/cap.png
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -490,21 +488,11 @@ class Cap(BinaryBoxConstructor, Box):
 
     @property
     def l(self):
-        return Cup(self.right.l, self.left.l)
+        return self.cup_factory(self.right.l, self.left.l)
 
     @property
     def r(self):
-        return Cup(self.right.r, self.left.r)
-
-    def dagger(self):
-        """
-        The dagger of a rigid cap is ill-defined.
-
-        See also
-        --------
-        Use a :class:`pivotal.Cap` instead.
-        """
-        raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
+        return self.cup_factory(self.right.r, self.left.r)
 
     drawing = monoidal.Box.drawing
 
@@ -546,9 +534,9 @@ class Functor(closed.Functor):
     >>> from discopy import drawing
     >>> drawing.equation(
     ...     sentence, F(sentence), symbol='$\\\\mapsto$', figsize=(5, 2),
-    ...     path='docs/_static/imgs/rigid/functor-example.png')
+    ...     path='docs/imgs/rigid/functor-example.png')
 
-    .. image:: ../_static/imgs/rigid/functor-example.png
+    .. image:: /imgs/rigid/functor-example.png
         :align: center
     """
     dom = cod = Category(Ty, Diagram)

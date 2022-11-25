@@ -177,16 +177,16 @@ def foliate(self, yield_slices=False):
     f0[::-1] @ Id(y @ y) >> Id(x @ y) @ f1
 
     >>> d.draw(figsize=(4, 2),
-    ...        path='docs/_static/imgs/monoidal/foliate-example-1a.png')
+    ...        path='docs/imgs/monoidal/foliate-example-1a.png')
 
-    .. image:: ../_static/imgs/monoidal/foliate-example-1a.png
+    .. image:: /imgs/monoidal/foliate-example-1a.png
         :align: center
 
     >>> drawing.equation(
     ...     *slices, symbol=', ', figsize=(4, 2),
-    ...     path='docs/_static/imgs/monoidal/foliate-example-1b.png')
+    ...     path='docs/imgs/monoidal/foliate-example-1b.png')
 
-    .. image:: ../_static/imgs/monoidal/foliate-example-1b.png
+    .. image:: /imgs/monoidal/foliate-example-1b.png
         :align: center
 
     >>> ket = Box('ket', Ty(), x)
@@ -196,9 +196,9 @@ def foliate(self, yield_slices=False):
     >>> assert next(a) == kets
 
     >>> kets.draw(figsize=(2, 2),
-    ...           path='docs/_static/imgs/monoidal/foliate-example-2.png')
+    ...           path='docs/imgs/monoidal/foliate-example-2.png')
 
-    .. image:: ../_static/imgs/monoidal/foliate-example-2.png
+    .. image:: /imgs/monoidal/foliate-example-2.png
         :align: center
 
     """

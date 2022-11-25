@@ -32,22 +32,22 @@ Axioms
 
 >>> from discopy import drawing
 >>> drawing.equation(f.uncurry().curry(), f,
-...     path='docs/_static/imgs/closed/curry-left.png', margins=(0.1, 0.05))
+...     path='docs/imgs/closed/curry-left.png', margins=(0.1, 0.05))
 
-.. image:: ../_static/imgs/closed/curry-left.png
+.. image:: /imgs/closed/curry-left.png
     :align: center
 
 >>> drawing.equation(h.uncurry(left=False).curry(left=False), h,
-...     path='docs/_static/imgs/closed/curry-right.png', margins=(0.1, 0.05))
+...     path='docs/imgs/closed/curry-right.png', margins=(0.1, 0.05))
 
-.. image:: ../_static/imgs/closed/curry-right.png
+.. image:: /imgs/closed/curry-right.png
     :align: center
 
 >>> drawing.equation(
 ...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False),
-...     path='docs/_static/imgs/closed/uncurry.png')
+...     path='docs/imgs/closed/uncurry.png')
 
-.. image:: ../_static/imgs/closed/uncurry.png
+.. image:: /imgs/closed/uncurry.png
     :align: center
 """
 
