@@ -89,7 +89,7 @@ class Diagram(rigid.Diagram):
         >>> drawing.equation(f, f.dagger(), symbol="$\\mapsto$",
         ...     path="docs/imgs/pivotal/dagger.png", asymmetry=.1)
 
-        .. image:: imgs/pivotal/dagger.png
+        .. image:: /imgs/pivotal/dagger.png
             :align: center
         """
         return cat.Arrow.dagger(self)
@@ -111,7 +111,7 @@ class Diagram(rigid.Diagram):
         >>> drawing.equation(f, f.conjugate(), symbol="$\\mapsto$",\\
         ...     path="docs/imgs/pivotal/conjugate.png", asymmetry=.1)
 
-        .. image:: imgs/pivotal/conjugate.png
+        .. image:: /imgs/pivotal/conjugate.png
             :align: center
         """
         return self.rotate().dagger()
