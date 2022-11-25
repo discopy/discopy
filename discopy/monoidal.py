@@ -545,7 +545,8 @@ class Box(cat.Box, Diagram):
     __ambiguous_inheritance__ = (cat.Box, )
 
     def drawing(self) -> Box:
-        result = Box(self.name, self.dom.drawing(), self.cod.drawing())
+        dom, cod = self.dom.drawing(), self.cod.drawing()
+        result = Box(self.name, dom, cod, is_dagger=self.is_dagger)
         for attr, value in self.__dict__.items():
             if attr in drawing.ATTRIBUTES:
                 setattr(result, attr, value)

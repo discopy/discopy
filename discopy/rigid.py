@@ -182,6 +182,16 @@ class Diagram(closed.Diagram):
     """
     __ambiguous_inheritance__ = True
 
+    def dagger(self):
+        """
+        The dagger of a rigid diagram is ill-defined.
+
+        See also
+        --------
+        Use a :class:`pivotal.Cup` instead.
+        """
+        raise AxiomError("Rigid diagrams have no dagger, use pivotal instead.")
+
     over = staticmethod(lambda base, exponent: base << exponent)
     under = staticmethod(lambda base, exponent: exponent >> base)
 
@@ -262,19 +272,35 @@ class Diagram(closed.Diagram):
         base, exponent = self.dom[offset:], self.dom[:offset]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
-    @property
-    def l(self):
-        """ The half-turn rotation of a diagram to the left. """
-        inside = tuple(self.layer_factory(right.l, box.l, left.l)
-                       for left, box, right in self.inside[::-1])
-        return self.factory(inside, self.cod.l, self.dom.l)
+    def rotate(self, left=False):
+        """
+        The half-turn rotation of a diagram, called with ``.l`` and ``.r``.
 
-    @property
-    def r(self):
-        """ The half-turn rotation of a diagram to the right. """
-        inside = tuple(self.layer_factory(right.r, box.r, left.r)
-                       for left, box, right in self.inside[::-1])
-        return self.factory(inside, self.cod.r, self.dom.r)
+        Example
+        -------
+        >>> from discopy import drawing
+        >>> n, s = map(Ty, 'ns')
+        >>> Bob = Box('Bob', Ty(), n)
+        >>> eats = Box('eats', Ty(), n.r @ s)
+        >>> diagram = Bob @ eats >> Cup(n, n.r) @ s
+        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\mapsfrom$")
+        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\mapsto$")
+        >>> RHS.draw(
+        ...     figsize=(10, 4), path='docs/_static/imgs/rigid/rotate.png')
+
+        .. image:: ../_static/imgs/rigid/rotate.png
+            :align: center
+        """
+        dom, cod = (
+            getattr(x, 'l' if left else 'r') for x in (self.cod, self.dom))
+        inside = tuple(
+            self.layer_factory(right.l, box.l, _left.l) if left
+            else self.layer_factory(right.r, box.r, _left.r)
+            for _left, box, right in self.inside[::-1])
+        return self.factory(inside, dom, cod)
+
+    l = property(lambda self: self.rotate(left=True))
+    r = property(lambda self: self.rotate(left=False))
 
     def transpose(self, left=False):
         """
@@ -362,17 +388,15 @@ class Box(closed.Box, Diagram):
     def __hash__(self):
         return hash(repr(self))
 
-    @property
-    def l(self):
+    def rotate(self, left=False):
+        dom, cod = (
+            getattr(x, 'l' if left else 'r') for x in (self.cod, self.dom))
+        z = self.z + (-1 if left else 1)
         return type(self)(
-            self.name, dom=self.cod.l, cod=self.dom.l,
-            data=self.data, is_dagger=self.is_dagger, z=self.z - 1)
+            self.name, dom, cod, data=self.data, is_dagger=self.is_dagger, z=z)
 
-    @property
-    def r(self):
-        return type(self)(
-            self.name, dom=self.cod.r, cod=self.dom.r,
-            data=self.data, is_dagger=self.is_dagger, z=self.z + 1)
+    def drawing(self):
+        return monoidal.Box.drawing(Box(str(self), self.dom, self.cod))
 
 
 class Sum(monoidal.Sum, Box):
@@ -434,15 +458,7 @@ class Cup(BinaryBoxConstructor, Box):
     def r(self):
         return Cap(self.right.r, self.left.r)
 
-    def dagger(self):
-        """
-        The dagger of a rigid cup is ill-defined.
-
-        See also
-        --------
-        Use a :class:`pivotal.Cup` instead.
-        """
-        raise AxiomError("Rigid cups have no dagger, use pivotal instead.")
+    drawing = monoidal.Box.drawing
 
 
 class Cap(BinaryBoxConstructor, Box):
@@ -489,6 +505,8 @@ class Cap(BinaryBoxConstructor, Box):
         Use a :class:`pivotal.Cap` instead.
         """
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
+
+    drawing = monoidal.Box.drawing
 
 
 class Category(closed.Category):

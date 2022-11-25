@@ -96,10 +96,10 @@ def test_Cap_init():
 
 def test_Cup_Cap_adjoint():
     n = Ty('n')
-    assert Cap(n, n.l).l == Cap(n.l.l, n.l)
-    assert Cap(n, n.l).r == Cap(n, n.r)
-    assert Cup(n, n.r).l == Cup(n, n.l)
-    assert Cup(n, n.r).r == Cup(n.r.r, n.r)
+    assert Cap(n, n.l).l == Cup(n.l.l, n.l)
+    assert Cap(n, n.l).r == Cup(n, n.r)
+    assert Cup(n, n.r).l == Cap(n, n.l)
+    assert Cup(n, n.r).r == Cap(n.r.r, n.r)
 
 
 def test_AxiomError():
@@ -116,14 +116,6 @@ def test_AxiomError():
     with raises(AxiomError) as err:
         Cap(n, n.l.l)
     assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
-
-
-def test_adjoint():
-    n, s = map(Ty, 'ns')
-    Bob = Box('Bob', Ty(), n)
-    eats = Box('eats', Ty(), n.r @ s)
-    diagram = Bob @ eats >> Cup(n, n.r) @ s
-    assert diagram.transpose(left=True).normal_form() == diagram.l
 
 
 def test_id_adjoint():
