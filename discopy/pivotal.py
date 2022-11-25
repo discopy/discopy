@@ -25,16 +25,31 @@ Axioms
 ------
 A pivotal category is a rigid category where left and right transpose coincide.
 
->>> x, y = map(Ty, "xy")
+>>> x, y, z = map(Ty, "xyz")
 >>> assert x.r == x.l and x.l.l == x == x.r.r
->>> f = Box('f', x, y)
->>> assert f.r == f.l and f.l.l == f == f.r.r
+>>> f = Box('f', x, y @ z)
 
 >>> from discopy import drawing
 >>> drawing.equation(f.transpose(left=True), f.transpose(left=False),
 ...                  figsize=(6, 3), path="docs/imgs/pivotal/axiom.png")
 
 .. image:: /imgs/pivotal/axiom.png
+    :align: center
+
+For each box, we have its conjugate:
+
+>>> drawing.equation(f, f.conjugate(), symbol="", figsize=(4, 2),
+...                  path="docs/imgs/pivotal/box-conjugate.png")
+
+.. image:: /imgs/pivotal/box-conjugate.png
+    :align: center
+
+We also have its dagger and its transpose:
+
+>>> drawing.equation(f.dagger(), f.rotate(), symbol="", figsize=(4, 2),
+...                  path="docs/imgs/pivotal/dagger-transpose.png")
+
+.. image:: /imgs/pivotal/dagger-transpose.png
     :align: center
 """
 
@@ -111,13 +126,16 @@ class Diagram(rigid.Diagram):
         >>> from discopy import drawing
         >>> drawing.equation(
         ...     f, f.conjugate(),
-        ...     symbol="$\\mapsto$", figsize=(6, 3), asymmetry=.1,
+        ...     symbol="$\\mapsto$", figsize=(6, 3),
         ...     path="docs/imgs/pivotal/conjugate.png")
 
         .. image:: /imgs/pivotal/conjugate.png
             :align: center
         """
         return self.rotate().dagger()
+
+    def draw(self, asymmetry=.25, **params):
+        return super().draw(**dict(dict(asymmetry=asymmetry), **params))
 
 
 class Box(rigid.Box, Diagram):
