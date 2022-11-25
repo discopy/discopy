@@ -693,19 +693,18 @@ def draw_box(backend, positions, node, **params):
     left, right = left - .25, right + .25
 
     # dictionary key is (is_dagger, is_conjugate)
-    points_dict = {
-        (0, 0): [(left, height), (right, height),
-                 (right + asymmetry, height + .5), (left, height + .5)],
-        (1, 0): [(left, height), (right, height),
-                 (right, height + .5), (left - asymmetry, height + .5)],
-        (0, 1): [(left, height), (right + asymmetry, height),
-                 (right, height + .5), (left, height + .5)],
-        (1, 1): [(left - asymmetry, height), (right, height),
-                 (right, height + .5), (left, height + .5)],
-    }
-
-    points = points_dict[
-        tuple(map(int, [box.is_dagger, getattr(box, 'is_conjugate', False)]))]
+    points = [[left, height], [right, height],
+              [right, height + .5], [left, height + .5]]
+    box.is_conjugate = getattr(box, "is_conjugate", False)
+    box.is_transpose = getattr(box, "is_transpose", False)
+    if box.is_transpose:
+        points[0][0] -= asymmetry
+    elif box.is_conjugate:
+        points[3][0] -= asymmetry
+    elif box.is_dagger:
+        points[1][0] += asymmetry
+    else:
+        points[2][0] += asymmetry
     backend.draw_polygon(*points, color=box.color)
     if params.get('draw_box_labels', True):
         backend.draw_text(box.drawing_name, *positions[node],

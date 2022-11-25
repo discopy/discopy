@@ -376,6 +376,8 @@ class Box(closed.Box, Diagram):
             else str(self.l) + '.r' if self.z > 0 else cat.Box.__str__(self)
 
     def __repr__(self):
+        if self.is_dagger:
+            return closed.Box.__repr__(self)
         return closed.Box.__repr__(self)[:-1] + ', z={})'.format(self.z)
 
     def __eq__(self, other):

@@ -32,7 +32,7 @@ A pivotal category is a rigid category where left and right transpose coincide.
 
 >>> from discopy import drawing
 >>> drawing.equation(f.transpose(left=True), f.transpose(left=False),
-...                  path="docs/imgs/pivotal/axiom.png")
+...                  figsize=(6, 3), path="docs/imgs/pivotal/axiom.png")
 
 .. image:: /imgs/pivotal/axiom.png
     :align: center
@@ -86,8 +86,9 @@ class Diagram(rigid.Diagram):
         >>> from discopy import drawing
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x @ y, z).curry()
-        >>> drawing.equation(f, f.dagger(), symbol="$\\mapsto$",
-        ...     path="docs/imgs/pivotal/dagger.png", asymmetry=.1)
+        >>> drawing.equation(f, f.dagger(),
+        ...     symbol="$\\mapsto$", figsize=(6, 3), asymmetry=.1,
+        ...     path="docs/imgs/pivotal/dagger.png")
 
         .. image:: /imgs/pivotal/dagger.png
             :align: center
@@ -108,8 +109,10 @@ class Diagram(rigid.Diagram):
         >>> assert f[::-1].rotate() == f.rotate()[::-1]
 
         >>> from discopy import drawing
-        >>> drawing.equation(f, f.conjugate(), symbol="$\\mapsto$",\\
-        ...     path="docs/imgs/pivotal/conjugate.png", asymmetry=.1)
+        >>> drawing.equation(
+        ...     f, f.conjugate(),
+        ...     symbol="$\\mapsto$", figsize=(6, 3), asymmetry=.1,
+        ...     path="docs/imgs/pivotal/conjugate.png")
 
         .. image:: /imgs/pivotal/conjugate.png
             :align: center
@@ -141,7 +144,15 @@ class Box(rigid.Box, Diagram):
             data=self.data, is_dagger=not self.is_dagger, z=self.z)
 
     def drawing(self):
-        return monoidal.Box.drawing(self)
+        result = monoidal.Box.drawing(self)
+        result.is_conjugate = self.is_conjugate
+        result.is_transpose = self.is_transpose
+        return result
+
+    @property
+    def is_transpose(self):
+        """ Whether the box is the transpose of a generator. """
+        return not self.is_dagger and bool(self.z)
 
     @property
     def is_conjugate(self):
