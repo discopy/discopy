@@ -183,11 +183,8 @@ class Diagram(closed.Diagram):
 
     def dagger(self):
         """
-        The dagger of a rigid diagram is ill-defined.
-
-        See also
-        --------
-        Use a :class:`pivotal.Cup` instead.
+        The dagger of a rigid diagram is ill-defined,
+        use a :class:`pivotal.Diagram` instead.
         """
         raise AxiomError("Rigid diagrams have no dagger, use pivotal instead.")
 
@@ -208,12 +205,10 @@ class Diagram(closed.Diagram):
             left : The type left of the cup.
             right : Its right adjoint.
 
+        Example
+        -------
         >>> a, b = Ty('a'), Ty('b')
-        >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
-        >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
-        ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
-
-        >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
+        >>> Diagram.cups(a.l @ b, b.r @ a).draw(figsize=(3, 1),\\
         ... margins=(0.3, 0.05), path='docs/imgs/rigid/cups.png')
 
         .. image:: /imgs/rigid/cups.png
@@ -230,10 +225,14 @@ class Diagram(closed.Diagram):
             left : The type left of the cap.
             right : Its left adjoint.
 
+        Example
+        -------
         >>> a, b = Ty('a'), Ty('b')
-        >>> assert Diagram.caps(a, a.l) == Cap(a, a.l)
-        >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
-        ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
+        >>> Diagram.caps(a.r @ b, b.l @ a).draw(figsize=(3, 1),\\
+        ... margins=(0.3, 0.05), path='docs/imgs/rigid/caps.png')
+
+        .. image:: /imgs/rigid/caps.png
+            :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
 
@@ -282,8 +281,8 @@ class Diagram(closed.Diagram):
         >>> f = Box('f', Ty(), x)
         >>> g = Box('g', Ty(), x.r @ y)
         >>> diagram = f @ g >> Cup(x, x.r) @ y
-        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\mapsfrom$")
-        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\mapsto$")
+        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
+        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
         >>> RHS.draw(figsize=(8, 3), path='docs/imgs/rigid/rotate.png')
 
         .. image:: /imgs/rigid/rotate.png
@@ -304,6 +303,62 @@ class Diagram(closed.Diagram):
         """
         The transpose of a diagram, i.e. its composition with cups and caps.
 
+        Parameters:
+            left : Whether to transpose left or right.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y)
+        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
+        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
+        >>> RHS.draw(figsize=(8, 3), path="docs/imgs/rigid/transpose.png")
+
+        .. image:: /imgs/rigid/transpose.png
+        """
+        if left:
+            return self.cod.l @ self.caps(self.dom, self.dom.l)\
+                >> self.cod.l @ self @ self.dom.l\
+                >> self.cups(self.cod.l, self.cod) @ self.dom.l
+        return self.caps(self.dom.r, self.dom) @ self.cod.r\
+            >> self.dom.r @ self @ self.cod.r\
+            >> self.dom.r @ self.cups(self.cod, self.cod.r)
+
+    def transpose_box(self, i, left=False):
+        """
+        Transpose the box at index ``i``.
+
+        Parameters:
+            i : The index of the box to transpose.
+            left : Whether to transpose left or right.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> d = f >> g
+        >>> transpose_l = d.transpose_box(0, left=True)
+        >>> transpose_r = d.transpose_box(0, left=False)
+        >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
+        >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
+        >>> RHS.draw(figsize=(8, 3), path="docs/imgs/rigid/transpose_box.png")
+
+        .. image:: /imgs/rigid/transpose_box.png
+        """
+        _left, box, right = self.inside[i]
+        transposed_box = (box.r if left else box.l).transpose(left)
+        return self[:i] >> _left @ transposed_box @ right >> self[i + 1:]
+
+    def draw(self, asymmetry=.25, **params):
+        return super().draw(**dict(dict(asymmetry=asymmetry), **params))
+
+    def normal_form(self, normalizer=None, **params):
+        """
+        Implements the normalisation of rigid monoidal categories,
+        see arxiv:1601.05372, definition 2.12.
+
         Examples
         --------
         >>> a, b = Ty('a'), Ty('b')
@@ -323,20 +378,6 @@ class Diagram(closed.Diagram):
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(
         ...     snakes, left=True)
         >>> assert double_snake == two_snakes_nf
-        >>> f = Box('f', a, b)
-        """
-        if left:
-            return self.cod.l @ self.caps(self.dom, self.dom.l)\
-                >> self.cod.l @ self @ self.dom.l\
-                >> self.cups(self.cod.l, self.cod) @ self.dom.l
-        return self.caps(self.dom.r, self.dom) @ self.cod.r\
-            >> self.dom.r @ self @ self.cod.r\
-            >> self.dom.r @ self.cups(self.cod, self.cod.r)
-
-    def normal_form(self, normalizer=None, **params):
-        """
-        Implements the normalisation of rigid monoidal categories,
-        see arxiv:1601.05372, definition 2.12.
         """
         return super().normal_form(
             normalizer=normalizer or Diagram.normalize, **params)
@@ -395,8 +436,15 @@ class Box(closed.Box, Diagram):
         return type(self)(
             self.name, dom, cod, data=self.data, is_dagger=self.is_dagger, z=z)
 
+    @property
+    def is_transpose(self):
+        """ Whether the box is an odd rotation of a generator. """
+        return not self.is_dagger and bool(self.z % 2)
+
     def drawing(self):
-        return monoidal.Box.drawing(Box(str(self), self.dom, self.cod))
+        result = super().drawing()
+        result.is_transpose = self.is_transpose
+        return result
 
 
 class Sum(monoidal.Sum, Box):

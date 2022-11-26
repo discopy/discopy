@@ -27,18 +27,19 @@ A pivotal category is a rigid category where left and right transpose coincide.
 
 >>> x, y, z = map(Ty, "xyz")
 >>> assert x.r == x.l and x.l.l == x == x.r.r
->>> f = Box('f', x, y @ z)
+>>> f = Box('f', x, y)
 
 >>> from discopy import drawing
->>> drawing.equation(f.transpose(left=True), f.transpose(left=False),
+>>> drawing.equation(f.transpose(left=True), f.r, f.transpose(left=False),
 ...                  figsize=(6, 3), path="docs/imgs/pivotal/axiom.png")
 
 .. image:: /imgs/pivotal/axiom.png
     :align: center
 
-For each box, we have its conjugate:
+For each diagram, we have its conjugate:
 
->>> drawing.equation(f, f.conjugate(), symbol="", figsize=(4, 2),
+>>> d = Box('g', x @ y, z).curry()
+>>> drawing.equation(d, d.conjugate(), symbol="", figsize=(6, 2), space=2,
 ...                  path="docs/imgs/pivotal/box-conjugate.png")
 
 .. image:: /imgs/pivotal/box-conjugate.png
@@ -46,7 +47,7 @@ For each box, we have its conjugate:
 
 We also have its dagger and its transpose:
 
->>> drawing.equation(f.dagger(), f.rotate(), symbol="", figsize=(4, 2),
+>>> drawing.equation(d.dagger(), d.r, symbol="", figsize=(6, 2), space=2,
 ...                  path="docs/imgs/pivotal/dagger-transpose.png")
 
 .. image:: /imgs/pivotal/dagger-transpose.png
@@ -102,7 +103,7 @@ class Diagram(rigid.Diagram):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x @ y, z).curry()
         >>> drawing.equation(f, f.dagger(),
-        ...     symbol="$\\mapsto$", figsize=(6, 3), asymmetry=.1,
+        ...     symbol="$\\\\mapsto$", figsize=(6, 3), asymmetry=.1,
         ...     path="docs/imgs/pivotal/dagger.png")
 
         .. image:: /imgs/pivotal/dagger.png
@@ -126,16 +127,13 @@ class Diagram(rigid.Diagram):
         >>> from discopy import drawing
         >>> drawing.equation(
         ...     f, f.conjugate(),
-        ...     symbol="$\\mapsto$", figsize=(6, 3),
+        ...     symbol="$\\\\mapsto$", figsize=(6, 3),
         ...     path="docs/imgs/pivotal/conjugate.png")
 
         .. image:: /imgs/pivotal/conjugate.png
             :align: center
         """
         return self.rotate().dagger()
-
-    def draw(self, asymmetry=.25, **params):
-        return super().draw(**dict(dict(asymmetry=asymmetry), **params))
 
 
 class Box(rigid.Box, Diagram):
@@ -161,21 +159,15 @@ class Box(rigid.Box, Diagram):
             name=self.name, dom=self.cod, cod=self.dom,
             data=self.data, is_dagger=not self.is_dagger, z=self.z)
 
-    def drawing(self):
-        result = monoidal.Box.drawing(self)
-        result.is_conjugate = self.is_conjugate
-        result.is_transpose = self.is_transpose
-        return result
-
-    @property
-    def is_transpose(self):
-        """ Whether the box is the transpose of a generator. """
-        return not self.is_dagger and bool(self.z)
-
     @property
     def is_conjugate(self):
         """ Whether the box is a conjugate, i.e. the transpose of a dagger. """
         return self.is_dagger and bool(self.z)
+
+    def drawing(self):
+        result = super().drawing()
+        result.is_conjugate, self.is_conjugate
+        return result
 
 
 class Cup(rigid.Cup, Box):

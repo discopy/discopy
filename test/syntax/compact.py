@@ -9,15 +9,6 @@ def test_Cup_Cap_dagger():
     assert Cup(n, n.l).dagger() == Cap(n, n.l)
 
 
-def test_transpose_box():
-    n = Ty('s')
-    Bob = Box('Bob', Ty(), n)
-    Bob_Tl = Box('Bob', n.l, Ty(), _z=-1, is_dagger=True)
-    Bob_Tr = Box('Bob', n.r, Ty(), _z=1, is_dagger=True)
-    assert Bob.transpose_box(0, left=True) == Cap(n.r, n) >> Bob_Tr @ Id(n)
-    assert Bob.transpose_box(0) == Cap(n, n.l) >> Id(n) @ Bob_Tl
-
-
 def test_cup_chaining():
     n, s, p = map(Ty, "nsp")
     A = Box('A', Ty(), n @ p)

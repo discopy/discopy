@@ -35,33 +35,6 @@ class Diagram(symmetric.Diagram, tortile.Diagram):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
-    def trace(self, n=1):
-        """
-        The trace of a compact diagram.
-
-        Parameters:
-            n : The number of wires to trace.
-        """
-        return self.dom[:-n] @ self.caps(self.dom[-n:], self.dom[-n:].r)\
-            >> self @ self.dom[-n:].r\
-            >> self.cod[:-n] @ self.cups(self.cod[-n:], self.cod[-n:].r)
-
-    def cup(self, x, y):
-        if min(x, y) < 0 or max(x, y) >= len(self.cod):
-            raise ValueError(f'Indices {x, y} are out of range.')
-        x, y = min(x, y), max(x, y)
-        for i in range(x, y - 1):
-            t0, t1 = self.cod[i:i + 1], self.cod[i + 1:i + 2]
-            self >>= Id(self.cod[:i]) @ Swap(t0, t1) @ Id(self.cod[i + 2:])
-        t0, t1 = self.cod[y - 1:y], self.cod[y:y + 1]
-        self >>= Id(self.cod[:y - 1]) @ Cup(t0, t1) @ Id(self.cod[y + 1:])
-        return self
-
-    def transpose_box(self, i, left=False):
-        _left, box, right = self.inside[i]
-        transpoed_box = (box.r if left else box.l).dagger().transpose(left)
-        return self[:i] >> _left @ transpoed_box @ right >> self[i + 1:]
-
     ty_factory = Ty
 
 
