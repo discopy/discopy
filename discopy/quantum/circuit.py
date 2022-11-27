@@ -180,7 +180,7 @@ class Circuit(tensor.Diagram):
         """
         Whether the circuit is mixed, i.e. it contains both bits and qubits
         or it discards qubits. Mixed circuits can be evaluated only by a
-        :class:`CQMapFunctor` not a :class:`discopy.tensor.Functor`.
+        :class:`ChannelFunctor` not a :class:`discopy.tensor.Functor`.
         """
         both_bits_and_qubits = self.dom.count(bit) and self.dom.count(qubit)\
             or any(layer.cod.count(bit) and layer.cod.count(qubit)
@@ -213,10 +213,10 @@ class Circuit(tensor.Diagram):
             Other circuits to process in batch.
         backend : pytket.Backend, optional
             Backend on which to run the circuit, if none then we apply
-            :class:`discopy.tensor.Functor` or :class:`CQMapFunctor` instead.
+            :class:`discopy.tensor.Functor` or :class:`ChannelFunctor` instead.
         mixed : bool, optional
             Whether to apply :class:`discopy.tensor.Functor`
-            or :class:`CQMapFunctor`.
+            or :class:`ChannelFunctor`.
         contractor : callable, optional
             Use :class:`tensornetwork` contraction
             instead of discopy's basic eval feature.
@@ -227,28 +227,28 @@ class Circuit(tensor.Diagram):
         -------
         tensor : :class:`discopy.tensor.Tensor`
             If :code:`backend is not None` or :code:`mixed=False`.
-        cqmap : :class:`CQMap`
+        cqmap : :class:`Channel`
             Otherwise.
 
         Examples
         --------
         We can evaluate a pure circuit (i.e. with :code:`not circuit.is_mixed`)
-        as a unitary :class:`discopy.tensor.Tensor` or as a :class:`CQMap`:
+        as a unitary :class:`discopy.tensor.Tensor` or as a :class:`Channel`:
 
         >>> from discopy.quantum import *
 
         >>> H.eval().round(2)  # doctest: +ELLIPSIS
         Tensor(dom=Dim(2), cod=Dim(2), array=[0.71+0.j, ..., -0.71+0.j])
         >>> H.eval(mixed=True).round(1)  # doctest: +ELLIPSIS
-        CQMap(dom=Q(Dim(2)), cod=Q(Dim(2)), array=[0.5+0.j, ..., 0.5+0.j])
+        Channel(dom=Q(Dim(2)), cod=Q(Dim(2)), array=[0.5+0.j, ..., 0.5+0.j])
 
-        We can evaluate a mixed circuit as a :class:`CQMap`:
+        We can evaluate a mixed circuit as a :class:`Channel`:
 
         >>> assert Measure().eval()\\
-        ...     == CQMap(dom=Q(Dim(2)), cod=C(Dim(2)),
+        ...     == Channel(dom=Q(Dim(2)), cod=C(Dim(2)),
         ...              array=[1, 0, 0, 0, 0, 0, 0, 1])
         >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
-        >>> assert circuit.eval() == CQMap(dom=CQ(), cod=CQ(), array=[1])
+        >>> assert circuit.eval() == Channel(dom=CQ(), cod=CQ(), array=[1])
 
         We can execute any circuit on a `pytket.Backend`:
 
@@ -263,7 +263,7 @@ class Circuit(tensor.Diagram):
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
                 f = cqmap.Functor()
-                return cqmap.CQMap(f(self.dom), f(self.cod), array)
+                return cqmap.Channel(f(self.dom), f(self.cod), array)
             f = tensor.Functor(lambda x: x[0].dim, {})
             return Tensor(f(self.dom), f(self.cod), array)
 

@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
 
+from discopy.utils import assert_isinstance
+
 
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
@@ -1005,8 +1007,7 @@ def diagramize(dom, cod, boxes, factory=None):
 
         def apply(box, *inputs, offset=None):
             for node in inputs:
-                if not isinstance(node, Node):
-                    raise TypeError(messages.type_err(Node, node))
+                assert_isinstance(node, Node)
             if len(inputs) != len(box.dom):
                 raise AxiomError("Expected {} inputs, got {} instead."
                                  .format(len(box.dom), len(inputs)))

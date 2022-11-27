@@ -22,16 +22,6 @@ Summary
     Spider
     Sum
     Bubble
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        backend
-        get_backend
 """
 
 from __future__ import annotations
@@ -741,72 +731,6 @@ class Bubble(monoidal.Bubble, Box):
                 drawing_name=name.format(self.drawing_name, var))\
             @ self.arg.grad(var) >> Spider(2, 1, self.cod)
 
-
-def array2string(array, **params):
-    """ Numpy array pretty print. """
-    import numpy
-    numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
-    return numpy.array2string(array, **dict(params, separator=', '))\
-        .replace('[ ', '[').replace('  ', ' ')
-
-
-class Backend:
-    def __init__(self, module, array=None):
-        self.module, self.array = module, array or module.array
-
-    def __getattr__(self, attr):
-        return getattr(self.module, attr)
-
-
-class NumPy(Backend):
-    def __init__(self):
-        import numpy
-        super().__init__(numpy)
-
-
-class JAX(Backend):
-    def __init__(self):
-        import jax
-        super().__init__(jax.numpy)
-
-
-class PyTorch(Backend):
-    def __init__(self):
-        import torch
-        super().__init__(torch, array=torch.as_tensor)
-
-
-class TensorFlow(Backend):
-    def __init__(self):
-        import tensorflow.experimental.numpy as tnp
-        from tensorflow.python.ops.numpy_ops import np_config
-        np_config.enable_numpy_behavior()
-        super().__init__(tnp)
-
-
-BACKENDS = {'np': NumPy,
-            'numpy': NumPy,
-            'jax': JAX,
-            'jax.numpy': JAX,
-            'pytorch': PyTorch,
-            'torch': PyTorch,
-            'tensorflow': TensorFlow,
-}
-
-@contextmanager
-def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
-    name = name or _stack[-1]
-    _stack.append(name)
-    try:
-        if name not in _cache:
-            _cache[name] = BACKENDS[name]()
-        yield _cache[name]
-    finally:
-        _stack.pop()
-
-def get_backend():
-    with backend() as result:
-        return result
 
 for cls in [Diagram, Box, Swap, Cup, Cap, Spider, Sum, Bubble]:
     cls.ty_factory = Dim

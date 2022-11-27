@@ -142,7 +142,7 @@ def normal_form(self, normalizer=None, **params):
     diagram, cache = self, set()
     for _diagram in (normalizer or Diagram.normalize)(diagram, **params):
         if _diagram in cache:
-            raise NotImplementedError(messages.is_not_connected(self))
+            raise NotImplementedError(messages.NOT_CONNECTED.format(self))
         diagram = _diagram
         cache.add(diagram)
     return diagram

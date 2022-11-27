@@ -67,7 +67,7 @@ def test_Diagram_normal_form():
     Eckmann_Hilton = Box('s0', Ty(), Ty()) @ Box('s1', Ty(), Ty())
     with raises(NotImplementedError) as err:
         Eckmann_Hilton.normal_form()
-    assert str(err.value) == messages.is_not_connected(Eckmann_Hilton)
+    assert str(err.value) == messages.NOT_CONNECTED.format(Eckmann_Hilton)
 
 
 def test_Cup_init():
@@ -106,16 +106,12 @@ def test_AxiomError():
     n, s = Ty('n'), Ty('s')
     with raises(AxiomError) as err:
         Cup(n, n)
-    assert str(err.value) == messages.are_not_adjoints(n, n)
     with raises(AxiomError) as err:
         Cup(n, s)
-    assert str(err.value) == messages.are_not_adjoints(n, s)
     with raises(AxiomError) as err:
         Cup(n, n.l.l)
-    assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
     with raises(AxiomError) as err:
         Cap(n, n.l.l)
-    assert str(err.value) == messages.are_not_adjoints(n, n.l.l)
 
 
 def test_id_adjoint():

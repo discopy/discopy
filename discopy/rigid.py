@@ -125,6 +125,18 @@ class Ty(closed.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    def assert_isadjoint(self, other):
+        """
+        Raise ``AxiomError`` if two rigid types are not adjoints.
+
+        Parameters:
+            other : The alleged right adjoint.
+        """
+        if self.r != other and self != other.r:
+            raise AxiomError(messages.NOT_ADJOINT.format(self, other))
+        if self.r != other:
+            raise AxiomError(messages.NOT_RIGID_ADJOINT.format(self, other))
+
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
@@ -492,8 +504,7 @@ class Cup(BinaryBoxConstructor, Box):
     def __init__(self, left: Ty, right: Ty):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
-        if left.r != right:
-            raise AxiomError(messages.are_not_adjoints(left, right))
+        assert_isadjoint(left, right)
         name = "Cup({}, {})".format(left, right)
         dom, cod = left @ right, self.ty_factory()
         BinaryBoxConstructor.__init__(self, left, right)
@@ -530,9 +541,8 @@ class Cap(BinaryBoxConstructor, Box):
     def __init__(self, left: Ty, right: Ty):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
-        if left != right.r and left.r != right:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        name = "Cup({}, {})".format(left, right)
+        assert_isadjoint(right, left)
+        name = "Cap({}, {})".format(left, right)
         dom, cod = self.ty_factory(), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
@@ -636,7 +646,6 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
     return method
 
-
+assert_isadjoint = Ty.assert_isadjoint
+Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 Id = Diagram.id
-Diagram.sum_factory = Sum
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

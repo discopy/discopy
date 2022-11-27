@@ -29,6 +29,8 @@ Summary
         :toctree:
 
         block_diag
+        backend
+        get_backend
 
 See also
 --------
@@ -36,10 +38,9 @@ See also
 
 """
 from __future__ import annotations
-import numpy as np
 
 from discopy import cat, monoidal, messages
-from discopy.cat import AxiomError, Composable
+from discopy.cat import Composable, assert_iscomposable, assert_isparallel
 from discopy.monoidal import Whiskerable
 from discopy.tensor import array2string
 from discopy.utils import assert_isinstance
@@ -73,6 +74,15 @@ class Matrix(Composable, Whiskerable):
            [0, 2],
            [0, 4]])
     """
+    dtype = int
+
+    def __class_getitem__(cls, dtype: type):
+        class C(cls): pass
+        C.dtype = dtype
+        C.__name__ = C.__qualname__ = "{}[{}]".format(
+            cls.__name__, dtype.__name__)
+        return C
+
     def __init__(self, array, dom: int, cod: int):
         assert_isinstance(dom, int)
         assert_isinstance(cod, int)
@@ -85,18 +95,21 @@ class Matrix(Composable, Whiskerable):
             and np.all(self.array == other.array)
 
     def __repr__(self):
-        return "Matrix({}, dom={}, cod={})".format(
+        return type(self).__name__ + "({}, dom={}, cod={})".format(
             array2string(self.array.flatten()), self.dom, self.cod)
 
     def __str__(self):
         return repr(self)
 
+    @classmethod
+    def id(cls, dom=0) -> Matrix:
+        return cls(np.identity(dom, cls.dtype), dom, dom)
+
     def then(self, other: Matrix = None, *others: Matrix):
         if others or other is None:
             return cat.Arrow.then(self, other, *others)
         assert_isinstance(other, Matrix)
-        if self.cod != other.dom:
-            raise AxiomError(messages.does_not_compose(self, other))
+        assert_iscomposable(self, other)
         array = np.matmul(self.array, other.array)
         return Matrix(array, self.dom, other.cod)
 
@@ -112,8 +125,7 @@ class Matrix(Composable, Whiskerable):
         if other == 0:
             return self
         assert_isinstance(other, Matrix)
-        if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError(messages.cannot_add(self, other))
+        assert_isparallel(self, other)
         return Matrix(self.array + other.array, self.dom, self.cod)
 
     def __radd__(self, other):
@@ -122,10 +134,6 @@ class Matrix(Composable, Whiskerable):
     def dagger(self):
         array = np.conjugate(np.transpose(self.array))
         return Matrix(array, self.cod, self.dom)
-
-    @staticmethod
-    def id(dom=0):
-        return Matrix(np.identity(dom), dom, dom)
 
     @staticmethod
     def swap(left, right):
@@ -155,3 +163,70 @@ def block_diag(*arrs):
         r += rr
         c += cc
     return out
+
+
+def array2string(array, **params):
+    """ Numpy array pretty print. """
+    import numpy
+    numpy.set_printoptions(threshold=config.NUMPY_THRESHOLD)
+    return numpy.array2string(array, **dict(params, separator=', '))\
+        .replace('[ ', '[').replace('  ', ' ')
+
+
+class Backend:
+    def __init__(self, module, array=None):
+        self.module, self.array = module, array or module.array
+
+    def __getattr__(self, attr):
+        return getattr(self.module, attr)
+
+
+class NumPy(Backend):
+    def __init__(self):
+        import numpy
+        super().__init__(numpy)
+
+
+class JAX(Backend):
+    def __init__(self):
+        import jax
+        super().__init__(jax.numpy)
+
+
+class PyTorch(Backend):
+    def __init__(self):
+        import torch
+        super().__init__(torch, array=torch.as_tensor)
+
+
+class TensorFlow(Backend):
+    def __init__(self):
+        import tensorflow.experimental.numpy as tnp
+        from tensorflow.python.ops.numpy_ops import np_config
+        np_config.enable_numpy_behavior()
+        super().__init__(tnp)
+
+
+BACKENDS = {'np': NumPy,
+            'numpy': NumPy,
+            'jax': JAX,
+            'jax.numpy': JAX,
+            'pytorch': PyTorch,
+            'torch': PyTorch,
+            'tensorflow': TensorFlow,
+}
+
+@contextmanager
+def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
+    name = name or _stack[-1]
+    _stack.append(name)
+    try:
+        if name not in _cache:
+            _cache[name] = BACKENDS[name]()
+        yield _cache[name]
+    finally:
+        _stack.pop()
+
+def get_backend():
+    with backend() as result:
+        return result

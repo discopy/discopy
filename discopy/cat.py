@@ -188,8 +188,33 @@ class Composable(ABC):
         Sequential composition, to be instantiated.
 
         Parameters:
-            other : The other arrow to compose sequentially.
+            other : The other composable object to compose sequentially.
         """
+
+    def assert_iscomposable(self, other: Composable) -> ():
+        """
+        Raise :class:`AxiomError` if two objects are not composable,
+        i.e. the domain of ``other`` is not the codomain of ``self``.
+
+        Parameters:
+            other : The other composable object.
+        """
+        if self.cod != other.dom:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self, other, repr(self.cod), repr(other.dom)))
+
+
+    def assert_isparallel(self, other: Composable) -> ():
+        """
+        Raise :class:`AxiomError` if two composable objects do not have the
+        same domain and codomain.
+
+        Parameters:
+            other : The other composable object.
+        """
+        if (self.dom, self.cod) != (other.dom, other.cod):
+            raise AxiomError(messages.NOT_PARALLEL.format(self, other))
+
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
@@ -239,16 +264,10 @@ class Arrow(Composable):
         assert_isinstance(dom, Ob)
         assert_isinstance(cod, Ob)
         if _scan:
-            scan = dom
-            for depth, box in enumerate(inside):
-                assert_isinstance(box, Arrow)
-                if box.dom != scan:
-                    raise AxiomError(messages.does_not_compose(
-                        inside[depth - 1] if depth else Id(dom), box))
-                scan = box.cod
-            if scan != cod:
-                raise AxiomError(messages.does_not_compose(
-                    inside[-1] if inside else Id(dom), Id(cod)))
+            for box in inside:
+                assert_isinstance(box, Box)
+            for f, g in zip((Id(dom), ) + inside, inside + (Id(cod), )):
+                assert_iscomposable(f, g)
         self.dom, self.cod, self.inside = dom, cod, inside
 
     def __iter__(self):
@@ -335,10 +354,9 @@ class Arrow(Composable):
             return self.sum_factory((self, )).then(other)
         assert_isinstance(other, self.factory)
         assert_isinstance(self, other.factory)
-        if self.cod != other.dom:
-            raise AxiomError(messages.does_not_compose(self, other))
-        return self.factory(
-            self.inside + other.inside, self.dom, other.cod, _scan=False)
+        assert_iscomposable(self, other)
+        inside, dom, cod = self.inside + other.inside, self.dom, other.cod
+        return self.factory(inside, dom, cod, _scan=False)
 
     def dagger(self) -> Arrow:
         """ Contravariant involution, called with :code:`[::-1]`. """
@@ -588,18 +606,12 @@ class Sum(Box):
     """
     def __init__(
             self, terms: tuple[Arrow, ...], dom: Ob = None, cod: Ob = None):
-        if not terms:
-            if dom is None or cod is None:
-                raise ValueError(messages.missing_types_for_empty_sum())
-        else:
-            dom = terms[0].dom if dom is None else dom
-            cod = terms[0].cod if cod is None else cod
-            if (dom, cod) != (terms[0].dom, terms[0].cod):
-                raise AxiomError(
-                    messages.cannot_add(Sum((), dom, cod), terms[0]))
+        if not terms and (dom is None or cod is None):
+            raise ValueError(messages.MISSING_TYPES_FOR_EMPTY_SUM)
+        dom = terms[0].dom if dom is None else dom
+        cod = terms[0].cod if cod is None else cod
         for arrow in terms:
-            if (arrow.dom, arrow.cod) != (dom, cod):
-                raise AxiomError(messages.cannot_add(terms[0], arrow))
+            assert_isparallel(Sum((), dom, cod), arrow)
         name = "{}(terms={}{})".format(
             factory_name(type(self)), repr(terms), ", dom={}, cod={}".format(
                 repr(dom), repr(cod)) if not terms else "")
@@ -624,8 +636,7 @@ class Sum(Box):
                 factory_name(type(self)), self.dom, self.cod)
 
     def __add__(self, other):
-        if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError(messages.cannot_add(self, other))
+        assert_isparallel(self, other)
         other = other if isinstance(other, Sum) else self.sum_factory((other, ))
         return self.sum_factory(self.terms + other.terms, self.dom, self.cod)
 
@@ -823,3 +834,7 @@ class Functor:
         for box in other.inside:
             result = result >> self(box)
         return result
+
+
+assert_iscomposable = Composable.assert_iscomposable
+assert_isparallel = Composable.assert_isparallel

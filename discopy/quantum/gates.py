@@ -1,6 +1,55 @@
 # -*- coding: utf-8 -*-
 
-""" Gates in a :class:`discopy.quantum.circuit.Circuit`. """
+"""
+Gates in a :class:`discopy.quantum.circuit.Circuit`.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    AntiConjugate
+    Anti2QubitConjugate
+    SelfConjugate
+    Discard
+    MixedState
+    Measure
+    Encode
+    QuantumGate
+    ClassicalGate
+    Copy
+    Match
+    Digits
+    Bits
+    Ket
+    Bra
+    Controlled
+    Parametrized
+    Rotation
+    Rx
+    Ry
+    Rz
+    CU1
+    Scalar
+    MixedScalar
+    Sqrt
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        CRz
+        CRx
+        rewire
+        sqrt
+        scalar
+"""
 
 import warnings
 

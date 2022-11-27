@@ -120,7 +120,7 @@ def assert_isatomic(typ, cls=None):
     cls = cls or type(typ)
     assert_isinstance(typ, cls)
     if len(typ) != 1:
-        raise ValueError(messages.ATOMIC_TYPE_ERROR.format(
+        raise ValueError(messages.NOT_ATOMIC.format(
             factory_name(cls), len(typ)))
 
 

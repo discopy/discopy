@@ -1,17 +1,33 @@
 # -*- coding: utf-8 -*-
 """
-Implements classical-quantum maps.
+Implements classical-quantum channels.
 
-:class:`CQMap` implements the classical-quantum processes of
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    CQ
+    C
+    Q
+    Channel
+    Tensor
+
+Note
+----
+:class:`Channel` implements the classical-quantum processes of
 *Picturing Quantum Processes*, Coecke and Kissinger (2018).
 Objects are given by a quantum dimension :class:`Q` (a.k.a. double wires)
 and a classical dimension :class:`C` (a.k.a. single wires).
-Arrows are given by arrays of the appropriate shape, see :class:`CQMap`.
+Arrows are given by arrays of the appropriate shape, see :class:`Channel`.
 For example, states of type :class:`Q` are density matrices:
 
 >>> from discopy.quantum import Ket, H
 >>> (Ket(0) >> H).eval(mixed=True).round(1)
-CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j])
+Channel(dom=CQ(), cod=Q(Dim(2)), array=[0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j])
 """
 
 from discopy import monoidal, rigid, messages, tensor
@@ -99,7 +115,7 @@ class Q(CQ):
         super().__init__(Dim(1), dim)
 
 
-class CQMap(Tensor):
+class Channel(Tensor):
     """
     Implements classical-quantum maps.
 
@@ -133,14 +149,14 @@ class CQMap(Tensor):
         self._dom, self._cod, self._udom, self._ucod = dom, cod, udom, ucod
 
     def __repr__(self):
-        return super().__repr__().replace("Tensor", "CQMap")
+        return super().__repr__().replace("Tensor", "Channel")
 
     def __add__(self, other):
         if other == 0:
             return self
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
-        return CQMap(self.dom, self.cod, self.array + other.array)
+        return Channel(self.dom, self.cod, self.array + other.array)
 
     def __radd__(self, other):
         return self.__add__(other)
@@ -148,17 +164,17 @@ class CQMap(Tensor):
     @staticmethod
     def id(dom=CQ()):
         utensor = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
-        return CQMap(dom, dom, utensor=utensor)
+        return Channel(dom, dom, utensor=utensor)
 
     def then(self, *others):
         if len(others) != 1:
             return monoidal.Diagram.then(self, *others)
         other, = others
-        return CQMap(
+        return Channel(
             self.dom, other.cod, utensor=self.utensor >> other.utensor)
 
     def dagger(self):
-        return CQMap(self.cod, self.dom, utensor=self.utensor.dagger())
+        return Channel(self.cod, self.dom, utensor=self.utensor.dagger())
 
     def tensor(self, *others):
         if len(others) != 1:
@@ -182,7 +198,7 @@ class CQMap(Tensor):
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},
             ar={f: self.utensor.array, g: other.utensor.array})
-        return CQMap(self.dom @ other.dom, self.cod @ other.cod,
+        return Channel(self.dom @ other.dom, self.cod @ other.cod,
                      utensor=diagram2tensor(above >> f @ g >> below))
 
     @staticmethod
@@ -190,13 +206,13 @@ class CQMap(Tensor):
         utensor = Tensor.swap(left.classical, right.classical)\
             @ Tensor.swap(left.quantum, right.quantum)\
             @ Tensor.swap(left.quantum, right.quantum)
-        return CQMap(left @ right, right @ left, utensor=utensor)
+        return Channel(left @ right, right @ left, utensor=utensor)
 
     @staticmethod
     def measure(dim, destructive=True):
         """ Measure a quantum dimension into a classical dimension. """
         if not dim:
-            return CQMap(CQ(), CQ(), Tensor.np.array(1))
+            return Channel(CQ(), CQ(), Tensor.np.array(1))
         if len(dim) == 1:
             if destructive:
                 array = Tensor.np.array([
@@ -204,7 +220,7 @@ class CQMap(Tensor):
                     for i in range(dim[0])
                     for j in range(dim[0])
                     for k in range(dim[0])])
-                return CQMap(Q(dim), C(dim), array)
+                return Channel(Q(dim), C(dim), array)
             array = Tensor.np.array([
                 int(i == j == k == l == m)
                 for i in range(dim[0])
@@ -212,54 +228,54 @@ class CQMap(Tensor):
                 for k in range(dim[0])
                 for l in range(dim[0])
                 for m in range(dim[0])])
-            return CQMap(Q(dim), C(dim) @ Q(dim), array)
-        return CQMap.measure(dim[:1], destructive=destructive)\
-            @ CQMap.measure(dim[1:], destructive=destructive)
+            return Channel(Q(dim), C(dim) @ Q(dim), array)
+        return Channel.measure(dim[:1], destructive=destructive)\
+            @ Channel.measure(dim[1:], destructive=destructive)
 
     @staticmethod
     def encode(dim, constructive=True):
         """ Encode a classical dimension into a quantum dimension. """
-        return CQMap.measure(dim, destructive=constructive).dagger()
+        return Channel.measure(dim, destructive=constructive).dagger()
 
     @staticmethod
     def double(utensor):
-        """ Takes a tensor, returns a pure quantum CQMap. """
+        """ Takes a tensor, returns a pure quantum Channel. """
         density = (utensor.conjugate(diagrammatic=False) @ utensor).array
-        return CQMap(Q(utensor.dom), Q(utensor.cod), density)
+        return Channel(Q(utensor.dom), Q(utensor.cod), density)
 
     @staticmethod
     def classical(utensor):
-        """ Takes a tensor, returns a classical CQMap. """
-        return CQMap(C(utensor.dom), C(utensor.cod), utensor.array)
+        """ Takes a tensor, returns a classical Channel. """
+        return Channel(C(utensor.dom), C(utensor.cod), utensor.array)
 
     @staticmethod
     def discard(dom):
         """ Discard a quantum dimension or take the marginal distribution. """
         array = Tensor.np.tensordot(
             Tensor.np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
-        return CQMap(dom, CQ(), array)
+        return Channel(dom, CQ(), array)
 
     @staticmethod
     def cups(left, right):
-        return CQMap.classical(Tensor.cups(left.classical, right.classical))\
-            @ CQMap.double(Tensor.cups(left.quantum, right.quantum))
+        return Channel.classical(Tensor.cups(left.classical, right.classical))\
+            @ Channel.double(Tensor.cups(left.quantum, right.quantum))
 
     @staticmethod
     def caps(left, right):
-        return CQMap.cups(left, right).dagger()
+        return Channel.cups(left, right).dagger()
 
     def round(self, decimals=0):
-        """ Rounds the entries of a CQMap up to a number of decimals. """
-        return CQMap(self.dom, self.cod, utensor=self.utensor.round(decimals))
+        """ Rounds the entries of a Channel up to a number of decimals. """
+        return Channel(self.dom, self.cod, utensor=self.utensor.round(decimals))
 
 
 class Functor(rigid.Functor):
     """
-    Functors from :class:`Circuit` into :class:`CQMap`.
+    Functors from :class:`Circuit` into :class:`Channel`.
     """
     def __init__(self, ob=None, ar=None):
         self.__ob, self.__ar = ob or {}, ar or {}
-        super().__init__(self._ob, self._ar, ob_factory=CQ, ar_factory=CQMap)
+        super().__init__(self._ob, self._ar, ob_factory=CQ, ar_factory=Channel)
 
     def __repr__(self):
         return "cqmap.Functor(ob={}, ar={})".format(self.__ob, self.__ar)
@@ -276,23 +292,23 @@ class Functor(rigid.Functor):
     def _ar(self, box):
         """ Overrides the input mapping on arrows. """
         if isinstance(box, Discard):
-            return CQMap.discard(self(box.dom))
+            return Channel.discard(self(box.dom))
         if isinstance(box, Measure):
-            measure = CQMap.measure(
+            measure = Channel.measure(
                 self(box.dom).quantum, destructive=box.destructive)
-            measure = measure @ CQMap.discard(self(box.dom).classical)\
+            measure = measure @ Channel.discard(self(box.dom).classical)\
                 if box.override_bits else measure
             return measure
         if isinstance(box, (MixedState, Encode)):
             return self(box.dagger()).dagger()
         if isinstance(box, Scalar):
             scalar = box.array if box.is_mixed else abs(box.array) ** 2
-            return CQMap(CQ(), CQ(), scalar)
+            return Channel(CQ(), CQ(), scalar)
         if not box.is_mixed and box.classical:
-            return CQMap(self(box.dom), self(box.cod), box.array)
+            return Channel(self(box.dom), self(box.cod), box.array)
         if not box.is_mixed:
             dom, cod = self(box.dom).quantum, self(box.cod).quantum
-            return CQMap.double(Tensor(dom, cod, box.array))
+            return Channel.double(Tensor(dom, cod, box.array))
         if hasattr(box, "array"):
-            return CQMap(self(box.dom), self(box.cod), box.array)
+            return Channel(self(box.dom), self(box.cod), box.array)
         return self.__ar[box]

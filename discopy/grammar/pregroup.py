@@ -81,7 +81,7 @@ def normal_form(diagram, normalizer=None, **params):
         isinstance(box, Cup) or isinstance(box, Swap) or isinstance(box, Cap)
         for box in wires.boxes)
     if not is_pregroup:
-        raise ValueError(messages.expected_pregroup())
+        raise ValueError(messages.NOT_PREGROUP)
 
     norm = lambda d: monoidal.Diagram.normal_form(
         d, normalizer=normalizer or Diagram.normalize, **params)
@@ -160,5 +160,5 @@ def draw(diagram, **params):
         isinstance(box, Cup) or isinstance(box, Swap)
         for s in cups for box in s.boxes)
     if not is_pregroup:
-        raise ValueError(messages.expected_pregroup())
+        raise ValueError(messages.NOT_PREGROUP)
     drawing.pregroup_draw(words, cups, **params)

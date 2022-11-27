@@ -1,4 +1,30 @@
+# -*- coding: utf-8 -*-
 
+"""
+Quantum circuit ansätze.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    IQPansatz
+    Sim14ansatz
+    Sim15ansatz
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        real_amp_ansatz
+        random_tiling
+"""
 
 class IQPansatz(Circuit):
     """

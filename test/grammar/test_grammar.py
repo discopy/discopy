@@ -87,7 +87,7 @@ def test_pregroup_draw_errors():
         draw(Cup(n, n.r))
     with raises(ValueError) as err:
         draw(Word('Alice', n) >> Word('Alice', n) @ Id(n))
-    assert str(err.value) is messages.expected_pregroup()
+    assert str(err.value) is messages.NOT_PREGROUP
 
 
 def test_tree2diagram():

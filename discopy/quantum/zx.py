@@ -1,6 +1,26 @@
 # -*- coding: utf-8 -*-
 
-""" Implements ZX diagrams. """
+"""
+ZX-calculus diagrams.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Diagram
+    Box
+    Swap
+    Spider
+    Z
+    Y
+    X
+    Had
+    Scalar
+"""
 
 from discopy import messages, cat, monoidal, rigid, quantum, tensor, symmetric
 from discopy.cat import factory

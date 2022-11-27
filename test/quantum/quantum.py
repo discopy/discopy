@@ -396,7 +396,7 @@ def test_pure_Box():
 
 def test_Swap():
     assert Swap(bit, qubit).is_mixed
-    assert Swap(bit, bit).eval(mixed=True) == CQMap.swap(C(Dim(2)), C(Dim(2)))
+    assert Swap(bit, bit).eval(mixed=True) == Channel.swap(C(Dim(2)), C(Dim(2)))
 
 
 def test_Discard():

@@ -167,7 +167,6 @@ def test_AxiomError():
     m = Tensor([1, 0, 0, 1, 0, 1, 1, 0], Dim(2, 2), Dim(2))
     with raises(AxiomError) as err:
         m >> m
-    assert str(err.value) == messages.does_not_compose(m, m)
 
 
 def test_Functor_sum():

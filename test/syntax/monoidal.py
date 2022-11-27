@@ -37,7 +37,6 @@ def test_Ty_pow():
     assert Ty('x') ** 42 == Ty('x') ** 21 @ Ty('x') ** 21
     with raises(TypeError) as err:
         Ty('x') ** Ty('y')
-    assert messages.type_err(int, Ty('y'))
 
 
 def test_PRO_init():
@@ -175,7 +174,7 @@ def test_Diagram_normal_form():
     s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
     with raises(NotImplementedError) as err:
         (s0 >> s1).normal_form()
-    assert str(err.value) == messages.is_not_connected(s0 >> s1)
+    assert str(err.value) == messages.NOT_CONNECTED.format(s0 >> s1)
     x, y = Ty('x'), Ty('y')
     f0, f1 = Box('f0', x, y), Box('f1', y, x)
     assert f0.normal_form() == f0

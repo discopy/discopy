@@ -326,7 +326,8 @@ class FC(BinaryBoxConstructor, Box):
         assert_isinstance(left, Over)
         assert_isinstance(right, Over)
         if left.exponent != right.base:
-            raise ValueError(messages.types_do_not_compose(left, right))
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.exponent, right.base))
         name = "FC({}, {})".format(left, right)
         dom, cod = left @ right, left.base << right.exponent
         Box.__init__(self, name, dom, cod)
@@ -339,7 +340,8 @@ class BC(BinaryBoxConstructor, Box):
         assert_isinstance(left, Under)
         assert_isinstance(right, Under)
         if left.base != right.exponent:
-            raise ValueError(messages.types_do_not_compose(left, right))
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.base, right.exponent))
         name = "BC({}, {})".format(left, right)
         dom, cod = left @ right, left.exponent >> right.base
         Box.__init__(self, name, dom, cod)
@@ -352,7 +354,8 @@ class FX(BinaryBoxConstructor, Box):
         assert_isinstance(left, Over)
         assert_isinstance(right, Under)
         if left.exponent != right.base:
-            raise ValueError(messages.types_do_not_compose(left, right))
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.exponent, right.base))
         name = "FX({}, {})".format(left, right)
         dom, cod = left @ right, right.exponent >> left.base
         Box.__init__(self, name, dom, cod)
@@ -365,7 +368,8 @@ class BX(BinaryBoxConstructor, Box):
         assert_isinstance(left, Over)
         assert_isinstance(right, Under)
         if left.base != right.exponent:
-            raise ValueError(messages.types_do_not_compose(left, right))
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.base, right.exponent))
         name = "BX({}, {})".format(left, right)
         dom, cod = left @ right, right.base << left.exponent
         Box.__init__(self, name, dom, cod)
