@@ -285,7 +285,7 @@ class Circuit(tensor.Diagram):
             *circuits[1:], backend=backend, **params)
         for i, circuit in enumerate(circuits):
             n_bits = len(circuit.post_processing.dom)
-            result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
+            result = Tensor.zero(Dim(1), Dim(*(n_bits * (2, ))))
             for bitstring, count in counts[i].items():
                 result += (scalar(count) @ Bits(*bitstring)).eval()
             if circuit.post_processing:

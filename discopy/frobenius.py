@@ -181,13 +181,9 @@ class Spider(Box):
         phase = None if self.phase is None else -self.phase
         return type(self)(len(self.cod), len(self.dom), self.typ, phase)
 
-    @property
-    def l(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.l, self.phase)
-
-    @property
-    def r(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.r, self.phase)
+    def rotate(self, left=False):
+        del left
+        return type(self)(len(self.cod), len(self.dom), self.typ, self.phase)
 
     def unfuse(self, factory=None) -> Diagram:
         factory = factory or type(self)

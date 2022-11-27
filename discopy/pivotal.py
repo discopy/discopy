@@ -166,7 +166,7 @@ class Box(rigid.Box, Diagram):
 
     def drawing(self):
         result = super().drawing()
-        result.is_conjugate, self.is_conjugate
+        result.is_conjugate = self.is_conjugate
         return result
 
 

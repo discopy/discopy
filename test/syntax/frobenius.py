@@ -24,8 +24,7 @@ def test_spider_adjoint():
     two = Box('two', Ty(), n)
     diagram = one @ two >> Spider(2, 1, n)
 
-    assert diagram.l == one.l >> two.l @ Id(n.l) >> Spider(2, 1, n.l)
-    assert diagram.r == one.r >> two.r @ Id(n.r) >> Spider(2, 1, n.r)
+    assert diagram.r == diagram.l == Spider(1, 2, n) >> two.r @ n >> one.r
 
 
 def test_spider_factory():

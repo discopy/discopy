@@ -124,7 +124,7 @@ def test_Tensor_tensor():
     assert v @ v.dagger() == v << v.dagger()
 
     x, y = Ty('x'), Ty('y')
-    f, g = rigid.Box('f', x, x), rigid.Box('g', y, y)
+    f, g = frobenius.Box('f', x, x), frobenius.Box('g', y, y)
     ob, ar = {x: 2, y: 3}, {f: [1, 0, 0, 1], g: list(range(9))}
     F = Functor(ob, ar)
     assert F(f) @ F(g) == F(f @ g)
@@ -139,12 +139,12 @@ def test_tensor_swap():
 
 def test_Functor():
     assert repr(Functor({Ty('x'): 1}, {})) ==\
-        "tensor.tensor.Functor(ob={frobenius.Ty('x'): 1}, ar={})"
+        "tensor.Functor(ob={frobenius.Ty(frobenius.Ob('x')): 1}, ar={})"
 
 
 def test_Functor_call():
     x, y = Ty('x'), Ty('y')
-    f, g = Box('f', x @ x, y), Box('g', y, Ty())
+    f, g = frobenius.Box('f', x @ x, y), frobenius.Box('g', y, Ty())
     ob = {x: 2, y: 3}
     ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
     F = Functor(ob, ar)
@@ -152,15 +152,15 @@ def test_Functor_call():
     assert list(F(g.transpose(left=True)).array.flatten()) == [0.0, 1.0, 2.0]
     with raises(TypeError):
         F("Alice")
-    assert Functor(ob={x: Ty(2, 3)}, ar=None)(x) == Dim(2, 3)
+    assert Functor(ob={x: Dim(2, 3)}, ar=None)(x) == Dim(2, 3)
 
 
 def test_Functor_swap():
     x, y = Ty('x'), Ty('y')
-    f, g = Box('f', x, x), Box('g', y, y)
+    f, g = frobenius.Box('f', x, x), frobenius.Box('g', y, y)
     F = Functor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
-    assert F(f @ g >> Diagram.swap(x, y)) == \
-           F(Diagram.swap(x, y) >> g @ f)
+    assert F(f @ g >> frobenius.Swap(x, y)) == \
+           F(frobenius.Swap(x, y) >> g @ f)
 
 
 def test_AxiomError():
@@ -172,7 +172,7 @@ def test_AxiomError():
 
 def test_Functor_sum():
     x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
+    f = frobenius.Box('f', x, y)
     F = Functor({x: 1, y: 2}, {f: [1, 0]})
     assert F(f + f) == F(f) + F(f)
 
@@ -200,9 +200,6 @@ def test_Tensor_subs():
 def test_Diagram_cups_and_caps():
     with raises(AxiomError):
         Diagram.cups(Dim(2), Dim(3))
-    assert Id(Dim(2)).transpose()\
-        == Spider(0, 2, Dim(2)) @ Id(Dim(2))\
-        >> Id(Dim(2)) @ Spider(2, 0, Dim(2))
 
 
 def test_Diagram_swap():
@@ -236,15 +233,15 @@ def test_Tensor_scalar():
 
 
 def test_Tensor_adjoint_functor():
-    from discopy.rigid import Ty, Cup
+    from discopy.rigid import Ty, Box, Cup
     from discopy.grammar import Word
 
     n, s = map(Ty, 'ns')
-    alice = Word("Alice", n)
-    eats = Word("eats", n.r @ s @ n.l)
-    food = Word("food", n)
+    alice = Box("Alice", Ty(), n)
+    eats = Box("eats", Ty(), n.r @ s @ n.l)
+    food = Box("food", Ty(), n)
 
-    diagram = alice @ eats @ food >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    diagram = alice @ eats @ food >> Cup(n, n.r) @ s @ Cup(n.l, n)
 
     f = Functor(
         ob={n: Dim(2), s: Dim(3)},

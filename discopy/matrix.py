@@ -1,9 +1,8 @@
 """
 The category of matrices with the direct sum as monoidal product.
 
-In this category, a box with domain :py:class:`PRO(n) <.monoidal.PRO>`
-and codomain :py:class:`PRO(m) <.monoidal.PRO>` represents
-an :math:`n \\times m` matrix.
+In this category, a box with domain ``n``
+and codomain ``m`` represents an :math:`n \\times m` matrix.
 The ``>>`` and ``<<`` operations correspond to matrix multiplication
 and ``@`` operation corresponds to the direct sum of matrices:
 
@@ -36,12 +35,14 @@ See also
 :class:`Matrix` is used to evaluate :class:`quantum.optics.Diagram`.
 
 """
+from __future__ import annotations
 import numpy as np
 
-from discopy import messages, monoidal
+from discopy import cat, monoidal, messages
 from discopy.cat import AxiomError, Composable
-from discopy.monoidal import PRO, Whiskerable
+from discopy.monoidal import Whiskerable
 from discopy.tensor import array2string
+from discopy.utils import assert_isinstance
 
 
 class Matrix(Composable, Whiskerable):
@@ -50,93 +51,86 @@ class Matrix(Composable, Whiskerable):
 
     Examples
     --------
-    >>> m = Matrix(PRO(2), PRO(2), [0, 1, 1, 0])
-    >>> v = Matrix(PRO(1), PRO(2), [0, 1])
-    >>> assert (str(v) == repr(v)
-    ...                == 'Matrix(dom=PRO(1), cod=PRO(2), array=[0, 1])')
+    >>> m = Matrix([0, 1, 1, 0], 2, 2)
+    >>> v = Matrix([0, 1], 1, 2)
     >>> v >> m >> v.dagger()
-    Matrix(dom=PRO(1), cod=PRO(1), array=[0])
+    Matrix([0], dom=1, cod=1)
     >>> m + m
-    Matrix(dom=PRO(2), cod=PRO(2), array=[0, 2, 2, 0])
-    >>> assert m.then(m, m, m, m) == m == m >> m >> m >> m >> m
+    Matrix([0, 2, 2, 0], dom=2, cod=2)
+    >>> assert m.then(m, m, m, m) == m >> m >> m >> m >> m
 
     The monoidal product for :py:class:`.Matrix` is the direct sum:
 
-    >>> x = Matrix(PRO(2), PRO(1), [2, 4])
+    >>> x = Matrix([2, 4], 2, 1)
     >>> x.array
     array([[2],
            [4]])
     >>> x @ x
-    Matrix(dom=PRO(4), cod=PRO(2), array=[2, 0, 4, 0, 0, 2, 0, 4])
+    Matrix([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
     >>> (x @ x).array
     array([[2, 0],
            [4, 0],
            [0, 2],
            [0, 4]])
     """
-    def __init__(self, dom: int, cod: int, array):
-        self._array = np.array(array).reshape((len(dom), len(cod)))
-        super().__init__("O Tensor", dom, cod)
+    def __init__(self, array, dom: int, cod: int):
+        assert_isinstance(dom, int)
+        assert_isinstance(cod, int)
+        self.dom, self.cod = dom, cod
+        self.array = np.array(array).reshape((dom, cod))
 
-    @property
-    def array(self):
-        """ Numpy array. """
-        return self._array
+    def __eq__(self, other):
+        return isinstance(other, Matrix)\
+            and (self.dom, self.cod) == (other.dom, other.cod)\
+            and np.all(self.array == other.array)
 
     def __repr__(self):
-        return "Matrix(dom={!r}, cod={!r}, array={})".format(
-            self.dom, self.cod, array2string(self.array.flatten()))
+        return "Matrix({}, dom={}, cod={})".format(
+            array2string(self.array.flatten()), self.dom, self.cod)
 
     def __str__(self):
         return repr(self)
 
-    def then(self, *others):
-        from discopy import Sum
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.then(self, *others)
-        other, = others
-        if not isinstance(other, Matrix):
-            raise TypeError(messages.type_err(Matrix, other))
+    def then(self, other: Matrix = None, *others: Matrix):
+        if others or other is None:
+            return cat.Arrow.then(self, other, *others)
+        assert_isinstance(other, Matrix)
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
         array = np.matmul(self.array, other.array)
-        return Matrix(self.dom, other.cod, array)
+        return Matrix(array, self.dom, other.cod)
 
-    def tensor(self, *others):
-        from discopy import Sum
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.tensor(self, *others)
-        other = others[0]
-        if not isinstance(other, Matrix):
-            raise TypeError(messages.type_err(Matrix, other))
-        dom, cod = self.dom @ other.dom, self.cod @ other.cod
+    def tensor(self, other: Matrix = None, *others: Matrix):
+        if others or other is None:
+            return monoidal.Diagram.tensor(self, other, *others)
+        assert_isinstance(other, Matrix)
+        dom, cod = self.dom + other.dom, self.cod + other.cod
         array = block_diag(self.array, other.array)
-        return Matrix(dom, cod, array)
+        return Matrix(array, dom, cod)
 
     def __add__(self, other):
         if other == 0:
             return self
-        if not isinstance(other, Matrix):
-            raise TypeError(messages.type_err(Matrix, other))
+        assert_isinstance(other, Matrix)
         if (self.dom, self.cod) != (other.dom, other.cod):
             raise AxiomError(messages.cannot_add(self, other))
-        return Matrix(self.dom, self.cod, self.array + other.array)
+        return Matrix(self.array + other.array, self.dom, self.cod)
 
     def __radd__(self, other):
         return self.__add__(other)
 
     def dagger(self):
         array = np.conjugate(np.transpose(self.array))
-        return Matrix(self.cod, self.dom, array)
+        return Matrix(array, self.cod, self.dom)
 
     @staticmethod
-    def id(dom=PRO()):
-        return Matrix(dom, dom, np.identity(len(dom)))
+    def id(dom=0):
+        return Matrix(np.identity(dom), dom, dom)
 
     @staticmethod
     def swap(left, right):
-        if left == PRO(1) and right == PRO(1):
-            return Matrix(left @ right, left @ right, np.array([0, 1, 1, 0]))
+        if left == right == 1:
+            return Matrix(np.array([0, 1, 1, 0], left @ right, left @ right))
         raise NotImplementedError
 
 

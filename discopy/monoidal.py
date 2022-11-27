@@ -309,6 +309,10 @@ class Layer(cat.Box):
     def dagger(self) -> Layer:
         return type(self)(self.left, self.box.dagger(), self.right)
 
+    def drawing(self) -> Diagram:
+        """ Called before :meth:`Diagram.draw`. """
+        return self.left.drawing() @ self.box.drawing() @ self.right.drawing()
+
 
 class Whiskerable(ABC):
     """
@@ -396,7 +400,6 @@ class Diagram(cat.Arrow, Whiskerable):
             tensor
             boxes
             offsets
-            width
             draw
             interchange
             normalize
@@ -466,6 +469,9 @@ class Diagram(cat.Arrow, Whiskerable):
     def width(self):
         """
         The width of a diagram, i.e. the maximum number of parallel wires.
+
+        Example
+        -------
         >>> x = Ty('x')
         >>> f = Box('f', x, x ** 4)
         >>> diagram = f @ x ** 2 >> x ** 2 @ f.dagger()
@@ -494,10 +500,8 @@ class Diagram(cat.Arrow, Whiskerable):
 
     def drawing(self):
         """ Called before :meth:`Diagram.draw`. """
-        def ar(f: Layer) -> Diagram:
-            return f.left.drawing() @ f.box.drawing() @ f.right.drawing()
-
-        return cat.Functor(ob=Ty.drawing, ar=ar, cod=Category())(self)
+        ob, ar = Ty.drawing, Layer.drawing
+        return cat.Functor(ob, ar, cod=Category())(self)
 
     ty_factory = Ty
     layer_factory = Layer
@@ -691,13 +695,13 @@ class Functor(cat.Functor):
 
     def __call__(self, other):
         if isinstance(other, Ty):
-            return sum([self(obj) for obj in other.inside], self.cod.ob())
+            return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):
             result = self.ob[self.dom.ob(other)]
             dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
-            if not isinstance(result, dtype) and dtype == tuple:
-                return (result, )  # Allows syntactic sugar {x: n}.
-            return result
+            # Syntactic sugar {x: n} in tensor and {x: int} in python.
+            return result if isinstance(result, dtype) else\
+                (result, ) if dtype == tuple else self.cod.ob(result)
         if isinstance(other, Layer):
             return self(other.left) @ self(other.box) @ self(other.right)
         return super().__call__(other)

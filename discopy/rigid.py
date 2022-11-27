@@ -408,9 +408,9 @@ class Box(closed.Box, Diagram):
     """
     __ambiguous_inheritance__ = (closed.Box, )
 
-    def __init__(self, name: str, dom: Ty, cod: Ty, z=0, **params):
+    def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
         self.z = z
-        closed.Box.__init__(self, name, dom, cod, **params)
+        closed.Box.__init__(self, name, dom, cod, data=data, **params)
 
     def __str__(self):
         return str(self.r) + '.l' if self.z < 0\
@@ -419,7 +419,8 @@ class Box(closed.Box, Diagram):
     def __repr__(self):
         if self.is_dagger:
             return closed.Box.__repr__(self)
-        return closed.Box.__repr__(self)[:-1] + ', z={})'.format(self.z)
+        return closed.Box.__repr__(self)[:-1] + (
+            ', z={})'.format(self.z) if self.z else ')')
 
     def __eq__(self, other):
         if isinstance(other, Box):

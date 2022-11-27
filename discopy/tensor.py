@@ -32,15 +32,6 @@ Summary
 
         backend
         get_backend
-
-Example
--------
->>> n = Ty('n')
->>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
->>> loves = Box('loves', n, n)
->>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
->>> F = Functor(ob, ar)
->>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 
 from __future__ import annotations
@@ -240,7 +231,7 @@ class Tensor(Composable, Whiskerable):
         assert_isatomic(typ, Dim)
         n, = typ.inside
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        result = Tensor.zeros(dom, cod)
+        result = Tensor.zero(dom, cod)
         for i in range(n):
             result.array[len(dom @ cod) * (i, )] = 1
         return result
@@ -303,13 +294,13 @@ class Tensor(Composable, Whiskerable):
         return Tensor(array, self.dom, self.cod)
 
     @staticmethod
-    def zeros(dom: Dim, cod: Dim) -> Tensor:
+    def zero(dom: Dim, cod: Dim) -> Tensor:
         """
         Returns the zero tensor of a given shape.
 
         Examples
         --------
-        >>> assert Tensor.zeros(Dim(2), Dim(2))\\
+        >>> assert Tensor.zero(Dim(2), Dim(2))\\
         ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
@@ -344,9 +335,9 @@ class Tensor(Composable, Whiskerable):
         Tensor([2.0*x, 0, 0, 1.0*z, 0, 1.0*y], dom=Dim(1), cod=Dim(3, 2))
         """
         dim = Dim(len(variables) or 1)
-        result = Tensor.zeros(self.dom, dim @ self.cod)
+        result = Tensor.zero(self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = Tensor.zeros(Dim(1), dim)
+            onehot = Tensor.zero(Dim(1), dim)
             onehot.array[i] = 1
             result += onehot @ self.grad(var)
         return result
@@ -359,45 +350,34 @@ class Tensor(Composable, Whiskerable):
 
 
 class Functor(frobenius.Functor):
-    """ Implements a tensor-valued frobenius functor.
+    """
+    A tensor functor is a frobenius functor with ``Category(Dim, Tensor)`` as
+    codomain.
 
-    >>> x, y = Ty('x'), Ty('y')
-    >>> f = Box('f', x, x @ y)
-    >>> F = Functor({x: 1, y: 2}, {f: [0, 1]})
-    >>> F(f)
-    Tensor([0, 1], dom=Dim(1), cod=Dim(2))
+    Parameters:
+        ob (dict[cat.Ob, Dim]) : The object mapping.
+        ar (dict[cat.Box, array]): The arrow mapping.
+
+    Example
+    -------
+    >>> n = Ty('n')
+    >>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
+    >>> loves = Box('loves', n, n)
+    >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
+    >>> F = Functor(ob, ar)
+    >>> assert F(Alice >> loves >> Bob.dagger()) == 1
     """
     cod = Category(Dim, Tensor)
 
     def __call__(self, other):
-        if isinstance(other, (cat.Sum)):
-            return super().__call__(other)
+        if isinstance(other, Dim):
+            return other
         if isinstance(other, Bubble):
             return self(other.arg).map(other.func)
-        if isinstance(other, monoidal.Ty):
-            def obj_to_dim(obj):
-                if isinstance(obj, rigid.Ob) and obj.z != 0:
-                    obj = type(obj)(obj.name)  # sets z=0
-                result = self.ob[type(other)(obj)]
-                if isinstance(result, int):
-                    result = Dim(result)
-                if not isinstance(result, Dim):
-                    result = Dim.upgrade(result)
-                return result
-            return Dim(1).tensor(*map(obj_to_dim, other.inside))
-        if isinstance(other, monoidal.Box)\
-                and not isinstance(other, symmetric.Swap):
-            if other.z % 2 != 0:
-                while other.z != 0:
-                    other = other.l if other.z > 0 else other.r
-                return self(other).conjugate()
-            if other.is_dagger:
-                return self(other.dagger()).dagger()
-            return Tensor(self.ar[other], self(other.dom), self(other.cod))
+        if isinstance(other, (cat.Ob, cat.Box)):
+            return super().__call__(other)
         assert_isinstance(other, monoidal.Diagram)
-
-        def dim(scan):
-            return len(self(scan))
+        dim = lambda scan: len(self(scan))
         scan, array = other.dom, Tensor.id(self(other.dom)).array
         for box, off in zip(other.boxes, other.offsets):
             if isinstance(box, symmetric.Swap):
@@ -432,8 +412,8 @@ class Diagram(frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
 
-    Examples
-    --------
+    Example
+    -------
     >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
     >>> diagram = vector[::-1] >> vector @ vector
     >>> print(diagram)
@@ -567,7 +547,7 @@ class Diagram(frobenius.Diagram):
         dim = Dim(len(variables) or 1)
         result = Sum((), self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = Tensor.zeros(Dim(1), dim)
+            onehot = Tensor.zero(Dim(1), dim)
             onehot.array[i] = 1
             result += Box(var, Dim(1), dim, onehot.array) @ self.grad(var)
         return result
@@ -585,12 +565,12 @@ class Box(frobenius.Box, Diagram):
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
 
-    def __init__(self, name: str, dom: Dim, cod: Dim, array, **params):
-        if array is not None:
+    @property
+    def array(self):
+        if self.data is not None:
             with backend() as np:
-                array = np.array(data).reshape(dom.inside + cod.inside)
-        self.array = array
-        frobenius.Box.__init__(name, dom, cod, **params)
+                return np.array(self.data).reshape(
+                    self.dom.inside + self.cod.inside)
 
     def grad(self, var, **params):
         return self.bubble(
@@ -828,11 +808,12 @@ def get_backend():
     with backend() as result:
         return result
 
-for cls in [Diagram, Box, Swap, Spider, Sum, Bubble]:
+for cls in [Diagram, Box, Swap, Cup, Cap, Spider, Sum, Bubble]:
     cls.ty_factory = Dim
 
 Diagram.braid_factory = Swap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
 Diagram.sum_factory = Sum
+
 Id = Diagram.id

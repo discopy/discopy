@@ -104,7 +104,7 @@ class Ob:
     >>> assert x == x_ and x != y
     """
     def __init__(self, name: Union[str, int] = ""):
-        assert_isinstance(name, (str, int))
+        assert_isinstance(name, str)
         self.name = name
 
     def __repr__(self):
@@ -344,6 +344,21 @@ class Arrow(Composable):
         """ Contravariant involution, called with :code:`[::-1]`. """
         return self[::-1]
 
+    @classmethod
+    def zero(cls, dom, cod):
+        """
+        Return the empty sum with a given domain and codomain.
+
+        Parameters:
+            dom : The domain of the empty sum.
+            cod : The codomain of the empty sum.
+        """
+        return cls.sum_factory((), dom, cod)
+
+    def bubble(self, **params) -> Bubble:
+        """ Unary operator on homsets. """
+        return self.bubble_factory(self, **params)
+
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
         """
@@ -403,10 +418,6 @@ class Arrow(Composable):
         """
         return lambda *xs: self.id(self.dom).then(*(
             box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
-
-    def bubble(self, **params) -> Bubble:
-        """ Unary operator on homsets. """
-        return self.bubble_factory(self, **params)
 
     def to_tree(self) -> dict:
         """ See :func:`discopy.utils.dumps`. """
@@ -792,25 +803,23 @@ class Functor:
             repr(self.ob), repr(self.ar))
 
     def __call__(self, other):
+        if isinstance(other, Ob):
+            return self.ob[other]
         if isinstance(other, Sum):
-            return self.cod.ar.sum_factory(
-                tuple(map(self, other)), self(other.dom), self(other.cod))
+            return sum(map(self, other.terms),
+                       self.cod.ar.zero(self(other.dom), self(other.cod)))
         if isinstance(other, Bubble):
             return self(other.arg).bubble(
                 dom=self(other.dom), cod=self(other.cod))
-        if isinstance(other, Ob):
-            return self.ob[other]
         if isinstance(other, Box) and other.is_dagger:
-            return self.ar[other.dagger()].dagger()
+            return self(other.dagger()).dagger()
         if isinstance(other, Box):
             result = self.ar[other]
-            if isinstance(result, self.cod.ar): return result
             # This allows some nice syntactic sugar for the ar mapping.
-            return self.cod.ar(result, self(other.dom), self(other.cod))
-            return self.ar[other]
-        if isinstance(other, Arrow):
-            result = self.cod.ar.id(self(other.dom))
-            for box in other.inside:
-                result = result >> self(box)
-            return result
-        raise TypeError
+            return result if isinstance(result, self.cod.ar)\
+                else self.cod.ar(result, self(other.dom), self(other.cod))
+        assert_isinstance(other, Arrow)
+        result = self.cod.ar.id(self(other.dom))
+        for box in other.inside:
+            result = result >> self(box)
+        return result
