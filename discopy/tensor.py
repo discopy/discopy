@@ -303,10 +303,11 @@ class Tensor(Matrix):
 
         Examples
         --------
+        >>> from sympy import Expr
         >>> from sympy.abc import x, y, z
-        >>> vector = Tensor([x ** 2, y * z], Dim(1), Dim(2))
+        >>> vector = Tensor[Expr]([x ** 2, y * z], Dim(1), Dim(2))
         >>> vector.jacobian(x, y, z)
-        Tensor([2.0*x, 0, 0, 1.0*z, 0, 1.0*y], dom=Dim(1), cod=Dim(3, 2))
+        Tensor[Expr]([2*x, 0, 0, z, 0, y], dom=Dim(1), cod=Dim(3, 2))
         """
         dim = Dim(len(variables) or 1)
         result = self.zero(self.dom, dim @ self.cod)
@@ -325,29 +326,34 @@ class Tensor(Matrix):
 
 class Functor(frobenius.Functor):
     """
-    A tensor functor is a frobenius functor with an optional domain category
-    ``dom`` and ``Category(Dim, Tensor)`` as codomain.
+    A tensor functor is a frobenius functor with a domain category ``dom``
+    and ``Category(Dim, Tensor[dtype])`` as codomain for a given ``dtype``.
 
     Parameters:
         ob : The object mapping.
         ar : The arrow mapping.
         dom : The domain of the functor.
+        dtype : The datatype for the codomain ``Category(Dim, Tensor[dtype])``.
 
     Example
     -------
-    >>> n = Ty('n')
-    >>> Alice, Bob = Box('Alice', Ty(), n), Box('Bob', Ty(), n)
-    >>> loves = Box('loves', n, n)
+    >>> n, s = map(rigid.Ty, "ns")
+    >>> Alice = rigid.Box('Alice', rigid.Ty(), n)
+    >>> loves = rigid.Box('loves', rigid.Ty(), n.r @ s @ n.l)
+    >>> Bob = rigid.Box('Bob', rigid.Ty(), n)
+    >>> diagram = Alice @ loves @ Bob\\
+    ...     >> rigid.Cup(n, n.r) @ s rigid.Cup(n.l, n)
     >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
-    >>> F = Functor(ob, ar)
-    >>> assert F(Alice >> loves >> Bob.dagger()) == 1
+    >>> F = Functor(ob, ar, dom=rigid.Category(), dtype=bool)
+    >>> assert F(diagram)
     """
     dom, cod = frobenius.Category(), Category(Dim, Tensor)
 
     def __init__(
-            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array], dom=None):
+            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
+            dom: Category = None, dtype: type = int):
         self.dom = dom or type(self).dom
-        super().__init__(ob, ar)
+        super().__init__(ob, ar, cod=Category(Dim, Tensor[dtype]))
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -418,10 +424,12 @@ class Diagram(frobenius.Diagram):
             raise Exception(
                 'Provide a tensornetwork contractor'
                 'when using a non-numpy backend.')
+        dtype = dtype or self.dtype
         if contractor is None:
-            return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+            return Functor(
+                ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
         array = contractor(*self.to_tn(dtype=dtype)).tensor
-        return Tensor(array, self.dom, self.cod)
+        return Tensor[dtype](array, self.dom, self.cod)
 
     def to_tn(self, dtype: type = None
             ) -> tuple[list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
@@ -473,26 +481,6 @@ class Diagram(frobenius.Diagram):
             nodes.append(node)
         return nodes, inputs + outputs
 
-    def _infer_dtype(self):
-        for box in self.boxes:
-            if not isinstance(box, (Spider, symmetric.Swap)):
-                array = box.array
-                while True:
-                    # minimise data to potentially copy
-                    try:
-                        array = array[0]
-                    except IndexError:
-                        break
-                try:
-                    import numpy
-                    return numpy.asarray(array).dtype
-                except (RuntimeError, TypeError):
-                    # assume that the array is actually a PyTorch tensor
-                    return array.detach().cpu().numpy().dtype
-        else:
-            import numpy
-            return numpy.float64
-
     def grad(self, var, **params):
         """ Gradient with respect to :code:`var`. """
         if var not in self.free_symbols:
@@ -527,9 +515,15 @@ class Diagram(frobenius.Diagram):
         dim = Dim(len(variables) or 1)
         result = Sum((), self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = Tensor.zero(Dim(1), dim)
+            onehot = self.zero(Dim(1), dim)
             onehot.array[i] = 1
-            result += Box(var, Dim(1), dim, onehot.array) @ self.grad(var)
+            result += onehot @ self.grad(var)
+        return result
+
+    @property
+    def dtype(self):
+        """ The datatype of a tensor diagram. """
+        result, = set(box._dtype for box in self.boxes)
         return result
 
 
@@ -542,14 +536,30 @@ class Box(frobenius.Box, Diagram):
         dom : The domain of the box, i.e. its input dimension.
         cod : The codomain of the box, i.e. its output dimension.
         array : The array inside the tensor box.
+        dtype : The datatype for the entries of the array.
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
+
+    def __init__(
+            self, name: str, dom: Dim, cod: Dim, array, dtype=None, **params):
+        frobenius.Box.__init__(self, name, dom, cod, data=array, **params)
+        if dtype is None and self.free_symbols:
+            import sympy
+            dtype = sympy.Expr
+        elif dtype is None:
+            try:
+                import numpy
+                dtype = numpy.asarray(array).dtype
+            except (RuntimeError, TypeError):
+                # assume that the array is actually a PyTorch tensor
+                dtype = array.detach().cpu().numpy().dtype
+        self._dtype = dtype
 
     @property
     def array(self):
         if self.data is not None:
             with backend() as np:
-                return np.array(self.data).reshape(
+                return np.array(self.data, dtype=self.dtype).reshape(
                     self.dom.inside + self.cod.inside)
 
     def grad(self, var, **params):
