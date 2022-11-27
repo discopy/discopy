@@ -50,7 +50,7 @@ def test_FC():
         FC(x >> y, y >> x)
     with raises(TypeError):
         FC(x << y, y >> x)
-    with raises(ValueError):
+    with raises(AxiomError):
         FC(x << y, z << y)
 
 
@@ -60,7 +60,7 @@ def test_BC():
         BC(x << y, y << x)
     with raises(TypeError):
         BC(x >> y, y << x)
-    with raises(ValueError):
+    with raises(AxiomError):
         BC(x >> y, z >> y)
 
 
@@ -70,7 +70,7 @@ def test_FX():
         FX(x >> y, y >> x)
     with raises(TypeError):
         FX(x << y, y << x)
-    with raises(ValueError):
+    with raises(AxiomError):
         FX(x << y, y >> x)
 
 
@@ -80,7 +80,7 @@ def test_BX():
         BX(x >> y, y >> x)
     with raises(TypeError):
         BX(x << y, y << x)
-    with raises(ValueError):
+    with raises(AxiomError):
         BX(x << y, y >> x)
 
 

@@ -30,7 +30,8 @@ from collections.abc import Callable
 
 from discopy import compact, pivotal
 from discopy.cat import factory
-from discopy.utils import factory_name, assert_isatomic
+from discopy.monoidal import assert_isatomic
+from discopy.utils import factory_name
 
 
 class Ob(pivotal.Ob):

@@ -1,16 +1,6 @@
 """
 The category of matrices with the direct sum as monoidal product.
 
-In this category, a box with domain ``n``
-and codomain ``m`` represents an :math:`n \\times m` matrix.
-The ``>>`` and ``<<`` operations correspond to matrix multiplication
-and ``@`` operation corresponds to the direct sum of matrices:
-
-.. math::
-
-    \\mathbf{A} \\oplus \\mathbf{B}
-    = \\begin{pmatrix} \\mathbf{A} & 0 \\\\ 0 & \\mathbf{B}  \\end{pmatrix}
-
 Summary
 -------
 
@@ -20,6 +10,11 @@ Summary
     :toctree:
 
     Matrix
+    Backend
+    NumPy
+    JAX
+    PyTorch
+    TensorFlow
 
 .. admonition:: Functions
 
@@ -28,27 +23,69 @@ Summary
         :nosignatures:
         :toctree:
 
-        block_diag
         backend
         get_backend
 
 See also
 --------
-:class:`Matrix` is used to evaluate :class:`quantum.optics.Diagram`.
+
+* :class:`Tensor` is a subclass of :class:`Matrix` with the Kronecker product
+  as tensor.
+* :class:`Matrix` is used to evaluate :class:`quantum.optics.Diagram`.
 
 """
 from __future__ import annotations
+from contextlib import contextmanager
 
-from discopy import cat, monoidal, messages
-from discopy.cat import Composable, assert_iscomposable, assert_isparallel
+from discopy import cat, monoidal, config
+from discopy.cat import (Composable, assert_iscomposable, assert_isparallel)
 from discopy.monoidal import Whiskerable
-from discopy.tensor import array2string
 from discopy.utils import assert_isinstance
 
 
 class Matrix(Composable, Whiskerable):
     """
-    A matrix is a numpy array with integers as domain and codomain.
+    A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+            tensor
+            zero
+            swap
+            transpose
+            conjugate
+            dagger
+            map
+            copy
+            discard
+            merge
+            basis
+            repeat
+            trace
+
+    Note
+    ----
+    The class ``Matrix[dtype]`` has arrays with entries in any given ``dtype``.
+    For example:
+
+    >>> Matrix[complex].id(1)
+    Matrix[complex]([1.+0.j], dom=1, cod=1)
+    >>> assert Matrix[complex].id(1) != Matrix[float].id(1)
+
+    The default data type is ``int``, but this can be changed if necessary.
+
+    >>> Matrix.dtype = float
+    >>> assert Matrix == Matrix[float] != Matrix[int]
+    >>> Matrix.dtype = int
+    >>> assert Matrix == Matrix[int] != Matrix[float]
+
+    The data type needs to have the structure of a rig (riNg with no negatives)
+    i.e. with methods ``__add__`` and ``__mul__`` as well as an ``__init__``
+    that can accept both ``0`` and ``1`` as input.
 
     Examples
     --------
@@ -76,93 +113,148 @@ class Matrix(Composable, Whiskerable):
     """
     dtype = int
 
-    def __class_getitem__(cls, dtype: type):
-        class C(cls): pass
-        C.dtype = dtype
-        C.__name__ = C.__qualname__ = "{}[{}]".format(
-            cls.__name__, dtype.__name__)
-        return C
+    def __class_getitem__(cls, dtype: type, _cache=dict()):
+        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
+            _cache.clear()
+            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
+        if dtype not in _cache:
+            class C(cls): ...
+            C.__name__ = C.__qualname__ = "{}[{}]".format(
+                cls.__name__, dtype.__name__)
+            C.dtype = dtype
+            _cache[dtype] = C
+        return _cache[dtype]
 
     def __init__(self, array, dom: int, cod: int):
         assert_isinstance(dom, int)
         assert_isinstance(cod, int)
         self.dom, self.cod = dom, cod
-        self.array = np.array(array).reshape((dom, cod))
+        with backend() as np:
+            self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
 
     def __eq__(self, other):
-        return isinstance(other, Matrix)\
+        return isinstance(other, type(self))\
             and (self.dom, self.cod) == (other.dom, other.cod)\
-            and np.all(self.array == other.array)
+            and (self.array == other.array).all()\
+            or (self.array == other).all()  # A Matrix can equal an array.
 
     def __repr__(self):
+        np_array = getattr(self.array, 'numpy', lambda: self.array)()
         return type(self).__name__ + "({}, dom={}, cod={})".format(
-            array2string(self.array.flatten()), self.dom, self.cod)
+            array2string(np_array.reshape(-1)), self.dom, self.cod)
 
-    def __str__(self):
-        return repr(self)
+    def __iter__(self):
+        for i in self.array:
+            yield i
+
+    def __bool__(self):
+        return bool(self.array)
+
+    def __int__(self):
+        return int(self.array)
+
+    def __float__(self):
+        return float(self.array)
+
+    def __complex__(self):
+        return complex(self.array)
 
     @classmethod
     def id(cls, dom=0) -> Matrix:
-        return cls(np.identity(dom, cls.dtype), dom, dom)
+        with backend('numpy') as np:
+            return cls(np.identity(dom, cls.dtype), dom, dom)
 
-    def then(self, other: Matrix = None, *others: Matrix):
+    def then(self, other: Matrix = None, *others: Matrix) -> Matrix:
         if others or other is None:
             return cat.Arrow.then(self, other, *others)
-        assert_isinstance(other, Matrix)
+        assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
-        array = np.matmul(self.array, other.array)
-        return Matrix(array, self.dom, other.cod)
+        with backend() as np:
+            array = np.matmul(self.array, other.array)
+        return type(self)(array, self.dom, other.cod)
 
     def tensor(self, other: Matrix = None, *others: Matrix):
         if others or other is None:
             return monoidal.Diagram.tensor(self, other, *others)
-        assert_isinstance(other, Matrix)
+        assert_isinstance(other, type(self))
         dom, cod = self.dom + other.dom, self.cod + other.cod
-        array = block_diag(self.array, other.array)
-        return Matrix(array, dom, cod)
+        array = Matrix.zero(dom, cod).array
+        array[:self.dom,:self.cod] = self.array
+        array[self.dom:,self.cod:] = other.array
+        return type(self)(array, dom, cod)
 
     def __add__(self, other):
-        if other == 0:
-            return self
         assert_isinstance(other, Matrix)
         assert_isparallel(self, other)
-        return Matrix(self.array + other.array, self.dom, self.cod)
+        return type(self)(self.array + other.array, self.dom, self.cod)
 
     def __radd__(self, other):
-        return self.__add__(other)
+        return self if other == 0 else self.__add__(other)
 
-    def dagger(self):
-        array = np.conjugate(np.transpose(self.array))
-        return Matrix(array, self.cod, self.dom)
+    @classmethod
+    def zero(cls, dom: int, cod: int) -> Matrix:
+        """
+        Returns the zero matrix of a given shape.
 
-    @staticmethod
-    def swap(left, right):
-        if left == right == 1:
-            return Matrix(np.array([0, 1, 1, 0], left @ right, left @ right))
-        raise NotImplementedError
+        Examples
+        --------
+        >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
+        """
+        with backend() as np:
+            return cls(np.zeros((dom, cod)), dom, cod)
 
+    @classmethod
+    def swap(cls, left, right):
+        dom = cod = left + right
+        array = Matrix.zero(dom, cod).array
+        array[right:,:left] = Matrix.id(left).array
+        array[:right,left:] = Matrix.id(right).array
+        return cls(array, dom, cod)
 
-def block_diag(*arrs):
-    """Compute the block diagonal of matrices, taken from scipy."""
-    if arrs == ():
-        arrs = ([],)
-    arrs = [np.atleast_2d(a) for a in arrs]
+    def transpose(self) -> Matrix:
+        return type(self)(self.array.transpose(), self.cod, self.dom)
 
-    bad_args = [k for k in range(len(arrs)) if arrs[k].ndim > 2]
-    if bad_args:
-        raise ValueError("arguments in the following positions have dimension "
-                         "greater than 2: %s" % bad_args)
+    def conjugate(self) -> Matrix:
+        return type(self)(self.array.conjugate(), self.dom, self.cod)
 
-    shapes = np.array([a.shape for a in arrs])
-    out_dtype = np.find_common_type([arr.dtype for arr in arrs], [])
-    out = np.zeros(np.sum(shapes, axis=0), dtype=out_dtype)
+    def dagger(self) -> Matrix:
+        return self.conjugate().transpose()
 
-    r, c = 0, 0
-    for i, (rr, cc) in enumerate(shapes):
-        out[r:r + rr, c:c + cc] = arrs[i]
-        r += rr
-        c += cc
-    return out
+    def map(self, func: Callable[[dtype], dtype], dtype=None) -> Matrix:
+        array = list(map(func, self.array.reshape(-1)))
+        return type(self)[dtype or self.dtype](array, self.dom, self.cod)
+
+    @classmethod
+    def copy(cls, x: int, n: int) -> Matrix:
+        array = [[i + int(j % n * x) == j
+                  for j in range(n * x)] for i in range(x)]
+        return cls(array, x, n * x)
+
+    @classmethod
+    def discard(cls, x: int) -> Matrix:
+        return cls.copy(x, 0)
+
+    @classmethod
+    def merge(cls, x: int, n: int) -> Matrix:
+        return cls.copy(x, n).dagger()
+
+    @classmethod
+    def basis(cls, x: int, i: int) -> Matrix:
+        return cls([[i == j for j in range(x)]], x ** 0, x)
+
+    def repeat(self):
+        if self.dtype != bool or self.dom != self.cod:
+            raise TypeError(messages.MATRIX_REPEAT_ERROR)
+        return sum(
+            self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
+
+    def trace(self, n=1):
+        A, B, C, D = (row >> self >> column
+                      for row in [self.id(self.dom - n) @ self.unit(n),
+                                  self.unit(self.dom - n) @ self.id(n)]
+                      for column in [self.id(self.cod - n) @ self.discard(n),
+                                     self.discard(self.cod - n) @ self.id(n)])
+        return A + (B >> D.repeat() >> C)
 
 
 def array2string(array, **params):

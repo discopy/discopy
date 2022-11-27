@@ -18,7 +18,9 @@ NOT_RIGID_ADJOINT = "{} is not the left adjoint of {}, maybe you meant to use"\
 NOT_PREGROUP = "Expected a pregroup diagram of shape `word @ ... @ word "\
                ">> cups_and_swaps`, use diagram.draw() instead."
 MISSING_TYPES_FOR_EMPTY_SUM = "Empty sum needs a domain and codomain."
-
+MATRIX_TWO_DTYPES = "Matrix class cannot be indexed twice."
+MATRIX_REPEAT_ERROR = "The reflexive transitive closure is only defined for "\
+                      "square boolean matrices."
 
 class WarnOnce:
     warned = False

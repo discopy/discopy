@@ -17,12 +17,14 @@ from discopy import (
     frobenius,
     hypergraph,
     python,
-    # matrix,
+    matrix,
     tensor,
     # quantum,
     grammar,
     drawing,
     utils,
+    config,
+    messages,
 )
 
 __version__ = '1.0.0'

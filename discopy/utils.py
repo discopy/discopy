@@ -116,14 +116,6 @@ def assert_isinstance(object, cls):
             factory_name(cls), factory_name(type(object))))
 
 
-def assert_isatomic(typ, cls=None):
-    cls = cls or type(typ)
-    assert_isinstance(typ, cls)
-    if len(typ) != 1:
-        raise ValueError(messages.NOT_ATOMIC.format(
-            factory_name(cls), len(typ)))
-
-
 class BinaryBoxConstructor:
     """ Box constructor with left and right as input. """
     def __init__(self, left, right):

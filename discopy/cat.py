@@ -191,30 +191,25 @@ class Composable(ABC):
             other : The other composable object to compose sequentially.
         """
 
-    def assert_iscomposable(self, other: Composable) -> ():
+    def is_composable(self, other: Composable) -> bool:
         """
-        Raise :class:`AxiomError` if two objects are not composable,
-        i.e. the domain of ``other`` is not the codomain of ``self``.
+        Whether two objects are composable, i.e. the codomain of the first is
+        the domain of the second.
 
         Parameters:
             other : The other composable object.
         """
-        if self.cod != other.dom:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self, other, repr(self.cod), repr(other.dom)))
+        return self.cod == other.dom
 
-
-    def assert_isparallel(self, other: Composable) -> ():
+    def is_parallel(self, other: Composable) -> bool:
         """
-        Raise :class:`AxiomError` if two composable objects do not have the
-        same domain and codomain.
+        Whether two composable objects are parallel, i.e. they have the same
+        domain and codomain.
 
         Parameters:
             other : The other composable object.
         """
-        if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError(messages.NOT_PARALLEL.format(self, other))
-
+        return (self.dom, self.cod) == (other.dom, other.cod)
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
@@ -836,5 +831,28 @@ class Functor:
         return result
 
 
-assert_iscomposable = Composable.assert_iscomposable
-assert_isparallel = Composable.assert_isparallel
+def assert_iscomposable(left: Composable, right: Composable):
+    """
+    Raise :class:`AxiomError` if two objects are not composable,
+    i.e. the domain of ``other`` is not the codomain of ``self``.
+
+    Parameters:
+        left : A composable object.
+        right : Another composable object.
+    """
+    if not left.is_composable(right):
+        raise AxiomError(messages.NOT_COMPOSABLE.format(
+            left, right, repr(left.cod), repr(right.dom)))
+
+
+def assert_isparallel(left: Composable, right: Composable):
+    """
+    Raise :class:`AxiomError` if two composable objects do not have the
+    same domain and codomain.
+
+    Parameters:
+        left : A composable object.
+        right : Another composable object.
+    """
+    if not left.is_parallel(right):
+        raise AxiomError(messages.NOT_PARALLEL.format(left, right))

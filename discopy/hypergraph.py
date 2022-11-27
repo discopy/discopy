@@ -133,13 +133,12 @@ from networkx import Graph, connected_components, spring_layout, draw_networkx
 
 from discopy import cat, monoidal, drawing, frobenius
 from discopy.cat import AxiomError, Composable
-from discopy.monoidal import Whiskerable
+from discopy.monoidal import Whiskerable, assert_isatomic
 from discopy.drawing import Node
 from discopy.frobenius import Ty, Category
 from discopy.utils import (
     factory_name,
     assert_isinstance,
-    assert_isatomic,
     BinaryBoxConstructor,
 )
 

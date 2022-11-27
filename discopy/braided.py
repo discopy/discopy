@@ -59,8 +59,8 @@ from collections.abc import Callable
 
 from discopy import cat, monoidal
 from discopy.cat import factory
-from discopy.monoidal import Ty
-from discopy.utils import BinaryBoxConstructor, assert_isatomic, factory_name
+from discopy.monoidal import Ty, assert_isatomic
+from discopy.utils import BinaryBoxConstructor, factory_name
 
 
 @factory

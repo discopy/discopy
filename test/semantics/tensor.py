@@ -191,8 +191,9 @@ def test_Tensor_iter():
 
 
 def test_Tensor_subs():
+    import sympy
     from sympy.abc import x
-    s = Tensor([x], Dim(1), Dim(1))
+    s = Tensor[sympy.Expr]([x], Dim(1), Dim(1))
     assert s.subs(x, 1) == 1
 
 

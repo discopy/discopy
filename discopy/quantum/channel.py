@@ -35,9 +35,8 @@ from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
 from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import (
-    bit, qubit, Digit, Qudit,
-    Box, Sum, Swap, Discard, Measure, MixedState, Encode)
-from discopy.quantum.gates import Scalar
+    bit, qubit, Digit, Qudit, Box, Sum, Swap)
+from discopy.quantum.gates import Discard, Measure, MixedState, Encode, Scalar
 
 
 class CQ(Ty):

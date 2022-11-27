@@ -55,7 +55,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
-from discopy import cat, drawing, rewriting
+from discopy import cat, drawing, rewriting, messages
 from discopy.cat import factory, Ob
 from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree, assert_isinstance
@@ -141,6 +141,11 @@ class Ty(cat.Ob):
         """ Called before :meth:`Diagram.draw`. """
         return Ty(*map(str, self.inside))
 
+    @property
+    def is_atomic(self) -> bool:
+        """ Whether a type is atomic, i.e. it has length 1. """
+        return len(self) == 1
+
     def __eq__(self, other):
         return isinstance(other, Ty) and self.inside == other.inside
 
@@ -152,7 +157,7 @@ class Ty(cat.Ob):
             ', '.join(map(repr, self.inside)))
 
     def __str__(self):
-        return ' @ '.join(map(str, self.inside)) or 'Ty()'
+        return ' @ '.join(map(str, self.inside)) or type(self).__name__ + '()'
 
     def __len__(self):
         return len(self.inside)
@@ -705,6 +710,14 @@ class Functor(cat.Functor):
         if isinstance(other, Layer):
             return self(other.left) @ self(other.box) @ self(other.right)
         return super().__call__(other)
+
+
+def assert_isatomic(typ: Ty, cls: type = None):
+    cls = cls or type(typ)
+    assert_isinstance(typ, cls)
+    if not typ.is_atomic:
+        raise ValueError(messages.NOT_ATOMIC.format(
+            factory_name(cls), len(typ)))
 
 
 Diagram.draw = drawing.draw

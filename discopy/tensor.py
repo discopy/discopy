@@ -25,14 +25,15 @@ Summary
 """
 
 from __future__ import annotations
-from contextlib import contextmanager
 
 from discopy import (
-    cat, config, messages, monoidal, rigid, symmetric, frobenius)
-from discopy.cat import Composable, AxiomError, factory
-from discopy.monoidal import Whiskerable
+    cat, messages, monoidal, rigid, symmetric, frobenius)
+from discopy.cat import Composable, AxiomError, factory, assert_iscomposable
+from discopy.monoidal import Whiskerable, assert_isatomic
+from discopy.rigid import assert_isadjoint
 from discopy.frobenius import Ob, Ty, Cup, Cap, Category
-from discopy.utils import assert_isinstance, assert_isatomic, product
+from discopy.matrix import Matrix, array2string, backend, get_backend
+from discopy.utils import assert_isinstance, product
 
 
 @factory
@@ -62,14 +63,37 @@ class Dim(Ty):
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
 
-class Tensor(Composable, Whiskerable):
+class Tensor(Matrix):
     """
-    A tensor is an ``array`` and a pair of dimensions ``dom`` and ``cod``.
+    A tensor is a :class:`Matrix` with dimensions as domain and codomain and
+    the Kronecker product as tensor.
 
     Parameters:
         inside : The array inside the tensor.
         dom : The domain dimension.
         cod : The codomain dimension.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+            tensor
+            dagger
+            cups
+            caps
+            swap
+            spiders
+            transpose
+            conjugate
+            round
+            map
+            zero
+            subs
+            grad
+            jacobian
+            lambdify
 
     Examples
     --------
@@ -100,70 +124,27 @@ class Tensor(Composable, Whiskerable):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    def __init__(self, array: "array", dom: Dim, cod: Dim):
+    def __init__(self, array, dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)
         assert_isinstance(cod, Dim)
+        super().__init__(array, product(dom.inside), product(cod.inside))
+        self.array = self.array.reshape(dom.inside + cod.inside)
         self.dom, self.cod = dom, cod
-        with backend() as np:
-            self.array = np.array(array).reshape(dom.inside + cod.inside)
 
-    def __iter__(self):
-        for i in self.array:
-            yield i
-
-    def __bool__(self):
-        return bool(self.array)
-
-    def __int__(self):
-        return int(self.array)
-
-    def __float__(self):
-        return float(self.array)
-
-    def __complex__(self):
-        return complex(self.array)
-
-    def __repr__(self):
-        np_array = getattr(self.array, 'numpy', lambda: self.array)()
-        return "Tensor({}, dom={}, cod={})".format(
-            array2string(np_array.reshape(-1)), self.dom, self.cod)
-
-    def __str__(self):
-        return repr(self)
-
-    def __add__(self, other):
-        if other == 0:
-            return self
-        assert_isinstance(other, Tensor)
-        if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError(messages.cannot_add(self, other))
-        return Tensor(self.array + other.array, self.dom, self.cod)
-
-    __radd__ = __add__
-
-    def __eq__(self, other):
-        with backend() as np:
-            if not isinstance(other, Tensor):
-                return np.all(np.array(self.array == other))
-            return (self.dom, self.cod) == (other.dom, other.cod)\
-                and np.all(np.array(self.array == other.array))
-
-    @staticmethod
-    def id(dom=Dim(1)) -> Tensor:
-        with backend() as np:
-            return Tensor(np.eye(product(dom.inside)), dom, dom)
+    @classmethod
+    def id(cls, dom=Dim(1)) -> Tensor:
+        return cls(Matrix.id(product(dom.inside)).array, dom, dom)
 
     def then(self, other: Tensor = None, *others: Tensor) -> Tensor:
         if other is None or others:
-            return Diagram.then(self, other, *others)
-        assert_isinstance(other, Tensor)
-        if self.cod != other.dom:
-            raise AxiomError(messages.does_not_compose(self, other))
+            return super().then(other, *others)
+        assert_isinstance(other, type(self))
+        assert_iscomposable(self, other)
         with backend() as np:
             array = np.tensordot(self.array, other.array, len(self.cod))\
                 if self.array.shape and other.array.shape\
                 else self.array * other.array
-        return Tensor(array, self.dom, other.cod)
+        return type(self)(array, self.dom, other.cod)
 
     def tensor(self, other: Tensor = None, *others: Tensor) -> Tensor:
         if other is None or others:
@@ -172,7 +153,7 @@ class Tensor(Composable, Whiskerable):
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         source = range(len(dom @ cod))
         target = [
-            i if i < len(self.dom) or i >= len(self.dom @ self.cod @ other.dom)
+            i if i < len(self.dom) or i >= len(self.dom @ other.dom @ self.cod)
             else i - len(self.cod) if i >= len(self.dom @ self.cod)
             else i + len(other.dom) for i in source]
         with backend() as np:
@@ -180,7 +161,7 @@ class Tensor(Composable, Whiskerable):
                 if self.array.shape and other.array.shape\
                 else self.array * other.array
             array = np.moveaxis(array, source, target)
-        return Tensor(array, dom, cod)
+        return type(self)(array, dom, cod)
 
     def dagger(self) -> Tensor:
         source = range(len(self.dom @ self.cod))
@@ -188,47 +169,49 @@ class Tensor(Composable, Whiskerable):
                   i - len(self.dom) for i in range(len(self.dom @ self.cod))]
         with backend() as np:
             array = np.conjugate(np.moveaxis(self.array, source, target))
-        return Tensor(array, self.cod, self.dom)
+        return type(self)(array, self.cod, self.dom)
 
-    @staticmethod
-    def cups(left: Dim, right: Dim) -> Tensor:
+    @classmethod
+    def cups(cls, left: Dim, right: Dim) -> Tensor:
         assert_isinstance(left, Dim)
         assert_isinstance(right, Dim)
-        if left.r != right:
-            raise AxiomError
-        return rigid.nesting(Tensor, lambda x, y:
-            Tensor(Tensor.id(left).array, x @ y, Dim(1)))(left, right)
+        assert_isadjoint(left, right)
+        nesting = rigid.nesting(
+            cls, lambda x, y: cls(cls.id(left).array, x @ y, Dim(1)))
+        return nesting(left, right)
 
-    @staticmethod
-    def caps(left: Dim, right: Dim) -> Tensor:
-        return Tensor.cups(left, right).dagger()
+    @classmethod
+    def caps(cls, left: Dim, right: Dim) -> Tensor:
+        return cls.cups(left, right).dagger()
 
-    @staticmethod
-    def swap(left: Dim, right: Dim) -> Tensor:
+    @classmethod
+    def swap(cls, left: Dim, right: Dim) -> Tensor:
         dom, cod = left @ right, right @ left
-        array = Tensor.id(dom).array
+        array = cls.id(dom).array
         source = range(len(dom), 2 * len(dom))
         target = [i + len(right) if i < len(dom @ left)
                   else i - len(left) for i in source]
         with backend() as np:
-            return Tensor(np.moveaxis(array, source, target), dom, cod)
+            return cls(np.moveaxis(array, source, target), dom, cod)
 
-    @staticmethod
+    @classmethod
     def spider_factory(
-            n_legs_in: int, n_legs_out: int, typ: Dim, phase=None) -> Tensor:
+            cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
+            ) -> Tensor:
         if phase is not None:
             raise NotImplementedError
         assert_isatomic(typ, Dim)
         n, = typ.inside
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        result = Tensor.zero(dom, cod)
+        result = cls.zero(dom, cod)
         for i in range(n):
             result.array[len(dom @ cod) * (i, )] = 1
         return result
 
-    @staticmethod
+    @classmethod
     def spiders(
-            n_legs_in: int, n_legs_out: int, typ: Dim, phase=None) -> Tensor:
+            cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
+            ) -> Tensor:
         """
         The tensor of interleaving spiders.
 
@@ -238,7 +221,7 @@ class Tensor(Composable, Whiskerable):
             typ : The type of the spiders.
         """
         return frobenius.Diagram.spiders.__func__(
-            Tensor, n_legs_in, n_legs_out, typ, phase)
+            cls, n_legs_in, n_legs_out, typ, phase)
 
     def transpose(self, left=False) -> Tensor:
         """
@@ -246,9 +229,10 @@ class Tensor(Composable, Whiskerable):
 
         Note
         ----
-        This is *not* the same as the algebraic transpose for complex dims.
+        This is *not* the same as the algebraic transpose for non-atomic dims.
         """
-        return Tensor(self.array.transpose(), self.cod[::-1], self.dom[::-1])
+        return type(self)(
+            self.array.transpose(), self.cod[::-1], self.dom[::-1])
 
     def conjugate(self, diagrammatic=True) -> Tensor:
         """
@@ -268,7 +252,7 @@ class Tensor(Composable, Whiskerable):
             len(self.dom) - i - 1 for i in range(len(self.dom @ self.cod))]
         with backend() as np:
             array = np.conjugate(np.moveaxis(self.array, source, target))
-        return Tensor(array, self.dom[::-1], self.cod[::-1])
+        return type(self)(array, self.dom[::-1], self.cod[::-1])
 
     l = r = property(conjugate)
 
@@ -276,15 +260,15 @@ class Tensor(Composable, Whiskerable):
         """ Rounds the entries of a tensor up to a number of decimals. """
         with backend() as np:
             array = np.around(self.array, decimals=decimals)
-        return Tensor(array, self.dom, self.cod)
+        return type(self)(array, self.dom, self.cod)
 
     def map(self, func: Callable) -> Tensor:
         """ Apply a function elementwise. """
         array = list(map(func, self.array.reshape(-1)))
-        return Tensor(array, self.dom, self.cod)
+        return type(self)(array, self.dom, self.cod)
 
-    @staticmethod
-    def zero(dom: Dim, cod: Dim) -> Tensor:
+    @classmethod
+    def zero(cls, dom: Dim, cod: Dim) -> Tensor:
         """
         Returns the zero tensor of a given shape.
 
@@ -294,7 +278,7 @@ class Tensor(Composable, Whiskerable):
         ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
-            return Tensor(np.zeros((dom @ cod).inside), dom, cod)
+            return cls(np.zeros((dom @ cod).inside), dom, cod)
 
     def subs(self, *args) -> Tensor:
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
@@ -325,9 +309,9 @@ class Tensor(Composable, Whiskerable):
         Tensor([2.0*x, 0, 0, 1.0*z, 0, 1.0*y], dom=Dim(1), cod=Dim(3, 2))
         """
         dim = Dim(len(variables) or 1)
-        result = Tensor.zero(self.dom, dim @ self.cod)
+        result = self.zero(self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = Tensor.zero(Dim(1), dim)
+            onehot = self.zero(Dim(1), dim)
             onehot.array[i] = 1
             result += onehot @ self.grad(var)
         return result
@@ -336,17 +320,18 @@ class Tensor(Composable, Whiskerable):
         from sympy import lambdify
         with backend() as np:
             array = lambdify(symbols, self.array, modules=np.module, **kwargs)
-        return lambda *xs: Tensor(array(*xs), self.dom, self.cod)
+        return lambda *xs: type(self)(array(*xs), self.dom, self.cod)
 
 
 class Functor(frobenius.Functor):
     """
-    A tensor functor is a frobenius functor with ``Category(Dim, Tensor)`` as
-    codomain.
+    A tensor functor is a frobenius functor with an optional domain category
+    ``dom`` and ``Category(Dim, Tensor)`` as codomain.
 
     Parameters:
-        ob (dict[cat.Ob, Dim]) : The object mapping.
-        ar (dict[cat.Box, array]): The arrow mapping.
+        ob : The object mapping.
+        ar : The arrow mapping.
+        dom : The domain of the functor.
 
     Example
     -------
@@ -357,7 +342,12 @@ class Functor(frobenius.Functor):
     >>> F = Functor(ob, ar)
     >>> assert F(Alice >> loves >> Bob.dagger()) == 1
     """
-    cod = Category(Dim, Tensor)
+    dom, cod = frobenius.Category(), Category(Dim, Tensor)
+
+    def __init__(
+            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array], dom=None):
+        self.dom = dom or type(self).dom
+        super().__init__(ob, ar)
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -394,7 +384,7 @@ class Functor(frobenius.Functor):
             with backend() as np:
                 array = np.moveaxis(array, list(source), list(target))
             scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
-        return Tensor(array, self(other.dom), self(other.cod))
+        return self.cod.ar(array, self(other.dom), self(other.cod))
 
 
 @factory
