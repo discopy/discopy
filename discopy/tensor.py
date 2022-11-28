@@ -88,12 +88,9 @@ class Tensor(Matrix):
             transpose
             conjugate
             round
-            map
-            zero
             subs
             grad
             jacobian
-            lambdify
 
     Examples
     --------
@@ -106,21 +103,22 @@ class Tensor(Matrix):
     -----
     Tensors can have sympy symbols as free variables.
 
+    >>> from sympy import Expr
     >>> from sympy.abc import phi, psi
-    >>> v = Tensor([phi, psi], Dim(1), Dim(2))
+    >>> v = Tensor[Expr]([phi, psi], Dim(1), Dim(2))
     >>> d = v >> v.dagger()
-    >>> assert v >> v.dagger() == Tensor(
+    >>> assert v >> v.dagger() == Tensor[Expr](
     ...     [phi * phi.conjugate() + psi * psi.conjugate()], Dim(1), Dim(1))
 
     These can be substituted and lambdifed.
 
-    >>> v.subs(phi, 0).lambdify(psi)(1)
+    >>> v.subs(phi, 0).lambdify(psi, dtype=int)(1)
     Tensor([0, 1], dom=Dim(1), cod=Dim(2))
 
     We can also use jax.numpy using Tensor.backend.
 
     >>> with backend('jax'):
-    ...     f = lambda *xs: d.lambdify(phi, psi)(*xs).array
+    ...     f = lambda *xs: d.lambdify(phi, psi, dtype=float)(*xs).array
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
@@ -256,17 +254,6 @@ class Tensor(Matrix):
 
     l = r = property(conjugate)
 
-    def round(self, decimals=0) -> Tensor:
-        """ Rounds the entries of a tensor up to a number of decimals. """
-        with backend() as np:
-            array = np.around(self.array, decimals=decimals)
-        return type(self)(array, self.dom, self.cod)
-
-    def map(self, func: Callable) -> Tensor:
-        """ Apply a function elementwise. """
-        array = list(map(func, self.array.reshape(-1)))
-        return type(self)(array, self.dom, self.cod)
-
     @classmethod
     def zero(cls, dom: Dim, cod: Dim) -> Tensor:
         """
@@ -279,14 +266,6 @@ class Tensor(Matrix):
         """
         with backend() as np:
             return cls(np.zeros((dom @ cod).inside), dom, cod)
-
-    def subs(self, *args) -> Tensor:
-        return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
-
-    def grad(self, var, **params) -> Tensor:
-        """ Gradient with respect to variables. """
-        return self.map(lambda x:
-                        getattr(x, "diff", lambda _: 0)(var, **params))
 
     def jacobian(self, *variables: "list[sympy.Symbol]", **params) -> Tensor:
         """
@@ -317,12 +296,6 @@ class Tensor(Matrix):
             result += onehot @ self.grad(var)
         return result
 
-    def lambdify(self, *symbols: "sympy.Symbol", **kwargs) -> Callable:
-        from sympy import lambdify
-        with backend() as np:
-            array = lambdify(symbols, self.array, modules=np.module, **kwargs)
-        return lambda *xs: type(self)(array(*xs), self.dom, self.cod)
-
 
 class Functor(frobenius.Functor):
     """
@@ -342,10 +315,25 @@ class Functor(frobenius.Functor):
     >>> loves = rigid.Box('loves', rigid.Ty(), n.r @ s @ n.l)
     >>> Bob = rigid.Box('Bob', rigid.Ty(), n)
     >>> diagram = Alice @ loves @ Bob\\
-    ...     >> rigid.Cup(n, n.r) @ s rigid.Cup(n.l, n)
-    >>> ob, ar = {n: 2}, {Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]}
-    >>> F = Functor(ob, ar, dom=rigid.Category(), dtype=bool)
-    >>> assert F(diagram)
+    ...     >> rigid.Cup(n, n.r) @ s @ rigid.Cup(n.l, n)
+
+    >>> F = Functor(
+    ...     ob={s: 1, n: 2},
+    ...     ar={Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]},
+    ...     dom=rigid.Category(), dtype=bool)
+    >>> F(diagram)
+    Tensor[bool]([True], dom=Dim(1), cod=Dim(1))
+
+    >>> rewrite = diagram\\
+    ...     .transpose_box(2).transpose_box(0, left=True).normal_form()
+    >>> from discopy.drawing import equation
+    >>> equation(diagram, rewrite, figsize=(8, 3),
+    ...          path='docs/imgs/tensor/rewrite.png')
+
+    .. image :: /imgs/tensor/rewrite.png
+        :align: center
+
+    >>> assert F(diagram) == F(rewrite)
     """
     dom, cod = frobenius.Category(), Category(Dim, Tensor)
 
@@ -420,11 +408,9 @@ class Diagram(frobenius.Diagram):
         >>> import tensornetwork as tn
         >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
         """
+        dtype = dtype or Tensor.dtype
         if contractor is None and "numpy" not in get_backend().__package__:
-            raise Exception(
-                'Provide a tensornetwork contractor'
-                'when using a non-numpy backend.')
-        dtype = dtype or self.dtype
+            raise ValueError(messages.PROVITE_CONTRACTOR)
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
@@ -450,18 +436,16 @@ class Diagram(frobenius.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
-        if dtype is None:
-            dtype = self._infer_dtype()
         nodes = [
             tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
             for i, dim in enumerate(self.dom.inside)]
         inputs, outputs = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
-            if isinstance(box, symmetric.Swap):
+            if isinstance(box, Swap):
                 outputs[offset], outputs[offset + 1]\
                     = outputs[offset + 1], outputs[offset]
                 continue
-            if isinstance(box, Spider):
+            if isinstance(box, (Cup, Spider)):
                 dims = (len(box.dom), len(box.cod))
                 if dims == (1, 1):  # identity
                     continue
@@ -473,7 +457,7 @@ class Diagram(frobenius.Diagram):
                     node = tn.CopyNode(
                         sum(dims), outputs[offset].dimension, dtype=dtype)
             else:
-                array = box.eval().array
+                array = box.eval(dtype=dtype).array
                 node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(outputs[offset + i], node[i])
@@ -490,7 +474,7 @@ class Diagram(frobenius.Diagram):
         t2 = self.id(left) @ box @ self.id(right) >> tail.grad(var, **params)
         return t1 + t2
 
-    def jacobian(self, variables, **params):
+    def jacobian(self, variables, **params) -> Diagram:
         """
         Diagrammatic jacobian with respect to :code:`variables`.
 
@@ -507,23 +491,18 @@ class Diagram(frobenius.Diagram):
 
         Examples
         --------
+        >>> from sympy import Expr
         >>> from sympy.abc import x, y, z
         >>> vector = Box("v", Dim(1), Dim(2), [x ** 2, y * z])
-        >>> vector.jacobian([x, y, z]).eval()
-        Tensor([2.0*x, 0, 0, 1.0*z, 0, 1.0*y], dom=Dim(1), cod=Dim(3, 2))
+        >>> vector.jacobian([x, y, z]).eval(dtype=Expr)
+        Tensor[Expr]([2*x, 0, 0, z, 0, y], dom=Dim(1), cod=Dim(3, 2))
         """
         dim = Dim(len(variables) or 1)
         result = Sum((), self.dom, dim @ self.cod)
         for i, var in enumerate(variables):
-            onehot = self.zero(Dim(1), dim)
+            onehot = Tensor.zero(Dim(1), dim)
             onehot.array[i] = 1
-            result += onehot @ self.grad(var)
-        return result
-
-    @property
-    def dtype(self):
-        """ The datatype of a tensor diagram. """
-        result, = set(box._dtype for box in self.boxes)
+            result += Box(str(var), Dim(1), dim, onehot.array) @ self.grad(var)
         return result
 
 
@@ -535,31 +514,16 @@ class Box(frobenius.Box, Diagram):
         name : The name of the box.
         dom : The domain of the box, i.e. its input dimension.
         cod : The codomain of the box, i.e. its output dimension.
-        array : The array inside the tensor box.
+        data : The array inside the tensor box.
         dtype : The datatype for the entries of the array.
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
-
-    def __init__(
-            self, name: str, dom: Dim, cod: Dim, array, dtype=None, **params):
-        frobenius.Box.__init__(self, name, dom, cod, data=array, **params)
-        if dtype is None and self.free_symbols:
-            import sympy
-            dtype = sympy.Expr
-        elif dtype is None:
-            try:
-                import numpy
-                dtype = numpy.asarray(array).dtype
-            except (RuntimeError, TypeError):
-                # assume that the array is actually a PyTorch tensor
-                dtype = array.detach().cpu().numpy().dtype
-        self._dtype = dtype
 
     @property
     def array(self):
         if self.data is not None:
             with backend() as np:
-                return np.array(self.data, dtype=self.dtype).reshape(
+                return np.array(self.data).reshape(
                     self.dom.inside + self.cod.inside)
 
     def grad(self, var, **params):
@@ -656,9 +620,6 @@ class Sum(monoidal.Sum, Box):
     """
     __ambiguous_inheritance__ = (monoidal.Sum, )
 
-    def eval(self, contractor=None):
-        return sum(term.eval(contractor=contractor) for term in self.terms)
-
 
 class Bubble(monoidal.Bubble, Box):
     """
@@ -677,13 +638,14 @@ class Bubble(monoidal.Bubble, Box):
     >>> men = Box("men", Dim(1), Dim(2), [0, 1])
     >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
-    >>> assert men_are_mortal.eval()
+    >>> assert men_are_mortal.eval(dtype=bool)
     >>> men_are_mortal.draw(draw_type_labels=False,
     ...                     path='docs/imgs/tensor/men-are-mortal.png')
 
     .. image:: /imgs/tensor/men-are-mortal.png
         :align: center
 
+    >>> from sympy import Expr
     >>> from sympy.abc import x
     >>> f = Box('f', Dim(2), Dim(2), [1, 0, 0, x])
     >>> g = Box('g', Dim(2), Dim(2), [-x, 0, 0, 1])
@@ -693,7 +655,7 @@ class Bubble(monoidal.Bubble, Box):
     ...         drawing_name="d${}$".format(var))
     >>> lhs = grad(f >> g, x)
     >>> rhs = (grad(f, x) >> g) + (f >> grad(g, x))
-    >>> assert lhs.eval() == rhs.eval()
+    >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
     >>> from discopy import drawing
     >>> drawing.equation(lhs, rhs, figsize=(5, 2), draw_type_labels=False,
     ...                  path='docs/imgs/tensor/product-rule.png')

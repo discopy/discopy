@@ -60,12 +60,16 @@ class Matrix(Composable, Whiskerable):
             conjugate
             dagger
             map
+            round
             copy
             discard
             merge
             basis
             repeat
             trace
+            lambdify
+            subs
+            grad
 
     Note
     ----
@@ -124,6 +128,15 @@ class Matrix(Composable, Whiskerable):
             C.dtype = dtype
             _cache[dtype] = C
         return _cache[dtype]
+
+    def cast_dtype(self, dtype: type) -> Matrix:
+        """
+        Cast a matrix to a given ``dtype``.
+
+        Parameters:
+            dtype : The target datatype.
+        """
+        return type(self)[dtype](self.array, self.dom, self.cod)
 
     def __init__(self, array, dom: int, cod: int):
         assert_isinstance(dom, int)
@@ -224,6 +237,12 @@ class Matrix(Composable, Whiskerable):
         array = list(map(func, self.array.reshape(-1)))
         return type(self)[dtype or self.dtype](array, self.dom, self.cod)
 
+    def round(self, decimals=0) -> Matrix:
+        """ Rounds the entries of a matrix up to a number of decimals. """
+        with backend() as np:
+            array = np.around(self.array, decimals=decimals)
+        return type(self)(array, self.dom, self.cod)
+
     @classmethod
     def copy(cls, x: int, n: int) -> Matrix:
         array = [[i + int(j % n * x) == j
@@ -255,6 +274,22 @@ class Matrix(Composable, Whiskerable):
                       for column in [self.id(self.cod - n) @ self.discard(n),
                                      self.discard(self.cod - n) @ self.id(n)])
         return A + (B >> D.repeat() >> C)
+
+    def lambdify(self, *symbols: "sympy.Symbol", dtype=None, **kwargs
+            ) -> Callable:
+        from sympy import lambdify
+        with backend() as np:
+            array = lambdify(symbols, self.array, modules=np.module, **kwargs)
+        dtype = dtype or self.dtype
+        return lambda *xs: type(self)[dtype](array(*xs), self.dom, self.cod)
+
+    def subs(self, *args) -> Matrix:
+        return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
+
+    def grad(self, var, **params) -> Matrix:
+        """ Gradient with respect to variables. """
+        return self.map(lambda x:
+                        getattr(x, "diff", lambda _: 0)(var, **params))
 
 
 def array2string(array, **params):

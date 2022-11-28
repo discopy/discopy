@@ -384,7 +384,8 @@ class Arrow(Composable):
         >>> x, y = Ob('x'), Ob('y')
         >>> f = Box('f', x, y, data={"Alice": [phi + 1]})
         >>> g = Box('g', y, x, data={"Bob": [psi / 2]})
-        >>> assert (f >> g).free_symbols == {phi, psi}
+        >>> diagram = (f >> g).bubble() + Id(x)
+        >>> assert diagram.free_symbols == {phi, psi}
         """
         return {x for box in self.inside for x in box.free_symbols}
 
@@ -496,7 +497,7 @@ class Box(Arrow):
                 # Handles numpy 0-d arrays, which are actually not iterable.
                 if not hasattr(data, "shape") or data.shape != ():
                     return set().union(*map(recursive_free_symbols, data))
-            return data.free_symbols if hasattr(data, "free_symbols") else {}
+            return getattr(data, "free_symbols", set())
         return recursive_free_symbols(self.data)
 
     def subs(self, *args) -> Box:
@@ -712,6 +713,10 @@ class Bubble(Box):
             repr(self.arg) if self.is_id_on_objects
             else "{}, dom={}, cod={})".format(*map(repr, [
                 self.arg, self.dom, self.cod])))
+
+    @property
+    def free_symbols(self):
+        return super().free_symbols.union(self.arg.free_symbols)
 
     def to_tree(self):
         return {
