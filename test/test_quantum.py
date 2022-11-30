@@ -287,6 +287,9 @@ def test_Circuit_from_tk():
         == back_n_forth(Swap(qubit, bit)) == back_n_forth(Swap(bit, qubit))
     c = (T >> T.dagger()).init_and_discard()
     assert c == back_n_forth(c)
+    symbs_xyz = (sympy.Symbol('x'), sympy.Symbol('y'), sympy.Symbol('z'))
+    circ_xyz = Rx(symbs_xyz[0]) >> Ry(symbs_xyz[1]) >> Rz(symbs_xyz[2])
+    assert back_n_forth(circ_xyz) == circ_xyz.init_and_discard()
 
 
 def test_ClassicalGate_to_tk():
