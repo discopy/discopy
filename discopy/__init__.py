@@ -19,7 +19,7 @@ from discopy import (
     python,
     matrix,
     tensor,
-    # quantum,
+    quantum,
     grammar,
     drawing,
     utils,

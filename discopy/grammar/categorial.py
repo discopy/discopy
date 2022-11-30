@@ -6,12 +6,30 @@ Implements combinatory categorial grammars.
 
 import re
 
-from discopy.grammar import cfg
 from discopy.closed import Ty, Box, Id, FA, BA, FC
 
 
-class Word(cfg.Word, Box):
-    """ Word with a :class:`discopy.biclosed.Ty` as codomain. """
+class Word(Box):
+    """
+    Implements words as boxes with a :class:`discopy.monoidal.Ty` as codomain.
+
+    >>> from discopy.rigid import Ty
+    >>> Alice = Word('Alice', Ty('n'))
+    >>> loves = Word('loves',
+    ...     Ty('n').r @ Ty('s') @ Ty('n').l)
+    >>> Alice
+    Word('Alice', Ty('n'))
+    >>> loves
+    Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
+    """
+    def __init__(self, name, cod, dom=None, **params):
+        dom = dom or cod[0:0]
+        super().__init__(name, dom, cod, **params)
+
+    def __repr__(self):
+        return "Word({}, {}{})".format(
+            repr(self.name), repr(self.cod),
+            ", dom={}".format(repr(self.dom)) if self.dom else "")
 
 
 def cat2ty(string):

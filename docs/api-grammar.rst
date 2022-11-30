@@ -5,6 +5,5 @@ grammar
     :template: module.rst
     :toctree: api
 
-    discopy.grammar.cfg
-    discopy.grammar.ccg
+    discopy.grammar.categorial
     discopy.grammar.pregroup

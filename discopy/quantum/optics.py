@@ -690,14 +690,14 @@ class TBS(Box):
     >>> assert (TBS(0.25).dagger().global_phase ==
     ...         np.conjugate(TBS(0.25).global_phase))
     """
-    def __init__(self, theta, _dagger=False):
-        self.theta, self._dagger = theta, _dagger
+    def __init__(self, theta, is_dagger=False):
+        self.theta, self.is_dagger = theta, _dagger
         name = 'TBS({})'.format(theta)
-        super().__init__(name, PRO(2), PRO(2), _dagger=_dagger)
+        super().__init__(name, PRO(2), PRO(2), is_dagger=_dagger)
 
     @property
     def global_phase(self):
-        if self._dagger:
+        if self.is_dagger:
             return - 1j * np.exp(- 1j * self.theta * np.pi)
         else:
             return 1j * np.exp(1j * self.theta * np.pi)
@@ -710,7 +710,7 @@ class TBS(Box):
         return Matrix(self.dom, self.cod, array)
 
     def dagger(self):
-        return TBS(self.theta, _dagger=True)
+        return TBS(self.theta, is_dagger=True)
 
 
 class MZI(Box):
@@ -742,13 +742,13 @@ class MZI(Box):
     >>> assert np.allclose((MZI(0.28, 0.34) >> MZI(0.28, 0.34).dagger()).array,
     ...                    Id(2).array)
     """
-    def __init__(self, theta, phi, _dagger=False):
-        self.theta, self.phi, self._dagger = theta, phi, _dagger
-        super().__init__('MZI', PRO(2), PRO(2), _dagger=_dagger)
+    def __init__(self, theta, phi, is_dagger=False):
+        self.theta, self.phi, self.is_dagger = theta, phi, _dagger
+        super().__init__('MZI', PRO(2), PRO(2), is_dagger=_dagger)
 
     @property
     def global_phase(self):
-        if not self._dagger:
+        if not self.is_dagger:
             return 1j * np.exp(1j * self.theta * np.pi)
         else:
             return - 1j * np.exp(- 1j * self.theta * np.pi)
@@ -762,11 +762,11 @@ class MZI(Box):
         exp = backend.exp(1j * 2 * backend.pi * self.phi)
         array = np.array([exp * sin, cos, exp * cos, -sin])
         matrix = Matrix(self.dom, self.cod, array)
-        matrix = matrix.dagger() if self._dagger else matrix
+        matrix = matrix.dagger() if self.is_dagger else matrix
         return matrix
 
     def dagger(self):
-        return MZI(self.theta, self.phi, _dagger=not self._dagger)
+        return MZI(self.theta, self.phi, is_dagger=not self.is_dagger)
 
 
 class Functor(monoidal.Functor):
