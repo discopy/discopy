@@ -419,8 +419,8 @@ class Box(closed.Box, Diagram):
         closed.Box.__init__(self, name, dom, cod, data=data, **params)
 
     def __str__(self):
-        return str(self.r) + '.l' if self.z < 0\
-            else str(self.l) + '.r' if self.z > 0 else cat.Box.__str__(self)
+        return cat.Box.__str__(self) if not self.z\
+            else str(self.r) + '.l' if self.z < 0 else str(self.l) + '.r'
 
     def __repr__(self):
         if self.is_dagger:

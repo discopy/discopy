@@ -113,8 +113,6 @@ class Ty(cat.Ob):
         >>> assert Ty().tensor(*list_of_types) == Ty('x', 'y', 'z')
         """
         for other in others:
-            if not isinstance(other, Ty):
-                return NotImplemented  # This allows whiskering on the left.
             assert_isinstance(self, other.factory)
             assert_isinstance(other, self.factory)
         inside = self.inside + tuple(x for t in others for x in t.inside)
@@ -184,7 +182,7 @@ class Ty(cat.Ob):
         return cls(*map(from_tree, tree['inside']))
 
     def __matmul__(self, other):
-        return self.tensor(other)
+        return self.tensor(other) if isinstance(other, Ty) else NotImplemented
 
     __add__ = __matmul__
 
@@ -719,10 +717,6 @@ Diagram.to_gif = drawing.to_gif
 Diagram.interchange = rewriting.interchange
 Diagram.normalize = rewriting.normalize
 Diagram.normal_form = rewriting.normal_form
-Diagram.foliate = rewriting.foliate
-Diagram.flatten = rewriting.flatten
-Diagram.foliation = rewriting.foliation
-Diagram.depth = rewriting.depth
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble

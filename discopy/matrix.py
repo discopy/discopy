@@ -38,11 +38,17 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from discopy import cat, monoidal, config
-from discopy.cat import (Composable, assert_iscomposable, assert_isparallel)
+from discopy.cat import (
+    factory,
+    Composable,
+    assert_iscomposable,
+    assert_isparallel,
+)
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance
 
 
+@factory
 class Matrix(Composable, Whiskerable):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
@@ -122,9 +128,11 @@ class Matrix(Composable, Whiskerable):
             _cache.clear()
             _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
         if dtype not in _cache:
-            class C(cls): ...
+            class C(cls.factory):
+                pass
+
             C.__name__ = C.__qualname__ = "{}[{}]".format(
-                cls.__name__, dtype.__name__)
+                cls.factory.__name__, dtype.__name__)
             C.dtype = dtype
             _cache[dtype] = C
         return _cache[dtype]
@@ -146,10 +154,10 @@ class Matrix(Composable, Whiskerable):
             self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
 
     def __eq__(self, other):
-        return isinstance(other, type(self))\
+        return isinstance(other, self.factory)\
+            and self.dtype == other.dtype\
             and (self.dom, self.cod) == (other.dom, other.cod)\
-            and (self.array == other.array).all()\
-            or (self.array == other).all()  # A Matrix can equal an array.
+            and (self.array == other.array).all()
 
     def __repr__(self):
         np_array = getattr(self.array, 'numpy', lambda: self.array)()
@@ -220,8 +228,8 @@ class Matrix(Composable, Whiskerable):
     def swap(cls, left, right):
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
-        array[right:,:left] = Matrix.id(left).array
-        array[:right,left:] = Matrix.id(right).array
+        array[right:, :left] = Matrix.id(left).array
+        array[:right, left:] = Matrix.id(right).array
         return cls(array, dom, cod)
 
     def transpose(self) -> Matrix:
@@ -275,8 +283,8 @@ class Matrix(Composable, Whiskerable):
                                      self.discard(self.cod - n) @ self.id(n)])
         return A + (B >> D.repeat() >> C)
 
-    def lambdify(self, *symbols: "sympy.Symbol", dtype=None, **kwargs
-            ) -> Callable:
+    def lambdify(
+            self, *symbols: "sympy.Symbol", dtype=None, **kwargs) -> Callable:
         from sympy import lambdify
         with backend() as np:
             array = lambdify(symbols, self.array, modules=np.module, **kwargs)

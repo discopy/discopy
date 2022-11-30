@@ -758,6 +758,9 @@ class Category:
     def __init__(self, ob: type = None, ar: type = None):
         self.ob, self.ar = (ob or type(self).ob), (ar or type(self).ar)
 
+    def __repr__(self):
+        return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
+
 
 class Functor:
     """
@@ -818,8 +821,9 @@ class Functor:
         return self.ob == other.ob and self.ar == other.ar
 
     def __repr__(self):
-        return factory_name(type(self)) + "(ob={}, ar={})".format(
-            repr(self.ob), repr(self.ar))
+        cod_repr = "" if self.cod == type(self).cod else f", cod={self.cod}"
+        return factory_name(type(self))\
+            + f"(ob={self.ob}, ar={self.ar}{cod_repr})"
 
     def __call__(self, other):
         if isinstance(other, Ob):

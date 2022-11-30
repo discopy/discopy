@@ -71,33 +71,29 @@ class Diagram(compact.Diagram):
     ty_factory = Ty
 
     @classmethod
-    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty, phase=None
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty, phases=None
             ) -> Diagram:
         """
-        Returns a diagram of interleaving spiders.
+        The spiders on a given type with ``n_legs_in`` and ``n_legs_out`` and
+        some optional vector of ``phases``.
 
         Parameters:
             n_legs_in : The number of legs in for each spider.
             n_legs_out : The number of legs out for each spider.
             typ : The type of the spiders.
-            phase : The phase for each spider.
+            phases : The phase for each spider.
         """
-        result = cls.id().tensor(*[
-            cls.spider_factory(n_legs_in, n_legs_out, x, p) for x, p in zip(
-                typ, len(typ) * [None] if phase is None else phase)])
-        for i, t in enumerate(typ):
-            for j in range(n_legs_in - 1):
-                result <<= result.dom[:i * j + i + j] @ cls.swap(
-                    t, result.dom[i * j + i + j:i * n_legs_in + j]
-                ) @ result.dom[i * n_legs_in + j + 1:]
-            for j in range(n_legs_out - 1):
-                result >>= result.cod[:i * j + i + j] @ cls.swap(
-                    result.cod[i * j + i + j:i * n_legs_out + j], t
-                ) @ result.cod[i * n_legs_out + j + 1:]
-        return result
+        return interleaving(cls, cls.spider_factory)(
+            n_legs_in, n_legs_out, typ, phases)
 
     def unfuse(self) -> Diagram:
-        """ Unfuse arbitrary spiders into three- and one-legged spiders. """
+        """
+        Unfuse arbitrary spiders into spiders with one or three legs.
+
+        See Also
+        --------
+        This calls :func:`coherence`.
+        """
         return compact.Functor(ob=lambda x: x, ar=lambda f:
             f.unfuse() if isinstance(f, Spider) else f)(self)
 
@@ -168,17 +164,19 @@ class Spider(Box):
                  **params):
         self.typ, self.phase = typ, phase
         assert_isatomic(typ)
+        phase_str = "" if phase is None else ", {}".format(phase)
         name = "Spider({}, {}, {}{})".format(
-            n_legs_in, n_legs_out, typ, "" if phase is None else phase)
+            n_legs_in, n_legs_out, typ, phase_str)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         params = dict(dict(
             draw_as_spider=True, color="black", drawing_name=""), **params)
         Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
+        phase_repr = "" if self.phase is None else ", phase={}".format(
+            repr(self.phase))
         return factory_name(type(self)) + "({}, {}, {}{})".format(
-            len(self.dom), len(self.cod), repr(self.typ),
-            "" if self.phase is None else repr(phase))
+            len(self.dom), len(self.cod), repr(self.typ), phase_repr)
 
     def dagger(self):
         phase = None if self.phase is None else -self.phase
@@ -188,27 +186,9 @@ class Spider(Box):
         del left
         return type(self)(len(self.cod), len(self.dom), self.typ, self.phase)
 
-    def unfuse(self, factory=None) -> Diagram:
-        factory = factory or type(self)
-        a, b, x = len(self.dom), len(self.cod), self.typ
-        if self.phase is not None:  # Coherence for phase shifters.
-            return factory(a, 1, x).unfuse()\
-                >> factory(1, 1, x, self.phase)\
-                >> factory(1, b, x).unfuse()
-        if (a, b) in [(0, 1), (1, 0), (2, 1), (1, 2)]:
-            return self
-        if (a, b) == (1, 1):  # Speciality: one-to-one spiders are identity.
-            return self.id(self.dom)
-        if a < b:  # Cut the work in two.
-            return self.dagger().unfuse().dagger()
-        if b != 1:
-            return factory(a, 1, x).unfuse() >> factory(1, b, x).unfuse()
-        if a % 2:  # We can now assume a is odd and b == 1.
-            return factory(a - 1, 1, x).unfuse() @ x\
-                >> factory(2, 1, x).unfuse()
-        # We can now assume a is even and b == 1.
-        half_spiders = factory(a // 2, 1, x).unfuse()
-        return half_spiders @ half_spiders >> factory(2, 1, x)
+    def unfuse(self) -> Diagram:
+        return coherence(self.factory, type(self))(
+            len(self.dom), len(self.cod), self.typ, self.phase)
 
 
 class Category(compact.Category):
@@ -238,6 +218,77 @@ class Functor(compact.Functor):
             return self.cod.ar.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
         return super().__call__(other)
+
+
+def interleaving(cls: type, factory: Callable
+        ) -> Callable[[int, int, Ty], Diagram]:
+    """
+    Take a ``factory`` for spiders of atomic types and extend it recursively.
+
+    Parameters:
+        cls : A diagram factory, e.g. :class:`Diagram`.
+        factory : A factory for spiders of atomic types, e.g. :class:`Spider`.
+    """
+    def method(n_legs_in, n_legs_out, typ, phases=None):
+        phases = phases or len(typ) * [None]
+        result = cls.id().tensor(*[
+            factory(n_legs_in, n_legs_out, x, p) for x, p in zip(typ, phases)])
+        for i, t in enumerate(typ):
+            for j in range(n_legs_in - 1):
+                result <<= result.dom[:i * j + i + j] @ cls.swap(
+                    t, result.dom[i * j + i + j:i * n_legs_in + j]
+                ) @ result.dom[i * n_legs_in + j + 1:]
+            for j in range(n_legs_out - 1):
+                result >>= result.cod[:i * j + i + j] @ cls.swap(
+                    result.cod[i * j + i + j:i * n_legs_out + j], t
+                ) @ result.cod[i * n_legs_out + j + 1:]
+        return result
+
+    return method
+
+def coherence(cls: type, factory: Callable
+        ) -> Callable[[int, int, Ty], Diagram]:
+    """
+    Take a ``factory`` for spiders with one or three legs of atomic types
+    and extend it recursively to arbitrary spiders of atomic types.
+
+    Parameters:
+        cls : A diagram factory, e.g. :class:`Diagram`.
+        factory : A factory for spiders of atomic types, e.g. :class:`Spider`.
+
+    See Also
+    --------
+    This is called by :meth:`frobenius.Diagram.unfuse`.
+
+    Note
+    ----
+    If the spider has a non-trivial phase then we also output a phase shifter.
+
+    Example
+    -------
+    >>> print(Spider(2, 2, Ty('x'), phase=.5).unfuse())
+    Spider(2, 1, x) >> Spider(1, 1, x, 0.5) >> Spider(1, 2, x)
+    """
+    def method(a, b, x, phase=None):
+        if phase is not None:  # Coherence for phase shifters.
+            return method(a, 1, x)\
+                >> factory(1, 1, x, phase)\
+                >> method(1, b, x)
+        if (a, b) in [(0, 1), (1, 0), (2, 1), (1, 2)]:
+            return factory(a, b, x)
+        if (a, b) == (1, 1):  # Speciality: one-to-one spiders are identity.
+            return cls.id(x)
+        if a < b:  # Cut the work in two.
+            return method(b, a, x[::-1]).rotate()
+        if b != 1:
+            return method(a, 1, x) >> method(1, b, x)
+        if a % 2:  # We can now assume a is odd and b == 1.
+            return method(a - 1, 1, x) @ x >> factory(2, 1, x)
+        # We can now assume a is even and b == 1.
+        half_spiders = method(a // 2, 1, x)
+        return half_spiders @ half_spiders >> factory(2, 1, x)
+
+    return method
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

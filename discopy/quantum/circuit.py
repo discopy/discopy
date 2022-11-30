@@ -194,7 +194,7 @@ class Circuit(tensor.Diagram):
         """
         both_bits_and_qubits = self.dom.count(bit) and self.dom.count(qubit)\
             or any(layer.cod.count(bit) and layer.cod.count(qubit)
-                   for layer in self.layers)
+                   for layer in self.inside)
         return both_bits_and_qubits or any(box.is_mixed for box in self.boxes)
 
     def init_and_discard(self):
@@ -202,11 +202,11 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.gates import Bits, Ket
         circuit = self
         if circuit.dom:
-            init = Id(0).tensor(*(
+            init = Id().tensor(*(
                 Bits(0) if x.name == "bit" else Ket(0) for x in circuit.dom))
             circuit = init >> circuit
         if circuit.cod != bit ** len(circuit.cod):
-            discards = Id(0).tensor(*(
+            discards = Id().tensor(*(
                 Discard() if x.name == "qubit"
                 else Id(bit) for x in circuit.cod))
             circuit = circuit >> discards
@@ -237,7 +237,7 @@ class Circuit(tensor.Diagram):
         -------
         tensor : :class:`discopy.tensor.Tensor`
             If :code:`backend is not None` or :code:`mixed=False`.
-        cqmap : :class:`Channel`
+        channel : :class:`Channel`
             Otherwise.
 
         Examples
@@ -248,12 +248,13 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum import *
 
         >>> H.eval().round(2)  # doctest: +ELLIPSIS
-        Tensor(dom=Dim(2), cod=Dim(2), array=[0.71+0.j, ..., -0.71+0.j])
+        Tensor[complex]([0.71+0.j, ..., -0.71+0.j], dom=Dim(2), cod=Dim(2))
         >>> H.eval(mixed=True).round(1)  # doctest: +ELLIPSIS
-        Channel(dom=Q(Dim(2)), cod=Q(Dim(2)), array=[0.5+0.j, ..., 0.5+0.j])
+        Channel([0.5+0.j, ..., 0.5+0.j], dom=Q(Dim(2)), cod=Q(Dim(2)))
 
         We can evaluate a mixed circuit as a :class:`Channel`:
 
+        >>> from discopy.quantum import Channel
         >>> assert Measure().eval()\\
         ...     == Channel(dom=Q(Dim(2)), cod=C(Dim(2)),
         ...              array=[1, 0, 0, 0, 0, 0, 0, 1])
@@ -268,28 +269,29 @@ class Circuit(tensor.Diagram):
         >>> assert circuit.eval(backend, n_shots=2**10).round()\\
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
-        from discopy.quantum import cqmap
+        from discopy.quantum import channel
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
-                f = cqmap.Functor()
-                return cqmap.Channel(f(self.dom), f(self.cod), array)
+                f = channel.Functor()
+                return channel.Channel(f(self.dom), f(self.cod), array)
             f = tensor.Functor(lambda x: x[0].dim, {})
             return Tensor(f(self.dom), f(self.cod), array)
 
-        from discopy import cqmap
+        from discopy.quantum import channel
         from discopy.quantum.gates import Bits, scalar
-        if len(others) == 1 and not isinstance(others[0], Circuit):
-            # This allows the syntax :code:`circuit.eval(backend)`
-            return self.eval(backend=others[0], mixed=mixed, **params)
         if backend is None:
             if others:
                 return [circuit.eval(mixed=mixed, **params)
                         for circuit in (self, ) + others]
-            functor = cqmap.Functor() if mixed or self.is_mixed\
-                else tensor.Functor(lambda x: x[0].dim, lambda f: f.array)
-            box = functor(self)
-            return type(box)(box.dom, box.cod, box.array + 0j)
+            if mixed or self.is_mixed:
+                return channel.Functor(
+                    {}, {}, dom=Category(Ty, Circuit), dtype=complex)(self)
+            return tensor.Functor(
+                lambda x: x.inside[0].dim,
+                lambda f: f.array,
+                dom=Category(Ty, Circuit),
+                dtype=complex)(self)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(
             *circuits[1:], backend=backend, **params)
@@ -366,7 +368,7 @@ class Circuit(tensor.Diagram):
         Parameters
         ----------
         mixed : bool, optional
-            Whether to apply :class:`tensor.Functor` or :class:`cqmap.Functor`.
+            Whether to apply :class:`tensor.Functor` or :class:`channel.Functor`.
 
         Returns
         -------
@@ -420,7 +422,7 @@ class Circuit(tensor.Diagram):
             if hasattr(box, '_decompose'):
                 decomp = box._decompose()
                 diag >>= self[last_i:i]
-                left, _, right = self.layers[i]
+                left, _, right = self.inside[i]
                 diag >>= Id(left) @ decomp @ Id(right)
                 last_i = i + 1
         diag >>= self[last_i:]
@@ -438,7 +440,7 @@ class Circuit(tensor.Diagram):
         q_scan1 = [n[1] for n in q_nodes1]
         q_scan2 = [n[1] for n in q_nodes2]
         nodes = c_nodes + q_nodes1 + q_nodes2
-        for box, layer, offset in zip(self.boxes, self.layers, self.offsets):
+        for box, layer, offset in zip(self.boxes, self.inside, self.offsets):
             if box == Circuit.swap(bit, bit):
                 left, _, _ = layer
                 c_offset = left.count(bit)
@@ -530,7 +532,7 @@ class Circuit(tensor.Diagram):
         --------
         >>> from discopy.quantum import *
 
-        >>> bell_test = H @ Id(1) >> CX >> Measure() @ Measure()
+        >>> bell_test = H @ qubit >> CX >> Measure() @ Measure()
         >>> bell_test.to_tk()
         tk.Circuit(2, 2).H(0).CX(0, 1).Measure(0, 0).Measure(1, 1)
 
@@ -538,19 +540,19 @@ class Circuit(tensor.Diagram):
         >>> circuit0.to_tk()
         tk.Circuit(2, 1).H(0).Rx(1.0, 1).CX(0, 1).Measure(0, 0).scale(2)
 
-        >>> circuit1 = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> circuit1 = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
         >>> circuit1.to_tk()
         tk.Circuit(3).X(0).CX(0, 2)
 
-        >>> circuit2 = X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+        >>> circuit2 = X @ qubit ** 2 >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
         >>> circuit2.to_tk()
         tk.Circuit(3).X(0).CX(0, 2)
 
         >>> circuit3 = Ket(0, 0)\\
-        ...     >> H @ Id(1)\\
-        ...     >> Id(1) @ X\\
+        ...     >> H @ qubit\\
+        ...     >> qubit @ X\\
         ...     >> CX\\
-        ...     >> Id(1) @ Bra(0)
+        ...     >> qubit @ Bra(0)
         >>> print(repr(circuit3.to_tk()))
         tk.Circuit(2, 1).H(0).X(1).CX(0, 1).Measure(1, 0).post_select({0: 0})
         """
@@ -603,37 +605,37 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum import *
         >>> import pytket as tk
 
-        >>> c = Rz(0.5) @ Id(1) >> Id(1) @ Rx(0.25) >> CX
+        >>> c = Rz(0.5) @ qubit >> qubit @ Rx(0.25) >> CX
         >>> assert Circuit.from_tk(c.to_tk()) == c.init_and_discard()
 
         >>> tk_GHZ = tk.Circuit(3).H(1).CX(1, 2).CX(1, 0)
         >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
         >>> pprint(Circuit.from_tk(tk_GHZ))
         Ket(0)
-          >> Id(1) @ Ket(0)
-          >> Id(2) @ Ket(0)
-          >> Id(1) @ H @ Id(1)
-          >> Id(1) @ CX
-          >> SWAP @ Id(1)
-          >> CX @ Id(1)
-          >> SWAP @ Id(1)
-          >> Discard(qubit) @ Id(2)
-          >> Discard(qubit) @ Id(1)
+          >> qubit @ Ket(0)
+          >> qubit ** 2 @ Ket(0)
+          >> qubit @ H @ qubit
+          >> qubit @ CX
+          >> SWAP @ qubit
+          >> CX @ qubit
+          >> SWAP @ qubit
+          >> Discard(qubit) @ qubit ** 2
+          >> Discard(qubit) @ qubit
           >> Discard(qubit)
-        >>> circuit = Ket(1, 0) >> CX >> Id(1) @ Ket(0) @ Id(1)
+        >>> circuit = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
         >>> print(Circuit.from_tk(circuit.to_tk())[3:-3])
-        X @ Id(2) >> Id(1) @ SWAP >> CX @ Id(1) >> Id(1) @ SWAP
+        X @ qubit ** 2 >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
-        >>> circuit = bell_state @ Id(1) >> Id(1) @ bell_effect >> Bra(0)
+        >>> circuit = bell_state @ qubit >> qubit @ bell_effect >> Bra(0)
         >>> pprint(Circuit.from_tk(circuit.to_tk())[3:])
-        H @ Id(2)
-          >> CX @ Id(1)
-          >> Id(1) @ CX
-          >> Id(1) @ H @ Id(1)
-          >> Bra(0) @ Id(2)
-          >> Bra(0) @ Id(1)
+        H @ qubit ** 2
+          >> CX @ qubit
+          >> qubit @ CX
+          >> qubit @ H @ qubit
+          >> Bra(0) @ qubit ** 2
+          >> Bra(0) @ qubit
           >> Bra(0)
           >> scalar(4)
         """
@@ -721,51 +723,32 @@ class Circuit(tensor.Diagram):
             perm, dom, ar_factory=Circuit, inverse=inverse)
 
     @staticmethod
-    def cups(left, right):
+    def cup_factory(left, right):
         from discopy.quantum.gates import CX, H, sqrt, Bra, Match
 
-        def cup_factory(left, right):
-            if left == right == qubit:
-                return CX >> H @ sqrt(2) @ Id(1) >> Bra(0, 0)
-            if left == right == bit:
-                return Match() >> Discard(bit)
-            raise ValueError
-        return rigid.cups(
-            left, right, ar_factory=Circuit, cup_factory=cup_factory)
+        if left == right == qubit:
+            return CX >> H @ sqrt(2) @ qubit >> Bra(0, 0)
+        if left == right == bit:
+            return Match() >> Discard(bit)
+        raise ValueError
 
     @staticmethod
-    def caps(left, right):
-        return Circuit.cups(left, right).dagger()
+    def spider_factory(n_legs_in, n_legs_out, typ, phase=None):
+        if phase is not None:
+            raise NotImplementedError
 
-    @staticmethod
-    def spiders(n_legs_in, n_legs_out, dim):
-        from discopy.quantum.gates import CX, H, Bra, sqrt
-        t = rigid.Ty('PRO')
+        def factory(n_legs_in, n_legs_out, typ):
+            if typ != qubit:
+                raise NotImplementedError
+            if n_legs_in < n_legs_out:
+                return factory(n_legs_out, n_legs_in, qubit).dagger()
+            assert n_legs_out == 1
+            from discopy.quantum.gates import CX, H, Bra, sqrt
+            return CX >> qubit @ Bra(0) if n_legs_in == 2\
+                else H >> Bra(0) @ sqrt(2)
 
-        if len(dim) == 0:
-            return Id()
-
-        def decomp_ar(spider):
-            return spider.decompose()
-
-        def spider_ar(spider):
-            dom, cod = len(spider.dom), len(spider.cod)
-            if dom < cod:
-                return spider_ar(spider.dagger()).dagger()
-            circ = Id(qubit)
-            if dom == 2:
-                circ = CX >> Id(qubit) @ Bra(0)
-            if cod == 0:
-                circ >>= H >> Bra(0) @ sqrt(2)
-
-            return circ
-
-        diag = Diagram.spiders(n_legs_in, n_legs_out, t ** len(dim))
-        decomp = monoidal.Functor(ob={t: t}, ar=decomp_ar)
-        to_circ = monoidal.Functor(ob={t: qubit}, ar=spider_ar,
-                                   ar_factory=Circuit, ob_factory=Ty)
-        circ = to_circ(decomp(diag))
-        return circ
+        return frobenius.coherence(Circuit, factory)(
+            n_legs_in, n_legs_out, typ)
 
     def _apply_gate(self, gate, position):
         """ Apply gate at position """
@@ -793,81 +776,6 @@ class Circuit(tensor.Diagram):
             gate = Controlled(gate, distance=last_x - x)
             last_x = x
         return self._apply_gate(gate, min(xs))
-
-    def H(self, x):
-        """ Apply Hadamard gate to circuit. """
-        from discopy.quantum import H
-        return self._apply_gate(H, x)
-
-    def S(self, x):
-        """ Apply S gate to circuit. """
-        from discopy.quantum import S
-        return self._apply_gate(S, x)
-
-    def X(self, x):
-        """ Apply Pauli X gate to circuit. """
-        from discopy.quantum import X
-        return self._apply_gate(X, x)
-
-    def Y(self, x):
-        """ Apply Pauli Y gate to circuit. """
-        from discopy.quantum import Y
-        return self._apply_gate(Y, x)
-
-    def Z(self, x):
-        """ Apply Pauli Z gate to circuit. """
-        from discopy.quantum import Z
-        return self._apply_gate(Z, x)
-
-    def Rx(self, phase, x):
-        """ Apply Rx gate to circuit. """
-        from discopy.quantum import Rx
-        return self._apply_gate(Rx(phase), x)
-
-    def Ry(self, phase, x):
-        """ Apply Rx gate to circuit. """
-        from discopy.quantum import Ry
-        return self._apply_gate(Ry(phase), x)
-
-    def Rz(self, phase, x):
-        """ Apply Rz gate to circuit. """
-        from discopy.quantum import Rz
-        return self._apply_gate(Rz(phase), x)
-
-    def CX(self, x, y):
-        """ Apply Controlled X / CNOT gate to circuit. """
-        from discopy.quantum import X
-        return self._apply_controlled(X, x, y)
-
-    def CY(self, x, y):
-        """ Apply Controlled Y gate to circuit. """
-        from discopy.quantum import Y
-        return self._apply_controlled(Y, x, y)
-
-    def CZ(self, x, y):
-        """ Apply Controlled Z gate to circuit. """
-        from discopy.quantum import Z
-        return self._apply_controlled(Z, x, y)
-
-    def CCX(self, x, y, z):
-        """ Apply Controlled CX / Toffoli gate to circuit. """
-        from discopy.quantum import X
-        return self._apply_controlled(X, x, y, z)
-
-    def CCZ(self, x, y, z):
-        """ Apply Controlled CZ gate to circuit. """
-        from discopy.quantum import Z
-        return self._apply_controlled(Z, x, y, z)
-
-    def CRx(self, phase, x, y):
-        """ Apply Controlled Rx gate to circuit. """
-        from discopy.quantum import Rx
-        return self._apply_controlled(Rx(phase), x, y)
-
-    def CRz(self, phase, x, y):
-        """ Apply Controlled Rz gate to circuit. """
-        from discopy.quantum import Rz
-        return self._apply_controlled(Rz(phase), x, y)
 
 
 class Box(tensor.Box, Circuit):
@@ -899,6 +807,12 @@ class Box(tensor.Box, Circuit):
     @property
     def is_mixed(self):
         return self._is_mixed
+
+    def dagger(self):
+        return self if self.is_dagger is None else super().dagger()
+
+    def rotate(self, left=False):
+        return self if self.z is None else super().rotate(left)
 
 
 class Sum(tensor.Sum, Box):

@@ -33,7 +33,7 @@ from discopy.monoidal import Whiskerable, assert_isatomic
 from discopy.rigid import assert_isadjoint
 from discopy.frobenius import Ob, Ty, Cup, Cap, Category
 from discopy.matrix import Matrix, array2string, backend, get_backend
-from discopy.utils import assert_isinstance, product
+from discopy.utils import factory_name, assert_isinstance, product
 
 
 @factory
@@ -63,6 +63,7 @@ class Dim(Ty):
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
 
+@factory
 class Tensor(Matrix):
     """
     A tensor is a :class:`Matrix` with dimensions as domain and codomain and
@@ -122,6 +123,10 @@ class Tensor(Matrix):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
+    def __class_getitem__(cls, dtype: type, _cache=dict()):
+        """ We need a fresh cache for Tensor. """
+        return Matrix.__class_getitem__.__func__(cls, dtype, _cache)
+
     def __init__(self, array, dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)
         assert_isinstance(cod, Dim)
@@ -170,13 +175,15 @@ class Tensor(Matrix):
         return type(self)(array, self.cod, self.dom)
 
     @classmethod
-    def cups(cls, left: Dim, right: Dim) -> Tensor:
+    def cup_factory(cls, left: Dim, right: Dim) -> Tensor:
         assert_isinstance(left, Dim)
         assert_isinstance(right, Dim)
         assert_isadjoint(left, right)
-        nesting = rigid.nesting(
-            cls, lambda x, y: cls(cls.id(left).array, x @ y, Dim(1)))
-        return nesting(left, right)
+        return cls(cls.id(left).array, left @ right, Dim(1))
+
+    @classmethod
+    def cups(cls, left: Dim, right: Dim) -> Tensor:
+        return rigid.nesting(cls, cls.cup_factory)(left, right)
 
     @classmethod
     def caps(cls, left: Dim, right: Dim) -> Tensor:
@@ -243,7 +250,8 @@ class Tensor(Matrix):
         """
         if not diagrammatic:
             with backend() as np:
-                return Tensor(np.conjugate(self.array), self.dom, self.cod)
+                return Tensor[self.dtype](
+                    np.conjugate(self.array), self.dom, self.cod)
         # reverse the wires for both inputs and outputs
         source = range(len(self.dom @ self.cod))
         target = [
@@ -340,8 +348,13 @@ class Functor(frobenius.Functor):
     def __init__(
             self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
             dom: Category = None, dtype: type = int):
-        self.dom = dom or type(self).dom
-        super().__init__(ob, ar, cod=Category(Dim, Tensor[dtype]))
+        self.dom, self.dtype = dom or type(self).dom, dtype
+        cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])
+        super().__init__(ob, ar, cod)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"(ob={self.ob}, ar={self.ar}, "\
+            + f"dom={self.dom}, dtype={self.dtype})"
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -406,9 +419,9 @@ class Diagram(frobenius.Diagram):
         Examples
         --------
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-        >>> assert (vector >> vector[::-1]).eval() == 1
-        >>> import tensornetwork as tn
-        >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
+        >>> assert (vector >> vector[::-1]).eval().array == 1
+        >>> from tensornetwork.contractors import auto
+        >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
         dtype = dtype or Tensor.dtype
         if contractor is None and "numpy" not in get_backend().__package__:

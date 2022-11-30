@@ -12,12 +12,11 @@ from pytket.circuit import (Bit, Op, OpType,
 from pytket.utils import probs_from_counts
 
 from discopy import messages
-from discopy.quantum.circuit import (
-    Functor, Id, bit, qubit, Discard, Measure)
-# from discopy.quantum.gates import (
-#     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
-#     Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
-#     CRz, format_number)
+from discopy.quantum.circuit import Functor, Id, bit, qubit
+from discopy.quantum.gates import (
+    ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
+    Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
+    CRz, format_number, Discard, Measure)
 
 
 OPTYPE_MAP = {"H": OpType.H,

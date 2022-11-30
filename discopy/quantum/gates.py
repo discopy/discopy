@@ -53,7 +53,7 @@ Summary
 
 import warnings
 
-import numpy
+from math import e, pi
 
 from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor, backend, get_backend
@@ -207,53 +207,16 @@ class Encode(SelfConjugate, Box):
 
 class QuantumGate(Box):
     """ Quantum gates, i.e. unitaries on n qubits. """
-    def __init__(
-            self, name, n_qubits, array=None, data=None,
-            _dagger=False, _conjugate=False):
-        dom = qubit ** n_qubits
-        self._array = array
-        if self._array is not None:
-            self._array = Tensor.np.array(array).reshape(
-                2 * n_qubits * (2, )) + 0j
-        super().__init__(
-            name, dom, dom, is_mixed=False, data=data,
-            _dagger=_dagger, _conjugate=_conjugate)
+    is_mixed = False
+    is_classical = False
 
     @property
     def array(self):
         """ The array of a quantum gate. """
-        return self._array
-
-    def __repr__(self):
-        if self in GATES:
-            return self.name
-        elif self.conjugate() in GATES:
-            return self.name + '.conjugate()'
-        elif self.dagger() in GATES:
-            return self.name + '.dagger()'
-        elif self.dagger().conjugate() in GATES:
-            return self.name + '.conjugate().dagger()'
-        more_info = ", _dagger=True" if self._dagger else ""
-        more_info += ", _conjugate=True" if self._conjugate else ""
-
-        array_info = (array2string(self.array.flatten())
-                      if hasattr(self.array, 'flatten') else self.array)
-        return ("QuantumGate({}, n_qubits={}, array={}{})").format(
-            repr(self.name), len(self.dom), array_info, more_info)
-
-    def dagger(self):
-        dagger = None if self._dagger is None else not self._dagger
-        return QuantumGate(
-            self.name, len(self.dom), self.array,
-            _conjugate=self._conjugate, _dagger=dagger)
-
-    def conjugate(self):
-        conjugate = None if self._conjugate is None else not self._conjugate
-        return QuantumGate(
-            self.name, len(self.dom), self.array,
-            _dagger=self._dagger, _conjugate=conjugate)
-
-    l = r = property(conjugate)
+        if self.data is not None:
+            with backend() as np:
+                return np.array(self.data, dtype=complex).reshape(tuple(
+                    obj.dim for obj in self.dom.inside + self.cod.inside))
 
 
 class ClassicalGate(Box):
@@ -268,56 +231,11 @@ class ClassicalGate(Box):
     >>> f.lambdify(*array)(1, 2, 3, 4)
     ClassicalGate('f', bit, bit, data=[1, 2, 3, 4])
     """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
-        if isinstance(dom, int):
-            dom = bit ** dom
-        if isinstance(cod, int):
-            cod = bit ** cod
-        if data is not None:
-            data = Tensor.np.array(data).reshape((len(dom) + len(cod)) * (2, ))
-        super().__init__(
-            name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
+    is_mixed = False
 
     @property
     def array(self):
-        """ The array of a classical gate. """
-        return self.data
-
-    def __eq__(self, other):
-        if not isinstance(other, ClassicalGate):
-            return super().__eq__(other)
-        return (self.name, self.dom, self.cod)\
-            == (other.name, other.dom, other.cod)\
-            and Tensor.np.all(self.array == other.array)
-
-    def __repr__(self):
-        if self.is_dagger:
-            return repr(self.dagger()) + ".dagger()"
-        data = array2string(self.array.flatten())
-        return "ClassicalGate({}, {}, {}, data={})"\
-            .format(repr(self.name), self.dom, self.cod, data)
-
-    def dagger(self):
-        _dagger = None if self._dagger is None else not self._dagger
-        return ClassicalGate(
-            self.name, self.cod, self.dom, self.array, _dagger)
-
-    def subs(self, *args):
-        data = rsubs(list(self.data.flatten()), *args)
-        return ClassicalGate(self.name, self.dom, self.cod, data)
-
-    def lambdify(self, *symbols, **kwargs):
-        from sympy import lambdify
-        data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
-        return lambda *xs: ClassicalGate(
-            self.name, self.dom, self.cod, data(*xs))
-
-    def grad(self, var, **params):
-        if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
-        name = "{}.grad({})".format(self.name, var)
-        data = self.eval().grad(var, **params).array
-        return ClassicalGate(name, self.dom, self.cod, data)
+        return QuantumGate.array.__func__(self)
 
 
 class Copy(SelfConjugate, ClassicalGate):
@@ -352,18 +270,18 @@ class Digits(ClassicalGate):
     >>> assert Digits(2, dim=4).eval()\\
     ...     == Tensor(dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
     """
-    def __init__(self, *digits, dim=None, _dagger=False):
+    def __init__(self, *digits, dim=None, is_dagger=False):
         if not isinstance(dim, int):
             raise TypeError(int, dim)
         self._digits, self._dim = digits, dim
         name = "Digits({}, dim={})".format(', '.join(map(str, digits)), dim)\
             if dim != 2 else "Bits({})".format(', '.join(map(str, digits)))
         dom, cod = Ty(), Ty(Digit(dim)) ** len(digits)
-        dom, cod = (cod, dom) if _dagger else (dom, cod)
-        super().__init__(name, dom, cod, _dagger=_dagger)
+        dom, cod = (cod, dom) if is_dagger else (dom, cod)
+        super().__init__(name, dom, cod, is_dagger=is_dagger)
 
     def __repr__(self):
-        return self.name + (".dagger()" if self._dagger else "")
+        return self.name + (".dagger()" if self.is_dagger else "")
 
     @property
     def dim(self):
@@ -381,12 +299,13 @@ class Digits(ClassicalGate):
 
     @property
     def array(self):
-        array = numpy.zeros(len(self._digits) * (self._dim, ))
-        array[self._digits] = 1
-        return array
+        with backend() as np:
+            array = np.zeros(len(self._digits) * (self._dim, ))
+            array[self._digits] = 1
+            return array
 
     def dagger(self):
-        return Digits(*self.digits, dim=self.dim, _dagger=not self._dagger)
+        return Digits(*self.digits, dim=self.dim, is_dagger=not self.is_dagger)
 
 
 class Bits(Digits):
@@ -397,8 +316,8 @@ class Bits(Digits):
     >>> assert Bits(1, 0).eval()\\
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
-    def __init__(self, *bitstring, _dagger=False):
-        super().__init__(*bitstring, dim=2, _dagger=_dagger)
+    def __init__(self, *bitstring, is_dagger=False):
+        super().__init__(*bitstring, dim=2, is_dagger=is_dagger)
 
     @property
     def bitstring(self):
@@ -406,10 +325,10 @@ class Bits(Digits):
         return list(self._digits)
 
     def dagger(self):
-        return Bits(*self.bitstring, _dagger=not self._dagger)
+        return Bits(*self.bitstring, is_dagger=not self.is_dagger)
 
 
-class Ket(SelfConjugate, Box):
+class Ket(SelfConjugate, QuantumGate):
     """
     Implements qubit preparation for a given bitstring.
 
@@ -423,7 +342,7 @@ class Ket(SelfConjugate, Box):
 
         dom, cod = qubit ** 0, qubit ** len(bitstring)
         name = "Ket({})".format(', '.join(map(str, bitstring)))
-        super().__init__(name, dom, cod, is_mixed=False)
+        super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
     @property
@@ -440,7 +359,7 @@ class Ket(SelfConjugate, Box):
     array = Bits.array
 
 
-class Bra(SelfConjugate, Box):
+class Bra(SelfConjugate, QuantumGate):
     """
     Implements qubit post-selection for a given bitstring.
 
@@ -454,7 +373,7 @@ class Bra(SelfConjugate, Box):
 
         name = "Bra({})".format(', '.join(map(str, bitstring)))
         dom, cod = qubit ** len(bitstring), qubit ** 0
-        super().__init__(name, dom, cod, is_mixed=False)
+        super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
     @property
@@ -489,10 +408,11 @@ class Controlled(QuantumGate):
         if distance == 0:
             raise ValueError("Zero-distance controlled gates are ill-defined.")
         n_qubits = len(controlled.dom) + abs(distance)
+        name = 'C' + controlled.name
+        dom = cod = qubit ** n_qubits
+        super().__init__(name, dom, cod, data=controlled.data)
         self.controlled, self.distance = controlled, distance
         self.draw_as_controlled = True
-        array = None
-        super().__init__(self.name, n_qubits, array, data=controlled.data)
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
@@ -510,19 +430,12 @@ class Controlled(QuantumGate):
         return type(self)(controlled, distance=self.distance)
 
     def __repr__(self):
-        if self in GATES:
-            return self.name
         return f'Controlled({self.controlled}, distance={self.distance})'
 
     def __eq__(self, other):
-        if isinstance(other, Controlled):
-            return (self.distance == other.distance
-                    and self.controlled == other.controlled)
-        return super().__eq__(other)
-
-    @property
-    def name(self):
-        return "C" + self.controlled.name
+        return isinstance(other, Controlled)\
+            and self.distance == other.distance\
+            and self.controlled == other.controlled
 
     @property
     def phase(self):
@@ -570,17 +483,17 @@ class Controlled(QuantumGate):
     def array(self):
         controlled, distance = self.controlled, self.distance
         n_qubits = len(self.dom)
-        if distance == 1:
-            d = 1 << n_qubits - 1
-            part1 = Tensor.np.array([[1, 0], [0, 0]])
-            part2 = Tensor.np.array([[0, 0], [0, 1]])
-            array = (
-                Tensor.np.kron(part1, Tensor.np.eye(d))
-                + Tensor.np.kron(part2,
-                                 Tensor.np.array(controlled.array.reshape(d,
-                                                                          d))))
-        else:
-            array = self._decompose().eval().array
+        with backend() as np:
+            if distance == 1:
+                d = 1 << n_qubits - 1
+                part1 = np.array([[1, 0], [0, 0]])
+                part2 = np.array([[0, 0], [0, 1]])
+                array = (
+                    np.kron(part1, np.eye(d))
+                    + np.kron(part2,
+                                     np.array(controlled.array.reshape(d, d))))
+            else:
+                array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)
 
 
@@ -611,11 +524,11 @@ class Parametrized(Box):
     >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
-        self.drawing_name = '{}({})'.format(name, data)
+        self.drawing_name = f'{name}({data})'
         Box.__init__(
             self, name, dom, cod, data=data,
             is_mixed=params.get('is_mixed', True),
-            _dagger=params.get('_dagger', False))
+            is_dagger=params.get('is_dagger', False))
 
     @property
     def modules(self):
@@ -631,21 +544,19 @@ class Parametrized(Box):
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
-        data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
+        with backend() as np:
+            data = lambdify(symbols, self.data, dict(kwargs, modules=np))
         return lambda *xs: type(self)(data(*xs))
 
-    @property
-    def name(self):
-        return '{}({})'.format(self._name, format_number(self.data))
-
-    def __repr__(self):
-        return self.name
+    def __str__(self):
+        return '{}({})'.format(self.name, format_number(self.data))
 
 
 class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
-    def __init__(self, phase, name=None, n_qubits=1, _conjugate=False):
-        QuantumGate.__init__(self, name, n_qubits, _conjugate=_conjugate)
+    def __init__(self, phase, name=None, n_qubits=1, z=0):
+        dom = cod = qubit ** n_qubits
+        QuantumGate.__init__(self, name, dom, cod, z=z)
         Parametrized.__init__(
             self, name, self.dom, self.cod,
             datatype=float, is_mixed=False, data=phase)
@@ -664,15 +575,16 @@ class Rotation(Parametrized, QuantumGate):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
 
-        if params.get('mixed', True):
-            if len(self.dom) != 1:
-                raise NotImplementedError
-            s = scalar(Tensor.np.pi * gradient, is_mixed=True)
-            t1 = type(self)(self.phase + .25)
-            t2 = type(self)(self.phase - .25)
-            return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
+        with backend() as np:
+            if params.get('mixed', True):
+                if len(self.dom) != 1:
+                    raise NotImplementedError
+                s = scalar(np.pi * gradient, is_mixed=True)
+                t1 = type(self)(self.phase + .25)
+                t2 = type(self)(self.phase - .25)
+                return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
-        return scalar(Tensor.np.pi * gradient) @ type(self)(self.phase + .5)
+            return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
 
 
 class Rx(AntiConjugate, Rotation):
@@ -682,21 +594,23 @@ class Rx(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
+        with backend() as np:
+            half_theta = np.array(self.modules.pi * self.phase)
+            sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
+            return np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
 
 
 class Ry(SelfConjugate, Rotation):
     """ Y rotations. """
     def __init__(self, phase):
-        super().__init__(phase, name="Ry", _conjugate=None)
+        super().__init__(phase, name="Ry", z=None)
 
     @property
     def array(self):
-        half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.stack((cos, sin, -sin, cos)).reshape(2, 2)
+        with backend() as np:
+            half_theta = np.array(self.modules.pi * self.phase)
+            sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
+            return np.stack((cos, sin, -sin, cos)).reshape(2, 2)
 
 
 class Rz(AntiConjugate, Rotation):
@@ -706,11 +620,12 @@ class Rz(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        e1 = self.modules.exp(-1j * half_theta)
-        e2 = self.modules.exp(1j * half_theta)
-        z = Tensor.np.array(0)
-        return Tensor.np.stack((e1, z, z, e2)).reshape(2, 2)
+        with backend() as np:
+            half_theta = np.array(self.modules.pi * self.phase)
+            e1 = self.modules.exp(-1j * half_theta)
+            e2 = self.modules.exp(1j * half_theta)
+            z = np.array(0)
+            return np.stack((e1, z, z, e2)).reshape(2, 2)
 
 
 class CU1(Anti2QubitConjugate, Rotation):
@@ -720,12 +635,13 @@ class CU1(Anti2QubitConjugate, Rotation):
 
     @property
     def array(self):
-        theta = Tensor.np.array(2 * self.modules.pi * self.phase)
-        return Tensor.np.stack(
-            (1, 0, 0, 0,
-             0, 1, 0, 0,
-             0, 0, 1, 0,
-             0, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2, 2, 2)
+        with backend() as np:
+            theta = np.array(2 * self.modules.pi * self.phase)
+            return np.stack(
+                (1, 0, 0, 0,
+                 0, 1, 0, 0,
+                 0, 0, 1, 0,
+                 0, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2, 2, 2)
 
 
 class Scalar(Parametrized):
@@ -734,10 +650,11 @@ class Scalar(Parametrized):
         self.drawing_name = format_number(data)
         name = "scalar" if name is None else name
         dom, cod = qubit ** 0, qubit ** 0
-        _dagger = None if data.conjugate() == data else False
+        is_dagger = None if data.conjugate() == data else False
         super().__init__(
             name, dom, cod,
-            datatype=datatype, is_mixed=is_mixed, data=data, _dagger=_dagger)
+            datatype=datatype, is_mixed=is_mixed, data=data,
+            is_dagger=is_dagger)
 
     def __repr__(self):
         return super().__repr__()[:-1] + (
@@ -745,21 +662,13 @@ class Scalar(Parametrized):
 
     @property
     def array(self):
-        return Tensor.np.array(self.data)
+        with backend() as np:
+            return np.array(self.data)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         return Scalar(self.data.diff(var))
-
-    def dagger(self):
-        return self if self._dagger is None\
-            else Scalar(self.data.conjugate())
-
-    def conjugate(self):
-        return Scalar(self.data.conjugate())
-
-    l = r = property(conjugate)
 
 
 class MixedScalar(Scalar):
@@ -776,7 +685,8 @@ class Sqrt(Scalar):
 
     @property
     def array(self):
-        return Tensor.np.array(self.data ** .5)
+        with backend() as np:
+            return np.array(self.data ** .5)
 
 
 def CRz(phase):
@@ -841,13 +751,13 @@ def scalar(expr, is_mixed=False):
 
 SWAP = Swap(qubit, qubit)
 H = QuantumGate(
-    'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
-    _dagger=None, _conjugate=None)
-S = QuantumGate('S', 1, [1, 0, 0, 1j])
-T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
-X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
-Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
-Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
+    'H', qubit, qubit,
+    data=[2 ** -0.5 * x for x in [1, 1, 1, -1]], is_dagger=None, z=None)
+S = QuantumGate('S', qubit, qubit, [1, 0, 0, 1j])
+T = QuantumGate('T', qubit, qubit, [1, 0, 0, e ** (1j * pi / 4)])
+X = QuantumGate('X', qubit, qubit, [0, 1, 1, 0], is_dagger=None, z=None)
+Y = QuantumGate('Y', qubit, qubit, [0, 1j, -1j, 0], is_dagger=None)
+Z = QuantumGate('Z', qubit, qubit, [1, 0, 0, -1], is_dagger=None, z=None)
 CX = Controlled(X)
 CZ = Controlled(Z)
-GATES = [SWAP, CZ, CX, H, S, T, X, Y, Z]
+GATES = [SWAP, H, S, T, X, Y, Z, ]  #CZ, CX]

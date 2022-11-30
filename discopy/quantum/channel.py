@@ -11,10 +11,19 @@ Summary
     :toctree:
 
     CQ
-    C
-    Q
     Channel
-    Tensor
+    Functor
+
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        C
+        Q
 
 Note
 ----
@@ -25,289 +34,304 @@ and a classical dimension :class:`C` (a.k.a. single wires).
 Arrows are given by arrays of the appropriate shape, see :class:`Channel`.
 For example, states of type :class:`Q` are density matrices:
 
+Example
+-------
 >>> from discopy.quantum import Ket, H
 >>> (Ket(0) >> H).eval(mixed=True).round(1)
-Channel(dom=CQ(), cod=Q(Dim(2)), array=[0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j])
+Channel([0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j], dom=CQ(), cod=Q(Dim(2)))
 """
 
-from discopy import monoidal, rigid, messages, tensor
-from discopy.cat import AxiomError
-from discopy.rigid import Ob, Ty, Diagram
+from __future__ import annotations
+
+from discopy import monoidal, frobenius, messages, tensor
+from discopy.cat import factory, Category, AxiomError
+from discopy.frobenius import Ty, Diagram, Box
 from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import (
-    bit, qubit, Digit, Qudit, Box, Sum, Swap)
+    bit, qubit, Digit, Qudit, Sum, Swap)
 from discopy.quantum.gates import Discard, Measure, MixedState, Encode, Scalar
+from discopy.utils import assert_isinstance
 
 
-class CQ(Ty):
+class CQ:
     """
-    Implements the dimensions of classical-quantum systems.
+    A classical-quantum dimension is a pair of dimensions
+    ``classical`` and ``quantum``.
 
-    Parameters
-    ----------
-    classical : :class:`discopy.tensor.Dim`
-        Classical dimension.
-    quantum : :class:`discopy.tensor.Dim`
-        Quantum dimension.
+    Parameters:
+        classical (Dim) : Classical dimension of the type.
+        quantum (Dim) : Quantum dimension of the type.
 
-
-    Note
-    ----
-
-    In the category of monoids, :class:`CQ` is the product of :class:`C` and
-    :class:`Q`, which are both isomorphic to :class:`discopy.tensor.Dim`.
-
-    Examples
-    --------
-    >>> CQ(Dim(2), Dim(2))
-    C(Dim(2)) @ Q(Dim(2))
-    >>> CQ(Dim(2), Dim(2)) @ CQ(Dim(2), Dim(2))
-    C(Dim(2, 2)) @ Q(Dim(2, 2))
+    Example
+    -------
+    >>> CQ(Dim(2), Dim(3)) @ CQ(Dim(4), Dim(5))
+    CQ(classical=Dim(2, 4), quantum=Dim(3, 5))
     """
     def __init__(self, classical=Dim(1), quantum=Dim(1)):
         self.classical, self.quantum = classical, quantum
-        types = [Ob("C({})".format(dim)) for dim in classical]\
-            + [Ob("Q({})".format(dim)) for dim in quantum]
-        super().__init__(*types)
+
+    @property
+    def udim(self) -> Dim:
+        """
+        The underlying dimension of the system, i.e. the classical dimension
+        tensored with the square of the quantum dimension.
+
+        Example
+        -------
+        >>> assert CQ(Dim(2), Dim(3)).udim == Dim(2, 3, 3)
+        """
+        return self.classical @ self.quantum @ self.quantum
+
+    def __eq__(self, other):
+        return isinstance(other, CQ)\
+            and self.classical == other.classical\
+            and self.quantum == other.quantum
+
+    def __hash__(self):
+        return hash(repr(self))
 
     def __repr__(self):
-        if not self:
-            return "CQ()"
-        if not self.classical:
-            return "Q({})".format(repr(self.quantum))
-        if not self.quantum:
-            return "C({})".format(repr(self.classical))
-        return "C({}) @ Q({})".format(repr(self.classical), repr(self.quantum))
+        return f"CQ(classical={self.classical}, quantum={self.quantum})"
 
     def __str__(self):
-        return repr(self)
+        return "CQ()" if not self.classical and not self.quantum\
+            else f"Q({self.quantum})" if not self.classical\
+            else f"Q({self.classical})" if not self.quantum\
+            else f"C({self.classical}) @ Q({self.quantum})"
 
     def tensor(self, *others):
+        """
+        The tensor of a classical-quantum dimension with some ``others``.
+
+        Parameters:
+            others : The other types with which to tensor.
+        """
+        for other in others:
+            assert_isinstance(other, CQ)
         classical = self.classical.tensor(*(x.classical for x in others))
         quantum = self.quantum.tensor(*(x.quantum for x in others))
         return CQ(classical, quantum)
 
-    @property
-    def l(self):
-        return CQ(self.classical[::-1], self.quantum[::-1])
+    def __matmul__(self, other):
+        return self.tensor(other) if isinstance(other, CQ) else NotImplemented
 
-    @property
-    def r(self):
-        return self.l
+    __add__ = __matmul__
+
+    r = l = property(lambda self: CQ(self.classical[::-1], self.quantum[::-1]))
 
 
-class C(CQ):
+def C(dim=Dim(1)) -> CQ:
     """
-    Implements the classical dimension of a classical-quantum system,
-    see :class:`CQ`.
+    Syntactic sugar for ``CQ(classical=dim)``, see :class:`CQ`.
+
+    Parameters:
+        dim : The dimension of the type.
     """
-    def __init__(self, dim=Dim(1)):
-        super().__init__(dim, Dim(1))
+    return CQ(classical=dim)
 
 
-class Q(CQ):
+def Q(dim=Dim(1)) -> CQ:
     """
-    Implements the quantum dimension of a classical-quantum system,
-    see :class:`CQ`.
+    Syntactic sugar for ``CQ(quantum=dim)``, see :class:`CQ`.
+
+    Parameters:
+        dim : The dimension of the type.
     """
-    def __init__(self, dim=Dim(1)):
-        super().__init__(Dim(1), dim)
+    return CQ(quantum=dim)
 
 
+@factory
 class Channel(Tensor):
     """
-    Implements classical-quantum maps.
+    A channel is a tensor with :class:`CQ` types as ``dom`` and ``cod``.
 
-    Parameters
-    ----------
-    dom : :class:`CQ`
-        Domain.
-    cod : :class:`CQ`
-        Codomain.
-    array : list, optional
-        Array of size :code:`product(utensor.dom @ utensor.cod)`.
-    utensor : :class:`discopy.tensor.Tensor`, optional
-        Underlying tensor with domain
-        :code:`dom.classical @ dom.quantum ** 2` and codomain
-        :code:`cod.classical @ cod.quantum ** 2``.
+    Parameters:
+        array : The array of shape ``dom.udim @ cod.udim`` inside the channel.
+        dom : The domain of the channel.
+        cod : The codomain of the channel.
     """
+    dtype = complex
+
+    def __class_getitem__(cls, dtype: type, _cache=dict()):
+        """ We need a fresh cache for Channel. """
+        return Tensor.__class_getitem__.__func__(cls, dtype, _cache)
+
+    def __init__(self, array, dom: CQ, cod: CQ):
+        assert_isinstance(dom, CQ)
+        assert_isinstance(cod, CQ)
+        super().__init__(array, dom.udim, cod.udim)
+        self.dom, self.cod = dom, cod
+
     @property
-    def utensor(self):
-        """ Underlying tensor. """
-        return Tensor(self._udom, self._ucod, self.array)
+    def utensor(self) -> Tensor:
+        """ The underlying tensor of a channel. """
+        return Tensor[self.dtype](self.array, self.dom.udim, self.cod.udim)
 
-    def __init__(self, dom, cod, array=None, utensor=None):
-        if array is None and utensor is None:
-            raise ValueError("One of array or utensor must be given.")
-        if utensor is None:
-            udom = dom.classical @ dom.quantum @ dom.quantum
-            ucod = cod.classical @ cod.quantum @ cod.quantum
-        else:
-            udom, ucod = utensor.dom, utensor.cod
-        super().__init__(udom, ucod, utensor.array if array is None else array)
-        self._dom, self._cod, self._udom, self._ucod = dom, cod, udom, ucod
+    @classmethod
+    def id(cls, dom=CQ()) -> Channel:
+        assert_isinstance(dom, CQ)
+        return cls(Tensor[cls.dtype].id(dom.udim).array, dom, dom)
 
-    def __repr__(self):
-        return super().__repr__().replace("Tensor", "Channel")
+    def then(self, other: Channel = None, *others: Channel) -> Channel:
+        if other is None or others:
+            return super().then(other, *others)
+        assert_isinstance(other, type(self))
+        utensor = self.utensor >> other.utensor
+        return type(self)(utensor.array, self.dom, other.cod)
 
-    def __add__(self, other):
-        if other == 0:
-            return self
-        if (self.dom, self.cod) != (other.dom, other.cod):
-            raise AxiomError(messages.cannot_add(self, other))
-        return Channel(self.dom, self.cod, self.array + other.array)
+    def dagger(self) -> Channel:
+        return type(self)(self.utensor.dagger().array, self.cod, self.dom)
 
-    def __radd__(self, other):
-        return self.__add__(other)
-
-    @staticmethod
-    def id(dom=CQ()):
-        utensor = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
-        return Channel(dom, dom, utensor=utensor)
-
-    def then(self, *others):
-        if len(others) != 1:
-            return monoidal.Diagram.then(self, *others)
-        other, = others
-        return Channel(
-            self.dom, other.cod, utensor=self.utensor >> other.utensor)
-
-    def dagger(self):
-        return Channel(self.cod, self.dom, utensor=self.utensor.dagger())
-
-    def tensor(self, *others):
-        if len(others) != 1:
-            return monoidal.Diagram.tensor(self, *others)
-        other, = others
-        f = rigid.Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
-        g = rigid.Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
-        above = Diagram.id(f.dom[:1] @ g.dom[:1] @ f.dom[1:2])\
-            @ Diagram.swap(g.dom[1:2], f.dom[2:]) @ Diagram.id(g.dom[2:])\
-            >> Diagram.id(f.dom[:1]) @ Diagram.swap(g.dom[:1], f.dom[1:])\
-            @ Diagram.id(g.dom[1:])
-        below =\
-            Diagram.id(f.cod[:1]) @ Diagram.swap(f.cod[1:], g.cod[:1])\
-            @ Diagram.id(g.cod[1:])\
-            >> Diagram.id(f.cod[:1] @ g.cod[:1] @ f.cod[1:2])\
-            @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ Diagram.id(g.cod[2:])
-        diagram2tensor = tensor.Functor(
-            ob={Ty("{}{}{}".format(a, b, c)):
-                z.__getattribute__(y).__getattribute__(x)
+    def tensor(self, other: Channel = None, *others: Channel) -> Channel:
+        if other is None or others:
+            return super().tensor(other, *others)
+        assert_isinstance(other, type(self))
+        f = Box('f', Ty('c00', 'q00', 'q00'), Ty('c10', 'q10', 'q10'))
+        g = Box('g', Ty('c01', 'q01', 'q01'), Ty('c11', 'q11', 'q11'))
+        above = f.dom[:1] @ g.dom[:1] @ f.dom[1:2]\
+            @ Diagram.swap(g.dom[1:2], f.dom[2:]) @ g.dom[2:]\
+            >> f.dom[:1] @ Diagram.swap(g.dom[:1], f.dom[1:]) @ g.dom[1:]
+        below = f.cod[:1] @ Diagram.swap(f.cod[1:], g.cod[:1]) @ g.cod[1:]\
+            >> f.cod[:1] @ g.cod[:1] @ f.cod[1:2]\
+            @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ g.cod[2:]
+        array = tensor.Functor(
+            ob={Ty("{}{}{}".format(a, b, c)): getattr(getattr(z, y), x)
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},
-            ar={f: self.utensor.array, g: other.utensor.array})
-        return Channel(self.dom @ other.dom, self.cod @ other.cod,
-                     utensor=diagram2tensor(above >> f @ g >> below))
+            ar={f: self.utensor, g: other.utensor}, dtype=self.dtype
+        )(above >> f @ g >> below).array
+        return type(self)(array, self.dom @ other.dom, self.cod @ other.cod)
 
-    @staticmethod
-    def swap(left, right):
+    @classmethod
+    def swap(cls, left, right) -> Channel:
         utensor = Tensor.swap(left.classical, right.classical)\
             @ Tensor.swap(left.quantum, right.quantum)\
             @ Tensor.swap(left.quantum, right.quantum)
-        return Channel(left @ right, right @ left, utensor=utensor)
-
-    @staticmethod
-    def measure(dim, destructive=True):
-        """ Measure a quantum dimension into a classical dimension. """
-        if not dim:
-            return Channel(CQ(), CQ(), Tensor.np.array(1))
-        if len(dim) == 1:
-            if destructive:
-                array = Tensor.np.array([
-                    int(i == j == k)
-                    for i in range(dim[0])
-                    for j in range(dim[0])
-                    for k in range(dim[0])])
-                return Channel(Q(dim), C(dim), array)
-            array = Tensor.np.array([
-                int(i == j == k == l == m)
-                for i in range(dim[0])
-                for j in range(dim[0])
-                for k in range(dim[0])
-                for l in range(dim[0])
-                for m in range(dim[0])])
-            return Channel(Q(dim), C(dim) @ Q(dim), array)
-        return Channel.measure(dim[:1], destructive=destructive)\
-            @ Channel.measure(dim[1:], destructive=destructive)
-
-    @staticmethod
-    def encode(dim, constructive=True):
-        """ Encode a classical dimension into a quantum dimension. """
-        return Channel.measure(dim, destructive=constructive).dagger()
-
-    @staticmethod
-    def double(utensor):
-        """ Takes a tensor, returns a pure quantum Channel. """
-        density = (utensor.conjugate(diagrammatic=False) @ utensor).array
-        return Channel(Q(utensor.dom), Q(utensor.cod), density)
-
-    @staticmethod
-    def classical(utensor):
-        """ Takes a tensor, returns a classical Channel. """
-        return Channel(C(utensor.dom), C(utensor.cod), utensor.array)
-
-    @staticmethod
-    def discard(dom):
-        """ Discard a quantum dimension or take the marginal distribution. """
-        array = Tensor.np.tensordot(
-            Tensor.np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
-        return Channel(dom, CQ(), array)
+        return cls(utensor.array, left @ right, right @ left)
 
     @staticmethod
     def cups(left, right):
-        return Channel.classical(Tensor.cups(left.classical, right.classical))\
+        return Channel.single(Tensor.cups(left.classical, right.classical))\
             @ Channel.double(Tensor.cups(left.quantum, right.quantum))
 
-    @staticmethod
-    def caps(left, right):
-        return Channel.cups(left, right).dagger()
+    @classmethod
+    def measure(cls, dim: Dim, destructive=True) -> Channel:
+        """
+        Measure a quantum dimension into a classical dimension.
 
-    def round(self, decimals=0):
-        """ Rounds the entries of a Channel up to a number of decimals. """
-        return Channel(self.dom, self.cod, utensor=self.utensor.round(decimals))
+        Parameters:
+            dim : The dimension of the quantum system to measure.
+            destructive : Whether the measurement discards the qubits.
+        """
+        if not dim:
+            return cls.id()
+        if len(dim) > 1:
+            return cls.measure(dim[:1], destructive)\
+                @ cls.measure(dim[1:], destructive)
+        n, = dim.inside
+        if destructive:
+            array = [
+                int(i == j == k)
+                for i in range(n)
+                for j in range(n)
+                for k in range(n)]
+            return cls(array, Q(dim), C(dim))
+        array = [
+            int(i == j == k == l == m)
+            for i in range(n)
+            for j in range(n)
+            for k in range(n)
+            for l in range(n)
+            for m in range(n)]
+        return cls(array, Q(dim), C(dim) @ Q(dim))
+
+    @classmethod
+    def encode(cls, dim: Dim, constructive=True) -> Channel:
+        """
+        Encode a classical dimension into a quantum dimension.
+
+        Parameters:
+            dim : The dimension of the classical system to encode.
+            constructive : Whether the encoding prepares fresh qubits.
+        """
+        return cls.measure(dim, destructive=constructive).dagger()
+
+    @classmethod
+    def double(cls, quantum: Tensor) -> Channel:
+        """
+        Construct a pure quantum channel by doubling a given tensor.
+
+        Parameters:
+            quantum : The tensor from which to make a pure quantum channel.
+        """
+        utensor = quantum.conjugate(diagrammatic=False) @ quantum
+        return cls(utensor.array, Q(quantum.dom), Q(quantum.cod))
+
+    @classmethod
+    def single(cls, classical: Tensor) -> Channel:
+        """
+        Construct a pure classical channel from a given tensor.
+
+        Parameters:
+            classical : The tensor from which to make a pure classical channel.
+        """
+        return cls(classical.array, C(classical.dom), C(classical.cod))
+
+    @classmethod
+    def discard(cls, dom: CQ) -> Channel:
+        """
+        Construct the channel that traces out the quantum dimension and takes
+        the marginal distribution over the classical dimension.
+
+        Parameters:
+            dom : The classical-quantum dimension to discard.
+        """
+        with backend() as np:
+            array = np.tensordot(
+                np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
+        return Channel(array, dom, CQ())
 
 
-class Functor(rigid.Functor):
+class Functor(tensor.Functor):
     """
-    Functors from :class:`Circuit` into :class:`Channel`.
+    A channel functor is a tensor functor into classical-quantum channels.
+
+    Parameters:
+        ob (dict[cat.Ob, CQ]) : The object mapping.
+        ar (dict[cat.Box, array]) : The arrow mapping.
+        dom : The domain of the functor.
+        dtype : The datatype for the codomain ``Category(Dim, Tensor[dtype])``.
     """
-    def __init__(self, ob=None, ar=None):
-        self.__ob, self.__ar = ob or {}, ar or {}
-        super().__init__(self._ob, self._ar, ob_factory=CQ, ar_factory=Channel)
+    dom, cod = frobenius.Category(), Category(CQ, Channel)
 
-    def __repr__(self):
-        return "cqmap.Functor(ob={}, ar={})".format(self.__ob, self.__ar)
-
-    def _ob(self, typ):
-        """ Overrides the input mapping on objects for Digit and Qudit. """
-        obj, = typ
-        if isinstance(obj, Digit):
-            return C(Dim(obj.dim))
-        if isinstance(obj, Qudit):
-            return Q(Dim(obj.dim))
-        return self.__ob[typ]
-
-    def _ar(self, box):
-        """ Overrides the input mapping on arrows. """
-        if isinstance(box, Discard):
-            return Channel.discard(self(box.dom))
-        if isinstance(box, Measure):
-            measure = Channel.measure(
-                self(box.dom).quantum, destructive=box.destructive)
-            measure = measure @ Channel.discard(self(box.dom).classical)\
-                if box.override_bits else measure
+    def __call__(self, other):
+        if isinstance(other, Digit):
+            return C(Dim(other.dim))
+        if isinstance(other, Qudit):
+            return Q(Dim(other.dim))
+        if not isinstance(other, Box):
+            return frobenius.Functor.__call__(self, other)
+        if isinstance(other, Discard):
+            return self.cod.ar.discard(self(other.dom))
+        if isinstance(other, Measure):
+            measure = self.cod.ar.measure(
+                self(other.dom).quantum, destructive=other.destructive)
+            measure = measure @ self.cod.ar.discard(self(other.dom).classical)\
+                if other.override_bits else measure
             return measure
-        if isinstance(box, (MixedState, Encode)):
-            return self(box.dagger()).dagger()
-        if isinstance(box, Scalar):
-            scalar = box.array if box.is_mixed else abs(box.array) ** 2
-            return Channel(CQ(), CQ(), scalar)
-        if not box.is_mixed and box.is_classical:
-            return Channel(self(box.dom), self(box.cod), box.array)
-        if not box.is_mixed:
-            dom, cod = self(box.dom).quantum, self(box.cod).quantum
-            return Channel.double(Tensor(dom, cod, box.array))
-        if hasattr(box, "array"):
-            return Channel(self(box.dom), self(box.cod), box.array)
-        return self.__ar[box]
+        if isinstance(other, (MixedState, Encode)):
+            return self(other.dagger()).dagger()
+        if isinstance(other, Scalar):
+            scalar = other.array if other.is_mixed else abs(other.array) ** 2
+            return self.cod.ar(scalar, CQ(), CQ())
+        if not other.is_mixed and other.is_classical:
+            return self.cod.ar.single(
+                Tensor[self.dtype](other.array, dom, cod))
+        if not other.is_mixed:
+            dom, cod = self(other.dom).quantum, self(other.cod).quantum
+            return self.cod.ar.double(
+                Tensor[self.dtype](other.array, dom, cod))
+        if hasattr(other, "array"):
+            return self.cod.ar(other.array, self(other.dom), self(other.cod))
+        return frobenius.Functor.__call__(self, other)
