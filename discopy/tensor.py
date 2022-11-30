@@ -393,6 +393,8 @@ class Diagram(frobenius.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Dim(2) @ vector
     """
+    ty_factory = Dim
+
     def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """
         Evaluate a tensor diagram as a :class:`Tensor`.
@@ -410,7 +412,7 @@ class Diagram(frobenius.Diagram):
         """
         dtype = dtype or Tensor.dtype
         if contractor is None and "numpy" not in get_backend().__package__:
-            raise ValueError(messages.PROVITE_CONTRACTOR)
+            raise ValueError(messages.PROVIDE_CONTRACTOR)
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
@@ -694,12 +696,7 @@ class Bubble(monoidal.Bubble, Box):
             @ self.arg.grad(var) >> Spider(2, 1, self.cod)
 
 
-for cls in [Diagram, Box, Swap, Cup, Cap, Spider, Sum, Bubble]:
-    cls.ty_factory = Dim
-
-Diagram.braid_factory = Swap
+Diagram.sum_factory, Diagram.braid_factory = Sum, Swap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.spider_factory, Diagram.bubble_factory = Spider, Bubble
-Diagram.sum_factory = Sum
-
 Id = Diagram.id

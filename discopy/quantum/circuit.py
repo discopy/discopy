@@ -89,29 +89,28 @@ from discopy.compact import Diagram
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
 
+
 class Ob(frobenius.Ob):
     """
-    Information units of some integer dimension greater than 1.
+    A circuit object is an information unit with some dimension ``dim > 1``.
 
     Parameters:
         name : The name of the object, e.g. ``"bit"`` or ``"qubit"``.
         dim : The dimension of the object, e.g. ``2`` for bits and qubits.
 
-    Examples
-    --------
-    >>> assert bit.inside == [Ob("bit", dim=2)]
-    >>> assert qubit.inside == [Ob("qubit", dim=2)]
+    Note
+    ----
+    This class can only be instantiated via its subclasses :class:`Digit` and
+    :class:`Qudit`, but feel free to open a pull-request if you discover a
+    third kind of information unit.
     """
     def __init__(self, name: str, dim=2, z=0):
-        assert_isinstance(self, (Digit, Qudit))
         assert_isinstance(dim, int)
+        assert_isinstance(self, (Digit, Qudit))
         if dim < 2:
-            raise ValueError("Dimension should be an int greater than 1.")
-        assert_isinstance(z, int)
-        if z != 0:
-            raise AxiomError("circuit.Ob are self-dual.")
-        super().__init__(name)
+            raise ValueError
         self.dim = dim
+        super().__init__(name, z)
 
     def __repr__(self):
         return "{}({})".format(factory_name(type(self)), self.dim)
@@ -119,14 +118,14 @@ class Ob(frobenius.Ob):
 
 class Digit(Ob):
     """
-    Classical unit of information of some dimension :code:`dim`.
+    A digit is a classical unit of information.
 
     Parameters:
         dim : The dimension of the digit, e.g. ``2`` for bits.
 
     Examples
     --------
-    >>> assert bit.inside == [Digit(2)] == [Ob("bit", dim=2)]
+    >>> assert bit.inside == (Digit(2),)
     """
     def __init__(self, dim: int, z=0):
         name = "bit" if dim == 2 else "Digit({})".format(dim)
@@ -135,14 +134,14 @@ class Digit(Ob):
 
 class Qudit(Ob):
     """
-    Quantum unit of information of some dimension :code:`dim`.
+    A qudit is a quantum unit of information, i.e. a quantum digit.
 
     Parameters:
         dim : The dimension of the qudit, e.g. ``2`` for qubits.
 
     Examples
     --------
-    >>> assert qubit.inside == [Qudit(2)] == [Ob("qubit", dim=2)]
+    >>> assert qubit.inside == (Qudit(2),)
     """
     def __init__(self, dim, z=0):
         name = "qubit" if dim == 2 else "Qudit({})".format(dim)
@@ -154,6 +153,9 @@ class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
     objects inside.
+
+    Parameters:
+        inside (Digit | Qudit) : The digits and qudits inside the type.
 
     Examples
     --------
@@ -171,15 +173,23 @@ class Ty(frobenius.Ty):
 
 @factory
 class Circuit(tensor.Diagram):
-    """ Classical-quantum circuits. """
-    def conjugate(self):
-        return self.l
+    """
+    A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
+
+    Parameters:
+        inside (tuple[Layer, ...]) : The layers inside the circuit diagram.
+        dom (quantum.circuit.Ty) : The domain of the circuit diagram.
+        cod (quantum.circuit.Ty) : The codomain of the circuit diagram.
+    """
+    ty_factory = Ty
 
     @property
     def is_mixed(self):
         """
         Whether the circuit is mixed, i.e. it contains both bits and qubits
-        or it discards qubits. Mixed circuits can be evaluated only by a
+        or it discards qubits.
+
+        Mixed circuits can be evaluated only by a
         :class:`ChannelFunctor` not a :class:`discopy.tensor.Functor`.
         """
         both_bits_and_qubits = self.dom.count(bit) and self.dom.count(qubit)\
@@ -544,7 +554,6 @@ class Circuit(tensor.Diagram):
         >>> print(repr(circuit3.to_tk()))
         tk.Circuit(2, 1).H(0).X(1).CX(0, 1).Measure(1, 0).post_select({0: 0})
         """
-        # pylint: disable=import-outside-toplevel
         from discopy.quantum.tk import to_tk
         return to_tk(self)
 
@@ -564,8 +573,6 @@ class Circuit(tensor.Diagram):
         -------
         :class:`discopy.quantum.pennylane.PennylaneCircuit`
         """
-
-        # pylint: disable=import-outside-toplevel
         from discopy.quantum.pennylane import to_pennylane
         return to_pennylane(self, probabilities=probabilities)
 
@@ -862,60 +869,40 @@ class Circuit(tensor.Diagram):
         from discopy.quantum import Rz
         return self._apply_controlled(Rz(phase), x, y)
 
-    ty_factory = Ty
-
 
 class Box(tensor.Box, Circuit):
     """
-    Boxes in a circuit diagram.
+    A circuit box is a tensor box in a circuit diagram.
 
-    Parameters
-    ----------
-    name : any
-    dom : discopy.quantum.circuit.Ty
-    cod : discopy.quantum.circuit.Ty
-    is_mixed : bool, optional
-        Whether the box is mixed, default is :code:`True`.
-    _dagger : bool, optional
-        If set to :code:`None` then the box is self-adjoint.
+    Parameters:
+        name : The name of the box.
+        dom : The domain of the box.
+        cod : The codomain of the box
+        is_mixed : Whether the box is mixed.
     """
-    def __init__(self, name, dom, cod,
-                 is_mixed=True, data=None, _dagger=False, _conjugate=False):
-        if dom and not isinstance(dom, Ty):
-            raise TypeError(messages.type_err(Ty, dom))
-        if cod and not isinstance(cod, Ty):
-            raise TypeError(messages.type_err(Ty, cod))
-        z = 1 if _conjugate else 0
-        self._conjugate = _conjugate
-        rigid.Box.__init__(
-            self, name, dom, cod, data=data, _dagger=_dagger, _z=z)
-        Circuit.__init__(self, dom, cod, [self], [0])
+    def __init__(self, name: str, dom: Ty, cod: Ty, is_mixed=True, **params):
         if not is_mixed:
-            if all(isinstance(x, Digit) for x in dom @ cod):
-                self.classical = True
-            elif all(isinstance(x, Qudit) for x in dom @ cod):
-                self.classical = False
+            if all(isinstance(x, Digit) for x in (dom @ cod).inside):
+                self.is_classical = True
+            elif all(isinstance(x, Qudit) for x in (dom @ cod).inside):
+                self.is_classical = False
             else:
-                raise ValueError(
-                    "dom and cod should be Digits only or Qudits only.")
-        self._mixed = is_mixed
+                raise ValueError(messages.BOX_IS_MIXED)
+        self._is_mixed = is_mixed
+        tensor.Box.__init__(self, name, dom, cod, **params)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            return Sum((), self.dom, self.cod)
         raise NotImplementedError
 
     @property
     def is_mixed(self):
-        return self._mixed
+        return self._is_mixed
 
 
 class Sum(tensor.Sum, Box):
     """ Sums of circuits. """
-    @staticmethod
-    def upgrade(old):
-        return Sum(old.terms, old.dom, old.cod)
-
     @property
     def is_mixed(self):
         return any(circuit.is_mixed for circuit in self.terms)
@@ -954,14 +941,6 @@ class Swap(tensor.Swap, Box):
     def is_mixed(self):
         return self.left != self.right
 
-    def dagger(self):
-        return Swap(self.right, self.left)
-
-    def conjugate(self):
-        return Swap(self.right, self.left)
-
-    l = r = property(conjugate)
-
     def __str__(self):
         return "SWAP" if self.dom == qubit ** 2 else super().__str__()
 
@@ -975,7 +954,6 @@ class Functor(frobenius.Functor):
             ob = {x: qubit ** y if isinstance(y, int) else y
                   for x, y in ob.items()}
         super().__init__(ob, ar)
-
 
 
 def index2bitstring(i, length):

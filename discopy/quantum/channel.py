@@ -303,7 +303,7 @@ class Functor(rigid.Functor):
         if isinstance(box, Scalar):
             scalar = box.array if box.is_mixed else abs(box.array) ** 2
             return Channel(CQ(), CQ(), scalar)
-        if not box.is_mixed and box.classical:
+        if not box.is_mixed and box.is_classical:
             return Channel(self(box.dom), self(box.cod), box.array)
         if not box.is_mixed:
             dom, cod = self(box.dom).quantum, self(box.cod).quantum

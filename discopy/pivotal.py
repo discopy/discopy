@@ -93,6 +93,8 @@ class Diagram(rigid.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    ty_factory = Ty
+
     def dagger(self):
         """
         The dagger of a pivotal diagram is its vertical reflection.
@@ -231,9 +233,6 @@ class Functor(rigid.Functor):
     """
     dom = cod = Category(Ty, Diagram)
 
-
-for cls in [Diagram, Box, Cup, Cap]:
-    cls.ty_factory = Ty
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Id = Diagram.id

@@ -2,6 +2,8 @@
 
 """ DisCoPy utility functions. """
 
+from __future__ import annotations
+
 import json
 
 from collections.abc import Mapping, Iterable
@@ -110,10 +112,12 @@ def load_corpus(url):
     return diagrams
 
 
-def assert_isinstance(object, cls):
-    if not isinstance(object, cls):
+def assert_isinstance(object, cls: type | tuple[type, ...]):
+    classes = cls if isinstance(cls, tuple) else (cls, )
+    cls_name = ' or '.join(map(factory_name, classes))
+    if not any(isinstance(object, cls) for cls in classes):
         raise TypeError(messages.TYPE_ERROR.format(
-            factory_name(cls), factory_name(type(object))))
+            cls_name, factory_name(type(object))))
 
 
 class BinaryBoxConstructor:

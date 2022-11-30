@@ -21,7 +21,8 @@ MISSING_TYPES_FOR_EMPTY_SUM = "Empty sum needs a domain and codomain."
 MATRIX_TWO_DTYPES = "Matrix class cannot be indexed twice."
 MATRIX_REPEAT_ERROR = "The reflexive transitive closure is only defined for "\
                       "square boolean matrices."
-PROVITE_CONTRACTOR = "Provide a contractor when using a non-numpy backend."
+PROVIDE_CONTRACTOR = "Provide a contractor when using a non-numpy backend."
+BOX_IS_MIXED = "Pure boxes can have only digits or only qudits as dom and cod."
 
 class WarnOnce:
     warned = False

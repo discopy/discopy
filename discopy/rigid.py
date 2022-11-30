@@ -79,11 +79,10 @@ class Ob(cat.Ob):
         return type(self)(self.name, self.z + 1)
 
     def __eq__(self, other):
-        return isinstance(other, Ob)\
-            and cat.Ob.__eq__(self, other) and self.z == other.z
+        return cat.Ob.__eq__(self, other) and self.z == other.z
 
     def __hash__(self):
-        return hash(self.name if not self.z else (self.name, self.z))
+        return hash(repr(self))
 
     def __repr__(self):
         return "{}({}{})".format(
@@ -187,6 +186,8 @@ class Diagram(closed.Diagram):
         :align: center
     """
     __ambiguous_inheritance__ = True
+
+    ty_factory = Ty
 
     def dagger(self):
         """
@@ -363,7 +364,7 @@ class Diagram(closed.Diagram):
 
     def normal_form(self, normalizer=None, **params):
         """
-        Implements the normalisation of rigid monoidal categories,
+        Implements the normalisation of rigid categories,
         see arxiv:1601.05372, definition 2.12.
 
         Examples
@@ -391,12 +392,10 @@ class Diagram(closed.Diagram):
 
     normalize = rewriting.snake_removal
 
-    ty_factory = Ty
-
 
 class Box(closed.Box, Diagram):
     """
-    A rigid box is a monoidal box in a rigid diagram.
+    A rigid box is a closed box in a rigid diagram.
 
     Parameters:
         name : The name of the box.
@@ -567,7 +566,7 @@ class Category(closed.Category):
 
 class Functor(closed.Functor):
     """
-    A rigid functor is a monoidal functor that preserves cups and caps.
+    A rigid functor is a closed functor that preserves cups and caps.
 
     Parameters:
         ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.

@@ -49,8 +49,6 @@ class Box(symmetric.Box, tortile.Box, Diagram):
     """
     __ambiguous_inheritance__ = (symmetric.Box, tortile.Box, )
 
-    ty_factory = Ty
-
 
 class Cup(tortile.Cup, Box):
     """
@@ -83,7 +81,6 @@ class Swap(symmetric.Swap, tortile.Braid, Box):
         right (pivotal.Ty) : The type on the top right and bottom left.
     """
     __ambiguous_inheritance__ = (symmetric.Swap, tortile.Braid, )
-    ty_factory = Ty
 
 
 class Category(symmetric.Category, tortile.Category):

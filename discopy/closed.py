@@ -168,6 +168,8 @@ class Diagram(monoidal.Diagram):
     """
     __ambiguous_inheritance__ = True
 
+    ty_factory = Ty
+
     def curry(self, n=1, left=True) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
@@ -230,8 +232,6 @@ class Diagram(monoidal.Diagram):
     def bx(left, middle, right):
         """ Backward crossed composition. """
         return BX(middle << left, middle >> right)
-
-    ty_factory = Ty
 
 
 class Box(monoidal.Box, Diagram):

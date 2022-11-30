@@ -68,6 +68,8 @@ class Diagram(compact.Diagram):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    ty_factory = Ty
+
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty, phase=None
             ) -> Diagram:
@@ -237,9 +239,6 @@ class Functor(compact.Functor):
                 len(other.dom), len(other.cod), self(other.typ))
         return super().__call__(other)
 
-
-for cls in [Diagram, Box, Swap, Cup, Cap]:
-    cls.ty_factory = Ty
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider

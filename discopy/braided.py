@@ -145,10 +145,6 @@ class Braid(BinaryBoxConstructor, Box):
         return type(self)(self.right, self.left, not self.is_dagger)
 
 
-Diagram.braid_factory = Braid
-Id = Diagram.id
-
-
 def hexagon(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     """
     Take a ``factory`` for braids of atomic types and extend it recursively.
@@ -201,3 +197,7 @@ class Functor(monoidal.Functor):
         if isinstance(other, Braid) and not other.is_dagger:
             return self.cod.ar.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
+
+
+Diagram.braid_factory = Braid
+Id = Diagram.id

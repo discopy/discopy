@@ -114,12 +114,10 @@ class Ob:
         return str(self.name)
 
     def __eq__(self, other):
-        if not isinstance(other, Ob):
-            return False
-        return self.name == other.name
+        return isinstance(other, type(self)) and self.name == other.name
 
     def __hash__(self):
-        return hash(self.name)
+        return hash(repr(self))
 
     def __lt__(self, other):
         return self.name < other.name
@@ -141,18 +139,27 @@ class Ob:
 
 def factory(cls: type) -> type:
     """
-    Allows the composition of a subclass to remain in the subclass.
+    Allows the identity and composition of an :class:`Arrow` subclass to remain
+    within the subclass.
 
     Parameters:
         cls : Some subclass of :class:`Arrow`.
 
+    Note
+    ----
+    The factory method pattern (`FMP`_) is used all over DisCoPy.
+
+    .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
+
     Example
     -------
-    Let's create :code:`Circuit` as a subclass of :class:`Arrow`.
+    Let's create :code:`Circuit` as a subclass of :class:`Arrow` with an
+    :class:`Ob` subclass :code:`Qubit` as domain and codomain.
 
+    >>> class Qubit(Ob): ...
     >>> @factory
     ... class Circuit(Arrow):
-    ...     pass
+    ...     ty_factory = Qubit
 
     The :code:`Circuit` subclass itself has a subclass :code:`Gate` as boxes.
 
@@ -161,9 +168,10 @@ def factory(cls: type) -> type:
 
     The identity and composition of :code:`Circuit` is again a :code:`Circuit`.
 
-    >>> X = Gate('X', Ob('qubit'), Ob('qubit'))
+    >>> X = Gate('X', Qubit(), Qubit())
     >>> assert isinstance(X >> X, Circuit)
-    >>> assert isinstance(Circuit.id(Ob('qubit')), Circuit)
+    >>> assert isinstance(Circuit.id(), Circuit)
+    >>> assert isinstance(Circuit.id().dom, Qubit)
     """
     cls.factory = cls
     return cls
@@ -255,9 +263,11 @@ class Arrow(Composable):
     >>> assert f[:0] == Arrow.id(f.dom)
     >>> assert f[1:] == Arrow.id(f.cod)
     """
+    ty_factory = Ob
+
     def __init__(self, inside: tuple[Box, ...], dom: Ob, cod: Ob, _scan=True):
-        assert_isinstance(dom, Ob)
-        assert_isinstance(cod, Ob)
+        assert_isinstance(dom, self.ty_factory)
+        assert_isinstance(cod, self.ty_factory)
         if _scan:
             for box in inside:
                 assert_isinstance(box, Box)
@@ -300,7 +310,7 @@ class Arrow(Composable):
         if not self.inside:  # i.e. self is identity.
             return "{}.id({})".format(factory_name(type(self)), repr(self.dom))
         return "{}(inside={}, dom={}, cod={})".format(
-            factory_name(type(self)),
+            factory_name(self.factory),
             repr(self.inside), repr(self.dom), repr(self.cod))
 
     def __str__(self):
@@ -452,8 +462,6 @@ class Arrow(Composable):
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
 
-    ty_factory = Ob
-
 
 Id = Arrow.id
 
@@ -538,7 +546,7 @@ class Box(Arrow):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
     def __hash__(self):
-        return hash(super().__repr__())
+        return hash(Arrow.__repr__(self))
 
     def __eq__(self, other):
         if isinstance(other, type(self)):

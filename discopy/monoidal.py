@@ -410,10 +410,11 @@ class Diagram(cat.Arrow, Whiskerable):
             normalize
             normal_form
     """
+    ty_factory = Ty
+    layer_factory = Layer
+
     def __init__(
             self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
-        assert_isinstance(dom, Ty)
-        assert_isinstance(cod, Ty)
         for layer in inside:
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
@@ -507,9 +508,6 @@ class Diagram(cat.Arrow, Whiskerable):
         """ Called before :meth:`Diagram.draw`. """
         ob, ar = Ty.drawing, Layer.drawing
         return cat.Functor(ob, ar, cod=Category())(self)
-
-    ty_factory = Ty
-    layer_factory = Layer
 
 
 class Box(cat.Box, Diagram):
@@ -647,10 +645,6 @@ class Bubble(cat.Bubble, Box):
         return _open >> left @ self.arg.drawing() @ right >> _close
 
 
-Diagram.sum_factory = Sum
-Diagram.bubble_factory = Bubble
-
-
 class Category(cat.Category):
     """
     A monoidal category is a category with a method :code:`tensor`.
@@ -730,4 +724,6 @@ Diagram.flatten = rewriting.flatten
 Diagram.foliation = rewriting.foliation
 Diagram.depth = rewriting.depth
 
+Diagram.sum_factory = Sum
+Diagram.bubble_factory = Bubble
 Id = Diagram.id
