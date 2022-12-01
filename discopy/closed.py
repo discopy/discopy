@@ -181,7 +181,7 @@ class Diagram(monoidal.Diagram):
         return Curry(self, n, left)
 
     @staticmethod
-    def eval(base: Ty, exponent: Ty, left=True) -> Eval:
+    def ev(base: Ty, exponent: Ty, left=True) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
@@ -194,14 +194,14 @@ class Diagram(monoidal.Diagram):
 
     def uncurry(self: Diagram, left=True) -> Diagram:
         """
-        Uncurry a closed diagram by composing it with :meth:`Diagram.eval`.
+        Uncurry a closed diagram by composing it with :meth:`Diagram.ev`.
 
         Parameters:
             left : Whether to uncurry on the left or right.
         """
         base, exponent = self.cod.base, self.cod.exponent
-        return self @ exponent >> self.eval(base, exponent, True) if left\
-            else exponent @ self >> self.eval(base, exponent, False)
+        return self @ exponent >> self.ev(base, exponent, True) if left\
+            else exponent @ self >> self.ev(base, exponent, False)
 
     @staticmethod
     def fa(left, right):
@@ -385,7 +385,7 @@ Id = Diagram.id
 class Category(monoidal.Category):
     """
     A closed category is a monoidal category with methods :code:`exp`
-    (:code:`over` and / or :code:`under`), :code:`eval` and :code:`curry`.
+    (:code:`over` and / or :code:`under`), :code:`ev` and :code:`curry`.
 
     Parameters:
         ob : The type of objects.
@@ -415,7 +415,7 @@ class Functor(monoidal.Functor):
             return self.cod.ar.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
         if isinstance(other, Eval):
-            return self.cod.ar.eval(
+            return self.cod.ar.ev(
                 self(other.base), self(other.exponent), other.left)
         if isinstance(other, FA):
             left, right = other.over.left, other.over.right

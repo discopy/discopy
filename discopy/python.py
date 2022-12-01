@@ -104,7 +104,7 @@ class Function(Composable, Whiskerable):
             swap
             copy
             discard
-            eval
+            ev
             curry
             uncurry
             fix
@@ -186,7 +186,7 @@ class Function(Composable, Whiskerable):
         return Function.copy(dom, 0)
 
     @staticmethod
-    def eval(base: Ty, exponent: Ty, left=True) -> Function:
+    def ev(base: Ty, exponent: Ty, left=True) -> Function:
         """
         The evaluation function,
         i.e. take a function and apply it to an argument.
@@ -230,8 +230,8 @@ class Function(Composable, Whiskerable):
         """
         base, exponent = self.cod[0].__args__[-1], self.cod[0].__args__[:-1]
         base = tuple(base.__args__) if is_tuple(base) else (base, )
-        return self @ exponent >> Function.eval(base, exponent) if left\
-            else exponent @ self >> Function.eval(base, exponent, left=False)
+        return self @ exponent >> Function.ev(base, exponent) if left\
+            else exponent @ self >> Function.ev(base, exponent, left=False)
 
     def fix(self, n=1) -> Function:
         """

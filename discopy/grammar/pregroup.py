@@ -1,25 +1,49 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements pregroup grammars and distributional compositional models.
+A pregroup grammar is a free rigid category with words as boxes.
 
->>> from discopy.tensor import Functor
->>> from discopy.rigid import Ty
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Word
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        eager_parse
+        brute_force
+        normal_form
+        draw
+
+
+Example
+-------
 >>> s, n = Ty('s'), Ty('n')
 >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
 >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 >>> sentence = grammar << Alice @ loves @ Bob
->>> ob = {s: 1, n: 2}
->>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = Functor(ob, ar)
->>> assert F(sentence) == True
-
 >>> draw(sentence, figsize=(4, 2),\\
 ...      path='docs/imgs/grammar/pregroup-example.png')
 
 .. image:: /imgs/grammar/pregroup-example.png
     :align: center
+
+>>> from discopy.tensor import Functor
+>>> ob = {s: 1, n: 2}
+>>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+>>> F = Functor(ob, ar)
+>>> assert F(sentence) == True
 """
 
 from discopy import messages, drawing, rewriting, monoidal
@@ -29,12 +53,14 @@ from discopy.compact import Swap
 
 
 class Word(categorial.Word, Box):
-    """ Word with a :class:`discopy.rigid.Ty` as codomain. """
-
+    """
+    A word is a rigid box with a ``name``, a grammatical type as ``cod`` and
+    an optional domain ``dom``.
+    """
     def __repr__(self):
         extra = ", dom={}".format(repr(self.dom)) if self.dom else ""
         extra += ", is_dagger=True" if self.is_dagger else ""
-        extra += ", _z={}".format(self._z) if self._z != 0 else ""
+        extra += ", z={}".format(self.z) if self.z != 0 else ""
         return "Word({}, {}{})".format(
             repr(self.name), repr(self.cod), extra)
 
@@ -142,11 +168,10 @@ def draw(diagram, **params):
     ValueError
         Whenever the input is not a pregroup diagram.
     """
-    from discopy.rigid import Swap
     if not isinstance(diagram, Diagram):
         raise TypeError(messages.type_err(Diagram, diagram))
     words, is_pregroup = Id(Ty()), True
-    for _, box, right in diagram.layers:
+    for _, box, right in diagram.inside:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
                 is_pregroup = False

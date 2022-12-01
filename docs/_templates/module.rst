@@ -1,3 +1,3 @@
-{{ fullname | escape | underline}}
+{{ objname | escape | underline}}
 
 .. automodule:: {{ fullname }}

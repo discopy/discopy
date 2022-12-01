@@ -1,6 +1,8 @@
 quantum
 =======
 
+.. automodule:: discopy.quantum
+
 .. autosummary::
     :template: module.rst
     :toctree: api

@@ -8,10 +8,13 @@ DisCoPy documentation
    :start-line: 10
 
 .. toctree::
-   :caption: Reference
+   :caption: Reference API
    :hidden:
 
-   api
+   api-syntax
+   api-semantics
+   api-quantum
+   api-grammar
 
 .. toctree::
     :caption: Theory

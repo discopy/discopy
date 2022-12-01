@@ -1,10 +1,6 @@
-import os
-import pickle
 from pytest import raises
-from matplotlib import pyplot as plt
-from matplotlib.testing.compare import compare_images
 
-from discopy import closed, rigid, messages
+from discopy import messages
 from discopy.utils import from_tree
 from discopy.rigid import Id, Cup, Cap, Ty, Box
 from discopy.grammar import *
@@ -17,20 +13,6 @@ def test_Word():
         Word('Alice', 1)
     with raises(TypeError):
         Word('Alice', Ty('n'), dom=1)
-
-
-def test_CFG():
-    s, n, v, vp = Ty('S'), Ty('N'), Ty('V'), Ty('VP')
-    R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v, vp)
-    Jane, loves, Bob = Word('Jane', n), Word('loves', v), Word('Bob', n)
-    cfg = CFG(R0, R1, Jane, loves, Bob)
-    assert Jane in cfg.productions
-    assert "CFG(Box('R0', Ty('VP', 'N'), Ty('S'))" in repr(cfg)
-    assert not list(CFG().generate(start=s, max_sentences=1, max_depth=1))
-    sentence, *_ = cfg.generate(
-        start=s, max_sentences=1, max_depth=10, not_twice=[Jane, Bob], seed=42)
-    assert sentence\
-        == (Jane @ loves @ Bob).normal_form(left=True) >> R1 @ Id(n) >> R0
 
 
 def test_eager_parse():
@@ -88,17 +70,6 @@ def test_pregroup_draw_errors():
     with raises(ValueError) as err:
         draw(Word('Alice', n) >> Word('Alice', n) @ Id(n))
     assert str(err.value) is messages.NOT_PREGROUP
-
-
-def test_tree2diagram():
-    tree, boxes, offsets, rigid_boxes, rigid_offsets =\
-        pickle.load(open("test/src/tree2diagram.pickle", "rb"))
-    diagram = tree2diagram(tree)
-    rigid_diagram = closed.to_rigid(diagram)
-    assert diagram.boxes == boxes
-    assert diagram.offsets == offsets
-    assert rigid_diagram.boxes == rigid_boxes
-    assert rigid_diagram.offsets == rigid_offsets
 
 
 def test_from_tree():

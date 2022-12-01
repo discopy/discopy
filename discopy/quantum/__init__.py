@@ -1,23 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-quantum
-=======
-
 DisCoPy quantum modules: channel, circuit, gates, tk and zx.
-
-.. autosummary::
-    :template: module.rst
-    :toctree: api
-
-    discopy.quantum.channel
-    discopy.quantum.circuit
-    discopy.quantum.gates
-    discopy.quantum.ansatze
-    discopy.quantum.optics
-    discopy.quantum.zx
-    discopy.quantum.tk
-    discopy.quantum.pennylane
 """
 
 from discopy.quantum import circuit, gates, channel  #, ansatze, optics, zx

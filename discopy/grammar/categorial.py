@@ -1,41 +1,54 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements combinatory categorial grammars.
+A categorial grammar is a free closed category with words as boxes.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Word
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        cat2ty
+        tree2diagram
 """
 
 import re
 
-from discopy.closed import Ty, Box, Id, FA, BA, FC
+from discopy import closed
+from discopy.grammar import formal
 
 
-class Word(Box):
+class Word(formal.Word, closed.Box):
     """
-    Implements words as boxes with a :class:`discopy.monoidal.Ty` as codomain.
+    A word is a closed box with a ``name``, a grammatical type as ``cod`` and
+    an optional domain ``dom``.
 
-    >>> from discopy.rigid import Ty
-    >>> Alice = Word('Alice', Ty('n'))
-    >>> loves = Word('loves',
-    ...     Ty('n').r @ Ty('s') @ Ty('n').l)
-    >>> Alice
-    Word('Alice', Ty('n'))
-    >>> loves
-    Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
+    Parameters:
+        name (str) : The name of the word.
+        cod (closed.Ty) : The grammatical type of the word.
+        dom (closed.Ty) : An optional domain for the word, empty by default.
     """
-    def __init__(self, name, cod, dom=None, **params):
-        dom = dom or cod[0:0]
-        super().__init__(name, dom, cod, **params)
-
-    def __repr__(self):
-        return "Word({}, {}{})".format(
-            repr(self.name), repr(self.cod),
-            ", dom={}".format(repr(self.dom)) if self.dom else "")
 
 
-def cat2ty(string):
+def cat2ty(string: str) -> closed.Ty:
     """
-    Takes the string repr of a CCG category,
-    returns a :class:`discopy.biclosed.Ty`. """
+    Translate the string representation of a CCG category into DisCoPy.
+
+    Parameters:
+        string : The string with slashes representing a CCG category.
+    """
     def unbracket(string):
         return string[1:-1] if string[0] == '(' else string
 
@@ -58,25 +71,28 @@ def cat2ty(string):
         return cat2ty(right) >> cat2ty(left)
     if slash == '/':
         return cat2ty(left) << cat2ty(right)
-    return Ty(left)
+    return closed.Ty(left)
 
 
-def tree2diagram(tree, dom=Ty()):
+def tree2diagram(tree: dict, dom=closed.Ty()) -> closed.Diagram:
     """
-    Takes a depccg.Tree in JSON format,
-    returns a :class:`discopy.biclosed.Diagram`.
+    Translate a depccg.Tree in JSON format into DisCoPy.
+
+    Parameters:
+        tree : The tree to translate.
+        dom : The domain for the word boxes, empty by default.
     """
     if 'word' in tree:
         return Word(tree['word'], cat2ty(tree['cat']), dom=dom)
     children = list(map(tree2diagram, tree['children']))
-    dom = Ty().tensor(*[child.cod for child in children])
+    dom = closed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
-        box = BA(dom[1:])
+        box = closed.BA(dom[1:])
     elif tree['type'] == 'fa':
-        box = FA(dom[:1])
+        box = closed.FA(dom[:1])
     elif tree['type'] == 'fc':
-        box = FC(dom[:1], dom[1:])
+        box = closed.FC(dom[:1], dom[1:])
     else:
-        box = Box(tree['type'], dom, cod)
-    return Id(Ty()).tensor(*children) >> box
+        box = closed.Box(tree['type'], dom, cod)
+    return closed.Id().tensor(*children) >> box

@@ -1,0 +1,7 @@
+:root {
+    --pst-color-link: 230,126,0;
+}
+
+.content-container a {
+    font-weight: 500;
+}
