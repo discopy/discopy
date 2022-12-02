@@ -12,7 +12,7 @@ from pytket.circuit import (Bit, Op, OpType,
 from pytket.utils import probs_from_counts
 
 from discopy import messages
-from discopy.quantum.circuit import Functor, Id, bit, qubit
+from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
     Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
@@ -84,7 +84,7 @@ class Circuit(tk.Circuit):
         if offset is not None:
             self.post_processing @= Id(bit)
             self.post_processing >>= Id(bit ** offset)\
-                @ Id.swap(self.post_processing.cod[offset:-1], bit)
+                @ Diagram.swap(self.post_processing.cod[offset:-1], bit)
         super().add_bit(unit)
 
     def rename_units(self, renaming):
@@ -165,7 +165,7 @@ def to_tk(circuit):
     def remove_ket1(box):
         if not isinstance(box, Ket):
             return box
-        x_gates = Id(0).tensor(*(X if x else Id(1) for x in box.bitstring))
+        x_gates = Id().tensor(*(X if x else Id(qubit) for x in box.bitstring))
         return Ket(*(len(box.bitstring) * (0, ))) >> x_gates
 
     def prepare_qubits(qubits, box, offset):
@@ -240,8 +240,7 @@ def to_tk(circuit):
             i_qubits.append(qubits[idx])
 
             name = box.name.split('(')[0]
-            if '(' not in box.name:
-                # CX, CZ, CCX
+            if box.name in ('CX', 'CZ', 'CCX'):
                 op = Op.create(OPTYPE_MAP[name])
             elif name in ('CRx', 'CRz'):
                 op = Op.create(OPTYPE_MAP[name], 2 * box.phase)
@@ -256,7 +255,7 @@ def to_tk(circuit):
         tk_circ.add_gate(op, i_qubits)
 
     circuit = Functor(ob=lambda x: x, ar=remove_ket1)(circuit)
-    for left, box, _ in circuit.layers:
+    for left, box, _ in circuit.inside:
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
         elif isinstance(box, Bits) and not box.is_dagger:
@@ -335,20 +334,20 @@ def from_tk(tk_circuit):
             source, target = tk_qubit.index[0], offset + i + 1
             if source < target:
                 left, right = swaps.cod[:source], swaps.cod[target:]
-                swap = Id.swap(
+                swap = Diagram.swap(
                     swaps.cod[source:source + 1], swaps.cod[source + 1:target])
                 if source <= offset:
                     offset -= 1
             elif source > target:
                 left, right = swaps.cod[:target], swaps.cod[source + 1:]
-                swap = Id.swap(
+                swap = Diagram.swap(
                     swaps.cod[target: target + 1],
                     swaps.cod[target + 1: source + 1])
             else:  # pragma: no cover
                 continue  # units are adjacent already
             swaps = swaps >> Id(left) @ swap @ Id(right)
         return offset, swaps
-    circuit = Id(0).tensor(*(n_qubits * [Ket(0)] + n_bits * [Bits(0)]))
+    circuit = Id().tensor(*(n_qubits * [Ket(0)] + n_bits * [Bits(0)]))
     bras = {}
     for tk_gate in tk_circuit.get_commands():
         if tk_gate.op.type.name == "Measure":
@@ -359,7 +358,7 @@ def from_tk(tk_circuit):
                 continue  # post selection happens at the end
             box = Measure(destructive=False, override_bits=True)
             swaps = Id(circuit.cod[:offset + 1])
-            swaps = swaps @ Id.swap(
+            swaps = swaps @ Diagram.swap(
                 circuit.cod[offset + 1:n_qubits + bit_index],
                 circuit.cod[n_qubits:][bit_index: bit_index + 1])\
                 @ Id(circuit.cod[n_qubits + bit_index + 1:])
@@ -368,7 +367,7 @@ def from_tk(tk_circuit):
             offset, swaps = make_units_adjacent(tk_gate)
         left, right = swaps.cod[:offset], swaps.cod[offset + len(box.dom):]
         circuit = circuit >> swaps >> Id(left) @ box @ Id(right) >> swaps[::-1]
-    circuit = circuit >> Id(0).tensor(*(
+    circuit = circuit >> Id().tensor(*(
         Bra(bras[i]) if i in bras
         else Discard() if x.name == 'qubit' else Id(bit)
         for i, x in enumerate(circuit.cod)))

@@ -59,6 +59,7 @@ from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor, backend, get_backend
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
+from discopy.utils import factory_name
 
 
 def format_number(data):
@@ -210,14 +211,6 @@ class QuantumGate(Box):
     is_mixed = False
     is_classical = False
 
-    @property
-    def array(self):
-        """ The array of a quantum gate. """
-        if self.data is not None:
-            with backend() as np:
-                return np.array(self.data, dtype=complex).reshape(tuple(
-                    obj.dim for obj in self.dom.inside + self.cod.inside))
-
 
 class ClassicalGate(Box):
     """
@@ -232,16 +225,13 @@ class ClassicalGate(Box):
     ClassicalGate('f', bit, bit, data=[1, 2, 3, 4])
     """
     is_mixed = False
-
-    @property
-    def array(self):
-        return QuantumGate.array.__func__(self)
+    is_classical = True
 
 
 class Copy(SelfConjugate, ClassicalGate):
     """ Takes a bit, returns two copies of it. """
     def __init__(self):
-        super().__init__("Copy", 1, 2, [1, 0, 0, 0, 0, 0, 0, 1])
+        super().__init__("Copy", bit, bit ** 2, [1, 0, 0, 0, 0, 0, 0, 1])
         self.draw_as_spider, self.color = True, "black"
         self.drawing_name = ""
 
@@ -252,7 +242,7 @@ class Copy(SelfConjugate, ClassicalGate):
 class Match(SelfConjugate, ClassicalGate):
     """ Takes two bits in, returns them if they are equal. """
     def __init__(self):
-        super().__init__("Match", 2, 1, [1, 0, 0, 0, 0, 0, 0, 1])
+        super().__init__("Match", bit ** 2, bit, [1, 0, 0, 0, 0, 0, 0, 1])
         self.draw_as_spider, self.color = True, "black"
         self.drawing_name = ""
 
@@ -450,12 +440,12 @@ class Controlled(QuantumGate):
             phase = self.phase
             decomp = (
                 Controlled(X, distance=distance)
-                >> Id(distance) @ Rz(-phase / 2) @ Id(-distance)
+                >> qubit ** distance @ Rz(-phase / 2) @ qubit ** -distance
                 >> Controlled(X, distance=distance)
-                >> Id(distance) @ Rz(phase / 2) @ Id(-distance))
+                >> qubit ** distance @ Rz(phase / 2) @ qubit ** -distance)
             if isinstance(controlled, Rx):
-                decomp <<= Id(distance) @ H @ Id(-distance)
-                decomp >>= Id(distance) @ H @ Id(-distance)
+                decomp <<= qubit ** distance @ H @ qubit ** -distance
+                decomp >>= qubit ** distance @ H @ qubit ** -distance
             return decomp
         return self
 
@@ -509,8 +499,6 @@ class Parametrized(Box):
         Domain and codomain.
     data : any
         Data of the box, potentially with free symbols.
-    datatype : type
-        Type to cast whenever there are no free symbols.
 
     Example
     -------
@@ -525,10 +513,7 @@ class Parametrized(Box):
     """
     def __init__(self, name, dom, cod, data=None, **params):
         self.drawing_name = f'{name}({data})'
-        Box.__init__(
-            self, name, dom, cod, data=data,
-            is_mixed=params.get('is_mixed', True),
-            is_dagger=params.get('is_dagger', False))
+        Box.__init__(self, name, dom, cod, data=data, **params)
 
     @property
     def modules(self):
@@ -551,6 +536,9 @@ class Parametrized(Box):
     def __str__(self):
         return '{}({})'.format(self.name, format_number(self.data))
 
+    def __repr__(self):
+        return factory_name(type(self)) + f"({format_number(self.data)})"
+
 
 class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
@@ -558,8 +546,7 @@ class Rotation(Parametrized, QuantumGate):
         dom = cod = qubit ** n_qubits
         QuantumGate.__init__(self, name, dom, cod, z=z)
         Parametrized.__init__(
-            self, name, self.dom, self.cod,
-            datatype=float, is_mixed=False, data=phase)
+            self, name, self.dom, self.cod, is_mixed=False, data=phase)
 
     @property
     def phase(self):
@@ -646,15 +633,16 @@ class CU1(Anti2QubitConjugate, Rotation):
 
 class Scalar(Parametrized):
     """ Scalar, i.e. quantum gate with empty domain and codomain. """
-    def __init__(self, data, datatype=complex, name=None, is_mixed=False):
+    def __init__(self, data, name=None, is_mixed=False):
         self.drawing_name = format_number(data)
         name = "scalar" if name is None else name
         dom, cod = qubit ** 0, qubit ** 0
         is_dagger = None if data.conjugate() == data else False
+        z = None if data.conjugate() == data else 0
         super().__init__(
             name, dom, cod,
-            datatype=datatype, is_mixed=is_mixed, data=data,
-            is_dagger=is_dagger)
+            is_mixed=is_mixed, data=data,
+            is_dagger=is_dagger, z=z)
 
     def __repr__(self):
         return super().__repr__()[:-1] + (
@@ -718,11 +706,11 @@ def rewire(op, a: int, b: int, *, dom=None):
 
     if (b - a) == 1:
         # a, b contiguous and not reversed
-        return Box.id(a) @ op @ Box.id(len(dom) - (b + 1))
+        return qubit ** a @ op @ qubit ** (len(dom) - (b + 1))
     if (b - a) == -1:
         # a, b contiguous and reversed
         op = (SWAP >> op >> SWAP) if op.cod == op.dom else (SWAP >> op)
-        return Box.id(b) @ op @ Box.id(len(dom) - (a + 1))
+        return qubit ** b @ op @ qubit ** (len(dom) - (a + 1))
 
     if op.cod != op.dom:
         raise NotImplementedError
@@ -735,8 +723,8 @@ def rewire(op, a: int, b: int, *, dom=None):
         perm[0], perm[1] = perm[1], perm[0]
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        perm = Box.permutation(perm, dom=dom, inverse=True)
-    return perm.dagger() >> (op @ Box.id(len(dom) - 2)) >> perm
+        perm = Box.permutation(perm, dom=dom)
+    return perm.dagger() >> (op @ qubit ** (len(dom) - 2)) >> perm
 
 
 def sqrt(expr):
@@ -760,4 +748,4 @@ Y = QuantumGate('Y', qubit, qubit, [0, 1j, -1j, 0], is_dagger=None)
 Z = QuantumGate('Z', qubit, qubit, [1, 0, 0, -1], is_dagger=None, z=None)
 CX = Controlled(X)
 CZ = Controlled(Z)
-GATES = [SWAP, H, S, T, X, Y, Z, ]  #CZ, CX]
+GATES = [SWAP, H, S, T, X, Y, Z, CZ, CX]

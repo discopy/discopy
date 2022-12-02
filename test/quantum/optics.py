@@ -4,16 +4,15 @@ import numpy as np
 from sympy.abc import phi
 
 from discopy.quantum.optics import *
-from discopy.quantum.zx import decomp, H, X, Z
-from discopy.monoidal import Swap
+from discopy.quantum.zx import H, X, Z, Swap
 
-unit = Unit()
-counit = Counit()
-
-monoid = Monoid()
-comonoid = Comonoid()
-
-swap = Swap(PRO(1), PRO(1))
+# unit = Unit()
+# counit = Counit()
+#
+# monoid = Monoid()
+# comonoid = Comonoid()
+#
+# swap = Swap(PRO(1), PRO(1))
 
 
 def check(d1, d2):

@@ -88,12 +88,15 @@ class Ty(cat.Ob):
 
     >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
     """
+    ob_factory = cat.Ob
+
     __ambiguous_inheritance__ = True
 
-    def __init__(self, *inside: Ty):
+    def __init__(self, *inside: str | cat.Ob):
+        for obj in inside:
+            assert_isinstance(obj, (str, self.ob_factory))
         self.inside = tuple(
-            x if isinstance(x, self.ob_factory) else self.ob_factory(x)
-            for x in inside)
+            self.ob_factory(x) if isinstance(x, str) else x for x in inside)
         super().__init__(str(self))
 
     def tensor(self, *others: Ty) -> Ty:
@@ -185,13 +188,11 @@ class Ty(cat.Ob):
 
     __add__ = __matmul__
 
-    ob_factory = cat.Ob
-
 
 @factory
 class PRO(Ty):
     """
-    A PRO is a natural number :code:`n` seen as a type with unnamed objects.
+    A PRO is a natural number ``n`` seen as a type with unnamed objects.
 
     Parameters
     ----------
@@ -240,6 +241,9 @@ class PRO(Ty):
 
     def __pow__(self, n_times):
         return self.factory(n_times * self.n)
+
+    def drawing(self):
+        return Ty(*self.n * [Ob()])
 
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}

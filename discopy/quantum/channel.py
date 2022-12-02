@@ -46,6 +46,7 @@ from __future__ import annotations
 from discopy import monoidal, frobenius, messages, tensor
 from discopy.cat import factory, Category, AxiomError
 from discopy.frobenius import Ty, Diagram, Box
+from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import (
     bit, qubit, Digit, Qudit, Sum, Swap)
@@ -289,7 +290,7 @@ class Channel(Tensor):
         """
         with backend() as np:
             array = np.tensordot(
-                np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
+                np.ones(dom.classical.inside), Tensor.id(dom.quantum).array, 0)
         return Channel(array, dom, CQ())
 
 
@@ -326,6 +327,7 @@ class Functor(tensor.Functor):
             scalar = other.array if other.is_mixed else abs(other.array) ** 2
             return self.cod.ar(scalar, CQ(), CQ())
         if not other.is_mixed and other.is_classical:
+            dom, cod = self(other.dom).classical, self(other.cod).classical
             return self.cod.ar.single(
                 Tensor[self.dtype](other.array, dom, cod))
         if not other.is_mixed:

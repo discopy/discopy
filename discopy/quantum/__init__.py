@@ -17,7 +17,7 @@ from discopy.quantum.gates import (
     Rx, Ry, Rz, CU1, CRz, CRx, CZ, CX,
     X, Y, Z, H, S, T, scalar, sqrt, rewire,
 )
-# from discopy.quantum.ansatze import (
-#     IQPansatz, Sim14ansatz, Sim15ansatz,
-#     random_tiling, real_amp_ansatz,
-# )
+from discopy.quantum.ansatze import (
+    IQPansatz, Sim14ansatz, Sim15ansatz,
+    random_tiling, real_amp_ansatz,
+)

@@ -43,20 +43,19 @@ Examples
 .. image:: /imgs/quantum/circuit-example.png
     :align: center
 
-
+>>> from discopy import rigid
 >>> from discopy.grammar.pregroup import Word
->>> from discopy.rigid import Ty, Cup, Id
->>> s, n = Ty('s'), Ty('n')
+>>> s, n = rigid.Ty('s'), rigid.Ty('n')
 >>> Alice = Word('Alice', n)
 >>> loves = Word('loves', n.r @ s @ n.l)
 >>> Bob = Word('Bob', n)
->>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+>>> grammar = rigid.Cup(n, n.r) @ s @ rigid.Cup(n.l, n)
 >>> sentence = grammar << Alice @ loves @ Bob
->>> ob = {s: 0, n: 1}
+>>> ob = {s: Ty(), n: qubit}
 >>> ar = {Alice: Ket(0),
 ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
 ...       Bob: Ket(1)}
->>> F = Functor(ob, ar)
+>>> F = rigid.Functor(ob, ar, cod=Category(Ty, Circuit))
 >>> assert abs(F(sentence).eval().array) ** 2
 >>> from discopy import drawing
 >>> drawing.equation(
@@ -79,6 +78,7 @@ from collections.abc import Mapping
 from discopy import messages, monoidal, rigid, tensor, symmetric, frobenius
 from discopy.cat import factory, Category, AxiomError
 from discopy.compact import Diagram
+from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
 
@@ -192,7 +192,7 @@ class Circuit(tensor.Diagram):
 
     def init_and_discard(self):
         """ Returns a circuit with empty domain and only bits as codomain. """
-        from discopy.quantum.gates import Bits, Ket
+        from discopy.quantum.gates import Bits, Ket, Discard
         circuit = self
         if circuit.dom:
             init = Id().tensor(*(
@@ -259,7 +259,7 @@ class Circuit(tensor.Diagram):
         >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
         >>> from discopy.quantum.tk import mockBackend
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
-        >>> assert circuit.eval(backend, n_shots=2**10).round()\\
+        >>> assert circuit.eval(backend=backend, n_shots=2**10).round()\\
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         from discopy.quantum import channel
@@ -334,21 +334,18 @@ class Circuit(tensor.Diagram):
         >>> circuit = H @ X >> CX >> Measure(2)
         >>> from discopy.quantum.tk import mockBackend
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
-        >>> circuit.get_counts(backend, n_shots=2**10)
+        >>> circuit.get_counts(backend=backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
         """
-        if len(others) == 1 and not isinstance(others[0], Circuit):
-            # This allows the syntax :code:`circuit.get_counts(backend)`
-            return self.get_counts(backend=others[0], **params)
         if backend is None:
             if others:
                 return [circuit.get_counts(**params)
                         for circuit in (self, ) + others]
-            utensor, counts = self.init_and_discard().eval(), dict()
-            for i in range(2**len(utensor.cod)):
-                bits = index2bitstring(i, len(utensor.cod))
-                if utensor.array[bits]:
-                    counts[bits] = utensor.array[bits].real
+            result, counts = self.init_and_discard().eval(mixed=True), dict()
+            for i in range(2 ** len(result.cod.classical)):
+                bits = index2bitstring(i, len(result.cod.classical))
+                if result.array[bits]:
+                    counts[bits] = result.array[bits].real
             return counts
         counts = self.to_tk().get_counts(
             *(other.to_tk() for other in others), backend=backend, **params)
@@ -373,10 +370,11 @@ class Circuit(tensor.Diagram):
         state = (Ket(*(len(self.dom) * [0])) >> self).eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
-        array = Tensor.np.zeros(len(self.cod) * (2, )) + 0j
-        for effect in effects:
-            array +=\
-                effect.array * Tensor.np.absolute((state >> effect).array) ** 2
+        with backend() as np:
+            array = np.zeros(len(self.cod) * (2, )) + 0j
+            for effect in effects:
+                array +=\
+                    effect.array * np.absolute((state >> effect).array) ** 2
         return array
 
     def to_tn(self, mixed=False):
@@ -487,7 +485,8 @@ class Circuit(tensor.Diagram):
                         q_scan2[q_offset + 1], q_scan2[q_offset]
                     continue
                 utensor = box.array
-                node1 = tn.Node(Tensor.np.conj(utensor) + 0j, 'q1_' + str(box))
+                with backend() as np:
+                    node1 = tn.Node(np.conj(utensor) + 0j, 'q1_' + str(box))
                 node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
 
                 for i in range(len(box.dom)):
@@ -537,7 +536,8 @@ class Circuit(tensor.Diagram):
         >>> circuit1.to_tk()
         tk.Circuit(3).X(0).CX(0, 2)
 
-        >>> circuit2 = X @ qubit ** 2 >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
+        >>> circuit2 = X @ qubit ** 2\\
+        ...     >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
         >>> circuit2.to_tk()
         tk.Circuit(3).X(0).CX(0, 2)
 
@@ -606,28 +606,28 @@ class Circuit(tensor.Diagram):
         >>> pprint(Circuit.from_tk(tk_GHZ))
         Ket(0)
           >> qubit @ Ket(0)
-          >> qubit ** 2 @ Ket(0)
+          >> qubit @ qubit @ Ket(0)
           >> qubit @ H @ qubit
           >> qubit @ CX
           >> SWAP @ qubit
           >> CX @ qubit
           >> SWAP @ qubit
-          >> Discard(qubit) @ qubit ** 2
+          >> Discard(qubit) @ qubit @ qubit
           >> Discard(qubit) @ qubit
           >> Discard(qubit)
         >>> circuit = Ket(1, 0) >> CX >> qubit @ Ket(0) @ qubit
         >>> print(Circuit.from_tk(circuit.to_tk())[3:-3])
-        X @ qubit ** 2 >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
+        X @ qubit @ qubit >> qubit @ SWAP >> CX @ qubit >> qubit @ SWAP
 
         >>> bell_state = Circuit.caps(qubit, qubit)
         >>> bell_effect = bell_state[::-1]
         >>> circuit = bell_state @ qubit >> qubit @ bell_effect >> Bra(0)
         >>> pprint(Circuit.from_tk(circuit.to_tk())[3:])
-        H @ qubit ** 2
+        H @ qubit @ qubit
           >> CX @ qubit
           >> qubit @ CX
           >> qubit @ H @ qubit
-          >> Bra(0) @ qubit ** 2
+          >> Bra(0) @ qubit @ qubit
           >> Bra(0) @ qubit
           >> Bra(0)
           >> scalar(4)
@@ -704,20 +704,13 @@ class Circuit(tensor.Diagram):
         return super().draw(**params)
 
     @staticmethod
-    def swap(left, right):
-        return monoidal.Diagram.swap(
-            left, right, ar_factory=Circuit, swap_factory=Swap)
-
-    @staticmethod
-    def permutation(perm, dom=None, inverse=False):
-        if dom is None:
-            dom = qubit ** len(perm)
-        return monoidal.Diagram.permutation(
-            perm, dom, ar_factory=Circuit, inverse=inverse)
+    def permutation(perm, dom=None):
+        dom = qubit ** len(perm) if dom is None else dom
+        return frobenius.Diagram.permutation.__func__(Circuit, perm, dom)
 
     @staticmethod
     def cup_factory(left, right):
-        from discopy.quantum.gates import CX, H, sqrt, Bra, Match
+        from discopy.quantum.gates import CX, H, sqrt, Bra, Match, Discard
 
         if left == right == qubit:
             return CX >> H @ sqrt(2) @ qubit >> Bra(0, 0)
@@ -733,12 +726,12 @@ class Circuit(tensor.Diagram):
         def factory(n_legs_in, n_legs_out, typ):
             if typ != qubit:
                 raise NotImplementedError
-            if n_legs_in < n_legs_out:
+            if (n_legs_in, n_legs_out) not in [(0, 1), (2, 1)]:
                 return factory(n_legs_out, n_legs_in, qubit).dagger()
-            assert n_legs_out == 1
-            from discopy.quantum.gates import CX, H, Bra, sqrt
-            return CX >> qubit @ Bra(0) if n_legs_in == 2\
-                else H >> Bra(0) @ sqrt(2)
+            from discopy.quantum.gates import CX, H, Bra, Ket, sqrt
+            if (n_legs_in, n_legs_out) == (0, 1):
+                return sqrt(2) >> Ket(0) >> H
+            return CX >> qubit @ Bra(0)
 
         return frobenius.coherence(Circuit, factory)(
             n_legs_in, n_legs_out, typ)
@@ -778,10 +771,12 @@ class Box(tensor.Box, Circuit):
     Parameters:
         name : The name of the box.
         dom : The domain of the box.
-        cod : The codomain of the box
+        cod : The codomain of the box.
+        data : The array inside the box.
         is_mixed : Whether the box is mixed.
     """
-    def __init__(self, name: str, dom: Ty, cod: Ty, is_mixed=True, **params):
+    def __init__(self, name: str, dom: Ty, cod: Ty,
+                 data=None, is_mixed=True, **params):
         if not is_mixed:
             if all(isinstance(x, Digit) for x in (dom @ cod).inside):
                 self.is_classical = True
@@ -790,7 +785,15 @@ class Box(tensor.Box, Circuit):
             else:
                 raise ValueError(messages.BOX_IS_MIXED)
         self._is_mixed = is_mixed
-        tensor.Box.__init__(self, name, dom, cod, **params)
+        tensor.Box.__init__(self, name, dom, cod, data=data, **params)
+
+    @property
+    def array(self):
+        """ The array of a quantum box. """
+        if self.data is not None:
+            with backend() as np:
+                return np.array(self.data, dtype=complex).reshape(tuple(
+                    obj.dim for obj in self.dom.inside + self.cod.inside))
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -846,15 +849,25 @@ class Swap(tensor.Swap, Box):
     """ Implements swaps of circuit wires. """
     @property
     def is_mixed(self):
-        return self.left != self.right
+        return type(self.left.inside[0]) != type(self.right.inside[0])
+
+    @property
+    def is_classical(self):
+        return not self.is_mixed and isinstance(self.left.inside[0], Digit)
 
     def __str__(self):
         return "SWAP" if self.dom == qubit ** 2 else super().__str__()
 
+    @property
+    def array(self):
+        left_obj, = self.left.inside
+        right_obj, = self.right.inside
+        return Tensor.swap(Dim(left_obj.dim), Dim(right_obj.dim)).array
+
 
 class Functor(frobenius.Functor):
-    """ Functors into :class:`Circuit`. """
-    cod = Category(Ty, Circuit)
+    """ :class:`Circuit`-valued functor. """
+    dom = cod = Category(Ty, Circuit)
 
     def __init__(self, ob, ar):
         if isinstance(ob, Mapping):

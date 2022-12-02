@@ -21,30 +21,8 @@ def test_bitstring2index():
     assert bitstring2index((0, 0, 1, 0, 1, 0, 1, 0)) == 42
 
 
-def test_Circuit_ob():
-    with raises(AxiomError):
-        Ob("x", z=-1)
-    with raises(ValueError):
-        Ob("x", dim=-1)
-
-
-def test_Circuit_repr():
-    assert repr(X >> Y)\
-        == "Circuit(dom=qubit, cod=qubit, boxes=[X, Y], offsets=[0, 0])"
-
-
-def test_Circuit_permutation():
-    x = qubit
-    assert Circuit.swap(x, x ** 2)\
-        == Circuit.swap(x, x) @ Id(x) >> Id(x) @ Circuit.swap(x, x)\
-        == Circuit.permutation([2, 0, 1], inverse=True)
-    assert Circuit.swap(x, x ** 2)\
-        == Circuit.swap(x, x) @ Id(x) >> Id(x) @ Circuit.swap(x, x)\
-        == Circuit.permutation([2, 0, 1]).dagger()
-
-
 def test_Circuit_eval():
-    with raises(KeyError):
+    with raises(ValueError):
         Box('f', qubit, qubit).eval()
     assert MixedState().eval() == Discard().eval().dagger()
 
@@ -52,8 +30,6 @@ def test_Circuit_eval():
 def test_Circuit_cups_and_caps():
     assert Circuit.cups(bit, bit) == Match() >> Discard(bit)
     assert Circuit.caps(bit, bit) == MixedState(bit) >> Copy()
-    with raises(ValueError):
-        Circuit.cups(Ty('x'), Ty('x').r)
 
 
 def test_Circuit_spiders():
@@ -65,19 +41,16 @@ def test_Circuit_spiders():
     assert Circuit.spiders(0, 1, qubit ** 2) == ((sqrt(2) >> Ket(0) >> H)
                                                  @ (sqrt(2) >> Ket(0) >> H))
 
-    mul2 = Circuit(dom=qubit @ qubit @ qubit @ qubit,
-                   cod=qubit @ qubit,
-                   boxes=[SWAP, CX, Bra(0), CX, Bra(0)],
-                   offsets=[1, 0, 1, 1, 2])
-    assert Circuit.spiders(2, 1, qubit ** 2) == mul2
+    assert Circuit.spiders(2, 1, qubit ** 2) == Circuit.decode(
+        qubit @ qubit @ qubit @ qubit,
+        zip([SWAP, CX, Bra(0), CX, Bra(0)], [1, 0, 1, 1, 2]))
 
-    ghz2 = Circuit(dom=Ty(),
-                   cod=qubit @ qubit @ qubit @ qubit @ qubit @ qubit,
-                   boxes=[sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
-                          sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
-                          SWAP, SWAP, SWAP],
-                   offsets=[0, 0, 0, 1, 0, 1, 0, 3, 3, 3, 4, 3, 4,
-                            3, 2, 1, 3])
+    boxes = [
+        sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
+        sqrt(2), Ket(0), H, Ket(0), CX, Ket(0), CX,
+        SWAP, SWAP, SWAP]
+    offsets = [0, 0, 0, 1, 0, 1, 0, 3, 3, 3, 4, 3, 4, 3, 2, 1, 3]
+    ghz2 = Circuit.decode(Ty(), zip(boxes, offsets))
     assert Circuit.spiders(0, 3, qubit ** 2) == ghz2
 
     assert np.abs(Circuit.spiders(0, 0, qubit).eval().array) == 2
@@ -92,7 +65,7 @@ def test_Circuit_spiders():
 def test_Circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
     p_snake = snake.to_pennylane()
     p_snake.draw()
 
@@ -132,14 +105,13 @@ def test_Circuit_to_pennylane(capsys):
     symbols = [x, y, z]
     weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
 
-    var_circ = Circuit(
-        dom=qubit ** 0, cod=qubit, boxes=[
-            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
-            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
-            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
-        offsets=[
-            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
-            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+    boxes = [
+        Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+        CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+        Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)]
+    offsets = [
+        0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]
+    var_circ = Circuit.decode(Ty(), zip(boxes, offsets))
 
     p_var_circ = var_circ.to_pennylane()
     p_var_circ.draw(symbols, weights)
@@ -168,7 +140,7 @@ def test_Circuit_to_pennylane(capsys):
 def test_PennyLaneCircuit_mixed_error():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
     snake = (snake >> Measure())
     with raises(ValueError):
         snake.to_pennylane()
@@ -177,7 +149,7 @@ def test_PennyLaneCircuit_mixed_error():
 def test_PennylaneCircuit_draw(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
     p_circ = snake.to_pennylane()
     p_circ.draw()
 
@@ -212,7 +184,7 @@ def test_pennylane_parameterized_ops():
 def test_pennylane_update_post_selection():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
     p_circ = snake.to_pennylane()
 
     assert p_circ.post_selection == {0: 0, 1: 0}
@@ -233,14 +205,7 @@ def test_bra_ket_inputs():
 
 
 def test_Circuit_get_counts():
-    assert Id(1).get_counts() == {(): 1.0}
-
-
-def test_QuantumGate_repr():
-    assert repr(Y.l) == repr(Y.r) == "Y.conjugate()"
-    assert repr(Z.l) == repr(Z) == repr(Z.r) == "Z"
-    assert repr(S.dagger()) == "S.dagger()"
-    assert repr(S.l.dagger()) == "S.conjugate().dagger()"
+    assert Id(qubit).get_counts() == {(): 1.0}
 
 
 def test_Circuit_conjugate():
@@ -248,7 +213,7 @@ def test_Circuit_conjugate():
 
 
 def test_Circuit_measure():
-    assert Id(0).measure() == 1
+    assert Id().measure() == 1
     assert all(Bits(0).measure(mixed=True) == np.array([1, 0]))
 
 
@@ -280,16 +245,13 @@ def test_Measure():
     assert Encode().dagger() == Measure()
 
 
-def test_QuantumGate():
-    assert repr(X) == "X"
-    assert repr(QuantumGate("s", 0, [1]))\
-        == "QuantumGate('s', n_qubits=0, array=[1.+0.j])"
-
-
 def test_ClassicalGate():
-    f = ClassicalGate('f', 1, 1, [0, 1, 1, 0])
+    f = ClassicalGate('f', bit, bit, [0, 1, 1, 0])
     assert repr(f.dagger())\
-        == "ClassicalGate('f', bit, bit, data=[0, 1, 1, 0]).dagger()"
+        == "quantum.gates.ClassicalGate('f', "\
+           "quantum.circuit.Ty(quantum.circuit.Digit(2)), "\
+           "quantum.circuit.Ty(quantum.circuit.Digit(2)), "\
+           "data=[0, 1, 1, 0]).dagger()"
 
 
 def test_Digits():
@@ -306,63 +268,39 @@ def test_Bits():
 
 
 def test_Rx():
-    assert repr(Rx(0.4)) == "Rx(0.4)"
-    assert Rx(0).eval() == Rx(0).dagger().eval() == Id(1).eval()
+    assert repr(Rx(0.4)) == "quantum.gates.Rx(0.4)"
+    assert Rx(0).eval() == Rx(0).dagger().eval() == Id(qubit).eval()
 
 
 def test_Ry():
-    assert Ry(0).eval() == Id(1).eval()
+    assert Ry(0).eval() == Id(qubit).eval()
 
 
 def test_Rz():
-    assert Rz(0).eval() == Id(1).eval()
+    assert Rz(0).eval() == Id(qubit).eval()
 
 
 def test_CRz():
-    assert CRz(0).eval() == Id(2).eval()
+    assert CRz(0).eval() == Id(qubit ** 2).eval()
 
 
 def test_CU1():
-    assert CU1(0).eval() == Id(2).eval()
+    assert CU1(0).eval() == Id(qubit ** 2).eval()
 
 
 def test_CRx():
-    assert CRx(0).eval() == Id(2).eval()
-
-
-def test_CircuitFunctor():
-    x, y = rigid.Ty('x'), rigid.Ty('y')
-    f = rigid.Box('f', x, y)
-    ob, ar = {x: qubit, y: bit}, {f: Measure()}
-    assert repr(Functor(ob, ar))\
-        == "circuit.Functor(ob={Ty('x'): qubit, Ty('y'): bit}, "\
-           "ar={Box('f', Ty('x'), Ty('y')): Measure()})"
-
-
-def test_IQPAnsatz():
-    with raises(ValueError):
-        IQPansatz(10, np.array([]))
-
-
-def test_Sim14Ansatz():
-    with raises(ValueError):
-        Sim14ansatz(10, np.array([]))
-
-
-def test_Sim15Ansatz():
-    with raises(ValueError):
-        Sim15ansatz(10, np.array([]))
+    assert CRx(0).eval() == Id(qubit ** 2).eval()
 
 
 def test_Sum():
     assert not Sum([], qubit, qubit).eval()
-    assert Sum([Id(0)]).get_counts() == Id(0).get_counts()
-    assert (Id(0) + Id(0)).get_counts()[()] == 2
-    assert (Id(0) + Id(0)).eval() == Id(0).eval() + Id(0).eval()
+    assert Sum([Id()]).get_counts() == Id().get_counts()
+    assert (Id() + Id()).get_counts()[()] == 2
+    assert (Id() + Id()).eval() == Id().eval() + Id().eval()
     assert not (X + X).is_mixed and (X >> Bra(0) + Discard()).is_mixed
     assert (Discard() + Discard()).eval()\
         == Discard().eval() + Discard().eval()
-    assert Sum([Id(1)]).eval() == Id(1).eval()
+    assert Sum([Id(qubit)]).eval() == Id(qubit).eval()
 
 
 def test_subs():
@@ -390,9 +328,9 @@ def test_grad_basic():
     assert CRz(0).grad(phi).eval() == 0
     assert CRx(1).grad(phi).eval() == 0
 
-    assert scalar(2 * phi).grad(phi).eval() == 2
+    assert scalar(2 * phi).grad(phi).eval().array == 2
     assert scalar(1.23).grad(phi).eval() == 0
-    assert (scalar(2 * phi) + scalar(3 * phi)).grad(phi).eval() == 5
+    assert (scalar(2 * phi) + scalar(3 * phi)).grad(phi).eval().array == 5
 
     assert Measure().grad(phi).eval() == 0
     with raises(NotImplementedError):
@@ -415,7 +353,7 @@ def _assert_is_close_to_0(m):
 def test_testing_utils():
     for k in range(1, 4):
         _assert_is_close_to_iden(np.eye(k))
-        _assert_is_close_to_iden(Id(k))
+        _assert_is_close_to_iden(Id(qubit ** k))
         _assert_is_close_to_0(np.zeros(k))
         _assert_is_close_to_0(Ket(*([0] * k)) >> Bra(*([1] * k)))
 
@@ -427,14 +365,14 @@ def test_rot_grad():
     crz_diff = CRz(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
     crz_res = (
         (CRz(phi) >> Z @ Z @ scalar(0.5j * pi))
-        + (CRz(phi) >> Id(1) @ Z @ scalar(-0.5j * pi))
+        + (CRz(phi) >> Id(qubit) @ Z @ scalar(-0.5j * pi))
     ).lambdify(phi)(x).eval()
     assert np.allclose(crz_diff, crz_res)
 
     crx_diff = CRx(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
     crx_res = (
         (CRx(phi) >> Z @ X @ scalar(0.5j * pi))
-        + (CRx(phi) >> Id(1) @ X @ scalar(-0.5j * pi))
+        + (CRx(phi) >> Id(qubit) @ X @ scalar(-0.5j * pi))
     ).lambdify(phi)(x).eval()
     assert np.allclose(crx_diff, crx_res)
 
@@ -447,7 +385,7 @@ def test_rot_grad_NotImplemented():
 
 def test_ClassicalGate_grad_subs():
     from sympy.abc import x, y
-    s = ClassicalGate('s', 0, 0, [x])
+    s = ClassicalGate('s', Ty(), Ty(), [x])
     assert s.grad(x) and not s.subs(x, y).grad(x)
 
 
@@ -505,9 +443,9 @@ def test_rewire():
     assert ext_cx(0, 1) == CX
     assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
     assert ext_cx(0, 1, dom=qubit**2) == CX
-    assert ext_cx(2, 1) == Id(1) @ (SWAP >> CX >> SWAP)
-    assert rewire(CZ, 1, 2) == Id(1) @ CZ
-    assert rewire(Id(2), 1, 0) == SWAP >> SWAP
+    assert ext_cx(2, 1) == Id(qubit) @ (SWAP >> CX >> SWAP)
+    assert rewire(CZ, 1, 2) == Id(qubit) @ CZ
+    assert rewire(Id(qubit ** 2), 1, 0) == SWAP >> SWAP
     assert rewire(Circuit.cups(qubit, qubit), 1, 2).cod == qubit
 
     with raises(NotImplementedError):
@@ -525,23 +463,6 @@ def test_rewire():
         verify_rewire_cx_case(*params)
 
 
-def test_real_amp_ansatz():
-    rys_layer = (Ry(0) @ Ry(0))
-    step = CX >> rys_layer
-
-    for entg in ('full', 'linear'):
-        c = rys_layer >> step
-        assert real_amp_ansatz(np.zeros((2, 2)), entanglement=entg) == c
-        c = rys_layer >> step >> step
-        assert real_amp_ansatz(np.zeros((3, 2)), entanglement=entg) == c
-
-    step = (SWAP >> CX >> SWAP) >> CX >> (Ry(0) @ Ry(0))
-    c = rys_layer >> step
-    assert real_amp_ansatz(np.zeros((2, 2)), entanglement='circular') == c
-    c = rys_layer >> step >> step
-    assert real_amp_ansatz(np.zeros((3, 2)), entanglement='circular') == c
-
-
 def test_Controlled():
     with raises(TypeError):
         Controlled(None)
@@ -557,10 +478,10 @@ def test_adjoint():
 
     func_ob = {n: qubit, s: qubit}
     func_ar = {Bob: Ket(0), eats: Ket(1, 1)}
-    F = Functor(ob=func_ob, ar=func_ar)
+    F = rigid.Functor(ob=func_ob, ar=func_ar, cod=Category(Ty, Circuit))
 
-    assert F(diagram.transpose_box(0, left=True).normal_form()) == Circuit(
-        dom=Ty(), cod=qubit, boxes=[Ket(1, 1), Bra(0)], offsets=[0, 0])
+    assert F(diagram.transpose_box(0, left=True).normal_form())\
+        == Circuit.decode(Ty(), zip([Ket(1, 1), Bra(0)], [0, 0]))
 
     gates = [
         Bra(0), Ket(0, 0), Rx(0.1), Ry(0.2), Rz(0.3),
@@ -594,7 +515,7 @@ def test_eval_no_qutrits():
 
 def test_grad_unknown_controlled():
     from sympy.abc import phi
-    unknown = QuantumGate('gate', 1, data=phi)
+    unknown = QuantumGate('gate', qubit, qubit, data=phi)
     with raises(NotImplementedError):
         Controlled(unknown).grad(phi)
 
@@ -614,33 +535,28 @@ def test_controlled_subs():
 
 
 def test_circuit_chaining():
-    circuit = Id(5).CX(0, 2).X(4).CRz(0.2, 4, 2).H(2)
-    expected_circuit = Circuit(
-        dom=qubit @ qubit @ qubit @ qubit @ qubit,
-        cod=qubit @ qubit @ qubit @ qubit @ qubit,
-        boxes=[
-            Controlled(X, distance=2), X, Controlled(Rz(0.2), distance=-2), H],
-        offsets=[0, 4, 2, 2])
+    circuit = Id(qubit ** 5).CX(0, 2).X(4).CRz(0.2, 4, 2).H(2)
+    boxes = [Controlled(X, distance=2), X, Controlled(Rz(0.2), distance=-2), H]
+    offsets = [0, 4, 2, 2]
+    expected_circuit = Circuit.decode(qubit ** 5, zip(boxes, offsets))
     assert circuit == expected_circuit
 
-    circuit = Id(3).CZ(0, 1).CX(2, 0).CCX(1, 0, 2).CCZ(2, 0, 1).X(0).Y(1).Z(2)
-    expected_circuit = Circuit(
-        dom=qubit @ qubit @ qubit, cod=qubit @ qubit @ qubit,
-        boxes=[
-            CZ, Controlled(X, distance=-2), Controlled(CX, distance=1),
-            Controlled(CZ, distance=-1), X, Y, Z],
-        offsets=[0, 0, 0, 0, 0, 1, 2])
-    assert circuit == expected_circuit
+    circuit = Id(qubit ** 3).CZ(0, 1).CX(2, 0).CCX(1, 0, 2).CCZ(2, 0, 1).X(0).Y(1).Z(2)
+    boxes = [
+        CZ, Controlled(X, distance=-2), Controlled(CX, distance=1),
+        Controlled(CZ, distance=-1), X, Y, Z]
+    offsets = [0, 0, 0, 0, 0, 1, 2]
+    assert circuit == Circuit(qubit ** 3, zip(boxes, offsets))
 
-    circuit = Id(1).Rx(0.1, 0).Ry(0.2, 0).Rz(0.3, 0)
+    circuit = Id(qubit).Rx(0.1, 0).Ry(0.2, 0).Rz(0.3, 0)
     expected_circuit = Rx(0.1) >> Ry(0.2) >> Rz(0.3)
     assert circuit == expected_circuit
 
-    assert Id(1).S(0) == S
+    assert Id(qubit).S(0) == S
 
     with raises(ValueError):
-        Id(3).CY(0, 0)
+        Id(qubit ** 3).CY(0, 0)
     with raises(ValueError):
-        Id(1).CRx(0.7, 1, 0)
+        Id(qubit).CRx(0.7, 1, 0)
     with raises(ValueError):
-        Id(2).X(999)
+        Id(qubit ** 2).X(999)

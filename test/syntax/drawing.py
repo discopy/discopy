@@ -6,6 +6,8 @@ from matplotlib import pyplot as plt
 from matplotlib.testing.compare import compare_images
 
 from discopy import *
+from discopy.quantum import Circuit
+from discopy.monoidal import Sum
 from discopy.compact import *
 from discopy.drawing import *
 

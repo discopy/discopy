@@ -22,13 +22,14 @@ Summary
     Scalar
 """
 
-from discopy import messages, cat, monoidal, rigid, quantum, tensor, symmetric
+from discopy import messages, cat, quantum, tensor
 from discopy.cat import factory
-from discopy.monoidal import Sum
-from discopy.rigid import Functor, PRO, Category
+from discopy.rigid import PRO
+from discopy.tensor import Sum
+from discopy.frobenius import Functor, Category
 from discopy.quantum.circuit import Circuit, qubit
-# from discopy.quantum.gates import (
-#     Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
+from discopy.quantum.gates import (
+    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
 from math import pi
 
@@ -36,37 +37,24 @@ from math import pi
 @factory
 class Diagram(tensor.Diagram):
     """ ZX Diagram. """
-    def __repr__(self):
-        return super().__repr__().replace('Diagram', 'zx.Diagram')
+    ty_factory = PRO
 
     @staticmethod
     def swap(left, right):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
-        return monoidal.Diagram.swap(
-            left, right, ar_factory=Diagram, swap_factory=Swap)
+        return tensor.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
-    def permutation(perm, dom=None, inverse=False):
+    def permutation(perm, dom=None):
         dom = PRO(len(perm)) if dom is None else dom
-        return monoidal.Diagram.permutation(
-            perm, dom, ar_factory=Diagram, inverse=inverse)
+        return tensor.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
-    def cups(left, right):
-        return rigid.cups(
-            left, right, ar_factory=Diagram, cup_factory=lambda *_: Z(2, 0))
+    def cup_factory(left, right):
+        return Z(2, 0)
 
-    @staticmethod
-    def caps(left, right):
-        return rigid.caps(
-            left, right, ar_factory=Diagram, cap_factory=lambda *_: Z(0, 2))
-
-    def draw(self, **params):
-        """ ZX diagrams don't have labels on wires. """
-        return super().draw(**dict(params, draw_type_labels=False))
-
-    def grad(self, var, **params):
+    def grad(self, var, **params) -> tensor.Sum:
         """
         Gradient with respect to `var`.
 
@@ -74,10 +62,6 @@ class Diagram(tensor.Diagram):
         ----------
         var : sympy.Symbol
             Differentiated variable.
-
-        Returns
-        -------
-        diagrams : discopy.monoidal.Sum
 
         Examples
         --------
@@ -239,149 +223,57 @@ class Diagram(tensor.Diagram):
         return diagram
 
 
-class Box(rigid.Box, Diagram):
-    """ Box in a ZX diagram. """
-    def __init__(self, name, dom, cod, **params):
-        if not isinstance(dom, PRO):
-            raise TypeError(messages.type_err(PRO, dom))
-        if not isinstance(cod, PRO):
-            raise TypeError(messages.type_err(PRO, cod))
-        rigid.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, dom, cod, [self], [0])
+class Box(tensor.Box, Diagram):
+    """
+    A ZX box is a tensor box in a ZX diagram.
+
+    Parameters:
+        name (str) : The name of the box.
+        dom (rigid.PRO) : The domain of the box, i.e. its input.
+        cod (rigid.PRO) : The codomain of the box, i.e. its output.
+    """
+    __ambiguous_inheritance__ = (tensor.Box, )
 
 
-class Swap(symmetric.Swap, Box):
+class Swap(tensor.Swap, Box):
     """ Swap in a ZX diagram. """
-    def __init__(self, left, right):
-        symmetric.Swap.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
     def __repr__(self):
         return "SWAP"
 
     __str__ = __repr__
 
 
-# TODO : fix symmetric
-# SWAP = Swap(PRO(1), PRO(1))
-
-
-class Spider(Box):
+class Spider(tensor.Spider, Box):
     """ Abstract spider box. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0, name=None):
-        dom, cod = PRO(n_legs_in), PRO(n_legs_out)
-        super().__init__(name, dom, cod, data=phase)
-        self.draw_as_spider, self.drawing_name = True, phase or ""
-        self.tikzstyle_name = name
-
-    @property
-    def name(self):
-        return "{}({}, {}{})".format(
-            self._name, len(self.dom), len(self.cod),
-            ", {}".format(format_number(self.phase)) if self.phase else "")
-
-    def __repr__(self):
-        return self.name
-
-    @property
-    def phase(self):
-        """ Phase of a spider. """
-        return self.data
-
-    def dagger(self):
-        return type(self)(len(self.cod), len(self.dom), -self.phase)
-
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)
         return type(self)(len(self.dom), len(self.cod), phase=data)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            return Sum((), self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         return Scalar(pi * gradient)\
             @ type(self)(len(self.dom), len(self.cod), self.phase + .5)
 
-    @classmethod
-    def make_spiders(cls, n_legs_in, n_legs_out, phase=0):
-        """Construct spider using the generators of the Frobenius algebra.
-
-        Example
-        -------
-        >>> from discopy.drawing import equation
-        >>> orig = Z(4, 3, 0.5)
-        >>> decomp = Z.make_spiders(4, 3, 0.5)
-        >>> equation(orig, decomp, symbol='->',
-        ...     path='docs/imgs/spider-decomp.png')
-
-        .. image:: /imgs/spider-decomp.png
-            :align: center
-
-        """
-        if n_legs_out > n_legs_in:
-            return cls.make_spiders(n_legs_out, n_legs_in, -phase).dagger()
-
-        if n_legs_in == 1 and n_legs_out == 0:
-            return cls(1, 0, phase)
-        if n_legs_in == 1 and n_legs_out == 1:
-            if phase == 0:
-                return Id(1)
-            return cls(1, 1, phase)
-
-        if n_legs_out != 1 or phase != 0:
-            return (cls.make_spiders(n_legs_in, 1, 0)
-                    >> cls.make_spiders(1, 1, phase)
-                    >> cls.make_spiders(1, n_legs_out, 0))
-
-        if n_legs_in % 2 == 1:
-            return (cls.make_spiders(n_legs_in - 1, 1)
-                    @ Id(1) >> cls(2, n_legs_out))
-
-        new_in = n_legs_in // 2
-        return (cls.make_spiders(new_in, 1)
-                @ cls.make_spiders(new_in, 1)
-                >> cls(2, n_legs_out))
-
 
 class Z(Spider):
     """ Z spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='Z')
-        self.color = "green"
+    tikzstyle_name = 'Z'
+    color = 'green'
 
 
 class Y(Spider):
     """ Y spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='Y')
-        self.color = "blue"
+    tikzstyle_name = 'Y'
+    color = "blue"
 
 
 class X(Spider):
     """ X spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='X')
-        self.color = "red"
-
-
-class Had(Box):
-    """ Hadamard box. """
-    def __init__(self):
-        super().__init__('H', PRO(1), PRO(1))
-        self.draw_as_spider = True
-        self.drawing_name, self.tikzstyle_name, = '', 'H'
-        self.color, self.shape = "yellow", "rectangle"
-
-    def __repr__(self):
-        return self.name
-
-    def dagger(self):
-        return self
-
-
-# TODO
-# H = Had()
+    tikzstyle_name = 'X'
+    color = "red"
 
 
 class Scalar(Box):
@@ -390,12 +282,8 @@ class Scalar(Box):
         super().__init__("scalar", PRO(0), PRO(0), data=data)
         self.drawing_name = format_number(data)
 
-    @property
-    def name(self):
+    def __str__(self):
         return "scalar({})".format(format_number(self.data))
-
-    def __repr__(self):
-        return self.name
 
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)
@@ -406,7 +294,7 @@ class Scalar(Box):
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            return Sum((), self.dom, self.cod)
         return Scalar(self.data.diff(var))
 
 
@@ -451,29 +339,13 @@ def gate2zx(box):
 
 
 circuit2zx = Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
-    cod=Category(PRO, Diagram))
+    ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
 
+H = Box('H', PRO(1), PRO(1))
+H.dagger = lambda self: self
+H.draw_as_spider = True
+H.drawing_name, H.tikzstyle_name, = '', 'H'
+H.color, H.shape = "yellow", "rectangle"
 
-def decomp_ar(box):
-    n, m = len(box.dom), len(box.cod)
-    if isinstance(box, X):
-        phase = box.phase
-        if (n, m) in ((1, 0), (0, 1)):
-            return box
-        box = Id().tensor(*[H] * n) >> Z(n, m, phase) >> Id().tensor(*[H] * m)
-        return decomp(box)
-    if isinstance(box, Z):
-        phase = box.phase
-        if (n, m) == (0, 1):
-            return X(0, 1, phase) >> H
-        if (n, m) == (1, 0):
-            return X(1, 0, phase) << H
-        rot = Id(1) if phase == 0 else Z(1, 1, phase)
-        return Z.make_spiders(n, 1) >> rot >> Z.make_spiders(1, m)
-    return box
-
-
-decomp = Functor(ob=lambda x: x, ar=decomp_ar)
-
+SWAP = Swap(PRO(1), PRO(1))
 Id = Diagram.id

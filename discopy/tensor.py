@@ -548,10 +548,9 @@ class Box(frobenius.Box, Diagram):
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            with backend() as np:
-                return np.all(np.array(self.array == other.array))\
-                    and (self.name, self.dom, self.cod)\
-                    == (other.name, other.dom, other.cod)
+            eq_array = other.array is None if self.array is None\
+                else (self.array == other.array).all()
+            return eq_array and cat.Box.__eq__(self, other)
         return isinstance(other, Diagram)\
             and other.inside == (self.layer_factory.cast(self), )
 

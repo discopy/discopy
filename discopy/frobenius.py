@@ -71,6 +71,10 @@ class Diagram(compact.Diagram):
     ty_factory = Ty
 
     @classmethod
+    def caps(cls, left, right):
+        return cls.cups(left, right).dagger()
+
+    @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty, phases=None
             ) -> Diagram:
         """

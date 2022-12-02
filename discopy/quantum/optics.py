@@ -1028,3 +1028,64 @@ def ar_make_square(box):
 
 # TODO
 # make_square = Functor(ob=lambda x: x, ar=ar_make_square)
+
+def make_spiders(cls, n_legs_in, n_legs_out, phase=0):
+    """
+    Construct spider using the generators of the Frobenius algebra.
+
+    Example
+    -------
+    >>> from discopy.drawing import equation
+    >>> orig = Z(4, 3, 0.5)
+    >>> decomp = Z.make_spiders(4, 3, 0.5)
+    >>> equation(orig, decomp, symbol='->',
+    ...     path='docs/imgs/spider-decomp.png')
+
+    .. image:: /imgs/spider-decomp.png
+        :align: center
+
+    """
+    if n_legs_out > n_legs_in:
+        return cls.make_spiders(n_legs_out, n_legs_in, -phase).dagger()
+
+    if n_legs_in == 1 and n_legs_out == 0:
+        return cls(1, 0, phase)
+    if n_legs_in == 1 and n_legs_out == 1:
+        if phase == 0:
+            return Id(1)
+        return cls(1, 1, phase)
+
+    if n_legs_out != 1 or phase != 0:
+        return (cls.make_spiders(n_legs_in, 1, 0)
+                >> cls.make_spiders(1, 1, phase)
+                >> cls.make_spiders(1, n_legs_out, 0))
+
+    if n_legs_in % 2 == 1:
+        return (cls.make_spiders(n_legs_in - 1, 1)
+                @ Id(1) >> cls(2, n_legs_out))
+
+    new_in = n_legs_in // 2
+    return (cls.make_spiders(new_in, 1)
+            @ cls.make_spiders(new_in, 1)
+            >> cls(2, n_legs_out))
+
+def decomp_ar(box):
+    n, m = len(box.dom), len(box.cod)
+    if isinstance(box, X):
+        phase = box.phase
+        if (n, m) in ((1, 0), (0, 1)):
+            return box
+        box = Id().tensor(*[H] * n) >> Z(n, m, phase) >> Id().tensor(*[H] * m)
+        return decomp(box)
+    if isinstance(box, Z):
+        phase = box.phase
+        if (n, m) == (0, 1):
+            return X(0, 1, phase) >> H
+        if (n, m) == (1, 0):
+            return X(1, 0, phase) << H
+        rot = Id(1) if phase == 0 else Z(1, 1, phase)
+        return Z.make_spiders(n, 1) >> rot >> Z.make_spiders(1, m)
+    return box
+
+
+# decomp = Functor(ob=lambda x: x, ar=decomp_ar)
