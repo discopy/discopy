@@ -39,17 +39,18 @@ Example
 .. image:: /imgs/grammar/pregroup-example.png
     :align: center
 
->>> from discopy.tensor import Functor
+>>> from discopy import tensor, rigid
 >>> ob = {s: 1, n: 2}
 >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = Functor(ob, ar)
->>> assert F(sentence) == True
+>>> F = tensor.Functor(ob, ar, dom=rigid.Category(), dtype=bool)
+>>> assert F(sentence)
 """
 
 from discopy import messages, drawing, rewriting, monoidal
 from discopy.grammar import categorial
 from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap
 from discopy.compact import Swap
+from discopy.utils import assert_isinstance
 
 
 class Word(categorial.Word, Box):
@@ -93,7 +94,7 @@ def normal_form(diagram, normalizer=None, **params):
     seperately before combining them, so it can be drawn using `grammar.draw`.
     """
     words, is_pregroup = Id(Ty()), True
-    for _, box, right in diagram.layers:
+    for _, box, right in diagram.inside:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
                 is_pregroup = False
@@ -168,22 +169,22 @@ def draw(diagram, **params):
     ValueError
         Whenever the input is not a pregroup diagram.
     """
-    if not isinstance(diagram, Diagram):
-        raise TypeError(messages.type_err(Diagram, diagram))
-    words, is_pregroup = Id(Ty()), True
+    assert_isinstance(diagram, Diagram)
+    words, is_pregroup = monoidal.Id(), True
     for _, box, right in diagram.inside:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
                 is_pregroup = False
                 break
-            words = words @ box
+            words = words @ box.drawing()
         else:
             break
-    cups = diagram[len(words):].foliation().boxes\
-        if len(words) < len(diagram) else []
+    layers = diagram[len(words):].foliation().inside\
+        if len(words) < len(diagram) else ()
     is_pregroup = is_pregroup and words and all(
-        isinstance(box, Cup) or isinstance(box, Swap)
-        for s in cups for box in s.boxes)
+        isinstance(x, (Ty, Cup, Swap)) for layer in layers for x in layer)
+    has_swaps = any(isinstance(x, Swap) for layer in layers for x in layer)
     if not is_pregroup:
         raise ValueError(messages.NOT_PREGROUP)
-    drawing.pregroup_draw(words, cups, **params)
+    drawing.pregroup_draw(
+        words, [layer.drawing() for layer in layers], has_swaps, **params)

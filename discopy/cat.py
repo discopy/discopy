@@ -491,6 +491,7 @@ class Box(Arrow):
     """
     def __init__(
             self, name: str, dom: Ob, cod: Ob, data=None, is_dagger=False):
+        assert_isinstance(name, str)
         self.name, self.data, self.is_dagger = name, data, is_dagger
         Arrow.__init__(self, (self, ), dom, cod, _scan=False)
 

@@ -1,5 +1,4 @@
 from pytest import raises
-from discopy.monoidal import Encoding
 from discopy.compact import *
 
 
@@ -20,9 +19,8 @@ def test_cup_chaining():
         A, V, B, Swap(p, n.r), Swap(p, s), Swap(p, n.l), Cup(p, p.r),
         Cup(n, n.r), Cup(n.l, n)]
     expected_offsets = [0, 2, 5, 1, 2, 3, 4, 0, 1]
-    expected_diagram = Diagram.decode(Encoding(
-        dom=Ty(), boxes_and_offsets=tuple(zip(
-            expected_boxes, expected_offsets))))
+    dom, boxes_and_offsets = Ty(), tuple(zip(expected_boxes, expected_offsets))
+    expected_diagram = Diagram.decode(dom, boxes_and_offsets)
     assert diagram == expected_diagram
 
     with raises(ValueError):

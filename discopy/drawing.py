@@ -755,13 +755,12 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
             return '<img src="{}">'.format(path)
 
 
-def pregroup_draw(words, layers, **params):
+def pregroup_draw(words, layers, has_swaps=False, **params):
     """
     Draws pregroup words, cups and swaps.
     """
-    from discopy.rigid import Cup, Swap
-    has_swaps = any(
-        [isinstance(box, Swap) for layer in layers for box in layer.boxes])
+    from discopy.rigid import Cup
+
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
     space = params.get('space', .5)
@@ -827,7 +826,7 @@ def pregroup_draw(words, layers, **params):
             x2, y2 = scan_x[off + 1], scan_y[2 * (off + 1)]
             middle = (x1 + x2) / 2
             y = max(scan_y[2 * off:2 * (off + 1) + 1])
-            if isinstance(box, Cup):
+            if box.draw_as_wires and len(box.dom) == 2 and not box.cod:
                 backend.draw_wire((x1, -y), (middle, - y - h), bend_in=True)
                 backend.draw_wire((x2, -y), (middle, - y - h), bend_in=True)
                 depths_to_remove = scan_y[2 * off:2 * (off + 1) + 1]
@@ -841,7 +840,7 @@ def pregroup_draw(words, layers, **params):
                 scan_y = scan_y[:2 * off] + scan_y[2 * (off + 2):]
                 if off > 0:
                     scan_y[2 * off - 1] = new_gap_depth
-            if isinstance(box, Swap):
+            if box.draw_as_wires and len(box.dom) == len(box.cod) == 2:
                 midpoint = (middle, - y - h)
                 backend.draw_wire((x1, -y), midpoint, bend_in=True)
                 backend.draw_wire((x2, -y), midpoint, bend_in=True)

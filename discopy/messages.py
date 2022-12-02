@@ -23,6 +23,9 @@ MATRIX_REPEAT_ERROR = "The reflexive transitive closure is only defined for "\
                       "square boolean matrices."
 PROVIDE_CONTRACTOR = "Provide a contractor when using a non-numpy backend."
 BOX_IS_MIXED = "Pure boxes can have only digits or only qudits as dom and cod."
+LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
+NOT_MERGEABLE = "Layers {} and {} cannot be merged."
+
 
 class WarnOnce:
     warned = False

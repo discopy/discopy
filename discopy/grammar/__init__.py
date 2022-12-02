@@ -11,4 +11,3 @@ from discopy.grammar.pregroup import (
 from discopy.grammar.categorial import cat2ty, tree2diagram
 
 from discopy import messages
-from discopy.monoidal import Ty, Box, Id

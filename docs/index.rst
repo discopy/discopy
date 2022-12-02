@@ -5,16 +5,13 @@ DisCoPy documentation
 #####################
 
 .. mdinclude:: ../README.md
-   :start-line: 10
+    :start-line: 10
 
 .. toctree::
-   :caption: Reference API
-   :hidden:
+    :caption: Reference
+    :hidden:
 
-   api-syntax
-   api-semantics
-   api-quantum
-   api-grammar
+    api
 
 .. toctree::
     :caption: Theory

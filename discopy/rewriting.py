@@ -257,3 +257,52 @@ def snake_removal(self, left=False):
             diagram = _diagram
     for _diagram in monoidal.Diagram.normalize(diagram, left=left):
         yield _diagram
+
+
+def foliation(self):
+    """
+    Merges layers together to reduce the length of a diagram.
+
+    >>> from discopy.monoidal import *
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+    >>> diagram = f0 @ Id(y) >> f0.dagger() @ f1
+    >>> print(diagram)
+    f0 @ y >> f0[::-1] @ y >> x @ f1
+    >>> print(diagram.foliation())
+    f0 @ y >> f0[::-1] @ f1
+    """
+    if len(self) < 2:
+        return self
+    while True:
+        keep_on_going = False
+        for i, (first, second) in enumerate(zip(
+                self.inside, self.inside[1:])):
+            try:
+                inside = self.inside[:i] + (first.merge(second), )\
+                    + self.inside[i + 2:]
+                self = self.factory(inside, self.dom, self.cod)
+                keep_on_going = True
+                break
+            except cat.AxiomError:
+                continue
+        if not keep_on_going:
+            break
+    return self
+
+
+def depth(self):
+    """
+    Computes the depth of a diagram by foliating it.
+
+    Example
+    -------
+    >>> from discopy.monoidal import *
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f, g = Box('f', x, y), Box('g', y, x)
+    >>> assert Id(x @ y).depth() == 0
+    >>> assert f.depth() == 1
+    >>> assert (f @ g).depth() == 1
+    >>> assert (f >> g).depth() == 2
+    """
+    return len(self.foliation())

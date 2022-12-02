@@ -88,11 +88,11 @@ def tree2diagram(tree: dict, dom=closed.Ty()) -> closed.Diagram:
     dom = closed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
-        box = closed.BA(dom[1:])
+        box = closed.BA(dom.inside[1])
     elif tree['type'] == 'fa':
-        box = closed.FA(dom[:1])
+        box = closed.FA(dom.inside[0])
     elif tree['type'] == 'fc':
-        box = closed.FC(dom[:1], dom[1:])
+        box = closed.FC(dom.inside[0], dom.inside[1])
     else:
         box = closed.Box(tree['type'], dom, cod)
     return closed.Id().tensor(*children) >> box

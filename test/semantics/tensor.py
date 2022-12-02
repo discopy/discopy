@@ -58,7 +58,7 @@ def test_Tensor():
         u >> Dim(2)
     arr = np.array([1, 0, 0, 1, 0, 1, 1, 0]).reshape((2, 2, 2))
     m = Tensor(arr, Dim(2, 2), Dim(2))
-    assert m == m and np.all(m == arr)
+    assert m == m and np.all(m.array == arr)
     m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     assert Tensor.id(Dim(2)).then(*(m, m)) == m >> m.dagger()
 
@@ -72,20 +72,17 @@ def test_Spider_to_tn():
 
 def test_Spider_to_tn_pytorch():
     try:
-        import torch
-        Tensor.np = torch
-        torch.array = torch.as_tensor
-        tn.set_default_backend('pytorch')
+        with backend('torch') as np:
+            tn.set_default_backend('pytorch')
 
-        d = Dim(2)
+            d = Dim(2)
 
-        alice = Box("Alice", Dim(1), d,
-                    torch.as_tensor([1., 2.]).requires_grad_(True))
-        tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
-        result = tensor.eval(contractor=tn.contractors.auto).array
-        assert result.item() == 3
+            alice = Box("Alice", Dim(1), d,
+                        np.array([1., 2.]).requires_grad_(True))
+            tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
+            result = tensor.eval(contractor=tn.contractors.auto).array
+            assert result.item() == 3
     finally:
-        Tensor.np = np
         tn.set_default_backend('numpy')
 
 
@@ -135,11 +132,6 @@ def test_tensor_swap():
     g = Tensor(list(range(9)), Dim(3), Dim(3))
     swap = Tensor.swap(Dim(2), Dim(3))
     assert f @ g >> swap == swap >> g @ f
-
-
-def test_Functor():
-    assert repr(Functor({Ty('x'): 1}, {})) ==\
-        "tensor.Functor(ob={frobenius.Ty(frobenius.Ob('x')): 1}, ar={})"
 
 
 def test_Functor_call():
@@ -194,7 +186,7 @@ def test_Tensor_subs():
     import sympy
     from sympy.abc import x
     s = Tensor[sympy.Expr]([x], Dim(1), Dim(1))
-    assert s.subs(x, 1) == 1
+    assert s.subs(x, 1).array == 1
 
 
 def test_Diagram_cups_and_caps():
@@ -247,10 +239,9 @@ def test_Tensor_adjoint_eval():
 
 def test_non_numpy_eval():
     import torch
-    Tensor.np = torch
-    with raises(Exception):
-        Swap(Dim(2), Dim(2)).eval()
-    Tensor.np = np
+    with backend('torch'):
+        with raises(Exception):
+            Swap(Dim(2), Dim(2)).eval()
 
 
 def test_Tensor_array():

@@ -15,7 +15,6 @@ Summary
     PRO
     Layer
     Diagram
-    Encoding
     Box
     Sum
     Bubble
@@ -56,7 +55,7 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
 from discopy import cat, drawing, rewriting, messages
-from discopy.cat import factory, Ob
+from discopy.cat import factory, Ob, assert_iscomposable
 from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree, assert_isinstance
 
@@ -259,40 +258,47 @@ class Layer(cat.Box):
         left : The type on the left of the layer.
         box : The box in the middle of the layer.
         right : The type on the right of the layer.
+        more : More boxes and types to the right,
+               used by :meth:`Diagram.foliation`.
     """
-    def __init__(self, left: Ty, box: Box, right: Ty):
-        assert_isinstance(left, Ty)
-        assert_isinstance(box, Box)
-        assert_isinstance(right, Ty)
-        self.left, self.box, self.right = left, box, right
-        dom, cod = left @ box.dom @ right, left @ box.cod @ right
-        super().__init__(str(self), dom, cod)
+    def __init__(self, left: Ty, box: Box, right: Ty, *more):
+        if len(more) % 2:
+            raise ValueError(messages.LAYERS_MUST_BE_ODD)
+        self.boxes_or_types = (left, box, right) + more
+        name, dom, cod = "", left[:0], left[:0]
+        for i, box_or_typ in enumerate(self.boxes_or_types):
+            if i % 2:
+                assert_isinstance(box, Box)
+                dom, cod = dom @ box_or_typ.dom, cod @ box_or_typ.cod
+                name += ("" if not name else " @ ") + str(box_or_typ)
+            else:
+                assert_isinstance(box_or_typ, Ty)
+                dom, cod = dom @ box_or_typ, cod @ box_or_typ
+                name += "" if not box_or_typ\
+                    else ("" if not name else " @ ") + str(box_or_typ)
+        super().__init__(name, dom, cod)
 
     def __iter__(self):
-        yield self.left
-        yield self.box
-        yield self.right
+        for box_or_typ in self.boxes_or_types:
+            yield box_or_typ
 
     def __eq__(self, other):
-        return isinstance(other, Layer)\
-            and (self.left, self.box, self.right)\
-            == (other.left, other.box, other.right)
+        return isinstance(other, Layer) and tuple(self) == tuple(other)
 
     def __repr__(self):
-        return factory_name(type(self)) + "({}, {}, {})".format(
-            *map(repr, (self.left, self.box, self.right)))
-
-    def __str__(self):
-        left, box, right = self
-        return ("{} @ ".format(left) if left else "")\
-            + str(box)\
-            + (" @ {}".format(right) if right else "")
+        return factory_name(type(self))\
+            + "({})".format(", ".join(map(repr, self)))
 
     def __matmul__(self, other: Ty) -> Layer:
-        return type(self)(self.left, self.box, self.right @ other)
+        *tail, head = self
+        boxes_and_types = tail + (
+            [head @ other] if isinstance(other, Ty)
+            else [head, other.dom[:0], other])
+        return type(self)(*boxes_and_types)
 
     def __rmatmul__(self, other: Ty) -> Layer:
-        return type(self)(other @ self.left, self.box, self.right)
+        head, *tail = self
+        return type(self)(other @ head, *tail)
 
     @classmethod
     def cast(cls, box: Box) -> Layer:
@@ -310,11 +316,71 @@ class Layer(cat.Box):
         return cls(box.dom[:0], box, box.dom[len(box.dom):])
 
     def dagger(self) -> Layer:
-        return type(self)(self.left, self.box.dagger(), self.right)
+        return type(self)(*(
+            x.dagger() if i % 2 else x for i, x in enumerate(self)))
 
     def drawing(self) -> Diagram:
         """ Called before :meth:`Diagram.draw`. """
-        return self.left.drawing() @ self.box.drawing() @ self.right.drawing()
+        result = Ty()
+        for box_or_typ in self:
+            result = result @ box_or_typ.drawing()
+        return result
+
+    @property
+    def boxes_and_offsets(self) -> list[tuple[Box, int]]:
+        """
+        The offsets of each box inside the layer.
+
+        Example
+        -------
+        >>> a, b, c, d, e = map(Ty, "abcde")
+        >>> f, g = Box('f', a, b), Box('g', c, d)
+        >>> assert Layer(e, f, e, g, e).boxes_and_offsets == [(f, 1), (g, 3)]
+        """
+        left, box, *tail = self
+        boxes, offsets = [box], [len(left)]
+        for typ, box in zip(tail[::2], tail[1::2]):
+            boxes.append(box)
+            offsets.append(offsets[-1] + len(boxes[-1].dom) + len(typ))
+        return list(zip(boxes, offsets))
+
+    def merge(self, other: Layer) -> Layer:
+        """
+        Merge two layers into one or raise :class:`AxiomError`,
+        used by :meth:`Diagram.foliation`.
+
+        Parameters:
+            other : The other layer with which to merge.
+
+        Example
+        -------
+        >>> a, b, c, d, e = map(Ty, "abcde")
+        >>> f, g = Box('f', a, b), Box('g', c, d)
+        >>> layer0 = Layer(e,  f,  e @ c @ e)
+        >>> layer1 = Layer(e @ b @ e,  g,  e)
+        >>> assert layer0.merge(layer1) == Layer(e, f, e, g, e)
+        """
+        assert_iscomposable(self, other)
+        scan, boxes_or_types = 0, []
+        for box, offset in sorted(
+                self.boxes_and_offsets + other.boxes_and_offsets,
+                key=lambda x: x[1]):
+            if scan > offset:
+                raise cat.AxiomError(
+                    messages.NOT_MERGEABLE.format(self, other))
+            boxes_or_types.append(self.dom[scan:offset])
+            boxes_or_types.append(box)
+            scan = offset + len(box.dom)
+        boxes_or_types.append(self.dom[scan:])
+        return type(self)(*boxes_or_types)
+
+    def to_tree(self) -> dict:
+        return dict(factory=factory_name(type(self)),
+                    inside=[x.to_tree() for x in self])
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Layer:
+        return cls(*(map(from_tree, tree['inside'])))
 
 
 class Whiskerable(ABC):
@@ -354,35 +420,6 @@ class Whiskerable(ABC):
 
     __matmul__ = lambda self, other: self.tensor(self.whisker(other))
     __rmatmul__ = lambda self, other: self.whisker(other).tensor(self)
-
-
-@dataclass
-class Encoding:
-    """
-    Compact encoding of a diagram as a tuple of boxes and offsets.
-
-    Parameters:
-        dom : The domain of the diagram.
-        boxes_and_offsets : The tuple of boxes and offsets.
-
-    Example
-    -------
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
-    >>> diagram = f0 @ f1 >> g
-    >>> encoding = diagram.encode()
-    >>> assert encoding.dom == x @ z
-    >>> assert encoding.boxes_and_offsets\\
-    ...     == ((f0, 0), (f1, 1), (g, 0))
-    >>> assert diagram == Diagram.decode(diagram.encode())
-    >>> diagram.draw(figsize=(2, 2),
-    ...        path='docs/imgs/monoidal/arrow-example.png')
-
-    .. image:: /imgs/monoidal/arrow-example.png
-        :align: center
-    """
-    dom: Ty
-    boxes_and_offsets: tuple[tuple[Box, int], ...]
 
 
 @factory
@@ -460,14 +497,14 @@ class Diagram(cat.Arrow, Whiskerable):
         return self.factory(inside, dom, cod)
 
     @property
-    def boxes(self) -> tuple[Box, ...]:
+    def boxes(self) -> list[Box]:
         """ The boxes in each layer of the diagram. """
-        return tuple(box for _, box, _ in self)
+        return list(box for _, box, _ in self)
 
     @property
-    def offsets(self) -> tuple[int, ...]:
+    def offsets(self) -> list[int]:
         """ The offset of a box is the length of the type on its left. """
-        return tuple(len(left) for left, _, _ in self)
+        return list(len(left) for left, _, _ in self)
 
     @property
     def width(self):
@@ -483,23 +520,42 @@ class Diagram(cat.Arrow, Whiskerable):
         """
         return max(len(self.dom), max(len(layer.cod) for layer in self))
 
-    def encode(self) -> Encoding:
-        """ Encode a diagram as a tuple of boxes and offsets. """
-        return Encoding(self.dom, tuple(zip(self.boxes, self.offsets)))
+    def encode(self) -> tuple[Ty, list[tuple[Box, int]]]:
+        """
+        Compact encoding of a diagram as a tuple of boxes and offsets.
+
+        Example
+        -------
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+        >>> diagram = f0 @ f1 >> g
+        >>> dom, boxes_and_offsets = diagram.encode()
+        >>> assert dom == x @ z
+        >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
+        >>> assert diagram == Diagram.decode(*diagram.encode())
+        >>> diagram.draw(figsize=(2, 2),
+        ...        path='docs/imgs/monoidal/arrow-example.png')
+
+        .. image:: /imgs/monoidal/arrow-example.png
+            :align: center
+        """
+        return self.dom, list(zip(self.boxes, self.offsets))
 
     @classmethod
-    def decode(cls, encoding: Encoding) -> Diagram:
+    def decode(cls, dom: Ty, boxes_and_offsets: list[tuple[Box, int]]
+            ) -> Diagram:
         """
         Turn a tuple of boxes and offsets into a diagram.
 
         Parameters:
-            encoding : The boxes-and-offsets encoding of the diagram.
+            dom : The domain of the diagram.
+            boxes_and_offsets : The boxes and offsets of the diagram.
         """
-        diagram = cls.id(encoding.dom)
-        for box, offset in encoding.boxes_and_offsets:
-            left, right =\
-                diagram.cod[:offset], diagram.cod[offset + len(box.dom):]
-            diagram >>= left @ box @ right
+        diagram = cls.id(dom)
+        for box, offset in boxes_and_offsets:
+            left = diagram.cod[:offset]
+            right = diagram.cod[offset + len(box.dom):]
+            diagram = diagram >> left @ box @ right
         return diagram
 
     def drawing(self):
@@ -567,8 +623,9 @@ class Box(cat.Box, Diagram):
         Diagram.__init__(self, inside, dom, cod)
 
     def __eq__(self, other):
-        return isinstance(other, Box) and cat.Box.__eq__(self, other)\
-            or isinstance(other, Diagram)\
+        if isinstance(other, Box):
+            return cat.Box.__eq__(self, other)
+        return isinstance(other, Diagram)\
             and other.inside == (self.layer_factory.cast(self), )
 
     def __hash__(self):
@@ -700,7 +757,11 @@ class Functor(cat.Functor):
             return result if isinstance(result, dtype) else\
                 (result, ) if dtype == tuple else self.cod.ob(result)
         if isinstance(other, Layer):
-            return self(other.left) @ self(other.box) @ self(other.right)
+            head, *tail = other
+            result = self(head)
+            for box_or_typ in tail:
+                result = result @ self(box_or_typ)
+            return result
         return super().__call__(other)
 
 
@@ -717,6 +778,8 @@ Diagram.to_gif = drawing.to_gif
 Diagram.interchange = rewriting.interchange
 Diagram.normalize = rewriting.normalize
 Diagram.normal_form = rewriting.normal_form
+Diagram.foliation = rewriting.foliation
+Diagram.depth = rewriting.depth
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble

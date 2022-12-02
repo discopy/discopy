@@ -43,24 +43,24 @@ def dumps(obj):
     >>> d = f >> f[::-1]
     >>> assert loads(dumps(d)) == d
     >>> pprint(json.loads(dumps(d)))
-    {   'boxes': [   {   'cod': {   'factory': 'discopy.cat.Ob',
-                                    'name': 'y'},
-                         'data': [42, {'Alice': 1}],
-                         'dom': {   'factory': 'discopy.cat.Ob',
-                                    'name': 'x'},
-                         'factory': 'discopy.cat.Box',
-                         'name': 'f'},
-                     {   'cod': {   'factory': 'discopy.cat.Ob',
-                                    'name': 'x'},
-                         'data': [42, {'Alice': 1}],
-                         'dom': {   'factory': 'discopy.cat.Ob',
-                                    'name': 'y'},
-                         'factory': 'discopy.cat.Box',
-                         'is_dagger': True,
-                         'name': 'f'}],
-        'cod': {'factory': 'discopy.cat.Ob', 'name': 'x'},
-        'dom': {'factory': 'discopy.cat.Ob', 'name': 'x'},
-        'factory': 'discopy.cat.Arrow'}
+    {   'cod': {'factory': 'cat.Ob', 'name': 'x'},
+        'dom': {'factory': 'cat.Ob', 'name': 'x'},
+        'factory': 'cat.Arrow',
+        'inside': [   {   'cod': {   'factory': 'cat.Ob',
+                                     'name': 'y'},
+                          'data': [42, {'Alice': 1}],
+                          'dom': {   'factory': 'cat.Ob',
+                                     'name': 'x'},
+                          'factory': 'cat.Box',
+                          'name': 'f'},
+                      {   'cod': {   'factory': 'cat.Ob',
+                                     'name': 'x'},
+                          'data': [42, {'Alice': 1}],
+                          'dom': {   'factory': 'cat.Ob',
+                                     'name': 'y'},
+                          'factory': 'cat.Box',
+                          'is_dagger': True,
+                          'name': 'f'}]}
     """
     return json.dumps(obj.to_tree())
 

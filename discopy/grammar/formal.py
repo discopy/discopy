@@ -27,6 +27,7 @@ Example
 """
 
 from discopy import monoidal
+from discopy.monoidal import Ty
 from discopy.utils import factory_name
 
 
@@ -46,8 +47,9 @@ class Word(monoidal.Box):
         super().__init__(name, dom, cod, **params)
 
     def __repr__(self):
-        dom = f", dom={self.dom}" if self.dom else ""
-        return factory_name(type(self)) + f"({self.name}, {self.cod}{dom})"
+        dom = f", dom={repr(self.dom)}" if self.dom else ""
+        return factory_name(type(self))\
+            + f"({repr(self.name)}, {repr(self.cod)}{dom})"
 
 
 class Rule(monoidal.Box):

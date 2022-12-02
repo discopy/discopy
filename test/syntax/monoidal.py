@@ -119,7 +119,7 @@ def test_Diagram_getitem():
 
 
 def test_Diagram_offsets():
-    assert Diagram((), Ty('x'), Ty('x')).offsets == ()
+    assert Diagram((), Ty('x'), Ty('x')).offsets == []
 
 
 def test_Diagram_hash():

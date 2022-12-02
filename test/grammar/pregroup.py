@@ -51,7 +51,7 @@ def test_normal_form():
     n = Ty('n')
     w1, w2 = Word('a', n), Word('b', n)
     diagram = w1 @ w2 >>\
-        Id(n) @ Cap(n, n.r) @ Id(n) >> Id(n @ n) @ Cup(n.r, n)
+        Id(n) @ Cap(n, n.l) @ Id(n) >> Id(n @ n) @ Cup(n.l, n)
     expected_result = w1 @ w2
     assert expected_result == normal_form(diagram)
 
