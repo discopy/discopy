@@ -159,6 +159,19 @@ class Matrix(Composable, Whiskerable):
             and (self.dom, self.cod) == (other.dom, other.cod)\
             and (self.array == other.array).all()
 
+    def is_close(self, other: Matrix) -> bool:
+        """
+        Whether a matrix is numerically close to an ``other``.
+
+        Parameters:
+            other : The other matrix with which to check closeness.
+        """
+        assert_isinstance(other, type(self))
+        assert_isinstance(self, type(other))
+        assert_isparallel(self, other)
+        with backend() as np:
+            return np.isclose(self.array, other.array).all()
+
     def __repr__(self):
         np_array = getattr(self.array, 'numpy', lambda: self.array)()
         return type(self).__name__ + "({}, dom={}, cod={})".format(

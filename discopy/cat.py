@@ -805,7 +805,7 @@ class Functor:
     """
     dom = cod = Category(Ob, Arrow)
 
-    def __init__(self, ob: Mapping[Ob, Ob], ar: Mapping[Box, Arrow],
+    def __init__(self, ob: Mapping[Ob, Ob] = {}, ar: Mapping[Box, Arrow] = {},
                  cod: Category = None):
         class Dict:
             """ dict-like object from callable. """

@@ -266,12 +266,12 @@ class Circuit(tensor.Diagram):
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
-                f = channel.Functor(dom=Category(Ty, Circuit))
-                return channel.Channel(f(self.dom), f(self.cod), array)
+                f = channel.Functor({}, {}, dom=Category(Ty, Circuit))
+                return channel.Channel(array, f(self.dom), f(self.cod))
             f = tensor.Functor(
                 lambda x: x.inside[0].dim, {},
                 dtype=complex, dom=Category(Ty, Circuit))
-            return Tensor(f(self.dom), f(self.cod), array)
+            return Tensor[complex](array, f(self.dom), f(self.cod))
 
         from discopy.quantum import channel
         from discopy.quantum.gates import Bits, scalar
@@ -402,7 +402,7 @@ class Circuit(tensor.Diagram):
 
         import tensornetwork as tn
         from discopy.quantum.gates import (
-            ClassicalGate, Copy, Match, Discard, Measure, SWAP)
+            ClassicalGate, Copy, Match, Discard, Measure, Encode, SWAP)
         for box in self.boxes + [self]:
             if set(box.dom @ box.cod) - set(bit @ qubit):
                 raise ValueError(
@@ -862,9 +862,9 @@ class Swap(tensor.Swap, Box):
 
     @property
     def array(self):
-        left_obj, = self.left.inside
-        right_obj, = self.right.inside
-        return Tensor.swap(Dim(left_obj.dim), Dim(right_obj.dim)).array
+        left, = self.left.inside
+        right, = self.right.inside
+        return Tensor[complex].swap(Dim(left.dim), Dim(right.dim)).array
 
 
 class Functor(frobenius.Functor):

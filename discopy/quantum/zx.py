@@ -21,10 +21,9 @@ Summary
     Scalar
 """
 
-from discopy import messages, cat, quantum, tensor
+from discopy import messages, cat, rigid, frobenius, quantum
 from discopy.cat import factory
-from discopy.rigid import PRO
-from discopy.tensor import Sum
+from discopy.rigid import Sum, PRO
 from discopy.frobenius import Functor, Category
 from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
@@ -34,7 +33,7 @@ from math import pi
 
 
 @factory
-class Diagram(tensor.Diagram):
+class Diagram(frobenius.Diagram):
     """ ZX Diagram. """
     ty_factory = PRO
 
@@ -42,18 +41,18 @@ class Diagram(tensor.Diagram):
     def swap(left, right):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
-        return tensor.Diagram.swap.__func__(Diagram, left, right)
+        return frobenius.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
     def permutation(perm, dom=None):
         dom = PRO(len(perm)) if dom is None else dom
-        return tensor.Diagram.permutation.__func__(Diagram, perm, dom)
+        return frobenius.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
     def cup_factory(left, right):
         return Z(2, 0)
 
-    def grad(self, var, **params) -> tensor.Sum:
+    def grad(self, var, **params) -> rigid.Sum:
         """
         Gradient with respect to `var`.
 
@@ -121,7 +120,7 @@ class Diagram(tensor.Diagram):
                 node, hadamard = scan[offset]
                 scan[offset] = (node, not hadamard)
             else:
-                raise TypeError(messages.type_err(Box, box))
+                raise NotImplementedError
         for i, _ in enumerate(self.cod):
             target = graph.add_vertex(VertexType.BOUNDARY)
             source, hadamard = scan[i]
@@ -161,19 +160,19 @@ class Diagram(tensor.Diagram):
 
         def move(scan, source, target):
             if target < source:
-                swaps = Id(target)\
+                swaps = PRO(target)\
                     @ Diagram.swap(source - target, 1)\
-                    @ Id(len(scan) - source - 1)
+                    @ PRO(len(scan) - source - 1)
                 scan = scan[:target] + (scan[source],)\
                     + scan[target:source] + scan[source + 1:]
             elif target > source:
-                swaps = Id(source)\
+                swaps = PRO(source)\
                     @ Diagram.swap(1, target - source)\
-                    @ Id(len(scan) - target - 1)
+                    @ PRO(len(scan) - target - 1)
                 scan = scan[:source] + scan[source + 1:target]\
                     + (scan[source],) + scan[target:]
             else:
-                swaps = Id(len(scan))
+                swaps = Id(PRO(len(scan)))
             return scan, swaps
 
         def make_wires_adjacent(scan, diagram, inputs):
@@ -222,7 +221,7 @@ class Diagram(tensor.Diagram):
         return diagram
 
 
-class Box(tensor.Box, Diagram):
+class Box(frobenius.Box, Diagram):
     """
     A ZX box is a tensor box in a ZX diagram.
 
@@ -231,10 +230,10 @@ class Box(tensor.Box, Diagram):
         dom (rigid.PRO) : The domain of the box, i.e. its input.
         cod (rigid.PRO) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (tensor.Box, )
+    __ambiguous_inheritance__ = (frobenius.Box, )
 
 
-class Swap(tensor.Swap, Box):
+class Swap(frobenius.Swap, Box):
     """ Swap in a ZX diagram. """
     def __repr__(self):
         return "SWAP"
@@ -242,10 +241,15 @@ class Swap(tensor.Swap, Box):
     __str__ = __repr__
 
 
-class Spider(tensor.Spider, Box):
+class Spider(frobenius.Spider, Box):
     """ Abstract spider box. """
-    def __init__(self, n_legs_in, n_legs_out, phase=None):
+    def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, PRO(1), phase)
+
+    def __str__(self):
+        factory_str = type(self).__name__
+        phase_str = f", {self.phase}" if self.phase else ""
+        return f"{factory_str}({len(self.dom)}, {len(self.cod)}{phase_str})"
 
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)
@@ -258,6 +262,16 @@ class Spider(tensor.Spider, Box):
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         return Scalar(pi * gradient)\
             @ type(self)(len(self.dom), len(self.cod), self.phase + .5)
+
+    def dagger(self):
+        return type(self)(len(self.cod), len(self.dom), -self.phase)
+
+    def rotate(self):
+        return type(self)(len(self.cod), len(self.dom), self.phase)
+
+    @property
+    def array(self):
+        return None
 
 
 class Z(Spider):
@@ -344,10 +358,11 @@ circuit2zx = Functor(
     ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
 
 H = Box('H', PRO(1), PRO(1))
-H.dagger = lambda self: self
+H.dagger = lambda: H
 H.draw_as_spider = True
 H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(PRO(1), PRO(1))
+Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Id = Diagram.id

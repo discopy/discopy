@@ -26,34 +26,23 @@ def random_had_cnot_diagram():
 
 
 def test_Diagram():
-    bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
-    assert repr(bialgebra) == "zx.Diagram(dom=PRO(2), cod=PRO(2), boxes=" \
-                              "[Z(1, 2), Z(1, 2), SWAP, X(2, 1), X(2, 1)], " \
-                              "offsets=[0, 2, 1, 0, 1])"
-    assert str(bialgebra) == "Z(1, 2) @ Id(1) >> Id(2) @ Z(1, 2) " \
-                             ">> Id(1) @ SWAP @ Id(1) " \
-                             ">> X(2, 1) @ Id(2) >> Id(1) @ X(2, 1)"
-
-
-def test_Swap():
-    x = Ty('x')
-    with raises(TypeError):
-        Swap(x, x)
-    with raises(TypeError):
-        Box('f', PRO(0), x)
+    bialgebra = Z(1, 2) @ Z(1, 2) >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1) @ X(2, 1)
+    assert str(bialgebra) == "Z(1, 2) @ PRO(1) >> PRO(2) @ Z(1, 2) " \
+                             ">> PRO(1) @ SWAP @ PRO(1) " \
+                             ">> X(2, 1) @ PRO(2) >> PRO(1) @ X(2, 1)"
 
 
 def test_Spider():
-    assert repr(Z(1, 2, 3)) == "Z(1, 2, 3)"
-    assert repr(Y(1, 2, 3)) == "Y(1, 2, 3)"
-    assert repr(X(1, 2, 3)) == "X(1, 2, 3)"
+    assert str(Z(1, 2, 3)) == "Z(1, 2, 3)"
+    assert str(Y(1, 2, 3)) == "Y(1, 2, 3)"
+    assert str(X(1, 2, 3)) == "X(1, 2, 3)"
     for spider in [Z, Y, X]:
         assert spider(1, 2, 3).phase == 3
         assert spider(1, 2, 3j).dagger() == spider(2, 1, -3j)
 
 
 def test_H():
-    assert repr(H) == str(H) == "H"
+    assert str(H) == "H"
     assert H[::-1] == H
 
 
@@ -66,17 +55,16 @@ def test_scalar():
 
 
 def test_Functor():
-    x = Ty('x')
-    f = rigid.Box('f', x, x)
-    F = rigid.Functor(
+    x = frobenius.Ty('x')
+    f = frobenius.Box('f', x, x)
+    F = frobenius.Functor(
         ob=lambda _: PRO(1),
         ar=lambda f: Z(len(f.dom), len(f.cod)),
-        ob_factory=PRO,
-        ar_factory=Diagram)
+        cod=frobenius.Category(PRO, Diagram))
     assert F(f) == Z(1, 1)
-    assert F(rigid.Swap(x, x)) == Diagram.permutation([1, 0]) == SWAP
-    assert F(Cup(x.l, x)) == Z(2, 0)
-    assert F(Cap(x.r, x)) == Z(0, 2)
+    assert F(frobenius.Swap(x, x)) == Diagram.permutation([1, 0]) == SWAP
+    assert F(frobenius.Cup(x.l, x)) == Z(2, 0)
+    assert F(frobenius.Cap(x.r, x)) == Z(0, 2)
     assert F(f + f) == Z(1, 1) + Z(1, 1)
 
 
@@ -94,11 +82,11 @@ def test_grad():
     assert Z(1, 1, phi).grad(phi) == scalar(pi) @ Z(1, 1, phi + .5)
     assert (Z(1, 1, phi / 2) >> Z(1, 1, phi + 1)).grad(phi)\
         == (scalar(pi / 2) @ Z(1, 1, phi / 2 + .5) >> Z(1, 1, phi + 1))\
-           + (Z(1, 1, phi / 2) >> scalar(pi) @ Id(1) >> Z(1, 1, phi + 1.5))
+           + (Z(1, 1, phi / 2) >> scalar(pi) @ PRO(1) >> Z(1, 1, phi + 1.5))
 
 
 def test_to_pyzx_errors():
-    with raises(TypeError):
+    with raises(NotImplementedError):
         Diagram.to_pyzx(quantum.H)
 
 
@@ -109,13 +97,13 @@ def test_to_pyzx():
 def test_to_pyzx_scalar():
     # Test that a scalar is translated to the corresponding pyzx object.
     k = np.exp(np.pi / 4 * 1j)
-    m = (scalar(k) @ scalar(k) @ Id(1)).to_pyzx().to_matrix()
+    m = (scalar(k) @ scalar(k) @ PRO(1)).to_pyzx().to_matrix()
     m = np.linalg.norm(m / 1j - np.eye(2))
     assert np.isclose(m, 0)
 
 
 def test_from_pyzx_errors():
-    bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
+    bialgebra = Z(1, 2) @ Z(1, 2) >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1) @ X(2, 1)
     graph = bialgebra.to_pyzx()
     graph.set_inputs(())
     graph.set_outputs(())

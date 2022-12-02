@@ -231,7 +231,7 @@ class PRO(Ty):
         return factory_name(type(self)) + "({})".format(len(self))
 
     def __str__(self):
-        return str(self.n)
+        return f"PRO({str(self.n)})"
 
     def __eq__(self, other):
         return isinstance(other, self.factory) and self.n == other.n
