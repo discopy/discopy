@@ -71,15 +71,14 @@ class CQ:
     def __init__(self, classical=Dim(1), quantum=Dim(1)):
         self.classical, self.quantum = classical, quantum
 
-    @property
-    def udim(self) -> Dim:
+    def to_dim(self) -> Dim:
         """
         The underlying dimension of the system, i.e. the classical dimension
         tensored with the square of the quantum dimension.
 
         Example
         -------
-        >>> assert CQ(Dim(2), Dim(3)).udim == Dim(2, 3, 3)
+        >>> assert CQ(Dim(2), Dim(3)).to_dim() == Dim(2, 3, 3)
         """
         return self.classical @ self.quantum @ self.quantum
 
@@ -147,7 +146,8 @@ class Channel(Tensor):
     A channel is a tensor with :class:`CQ` types as ``dom`` and ``cod``.
 
     Parameters:
-        array : The array of shape ``dom.udim @ cod.udim`` inside the channel.
+        array : The array of shape ``dom.to_dim() @ cod.to_dim()``
+                inside the channel.
         dom : The domain of the channel.
         cod : The codomain of the channel.
     """
@@ -160,28 +160,28 @@ class Channel(Tensor):
     def __init__(self, array, dom: CQ, cod: CQ):
         assert_isinstance(dom, CQ)
         assert_isinstance(cod, CQ)
-        super().__init__(array, dom.udim, cod.udim)
+        super().__init__(array, dom.to_dim(), cod.to_dim())
         self.dom, self.cod = dom, cod
 
-    @property
-    def utensor(self) -> Tensor:
+    def to_tensor(self) -> Tensor:
         """ The underlying tensor of a channel. """
-        return Tensor[self.dtype](self.array, self.dom.udim, self.cod.udim)
+        return Tensor[self.dtype](
+            self.array, self.dom.to_dim(), self.cod.to_dim())
 
     @classmethod
     def id(cls, dom=CQ()) -> Channel:
         assert_isinstance(dom, CQ)
-        return cls(Tensor[cls.dtype].id(dom.udim).array, dom, dom)
+        return cls(Tensor[cls.dtype].id(dom.to_dim()).array, dom, dom)
 
     def then(self, other: Channel = None, *others: Channel) -> Channel:
         if other is None or others:
             return super().then(other, *others)
         assert_isinstance(other, type(self))
-        utensor = self.utensor >> other.utensor
-        return type(self)(utensor.array, self.dom, other.cod)
+        array = (self.to_tensor() >> other.to_tensor()).array
+        return type(self)(array, self.dom, other.cod)
 
     def dagger(self) -> Channel:
-        return type(self)(self.utensor.dagger().array, self.cod, self.dom)
+        return type(self)(self.to_tensor().dagger().array, self.cod, self.dom)
 
     def tensor(self, other: Channel = None, *others: Channel) -> Channel:
         if other is None or others:
@@ -200,16 +200,16 @@ class Channel(Tensor):
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},
-            ar={f: self.utensor, g: other.utensor}, dtype=self.dtype
+            ar={f: self.to_tensor(), g: other.to_tensor()}, dtype=self.dtype
         )(above >> f @ g >> below).array
         return type(self)(array, self.dom @ other.dom, self.cod @ other.cod)
 
     @classmethod
     def swap(cls, left, right) -> Channel:
-        utensor = Tensor.swap(left.classical, right.classical)\
-            @ Tensor.swap(left.quantum, right.quantum)\
-            @ Tensor.swap(left.quantum, right.quantum)
-        return cls(utensor.array, left @ right, right @ left)
+        array = (Tensor.swap(left.classical, right.classical)
+                 @ Tensor.swap(left.quantum, right.quantum)
+                 @ Tensor.swap(left.quantum, right.quantum)).array
+        return cls(array, left @ right, right @ left)
 
     @staticmethod
     def cups(left, right):
@@ -266,8 +266,8 @@ class Channel(Tensor):
         Parameters:
             quantum : The tensor from which to make a pure quantum channel.
         """
-        utensor = quantum.conjugate(diagrammatic=False) @ quantum
-        return cls(utensor.array, Q(quantum.dom), Q(quantum.cod))
+        array = (quantum.conjugate(diagrammatic=False) @ quantum).array
+        return cls(array, Q(quantum.dom), Q(quantum.cod))
 
     @classmethod
     def single(cls, classical: Tensor) -> Channel:

@@ -51,15 +51,15 @@ def test_Circuit_spiders():
         SWAP, SWAP, SWAP]
     offsets = [0, 0, 0, 1, 0, 1, 0, 3, 3, 3, 4, 3, 4, 3, 2, 1, 3]
     ghz2 = Circuit.decode(Ty(), zip(boxes, offsets))
-    assert Circuit.spiders(0, 3, qubit ** 2) == ghz2
+    assert Circuit.spiders(0, 3, qubit ** 2).eval() == ghz2.eval()
 
-    assert np.abs(Circuit.spiders(0, 0, qubit).eval().array) == 2
+    assert np.isclose(np.abs(Circuit.spiders(0, 0, qubit).eval().array), 2)
 
     combos = [(2, 3), (5, 4), (0, 1)]
     for n_legs_in, n_legs_out in combos:
         flat_tensor = np.abs(Circuit.spiders(n_legs_in, n_legs_out, qubit)
                              .eval().array.flatten())
-        assert flat_tensor[0] == flat_tensor[-1] == 1
+        assert np.isclose(flat_tensor[0], 1) and np.isclose(flat_tensor[-1], 1)
 
 
 def test_Circuit_to_pennylane(capsys):

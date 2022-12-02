@@ -378,6 +378,10 @@ class Layer(cat.Box):
         boxes_or_types.append(self.dom[scan:])
         return type(self)(*boxes_or_types)
 
+    def lambdify(self, *symbols, **kwargs):
+        left, box, right = self
+        return lambda *xs: left @ box.lambdify(*symbols, **kwargs)(*xs) @ right
+
     def to_tree(self) -> dict:
         return dict(factory=factory_name(type(self)),
                     inside=[x.to_tree() for x in self])

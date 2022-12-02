@@ -26,7 +26,6 @@ def get_version():
 
 project = 'DisCoPy'
 copyright = '2019, DisCoPy'
-author = 'oxford-quantum-group'
 
 # The full version, including alpha/beta/rc tags
 release = get_version()

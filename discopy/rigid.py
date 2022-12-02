@@ -208,7 +208,7 @@ class Diagram(closed.Diagram):
     under = staticmethod(lambda base, exponent: exponent >> base)
 
     @classmethod
-    def eval(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
         return base @ cls.cups(exponent.l, exponent) if left\
             else cls.cups(exponent, exponent.r) @ base
 
@@ -252,31 +252,31 @@ class Diagram(closed.Diagram):
         """
         return nesting(cls, cls.cap_factory)(left, right)
 
-    @staticmethod
-    def fa(left, right):
-        return left @ Diagram.cups(right.l, right)
+    @classmethod
+    def fa(cls, left, right):
+        return left @ cls.cups(right.l, right)
 
-    @staticmethod
-    def ba(left, right):
-        return Diagram.cups(left, left.r) @ right
+    @classmethod
+    def ba(cls, left, right):
+        return cls.cups(left, left.r) @ right
 
-    @staticmethod
-    def fc(left, middle, right):
-        return left @ Diagram.cups(middle.l, middle) @ right.l
+    @classmethod
+    def fc(cls, left, middle, right):
+        return left @ cls.cups(middle.l, middle) @ right.l
 
-    @staticmethod
-    def bc(left, middle, right):
-        return left.r @ Diagram.cups(middle, middle.r) @ right
+    @classmethod
+    def bc(cls, left, middle, right):
+        return left.r @ cls.cups(middle, middle.r) @ right
 
-    @staticmethod
-    def fx(left, middle, right):
-        return left @ Diagram.swap(middle.l, right.r) @ middle >>\
-            Diagram.swap(left, right.r) @ Diagram.cups(middle.l, middle)
+    @classmethod
+    def fx(cls, left, middle, right):
+        return left @ cls.swap(middle.l, right.r) @ middle >>\
+            cls.swap(left, right.r) @ cls.cups(middle.l, middle)
 
-    @staticmethod
-    def bx(left, middle, right):
-        return middle @ Diagram.swap(left.l, middle.r) @ right >>\
-            Diagram.cups(middle, middle.r) @ Diagram.swap(left.l, right)
+    @classmethod
+    def bx(cls, left, middle, right):
+        return middle @ cls.swap(left.l, middle.r) @ right >>\
+            cls.cups(middle, middle.r) @ cls.swap(left.l, right)
 
     def curry(self, n=1, left=True) -> Diagram:
         if left:

@@ -143,7 +143,11 @@ class Braid(braided.Braid, Box):
         is_dagger (bool) : Braiding over or under.
     """
     __ambiguous_inheritance__ = (braided.Braid, )
+
     z = 0
+
+    def rotate(self, _=False):
+        return self
 
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

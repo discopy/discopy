@@ -266,9 +266,11 @@ class Circuit(tensor.Diagram):
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
-                f = channel.Functor()
+                f = channel.Functor(dom=Category(Ty, Circuit))
                 return channel.Channel(f(self.dom), f(self.cod), array)
-            f = tensor.Functor(lambda x: x[0].dim, {})
+            f = tensor.Functor(
+                lambda x: x.inside[0].dim, {},
+                dtype=complex, dom=Category(Ty, Circuit))
             return Tensor(f(self.dom), f(self.cod), array)
 
         from discopy.quantum import channel
@@ -399,8 +401,8 @@ class Circuit(tensor.Diagram):
             return super().to_tn()
 
         import tensornetwork as tn
-        from discopy.quantum import (
-            qubit, bit, ClassicalGate, Copy, Match, Discard, SWAP)
+        from discopy.quantum.gates import (
+            ClassicalGate, Copy, Match, Discard, Measure, SWAP)
         for box in self.boxes + [self]:
             if set(box.dom @ box.cod) - set(bit @ qubit):
                 raise ValueError(

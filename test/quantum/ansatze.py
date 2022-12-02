@@ -1,6 +1,12 @@
+# -*- coding: utf-8 -*-
+
+from pytest import raises
+
 import numpy as np
 
-from discopy.quantum.ansatze import IQPansatz, Sim14ansatz, Sim15ansatz, real_amp_ansatz
+from discopy.quantum import *
+from discopy.quantum.ansatze import (
+    IQPansatz, Sim14ansatz, Sim15ansatz, real_amp_ansatz)
 
 
 def test_IQPAnsatz():

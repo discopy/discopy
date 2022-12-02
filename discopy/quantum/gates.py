@@ -70,31 +70,19 @@ def format_number(data):
         return data
 
 
-class AntiConjugate:
-    def conjugate(self):
-        return type(self)(-self.phase)
-
-    l = r = property(conjugate)
-
-
-class Anti2QubitConjugate:
-    def conjugate(self):
-        algebraic_conj = type(self)(-self.phase)
-        return Swap(qubit, qubit) >> algebraic_conj >> Swap(qubit, qubit)
-
-    l = r = property(conjugate)
-
-
-class SelfConjugate:
+class SelfConjugate(Box):
     """ A self-conjugate box. """
     def conjugate(self):
         return self
 
-    l = r = property(conjugate)
+    def rotate(self, left=False):
+        del left
+        return self.dagger()
 
 
-class Discard(SelfConjugate, Box):
-    """ Discard n qubits. If :code:`dom == bit` then marginal distribution. """
+class Discard(SelfConjugate):
+    """
+    Discard n qubits. If :code:`dom == bit` then marginal distribution. """
     def __init__(self, dom=1):
         if isinstance(dom, int):
             dom = qubit ** dom
@@ -110,7 +98,7 @@ class Discard(SelfConjugate, Box):
         return Id().tensor(*[Discard()] * self.n_qubits)
 
 
-class MixedState(SelfConjugate, Box):
+class MixedState(SelfConjugate):
     """
     Maximally-mixed state on n qubits.
     If :code:`cod == bit` then uniform distribution.
@@ -132,7 +120,7 @@ class MixedState(SelfConjugate, Box):
         return Id().tensor(*[MixedState()] * len(self.cod))
 
 
-class Measure(SelfConjugate, Box):
+class Measure(SelfConjugate):
     """
     Measure n qubits into n bits.
 
@@ -172,7 +160,7 @@ class Measure(SelfConjugate, Box):
                     override_bits=self.override_bits)] * self.n_qubits)
 
 
-class Encode(SelfConjugate, Box):
+class Encode(SelfConjugate):
     """
     Controlled preparation, i.e. encode n bits into n qubits.
 
@@ -212,7 +200,7 @@ class QuantumGate(Box):
     is_classical = False
 
 
-class ClassicalGate(Box):
+class ClassicalGate(SelfConjugate):
     """
     Classical gates, i.e. from digits to digits.
 
@@ -228,7 +216,7 @@ class ClassicalGate(Box):
     is_classical = True
 
 
-class Copy(SelfConjugate, ClassicalGate):
+class Copy(ClassicalGate):
     """ Takes a bit, returns two copies of it. """
     def __init__(self):
         super().__init__("Copy", bit, bit ** 2, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -239,7 +227,7 @@ class Copy(SelfConjugate, ClassicalGate):
         return Match()
 
 
-class Match(SelfConjugate, ClassicalGate):
+class Match(ClassicalGate):
     """ Takes two bits in, returns them if they are equal. """
     def __init__(self):
         super().__init__("Match", bit ** 2, bit, [1, 0, 0, 0, 0, 0, 0, 1])
@@ -423,7 +411,8 @@ class Controlled(QuantumGate):
         return f'Controlled({self.controlled}, distance={self.distance})'
 
     def __eq__(self, other):
-        return isinstance(other, Controlled)\
+        return not isinstance(other, Box) and super().__eq__(other)\
+            or isinstance(other, Controlled)\
             and self.distance == other.distance\
             and self.controlled == other.controlled
 
@@ -457,7 +446,7 @@ class Controlled(QuantumGate):
         src, tgt = (0, 1) if distance > 0 else (1, 0)
         perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
         diagram = (perm
-                   >> type(self)(controlled) @ Id(abs(distance) - 1)
+                   >> type(self)(controlled) @ qubit ** (abs(distance) - 1)
                    >> perm[::-1])
         return diagram
 
@@ -574,7 +563,30 @@ class Rotation(Parametrized, QuantumGate):
             return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
 
 
-class Rx(AntiConjugate, Rotation):
+class AntiConjugate(Rotation):
+    """ An anti-conjugate rotation, i.e. where the conjugate is the dagger. """
+    def conjugate(self):
+        return self.dagger()
+
+    def rotate(self, left=False):
+        del left
+        return self
+
+
+class Anti2QubitConjugate(Rotation):
+    """
+    An anti-conjugate two-qubit rotation, i.e. where the conjugate is the
+    dagger pre- and post-composed with swaps.
+    """
+    def conjugate(self):
+        return SWAP >> type(self)(-self.phase) >> SWAP
+
+    def rotate(self, left=False):
+        del left
+        return SWAP >> self >> SWAP
+
+
+class Rx(AntiConjugate):
     """ X rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Rx")
@@ -583,7 +595,8 @@ class Rx(AntiConjugate, Rotation):
     def array(self):
         with backend() as np:
             half_theta = np.array(self.modules.pi * self.phase)
-            sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
+            sin = self.modules.sin(half_theta)
+            cos = self.modules.cos(half_theta)
             return np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
 
 
@@ -596,11 +609,12 @@ class Ry(SelfConjugate, Rotation):
     def array(self):
         with backend() as np:
             half_theta = np.array(self.modules.pi * self.phase)
-            sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
+            sin = self.modules.sin(half_theta)
+            cos = self.modules.cos(half_theta)
             return np.stack((cos, sin, -sin, cos)).reshape(2, 2)
 
 
-class Rz(AntiConjugate, Rotation):
+class Rz(AntiConjugate):
     """ Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="Rz")
@@ -615,7 +629,7 @@ class Rz(AntiConjugate, Rotation):
             return np.stack((e1, z, z, e2)).reshape(2, 2)
 
 
-class CU1(Anti2QubitConjugate, Rotation):
+class CU1(Anti2QubitConjugate):
     """ Controlled Z rotations. """
     def __init__(self, phase):
         super().__init__(phase, name="CU1", n_qubits=2)
@@ -637,12 +651,7 @@ class Scalar(Parametrized):
         self.drawing_name = format_number(data)
         name = "scalar" if name is None else name
         dom, cod = qubit ** 0, qubit ** 0
-        is_dagger = None if data.conjugate() == data else False
-        z = None if data.conjugate() == data else 0
-        super().__init__(
-            name, dom, cod,
-            is_mixed=is_mixed, data=data,
-            is_dagger=is_dagger, z=z)
+        super().__init__(name, dom, cod, is_mixed=is_mixed, data=data, z=None)
 
     def __repr__(self):
         return super().__repr__()[:-1] + (
@@ -657,6 +666,9 @@ class Scalar(Parametrized):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         return Scalar(self.data.diff(var))
+
+    def dagger(self):
+        return Scalar(self.data.conjugate(), self.name, self.is_mixed)
 
 
 class MixedScalar(Scalar):
@@ -675,6 +687,9 @@ class Sqrt(Scalar):
     def array(self):
         with backend() as np:
             return np.array(self.data ** .5)
+
+    def dagger(self):
+        return self
 
 
 def CRz(phase):

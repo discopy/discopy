@@ -115,7 +115,8 @@ class Diagram(rigid.Diagram):
 
     def conjugate(self):
         """
-        The conjugate of a diagram is the dagger of its rotation.
+        The horizontal reflection of a diagram,
+        defined as the dagger of the rotation.
 
         Equivalently, it is the rotation of the dagger.
 
@@ -124,7 +125,7 @@ class Diagram(rigid.Diagram):
         >>> x, y, z = map(Ty, "xyz")
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x @ y, z).curry()
-        >>> assert f[::-1].rotate() == f.rotate()[::-1]
+        >>> assert f.conjugate() == f[::-1].rotate() == f.rotate()[::-1]
 
         >>> from discopy import drawing
         >>> drawing.equation(

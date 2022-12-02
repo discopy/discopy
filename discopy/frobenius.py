@@ -41,10 +41,7 @@ class Ob(pivotal.Ob):
     Parameters:
         name : The name of the object.
     """
-    def conjugate(self):
-        return self
-
-    l = r = property(conjugate)
+    l = r = property(lambda self: self)
 
 
 @factory

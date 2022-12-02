@@ -18,7 +18,6 @@ Summary
     Z
     Y
     X
-    Had
     Scalar
 """
 
@@ -245,6 +244,9 @@ class Swap(tensor.Swap, Box):
 
 class Spider(tensor.Spider, Box):
     """ Abstract spider box. """
+    def __init__(self, n_legs_in, n_legs_out, phase=None):
+        super().__init__(n_legs_in, n_legs_out, PRO(1), phase)
+
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)
         return type(self)(len(self.dom), len(self.cod), phase=data)

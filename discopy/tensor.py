@@ -239,6 +239,8 @@ class Tensor(Matrix):
         return type(self)(
             self.array.transpose(), self.cod[::-1], self.dom[::-1])
 
+    l = r = property(transpose)
+
     def conjugate(self, diagrammatic=True) -> Tensor:
         """
         Returns the conjugate of a tensor.
@@ -259,8 +261,6 @@ class Tensor(Matrix):
         with backend() as np:
             array = np.conjugate(np.moveaxis(self.array, source, target))
         return type(self)(array, self.dom[::-1], self.cod[::-1])
-
-    l = r = property(conjugate)
 
     @classmethod
     def zero(cls, dom: Dim, cod: Dim) -> Tensor:
