@@ -73,7 +73,7 @@ class Diagram(frobenius.Diagram):
         Returns a :class:`pyzx.Graph`.
 
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
-        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        ...     >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert len(graph.vertices()) == 8
         >>> assert (graph.inputs(), graph.outputs()) == ((0, 1), (6, 7))
@@ -139,7 +139,7 @@ class Diagram(frobenius.Diagram):
         --------
 
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
-        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        ...     >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert Diagram.from_pyzx(graph) == bialgebra
 
@@ -194,7 +194,7 @@ class Diagram(frobenius.Diagram):
         duplicate_boundary = set(graph.inputs()).intersection(graph.outputs())
         if duplicate_boundary:
             raise ValueError
-        diagram, scan = Id(len(graph.inputs())), graph.inputs()
+        diagram, scan = Id(PRO(len(graph.inputs()))), graph.inputs()
         for node in [v for v in graph.vertices()
                      if v not in graph.inputs() + graph.outputs()]:
             inputs = [v for v in graph.neighbors(node) if v < node
@@ -203,21 +203,21 @@ class Diagram(frobenius.Diagram):
             outputs = [v for v in graph.neighbors(node) if v > node
                        and v not in graph.inputs() or v in graph.outputs()]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
-            hadamards = Id(0).tensor(*[
-                H if graph.edge_type((i, node)) == EdgeType.HADAMARD else Id(1)
-                for i in scan[offset: offset + len(inputs)]])
+            hadamards = Id().tensor(*[
+                H if graph.edge_type((i, node)) == EdgeType.HADAMARD
+                else Id(PRO(1)) for i in scan[offset: offset + len(inputs)]])
             box = node2box(node, len(inputs), len(outputs))
-            diagram = diagram >> Id(offset) @ (hadamards >> box)\
-                @ Id(len(diagram.cod) - offset - len(inputs))
+            diagram = diagram >> PRO(offset) @ (hadamards >> box)\
+                @ PRO(len(diagram.cod) - offset - len(inputs))
             scan = scan[:offset] + len(outputs) * (node,)\
                 + scan[offset + len(inputs):]
         for target, output in enumerate(graph.outputs()):
             node, = graph.neighbors(output)
             etype = graph.edge_type((node, output))
-            hadamard = H if etype == EdgeType.HADAMARD else Id(1)
+            hadamard = H if etype == EdgeType.HADAMARD else Id(PRO(1))
             scan, swaps = move(scan, scan.index(node), target)
             diagram = diagram >> swaps\
-                >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
+                >> PRO(target) @ hadamard @ PRO(len(scan) - target - 1)
         return diagram
 
 
@@ -324,18 +324,18 @@ def gate2zx(box):
     if isinstance(box, (Bra, Ket)):
         dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
         spiders = [X(dom, cod, phase=.5 * bit) for bit in box.bitstring]
-        return Id(0).tensor(*spiders) @ scalar(pow(2, -len(box.bitstring) / 2))
+        return Id().tensor(*spiders) @ scalar(pow(2, -len(box.bitstring) / 2))
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
         return Z(1, 2) @ Z(1, 2, box.phase)\
-            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+            >> PRO(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ PRO(1)
     if isinstance(box, Controlled) and box.name.startswith('CRx'):
         return X(1, 2) @ X(1, 2, box.phase)\
-            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
+            >> PRO(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ PRO(1)
     if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
-            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+            >> PRO(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ PRO(1)
     if isinstance(box, GatesScalar):
         if box.is_mixed:
             raise NotImplementedError
@@ -349,8 +349,8 @@ def gate2zx(box):
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         quantum.S: Z(1, 1, .25),
         quantum.T: Z(1, 1, .125),
-        CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
-        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
+        CZ: Z(1, 2) @ PRO(1) >> PRO(1) @ Had() @ PRO(1) >> PRO(1) @ Z(2, 1),
+        CX: Z(1, 2) @ PRO(1) >> PRO(1) @ X(2, 1) @ scalar(2 ** 0.5)}
     return standard_gates[box]
 
 
