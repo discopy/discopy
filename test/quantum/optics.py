@@ -27,15 +27,15 @@ def test_bialgebra():
 
 
 def test_monoid():
-    check(unit @ Id(PRO(1)) >> monoid, Id(PRO(1)))
-    check(monoid @ Id(PRO(1)) >> monoid, Id(PRO(1)) @ monoid >> monoid)
+    check(unit @ Id(1) >> monoid, Id(1))
+    check(monoid @ Id(1) >> monoid, Id(1) @ monoid >> monoid)
 
     check(swap >> monoid, monoid)
 
 
 def test_comonoid():
-    check(counit @ Id(PRO(1)) << comonoid, Id(PRO(1)))
-    check(comonoid @ Id(PRO(1)) << comonoid, Id(PRO(1)) @ comonoid << comonoid)
+    check(counit @ Id(1) << comonoid, Id(1))
+    check(comonoid @ Id(1) << comonoid, Id(1) @ comonoid << comonoid)
 
     check(swap << comonoid, comonoid)
 

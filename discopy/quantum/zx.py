@@ -39,13 +39,13 @@ class Diagram(frobenius.Diagram):
 
     @staticmethod
     def swap(left, right):
-        left = left if isinstance(left, PRO) else PRO(left)
-        right = right if isinstance(right, PRO) else PRO(right)
+        left = left if isinstance(left, PRO) else Id(left)
+        right = right if isinstance(right, PRO) else Id(right)
         return frobenius.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
     def permutation(perm, dom=None):
-        dom = PRO(len(perm)) if dom is None else dom
+        dom = Id(len(perm)) if dom is None else dom
         return frobenius.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
@@ -73,7 +73,7 @@ class Diagram(frobenius.Diagram):
         Returns a :class:`pyzx.Graph`.
 
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
-        ...     >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert len(graph.vertices()) == 8
         >>> assert (graph.inputs(), graph.outputs()) == ((0, 1), (6, 7))
@@ -139,7 +139,7 @@ class Diagram(frobenius.Diagram):
         --------
 
         >>> bialgebra = Z(1, 2, .25) @ Z(1, 2, .75)\\
-        ...     >> PRO(1) @ SWAP @ PRO(1) >> X(2, 1, .5) @ X(2, 1, .5)
+        ...     >> Id(1) @ SWAP @ Id(1) >> X(2, 1, .5) @ X(2, 1, .5)
         >>> graph = bialgebra.to_pyzx()
         >>> assert Diagram.from_pyzx(graph) == bialgebra
 
@@ -160,19 +160,19 @@ class Diagram(frobenius.Diagram):
 
         def move(scan, source, target):
             if target < source:
-                swaps = PRO(target)\
+                swaps = Id(target)\
                     @ Diagram.swap(source - target, 1)\
-                    @ PRO(len(scan) - source - 1)
+                    @ Id(len(scan) - source - 1)
                 scan = scan[:target] + (scan[source],)\
                     + scan[target:source] + scan[source + 1:]
             elif target > source:
-                swaps = PRO(source)\
+                swaps = Id(source)\
                     @ Diagram.swap(1, target - source)\
-                    @ PRO(len(scan) - target - 1)
+                    @ Id(len(scan) - target - 1)
                 scan = scan[:source] + scan[source + 1:target]\
                     + (scan[source],) + scan[target:]
             else:
-                swaps = Id(PRO(len(scan)))
+                swaps = Id(len(scan))
             return scan, swaps
 
         def make_wires_adjacent(scan, diagram, inputs):
@@ -194,7 +194,7 @@ class Diagram(frobenius.Diagram):
         duplicate_boundary = set(graph.inputs()).intersection(graph.outputs())
         if duplicate_boundary:
             raise ValueError
-        diagram, scan = Id(PRO(len(graph.inputs()))), graph.inputs()
+        diagram, scan = Id(len(graph.inputs())), graph.inputs()
         for node in [v for v in graph.vertices()
                      if v not in graph.inputs() + graph.outputs()]:
             inputs = [v for v in graph.neighbors(node) if v < node
@@ -205,19 +205,19 @@ class Diagram(frobenius.Diagram):
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
             hadamards = Id().tensor(*[
                 H if graph.edge_type((i, node)) == EdgeType.HADAMARD
-                else Id(PRO(1)) for i in scan[offset: offset + len(inputs)]])
+                else Id(1) for i in scan[offset: offset + len(inputs)]])
             box = node2box(node, len(inputs), len(outputs))
-            diagram = diagram >> PRO(offset) @ (hadamards >> box)\
-                @ PRO(len(diagram.cod) - offset - len(inputs))
+            diagram = diagram >> Id(offset) @ (hadamards >> box)\
+                @ Id(len(diagram.cod) - offset - len(inputs))
             scan = scan[:offset] + len(outputs) * (node,)\
                 + scan[offset + len(inputs):]
         for target, output in enumerate(graph.outputs()):
             node, = graph.neighbors(output)
             etype = graph.edge_type((node, output))
-            hadamard = H if etype == EdgeType.HADAMARD else Id(PRO(1))
+            hadamard = H if etype == EdgeType.HADAMARD else Id(1)
             scan, swaps = move(scan, scan.index(node), target)
             diagram = diagram >> swaps\
-                >> PRO(target) @ hadamard @ PRO(len(scan) - target - 1)
+                >> Id(target) @ hadamard @ Id(len(scan) - target - 1)
         return diagram
 
 
@@ -329,13 +329,13 @@ def gate2zx(box):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
         return Z(1, 2) @ Z(1, 2, box.phase)\
-            >> PRO(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ PRO(1)
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
     if isinstance(box, Controlled) and box.name.startswith('CRx'):
         return X(1, 2) @ X(1, 2, box.phase)\
-            >> PRO(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ PRO(1)
+            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
     if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
-            >> PRO(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ PRO(1)
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
     if isinstance(box, GatesScalar):
         if box.is_mixed:
             raise NotImplementedError
@@ -349,20 +349,20 @@ def gate2zx(box):
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         quantum.S: Z(1, 1, .25),
         quantum.T: Z(1, 1, .125),
-        CZ: Z(1, 2) @ PRO(1) >> PRO(1) @ Had() @ PRO(1) >> PRO(1) @ Z(2, 1),
-        CX: Z(1, 2) @ PRO(1) >> PRO(1) @ X(2, 1) @ scalar(2 ** 0.5)}
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
+        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
     return standard_gates[box]
 
 
 circuit2zx = Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
+    ob={qubit: Id(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
 
-H = Box('H', PRO(1), PRO(1))
+H = Box('H', Id(1), Id(1))
 H.dagger = lambda: H
 H.draw_as_spider = True
 H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
-SWAP = Swap(PRO(1), PRO(1))
+SWAP = Swap(Id(1), Id(1))
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Id = Diagram.id

@@ -333,12 +333,33 @@ class Arrow(Composable):
     @classmethod
     def id(cls, dom: Ob = None) -> Arrow:
         """
-        The identity arrow, i.e. with the empty tuple inside.
+        The identity arrow with the empty tuple inside, called with ``Id``.
 
         Parameters:
             dom : The domain (and codomain) of the identity.
+
+        Note
+        ----
+        If ``dom`` is not provided, we use the default value of ``ty_factory``.
+        If ``dom`` is not an instance of ``ty_factory`` then we try to cast it.
+
+        Example
+        -------
+        >>> assert Id() == Id(Ob())
+        >>> assert Id('x') == Id(Ob('x'))
+
+        >>> class Qubit(Ob):
+        ...     def __init__(self, n=1):
+        ...         self.n = n
+        ...         super().__init__(f"Qubit({n})")
+
+        >>> class Circuit(Arrow):
+        ...     ty_factory = Qubit
+
+        >>> assert Circuit.id().dom == Qubit(1)
         """
         dom = cls.ty_factory() if dom is None else dom
+        dom = dom if isinstance(dom, cls.ty_factory) else cls.ty_factory(dom)
         return cls.factory((), dom, dom, _scan=False)
 
     def then(self, other: Arrow = None, *others: Arrow) -> Arrow:
