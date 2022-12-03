@@ -885,13 +885,10 @@ def pregroup_draw(words, layers, has_swaps=False, **params):
 def equation(*diagrams, path=None, symbol="=", space=1, **params):
     """ Draws an equation with multiple diagrams. """
     def height(diagram):
-        if hasattr(diagram, "terms"):  # i.e. if isinstance(diagram, Sum)
+        # i.e. if isinstance(diagram, (Sum, Equation))
+        if hasattr(diagram, "terms"):
             return max(height(d) for d in diagram.terms)
-        if hasattr(diagram, "arg"):  # i.e. if isinstance(diagram, Bubble)
-            return height(diagram.arg) + 2
-        if len(diagram) > 1:
-            return sum(height(d) for d in diagram.boxes)
-        return 1
+        return len(diagram.drawing()) or 1
 
     pad, max_height = params.get('pad', (0, 0)), max(map(height, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))

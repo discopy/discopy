@@ -54,9 +54,9 @@ def test_Arrow():
 
 def test_Arrow_init():
     with raises(TypeError) as err:
-        Arrow((), 'x', Ob('x'))
+        Arrow((), 1, Ob('x'))
     with raises(TypeError) as err:
-        Arrow((), Ob('x'), 'x')
+        Arrow((), Ob('x'), 1)
     with raises(TypeError) as err:
         Arrow((Ob('x'), ), Ob('x'), Ob('x'))
 

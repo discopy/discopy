@@ -171,6 +171,25 @@ class PRO(monoidal.PRO, Ty):
     l = r = property(lambda self: self)
 
 
+class Layer(monoidal.Layer):
+    """
+    A rigid layer is a monoidal layer that can be rotated.
+
+    Parameters:
+        left : The type on the left of the layer.
+        box : The box in the middle of the layer.
+        right : The type on the right of the layer.
+        more : More boxes and types to the right,
+               used by :meth:`Diagram.foliation`.
+    """
+    def rotate(self, left=False):
+        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+
+    l = property(lambda self: self.rotate(left=True))
+    r = property(lambda self: self.rotate(left=False))
+
+
+
 @factory
 class Diagram(closed.Diagram):
     """
@@ -196,6 +215,7 @@ class Diagram(closed.Diagram):
     __ambiguous_inheritance__ = True
 
     ty_factory = Ty
+    layer_factory = Layer
 
     def dagger(self):
         """
@@ -304,12 +324,9 @@ class Diagram(closed.Diagram):
         .. image:: /imgs/rigid/rotate.png
             :align: center
         """
-        dom, cod = (
-            getattr(x, 'l' if left else 'r') for x in (self.cod, self.dom))
+        dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         inside = tuple(
-            self.layer_factory(right.l, box.l, _left.l) if left
-            else self.layer_factory(right.r, box.r, _left.r)
-            for _left, box, right in self.inside[::-1])
+            layer.l if left else layer.r for layer in self.inside[::-1])
         return self.factory(inside, dom, cod)
 
     l = property(lambda self: self.rotate(left=True))
@@ -341,31 +358,40 @@ class Diagram(closed.Diagram):
             >> self.dom.r @ self @ self.cod.r\
             >> self.dom.r @ self.cups(self.cod, self.cod.r)
 
-    def transpose_box(self, i, left=False):
+    def transpose_box(self, i, j=0, left=False):
         """
         Transpose the box at index ``i``.
 
         Parameters:
-            i : The index of the box to transpose.
+            i : The vertical index of the box to transpose.
+            j : The horizontal index of the box to transpose, only needed if
+                the layer ``i`` has more than one box.
             left : Whether to transpose left or right.
 
         Example
         -------
         >>> from discopy.drawing import Equation
-        >>> x, y, z = map(Ty, "xyz")
+        >>> x, y, z = Ty(*"xyz")
         >>> f, g = Box('f', x, y), Box('g', y, z)
-        >>> d = f >> g
-        >>> transpose_l = d.transpose_box(0, left=True)
-        >>> transpose_r = d.transpose_box(0, left=False)
+        >>> d = (f @ g).foliation()
+        >>> transpose_l = d.transpose_box(0, 0, left=True)
+        >>> transpose_r = d.transpose_box(0, 1, left=False)
         >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
         >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
         >>> RHS.draw(figsize=(8, 3), path="docs/imgs/rigid/transpose_box.png")
 
         .. image:: /imgs/rigid/transpose_box.png
         """
-        _left, box, right = self.inside[i]
+        box = list(self.inside[i])[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
-        return self[:i] >> _left @ transposed_box @ right >> self[i + 1:]
+        top, bottom = self[:i], self[i + 1:]
+        left_boxes_and_types = list(self.inside[i])[:2 * j + 1]
+        right_boxes_and_types = list(self.inside[i])[2 * j + 2:]
+        left_layer, right_layer = [
+            self.id().tensor(
+                *(x if k % 2 else self.id(x) for k, x in enumerate(xs)))
+            for xs in [left_boxes_and_types, right_boxes_and_types]]
+        return top >> left_layer @ transposed_box @ right_layer >> bottom
 
     def draw(self, asymmetry=.25, **params):
         return super().draw(**dict(dict(asymmetry=asymmetry), **params))

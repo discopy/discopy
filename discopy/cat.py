@@ -289,7 +289,7 @@ class Arrow(Composable):
     def __getitem__(self, key):
         if isinstance(key, slice):
             if key.step == -1:
-                inside = tuple(box[::-1] for box in self.inside[key])
+                inside = tuple(box.dagger() for box in self.inside[key])
                 return self.factory(inside, self.cod, self.dom, _scan=False)
             if (key.step or 1) != 1:
                 raise IndexError
@@ -437,7 +437,8 @@ class Arrow(Composable):
         >>> assert (f >> g).subs(phi, 1) == f.subs(phi, 1) >> g
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
-        return Functor(ob=lambda x: x, ar=lambda f: f.subs(*args))(self)
+        inside = tuple(box.subs(*args) for box in self.inside)
+        return self.factory(inside, self.dom, self.cod)
 
     def lambdify(self, *symbols: "sympy.Symbol", **kwargs) -> Callable:
         """
@@ -456,8 +457,9 @@ class Arrow(Composable):
         >>> assert (f >> g).lambdify(phi, psi)(42, 43)\\
         ...     == Box('f', x, y, data=42) >> Box('g', y, z, data=43)
         """
-        return lambda *xs: self.id(self.dom).then(*(
-            box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
+        return lambda *xs: self.factory(
+            dom=self.dom, cod=self.cod, inside=tuple(
+                box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
 
     def to_tree(self) -> dict:
         """ See :func:`discopy.utils.dumps`. """

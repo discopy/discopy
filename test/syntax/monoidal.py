@@ -55,7 +55,7 @@ def test_PRO_repr():
 
 
 def test_PRO_str():
-    assert str(PRO(2 * 3 * 7)) == "42"
+    assert str(PRO(2 * 3 * 7)) == "PRO(42)"
 
 
 def test_PRO_getitem():
@@ -65,9 +65,9 @@ def test_PRO_getitem():
 
 def test_Diagram_init():
     with raises(TypeError) as err:
-        Diagram((), 'x', Ty('x'))
+        Diagram((), 1, Ty('x'))
     with raises(TypeError) as err:
-        Diagram((), Ty('x'), 'x')
+        Diagram((), Ty('x'), 1)
     with raises(TypeError) as err:
         Diagram((1, ), Ty('x'), Ty('x'))
 

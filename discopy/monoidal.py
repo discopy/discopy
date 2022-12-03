@@ -312,10 +312,7 @@ class Layer(cat.Box):
 
     def __matmul__(self, other: Ty) -> Layer:
         *tail, head = self
-        boxes_and_types = tail + (
-            [head @ other] if isinstance(other, Ty)
-            else [head, other.dom[:0], other])
-        return type(self)(*boxes_and_types)
+        return type(self)(*tail + [head @ other])
 
     def __rmatmul__(self, other: Ty) -> Layer:
         head, *tail = self
@@ -380,6 +377,13 @@ class Layer(cat.Box):
         >>> layer0 = Layer(e,  f,  e @ c @ e)
         >>> layer1 = Layer(e @ b @ e,  g,  e)
         >>> assert layer0.merge(layer1) == Layer(e, f, e, g, e)
+
+        >>> x = Ty('x')
+        >>> unit, counit = Box("unit", Ty(), x), Box("counit", x, Ty())
+        >>> cup, cap = Box("cup", x @ x, Ty()), Box("cap", Ty(), x @ x)
+        >>> d = unit >> cap @ x >> x @ cap @ x @ x\\
+        ...     >> x @ x @ counit @ x @ x >> x @ cup @ x >> cup
+        >>> d.inside[0].merge(d.inside[1])
         """
         assert_iscomposable(self, other)
         scan, boxes_or_types = 0, []
@@ -391,13 +395,14 @@ class Layer(cat.Box):
                     messages.NOT_MERGEABLE.format(self, other))
             boxes_or_types.append(self.dom[scan:offset])
             boxes_or_types.append(box)
-            scan = offset + len(box.dom)
+            scan = offset + len(box.cod)
         boxes_or_types.append(self.dom[scan:])
         return type(self)(*boxes_or_types)
 
     def lambdify(self, *symbols, **kwargs):
-        left, box, right = self
-        return lambda *xs: left @ box.lambdify(*symbols, **kwargs)(*xs) @ right
+        return lambda *xs: type(self)(*(
+            x.lambdify(*symbols, **kwargs)(*xs) if i % 2 else x
+            for i, x in enumerate(self)))
 
     def to_tree(self) -> dict:
         return dict(factory=factory_name(type(self)),

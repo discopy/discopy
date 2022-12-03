@@ -263,6 +263,8 @@ def foliation(self):
     """
     Merges layers together to reduce the length of a diagram.
 
+    Example
+    -------
     >>> from discopy.monoidal import *
     >>> x, y = Ty('x'), Ty('y')
     >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
@@ -271,6 +273,12 @@ def foliation(self):
     f0 @ y >> f0[::-1] @ y >> x @ f1
     >>> print(diagram.foliation())
     f0 @ y >> f0[::-1] @ f1
+
+    Note
+    ----
+    If one defines a foliation as a sequence of unmergeable layers, in general
+    there may exist many distinct foliations for the same diagram. This method
+    scans top to bottom and merges layers eagerly.
     """
     while len(self) > 1:
         keep_on_going = False
@@ -291,7 +299,7 @@ def foliation(self):
 
 def depth(self):
     """
-    Computes the depth of a diagram by foliating it.
+    Computes (an upper bound to) the depth of a diagram by foliating it.
 
     Example
     -------
@@ -302,5 +310,10 @@ def depth(self):
     >>> assert f.depth() == 1
     >>> assert (f @ g).depth() == 1
     >>> assert (f >> g).depth() == 2
+
+    Note
+    ----
+    The actual depth of a diagram should be computed as the minimum length over
+    all its foliations, this method just outputs ``len(self.foliation())``.
     """
     return len(self.foliation())
