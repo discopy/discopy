@@ -272,9 +272,7 @@ def foliation(self):
     >>> print(diagram.foliation())
     f0 @ y >> f0[::-1] @ f1
     """
-    if len(self) < 2:
-        return self
-    while True:
+    while len(self) > 1:
         keep_on_going = False
         for i, (first, second) in enumerate(zip(
                 self.inside, self.inside[1:])):

@@ -76,7 +76,6 @@ Functors are bubble-preserving.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Union
 from functools import total_ordering, cached_property
 from collections.abc import Callable, Mapping, Iterable
 
@@ -103,7 +102,7 @@ class Ob:
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
     """
-    def __init__(self, name: Union[str, int] = ""):
+    def __init__(self, name: str = ""):
         assert_isinstance(name, str)
         self.name = name
 
@@ -246,8 +245,8 @@ class Arrow(Composable):
 
     Tip
     ---
-    For code clarity, it is recommended not to initialise arrows directly and
-    use :meth:`Arrow.id` and :meth:`Arrow.then` instead. For example:
+    For code clarity, it is recommended not to initialise arrows directly but
+    to use :meth:`Arrow.id` and :meth:`Arrow.then` instead. For example:
 
     >>> x, y, z = map(Ob, "xyz")
     >>> f, g = Box('f', x, y), Box('g', y, z)
@@ -255,25 +254,33 @@ class Arrow(Composable):
     >>> arrow_ = Arrow((f, g), x, z)    # ...rather than that!
     >>> assert arrow == arrow_
 
-    Tip
-    ---
-    Arrows can be indexed and sliced like ordinary Python lists. For example:
+    Note
+    ----
+    Arrows can be indexed and sliced using square brackets. Indexing behaves
+    like that of strings, i.e. when we index an arrow we get an arrow back.
 
     >>> assert (f >> g)[0] == f and (f >> g)[1] == g
     >>> assert f[:0] == Arrow.id(f.dom)
     >>> assert f[1:] == Arrow.id(f.cod)
+
+    Note
+    ----
+    If ``dom`` or ``cod`` are not instances of ``ty_factory``, they are
+    automatically cast. This means one can use e.g. ``int`` instead of ``Ob``,
+    see :class:`monoidal.PRO`.
     """
     ty_factory = Ob
 
     def __init__(self, inside: tuple[Box, ...], dom: Ob, cod: Ob, _scan=True):
-        assert_isinstance(dom, self.ty_factory)
-        assert_isinstance(cod, self.ty_factory)
+        ty_factory = type(self).ty_factory
+        dom = dom if isinstance(dom, ty_factory) else ty_factory(dom)
+        cod = cod if isinstance(cod, ty_factory) else ty_factory(cod)
+        self.dom, self.cod, self.inside = dom, cod, inside
         if _scan:
             for box in inside:
                 assert_isinstance(box, Box)
             for f, g in zip((Id(dom), ) + inside, inside + (Id(cod), )):
                 assert_iscomposable(f, g)
-        self.dom, self.cod, self.inside = dom, cod, inside
 
     def __iter__(self):
         for box in self.inside:
@@ -341,25 +348,13 @@ class Arrow(Composable):
         Note
         ----
         If ``dom`` is not provided, we use the default value of ``ty_factory``.
-        If ``dom`` is not an instance of ``ty_factory`` then we try to cast it.
 
         Example
         -------
-        >>> assert Id() == Id(Ob())
-        >>> assert Id('x') == Id(Ob('x'))
-
-        >>> class Qubit(Ob):
-        ...     def __init__(self, n=1):
-        ...         self.n = n
-        ...         super().__init__(f"Qubit({n})")
-
-        >>> class Circuit(Arrow):
-        ...     ty_factory = Qubit
-
-        >>> assert Circuit.id().dom == Qubit(1)
+        >>> assert Arrow.id() == Id() == Id(Ob())
+        >>> assert Arrow.id('x') == Id('x') == Id(Ob('x'))
         """
         dom = cls.ty_factory() if dom is None else dom
-        dom = dom if isinstance(dom, cls.ty_factory) else cls.ty_factory(dom)
         return cls.factory((), dom, dom, _scan=False)
 
     def then(self, other: Arrow = None, *others: Arrow) -> Arrow:
@@ -482,9 +477,6 @@ class Arrow(Composable):
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
         inside = tuple(map(from_tree, tree['inside']))
         return cls(inside, dom, cod, _scan=False)
-
-
-Id = Arrow.id
 
 
 class AxiomError(Exception):
@@ -762,10 +754,6 @@ class Bubble(Box):
         return cls(arg=arg, dom=dom, cod=cod)
 
 
-Arrow.sum_factory = Sum
-Arrow.bubble_factory = Bubble
-
-
 class Category:
     """
     A category is just a pair of Python types :code:`ob` and :code:`ar` with
@@ -895,3 +883,8 @@ def assert_isparallel(left: Composable, right: Composable):
     """
     if not left.is_parallel(right):
         raise AxiomError(messages.NOT_PARALLEL.format(left, right))
+
+
+Arrow.sum_factory = Sum
+Arrow.bubble_factory = Bubble
+Id = Arrow.id

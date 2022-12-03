@@ -76,17 +76,20 @@ class Ty(cat.Ob):
 
     Tip
     ---
-    Types can be indexed and sliced like ordinary Python lists.
-
-    >>> t = Ty('x', 'y', 'z')
-    >>> assert t[0] == t[:1] == Ty('x')
-    >>> assert t[1:] == t[-2:] == Ty('y', 'z')
-
-    Tip
-    ---
     A type can be exponentiated by a natural number.
 
     >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
+
+    Note
+    ----
+    Types can be indexed and sliced using square brackets. Indexing behaves
+    like that of strings, i.e. when we index a type we get a type back.
+    The objects inside the type are still accessible using ``.inside``.
+
+    >>> t = Ty(*"xyz")
+    >>> assert t[0] == t[:1] == Ty('x')
+    >>> assert t[0] != t.inside[0] == Ob('x')
+    >>> assert t[1:] == t[-2:] == Ty('y', 'z')
     """
     ob_factory = cat.Ob
 
@@ -199,12 +202,26 @@ class PRO(Ty):
     n : int
         The length of the PRO type.
 
-    Examples
-    --------
-    >>> assert PRO(1) @ PRO(1) == PRO(2)
+    Example
+    -------
+    >>> assert PRO(1) @ PRO(2) == PRO(3)
     >>> assert PRO(42).inside == 42 * (Ob(), )
+
+    Note
+    ----
+    If ``ty_factory`` is ``PRO`` then :class:`Diagram` will automatically turn
+    any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
+
+    >>> @factory
+    ... class Circuit(Diagram):
+    ...     ty_factory = PRO
+    >>> class Gate(Box, Circuit): ...
+    >>> CX = Gate('CX', 2, 2)
+
+    >>> assert CX @ 2 >> 2 @ CX == CX @ CX
     """
     def __init__(self, n: int = 0):
+        assert_isinstance(n, int)
         self.n = n
 
     @property
@@ -317,7 +334,7 @@ class Layer(cat.Box):
         >>> f = Box('f', Ty('x'), Ty('y'))
         >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
         """
-        return cls(box.dom[:0], box, box.dom[len(box.dom):])
+        return cls(box.dom[:0], box, box.cod[len(box.cod):])
 
     def dagger(self) -> Layer:
         return type(self)(*(

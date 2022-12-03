@@ -39,8 +39,8 @@ class Diagram(frobenius.Diagram):
 
     @staticmethod
     def swap(left, right):
-        left = left if isinstance(left, PRO) else Id(left)
-        right = right if isinstance(right, PRO) else Id(right)
+        left = left if isinstance(left, PRO) else PRO(left)
+        right = right if isinstance(right, PRO) else PRO(right)
         return frobenius.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
@@ -50,6 +50,7 @@ class Diagram(frobenius.Diagram):
 
     @staticmethod
     def cup_factory(left, right):
+        del left, right
         return Z(2, 0)
 
     def grad(self, var, **params) -> rigid.Sum:
@@ -355,14 +356,14 @@ def gate2zx(box):
 
 
 circuit2zx = Functor(
-    ob={qubit: Id(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
+    ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
 
-H = Box('H', Id(1), Id(1))
+H = Box('H', PRO(1), PRO(1))
 H.dagger = lambda: H
 H.draw_as_spider = True
 H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
-SWAP = Swap(Id(1), Id(1))
+SWAP = Swap(PRO(1), PRO(1))
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Id = Diagram.id
