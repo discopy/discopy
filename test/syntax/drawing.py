@@ -100,16 +100,18 @@ def test_draw_who():
 
 @draw_and_compare('sentence-as-diagram.png', aspect='equal')
 def test_draw_sentence():
+    from discopy.grammar.pregroup import Ty, Cup, Word, Id
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('alice-loves-bob.png', draw=grammar.draw,
+@draw_and_compare('alice-loves-bob.png', draw=grammar.pregroup.draw,
                   fontsize=18, fontsize_types=12,
                   figsize=(5, 2), margins=(0, 0), aspect='equal')
 def test_pregroup_draw():
+    from discopy.grammar.pregroup import Ty, Cup, Word, Id
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
@@ -117,21 +119,22 @@ def test_pregroup_draw():
 
 
 @draw_and_compare(
-    'gave-up.png', draw=grammar.draw, pretty_types=True, triangles=True)
+    'gave-up.png', draw=grammar.pregroup.draw, pretty_types=True, triangles=True)
 def test_cross_composition_draw():
+    from discopy.grammar.pregroup import Ty, Cup, Word, Id
     s, n = Ty('s'), Ty('n')
     gave, up = Word('gave', n.r @ s @ n.l), Word('up', s.r @ n.r.r @ n.r @ s)
     swap, cups = Diagram.swap, Diagram.cups
     diagram = gave @ up >> Id(n.r @ s) @ swap(n.l, s.r @ n.r.r) @ Id(n.r @ s)\
                         >> cups(n.r @ s, s.r @ n.r.r) @ swap(n.l, n.r @ s)
-    grammar.draw(diagram, path='.')
+    grammar.pregroup.draw(diagram, path='.')
     return diagram
 
 
 @draw_and_compare('bell-state.png', draw=Circuit.draw, aspect='equal')
 def test_draw_bell_state():
-    from discopy.quantum import H, sqrt, Bra, Ket, Id, CX
-    return sqrt(2) >> Ket(0, 0) >> H @ Id(1) >> CX >> Bra(0) @ Id(1)
+    from discopy.quantum import qubit, H, sqrt, Bra, Ket, Id, CX
+    return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 
 
 @draw_and_compare('bialgebra.png', draw=Sum.draw, aspect='equal')
@@ -174,9 +177,10 @@ def test_copy_to_tikz():
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
-@tikz_and_compare("alice-loves-bob.tikz", draw=grammar.draw,
+@tikz_and_compare("alice-loves-bob.tikz", draw=grammar.pregroup.draw,
                   textpad=(.2, .2), textpad_words=(0, .25), fontsize=.8)
 def test_sentence_to_tikz():
+    from discopy.grammar.pregroup import Ty, Cup, Word, Id
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
@@ -193,6 +197,7 @@ def test_snake_equation_to_tikz():
 @tikz_and_compare("who-ansatz.tikz",
                   draw=draw_equation, symbol="$\\mapsto$")
 def test_who_ansatz_to_tikz():
+    from discopy.grammar.pregroup import Ty, Cup, Cap, Word, Id, Box
     s, n = Ty('s'), Ty('n')
     who = Word('who', n.r @ n @ s.l @ n)
     who_ansatz = Cap(n.r, n)\
@@ -214,7 +219,7 @@ def test_tikz_bialgebra_law():
 def test_tikz_bell_state():
     from discopy.quantum import H, sqrt, Bra, Ket, Id, CX
     H.draw_as_spider, H.color, H.drawing_name = True, "yellow", ""
-    return sqrt(2) >> Ket(0, 0) >> H @ Id(1) >> CX >> Bra(0) @ Id(1)
+    return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 
 
 @tikz_and_compare('crack-eggs.tikz')
@@ -231,6 +236,7 @@ def test_tikz_eggs():
 
 
 def test_Node_repr():
+    from discopy.cat import Ob
     assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
         == "Node('dom', depth=1, i=0, obj=Ob('x'))"
 

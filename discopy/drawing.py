@@ -927,14 +927,10 @@ class Equation:
     >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
     >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
     >>> special = Equation(mu >> delta, Id(dim))
-    >>> special  # doctest: +ELLIPSIS
-    Equation(Diagram(...), Id(Dim(2)))
     >>> frobenius = Equation(
     ...     delta @ Id(dim) >> Id(dim) @ mu,
     ...     mu >> delta,
     ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> print(frobenius)  # doctest: +ELLIPSIS
-    Spider... @ Spider... = Spider... >> Spider... = Id... @ Spider...
     >>> equation(special, frobenius, symbol=', ',
     ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
     ...          path='docs/imgs/drawing/frobenius-axioms.png')
@@ -976,7 +972,7 @@ def diagramize(dom, cod, boxes, factory=None):
 
     Example
     -------
-    >>> from discopy import Ty, Cup, Cap
+    >>> from discopy.rigid import Ty, Cup, Cap
     >>> x = Ty('x')
     >>> cup, cap = Cup(x, x.r), Cap(x.r, x)
     >>> @diagramize(dom=x, cod=x, boxes=[cup, cap])
@@ -998,7 +994,7 @@ def diagramize(dom, cod, boxes, factory=None):
         import networkx as nx
         from discopy import messages
         from discopy.cat import AxiomError
-        from discopy.cartesian import tuplify, untuplify
+        from discopy.python import tuplify, untuplify
         graph, box_nodes = nx.Graph(), []
 
         def apply(box, *inputs, offset=None):
@@ -1021,7 +1017,7 @@ def diagramize(dom, cod, boxes, factory=None):
             for i, obj in enumerate(box.cod.inside):
                 cod_node = Node("cod", obj=obj, i=i, depth=depth)
                 outputs.append(cod_node)
-            return untuplify(*outputs)
+            return untuplify(outputs)
         for box in boxes:
             box._apply = apply
         inputs = []

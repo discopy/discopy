@@ -59,7 +59,7 @@ def test_PRO_str():
 
 def test_PRO_getitem():
     assert PRO(42)[2: 4] == PRO(2)
-    assert all(PRO(42).inside[i].name == "" for i in range(42))
+    assert all(PRO(42)[i] == PRO(1) for i in range(42))
 
 
 def test_Diagram_init():

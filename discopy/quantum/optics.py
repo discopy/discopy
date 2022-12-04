@@ -37,7 +37,7 @@ from math import factorial
 import numpy as np
 
 from discopy import cat, messages, monoidal
-from discopy.cat import factory
+from discopy.cat import factory, Category
 from discopy.matrix import Matrix
 from discopy.monoidal import PRO
 from discopy.quantum.gates import format_number
@@ -96,8 +96,7 @@ class Diagram(monoidal.Diagram):
     >>> BS >> BS
     optics.Diagram(dom=PRO(2), cod=PRO(2), boxes=[BS, BS], offsets=[0, 0])
     """
-    def __repr__(self):
-        return super().__repr__().replace('Diagram', 'optics.Diagram')
+    ty_factory = PRO
 
     @property
     def array(self):
@@ -341,28 +340,16 @@ class Diagram(monoidal.Diagram):
         return self.indist_prob(x, y) / (1 - sum(p_total))
 
 
-class Box(Diagram, monoidal.Box):
+class Box(monoidal.Box, Diagram):
     """
     Box in an :py:class:`.optics.Diagram`.
     """
-    def __init__(self, name, dom, cod, **params):
-        if not isinstance(dom, PRO):
-            raise TypeError(messages.type_err(PRO, dom))
-        if not isinstance(cod, PRO):
-            raise TypeError(messages.type_err(PRO, cod))
-        monoidal.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
-
-    def __repr__(self):
-        return super().__repr__().replace('Box', 'optics.Box')
 
 
 class PathBox(Box):
     """
     Box in Path category, see https://arxiv.org/abs/2204.12985.
     """
-    def __repr__(self):
-        return super().__repr__().replace('Box', 'PathBox')
 
 
 class Monoid(PathBox):
@@ -386,7 +373,7 @@ class Monoid(PathBox):
 
     @property
     def matrix(self):
-        return Matrix(self.dom, self.cod, [1, 1])
+        return Matrix[complex]([1, 1], 2, 1)
 
 
 class Comonoid(PathBox):
@@ -410,7 +397,7 @@ class Comonoid(PathBox):
 
     @property
     def matrix(self):
-        return Matrix(self.dom, self.cod, [1, 1])
+        return Matrix[complex]([1, 1], 1, 2)
 
 
 class Unit(PathBox):
@@ -433,7 +420,7 @@ class Unit(PathBox):
 
     @property
     def matrix(self):
-        return Matrix(self.dom, self.cod, [])
+        return Matrix[complex].id()
 
 
 class Counit(PathBox):
@@ -456,7 +443,7 @@ class Counit(PathBox):
 
     @property
     def matrix(self):
-        return Matrix(self.dom, self.cod, [])
+        return Matrix[complex].id()
 
 
 class Create(PathBox):
@@ -541,36 +528,7 @@ class Endo(PathBox):
 
     @property
     def matrix(self):
-        return Matrix(self.dom, self.cod, [self.scalar])
-
-
-# TODO : fix optics.Diagram
-# #: Alias for :py:class:`Monoid() <discopy.quantum.optics.Monoid>`.
-# monoid = Monoid()
-# #: Alias for :py:class:`Monoid() <discopy.quantum.optics.Comonoid>`.
-# comonoid = Comonoid()
-# #: Alias for :py:class:`Unit() <discopy.quantum.optics.Unit>`.
-# unit = Unit()
-# #: Alias for :py:class:`Counit() <discopy.quantum.optics.Counit>`.
-# counit = Counit()
-# #: Alias for :py:class:`Create() <discopy.quantum.optics.Create>`.
-# create = Create()
-# #: Alias for :py:class:`Annil() <discopy.quantum.optics.Annil>`.
-# annil = Annil()
-
-
-class Id(Diagram):
-    """
-    Identity for :py:class:`.optics.Diagram`.
-    """
-    def __init__(self, dom=PRO()):
-        if isinstance(dom, int):
-            dom = PRO(dom)
-        monoidal.Id.__init__(self, dom)
-        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
-
-
-Diagram.id = Id
+        return Matrix[complex](self.dom.n, self.cod.n, [self.scalar])
 
 
 class Phase(Box):
@@ -601,7 +559,7 @@ class Phase(Box):
         import sympy
         backend = sympy if hasattr(self.phi, 'free_symbols') else np
         array = backend.exp(1j * 2 * backend.pi * self.phi)
-        return Matrix(self.dom, self.cod, array)
+        return Matrix[complex](array, self.dom.n, self.cod.n)
 
     def dagger(self):
         return Phase(-self.phi)
@@ -655,7 +613,7 @@ class BBS(Box):
         sin = np.sin((0.25 + self.bias) * np.pi)
         cos = np.cos((0.25 + self.bias) * np.pi)
         array = [sin, 1j * cos, 1j * cos, sin]
-        return Matrix(self.dom, self.cod, array)
+        return Matrix[complex](array, self.dom.n, self.cod.n)
 
     def dagger(self):
         return BBS(0.5 - self.bias)
@@ -689,9 +647,9 @@ class TBS(Box):
     ...         np.conjugate(TBS(0.25).global_phase))
     """
     def __init__(self, theta, is_dagger=False):
-        self.theta, self.is_dagger = theta, _dagger
+        self.theta, self.is_dagger = theta, is_dagger
         name = 'TBS({})'.format(theta)
-        super().__init__(name, PRO(2), PRO(2), is_dagger=_dagger)
+        super().__init__(name, PRO(2), PRO(2), is_dagger=is_dagger)
 
     @property
     def global_phase(self):
@@ -705,7 +663,7 @@ class TBS(Box):
         sin = np.sin(self.theta * np.pi)
         cos = np.cos(self.theta * np.pi)
         array = [sin, cos, cos, -sin]
-        return Matrix(self.dom, self.cod, array)
+        return Matrix[complex](array, self.dom.n, self.cod.n)
 
     def dagger(self):
         return TBS(self.theta, is_dagger=True)
@@ -741,8 +699,8 @@ class MZI(Box):
     ...                    Id(2).array)
     """
     def __init__(self, theta, phi, is_dagger=False):
-        self.theta, self.phi, self.is_dagger = theta, phi, _dagger
-        super().__init__('MZI', PRO(2), PRO(2), is_dagger=_dagger)
+        self.theta, self.phi, self.is_dagger = theta, phi, is_dagger
+        super().__init__('MZI', PRO(2), PRO(2), is_dagger=is_dagger)
 
     @property
     def global_phase(self):
@@ -759,7 +717,7 @@ class MZI(Box):
         sin = backend.sin(backend.pi * self.theta)
         exp = backend.exp(1j * 2 * backend.pi * self.phi)
         array = np.array([exp * sin, cos, exp * cos, -sin])
-        matrix = Matrix(self.dom, self.cod, array)
+        matrix = Matrix[complex](array, self.dom.n, self.cod.n)
         matrix = matrix.dagger() if self.is_dagger else matrix
         return matrix
 
@@ -769,8 +727,7 @@ class MZI(Box):
 
 class Functor(monoidal.Functor):
     """ Can be used for catching lions """
-    def __init__(self, ob, ar):
-        super().__init__(ob, ar, ob_factory=PRO, ar_factory=Diagram)
+    dom = cod = Category(PRO, Diagram)
 
 
 def params_shape(width, depth):
@@ -826,15 +783,10 @@ def ansatz(width, depth, x):
     return chip
 
 
-# TODO : fix optics.Diagram
-# #: Alias for :py:class:`BBS(0) <discopy.quantum.optics.BBS>`.
-# BS = BBS(0)
-
-
 def to_matrix(diagram):
-    return monoidal.Functor(
-        ob=lambda x: x, ar=lambda x: x.matrix,
-        ob_factory=PRO, ar_factory=Matrix)(diagram)
+    return Functor(
+        ob=lambda _: 1, ar=lambda x: x.matrix,
+        cod=Category(int, Matrix[complex]))(diagram)
 
 
 def ar_optics2path(box):
@@ -863,10 +815,6 @@ def ar_optics2path(box):
         w1, w2 = comonoid, monoid
         return w1 @ w1 >> array.permute(2, 1) >> w2 @ w2
     raise NotImplementedError
-
-
-# TODO : fix optics.Diagram
-# optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
 
 
 def ar_zx2path(box):
@@ -916,11 +864,11 @@ def ar_zx2path(box):
 
 
 # TODO : fix optics.Diagram
-# zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
+zx2path = Functor(ob=lambda x: x @ x, ar=ar_zx2path)
 
 
 def swap_right(diagram, i):
-    left, box, right = diagram.layers[i]
+    left, box, right = diagram.inside[i]
     if box.dom:
         raise ValueError(f"{box} is not a state.")
 
@@ -1024,9 +972,6 @@ def ar_make_square(box):
     return box
 
 
-# TODO
-# make_square = Functor(ob=lambda x: x, ar=ar_make_square)
-
 def make_spiders(cls, n_legs_in, n_legs_out, phase=0):
     """
     Construct spider using the generators of the Frobenius algebra.
@@ -1086,4 +1031,23 @@ def decomp_ar(box):
     return box
 
 
-# decomp = Functor(ob=lambda x: x, ar=decomp_ar)
+#: Alias for :py:class:`Monoid() <discopy.quantum.optics.Monoid>`.
+monoid = Monoid()
+#: Alias for :py:class:`Monoid() <discopy.quantum.optics.Comonoid>`.
+comonoid = Comonoid()
+#: Alias for :py:class:`Unit() <discopy.quantum.optics.Unit>`.
+unit = Unit()
+#: Alias for :py:class:`Counit() <discopy.quantum.optics.Counit>`.
+counit = Counit()
+#: Alias for :py:class:`Create() <discopy.quantum.optics.Create>`.
+create = Create()
+#: Alias for :py:class:`Annil() <discopy.quantum.optics.Annil>`.
+annil = Annil()
+
+#: Alias for :py:class:`BBS(0) <discopy.quantum.optics.BBS>`.
+BS = BBS(0)
+optics2path = Functor(ob=lambda x: x, ar=ar_optics2path)
+make_square = Functor(ob=lambda x: x, ar=ar_make_square)
+decomp = Functor(ob=lambda x: x, ar=decomp_ar)
+
+Id = Diagram.id

@@ -3,7 +3,7 @@ from pytest import raises
 from discopy import messages
 from discopy.utils import from_tree
 from discopy.rigid import Id, Cup, Cap, Ty, Box
-from discopy.grammar import *
+from discopy.grammar.pregroup import *
 
 
 def test_Word():
@@ -53,10 +53,10 @@ def test_normal_form():
     diagram = w1 @ w2 >>\
         Id(n) @ Cap(n, n.l) @ Id(n) >> Id(n @ n) @ Cup(n.l, n)
     expected_result = w1 @ w2
-    assert expected_result == normal_form(diagram)
+    assert expected_result == diagram.normal_form()
 
     with raises(ValueError) as err:
-        normal_form(w2 >> w1 @ Id(n))
+        (w2 >> w1 @ Id(n)).normal_form()
 
 
 def test_pregroup_draw_errors():

@@ -4,12 +4,15 @@
 DisCoPy quantum modules: channel, circuit, gates, tk and zx.
 """
 
-from discopy.quantum import circuit, gates, channel  #, ansatze, optics, zx
+from discopy.quantum import circuit, gates, channel, ansatze, optics, zx
+
 from discopy.quantum.channel import C, Q, CQ, Channel
+
 from discopy.quantum.circuit import (
-    bit, qubit, Digit, Qudit, Circuit, Id, Box, Sum, Swap,
+    bit, qubit, Ty, Digit, Qudit, Circuit, Id, Box, Sum, Swap,
     Functor as CircuitFunctor,
 )
+
 from discopy.quantum.gates import (
     Discard, MixedState, Measure, Encode,
     SWAP, ClassicalGate, QuantumGate,
@@ -17,7 +20,7 @@ from discopy.quantum.gates import (
     Rx, Ry, Rz, CU1, CRz, CRx, CZ, CX,
     X, Y, Z, H, S, T, scalar, sqrt, rewire,
 )
+
 from discopy.quantum.ansatze import (
-    IQPansatz, Sim14ansatz, Sim15ansatz,
-    random_tiling, real_amp_ansatz,
+    IQPansatz, Sim14ansatz, Sim15ansatz, random_tiling, real_amp_ansatz,
 )

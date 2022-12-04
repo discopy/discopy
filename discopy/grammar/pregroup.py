@@ -11,6 +11,11 @@ Summary
     :nosignatures:
     :toctree:
 
+    Diagram
+    Box
+    Cup
+    Cap
+    Swap
     Word
 
 .. admonition:: Functions
@@ -22,35 +27,94 @@ Summary
 
         eager_parse
         brute_force
-        normal_form
         draw
-
-
-Example
--------
->>> s, n = Ty('s'), Ty('n')
->>> Alice, Bob = Word('Alice', n), Word('Bob', n)
->>> loves = Word('loves', n.r @ s @ n.l)
->>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
->>> sentence = grammar << Alice @ loves @ Bob
->>> draw(sentence, figsize=(4, 2),\\
-...      path='docs/imgs/grammar/pregroup-example.png')
-
-.. image:: /imgs/grammar/pregroup-example.png
-    :align: center
-
->>> from discopy import tensor, rigid
->>> ob = {s: 1, n: 2}
->>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
->>> F = tensor.Functor(ob, ar, dom=rigid.Category(), dtype=bool)
->>> assert F(sentence)
 """
 
-from discopy import messages, drawing, monoidal
+from discopy import messages, drawing, monoidal, rigid, symmetric
+from discopy.cat import factory
 from discopy.grammar import categorial
-from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap
-from discopy.compact import Swap
+from discopy.rigid import Ty
 from discopy.utils import assert_isinstance
+
+
+@factory
+class Diagram(rigid.Diagram):
+    """
+    A pregroup diagram is a rigid diagram with :class:`Word` boxes.
+
+    Parameters:
+        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        dom (rigid.Ty) : The domain of the diagram, i.e. its input.
+        cod (rigid.Ty) : The codomain of the diagram, i.e. its output.
+
+    Example
+    -------
+    >>> s, n = Ty('s'), Ty('n')
+    >>> Alice, Bob = Word('Alice', n), Word('Bob', n)
+    >>> loves = Word('loves', n.r @ s @ n.l)
+    >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    >>> sentence = grammar << Alice @ loves @ Bob
+    >>> draw(sentence, figsize=(4, 2),
+    ...      path='docs/imgs/grammar/pregroup-example.png')
+
+    .. image:: /imgs/grammar/pregroup-example.png
+        :align: center
+
+    >>> from discopy import tensor, rigid
+    >>> ob = {s: 1, n: 2}
+    >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
+    >>> F = tensor.Functor(ob, ar, dom=rigid.Category(), dtype=bool)
+    >>> assert F(sentence)
+    """
+    def normal_form(diagram, **params):
+        """
+        Applies normal form to a pregroup diagram of the form
+        ``word @ ... @ word >> wires`` by normalising words and wires
+        seperately before combining them, so it can be drawn with :meth:`draw`.
+        """
+        words, is_pregroup = Id(Ty()), True
+        for _, box, right in diagram.inside:
+            if isinstance(box, Word):
+                if right:  # word boxes should be tensored left to right.
+                    is_pregroup = False
+                    break
+                words = words @ box
+            else:
+                break
+
+        wires = diagram[len(words):]
+        is_pregroup = is_pregroup and all(
+            isinstance(box, (Cup, Cap, Swap)) for box in wires.boxes)
+        if not is_pregroup:
+            raise ValueError(messages.NOT_PREGROUP)
+
+        return rigid.Diagram.normal_form(words)\
+            >> rigid.Diagram.normal_form(wires)
+
+
+class Box(rigid.Box, Diagram):
+    """
+    A pregroup box is a rigid box in a pregroup diagram.
+    """
+
+
+class Cup(rigid.Cup, Box):
+    """
+    A pregroup cup is a rigid cup in a pregroup diagram.
+    """
+
+
+class Cap(rigid.Cap, Box):
+    """
+    A pregroup cap is a rigid cap in a pregroup diagram.
+    """
+
+
+class Swap(symmetric.Swap, Box):
+    """
+    A pregroup swap is a symmetric swap in a pregroup diagram.
+    """
+    z = 0
 
 
 class Word(categorial.Word, Box):
@@ -85,35 +149,6 @@ def eager_parse(*words, target=Ty('s')):
             return result
         if fail:
             raise NotImplementedError
-
-
-def normal_form(diagram, normalizer=None, **params):
-    """
-    Applies normal form to a pregroup diagram of the form
-    `word @ ... @ word >> cups` by normalising the words and the sentences
-    seperately before combining them, so it can be drawn using `grammar.draw`.
-    """
-    words, is_pregroup = Id(Ty()), True
-    for _, box, right in diagram.inside:
-        if isinstance(box, Word):
-            if right:  # word boxes should be tensored left to right.
-                is_pregroup = False
-                break
-            words = words @ box
-        else:
-            break
-
-    wires = diagram[len(words):]
-    is_pregroup = is_pregroup and all(
-        isinstance(box, Cup) or isinstance(box, Swap) or isinstance(box, Cap)
-        for box in wires.boxes)
-    if not is_pregroup:
-        raise ValueError(messages.NOT_PREGROUP)
-
-    norm = lambda d: monoidal.Diagram.normal_form(
-        d, normalizer=normalizer or Diagram.normalize, **params)
-
-    return norm(words) >> norm(wires)
 
 
 def brute_force(*vocab, target=Ty('s')):
@@ -185,3 +220,9 @@ def draw(diagram, **params):
         raise ValueError(messages.NOT_PREGROUP)
     drawing.pregroup_draw(
         words, [layer.drawing() for layer in layers], has_swaps, **params)
+
+
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.braid_factory, Diagram.draw = Swap, draw
+
+Id = Diagram.id

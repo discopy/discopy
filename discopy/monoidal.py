@@ -198,7 +198,7 @@ class Ty(cat.Ob):
 @factory
 class PRO(Ty):
     """
-    A PRO is a natural number ``n`` seen as a type with unnamed objects.
+    A PRO is a natural number ``n`` seen as a type with addition as tensor.
 
     Parameters
     ----------
@@ -208,7 +208,6 @@ class PRO(Ty):
     Example
     -------
     >>> assert PRO(1) @ PRO(2) == PRO(3)
-    >>> assert PRO(42).inside == 42 * (Ob(), )
 
     Note
     ----
@@ -229,7 +228,7 @@ class PRO(Ty):
 
     @property
     def inside(self):
-        return self.n * (Ob(), )
+        return self.n * (1, )
 
     def tensor(self, *others: PRO) -> PRO:
         for other in others:
@@ -248,10 +247,10 @@ class PRO(Ty):
         return self.n
 
     def __repr__(self):
-        return factory_name(type(self)) + "({})".format(len(self))
+        return factory_name(type(self)) + f"({self.n})"
 
     def __str__(self):
-        return f"PRO({str(self.n)})"
+        return f"PRO({self.n})"
 
     def __eq__(self, other):
         return isinstance(other, self.factory) and self.n == other.n
@@ -593,8 +592,8 @@ class Diagram(cat.Arrow, Whiskerable):
 
     def drawing(self):
         """ Called before :meth:`Diagram.draw`. """
-        ob, ar = Ty.drawing, Layer.drawing
-        return cat.Functor(ob, ar, cod=Category())(self)
+        return cat.Functor(
+            ob=lambda x: x.drawing(), ar=Layer.drawing, cod=Category())(self)
 
     def foliation(self):
         """
@@ -952,6 +951,8 @@ class Functor(cat.Functor):
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
+        if isinstance(other, PRO):
+            return sum(other.n * [self(other.factory(1))], self.cod.ob())
         if isinstance(other, Ty):
             return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):

@@ -274,7 +274,7 @@ def coherence(cls: type, factory: Callable
 
     Example
     -------
-    >>> print(Spider(2, 2, Ty('x'), phase=.5).unfuse())
+    >>> print(Spider(2, 2, Ty('x'), 0.5).unfuse())
     Spider(2, 1, x) >> Spider(1, 1, x, 0.5) >> Spider(1, 2, x)
     """
     def method(a, b, x, phase=None):
