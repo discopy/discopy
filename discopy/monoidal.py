@@ -46,7 +46,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-.. image:: /imgs/EckmannHilton.gif
+.. image:: /imgs/monoidal/EckmannHilton.gif
     :align: center
 """
 

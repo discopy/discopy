@@ -21,14 +21,13 @@ via the dual-rail encoding.
 Example
 -------
 
->>> from discopy.quantum.optics import zx2path
 >>> from discopy.quantum.zx import Z
 >>> from discopy import drawing
->>> drawing.equation(Z(2, 1), zx2path(Z(2, 1)), symbol='->',
+>>> drawing.equation(Z(2, 1), zx2path(Z(2, 1)), symbol='$\\mapsto$',
 ...                  draw_type_labels=False, figsize=(6, 4),
-...                  path='docs/imgs/optics-fusion.png')
+...                  path='docs/imgs/optics/fusion.png')
 
-.. image:: /imgs/optics-fusion.png
+.. image:: /imgs/optics/fusion.png
     :align: center
 """
 
@@ -1040,7 +1039,7 @@ def make_spiders(cls, n_legs_in, n_legs_out, phase=0):
     >>> equation(orig, decomp, symbol='->',
     ...     path='docs/imgs/spider-decomp.png')
 
-    .. image:: /imgs/spider-decomp.png
+    .. image:: /imgs/optics/spider-decomp.png
         :align: center
 
     """

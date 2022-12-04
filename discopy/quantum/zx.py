@@ -21,7 +21,9 @@ Summary
     Scalar
 """
 
-from discopy import messages, cat, rigid, frobenius, quantum
+from math import pi
+
+from discopy import messages, cat, rigid, tensor, quantum
 from discopy.cat import factory
 from discopy.rigid import Sum, PRO
 from discopy.frobenius import Functor, Category
@@ -29,11 +31,11 @@ from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
-from math import pi
+from discopy.utils import factory_name
 
 
 @factory
-class Diagram(frobenius.Diagram):
+class Diagram(tensor.Diagram):
     """ ZX Diagram. """
     ty_factory = PRO
 
@@ -41,12 +43,12 @@ class Diagram(frobenius.Diagram):
     def swap(left, right):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
-        return frobenius.Diagram.swap.__func__(Diagram, left, right)
+        return tensor.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
     def permutation(perm, dom=None):
         dom = PRO(len(perm)) if dom is None else dom
-        return frobenius.Diagram.permutation.__func__(Diagram, perm, dom)
+        return tensor.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
     def cup_factory(left, right):
@@ -222,7 +224,7 @@ class Diagram(frobenius.Diagram):
         return diagram
 
 
-class Box(frobenius.Box, Diagram):
+class Box(tensor.Box, Diagram):
     """
     A ZX box is a tensor box in a ZX diagram.
 
@@ -231,10 +233,22 @@ class Box(frobenius.Box, Diagram):
         dom (rigid.PRO) : The domain of the box, i.e. its input.
         cod (rigid.PRO) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (frobenius.Box, )
+    __ambiguous_inheritance__ = (tensor.Box, )
 
 
-class Swap(frobenius.Swap, Box):
+class Sum(tensor.Sum, Box):
+    """
+    A formal sum of ZX diagrams with the same domain and codomain.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Dim) : The domain of the formal sum.
+        cod (Dim) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (tensor.Sum, )
+
+
+class Swap(tensor.Swap, Box):
     """ Swap in a ZX diagram. """
     def __repr__(self):
         return "SWAP"
@@ -242,15 +256,16 @@ class Swap(frobenius.Swap, Box):
     __str__ = __repr__
 
 
-class Spider(frobenius.Spider, Box):
+class Spider(tensor.Spider, Box):
     """ Abstract spider box. """
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, PRO(1), phase)
-
-    def __str__(self):
         factory_str = type(self).__name__
         phase_str = f", {self.phase}" if self.phase else ""
-        return f"{factory_str}({len(self.dom)}, {len(self.cod)}{phase_str})"
+        self.name = f"{factory_str}({n_legs_in}, {n_legs_out}{phase_str})"
+
+    def __repr__(self):
+        return str(self).replace(type(self).__name__, factory_name(type(self)))
 
     def subs(self, *args):
         phase = cat.rsubs(self.phase, *args)
@@ -365,5 +380,5 @@ H.drawing_name, H.tikzstyle_name, = '', 'H'
 H.color, H.shape = "yellow", "rectangle"
 
 SWAP = Swap(PRO(1), PRO(1))
-Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
+Diagram.braid_factory, Diagram.sum_factory = Swap, Sum
 Id = Diagram.id
