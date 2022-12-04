@@ -42,7 +42,6 @@ from discopy.cat import factory
 from discopy.matrix import Matrix
 from discopy.monoidal import PRO
 from discopy.quantum.gates import format_number
-from discopy.rewriting import InterchangerError
 
 
 def occupation_numbers(n_photons, m_modes):
@@ -942,7 +941,7 @@ def drag_out(diagram, i):
         try:
             diagram = diagram.interchange(i - 1, i)
             i -= 1
-        except InterchangerError:
+        except AxiomError:
             diagram = swap_right(diagram, i)
     return diagram
 

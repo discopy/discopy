@@ -381,18 +381,18 @@ class Layer(cat.Box):
         >>> layer1 = Layer(e @ b @ e,  g,  e)
         >>> assert layer0.merge(layer1) == Layer(e, f, e, g, e)
 
-        >>> x = Ty('x')
-        >>> unit, counit = Box("unit", Ty(), x), Box("counit", x, Ty())
-        >>> cup, cap = Box("cup", x @ x, Ty()), Box("cap", Ty(), x @ x)
-        >>> d = unit >> cap @ x >> x @ cap @ x @ x\\
-        ...     >> x @ x @ counit @ x @ x >> x @ cup @ x >> cup
-        >>> d.inside[0].merge(d.inside[1])
+        Note
+        ----
+        If the second layer contains a state, i.e. with no input wires, then
+        we may have a choice of how to merge. This is not implemented yet.
         """
         assert_iscomposable(self, other)
         scan, boxes_or_types = 0, []
         for box, offset in sorted(
                 self.boxes_and_offsets + other.boxes_and_offsets,
                 key=lambda x: x[1]):
+            if not box.dom:
+                raise NotImplementedError
             if scan > offset:
                 raise cat.AxiomError(
                     messages.NOT_MERGEABLE.format(self, other))
