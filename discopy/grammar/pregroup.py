@@ -46,7 +46,7 @@ Example
 >>> assert F(sentence)
 """
 
-from discopy import messages, drawing, rewriting, monoidal
+from discopy import messages, drawing, monoidal
 from discopy.grammar import categorial
 from discopy.rigid import Ty, Box, Diagram, Id, Cup, Cap
 from discopy.compact import Swap
@@ -114,9 +114,6 @@ def normal_form(diagram, normalizer=None, **params):
         d, normalizer=normalizer or Diagram.normalize, **params)
 
     return norm(words) >> norm(wires)
-
-
-normalize = rewriting.snake_removal
 
 
 def brute_force(*vocab, target=Ty('s')):

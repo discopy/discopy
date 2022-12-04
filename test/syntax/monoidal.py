@@ -3,7 +3,6 @@
 from pytest import raises
 from discopy.cat import *
 from discopy.monoidal import *
-from discopy.rewriting import *
 
 
 def test_Ty():
@@ -156,9 +155,9 @@ def test_Diagram_interchange():
     d = f0 @ Id(y) >> f1 @ f1 >> Id(x) @ f0
     with raises(IndexError):
         d.interchange(42, 43)
-    with raises(InterchangerError) as err:
+    with raises(AxiomError) as err:
         d.interchange(0, 2)
-    assert str(err.value) == str(InterchangerError(f0, f1))
+    assert str(err.value) == messages.INTERCHANGER_ERROR.format(f0, f1)
     assert d.interchange(2, 0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
 
 
@@ -194,9 +193,9 @@ def test_AxiomError():
 def test_InterchangerError():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f, g = Box('f', x, y), Box('g', y, z)
-    with raises(InterchangerError) as err:
+    with raises(AxiomError) as err:
         (f >> g).interchange(0, 1)
-    assert str(err.value) == str(InterchangerError(f, g))
+    assert str(err.value) == messages.INTERCHANGER_ERROR.format(f, g)
 
 
 def spiral(n_cups, _type=Ty('x')):

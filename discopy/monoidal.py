@@ -51,11 +51,14 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 """
 
 from __future__ import annotations
+
+import itertools
+from typing import Iterator
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
-from discopy import cat, drawing, rewriting, messages
-from discopy.cat import factory, Ob, assert_iscomposable
+from discopy import cat, drawing, messages
+from discopy.cat import factory, Ob, AxiomError, assert_iscomposable
 from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree, assert_isinstance
 
@@ -593,6 +596,177 @@ class Diagram(cat.Arrow, Whiskerable):
         ob, ar = Ty.drawing, Layer.drawing
         return cat.Functor(ob, ar, cod=Category())(self)
 
+    def foliation(self):
+        """
+        Merges layers together to reduce the length of a diagram.
+
+        Example
+        -------
+        >>> from discopy.monoidal import *
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> diagram = f0 @ Id(y) >> f0.dagger() @ f1
+        >>> print(diagram)
+        f0 @ y >> f0[::-1] @ y >> x @ f1
+        >>> print(diagram.foliation())
+        f0 @ y >> f0[::-1] @ f1
+
+        Note
+        ----
+        If one defines a foliation as a sequence of unmergeable layers, there
+        may exist many distinct foliations for the same diagram. This method
+        scans top to bottom and merges layers eagerly.
+        """
+        while len(self) > 1:
+            keep_on_going = False
+            for i, (first, second) in enumerate(zip(
+                    self.inside, self.inside[1:])):
+                try:
+                    inside = self.inside[:i] + (first.merge(second), )\
+                        + self.inside[i + 2:]
+                    self = self.factory(inside, self.dom, self.cod)
+                    keep_on_going = True
+                    break
+                except cat.AxiomError:
+                    continue
+            if not keep_on_going:
+                break
+        return self
+
+    def depth(self):
+        """
+        Computes (an upper bound to) the depth of a diagram by foliating it.
+
+        Example
+        -------
+        >>> from discopy.monoidal import *
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f, g = Box('f', x, y), Box('g', y, x)
+        >>> assert Id(x @ y).depth() == 0
+        >>> assert f.depth() == 1
+        >>> assert (f @ g).depth() == 1
+        >>> assert (f >> g).depth() == 2
+
+        Note
+        ----
+        The depth of a diagram is the minimum length over all its foliations,
+        this method just returns the length of :meth:`Diagram.foliation`.
+        """
+        return len(self.foliation())
+
+    def interchange(self, i: int, j: int, left=False) -> Diagram:
+        """
+        Interchange a box from layer ``i`` to layer ``j``.
+
+        Parameters:
+            i : Index of the box to interchange.
+            j : Index of the new position for the box.
+            left : Whether to apply left interchangers.
+
+        Note
+        ----
+        By default, we apply right interchangers::
+
+            top >> left @ box1.dom @ mid @ box0     @ right\\
+                >> left @ box1     @ mid @ box0.cod @ right >> bottom
+
+        gets rewritten to::
+
+            top >> left @ box1 @     mid @ box0.dom @ right\\
+                >> left @ box1.cod @ mid @ box0 @     right >> bottom
+        """
+        if any(len(list(layer)) != 3 for layer in self.inside):
+            raise NotImplementedError
+        if not 0 <= i < len(self) or not 0 <= j < len(self):
+            raise IndexError
+        if i == j:
+            return self
+        if j < i - 1:
+            result = self
+            for k in range(i - j):
+                result = result.interchange(i - k, i - k - 1, left=left)
+            return result
+        if j > i + 1:
+            result = self
+            for k in range(j - i):
+                result = result.interchange(i + k, i + k + 1, left=left)
+            return result
+        if j < i:
+            i, j = j, i
+        off0, off1 = self.offsets[i], self.offsets[j]
+        left0, box0, right0 = self.inside[i]
+        left1, box1, right1 = self.inside[j]
+        # By default, we check if box0 is to the right first, then to the left.
+        if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = left0 @ box0 @ middle @ box1.cod @ right1
+            layer1 = left0 @ box0.dom @ middle @ box1 @ right1
+        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
+            off0 = off0 - len(box1.dom) + len(box1.cod)
+            middle = left0[len(left1 @ box1.dom):]
+            layer0 = left1 @ box1.cod @ middle @ box0 @ right0
+            layer1 = left1 @ box1 @ middle @ box0.dom @ right0
+        elif off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = left0 @ box0 @ middle @ box1.cod @ right1
+            layer1 = left0 @ box0.dom @ middle @ box1 @ right1
+        else:
+            raise AxiomError(messages.INTERCHANGER_ERROR.format(box0, box1))
+        return self[:i] >> layer1 >> layer0 >> self[i + 2:]
+
+    def normalize(self, left=False) -> Iterator[Diagram]:
+        """
+        Implements normalisation of boundary-connected diagrams,
+        see arXiv:1804.07832.
+
+        Parameters:
+            left : Passed to :meth:`Diagram.interchange`.
+
+        Example
+        -------
+        >>> from discopy.monoidal import *
+        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+        >>> gen = (s0 @ s1).normalize()
+        >>> for _ in range(3): print(next(gen))
+        s1 >> s0
+        s0 >> s1
+        s1 >> s0
+        """
+        diagram = self
+        while True:
+            no_more_moves = True
+            for i in range(len(diagram) - 1):
+                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
+                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
+                if left and off1 >= off0 + len(box0.cod)\
+                        or not left and off0 >= off1 + len(box1.dom):
+                    diagram = diagram.interchange(i, i + 1, left=left)
+                    yield diagram
+                    no_more_moves = False
+            if no_more_moves:
+                break
+
+    def normal_form(self, **params) -> Diagram:
+        """
+        Returns the normal form of a diagram.
+
+        params : Passed to :meth:`Diagram.normalize`.
+
+        Raises
+        ------
+        NotImplementedError
+            Whenever ``normalize`` yields the same rewrite steps twice, e.g.
+            the diagram is not boundary-connected.
+        """
+        cache = set()
+        for diagram in itertools.chain([self], self.normalize(**params)):
+            if diagram in cache:
+                raise NotImplementedError(messages.NOT_CONNECTED.format(self))
+            cache.add(diagram)
+        return diagram
+
 
 class Box(cat.Box, Diagram):
     """
@@ -805,11 +979,6 @@ def assert_isatomic(typ: Ty, cls: type = None):
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
-Diagram.interchange = rewriting.interchange
-Diagram.normalize = rewriting.normalize
-Diagram.normal_form = rewriting.normal_form
-Diagram.foliation = rewriting.foliation
-Diagram.depth = rewriting.depth
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble

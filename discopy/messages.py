@@ -25,6 +25,7 @@ PROVIDE_CONTRACTOR = "Provide a contractor when using a non-numpy backend."
 BOX_IS_MIXED = "Pure boxes can have only digits or only qudits as dom and cod."
 LAYERS_MUST_BE_ODD = "Layers must have an odd number of boxes and types."
 NOT_MERGEABLE = "Layers {} and {} cannot be merged."
+INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 
 
 class WarnOnce:
