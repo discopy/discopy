@@ -140,12 +140,18 @@ class Functor(monoidal.Functor):
     Let's compute the golden ratio by applying a traced functor.
 
     >>> from math import sqrt
-    >>> from discopy import python
-    >>> x = Ty('x')
-    >>> f = Box('f', x, x @ x)
-    >>> F = Functor(ob={x: int}, ar={f: lambda x=1: (x, 1 + 1 / x)},
-    ...             cod=Category(python.Ty, python.Function))
-    >>> assert F(f.trace())() == (1 + sqrt(5)) / 2
+    >>> from discopy import python, drawing
+    >>> x = Ty('$\\\\mathbb{R}$')
+    >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
+    >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
+    >>> F = Functor(
+    ...     ob={x: int},
+    ...     ar={f: lambda x=1: (x, 1 + 1 / x), g: lambda: (1 + sqrt(5)) / 2},
+    ...     cod=Category(python.Ty, python.Function))
+    >>> assert F(f.trace())() == F(g)()
+    >>> drawing.equation(f.trace(), g, path="docs/imgs/traced/golden.png")
+
+    .. image:: /imgs/traced/golden.png
     """
     dom = cod = Category(Ty, Diagram)
 
