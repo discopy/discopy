@@ -56,8 +56,8 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, rigid
-from discopy.cat import factory
+from discopy import cat, rigid, traced, messages
+from discopy.cat import factory, AxiomError
 
 
 class Ob(rigid.Ob):
@@ -83,9 +83,9 @@ class Ty(rigid.Ty):
 
 
 @factory
-class Diagram(rigid.Diagram):
+class Diagram(rigid.Diagram, traced.Diagram):
     """
-    A pivotal diagram is a rigid diagram
+    A pivotal diagram is a rigid diagram and a traced diagram
     with pivotal types as domain and codomain.
 
     Parameters:
@@ -137,6 +137,37 @@ class Diagram(rigid.Diagram):
             :align: center
         """
         return self.rotate().dagger()
+
+    @classmethod
+    def trace_factory(cls, diagram, left=False):
+        """
+        The trace of a pivotal diagram is its pre- and post-composition with
+        cups and caps to form a feedback loop.
+
+        Parameters:
+            left : Whether to trace the wire on the left or right.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation as Eq
+        >>> x = Ty('x')
+        >>> f = Box('f', x @ x, x @ x)
+        >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
+        >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
+        ...     RHS, symbol="$\\\\mapsto$").draw(
+        ...         path="docs/imgs/pivotal/trace.png")
+
+        .. image:: /imgs/pivotal/trace.png
+        """
+        traced_wire = diagram.dom[:1] if left else diagram.dom[-1:]
+        dom, cod = (diagram.dom[1:], diagram.cod[1:]) if left\
+            else (diagram.dom[:-1], diagram.cod[:-1])
+        return cls.caps(traced_wire.r, traced_wire) @ dom\
+            >> traced_wire.r @ diagram\
+            >> cls.cups(traced_wire.r, traced_wire) @ cod if left\
+            else dom @ cls.caps(traced_wire, traced_wire.r)\
+                >> diagram @ traced_wire.r\
+                >> cod @ cls.cups(traced_wire, traced_wire.r)
 
 
 class Box(rigid.Box, Diagram):

@@ -12,6 +12,7 @@ NOT_COMPOSABLE = "{} does not compose with {}: {} != {}."
 NOT_PARALLEL = "Expected parallel arrows, got {} and {} instead."
 NOT_ATOMIC = "Expected {} of length 1, got length {} instead."
 NOT_CONNECTED = "{} is not boundary-connected."
+NOT_TRACEABLE = "Cannot trace {} with {}."
 NOT_ADJOINT = "{} and {} are not adjoints."
 NOT_RIGID_ADJOINT = "{} is not the left adjoint of {}, maybe you meant to use"\
                     " a pivotal type rather than a rigid one?"
