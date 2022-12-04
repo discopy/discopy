@@ -811,9 +811,8 @@ class Box(cat.Box, Diagram):
     def drawing(self) -> Box:
         dom, cod = self.dom.drawing(), self.cod.drawing()
         result = Box(self.name, dom, cod, is_dagger=self.is_dagger)
-        for attr, value in self.__dict__.items():
-            if attr in drawing.ATTRIBUTES:
-                setattr(result, attr, value)
+        for attr, default in drawing.ATTRIBUTES.items():
+            setattr(result, attr, getattr(self, attr, default(result)))
         return result
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
@@ -894,8 +893,8 @@ class Bubble(cat.Bubble, Box):
         obj = cat.Ob(self.drawing_name)
         obj.draw_as_box = True
         left, right = Ty(obj), Ty("")
-        _open = Box("_open", dom, left @ argdom @ right)
-        _close = Box("_close", left @ argcod @ right, cod)
+        _open = Box("_open", dom, left @ argdom @ right).drawing()
+        _close = Box("_close", left @ argcod @ right, cod).drawing()
         _open.draw_as_wires = _close.draw_as_wires = True
         # Wires can go straight only if types have the same length.
         _open.bubble_opening = len(dom) == len(argdom)

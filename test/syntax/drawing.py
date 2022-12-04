@@ -137,7 +137,7 @@ def test_draw_bell_state():
     return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 
 
-@draw_and_compare('bialgebra.png', draw=Sum.draw, aspect='equal')
+@draw_and_compare('bialgebra.png', draw=quantum.zx.Sum.draw, aspect='equal')
 def test_draw_bialgebra():
     from discopy.quantum.zx import Z, X, Id, SWAP
     bialgebra = Z(1, 2) @ Z(1, 2) >> Id(1) @ SWAP @ Id(1) >> X(2, 1) @ X(2, 1)
@@ -217,7 +217,7 @@ def test_tikz_bialgebra_law():
 
 @tikz_and_compare('bell-state.tikz', aspect='equal', use_tikzstyles=True)
 def test_tikz_bell_state():
-    from discopy.quantum import H, sqrt, Bra, Ket, Id, CX
+    from discopy.quantum import qubit, H, sqrt, Bra, Ket, Id, CX
     H.draw_as_spider, H.color, H.drawing_name = True, "yellow", ""
     return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 
@@ -238,7 +238,7 @@ def test_tikz_eggs():
 def test_Node_repr():
     from discopy.cat import Ob
     assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
-        == "Node('dom', depth=1, i=0, obj=Ob('x'))"
+        == "Node('dom', depth=1, i=0, obj=cat.Ob('x'))"
 
 
 def test_diagramize():

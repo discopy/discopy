@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """ Drawing module. """
 
-from discopy.drawing import Node, draw_box, add_drawing_attributes
+from discopy.drawing import Node, draw_box
 
 
 def draw_discard(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
     box, depth = node.box, node.depth
-    for i in range(box.n_qubits):
-        obj = box.dom[i]
+    for i in range(len(box.dom)):
+        obj = box.dom.inside[i]
         wire = Node("dom", obj=obj, depth=depth, i=i)
         middle = positions[wire]
         left, right = middle[0] - .25, middle[0] + .25
@@ -38,7 +38,7 @@ def draw_brakets(backend, positions, node, **params):
     is_bra = len(box.dom) > 0
     for i, bit in enumerate(box._digits):
         kind = "dom" if is_bra else "cod"
-        obj = box.dom[i] if is_bra else box.cod[i]
+        obj = box.dom.inside[i] if is_bra else box.cod.inside[i]
         wire = Node(kind, obj=obj, depth=depth, i=i)
         middle = positions[wire]
         left = middle[0] - .25, middle[1]
@@ -60,14 +60,14 @@ def draw_controlled_gate(backend, positions, node, **params):
     c_size = len(box.controlled.dom)
 
     index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
-    dom = Node("dom", obj=box.dom[0], i=index[0], depth=depth)
-    cod = Node("cod", obj=box.cod[0], i=index[0], depth=depth)
+    dom = Node("dom", obj=box.dom.inside[0], i=index[0], depth=depth)
+    cod = Node("cod", obj=box.cod.inside[0], i=index[0], depth=depth)
     middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
-    controlled_box = add_drawing_attributes(box.controlled.downgrade())
+    controlled_box = box.controlled.drawing()
     controlled = Node("box", box=controlled_box, depth=depth)
     # TODO select obj properly for classical gates
-    c_dom = Node("dom", obj=box.dom[0], i=index[1], depth=depth)
-    c_cod = Node("cod", obj=box.cod[0], i=index[1], depth=depth)
+    c_dom = Node("dom", obj=box.dom.inside[0], i=index[1], depth=depth)
+    c_cod = Node("cod", obj=box.cod.inside[0], i=index[1], depth=depth)
     c_middle =\
         positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
     target = (positions[c_dom][0] + (c_size - 1) / 2,
@@ -87,11 +87,11 @@ def draw_controlled_gate(backend, positions, node, **params):
     else:
         fake_positions = {controlled: target}
         for i in range(c_size):
-            dom_node = Node("dom", obj=box.dom[i], i=i, depth=depth)
+            dom_node = Node("dom", obj=box.dom.inside[i], i=i, depth=depth)
             x, y = positions[c_dom][0] + i, positions[c_dom][1]
             fake_positions[dom_node] = x, y
 
-            cod_node = Node("cod", obj=box.cod[i], i=i, depth=depth)
+            cod_node = Node("cod", obj=box.cod.inside[i], i=i, depth=depth)
             x, y = positions[c_cod][0] + i, positions[c_cod][1]
             fake_positions[cod_node] = x, y
 
@@ -126,8 +126,8 @@ def draw_controlled_gate(backend, positions, node, **params):
     # draw all the other vertical wires
     extra_offset = 1 if distance > 0 else len(box.controlled.dom)
     for i in range(extra_offset, extra_offset + abs(distance) - 1):
-        node1 = Node("dom", obj=box.dom[i], i=i, depth=depth)
-        node2 = Node("cod", obj=box.cod[i], i=i, depth=depth)
+        node1 = Node("dom", obj=box.dom.inside[i], i=i, depth=depth)
+        node2 = Node("cod", obj=box.cod.inside[i], i=i, depth=depth)
         backend.draw_wire(positions[node1], positions[node2])
 
     # TODO change bend_in and bend_out for tikz backend

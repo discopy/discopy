@@ -82,13 +82,15 @@ class SelfConjugate(Box):
 
 class Discard(SelfConjugate):
     """
-    Discard n qubits. If :code:`dom == bit` then marginal distribution. """
+    Discard n qubits. If :code:`dom == bit` then marginal distribution.
+    """
+    draw_as_discards = True
+
     def __init__(self, dom=1):
         if isinstance(dom, int):
             dom = qubit ** dom
         super().__init__(
             "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
-        self.draw_as_discards = True
         self.n_qubits = len(dom)
 
     def dagger(self):
@@ -103,6 +105,8 @@ class MixedState(SelfConjugate):
     Maximally-mixed state on n qubits.
     If :code:`cod == bit` then uniform distribution.
     """
+    draw_as_discards = True
+
     def __init__(self, cod=1):
         if isinstance(cod, int):
             cod = qubit ** cod
@@ -133,6 +137,8 @@ class Measure(SelfConjugate):
     override_bits : bool, optional
         Whether to override input bits, this is the standard behaviour of tket.
     """
+    draw_as_measures = True
+
     def __init__(self, n_qubits=1, destructive=True, override_bits=False):
         dom, cod = qubit ** n_qubits, bit ** n_qubits
         name = "Measure({})".format("" if n_qubits == 1 else n_qubits)
@@ -173,6 +179,8 @@ class Encode(SelfConjugate):
     reset_bits : bool, optional
         Whether to reset the bits to the uniform distribution.
     """
+    draw_as_measures = True
+
     def __init__(self, n_bits=1, constructive=True, reset_bits=False):
         dom, cod = bit ** n_bits, qubit ** n_bits
         name = Measure(n_bits, constructive, reset_bits).name\
@@ -248,6 +256,8 @@ class Digits(ClassicalGate):
     >>> assert Digits(2, dim=4).eval()\\
     ...     == Tensor(dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
     """
+    draw_as_brakets = True
+
     def __init__(self, *digits, dim=None, is_dagger=False):
         if not isinstance(dim, int):
             raise TypeError(int, dim)
@@ -285,6 +295,11 @@ class Digits(ClassicalGate):
     def dagger(self):
         return Digits(*self.digits, dim=self.dim, is_dagger=not self.is_dagger)
 
+    def drawing(self):
+        result = QuantumGate.drawing(self)
+        result.draw_as_brakets, result._digits = True, self._digits
+        return result
+
 
 class Bits(Digits):
     """
@@ -314,6 +329,9 @@ class Ket(SelfConjugate, QuantumGate):
     >>> assert Ket(1, 0).eval()\\
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
+    drawing = Digits.drawing
+    array = Digits.array
+
     def __init__(self, *bitstring):
         if not all([bit in [0, 1] for bit in bitstring]):
             raise Exception('Bitstring can only contain integers 0 or 1.')
@@ -334,8 +352,6 @@ class Ket(SelfConjugate, QuantumGate):
     def _decompose(self):
         return Id().tensor(*[Ket(b) for b in self.bitstring])
 
-    array = Bits.array
-
 
 class Bra(SelfConjugate, QuantumGate):
     """
@@ -345,6 +361,9 @@ class Bra(SelfConjugate, QuantumGate):
     >>> assert Bra(1, 0).eval()\\
     ...     == Tensor(dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
     """
+    drawing = Digits.drawing
+    array = Digits.array
+
     def __init__(self, *bitstring):
         if not all([bit in [0, 1] for bit in bitstring]):
             raise Exception('Bitstring can only contain integers 0 or 1.')
@@ -365,8 +384,6 @@ class Bra(SelfConjugate, QuantumGate):
     def _decompose(self):
         return Id().tensor(*[Bra(b) for b in self.bitstring])
 
-    array = Bits.array
-
 
 class Controlled(QuantumGate):
     """
@@ -380,6 +397,8 @@ class Controlled(QuantumGate):
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
     """
+    draw_as_controlled = True
+
     def __init__(self, controlled, distance=1):
         if not isinstance(controlled, QuantumGate):
             raise TypeError(QuantumGate, controlled)
@@ -474,6 +493,11 @@ class Controlled(QuantumGate):
             else:
                 array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)
+
+    def drawing(self):
+        result = super().drawing()
+        result.distance, result.controlled = self.distance, self.controlled
+        return result
 
 
 class Parametrized(Box):

@@ -20,6 +20,10 @@ ATTRIBUTES = {
     "draw_as_braid": lambda _: False,
     "draw_as_wires": lambda box: box.draw_as_braid,
     "draw_as_spider": lambda _: False,
+    "draw_as_brakets": lambda _: False,
+    "draw_as_discards": lambda _: False,
+    "draw_as_measures": lambda _: False,
+    "draw_as_controlled": lambda _: False,
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:
@@ -54,14 +58,6 @@ SHAPES = {
     "circle": 'o',
     "plus": '+',
 }
-
-
-def add_drawing_attributes(diagram):
-    """ Adds missing drawing attributes to a box. """
-    for box in diagram.boxes:
-        for attr, default in ATTRIBUTES.items():
-            setattr(box, attr, getattr(box, attr, default(box)))
-    return diagram
 
 
 class Node:
@@ -104,7 +100,7 @@ def diagram2nx(diagram):
         from nodes to pairs of floats.
     """
     import networkx as nx
-    diagram = add_drawing_attributes(diagram.drawing())
+    diagram = diagram.drawing()
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -554,14 +550,14 @@ def draw(diagram, **params):
         Make a box and its dagger mirror images, default is
         :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
-    # from discopy.quantum.drawing import (
-    #     draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
-    drawing_methods = [(None, draw_box)]
-    #     ("draw_as_brakets", draw_brakets),
-    #     ("draw_as_controlled", draw_controlled_gate),
-    #     ("draw_as_discards", draw_discard),
-    #     ("draw_as_measures", draw_measure),
-    #     (None, draw_box)]
+    from discopy.quantum.drawing import (
+        draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
+    drawing_methods = [
+        ("draw_as_brakets", draw_brakets),
+        ("draw_as_controlled", draw_controlled_gate),
+        ("draw_as_discards", draw_discard),
+        ("draw_as_measures", draw_measure),
+        (None, draw_box)]
 
     def draw_wires(backend, graph, positions):
         for source, target in graph.edges():
