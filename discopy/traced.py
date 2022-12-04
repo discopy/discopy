@@ -134,6 +134,18 @@ class Functor(monoidal.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
             The codomain, :code:`Category(Ty, Diagram)` by default.
+
+    Example
+    -------
+    Let's compute the golden ratio by applying a traced functor.
+
+    >>> from math import sqrt
+    >>> from discopy import python
+    >>> x = Ty('x')
+    >>> f = Box('f', x, x @ x)
+    >>> F = Functor(ob={x: int}, ar={f: lambda x=1: (x, 1 + 1 / x)},
+    ...             cod=Category(python.Ty, python.Function))
+    >>> assert F(f.trace())() == (1 + sqrt(5)) / 2
     """
     dom = cod = Category(Ty, Diagram)
 

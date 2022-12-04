@@ -165,7 +165,7 @@ class Function(Composable, Whiskerable):
     braid = swap
 
     @staticmethod
-    def copy(x: Ty, n: int) -> Function:
+    def copy(x: Ty, n=2) -> Function:
         """
         The function for making :code:`n` copies of a tuple of types :code:`x`.
 
@@ -247,13 +247,15 @@ class Function(Composable, Whiskerable):
             return y if result == y else inside(*xs, y=result)
         return Function(inside, dom, cod)
 
-    def trace(self, n=1):
+    def trace(self, n=1, left=False):
         """
         The trace of a function.
 
         Parameters:
             n : The number of types to trace over.
         """
+        if left:
+            raise NotImplementedError
         dom, cod, traced = self.dom[:-n], self.cod[:-n], self.dom[-n:]
         fixed = (self >> self.discard(cod) @ traced).fix()
         return self.copy(dom) >> dom @ fixed\
@@ -291,5 +293,5 @@ class Dict(Composable, Whiskerable):
         return Dict(inside, x + y, x + y)
 
     @staticmethod
-    def copy(x: int, n: int) -> Dict:
+    def copy(x: int, n=2) -> Dict:
         return Dict({i: i % x for i in range(n * x)}, x, n * x)
