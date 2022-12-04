@@ -26,6 +26,10 @@ Summary
         random_tiling
 """
 
+import random
+from functools import reduce, partial
+from itertools import takewhile, chain
+
 from discopy.matrix import get_backend
 from discopy.tensor import Tensor
 from discopy.quantum.circuit import qubit, Circuit, Id
@@ -36,17 +40,13 @@ def IQPansatz(n_qubits, params) -> Circuit:
     Build an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition.
 
     >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
-    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
-    H @ Id(2)
-      >> Id(1) @ H @ Id(1)
-      >> Id(2) @ H
-      >> CRz(0.1) @ Id(1)
-      >> Id(1) @ CRz(0.2)
-      >> H @ Id(2)
-      >> Id(1) @ H @ Id(1)
-      >> Id(2) @ H
-      >> CRz(0.3) @ Id(1)
-      >> Id(1) @ CRz(0.4)
+    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]).foliation())
+    H @ H @ H
+      >> CRz @ qubit
+      >> H @ CRz
+      >> qubit @ H @ H
+      >> CRz @ qubit
+      >> qubit @ CRz
     >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
     Rx(0.3) >> Rz(0.8) >> Rx(0.4)
     """
@@ -165,6 +165,8 @@ def Sim15ansatz(n_qubits, params) -> Circuit:
     """
     from discopy.quantum.gates import Rx, Ry, Rz
 
+    np = get_backend()
+
     def layer(thetas):
         sublayer1 = Id().tensor(
             *([Ry(theta) for theta in thetas[:n_qubits]]))
@@ -210,7 +212,7 @@ def real_amp_ansatz(params: "array", *, entanglement='full'):
     'full' (default), 'linear' or 'circular'.
     """
     from discopy.quantum.gates import CX, Ry, rewire
-    backend = get_backend()
+    np = get_backend()
     ext_cx = partial(rewire, CX)
     assert entanglement in ('linear', 'circular', 'full')
     params = np.asarray(params)
@@ -219,7 +221,7 @@ def real_amp_ansatz(params: "array", *, entanglement='full'):
 
     def layer(v, is_last=False):
         n = len(dom)
-        rys = Id(0).tensor(*(Ry(v[k]) for k in range(n)))
+        rys = Id().tensor(*(Ry(v[k]) for k in range(n)))
         if is_last:
             return rys
         if entanglement == 'full':
@@ -247,12 +249,12 @@ def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
     >>> c = random_tiling(1, seed=420)
     >>> print(c)
     Rx(0.0263) >> Rz(0.781) >> Rx(0.273)
-    >>> print(random_tiling(2, 2, gateset=[CX, H, T], seed=420))
-    CX >> T @ Id(1) >> Id(1) @ T
-    >>> print(random_tiling(3, 2, gateset=[CX, H, T], seed=420))
-    CX @ Id(1) >> Id(2) @ T >> H @ Id(2) >> Id(1) @ H @ Id(1) >> Id(2) @ H
-    >>> print(random_tiling(2, 1, gateset=[Rz, Rx], seed=420))
-    Rz(0.673) @ Id(1) >> Id(1) @ Rx(0.273)
+    >>> print(random_tiling(2, 2, gateset=[CX, H, T], seed=420).foliation())
+    CX >> T @ T
+    >>> print(random_tiling(3, 2, gateset=[CX, H, T], seed=420).foliation())
+    CX @ T >> H @ H @ H
+    >>> print(random_tiling(2, 1, gateset=[Rz, Rx], seed=420).foliation())
+    Rz(0.673) @ Rx(0.273)
     """
     from discopy.quantum.gates import H, CX, Rx, Rz, Parametrized
     gateset = gateset or [H, Rx, CX]
@@ -263,7 +265,7 @@ def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
         return Rx(phases[0]) >> Rz(phases[1]) >> Rx(phases[2])
     result = Id(qubit ** n_qubits)
     for _ in range(depth):
-        line, n_affected = Id(0), 0
+        line, n_affected = Id(), 0
         while n_affected < n_qubits:
             gate = random.choice(
                 gateset if n_qubits - n_affected > 1 else [

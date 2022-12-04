@@ -12,6 +12,7 @@ from pytket.circuit import (Bit, Op, OpType,
 from pytket.utils import probs_from_counts
 
 from discopy import messages
+from discopy.utils import assert_isinstance
 from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
@@ -303,8 +304,7 @@ def from_tk(tk_circuit):
     """
     Translates from tket to discopy.
     """
-    if not isinstance(tk_circuit, tk.Circuit):
-        raise TypeError(messages.type_err(tk.Circuit, tk_circuit))
+    assert_isinstance(tk_circuit, tk.Circuit)
     if not isinstance(tk_circuit, Circuit):
         tk_circuit = Circuit.upgrade(tk_circuit)
     n_bits = tk_circuit.n_bits - len(tk_circuit.post_selection)

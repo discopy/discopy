@@ -69,10 +69,7 @@ Examples
 
 from __future__ import annotations
 
-import random
 from math import pi
-from functools import reduce, partial
-from itertools import takewhile, chain
 from collections.abc import Mapping
 
 from discopy import messages, monoidal, rigid, tensor, symmetric, frobenius

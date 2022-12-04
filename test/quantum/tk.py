@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 
+from pytest import raises
+from unittest.mock import Mock
+
+import numpy as np
+
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk
@@ -7,7 +12,7 @@ from discopy.quantum import tk
 def test_Circuit_to_tk():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(1) >> Id(1) @ bell_effect)[::-1]
+    snake = (bell_state @ qubit >> qubit @ bell_effect)[::-1]
     tk_circ = snake.to_tk()
     assert repr(tk_circ) ==\
         'tk.Circuit(3, 2)'\
@@ -23,9 +28,7 @@ def test_Circuit_to_tk():
         == "tk.Circuit(2, 2).CX(0, 1).Measure(1, 0).Measure(0, 1)"
     assert repr((Bits(0) >> Id(bit) @ Bits(0)).to_tk())\
         == "tk.Circuit(0, 2)"
-    assert repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())\
-        == "tk.Circuit(1, 3).Measure(0, 1)"\
-           ".post_select({1: 0}).post_process(Swap(bit, bit))"
+    assert "Swap" in repr((Bra(0) @ Bits(0) >> Bits(0) @ Id(bit)).to_tk())
 
 
 def test_Sum_from_tk():
@@ -37,7 +40,7 @@ def test_tk_err():
     with raises(TypeError):
         Circuit.from_tk("foo")
     with raises(NotImplementedError):
-        QuantumGate("foo", 1, [1, 2, 3, 4]).to_tk()
+        QuantumGate("foo", qubit, qubit, [1, 2, 3, 4]).to_tk()
     with raises(NotImplementedError):
         Bits(1).to_tk()
     with raises(NotImplementedError):
@@ -62,7 +65,7 @@ def test_Circuit_from_tk():
 
 
 def test_ClassicalGate_to_tk():
-    post = ClassicalGate('post', 2, 0, data=[0, 0, 0, 1])
+    post = ClassicalGate('post', bit ** 2, bit ** 0, data=[0, 0, 0, 1])
     assert (post[::-1] >> Swap(bit, bit)).to_tk().post_processing\
         == post[::-1] >> Swap(bit, bit)
     circuit = sqrt(2) @ Ket(0, 0) >> H @ Rx(0) >> CX >> Measure(2) >> post
@@ -80,28 +83,25 @@ def test_Circuit_get_counts_snake():
     backend = tk.mockBackend({
         (0, 0): 240, (0, 1): 242, (1, 0): 271, (1, 1): 271})
     scaled_bell = Circuit.caps(qubit, qubit)
-    snake = scaled_bell @ Id(1) >> Id(1) @ scaled_bell[::-1]
+    snake = scaled_bell @ qubit >> qubit @ scaled_bell[::-1]
     result = np.round(snake.eval(
-        backend, compilation=compilation, measure_all=True).array)
+        backend=backend, compilation=compilation, measure_all=True).array)
     assert result == 1
 
 
 def test_Circuit_get_counts_empty():
-    backend = tk.mockBackend({})
-    assert not Id(1).get_counts(backend)
+    assert not Id(qubit).get_counts(backend=tk.mockBackend({}))
 
 
 
 def test_Bra_and_Measure_to_tk():
-    c = Circuit(
-        dom=qubit ** 0, cod=bit, boxes=[
-            Ket(0), Rx(0.552), Rz(0.512), Rx(0.917), Ket(0, 0, 0), H, H, H,
-            CRz(0.18), CRz(0.847), CX, H, sqrt(2), Bra(0, 0), Ket(0),
-            Rx(0.446), Rz(0.256), Rx(0.177), CX, H, sqrt(2), Bra(0, 0),
-            Measure()],
-        offsets=[
-            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
-            3, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0])
+    boxes = [
+        Ket(0), Rx(0.552), Rz(0.512), Rx(0.917), Ket(0, 0, 0), H, H, H,
+        CRz(0.18), CRz(0.847), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+        Rx(0.446), Rz(0.256), Rx(0.177), CX, H, sqrt(2), Bra(0, 0), Measure()]
+    offsets=[
+        0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+    c = Circuit.decode(qubit ** 0, zip(boxes, offsets))
     assert repr(c.to_tk()) ==\
         "tk.Circuit(5, 5)"\
         ".Rx(0.892, 0)"\
@@ -131,5 +131,5 @@ def test_Bra_and_Measure_to_tk():
 def test_ClassicalGate_eval():
     backend = tk.mockBackend({
         (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256})
-    post = ClassicalGate('post', 2, 0, [1, 0, 0, 0])
-    assert post.eval(backend) == Tensor(dom=Dim(1), cod=Dim(1), array=[0.25])
+    post = ClassicalGate('post', bit ** 2, bit ** 0, [1, 0, 0, 0])
+    assert post.eval(backend=backend) == Tensor[complex]([0.25], Dim(1), Dim(1))
