@@ -153,7 +153,7 @@ class Ty(cat.Ob):
         return len(self) == 1
 
     def __eq__(self, other):
-        return isinstance(other, Ty) and self.inside == other.inside
+        return isinstance(other, self.factory) and self.inside == other.inside
 
     def __hash__(self):
         return hash(repr(self))
@@ -307,7 +307,7 @@ class Layer(cat.Box):
             yield box_or_typ
 
     def __eq__(self, other):
-        return isinstance(other, Layer) and tuple(self) == tuple(other)
+        return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -627,7 +627,7 @@ class Diagram(cat.Arrow, Whiskerable):
                     self = self.factory(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
-                except cat.AxiomError:
+                except (cat.AxiomError, NotImplementedError):
                     continue
             if not keep_on_going:
                 break
@@ -829,7 +829,7 @@ class Box(cat.Box, Diagram):
     def __eq__(self, other):
         if isinstance(other, Box):
             return cat.Box.__eq__(self, other)
-        return isinstance(other, Diagram)\
+        return isinstance(other, self.factory)\
             and other.inside == (self.layer_factory.cast(self), )
 
     def __hash__(self):

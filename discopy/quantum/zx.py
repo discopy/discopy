@@ -45,7 +45,7 @@ class Diagram(frobenius.Diagram):
 
     @staticmethod
     def permutation(perm, dom=None):
-        dom = Id(len(perm)) if dom is None else dom
+        dom = PRO(len(perm)) if dom is None else dom
         return frobenius.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
@@ -253,8 +253,8 @@ class Spider(frobenius.Spider, Box):
         return f"{factory_str}({len(self.dom)}, {len(self.cod)}{phase_str})"
 
     def subs(self, *args):
-        data = cat.rsubs(self.data, *args)
-        return type(self)(len(self.dom), len(self.cod), phase=data)
+        phase = cat.rsubs(self.phase, *args)
+        return type(self)(len(self.dom), len(self.cod), phase=phase)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:

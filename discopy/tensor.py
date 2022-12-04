@@ -546,17 +546,6 @@ class Box(frobenius.Box, Diagram):
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
             drawing_name="$\\partial {}$".format(var))
 
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            eq_array = other.array is None if self.array is None\
-                else (self.array == other.array).all()
-            return eq_array and cat.Box.__eq__(self, other)
-        return isinstance(other, Diagram)\
-            and other.inside == (self.layer_factory.cast(self), )
-
-    def __hash__(self):
-        return hash((self.name, self.dom, self.cod, str(self.array)))
-
 
 class Cup(frobenius.Cup, Box):
     """

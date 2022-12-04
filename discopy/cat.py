@@ -324,9 +324,8 @@ class Arrow(Composable):
         return ' >> '.join(map(str, self.inside)) or "Id({})".format(self.dom)
 
     def __eq__(self, other):
-        return isinstance(other, Arrow) and all(
-            getattr(self, a) == getattr(other, a)
-            for a in ["inside", "dom", "cod"])
+        return isinstance(other, self.factory)\
+            and self.is_parallel(other) and self.inside == other.inside
 
     def __hash__(self):
         return hash(repr(self))
@@ -566,9 +565,12 @@ class Box(Arrow):
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
-            attributes = ['name', 'dom', 'cod', 'data', 'is_dagger']
-            return all(
-                getattr(self, x) == getattr(other, x) for x in attributes)
+            try:
+                eq_data = bool(self.data == other.data)
+            except ValueError:  # F***ing NumPy equality returns an array.
+                eq_data = (self.data == other.data).all()
+            return self.name == other.name and self.is_parallel(other)\
+                and self.is_dagger == other.is_dagger and eq_data 
         return isinstance(other, self.factory) and other.inside == (self, )
 
     def __lt__(self, other):
@@ -830,7 +832,8 @@ class Functor:
         self.ar = ar if isinstance(ar, Mapping) else Dict(ar)
 
     def __eq__(self, other):
-        return self.ob == other.ob and self.ar == other.ar
+        return type(self) == type(other)\
+            and (self.ob, self.ar, self.cod) == (other.ob, other.ar, other.cod)
 
     def __repr__(self):
         cod_repr = "" if self.cod == type(self).cod else f", cod={self.cod}"

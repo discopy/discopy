@@ -147,13 +147,13 @@ class Swap(compact.Swap, Box):
 class Spider(Box):
     """
     The spider with :code:`n_legs_in` and :code:`n_legs_out`
-    on a given atomic type, with some optional ``phase``.
+    on a given atomic type, with some optional phase as ``data``.
 
     Parameters:
         n_legs_in : The number of legs in.
         n_legs_out : The number of legs out.
         typ : The type of the spider.
-        phase : The phase of the spider.
+        data : The phase of the spider.
 
     Examples
     --------
@@ -161,17 +161,24 @@ class Spider(Box):
     >>> spider = Spider(1, 2, x)
     >>> assert spider.dom == x and spider.cod == x @ x
     """
-    def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty, phase=None,
+    draw_as_spider = True
+    color = "black"
+    drawing_name = ""
+
+    def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty, data=None,
                  **params):
-        self.typ, self.phase = typ, phase
         assert_isatomic(typ)
-        phase_str = "" if phase is None else ", {}".format(phase)
-        name = "Spider({}, {}, {}{})".format(
-            n_legs_in, n_legs_out, typ, phase_str)
+        self.typ = typ
+        data_str = "" if data is None else ", {}".format(data)
+        name = type(self).__name__ + "({}, {}, {}{})".format(
+            n_legs_in, n_legs_out, typ, data_str)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        params = dict(dict(
-            draw_as_spider=True, color="black", drawing_name=""), **params)
-        Box.__init__(self, name, dom, cod, **params)
+        Box.__init__(self, name, dom, cod, data=data, **params)
+
+    @property
+    def phase(self):
+        """ The phase of the spider. """
+        return self.data
 
     def __repr__(self):
         phase_repr = "" if self.phase is None else ", phase={}".format(
