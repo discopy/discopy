@@ -33,7 +33,7 @@ from dataclasses import dataclass
 from collections.abc import Callable
 
 from discopy import cat
-from discopy.cat import Category, Composable
+from discopy.cat import Category, Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
 
 
@@ -132,7 +132,7 @@ class Function(Composable, Whiskerable):
         Parameters:
             other : The other function to compose in sequence.
         """
-        self.assert_iscomposable(other)
+        assert_iscomposable(self, other)
         return Function(
             lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
 
