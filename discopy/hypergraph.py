@@ -134,12 +134,12 @@ from networkx import Graph, connected_components, spring_layout, draw_networkx
 from discopy import cat, monoidal, drawing, frobenius
 from discopy.cat import AxiomError, Composable
 from discopy.monoidal import Whiskerable, assert_isatomic
+from discopy.braided import BinaryBoxConstructor
 from discopy.drawing import Node
 from discopy.frobenius import Ty, Category
 from discopy.utils import (
     factory_name,
     assert_isinstance,
-    BinaryBoxConstructor,
 )
 
 
@@ -245,7 +245,7 @@ class Diagram(Composable, Whiskerable):
     >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
     """
     def __init__(
-            self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
+            self, dom: frobenius.Ty, cod: frobenius.Ty, boxes: tuple[Box, ...],
             wires: tuple[Any, ...], spider_types: Mapping[Any, Ty] = None):
         assert_isinstance(dom, Ty)
         assert_isinstance(cod, Ty)

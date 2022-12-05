@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
 
-""" DisCoPy: the Python toolkit for computing with string diagrams. """
+"""
+The library is organised in five groups of modules:
+syntax, semantics, quantum, grammar and other.
+"""
 
 from discopy import (
+    ### SYNTAX ###
     cat,
     monoidal,
     braided,
@@ -16,11 +20,15 @@ from discopy import (
     compact,
     frobenius,
     hypergraph,
+    ### SEMANTICS ###
     python,
     matrix,
     tensor,
+    ### QUANTUM ###
     quantum,
+    ### GRAMMAR ###
     grammar,
+    ### OTHER ###
     drawing,
     utils,
     config,

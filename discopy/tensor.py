@@ -347,7 +347,7 @@ class Functor(frobenius.Functor):
 
     def __init__(
             self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
-            dom: Category = None, dtype: type = int):
+            dom: cat.Category = None, dtype: type = int):
         self.dom, self.dtype = dom or type(self).dom, dtype
         cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])
         super().__init__(ob, ar, cod)
@@ -589,9 +589,10 @@ class Spider(frobenius.Spider, Box):
     A tensor spider is a frobenius spider in a tensor diagram.
 
     Parameters:
-        n_legs_in : The number of legs in.
-        n_legs_out : The number of legs out.
-        typ : The type of the spider.
+        n_legs_in (int) : The number of legs in.
+        n_legs_out (int) : The number of legs out.
+        typ (Dim) : The dimension of the spider.
+        data : The phase of the spider.
 
     Examples
     --------

@@ -55,9 +55,9 @@ from __future__ import annotations
 
 from discopy import cat, monoidal, messages
 from discopy.cat import AxiomError, Category, factory
+from discopy.braided import BinaryBoxConstructor
 from discopy.utils import (
     factory_name,
-    BinaryBoxConstructor,
     assert_isinstance,
     from_tree,
 )

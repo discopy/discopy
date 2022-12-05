@@ -46,7 +46,8 @@ from collections.abc import Callable
 from discopy import cat, monoidal, closed, messages
 from discopy.cat import AxiomError, factory
 from discopy.monoidal import assert_isatomic
-from discopy.utils import BinaryBoxConstructor, assert_isinstance, factory_name
+from discopy.braided import BinaryBoxConstructor
+from discopy.utils import assert_isinstance, factory_name
 
 
 class Ob(cat.Ob):

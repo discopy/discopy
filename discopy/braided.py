@@ -60,7 +60,7 @@ from collections.abc import Callable
 from discopy import cat, monoidal
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
-from discopy.utils import BinaryBoxConstructor, factory_name
+from discopy.utils import factory_name, from_tree
 
 
 @factory
@@ -110,6 +110,32 @@ class Box(monoidal.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
     __ambiguous_inheritance__ = (monoidal.Box, )
+
+
+class BinaryBoxConstructor:
+    """
+    Box constructor with attributes ``left`` and ``right`` as input.
+
+    Parameters:
+        left : Some attribute on the left.
+        right : Some attribute on the right.
+    """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def __repr__(self):
+        return "{}({}, {})".format(
+            factory_name(type(self)), repr(self.left), repr(self.right))
+
+    def to_tree(self) -> dict:
+        """ Serialise a binary box constructor. """
+        left, right = self.left.to_tree(), self.right.to_tree()
+        return dict(factory=factory_name(type(self)), left=left, right=right)
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
+        """ Decode a serialised binary box constructor. """
+        return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
 class Braid(BinaryBoxConstructor, Box):

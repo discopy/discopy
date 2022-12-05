@@ -1,5 +1,33 @@
 # -*- coding: utf-8 -*-
-""" Drawing module. """
+"""
+Drawing module.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Node
+    Backend
+    TikzBackend
+    MatBackend
+    Equation
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        diagram2nx
+        nx2diagram
+        equation
+        diagramize
+"""
 
 from abc import ABC, abstractmethod
 from math import sqrt

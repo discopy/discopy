@@ -122,16 +122,28 @@ class Ob:
         return self.name < other.name
 
     def to_tree(self) -> dict:
-        """ See :func:`discopy.utils.dumps`. """
+        """
+        Serialise a DisCoPy object, see :func:`discopy.utils.dumps`.
+
+        Example
+        -------
+        >>> Ob('x').to_tree()
+        {'factory': 'cat.Ob', 'name': 'x'}
+        """
         return {'factory': factory_name(type(self)), 'name': self.name}
 
     @classmethod
     def from_tree(cls, tree: dict) -> Ob:
         """
-        See :func:`discopy.utils.loads`.
+        Decode a serialised DisCoPy object, see :func:`discopy.utils.loads`.
 
         Parameters:
             tree : DisCoPy serialisation.
+
+        Example
+        -------
+        >>> x = Ob('x')
+        >>> assert Ob.from_tree(x.to_tree()) == x
         """
         return cls(tree['name'])
 
@@ -461,19 +473,47 @@ class Arrow(Composable):
                 box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
 
     def to_tree(self) -> dict:
-        """ See :func:`discopy.utils.dumps`. """
+        """
+        Serialise a DisCoPy arrow, see :func:`discopy.utils.dumps`.
+
+        Example
+        -------
+        >>> from pprint import PrettyPrinter
+        >>> pprint = PrettyPrinter(indent=4, width=70, sort_dicts=False).pprint
+        >>> f = Box('f', 'x', 'y', data=42)
+        >>> pprint((f >> f[::-1]).to_tree())
+        {   'factory': 'cat.Arrow',
+            'inside': [   {   'factory': 'cat.Box',
+                              'name': 'f',
+                              'dom': {'factory': 'cat.Ob', 'name': 'x'},
+                              'cod': {'factory': 'cat.Ob', 'name': 'y'},
+                              'data': 42},
+                          {   'factory': 'cat.Box',
+                              'name': 'f',
+                              'dom': {'factory': 'cat.Ob', 'name': 'y'},
+                              'cod': {'factory': 'cat.Ob', 'name': 'x'},
+                              'is_dagger': True,
+                              'data': 42}],
+            'dom': {'factory': 'cat.Ob', 'name': 'x'},
+            'cod': {'factory': 'cat.Ob', 'name': 'x'}}
+        """
         return {
             'factory': factory_name(type(self)),
-            'dom': self.dom.to_tree(), 'cod': self.cod.to_tree(),
-            'inside': [box.to_tree() for box in self.inside]}
+            'inside': [box.to_tree() for box in self.inside],
+            'dom': self.dom.to_tree(), 'cod': self.cod.to_tree()}
 
     @classmethod
     def from_tree(cls, tree: dict) -> Arrow:
         """
-        See :func:`discopy.utils.loads`.
+        Decode a serialised DisCoPy arrow, see :func:`discopy.utils.loads`.
 
         Parameters:
             tree : DisCoPy serialisation.
+
+        Example
+        -------
+        >>> f = Box('f', 'x', 'y', data=42)
+        >>> assert Arrow.from_tree((f >> f[::-1]).to_tree()) == f >> f[::-1]
         """
         dom, cod = map(from_tree, (tree['dom'], tree['cod']))
         inside = tuple(map(from_tree, tree['inside']))
@@ -570,7 +610,7 @@ class Box(Arrow):
             except ValueError:  # F***ing NumPy equality returns an array.
                 eq_data = (self.data == other.data).all()
             return self.name == other.name and self.is_parallel(other)\
-                and self.is_dagger == other.is_dagger and eq_data 
+                and self.is_dagger == other.is_dagger and eq_data
         return isinstance(other, self.factory) and other.inside == (self, )
 
     def __lt__(self, other):

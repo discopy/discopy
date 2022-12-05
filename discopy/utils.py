@@ -1,6 +1,20 @@
 # -*- coding: utf-8 -*-
 
-""" DisCoPy utility functions. """
+"""
+DisCoPy utility functions.
+
+Summary
+-------
+
+.. autosummary::
+    :template: function.rst
+    :nosignatures:
+    :toctree:
+
+    from_tree
+    dumps
+    loads
+"""
 
 from __future__ import annotations
 
@@ -11,19 +25,59 @@ from collections.abc import Mapping, Iterable
 from discopy import messages
 
 
-def product(xs: list[int], unit=1):
-    """ The product of a list of integers ``xs``. """
+def product(xs: list, unit=1):
+    """
+    The left-fold product of a ``unit`` with list of ``xs``.
+
+    Example
+    -------
+    >>> assert product([1, 2, 3]) == 6
+    >>> assert product([1, 2, 3], unit=[42]) == 6 * [42]
+    """
     return unit if not xs else product(xs[1:], unit * xs[0])
 
 
 def factory_name(cls: type) -> str:
-    """ Returns a string describing a DisCoPy class. """
+    """
+    Returns a string describing a DisCoPy class.
+
+    Example
+    -------
+    >>> from discopy.grammar.pregroup import Word
+    >>> assert factory_name(Word) == "grammar.pregroup.Word"
+    """
     return "{}.{}".format(
         cls.__module__.removeprefix("discopy."), cls.__name__)
 
 
-def from_tree(tree):
-    """ Decodes a tree as a DisCoPy object. """
+def from_tree(tree: dict):
+    """
+    Import DisCoPy and decode a serialised object.
+
+    Parameters:
+        tree : The serialisation of a DisCoPy object.
+
+    Example
+    -------
+    >>> tree = {'factory': 'cat.Arrow',
+    ...         'inside': [   {   'factory': 'cat.Box',
+    ...                           'name': 'f',
+    ...                           'dom': {'factory': 'cat.Ob', 'name': 'x'},
+    ...                           'cod': {'factory': 'cat.Ob', 'name': 'y'},
+    ...                           'data': 42},
+    ...                       {   'factory': 'cat.Box',
+    ...                           'name': 'f',
+    ...                           'dom': {'factory': 'cat.Ob', 'name': 'y'},
+    ...                           'cod': {'factory': 'cat.Ob', 'name': 'x'},
+    ...                           'is_dagger': True,
+    ...                           'data': 42}],
+    ...         'dom': {'factory': 'cat.Ob', 'name': 'x'},
+    ...         'cod': {'factory': 'cat.Ob', 'name': 'x'}}
+
+    >>> from discopy.cat import Box
+    >>> f = Box('f', 'x', 'y', data=42)
+    >>> assert from_tree(tree) == f >> f[::-1]
+    """
     *modules, factory = tree['factory'].split('.')
     import discopy
     module = discopy
@@ -32,41 +86,62 @@ def from_tree(tree):
     return getattr(module, factory).from_tree(tree)
 
 
-def dumps(obj):
+def dumps(obj, **kwargs):
     """
     Serialise a DisCoPy object as JSON.
 
-    >>> from pprint import PrettyPrinter
-    >>> pprint = PrettyPrinter(indent=4, width=60).pprint
-    >>> from discopy.cat import Box, Ob
-    >>> f = Box('f', Ob('x'), Ob('y'), data=[42, {'Alice': 1}])
-    >>> d = f >> f[::-1]
-    >>> assert loads(dumps(d)) == d
-    >>> pprint(json.loads(dumps(d)))
-    {   'cod': {'factory': 'cat.Ob', 'name': 'x'},
-        'dom': {'factory': 'cat.Ob', 'name': 'x'},
-        'factory': 'cat.Arrow',
-        'inside': [   {   'cod': {   'factory': 'cat.Ob',
-                                     'name': 'y'},
-                          'data': [42, {'Alice': 1}],
-                          'dom': {   'factory': 'cat.Ob',
-                                     'name': 'x'},
-                          'factory': 'cat.Box',
-                          'name': 'f'},
-                      {   'cod': {   'factory': 'cat.Ob',
-                                     'name': 'x'},
-                          'data': [42, {'Alice': 1}],
-                          'dom': {   'factory': 'cat.Ob',
-                                     'name': 'y'},
-                          'factory': 'cat.Box',
-                          'is_dagger': True,
-                          'name': 'f'}]}
+    Parameters:
+        obj : The DisCoPy object to serialise.
+        kwargs : Passed to ``json.dumps``.
+
+    Example
+    -------
+    >>> from discopy.cat import Box, Id
+    >>> f = Box('f', 'x', 'y', data=42)
+    >>> print(dumps(f[::-1] >> Id('x'), indent=4))
+    {
+        "factory": "cat.Arrow",
+        "inside": [
+            {
+                "factory": "cat.Box",
+                "name": "f",
+                "dom": {
+                    "factory": "cat.Ob",
+                    "name": "y"
+                },
+                "cod": {
+                    "factory": "cat.Ob",
+                    "name": "x"
+                },
+                "is_dagger": true,
+                "data": 42
+            }
+        ],
+        "dom": {
+            "factory": "cat.Ob",
+            "name": "y"
+        },
+        "cod": {
+            "factory": "cat.Ob",
+            "name": "x"
+        }
+    }
     """
-    return json.dumps(obj.to_tree())
+    return json.dumps(obj.to_tree(), **kwargs)
 
 
 def loads(raw):
-    """ Loads a serialised DisCoPy object. """
+    """
+    Loads a serialised DisCoPy object.
+
+    Example
+    -------
+    >>> raw = '{"factory": "cat.Ob", "name": "x"}'
+    >>> from discopy.cat import Ob
+    >>> assert loads(raw) == Ob('x')
+    >>> assert dumps(loads(raw)) == raw
+    >>> assert loads(dumps(Ob('x'))) == Ob('x')
+    """
     obj = json.loads(raw)
     if isinstance(obj, list):
         return [from_tree(o) for o in obj]
@@ -77,8 +152,8 @@ def rmap(func, data):
     """
     Apply :code:`func` recursively to :code:`data`.
 
-    Examples
-    --------
+    Example
+    -------
     >>> data = {'A': [0, 1, 2], 'B': ({'C': 3, 'D': [4, 5, 6]}, {7, 8, 9})}
     >>> rmap(lambda x: x + 1, data)
     {'A': [1, 2, 3], 'B': ({'C': 4, 'D': [5, 6, 7]}, {8, 9, 10})}
@@ -100,6 +175,7 @@ def rsubs(data, *args):
 
 
 def load_corpus(url):
+    """ Load a corpus hosted at a given ``url``. """
     import urllib.request as urllib
     import zipfile
 
@@ -107,32 +183,13 @@ def load_corpus(url):
     zip_file = zipfile.ZipFile(fd, 'r')
     first_file = zip_file.namelist()[0]
     with zip_file.open(first_file) as f:
-        diagrams = loads(f.read())
-
-    return diagrams
+        return loads(f.read())
 
 
 def assert_isinstance(object, cls: type | tuple[type, ...]):
+    """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
-    cls_name = ' or '.join(map(factory_name, classes))
+    cls_name = ' | '.join(map(factory_name, classes))
     if not any(isinstance(object, cls) for cls in classes):
         raise TypeError(messages.TYPE_ERROR.format(
             cls_name, factory_name(type(object))))
-
-
-class BinaryBoxConstructor:
-    """ Box constructor with left and right as input. """
-    def __init__(self, left, right):
-        self.left, self.right = left, right
-
-    def __repr__(self):
-        return "{}({}, {})".format(
-            factory_name(type(self)), repr(self.left), repr(self.right))
-
-    def to_tree(self):
-        left, right = self.left.to_tree(), self.right.to_tree()
-        return dict(factory=factory_name(type(self)), left=left, right=right)
-
-    @classmethod
-    def from_tree(cls, tree):
-        return cls(*map(from_tree, (tree['left'], tree['right'])))

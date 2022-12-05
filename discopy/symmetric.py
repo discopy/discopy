@@ -53,7 +53,6 @@ from __future__ import annotations
 from discopy import monoidal, braided
 from discopy.cat import factory
 from discopy.monoidal import Ty, PRO, assert_isatomic
-from discopy.utils import BinaryBoxConstructor, factory_name
 
 
 @factory

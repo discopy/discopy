@@ -10,3 +10,4 @@ DisCoPy's API
     api-semantics
     api-quantum
     api-grammar
+    api-other
