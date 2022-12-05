@@ -526,7 +526,7 @@ class Diagram(cat.Arrow, Whiskerable):
         inside = tuple(layer @ other.dom for layer in self.inside)\
             + tuple(self.cod @ layer for layer in other.inside)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        return self.factory(inside, dom, cod)
+        return self.factory(inside, dom, cod, _scan=False)
 
     @property
     def boxes(self) -> list[Box]:

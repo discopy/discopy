@@ -96,7 +96,8 @@ class Diagram(monoidal.Diagram):
                 zip(self.inside, self.inside[1:])):
             if x == y and isinstance(f, Braid) and f == g[::-1]:
                 inside = self.inside[:i] + self.inside[i + 2:]
-                return self.factory(inside, self.dom, self.cod).simplify()
+                return self.factory(
+                    inside, self.dom, self.cod, _scan=False).simplify()
         return self
 
 

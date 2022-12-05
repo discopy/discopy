@@ -327,7 +327,7 @@ class Diagram(closed.Diagram):
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         inside = tuple(
             layer.l if left else layer.r for layer in self.inside[::-1])
-        return self.factory(inside, dom, cod)
+        return self.factory(inside, dom, cod, _scan=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
@@ -498,7 +498,8 @@ class Diagram(closed.Diagram):
                     yield diagram
                     cap += 1
             inside = diagram.inside[:cap] + diagram.inside[cup + 1:]
-            yield diagram.factory(inside, diagram.dom, diagram.cod)
+            yield diagram.factory(
+                inside, diagram.dom, diagram.cod, _scan=False)
 
         diagram = self
         while True:

@@ -449,7 +449,7 @@ class Arrow(Composable):
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
         inside = tuple(box.subs(*args) for box in self.inside)
-        return self.factory(inside, self.dom, self.cod)
+        return self.factory(inside, self.dom, self.cod, _scan=False)
 
     def lambdify(self, *symbols: "sympy.Symbol", **kwargs) -> Callable:
         """
