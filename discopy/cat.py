@@ -711,8 +711,8 @@ class Sum(Box):
         return len(self.terms)
 
     def then(self, other=None, *others):
-        if other is None or len(others) != 1:
-            return super().then(*others)
+        if other is None or others:
+            return Arrow.then(self, other, *others)
         other = other if isinstance(other, Sum)\
             else self.sum_factory((other, ))
         terms = tuple(f.then(g) for f in self.terms for g in other.terms)

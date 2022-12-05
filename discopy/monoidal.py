@@ -518,7 +518,7 @@ class Diagram(cat.Arrow, Whiskerable):
         if others:
             return self.tensor(other).tensor(*others)
         if isinstance(other, Sum):
-            return self.sum_factory([self]).tensor(other)
+            return self.sum_factory((self, )).tensor(other)
         assert_isinstance(other, self.factory)
         assert_isinstance(self, other.factory)
         if isinstance(other, Sum):
@@ -847,8 +847,8 @@ class Sum(cat.Sum, Box):
     __ambiguous_inheritance__ = (cat.Sum, )
 
     def tensor(self, other=None, *others):
-        if other is None or len(others) != 1:
-            return Box.tensor(self, other, *others)
+        if other is None or others:
+            return Diagram.tensor(self, other, *others)
         other = other if isinstance(other, Sum)\
             else self.sum_factory((other, ))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod

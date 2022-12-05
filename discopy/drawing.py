@@ -622,10 +622,10 @@ def draw(diagram, **params):
                             target_position, [-1, 1], braid_shadow))
             backend.draw_wire(
                 source_position, target_position, bend_out, bend_in)
-            draw_type_labels = params.get('draw_type_labels', True)\
-                or getattr(source.obj, "draw_as_box", False)\
-                and params.get('draw_box_labels', True)
-            if source.kind in ["input", "cod"] and draw_type_labels:
+            if source.kind in ["input", "cod"]\
+                    and (params.get('draw_type_labels', True)
+                         or getattr(source.obj, "draw_as_box", False)
+                         and params.get('draw_box_labels', True)):
                 i, j = positions[source]
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
                 pad_j = 0 if source.kind == "input" else pad_j
