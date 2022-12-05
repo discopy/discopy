@@ -129,6 +129,7 @@ class Box(braided.Box, Diagram):
     """
     __ambiguous_inheritance__ = (braided.Box, )
 
+
 class Swap(braided.Braid, Box):
     """
     The swap of atomic types :code:`left` and :code:`right`.

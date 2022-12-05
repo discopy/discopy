@@ -699,7 +699,8 @@ class Sum(Box):
 
     def __add__(self, other):
         assert_isparallel(self, other)
-        other = other if isinstance(other, Sum) else self.sum_factory((other, ))
+        other = other if isinstance(other, Sum)\
+            else self.sum_factory((other, ))
         return self.sum_factory(self.terms + other.terms, self.dom, self.cod)
 
     def __iter__(self):
@@ -709,11 +710,11 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    def then(self, *others):
-        if len(others) != 1:
+    def then(self, other=None, *others):
+        if other is None or len(others) != 1:
             return super().then(*others)
-        other, = others
-        other = other if isinstance(other, Sum) else self.sum_factory((other, ))
+        other = other if isinstance(other, Sum)\
+            else self.sum_factory((other, ))
         terms = tuple(f.then(g) for f in self.terms for g in other.terms)
         return self.sum_factory(terms, self.dom, other.cod)
 

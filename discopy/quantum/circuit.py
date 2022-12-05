@@ -356,8 +356,8 @@ class Circuit(tensor.Diagram):
 
         Parameters
         ----------
-        mixed : bool, optional
-            Whether to apply :class:`tensor.Functor` or :class:`channel.Functor`.
+        mixed : Whether to apply a :class:`tensor.Functor`
+                or a :class:`channel.Functor`.
 
         Returns
         -------
@@ -467,12 +467,12 @@ class Circuit(tensor.Diagram):
                 c_edges = node[cq_dom:cq_dom + c_cod]
                 q_edges1 = node[cq_dom + c_cod:cq_dom + c_cod + q_cod]
                 q_edges2 = node[cq_dom + c_cod + q_cod:]
-                c_scan = (c_scan[:c_offset] + c_edges
-                          + c_scan[c_offset + c_dom:])
-                q_scan1 = (q_scan1[:q_offset] + q_edges1
-                           + q_scan1[q_offset + q_dom:])
-                q_scan2 = (q_scan2[:q_offset] + q_edges2
-                           + q_scan2[q_offset + q_dom:])
+                c_scan = (
+                    c_scan[:c_offset] + c_edges + c_scan[c_offset + c_dom:])
+                q_scan1 = (
+                    q_scan1[:q_offset] + q_edges1 + q_scan1[q_offset + q_dom:])
+                q_scan2 = (
+                    q_scan2[:q_offset] + q_edges2 + q_scan2[q_offset + q_dom:])
                 nodes.append(node)
             else:
                 left, _, _ = layer
@@ -494,10 +494,10 @@ class Circuit(tensor.Diagram):
 
                 edges1 = node1[len(box.dom):]
                 edges2 = node2[len(box.dom):]
-                q_scan1 = (q_scan1[:q_offset] + edges1
-                           + q_scan1[q_offset + len(box.dom):])
-                q_scan2 = (q_scan2[:q_offset] + edges2
-                           + q_scan2[q_offset + len(box.dom):])
+                q_scan1 = q_scan1[:q_offset] + edges1
+                q_scan1 += q_scan1[q_offset + len(box.dom):]
+                q_scan2 = q_scan2[:q_offset] + edges2
+                q_scan2 += q_scan2[q_offset + len(box.dom):]
                 nodes.extend([node1, node2])
         outputs = c_scan + q_scan1 + q_scan2
         return nodes, inputs + outputs
@@ -848,7 +848,7 @@ class Swap(tensor.Swap, Box):
     """ Implements swaps of circuit wires. """
     @property
     def is_mixed(self):
-        return type(self.left.inside[0]) != type(self.right.inside[0])
+        return not isinstance(self.left.inside[0], type(self.right.inside[0]))
 
     @property
     def is_classical(self):

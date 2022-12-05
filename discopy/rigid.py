@@ -190,7 +190,6 @@ class Layer(monoidal.Layer):
     r = property(lambda self: self.rotate(left=False))
 
 
-
 @factory
 class Diagram(closed.Diagram):
     """
@@ -788,6 +787,7 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
         return head >> left[0] @ tail @ right[-1]
 
     return method
+
 
 assert_isadjoint = Ty.assert_isadjoint
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum

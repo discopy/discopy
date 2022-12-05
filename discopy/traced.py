@@ -112,7 +112,6 @@ class Trace(Box, monoidal.Bubble):
         return result.drawing()
 
 
-
 class Category(monoidal.Category):
     """
     A traced category is a monoidal category with a method :code:`trace`.

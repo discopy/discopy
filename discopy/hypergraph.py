@@ -145,6 +145,7 @@ from discopy.utils import (
 
 Pushout = tuple[dict[int, int], dict[int, int]]
 
+
 def pushout(
         left: int, right: int,
         left_boundary: list[int], right_boundary: list[int]) -> Pushout:

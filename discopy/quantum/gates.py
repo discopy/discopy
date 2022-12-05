@@ -446,11 +446,10 @@ class Controlled(QuantumGate):
         controlled, distance = self.controlled, self.distance
         if isinstance(controlled, (Rx, Rz)):
             phase = self.phase
-            decomp = (
-                Controlled(X, distance=distance)
-                >> qubit ** distance @ Rz(-phase / 2) @ qubit ** -distance
-                >> Controlled(X, distance=distance)
-                >> qubit ** distance @ Rz(phase / 2) @ qubit ** -distance)
+            decomp = Controlled(X, distance=distance)\
+                >> qubit ** distance @ Rz(-phase / 2) @ qubit ** -distance\
+                >> Controlled(X, distance=distance)\
+                >> qubit ** distance @ Rz(phase / 2) @ qubit ** -distance
             if isinstance(controlled, Rx):
                 decomp <<= qubit ** distance @ H @ qubit ** -distance
                 decomp >>= qubit ** distance @ H @ qubit ** -distance
@@ -464,9 +463,9 @@ class Controlled(QuantumGate):
             return self
         src, tgt = (0, 1) if distance > 0 else (1, 0)
         perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
-        diagram = (perm
-                   >> type(self)(controlled) @ qubit ** (abs(distance) - 1)
-                   >> perm[::-1])
+        diagram = perm\
+            >> type(self)(controlled) @ qubit ** (abs(distance) - 1)\
+            >> perm[::-1]
         return diagram
 
     def grad(self, var, **params):
@@ -486,10 +485,8 @@ class Controlled(QuantumGate):
                 d = 1 << n_qubits - 1
                 part1 = np.array([[1, 0], [0, 0]])
                 part2 = np.array([[0, 0], [0, 1]])
-                array = (
-                    np.kron(part1, np.eye(d))
-                    + np.kron(part2,
-                                     np.array(controlled.array.reshape(d, d))))
+                array = np.kron(part1, np.eye(d))\
+                    + np.kron(part2, np.array(controlled.array.reshape(d, d)))
             else:
                 array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)

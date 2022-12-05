@@ -73,7 +73,7 @@ class Diagram(compact.Diagram):
 
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Ty, phases=None
-            ) -> Diagram:
+                ) -> Diagram:
         """
         The spiders on a given type with ``n_legs_in`` and ``n_legs_out`` and
         some optional vector of ``phases``.
@@ -95,8 +95,9 @@ class Diagram(compact.Diagram):
         --------
         This calls :func:`coherence`.
         """
-        return compact.Functor(ob=lambda x: x, ar=lambda f:
-            f.unfuse() if isinstance(f, Spider) else f)(self)
+        return compact.Functor(
+            ob=lambda x: x, ar=lambda f:
+                f.unfuse() if isinstance(f, Spider) else f)(self)
 
 
 class Box(compact.Box, Diagram):
@@ -229,7 +230,7 @@ class Functor(compact.Functor):
 
 
 def interleaving(cls: type, factory: Callable
-        ) -> Callable[[int, int, Ty], Diagram]:
+                 ) -> Callable[[int, int, Ty], Diagram]:
     """
     Take a ``factory`` for spiders of atomic types and extend it recursively.
 
@@ -254,8 +255,9 @@ def interleaving(cls: type, factory: Callable
 
     return method
 
+
 def coherence(cls: type, factory: Callable
-        ) -> Callable[[int, int, Ty], Diagram]:
+              ) -> Callable[[int, int, Ty], Diagram]:
     """
     Take a ``factory`` for spiders with one or three legs of atomic types
     and extend it recursively to arbitrary spiders of atomic types.

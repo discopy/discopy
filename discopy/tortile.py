@@ -102,6 +102,7 @@ class Diagram(pivotal.Diagram, braided.Diagram):
         cup = self.cup_factory(self.cod[y - 1], self.cod[y])
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
 
+
 class Box(pivotal.Box, braided.Box, Diagram):
     """
     A tortile box is a pivotal and braided box in a tortile diagram.
@@ -113,6 +114,7 @@ class Box(pivotal.Box, braided.Box, Diagram):
     """
     __ambiguous_inheritance__ = (pivotal.Box, braided.Box, )
 
+
 class Cup(pivotal.Cup, Box):
     """
     A tortile cup is a pivotal cup in a tortile diagram.
@@ -123,6 +125,7 @@ class Cup(pivotal.Cup, Box):
     """
     __ambiguous_inheritance__ = (pivotal.Cup, )
 
+
 class Cap(pivotal.Cap, Box):
     """
     A tortile cap is a pivotal cap in a tortile diagram.
@@ -132,6 +135,7 @@ class Cap(pivotal.Cap, Box):
         right (pivotal.Ty) : Its adjoint.
     """
     __ambiguous_inheritance__ = (pivotal.Cap, )
+
 
 class Braid(braided.Braid, Box):
     """
@@ -148,9 +152,6 @@ class Braid(braided.Braid, Box):
 
     def rotate(self, _=False):
         return self
-
-Diagram.braid_factory = Braid
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 
 class Category(pivotal.Category, braided.Category):
@@ -181,5 +182,8 @@ class Functor(pivotal.Functor, braided.Functor):
             return braided.Functor.__call__(self, other)
         return pivotal.Functor.__call__(self, other)
 
+
+Diagram.braid_factory = Braid
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 Id = Diagram.id

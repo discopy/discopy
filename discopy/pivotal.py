@@ -166,8 +166,8 @@ class Diagram(rigid.Diagram, traced.Diagram):
             >> traced_wire.r @ diagram\
             >> cls.cups(traced_wire.r, traced_wire) @ cod if left\
             else dom @ cls.caps(traced_wire, traced_wire.r)\
-                >> diagram @ traced_wire.r\
-                >> cod @ cls.cups(traced_wire, traced_wire.r)
+            >> diagram @ traced_wire.r\
+            >> cod @ cls.cups(traced_wire, traced_wire.r)
 
 
 class Box(rigid.Box, Diagram):
@@ -186,7 +186,6 @@ class Box(rigid.Box, Diagram):
         return type(self)(
             self.name, dom=self.cod.r, cod=self.dom.r,
             data=self.data, is_dagger=self.is_dagger, z=(self.z + 1) % 2)
-
 
     def dagger(self) -> Box:
         return type(self)(

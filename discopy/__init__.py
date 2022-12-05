@@ -6,7 +6,6 @@ syntax, semantics, quantum, grammar and other.
 """
 
 from discopy import (
-    ### SYNTAX ###
     cat,
     monoidal,
     braided,
@@ -20,15 +19,11 @@ from discopy import (
     compact,
     frobenius,
     hypergraph,
-    ### SEMANTICS ###
     python,
     matrix,
     tensor,
-    ### QUANTUM ###
     quantum,
-    ### GRAMMAR ###
     grammar,
-    ### OTHER ###
     drawing,
     utils,
     config,

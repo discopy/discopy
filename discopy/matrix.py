@@ -213,8 +213,8 @@ class Matrix(Composable, Whiskerable):
         assert_isinstance(other, type(self))
         dom, cod = self.dom + other.dom, self.cod + other.cod
         array = Matrix.zero(dom, cod).array
-        array[:self.dom,:self.cod] = self.array
-        array[self.dom:,self.cod:] = other.array
+        array[:self.dom, :self.cod] = self.array
+        array[self.dom:, self.cod:] = other.array
         return type(self)(array, dom, cod)
 
     def __add__(self, other):
@@ -355,14 +355,16 @@ class TensorFlow(Backend):
         super().__init__(tnp)
 
 
-BACKENDS = {'np': NumPy,
-            'numpy': NumPy,
-            'jax': JAX,
-            'jax.numpy': JAX,
-            'pytorch': PyTorch,
-            'torch': PyTorch,
-            'tensorflow': TensorFlow,
+BACKENDS = {
+    'np': NumPy,
+    'numpy': NumPy,
+    'jax': JAX,
+    'jax.numpy': JAX,
+    'pytorch': PyTorch,
+    'torch': PyTorch,
+    'tensorflow': TensorFlow,
 }
+
 
 @contextmanager
 def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
@@ -374,6 +376,7 @@ def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
         yield _cache[name]
     finally:
         _stack.pop()
+
 
 def get_backend():
     with backend() as result:

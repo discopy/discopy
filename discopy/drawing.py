@@ -258,7 +258,7 @@ def nx2diagram(graph: "networkx.Graph", factory: type) -> "monoidal.Diagram":
                 swaps = swaps >> _id(swaps.cod[:j])\
                     @ factory.swap(swaps.cod[j], swaps.cod[j + 1:offset + i])\
                     @ _id(swaps.cod[offset + i:])
-                scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j+1]\
+                scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j + 1]\
                     + scan[offset + i:]
                 offset -= 1
         cod_nodes = [
@@ -602,13 +602,13 @@ def draw(diagram, **params):
                 if source.box.is_dagger and target.i == 0:
                     source_position = tuple(
                         x + b * shadow
-                        for x, b, shadow in zip(source_position
-                            , [-1, -1], braid_shadow))
+                        for x, b, shadow in zip(
+                            source_position, [-1, -1], braid_shadow))
                 if not source.box.is_dagger and target.i == 1:
                     source_position = tuple(
                         x + b * shadow
-                        for x, b, shadow in zip(source_position
-                            , [1, -1], braid_shadow))
+                        for x, b, shadow in zip(
+                            source_position, [1, -1], braid_shadow))
             if target.kind == "box" and target.box.draw_as_braid:
                 if target.box.is_dagger and source.i == 1:
                     target_position = tuple(
@@ -622,10 +622,10 @@ def draw(diagram, **params):
                             target_position, [-1, 1], braid_shadow))
             backend.draw_wire(
                 source_position, target_position, bend_out, bend_in)
-            if source.kind in ["input", "cod"]\
-                    and (params.get('draw_type_labels', True)
-                         or getattr(source.obj, "draw_as_box", False)
-                         and params.get('draw_box_labels', True)):
+            draw_type_labels = params.get('draw_type_labels', True)\
+                or getattr(source.obj, "draw_as_box", False)\
+                and params.get('draw_box_labels', True)
+            if source.kind in ["input", "cod"] and draw_type_labels:
                 i, j = positions[source]
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
                 pad_j = 0 if source.kind == "input" else pad_j

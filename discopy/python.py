@@ -60,6 +60,7 @@ def tuplify(stuff: any) -> tuple:
     """
     return stuff if isinstance(stuff, tuple) else (stuff, )
 
+
 def untuplify(stuff: tuple) -> any:
     """
     Takes the element out of a tuple if it has length 1, otherwise do nothing.
@@ -72,6 +73,7 @@ def untuplify(stuff: tuple) -> any:
     This is the inverse of :func:`tuplify`, except on tuples of length 1.
     """
     return stuff[0] if len(stuff) == 1 else stuff
+
 
 def is_tuple(typ: type) -> bool:
     """
@@ -130,9 +132,9 @@ class Function(Composable, Whiskerable):
         Parameters:
             other : The other function to compose in sequence.
         """
-        assert self.cod == other.dom
-        inside = lambda *args: other(*tuplify(self(*args)))
-        return Function(inside, self.dom, other.cod)
+        self.assert_iscomposable(other)
+        return Function(
+            lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
 
     def __call__(self, *xs):
         return self.inside(*xs)
@@ -197,12 +199,10 @@ class Function(Composable, Whiskerable):
             left : Whether to take the function on the left or right.
         """
         if left:
-            inside = lambda f, *xs: f(*xs)
             dom, cod = Function.exp(base, exponent) + exponent, base
-        else:
-            inside = lambda *xs: xs[-1](*xs[:-1])
-            dom, cod = exponent + Function.exp(base, exponent), base
-        return Function(inside, dom, cod)
+            return Function(lambda f, *xs: f(*xs), dom, cod)
+        dom, cod = exponent + Function.exp(base, exponent), base
+        return Function(lambda *xs: xs[-1](*xs[:-1]), dom, cod)
 
     def curry(self, n=1, left=True) -> Function:
         """
@@ -212,13 +212,13 @@ class Function(Composable, Whiskerable):
             n : The number of types to curry.
             left : Whether to curry on the left or right.
         """
-        inside = lambda *xs: lambda *ys: self(*(xs + ys) if left else (ys + xs))
         if left:
             dom = self.dom[:len(self.dom) - n]
             cod = Function.exp(self.cod, self.dom[len(self.dom) - n:])
         else:
             dom, cod = self.dom[n:], Function.exp(self.cod, self.dom[:n])
-        return Function(inside, dom, cod)
+        return Function(dom=dom, cod=cod, inside=lambda *xs: lambda *ys:
+                        self(*(xs + ys) if left else (ys + xs)))
 
     def uncurry(self, left=True) -> Function:
         """
@@ -240,12 +240,11 @@ class Function(Composable, Whiskerable):
         Parameters:
             n : The number of types to take the fixed point over.
         """
-        if n > 1: return self.fix().fix(n - 1)
-        dom, cod = self.dom[:-1], self.cod
         def inside(*xs, y=None):
             result = self.inside(*xs + (() if y is None else (y, )))
             return y if result == y else inside(*xs, y=result)
-        return Function(inside, dom, cod)
+        return self if n == 0\
+            else Function(inside, self.dom[:-1], self.cod).fix(n - 1)
 
     def trace(self, n=1, left=False):
         """

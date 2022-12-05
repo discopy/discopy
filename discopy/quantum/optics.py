@@ -282,9 +282,11 @@ class Diagram(monoidal.Diagram):
         prob = 0
         for sigma in permutations(photons):
             for rho in permutations(photons):
-                prob += np.prod([matrix[sigma[j], j]
-                                 * np.conjugate(matrix[rho[j], j])
-                                 * S[rho[j], sigma[j]] for j in photons])
+                product = 1
+                for j in photons:
+                    product *= matrix[sigma[j], j]\
+                        * np.conjugate(matrix[rho[j], j]) * S[rho[j], sigma[j]]
+                prob += product
         return prob
 
     def cl_distribution(self, x):
@@ -999,18 +1001,19 @@ def make_spiders(cls, n_legs_in, n_legs_out, phase=0):
         return cls(1, 1, phase)
 
     if n_legs_out != 1 or phase != 0:
-        return (cls.make_spiders(n_legs_in, 1, 0)
-                >> cls.make_spiders(1, 1, phase)
-                >> cls.make_spiders(1, n_legs_out, 0))
+        return cls.make_spiders(n_legs_in, 1, 0)\
+            >> cls.make_spiders(1, 1, phase)\
+            >> cls.make_spiders(1, n_legs_out, 0)
 
     if n_legs_in % 2 == 1:
         return (cls.make_spiders(n_legs_in - 1, 1)
                 @ Id(1) >> cls(2, n_legs_out))
 
     new_in = n_legs_in // 2
-    return (cls.make_spiders(new_in, 1)
-            @ cls.make_spiders(new_in, 1)
-            >> cls(2, n_legs_out))
+    return cls.make_spiders(new_in, 1)\
+        @ cls.make_spiders(new_in, 1)\
+        >> cls(2, n_legs_out)
+
 
 def decomp_ar(box):
     n, m = len(box.dom), len(box.cod)

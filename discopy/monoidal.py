@@ -575,7 +575,7 @@ class Diagram(cat.Arrow, Whiskerable):
 
     @classmethod
     def decode(cls, dom: Ty, boxes_and_offsets: list[tuple[Box, int]]
-            ) -> Diagram:
+               ) -> Diagram:
         """
         Turn a tuple of boxes and offsets into a diagram.
 
@@ -846,11 +846,11 @@ class Sum(cat.Sum, Box):
     """
     __ambiguous_inheritance__ = (cat.Sum, )
 
-    def tensor(self, *others):
-        if len(others) != 1:
-            return super().tensor(*others)
-        other, = others
-        other = other if isinstance(other, Sum) else self.sum_factory((other, ))
+    def tensor(self, other=None, *others):
+        if other is None or len(others) != 1:
+            return Box.tensor(self, other, *others)
+        other = other if isinstance(other, Sum)\
+            else self.sum_factory((other, ))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         terms = tuple(f.tensor(g) for f in self.terms for g in other.terms)
         return self.sum_factory(terms, dom, cod)

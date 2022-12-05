@@ -454,5 +454,6 @@ def to_rigid(self):
             f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
         cod=rigid.Category())(self)
 
+
 Id = Diagram.id
 Diagram.to_rigid = to_rigid

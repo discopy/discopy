@@ -200,9 +200,8 @@ class Tensor(Matrix):
             return cls(np.moveaxis(array, source, target), dom, cod)
 
     @classmethod
-    def spider_factory(
-            cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
-            ) -> Tensor:
+    def spider_factory(cls, n_legs_in: int, n_legs_out: int,
+                       typ: Dim, phase=None) -> Tensor:
         if phase is not None:
             raise NotImplementedError
         assert_isatomic(typ, Dim)
@@ -214,9 +213,8 @@ class Tensor(Matrix):
         return result
 
     @classmethod
-    def spiders(
-            cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
-            ) -> Tensor:
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
+                ) -> Tensor:
         """
         The tensor of interleaving spiders.
 
@@ -432,8 +430,8 @@ class Diagram(frobenius.Diagram):
         array = contractor(*self.to_tn(dtype=dtype)).tensor
         return Tensor[dtype](array, self.dom, self.cod)
 
-    def to_tn(self, dtype: type = None
-            ) -> tuple[list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
+    def to_tn(self, dtype: type = None) -> tuple[
+            list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
         """
         Convert a tensor diagram to :code:`tensornetwork`.
 
