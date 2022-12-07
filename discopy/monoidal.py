@@ -450,8 +450,11 @@ class Whiskerable(ABC):
         """
         return other if isinstance(other, Whiskerable) else cls.id(other)
 
-    __matmul__ = lambda self, other: self.tensor(self.whisker(other))
-    __rmatmul__ = lambda self, other: self.whisker(other).tensor(self)
+    def __matmul__(self, other):
+        return self.tensor(self.whisker(other))
+
+    def __rmatmul__(self, other):
+        return self.whisker(other).tensor(self)
 
 
 @factory

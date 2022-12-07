@@ -915,7 +915,7 @@ def assert_iscomposable(left: Composable, right: Composable):
     """
     if not left.is_composable(right):
         raise AxiomError(messages.NOT_COMPOSABLE.format(
-            left, right, repr(left.cod), repr(right.dom)))
+            left, right, left.cod, right.dom))
 
 
 def assert_isparallel(left: Composable, right: Composable):

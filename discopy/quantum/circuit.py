@@ -43,13 +43,12 @@ Examples
 .. image:: /imgs/quantum/circuit-example.png
     :align: center
 
->>> from discopy import rigid
->>> from discopy.grammar.pregroup import Word
->>> s, n = rigid.Ty('s'), rigid.Ty('n')
->>> Alice = Word('Alice', n)
->>> loves = Word('loves', n.r @ s @ n.l)
->>> Bob = Word('Bob', n)
->>> grammar = rigid.Cup(n, n.r) @ s @ rigid.Cup(n.l, n)
+>>> from discopy.grammar import pregroup
+>>> s, n = pregroup.Ty('s'), pregroup.Ty('n')
+>>> Alice = pregroup.Word('Alice', n)
+>>> loves = pregroup.Word('loves', n.r @ s @ n.l)
+>>> Bob = pregroup.Word('Bob', n)
+>>> grammar = pregroup.Cup(n, n.r) @ s @ pregroup.Cup(n.l, n)
 >>> sentence = grammar << Alice @ loves @ Bob
 >>> ob = {s: Ty(), n: qubit}
 >>> ar = {Alice: Ket(0),
@@ -59,7 +58,7 @@ Examples
 >>> assert abs(F(sentence).eval().array) ** 2
 >>> from discopy import drawing
 >>> drawing.equation(
-...     sentence, F(sentence), symbol='$\\\\mapsto$',
+...     sentence.drawing(), F(sentence), symbol='$\\\\mapsto$',
 ...     figsize=(6, 3), nodesize=.5,
 ...     path='docs/imgs/quantum/functor-example.png')
 
@@ -172,6 +171,18 @@ class Circuit(tensor.Diagram):
         cod (quantum.circuit.Ty) : The codomain of the circuit diagram.
     """
     ty_factory = Ty
+
+    @classmethod
+    def id(cls, dom: int | Ty = None):
+        """
+        The identity circuit on a given domain.
+
+        Parameters:
+            dom : The domain (and codomain) of the identity,
+                  or ``qubit ** dom`` if ``dom`` is an ``int``.
+        """
+        dom = qubit ** dom if isinstance(dom, int) else dom
+        return tensor.Diagram.id.__func__(Circuit, dom)
 
     @property
     def is_mixed(self):
@@ -735,32 +746,58 @@ class Circuit(tensor.Diagram):
         return frobenius.coherence(Circuit, factory)(
             n_legs_in, n_legs_out, typ)
 
-    def _apply_gate(self, gate, position):
-        """ Apply gate at position """
-        if position < 0 or position >= len(self.cod):
-            raise ValueError(f'Index {position} out of range.')
-        left = Id(position)
-        right = Id(len(self.cod) - position - len(gate.dom))
-        return self >> left @ gate @ right
+    def apply(self, other: Circuit, offset: int) -> Circuit:
+        """
+        Post-compose with an ``other`` circuit at a given ``offset``.
 
-    def _apply_controlled(self, base_gate, *xs):
-        from discopy.quantum import Controlled
-        if len(set(xs)) != len(xs):
-            raise ValueError(f'Indices {xs} not unique.')
-        if min(xs) < 0 or max(xs) >= len(self.cod):
-            raise ValueError(f'Indices {xs} out of range.')
-        before = sorted(filter(lambda x: x < xs[-1], xs[:-1]))
-        after = sorted(filter(lambda x: x > xs[-1], xs[:-1]))
-        gate = base_gate
-        last_x = xs[-1]
-        for x in before[::-1]:
-            gate = Controlled(gate, distance=last_x - x)
-            last_x = x
-        last_x = xs[-1]
-        for x in after[::-1]:
-            gate = Controlled(gate, distance=last_x - x)
-            last_x = x
-        return self._apply_gate(gate, min(xs))
+        Parameters:
+            other : The circuit with which to post-compose.
+            offset : The number of wires to the left.
+        """
+        return
+
+    def apply_controlled(self, gate: Circuit, *indices: int) -> Circuit:
+        """
+        Post-compose with a controlled ``gate`` at given ``indices``.
+
+        Parameters:
+            gates : The gate to control.
+            indices : The indices on which to apply the gate.
+        """
+        from discopy.quantum.gates import Controlled
+        if min(indices) < 0 or max(indices) >= len(self.cod):
+            raise IndexError
+        if len(set(indices)) != len(indices):
+            raise ValueError
+        head, offset = indices[-1], min(indices)
+        for x in sorted(filter(lambda x: x < head, indices), reverse=True):
+            gate, head = Controlled(gate, distance=head - x), x
+        head = indices[-1]
+        for x in sorted(filter(lambda x: x > head, indices), reverse=True):
+            gate, head = Controlled(gate, distance=head - x), x
+        return self\
+            >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
+
+    def __getattr__(self, attr):
+        from discopy.quantum.gates import GATES, Box, Rotation, Controlled
+        if attr in GATES:
+            gate = GATES[attr]
+            if isinstance(gate, Controlled)\
+                    and isinstance(gate.controlled, Controlled):
+                gate = gate.controlled.controlled
+                return lambda i, j, k: self.apply_controlled(gate, i, j, k)
+            if isinstance(gate, Controlled):
+                gate = gate.controlled
+                return lambda i, j: self.apply_controlled(gate, i, j)
+            if isinstance(gate, Box):
+                return lambda i: self.apply_controlled(gate, i)
+            if issubclass(gate, Rotation) and issubclass(gate, Controlled):
+                gate = gate.controlled
+                return lambda phi, i, j: self.apply_controlled(gate(phi), i, j)
+            if issubclass(gate, Rotation):
+                return lambda phi, i: self.apply_controlled(gate(phi), i)
+        raise AttributeError(messages.HAS_NO_ATTRIBUTE.format(
+            factory_name(type(self)), attr))
 
 
 class Box(tensor.Box, Circuit):

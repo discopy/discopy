@@ -39,14 +39,14 @@ def IQPansatz(n_qubits, params) -> Circuit:
     """
     Build an IQP ansatz on n qubits, if n = 1 returns an Euler decomposition.
 
-    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
-    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]).foliation())
+    >>> pprint = lambda c: print(str(c.foliation()).replace(' >>', '\\n  >>'))
+    >>> pprint(IQPansatz(3, [[0.1, 0.2], [0.3, 0.4]]))
     H @ H @ H
-      >> CRz @ qubit
-      >> H @ CRz
+      >> CRz(0.1) @ qubit
+      >> H @ CRz(0.2)
       >> qubit @ H @ H
-      >> CRz @ qubit
-      >> qubit @ CRz
+      >> CRz(0.3) @ qubit
+      >> qubit @ CRz(0.4)
     >>> print(IQPansatz(1, [0.3, 0.8, 0.4]))
     Rx(0.3) >> Rz(0.8) >> Rx(0.4)
     """
@@ -80,24 +80,18 @@ def Sim14ansatz(n_qubits, params) -> Circuit:
     Replaces circuit-block construction with two rings of CRx gates, in
     opposite orientation.
 
-    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
+    >>> pprint = lambda c: print(str(c.foliation()).replace(' >>', '\\n  >>'))
     >>> pprint(Sim14ansatz(3, [[i/10 for i in range(12)]]))
-    Ry(0) @ Id(2)
-      >> Id(1) @ Ry(0.1) @ Id(1)
-      >> Id(2) @ Ry(0.2)
-      >> CRx(0.3)
-      >> CRx(0.4) @ Id(1)
-      >> Id(1) @ CRx(0.5)
-      >> Ry(0.6) @ Id(2)
-      >> Id(1) @ Ry(0.7) @ Id(1)
-      >> Id(2) @ Ry(0.8)
-      >> CRx(0.9) @ Id(1)
-      >> CRx(1)
-      >> Id(1) @ CRx(1.1)
-    >>> pprint(Sim14ansatz(1, [0.1, 0.2, 0.3]))
-    Rx(0.1)
-      >> Rz(0.2)
-      >> Rx(0.3)
+    Ry(0) @ Ry(0.1) @ Ry(0.2)
+      >> Controlled(Rx(0.3), distance=2)
+      >> Controlled(Rx(0.4), distance=-1) @ qubit
+      >> Ry(0.6) @ Controlled(Rx(0.5), distance=-1)
+      >> qubit @ Ry(0.7) @ Ry(0.8)
+      >> CRx(0.9) @ qubit
+      >> Controlled(Rx(1), distance=-2)
+      >> qubit @ CRx(1.1)
+    >>> print(Sim14ansatz(1, [0.1, 0.2, 0.3]))
+    Rx(0.1) >> Rz(0.2) >> Rx(0.3)
     """
     from discopy.quantum.gates import Rx, Ry, Rz
 
@@ -144,24 +138,18 @@ def Sim15ansatz(n_qubits, params) -> Circuit:
     Replaces circuit-block construction with two rings of CNOT gates, in
     opposite orientation.
 
-    >>> pprint = lambda c: print(str(c).replace(' >>', '\\n  >>'))
+    >>> pprint = lambda c: print(str(c.foliation()).replace(' >>', '\\n  >>'))
     >>> pprint(Sim15ansatz(3, [[0.1, 0.2, 0.3, 0.4, 0.5, 0.6]]))
-    Ry(0.1) @ Id(2)
-      >> Id(1) @ Ry(0.2) @ Id(1)
-      >> Id(2) @ Ry(0.3)
-      >> CX
-      >> CX @ Id(1)
-      >> Id(1) @ CX
-      >> Ry(0.4) @ Id(2)
-      >> Id(1) @ Ry(0.5) @ Id(1)
-      >> Id(2) @ Ry(0.6)
-      >> CX @ Id(1)
-      >> CX
-      >> Id(1) @ CX
-    >>> pprint(Sim15ansatz(1, [0.1, 0.2, 0.3]))
-    Rx(0.1)
-      >> Rz(0.2)
-      >> Rx(0.3)
+    Ry(0.1) @ Ry(0.2) @ Ry(0.3)
+      >> Controlled(X, distance=2)
+      >> Controlled(X, distance=-1) @ qubit
+      >> Ry(0.4) @ Controlled(X, distance=-1)
+      >> qubit @ Ry(0.5) @ Ry(0.6)
+      >> CX @ qubit
+      >> Controlled(X, distance=-2)
+      >> qubit @ CX
+    >>> print(Sim15ansatz(1, [0.1, 0.2, 0.3]))
+    Rx(0.1) >> Rz(0.2) >> Rx(0.3)
     """
     from discopy.quantum.gates import Rx, Ry, Rz
 

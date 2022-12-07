@@ -546,7 +546,7 @@ def test_circuit_chaining():
         CZ, Controlled(X, distance=-2), Controlled(CX, distance=1),
         Controlled(CZ, distance=-1), X, Y, Z]
     offsets = [0, 0, 0, 0, 0, 1, 2]
-    assert circuit == Circuit(qubit ** 3, zip(boxes, offsets))
+    assert circuit == Circuit.decode(qubit ** 3, zip(boxes, offsets))
 
     circuit = Id(qubit).Rx(0.1, 0).Ry(0.2, 0).Rz(0.3, 0)
     expected_circuit = Rx(0.1) >> Ry(0.2) >> Rz(0.3)

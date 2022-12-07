@@ -55,11 +55,12 @@ import warnings
 
 from math import e, pi
 
+from discopy import messages
 from discopy.cat import AxiomError, rsubs
 from discopy.tensor import array2string, Dim, Tensor, backend, get_backend
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
-from discopy.utils import factory_name
+from discopy.utils import factory_name, assert_isinstance
 
 
 def format_number(data):
@@ -71,13 +72,23 @@ def format_number(data):
 
 
 class SelfConjugate(Box):
-    """ A self-conjugate box. """
+    """ A self-conjugate box, i.e. where the transpose is the dagger. """
     def conjugate(self):
         return self
 
     def rotate(self, left=False):
         del left
         return self.dagger()
+
+
+class AntiConjugate(Box):
+    """ An anti-conjugate box, i.e. where the conjugate is the dagger. """
+    def conjugate(self):
+        return self.dagger()
+
+    def rotate(self, left=False):
+        del left
+        return self
 
 
 class Discard(SelfConjugate):
@@ -397,19 +408,15 @@ class Controlled(QuantumGate):
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
     """
-    draw_as_controlled = True
-
     def __init__(self, controlled, distance=1):
-        if not isinstance(controlled, QuantumGate):
-            raise TypeError(QuantumGate, controlled)
-        if distance == 0:
-            raise ValueError("Zero-distance controlled gates are ill-defined.")
-        n_qubits = len(controlled.dom) + abs(distance)
-        name = 'C' + controlled.name
-        dom = cod = qubit ** n_qubits
-        super().__init__(name, dom, cod, data=controlled.data)
+        assert_isinstance(controlled, QuantumGate)
+        if not distance:
+            raise ValueError(messages.ZERO_DISTANCE_CONTROLLED)
         self.controlled, self.distance = controlled, distance
-        self.draw_as_controlled = True
+        n_qubits = len(controlled.dom) + abs(distance)
+        name = f'C{controlled}'
+        dom = cod = qubit ** n_qubits
+        QuantumGate.__init__(self, name, dom, cod, data=controlled.data)
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
@@ -427,7 +434,11 @@ class Controlled(QuantumGate):
         return type(self)(controlled, distance=self.distance)
 
     def __repr__(self):
-        return f'Controlled({self.controlled}, distance={self.distance})'
+        return f'Controlled({self.controlled!r}, distance={self.distance!r})'
+
+    def __str__(self):
+        return self.name if self.distance == 1\
+            else f'Controlled({self.controlled}, distance={self.distance})'
 
     def __eq__(self, other):
         return not isinstance(other, Box) and super().__eq__(other)\
@@ -494,6 +505,7 @@ class Controlled(QuantumGate):
     def drawing(self):
         result = super().drawing()
         result.distance, result.controlled = self.distance, self.controlled
+        result.draw_as_controlled = True
         return result
 
 
@@ -544,7 +556,10 @@ class Parametrized(Box):
         return lambda *xs: type(self)(data(*xs))
 
     def __str__(self):
-        return '{}({})'.format(self.name, format_number(self.data))
+        if isinstance(self, Controlled):
+            # Ensure `Controlled(Rx(0.5))` and `CRx(0.5)` are printed the same.
+            return Controlled.__str__(self)
+        return f'{self.name}({format_number(self.data)})'
 
     def __repr__(self):
         return factory_name(type(self)) + f"({format_number(self.data)})"
@@ -552,11 +567,13 @@ class Parametrized(Box):
 
 class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
-    def __init__(self, phase, name=None, n_qubits=1, z=0):
+    n_qubits = 1
+
+    def __init__(self, phase, z=0):
+        name, n_qubits = type(self).__name__, type(self).n_qubits
         dom = cod = qubit ** n_qubits
         QuantumGate.__init__(self, name, dom, cod, z=z)
-        Parametrized.__init__(
-            self, name, self.dom, self.cod, is_mixed=False, data=phase)
+        Parametrized.__init__(self, name, dom, cod, is_mixed=False, data=phase)
 
     @property
     def phase(self):
@@ -565,6 +582,10 @@ class Rotation(Parametrized, QuantumGate):
 
     def dagger(self):
         return type(self)(-self.phase)
+
+    def rotate(self, left=False):
+        del left
+        return type(self)(self.phase, z=int(not self.z))
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -584,38 +605,12 @@ class Rotation(Parametrized, QuantumGate):
             return scalar(np.pi * gradient) @ type(self)(self.phase + .5)
 
 
-class AntiConjugate(Rotation):
-    """ An anti-conjugate rotation, i.e. where the conjugate is the dagger. """
-    def conjugate(self):
-        return self.dagger()
-
-    def rotate(self, left=False):
-        del left
-        return self
-
-
-class Anti2QubitConjugate(Rotation):
-    """
-    An anti-conjugate two-qubit rotation, i.e. where the conjugate is the
-    dagger pre- and post-composed with swaps.
-    """
-    def conjugate(self):
-        return SWAP >> type(self)(-self.phase) >> SWAP
-
-    def rotate(self, left=False):
-        del left
-        return SWAP >> self >> SWAP
-
-
-class Rx(AntiConjugate):
+class Rx(AntiConjugate, Rotation):
     """ X rotations. """
-    def __init__(self, phase):
-        super().__init__(phase, name="Rx")
-
     @property
     def array(self):
         with backend() as np:
-            half_theta = np.array(self.modules.pi * self.phase)
+            half_theta = np.array(self.modules.pi * self.phase, dtype=complex)
             sin = self.modules.sin(half_theta)
             cos = self.modules.cos(half_theta)
             return np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
@@ -623,47 +618,59 @@ class Rx(AntiConjugate):
 
 class Ry(SelfConjugate, Rotation):
     """ Y rotations. """
-    def __init__(self, phase):
-        super().__init__(phase, name="Ry", z=None)
-
     @property
     def array(self):
         with backend() as np:
-            half_theta = np.array(self.modules.pi * self.phase)
+            half_theta = np.array(self.modules.pi * self.phase, dtype=complex)
             sin = self.modules.sin(half_theta)
             cos = self.modules.cos(half_theta)
             return np.stack((cos, sin, -sin, cos)).reshape(2, 2)
 
 
-class Rz(AntiConjugate):
+class Rz(AntiConjugate, Rotation):
     """ Z rotations. """
-    def __init__(self, phase):
-        super().__init__(phase, name="Rz")
-
     @property
     def array(self):
         with backend() as np:
-            half_theta = np.array(self.modules.pi * self.phase)
+            half_theta = np.array(self.modules.pi * self.phase, dtype=complex)
             e1 = self.modules.exp(-1j * half_theta)
             e2 = self.modules.exp(1j * half_theta)
             z = np.array(0)
             return np.stack((e1, z, z, e2)).reshape(2, 2)
 
 
-class CU1(Anti2QubitConjugate):
-    """ Controlled Z rotations. """
-    def __init__(self, phase):
-        super().__init__(phase, name="CU1", n_qubits=2)
-
+class U1(AntiConjugate, Rotation):
+    """ Z rotation, differ from :class:`Rz` by a global phase. """
     @property
     def array(self):
         with backend() as np:
-            theta = np.array(2 * self.modules.pi * self.phase)
+            theta = np.array(2 * self.modules.pi * self.phase, dtype=complex)
             return np.stack(
-                (1, 0, 0, 0,
-                 0, 1, 0, 0,
-                 0, 0, 1, 0,
-                 0, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2, 2, 2)
+                (1, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2)
+
+
+class CU1(Controlled, Rotation):
+    """ Controlled U1 rotations. """
+    controlled = U1
+
+    def __init__(self, phase, distance=1):
+        Controlled.__init__(self, U1(phase), distance)
+
+
+class CRz(Controlled, Rotation):
+    """ Controlled Z rotations. """
+    controlled = Rz
+
+    def __init__(self, phase, distance=1):
+        Controlled.__init__(self, Rz(phase), distance)
+
+
+class CRx(Controlled, Rotation):
+    """ Controlled X rotations. """
+    controlled = Rx
+
+    def __init__(self, phase, distance=1):
+        Controlled.__init__(self, Rx(phase), distance)
 
 
 class Scalar(Parametrized):
@@ -711,16 +718,6 @@ class Sqrt(Scalar):
 
     def dagger(self):
         return self
-
-
-def CRz(phase):
-    """ Controlled Z rotations. """
-    return Controlled(Rz(phase))
-
-
-def CRx(phase):
-    """ Controlled X rotations. """
-    return Controlled(Rx(phase))
 
 
 def rewire(op, a: int, b: int, *, dom=None):
@@ -783,5 +780,29 @@ X = QuantumGate('X', qubit, qubit, [0, 1, 1, 0], is_dagger=None, z=None)
 Y = QuantumGate('Y', qubit, qubit, [0, 1j, -1j, 0], is_dagger=None)
 Z = QuantumGate('Z', qubit, qubit, [1, 0, 0, -1], is_dagger=None, z=None)
 CX = Controlled(X)
+CY = Controlled(Y)
 CZ = Controlled(Z)
-GATES = [SWAP, H, S, T, X, Y, Z, CZ, CX]
+CCX = Controlled(CX)
+CCZ = Controlled(CZ)
+
+GATES = {
+    'SWAP': SWAP,
+    'H': H,
+    'S': S,
+    'T': T,
+    'X': X,
+    'Y': Y,
+    'Z': Z,
+    'CZ': CZ,
+    'CY': CY,
+    'CX': CX,
+    'CCX': CCX,
+    'CCZ': CCZ,
+    'Rx': Rx,
+    'Ry': Ry,
+    'Rz': Rz,
+    'U1': U1,
+    'CRx': CRx,
+    'CRz': CRz,
+    'CU1': CU1,
+}

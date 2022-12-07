@@ -320,11 +320,10 @@ def from_tk(tk_circuit):
             return CRx(tk_gate.op.params[0] / 2)
         if name == 'CRz':
             return CRz(tk_gate.op.params[0] / 2)
-        for gate in GATES:
-            if name == gate.name:
-                return gate
-            if name == gate.name + 'dg':
-                return gate.dagger()
+        if name in GATES:
+            return GATES[name]
+        if name.removesuffix('dg') in GATES:
+            return GATES[name.removesuffix('dg')].dagger()
         raise NotImplementedError
 
     def make_units_adjacent(tk_gate):

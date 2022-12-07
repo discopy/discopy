@@ -50,7 +50,7 @@ The hexagon equations hold on the nose.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided
+from discopy import monoidal, braided, messages
 from discopy.cat import factory
 from discopy.monoidal import Ty, PRO, assert_isatomic
 
@@ -68,7 +68,7 @@ class Diagram(braided.Diagram):
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
         """
-        Returns a diagram that swaps the left with the right wires.
+        The diagram that swaps the ``left`` and ``right`` wires.
 
         Parameters:
             left : The type at the top left and bottom right.
@@ -83,19 +83,16 @@ class Diagram(braided.Diagram):
     @classmethod
     def permutation(cls, xs: list[int], dom: monoidal.Ty = None) -> Diagram:
         """
-        Construct the diagram representing a given permutation.
+        The diagram that encodes a given permutation.
 
         Parameters:
             xs : A list of integers representing a permutation.
             dom : A type of the same length as :code:`permutation`,
                   default is :code:`PRO(len(permutation))`.
         """
-        if set(range(len(xs))) != set(xs):
-            raise ValueError("Input should be a permutation of range(n).")
         dom = PRO(len(xs)) if dom is None else dom
-        if len(dom) != len(xs):
-            raise ValueError(
-                "Domain and permutation should have the same length.")
+        if set(range(len(dom))) != set(xs):
+            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
         if len(dom) <= 1:
             return cls.id(dom)
         i = xs[0]
@@ -105,7 +102,7 @@ class Diagram(braided.Diagram):
 
     def permute(self, *xs: int) -> Diagram:
         """
-        Returns :code:`self >> self.permutation(list(xs), self.dom)`.
+        Post-compose with a permutation.
 
         Parameters:
             xs : A list of integers representing a permutation.
@@ -113,7 +110,7 @@ class Diagram(braided.Diagram):
         Examples
         --------
         >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> assert Id(x @ y @ z).permute(2, 1, 0).cod == z @ y @ x
+        >>> assert Id(x @ y @ z).permute(2, 0, 1).cod == z @ x @ y
         """
         return self >> self.permutation(list(xs), self.cod)
 
