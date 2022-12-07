@@ -746,16 +746,6 @@ class Circuit(tensor.Diagram):
         return frobenius.coherence(Circuit, factory)(
             n_legs_in, n_legs_out, typ)
 
-    def apply(self, other: Circuit, offset: int) -> Circuit:
-        """
-        Post-compose with an ``other`` circuit at a given ``offset``.
-
-        Parameters:
-            other : The circuit with which to post-compose.
-            offset : The number of wires to the left.
-        """
-        return
-
     def apply_controlled(self, gate: Circuit, *indices: int) -> Circuit:
         """
         Post-compose with a controlled ``gate`` at given ``indices``.
