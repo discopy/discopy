@@ -8,32 +8,23 @@ DisCoPy documentation
     :start-line: 10
 
 .. toctree::
-    :caption: Reference
+    :caption: Reference API
     :hidden:
 
-    api
+    api/syntax
+    api/semantics
+    api/quantum
+    api/grammar
+    api/other
 
 .. toctree::
-    :caption: Theory
+    :caption: Notebooks
     :hidden:
 
-    theory/1-diagrams
-    theory/2-rewriting
-    theory/3-functors
-    theory/4-hierarchy
-    theory/5-custom
-
-.. toctree::
-    :caption: Applications
-    :hidden:
-
-    applications/1-grammars
-    applications/2-tensors
-    applications/3-peirce
-    applications/4-channels
-    applications/5-optics
-    applications/6-diag-diff
-    applications/7-qnlp-tutorial
+    notebooks/qnlp
+    notebooks/tensors
+    notebooks/diag-diff
+    notebooks/your-own-category
 
 .. toctree::
     :caption: Extra
@@ -43,6 +34,7 @@ DisCoPy documentation
     extra/slides
     extra/blogs
     extra/papers
+    extra/bibliography
 
 Indices and tables
 ------------------

@@ -5,7 +5,7 @@ DisCoPy's computational core: categories of functions and matrices.
 
 .. autosummary::
     :template: module.rst
-    :toctree: api
+    :toctree: ../_api
 
     discopy.python
     discopy.matrix

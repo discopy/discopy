@@ -721,7 +721,7 @@ class Diagram(cat.Arrow, Whiskerable):
     def normalize(self, left=False) -> Iterator[Diagram]:
         """
         Implements normalisation of boundary-connected diagrams,
-        see arXiv:1804.07832.
+        see :cite:t:`DelpeuchVicary22`.
 
         Parameters:
             left : Passed to :meth:`Diagram.interchange`.

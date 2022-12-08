@@ -5,7 +5,7 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
 
 .. autosummary::
     :template: module.rst
-    :toctree: api
+    :toctree: ../_api
 
     discopy.cat
     discopy.monoidal
