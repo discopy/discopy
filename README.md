@@ -21,18 +21,7 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 ## Features
 
 * a data structure for arrows in free [dagger categories](https://en.wikipedia.org/wiki/Dagger_category) with formal sums, unary operators and symbolic variables from [SymPy](https://www.sympy.org/en/index.html)
-* data structures for diagrams in [the hierarchy of graphical languages](https://arxiv.org/abs/0908.3347):
-  - ([pre](https://ncatlab.org/nlab/show/premonoidal+category)) [monoidal](https://en.wikipedia.org/wiki/Monoidal_category), i.e. two-dimensional diagrams
-  - [braided](https://en.wikipedia.org/wiki/Braided_monoidal_category), i.e. three-dimensional diagrams with braids
-  - [symmetric](https://en.wikipedia.org/wiki/Symmetric_monoidal_category), i.e. four-dimensional diagrams with swaps
-  - [cartesian](https://en.wikipedia.org/wiki/Cartesian_monoidal_category) with copy and discard
-  - [traced](https://en.wikipedia.org/wiki/Traced_monoidal_category) with feedback loops
-  - [closed](https://en.wikipedia.org/wiki/Closed_monoidal_category) with currying
-  - [rigid](https://en.wikipedia.org/wiki/Rigid_category) with snakes
-  - [pivotal](https://en.wikipedia.org/wiki/Rigid_category) with rotations
-  - [tortile](https://en.wikipedia.org/wiki/Ribbon_category) with knots
-  - [compact](https://en.wikipedia.org/wiki/Compact_closed_category) with swaps and snakes
-  - [hypergraph](https://ncatlab.org/nlab/show/hypergraph+category) with spiders, a.k.a. [Frobenius algebras](https://en.wikipedia.org/wiki/Frobenius_algebra)
+* data structures for diagrams in the hierarchy of graphical languages
 * methods for diagram composition, drawing, rewriting and evaluation as:
   - Python code, i.e. wires as types and boxes as functions
   - matrices, i.e. wires as dimensions and boxes as arrays from:
@@ -47,6 +36,9 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
   - [PennyLane](https://pennylane.ai/) for differentiation
 * encodings of grammars ([formal](https://en.wikipedia.org/wiki/Formal_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar) and [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar)) as diagrams
 
+## Summary
+
+[![hierarchy](docs/api/summary.png)](https://discopy.readthedocs.io#summary)
 
 ## Install
 
