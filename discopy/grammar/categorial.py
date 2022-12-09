@@ -26,11 +26,10 @@ Summary
 
 import re
 
-from discopy import closed
-from discopy.grammar import formal
+from discopy import closed, grammar
 
 
-class Word(formal.Word, closed.Box):
+class Word(grammar.Word, closed.Box):
     """
     A word is a closed box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.

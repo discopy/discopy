@@ -17,6 +17,11 @@ Summary
     Copy
     Category
     Functor
+
+
+Axioms
+------
+We draw the axioms of cartesian categories although these
 """
 
 from __future__ import annotations

@@ -24,6 +24,14 @@ from collections.abc import Mapping, Iterable
 
 from discopy import messages
 
+class Dict:
+    """ dict-like object from callable. """
+    def __init__(self, func: Callable):
+        self.func = func
+
+    def __getitem__(self, key):
+        return self.func(key)
+
 
 def product(xs: list, unit=1):
     """
