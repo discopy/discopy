@@ -46,20 +46,14 @@ class Tree:
     """
     ty_factory = Ty
 
-    def __init__(self, root: Rule, *branches: Tree, _scan=True):
+    def __init__(self, root: Rule, *branches: Tree):
         assert_isinstance(root, Rule)
         for branch in branches:
             assert_isinstance(branch, Tree)
-        # if _scan and not root.cod == Ty().tensor(*[
-        #         branch.cod for branch in branches]):
-        #     raise AxiomError
+        if not isinstance(self, Rule) and not root.dom == Ty().tensor(
+                *[branch.cod for branch in branches]):
+            raise AxiomError
         self.cod, self.root, self.branches = root.cod, root, branches
-
-    def dom(self):
-        if isinstance(self, Rule):
-            return self._dom
-        else:
-            return Ty().tensor(*[x for x in branch.dom for branch in self.branches])
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.root}, *{self.branches})"
@@ -82,7 +76,7 @@ class Tree:
             ranges = [0] + [sum(lengths[:i + 1]) for i in range(len(lengths))]
             branches = [self.branches[i](*others[ranges[i]:ranges[i + 1]])
                         for i in range(len(self.branches))]
-            return Tree(self.root, *branches, _scan=False)
+            return Tree(self.root, *branches)
         raise NotImplementedError()
 
     @staticmethod
@@ -101,7 +95,7 @@ class Rule(Tree, grammar.Rule):
         assert_isinstance(dom, Ty)
         assert_isatomic(cod, Ty)
         grammar.Rule.__init__(self, dom=dom, cod=cod, name=name)
-        Tree.__init__(self, root=self, _scan=False)
+        Tree.__init__(self, root=self)
 
     def __eq__(self, other):
         if isinstance(other, Rule):
@@ -129,7 +123,7 @@ class Word(grammar.Word, Rule):
 
 class Id(Rule):
     def __init__(self, dom):
-        self.dom, self._cod = dom, [dom]
+        self.dom, self.cod = dom, dom
         Rule.__init__(self, dom, dom, name="Id({})".format(dom))
 
     def __repr__(self):
@@ -171,23 +165,23 @@ class Algebra(Functor):
         raise TypeError
 
 
-ob2ty = lambda ob: monoidal.Ty(ob)
-node2box = lambda node: Rule(monoidal.Ty(node.dom), monoidal.Ty(*node.cod),
-                             name=node.name)
-t2d = Algebra(ob2ty, node2box, cod=monoidal.Diagram)
+rule2box = lambda node: monoidal.Box(node.name, node.dom, node.cod)
 
 
 def tree2diagram(tree, contravariant=False):
     """
     Interface between Tree and monoidal.Diagram.
 
-    >>> x = Ty('')
+    >>> x = Ty('x')
     >>> f = Rule(x @ x, x, name='f')
-    >>> tree = f(f, f(f, f))
-    >>> tree2diagram(tree)
-    grammar.cfg.Tree(f, *(grammar.cfg.Rule(f, *()), grammar.cfg.Tree(f, *(grammar.cfg.Rule(f, *()), grammar.cfg.Rule(f, *())))))
+    >>> tree = f(f(f, f), f)
+    >>> print(tree2diagram(tree))
+    f @ x @ x @ x @ x >> x @ f @ x @ x >> f @ x @ x >> x @ f >> f
     """
-    return t2d(tree)
+    if isinstance(tree, Rule):
+        return rule2box(tree)
+    return monoidal.Diagram.id().tensor(*[
+        tree2diagram(branch) for branch in tree.branches]) >> rule2box(tree.root)
 
 
 def from_nltk(tree, lexicalised=True, word_types=False):
@@ -197,29 +191,16 @@ def from_nltk(tree, lexicalised=True, word_types=False):
     >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
     >>> print(from_nltk(t))
     S(I, VP(saw, him))
-    >>> print(from_nltk(t, lexicalised=False))
-    S(NP(I), VP(V(saw), NP(him)))
-    >>> from_nltk(t, word_types=True).branches[0]
-    Rule('I', NP, [Ty('I')])
+    >>> from_nltk(t).branches[0]
+    grammar.cfg.Word('I', monoidal.Ty(cat.Ob('NP')))
     """
-    if lexicalised:
-        branches, cod = [], []
-        for branch in tree:
-            if isinstance(branch, str):
-                return Rule(branch, Ty(tree.label()), [Ty(branch)])\
-                    if word_types else Rule(branch, Ty(tree.label()), [])
-            else:
-                branches += [from_nltk(branch, word_types=word_types)]
-                cod += [Ty(branch.label())]
-        root = Rule(tree.label(), Ty(tree.label()), cod)
-        return root(*branches)
-    else:
-        if isinstance(tree, str):
-            return Rule(tree, Ty(tree), [Ty(tree)]) \
-                if word_types else Rule(tree, Ty(tree), [])
+    branches = []
+    for branch in tree:
+        if isinstance(branch, str):
+            return Word(branch, Ty(tree.label()))
         else:
-            cod = [Ty(branch) if isinstance(branch, str)
-                   else Ty(branch.label()) for branch in tree]
-            return Rule(tree.label(), Ty(tree.label()), cod)(
-                *[from_nltk(branch, lexicalised=False, word_types=word_types)
-                  for branch in tree])
+            branches += [from_nltk(branch)]
+    label = tree.label()
+    dom = Ty().tensor(*[Ty(branch.label()) for branch in tree])
+    root = Rule(dom, Ty(label), name=label)
+    return root(*branches)
