@@ -115,7 +115,8 @@ class Copy(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        super().__init__(name="Copy({}, {})".format(x, n), dom=x, cod=x ** n)
+        super().__init__(name="Copy({}, {})".format(x, n), dom=x, cod=x ** n,
+                         draw_as_spider=True, color="black", drawing_name="")
 
 
 class Category(symmetric.Category):
