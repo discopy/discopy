@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-A context free grammar is a free monoidal category with rules as boxes.
 A context free rule is a box with one output.
-A context free tree is a diagram with rules as boxes.
+A context free grammar is a diagram with rules as boxes.
 
 
 Example
@@ -15,8 +14,8 @@ We build a syntax tree from a context-free grammar.
 >>> vp, np, s = Ty('VP'), Ty('NP'), Ty('S')
 >>> Caesar, crossed = Word('Caesar', n), Word('crossed', v)
 >>> the, Rubicon = Word('the', d), Word('Rubicon', n)
->>> VP, NP = Rule(n @ v, vp, name='VP'), Rule(d @ n, np, name='NP')
->>> S = Rule(vp @ np, s, name='S')
+>>> VP, NP = Rule(n @ v, vp), Rule(d @ n, np)
+>>> S = Rule(vp @ np, s)
 >>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
 """
 
@@ -33,13 +32,16 @@ from discopy.utils import assert_isinstance, factory_name
 @factory
 class Tree:
     """
-    The axioms of multicategories hold on the nose.
+    A tree is a rule for the ``root`` and a list of trees called ``branches``.
 
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g = Rule(x @ x, x, name='f'), Rule(x @ y, x, name='g')
     >>> h = Rule(y @ x, x, name='h')
-    >>> assert Id(x)(f) == f == f(Id(x), Id(x))
     >>> assert f(g, h) == Tree(f, *[g, h])
+
+    The axioms of multicategories hold on the nose.
+
+    >>> assert Id(x)(f) == f == f(Id(x), Id(x))
     >>> left = f(Id(x), h)(g, Id(x), Id(x))
     >>> right = f(g, Id(x))(Id(x), Id(x), h)
     >>> assert f(g, h) == left == right
@@ -89,7 +91,8 @@ class Tree:
 
 class Rule(Tree, grammar.Rule):
     """
-    A rule is a generator of free operads, i.e. the nodes in the trees.
+    A rule is a generator of free operads, given by an atomic monoidal type
+    for ``dom``, a monoidal type for ``cod`` and an optional ``name``.
     """
     def __init__(self, dom: monoidal.Ty, cod: monoidal.Ty, name: str = None):
         assert_isinstance(dom, Ty)
@@ -118,7 +121,7 @@ class Word(grammar.Word, Rule):
     def __init__(self, name: str, cod: monoidal.Ty, dom: monoidal.Ty = Ty(),
                  **params):
         grammar.Word.__init__(self, name=name, dom=dom, cod=cod, **params)
-        Rule.__init__(self, dom=dom, cod=cod, name=name)
+        Rule.__init__(self, dom=dom, cod=cod, name=name, **params)
 
 
 class Id(Rule):
@@ -180,8 +183,8 @@ def tree2diagram(tree, contravariant=False):
     """
     if isinstance(tree, Rule):
         return rule2box(tree)
-    return monoidal.Diagram.id().tensor(*[
-        tree2diagram(branch) for branch in tree.branches]) >> rule2box(tree.root)
+    return rule2box(tree.root) << monoidal.Id().tensor(
+        *[tree2diagram(branch) for branch in tree.branches])
 
 
 def from_nltk(tree, lexicalised=True, word_types=False):

@@ -61,9 +61,10 @@ class Word(Rule):
         cod : The grammatical type of the word.
         dom : An optional domain for the word, empty by default.
     """
-    def __init__(self, name: str, cod: monoidal.Ty, dom: monoidal.Ty = Ty(),
+    def __init__(self, name: str, cod: monoidal.Ty, dom: monoidal.Ty = None,
                  **params):
-        Rule.__init__(self, dom, cod, name=name, **params)
+        dom = self.ty_factory() if dom is None else dom
+        Rule.__init__(self, dom=dom, cod=cod, name=name, **params)
 
     def __repr__(self):
         dom = f", dom={repr(self.dom)}" if self.dom else ""

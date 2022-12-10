@@ -27,6 +27,7 @@ Summary
 import re
 
 from discopy import closed, grammar
+from discopy.closed import Ty
 
 
 class Word(grammar.Word, closed.Box):

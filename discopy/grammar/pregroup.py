@@ -29,10 +29,10 @@ Summary
         brute_force
         draw
 """
+from __future__ import annotations
 
-from discopy import messages, drawing, monoidal, rigid, symmetric
+from discopy import messages, drawing, grammar, rigid, symmetric
 from discopy.cat import factory
-from discopy.grammar import categorial
 from discopy.rigid import Ty
 from discopy.utils import assert_isinstance
 
@@ -54,12 +54,8 @@ class Diagram(rigid.Diagram):
     >>> loves = Word('loves', n.r @ s @ n.l)
     >>> grammar = Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     >>> sentence = grammar << Alice @ loves @ Bob
-    >>> draw(sentence, figsize=(4, 2),
-    ...      path='docs/imgs/grammar/pregroup-example.png')
-
-    .. image:: /imgs/grammar/pregroup-example.png
-        :align: center
-
+    >>> print(sentence[:4])
+    Alice >> n @ loves >> n @ n.r @ s @ n.l @ Bob >> Cup(n, n.r) @ s @ n.l @ n
     >>> from discopy import tensor, rigid
     >>> ob = {s: 1, n: 2}
     >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
@@ -117,11 +113,15 @@ class Swap(symmetric.Swap, Box):
     z = 0
 
 
-class Word(categorial.Word, Box):
+class Word(Box):
     """
     A word is a rigid box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.
     """
+    def __init__(self, name: str, cod: rigid.Ty, dom: rigid.Ty = Ty(),
+                 **params):
+        super().__init__(name=name, dom=dom, cod=cod, **params)
+
     def __repr__(self):
         extra = ", dom={}".format(repr(self.dom)) if self.dom else ""
         extra += ", is_dagger=True" if self.is_dagger else ""
@@ -202,7 +202,7 @@ def draw(diagram, **params):
         Whenever the input is not a pregroup diagram.
     """
     assert_isinstance(diagram, Diagram)
-    words, is_pregroup = monoidal.Id(), True
+    words, is_pregroup = Diagram.id(), True
     for _, box, right in diagram.inside:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
