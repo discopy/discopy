@@ -14,17 +14,9 @@ Summary
     Diagram
     Box
     Braid
+    Twist
     Category
     Functor
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        hexagon
 
 Axioms
 ------
@@ -148,24 +140,20 @@ class Functor(braided.Functor):
     Example
     -------
 
-    >>> x, y = Ty('x'), Ty('y')
-    >>> assert Diagram.twist(x @ y) == (Braid(x, y)
-    ...     >> Twist(y) @ Twist(x) >> Braid(y, x))
-    >>> Diagram.twist(x @ y).draw(path="docs/imgs/balanced/twist.png")
-
-    .. image:: /imgs/balanced/twist.png
-
     The dual rail encoding is a balanced Functor into braided diagrams.
 
-    >>> braided.Diagram.twist = lambda dom: Braid(
-    ...     dom[0], dom[1]) >> Braid(dom[1], dom[0])
+    >>> x = Ty('x')
     >>> ob = lambda x: x @ x
     >>> ar = lambda box: Box(box.name, box.dom @ box.dom, box.cod @ box.cod)
+    >>> braided.Diagram.twist = lambda dom: Braid(
+    ...     dom[0], dom[1]) >> Braid(dom[1], dom[0])
     >>> F = Functor(ob, ar, cod=Category(Ty, braided.Diagram))
     >>> braided_twist = F(Diagram.twist(x))
     >>> del braided.Diagram.twist
     >>> assert braided_twist == Braid(x, x) >> Braid(x, x)
-    >>> braided_twist.draw(draw_type_labels=False,
+    >>> from discopy import drawing
+    >>> drawing.equation(Twist(x), braided_twist, symbol='->',
+    ...     draw_type_labels=False,
     ...     path="docs/imgs/balanced/twist_dual_rail.png")
 
     .. image:: /imgs/balanced/twist_dual_rail.png

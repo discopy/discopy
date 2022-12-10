@@ -10,6 +10,7 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
     discopy.cat
     discopy.monoidal
     discopy.braided
+    discopy.balanced
     discopy.symmetric
     discopy.cartesian
     discopy.traced
