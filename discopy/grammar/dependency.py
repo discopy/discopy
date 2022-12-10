@@ -6,29 +6,28 @@ Implements the free coloured operad (multicategory) and its algebras.
 See ../docs/notebooks/operads.ipynb for further documentation.
 """
 
+from unittest.mock import Mock
+
 from discopy import monoidal
 from discopy.monoidal import Ty
-from discopy.grammar.cfg import Rule, Tree
+from discopy.grammar.cfg import Word, Rule, Tree
 
 
 def from_spacy(doc, word_types=False):
-    """ Interface with SpaCy dependency parser """
+    """ Interface with SpaCy's dependency parser """
     root = find_root(doc)
-    return doc2tree(root, word_types=word_types)
+    return doc2tree(root)
 
 
 def find_root(doc):
-    for word in doc:
-        if word.dep_ == 'ROOT':
-            return word
+    for token in doc:
+        if token.dep_ == 'ROOT':
+            return token
 
 
-def doc2tree(root, word_types=False):
-    children = list(root.children)
-    if not children:
-        return Rule(root.text, Ty(root.dep_), [Ty(root.text)]) \
-            if word_types else Rule(root.text, Ty(root.dep_), [])
-    box = Rule(root.text, Ty(root.dep_),
-              [Ty(child.dep_) for child in children])
-    return box(*[doc2tree(child, word_types=word_types)
-                 for child in children])
+def doc2tree(root):
+    if not root.children:
+        return Word(root.text, Ty(root.dep_))
+    dom = Ty().tensor(*[Ty(child.dep_) for child in root.children])
+    box = Rule(dom, Ty(root.dep_), name=root.text)
+    return box(*[doc2tree(child) for child in root.children])
