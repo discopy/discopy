@@ -21,12 +21,35 @@ Summary
 
 Axioms
 ------
-We draw the axioms of cartesian categories although these
+
+Coherence holds on the nose.
+
+>>> x, y = Ty('x'), Ty('y')
+>>> multicopy = Copy(x) @ Copy(y) >> Id(x) @ Swap(x, y) @ Id(y)
+>>> assert Diagram.copy(x @ y) == multicopy
+
+The axioms of cartesian categories cannot be checked in DisCoPy, we can
+draw them and check whether they hold for a given ``Functor``.
+
+>>> copy_l = Copy(x) >> Copy(x) @ Id(x)
+>>> copy_r = Copy(x) >> Id(x) @ Copy(x)
+>>> drawing.equation(copy_l, copy_r, symbol="=",
+...     path="docs/imgs/cartesian/associativity.png")
+
+.. image:: /imgs/cartesian/associativity.png
+
+>>> delete = lambda x: Copy(x, n=0)
+>>> counit_l = Copy(x) >> delete(x) @ Id(x)
+>>> counit_r = Copy(x) >> Id(x) @ delete(x)
+>>> drawing.equation(counit_l, Id(x), counit_r, symbol="=",
+...     path="docs/imgs/cartesian/counit.png")
+
+.. image:: /imgs/cartesian/counit.png
 """
 
 from __future__ import annotations
 
-from discopy import symmetric, monoidal, frobenius
+from discopy import symmetric, monoidal, frobenius, drawing
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
 
@@ -70,7 +93,7 @@ class Box(symmetric.Box, Diagram):
 
 class Swap(symmetric.Swap, Box):
     """
-    A cartesian swap is a symmetric swap in a cartesian diagram.
+    Symmetric swap in a cartesian diagram.
 
     Parameters:
         left (monoidal.Ty) : The type on the top left and bottom right.
@@ -116,6 +139,25 @@ class Functor(symmetric.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
             The codomain, :code:`Category(Ty, Diagram)` by default.
+
+    Example
+    -------
+
+    We build a functor into python functions.
+
+    >>> x = Ty('x')
+    >>> add = Box('add', x @ x, x)
+    >>> from discopy import python
+    >>> F = Functor({x: int}, {add: lambda a, b: a + b},
+    ...     Category(python.Ty, python.Function))
+    >>> copy = Copy(x)
+    >>> bialgebra_l = copy @ copy >> Id(x) @ Swap(x, x) @ Id(x) >> add @ add
+    >>> bialgebra_r = add >> copy
+    >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
+    >>> drawing.equation(bialgebra_l, bialgebra_r, symbol="=",
+    ...     path="docs/imgs/cartesian/bialgebra.png")
+
+    .. image:: /imgs/cartesian/bialgebra.png
     """
     dom = cod = Category(monoidal.Ty, Diagram)
 
@@ -123,3 +165,6 @@ class Functor(symmetric.Functor):
         if isinstance(other, Copy):
             return self.cod.ar.copy(self(other.dom), len(other.cod))
         return super().__call__(other)
+
+
+Id = Diagram.id
