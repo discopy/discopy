@@ -1,4 +1,4 @@
-from discopy.tortile import *
+from discopy.ribbon import *
 
 
 def test_Kauffman():

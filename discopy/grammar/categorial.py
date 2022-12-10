@@ -27,7 +27,9 @@ Summary
 import re
 
 from discopy import closed, grammar
-from discopy.closed import Ty
+from discopy.cat import factory
+from discopy.closed import BinaryBoxConstructor
+from discopy.utils import assert_isinstance
 
 
 @factory
@@ -35,15 +37,44 @@ class Diagram(closed.Diagram):
     """
     A categorial diagram is a closed diagram with rules and words as boxes.
     """
+    @staticmethod
+    def fa(left, right):
+        """ Forward application. """
+        return FA(left << right)
+
+    @staticmethod
+    def ba(left, right):
+        """ Backward application. """
+        return BA(left >> right)
+
+    @staticmethod
+    def fc(left, middle, right):
+        """ Forward composition. """
+        return FC(left << middle, middle << right)
+
+    @staticmethod
+    def bc(left, middle, right):
+        """ Backward composition. """
+        return BC(left >> middle, middle >> right)
+
+    @staticmethod
+    def fx(left, middle, right):
+        """ Forward crossed composition. """
+        return FX(left << middle, right >> middle)
+
+    @staticmethod
+    def bx(left, middle, right):
+        """ Backward crossed composition. """
+        return BX(middle << left, middle >> right)
 
 
-class Rule(closed.Box, Diagram):
+class Rule(grammar.Rule, Diagram):
     """
-    A categorial box is a closed box in a categorial diagram.
+    A categorial rule is a grammar rule in a categorial diagram.
     """
 
 
-class Word(grammar.Word, closed.Box):
+class Word(grammar.Word, Rule):
     """
     A word is a closed box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.
@@ -53,6 +84,138 @@ class Word(grammar.Word, closed.Box):
         cod (closed.Ty) : The grammatical type of the word.
         dom (closed.Ty) : An optional domain for the word, empty by default.
     """
+
+
+def unaryBoxConstructor(attr):
+    class Constructor:
+        @classmethod
+        def from_tree(cls, tree):
+            return cls(from_tree(tree[attr]))
+
+        def to_tree(self):
+            return {
+                'factory': factory_name(type(self)),
+                attr: getattr(self, attr).to_tree()}
+    return Constructor
+
+
+class FA(unaryBoxConstructor("over"), Rule):
+    """ Forward application box. """
+    def __init__(self, over):
+        assert_isinstance(over, closed.Over)
+        self.over = over
+        dom, cod = over @ over.exponent, over.base
+        Rule.__init__(self, dom, cod, name="FA{}".format(over))
+
+    def __repr__(self):
+        return "FA({})".format(repr(self.dom[:1]))
+
+
+class BA(unaryBoxConstructor("under"), Rule):
+    """ Backward application box. """
+    def __init__(self, under):
+        assert_isinstance(under, closed.Under)
+        self.under = under
+        dom, cod = under.exponent @ under, under.base
+        Rule.__init__(self, dom, cod, name="BA{}".format(under))
+
+    def __repr__(self):
+        return "BA({})".format(repr(self.dom[1:]))
+
+
+class FC(BinaryBoxConstructor, Rule):
+    """ Forward composition box. """
+    def __init__(self, left, right):
+        assert_isinstance(left, closed.Over)
+        assert_isinstance(right, closed.Over)
+        if left.exponent != right.base:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.exponent, right.base))
+        name = "FC({}, {})".format(left, right)
+        dom, cod = left @ right, left.base << right.exponent
+        Rule.__init__(self, dom, cod, name=name)
+        BinaryBoxConstructor.__init__(self, left, right)
+
+
+class BC(BinaryBoxConstructor, Rule):
+    """ Backward composition box. """
+    def __init__(self, left, right):
+        assert_isinstance(left, closed.Under)
+        assert_isinstance(right, closed.Under)
+        if left.base != right.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.base, right.exponent))
+        name = "BC({}, {})".format(left, right)
+        dom, cod = left @ right, left.exponent >> right.base
+        Rule.__init__(self, dom, cod, name=name)
+        BinaryBoxConstructor.__init__(self, left, right)
+
+
+class FX(BinaryBoxConstructor, Rule):
+    """ Forward crossed composition box. """
+    def __init__(self, left, right):
+        assert_isinstance(left, closed.Over)
+        assert_isinstance(right, closed.Under)
+        if left.exponent != right.base:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.exponent, right.base))
+        name = "FX({}, {})".format(left, right)
+        dom, cod = left @ right, right.exponent >> left.base
+        Rule.__init__(self, dom, cod, name=name)
+        BinaryBoxConstructor.__init__(self, left, right)
+
+
+class BX(BinaryBoxConstructor, Rule):
+    """ Backward crossed composition box. """
+    def __init__(self, left, right):
+        assert_isinstance(left, closed.Over)
+        assert_isinstance(right, closed.Under)
+        if left.base != right.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                left, right, left.base, right.exponent))
+        name = "BX({}, {})".format(left, right)
+        dom, cod = left @ right, right.base << left.exponent
+        Rule.__init__(self, dom, cod, name=name)
+        BinaryBoxConstructor.__init__(self, left, right)
+
+
+class Functor(closed.Functor):
+    """
+    A categorial functor is a closed functor with a predefined mapping
+    for categorial rules.
+
+    Parameters:
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
+    """
+    dom = cod = closed.Category(closed.Ty, Diagram)
+
+    def __call__(self, other):
+        if isinstance(other, FA):
+            left, right = other.over.left, other.over.right
+            return self.cod.ar.fa(self(left), self(right))
+        if isinstance(other, BA):
+            left, right = other.under.left, other.under.right
+            return self.cod.ar.ba(self(left), self(right))
+        for cls, method in [(FC, 'fc'), (BC, 'bc')]:
+            if isinstance(other, cls):
+                left = other.dom.inside[0].left
+                middle = other.dom.inside[0].right
+                right = other.dom.inside[1].right
+                return getattr(self.cod.ar, method)(
+                    self(left), self(middle), self(right))
+        if isinstance(other, FX):
+            left = other.dom.inside[0].left
+            middle = other.dom.inside[0].right
+            right = other.dom.inside[1].left
+            return self.cod.ar.fx(self(left), self(middle), self(right))
+        if isinstance(other, BX):
+            left = other.dom.inside[0].right
+            middle = other.dom.inside[0].left
+            right = other.dom.inside[1].right
+            return self.cod.ar.bx(self(left), self(middle), self(right))
+        return super().__call__(other)
 
 
 def cat2ty(string: str) -> closed.Ty:
@@ -87,7 +250,7 @@ def cat2ty(string: str) -> closed.Ty:
     return closed.Ty(left)
 
 
-def tree2diagram(tree: dict, dom=closed.Ty()) -> closed.Diagram:
+def tree2diagram(tree: dict, dom=closed.Ty()) -> Diagram:
     """
     Translate a depccg.Tree in JSON format into DisCoPy.
 
@@ -101,11 +264,24 @@ def tree2diagram(tree: dict, dom=closed.Ty()) -> closed.Diagram:
     dom = closed.Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
-        box = closed.BA(dom.inside[1])
+        box = BA(dom.inside[1])
     elif tree['type'] == 'fa':
-        box = closed.FA(dom.inside[0])
+        box = FA(dom.inside[0])
     elif tree['type'] == 'fc':
-        box = closed.FC(dom.inside[0], dom.inside[1])
+        box = FC(dom.inside[0], dom.inside[1])
     else:
-        box = closed.Box(tree['type'], dom, cod)
-    return closed.Id().tensor(*children) >> box
+        box = Rule(dom, cod, name=tree['type'])
+    return Id().tensor(*children) >> box
+
+
+def to_rigid(self):
+    from discopy import rigid
+
+    return Functor(
+        ob=lambda x: rigid.Ty(x.inside[0].name),
+        ar=lambda f: rigid.Box(
+            f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
+        cod=rigid.Category())(self)
+
+
+Id = Diagram.id

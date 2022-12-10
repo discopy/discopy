@@ -3,7 +3,6 @@ import pickle
 from discopy import closed
 from discopy.grammar.categorial import *
 
-
 tree = {
   'type': 'ba',
   'cat': 'S[dcl]',
@@ -71,30 +70,30 @@ tree = {
               'cat': 'NP'}]}]}]}]}]}]}
 
 
-def closed_diagram():
-    from discopy.closed import Ty, Box, Diagram, FA, BA, FC
+def categorial_diagram():
+    from discopy.grammar.categorial import Rule, Diagram, FA, BA, FC
 
-    S, NP = Ty('S'), Ty('NP')
+    S, NP = closed.Ty('S'), closed.Ty('NP')
     boxes = [
         Word('that', NP),
         Word("'s", ((NP >> S) << NP)),
         Word('exactly', ((NP >> S) >> (NP >> S))),
-        Box('bx', (((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))), ((NP >> S) << NP)),
+        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))), ((NP >> S) << NP), name='bx'),
         Word('what', (NP << (S << NP))),
         Word('i', NP),
-        Box('tr', NP, (S << (NP >> S))),
+        Rule(NP, (S << (NP >> S)), name='tr'),
         Word('showed', ((NP >> S) << NP)),
         Word('to', (((NP >> S) >> (NP >> S)) << NP)),
         Word('her', NP),
         FA((((NP >> S) >> (NP >> S)) << NP)),
-        Box('bx', (((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))), ((NP >> S) << NP)),
+        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))), ((NP >> S) << NP), name='bx'),
         FC((S << (NP >> S)), ((NP >> S) << NP)),
         FA((NP << (S << NP))),
         FA(((NP >> S) << NP)),
         BA((NP >> S)),
     ]
     offsets = [0, 1, 2, 1, 2, 3, 3, 4, 5, 6, 5, 4, 3, 2, 1, 0]
-    return Diagram.decode(Ty(), zip(boxes, offsets))
+    return Diagram.decode(closed.Ty(), zip(boxes, offsets))
 
 
 def rigid_diagram():
@@ -126,5 +125,5 @@ def rigid_diagram():
 
 def test_tree2diagram():
     diagram = tree2diagram(tree)
-    assert diagram == closed_diagram()
-    assert closed.to_rigid(diagram) == rigid_diagram()
+    assert diagram == categorial_diagram()
+    assert to_rigid(diagram) == rigid_diagram()

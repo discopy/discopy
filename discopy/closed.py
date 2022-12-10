@@ -203,36 +203,6 @@ class Diagram(monoidal.Diagram):
         return self @ exponent >> self.ev(base, exponent, True) if left\
             else exponent @ self >> self.ev(base, exponent, False)
 
-    @staticmethod
-    def fa(left, right):
-        """ Forward application. """
-        return FA(left << right)
-
-    @staticmethod
-    def ba(left, right):
-        """ Backward application. """
-        return BA(left >> right)
-
-    @staticmethod
-    def fc(left, middle, right):
-        """ Forward composition. """
-        return FC(left << middle, middle << right)
-
-    @staticmethod
-    def bc(left, middle, right):
-        """ Backward composition. """
-        return BC(left >> middle, middle >> right)
-
-    @staticmethod
-    def fx(left, middle, right):
-        """ Forward crossed composition. """
-        return FX(left << middle, right >> middle)
-
-    @staticmethod
-    def bx(left, middle, right):
-        """ Backward crossed composition. """
-        return BX(middle << left, middle >> right)
-
 
 class Box(monoidal.Box, Diagram):
     """
@@ -283,99 +253,6 @@ class Curry(monoidal.Bubble, Box):
         Box.__init__(self, name, dom, cod)
 
 
-def unaryBoxConstructor(attr):
-    class Constructor:
-        @classmethod
-        def from_tree(cls, tree):
-            return cls(from_tree(tree[attr]))
-
-        def to_tree(self):
-            return {
-                'factory': factory_name(type(self)),
-                attr: getattr(self, attr).to_tree()}
-    return Constructor
-
-
-class FA(unaryBoxConstructor("over"), Box):
-    """ Forward application box. """
-    def __init__(self, over):
-        assert_isinstance(over, Over)
-        self.over = over
-        dom, cod = over @ over.exponent, over.base
-        super().__init__("FA{}".format(over), dom, cod)
-
-    def __repr__(self):
-        return "FA({})".format(repr(self.dom[:1]))
-
-
-class BA(unaryBoxConstructor("under"), Box):
-    """ Backward application box. """
-    def __init__(self, under):
-        assert_isinstance(under, Under)
-        self.under = under
-        dom, cod = under.exponent @ under, under.base
-        super().__init__("BA{}".format(under), dom, cod)
-
-    def __repr__(self):
-        return "BA({})".format(repr(self.dom[1:]))
-
-
-class FC(BinaryBoxConstructor, Box):
-    """ Forward composition box. """
-    def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Over)
-        if left.exponent != right.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                left, right, left.exponent, right.base))
-        name = "FC({}, {})".format(left, right)
-        dom, cod = left @ right, left.base << right.exponent
-        Box.__init__(self, name, dom, cod)
-        BinaryBoxConstructor.__init__(self, left, right)
-
-
-class BC(BinaryBoxConstructor, Box):
-    """ Backward composition box. """
-    def __init__(self, left, right):
-        assert_isinstance(left, Under)
-        assert_isinstance(right, Under)
-        if left.base != right.exponent:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                left, right, left.base, right.exponent))
-        name = "BC({}, {})".format(left, right)
-        dom, cod = left @ right, left.exponent >> right.base
-        Box.__init__(self, name, dom, cod)
-        BinaryBoxConstructor.__init__(self, left, right)
-
-
-class FX(BinaryBoxConstructor, Box):
-    """ Forward crossed composition box. """
-    def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Under)
-        if left.exponent != right.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                left, right, left.exponent, right.base))
-        name = "FX({}, {})".format(left, right)
-        dom, cod = left @ right, right.exponent >> left.base
-        Box.__init__(self, name, dom, cod)
-        BinaryBoxConstructor.__init__(self, left, right)
-
-
-class BX(BinaryBoxConstructor, Box):
-    """ Backward crossed composition box. """
-    def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Under)
-        if left.base != right.exponent:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                left, right, left.base, right.exponent))
-        name = "BX({}, {})".format(left, right)
-        dom, cod = left @ right, right.base << left.exponent
-        Box.__init__(self, name, dom, cod)
-        BinaryBoxConstructor.__init__(self, left, right)
-
-
 Diagram.over, Diagram.under, Diagram.exp\
     = map(staticmethod, (Over, Under, Exp))
 
@@ -417,31 +294,6 @@ class Functor(monoidal.Functor):
         if isinstance(other, Eval):
             return self.cod.ar.ev(
                 self(other.base), self(other.exponent), other.left)
-        if isinstance(other, FA):
-            left, right = other.over.left, other.over.right
-            return self.cod.ar.fa(self(left), self(right))
-        if isinstance(other, BA):
-            left, right = other.under.left, other.under.right
-            return self.cod.ar.ba(self(left), self(right))
-        for cls, method in [(FC, 'fc'), (BC, 'bc')]:
-            if isinstance(other, cls):
-                left = other.dom.inside[0].left
-                middle = other.dom.inside[0].right
-                right = other.dom.inside[1].right
-                return getattr(self.cod.ar, method)(
-                    self(left), self(middle), self(right))
-        if isinstance(other, FX):
-            left = other.dom.inside[0].left
-            middle = other.dom.inside[0].right
-            right = other.dom.inside[1].left
-            return getattr(self.cod.ar, 'fx')(
-                self(left), self(middle), self(right))
-        if isinstance(other, BX):
-            left = other.dom.inside[0].right
-            middle = other.dom.inside[0].left
-            right = other.dom.inside[1].right
-            return getattr(self.cod.ar, 'bx')(
-                self(left), self(middle), self(right))
         return super().__call__(other)
 
 

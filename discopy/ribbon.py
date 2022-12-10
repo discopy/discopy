@@ -63,7 +63,7 @@ from discopy.pivotal import Ty
 @factory
 class Diagram(pivotal.Diagram, balanced.Diagram):
     """
-    A ribbon diagram is a pivotal diagram and a braided diagram.
+    A ribbon diagram is a pivotal diagram and a balanced diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
@@ -106,7 +106,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram):
 
 class Box(pivotal.Box, balanced.Box, Diagram):
     """
-    A ribbon box is a pivotal and braided box in a ribbon diagram.
+    A ribbon box is a pivotal and balanced box in a ribbon diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -140,7 +140,7 @@ class Cap(pivotal.Cap, Box):
 
 class Braid(balanced.Braid, Box):
     """
-    A ribbon braid is a braided braid in a ribbon diagram.
+    A ribbon braid is a balanced braid in a ribbon diagram.
 
     Parameters:
         left (pivotal.Ty) : The type on the top left and bottom right.
@@ -157,7 +157,7 @@ class Braid(balanced.Braid, Box):
 
 class Twist(balanced.Twist, Box):
     """
-    A ribbon braid is a braided braid in a ribbon diagram.
+    Balanced twist in a ribbon category.
 
     Parameters:
         left (pivotal.Ty) : The type on the top left and bottom right.
@@ -168,7 +168,7 @@ class Twist(balanced.Twist, Box):
 
 class Category(pivotal.Category, balanced.Category):
     """
-    A ribbon category is both a pivotal category and a braided category.
+    A ribbon category is both a pivotal category and a balanced category.
 
     Parameters:
         ob : The objects of the category, default is :class:`Ty`.
@@ -179,7 +179,7 @@ class Category(pivotal.Category, balanced.Category):
 
 class Functor(pivotal.Functor, balanced.Functor):
     """
-    A ribbon functor is both a pivotal functor and a braided functor.
+    A ribbon functor is both a pivotal functor and a balanced functor.
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :

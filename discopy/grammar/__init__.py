@@ -33,7 +33,7 @@ from discopy.utils import factory_name
 
 class Rule(monoidal.Box):
     """
-    A rule is a box with a monoidal types as ``dom`` and ``cod`` and an
+    A rule is a box with monoidal types as ``dom`` and ``cod`` and an
     optional ``name``.
 
     Parameters:
@@ -70,3 +70,6 @@ class Word(Rule):
         dom = f", dom={repr(self.dom)}" if self.dom else ""
         return factory_name(type(self))\
             + f"({repr(self.name)}, {repr(self.cod)}{dom})"
+
+
+from discopy.grammar import cfg, categorial, pregroup, dependency
