@@ -109,20 +109,20 @@ def test_to_rigid():
     f_ = rigid.Box('f', x_, y_)
     assert Diagram.to_rigid(diagram)\
         == rigid.Id(x_ @ y_.l) @ f_ >> rigid.Id(x_) @ rigid.Cup(y_.l, y_)
-    # assert Diagram.to_rigid(Curry(BA(x >> y))).normal_form()\
-    #     == rigid.Cap(y_, y_.l) @ rigid.Id(x_)
-    # assert closed2rigid(Curry(FA(x << y), left=True)).normal_form()\
-    #     == rigid.Id(y_) @ rigid.Cap(x_.r, x_)
-    # assert closed2rigid(FC(x << y, y << x))\
-    #     == rigid.Id(x_) @ rigid.Cup(y_.l, y_) @ rigid.Id(x_.l)
-    # assert closed2rigid(BC(x >> y, y >> x))\
-    #     == rigid.Id(x_.r) @ rigid.Cup(y_, y_.r) @ rigid.Id(x_)
-    # assert closed2rigid(FX(x << y, x >> y))\
-    #     == rigid.Id(x_) @ rigid.Swap(y_.l, x_.r) @ Id(y_) >>\
-    #     rigid.Swap(x_, x_.r) @ rigid.Cup(y_.l, y_)
-    # assert closed2rigid(BX(y << x, y >> x))\
-    #     == rigid.Id(y_) @ rigid.Swap(x_.l, y_.r) @ Id(x_) >>\
-    #     rigid.Cup(y_, y_.r) @ rigid.Swap(x_.l, x_)
+    assert Diagram.to_rigid(Curry(BA(x >> y))).normal_form()\
+        == rigid.Cap(y_, y_.l) @ rigid.Id(x_)
+    assert closed2rigid(Curry(FA(x << y), left=True)).normal_form()\
+        == rigid.Id(y_) @ rigid.Cap(x_.r, x_)
+    assert closed2rigid(FC(x << y, y << x))\
+        == rigid.Id(x_) @ rigid.Cup(y_.l, y_) @ rigid.Id(x_.l)
+    assert closed2rigid(BC(x >> y, y >> x))\
+        == rigid.Id(x_.r) @ rigid.Cup(y_, y_.r) @ rigid.Id(x_)
+    assert closed2rigid(FX(x << y, x >> y))\
+        == rigid.Id(x_) @ rigid.Swap(y_.l, x_.r) @ Id(y_) >>\
+        rigid.Swap(x_, x_.r) @ rigid.Cup(y_.l, y_)
+    assert closed2rigid(BX(y << x, y >> x))\
+        == rigid.Id(y_) @ rigid.Swap(x_.l, y_.r) @ Id(x_) >>\
+        rigid.Cup(y_, y_.r) @ rigid.Swap(x_.l, x_)
 
 
 def test_to_tree():
