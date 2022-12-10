@@ -91,7 +91,7 @@ class Embedding:
                     for j, cell in enumerate(row):
                         cell.start += space * int(cell.start >= limit)
                         cell.end += space * int(cell.end >= limit)
-        rows = [[Wire(i + 1, x) for i, x in enumerate(diagram.dom)]]
+        rows = [[Wire(2 * i + 1, x) for i, x in enumerate(diagram.dom)]]
         for layer in diagram.inside:
             offset = 0
             rows.append([])
@@ -108,23 +108,23 @@ class Embedding:
                         if not wires:
                             start = 0
                         elif not offset:
-                            start = wires[0].start - len(box.cod) - 3
+                            start = wires[0].start - 2 * len(box.cod) - 1
                         else:
-                            start = wires[offset - 1].end
-                        end = start + len(box.cod) + 1
+                            start = wires[offset - 1].end + 2
+                        end = start + 2 * (len(box.cod) or 1)
                     else:
-                        start = wires[offset].start
+                        start = wires[offset].start - 1
                         end = max(wires[offset + len(box.dom) - 1].end + 1,
                                   start + len(box.cod) + 1)
                     if offset:
                         left = boxes[-1].end
-                        make_space(rows, left, min(0, start - left - 1))
+                        make_space(rows, left, min(0, start - left - 2))
                     if offset + len(box.dom) < len(wires):
                         right = wires[offset + len(box.dom)].start - 1
                         make_space(rows, right, max(0, end - right + 1))
                     boxes.append(Cell(start, end, box))
                     rows[-1] = wires = wires[:offset]\
-                        + [Wire(start + j + 1, x) for j, x in enumerate(box.cod)]\
+                        + [Wire(start + 2 * j + 1, x) for j, x in enumerate(box.cod)]\
                         + wires[offset + len(box.dom):]
                     offset += len(box.cod)
         return Embedding(rows)
