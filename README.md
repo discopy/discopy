@@ -16,27 +16,25 @@ DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wiki
 * **Paper (for applied category theorists):** https://doi.org/10.4204/EPTCS.333.13
 * **Paper (for quantum computer scientists):** https://arxiv.org/abs/2205.05190
 
-DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/DisCoCat) and [QNLP](https://en.wikipedia.org/wiki/Quantum_natural_language_processing). This application has now been packaged into its own library, [lambeq](https://cqcl.github.io/lambeq/).
+DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/DisCoCat) and [QNLP](https://en.wikipedia.org/wiki/Quantum_natural_language_processing). This has now become its own library: [lambeq](https://cqcl.github.io/lambeq).
 
 ## Features
 
 * a data structure for arrows in free [dagger categories](https://en.wikipedia.org/wiki/Dagger_category) with formal sums, unary operators and symbolic variables from [SymPy](https://www.sympy.org/en/index.html)
-* data structures for diagrams in the hierarchy of graphical languages
+* data structures for string diagrams in any ([pre](https://ncatlab.org/nlab/show/premonoidal+category))[monoidal category](https://en.wikipedia.org/wiki/Monoidal_category) in the [hierarchy of graphical languages](https://en.wikipedia.org/wiki/String_diagram#Hierarchy_of_graphical_languages) (braids, twists, spiders, etc.)
 * methods for diagram composition, drawing, rewriting and evaluation as:
   - Python code, i.e. wires as types and boxes as functions
-  - matrices, i.e. wires as dimensions and boxes as arrays from:
-    - [NumPy](https://numpy.org)
-    - [JAX](https://github.com/google/jax)
-    - [PyTorch](https://pytorch.org/)
-    - [TensorFlow](https://www.tensorflow.org/)
-    - [TensorNetwork](https://github.com/google/TensorNetwork)
-* an implementation of classical-quantum circuits with interfaces to:
-  - [tket](https://github.com/CQCL/tket) for compilation
-  - [PyZX](https://github.com/Quantomatic/pyzx) for optimisation
-  - [PennyLane](https://pennylane.ai/) for differentiation
-* encodings of grammars ([formal](https://en.wikipedia.org/wiki/Formal_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar) and [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar)) as diagrams
+  - [tensor networks](https://en.wikipedia.org/wiki/Tensor_network), i.e. wires as dimensions and boxes as arrays from [NumPy](https://numpy.org), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork) and [JAX](https://github.com/google/jax)
+* an implementation of [categorical quantum mechanics](https://en.wikipedia.org/wiki/Categorical_quantum_mechanics) interfacing with:
+  - [tket](https://github.com/CQCL/tket) for circuit compilation
+  - [PyZX](https://github.com/Quantomatic/pyzx) for optimisation with the [ZX calculus](https://zxcalculus.com/)
+  - [PennyLane](https://pennylane.ai/) for automatic differentiation
+* diagrams for derivations in any formal grammar ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to:
+  - [lambeq](https://cqcl.github.io/lambeq)
+  - [spaCy](https://spacy.io/)
+  - [NLTK](https://www.nltk.org/)
 
-## Summary
+## Architecture
 
 [![hierarchy](docs/api/summary.png)](https://discopy.readthedocs.io#summary)
 
