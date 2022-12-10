@@ -35,7 +35,8 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 
 Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
 
-[![hierarchy](docs/api/summary.png)](https://discopy.readthedocs.io#summary)
+.. raw:: html
+   :file: api/summary.html
 
 ## Install
 
