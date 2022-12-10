@@ -29,12 +29,11 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
   - [tket](https://github.com/CQCL/tket) for circuit compilation
   - [PyZX](https://github.com/Quantomatic/pyzx) for optimisation with the [ZX calculus](https://zxcalculus.com/)
   - [PennyLane](https://pennylane.ai/) for automatic differentiation
-* diagrams for derivations in any formal grammar ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to:
-  - [lambeq](https://cqcl.github.io/lambeq)
-  - [spaCy](https://spacy.io/)
-  - [NLTK](https://www.nltk.org/)
+* an implementation of formal grammars ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to [lambeq](https://cqcl.github.io/lambeq), [spaCy](https://spacy.io/) and [NLTK](https://www.nltk.org/)
 
 ## Architecture
+
+Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
 
 [![hierarchy](docs/api/summary.png)](https://discopy.readthedocs.io#summary)
 

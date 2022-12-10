@@ -6,13 +6,13 @@ DisCoPy documentation
 
 .. mdinclude:: ../README.md
     :start-line: 10
-    :end-line: 38
+    :end-line: 37
 
 .. raw:: html
    :file: api/summary.html
 
 .. mdinclude:: ../README.md
-   :start-line: 40
+   :start-line: 39
 
 .. toctree::
     :caption: Reference API
