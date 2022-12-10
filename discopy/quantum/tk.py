@@ -1,7 +1,27 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements the translation between discopy and pytket.
+Interface with pytket.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Circuit
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        to_tk
+        from_tk
 """
 
 from unittest.mock import Mock

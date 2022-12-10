@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
+
 """
-Implements a conversion from quantum DisCoPy circuits to
-PennyLane circuits.
+Interface with PennyLane.
 
 If `probabilities` is set to False, the output states of the PennyLane
 circuit will be exactly equivalent to those of the DisCoPy circuit

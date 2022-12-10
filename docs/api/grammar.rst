@@ -5,7 +5,7 @@ grammar
 
 .. autosummary::
     :template: module.rst
-    :toctree: api
+    :toctree: ../_api
 
     discopy.grammar.formal
     discopy.grammar.categorial

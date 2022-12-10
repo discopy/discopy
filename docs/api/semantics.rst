@@ -1,11 +1,11 @@
 semantics
 =========
 
-DisCoPy's computational core: categories of functions and matrices.
+DisCoPy's computational core: categories of functions, matrices and tensors.
 
 .. autosummary::
     :template: module.rst
-    :toctree: api
+    :toctree: ../_api
 
     discopy.python
     discopy.matrix

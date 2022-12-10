@@ -11,9 +11,8 @@ Summary
     :nosignatures:
     :toctree:
 
-    AntiConjugate
-    Anti2QubitConjugate
     SelfConjugate
+    AntiConjugate
     Discard
     MixedState
     Measure

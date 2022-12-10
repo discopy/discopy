@@ -44,7 +44,10 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.mathjax',
               'youtube',
               'bases-fullname',
+              'sphinxcontrib.bibtex',
               ]
+
+bibtex_bibfiles = ['discopy.bib']
 
 autosummary_generate = True
 

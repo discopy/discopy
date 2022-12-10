@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""
-The library is organised in five groups of modules:
-syntax, semantics, quantum, grammar and other.
-"""
+""" DisCoPy: the Python toolkit for computing with string diagrams. """
 
 from discopy import (
     cat,
