@@ -35,13 +35,7 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 
 Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
 
-<script src="jquery.js"></script> 
-<script> 
-$(function(){
-$("#includedContent").load("api/api/summary.html"); 
-});
-</script> 
-<div id="includedContent"></div>
+[![hierarchy](docs/api/summary.png)](https://discopy.readthedocs.io#architecture)
 
 ## Install
 
