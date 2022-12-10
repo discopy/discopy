@@ -12,7 +12,7 @@ from discopy import (
     closed,
     rigid,
     pivotal,
-    tortile,
+    ribbon,
     compact,
     frobenius,
     hypergraph,

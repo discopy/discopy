@@ -17,7 +17,7 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
     discopy.closed
     discopy.rigid
     discopy.pivotal
-    discopy.tortile
+    discopy.ribbon
     discopy.compact
     discopy.frobenius
     discopy.hypergraph

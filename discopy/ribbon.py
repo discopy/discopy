@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free tortile category, i.e. diagrams with braids, cups and caps.
+The free ribbon category, i.e. diagrams with braids, cups and caps.
 
 Summary
 -------
@@ -21,7 +21,8 @@ Summary
 
 Axioms
 ------
-A tortile category is a braided pivotal category. We can build the twist.
+A ribbon category is a braided pivotal category.
+We can build the twist and its inverse by tracing the braid.
 
 >>> x = Ty('x')
 >>> from discopy.drawing import Equation
@@ -29,40 +30,40 @@ A tortile category is a braided pivotal category. We can build the twist.
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
 >>> eq.draw(figsize=(6, 4), margins=(.2, .1),
-...         path='docs/imgs/tortile/twist-untwist.png')
+...         path='docs/imgs/ribbon/twist-untwist.png')
 
-.. image:: /imgs/tortile/twist-untwist.png
+.. image:: /imgs/ribbon/twist-untwist.png
     :align: center
 
-A tortile category is strict whenever the twist is the identity.
+A ribbon category is strict whenever the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
 >>> eq_strict.draw(figsize=(4, 2), margins=(.2, .1),
-...                path='docs/imgs/tortile/strict.png')
+...                path='docs/imgs/ribbon/strict.png')
 
-.. image:: /imgs/tortile/strict.png
+.. image:: /imgs/ribbon/strict.png
     :align: center
 
 Note
 ----
-The diagrams of tortile categories should be drawn with ribbons, i.e. two
+The diagrams of ribbon categories should be drawn with ribbons, i.e. two
 parallel wires with the twist drawn as the braid.
 
-Strict tortile categories have diagrams with knots, i.e. ribbons where the two
+Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
 parallel wires coincide and the twist is the identity.
 """
 
 from __future__ import annotations
 
-from discopy import braided, pivotal
+from discopy import pivotal, balanced
 from discopy.cat import factory
 from discopy.pivotal import Ty
 
 
 @factory
-class Diagram(pivotal.Diagram, braided.Diagram):
+class Diagram(pivotal.Diagram, balanced.Diagram):
     """
-    A tortile diagram is a pivotal diagram and a braided diagram.
+    A ribbon diagram is a pivotal diagram and a braided diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
@@ -71,7 +72,7 @@ class Diagram(pivotal.Diagram, braided.Diagram):
     """
     def trace(self, n=1, left=False):
         """
-        The trace of a tortile diagram.
+        The trace of a ribbon diagram.
 
         Parameters:
             n : The number of wires to trace.
@@ -86,7 +87,7 @@ class Diagram(pivotal.Diagram, braided.Diagram):
 
     def cup(self, x, y):
         """
-        Post-compose a tortile diagram with a cup between wires ``i`` and ``j``
+        Post-compose a ribbon diagram with a cup between wires ``i`` and ``j``
         by introducing braids.
 
         Parameters:
@@ -103,21 +104,21 @@ class Diagram(pivotal.Diagram, braided.Diagram):
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
 
 
-class Box(pivotal.Box, braided.Box, Diagram):
+class Box(pivotal.Box, balanced.Box, Diagram):
     """
-    A tortile box is a pivotal and braided box in a tortile diagram.
+    A ribbon box is a pivotal and braided box in a ribbon diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (pivotal.Box, braided.Box, )
+    __ambiguous_inheritance__ = (pivotal.Box, balanced.Box, )
 
 
 class Cup(pivotal.Cup, Box):
     """
-    A tortile cup is a pivotal cup in a tortile diagram.
+    A ribbon cup is a pivotal cup in a ribbon diagram.
 
     Parameters:
         left (pivotal.Ty) : The atomic type.
@@ -128,7 +129,7 @@ class Cup(pivotal.Cup, Box):
 
 class Cap(pivotal.Cap, Box):
     """
-    A tortile cap is a pivotal cap in a tortile diagram.
+    A ribbon cap is a pivotal cap in a ribbon diagram.
 
     Parameters:
         left (pivotal.Ty) : The atomic type.
@@ -137,16 +138,16 @@ class Cap(pivotal.Cap, Box):
     __ambiguous_inheritance__ = (pivotal.Cap, )
 
 
-class Braid(braided.Braid, Box):
+class Braid(balanced.Braid, Box):
     """
-    A tortile braid is a braided braid in a tortile diagram.
+    A ribbon braid is a braided braid in a ribbon diagram.
 
     Parameters:
         left (pivotal.Ty) : The type on the top left and bottom right.
         right (pivotal.Ty) : The type on the top right and bottom left.
         is_dagger (bool) : Braiding over or under.
     """
-    __ambiguous_inheritance__ = (braided.Braid, )
+    __ambiguous_inheritance__ = (balanced.Braid, )
 
     z = 0
 
@@ -154,9 +155,20 @@ class Braid(braided.Braid, Box):
         return self
 
 
-class Category(pivotal.Category, braided.Category):
+class Twist(balanced.Twist, Box):
     """
-    A tortile category is both a pivotal category and a braided category.
+    A ribbon braid is a braided braid in a ribbon diagram.
+
+    Parameters:
+        left (pivotal.Ty) : The type on the top left and bottom right.
+        right (pivotal.Ty) : The type on the top right and bottom left.
+        is_dagger (bool) : Braiding over or under.
+    """
+
+
+class Category(pivotal.Category, balanced.Category):
+    """
+    A ribbon category is both a pivotal category and a braided category.
 
     Parameters:
         ob : The objects of the category, default is :class:`Ty`.
@@ -165,9 +177,9 @@ class Category(pivotal.Category, braided.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(pivotal.Functor, braided.Functor):
+class Functor(pivotal.Functor, balanced.Functor):
     """
-    A tortile functor is both a pivotal functor and a braided functor.
+    A ribbon functor is both a pivotal functor and a braided functor.
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :
@@ -179,11 +191,12 @@ class Functor(pivotal.Functor, braided.Functor):
 
     def __call__(self, other):
         if isinstance(other, Braid):
-            return braided.Functor.__call__(self, other)
+            return balanced.Functor.__call__(self, other)
         return pivotal.Functor.__call__(self, other)
 
 
 Diagram.braid_factory = Braid
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.twist_factory = Twist
 
 Id = Diagram.id

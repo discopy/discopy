@@ -20,15 +20,15 @@ Summary
     Functor
 """
 
-from discopy import symmetric, tortile
+from discopy import symmetric, ribbon
 from discopy.cat import factory
 from discopy.pivotal import Ty
 
 
 @factory
-class Diagram(symmetric.Diagram, tortile.Diagram):
+class Diagram(symmetric.Diagram, ribbon.Diagram):
     """
-    A compact diagram is a symmetric diagram and a tortile diagram.
+    A compact diagram is a symmetric diagram and a ribbon diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
@@ -38,54 +38,54 @@ class Diagram(symmetric.Diagram, tortile.Diagram):
     ty_factory = Ty
 
 
-class Box(symmetric.Box, tortile.Box, Diagram):
+class Box(symmetric.Box, ribbon.Box, Diagram):
     """
-    A compact box is a symmetric and tortile box in a compact diagram.
+    A compact box is a symmetric and ribbon box in a compact diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (symmetric.Box, tortile.Box, )
+    __ambiguous_inheritance__ = (symmetric.Box, ribbon.Box, )
 
 
-class Cup(tortile.Cup, Box):
+class Cup(ribbon.Cup, Box):
     """
-    A compact cup is a tortile cup in a compact diagram.
+    A compact cup is a ribbon cup in a compact diagram.
 
     Parameters:
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (tortile.Cup, )
+    __ambiguous_inheritance__ = (ribbon.Cup, )
 
 
-class Cap(tortile.Cap, Box):
+class Cap(ribbon.Cap, Box):
     """
-    A compact cap is a tortile cap in a compact diagram.
+    A compact cap is a ribbon cap in a compact diagram.
 
     Parameters:
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (tortile.Cap, )
+    __ambiguous_inheritance__ = (ribbon.Cap, )
 
 
-class Swap(symmetric.Swap, tortile.Braid, Box):
+class Swap(symmetric.Swap, ribbon.Braid, Box):
     """
-    A compact swap is a symmetric swap and a tortile braid.
+    A compact swap is a symmetric swap and a ribbon braid.
 
     Parameters:
         left (pivotal.Ty) : The type on the top left and bottom right.
         right (pivotal.Ty) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (symmetric.Swap, tortile.Braid, )
+    __ambiguous_inheritance__ = (symmetric.Swap, ribbon.Braid, )
 
 
-class Category(symmetric.Category, tortile.Category):
+class Category(symmetric.Category, ribbon.Category):
     """
-    A compact category is both a symmetric category and a tortile category.
+    A compact category is both a symmetric category and a ribbon category.
 
     Parameters:
         ob : The objects of the category, default is :class:`pivotal.Ty`.
@@ -94,9 +94,9 @@ class Category(symmetric.Category, tortile.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(symmetric.Functor, tortile.Functor):
+class Functor(symmetric.Functor, ribbon.Functor):
     """
-    A compact functor is both a symmetric functor and a tortile functor.
+    A compact functor is both a symmetric functor and a ribbon functor.
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :
@@ -109,7 +109,7 @@ class Functor(symmetric.Functor, tortile.Functor):
     def __call__(self, other):
         if isinstance(other, Swap):
             return symmetric.Functor.__call__(self, other)
-        return tortile.Functor.__call__(self, other)
+        return ribbon.Functor.__call__(self, other)
 
 
 Id = Diagram.id
