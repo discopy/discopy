@@ -26,11 +26,24 @@ Summary
 
 import re
 
-from discopy import closed
-from discopy.grammar import formal
+from discopy import closed, grammar
+from discopy.closed import Ty
 
 
-class Word(formal.Word, closed.Box):
+@factory
+class Diagram(closed.Diagram):
+    """
+    A categorial diagram is a closed diagram with rules and words as boxes.
+    """
+
+
+class Rule(closed.Box, Diagram):
+    """
+    A categorial box is a closed box in a categorial diagram.
+    """
+
+
+class Word(grammar.Word, closed.Box):
     """
     A word is a closed box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.

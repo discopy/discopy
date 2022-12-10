@@ -21,7 +21,7 @@ Summary
 
 Axioms
 ------
-A tortile category is a braided pivotal category where wires can be untwisted.
+A tortile category is a braided pivotal category. We can build the twist.
 
 >>> x = Ty('x')
 >>> from discopy.drawing import Equation
@@ -45,7 +45,7 @@ A tortile category is strict whenever the twist is the identity.
 
 Note
 ----
-The diagram of tortile categories should be drawn with ribbons, i.e. two
+The diagrams of tortile categories should be drawn with ribbons, i.e. two
 parallel wires with the twist drawn as the braid.
 
 Strict tortile categories have diagrams with knots, i.e. ribbons where the two
