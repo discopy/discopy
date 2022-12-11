@@ -71,6 +71,38 @@ class Diagram(braided.Diagram):
             >> cls.twist(dom[1:]) @ cls.twist(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
+    def to_braided(self):
+        """
+        Doubles evry object and sends the twist to the braid.
+
+        Example
+        -------
+
+        >>> x = Ty('x')
+        >>> braided_twist = Diagram.twist(x).to_braided()
+
+        >>> from discopy import drawing
+        >>> drawing.equation(Twist(x), braided_twist, symbol='->',
+        ...     draw_type_labels=False,
+        ...     path="docs/imgs/balanced/twist_dual_rail.png")
+
+        .. image:: /imgs/balanced/twist_dual_rail.png
+        """
+        class DualRail(Functor):
+            cod = braided.Category()
+
+            def __call__(self, other):
+                if isinstance(other, Twist):
+                    braid = Braid(other.dom, other.dom)
+                    return braid >> braid
+                if isinstance(other, Box):
+                    return braided.Box(
+                        other.name, self(other.dom), self(other.cod))
+
+                return super().__call__(other)
+
+        return DualRail(lambda x: x @ x, {})(self)
+
 
 class Box(braided.Box, Diagram):
     """
@@ -136,27 +168,6 @@ class Functor(braided.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
             The codomain, :code:`Category(Ty, Diagram)` by default.
-
-    Example
-    -------
-
-    The dual rail encoding is a balanced Functor into braided diagrams.
-
-    >>> x = Ty('x')
-    >>> ob = lambda x: x @ x
-    >>> ar = lambda box: Box(box.name, box.dom @ box.dom, box.cod @ box.cod)
-    >>> braided.Diagram.twist = lambda dom: Braid(
-    ...     dom[0], dom[1]) >> Braid(dom[1], dom[0])
-    >>> F = Functor(ob, ar, cod=Category(Ty, braided.Diagram))
-    >>> braided_twist = F(Diagram.twist(x))
-    >>> del braided.Diagram.twist
-    >>> assert braided_twist == Braid(x, x) >> Braid(x, x)
-    >>> from discopy import drawing
-    >>> drawing.equation(Twist(x), braided_twist, symbol='->',
-    ...     draw_type_labels=False,
-    ...     path="docs/imgs/balanced/twist_dual_rail.png")
-
-    .. image:: /imgs/balanced/twist_dual_rail.png
     """
     dom = cod = Category(Ty, Diagram)
 
