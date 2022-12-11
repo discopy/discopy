@@ -1,5 +1,5 @@
-drawing
-=======
+other
+=====
 
 .. automodule:: discopy.drawing
 

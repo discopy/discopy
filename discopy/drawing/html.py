@@ -7,8 +7,6 @@ from dataclasses import dataclass
 from lxml.html import Element
 from lxml.etree import SubElement
 
-from discopy.monoidal import Ty, Box, Diagram
-
 
 @dataclass
 class Cell:

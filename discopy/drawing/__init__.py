@@ -42,6 +42,8 @@ from matplotlib.patches import PathPatch
 
 from discopy.utils import assert_isinstance
 
+from discopy.drawing import html
+
 
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
