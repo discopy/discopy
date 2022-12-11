@@ -58,7 +58,7 @@ Examples
 >>> assert abs(F(sentence).eval().array) ** 2
 >>> from discopy import drawing
 >>> drawing.equation(
-...     sentence.drawing(), F(sentence), symbol='$\\\\mapsto$',
+...     sentence.to_drawing(), F(sentence), symbol='$\\\\mapsto$',
 ...     figsize=(6, 3), nodesize=.5,
 ...     path='docs/imgs/quantum/functor-example.png')
 

@@ -272,38 +272,25 @@ class Diagram(closed.Diagram):
         """
         return nesting(cls, cls.cap_factory)(left, right)
 
-    @classmethod
-    def fa(cls, left, right):
-        return left @ cls.cups(right.l, right)
-
-    @classmethod
-    def ba(cls, left, right):
-        return cls.cups(left, left.r) @ right
-
-    @classmethod
-    def fc(cls, left, middle, right):
-        return left @ cls.cups(middle.l, middle) @ right.l
-
-    @classmethod
-    def bc(cls, left, middle, right):
-        return left.r @ cls.cups(middle, middle.r) @ right
-
-    @classmethod
-    def fx(cls, left, middle, right):
-        return left @ cls.swap(middle.l, right.r) @ middle >>\
-            cls.swap(left, right.r) @ cls.cups(middle.l, middle)
-
-    @classmethod
-    def bx(cls, left, middle, right):
-        return middle @ cls.swap(left.l, middle.r) @ right >>\
-            cls.cups(middle, middle.r) @ cls.swap(left.l, right)
-
     def curry(self, n=1, left=True) -> Diagram:
+        """
+        The curry of a rigid diagram is obtained using cups and caps.
+
+        >>> from discopy.drawing import Equation as Eq
+        >>> x = Ty('x')
+        >>> g = Box('g', x @ x, x)
+        >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
+        ...     g.curry(), symbol="$\\\\mapsto$").draw(
+        ...         path="docs/imgs/rigid/curry.png")
+
+        .. image:: /imgs/rigid/curry.png
+            :align: center
+        """
         if left:
-            base, exponent = self.dom[:n], self.dom[n:]
+            base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
         offset = len(self.dom) - n
-        base, exponent = self.dom[offset:], self.dom[:offset]
+        base, exponent = self.dom[n:], self.dom[:n]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def rotate(self, left=False):
@@ -597,8 +584,8 @@ class Box(closed.Box, Diagram):
         """ Whether the box is an odd rotation of a generator. """
         return not self.is_dagger and self.z and bool(self.z % 2)
 
-    def drawing(self):
-        result = super().drawing()
+    def to_drawing(self):
+        result = super().to_drawing()
         result.is_transpose = self.is_transpose
         return result
 
@@ -661,8 +648,6 @@ class Cup(BinaryBoxConstructor, Box):
     def r(self):
         return self.cap_factory(self.right.r, self.left.r)
 
-    drawing = monoidal.Box.drawing
-
 
 class Cap(BinaryBoxConstructor, Box):
     """
@@ -697,8 +682,6 @@ class Cap(BinaryBoxConstructor, Box):
     @property
     def r(self):
         return self.cup_factory(self.right.r, self.left.r)
-
-    drawing = monoidal.Box.drawing
 
 
 class Category(closed.Category):
@@ -792,4 +775,5 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
 assert_isadjoint = Ty.assert_isadjoint
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
+
 Id = Diagram.id

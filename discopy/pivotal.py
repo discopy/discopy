@@ -197,8 +197,8 @@ class Box(rigid.Box, Diagram):
         """ Whether the box is a conjugate, i.e. the transpose of a dagger. """
         return self.is_dagger and bool(self.z)
 
-    def drawing(self):
-        result = super().drawing()
+    def to_drawing(self):
+        result = super().to_drawing()
         result.is_conjugate = self.is_conjugate
         return result
 

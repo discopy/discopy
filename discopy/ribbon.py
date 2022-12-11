@@ -21,8 +21,8 @@ Summary
 
 Axioms
 ------
-A ribbon category is a braided pivotal category.
-We can build the twist and its inverse by tracing the braid.
+A ribbon category is a braided pivotal category, such that
+the trace of the braid is unitary.
 
 >>> x = Ty('x')
 >>> from discopy.drawing import Equation
@@ -35,7 +35,21 @@ We can build the twist and its inverse by tracing the braid.
 .. image:: /imgs/ribbon/twist-untwist.png
     :align: center
 
+Equivalently, a ribbon category is a balanced pivotal category, such that
+the twist is the trace of the braid :cite:`Selinger10`.
+This is made explicit by drawing wires as ribbons,
+i.e. two parallel wires with the twist drawn as the double braid.
+
+>>> ribbon_twist = Diagram.twist(x).to_ribbons()
+>>> eq = Equation(ribbon_twist, twist_l.to_ribbons())
+>>> eq.draw(symbol='\\mapsto', draw_type_labels=False,
+...     path="docs/imgs/balanced/ribbon_twist.png")
+
+.. image:: /imgs/balanced/ribbon_twist.png
+
 A ribbon category is strict whenever the twist is the identity.
+Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
+parallel wires coincide and the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
 >>> eq_strict.draw(figsize=(4, 2), margins=(.2, .1),
@@ -43,14 +57,6 @@ A ribbon category is strict whenever the twist is the identity.
 
 .. image:: /imgs/ribbon/strict.png
     :align: center
-
-Note
-----
-The diagrams of ribbon categories should be drawn with ribbons, i.e. two
-parallel wires with the twist drawn as the braid.
-
-Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
-parallel wires coincide and the twist is the identity.
 """
 
 from __future__ import annotations
@@ -102,6 +108,33 @@ class Diagram(pivotal.Diagram, balanced.Diagram):
             self = self >> self.cod[:i] @ braid @ self.cod[i + 2:]
         cup = self.cup_factory(self.cod[y - 1], self.cod[y])
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
+
+    def to_ribbons(self):
+        """
+        Doubles evry object and sends the twist to the braid.
+
+        Example
+        -------
+
+        >>> x = Ty('x')
+        >>> braided_twist = Diagram.twist(x).to_ribbons()
+
+        .. image:: /imgs/balanced/twist_dual_rail.png
+        """
+        class DualRail(Functor):
+            cod = Category()
+
+            def __call__(self, other):
+                if isinstance(other, Twist):
+                    braid = Braid(other.dom, other.dom)
+                    return braid >> braid
+                if isinstance(other, (Cup, Cap, Braid)):
+                    return super().__call__(other)
+                if isinstance(other, Box):
+                    return Box(other.name, self(other.dom), self(other.cod))
+                return super().__call__(other)
+
+        return DualRail(lambda x: x @ x, {})(self)
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):
@@ -164,6 +197,11 @@ class Twist(balanced.Twist, Box):
         right (pivotal.Ty) : The type on the top right and bottom left.
         is_dagger (bool) : Braiding over or under.
     """
+
+    z = 0
+
+    def rotate(self, left=False):
+        return self
 
 
 class Category(pivotal.Category, balanced.Category):

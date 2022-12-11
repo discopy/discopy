@@ -91,7 +91,7 @@ class Diagram(braided.Diagram):
                   default is :code:`PRO(len(permutation))`.
         """
         dom = PRO(len(xs)) if dom is None else dom
-        if set(range(len(dom))) != set(xs):
+        if list(range(len(dom))) != sorted(xs):
             raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
         if len(dom) <= 1:
             return cls.id(dom)

@@ -63,7 +63,7 @@ def draw_controlled_gate(backend, positions, node, **params):
     dom = Node("dom", obj=box.dom.inside[0], i=index[0], depth=depth)
     cod = Node("cod", obj=box.cod.inside[0], i=index[0], depth=depth)
     middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
-    controlled_box = box.controlled.drawing()
+    controlled_box = box.controlled.to_drawing()
     controlled = Node("box", box=controlled_box, depth=depth)
     # TODO select obj properly for classical gates
     c_dom = Node("dom", obj=box.dom.inside[0], i=index[1], depth=depth)

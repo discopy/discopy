@@ -23,13 +23,13 @@ Summary
         cat2ty
         tree2diagram
 """
-
+from __future__ import annotations
 import re
 
-from discopy import closed
-from discopy.cat import factory
+from discopy import closed, messages
+from discopy.cat import factory, AxiomError
 from discopy.closed import BinaryBoxConstructor
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, factory_name, from_tree
 from discopy.grammar import thue
 
 
@@ -38,6 +38,17 @@ class Diagram(closed.Diagram):
     """
     A categorial diagram is a closed diagram with rules and words as boxes.
     """
+    def to_pregroup(self):
+        from discopy import rigid
+        from discopy.grammar import pregroup
+
+        return Functor(
+            ob=lambda x: pregroup.Ty(x.inside[0].name),
+            ar=lambda f: pregroup.Box(f.name,
+                                      Diagram.to_pregroup(f.dom),
+                                      Diagram.to_pregroup(f.cod)),
+            cod=rigid.Category(rigid.Ty, pregroup.Diagram))(self)
+
     @staticmethod
     def fa(left, right):
         """ Forward application. """
@@ -84,6 +95,26 @@ class Word(thue.Word, Rule):
         name (str) : The name of the word.
         cod (closed.Ty) : The grammatical type of the word.
         dom (closed.Ty) : An optional domain for the word, empty by default.
+    """
+
+
+class Eval(closed.Eval, Rule):
+    """
+    The evaluation of an exponential type.
+
+    Parameters:
+        x : The exponential type to evaluate.
+    """
+
+
+class Curry(closed.Curry, Rule):
+    """
+    The currying of a closed diagram.
+
+    Parameters:
+        arg : The diagram to curry.
+        n : The number of atomic types to curry.
+        left : Whether to curry on the left or right.
     """
 
 
@@ -275,14 +306,6 @@ def tree2diagram(tree: dict, dom=closed.Ty()) -> Diagram:
     return Id().tensor(*children) >> box
 
 
-def to_rigid(self):
-    from discopy import rigid
-
-    return Functor(
-        ob=lambda x: rigid.Ty(x.inside[0].name),
-        ar=lambda f: rigid.Box(
-            f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
-        cod=rigid.Category())(self)
-
-
 Id = Diagram.id
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval

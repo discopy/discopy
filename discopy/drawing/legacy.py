@@ -128,7 +128,7 @@ def diagram2nx(diagram):
         from nodes to pairs of floats.
     """
     import networkx as nx
-    diagram = diagram.drawing()
+    diagram = diagram.to_drawing()
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -912,7 +912,7 @@ def equation(*diagrams, path=None, symbol="=", space=1, **params):
         # i.e. if isinstance(diagram, (Sum, Equation))
         if hasattr(diagram, "terms"):
             return max(height(d) for d in diagram.terms)
-        return len(diagram.drawing()) or 1
+        return len(diagram.to_drawing()) or 1
 
     pad, max_height = params.get('pad', (0, 0)), max(map(height, diagrams))
     scale_x, scale_y = params.get('scale', (1, 1))
