@@ -15,15 +15,6 @@ Summary
     Sim14ansatz
     Sim15ansatz
 
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        real_amp_ansatz
-        random_tiling
 """
 
 import random
@@ -187,81 +178,3 @@ def Sim15ansatz(n_qubits, params) -> Circuit:
             layer(params[i]) for i in range(depth)))
 
     return circuit
-
-
-def real_amp_ansatz(params: "array", *, entanglement='full'):
-    """
-    The real-amplitudes 2-local circuit. The shape of the params determines
-    the number of layers and the number of qubits respectively (layers, qubit).
-    This heuristic generates orthogonal operators so the imaginary part of the
-    correponding matrix is always the zero matrix.
-    :param params: A 2D numpy array of parameters.
-    :param entanglement: Configuration for the entaglement, currently either
-    'full' (default), 'linear' or 'circular'.
-    """
-    from discopy.quantum.gates import CX, Ry, rewire
-    np = get_backend()
-    ext_cx = partial(rewire, CX)
-    assert entanglement in ('linear', 'circular', 'full')
-    params = np.asarray(params)
-    assert params.ndim == 2
-    dom = qubit**params.shape[1]
-
-    def layer(v, is_last=False):
-        n = len(dom)
-        rys = Id().tensor(*(Ry(v[k]) for k in range(n)))
-        if is_last:
-            return rys
-        if entanglement == 'full':
-            cxs = [[ext_cx(k1, k2, dom=dom) for k2 in range(k1 + 1, n)] for
-                   k1 in range(n - 1)]
-            cxs = reduce(lambda a, b: a >> b, chain(*cxs))
-        else:
-            cxs = [ext_cx(k, k + 1, dom=dom) for k in range(n - 1)]
-            cxs = reduce(lambda a, b: a >> b, cxs)
-            if entanglement == 'circular':
-                cxs = ext_cx(n - 1, 0, dom=dom) >> cxs
-        return rys >> cxs
-
-    circuit = [layer(v, is_last=idx == (len(params) - 1)) for
-               idx, v in enumerate(params)]
-    circuit = reduce(lambda a, b: a >> b, circuit)
-    return circuit
-
-
-def random_tiling(n_qubits, depth=3, gateset=None, seed=None):
-    """ Returns a random Euler decomposition if n_qubits == 1,
-    otherwise returns a random tiling with the given depth and gateset.
-
-    >>> from discopy.quantum.gates import CX, H, T, Rx, Rz
-    >>> c = random_tiling(1, seed=420)
-    >>> print(c)
-    Rx(0.0263) >> Rz(0.781) >> Rx(0.273)
-    >>> print(random_tiling(2, 2, gateset=[CX, H, T], seed=420).foliation())
-    CX >> T @ T
-    >>> print(random_tiling(3, 2, gateset=[CX, H, T], seed=420).foliation())
-    CX @ T >> H @ H @ H
-    >>> print(random_tiling(2, 1, gateset=[Rz, Rx], seed=420).foliation())
-    Rz(0.673) @ Rx(0.273)
-    """
-    from discopy.quantum.gates import H, CX, Rx, Rz, Parametrized
-    gateset = gateset or [H, Rx, CX]
-    if seed is not None:
-        random.seed(seed)
-    if n_qubits == 1:
-        phases = [random.random() for _ in range(3)]
-        return Rx(phases[0]) >> Rz(phases[1]) >> Rx(phases[2])
-    result = Id(qubit ** n_qubits)
-    for _ in range(depth):
-        line, n_affected = Id(), 0
-        while n_affected < n_qubits:
-            gate = random.choice(
-                gateset if n_qubits - n_affected > 1 else [
-                    g for g in gateset
-                    if g is Rx or g is Rz or len(g.dom) == 1])
-            if isinstance(gate, type) and issubclass(gate, Parametrized):
-                gate = gate(random.random())
-            line = line @ gate
-            n_affected += len(gate.dom)
-        result = result >> line
-    return result

@@ -45,7 +45,6 @@ Summary
 
         CRz
         CRx
-        rewire
         sqrt
         scalar
 """
@@ -294,6 +293,8 @@ class Digits(ClassicalGate):
         """ The digits of a classical state. """
         return list(self._digits)
 
+    bitstring = digits
+
     @property
     def array(self):
         with backend() as np:
@@ -310,24 +311,8 @@ class Digits(ClassicalGate):
         return result
 
 
-class Bits(Digits):
-    """
-    Implements bit preparation for a given bitstring.
-
-    >>> assert Bits(1, 0).cod == bit ** 2
-    >>> assert Bits(1, 0).eval()\\
-    ...     == Tensor[complex](dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
-    """
-    def __init__(self, *bitstring, is_dagger=False):
-        super().__init__(*bitstring, dim=2, is_dagger=is_dagger)
-
-    @property
-    def bitstring(self):
-        """ The bitstring of a classical state. """
-        return list(self._digits)
-
-    def dagger(self):
-        return Bits(*self.bitstring, is_dagger=not self.is_dagger)
+def Bits(*bitstring, is_dagger=False):
+    return Digits(*bitstring, dim=2, is_dagger=is_dagger)
 
 
 class Ket(SelfConjugate, QuantumGate):
@@ -644,28 +629,28 @@ class U1(AntiConjugate, Rotation):
                 (1, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2)
 
 
-class CU1(Controlled, Rotation):
+class ControlledRotation(Controlled, Rotation):
+    """ Controlled rotation gate. """
+    def __init__(self, phase, distance=1):
+        Controlled.__init__(self, self.controlled(phase), distance)
+
+    lambdify = Rotation.lambdify
+    subs = Rotation.subs
+
+
+class CU1(ControlledRotation):
     """ Controlled U1 rotations. """
     controlled = U1
 
-    def __init__(self, phase, distance=1):
-        Controlled.__init__(self, U1(phase), distance)
 
-
-class CRz(Controlled, Rotation):
+class CRz(ControlledRotation):
     """ Controlled Z rotations. """
     controlled = Rz
 
-    def __init__(self, phase, distance=1):
-        Controlled.__init__(self, Rz(phase), distance)
 
-
-class CRx(Controlled, Rotation):
+class CRx(ControlledRotation):
     """ Controlled X rotations. """
     controlled = Rx
-
-    def __init__(self, phase, distance=1):
-        Controlled.__init__(self, Rx(phase), distance)
 
 
 class Scalar(Parametrized):
@@ -713,46 +698,6 @@ class Sqrt(Scalar):
 
     def dagger(self):
         return self
-
-
-def rewire(op, a: int, b: int, *, dom=None):
-    """
-    Rewire a two-qubits gate (circuit) to arbitrary qubits.
-    :param a: The destination qubit index of the leftmost wire of the
-    input gate.
-    :param b: The destination qubit index of the rightmost wire of the
-    input gate.
-    :param dom: Optional domain/codomain for the resulting circuit.
-    """
-    if len(set([a, b])) != 2:
-        raise ValueError('The destination indices must be distinct')
-    dom = qubit ** (max(a, b) + 1) if dom is None else dom
-    if len(dom) < 2:
-        raise ValueError('Dom size expected at least 2')
-    if op.dom != qubit**2:
-        raise ValueError('Input gate\'s dom expected qubit**2')
-
-    if (b - a) == 1:
-        # a, b contiguous and not reversed
-        return qubit ** a @ op @ qubit ** (len(dom) - (b + 1))
-    if (b - a) == -1:
-        # a, b contiguous and reversed
-        op = (SWAP >> op >> SWAP) if op.cod == op.dom else (SWAP >> op)
-        return qubit ** b @ op @ qubit ** (len(dom) - (a + 1))
-
-    if op.cod != op.dom:
-        raise NotImplementedError
-    reverse = a > b
-    a, b = min(a, b), max(a, b)
-    perm = list(range(len(dom)))
-    perm[0], perm[a] = a, 0
-    perm[1], perm[b] = perm[b], perm[1]
-    if reverse:
-        perm[0], perm[1] = perm[1], perm[0]
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        perm = Box.permutation(perm, dom=dom)
-    return perm.dagger() >> (op @ qubit ** (len(dom) - 2)) >> perm
 
 
 def sqrt(expr):

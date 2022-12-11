@@ -268,7 +268,7 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum.tk import mockBackend
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> assert circuit.eval(backend=backend, n_shots=2**10).round()\\
-        ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
+        ...     == Tensor[complex](dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         from discopy.quantum import channel
         if contractor is not None:
@@ -656,8 +656,8 @@ class Circuit(tensor.Diagram):
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
         >>> assert circuit.grad(phi, mixed=False)\\
-        ...     == (Rz(phi / 2) @ scalar(pi) @ Rz(phi + 1.5) >> CX)\\
-        ...     + (scalar(pi/2) @ Rz(phi/2 + .5) @ Rz(phi + 1) >> CX)
+        ...     == (scalar(pi/2) @ Rz(phi/2 + .5) @ Rz(phi + 1) >> CX)\\
+        ...     + (Rz(phi / 2) @ scalar(pi) @ Rz(phi + 1.5) >> CX)
         """
         return super().grad(var, **params)
 

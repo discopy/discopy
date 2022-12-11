@@ -305,6 +305,9 @@ class Layer(cat.Box):
         for box_or_typ in self.boxes_or_types:
             yield box_or_typ
 
+    def __getitem__(self, key):
+        return self.boxes_or_types[key]
+
     def __eq__(self, other):
         return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
@@ -319,6 +322,14 @@ class Layer(cat.Box):
     def __rmatmul__(self, other: Ty) -> Layer:
         head, *tail = self
         return type(self)(other @ head, *tail)
+
+    @property
+    def free_symbols(self) -> "set[sympy.Symbol]":
+        return {x for _, box, _ in self.inside for x in box.free_symbols}
+
+    def subs(self, *args) -> Layer:
+        left, box, right = self
+        return type(self)(left, box.subs(*args), right)
 
     @classmethod
     def cast(cls, box: Box) -> Layer:

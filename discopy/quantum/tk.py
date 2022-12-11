@@ -35,7 +35,7 @@ from discopy import messages
 from discopy.utils import assert_isinstance
 from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
 from discopy.quantum.gates import (
-    ClassicalGate, Controlled, QuantumGate, Bits, Bra, Ket,
+    ClassicalGate, Controlled, QuantumGate, Bits, Bra, Digits, Ket,
     Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
     CRz, format_number, Discard, Measure)
 
@@ -279,7 +279,7 @@ def to_tk(circuit):
     for left, box, _ in circuit.inside:
         if isinstance(box, Ket):
             qubits = prepare_qubits(qubits, box, left.count(qubit))
-        elif isinstance(box, Bits) and not box.is_dagger:
+        elif isinstance(box, Digits) and box._dim == 2 and not box.is_dagger:
             if 1 in box.bitstring:
                 raise NotImplementedError
             bits = prepare_bits(bits, box, left.count(bit))
@@ -309,7 +309,8 @@ def to_tk(circuit):
             tk_circ.scale(
                 box.array if box.is_mixed else abs(box.array) ** 2)
         elif isinstance(box, ClassicalGate)\
-                or isinstance(box, Bits) and box.is_dagger:
+                or isinstance(box, Digits) and box._dim == 2\
+                and box.is_dagger:
             off = left.count(bit)
             right = Id(tk_circ.post_processing.cod[off + len(box.dom):])
             tk_circ.post_process(Id(bit ** off) @ box @ right)
