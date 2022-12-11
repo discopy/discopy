@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ Drawing module. """
 
-from discopy.drawing import Node, draw_box
+from discopy.drawing.legacy import Node, draw_box
 
 
 def draw_discard(backend, positions, node, **params):

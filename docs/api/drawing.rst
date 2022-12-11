@@ -1,5 +1,5 @@
-other
-=====
+drawing
+=======
 
 .. automodule:: discopy.drawing
 
@@ -7,4 +7,5 @@ other
     :template: module.rst
     :toctree: ../_api
 
+    discopy.drawing.legacy
     discopy.drawing.html

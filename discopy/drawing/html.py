@@ -1,4 +1,19 @@
 # -*- coding: utf-8 -*-
+"""
+DisCopy's html drawing.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Cell
+    Wire
+    Grid
+"""
 
 from __future__ import annotations
 

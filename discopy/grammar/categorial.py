@@ -26,10 +26,11 @@ Summary
 
 import re
 
-from discopy import closed, grammar
+from discopy import closed
 from discopy.cat import factory
 from discopy.closed import BinaryBoxConstructor
 from discopy.utils import assert_isinstance
+from discopy.grammar import thue
 
 
 @factory
@@ -68,13 +69,13 @@ class Diagram(closed.Diagram):
         return BX(middle << left, middle >> right)
 
 
-class Rule(grammar.Rule, Diagram):
+class Rule(thue.Rule, Diagram):
     """
     A categorial rule is a grammar rule in a categorial diagram.
     """
 
 
-class Word(grammar.Word, Rule):
+class Word(thue.Word, Rule):
     """
     A word is a closed box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.

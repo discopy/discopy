@@ -27,6 +27,7 @@ from discopy import cat, monoidal, grammar
 from discopy.cat import factory, Category, Functor, AxiomError
 from discopy.monoidal import Ty, assert_isatomic
 from discopy.utils import assert_isinstance, factory_name
+from discopy.grammar import thue
 
 
 @factory
@@ -89,7 +90,7 @@ class Tree:
         return self.root == other.root and self.branches == other.branches
 
 
-class Rule(Tree, grammar.Rule):
+class Rule(Tree, thue.Rule):
     """
     A rule is a generator of free operads, given by an atomic monoidal type
     for ``dom``, a monoidal type for ``cod`` and an optional ``name``.
@@ -97,7 +98,7 @@ class Rule(Tree, grammar.Rule):
     def __init__(self, dom: monoidal.Ty, cod: monoidal.Ty, name: str = None):
         assert_isinstance(dom, Ty)
         assert_isatomic(cod, Ty)
-        grammar.Rule.__init__(self, dom=dom, cod=cod, name=name)
+        thue.Rule.__init__(self, dom=dom, cod=cod, name=name)
         Tree.__init__(self, root=self)
 
     def __eq__(self, other):
@@ -108,7 +109,7 @@ class Rule(Tree, grammar.Rule):
             return other.root == self and other.branches == []
 
 
-class Word(grammar.Word, Rule):
+class Word(thue.Word, Rule):
     """
     A word is a monoidal box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.
@@ -120,7 +121,7 @@ class Word(grammar.Word, Rule):
     """
     def __init__(self, name: str, cod: monoidal.Ty, dom: monoidal.Ty = Ty(),
                  **params):
-        grammar.Word.__init__(self, name=name, dom=dom, cod=cod, **params)
+        thue.Word.__init__(self, name=name, dom=dom, cod=cod, **params)
         Rule.__init__(self, dom=dom, cod=cod, name=name, **params)
 
 
