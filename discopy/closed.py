@@ -180,8 +180,8 @@ class Diagram(monoidal.Diagram):
         """
         return self.curry_factory(self, n, left)
 
-    @staticmethod
-    def ev(base: Ty, exponent: Ty, left=True) -> Eval:
+    @classmethod
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
@@ -190,7 +190,7 @@ class Diagram(monoidal.Diagram):
             exponent : The exponent of the exponential type to evaluate.
             left : Whether to evaluate on the left or right.
         """
-        return self.eval_factory(
+        return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
     def uncurry(self: Diagram, left=True) -> Diagram:
