@@ -28,7 +28,7 @@ Summary
 Note
 ----
 :class:`Channel` implements the classical-quantum processes of
-*Picturing Quantum Processes*, Coecke and Kissinger (2018).
+Coecke and Kissinger :cite:`CoeckeKissinger17`.
 Objects are given by a quantum dimension :class:`Q` (a.k.a. double wires)
 and a classical dimension :class:`C` (a.k.a. single wires).
 Arrows are given by arrays of the appropriate shape, see :class:`Channel`.

@@ -504,7 +504,7 @@ class Diagram(closed.Diagram):
     def normal_form(self, **params):
         """
         Implements the normalisation of rigid categories,
-        see arxiv:1601.05372, definition 2.12.
+        see Dunn and Vicary :cite:`DunnVicary19`, definition 2.12.
 
         Examples
         --------

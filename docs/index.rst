@@ -9,7 +9,7 @@ DisCoPy documentation
     :end-line: 37
 
 .. raw:: html
-   :file: api/summary.html
+   :file: api/architecture.html
 
 .. mdinclude:: ../README.md
    :start-line: 39
@@ -29,16 +29,16 @@ DisCoPy documentation
     :hidden:
 
     notebooks/qnlp
-    notebooks/tensors
     notebooks/diag-diff
-    notebooks/your-own-category
+    notebooks/21-05-03-tallcat
+    notebooks/21-05-05-tallcat
+
 
 .. toctree::
     :caption: Extra
     :hidden:
 
     extra/talks
-    extra/slides
     extra/blogs
     extra/papers
     extra/bibliography
