@@ -882,11 +882,11 @@ class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
     dom = cod = Category(Ty, Circuit)
 
-    def __init__(self, ob, ar):
+    def __init__(self, ob, ar, cod=None):
         if isinstance(ob, Mapping):
             ob = {x: qubit ** y if isinstance(y, int) else y
                   for x, y in ob.items()}
-        super().__init__(ob, ar)
+        super().__init__(ob, ar, cod)
 
 
 def index2bitstring(i, length):

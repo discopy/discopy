@@ -26,10 +26,10 @@ from math import pi
 from discopy import messages, cat, rigid, tensor, quantum
 from discopy.cat import factory
 from discopy.rigid import Sum, PRO
-from discopy.frobenius import Functor, Category
+from discopy.frobenius import Category
 from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
-    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
+    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, CU1, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
 from discopy.utils import factory_name
 
@@ -365,12 +365,12 @@ def gate2zx(box):
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         quantum.S: Z(1, 1, .25),
         quantum.T: Z(1, 1, .125),
-        CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ H @ Id(1) >> Id(1) @ Z(2, 1),
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
     return standard_gates[box]
 
 
-circuit2zx = Functor(
+circuit2zx = quantum.circuit.Functor(
     ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
 
 H = Box('H', PRO(1), PRO(1))

@@ -143,13 +143,13 @@ def _std_basis_v(*c):
 
 def test_circuit2zx():
     circuit = Ket(0, 0) >> quantum.H @ Rx(0) >> CRz(0) >> CRx(0) >> CU1(0)
-    assert circuit2zx(circuit) == Diagram(
-        dom=PRO(0), cod=PRO(2), boxes=[
+    assert circuit2zx(circuit) == Diagram.decode(
+        dom=PRO(0), boxes_and_offsets=zip([
             X(0, 1), X(0, 1), scalar(0.5), H, X(1, 1),
             Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0),
             X(1, 2), X(1, 2), Z(2, 1), X(1, 0),
             Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0)],
-        offsets=[0, 1, 2, 0, 1, 0, 2, 1, 1, 0, 2, 1, 1, 0, 2, 1, 1])
+            [0, 1, 2, 0, 1, 0, 2, 1, 1, 0, 2, 1, 1, 0, 2, 1, 1]))
 
     # Verify XYZ=iI
     t = circuit2zx(quantum.Z >> quantum.Y >> quantum.X)
@@ -170,6 +170,8 @@ def test_circuit2zx():
     assert np.isclose(np.linalg.norm(t), 0)
 
     assert (circuit2zx(quantum.Id(3).CX(0, 2))
-            == Diagram(dom=PRO(3), cod=PRO(3),
-                       boxes=[SWAP, Z(1, 2), X(2, 1), scalar(2 ** 0.5), SWAP],
-                       offsets=[1, 0, 1, 2, 1]))
+            == Diagram.decode(
+                dom=PRO(3),
+                boxes_and_offsets=zip(
+                    [SWAP, Z(1, 2), X(2, 1), scalar(2 ** 0.5), SWAP],
+                    [1, 0, 1, 2, 1])))
