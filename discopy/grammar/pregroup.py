@@ -31,7 +31,8 @@ Summary
 """
 from __future__ import annotations
 
-from discopy import messages, drawing, grammar, rigid, symmetric
+from discopy import messages, drawing, monoidal, rigid, symmetric
+from discopy.grammar import thue
 from discopy.cat import factory
 from discopy.rigid import Ty
 from discopy.utils import assert_isinstance
@@ -113,11 +114,14 @@ class Swap(symmetric.Swap, Box):
     z = 0
 
 
-class Word(Box):
+class Word(thue.Word, Box):
     """
     A word is a rigid box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.
     """
+
+    z = 0
+
     def __init__(self, name: str, cod: rigid.Ty, dom: rigid.Ty = Ty(),
                  **params):
         super().__init__(name=name, dom=dom, cod=cod, **params)
@@ -202,13 +206,13 @@ def draw(diagram, **params):
         Whenever the input is not a pregroup diagram.
     """
     assert_isinstance(diagram, Diagram)
-    words, is_pregroup = Diagram.id(), True
+    words, is_pregroup = monoidal.Diagram.id(), True
     for _, box, right in diagram.inside:
         if isinstance(box, Word):
             if right:  # word boxes should be tensored left to right.
                 is_pregroup = False
                 break
-            words = words @ box.drawing()
+            words = words @ box.to_drawing()
         else:
             break
     layers = diagram[len(words):].foliation().inside\
@@ -219,7 +223,7 @@ def draw(diagram, **params):
     if not is_pregroup:
         raise ValueError(messages.NOT_PREGROUP)
     drawing.pregroup_draw(
-        words, [layer.drawing() for layer in layers], has_swaps, **params)
+        words, [layer.to_drawing() for layer in layers], has_swaps, **params)
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

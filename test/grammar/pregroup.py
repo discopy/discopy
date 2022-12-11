@@ -2,7 +2,6 @@ from pytest import raises
 
 from discopy import messages
 from discopy.utils import from_tree
-from discopy.rigid import Id, Cup, Cap, Ty, Box
 from discopy.grammar.pregroup import *
 
 
