@@ -21,8 +21,6 @@ We build a syntax tree from a context-free grammar.
 
 from __future__ import annotations
 
-import nltk
-
 from discopy import cat, monoidal, grammar
 from discopy.cat import factory, Category, Functor, AxiomError
 from discopy.monoidal import Ty, assert_isatomic
@@ -192,6 +190,7 @@ def from_nltk(tree, lexicalised=True, word_types=False):
     """
     Interface with NLTK
 
+    >>> import nltk
     >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
     >>> print(from_nltk(t))
     S(I, VP(saw, him))

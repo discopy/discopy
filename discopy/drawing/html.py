@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DisCopy's html drawing.
+DisCoPy's html drawing.
 
 Summary
 -------
@@ -83,9 +83,9 @@ class Grid:
         >>> grid = Grid.from_diagram(diagram)
 
         >>> from lxml.etree import tostring
-        >>> pprint = lambda x: print(
-        ...     tostring(x, pretty_print=True).decode('utf-8').strip())
-        >>> pprint(grid.to_html())
+        >>> pprint = lambda grid: print(
+        ...     tostring(grid, pretty_print=True).decode('utf-8').strip())
+        >>> pprint(grid)
         <table>
           <tr>
             <td colspan="1" class="wire">x</td>
