@@ -338,7 +338,7 @@ class Ket(SelfConjugate, QuantumGate):
     >>> assert Ket(1, 0).eval()\\
     ...     == Tensor[complex](dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
-    drawing = Digits.to_drawing
+    to_drawing = Digits.to_drawing
     array = Digits.array
 
     def __init__(self, *bitstring):
@@ -370,7 +370,7 @@ class Bra(SelfConjugate, QuantumGate):
     >>> assert Bra(1, 0).eval()\\
     ...     == Tensor[complex](dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
     """
-    drawing = Digits.to_drawing
+    to_drawing = Digits.to_drawing
     array = Digits.array
 
     def __init__(self, *bitstring):
