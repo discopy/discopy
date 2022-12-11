@@ -39,7 +39,7 @@ from discopy.utils import assert_isinstance
 
 
 @factory
-class Diagram(rigid.Diagram):
+class Diagram(rigid.Diagram, symmetric.Diagram):
     """
     A pregroup diagram is a rigid diagram with :class:`Word` boxes.
 
@@ -87,6 +87,32 @@ class Diagram(rigid.Diagram):
 
         return rigid.Diagram.normal_form(words)\
             >> rigid.Diagram.normal_form(wires)
+
+    @classmethod
+    def fa(cls, left, right):
+        return left @ cls.cups(right.l, right)
+
+    @classmethod
+    def ba(cls, left, right):
+        return cls.cups(left, left.r) @ right
+
+    @classmethod
+    def fc(cls, left, middle, right):
+        return left @ cls.cups(middle.l, middle) @ right.l
+
+    @classmethod
+    def bc(cls, left, middle, right):
+        return left.r @ cls.cups(middle, middle.r) @ right
+
+    @classmethod
+    def fx(cls, left, middle, right):
+        return left @ cls.swap(middle.l, right.r) @ middle >>\
+            cls.swap(left, right.r) @ cls.cups(middle.l, middle)
+
+    @classmethod
+    def bx(cls, left, middle, right):
+        return middle @ cls.swap(left.l, middle.r) @ right >>\
+            cls.cups(middle, middle.r) @ cls.swap(left.l, right)
 
 
 class Box(rigid.Box, Diagram):
@@ -222,7 +248,7 @@ def draw(diagram, **params):
     has_swaps = any(isinstance(x, Swap) for layer in layers for x in layer)
     if not is_pregroup:
         raise ValueError(messages.NOT_PREGROUP)
-    drawing.pregroup_draw(
+    drawing.legacy.pregroup_draw(
         words, [layer.to_drawing() for layer in layers], has_swaps, **params)
 
 

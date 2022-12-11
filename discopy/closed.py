@@ -178,7 +178,7 @@ class Diagram(monoidal.Diagram):
             n : The number of atomic types to curry.
             left : Whether to curry on the left or right.
         """
-        return Curry(self, n, left)
+        return self.curry_factory(self, n, left)
 
     @staticmethod
     def ev(base: Ty, exponent: Ty, left=True) -> Eval:
@@ -190,7 +190,8 @@ class Diagram(monoidal.Diagram):
             exponent : The exponent of the exponential type to evaluate.
             left : Whether to evaluate on the left or right.
         """
-        return Eval(base << exponent if left else exponent >> base)
+        return self.eval_factory(
+            base << exponent if left else exponent >> base)
 
     def uncurry(self: Diagram, left=True) -> Diagram:
         """
@@ -309,3 +310,5 @@ def to_rigid(self):
 
 Id = Diagram.id
 Diagram.to_rigid = to_rigid
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval

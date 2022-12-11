@@ -272,32 +272,6 @@ class Diagram(closed.Diagram):
         """
         return nesting(cls, cls.cap_factory)(left, right)
 
-    @classmethod
-    def fa(cls, left, right):
-        return left @ cls.cups(right.l, right)
-
-    @classmethod
-    def ba(cls, left, right):
-        return cls.cups(left, left.r) @ right
-
-    @classmethod
-    def fc(cls, left, middle, right):
-        return left @ cls.cups(middle.l, middle) @ right.l
-
-    @classmethod
-    def bc(cls, left, middle, right):
-        return left.r @ cls.cups(middle, middle.r) @ right
-
-    @classmethod
-    def fx(cls, left, middle, right):
-        return left @ cls.swap(middle.l, right.r) @ middle >>\
-            cls.swap(left, right.r) @ cls.cups(middle.l, middle)
-
-    @classmethod
-    def bx(cls, left, middle, right):
-        return middle @ cls.swap(left.l, middle.r) @ right >>\
-            cls.cups(middle, middle.r) @ cls.swap(left.l, right)
-
     def curry(self, n=1, left=True) -> Diagram:
         if left:
             base, exponent = self.dom[:n], self.dom[n:]

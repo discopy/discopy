@@ -1,6 +1,8 @@
-import pickle
+from pytest import raises
 
 from discopy import closed
+from discopy.closed import Ty
+from discopy.cat import AxiomError
 from discopy.grammar.categorial import *
 
 tree = {
@@ -70,6 +72,85 @@ tree = {
               'cat': 'NP'}]}]}]}]}]}]}
 
 
+def test_Diagram():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    assert Diagram.id(x) == Id(x)
+    assert Diagram.ba(x, y) == BA(x >> y)
+    assert Diagram.fa(x, y) == FA(x << y)
+    assert Diagram.fc(x, y, z) == FC(x << y, y << z)
+    assert Diagram.bc(x, y, z) == BC(x >> y, y >> z)
+    assert Diagram.fx(x, y, z) == FX(x << y, z >> y)
+    assert Diagram.bx(x, y, z) == BX(y << x, y >> z)
+
+
+def test_BA():
+    x, y = Ty('x'), Ty('y')
+    with raises(TypeError):
+        BA(x << y)
+    assert "BA(closed.Ty(closed.Under(" in repr(BA(x >> y))
+
+
+def test_FA():
+    x, y = Ty('x'), Ty('y')
+    with raises(TypeError):
+        FA(x >> y)
+    assert "FA(closed.Ty(closed.Over" in repr(FA(x << y))
+
+
+def test_FC():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    with raises(TypeError):
+        FC(x >> y, y >> x)
+    with raises(TypeError):
+        FC(x << y, y >> x)
+    with raises(AxiomError):
+        FC(x << y, z << y)
+
+
+def test_BC():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    with raises(TypeError):
+        BC(x << y, y << x)
+    with raises(TypeError):
+        BC(x >> y, y << x)
+    with raises(AxiomError):
+        BC(x >> y, z >> y)
+
+
+def test_FX():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    with raises(TypeError):
+        FX(x >> y, y >> x)
+    with raises(TypeError):
+        FX(x << y, y << x)
+    with raises(AxiomError):
+        FX(x << y, y >> x)
+
+
+def test_BX():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    with raises(TypeError):
+        BX(x >> y, y >> x)
+    with raises(TypeError):
+        BX(x << y, y << x)
+    with raises(AxiomError):
+        BX(x << y, y >> x)
+
+
+def test_Functor():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f = Rule(x, y, name='f')
+    IdF = Functor(lambda x: x, lambda f: f)
+    assert IdF(x >> y << x) == x >> y << x
+    assert IdF(Curry(f)) == Curry(f)
+    assert IdF(FA(x << y)) == FA(x << y)
+    assert IdF(BA(x >> y)) == BA(x >> y)
+    assert IdF(FC(x << y, y << x)) == FC(x << y, y << x)
+    assert IdF(BC(x >> y, y >> x)) == BC(x >> y, y >> x)
+    assert IdF(FX(x << y, z >> y)) == FX(x << y, z >> y)
+    assert IdF(BX(y << x, y >> z)) == BX(y << x, y >> z)
+
+
 def categorial_diagram():
     from discopy.grammar.categorial import Rule, Diagram, FA, BA, FC
 
@@ -78,7 +159,8 @@ def categorial_diagram():
         Word('that', NP),
         Word("'s", ((NP >> S) << NP)),
         Word('exactly', ((NP >> S) >> (NP >> S))),
-        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))), ((NP >> S) << NP), name='bx'),
+        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
+             ((NP >> S) << NP), name='bx'),
         Word('what', (NP << (S << NP))),
         Word('i', NP),
         Rule(NP, (S << (NP >> S)), name='tr'),
@@ -86,7 +168,8 @@ def categorial_diagram():
         Word('to', (((NP >> S) >> (NP >> S)) << NP)),
         Word('her', NP),
         FA((((NP >> S) >> (NP >> S)) << NP)),
-        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))), ((NP >> S) << NP), name='bx'),
+        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
+             ((NP >> S) << NP), name='bx'),
         FC((S << (NP >> S)), ((NP >> S) << NP)),
         FA((NP << (S << NP))),
         FA(((NP >> S) << NP)),
@@ -96,8 +179,20 @@ def categorial_diagram():
     return Diagram.decode(closed.Ty(), zip(boxes, offsets))
 
 
+def test_to_tree():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    for diagram in [
+            FA(x << y),
+            BA(x >> y),
+            FC(x << y, y << x),
+            BC(x >> y, y >> x),
+            FX(x << y, z >> y),
+            BX(y << x, y >> z)]:
+        assert from_tree(diagram.to_tree()) == diagram
+
+
 def rigid_diagram():
-    from discopy.rigid import Ob, Ty, Box, Cup, Diagram
+    from discopy.grammar.pregroup import Ob, Ty, Box, Cup, Diagram
 
     boxes = [
         Box('that', Ty(), Ty('NP')),
@@ -121,6 +216,27 @@ def rigid_diagram():
     ]
     offsets = [0, 1, 4, 1, 4, 7, 7, 10, 13, 18, 17, 10, 9, 8, 6, 5, 3, 0]
     return Diagram.decode(Ty(), zip(boxes, offsets))
+
+
+def test_to_pregroup():
+    from discopy.grammar import pregroup
+    from discopy.grammar.pregroup import Cup, Cap, Id
+    x, y = Ty('x'), Ty('y')
+    x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
+    assert Diagram.to_pregroup(Curry(BA(x >> y))).normal_form()\
+        == Cap(y_, y_.l) @ Id(x_)
+    assert Diagram.to_pregroup(Curry(FA(x << y), left=True)).normal_form()\
+        == Id(y_) @ Cap(x_.r, x_)
+    assert Diagram.to_pregroup(FC(x << y, y << x))\
+        == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
+    assert Diagram.to_pregroup(BC(x >> y, y >> x))\
+        == Id(x_.r) @ Cup(y_, y_.r) @ Id(x_)
+    assert Diagram.to_pregroup(FX(x << y, x >> y))\
+        == Id(x_) @ Swap(y_.l, x_.r) @ Id(y_) >>\
+        Swap(x_, x_.r) @ Cup(y_.l, y_)
+    assert Diagram.to_pregroup(BX(y << x, y >> x))\
+        == Id(y_) @ Swap(x_.l, y_.r) @ Id(x_) >>\
+        Cup(y_, y_.r) @ Swap(x_.l, x_)
 
 
 def test_tree2diagram():
