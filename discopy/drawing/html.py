@@ -119,7 +119,7 @@ class Grid:
         table.set("class", "diagram")
         width = max([max(
             [0] + [cell.stop for cell in row]) for row in self.rows])
-        tr = SubElement(table, "td")
+        tr = SubElement(table, "tr")
         input_wires = self.rows[0]
         for i in range(width - 1):
             td = SubElement(tr, "td")
