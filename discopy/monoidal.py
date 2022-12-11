@@ -403,7 +403,7 @@ class Layer(cat.Box):
 
     def lambdify(self, *symbols, **kwargs):
         return lambda *xs: type(self)(*(
-            x.lambdify(*symbols, **kwargs)(*xs) if i % 2 else x
+            x if not i % 2 else x.lambdify(*symbols, **kwargs)(*xs)
             for i, x in enumerate(self)))
 
     def to_tree(self) -> dict:
@@ -674,8 +674,8 @@ class Diagram(cat.Arrow, Whiskerable):
 
         gets rewritten to::
 
-            top >> left @ box1 @     mid @ box0.dom @ right\\
-                >> left @ box1.cod @ mid @ box0 @     right >> bottom
+            top >> left @ box1     @ mid @ box0.dom @ right\\
+                >> left @ box1.cod @ mid @ box0     @ right >> bottom
         """
         if any(len(list(layer)) != 3 for layer in self.inside):
             raise NotImplementedError

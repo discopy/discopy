@@ -22,7 +22,7 @@ DisCoPy documentation
     api/semantics
     api/quantum
     api/grammar
-    api/other
+    api/drawing
 
 .. toctree::
     :caption: Notebooks

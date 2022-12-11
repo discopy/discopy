@@ -31,6 +31,8 @@ Summary
         :toctree:
 
         factory
+        dumps
+        loads
 
 Axioms
 ------
@@ -79,7 +81,7 @@ from abc import ABC, abstractmethod
 from functools import total_ordering, cached_property
 from collections.abc import Callable, Mapping, Iterable
 
-from discopy import messages
+from discopy import messages, utils
 from discopy.utils import (
     factory_name,
     from_tree,
@@ -87,6 +89,8 @@ from discopy.utils import (
     rmap,
     assert_isinstance,
 )
+
+dumps, loads = utils.dumps, utils.loads
 
 
 @total_ordering
@@ -123,7 +127,7 @@ class Ob:
 
     def to_tree(self) -> dict:
         """
-        Serialise a DisCoPy object, see :func:`discopy.utils.dumps`.
+        Serialise a DisCoPy object, see :func:`dumps`.
 
         Example
         -------
@@ -135,7 +139,7 @@ class Ob:
     @classmethod
     def from_tree(cls, tree: dict) -> Ob:
         """
-        Decode a serialised DisCoPy object, see :func:`discopy.utils.loads`.
+        Decode a serialised DisCoPy object, see :func:`loads`.
 
         Parameters:
             tree : DisCoPy serialisation.

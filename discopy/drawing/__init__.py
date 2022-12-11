@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Drawing module.
+DisCopy's drawing modules.
 
 Summary
 -------

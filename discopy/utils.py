@@ -1,20 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""
-DisCoPy utility functions.
-
-Summary
--------
-
-.. autosummary::
-    :template: function.rst
-    :nosignatures:
-    :toctree:
-
-    from_tree
-    dumps
-    loads
-"""
+""" DisCoPy utility functions. """
 
 from __future__ import annotations
 
@@ -23,6 +9,7 @@ import json
 from collections.abc import Mapping, Iterable
 
 from discopy import messages
+
 
 class Dict:
     """ dict-like object from callable. """
