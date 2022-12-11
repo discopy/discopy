@@ -82,7 +82,7 @@ class Diagram(braided.Diagram):
         >>> braided_twist = Diagram.twist(x).to_braided()
 
         >>> from discopy import drawing
-        >>> drawing.equation(Twist(x), braided_twist, symbol='->',
+        >>> drawing.equation(Twist(x), braided_twist, symbol='\\mapsto',
         ...     draw_type_labels=False,
         ...     path="docs/imgs/balanced/twist_dual_rail.png")
 
@@ -95,7 +95,7 @@ class Diagram(braided.Diagram):
                 if isinstance(other, Twist):
                     braid = Braid(other.dom, other.dom)
                     return braid >> braid
-                if isinstance(other, Box):
+                if isinstance(other, Box) and not isinstace(other, Braid):
                     return braided.Box(
                         other.name, self(other.dom), self(other.cod))
 
