@@ -273,11 +273,24 @@ class Diagram(closed.Diagram):
         return nesting(cls, cls.cap_factory)(left, right)
 
     def curry(self, n=1, left=True) -> Diagram:
+        """
+        The curry of a rigid diagram is obtained using cups and caps.
+
+        >>> from discopy.drawing import Equation as Eq
+        >>> x = Ty('x')
+        >>> g = Box('g', x @ x, x)
+        >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
+        ...     g.curry(), symbol="$\\\\mapsto$").draw(
+        ...         path="docs/imgs/rigid/curry.png")
+
+        .. image:: /imgs/rigid/curry.png
+            :align: center
+        """
         if left:
-            base, exponent = self.dom[:n], self.dom[n:]
+            base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
         offset = len(self.dom) - n
-        base, exponent = self.dom[offset:], self.dom[:offset]
+        base, exponent = self.dom[n:], self.dom[:n]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def rotate(self, left=False):
@@ -762,4 +775,5 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
 
 assert_isadjoint = Ty.assert_isadjoint
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
+
 Id = Diagram.id
