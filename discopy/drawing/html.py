@@ -104,12 +104,8 @@ class Grid:
         >>> table.write(
         ...     "docs/imgs/drawing/example.html", pretty_print=True)
 
-        WTF
-
         .. raw:: html
            :file: /imgs/drawing/example.html
-
-        WTF
 
         """
         root = Element("div")

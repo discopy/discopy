@@ -1,23 +1,4 @@
-<style>
-.api-title { font-size: smaller; font-style: italic;}
-.syntax { background-color: rgba(250,250,250); }
-.semantics { background-color: rgba(250,250,250); }
-.grammar { background-color: rgba(250,250,250); }
-.quantum { background-color: rgba(250,250,250); }
-.top { border-top: 1px solid #c9c9c9; padding-top: 10px; margin-top: 5px;}
-.bottom { border-bottom: 1px solid #c9c9c9; padding-bottom: 10px;}
-.left { border-left: 1px solid #c9c9c9; }
-.right { border-right: 1px solid #c9c9c9; }
-.top-left { border-top: 1px solid #c9c9c9; border-left: 1px solid #c9c9c9; border-top-left-radius: 20px; padding-top: 10px;}
-.top-right { border-top: 1px solid #c9c9c9; border-right: 1px solid #c9c9c9; border-top-right-radius: 20px; padding-top: 10px;}
-.bottom-left { border-bottom: 1px solid #c9c9c9; border-left: 1px solid #c9c9c9; border-bottom-left-radius: 20px; padding-bottom: 10px;}
-.bottom-right { border-bottom: 1px solid #c9c9c9; border-right: 1px solid #c9c9c9; border-bottom-right-radius: 20px; padding-bottom: 10px;}
-table { text-align: center; border-spacing: 0; box-sizing:content-box; border-collapse: separate;}
-table td {vertical-align: top; margin: 5px;}
-table pre { text-align: left; display: inline-block; margin: auto; padding: 0; background-color: inherit; border: 0; box-shadow: none; line-height: 1.2;}
-</style>
-
-<table>
+<table id="architecture-diagram">
 	<col width="150"/>
 	<col width="150"/>
 	<col width="150"/>
@@ -83,7 +64,8 @@ table pre { text-align: left; display: inline-block; margin: auto; padding: 0; b
 	</tr>
 	<tr>
         <td class="syntax bottom-left"><a href="_api/discopy.cartesian.html">cartesian</a></td>
-        <td class="syntax bottom-right" colspan="2"><a href="_api/discopy.hypergraph.html">hypergraph</a><pre> ─── </pre><a href="_api/discopy.frobenius.html">frobenius</a></td>
+        <td class="syntax bottom"><a href="_api/discopy.hypergraph.html">hypergraph</a></td>
+        <td class="syntax bottom-right"><a href="_api/discopy.frobenius.html">frobenius</a></td>
         <td></td>
         <td class="quantum left right" style="padding-bottom: 10px;"><a href="_api/discopy.quantum.zx.html">zx</a></td>
 	</tr>
