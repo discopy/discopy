@@ -102,14 +102,14 @@ class Trace(Box, monoidal.Bubble):
         return factory_name(type(self))\
             + f"({self.arg}, n={self.n}, left={self.left})"
 
-    def drawing(self):
+    def to_drawing(self):
         traced_wire = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
         cup = Box('cup', traced_wire ** 2, Ty(), draw_as_wires=True)
         cap = Box('cap', Ty(), traced_wire ** 2, draw_as_wires=True)
         result = cap @ self.dom >> traced_wire @ self.arg >> cup @ self.cod\
             if self.left\
             else self.dom @ cap >> self.arg @ traced_wire >> self.cod @ cup
-        return result.drawing()
+        return result.to_drawing()
 
 
 class Category(monoidal.Category):

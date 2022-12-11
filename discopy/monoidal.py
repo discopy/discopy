@@ -143,7 +143,7 @@ class Ty(cat.Ob):
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
-    def drawing(self) -> Ty:
+    def to_drawing(self) -> Ty:
         """ Called before :meth:`Diagram.draw`. """
         return Ty(*map(str, self.inside))
 
@@ -261,7 +261,7 @@ class PRO(Ty):
     def __pow__(self, n_times):
         return self.factory(n_times * self.n)
 
-    def drawing(self):
+    def to_drawing(self):
         return Ty(*self.n * [Ob()])
 
     def to_tree(self):
@@ -339,11 +339,11 @@ class Layer(cat.Box):
         return type(self)(*(
             x.dagger() if i % 2 else x for i, x in enumerate(self)))
 
-    def drawing(self) -> Diagram:
+    def to_drawing(self) -> Diagram:
         """ Called before :meth:`Diagram.draw`. """
         result = Ty()
         for box_or_typ in self:
-            result = result @ box_or_typ.drawing()
+            result = result @ box_or_typ.to_drawing()
         return result
 
     @property
@@ -593,10 +593,11 @@ class Diagram(cat.Arrow, Whiskerable):
             diagram = diagram >> left @ box @ right
         return diagram
 
-    def drawing(self):
+    def to_drawing(self):
         """ Called before :meth:`Diagram.draw`. """
         return cat.Functor(
-            ob=lambda x: x.drawing(), ar=Layer.drawing, cod=Category())(self)
+            ob=lambda x: x.to_drawing(), ar=Layer.to_drawing, cod=Category())(
+                self)
 
     def foliation(self):
         """
@@ -811,8 +812,8 @@ class Box(cat.Box, Diagram):
     """
     __ambiguous_inheritance__ = (cat.Box, )
 
-    def drawing(self) -> Box:
-        dom, cod = self.dom.drawing(), self.cod.drawing()
+    def to_drawing(self) -> Box:
+        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
         result = Box(self.name, dom, cod, is_dagger=self.is_dagger)
         for attr, default in drawing.ATTRIBUTES.items():
             setattr(result, attr, getattr(self, attr, default(result)))
@@ -890,19 +891,19 @@ class Bubble(cat.Bubble, Box):
         cat.Bubble.__init__(self, arg, dom, cod)
         Box.__init__(self, self.name, self.dom, self.cod, data=self.data)
 
-    def drawing(self):
-        dom, cod = self.dom.drawing(), self.cod.drawing()
-        argdom, argcod = self.arg.dom.drawing(), self.arg.cod.drawing()
+    def to_drawing(self):
+        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
+        argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
         obj = cat.Ob(self.drawing_name)
         obj.draw_as_box = True
         left, right = Ty(obj), Ty("")
-        _open = Box("_open", dom, left @ argdom @ right).drawing()
-        _close = Box("_close", left @ argcod @ right, cod).drawing()
+        _open = Box("_open", dom, left @ argdom @ right).to_drawing()
+        _close = Box("_close", left @ argcod @ right, cod).to_drawing()
         _open.draw_as_wires = _close.draw_as_wires = True
         # Wires can go straight only if types have the same length.
         _open.bubble_opening = len(dom) == len(argdom)
         _close.bubble_closing = len(cod) == len(argcod)
-        return _open >> left @ self.arg.drawing() @ right >> _close
+        return _open >> left @ self.arg.to_drawing() @ right >> _close
 
 
 class Category(cat.Category):

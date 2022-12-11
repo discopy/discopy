@@ -597,8 +597,8 @@ class Box(closed.Box, Diagram):
         """ Whether the box is an odd rotation of a generator. """
         return not self.is_dagger and self.z and bool(self.z % 2)
 
-    def drawing(self):
-        result = super().drawing()
+    def to_drawing(self):
+        result = super().to_drawing()
         result.is_transpose = self.is_transpose
         return result
 
@@ -661,8 +661,6 @@ class Cup(BinaryBoxConstructor, Box):
     def r(self):
         return self.cap_factory(self.right.r, self.left.r)
 
-    drawing = monoidal.Box.drawing
-
 
 class Cap(BinaryBoxConstructor, Box):
     """
@@ -697,8 +695,6 @@ class Cap(BinaryBoxConstructor, Box):
     @property
     def r(self):
         return self.cup_factory(self.right.r, self.left.r)
-
-    drawing = monoidal.Box.drawing
 
 
 class Category(closed.Category):

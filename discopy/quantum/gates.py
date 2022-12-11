@@ -305,8 +305,8 @@ class Digits(ClassicalGate):
     def dagger(self):
         return Digits(*self.digits, dim=self.dim, is_dagger=not self.is_dagger)
 
-    def drawing(self):
-        result = QuantumGate.drawing(self)
+    def to_drawing(self):
+        result = QuantumGate.to_drawing(self)
         result.draw_as_brakets, result._digits = True, self._digits
         return result
 
@@ -339,7 +339,7 @@ class Ket(SelfConjugate, QuantumGate):
     >>> assert Ket(1, 0).eval()\\
     ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
-    drawing = Digits.drawing
+    drawing = Digits.to_drawing
     array = Digits.array
 
     def __init__(self, *bitstring):
@@ -371,7 +371,7 @@ class Bra(SelfConjugate, QuantumGate):
     >>> assert Bra(1, 0).eval()\\
     ...     == Tensor(dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
     """
-    drawing = Digits.drawing
+    drawing = Digits.to_drawing
     array = Digits.array
 
     def __init__(self, *bitstring):
@@ -501,8 +501,8 @@ class Controlled(QuantumGate):
                 array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)
 
-    def drawing(self):
-        result = super().drawing()
+    def to_drawing(self):
+        result = super().to_drawing()
         result.distance, result.controlled = self.distance, self.controlled
         result.draw_as_controlled = True
         return result
