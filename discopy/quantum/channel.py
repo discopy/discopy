@@ -266,7 +266,7 @@ class Channel(Tensor):
         Parameters:
             quantum : The tensor from which to make a pure quantum channel.
         """
-        array = (quantum.conjugate(diagrammatic=False) @ quantum).array
+        array = (quantum @ quantum.conjugate(diagrammatic=False)).array
         return cls(array, Q(quantum.dom), Q(quantum.cod))
 
     @classmethod

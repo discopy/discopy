@@ -406,7 +406,7 @@ class Circuit(tensor.Diagram):
             Output edges of the network.
         """
         if not mixed and not self.is_mixed:
-            return super().to_tn()
+            return super().to_tn(dtype=complex)
 
         import tensornetwork as tn
         from discopy.quantum.gates import (
@@ -441,26 +441,22 @@ class Circuit(tensor.Diagram):
         q_scan1 = [n[1] for n in q_nodes1]
         q_scan2 = [n[1] for n in q_nodes2]
         nodes = c_nodes + q_nodes1 + q_nodes2
-        for box, layer, offset in zip(self.boxes, self.inside, self.offsets):
+        for left, box, _ in self.inside:
+            c_offset = left.count(bit)
+            q_offset = left.count(qubit)
             if box == Circuit.swap(bit, bit):
-                left, _, _ = layer
-                c_offset = left.count(bit)
-                c_scan[c_offset], c_scan[c_offset + 1] =\
-                    c_scan[c_offset + 1], c_scan[c_offset]
+                off = left.count(bit)
+                c_scan[off], c_scan[off + 1] = c_scan[off + 1], c_scan[off]
+            elif box == SWAP:
+                off = left.count(qubit)
+                for scan in (q_scan1, q_scan2):
+                    scan[off], scan[off + 1] = scan[off + 1], scan[off]
+            elif isinstance(box, Discard):
+                assert box.n_qubits == 1
+                tn.connect(q_scan1[q_offset], q_scan2[q_offset])
+                del q_scan1[q_offset]
+                del q_scan2[q_offset]
             elif box.is_mixed or isinstance(box, ClassicalGate):
-                c_dom = box.dom.count(bit)
-                q_dom = box.dom.count(qubit)
-                c_cod = box.cod.count(bit)
-                q_cod = box.cod.count(qubit)
-                left, _, _ = layer
-                c_offset = left.count(bit)
-                q_offset = left.count(qubit)
-                if isinstance(box, Discard):
-                    assert box.n_qubits == 1
-                    tn.connect(q_scan1[q_offset], q_scan2[q_offset])
-                    del q_scan1[q_offset]
-                    del q_scan2[q_offset]
-                    continue
                 if isinstance(box, (Copy, Match, Measure, Encode)):
                     assert len(box.dom) == 1 or len(box.cod) == 1
                     node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=complex)
@@ -468,36 +464,29 @@ class Circuit(tensor.Diagram):
                     # only unoptimised gate is MixedState()
                     array = box.eval(mixed=True).array
                     node = tn.Node(array + 0j, 'cq_' + str(box))
+                c_dom = box.dom.count(bit)
+                q_dom = box.dom.count(qubit)
+                c_cod = box.cod.count(bit)
+                q_cod = box.cod.count(qubit)
                 for i in range(c_dom):
                     tn.connect(c_scan[c_offset + i], node[i])
                 for i in range(q_dom):
                     tn.connect(q_scan1[q_offset + i], node[c_dom + i])
-                for i in range(q_dom):
                     tn.connect(q_scan2[q_offset + i], node[c_dom + q_dom + i])
                 cq_dom = c_dom + 2 * q_dom
                 c_edges = node[cq_dom:cq_dom + c_cod]
                 q_edges1 = node[cq_dom + c_cod:cq_dom + c_cod + q_cod]
                 q_edges2 = node[cq_dom + c_cod + q_cod:]
-                c_scan = (
-                    c_scan[:c_offset] + c_edges + c_scan[c_offset + c_dom:])
-                q_scan1 = (
-                    q_scan1[:q_offset] + q_edges1 + q_scan1[q_offset + q_dom:])
-                q_scan2 = (
-                    q_scan2[:q_offset] + q_edges2 + q_scan2[q_offset + q_dom:])
+                c_scan[c_offset:c_offset + c_dom] = c_edges
+                q_scan1[q_offset:q_offset + q_dom] = q_edges1
+                q_scan2[q_offset:q_offset + q_dom] = q_edges2
                 nodes.append(node)
             else:
-                left, _, _ = layer
-                q_offset = left[:offset + 1].count(qubit)
-                if box == SWAP:
-                    q_scan1[q_offset], q_scan1[q_offset + 1] =\
-                        q_scan1[q_offset + 1], q_scan1[q_offset]
-                    q_scan2[q_offset], q_scan2[q_offset + 1] =\
-                        q_scan2[q_offset + 1], q_scan2[q_offset]
-                    continue
+                q_offset = left.count(qubit)
                 utensor = box.array
+                node1 = tn.Node(utensor + 0j, 'q1_' + str(box))
                 with backend() as np:
-                    node1 = tn.Node(np.conj(utensor) + 0j, 'q1_' + str(box))
-                node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
+                    node2 = tn.Node(np.conj(utensor) + 0j, 'q2_' + str(box))
 
                 for i in range(len(box.dom)):
                     tn.connect(q_scan1[q_offset + i], node1[i])
@@ -505,10 +494,8 @@ class Circuit(tensor.Diagram):
 
                 edges1 = node1[len(box.dom):]
                 edges2 = node2[len(box.dom):]
-                q_scan1 = q_scan1[:q_offset] + edges1
-                q_scan1 += q_scan1[q_offset + len(box.dom):]
-                q_scan2 = q_scan2[:q_offset] + edges2
-                q_scan2 += q_scan2[q_offset + len(box.dom):]
+                q_scan1[q_offset:q_offset + len(box.dom)] = edges1
+                q_scan2[q_offset:q_offset + len(box.dom)] = edges2
                 nodes.extend([node1, node2])
         outputs = c_scan + q_scan1 + q_scan2
         return nodes, inputs + outputs

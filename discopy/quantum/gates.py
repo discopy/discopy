@@ -224,11 +224,11 @@ class ClassicalGate(SelfConjugate):
 
     >>> from sympy import symbols
     >>> array = symbols("a b c d")
-    >>> f = ClassicalGate('f', 1, 1, array)
-    >>> f
-    ClassicalGate('f', bit, bit, data=[a, b, c, d])
-    >>> f.lambdify(*array)(1, 2, 3, 4)
-    ClassicalGate('f', bit, bit, data=[1, 2, 3, 4])
+    >>> f = ClassicalGate('f', bit, bit, array)
+    >>> f.data
+    (a, b, c, d)
+    >>> f.lambdify(*array)(1, 2, 3, 4).data
+    (1, 2, 3, 4)
     """
     is_mixed = False
     is_classical = True
@@ -262,9 +262,8 @@ class Digits(ClassicalGate):
 
     Examples
     --------
-    >>> assert Bits(1, 0) == Digits(1, 0, dim=2)
     >>> assert Digits(2, dim=4).eval()\\
-    ...     == Tensor(dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
+    ...     == Tensor[complex](dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
     """
     draw_as_brakets = True
 
@@ -317,7 +316,7 @@ class Bits(Digits):
 
     >>> assert Bits(1, 0).cod == bit ** 2
     >>> assert Bits(1, 0).eval()\\
-    ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
+    ...     == Tensor[complex](dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     def __init__(self, *bitstring, is_dagger=False):
         super().__init__(*bitstring, dim=2, is_dagger=is_dagger)
@@ -337,7 +336,7 @@ class Ket(SelfConjugate, QuantumGate):
 
     >>> assert Ket(1, 0).cod == qubit ** 2
     >>> assert Ket(1, 0).eval()\\
-    ...     == Tensor(dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
+    ...     == Tensor[complex](dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
     """
     drawing = Digits.to_drawing
     array = Digits.array
@@ -369,7 +368,7 @@ class Bra(SelfConjugate, QuantumGate):
 
     >>> assert Bra(1, 0).dom == qubit ** 2
     >>> assert Bra(1, 0).eval()\\
-    ...     == Tensor(dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
+    ...     == Tensor[complex](dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
     """
     drawing = Digits.to_drawing
     array = Digits.array
@@ -525,11 +524,8 @@ class Parametrized(Box):
     -------
     >>> from sympy.abc import phi
     >>> from sympy import pi, exp, I
-    >>> assert Rz(phi)\\
-    ...     == Parametrized('Rz', qubit, qubit, data=phi, is_mixed=False)
     >>> assert Rz(phi).array[0,0] == exp(-1.0 * I * pi * phi)
     >>> c = Rz(phi) >> Rz(-phi)
-    >>> assert list(c.eval().array.flatten()) == [1, 0, 0, 1]
     >>> assert c.lambdify(phi)(.25) == Rz(.25) >> Rz(-.25)
     """
     def __init__(self, name, dom, cod, data=None, **params):
@@ -620,7 +616,7 @@ class Ry(SelfConjugate, Rotation):
     @property
     def array(self):
         with backend() as np:
-            half_theta = np.array(self.modules.pi * self.phase, dtype=complex)
+            half_theta = np.array(self.modules.pi * self.phase)
             sin = self.modules.sin(half_theta)
             cos = self.modules.cos(half_theta)
             return np.stack((cos, sin, -sin, cos)).reshape(2, 2)
@@ -631,7 +627,7 @@ class Rz(AntiConjugate, Rotation):
     @property
     def array(self):
         with backend() as np:
-            half_theta = np.array(self.modules.pi * self.phase, dtype=complex)
+            half_theta = np.array(self.modules.pi * self.phase)
             e1 = self.modules.exp(-1j * half_theta)
             e2 = self.modules.exp(1j * half_theta)
             z = np.array(0)
@@ -643,7 +639,7 @@ class U1(AntiConjugate, Rotation):
     @property
     def array(self):
         with backend() as np:
-            theta = np.array(2 * self.modules.pi * self.phase, dtype=complex)
+            theta = np.array(2 * self.modules.pi * self.phase)
             return np.stack(
                 (1, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2)
 

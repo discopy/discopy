@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DisCopy's html drawing.
+DisCoPy's html drawing.
 
 Summary
 -------
@@ -20,7 +20,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from lxml.html import Element
-from lxml.etree import SubElement
+from lxml.etree import SubElement, ElementTree
+
+
+TABLE_STYLE = ".diagram .wire { border-left: 4px solid; text-align: left; } "\
+              ".diagram .box { border: 4px solid; text-align: center; }"\
+              ".diagram td { min-width: 20px; height: 20px; }"
 
 
 @dataclass
@@ -36,7 +41,7 @@ class Cell:
     """
     start: int
     stop: int
-    label: Ty | Box = None
+    label: discopy.monoidal.Ty | discopy.monoidal.Box = None
 
     def __add__(self, offset: int) -> Cell:
         return Cell(self.start + offset, self.stop + offset, self.label)
@@ -50,7 +55,7 @@ class Cell:
 
 class Wire(Cell):
     """ A wire is a cell with ``stop = start``. """
-    def __init__(self, start: int, label: Ty = None):
+    def __init__(self, start: int, label: discopy.monoidal.Ty = None):
         super().__init__(start, start, label)
 
     def __add__(self, offset: int) -> Wire:
@@ -67,10 +72,22 @@ class Grid:
 
     Parameters:
         rows : The list of lists of cells inside the grid.
+
+    >>> from discopy.monoidal import *
+    >>> x = Ty('x')
+    >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    >>> snake = x @ cap >> cup @ x
+    >>> grid = Grid.from_diagram(snake)
+    >>> print(grid)
+    Grid([Wire(1, x)],
+         [Wire(1, x), Cell(3, 8, cap)],
+         [Wire(1, x), Wire(4, x), Wire(7, x)],
+         [Cell(0, 5, cup), Wire(7, x)],
+         [Wire(7, x)])
     """
     rows: list[list[Cell]]
 
-    def to_html(self) -> Element:
+    def to_html(self) -> ElementTree:
         """
         Turn a grid into an html table.
 
@@ -78,51 +95,67 @@ class Grid:
         -------
         >>> from discopy.monoidal import *
         >>> x = Ty('x')
-        >>> f = Box('f', x, x @ x)
-        >>> diagram = (f @ f[::-1]).foliation()
-        >>> grid = Grid.from_diagram(diagram)
+        >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+        >>> unit = Box('unit', Ty(), x)
+        >>> spiral = cap >> cap @ x @ x >> x @ x @ x @ unit @ x\\
+        ...     >> x @ cap @ x @ x @ x @ x >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
+        ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
+        >>> table = Grid.from_diagram(spiral).to_html()
+        >>> table.write(
+        ...     "docs/imgs/drawing/example.html", pretty_print=True)
 
-        >>> from lxml.etree import tostring
-        >>> pprint = lambda x: print(
-        ...     tostring(x, pretty_print=True).decode('utf-8').strip())
-        >>> pprint(grid.to_html())
-        <table>
-          <tr>
-            <td colspan="1" class="wire">x</td>
-            <td colspan="7" class="wire">x</td>
-            <td colspan="9" class="wire">x</td>
-          </tr>
-          <tr>
-            <td colspan="4" class="box">f</td>
-            <td colspan="6">f</td>
-            <td colspan="4" class="box">f</td>
-          </tr>
-          <tr>
-            <td colspan="1" class="wire">x</td>
-            <td colspan="3" class="wire">x</td>
-            <td colspan="7" class="wire">x</td>
-          </tr>
-        </table>
+        WTF
+
+        .. raw:: html
+           :file: /imgs/drawing/example.html
+
+        WTF
+
         """
-        table = Element("table")
-        for row in self.rows:
+        root = Element("div")
+        style = SubElement(root, "style")
+        style.text = TABLE_STYLE
+        table = SubElement(root, "table")
+        table.set("class", "diagram")
+        width = max([max(
+            [0] + [cell.stop for cell in row]) for row in self.rows])
+        tr = SubElement(table, "tr")
+        input_wires = self.rows[0]
+        for i in range(width - 1):
+            td = SubElement(tr, "td")
+            if input_wires and input_wires[0].start - 1 == i:
+                td.set("class", "wire")
+                td.text = str(input_wires[0].label.drawing().inside[0])
+                input_wires = input_wires[1:]
+        for i, row in list(enumerate(self.rows))[1:]:
             tr = SubElement(table, "tr")
+            if row and row[0].start > 0:
+                td = SubElement(tr, "td")
+                td.set("colspan", str(row[0].start))
             offset = 0
-            for cell in row:
-                if cell.start > offset:
+            for cell, next_cell in zip(row, row[1:] + [None]):
+                if cell.start == cell.stop:
                     td = SubElement(tr, "td")
-                    td.text = cell.label.name
-                    td.set('colspan', str(cell.start - offset))
-                    if cell.start == cell.stop:
-                        td.set("class", "wire")
-                if cell.start < cell.stop:
+                    td.set("class", "wire")
+                    td.set("colspan", str(
+                        width - cell.stop if next_cell is None
+                        else next_cell.start - cell.stop))
+                    if i == 0 or not cell in self.rows[i - 1]:
+                        td.text = str(cell.label.drawing().inside[0])
+                else:
                     td = SubElement(tr, "td")
-                    td.text = cell.label.name
-                    td.set("colspan", str(cell.stop - cell.start))
                     td.set("class", "box")
-        return table
+                    td.set("colspan", str(cell.stop - cell.start))
+                    td.text = cell.label.name
+                    if cell.stop < width:
+                        td = SubElement(tr, "td")
+                        td.set("colspan", str(
+                            width - cell.stop if next_cell is None
+                            else next_cell.start - cell.stop))
+                    offset = cell.stop
+        return ElementTree(root)
 
-    def to_ascii(self) -> str:
+    def to_ascii(self, _debug=False) -> str:
         """
         Turn a grid into an ascii drawing.
 
@@ -160,27 +193,24 @@ class Grid:
          |                 |
          -------------------
         """
+        space = "." if _debug else " "
+        wire_chr, box_chr = "|", "-"
         def row_to_ascii(row):
             """ Turn a row into an ascii drawing. """
             result = ""
             for cell in row:
-                result += (cell.start - len(result)) * " "
+                result += (cell.start - len(result)) * space
                 if isinstance(cell, Wire):
-                    result += "|"
+                    result += wire_chr
                 else:
-                    result += " " + str(cell.label.name).center(
-                        cell.stop - cell.start - 1, "-")
+                    width = cell.stop - cell.start - 1
+                    result += space + str(
+                        cell.label.name)[:width].center(width, box_chr)
             return result
         return '\n'.join(map(row_to_ascii, self.rows)).strip('\n')
 
-    def __add__(self, offset: int):
-        return Grid([
-            [cell + offset for cell in row] for row in self.rows])
-
-    __sub__ = Cell.__sub__
-
     @staticmethod
-    def from_diagram(diagram: Diagram) -> Grid:
+    def from_diagram(diagram: discopy.monoidal.Diagram) -> Grid:
         """
         Layout a diagram on a grid.
 
@@ -191,6 +221,33 @@ class Grid:
         Parameters:
             diagram : The diagram to layout on a grid.
         """
+        def make_boxes_as_small_as_possible(
+                rows: list[list[Cell]]) -> list[list[Cell]]:
+            for top, middle, bottom in zip(rows, rows[1:], rows[2:]):
+                top_offset, bottom_offset = 0, 0
+                for cell in middle:
+                    if cell.start == cell.stop:
+                        top_offset += 1
+                        bottom_offset += 1
+                    else:
+                        box = cell.label
+                        if not box.dom and not box.cod:
+                            start, stop = cell.start, cell.start + 2
+                        else:
+                            start = min(
+                                [top[top_offset + i].start
+                                 for i, _ in enumerate(box.dom)] + [
+                                 bottom[bottom_offset + i].start
+                                 for i, _ in enumerate(box.cod)]) - 1
+                            stop = max(
+                                [top[top_offset + i].stop
+                                 for i, _ in enumerate(box.dom)] + [
+                                 bottom[bottom_offset + i].start
+                                 for i, _ in enumerate(box.cod)]) + 1
+                        cell.start, cell.stop = start, stop
+                        top_offset += len(box.dom)
+                        bottom_offset += len(box.cod)
+            return rows
         def make_space(rows: list[list[Cell]], limit: int, space: int) -> None:
             if space < 0:
                 for i, row in enumerate(rows):
@@ -241,4 +298,16 @@ class Grid:
                         + wires[offset + len(box.dom):]
                     offset += len(box.cod)
         offset = min([min([0] + [cell.start for cell in row]) for row in rows])
+        rows = make_boxes_as_small_as_possible(rows)
         return Grid(rows) - offset
+
+    def __add__(self, offset: int):
+        return Grid([
+            [cell + offset for cell in row] for row in self.rows])
+
+    def __str__(self):
+        rows_str = "],\n     [".join(map(
+            lambda row: ", ".join(map(str, row)), self.rows))
+        return f"Grid([{rows_str}])"
+
+    __sub__ = Cell.__sub__
