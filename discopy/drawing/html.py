@@ -98,7 +98,8 @@ class Grid:
         >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
         >>> unit = Box('unit', Ty(), x)
         >>> spiral = cap >> cap @ x @ x >> x @ x @ x @ unit @ x\\
-        ...     >> x @ cap @ x @ x @ x @ x >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
+        ...     >> x @ cap @ x @ x @ x @ x\\
+        ...     >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
         ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
         >>> table = Grid.from_diagram(spiral).to_html()
         >>> table.write(
@@ -121,7 +122,7 @@ class Grid:
             td = SubElement(tr, "td")
             if input_wires and input_wires[0].start - 1 == i:
                 td.set("class", "wire")
-                td.text = str(input_wires[0].label.drawing().inside[0])
+                td.text = str(input_wires[0].label.to_drawing().inside[0])
                 input_wires = input_wires[1:]
         for i, row in list(enumerate(self.rows))[1:]:
             tr = SubElement(table, "tr")
@@ -137,7 +138,7 @@ class Grid:
                         width - cell.stop if next_cell is None
                         else next_cell.start - cell.stop))
                     if i == 0 or not cell in self.rows[i - 1]:
-                        td.text = str(cell.label.drawing().inside[0])
+                        td.text = str(cell.label.to_drawing().inside[0])
                 else:
                     td = SubElement(tr, "td")
                     td.set("class", "box")
