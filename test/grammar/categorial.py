@@ -191,8 +191,9 @@ def test_to_tree():
         assert from_tree(diagram.to_tree()) == diagram
 
 
-def rigid_diagram():
-    from discopy.grammar.pregroup import Ob, Ty, Box, Cup, Diagram
+def pregroup_diagram():
+    from discopy.rigid import Ob, Ty
+    from discopy.grammar.pregroup import Box, Cup, Diagram
 
     boxes = [
         Box('that', Ty(), Ty('NP')),
@@ -220,12 +221,12 @@ def rigid_diagram():
 
 def test_to_pregroup():
     from discopy.grammar import pregroup
-    from discopy.grammar.pregroup import Cup, Cap, Id
-    x, y = Ty('x'), Ty('y')
+    from discopy.grammar.pregroup import Cup, Cap, Id, Swap
+    x, y = closed.Ty('x'), closed.Ty('y')
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
     assert Diagram.to_pregroup(Curry(BA(x >> y))).normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.to_pregroup(Curry(FA(x << y), left=True)).normal_form()\
+    assert Diagram.to_pregroup(Curry(FA(x << y), left=False)).normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
     assert Diagram.to_pregroup(FC(x << y, y << x))\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
@@ -242,4 +243,4 @@ def test_to_pregroup():
 def test_tree2diagram():
     diagram = tree2diagram(tree)
     assert diagram == categorial_diagram()
-    assert to_rigid(diagram) == rigid_diagram()
+    assert diagram.to_pregroup() == pregroup_diagram()

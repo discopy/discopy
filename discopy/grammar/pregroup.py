@@ -84,7 +84,8 @@ class Diagram(rigid.Diagram, symmetric.Diagram):
             isinstance(box, (Cup, Cap, Swap)) for box in wires.boxes)
         if not is_pregroup:
             raise ValueError(messages.NOT_PREGROUP)
-
+        if words.cod == Ty():
+            return rigid.Diagram.normal_form(wires)
         return rigid.Diagram.normal_form(words)\
             >> rigid.Diagram.normal_form(wires)
 
