@@ -36,11 +36,11 @@ if __name__ == '__main__':  # pragma: no cover
           description='Distributional Compositional Python',
           long_description=open("README.md", "r").read(),
           long_description_content_type="text/markdown",
-          url='https://github.com/oxford-quantum-group/discopy',
+          url='https://github.com/discopy/discopy',
           author='Alexis Toumi',
           author_email='alexis.toumi@cs.ox.ac.uk',
           download_url='https://github.com/'
-                       'oxford-quantum-group/discopy/archive/'
+                       'discopy/discopy/archive/'
                        '{}.tar.gz'.format(VERSION),
           install_requires=[
               l.strip() for l in open('requirements.txt').readlines()],

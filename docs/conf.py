@@ -84,7 +84,7 @@ html_css_files = ["custom.css"]
 html_title = "DisCoPy"
 
 html_theme_options = {
-    "repository_url": "https://github.com/oxford-quantum-group/discopy",
+    "repository_url": "https://github.com/discopy/discopy",
     "use_repository_button": True,
     "path_to_docs": "docs",
     "extra_navbar": "",

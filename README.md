@@ -3,7 +3,7 @@
 
 # DisCoPy
 
-[![build](https://github.com/oxford-quantum-group/discopy/actions/workflows/build_test.yml/badge.svg)](https://github.com/oxford-quantum-group/discopy/actions/workflows/build_test.yml)
+[![build](https://github.com/discopy/discopy/actions/workflows/build_test.yml/badge.svg)](https://github.com/discopy/discopy/actions/workflows/build_test.yml)
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 [![DOI: 10.4204/EPTCS.333.13](http://img.shields.io/badge/DOI-10.4204/EPTCS.333.13-brightgreen.svg)](https://doi.org/10.4204/EPTCS.333.13)
@@ -12,7 +12,7 @@ DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wiki
 
 * **Organisation:** https://www.discopy.org
 * **Documentation:** https://discopy.readthedocs.io
-* **Source code:** https://github.com/oxford-quantum-group/discopy
+* **Source code:** https://github.com/discopy/discopy
 * **Paper (for applied category theorists):** https://doi.org/10.4204/EPTCS.333.13
 * **Paper (for quantum computer scientists):** https://arxiv.org/abs/2205.05190
 
@@ -48,7 +48,7 @@ pip install discopy
 If you want the bleeding edge, you can install DisCoPy locally:
 
 ```shell
-git clone https://github.com/oxford-quantum-group/discopy.git
+git clone https://github.com/discopy/discopy.git
 cd discopy
 pip install .
 ```
@@ -73,7 +73,7 @@ sphinx-build docs docs/_build/html
 ## Contribute
 
 Contributions are welcome, please get in touch or
-[open an issue](https://github.com/oxford-quantum-group/discopy/issues/new).
+[open an issue](https://github.com/discopy/discopy/issues/new).
 
 ## How to cite
 
