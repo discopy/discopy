@@ -27,7 +27,6 @@ Summary
 
         eager_parse
         brute_force
-        draw
 """
 from __future__ import annotations
 

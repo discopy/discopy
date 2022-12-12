@@ -7,7 +7,6 @@ QNLP 2022
 ---------
 
 A short demonstration of DisCoPy at `QNLP 2022 <https://qnlp.cambridgequantum.com/conf2022/>`_.
-The slides are available :doc:`here <22-05-30-QNLP>`.
 
 .. youtube:: P7nZHX0xhAI
 
@@ -16,7 +15,6 @@ QPL 2021
 
 An introduction to `diagrammatic differentiation <https://arxiv.org/abs/2103.14411>`_,
 presented at `QPL 2021 <https://qpl2021.eu/>`_.
-The slides are available :doc:`here <21-06-08-qpl>`.
 
 .. youtube:: HOB3r44-pGw
 
