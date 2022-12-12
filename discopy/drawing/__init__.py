@@ -14,4 +14,4 @@ from discopy.drawing.legacy import (
     DEFAULT,
     COLORS,
     SHAPES,
-    )
+)

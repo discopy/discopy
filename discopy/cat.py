@@ -78,6 +78,7 @@ Functors are bubble-preserving.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from functools import total_ordering, cached_property
 from collections.abc import Callable, Mapping, Iterable
 
@@ -88,6 +89,7 @@ from discopy.utils import (
     rsubs,
     rmap,
     assert_isinstance,
+    Dict,
 )
 
 dumps, loads = utils.dumps, utils.loads
@@ -803,6 +805,7 @@ class Bubble(Box):
         return cls(arg=arg, dom=dom, cod=cod)
 
 
+@dataclass
 class Category:
     """
     A category is just a pair of Python types :code:`ob` and :code:`ar` with
@@ -821,7 +824,7 @@ class Category:
         return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
 
 
-class Functor:
+class Functor(Composable):
     """
     A functor is a pair of maps :code:`ob` and :code:`ar` and an optional
     codomain category :code:`cod`.
@@ -863,15 +866,53 @@ class Functor:
     """
     dom = cod = Category(Ob, Arrow)
 
+    @classmethod
+    def id(cls, dom: Category = None) -> Functor:
+        """
+        The identity functor on a given category ``dom``.
+
+        Parameters:
+            dom : The domain of the functor.
+        """
+        class IdFunctor(cls):
+            pass
+        IdFunctor.dom = dom or Category()
+        return IdFunctor(lambda x: x, lambda f: f, cod=dom)
+
+    def then(self, other: Functor) -> Functor:
+        """
+        The composition of functor with another.
+
+        Parameters:
+            other : The other functor with which to compose.
+
+        Note
+        ----
+        Functor composition is unital only on the left. Indeed, we cannot check
+        equality of functors defined with functions instead of dictionaries.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> F, G = Functor({x: y}, {}), Functor({y: x}, {})
+        >>> print(F >> G)
+        cat.Functor(ob={cat.Ob('x'): cat.Ob('x')}, ar={})
+        >>> assert F >> Functor.id() == F != Functor.id() >> F
+        >>> print(Functor.id() >> F)  # doctest: +ELLIPSIS
+        cat.IdFunctor(ob=<discopy.utils.Dict object ...>, ar=...)
+        """
+        assert_isinstance(other, Functor)
+        assert_isparallel(self, other)
+        ob = (lambda x: other.ob[self.ob]) if isinstance(self.ob, Dict)\
+            else {x: other.ob[y] for x, y in self.ob.items()}
+        ar = (lambda x: other.ar[self.ar]) if isinstance(self.ar, Dict)\
+            else {x: other.ar[y] for x, y in self.ar.items()}
+        result = type(self)(ob, ar, other.cod)
+        result.dom = self.dom
+        return result
+
     def __init__(self, ob: Mapping[Ob, Ob] = {}, ar: Mapping[Box, Arrow] = {},
                  cod: Category = None):
-        class Dict:
-            """ dict-like object from callable. """
-            def __init__(self, func: Callable):
-                self.func = func
-
-            def __getitem__(self, key):
-                return self.func(key)
         self.cod = cod or type(self).cod
         self.ob = ob if isinstance(ob, Mapping) else Dict(ob)
         self.ar = ar if isinstance(ar, Mapping) else Dict(ar)
@@ -937,4 +978,5 @@ def assert_isparallel(left: Composable, right: Composable):
 
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
+CAT = Category(Category, Functor)
 Id = Arrow.id

@@ -250,7 +250,8 @@ def draw(diagram, **params):
     if not is_pregroup:
         raise ValueError(messages.NOT_PREGROUP)
     drawing.legacy.pregroup_draw(
-        words, [layer.to_drawing() for layer in layers], has_swaps, **params)
+        words.foliation(), [layer.to_drawing() for layer in layers], has_swaps,
+        **params)
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

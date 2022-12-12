@@ -87,6 +87,18 @@ class Grid:
     """
     rows: list[list[Cell]]
 
+    @property
+    def max(self):
+        """ The maximum horizontal coordinate of a grid. """
+        return max(
+            [max([0] + [cell.stop for cell in row]) for row in self.rows])
+
+    @property
+    def min(self):
+        """ The minimum horizontal coordinate of a grid. """
+        return min(
+            [min([0] + [cell.start for cell in row]) for row in self.rows])
+
     def to_html(self) -> ElementTree:
         """
         Turn a grid into an html table.
@@ -114,15 +126,14 @@ class Grid:
         style.text = TABLE_STYLE
         table = SubElement(root, "table")
         table.set("class", "diagram")
-        width = max([max(
-            [0] + [cell.stop for cell in row]) for row in self.rows])
+        width = self.max
         tr = SubElement(table, "tr")
         input_wires = self.rows[0]
         for i in range(width - 1):
             td = SubElement(tr, "td")
             if input_wires and input_wires[0].start - 1 == i:
                 td.set("class", "wire")
-                td.text = str(input_wires[0].label.to_drawing().inside[0])
+                td.text = input_wires[0].label.name
                 input_wires = input_wires[1:]
         for i, row in list(enumerate(self.rows))[1:]:
             tr = SubElement(table, "tr")
@@ -137,8 +148,8 @@ class Grid:
                     td.set("colspan", str(
                         width - cell.stop if next_cell is None
                         else next_cell.start - cell.stop))
-                    if i == 0 or not cell in self.rows[i - 1]:
-                        td.text = str(cell.label.to_drawing().inside[0])
+                    if i == 0 or cell not in self.rows[i - 1]:
+                        td.text = cell.label.name
                 else:
                     td = SubElement(tr, "td")
                     td.set("class", "box")
@@ -171,7 +182,8 @@ class Grid:
         >>> cup, cap = Box('-', x @ x, Ty()), Box('-', Ty(), x @ x)
         >>> unit = Box('o', Ty(), x)
         >>> spiral = cap >> cap @ x @ x >> x @ x @ x @ unit @ x\\
-        ...     >> x @ cap @ x @ x @ x @ x >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
+        ...     >> x @ cap @ x @ x @ x @ x\\
+        ...     >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
         ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
         >>> print(Grid.from_diagram(spiral).to_ascii())
                      -------
@@ -192,6 +204,7 @@ class Grid:
         """
         space = "." if _debug else " "
         wire_chr, box_chr = "|", "-"
+
         def row_to_ascii(row):
             """ Turn a row into an ascii drawing. """
             result = ""
@@ -234,17 +247,18 @@ class Grid:
                             start = min(
                                 [top[top_offset + i].start
                                  for i, _ in enumerate(box.dom)] + [
-                                 bottom[bottom_offset + i].start
-                                 for i, _ in enumerate(box.cod)]) - 1
+                                    bottom[bottom_offset + i].start
+                                    for i, _ in enumerate(box.cod)]) - 1
                             stop = max(
                                 [top[top_offset + i].stop
                                  for i, _ in enumerate(box.dom)] + [
-                                 bottom[bottom_offset + i].start
-                                 for i, _ in enumerate(box.cod)]) + 1
+                                    bottom[bottom_offset + i].start
+                                    for i, _ in enumerate(box.cod)]) + 1
                         cell.start, cell.stop = start, stop
                         top_offset += len(box.dom)
                         bottom_offset += len(box.cod)
             return rows
+
         def make_space(rows: list[list[Cell]], limit: int, space: int) -> None:
             if space < 0:
                 for i, row in enumerate(rows):
@@ -294,9 +308,8 @@ class Grid:
                            for j, x in enumerate(box.cod)]\
                         + wires[offset + len(box.dom):]
                     offset += len(box.cod)
-        offset = min([min([0] + [cell.start for cell in row]) for row in rows])
-        rows = make_boxes_as_small_as_possible(rows)
-        return Grid(rows) - offset
+        result = Grid(make_boxes_as_small_as_possible(rows))
+        return result - result.min
 
     def __add__(self, offset: int):
         return Grid([

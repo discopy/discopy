@@ -379,26 +379,20 @@ class Layer(cat.Box):
         >>> layer0 = Layer(e,  f,  e @ c @ e)
         >>> layer1 = Layer(e @ b @ e,  g,  e)
         >>> assert layer0.merge(layer1) == Layer(e, f, e, g, e)
-
-        Note
-        ----
-        If the second layer contains a state, i.e. with no input wires, then
-        we may have a choice of how to merge. This is not implemented yet.
         """
         assert_iscomposable(self, other)
-        scan, boxes_or_types = 0, []
-        for box, offset in sorted(
-                self.boxes_and_offsets + other.boxes_and_offsets,
-                key=lambda x: x[1]):
-            if not box.dom:
-                raise NotImplementedError
-            if scan > offset:
+        diagram = Diagram.normal_form(self.boxes_or_types[1].factory(
+            (self, other), self.dom, other.cod).to_staircases())
+        boxes_or_types, offset = [self.dom[:0]], 0
+        for layer in diagram.inside:
+            left, box, right = layer
+            if len(left) < offset:
                 raise cat.AxiomError(
                     messages.NOT_MERGEABLE.format(self, other))
-            boxes_or_types.append(self.dom[scan:offset])
-            boxes_or_types.append(box)
-            scan = offset + len(box.cod)
-        boxes_or_types.append(self.dom[scan:])
+            boxes_or_types[-1] @= left[offset:]
+            boxes_or_types += [box, right[:0]]
+            offset = len(left @ box.cod)
+        boxes_or_types[-1] @= layer.cod[offset:]
         return type(self)(*boxes_or_types)
 
     def lambdify(self, *symbols, **kwargs):
@@ -598,6 +592,22 @@ class Diagram(cat.Arrow, Whiskerable):
         return cat.Functor(
             ob=lambda x: x.to_drawing(), ar=Layer.to_drawing, cod=Category())(
                 self)
+
+    def to_staircases(self):
+        """
+        Splits layers with more than one box into staircases.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> diagram = y @ f0 >> f1 @ y
+        >>> print(diagram.foliation())
+        f1 @ f0
+        >>> print(diagram.foliation().to_staircases())
+        f1 @ x >> x @ f0
+        """
+        return Functor.id(Category(self.ty_factory, self.factory))(self)
 
     def foliation(self):
         """
