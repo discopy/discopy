@@ -4,14 +4,14 @@
 # DisCoPy
 
 [![build](https://github.com/discopy/discopy/actions/workflows/build_test.yml/badge.svg)](https://github.com/discopy/discopy/actions/workflows/build_test.yml)
-[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://discopy.readthedocs.io/)
+[![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://docs.discopy.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 [![DOI: 10.4204/EPTCS.333.13](http://img.shields.io/badge/DOI-10.4204/EPTCS.333.13-brightgreen.svg)](https://doi.org/10.4204/EPTCS.333.13)
 
 DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wikipedia.org/wiki/String_diagram).
 
 * **Organisation:** https://www.discopy.org
-* **Documentation:** https://discopy.readthedocs.io
+* **Documentation:** https://docs.discopy.org
 * **Source code:** https://github.com/discopy/discopy
 * **Paper (for applied category theorists):** https://doi.org/10.4204/EPTCS.333.13
 * **Paper (for quantum computer scientists):** https://arxiv.org/abs/2205.05190
@@ -35,7 +35,7 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 
 Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
 
-[![hierarchy](docs/api/summary.png)](https://discopy.readthedocs.io#architecture)
+[![hierarchy](docs/api/summary.png)](https://docs.discopy.org#architecture)
 
 ## Install
 

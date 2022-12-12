@@ -91,3 +91,5 @@ html_theme_options = {
 }
 
 master_doc = 'index'
+
+html_baseurl = "https://docs.discopy.org"
