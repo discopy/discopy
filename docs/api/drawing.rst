@@ -8,4 +8,4 @@ drawing
     :toctree: ../_api
 
     discopy.drawing.legacy
-    discopy.drawing.html
+    discopy.drawing.grid

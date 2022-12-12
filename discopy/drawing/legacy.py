@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DisCopy's legacy drawing.
+DisCopy's legacy drawing: turn a diagram into a directed graph then plot it.
 
 Summary
 -------
@@ -624,7 +624,7 @@ def draw(diagram, **params):
                 source_position, target_position, bend_out, bend_in)
             if source.kind in ["input", "cod"]\
                     and (params.get('draw_type_labels', True)
-                         or getattr(source.obj, "draw_as_box", False)
+                         or getattr(source.obj, "always_draw_label", False)
                          and params.get('draw_box_labels', True)):
                 i, j = positions[source]
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])

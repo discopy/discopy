@@ -145,7 +145,11 @@ class Ty(cat.Ob):
 
     def to_drawing(self) -> Ty:
         """ Called before :meth:`Diagram.draw`. """
-        return Ty(*map(str, self.inside))
+        def obj_to_drawing(obj):
+            result = cat.Ob(str(obj))
+            result.always_draw_label = getattr(obj, "always_draw_label", False)
+            return result
+        return Ty(*map(obj_to_drawing, self.inside))
 
     @property
     def is_atomic(self) -> bool:
@@ -921,9 +925,8 @@ class Bubble(cat.Bubble, Box):
     def to_drawing(self):
         dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
         argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
-        obj = cat.Ob(self.drawing_name)
-        obj.draw_as_box = True
-        left, right = Ty(obj), Ty("")
+        left, right = Ty(self.drawing_name), Ty("")
+        left.inside[0].always_draw_label = True
         _open = Box("_open", dom, left @ argdom @ right).to_drawing()
         _close = Box("_close", left @ argcod @ right, cod).to_drawing()
         _open.draw_as_wires = _close.draw_as_wires = True
@@ -1010,6 +1013,7 @@ def assert_isatomic(typ: Ty, cls: type = None):
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
+Diagram.to_grid = drawing.Grid.from_diagram
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble

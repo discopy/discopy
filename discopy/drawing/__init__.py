@@ -1,6 +1,6 @@
-""" DisCoPy's drawing modules: legacy and html. """
+""" DisCoPy's drawing modules: legacy and grid. """
 
-from discopy.drawing import legacy, html
+from discopy.drawing import legacy, grid
 from discopy.drawing.legacy import (
     draw,
     to_gif,
@@ -14,4 +14,9 @@ from discopy.drawing.legacy import (
     DEFAULT,
     COLORS,
     SHAPES,
+)
+from discopy.drawing.grid import (
+    Grid,
+    Cell,
+    Wire,
 )

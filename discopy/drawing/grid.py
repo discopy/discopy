@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DisCoPy's html drawing.
+DisCoPy's grid drawing.
 
 Summary
 -------
@@ -88,18 +88,18 @@ class Grid:
     rows: list[list[Cell]]
 
     @property
-    def max(self):
+    def max(self) -> int:
         """ The maximum horizontal coordinate of a grid. """
         return max(
             [max([0] + [cell.stop for cell in row]) for row in self.rows])
 
     @property
-    def min(self):
+    def min(self) -> int:
         """ The minimum horizontal coordinate of a grid. """
         return min(
             [min([0] + [cell.start for cell in row]) for row in self.rows])
 
-    def to_html(self) -> ElementTree:
+    def to_html(self) -> lxml.etree.ElementTree:
         """
         Turn a grid into an html table.
 
@@ -113,12 +113,12 @@ class Grid:
         ...     >> x @ cap @ x @ x @ x @ x\\
         ...     >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
         ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
-        >>> table = Grid.from_diagram(spiral).to_html()
+        >>> table = spiral.to_grid().to_html()
         >>> table.write(
         ...     "docs/imgs/drawing/example.html", pretty_print=True)
 
         .. raw:: html
-           :file: /imgs/drawing/example.html
+           :file: /api/architecture.html
 
         """
         root = Element("div")
@@ -173,7 +173,7 @@ class Grid:
         >>> x = Ty('x')
         >>> f = Box('f', x, x @ x)
         >>> diagram = (f @ f[::-1] >> f @ f[::-1]).foliation()
-        >>> print(Grid.from_diagram(diagram).to_ascii())
+        >>> print(diagram.to_grid().to_ascii())
          |         | |
          ---f---   -f-
          |     |   |
@@ -185,7 +185,7 @@ class Grid:
         ...     >> x @ cap @ x @ x @ x @ x\\
         ...     >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
         ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
-        >>> print(Grid.from_diagram(spiral).to_ascii())
+        >>> print(spiral.to_grid().to_ascii())
                      -------
                      |     |
          ----------  |     |
@@ -230,6 +230,17 @@ class Grid:
 
         Parameters:
             diagram : The diagram to layout on a grid.
+
+        >>> from discopy.monoidal import *
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x @ x)
+        >>> diagram = (f @ f[::-1] >> f @ f[::-1]).foliation()
+        >>> print(diagram.to_grid())
+        Grid([Wire(1, x), Wire(11, x), Wire(13, x)],
+             [Cell(0, 8, f), Cell(10, 14, f[::-1])],
+             [Wire(1, x), Wire(7, x), Wire(11, x)],
+             [Cell(0, 4, f), Cell(6, 12, f[::-1])],
+             [Wire(1, x), Wire(3, x), Wire(7, x)])
         """
         def make_boxes_as_small_as_possible(
                 rows: list[list[Cell]]) -> list[list[Cell]]:
