@@ -783,8 +783,6 @@ def pregroup_draw(words, layers, has_swaps=False, **params):
     """
     Draws pregroup words, cups and swaps.
     """
-    from discopy.rigid import Cup
-
     textpad = params.get('textpad', (.1, .2))
     textpad_words = params.get('textpad_words', (0, .1))
     space = params.get('space', .5)
@@ -804,7 +802,7 @@ def pregroup_draw(words, layers, has_swaps=False, **params):
 
     def draw_words(words):
         scan = []
-        for i, word in enumerate(words.boxes):
+        for i, word in enumerate(words):
             for j, _ in enumerate(word.cod):
                 x_wire = (space + width) * i\
                     + (width / (len(word.cod) + 1)) * (j + 1)
@@ -894,8 +892,7 @@ def pregroup_draw(words, layers, has_swaps=False, **params):
                     fontsize=params.get('fontsize_types', fontsize),
                     horizontalalignment='left')
 
-    scan = draw_words(words.normal_form())
-    draw_grammar(layers, scan)
+    draw_grammar(layers, draw_words(words))
     edge_padding = 0.01  # to show rightmost edge
     backend.output(
         params.get('path', None),

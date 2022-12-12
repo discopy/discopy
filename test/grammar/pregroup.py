@@ -58,19 +58,6 @@ def test_normal_form():
         (w2 >> w1 @ Id(n)).normal_form()
 
 
-def test_pregroup_draw_errors():
-    n = Ty('n')
-    with raises(TypeError):
-        draw(0)
-    with raises(ValueError) as err:
-        draw(Cap(n, n.l))
-    with raises(ValueError) as err:
-        draw(Cup(n, n.r))
-    with raises(ValueError) as err:
-        draw(Word('Alice', n) >> Word('Alice', n) @ Id(n))
-    assert str(err.value) is messages.NOT_PREGROUP
-
-
 def test_from_tree():
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)

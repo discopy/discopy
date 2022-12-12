@@ -107,30 +107,6 @@ def test_draw_sentence():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
-@draw_and_compare('alice-loves-bob.png', draw=grammar.pregroup.draw,
-                  fontsize=18, fontsize_types=12,
-                  figsize=(5, 2), margins=(0, 0), aspect='equal')
-def test_pregroup_draw():
-    from discopy.grammar.pregroup import Ty, Cup, Word, Id
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r @ s @ n.l)
-    return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
-
-
-@draw_and_compare(
-    'gave-up.png', draw=grammar.pregroup.draw, pretty_types=True, triangles=True)
-def test_cross_composition_draw():
-    from discopy.grammar.pregroup import Ty, Cup, Word, Id
-    s, n = Ty('s'), Ty('n')
-    gave, up = Word('gave', n.r @ s @ n.l), Word('up', s.r @ n.r.r @ n.r @ s)
-    swap, cups = Diagram.swap, Diagram.cups
-    diagram = gave @ up >> Id(n.r @ s) @ swap(n.l, s.r @ n.r.r) @ Id(n.r @ s)\
-                        >> cups(n.r @ s, s.r @ n.r.r) @ swap(n.l, n.r @ s)
-    grammar.pregroup.draw(diagram, path='.')
-    return diagram
-
-
 @draw_and_compare('bell-state.png', draw=Circuit.draw, aspect='equal')
 def test_draw_bell_state():
     from discopy.quantum import qubit, H, sqrt, Bra, Ket, Id, CX
@@ -175,16 +151,6 @@ def test_copy_to_tikz():
     copy_x.drawing_name, copy_y.drawing_name = "", ""
     copy_x.color, copy_y.color = "black", "black"
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
-
-
-@tikz_and_compare("alice-loves-bob.tikz", draw=grammar.pregroup.draw,
-                  textpad=(.2, .2), textpad_words=(0, .25), fontsize=.8)
-def test_sentence_to_tikz():
-    from discopy.grammar.pregroup import Ty, Cup, Word, Id
-    s, n = Ty('s'), Ty('n')
-    Alice, Bob = Word('Alice', n), Word('Bob', n)
-    loves = Word('loves', n.r @ s @ n.l)
-    return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
 @tikz_and_compare("snake-equation.tikz", draw=draw_equation,

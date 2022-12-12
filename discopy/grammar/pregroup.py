@@ -196,65 +196,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-def draw(diagram, **params):
-    """
-    Draws a pregroup diagram, i.e. of shape :code:`word @ ... @ word >> cups`.
-
-    Parameters
-    ----------
-    width : float, optional
-        Width of the word triangles, default is :code:`2.0`.
-    space : float, optional
-        Space between word triangles, default is :code:`0.5`.
-    textpad : pair of floats, optional
-        Padding between text and wires, default is :code:`(0.1, 0.2)`.
-    draw_type_labels : bool, optional
-        Whether to draw type labels, default is :code:`True`.
-    aspect : string, optional
-        Aspect ratio, one of :code:`['equal', 'auto']`.
-    margins : tuple, optional
-        Margins, default is :code:`(0.05, 0.05)`.
-    fontsize : int, optional
-        Font size for the words, default is :code:`12`.
-    fontsize_types : int, optional
-        Font size for the types, default is :code:`12`.
-    figsize : tuple, optional
-        Figure size.
-    path : str, optional
-        Where to save the image, if :code:`None` we call :code:`plt.show()`.
-    pretty_types : bool, optional
-        Whether to draw type labels with superscript, default is :code:`False`.
-    triangles : bool, optional
-        Whether to draw words as triangular states, default is :code:`False`.
-
-    Raises
-    ------
-    ValueError
-        Whenever the input is not a pregroup diagram.
-    """
-    assert_isinstance(diagram, Diagram)
-    words, is_pregroup = monoidal.Diagram.id(), True
-    for _, box, right in diagram.inside:
-        if isinstance(box, Word):
-            if right:  # word boxes should be tensored left to right.
-                is_pregroup = False
-                break
-            words = words @ box.to_drawing()
-        else:
-            break
-    layers = diagram[len(words):].foliation().inside\
-        if len(words) < len(diagram) else ()
-    is_pregroup = is_pregroup and words and all(
-        isinstance(x, (Ty, Cup, Swap)) for layer in layers for x in layer)
-    has_swaps = any(isinstance(x, Swap) for layer in layers for x in layer)
-    if not is_pregroup:
-        raise ValueError(messages.NOT_PREGROUP)
-    drawing.legacy.pregroup_draw(
-        words.foliation(), [layer.to_drawing() for layer in layers], has_swaps,
-        **params)
-
-
-Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-Diagram.braid_factory, Diagram.draw = Swap, draw
+Diagram.cup_factory, Diagram.cap_factory, Diagram.braid_factory\
+    = Cup, Cap, Swap
 
 Id = Diagram.id
