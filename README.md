@@ -1,5 +1,5 @@
 
-![snake equation](https://raw.githubusercontent.com/oxford-quantum-group/discopy/main/docs/_static/imgs/snake-equation.png)
+![snake equation](docs/imgs/snake-equation.png)
 
 # DisCoPy
 
