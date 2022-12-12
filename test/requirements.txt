@@ -11,3 +11,4 @@ jaxlib
 torch
 pennylane
 lxml
+nltk
