@@ -10,3 +10,4 @@ jax
 jaxlib
 torch
 pennylane
+lxml
