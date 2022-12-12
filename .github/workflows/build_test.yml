@@ -50,4 +50,4 @@ jobs:
         coverage run --source=${{ env.SRC_DIR }} -m pytest ${{ env.SRC_DIR }} ${{ env.TEST_DIR }} --doctest-modules
     - name: Coverage report
       run:
-        coverage report --fail-under=100 --show-missing
+        coverage report --fail-under=95 --show-missing
