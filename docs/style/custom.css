@@ -21,4 +21,4 @@
 #architecture-diagram .bottom-right { border-bottom: 1px solid #c9c9c9; border-right: 1px solid #c9c9c9; border-bottom-right-radius: 20px; padding-bottom: 10px;}
 #architecture-diagram { text-align: center; border-spacing: 0; box-sizing:content-box; border-collapse: separate;}
 #architecture-diagram td {vertical-align: top; margin: 5px;}
-#architecture-diagram pre { text-align: left; display: inline-block; margin: auto; padding: 0; background-color: inherit; border: 0; box-shadow: none; line-height: 1.2;}
+#architecture-diagram pre { vertical-align: middle; text-align: center; display: inline-block; margin: auto; padding: 0; background-color: inherit; border: 0; box-shadow: none; line-height: 1.2;}
