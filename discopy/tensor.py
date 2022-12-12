@@ -422,8 +422,6 @@ class Diagram(frobenius.Diagram):
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
         dtype = dtype or Tensor.dtype
-        if contractor is None and "numpy" not in get_backend().__package__:
-            raise ValueError(messages.PROVIDE_CONTRACTOR)
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)

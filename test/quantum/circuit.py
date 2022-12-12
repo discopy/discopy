@@ -367,14 +367,14 @@ def test_rot_grad():
         (CRz(phi) >> Z @ Z @ scalar(0.5j * pi))
         + (CRz(phi) >> Id(qubit) @ Z @ scalar(-0.5j * pi))
     ).lambdify(phi)(x).eval()
-    assert np.allclose(crz_diff, crz_res)
+    assert np.allclose(crz_diff.array, crz_res.array)
 
     crx_diff = CRx(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
     crx_res = (
         (CRx(phi) >> Z @ X @ scalar(0.5j * pi))
         + (CRx(phi) >> Id(qubit) @ X @ scalar(-0.5j * pi))
     ).lambdify(phi)(x).eval()
-    assert np.allclose(crx_diff, crx_res)
+    assert np.allclose(crx_diff.array, crx_res.array)
 
 
 def test_rot_grad_NotImplemented():
@@ -383,84 +383,12 @@ def test_rot_grad_NotImplemented():
         CU1(z).grad(z, mixed=True)
 
 
-def test_ClassicalGate_grad_subs():
-    from sympy.abc import x, y
-    s = ClassicalGate('s', Ty(), Ty(), [x])
-    assert s.grad(x) and not s.subs(x, y).grad(x)
-
-
 def test_Copy_Match():
     assert Match().dagger() == Copy() and Copy().dagger() == Match()
 
 
 def test_Sum_get_counts():
     assert Sum([], qubit, qubit).get_counts() == {}
-
-
-def sy_cx(c, t, n):
-    """
-    A sympy CX factory with arbitrary control and target wires.
-    The returned function accepts a tuple of integers (representing the
-    bits state) or a binary string. The input is assumed in big endian
-    ordering.
-    :param c: The index of the control bit.
-    :param t: The index of the target bit.
-    :param n: The total number of bits.
-    """
-    assert c != t
-    assert c in range(n)
-    assert t in range(n)
-
-    import sympy as sy
-    x = list(sy.symbols(f'x:{n}'))
-    x[t] = (x[c] + x[t]) % 2
-    x = sy.Array(x)
-
-    def f(v):
-        v = map(int, list(v)) if isinstance(v, str) else v
-        v = x.subs(zip(sy.symbols(f'x:{n}'), v))
-        return tuple(v)
-    return f
-
-
-def verify_rewire_cx_case(c, t, n):
-    ext_cx = partial(rewire, CX)
-    op = ext_cx(c, t, dom=qubit**n)
-    cx1 = sy_cx(c, t, n)
-
-    for k in range(2**n):
-        v = format(k, 'b').zfill(n)
-        v = tuple(map(int, list(v)))
-        # <f(i)| CX_{c, t} |i>, where f is the classical
-        # implementation of CX_{c, t}.
-        c = Ket(*v) >> op >> Bra(*cx1(v))
-        assert np.isclose(c.eval().array, 1)
-
-
-def test_rewire():
-    ext_cx = partial(rewire, CX)
-
-    assert ext_cx(0, 1) == CX
-    assert ext_cx(1, 0) == (SWAP >> CX >> SWAP)
-    assert ext_cx(0, 1, dom=qubit**2) == CX
-    assert ext_cx(2, 1) == Id(qubit) @ (SWAP >> CX >> SWAP)
-    assert rewire(CZ, 1, 2) == Id(qubit) @ CZ
-    assert rewire(Id(qubit ** 2), 1, 0) == SWAP >> SWAP
-    assert rewire(Circuit.cups(qubit, qubit), 1, 2).cod == qubit
-
-    with raises(NotImplementedError):
-        # Case cod != qubit**2 and non-contiguous rewiring
-        rewire(Circuit.cups(qubit, qubit), 0, 2)
-    with raises(ValueError):
-        # Case dom != qubit**2
-        rewire(X, 1, 2)
-    with raises(ValueError):
-        ext_cx(0, 0)
-    with raises(ValueError):
-        ext_cx(0, 1, dom=qubit**0)
-
-    for params in [(0, 2, 3), (2, 0, 3)]:
-        verify_rewire_cx_case(*params)
 
 
 def test_Controlled():
@@ -491,7 +419,7 @@ def test_adjoint():
 
     gates_conj = [
         Bra(0), Ket(0, 0), Rx(-0.1), Ry(0.2), Rz(-0.3),
-        Swap(qubit, qubit) >> CU1(-0.4) >> Swap(qubit, qubit),
+        Controlled(U1(-0.4), distance=-1),
         Controlled(Rx(-0.5), distance=-1),
         Controlled(Rz(-0.7), distance=-1),
         Scalar(1 - 2j),
@@ -504,7 +432,8 @@ def test_adjoint():
 
 
 def test_causal_cx():
-    assert np.allclose((CX >> Discard(2)).eval(), Discard(2).eval())
+    assert np.allclose((CX >> Discard(2)).eval().array,
+                       Discard(2).eval().array)
 
 
 def test_eval_no_qutrits():
@@ -518,14 +447,6 @@ def test_grad_unknown_controlled():
     unknown = QuantumGate('gate', qubit, qubit, data=phi)
     with raises(NotImplementedError):
         Controlled(unknown).grad(phi)
-
-
-def test_symbolic_controlled():
-    from sympy.abc import phi
-    crz = lambda x, d: Controlled(Rz(x), distance=d)
-    assert np.all(
-        crz(phi, -1).eval().array
-        == (SWAP >> crz(phi, 1) >> SWAP).eval().array)
 
 
 def test_controlled_subs():
@@ -556,7 +477,7 @@ def test_circuit_chaining():
 
     with raises(ValueError):
         Id(qubit ** 3).CY(0, 0)
-    with raises(ValueError):
+    with raises(IndexError):
         Id(qubit).CRx(0.7, 1, 0)
-    with raises(ValueError):
+    with raises(IndexError):
         Id(qubit ** 2).X(999)
