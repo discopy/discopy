@@ -4,7 +4,7 @@ from unittest.mock import Mock
 from functools import partial
 from pytest import raises
 import numpy as np
-from discopy.quantum.cqmap import *
+from discopy.quantum.channel import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
 from discopy.quantum import tk

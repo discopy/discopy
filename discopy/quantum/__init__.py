@@ -23,5 +23,5 @@ from discopy.quantum.gates import (
 )
 
 from discopy.quantum.ansatze import (
-    IQPansatz, Sim14ansatz, Sim15ansatz, random_tiling, real_amp_ansatz,
+    IQPansatz, Sim14ansatz, Sim15ansatz,
 )

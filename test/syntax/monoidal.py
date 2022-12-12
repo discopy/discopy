@@ -295,8 +295,14 @@ def test_Sum():
     assert Id(Ty()).tensor(*(3 * (f + f, ))) == sum(8 * [f @ f @ f])
 
 
-def test_Layer_merge():
+def test_Layer_merge_cup_cap():
     unit, counit = Box("unit", Ty(), 'x'), Box("counit", 'x', Ty())
     layer0, layer1 = Layer.cast(unit), Layer.cast(counit)
-    with raises(NotImplementedError):
-        layer1.merge(layer0)
+    with raises(AxiomError):
+        layer0.merge(layer1)
+    assert layer1.merge(layer0) == Layer(Ty(), unit, Ty(), counit, Ty())
+
+
+def test_Layer_scalars():
+    a, b = Box("a", Ty(), Ty()), Box("b", Ty(), Ty())
+    assert Layer.cast(a).merge(Layer.cast(b)) == Layer(Ty(), a, Ty(), b, Ty())

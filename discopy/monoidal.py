@@ -392,8 +392,11 @@ class Layer(cat.Box):
         >>> assert layer0.merge(layer1) == Layer(e, f, e, g, e)
         """
         assert_iscomposable(self, other)
-        diagram = Diagram.normal_form(self.boxes_or_types[1].factory(
-            (self, other), self.dom, other.cod).to_staircases())
+        try:
+            diagram = Diagram.normal_form(self.boxes_or_types[1].factory(
+                (self, other), self.dom, other.cod).to_staircases())
+        except NotImplementedError as exception:  # Eckmann-Hilton argument.
+            diagram = exception.last_step
         boxes_or_types, offset = [self.dom[:0]], 0
         for layer in diagram.inside:
             left, box, right = layer
@@ -651,7 +654,7 @@ class Diagram(cat.Arrow, Whiskerable):
                     self = self.factory(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
-                except (cat.AxiomError, NotImplementedError):
+                except cat.AxiomError:
                     continue
             if not keep_on_going:
                 break
@@ -787,7 +790,10 @@ class Diagram(cat.Arrow, Whiskerable):
         cache = set()
         for diagram in itertools.chain([self], self.normalize(**params)):
             if diagram in cache:
-                raise NotImplementedError(messages.NOT_CONNECTED.format(self))
+                exception = NotImplementedError(
+                    messages.NOT_CONNECTED.format(self))
+                exception.last_step = diagram
+                raise exception
             cache.add(diagram)
         return diagram
 
