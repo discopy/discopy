@@ -32,7 +32,7 @@ Summary
         cat2ty
         tree2diagram
 """
-from __future__ import annotations
+
 import re
 
 from discopy import closed, messages

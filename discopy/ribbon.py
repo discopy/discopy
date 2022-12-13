@@ -59,8 +59,6 @@ parallel wires coincide and the twist is the identity.
     :align: center
 """
 
-from __future__ import annotations
-
 from discopy import pivotal, balanced
 from discopy.cat import factory
 from discopy.pivotal import Ty

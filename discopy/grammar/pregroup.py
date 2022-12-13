@@ -28,7 +28,6 @@ Summary
         eager_parse
         brute_force
 """
-from __future__ import annotations
 
 from discopy import messages, drawing, monoidal, rigid, symmetric
 from discopy.grammar import thue
