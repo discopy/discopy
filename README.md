@@ -1,5 +1,5 @@
 
-![snake equation](docs/imgs/snake-equation.png)
+![snake equation](docs/_static/snake-equation.png)
 
 # DisCoPy
 
