@@ -22,7 +22,7 @@ Summary
 Axioms
 ------
 
-The axioms of multicategories hold on the nose.
+The axioms of multicategories (aka operads) hold on the nose.
 
 >>> x, y = Ty('x'), Ty('y')
 >>> f, g = Rule(x @ x, x, name='f'), Rule(x @ y, x, name='g')

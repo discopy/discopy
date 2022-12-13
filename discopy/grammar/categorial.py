@@ -11,7 +11,16 @@ Summary
     :nosignatures:
     :toctree:
 
+    Diagram
+    Rule
     Word
+    FA
+    BA
+    FC
+    BC
+    FX
+    BX
+    Functor
 
 .. admonition:: Functions
 
@@ -88,8 +97,8 @@ class Rule(thue.Rule, Diagram):
 
 class Word(thue.Word, Rule):
     """
-    A word is a closed box with a ``name``, a grammatical type as ``cod`` and
-    an optional domain ``dom``.
+    A categorial word is a rule with a ``name``, a grammatical type as ``cod``
+    and an optional domain ``dom``.
 
     Parameters:
         name (str) : The name of the word.
@@ -100,21 +109,13 @@ class Word(thue.Word, Rule):
 
 class Eval(closed.Eval, Rule):
     """
-    The evaluation of an exponential type.
-
-    Parameters:
-        x : The exponential type to evaluate.
+    Evaluation box in a categorial grammar, equivalent to :class:``FA``.
     """
 
 
 class Curry(closed.Curry, Rule):
     """
-    The currying of a closed diagram.
-
-    Parameters:
-        arg : The diagram to curry.
-        n : The number of atomic types to curry.
-        left : Whether to curry on the left or right.
+    The currying of a categorial diagram.
     """
 
 
@@ -132,7 +133,7 @@ def unaryBoxConstructor(attr):
 
 
 class FA(unaryBoxConstructor("over"), Rule):
-    """ Forward application box. """
+    """ Forward application rule. """
     def __init__(self, over):
         assert_isinstance(over, closed.Over)
         self.over = over
@@ -144,7 +145,7 @@ class FA(unaryBoxConstructor("over"), Rule):
 
 
 class BA(unaryBoxConstructor("under"), Rule):
-    """ Backward application box. """
+    """ Backward application rule. """
     def __init__(self, under):
         assert_isinstance(under, closed.Under)
         self.under = under
@@ -156,7 +157,7 @@ class BA(unaryBoxConstructor("under"), Rule):
 
 
 class FC(BinaryBoxConstructor, Rule):
-    """ Forward composition box. """
+    """ Forward composition rule. """
     def __init__(self, left, right):
         assert_isinstance(left, closed.Over)
         assert_isinstance(right, closed.Over)
@@ -170,7 +171,7 @@ class FC(BinaryBoxConstructor, Rule):
 
 
 class BC(BinaryBoxConstructor, Rule):
-    """ Backward composition box. """
+    """ Backward composition rule. """
     def __init__(self, left, right):
         assert_isinstance(left, closed.Under)
         assert_isinstance(right, closed.Under)
@@ -184,7 +185,7 @@ class BC(BinaryBoxConstructor, Rule):
 
 
 class FX(BinaryBoxConstructor, Rule):
-    """ Forward crossed composition box. """
+    """ Forward crossed composition rule. """
     def __init__(self, left, right):
         assert_isinstance(left, closed.Over)
         assert_isinstance(right, closed.Under)
@@ -198,7 +199,7 @@ class FX(BinaryBoxConstructor, Rule):
 
 
 class BX(BinaryBoxConstructor, Rule):
-    """ Backward crossed composition box. """
+    """ Backward crossed composition rule. """
     def __init__(self, left, right):
         assert_isinstance(left, closed.Over)
         assert_isinstance(right, closed.Under)
