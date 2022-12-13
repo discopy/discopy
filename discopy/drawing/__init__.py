@@ -4,7 +4,6 @@ from discopy.drawing import legacy, grid
 from discopy.drawing.legacy import (
     draw,
     to_gif,
-    equation,
     Equation,
     Node,
     diagramize,

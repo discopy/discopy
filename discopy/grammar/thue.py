@@ -25,9 +25,9 @@ Example
 >>> r0, r1 = Rule(n @ p, s), Rule(v @ n, p)
 >>> Jane, loves, John = Word('Jane', n), Word('loves', v), Word('John', n)
 >>> sentence = Jane @ loves @ John >> n @ r1 >> r0
->>> sentence.draw(figsize=(4, 3), path='docs/imgs/grammar/cfg-example.png')
+>>> sentence.draw(figsize=(4, 3), path='docs/_static/grammar/cfg-example.png')
 
-.. image:: /imgs/grammar/cfg-example.png
+.. image:: /_static/grammar/cfg-example.png
     :align: center
 """
 from discopy import monoidal

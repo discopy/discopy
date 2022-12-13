@@ -25,9 +25,9 @@ The axiom for the twist holds on the nose.
 >>> x, y = Ty('x'), Ty('y')
 >>> assert Diagram.twist(x @ y) == (Braid(x, y)
 ...     >> Twist(y) @ Twist(x) >> Braid(y, x))
->>> Diagram.twist(x @ y).draw(path="docs/imgs/balanced/twist.png")
+>>> Diagram.twist(x @ y).draw(path="docs/_static/balanced/twist.png")
 
-.. image:: /imgs/balanced/twist.png
+.. image:: /_static/balanced/twist.png
 """
 
 from __future__ import annotations
@@ -81,12 +81,12 @@ class Diagram(braided.Diagram):
         >>> x = Ty('x')
         >>> braided_twist = Diagram.twist(x).to_braided()
 
-        >>> from discopy import drawing
-        >>> drawing.equation(Twist(x), braided_twist, symbol='\\mapsto',
+        >>> from discopy.drawing import Equation
+        >>> Equation(Twist(x), braided_twist, symbol='\\mapsto').draw(
         ...     draw_type_labels=False,
-        ...     path="docs/imgs/balanced/twist_dual_rail.png")
+        ...     path="docs/_static/balanced/twist_dual_rail.png")
 
-        .. image:: /imgs/balanced/twist_dual_rail.png
+        .. image:: /_static/balanced/twist_dual_rail.png
         """
         class DualRail(Functor):
             cod = braided.Category()

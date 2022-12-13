@@ -34,11 +34,12 @@ Braids have their dagger as inverse, up to :meth:`Diagram.simplify`.
 >>> LHS = Braid(x, y) >> Braid(x, y)[::-1]
 >>> RHS = Braid(y, x)[::-1] >> Braid(y, x)
 >>> assert LHS.simplify() == Id(x @ y) == RHS.simplify()
->>> from discopy import drawing
->>> drawing.equation(LHS, Id(x @ y), RHS,
-...     path='docs/imgs/braided/inverse.png', figsize=(5, 2))
 
-.. image:: /imgs/braided/inverse.png
+>>> from discopy.drawing import Equation
+>>> Equation(LHS, Id(x @ y), RHS).draw(
+...     path='docs/_static/braided/inverse.png', figsize=(5, 2))
+
+.. image:: /_static/braided/inverse.png
     :align: center
 
 The hexagon equations hold on the nose.
@@ -47,10 +48,11 @@ The hexagon equations hold on the nose.
 >>> assert left_hexagon == Diagram.braid(x, y @ z)
 >>> right_hexagon = x @ Braid(y, z) >> Braid(x, z) @ y
 >>> assert right_hexagon == Diagram.braid(x @ y, z)
->>> drawing.equation(left_hexagon, right_hexagon, symbol='', space=2,
-...     path='docs/imgs/braided/hexagons.png', figsize=(5, 2))
 
-.. image:: /imgs/braided/hexagons.png
+>>> Equation(left_hexagon, right_hexagon, symbol='').draw(
+...     space=2, path='docs/_static/braided/hexagons.png', figsize=(5, 2))
+
+.. image:: /_static/braided/hexagons.png
     :align: center
 """
 

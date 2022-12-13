@@ -1,22 +1,38 @@
 # -*- coding: utf-8 -*-
 
 """
-A context free rule is a box with one output.
-A context free grammar is a diagram with rules as boxes.
+A context free grammar is a formal grammar where the rules all have a codomain
+of length 1.
 
-
-Example
+Summary
 -------
 
-We build a syntax tree from a context-free grammar.
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
 
->>> n, d, v = Ty('N'), Ty('D'), Ty('V')
->>> vp, np, s = Ty('VP'), Ty('NP'), Ty('S')
->>> Caesar, crossed = Word('Caesar', n), Word('crossed', v)
->>> the, Rubicon = Word('the', d), Word('Rubicon', n)
->>> VP, NP = Rule(n @ v, vp), Rule(d @ n, np)
->>> S = Rule(vp @ np, s)
->>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
+    Tree
+    Rule
+    Word
+    Id
+    Operad
+    Algebra
+
+Axioms
+------
+
+The axioms of multicategories hold on the nose.
+
+>>> x, y = Ty('x'), Ty('y')
+>>> f, g = Rule(x @ x, x, name='f'), Rule(x @ y, x, name='g')
+>>> h = Rule(y @ x, x, name='h')
+>>> assert f(g, h) == Tree(f, *[g, h])
+
+>>> assert Id(x)(f) == f == f(Id(x), Id(x))
+>>> left = f(Id(x), h)(g, Id(x), Id(x))
+>>> right = f(g, Id(x))(Id(x), Id(x), h)
+>>> assert f(g, h) == left == right
 """
 
 from __future__ import annotations
@@ -33,17 +49,18 @@ class Tree:
     """
     A tree is a rule for the ``root`` and a list of trees called ``branches``.
 
-    >>> x, y = Ty('x'), Ty('y')
-    >>> f, g = Rule(x @ x, x, name='f'), Rule(x @ y, x, name='g')
-    >>> h = Rule(y @ x, x, name='h')
-    >>> assert f(g, h) == Tree(f, *[g, h])
+    Example
+    -------
 
-    The axioms of multicategories hold on the nose.
+    We build a syntax tree from a context-free grammar.
 
-    >>> assert Id(x)(f) == f == f(Id(x), Id(x))
-    >>> left = f(Id(x), h)(g, Id(x), Id(x))
-    >>> right = f(g, Id(x))(Id(x), Id(x), h)
-    >>> assert f(g, h) == left == right
+    >>> n, d, v = Ty('N'), Ty('D'), Ty('V')
+    >>> vp, np, s = Ty('VP'), Ty('NP'), Ty('S')
+    >>> Caesar, crossed = Word('Caesar', n), Word('crossed', v)
+    >>> the, Rubicon = Word('the', d), Word('Rubicon', n)
+    >>> VP, NP = Rule(n @ v, vp), Rule(d @ n, np)
+    >>> S = Rule(vp @ np, s)
+    >>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
     """
     ty_factory = Ty
 
@@ -87,11 +104,47 @@ class Tree:
     def __eq__(self, other):
         return self.root == other.root and self.branches == other.branches
 
+    def to_diagram(self, contravariant=False) -> discopy.monoidal.Diagram:
+        """
+        Interface between Tree and monoidal.Diagram.
+
+        >>> x = Ty('x')
+        >>> f = Rule(x @ x, x, name='f')
+        >>> tree = f(f(f, f), f)
+        >>> print(tree.to_diagram().foliation())
+        f @ f @ x @ x >> f @ f >> f
+        """
+        return self.root.to_diagram()\
+            << monoidal.Id().tensor(*[t.to_diagram() for t in self.branches])
+
+    @staticmethod
+    def from_nltk(tree: nltk.Tree, lexicalised=True, word_types=False) -> Tree:
+        """
+        Interface with NLTK
+
+        >>> import nltk
+        >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
+        >>> print(Tree.from_nltk(t))
+        S(I, VP(saw, him))
+        >>> Tree.from_nltk(t).branches[0]
+        grammar.cfg.Word('I', monoidal.Ty(cat.Ob('NP')))
+        """
+        branches = []
+        for branch in tree:
+            if isinstance(branch, str):
+                return Word(branch, Ty(tree.label()))
+            else:
+                branches += [Tree.from_nltk(branch)]
+        label = tree.label()
+        dom = Ty().tensor(*[Ty(branch.label()) for branch in tree])
+        root = Rule(dom, Ty(label), name=label)
+        return root(*branches)
+
 
 class Rule(Tree, thue.Rule):
     """
-    A rule is a generator of free operads, given by an atomic monoidal type
-    for ``dom``, a monoidal type for ``cod`` and an optional ``name``.
+    A rule is a generator of free operads, given by an atomic type ``dom``,
+    a type ``cod`` of arbitrary length and an optional ``name``.
     """
     def __init__(self, dom: monoidal.Ty, cod: monoidal.Ty, name: str = None):
         assert_isinstance(dom, Ty)
@@ -106,11 +159,13 @@ class Rule(Tree, thue.Rule):
         if isinstance(other, Tree):
             return other.root == self and other.branches == []
 
+    def to_diagram(self) -> discopy.monoidal.Box:
+        return monoidal.Box(self.name, self.dom, self.cod)
+
 
 class Word(thue.Word, Rule):
     """
-    A word is a monoidal box with a ``name``, a grammatical type as ``cod`` and
-    an optional domain ``dom``.
+    A word is a leaf in a context-free tree.
 
     Parameters:
         name : The name of the word.
@@ -124,6 +179,7 @@ class Word(thue.Word, Rule):
 
 
 class Id(Rule):
+    """ The identity is a rule that does nothing. """
     def __init__(self, dom):
         self.dom, self.cod = dom, dom
         Rule.__init__(self, dom, dom, name="Id({})".format(dom))
@@ -151,8 +207,10 @@ class Algebra(Functor):
     as codomain.
 
     Parameters:
-        ob : The mapping from domain to codomain colours.
-        ar : The mapping from domain to codomain operations.
+        ob (dict[monoidal.Ty, cod.ob]) :
+            The mapping from domain to codomain colours.
+        ar (dict[Rule, cod.ar]):
+            The mapping from domain to codomain operations.
         cod (Operad) : The codomain of the algebra.
     """
     dom = cod = Operad()
@@ -165,45 +223,3 @@ class Algebra(Functor):
         if isinstance(other, Tree):
             return self(other.root)(*map(self, other.branches))
         raise TypeError
-
-
-rule2box = lambda node: monoidal.Box(node.name, node.dom, node.cod)
-
-
-def tree2diagram(tree, contravariant=False):
-    """
-    Interface between Tree and monoidal.Diagram.
-
-    >>> x = Ty('x')
-    >>> f = Rule(x @ x, x, name='f')
-    >>> tree = f(f(f, f), f)
-    >>> print(tree2diagram(tree))
-    f @ x @ x @ x @ x >> x @ f @ x @ x >> f @ x @ x >> x @ f >> f
-    """
-    if isinstance(tree, Rule):
-        return rule2box(tree)
-    return rule2box(tree.root) << monoidal.Id().tensor(
-        *[tree2diagram(branch) for branch in tree.branches])
-
-
-def from_nltk(tree, lexicalised=True, word_types=False):
-    """
-    Interface with NLTK
-
-    >>> import nltk
-    >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
-    >>> print(from_nltk(t))
-    S(I, VP(saw, him))
-    >>> from_nltk(t).branches[0]
-    grammar.cfg.Word('I', monoidal.Ty(cat.Ob('NP')))
-    """
-    branches = []
-    for branch in tree:
-        if isinstance(branch, str):
-            return Word(branch, Ty(tree.label()))
-        else:
-            branches += [from_nltk(branch)]
-    label = tree.label()
-    dom = Ty().tensor(*[Ty(branch.label()) for branch in tree])
-    root = Rule(dom, Ty(label), name=label)
-    return root(*branches)

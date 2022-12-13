@@ -332,11 +332,11 @@ class Functor(frobenius.Functor):
 
     >>> rewrite = diagram\\
     ...     .transpose_box(2).transpose_box(0, left=True).normal_form()
-    >>> from discopy.drawing import equation
-    >>> equation(diagram, rewrite, figsize=(8, 3),
-    ...          path='docs/imgs/tensor/rewrite.png')
+    >>> from discopy.drawing import Equation
+    >>> Equation(diagram, rewrite).draw(
+    ...     figsize=(8, 3), path='docs/_static/tensor/rewrite.png')
 
-    .. image :: /imgs/tensor/rewrite.png
+    .. image :: /_static/tensor/rewrite.png
         :align: center
 
     >>> assert F(diagram) == F(rewrite)
@@ -595,11 +595,11 @@ class Spider(frobenius.Spider, Box):
     >>> vector = Box('vec', Dim(1), Dim(2), [0, 1])
     >>> spider = Spider(1, 2, Dim(2))
     >>> assert (vector >> spider).eval() == (vector @ vector).eval()
-    >>> from discopy import drawing
-    >>> drawing.equation(vector >> spider, vector @ vector, figsize=(3, 2),\\
-    ... path='docs/imgs/tensor/frobenius-example.png')
+    >>> from discopy.drawing import Equation
+    >>> Equation(vector >> spider, vector @ vector).draw(
+    ...     path='docs/_static/tensor/frobenius-example.png', figsize=(3, 2))
 
-    .. image:: /imgs/tensor/frobenius-example.png
+    .. image:: /_static/tensor/frobenius-example.png
         :align: center
     """
     __ambiguous_inheritance__ = (frobenius.Spider, )
@@ -640,9 +640,9 @@ class Bubble(monoidal.Bubble, Box):
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
     >>> men_are_mortal.draw(draw_type_labels=False,
-    ...                     path='docs/imgs/tensor/men-are-mortal.png')
+    ...                     path='docs/_static/tensor/men-are-mortal.png')
 
-    .. image:: /imgs/tensor/men-are-mortal.png
+    .. image:: /_static/tensor/men-are-mortal.png
         :align: center
 
     >>> from sympy import Expr
@@ -656,11 +656,12 @@ class Bubble(monoidal.Bubble, Box):
     >>> lhs = grad(f >> g, x)
     >>> rhs = (grad(f, x) >> g) + (f >> grad(g, x))
     >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
-    >>> from discopy import drawing
-    >>> drawing.equation(lhs, rhs, figsize=(5, 2), draw_type_labels=False,
-    ...                  path='docs/imgs/tensor/product-rule.png')
 
-    .. image:: /imgs/tensor/product-rule.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(lhs, rhs).draw(figsize=(5, 2), draw_type_labels=False,
+    ...                         path='docs/_static/tensor/product-rule.png')
+
+    .. image:: /_static/tensor/product-rule.png
         :align: center
     """
     __ambiguous_inheritance__ = (monoidal.Bubble, )
@@ -674,14 +675,15 @@ class Bubble(monoidal.Bubble, Box):
         The gradient of a bubble is given by the chain rule.
 
         >>> from sympy.abc import x
-        >>> from discopy import drawing
         >>> g = Box('g', Dim(2), Dim(2), [2 * x, 0, 0, x + 1])
         >>> f = lambda d: d.bubble(func=lambda x: x ** 2, drawing_name="f")
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
-        >>> drawing.equation(lhs, rhs, draw_type_labels=False,
-        ...                  path='docs/imgs/tensor/chain-rule.png')
 
-        .. image:: /imgs/tensor/chain-rule.png
+        >>> from discopy.drawing import Equation
+        >>> Equation(lhs, rhs).draw(draw_type_labels=False,
+        ...                         path='docs/_static/tensor/chain-rule.png')
+
+        .. image:: /_static/tensor/chain-rule.png
             :align: center
         """
         from sympy import Symbol

@@ -30,24 +30,24 @@ Axioms
 >>> x, y, z = map(Ty, "xyz")
 >>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
->>> from discopy import drawing
->>> drawing.equation(f.uncurry().curry(), f,
-...     path='docs/imgs/closed/curry-left.png', margins=(0.1, 0.05))
+>>> from discopy.drawing import Equation
+>>> Equation(f.uncurry().curry(), f).draw(
+...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
 
-.. image:: /imgs/closed/curry-left.png
+.. image:: /_static/closed/curry-left.png
     :align: center
 
->>> drawing.equation(h.uncurry(left=False).curry(left=False), h,
-...     path='docs/imgs/closed/curry-right.png', margins=(0.1, 0.05))
+>>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
+...     path='docs/_static/closed/curry-right.png', margins=(0.1, 0.05))
 
-.. image:: /imgs/closed/curry-right.png
+.. image:: /_static/closed/curry-right.png
     :align: center
 
->>> drawing.equation(
-...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False),
-...     path='docs/imgs/closed/uncurry.png')
+>>> Equation(
+...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False)).draw(
+...         path='docs/_static/closed/uncurry.png')
 
-.. image:: /imgs/closed/uncurry.png
+.. image:: /_static/closed/uncurry.png
     :align: center
 """
 

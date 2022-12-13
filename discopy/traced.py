@@ -52,9 +52,9 @@ class Diagram(monoidal.Diagram):
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
         >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
         ...     RHS, symbol="$\\\\mapsto$").draw(
-        ...         path="docs/imgs/traced/trace.png")
+        ...         path="docs/_static/traced/trace.png")
 
-        .. image:: /imgs/traced/trace.png
+        .. image:: /_static/traced/trace.png
         """
         return self if n == 0\
             else self.trace_factory(self, left).trace(n - 1, left)
@@ -139,7 +139,7 @@ class Functor(monoidal.Functor):
     Let's compute the golden ratio by applying a traced functor.
 
     >>> from math import sqrt
-    >>> from discopy import python, drawing
+    >>> from discopy import python
     >>> x = Ty('$\\\\mathbb{R}$')
     >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
     >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
@@ -148,9 +148,11 @@ class Functor(monoidal.Functor):
     ...     ar={f: lambda x=1: (x, 1 + 1 / x), g: lambda: (1 + sqrt(5)) / 2},
     ...     cod=Category(python.Ty, python.Function))
     >>> assert F(f.trace())() == F(g)()
-    >>> drawing.equation(f.trace(), g, path="docs/imgs/traced/golden.png")
 
-    .. image:: /imgs/traced/golden.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")
+
+    .. image:: /_static/traced/golden.png
     """
     dom = cod = Category(Ty, Diagram)
 

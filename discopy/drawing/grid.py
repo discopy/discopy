@@ -115,7 +115,7 @@ class Grid:
         ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
         >>> table = spiral.to_grid().to_html()
         >>> table.write(
-        ...     "docs/imgs/drawing/example.html", pretty_print=True)
+        ...     "docs/_static/drawing/example.html", pretty_print=True)
 
         .. raw:: html
            :file: /api/architecture.html

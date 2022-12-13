@@ -115,7 +115,7 @@ def test_draw_bialgebra():
 
 
 def draw_equation(diagrams, **params):
-    return drawing.equation(*diagrams, **params)
+    return drawing.Equation(*diagrams).draw(**params)
 
 
 @draw_and_compare("snake-equation.png", draw=draw_equation,
