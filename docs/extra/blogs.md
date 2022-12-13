@@ -17,7 +17,7 @@ This blog by [Pawel Sobocinski](https://www.ioc.ee/~pawel/) is what got us hooke
 
 ## Monads and comonads
 
-Dan Marsden writing about appliations of string diagrams to monads, comonads and theoretical computer science.
+Dan Marsden writing about applications of string diagrams to monads, comonads and theoretical computer science.
 
 * https://stringdiagram.com/
 
