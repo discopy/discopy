@@ -118,8 +118,9 @@ class Grid:
         ...     "docs/_static/drawing/example.html", pretty_print=True)
 
         .. raw:: html
-           :file: /api/architecture.html
 
+            <iframe src="../_static/drawing/example.html"
+            class="diagram-frame" height="500"></iframe>
         """
         root = Element("div")
         style = SubElement(root, "style")
