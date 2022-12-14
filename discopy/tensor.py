@@ -352,7 +352,7 @@ class Functor(frobenius.Functor):
 
     def __repr__(self):
         return factory_name(type(self)) + f"(ob={self.ob}, ar={self.ar}, "\
-            + f"dom={self.dom}, dtype={self.dtype})"
+            + f"dom={self.dom}, dtype={self.dtype.__name__})"
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -575,10 +575,6 @@ class Swap(frobenius.Swap, Box):
     """
     __ambiguous_inheritance__ = (frobenius.Swap, )
 
-    @property
-    def array(self):
-        return Tensor.swap(self.left, self.right).array
-
 
 class Spider(frobenius.Spider, Box):
     """
@@ -603,10 +599,6 @@ class Spider(frobenius.Spider, Box):
         :align: center
     """
     __ambiguous_inheritance__ = (frobenius.Spider, )
-
-    @property
-    def array(self):
-        return Tensor.spiders(len(self.dom), len(self.cod), self.typ).array
 
 
 class Sum(monoidal.Sum, Box):

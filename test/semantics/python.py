@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from pytest import raises
 from discopy.python import *
 from discopy.closed import *
 
@@ -20,6 +21,11 @@ def test_fixed_point():
     from math import sqrt
     phi = Function(lambda x=1: 1 + 1 / x, [int], [int]).fix()
     assert phi() == (1 + sqrt(5)) / 2
+
+
+def test_trace():
+    with raises(NotImplementedError):
+        Function.id([int]).trace(left=True)
 
 
 def test_FinSet():

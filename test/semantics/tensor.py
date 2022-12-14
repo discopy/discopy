@@ -111,6 +111,10 @@ def test_Tensor_transpose():
         == Tensor.cups(Dim(2), Dim(2))
 
 
+def test_Tensor_conjugate():
+    assert Tensor[complex]([1j], Dim(1), Dim(1)).conjugate().array == -1j
+
+
 def test_Tensor_tensor():
     assert Tensor.tensor(Tensor.id(Dim(2))) == Tensor.id(Dim(2))
 
@@ -132,6 +136,19 @@ def test_tensor_swap():
     g = Tensor(list(range(9)), Dim(3), Dim(3))
     swap = Tensor.swap(Dim(2), Dim(3))
     assert f @ g >> swap == swap >> g @ f
+
+
+def test_tensor_spiders():
+    with raises(NotImplementedError):
+        Tensor.spiders(1, 2, Dim(3), [0.5])
+
+
+def test_Functor_repr():
+    x = Ty('x')
+    F = Functor({x: 2}, {}, dom=frobenius.Category(), dtype=bool)
+    assert repr(F) ==\
+        "tensor.Functor(ob={frobenius.Ty(frobenius.Ob('x')): 2}, ar={}, "\
+        "dom=Category(frobenius.Ty, frobenius.Diagram), dtype=bool)"
 
 
 def test_Functor_call():

@@ -322,9 +322,6 @@ class Matrix(Composable, Whiskerable):
         -------
         >>> Matrix[bool]([0, 1, 1, 0], 2, 2).repeat()
         Matrix[bool]([True, True, True, True], dom=2, cod=2)
-        >>> from pytest import raises
-        >>> with raises(TypeError):
-        ...     Matrix[int](0, 1, 1, 0).repeat()
         """
         if self.dtype != bool or self.dom != self.cod:
             raise TypeError(messages.MATRIX_REPEAT_ERROR)

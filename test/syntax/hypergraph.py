@@ -68,3 +68,4 @@ def test_cups():
         == Diagram.caps(x, x).make_monogamous()
     assert Diagram.caps(x, x).make_monogamous().dagger()\
         == Diagram.cups(x, x).make_monogamous()
+    assert Cap(x, x).downgrade() == frobenius.Cap(x, x)

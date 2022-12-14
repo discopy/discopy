@@ -30,3 +30,8 @@ def test_matrix_add():
         m + 123
     with raises(AxiomError):
         m + m.dagger()
+
+
+def test_repeat():
+    with raises(TypeError):
+        Matrix[int](0, 1, 1, 0).repeat()
