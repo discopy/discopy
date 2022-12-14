@@ -876,10 +876,9 @@ class Functor(Composable):
         Parameters:
             dom : The domain of the functor.
         """
-        class IdFunctor(cls):
-            pass
-        IdFunctor.dom = dom or Category()
-        return IdFunctor(lambda x: x, lambda f: f, cod=dom)
+        result = cls(lambda x: x, lambda f: f, cod=dom)
+        result.dom = dom or cls.dom
+        return result
 
     def then(self, other: Functor) -> Functor:
         """
@@ -901,7 +900,7 @@ class Functor(Composable):
         cat.Functor(ob={cat.Ob('x'): cat.Ob('x')}, ar={})
         >>> assert F >> Functor.id() == F != Functor.id() >> F
         >>> print(Functor.id() >> F)  # doctest: +ELLIPSIS
-        cat.IdFunctor(ob=<discopy.utils.Dict object ...>, ar=...)
+        cat.Functor(ob=<discopy.utils.Dict object ...>, ar=...)
         """
         assert_isinstance(other, Functor)
         assert_isparallel(self, other)

@@ -610,7 +610,7 @@ class Diagram(cat.Arrow, Whiskerable):
             ob=lambda x: x.to_drawing(), ar=Layer.to_drawing, cod=Category())(
                 self)
 
-    def to_staircases(self):
+    def to_staircases(self):  # pylint:
         """
         Splits layers with more than one box into staircases.
 
