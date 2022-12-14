@@ -1,9 +1,18 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements the free coloured operad (multicategory) and its algebras.
+A dependency grammar is both a pregroup and a context-free grammar.
 
-See ../docs/notebooks/operads.ipynb for further documentation.
+Summary
+-------
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        from_spacy
 """
 
 from unittest.mock import Mock
@@ -13,8 +22,13 @@ from discopy.monoidal import Ty
 from discopy.grammar.cfg import Word, Rule, Tree
 
 
-def from_spacy(doc, word_types=False):
-    """ Interface with SpaCy's dependency parser """
+def from_spacy(doc):
+    """
+    Interface with SpaCy's dependency parser, returns a :class:`cfg.Tree`.
+
+    Parameters:
+        doc : Spacy Doc object
+    """
     root = find_root(doc)
     return doc2tree(root)
 

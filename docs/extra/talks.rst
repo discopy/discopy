@@ -53,5 +53,5 @@ see the corresponding notebooks alice-loves-bob_ and bob-is-rich_.
 
 .. youtube:: 3UKqpL7Z0Uc
 
-.. _alice-loves-bob: https://github.com/discopy/discopy/blob/main/docs/notebooks/alice-loves-bob.ipynb
-.. _bob-is-rich: https://github.com/discopy/discopy/blob/main/docs/notebooks/bob-is-rich.ipynb
+.. _alice-loves-bob: https://github.com/discopy/discopy/blob/main/notebooks/alice-loves-bob.ipynb
+.. _bob-is-rich: https://github.com/discopy/discopy/blob/main/notebooks/bob-is-rich.ipynb

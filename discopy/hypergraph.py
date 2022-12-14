@@ -783,15 +783,15 @@ class Diagram(Composable, Whiskerable):
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y @ z)
         >>> f.draw(
-        ...     path='docs/imgs/hypergraph/box.png', seed=42)
+        ...     path='docs/_static/hypergraph/box.png', seed=42)
 
-        .. image:: /imgs/hypergraph/box.png
+        .. image:: /_static/hypergraph/box.png
             :align: center
 
         >>> (Spider(2, 2, x) >> f @ Id(x)).draw(
-        ...     path='docs/imgs/hypergraph/diagram.png', seed=42)
+        ...     path='docs/_static/hypergraph/diagram.png', seed=42)
 
-        .. image:: /imgs/hypergraph/diagram.png
+        .. image:: /_static/hypergraph/diagram.png
             :align: center
         """
         graph, pos = self.spring_layout(seed=seed, k=k)

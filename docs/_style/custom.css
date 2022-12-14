@@ -6,6 +6,8 @@
     font-weight: 500;
 }
 
+.diagram-frame { width: 100%; border: none; }
+
 #architecture-diagram .api-title { font-size: smaller; font-style: italic;}
 #architecture-diagram .syntax { background-color: rgba(250,250,250); }
 #architecture-diagram .semantics { background-color: rgba(250,250,250); }

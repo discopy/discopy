@@ -46,7 +46,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-.. image:: /imgs/monoidal/EckmannHilton.gif
+.. image:: /_static/monoidal/EckmannHilton.gif
     :align: center
 """
 
@@ -145,7 +145,11 @@ class Ty(cat.Ob):
 
     def to_drawing(self) -> Ty:
         """ Called before :meth:`Diagram.draw`. """
-        return Ty(*map(str, self.inside))
+        def obj_to_drawing(obj):
+            result = cat.Ob(str(obj))
+            result.always_draw_label = getattr(obj, "always_draw_label", False)
+            return result
+        return Ty(*map(obj_to_drawing, self.inside))
 
     @property
     def is_atomic(self) -> bool:
@@ -519,9 +523,9 @@ class Diagram(cat.Arrow, Whiskerable):
 
         >>> (f0 @ f1).draw(
         ...     figsize=(2, 2),
-        ...     path='docs/imgs/monoidal/tensor-example.png')
+        ...     path='docs/_static/monoidal/tensor-example.png')
 
-        .. image:: /imgs/monoidal/tensor-example.png
+        .. image:: /_static/monoidal/tensor-example.png
             :align: center
         """
         if other is None:
@@ -577,9 +581,9 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
         >>> diagram.draw(figsize=(2, 2),
-        ...        path='docs/imgs/monoidal/arrow-example.png')
+        ...        path='docs/_static/monoidal/arrow-example.png')
 
-        .. image:: /imgs/monoidal/arrow-example.png
+        .. image:: /_static/monoidal/arrow-example.png
             :align: center
         """
         return self.dom, list(zip(self.boxes, self.offsets))
@@ -888,7 +892,7 @@ class Sum(cat.Sum, Box):
 
     def draw(self, **params):
         """ Drawing a sum as an equation with :code:`symbol='+'`. """
-        return drawing.equation(*self.terms, symbol='+', **params)
+        return drawing.Equation(*self.terms, symbol='+').draw(**params)
 
 
 class Bubble(cat.Bubble, Box):
@@ -906,9 +910,9 @@ class Bubble(cat.Bubble, Box):
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
-    >>> d.draw(path='docs/imgs/monoidal/bubble-example.png')
+    >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
 
-    .. image:: /imgs/monoidal/bubble-example.png
+    .. image:: /_static/monoidal/bubble-example.png
         :align: center
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
@@ -921,9 +925,8 @@ class Bubble(cat.Bubble, Box):
     def to_drawing(self):
         dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
         argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
-        obj = cat.Ob(self.drawing_name)
-        obj.draw_as_box = True
-        left, right = Ty(obj), Ty("")
+        left, right = Ty(self.drawing_name), Ty("")
+        left.inside[0].always_draw_label = True
         _open = Box("_open", dom, left @ argdom @ right).to_drawing()
         _close = Box("_close", left @ argcod @ right, cod).to_drawing()
         _open.draw_as_wires = _close.draw_as_wires = True
@@ -969,11 +972,12 @@ class Functor(cat.Functor):
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
-    >>> drawing.equation(
-    ...     source, target, symbol='$\\\\mapsto$', figsize=(4, 2),
-    ...     path='docs/imgs/monoidal/functor-example.png')
 
-    .. image:: /imgs/monoidal/functor-example.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
+    ...     figsize=(4, 2), path='docs/_static/monoidal/functor-example.png')
+
+    .. image:: /_static/monoidal/functor-example.png
         :align: center
     """
     __ambiguous_inheritance__ = True
@@ -1010,6 +1014,7 @@ def assert_isatomic(typ: Ty, cls: type = None):
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
+Diagram.to_grid = drawing.Grid.from_diagram
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble

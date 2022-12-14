@@ -30,9 +30,9 @@ the trace of the braid is unitary.
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
 >>> eq.draw(figsize=(6, 4), margins=(.2, .1),
-...         path='docs/imgs/ribbon/twist-untwist.png')
+...         path='docs/_static/ribbon/twist-untwist.png')
 
-.. image:: /imgs/ribbon/twist-untwist.png
+.. image:: /_static/ribbon/twist-untwist.png
     :align: center
 
 Equivalently, a ribbon category is a balanced pivotal category, such that
@@ -43,9 +43,9 @@ i.e. two parallel wires with the twist drawn as the double braid.
 >>> ribbon_twist = Diagram.twist(x).to_ribbons()
 >>> eq = Equation(ribbon_twist, twist_l.to_ribbons())
 >>> eq.draw(symbol='\\mapsto', draw_type_labels=False,
-...     path="docs/imgs/balanced/ribbon_twist.png")
+...     path="docs/_static/balanced/ribbon_twist.png")
 
-.. image:: /imgs/balanced/ribbon_twist.png
+.. image:: /_static/balanced/ribbon_twist.png
 
 A ribbon category is strict whenever the twist is the identity.
 Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
@@ -53,9 +53,9 @@ parallel wires coincide and the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
 >>> eq_strict.draw(figsize=(4, 2), margins=(.2, .1),
-...                path='docs/imgs/ribbon/strict.png')
+...                path='docs/_static/ribbon/strict.png')
 
-.. image:: /imgs/ribbon/strict.png
+.. image:: /_static/ribbon/strict.png
     :align: center
 """
 
@@ -119,7 +119,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram):
         >>> x = Ty('x')
         >>> braided_twist = Diagram.twist(x).to_ribbons()
 
-        .. image:: /imgs/balanced/twist_dual_rail.png
+        .. image:: /_static/balanced/twist_dual_rail.png
         """
         class DualRail(Functor):
             cod = Category()

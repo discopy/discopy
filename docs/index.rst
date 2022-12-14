@@ -1,4 +1,4 @@
-.. image:: /imgs/snake-equation.png
+.. image:: /_static/snake-equation.png
 
 #####################
 DisCoPy documentation

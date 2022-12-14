@@ -31,12 +31,12 @@ Axioms
 >>> assert t.l.r == t == t.r.l
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
->>> from discopy import drawing
->>> drawing.equation(
-...     left_snake, Id(n), right_snake, figsize=(4, 2),
-...     path='docs/imgs/rigid/snake-equation.png')
 
-.. image:: /imgs/rigid/snake-equation.png
+>>> from discopy.drawing import Equation
+>>> Equation(left_snake, Id(n), right_snake).draw(
+...     figsize=(4, 2), path='docs/_static/rigid/snake-equation.png')
+
+.. image:: /_static/rigid/snake-equation.png
     :align: center
 """
 
@@ -207,9 +207,9 @@ class Diagram(closed.Diagram):
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
     >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
-    ...        path='docs/imgs/rigid/diagram-example.png')
+    ...        path='docs/_static/rigid/diagram-example.png')
 
-    .. image:: /imgs/rigid/diagram-example.png
+    .. image:: /_static/rigid/diagram-example.png
         :align: center
     """
     __ambiguous_inheritance__ = True
@@ -245,9 +245,9 @@ class Diagram(closed.Diagram):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.cups(a.l @ b, b.r @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/imgs/rigid/cups.png')
+        ... margins=(0.3, 0.05), path='docs/_static/rigid/cups.png')
 
-        .. image:: /imgs/rigid/cups.png
+        .. image:: /_static/rigid/cups.png
             :align: center
         """
         return nesting(cls, cls.cup_factory)(left, right)
@@ -265,9 +265,9 @@ class Diagram(closed.Diagram):
         -------
         >>> a, b = Ty('a'), Ty('b')
         >>> Diagram.caps(a.r @ b, b.l @ a).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/imgs/rigid/caps.png')
+        ... margins=(0.3, 0.05), path='docs/_static/rigid/caps.png')
 
-        .. image:: /imgs/rigid/caps.png
+        .. image:: /_static/rigid/caps.png
             :align: center
         """
         return nesting(cls, cls.cap_factory)(left, right)
@@ -281,9 +281,9 @@ class Diagram(closed.Diagram):
         >>> g = Box('g', x @ x, x)
         >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
         ...     g.curry(), symbol="$\\\\mapsto$").draw(
-        ...         path="docs/imgs/rigid/curry.png")
+        ...         path="docs/_static/rigid/curry.png")
 
-        .. image:: /imgs/rigid/curry.png
+        .. image:: /_static/rigid/curry.png
             :align: center
         """
         if left:
@@ -306,9 +306,9 @@ class Diagram(closed.Diagram):
         >>> diagram = f @ g >> Cup(x, x.r) @ y
         >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
         >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path='docs/imgs/rigid/rotate.png')
+        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.png')
 
-        .. image:: /imgs/rigid/rotate.png
+        .. image:: /_static/rigid/rotate.png
             :align: center
         """
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
@@ -333,9 +333,9 @@ class Diagram(closed.Diagram):
         >>> f = Box('f', x, y)
         >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
         >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/imgs/rigid/transpose.png")
+        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
 
-        .. image:: /imgs/rigid/transpose.png
+        .. image:: /_static/rigid/transpose.png
         """
         if left:
             return self.cod.l @ self.caps(self.dom, self.dom.l)\
@@ -365,9 +365,10 @@ class Diagram(closed.Diagram):
         >>> transpose_r = d.transpose_box(0, 1, left=False)
         >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
         >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
-        >>> RHS.draw(figsize=(8, 3), path="docs/imgs/rigid/transpose_box.png")
+        >>> RHS.draw(
+        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.png")
 
-        .. image:: /imgs/rigid/transpose_box.png
+        .. image:: /_static/rigid/transpose_box.png
         """
         box = list(self.inside[i])[2 * j + 1]
         transposed_box = (box.r if left else box.l).transpose(left)
@@ -626,9 +627,9 @@ class Cup(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/imgs/rigid/cup.png')
+    ... path='docs/_static/rigid/cup.png')
 
-    .. image:: /imgs/rigid/cup.png
+    .. image:: /_static/rigid/cup.png
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -661,9 +662,9 @@ class Cap(BinaryBoxConstructor, Box):
     -------
     >>> n = Ty('n')
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/imgs/rigid/cap.png')
+    ... path='docs/_static/rigid/cap.png')
 
-    .. image:: /imgs/rigid/cap.png
+    .. image:: /_static/rigid/cap.png
         :align: center
     """
     def __init__(self, left: Ty, right: Ty):
@@ -713,17 +714,16 @@ class Functor(closed.Functor):
     >>> love_box = Box('loves', n @ n, s)
     >>> ob = {s: s, n: n}
     >>> ar = {Alice: Alice, Bob: Bob}
-    >>> ar.update({loves: Cap(n.r, n) @ Cap(n, n.l)
-    ...                   >> Id(n.r) @ love_box @ Id(n.l)})
+    >>> ar.update({loves: Cap(n.r, n) @ Cap(n, n.l) >> n.r @ love_box @ n.l})
     >>> F = Functor(ob, ar)
-    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
-    >>> from discopy import drawing
-    >>> drawing.equation(
-    ...     sentence, F(sentence), symbol='$\\\\mapsto$', figsize=(5, 2),
-    ...     path='docs/imgs/rigid/functor-example.png')
 
-    .. image:: /imgs/rigid/functor-example.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
+    ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.png')
+
+    .. image:: /_static/rigid/functor-example.png
         :align: center
     """
     dom = cod = Category(Ty, Diagram)

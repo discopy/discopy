@@ -33,23 +33,25 @@ draw them and check whether they hold for a given ``Functor``.
 
 >>> copy_l = Copy(x) >> Copy(x) @ Id(x)
 >>> copy_r = Copy(x) >> Id(x) @ Copy(x)
->>> drawing.equation(copy_l, copy_r, symbol="=",
-...     path="docs/imgs/cartesian/associativity.png")
 
-.. image:: /imgs/cartesian/associativity.png
+>>> from discopy.drawing import Equation
+>>> Equation(copy_l, copy_r, symbol="=").draw(
+...     path="docs/_static/cartesian/associativity.png")
+
+.. image:: /_static/cartesian/associativity.png
 
 >>> delete = lambda x: Copy(x, n=0)
 >>> counit_l = Copy(x) >> delete(x) @ Id(x)
 >>> counit_r = Copy(x) >> Id(x) @ delete(x)
->>> drawing.equation(counit_l, Id(x), counit_r, symbol="=",
-...     path="docs/imgs/cartesian/counit.png")
+>>> Equation(counit_l, Id(x), counit_r, symbol="=").draw(
+...     path="docs/_static/cartesian/counit.png")
 
-.. image:: /imgs/cartesian/counit.png
+.. image:: /_static/cartesian/counit.png
 """
 
 from __future__ import annotations
 
-from discopy import symmetric, monoidal, frobenius, drawing
+from discopy import symmetric, monoidal, frobenius
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
 
@@ -155,10 +157,12 @@ class Functor(symmetric.Functor):
     >>> bialgebra_l = copy @ copy >> Id(x) @ Swap(x, x) @ Id(x) >> add @ add
     >>> bialgebra_r = add >> copy
     >>> assert F(bialgebra_l)(54, 46) == F(bialgebra_r)(54, 46)
-    >>> drawing.equation(bialgebra_l, bialgebra_r, symbol="=",
-    ...     path="docs/imgs/cartesian/bialgebra.png")
 
-    .. image:: /imgs/cartesian/bialgebra.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
+    ...     path="docs/_static/cartesian/bialgebra.png")
+
+    .. image:: /_static/cartesian/bialgebra.png
     """
     dom = cod = Category(monoidal.Ty, Diagram)
 

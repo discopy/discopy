@@ -38,9 +38,9 @@ Examples
 >>> circuit = Ket(0, 0) >> CX >> Controlled(Rz(0.25)) >> Measure() @ Discard()
 >>> circuit.draw(
 ...     figsize=(3, 6),
-...     path='docs/imgs/quantum/circuit-example.png')
+...     path='docs/_static/quantum/circuit-example.png')
 
-.. image:: /imgs/quantum/circuit-example.png
+.. image:: /_static/quantum/circuit-example.png
     :align: center
 
 >>> from discopy.grammar import pregroup
@@ -56,13 +56,14 @@ Examples
 ...       Bob: Ket(1)}
 >>> F = rigid.Functor(ob, ar, cod=Category(Ty, Circuit))
 >>> assert abs(F(sentence).eval().array) ** 2
->>> from discopy import drawing
->>> drawing.equation(
-...     sentence.to_drawing(), F(sentence), symbol='$\\\\mapsto$',
-...     figsize=(6, 3), nodesize=.5,
-...     path='docs/imgs/quantum/functor-example.png')
 
-.. image:: /imgs/quantum/functor-example.png
+>>> from discopy.drawing import Equation
+>>> Equation(
+...     sentence.to_drawing(), F(sentence), symbol='$\\\\mapsto$').draw(
+...         figsize=(6, 3), nodesize=.5,
+...         path='docs/_static/quantum/functor-example.png')
+
+.. image:: /_static/quantum/functor-example.png
     :align: center
 """
 

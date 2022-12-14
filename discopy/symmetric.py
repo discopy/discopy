@@ -28,11 +28,12 @@ Swaps have their dagger as inverse, up to :meth:`braided.Diagram.simplify`.
 
 >>> swap_unswap = Swap(x, y) >> Swap(y, x)
 >>> assert swap_unswap.simplify() == Id(x @ y)
->>> from discopy import drawing
->>> drawing.equation(swap_unswap, Id(x @ y),
-...     path='docs/imgs/symmetric/inverse.png', figsize=(3, 2))
 
-.. image:: /imgs/symmetric/inverse.png
+>>> from discopy.drawing import Equation
+>>> Equation(swap_unswap, Id(x @ y)).draw(
+...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
+
+.. image:: /_static/symmetric/inverse.png
     :align: center
 
 The hexagon equations hold on the nose.
@@ -41,10 +42,10 @@ The hexagon equations hold on the nose.
 >>> assert left_hexagon == Diagram.swap(x, y @ z)
 >>> right_hexagon = x @ Swap(y, z) >> Swap(x, z) @ y
 >>> assert right_hexagon == Diagram.swap(x @ y, z)
->>> drawing.equation(left_hexagon, right_hexagon, symbol='', space=2,
-...     path='docs/imgs/symmetric/hexagons.png', figsize=(5, 2))
+>>> Equation(left_hexagon, right_hexagon, symbol='').draw(
+...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
 
-.. image:: /imgs/symmetric/hexagons.png
+.. image:: /_static/symmetric/hexagons.png
     :align: center
 """
 

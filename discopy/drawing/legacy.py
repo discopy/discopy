@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DisCopy's legacy drawing.
+DisCopy's legacy drawing: turn a diagram into a directed graph then plot it.
 
 Summary
 -------
@@ -25,9 +25,10 @@ Summary
 
         diagram2nx
         nx2diagram
-        equation
         diagramize
 """
+
+from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from math import sqrt
@@ -624,7 +625,7 @@ def draw(diagram, **params):
                 source_position, target_position, bend_out, bend_in)
             if source.kind in ["input", "cod"]\
                     and (params.get('draw_type_labels', True)
-                         or getattr(source.obj, "draw_as_box", False)
+                         or getattr(source.obj, "always_draw_label", False)
                          and params.get('draw_box_labels', True)):
                 i, j = positions[source]
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
@@ -903,40 +904,6 @@ def pregroup_draw(words, layers, has_swaps=False, **params):
         aspect=params.get('aspect', 'equal'))
 
 
-def equation(*diagrams, path=None, symbol="=", space=1, **params):
-    """ Draws an equation with multiple diagrams. """
-    def height(diagram):
-        # i.e. if isinstance(diagram, (Sum, Equation))
-        if hasattr(diagram, "terms"):
-            return max(height(d) for d in diagram.terms)
-        return len(diagram.to_drawing()) or 1
-
-    pad, max_height = params.get('pad', (0, 0)), max(map(height, diagrams))
-    scale_x, scale_y = params.get('scale', (1, 1))
-    backend = params['backend'] if 'backend' in params\
-        else TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
-        if params.get('to_tikz', False)\
-        else MatBackend(figsize=params.get('figsize', None))
-
-    for i, diagram in enumerate(diagrams):
-        scale = (scale_x, scale_y * max_height / height(diagram))
-        diagram.draw(**dict(
-            params, show=False, path=None,
-            backend=backend, scale=scale, pad=pad))
-        pad = (backend.max_width + space, 0)
-        if i < len(diagrams) - 1:
-            backend.draw_text(symbol, pad[0], scale_y * max_height / 2)
-            pad = (pad[0] + space, pad[1])
-
-    return backend.output(
-        path=path,
-        baseline=max_height / 2,
-        tikz_options=params.get('tikz_options', None),
-        show=params.get("show", True),
-        margins=params.get('margins', DEFAULT['margins']),
-        aspect=params.get('aspect', DEFAULT['aspect']))
-
-
 class Equation:
     """
     An equation is a list of diagrams with a dedicated draw method.
@@ -952,14 +919,14 @@ class Equation:
     ...     delta @ Id(dim) >> Id(dim) @ mu,
     ...     mu >> delta,
     ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> equation(special, frobenius, symbol=', ',
+    >>> Equation(special, frobenius, symbol=', ').draw(
     ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
-    ...          path='docs/imgs/drawing/frobenius-axioms.png')
+    ...          path='docs/_static/drawing/frobenius-axioms.png')
 
-    .. image:: /imgs/drawing/frobenius-axioms.png
+    .. image:: /_static/drawing/frobenius-axioms.png
         :align: center
     """
-    def __init__(self, *terms, symbol='='):
+    def __init__(self, *terms: discopy.monoidal.Diagram, symbol="="):
         self.terms, self.symbol = terms, symbol
 
     def __repr__(self):
@@ -968,9 +935,48 @@ class Equation:
     def __str__(self):
         return " {} ".format(self.symbol).join(map(str, self.terms))
 
-    def draw(self, **params):
-        """ Drawing an equation. """
-        return equation(*self.terms, **dict(params, symbol=self.symbol))
+    def draw(self, path=None, space=1, **params):
+        """
+        Drawing an equation.
+
+        Parameters:
+            path : Where to save the drawing.
+            space : The amount of space between the terms.
+            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
+        """
+        def height(term):
+            # i.e. if isinstance(diagram, (Sum, Equation))
+            if hasattr(term, "terms"):
+                return max(height(d) for d in term.terms)
+            return len(term.to_drawing()) or 1
+
+        max_height = max(map(height, self.terms))
+        pad = params.get('pad', (0, 0))
+        scale_x, scale_y = params.get('scale', (1, 1))
+        backend = params['backend'] if 'backend' in params\
+            else TikzBackend(
+                use_tikzstyles=params.get('use_tikzstyles', None))\
+            if params.get('to_tikz', False)\
+            else MatBackend(figsize=params.get('figsize', None))
+
+        for i, term in enumerate(self.terms):
+            scale = (scale_x, scale_y * max_height / height(term))
+            term.draw(**dict(
+                params, show=False, path=None,
+                backend=backend, scale=scale, pad=pad))
+            pad = (backend.max_width + space, 0)
+            if i < len(self.terms) - 1:
+                backend.draw_text(
+                    self.symbol, pad[0], scale_y * max_height / 2)
+                pad = (pad[0] + space, pad[1])
+
+        return backend.output(
+            path=path,
+            baseline=max_height / 2,
+            tikz_options=params.get('tikz_options', None),
+            show=params.get("show", True),
+            margins=params.get('margins', DEFAULT['margins']),
+            aspect=params.get('aspect', DEFAULT['aspect']))
 
 
 def diagramize(dom, cod, boxes, factory=None):
@@ -1002,9 +1008,9 @@ def diagramize(dom, cod, boxes, factory=None):
     ...     cup(left, middle)
     ...     return right
     >>> snake.draw(
-    ...     figsize=(3, 3), path='docs/imgs/drawing/diagramize.png')
+    ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
 
-    .. image:: /imgs/drawing/diagramize.png
+    .. image:: /_static/drawing/diagramize.png
         :align: center
     """
     if factory is None and not boxes:

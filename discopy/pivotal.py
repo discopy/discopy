@@ -29,28 +29,29 @@ A pivotal category is a rigid category where left and right transpose coincide.
 >>> assert x.r == x.l and x.l.l == x == x.r.r
 >>> f = Box('f', x, y)
 
->>> from discopy import drawing
->>> drawing.equation(f.transpose(left=True), f.r, f.transpose(left=False),
-...                  figsize=(6, 3), path="docs/imgs/pivotal/axiom.png")
+>>> from discopy.drawing import Equation
+>>> Equation(f.transpose(left=True), f.r, f.transpose(left=False)).draw(
+...     figsize=(6, 3), path="docs/_static/pivotal/axiom.png")
 
-.. image:: /imgs/pivotal/axiom.png
+.. image:: /_static/pivotal/axiom.png
     :align: center
 
 For each diagram, we have its conjugate:
 
 >>> d = Box('g', x @ y, z).curry()
->>> drawing.equation(d, d.conjugate(), symbol="", figsize=(6, 2), space=2,
-...                  path="docs/imgs/pivotal/box-conjugate.png")
+>>> Equation(d, d.conjugate(), symbol="").draw(
+...     figsize=(6, 2), space=2, path="docs/_static/pivotal/box-conjugate.png")
 
-.. image:: /imgs/pivotal/box-conjugate.png
+.. image:: /_static/pivotal/box-conjugate.png
     :align: center
 
 We also have its dagger and its transpose:
 
->>> drawing.equation(d.dagger(), d.r, symbol="", figsize=(6, 2), space=2,
-...                  path="docs/imgs/pivotal/dagger-transpose.png")
+>>> Equation(d.dagger(), d.r, symbol="").draw(
+...     figsize=(6, 2), space=2,
+...     path="docs/_static/pivotal/dagger-transpose.png")
 
-.. image:: /imgs/pivotal/dagger-transpose.png
+.. image:: /_static/pivotal/dagger-transpose.png
     :align: center
 """
 
@@ -101,14 +102,15 @@ class Diagram(rigid.Diagram, traced.Diagram):
 
         Example
         -------
-        >>> from discopy import drawing
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x @ y, z).curry()
-        >>> drawing.equation(f, f.dagger(),
-        ...     symbol="$\\\\mapsto$", figsize=(6, 3), asymmetry=.1,
-        ...     path="docs/imgs/pivotal/dagger.png")
 
-        .. image:: /imgs/pivotal/dagger.png
+        >>> from discopy.drawing import Equation
+        >>> Equation(f, f.dagger(), symbol="$\\\\mapsto$").draw(
+        ...     figsize=(6, 3), asymmetry=.1,
+        ...     path="docs/_static/pivotal/dagger.png")
+
+        .. image:: /_static/pivotal/dagger.png
             :align: center
         """
         return cat.Arrow.dagger(self)
@@ -127,13 +129,11 @@ class Diagram(rigid.Diagram, traced.Diagram):
         >>> f = Box('f', x @ y, z).curry()
         >>> assert f.conjugate() == f[::-1].rotate() == f.rotate()[::-1]
 
-        >>> from discopy import drawing
-        >>> drawing.equation(
-        ...     f, f.conjugate(),
-        ...     symbol="$\\\\mapsto$", figsize=(6, 3),
-        ...     path="docs/imgs/pivotal/conjugate.png")
+        >>> from discopy.drawing import Equation
+        >>> Equation(f, f.conjugate(), symbol="$\\\\mapsto$").draw(
+        ...     figsize=(6, 3), path="docs/_static/pivotal/conjugate.png")
 
-        .. image:: /imgs/pivotal/conjugate.png
+        .. image:: /_static/pivotal/conjugate.png
             :align: center
         """
         return self.rotate().dagger()
@@ -155,9 +155,9 @@ class Diagram(rigid.Diagram, traced.Diagram):
         >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
         >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
         ...     RHS, symbol="$\\\\mapsto$").draw(
-        ...         path="docs/imgs/pivotal/trace.png")
+        ...         path="docs/_static/pivotal/trace.png")
 
-        .. image:: /imgs/pivotal/trace.png
+        .. image:: /_static/pivotal/trace.png
         """
         traced_wire = diagram.dom[:1] if left else diagram.dom[-1:]
         dom, cod = (diagram.dom[1:], diagram.cod[1:]) if left\
