@@ -120,6 +120,8 @@ class Ty(cat.Ob):
         >>> assert Ty().tensor(*list_of_types) == Ty('x', 'y', 'z')
         """
         for other in others:
+            if not isinstance(other, Ty):
+                return NotImplemented
             assert_isinstance(self, other.factory)
             assert_isinstance(other, self.factory)
         inside = self.inside + tuple(x for t in others for x in t.inside)
@@ -193,7 +195,7 @@ class Ty(cat.Ob):
         return cls(*map(from_tree, tree['inside']))
 
     def __matmul__(self, other):
-        return self.tensor(other) if isinstance(other, Ty) else NotImplemented
+        return self.tensor(other)
 
     __add__ = __matmul__
 
@@ -535,8 +537,6 @@ class Diagram(cat.Arrow, Whiskerable):
             return self.sum_factory((self, )).tensor(other)
         assert_isinstance(other, self.factory)
         assert_isinstance(self, other.factory)
-        if isinstance(other, Sum):
-            self.sum_factory.cast(self).tensor(other)
         inside = tuple(layer @ other.dom for layer in self.inside)\
             + tuple(self.cod @ layer for layer in other.inside)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod

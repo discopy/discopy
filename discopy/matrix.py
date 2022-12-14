@@ -143,6 +143,10 @@ class Matrix(Composable, Whiskerable):
 
         Parameters:
             dtype : The target datatype.
+
+        Example
+        -------
+        >>> assert Matrix.id().cast_dtype(bool) == Matrix[bool].id()
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
 
@@ -238,7 +242,19 @@ class Matrix(Composable, Whiskerable):
             return cls(np.zeros((dom, cod)), dom, cod)
 
     @classmethod
-    def swap(cls, left, right):
+    def swap(cls, left: int, right: int) -> Matrix:
+        """
+        The matrix that swaps left and right dimensions.
+
+        Parameters:
+            left : The left dimension.
+            right : The right dimension.
+
+        Example
+        -------
+        >>> Matrix.swap(1, 1)
+        Matrix([0, 1, 1, 0], dom=2, cod=2)
+        """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
         array[right:, :left] = Matrix.id(left).array
@@ -279,19 +295,56 @@ class Matrix(Composable, Whiskerable):
         return cls.copy(x, n).dagger()
 
     @classmethod
+    def ones(cls, x: int) -> Matrix:
+        return cls.merge(x, 0)
+
+    @classmethod
     def basis(cls, x: int, i: int) -> Matrix:
+        """
+        The ``i``-th basis vector of dimension ``x``.
+
+        Parameters:
+            x : The dimension of the basis vector.
+            i : The index of the basis vector.
+
+        Example
+        -------
+        >>> Matrix.basis(4, 2)
+        Matrix([0, 0, 1, 0], dom=1, cod=4)
+        """
         return cls([[i == j for j in range(x)]], x ** 0, x)
 
-    def repeat(self):
+    def repeat(self) -> Matrix:
+        """
+        The reflexive transitive closure of a boolean matrix.
+
+        Example
+        -------
+        >>> Matrix[bool]([0, 1, 1, 0], 2, 2).repeat()
+        Matrix[bool]([True, True, True, True], dom=2, cod=2)
+        >>> from pytest import raises
+        >>> with raises(TypeError):
+        ...     Matrix[int](0, 1, 1, 0).repeat()
+        """
         if self.dtype != bool or self.dom != self.cod:
             raise TypeError(messages.MATRIX_REPEAT_ERROR)
         return sum(
             self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
 
-    def trace(self, n=1):
+    def trace(self, n=1) -> Matrix:
+        """
+        The trace of a Boolean matrix, computed with :meth:`Matrix.repeat`.
+
+        Parameters:
+            n : The number of dimensions to trace.
+
+        Example
+        -------
+        >>> assert Matrix[bool].swap(1, 1).trace() == Matrix[bool].id(1)
+        """
         A, B, C, D = (row >> self >> column
-                      for row in [self.id(self.dom - n) @ self.unit(n),
-                                  self.unit(self.dom - n) @ self.id(n)]
+                      for row in [self.id(self.dom - n) @ self.ones(n),
+                                  self.ones(self.dom - n) @ self.id(n)]
                       for column in [self.id(self.cod - n) @ self.discard(n),
                                      self.discard(self.cod - n) @ self.id(n)])
         return A + (B >> D.repeat() >> C)

@@ -120,19 +120,13 @@ class Diagram(pivotal.Diagram, balanced.Diagram):
         .. image:: /_static/balanced/twist_dual_rail.png
         """
         class DualRail(Functor):
-            cod = Category()
-
             def __call__(self, other):
                 if isinstance(other, Twist):
                     braid = Braid(other.dom, other.dom)
                     return braid >> braid
-                if isinstance(other, (Cup, Cap, Braid)):
-                    return super().__call__(other)
-                if isinstance(other, Box):
-                    return Box(other.name, self(other.dom), self(other.cod))
                 return super().__call__(other)
 
-        return DualRail(lambda x: x @ x, {})(self)
+        return DualRail(lambda x: x @ x, lambda f: f)(self)
 
 
 class Box(pivotal.Box, balanced.Box, Diagram):
@@ -182,7 +176,8 @@ class Braid(balanced.Braid, Box):
 
     z = 0
 
-    def rotate(self, _=False):
+    def rotate(self, left=False):
+        del left
         return self
 
 
@@ -199,6 +194,7 @@ class Twist(balanced.Twist, Box):
     z = 0
 
     def rotate(self, left=False):
+        del left
         return self
 
 

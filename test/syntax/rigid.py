@@ -113,6 +113,8 @@ def test_AxiomError():
     with raises(AxiomError) as err:
         Cup(n, n.r).dagger()
     with raises(AxiomError) as err:
+        Cap(n, n.l).dagger()
+    with raises(AxiomError) as err:
         Cup(n, n.l.l)
     with raises(AxiomError) as err:
         Cap(n, n.l.l)

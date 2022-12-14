@@ -51,7 +51,7 @@ jobs:
         coverage run --source=${{ env.SRC_DIR }} -m pytest ${{ env.SRC_DIR }} ${{ env.TEST_DIR }} --doctest-modules
     - name: Coverage report
       run:
-        coverage report --fail-under=95 --show-missing
+        coverage report --fail-under=99 --show-missing
     - name: Install nbmake and test notebooks
       run: |
         python -m pip install nbmake

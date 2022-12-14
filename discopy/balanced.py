@@ -65,10 +65,8 @@ class Diagram(braided.Diagram):
         """
         if len(dom) == 0:
             return cls.id()
-        if len(dom) == 1:
-            return cls.twist_factory(dom)
         return cls.braid(dom[0], dom[1:])\
-            >> cls.twist(dom[1:]) @ cls.twist(dom[0])\
+            >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
     def to_braided(self):
@@ -93,15 +91,11 @@ class Diagram(braided.Diagram):
 
             def __call__(self, other):
                 if isinstance(other, Twist):
-                    braid = Braid(other.dom, other.dom)
+                    braid = braided.Braid(other.dom, other.dom)
                     return braid >> braid
-                if isinstance(other, Box) and not isinstace(other, Braid):
-                    return braided.Box(
-                        other.name, self(other.dom), self(other.cod))
-
                 return super().__call__(other)
 
-        return DualRail(lambda x: x @ x, {})(self)
+        return DualRail(lambda x: x @ x, lambda f: f.name)(self)
 
 
 class Box(braided.Box, Diagram):
@@ -135,16 +129,18 @@ class Twist(Box):
     :class:`Twist` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.twist` instead.
     """
-    def __init__(self, dom: monoidal.Ty, phase: int = 0):
+    def __init__(self, dom: monoidal.Ty, is_dagger=False):
         assert_isatomic(dom, monoidal.Ty)
         name = type(self).__name__ + "({})".format(dom)
-        Box.__init__(self, name, dom, dom)
+        Box.__init__(self, name, dom, dom, is_dagger=is_dagger)
 
     def __repr__(self):
-        return factory_name(type(self)) + "({})".format(self.dom)
+        if self.is_dagger:
+            return repr(self.dagger()) + ".dagger()"
+        return factory_name(type(self)) + f"({self.dom!r})"
 
     def dagger(self):
-        return type(self)(self.dom, - self.phase)
+        return type(self)(self.dom, not self.is_dagger)
 
 
 class Category(braided.Category):

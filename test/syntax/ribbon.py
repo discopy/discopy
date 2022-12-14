@@ -16,3 +16,8 @@ def test_Kauffman():
         == (A @ x @ x) + (Cup(x, x) >> A.dagger() >> Cap(x, x))
 
     Ty.l, Ty.r = tmp
+
+
+def test_rotate():
+    x = Ty('x')
+    assert Twist(x).r == Twist(x)

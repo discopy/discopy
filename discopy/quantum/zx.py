@@ -282,7 +282,8 @@ class Spider(tensor.Spider, Box):
     def dagger(self):
         return type(self)(len(self.cod), len(self.dom), -self.phase)
 
-    def rotate(self):
+    def rotate(self, left=False):
+        del left
         return type(self)(len(self.cod), len(self.dom), self.phase)
 
     @property
