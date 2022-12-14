@@ -52,6 +52,9 @@ jobs:
     - name: Coverage report
       run:
         coverage report --fail-under=99 --show-missing
+    - name: Linting
+      run:
+        pylint discopy
     - name: Install nbmake and test notebooks
       run: |
         python -m pip install nbmake
