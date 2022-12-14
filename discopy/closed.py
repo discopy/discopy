@@ -70,6 +70,19 @@ class Ty(monoidal.Ty):
 
     Parameters:
         inside (Ty) : The objects inside the type.
+
+    Note
+    ----
+    We can exponentials of types.
+
+    >>> x, y, z = Ty(*"xyz")
+    >>> print((x ** y) ** z)
+    ((x ** y) ** z)
+
+    We can also distinguish left- and right-exponentials.
+
+    >>> print((x >> y) << z)
+    ((x >> y) << z)
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\

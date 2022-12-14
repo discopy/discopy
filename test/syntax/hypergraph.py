@@ -22,6 +22,13 @@ def test_Diagram_str():
         == "x @ Spider(1, 0, y) >> Spider(1, 0, x)"
 
 
+def test_Diagram_repr():
+    x, y = map(Ty, "xy")
+    assert repr(spiders(1, 0, x @ y))\
+        == "hypergraph.Diagram("\
+           "dom=frobenius.Ty(frobenius.Ob('x'), frobenius.Ob('y')), "\
+           "cod=frobenius.Ty(), boxes=[], wires=[0, 1])"
+
 def test_Diagram_then():
     x, y = map(Ty, "xy")
     with raises(AxiomError):
@@ -53,3 +60,11 @@ def test_AxiomError():
         cups(x @ y, x @ y)
     with raises(AxiomError):
         caps(x @ y, x @ y)
+
+
+def test_cups():
+    x = Ty('x')
+    assert Diagram.cups(x, x).make_monogamous().dagger()\
+        == Diagram.caps(x, x).make_monogamous()
+    assert Diagram.caps(x, x).make_monogamous().dagger()\
+        == Diagram.cups(x, x).make_monogamous()

@@ -103,18 +103,58 @@ class Grid:
         """
         Turn a grid into an html table.
 
-        Example
-        -------
+        Examples
+        --------
         >>> from discopy.monoidal import *
         >>> x = Ty('x')
         >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
         >>> unit = Box('unit', Ty(), x)
+        >>> snake = x @ cap >> cup @ x
+        >>> table = snake.to_grid().to_html()
+
+        >>> from lxml.etree import tostring
+        >>> print(tostring(table, pretty_print=True
+        ...     ).decode().strip())  # doctest: +ELLIPSIS
+        <div>
+          <style>.diagram .wire { border-left: 4px solid; ...</style>
+          <table class="diagram">
+            <tr>
+              <td class="wire">x</td>
+              <td/>
+              <td/>
+              <td/>
+              <td/>
+              <td/>
+              <td/>
+            </tr>
+            <tr>
+              <td colspan="1"/>
+              <td class="wire" colspan="2"/>
+              <td class="box" colspan="5">cap</td>
+            </tr>
+            <tr>
+              <td colspan="1"/>
+              <td class="wire" colspan="3"/>
+              <td class="wire" colspan="3">x</td>
+              <td class="wire" colspan="1">x</td>
+            </tr>
+            <tr>
+              <td class="box" colspan="5">cup</td>
+              <td colspan="2"/>
+              <td class="wire" colspan="1"/>
+            </tr>
+            <tr>
+              <td colspan="7"/>
+              <td class="wire" colspan="1"/>
+            </tr>
+          </table>
+        </div>
+
         >>> spiral = cap >> cap @ x @ x >> x @ x @ x @ unit @ x\\
         ...     >> x @ cap @ x @ x @ x @ x\\
         ...     >> x @ x @ unit[::-1] @ x @ x @ x @ x\\
         ...     >> x @ cup @ x @ x @ x >> x @ cup @ x >> cup
-        >>> table = spiral.to_grid().to_html()
-        >>> table.write(
+        >>> spiral.to_grid().to_html().write(
         ...     "docs/_static/drawing/example.html", pretty_print=True)
 
         .. raw:: html
@@ -234,14 +274,15 @@ class Grid:
 
         >>> from discopy.monoidal import *
         >>> x = Ty('x')
-        >>> f = Box('f', x, x @ x)
-        >>> diagram = (f @ f[::-1] >> f @ f[::-1]).foliation()
+        >>> f, s = Box('f', x, x @ x), Box('s', Ty(), Ty())
+        >>> diagram = (
+        ...     f @ f[::-1] >> x @ s @ x @ x >> f @ f[::-1]).foliation()
         >>> print(diagram.to_grid())
-        Grid([Wire(1, x), Wire(11, x), Wire(13, x)],
-             [Cell(0, 8, f), Cell(10, 14, f[::-1])],
-             [Wire(1, x), Wire(7, x), Wire(11, x)],
-             [Cell(0, 4, f), Cell(6, 12, f[::-1])],
-             [Wire(1, x), Wire(3, x), Wire(7, x)])
+        Grid([Wire(1, x), Wire(15, x), Wire(17, x)],
+             [Cell(0, 12, f), Cell(14, 18, f[::-1])],
+             [Wire(1, x), Wire(11, x), Wire(15, x)],
+             [Cell(0, 4, f), Cell(6, 8, s), Cell(10, 16, f[::-1])],
+             [Wire(1, x), Wire(3, x), Wire(11, x)])
         """
         def make_boxes_as_small_as_possible(
                 rows: list[list[Cell]]) -> list[list[Cell]]:

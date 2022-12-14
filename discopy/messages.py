@@ -30,15 +30,3 @@ INTERCHANGER_ERROR = "Boxes {} and {} do not commute."
 WRONG_PERMUTATION = "Expected a permutation of length {}, got {}."
 ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
-
-
-class WarnOnce:
-    warned = False
-
-    def __init__(self):
-        self.warned = False
-
-    def warn(self, message):
-        if not self.warned:
-            warnings.warn(message)
-        self.warned = True

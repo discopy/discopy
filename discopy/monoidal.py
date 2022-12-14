@@ -59,7 +59,6 @@ from abc import ABC, abstractmethod
 
 from discopy import cat, drawing, messages
 from discopy.cat import factory, Ob, AxiomError, assert_iscomposable
-from discopy.messages import WarnOnce
 from discopy.utils import factory_name, from_tree, assert_isinstance
 
 
@@ -878,6 +877,12 @@ class Sum(cat.Sum, Box):
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
+
+    Example
+    -------
+    >>> f = Box('f', 'x', 'x')
+    >>> print(f @ (f + f))
+    (f @ x >> x @ f) + (f @ x >> x @ f)
     """
     __ambiguous_inheritance__ = (cat.Sum, )
 
@@ -986,7 +991,7 @@ class Functor(cat.Functor):
 
     def __call__(self, other):
         if isinstance(other, PRO):
-            return sum(other.n * [self(other.factory(1))], self.cod.ob())
+            return sum(other.n * [self.ob[other.factory(1)]], self.cod.ob())
         if isinstance(other, Ty):
             return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):

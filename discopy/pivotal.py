@@ -47,7 +47,7 @@ For each diagram, we have its conjugate:
 
 We also have its dagger and its transpose:
 
->>> Equation(d.dagger(), d.r, symbol="").draw(
+>>> Equation(d.dagger(), d.rotate(), symbol="").draw(
 ...     figsize=(6, 2), space=2,
 ...     path="docs/_static/pivotal/dagger-transpose.png")
 
@@ -217,10 +217,6 @@ class Cup(rigid.Cup, Box):
         """ The dagger of a pivotal cup. """
         return self.cap_factory(self.left, self.right)
 
-    def rotate(self, left=False):
-        del left
-        return self.cap_factory(self.right.r, self.left.r)
-
 
 class Cap(rigid.Cap, Box):
     """
@@ -235,10 +231,6 @@ class Cap(rigid.Cap, Box):
     def dagger(self) -> Cup:
         """ The dagger of a pivotal cap. """
         return self.cup_factory(self.left, self.right)
-
-    def rotate(self, left=False):
-        del left
-        return self.cup_factory(self.right.r, self.left.r)
 
 
 class Category(rigid.Category):

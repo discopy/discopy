@@ -44,13 +44,22 @@ def test_PRO_init():
 
 
 def test_PRO_tensor():
-    assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12)
+    assert PRO(2) @ PRO(3) @ PRO(7) == PRO(12) == PRO(2).tensor(PRO(3), PRO(7))
     with raises(TypeError) as err:
         PRO(2) @ Ty('x')
 
 
 def test_PRO_repr():
     assert repr((PRO(0), PRO(1))) == "(monoidal.PRO(0), monoidal.PRO(1))"
+
+
+def test_PRO_hash():
+    assert hash(PRO(0)) == hash(PRO(0)) != hash(PRO(1))
+
+
+def test_PRO_to_tree():
+    assert PRO(0).to_tree() == {'factory': 'monoidal.PRO', 'n': 0}
+    assert PRO.from_tree(PRO(0).to_tree()) == PRO(0)
 
 
 def test_PRO_str():
@@ -60,6 +69,17 @@ def test_PRO_str():
 def test_PRO_getitem():
     assert PRO(42)[2: 4] == PRO(2)
     assert all(PRO(42)[i] == PRO(1) for i in range(42))
+
+
+def test_Layer_init():
+    with raises(ValueError):
+        Layer(1, 2, 3, 4)
+
+
+def test_Layer_getitem():
+    f = Box('f', 'x', 'x')
+    layer = Layer(Ty(), f, Ty())
+    assert layer[1] == f and layer[0] == layer[2] == Ty()
 
 
 def test_Diagram_init():
@@ -143,6 +163,8 @@ def test_Diagram_interchange():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
     d = f @ f.dagger()
+    with raises(NotImplementedError):
+        d.foliation().interchange(0, 1)
     assert d.interchange(0, 0) == f @ Id(y) >> Id(y) @ f.dagger()
     assert d.interchange(0, 1) == Id(x) @ f.dagger() >> f @ Id(x)
     assert (d >> d.dagger()).interchange(0, 2) ==\
@@ -271,6 +293,11 @@ def test_Functor_call():
     assert F(f @ f.dagger()) == f.dagger() @ Id(x) >> Id(x) @ f
     with raises(TypeError) as err:
         F(F)
+
+
+def test_PRO_Functor():
+    G = Functor(lambda x: x @ x, lambda f: f, cod=Category(PRO, Diagram))
+    assert G(PRO(2)) == PRO(4)
 
 
 def test_Functor_sum():

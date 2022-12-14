@@ -82,7 +82,7 @@ class Diagram(braided.Diagram):
         >>> braided_twist = Diagram.twist(x).to_braided()
 
         >>> from discopy.drawing import Equation
-        >>> Equation(Twist(x), braided_twist, symbol='\\mapsto').draw(
+        >>> Equation(Twist(x), braided_twist, symbol='$\\\\mapsto$').draw(
         ...     draw_type_labels=False,
         ...     path="docs/_static/balanced/twist_dual_rail.png")
 

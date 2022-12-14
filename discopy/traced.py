@@ -98,8 +98,7 @@ class Trace(Box, monoidal.Bubble):
         Box.__init__(self, name, dom, cod)
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({self.arg}, n={self.n}, left={self.left})"
+        return factory_name(type(self)) + f"({self.arg}, left={self.left})"
 
     def to_drawing(self):
         traced_wire = self.arg.dom[:1] if self.left else self.arg.dom[-1:]

@@ -217,13 +217,6 @@ class Diagram(closed.Diagram):
     ty_factory = Ty
     layer_factory = Layer
 
-    def dagger(self):
-        """
-        The dagger of a rigid diagram is ill-defined,
-        use a :class:`pivotal.Diagram` instead.
-        """
-        raise AxiomError("Rigid diagrams have no dagger, use pivotal instead.")
-
     over = staticmethod(lambda base, exponent: base << exponent)
     under = staticmethod(lambda base, exponent: exponent >> base)
 
@@ -646,6 +639,13 @@ class Cup(BinaryBoxConstructor, Box):
     def r(self):
         return self.cap_factory(self.right.r, self.left.r)
 
+    def dagger(self):
+        """
+        The dagger of a rigid cup is ill-defined,
+        use a :class:`pivotal.Cup` instead.
+        """
+        raise AxiomError("Rigid cups have no dagger, use pivotal instead.")
+
 
 class Cap(BinaryBoxConstructor, Box):
     """
@@ -680,6 +680,13 @@ class Cap(BinaryBoxConstructor, Box):
     @property
     def r(self):
         return self.cup_factory(self.right.r, self.left.r)
+
+    def dagger(self):
+        """
+        The dagger of a rigid cap is ill-defined,
+        use a :class:`pivotal.Cap` instead.
+        """
+        raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
 class Category(closed.Category):
@@ -729,8 +736,6 @@ class Functor(closed.Functor):
         if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
             return super().__call__(other)
         if isinstance(other, Ob):
-            if not hasattr(self.cod.ob, 'l' if other.z < 0 else 'r'):
-                return self(Ob(other.name, z=0))[::-1]
             return self(other.r).l if other.z < 0 else self(other.l).r
         if isinstance(other, Cup):
             return self.cod.ar.cups(self(other.dom[:1]), self(other.dom[1:]))

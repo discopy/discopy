@@ -302,7 +302,7 @@ class Functor(tensor.Functor):
         ob (dict[cat.Ob, CQ]) : The object mapping.
         ar (dict[cat.Box, array]) : The arrow mapping.
         dom : The domain of the functor.
-        dtype : The datatype for the codomain ``Category(Dim, Tensor[dtype])``.
+        dtype : The datatype for the codomain ``Category(CQ, Channel[dtype])``.
     """
     dom, cod = frobenius.Category(), Category(CQ, Channel)
 

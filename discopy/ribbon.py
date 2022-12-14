@@ -42,7 +42,7 @@ i.e. two parallel wires with the twist drawn as the double braid.
 
 >>> ribbon_twist = Diagram.twist(x).to_ribbons()
 >>> eq = Equation(ribbon_twist, twist_l.to_ribbons())
->>> eq.draw(symbol='\\mapsto', draw_type_labels=False,
+>>> eq.draw(symbol='$\\\\mapsto$', draw_type_labels=False,
 ...     path="docs/_static/balanced/ribbon_twist.png")
 
 .. image:: /_static/balanced/ribbon_twist.png

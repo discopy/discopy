@@ -558,8 +558,6 @@ class Box(Arrow):
     @cached_property
     def free_symbols(self) -> "set[sympy.Symbol]":
         def recursive_free_symbols(data):
-            if hasattr(data, 'tolist'):
-                data = data.tolist()
             if isinstance(data, Mapping):
                 data = data.values()
             if isinstance(data, Iterable):
@@ -611,10 +609,7 @@ class Box(Arrow):
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
-            try:
-                eq_data = bool(self.data == other.data)
-            except ValueError:  # F***ing NumPy equality returns an array.
-                eq_data = (self.data == other.data).all()
+            eq_data = bool(self.data == other.data)
             return self.name == other.name and self.is_parallel(other)\
                 and self.is_dagger == other.is_dagger and eq_data
         return isinstance(other, self.factory) and other.inside == (self, )
@@ -814,6 +809,13 @@ class Category:
     Parameters:
         ob : The objects of the category, default is :class:`Ob`.
         ar : The arrows of the category, default is :class:`Arrow`.
+
+    Example
+    -------
+    >>> Category()
+    Category(cat.Ob, cat.Arrow)
+    >>> CAT
+    Category(cat.Category, cat.Functor)
     """
     ob, ar = Ob, Arrow
 

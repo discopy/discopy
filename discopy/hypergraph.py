@@ -453,7 +453,8 @@ class Diagram(Composable, Whiskerable):
         data = list(map(repr, [self.dom, self.cod, self.boxes, self.wires]))
         data += [", spider_types={}".format(
             self.spider_types) if self.scalar_spiders else ""]
-        return factory_name(type(self)) + "({}, {}, {}, {}{})".format(*data)
+        return factory_name(type(self))\
+            + "(dom={}, cod={}, boxes={}, wires={}{})".format(*data)
 
     def __str__(self):
         return str(self.downgrade())

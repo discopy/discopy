@@ -94,10 +94,23 @@ class Diagram(compact.Diagram):
         See Also
         --------
         This calls :func:`coherence`.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation
+        >>> spider = Spider(3, 5, Ty(''), "$\\\\phi$") @ Ty()
+        >>> Spider.color = "red"
+        >>> Equation(spider, spider.unfuse(), symbol="$\\\\mapsto$").draw(
+        ...     path='docs/_static/hypergraph/unfuse.png')
+
+        .. image:: /_static/hypergraph/unfuse.png
+            :align: center
         """
-        return compact.Functor(
+        F = compact.Functor(
             ob=lambda x: x, ar=lambda f:
-                f.unfuse() if isinstance(f, Spider) else f)(self)
+                f.unfuse() if isinstance(f, Spider) else f)
+        F.dom, F.cod = Category(), Category()
+        return F(self)
 
 
 class Box(compact.Box, Diagram):
@@ -164,7 +177,6 @@ class Spider(Box):
     """
     draw_as_spider = True
     color = "black"
-    drawing_name = ""
 
     def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty, data=None,
                  **params):
@@ -175,6 +187,7 @@ class Spider(Box):
             n_legs_in, n_legs_out, typ, data_str)
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         Box.__init__(self, name, dom, cod, data=data, **params)
+        self.drawing_name = "" if not data else str(data)
 
     @property
     def phase(self):
