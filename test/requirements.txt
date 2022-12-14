@@ -12,3 +12,4 @@ torch
 pennylane
 lxml
 nltk
+pylint
