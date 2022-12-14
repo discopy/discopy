@@ -18,7 +18,6 @@ Summary
     Category
     Functor
 """
-from __future__ import annotations
 
 from discopy import monoidal, messages
 from discopy.cat import factory, AxiomError

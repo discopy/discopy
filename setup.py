@@ -48,5 +48,5 @@ if __name__ == '__main__':  # pragma: no cover
           extras_require={'test': TEST_REQS, 'docs': DOCS_REQS},
           data_file=[('test', ['test/requirements.txt']),
                      ('docs', ['docs/requirements.txt'])],
-          python_requires='>=3',
+          python_requires='>=3.9',
           )
