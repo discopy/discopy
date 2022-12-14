@@ -40,11 +40,12 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
               'm2r2',
-              'nbsphinx',
               'sphinx.ext.mathjax',
               'youtube',
               'bases-fullname',
               'sphinxcontrib.bibtex',
+              'nbsphinx',
+              'IPython.sphinxext.ipython_console_highlighting'
               ]
 
 bibtex_bibfiles = ['discopy.bib']
