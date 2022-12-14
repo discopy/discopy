@@ -381,9 +381,6 @@ class Diagram(closed.Diagram):
             for xs in [left_boxes_and_types, right_boxes_and_types]]
         return top >> left_layer @ transposed_box @ right_layer >> bottom
 
-    def draw(self, asymmetry=.25, **params):
-        return super().draw(**dict(dict(asymmetry=asymmetry), **params))
-
     def snake_removal(self, left=False) -> Iterator[Diagram]:
         """
         Return a generator which yields normalization steps.

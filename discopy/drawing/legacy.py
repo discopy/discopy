@@ -73,7 +73,7 @@ DEFAULT = {
 # Mapping from tikz colors to hexcodes.
 COLORS = {
     "white": '#ffffff',
-    "red": '#ff0000',
+    "red": '#e8a5a5',
     "green": '#d8f8d8',
     "blue": '#776ff3',
     "yellow": '#f7f700',
@@ -129,7 +129,6 @@ def diagram2nx(diagram):
         from nodes to pairs of floats.
     """
     import networkx as nx
-    diagram = diagram.to_drawing()
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -542,6 +541,16 @@ class MatBackend(Backend):
             plt.show()
 
 
+def needs_asymmetry(diagram):
+    if hasattr(diagram, "terms"):
+        return any(needs_asymmetry(d) for d in diagram.terms)
+    return any(
+        box.is_dagger
+        or getattr(box, "is_conjugate", False)
+        or getattr(box, "is_transpose", False)
+        for box in diagram.boxes)
+
+
 def draw(diagram, **params):
     """
     Draws a diagram using networkx and matplotlib.
@@ -579,14 +588,17 @@ def draw(diagram, **params):
         Make a box and its dagger mirror images, default is
         :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
-    from discopy.quantum.drawing import (
-        draw_brakets, draw_controlled_gate, draw_discard, draw_measure)
+    diagram = diagram.to_drawing()
+
     drawing_methods = [
         ("draw_as_brakets", draw_brakets),
         ("draw_as_controlled", draw_controlled_gate),
         ("draw_as_discards", draw_discard),
         ("draw_as_measures", draw_measure),
         (None, draw_box)]
+
+    params['asymmetry'] = params.get(
+        'asymmetry', .25 * needs_asymmetry(diagram))
 
     def draw_wires(backend, graph, positions):
         for source, target in graph.edges():
@@ -692,11 +704,7 @@ def draw(diagram, **params):
 def draw_box(backend, positions, node, **params):
     """ Draws a box node on a given backend. """
     box, depth = node.box, node.depth
-    asymmetry = params.get(
-        'asymmetry', .25 * any(
-            pos.kind == "box" and (
-                pos.box.is_dagger or getattr(pos.box, "is_conjugate", False))
-            for pos in positions.keys()))
+    asymmetry = params.get('asymmetry')
     if not box.dom and not box.cod:
         left, right = positions[node][0], positions[node][0]
     elif not box.dom:
@@ -908,6 +916,11 @@ class Equation:
     """
     An equation is a list of diagrams with a dedicated draw method.
 
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between the terms.
+        space : The space between the terms.
+
     Example
     -------
     >>> from discopy.tensor import Spider, Swap, Dim, Id
@@ -926,8 +939,8 @@ class Equation:
     .. image:: /_static/drawing/frobenius-axioms.png
         :align: center
     """
-    def __init__(self, *terms: discopy.monoidal.Diagram, symbol="="):
-        self.terms, self.symbol = terms, symbol
+    def __init__(self, *terms: discopy.monoidal.Diagram, symbol="=", space=1):
+        self.terms, self.symbol, self.space = terms, symbol, space
 
     def __repr__(self):
         return "Equation({})".format(', '.join(map(repr, self.terms)))
@@ -935,7 +948,7 @@ class Equation:
     def __str__(self):
         return " {} ".format(self.symbol).join(map(str, self.terms))
 
-    def draw(self, path=None, space=1, **params):
+    def draw(self, path=None, space=None, **params):
         """
         Drawing an equation.
 
@@ -950,6 +963,9 @@ class Equation:
                 return max(height(d) for d in term.terms)
             return len(term.to_drawing()) or 1
 
+        params['asymmetry'] = params.get(
+            'asymmetry', .25 * needs_asymmetry(self))
+        space = space or self.space
         max_height = max(map(height, self.terms))
         pad = params.get('pad', (0, 0))
         scale_x, scale_y = params.get('scale', (1, 1))
@@ -1068,3 +1084,138 @@ def diagramize(dom, cod, boxes, factory=None):
                 .format(cod, result.cod))  # pragma: no cover
         return result
     return decorator
+
+
+def draw_discard(backend, positions, node, **params):
+    """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
+    box, depth = node.box, node.depth
+    for i in range(len(box.dom)):
+        obj = box.dom.inside[i]
+        wire = Node("dom", obj=obj, depth=depth, i=i)
+        middle = positions[wire]
+        left, right = middle[0] - .25, middle[0] + .25
+        height = positions[node][1] + .25
+        for j in range(3):
+            source = (left + .1 * j, height - .1 * j)
+            target = (right - .1 * j, height - .1 * j)
+            backend.draw_wire(source, target)
+
+    return backend
+
+
+def draw_measure(backend, positions, node, **params):
+    """ Draws a :class:`discopy.quantum.circuit.Measure` box. """
+    backend = draw_box(backend, positions, node,
+                       **dict(params, draw_box_labels=False))
+    i, j = positions[node]
+    backend.draw_wire((i - .15, j - .1), (i, j + .1), bend_in=True)
+    backend.draw_wire((i, j + .1), (i + .15, j - .1), bend_out=True)
+    backend.draw_wire((i, j - .1), (i + .05, j + .15), style='->')
+    return backend
+
+
+def draw_brakets(backend, positions, node, **params):
+    """ Draws a :class:`discopy.quantum.gates.Ket` box. """
+    box, depth = node.box, node.depth
+    is_bra = len(box.dom) > 0
+    for i, bit in enumerate(box._digits):
+        kind = "dom" if is_bra else "cod"
+        obj = box.dom.inside[i] if is_bra else box.cod.inside[i]
+        wire = Node(kind, obj=obj, depth=depth, i=i)
+        middle = positions[wire]
+        left = middle[0] - .25, middle[1]
+        right = middle[0] + .25, middle[1]
+        top = middle[0], middle[1] + .5
+        bottom = middle[0], middle[1] - .5
+        backend.draw_polygon(
+            left, right, bottom if is_bra else top, color=box.color)
+        backend.draw_text(
+            bit, middle[0], middle[1] + (-.25 if is_bra else .2),
+            ha='center', va='center', fontsize=params.get('fontsize', None))
+    return backend
+
+
+def draw_controlled_gate(backend, positions, node, **params):
+    """ Draws a :class:`discopy.quantum.gates.Controlled` gate. """
+    box, depth = node.box, node.depth
+    distance = box.distance
+    c_size = len(box.controlled.dom)
+
+    index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
+    dom = Node("dom", obj=box.dom.inside[0], i=index[0], depth=depth)
+    cod = Node("cod", obj=box.cod.inside[0], i=index[0], depth=depth)
+    middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
+    controlled_box = box.controlled.to_drawing()
+    controlled = Node("box", box=controlled_box, depth=depth)
+    # TODO select obj properly for classical gates
+    c_dom = Node("dom", obj=box.dom.inside[0], i=index[1], depth=depth)
+    c_cod = Node("cod", obj=box.cod.inside[0], i=index[1], depth=depth)
+    c_middle =\
+        positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
+    target = (positions[c_dom][0] + (c_size - 1) / 2,
+              (positions[c_dom][1] + positions[c_cod][1]) / 2)
+    target_boundary = target
+    if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
+        backend.draw_wire(positions[c_dom], positions[c_cod])
+        eps = 1e-10
+        perturbed_target = target[0], target[1] + eps
+        backend.draw_node(
+            *perturbed_target,
+            shape="circle", color="white", edgecolor="black",
+            nodesize=2 * params.get("nodesize", 1))
+        backend.draw_node(
+            *target, shape="plus",
+            nodesize=2 * params.get("nodesize", 1))
+    else:
+        fake_positions = {controlled: target}
+        for i in range(c_size):
+            dom_node = Node("dom", obj=box.dom.inside[i], i=i, depth=depth)
+            x, y = positions[c_dom][0] + i, positions[c_dom][1]
+            fake_positions[dom_node] = x, y
+
+            cod_node = Node("cod", obj=box.cod.inside[i], i=i, depth=depth)
+            x, y = positions[c_cod][0] + i, positions[c_cod][1]
+            fake_positions[cod_node] = x, y
+
+        shift_boundary = True
+        if hasattr(box.controlled, "draw_as_controlled"):
+            backend = draw_controlled_gate(
+                backend, fake_positions, controlled, **params)
+
+            next_box = box.controlled
+            while hasattr(next_box, "controlled"):
+                if controlled_box.distance * next_box.distance < 0:
+                    shift_boundary = False
+                    break
+                next_box = next_box.controlled
+            if next_box.name == "X":
+                shift_boundary = False
+        else:
+            backend = draw_box(backend, fake_positions, controlled, **params)
+
+        if shift_boundary:
+            if box.distance > 0:
+                target_boundary = c_middle[0] - .25, c_middle[1]
+            else:
+                target_boundary = c_middle[0] + c_size - 1 + .25, c_middle[1]
+        else:
+            if box.distance > 0:
+                target_boundary = c_middle[0], c_middle[1]
+            else:
+                target_boundary = c_middle[0] + c_size - 1, c_middle[1]
+    backend.draw_wire(positions[dom], positions[cod])
+
+    # draw all the other vertical wires
+    extra_offset = 1 if distance > 0 else len(box.controlled.dom)
+    for i in range(extra_offset, extra_offset + abs(distance) - 1):
+        node1 = Node("dom", obj=box.dom.inside[i], i=i, depth=depth)
+        node2 = Node("cod", obj=box.cod.inside[i], i=i, depth=depth)
+        backend.draw_wire(positions[node1], positions[node2])
+
+    # TODO change bend_in and bend_out for tikz backend
+    backend.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
+
+    backend.draw_node(
+        *middle, color="black", shape="circle",
+        nodesize=params.get("nodesize", 1))
+    return backend

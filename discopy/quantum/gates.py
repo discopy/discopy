@@ -391,6 +391,8 @@ class Controlled(QuantumGate):
         Number of qubits from the control to the target, default is :code:`0`.
         If negative, the control is on the right of the target.
     """
+    draw_as_controlled = True
+
     def __init__(self, controlled, distance=1):
         assert_isinstance(controlled, QuantumGate)
         if not distance:
@@ -488,7 +490,6 @@ class Controlled(QuantumGate):
     def to_drawing(self):
         result = super().to_drawing()
         result.distance, result.controlled = self.distance, self.controlled
-        result.draw_as_controlled = True
         return result
 
 
