@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 from pytest import raises
-from discopy.python import *
+
 from discopy.closed import *
+from discopy.python import *
 
 
 def test_Function():

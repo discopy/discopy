@@ -31,14 +31,12 @@ from pytket.circuit import (Bit, Op, OpType,
                             Qubit)  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
 
-from discopy import messages
-from discopy.utils import assert_isinstance
 from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Digits, Ket,
     Swap, Scalar, MixedScalar, GATES, X, Rx, Ry, Rz, CRx,
     CRz, format_number, Discard, Measure)
-
+from discopy.utils import assert_isinstance
 
 OPTYPE_MAP = {"H": OpType.H,
               "X": OpType.X,

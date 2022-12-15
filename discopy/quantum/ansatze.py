@@ -17,12 +17,7 @@ Summary
 
 """
 
-import random
-from functools import reduce, partial
-from itertools import takewhile, chain
-
 from discopy.matrix import get_backend
-from discopy.tensor import Tensor
 from discopy.quantum.circuit import qubit, Circuit, Id
 
 

@@ -1,4 +1,6 @@
 from pytest import raises
+
+from discopy.cat import AxiomError
 from discopy.pivotal import *
 
 

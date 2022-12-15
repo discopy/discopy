@@ -1,8 +1,6 @@
 from pytest import raises
 
-from discopy import closed
 from discopy.closed import Ty
-from discopy.cat import AxiomError
 from discopy.grammar.categorial import *
 
 tree = {

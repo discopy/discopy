@@ -1,16 +1,11 @@
 import os
+
+from matplotlib.testing.compare import compare_images
 from pytest import raises
 
-from PIL import Image, ImageChops
-from matplotlib import pyplot as plt
-from matplotlib.testing.compare import compare_images
-
-from discopy import *
-from discopy.quantum import Circuit
-from discopy.monoidal import Sum
+from discopy.cat import AxiomError
 from discopy.compact import *
 from discopy.drawing import *
-
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/src/imgs/', 'test/src/tikz/', 10
 
@@ -154,19 +149,19 @@ def test_Node_repr():
 def test_diagramize():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
-    with raises(cat.AxiomError):
+    with raises(AxiomError):
         @diagramize(y, x, [f])
         def diagram(wire):
             return f(wire)
-    with raises(cat.AxiomError):
+    with raises(AxiomError):
         @diagramize(x, x, [f])
         def diagram(wire):
             return f(wire)
-    with raises(cat.AxiomError):
+    with raises(AxiomError):
         @diagramize(x @ x, x, [f])
         def diagram(left, right):
             return f(left, right)
-    with raises(cat.AxiomError):
+    with raises(AxiomError):
         @diagramize(x, x @ y, [f])
         def diagram(wire):
             return wire, f(offset=0)
@@ -185,7 +180,7 @@ def test_empty_diagram():
 
 @draw_and_compare('bell-state.png', aspect='equal')
 def test_draw_bell_state():
-    from discopy.quantum import qubit, H, sqrt, Bra, Ket, Id, CX
+    from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
     return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 
 
@@ -198,7 +193,7 @@ def test_snake_equation_to_tikz():
 
 @tikz_and_compare("who-ansatz.tikz")
 def test_who_ansatz_to_tikz():
-    from discopy.grammar.pregroup import Ty, Cup, Cap, Word, Id, Box
+    from discopy.grammar.pregroup import Ty, Cap, Word, Id, Box
     s, n = Ty('s'), Ty('n')
     who = Word('who', n.r @ n @ s.l @ n)
     who_ansatz = Cap(n.r, n)\
@@ -218,7 +213,7 @@ def test_tikz_bialgebra_law():
 
 @tikz_and_compare('bell-state.tikz', aspect='equal', use_tikzstyles=True)
 def test_tikz_bell_state():
-    from discopy.quantum import qubit, H, sqrt, Bra, Ket, Id, CX
+    from discopy.quantum import qubit, H, sqrt, Bra, Ket, CX
     H.draw_as_spider, H.color, H.drawing_name = True, "yellow", ""
     return sqrt(2) >> Ket(0, 0) >> H @ qubit >> CX >> Bra(0) @ qubit
 

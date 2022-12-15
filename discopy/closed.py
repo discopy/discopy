@@ -53,12 +53,10 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, messages
-from discopy.cat import AxiomError, Category, factory
-from discopy.braided import BinaryBoxConstructor
+from discopy import cat, monoidal
+from discopy.cat import Category, factory
 from discopy.utils import (
     factory_name,
-    assert_isinstance,
     from_tree,
 )
 

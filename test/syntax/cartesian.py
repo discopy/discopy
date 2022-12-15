@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from discopy import *
-from discopy.python import *
+from discopy.python import Function
+
 from discopy.cartesian import *
+from discopy import *
 
 
 def test_equations():

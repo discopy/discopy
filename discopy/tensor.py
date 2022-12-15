@@ -27,12 +27,12 @@ Summary
 from __future__ import annotations
 
 from discopy import (
-    cat, messages, monoidal, rigid, symmetric, frobenius)
-from discopy.cat import Composable, AxiomError, factory, assert_iscomposable
-from discopy.monoidal import Whiskerable, assert_isatomic
+    cat, monoidal, rigid, symmetric, frobenius)
+from discopy.cat import factory, assert_iscomposable
+from discopy.frobenius import Ty, Cup, Category
+from discopy.matrix import Matrix, backend
+from discopy.monoidal import assert_isatomic
 from discopy.rigid import assert_isadjoint
-from discopy.frobenius import Ob, Ty, Cup, Cap, Category
-from discopy.matrix import Matrix, array2string, backend, get_backend
 from discopy.utils import factory_name, assert_isinstance, product
 
 

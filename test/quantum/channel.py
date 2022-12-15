@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-
+from discopy.cat import AxiomError
 from pytest import raises
+
 from discopy.quantum import *
 from discopy.quantum.channel import *
 

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from pytest import raises
 from unittest.mock import Mock
 
 import numpy as np
+from pytest import raises
 
-from discopy.quantum.circuit import *
-from discopy.quantum.gates import *
 from discopy.quantum import tk
+from discopy.quantum.gates import *
+
 
 def test_Circuit_to_tk():
     bell_state = Circuit.caps(qubit, qubit)

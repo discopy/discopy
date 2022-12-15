@@ -22,15 +22,16 @@ associated weights should be passed to `eval()` as `symbols=` and
 """
 
 
-from discopy.quantum import Circuit
-from discopy.quantum.gates import Scalar
 from itertools import product
+
 import numpy as np
 import pennylane as qml
-from pytket import OpType
 import sympy
 import torch
+from pytket import OpType
 
+from discopy.quantum import Circuit
+from discopy.quantum.gates import Scalar
 
 OP_MAP = {
     OpType.X: qml.PauliX,

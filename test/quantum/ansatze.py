@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import numpy as np
 from pytest import raises
 
-import numpy as np
-
-from discopy.quantum import *
 from discopy.quantum.ansatze import (
     IQPansatz, Sim14ansatz, Sim15ansatz)
 

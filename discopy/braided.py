@@ -57,9 +57,10 @@ The hexagon equations hold on the nose.
 """
 
 from __future__ import annotations
+
 from collections.abc import Callable
 
-from discopy import cat, monoidal
+from discopy import monoidal
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
 from discopy.utils import factory_name, from_tree

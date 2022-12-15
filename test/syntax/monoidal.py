@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pytest import raises
+
 from discopy.cat import *
 from discopy.monoidal import *
 

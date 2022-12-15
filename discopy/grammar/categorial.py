@@ -36,10 +36,10 @@ Summary
 import re
 
 from discopy import closed, messages
+from discopy.braided import BinaryBoxConstructor
 from discopy.cat import factory, AxiomError
-from discopy.closed import BinaryBoxConstructor
-from discopy.utils import assert_isinstance, factory_name, from_tree
 from discopy.grammar import thue
+from discopy.utils import assert_isinstance, factory_name, from_tree
 
 
 @factory

@@ -15,11 +15,8 @@ Summary
         from_spacy
 """
 
-from unittest.mock import Mock
-
-from discopy import monoidal
+from discopy.grammar.cfg import Word, Rule
 from discopy.monoidal import Ty
-from discopy.grammar.cfg import Word, Rule, Tree
 
 
 def from_spacy(doc):

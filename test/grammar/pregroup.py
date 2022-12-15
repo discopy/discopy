@@ -1,8 +1,7 @@
 from pytest import raises
 
-from discopy import messages
-from discopy.utils import from_tree
 from discopy.grammar.pregroup import *
+from discopy.utils import from_tree
 
 
 def test_Word():

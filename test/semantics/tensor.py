@@ -1,6 +1,8 @@
-from pytest import raises
 import numpy as np
 import tensornetwork as tn
+from pytest import raises
+
+from discopy.cat import AxiomError
 from discopy.tensor import *
 
 
@@ -255,7 +257,6 @@ def test_Tensor_adjoint_eval():
 
 
 def test_non_numpy_eval():
-    import torch
     with backend('torch'):
         with raises(Exception):
             Swap(Dim(2), Dim(2)).eval()

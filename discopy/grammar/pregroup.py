@@ -29,11 +29,10 @@ Summary
         brute_force
 """
 
-from discopy import messages, drawing, monoidal, rigid, symmetric
-from discopy.grammar import thue
+from discopy import messages, rigid, symmetric
 from discopy.cat import factory
+from discopy.grammar import thue
 from discopy.rigid import Ty
-from discopy.utils import assert_isinstance
 
 
 @factory

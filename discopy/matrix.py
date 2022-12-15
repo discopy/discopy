@@ -35,6 +35,7 @@ See also
 
 """
 from __future__ import annotations
+
 from contextlib import contextmanager
 
 from discopy import cat, monoidal, config

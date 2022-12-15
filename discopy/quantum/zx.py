@@ -23,14 +23,14 @@ Summary
 
 from math import pi
 
-from discopy import messages, cat, rigid, tensor, quantum
+from discopy import cat, rigid, tensor, quantum
 from discopy.cat import factory
-from discopy.rigid import Sum, PRO
 from discopy.frobenius import Category
-from discopy.quantum.circuit import Circuit, qubit
+from discopy.quantum.circuit import qubit
 from discopy.quantum.gates import (
-    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, CU1, Controlled, format_number)
+    Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
+from discopy.rigid import Sum, PRO
 from discopy.utils import factory_name
 
 

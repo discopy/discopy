@@ -30,19 +30,17 @@ Summary
 
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from math import sqrt
-import os
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from PIL import Image
-
 import matplotlib.pyplot as plt
-from matplotlib.path import Path
+from PIL import Image
 from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 
 from discopy.utils import assert_isinstance
-
 
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
@@ -911,7 +909,6 @@ def diagramize(dom, cod, boxes, factory=None):
 
     def decorator(func):
         import networkx as nx
-        from discopy import messages
         from discopy.cat import AxiomError
         from discopy.python import tuplify, untuplify
         graph, box_nodes = nx.Graph(), []

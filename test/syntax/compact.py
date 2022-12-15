@@ -1,4 +1,5 @@
 from pytest import raises
+
 from discopy.compact import *
 
 

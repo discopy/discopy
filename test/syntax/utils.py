@@ -4,7 +4,6 @@ from unittest.mock import patch
 from discopy.cat import Ob
 from discopy.utils import *
 
-
 zip_mock = MagicMock()
 zip_mock.open().__enter__().read.return_value =\
     '[{"factory": "cat.Ob", "name": "a"}]'

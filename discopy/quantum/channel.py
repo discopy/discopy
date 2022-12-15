@@ -43,14 +43,14 @@ Channel([0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j], dom=CQ(), cod=Q(Dim(2)))
 
 from __future__ import annotations
 
-from discopy import monoidal, frobenius, messages, tensor
-from discopy.cat import factory, Category, AxiomError
+from discopy import frobenius, tensor
+from discopy.cat import factory, Category
 from discopy.frobenius import Ty, Diagram, Box
 from discopy.matrix import backend
-from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import (
-    bit, qubit, Digit, Qudit, Sum, Swap)
+    Digit, Qudit)
 from discopy.quantum.gates import Discard, Measure, MixedState, Encode, Scalar
+from discopy.tensor import Dim, Tensor
 from discopy.utils import assert_isinstance
 
 

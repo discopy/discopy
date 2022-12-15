@@ -1,5 +1,5 @@
 from pytest import raises
-from discopy.rigid import *
+
 from discopy.frobenius import *
 
 

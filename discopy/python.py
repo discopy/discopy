@@ -29,13 +29,11 @@ Summary
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Callable
+from dataclasses import dataclass
 
-from discopy import cat
-from discopy.cat import Category, Composable, assert_iscomposable
+from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
-
 
 Ty = tuple[type, ...]
 

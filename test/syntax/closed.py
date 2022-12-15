@@ -1,5 +1,3 @@
-from pytest import raises
-from discopy.utils import from_tree
 from discopy.closed import *
 
 

@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from functools import partial
-from pytest import raises
 import numpy as np
+import sympy
+import torch
+from pytest import raises
 
 from discopy.quantum.channel import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
-import torch
-import sympy
 
 
 def test_index2bitstring():

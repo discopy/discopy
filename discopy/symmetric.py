@@ -53,7 +53,7 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, messages
 from discopy.cat import factory
-from discopy.monoidal import Ty, PRO, assert_isatomic
+from discopy.monoidal import Ty, PRO
 
 
 @factory

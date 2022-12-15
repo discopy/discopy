@@ -78,16 +78,15 @@ Functors are bubble-preserving.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Mapping, Iterable
 from dataclasses import dataclass
 from functools import total_ordering, cached_property
-from collections.abc import Callable, Mapping, Iterable
 
 from discopy import messages, utils
 from discopy.utils import (
     factory_name,
     from_tree,
     rsubs,
-    rmap,
     assert_isinstance,
     Dict,
 )

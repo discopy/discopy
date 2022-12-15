@@ -41,12 +41,13 @@ Axioms
 """
 
 from __future__ import annotations
+
 from collections.abc import Callable
 
 from discopy import cat, monoidal, closed, messages
+from discopy.braided import BinaryBoxConstructor
 from discopy.cat import AxiomError, factory
 from discopy.monoidal import assert_isatomic
-from discopy.braided import BinaryBoxConstructor
 from discopy.utils import assert_isinstance, factory_name
 
 
@@ -394,7 +395,7 @@ class Diagram(closed.Diagram):
         g >> f[::-1] >> f >> h
         """
         from discopy import monoidal
-        from discopy.rigid import Diagram, Cup, Cap
+        from discopy.rigid import Cup, Cap
 
         def follow_wire(diagram, i, j):
             """

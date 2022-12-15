@@ -26,6 +26,7 @@ Summary
 """
 
 from __future__ import annotations
+
 from collections.abc import Callable
 
 from discopy import compact, pivotal

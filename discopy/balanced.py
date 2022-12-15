@@ -31,12 +31,11 @@ The axiom for the twist holds on the nose.
 """
 
 from __future__ import annotations
-from collections.abc import Callable
 
-from discopy import cat, monoidal, braided
+from discopy import monoidal, braided
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
-from discopy.utils import factory_name, from_tree
+from discopy.utils import factory_name
 
 
 @factory

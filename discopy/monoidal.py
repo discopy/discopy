@@ -53,9 +53,8 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from typing import Iterator
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from typing import Iterator
 
 from discopy import cat, drawing, messages
 from discopy.cat import factory, Ob, AxiomError, assert_iscomposable

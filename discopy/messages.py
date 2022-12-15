@@ -4,9 +4,6 @@
 discopy error messages.
 """
 
-import warnings
-
-
 TYPE_ERROR = "Expected {}, got {} instead."
 NOT_COMPOSABLE = "{} does not compose with {}: {} != {}."
 NOT_PARALLEL = "Expected parallel arrows, got {} and {} instead."

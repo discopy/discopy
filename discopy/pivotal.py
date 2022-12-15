@@ -57,8 +57,8 @@ We also have its dagger and its transpose:
 
 from __future__ import annotations
 
-from discopy import cat, rigid, traced, messages
-from discopy.cat import factory, AxiomError
+from discopy import cat, rigid, traced
+from discopy.cat import factory
 
 
 class Ob(rigid.Ob):

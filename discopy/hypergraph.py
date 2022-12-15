@@ -132,16 +132,15 @@ import matplotlib.pyplot as plt
 from networkx import Graph, connected_components, spring_layout, draw_networkx
 
 from discopy import cat, monoidal, drawing, frobenius
-from discopy.cat import AxiomError, Composable
-from discopy.monoidal import Whiskerable, assert_isatomic
 from discopy.braided import BinaryBoxConstructor
+from discopy.cat import AxiomError, Composable
 from discopy.drawing import Node
 from discopy.frobenius import Ty, Category
+from discopy.monoidal import Whiskerable, assert_isatomic
 from discopy.utils import (
     factory_name,
     assert_isinstance,
 )
-
 
 Pushout = tuple[dict[int, int], dict[int, int]]
 

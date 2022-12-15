@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from pytest import raises
-from discopy.monoidal import PRO
+
 from discopy.symmetric import *
 
 

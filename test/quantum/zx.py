@@ -1,8 +1,11 @@
-from pytest import raises, fixture
-from discopy import *
-from discopy.quantum.zx import *
-import numpy as np
 import random
+
+import numpy as np
+from pytest import raises, fixture
+
+from discopy.quantum.gates import CRz, CRx, CU1
+from discopy.quantum.zx import *
+from discopy import frobenius
 
 
 @fixture
