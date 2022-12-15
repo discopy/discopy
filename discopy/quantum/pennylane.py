@@ -3,6 +3,31 @@
 """
 Interface with PennyLane.
 
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    PennyLaneCircuit
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        tk_op_to_pennylane
+        extract_ops_from_tk
+        get_post_selection_dict
+        to_pennylane
+
+Notes
+-----
+
 If `probabilities` is set to False, the output states of the PennyLane
 circuit will be exactly equivalent to those of the DisCoPy circuit
 (for the same parameters).

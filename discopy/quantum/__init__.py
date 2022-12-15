@@ -4,8 +4,7 @@
 DisCoPy quantum modules: channel, circuit, gates, tk and zx.
 """
 
-from discopy.quantum import (
-    circuit, gates, channel, ansatze, zx)
+from discopy.quantum import circuit, gates, channel, ansatze, zx
 from discopy.quantum.ansatze import (
     IQPansatz, Sim14ansatz, Sim15ansatz,
 )

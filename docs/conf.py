@@ -52,7 +52,7 @@ bibtex_bibfiles = ['discopy.bib']
 
 autosummary_generate = True
 
-autodoc_mock_imports = ["pytket", "pennylane", "torch"]
+autodoc_mock_imports = ["pytket", "pennylane", "torch", "sympy"]
 
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"

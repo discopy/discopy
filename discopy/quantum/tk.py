@@ -27,8 +27,7 @@ Summary
 from unittest.mock import Mock
 
 import pytket as tk
-from pytket.circuit import (Bit, Op, OpType,
-                            Qubit)  # pylint: disable=no-name-in-module
+from pytket.circuit import Bit, Op, OpType, Qubit
 from pytket.utils import probs_from_counts
 
 from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
