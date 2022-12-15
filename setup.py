@@ -33,15 +33,20 @@ if __name__ == '__main__':  # pragma: no cover
           version=VERSION,
           package_dir={'discopy': 'discopy'},
           packages=find_packages(),
-          description='Distributional Compositional Python',
+          description='The Python toolkit for computing with string diagrams.',
           long_description=open("README.md", "r").read(),
           long_description_content_type="text/markdown",
-          url='https://github.com/discopy/discopy',
+          url='https://discopy.org',
+          project_urls={
+            'Documentation': 'https://docs.discopy.org',
+            'Source': 'https://github.com/discopy/discopy',
+            'Tracker': 'https://github.com/discopy/discopy/issues',
+          },
+          keywords='diagrams category-theory quantum-computing nlp',
           author='Alexis Toumi',
-          author_email='alexis.toumi@cs.ox.ac.uk',
-          download_url='https://github.com/'
-                       'discopy/discopy/archive/'
-                       '{}.tar.gz'.format(VERSION),
+          author_email='alexis@toumi.email',
+          download_url='https://github.com/discopy/discopy/archive/'
+                       f'{VERSION}.tar.gz',
           install_requires=[
               l.strip() for l in open('requirements.txt').readlines()],
           tests_require=TEST_REQS,

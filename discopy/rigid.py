@@ -34,9 +34,9 @@ Axioms
 
 >>> from discopy.drawing import Equation
 >>> Equation(left_snake, Id(n), right_snake).draw(
-...     figsize=(4, 2), path='docs/_static/rigid/snake-equation.png')
+...     figsize=(4, 2), path='docs/_static/rigid/typed-snake-equation.png')
 
-.. image:: /_static/rigid/snake-equation.png
+.. image:: /_static/rigid/typed-snake-equation.png
     :align: center
 """
 
