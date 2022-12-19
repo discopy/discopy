@@ -79,8 +79,8 @@ class Tree:
     def __str__(self):
         if isinstance(self, Rule):
             return self.name
-        return "{}({})".format(self.root.name,
-                               ', '.join(map(Tree.__str__, self.branches)))
+        return self.root.name\
+            + f"({', '.join(map(Tree.__str__, self.branches))})"
 
     def __call__(self, *others):
         if not others or all([isinstance(other, Id) for other in others]):
@@ -182,10 +182,10 @@ class Id(Rule):
     """ The identity is a rule that does nothing. """
     def __init__(self, dom):
         self.dom, self.cod = dom, dom
-        Rule.__init__(self, dom, dom, name="Id({})".format(dom))
+        Rule.__init__(self, dom, dom, name=f"Id({dom})")
 
     def __repr__(self):
-        return "Id({})".format(self.dom)
+        return f"Id({self.dom})"
 
 
 class Operad(Category):

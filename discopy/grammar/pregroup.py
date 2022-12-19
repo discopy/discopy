@@ -151,11 +151,10 @@ class Word(thue.Word, Box):
         super().__init__(name=name, dom=dom, cod=cod, **params)
 
     def __repr__(self):
-        extra = ", dom={}".format(repr(self.dom)) if self.dom else ""
+        extra = f", dom={repr(self.dom)}" if self.dom else ""
         extra += ", is_dagger=True" if self.is_dagger else ""
-        extra += ", z={}".format(self.z) if self.z != 0 else ""
-        return "Word({}, {}{})".format(
-            repr(self.name), repr(self.cod), extra)
+        extra += f", z={self.z}" if self.z != 0 else ""
+        return f"Word({repr(self.name)}, {repr(self.cod)}{extra})"
 
 
 def eager_parse(*words, target=Ty('s')):

@@ -99,9 +99,11 @@ class Node:
             and (self.kind, self.data) == (other.kind, other.data)
 
     def __repr__(self):
-        return "Node({}, {})".format(repr(self.kind), ", ".join(
-            "{}={}".format(key, repr(value))
-            for key, value in sorted(self.data.items())))
+        str_data = ", ".join(
+            f"{key}={repr(value)}"
+            for key, value in sorted(self.data.items())
+        )
+        return f"Node({repr(self.kind)}, {str_data})"
 
     def __hash__(self):
         return hash(repr(self))
@@ -327,15 +329,14 @@ class TikzBackend(Backend):
         hexcode = COLORS[color]
         rgb = [
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
-        return "{{rgb,255: red,{}; green,{}; blue,{}}}".format(*rgb)
+        return f"{{rgb,255: red,{rgb[0]}; green,{rgb[1]}; blue,{rgb[2]}}}"
 
     def add_node(self, i, j, text=None, options=None):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
         text = "" if text is None else text
         self.nodelayer.append(
-            "\\node [{}] ({}) at ({}, {}) {{{}}};\n".format(
-                options or "", node, i, j, text))
+            f"\\node [{options or ''}] ({node}) at ({i}, {j}) {{{text}}};\n")
         self.nodes.update({(i, j): node})
         return node
 
@@ -355,7 +356,7 @@ class TikzBackend(Backend):
         if params.get("verticalalignment", "center") == "top":  # wire labels
             options += ", right"
         if 'fontsize' in params and params['fontsize'] is not None:
-            options += ", scale={}".format(params['fontsize'])
+            options += f", scale={params['fontsize']}"
         self.add_node(i, j, text, options)
         super().draw_text(text, i, j, **params)
 
@@ -366,16 +367,16 @@ class TikzBackend(Backend):
         nodes.append(nodes[0])
         if self.use_tikzstyles:
             style_name = "box" if color == DEFAULT["color"]\
-                else "{}_box".format(color)
-            style = "\\tikzstyle{{{}}}=[-, fill={}]\n"\
-                .format(style_name, self.format_color(color))
+                else f"{color}_box"
+            style = f"\\tikzstyle{{{style_name}}}=" \
+                    f"[-, fill={self.format_color(color)}]\n"
             if style not in self.edge_styles:
                 self.edge_styles.append(style)
-            options = "style={}".format(style_name)
+            options = f"style={style_name}"
         else:
-            options = "-, fill={{{}}}".format(color)
-        self.edgelayer.append("\\draw [{}] {};\n".format(options, " to ".join(
-            "({}.center)".format(node) for node in nodes)))
+            options = f"-, fill={{{color}}}"
+        str_connections = " to ".join(f"({node}.center)" for node in nodes)
+        self.edgelayer.append(f"\\draw [{options}] {str_connections};\n")
         super().draw_polygon(*points, color=color)
 
     def draw_wire(self, source, target,
@@ -404,7 +405,7 @@ class TikzBackend(Backend):
             self.add_node(*target)
         self.edgelayer.append(cmd.format(
             inp, out,
-            ", {}".format(style) if style is not None else "",
+            f", {style}" if style is not None else "",
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
@@ -416,16 +417,16 @@ class TikzBackend(Backend):
             i, j = positions[node]
             text = node.box.drawing_name if draw_box_labels else ""
             if self.use_tikzstyles:
-                style = "\\tikzstyle{{{}}}=[fill={}]\n"\
-                    .format(node.box.tikzstyle_name, self.format_color(color))
+                style = f"\\tikzstyle{{{node.box.tikzstyle_name}}}=" \
+                        f"[fill={self.format_color(color)}]\n"
                 if style not in self.node_styles:
                     self.node_styles.append(style)
-                options = "style={}".format(node.box.tikzstyle_name)
+                options = f"style={node.box.tikzstyle_name}"
             else:
-                options = "{}, fill={}".format(shape, color)
+                options = f"{shape}, fill={color}"
             if params.get("nodesize", 1) != 1:
-                options += ", scale={}".format(
-                    params.get("nodesize"))  # pragma: no cover
+                options +=\
+                    f", scale={params.get('nodesize')}"  # pragma: no cover
             self.add_node(i, j, text, options)
         super().draw_spiders(graph, positions, draw_box_labels)
 
@@ -436,12 +437,12 @@ class TikzBackend(Backend):
             and params.get("output_tikzstyle", True)
         options = "baseline=(0.base)" if tikz_options is None\
             else "baseline=(0.base), " + tikz_options
-        begin = ["\\begin{{tikzpicture}}[{}]\n".format(options)]
+        begin = [f"\\begin{{tikzpicture}}[{options}]\n"]
         nodes = ["\\begin{pgfonlayer}{nodelayer}\n",
-                 "\\node (0) at (0, {}) {{}};\n".format(baseline)]\
+                 f"\\node (0) at (0, {baseline}) {{}};\n"]\
             + self.nodelayer + ["\\end{pgfonlayer}\n"]
-        edges = ["\\begin{pgfonlayer}{edgelayer}\n"] + self.edgelayer +\
-                ["\\end{pgfonlayer}\n"]
+        edges = ["\\begin{pgfonlayer}{edgelayer}\n"] + self.edgelayer\
+            + ["\\end{pgfonlayer}\n"]
         end = ["\\end{tikzpicture}\n"]
         if path is not None:
             if output_tikzstyle:
@@ -771,7 +772,7 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
         suffix='.gif', prefix='tmp_', dir='.').name)
     with TemporaryDirectory() as directory:
         for i, _diagram in enumerate(steps):
-            tmp_path = os.path.join(directory, '{}.png'.format(i))
+            tmp_path = os.path.join(directory, f'{i}.png')
             _diagram.draw(path=tmp_path, **params)
             frames.append(Image.open(tmp_path))
         if loop:
@@ -781,9 +782,9 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
                        **{'loop': 0} if loop else {})
         try:
             from IPython.display import HTML
-            return HTML('<img src="{}">'.format(path))
+            return HTML(f'<img src="{path}">')
         except ImportError:
-            return '<img src="{}">'.format(path)
+            return f'<img src="{path}">'
 
 
 class Equation:
@@ -817,10 +818,10 @@ class Equation:
         self.terms, self.symbol, self.space = terms, symbol, space
 
     def __repr__(self):
-        return "Equation({})".format(', '.join(map(repr, self.terms)))
+        return f"Equation({', '.join(map(repr, self.terms))})"
 
     def __str__(self):
-        return " {} ".format(self.symbol).join(map(str, self.terms))
+        return f" {self.symbol} ".join(map(str, self.terms))
 
     def draw(self, path=None, space=None, **params):
         """
@@ -917,16 +918,16 @@ def diagramize(dom, cod, boxes, factory=None):
             for node in inputs:
                 assert_isinstance(node, Node)
             if len(inputs) != len(box.dom):
-                raise AxiomError("Expected {} inputs, got {} instead."
-                                 .format(len(box.dom), len(inputs)))
+                raise AxiomError(f"Expected {len(box.dom)} inputs, "
+                                 f"got {len(inputs)} instead.")
             depth = len(box_nodes)
             box_node = Node("box", box=box, depth=depth, offset=offset)
             box_nodes.append(box_node)
             graph.add_node(box_node)
             for i, obj in enumerate(box.dom.inside):
                 if inputs[i].obj != obj:
-                    raise AxiomError("Expected {} as input, got {} instead."
-                                     .format(obj, inputs[i].obj))
+                    raise AxiomError(f"Expected {obj} as input, "
+                                     f"got {inputs[i].obj} instead.")
                 dom_node = Node("dom", obj=obj, i=i, depth=depth)
                 graph.add_edge(inputs[i], dom_node)
             outputs = []
@@ -944,17 +945,16 @@ def diagramize(dom, cod, boxes, factory=None):
         outputs = tuplify(func(*inputs))
         for i, obj in enumerate(cod.inside):
             if outputs[i].obj != obj:
-                raise AxiomError("Expected {} as output, got {} instead."
-                                 .format(obj, outputs[i].obj))
+                raise AxiomError(f"Expected {obj} as output, "
+                                 f"got {outputs[i].obj} instead.")
             node = Node("output", obj=obj, i=i)
             graph.add_edge(outputs[i], node)
         for box in boxes:
             del box._apply
         result = nx2diagram(graph, factory)
         if result.cod != cod:
-            raise AxiomError(
-                "Expected diagram.cod == {}, got {} instead."
-                .format(cod, result.cod))  # pragma: no cover
+            raise AxiomError(f"Expected diagram.cod == {cod}, "
+                             f"got {result.cod} instead.")  # pragma: no cover
         return result
     return decorator
 

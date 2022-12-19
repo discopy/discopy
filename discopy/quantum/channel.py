@@ -196,7 +196,7 @@ class Channel(Tensor):
             >> f.cod[:1] @ g.cod[:1] @ f.cod[1:2]\
             @ Diagram.swap(f.cod[2:], g.cod[1:2]) @ g.cod[2:]
         array = tensor.Functor(
-            ob={Ty("{}{}{}".format(a, b, c)): getattr(getattr(z, y), x)
+            ob={Ty(f"{a}{b}{c}"): getattr(getattr(z, y), x)
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},

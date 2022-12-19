@@ -183,9 +183,9 @@ class Spider(Box):
                  **params):
         assert_isatomic(typ)
         self.typ = typ
-        data_str = "" if data is None else ", {}".format(data)
-        name = type(self).__name__ + "({}, {}, {}{})".format(
-            n_legs_in, n_legs_out, typ, data_str)
+        str_data = "" if data is None else f", {data}"
+        name = type(self).__name__\
+            + f"({n_legs_in}, {n_legs_out}, {typ}{str_data})"
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         Box.__init__(self, name, dom, cod, data=data, **params)
         self.drawing_name = "" if not data else str(data)
@@ -196,10 +196,10 @@ class Spider(Box):
         return self.data
 
     def __repr__(self):
-        phase_repr = "" if self.phase is None else ", phase={}".format(
-            repr(self.phase))
-        return factory_name(type(self)) + "({}, {}, {}{})".format(
-            len(self.dom), len(self.cod), repr(self.typ), phase_repr)
+        phase_repr = "" if self.phase is None \
+            else f", phase={repr(self.phase)}"
+        return factory_name(type(self)) + \
+            f"({len(self.dom)}, {len(self.cod)}, {repr(self.typ)}{phase_repr})"
 
     def dagger(self):
         phase = None if self.phase is None else -self.phase

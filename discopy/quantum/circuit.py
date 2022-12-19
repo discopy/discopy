@@ -102,7 +102,7 @@ class Ob(frobenius.Ob):
         super().__init__(name, z)
 
     def __repr__(self):
-        return "{}({})".format(factory_name(type(self)), self.dim)
+        return f"{factory_name(type(self))}({self.dim})"
 
 
 class Digit(Ob):
@@ -117,7 +117,7 @@ class Digit(Ob):
     >>> assert bit.inside == (Digit(2),)
     """
     def __init__(self, dim: int, z=0):
-        name = "bit" if dim == 2 else "Digit({})".format(dim)
+        name = "bit" if dim == 2 else f"Digit({dim})"
         super().__init__(name, dim)
 
 
@@ -133,7 +133,7 @@ class Qudit(Ob):
     >>> assert qubit.inside == (Qudit(2),)
     """
     def __init__(self, dim, z=0):
-        name = "qubit" if dim == 2 else "Qudit({})".format(dim)
+        name = "qubit" if dim == 2 else f"Qudit({dim})"
         super().__init__(name, dim)
 
 

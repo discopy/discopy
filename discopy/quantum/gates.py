@@ -63,7 +63,7 @@ from discopy.utils import factory_name, assert_isinstance
 def format_number(data):
     """ Tries to format a number. """
     try:
-        return '{:.3g}'.format(data)
+        return f'{data:.3g}'
     except TypeError:
         return data
 
@@ -98,7 +98,7 @@ class Discard(SelfConjugate):
         if isinstance(dom, int):
             dom = qubit ** dom
         super().__init__(
-            "Discard({})".format(dom), dom, qubit ** 0, is_mixed=True)
+            f"Discard({dom})", dom, qubit ** 0, is_mixed=True)
         self.n_qubits = len(dom)
 
     def dagger(self):
@@ -119,7 +119,7 @@ class MixedState(SelfConjugate):
         if isinstance(cod, int):
             cod = qubit ** cod
         super().__init__(
-            "MixedState({})".format(cod), qubit ** 0, cod, is_mixed=True)
+            f"MixedState({cod})", qubit ** 0, cod, is_mixed=True)
         self.drawing_name = "MixedState"
         if cod == bit:
             self.drawing_name = ""
@@ -149,7 +149,7 @@ class Measure(SelfConjugate):
 
     def __init__(self, n_qubits=1, destructive=True, override_bits=False):
         dom, cod = qubit ** n_qubits, bit ** n_qubits
-        name = "Measure({})".format("" if n_qubits == 1 else n_qubits)
+        name = f"Measure({'' if n_qubits == 1 else n_qubits})"
         if not destructive:
             cod = qubit ** n_qubits @ cod
             name = name\
@@ -269,8 +269,9 @@ class Digits(ClassicalGate):
         if not isinstance(dim, int):
             raise TypeError(int, dim)
         self._digits, self._dim = digits, dim
-        name = "Digits({}, dim={})".format(', '.join(map(str, digits)), dim)\
-            if dim != 2 else "Bits({})".format(', '.join(map(str, digits)))
+        str_digits = ', '.join(map(str, digits))
+        name = f"Digits({str_digits}, dim={dim})" if dim != 2 \
+            else f"Bits({str_digits})"
         dom, cod = Ty(), Ty(Digit(dim)) ** len(digits)
         dom, cod = (cod, dom) if is_dagger else (dom, cod)
         super().__init__(name, dom, cod, is_dagger=is_dagger)
@@ -330,7 +331,7 @@ class Ket(SelfConjugate, QuantumGate):
             raise Exception('Bitstring can only contain integers 0 or 1.')
 
         dom, cod = qubit ** 0, qubit ** len(bitstring)
-        name = "Ket({})".format(', '.join(map(str, bitstring)))
+        name = f"Ket({', '.join(map(str, bitstring))})"
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
 
@@ -361,7 +362,7 @@ class Bra(SelfConjugate, QuantumGate):
         if not all([bit in [0, 1] for bit in bitstring]):
             raise Exception('Bitstring can only contain integers 0 or 1.')
 
-        name = "Bra({})".format(', '.join(map(str, bitstring)))
+        name = f"Bra({', '.join(map(str, bitstring))})"
         dom, cod = qubit ** len(bitstring), qubit ** 0
         super().__init__(name, dom, cod)
         self._digits, self._dim, self.draw_as_brakets = bitstring, 2, True
@@ -689,7 +690,7 @@ class Sqrt(Scalar):
     """ Square root. """
     def __init__(self, data):
         super().__init__(data, name="sqrt")
-        self.drawing_name = "sqrt({})".format(format_number(data))
+        self.drawing_name = f"sqrt({format_number(data)})"
 
     @property
     def array(self):

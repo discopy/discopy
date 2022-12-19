@@ -80,15 +80,15 @@ class Circuit(tk.Circuit):
         def repr_gate(gate):
             name, inputs = gate.op.type.name, gate.op.params + [
                 x.index[0] for x in gate.qubits + gate.bits]
-            return "{}({})".format(name, ", ".join(map(str, inputs)))
-        init = ["tk.Circuit({}{})".format(
-            self.n_qubits, ", {}".format(len(self.bits)) if self.bits else "")]
+            return f"{name}({', '.join(map(str, inputs))})"
+        str_bits = f", {len(self.bits)}" if self.bits else ""
+        init = [f"tk.Circuit({self.n_qubits}{str_bits})"]
         gates = list(map(repr_gate, list(self)))
-        post_select = ["post_select({})".format(self.post_selection)]\
+        post_select = [f"post_select({self.post_selection})"]\
             if self.post_selection else []
-        scalar = ["scale({})".format(format_number(x))
+        scalar = [f"scale({format_number(x)})"
                   for x in [self.scalar] if x != 1]
-        post_process = ["post_process({})".format(repr(d))
+        post_process = [f"post_process({repr(d)})"
                         for d in [self.post_processing] if d]
         return '.'.join(init + gates + post_select + scalar + post_process)
 
