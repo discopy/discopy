@@ -889,13 +889,13 @@ class Functor(frobenius.Functor):
         super().__init__(ob, ar, cod)
 
 
-def index2bitstring(i, length):
+def index2bitstring(i: int, length: int) -> tuple[int, ...]:
     """ Turns an index into a bitstring of a given length. """
     if i >= 2 ** length:
         raise ValueError("Index should be less than 2 ** length.")
     if not i and not length:
         return ()
-    return tuple(map(int, '{{:0{}b}}'.format(length).format(i)))
+    return tuple(i >> k & 1 for k in range(length - 1, -1, -1))
 
 
 def bitstring2index(bitstring):
