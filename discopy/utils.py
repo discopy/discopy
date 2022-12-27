@@ -5,18 +5,132 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping, Iterable
 
 from discopy import messages
 
+from typing import Callable, Generic, Mapping, Iterable, TypeVar, Any,\
+    Hashable,\
+    Literal, cast, Union
 
-class Dict:
-    """ dict-like object from callable. """
-    def __init__(self, func: Callable):
-        self.func = func
+from copy import deepcopy
 
-    def __getitem__(self, key):
-        return self.func(key)
+
+KT = TypeVar('KT')
+VT = TypeVar('VT')
+V2T = TypeVar('V2T')
+
+
+class DictOrCallable(Generic[KT, VT]):
+    """ A Mapping or Callable object. """
+    @property
+    def is_dict(self):
+        return isinstance(self.mapping, dict)
+
+    def __init__(self, mapping: dict[KT, VT] | Callable[[KT], VT]) -> None:
+        self.mapping: dict[KT, VT] | Callable[[KT], VT]
+        self._inner_mapping: dict[KT, VT]
+        if isinstance(mapping, DictOrCallable):
+            self.mapping = deepcopy(mapping.mapping)
+            self._inner_mapping = deepcopy(mapping._inner_mapping)
+        else:
+            self.mapping = mapping
+            self._inner_mapping = {}
+
+    def __getitem__(self, item: KT) -> VT:
+        if isinstance(self.mapping, dict):
+            return self.mapping[item]
+        elif isinstance(item, Hashable)\
+                and item in self._inner_mapping:
+            return self._inner_mapping[item]
+        else:
+            return self.mapping(item)
+
+    __call__ = __getitem__
+
+    def __setitem__(self, key: KT, value: VT) -> None:
+        """
+        Sets the mapped value to a specified key.
+
+        Note
+        ----
+        If the underlying structure is a function, a hidden dictionary is used
+        to keep track of the set elements.
+
+        Example
+        -------
+        >>> mapping = DictOrCallable({1: 'a', 2: 'b'})
+        >>> mapping[1] = 'X'
+        >>> print(mapping)
+        {1: 'X', 2: 'b'}
+        >>> callable_mapping = DictOrCallable(lambda x: x + x)
+        >>> callable_mapping[1] = 'X'
+        >>> assert callable_mapping(5) == 10
+        >>> assert callable_mapping(1) == 'X'
+        """
+        if callable(setter := getattr(self.mapping, '__setitem__', None)):
+            setter(key, value)
+        else:
+            self._inner_mapping[key] = value
+
+    def __eq__(self, other: Any) -> bool:
+        return isinstance(other, DictOrCallable) and \
+            self.mapping == other.mapping and \
+            self._inner_mapping == other._inner_mapping
+
+    def __repr__(self):
+        return self.mapping.__repr__()
+
+    def then(self, other: dict[VT, V2T] | Callable[[VT], V2T]) ->\
+            DictOrCallable[KT, V2T]:
+        """
+        Returns the composition of the object with a dict or a Callable.
+
+        Example
+        -------
+        >>> mapping = DictOrCallable({1: 'a', 2: 'b', 'c': 1})
+        >>> print(mapping.then({'a': 1, 'b': 2, 'c': 3}))
+        {1: 1, 2: 2}
+        >>> print(mapping.then(lambda x: x * 3))
+        {1: 'aaa', 2: 'bbb', 'c': 3}
+        >>> mapping.then(mapping)
+        {'c': 'a'}
+        >>> assert mapping.then({}) == mapping.then(DictOrCallable({}))
+        >>> DictOrCallable(lambda x: 2 * x).then(lambda x: x * 3)
+        <function ...>
+
+        """
+        dict_1 = isinstance(other, dict) and other
+        dict_2 = isinstance(other, DictOrCallable) and other.is_dict\
+            and other.mapping
+        dict_other = cast(Union[Literal[False], dict[VT, V2T]],
+                          dict_1 if dict_2 is False else dict_2)
+        if dict_other is False:
+            return self._callable_then(cast(Callable[[VT], V2T], other))
+        else:
+            return self._dict_then(dict_other)
+
+    def _dict_then(self, other: dict[VT, V2T]) -> DictOrCallable[KT, V2T]:
+        if isinstance(self.mapping, dict):
+            ret = DictOrCallable({
+                x: other[y] for x, y in self.mapping.items() if y in other
+            })
+        else:
+            ret = DictOrCallable(lambda x: other[self(x)])
+        ret._inner_mapping =\
+            {x: other[y] for x, y in self._inner_mapping.items()}
+        return ret
+
+    def _callable_then(self, other: Callable[[VT], V2T]) ->\
+            DictOrCallable[KT, V2T]:
+        if isinstance(self.mapping, dict):
+            ret = DictOrCallable(
+                {x: other(y) for x, y in self.mapping.items()}
+            )
+        else:
+            ret = DictOrCallable(lambda x: other(self(x)))
+        ret._inner_mapping =\
+            {x: other(y) for x, y in self._inner_mapping.items()}
+        return ret
 
 
 def product(xs: list, unit=1):

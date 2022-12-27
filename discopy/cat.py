@@ -78,7 +78,6 @@ Functors are bubble-preserving.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping, Iterable
 from dataclasses import dataclass
 from functools import total_ordering, cached_property
 
@@ -88,10 +87,14 @@ from discopy.utils import (
     from_tree,
     rsubs,
     assert_isinstance,
-    Dict,
+    DictOrCallable,
 )
 
+from typing import Callable, Mapping, Iterable, TypeVar, Generic, Type
+
 dumps, loads = utils.dumps, utils.loads
+
+T = TypeVar('T')
 
 
 @total_ordering
@@ -193,7 +196,7 @@ def factory(cls: type) -> type:
     return cls
 
 
-class Composable(ABC):
+class Composable(ABC, Generic[T]):
     """
     Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
     for forward and backward composition with some method :code:`then`.
@@ -206,8 +209,12 @@ class Composable(ABC):
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
+    ty_factory: Type[T]
+    dom: T
+    cod: T
+
     @abstractmethod
-    def then(self, other: Composable) -> Composable:
+    def then(self, other: Composable[T]) -> Composable[T]:
         """
         Sequential composition, to be instantiated.
 
@@ -240,7 +247,7 @@ class Composable(ABC):
 
 
 @factory
-class Arrow(Composable):
+class Arrow(Composable[Ob]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -288,7 +295,8 @@ class Arrow(Composable):
     """
     ty_factory = Ob
 
-    def __init__(self, inside: tuple[Box, ...], dom: Ob, cod: Ob, _scan=True):
+    def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
+                 _scan: bool = True) -> None:
         ty_factory = type(self).ty_factory
         dom = dom if isinstance(dom, ty_factory) else ty_factory(dom)
         cod = cod if isinstance(cod, ty_factory) else ty_factory(cod)
@@ -899,23 +907,24 @@ class Functor(Composable):
         cat.Functor(ob={cat.Ob('x'): cat.Ob('x')}, ar={})
         >>> assert F >> Functor.id() == F != Functor.id() >> F
         >>> print(Functor.id() >> F)  # doctest: +ELLIPSIS
-        cat.Functor(ob=<discopy.utils.Dict object ...>, ar=...)
+        cat.Functor(ob=<function ...>, ar=...)
         """
         assert_isinstance(other, Functor)
         assert_isparallel(self, other)
-        ob = (lambda x: other.ob[self.ob]) if isinstance(self.ob, Dict)\
-            else {x: other.ob[y] for x, y in self.ob.items()}
-        ar = (lambda x: other.ar[self.ar]) if isinstance(self.ar, Dict)\
-            else {x: other.ar[y] for x, y in self.ar.items()}
+        ob = self.ob.then(other.ob)
+        ar = self.ar.then(other.ar)
         result = type(self)(ob, ar, other.cod)
         result.dom = self.dom
         return result
 
-    def __init__(self, ob: Mapping[Ob, Ob] = {}, ar: Mapping[Box, Arrow] = {},
-                 cod: Category = None):
+    def __init__(
+            self,
+            ob: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
+            ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
+            cod: Category = None):
         self.cod = cod or type(self).cod
-        self.ob = ob if isinstance(ob, Mapping) else Dict(ob)
-        self.ar = ar if isinstance(ar, Mapping) else Dict(ar)
+        self.ob: DictOrCallable[Ob, Ob] = DictOrCallable(ob or {})
+        self.ar: DictOrCallable[Box, Arrow] = DictOrCallable(ar or {})
 
     def __eq__(self, other):
         return type(self) == type(other)\
