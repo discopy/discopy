@@ -82,7 +82,8 @@ def tk_op_to_pennylane(tk_op, str_map):
 
     remapped_params = []
     for param in params:
-        param /= 2  # scale rotation to [0, 1) instead of [0, 2) (rescale to [0, 2pi) later)
+        # scale rotation to [0, 1) instead of [0, 2) (rescale to [0, 2pi) later)
+        param /= 2
         if isinstance(param, sympy.Expr):
             free_symbols = param.free_symbols
             sym_subs = {f: str_map[str(f)] for f in free_symbols}
