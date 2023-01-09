@@ -155,7 +155,7 @@ def test_Circuit_to_pennylane(capsys):
 
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
-    weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
+    weights = [torch.tensor(1.), torch.tensor(2.), torch.tensor(3.)]
 
     var_circ = Circuit(
         dom=qubit ** 0, cod=qubit, boxes=[
@@ -279,6 +279,25 @@ def test_pennylane_uninitialized():
 
     with raises(ValueError):
         p_var_circ.eval()
+
+
+def test_pennylane_parameter_reference():
+    x = sympy.symbols('x')
+    p = torch.nn.Parameter(torch.tensor(1.))
+
+    circ = Rx(x)
+    p_circ = circ.to_pennylane()
+    p_circ.initialise_concrete_params([x], [p])
+
+    with torch.no_grad():
+        p.add_(1.)
+
+    assert p_circ._concrete_params[0][0] == p
+
+    with torch.no_grad():
+        p.add_(-2.)
+
+    assert p_circ._concrete_params[0][0] == p
 
 
 def test_Sum_from_tk():

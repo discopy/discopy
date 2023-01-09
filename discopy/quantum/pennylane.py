@@ -89,7 +89,7 @@ def tk_op_to_pennylane(tk_op, str_map):
             sym_subs = {f: str_map[str(f)] for f in free_symbols}
             param = param.subs(sym_subs)
         else:
-            param = torch.tensor([param])
+            param = torch.tensor(param)
 
         remapped_params.append(param)
 
@@ -228,8 +228,7 @@ class PennyLaneCircuit:
         if self._contains_sympy:
             self._concrete_params = None
         else:
-            self._concrete_params = [torch.cat(p) if len(p) > 0
-                                     else p for p in self._params]
+            self._concrete_params = params
         self.initialise_device_and_circuit()
         self._valid_states = self.get_valid_states()
 
@@ -302,7 +301,7 @@ class PennyLaneCircuit:
             raise ValueError('Cannot draw circuit with symbolic parameters. '
                              'Initialise concrete parameters first.')
 
-        wires = (qml.draw(self.make_circuit())
+        wires = (qml.draw(self._circuit)
                  (self._concrete_params).split("\n"))
         for k, v in self._post_selection.items():
             wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
@@ -410,8 +409,7 @@ class PennyLaneCircuit:
                 concrete_list.append(expr)
             concrete_params.append(concrete_list)
 
-        return [torch.cat(p) if len(p) > 0 else p
-                for p in concrete_params]
+        return concrete_params
 
     def eval(self):
         """
