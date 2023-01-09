@@ -55,7 +55,7 @@ OP_MAP = {
 }
 
 
-def tk_op_to_pennylane(tk_op, str_map):
+def tk_op_to_pennylane(tk_op):
     """
     Extract the operation, parameters and wires from
     a pytket :class:`Op`, and return the corresponding PennyLane operation.
@@ -84,11 +84,7 @@ def tk_op_to_pennylane(tk_op, str_map):
     for param in params:
         # scale rotation from [0, 2) to [0, 1), (rescale to [0, 2pi) later)
         param /= 2
-        if isinstance(param, sympy.Expr):
-            free_symbols = param.free_symbols
-            sym_subs = {f: str_map[str(f)] for f in free_symbols}
-            param = param.subs(sym_subs)
-        else:
+        if not isinstance(param, sympy.Expr):
             param = torch.tensor(param)
 
         remapped_params.append(param)
@@ -96,7 +92,7 @@ def tk_op_to_pennylane(tk_op, str_map):
     return OP_MAP[tk_op.op.type], remapped_params, wires
 
 
-def extract_ops_from_tk(tk_circ, str_map):
+def extract_ops_from_tk(tk_circ):
     """
     Extract the operations, and corresponding parameters and wires,
     from a pytket Circuit. Return these as lists to use in
@@ -123,7 +119,7 @@ def extract_ops_from_tk(tk_circ, str_map):
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
-            op, params, wires = tk_op_to_pennylane(op, str_map)
+            op, params, wires = tk_op_to_pennylane(op)
             op_list.append(op)
             params_list.append(params)
             wires_list.append(wires)
@@ -178,12 +174,8 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
         raise ValueError("Only pure quantum circuits are currently "
                          "supported.")
 
-    symbols = disco_circuit.free_symbols
-    str_map = {str(s): s for s in symbols}
-
     tk_circ = disco_circuit.to_tk()
-    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ,
-                                                           str_map)
+    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ)
 
     post_selection = get_post_selection_dict(tk_circ)
 
