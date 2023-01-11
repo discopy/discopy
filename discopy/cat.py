@@ -156,7 +156,58 @@ class Ob:
         return cls(tree['name'])
 
 
-def factory(cls: type) -> type:
+class Composable(ABC, Generic[T]):
+    """
+    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
+    for forward and backward composition with some method :code:`then`.
+
+    Example
+    -------
+    >>> class List(list, Composable):
+    ...     def then(self, other):
+    ...         return self + other
+    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
+    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
+    """
+    factory: Type[Composable]
+    ty_factory: Type[T]
+    dom: T
+    cod: T
+
+    @abstractmethod
+    def then(self, other: Composable[T]) -> Composable[T]:
+        """
+        Sequential composition, to be instantiated.
+
+        Parameters:
+            other : The other composable object to compose sequentially.
+        """
+
+    def is_composable(self, other: Composable) -> bool:
+        """
+        Whether two objects are composable, i.e. the codomain of the first is
+        the domain of the second.
+
+        Parameters:
+            other : The other composable object.
+        """
+        return self.cod == other.dom
+
+    def is_parallel(self, other: Composable) -> bool:
+        """
+        Whether two composable objects are parallel, i.e. they have the same
+        domain and codomain.
+
+        Parameters:
+            other : The other composable object.
+        """
+        return (self.dom, self.cod) == (other.dom, other.cod)
+
+    __rshift__ = __llshift__ = lambda self, other: self.then(other)
+    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
+
+
+def factory(cls: Type[Composable]) -> Type[Composable]:
     """
     Allows the identity and composition of an :class:`Arrow` subclass to remain
     within the subclass.
@@ -194,56 +245,6 @@ def factory(cls: type) -> type:
     """
     cls.factory = cls
     return cls
-
-
-class Composable(ABC, Generic[T]):
-    """
-    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
-    for forward and backward composition with some method :code:`then`.
-
-    Example
-    -------
-    >>> class List(list, Composable):
-    ...     def then(self, other):
-    ...         return self + other
-    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
-    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
-    """
-    ty_factory: Type[T]
-    dom: T
-    cod: T
-
-    @abstractmethod
-    def then(self, other: Composable[T]) -> Composable[T]:
-        """
-        Sequential composition, to be instantiated.
-
-        Parameters:
-            other : The other composable object to compose sequentially.
-        """
-
-    def is_composable(self, other: Composable) -> bool:
-        """
-        Whether two objects are composable, i.e. the codomain of the first is
-        the domain of the second.
-
-        Parameters:
-            other : The other composable object.
-        """
-        return self.cod == other.dom
-
-    def is_parallel(self, other: Composable) -> bool:
-        """
-        Whether two composable objects are parallel, i.e. they have the same
-        domain and codomain.
-
-        Parameters:
-            other : The other composable object.
-        """
-        return (self.dom, self.cod) == (other.dom, other.cod)
-
-    __rshift__ = __llshift__ = lambda self, other: self.then(other)
-    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
 @factory
