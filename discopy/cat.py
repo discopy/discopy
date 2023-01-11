@@ -833,7 +833,7 @@ class Category:
         return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
 
 
-class Functor(Composable):
+class Functor(Composable[Category]):
     """
     A functor is a pair of maps :code:`ob` and :code:`ar` and an optional
     codomain category :code:`cod`.
