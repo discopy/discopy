@@ -163,8 +163,8 @@ class Ty(cat.Ob):
         return hash(repr(self))
 
     def __repr__(self):
-        return factory_name(type(self)) + "({})".format(
-            ', '.join(map(repr, self.inside)))
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.inside))})"
 
     def __str__(self):
         return ' @ '.join(map(str, self.inside)) or type(self).__name__ + '()'
@@ -317,7 +317,7 @@ class Layer(cat.Box):
 
     def __repr__(self):
         return factory_name(type(self))\
-            + "({})".format(", ".join(map(repr, self)))
+            + f"({', '.join(map(repr, self))})"
 
     def __matmul__(self, other: Ty) -> Layer:
         *tail, head = self

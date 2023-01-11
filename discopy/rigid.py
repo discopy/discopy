@@ -88,9 +88,8 @@ class Ob(cat.Ob):
         return hash(repr(self))
 
     def __repr__(self):
-        return "{}({}{})".format(
-            factory_name(type(self)), repr(self.name),
-            ", z=" + repr(self.z) if self.z else "")
+        return factory_name(type(self))\
+            + f"({repr(self.name)}{', z=' + repr(self.z) if self.z else ''})"
 
     def __str__(self):
         return str(self.name) + (
@@ -554,7 +553,7 @@ class Box(closed.Box, Diagram):
         if self.is_dagger:
             return closed.Box.__repr__(self)
         return closed.Box.__repr__(self)[:-1] + (
-            ', z={})'.format(self.z) if self.z else ')')
+            f', z={self.z})' if self.z else ')')
 
     def __eq__(self, other):
         if isinstance(other, Box):
@@ -627,7 +626,7 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
         assert_isadjoint(left, right)
-        name = "Cup({}, {})".format(left, right)
+        name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ty_factory()
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
@@ -669,7 +668,7 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
         assert_isadjoint(right, left)
-        name = "Cap({}, {})".format(left, right)
+        name = f"Cap({left}, {right})"
         dom, cod = self.ty_factory(), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)

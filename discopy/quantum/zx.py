@@ -316,7 +316,7 @@ class Scalar(Box):
         self.drawing_name = format_number(data)
 
     def __str__(self):
-        return "scalar({})".format(format_number(self.data))
+        return f"scalar({format_number(self.data)})"
 
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)

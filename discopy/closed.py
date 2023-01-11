@@ -93,8 +93,8 @@ class Ty(monoidal.Ty):
         return Under(other, self)
 
     def __repr__(self):
-        return "{}({})".format(
-            factory_name(type(self)), ', '.join(map(repr, self.inside)))
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.inside))})"
 
 
 class Exp(Ty, cat.Ob):
@@ -125,11 +125,11 @@ class Exp(Ty, cat.Ob):
         return hash(repr(self))
 
     def __str__(self):
-        return "({} ** {})".format(self.base, self.exponent)
+        return f"({self.base} ** {self.exponent})"
 
     def __repr__(self):
-        return factory_name(type(self)) + "({}, {})".format(
-            repr(self.base), repr(self.exponent))
+        return factory_name(type(self))\
+            + f"({repr(self.base)}, {repr(self.exponent)})"
 
     def to_tree(self):
         return {
@@ -151,7 +151,7 @@ class Over(Exp):
         exponent : The exponent type.
     """
     def __str__(self):
-        return "({} << {})".format(self.base, self.exponent)
+        return f"({self.base} << {self.exponent})"
 
 
 class Under(Exp):
@@ -163,7 +163,7 @@ class Under(Exp):
         exponent : The exponent type.
     """
     def __str__(self):
-        return "({} >> {})".format(self.exponent, self.base)
+        return f"({self.exponent} >> {self.base})"
 
 
 @factory
@@ -254,7 +254,7 @@ class Curry(monoidal.Bubble, Box):
     """
     def __init__(self, arg: Diagram, n=1, left=True):
         self.arg, self.n, self.left = arg, n, left
-        name = "Curry({}, {}, {})".format(arg, n, left)
+        name = f"Curry({arg}, {n}, {left})"
         if left:
             dom = arg.dom[:len(arg.dom) - n]
             cod = arg.cod << arg.dom[len(arg.dom) - n:]

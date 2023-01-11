@@ -132,8 +132,8 @@ class Matrix(Composable, Whiskerable):
             class C(cls.factory):
                 pass
 
-            C.__name__ = C.__qualname__ = "{}[{}]".format(
-                cls.factory.__name__, dtype.__name__)
+            C.__name__ = C.__qualname__ = \
+                f"{cls.factory.__name__}[{dtype.__name__}]"
             C.dtype = dtype
             _cache[dtype] = C
         return _cache[dtype]
@@ -179,8 +179,8 @@ class Matrix(Composable, Whiskerable):
 
     def __repr__(self):
         np_array = getattr(self.array, 'numpy', lambda: self.array)()
-        return type(self).__name__ + "({}, dom={}, cod={})".format(
-            array2string(np_array.reshape(-1)), self.dom, self.cod)
+        return type(self).__name__ + f"({array2string(np_array.reshape(-1))},"\
+                                     f" dom={self.dom}, cod={self.cod})"
 
     def __iter__(self):
         for i in self.array:
