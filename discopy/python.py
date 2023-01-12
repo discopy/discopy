@@ -84,7 +84,7 @@ def is_tuple(typ: type) -> bool:
 
 
 @dataclass
-class Function(Composable, Whiskerable):
+class Function(Composable[Ty], Whiskerable):
     """
     A function is a callable :code:`inside`
     with a pair of types :code:`dom` and :code:`cod`.
@@ -262,7 +262,7 @@ class Function(Composable, Whiskerable):
 
 
 @dataclass
-class Dict(Composable, Whiskerable):
+class Dict(Composable[int], Whiskerable):
     inside: dict[int, int]
     dom: int
     cod: int

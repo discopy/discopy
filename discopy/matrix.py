@@ -50,7 +50,7 @@ from discopy.utils import assert_isinstance
 
 
 @factory
-class Matrix(Composable, Whiskerable):
+class Matrix(Composable[int], Whiskerable):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 

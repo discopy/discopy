@@ -80,6 +80,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import total_ordering, cached_property
+from typing import (
+    Callable, Mapping, Iterable, Optional, TypeVar, Generic, Type)
 
 from discopy import messages, utils
 from discopy.utils import (
@@ -89,8 +91,6 @@ from discopy.utils import (
     assert_isinstance,
     MappingOrCallable,
 )
-
-from typing import Callable, Mapping, Iterable, TypeVar, Generic, Type
 
 dumps, loads = utils.dumps, utils.loads
 
@@ -170,12 +170,14 @@ class Composable(ABC, Generic[T]):
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
     factory: Type[Composable]
+    sum_factory: Type[Composable]
     ty_factory: Type[T]
     dom: T
     cod: T
 
     @abstractmethod
-    def then(self, other: Composable[T]) -> Composable[T]:
+    def then(self, other: Optional[Composable[T]], *others: Composable[T]
+             ) -> Composable[T]:
         """
         Sequential composition, to be instantiated.
 
@@ -363,7 +365,7 @@ class Arrow(Composable[Ob]):
         return self if other == 0 else NotImplemented
 
     @classmethod
-    def id(cls, dom: Ob = None) -> Arrow:
+    def id(cls: Type[Arrow], dom: Optional[Ob] = None) -> Arrow:
         """
         The identity arrow with the empty tuple inside, called with ``Id``.
 
@@ -382,7 +384,7 @@ class Arrow(Composable[Ob]):
         dom = cls.ty_factory() if dom is None else dom
         return cls.factory((), dom, dom, _scan=False)
 
-    def then(self, other: Arrow = None, *others: Arrow) -> Arrow:
+    def then(self, other: Optional[Arrow] = None, *others: Arrow) -> Arrow:
         """
         Sequential composition, called with :code:`>>` and :code:`<<`.
 
