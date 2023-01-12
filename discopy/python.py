@@ -46,7 +46,7 @@ def exp(base: Ty, exponent: Ty) -> Ty:
         base (python.Ty) : The base type.
         exponent (python.Ty) : The exponent type.
     """
-    return (Callable[exponent, tuple[base]], )
+    return (Callable[list(exponent), tuple[base]], )
 
 
 def tuplify(stuff: any) -> tuple:

@@ -87,7 +87,7 @@ from discopy.utils import (
     from_tree,
     rsubs,
     assert_isinstance,
-    DictOrCallable,
+    MappingOrCallable,
 )
 
 from typing import Callable, Mapping, Iterable, TypeVar, Generic, Type
@@ -924,8 +924,8 @@ class Functor(Composable[Category]):
             ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
             cod: Category = None):
         self.cod = cod or type(self).cod
-        self.ob: DictOrCallable[Ob, Ob] = DictOrCallable(ob or {})
-        self.ar: DictOrCallable[Box, Arrow] = DictOrCallable(ar or {})
+        self.ob: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
+        self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
 
     def __eq__(self, other):
         return type(self) == type(other)\
