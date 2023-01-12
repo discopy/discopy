@@ -1,5 +1,5 @@
 
-![snake equation](https://github.com/discopy/discopy/blob/main/docs/_static/snake-equation.png)
+![snake equation](https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation.png)
 
 # DisCoPy
 
@@ -35,7 +35,7 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 
 Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
 
-[![architecture](https://github.com/discopy/discopy/blob/main/docs/api/architecture.png)](https://docs.discopy.org#architecture)
+[![architecture](https://github.com/discopy/discopy/raw/main/docs/api/architecture.png)](https://docs.discopy.org#architecture)
 
 ## Quickstart
 
