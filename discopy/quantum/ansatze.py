@@ -51,7 +51,7 @@ def IQPansatz(n_qubits, params) -> Circuit:
     elif len(np.shape(params)) != 2\
             or np.shape(params)[1] != n_qubits - 1:
         raise ValueError(
-            "Expected params of shape (depth, {})".format(n_qubits - 1))
+            f"Expected params of shape (depth, {n_qubits - 1})")
     else:
         depth = np.shape(params)[0]
         circuit = Id(qubit ** n_qubits).then(*(
@@ -108,7 +108,7 @@ def Sim14ansatz(n_qubits, params) -> Circuit:
         circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
     elif (len(params_shape) != 2) or (params_shape[1] != 4 * n_qubits):
         raise ValueError(
-            "Expected params of shape (depth, {})".format(4 * n_qubits))
+            f"Expected params of shape (depth, {4 * n_qubits})")
     else:
         depth = params_shape[0]
         circuit = Id(qubit ** n_qubits).then(*(
@@ -166,7 +166,7 @@ def Sim15ansatz(n_qubits, params) -> Circuit:
         circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
     elif (len(params_shape) != 2) or (params_shape[1] != 2 * n_qubits):
         raise ValueError(
-            "Expected params of shape (depth, {})".format(2 * n_qubits))
+            f"Expected params of shape (depth, {2 * n_qubits})")
     else:
         depth = params_shape[0]
         circuit = Id(qubit ** n_qubits).then(*(

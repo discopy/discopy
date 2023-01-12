@@ -37,43 +37,21 @@ Software dependencies between modules go top-to-bottom, left-to-right and [forge
 
 [![architecture](https://github.com/discopy/discopy/blob/main/docs/api/architecture.png)](https://docs.discopy.org#architecture)
 
-## Install
+## Quickstart
 
 ```shell
 pip install discopy
 ```
 
-## Test
-
-If you want the bleeding edge, you can install DisCoPy locally:
-
-```shell
-git clone https://github.com/discopy/discopy.git
-cd discopy
-pip install .
-```
-
-You should check you haven't broken anything by running the test suite:
-
-```shell
-pip install ".[test]" .
-coverage run -m pytest --doctest-modules --pycodestyle
-coverage report -m discopy/*.py discopy/*/*.py
-```
-
-The documentation is built using
-[sphinx](https://www.sphinx-doc.org/en/master/).
-You can build it locally with:
-
-```shell
-pip install ".[docs]" .
-sphinx-build docs docs/_build/html
-```
+If you want to see DisCoPy in action, check out the [QNLP tutorial](https://docs.discopy.org/en/main/notebooks/qnlp.html)!
 
 ## Contribute
 
-Contributions are welcome, please get in touch or
-[open an issue](https://github.com/discopy/discopy/issues/new).
+We're keen to welcome new contributors!
+
+First, read the [contributing guidelines](https://github.com/discopy/discopy/CONTRIBUTING.md).
+Then get in touch on [Discord](https://discopy.org/discord)
+or [open an issue](https://github.com/discopy/discopy/issues/new).
 
 ## How to cite
 

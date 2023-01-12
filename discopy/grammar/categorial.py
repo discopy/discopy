@@ -138,10 +138,10 @@ class FA(unaryBoxConstructor("over"), Rule):
         assert_isinstance(over, closed.Over)
         self.over = over
         dom, cod = over @ over.exponent, over.base
-        Rule.__init__(self, dom, cod, name="FA{}".format(over))
+        Rule.__init__(self, dom, cod, name=f"FA{over}")
 
     def __repr__(self):
-        return "FA({})".format(repr(self.dom[:1]))
+        return f"FA({repr(self.dom[:1])})"
 
 
 class BA(unaryBoxConstructor("under"), Rule):
@@ -150,10 +150,10 @@ class BA(unaryBoxConstructor("under"), Rule):
         assert_isinstance(under, closed.Under)
         self.under = under
         dom, cod = under.exponent @ under, under.base
-        Rule.__init__(self, dom, cod, name="BA{}".format(under))
+        Rule.__init__(self, dom, cod, name=f"BA{under}")
 
     def __repr__(self):
-        return "BA({})".format(repr(self.dom[1:]))
+        return f"BA({repr(self.dom[1:])})"
 
 
 class FC(BinaryBoxConstructor, Rule):
@@ -164,7 +164,7 @@ class FC(BinaryBoxConstructor, Rule):
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
-        name = "FC({}, {})".format(left, right)
+        name = f"FC({left}, {right})"
         dom, cod = left @ right, left.base << right.exponent
         Rule.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
@@ -178,7 +178,7 @@ class BC(BinaryBoxConstructor, Rule):
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
-        name = "BC({}, {})".format(left, right)
+        name = f"BC({left}, {right})"
         dom, cod = left @ right, left.exponent >> right.base
         Rule.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
@@ -192,7 +192,7 @@ class FX(BinaryBoxConstructor, Rule):
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
-        name = "FX({}, {})".format(left, right)
+        name = f"FX({left}, {right})"
         dom, cod = left @ right, right.exponent >> left.base
         Rule.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
@@ -206,7 +206,7 @@ class BX(BinaryBoxConstructor, Rule):
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
-        name = "BX({}, {})".format(left, right)
+        name = f"BX({left}, {right})"
         dom, cod = left @ right, right.base << left.exponent
         Rule.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)

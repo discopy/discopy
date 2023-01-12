@@ -130,7 +130,7 @@ class Twist(Box):
     """
     def __init__(self, dom: monoidal.Ty, is_dagger=False):
         assert_isatomic(dom, monoidal.Ty)
-        name = type(self).__name__ + "({})".format(dom)
+        name = type(self).__name__ + f"({dom})"
         Box.__init__(self, name, dom, dom, is_dagger=is_dagger)
 
     def __repr__(self):

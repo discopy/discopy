@@ -115,7 +115,7 @@ class Ob:
         self.name = name
 
     def __repr__(self):
-        return "{}({})".format(factory_name(type(self)), repr(self.name))
+        return f"{factory_name(type(self))}({repr(self.name)})"
 
     def __str__(self):
         return str(self.name)
@@ -343,13 +343,12 @@ class Arrow(Composable[Ob]):
 
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
-            return "{}.id({})".format(factory_name(type(self)), repr(self.dom))
-        return "{}(inside={}, dom={}, cod={})".format(
-            factory_name(self.factory),
-            repr(self.inside), repr(self.dom), repr(self.cod))
+            return f"{factory_name(type(self))}.id({repr(self.dom)})"
+        return f"{factory_name(self.factory)}(inside={repr(self.inside)}, " \
+               f"dom={repr(self.dom)}, cod={repr(self.cod)})"
 
     def __str__(self):
-        return ' >> '.join(map(str, self.inside)) or "Id({})".format(self.dom)
+        return ' >> '.join(map(str, self.inside)) or f"Id({self.dom})"
 
     def __eq__(self, other):
         return isinstance(other, self.factory)\
@@ -606,10 +605,10 @@ class Box(Arrow):
     def __repr__(self):
         if self.is_dagger:
             return repr(self.dagger()) + ".dagger()"
-        return "{}({}, {}, {}{})".format(
-            factory_name(type(self)),
-            *map(repr, [self.name, self.dom, self.cod]),
-            '' if self.data is None else ", data=" + repr(self.data))
+        str_data = '' if self.data is None else ", data=" + repr(self.data)
+        return factory_name(type(self))\
+            + f"({repr(self.name)}, {repr(self.dom)}, " \
+              f"{repr(self.cod)}{str_data})"
 
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
@@ -685,9 +684,8 @@ class Sum(Box):
         cod = terms[0].cod if cod is None else cod
         for arrow in terms:
             assert_isparallel(Sum((), dom, cod), arrow)
-        name = "{}(terms={}{})".format(
-            factory_name(type(self)), repr(terms), ", dom={}, cod={}".format(
-                repr(dom), repr(cod)) if not terms else "")
+        str_args = f", dom={repr(dom)}, cod={repr(cod)}" if not terms else ""
+        name = f"{factory_name(type(self))}(terms={repr(terms)}{str_args})"
         self.terms = terms
         super().__init__(name, dom, cod)
 
@@ -704,9 +702,9 @@ class Sum(Box):
         return self.name
 
     def __str__(self):
-        return " + ".join("({})".format(arrow) for arrow in self.terms)\
-            if self.terms else "{}((), {}, {})".format(
-                factory_name(type(self)), self.dom, self.cod)
+        return " + ".join(f"({arrow})" for arrow in self.terms)\
+            if self.terms else\
+            f"{factory_name(type(self))}((), {self.dom}, {self.cod})"
 
     def __add__(self, other):
         assert_isparallel(self, other)
@@ -782,15 +780,14 @@ class Bubble(Box):
         return (self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
     def __str__(self):
-        return "({}).bubble({})".format(
-            self.arg, "" if self.is_id_on_objects
-            else "dom={}, cod={}".format(self.dom, self.cod))
+        str_args = '' if self.is_id_on_objects\
+            else f'dom={self.dom}, cod={self.cod}'
+        return f"({self.arg}).bubble({str_args})"
 
     def __repr__(self):
-        return factory_name(type(self)) + "({})".format(
-            repr(self.arg) if self.is_id_on_objects
-            else "{}, dom={}, cod={})".format(*map(repr, [
-                self.arg, self.dom, self.cod])))
+        str_args = repr(self.arg) if self.is_id_on_objects else\
+            f"{repr(self.arg)}, dom={repr(self.dom)}, cod={repr(self.cod)}"
+        return f"{factory_name(type(self))}({str_args})"
 
     @property
     def free_symbols(self):

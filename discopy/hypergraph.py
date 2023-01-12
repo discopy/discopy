@@ -449,11 +449,12 @@ class Diagram(Composable[Ty], Whiskerable):
                    for attr in ['dom', 'cod', 'boxes', 'wires', 'n_spiders'])
 
     def __repr__(self):
-        data = list(map(repr, [self.dom, self.cod, self.boxes, self.wires]))
-        data += [", spider_types={}".format(
-            self.spider_types) if self.scalar_spiders else ""]
+        spider_types = f", spider_types={self.spider_types}"\
+            if self.scalar_spiders else ""
         return factory_name(type(self))\
-            + "(dom={}, cod={}, boxes={}, wires={}{})".format(*data)
+            + f"(dom={repr(self.dom)}, cod={repr(self.cod)}, " \
+              f"boxes={repr(self.boxes)}, " \
+              f"wires={repr(self.wires)}{spider_types})"
 
     def __str__(self):
         return str(self.downgrade())
@@ -866,7 +867,7 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
         BinaryBoxConstructor.__init__(self, left, right)
-        name = "Cup({}, {})".format(left, right)
+        name = f"Cup({left}, {right})"
         Box.__init__(self, name, left @ right, Ty())
 
     def dagger(self):
@@ -889,7 +890,7 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
         BinaryBoxConstructor.__init__(self, left, right)
-        name = "Cap({}, {})".format(left, right)
+        name = f"Cap({left}, {right})"
         Box.__init__(self, name, Ty(), left @ right)
 
     def dagger(self):
@@ -917,7 +918,7 @@ class Spider(Box):
     def __init__(self, n_legs_in: int, n_legs_out: int, typ: Ty):
         assert_isatomic(typ, Ty)
         self.typ = typ
-        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
+        name = f"Spider({n_legs_in}, {n_legs_out}, {typ})"
         Box.__init__(self, name, typ ** n_legs_in, typ ** n_legs_out)
 
     def downgrade(self):

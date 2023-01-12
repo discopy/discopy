@@ -128,8 +128,8 @@ class BinaryBoxConstructor:
         self.left, self.right = left, right
 
     def __repr__(self):
-        return "{}({}, {})".format(
-            factory_name(type(self)), repr(self.left), repr(self.right))
+        return factory_name(type(self))\
+            + f"({repr(self.left)}, {repr(self.right)})"
 
     def to_tree(self) -> dict:
         """ Serialise a binary box constructor. """
@@ -159,17 +159,17 @@ class Braid(BinaryBoxConstructor, Box):
     def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
         assert_isatomic(left, monoidal.Ty)
         assert_isatomic(right, monoidal.Ty)
-        name = type(self).__name__ + "({}, {})".format(*(
-            (right, left) if is_dagger else (left, right)))
+        name = type(self).__name__\
+            + (f"({right}, {left})" if is_dagger else f"({left}, {right})")
         dom, cod = left @ right, right @ left
         Box.__init__(
             self, name, dom, cod, is_dagger=is_dagger, draw_as_braid=True)
         BinaryBoxConstructor.__init__(self, left, right)
 
     def __repr__(self):
-        return factory_name(type(self)) + "({}, {}{})".format(
-            repr(self.left), repr(self.right),
-            ", is_dagger=True" if self.is_dagger else "")
+        str_is_dagger = ", is_dagger=True" if self.is_dagger else ""
+        return factory_name(type(self)) + \
+            f"({repr(self.left)}, {repr(self.right)}{str_is_dagger})"
 
     def dagger(self):
         return type(self)(self.right, self.left, not self.is_dagger)

@@ -102,7 +102,7 @@ class Ob(frobenius.Ob):
         super().__init__(name, z)
 
     def __repr__(self):
-        return "{}({})".format(factory_name(type(self)), self.dim)
+        return f"{factory_name(type(self))}({self.dim})"
 
 
 class Digit(Ob):
@@ -117,7 +117,7 @@ class Digit(Ob):
     >>> assert bit.inside == (Digit(2),)
     """
     def __init__(self, dim: int, z=0):
-        name = "bit" if dim == 2 else "Digit({})".format(dim)
+        name = "bit" if dim == 2 else f"Digit({dim})"
         super().__init__(name, dim)
 
 
@@ -133,7 +133,7 @@ class Qudit(Ob):
     >>> assert qubit.inside == (Qudit(2),)
     """
     def __init__(self, dim, z=0):
-        name = "qubit" if dim == 2 else "Qudit({})".format(dim)
+        name = "qubit" if dim == 2 else f"Qudit({dim})"
         super().__init__(name, dim)
 
 
@@ -889,13 +889,13 @@ class Functor(frobenius.Functor):
         super().__init__(ob, ar, cod)
 
 
-def index2bitstring(i, length):
+def index2bitstring(i: int, length: int) -> tuple[int, ...]:
     """ Turns an index into a bitstring of a given length. """
     if i >= 2 ** length:
         raise ValueError("Index should be less than 2 ** length.")
     if not i and not length:
         return ()
-    return tuple(map(int, '{{:0{}b}}'.format(length).format(i)))
+    return tuple(i >> k & 1 for k in range(length - 1, -1, -1))
 
 
 def bitstring2index(bitstring):

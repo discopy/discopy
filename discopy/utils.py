@@ -101,8 +101,7 @@ def factory_name(cls: type) -> str:
     >>> from discopy.grammar.pregroup import Word
     >>> assert factory_name(Word) == "grammar.pregroup.Word"
     """
-    return "{}.{}".format(
-        cls.__module__.removeprefix("discopy."), cls.__name__)
+    return f"{cls.__module__.removeprefix('discopy.')}.{cls.__name__}"
 
 
 def from_tree(tree: dict):

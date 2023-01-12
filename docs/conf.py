@@ -39,6 +39,7 @@ release = get_version()
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
+              'sphinx.ext.viewcode',
               'm2r2',
               'sphinx.ext.mathjax',
               'youtube',

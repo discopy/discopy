@@ -57,7 +57,7 @@ class Dim(Ty):
         super().__init__(*(dim for dim in inside if dim > 1))
 
     def __repr__(self):
-        return "Dim({})".format(', '.join(map(repr, self.inside)) or '1')
+        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
 
     __str__ = __repr__
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
@@ -540,7 +540,7 @@ class Box(frobenius.Box, Diagram):
     def grad(self, var, **params):
         return self.bubble(
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
-            drawing_name="$\\partial {}$".format(var))
+            drawing_name=f"$\\partial {var}$")
 
 
 class Cup(frobenius.Cup, Box):
@@ -644,7 +644,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> def grad(diagram, var):
     ...     return diagram.bubble(
     ...         func=lambda x: getattr(x, "diff", lambda _: 0)(var),
-    ...         drawing_name="d${}$".format(var))
+    ...         drawing_name=f"d${var}$" )
     >>> lhs = grad(f >> g, x)
     >>> rhs = (grad(f, x) >> g) + (f >> grad(g, x))
     >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
