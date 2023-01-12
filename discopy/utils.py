@@ -63,7 +63,7 @@ class MappingOrCallable(Mapping[KT, VT]):
         return repr(self.mapping)
 
     def then(self, other: MappingOrCallable[VT, V2T]
-            ) -> MappingOrCallable[KT, V2T]:
+             ) -> MappingOrCallable[KT, V2T]:
         """
         Returns the composition of the object with a dict or a Callable.
 
