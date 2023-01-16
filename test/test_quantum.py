@@ -327,7 +327,6 @@ def test_pennylane_gradient_methods():
         loss.backward()
         assert weights[0].grad is not None
 
-
     for diff_method in ['backprop']:
 
         weights = [torch.tensor(1., requires_grad=True),
