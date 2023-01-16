@@ -257,6 +257,10 @@ class PennyLaneCircuit:
         return qml.device(backend, wires=self._n_qubits, **backend_config)
 
     def initialise_device_and_circuit(self):
+        """
+        Initialise the PennyLane device and circuit once, when the
+        PennyLaneCircuit is instantiated.
+        """
         self._device = self.get_device(copy.copy(self._backend_config))
         self._circuit = self.make_circuit()
 
@@ -274,6 +278,11 @@ class PennyLaneCircuit:
                    self._params for expr in expr_list)
 
     def initialise_concrete_params(self, symbols, weights):
+        """
+        Given concrete values for each of the SymPy symbols, substitute
+        the symbols for the values to obtain concrete parameters, via
+        the `param_substitution` method.
+        """
         if self._contains_sympy:
             self._concrete_params = self.param_substitution(symbols, weights)
 
@@ -421,7 +430,6 @@ class PennyLaneCircuit:
         :class:`torch.Tensor`
             The post-selected output of the circuit.
         """
-
         if self._concrete_params is None:
             raise ValueError('Initialise concrete parameters first.')
 

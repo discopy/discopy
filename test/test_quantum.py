@@ -300,6 +300,49 @@ def test_pennylane_parameter_reference():
     assert p_circ._concrete_params[0][0] == p
 
 
+def test_pennylane_gradient_methods():
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+
+    var_circ = Circuit(
+        dom=qubit ** 0, cod=qubit, boxes=[
+            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+
+    for diff_method in ['backprop', 'parameter-shift', 'finite-diff']:
+
+        weights = [torch.tensor(1., requires_grad=True),
+                   torch.tensor(2., requires_grad=True),
+                   torch.tensor(3., requires_grad=True)]
+
+        p_var_circ = var_circ.to_pennylane(probabilities=True,
+                                           diff_method=diff_method)
+        p_var_circ.initialise_concrete_params(symbols, weights)
+
+        loss = p_var_circ.eval().norm(dim=0, p=2)
+        loss.backward()
+        assert weights[0].grad is not None
+
+
+    for diff_method in ['backprop']:
+
+        weights = [torch.tensor(1., requires_grad=True),
+                   torch.tensor(2., requires_grad=True),
+                   torch.tensor(3., requires_grad=True)]
+
+        p_var_circ = var_circ.to_pennylane(probabilities=False,
+                                           diff_method=diff_method)
+        p_var_circ.initialise_concrete_params(symbols, weights)
+
+        loss = p_var_circ.eval().norm(dim=0, p=2)
+        loss.backward()
+        assert weights[0].grad is not None
+
+
 def test_Sum_from_tk():
     assert Circuit.from_tk(*(X + X).to_tk()) == (X + X).init_and_discard()
     assert Circuit.from_tk() == Sum([], qubit ** 0, qubit ** 0)
