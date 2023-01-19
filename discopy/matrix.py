@@ -84,9 +84,9 @@ class Matrix(monoidal.Box):
         return repr(self)
 
     def then(self, *others):
-        from discopy import Sum
+        from discopy import Sum, Tensor
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.then(self, *others)
+            return Tensor.then(self, *others)
         other, = others
         if not isinstance(other, Matrix):
             raise TypeError(messages.type_err(Matrix, other))

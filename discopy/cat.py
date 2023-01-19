@@ -285,6 +285,8 @@ class Arrow:
             return self
         if any(isinstance(other, Sum) for other in others):
             return self.sum([self]).then(*others)
+        if any(not isinstance(other, Arrow) for other in others):
+            raise TypeError
         boxes = self.boxes + sum([other.boxes for other in others], [])
         return self.upgrade(Arrow(self.dom, others[-1].cod, boxes))
 
