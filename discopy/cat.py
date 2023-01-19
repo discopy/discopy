@@ -283,17 +283,10 @@ class Arrow:
         """
         if not others:
             return self
-        if len(others) > 1:
-            return self.then(others[0]).then(*others[1:])
-        other, = others
-        if isinstance(other, Sum):
-            return self.sum([self]).then(other)
-        if not isinstance(other, Arrow):
-            raise TypeError(messages.type_err(Arrow, other))
-        if self.cod != other.dom:
-            raise AxiomError(messages.does_not_compose(self, other))
-        return self.upgrade(Arrow(
-            self.dom, other.cod, self.boxes + other.boxes, _scan=False))
+        if any(isinstance(other, Sum) for other in others):
+            return self.sum([self]).then(*others)
+        boxes = self.boxes + sum([other.boxes for other in others], [])
+        return self.upgrade(Arrow(self.dom, others[-1].cod, boxes))
 
     def __rshift__(self, other):
         return self.then(other)

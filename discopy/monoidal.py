@@ -411,14 +411,13 @@ class Diagram(cat.Arrow):
         return self._layers
 
     def then(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
+        if any(isinstance(other, Sum) for other in others):
             return super().then(*others)
-        other, = others
+        layers = self.layers.then(*[other.layers for other in others])
+        boxes = [box for _, box, _ in layers]
+        offsets = [len(left) for left, _, _ in layers]
         return self.upgrade(
-            Diagram(self.dom, other.cod,
-                    self.boxes + other.boxes,
-                    self.offsets + other.offsets,
-                    layers=self.layers >> other.layers))
+            Diagram(self.dom, others[-1].cod, boxes, offsets, layers))
 
     def tensor(self, other=None, *rest):
         """
