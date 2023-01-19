@@ -411,7 +411,7 @@ class Diagram(cat.Arrow):
         return self._layers
 
     def then(self, *others):
-        if any(isinstance(other, Sum) for other in others):
+        if not others or any(isinstance(other, Sum) for other in others):
             return super().then(*others)
         layers = self.layers.then(*[other.layers for other in others])
         boxes = [box for _, box, _ in layers]

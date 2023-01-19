@@ -116,8 +116,9 @@ class Function(rigid.Box):
         >>> assert (copy >> swap)(1) == copy(1)
         >>> assert (swap >> swap)(1, 2) == (1, 2)
         """
+        from discopy.tensor import Tensor
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return monoidal.Diagram.then(self, *others)
+            return Tensor.then(self, *others)
         other = others[0]
         if not isinstance(other, Function):
             raise TypeError(messages.type_err(Function, other))
