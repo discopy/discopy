@@ -911,8 +911,8 @@ class Functor(Composable[Category]):
         """
         assert_isinstance(other, Functor)
         assert_isparallel(self, other)
-        ob = self.ob.then(other.ob)
-        ar = self.ar.then(other.ar)
+        ob = self.ob.then(other)
+        ar = self.ar.then(other)
         result = type(self)(ob, ar, other.cod)
         result.dom = self.dom
         return result

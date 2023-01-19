@@ -25,6 +25,8 @@ class MappingOrCallable(Mapping[KT, VT]):
         return Mapping[source, target] | Callable[[source], target]
 
     def __init__(self, mapping: MappingOrCallable[KT, VT]) -> None:
+        while isinstance(mapping, MappingOrCallable):
+            mapping = mapping.mapping
         self.mapping = mapping
 
     def __bool__(self) -> bool:
