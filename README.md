@@ -49,7 +49,7 @@ If you want to see DisCoPy in action, check out the [QNLP tutorial](https://docs
 
 We're keen to welcome new contributors!
 
-First, read the [contributing guidelines](https://github.com/discopy/discopy/CONTRIBUTING.md).
+First, read the [contributing guidelines](https://github.com/discopy/discopy/blob/main/CONTRIBUTING.md).
 Then get in touch on [Discord](https://discopy.org/discord)
 or [open an issue](https://github.com/discopy/discopy/issues/new).
 
