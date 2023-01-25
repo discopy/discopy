@@ -371,7 +371,7 @@ class Controlled(QuantumGate):
 
         skipped_qbs = n_qubits - (1 + len(controlled.dom))
 
-        if (distance > 0):
+        if distance > 0:
             pattern = [0,
                        *range(skipped_qbs + 1,
                               len(controlled.dom) + skipped_qbs + 1),
