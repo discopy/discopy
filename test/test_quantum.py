@@ -803,3 +803,29 @@ def test_CX_decompose(x, y):
     # but CX matrices are self transpose
     assert (out == out.T).all()
     assert (out == unitary_mat).all()
+
+
+@pytest.mark.parametrize('x,y, z', [(0, 1, 2), (0, 2, 4),
+                                    (0, 4, 2), (4, 2, 0),
+                                    (0, 4, 1), (4, 0, 1)])
+def test_CCX_decompose(x, y, z):
+
+    n = max(x, y, z) - min(x, y, z) + 1
+    N = 1 << n
+
+    unitary_mat = np.zeros(shape=(N, N))
+
+    for i in range(N):
+        bits = list(index2bitstring(i, n))
+        bits[z] = (bits[x] & bits[y]) ^ bits[z]
+        v = bitstring2index(bits)
+        unitary_mat[i][v] = 1
+
+    # take transpose because tensor axes follow diagrammatic order
+    out = Id(n).CCX(x, y, z).eval().array.reshape(N, N).T
+
+    np.set_printoptions(threshold=3000)
+
+    print(unitary_mat.real)
+
+    assert (out == unitary_mat).all()
