@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import pytest
+
 import numpy as np
 import sympy
 import torch
@@ -480,3 +482,23 @@ def test_circuit_chaining():
         Id(qubit).CRx(0.7, 1, 0)
     with raises(IndexError):
         Id(qubit ** 2).X(999)
+
+
+@pytest.mark.parametrize('x,y', [(0, 1), (0, 2), (1, 0), (2, 0), (5, 0)])
+def test_CX_decompose(x, y):
+    n = abs(x - y) + 1
+    binary_mat = np.eye(n, dtype=int)
+    binary_mat[y] = np.bitwise_xor(binary_mat[x], binary_mat[y])
+
+    N = 1 << n
+    unitary_mat = np.zeros(shape=(N, N))
+    for i in range(N):
+        bits = index2bitstring(i, n)
+        v = bitstring2index(binary_mat @ bits % 2)
+        unitary_mat[i][v] = 1
+
+    # take transpose because tensor axes follow diagrammatic order
+    out = Id(n).CX(x, y).eval().array.reshape(N, N).T
+    # but CX matrices are self transpose
+    assert (out == out.T).all()
+    assert (out == unitary_mat).all()
