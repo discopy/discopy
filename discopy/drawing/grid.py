@@ -19,8 +19,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from lxml.etree import SubElement, ElementTree
-from lxml.html import Element
+try:
+    from lxml.etree import SubElement, ElementTree
+    from lxml.html import Element
+except ImportError:
+    pass
+
 
 TABLE_STYLE = ".diagram .wire { border-left: 4px solid; text-align: left; } "\
               ".diagram .box { border: 4px solid; text-align: center; }"\
