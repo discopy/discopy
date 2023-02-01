@@ -455,6 +455,7 @@ class Controlled(QuantumGate):
     def _decompose(self):
         controlled, distance = self.controlled, self.distance
         n_qubits = len(self.dom)
+
         if distance == 1:
             return self
         src, tgt = (0, 1) if distance > 0 else (1, 0)
