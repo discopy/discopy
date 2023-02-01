@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import pytest
 from unittest.mock import Mock
 from functools import partial
 from pytest import raises
@@ -782,3 +783,49 @@ def test_circuit_chaining():
         Id(1).CRx(0.7, 1, 0)
     with raises(ValueError):
         Id(2).X(999)
+
+
+@pytest.mark.parametrize('x,y', [(0, 1), (0, 2), (1, 0), (2, 0), (5, 0)])
+def test_CX_decompose(x, y):
+    n = abs(x - y) + 1
+    binary_mat = np.eye(n, dtype=int)
+    binary_mat[y] = np.bitwise_xor(binary_mat[x], binary_mat[y])
+
+    N = 1 << n
+    unitary_mat = np.zeros(shape=(N, N))
+    for i in range(N):
+        bits = index2bitstring(i, n)
+        v = bitstring2index(binary_mat @ bits % 2)
+        unitary_mat[i][v] = 1
+
+    # take transpose because tensor axes follow diagrammatic order
+    out = Id(n).CX(x, y).eval().array.reshape(N, N).T
+    # but CX matrices are self transpose
+    assert (out == out.T).all()
+    assert (out == unitary_mat).all()
+
+
+@pytest.mark.parametrize('x,y, z', [(0, 1, 2), (0, 2, 4),
+                                    (0, 4, 2), (4, 2, 0),
+                                    (0, 4, 1), (4, 0, 1)])
+def test_CCX_decompose(x, y, z):
+
+    n = max(x, y, z) - min(x, y, z) + 1
+    N = 1 << n
+
+    unitary_mat = np.zeros(shape=(N, N))
+
+    for i in range(N):
+        bits = list(index2bitstring(i, n))
+        bits[z] = (bits[x] & bits[y]) ^ bits[z]
+        v = bitstring2index(bits)
+        unitary_mat[i][v] = 1
+
+    # take transpose because tensor axes follow diagrammatic order
+    out = Id(n).CCX(x, y, z).eval().array.reshape(N, N).T
+
+    np.set_printoptions(threshold=3000)
+
+    print(unitary_mat.real)
+
+    assert (out == unitary_mat).all()
