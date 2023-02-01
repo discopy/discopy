@@ -373,13 +373,10 @@ class Controlled(QuantumGate):
 
         if distance > 0:
             pattern = [0,
-                       *range(skipped_qbs + 1,
-                              len(controlled.dom) + skipped_qbs + 1),
+                       *range(skipped_qbs + 1, n_qubits),
                        *range(1, skipped_qbs + 1)]
         else:
-            pattern = [n_qubits - 1,
-                       *range(len(controlled.dom)),
-                       *range(len(controlled.dom), n_qubits - 1)]
+            pattern = [n_qubits - 1, *range(n_qubits - 1)]
 
         perm = Circuit.permutation(pattern, inverse=False)
         diagram = (perm
