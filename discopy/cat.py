@@ -88,6 +88,7 @@ from discopy.utils import (
     factory_name,
     from_tree,
     rsubs,
+    mmap,
     assert_isinstance,
     MappingOrCallable,
 )
@@ -383,7 +384,7 @@ class Arrow(Composable[Ob]):
         dom = cls.ty_factory() if dom is None else dom
         return cls.factory((), dom, dom, _scan=False)
 
-    def then(self, other: Optional[Arrow] = None, *others: Arrow) -> Arrow:
+    def then(self, *others: Arrow) -> Arrow:
         """
         Sequential composition, called with :code:`>>` and :code:`<<`.
 
@@ -393,17 +394,14 @@ class Arrow(Composable[Ob]):
         Raises:
             cat.AxiomError : Whenever `self` and `others` do not compose.
         """
-        if other is None:
-            return self
-        if others:
-            return self.then(other).then(*others)
-        if isinstance(other, self.sum_factory):
-            return self.sum_factory((self, )).then(other)
-        assert_isinstance(other, self.factory)
-        assert_isinstance(self, other.factory)
-        assert_iscomposable(self, other)
-        inside, dom, cod = self.inside + other.inside, self.dom, other.cod
-        return self.factory(inside, dom, cod, _scan=False)
+        if any(isinstance(other, Sum) for other in others):
+            return self.sum_factory((self, )).then(*others)
+        inside, dom, cod = self.inside, self.dom, self.cod
+        for other in others:
+            assert_isinstance(other, self.factory)
+            assert_isinstance(self, other.factory)
+            inside, cod = inside + other.inside, other.cod
+        return self.factory(inside, dom, cod)
 
     def dagger(self) -> Arrow:
         """ Contravariant involution, called with :code:`[::-1]`. """
@@ -719,9 +717,8 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    def then(self, other=None, *others):
-        if other is None or others:
-            return Arrow.then(self, other, *others)
+    @mmap
+    def then(self, other):
         other = other if isinstance(other, Sum)\
             else self.sum_factory((other, ))
         terms = tuple(f.then(g) for f in self.terms for g in other.terms)

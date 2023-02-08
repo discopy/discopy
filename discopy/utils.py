@@ -249,3 +249,13 @@ def assert_isinstance(object, cls: type | tuple[type, ...]):
     if not any(isinstance(object, cls) for cls in classes):
         raise TypeError(messages.TYPE_ERROR.format(
             cls_name, factory_name(type(object))))
+
+
+def mmap(binary_method):
+    """ Turn a binary method into n-ary. """
+    def method(self, *others):
+        result = self
+        for other in others:
+            result = binary_method(result, other)
+        return result
+    return method

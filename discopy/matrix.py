@@ -46,7 +46,7 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, mmap
 
 
 @factory
@@ -203,9 +203,8 @@ class Matrix(Composable[int], Whiskerable):
         with backend('numpy') as np:
             return cls(np.identity(dom, cls.dtype), dom, dom)
 
-    def then(self, other: Matrix = None, *others: Matrix) -> Matrix:
-        if others or other is None:
-            return cat.Arrow.then(self, other, *others)
+    @mmap
+    def then(self, other: Matrix) -> Matrix:
         assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
         with backend() as np:
