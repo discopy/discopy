@@ -82,6 +82,27 @@ class MappingOrCallable(Mapping[KT, VT]):
         return MappingOrCallable(lambda key: other[self[key]])
 
 
+def NamedGeneric(attr):
+    T = TypeVar('T')
+
+    class Result(Generic[T]):
+        def __class_getitem__(cls, dtype: type, _cache=dict()):
+            cls_attr = getattr(cls, attr)
+            if cls_attr not in _cache or _cache[cls_attr] != cls:
+                _cache.clear()
+                _cache[cls_attr] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
+            if dtype not in _cache:
+                class C(cls.factory):
+                    pass
+
+                C.__name__ = C.__qualname__ = \
+                    f"{cls.factory.__name__}[{dtype.__name__}]"
+                setattr(C, attr, dtype)
+                _cache[dtype] = C
+            return _cache[dtype]
+    return Result
+
+
 def product(xs: list, unit=1):
     """
     The left-fold product of a ``unit`` with list of ``xs``.

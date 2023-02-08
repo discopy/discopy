@@ -46,11 +46,11 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance, mmap
+from discopy.utils import assert_isinstance, NamedGeneric
 
 
 @factory
-class Matrix(Composable[int], Whiskerable):
+class Matrix(Composable[int], Whiskerable, NamedGeneric('dtype')):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
