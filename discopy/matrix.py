@@ -46,11 +46,11 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, NamedGeneric
 
 
 @factory
-class Matrix(Composable[int], Whiskerable):
+class Matrix(Composable[int], Whiskerable, NamedGeneric('dtype')):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -123,20 +123,6 @@ class Matrix(Composable[int], Whiskerable):
            [0, 4]])
     """
     dtype = int
-
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
-            _cache.clear()
-            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
-        if dtype not in _cache:
-            class C(cls.factory):
-                pass
-
-            C.__name__ = C.__qualname__ = \
-                f"{cls.factory.__name__}[{dtype.__name__}]"
-            C.dtype = dtype
-            _cache[dtype] = C
-        return _cache[dtype]
 
     def cast_dtype(self, dtype: type) -> Matrix:
         """
