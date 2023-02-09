@@ -203,6 +203,8 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric('dtype')):
         with backend('numpy') as np:
             return cls(np.identity(dom, cls.dtype), dom, dom)
 
+    twist = id
+
     @mmap
     def then(self, other: Matrix) -> Matrix:
         assert_isinstance(other, type(self))
@@ -260,6 +262,8 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric('dtype')):
         array[right:, :left] = Matrix.id(left).array
         array[:right, left:] = Matrix.id(right).array
         return cls(array, dom, cod)
+
+    braid = swap
 
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)

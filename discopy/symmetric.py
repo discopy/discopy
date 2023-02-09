@@ -181,4 +181,4 @@ class Functor(monoidal.Functor):
 
 
 Diagram.braid_factory = Swap
-Id = Diagram.id
+Id = Diagram.twist_factory = Diagram.id

@@ -5,12 +5,20 @@
 from __future__ import annotations
 
 import json
+from functools import wraps
+from typing import (
+    Callable,
+    Generic,
+    Mapping,
+    Iterable,
+    TypeVar,
+    Any,
+    Hashable,
+    Literal,
+    cast,
+    Union)
 
 from discopy import messages
-
-from typing import Callable, Generic, Mapping, Iterable, TypeVar, Any,\
-    Hashable,\
-    Literal, cast, Union
 
 
 KT = TypeVar('KT')
@@ -87,16 +95,18 @@ def NamedGeneric(attr):
 
     class Result(Generic[T]):
         def __class_getitem__(cls, dtype: type, _cache=dict()):
-            cls_attr = getattr(cls, attr)
+            cls_attr = getattr(cls, attr, None)
             if cls_attr not in _cache or _cache[cls_attr] != cls:
                 _cache.clear()
-                _cache[cls_attr] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
+                _cache[cls_attr] = cls
             if dtype not in _cache:
-                class C(cls.factory):
+                origin = getattr(cls, "__origin__", cls)
+                class C(origin):
                     pass
 
                 C.__name__ = C.__qualname__ = \
-                    f"{cls.factory.__name__}[{dtype.__name__}]"
+                    f"{origin.__name__}[{dtype.__name__}]"
+                C.__origin__ = cls
                 setattr(C, attr, dtype)
                 _cache[dtype] = C
             return _cache[dtype]
@@ -274,6 +284,7 @@ def assert_isinstance(object, cls: type | tuple[type, ...]):
 
 def mmap(binary_method):
     """ Turn a binary method into n-ary. """
+    @wraps(binary_method)
     def method(self, *others):
         result = self
         for other in others:
