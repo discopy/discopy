@@ -50,7 +50,7 @@ from collections.abc import Mapping
 from discopy import messages, monoidal, rigid, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Diagram
-from discopy.tensor import Dim, Tensor
+from discopy.tensor import Dim, Tensor, Dtype, default_dtype
 from math import pi
 from functools import reduce, partial
 
@@ -265,11 +265,12 @@ class Circuit(tensor.Diagram):
         from discopy.quantum import cqmap
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor
-            if self.is_mixed or mixed:
-                f = cqmap.Functor()
-                return cqmap.CQMap(f(self.dom), f(self.cod), array)
-            f = tensor.Functor(lambda x: x[0].dim, {})
-            return Tensor(f(self.dom), f(self.cod), array)
+            with default_dtype(init_stack=Dtype(complex)) as dtype:
+                if self.is_mixed or mixed:
+                    f = cqmap.Functor()
+                    return cqmap.CQMap(f(self.dom), f(self.cod), array)
+                f = tensor.Functor(lambda x: x[0].dim, {})
+                return Tensor(f(self.dom), f(self.cod), array)
 
         from discopy import cqmap
         from discopy.quantum.gates import Bits, scalar
@@ -372,10 +373,11 @@ class Circuit(tensor.Diagram):
         state = (Ket(*(len(self.dom) * [0])) >> self).eval()
         effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
                    for j in range(2 ** len(self.cod))]
-        array = Tensor.np.zeros(len(self.cod) * (2, )) + 0j
-        for effect in effects:
-            array +=\
-                effect.array * Tensor.np.absolute((state >> effect).array) ** 2
+        with Tensor.backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
+            array = np.zeros(len(self.cod) * (2, ), dtype=dtype.like_backend(np)) + 0j
+            for effect in effects:
+                array +=\
+                    effect.array * np.absolute((state >> effect).array) ** 2
         return array
 
     def to_tn(self, mixed=False):
@@ -397,7 +399,7 @@ class Circuit(tensor.Diagram):
             Output edges of the network.
         """
         if not mixed and not self.is_mixed:
-            return super().to_tn()
+            return super().to_tn(dtype=Dtype(complex))
 
         import tensornetwork as tn
         from discopy.quantum import (
@@ -419,87 +421,90 @@ class Circuit(tensor.Diagram):
                 last_i = i + 1
         diag >>= self[last_i:]
         self = diag
-
-        c_nodes = [tn.CopyNode(2, 2, f'c_input_{i}', dtype=complex)
-                   for i in range(self.dom.count(bit))]
-        q_nodes1 = [tn.CopyNode(2, 2, f'q1_input_{i}', dtype=complex)
-                    for i in range(self.dom.count(qubit))]
-        q_nodes2 = [tn.CopyNode(2, 2, f'q2_input_{i}', dtype=complex)
-                    for i in range(self.dom.count(qubit))]
-
-        inputs = [n[0] for n in c_nodes + q_nodes1 + q_nodes2]
-        c_scan = [n[1] for n in c_nodes]
-        q_scan1 = [n[1] for n in q_nodes1]
-        q_scan2 = [n[1] for n in q_nodes2]
-        nodes = c_nodes + q_nodes1 + q_nodes2
-        for box, layer, offset in zip(self.boxes, self.layers, self.offsets):
-            if box == Circuit.swap(bit, bit):
-                left, _, _ = layer
-                c_offset = left.count(bit)
-                c_scan[c_offset], c_scan[c_offset + 1] =\
-                    c_scan[c_offset + 1], c_scan[c_offset]
-            elif box.is_mixed or isinstance(box, ClassicalGate):
-                c_dom = box.dom.count(bit)
-                q_dom = box.dom.count(qubit)
-                c_cod = box.cod.count(bit)
-                q_cod = box.cod.count(qubit)
-                left, _, _ = layer
-                c_offset = left.count(bit)
-                q_offset = left.count(qubit)
-                if isinstance(box, Discard):
-                    assert box.n_qubits == 1
-                    tn.connect(q_scan1[q_offset], q_scan2[q_offset])
-                    del q_scan1[q_offset]
-                    del q_scan2[q_offset]
-                    continue
-                if isinstance(box, (Copy, Match, Measure, Encode)):
-                    assert len(box.dom) == 1 or len(box.cod) == 1
-                    node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=complex)
-                else:
-                    # only unoptimised gate is MixedState()
-                    array = box.eval(mixed=True).array
-                    node = tn.Node(array + 0j, 'cq_' + str(box))
-                for i in range(c_dom):
-                    tn.connect(c_scan[c_offset + i], node[i])
-                for i in range(q_dom):
-                    tn.connect(q_scan1[q_offset + i], node[c_dom + i])
-                for i in range(q_dom):
-                    tn.connect(q_scan2[q_offset + i], node[c_dom + q_dom + i])
-                cq_dom = c_dom + 2 * q_dom
-                c_edges = node[cq_dom:cq_dom + c_cod]
-                q_edges1 = node[cq_dom + c_cod:cq_dom + c_cod + q_cod]
-                q_edges2 = node[cq_dom + c_cod + q_cod:]
-                c_scan = (c_scan[:c_offset] + c_edges
-                          + c_scan[c_offset + c_dom:])
-                q_scan1 = (q_scan1[:q_offset] + q_edges1
-                           + q_scan1[q_offset + q_dom:])
-                q_scan2 = (q_scan2[:q_offset] + q_edges2
-                           + q_scan2[q_offset + q_dom:])
-                nodes.append(node)
-            else:
-                left, _, _ = layer
-                q_offset = left[:offset + 1].count(qubit)
-                if box == SWAP:
-                    q_scan1[q_offset], q_scan1[q_offset + 1] =\
-                        q_scan1[q_offset + 1], q_scan1[q_offset]
-                    q_scan2[q_offset], q_scan2[q_offset + 1] =\
-                        q_scan2[q_offset + 1], q_scan2[q_offset]
-                    continue
-                utensor = box.array
-                node1 = tn.Node(Tensor.np.conj(utensor) + 0j, 'q1_' + str(box))
-                node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
-
-                for i in range(len(box.dom)):
-                    tn.connect(q_scan1[q_offset + i], node1[i])
-                    tn.connect(q_scan2[q_offset + i], node2[i])
-
-                edges1 = node1[len(box.dom):]
-                edges2 = node2[len(box.dom):]
-                q_scan1 = (q_scan1[:q_offset] + edges1
-                           + q_scan1[q_offset + len(box.dom):])
-                q_scan2 = (q_scan2[:q_offset] + edges2
-                           + q_scan2[q_offset + len(box.dom):])
-                nodes.extend([node1, node2])
+        
+        with Tensor.backend() as np:
+            with tn.DefaultBackend(np.backend_like_tn()):
+                dtype = str(Dtype(complex))
+                c_nodes = [tn.CopyNode(2, 2, f'c_input_{i}', dtype=dtype)
+                           for i in range(self.dom.count(bit))]
+                q_nodes1 = [tn.CopyNode(2, 2, f'q1_input_{i}', dtype=dtype)
+                            for i in range(self.dom.count(qubit))]
+                q_nodes2 = [tn.CopyNode(2, 2, f'q2_input_{i}', dtype=dtype)
+                            for i in range(self.dom.count(qubit))]
+        
+                inputs = [n[0] for n in c_nodes + q_nodes1 + q_nodes2]
+                c_scan = [n[1] for n in c_nodes]
+                q_scan1 = [n[1] for n in q_nodes1]
+                q_scan2 = [n[1] for n in q_nodes2]
+                nodes = c_nodes + q_nodes1 + q_nodes2
+                for box, layer, offset in zip(self.boxes, self.layers, self.offsets):
+                    if box == Circuit.swap(bit, bit):
+                        left, _, _ = layer
+                        c_offset = left.count(bit)
+                        c_scan[c_offset], c_scan[c_offset + 1] =\
+                            c_scan[c_offset + 1], c_scan[c_offset]
+                    elif box.is_mixed or isinstance(box, ClassicalGate):
+                        c_dom = box.dom.count(bit)
+                        q_dom = box.dom.count(qubit)
+                        c_cod = box.cod.count(bit)
+                        q_cod = box.cod.count(qubit)
+                        left, _, _ = layer
+                        c_offset = left.count(bit)
+                        q_offset = left.count(qubit)
+                        if isinstance(box, Discard):
+                            assert box.n_qubits == 1
+                            tn.connect(q_scan1[q_offset], q_scan2[q_offset])
+                            del q_scan1[q_offset]
+                            del q_scan2[q_offset]
+                            continue
+                        if isinstance(box, (Copy, Match, Measure, Encode)):
+                            assert len(box.dom) == 1 or len(box.cod) == 1
+                            node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=complex)
+                        else:
+                            # only unoptimised gate is MixedState()
+                            array = box.eval(mixed=True).array
+                            node = tn.Node(array + 0j, 'cq_' + str(box))
+                        for i in range(c_dom):
+                            tn.connect(c_scan[c_offset + i], node[i])
+                        for i in range(q_dom):
+                            tn.connect(q_scan1[q_offset + i], node[c_dom + i])
+                        for i in range(q_dom):
+                            tn.connect(q_scan2[q_offset + i], node[c_dom + q_dom + i])
+                        cq_dom = c_dom + 2 * q_dom
+                        c_edges = node[cq_dom:cq_dom + c_cod]
+                        q_edges1 = node[cq_dom + c_cod:cq_dom + c_cod + q_cod]
+                        q_edges2 = node[cq_dom + c_cod + q_cod:]
+                        c_scan = (c_scan[:c_offset] + c_edges
+                                  + c_scan[c_offset + c_dom:])
+                        q_scan1 = (q_scan1[:q_offset] + q_edges1
+                                   + q_scan1[q_offset + q_dom:])
+                        q_scan2 = (q_scan2[:q_offset] + q_edges2
+                                   + q_scan2[q_offset + q_dom:])
+                        nodes.append(node)
+                    else:
+                        left, _, _ = layer
+                        q_offset = left[:offset + 1].count(qubit)
+                        if box == SWAP:
+                            q_scan1[q_offset], q_scan1[q_offset + 1] =\
+                                q_scan1[q_offset + 1], q_scan1[q_offset]
+                            q_scan2[q_offset], q_scan2[q_offset + 1] =\
+                                q_scan2[q_offset + 1], q_scan2[q_offset]
+                            continue
+                        utensor = box.array
+                        node1 = tn.Node(Tensor.np.conj(utensor) + 0j, 'q1_' + str(box))
+                        node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
+        
+                        for i in range(len(box.dom)):
+                            tn.connect(q_scan1[q_offset + i], node1[i])
+                            tn.connect(q_scan2[q_offset + i], node2[i])
+        
+                        edges1 = node1[len(box.dom):]
+                        edges2 = node2[len(box.dom):]
+                        q_scan1 = (q_scan1[:q_offset] + edges1
+                                   + q_scan1[q_offset + len(box.dom):])
+                        q_scan2 = (q_scan2[:q_offset] + edges2
+                                   + q_scan2[q_offset + len(box.dom):])
+                        nodes.extend([node1, node2])
         outputs = c_scan + q_scan1 + q_scan2
         return nodes, inputs + outputs
 
@@ -1145,23 +1150,23 @@ class IQPansatz(Circuit):
     """
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import H, Rx, Rz, CRz
-
-        if n_qubits == 1:
-            circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
-        elif len(Tensor.np.shape(params)) != 2\
-                or Tensor.np.shape(params)[1] != n_qubits - 1:
-            raise ValueError(
-                "Expected params of shape (depth, {})".format(n_qubits - 1))
-        else:
-            depth = Tensor.np.shape(params)[0]
-            circuit = Id(n_qubits)
-
-            for thetas in params:
-                hadamards = Id().tensor(*(n_qubits * [H]))
-                rotations = Id(n_qubits).then(*(
-                    Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
-                    for i in range(n_qubits - 1)))
-                circuit >>= hadamards >> rotations
+        with Tensor.backend() as np:
+            if n_qubits == 1:
+                circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
+            elif len(np.shape(params)) != 2\
+                    or np.shape(params)[1] != n_qubits - 1:
+                raise ValueError(
+                    "Expected params of shape (depth, {})".format(n_qubits - 1))
+            else:
+                depth = np.shape(params)[0]
+                circuit = Id(n_qubits)
+    
+                for thetas in params:
+                    hadamards = Id().tensor(*(n_qubits * [H]))
+                    rotations = Id(n_qubits).then(*(
+                        Id(i) @ CRz(thetas[i]) @ Id(n_qubits - 2 - i)
+                        for i in range(n_qubits - 1)))
+                    circuit >>= hadamards >> rotations
 
         super().__init__(
             circuit.dom, circuit.cod, circuit.boxes, circuit.offsets)
@@ -1196,8 +1201,8 @@ class Sim14ansatz(Circuit):
 
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import Rx, Ry, Rz
-
-        params_shape = Tensor.np.shape(params)
+        with Tensor.backend() as np:
+            params_shape = np.shape(params)
 
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
@@ -1259,8 +1264,8 @@ class Sim15ansatz(Circuit):
 
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import Rx, Ry, Rz
-
-        params_shape = Tensor.np.shape(params)
+        with Tensor.backend() as np:
+            params_shape = np.shape(params)
 
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
@@ -1320,8 +1325,8 @@ class Sim8ansatz(Circuit):
 
     def __init__(self, n_qubits, params):
         from discopy.quantum.gates import Rx, Rz
-
-        params_shape = Tensor.np.shape(params)
+        with Tensor.backend() as np:
+            params_shape = np.shape(params)
 
         if n_qubits == 1:
             circuit = Rx(params[0]) >> Rz(params[1]) >> Rx(params[2])
@@ -1384,7 +1389,8 @@ def real_amp_ansatz(params: Tensor.np.ndarray, *, entanglement='full'):
     from discopy.quantum.gates import CX, Ry, rewire
     ext_cx = partial(rewire, CX)
     assert entanglement in ('linear', 'circular', 'full')
-    params = Tensor.np.asarray(params)
+    with Tensor.backend() as np:
+        params = np.asarray(params)
     assert params.ndim == 2
     dom = qubit**params.shape[1]
     n_qbs = params.shape[1]

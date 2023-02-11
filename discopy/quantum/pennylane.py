@@ -213,7 +213,7 @@ class PennyLaneCircuit:
         self.wires = wires
         self.probs = probabilities
         self._post_selection = post_selection
-        self.scale = scale
+        self.scale = torch.tensor(scale)
         self.n_qubits = n_qubits
         self.device = device
         self._valid_states = self.get_valid_states()
@@ -330,7 +330,7 @@ class PennyLaneCircuit:
 
         open_wires = self.n_qubits - len(self._post_selection)
         post_selected_states = states[self._valid_states]
-        post_selected_states *= self.scale ** 2 if self.probs else self.scale
+        post_selected_states *= torch.real(self.scale ** 2) if self.probs else self.scale
 
         if post_selected_states.shape[0] == 1:
             return post_selected_states

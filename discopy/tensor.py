@@ -11,8 +11,10 @@ Implements dagger monoidal functors into tensors.
 >>> assert F(Alice >> loves >> Bob.dagger()) == 1
 """
 from contextlib import contextmanager
+from typing import Union
 
 import numpy
+import autoray
 
 from discopy import cat, config, messages, monoidal, rigid
 from discopy.cat import AxiomError
@@ -77,60 +79,185 @@ class Dim(Ty):
         """
         return Dim(*self[::-1])
 
+InitDtype = Union[type, tuple[type, int]]
 
-class TensorBackend:
-    module = None
+
+class Dtype:
+    """dtype to use when creating arrays/tensors."""
+
+    def __init__(self, dtype: InitDtype, float_size: int = 64):
+        # Numeric types must have a float_size
+        if dtype in [int, float, complex]:
+            dtype = dtype, float_size
+
+        self._dtype = dtype
+
+        if isinstance(self._dtype, str):
+            name = self._dtype
+        elif isinstance(self._dtype, tuple):
+            name = self._dtype[0].__name__ + str(self._dtype[1])
+        else:
+            name = self._dtype.__name__ if self._dtype is not None else 'None'
+        self.__name__ = name
+
+    def __eq__(self, other):
+        return isinstance(other, Dtype) and str(self) == str(other)
+
+    def __hash__(self):
+        return hash(str(self))
+
+    def __str__(self):
+        return self.__name__
+
+    def __repr__(self):
+        return f'Dtype({str(self)})'
+
+    def like_backend(self, backend) -> str:
+        if self._dtype is None:
+            return None
+        return autoray.to_backend_dtype(str(self), like=backend.backend_like())
+
+    @classmethod
+    def from_data(cls, data: any):
+        try:
+            with backend() as np:
+                type_str = autoray.get_dtype_name(np.asarray(data))
+        except (AttributeError, KeyError, ImportError):
+            # try converting to numpy and extracting that type
+            array = numpy.array(data)
+            type_str = autoray.get_dtype_name(array.dtype)
+        return Dtype(type_str)
+
+
+class Backend:
+    like: str  # Sting to use for autoray backend_like
+    like_tn: str  # String to use for tensornetwork backend
+
+    def __init__(self, module, array=None):
+        self.module, self.array = module, array or module.array
 
     def __getattr__(self, attr):
         return getattr(self.module, attr)
 
+    def setup_autoray(self, ar):
+        # Add any autoray extensions necessary for this backend.
+        pass
 
-class NumPyBackend(TensorBackend):
+
+class NumPy(Backend):
+    like = "numpy"
+    like_tn = "numpy"
+
     def __init__(self):
-        self.module = numpy
+        import numpy
+        super().__init__(numpy)
+
+    def setup_autoray(self, ar):
+        # Sympy expressions should get object dtype
+        autoray.register_function(self.like, "Expr", object)
 
 
-class JAXBackend(TensorBackend):
+class JAX(Backend):
+    like = "jax"
+    like_tn = "jax"
+
     def __init__(self):
         import jax
-        self.module = jax.numpy
+        super().__init__(jax.numpy)
 
 
-class PyTorchBackend(TensorBackend):
+class PyTorch(Backend):
+    like = "torch"
+    like_tn = "pytorch"
+
     def __init__(self):
         import torch
-        self.module = torch
-        self.array = torch.as_tensor
+        super().__init__(torch, array=torch.as_tensor)
 
 
-class TensorFlowBackend(TensorBackend):
+class TensorFlow(Backend):
+    like = "tensorflow"
+    like_tn = "tensorflow"
+
     def __init__(self):
         import tensorflow.experimental.numpy as tnp
         from tensorflow.python.ops.numpy_ops import np_config
         np_config.enable_numpy_behavior()
-        self.module = tnp
+        super().__init__(tnp)
 
 
-BACKENDS = {'np': NumPyBackend,
-            'numpy': NumPyBackend,
-            'jax': JAXBackend,
-            'jax.numpy': JAXBackend,
-            'pytorch': PyTorchBackend,
-            'torch': PyTorchBackend,
-            'tensorflow': TensorFlowBackend}
-INSTANTIATED_BACKENDS = {}
+class SymPy(Backend):
+    """Not fully functional as a backend, but used for parametrised gates."""
+    like = "sympy"
+    like_tn = "numpy"
+
+    def __init__(self):
+        import sympy
+        import numpy
+        super().__init__(sympy, numpy)
 
 
-def get_backend(name):
+BACKENDS = {
+    'np': NumPy,
+    'numpy': NumPy,
+    'jax': JAX,
+    'jax.numpy': JAX,
+    'pytorch': PyTorch,
+    'torch': PyTorch,
+    'tensorflow': TensorFlow,
+    'sympy': SymPy,
+}
+
+
+@contextmanager
+def default_dtype(dtype=None, init_stack=config.DEFAULT_DTYPE, _stack=[], _cache=dict()) -> Dtype:
+    if len(_stack) == 0:
+        _stack.append(init_stack)
+
+    dtype = dtype or _stack[-1]
+    _stack.append(dtype)
     try:
-        backend = BACKENDS[name]
-    except KeyError:
-        raise ValueError(f'Invalid backend: {name!r}')
+        if dtype not in _cache:
+            _cache[dtype] = Dtype(dtype)
+        yield _cache[dtype]
+    finally:
+        _stack.pop()
+
+
+@contextmanager
+def _backend(name=None, init_stack=config.DEFAULT_BACKEND, _stack=[], _cache=dict()):
+    if len(_stack) == 0:
+        _stack.append(init_stack)
+
+    name = name or _stack[-1]
+    _stack.append(name)
     try:
-        return INSTANTIATED_BACKENDS[backend]
-    except KeyError:
-        ret = INSTANTIATED_BACKENDS[backend] = backend()
-        return ret
+        if name not in _cache:
+            _cache[name] = BACKENDS[name]()
+        yield _cache[name]
+    finally:
+        _stack.pop()
+
+
+@contextmanager
+def backend(name=None, default=None, _cache=dict()):
+    with _backend(name, init_stack=default) as backend_ctx:
+        if backend_ctx.like not in _cache:
+            # Add in stuff that autoray doesn't already include.
+            autoray.register_function(backend_ctx.like, "pi", lambda: backend_ctx.pi)
+            # Make sure we can access which backend we are using on the returned fake numpy
+            autoray.register_function(backend_ctx.like, "backend_like", lambda: backend_ctx.like)
+            autoray.register_function(backend_ctx.like, "backend_like_tn", lambda: backend_ctx.like_tn)
+            _cache[backend_ctx.like] = autoray
+
+        ar = _cache[backend_ctx.like]
+        with ar.backend_like(backend_ctx.like):
+            yield ar.numpy
+
+
+def get_backend(default=None):
+    with backend(default=default) as result:
+        return result
 
 
 class TensorType(type):
@@ -142,7 +269,7 @@ class TensorType(type):
 
     @np.setter
     def np(cls, module):
-        cls.set_backend(module.__name__)
+        cls.default_backend = module.__name__
 
 
 class Tensor(rigid.Box, metaclass=TensorType):
@@ -177,28 +304,21 @@ class Tensor(rigid.Box, metaclass=TensorType):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    _backend_stack = [get_backend('jax' if config.IMPORT_JAX else 'numpy')]
+    default_backend = 'jax' if config.IMPORT_JAX else 'numpy'
 
     @classmethod
     def get_backend(cls):
-        return cls._backend_stack[-1]
-
-    @classmethod
-    def set_backend(cls, value):
-        backend = get_backend(value)
-        cls._backend_stack.append(backend)
-        return backend
+        return get_backend(default=cls.default_backend)
 
     @classmethod
     @contextmanager
-    def backend(cls, value):
-        try:
-            yield cls.set_backend(value)
-        finally:
-            cls._backend_stack.pop()
+    def backend(cls, value=None):
+        with backend(value, default=cls.default_backend) as np:
+            yield np
 
     def __init__(self, dom, cod, array):
-        self._array = Tensor.np.array(array).reshape(tuple(dom @ cod))
+        with backend() as np, default_dtype(Dtype.from_data(array)) as dtype:
+            self._array = np.array(array, dtype=dtype.like_backend(np)).reshape(tuple(dom @ cod))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -246,10 +366,11 @@ class Tensor(rigid.Box, metaclass=TensorType):
         return self.__add__(other)
 
     def __eq__(self, other):
-        if not isinstance(other, Tensor):
-            return Tensor.np.all(Tensor.np.array(self.array == other))
-        return (self.dom, self.cod) == (other.dom, other.cod)\
-            and Tensor.np.all(Tensor.np.array(self.array == other.array))
+        with backend() as np:
+            if not isinstance(other, Tensor):
+                return np.all(np.array(self.array == other))
+            return (self.dom, self.cod) == (other.dom, other.cod)\
+                and np.all(np.array(self.array == other.array))
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
@@ -259,9 +380,10 @@ class Tensor(rigid.Box, metaclass=TensorType):
             raise TypeError(messages.type_err(Tensor, other))
         if self.cod != other.dom:
             raise AxiomError(messages.does_not_compose(self, other))
-        array = Tensor.np.tensordot(self.array, other.array, len(self.cod))\
-            if self.array.shape and other.array.shape\
-            else self.array * other.array
+        with backend() as np:
+            array = np.tensordot(self.array, other.array, len(self.cod))\
+                if self.array.shape and other.array.shape\
+                else self.array * other.array
         return Tensor(self.dom, other.cod, array)
 
     def tensor(self, *others):
@@ -271,27 +393,30 @@ class Tensor(rigid.Box, metaclass=TensorType):
         if not isinstance(other, Tensor):
             raise TypeError(messages.type_err(Tensor, other))
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        array = Tensor.np.tensordot(self.array, other.array, 0)\
-            if self.array.shape and other.array.shape\
-            else self.array * other.array
-        source = range(len(dom @ cod))
-        target = [
-            i if i < len(self.dom) or i >= len(self.dom @ self.cod @ other.dom)
-            else i - len(self.cod) if i >= len(self.dom @ self.cod)
-            else i + len(other.dom) for i in source]
-        return Tensor(dom, cod, Tensor.np.moveaxis(array, source, target))
+        with backend() as np:
+            array = np.tensordot(self.array, other.array, 0)\
+                if self.array.shape and other.array.shape\
+                else self.array * other.array
+            source = list(range(len(dom @ cod)))
+            target = [
+                i if i < len(self.dom) or i >= len(self.dom @ self.cod @ other.dom)
+                else i - len(self.cod) if i >= len(self.dom @ self.cod)
+                else i + len(other.dom) for i in source]
+            return Tensor(dom, cod, np.moveaxis(array, source, target))
 
     def dagger(self):
-        array = Tensor.np.moveaxis(
-            self.array, range(len(self.dom @ self.cod)),
-            [i + len(self.cod) if i < len(self.dom) else
-             i - len(self.dom) for i in range(len(self.dom @ self.cod))])
-        return Tensor(self.cod, self.dom, Tensor.np.conjugate(array))
+        with backend() as np:
+            array = np.moveaxis(
+                self.array, range(len(self.dom @ self.cod)),
+                [i + len(self.cod) if i < len(self.dom) else
+                 i - len(self.dom) for i in range(len(self.dom @ self.cod))])
+            return Tensor(self.cod, self.dom, np.conjugate(array))
 
     @staticmethod
     def id(dom=Dim(1)):
         from numpy import prod
-        return Tensor(dom, dom, Tensor.np.eye(int(prod(dom))))
+        with backend() as np, default_dtype() as dtype:
+            return Tensor(dom, dom, np.eye(int(prod(dom)), dtype=dtype.like_backend(np)))
 
     @staticmethod
     def cups(left, right):
@@ -310,8 +435,9 @@ class Tensor(rigid.Box, metaclass=TensorType):
         source = range(len(left @ right), 2 * len(left @ right))
         target = [i + len(right) if i < len(left @ right @ left)
                   else i - len(left) for i in source]
-        return Tensor(left @ right, right @ left,
-                      Tensor.np.moveaxis(array, source, target))
+        with backend() as np:
+            return Tensor(left @ right, right @ left,
+                          np.moveaxis(array, source, target))
 
     def transpose(self, left=False):
         """
@@ -334,19 +460,22 @@ class Tensor(rigid.Box, metaclass=TensorType):
         """
         dom, cod = self.dom, self.cod
         if not diagrammatic:
-            return Tensor(dom, cod, Tensor.np.conjugate(self.array))
+            with backend() as np:
+                return Tensor(dom, cod, np.conjugate(self.array))
         # reverse the wires for both inputs and outputs
-        array = Tensor.np.moveaxis(
-            self.array, range(len(dom @ cod)),
-            [len(dom) - i - 1 for i in range(len(dom @ cod))])
-        return Tensor(dom[::-1], cod[::-1], Tensor.np.conjugate(array))
+        with backend() as np:
+            array = np.moveaxis(
+                self.array, range(len(dom @ cod)),
+                [len(dom) - i - 1 for i in range(len(dom @ cod))])
+            return Tensor(dom[::-1], cod[::-1], np.conjugate(array))
 
     l = r = property(conjugate)
 
     def round(self, decimals=0):
         """ Rounds the entries of a tensor up to a number of decimals. """
-        return Tensor(self.dom, self.cod,
-                      Tensor.np.around(self.array, decimals=decimals))
+        with backend() as np:
+            return Tensor(self.dom, self.cod,
+                          np.around(self.array, decimals=decimals))
 
     def map(self, func):
         """ Apply a function elementwise. """
@@ -363,7 +492,8 @@ class Tensor(rigid.Box, metaclass=TensorType):
         >>> assert Tensor.zeros(Dim(2), Dim(2))\\
         ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
         """
-        return Tensor(dom, cod, Tensor.np.zeros(dom @ cod))
+        with backend() as np, default_dtype() as dtype:
+            return Tensor(dom, cod, np.zeros(dom @ cod, dtype=dtype.like_backend(np)))
 
     def subs(self, *args):
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
@@ -419,7 +549,10 @@ class Functor(rigid.Functor):
     >>> F(f)
     Tensor(dom=Dim(1), cod=Dim(2), array=[0, 1])
     """
-    def __init__(self, ob, ar):
+    def __init__(self, ob, ar, dtype: Union[type, Dtype] = Dtype(int)):
+        if not isinstance(dtype, Dtype):
+            dtype = Dtype(dtype)
+        self.dtype = dtype
         super().__init__(ob, ar, ob_factory=Dim, ar_factory=Tensor)
 
     def __repr__(self):
@@ -471,19 +604,21 @@ class Functor(rigid.Functor):
                     i + dim(box.right)
                     if i < dim(diagram.dom @ scan[:off]) + dim(box.left)
                     else i - dim(box.left) for i in source]
-                array = Tensor.np.moveaxis(array, list(source), list(target))
+                with backend() as np:
+                    array = np.moveaxis(array, list(source), list(target))
                 scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
                 continue
             left = dim(scan[:off])
             source = list(range(dim(diagram.dom) + left,
                                 dim(diagram.dom) + left + dim(box.dom)))
             target = list(range(dim(box.dom)))
-            array =\
-                Tensor.np.tensordot(array, self(box).array, (source, target))
+            with backend() as np:
+                array = np.tensordot(array, self(box).array, (source, target))
             source = range(len(array.shape) - dim(box.cod), len(array.shape))
             target = range(dim(diagram.dom) + left,
                            dim(diagram.dom) + left + dim(box.cod))
-            array = Tensor.np.moveaxis(array, list(source), list(target))
+            with backend() as np:
+                array = np.moveaxis(array, list(source), list(target))
             scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
         return Tensor(self(diagram.dom), self(diagram.cod), array)
 
@@ -524,14 +659,15 @@ class Diagram(rigid.Diagram):
         >>> import tensornetwork as tn
         >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
         """
-        if contractor is None and "numpy" not in Tensor.np.__package__:
-            raise Exception(
-                'Provide a tensornetwork contractor'
-                'when using a non-numpy backend.')
+        # if contractor is None and "numpy" not in Tensor.np.__package__:
+        #     raise Exception(
+        #         'Provide a tensornetwork contractor'
+        #         'when using a non-numpy backend.')
 
-        if contractor is None:
-            return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
-        array = contractor(*self.to_tn(dtype=dtype)).tensor
+        with default_dtype(init_stack=dtype) as base_dtype:
+            if contractor is None:
+                return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+        array = contractor(*self.to_tn(dtype=base_dtype)).tensor
         return Tensor(self.dom, self.cod, array)
 
     def to_tn(self, dtype=None):
@@ -563,10 +699,13 @@ class Diagram(rigid.Diagram):
         """
         import tensornetwork as tn
         if dtype is None:
-            dtype = self._infer_dtype()
-        nodes = [
-            tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
-            for i, dim in enumerate(self.dom)]
+            dtype = Dtype(self._infer_dtype())
+
+        with backend() as np:
+            with tn.DefaultBackend(np.backend_like_tn()):
+                nodes = [
+                    tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=str(dtype))
+                    for i, dim in enumerate(self.dom)]
         inputs, scan = [n[0] for n in nodes], [n[1] for n in nodes]
         for box, offset in zip(self.boxes, self.offsets):
             if isinstance(box, rigid.Swap):
@@ -577,18 +716,26 @@ class Diagram(rigid.Diagram):
                 if dims == (1, 1):  # identity
                     continue
                 elif dims == (2, 0):  # cup
-                    tn.connect(*scan[offset:offset + 2])
+                    with backend() as np:
+                        with tn.DefaultBackend(np.backend_like_tn()):
+                            tn.connect(*scan[offset:offset + 2])
                     del scan[offset:offset + 2]
                     continue
                 else:
-                    node = tn.CopyNode(sum(dims),
-                                       scan[offset].dimension,
-                                       dtype=dtype)
+                    with backend() as np:
+                        with tn.DefaultBackend(np.backend_like_tn()):
+                            node = tn.CopyNode(sum(dims),
+                                               scan[offset].dimension,
+                                               dtype=str(dtype))
             else:
                 array = box.eval().array
-                node = tn.Node(array, str(box))
+                with backend() as np:
+                    with tn.DefaultBackend(np.backend_like_tn()):
+                        node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
-                tn.connect(scan[offset + i], node[i])
+                with backend() as np:
+                    with tn.DefaultBackend(np.backend_like_tn()):
+                        tn.connect(scan[offset + i], node[i])
             scan[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
         return nodes, inputs + scan
@@ -599,25 +746,26 @@ class Diagram(rigid.Diagram):
                 array = box.array
 
                 # try to return the dtype directly
-                dtype = array.dtype
-                if isinstance(dtype, numpy.dtype):
-                    return dtype
-
-                # else turn the array into a numpy array and return that dtype
-                while True:
-                    # minimise data to potentially copy
-                    try:
-                        array = array[0]
-                    except IndexError:
-                        break
-
-                try:
-                    return numpy.asarray(array).dtype
-                except (RuntimeError, TypeError):
-                    # assume that the array is actually a PyTorch tensor
-                    return array.detach().cpu().numpy().dtype
+                return autoray.get_dtype_name(array)
+                # dtype = array.dtype
+                # if isinstance(dtype, numpy.dtype):
+                #     return dtype
+                # 
+                # # else turn the array into a numpy array and return that dtype
+                # while True:
+                #     # minimise data to potentially copy
+                #     try:
+                #         array = array[0]
+                #     except IndexError:
+                #         break
+                # 
+                # try:
+                #     return numpy.asarray(array).dtype
+                # except (RuntimeError, TypeError):
+                #     # assume that the array is actually a PyTorch tensor
+                #     return array.detach().cpu().numpy().dtype
         else:
-            return numpy.float64  # fallback
+            return 'float64'  # fallback
 
     @staticmethod
     def cups(left, right):
@@ -734,7 +882,8 @@ class Box(rigid.Box, Diagram):
         dom, cod = self.dom, self.cod
         data = self.data
         try:
-            return Tensor.np.array(data).reshape(tuple(dom @ cod) or ())
+            with backend() as np, default_dtype() as dtype:
+                return np.array(data, dtype=dtype.like_backend(np)).reshape(tuple(dom @ cod) or ())
         except Exception:
             return data
 
@@ -749,9 +898,10 @@ class Box(rigid.Box, Diagram):
     def __eq__(self, other):
         if not isinstance(other, Box):
             return False
-        return Tensor.np.all(Tensor.np.array(self.array == other.array))\
-            and (self.name, self.dom, self.cod)\
-            == (other.name, other.dom, other.cod)
+        with backend() as np:
+            return np.all(np.array(self.array == other.array))\
+                and (self.name, self.dom, self.cod)\
+                == (other.name, other.dom, other.cod)
 
     def __hash__(self):
         return hash(

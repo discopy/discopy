@@ -3,11 +3,12 @@
 """ Gates in a :class:`discopy.quantum.circuit.Circuit`. """
 
 import warnings
+from contextlib import contextmanager
 
 import numpy
 
 from discopy.cat import AxiomError, rsubs
-from discopy.tensor import array2string, Dim, Tensor
+from discopy.tensor import array2string, Dim, Tensor, default_dtype, Dtype, backend, get_backend
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
     AntiConjugate, RealConjugate, Anti2QubitConjugate)
@@ -29,8 +30,12 @@ class QuantumGate(Box):
         dom = qubit ** n_qubits
         self._array = array
         if self._array is not None:
-            self._array = Tensor.np.array(array).reshape(
-                2 * n_qubits * (2, )) + 0j
+            with backend() as np, default_dtype(Dtype.from_data(self._array), init_stack=Dtype(complex)) as dtype:
+                self.dtype = dtype
+                self._array = np.array(array, dtype=dtype.like_backend(np)).reshape(
+                    2 * n_qubits * (2, )) + 0j
+        else:
+            self.dtype = Dtype(complex)
         super().__init__(
             name, dom, dom, is_mixed=False, data=data,
             _dagger=_dagger, _conjugate=_conjugate)
@@ -90,7 +95,11 @@ class ClassicalGate(Box):
         if isinstance(cod, int):
             cod = bit ** cod
         if data is not None:
-            data = Tensor.np.array(data).reshape((len(dom) + len(cod)) * (2, ))
+            with backend() as np, default_dtype(Dtype.from_data(data), init_stack=Dtype(float)) as dtype:
+                self.dtype = dtype
+                data = np.array(data, dtype=dtype.like_backend(np)).reshape((len(dom) + len(cod)) * (2, ))
+        else:
+            self.dtype = Dtype(float)
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
@@ -102,9 +111,10 @@ class ClassicalGate(Box):
     def __eq__(self, other):
         if not isinstance(other, ClassicalGate):
             return super().__eq__(other)
-        return (self.name, self.dom, self.cod)\
-            == (other.name, other.dom, other.cod)\
-            and Tensor.np.all(self.array == other.array)
+        with backend() as np:
+            return (self.name, self.dom, self.cod)\
+                == (other.name, other.dom, other.cod)\
+                and np.all(self.array == other.array)
 
     def __repr__(self):
         if self.is_dagger:
@@ -124,7 +134,8 @@ class ClassicalGate(Box):
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
-        data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
+        with backend() as np:
+            data = lambdify(symbols, self.data, dict(kwargs, modules=np))
         return lambda *xs: ClassicalGate(
             self.name, self.dom, self.cod, data(*xs))
 
@@ -197,7 +208,8 @@ class Digits(ClassicalGate):
 
     @property
     def array(self):
-        array = numpy.zeros(len(self._digits) * (self._dim, ))
+        with backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
+            array = np.zeros(len(self._digits) * (self._dim, ), dtype=dtype.like_backend(np))
         array[self._digits] = 1
         return array
 
@@ -307,6 +319,7 @@ class Controlled(QuantumGate):
         n_qubits = len(controlled.dom) + abs(distance)
         self.controlled, self.distance = controlled, distance
         self.draw_as_controlled = True
+        self.dtype = self.controlled.dtype
         array = None
         super().__init__(self.name, n_qubits, array, data=controlled.data)
 
@@ -398,14 +411,13 @@ class Controlled(QuantumGate):
         controlled, distance = self.controlled, self.distance
         n_qubits = len(self.dom)
         if distance == 1:
-            d = 1 << n_qubits - 1
-            part1 = Tensor.np.array([[1, 0], [0, 0]])
-            part2 = Tensor.np.array([[0, 0], [0, 1]])
-            array = (
-                Tensor.np.kron(part1, Tensor.np.eye(d))
-                + Tensor.np.kron(part2,
-                                 Tensor.np.array(controlled.array.reshape(d,
-                                                                          d))))
+            with backend() as np, default_dtype(self.dtype) as dtype:
+                d = 1 << n_qubits - 1
+                part1 = np.array([[1, 0], [0, 0]], dtype=dtype.like_backend(np))
+                part2 = np.array([[0, 0], [0, 1]], dtype=dtype.like_backend(np))
+                array = (
+                    np.kron(part1, np.eye(d))
+                    + np.kron(part2,np.array(controlled.array.reshape(d, d))))
         else:
             array = self._decompose().eval().array
         return array.reshape(*[2] * 2 * n_qubits)
@@ -444,13 +456,14 @@ class Parametrized(Box):
             is_mixed=params.get('is_mixed', True),
             _dagger=params.get('_dagger', False))
 
-    @property
+    @contextmanager
     def modules(self):
         if self.free_symbols:
-            import sympy
-            return sympy
+            with Tensor.backend('sympy') as np:
+                yield np
         else:
-            return Tensor.np
+            with Tensor.backend() as np:
+                yield np
 
     def subs(self, *args):
         data = rsubs(self.data, *args)
@@ -458,7 +471,8 @@ class Parametrized(Box):
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
-        data = lambdify(symbols, self.data, dict(kwargs, modules=Tensor.np))
+        with backend() as np:
+            data = lambdify(symbols, self.data, dict(kwargs, modules=np))
         return lambda *xs: type(self)(data(*xs))
 
     @property
@@ -476,6 +490,7 @@ class Rotation(Parametrized, QuantumGate):
         Parametrized.__init__(
             self, name, self.dom, self.cod,
             datatype=float, is_mixed=False, data=phase)
+        self.dtype = Dtype.from_data(phase)
 
     @property
     def phase(self):
@@ -491,15 +506,18 @@ class Rotation(Parametrized, QuantumGate):
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
 
+        with self.modules() as module:
+            pi = module.pi()
+
         if params.get('mixed', True):
             if len(self.dom) != 1:
                 raise NotImplementedError
-            s = scalar(Tensor.np.pi * gradient, is_mixed=True)
+            s = scalar(pi * gradient, is_mixed=True)
             t1 = type(self)(self.phase + .25)
             t2 = type(self)(self.phase - .25)
             return s @ (t1 + scalar(-1, is_mixed=True) @ t2)
 
-        return scalar(Tensor.np.pi * gradient) @ type(self)(self.phase + .5)
+        return scalar(pi * gradient) @ type(self)(self.phase + .5)
 
 
 class Rx(AntiConjugate, Rotation):
@@ -509,9 +527,13 @@ class Rx(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
+        with backend() as np, default_dtype(self.dtype) as dtype:
+            with self.modules() as module:
+                pi = module.pi()
+            half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
+            with self.modules() as module:
+                sin, cos = module.sin(half_theta), module.cos(half_theta)
+            return np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
 
 
 class Ry(RealConjugate, Rotation):
@@ -521,9 +543,13 @@ class Ry(RealConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        sin, cos = self.modules.sin(half_theta), self.modules.cos(half_theta)
-        return Tensor.np.stack((cos, sin, -sin, cos)).reshape(2, 2)
+        with backend() as np, default_dtype(self.dtype) as dtype:
+            with self.modules() as module:
+                pi = module.pi()
+            half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
+            with self.modules() as module:
+                sin, cos = module.sin(half_theta), module.cos(half_theta)
+            return np.stack((cos, sin, -sin, cos)).reshape(2, 2)
 
 
 class Rz(AntiConjugate, Rotation):
@@ -533,11 +559,15 @@ class Rz(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        half_theta = Tensor.np.array(self.modules.pi * self.phase)
-        e1 = self.modules.exp(-1j * half_theta)
-        e2 = self.modules.exp(1j * half_theta)
-        z = Tensor.np.array(0)
-        return Tensor.np.stack((e1, z, z, e2)).reshape(2, 2)
+        with backend() as np, default_dtype(self.dtype) as dtype:
+            with self.modules() as module:
+                pi = module.pi()
+            half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
+            with self.modules() as module:
+                e1 = module.exp(-1j * half_theta)
+                e2 = module.exp(1j * half_theta)
+            z = np.array(0, dtype=dtype.like_backend(np))
+            return np.stack((e1, z, z, e2)).reshape(2, 2)
 
 
 class CU1(Anti2QubitConjugate, Rotation):
@@ -547,12 +577,17 @@ class CU1(Anti2QubitConjugate, Rotation):
 
     @property
     def array(self):
-        theta = Tensor.np.array(2 * self.modules.pi * self.phase)
-        return Tensor.np.stack(
-            (1, 0, 0, 0,
-             0, 1, 0, 0,
-             0, 0, 1, 0,
-             0, 0, 0, self.modules.exp(1j * theta))).reshape(2, 2, 2, 2)
+        with backend() as np, default_dtype(self.dtype) as dtype:
+            with self.modules() as module:
+                pi = module.pi()
+            theta = np.array(2 * pi * self.phase, dtype=dtype.like_backend(np))
+            with self.modules() as module:
+                exp_theta = module.exp(1j * theta)
+            return np.stack(
+                (1, 0, 0, 0,
+                 0, 1, 0, 0,
+                 0, 0, 1, 0,
+                 0, 0, 0, exp_theta)).reshape(2, 2, 2, 2)
 
 
 class Scalar(Parametrized):
@@ -572,7 +607,8 @@ class Scalar(Parametrized):
 
     @property
     def array(self):
-        return Tensor.np.array(self.data)
+        with backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
+            return np.array(self.data, dtype=dtype.like_backend(np))
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -603,7 +639,8 @@ class Sqrt(Scalar):
 
     @property
     def array(self):
-        return Tensor.np.array(self.data ** .5)
+        with backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
+            return np.array(self.data ** .5, dtype=dtype.like_backend(np))
 
 
 SWAP = Swap(qubit, qubit)

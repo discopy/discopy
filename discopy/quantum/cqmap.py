@@ -17,7 +17,7 @@ CQMap(dom=CQ(), cod=Q(Dim(2)), array=[0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j])
 from discopy import monoidal, rigid, messages, tensor
 from discopy.cat import AxiomError
 from discopy.rigid import Ob, Ty, Diagram
-from discopy.tensor import Dim, Tensor
+from discopy.tensor import Dim, Tensor, default_dtype, Dtype
 from discopy.quantum.circuit import (
     bit, qubit, Digit, Qudit,
     Box, Sum, Swap, Discard, Measure, MixedState, Encode)
@@ -195,24 +195,25 @@ class CQMap(Tensor):
     @staticmethod
     def measure(dim, destructive=True):
         """ Measure a quantum dimension into a classical dimension. """
-        if not dim:
-            return CQMap(CQ(), CQ(), Tensor.np.array(1))
-        if len(dim) == 1:
-            if destructive:
-                array = Tensor.np.array([
-                    int(i == j == k)
+        with Tensor.backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
+            if not dim:
+                return CQMap(CQ(), CQ(), np.array(1, dtype=dtype.like_backend(np)))
+            if len(dim) == 1:
+                if destructive:
+                    array = np.array([
+                        int(i == j == k)
+                        for i in range(dim[0])
+                        for j in range(dim[0])
+                        for k in range(dim[0])], dtype=dtype.like_backend(np))
+                    return CQMap(Q(dim), C(dim), array)
+                array = np.array([
+                    int(i == j == k == l == m)
                     for i in range(dim[0])
                     for j in range(dim[0])
-                    for k in range(dim[0])])
-                return CQMap(Q(dim), C(dim), array)
-            array = Tensor.np.array([
-                int(i == j == k == l == m)
-                for i in range(dim[0])
-                for j in range(dim[0])
-                for k in range(dim[0])
-                for l in range(dim[0])
-                for m in range(dim[0])])
-            return CQMap(Q(dim), C(dim) @ Q(dim), array)
+                    for k in range(dim[0])
+                    for l in range(dim[0])
+                    for m in range(dim[0])], dtype=dtype.like_backend(np))
+                return CQMap(Q(dim), C(dim) @ Q(dim), array)
         return CQMap.measure(dim[:1], destructive=destructive)\
             @ CQMap.measure(dim[1:], destructive=destructive)
 
@@ -235,8 +236,9 @@ class CQMap(Tensor):
     @staticmethod
     def discard(dom):
         """ Discard a quantum dimension or take the marginal distribution. """
-        array = Tensor.np.tensordot(
-            Tensor.np.ones(dom.classical), Tensor.id(dom.quantum).array, 0)
+        with Tensor.backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
+            array = np.tensordot(
+                np.ones(dom.classical, dtype=dtype.like_backend(np)), Tensor.id(dom.quantum).array, 0)
         return CQMap(dom, CQ(), array)
 
     @staticmethod

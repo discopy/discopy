@@ -23,7 +23,7 @@ def test_backend():
 
 
 def test_Tensor_repr_with_tf():
-    with Tensor.backend('tensorflow'):
+    with Tensor.backend('tensorflow'), default_dtype(Dtype(int)):
         alice = Tensor(Dim(1), Dim(2), [1, 2])
         assert repr(alice) == 'Tensor(dom=Dim(1), cod=Dim(2), array=[1, 2])'
 
@@ -44,10 +44,11 @@ def test_Dim():
 
 
 def test_Tensor():
-    assert Tensor(Dim(1), Dim(1), [1])
-    m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
-    assert repr(m) == str(m)\
-        == "Tensor(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])"
+    with default_dtype(Dtype(int)):
+        assert Tensor(Dim(1), Dim(1), [1])
+        m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
+        assert repr(m) == str(m)\
+            == "Tensor(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])"
     u = Tensor(Dim(2), Dim(2), [1, 0, 0, 0])
     v = Tensor(Dim(2), Dim(2), [0, 0, 0, 1])
     assert u + v == Tensor.id(Dim(2))
@@ -74,11 +75,12 @@ def test_Spider_to_tn():
 
 
 def test_Spider_to_tn_pytorch():
-    try:
-        import torch
-        Tensor.np = torch
-        torch.array = torch.as_tensor
-        tn.set_default_backend('pytorch')
+    # try:
+    import torch
+    with backend('torch'):
+        # Tensor.np = torch
+        # torch.array = torch.as_tensor
+        # tn.set_default_backend('pytorch')
 
         d = Dim(2)
 
@@ -87,9 +89,9 @@ def test_Spider_to_tn_pytorch():
         tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
         result = tensor.eval(contractor=tn.contractors.auto).array
         assert result.item() == 3
-    finally:
-        Tensor.np = np
-        tn.set_default_backend('numpy')
+    # finally:
+        # Tensor.np = np
+        # tn.set_default_backend('numpy')
 
 
 def test_Tensor_cups():
@@ -279,8 +281,7 @@ def test_Tensor_adjoint_eval():
 def test_non_numpy_eval():
     import torch
     Tensor.np = torch
-    with raises(Exception):
-        Swap(Dim(2), Dim(2)).eval()
+    Swap(Dim(2), Dim(2)).eval()
     Tensor.np = np
 
 
