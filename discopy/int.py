@@ -13,20 +13,50 @@ Summary
 
     Ty
     Diagram
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        NamedGeneric
+
+Example
+-------
+
+>>> from discopy.grammar import pregroup
+>>> from discopy.grammar.pregroup import Word, Cup
+>>> s, n = map(pregroup.Ty, "sn")
+>>> Alice, loves, Bob\\
+...     = Word('Alice', n), Word('loves', n.r @ s @ n.l), Word('Bob', n)
+>>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
+
+>>> from discopy.rigid import Functor
+>>> from discopy.ribbon import Ty as T, Diagram as D, Box, Category
+>>> N = T('N')
+>>> F = Functor(
+...     ob={s: Ty(), n: Ty(N, N)},
+    ...     ar={Alice: Box('A', N, N),
+...         loves: Box('L', N @ N, N @ N),
+...         Bob: Box('B', N, N)},
+...     cod=Int(Category(T, D)))
+>>> F(sentence).draw()
 """
 
 from __future__ import annotations
 from dataclasses import dataclass
 
-from discopy import traced, rigid, pivotal, ribbon
+from discopy import balanced, traced, rigid, pivotal, ribbon
 from discopy.cat import Composable, assert_iscomposable
-from discopy.monoidal import Whiskerable
+from discopy.monoidal import Whiskerable, Category
 from discopy.rigid import assert_isadjoint
 from discopy.utils import NamedGeneric, mmap, assert_isinstance
 
 
 @dataclass
-class Ty(NamedGeneric('natural')):
+class Ty(NamedGeneric['natural']):
     """
     An integer type is a pair of ``natural`` types,
     by default :class:`ribbon.Ty`.
@@ -67,7 +97,7 @@ class Ty(NamedGeneric('natural')):
         negative = sum([x.negative for x in reversed((self, ) + others)], unit)
         return type(self)(positive, negative)
 
-    __matmul__ = tensor
+    __matmul__ = __add__ = tensor
 
     def __neg__(self):
         positive, negative = self
@@ -77,7 +107,7 @@ class Ty(NamedGeneric('natural')):
 
 
 @dataclass
-class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
+class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     """
     An integer diagram from ``x`` to ``y`` is a ``natural`` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.
@@ -89,9 +119,9 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
 
     Note
     ----
-    We take ``natural = ribbon.Diagram`` but this can be any class with the
-    methods for a balanced traced category. For example, the category of
-    boolean matrices with the direct sum has a trace given by reflexive
+    By default we take ``natural = ribbon.Diagram`` but this can be any class
+    with the methods for a balanced traced category. For example, the category
+    of boolean matrices with the direct sum has a trace given by reflexive
     transitive closure. We can use it to check the snake equations:
 
     >>> from discopy.matrix import Matrix
@@ -117,7 +147,13 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
     @mmap
     def then(self, other: Diagram):
         """
-        The composition of two integer diagrams is given by:
+        The composition of two integer diagrams.
+
+        Parameters:
+            other : The other diagram with which to compose.
+
+        Example
+        -------
 
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> u, v, w, x, y, z = map(Ty[T], "uvwxyz")
@@ -139,14 +175,20 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
             >> self.inside @ w
             >> y @ braid(w, u).dagger()
             >> other.inside @ u
-            >> z @ braid(v, u)).trace(v if isinstance(v, int) else len(v))
+            >> z @ braid(v, u)).trace(
+                n=v if isinstance(v, int) else len(v), left=False)
         return type(self)(inside, dom, cod)
 
     @classmethod
-    def id(cls, dom: Ty) -> Diagram:
+    def id(cls, dom: Ty = None) -> Diagram:
         """
-        The identity on an integer type is the identity on its positive half
-        tensored with a twist on its negative half. For example:
+        The identity on an integer type.
+
+        Parameters:
+            dom : The integer type on which to take the identity.
+
+        Example
+        -------
 
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, y, u, v = map(Ty[T], "xyuv")
@@ -161,6 +203,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
         .. image:: /_static/int/idr.png
             :align: center
         """
+        dom = Ty[cls.natural.ty_factory]() if dom is None else dom
         positive, negative = dom
         inside = cls.natural.id(positive) @ cls.natural.twist(negative)
         return cls(inside, dom, dom)
@@ -168,7 +211,13 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
     @mmap
     def tensor(self, other):
         """
-        The tensor of two integer diagrams is given by:
+        The tensor of two integer diagrams.
+
+        Parameters:
+            other : The other diagram to tensor.
+
+        Example
+        -------
 
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
         >>> x, y, u, v = map(Ty[T], "xyuv")
@@ -197,13 +246,21 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
         """
         The integer cups are given by natural identities.
 
+        Parameters:
+            left : The left-hand side of the cups.
+            right : The right-hand side of the cups.
+
+        Example
+        -------
+
         This is what the snake equations look like:
 
         >>> from discopy.drawing import Equation
+        >>> x = Ty('x')
         >>> Equation(
-        ...     Diagram.id(Ty('x')).transpose(),
-        ...     Diagram.id(Ty('x')),
-        ...     Diagram.id(Ty('x')).transpose(left=True)).draw(
+        ...     Diagram.caps(x, -x) @ x >> x @ Diagram.cups(-x, x),
+        ...     Diagram.id(x),
+        ...     x @ Diagram.caps(-x, x) >> Diagram.cups(x, -x) @ x).draw(
         ...         path="docs/_static/int/int-snake-equations.png")
 
         .. image:: /_static/int/int-snake-equations.png
@@ -217,12 +274,19 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
     def caps(cls, left: Ty, right: Ty) -> Diagram:
         """
         The integer caps are given by natural identities.
+
+        Parameters:
+            left : The left-hand side of the caps.
+            right : The right-hand side of the caps.
         """
         assert_isadjoint(left, right)
         inside = cls.natural.id(left.negative + left.positive)
         return cls(inside, type(left)(), left @ right)
 
     def dagger(self):
+        """
+        The dagger of an integer diagram is given by the dagger of its inside.
+        """
         return type(self)(self.inside.dagger(), self.cod, self.dom)
 
     def __getitem__(self, key):
@@ -239,3 +303,13 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric('natural')):
     transpose = rigid.Diagram.transpose
     boxes = property(lambda self: self.inside.boxes)
     to_drawing = lambda self: self.inside.to_drawing()
+
+
+def Int(category: Category) -> Category:
+    """
+    The Int construction turns traced categories into ribbon categories.
+    """
+    return Category(Ty[category.ob], Diagram[category.ar])
+
+
+Id = Diagram.id
