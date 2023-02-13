@@ -50,7 +50,7 @@ from discopy.utils import assert_isinstance, mmap, NamedGeneric
 
 
 @factory
-class Matrix(Composable[int], Whiskerable, NamedGeneric('dtype')):
+class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
