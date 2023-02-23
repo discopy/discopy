@@ -318,7 +318,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         return sum(
             self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
 
-    def trace(self, n=1) -> Matrix:
+    def trace(self, n=1, left=False) -> Matrix:
         """
         The trace of a Boolean matrix, computed with :meth:`Matrix.repeat`.
 

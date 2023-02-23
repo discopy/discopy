@@ -348,6 +348,8 @@ class Diagram(Composable[Ty], Whiskerable):
     @staticmethod
     def id(dom=Ty()) -> Diagram:
         return Diagram(dom, dom, [], 2 * list(range(len(dom))))
+    
+    twist = id
 
     def then(self, other):
         """
@@ -415,6 +417,8 @@ class Diagram(Composable[Ty], Whiskerable):
         boxes, wires = [], list(range(len(dom)))\
             + list(range(len(left), len(dom))) + list(range(len(left)))
         return Diagram(dom, cod, boxes, wires)
+    
+    braid = swap
 
     @staticmethod
     def spiders(n_legs_in, n_legs_out, typ):
@@ -436,6 +440,47 @@ class Diagram(Composable[Ty], Whiskerable):
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
         return Diagram(Ty(), left @ right, [], wires)
+    
+    def interchange(self, i: int, j: int) -> Diagram:
+        """
+        Interchange boxes at indices ``i`` and ``j``.
+
+        Parameters:
+            i : The index of the first box.
+            j : The index of the second box.
+        
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> f, g = Box('f', Ty(), x), Box('g', x, Ty())
+        >>> print((f >> g).interchange(0, 1))
+        Cap(x, x) >> g @ x >> f @ x >> Cup(x, x)
+        """
+        boxes, box_wires = list(self.boxes), list(self.box_wires)
+        boxes[i], boxes[j] = boxes[j], boxes[i]
+        box_wires[i], box_wires[j] = box_wires[j], box_wires[i]
+        dom_wires = self.wires[:len(self.dom)]
+        cod_wires = self.wires[len(self.wires) - len(self.cod):]
+        wires = dom_wires + sum([c + d for c, d in box_wires], []) + cod_wires
+        return Diagram(self.dom, self.cod, boxes, wires, self.spider_types)
+    
+    def simplify(self):
+        """
+        Simplify by applying interchangers eagerly until the length of the
+        downgraded diagram is minimal, takes quadratic time.
+        
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> f, g = Box('f', Ty(), x), Box('g', x, Ty())
+        >>> assert (f >> g).interchange(0, 1).simplify() == f >> g
+        """
+        for i in range(len(self.boxes)):
+            for j in range(len(self.boxes)):
+                result = self.interchange(i, j)
+                if len(result.downgrade()) < len(self.downgrade()):
+                    return result.simplify()
+        return self
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -684,7 +729,7 @@ class Diagram(Composable[Ty], Whiskerable):
                         .make_progressive()
             port += len(box.dom @ box.cod)
 
-    def downgrade(self):
+    def downgrade(self, box_factory=frobenius.Box):
         """
         Downgrade to :class:`frobenius.Diagram`, called by :code:`print`.
 
@@ -704,16 +749,17 @@ class Diagram(Composable[Ty], Whiskerable):
             (diagram.ports[i], diagram.ports[j])
             for i, j in enumerate(diagram.bijection)])
         graph.add_nodes_from([
-            Node("box", depth=depth, box=box.downgrade())
+            Node("box", depth=depth, box=box.downgrade(box_factory))
             for depth, box in enumerate(diagram.boxes)])
         graph.add_nodes_from([
             Node("box", depth=len(diagram.boxes) + i,
                  box=frobenius.Spider(0, 0, diagram.spider_types[s]))
             for i, s in enumerate(diagram.scalar_spiders)])
-        return drawing.nx2diagram(graph, frobenius.Diagram)
+        return drawing.nx2diagram(graph, box_factory)
 
     @staticmethod
-    def upgrade(old: frobenius.Diagram) -> Diagram:
+    def upgrade(old: frobenius.Diagram, functor_factory=frobenius.Functor
+                ) -> Diagram:
         """
         Turn a :class:`frobenius.Diagram` into a :class:`hypergraph.Diagram`.
 
@@ -724,7 +770,7 @@ class Diagram(Composable[Ty], Whiskerable):
         ...           spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        return frobenius.Functor(
+        return functor_factory(
             ob=lambda typ: Ty(typ.name),
             ar=lambda box: Box(box.name, box.dom, box.cod),
             cod=Category(Ty, Diagram))(old)
@@ -846,8 +892,8 @@ class Box(Diagram):
         return Box(
             self.name, self.cod, self.dom, not self.is_dagger, self.data)
 
-    def downgrade(self):
-        return frobenius.Box(
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory(
             self.name, self.dom, self.cod,
             is_dagger=self.is_dagger, data=self.data)
 
@@ -873,8 +919,8 @@ class Cup(BinaryBoxConstructor, Box):
     def dagger(self):
         return Cap(self.left, self.right)
 
-    def downgrade(self):
-        return frobenius.Cup(self.left, self.right)
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.cups(self.left, self.right)
 
 
 class Cap(BinaryBoxConstructor, Box):
@@ -896,8 +942,8 @@ class Cap(BinaryBoxConstructor, Box):
     def dagger(self):
         return Cup(self.left, self.right)
 
-    def downgrade(self):
-        return frobenius.Cap(self.left, self.right)
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.caps(self.left, self.right)
 
 
 class Spider(Box):
@@ -921,8 +967,8 @@ class Spider(Box):
         name = f"Spider({n_legs_in}, {n_legs_out}, {typ})"
         Box.__init__(self, name, typ ** n_legs_in, typ ** n_legs_out)
 
-    def downgrade(self):
-        return frobenius.Spider(len(self.dom), len(self.cod), self.typ)
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.spiders(len(self.dom), len(self.cod), self.typ)
 
     dagger = frobenius.Spider.dagger
     __repr__ = frobenius.Spider.__repr__
