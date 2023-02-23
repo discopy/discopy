@@ -27,32 +27,41 @@ Example
 -------
 
 >>> from discopy.grammar import pregroup
->>> from discopy.grammar.pregroup import Word, Cup
+>>> from discopy.grammar.pregroup import Word, Cup, Diagram
 >>> s, n = map(pregroup.Ty, "sn")
 >>> Alice, loves, Bob\\
 ...     = Word('Alice', n), Word('loves', n.r @ s @ n.l), Word('Bob', n)
->>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
+>>> who = Word('who', n.r @ n @ (n.r @ s).l)
+>>> noun_phrase = who @ loves @ Bob\\
+...     >> n.r @ n @ Diagram.cups((n.r @ s).l, n.r @ s) @ Cup(n.l, n)
 
 >>> from discopy.rigid import Functor
->>> from discopy.ribbon import Ty as T, Diagram as D, Box, Category
->>> N = T('N')
+>>> from discopy.frobenius import Ty as T, Diagram as D, Box, Category
+>>> S, N = map(T, "SN")
 >>> F = Functor(
-...     ob={s: Ty(), n: Ty(N, N)},
-    ...     ar={Alice: Box('A', N, N),
-...         loves: Box('L', N @ N, N @ N),
-...         Bob: Box('B', N, N)},
+...     ob={s: Ty[T](S), n: Ty[T](N)},
+...     ar={Alice: Box('A', T(), N),
+...         who: Box('W', S @ N, N @ N),
+...         loves: Box('L', N @ N, S),
+...         Bob: Box('B', T(), N)},
 ...     cod=Int(Category(T, D)))
->>> F(sentence).draw()
+
+>>> from discopy.drawing import Equation
+>>> Equation(F(noun_phrase), F(noun_phrase).simplify()).draw()
+
+.. image:: /_static/int/alice-loves-bob.png
+    :align: center
 """
 
 from __future__ import annotations
 from dataclasses import dataclass
 
-from discopy import balanced, traced, rigid, pivotal, ribbon
+from discopy import (
+    balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
 from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable, Category
 from discopy.rigid import assert_isadjoint
-from discopy.utils import NamedGeneric, mmap, assert_isinstance
+from discopy.utils import NamedGeneric, mmap, assert_isinstance, factory_name
 
 
 @dataclass
@@ -88,6 +97,14 @@ class Ty(NamedGeneric['natural']):
     def __iter__(self):
         yield self.positive
         yield self.negative
+    
+    def __repr__(self):
+        pos, neg = repr(self.positive), repr(self.negative)
+        return factory_name(type(self))\
+            + f"[{factory_name(self.natural)}](positive={pos}, negative={neg})"
+    
+    def __str__(self):
+        return f"{str(self.positive)} @ -({str(self.negative)})"
 
     def tensor(self, *others: Ty):
         if any(not isinstance(other, Ty) for other in others):
@@ -139,9 +156,11 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     def __init__(self, inside: natural, dom: Ty, cod: Ty):
         assert_isinstance(inside, self.natural)
         if inside.dom != dom.positive + cod.negative:
-            raise ValueError
+            raise ValueError(messages.WRONG_DOM.format(
+                dom.positive + cod.negative, inside.dom))
         if inside.cod != cod.positive + dom.negative:
-            raise ValueError
+            raise ValueError(messages.WRONG_COD.format(
+                cod.positive + dom.negative, inside.cod))
         self.inside, self.dom, self.cod = inside, dom, cod
 
     @mmap
@@ -175,8 +194,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
             >> self.inside @ w
             >> y @ braid(w, u).dagger()
             >> other.inside @ u
-            >> z @ braid(v, u)).trace(
-                n=v if isinstance(v, int) else len(v), left=False)
+            >> z @ braid(v, u)).trace(n=v if isinstance(v, int) else len(v))
         return type(self)(inside, dom, cod)
 
     @classmethod
@@ -232,14 +250,33 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         """
         x, u, y, v = tuple(self.dom) + tuple(self.cod)
         x_, u_, y_, v_ = tuple(other.dom) + tuple(other.cod)
-        dom = type(self.dom)(x + x_, u_ + u)
-        cod = type(self.cod)(y + y_, v_ + v)
-        braid = self.natural.braid
-        inside = braid(x, x_) @ braid(v, v_).dagger()\
+        _braid = self.natural.braid
+        inside = _braid(x, x_) @ _braid(v, v_).dagger()\
             >> x_ @ self.inside @ v_\
-            >> braid(y, x_).dagger() @ braid(v_, u).dagger()\
+            >> _braid(y, x_).dagger() @ _braid(v_, u).dagger()\
             >> y @ other.inside @ u
-        return type(self)(inside, dom, cod)
+        return type(self)(inside, self.dom @ other.dom, self.cod @ other.cod)
+    
+    @classmethod
+    def braid(cls, left: Ty, right: Ty) -> Diagram:
+        """
+        The braid of integer diagrams is given by the following diagram:
+
+        >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
+        >>> x, u, y, v = map(Ty[T], "xuyv")
+        >>> Diagram.braid(x @ -u, y @ -v).draw(
+        ...     path="docs/_static/int/braid.png")
+
+        .. image:: /_static/int/braid.png
+            :align: center
+        """
+        _braid, _twist = cls.natural.braid, cls.natural.twist
+        x, u = left
+        y, v = right
+        braids = _braid(x, y) @ _braid(v, u).dagger()\
+            >> y @ (_braid(v, x).dagger() >> _braid(x, v).dagger()) @ u
+        twists = y @ x @ _twist(v).dagger() @ _twist(u).dagger()
+        return cls(braids >> twists, left @ right, right @ left)
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> Diagram:
@@ -297,6 +334,31 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     def draw(self, **params):
         """ The drawing of an integer diagram is the drawing of its inside. """
         return self.inside.draw(**params)
+    
+    def simplify(self,
+                 functor_factory=frobenius.Functor, box_factory=frobenius.Box):
+        """
+        Simplify by going back and forth to :class:`hypergraph.Diagram`.
+
+        >>> x = Ty[frobenius.Ty]('x')
+        >>> D = Diagram[frobenius.Diagram]
+        >>> left_snake = D.id(-x).transpose(left=True)
+        >>> right_snake = D.id(-x).transpose(left=False)
+        >>> assert left_snake.simplify() == D.id(x) == right_snake.simplify()
+
+        >>> from discopy.drawing import Equation
+        >>> Equation(left_snake, Equation(
+        ...     D.id(x), right_snake, symbol="$\\\\leftarrow$"),
+        ...         symbol="$\\\\rightarrow$").draw(
+        ...             path="docs/_static/int/simplify.png")
+
+        .. image:: /_static/int/simplify.png
+            :align: center
+        """
+        from discopy import hypergraph
+        inside = hypergraph.Diagram.upgrade(
+            self.inside, functor_factory).simplify().downgrade(box_factory)
+        return type(self)(inside, self.dom, self.cod)
 
     trace = traced.Diagram.trace
     trace_factory = classmethod(pivotal.Diagram.trace_factory.__func__)
