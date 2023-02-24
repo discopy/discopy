@@ -26,8 +26,10 @@ jobs:
       run:
         # stop the build if there are Python syntax errors or undefined names
         pycodestyle discopy
+    - name: pylint
+      run:
+        pylint discopy
   build_and_test:
-    needs: lint
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -52,9 +54,6 @@ jobs:
     - name: Coverage report
       run:
         coverage report --fail-under=99 --show-missing
-    - name: Linting
-      run:
-        pylint discopy
     - name: Install nbmake and test notebooks
       run: |
         python -m pip install nbmake
