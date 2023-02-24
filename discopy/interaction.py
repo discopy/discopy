@@ -1,7 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-The Int construction of Joyal, Street & Verity :cite:t:`JoyalEtAl96`.
+The Int construction of Joyal, Street & Verity :cite:t:`JoyalEtAl96`, also
+called the "geometry of interaction" construction, see :cite:t:`Abramsky96`.
+
+:func:`Int` is the free compact category on a symmetric traced category, or
+more generally the free ribbon category on a balanced traced category.
+Concretely, this is a "glorification of the construction of the integers from
+the natural numbers".
 
 Summary
 -------
@@ -13,6 +19,7 @@ Summary
 
     Ty
     Diagram
+    NamedGeneric
 
 .. admonition:: Functions
 
@@ -21,7 +28,7 @@ Summary
         :nosignatures:
         :toctree:
 
-        NamedGeneric
+        Int
 
 Example
 -------
@@ -32,8 +39,8 @@ Example
 >>> Alice, loves, Bob\\
 ...     = Word('Alice', n), Word('loves', n.r @ s @ n.l), Word('Bob', n)
 >>> who = Word('who', n.r @ n @ (n.r @ s).l)
->>> noun_phrase = who @ loves @ Bob\\
-...     >> n.r @ n @ Diagram.cups((n.r @ s).l, n.r @ s) @ Cup(n.l, n)
+>>> noun_phrase = Alice @ who @ loves @ Bob\\
+...     >> Cup(n, n.r) @ n @ Diagram.cups((n.r @ s).l, n.r @ s) @ Cup(n.l, n)
 
 >>> from discopy.rigid import Functor
 >>> from discopy.frobenius import Ty as T, Diagram as D, Box, Category
@@ -47,7 +54,9 @@ Example
 ...     cod=Int(Category(T, D)))
 
 >>> from discopy.drawing import Equation
->>> Equation(F(noun_phrase), F(noun_phrase).simplify()).draw()
+>>> Equation(noun_phrase, F(noun_phrase).simplify().naturality(3, left=False),
+...          symbol="$\\\\mapsto$").draw(
+...              figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
 
 .. image:: /_static/int/alice-loves-bob.png
     :align: center
@@ -59,7 +68,7 @@ from dataclasses import dataclass
 from discopy import (
     balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
 from discopy.cat import Composable, assert_iscomposable
-from discopy.monoidal import Whiskerable, Category
+from discopy.monoidal import Whiskerable
 from discopy.rigid import assert_isadjoint
 from discopy.utils import NamedGeneric, mmap, assert_isinstance, factory_name
 
@@ -67,8 +76,7 @@ from discopy.utils import NamedGeneric, mmap, assert_isinstance, factory_name
 @dataclass
 class Ty(NamedGeneric['natural']):
     """
-    An integer type is a pair of ``natural`` types,
-    by default :class:`ribbon.Ty`.
+    An integer type is a pair of :attr:`natural` types.
 
     Parameters:
         positive : The positive half of the type.
@@ -76,12 +84,16 @@ class Ty(NamedGeneric['natural']):
 
     Note
     ----
+    Integer types are parameterised by natural types, e.g.
+
+    >>> assert Ty == Ty[pivotal.Ty] and Ty[int].natural == int
+
     The prefix operator ``-`` reverses positive and negative, e.g.
 
     >>> x, y, z = map(Ty[int], [1, 2, 3])
     >>> assert x @ -y @ z == Ty[int](1 + 3, 2)
     """
-    natural = ribbon.Ty
+    natural = pivotal.Ty
 
     positive: natural
     negative: natural
@@ -126,7 +138,7 @@ class Ty(NamedGeneric['natural']):
 @dataclass
 class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     """
-    An integer diagram from ``x`` to ``y`` is a ``natural`` diagram
+    An integer diagram from ``x`` to ``y`` is a `natural` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.
 
     Parameters:
@@ -269,6 +281,10 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
 
         .. image:: /_static/int/braid.png
             :align: center
+
+        Parameters:
+            left : The left input of the braid.
+            right : The right input of the braid.
         """
         _braid, _twist = cls.natural.braid, cls.natural.twist
         x, u = left
@@ -359,6 +375,10 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         inside = hypergraph.Diagram.upgrade(
             self.inside, functor_factory).simplify().downgrade(box_factory)
         return type(self)(inside, self.dom, self.cod)
+    
+    def naturality(self, i: int, left=True, down=True, braid=None) -> Diagram:
+        return type(self)(
+            self.inside.naturality(i, left, down, braid), self.dom, self.cod)
 
     trace = traced.Diagram.trace
     trace_factory = classmethod(pivotal.Diagram.trace_factory.__func__)
@@ -367,11 +387,14 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     to_drawing = lambda self: self.inside.to_drawing()
 
 
-def Int(category: Category) -> Category:
+def Int(category: traced.Category) -> ribbon.Category:
     """
-    The Int construction turns traced categories into ribbon categories.
+    The Int construction, returns a ribbon category.
+
+    Parameters:
+        category : A balanced traced category.
     """
-    return Category(Ty[category.ob], Diagram[category.ar])
+    return ribbon.Category(Ty[category.ob], Diagram[category.ar])
 
 
 Id = Diagram.id

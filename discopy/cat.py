@@ -332,10 +332,10 @@ class Arrow(Composable[Ob]):
             return self.factory(
                 inside, inside[0].dom, inside[-1].cod, _scan=False)
         if isinstance(key, int):
+            if key >= len(self) or key < -len(self):
+                raise IndexError
             if key < 0:
                 return self[len(self) + key]
-            if key >= len(self):
-                raise IndexError
             return self[key:key + 1]
         raise TypeError
 
