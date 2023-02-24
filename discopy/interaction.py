@@ -109,12 +109,12 @@ class Ty(NamedGeneric['natural']):
     def __iter__(self):
         yield self.positive
         yield self.negative
-    
+
     def __repr__(self):
         pos, neg = repr(self.positive), repr(self.negative)
         return factory_name(type(self))\
             + f"[{factory_name(self.natural)}](positive={pos}, negative={neg})"
-    
+
     def __str__(self):
         return f"{str(self.positive)} @ -({str(self.negative)})"
 
@@ -268,7 +268,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
             >> _braid(y, x_).dagger() @ _braid(v_, u).dagger()\
             >> y @ other.inside @ u
         return type(self)(inside, self.dom @ other.dom, self.cod @ other.cod)
-    
+
     @classmethod
     def braid(cls, left: Ty, right: Ty) -> Diagram:
         """
@@ -350,7 +350,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     def draw(self, **params):
         """ The drawing of an integer diagram is the drawing of its inside. """
         return self.inside.draw(**params)
-    
+
     def simplify(self,
                  functor_factory=frobenius.Functor, box_factory=frobenius.Box):
         """
@@ -375,7 +375,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         inside = hypergraph.Diagram.upgrade(
             self.inside, functor_factory).simplify().downgrade(box_factory)
         return type(self)(inside, self.dom, self.cod)
-    
+
     def naturality(self, i: int, left=True, down=True, braid=None) -> Diagram:
         return type(self)(
             self.inside.naturality(i, left, down, braid), self.dom, self.cod)
