@@ -61,7 +61,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal
-from discopy.cat import factory
+from discopy.cat import factory, AxiomError
 from discopy.monoidal import Ty, assert_isatomic, Match
 from discopy.utils import factory_name, from_tree
 
@@ -123,7 +123,7 @@ class Diagram(monoidal.Diagram):
             target = box @ left_wires[-1] >> braid(box.cod, left_wires[-1])
         elif down:
             source = box @ right_wires[0] >> braid(box.cod, right_wires[0])
-            target = braid(right_wires[0], box.dom) >> right_wires[0] @ box
+            target = braid(box.dom, right_wires[0]) >> right_wires[0] @ box
         else:
             source = braid(right_wires[0], box.dom) >> box @ right_wires[0]
             target = right_wires[0] @ box >> braid(right_wires[0], box.cod)
@@ -131,8 +131,6 @@ class Diagram(monoidal.Diagram):
                       below=self[i + len(source):] if down else self[i + 1:],
                       left=left_wires[:-1] if left else left_wires,
                       right=right_wires if left else right_wires[1:])
-        if match.subs(source) != self:
-            raise AxiomError
         return match.subs(target)
 
 
