@@ -1036,7 +1036,7 @@ class Match:
     def subs(self, target: Diagram) -> Diagram:
         """
         Substitute a diagram inside the hole.
-        
+
         Parameters:
             target : The diagram to substitute inside the hole.
         """
