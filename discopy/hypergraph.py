@@ -348,7 +348,7 @@ class Diagram(Composable[Ty], Whiskerable):
     @staticmethod
     def id(dom=Ty()) -> Diagram:
         return Diagram(dom, dom, [], 2 * list(range(len(dom))))
-    
+
     twist = id
 
     def then(self, other):
@@ -417,7 +417,7 @@ class Diagram(Composable[Ty], Whiskerable):
         boxes, wires = [], list(range(len(dom)))\
             + list(range(len(left), len(dom))) + list(range(len(left)))
         return Diagram(dom, cod, boxes, wires)
-    
+
     braid = swap
 
     @staticmethod
@@ -440,7 +440,7 @@ class Diagram(Composable[Ty], Whiskerable):
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
         return Diagram(Ty(), left @ right, [], wires)
-    
+
     def interchange(self, i: int, j: int) -> Diagram:
         """
         Interchange boxes at indices ``i`` and ``j``.
@@ -448,7 +448,7 @@ class Diagram(Composable[Ty], Whiskerable):
         Parameters:
             i : The index of the first box.
             j : The index of the second box.
-        
+
         Example
         -------
         >>> x = Ty('x')
@@ -463,12 +463,12 @@ class Diagram(Composable[Ty], Whiskerable):
         cod_wires = self.wires[len(self.wires) - len(self.cod):]
         wires = dom_wires + sum([c + d for c, d in box_wires], []) + cod_wires
         return Diagram(self.dom, self.cod, boxes, wires, self.spider_types)
-    
+
     def simplify(self):
         """
         Simplify by applying interchangers eagerly until the length of the
         downgraded diagram is minimal, takes quadratic time.
-        
+
         Example
         -------
         >>> x = Ty('x')
