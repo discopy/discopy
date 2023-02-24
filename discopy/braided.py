@@ -62,7 +62,7 @@ from collections.abc import Callable
 
 from discopy import monoidal
 from discopy.cat import factory
-from discopy.monoidal import Ty, assert_isatomic
+from discopy.monoidal import Ty, assert_isatomic, Match
 from discopy.utils import factory_name, from_tree
 
 
@@ -102,6 +102,38 @@ class Diagram(monoidal.Diagram):
                 return self.factory(
                     inside, self.dom, self.cod, _scan=False).simplify()
         return self
+
+    def naturality(self, i: int, left=True, down=True, braid=None) -> Diagram:
+        """
+        Slide a box through a braid.
+
+        Parameters:
+            i : The index of the box to slide.
+            left : Whether to slide left or right.
+            down : Whether to slide down or up.
+            braid : The braiding method to be used.
+        """
+        braid = braid or self.braid
+        left_wires, box, right_wires = self.inside[i]
+        if left and down:
+            source = left_wires[-1] @ box >> braid(left_wires[-1], box.cod)
+            target = braid(left_wires[-1], box.dom) >> box @ left_wires[-1]
+        elif left:
+            source = braid(box.dom, left_wires[-1]) >> left_wires[-1] @ box
+            target = box @ left_wires[-1] >> braid(box.cod, left_wires[-1])
+        elif down:
+            source = box @ right_wires[0] >> braid(box.cod, right_wires[0])
+            target = braid(right_wires[0], box.dom) >> right_wires[0] @ box
+        else:
+            source = braid(right_wires[0], box.dom) >> box @ right_wires[0]
+            target = right_wires[0] @ box >> braid(right_wires[0], box.cod)
+        match = Match(above=self[:i] if down else self[:i - len(source) + 1],
+                      below=self[i + len(source):] if down else self[i + 1:],
+                      left=left_wires[:-1] if left else left_wires,
+                      right=right_wires if left else right_wires[1:])
+        if match.subs(source) != self:
+            raise AxiomError
+        return match.subs(target)
 
 
 class Box(monoidal.Box, Diagram):
