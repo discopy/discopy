@@ -64,6 +64,7 @@ Example
 
 from __future__ import annotations
 from dataclasses import dataclass
+from functools import wraps
 
 from discopy import (
     balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
@@ -112,8 +113,8 @@ class Ty(NamedGeneric['natural']):
 
     def __repr__(self):
         pos, neg = repr(self.positive), repr(self.negative)
-        return factory_name(type(self))\
-            + f"[{factory_name(self.natural)}](positive={pos}, negative={neg})"
+        return f"interaction.Ty[{factory_name(self.natural)}]"\
+                "(positive={pos}, negative={neg})"
 
     def __str__(self):
         return f"{str(self.positive)} @ -({str(self.negative)})"
@@ -339,6 +340,16 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     def dagger(self):
         """
         The dagger of an integer diagram is given by the dagger of its inside.
+
+        >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
+        >>> x, y, u, v = map(Ty[T], "xyuv")
+        >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
+        >>> from discopy.drawing import Equation
+        >>> Equation(f, f[::-1], symbol="$\\\\mapsto$").draw(
+        ...     path="docs/_static/int/dagger.png")
+
+        .. image:: /_static/int/dagger.png
+            :align: center
         """
         return type(self)(self.inside.dagger(), self.cod, self.dom)
 
@@ -376,6 +387,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
             self.inside, functor_factory).simplify().downgrade(box_factory)
         return type(self)(inside, self.dom, self.cod)
 
+    @wraps(balanced.Diagram.naturality)
     def naturality(self, i: int, left=True, down=True, braid=None) -> Diagram:
         return type(self)(
             self.inside.naturality(i, left, down, braid), self.dom, self.cod)
