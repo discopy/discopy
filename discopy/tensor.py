@@ -82,19 +82,37 @@ class Dim(Ty):
 InitDtype = Union[type, tuple[type, int]]
 
 
+KNOWN_DTYPE_STRS = {
+    dtype.__name__ + str(float_size): (dtype, float_size)
+    for dtype in [int, float, complex]
+    for float_size in [8, 16, 32, 64, 128]
+}
+
 class Dtype:
     """dtype to use when creating arrays/tensors."""
+    is_numeric: bool
 
     def __init__(self, dtype: InitDtype, float_size: int = 64):
         # Numeric types must have a float_size
         if dtype in [int, float, complex]:
             dtype = dtype, float_size
 
+        if isinstance(dtype, Dtype):
+            dtype = dtype._dtype
+
+        if isinstance(dtype, str):
+            # Assume its an inferred dtype and try to convert it
+            try:
+                dtype = KNOWN_DTYPE_STRS[dtype]
+            except KeyError:
+                pass
+
         self._dtype = dtype
+        self.is_numeric = isinstance(self._dtype, tuple)
 
         if isinstance(self._dtype, str):
             name = self._dtype
-        elif isinstance(self._dtype, tuple):
+        elif self.is_numeric:
             name = self._dtype[0].__name__ + str(self._dtype[1])
         else:
             name = self._dtype.__name__ if self._dtype is not None else 'None'
@@ -132,6 +150,30 @@ class Dtype:
             type_str = autoray.get_dtype_name(array.dtype)
         return Dtype(type_str)
 
+    @classmethod
+    def merged(cls, first,  *others):
+        # If a numeric dtype, ensure it is at least as general as others, otherwise just take the first type
+        if not isinstance(first, cls):
+            first = Dtype(first)
+        if (first._dtype is not None) and (not first.is_numeric):
+            return first
+
+        for other in others:
+            if first._dtype is None:
+                first = other
+                continue
+            if not isinstance(other, cls):
+                other = Dtype(other)
+            if not other.is_numeric:
+                continue
+            dtype, float_size = first._dtype
+            if not (isinstance(dtype, other._dtype[0])):
+                dtype = other._dtype[0]
+            if float_size < other._dtype[1]:
+                float_size = other._dtype[1]
+            first = Dtype(dtype, float_size)
+        return first
+
 
 class Backend:
     like: str  # Sting to use for autoray backend_like
@@ -145,7 +187,7 @@ class Backend:
 
     def setup_autoray(self, ar):
         # Add any autoray extensions necessary for this backend.
-        pass
+        return ar
 
 
 class NumPy(Backend):
@@ -158,7 +200,8 @@ class NumPy(Backend):
 
     def setup_autoray(self, ar):
         # Sympy expressions should get object dtype
-        autoray.register_function(self.like, "Expr", object)
+        ar.register_function(self.like, "Expr", object)
+        return ar
 
 
 class JAX(Backend):
@@ -178,6 +221,12 @@ class PyTorch(Backend):
         import torch
         super().__init__(torch, array=torch.as_tensor)
 
+    def setup_autoray(self, ar):
+        import torch
+        ar.register_function(self.like, "copy", torch.clone)
+        ar.register_function(self.like, "asarray", torch.as_tensor)
+        return ar
+
 
 class TensorFlow(Backend):
     like = "tensorflow"
@@ -188,6 +237,12 @@ class TensorFlow(Backend):
         from tensorflow.python.ops.numpy_ops import np_config
         np_config.enable_numpy_behavior()
         super().__init__(tnp)
+
+    def setup_autoray(self, ar):
+        import tensorflow
+        ar.register_function(self.like, "copy", tensorflow.identity)
+        ar.register_function(self.like, "asarray", tensorflow.convert_to_tensor)
+        return ar
 
 
 class SymPy(Backend):
@@ -214,9 +269,9 @@ BACKENDS = {
 
 
 @contextmanager
-def default_dtype(dtype=None, init_stack=config.DEFAULT_DTYPE, _stack=[], _cache=dict()) -> Dtype:
-    if len(_stack) == 0:
-        _stack.append(init_stack)
+def default_dtype(dtype=None, init_stack=None, _stack=[], _cache=dict()) -> Dtype:
+    if len(_stack) == 0 and dtype is None:
+        dtype = init_stack or config.DEFAULT_DTYPE
 
     dtype = dtype or _stack[-1]
     _stack.append(dtype)
@@ -229,9 +284,9 @@ def default_dtype(dtype=None, init_stack=config.DEFAULT_DTYPE, _stack=[], _cache
 
 
 @contextmanager
-def _backend(name=None, init_stack=config.DEFAULT_BACKEND, _stack=[], _cache=dict()):
-    if len(_stack) == 0:
-        _stack.append(init_stack)
+def _backend(name=None, init_stack=None, _stack=[], _cache=dict()):
+    if len(_stack) == 0 and name is None:
+        name = init_stack or config.DEFAULT_BACKEND
 
     name = name or _stack[-1]
     _stack.append(name)
@@ -252,7 +307,8 @@ def backend(name=None, default=None, _cache=dict()):
             # Make sure we can access which backend we are using on the returned fake numpy
             autoray.register_function(backend_ctx.like, "backend_like", lambda: backend_ctx.like)
             autoray.register_function(backend_ctx.like, "backend_like_tn", lambda: backend_ctx.like_tn)
-            _cache[backend_ctx.like] = autoray
+            ar = backend_ctx.setup_autoray(autoray)
+            _cache[backend_ctx.like] = ar
 
         ar = _cache[backend_ctx.like]
         with ar.backend_like(backend_ctx.like):
@@ -323,7 +379,7 @@ class Tensor(rigid.Box, metaclass=TensorType):
     def __init__(self, dom, cod, array, dtype: Dtype=None):
         with backend() as np, default_dtype(dtype if dtype is not None else Dtype.from_data(array)) as dtype:
             self.dtype = dtype
-            self._array = np.array(array, dtype=dtype.like_backend(np)).reshape(tuple(dom @ cod))
+            self._array = np.copy(np.asarray(array, dtype=dtype.like_backend(np))).reshape(tuple(dom @ cod))
         super().__init__("Tensor", dom, cod)
 
     def __iter__(self):
@@ -670,15 +726,12 @@ class Diagram(rigid.Diagram):
         >>> import tensornetwork as tn
         >>> assert (vector >> vector[::-1]).eval(tn.contractors.auto) == 1
         """
-        # if contractor is None and "numpy" not in Tensor.np.__package__:
-        #     raise Exception(
-        #         'Provide a tensornetwork contractor'
-        #         'when using a non-numpy backend.')
-
+        if dtype is None:
+            dtype = Dtype(self._infer_dtype())
         with default_dtype(init_stack=dtype) as base_dtype:
             if contractor is None:
-                return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
-        array = contractor(*self.to_tn(dtype=base_dtype)).tensor
+                return Functor(ob=lambda x: x, ar=lambda f: f.array, dtype=base_dtype)(self)
+            array = contractor(*self.to_tn(dtype=base_dtype)).tensor
         return Tensor(self.dom, self.cod, array)
 
     def to_tn(self, dtype=None):
@@ -739,7 +792,7 @@ class Diagram(rigid.Diagram):
                                                scan[offset].dimension,
                                                dtype=str(dtype))
             else:
-                array = box.eval().array
+                array = box.eval(dtype=dtype).array
                 with backend() as np:
                     with tn.DefaultBackend(np.backend_like_tn()):
                         node = tn.Node(array, str(box))
@@ -757,24 +810,19 @@ class Diagram(rigid.Diagram):
                 array = box.array
 
                 # try to return the dtype directly
-                return autoray.get_dtype_name(array)
-                # dtype = array.dtype
-                # if isinstance(dtype, numpy.dtype):
-                #     return dtype
-                # 
-                # # else turn the array into a numpy array and return that dtype
-                # while True:
-                #     # minimise data to potentially copy
-                #     try:
-                #         array = array[0]
-                #     except IndexError:
-                #         break
-                # 
-                # try:
-                #     return numpy.asarray(array).dtype
-                # except (RuntimeError, TypeError):
-                #     # assume that the array is actually a PyTorch tensor
-                #     return array.detach().cpu().numpy().dtype
+                try:
+                    return autoray.get_dtype_name(array)
+
+                except (KeyError, AttributeError, TypeError):
+                    # else turn the array into a numpy array and return that dtype
+                    while True:
+                        # minimise data to potentially copy
+                        try:
+                            array = array[0]
+                        except (IndexError, TypeError):
+                            break
+                    with backend() as np:
+                        return autoray.get_dtype_name(np.asarray(array))
         else:
             return 'float64'  # fallback
 
@@ -893,8 +941,8 @@ class Box(rigid.Box, Diagram):
         dom, cod = self.dom, self.cod
         data = self.data
         try:
-            with backend() as np, default_dtype() as dtype:
-                return np.array(data, dtype=dtype.like_backend(np)).reshape(tuple(dom @ cod) or ())
+            with backend() as np, default_dtype(Dtype.from_data(data)) as dtype:
+                return np.copy(np.asarray(data, dtype=dtype.like_backend(np))).reshape(tuple(dom @ cod) or ())
         except Exception:
             return data
 
@@ -918,8 +966,8 @@ class Box(rigid.Box, Diagram):
         return hash(
             (self.name, self.dom, self.cod, tuple(self.array.reshape(-1))))
 
-    def eval(self, contractor=None):
-        return Functor(ob=lambda x: x, ar=lambda f: f.array)(self)
+    def eval(self, contractor=None, dtype=None):
+        return Functor(ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
 
 
 class Spider(rigid.Spider, Box):

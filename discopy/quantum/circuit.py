@@ -53,6 +53,7 @@ from discopy.rigid import Diagram
 from discopy.tensor import Dim, Tensor, Dtype, default_dtype
 from math import pi
 from functools import reduce, partial
+import autoray
 
 
 class AntiConjugate:
@@ -207,7 +208,7 @@ class Circuit(tensor.Diagram):
         return circuit
 
     def eval(self, *others, backend=None, mixed=False,
-             contractor=None, **params):
+             contractor=None, dtype=None, **params):
         """
         Evaluate a circuit on a backend, or simulate it with numpy.
 
@@ -224,6 +225,8 @@ class Circuit(tensor.Diagram):
         contractor : callable, optional
             Use :class:`tensornetwork` contraction
             instead of discopy's basic eval feature.
+        dtype : Dtype, optional
+            Output dtype. If unspecified is inferred from the circuit boxes.
         params : kwargs, optional
             Get passed to Circuit.get_counts.
 
@@ -263,41 +266,64 @@ class Circuit(tensor.Diagram):
         ...     == Tensor(dom=Dim(1), cod=Dim(2), array=[0., 1.])
         """
         from discopy.quantum import cqmap
-        if contractor is not None:
-            array = contractor(*self.to_tn(mixed=mixed)).tensor
-            with default_dtype(init_stack=Dtype(complex)) as dtype:
+        if dtype is None:
+            dtype = Dtype.merged(self._infer_dtype(), complex)
+        with default_dtype(init_stack=dtype) as dtype:
+            if contractor is not None:
+                array = contractor(*self.to_tn(mixed=mixed)).tensor
                 if self.is_mixed or mixed:
-                    f = cqmap.Functor()
-                    return cqmap.CQMap(f(self.dom), f(self.cod), array)
+                    f = cqmap.Functor(dtype=dtype)
+                    return cqmap.CQMap(f(self.dom), f(self.cod), array, dtype=dtype)
                 f = tensor.Functor(lambda x: x[0].dim, {}, dtype=dtype)
                 return Tensor(f(self.dom), f(self.cod), array)
 
-        from discopy import cqmap
-        from discopy.quantum.gates import Bits, scalar
-        if len(others) == 1 and not isinstance(others[0], Circuit):
-            # This allows the syntax :code:`circuit.eval(backend)`
-            return self.eval(backend=others[0], mixed=mixed, **params)
-        if backend is None:
-            if others:
-                return [circuit.eval(mixed=mixed, **params)
-                        for circuit in (self, ) + others]
-            with default_dtype(init_stack=Dtype(complex)) as dtype:
-                functor = cqmap.Functor() if mixed or self.is_mixed\
+            from discopy import cqmap
+            from discopy.quantum.gates import Bits, scalar
+            if len(others) == 1 and not isinstance(others[0], Circuit):
+                # This allows the syntax :code:`circuit.eval(backend)`
+                return self.eval(backend=others[0], mixed=mixed, **params)
+            if backend is None:
+                if others:
+                    return [circuit.eval(mixed=mixed, **params)
+                            for circuit in (self, ) + others]
+                functor = cqmap.Functor(dtype=dtype) if mixed or self.is_mixed\
                     else tensor.Functor(lambda x: x[0].dim, lambda f: f.array, dtype=dtype)
                 box = functor(self)
-            return type(box)(box.dom, box.cod, box.array + 0j)
-        circuits = [circuit.to_tk() for circuit in (self, ) + others]
-        results, counts = [], circuits[0].get_counts(
-            *circuits[1:], backend=backend, **params)
-        for i, circuit in enumerate(circuits):
-            n_bits = len(circuit.post_processing.dom)
-            result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
-            for bitstring, count in counts[i].items():
-                result += (scalar(count) @ Bits(*bitstring)).eval()
-            if circuit.post_processing:
-                result = result >> circuit.post_processing.eval()
-            results.append(result)
+                return type(box)(box.dom, box.cod, box.array + 0j)
+            circuits = [circuit.to_tk() for circuit in (self, ) + others]
+            results, counts = [], circuits[0].get_counts(
+                *circuits[1:], backend=backend, **params)
+            for i, circuit in enumerate(circuits):
+                n_bits = len(circuit.post_processing.dom)
+                result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
+                for bitstring, count in counts[i].items():
+                    result += (scalar(count) @ Bits(*bitstring)).eval(dtype=dtype)
+                if circuit.post_processing:
+                    result = result >> circuit.post_processing.eval(dtype=dtype)
+                results.append(result)
         return results if len(results) > 1 else results[0]
+    
+    def _infer_dtype(self):
+        for box in self.boxes:
+            if not isinstance(box, (tensor.Spider, rigid.Swap, MixedState, Discard, Measure, Encode)):
+                array = box.array
+
+                # try to return the dtype directly
+                try:
+                    return autoray.get_dtype_name(array)
+
+                except (KeyError, AttributeError, TypeError):
+                    # else turn the array into a numpy array and return that dtype
+                    while True:
+                        # minimise data to potentially copy
+                        try:
+                            array = array[0]
+                        except IndexError:
+                            break
+                    with backend() as np:
+                        return autoray.get_dtype_name(np.asarray(array))
+        else:
+            return 'complex64'  # fallback
 
     def get_counts(self, *others, backend=None, **params):
         """
@@ -345,7 +371,8 @@ class Circuit(tensor.Diagram):
             if others:
                 return [circuit.get_counts(**params)
                         for circuit in (self, ) + others]
-            utensor, counts = self.init_and_discard().eval(), dict()
+            with default_dtype(init_stack=Dtype(complex)) as dtype:
+                utensor, counts = self.init_and_discard().eval(dtype=dtype), dict()
             for i in range(2**len(utensor.cod)):
                 bits = index2bitstring(i, len(utensor.cod))
                 if utensor.array[bits]:
@@ -369,16 +396,17 @@ class Circuit(tensor.Diagram):
         array : numpy.ndarray
         """
         from discopy.quantum.gates import Bra, Ket
-        if mixed or self.is_mixed:
-            return self.init_and_discard().eval(mixed=True).array.real
-        state = (Ket(*(len(self.dom) * [0])) >> self).eval()
-        effects = [Bra(*index2bitstring(j, len(self.cod))).eval()
-                   for j in range(2 ** len(self.cod))]
-        with Tensor.backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
-            array = np.zeros(len(self.cod) * (2, ), dtype=dtype.like_backend(np)) + 0j
-            for effect in effects:
-                array +=\
-                    effect.array * np.absolute((state >> effect).array) ** 2
+        with default_dtype(init_stack=Dtype(complex)) as dtype:
+            if mixed or self.is_mixed:
+                return self.init_and_discard().eval(mixed=True, dtype=dtype).array.real
+            state = (Ket(*(len(self.dom) * [0])) >> self).eval(dtype=dtype)
+            effects = [Bra(*index2bitstring(j, len(self.cod))).eval(dtype=dtype)
+                       for j in range(2 ** len(self.cod))]
+            with Tensor.backend() as np:
+                array = np.zeros(len(self.cod) * (2, ), dtype=dtype.like_backend(np)) + 0j
+                for effect in effects:
+                    array +=\
+                        effect.array * np.absolute((state >> effect).array) ** 2
         return array
 
     def to_tn(self, mixed=False):
@@ -460,10 +488,10 @@ class Circuit(tensor.Diagram):
                             continue
                         if isinstance(box, (Copy, Match, Measure, Encode)):
                             assert len(box.dom) == 1 or len(box.cod) == 1
-                            node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=complex)
+                            node = tn.CopyNode(3, 2, 'cq_' + str(box), dtype=dtype)
                         else:
                             # only unoptimised gate is MixedState()
-                            array = box.eval(mixed=True).array
+                            array = box.eval(mixed=True, dtype=Dtype(dtype)).array
                             node = tn.Node(array + 0j, 'cq_' + str(box))
                         for i in range(c_dom):
                             tn.connect(c_scan[c_offset + i], node[i])

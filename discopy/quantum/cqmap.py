@@ -189,7 +189,7 @@ class CQMap(Tensor):
 
     @staticmethod
     def swap(left, right):
-        with default_dtype(self.dtype):
+        with default_dtype(init_stack=Dtype(complex)):
             utensor = Tensor.swap(left.classical, right.classical)\
                 @ Tensor.swap(left.quantum, right.quantum)\
                 @ Tensor.swap(left.quantum, right.quantum)

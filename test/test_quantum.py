@@ -47,7 +47,7 @@ def test_Circuit_permutation():
 
 
 def test_Circuit_eval():
-    with raises(KeyError):
+    with raises(AttributeError):
         Box('f', qubit, qubit).eval()
     assert MixedState().eval() == Discard().eval().dagger()
 
@@ -571,12 +571,12 @@ def test_rot_grad():
         + (CRz(phi) >> Id(1) @ Z @ scalar(-0.5j * pi))
     ).lambdify(phi)(x).eval()
     assert np.allclose(crz_diff, crz_res)
-
-    crx_diff = CRx(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
-    crx_res = (
-        (CRx(phi) >> Z @ X @ scalar(0.5j * pi))
-        + (CRx(phi) >> Id(1) @ X @ scalar(-0.5j * pi))
-    ).lambdify(phi)(x).eval()
+    with default_dtype(Dtype(complex, 128)):
+        crx_diff = CRx(phi).grad(phi, mixed=False).lambdify(phi)(x).eval()
+        crx_res = (
+            (CRx(phi) >> Z @ X @ scalar(0.5j * pi))
+            + (CRx(phi) >> Id(1) @ X @ scalar(-0.5j * pi))
+        ).lambdify(phi)(x).eval()
     assert np.allclose(crx_diff, crx_res)
 
 
@@ -743,6 +743,8 @@ def test_grad_unknown_controlled():
 def test_symbolic_controlled():
     from sympy.abc import phi
     crz = lambda x, d: Controlled(Rz(x), distance=d)
+    res1 = crz(phi, -1).eval().array
+    res2 = (SWAP >> crz(phi, 1) >> SWAP).eval().array
     assert np.all(
         crz(phi, -1).eval().array
         == (SWAP >> crz(phi, 1) >> SWAP).eval().array)

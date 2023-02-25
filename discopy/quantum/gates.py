@@ -24,18 +24,19 @@ def format_number(data):
 
 class QuantumGate(Box):
     """ Quantum gates, i.e. unitaries on n qubits. """
+    dtype: Dtype
+
     def __init__(
             self, name, n_qubits, array=None, data=None,
-            _dagger=False, _conjugate=False):
+            _dagger=False, _conjugate=False, dtype=None):
         dom = qubit ** n_qubits
         self._array = array
+        self.dtype = Dtype.merged(dtype, complex)
         if self._array is not None:
-            with backend() as np, default_dtype(Dtype.from_data(self._array), init_stack=Dtype(complex)) as dtype:
+            with backend() as np, default_dtype(Dtype.from_data(self._array), init_stack=self.dtype) as dtype:
                 self.dtype = dtype
                 self._array = np.array(array, dtype=dtype.like_backend(np)).reshape(
                     2 * n_qubits * (2, )) + 0j
-        else:
-            self.dtype = Dtype(complex)
         super().__init__(
             name, dom, dom, is_mixed=False, data=data,
             _dagger=_dagger, _conjugate=_conjugate)
@@ -89,17 +90,18 @@ class ClassicalGate(Box):
     >>> f.lambdify(*array)(1, 2, 3, 4)
     ClassicalGate('f', bit, bit, data=[1, 2, 3, 4])
     """
-    def __init__(self, name, dom, cod, data=None, _dagger=False):
+    dtype: Dtype
+
+    def __init__(self, name, dom, cod, data=None, _dagger=False, dtype=None):
         if isinstance(dom, int):
             dom = bit ** dom
         if isinstance(cod, int):
             cod = bit ** cod
+        self.dtype = Dtype.merged(dtype, complex)
         if data is not None:
-            with backend() as np, default_dtype(Dtype.from_data(data), init_stack=Dtype(float)) as dtype:
+            with backend() as np, default_dtype(Dtype.from_data(data), init_stack=self.dtype) as dtype:
                 self.dtype = dtype
                 data = np.array(data, dtype=dtype.like_backend(np)).reshape((len(dom) + len(cod)) * (2, ))
-        else:
-            self.dtype = Dtype(float)
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
@@ -143,7 +145,7 @@ class ClassicalGate(Box):
         if var not in self.free_symbols:
             return Sum([], self.dom, self.cod)
         name = "{}.grad({})".format(self.name, var)
-        data = self.eval().grad(var, **params).array
+        data = self.eval(dtype=self.dtype).grad(var, **params).array
         return ClassicalGate(name, self.dom, self.cod, data)
 
 
@@ -321,7 +323,7 @@ class Controlled(QuantumGate):
         self.draw_as_controlled = True
         self.dtype = self.controlled.dtype
         array = None
-        super().__init__(self.name, n_qubits, array, data=controlled.data)
+        super().__init__(self.name, n_qubits, array, data=controlled.data, dtype=self.dtype)
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
@@ -400,7 +402,8 @@ class Controlled(QuantumGate):
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            with default_dtype(init_stack=self.dtype):
+                return Sum([], self.dom, self.cod)
         decomp = self._decompose_grad()
         if decomp == self:
             raise NotImplementedError()
@@ -411,7 +414,7 @@ class Controlled(QuantumGate):
         controlled, distance = self.controlled, self.distance
         n_qubits = len(self.dom)
         if distance == 1:
-            with backend() as np, default_dtype(self.dtype) as dtype:
+            with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
                 d = 1 << n_qubits - 1
                 part1 = np.array([[1, 0], [0, 0]], dtype=dtype.like_backend(np))
                 part2 = np.array([[0, 0], [0, 1]], dtype=dtype.like_backend(np))
@@ -419,7 +422,7 @@ class Controlled(QuantumGate):
                     np.kron(part1, np.eye(d))
                     + np.kron(part2,np.array(controlled.array.reshape(d, d))))
         else:
-            array = self._decompose().eval().array
+            array = self._decompose().eval(dtype=self.dtype).array
         return array.reshape(*[2] * 2 * n_qubits)
 
 
@@ -486,11 +489,11 @@ class Parametrized(Box):
 class Rotation(Parametrized, QuantumGate):
     """ Abstract class for rotation gates. """
     def __init__(self, phase, name=None, n_qubits=1, _conjugate=False):
-        QuantumGate.__init__(self, name, n_qubits, _conjugate=_conjugate)
+        self.dtype = Dtype.from_data(phase)
+        QuantumGate.__init__(self, name, n_qubits, _conjugate=_conjugate, dtype=self.dtype)
         Parametrized.__init__(
             self, name, self.dom, self.cod,
             datatype=float, is_mixed=False, data=phase)
-        self.dtype = Dtype.from_data(phase)
 
     @property
     def phase(self):
@@ -527,7 +530,7 @@ class Rx(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        with backend() as np, default_dtype(self.dtype) as dtype:
+        with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
             half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
@@ -543,7 +546,7 @@ class Ry(RealConjugate, Rotation):
 
     @property
     def array(self):
-        with backend() as np, default_dtype(self.dtype) as dtype:
+        with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
             half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
@@ -559,7 +562,7 @@ class Rz(AntiConjugate, Rotation):
 
     @property
     def array(self):
-        with backend() as np, default_dtype(self.dtype) as dtype:
+        with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
             half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))

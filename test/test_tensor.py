@@ -25,7 +25,7 @@ def test_backend():
 def test_Tensor_repr_with_tf():
     with Tensor.backend('tensorflow'), default_dtype(Dtype(int)):
         alice = Tensor(Dim(1), Dim(2), [1, 2])
-        assert repr(alice) == 'Tensor(dom=Dim(1), cod=Dim(2), array=[1, 2])'
+        assert repr(alice) == 'Tensor[int32](dom=Dim(1), cod=Dim(2), array=[1, 2])'
 
 
 def test_Dim():
@@ -48,7 +48,7 @@ def test_Tensor():
         assert Tensor(Dim(1), Dim(1), [1])
         m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
         assert repr(m) == str(m)\
-            == "Tensor(dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])"
+            == "Tensor[int32](dom=Dim(2), cod=Dim(2), array=[0, 1, 1, 0])"
     u = Tensor(Dim(2), Dim(2), [1, 0, 0, 0])
     v = Tensor(Dim(2), Dim(2), [0, 0, 0, 1])
     assert u + v == Tensor.id(Dim(2))
