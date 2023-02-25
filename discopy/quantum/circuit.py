@@ -269,7 +269,7 @@ class Circuit(tensor.Diagram):
                 if self.is_mixed or mixed:
                     f = cqmap.Functor()
                     return cqmap.CQMap(f(self.dom), f(self.cod), array)
-                f = tensor.Functor(lambda x: x[0].dim, {})
+                f = tensor.Functor(lambda x: x[0].dim, {}, dtype=dtype)
                 return Tensor(f(self.dom), f(self.cod), array)
 
         from discopy import cqmap
@@ -281,9 +281,10 @@ class Circuit(tensor.Diagram):
             if others:
                 return [circuit.eval(mixed=mixed, **params)
                         for circuit in (self, ) + others]
-            functor = cqmap.Functor() if mixed or self.is_mixed\
-                else tensor.Functor(lambda x: x[0].dim, lambda f: f.array)
-            box = functor(self)
+            with default_dtype(init_stack=Dtype(complex)) as dtype:
+                functor = cqmap.Functor() if mixed or self.is_mixed\
+                    else tensor.Functor(lambda x: x[0].dim, lambda f: f.array, dtype=dtype)
+                box = functor(self)
             return type(box)(box.dom, box.cod, box.array + 0j)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(

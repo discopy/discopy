@@ -121,8 +121,12 @@ class Dtype:
     def from_data(cls, data: any):
         try:
             with backend() as np:
-                type_str = autoray.get_dtype_name(np.asarray(data))
-        except (AttributeError, KeyError, ImportError):
+                converted = np.asarray(data)
+                type_str = autoray.get_dtype_name(converted)
+        except RuntimeError:
+            # attempt catch all choice
+            type_str = 'object'
+        except (AttributeError, KeyError):
             # try converting to numpy and extracting that type
             array = numpy.array(data)
             type_str = autoray.get_dtype_name(array.dtype)
@@ -316,8 +320,9 @@ class Tensor(rigid.Box, metaclass=TensorType):
         with backend(value, default=cls.default_backend) as np:
             yield np
 
-    def __init__(self, dom, cod, array):
-        with backend() as np, default_dtype(Dtype.from_data(array)) as dtype:
+    def __init__(self, dom, cod, array, dtype: Dtype=None):
+        with backend() as np, default_dtype(dtype if dtype is not None else Dtype.from_data(array)) as dtype:
+            self.dtype = dtype
             self._array = np.array(array, dtype=dtype.like_backend(np)).reshape(tuple(dom @ cod))
         super().__init__("Tensor", dom, cod)
 
@@ -347,8 +352,8 @@ class Tensor(rigid.Box, metaclass=TensorType):
             np_array = self.array.numpy()
         else:
             np_array = self.array
-        return "Tensor(dom={}, cod={}, array={})".format(
-            self.dom, self.cod, array2string(np_array.reshape(-1)))
+        return "Tensor[{}](dom={}, cod={}, array={})".format(
+            self.dtype, self.dom, self.cod, array2string(np_array.reshape(-1)))
 
     def __str__(self):
         return repr(self)
@@ -447,7 +452,8 @@ class Tensor(rigid.Box, metaclass=TensorType):
         ----
         This is *not* the same as the algebraic transpose for complex dims.
         """
-        return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
+        with backend():
+            return Tensor(self.cod[::-1], self.dom[::-1], self.array.transpose())
 
     def conjugate(self, diagrammatic=True):
         """
@@ -535,8 +541,9 @@ class Tensor(rigid.Box, metaclass=TensorType):
 
     def lambdify(self, *symbols, **kwargs):
         from sympy import lambdify
-        array = lambdify(
-            symbols, self.array, modules=Tensor.np.module, **kwargs)
+        with backend() as np:
+            array = lambdify(
+                symbols, self.array, modules=np, **kwargs)
         return lambda *xs: Tensor(self.dom, self.cod, array(*xs))
 
 
@@ -563,7 +570,8 @@ class Functor(rigid.Functor):
             return self(diagram.inside).map(diagram.func)
         if isinstance(diagram, monoidal.Sum):
             dom, cod = self(diagram.dom), self(diagram.cod)
-            return sum(map(self, diagram), Tensor.zeros(dom, cod))
+            with default_dtype(self.dtype):
+                return sum(map(self, diagram), Tensor.zeros(dom, cod))
         if isinstance(diagram, monoidal.Ty):
             def obj_to_dim(obj):
                 if isinstance(obj, rigid.Ob) and obj.z != 0:
@@ -576,9 +584,11 @@ class Functor(rigid.Functor):
                 return result
             return Dim(1).tensor(*map(obj_to_dim, diagram.objects))
         if isinstance(diagram, Cup):
-            return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))
+            with default_dtype(self.dtype):
+                return Tensor.cups(self(diagram.dom[:1]), self(diagram.dom[1:]))
         if isinstance(diagram, Cap):
-            return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
+            with default_dtype(self.dtype):
+                return Tensor.caps(self(diagram.cod[:1]), self(diagram.cod[1:]))
         if isinstance(diagram, monoidal.Box)\
                 and not isinstance(diagram, monoidal.Swap):
             if diagram.z % 2 != 0:
@@ -588,13 +598,14 @@ class Functor(rigid.Functor):
             if diagram.is_dagger:
                 return self(diagram.dagger()).dagger()
             return Tensor(self(diagram.dom), self(diagram.cod),
-                          self.ar[diagram])
+                          self.ar[diagram], dtype=self.dtype)
         if not isinstance(diagram, monoidal.Diagram):
             raise TypeError(messages.type_err(monoidal.Diagram, diagram))
 
         def dim(scan):
             return len(self(scan))
-        scan, array = diagram.dom, Tensor.id(self(diagram.dom)).array
+        with default_dtype(self.dtype):
+            scan, array = diagram.dom, Tensor.id(self(diagram.dom)).array
         for box, off in zip(diagram.boxes, diagram.offsets):
             if isinstance(box, monoidal.Swap):
                 source = range(

@@ -121,7 +121,7 @@ class CQMap(Tensor):
         """ Underlying tensor. """
         return Tensor(self._udom, self._ucod, self.array)
 
-    def __init__(self, dom, cod, array=None, utensor=None):
+    def __init__(self, dom, cod, array=None, utensor=None, dtype=None):
         if array is None and utensor is None:
             raise ValueError("One of array or utensor must be given.")
         if utensor is None:
@@ -129,7 +129,7 @@ class CQMap(Tensor):
             ucod = cod.classical @ cod.quantum @ cod.quantum
         else:
             udom, ucod = utensor.dom, utensor.cod
-        super().__init__(udom, ucod, utensor.array if array is None else array)
+        super().__init__(udom, ucod, utensor.array if array is None else array, dtype=dtype)
         self._dom, self._cod, self._udom, self._ucod = dom, cod, udom, ucod
 
     def __repr__(self):
@@ -147,8 +147,9 @@ class CQMap(Tensor):
 
     @staticmethod
     def id(dom=CQ()):
-        utensor = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
-        return CQMap(dom, dom, utensor=utensor)
+        with default_dtype(init_stack=Dtype(complex)):
+            utensor = Tensor.id(dom.classical @ dom.quantum @ dom.quantum)
+            return CQMap(dom, dom, utensor=utensor)
 
     def then(self, *others):
         if len(others) != 1:
@@ -181,15 +182,17 @@ class CQMap(Tensor):
                 for a, x in zip(['c', 'q'], ['classical', 'quantum'])
                 for b, y in zip([0, 1], ['dom', 'cod'])
                 for c, z in zip([0, 1], [self, other])},
-            ar={f: self.utensor.array, g: other.utensor.array})
+            ar={f: self.utensor.array, g: other.utensor.array},
+            dtype=self.dtype)
         return CQMap(self.dom @ other.dom, self.cod @ other.cod,
                      utensor=diagram2tensor(above >> f @ g >> below))
 
     @staticmethod
     def swap(left, right):
-        utensor = Tensor.swap(left.classical, right.classical)\
-            @ Tensor.swap(left.quantum, right.quantum)\
-            @ Tensor.swap(left.quantum, right.quantum)
+        with default_dtype(self.dtype):
+            utensor = Tensor.swap(left.classical, right.classical)\
+                @ Tensor.swap(left.quantum, right.quantum)\
+                @ Tensor.swap(left.quantum, right.quantum)
         return CQMap(left @ right, right @ left, utensor=utensor)
 
     @staticmethod
@@ -238,7 +241,7 @@ class CQMap(Tensor):
         """ Discard a quantum dimension or take the marginal distribution. """
         with Tensor.backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
             array = np.tensordot(
-                np.ones(dom.classical, dtype=dtype.like_backend(np)), Tensor.id(dom.quantum).array, 0)
+                np.ones(tuple(dom.classical), dtype=dtype.like_backend(np)), Tensor.id(dom.quantum).array, 0)
         return CQMap(dom, CQ(), array)
 
     @staticmethod
@@ -259,8 +262,9 @@ class Functor(rigid.Functor):
     """
     Functors from :class:`Circuit` into :class:`CQMap`.
     """
-    def __init__(self, ob=None, ar=None):
+    def __init__(self, ob=None, ar=None, dtype=Dtype(complex)):
         self.__ob, self.__ar = ob or {}, ar or {}
+        self.dtype = dtype
         super().__init__(self._ob, self._ar, ob_factory=CQ, ar_factory=CQMap)
 
     def __repr__(self):
@@ -278,12 +282,14 @@ class Functor(rigid.Functor):
     def _ar(self, box):
         """ Overrides the input mapping on arrows. """
         if isinstance(box, Discard):
-            return CQMap.discard(self(box.dom))
+            with default_dtype(self.dtype):
+                return CQMap.discard(self(box.dom))
         if isinstance(box, Measure):
-            measure = CQMap.measure(
-                self(box.dom).quantum, destructive=box.destructive)
-            measure = measure @ CQMap.discard(self(box.dom).classical)\
-                if box.override_bits else measure
+            with default_dtype(self.dtype):
+                measure = CQMap.measure(
+                    self(box.dom).quantum, destructive=box.destructive)
+                measure = measure @ CQMap.discard(self(box.dom).classical)\
+                    if box.override_bits else measure
             return measure
         if isinstance(box, (MixedState, Encode)):
             return self(box.dagger()).dagger()
