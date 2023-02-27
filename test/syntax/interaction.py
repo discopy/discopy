@@ -7,7 +7,7 @@ def test_Ty_repr():
     assert repr(Ty[int](positive=1, negative=2))\
             == "interaction.Ty[builtins.int](positive=1, negative=2)"
     x, y, z, w = map(Ty, "xyzw")
-    assert str(x @ -y @ z @ -w) == "x @ z @ -(y @ w)"
+    assert str(x @ -y @ z @ -w) == "x @ z @ -(w @ y)"
 
 
 def test_ValueError():
