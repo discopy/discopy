@@ -109,6 +109,9 @@ class Trace(Box, monoidal.Bubble):
             else self.dom @ cap >> self.arg @ traced_wire >> self.cod @ cup
         return result.to_drawing()
 
+    def dagger(self):
+        return self.arg.dagger().trace(left=self.left)
+
 
 class Category(monoidal.Category):
     """

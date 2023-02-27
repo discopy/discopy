@@ -43,7 +43,7 @@ Example
 ...     >> Cup(n, n.r) @ n @ Diagram.cups((n.r @ s).l, n.r @ s) @ Cup(n.l, n)
 
 >>> from discopy.rigid import Functor
->>> from discopy.frobenius import Ty as T, Diagram as D, Box, Category
+>>> from discopy.frobenius import Ty as T, Diagram as D, Box, Category, Swap
 >>> S, N = map(T, "SN")
 >>> F = Functor(
 ...     ob={s: Ty[T](S), n: Ty[T](N)},
@@ -54,9 +54,9 @@ Example
 ...     cod=Int(Category(T, D)))
 
 >>> from discopy.drawing import Equation
->>> Equation(noun_phrase, F(noun_phrase).simplify().naturality(3, left=False),
-...          symbol="$\\\\mapsto$").draw(
-...              figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
+>>> Equation(noun_phrase, F(noun_phrase).simplify().inside.interchange(1, 2
+...     ).naturality(2, left=False), symbol="$\\\\mapsto$").draw(
+...          figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
 
 .. image:: /_static/int/alice-loves-bob.png
     :align: center
@@ -114,7 +114,7 @@ class Ty(NamedGeneric['natural']):
     def __repr__(self):
         pos, neg = repr(self.positive), repr(self.negative)
         return f"interaction.Ty[{factory_name(self.natural)}]"\
-                "(positive={pos}, negative={neg})"
+               f"(positive={pos}, negative={neg})"
 
     def __str__(self):
         return f"{str(self.positive)} @ -({str(self.negative)})"
