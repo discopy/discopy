@@ -6,6 +6,7 @@ tensornetwork
 jax
 jaxlib
 torch
+autoray==0.6.0 # avoid PennyLane bug until fix for autoray 0.6.1 is released
 pennylane
 pennylane-qiskit
 pennylane-honeywell
