@@ -20,7 +20,6 @@ associated weights should be passed to `eval()` as `symbols=` and
 `weights=`.
 """
 
-import copy
 from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
 from itertools import product
@@ -171,8 +170,8 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
         The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
     if disco_circuit.is_mixed:
-        raise ValueError("Only pure quantum circuits are currently "
-                         "supported.")
+        raise ValueError('Only pure quantum circuits are currently '
+                         'supported.')
 
     tk_circ = disco_circuit.to_tk()
     op_list, params_list, wires_list = extract_ops_from_tk(tk_circ)
@@ -258,10 +257,10 @@ class PennyLaneCircuit:
 
     def initialise_device_and_circuit(self):
         """
-        Initialise the PennyLane device and circuit once, when the
-        PennyLaneCircuit is instantiated.
+        Initialise the PennyLane device and circuit when instantiating the
+        PennyLaneCirucit, or loading from disk.
         """
-        self._device = self.get_device(copy.copy(self._backend_config))
+        self._device = self.get_device({**self._backend_config})
         self._circuit = self.make_circuit()
 
     def contains_sympy(self):
