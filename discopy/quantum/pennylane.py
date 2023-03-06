@@ -260,7 +260,8 @@ class PennyLaneCircuit:
         Initialise the PennyLane device and circuit when instantiating the
         PennyLaneCirucit, or loading from disk.
         """
-        self._device = self.get_device({**self._backend_config})
+        self._device = self.get_device(None if self._backend_config is None
+                                       else {**self._backend_config})
         self._circuit = self.make_circuit()
 
     def contains_sympy(self):
