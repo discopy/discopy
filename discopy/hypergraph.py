@@ -183,7 +183,7 @@ def pushout(
     return left_pushout, right_pushout
 
 
-class Diagram(Composable[Ty], Whiskerable):
+class Diagram(Composable[frobenius.Ty], Whiskerable):
     """
     Diagram in a hypergraph category.
 
