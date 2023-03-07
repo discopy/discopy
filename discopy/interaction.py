@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-The Int construction of Joyal, Street & Verity :cite:t:`JoyalEtAl96`, also
-called the "geometry of interaction" construction, see :cite:t:`Abramsky96`.
+The free compact category on a symmetric traced category, or more generally the
+free ribbon category on a balanced traced category. Concretely, this is a
+"glorification of the construction of the integers from the natural numbers".
 
-:func:`Int` is the free compact category on a symmetric traced category, or
-more generally the free ribbon category on a balanced traced category.
-Concretely, this is a "glorification of the construction of the integers from
-the natural numbers".
+This so-called Int-construction first appeared in Joyal, Street & Verity
+:cite:t:`JoyalEtAl96`. It is sometimes called the "geometry of interaction"
+construction, see :cite:t:`Abramsky96`.
 
 Summary
 -------
@@ -143,7 +143,7 @@ class Ty(NamedGeneric['natural']):
 @dataclass
 class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     """
-    An integer diagram from ``x`` to ``y`` is a `natural` diagram
+    An integer diagram from ``x`` to ``y`` is a :attr:`natural` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.
 
     Parameters:
