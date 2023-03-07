@@ -117,7 +117,11 @@ class Ty(NamedGeneric['natural']):
                f"(positive={pos}, negative={neg})"
 
     def __str__(self):
-        return f"{str(self.positive)} @ -({str(self.negative)})"
+        try:
+            return " @ ".join(list(map(str, self.positive)) + [
+                f"-{x}" for x in reversed(self.negative)])
+        except TypeError:  # e.g. when Ty.natural == int
+            return repr(self)
 
     def tensor(self, *others: Ty):
         if any(not isinstance(other, Ty) for other in others):
