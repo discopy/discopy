@@ -9,7 +9,9 @@ tensornetwork
 jax
 jaxlib
 torch
-pennylane
+pennylane>=0.29.1
+pennylane-qiskit
+pennylane-honeywell
 lxml
 nltk
 pylint
