@@ -764,6 +764,7 @@ class Diagram(Composable[frobenius.Ty], Whiskerable):
         ...           spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
+        functor_factory = functor_factory or frobenius.Functor
         return functor_factory(
             ob=lambda typ: Ty(typ.name),
             ar=lambda box: Box(box.name, box.dom, box.cod),
