@@ -366,11 +366,16 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         """ The drawing of an integer diagram is the drawing of its inside. """
         return self.inside.draw(**params)
 
-    def simplify(self,
-                 functor_factory=frobenius.Functor, box_factory=frobenius.Box):
+    def simplify(self, functor_factory: type = None, box_factory: type = None):
         """
         Simplify by going back and forth to :class:`hypergraph.Diagram`.
 
+        Parameters:
+            functor_factory : Passed to :meth:`hypergraph.Diagram.upgrade`.
+            box_factory : Passed to :meth:`hypergraph.Diagram.downgrade`.
+
+        Example
+        -------
         >>> x = Ty[frobenius.Ty]('x')
         >>> D = Diagram[frobenius.Diagram]
         >>> left_snake = D.id(-x).transpose(left=True)
@@ -387,6 +392,8 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
             :align: center
         """
         from discopy import hypergraph
+        functor_factory = functor_factory or frobenius.Functor
+        box_factory = box_factory or frobenius.Box
         inside = hypergraph.Diagram.upgrade(
             self.inside, functor_factory).simplify().downgrade(box_factory)
         return type(self)(inside, self.dom, self.cod)
@@ -409,6 +416,11 @@ def Int(category: traced.Category) -> ribbon.Category:
 
     Parameters:
         category : A balanced traced category.
+
+    Example
+    -------
+    >>> from discopy.ribbon import Ty as T, Diagram as D, Category
+    >>> assert Int(Category(T, D)) == Category(Ty[T], Diagram[D])
     """
     return ribbon.Category(Ty[category.ob], Diagram[category.ar])
 

@@ -4,10 +4,14 @@ from discopy.interaction import *
 
 
 def test_Ty_repr():
-    assert repr(Ty[int](positive=1, negative=2))\
-            == "interaction.Ty[builtins.int](positive=1, negative=2)"
+    t = Ty[int](positive=1, negative=2)
+    assert repr(t)\
+        == str(t) == "interaction.Ty[builtins.int](positive=1, negative=2)"
+
+
+def test_Ty_str():
     x, y, z, w = map(Ty, "xyzw")
-    assert str(x @ -y @ z @ -w) == "x @ z @ -(w @ y)"
+    assert str(x @ -y @ z @ -w) == "x @ z @ -y @ -w"
 
 
 def test_ValueError():
@@ -18,3 +22,8 @@ def test_ValueError():
         Diagram[D](f, x, z)
     with raises(ValueError):
         Diagram[D](f, z, y)
+
+
+def test_IndexError():
+    with raises(IndexError):
+        return Id()[:]

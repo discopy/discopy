@@ -747,11 +747,16 @@ class Diagram(Composable[frobenius.Ty], Whiskerable):
         return drawing.nx2diagram(graph, box_factory)
 
     @staticmethod
-    def upgrade(old: frobenius.Diagram, functor_factory=frobenius.Functor
-                ) -> Diagram:
+    def upgrade(old: frobenius.Diagram, functor_factory=None) -> Diagram:
         """
         Turn a :class:`frobenius.Diagram` into a :class:`hypergraph.Diagram`.
 
+        Parameters:
+            old : The planar diagram to upgrade to hypergraph.
+            functor_factory : The functor to use for the upgrade.
+
+        Example
+        -------
         >>> x, y = map(Ty, "xy")
             >>> back_n_forth = lambda d: Diagram.upgrade(d.downgrade())
         >>> for d in [spiders(0, 0, x),
