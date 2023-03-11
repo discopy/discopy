@@ -33,9 +33,9 @@ class QuantumGate(Box):
         self._array = array
         self.dtype = Dtype.merged(dtype, complex)
         if self._array is not None:
-            with backend() as np, default_dtype(Dtype.from_data(self._array), init_stack=self.dtype) as dtype:
+            with backend() as np, default_dtype(Dtype.merged(Dtype.from_data(self._array), self.dtype), init_stack=self.dtype) as dtype:
                 self.dtype = dtype
-                self._array = np.array(array, dtype=dtype.like_backend(np)).reshape(
+                self._array = np.copy(np.asarray(array, dtype=dtype.like_backend(np))).reshape(
                     2 * n_qubits * (2, )) + 0j
         super().__init__(
             name, dom, dom, is_mixed=False, data=data,
@@ -44,7 +44,8 @@ class QuantumGate(Box):
     @property
     def array(self):
         """ The array of a quantum gate. """
-        return self._array
+        with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
+            return np.asarray(self._array, dtype=dtype.like_backend(np))
 
     def __repr__(self):
         if self in GATES:
@@ -99,16 +100,17 @@ class ClassicalGate(Box):
             cod = bit ** cod
         self.dtype = Dtype.merged(dtype, complex)
         if data is not None:
-            with backend() as np, default_dtype(Dtype.from_data(data), init_stack=self.dtype) as dtype:
+            with backend() as np, default_dtype(Dtype.merged(Dtype.from_data(data), self.dtype), init_stack=self.dtype) as dtype:
                 self.dtype = dtype
-                data = np.array(data, dtype=dtype.like_backend(np)).reshape((len(dom) + len(cod)) * (2, ))
+                data = np.copy(np.asarray(data, dtype=dtype.like_backend(np))).reshape((len(dom) + len(cod)) * (2, ))
         super().__init__(
             name, dom, cod, is_mixed=False, data=data, _dagger=_dagger)
 
     @property
     def array(self):
         """ The array of a classical gate. """
-        return self.data
+        with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
+            return np.asarray(self.data, dtype=dtype.like_backend(np))
 
     def __eq__(self, other):
         if not isinstance(other, ClassicalGate):
@@ -420,7 +422,7 @@ class Controlled(QuantumGate):
                 part2 = np.array([[0, 0], [0, 1]], dtype=dtype.like_backend(np))
                 array = (
                     np.kron(part1, np.eye(d))
-                    + np.kron(part2,np.array(controlled.array.reshape(d, d))))
+                    + np.kron(part2,np.copy(controlled.array.reshape(d, d))))
         else:
             array = self._decompose().eval(dtype=self.dtype).array
         return array.reshape(*[2] * 2 * n_qubits)
@@ -533,7 +535,7 @@ class Rx(AntiConjugate, Rotation):
         with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
-            half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
+            half_theta = np.copy(np.asarray(pi * self.phase, dtype=dtype.like_backend(np)))
             with self.modules() as module:
                 sin, cos = module.sin(half_theta), module.cos(half_theta)
             return np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)
@@ -549,7 +551,7 @@ class Ry(RealConjugate, Rotation):
         with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
-            half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
+            half_theta = np.copy(np.asarray(pi * self.phase, dtype=dtype.like_backend(np)))
             with self.modules() as module:
                 sin, cos = module.sin(half_theta), module.cos(half_theta)
             return np.stack((cos, sin, -sin, cos)).reshape(2, 2)
@@ -565,7 +567,7 @@ class Rz(AntiConjugate, Rotation):
         with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
-            half_theta = np.array(pi * self.phase, dtype=dtype.like_backend(np))
+            half_theta = np.copy(np.asarray(pi * self.phase, dtype=dtype.like_backend(np)))
             with self.modules() as module:
                 e1 = module.exp(-1j * half_theta)
                 e2 = module.exp(1j * half_theta)
@@ -583,7 +585,7 @@ class CU1(Anti2QubitConjugate, Rotation):
         with backend() as np, default_dtype(self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
-            theta = np.array(2 * pi * self.phase, dtype=dtype.like_backend(np))
+            theta = np.copy(np.asarray(2 * pi * self.phase, dtype=dtype.like_backend(np)))
             with self.modules() as module:
                 exp_theta = module.exp(1j * theta)
             return np.stack(
@@ -611,7 +613,7 @@ class Scalar(Parametrized):
     @property
     def array(self):
         with backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
-            return np.array(self.data, dtype=dtype.like_backend(np))
+            return np.copy(np.asarray(self.data, dtype=dtype.like_backend(np)))
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
@@ -643,7 +645,7 @@ class Sqrt(Scalar):
     @property
     def array(self):
         with backend() as np, default_dtype(init_stack=Dtype(complex)) as dtype:
-            return np.array(self.data ** .5, dtype=dtype.like_backend(np))
+            return np.copy(np.asarray(self.data ** .5, dtype=dtype.like_backend(np)))
 
 
 SWAP = Swap(qubit, qubit)

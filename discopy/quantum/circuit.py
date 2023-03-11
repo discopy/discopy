@@ -519,8 +519,8 @@ class Circuit(tensor.Diagram):
                             q_scan2[q_offset], q_scan2[q_offset + 1] =\
                                 q_scan2[q_offset + 1], q_scan2[q_offset]
                             continue
-                        utensor = box.array
-                        node1 = tn.Node(Tensor.np.conj(utensor) + 0j, 'q1_' + str(box))
+                        utensor = np.asarray(box.array, dtype=Dtype(complex).like_backend(np))
+                        node1 = tn.Node(np.conj(utensor) + 0j, 'q1_' + str(box))
                         node2 = tn.Node(utensor + 0j, 'q2_' + str(box))
         
                         for i in range(len(box.dom)):

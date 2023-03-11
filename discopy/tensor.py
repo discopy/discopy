@@ -79,8 +79,6 @@ class Dim(Ty):
         """
         return Dim(*self[::-1])
 
-InitDtype = Union[type, tuple[type, int]]
-
 
 KNOWN_DTYPE_STRS = {
     dtype.__name__ + str(float_size): (dtype, float_size)
@@ -92,7 +90,7 @@ class Dtype:
     """dtype to use when creating arrays/tensors."""
     is_numeric: bool
 
-    def __init__(self, dtype: InitDtype, float_size: int = 64):
+    def __init__(self, dtype: Union[type, tuple], float_size: int = 64):
         # Numeric types must have a float_size
         if dtype in [int, float, complex]:
             dtype = dtype, float_size
@@ -429,9 +427,9 @@ class Tensor(rigid.Box, metaclass=TensorType):
     def __eq__(self, other):
         with backend() as np:
             if not isinstance(other, Tensor):
-                return np.all(np.array(self.array == other))
+                return np.all(np.asarray(self.array == other))
             return (self.dom, self.cod) == (other.dom, other.cod)\
-                and np.all(np.array(self.array == other.array))
+                and np.all(np.asarray(self.array == other.array))
 
     def then(self, *others):
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
@@ -555,7 +553,7 @@ class Tensor(rigid.Box, metaclass=TensorType):
         ...     == Tensor(Dim(2), Dim(2), [0, 0, 0, 0])
         """
         with backend() as np, default_dtype() as dtype:
-            return Tensor(dom, cod, np.zeros(dom @ cod, dtype=dtype.like_backend(np)))
+            return Tensor(dom, cod, np.zeros(tuple(dom @ cod), dtype=dtype.like_backend(np)))
 
     def subs(self, *args):
         return self.map(lambda x: getattr(x, "subs", lambda y, *_: y)(*args))
@@ -589,10 +587,11 @@ class Tensor(rigid.Box, metaclass=TensorType):
         """
         dim = Dim(len(variables) or 1)
         result = Tensor.zeros(self.dom, dim @ self.cod)
-        for i, var in enumerate(variables):
-            onehot = numpy.zeros(dim or (1, ))
-            onehot[i] = 1
-            result += Tensor(Dim(1), dim, onehot) @ self.grad(var)
+        with backend() as np, default_dtype() as dtype:
+            for i, var in enumerate(variables):
+                onehot = np.zeros(dim or (1, ), dtype=dtype.like_backend(np))
+                onehot[i] = 1
+                result += Tensor(Dim(1), dim, onehot) @ self.grad(var)
         return result
 
     def lambdify(self, *symbols, **kwargs):
@@ -873,10 +872,11 @@ class Diagram(rigid.Diagram):
         """
         dim = Dim(len(variables) or 1)
         result = Sum([], self.dom, dim @ self.cod)
-        for i, var in enumerate(variables):
-            onehot = numpy.zeros(dim or (1, ))
-            onehot[i] = 1
-            result += Box(var, Dim(1), dim, onehot) @ self.grad(var)
+        with backend() as np, default_dtype() as dtype:
+            for i, var in enumerate(variables):
+                onehot = np.zeros(dim or (1, ), dtype=dtype.like_backend(np))
+                onehot[i] = 1
+                result += Box(var, Dim(1), dim, onehot) @ self.grad(var)
         return result
 
     @staticmethod
@@ -943,7 +943,8 @@ class Box(rigid.Box, Diagram):
         try:
             with backend() as np, default_dtype(Dtype.from_data(data)) as dtype:
                 return np.copy(np.asarray(data, dtype=dtype.like_backend(np))).reshape(tuple(dom @ cod) or ())
-        except Exception:
+        except Exception as e:
+            print("error converting array", e)
             return data
 
     def grad(self, var, **params):
@@ -958,7 +959,7 @@ class Box(rigid.Box, Diagram):
         if not isinstance(other, Box):
             return False
         with backend() as np:
-            return np.all(np.array(self.array == other.array))\
+            return np.all(np.asarray(self.array == other.array))\
                 and (self.name, self.dom, self.cod)\
                 == (other.name, other.dom, other.cod)
 
@@ -996,9 +997,10 @@ class Spider(rigid.Spider, Box):
     def __init__(self, n_legs_in, n_legs_out, dim):
         dim = dim if isinstance(dim, Dim) else Dim(dim)
         rigid.Spider.__init__(self, n_legs_in, n_legs_out, dim)
-        array = numpy.zeros(self.dom @ self.cod)
-        for i in range(int(numpy.prod(dim))):
-            array[len(self.dom @ self.cod) * (i, )] = 1
+        with backend() as np, default_dtype() as dtype:
+            array = np.zeros(tuple(self.dom @ self.cod), dtype=dtype.like_backend(np))
+            for i in range(int(numpy.prod(dim))):
+                array[len(self.dom @ self.cod) * (i, )] = 1
         Box.__init__(self, self.name, self.dom, self.cod, array)
         self.dim = dim
 
