@@ -7,11 +7,12 @@ Implements the translation between discopy and pytket.
 from unittest.mock import Mock
 
 import pytket as tk
-from pytket.circuit import (Bit, Op, OpType,
+from pytket.circuit import (Bit, Op, OpType, Unitary1qBox, Unitary2qBox, Unitary3qBox, CircBox,
                             Qubit)  # pylint: disable=no-name-in-module
 from pytket.utils import probs_from_counts
 
 from discopy import messages
+from discopy.tensor import backend
 from discopy.quantum.circuit import (
     Functor, Id, bit, qubit, Discard, Measure)
 from discopy.quantum.gates import (
@@ -51,13 +52,13 @@ class Circuit(tk.Circuit):
             result.__getattribute__(name)(*inputs)
         return result
 
-    def __init__(self, n_qubits=0, n_bits=0,
+    def __init__(self, n_qubits=0, n_bits=0, name=None,
                  post_selection=None, scalar=None, post_processing=None):
         self.post_selection = post_selection or {}
         self.scalar = scalar or 1
         self.post_processing = post_processing\
             or Id(bit ** (n_bits - len(self.post_selection)))
-        super().__init__(n_qubits, n_bits)
+        super().__init__(n_qubits, n_bits, name=name)
 
     def __repr__(self):
         def repr_gate(gate):
@@ -225,7 +226,7 @@ def to_tk(circuit):
         tk_circ.rename_units({new: old})
         tk_circ.rename_units({tmp: new})
 
-    def add_gate(qubits, box, offset):
+    def add_gate(qubits, box: QuantumGate, offset):
         i_qubits = [qubits[offset + j] for j in range(len(box.dom))]
 
         if isinstance(box, (Rx, Ry, Rz)):
@@ -249,7 +250,20 @@ def to_tk(circuit):
         elif box.name in OPTYPE_MAP:
             op = Op.create(OPTYPE_MAP[box.name])
         else:
-            raise NotImplementedError
+            # Generic 1, 2 and 3 qubit unitaries:
+            n_qubits = len(box.dom)
+            c = Circuit(n_qubits, name=box.name)
+            if n_qubits == 1:
+                c.add_unitary1qbox(Unitary1qBox(box.array), 0)
+            elif n_qubits == 2:
+                c.add_unitary2qbox(Unitary2qBox(box.array), 0, 1)
+            elif n_qubits == 3:
+                c.add_unitary3qbox(Unitary3qBox(box.array), 0, 1, 2)
+            else:
+                pass
+                # can't sythesise directly, pass an empty circuit but preserve the gate name.
+            tk_circ.add_circbox(CircBox(c), i_qubits)
+            return
 
         if box.is_dagger:
             op = op.dagger
@@ -329,6 +343,22 @@ def from_tk(tk_circuit):
                 return gate
             if name == gate.name + 'dg':
                 return gate.dagger()
+        if name == 'CircBox':
+            circ = tk_gate.op.get_circuit()
+            n_q = len(circ.qubits)
+            try:
+                commands = circ.get_commands()
+                if len(commands) != 1:
+                    raise NotImplementedError
+                unitaryBox = commands[0].op
+                if isinstance(unitaryBox, (Unitary1qBox, Unitary2qBox, Unitary3qBox)):
+                    return QuantumGate(circ.name, n_q, array=unitaryBox.get_matrix())
+                raise NotImplementedError
+            except NotImplementedError:
+                # By Default, just preserve the name and make it an empty box.
+                # todo: probably not what we want in any final version...
+                with backend() as np:
+                    return QuantumGate(circ.name, n_q)
         raise NotImplementedError
 
     def make_units_adjacent(tk_gate):
@@ -345,8 +375,8 @@ def from_tk(tk_circuit):
             elif source > target:
                 left, right = swaps.cod[:target], swaps.cod[source + 1:]
                 swap = Id.swap(
-                    swaps.cod[target: target + 1],
-                    swaps.cod[target + 1: source + 1])
+                    swaps.cod[target: source],
+                    swaps.cod[source: source + 1])
             else:  # pragma: no cover
                 continue  # units are adjacent already
             swaps = swaps >> Id(left) @ swap @ Id(right)
