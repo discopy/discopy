@@ -143,21 +143,6 @@ class Diagram(rigid.Diagram, traced.Diagram):
         """
         The trace of a pivotal diagram is its pre- and post-composition with
         cups and caps to form a feedback loop.
-
-        Parameters:
-            left : Whether to trace the wire on the left or right.
-
-        Example
-        -------
-        >>> from discopy.drawing import Equation as Eq
-        >>> x = Ty('x')
-        >>> f = Box('f', x @ x, x @ x)
-        >>> LHS, RHS = f.trace(left=True), f.trace(left=False)
-        >>> Eq(Eq(LHS, f, symbol="$\\\\mapsfrom$"),
-        ...     RHS, symbol="$\\\\mapsto$").draw(
-        ...         path="docs/_static/pivotal/trace.png")
-
-        .. image:: /_static/pivotal/trace.png
         """
         traced_wire = diagram.dom[:1] if left else diagram.dom[-1:]
         dom, cod = (diagram.dom[1:], diagram.cod[1:]) if left\

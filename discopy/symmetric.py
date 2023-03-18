@@ -66,6 +66,8 @@ class Diagram(braided.Diagram):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
+    twist_factory = classmethod(lambda cls, dom: cls.id(dom))
+
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
         """

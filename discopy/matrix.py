@@ -46,11 +46,11 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance, mmap
+from discopy.utils import assert_isinstance, mmap, NamedGeneric
 
 
 @factory
-class Matrix(Composable[int], Whiskerable):
+class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -124,20 +124,6 @@ class Matrix(Composable[int], Whiskerable):
     """
     dtype = int
 
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
-            _cache.clear()
-            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
-        if dtype not in _cache:
-            class C(cls.factory):
-                pass
-
-            C.__name__ = C.__qualname__ = \
-                f"{cls.factory.__name__}[{dtype.__name__}]"
-            C.dtype = dtype
-            _cache[dtype] = C
-        return _cache[dtype]
-
     def cast_dtype(self, dtype: type) -> Matrix:
         """
         Cast a matrix to a given ``dtype``.
@@ -203,6 +189,8 @@ class Matrix(Composable[int], Whiskerable):
         with backend('numpy') as np:
             return cls(np.identity(dom, cls.dtype), dom, dom)
 
+    twist = id
+
     @mmap
     def then(self, other: Matrix) -> Matrix:
         assert_isinstance(other, type(self))
@@ -260,6 +248,8 @@ class Matrix(Composable[int], Whiskerable):
         array[right:, :left] = Matrix.id(left).array
         array[:right, left:] = Matrix.id(right).array
         return cls(array, dom, cod)
+
+    braid = swap
 
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
@@ -328,7 +318,7 @@ class Matrix(Composable[int], Whiskerable):
         return sum(
             self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
 
-    def trace(self, n=1) -> Matrix:
+    def trace(self, n=1, left=False) -> Matrix:
         """
         The trace of a Boolean matrix, computed with :meth:`Matrix.repeat`.
 
