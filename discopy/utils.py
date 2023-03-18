@@ -18,6 +18,8 @@ from typing import (
     cast,
     Union)
 
+from networkx import Graph, connected_components
+
 from discopy import messages
 
 
@@ -119,26 +121,32 @@ class NamedGeneric(Generic[TypeVar('T')]):
     >>> assert L[int]([1, 2, 3]).type_param == int
     >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
     """
-    def __class_getitem__(self, attr):
-        class Result(Generic[TypeVar(attr)]):
-            def __class_getitem__(cls, dtype: type, _cache=dict()):
-                cls_attr = getattr(cls, attr, None)
-                if cls_attr not in _cache or _cache[cls_attr] != cls:
+    def __class_getitem__(_, attributes):
+        if not isinstance(attributes, tuple):
+            attribute = (attributes, )
+        class Result(Generic[TypeVar(attributes)]):
+            def __class_getitem__(cls, values, _cache=dict()):
+                cls_attributes = tuple(
+                    getattr(cls, attr, None) for attr in attributes)
+                if cls_attributes not in _cache\
+                        or _cache[cls_attributes] != cls:
                     _cache.clear()
-                    _cache[cls_attr] = cls
-                if dtype not in _cache:
+                    _cache[cls_attributes] = cls
+                if attributes not in _cache:
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
                         pass
-                    C.__name__ = C.__qualname__ = \
-                        f"{origin.__name__}[{dtype.__name__}]"
+                    C.__name__ = C.__qualname__ = origin.__name__\
+                        + f"[{', '.join([v.__name__ for v in values])}]"
                     C.__origin__ = cls
-                    setattr(C, attr, dtype)
-                    _cache[dtype] = C
-                return _cache[dtype]
+                    for attr, value in zip(attributes, values):
+                        setattr(C, attr, value)
+                    _cache[attributes] = C
+                return _cache[attributes]
 
-            __name__ = __qualname__ = f"NamedGeneric['{attr}']"
+            __name__ = __qualname__\
+                = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
         return Result
 
 
@@ -320,3 +328,44 @@ def mmap(binary_method):
             result = binary_method(result, other)
         return result
     return method
+
+
+Pushout = tuple[dict[int, int], dict[int, int]]
+
+
+def pushout(
+        left: int, right: int,
+        left_boundary: list[int], right_boundary: list[int]) -> Pushout:
+    """
+    Computes the pushout of two finite mappings using connected components.
+
+    Parameters:
+        left : The size of the left set.
+        right : The size of the right set.
+        left_boundary : The mapping from boundary to left.
+        right_boundary : The mapping from boundary to right.
+
+    Examples
+    --------
+    >>> assert pushout(2, 3, [1], [0]) == ({0: 0, 1: 1}, {0: 1, 1: 2, 2: 3})
+    """
+    if len(left_boundary) != len(right_boundary):
+        raise ValueError
+    components, left_pushout, right_pushout = set(), dict(), dict()
+    left_proper = sorted(set(range(left)) - set(left_boundary))
+    left_pushout.update({j: i for i, j in enumerate(left_proper)})
+    graph = Graph([
+        (("middle", i), ("left", j)) for i, j in enumerate(left_boundary)] + [
+        (("middle", i), ("right", j)) for i, j in enumerate(right_boundary)])
+    for i, component in enumerate(connected_components(graph)):
+        components.add(i)
+        for case, j in component:
+            if case == "left":
+                left_pushout[j] = len(left_proper) + i
+            if case == "right":
+                right_pushout[j] = len(left_proper) + i
+    right_proper = set(range(right)) - set(right_boundary)
+    right_pushout.update({
+        j: len(left_proper) + len(components) + i
+        for i, j in enumerate(right_proper)})
+    return left_pushout, right_pushout

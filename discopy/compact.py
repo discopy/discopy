@@ -20,7 +20,7 @@ Summary
     Functor
 """
 
-from discopy import symmetric, ribbon
+from discopy import symmetric, ribbon, hypergraph
 from discopy.cat import factory
 from discopy.pivotal import Ty
 
@@ -116,3 +116,6 @@ Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+
+
+class Hypergraph(hypergraph.Hypergraph): ...

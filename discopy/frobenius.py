@@ -3,7 +3,9 @@
 """
 The free hypergraph category, i.e. diagrams with swaps and spiders.
 
-Spiders are also known as dagger special commutative Frobenius algebras.
+Note that spiders are also known as special commutative Frobenius algebras.
+Diagrams in the free hypergraph category are faithfully as :class:`Hypergraph`,
+see :cite:t:`BonchiEtAl22`.
 
 Summary
 -------
@@ -23,13 +25,116 @@ Summary
     Spider
     Category
     Functor
+
+Axioms
+------
+
+>>> H = Hypergraph
+
+**Spiders**
+
+We can check spider fusion, i.e. special commutative Frobenius algebra.
+
+>>> x, y, z = map(Ty, "xyz")
+>>> split, merge = H.spiders(1, 2, x), H.spiders(2, 1, x)
+>>> unit, counit = H.spiders(0, 1, x), H.spiders(1, 0, x)
+
+* (Co)commutative (co)monoid:
+
+>>> assert unit @ x >> merge == H.id(x) == x @ unit >> merge
+>>> assert merge @ x >> merge == x @ merge >> merge
+>>> assert H.swap(x, x) >> merge == merge
+>>> assert split >> counit @ x == H.id(x) == split >> x @ counit
+>>> assert split >> split @ x == split >> x @ split
+>>> assert split >> H.swap(x, x) == split
+
+* Frobenius:
+
+>>> assert split @ x >> x @ merge\\
+...     == merge >> split\\
+...     == x @ split >> merge @ x\\
+...     == H.spiders(2, 2, x)
+
+* Speciality:
+
+>>> assert split >> merge == H.spiders(1, 1, x) == H.id(x)
+
+* Coherence:
+
+>>> assert H.spiders(0, 1, x @ x) == unit @ unit
+>>> assert H.spiders(1, 0, x @ x) == counit @ counit
+>>> assert H.spiders(1, 2, x @ x)\\
+...     == split @ split >> x @ H.swap(x, x) @ x
+>>> assert H.spiders(2, 1, x @ x)\\
+...     == x @ H.swap(x, x) @ x >> merge @ merge
+
+**Snakes**
+
+Special commutative Frobenius algebras imply compact-closedness, i.e.
+
+* Snake equations:
+
+>>> left_snake = lambda x: H.id(x.r).transpose(left=True)
+>>> right_snake = lambda x: H.id(x.l).transpose(left=False)
+>>> assert left_snake(x) == H.id(x) == right_snake(x)
+>>> assert left_snake(x @ y) == H.id(x @ y) == right_snake(x @ y)
+
+* Yanking (a.k.a. Reidemeister move 1):
+
+>>> right_loop = lambda x: x @ H.caps(x, x.r)\\
+...     >> H.swap(x, x) @ x.r >> x @ H.cups(x, x.r)
+>>> left_loop = lambda x: H.caps(x.r, x) @ x\\
+...     >> x.r @ H.swap(x, x) >> H.cups(x.r, x) @ x
+>>> top_loop = lambda x: H.caps(x, x.r) >> H.swap(x, x.r)
+>>> bottom_loop = lambda x: H.swap(x, x.r) >> H.cups(x.r, x)
+>>> reidemeister1 = lambda x:\\
+...     top_loop(x) == H.caps(x.r, x) and bottom_loop(x) == H.cups(x, x.r)\\
+...     and left_loop(x) == H.id(x) == right_loop(x)
+>>> assert reidemeister1(x) and reidemeister1(x @ y) and reidemeister1(Ty())
+
+* Coherence:
+
+>>> assert H.caps(x @ y, y @ x)\\
+...     == H.caps(x, x) @ H.caps(y, y) >> x @ H.swap(x, y @ y)\\
+...     == H.spiders(0, 2, x @ y) >> x @ y @ H.swap(x, y)
+>>> assert H.caps(x, x) >> H.cups(x, x) == H.spiders(0, 0, x)
+
+**Swaps**
+
+We can also check that the axioms for symmetry hold on the nose.
+
+* Involution (a.k.a. Reidemeister move 2):
+
+>>> reidermeister2 = lambda x, y: H.swap(x, y) >> H.swap(y, x) == H.id(x @ y)
+>>> assert reidermeister2(x, y) and reidermeister2(x @ y, z)
+
+* Yang-Baxter (a.k.a. Reidemeister move 3):
+
+>>> left = H.swap(x, y) @ z\\
+...     >> y @ H.swap(x, z)\\
+...     >> H.swap(y, z) @ x
+>>> right = x @ H.swap(y, z)\\
+...     >> H.swap(x, z) @ y\\
+...     >> z @ H.swap(x, y)
+>>> assert left == right
+
+* Coherence (a.k.a. pentagon equations):
+
+>>> assert H.swap(x, y @ z) == H.swap(x, y) @ z >> y @ H.swap(x, z)
+>>> assert H.swap(x @ y, z) == x @ H.swap(y, z) >> H.swap(x, z) @ y
+
+* Naturality:
+
+>>> f = H.box("f", x, y)
+>>> assert f @ z >> H.swap(f.cod, z) == H.swap(f.dom, z) >> z @ f
+>>> assert z @ f >> H.swap(z, f.cod) == H.swap(z, f.dom) >> f @ z
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import compact, pivotal
+from discopy import compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import assert_isatomic
 from discopy.utils import factory_name
@@ -318,4 +423,5 @@ def coherence(cls: type, factory: Callable
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 
+Hypergraph = hypergraph.Hypergraph[Ty, Box]
 Id = Diagram.id
