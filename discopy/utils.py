@@ -124,6 +124,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
     def __class_getitem__(_, attributes):
         if not isinstance(attributes, tuple):
             attributes = (attributes,)
+
         class Result(Generic[TypeVar(attributes)]):
             def __class_getitem__(cls, values, _cache=dict()):
                 values = values if isinstance(values, tuple) else (values,)

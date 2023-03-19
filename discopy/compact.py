@@ -116,6 +116,3 @@ Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
-
-
-class Hypergraph(hypergraph.Hypergraph): ...
