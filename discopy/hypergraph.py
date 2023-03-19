@@ -341,7 +341,7 @@ class Hypergraph(
             diagram : The diagram to trace.
             left : Whether to trace on the left or right.
         """
-        return self.box_factory.trace.__func__(cls, self, n, left)
+        return self.box_factory.trace(self, n, left)
 
     def interchange(self, i: int, j: int) -> Hypergraph:
         """
@@ -607,7 +607,17 @@ class Hypergraph(
                         .make_monogamous()
 
     def make_progressive(self):
-        """ Introduce :class:`Trace` boxes to make self progressive. """
+        """
+        Calls :meth:`Hypergraph.trace_factory` boxes to make self progressive.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Hypergraph as H, Cup, Cap
+        >>> x = Ty('x')
+        >>> f = H.box('f', x @ x, x @ x)
+        >>> assert f.trace().make_progressive().boxes\\
+        ...     == [Cap(x, x), f.boxes[0], Cup(x, x)]
+        """
         if not self.is_monogamous:
             return self.make_monogamous().make_progressive()
         dom, cod = self.dom, self.cod
@@ -663,8 +673,8 @@ class Hypergraph(
         return drawing.nx2diagram(graph, self.box_factory)
 
     @classmethod
-    def from_diagram(cls, old: Diagram, functor_factory: type = None
-            ) -> Hypergraph:
+    def from_diagram(
+            cls, old: Diagram, functor_factory: type = None) -> Hypergraph:
         """
         Turn a :class:`Diagram` into a :class:`Hypergraph`.
 
