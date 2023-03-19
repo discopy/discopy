@@ -368,11 +368,11 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
 
     def simplify(self, functor_factory: type = None, box_factory: type = None):
         """
-        Simplify by going back and forth to :class:`hypergraph.Diagram`.
+        Simplify by going back and forth to :class:`Hypergraph`.
 
         Parameters:
-            functor_factory : Passed to :meth:`hypergraph.Diagram.upgrade`.
-            box_factory : Passed to :meth:`hypergraph.Diagram.downgrade`.
+            functor_factory : Passed to :meth:`Hypergraph.upgrade`.
+            box_factory : Passed to :meth:`Hypergraph.downgrade`.
 
         Example
         -------
@@ -391,11 +391,11 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         .. image:: /_static/int/simplify.png
             :align: center
         """
-        from discopy import hypergraph
+        from discopy.hypergraph import Hypergraph
         functor_factory = functor_factory or frobenius.Functor
         box_factory = box_factory or frobenius.Box
-        inside = hypergraph.Diagram.upgrade(
-            self.inside, functor_factory).simplify().downgrade(box_factory)
+        inside = Hypergraph[self.natural.ty_factory, box_factory].from_diagram(
+            self.inside).simplify().to_diagram()
         return type(self)(inside, self.dom, self.cod)
 
     @wraps(balanced.Diagram.naturality)

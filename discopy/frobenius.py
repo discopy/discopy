@@ -348,6 +348,11 @@ class Functor(compact.Functor):
         return super().__call__(other)
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    ty_factory = Ty
+    box_factory = Box
+
+
 def interleaving(cls: type, factory: Callable
                  ) -> Callable[[int, int, Ty], Diagram]:
     """
@@ -422,6 +427,4 @@ def coherence(cls: type, factory: Callable
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
-
-Hypergraph = hypergraph.Hypergraph[Ty, Box]
 Id = Diagram.id
