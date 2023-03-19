@@ -123,27 +123,28 @@ class NamedGeneric(Generic[TypeVar('T')]):
     """
     def __class_getitem__(_, attributes):
         if not isinstance(attributes, tuple):
-            attribute = (attributes, )
+            attributes = (attributes,)
         class Result(Generic[TypeVar(attributes)]):
             def __class_getitem__(cls, values, _cache=dict()):
-                cls_attributes = tuple(
+                values = values if isinstance(values, tuple) else (values,)
+                cls_values = tuple(
                     getattr(cls, attr, None) for attr in attributes)
-                if cls_attributes not in _cache\
-                        or _cache[cls_attributes] != cls:
+                if cls_values not in _cache or _cache[cls_values] != cls:
                     _cache.clear()
-                    _cache[cls_attributes] = cls
-                if attributes not in _cache:
+                    _cache[cls_values] = cls
+                if values not in _cache:
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
                         pass
+                    C.__module__ = origin.__module__
                     C.__name__ = C.__qualname__ = origin.__name__\
                         + f"[{', '.join([v.__name__ for v in values])}]"
                     C.__origin__ = cls
                     for attr, value in zip(attributes, values):
                         setattr(C, attr, value)
-                    _cache[attributes] = C
-                return _cache[attributes]
+                    _cache[values] = C
+                return _cache[values]
 
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
@@ -171,7 +172,8 @@ def factory_name(cls: type) -> str:
     >>> from discopy.grammar.pregroup import Word
     >>> assert factory_name(Word) == "grammar.pregroup.Word"
     """
-    return f"{cls.__module__.removeprefix('discopy.')}.{cls.__name__}"
+    module = cls.__module__.removeprefix('discopy.')
+    return f"{module}.{cls.__name__}".removeprefix('builtins.')
 
 
 def from_tree(tree: dict):

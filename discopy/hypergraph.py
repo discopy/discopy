@@ -42,7 +42,7 @@ from networkx import Graph, spring_layout, draw_networkx
 from discopy import cat, monoidal, drawing
 from discopy.cat import factory, AxiomError, Composable
 from discopy.drawing import Node
-from discopy.monoidal import Ty, Category, Whiskerable, assert_isatomic
+from discopy.monoidal import Ty, Box, Category, Whiskerable, assert_isatomic
 from discopy.utils import (
     factory_name,
     assert_isinstance,
@@ -60,7 +60,7 @@ class Hypergraph(
     Parameters:
         dom (frobenius.Ty) : The domain of the diagram, i.e. its input.
         cod (frobenius.Ty) : The codomain of the diagram, i.e. its output.
-        boxes (tuple[Box, ...]) : The boxes inside the diagram.
+        boxes (tuple[frobenius.Box, ...]) : The boxes inside the diagram.
         wires (tuple[Any]) : List of wires from ports to spiders.
         spider_types : Mapping[Any, frobenius.Ty]
             Mapping from spiders to atomic types, if :code:`None` then this is
@@ -90,8 +90,7 @@ class Hypergraph(
 
     Examples
     --------
-    >>> from discopy.frobenius import Ty, Box
-    >>> H = Hypergraph[Ty, Box]
+    >>> from discopy.frobenius import Ty, Hypergraph as H
 
     >>> x, y, z = map(Ty, "xyz")
 
@@ -117,6 +116,9 @@ class Hypergraph(
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
     """
+    ty_factory = Ty
+    box_factory = Box
+
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             wires: tuple[Any, ...], spider_types: Mapping[Any, Ty] = None):
@@ -396,6 +398,10 @@ class Hypergraph(
             return False
         return all(getattr(self, attr) == getattr(other, attr)
                    for attr in ['dom', 'cod', 'boxes', 'wires', 'n_spiders'])
+
+    def __hash__(self):
+        return hash(getattr(self, attr) == getattr(other, attr)
+                    for attr in ['dom', 'cod', 'boxes', 'wires', 'n_spiders'])
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
