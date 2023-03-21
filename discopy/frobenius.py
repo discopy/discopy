@@ -213,6 +213,7 @@ class Cap(compact.Cap, Box):
     """
     __ambiguous_inheritance__ = (compact.Cap, )
 
+
 class Swap(compact.Swap, Box):
     """
     A frobenius swap is a compact swap in a frobenius diagram.

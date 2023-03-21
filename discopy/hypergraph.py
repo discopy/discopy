@@ -143,8 +143,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             else {i: t for i, t in enumerate(spider_types)}
         relabeling = list(sorted(set(wires), key=lambda i: wires.index(i)))
         relabeling += list(sorted(set(spider_types) - set(relabeling)))
-        self.wires = tuple(relabeling.index(spider) for spider in wires)
-        self.spider_types = tuple(spider_types[spider] for spider in relabeling)
+        self.wires = tuple(relabeling.index(s) for s in wires)
+        self.spider_types = tuple(spider_types[s] for s in relabeling)
 
     @property
     def box_wires(self):
@@ -651,9 +651,9 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     spider_types.update({
                         input_spider: typ, output_spider: typ})
                     del spider_types[spider]
-                    return self.trace_factory(type(self)(
-                        dom, cod, tuple(boxes), tuple(wires), spider_types
-                        ).make_progressive())
+                    boxes, wires = tuple(boxes), tuple(wires)
+                    arg = type(self)(dom, cod, boxes, wires, spider_types)
+                    return self.trace_factory(arg.make_progressive())
             port += len(box.dom @ box.cod)
         return self
 
