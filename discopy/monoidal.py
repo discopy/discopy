@@ -983,14 +983,14 @@ class Functor(cat.Functor):
     def __call__(self, other):
         if isinstance(other, PRO):
             return sum(other.n * [self.ob[other.factory(1)]], self.cod.ob())
-        if isinstance(other, self.dom.ob):
+        if isinstance(other, Ty):
             return sum(map(self, other.inside), self.cod.ob())
-        if isinstance(other, self.dom.ob.ob_factory):
+        if isinstance(other, cat.Ob):
             result = self.ob[self.dom.ob(other)]
-            dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
+            cod_type = getattr(self.cod.ob, "__origin__", self.cod.ob)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
-            return result if isinstance(result, dtype) else\
-                (result, ) if dtype == tuple else self.cod.ob(result)
+            return result if isinstance(result, cod_type) else\
+                (result, ) if cod_type == tuple else self.cod.ob(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)

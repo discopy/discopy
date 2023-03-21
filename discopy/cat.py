@@ -884,11 +884,7 @@ class Functor(Composable[Category]):
         Parameters:
             dom : The domain of the functor.
         """
-        class Id(cls):
-            pass
-
-        Id.dom = dom or cls.dom
-        return Id(lambda x: x, lambda f: f, cod=dom)
+        return cls(lambda x: x, lambda f: f, dom=dom, cod=dom)
 
     def then(self, other: Functor) -> Functor:
         """
@@ -914,18 +910,15 @@ class Functor(Composable[Category]):
         """
         assert_isinstance(other, Functor)
         assert_isparallel(self, other)
-        ob = self.ob.then(other)
-        ar = self.ar.then(other)
-        result = type(self)(ob, ar, other.cod)
-        result.dom = self.dom
-        return result
+        ob, ar = self.ob.then(other), self.ar.then(other)
+        return type(self)(ob, ar, dom=self.dom, cod=other.cod)
 
     def __init__(
             self,
             ob: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
             ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
-            cod: Category = None):
-        self.cod = cod or type(self).cod
+            dom: Category = None, cod: Category = None):
+        self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
         self.ob: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
         self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
 
