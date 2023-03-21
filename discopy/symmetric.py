@@ -19,39 +19,59 @@ Summary
 
 Axioms
 ------
-The dagger of :code:`Swap(x, y)` is :code:`Swap(y, x)`.
-
->>> x, y, z = map(Ty, "xyz")
->>> assert Diagram.swap(x, y @ z)[::-1] == Diagram.swap(y @ z, x)
-
-Swaps have their dagger as inverse, up to :meth:`braided.Diagram.simplify`.
-
->>> swap_unswap = Swap(x, y) >> Swap(y, x)
->>> assert swap_unswap.simplify() == Id(x @ y)
 
 >>> from discopy.drawing import Equation
->>> Equation(swap_unswap, Id(x @ y)).draw(
+>>> x, y, z, w = map(Ty, "xyzw")
+>>> f, g = Box("f", x, y), Box("g", z, w)
+
+* Triangle:
+
+>>> assert Diagram.swap(Ty(), x) == Id(x) == Diagram.swap(x, Ty())
+
+* Hexagon:
+
+>>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
+>>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
+>>> Equation(Diagram.swap(x, y @ z), Diagram.swap(x @ y, z), symbol='').draw(
+...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+
+.. image:: /_static/symmetric/hexagons.png
+    :align: center
+
+* Involution (a.k.a. Reidemeister move 2):
+
+>>> assert Swap(x, y)[::-1] == Swap(y, x)
+>>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+>>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
 ...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
 
 .. image:: /_static/symmetric/inverse.png
     :align: center
 
-The hexagon equations hold on the nose.
+* Naturality:
 
->>> left_hexagon = Swap(x, y) @ z >> y @ Swap(x, z)
->>> assert left_hexagon == Diagram.swap(x, y @ z)
->>> right_hexagon = x @ Swap(y, z) >> Swap(x, z) @ y
->>> assert right_hexagon == Diagram.swap(x @ y, z)
->>> Equation(left_hexagon, right_hexagon, symbol='').draw(
-...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+>>> assert f @ g >> Swap(f.cod, g.cod) == Swap(f.dom, g.dom) >> g @ f
+>>> Equation(f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f).draw(
+...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
 
-.. image:: /_static/symmetric/hexagons.png
+.. image:: /_static/symmetric/naturality.png
+    :align: center
+
+* Yang-Baxter (a.k.a. Reidemeister move 3):
+
+>>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
+>>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
+>>> assert yang_baxter_left == yang_baxter_right
+>>> Equation(yang_baxter_left, yang_baxter_right).draw(
+...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
+
+.. image:: /_static/symmetric/yang-baxter.png
     :align: center
 """
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, messages
+from discopy import monoidal, braided, hypergraph, messages
 from discopy.cat import factory
 from discopy.monoidal import Ty, PRO
 
@@ -116,6 +136,20 @@ class Diagram(braided.Diagram):
         >>> assert Id(x @ y @ z).permute(2, 0, 1).cod == z @ x @ y
         """
         return self >> self.permutation(list(xs), self.cod)
+
+    def to_hypergraph(self):
+        category = Category(self.ty_factory, self.factory)
+        return self.hypergraph_factory[category].from_diagram(self)
+
+    def simplify(self):
+        return self.to_hypergraph().to_diagram()
+
+    def __eq__(self, other):
+        return isinstance(other, Diagram)\
+            and self.to_hypergraph() == other.to_hypergraph()
+
+    def __hash__(self):
+        return self.to_hypergraph().__hash__()
 
 
 class Box(braided.Box, Diagram):
@@ -182,5 +216,10 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    category = Category()
+
+
 Diagram.braid_factory = Swap
+Diagram.hypergraph_factory, Diagram.functor_factory = Hypergraph, Functor
 Id = Diagram.id

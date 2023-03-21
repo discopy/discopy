@@ -100,8 +100,8 @@ class Ty(cat.Ob):
     def __init__(self, *inside: str | cat.Ob):
         for obj in inside:
             assert_isinstance(obj, (str, self.ob_factory))
-        self.inside = tuple(
-            self.ob_factory(x) if isinstance(x, str) else x for x in inside)
+        self.inside = tuple(x if isinstance(x, self.ob_factory)
+                            else self.ob_factory(x) for x in inside)
         super().__init__(str(self))
 
     def tensor(self, *others: Ty) -> Ty:
@@ -858,15 +858,6 @@ class Box(cat.Box, Diagram):
         inside = (self.layer_factory.cast(self), )
         Diagram.__init__(self, inside, dom, cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return cat.Box.__eq__(self, other)
-        return isinstance(other, self.factory)\
-            and other.inside == (self.layer_factory.cast(self), )
-
-    def __hash__(self):
-        return hash(repr(self))
-
 
 class Sum(cat.Sum, Box):
     """
@@ -992,9 +983,9 @@ class Functor(cat.Functor):
     def __call__(self, other):
         if isinstance(other, PRO):
             return sum(other.n * [self.ob[other.factory(1)]], self.cod.ob())
-        if isinstance(other, Ty):
+        if isinstance(other, self.dom.ob):
             return sum(map(self, other.inside), self.cod.ob())
-        if isinstance(other, cat.Ob):
+        if isinstance(other, self.dom.ob.ob_factory):
             result = self.ob[self.dom.ob(other)]
             dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.

@@ -18,6 +18,38 @@ Summary
     Swap
     Category
     Functor
+
+Axioms
+------
+
+>>> D = Diagram
+>>> x, y = Ty('x'), Ty('y')
+
+* Snake equations:
+
+>>> left_snake = lambda x: Id(x.r).transpose(left=True)
+>>> right_snake = lambda x: Id(x.l).transpose(left=False)
+>>> assert left_snake(x) == Id(x) == right_snake(x)
+>>> assert left_snake(x @ y) == Id(x @ y) == right_snake(x @ y)
+
+* Yanking (a.k.a. Reidemeister move 1):
+
+>>> right_loop = lambda x: x @ D.caps(x, x.r)\\
+...     >> D.swap(x, x) @ x.r >> x @ D.cups(x, x.r)
+>>> left_loop = lambda x: D.caps(x.r, x) @ x\\
+...     >> x.r @ D.swap(x, x) >> D.cups(x.r, x) @ x
+>>> top_loop = lambda x: D.caps(x, x.r) >> D.swap(x, x.r)
+>>> bottom_loop = lambda x: D.swap(x, x.r) >> D.cups(x.r, x)
+>>> reidemeister1 = lambda x:\\
+...     top_loop(x) == D.caps(x.r, x)\\
+...     and bottom_loop(x) == D.cups(x, x.r)\\
+...     and left_loop(x) == Id(x) == right_loop(x)
+>>> assert reidemeister1(x) and reidemeister1(x @ y) and reidemeister1(Ty())
+
+* Coherence:
+
+>>> assert D.caps(x @ y, y.r @ x.r)\\
+...     == D.caps(x, x.r) @ D.caps(y, y.r) >> x @ D.swap(x.r, y @ y.r)
 """
 
 from discopy import symmetric, ribbon, hypergraph
@@ -112,7 +144,12 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    category = Category()
+
+
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
+Diagram.hypergraph_factory, Diagram.functor_factory = Hypergraph, Functor
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
