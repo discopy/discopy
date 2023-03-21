@@ -112,6 +112,8 @@ class Diagram(rigid.Diagram, symmetric.Diagram):
         return middle @ cls.swap(left.l, middle.r) @ right >>\
             cls.cups(middle, middle.r) @ cls.swap(left.l, right)
 
+    __eq__, __hash__ = rigid.Diagram.__eq__, rigid.Diagram.__hash__
+
 
 class Box(rigid.Box, Diagram):
     """

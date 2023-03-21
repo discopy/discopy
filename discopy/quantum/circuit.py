@@ -904,5 +904,6 @@ def bitstring2index(bitstring):
 
 
 Circuit.braid_factory, Circuit.sum_factory = Swap, Sum
+Circuit.functor_factory = Functor
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id

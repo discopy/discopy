@@ -139,8 +139,9 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     class C(origin):
                         pass
                     C.__module__ = origin.__module__
+                    names = [getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
-                        + f"[{', '.join([v.__name__ for v in values])}]"
+                        + f"[{', '.join(names)}]"
                     C.__origin__ = cls
                     for attr, value in zip(attributes, values):
                         setattr(C, attr, value)

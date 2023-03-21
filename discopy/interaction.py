@@ -366,7 +366,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         """ The drawing of an integer diagram is the drawing of its inside. """
         return self.inside.draw(**params)
 
-    def simplify(self, functor_factory: type = None, box_factory: type = None):
+    def simplify(self):
         """
         Simplify by going back and forth to :class:`Hypergraph`.
 
@@ -391,12 +391,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         .. image:: /_static/int/simplify.png
             :align: center
         """
-        from discopy.hypergraph import Hypergraph
-        functor_factory = functor_factory or frobenius.Functor
-        box_factory = box_factory or frobenius.Box
-        inside = Hypergraph[self.natural.ty_factory, box_factory].from_diagram(
-            self.inside).simplify().to_diagram()
-        return type(self)(inside, self.dom, self.cod)
+        return type(self)(self.inside.simplify(), self.dom, self.cod)
 
     @wraps(balanced.Diagram.naturality)
     def naturality(self, i: int, left=True, down=True, braid=None) -> Diagram:

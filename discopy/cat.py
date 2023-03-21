@@ -619,7 +619,8 @@ class Box(Arrow):
             eq_data = bool(self.data == other.data)
             return self.name == other.name and self.is_parallel(other)\
                 and self.is_dagger == other.is_dagger and eq_data
-        return isinstance(other, self.factory) and other.inside == (self, )
+        return isinstance(other, self.factory)\
+            and self >> self.id(self.cod) == other  # cast box as diagram
 
     def __lt__(self, other):
         return self.name < other.name
@@ -829,6 +830,9 @@ class Category:
     def __repr__(self):
         return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
 
+    def __hash__(self):
+        return hash((self.ob, self.ar))
+
 
 class Functor(Composable[Category]):
     """
@@ -880,9 +884,11 @@ class Functor(Composable[Category]):
         Parameters:
             dom : The domain of the functor.
         """
-        result = cls(lambda x: x, lambda f: f, cod=dom)
-        result.dom = dom or cls.dom
-        return result
+        class Id(cls):
+            pass
+
+        Id.dom = dom or cls.dom
+        return Id(lambda x: x, lambda f: f, cod=dom)
 
     def then(self, other: Functor) -> Functor:
         """

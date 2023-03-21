@@ -38,11 +38,13 @@ import random
 import matplotlib.pyplot as plt
 
 from networkx import Graph, spring_layout, draw_networkx
+from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import cat, monoidal, drawing
 from discopy.cat import factory, AxiomError, Composable
 from discopy.drawing import Node
-from discopy.monoidal import Ty, Box, Category, Whiskerable, assert_isatomic
+from discopy.monoidal import (
+    Ty, Box, Category, Functor, Whiskerable, assert_isatomic)
 from discopy.utils import (
     factory_name,
     assert_isinstance,
@@ -52,8 +54,7 @@ from discopy.utils import (
 )
 
 
-class Hypergraph(
-        Composable, Whiskerable, NamedGeneric['ty_factory', 'box_factory']):
+class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     """
     Hypergraph in a hypergraph category.
 
@@ -90,7 +91,7 @@ class Hypergraph(
 
     Examples
     --------
-    >>> from discopy.frobenius import Ty, Hypergraph as H
+    >>> from discopy.frobenius import Ty, Box, Hypergraph as H
 
     >>> x, y, z = map(Ty, "xyz")
 
@@ -105,7 +106,7 @@ class Hypergraph(
     >>> assert H.spiders(0, 0, x @ y @ z).n_spiders == 3
     >>> assert H.spiders(0, 0, x @ y @ z).wires == []
 
-    >>> f, g = H.box('f', x, y), H.box('g', y, z)
+    >>> f, g = Box('f', x, y).to_hypergraph(), Box('g', y, z).to_hypergraph()
 
     >>> assert f.n_spiders == g.n_spiders == 2
     >>> assert f.wires == g.wires == [0, 0, 1, 1]
@@ -116,17 +117,14 @@ class Hypergraph(
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
     """
-    ty_factory = Ty
-    box_factory = Box
-
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             wires: tuple[Any, ...], spider_types: Mapping[Any, Ty] = None):
-        assert_isinstance(dom, self.ty_factory)
-        assert_isinstance(cod, self.ty_factory)
+        assert_isinstance(dom, self.category.ob)
+        assert_isinstance(cod, self.category.ob)
         self.dom, self.cod, self.boxes = dom, cod, boxes
         for box in boxes:
-            assert_isinstance(box, self.box_factory)
+            assert_isinstance(box, self.category.ar)
         if len(wires) != len(dom)\
                 + sum(len(box.dom) + len(box.cod) for box in boxes) + len(cod):
             raise ValueError
@@ -136,9 +134,11 @@ class Hypergraph(
                 + list(self.cod)
             spider_types = {}
             for spider, typ in zip(wires, port_types):
+                adjoint = getattr(typ, 'r', typ)
                 if spider in spider_types:
-                    if spider_types[spider] != typ:
-                        raise AxiomError
+                    if spider_types[spider] not in [typ, adjoint]:
+                        raise AxiomError(messages.TYPE_ERROR.format(
+                            typ, spider_types[spider]))
                 else:
                     spider_types[spider] = typ
             spider_types = [spider_types[i] for i in sorted(spider_types)]
@@ -177,11 +177,11 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
 
         >>> x, y, z = map(Ty, "xyz")
-        >>> f, g = H.box('f', x, y @ y), H.box('g', y @ y, z)
+        >>> f = Box('f', x, y @ y).to_hypergraph()
+        >>> g = Box('g', y @ y, z).to_hypergraph()
         >>> for port in (f >> g).ports: print(port)
         Node('input', i=0, obj=frobenius.Ob('x'))
         Node('dom', depth=0, i=0, obj=frobenius.Ob('x'))
@@ -215,7 +215,7 @@ class Hypergraph(
 
     @classmethod
     def id(cls, dom=None) -> Hypergraph:
-        dom = cls.ty_factory() if dom is None else dom
+        dom = cls.category.ob() if dom is None else dom
         return cls(dom, dom, [], 2 * list(range(len(dom))))
 
     twist = id
@@ -265,10 +265,10 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x, y, z = map(Ty, "xyz")
-        >>> f, g = H.box('f', x, y), H.box('g', y, z)
+        >>> f = Box('f', x, y).to_hypergraph()
+        >>> g = Box('g', y, z).to_hypergraph()
         >>> assert (f >> g)[::-1] == g[::-1] >> f[::-1]
         >>> assert H.spiders(1, 2, x @ y)[::-1] == H.spiders(2, 1, x @ y)
         """
@@ -299,27 +299,27 @@ class Hypergraph(
         return cls(dom, cod, boxes, wires, spider_types)
 
     cup_factory = classmethod(lambda cls, left, right: cls.from_box(
-        cls.box_factory.cup_factory(left, right)))
+        cls.category.ar.cup_factory(left, right)))
     cap_factory = classmethod(lambda cls, left, right: cls.from_box(
-        cls.box_factory.cap_factory(left, right)))
+        cls.category.ar.cap_factory(left, right)))
 
     @classmethod
     def cups(cls, left, right):
         if not left.r == right:
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
-        return cls(left @ right, cls.ty_factory(), [], wires)
+        return cls(left @ right, cls.category.ob(), [], wires)
 
     @classmethod
     def caps(cls, left, right):
         if not left.r == right:
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
-        return cls(cls.ty_factory(), left @ right, [], wires)
+        return cls(cls.category.ob(), left @ right, [], wires)
 
     def transpose(self, left=False):
         """ The transpose of a hypergraph diagram. """
-        return self.box_factory.transpose(self, left)
+        return self.category.ar.transpose(self, left)
 
     @classmethod
     def trace_factory(cls, arg: Hypergraph, left=False):
@@ -330,7 +330,7 @@ class Hypergraph(
         Parameters:
             left : Whether to trace on the left or right.
         """
-        return cls.box_factory.trace_factory.__func__(cls, arg, left)
+        return cls.category.ar.trace_factory.__func__(cls, arg, left)
 
     def trace(self, n=1, left=False):
         """
@@ -341,7 +341,7 @@ class Hypergraph(
             diagram : The diagram to trace.
             left : Whether to trace on the left or right.
         """
-        return self.box_factory.trace(self, n, left)
+        return self.category.ar.trace(self, n, left)
 
     def interchange(self, i: int, j: int) -> Hypergraph:
         """
@@ -353,10 +353,10 @@ class Hypergraph(
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x = Ty('x')
-        >>> f, g = H.box('f', Ty(), x), H.box('g', x, Ty())
+        >>> f = Box('f', Ty(), x).to_hypergraph()
+        >>> g = Box('g', x, Ty()).to_hypergraph()
         >>> print((f >> g).interchange(0, 1))
         Cap(x, x) >> g @ x >> f @ x >> Cup(x, x)
         """
@@ -375,10 +375,10 @@ class Hypergraph(
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x = Ty('x')
-        >>> f, g = H.box('f', Ty(), x), H.box('g', x, Ty())
+        >>> f = Box('f', Ty(), x).to_hypergraph()
+        >>> g = Box('g', x, Ty()).to_hypergraph()
         >>> assert (f >> g).interchange(0, 1).simplify() == f >> g
         """
         for i in range(len(self.boxes)):
@@ -396,12 +396,12 @@ class Hypergraph(
     def __eq__(self, other):
         if not isinstance(other, Hypergraph):
             return False
-        return all(getattr(self, attr) == getattr(other, attr)
-                   for attr in ['dom', 'cod', 'boxes', 'wires', 'n_spiders'])
+        return self.is_parallel(other) and is_isomorphic(
+            self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
-        return hash(getattr(self, attr) == getattr(other, attr)
-                    for attr in ['dom', 'cod', 'boxes', 'wires', 'n_spiders'])
+        return hash(getattr(self, attr) for attr in [
+            'dom', 'cod', 'boxes', 'wires', 'n_spiders'])
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
@@ -428,10 +428,11 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+
         >>> x, y = map(Ty, "xy")
-        >>> f = H.box('f', x, y)
+        >>> f = Box('f', x, y).to_hypergraph()
+
         >>> assert f.is_monogamous
         >>> assert (f >> f[::-1]).is_monogamous
 
@@ -461,10 +462,9 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x, y = map(Ty, "xy")
-        >>> f = H.box('f', x, y)
+        >>> f = Box('f', x, y).to_hypergraph()
         >>> assert f.is_bijective and f.transpose().is_bijective
         >>> assert H.cups(x, x).is_bijective and H.caps(x, x).is_bijective
         >>> assert H.spiders(0, 0, x).is_bijective
@@ -480,10 +480,9 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x, y = map(Ty, "xy")
-        >>> f = H.box('f', x, y)
+        >>> f = Box('f', x, y).to_hypergraph()
         >>> list(zip(f.wires, f.bijection))
         [(0, 1), (0, 0), (1, 3), (1, 2)]
         """
@@ -506,10 +505,9 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x, y = map(Ty, "xy")
-        >>> f = H.box('f', x, y)
+        >>> f = Box('f', x, y).to_hypergraph()
         >>> assert f.is_progressive
         >>> assert (f >> f[::-1]).is_progressive
 
@@ -533,7 +531,7 @@ class Hypergraph(
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Hypergraph as H, Spider
+        >>> from discopy.frobenius import Ty, Spider, Hypergraph as H
         >>> spider = H.spiders(1, 2, Ty('x')).make_bijective()
         >>> assert spider.boxes == [Spider(3, 0, Ty('x'))]
         >>> assert spider.wires == [0, 0, 1, 2, 1, 2]
@@ -544,7 +542,7 @@ class Hypergraph(
             ports = [port for port, spider in enumerate(wires) if spider == i]
             n_legs = len(ports)
             if n_legs not in [0, 2]:
-                boxes.append(self.box_factory.spider_factory(n_legs, 0, typ))
+                boxes.append(self.category.ar.spider_factory(n_legs, 0, typ))
                 for j, port in enumerate(ports):
                     wires[port] = len(spider_types) + j
                 new_wires =\
@@ -592,13 +590,13 @@ class Hypergraph(
                     left, right = len(spider_types), len(spider_types) + 1
                     wires[source], wires[target] = left, right
                     if cups_or_caps == "cups":
-                        boxes.append(self.box_factory.cup_factory(typ, typ))
+                        boxes.append(self.category.ar.cup_factory(typ, typ))
                         wires = wires[:len(wires) - len(self.cod)]\
                             + [left, right]\
                             + wires[len(wires) - len(self.cod):]
                     else:
                         boxes = [
-                            self.box_factory.cap_factory(typ, typ)] + boxes
+                            self.category.ar.cap_factory(typ, typ)] + boxes
                         wires = wires[:len(self.dom)] + [left, right]\
                             + wires[len(self.dom):]
                     spider_types[left] = spider_types[right] = typ
@@ -612,9 +610,9 @@ class Hypergraph(
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Hypergraph as H, Cup, Cap
+        >>> from discopy.frobenius import Ty, Box, Cup, Cap, Hypergraph as H
         >>> x = Ty('x')
-        >>> f = H.box('f', x @ x, x @ x)
+        >>> f = Box('f', x @ x, x @ x).to_hypergraph()
         >>> assert f.trace().make_progressive().boxes\\
         ...     == [Cap(x, x), f.boxes[0], Cup(x, x)]
         """
@@ -649,9 +647,9 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Hypergraph as H
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x = Ty('x')
-        >>> v = H.box('v', Ty(), x @ x)
+        >>> v = Box('v', Ty(), x @ x).to_hypergraph()
         >>> print(v >> H.swap(x, x) >> v[::-1])
         v >> Swap(x, x) >> v[::-1]
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
@@ -668,19 +666,17 @@ class Hypergraph(
             for depth, box in enumerate(diagram.boxes)])
         graph.add_nodes_from([
             Node("box", depth=len(diagram.boxes) + i,
-                 box=self.box_factory.spiders(0, 0, diagram.spider_types[s]))
+                 box=self.category.ar.spiders(0, 0, diagram.spider_types[s]))
             for i, s in enumerate(diagram.scalar_spiders)])
-        return drawing.nx2diagram(graph, self.box_factory)
+        return drawing.nx2diagram(graph, self.category.ar)
 
     @classmethod
-    def from_diagram(
-            cls, old: Diagram, functor_factory: type = None) -> Hypergraph:
+    def from_diagram(cls, old: Diagram) -> Hypergraph:
         """
         Turn a :class:`Diagram` into a :class:`Hypergraph`.
 
         Parameters:
             old : The planar diagram to encode as hypergraph.
-            functor_factory : The functor to use for the encoding.
 
         Example
         -------
@@ -692,38 +688,48 @@ class Hypergraph(
         ...           H.spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        if functor_factory is None:
-            from discopy import frobenius
-            functor_factory = frobenius.Functor
-        return functor_factory(
+        return old.functor_factory(
             ob=lambda typ: typ, ar=cls.from_box,
-            cod=Category(cls.ty_factory, cls))(old)
+            cod=Category(cls.category.ob, cls))(old)
 
-    def spring_layout(self, seed=None, k=None):
-        """ Computes planar position using a force-directed layout. """
-        if seed is not None:
-            random.seed(seed)
-        height = len(self.boxes) + self.n_spiders
-        width = max(len(self.dom), len(self.cod))
-        graph, pos = Graph(), {}
+    def to_graph(self):
+        """
+        Translate a hypergraph into a labeled graph with nodes for inputs,
+        outputs, boxes, domain, codomain and spiders.
+        """
+        graph = Graph()
         graph.add_nodes_from(
             Node("spider", i=i) for i in range(self.n_spiders))
+        graph.add_nodes_from(
+            [(Node("input", i=i), dict(i=i)) for i, _ in enumerate(self.dom)])
         graph.add_edges_from(
             (Node("input", i=i), Node("spider", i=j))
             for i, j in enumerate(self.wires[:len(self.dom)]))
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
             box_node = Node("box", i=i)
-            graph.add_node(box_node)
+            graph.add_node(box_node, box=self.boxes[i])
             for case, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     spider_node = Node("spider", i=spider)
                     port_node = Node(case, i=i, j=j)
+                    graph.add_node(port_node, j=j)
                     graph.add_edge(box_node, port_node)
                     graph.add_edge(port_node, spider_node)
+        graph.add_nodes_from(
+            [(Node("output", i=i), dict(i=i)) for i, _ in enumerate(self.cod)])
         graph.add_edges_from(
             (Node("output", i=i), Node("spider", i=j))
             for i, j in enumerate(
                 self.wires[len(self.wires) - len(self.cod):]))
+        return graph
+
+    def spring_layout(self, seed=None, k=None):
+        """ Computes a layout using a force-directed algorithm. """
+        if seed is not None:
+            random.seed(seed)
+        graph, pos = self.to_graph(), {}
+        height = len(self.boxes) + self.n_spiders
+        width = max(len(self.dom), len(self.cod))
         for i, _ in enumerate(self.dom):
             pos[Node("input", i=i)] = (i, height)
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
@@ -751,10 +757,9 @@ class Hypergraph(
 
         Examples
         --------
-        >>> from discopy.frobenius import Ty, Box
-        >>> H = Hypergraph[Ty, Box]
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x, y, z = map(Ty, "xyz")
-        >>> f = H.box('f', x, y @ z)
+        >>> f = Box('f', x, y @ z).to_hypergraph()
         >>> f.draw(
         ...     path='docs/_static/hypergraph/box.png', seed=42)
 
@@ -796,14 +801,25 @@ class Hypergraph(
 
     @classmethod
     def from_box(cls, box: Box) -> Hypergraph:
+        """
+        Turn a box into a hypergraph with binary spiders for each wire.
+
+        Parameters:
+            box : The box to turn into a hypergraph.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y, z = map(Ty, "xyz")
+        >>> for p in Box('f', x, y @ z).to_hypergraph().ports: print(p)
+        Node('input', i=0, obj=frobenius.Ob('x'))
+        Node('dom', depth=0, i=0, obj=frobenius.Ob('x'))
+        Node('cod', depth=0, i=0, obj=frobenius.Ob('y'))
+        Node('cod', depth=0, i=1, obj=frobenius.Ob('z'))
+        Node('output', i=0, obj=frobenius.Ob('y'))
+        Node('output', i=1, obj=frobenius.Ob('z'))
+        """
         spider_types = list(box.dom @ box.cod)
         wires = 2 * list(range(len(box.dom)))\
             + 2 * list(range(len(box.dom), len(box.dom @ box.cod)))
         return cls(box.dom, box.cod, [box], wires, spider_types)
-
-    @classmethod
-    def box(cls, name, dom, cod, *args, factory=None, **kwargs):
-        if factory is None:
-            from discopy.frobenius import Box
-            factory = Box
-        return cls.from_box(factory(name, dom, cod, *args, **kwargs))
