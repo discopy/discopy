@@ -871,6 +871,9 @@ class Equation:
             margins=params.get('margins', DEFAULT['margins']),
             aspect=params.get('aspect', DEFAULT['aspect']))
 
+    def __bool__(self):
+        return all(term == self.terms[0] for term in self.terms)
+
 
 def diagramize(dom, cod, boxes, factory=None):
     """

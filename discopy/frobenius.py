@@ -29,30 +29,55 @@ Summary
 Axioms
 ------
 
+>>> from discopy.drawing import Equation
+
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
 >>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
 
-* (Co)commutative (co)monoid:
+* Commutative monoid:
 
->>> assert unit @ x >> merge == Id(x) == x @ unit >> merge
->>> assert merge @ x >> merge == x @ merge >> merge
->>> assert Swap(x, x) >> merge == merge
->>> assert split >> counit @ x == Id(x) == split >> x @ counit
->>> assert split >> split @ x == split >> x @ split
->>> assert split >> Swap(x, x) == split
+>>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge)
+>>> associativity = Equation(merge @ x >> merge, x @ merge >> merge)
+>>> commutativity = Equation(Swap(x, x) >> merge, merge)
+>>> assert unitality and associativity and commutativity
+>>> Equation(unitality, associativity, commutativity, symbol='').draw(
+...     path="docs/_static/frobenius/monoid.png")
+
+.. image:: /_static/frobenius/monoid.png
+    :align: center
+
+* Cocommutative comonoid:
+
+>>> counitality = Equation(split >> counit @ x, Id(x), split >> x @ counit)
+>>> coassociativity = Equation(split >> split @ x, split >> x @ split)
+>>> cocommutativity = Equation(split >> Swap(x, x), split)
+>>> assert counitality and coassociativity and cocommutativity
+>>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
+...     path="docs/_static/frobenius/comonoid.png")
+
+.. image:: /_static/frobenius/comonoid.png
+    :align: center
 
 * Frobenius:
 
->>> assert split @ x >> x @ merge\\
-...     == merge >> split\\
-...     == x @ split >> merge @ x\\
-...     == Spider(2, 2, x)
+>>> frobenius = Equation(
+...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
+>>> assert frobenius
+>>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
+
+.. image:: /_static/frobenius/frobenius.png
+    :align: center
 
 * Speciality:
 
->>> assert split >> merge == Spider(1, 1, x) == Id(x)
+>>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
+>>> assert special
+>>> special.draw(path="docs/_static/frobenius/special.png")
+
+.. image:: /_static/frobenius/special.png
+    :align: center
 
 * Coherence:
 
