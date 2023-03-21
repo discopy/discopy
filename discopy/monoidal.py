@@ -201,7 +201,7 @@ class Ty(cat.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        if not "inside" in tree:
+        if "inside" not in tree:
             warn("Outdated dumps", DeprecationWarning)
             return cls(*map(from_tree, tree['objects']))
         return cls(*map(from_tree, tree['inside']))
@@ -800,7 +800,7 @@ class Diagram(cat.Arrow, Whiskerable):
 
     @classmethod
     def from_tree(cls, tree):
-        if not "inside" in tree:
+        if "inside" not in tree:
             warn("Outdated dumps", DeprecationWarning)
             boxes, offsets = map(from_tree, tree['boxes']), tree['offsets']
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
