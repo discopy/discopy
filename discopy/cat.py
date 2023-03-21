@@ -615,11 +615,13 @@ class Box(Arrow):
         return hash(Arrow.__repr__(self))
 
     def __eq__(self, other):
-        if isinstance(other, type(self)):
-            eq_data = bool(self.data == other.data)
-            return self.name == other.name and self.is_parallel(other)\
-                and self.is_dagger == other.is_dagger and eq_data
-        return isinstance(other, self.factory)\
+        if isinstance(other, Box):
+            return type(self) == type(other)\
+                and self.name == other.name\
+                and self.is_parallel(other)\
+                and self.is_dagger == other.is_dagger\
+                and bool(self.data == other.data)
+        return isinstance(other, Arrow)\
             and self >> self.id(self.cod) == other  # cast box as diagram
 
     def __lt__(self, other):
