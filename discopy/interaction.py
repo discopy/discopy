@@ -52,11 +52,12 @@ Example
 ...         loves: Box('L', N @ N, S),
 ...         Bob: Box('B', T(), N)},
 ...     cod=Int(Category(T, D)))
+>>> image = F(noun_phrase).inside.to_hypergraph().interchange(1, 3)\\
+...     .to_diagram().interchange(1, 2).naturality(2, left=False)
 
 >>> from discopy.drawing import Equation
->>> Equation(noun_phrase, F(noun_phrase).simplify().inside.interchange(1, 2
-...     ).naturality(2, left=False), symbol="$\\\\mapsto$").draw(
-...          figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
+>>> Equation(noun_phrase, image, symbol="$\\\\mapsto$").draw(
+...     figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
 
 .. image:: /_static/int/alice-loves-bob.png
     :align: center

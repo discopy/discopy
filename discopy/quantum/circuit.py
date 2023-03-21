@@ -882,11 +882,11 @@ class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
     dom = cod = Category(Ty, Circuit)
 
-    def __init__(self, ob, ar, cod=None):
+    def __init__(self, ob, ar, dom=None, cod=None):
         if isinstance(ob, Mapping):
             ob = {x: qubit ** y if isinstance(y, int) else y
                   for x, y in ob.items()}
-        super().__init__(ob, ar, cod)
+        super().__init__(ob, ar, dom=dom, cod=cod)
 
 
 def index2bitstring(i: int, length: int) -> tuple[int, ...]:
@@ -904,6 +904,5 @@ def bitstring2index(bitstring):
 
 
 Circuit.braid_factory, Circuit.sum_factory = Swap, Sum
-Circuit.functor_factory = Functor
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id

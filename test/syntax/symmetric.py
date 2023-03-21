@@ -16,6 +16,7 @@ def test_Swap():
 
 def test_Diagram_permutation():
     x = PRO(1)
+    tmp, Diagram.ty_factory = Diagram.ty_factory, PRO
     assert Diagram.swap(x, x ** 2)\
         == Diagram.swap(x, x) @ Id(x) >> Id(x) @ Diagram.swap(x, x)\
         == Diagram.permutation([1, 2, 0])\
@@ -24,6 +25,7 @@ def test_Diagram_permutation():
         Diagram.permutation([2, 0])
     with raises(ValueError):
         Diagram.permutation([2, 0, 1], x ** 2)
+    Diagram.ty_factory = tmp
 
 
 def test_bad_permute():

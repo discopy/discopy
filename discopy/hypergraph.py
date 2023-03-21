@@ -31,7 +31,7 @@ Summary
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 import random
 
@@ -40,7 +40,7 @@ import matplotlib.pyplot as plt
 from networkx import Graph, spring_layout, draw_networkx
 from networkx.algorithms.isomorphism import is_isomorphic
 
-from discopy import cat, monoidal, drawing
+from discopy import cat, monoidal, drawing, messages
 from discopy.cat import factory, AxiomError, Composable
 from discopy.drawing import Node
 from discopy.monoidal import (
@@ -49,7 +49,7 @@ from discopy.utils import (
     factory_name,
     assert_isinstance,
     pushout,
-    mmap,
+    unbiased,
     NamedGeneric,
 )
 
@@ -96,27 +96,29 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     >>> x, y, z = map(Ty, "xyz")
 
     >>> assert H.id(x @ y @ z).n_spiders == 3
-    >>> assert H.id(x @ y @ z).wires == [0, 1, 2, 0, 1, 2]
+    >>> assert H.id(x @ y @ z).wires == (0, 1, 2, 0, 1, 2)
 
     >>> assert H.swap(x, y).n_spiders == 2
-    >>> assert H.swap(x, y).wires == [0, 1, 1, 0]
+    >>> assert H.swap(x, y).wires == (0, 1, 1, 0)
 
     >>> assert H.spiders(1, 2, x @ y).n_spiders == 2
-    >>> assert H.spiders(1, 2, x @ y).wires == [0, 1, 0, 1, 0, 1]
+    >>> assert H.spiders(1, 2, x @ y).wires == (0, 1, 0, 1, 0, 1)
     >>> assert H.spiders(0, 0, x @ y @ z).n_spiders == 3
-    >>> assert H.spiders(0, 0, x @ y @ z).wires == []
+    >>> assert H.spiders(0, 0, x @ y @ z).wires == ()
 
     >>> f, g = Box('f', x, y).to_hypergraph(), Box('g', y, z).to_hypergraph()
 
     >>> assert f.n_spiders == g.n_spiders == 2
-    >>> assert f.wires == g.wires == [0, 0, 1, 1]
+    >>> assert f.wires == g.wires == (0, 0, 1, 1)
 
     >>> assert (f >> g).n_spiders == 3
-    >>> assert (f >> g).wires == [0, 0, 1, 1, 2, 2]
+    >>> assert (f >> g).wires == (0, 0, 1, 1, 2, 2)
 
     >>> assert (f @ g).n_spiders == 4
-    >>> assert (f @ g).wires == [0, 1, 0, 2, 1, 3, 2, 3]
+    >>> assert (f @ g).wires == (0, 1, 0, 2, 1, 3, 2, 3)
     """
+    category = Category()
+
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             wires: tuple[Any, ...], spider_types: Mapping[Any, Ty] = None):
@@ -142,13 +144,12 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                 else:
                     spider_types[spider] = typ
             spider_types = [spider_types[i] for i in sorted(spider_types)]
+        spider_types = spider_types if isinstance(spider_types, Mapping)\
+            else {i: t for i, t in enumerate(spider_types)}
         relabeling = list(sorted(set(wires), key=lambda i: wires.index(i)))
-        wires = [relabeling.index(spider) for spider in wires]
-        spider_types = {i: t for i, t in enumerate(spider_types)}\
-            if isinstance(spider_types, list) else spider_types
         relabeling += list(sorted(set(spider_types) - set(relabeling)))
-        spider_types = [spider_types[spider] for spider in relabeling]
-        self.wires, self.spider_types = wires, spider_types
+        self.wires = tuple(relabeling.index(spider) for spider in wires)
+        self.spider_types = tuple(spider_types[spider] for spider in relabeling)
 
     @property
     def box_wires(self):
@@ -216,11 +217,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def id(cls, dom=None) -> Hypergraph:
         dom = cls.category.ob() if dom is None else dom
-        return cls(dom, dom, [], 2 * list(range(len(dom))))
+        return cls(dom, dom, (), 2 * tuple(range(len(dom))))
 
     twist = id
 
-    @mmap
+    @unbiased
     def then(self, other):
         """
         Composition of two hypergraph diagrams, i.e. their :func:`pushout`.
@@ -230,31 +231,29 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         dom, cod, boxes = self.dom, other.cod, self.boxes + other.boxes
         self_boundary = self.wires[len(self.wires) - len(self.cod):]
         other_boundary = other.wires[:len(other.dom)]
-        self_pushout, other_pushout = pushout(
+        left, right = pushout(
             self.n_spiders, other.n_spiders, self_boundary, other_boundary)
-        wires = [
-            self_pushout[i] for i in self.wires[
-                :len(self.wires) - len(self.cod)]]\
-            + [other_pushout[i] for i in other.wires[len(other.dom):]]
+        wires = [left[i] for i in self.wires[:len(self.wires) - len(self.cod)]]
+        wires += [right[i] for i in other.wires[len(other.dom):]]
         spider_types = {
-            self_pushout[i]: t for i, t in enumerate(self.spider_types)}
+            left[i]: t for i, t in enumerate(self.spider_types)}
         spider_types.update({
-            other_pushout[i]: t for i, t in enumerate(other.spider_types)})
-        return type(self)(dom, cod, boxes, wires, spider_types)
+            right[i]: t for i, t in enumerate(other.spider_types)})
+        return type(self)(dom, cod, boxes, tuple(wires), spider_types)
 
-    @mmap
+    @unbiased
     def tensor(self, other):
         """ Tensor of two hypergraph diagrams, i.e. their disjoint union. """
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         boxes = self.boxes + other.boxes
-        dom_wires = self.wires[:len(self.dom)] + [
-            self.n_spiders + i for i in other.wires[:len(other.dom)]]
+        dom_wires = self.wires[:len(self.dom)] + tuple(
+            self.n_spiders + i for i in other.wires[:len(other.dom)])
         box_wires = self.wires[len(self.dom):-len(self.cod) or len(self.wires)]
-        box_wires += [self.n_spiders + i for i in other.wires[
-            len(other.dom):-len(other.cod) or len(other.wires)]]
-        cod_wires = self.wires[len(self.wires) - len(self.cod):] + [
+        box_wires += tuple(self.n_spiders + i for i in other.wires[
+            len(other.dom):-len(other.cod) or len(other.wires)])
+        cod_wires = self.wires[len(self.wires) - len(self.cod):] + tuple(
             self.n_spiders + i
-            for i in other.wires[len(other.wires) - len(other.cod):]]
+            for i in other.wires[len(other.wires) - len(other.cod):])
         wires = dom_wires + box_wires + cod_wires
         spiders = self.spider_types + other.spider_types
         return type(self)(dom, cod, boxes, wires, spiders)
@@ -273,11 +272,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> assert H.spiders(1, 2, x @ y)[::-1] == H.spiders(2, 1, x @ y)
         """
         dom, cod = self.cod, self.dom
-        boxes = [box.dagger() for box in self.boxes[::-1]]
+        boxes = tuple(box.dagger() for box in self.boxes[::-1])
         dom_wires = self.wires[len(self.wires) - len(self.cod):]
         box_wires = sum([
             cod_wires + dom_wires
-            for dom_wires, cod_wires in self.box_wires[::-1]], [])
+            for dom_wires, cod_wires in self.box_wires[::-1]], ())
         cod_wires = self.wires[:len(self.dom)]
         wires = dom_wires + box_wires + cod_wires
         return type(self)(dom, cod, boxes, wires, self.spider_types)
@@ -285,8 +284,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def swap(cls, left, right):
         dom, cod = left @ right, right @ left
-        boxes, wires = [], list(range(len(dom)))\
-            + list(range(len(left), len(dom))) + list(range(len(left)))
+        boxes, wires = (), tuple(range(len(dom)))\
+            + tuple(range(len(left), len(dom))) + tuple(range(len(left)))
         return cls(dom, cod, boxes, wires)
 
     braid = swap
@@ -294,8 +293,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def spiders(cls, n_legs_in, n_legs_out, typ):
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        boxes, spider_types = [], list(typ)
-        wires = (n_legs_in + n_legs_out) * list(range(len(typ)))
+        boxes, spider_types = (), tuple(typ)
+        wires = (n_legs_in + n_legs_out) * tuple(range(len(typ)))
         return cls(dom, cod, boxes, wires, spider_types)
 
     cup_factory = classmethod(lambda cls, left, right: cls.from_box(
@@ -308,18 +307,35 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         if not left.r == right:
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
-        return cls(left @ right, cls.category.ob(), [], wires)
+        return cls(left @ right, cls.category.ob(), (), wires)
 
     @classmethod
     def caps(cls, left, right):
         if not left.r == right:
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
-        return cls(cls.category.ob(), left @ right, [], wires)
+        return cls(cls.category.ob(), left @ right, (), wires)
 
     def transpose(self, left=False):
         """ The transpose of a hypergraph diagram. """
         return self.category.ar.transpose(self, left)
+
+    def rotate(self, left=False):
+        """
+        The half-turn rotation of a hypergraph, called with ``.l`` and ``.r``.
+        """
+        dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
+        boxes = tuple(box.l if left else box.r for box in self.boxes[::-1])
+        dom_wires = self.wires[:len(self.dom)][::-1]
+        box_wires = sum([
+            cod_wires[::-1] + dom_wires[::-1]
+            for dom_wires, cod_wires in self.box_wires[::-1]], ())
+        cod_wires = self.wires[len(self.wires) - len(self.cod):][::-1]
+        wires = dom_wires + box_wires + cod_wires
+        return type(self)(dom, cod, boxes, wires, self.spider_types)
+
+    l = property(lambda self: self.rotate(left=True))
+    r = property(lambda self: self.rotate(left=False))
 
     @classmethod
     def trace_factory(cls, arg: Hypergraph, left=False):
@@ -362,10 +378,12 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         """
         boxes, box_wires = list(self.boxes), list(self.box_wires)
         boxes[i], boxes[j] = boxes[j], boxes[i]
+        boxes = tuple(boxes)
         box_wires[i], box_wires[j] = box_wires[j], box_wires[i]
+        box_wires = sum([c + d for c, d in box_wires], ())
         dom_wires = self.wires[:len(self.dom)]
         cod_wires = self.wires[len(self.wires) - len(self.cod):]
-        wires = dom_wires + sum([c + d for c, d in box_wires], []) + cod_wires
+        wires = dom_wires + box_wires + cod_wires
         return type(self)(self.dom, self.cod, boxes, wires, self.spider_types)
 
     def simplify(self):
@@ -533,11 +551,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         -------
         >>> from discopy.frobenius import Ty, Spider, Hypergraph as H
         >>> spider = H.spiders(1, 2, Ty('x')).make_bijective()
-        >>> assert spider.boxes == [Spider(3, 0, Ty('x'))]
-        >>> assert spider.wires == [0, 0, 1, 2, 1, 2]
+        >>> assert spider.boxes == (Spider(3, 0, Ty('x')), )
+        >>> assert spider.wires == (0, 0, 1, 2, 1, 2)
         """
         boxes, wires, spider_types =\
-            self.boxes.copy(), self.wires.copy(), self.spider_types.copy()
+            list(self.boxes), list(self.wires), list(self.spider_types)
         for i, typ in reversed(list(enumerate(self.spider_types))):
             ports = [port for port, spider in enumerate(wires) if spider == i]
             n_legs = len(ports)
@@ -552,7 +570,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                 spider_types += n_legs * [typ]
                 del spider_types[i]
                 wires = [j - 1 if j > i else j for j in wires]
-        return type(self)(self.dom, self.cod, boxes, wires, spider_types)
+        return type(self)(
+            self.dom, self.cod, tuple(boxes), tuple(wires), spider_types)
 
     def make_monogamous(self):
         """
@@ -565,8 +584,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> assert H.caps(x, x).make_monogamous() == H.from_box(Cap(x, x))
         >>> assert H.cups(x, x).make_monogamous() == H.from_box(Cup(x, x))
         >>> spider = H.spiders(2, 1, x).make_monogamous()
-        >>> assert spider.boxes == [Cap(x, x), Spider(3, 0, x)]
-        >>> assert spider.wires == [0, 1, 2, 3, 0, 1, 2, 3]
+        >>> assert spider.boxes == (Cap(x, x), Spider(3, 0, x))
+        >>> assert spider.wires == (0, 1, 2, 3, 0, 1, 2, 3)
         """
         if not self.is_bijective:
             return self.make_bijective().make_monogamous()
@@ -601,6 +620,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                             + wires[len(self.dom):]
                     spider_types[left] = spider_types[right] = typ
                     del spider_types[spider]
+                    boxes, wires = tuple(boxes), tuple(wires)
                     return type(self)(dom, cod, boxes, wires, spider_types)\
                         .make_monogamous()
 
@@ -614,7 +634,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x).to_hypergraph()
         >>> assert f.trace().make_progressive().boxes\\
-        ...     == [Cap(x, x), f.boxes[0], Cup(x, x)]
+        ...     == (Cap(x, x), f.boxes[0], Cup(x, x))
         """
         if not self.is_monogamous:
             return self.make_monogamous().make_progressive()
@@ -636,10 +656,59 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     spider_types.update({
                         input_spider: typ, output_spider: typ})
                     del spider_types[spider]
-                    arg = type(self)(dom, cod, boxes, wires, spider_types)
-                    return self.trace_factory(arg.make_progressive())
+                    return self.trace_factory(type(self)(
+                        dom, cod, tuple(boxes), tuple(wires), spider_types
+                        ).make_progressive())
             port += len(box.dom @ box.cod)
         return self
+
+    @classmethod
+    def from_box(cls, box: Box) -> Hypergraph:
+        """
+        Turn a box into a hypergraph with binary spiders for each wire.
+
+        Parameters:
+            box : The box to turn into a hypergraph.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y, z = map(Ty, "xyz")
+        >>> for p in Box('f', x, y @ z).to_hypergraph().ports: print(p)
+        Node('input', i=0, obj=frobenius.Ob('x'))
+        Node('dom', depth=0, i=0, obj=frobenius.Ob('x'))
+        Node('cod', depth=0, i=0, obj=frobenius.Ob('y'))
+        Node('cod', depth=0, i=1, obj=frobenius.Ob('z'))
+        Node('output', i=0, obj=frobenius.Ob('y'))
+        Node('output', i=1, obj=frobenius.Ob('z'))
+        """
+        spider_types = tuple(box.dom @ box.cod)
+        wires = 2 * tuple(range(len(box.dom)))\
+            + 2 * tuple(range(len(box.dom), len(box.dom @ box.cod)))
+        return cls(box.dom, box.cod, (box, ), wires, spider_types)
+
+    @classmethod
+    def from_diagram(cls, old: Diagram) -> Hypergraph:
+        """
+        Turn a :class:`Diagram` into a :class:`Hypergraph`.
+
+        Parameters:
+            old : The planar diagram to encode as hypergraph.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Hypergraph as H
+        >>> x, y = map(Ty, "xy")
+        >>> back_n_forth = lambda d: H.from_diagram(d.to_diagram())
+        >>> for d in [H.spiders(0, 0, x),
+        ...           H.spiders(2, 3, x),
+        ...           H.spiders(1, 2, x @ y)]:
+        ...     assert back_n_forth(d) == d
+        """
+        return old.functor_factory(
+            ob=lambda typ: typ, ar=cls.from_box,
+            dom=Category(old.ty_factory, type(old)),
+            cod=Category(old.ty_factory, cls))(old)
 
     def to_diagram(self):
         """
@@ -669,28 +738,6 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                  box=self.category.ar.spiders(0, 0, diagram.spider_types[s]))
             for i, s in enumerate(diagram.scalar_spiders)])
         return drawing.nx2diagram(graph, self.category.ar)
-
-    @classmethod
-    def from_diagram(cls, old: Diagram) -> Hypergraph:
-        """
-        Turn a :class:`Diagram` into a :class:`Hypergraph`.
-
-        Parameters:
-            old : The planar diagram to encode as hypergraph.
-
-        Example
-        -------
-        >>> from discopy.frobenius import Ty, Hypergraph as H
-        >>> x, y = map(Ty, "xy")
-        >>> back_n_forth = lambda d: H.from_diagram(d.to_diagram())
-        >>> for d in [H.spiders(0, 0, x),
-        ...           H.spiders(2, 3, x),
-        ...           H.spiders(1, 2, x @ y)]:
-        ...     assert back_n_forth(d) == d
-        """
-        return old.functor_factory(
-            ob=lambda typ: typ, ar=cls.from_box,
-            cod=Category(cls.category.ob, cls))(old)
 
     def to_graph(self):
         """
@@ -798,28 +845,3 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             plt.savefig(path)
             plt.close()
         plt.show()
-
-    @classmethod
-    def from_box(cls, box: Box) -> Hypergraph:
-        """
-        Turn a box into a hypergraph with binary spiders for each wire.
-
-        Parameters:
-            box : The box to turn into a hypergraph.
-
-        Example
-        -------
-        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
-        >>> x, y, z = map(Ty, "xyz")
-        >>> for p in Box('f', x, y @ z).to_hypergraph().ports: print(p)
-        Node('input', i=0, obj=frobenius.Ob('x'))
-        Node('dom', depth=0, i=0, obj=frobenius.Ob('x'))
-        Node('cod', depth=0, i=0, obj=frobenius.Ob('y'))
-        Node('cod', depth=0, i=1, obj=frobenius.Ob('z'))
-        Node('output', i=0, obj=frobenius.Ob('y'))
-        Node('output', i=1, obj=frobenius.Ob('z'))
-        """
-        spider_types = list(box.dom @ box.cod)
-        wires = 2 * list(range(len(box.dom)))\
-            + 2 * list(range(len(box.dom), len(box.dom @ box.cod)))
-        return cls(box.dom, box.cod, [box], wires, spider_types)

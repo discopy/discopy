@@ -152,7 +152,7 @@ class Functor(symmetric.Functor):
     >>> add = Box('add', x @ x, x)
     >>> from discopy import python
     >>> F = Functor({x: int}, {add: lambda a, b: a + b},
-    ...     Category(python.Ty, python.Function))
+    ...             cod=Category(python.Ty, python.Function))
     >>> copy = Copy(x)
     >>> bialgebra_l = copy @ copy >> Id(x) @ Swap(x, x) @ Id(x) >> add @ add
     >>> bialgebra_r = add >> copy
