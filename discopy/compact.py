@@ -22,34 +22,42 @@ Summary
 Axioms
 ------
 
->>> D = Diagram
+>>> from discopy.drawing import Equation
 >>> x, y = Ty('x'), Ty('y')
 
 * Snake equations:
 
->>> left_snake = lambda x: Id(x.r).transpose(left=True)
->>> right_snake = lambda x: Id(x.l).transpose(left=False)
->>> assert left_snake(x) == Id(x) == right_snake(x)
->>> assert left_snake(x @ y) == Id(x @ y) == right_snake(x @ y)
+>>> snake = Equation(Id(x.l).transpose(left=True), Id(x), Id(x.r).transpose())
+>>> assert snake
+>>> snake.draw(path="docs/_static/compact/snake.png")
+
+.. image:: /_static/compact/snake.png
+    :align: center
 
 * Yanking (a.k.a. Reidemeister move 1):
 
->>> right_loop = lambda x: x @ D.caps(x, x.r)\\
-...     >> D.swap(x, x) @ x.r >> x @ D.cups(x, x.r)
->>> left_loop = lambda x: D.caps(x.r, x) @ x\\
-...     >> x.r @ D.swap(x, x) >> D.cups(x.r, x) @ x
->>> top_loop = lambda x: D.caps(x, x.r) >> D.swap(x, x.r)
->>> bottom_loop = lambda x: D.swap(x, x.r) >> D.cups(x.r, x)
->>> reidemeister1 = lambda x:\\
-...     top_loop(x) == D.caps(x.r, x)\\
-...     and bottom_loop(x) == D.cups(x, x.r)\\
-...     and left_loop(x) == Id(x) == right_loop(x)
->>> assert reidemeister1(x) and reidemeister1(x @ y) and reidemeister1(Ty())
+>>> right_loop = x @ Cap(x, x.r) >> Swap(x, x) @ x.r >> x @ Cup(x, x.r)
+>>> left_loop = Cap(x.r, x) @ x >> x.r @ Swap(x, x) >> Cup(x.r, x) @ x
+>>> yanking = Equation(left_loop, Id(x), right_loop)
+>>> assert yanking
+>>> yanking.draw(path="docs/_static/compact/yanking.png")
+
+.. image:: /_static/compact/yanking.png
+    :align: center
+
+>>> cap_yanking = Equation(Cap(x, x.r) >> Swap(x, x.r), Cap(x.r, x))
+>>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
+>>> assert cap_yanking and cup_yanking
+>>> Equation(cap_yanking, cup_yanking, symbol='', space=1).draw(
+...     figsize=(6, 3), path="docs/_static/compact/yanking_cup_and_cap.png")
+
+.. image:: /_static/compact/yanking_cup_and_cap.png
+    :align: center
 
 * Coherence:
 
->>> assert D.caps(x @ y, y.r @ x.r)\\
-...     == D.caps(x, x.r) @ D.caps(y, y.r) >> x @ D.swap(x.r, y @ y.r)
+>>> assert Diagram.caps(x @ y, y.r @ x.r)\\
+...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
 """
 
 from discopy import symmetric, ribbon, hypergraph

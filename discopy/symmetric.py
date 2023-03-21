@@ -137,11 +137,13 @@ class Diagram(braided.Diagram):
         """
         return self >> self.permutation(list(xs), self.cod)
 
-    def to_hypergraph(self):
+    def to_hypergraph(self) -> Hypergraph:
+        """ Translate a diagram into a hypergraph. """
         category = Category(self.ty_factory, self.factory)
         return self.hypergraph_factory[category].from_diagram(self)
 
     def simplify(self):
+        """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
     def __eq__(self, other):
