@@ -21,12 +21,6 @@ Summary
         :toctree:
 
         pushout
-        Id
-        Box
-        Swap
-        Spider
-        Cup
-        Cap
 """
 
 from __future__ import annotations
@@ -37,8 +31,9 @@ import random
 
 import matplotlib.pyplot as plt
 
-from networkx import Graph, spring_layout, draw_networkx
+from networkx import DiGraph as Graph, spring_layout, draw_networkx
 from networkx.algorithms.isomorphism import is_isomorphic
+from networkx import dag_longest_path_length
 
 from discopy import cat, monoidal, drawing, messages
 from discopy.cat import factory, AxiomError, Composable
@@ -739,6 +734,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             for i, s in enumerate(diagram.scalar_spiders)])
         return drawing.nx2diagram(graph, self.category.ar)
 
+    def depth(self):
+        """ The depth of a progressive hypergraph. """
+        return dag_longest_path_length(self.make_progressive().to_graph()) // 4
+
     def to_graph(self):
         """
         Translate a hypergraph into a labeled graph with nodes for inputs,
@@ -760,8 +759,12 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     spider_node = Node("spider", i=spider)
                     port_node = Node(case, i=i, j=j)
                     graph.add_node(port_node, j=j)
-                    graph.add_edge(box_node, port_node)
-                    graph.add_edge(port_node, spider_node)
+                    if case == "dom":
+                        graph.add_edge(spider_node, port_node)
+                        graph.add_edge(port_node, box_node)
+                    else:
+                        graph.add_edge(box_node, port_node)
+                        graph.add_edge(port_node, spider_node)
         graph.add_nodes_from(
             [(Node("output", i=i), dict(i=i)) for i, _ in enumerate(self.cod)])
         graph.add_edges_from(
@@ -774,7 +777,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         """ Computes a layout using a force-directed algorithm. """
         if seed is not None:
             random.seed(seed)
-        graph, pos = self.to_graph(), {}
+        graph, pos = self.to_graph().to_undirected(), {}
         height = len(self.boxes) + self.n_spiders
         width = max(len(self.dom), len(self.cod))
         for i, _ in enumerate(self.dom):

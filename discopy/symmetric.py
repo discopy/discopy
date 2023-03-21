@@ -151,6 +151,20 @@ class Diagram(braided.Diagram):
     def __hash__(self):
         return self.to_hypergraph().__hash__()
 
+    def depth(self):
+        """
+        The depth of a symmetric diagram.
+
+        Examples
+        --------
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> assert Id(x).depth() == Id().depth() == 0
+        >>> assert f.depth() == (f @ f).depth() == 1
+        >>> assert (f >> f).depth() == 2 and (f >> f >> f).depth() == 3
+        """
+        return self.to_hypergraph().depth()
+
 
 class Box(braided.Box, Diagram):
     """
