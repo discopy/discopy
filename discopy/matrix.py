@@ -46,7 +46,7 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance, NamedGeneric
+from discopy.utils import assert_isinstance, unbiased, NamedGeneric
 
 
 @factory
@@ -205,7 +205,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
 
     twist = id
 
-    @mmap
+    @unbiased
     def then(self, other: Matrix) -> Matrix:
         assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
