@@ -71,7 +71,7 @@ from discopy import (
 from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
 from discopy.rigid import assert_isadjoint
-from discopy.utils import NamedGeneric, mmap, assert_isinstance, factory_name
+from discopy.utils import NamedGeneric, unbiased, assert_isinstance, factory_name
 
 
 @dataclass
@@ -180,7 +180,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
                 cod.positive + dom.negative, inside.cod))
         self.inside, self.dom, self.cod = inside, dom, cod
 
-    @mmap
+    @unbiased
     def then(self, other: Diagram):
         """
         The composition of two integer diagrams.
@@ -243,7 +243,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         inside = cls.natural.id(positive) @ cls.natural.twist(negative)
         return cls(inside, dom, dom)
 
-    @mmap
+    @unbiased
     def tensor(self, other):
         """
         The tensor of two integer diagrams.

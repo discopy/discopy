@@ -88,7 +88,7 @@ from discopy.utils import (
     factory_name,
     from_tree,
     rsubs,
-    mmap,
+    unbiased,
     assert_isinstance,
     MappingOrCallable,
 )
@@ -717,7 +717,7 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    @mmap
+    @unbiased
     def then(self, other):
         other = other if isinstance(other, Sum)\
             else self.sum_factory((other, ))
