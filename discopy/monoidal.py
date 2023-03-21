@@ -55,6 +55,7 @@ from __future__ import annotations
 import itertools
 from abc import ABC, abstractmethod
 from typing import Iterator
+from warnings import warn
 
 from discopy import cat, drawing, messages
 from discopy.cat import factory, Ob, AxiomError, assert_iscomposable
@@ -191,6 +192,9 @@ class Ty(cat.Ob):
 
     @classmethod
     def from_tree(cls, tree):
+        if not "inside" in tree:
+            warn("Outdated dumps", DeprecationWarning)
+            return cls(*map(from_tree, tree['objects']))
         return cls(*map(from_tree, tree['inside']))
 
     def __matmul__(self, other):
@@ -798,6 +802,14 @@ class Diagram(cat.Arrow, Whiskerable):
                 raise exception
             cache.add(diagram)
         return diagram
+
+    @classmethod
+    def from_tree(cls, tree):
+        if not "inside" in tree:
+            warn("Outdated dumps", DeprecationWarning)
+            boxes, offsets = map(from_tree, tree['boxes']), tree['offsets']
+            return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
+        return cat.Arrow.from_tree.__func__(cls, tree)
 
 
 class Box(cat.Box, Diagram):
