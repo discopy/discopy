@@ -161,6 +161,7 @@ class Diagram(braided.Diagram):
         >>> f = Box('f', x, x)
         >>> assert Id(x).depth() == Id().depth() == 0
         >>> assert f.depth() == (f @ f).depth() == 1
+        >>> assert (f @ f >> Swap(x, x)).depth() == 1
         >>> assert (f >> f).depth() == 2 and (f >> f >> f).depth() == 3
         """
         return self.to_hypergraph().depth()
