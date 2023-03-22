@@ -595,10 +595,10 @@ class Diagram(cat.Arrow, Whiskerable):
     def decode(
             cls,
             dom: Ty,
-            cod: Ty = None,
             boxes_and_offsets: list[tuple[Box, int]] = None,
             boxes: list[Box] = None,
-            offsets: list[int] = None) -> Diagram:
+            offsets: list[int] = None,
+            cod: Ty = None) -> Diagram:
         """
         Turn a tuple of boxes and offsets into a diagram.
 
