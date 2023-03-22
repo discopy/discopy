@@ -138,7 +138,7 @@ class FA(unaryBoxConstructor("over"), Box):
         assert_isinstance(over, Over)
         self.over = over
         dom, cod = over @ over.exponent, over.base
-        Box.__init__(self, dom, cod, name=f"FA{over}")
+        Box.__init__(self, f"FA{over}", dom, cod)
 
     def __repr__(self):
         return f"FA({repr(self.dom[:1])})"
@@ -150,7 +150,7 @@ class BA(unaryBoxConstructor("under"), Box):
         assert_isinstance(under, Under)
         self.under = under
         dom, cod = under.exponent @ under, under.base
-        Box.__init__(self, dom, cod, name=f"BA{under}")
+        Box.__init__(self, f"BA{under}", dom, cod)
 
     def __repr__(self):
         return f"BA({repr(self.dom[1:])})"
@@ -166,7 +166,7 @@ class FC(BinaryBoxConstructor, Box):
                 left, right, left.exponent, right.base))
         name = f"FC({left}, {right})"
         dom, cod = left @ right, left.base << right.exponent
-        Box.__init__(self, dom, cod, name=name)
+        Box.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -180,7 +180,7 @@ class BC(BinaryBoxConstructor, Box):
                 left, right, left.base, right.exponent))
         name = f"BC({left}, {right})"
         dom, cod = left @ right, left.exponent >> right.base
-        Box.__init__(self, dom, cod, name=name)
+        Box.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -194,7 +194,7 @@ class FX(BinaryBoxConstructor, Box):
                 left, right, left.exponent, right.base))
         name = f"FX({left}, {right})"
         dom, cod = left @ right, right.exponent >> left.base
-        Box.__init__(self, dom, cod, name=name)
+        Box.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -208,7 +208,7 @@ class BX(BinaryBoxConstructor, Box):
                 left, right, left.base, right.exponent))
         name = f"BX({left}, {right})"
         dom, cod = left @ right, right.base << left.exponent
-        Box.__init__(self, dom, cod, name=name)
+        Box.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -303,7 +303,7 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
     elif tree['type'] == 'fc':
         box = FC(dom.inside[0], dom.inside[1])
     else:
-        box = Box(dom, cod, name=tree['type'])
+        box = Box(tree['type'], dom, cod)
     return Id().tensor(*children) >> box
 
 

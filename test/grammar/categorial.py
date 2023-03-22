@@ -137,7 +137,7 @@ def test_BX():
 
 def test_Functor():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f = Box(x, y, name='f')
+    f = Box('f', x, y)
     IdF = Functor(lambda x: x, lambda f: f)
     assert IdF(x >> y << x) == x >> y << x
     assert IdF(Curry(f)) == Curry(f)
@@ -157,17 +157,17 @@ def categorial_diagram():
         Word('that', NP),
         Word("'s", ((NP >> S) << NP)),
         Word('exactly', ((NP >> S) >> (NP >> S))),
-        Box((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
-             ((NP >> S) << NP), name='bx'),
+        Box('bx', (((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
+             ((NP >> S) << NP)),
         Word('what', (NP << (S << NP))),
         Word('i', NP),
-        Box(NP, (S << (NP >> S)), name='tr'),
+        Box('tr', NP, (S << (NP >> S))),
         Word('showed', ((NP >> S) << NP)),
         Word('to', (((NP >> S) >> (NP >> S)) << NP)),
         Word('her', NP),
         FA((((NP >> S) >> (NP >> S)) << NP)),
-        Box((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
-             ((NP >> S) << NP), name='bx'),
+        Box('bx', (((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
+             ((NP >> S) << NP)),
         FC((S << (NP >> S)), ((NP >> S) << NP)),
         FA((NP << (S << NP))),
         FA(((NP >> S) << NP)),
