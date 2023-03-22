@@ -206,7 +206,7 @@ def from_tree(tree: dict):
     >>> f = Box('f', 'x', 'y', data=42)
     >>> assert from_tree(tree) == f >> f[::-1]
     """
-    *modules, factory = tree['factory'].split('.')
+    *modules, factory = tree['factory'].removeprefix('discopy.').split('.')
     import discopy
     module = discopy
     for attr in modules:
