@@ -48,7 +48,6 @@ class Diagram(closed.Diagram):
     A categorial diagram is a closed diagram with rules and words as boxes.
     """
     def to_pregroup(self):
-        from discopy import rigid
         from discopy.grammar import pregroup
 
         return Functor(
@@ -56,7 +55,7 @@ class Diagram(closed.Diagram):
             ar=lambda f: pregroup.Box(f.name,
                                       Diagram.to_pregroup(f.dom),
                                       Diagram.to_pregroup(f.cod)),
-            cod=rigid.Category(rigid.Ty, pregroup.Diagram))(self)
+            cod=pregroup.Category())(self)
 
     @staticmethod
     def fa(left, right):

@@ -29,21 +29,26 @@ Summary
         brute_force
 """
 
-from discopy import messages, rigid, symmetric
+from discopy import messages, rigid, frobenius
 from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.rigid import Ty
 
 
 @factory
-class Diagram(rigid.Diagram, symmetric.Diagram):
+class Diagram(frobenius.Diagram):
     """
     A pregroup diagram is a rigid diagram with :class:`Word` boxes.
 
     Parameters:
-        inside (tuple[rigid.Layer, ...]) : The layers of the diagram.
+        inside (tuple[frobenius.Layer, ...]) : The layers of the diagram.
         dom (rigid.Ty) : The domain of the diagram, i.e. its input.
         cod (rigid.Ty) : The codomain of the diagram, i.e. its output.
+
+    Note
+    ----
+    In order to define more general DisCoCat diagrams, pregroup diagrams
+    subclass frobenius rather than rigid. Have fun with swaps and spiders!
 
     Example
     -------
@@ -60,6 +65,8 @@ class Diagram(rigid.Diagram, symmetric.Diagram):
     >>> F = tensor.Functor(ob, ar, dom=rigid.Category(), dtype=bool)
     >>> assert F(sentence)
     """
+    ty_factory = Ty
+
     def normal_form(diagram, **params):
         """
         Applies normal form to a pregroup diagram of the form
@@ -113,31 +120,39 @@ class Diagram(rigid.Diagram, symmetric.Diagram):
             cls.cups(middle, middle.r) @ cls.swap(left.l, right)
 
     __eq__, __hash__ = rigid.Diagram.__eq__, rigid.Diagram.__hash__
+    cups = classmethod(rigid.Diagram.cups.__func__)
+    caps = classmethod(rigid.Diagram.caps.__func__)
 
 
-class Box(rigid.Box, Diagram):
+class Box(frobenius.Box, Diagram):
     """
-    A pregroup box is a rigid box in a pregroup diagram.
+    A pregroup box is a frobenius box in a pregroup diagram.
     """
+    rotate = rigid.Box.rotate
 
 
-class Cup(rigid.Cup, Box):
+class Cup(frobenius.Cup, Box):
     """
-    A pregroup cup is a rigid cup in a pregroup diagram.
-    """
-
-
-class Cap(rigid.Cap, Box):
-    """
-    A pregroup cap is a rigid cap in a pregroup diagram.
+    A pregroup cup is a frobenius cup in a pregroup diagram.
     """
 
 
-class Swap(symmetric.Swap, Box):
+class Cap(frobenius.Cap, Box):
     """
-    A pregroup swap is a symmetric swap in a pregroup diagram.
+    A pregroup cap is a frobenius cap in a pregroup diagram.
     """
-    z = 0
+
+
+class Swap(frobenius.Swap, Box):
+    """
+    A pregroup swap is a frobenius swap in a pregroup diagram.
+    """
+
+
+class Spider(frobenius.Spider, Box):
+    """
+    A pregroup spider is a frobenius spider in a pregroup diagram.
+    """
 
 
 class Word(thue.Word, Box):
@@ -157,6 +172,17 @@ class Word(thue.Word, Box):
         extra += ", is_dagger=True" if self.is_dagger else ""
         extra += f", z={self.z}" if self.z != 0 else ""
         return f"Word({repr(self.name)}, {repr(self.cod)}{extra})"
+
+
+class Category(frobenius.Category):
+    """ A pregroup category has rigid types and frobenius diagrams. """
+    ob = Ty
+    ar = Diagram
+
+
+class Functor(frobenius.Functor):
+    """ A pregroup functor is a frobenius functor with a pregroup domain. """
+    dom = cod = Category()
 
 
 def eager_parse(*words, target=Ty('s')):
