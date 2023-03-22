@@ -62,7 +62,7 @@ Axioms
 
 from discopy import symmetric, ribbon, hypergraph
 from discopy.cat import factory
-from discopy.pivotal import Ty
+from discopy.pivotal import Ob, Ty
 
 
 @factory
