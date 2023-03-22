@@ -32,7 +32,7 @@ Summary
 from discopy import messages, rigid, frobenius
 from discopy.cat import factory
 from discopy.grammar import thue
-from discopy.rigid import Ty
+from discopy.rigid import Ob, Ty
 
 
 @factory

@@ -137,7 +137,7 @@ def test_BX():
 
 def test_Functor():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f = Rule(x, y, name='f')
+    f = Box(x, y, name='f')
     IdF = Functor(lambda x: x, lambda f: f)
     assert IdF(x >> y << x) == x >> y << x
     assert IdF(Curry(f)) == Curry(f)
@@ -150,23 +150,23 @@ def test_Functor():
 
 
 def categorial_diagram():
-    from discopy.grammar.categorial import Rule, Diagram, FA, BA, FC
+    from discopy.grammar.categorial import Box, Diagram, FA, BA, FC
 
     S, NP = closed.Ty('S'), closed.Ty('NP')
     boxes = [
         Word('that', NP),
         Word("'s", ((NP >> S) << NP)),
         Word('exactly', ((NP >> S) >> (NP >> S))),
-        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
+        Box((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
              ((NP >> S) << NP), name='bx'),
         Word('what', (NP << (S << NP))),
         Word('i', NP),
-        Rule(NP, (S << (NP >> S)), name='tr'),
+        Box(NP, (S << (NP >> S)), name='tr'),
         Word('showed', ((NP >> S) << NP)),
         Word('to', (((NP >> S) >> (NP >> S)) << NP)),
         Word('her', NP),
         FA((((NP >> S) >> (NP >> S)) << NP)),
-        Rule((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
+        Box((((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
              ((NP >> S) << NP), name='bx'),
         FC((S << (NP >> S)), ((NP >> S) << NP)),
         FA((NP << (S << NP))),

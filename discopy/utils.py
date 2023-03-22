@@ -378,3 +378,29 @@ def pushout(
         j: len(left_proper) + len(components) + i
         for i, j in enumerate(right_proper)})
     return left_pushout, right_pushout
+
+
+class BinaryBoxConstructor:
+    """
+    Box constructor with attributes ``left`` and ``right`` as input.
+
+    Parameters:
+        left : Some attribute on the left.
+        right : Some attribute on the right.
+    """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({repr(self.left)}, {repr(self.right)})"
+
+    def to_tree(self) -> dict:
+        """ Serialise a binary box constructor. """
+        left, right = self.left.to_tree(), self.right.to_tree()
+        return dict(factory=factory_name(type(self)), left=left, right=right)
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
+        """ Decode a serialised binary box constructor. """
+        return cls(*map(from_tree, (tree['left'], tree['right'])))

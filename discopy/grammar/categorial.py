@@ -12,7 +12,7 @@ Summary
     :toctree:
 
     Diagram
-    Rule
+    Box
     Word
     FA
     BA
@@ -36,10 +36,11 @@ Summary
 import re
 
 from discopy import closed, messages
-from discopy.braided import BinaryBoxConstructor
 from discopy.cat import factory, AxiomError
 from discopy.grammar import thue
-from discopy.utils import assert_isinstance, factory_name, from_tree
+from discopy.closed import Ty, Over, Under
+from discopy.utils import (
+    assert_isinstance, factory_name, from_tree, BinaryBoxConstructor)
 
 
 @factory
@@ -88,13 +89,13 @@ class Diagram(closed.Diagram):
         return BX(middle << left, middle >> right)
 
 
-class Rule(thue.Rule, Diagram):
+class Box(closed.Box, Diagram):
     """
-    A categorial rule is a grammar rule in a categorial diagram.
+    A categorial box is a grammar rule in a categorial diagram.
     """
 
 
-class Word(thue.Word, Rule):
+class Word(thue.Word, Box):
     """
     A categorial word is a rule with a ``name``, a grammatical type as ``cod``
     and an optional domain ``dom``.
@@ -106,13 +107,13 @@ class Word(thue.Word, Rule):
     """
 
 
-class Eval(closed.Eval, Rule):
+class Eval(closed.Eval, Box):
     """
     Evaluation box in a categorial grammar, equivalent to :class:``FA``.
     """
 
 
-class Curry(closed.Curry, Rule):
+class Curry(closed.Curry, Box):
     """
     The currying of a categorial diagram.
     """
@@ -131,83 +132,83 @@ def unaryBoxConstructor(attr):
     return Constructor
 
 
-class FA(unaryBoxConstructor("over"), Rule):
+class FA(unaryBoxConstructor("over"), Box):
     """ Forward application rule. """
     def __init__(self, over):
-        assert_isinstance(over, closed.Over)
+        assert_isinstance(over, Over)
         self.over = over
         dom, cod = over @ over.exponent, over.base
-        Rule.__init__(self, dom, cod, name=f"FA{over}")
+        Box.__init__(self, dom, cod, name=f"FA{over}")
 
     def __repr__(self):
         return f"FA({repr(self.dom[:1])})"
 
 
-class BA(unaryBoxConstructor("under"), Rule):
+class BA(unaryBoxConstructor("under"), Box):
     """ Backward application rule. """
     def __init__(self, under):
-        assert_isinstance(under, closed.Under)
+        assert_isinstance(under, Under)
         self.under = under
         dom, cod = under.exponent @ under, under.base
-        Rule.__init__(self, dom, cod, name=f"BA{under}")
+        Box.__init__(self, dom, cod, name=f"BA{under}")
 
     def __repr__(self):
         return f"BA({repr(self.dom[1:])})"
 
 
-class FC(BinaryBoxConstructor, Rule):
+class FC(BinaryBoxConstructor, Box):
     """ Forward composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, closed.Over)
-        assert_isinstance(right, closed.Over)
+        assert_isinstance(left, Over)
+        assert_isinstance(right, Over)
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
         name = f"FC({left}, {right})"
         dom, cod = left @ right, left.base << right.exponent
-        Rule.__init__(self, dom, cod, name=name)
+        Box.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
-class BC(BinaryBoxConstructor, Rule):
+class BC(BinaryBoxConstructor, Box):
     """ Backward composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, closed.Under)
-        assert_isinstance(right, closed.Under)
+        assert_isinstance(left, Under)
+        assert_isinstance(right, Under)
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
         name = f"BC({left}, {right})"
         dom, cod = left @ right, left.exponent >> right.base
-        Rule.__init__(self, dom, cod, name=name)
+        Box.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
-class FX(BinaryBoxConstructor, Rule):
+class FX(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, closed.Over)
-        assert_isinstance(right, closed.Under)
+        assert_isinstance(left, Over)
+        assert_isinstance(right, Under)
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
         name = f"FX({left}, {right})"
         dom, cod = left @ right, right.exponent >> left.base
-        Rule.__init__(self, dom, cod, name=name)
+        Box.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
-class BX(BinaryBoxConstructor, Rule):
+class BX(BinaryBoxConstructor, Box):
     """ Backward crossed composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, closed.Over)
-        assert_isinstance(right, closed.Under)
+        assert_isinstance(left, Over)
+        assert_isinstance(right, Under)
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
         name = f"BX({left}, {right})"
         dom, cod = left @ right, right.base << left.exponent
-        Rule.__init__(self, dom, cod, name=name)
+        Box.__init__(self, dom, cod, name=name)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
@@ -221,7 +222,7 @@ class Functor(closed.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = closed.Category(closed.Ty, Diagram)
+    dom = cod = closed.Category(Ty, Diagram)
 
     def __call__(self, other):
         if isinstance(other, FA):
@@ -250,7 +251,7 @@ class Functor(closed.Functor):
         return super().__call__(other)
 
 
-def cat2ty(string: str) -> closed.Ty:
+def cat2ty(string: str) -> Ty:
     """
     Translate the string representation of a CCG category into DisCoPy.
 
@@ -279,10 +280,10 @@ def cat2ty(string: str) -> closed.Ty:
         return cat2ty(right) >> cat2ty(left)
     if slash == '/':
         return cat2ty(left) << cat2ty(right)
-    return closed.Ty(left)
+    return Ty(left)
 
 
-def tree2diagram(tree: dict, dom=closed.Ty()) -> Diagram:
+def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
     """
     Translate a depccg.Tree in JSON format into DisCoPy.
 
@@ -293,7 +294,7 @@ def tree2diagram(tree: dict, dom=closed.Ty()) -> Diagram:
     if 'word' in tree:
         return Word(tree['word'], cat2ty(tree['cat']), dom=dom)
     children = list(map(tree2diagram, tree['children']))
-    dom = closed.Ty().tensor(*[child.cod for child in children])
+    dom = Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
         box = BA(dom.inside[1])
@@ -302,7 +303,7 @@ def tree2diagram(tree: dict, dom=closed.Ty()) -> Diagram:
     elif tree['type'] == 'fc':
         box = FC(dom.inside[0], dom.inside[1])
     else:
-        box = Rule(dom, cod, name=tree['type'])
+        box = Box(dom, cod, name=tree['type'])
     return Id().tensor(*children) >> box
 
 
