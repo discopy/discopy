@@ -54,7 +54,7 @@ Examples
 >>> ar = {Alice: Ket(0),
 ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
 ...       Bob: Ket(1)}
->>> F = rigid.Functor(ob, ar, cod=Category(Ty, Circuit))
+>>> F = pregroup.Functor(ob, ar, cod=Category(Ty, Circuit))
 >>> assert abs(F(sentence).eval().array) ** 2
 
 >>> from discopy.drawing import Equation

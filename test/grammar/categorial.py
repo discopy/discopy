@@ -190,8 +190,7 @@ def test_to_tree():
 
 
 def pregroup_diagram():
-    from discopy.rigid import Ob, Ty
-    from discopy.grammar.pregroup import Box, Cup, Diagram
+    from discopy.grammar.pregroup import Ob, Ty, Box, Cup, Diagram
 
     boxes = [
         Box('that', Ty(), Ty('NP')),

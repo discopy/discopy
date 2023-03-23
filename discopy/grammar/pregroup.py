@@ -29,10 +29,40 @@ Summary
         brute_force
 """
 
-from discopy import messages, rigid, frobenius
+from discopy import messages, rigid, frobenius, messages
 from discopy.cat import factory
 from discopy.grammar import thue
-from discopy.rigid import Ob, Ty
+from discopy.rigid import Ob
+
+
+@factory
+class Ty(rigid.Ty):
+    """
+    A pregroup type is a rigid type.
+
+    Parameters:
+        inside (tuple[Ob, ...]) : The objects inside the type.
+
+    Note
+    ----
+    In order to define more general DisCoCat diagrams, pregroup types do not
+    raise any AxiomError if you build cups and caps with the wrong adjoints.
+
+    Example
+    -------
+    >>> n = Ty('n')
+    >>> n.assert_isadjoint(n.l)
+    >>> n.assert_isadjoint(n.r)
+    """
+    def assert_isadjoint(self, other):
+        """
+        Raise ``AxiomError`` if two pregroup types are not adjoints.
+
+        Parameters:
+            other : The alleged right adjoint.
+        """
+        if self.r != other and self != other.r:
+            raise AxiomError(messages.NOT_ADJOINT.format(self, other))
 
 
 @factory
@@ -59,22 +89,22 @@ class Diagram(frobenius.Diagram):
     >>> sentence = grammar << Alice @ loves @ Bob
     >>> print(sentence[:4])
     Alice >> n @ loves >> n @ n.r @ s @ n.l @ Bob >> Cup(n, n.r) @ s @ n.l @ n
-    >>> from discopy import tensor, rigid
+    >>> from discopy import tensor
     >>> ob = {s: 1, n: 2}
     >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-    >>> F = tensor.Functor(ob, ar, dom=rigid.Category(), dtype=bool)
+    >>> F = tensor.Functor(ob, ar, dom=Category(), dtype=bool)
     >>> assert F(sentence)
     """
     ty_factory = Ty
 
-    def normal_form(diagram, **params):
+    def normal_form(self, **params):
         """
         Applies normal form to a pregroup diagram of the form
         ``word @ ... @ word >> wires`` by normalising words and wires
         seperately before combining them, so it can be drawn with :meth:`draw`.
         """
         words, is_pregroup = Id(Ty()), True
-        for _, box, right in diagram.inside:
+        for _, box, right in self.inside:
             if isinstance(box, Word):
                 if right:  # word boxes should be tensored left to right.
                     is_pregroup = False
@@ -83,13 +113,11 @@ class Diagram(frobenius.Diagram):
             else:
                 break
 
-        wires = diagram[len(words):]
+        wires = self[len(words):]
         is_pregroup = is_pregroup and all(
             isinstance(box, (Cup, Cap, Swap)) for box in wires.boxes)
-        if not is_pregroup:
-            raise ValueError(messages.NOT_PREGROUP)
-        if words.cod == Ty():
-            return rigid.Diagram.normal_form(wires)
+        if not is_pregroup or not words.cod:
+            return rigid.Diagram.normal_form(self)
         return rigid.Diagram.normal_form(words)\
             >> rigid.Diagram.normal_form(wires)
 
@@ -153,6 +181,9 @@ class Spider(frobenius.Spider, Box):
     """
     A pregroup spider is a frobenius spider in a pregroup diagram.
     """
+    def rotate(self, left=False):
+        typ = self.typ.l if left else self.typ.r
+        return type(self)(len(self.cod), len(self.dom), typ, self.phase)
 
 
 class Word(thue.Word, Box):
@@ -160,12 +191,9 @@ class Word(thue.Word, Box):
     A word is a rigid box with a ``name``, a grammatical type as ``cod`` and
     an optional domain ``dom``.
     """
-
-    z = 0
-
     def __init__(self, name: str, cod: rigid.Ty, dom: rigid.Ty = Ty(),
                  **params):
-        super().__init__(name=name, dom=dom, cod=cod, **params)
+        Box.__init__(self, name, dom, cod, **params)
 
     def __repr__(self):
         extra = f", dom={repr(self.dom)}" if self.dom else ""
@@ -220,7 +248,7 @@ def brute_force(*vocab, target=Ty('s')):
             test.append(words + (word, ))
 
 
-Diagram.cup_factory, Diagram.cap_factory, Diagram.braid_factory\
-    = Cup, Cap, Swap
+Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
+Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 Id = Diagram.id

@@ -30,9 +30,8 @@ from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup, Category
-from discopy.matrix import Matrix, backend
+from discopy.matrix import Matrix, backend, get_backend
 from discopy.monoidal import assert_isatomic
-from discopy.rigid import assert_isadjoint
 from discopy.utils import factory_name, assert_isinstance, product
 
 
@@ -151,7 +150,7 @@ class Tensor(Matrix):
     def cup_factory(cls, left: Dim, right: Dim) -> Tensor:
         assert_isinstance(left, Dim)
         assert_isinstance(right, Dim)
-        assert_isadjoint(left, right)
+        left.assert_isadjoint(right)
         return cls(cls.id(left).array, left @ right, Dim(1))
 
     @classmethod

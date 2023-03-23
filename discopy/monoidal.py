@@ -808,12 +808,12 @@ class Diagram(cat.Arrow, Whiskerable):
         """
         cache = set()
         for diagram in itertools.chain([self], self.normalize(**params)):
-            if diagram in cache:
+            if str(diagram) in cache:
                 exception = NotImplementedError(
                     messages.NOT_CONNECTED.format(self))
                 exception.last_step = diagram
                 raise exception
-            cache.add(diagram)
+            cache.add(str(diagram))
         return diagram
 
     @classmethod

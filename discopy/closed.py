@@ -53,7 +53,7 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import cat, monoidal
+from discopy import cat, monoidal, messages
 from discopy.cat import Category, factory
 from discopy.utils import (
     factory_name,
@@ -96,6 +96,21 @@ class Ty(monoidal.Ty):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.inside))})"
 
+    @property
+    def left(self) -> Ty:
+        if len(self) == 1:
+            return self.inside[0].left
+        raise AttributeError(
+            messages.COMPLEX_TYPE_HAS_NO_ATTR.format(
+                factory_name(type(self)), "left"))
+
+    @property
+    def right(self) -> Ty:
+        if len(self) == 1:
+            return self.inside[0].right
+        raise AttributeError(messages.COMPLEX_TYPE_HAS_NO_ATTR.format(
+            factory_name(type(self)), "right"))
+
 
 class Exp(Ty, cat.Ob):
     """
@@ -109,10 +124,15 @@ class Exp(Ty, cat.Ob):
 
     def __init__(self, base: Ty, exponent: Ty):
         self.base, self.exponent = base, exponent
-        # TODO : replace left and right by base and exponent
-        self.left, self.right =\
-            (exponent, base) if isinstance(self, Under) else (base, exponent)
         super().__init__(self)
+
+    @property
+    def left(self):
+        return self.exponent if isinstance(self, Under) else self.base
+
+    @property
+    def right(self):
+        return self.base if isinstance(self, Under) else self.exponent
 
     def __eq__(self, other):
         if isinstance(other, type(self)):

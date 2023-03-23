@@ -34,7 +34,7 @@ Example
 -------
 
 >>> from discopy.grammar import pregroup
->>> from discopy.grammar.pregroup import Word, Cup, Diagram
+>>> from discopy.grammar.pregroup import Word, Cup, Diagram, Functor
 >>> s, n = map(pregroup.Ty, "sn")
 >>> Alice, loves, Bob\\
 ...     = Word('Alice', n), Word('loves', n.r @ s @ n.l), Word('Bob', n)
@@ -42,7 +42,6 @@ Example
 >>> noun_phrase = Alice @ who @ loves @ Bob\\
 ...     >> Cup(n, n.r) @ n @ Diagram.cups((n.r @ s).l, n.r @ s) @ Cup(n.l, n)
 
->>> from discopy.rigid import Functor
 >>> from discopy.frobenius import Ty as T, Diagram as D, Box, Category, Swap
 >>> S, N = map(T, "SN")
 >>> F = Functor(
@@ -71,7 +70,6 @@ from discopy import (
     balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
 from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
-from discopy.rigid import assert_isadjoint
 from discopy.utils import (
     NamedGeneric, unbiased, assert_isinstance, factory_name)
 
@@ -326,7 +324,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         .. image:: /_static/int/int-snake-equations.png
             :align: center
         """
-        assert_isadjoint(left, right)
+        rigid.Ty.assert_isadjoint(left, right)
         inside = cls.natural.id(left.positive + left.negative)
         return cls(inside, left @ right, type(left)())
 
@@ -339,7 +337,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
             left : The left-hand side of the caps.
             right : The right-hand side of the caps.
         """
-        assert_isadjoint(left, right)
+        rigid.Ty.assert_isadjoint(right, left)
         inside = cls.natural.id(left.negative + left.positive)
         return cls(inside, type(left)(), left @ right)
 
