@@ -98,18 +98,47 @@ class Ty(monoidal.Ty):
 
     @property
     def left(self) -> Ty:
-        if len(self) == 1:
-            return self.inside[0].left
-        raise AttributeError(
-            messages.COMPLEX_TYPE_HAS_NO_ATTR.format(
-                factory_name(type(self)), "left"))
+        return self.inside[0].left if self.is_exp else None
 
     @property
     def right(self) -> Ty:
-        if len(self) == 1:
-            return self.inside[0].right
-        raise AttributeError(messages.COMPLEX_TYPE_HAS_NO_ATTR.format(
-            factory_name(type(self)), "right"))
+        return self.inside[0].right if self.is_exp else None
+
+    @property
+    def is_exp(self):
+        """
+        Whether the type is an :class:`Exp` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x ** y).is_exp and (x ** y @ Ty()).is_exp
+        """
+        return len(self) == 1 and isinstance(self.inside[0], Exp)
+
+    @property
+    def is_under(self):
+        """
+        Whether the type is an :class:`Under` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x >> y).is_under and (x >> y @ Ty()).is_under
+        """
+        return len(self) == 1 and isinstance(self.inside[0], Under)
+
+    @property
+    def is_over(self):
+        """
+        Whether the type is an :class:`Over` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x << y).is_over and (x << y @ Ty()).is_over
+        """
+        return len(self) == 1 and isinstance(self.inside[0], Over)
 
 
 class Exp(Ty, cat.Ob):
