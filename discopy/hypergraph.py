@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 
 from networkx import DiGraph as Graph, spring_layout, draw_networkx
 from networkx.algorithms.isomorphism import is_isomorphic
-from networkx import dag_longest_path_length
+from networkx import dag_longest_path_length, weisfeiler_lehman_graph_hash
 
 from discopy import cat, monoidal, drawing, messages
 from discopy.cat import factory, AxiomError, Composable
@@ -413,8 +413,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
-        return hash(getattr(self, attr) for attr in [
-            'dom', 'cod', 'boxes', 'wires', 'n_spiders'])
+        return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
+            self.to_graph(), node_attr="box")))
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
@@ -745,9 +745,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         """
         graph = Graph()
         graph.add_nodes_from(
-            Node("spider", i=i) for i in range(self.n_spiders))
+            [Node("spider", i=i) for i in range(self.n_spiders)], box=None)
         graph.add_nodes_from(
-            [(Node("input", i=i), dict(i=i)) for i, _ in enumerate(self.dom)])
+            [(Node("input", i=i), dict(i=i))
+             for i, _ in enumerate(self.dom)], box=None)
         graph.add_edges_from(
             (Node("input", i=i), Node("spider", i=j))
             for i, j in enumerate(self.wires[:len(self.dom)]))
@@ -758,7 +759,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                 for j, spider in enumerate(wires):
                     spider_node = Node("spider", i=spider)
                     port_node = Node(case, i=i, j=j)
-                    graph.add_node(port_node, j=j)
+                    graph.add_node(port_node, j=j, box=None)
                     if case == "dom":
                         graph.add_edge(spider_node, port_node)
                         graph.add_edge(port_node, box_node)
@@ -766,7 +767,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                         graph.add_edge(box_node, port_node)
                         graph.add_edge(port_node, spider_node)
         graph.add_nodes_from(
-            [(Node("output", i=i), dict(i=i)) for i, _ in enumerate(self.cod)])
+            [(Node("output", i=i), dict(i=i))
+             for i, _ in enumerate(self.cod)], box=None)
         graph.add_edges_from(
             (Node("output", i=i), Node("spider", i=j))
             for i, j in enumerate(
