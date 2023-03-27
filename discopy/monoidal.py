@@ -608,6 +608,13 @@ class Diagram(cat.Arrow, Whiskerable):
             boxes_and_offsets : The boxes and offsets of the diagram.
             boxes : The list of boxes.
             offsets : The list of offsets.
+
+        Example
+        -------
+        >>> x, y, z, w = map(Ty, "xyzw")
+        >>> f, g = Box('f', x, y), Box('g', z, w)
+        >>> assert f @ z >> y @ g == Diagram.decode(
+        ...     dom=x @ z, cod=y @ w, boxes=[f, g], offsets=[0, 1])
         """
         if boxes_and_offsets is None:
             boxes_and_offsets = zip(boxes, offsets)
@@ -685,7 +692,6 @@ class Diagram(cat.Arrow, Whiskerable):
 
         Example
         -------
-        >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
         >>> assert Id(x @ y).depth() == 0

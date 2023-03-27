@@ -112,6 +112,19 @@ class Diagram(monoidal.Diagram):
             left : Whether to slide left or right.
             down : Whether to slide down or up.
             braid : The braiding method to be used.
+
+        Examples
+        --------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, y)
+        >>> top_left = f @ z >> Braid(y, z)
+        >>> top_right = z @ f >> Braid(z, y)
+        >>> bot_left = Braid(z, x) >> f @ z
+        >>> bot_right = Braid(x, z) >> z @ f
+        >>> assert top_right.naturality(0) == bot_left
+        >>> assert top_left.naturality(0, left=False) == bot_right
+        >>> assert bot_right.naturality(1, down=False) == top_left
+        >>> assert bot_left.naturality(1, left=False, down=False) == top_right
         """
         braid = braid or self.braid
         left_wires, box, right_wires = self.inside[i]
