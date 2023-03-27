@@ -747,3 +747,64 @@ GATES = {
     'CRz': CRz,
     'CU1': CU1,
 }
+
+
+for attr, gate in GATES.items():
+    def closure(attr=attr, gate=gate):
+        """ Eaiest way around the Python late binding gotcha. """
+        if isinstance(gate, Controlled)\
+                and isinstance(gate.controlled, Controlled):
+            def method(self, i: int, j: int, k: int) -> Circuit:
+                """
+                Apply {} gate to a circuit given qubit indices.
+
+                Parameters:
+                    i : First control index.
+                    j : Second control index.
+                    k : Target index.
+                """
+                return self.apply_controlled(
+                    gate.controlled.controlled, i, j, k)
+        elif isinstance(gate, Controlled):
+            def method(self, i: int, j: int) -> Circuit:
+                """
+                Apply {} gate to a circuit given qubit indices.
+
+                Parameters:
+                    i : Control index.
+                    j : Target index.
+                """
+                return self.apply_controlled(gate.controlled, i, j)
+        elif isinstance(gate, Box):
+            def method(self, i: int) -> Circuit:
+                """
+                Apply {} gate to a circuit given qubit index.
+
+                Parameters:
+                    i : Target index.
+                """
+                return self.apply_controlled(gate, i)
+        elif issubclass(gate, Rotation) and issubclass(gate, Controlled):
+            def method(self, phi: float, i: int, j: int) -> Circuit:
+                """
+                Apply :class:`{}` to a circuit given phase and indices.
+
+                Parameters:
+                    phi : Phase.
+                    i : Control index.
+                    j : Target index.
+                """
+                return self.apply_controlled(gate.controlled(phi), i, j)
+        elif issubclass(gate, Rotation):
+            def method(self, phi: float, i: int) -> Circuit:
+                """
+                Apply :class:`{}` to a circuit given phase and target index.
+
+                Parameters:
+                    phi : Phase.
+                    i : Target index.
+                """
+                return self.apply_controlled(gate(phi), i)
+        method.__doc__ = method.__doc__.format(attr)
+        return method
+    setattr(Circuit, attr, closure())
