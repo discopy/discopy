@@ -297,7 +297,7 @@ class Digits(ClassicalGate):
 
     @property
     def array(self):
-        with backend() as np:
+        with backend('numpy') as np:
             array = np.zeros(len(self._digits) * (self._dim, ))
             array[self._digits] = 1
             return array
