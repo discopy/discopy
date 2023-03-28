@@ -1,3 +1,6 @@
+pytest
+coverage
+pycodestyle
 pytket==1.1.0
 pyzx>=0.7.0
 sympy==1.9
@@ -7,3 +10,6 @@ jax
 jaxlib
 torch
 pennylane
+lxml
+nltk
+pylint

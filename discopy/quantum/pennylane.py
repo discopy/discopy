@@ -1,6 +1,32 @@
+# -*- coding: utf-8 -*-
+
 """
-Implements a conversion from quantum DisCoPy circuits to
-PennyLane circuits.
+Interface with PennyLane.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    PennyLaneCircuit
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        tk_op_to_pennylane
+        extract_ops_from_tk
+        get_post_selection_dict
+        to_pennylane
+
+Notes
+-----
 
 If `probabilities` is set to False, the output states of the PennyLane
 circuit will be exactly equivalent to those of the DisCoPy circuit
@@ -21,15 +47,16 @@ associated weights should be passed to `eval()` as `symbols=` and
 """
 
 
-from discopy.quantum import Circuit
-from discopy.quantum.gates import Scalar
 from itertools import product
+
 import numpy as np
 import pennylane as qml
-from pytket import OpType
 import sympy
 import torch
+from pytket import OpType
 
+from discopy.quantum import Circuit
+from discopy.quantum.gates import Scalar
 
 OP_MAP = {
     OpType.X: qml.PauliX,

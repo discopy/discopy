@@ -1,24 +1,35 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements the free dagger monoidal category
-and strong dagger monoidal functors.
+The free (pre)monoidal category, i.e. planar diagrams.
 
-The syntax for diagrams is given by the following grammar::
+Summary
+-------
 
-    diagram ::= Box(name, dom=type, cod=type)
-        | diagram[::-1]
-        | diagram @ diagram
-        | diagram >> diagram
-        | Id(type)
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
 
-where :code:`[::-1]`, :code:`@` and :code:`>>` denote the dagger, tensor and
-composition respectively. The syntax for types is given by::
+    Ty
+    PRO
+    Layer
+    Diagram
+    Box
+    Sum
+    Bubble
+    Category
+    Functor
+    Whiskerable
 
-    type ::= Ty(name) | type @ type | Ty()
+Axioms
+------
+We can check the axioms for :class:`Ty` being a monoid.
 
-Notes
------
+>>> x, y, z, unit = Ty('x'), Ty('y'), Ty('z'), Ty()
+>>> assert x @ unit == x == unit @ x
+>>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
+
 We can check the axioms for dagger monoidal categories, up to interchanger.
 
 >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
@@ -35,150 +46,131 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 >>> assert s0 @ s1 == s0 >> s1 == (s1 @ s0).interchange(0, 1)
 >>> assert s1 @ s0 == s1 >> s0 == (s0 @ s1).interchange(0, 1)
 
-.. image:: ../_static/imgs/EckmannHilton.gif
+.. image:: /_static/monoidal/EckmannHilton.gif
     :align: center
 """
-from discopy import cat, messages, drawing, rewriting
-from discopy.cat import Ob
-from discopy.messages import WarnOnce
-from discopy.utils import factory_name, from_tree
 
-warn_permutation = WarnOnce()
+from __future__ import annotations
+
+import itertools
+from abc import ABC, abstractmethod
+from typing import Iterator
+
+from discopy import cat, drawing, messages
+from discopy.cat import factory, Ob, AxiomError, assert_iscomposable
+from discopy.utils import factory_name, from_tree, assert_isinstance
 
 
-class Ty(Ob):
+@factory
+class Ty(cat.Ob):
     """
-    Implements a type as a list of :class:`discopy.cat.Ob`, used as domain and
-    codomain for :class:`monoidal.Diagram`.
-    Types are the free monoid on objects with product
-    :code:`@` and unit :code:`Ty()`.
+    A type is a tuple of objects with :meth:`Ty.tensor` as concatenation.
 
-    Parameters
-    ----------
-    objects : list of :class:`discopy.cat.Ob`
-        List of objects or object names.
+    Parameters:
+        inside : The objects inside the type (or their names).
 
-    Important
-    ---------
-    Elements that are not instance of :class:`discopy.cat.Ob` are implicitly
-    taken to be the name of an object, i.e.
-    :code:`Ty('x', 'y') == Ty(Ob('x'), Ob('y'))`.
+    Tip
+    ---
+    Types can be instantiated with a name rather than object.
 
-    Notes
-    -----
-    We can check the axioms for a monoid.
+    >>> assert Ty('x') == Ty(cat.Ob('x'))
 
-    >>> x, y, z, unit = Ty('x'), Ty('y'), Ty('z'), Ty()
-    >>> assert x @ unit == x == unit @ x
-    >>> assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
+    Tip
+    ---
+    A type can be exponentiated by a natural number.
+
+    >>> assert Ty('x') ** 3 == Ty('x', 'x', 'x')
+
+    Note
+    ----
+    Types can be indexed and sliced using square brackets. Indexing behaves
+    like that of strings, i.e. when we index a type we get a type back.
+    The objects inside the type are still accessible using ``.inside``.
+
+    >>> t = Ty(*"xyz")
+    >>> assert t[0] == t[:1] == Ty('x')
+    >>> assert t[0] != t.inside[0] == Ob('x')
+    >>> assert t[1:] == t[-2:] == Ty('y', 'z')
     """
-    def __init__(self, *objects):
-        self._objects = tuple(
-            x if isinstance(x, Ob) else Ob(x) for x in objects)
-        super().__init__(self)
+    ob_factory = cat.Ob
 
-    @property
-    def objects(self):
-        """
-        List of objects forming a type.
+    __ambiguous_inheritance__ = True
 
-        Note
-        ----
+    def __init__(self, *inside: str | cat.Ob):
+        for obj in inside:
+            assert_isinstance(obj, (str, self.ob_factory))
+        self.inside = tuple(
+            self.ob_factory(x) if isinstance(x, str) else x for x in inside)
+        super().__init__(str(self))
 
-        A type may be sliced into subtypes.
-
-        >>> t = Ty('x', 'y', 'z')
-        >>> assert t[0] == Ob('x')
-        >>> assert t[:1] == Ty('x')
-        >>> assert t[1:] == Ty('y', 'z')
-
-        """
-        return list(self._objects)
-
-    def tensor(self, *others):
+    def tensor(self, *others: Ty) -> Ty:
         """
         Returns the tensor of types, i.e. the concatenation of their lists
-        of objects. This is called with the binary operator `@`.
+        of objects. This is called with the binary operator :code:`@`.
 
-        >>> Ty('x') @ Ty('y', 'z')
-        Ty('x', 'y', 'z')
+        Parameters:
+            others : The other types to tensor.
 
-        Parameters
-        ----------
-        other : monoidal.Ty
+        Tip
+        ---
+        A list of types can be tensored by calling :code:`Ty().tensor`.
 
-        Returns
-        -------
-        t : monoidal.Ty
-            such that :code:`t.objects == self.objects + other.objects`.
-
-        Note
-        ----
-        We can take the sum of a list of type, specifying the unit `Ty()`.
-
-        >>> types = Ty('x'), Ty('y'), Ty('z')
-        >>> Ty().tensor(*types)
-        Ty('x', 'y', 'z')
-
-        We can take the exponent of a type by any natural number.
-
-        >>> Ty('x') ** 3
-        Ty('x', 'x', 'x')
-
+        >>> list_of_types = [Ty('x'), Ty('y'), Ty('z')]
+        >>> assert Ty().tensor(*list_of_types) == Ty('x', 'y', 'z')
         """
         for other in others:
             if not isinstance(other, Ty):
-                raise TypeError(messages.type_err(Ty, other))
-        objects = self.objects + [x for t in others for x in t.objects]
-        return self.upgrade(Ty(*objects))
+                return NotImplemented
+            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.factory)
+        inside = self.inside + tuple(x for t in others for x in t.inside)
+        return self.factory(*inside)
 
-    def count(self, obj):
+    def count(self, obj: cat.Ob) -> int:
         """
-        Counts the occurrence of a given object.
+        Counts the occurrence of a given object (or a type of length 1).
 
-        Parameters
-        ----------
-        obj : :class:`Ty` or :class:`Ob`
-            either a type of length 1 or an object
+        Parameters:
+            obj : The object to count.
 
-        Returns
+        Example
         -------
-        n : int
-            such that :code:`n == self.objects.count(ob)`.
-
-        Examples
-        --------
 
         >>> x = Ty('x')
         >>> xs = x ** 5
-        >>> assert xs.count(x) == xs.count(x[0]) == xs.objects.count(Ob('x'))
+        >>> assert xs.count(x) == xs.inside.count(x.inside[0])
         """
-        obj, = obj if isinstance(obj, Ty) else (obj, )
-        return self._objects.count(obj)
+        obj, = obj.inside if isinstance(obj, Ty) else (obj, )
+        return self.inside.count(obj)
 
-    @staticmethod
-    def upgrade(old):
-        """ Allows class inheritance for tensor and __getitem__. """
-        return old
+    def to_drawing(self) -> Ty:
+        """ Called before :meth:`Diagram.draw`. """
+        def obj_to_drawing(obj):
+            result = cat.Ob(str(obj))
+            result.always_draw_label = getattr(obj, "always_draw_label", False)
+            return result
+        return Ty(*map(obj_to_drawing, self.inside))
 
-    def downgrade(self):
-        """ Downgrades to :class:`discopy.monoidal.Ty`. """
-        return Ty(*self)
+    @property
+    def is_atomic(self) -> bool:
+        """ Whether a type is atomic, i.e. it has length 1. """
+        return len(self) == 1
 
     def __eq__(self, other):
-        return isinstance(other, Ty) and self._objects == other._objects
+        return isinstance(other, self.factory) and self.inside == other.inside
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
-        return "Ty({})".format(', '.join(repr(x.name) for x in self._objects))
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self.inside))})"
 
     def __str__(self):
-        return ' @ '.join(map(str, self._objects)) or 'Ty()'
+        return ' @ '.join(map(str, self.inside)) or type(self).__name__ + '()'
 
     def __len__(self):
-        return len(self._objects)
+        return len(self.inside)
 
     def __iter__(self):
         for i in range(len(self)):
@@ -186,529 +178,638 @@ class Ty(Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.upgrade(Ty(*self._objects[key]))
-        return self._objects[key]
+            return self.factory(*self.inside[key])
+        return cat.Arrow.__getitem__(self, key)
+
+    def __pow__(self, n_times):
+        return self.factory().tensor(*n_times * [self])
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(type(self)),
+            'inside': [x.to_tree() for x in self.inside]}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(*map(from_tree, tree['inside']))
 
     def __matmul__(self, other):
         return self.tensor(other)
 
-    def __pow__(self, n_times):
-        if not isinstance(n_times, int):
-            raise TypeError(messages.type_err(int, n_times))
-        result = type(self)()
-        for _ in range(n_times):
-            result = result @ self
-        return result
-
-    def to_tree(self):
-        return {
-            'factory': factory_name(self),
-            'objects': [x.to_tree() for x in self.objects]}
-
-    @classmethod
-    def from_tree(cls, tree):
-        return cls(*map(from_tree, tree['objects']))
+    __add__ = __matmul__
 
 
-def types(names):
-    """ Transforms strings into instances of :class:`discopy.monoidal.Ty`.
-
-    Examples
-    --------
-    >>> x, y, z = types("x y z")
-    >>> x, y, z
-    (Ty('x'), Ty('y'), Ty('z'))
-    """
-    return list(map(Ty, names.split()))
-
-
+@factory
 class PRO(Ty):
-    """ Implements the objects of a PRO, i.e. a non-symmetric PROP.
-    Wraps a natural number n into a unary type Ty(1, ..., 1) of length n.
+    """
+    A PRO is a natural number ``n`` seen as a type with addition as tensor.
 
     Parameters
     ----------
     n : int
-        Number of wires.
+        The length of the PRO type.
 
-    Examples
-    --------
-    >>> PRO(1) @ PRO(1)
-    PRO(2)
-    >>> assert PRO(3) == Ty(1, 1, 1)
-    >>> assert PRO(1) == PRO(Ob(1))
+    Example
+    -------
+    >>> assert PRO(1) @ PRO(2) == PRO(3)
+
+    Note
+    ----
+    If ``ty_factory`` is ``PRO`` then :class:`Diagram` will automatically turn
+    any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
+
+    >>> @factory
+    ... class Circuit(Diagram):
+    ...     ty_factory = PRO
+    >>> class Gate(Box, Circuit): ...
+    >>> CX = Gate('CX', 2, 2)
+
+    >>> assert CX @ 2 >> 2 @ CX == CX @ CX
     """
-    @staticmethod
-    def upgrade(old):
-        for obj in old:
-            if obj.name != 1:
-                raise TypeError(messages.type_err(int, obj.name))
-        return PRO(len(old))
+    def __init__(self, n: int = 0):
+        assert_isinstance(n, int)
+        self.n = n
 
-    def __init__(self, n=0):
-        if isinstance(n, PRO):
-            n = len(n)
-        if isinstance(n, Ob):
-            n = n.name
-        super().__init__(*(n * [1]))
+    @property
+    def inside(self):
+        return self.n * (1, )
+
+    def tensor(self, *others: PRO) -> PRO:
+        for other in others:
+            if not isinstance(other, Ty):
+                return NotImplemented  # This allows whiskering on the left.
+            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.factory)
+        return self.factory(self.n + sum(other.n for other in others))
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self.factory(len(self.inside[key]))
+        return cat.Arrow.__getitem__(self, key)
+
+    def __len__(self):
+        return self.n
 
     def __repr__(self):
-        return "PRO({})".format(len(self))
+        return factory_name(type(self)) + f"({self.n})"
 
     def __str__(self):
-        return repr(len(self))
+        return f"PRO({self.n})"
+
+    def __eq__(self, other):
+        return isinstance(other, self.factory) and self.n == other.n
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def __pow__(self, n_times):
+        return self.factory(n_times * self.n)
+
+    def to_drawing(self):
+        return Ty(*self.n * [Ob()])
+
+    def to_tree(self):
+        return {'factory': factory_name(type(self)), 'n': self.n}
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree['n'])
 
 
 class Layer(cat.Box):
     """
-    Layer of a diagram, i.e. a box with wires to the left and right.
+    A layer is a :code:`box` in the middle of a pair of types
+    :code:`left` and :code:`right`.
 
-    Parameters
-    ----------
-    left : monoidal.Ty
-        Left wires.
-    box : monoidal.Box
-        Middle box.
-    right : monoidal.Ty
-        Right wires.
-
-    Examples
-    --------
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> f, g = Box('f', y, z), Box('g', z, x)
-    >>> Layer(x, f, z)
-    Layer(Ty('x'), Box('f', Ty('y'), Ty('z')), Ty('z'))
-    >>> first, then = Layer(x, f, z), Layer(x, g, z)
-    >>> print(first >> then)
-    Id(x) @ f @ Id(z) >> Id(x) @ g @ Id(z)
+    Parameters:
+        left : The type on the left of the layer.
+        box : The box in the middle of the layer.
+        right : The type on the right of the layer.
+        more : More boxes and types to the right,
+               used by :meth:`Diagram.foliation`.
     """
-    def __init__(self, left, box, right):
-        self._left, self._box, self._right = left, box, right
-        dom, cod = left @ box.dom @ right, left @ box.cod @ right
-        super().__init__("Layer", dom, cod)
+    def __init__(self, left: Ty, box: Box, right: Ty, *more):
+        if len(more) % 2:
+            raise ValueError(messages.LAYERS_MUST_BE_ODD)
+        self.boxes_or_types = (left, box, right) + more
+        name, dom, cod = "", left[:0], left[:0]
+        for i, box_or_typ in enumerate(self.boxes_or_types):
+            if i % 2:
+                assert_isinstance(box, Box)
+                dom, cod = dom @ box_or_typ.dom, cod @ box_or_typ.cod
+                name += ("" if not name else " @ ") + str(box_or_typ)
+            else:
+                assert_isinstance(box_or_typ, Ty)
+                dom, cod = dom @ box_or_typ, cod @ box_or_typ
+                name += "" if not box_or_typ\
+                    else ("" if not name else " @ ") + str(box_or_typ)
+        super().__init__(name, dom, cod)
 
     def __iter__(self):
-        yield self._left
-        yield self._box
-        yield self._right
-
-    def __repr__(self):
-        return "Layer({}, {}, {})".format(
-            *map(repr, (self._left, self._box, self._right)))
-
-    def __str__(self):
-        left, box, right = self
-        return ("{} @ ".format(box.id(left)) if left else "")\
-            + str(box)\
-            + (" @ {}".format(box.id(right)) if right else "")
+        for box_or_typ in self.boxes_or_types:
+            yield box_or_typ
 
     def __getitem__(self, key):
-        if key == slice(None, None, -1):
-            return Layer(self._left, self._box[::-1], self._right)
-        return super().__getitem__(key)
+        return self.boxes_or_types[key]
 
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
-class Diagram(cat.Arrow):
-    """
-    Defines a diagram given dom, cod, a list of boxes and offsets.
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({', '.join(map(repr, self))})"
 
-    Parameters
-    ----------
-    dom : monoidal.Ty
-        Domain of the diagram.
-    cod : monoidal.Ty
-        Codomain of the diagram.
-    boxes : list of :class:`Diagram`
-        Boxes of the diagram.
-    offsets : list of int
-        Offsets of each box in the diagram.
-    layers : list of :class:`Layer`, optional
-        Layers of the diagram,
-        computed from boxes and offsets if :code:`None`.
+    def __matmul__(self, other: Ty) -> Layer:
+        *tail, head = self
+        return type(self)(*tail + [head @ other])
 
-    Raises
-    ------
-    :class:`AxiomError`
-        Whenever the boxes do not compose.
+    def __rmatmul__(self, other: Ty) -> Layer:
+        head, *tail = self
+        return type(self)(other @ head, *tail)
 
-    Examples
-    --------
+    @property
+    def free_symbols(self) -> "set[sympy.Symbol]":
+        return {x for _, box, _ in self.inside for x in box.free_symbols}
 
-    >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
-    >>> d = Diagram(x @ z, y, [f0, f1, g], [0, 1, 0])
-    >>> assert d == f0 @ f1 >> g
-
-    >>> d.draw(figsize=(2, 2),
-    ...        path='docs/_static/imgs/monoidal/arrow-example.png')
-
-    .. image:: ../_static/imgs/monoidal/arrow-example.png
-        :align: center
-    """
-    @staticmethod
-    def upgrade(old):
-        return old
-
-    def downgrade(self):
-        """ Downcasting to :class:`discopy.monoidal.Diagram`. """
-        dom, cod = Ty(*self.dom), Ty(*self.cod)
-        boxes, offsets = [box.downgrade() for box in self.boxes], self.offsets
-        return Diagram(dom, cod, boxes, offsets)
-
-    def __init__(self, dom, cod, boxes, offsets, layers=None):
-        if not isinstance(dom, Ty):
-            raise TypeError(messages.type_err(Ty, dom))
-        if not isinstance(cod, Ty):
-            raise TypeError(messages.type_err(Ty, cod))
-        if len(boxes) != len(offsets):
-            raise ValueError(messages.boxes_and_offsets_must_have_same_len())
-        if layers is None:
-            layers = cat.Id(dom)
-            for box, off in zip(boxes, offsets):
-                if not isinstance(box, Diagram):
-                    raise TypeError(messages.type_err(Diagram, box))
-                if not isinstance(off, int):
-                    raise TypeError(messages.type_err(int, off))
-                left = layers.cod[:off] if layers else dom[:off]
-                right = layers.cod[off + len(box.dom):]\
-                    if layers else dom[off + len(box.dom):]
-                layers = layers >> self.layer_factory(left, box, right)
-            layers = layers >> cat.Id(cod)
-        self._layers, self._offsets = layers, tuple(offsets)
-        super().__init__(dom, cod, boxes, _scan=False)
-
-    def to_tree(self):
-        return dict(cat.Arrow.to_tree(self), offsets=self.offsets)
+    def subs(self, *args) -> Layer:
+        left, box, right = self
+        return type(self)(left, box.subs(*args), right)
 
     @classmethod
-    def from_tree(cls, tree):
-        arrow = cat.Arrow.from_tree(tree)
-        return cls(arrow.dom, arrow.cod, arrow.boxes, tree['offsets'])
+    def cast(cls, box: Box) -> Layer:
+        """
+        Turns a box into a layer with empty types on the left and right.
+
+        Parameters:
+            box : The box in the middle of empty types.
+
+        Example
+        -------
+        >>> f = Box('f', Ty('x'), Ty('y'))
+        >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
+        """
+        return cls(box.dom[:0], box, box.cod[len(box.cod):])
+
+    def dagger(self) -> Layer:
+        return type(self)(*(
+            x.dagger() if i % 2 else x for i, x in enumerate(self)))
+
+    def to_drawing(self) -> Diagram:
+        """ Called before :meth:`Diagram.draw`. """
+        result = Ty()
+        for box_or_typ in self:
+            result = result @ box_or_typ.to_drawing()
+        return result
 
     @property
-    def offsets(self):
-        """ The offset of a box is the number of wires to its left. """
-        return list(self._offsets)
-
-    @property
-    def layers(self):
+    def boxes_and_offsets(self) -> list[tuple[Box, int]]:
         """
-        A :class:`discopy.cat.Arrow` with :class:`Layer` boxes such that::
+        The offsets of each box inside the layer.
 
-            diagram == Id(diagram.dom).then(*[
-                Id(left) @ box @ Id(right)
-                for left, box, right in diagram.layers])
-
-        This is accessed using python slices::
-
-            diagram[i:j] == Diagram(
-                dom=diagram.layers[i].dom,
-                cod=diagram.layers[j - 1].cod,
-                boxes=diagram.boxes[i:j],
-                offsets=diagram.offsets[i:j],
-                layers=diagram.layers[i:j])
+        Example
+        -------
+        >>> a, b, c, d, e = map(Ty, "abcde")
+        >>> f, g = Box('f', a, b), Box('g', c, d)
+        >>> assert Layer(e, f, e, g, e).boxes_and_offsets == [(f, 1), (g, 3)]
         """
-        return self._layers
+        left, box, *tail = self
+        boxes, offsets = [box], [len(left)]
+        for typ, box in zip(tail[::2], tail[1::2]):
+            boxes.append(box)
+            offsets.append(offsets[-1] + len(boxes[-1].dom) + len(typ))
+        return list(zip(boxes, offsets))
 
-    def then(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return super().then(*others)
-        other, = others
-        return self.upgrade(
-            Diagram(self.dom, other.cod,
-                    self.boxes + other.boxes,
-                    self.offsets + other.offsets,
-                    layers=self.layers >> other.layers))
-
-    def tensor(self, other=None, *rest):
+    def merge(self, other: Layer) -> Layer:
         """
-        Returns the horizontal composition of 'self' with a diagram 'other'.
+        Merge two layers into one or raise :class:`AxiomError`,
+        used by :meth:`Diagram.foliation`.
 
-        This method is called using the binary operator `@`:
+        Parameters:
+            other : The other layer with which to merge.
 
+        Example
+        -------
+        >>> a, b, c, d, e = map(Ty, "abcde")
+        >>> f, g = Box('f', a, b), Box('g', c, d)
+        >>> layer0 = Layer(e,  f,  e @ c @ e)
+        >>> layer1 = Layer(e @ b @ e,  g,  e)
+        >>> assert layer0.merge(layer1) == Layer(e, f, e, g, e)
+        """
+        assert_iscomposable(self, other)
+        try:
+            diagram = Diagram.normal_form(self.boxes_or_types[1].factory(
+                (self, other), self.dom, other.cod).to_staircases())
+        except NotImplementedError as exception:  # Eckmann-Hilton argument.
+            diagram = exception.last_step
+        boxes_or_types, offset = [self.dom[:0]], 0
+        for layer in diagram.inside:
+            left, box, right = layer
+            if len(left) < offset:
+                raise cat.AxiomError(
+                    messages.NOT_MERGEABLE.format(self, other))
+            boxes_or_types[-1] @= left[offset:]
+            boxes_or_types += [box, right[:0]]
+            offset = len(left @ box.cod)
+        boxes_or_types[-1] @= layer.cod[offset:]
+        return type(self)(*boxes_or_types)
+
+    def lambdify(self, *symbols, **kwargs):
+        return lambda *xs: type(self)(*(
+            x if not i % 2 else x.lambdify(*symbols, **kwargs)(*xs)
+            for i, x in enumerate(self)))
+
+    def to_tree(self) -> dict:
+        return dict(factory=factory_name(type(self)),
+                    inside=[x.to_tree() for x in self])
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> Layer:
+        return cls(*(map(from_tree, tree['inside'])))
+
+
+class Whiskerable(ABC):
+    """
+    Abstract class implementing the syntactic sugar :code:`@` for whiskering
+    and parallel composition with some method :code:`tensor`.
+    """
+    @classmethod
+    @abstractmethod
+    def id(cls, dom: any) -> Whiskerable:
+        """
+        Identity on a given domain, to be instantiated.
+
+        Parameters:
+            dom : The object on which to take the identity.
+        """
+
+    @abstractmethod
+    def tensor(self, other: Whiskerable) -> Whiskerable:
+        """
+        Parallel composition, to be instantiated.
+
+        Parameters:
+            other : The other diagram to compose in parallel.
+        """
+
+    @classmethod
+    def whisker(cls, other: any) -> Whiskerable:
+        """
+        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
+        nothing.
+
+        Parameters:
+            other : The whiskering object.
+        """
+        return other if isinstance(other, Whiskerable) else cls.id(other)
+
+    def __matmul__(self, other):
+        return self.tensor(self.whisker(other))
+
+    def __rmatmul__(self, other):
+        return self.whisker(other).tensor(self)
+
+
+@factory
+class Diagram(cat.Arrow, Whiskerable):
+    """
+    A diagram is a tuple of composable layers :code:`inside` with a pair of
+    types :code:`dom` and :code:`cod` as domain and codomain.
+
+    Parameters:
+        inside : The layers of the diagram.
+        dom : The domain of the diagram, i.e. its input.
+        cod : The codomain of the diagram, i.e. its output.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            tensor
+            boxes
+            offsets
+            draw
+            interchange
+            normalize
+            normal_form
+    """
+    ty_factory = Ty
+    layer_factory = Layer
+
+    def __init__(
+            self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
+        for layer in inside:
+            assert_isinstance(layer, Layer)
+        super().__init__(inside, dom, cod, _scan=_scan)
+
+    def tensor(self, other: Diagram = None, *others: Diagram) -> Diagram:
+        """
+        Parallel composition, called using :code:`@`.
+
+        Parameters:
+            other : The other diagram to tensor.
+            rest : More diagrams to tensor.
+
+        Important
+        ---------
+        The definition of tensor is biased to the left, i.e.::
+
+            self @ other == self @ other.dom >> self.cod @ other
+
+        Example
+        -------
         >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
         >>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
         ...     figsize=(2, 2),
-        ...     path='docs/_static/imgs/monoidal/tensor-example.png')
+        ...     path='docs/_static/monoidal/tensor-example.png')
 
-        .. image:: ../_static/imgs/monoidal/tensor-example.png
+        .. image:: /_static/monoidal/tensor-example.png
             :align: center
-
-        Parameters
-        ----------
-        other : :class:`Diagram`
-
-        Returns
-        -------
-        diagram : :class:`Diagram`
-            the tensor of 'self' and 'other'.
         """
         if other is None:
             return self
-        if rest:
-            return self.tensor(other).tensor(*rest)
+        if others:
+            return self.tensor(other).tensor(*others)
         if isinstance(other, Sum):
-            return self.sum([self]).tensor(other)
-        if not isinstance(other, Diagram):
-            raise TypeError(messages.type_err(Diagram, other))
+            return self.sum_factory((self, )).tensor(other)
+        assert_isinstance(other, self.factory)
+        assert_isinstance(self, other.factory)
+        inside = tuple(layer @ other.dom for layer in self.inside)\
+            + tuple(self.cod @ layer for layer in other.inside)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        boxes = self.boxes + other.boxes
-        offsets = self.offsets + [n + len(self.cod) for n in other.offsets]
-        layers = cat.Id(dom)
-        for left, box, right in self.layers:
-            layers = layers >> self.layer_factory(left, box, right @ other.dom)
-        for left, box, right in other.layers:
-            layers = layers >> self.layer_factory(self.cod @ left, box, right)
-        return self.upgrade(Diagram(dom, cod, boxes, offsets, layers=layers))
+        return self.factory(inside, dom, cod, _scan=False)
 
-    def __matmul__(self, other):
-        return self.tensor(other)
+    @property
+    def boxes(self) -> list[Box]:
+        """ The boxes in each layer of the diagram. """
+        return list(box for _, box, _ in self)
 
-    def __eq__(self, other):
-        if not isinstance(other, Diagram):
-            return False
-        return all(getattr(self, attr) == getattr(other, attr)
-                   for attr in ['dom', 'cod', 'boxes', 'offsets'])
+    @property
+    def offsets(self) -> list[int]:
+        """ The offset of a box is the length of the type on its left. """
+        return list(len(left) for left, _, _ in self)
 
-    def __repr__(self):
-        if not self.boxes:  # i.e. self is identity.
-            return repr(self.id(self.dom))
-        if len(self.boxes) == 1 and self.dom == self.boxes[0].dom:
-            return repr(self.boxes[0])  # i.e. self is a generator.
-        return "Diagram(dom={}, cod={}, boxes={}, offsets={})".format(
-            repr(self.dom), repr(self.cod),
-            repr(self.boxes), repr(self.offsets))
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    def __iter__(self):
-        for left, box, right in self.layers:
-            yield self.id(left) @ box @ self.id(right)
-
-    def __str__(self):
-        return ' >> '.join(map(str, self.layers)) or str(self.id(self.dom))
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            layers = self.layers[key]
-            boxes_and_offsets = tuple(zip(*(
-                (box, len(left)) for left, box, _ in layers))) or ([], [])
-            inputs = (layers.dom, layers.cod) + boxes_and_offsets
-            return self.upgrade(Diagram(*inputs, layers=layers))
-        left, box, right = self.layers[key]
-        return self.id(left) @ box @ self.id(right)
-
-    def subs(self, *args):
-        return self.id(self.dom).then(*(
-            self.id(left) @ box.subs(*args) @ self.id(right)
-            for left, box, right in self.layers))
-
-    def lambdify(self, *symbols, **kwargs):
-        return lambda *xs: self.id(self.dom).then(*(
-            self.id(left) @ box.lambdify(*symbols, **kwargs)(*xs)
-            @ self.id(right) for left, box, right in self.layers))
-
-    @staticmethod
-    def swap(left, right, ar_factory=None, swap_factory=None):
+    @property
+    def width(self):
         """
-        Returns a diagram that swaps the left with the right wires.
+        The width of a diagram, i.e. the maximum number of parallel wires.
 
-        Parameters
-        ----------
-        left : monoidal.Ty
-            left hand-side of the domain.
-        right : monoidal.Ty
-            right hand-side of the domain.
-
-        Returns
+        Example
         -------
-        diagram : monoidal.Diagram
-            with :code:`diagram.dom == left @ right`
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x ** 4)
+        >>> diagram = f @ x ** 2 >> x ** 2 @ f.dagger()
+        >>> assert diagram.width == 6
         """
-        ar_factory = ar_factory or Diagram
-        swap_factory = swap_factory or Swap
-        if not left:
-            return ar_factory.id(right)
-        if len(left) == 1:
-            boxes = [
-                swap_factory(left, right[i: i + 1])
-                for i, _ in enumerate(right)]
-            offsets = range(len(right))
-            return ar_factory(left @ right, right @ left, boxes, offsets)
-        return ar_factory.id(left[:1]) @ ar_factory.swap(left[1:], right)\
-            >> ar_factory.swap(left[:1], right) @ ar_factory.id(left[1:])
+        return max(len(self.dom), max(len(layer.cod) for layer in self))
 
-    @staticmethod
-    def permutation(perm, dom=None, ar_factory=None, inverse=False):
+    def encode(self) -> tuple[Ty, list[tuple[Box, int]]]:
         """
-        Returns the diagram that encodes a permutation of wires.
+        Compact encoding of a diagram as a tuple of boxes and offsets.
 
-        .. warning::
-            This method used to return the inverse permutation up to and
-            including discopy v0.4.2.
-
-        Parameters
-        ----------
-        perm : list of int
-            such that :code:`i` goes to :code:`perm[i]`
-        dom : monoidal.Ty, optional
-            of the same length as :code:`perm`,
-            default is :code:`PRO(len(perm))`.
-        inverse : bool
-            whether to return the inverse permutation.
-
-        Returns
+        Example
         -------
-        diagram : monoidal.Diagram
+        >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+        >>> f0, f1, g = Box('f0', x, y), Box('f1', z, w), Box('g', y @ w, y)
+        >>> diagram = f0 @ f1 >> g
+        >>> dom, boxes_and_offsets = diagram.encode()
+        >>> assert dom == x @ z
+        >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
+        >>> assert diagram == Diagram.decode(*diagram.encode())
+        >>> diagram.draw(figsize=(2, 2),
+        ...        path='docs/_static/monoidal/arrow-example.png')
+
+        .. image:: /_static/monoidal/arrow-example.png
+            :align: center
         """
-        ar_factory = ar_factory or Diagram
-        if set(range(len(perm))) != set(perm):
-            raise ValueError("Input should be a permutation of range(n).")
-        if dom is None:
-            dom = PRO(len(perm))
-        if not inverse:
-            warn_permutation.warn(
-                'Since discopy v0.4.3 the behaviour of '
-                'permutation has changed. Pass inverse=False '
-                'to get the default behaviour.')
-            perm = [perm.index(i) for i in range(len(perm))]
-        if len(dom) != len(perm):
-            raise ValueError(
-                "Domain and permutation should have the same length.")
-        diagram = ar_factory.id(dom)
-        for i in range(len(dom)):
-            j = perm.index(i)
-            diagram = diagram >> ar_factory.id(diagram.cod[:i])\
-                @ ar_factory.swap(diagram.cod[i:j], diagram.cod[j:j + 1])\
-                @ ar_factory.id(diagram.cod[j + 1:])
-            perm = perm[:i] + [i] + perm[i:j] + perm[j + 1:]
+        return self.dom, list(zip(self.boxes, self.offsets))
+
+    @classmethod
+    def decode(cls, dom: Ty, boxes_and_offsets: list[tuple[Box, int]]
+               ) -> Diagram:
+        """
+        Turn a tuple of boxes and offsets into a diagram.
+
+        Parameters:
+            dom : The domain of the diagram.
+            boxes_and_offsets : The boxes and offsets of the diagram.
+        """
+        diagram = cls.id(dom)
+        for box, offset in boxes_and_offsets:
+            left = diagram.cod[:offset]
+            right = diagram.cod[offset + len(box.dom):]
+            diagram = diagram >> left @ box @ right
         return diagram
 
-    def permute(self, *perm, inverse=False):
+    def to_drawing(self):
+        """ Called before :meth:`Diagram.draw`. """
+        return cat.Functor(
+            ob=lambda x: x.to_drawing(), ar=Layer.to_drawing, cod=Category())(
+                self)
+
+    def to_staircases(self):  # pylint:
         """
-        Returns :code:`self >> self.permutation(perm, self.dom)`.
+        Splits layers with more than one box into staircases.
 
-        Parameters
-        ----------
-        perm : list of int
-            such that :code:`i` goes to :code:`perm[i]`
-        inverse : bool
-            whether to return the inverse permutation.
-
-        Examples
-        --------
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> assert Id(x @ y @ z).permute(2, 1, 0).cod == z @ y @ x
-        >>> assert Id(x @ y @ z).permute(2, 0).cod == z @ y @ x
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> diagram = y @ f0 >> f1 @ y
+        >>> print(diagram.foliation())
+        f1 @ f0
+        >>> print(diagram.foliation().to_staircases())
+        f1 @ x >> x @ f0
         """
-        if min(perm) < 0 or max(perm) >= len(self.cod):
-            raise IndexError(f'{self} index out of bounds.')
-        if len(set(perm)) != len(perm):
-            raise ValueError('{perm} is not a permutation.')
-        sorted_perm = sorted(perm)
-        perm = [
-            i if i not in perm else sorted_perm[perm.index(i)]
-            for i in range(len(self.cod))]
-        return self >> self.permutation(list(perm), self.cod, inverse)
+        return Functor.id(Category(self.ty_factory, self.factory))(self)
 
-    @staticmethod
-    def subclass(ar_factory):
-        """ Decorator for subclasses of Diagram. """
-        def upgrade(old):
-            ob_upgrade = type(ar_factory.id().dom).upgrade  # Is this Yoneda?
-            dom, cod = ob_upgrade(old.dom), ob_upgrade(old.cod)
-            return ar_factory(dom, cod, old.boxes, old.offsets, old.layers)
-        ar_factory.upgrade = staticmethod(upgrade)
-        return ar_factory
-
-    def open_bubbles(self):
+    def foliation(self):
         """
-        Called when drawing bubbles. Replace each bubble by::
+        Merges layers together to reduce the length of a diagram.
 
-            open_bubble\\
-                >> Id(left) @ open_bubbles(bubble.inside) @ Id(right)\\
-                >> close_bubble
+        Example
+        -------
+        >>> from discopy.monoidal import *
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> diagram = f0 @ Id(y) >> f0.dagger() @ f1
+        >>> print(diagram)
+        f0 @ y >> f0[::-1] @ y >> x @ f1
+        >>> print(diagram.foliation())
+        f0 @ y >> f0[::-1] @ f1
 
-        for :code:`left = Ty(bubble.drawing_name)` and :code:`right = Ty("")`.
-        :meth:`Diagram.downgrade` gets called in the process.
+        Note
+        ----
+        If one defines a foliation as a sequence of unmergeable layers, there
+        may exist many distinct foliations for the same diagram. This method
+        scans top to bottom and merges layers eagerly.
         """
-        if not any(isinstance(box, Bubble) for box in self.boxes):
-            return self.downgrade()
+        while len(self) > 1:
+            keep_on_going = False
+            for i, (first, second) in enumerate(zip(
+                    self.inside, self.inside[1:])):
+                try:
+                    inside = self.inside[:i] + (first.merge(second), )\
+                        + self.inside[i + 2:]
+                    self = self.factory(inside, self.dom, self.cod)
+                    keep_on_going = True
+                    break
+                except cat.AxiomError:
+                    continue
+            if not keep_on_going:
+                break
+        return self
 
-        class OpenBubbles(Functor):
-            def __call__(self, diagram):
-                diagram = diagram.downgrade()
-                if isinstance(diagram, Bubble):
-                    obj = Ob(diagram.drawing_name)
-                    obj.draw_as_box = True
-                    left, right = Ty(obj), Ty("")
-                    open_bubble = Box(
-                        "open_bubble",
-                        diagram.dom, left @ diagram.inside.dom @ right)
-                    close_bubble = Box(
-                        "_close",
-                        left @ diagram.inside.cod @ right, diagram.cod)
-                    open_bubble.draw_as_wires = True
-                    close_bubble.draw_as_wires = True
-                    # Wires can go straight only if types have the same length.
-                    if len(diagram.dom) == len(diagram.inside.dom):
-                        open_bubble.bubble_opening = True
-                    if len(diagram.cod) == len(diagram.inside.cod):
-                        close_bubble.bubble_closing = True
-                    return open_bubble\
-                        >> Id(left) @ self(diagram.inside) @ Id(right)\
-                        >> close_bubble
-                return super().__call__(diagram)
-        return OpenBubbles(lambda x: x, lambda f: f)(self)
+    def depth(self):
+        """
+        Computes (an upper bound to) the depth of a diagram by foliating it.
 
-    draw = drawing.draw
-    to_gif = drawing.to_gif
-    interchange = rewriting.interchange
-    normalize = rewriting.normalize
-    normal_form = rewriting.normal_form
-    foliate = rewriting.foliate
-    flatten = rewriting.flatten
-    foliation = rewriting.foliation
-    depth = rewriting.depth
-    width = rewriting.width
-    layer_factory = Layer
+        Example
+        -------
+        >>> from discopy.monoidal import *
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f, g = Box('f', x, y), Box('g', y, x)
+        >>> assert Id(x @ y).depth() == 0
+        >>> assert f.depth() == 1
+        >>> assert (f @ g).depth() == 1
+        >>> assert (f >> g).depth() == 2
 
+        Note
+        ----
+        The depth of a diagram is the minimum length over all its foliations,
+        this method just returns the length of :meth:`Diagram.foliation`.
+        """
+        return len(self.foliation())
 
-class Id(cat.Id, Diagram):
-    """ Implements the identity diagram of a given type.
+    def interchange(self, i: int, j: int, left=False) -> Diagram:
+        """
+        Interchange a box from layer ``i`` to layer ``j``.
 
-    >>> s, t = Ty('x', 'y'), Ty('z', 'w')
-    >>> f = Box('f', s, t)
-    >>> assert f >> Id(t) == f == Id(s) >> f
-    """
-    def __init__(self, dom=Ty()):
-        cat.Id.__init__(self, dom)
-        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+        Parameters:
+            i : Index of the box to interchange.
+            j : Index of the new position for the box.
+            left : Whether to apply left interchangers.
 
-    from_tree = Diagram.from_tree
+        Note
+        ----
+        By default, we apply right interchangers::
 
+            top >> left @ box1.dom @ mid @ box0     @ right\\
+                >> left @ box1     @ mid @ box0.cod @ right >> bottom
 
-Diagram.id = Id
+        gets rewritten to::
+
+            top >> left @ box1     @ mid @ box0.dom @ right\\
+                >> left @ box1.cod @ mid @ box0     @ right >> bottom
+        """
+        if any(len(list(layer)) != 3 for layer in self.inside):
+            raise NotImplementedError
+        if not 0 <= i < len(self) or not 0 <= j < len(self):
+            raise IndexError
+        if i == j:
+            return self
+        if j < i - 1:
+            result = self
+            for k in range(i - j):
+                result = result.interchange(i - k, i - k - 1, left=left)
+            return result
+        if j > i + 1:
+            result = self
+            for k in range(j - i):
+                result = result.interchange(i + k, i + k + 1, left=left)
+            return result
+        if j < i:
+            i, j = j, i
+        off0, off1 = self.offsets[i], self.offsets[j]
+        left0, box0, right0 = self.inside[i]
+        left1, box1, right1 = self.inside[j]
+        # By default, we check if box0 is to the right first, then to the left.
+        if left and off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = left0 @ box0 @ middle @ box1.cod @ right1
+            layer1 = left0 @ box0.dom @ middle @ box1 @ right1
+        elif off0 >= off1 + len(box1.dom):  # box0 right of box1
+            off0 = off0 - len(box1.dom) + len(box1.cod)
+            middle = left0[len(left1 @ box1.dom):]
+            layer0 = left1 @ box1.cod @ middle @ box0 @ right0
+            layer1 = left1 @ box1 @ middle @ box0.dom @ right0
+        elif off1 >= off0 + len(box0.cod):  # box0 left of box1
+            off1 = off1 - len(box0.cod) + len(box0.dom)
+            middle = left1[len(left0 @ box0.cod):]
+            layer0 = left0 @ box0 @ middle @ box1.cod @ right1
+            layer1 = left0 @ box0.dom @ middle @ box1 @ right1
+        else:
+            raise AxiomError(messages.INTERCHANGER_ERROR.format(box0, box1))
+        return self[:i] >> layer1 >> layer0 >> self[i + 2:]
+
+    def normalize(self, left=False) -> Iterator[Diagram]:
+        """
+        Implements normalisation of boundary-connected diagrams,
+        see Delpeuch and Vicary :cite:t:`DelpeuchVicary22`.
+
+        Parameters:
+            left : Passed to :meth:`Diagram.interchange`.
+
+        Example
+        -------
+        >>> from discopy.monoidal import *
+        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+        >>> gen = (s0 @ s1).normalize()
+        >>> for _ in range(3): print(next(gen))
+        s1 >> s0
+        s0 >> s1
+        s1 >> s0
+        """
+        diagram = self
+        while True:
+            no_more_moves = True
+            for i in range(len(diagram) - 1):
+                box0, box1 = diagram.boxes[i], diagram.boxes[i + 1]
+                off0, off1 = diagram.offsets[i], diagram.offsets[i + 1]
+                if left and off1 >= off0 + len(box0.cod)\
+                        or not left and off0 >= off1 + len(box1.dom):
+                    diagram = diagram.interchange(i, i + 1, left=left)
+                    yield diagram
+                    no_more_moves = False
+            if no_more_moves:
+                break
+
+    def normal_form(self, **params) -> Diagram:
+        """
+        Returns the normal form of a diagram.
+
+        params : Passed to :meth:`Diagram.normalize`.
+
+        Raises
+        ------
+        NotImplementedError
+            Whenever ``normalize`` yields the same rewrite steps twice, e.g.
+            the diagram is not boundary-connected.
+        """
+        cache = set()
+        for diagram in itertools.chain([self], self.normalize(**params)):
+            if diagram in cache:
+                exception = NotImplementedError(
+                    messages.NOT_CONNECTED.format(self))
+                exception.last_step = diagram
+                raise exception
+            cache.add(diagram)
+        return diagram
 
 
 class Box(cat.Box, Diagram):
     """
-    A box is a diagram with :code:`boxes==[self]` and :code:`offsets==[0]`.
+    A box is a diagram with a :code:`name` and the layer of just itself inside.
 
-    Parameters
-    ----------
-    name : any
-        Name of the box.
-    dom : :class:`discopy.monoidal.Ty`
-        Domain of the box.
-    cod : :class:`discopy.monoidal.Ty`
-        Codomain of the box.
-    data : any, optional
-        Extra data in the box.
+    Parameters:
+        name : The name of the box.
+        dom : The domain of the box, i.e. the input.
+        cod : The codomain of the box, i.e. the output.
+        data (any) : Extra data in the box, default is :code:`None`.
+        is_dagger (bool, optional) : Whether the box is dagger.
 
     Other parameters
     ----------------
@@ -716,7 +817,9 @@ class Box(cat.Box, Diagram):
     draw_as_spider : bool, optional
         Whether to draw the box as a spider.
     draw_as_wires : bool, optional
-        Whether to draw the box as wires, e.g. :class:`discopy.monoidal.Swap`.
+        Whether to draw the box as wires, e.g. :class:`discopy.symmetric.Swap`.
+    draw_as_braid : bool, optional
+        Whether to draw the box as a a braid, e.g. :class:`braided.Braid`.
     drawing_name : str, optional
         The name to use when drawing the box.
     tikzstyle_name : str, optional
@@ -736,145 +839,135 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
     """
-    def downgrade(self):
-        """ Downcasting to :class:`discopy.monoidal.Box`. """
-        box = Box.__new__(Box)
-        for attr, value in self.__dict__.items():
-            setattr(box, attr, value)
-        dom, cod = self.dom.downgrade(), self.cod.downgrade()
-        box._dom, box._cod, box._boxes = dom, cod, [box]
-        layer = Layer(box._dom[0:0], box, box._dom[0:0])
-        box._layers = cat.Arrow(dom, cod, [layer], _scan=False)
-        return box
+    __ambiguous_inheritance__ = (cat.Box, )
 
-    def __init__(self, name, dom, cod, **params):
-        cat.Box.__init__(self, name, dom, cod, **params)
-        layer = self.layer_factory(dom[0:0], self, dom[0:0])
-        layers = cat.Arrow(dom, cod, [layer], _scan=False)
-        Diagram.__init__(self, dom, cod, [self], [0], layers=layers)
-        for attr, value in params.items():
-            if attr in drawing.ATTRIBUTES:
+    def to_drawing(self) -> Box:
+        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
+        result = Box(self.name, dom, cod, is_dagger=self.is_dagger)
+        for attr, default in drawing.ATTRIBUTES.items():
+            setattr(result, attr, getattr(self, attr, default(result)))
+        return result
+
+    def __init__(self, name: str, dom: Ty, cod: Ty, **params):
+        for attr in drawing.ATTRIBUTES:
+            value = params.pop(attr, None)
+            if value is not None:
                 setattr(self, attr, value)
+        cat.Box.__init__(self, name, dom, cod, **params)
+        inside = (self.layer_factory.cast(self), )
+        Diagram.__init__(self, inside, dom, cod)
 
     def __eq__(self, other):
         if isinstance(other, Box):
             return cat.Box.__eq__(self, other)
-        if isinstance(other, Diagram):
-            return len(other) == 1 and other.boxes[0] == self\
-                and (other.dom, other.cod) == (self.dom, self.cod)
-        return False
+        return isinstance(other, self.factory)\
+            and other.inside == (self.layer_factory.cast(self), )
 
     def __hash__(self):
         return hash(repr(self))
 
 
-class BinaryBoxConstructor:
-    """ Box constructor with left and right as input. """
-    def __init__(self, left, right):
-        self.left, self.right = left, right
-
-    def to_tree(self):
-        left, right = self.left.to_tree(), self.right.to_tree()
-        return dict(Box.to_tree(self), left=left, right=right)
-
-    @classmethod
-    def from_tree(cls, tree):
-        return cls(*map(from_tree, (tree['left'], tree['right'])))
-
-
-class Swap(BinaryBoxConstructor, Box):
-    """
-    Implements the symmetry of atomic types.
-
-    Parameters
-    ----------
-    left : monoidal.Ty
-        of length 1.
-    right : monoidal.Ty
-        of length 1.
-    """
-    def __init__(self, left, right):
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.swap_vs_swaps(left, right))
-        name, dom, cod =\
-            "Swap({}, {})".format(left, right), left @ right, right @ left
-        BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(self, name, dom, cod)
-        self.draw_as_wires = True
-
-    def __repr__(self):
-        return "Swap({}, {})".format(repr(self.left), repr(self.right))
-
-    def dagger(self):
-        return type(self)(self.right, self.left)
-
-
 class Sum(cat.Sum, Box):
-    """ Sum of monoidal diagrams. """
-    @staticmethod
-    def upgrade(old):
-        if not isinstance(old, cat.Sum):
-            raise TypeError(messages.type_err(cat.Sum, old))
-        return Sum(old.terms, old.dom, old.cod)
+    """
+    A sum is a tuple of diagrams :code:`terms`
+    with the same domain and codomain.
 
-    def tensor(self, *others):
-        if len(others) != 1:
-            return super().tensor(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(others)
-        unit = Sum([], self.dom @ other.dom, self.cod @ other.cod)
-        terms = [f.tensor(g) for f in self.terms for g in other.terms]
-        return self.upgrade(sum(terms, unit))
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+
+    Example
+    -------
+    >>> f = Box('f', 'x', 'x')
+    >>> print(f @ (f + f))
+    (f @ x >> x @ f) + (f @ x >> x @ f)
+    """
+    __ambiguous_inheritance__ = (cat.Sum, )
+
+    def tensor(self, other=None, *others):
+        if other is None or others:
+            return Diagram.tensor(self, other, *others)
+        other = other if isinstance(other, Sum)\
+            else self.sum_factory((other, ))
+        dom, cod = self.dom @ other.dom, self.cod @ other.cod
+        terms = tuple(f.tensor(g) for f in self.terms for g in other.terms)
+        return self.sum_factory(terms, dom, cod)
 
     def draw(self, **params):
         """ Drawing a sum as an equation with :code:`symbol='+'`. """
-        return drawing.equation(*self.terms, symbol='+', **params)
+        return drawing.Equation(*self.terms, symbol='+').draw(**params)
 
 
 class Bubble(cat.Bubble, Box):
     """
-    Bubble in a monoidal diagram, i.e. a unary operator on homsets.
+    A bubble is a box with a diagram :code:`arg` inside and an optional pair of
+    types :code:`dom` and :code:`cod`.
 
-    Parameters
-    ----------
-    inside : discopy.monoidal.Diagram
-        The diagram inside the bubble.
-    dom : discopy.monoidal.Ty, optional
-        The domain of the bubble, default is :code:`inside.dom`.
-    cod : discopy.monoidal.Ty, optional
-        The codomain of the bubble, default is :code:`inside.cod`.
+    Parameters:
+        arg : The diagram inside the bubble.
+        dom : The domain of the bubble, default is that of :code:`other`.
+        cod : The codomain of the bubble, default is that of :code:`other`.
 
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
-    >>> d.draw(path='docs/_static/imgs/monoidal/bubble-example.png')
+    >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
 
-    .. image:: ../_static/imgs/monoidal/bubble-example.png
+    .. image:: /_static/monoidal/bubble-example.png
         :align: center
     """
-    def __init__(self, inside, dom=None, cod=None, **params):
+    __ambiguous_inheritance__ = (cat.Bubble, )
+
+    def __init__(self, arg: Diagram, dom: Ty = None, cod: Ty = None, **params):
         self.drawing_name = params.get("drawing_name", "")
-        cat.Bubble.__init__(self, inside, dom, cod)
-        Box.__init__(self, self._name, self.dom, self.cod, data=self.data)
+        cat.Bubble.__init__(self, arg, dom, cod)
+        Box.__init__(self, self.name, self.dom, self.cod, data=self.data)
 
-    def downgrade(self):
-        """ Downcasting to :class:`discopy.monoidal.Bubble`. """
-        result = Bubble(self.inside.downgrade(), Ty(*self.dom), Ty(*self.cod))
-        result.drawing_name = self.drawing_name
-        return result
+    def to_drawing(self):
+        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
+        argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
+        left, right = Ty(self.drawing_name), Ty("")
+        left.inside[0].always_draw_label = True
+        _open = Box("_open", dom, left @ argdom @ right).to_drawing()
+        _close = Box("_close", left @ argcod @ right, cod).to_drawing()
+        _open.draw_as_wires = _close.draw_as_wires = True
+        # Wires can go straight only if types have the same length.
+        _open.bubble_opening = len(dom) == len(argdom)
+        _close.bubble_closing = len(cod) == len(argcod)
+        return _open >> left @ self.arg.to_drawing() @ right >> _close
 
 
-Diagram.sum = Sum
-Diagram.bubble_factory = Bubble
+class Category(cat.Category):
+    """
+    A monoidal category is a category with a method :code:`tensor`.
+
+    Parameters:
+        ob : The type of objects.
+        ar : The type of arrows.
+    """
+    __ambiguous_inheritance__ = True
+
+    ob, ar = Ty, Diagram
 
 
 class Functor(cat.Functor):
     """
-    Implements a monoidal functor given its image on objects and arrows.
-    One may define monoidal functors into custom categories by overriding
-    the defaults ob_factory=Ty and ar_factory=Diagram.
+    A monoidal functor is a functor that preserves the tensor product.
 
+    Parameters:
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
+
+    Important
+    ---------
+    The keys of the objects mapping must be atomic types, i.e. of length 1.
+
+    Example
+    -------
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
     >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
     >>> F = Functor({x: z, y: w, z: x, w: y}, {f0: f1, f1: f0})
@@ -883,37 +976,50 @@ class Functor(cat.Functor):
     >>> assert F(f0 @ f1) == f1 @ f0
     >>> assert F(f0 >> f0[::-1]) == f1 >> f1[::-1]
     >>> source, target = f0 >> f0[::-1], F(f0 >> f0[::-1])
-    >>> drawing.equation(
-    ...     source, target, symbol='$\\\\mapsto$', figsize=(4, 2),
-    ...     path='docs/_static/imgs/monoidal/functor-example.png')
 
-    .. image:: ../_static/imgs/monoidal/functor-example.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
+    ...     figsize=(4, 2), path='docs/_static/monoidal/functor-example.png')
+
+    .. image:: /_static/monoidal/functor-example.png
         :align: center
     """
-    def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
-        if ob_factory is None:
-            ob_factory = Ty
-        if ar_factory is None:
-            ar_factory = Diagram
-        super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
+    __ambiguous_inheritance__ = True
 
-    def __call__(self, diagram):
-        if isinstance(diagram, (Sum, Bubble)):
-            super().__call__(diagram)
-        if isinstance(diagram, Ty):
-            return self.ob_factory().tensor(*[
-                self.ob[type(diagram)(x)] for x in diagram])
-        if isinstance(diagram, Swap):
-            return self.ar_factory.swap(
-                self(diagram.left), self(diagram.right))
-        if isinstance(diagram, Box):
-            return super().__call__(diagram)
-        if isinstance(diagram, Diagram):
-            scan, result = diagram.dom, self.ar_factory.id(self(diagram.dom))
-            for box, off in zip(diagram.boxes, diagram.offsets):
-                id_l = self.ar_factory.id(self(scan[:off]))
-                id_r = self.ar_factory.id(self(scan[off + len(box.dom):]))
-                result = result >> id_l @ self(box) @ id_r
-                scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
+    dom = cod = Category(Ty, Diagram)
+
+    def __call__(self, other):
+        if isinstance(other, PRO):
+            return sum(other.n * [self.ob[other.factory(1)]], self.cod.ob())
+        if isinstance(other, Ty):
+            return sum(map(self, other.inside), self.cod.ob())
+        if isinstance(other, cat.Ob):
+            result = self.ob[self.dom.ob(other)]
+            dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
+            # Syntactic sugar {x: n} in tensor and {x: int} in python.
+            return result if isinstance(result, dtype) else\
+                (result, ) if dtype == tuple else self.cod.ob(result)
+        if isinstance(other, Layer):
+            head, *tail = other
+            result = self(head)
+            for box_or_typ in tail:
+                result = result @ self(box_or_typ)
             return result
-        raise TypeError(messages.type_err(Diagram, diagram))
+        return super().__call__(other)
+
+
+def assert_isatomic(typ: Ty, cls: type = None):
+    cls = cls or type(typ)
+    assert_isinstance(typ, cls)
+    if not typ.is_atomic:
+        raise ValueError(messages.NOT_ATOMIC.format(
+            factory_name(cls), len(typ)))
+
+
+Diagram.draw = drawing.draw
+Diagram.to_gif = drawing.to_gif
+Diagram.to_grid = drawing.Grid.from_diagram
+
+Diagram.sum_factory = Sum
+Diagram.bubble_factory = Bubble
+Id = Diagram.id

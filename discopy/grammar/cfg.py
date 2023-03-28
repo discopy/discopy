@@ -1,132 +1,225 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements context-free grammars.
+A context free grammar is a formal grammar where the rules all have a codomain
+of length 1.
 
->>> s, n, v, vp = Ty('S'), Ty('N'), Ty('V'), Ty('VP')
->>> R0, R1 = Box('R0', vp @ n, s), Box('R1', n @ v , vp)
->>> Jane, loves = Word('Jane', n), Word('loves', v)
->>> cfg = CFG(R0, R1, Jane, loves)
->>> gen = cfg.generate(start=s, max_sentences=2, max_depth=6)
->>> for sentence in gen: print(sentence)
-Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
-Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
->>> gen = cfg.generate(
-...     start=s, max_sentences=2, max_depth=6,
-...     remove_duplicates=True, max_iter=10)
->>> for sentence in gen: print(sentence)
-Jane >> loves @ Id(N) >> Jane @ Id(V @ N) >> R1 @ Id(N) >> R0
+Summary
+-------
 
->>> sentence.draw(figsize=(4, 3),\\
-... path='docs/_static/imgs/grammar/cfg-example.png')
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
 
-.. image:: ../_static/imgs/grammar/cfg-example.png
-    :align: center
+    Tree
+    Rule
+    Word
+    Id
+    Operad
+    Algebra
+
+Axioms
+------
+
+The axioms of multicategories (aka operads) hold on the nose.
+
+>>> x, y = Ty('x'), Ty('y')
+>>> f, g = Rule(x @ x, x, name='f'), Rule(x @ y, x, name='g')
+>>> h = Rule(y @ x, x, name='h')
+>>> assert f(g, h) == Tree(f, *[g, h])
+
+>>> assert Id(x)(f) == f == f(Id(x), Id(x))
+>>> left = f(Id(x), h)(g, Id(x), Id(x))
+>>> right = f(g, Id(x))(Id(x), Id(x), h)
+>>> assert f(g, h) == left == right
 """
 
-import random
+from __future__ import annotations
 
-from discopy import messages
-from discopy.monoidal import Ty, Box, Id
+from discopy import monoidal
+from discopy.cat import factory, Category, Functor, AxiomError
+from discopy.grammar import thue
+from discopy.monoidal import Ty, assert_isatomic
+from discopy.utils import assert_isinstance, factory_name
 
 
-class Word(Box):
+@factory
+class Tree:
     """
-    Implements words as boxes with a :class:`discopy.monoidal.Ty` as codomain.
+    A tree is a rule for the ``root`` and a list of trees called ``branches``.
 
-    >>> from discopy.rigid import Ty
-    >>> Alice = Word('Alice', Ty('n'))
-    >>> loves = Word('loves',
-    ...     Ty('n').r @ Ty('s') @ Ty('n').l)
-    >>> Alice
-    Word('Alice', Ty('n'))
-    >>> loves
-    Word('loves', Ty(Ob('n', z=1), 's', Ob('n', z=-1)))
+    Example
+    -------
+
+    We build a syntax tree from a context-free grammar.
+
+    >>> n, d, v = Ty('N'), Ty('D'), Ty('V')
+    >>> vp, np, s = Ty('VP'), Ty('NP'), Ty('S')
+    >>> Caesar, crossed = Word('Caesar', n), Word('crossed', v)
+    >>> the, Rubicon = Word('the', d), Word('Rubicon', n)
+    >>> VP, NP = Rule(n @ v, vp), Rule(d @ n, np)
+    >>> S = Rule(vp @ np, s)
+    >>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
     """
-    def __init__(self, name, cod, dom=None, data=None, _dagger=False, _z=0):
-        if not isinstance(name, str):
-            raise TypeError(messages.type_err(str, name))
-        if not isinstance(cod, Ty):
-            raise TypeError(messages.type_err(Ty, cod))
-        dom = dom or cod[0:0]
-        if not isinstance(dom, Ty):
-            raise TypeError(messages.type_err(Ty, dom))
-        super().__init__(
-            name, dom, cod, data=data, _dagger=_dagger, _z=_z)
+    ty_factory = Ty
+
+    def __init__(self, root: Rule, *branches: Tree):
+        assert_isinstance(root, Rule)
+        for branch in branches:
+            assert_isinstance(branch, Tree)
+        if not isinstance(self, Rule) and not root.dom == Ty().tensor(
+                *[branch.cod for branch in branches]):
+            raise AxiomError
+        self.cod, self.root, self.branches = root.cod, root, branches
 
     def __repr__(self):
-        return "Word({}, {}{})".format(
-            repr(self.name), repr(self.cod),
-            ", dom={}".format(repr(self.dom)) if self.dom else "")
+        return factory_name(type(self)) + f"({self.root}, *{self.branches})"
 
+    def __str__(self):
+        if isinstance(self, Rule):
+            return self.name
+        return self.root.name\
+            + f"({', '.join(map(Tree.__str__, self.branches))})"
 
-class CFG:
-    """
-    Context-free grammar.
-    """
-    def __init__(self, *productions):
-        self._productions = productions
+    def __call__(self, *others):
+        if not others or all([isinstance(other, Id) for other in others]):
+            return self
+        if isinstance(self, Id):
+            return others[0]
+        if isinstance(self, Rule):
+            return Tree(self, *others)
+        if isinstance(self, Tree):
+            lengths = [len(branch.dom) for branch in self.branches]
+            ranges = [0] + [sum(lengths[:i + 1]) for i in range(len(lengths))]
+            branches = [self.branches[i](*others[ranges[i]:ranges[i + 1]])
+                        for i in range(len(self.branches))]
+            return Tree(self.root, *branches)
+        raise NotImplementedError()
 
-    @property
-    def productions(self):
+    @staticmethod
+    def id(dom):
+        return Id(dom)
+
+    def __eq__(self, other):
+        return self.root == other.root and self.branches == other.branches
+
+    def to_diagram(self, contravariant=False) -> discopy.monoidal.Diagram:
         """
-        Production rules, i.e. boxes with :class:`discopy.monoidal.Ty`
-        as dom and cod.
+        Interface between Tree and monoidal.Diagram.
+
+        >>> x = Ty('x')
+        >>> f = Rule(x @ x, x, name='f')
+        >>> tree = f(f(f, f), f)
+        >>> print(tree.to_diagram().foliation())
+        f @ f @ x @ x >> f @ f >> f
         """
-        return self._productions
+        return self.root.to_diagram()\
+            << monoidal.Id().tensor(*[t.to_diagram() for t in self.branches])
+
+    @staticmethod
+    def from_nltk(tree: nltk.Tree, lexicalised=True, word_types=False) -> Tree:
+        """
+        Interface with NLTK
+
+        >>> import nltk
+        >>> t = nltk.Tree.fromstring("(S (NP I) (VP (V saw) (NP him)))")
+        >>> print(Tree.from_nltk(t))
+        S(I, VP(saw, him))
+        >>> Tree.from_nltk(t).branches[0]
+        grammar.cfg.Word('I', monoidal.Ty(cat.Ob('NP')))
+        """
+        branches = []
+        for branch in tree:
+            if isinstance(branch, str):
+                return Word(branch, Ty(tree.label()))
+            else:
+                branches += [Tree.from_nltk(branch)]
+        label = tree.label()
+        dom = Ty().tensor(*[Ty(branch.label()) for branch in tree])
+        root = Rule(dom, Ty(label), name=label)
+        return root(*branches)
+
+
+class Rule(Tree, thue.Rule):
+    """
+    A rule is a generator of free operads, given by an atomic type ``dom``,
+    a type ``cod`` of arbitrary length and an optional ``name``.
+    """
+    def __init__(self, dom: monoidal.Ty, cod: monoidal.Ty, name: str = None):
+        assert_isinstance(dom, Ty)
+        assert_isatomic(cod, Ty)
+        thue.Rule.__init__(self, dom=dom, cod=cod, name=name)
+        Tree.__init__(self, root=self)
+
+    def __eq__(self, other):
+        if isinstance(other, Rule):
+            return self.dom == other.dom and self.cod == other.cod \
+                and self.name == other.name
+        if isinstance(other, Tree):
+            return other.root == self and other.branches == []
+
+    def to_diagram(self) -> discopy.monoidal.Box:
+        return monoidal.Box(self.name, self.dom, self.cod)
+
+
+class Word(thue.Word, Rule):
+    """
+    A word is a leaf in a context-free tree.
+
+    Parameters:
+        name : The name of the word.
+        cod : The grammatical type of the word.
+        dom : An optional domain for the word, empty by default.
+    """
+    def __init__(self, name: str, cod: monoidal.Ty, dom: monoidal.Ty = Ty(),
+                 **params):
+        thue.Word.__init__(self, name=name, dom=dom, cod=cod, **params)
+        Rule.__init__(self, dom=dom, cod=cod, name=name, **params)
+
+
+class Id(Rule):
+    """ The identity is a rule that does nothing. """
+    def __init__(self, dom):
+        self.dom, self.cod = dom, dom
+        Rule.__init__(self, dom, dom, name=f"Id({dom})")
 
     def __repr__(self):
-        return "CFG{}".format(repr(self._productions))
+        return f"Id({self.dom})"
 
-    def generate(self, start, max_sentences, max_depth, max_iter=100,
-                 remove_duplicates=False, not_twice=None, seed=None):
-        """
-        Generate sentences from a context-free grammar.
-        Assumes the only terminal symbol is :code:`Ty()`.
 
-        Parameters
-        ----------
+class Operad(Category):
+    """
+    An operad is a category with a method ``__call__`` which constructs a tree
+    from a root and a list of branches.
 
-        start : type
-            root of the generated trees.
-        max_sentences : int
-            maximum number of sentences to generate.
-        max_depth : int
-            maximum depth of the trees.
-        max_iter : int
-            maximum number of iterations, set to 100 by default.
-        remove_duplicates : bool
-            if set to True only distinct syntax trees will be generated.
-        not_twice : list
-            list of productions that you don't want appearing twice
-            in a sentence, set to the empty list by default
-        """
-        if seed is not None:
-            random.seed(seed)
-        prods, cache = list(self.productions), set()
-        n_sentences, i = 1, 0
-        while n_sentences <= (max_sentences or n_sentences) and i < max_iter:
-            i += 1
-            sentence = Id(start)
-            depth = 0
-            while depth < max_depth:
-                recall = depth
-                if sentence.dom == Ty():
-                    if remove_duplicates and sentence in cache:
-                        break
-                    yield sentence
-                    if remove_duplicates:
-                        cache.add(sentence)
-                    n_sentences += 1
-                    break
-                tag = sentence.dom[0]
-                random.shuffle(prods)
-                for prod in prods:
-                    if prod in (not_twice or []) and prod in sentence.boxes:
-                        continue
-                    if Ty(tag) == prod.cod:
-                        sentence = sentence << prod @ Id(sentence.dom[1:])
-                        depth += 1
-                        break
-                if recall == depth:  # in this case, no production was found
-                    break
+    Parameters:
+        ob : The colours of the operad.
+        ar : The operations of the operad.
+    """
+    ob = Ty
+    ar = Tree
+
+
+class Algebra(Functor):
+    """
+    An algebra is a functor with the free operad as domain and a given operad
+    as codomain.
+
+    Parameters:
+        ob (dict[monoidal.Ty, cod.ob]) :
+            The mapping from domain to codomain colours.
+        ar (dict[Rule, cod.ar]):
+            The mapping from domain to codomain operations.
+        cod (Operad) : The codomain of the algebra.
+    """
+    dom = cod = Operad()
+
+    def __call__(self, other):
+        if isinstance(other, Id):
+            return self.cod.id(self.ob[other.dom])
+        if isinstance(other, Rule):
+            return self.ar[other]
+        if isinstance(other, Tree):
+            return self(other.root)(*map(self, other.branches))
+        raise TypeError

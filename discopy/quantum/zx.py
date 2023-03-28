@@ -1,51 +1,61 @@
 # -*- coding: utf-8 -*-
 
-""" Implements ZX diagrams. """
+"""
+ZX-calculus diagrams.
 
-from discopy import messages, cat, monoidal, rigid, quantum, tensor
-from discopy.monoidal import Sum
-from discopy.rigid import Functor, PRO
-from discopy.quantum.circuit import Circuit, qubit
-from discopy.quantum.gates import (
-    Bra, Ket, Rz, Rx, Ry, CX, CZ, CRz, CRx, Controlled, format_number)
-from discopy.quantum.gates import Scalar as GatesScalar
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Diagram
+    Box
+    Swap
+    Spider
+    Z
+    Y
+    X
+    Scalar
+"""
+
 from math import pi
 
+from discopy import cat, rigid, tensor, quantum
+from discopy.cat import factory
+from discopy.frobenius import Category
+from discopy.quantum.circuit import qubit
+from discopy.quantum.gates import (
+    Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
+from discopy.quantum.gates import Scalar as GatesScalar
+from discopy.rigid import Sum, PRO
+from discopy.utils import factory_name
 
-@monoidal.Diagram.subclass
+
+@factory
 class Diagram(tensor.Diagram):
     """ ZX Diagram. """
-    def __repr__(self):
-        return super().__repr__().replace('Diagram', 'zx.Diagram')
+    ty_factory = PRO
 
     @staticmethod
     def swap(left, right):
         left = left if isinstance(left, PRO) else PRO(left)
         right = right if isinstance(right, PRO) else PRO(right)
-        return monoidal.Diagram.swap(
-            left, right, ar_factory=Diagram, swap_factory=Swap)
+        return tensor.Diagram.swap.__func__(Diagram, left, right)
 
     @staticmethod
-    def permutation(perm, dom=None, inverse=False):
+    def permutation(perm, dom=None):
         dom = PRO(len(perm)) if dom is None else dom
-        return monoidal.Diagram.permutation(
-            perm, dom, ar_factory=Diagram, inverse=inverse)
+        return tensor.Diagram.permutation.__func__(Diagram, perm, dom)
 
     @staticmethod
-    def cups(left, right):
-        return rigid.cups(
-            left, right, ar_factory=Diagram, cup_factory=lambda *_: Z(2, 0))
+    def cup_factory(left, right):
+        del left, right
+        return Z(2, 0)
 
-    @staticmethod
-    def caps(left, right):
-        return rigid.caps(
-            left, right, ar_factory=Diagram, cap_factory=lambda *_: Z(0, 2))
-
-    def draw(self, **params):
-        """ ZX diagrams don't have labels on wires. """
-        return super().draw(**dict(params, draw_type_labels=False))
-
-    def grad(self, var, **params):
+    def grad(self, var, **params) -> rigid.Sum:
         """
         Gradient with respect to `var`.
 
@@ -53,10 +63,6 @@ class Diagram(tensor.Diagram):
         ----------
         var : sympy.Symbol
             Differentiated variable.
-
-        Returns
-        -------
-        diagrams : discopy.monoidal.Sum
 
         Examples
         --------
@@ -117,7 +123,7 @@ class Diagram(tensor.Diagram):
                 node, hadamard = scan[offset]
                 scan[offset] = (node, not hadamard)
             else:
-                raise TypeError(messages.type_err(Box, box))
+                raise NotImplementedError
         for i, _ in enumerate(self.cod):
             target = graph.add_vertex(VertexType.BOUNDARY)
             source, hadamard = scan[i]
@@ -145,8 +151,7 @@ class Diagram(tensor.Diagram):
 
         Raises :code:`ValueError` if either:
         * a boundary node is not in :code:`graph.inputs() + graph.outputs()`,
-        * or :code:`set(graph.inputs()).intersection(graph.outputs())`
-          is non-empty.
+        * or :code:`set(graph.inputs()).intersection(graph.outputs())`.
         """
         from pyzx import VertexType, EdgeType
 
@@ -201,9 +206,9 @@ class Diagram(tensor.Diagram):
             outputs = [v for v in graph.neighbors(node) if v > node
                        and v not in graph.inputs() or v in graph.outputs()]
             scan, diagram, offset = make_wires_adjacent(scan, diagram, inputs)
-            hadamards = Id(0).tensor(*[
-                H if graph.edge_type((i, node)) == EdgeType.HADAMARD else Id(1)
-                for i in scan[offset: offset + len(inputs)]])
+            hadamards = Id().tensor(*[
+                H if graph.edge_type((i, node)) == EdgeType.HADAMARD
+                else Id(1) for i in scan[offset: offset + len(inputs)]])
             box = node2box(node, len(inputs), len(outputs))
             diagram = diagram >> Id(offset) @ (hadamards >> box)\
                 @ Id(len(diagram.cod) - offset - len(inputs))
@@ -219,161 +224,89 @@ class Diagram(tensor.Diagram):
         return diagram
 
 
-class Id(rigid.Id, Diagram):
-    """ Identity ZX diagram. """
-    def __init__(self, dom=0):
-        super().__init__(PRO(dom))
+class Box(tensor.Box, Diagram):
+    """
+    A ZX box is a tensor box in a ZX diagram.
 
-    def __repr__(self):
-        return "Id({})".format(len(self.dom))
-
-    __str__ = __repr__
-
-
-Diagram.id = Id
+    Parameters:
+        name (str) : The name of the box.
+        dom (rigid.PRO) : The domain of the box, i.e. its input.
+        cod (rigid.PRO) : The codomain of the box, i.e. its output.
+    """
+    __ambiguous_inheritance__ = (tensor.Box, )
 
 
-class Box(rigid.Box, Diagram):
-    """ Box in a ZX diagram. """
-    def __init__(self, name, dom, cod, **params):
-        if not isinstance(dom, PRO):
-            raise TypeError(messages.type_err(PRO, dom))
-        if not isinstance(cod, PRO):
-            raise TypeError(messages.type_err(PRO, cod))
-        rigid.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, dom, cod, [self], [0])
+class Sum(tensor.Sum, Box):
+    """
+    A formal sum of ZX diagrams with the same domain and codomain.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Dim) : The domain of the formal sum.
+        cod (Dim) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (tensor.Sum, )
 
 
-class Swap(rigid.Swap, Box):
+class Swap(tensor.Swap, Box):
     """ Swap in a ZX diagram. """
-    def __init__(self, left, right):
-        rigid.Swap.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod)
-
     def __repr__(self):
         return "SWAP"
 
     __str__ = __repr__
 
 
-SWAP = Swap(PRO(1), PRO(1))
-
-
-class Spider(Box):
+class Spider(tensor.Spider, Box):
     """ Abstract spider box. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0, name=None):
-        dom, cod = PRO(n_legs_in), PRO(n_legs_out)
-        super().__init__(name, dom, cod, data=phase)
-        self.draw_as_spider, self.drawing_name = True, phase or ""
-        self.tikzstyle_name = name
-
-    @property
-    def name(self):
-        return "{}({}, {}{})".format(
-            self._name, len(self.dom), len(self.cod),
-            ", {}".format(format_number(self.phase)) if self.phase else "")
+    def __init__(self, n_legs_in, n_legs_out, phase=0):
+        super().__init__(n_legs_in, n_legs_out, PRO(1), phase)
+        factory_str = type(self).__name__
+        phase_str = f", {self.phase}" if self.phase else ""
+        self.name = f"{factory_str}({n_legs_in}, {n_legs_out}{phase_str})"
 
     def __repr__(self):
-        return self.name
-
-    @property
-    def phase(self):
-        """ Phase of a spider. """
-        return self.data
-
-    def dagger(self):
-        return type(self)(len(self.cod), len(self.dom), -self.phase)
+        return str(self).replace(type(self).__name__, factory_name(type(self)))
 
     def subs(self, *args):
-        data = cat.rsubs(self.data, *args)
-        return type(self)(len(self.dom), len(self.cod), phase=data)
+        phase = cat.rsubs(self.phase, *args)
+        return type(self)(len(self.dom), len(self.cod), phase=phase)
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            return Sum((), self.dom, self.cod)
         gradient = self.phase.diff(var)
         gradient = complex(gradient) if not gradient.free_symbols else gradient
         return Scalar(pi * gradient)\
             @ type(self)(len(self.dom), len(self.cod), self.phase + .5)
 
-    @classmethod
-    def make_spiders(cls, n_legs_in, n_legs_out, phase=0):
-        """Construct spider using the generators of the Frobenius algebra.
+    def dagger(self):
+        return type(self)(len(self.cod), len(self.dom), -self.phase)
 
-        Example
-        -------
-        >>> from discopy.drawing import equation
-        >>> orig = Z(4, 3, 0.5)
-        >>> decomp = Z.make_spiders(4, 3, 0.5)
-        >>> equation(orig, decomp, symbol='->',
-        ...     path='docs/_static/imgs/spider-decomp.png')
+    def rotate(self, left=False):
+        del left
+        return type(self)(len(self.cod), len(self.dom), self.phase)
 
-        .. image:: ../../../_static/imgs/spider-decomp.png
-            :align: center
-
-        """
-        if n_legs_out > n_legs_in:
-            return cls.make_spiders(n_legs_out, n_legs_in, -phase).dagger()
-
-        if n_legs_in == 1 and n_legs_out == 0:
-            return cls(1, 0, phase)
-        if n_legs_in == 1 and n_legs_out == 1:
-            if phase == 0:
-                return Id(1)
-            return cls(1, 1, phase)
-
-        if n_legs_out != 1 or phase != 0:
-            return (cls.make_spiders(n_legs_in, 1, 0)
-                    >> cls.make_spiders(1, 1, phase)
-                    >> cls.make_spiders(1, n_legs_out, 0))
-
-        if n_legs_in % 2 == 1:
-            return (cls.make_spiders(n_legs_in - 1, 1)
-                    @ Id(1) >> cls(2, n_legs_out))
-
-        new_in = n_legs_in // 2
-        return (cls.make_spiders(new_in, 1)
-                @ cls.make_spiders(new_in, 1)
-                >> cls(2, n_legs_out))
+    @property
+    def array(self):
+        return None
 
 
 class Z(Spider):
     """ Z spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='Z')
-        self.color = "green"
+    tikzstyle_name = 'Z'
+    color = 'green'
 
 
 class Y(Spider):
     """ Y spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='Y')
-        self.color = "blue"
+    tikzstyle_name = 'Y'
+    color = "blue"
 
 
 class X(Spider):
     """ X spider. """
-    def __init__(self, n_legs_in, n_legs_out, phase=0):
-        super().__init__(n_legs_in, n_legs_out, phase, name='X')
-        self.color = "red"
-
-
-class Had(Box):
-    """ Hadamard box. """
-    def __init__(self):
-        super().__init__('H', PRO(1), PRO(1))
-        self.draw_as_spider = True
-        self.drawing_name, self.tikzstyle_name, = '', 'H'
-        self.color, self.shape = "yellow", "rectangle"
-
-    def __repr__(self):
-        return self.name
-
-    def dagger(self):
-        return self
-
-
-H = Had()
+    tikzstyle_name = 'X'
+    color = "red"
 
 
 class Scalar(Box):
@@ -382,12 +315,8 @@ class Scalar(Box):
         super().__init__("scalar", PRO(0), PRO(0), data=data)
         self.drawing_name = format_number(data)
 
-    @property
-    def name(self):
-        return "scalar({})".format(format_number(self.data))
-
-    def __repr__(self):
-        return self.name
+    def __str__(self):
+        return f"scalar({format_number(self.data)})"
 
     def subs(self, *args):
         data = cat.rsubs(self.data, *args)
@@ -398,7 +327,7 @@ class Scalar(Box):
 
     def grad(self, var, **params):
         if var not in self.free_symbols:
-            return Sum([], self.dom, self.cod)
+            return Sum((), self.dom, self.cod)
         return Scalar(self.data.diff(var))
 
 
@@ -412,7 +341,7 @@ def gate2zx(box):
     if isinstance(box, (Bra, Ket)):
         dom, cod = (1, 0) if isinstance(box, Bra) else (0, 1)
         spiders = [X(dom, cod, phase=.5 * bit) for bit in box.bitstring]
-        return Id(0).tensor(*spiders) @ scalar(pow(2, -len(box.bitstring) / 2))
+        return Id().tensor(*spiders) @ scalar(pow(2, -len(box.bitstring) / 2))
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
@@ -437,33 +366,20 @@ def gate2zx(box):
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         quantum.S: Z(1, 1, .25),
         quantum.T: Z(1, 1, .125),
-        CZ: Z(1, 2) @ Id(1) >> Id(1) @ Had() @ Id(1) >> Id(1) @ Z(2, 1),
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ H @ Id(1) >> Id(1) @ Z(2, 1),
         CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
     return standard_gates[box]
 
 
-circuit2zx = Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx,
-    ob_factory=PRO, ar_factory=Diagram)
+circuit2zx = quantum.circuit.Functor(
+    ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
 
+H = Box('H', PRO(1), PRO(1))
+H.dagger = lambda: H
+H.draw_as_spider = True
+H.drawing_name, H.tikzstyle_name, = '', 'H'
+H.color, H.shape = "yellow", "rectangle"
 
-def decomp_ar(box):
-    n, m = len(box.dom), len(box.cod)
-    if isinstance(box, X):
-        phase = box.phase
-        if (n, m) in ((1, 0), (0, 1)):
-            return box
-        box = Id().tensor(*[H] * n) >> Z(n, m, phase) >> Id().tensor(*[H] * m)
-        return decomp(box)
-    if isinstance(box, Z):
-        phase = box.phase
-        if (n, m) == (0, 1):
-            return X(0, 1, phase) >> H
-        if (n, m) == (1, 0):
-            return X(1, 0, phase) << H
-        rot = Id(1) if phase == 0 else Z(1, 1, phase)
-        return Z.make_spiders(n, 1) >> rot >> Z.make_spiders(1, m)
-    return box
-
-
-decomp = Functor(ob=lambda x: x, ar=decomp_ar)
+SWAP = Swap(PRO(1), PRO(1))
+Diagram.braid_factory, Diagram.sum_factory = Swap, Sum
+Id = Diagram.id

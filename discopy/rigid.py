@@ -1,9 +1,29 @@
 # -*- coding: utf-8 -*-
 
 """
-Implements the free rigid monoidal category.
+The free rigid category, i.e. diagrams with cups and caps.
 
-The objects are given by the free pregroup, the arrows by planar diagrams.
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Ob
+    Ty
+    PRO
+    Diagram
+    Box
+    Cup
+    Cap
+    Sum
+    Category
+    Functor
+
+Axioms
+------
 
 >>> unit, s, n = Ty(), Ty('s'), Ty('n')
 >>> t = n.r @ s @ n.l
@@ -11,60 +31,65 @@ The objects are given by the free pregroup, the arrows by planar diagrams.
 >>> assert t.l.r == t == t.r.l
 >>> left_snake, right_snake = Id(n.r).transpose(left=True), Id(n.l).transpose()
 >>> assert left_snake.normal_form() == Id(n) == right_snake.normal_form()
->>> from discopy import drawing
->>> drawing.equation(
-...     left_snake, Id(n), right_snake, figsize=(4, 2),
-...     path='docs/_static/imgs/rigid/snake-equation.png')
 
-.. image:: ../_static/imgs/rigid/snake-equation.png
+>>> from discopy.drawing import Equation
+>>> Equation(left_snake, Id(n), right_snake).draw(
+...     figsize=(4, 2), path='docs/_static/rigid/typed-snake-equation.png')
+
+.. image:: /_static/rigid/typed-snake-equation.png
     :align: center
 """
 
-from discopy import cat, monoidal, messages, rewriting
-from discopy.cat import AxiomError
+from __future__ import annotations
+
+from collections.abc import Callable
+
+from discopy import cat, monoidal, closed, messages
+from discopy.braided import BinaryBoxConstructor
+from discopy.cat import AxiomError, factory
+from discopy.monoidal import assert_isatomic
+from discopy.utils import assert_isinstance, factory_name
 
 
 class Ob(cat.Ob):
     """
-    Implements simple pregroup types: basic types and their iterated adjoints.
+    A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
+    Parameters:
+        name : The name of the object.
+        z : The winding number.
+
+    Example
+    -------
     >>> a = Ob('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
-    @property
-    def z(self):
-        """ Winding number """
-        return self._z
+    __ambiguous_inheritance__ = True
 
-    @property
-    def l(self):
-        """ Left adjoint """
-        return Ob(self.name, self.z - 1)
-
-    @property
-    def r(self):
-        """ Right adjoint """
-        return Ob(self.name, self.z + 1)
-
-    def __init__(self, name, z=0):
-        if not isinstance(z, int):
-            raise TypeError(messages.type_err(int, z))
-        self._z = z
+    def __init__(self, name: str, z: int = 0):
+        assert_isinstance(z, int)
+        self.z = z
         super().__init__(name)
 
+    @property
+    def l(self) -> Ob:
+        """ The left adjoint of the object. """
+        return type(self)(self.name, self.z - 1)
+
+    @property
+    def r(self) -> Ob:
+        """ The right adjoint of the object. """
+        return type(self)(self.name, self.z + 1)
+
     def __eq__(self, other):
-        if not isinstance(other, Ob):
-            if isinstance(other, cat.Ob):
-                return self.z == 0 and self.name == other.name
-            return False
-        return (self.name, self.z) == (other.name, other.z)
+        return cat.Ob.__eq__(self, other) and self.z == other.z
 
     def __hash__(self):
-        return hash(self.name if not self.z else (self.name, self.z))
+        return hash(repr(self))
 
     def __repr__(self):
-        return "Ob({}{})".format(
-            repr(self.name), ", z=" + repr(self.z) if self.z else '')
+        return factory_name(type(self))\
+            + f"({repr(self.name)}{', z=' + repr(self.z) if self.z else ''})"
 
     def __str__(self):
         return str(self.name) + (
@@ -82,41 +107,47 @@ class Ob(cat.Ob):
         return cls(name=name, z=z)
 
 
-class Ty(monoidal.Ty, Ob):
-    """ Implements pregroup types as lists of simple types.
+@factory
+class Ty(closed.Ty):
+    """
+    A rigid type is a closed type with rigid objects inside.
 
+    Parameters:
+        inside (tuple[Ob, ...]) : The objects inside the type.
+
+    Example
+    -------
     >>> s, n = Ty('s'), Ty('n')
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
-    @staticmethod
-    def upgrade(old):
-        return Ty(*old.objects)
+    def assert_isadjoint(self, other):
+        """
+        Raise ``AxiomError`` if two rigid types are not adjoints.
+
+        Parameters:
+            other : The alleged right adjoint.
+        """
+        if self.r != other and self != other.r:
+            raise AxiomError(messages.NOT_ADJOINT.format(self, other))
+        if self.r != other:
+            raise AxiomError(messages.NOT_RIGID_ADJOINT.format(self, other))
 
     @property
-    def l(self):
-        return Ty(*[x.l for x in self.objects[::-1]])
+    def l(self) -> Ty:
+        """ The left adjoint of the type. """
+        return self.factory(*[x.l for x in self.inside[::-1]])
 
     @property
-    def r(self):
-        return Ty(*[x.r for x in self.objects[::-1]])
+    def r(self) -> Ty:
+        """ The right adjoint of the type. """
+        return self.factory(*[x.r for x in self.inside[::-1]])
 
     @property
-    def z(self):
-        if len(self) != 1:
-            raise TypeError(messages.no_winding_number_for_complex_types())
-        return self[0].z
-
-    def __init__(self, *t):
-        t = [x if isinstance(x, Ob)
-             else Ob(x.name) if isinstance(x, cat.Ob)
-             else Ob(x) for x in t]
-        monoidal.Ty.__init__(self, *t)
-        Ob.__init__(self, str(self))
-
-    def __repr__(self):
-        return "Ty({})".format(', '.join(
-            repr(x if x.z else x.name) for x in self.objects))
+    def z(self) -> int:
+        """ The winding number is only defined for types of length 1. """
+        assert_isatomic(self)
+        return self.inside[0].z
 
     def __lshift__(self, other):
         return self @ other.l
@@ -124,207 +155,350 @@ class Ty(monoidal.Ty, Ob):
     def __rshift__(self, other):
         return self.r @ other
 
+    ob_factory = Ob
 
+
+@factory
 class PRO(monoidal.PRO, Ty):
     """
-    Objects of the free rigid monoidal category generated by 1.
+    A PRO is a natural number ``n`` seen as a rigid type with unnamed objects.
+
+    Parameters
+    ----------
+    n : int
+        The length of the PRO type.
     """
-    @staticmethod
-    def upgrade(old):
-        return PRO(len(monoidal.PRO.upgrade(old)))
-
-    @property
-    def l(self):
-        """
-        >>> assert PRO(2).l == PRO(2)
-        """
-        return self
-
-    @property
-    def r(self):
-        return self
+    __ambiguous_inheritance__ = (monoidal.PRO, )
+    l = r = property(lambda self: self)
 
 
 class Layer(monoidal.Layer):
-    @staticmethod
-    def upgrade(old):
-        return Layer(old._left, old._box, old._right)
+    """
+    A rigid layer is a monoidal layer that can be rotated.
 
-    @property
-    def l(self):
-        return Layer(self._right.l, self._box.l, self._left.l)
+    Parameters:
+        left : The type on the left of the layer.
+        box : The box in the middle of the layer.
+        right : The type on the right of the layer.
+        more : More boxes and types to the right,
+               used by :meth:`Diagram.foliation`.
+    """
+    def rotate(self, left=False):
+        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
 
-    @property
-    def r(self):
-        return Layer(self._right.r, self._box.r, self._left.r)
+    l = property(lambda self: self.rotate(left=True))
+    r = property(lambda self: self.rotate(left=False))
 
 
-@monoidal.Diagram.subclass
-class Diagram(monoidal.Diagram):
-    """ Implements diagrams in the free rigid monoidal category.
+@factory
+class Diagram(closed.Diagram):
+    """
+    A rigid diagram is a closed diagram
+    with :class:`Cup` and :class:`Cap` boxes.
 
+    Parameters:
+        inside (tuple[Layer, ...]) : The layers of the diagram.
+        dom (Ty) : The domain of the diagram, i.e. its input.
+        cod (Ty) : The codomain of the diagram, i.e. its output.
+
+    Example
+    -------
     >>> I, n, s = Ty(), Ty('n'), Ty('s')
     >>> Alice, jokes = Box('Alice', I, n), Box('jokes', I, n.r @ s)
-    >>> boxes, offsets = [Alice, jokes, Cup(n, n.r)], [0, 1, 0]
-    >>> d = Diagram(Alice.dom @ jokes.dom, s, boxes, offsets)
-    >>> print(d)
-    Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
-
+    >>> d = Alice >> Id(n) @ jokes >> Cup(n, n.r) @ Id(s)
     >>> d.draw(figsize=(3, 2),
-    ...        path='docs/_static/imgs/rigid/diagram-example.png')
+    ...        path='docs/_static/rigid/diagram-example.png')
 
-    .. image:: ../_static/imgs/rigid/diagram-example.png
+    .. image:: /_static/rigid/diagram-example.png
         :align: center
     """
-    @staticmethod
-    def swap(left, right):
-        return monoidal.Diagram.swap(
-            left, right, ar_factory=Diagram, swap_factory=Swap)
+    __ambiguous_inheritance__ = True
 
-    @staticmethod
-    def permutation(perm, dom=None, inverse=False):
-        if dom is None:
-            dom = PRO(len(perm))
-        return monoidal.Diagram.permutation(
-            perm, dom, ar_factory=Diagram, inverse=inverse)
+    ty_factory = Ty
+    layer_factory = Layer
 
-    def foliate(self, yield_slices=False):
+    over = staticmethod(lambda base, exponent: base << exponent)
+    under = staticmethod(lambda base, exponent: exponent >> base)
+
+    @classmethod
+    def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
+        return base @ cls.cups(exponent.l, exponent) if left\
+            else cls.cups(exponent, exponent.r) @ base
+
+    @classmethod
+    def cups(cls, left: Ty, right: Ty) -> Diagram:
         """
+        Construct a diagram of nested cups for types ``left`` and ``right``.
+
+        Parameters:
+            left : The type left of the cup.
+            right : Its right adjoint.
+
+        Example
+        -------
+        >>> a, b = Ty('a'), Ty('b')
+        >>> Diagram.cups(a.l @ b, b.r @ a).draw(figsize=(3, 1),\\
+        ... margins=(0.3, 0.05), path='docs/_static/rigid/cups.png')
+
+        .. image:: /_static/rigid/cups.png
+            :align: center
+        """
+        return nesting(cls, cls.cup_factory)(left, right)
+
+    @classmethod
+    def caps(cls, left: Ty, right: Ty) -> Diagram:
+        """
+        Construct a diagram of nested caps for types ``left`` and ``right``.
+
+        Parameters:
+            left : The type left of the cap.
+            right : Its left adjoint.
+
+        Example
+        -------
+        >>> a, b = Ty('a'), Ty('b')
+        >>> Diagram.caps(a.r @ b, b.l @ a).draw(figsize=(3, 1),\\
+        ... margins=(0.3, 0.05), path='docs/_static/rigid/caps.png')
+
+        .. image:: /_static/rigid/caps.png
+            :align: center
+        """
+        return nesting(cls, cls.cap_factory)(left, right)
+
+    def curry(self, n=1, left=True) -> Diagram:
+        """
+        The curry of a rigid diagram is obtained using cups and caps.
+
+        >>> from discopy.drawing import Equation as Eq
         >>> x = Ty('x')
-        >>> f = Box('f', x, x)
-        >>> gen = (f @ Id(x) >> (f @ f)).foliate()
-        >>> print(next(gen))
-        f @ Id(x) >> Id(x) @ f >> f @ Id(x)
+        >>> g = Box('g', x @ x, x)
+        >>> Eq(Eq(g.curry(left=False), g, symbol="$\\\\mapsfrom$"),
+        ...     g.curry(), symbol="$\\\\mapsto$").draw(
+        ...         path="docs/_static/rigid/curry.png")
+
+        .. image:: /_static/rigid/curry.png
+            :align: center
         """
-        for diagram in super().foliate(yield_slices=yield_slices):
-            if isinstance(diagram, cat.Arrow):
-                yield self.upgrade(diagram)
-            else:
-                yield [self.upgrade(diagram[i]) for i in range(len(diagram))]
-
-    @staticmethod
-    def cups(left, right):
-        """ Constructs nested cups witnessing adjointness of x and y.
-
-        >>> a, b = Ty('a'), Ty('b')
-        >>> assert Diagram.cups(a, a.r) == Cup(a, a.r)
-        >>> assert Diagram.cups(a @ b, (a @ b).r) ==\\
-        ...     Id(a) @ Cup(b, b.r) @ Id(a.r) >> Cup(a, a.r)
-
-        >>> Diagram.cups(a @ b, (a @ b).r).draw(figsize=(3, 1),\\
-        ... margins=(0.3, 0.05), path='docs/_static/imgs/rigid/cups.png')
-
-    .. image:: ../_static/imgs/rigid/cups.png
-        :align: center
-        """
-        return cups(left, right)
-
-    @staticmethod
-    def caps(left, right):
-        """ Constructs nested cups witnessing adjointness of x and y.
-
-        >>> a, b = Ty('a'), Ty('b')
-        >>> assert Diagram.caps(a, a.l) == Cap(a, a.l)
-        >>> assert Diagram.caps(a @ b, (a @ b).l) == (Cap(a, a.l)
-        ...                 >> Id(a) @ Cap(b, b.l) @ Id(a.l))
-        """
-        return caps(left, right)
-
-    @staticmethod
-    def spiders(n_legs_in, n_legs_out, typ):
-        """ Constructs spiders with compound types."""
-        return spiders(n_legs_in, n_legs_out, typ)
-
-    @staticmethod
-    def fa(left, right):
-        """ Forward application. """
-        return Id(left) @ Diagram.cups(right.l, right)
-
-    @staticmethod
-    def ba(left, right):
-        """ Backward application. """
-        return Diagram.cups(left, left.r) @ Id(right)
-
-    @staticmethod
-    def fc(left, middle, right):
-        """ Forward composition. """
-        return Id(left) @ Diagram.cups(middle.l, middle) @ Id(right.l)
-
-    @staticmethod
-    def bc(left, middle, right):
-        """ Backward composition. """
-        return Id(left.r) @ Diagram.cups(middle, middle.r) @ Id(right)
-
-    @staticmethod
-    def fx(left, middle, right):
-        """ Forward crossed composition. """
-        return Id(left) @ Diagram.swap(middle.l, right.r) @ Id(middle) >>\
-            Diagram.swap(left, right.r) @ Diagram.cups(middle.l, middle)
-
-    @staticmethod
-    def bx(left, middle, right):
-        """ Backward crossed composition. """
-        return Id(middle) @ Diagram.swap(left.l, middle.r) @ Id(right) >>\
-            Diagram.cups(middle, middle.r) @ Diagram.swap(left.l, right)
-
-    @staticmethod
-    def curry(diagram, n_wires=1, left=False):
-        """ Diagram currying. """
         if left:
-            wires = diagram.dom[:n_wires]
-            return Diagram.caps(wires.r, wires) @ Id(diagram.dom[n_wires:])\
-                >> Id(wires.r) @ diagram
-        wires = diagram.dom[-n_wires or len(diagram.dom):]
-        return Id(diagram.dom[:-n_wires]) @ Diagram.caps(wires, wires.l)\
-            >> diagram @ Id(wires.l)
+            base, exponent = self.dom[:-n], self.dom[-n:]
+            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
+        offset = len(self.dom) - n
+        base, exponent = self.dom[n:], self.dom[:n]
+        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
-    def _conjugate(self, use_left):
-        layers = self.layers
-        list_of_layers = []
-        for layer in layers._boxes:
-            layer_adj = layer.l if use_left else layer.r
-            left, box, right = layer_adj
-            list_of_layers += (Id(left) @ box @ Id(right)).layers.boxes
+    def rotate(self, left=False):
+        """
+        The half-turn rotation of a diagram, called with ``.l`` and ``.r``.
 
-        dom = layers.dom.l if use_left else layers.dom.r
-        cod = layers.cod.l if use_left else layers.cod.r
-        layers_adj = type(layers)(dom, cod, list_of_layers)
-        boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers_adj))) or ([], [])
-        inputs = (dom, cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers_adj))
+        Example
+        -------
+        >>> from discopy import drawing
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', Ty(), x)
+        >>> g = Box('g', Ty(), x.r @ y)
+        >>> diagram = f @ g >> Cup(x, x.r) @ y
+        >>> LHS = drawing.Equation(diagram.l, diagram, symbol="$\\\\mapsfrom$")
+        >>> RHS = drawing.Equation(LHS, diagram.r, symbol="$\\\\mapsto$")
+        >>> RHS.draw(figsize=(8, 3), path='docs/_static/rigid/rotate.png')
 
-    @property
-    def l(self):
-        return self._conjugate(use_left=True)
+        .. image:: /_static/rigid/rotate.png
+            :align: center
+        """
+        dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
+        inside = tuple(
+            layer.l if left else layer.r for layer in self.inside[::-1])
+        return self.factory(inside, dom, cod, _scan=False)
 
-    @property
-    def r(self):
-        return self._conjugate(use_left=False)
-
-    def dagger(self):
-        d = super().dagger()
-        d._layers._boxes = [Layer.upgrade(b) for b in d._layers._boxes]
-        return d
-
-    def transpose_box(self, i, left=False):
-        bend_left = left
-        layers = self.layers
-        if bend_left:
-            box_T = layers[i]._box.r.dagger().transpose(left=True)
-        else:
-            box_T = layers[i]._box.l.dagger().transpose(left=False)
-        left, _, right = layers[i]
-        layers_T = (Id(left) @ box_T @ Id(right)).layers.boxes
-        list_of_layers = layers._boxes[:i] + layers_T + layers._boxes[i + 1:]
-        layers = type(layers)(layers.dom, layers.cod, list_of_layers)
-        boxes_and_offsets = tuple(zip(*(
-            (box, len(left)) for left, box, _ in layers))) or ([], [])
-        inputs = (layers.dom, layers.cod) + boxes_and_offsets
-        return self.upgrade(Diagram(*inputs, layers=layers))
+    l = property(lambda self: self.rotate(left=True))
+    r = property(lambda self: self.rotate(left=False))
 
     def transpose(self, left=False):
         """
+        The transpose of a diagram, i.e. its composition with cups and caps.
+
+        Parameters:
+            left : Whether to transpose left or right.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y)
+        >>> LHS = Equation(f.transpose(left=True), f, symbol="$\\\\mapsfrom$")
+        >>> RHS = Equation(LHS, f.transpose(), symbol="$\\\\mapsto$")
+        >>> RHS.draw(figsize=(8, 3), path="docs/_static/rigid/transpose.png")
+
+        .. image:: /_static/rigid/transpose.png
+        """
+        if left:
+            return self.cod.l @ self.caps(self.dom, self.dom.l)\
+                >> self.cod.l @ self @ self.dom.l\
+                >> self.cups(self.cod.l, self.cod) @ self.dom.l
+        return self.caps(self.dom.r, self.dom) @ self.cod.r\
+            >> self.dom.r @ self @ self.cod.r\
+            >> self.dom.r @ self.cups(self.cod, self.cod.r)
+
+    def transpose_box(self, i, j=0, left=False):
+        """
+        Transpose the box at index ``i``.
+
+        Parameters:
+            i : The vertical index of the box to transpose.
+            j : The horizontal index of the box to transpose, only needed if
+                the layer ``i`` has more than one box.
+            left : Whether to transpose left or right.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation
+        >>> x, y, z = Ty(*"xyz")
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> d = (f @ g).foliation()
+        >>> transpose_l = d.transpose_box(0, 0, left=True)
+        >>> transpose_r = d.transpose_box(0, 1, left=False)
+        >>> LHS = Equation(transpose_l, d, symbol="$\\\\mapsfrom$")
+        >>> RHS = Equation(LHS, transpose_r, symbol="$\\\\mapsto$")
+        >>> RHS.draw(
+        ...     figsize=(8, 3), path="docs/_static/rigid/transpose_box.png")
+
+        .. image:: /_static/rigid/transpose_box.png
+        """
+        box = list(self.inside[i])[2 * j + 1]
+        transposed_box = (box.r if left else box.l).transpose(left)
+        top, bottom = self[:i], self[i + 1:]
+        left_boxes_and_types = list(self.inside[i])[:2 * j + 1]
+        right_boxes_and_types = list(self.inside[i])[2 * j + 2:]
+        left_layer, right_layer = [
+            self.id().tensor(
+                *(x if k % 2 else self.id(x) for k, x in enumerate(xs)))
+            for xs in [left_boxes_and_types, right_boxes_and_types]]
+        return top >> left_layer @ transposed_box @ right_layer >> bottom
+
+    def snake_removal(self, left=False) -> Iterator[Diagram]:
+        """
+        Return a generator which yields normalization steps.
+
+        Parameters:
+            left : Passed to :meth:`discopy.monoidal.Diagram.normalize`.
+
+        Example
+        -------
+        >>> from discopy.rigid import *
+        >>> n, s = Ty('n'), Ty('s')
+        >>> cup, cap = Cup(n, n.r), Cap(n.r, n)
+        >>> f, g, h = Box('f', n, n), Box('g', s @ n, n), Box('h', n, n @ s)
+        >>> diagram = g @ cap >> f[::-1] @ Id(n.r) @ f >> cup @ h
+        >>> for d in diagram.normalize(): print(d)
+        g >> f[::-1] >> n @ Cap(n.r, n) >> n @ n.r @ f >> Cup(n, n.r) @ n >> h
+        g >> f[::-1] >> n @ Cap(n.r, n) >> Cup(n, n.r) @ n >> f >> h
+        g >> f[::-1] >> f >> h
+        """
+        from discopy import monoidal
+        from discopy.rigid import Cup, Cap
+
+        def follow_wire(diagram, i, j):
+            """
+            Given a diagram, the index of a box i and the offset j of an output
+            wire, returns (i, j, obstructions) where:
+            - i is the index of the box which takes this wire as input, or
+            len(diagram) if it is connected to the bottom boundary.
+            - j is the offset of the wire at its bottom end.
+            - obstructions is a pair of lists of indices for the boxes on
+            the left and right of the wire we followed.
+            """
+            left_obstruction, right_obstruction = [], []
+            while i < len(diagram) - 1:
+                i += 1
+                box, off = diagram.boxes[i], diagram.offsets[i]
+                if off <= j < off + len(box.dom):
+                    return i, j, (left_obstruction, right_obstruction)
+                if off <= j:
+                    j += len(box.cod) - len(box.dom)
+                    left_obstruction.append(i)
+                else:
+                    right_obstruction.append(i)
+            return len(diagram), j, (left_obstruction, right_obstruction)
+
+        def find_snake(diagram):
+            """
+            Given a diagram, returns (cup, cap, obstructions, left_snake)
+            if there is a yankable pair, otherwise returns None.
+            """
+            for cap in range(len(diagram)):
+                if not isinstance(diagram.boxes[cap], Cap):
+                    continue
+                for left_snake, wire in [(True, diagram.offsets[cap]),
+                                         (False, diagram.offsets[cap] + 1)]:
+                    cup, wire, obstructions =\
+                        follow_wire(diagram, cap, wire)
+                    not_yankable =\
+                        cup == len(diagram)\
+                        or not isinstance(diagram.boxes[cup], Cup)\
+                        or left_snake and diagram.offsets[cup] + 1 != wire\
+                        or not left_snake and diagram.offsets[cup] != wire
+                    if not_yankable:
+                        continue
+                    return cup, cap, obstructions, left_snake
+            return None
+
+        def unsnake(diagram, cup, cap, obstructions, left_snake=False):
+            """
+            Given a diagram and the indices for a cup and cap pair
+            and a pair of lists of obstructions on the left and right,
+            returns a new diagram with the snake removed.
+
+            A left snake is one of the form Id @ Cap >> Cup @ Id.
+            A right snake is one of the form Cap @ Id >> Id @ Cup.
+            """
+            left_obstruction, right_obstruction = obstructions
+            if left_snake:
+                for box in left_obstruction:
+                    diagram = diagram.interchange(box, cap)
+                    yield diagram
+                    for i, right_box in enumerate(right_obstruction):
+                        if right_box < box:
+                            right_obstruction[i] += 1
+                    cap += 1
+                for box in right_obstruction[::-1]:
+                    diagram = diagram.interchange(box, cup)
+                    yield diagram
+                    cup -= 1
+            else:
+                for box in left_obstruction[::-1]:
+                    diagram = diagram.interchange(box, cup)
+                    yield diagram
+                    for i, right_box in enumerate(right_obstruction):
+                        if right_box > box:
+                            right_obstruction[i] -= 1
+                    cup -= 1
+                for box in right_obstruction:
+                    diagram = diagram.interchange(box, cap)
+                    yield diagram
+                    cap += 1
+            inside = diagram.inside[:cap] + diagram.inside[cup + 1:]
+            yield diagram.factory(
+                inside, diagram.dom, diagram.cod, _scan=False)
+
+        diagram = self
+        while True:
+            yankable = find_snake(diagram)
+            if yankable is None:
+                break
+            for _diagram in unsnake(diagram, *yankable):
+                yield _diagram
+                diagram = _diagram
+        for _diagram in monoidal.Diagram.normalize(diagram, left=left):
+            yield _diagram
+
+    normalize = snake_removal
+
+    def normal_form(self, **params):
+        """
+        Implements the normalisation of rigid categories,
+        see Dunn and Vicary :cite:`DunnVicary19`, definition 2.12.
+
+        Examples
+        --------
         >>> a, b = Ty('a'), Ty('b')
         >>> double_snake = Id(a @ b).transpose()
         >>> two_snakes = Id(b).transpose() @ Id(a).transpose()
@@ -342,390 +516,266 @@ class Diagram(monoidal.Diagram):
         >>> *_, two_snakes_nf = monoidal.Diagram.normalize(
         ...     snakes, left=True)
         >>> assert double_snake == two_snakes_nf
-        >>> f = Box('f', a, b)
         """
-        if left:
-            return self.id(self.cod.l) @ self.caps(self.dom, self.dom.l)\
-                >> self.id(self.cod.l) @ self @ self.id(self.dom.l)\
-                >> self.cups(self.cod.l, self.cod) @ self.id(self.dom.l)
-        return self.caps(self.dom.r, self.dom) @ self.id(self.cod.r)\
-            >> self.id(self.dom.r) @ self @ self.id(self.cod.r)\
-            >> self.id(self.dom.r) @ self.cups(self.cod, self.cod.r)
-
-    def normal_form(self, normalizer=None, **params):
-        """
-        Implements the normalisation of rigid monoidal categories,
-        see arxiv:1601.05372, definition 2.12.
-        """
-        return super().normal_form(
-            normalizer=normalizer or Diagram.normalize, **params)
-
-    normalize = rewriting.snake_removal
-    layer_factory = Layer
-
-    def cup(self, x, y):
-        if min(x, y) < 0 or max(x, y) >= len(self.cod):
-            raise ValueError(f'Indices {x, y} are out of range.')
-        x, y = min(x, y), max(x, y)
-        for i in range(x, y - 1):
-            t0, t1 = self.cod[i:i + 1], self.cod[i + 1:i + 2]
-            self >>= Id(self.cod[:i]) @ Swap(t0, t1) @ Id(self.cod[i + 2:])
-        t0, t1 = self.cod[y - 1:y], self.cod[y:y + 1]
-        self >>= Id(self.cod[:y - 1]) @ Cup(t0, t1) @ Id(self.cod[y + 1:])
-        return self
+        return super().normal_form(**params)
 
 
-Sum = cat.Sum
-
-Sum.l = property(cat.Sum.fmap(lambda d: d.l))
-Sum.r = property(cat.Sum.fmap(lambda d: d.r))
-
-
-class Id(monoidal.Id, Diagram):
-    """ Define an identity arrow in a free rigid category
-
-    >>> t = Ty('a', 'b', 'c')
-    >>> assert Id(t) == Diagram(t, t, [], [])
+class Box(closed.Box, Diagram):
     """
-    def __init__(self, dom=Ty()):
-        monoidal.Id.__init__(self, dom)
-        Diagram.__init__(self, dom, dom, [], [], layers=cat.Id(dom))
+    A rigid box is a closed box in a rigid diagram.
 
-    @property
-    def l(self):
-        return type(self)(self.dom.l)
+    Parameters:
+        name : The name of the box.
+        dom : The domain of the box, i.e. its input.
+        cod : The codomain of the box, i.e. its output.
+        z : The winding number of the box,
+            i.e. the number of half-turn rotations.
 
-    @property
-    def r(self):
-        return type(self)(self.dom.r)
-
-
-Diagram.id = Id
-
-
-class Box(monoidal.Box, Diagram):
-    """ Implements generators of rigid monoidal diagrams.
-
+    Example
+    -------
     >>> a, b = Ty('a'), Ty('b')
-    >>> Box('f', a, b.l @ b, data={42})
-    Box('f', Ty('a'), Ty(Ob('b', z=-1), 'b'), data={42})
+    >>> f = Box('f', a, b.l @ b)
+    >>> assert f.l.z == -1 and f.z == 0 and f.r.z == 1
+    >>> assert f.r.l == f == f.l.r
+    >>> assert f.l.l != f != f.r.r
     """
-    def __init__(self, name, dom, cod, **params):
-        monoidal.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, dom, cod, [self], [0], layers=self.layers)
-        self._z = params.get("_z", 0)
+    __ambiguous_inheritance__ = (closed.Box, )
+
+    def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
+        self.z = z
+        closed.Box.__init__(self, name, dom, cod, data=data, **params)
+
+    def __str__(self):
+        return cat.Box.__str__(self) if not self.z\
+            else str(self.r) + '.l' if self.z < 0 else str(self.l) + '.r'
+
+    def __repr__(self):
+        if self.is_dagger:
+            return closed.Box.__repr__(self)
+        return closed.Box.__repr__(self)[:-1] + (
+            f', z={self.z})' if self.z else ')')
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return self._z == other._z and monoidal.Box.__eq__(self, other)
-        if isinstance(other, Diagram):
-            return len(other) == 1 and other.boxes[0] == self\
-                and (other.dom, other.cod) == (self.dom, self.cod)
-        return False
+            return cat.Box.__eq__(self, other) and self.z == other.z
+        return monoidal.Box.__eq__(self, other)
 
     def __hash__(self):
         return hash(repr(self))
 
-    @property
-    def z(self):
-        return self._z
-
-    def dagger(self):
+    def rotate(self, left=False):
+        dom, cod = (
+            getattr(x, 'l' if left else 'r') for x in (self.cod, self.dom))
+        z = self.z + (-1 if left else 1)
         return type(self)(
-            name=self.name, dom=self.cod, cod=self.dom,
-            data=self.data, _dagger=not self._dagger, _z=self._z)
+            self.name, dom, cod, data=self.data, is_dagger=self.is_dagger, z=z)
 
     @property
-    def l(self):
-        return type(self)(
-            name=self.name, dom=self.dom.l, cod=self.cod.l,
-            data=self.data, _dagger=self._dagger, _z=self._z - 1)
+    def is_transpose(self):
+        """ Whether the box is an odd rotation of a generator. """
+        return not self.is_dagger and self.z and bool(self.z % 2)
+
+    def to_drawing(self):
+        result = super().to_drawing()
+        result.is_transpose = self.is_transpose
+        return result
+
+
+class Sum(monoidal.Sum, Box):
+    """
+    A rigid sum is a monoidal sum that can be transposed.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (monoidal.Sum, )
 
     @property
-    def r(self):
-        return type(self)(
-            name=self.name, dom=self.dom.r, cod=self.cod.r,
-            data=self.data, _dagger=self._dagger, _z=self._z + 1)
-
-
-class Swap(monoidal.Swap, Box):
-    """ Implements swaps of basic types in a rigid category. """
-    def __init__(self, left, right):
-        monoidal.Swap.__init__(self, left, right)
-        Box.__init__(self, self.name, self.dom, self.cod)
+    def l(self) -> Sum:
+        """ The left transpose of a sum, i.e. the sum of left transposes. """
+        return self.sum_factory(
+            tuple(term.l for term in self.terms), self.cod.l, self.dom.l)
 
     @property
-    def l(self):
-        return Swap(self.right.l, self.left.l)
-
-    @property
-    def r(self):
-        return Swap(self.right.r, self.left.r)
+    def r(self) -> Sum:
+        """ The right transpose of a sum, i.e. the sum of right transposes. """
+        return self.sum_factory(
+            tuple(term.r for term in self.terms), self.cod.r, self.dom.r)
 
 
-class Cup(monoidal.BinaryBoxConstructor, Box):
-    """ Defines cups for simple types.
+class Cup(BinaryBoxConstructor, Box):
+    """
+    The counit of the adjunction for an atomic type.
 
+    Parameters:
+        left : The atomic type.
+        right : Its right adjoint.
+
+    Example
+    -------
     >>> n = Ty('n')
-    >>> Cup(n, n.r)
-    Cup(Ty('n'), Ty(Ob('n', z=1)))
-
     >>> Cup(n, n.r).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/imgs/rigid/cup.png')
+    ... path='docs/_static/rigid/cup.png')
 
-    .. image:: ../_static/imgs/rigid/cup.png
+    .. image:: /_static/rigid/cup.png
         :align: center
     """
-    def __init__(self, left, right):
-        if not isinstance(left, Ty):
-            raise TypeError(messages.type_err(Ty, left))
-        if not isinstance(right, Ty):
-            raise TypeError(messages.type_err(Ty, right))
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.cup_vs_cups(left, right))
-        if left.r != right and left != right.r:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(
-            self, "Cup({}, {})".format(left, right), left @ right, Ty())
-        self.draw_as_wires = True
-
-    def dagger(self):
-        return Cap(self.left, self.right)
+    def __init__(self, left: Ty, right: Ty):
+        assert_isatomic(left, Ty)
+        assert_isatomic(right, Ty)
+        assert_isadjoint(left, right)
+        name = f"Cup({left}, {right})"
+        dom, cod = left @ right, self.ty_factory()
+        BinaryBoxConstructor.__init__(self, left, right)
+        Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
     @property
     def l(self):
-        return Cup(self.right.l, self.left.l)
+        return self.cap_factory(self.right.l, self.left.l)
 
     @property
     def r(self):
-        return Cup(self.right.r, self.left.r)
+        return self.cap_factory(self.right.r, self.left.r)
 
-    def __repr__(self):
-        return "Cup({}, {})".format(repr(self.left), repr(self.right))
+    def dagger(self):
+        """
+        The dagger of a rigid cup is ill-defined,
+        use a :class:`pivotal.Cup` instead.
+        """
+        raise AxiomError("Rigid cups have no dagger, use pivotal instead.")
 
 
-class Cap(monoidal.BinaryBoxConstructor, Box):
-    """ Defines cups for simple types.
+class Cap(BinaryBoxConstructor, Box):
+    """
+    The unit of the adjunction for an atomic type.
 
+    Parameters:
+        left : The atomic type.
+        right : Its left adjoint.
+
+    Example
+    -------
     >>> n = Ty('n')
-    >>> Cap(n, n.l)
-    Cap(Ty('n'), Ty(Ob('n', z=-1)))
-
     >>> Cap(n, n.l).draw(figsize=(2,1), margins=(0.5, 0.05),\\
-    ... path='docs/_static/imgs/rigid/cap.png')
+    ... path='docs/_static/rigid/cap.png')
 
-    .. image:: ../_static/imgs/rigid/cap.png
+    .. image:: /_static/rigid/cap.png
         :align: center
     """
-    def __init__(self, left, right):
-        if not isinstance(left, Ty):
-            raise TypeError(messages.type_err(Ty, left))
-        if not isinstance(right, Ty):
-            raise TypeError(messages.type_err(Ty, right))
-        if len(left) != 1 or len(right) != 1:
-            raise ValueError(messages.cap_vs_caps(left, right))
-        if left != right.r and left.r != right:
-            raise AxiomError(messages.are_not_adjoints(left, right))
-        monoidal.BinaryBoxConstructor.__init__(self, left, right)
-        Box.__init__(
-            self, "Cap({}, {})".format(left, right), Ty(), left @ right)
-        self.draw_as_wires = True
-
-    def dagger(self):
-        return Cup(self.left, self.right)
+    def __init__(self, left: Ty, right: Ty):
+        assert_isatomic(left, Ty)
+        assert_isatomic(right, Ty)
+        assert_isadjoint(right, left)
+        name = f"Cap({left}, {right})"
+        dom, cod = self.ty_factory(), left @ right
+        BinaryBoxConstructor.__init__(self, left, right)
+        Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
     @property
     def l(self):
-        return Cap(self.right.l, self.left.l)
+        return self.cup_factory(self.right.l, self.left.l)
 
     @property
     def r(self):
-        return Cap(self.right.r, self.left.r)
-
-    def __repr__(self):
-        return "Cap({}, {})".format(repr(self.left), repr(self.right))
-
-
-class Spider(Box):
-    """
-    Spider box.
-
-    Parameters
-    ----------
-    n_legs_in, n_legs_out : int
-        Number of legs in and out.
-    typ : discopy.rigid.Ty
-        The type of the spider, needs to be atomic.
-
-    Examples
-    --------
-    >>> x = Ty('x')
-    >>> spider = Spider(1, 2, x)
-    >>> assert spider.dom == x and spider.cod == x @ x
-    """
-    def __init__(self, n_legs_in, n_legs_out, typ, **params):
-        self.typ = typ
-        if len(typ) > 1:
-            raise ValueError(
-                "Spider boxes can only have len(typ) == 1, "
-                "try Diagram.spiders instead.")
-        name = "Spider({}, {}, {})".format(n_legs_in, n_legs_out, typ)
-        dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        cup_like = (n_legs_in, n_legs_out) in ((2, 0), (0, 2))
-        params = dict(dict(
-            draw_as_spider=not cup_like,
-            draw_as_wires=cup_like,
-            color="black", drawing_name=""), **params)
-        Box.__init__(self, name, dom, cod, **params)
-
-    def __repr__(self):
-        return "Spider({}, {}, {})".format(
-            len(self.dom), len(self.cod), repr(self.typ))
+        return self.cup_factory(self.right.r, self.left.r)
 
     def dagger(self):
-        return type(self)(len(self.cod), len(self.dom), self.typ)
-
-    def decompose(self):
-        return self._decompose_spiders(len(self.dom), len(self.cod),
-                                       self.typ)
-
-    @classmethod
-    def _decompose_spiders(cls, n_legs_in, n_legs_out, typ):
-        if n_legs_out > n_legs_in:
-            return cls._decompose_spiders(n_legs_out, n_legs_in,
-                                          typ).dagger()
-
-        if n_legs_in == 1 and n_legs_out == 0:
-            return cls(1, 0, typ)
-        if n_legs_in == 1 and n_legs_out == 1:
-            return Id(typ)
-
-        if n_legs_out != 1:
-            return (cls._decompose_spiders(n_legs_in, 1, typ)
-                    >> cls._decompose_spiders(1, n_legs_out, typ))
-
-        if n_legs_in == 2:
-            return cls(2, 1, typ)
-
-        if n_legs_in % 2 == 1:
-            return (cls._decompose_spiders(n_legs_in - 1, 1, typ)
-                    @ Id(typ) >> cls(2, 1, typ))
-
-        new_in = n_legs_in // 2
-        half_spider = cls._decompose_spiders(new_in, 1, typ)
-        return half_spider @ half_spider >> cls(2, 1, typ)
-
-    @property
-    def l(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.l)
-
-    @property
-    def r(self):
-        return type(self)(len(self.dom), len(self.cod), self.typ.r)
+        """
+        The dagger of a rigid cap is ill-defined,
+        use a :class:`pivotal.Cap` instead.
+        """
+        raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
-class Functor(monoidal.Functor):
+class Category(closed.Category):
     """
-    Implements rigid monoidal functors, i.e. preserving cups and caps.
+    A rigid category is a monoidal category
+    with methods :code:`l`, :code:`r`, :code:`cups` and :code:`caps`.
 
+    Parameters:
+        ob : The type of objects.
+        ar : The type of arrows.
+    """
+    ob, ar = Ty, Diagram
+
+
+class Functor(closed.Functor):
+    """
+    A rigid functor is a closed functor that preserves cups and caps.
+
+    Parameters:
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
+
+    Example
+    -------
     >>> s, n = Ty('s'), Ty('n')
     >>> Alice, Bob = Box("Alice", Ty(), n), Box("Bob", Ty(), n)
     >>> loves = Box('loves', Ty(), n.r @ s @ n.l)
     >>> love_box = Box('loves', n @ n, s)
     >>> ob = {s: s, n: n}
     >>> ar = {Alice: Alice, Bob: Bob}
-    >>> ar.update({loves: Cap(n.r, n) @ Cap(n, n.l)
-    ...                   >> Id(n.r) @ love_box @ Id(n.l)})
+    >>> ar.update({loves: Cap(n.r, n) @ Cap(n, n.l) >> n.r @ love_box @ n.l})
     >>> F = Functor(ob, ar)
-    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    >>> sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
     >>> assert F(sentence).normal_form() == Alice >> Id(n) @ Bob >> love_box
-    >>> from discopy import drawing
-    >>> drawing.equation(
-    ...     sentence, F(sentence), symbol='$\\\\mapsto$', figsize=(5, 2),
-    ...     path='docs/_static/imgs/rigid/functor-example.png')
 
-    .. image:: ../_static/imgs/rigid/functor-example.png
+    >>> from discopy.drawing import Equation
+    >>> Equation(sentence, F(sentence), symbol='$\\\\mapsto$').draw(
+    ...     figsize=(5, 2), path='docs/_static/rigid/functor-example.png')
+
+    .. image:: /_static/rigid/functor-example.png
         :align: center
     """
-    def __init__(self, ob, ar, ob_factory=Ty, ar_factory=Diagram):
-        super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
+    dom = cod = Category(Ty, Diagram)
 
-    def __call__(self, diagram):
-        if isinstance(diagram, monoidal.Ty):
-            def adjoint(obj):
-                if not hasattr(obj, "z") or not obj.z:
-                    return self.ob[type(diagram)(obj)]
-                result = self.ob[type(diagram)(type(obj)(obj.name, z=0))]
-                if obj.z < 0:
-                    for _ in range(-obj.z):
-                        result = result.l
-                elif obj.z > 0:
-                    for _ in range(obj.z):
-                        result = result.r
-                return result
-            return self.ob_factory().tensor(*map(adjoint, diagram.objects))
-        if isinstance(diagram, Cup):
-            return self.ar_factory.cups(
-                self(diagram.dom[:1]), self(diagram.dom[1:]))
-        if isinstance(diagram, Cap):
-            return self.ar_factory.caps(
-                self(diagram.cod[:1]), self(diagram.cod[1:]))
-        if isinstance(diagram, Spider):
-            return self.ar_factory.spiders(
-                len(diagram.dom), len(diagram.cod), self(diagram.typ))
-        if isinstance(diagram, Box):
-            if not hasattr(diagram, "z") or not diagram.z:
-                return super().__call__(diagram)
-            z = diagram.z
+    def __call__(self, other):
+        if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
+            return super().__call__(other)
+        if isinstance(other, Ob):
+            return self(other.r).l if other.z < 0 else self(other.l).r
+        if isinstance(other, Cup):
+            return self.cod.ar.cups(self(other.dom[:1]), self(other.dom[1:]))
+        if isinstance(other, Cap):
+            return self.cod.ar.caps(self(other.cod[:1]), self(other.cod[1:]))
+        if isinstance(other, Box):
+            if not hasattr(other, "z") or not other.z:
+                return super().__call__(other)
+            z = other.z
             for _ in range(abs(z)):
-                diagram = diagram.l if z > 0 else diagram.r
-            result = super().__call__(diagram)
+                other = other.l if z > 0 else other.r
+            result = super().__call__(other)
             for _ in range(abs(z)):
                 result = result.l if z < 0 else result.r
             return result
-        if isinstance(diagram, monoidal.Diagram):
-            return super().__call__(diagram)
-        raise TypeError(messages.type_err(Diagram, diagram))
+        return super().__call__(other)
 
 
-def cups(left, right, ar_factory=Diagram, cup_factory=Cup, reverse=False):
-    """ Constructs a diagram of nested cups. """
-    for typ in left, right:
-        if not isinstance(typ, Ty):
-            raise TypeError(messages.type_err(Ty, typ))
-    if left.r != right and right.r != left:
-        raise AxiomError(messages.are_not_adjoints(left, right))
-    result = ar_factory.id(left @ right)
-    for i in range(len(left)):
-        j = len(left) - i - 1
-        cup = cup_factory(left[j:j + 1], right[i:i + 1])
-        layer = ar_factory.id(left[:j]) @ cup @ ar_factory.id(right[i + 1:])
-        result = result << layer if reverse else result >> layer
-    return result
+def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
+    """
+    Take a :code:`factory` for cups or caps of atomic types
+    and extends it recursively.
+
+    Parameters:
+        cls : A diagram factory, e.g. :class:`Diagram`.
+        factory :
+            A factory for cups (or caps) of atomic types, e.g. :class:`Cup`.
+    """
+    def method(left: Ty, right: Ty) -> Diagram:
+        if len(left) == 0:
+            return cls.id(left[:0])
+        head, tail = factory(left[0], right[-1]), method(left[1:], right[:-1])
+        if head.dom:  # We are nesting cups.
+            return left[0] @ tail @ right[-1] >> head
+        return head >> left[0] @ tail @ right[-1]
+
+    return method
 
 
-def caps(left, right, ar_factory=Diagram, cap_factory=Cap):
-    """ Constructs a diagram of nested caps. """
-    return cups(left, right, ar_factory, cap_factory, reverse=True)
+assert_isadjoint = Ty.assert_isadjoint
+Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
-
-def spiders(
-        n_legs_in, n_legs_out, typ,
-        ar_factory=Diagram, spider_factory=Spider):
-    """ Constructs a diagram of interleaving spiders. """
-    id, swap, spider = ar_factory.id, ar_factory.swap, spider_factory
-    ts = [typ[i:i + 1] for i in range(len(typ))]
-    result = id().tensor(*[spider(n_legs_in, n_legs_out, t) for t in ts])
-
-    for i, t in enumerate(ts):
-        for j in range(n_legs_in - 1):
-            result <<= id(result.dom[:i * j + i + j]) @ swap(
-                t, result.dom[i * j + i + j:i * n_legs_in + j]
-            ) @ id(result.dom[i * n_legs_in + j + 1:])
-
-        for j in range(n_legs_out - 1):
-            result >>= id(result.cod[:i * j + i + j]) @ swap(
-                result.cod[i * j + i + j:i * n_legs_out + j], t
-            ) @ id(result.cod[i * n_legs_out + j + 1:])
-    return result
+Id = Diagram.id

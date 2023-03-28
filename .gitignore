@@ -13,7 +13,7 @@
 *.pyc
 *.nav
 docs/_build/*
-docs/_autosummary/*
+docs/_api/*
 */__pycache__/*
 *.egg-info
 build/*

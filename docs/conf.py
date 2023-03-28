@@ -14,7 +14,6 @@ import os
 import sys
 
 sys.path.insert(0, os.path.abspath('..'))
-
 sys.path.append(os.path.abspath("./_ext"))
 
 
@@ -25,9 +24,8 @@ def get_version():
 
 # -- Project information -----------------------------------------------------
 
-project = 'discopy'
-copyright = '2019, Oxford Quantum Group'
-author = 'Oxford Quantum Group'
+project = 'DisCoPy'
+copyright = '2019, DisCoPy'
 
 # The full version, including alpha/beta/rc tags
 release = get_version()
@@ -41,25 +39,34 @@ release = get_version()
 extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
+              'sphinx.ext.viewcode',
               'm2r2',
-              'nbsphinx',
               'sphinx.ext.mathjax',
               'youtube',
+              'bases-fullname',
+              'sphinxcontrib.bibtex',
+              'nbsphinx',
+              'IPython.sphinxext.ipython_console_highlighting'
               ]
+
+bibtex_bibfiles = ['discopy.bib']
 
 autosummary_generate = True
 
-autosummary_context = {"excluded": ["__init__", "upgrade"]}
+autodoc_mock_imports = ["pytket", "pennylane", "torch", "sympy"]
 
-autodoc_mock_imports = ["pytket"]
+autodoc_typehints = "description"
+autodoc_typehints_format = "short"
+autodoc_inherit_docstrings = False
 
+napoleon_use_admonition_for_examples = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-# This pattern also affects html_static_path and html_extra_path.
+# This pattern also affects html_images_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 
@@ -68,12 +75,24 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_book_theme'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ['_static', '_style']
+html_css_files = ["custom.css"]
+html_favicon = "_static/logo.ico"
 
+html_title = "DisCoPy"
+
+html_theme_options = {
+    "repository_url": "https://github.com/discopy/discopy",
+    "use_repository_button": True,
+    "path_to_docs": "docs",
+    "extra_navbar": "",
+}
 
 master_doc = 'index'
+
+html_baseurl = "https://docs.discopy.org"
