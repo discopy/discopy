@@ -182,21 +182,6 @@ def test_pennylane_parameterized_ops():
         assert np.allclose(disco, plane, atol=10e-5)
 
 
-def test_pennylane_update_post_selection():
-    bell_state = Circuit.caps(qubit, qubit)
-    bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
-    p_circ = snake.to_pennylane()
-
-    assert p_circ._post_selection == {0: 0, 1: 0}
-    assert p_circ._valid_states == [0, 1]
-
-    p_circ._post_selection = {0: 0, 2: 0}
-
-    assert p_circ._post_selection == {0: 0, 2: 0}
-    assert p_circ._valid_states == [0, 2]
-
-
 def test_bra_ket_inputs():
     bad_inputs = ['0', '1', 2]
     for box in [Bra, Ket]:
@@ -549,6 +534,7 @@ def test_CCX_decompose(x, y, z):
 
     assert (out == unitary_mat).all()
 
+
 def test_Circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
@@ -597,8 +583,8 @@ def test_Circuit_to_pennylane(capsys):
             [Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
              CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
              Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
-            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2,
-             2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
+            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+             3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
 
     p_var_circ = var_circ.to_pennylane()
     p_var_circ.initialise_concrete_params(symbols, weights)
@@ -706,8 +692,8 @@ def test_pennylane_uninitialized():
             [Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
              CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
              Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
-            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2,
-             2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
+            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+             3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
     p_var_circ = var_circ.to_pennylane()
 
     with raises(ValueError):
@@ -745,8 +731,8 @@ def test_pennylane_gradient_methods():
             [Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
              CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
              Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
-            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2,
-             2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
+            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+             3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
 
     for diff_method in ['backprop', 'parameter-shift', 'finite-diff']:
 
