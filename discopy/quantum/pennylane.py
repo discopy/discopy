@@ -46,9 +46,7 @@ associated weights should be passed to `eval()` as `symbols=` and
 `weights=`.
 """
 
-
 from itertools import product
-
 import numpy as np
 import pennylane as qml
 import sympy
@@ -83,7 +81,7 @@ OP_MAP = {
 }
 
 
-def tk_op_to_pennylane(tk_op, str_map):
+def tk_op_to_pennylane(tk_op):
     """
     Extract the operation, parameters and wires from
     a pytket :class:`Op`, and return the corresponding PennyLane operation.
@@ -110,19 +108,17 @@ def tk_op_to_pennylane(tk_op, str_map):
 
     remapped_params = []
     for param in params:
-        if isinstance(param, sympy.Expr):
-            free_symbols = param.free_symbols
-            sym_subs = {f: str_map[str(f)] for f in free_symbols}
-            param = param.subs(sym_subs)
-        else:
-            param = torch.tensor([param])
+        # scale rotation from [0, 2) to [0, 1), (rescale to [0, 2pi) later)
+        param /= 2
+        if not isinstance(param, sympy.Expr):
+            param = torch.tensor(param)
 
         remapped_params.append(param)
 
     return OP_MAP[tk_op.op.type], remapped_params, wires
 
 
-def extract_ops_from_tk(tk_circ, str_map):
+def extract_ops_from_tk(tk_circ):
     """
     Extract the operations, and corresponding parameters and wires,
     from a pytket Circuit. Return these as lists to use in
@@ -149,9 +145,9 @@ def extract_ops_from_tk(tk_circ, str_map):
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
-            op, params, wires = tk_op_to_pennylane(op, str_map)
+            op, params, wires = tk_op_to_pennylane(op)
             op_list.append(op)
-            params_list.append([np.pi * p for p in params])
+            params_list.append(params)
             wires_list.append(wires)
 
     return op_list, params_list, wires_list
@@ -177,7 +173,8 @@ def get_post_selection_dict(tk_circ):
     return q_post_sels
 
 
-def to_pennylane(disco_circuit: Circuit, probabilities=False):
+def to_pennylane(disco_circuit: Circuit, probabilities=False,
+                 backend_config=None, diff_method="best"):
     """
     Return a PennyLaneCircuit equivalent to the input DisCoPy
     circuit. `probabilties` determines whether the PennyLaneCircuit
@@ -200,17 +197,12 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
         The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
     if disco_circuit.is_mixed:
-        raise ValueError("Only pure quantum circuits are currently "
-                         "supported.")
-
-    symbols = disco_circuit.free_symbols
-    str_map = {str(s): s for s in symbols}
+        raise ValueError('Only pure quantum circuits are currently '
+                         'supported.')
 
     tk_circ = disco_circuit.to_tk()
-    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ,
-                                                           str_map)
+    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ)
 
-    dev = qml.device('default.qubit', wires=tk_circ.n_qubits, shots=None)
     post_selection = get_post_selection_dict(tk_circ)
 
     scalar = 1
@@ -225,7 +217,12 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False):
                             post_selection,
                             scalar,
                             tk_circ.n_qubits,
-                            dev)
+                            backend_config,
+                            diff_method)
+
+
+STATE_BACKENDS = ['default.qubit', 'lightning.qubit', 'qiskit.aer']
+STATE_DEVICES = ['aer_simulator_statevector', 'statevector_simulator']
 
 
 class PennyLaneCircuit:
@@ -233,27 +230,66 @@ class PennyLaneCircuit:
     Implement a pennylane circuit with post-selection.
     """
     def __init__(self, ops, params, wires, probabilities,
-                 post_selection, scale, n_qubits, device):
-        self.ops = ops
-        self.params = params
-        self._contains_sympy = self.contains_sympy()
-        self.wires = wires
-        self.probs = probabilities
+                 post_selection, scale, n_qubits, backend_config,
+                 diff_method):
+        self._ops = ops
+        self._params = params
+        self._wires = wires
+        self._probabilities = probabilities
         self._post_selection = post_selection
-        self.scale = scale
-        self.n_qubits = n_qubits
-        self.device = device
+        self._scale = scale
+        self._n_qubits = n_qubits
+        self._backend_config = backend_config
+        self.diff_method = diff_method
+
+        self._contains_sympy = self.contains_sympy()
+        if self._contains_sympy:
+            self._concrete_params = None
+        else:
+            self._concrete_params = params
+        self.initialise_device_and_circuit()
         self._valid_states = self.get_valid_states()
 
-    @property
-    def post_selection(self):
-        """The post-selection dictionary."""
-        return self._post_selection
+    def get_device(self, backend_config):
+        """
+        Return a PennyLane device with the specified backend
+        configuration.
+        """
+        if backend_config is None:
+            backend = 'default.qubit'
+            backend_config = {}
+        else:
+            backend = backend_config.pop('backend')
 
-    @post_selection.setter
-    def post_selection(self, post_selection_dict):
-        self._post_selection = post_selection_dict
-        self._valid_states = self.get_valid_states()
+        if backend == 'honeywell.hqs':
+            try:
+                backend_config['machine'] = backend_config.pop('device')
+            except KeyError:
+                raise ValueError('When using the honeywell.hqs provider, '
+                                 'a device must be specified.')
+        elif 'device' in backend_config:
+            backend_config['backend'] = backend_config.pop('device')
+
+        if not self._probabilities:
+            if backend not in STATE_BACKENDS:
+                raise ValueError(f'The {backend} backend is not '
+                                 'compatible with state outputs.')
+            elif ('backend' in backend_config
+                  and backend_config['backend'] not in STATE_DEVICES):
+                raise ValueError(f'The {backend_config["backend"]} '
+                                 'device is not compatible with state '
+                                 'outputs.')
+
+        return qml.device(backend, wires=self._n_qubits, **backend_config)
+
+    def initialise_device_and_circuit(self):
+        """
+        Initialise the PennyLane device and circuit when instantiating the
+        PennyLaneCirucit, or loading from disk.
+        """
+        self._device = self.get_device(None if self._backend_config is None
+                                       else {**self._backend_config})
+        self._circuit = self.make_circuit()
 
     def contains_sympy(self):
         """
@@ -266,9 +302,18 @@ class PennyLaneCircuit:
             Whether the circuit parameters contain SymPy symbols.
         """
         return any(isinstance(expr, sympy.Expr) for expr_list in
-                   self.params for expr in expr_list)
+                   self._params for expr in expr_list)
 
-    def draw(self, symbols=None, weights=None):
+    def initialise_concrete_params(self, symbols, weights):
+        """
+        Given concrete values for each of the SymPy symbols, substitute
+        the symbols for the values to obtain concrete parameters, via
+        the `param_substitution` method.
+        """
+        if self._contains_sympy:
+            self._concrete_params = self.param_substitution(symbols, weights)
+
+    def draw(self):
         """
         Print a string representation of the circuit
         similar to `qml.draw`, but including post-selection.
@@ -280,13 +325,12 @@ class PennyLaneCircuit:
         weights : list of :class:`torch.FloatTensor`, default: None
             The weights to substitute for the symbols.
         """
-        if self._contains_sympy:
-            params = self.param_substitution(symbols, weights)
-        else:
-            params = [torch.cat(p) if len(p) > 0 else p
-                      for p in self.params]
+        if self._concrete_params is None:
+            raise ValueError('Cannot draw circuit with symbolic parameters. '
+                             'Initialise concrete parameters first.')
 
-        wires = qml.draw(self.make_circuit())(params).split("\n")
+        wires = (qml.draw(self._circuit)
+                 (self._concrete_params).split("\n"))
         for k, v in self._post_selection.items():
             wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
 
@@ -305,8 +349,8 @@ class PennyLaneCircuit:
         """
         keep_indices = []
         fixed = ['0' if self._post_selection.get(i, 0) == 0 else
-                 '1' for i in range(self.n_qubits)]
-        open_wires = set(range(self.n_qubits)) - self._post_selection.keys()
+                 '1' for i in range(self._n_qubits)]
+        open_wires = set(range(self._n_qubits)) - self._post_selection.keys()
         permutations = [''.join(s) for s in product('01',
                                                     repeat=len(open_wires))]
         for perm in permutations:
@@ -326,13 +370,14 @@ class PennyLaneCircuit:
         :class:`qml.Qnode`
             A Pennylane circuit without post-selection.
         """
-        @qml.qnode(self.device, interface="torch")
+        @qml.qnode(self._device, interface="torch",
+                   diff_method=self.diff_method)
         def circuit(circ_params):
-            for op, params, wires in zip(self.ops, circ_params, self.wires):
-                op(*params, wires=wires)
+            for op, params, wires in zip(self._ops, circ_params, self._wires):
+                op(*[2 * torch.pi * p for p in params], wires=wires)
 
-            if self.probs:
-                return qml.probs(wires=range(self.n_qubits))
+            if self._probabilities:
+                return qml.probs(wires=range(self._n_qubits))
             else:
                 return qml.state()
 
@@ -353,11 +398,12 @@ class PennyLaneCircuit:
         :class:`torch.Tensor`
             The post-selected output of the circuit.
         """
-        states = self.make_circuit()(params)
+        states = self._circuit(params)
 
-        open_wires = self.n_qubits - len(self._post_selection)
+        open_wires = self._n_qubits - len(self._post_selection)
         post_selected_states = states[self._valid_states]
-        post_selected_states *= self.scale ** 2 if self.probs else self.scale
+        post_selected_states *= (self._scale ** 2 if self._probabilities
+                                 else self._scale)
 
         if post_selected_states.shape[0] == 1:
             return post_selected_states
@@ -382,7 +428,7 @@ class PennyLaneCircuit:
             circuit.
         """
         concrete_params = []
-        for expr_list in self.params:
+        for expr_list in self._params:
             concrete_list = []
             for expr in expr_list:
                 if isinstance(expr, sympy.Expr):
@@ -391,10 +437,9 @@ class PennyLaneCircuit:
                 concrete_list.append(expr)
             concrete_params.append(concrete_list)
 
-        return [torch.cat(p) if len(p) > 0 else p
-                for p in concrete_params]
+        return concrete_params
 
-    def eval(self, symbols=None, weights=None):
+    def eval(self):
         """
         Evaluate the circuit. The symbols should be those
         from the original DisCoPy diagram, which will be substituted
@@ -412,9 +457,7 @@ class PennyLaneCircuit:
         :class:`torch.Tensor`
             The post-selected output of the circuit.
         """
-        if self._contains_sympy:
-            concrete_params = self.param_substitution(symbols, weights)
-            return self.post_selected_circuit(concrete_params)
-        else:
-            return self.post_selected_circuit([torch.cat(p) if len(p) > 0
-                                               else p for p in self.params])
+        if self._concrete_params is None:
+            raise ValueError('Initialise concrete parameters first.')
+
+        return self.post_selected_circuit(self._concrete_params)

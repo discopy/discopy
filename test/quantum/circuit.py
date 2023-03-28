@@ -188,12 +188,12 @@ def test_pennylane_update_post_selection():
     snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
     p_circ = snake.to_pennylane()
 
-    assert p_circ.post_selection == {0: 0, 1: 0}
+    assert p_circ._post_selection == {0: 0, 1: 0}
     assert p_circ._valid_states == [0, 1]
 
-    p_circ.post_selection = {0: 0, 2: 0}
+    p_circ._post_selection = {0: 0, 2: 0}
 
-    assert p_circ.post_selection == {0: 0, 2: 0}
+    assert p_circ._post_selection == {0: 0, 2: 0}
     assert p_circ._valid_states == [0, 2]
 
 
@@ -502,3 +502,276 @@ def test_CX_decompose(x, y):
     # but CX matrices are self transpose
     assert (out == out.T).all()
     assert (out == unitary_mat).all()
+
+
+@pytest.mark.parametrize('x,y', [(0, 1), (0, 2), (1, 0), (2, 0), (5, 0)])
+def test_CX_decompose(x, y):
+    n = abs(x - y) + 1
+    binary_mat = np.eye(n, dtype=int)
+    binary_mat[y] = np.bitwise_xor(binary_mat[x], binary_mat[y])
+
+    N = 1 << n
+    unitary_mat = np.zeros(shape=(N, N))
+    for i in range(N):
+        bits = index2bitstring(i, n)
+        v = bitstring2index(binary_mat @ bits % 2)
+        unitary_mat[i][v] = 1
+
+    # take transpose because tensor axes follow diagrammatic order
+    out = Id(n).CX(x, y).eval().array.reshape(N, N).T
+    # but CX matrices are self transpose
+    assert (out == out.T).all()
+    assert (out == unitary_mat).all()
+
+
+@pytest.mark.parametrize('x,y, z', [(0, 1, 2), (0, 2, 4),
+                                    (0, 4, 2), (4, 2, 0),
+                                    (0, 4, 1), (4, 0, 1)])
+def test_CCX_decompose(x, y, z):
+
+    n = max(x, y, z) - min(x, y, z) + 1
+    N = 1 << n
+
+    unitary_mat = np.zeros(shape=(N, N))
+
+    for i in range(N):
+        bits = list(index2bitstring(i, n))
+        bits[z] = (bits[x] & bits[y]) ^ bits[z]
+        v = bitstring2index(bits)
+        unitary_mat[i][v] = 1
+
+    # take transpose because tensor axes follow diagrammatic order
+    out = Id(n).CCX(x, y, z).eval().array.reshape(N, N).T
+
+    np.set_printoptions(threshold=3000)
+
+    print(unitary_mat.real)
+
+    assert (out == unitary_mat).all()
+
+def test_Circuit_to_pennylane(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    p_snake = snake.to_pennylane()
+    p_snake.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+    assert np.allclose(p_snake.eval().numpy(), snake.eval().array)
+
+    p_snake_prob = snake.to_pennylane(probabilities=True)
+    snake_prob = (snake >> Measure())
+
+    assert np.allclose(p_snake_prob.eval().numpy(), snake_prob.eval().array)
+
+    no_open_snake = (bell_state @ Ket(0) >> Bra(0) @ bell_effect)[::-1]
+    p_no_open_snake = no_open_snake.to_pennylane()
+    p_no_open_snake.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤0>\n")
+
+    assert np.allclose(p_no_open_snake.eval().numpy(),
+                       no_open_snake.eval().array)
+
+    # probabilities should not be normalized if all wires are post-selected
+    p_no_open_snake_prob = no_open_snake.to_pennylane(probabilities=True)
+
+    assert np.allclose(p_no_open_snake_prob.eval().numpy(),
+                       no_open_snake.eval().array)
+
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+    weights = [torch.tensor(1.), torch.tensor(2.), torch.tensor(3.)]
+
+    var_circ = Circuit.decode(
+        dom=qubit ** 0, boxes_and_offsets=zip(
+            [Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+             CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+             Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2,
+             2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
+
+    p_var_circ = var_circ.to_pennylane()
+    p_var_circ.initialise_concrete_params(symbols, weights)
+    p_var_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭●──H─┤0>\n"
+         "1: ──H────────╭●───────────────────╰X────┤0>\n"
+         "2: ──H────────╰RZ(1.13)─╭●───────────────┤  State\n"
+         "3: ──H──────────────────╰RZ(12.57)─╭●──H─┤0>\n"
+         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤0>\n")
+
+    var_f = var_circ.lambdify(*symbols)
+    conc_circ = var_f(*[a.item() for a in weights])
+
+    assert np.allclose(p_var_circ.eval().numpy(),
+                       conc_circ.eval().array)
+
+    p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
+    p_var_circ_prob.initialise_concrete_params(symbols, weights)
+    conc_circ_prob = (conc_circ >> Measure())
+
+    assert (np.allclose(p_var_circ_prob.eval().numpy(),
+                        conc_circ_prob.eval().array))
+
+
+def test_PennyLaneCircuit_mixed_error():
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    snake = (snake >> Measure())
+    with raises(ValueError):
+        snake.to_pennylane()
+
+
+def test_PennylaneCircuit_draw(capsys):
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+    p_circ = snake.to_pennylane()
+    p_circ.draw()
+
+    captured = capsys.readouterr()
+    assert captured.out == \
+        ("0: ───────╭●──H─┤0>\n"
+         "1: ──H─╭●─╰X────┤0>\n"
+         "2: ────╰X───────┤  State\n")
+
+
+def test_pennylane_ops():
+    ops = [X, Y, Z, S, T, H, CX, CZ]
+
+    for op in ops:
+        disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
+        plane = op.to_pennylane().eval().numpy()
+
+        assert np.allclose(disco, plane)
+
+
+def test_pennylane_parameterized_ops():
+    ops = [Rx, Ry, Rz, CRx, CRz]
+
+    for op in ops:
+        p_op = op(0.5)
+        disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
+        plane = p_op.to_pennylane().eval().numpy()
+
+        assert np.allclose(disco, plane, atol=10e-5)
+
+
+def test_pennylane_devices():
+    bell_state = Circuit.caps(qubit, qubit)
+    bell_effect = bell_state[::-1]
+    snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
+
+    # Honeywell backend only compatible when `probabilities=True`
+    h_backend = {'backend': 'honeywell.hqs', 'device': 'H1-1E'}
+    h_circ = snake.to_pennylane(probabilities=True, backend_config=h_backend)
+    assert h_circ._device is not None
+    with raises(ValueError):
+        h_circ = snake.to_pennylane(backend_config=h_backend)
+
+    # Device must be specified when using Honeywell backend
+    h_backend_corrupt = {'backend': 'honeywell.hqs'}
+    with raises(ValueError):
+        h_circ = snake.to_pennylane(probabilities=True,
+                                    backend_config=h_backend_corrupt)
+
+    aer_backend = {'backend': 'qiskit.aer',
+                   'device': 'aer_simulator_statevector'}
+    aer_circ = snake.to_pennylane(backend_config=aer_backend)
+    assert aer_circ._device is not None
+
+    # `aer_simulator` is not compatible with state outputs
+    aer_backend_corrupt = {'backend': 'qiskit.aer', 'device': 'aer_simulator'}
+    with raises(ValueError):
+        aer_circ = snake.to_pennylane(backend_config=aer_backend_corrupt)
+
+
+def test_pennylane_uninitialized():
+    x, y, z = sympy.symbols('x y z')
+    var_circ = Circuit.decode(
+        dom=qubit ** 0, boxes_and_offsets=zip(
+            [Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+             CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+             Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2,
+             2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
+    p_var_circ = var_circ.to_pennylane()
+
+    with raises(ValueError):
+        p_var_circ.draw()
+
+    with raises(ValueError):
+        p_var_circ.eval()
+
+
+def test_pennylane_parameter_reference():
+    x = sympy.symbols('x')
+    p = torch.nn.Parameter(torch.tensor(1.))
+
+    circ = Rx(x)
+    p_circ = circ.to_pennylane()
+    p_circ.initialise_concrete_params([x], [p])
+
+    with torch.no_grad():
+        p.add_(1.)
+
+    assert p_circ._concrete_params[0][0] == p
+
+    with torch.no_grad():
+        p.add_(-2.)
+
+    assert p_circ._concrete_params[0][0] == p
+
+
+def test_pennylane_gradient_methods():
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+
+    var_circ = Circuit.decode(
+        dom=qubit ** 0, boxes_and_offsets=zip(
+            [Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+             CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+             Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+            [0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2,
+             2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
+
+    for diff_method in ['backprop', 'parameter-shift', 'finite-diff']:
+
+        weights = [torch.tensor(1., requires_grad=True),
+                   torch.tensor(2., requires_grad=True),
+                   torch.tensor(3., requires_grad=True)]
+
+        p_var_circ = var_circ.to_pennylane(probabilities=True,
+                                           diff_method=diff_method)
+        p_var_circ.initialise_concrete_params(symbols, weights)
+
+        loss = p_var_circ.eval().norm(dim=0, p=2)
+        loss.backward()
+        assert weights[0].grad is not None
+
+    for diff_method in ['backprop']:
+
+        weights = [torch.tensor(1., requires_grad=True),
+                   torch.tensor(2., requires_grad=True),
+                   torch.tensor(3., requires_grad=True)]
+
+        p_var_circ = var_circ.to_pennylane(probabilities=False,
+                                           diff_method=diff_method)
+        p_var_circ.initialise_concrete_params(symbols, weights)
+
+        loss = p_var_circ.eval().norm(dim=0, p=2)
+        loss.backward()
+        assert weights[0].grad is not None
