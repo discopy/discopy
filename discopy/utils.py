@@ -343,7 +343,6 @@ def unbiased(binary_method):
     return method
 
 
-<<<<<<< Updated upstream
 Pushout = tuple[dict[int, int], dict[int, int]]
 
 
@@ -409,7 +408,6 @@ class BinaryBoxConstructor:
     def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
         """ Decode a serialised binary box constructor. """
         return cls(*map(from_tree, (tree['left'], tree['right'])))
-=======
 def draw_and_compare(file, folder, tol, **params):
     """ Draw a given diagram and compare the result with a baseline. """
     def decorator(func):
@@ -443,4 +441,3 @@ def tikz_and_compare(file, folder, **params):
                 os.remove(test_path)
         return wrapper
     return decorator
->>>>>>> Stashed changes
