@@ -549,7 +549,8 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.tk import to_tk
         return to_tk(self)
 
-    def to_pennylane(self, probabilities=False):
+    def to_pennylane(self, probabilities=False, backend_config=None,
+                     diff_method='best'):
         """
         Export DisCoPy circuit to PennylaneCircuit.
 
@@ -566,7 +567,9 @@ class Circuit(tensor.Diagram):
         :class:`discopy.quantum.pennylane.PennylaneCircuit`
         """
         from discopy.quantum.pennylane import to_pennylane
-        return to_pennylane(self, probabilities=probabilities)
+        return to_pennylane(self, probabilities=probabilities,
+                            backend_config=backend_config,
+                            diff_method=diff_method)
 
     @staticmethod
     def from_tk(*tk_circuits):
@@ -750,7 +753,7 @@ class Circuit(tensor.Diagram):
         for x in sorted(filter(lambda x: x < head, indices), reverse=True):
             gate, head = Controlled(gate, distance=head - x), x
         head = indices[-1]
-        for x in sorted(filter(lambda x: x > head, indices), reverse=True):
+        for x in sorted(filter(lambda x: x > head, indices)):
             gate, head = Controlled(gate, distance=head - x), x
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
