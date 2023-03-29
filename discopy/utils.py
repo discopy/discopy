@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import os
 import json
 from functools import wraps
 from typing import (
@@ -16,11 +17,14 @@ from typing import (
     Hashable,
     Literal,
     cast,
-    Union)
+    Union,
+)
 
 from networkx import Graph, connected_components
+from matplotlib.testing.compare import compare_images
 
 from discopy import messages
+from discopy.config import DRAWING_DEFAULT
 
 
 KT = TypeVar('KT')
@@ -339,6 +343,7 @@ def unbiased(binary_method):
     return method
 
 
+<<<<<<< Updated upstream
 Pushout = tuple[dict[int, int], dict[int, int]]
 
 
@@ -404,3 +409,38 @@ class BinaryBoxConstructor:
     def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
         """ Decode a serialised binary box constructor. """
         return cls(*map(from_tree, (tree['left'], tree['right'])))
+=======
+def draw_and_compare(file, folder, tol, **params):
+    """ Draw a given diagram and compare the result with a baseline. """
+    def decorator(func):
+        def wrapper():
+            true_path = os.path.join(folder, file)
+            test_path = os.path.join(folder, '.' + file)
+            func().draw(path=test_path, show=False, **params)
+            test = compare_images(true_path, test_path, tol)
+            assert test is None
+            os.remove(test_path)
+        return wrapper
+    return decorator
+
+
+def tikz_and_compare(file, folder, **params):
+    """ Tikz a given diagram and compare the result with a baseline. """
+    def decorator(func):
+        def wrapper():
+            true_paths = [os.path.join(folder, file)]
+            test_paths = [os.path.join(folder, '.' + file)]
+            if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
+                true_paths.append(
+                    true_paths[0].replace('.tikz', '.tikzstyles'))
+                test_paths.append(
+                    test_paths[0].replace('.tikz', '.tikzstyles'))
+            func().draw(path=test_paths[0], **dict(params, to_tikz=True))
+            for true_path, test_path in zip(true_paths, test_paths):
+                with open(true_path, "r") as true:
+                    with open(test_path, "r") as test:
+                        assert true.read() == test.read()
+                os.remove(test_path)
+        return wrapper
+    return decorator
+>>>>>>> Stashed changes
