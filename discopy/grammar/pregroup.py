@@ -103,7 +103,7 @@ class Diagram(frobenius.Diagram):
         ``word @ ... @ word >> wires`` by normalising words and wires
         seperately before combining them, so it can be drawn with :meth:`draw`.
         """
-        words, is_pregroup = Id(Ty()), True
+        words, is_pregroup = self.id(), True
         for _, box, right in self.inside:
             if isinstance(box, Word):
                 if right:  # word boxes should be tensored left to right.
