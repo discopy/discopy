@@ -24,6 +24,7 @@ Summary
         :toctree:
 
         backend
+        set_backend
         get_backend
 
 See also
@@ -37,6 +38,8 @@ See also
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import ModuleType
+from typing import Union, Literal as L
 
 from discopy import cat, monoidal, config, messages
 from discopy.cat import (
@@ -186,8 +189,8 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
 
     @classmethod
     def id(cls, dom=0) -> Matrix:
-        with backend('numpy') as np:
-            return cls(np.identity(dom, cls.dtype), dom, dom)
+        with backend() as np:
+            return cls(np.eye(dom, dtype=cls.dtype), dom, dom)
 
     twist = id
 
@@ -362,7 +365,14 @@ def array2string(array, **params):
 
 
 class Backend:
-    def __init__(self, module, array=None):
+    """
+    A matrix backend.
+
+    Parameters:
+        module : The main module of the backend.
+        array : The array class of the backend.
+    """
+    def __init__(self, module: ModuleType, array: type = None):
         self.module, self.array = module, array or module.array
 
     def __getattr__(self, attr):
@@ -370,24 +380,28 @@ class Backend:
 
 
 class NumPy(Backend):
+    """ NumPy backend. """
     def __init__(self):
         import numpy
         super().__init__(numpy)
 
 
 class JAX(Backend):
+    """ JAX backend. """
     def __init__(self):
         import jax
         super().__init__(jax.numpy)
 
 
 class PyTorch(Backend):
+    """ PyTorch backend. """
     def __init__(self):
         import torch
         super().__init__(torch, array=torch.as_tensor)
 
 
 class TensorFlow(Backend):
+    """ TensorFlow backend. """
     def __init__(self):
         import tensorflow.experimental.numpy as tnp
         from tensorflow.python.ops.numpy_ops import np_config
@@ -396,18 +410,30 @@ class TensorFlow(Backend):
 
 
 BACKENDS = {
-    'np': NumPy,
     'numpy': NumPy,
     'jax': JAX,
-    'jax.numpy': JAX,
     'pytorch': PyTorch,
-    'torch': PyTorch,
     'tensorflow': TensorFlow,
 }
 
+BackendName = Union[tuple(L[x] for x in BACKENDS)]
+
 
 @contextmanager
-def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
+def backend(name: BackendName = None,
+            _stack=[config.DEFAULT_BACKEND], _cache=dict()):
+    """
+    Context manager for matrix backend.
+
+    Parameters:
+        name : The name of the backend, default is ``"numpy"``.
+
+    Example
+    -------
+    >>> with backend('jax'):
+    ...     assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
+    ...         == 'jaxlib.xla_extension'
+    """
     name = name or _stack[-1]
     _stack.append(name)
     try:
@@ -418,6 +444,35 @@ def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
         _stack.pop()
 
 
-def get_backend():
+def set_backend(name: BackendName) -> None:
+    """
+    Override the default backend.
+
+    Parameters:
+        name : The name of the backend.
+
+    Example
+    -------
+    >>> set_backend('jax')
+    >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
+    ...     == 'jaxlib.xla_extension'
+    >>> set_backend('numpy')
+    >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
+    ...     == 'numpy'
+    """
+    backend.__wrapped__.__defaults__[1][-1] = name
+
+
+def get_backend() -> Backend:
+    """
+    Get the current backend.
+
+    Example
+    -------
+    >>> set_backend('jax')
+    >>> assert isinstance(get_backend(), JAX)
+    >>> set_backend('numpy')
+    >>> assert isinstance(get_backend(), NumPy)
+    """
     with backend() as result:
         return result
