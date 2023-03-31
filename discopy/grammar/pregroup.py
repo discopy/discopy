@@ -17,6 +17,8 @@ Summary
     Cap
     Swap
     Word
+    Category
+    Functor
 
 .. admonition:: Functions
 
