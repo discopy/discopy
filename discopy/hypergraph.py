@@ -744,8 +744,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         outputs, boxes, domain, codomain and spiders.
         """
         graph = Graph()
-        graph.add_nodes_from(
-            Node("spider", i=i) for i in range(self.n_spiders))
+        graph.add_nodes_from([(Node("spider", i=i), dict(typ=typ))
+                              for i, typ in enumerate(self.spider_types)])
         graph.add_nodes_from(
             [(Node("input", i=i), dict(i=i)) for i, _ in enumerate(self.dom)])
         graph.add_edges_from(
@@ -768,7 +768,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         graph.add_nodes_from(
             [(Node("output", i=i), dict(i=i)) for i, _ in enumerate(self.cod)])
         graph.add_edges_from(
-            (Node("output", i=i), Node("spider", i=j))
+            (Node("spider", i=j), Node("output", i=i))
             for i, j in enumerate(
                 self.wires[len(self.wires) - len(self.cod):]))
         return graph

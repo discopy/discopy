@@ -99,6 +99,15 @@ from discopy.monoidal import assert_isatomic
 from discopy.utils import factory_name, assert_isinstance
 
 
+def to_regraph(diagram):
+    from regraph import NXGraph
+    graph = diagram.to_hypergraph().to_graph()
+    result = NXGraph()
+    result.add_nodes_from(graph.nodes(data=True))
+    result.add_edges_from(graph.edges())
+    return result
+
+
 class Ob(pivotal.Ob):
     """
     A frobenius object is a self-dual pivotal object.
@@ -203,6 +212,40 @@ class Diagram(compact.Diagram):
                 f.unfuse() if isinstance(f, Spider) else f,
             dom=Category(), cod=Category())
         return F(self)
+
+    def match(self, other: Diagram) -> Iterator[dict[Node, Node]]:
+        graph, pattern = map(to_regraph, (self, other))
+        boundary = list(filter(
+            lambda n: n.kind in ["input", "output"], pattern.nodes()))
+        for node in boundary:
+            pattern.remove_node(node)
+        yield from graph.find_matching(pattern)
+
+    def rewrite(
+            self, source: Diagram, target: Diagram, instance: dict[Node, Node]
+            ) -> Diagram:
+        from regraph import NXGraph, Rule
+        assert source.is_parallel(target)
+        graph, lhs, rhs = map(to_regraph, (self, source, target))
+        p_lhs, p_rhs = dict(), dict()
+        preserved = NXGraph()
+        boundary = list(filter(
+            lambda n: n.kind in ["input", "output"], lhs.nodes()))
+        for node in boundary:
+            if node.kind == "input":
+                (_, l_neighbour), = lhs.out_edges(node)
+                (_, r_neighbour), = rhs.out_edges(node)
+            else:
+                (l_neighbour, _), = lhs.in_edges(node)
+                (r_neighbour, _), = rhs.in_edges(node)
+            p_lhs[node] = l_neighbour
+            p_rhs[node] = r_neighbour
+            lhs.remove_node(node)
+            rhs.remove_node(node)
+            preserved.add_node(node)
+        rule = Rule(preserved, lhs, rhs, p_lhs, p_rhs)
+        graph.rewrite(rule, instance)
+        return self.from_graph(graph)
 
 
 class Box(compact.Box, Diagram):
