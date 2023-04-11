@@ -20,7 +20,6 @@ associated weights should be passed to `eval()` as `symbols=` and
 `weights=`.
 """
 
-import copy
 from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
 from itertools import product
@@ -55,7 +54,7 @@ OP_MAP = {
 }
 
 
-def tk_op_to_pennylane(tk_op, str_map):
+def tk_op_to_pennylane(tk_op):
     """
     Extract the operation, parameters and wires from
     a pytket :class:`Op`, and return the corresponding PennyLane operation.
@@ -82,20 +81,17 @@ def tk_op_to_pennylane(tk_op, str_map):
 
     remapped_params = []
     for param in params:
-        param = param / 2
-        if isinstance(param, sympy.Expr):
-            free_symbols = param.free_symbols
-            sym_subs = {f: str_map[str(f)] for f in free_symbols}
-            param = param.subs(sym_subs)
-        else:
-            param = torch.tensor([param])
+        # scale rotation from [0, 2) to [0, 1), (rescale to [0, 2pi) later)
+        param /= 2
+        if not isinstance(param, sympy.Expr):
+            param = torch.tensor(param)
 
         remapped_params.append(param)
 
     return OP_MAP[tk_op.op.type], remapped_params, wires
 
 
-def extract_ops_from_tk(tk_circ, str_map):
+def extract_ops_from_tk(tk_circ):
     """
     Extract the operations, and corresponding parameters and wires,
     from a pytket Circuit. Return these as lists to use in
@@ -122,7 +118,7 @@ def extract_ops_from_tk(tk_circ, str_map):
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
-            op, params, wires = tk_op_to_pennylane(op, str_map)
+            op, params, wires = tk_op_to_pennylane(op)
             op_list.append(op)
             params_list.append(params)
             wires_list.append(wires)
@@ -174,15 +170,11 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
         The PennyLane circuit equivalent to the input DisCoPy circuit.
     """
     if disco_circuit.is_mixed:
-        raise ValueError("Only pure quantum circuits are currently "
-                         "supported.")
-
-    symbols = disco_circuit.free_symbols
-    str_map = {str(s): s for s in symbols}
+        raise ValueError('Only pure quantum circuits are currently '
+                         'supported.')
 
     tk_circ = disco_circuit.to_tk()
-    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ,
-                                                           str_map)
+    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ)
 
     post_selection = get_post_selection_dict(tk_circ)
 
@@ -227,8 +219,7 @@ class PennyLaneCircuit:
         if self._contains_sympy:
             self._concrete_params = None
         else:
-            self._concrete_params = [torch.cat(p) if len(p) > 0
-                                     else p for p in self._params]
+            self._concrete_params = params
         self.initialise_device_and_circuit()
         self._valid_states = self.get_valid_states()
 
@@ -265,7 +256,12 @@ class PennyLaneCircuit:
         return qml.device(backend, wires=self._n_qubits, **backend_config)
 
     def initialise_device_and_circuit(self):
-        self._device = self.get_device(copy.copy(self._backend_config))
+        """
+        Initialise the PennyLane device and circuit when instantiating the
+        PennyLaneCirucit, or loading from disk.
+        """
+        self._device = self.get_device(None if self._backend_config is None
+                                       else {**self._backend_config})
         self._circuit = self.make_circuit()
 
     def contains_sympy(self):
@@ -282,6 +278,11 @@ class PennyLaneCircuit:
                    self._params for expr in expr_list)
 
     def initialise_concrete_params(self, symbols, weights):
+        """
+        Given concrete values for each of the SymPy symbols, substitute
+        the symbols for the values to obtain concrete parameters, via
+        the `param_substitution` method.
+        """
         if self._contains_sympy:
             self._concrete_params = self.param_substitution(symbols, weights)
 
@@ -301,7 +302,7 @@ class PennyLaneCircuit:
             raise ValueError('Cannot draw circuit with symbolic parameters. '
                              'Initialise concrete parameters first.')
 
-        wires = (qml.draw(self.make_circuit())
+        wires = (qml.draw(self._circuit)
                  (self._concrete_params).split("\n"))
         for k, v in self._post_selection.items():
             wires[k] = wires[k].split("┤")[0] + "┤" + str(v) + ">"
@@ -429,7 +430,6 @@ class PennyLaneCircuit:
         :class:`torch.Tensor`
             The post-selected output of the circuit.
         """
-
         if self._concrete_params is None:
             raise ValueError('Initialise concrete parameters first.')
 

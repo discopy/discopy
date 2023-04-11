@@ -155,7 +155,7 @@ def test_Circuit_to_pennylane(capsys):
 
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
-    weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
+    weights = [torch.tensor(1.), torch.tensor(2.), torch.tensor(3.)]
 
     var_circ = Circuit(
         dom=qubit ** 0, cod=qubit, boxes=[
@@ -241,12 +241,14 @@ def test_pennylane_devices():
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
 
+    # Honeywell backend only compatible when `probabilities=True`
     h_backend = {'backend': 'honeywell.hqs', 'device': 'H1-1E'}
     h_circ = snake.to_pennylane(probabilities=True, backend_config=h_backend)
     assert h_circ._device is not None
     with raises(ValueError):
         h_circ = snake.to_pennylane(backend_config=h_backend)
 
+    # Device must be specified when using Honeywell backend
     h_backend_corrupt = {'backend': 'honeywell.hqs'}
     with raises(ValueError):
         h_circ = snake.to_pennylane(probabilities=True,
@@ -257,6 +259,7 @@ def test_pennylane_devices():
     aer_circ = snake.to_pennylane(backend_config=aer_backend)
     assert aer_circ._device is not None
 
+    # `aer_simulator` is not compatible with state outputs
     aer_backend_corrupt = {'backend': 'qiskit.aer', 'device': 'aer_simulator'}
     with raises(ValueError):
         aer_circ = snake.to_pennylane(backend_config=aer_backend_corrupt)
@@ -279,6 +282,67 @@ def test_pennylane_uninitialized():
 
     with raises(ValueError):
         p_var_circ.eval()
+
+
+def test_pennylane_parameter_reference():
+    x = sympy.symbols('x')
+    p = torch.nn.Parameter(torch.tensor(1.))
+
+    circ = Rx(x)
+    p_circ = circ.to_pennylane()
+    p_circ.initialise_concrete_params([x], [p])
+
+    with torch.no_grad():
+        p.add_(1.)
+
+    assert p_circ._concrete_params[0][0] == p
+
+    with torch.no_grad():
+        p.add_(-2.)
+
+    assert p_circ._concrete_params[0][0] == p
+
+
+def test_pennylane_gradient_methods():
+    x, y, z = sympy.symbols('x y z')
+    symbols = [x, y, z]
+
+    var_circ = Circuit(
+        dom=qubit ** 0, cod=qubit, boxes=[
+            Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
+            CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
+            Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)],
+        offsets=[
+            0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2,
+            3, 2, 0, 0, 0, 0, 0, 0, 1, 0])
+
+    for diff_method in ['backprop', 'parameter-shift', 'finite-diff']:
+
+        weights = [torch.tensor(1., requires_grad=True),
+                   torch.tensor(2., requires_grad=True),
+                   torch.tensor(3., requires_grad=True)]
+
+        p_var_circ = var_circ.to_pennylane(probabilities=True,
+                                           diff_method=diff_method)
+        p_var_circ.initialise_concrete_params(symbols, weights)
+
+        loss = p_var_circ.eval().norm(dim=0, p=2)
+        loss.backward()
+        assert weights[0].grad is not None
+
+    for diff_method in ['backprop']:
+
+        weights = [torch.tensor(1., requires_grad=True),
+                   torch.tensor(2., requires_grad=True),
+                   torch.tensor(3., requires_grad=True)]
+
+        p_var_circ = var_circ.to_pennylane(probabilities=False,
+                                           diff_method=diff_method)
+        p_var_circ.initialise_concrete_params(symbols, weights)
+
+        loss = p_var_circ.eval().norm(dim=0, p=2)
+        loss.backward()
+        assert weights[0].grad is not None
 
 
 def test_Sum_from_tk():
