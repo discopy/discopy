@@ -232,7 +232,7 @@ def nx2diagram(graph: "networkx.Graph", factory: type) -> "monoidal.Diagram":
     """
     _id, _ty = factory.id, factory.ty_factory
     inputs, outputs, boxes = [], [], []
-    for node in graph.nodes:
+    for node in graph.nodes():
         for kind, nodelist in zip(
                 ["input", "output", "box"],
                 [inputs, outputs, boxes]):

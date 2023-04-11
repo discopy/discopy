@@ -738,6 +738,53 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         """ The depth of a progressive hypergraph. """
         return dag_longest_path_length(self.make_progressive().to_graph()) // 4
 
+    @classmethod
+    def from_graph(cls, graph: "networkx.Graph") -> Diagram:
+        """
+        Translate a graph into a hypergraph.
+
+        Parameters:
+            graph : A labeled graph with nodes for inputs,
+                    outputs, boxes, domain, codomain and spiders.
+
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y).to_hypergraph()
+        >>> assert H.from_graph(f.to_graph()) == f
+        """
+        def unwrap(attr):
+            from regraph import FiniteSet
+            if isinstance(attr, FiniteSet) and len(attr) == 1:
+                attr, = attr
+            return attr
+
+        def port_number(node):
+            return unwrap(graph.nodes()[node]['j'])
+
+        box_nodes = {n: unwrap(d['box'])
+                     for n, d in graph.nodes(data=True) if 'box' in d}
+        spiders = {n: unwrap(d['typ'])
+                   for n, d in graph.nodes(data=True) if 'typ' in d}
+        input_wires = tuple(v for u, v in graph.edges()
+                            if getattr(u, "kind", None) == "input")
+        output_wires = tuple(u for u, v in graph.edges()
+                             if getattr(v, "kind", None) == "output")
+        box_wires = tuple()
+        for box_node in box_nodes:
+            box_wires += tuple(
+                spider for dom_node in sorted(
+                    [n for n, _ in graph.in_edges(box_node)], key=port_number)
+                for spider, _ in graph.in_edges(dom_node))
+            box_wires += tuple(
+                spider for cod_node in sorted(
+                    [n for _, n in graph.out_edges(box_node)], key=port_number)
+                for _, spider in graph.out_edges(cod_node))
+        dom = cls.category.ob().tensor(*(spiders[n] for n in input_wires))
+        cod = cls.category.ob().tensor(*(spiders[n] for n in output_wires))
+        boxes = tuple(box_nodes.values())
+        wires = input_wires + box_wires + output_wires
+        return cls(dom, cod, boxes, wires, spiders)
+
     def to_graph(self):
         """
         Translate a hypergraph into a labeled graph with nodes for inputs,

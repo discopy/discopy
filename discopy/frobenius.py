@@ -218,34 +218,23 @@ class Diagram(compact.Diagram):
         boundary = list(filter(
             lambda n: n.kind in ["input", "output"], pattern.nodes()))
         for node in boundary:
-            pattern.remove_node(node)
+            pattern.remove_node_attrs(node, pattern.nodes()[node])
         yield from graph.find_matching(pattern)
 
     def rewrite(
-            self, source: Diagram, target: Diagram, instance: dict[Node, Node]
-            ) -> Diagram:
+            self, source: Diagram, target: Diagram,
+            instance: dict[Node, Node] = None) -> Diagram:
         from regraph import NXGraph, Rule
         assert source.is_parallel(target)
+        if instance is None:
+            instance = next(self.match(source))
         graph, lhs, rhs = map(to_regraph, (self, source, target))
-        p_lhs, p_rhs = dict(), dict()
         preserved = NXGraph()
-        boundary = list(filter(
+        preserved.add_nodes_from(filter(
             lambda n: n.kind in ["input", "output"], lhs.nodes()))
-        for node in boundary:
-            if node.kind == "input":
-                (_, l_neighbour), = lhs.out_edges(node)
-                (_, r_neighbour), = rhs.out_edges(node)
-            else:
-                (l_neighbour, _), = lhs.in_edges(node)
-                (r_neighbour, _), = rhs.in_edges(node)
-            p_lhs[node] = l_neighbour
-            p_rhs[node] = r_neighbour
-            lhs.remove_node(node)
-            rhs.remove_node(node)
-            preserved.add_node(node)
-        rule = Rule(preserved, lhs, rhs, p_lhs, p_rhs)
+        rule = Rule(preserved, lhs, rhs)
         graph.rewrite(rule, instance)
-        return self.from_graph(graph)
+        return self.hypergraph_factory.from_graph(graph).to_diagram()
 
 
 class Box(compact.Box, Diagram):
