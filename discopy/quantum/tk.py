@@ -316,6 +316,8 @@ def from_tk(tk_circuit):
         name = tk_gate.op.type.name
         if name == 'Rx':
             return Rx(tk_gate.op.params[0] / 2)
+        if name == 'Ry':
+            return Ry(tk_gate.op.params[0] / 2)
         if name == 'Rz':
             return Rz(tk_gate.op.params[0] / 2)
         if name == 'CRx':

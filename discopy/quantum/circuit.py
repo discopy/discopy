@@ -781,6 +781,7 @@ class Circuit(tensor.Diagram):
             raise ValueError(f'Indices {xs} not unique.')
         if min(xs) < 0 or max(xs) >= len(self.cod):
             raise ValueError(f'Indices {xs} out of range.')
+        # example multi-controlled gate o-o---o-o-x--o-o
         before = sorted(filter(lambda x: x < xs[-1], xs[:-1]))
         after = sorted(filter(lambda x: x > xs[-1], xs[:-1]))
         gate = base_gate
@@ -789,7 +790,7 @@ class Circuit(tensor.Diagram):
             gate = Controlled(gate, distance=last_x - x)
             last_x = x
         last_x = xs[-1]
-        for x in after[::-1]:
+        for x in after:
             gate = Controlled(gate, distance=last_x - x)
             last_x = x
         return self._apply_gate(gate, min(xs))
