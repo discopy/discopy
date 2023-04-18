@@ -303,6 +303,50 @@ class Circuit(tensor.Diagram):
                 results.append(result)
         return results if len(results) > 1 else results[0]
     
+    def eval_get_handles(self, *others, backend=None, mixed=False, contractor=None, dtype=None, **params):
+        """Returns circuit handles having submitted to backend."""
+        from discopy.quantum import cqmap
+        if dtype is None:
+            dtype = Dtype.merged(self._infer_dtype(), complex)
+        
+        with default_dtype(init_stack=dtype) as dtype:
+            # Skip `if contractor is not None`
+
+            from discopy import cqmap
+            from discopy.quantum.gates import Bits, scalar
+            if len(others) == 1 and not isinstance(others[0], Circuit):
+                # This allows the syntax :code: `circuit.eval(backend)`
+                return self.eval(backend=others[0], mixed=mixed, **params)
+            if backend is None:
+                if others:
+                    return [circuit.eval(mixed=mixed, **params)
+                            for circuit in (self, ) + others]
+                functor = cqmap.Functor(dtype=dtype) if mixed or self.is_mixed\
+                    else tensor.Functor(lambda x: x[0].dim, lambda f: f.array, dtype=dtype)
+                box = functor(self)
+                return type(box)(box.dom, box.cod, box.array + 0j)
+            circuits = [circuit.to_tk() for circuit in (self, ) + others]
+            handles = circuits[0].get_handles(
+                *circuits[1:], backend=backend, **params)
+        return circuits, handles
+
+    def eval_from_handles(self, circuits, handles, *others, mixed=False, dtype=None, **params):
+        from discopy.quantum.gates import Bits, scalar
+        
+        results, counts = [], circuits[0].get_counts_from_handles(
+            handles, *circuits[1:], **params)
+        for i, circuit in enumerate(circuits):
+                n_bits = len(circuit.post_processing.dom)
+                result = Tensor.zeros(Dim(1), Dim(*(n_bits * (2, ))))
+                for bitstring, count in counts[i].items():
+                    result += (scalar(count) @ Bits(*bitstring)).eval(dtype=dtype)
+                if circuit.post_processing:
+                    result = result >> circuit.post_processing.eval(dtype=dtype)
+                results.append(result)
+        return results if len(results) > 1 else results[0]
+         
+
+
     def _infer_dtype(self):
         for box in self.boxes:
             if not isinstance(box, (tensor.Spider, rigid.Swap, MixedState, Discard, Measure, Encode)):
