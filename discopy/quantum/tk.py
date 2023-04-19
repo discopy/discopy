@@ -425,4 +425,3 @@ def mockBackend(*counts):
     mock.process_circuits.return_value = list(range(len(counts)))
     mock.get_result = get_result
     return mock
-
