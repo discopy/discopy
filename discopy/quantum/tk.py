@@ -22,6 +22,9 @@ Summary
 
         to_tk
         from_tk
+        tensor2counts
+        counts2tensor
+        mockBackend
 """
 
 from unittest.mock import Mock
@@ -30,6 +33,7 @@ import pytket as tk
 from pytket.circuit import Bit, Op, OpType, Qubit
 from pytket.utils import probs_from_counts
 
+from discopy.tensor import Dim, Tensor
 from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Digits, Ket,
@@ -140,11 +144,7 @@ class Circuit(tk.Circuit):
         post_select = params.get("post_select", True)
         compilation = params.get("compilation", None)
         normalize = params.get("normalize", True)
-        measure_all = params.get("measure_all", False)
         seed = params.get("seed", None)
-        if measure_all:
-            for circuit in (self, ) + others:
-                circuit.measure_all()
         if compilation is not None:
             for circuit in (self, ) + others:
                 compilation.apply(circuit)
@@ -168,6 +168,10 @@ class Circuit(tk.Circuit):
             for i, circuit in enumerate((self, ) + others):
                 for bitstring in counts[i]:
                     counts[i][bitstring] *= circuit.scalar
+        for i, circuit in enumerate((self, ) + others):
+            if circuit.post_processing:
+                counts[i] = tensor2counts(counts2tensor(
+                    counts[i]) >> circuit.post_processing.eval().cast(float))
         return counts
 
 
@@ -395,6 +399,22 @@ def from_tk(tk_circuit):
     return circuit >> tk_circuit.post_processing
 
 
+def counts2tensor(counts: dict[tuple[int, ...], float]) -> Tensor[float]:
+    """ Turns a non-empty count dictionary into a tensor. """
+    n_bits = len(list(counts.keys()).pop())
+    result = Tensor[float].zero(Dim(1), Dim(*(n_bits * (2, ))))
+    for bitstring, count in counts.items():
+        result.array[bitstring] = count
+    return result
+
+
+def tensor2counts(tensor: Tensor[float]) -> dict[tuple[int, ...], float]:
+    """ Turns a tensor into dictionary of counts. """
+    array = tensor.inside
+    with backend('numpy') as np:
+        return {key: array[key] for key in np.argwhere(array > 0)}
+
+
 def mockBackend(*counts):
     """ Takes a list of counts, returns a mock backend that outputs them. """
     def get_result(i):
@@ -405,3 +425,4 @@ def mockBackend(*counts):
     mock.process_circuits.return_value = list(range(len(counts)))
     mock.get_result = get_result
     return mock
+
