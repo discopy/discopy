@@ -91,7 +91,7 @@ class Dtype:
     is_numeric: bool
 
     def __init__(self, dtype: Union[type, tuple], float_size: int = 64):
-        # Numeric types must have a float_size
+        # Numeric types must have a float_size.
         if dtype in [int, float, complex]:
             dtype = dtype, float_size
 

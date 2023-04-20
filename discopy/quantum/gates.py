@@ -582,7 +582,7 @@ class CU1(Anti2QubitConjugate, Rotation):
 
     @property
     def array(self):
-        with backend() as np, default_dtype(self.dtype) as dtype:
+        with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
             theta = np.copy(np.asarray(2 * pi * self.phase, dtype=dtype.like_backend(np)))
@@ -651,9 +651,9 @@ class Sqrt(Scalar):
 SWAP = Swap(qubit, qubit)
 H = QuantumGate(
     'H', 1, 1 / numpy.sqrt(2) * numpy.array([1, 1, 1, -1]),
-    _dagger=None, _conjugate=None)
+    _dagger=None, _conjugate=None, dtype=Dtype(complex, 128))  # force max precision
 S = QuantumGate('S', 1, [1, 0, 0, 1j])
-T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)])
+T = QuantumGate('T', 1, [1, 0, 0, numpy.exp(1j * numpy.pi / 4)], dtype=Dtype(complex, 128))  # force max precision
 X = QuantumGate('X', 1, [0, 1, 1, 0], _dagger=None, _conjugate=None)
 Y = QuantumGate('Y', 1, [0, 1j, -1j, 0], _dagger=None)
 Z = QuantumGate('Z', 1, [1, 0, 0, -1], _dagger=None, _conjugate=None)
