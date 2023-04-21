@@ -875,7 +875,7 @@ class Equation:
         return all(term == self.terms[0] for term in self.terms)
 
 
-def diagramize(dom, cod, boxes, factory=None):
+def diagramize(dom, cod, factory):
     """
     Define a diagram using the syntax for Python functions.
 
@@ -883,10 +883,8 @@ def diagramize(dom, cod, boxes, factory=None):
     ----------
     dom, cod : :class:`discopy.monoidal.Ty`
         Domain and codomain of the diagram.
-    boxes : list
-        List of boxes in the signature.
     factory : type
-        e.g. `discopy.monoidal.Diagram`, only needed when there are no boxes.
+        e.g. `discopy.monoidal.Diagram`.
 
     Returns
     -------
@@ -895,13 +893,12 @@ def diagramize(dom, cod, boxes, factory=None):
 
     Example
     -------
-    >>> from discopy.rigid import Ty, Cup, Cap
+    >>> from discopy.rigid import Ty, Diagram, Cup, Cap
     >>> x = Ty('x')
-    >>> cup, cap = Cup(x, x.r), Cap(x.r, x)
-    >>> @diagramize(dom=x, cod=x, boxes=[cup, cap])
+    >>> @Diagram[x, x]
     ... def snake(left):
-    ...     middle, right = cap(offset=1)
-    ...     cup(left, middle)
+    ...     middle, right = Cap(x.r, x)(offset=1)
+    ...     Cup(x, x.r)(left, middle)
     ...     return right
     >>> snake.draw(
     ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
@@ -909,16 +906,11 @@ def diagramize(dom, cod, boxes, factory=None):
     .. image:: /_static/drawing/diagramize.png
         :align: center
     """
-    if factory is None and not boxes:
-        raise ValueError("If not boxes you need to specify factory.")
-    factory = factory or boxes[0].factory
-
     def decorator(func):
         import networkx as nx
         from discopy.cat import AxiomError
         from discopy.python import tuplify, untuplify
         graph, box_nodes = nx.Graph(), []
-
         def apply(box, *inputs, offset=None):
             for node in inputs:
                 assert_isinstance(node, Node)
@@ -940,8 +932,8 @@ def diagramize(dom, cod, boxes, factory=None):
                 cod_node = Node("cod", obj=obj, i=i, depth=depth)
                 outputs.append(cod_node)
             return untuplify(outputs)
-        for box in boxes:
-            box._apply = apply
+
+        factory.__call__ = apply
         inputs = []
         for i, obj in enumerate(dom.inside):
             node = Node("input", obj=obj, i=i)
@@ -954,8 +946,7 @@ def diagramize(dom, cod, boxes, factory=None):
                                  f"got {outputs[i].obj} instead.")
             node = Node("output", obj=obj, i=i)
             graph.add_edge(outputs[i], node)
-        for box in boxes:
-            del box._apply
+        del factory.__call__
         result = nx2diagram(graph, factory)
         if result.cod != cod:
             raise AxiomError(f"Expected diagram.cod == {cod}, "
