@@ -502,6 +502,10 @@ class Diagram(cat.Arrow, Whiskerable):
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
 
+    def __class_getitem__(cls, key):
+        from discopy.drawing.legacy import diagramize
+        return diagramize(*key, factory=cls)
+
     def tensor(self, other: Diagram = None, *others: Diagram) -> Diagram:
         """
         Parallel composition, called using :code:`@`.
