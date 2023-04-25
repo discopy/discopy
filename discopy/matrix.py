@@ -164,18 +164,47 @@ class Matrix(Composable[int], Whiskerable):
             and (self.dom, self.cod) == (other.dom, other.cod)\
             and (self.array == other.array).all()
 
-    def is_close(self, other: Matrix) -> bool:
+    def is_close(self, other: Matrix, rtol=1.e-8, atol=1.e-8) -> bool:
         """
         Whether a matrix is numerically close to an ``other``.
 
         Parameters:
             other : The other matrix with which to check closeness.
+            rtol: float
+                    The relative tolerance parameter (see Notes).
+                    Default value for results of order unity is 1.e-5
+            atol : float
+                    The absolute tolerance parameter (see Notes).
+                    Default value for results of order unity is 1.e-8
+                    
+        Notes:
+       (taken from np.isclose documentation)
+   
+            For finite values, isclose uses the following equation to test whether
+            two floating point values are equivalent.
+            
+             absolute(`a` - `b`) <= (`atol` + `rtol` * absolute(`b`))
+             
+            Unlike the built-in `math.isclose`, the above equation is not symmetric
+            in `a` and `b` -- it assumes `b` is the reference value -- so that
+            `isclose(a, b)` might be different from `isclose(b, a)`. 
+            
+            Furthermore, the default value of atol is not zero, and is used to determine what
+            small values should be considered close to zero. The default value is
+            appropriate for expected values of order unity: if the expected values
+            are significantly smaller than one, it can result in false positives.
+            `atol` should be carefully selected for the use case at hand. A zero value
+            for `atol` will result in `False` if either `a` or `b` is zero.
+            
+            `isclose` is not defined for non-numeric data types.
+            `bool` is considered a numeric data-type for this purpose
+            
         """
         assert_isinstance(other, type(self))
         assert_isinstance(self, type(other))
         assert_isparallel(self, other)
         with backend() as np:
-            return np.isclose(self.array, other.array).all()
+            return np.isclose(self.array, other.array, rtol, atol).all()
 
     def __repr__(self):
         np_array = getattr(self.array, 'numpy', lambda: self.array)()
