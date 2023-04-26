@@ -51,7 +51,7 @@ draw them and check whether they hold for a given ``Functor``.
 
 from __future__ import annotations
 
-from discopy import symmetric, monoidal, frobenius
+from discopy import symmetric, monoidal, frobenius, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
 
@@ -65,7 +65,27 @@ class Diagram(symmetric.Diagram):
         inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+
+    Note
+    ----
+    We can create arbitrary cartesian diagrams with the standard notation for
+    Python functions.
+
+    >>> x = Ty('x')
+    >>> f = Box('f', x, x)
+
+    >>> copy_then_apply = Diagram[x, x @ x](lambda wire: (f(wire), f(wire)))
+
+    >>> @Diagram[x, x @ x]
+    ... def apply_then_copy(wire):
+    ...     wire = f(wire)
+    ...     return wire, wire
+
+    >>> from discopy.drawing import Equation
+    >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw()
     """
+    spider_factory = lambda _a, b, x, _p=None: Copy(x, b)
+
     @classmethod
     def copy(cls, x: monoidal.Ty, n=2) -> Diagram:
         """
@@ -75,9 +95,7 @@ class Diagram(symmetric.Diagram):
             x : The type to copy.
             n : The number of copies.
         """
-        cls.spider_factory = lambda _a, b, x, _p: Copy(x, b)
         result = frobenius.Diagram.spiders.__func__(cls, 1, n, x)
-        del cls.spider_factory
         return result
 
 
@@ -129,7 +147,7 @@ class Category(symmetric.Category):
         ob : The type of objects.
         ar : The type of arrows.
     """
-    ob, ar = monoidal.Ty, Diagram
+    ob, ar = Ty, Diagram
 
 
 class Functor(symmetric.Functor):
@@ -164,7 +182,7 @@ class Functor(symmetric.Functor):
 
     .. image:: /_static/cartesian/bialgebra.png
     """
-    dom = cod = Category(monoidal.Ty, Diagram)
+    dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
         if isinstance(other, Copy):
@@ -172,4 +190,9 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    category = Category()
+
+
+Diagram.hypergraph_factory = Hypergraph
 Id = Diagram.id
