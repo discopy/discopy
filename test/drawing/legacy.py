@@ -150,27 +150,25 @@ def test_diagramize():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
     with raises(AxiomError):
-        @diagramize(y, x, [f])
+        @Diagram[y, x]
         def diagram(wire):
             return f(wire)
     with raises(AxiomError):
-        @diagramize(x, x, [f])
+        @Diagram[x, x]
         def diagram(wire):
             return f(wire)
     with raises(AxiomError):
-        @diagramize(x @ x, x, [f])
+        @Diagram[x @ x, x]
         def diagram(left, right):
             return f(left, right)
     with raises(AxiomError):
-        @diagramize(x, x @ y, [f])
+        @Diagram[x, x @ y]
         def diagram(wire):
             return wire, f(offset=0)
     with raises(TypeError):
-        @diagramize(x, y, [f])
+        @Diagram[x, y]
         def diagram(wire):
             return f(x)
-    with raises(ValueError):
-        diagramize(x, x, [])
 
 
 @draw_and_compare('empty_diagram.png')
