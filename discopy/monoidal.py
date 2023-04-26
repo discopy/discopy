@@ -471,14 +471,12 @@ class Diagram(cat.Arrow, Whiskerable):
     ... def snake(left):
     ...     middle, right = cap(offset=1)
     ...     cup(left, middle)
-    ...     return right, right
+    ...     return right
     >>> snake.draw(
     ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
 
     .. image:: /_static/drawing/diagramize.png
         :align: center
-
-    >>> Diagram[x, x @ x](lambda x: (x, x))
     """
     ty_factory = Ty
     layer_factory = Layer
