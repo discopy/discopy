@@ -147,9 +147,9 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         self.spider_types = tuple(spider_types[s] for s in relabeling)
 
     @property
-    def box_wires(self):
+    def box_wires(self) -> list[tuple[tuple[int], tuple[int]]]:
         """
-        The wires connecting the boxes of a hypergraph diagram.
+        The wires connecting the boxes of a hypergraph.
 
         Returns a list of length :code:`len(self.boxes)` such that::
 
@@ -157,6 +157,17 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             len(dom_wires) == len(box.dom) and len(cod_wires) == len(box.cod)
 
         for :code:`box = self.boxes[i]`.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, y @ y).to_hypergraph()
+        >>> g = Box('g', y @ y, z).to_hypergraph()
+        >>> for wires in (f >> g).box_wires: print(wires)
+        ((0,), (1, 2))
+        ((1, 2), (3,))
         """
         result, i = [], len(self.dom)
         for box in self.boxes:
@@ -164,6 +175,36 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             cod_wires = self.wires[i + len(box.dom):i + len(box.dom @ box.cod)]
             result.append((dom_wires, cod_wires))
             i += len(box.dom @ box.cod)
+        return result
+
+    @property
+    def spider_wires(self) -> list[tuple[set[int], set[int]]]:
+        """
+        The input and output wires for each spider of a hypergraph.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, y).to_hypergraph()
+        >>> for wires in (f >> H.spiders(1, 2, y)).spider_wires: print(wires)
+        ({0}, {1})
+        ({2}, {3, 4})
+        """
+        result = [(set(), set()) for _ in range(self.n_spiders)]
+        for port, spider in enumerate(self.wires[:len(self.dom)]):
+            result[spider][0].add(port)
+        n_ports = len(self.dom)
+        for dom_wires, cod_wires in self.box_wires:
+            for port, spider in enumerate(dom_wires):
+                result[spider][1].add(port + n_ports)
+            for port, spider in enumerate(cod_wires):
+                result[spider][0].add(port + n_ports + len(dom_wires))
+            n_ports += len(dom_wires + cod_wires)
+        output_wires = self.wires[len(self.wires) - len(self.cod):]
+        for port, spider in enumerate(output_wires):
+            result[spider][1].add(port + n_ports)
         return result
 
     @property
@@ -428,7 +469,61 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         return str(self.to_diagram())
 
     @property
-    def is_monogamous(self):
+    def bijection(self):
+        """
+        Bijection between ports.
+
+        Raises
+        ------
+            ValueError : If the hypergraph is not bijective.
+
+        Examples
+        --------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y).to_hypergraph()
+        >>> for i, port in enumerate(f.ports): print(i, port)
+        0 Node('input', i=0, obj=frobenius.Ob('x'))
+        1 Node('dom', depth=0, i=0, obj=frobenius.Ob('x'))
+        2 Node('cod', depth=0, i=0, obj=frobenius.Ob('y'))
+        3 Node('output', i=0, obj=frobenius.Ob('y'))
+        >>> for i, j in enumerate(f.bijection): print(f"{i} -> {j}")
+        0 -> 1
+        1 -> 0
+        2 -> 3
+        3 -> 2
+        """
+        if not self.is_bijective:
+            raise ValueError
+        result = {}
+        for source, spider in enumerate(self.wires):
+            if spider in self.wires[source + 1:]:
+                target = self.wires[source + 1:].index(spider) + source + 1
+                result[source], result[target] = target, source
+        return [result[source] for source in sorted(result)]
+
+    @property
+    def is_bijective(self) -> bool:
+        """
+        Checks bijectivity, i.e. each spider is connected to two or zero ports.
+        In that case, the diagram actually lives in a compact-closed category,
+        i.e. it can be drawn using only swaps, cups and caps.
+
+        Examples
+        --------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y = map(Ty, "xy")
+        >>> f = Box('f', x, y).to_hypergraph()
+        >>> assert f.is_bijective and f.transpose().is_bijective
+        >>> assert H.cups(x, x).is_bijective and H.caps(x, x).is_bijective
+        >>> assert H.spiders(0, 0, x).is_bijective
+        >>> assert not H.spiders(1, 2, x).is_bijective
+        """
+        return all(
+            self.wires.count(i) in [0, 2] for i in range(self.n_spiders))
+
+    @property
+    def is_monogamous(self) -> bool:
         """
         Checks monogamy, i.e. each input connects to exactly one output,
         formally whether :code:`self.wires` induces a bijection::
@@ -458,63 +553,32 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> assert not H.cups(x, x).is_monogamous
         >>> assert not H.spiders(1, 2, x).is_monogamous
         """
-        inputs = self.wires[:len(self.dom)]
-        outputs = self.wires[len(self.wires) - len(self.cod):]
-        for dom_wires, cod_wires in self.box_wires:
-            inputs += cod_wires
-            outputs += dom_wires
-        return sorted(inputs) == sorted(outputs)\
-            == list(range(self.n_spiders - len(self.scalar_spiders)))
+        for input_wires, output_wires in self.spider_wires:
+            if len(input_wires) != len(output_wires):
+                return False
+            if len(input_wires) + len(output_wires) not in [0, 2]:
+                return False
+        return True
 
     @property
-    def is_bijective(self):
+    def is_polygynous(self) -> bool:
         """
-        Checks bijectivity, i.e. each spider is connected to two or zero ports.
-        In that case, the diagram actually lives in a compact-closed category,
-        i.e. it can be drawn using only swaps, cups and caps.
-
-        Examples
-        --------
-        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
-        >>> x, y = map(Ty, "xy")
-        >>> f = Box('f', x, y).to_hypergraph()
-        >>> assert f.is_bijective and f.transpose().is_bijective
-        >>> assert H.cups(x, x).is_bijective and H.caps(x, x).is_bijective
-        >>> assert H.spiders(0, 0, x).is_bijective
-        >>> assert not H.spiders(1, 2, x).is_bijective
+        Checks polygyny, i.e. if each non-scalar spider is connected to exactly
+        one output port.
         """
-        return all(
-            self.wires.count(i) in [0, 2] for i in range(self.n_spiders))
+        return all(len(x) == 1 for x, y in self.spider_wires if x.union(y))
 
     @property
-    def bijection(self):
+    def is_progressive(self) -> bool:
         """
-        Bijection between ports.
+        Checks progressivity, i.e. if each spider is connected to exactly one
+        output port and to zero or more input ports all with higher indices.
 
-        Examples
-        --------
-        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
-        >>> x, y = map(Ty, "xy")
-        >>> f = Box('f', x, y).to_hypergraph()
-        >>> list(zip(f.wires, f.bijection))
-        [(0, 1), (0, 0), (1, 3), (1, 2)]
-        """
-        if not self.is_bijective:
-            raise ValueError
-        result = {}
-        for source, spider in enumerate(self.wires):
-            if spider in self.wires[source + 1:]:
-                target = self.wires[source + 1:].index(spider) + source + 1
-                result[source], result[target] = target, source
-        return [result[source] for source in sorted(result)]
+        If the diagram is progressive then it lives in a symmetric monoidal
+        category with a supply of commutative comonoids.
 
-    @property
-    def is_progressive(self):
-        """
-        Checks progressivity, i.e. wires are monotone w.r.t. box index.
-        If the diagram is progressive, monogamous and it doesn't have any
-        scalar spiders, then it actually lives in a symmetric monoidal
-        category, i.e. it can be drawn using only swaps.
+        If the diagram is progressive and monogamous then it actually lives in
+        a symmetric monoidal category, i.e. it can be drawn using only swaps.
 
         Examples
         --------
@@ -522,51 +586,63 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y).to_hypergraph()
         >>> assert f.is_progressive
-        >>> assert (f >> f[::-1]).is_progressive
+        >>> assert (f >> H.spiders(1, 0, y)).is_progressive
+        >>> assert (H.spiders(1, 2, x) >> f @ f).is_progressive
 
-        >>> cycle = H.caps(x, x) >> x @ (f >> f[::-1]) >> H.cups(x, x)
+
+        >>> cycle = H.caps(x, x) >> H.cups(x, x)
         >>> assert not cycle.is_progressive
 
         >>> assert not H.cups(x, x).is_progressive
         """
-        if not self.is_monogamous:
-            return False
-        scan = set(self.wires[:len(self.dom)])
-        for dom_wires, cod_wires in self.box_wires:
-            if not set(dom_wires) <= scan:
-                return False
-            scan = scan.union(set(cod_wires))
-        return True
+        return all(len(input_wires) == 1 and all(
+                u < v for u in input_wires for v in output_wires)
+            for input_wires, output_wires in self.spider_wires)
 
     def make_bijective(self):
         """
-        Introduces :class:`Spider` boxes to make self bijective.
+        Introduces :class:`Spider` or :class:`Copy` to make self bijective.
 
         Example
         -------
         >>> from discopy.frobenius import Ty, Spider, Hypergraph as H
-        >>> spider = H.spiders(1, 2, Ty('x')).make_bijective()
-        >>> assert spider.boxes == (Spider(3, 0, Ty('x')), )
-        >>> assert spider.wires == (0, 0, 1, 2, 1, 2)
+
+        >>> spider = H.spiders(3, 2, Ty('x')).make_bijective()
+        >>> assert spider.boxes == (Spider(3, 2, Ty('x')), )
+        >>> assert spider.wires == (0, 1, 2) + (0, 1, 2) + (3, 4) + (3, 4)
+
+        >>> copy = H.spiders(1, 2, Ty('x', 'y')).make_bijective()
+        >>> assert copy.boxes == (Spider(1, 2, Ty('x')), Spider(1, 2, Ty('y')))
         """
         boxes, wires, spider_types =\
             list(self.boxes), list(self.wires), list(self.spider_types)
-        for i, typ in reversed(list(enumerate(self.spider_types))):
-            ports = [port for port, spider in enumerate(wires) if spider == i]
-            n_legs = len(ports)
-            if n_legs not in [0, 2]:
-                boxes.append(self.category.ar.spider_factory(n_legs, 0, typ))
-                for j, port in enumerate(ports):
-                    wires[port] = len(spider_types) + j
-                new_wires =\
-                    list(range(len(spider_types), len(spider_types) + n_legs))
-                wires = wires[:len(wires) - len(self.cod)] + new_wires\
-                    + wires[len(wires) - len(self.cod):]
-                spider_types += n_legs * [typ]
-                del spider_types[i]
-                wires = [j - 1 if j > i else j for j in wires]
-        return type(self)(
-            self.dom, self.cod, tuple(boxes), tuple(wires), spider_types)
+        box_wires = self.box_wires
+        for spider, (typ, (input_wires, output_wires)) in reversed(list(
+                enumerate(zip(spider_types, self.spider_wires)))):
+            n_legs = len(input_wires) + len(output_wires)
+            if n_legs in [0, 2]:
+                continue
+            if input_wires:
+                node = self.ports[max(input_wires)]
+                depth = 0 if node.kind == "input" else node.depth + 1
+            else:
+                node = self.ports[min(output_wires)]
+                depth = len(boxes) if node.kind == "output" else node.depth
+            boxes = boxes[:depth] + [self.category.ar.spider_factory(
+                len(input_wires), len(output_wires), typ)] + boxes[depth:]
+            for j, port in enumerate(input_wires.union(output_wires)):
+                wires[port] = len(spider_types) + j
+            i = len(self.dom) + len(
+                sum([sum(wires, ()) for wires in self.box_wires[:depth]], ()))
+            wires = wires[:i] + list(range(
+                len(spider_types), len(spider_types) + n_legs)) + wires[i:]
+            spider_types += n_legs * [typ]
+            del spider_types[spider]
+            wires = [w - 1 if w > spider else w for w in wires]
+            return type(self)(
+                self.dom, self.cod, tuple(boxes), tuple(wires), spider_types
+            ).make_bijective()
+        return self
 
     def make_monogamous(self):
         """
@@ -574,18 +650,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Hypergraph as H, Cup, Cap, Spider
+        >>> from discopy.frobenius import Ty, Box, Cup, Cap, Spider
         >>> x = Ty('x')
-        >>> assert H.caps(x, x).make_monogamous() == H.from_box(Cap(x, x))
-        >>> assert H.cups(x, x).make_monogamous() == H.from_box(Cup(x, x))
-        >>> spider = H.spiders(2, 1, x).make_monogamous()
-        >>> assert spider.boxes == (Cap(x, x), Spider(3, 0, x))
-        >>> assert spider.wires == (0, 1, 2, 3, 0, 1, 2, 3)
+        >>> h = Box('f', x, x).transpose().to_hypergraph().make_monogamous()
+        >>> assert h.boxes == (Cap(x, x), Box('f', x, x), Cup(x, x))
+        >>> assert h.wires == (0, ) + (1, 2) + (1, 3) + (0, 3) + (2, )
         """
         if not self.is_bijective:
             return self.make_bijective().make_monogamous()
-        if self.is_monogamous:
-            return self
         dom, cod = self.dom, self.cod
         boxes, wires = list(self.boxes), list(self.wires)
         spider_types = dict(enumerate(self.spider_types))
@@ -618,6 +690,43 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     boxes, wires = tuple(boxes), tuple(wires)
                     return type(self)(dom, cod, boxes, wires, spider_types)\
                         .make_monogamous()
+        return self
+
+    def make_polygynous(self):
+        """
+        Introduce :class:`Spider` boxes to make self polygynous.
+
+        Example
+        -------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H, Spider
+        >>> h = H.spiders(2, 3, Ty('x')).make_polygynous()
+        >>> assert h.boxes == (Spider(2, 1, Ty('x')), )
+        >>> assert h.wires == (0, 1) + (0, 1, 2) + (2, 2, 2)
+        """
+        boxes, wires, spider_types =\
+            list(self.boxes), list(self.wires), list(self.spider_types)
+        n_spiders = len(spider_types)
+        for spider, (typ, (input_wires, output_wires)) in enumerate(
+                zip(spider_types, self.spider_wires)):
+            n_legs = len(input_wires) + len(output_wires)
+            if len(input_wires) == 1:
+                continue
+            depth = getattr(self.ports[max(input_wires)], "depth", -1) + 1\
+                if input_wires else 0
+            boxes = boxes[:depth] + [self.category.ar.spider_factory(
+                len(input_wires), 1, typ)] + boxes[depth:]
+            for j, port in enumerate(input_wires):
+                wires[port] = n_spiders + j
+            i = len(self.dom) + len(
+                sum([sum(wires, []) for wires in self.box_wires[:depth]], []))
+            wires = wires[:i] + list(range(
+                n_spiders, n_spiders + len(input_wires))
+            ) + [spider] + wires[i:]
+            spider_types += len(input_wires) * [typ]
+            return type(self)(
+                self.dom, self.cod, tuple(boxes), tuple(wires), spider_types
+            ).make_polygynous()
+        return self
 
     def make_progressive(self):
         """
@@ -631,30 +740,32 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> assert f.trace().make_progressive().boxes\\
         ...     == (Cap(x, x), f.boxes[0], Cup(x, x))
         """
-        if not self.is_monogamous:
-            return self.make_monogamous().make_progressive()
-        dom, cod = self.dom, self.cod
-        boxes, wires = list(self.boxes), list(self.wires)
-        spider_types = {i: x for i, x in enumerate(self.spider_types)}
-        port = len(self.dom)
-        for box in self.boxes:
-            for j, typ in enumerate(box.dom):
-                source = port + j
-                spider, target = wires[source], self.bijection[source]
-                if target > source:
-                    input_spider, output_spider =\
-                        range(len(spider_types), len(spider_types) + 2)
-                    wires[source], wires[target] = input_spider, output_spider
-                    wires = wires[:len(dom)] + [input_spider]\
-                        + wires[len(dom):] + [output_spider]
-                    dom, cod = dom @ typ, cod @ typ
-                    spider_types.update({
-                        input_spider: typ, output_spider: typ})
-                    del spider_types[spider]
-                    boxes, wires = tuple(boxes), tuple(wires)
+        if not self.is_polygynous:
+            return self.make_polygynous().make_progressive()
+        for input_spider, (typ, (input_wires, output_wires)) in enumerate(
+                zip(self.spider_types, self.spider_wires)):
+            if not input_wires:
+                assert not output_wires
+                dom, cod = self.dom @ typ, self.cod @ typ
+                wires = list(self.wires)
+                wires = wires[:len(self.dom)] + [input_spider]\
+                        + wires[len(self.dom):] + [input_spider]
+                boxes, wires = self.boxes, tuple(wires)
+                arg = type(self)(dom, cod, boxes, wires, self.spider_types)
+                return self.trace_factory(arg.make_progressive())
+            input_wire, = input_wires
+            for output_wire in output_wires:
+                if output_wire < input_wire:
+                    dom, cod = self.dom @ typ, self.cod @ typ
+                    spider_types = self.spider_types + (typ, )
+                    output_spider = len(spider_types) - 1
+                    wires = list(self.wires)
+                    wires[output_wire] = output_spider
+                    wires = wires[:len(self.dom)] + [output_spider]\
+                        + wires[len(self.dom):] + [input_spider]
+                    boxes, wires = self.boxes, tuple(wires)
                     arg = type(self)(dom, cod, boxes, wires, spider_types)
                     return self.trace_factory(arg.make_progressive())
-            port += len(box.dom @ box.cod)
         return self
 
     @classmethod
@@ -705,9 +816,22 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             dom=Category(old.ty_factory, type(old)),
             cod=Category(old.ty_factory, cls))(old)
 
-    def to_diagram(self):
+    def to_diagram(self, make_progressive_first: bool = True):
         """
         Downgrade to :class:`Diagram`, called by :code:`print`.
+
+        Parameters:
+            make_progressive_first : The order in which we downgrade.
+
+        Note
+        ----
+        Hypergraphs can be translated to planar diagrams in two different ways:
+
+        * either we first :meth:`make_bijective` (introducing spiders) then
+          :meth:`make_monogamous` (introducing cups and caps) and finally
+          :meth:`make_progressive` (introducing traces)
+        * or we first :meth:`make_progressive` (introducing merges) then
+          :meth:`make_bijective` (introducing copies).
 
         Examples
         --------
@@ -718,8 +842,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         v >> Swap(x, x) >> v[::-1]
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
         x @ Swap(x, x) >> v[::-1] @ x
+
         """
-        diagram = self.make_progressive()
+        diagram = (
+            self.make_progressive().make_bijective() if make_progressive_first
+            else self.make_monogamous().make_progressive())
         graph = Graph()
         graph.add_nodes_from(diagram.ports)
         graph.add_edges_from([
