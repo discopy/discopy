@@ -53,13 +53,21 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from abc import ABC, abstractmethod
 from typing import Iterator
 from dataclasses import dataclass
 
-from discopy import cat, drawing, messages
-from discopy.cat import factory, Ob, AxiomError, assert_iscomposable
-from discopy.utils import factory_name, from_tree, assert_isinstance
+from discopy import cat, drawing, hypergraph, messages
+from discopy.cat import Ob, AxiomError
+from discopy.utils import (
+    factory,
+    factory_name,
+    from_tree,
+    assert_isinstance,
+    assert_iscomposable,
+    assert_isatomic,
+    Composable,
+    Whiskerable,
+)
 
 
 @factory
@@ -428,48 +436,6 @@ class Layer(cat.Box):
         return cls(*(map(from_tree, tree['inside'])))
 
 
-class Whiskerable(ABC):
-    """
-    Abstract class implementing the syntactic sugar :code:`@` for whiskering
-    and parallel composition with some method :code:`tensor`.
-    """
-    @classmethod
-    @abstractmethod
-    def id(cls, dom: any) -> Whiskerable:
-        """
-        Identity on a given domain, to be instantiated.
-
-        Parameters:
-            dom : The object on which to take the identity.
-        """
-
-    @abstractmethod
-    def tensor(self, other: Whiskerable) -> Whiskerable:
-        """
-        Parallel composition, to be instantiated.
-
-        Parameters:
-            other : The other diagram to compose in parallel.
-        """
-
-    @classmethod
-    def whisker(cls, other: any) -> Whiskerable:
-        """
-        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
-        nothing.
-
-        Parameters:
-            other : The whiskering object.
-        """
-        return other if isinstance(other, Whiskerable) else cls.id(other)
-
-    def __matmul__(self, other):
-        return self.tensor(self.whisker(other))
-
-    def __rmatmul__(self, other):
-        return self.whisker(other).tensor(self)
-
-
 @factory
 class Diagram(cat.Arrow, Whiskerable):
     """
@@ -492,6 +458,27 @@ class Diagram(cat.Arrow, Whiskerable):
             interchange
             normalize
             normal_form
+
+    Note
+    ----
+    Diagrams can be defined using the standard syntax for Python functions.
+
+    When a box has an empty domain then we can specify the offset as argument.
+
+    >>> x = Ty('x')
+    >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+    >>> @Diagram[x, x]
+    ... def snake(left):
+    ...     middle, right = cap(offset=1)
+    ...     cup(left, middle)
+    ...     return right, right
+    >>> snake.draw(
+    ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
+
+    .. image:: /_static/drawing/diagramize.png
+        :align: center
+
+    >>> Diagram[x, x @ x](lambda x: (x, x))
     """
     ty_factory = Ty
     layer_factory = Layer
@@ -503,8 +490,11 @@ class Diagram(cat.Arrow, Whiskerable):
         super().__init__(inside, dom, cod, _scan=_scan)
 
     def __class_getitem__(cls, key):
-        from discopy.drawing.legacy import diagramize
-        return diagramize(*key, factory=cls)
+        def decorator(func):
+            hypergraph = cls.hypergraph_factory.from_function(*key)(func)
+            return hypergraph.to_diagram()
+
+        return decorator
 
     def tensor(self, other: Diagram = None, *others: Diagram) -> Diagram:
         """
@@ -1004,14 +994,6 @@ class Functor(cat.Functor):
         return super().__call__(other)
 
 
-def assert_isatomic(typ: Ty, cls: type = None):
-    cls = cls or type(typ)
-    assert_isinstance(typ, cls)
-    if not typ.is_atomic:
-        raise ValueError(messages.NOT_ATOMIC.format(
-            factory_name(cls), len(typ)))
-
-
 @dataclass
 class Match:
     """ A match is a diagram with a hole, given by:
@@ -1038,10 +1020,15 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    category = Category()
+
+
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 Diagram.to_grid = drawing.Grid.from_diagram
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
+Diagram.hypergraph_factory = Hypergraph
 Id = Diagram.id
