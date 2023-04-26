@@ -4,8 +4,7 @@
 
 from __future__ import annotations
 
-import json
-from functools import wraps
+from abc import ABC, abstractmethod
 from typing import (
     Callable,
     Generic,
@@ -16,8 +15,11 @@ from typing import (
     Hashable,
     Literal,
     cast,
-    Union)
+    Union,
+)
 
+import json
+from functools import wraps
 from networkx import Graph, connected_components
 
 from discopy import messages
@@ -378,3 +380,206 @@ def pushout(
         j: len(left_proper) + len(components) + i
         for i, j in enumerate(right_proper)})
     return left_pushout, right_pushout
+
+
+def tuplify(stuff: any) -> tuple:
+    """
+    Turns anything into a tuple, do nothing if it is already.
+
+    Parameters:
+        stuff : The stuff to turn into a tuple.
+    """
+    return stuff if isinstance(stuff, tuple) else (stuff, )
+
+
+def untuplify(stuff: tuple) -> any:
+    """
+    Takes the element out of a tuple if it has length 1, otherwise do nothing.
+
+    Parameters:
+        stuff : The tuple out of which to take the element.
+
+    Important
+    ---------
+    This is the inverse of :func:`tuplify`, except on tuples of length 1.
+    """
+    return stuff[0] if len(stuff) == 1 else stuff
+
+
+T = TypeVar('T')
+
+
+class Composable(ABC, Generic[T]):
+    """
+    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
+    for forward and backward composition with some method :code:`then`.
+
+    Example
+    -------
+    >>> class List(list, Composable):
+    ...     def then(self, other):
+    ...         return self + other
+    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
+    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
+    """
+    factory: Type[Composable]
+    sum_factory: Type[Composable]
+    ty_factory: Type[T]
+    dom: T
+    cod: T
+
+    @abstractmethod
+    def then(self, other: Optional[Composable[T]], *others: Composable[T]
+             ) -> Composable[T]:
+        """
+        Sequential composition, to be instantiated.
+
+        Parameters:
+            other : The other composable object to compose sequentially.
+        """
+
+    def is_composable(self, other: Composable) -> bool:
+        """
+        Whether two objects are composable, i.e. the codomain of the first is
+        the domain of the second.
+
+        Parameters:
+            other : The other composable object.
+        """
+        return self.cod == other.dom
+
+    def is_parallel(self, other: Composable) -> bool:
+        """
+        Whether two composable objects are parallel, i.e. they have the same
+        domain and codomain.
+
+        Parameters:
+            other : The other composable object.
+        """
+        return (self.dom, self.cod) == (other.dom, other.cod)
+
+    __rshift__ = __llshift__ = lambda self, other: self.then(other)
+    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
+
+
+def factory(cls: Type[Composable]) -> Type[Composable]:
+    """
+    Allows the identity and composition of an :class:`Arrow` subclass to remain
+    within the subclass.
+
+    Parameters:
+        cls : Some subclass of :class:`Arrow`.
+
+    Note
+    ----
+    The factory method pattern (`FMP`_) is used all over DisCoPy.
+
+    .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
+
+    Example
+    -------
+    Let's create :code:`Circuit` as a subclass of :class:`Arrow` with an
+    :class:`Ob` subclass :code:`Qubit` as domain and codomain.
+
+    >>> class Qubit(Ob): ...
+    >>> @factory
+    ... class Circuit(Arrow):
+    ...     ty_factory = Qubit
+
+    The :code:`Circuit` subclass itself has a subclass :code:`Gate` as boxes.
+
+    >>> class Gate(Box, Circuit):
+    ...     pass
+
+    The identity and composition of :code:`Circuit` is again a :code:`Circuit`.
+
+    >>> X = Gate('X', Qubit(), Qubit())
+    >>> assert isinstance(X >> X, Circuit)
+    >>> assert isinstance(Circuit.id(), Circuit)
+    >>> assert isinstance(Circuit.id().dom, Qubit)
+    """
+    cls.factory = cls
+    return cls
+
+
+class Whiskerable(ABC):
+    """
+    Abstract class implementing the syntactic sugar :code:`@` for whiskering
+    and parallel composition with some method :code:`tensor`.
+    """
+    @classmethod
+    @abstractmethod
+    def id(cls, dom: any) -> Whiskerable:
+        """
+        Identity on a given domain, to be instantiated.
+
+        Parameters:
+            dom : The object on which to take the identity.
+        """
+
+    @abstractmethod
+    def tensor(self, other: Whiskerable) -> Whiskerable:
+        """
+        Parallel composition, to be instantiated.
+
+        Parameters:
+            other : The other diagram to compose in parallel.
+        """
+
+    @classmethod
+    def whisker(cls, other: any) -> Whiskerable:
+        """
+        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
+        nothing.
+
+        Parameters:
+            other : The whiskering object.
+        """
+        return other if isinstance(other, Whiskerable) else cls.id(other)
+
+    def __matmul__(self, other):
+        return self.tensor(self.whisker(other))
+
+    def __rmatmul__(self, other):
+        return self.whisker(other).tensor(self)
+
+
+class AxiomError(Exception):
+    """ The gods of category theory are not happy. """
+
+
+def assert_iscomposable(left: Composable, right: Composable):
+    """
+    Raise :class:`AxiomError` if two objects are not composable,
+    i.e. the domain of ``other`` is not the codomain of ``self``.
+
+    Parameters:
+        left : A composable object.
+        right : Another composable object.
+    """
+    if not left.is_composable(right):
+        raise AxiomError(messages.NOT_COMPOSABLE.format(
+            left, right, left.cod, right.dom))
+
+
+def assert_isparallel(left: Composable, right: Composable):
+    """
+    Raise :class:`AxiomError` if two composable objects do not have the
+    same domain and codomain.
+
+    Parameters:
+        left : A composable object.
+        right : Another composable object.
+    """
+    if not left.is_parallel(right):
+        raise AxiomError(messages.NOT_PARALLEL.format(left, right))
+
+
+
+def assert_isatomic(typ: Ty, cls: type = None):
+    """ Raise :class:`AxiomError` if a type does not have length one. """
+    cls = cls or type(typ)
+    assert_isinstance(typ, cls)
+    if not typ.is_atomic:
+        raise ValueError(messages.NOT_ATOMIC.format(
+            factory_name(cls), len(typ)))
