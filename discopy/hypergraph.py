@@ -830,7 +830,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         * either we first :meth:`make_bijective` (introducing spiders) then
           :meth:`make_monogamous` (introducing cups and caps) and finally
           :meth:`make_progressive` (introducing traces)
-        * or we first :meth:`make_progressive` (introducing merges) then
+        * or we first :meth:`make_polygynous` (introducing merges) then
+          :meth:`make_progressive` (introducing traces) and finally
           :meth:`make_bijective` (introducing copies).
 
         Examples
