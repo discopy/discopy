@@ -489,7 +489,7 @@ class Diagram(cat.Arrow, Whiskerable):
 
     def __class_getitem__(cls, key):
         def decorator(func):
-            hypergraph = cls.hypergraph_factory.from_function(*key)(func)
+            hypergraph = cls.hypergraph_factory.from_callable(*key)(func)
             return hypergraph.to_diagram()
 
         return decorator

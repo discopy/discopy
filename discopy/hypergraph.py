@@ -817,7 +817,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             dom=Category(old.ty_factory, type(old)),
             cod=Category(old.ty_factory, cls))(old)
 
-    def to_diagram(self, make_progressive_first: bool = True) -> Diagram:
+    def to_diagram(self, make_progressive_first: bool = False) -> Diagram:
         """
         Downgrade to :class:`Diagram`, called by :code:`print`.
 
@@ -890,7 +890,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         return diagram
 
     @classmethod
-    def from_function(cls, dom: Ty, cod: Ty) -> Callable[Callable, Hypergraph]:
+    def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Hypergraph]:
         """
         Turns an arbitrary Python function into a progressive hypergraph.
 
@@ -1028,7 +1028,6 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     def depth(self) -> int:
         """ The depth of a progressive hypergraph. """
         return dag_longest_path_length(self.make_progressive().to_graph()) // 4
-
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
