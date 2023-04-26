@@ -908,7 +908,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     raise AxiomError(f"Expected {len(box.dom)} inputs, "
                                      f"got {len(inputs)} instead.")
                 depth = len(box_nodes)
-                box_node = Node("box", box=box)
+                box_node = Node("box", box=box, depth=depth)
                 box_nodes.append(box_node)
                 offsets.append(offset)
                 graph.add_node(box_node)
@@ -916,27 +916,26 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     if inputs[i].obj != obj:
                         raise AxiomError(f"Expected {obj} as input, "
                                          f"got {inputs[i].obj} instead.")
-                    dom_node = Node("dom", obj=obj, i=i)
+                    dom_node = Node("dom", obj=obj, i=i, depth=depth)
                     graph.add_edge(inputs[i], dom_node)
                     graph.add_edge(dom_node, box_node)
                 outputs = []
                 for i, obj in enumerate(box.cod):
-                    cod_node = Node("cod", obj=obj, i=i)
+                    cod_node = Node("cod", obj=obj, i=i, depth=depth)
                     spider = Node("spider", obj=obj, i=len(spider_nodes))
                     graph.add_edge(box_node, cod_node)
                     graph.add_edge(cod_node, spider)
                     spider_nodes.append(spider)
-                    outputs.append(cod_node)
+                    outputs.append(spider)
                 return untuplify(outputs)
 
             cls.category.ar.__call__ = apply
-            input_spiders = []
             for i, obj in enumerate(dom):
                 input_node = Node("input", obj=obj, i=i)
                 input_spider = Node("spider", obj=obj, i=i)
-                input_spiders.append(input_spider)
+                spider_nodes.append(input_spider)
                 graph.add_edge(input_node, input_spider)
-            output_spiders = tuplify(func(*input_spiders))
+            output_spiders = tuplify(func(*spider_nodes))
             for i, obj in enumerate(cod):
                 if output_spiders[i].obj != obj:
                     raise AxiomError(f"Expected {obj} as output, "
@@ -952,6 +951,38 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             return result
 
         return decorator
+
+    @classmethod
+    def from_graph(cls, graph: Graph) -> Hypergraph:
+        """ The inverse of :meth:`to_graph`. """
+        def predecessor(node):
+            result, = graph.predecessors(node)
+            return result
+
+        def successor(node):
+            result, = graph.successors(node)
+            return result
+
+        inputs, outputs, box_nodes, spider_nodes = [], [], [], []
+        for node in graph.nodes:
+            for kind, nodelist in zip(
+                    ["input", "output", "box", "spider"],
+                    [inputs, outputs, box_nodes, spider_nodes]):
+                if node.kind == kind:
+                    nodelist.append(node)
+        dom = sum([n.obj for n in inputs], cls.category.ob())
+        cod = sum([n.obj for n in outputs], cls.category.ob())
+        boxes = tuple(n.box for n in box_nodes)
+        spider_types = {n: n.obj for n in spider_nodes}
+        wires = tuple(map(successor, sorted(inputs, key=lambda node: node.i)))
+        for box_node in box_nodes:
+            wires += tuple(map(predecessor, sorted(
+                graph.predecessors(box_node), key=lambda node: node.i)))
+            wires += tuple(map(successor, sorted(
+                graph.successors(box_node), key=lambda node: node.i)))
+        wires += tuple(map(
+            predecessor, sorted(outputs, key=lambda node: node.i)))
+        return cls(dom, cod, boxes, wires, spider_types)
 
     def to_graph(self) -> Graph:
         """
@@ -998,37 +1029,6 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         """ The depth of a progressive hypergraph. """
         return dag_longest_path_length(self.make_progressive().to_graph()) // 4
 
-    @classmethod
-    def from_graph(cls, graph: Graph) -> Hypergraph:
-        """ The inverse of :meth:`to_graph`. """
-        def predecessor(graph, node):
-            result, = graph.predecessors(node)
-            return result
-
-        def successor(graph, node):
-            result, = graph.successors(node)
-            return result
-
-        inputs, outputs, box_nodes, spider_nodes = [], [], [], []
-        for node in graph.nodes:
-            for kind, nodelist in zip(
-                    ["input", "output", "box", "spider"],
-                    [inputs, outputs, box_nodes, spider_nodes]):
-                if node.kind == kind:
-                    nodelist.append(node)
-        dom = sum([n.obj for n in inputs], cls.category.ob())
-        cod = sum([n.obj for n in outputs], cls.category.ob())
-        boxes = tuple(n.box for n in box_nodes)
-        spider_types = {n: n.obj for n in spider_nodes}
-        wires = list(map(successor, sorted(inputs, key=lambda node: node.i)))
-        for box_node in box_nodes:
-            wires += list(map(predecessor, sorted(
-                graph.predecessors(box_node), key=lambda node: node.i)))
-            wires += list(map(successor, sorted(
-                graph.successor(box_node), key=lambda node: node.i)))
-        wires += list(map(
-            predecessor, sorted(outputs, key=lambda node: node.i)))
-        return cls(dom, cod, boxes, wires, spider_types)
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
