@@ -26,6 +26,7 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from inspect import isclass
 
 import random
 
@@ -49,6 +50,7 @@ from discopy.utils import (
     Composable,
     Whiskerable,
     assert_isatomic,
+    assert_istraceable,
     tuplify,
     untuplify,
 )
@@ -400,16 +402,27 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
 
-    @classmethod
-    def trace_factory(cls, arg: Hypergraph, left=False):
+    def explicit_trace(self, left=False):
         """
-        The trace of one wire in a hypergraph,
-        called by :meth:`make_progressive`.
+        The trace of a hypergraph with explicit boxes (trace, cup or cap).
 
         Parameters:
             left : Whether to trace on the left or right.
+
+        Note
+        ----
+        When ``category.ar.trace_factory`` is a subclass of ``category.ar``,
+        e.g. for symmetric diagrams, then the result is just one big trace box
+        wrapped up as a hypergraph.
+
+        Otherwise, we assume that the trace factory is a class method, e.g.
+        for compact diagrams, in which case we use this method to introduce
+        cup and cap boxes.
         """
-        return cls.category.ar.trace_factory.__func__(cls, arg, left)
+        factory = self.category.ar.trace_factory
+        if isclass(factory) and issubclass(factory, self.category.ar):
+            return self.from_box(factory(self.to_diagram(), left))
+        return factory.__func__(type(self), self, left)
 
     def trace(self, n=1, left=False):
         """
@@ -420,7 +433,16 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             diagram : The diagram to trace.
             left : Whether to trace on the left or right.
         """
-        return self.category.ar.trace(self, n, left)
+        assert_istraceable(self, n, left)
+        dom, cod = (self.dom[n:], self.cod[n:]) if left\
+            else (self.dom[:-n], self.cod[:-n])
+        traced_wires = self.dom[:len(self.dom) - n] if left else self.dom[-n:]
+        return self.caps(traced_wires.r, traced_wires) @ dom\
+            >> traced_wires.r @ self\
+            >> self.cups(traced_wires.r, traced_wires) @ cod if left\
+            else dom @ self.caps(traced_wires, traced_wires.r)\
+            >> self @ traced_wires.r\
+            >> cod @ self.cups(traced_wires, traced_wires.r)
 
     def interchange(self, i: int, j: int) -> Hypergraph:
         """
@@ -772,7 +794,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         ...     == (Cap(x, x), f.boxes[0], Cup(x, x))
 
         >>> from discopy.frobenius import Hypergraph as H, Spider
-        >>> H.spiders(2, 1, x).make_progressive().boxes\\
+        >>> assert H.spiders(2, 1, x).make_progressive().boxes\\
         ...     == (Spider(2, 1, x),)
         """
         if not self.is_polygynous:
@@ -787,7 +809,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     + wires[len(self.dom):] + [input_spider]
                 boxes, wires = self.boxes, tuple(wires)
                 arg = type(self)(dom, cod, boxes, wires, self.spider_types)
-                return self.trace_factory(arg.make_progressive())
+                return arg.make_progressive().explicit_trace()
             input_wire, = input_wires
             for output_wire in output_wires:
                 if output_wire < input_wire:
@@ -800,7 +822,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                         + wires[len(self.dom):] + [input_spider]
                     boxes, wires = self.boxes, tuple(wires)
                     arg = type(self)(dom, cod, boxes, wires, spider_types)
-                    return self.trace_factory(arg.make_progressive())
+                    return arg.make_progressive().explicit_trace()
         return self
 
     @classmethod

@@ -9,7 +9,7 @@ from discopy import *
 
 def test_spider_factory():
     with raises(ValueError):
-        Diagram.spider(2, 2, Ty('x'))
+        Diagram.spider_factory(2, 2, Ty('x'))
 
 
 def test_Merge_dagger():

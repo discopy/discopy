@@ -119,6 +119,12 @@ class Diagram(balanced.Diagram):
     ...     Diagram[x, Ty()](lambda x: ())
     >>> print(err.value)
     symmetric.Diagram does not have copy or discard.
+
+
+    Note
+    ----
+    As for :class:`discopy.balanced.Diagram`, our symmetric diagrams are traced
+    by default. However now we have that the axioms for trace hold on the nose.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
@@ -174,7 +180,8 @@ class Diagram(balanced.Diagram):
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
         category = Category(self.ty_factory, self.factory)
-        return self.hypergraph_factory[category].from_diagram(self)
+        functor = self.hypergraph_factory.functor
+        return self.hypergraph_factory[category, functor].from_diagram(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -263,7 +270,7 @@ class Category(balanced.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(monoidal.Functor):
+class Functor(balanced.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
 
