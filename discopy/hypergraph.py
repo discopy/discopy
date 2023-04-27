@@ -149,8 +149,9 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
         for obj, wires in zip(self.spider_types, self.spider_wires):
+            adjoint = getattr(obj, "r", obj)
             for i in set.union(*wires):
-                if obj != self.ports[i].obj:
+                if self.ports[i].obj not in [obj, adjoint]:
                     raise AxiomError(messages.TYPE_ERROR.format(
                         obj, self.ports[i].obj))
 
@@ -612,7 +613,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         >>> assert not H.cups(x, x).is_progressive
         """
         return all(len(input_wires) == 1 and all(
-                u < v for u in input_wires for v in output_wires)
+            u < v for u in input_wires for v in output_wires)
             for input_wires, output_wires in self.spider_wires)
 
     def make_bijective(self) -> Hypergraph:
@@ -765,7 +766,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                 dom, cod = self.dom @ typ, self.cod @ typ
                 wires = list(self.wires)
                 wires = wires[:len(self.dom)] + [input_spider]\
-                        + wires[len(self.dom):] + [input_spider]
+                    + wires[len(self.dom):] + [input_spider]
                 boxes, wires = self.boxes, tuple(wires)
                 arg = type(self)(dom, cod, boxes, wires, self.spider_types)
                 return self.trace_factory(arg.make_progressive())
@@ -877,7 +878,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                     offset = j
                 elif j > offset + i:
                     diagram >>= diagram.cod[:offset + i] @ diagram.swap(
-                            diagram.cod[offset + i:j], diagram.cod[j]
+                        diagram.cod[offset + i:j], diagram.cod[j]
                     ) @ diagram.cod[j + 1:]
                     scan = (scan[:offset + i] + scan[j:j + 1]) + (
                         scan[offset + i:j] + scan[j + 1:])
@@ -1009,8 +1010,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
             Node("spider", i=i, obj=obj)
             for i, obj in enumerate(self.spider_types))
         graph.add_nodes_from(
-            [(Node("input", i=i, obj=obj), dict(i=i))
-            for i, obj in enumerate(self.dom)])
+            (Node("input", i=i, obj=obj), dict(i=i))
+            for i, obj in enumerate(self.dom))
         graph.add_edges_from(
             (Node("input", i=i, obj=obj), Node("spider", i=j, obj=obj))
             for i, (j, obj) in enumerate(
@@ -1032,8 +1033,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
                         graph.add_edge(box_node, port_node)
                         graph.add_edge(port_node, spider_node)
         graph.add_nodes_from(
-            [(Node("output", i=i, obj=obj), dict(i=i))
-            for i, obj in enumerate(self.cod)])
+            (Node("output", i=i, obj=obj), dict(i=i))
+            for i, obj in enumerate(self.cod))
         graph.add_edges_from(
             (Node("spider", i=j, obj=obj), Node("output", i=i, obj=obj))
             for i, (j, obj) in enumerate(

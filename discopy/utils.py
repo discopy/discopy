@@ -481,7 +481,9 @@ def factory(cls: Type[Composable]) -> Type[Composable]:
     Let's create :code:`Circuit` as a subclass of :class:`Arrow` with an
     :class:`Ob` subclass :code:`Qubit` as domain and codomain.
 
-    >>> class Qubit(Ob): ...
+    >>> from discopy.cat import Ob, Arrow, Box
+    >>> class Qubit(Ob):
+    ...     pass
     >>> @factory
     ... class Circuit(Arrow):
     ...     ty_factory = Qubit
@@ -573,7 +575,6 @@ def assert_isparallel(left: Composable, right: Composable):
     """
     if not left.is_parallel(right):
         raise AxiomError(messages.NOT_PARALLEL.format(left, right))
-
 
 
 def assert_isatomic(typ: Ty, cls: type = None):
