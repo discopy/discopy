@@ -257,6 +257,7 @@ class Trace(balanced.Trace, Box):
     :meth:`Diagram.trace`
     """
     __ambiguous_inheritance__ = (balanced.Trace, )
+    __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
 
 
 class Category(balanced.Category):

@@ -369,14 +369,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
     @classmethod
     def cups(cls, left, right):
-        if not left.r == right:
+        if not getattr(left, 'r', left[::-1]) == right:
             raise AxiomError
         wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(left @ right, cls.category.ob(), (), wires)
 
     @classmethod
     def caps(cls, left, right):
-        if not left.r == right:
+        if not getattr(left, 'r', left[::-1]) == right:
             raise AxiomError
         wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(cls.category.ob(), left @ right, (), wires)
@@ -436,13 +436,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         assert_istraceable(self, n, left)
         dom, cod = (self.dom[n:], self.cod[n:]) if left\
             else (self.dom[:-n], self.cod[:-n])
-        traced_wires = self.dom[:len(self.dom) - n] if left else self.dom[-n:]
-        return self.caps(traced_wires.r, traced_wires) @ dom\
-            >> traced_wires.r @ self\
-            >> self.cups(traced_wires.r, traced_wires) @ cod if left\
-            else dom @ self.caps(traced_wires, traced_wires.r)\
-            >> self @ traced_wires.r\
-            >> cod @ self.cups(traced_wires, traced_wires.r)
+        traced_wires = self.dom[:n] if left else self.dom[len(self.dom) - n:]
+        traced_wires_r = getattr(traced_wires, "r", traced_wires[::-1])
+        return self.caps(traced_wires_r, traced_wires) @ dom\
+            >> traced_wires_r @ self\
+            >> self.cups(traced_wires_r, traced_wires) @ cod if left\
+            else dom @ self.caps(traced_wires, traced_wires_r)\
+            >> self @ traced_wires_r\
+            >> cod @ self.cups(traced_wires, traced_wires_r)
 
     def interchange(self, i: int, j: int) -> Hypergraph:
         """
