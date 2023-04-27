@@ -73,6 +73,8 @@ Axioms
 
 .. image:: /_static/traced/right-nat-trace.png
     :align: center
+
+>>> assert naturality_left and naturality_right
 """
 
 from discopy import monoidal, messages
