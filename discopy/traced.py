@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-The free traced category, i.e.
-diagrams with swaps where outputs can feedback into inputs.
+The free traced category, i.e. diagrams where outputs can feedback into inputs.
+
+Note that these diagrams are planar traced so that e.g. :mod:`pivotal` diagrams
+are traced in this sense. See :mod:`symmetric` for the usual notion of trace.
+
+Whenever the diagrams are also :mod:`symmetric`, their equality can be checked
+by translation to monogamous :mod:`hypergraph`.
 
 Summary
 -------
@@ -17,12 +22,57 @@ Summary
     Trace
     Category
     Functor
+
+Axioms
+------
+
+>>> from discopy.drawing import Equation
+>>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> x = Ty('x')
+>>> f = Box('f', x @ x, x @ x)
+
+* Vanishing
+
+>>> assert f.trace(n=0) == f == f.trace(n=0, left=True)
+>>> assert f.trace(n=2) == f.trace().trace()
+>>> assert f.trace(n=2, left=True) == f.trace(left=True).trace(left=True)
+
+* Superposing
+
+>>> superposing_left = Equation(
+...     (x @ f).trace(left=True), x @ f.trace(left=True))
+>>> superposing_left.draw(
+...     path='docs/_static/traced/superposing-left.png', figsize=(3, 2))
+
+.. image:: /_static/traced/superposing-left.png
+    :align: center
+
+>>> superposing_right = Equation((x @ f).trace(), x @ f.trace())
+>>> superposing_right.draw(
+...     path='docs/_static/traced/superposing-right.png', figsize=(3, 2))
+
+.. image:: /_static/traced/superposing-right.png
+    :align: center
+
+>>> assert superposing_left and superposing_right
+
+* Yanking
+
+>>> yanking = Equation(
+...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
+>>> yanking.draw(
+...     path='docs/_static/traced/yanking.png', figsize=(3, 2))
+
+.. image:: /_static/traced/yanking.png
+    :align: center
+
+>>> assert yanking
 """
 
 from discopy import monoidal, messages
 from discopy.cat import factory, AxiomError
 from discopy.monoidal import Ty
-from discopy.utils import factory_name, assert_isinstance
+from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
 @factory
@@ -84,14 +134,10 @@ class Trace(Box, monoidal.Bubble):
     :meth:`Diagram.trace`
     """
     def __init__(self, arg: Diagram, left=False):
-        self.left = left
         assert_isinstance(arg, self.factory)
+        assert_istraceable(arg, n=1, left=left)
+        self.left = left
         name = f"Trace({arg}" + ", left=True)" if left else ")"
-        traced_dom, traced_cod = (arg.dom[:1], arg.cod[:1]) if left\
-            else (arg.dom[-1:], arg.cod[-1:])
-        if traced_dom != traced_cod:
-            raise AxiomError(
-                messages.NOT_TRACEABLE.format(traced_dom, traced_cod))
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom, cod)
@@ -102,12 +148,15 @@ class Trace(Box, monoidal.Bubble):
 
     def to_drawing(self):
         traced_wire = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
+        dom, cod, traced_wire = map(
+            self.ty_factory.to_drawing, [self.dom, self.cod, traced_wire])
         cup = Box('cup', traced_wire ** 2, Ty(), draw_as_wires=True)
         cap = Box('cap', Ty(), traced_wire ** 2, draw_as_wires=True)
-        result = cap @ self.dom >> traced_wire @ self.arg >> cup @ self.cod\
+        cup, cap, arg = map(self.factory.to_drawing, [cup, cap, self.arg])
+        result = cap @ dom >> traced_wire @ arg >> cup @ cod\
             if self.left\
-            else self.dom @ cap >> self.arg @ traced_wire >> self.cod @ cup
-        return result.to_drawing()
+            else dom @ cap >> arg @ traced_wire >> cod @ cup
+        return result
 
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)

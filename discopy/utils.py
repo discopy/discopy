@@ -595,3 +595,12 @@ def assert_isatomic(typ: Ty, cls: type = None):
     if not typ.is_atomic:
         raise ValueError(messages.NOT_ATOMIC.format(
             factory_name(cls), len(typ)))
+
+
+def assert_istraceable(arg: Diagram, n=1, left=False):
+    """ Raise :class:`AxiomError` if a diagram is not traceable. """
+    traced_dom, traced_cod = (arg.dom[:n], arg.cod[:n]) if left\
+        else (arg.dom[len(arg.dom) - n:], arg.cod[len(arg.cod) - n:])
+    if traced_dom != traced_cod:
+        raise AxiomError(
+            messages.NOT_TRACEABLE.format(traced_dom, traced_cod))
