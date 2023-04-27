@@ -244,14 +244,14 @@ class Functor(symmetric.Functor):
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category = Category()
+    category, functor = Category, Functor
 
     def to_diagram(self, make_progressive_first=True) -> Diagram:
         return super().to_diagram(
             make_progressive_first=make_progressive_first)
 
 
-Diagram.hypergraph_factory, Diagram.functor_factory = Hypergraph, Functor
+Diagram.hypergraph_factory = Hypergraph
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Id = Diagram.id

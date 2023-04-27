@@ -54,7 +54,7 @@ from discopy.utils import (
 )
 
 
-class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
+class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     """
     A hypergraph is given by a domain, a codomain, a list of boxes, a list of
     spider types and a list of wires from :meth:`ports` to spiders.
@@ -73,8 +73,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     Hypergraphs are parameterised by a ``category``, i.e. ``dom`` and ``cod``
     are of type ``category.ob`` and each box is of type ``category.ar``.
 
-    >>> from discopy.frobenius import Ty, Box, Diagram, Hypergraph as H
-    >>> assert H.category == Category(Ty, Diagram)
+    >>> from discopy.frobenius import Hypergraph as H
+    >>> from discopy.frobenius import Ty, Diagram
+    >>> assert H.category.ob == Ty and H.category.ar == Diagram
+
+    They are also parameterised by a ``functor`` called by :meth:`to_diagram`.
+
+    >>> from discopy.frobenius import Functor
+    >>> assert H.functor == Functor
 
     Note
     ----
@@ -113,6 +119,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     >>> assert H.spiders(0, 0, x @ y @ z).n_spiders == 3
     >>> assert H.spiders(0, 0, x @ y @ z).wires == ()
 
+    >>> from discopy.frobenius import Box
     >>> f, g = Box('f', x, y).to_hypergraph(), Box('g', y, z).to_hypergraph()
 
     >>> assert f.n_spiders == g.n_spiders == 2
@@ -125,6 +132,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     >>> assert (f @ g).wires == (0, 1, 0, 2, 1, 3, 2, 3)
     """
     category = None
+    functor = None
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
@@ -830,7 +838,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         ...           H.spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        return old.functor_factory(
+        return cls.functor(
             ob=lambda typ: typ, ar=cls.from_box,
             dom=Category(old.ty_factory, type(old)),
             cod=Category(old.ty_factory, cls))(old)
