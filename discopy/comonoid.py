@@ -267,9 +267,9 @@ class Functor(symmetric.Functor):
 class Hypergraph(hypergraph.Hypergraph):
     category, functor = Category, Functor
 
-    def to_diagram(self, make_progressive_first=True) -> Diagram:
+    def to_diagram(self, make_causal_first=True) -> Diagram:
         return super().to_diagram(
-            make_progressive_first=make_progressive_first)
+            make_causal_first=make_causal_first)
 
 
 Diagram.hypergraph_factory = Hypergraph
