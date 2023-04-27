@@ -579,6 +579,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> assert not f.transpose().is_monogamous
         >>> assert not H.cups(x, x).is_monogamous
         >>> assert not H.spiders(1, 2, x).is_monogamous
+        >>> assert not H.spiders(2, 3, x).is_monogamous
         """
         for input_wires, output_wires in self.spider_wires:
             if len(input_wires) != len(output_wires):
@@ -628,7 +629,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
     def make_bijective(self) -> Hypergraph:
         """
-        Introduces :class:`Spider` or :class:`Copy` to make self bijective.
+        Introduces spider boxes to make self bijective.
 
         Example
         -------
@@ -640,6 +641,9 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
         >>> copy = H.spiders(1, 2, Ty('x', 'y')).make_bijective()
         >>> assert copy.boxes == (Spider(1, 2, Ty('x')), Spider(1, 2, Ty('y')))
+
+        >>> unit = H.spiders(0, 1, Ty('x', 'y')).make_bijective()
+        >>> assert unit.boxes == (Spider(0, 1, Ty('y')), Spider(0, 1, Ty('x')))
         """
         boxes, wires, spider_types =\
             list(self.boxes), list(self.wires), list(self.spider_types)
@@ -721,7 +725,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
     def make_polygynous(self) -> Hypergraph:
         """
-        Introduce :class:`Spider` boxes to make self polygynous.
+        Introduce spider boxes to make self polygynous.
 
         Example
         -------
@@ -757,15 +761,19 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
     def make_progressive(self) -> Hypergraph:
         """
-        Calls :meth:`Hypergraph.trace_factory` boxes to make self progressive.
+        Introduce trace boxes to make self progressive.
 
         Example
         -------
-        >>> from discopy.frobenius import Ty, Box, Cup, Cap, Hypergraph as H
+        >>> from discopy.frobenius import Ty, Box, Cup, Cap
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x).to_hypergraph()
         >>> assert f.trace().make_progressive().boxes\\
         ...     == (Cap(x, x), f.boxes[0], Cup(x, x))
+
+        >>> from discopy.frobenius import Hypergraph as H, Spider
+        >>> H.spiders(2, 1, x).make_progressive().boxes\\
+        ...     == (Spider(2, 1, x),)
         """
         if not self.is_polygynous:
             return self.make_polygynous().make_progressive()
@@ -961,13 +969,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                 input_spider = Node("spider", obj=obj, i=i)
                 spider_nodes.append(input_spider)
                 graph.add_edge(input_node, input_spider)
-            output_spiders = tuplify(func(*spider_nodes))
-            for i, obj in enumerate(cod):
-                if output_spiders[i].obj != obj:
-                    raise AxiomError(f"Expected {obj} as output, "
-                                     f"got {output_spiders[i].obj} instead.")
+            for i, spider in enumerate(tuplify(func(*spider_nodes))):
+                assert_isinstance(spider, Node)
                 node = Node("output", obj=obj, i=i)
-                graph.add_edge(output_spiders[i], node)
+                graph.add_edge(spider, node)
             del cls.category.ar.__call__
             result = cls.from_graph(graph)
             if result.cod != cod:
