@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-The free hypergraph category, i.e. diagrams with swaps and spiders.
+The free symmetric category with a supply of spiders, also known as special
+commutative Frobenius algebras.
 
-Note that spiders are also known as special commutative Frobenius algebras.
-Diagrams in the free hypergraph category are faithfully as :class:`Hypergraph`,
-see :cite:t:`BonchiEtAl22`.
+Diagrams in the free hypergraph category are faithfully encoded as
+:class:`Hypergraph`, see :cite:t:`BonchiEtAl22`.
 
 Summary
 -------
@@ -36,30 +36,6 @@ Axioms
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
 >>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
 
-* Commutative monoid:
-
->>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge)
->>> associativity = Equation(merge @ x >> merge, x @ merge >> merge)
->>> commutativity = Equation(Swap(x, x) >> merge, merge)
->>> assert unitality and associativity and commutativity
->>> Equation(unitality, associativity, commutativity, symbol='').draw(
-...     path="docs/_static/frobenius/monoid.png")
-
-.. image:: /_static/frobenius/monoid.png
-    :align: center
-
-* Cocommutative comonoid:
-
->>> counitality = Equation(split >> counit @ x, Id(x), split >> x @ counit)
->>> coassociativity = Equation(split >> split @ x, split >> x @ split)
->>> cocommutativity = Equation(split >> Swap(x, x), split)
->>> assert counitality and coassociativity and cocommutativity
->>> Equation(counitality, coassociativity, cocommutativity, symbol='').draw(
-...     path="docs/_static/frobenius/comonoid.png")
-
-.. image:: /_static/frobenius/comonoid.png
-    :align: center
-
 * Frobenius:
 
 >>> frobenius = Equation(
@@ -78,22 +54,13 @@ Axioms
 
 .. image:: /_static/frobenius/special.png
     :align: center
-
-* Coherence:
-
->>> assert Diagram.spiders(0, 1, x @ x) == unit @ unit
->>> assert Diagram.spiders(1, 0, x @ x) == counit @ counit
->>> assert Diagram.spiders(1, 2, x @ x)\\
-...     == split @ split >> x @ Swap(x, x) @ x
->>> assert Diagram.spiders(2, 1, x @ x)\\
-...     == x @ Swap(x, x) @ x >> merge @ merge
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import compact, pivotal, hypergraph
+from discopy import comonoid, compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import assert_isatomic
 from discopy.utils import factory_name, assert_isinstance
@@ -148,15 +115,17 @@ class Dim(Ty):
 
 
 @factory
-class Diagram(compact.Diagram):
+class Diagram(compact.Diagram, comonoid.Diagram):
     """
-    A frobenius diagram is a compact diagram with :class:`Spider` boxes.
+    A frobenius diagram is a compact diagram and a comonoid diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    __ambiguous_inheritance__ = (compact.Diagram, comonoid.Diagram)
+
     ty_factory = Ty
 
     @classmethod
@@ -205,16 +174,16 @@ class Diagram(compact.Diagram):
         return F(self)
 
 
-class Box(compact.Box, Diagram):
+class Box(compact.Box, comonoid.Box, Diagram):
     """
-    A frobenius box is a compact box in a frobenius diagram.
+    A frobenius box is a compact and comonoid box in a frobenius diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (compact.Box, )
+    __ambiguous_inheritance__ = (compact.Box, comonoid.Box)
 
 
 class Cup(compact.Cup, Box):
@@ -239,7 +208,7 @@ class Cap(compact.Cap, Box):
     __ambiguous_inheritance__ = (compact.Cap, )
 
 
-class Swap(compact.Swap, Box):
+class Swap(compact.Swap, comonoid.Swap, Box):
     """
     A frobenius swap is a compact swap in a frobenius diagram.
 
@@ -247,7 +216,7 @@ class Swap(compact.Swap, Box):
         left (Ty) : The type on the top left and bottom right.
         right (Ty) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (compact.Swap, )
+    __ambiguous_inheritance__ = (compact.Swap, comonoid.Swap)
 
 
 class Spider(Box):
@@ -305,7 +274,7 @@ class Spider(Box):
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
-class Category(compact.Category):
+class Category(compact.Category, comonoid.Category):
     """
     A hypergraph category is a compact category with a method :code:`spiders`.
 
@@ -313,10 +282,12 @@ class Category(compact.Category):
         ob : The objects of the category, default is :class:`Ty`.
         ar : The arrows of the category, default is :class:`Diagram`.
     """
+    __ambiguous_inheritance__ = (compact.Category, comonoid.Category)
+
     ob, ar = Ty, Diagram
 
 
-class Functor(compact.Functor):
+class Functor(compact.Functor, comonoid.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
 
@@ -325,6 +296,8 @@ class Functor(compact.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
+    __ambiguous_inheritance__ = (compact.Functor, comonoid.Functor)
+
     dom = cod = Category()
 
     def __call__(self, other):
@@ -333,7 +306,9 @@ class Functor(compact.Functor):
         if isinstance(other, Spider):
             return self.cod.ar.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
-        return super().__call__(other)
+        if isinstance(other, (comonoid.Copy, comonoid.Merge)):
+            return comonoid.Functor.__call__(self, other)
+        return compact.Functor.__call__(self, other)
 
 
 class Hypergraph(hypergraph.Hypergraph):
