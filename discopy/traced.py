@@ -29,7 +29,7 @@ Axioms
 >>> from discopy.drawing import Equation
 >>> from discopy.symmetric import Ty, Box, Swap, Id
 >>> x = Ty('x')
->>> f = Box('f', x @ x, x @ x)
+>>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
 * Vanishing
 
@@ -39,34 +39,40 @@ Axioms
 
 * Superposing
 
->>> superposing_left = Equation(
-...     (x @ f).trace(left=True), x @ f.trace(left=True))
->>> superposing_left.draw(
-...     path='docs/_static/traced/superposing-left.png', figsize=(3, 2))
-
-.. image:: /_static/traced/superposing-left.png
-    :align: center
-
->>> superposing_right = Equation((x @ f).trace(), x @ f.trace())
->>> superposing_right.draw(
-...     path='docs/_static/traced/superposing-right.png', figsize=(3, 2))
-
-.. image:: /_static/traced/superposing-right.png
-    :align: center
-
->>> assert superposing_left and superposing_right
+>>> assert (x @ f).trace() == x @ f.trace()
+>>> assert (f @ x).trace(left=True) == f.trace(left=True) @ x
 
 * Yanking
 
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
 >>> yanking.draw(
-...     path='docs/_static/traced/yanking.png', figsize=(3, 2))
+...     path='docs/_static/traced/yanking.png', draw_type_labels=False)
 
 .. image:: /_static/traced/yanking.png
     :align: center
 
 >>> assert yanking
+
+* Naturality
+
+>>> naturality_left = Equation(
+...     (x @ g >> f >> x @ g).trace(left=True),
+...     g >> f.trace(left=True) >> g)
+>>> naturality_left.draw(
+...     path='docs/_static/traced/left-nat-trace.png', draw_type_labels=False)
+
+.. image:: /_static/traced/left-nat-trace.png
+    :align: center
+
+>>> naturality_right = Equation(
+...     (g @ x >> f >> g @ x).trace(),
+...     g >> f.trace() >> g)
+>>> naturality_right.draw(
+...     path='docs/_static/traced/right-nat-trace.png', draw_type_labels=False)
+
+.. image:: /_static/traced/right-nat-trace.png
+    :align: center
 """
 
 from discopy import monoidal, messages
