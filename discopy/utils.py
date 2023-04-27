@@ -31,7 +31,18 @@ V2T = TypeVar('V2T')
 
 
 class MappingOrCallable(Mapping[KT, VT]):
-    """ A Mapping or Callable object. """
+    """
+    A Mapping or Callable object.
+
+    Example
+    -------
+    T = MappingOrCallable[int, int]
+    f = T(lambda x: x + 1)
+    g = T({0: 1})
+    assert f[0] == g[0] == 1
+    assert len(g) == 1
+    assert list(g) == [0]
+    """
     def __class_getitem__(_, args: tuple[type, type]) -> type:
         source, target = args
         return Mapping[source, target] | Callable[[source], target]
