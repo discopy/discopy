@@ -32,7 +32,7 @@ The axiom for the twist holds on the nose.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, traced, hypergraph
+from discopy import monoidal, braided, traced
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
 from discopy.utils import factory_name
@@ -136,6 +136,7 @@ class Trace(traced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
+    __ambiguous_inheritance__ = (traced.Trace, )
 
 
 class Twist(Box):
@@ -197,7 +198,7 @@ class Functor(braided.Functor, traced.Functor):
         return braided.Functor.__call__(self, other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
+class Hypergraph(traced.Hypergraph):
     category, functor = Category, Functor
 
 

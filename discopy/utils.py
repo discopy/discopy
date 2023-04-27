@@ -328,7 +328,7 @@ def assert_isinstance(object, cls: type | tuple[type, ...]):
 def unbiased(binary_method):
     """
     Turn a biased method with signature (self, other) to an unbiased one, i.e.
-    with signature (self, *others), see  the `nLab`_.
+    with signature (self, *others), see the `nLab`_.
 
     .. _nLab: https://ncatlab.org/nlab/show/biased+definition
     """

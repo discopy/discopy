@@ -85,6 +85,40 @@ class Diagram(balanced.Diagram):
         inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+
+    Note
+    ----
+    Symmetric diagrams can be defined using the standard syntax for functions.
+
+    >>> x = Ty('x')
+    >>> f = Box('f', x @ x, x)
+    >>> g = Box('g', x, x @ x)
+
+    >>> @Diagram[x @ x @ x, x @ x @ x]
+    ... def diagram(x0, x1, x2):
+    ...     x3 = f(x2, x0)
+    ...     x4, x5 = g(x1)
+    ...     return x5, x3, x4
+    >>> diagram.draw(draw_type_labels=False,
+    ...              path='docs/_static/symmetric/decorator.png')
+
+    .. image:: /_static/symmetric/decorator.png
+        :align: center
+
+    Every variable must be used exactly once or this will raise an error.
+
+    >>> from pytest import raises
+    >>> from discopy.utils import AxiomError
+
+    >>> with raises(AxiomError) as err:
+    ...     Diagram[x, x @ x](lambda x: (x, x))
+    >>> print(err.value)
+    symmetric.Diagram does not have copy or discard.
+
+    >>> with raises(AxiomError) as err:
+    ...     Diagram[x, Ty()](lambda x: ())
+    >>> print(err.value)
+    symmetric.Diagram does not have copy or discard.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
@@ -205,7 +239,7 @@ class Swap(balanced.Braid, Box):
 
 class Trace(balanced.Trace, Box):
     """
-    A trace in a balanced category.
+    A trace in a symmetric category.
 
     Parameters:
         arg : The diagram to trace.
@@ -215,6 +249,7 @@ class Trace(balanced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
+    __ambiguous_inheritance__ = (balanced.Trace, )
 
 
 class Category(balanced.Category):
@@ -247,7 +282,7 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
+class Hypergraph(balanced.Hypergraph):
     category, functor = Category, Functor
 
 

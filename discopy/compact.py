@@ -60,7 +60,7 @@ Axioms
 ...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
 """
 
-from discopy import symmetric, ribbon, hypergraph
+from discopy import symmetric, ribbon
 from discopy.cat import factory
 from discopy.pivotal import Ty
 
@@ -153,7 +153,7 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
+class Hypergraph(symmetric.Hypergraph):
     category, functor = Category, Functor
 
 

@@ -19,7 +19,7 @@ Summary
     Functor
 """
 
-from discopy import monoidal, hypergraph, messages
+from discopy import monoidal, messages
 from discopy.cat import factory, AxiomError
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance
@@ -164,7 +164,7 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
+class Hypergraph(monoidal.Hypergraph):
     category, functor = Category, Functor
 
 

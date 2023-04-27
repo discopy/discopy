@@ -61,6 +61,12 @@ Axioms
 >>> assert Diagram.merge(x @ x, n=0) == unit @ unit
 >>> assert Diagram.merge(x @ x)\\
 ...     == x @ Swap(x, x) @ x >> merge @ merge
+
+Note
+----
+Equality of comonoid diagrams is computed by translation to hypergraph.
+Both copy and merge boxes are translated to spiders, thus when they appear
+in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 """
 
 from __future__ import annotations
@@ -154,6 +160,21 @@ class Swap(symmetric.Swap, Box):
         right (monoidal.Ty) : The type on the top right and bottom left.
     """
     __ambiguous_inheritance__ = (symmetric.Swap, )
+
+
+class Trace(symmetric.Trace, Box):
+    """
+    A trace in a category with comonoids.
+
+    Parameters:
+        arg : The diagram to trace.
+        left : Whether to trace the wires on the left or right.
+
+    See also
+    --------
+    :meth:`Diagram.trace`
+    """
+    __ambiguous_inheritance__ = (symmetric.Trace, )
 
 
 class Copy(Box):
@@ -254,4 +275,5 @@ class Hypergraph(hypergraph.Hypergraph):
 Diagram.hypergraph_factory = Hypergraph
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
+Diagram.trace_factory = Trace
 Id = Diagram.id
