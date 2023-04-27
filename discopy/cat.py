@@ -816,7 +816,7 @@ class Functor(Composable[Category]):
         cat.Functor(ob=<function ...>, ar=...)
         """
         assert_isinstance(other, Functor)
-        assert_isparallel(self, other)
+        assert_iscomposable(self, other)
         ob, ar = self.ob.then(other), self.ar.then(other)
         return type(self)(ob, ar, dom=self.dom, cod=other.cod)
 
