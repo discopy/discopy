@@ -11,9 +11,9 @@ def test_pushout():
 def test_Hypergraph_init():
     x, y = map(Ty, "xy")
     with raises(ValueError):
-        H(x, x, [], [])
+        H(x, x, (), ())
     with raises(AxiomError):
-        H(x, y, [], [0, 0])
+        H(x, y, (), (0, 0))
 
 
 def test_Hypergraph_str():

@@ -145,7 +145,9 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         relabeling = list(sorted(set(wires), key=lambda i: wires.index(i)))
         relabeling += list(sorted(set(spider_types) - set(relabeling)))
         self.wires = tuple(relabeling.index(s) for s in wires)
-        self.spider_types = tuple(spider_types[s] for s in relabeling)
+        self.spider_types = tuple(map(
+            lambda typ: typ.r if getattr(typ, "z", 0) else typ,
+            [spider_types[s] for s in relabeling]))
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
         for obj, wires in zip(self.spider_types, self.spider_wires):
