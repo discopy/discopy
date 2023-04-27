@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from discopy.python import Function
 
-from discopy.cartesian import *
+from discopy.comonoid import *
 from discopy import *
 
 

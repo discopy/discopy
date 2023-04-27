@@ -126,7 +126,7 @@ class Category(monoidal.Category):
 
 class Functor(monoidal.Functor):
     """
-    A cartesian functor is a monoidal functor that preserves traces.
+    A traced functor is a monoidal functor that preserves traces.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :

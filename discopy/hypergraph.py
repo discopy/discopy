@@ -56,7 +56,8 @@ from discopy.utils import (
 
 class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
     """
-    Hypergraph in a hypergraph category.
+    A hypergraph is given by a domain, a codomain, a list of boxes, a list of
+    spider types and a list of wires from :meth:`ports` to spiders.
 
     Parameters:
         dom (frobenius.Ty) : The domain of the diagram, i.e. its input.
@@ -66,6 +67,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         spider_types : Mapping[Any, frobenius.Ty]
             Mapping from spiders to atomic types, if :code:`None` then this is
             computed from the types of ports.
+
+    Note
+    ----
+    Hypergraphs are parameterised by a ``category``, i.e. ``dom`` and ``cod``
+    are of type ``category.ob`` and each box is of type ``category.ar``.
+
+    >>> from discopy.frobenius import Ty, Box, Diagram, Hypergraph as H
+    >>> assert H.category == Category(Ty, Diagram)
 
     Note
     ----
@@ -91,8 +100,6 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
 
     Examples
     --------
-    >>> from discopy.frobenius import Ty, Box, Hypergraph as H
-
     >>> x, y, z = map(Ty, "xyz")
 
     >>> assert H.id(x @ y @ z).n_spiders == 3
@@ -333,6 +340,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category']):
         boxes, spider_types = (), tuple(typ)
         wires = (n_legs_in + n_legs_out) * tuple(range(len(typ)))
         return cls(dom, cod, boxes, wires, spider_types)
+
+    @classmethod
+    def copy(cls, typ, n=2) -> Hypergraph:
+        return cls.spiders(1, n, typ)
+
+    @classmethod
+    def merge(cls, typ, n=2) -> Hypergraph:
+        return cls.spiders(n, 1, typ)
 
     cup_factory = classmethod(lambda cls, left, right: cls.from_box(
         cls.category.ar.cup_factory(left, right)))

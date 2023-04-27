@@ -24,7 +24,6 @@ Summary
         :toctree:
 
         diagram2nx
-        nx2diagram
 """
 
 from __future__ import annotations

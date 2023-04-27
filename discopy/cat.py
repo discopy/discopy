@@ -733,6 +733,10 @@ class Category:
     def __repr__(self):
         return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
 
+    def __eq__(self, other):
+        return isinstance(other, Category)\
+            and (self.ob, self.ar) == (other.ob, other.ar)
+
     def __hash__(self):
         return hash((self.ob, self.ar))
 
