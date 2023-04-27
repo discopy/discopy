@@ -104,7 +104,7 @@ class Diagram(symmetric.Diagram):
     """
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
-        if phase is not None or not 1 in (n_legs_in, n_legs_out):
+        if phase is not None or 1 not in (n_legs_in, n_legs_out):
             raise ValueError
         return cls.copy_factory(typ, n_legs_out) if n_legs_in == 1\
             else cls.merge_factory(typ, n_legs_in)
