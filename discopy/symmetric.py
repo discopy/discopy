@@ -71,15 +71,15 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, hypergraph, messages
+from discopy import monoidal, balanced, hypergraph, messages
 from discopy.cat import factory
 from discopy.monoidal import Ty, PRO
 
 
 @factory
-class Diagram(braided.Diagram):
+class Diagram(balanced.Diagram):
     """
-    A symmetric diagram is a braided diagram with :class:`Swap` boxes.
+    A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
 
     Parameters:
         inside(Layer) : The layers inside the diagram.
@@ -99,7 +99,7 @@ class Diagram(braided.Diagram):
 
         Note
         ----
-        This calls :func:`braided.hexagon` and :attr:`braid_factory`.
+        This calls :func:`balanced.hexagon` and :attr:`braid_factory`.
         """
         return cls.braid(left, right)
 
@@ -147,7 +147,7 @@ class Diagram(braided.Diagram):
         return self.to_hypergraph().to_diagram()
 
     def __eq__(self, other):
-        return isinstance(other, Diagram)\
+        return isinstance(other, self.factory)\
             and self.to_hypergraph() == other.to_hypergraph()
 
     def __hash__(self):
@@ -169,19 +169,19 @@ class Diagram(braided.Diagram):
         return self.to_hypergraph().depth()
 
 
-class Box(braided.Box, Diagram):
+class Box(balanced.Box, Diagram):
     """
-    A symmetric box is a braided box in a symmetric diagram.
+    A symmetric box is a balanced box in a symmetric diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (braided.Box, )
+    __ambiguous_inheritance__ = (balanced.Box, )
 
 
-class Swap(braided.Braid, Box):
+class Swap(balanced.Braid, Box):
     """
     The swap of atomic types :code:`left` and :code:`right`.
 
@@ -195,7 +195,7 @@ class Swap(braided.Braid, Box):
     For complex types, use :meth:`Diagram.swap` instead.
     """
     def __init__(self, left, right):
-        braided.Braid.__init__(self, left, right)
+        balanced.Braid.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod,
                      draw_as_wires=True, draw_as_braid=False)
 
@@ -203,9 +203,23 @@ class Swap(braided.Braid, Box):
         return type(self)(self.right, self.left)
 
 
-class Category(braided.Category):
+class Trace(balanced.Trace, Box):
     """
-    A symmetric category is a braided category with a method :code:`swap`.
+    A trace in a balanced category.
+
+    Parameters:
+        arg : The diagram to trace.
+        left : Whether to trace the wires on the left or right.
+
+    See also
+    --------
+    :meth:`Diagram.trace`
+    """
+
+
+class Category(balanced.Category):
+    """
+    A symmetric category is a balanced category with a method :code:`swap`.
 
     Parameters:
         ob : The objects of the category, default is :class:`Ty`.
@@ -234,9 +248,10 @@ class Functor(monoidal.Functor):
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category = Category()
+    category, functor = Category, Functor
 
 
+Diagram.hypergraph_factory = Hypergraph
 Diagram.braid_factory = Swap
-Diagram.hypergraph_factory, Diagram.functor_factory = Hypergraph, Functor
+Diagram.trace_factory = Trace
 Id = Diagram.id

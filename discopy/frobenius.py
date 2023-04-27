@@ -311,10 +311,6 @@ class Functor(compact.Functor, comonoid.Functor):
         return compact.Functor.__call__(self, other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    category = Category()
-
-
 def interleaving(cls: type, factory: Callable
                  ) -> Callable[[int, int, Ty], Diagram]:
     """
@@ -387,7 +383,11 @@ def coherence(cls: type, factory: Callable
     return method
 
 
-Diagram.hypergraph_factory, Diagram.functor_factory = Hypergraph, Functor
+class Hypergraph(hypergraph.Hypergraph):
+    category, functor = Category, Functor
+
+
+Diagram.hypergraph_factory = Hypergraph
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Id = Diagram.id

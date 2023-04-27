@@ -19,7 +19,7 @@ Summary
     Functor
 """
 
-from discopy import monoidal, messages
+from discopy import monoidal, hypergraph, messages
 from discopy.cat import factory, AxiomError
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance
@@ -85,7 +85,7 @@ class Trace(Box, monoidal.Bubble):
     """
     def __init__(self, arg: Diagram, left=False):
         self.left = left
-        assert_isinstance(arg, Diagram)
+        assert_isinstance(arg, self.factory)
         name = f"Trace({arg}" + ", left=True)" if left else ")"
         traced_dom, traced_cod = (arg.dom[:1], arg.cod[:1]) if left\
             else (arg.dom[-1:], arg.cod[-1:])
@@ -164,6 +164,10 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-Diagram.trace_factory = Trace
+class Hypergraph(hypergraph.Hypergraph):
+    category, functor = Category, Functor
 
+
+Diagram.hypergraph_factory = Hypergraph
+Diagram.trace_factory = Trace
 Id = Diagram.id

@@ -32,14 +32,14 @@ The axiom for the twist holds on the nose.
 
 from __future__ import annotations
 
-from discopy import monoidal, braided
+from discopy import monoidal, braided, traced, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import Ty, assert_isatomic
 from discopy.utils import factory_name
 
 
 @factory
-class Diagram(braided.Diagram):
+class Diagram(braided.Diagram, traced.Diagram):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
 
@@ -47,6 +47,15 @@ class Diagram(braided.Diagram):
         inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+
+    Note
+    ----
+    By default, our balanced diagrams are traced. Although not every balanced
+    category embeds faithfully into a traced one (see the `nLab`_), the free
+    balanced category does have the desired cancellation property and it does
+    in fact embed faithfully into the free balanced traced category.
+
+    .. _nLab: https://ncatlab.org/nlab/show/traced+monoidal+category)
     """
     __ambiguous_inheritance__ = True
 
@@ -97,7 +106,7 @@ class Diagram(braided.Diagram):
         return DualRail(lambda x: x @ x, lambda f: f.name)(self)
 
 
-class Box(braided.Box, Diagram):
+class Box(braided.Box, traced.Box, Diagram):
     """
     A braided box is a monoidal box in a braided diagram.
 
@@ -106,12 +115,26 @@ class Box(braided.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (braided.Box, )
+    __ambiguous_inheritance__ = (braided.Box, traced.Box)
 
 
 class Braid(braided.Braid, Box):
     """
     Braid in a balanced category.
+    """
+
+
+class Trace(traced.Trace, Box):
+    """
+    A trace in a balanced category.
+
+    Parameters:
+        arg : The diagram to trace.
+        left : Whether to trace the wires on the left or right.
+
+    See also
+    --------
+    :meth:`Diagram.trace`
     """
 
 
@@ -142,7 +165,7 @@ class Twist(Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
-class Category(braided.Category):
+class Category(braided.Category, traced.Category):
     """
     A braided category is a monoidal category with a method :code:`braid`.
 
@@ -153,7 +176,7 @@ class Category(braided.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(braided.Functor):
+class Functor(braided.Functor, traced.Functor):
     """
     A balanced functor is a braided functor that twists.
 
@@ -169,8 +192,17 @@ class Functor(braided.Functor):
     def __call__(self, other):
         if isinstance(other, Twist):
             return self.cod.ar.twist(self(other.dom))
-        return super().__call__(other)
+        if isinstance(other, Trace):
+            return traced.Functor.__call__(self, other)
+        return braided.Functor.__call__(self, other)
 
 
-Diagram.twist_factory, Diagram.braid_factory = Twist, Braid
+class Hypergraph(hypergraph.Hypergraph):
+    category, functor = Category, Functor
+
+
+Diagram.hypergraph_factory = Hypergraph
+Diagram.braid_factory = Braid
+Diagram.twist_factory = Twist
+Diagram.trace_factory = Trace
 Id = Diagram.id

@@ -1019,7 +1019,7 @@ class Match:
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category = Category()
+    category, functor = Category, Functor
 
 
 Diagram.draw = drawing.draw
