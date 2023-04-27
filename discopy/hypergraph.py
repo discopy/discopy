@@ -620,15 +620,15 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         return all(len(x) == 1 for x, y in self.spider_wires if x.union(y))
 
     @property
-    def is_progressive(self) -> bool:
+    def is_causal(self) -> bool:
         """
-        Checks progressivity, i.e. if each spider is connected to exactly one
+        Checks causality, i.e. if each spider is connected to exactly one
         output port and to zero or more input ports all with higher indices.
 
-        If the diagram is progressive then it lives in a symmetric monoidal
+        If the diagram is causal then it lives in a symmetric monoidal
         category with a supply of commutative comonoids.
 
-        If the diagram is progressive and monogamous then it actually lives in
+        If the diagram is causal and monogamous then it actually lives in
         a symmetric monoidal category, i.e. it can be drawn using only swaps.
 
         Examples
@@ -636,15 +636,15 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
         >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y).to_hypergraph()
-        >>> assert f.is_progressive
-        >>> assert (f >> H.spiders(1, 0, y)).is_progressive
-        >>> assert (H.spiders(1, 2, x) >> f @ f).is_progressive
+        >>> assert f.is_causal
+        >>> assert (f >> H.spiders(1, 0, y)).is_causal
+        >>> assert (H.spiders(1, 2, x) >> f @ f).is_causal
 
 
         >>> cycle = H.caps(x, x) >> H.cups(x, x)
-        >>> assert not cycle.is_progressive
+        >>> assert not cycle.is_causal
 
-        >>> assert not H.cups(x, x).is_progressive
+        >>> assert not H.cups(x, x).is_causal
         """
         return all(len(input_wires) == 1 and all(
             u < v for u in input_wires for v in output_wires)
@@ -782,24 +782,24 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             ).make_polygynous()
         return self
 
-    def make_progressive(self) -> Hypergraph:
+    def make_causal(self) -> Hypergraph:
         """
-        Introduce trace boxes to make self progressive.
+        Introduce trace boxes to make self causal.
 
         Example
         -------
         >>> from discopy.frobenius import Ty, Box, Cup, Cap
         >>> x = Ty('x')
         >>> f = Box('f', x @ x, x @ x).to_hypergraph()
-        >>> assert f.trace().make_progressive().boxes\\
+        >>> assert f.trace().make_causal().boxes\\
         ...     == (Cap(x, x), f.boxes[0], Cup(x, x))
 
         >>> from discopy.frobenius import Hypergraph as H, Spider
-        >>> assert H.spiders(2, 1, x).make_progressive().boxes\\
+        >>> assert H.spiders(2, 1, x).make_causal().boxes\\
         ...     == (Spider(2, 1, x),)
         """
         if not self.is_polygynous:
-            return self.make_polygynous().make_progressive()
+            return self.make_polygynous().make_causal()
         for input_spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
             if not input_wires:
@@ -810,7 +810,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     + wires[len(self.dom):] + [input_spider]
                 boxes, wires = self.boxes, tuple(wires)
                 arg = type(self)(dom, cod, boxes, wires, self.spider_types)
-                return arg.make_progressive().explicit_trace()
+                return arg.make_causal().explicit_trace()
             input_wire, = input_wires
             for output_wire in output_wires:
                 if output_wire < input_wire:
@@ -823,7 +823,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                         + wires[len(self.dom):] + [input_spider]
                     boxes, wires = self.boxes, tuple(wires)
                     arg = type(self)(dom, cod, boxes, wires, spider_types)
-                    return arg.make_progressive().explicit_trace()
+                    return arg.make_causal().explicit_trace()
         return self
 
     @classmethod
@@ -874,12 +874,12 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             dom=Category(old.ty_factory, type(old)),
             cod=Category(old.ty_factory, cls))(old)
 
-    def to_diagram(self, make_progressive_first: bool = False) -> Diagram:
+    def to_diagram(self, make_causal_first: bool = False) -> Diagram:
         """
         Downgrade to :class:`Diagram`, called by :code:`print`.
 
         Parameters:
-            make_progressive_first : The order in which we downgrade.
+            make_causal_first : The order in which we downgrade.
             offsets : An optional mapping from box indices to offsets.
 
         Note
@@ -888,9 +888,9 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
         * either we first :meth:`make_bijective` (introducing spiders) then
           :meth:`make_monogamous` (introducing cups and caps) and finally
-          :meth:`make_progressive` (introducing traces)
+          :meth:`make_causal` (introducing traces)
         * or we first :meth:`make_polygynous` (introducing merges) then
-          :meth:`make_progressive` (introducing traces) and finally
+          :meth:`make_causal` (introducing traces) and finally
           :meth:`make_bijective` (introducing copies).
 
         Examples
@@ -903,11 +903,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
         x @ Swap(x, x) >> v[::-1] @ x
         """
-        if not self.is_progressive or not self.is_monogamous:
-            if make_progressive_first:
-                return self.make_progressive().make_bijective().to_diagram()
+        if not self.is_causal or not self.is_monogamous:
+            if make_causal_first:
+                return self.make_causal().make_bijective().to_diagram()
             else:
-                return self.make_monogamous().make_progressive().to_diagram()
+                return self.make_monogamous().make_causal().to_diagram()
         diagram = self.category.ar.id(self.dom)
         offsets = getattr(self, "offsets", len(self.boxes) * [0])
         scan, n_ports = self.wires[:len(self.dom)], len(self.dom)
@@ -949,7 +949,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     @classmethod
     def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Hypergraph]:
         """
-        Turns an arbitrary Python function into a progressive hypergraph.
+        Turns an arbitrary Python function into a causal hypergraph.
 
         Parameters:
             dom : The domain of the hypergraph.
@@ -1080,8 +1080,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         return graph
 
     def depth(self) -> int:
-        """ The depth of a progressive hypergraph. """
-        return dag_longest_path_length(self.make_progressive().to_graph()) // 4
+        """ The depth of a causal hypergraph. """
+        return dag_longest_path_length(self.make_causal().to_graph()) // 4
 
     def spring_layout(self, seed=None, k=None):
         """ Computes a layout using a force-directed algorithm. """
