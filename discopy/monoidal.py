@@ -1021,6 +1021,12 @@ class Match:
 class Hypergraph(hypergraph.Hypergraph):
     category, functor = Category, Functor
 
+    def to_diagram(self):
+        if not self.is_monogamous:
+            raise AxiomError(factory_name(
+                self.category.ar) + " does not have copy or discard.")
+        return super().to_diagram()
+
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
