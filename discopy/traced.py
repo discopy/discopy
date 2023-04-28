@@ -56,25 +56,47 @@ Axioms
 
 * Naturality
 
->>> naturality_left = Equation(
+>>> tightening_left = Equation(
 ...     (x @ g >> f >> x @ g).trace(left=True),
 ...     g >> f.trace(left=True) >> g)
->>> naturality_left.draw(
-...     path='docs/_static/traced/left-nat-trace.png', draw_type_labels=False)
+>>> tightening_left.draw(
+...     path='docs/_static/traced/tightening-left.png', draw_type_labels=False)
 
-.. image:: /_static/traced/left-nat-trace.png
+.. image:: /_static/traced/tightening-left.png
     :align: center
 
->>> naturality_right = Equation(
+>>> tightening_right = Equation(
 ...     (g @ x >> f >> g @ x).trace(),
 ...     g >> f.trace() >> g)
->>> naturality_right.draw(
-...     path='docs/_static/traced/right-nat-trace.png', draw_type_labels=False)
+>>> tightening_right.draw(
+...     path='docs/_static/traced/tightening-right.png', draw_type_labels=False)
 
-.. image:: /_static/traced/right-nat-trace.png
+.. image:: /_static/traced/tightening-right.png
     :align: center
 
->>> assert naturality_left and naturality_right
+>>> assert tightening_left and tightening_right
+
+* Dinaturality
+
+>>> sliding_left = Equation(
+...     (f >> g @ x).trace(left=True),
+...     (g @ x >> f).trace(left=True))
+>>> sliding_left.draw(
+...     path='docs/_static/traced/sliding-left.png', draw_type_labels=False)
+
+.. image:: /_static/traced/sliding-left.png
+    :align: center
+
+>>> sliding_right = Equation(
+...     (f >> x @ g).trace(),
+...     (x @ g >> f).trace())
+>>> sliding_right.draw(
+...     path='docs/_static/traced/sliding-right.png', draw_type_labels=False)
+
+.. image:: /_static/traced/sliding-right.png
+    :align: center
+
+>>> assert sliding_left and sliding_right
 """
 
 from discopy import monoidal, messages
