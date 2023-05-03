@@ -48,6 +48,8 @@ from discopy.cat import (
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, unbiased, NamedGeneric
 
+import numpy as np
+
 
 @factory
 class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
@@ -87,12 +89,12 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     Matrix[complex]([1.+0.j], dom=1, cod=1)
     >>> assert Matrix[complex].id(1) != Matrix[float].id(1)
 
-    The default data type is ``int``, but this can be changed if necessary.
-
-    >>> Matrix.dtype = float
-    >>> assert Matrix == Matrix[float] != Matrix[int]
-    >>> Matrix.dtype = int
-    >>> assert Matrix == Matrix[int] != Matrix[float]
+    The default data type is determined by underlying array datastructure of
+    the backend used. An array is initialised with ``array`` as parameter and
+    the dtype of the ``Matrix`` object is the data type of this array.
+    >>> assert Matrix([1, 0], dom=1, cod=2).dtype == np.int64
+    >>> assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
+    >>> assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
 
     The data type needs to have the structure of a rig (riNg with no negatives)
     i.e. with methods ``__add__`` and ``__mul__`` as well as an ``__init__``
@@ -122,7 +124,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
            [0, 2],
            [0, 4]])
     """
-    dtype = int
+    dtype = None
 
     def __class_getitem__(cls, dtype: type, _cache=dict()):
         if cls.dtype not in _cache or _cache[cls.dtype] != cls:
@@ -156,7 +158,18 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         assert_isinstance(cod, int)
         self.dom, self.cod = dom, cod
         with backend() as np:
-            self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
+            if self.dtype is None:
+                self.array = np.array(array).reshape((dom, cod))
+                self.dtype = self.array.dtype
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                if hasattr(self.dtype, 'type'):
+                    self.dtype = self.dtype.type
+            else:
+                self.array = np.array(array, dtype=self.dtype).reshape(
+                    (dom, cod)
+                )
 
     def __eq__(self, other):
         return isinstance(other, self.factory)\
@@ -234,7 +247,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     @classmethod
     def id(cls, dom=0) -> Matrix:
         with backend('numpy') as np:
-            return cls(np.identity(dom, cls.dtype), dom, dom)
+            return cls(np.identity(dom, dtype=int), dom, dom)
 
     twist = id
 
@@ -274,7 +287,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
         """
         with backend() as np:
-            return cls(np.zeros((dom, cod)), dom, cod)
+            return cls(np.zeros((dom, cod), dtype=int), dom, cod)
 
     @classmethod
     def swap(cls, left: int, right: int) -> Matrix:
@@ -349,7 +362,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         >>> Matrix.basis(4, 2)
         Matrix([0, 0, 1, 0], dom=1, cod=4)
         """
-        return cls([[i == j for j in range(x)]], x ** 0, x)
+        return cls([[int(i == j) for j in range(x)]], x ** 0, x)
 
     def repeat(self) -> Matrix:
         """
