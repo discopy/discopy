@@ -33,10 +33,13 @@ pure_circuits = [
 
 contractor = tn.contractors.auto
 
+def is_close_smallno(a, b):
+    return a.is_close(b, rtol=1.e-15, atol=1.e-15) 
+
 
 @pytest.mark.parametrize('c', pure_circuits + mixed_circuits)
 def test_mixed_eval(c):
-    assert c.eval(contractor=contractor).is_close(c.eval())
+    assert is_close_smallno(c.eval(contractor=contractor), c.eval())
 
 
 @pytest.mark.parametrize('c', pure_circuits)
@@ -46,19 +49,19 @@ def test_consistent_eval(c):
 
     doubled_result = (pure_result
                       @ pure_result.conjugate(diagrammatic=False))
-    assert doubled_result.is_close(mixed_result.to_tensor())
+    assert is_close_smallno(doubled_result, mixed_result.to_tensor())
 
 
 @pytest.mark.parametrize('c', mixed_circuits)
 def test_pytorch_mixed_eval(c):
     with tn.DefaultBackend('pytorch'):
-        assert c.eval(contractor=contractor).is_close(c.eval())
+        assert is_close_smallno(c.eval(contractor=contractor), c.eval())
 
 
 @pytest.mark.parametrize('c', pure_circuits)
 def test_pytorch_pure_eval(c):
     with tn.DefaultBackend('pytorch'):
-        assert c.eval(contractor=contractor).is_close(c.eval())
+        assert is_close_smallno(c.eval(contractor=contractor), c.eval())
 
 
 @pytest.mark.parametrize('c', pure_circuits)
@@ -70,4 +73,4 @@ def test_pytorch_consistent_eval(c):
         doubled_result = (
             pure_result
             @ pure_result.conjugate(diagrammatic=False))
-        doubled_result.is_close(mixed_result.to_tensor())
+        assert is_close_smallno(doubled_result, mixed_result.to_tensor())
