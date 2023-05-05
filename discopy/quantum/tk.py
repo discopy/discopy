@@ -156,12 +156,13 @@ class Circuit(tk.Circuit):
         return counts
 
 
-    def get_handles(self, *others, backend=None, **params):
+    def get_handles(self, *others, backend=None, compilation_backend=None, **params):
         """ Gets handles from processing circuit on backend."""
         n_shots = params.get("n_shots", 2**10)
         scale = params.get("scale", True)
         post_select = params.get("post_select", True)
         compilation = params.get("compilation", None)
+        compilation_backend = params.get("compilation_backend", None)    # If compiling to different backend before executing on Aer
         normalize = params.get("normalize", True)
         measure_all = params.get("measure_all", False)
         seed = params.get("seed", None)
@@ -171,18 +172,30 @@ class Circuit(tk.Circuit):
         if compilation is not None:
             for circuit in (self, ) + others:
                 compilation.apply(circuit)
+        if compilation_backend is not None:
+            for circuit in (self, ) + others:
+                compiled_circuit = compilation_backend.get_compiled_circuit(circuit)
+                handles = backend.process_circuits((compiled_circuit, ) + others, n_shots=n_shots, seed=seed)
+                return handles
         handles = backend.process_circuits(
             (self, ) + others, n_shots=n_shots, seed=seed)
         
         return handles
     
-    def get_counts_from_handles(self, handles, *others, backend=None, **params):
+    def get_counts_from_handles(self, handles, *others, backend=None, experiment=None, **params):
         """Gets `eval` result from handles."""
         scale = params.get("scale", True)
         post_select = params.get("post_select", True)
         normalize = params.get("normalize", True)
+
+        # Either backend xor experiment must be provided.
+        assert (backend is not None) ^ (experiment is not None), "Either backend or experiment must be provided."
         
-        counts = [backend.get_result(h, timeout=None).get_counts() for h in handles]
+        if experiment is not None:
+            counts = [experiment.get_result(h).get_counts() for h in handles]
+        else:
+            counts = [backend.get_result(h, timeout=None).get_counts() for h in handles]
+        
         if normalize:
             counts = list(map(probs_from_counts, counts))
         if post_select:
