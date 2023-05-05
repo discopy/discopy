@@ -71,7 +71,7 @@ class Tensor(Matrix):
     >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     >>> v = Tensor([0, 1], Dim(1), Dim(2))
     >>> v >> m >> v.dagger()
-    Tensor([0], dom=Dim(1), cod=Dim(1))
+    Tensor[int64]([0], dom=Dim(1), cod=Dim(1))
 
     Notes
     -----

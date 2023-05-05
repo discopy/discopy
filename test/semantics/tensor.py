@@ -25,7 +25,8 @@ def test_backend():
 def test_Tensor_repr_with_tf():
     with backend('tensorflow'):
         alice = Tensor([1, 2], Dim(1), Dim(2))
-        assert repr(alice) == 'Tensor([1, 2], dom=Dim(1), cod=Dim(2))'
+        assert repr(alice)\
+            == "Tensor[<dtype: 'int64'>]([1, 2], dom=Dim(1), cod=Dim(2))"
 
 
 def test_Dim():
@@ -48,7 +49,7 @@ def test_Tensor():
     assert Tensor([1], Dim(1), Dim(1))
     m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     assert repr(m) == str(m)\
-        == "Tensor([0, 1, 1, 0], dom=Dim(2), cod=Dim(2))"
+        == "Tensor[int64]([0, 1, 1, 0], dom=Dim(2), cod=Dim(2))"
     u = Tensor([1, 0, 0, 0], Dim(2), Dim(2))
     v = Tensor([0, 0, 0, 1], Dim(2), Dim(2))
     assert u + v == Tensor.id(Dim(2))
