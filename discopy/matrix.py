@@ -156,12 +156,12 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     def __new__(cls, array, dom: int, cod: int):
         with backend() as np:
             if cls.dtype is None:
-                array = np.array(array).reshape((dom, cod))
+                array = np.array(array)
                 # The dtype of an np.arrays is a class that contains a type
                 # attribute that is the actual type. However, other backends
                 # have different structures, so this is the easiest option:
                 dtype = getattr(array.dtype, "type", array.dtype)
-                cls = cls[dtype]
+                return cls.__new__(cls[dtype], array, dom, cod)
             return object.__new__(cls)
 
     def __init__(self, array, dom: int, cod: int):
