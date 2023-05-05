@@ -247,7 +247,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     @classmethod
     def id(cls, dom=0) -> Matrix:
         with backend('numpy') as np:
-            return cls(np.identity(dom, dtype=int), dom, dom)
+            return cls(np.identity(dom, dtype=cls.dtype or int), dom, dom)
 
     twist = id
 
@@ -287,7 +287,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
         """
         with backend() as np:
-            return cls(np.zeros((dom, cod), dtype=int), dom, cod)
+            return cls(np.zeros((dom, cod), dtype=cls.dtype or int), dom, cod)
 
     @classmethod
     def swap(cls, left: int, right: int) -> Matrix:

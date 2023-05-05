@@ -244,7 +244,8 @@ class Tensor(Matrix):
         ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
-            return cls(np.zeros((dom @ cod).inside, dtype=int), dom, cod)
+            return cls(np.zeros((dom @ cod).inside, dtype=cls.dtype or int),
+                       dom, cod)
 
     def jacobian(self, *variables: "list[sympy.Symbol]", **params) -> Tensor:
         """
