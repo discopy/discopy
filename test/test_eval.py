@@ -71,9 +71,7 @@ def test_pytorch_consistent_eval(c):
         pure_result = c.eval(mixed=False, contractor=contractor)
         mixed_result = c.eval(mixed=True, contractor=contractor)
 
-        doubled_result = (
-            pure_result.conjugate(diagrammatic=False)
-            @ pure_result
-        )
+        doubled_result = (pure_result
+                          @ pure_result.conjugate(diagrammatic=False))
         assert np.allclose(doubled_result, mixed_result,
                            rtol=1.e-15, atol=1.e-15)
