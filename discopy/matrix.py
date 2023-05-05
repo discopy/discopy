@@ -105,9 +105,9 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     >>> m = Matrix([0, 1, 1, 0], 2, 2)
     >>> v = Matrix([0, 1], 1, 2)
     >>> v >> m >> v.dagger()
-    Matrix([0], dom=1, cod=1)
+    Matrix[int64]([0], dom=1, cod=1)
     >>> m + m
-    Matrix([0, 2, 2, 0], dom=2, cod=2)
+    Matrix[int64]([0, 2, 2, 0], dom=2, cod=2)
     >>> assert m.then(m, m, m, m) == m >> m >> m >> m >> m
 
     The monoidal product for :py:class:`.Matrix` is the direct sum:
@@ -117,7 +117,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     array([[2],
            [4]])
     >>> x @ x
-    Matrix([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
+    Matrix[int64]([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
     >>> (x @ x).array
     array([[2, 0],
            [4, 0],
@@ -134,8 +134,8 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             class C(cls.factory):
                 pass
 
-            C.__name__ = C.__qualname__ = \
-                f"{cls.factory.__name__}[{dtype.__name__}]"
+            C.__name__ = C.__qualname__ = cls.factory.__name__\
+                + f"[{getattr(dtype, '__name__', str(dtype))}]"
             C.dtype = dtype
             _cache[dtype] = C
         return _cache[dtype]
@@ -153,23 +153,23 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
 
+    def __new__(cls, array, dom: int, cod: int):
+        with backend() as np:
+            if cls.dtype is None:
+                array = np.array(array).reshape((dom, cod))
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                dtype = getattr(array.dtype, "type", array.dtype)
+                cls = cls[dtype]
+            return object.__new__(cls)
+
     def __init__(self, array, dom: int, cod: int):
         assert_isinstance(dom, int)
         assert_isinstance(cod, int)
         self.dom, self.cod = dom, cod
         with backend() as np:
-            if self.dtype is None:
-                self.array = np.array(array).reshape((dom, cod))
-                self.dtype = self.array.dtype
-                # The dtype of an np.arrays is a class that contains a type
-                # attribute that is the actual type. However, other backends
-                # have different structures, so this is the easiest option:
-                if hasattr(self.dtype, 'type'):
-                    self.dtype = self.dtype.type
-            else:
-                self.array = np.array(array, dtype=self.dtype).reshape(
-                    (dom, cod)
-                )
+            self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
 
     def __eq__(self, other):
         return isinstance(other, self.factory)\
@@ -301,7 +301,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         Example
         -------
         >>> Matrix.swap(1, 1)
-        Matrix([0, 1, 1, 0], dom=2, cod=2)
+        Matrix[int64]([0, 1, 1, 0], dom=2, cod=2)
         """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
@@ -360,7 +360,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         Example
         -------
         >>> Matrix.basis(4, 2)
-        Matrix([0, 0, 1, 0], dom=1, cod=4)
+        Matrix[int64]([0, 0, 1, 0], dom=1, cod=4)
         """
         return cls([[int(i == j) for j in range(x)]], x ** 0, x)
 
