@@ -26,9 +26,9 @@ def test_Channel():
 
 def test_Functor():
     f = circuit.Box('f', circuit.Ty(), circuit.Ty(), data=[1])
-    functor = Functor({}, {}, dtype=float)
-    assert functor(f) == Channel[float](dom=CQ(), cod=CQ(), array=[1])
-    assert functor(sqrt(4)) == Channel[float](dom=CQ(), cod=CQ(), array=[4])
+    functor = Functor({}, {}, dtype=complex)
+    assert functor(f) == Channel[complex](dom=CQ(), cod=CQ(), array=[1])
+    assert functor(sqrt(4)) == Channel[complex](dom=CQ(), cod=CQ(), array=[4])
 
 
 def test_Channel_measure():

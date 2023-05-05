@@ -48,6 +48,8 @@ from discopy.cat import (
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, mmap
 
+import numpy as np
+
 
 @factory
 class Matrix(Composable[int], Whiskerable):
@@ -87,12 +89,12 @@ class Matrix(Composable[int], Whiskerable):
     Matrix[complex]([1.+0.j], dom=1, cod=1)
     >>> assert Matrix[complex].id(1) != Matrix[float].id(1)
 
-    The default data type is ``int``, but this can be changed if necessary.
-
-    >>> Matrix.dtype = float
-    >>> assert Matrix == Matrix[float] != Matrix[int]
-    >>> Matrix.dtype = int
-    >>> assert Matrix == Matrix[int] != Matrix[float]
+    The default data type is determined by underlying array datastructure of
+    the backend used. An array is initialised with ``array`` as parameter and
+    the dtype of the ``Matrix`` object is the data type of this array.
+    >>> assert Matrix([1, 0], dom=1, cod=2).dtype == np.int64
+    >>> assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
+    >>> assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
 
     The data type needs to have the structure of a rig (riNg with no negatives)
     i.e. with methods ``__add__`` and ``__mul__`` as well as an ``__init__``
@@ -103,9 +105,9 @@ class Matrix(Composable[int], Whiskerable):
     >>> m = Matrix([0, 1, 1, 0], 2, 2)
     >>> v = Matrix([0, 1], 1, 2)
     >>> v >> m >> v.dagger()
-    Matrix([0], dom=1, cod=1)
+    Matrix[int64]([0], dom=1, cod=1)
     >>> m + m
-    Matrix([0, 2, 2, 0], dom=2, cod=2)
+    Matrix[int64]([0, 2, 2, 0], dom=2, cod=2)
     >>> assert m.then(m, m, m, m) == m >> m >> m >> m >> m
 
     The monoidal product for :py:class:`.Matrix` is the direct sum:
@@ -115,14 +117,14 @@ class Matrix(Composable[int], Whiskerable):
     array([[2],
            [4]])
     >>> x @ x
-    Matrix([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
+    Matrix[int64]([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
     >>> (x @ x).array
     array([[2, 0],
            [4, 0],
            [0, 2],
            [0, 4]])
     """
-    dtype = int
+    dtype = None
 
     def __class_getitem__(cls, dtype: type, _cache=dict()):
         if cls.dtype not in _cache or _cache[cls.dtype] != cls:
@@ -132,8 +134,8 @@ class Matrix(Composable[int], Whiskerable):
             class C(cls.factory):
                 pass
 
-            C.__name__ = C.__qualname__ = \
-                f"{cls.factory.__name__}[{dtype.__name__}]"
+            C.__name__ = C.__qualname__ = cls.factory.__name__\
+                + f"[{getattr(dtype, '__name__', str(dtype))}]"
             C.dtype = dtype
             _cache[dtype] = C
         return _cache[dtype]
@@ -150,6 +152,17 @@ class Matrix(Composable[int], Whiskerable):
         >>> assert Matrix.id().cast_dtype(bool) == Matrix[bool].id()
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
+
+    def __new__(cls, array, dom: int, cod: int):
+        with backend() as np:
+            if cls.dtype is None:
+                array = np.array(array)
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                dtype = getattr(array.dtype, "type", array.dtype)
+                return cls.__new__(cls[dtype], array, dom, cod)
+            return object.__new__(cls)
 
     def __init__(self, array, dom: int, cod: int):
         assert_isinstance(dom, int)
@@ -234,7 +247,7 @@ class Matrix(Composable[int], Whiskerable):
     @classmethod
     def id(cls, dom=0) -> Matrix:
         with backend('numpy') as np:
-            return cls(np.identity(dom, cls.dtype), dom, dom)
+            return cls(np.identity(dom, dtype=cls.dtype or int), dom, dom)
 
     @mmap
     def then(self, other: Matrix) -> Matrix:
@@ -272,7 +285,7 @@ class Matrix(Composable[int], Whiskerable):
         >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
         """
         with backend() as np:
-            return cls(np.zeros((dom, cod)), dom, cod)
+            return cls(np.zeros((dom, cod), dtype=cls.dtype or int), dom, cod)
 
     @classmethod
     def swap(cls, left: int, right: int) -> Matrix:
@@ -286,7 +299,7 @@ class Matrix(Composable[int], Whiskerable):
         Example
         -------
         >>> Matrix.swap(1, 1)
-        Matrix([0, 1, 1, 0], dom=2, cod=2)
+        Matrix[int64]([0, 1, 1, 0], dom=2, cod=2)
         """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
@@ -343,9 +356,9 @@ class Matrix(Composable[int], Whiskerable):
         Example
         -------
         >>> Matrix.basis(4, 2)
-        Matrix([0, 0, 1, 0], dom=1, cod=4)
+        Matrix[int64]([0, 0, 1, 0], dom=1, cod=4)
         """
-        return cls([[i == j for j in range(x)]], x ** 0, x)
+        return cls([[int(i == j) for j in range(x)]], x ** 0, x)
 
     def repeat(self) -> Matrix:
         """
