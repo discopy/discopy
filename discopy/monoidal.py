@@ -809,7 +809,7 @@ class Diagram(cat.Arrow, Whiskerable):
             warn("Outdated dumps", DeprecationWarning)
             boxes, offsets = map(from_tree, tree['boxes']), tree['offsets']
             return cls.decode(from_tree(tree['dom']), zip(boxes, offsets))
-        return cat.Arrow.from_tree.__func__(cls, tree)
+        return super().from_tree(tree)
 
 
 class Box(cat.Box, Diagram):
