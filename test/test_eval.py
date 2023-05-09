@@ -37,7 +37,8 @@ contractor = tn.contractors.auto
 
 @pytest.mark.parametrize('c', pure_circuits + mixed_circuits)
 def test_mixed_eval(c):
-    assert np.allclose(c.eval(contractor=contractor), c.eval())
+    assert np.allclose(c.eval(contractor=contractor), c.eval(),
+                       rtol=1.e-15, atol=1.e-15)
 
 
 @pytest.mark.parametrize('c', pure_circuits)
@@ -45,21 +46,23 @@ def test_consistent_eval(c):
     pure_result = c.eval(mixed=False, contractor=contractor)
     mixed_result = c.eval(mixed=True, contractor=contractor)
 
-    doubled_result = (pure_result
-                      @ pure_result.conjugate(diagrammatic=False))
-    np.allclose(doubled_result, mixed_result)
+    doubled_result = (pure_result.conjugate(diagrammatic=False)
+                      @ pure_result)
+    np.allclose(doubled_result, mixed_result, rtol=1.e-15, atol=1.e-15)
 
 
 @pytest.mark.parametrize('c', mixed_circuits)
 def test_pytorch_mixed_eval(c):
     with tn.DefaultBackend('pytorch'):
-        assert np.allclose(c.eval(contractor=contractor), c.eval())
+        assert np.allclose(c.eval(contractor=contractor), c.eval(),
+                           rtol=1.e-15, atol=1.e-15)
 
 
 @pytest.mark.parametrize('c', pure_circuits)
 def test_pytorch_pure_eval(c):
     with tn.DefaultBackend('pytorch'):
-        assert np.allclose(c.eval(contractor=contractor), c.eval())
+        assert np.allclose(c.eval(contractor=contractor), c.eval(),
+                           rtol=1.e-15, atol=1.e-15)
 
 
 @pytest.mark.parametrize('c', pure_circuits)
@@ -69,6 +72,7 @@ def test_pytorch_consistent_eval(c):
         mixed_result = c.eval(mixed=True, contractor=contractor)
 
         doubled_result = (
-            pure_result
-            @ pure_result.conjugate(diagrammatic=False))
-        np.allclose(doubled_result, mixed_result)
+            pure_result.conjugate(diagrammatic=False)
+            @ pure_result)
+        assert np.allclose(doubled_result, mixed_result,
+                           rtol=1.e-15, atol=1.e-15)
