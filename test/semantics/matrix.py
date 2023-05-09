@@ -2,7 +2,7 @@ import numpy as np
 from pytest import raises
 
 from discopy.cat import AxiomError
-from discopy.matrix import Matrix
+from discopy.matrix import Matrix, backend
 
 
 def test_bad_composition():
@@ -33,3 +33,17 @@ def test_matrix_add():
 def test_repeat():
     with raises(TypeError):
         Matrix[int](0, 1, 1, 0).repeat()
+
+
+def test_autotyping():
+    import torch
+    import tensorflow as tf
+    assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
+    assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
+    with backend('jax'):
+        assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float32
+    with backend('pytorch'):
+        assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
+    with backend('tensorflow'):
+        assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == tf.float64
+
