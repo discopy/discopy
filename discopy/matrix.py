@@ -140,7 +140,7 @@ class Matrix(Composable[int], Whiskerable):
             _cache[dtype] = C
         return _cache[dtype]
 
-    def cast_dtype(self, dtype: type) -> Matrix:
+    def cast(self, dtype: type) -> Matrix:
         """
         Cast a matrix to a given ``dtype``.
 
@@ -149,7 +149,7 @@ class Matrix(Composable[int], Whiskerable):
 
         Example
         -------
-        >>> assert Matrix.id().cast_dtype(bool) == Matrix[bool].id()
+        >>> assert Matrix.id().cast(bool) == Matrix[bool].id()
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
 

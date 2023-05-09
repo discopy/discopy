@@ -132,4 +132,4 @@ def test_ClassicalGate_eval():
     backend = tk.mockBackend({
         (0, 0): 256, (0, 1): 256, (1, 0): 256, (1, 1): 256})
     post = ClassicalGate('post', bit ** 2, bit ** 0, [1, 0, 0, 0])
-    assert post.eval(backend=backend) == Tensor[complex]([0.25], Dim(1), Dim(1))
+    assert post.eval(backend=backend) == Tensor[float]([0.25], Dim(1), Dim(1))
