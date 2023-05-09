@@ -5,6 +5,8 @@ from discopy import rigid
 from discopy.cat import Ob
 from discopy.utils import *
 
+from pytest import warns
+
 zip_mock = MagicMock()
 zip_mock.open().__enter__().read.return_value =\
     '[{"factory": "cat.Ob", "name": "a"}]'
@@ -24,4 +26,5 @@ def test_deprecated_from_tree():
         'cod': {'factory': 'discopy.rigid.Ty',
                 'objects': [{'factory': 'discopy.rigid.Ob', 'name': 'n'}]},
         'boxes': [], 'offsets': []}
-    assert from_tree(tree) == rigid.Id(rigid.Ty('n'))
+    with warns(DeprecationWarning):
+        assert from_tree(tree) == rigid.Id(rigid.Ty('n'))
