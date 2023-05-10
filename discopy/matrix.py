@@ -48,6 +48,8 @@ from discopy.cat import (
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, unbiased, NamedGeneric
 
+import numpy as np
+
 
 @factory
 class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
@@ -87,12 +89,12 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     Matrix[complex]([1.+0.j], dom=1, cod=1)
     >>> assert Matrix[complex].id(1) != Matrix[float].id(1)
 
-    The default data type is ``int``, but this can be changed if necessary.
-
-    >>> Matrix.dtype = float
-    >>> assert Matrix == Matrix[float] != Matrix[int]
-    >>> Matrix.dtype = int
-    >>> assert Matrix == Matrix[int] != Matrix[float]
+    The default data type is determined by underlying array datastructure of
+    the backend used. An array is initialised with ``array`` as parameter and
+    the dtype of the ``Matrix`` object is the data type of this array.
+    >>> assert Matrix([1, 0], dom=1, cod=2).dtype == np.int64
+    >>> assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
+    >>> assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
 
     The data type needs to have the structure of a rig (riNg with no negatives)
     i.e. with methods ``__add__`` and ``__mul__`` as well as an ``__init__``
@@ -103,9 +105,9 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     >>> m = Matrix([0, 1, 1, 0], 2, 2)
     >>> v = Matrix([0, 1], 1, 2)
     >>> v >> m >> v.dagger()
-    Matrix([0], dom=1, cod=1)
+    Matrix[int64]([0], dom=1, cod=1)
     >>> m + m
-    Matrix([0, 2, 2, 0], dom=2, cod=2)
+    Matrix[int64]([0, 2, 2, 0], dom=2, cod=2)
     >>> assert m.then(m, m, m, m) == m >> m >> m >> m >> m
 
     The monoidal product for :py:class:`.Matrix` is the direct sum:
@@ -115,16 +117,30 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     array([[2],
            [4]])
     >>> x @ x
-    Matrix([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
+    Matrix[int64]([2, 0, 4, 0, 0, 2, 0, 4], dom=4, cod=2)
     >>> (x @ x).array
     array([[2, 0],
            [4, 0],
            [0, 2],
            [0, 4]])
     """
-    dtype = int
+    dtype = None
 
-    def cast_dtype(self, dtype: type) -> Matrix:
+    def __class_getitem__(cls, dtype: type, _cache=dict()):
+        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
+            _cache.clear()
+            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
+        if dtype not in _cache:
+            class C(cls.factory):
+                pass
+
+            C.__name__ = C.__qualname__ = cls.factory.__name__\
+                + f"[{getattr(dtype, '__name__', str(dtype))}]"
+            C.dtype = dtype
+            _cache[dtype] = C
+        return _cache[dtype]
+
+    def cast(self, dtype: type) -> Matrix:
         """
         Cast a matrix to a given ``dtype``.
 
@@ -133,9 +149,20 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
 
         Example
         -------
-        >>> assert Matrix.id().cast_dtype(bool) == Matrix[bool].id()
+        >>> assert Matrix.id().cast(bool) == Matrix[bool].id()
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
+
+    def __new__(cls, array, dom: int, cod: int):
+        with backend() as np:
+            if cls.dtype is None:
+                array = np.array(array)
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                dtype = getattr(array.dtype, "type", array.dtype)
+                return cls.__new__(cls[dtype], array, dom, cod)
+            return object.__new__(cls)
 
     def __init__(self, array, dom: int, cod: int):
         assert_isinstance(dom, int)
@@ -150,18 +177,51 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             and (self.dom, self.cod) == (other.dom, other.cod)\
             and (self.array == other.array).all()
 
-    def is_close(self, other: Matrix) -> bool:
+    def is_close(self, other: Matrix, rtol=1.e-8, atol=1.e-8) -> bool:
         """
         Whether a matrix is numerically close to an ``other``.
 
         Parameters:
             other : The other matrix with which to check closeness.
+            rtol: float
+                    The relative tolerance parameter (see Notes).
+                    Default value for results of order unity is 1.e-5
+            atol : float
+                    The absolute tolerance parameter (see Notes).
+                    Default value for results of order unity is 1.e-8
+
+        Notes:
+       (taken from np.isclose documentation)
+
+            For finite values, isclose uses the following equation to
+            test whether two floating point values are equivalent.
+
+             absolute(`a` - `b`) <= (`atol` + `rtol` * absolute(`b`))
+
+            Unlike the built-in `math.isclose`, the above equation is not
+            symmetric in `a` and `b` -- it assumes `b` is the reference
+            value -- so that `isclose(a, b)` might be different from
+            `isclose(b, a)`.
+
+            Furthermore, the default value of atol is not zero, and is used
+            to determine what small values should be considered close to zero.
+            The default value is appropriate for expected values of order
+            unity: if the expected values are significantly smaller than one,
+            it can result in false positives.
+
+            `atol` should be carefully selected for the use case at hand.
+            A zero value for `atol` will result in `False` if either `a`
+            or `b` is zero.
+
+            `isclose` is not defined for non-numeric data types.
+            `bool` is considered a numeric data-type for this purpose
+
         """
         assert_isinstance(other, type(self))
         assert_isinstance(self, type(other))
         assert_isparallel(self, other)
         with backend() as np:
-            return np.isclose(self.array, other.array).all()
+            return np.isclose(self.array, other.array, rtol, atol).all()
 
     def __repr__(self):
         np_array = getattr(self.array, 'numpy', lambda: self.array)()
@@ -187,7 +247,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     @classmethod
     def id(cls, dom=0) -> Matrix:
         with backend('numpy') as np:
-            return cls(np.identity(dom, cls.dtype), dom, dom)
+            return cls(np.identity(dom, dtype=cls.dtype or int), dom, dom)
 
     twist = id
 
@@ -227,7 +287,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         >>> assert Matrix.zero(2, 2) == Matrix([0, 0, 0, 0], 2, 2)
         """
         with backend() as np:
-            return cls(np.zeros((dom, cod)), dom, cod)
+            return cls(np.zeros((dom, cod), dtype=cls.dtype or int), dom, cod)
 
     @classmethod
     def swap(cls, left: int, right: int) -> Matrix:
@@ -241,7 +301,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         Example
         -------
         >>> Matrix.swap(1, 1)
-        Matrix([0, 1, 1, 0], dom=2, cod=2)
+        Matrix[int64]([0, 1, 1, 0], dom=2, cod=2)
         """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
@@ -300,9 +360,9 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         Example
         -------
         >>> Matrix.basis(4, 2)
-        Matrix([0, 0, 1, 0], dom=1, cod=4)
+        Matrix[int64]([0, 0, 1, 0], dom=1, cod=4)
         """
-        return cls([[i == j for j in range(x)]], x ** 0, x)
+        return cls([[int(i == j) for j in range(x)]], x ** 0, x)
 
     def repeat(self) -> Matrix:
         """
