@@ -46,13 +46,13 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance, mmap
+from discopy.utils import assert_isinstance, mmap, Parametrised
 
 import numpy as np
 
 
 @factory
-class Matrix(Composable[int], Whiskerable):
+class Matrix(Parametrised, Composable[int], Whiskerable):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -124,21 +124,6 @@ class Matrix(Composable[int], Whiskerable):
            [0, 2],
            [0, 4]])
     """
-    dtype = None
-
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
-            _cache.clear()
-            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
-        if dtype not in _cache:
-            class C(cls.factory):
-                pass
-
-            C.__name__ = C.__qualname__ = cls.factory.__name__\
-                + f"[{getattr(dtype, '__name__', str(dtype))}]"
-            C.dtype = dtype
-            _cache[dtype] = C
-        return _cache[dtype]
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -153,7 +138,7 @@ class Matrix(Composable[int], Whiskerable):
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
 
-    def __new__(cls, array, dom: int, cod: int):
+    def __new__(cls, array, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:
                 array = np.array(array)
@@ -161,7 +146,7 @@ class Matrix(Composable[int], Whiskerable):
                 # attribute that is the actual type. However, other backends
                 # have different structures, so this is the easiest option:
                 dtype = getattr(array.dtype, "type", array.dtype)
-                return cls.__new__(cls[dtype], array, dom, cod)
+                return cls.__new__(cls[dtype], array, *args, **kwargs)
             return object.__new__(cls)
 
     def __init__(self, array, dom: int, cod: int):

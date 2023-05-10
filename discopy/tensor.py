@@ -26,12 +26,14 @@ Summary
 
 from __future__ import annotations
 
+from typing import Callable
+
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Ty, Cup, Category
-from discopy.matrix import Matrix, backend
-from discopy.monoidal import assert_isatomic
+from discopy.matrix import Matrix, backend, Parametrised
+from discopy.monoidal import assert_isatomic, Layer
 from discopy.rigid import assert_isadjoint
 from discopy.utils import factory_name, assert_isinstance, product
 
@@ -394,7 +396,7 @@ class Functor(frobenius.Functor):
 
 
 @factory
-class Diagram(frobenius.Diagram):
+class Diagram(Parametrised, frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
 
@@ -406,6 +408,17 @@ class Diagram(frobenius.Diagram):
     vector[::-1] >> vector >> Dim(2) @ vector
     """
     ty_factory = Dim
+
+    def __new__(cls, inside: tuple[Layer, ...] = None, *args, **kwargs):
+        with backend() as np:
+            if cls.dtype is None:
+                inside = np.array([] if inside is None else inside)
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                dtype = getattr(inside.dtype, "type", inside.dtype)
+                return cls.__new__(cls[dtype], inside,  *args, **kwargs)
+            return object.__new__(cls)
 
     def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """
@@ -530,6 +543,19 @@ class Box(frobenius.Box, Diagram):
         dtype : The datatype for the entries of the array.
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
+
+    def __new__(cls, *args, **kwargs):
+        with backend() as np:
+            if cls.dtype is None:
+                data = np.array(getattr(kwargs, "data", []))
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                dtype = getattr(data.dtype, "type", data.dtype)
+                kwargs["data"] = data
+                return cls.__new__(cls[dtype],  *args, **kwargs)
+            return object.__new__(cls)
+
 
     @property
     def array(self):

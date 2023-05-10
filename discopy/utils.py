@@ -18,6 +18,27 @@ VT = TypeVar('VT')
 V2T = TypeVar('V2T')
 
 
+class Parametrised:
+    dtype = None
+
+    def __class_getitem__(cls, dtype: type, _cache=dict()):
+        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
+            _cache.clear()
+            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
+        if dtype not in _cache:
+            class C(cls):
+                def __new__(self):
+                    print(self)
+                    super().__init__()
+
+            C.__module__ = cls.__module__
+            C.__name__ = C.__qualname__ = cls.__name__\
+                + f"[{getattr(dtype, '__name__', str(dtype))}]"
+            C.dtype = dtype
+            _cache[dtype] = C
+        return _cache[dtype]
+
+
 class MappingOrCallable(Mapping[KT, VT]):
     """ A Mapping or Callable object. """
     def __class_getitem__(_, args: tuple[type, type]) -> type:
@@ -242,13 +263,13 @@ def load_corpus(url):
         return loads(f.read())
 
 
-def assert_isinstance(object, cls: type | tuple[type, ...]):
+def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
     cls_name = ' | '.join(map(factory_name, classes))
-    if not any(isinstance(object, cls) for cls in classes):
+    if not any(isinstance(object_, cls) for cls in classes):
         raise TypeError(messages.TYPE_ERROR.format(
-            cls_name, factory_name(type(object))))
+            cls_name, factory_name(type(object_))))
 
 
 def mmap(binary_method):

@@ -256,8 +256,11 @@ class Swap(tensor.Swap, Box):
     __str__ = __repr__
 
 
-class Spider(tensor.Spider, Box):
+class Spider(tensor.Spider[float], Box):
     """ Abstract spider box. """
+    def __new__(cls, *args, **kwargs):
+        return object.__new__(cls)
+
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, PRO(1), phase)
         factory_str = type(self).__name__
