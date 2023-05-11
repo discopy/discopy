@@ -88,7 +88,7 @@ from discopy.utils import (
     factory_name,
     from_tree,
     rsubs,
-    mmap,
+    unbiased,
     assert_isinstance,
     MappingOrCallable,
 )
@@ -332,10 +332,10 @@ class Arrow(Composable[Ob]):
             return self.factory(
                 inside, inside[0].dom, inside[-1].cod, _scan=False)
         if isinstance(key, int):
+            if key >= len(self) or key < -len(self):
+                raise IndexError
             if key < 0:
                 return self[len(self) + key]
-            if key >= len(self):
-                raise IndexError
             return self[key:key + 1]
         raise TypeError
 
@@ -717,7 +717,7 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    @mmap
+    @unbiased
     def then(self, other):
         other = other if isinstance(other, Sum)\
             else self.sum_factory((other, ))
