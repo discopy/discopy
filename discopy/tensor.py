@@ -32,10 +32,11 @@ from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Ty, Cup, Category
-from discopy.matrix import Matrix, backend, Parametrised
+from discopy.matrix import Matrix, backend
 from discopy.monoidal import assert_isatomic, Layer
 from discopy.rigid import assert_isadjoint
-from discopy.utils import factory_name, assert_isinstance, product
+from discopy.utils import (
+    factory_name, assert_isinstance, product, NamedGeneric)
 
 
 @factory
@@ -396,7 +397,7 @@ class Functor(frobenius.Functor):
 
 
 @factory
-class Diagram(Parametrised, frobenius.Diagram):
+class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
 
@@ -409,18 +410,7 @@ class Diagram(Parametrised, frobenius.Diagram):
     """
     ty_factory = Dim
 
-    def __new__(cls, inside: tuple[Layer, ...] = None, *args, **kwargs):
-        with backend() as np:
-            if cls.dtype is None:
-                inside = np.array([] if inside is None else inside)
-                # The dtype of an np.arrays is a class that contains a type
-                # attribute that is the actual type. However, other backends
-                # have different structures, so this is the easiest option:
-                dtype = getattr(inside.dtype, "type", inside.dtype)
-                return cls.__new__(cls[dtype], inside,  *args, **kwargs)
-            return object.__new__(cls)
-
-    def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
+    def eval(self, contractor: Callable = None) -> Tensor:
         """
         Evaluate a tensor diagram as a :class:`Tensor`.
 
@@ -435,12 +425,11 @@ class Diagram(Parametrised, frobenius.Diagram):
         >>> from tensornetwork.contractors import auto
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
-        dtype = dtype or int
         if contractor is None:
             return Functor(
-                ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
-        array = contractor(*self.to_tn(dtype=dtype)).tensor
-        return Tensor[dtype](array, self.dom, self.cod)
+                ob=lambda x: x, ar=lambda f: f.array, dtype=self.dtype)(self)
+        array = contractor(*self.to_tn(dtype=self.dtype)).tensor
+        return Tensor[self.dtype](array, self.dom, self.cod)
 
     def to_tn(self, dtype: type = None) -> tuple[
             list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
@@ -541,8 +530,25 @@ class Box(frobenius.Box, Diagram):
         cod : The codomain of the box, i.e. its output dimension.
         data : The array inside the tensor box.
         dtype : The datatype for the entries of the array.
+
+    Example
+    -------
+    >>> b1 = Box('sauce_0', Dim(1), Dim(2), data=[0.84193562, 0.91343221])
+    >>> b1.eval()
+    Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
+
+    def __class_getitem__(cls, dtype):
+        result = super().__class_getitem__(dtype)
+        factory = cls.factory[dtype]
+        class Result(result, factory):
+            pass
+        Result.factory = factory
+        Result.__module__ = cls.__module__
+        Result.__name__ = Result.__qualname__ = \
+            f"{cls.__name__}[{dtype.__name__}]"
+        return Result
 
     def __new__(cls, *args, **kwargs):
         with backend() as np:
@@ -555,7 +561,6 @@ class Box(frobenius.Box, Diagram):
                 kwargs["data"] = data
                 return cls.__new__(cls[dtype],  *args, **kwargs)
             return object.__new__(cls)
-
 
     @property
     def array(self):

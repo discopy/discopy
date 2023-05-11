@@ -26,27 +26,6 @@ VT = TypeVar('VT')
 V2T = TypeVar('V2T')
 
 
-class Parametrised:
-    dtype = None
-
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
-            _cache.clear()
-            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
-        if dtype not in _cache:
-            class C(cls):
-                def __new__(self):
-                    print(self)
-                    super().__init__()
-
-            C.__module__ = cls.__module__
-            C.__name__ = C.__qualname__ = cls.__name__\
-                + f"[{getattr(dtype, '__name__', str(dtype))}]"
-            C.dtype = dtype
-            _cache[dtype] = C
-        return _cache[dtype]
-
-
 class MappingOrCallable(Mapping[KT, VT]):
     """ A Mapping or Callable object. """
     def __class_getitem__(_, args: tuple[type, type]) -> type:
@@ -152,6 +131,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
 
                     class C(origin):
                         pass
+                    C.__module__ = cls.__module__
                     C.__name__ = C.__qualname__ = \
                         f"{origin.__name__}[{dtype.__name__}]"
                     C.__origin__ = cls
@@ -160,6 +140,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                 return _cache[dtype]
 
             __name__ = __qualname__ = f"NamedGeneric['{attr}']"
+
+        setattr(Result, attr, getattr(Result, attr, None))
         return Result
 
 
