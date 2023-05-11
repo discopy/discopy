@@ -5,12 +5,20 @@
 from __future__ import annotations
 
 import json
+from functools import wraps
+from typing import (
+    Callable,
+    Generic,
+    Mapping,
+    Iterable,
+    TypeVar,
+    Any,
+    Hashable,
+    Literal,
+    cast,
+    Union)
 
 from discopy import messages
-
-from typing import Callable, Generic, Mapping, Iterable, TypeVar, Any,\
-    Hashable,\
-    Literal, cast, Union
 
 
 KT = TypeVar('KT')
@@ -80,6 +88,58 @@ class MappingOrCallable(Mapping[KT, VT]):
             return MappingOrCallable({
                 key: other[self[key]] for key in self.mapping})
         return MappingOrCallable(lambda key: other[self[key]])
+
+
+class NamedGeneric(Generic[TypeVar('T')]):
+    """
+    A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
+
+    Parameters:
+        attr : The name of the type parameter.
+
+    Note
+    ----
+    In a standard ``Generic`` class, the type parameter disappears when the
+    member of the class is instantiated, e.g.
+
+    >>> assert list[int]([1, 2, 3])\\
+    ...     == list[float]([1, 2, 3])\\
+    ...     == [1, 2, 3]
+
+    In a ``NamedGeneric``, the type parameter is attached to the members of the
+    class so that we have access to it.
+
+    Example
+    -------
+
+    >>> from dataclasses import dataclass
+    >>> @dataclass
+    ... class L(NamedGeneric["type_param"]):
+    ...     inside: list
+    >>> assert L[int]([1, 2, 3]).type_param == int
+    >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
+    """
+    def __class_getitem__(self, attr):
+        class Result(Generic[TypeVar(attr)]):
+            def __class_getitem__(cls, dtype: type, _cache=dict()):
+                cls_attr = getattr(cls, attr, None)
+                if cls_attr not in _cache or _cache[cls_attr] != cls:
+                    _cache.clear()
+                    _cache[cls_attr] = cls
+                if dtype not in _cache:
+                    origin = getattr(cls, "__origin__", cls)
+
+                    class C(origin):
+                        pass
+                    C.__name__ = C.__qualname__ = \
+                        f"{origin.__name__}[{dtype.__name__}]"
+                    C.__origin__ = cls
+                    setattr(C, attr, dtype)
+                    _cache[dtype] = C
+                return _cache[dtype]
+
+            __name__ = __qualname__ = f"NamedGeneric['{attr}']"
+        return Result
 
 
 def product(xs: list, unit=1):
@@ -251,8 +311,14 @@ def assert_isinstance(object, cls: type | tuple[type, ...]):
             cls_name, factory_name(type(object))))
 
 
-def mmap(binary_method):
-    """ Turn a binary method into n-ary. """
+def unbiased(binary_method):
+    """
+    Turn a biased method with signature (self, other) to an unbiased one, i.e.
+    with signature (self, *others), see  the `nLab`_.
+
+    .. _nLab: https://ncatlab.org/nlab/show/biased+definition
+    """
+    @wraps(binary_method)
     def method(self, *others):
         result = self
         for other in others:

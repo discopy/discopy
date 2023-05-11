@@ -131,7 +131,7 @@ import random
 import matplotlib.pyplot as plt
 from networkx import Graph, connected_components, spring_layout, draw_networkx
 
-from discopy import cat, monoidal, drawing, frobenius
+from discopy import cat, monoidal, drawing, frobenius, traced
 from discopy.braided import BinaryBoxConstructor
 from discopy.cat import AxiomError, Composable
 from discopy.drawing import Node
@@ -183,7 +183,7 @@ def pushout(
     return left_pushout, right_pushout
 
 
-class Diagram(Composable[Ty], Whiskerable):
+class Diagram(Composable[frobenius.Ty], Whiskerable):
     """
     Diagram in a hypergraph category.
 
@@ -349,6 +349,8 @@ class Diagram(Composable[Ty], Whiskerable):
     def id(dom=Ty()) -> Diagram:
         return Diagram(dom, dom, [], 2 * list(range(len(dom))))
 
+    twist = id
+
     def then(self, other):
         """
         Composition of two hypergraph diagrams, i.e. their :func:`pushout`.
@@ -416,6 +418,8 @@ class Diagram(Composable[Ty], Whiskerable):
             + list(range(len(left), len(dom))) + list(range(len(left)))
         return Diagram(dom, cod, boxes, wires)
 
+    braid = swap
+
     @staticmethod
     def spiders(n_legs_in, n_legs_out, typ):
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
@@ -436,6 +440,55 @@ class Diagram(Composable[Ty], Whiskerable):
             raise AxiomError
         wires = list(range(len(left))) + list(reversed(range(len(left))))
         return Diagram(Ty(), left @ right, [], wires)
+
+    def transpose(self, left=False):
+        """ The transpose of a hypergraph diagram. """
+        del left
+        return frobenius.Diagram.transpose(self)
+
+    trace_factory = classmethod(frobenius.Diagram.trace_factory.__func__)
+    trace = frobenius.Diagram.trace
+
+    def interchange(self, i: int, j: int) -> Diagram:
+        """
+        Interchange boxes at indices ``i`` and ``j``.
+
+        Parameters:
+            i : The index of the first box.
+            j : The index of the second box.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> f, g = Box('f', Ty(), x), Box('g', x, Ty())
+        >>> print((f >> g).interchange(0, 1))
+        Cap(x, x) >> g @ x >> f @ x >> Cup(x, x)
+        """
+        boxes, box_wires = list(self.boxes), list(self.box_wires)
+        boxes[i], boxes[j] = boxes[j], boxes[i]
+        box_wires[i], box_wires[j] = box_wires[j], box_wires[i]
+        dom_wires = self.wires[:len(self.dom)]
+        cod_wires = self.wires[len(self.wires) - len(self.cod):]
+        wires = dom_wires + sum([c + d for c, d in box_wires], []) + cod_wires
+        return Diagram(self.dom, self.cod, boxes, wires, self.spider_types)
+
+    def simplify(self):
+        """
+        Simplify by applying interchangers eagerly until the length of the
+        downgraded diagram is minimal, takes quadratic time.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> f, g = Box('f', Ty(), x), Box('g', x, Ty())
+        >>> assert (f >> g).interchange(0, 1).simplify() == f >> g
+        """
+        for i in range(len(self.boxes)):
+            for j in range(len(self.boxes)):
+                result = self.interchange(i, j)
+                if len(result.downgrade()) < len(self.downgrade()):
+                    return result.simplify()
+        return self
 
     def __getitem__(self, key):
         if key == slice(None, None, -1):
@@ -640,51 +693,32 @@ class Diagram(Composable[Ty], Whiskerable):
                         .make_monogamous()
 
     def make_progressive(self):
-        """
-        Introduce :class:`Cup` and :class:`Cap` boxes to make self progressive.
-
-        Examples
-        --------
-        >>> trace = lambda d:\\
-        ...     caps(d.dom, d.dom) >> Id(d.dom) @ d >> cups(d.dom, d.dom)
-        >>> x = Ty('x')
-        >>> f = Box('f', x, x)
-        >>> diagram = trace(f).make_progressive()
-        >>> assert diagram.boxes == [Cap(x, x), f, Cup(x, x)]
-        >>> assert diagram.wires == [0, 1, 0, 2, 2, 1]
-
-        >>> g = Box('g', x @ x, x @ x)
-        >>> assert trace(g).make_progressive().boxes\\
-        ...     == [Cap(x, x), Cap(x, x), g, Cup(x, x), Cup(x, x)]
-        """
+        """ Introduce :class:`Trace` boxes to make self progressive. """
         diagram = self if self.is_monogamous else self.make_monogamous()
-        if diagram.is_progressive:
-            return diagram
         dom, cod = diagram.dom, diagram.cod
         boxes, wires = list(diagram.boxes), list(diagram.wires)
         spider_types = {i: x for i, x in enumerate(diagram.spider_types)}
-        bijection = diagram.bijection
         port = len(diagram.dom)
         for box in diagram.boxes:
             for j, typ in enumerate(box.dom):
                 source = port + j
-                spider, target = wires[source], bijection[source]
+                spider, target = wires[source], diagram.bijection[source]
                 if target > source:
-                    cup, cap = Cup(typ, typ), Cap(typ, typ)
-                    boxes = [cap] + boxes + [cup]
-                    top, middle, bottom =\
-                        range(len(spider_types), len(spider_types) + 3)
-                    wires[source], wires[target] = top, bottom
-                    wires = wires[:len(dom)] + [top, middle]\
-                        + wires[len(dom):len(wires) - len(cod)]\
-                        + [bottom, middle] + wires[len(wires) - len(cod):]
-                    spider_types.update({top: typ, middle: typ, bottom: typ})
+                    input_spider, output_spider =\
+                        range(len(spider_types), len(spider_types) + 2)
+                    wires[source], wires[target] = input_spider, output_spider
+                    wires = wires[:len(dom)] + [input_spider]\
+                        + wires[len(dom):] + [output_spider]
+                    dom, cod = dom @ typ, cod @ typ
+                    spider_types.update({
+                        input_spider: typ, output_spider: typ})
                     del spider_types[spider]
-                    return Diagram(dom, cod, boxes, wires, spider_types)\
-                        .make_progressive()
+                    arg = Diagram(dom, cod, boxes, wires, spider_types)
+                    return Trace(arg).make_progressive()
             port += len(box.dom @ box.cod)
+        return diagram
 
-    def downgrade(self):
+    def downgrade(self, box_factory=frobenius.Box):
         """
         Downgrade to :class:`frobenius.Diagram`, called by :code:`print`.
 
@@ -704,19 +738,25 @@ class Diagram(Composable[Ty], Whiskerable):
             (diagram.ports[i], diagram.ports[j])
             for i, j in enumerate(diagram.bijection)])
         graph.add_nodes_from([
-            Node("box", depth=depth, box=box.downgrade())
+            Node("box", depth=depth, box=box.downgrade(box_factory))
             for depth, box in enumerate(diagram.boxes)])
         graph.add_nodes_from([
             Node("box", depth=len(diagram.boxes) + i,
                  box=frobenius.Spider(0, 0, diagram.spider_types[s]))
             for i, s in enumerate(diagram.scalar_spiders)])
-        return drawing.nx2diagram(graph, frobenius.Diagram)
+        return drawing.nx2diagram(graph, box_factory)
 
     @staticmethod
-    def upgrade(old: frobenius.Diagram) -> Diagram:
+    def upgrade(old: frobenius.Diagram, functor_factory=None) -> Diagram:
         """
         Turn a :class:`frobenius.Diagram` into a :class:`hypergraph.Diagram`.
 
+        Parameters:
+            old : The planar diagram to upgrade to hypergraph.
+            functor_factory : The functor to use for the upgrade.
+
+        Example
+        -------
         >>> x, y = map(Ty, "xy")
             >>> back_n_forth = lambda d: Diagram.upgrade(d.downgrade())
         >>> for d in [spiders(0, 0, x),
@@ -724,7 +764,8 @@ class Diagram(Composable[Ty], Whiskerable):
         ...           spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        return frobenius.Functor(
+        functor_factory = functor_factory or frobenius.Functor
+        return functor_factory(
             ob=lambda typ: Ty(typ.name),
             ar=lambda box: Box(box.name, box.dom, box.cod),
             cod=Category(Ty, Diagram))(old)
@@ -822,10 +863,6 @@ class Diagram(Composable[Ty], Whiskerable):
             plt.close()
         plt.show()
 
-    def transpose(self, left=False):
-        """ The transpose of a hypergraph diagram. """
-        return frobenius.Diagram.transpose(self)
-
 
 class Box(Diagram):
     """ Box in a :class:`discopy.hypergraph.Diagram`. """
@@ -846,8 +883,8 @@ class Box(Diagram):
         return Box(
             self.name, self.cod, self.dom, not self.is_dagger, self.data)
 
-    def downgrade(self):
-        return frobenius.Box(
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory(
             self.name, self.dom, self.cod,
             is_dagger=self.is_dagger, data=self.data)
 
@@ -856,8 +893,7 @@ class Box(Diagram):
 
 class Cup(BinaryBoxConstructor, Box):
     """
-    A box introduced by :meth:`Diagram.make_monogamous` and
-    :meth:`Diagram.make_progressive`.
+    A box introduced by :meth:`Diagram.make_monogamous`.
 
     Parameters:
         left : The atomic type.
@@ -873,14 +909,13 @@ class Cup(BinaryBoxConstructor, Box):
     def dagger(self):
         return Cap(self.left, self.right)
 
-    def downgrade(self):
-        return frobenius.Cup(self.left, self.right)
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.cups(self.left, self.right)
 
 
 class Cap(BinaryBoxConstructor, Box):
     """
-    A box introduced by :meth:`Diagram.make_monogamous` and
-    :meth:`Diagram.make_progressive`.
+    A box introduced by :meth:`Diagram.make_monogamous`.
 
     Parameters:
         left : The atomic type.
@@ -896,8 +931,8 @@ class Cap(BinaryBoxConstructor, Box):
     def dagger(self):
         return Cup(self.left, self.right)
 
-    def downgrade(self):
-        return frobenius.Cap(self.left, self.right)
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.caps(self.left, self.right)
 
 
 class Spider(Box):
@@ -921,11 +956,45 @@ class Spider(Box):
         name = f"Spider({n_legs_in}, {n_legs_out}, {typ})"
         Box.__init__(self, name, typ ** n_legs_in, typ ** n_legs_out)
 
-    def downgrade(self):
-        return frobenius.Spider(len(self.dom), len(self.cod), self.typ)
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.spiders(len(self.dom), len(self.cod), self.typ)
 
     dagger = frobenius.Spider.dagger
     __repr__ = frobenius.Spider.__repr__
+
+
+class Trace(Box):
+    """
+    A box introduced by :meth:`Diagram.make_progressive`.
+
+    Parameters:
+        arg : The diagram being traced.
+        n : The number of wires to be traced.
+        left : Whether to trace the wires on the left or right.
+
+    Examples
+    --------
+    >>> x, y, z = map(Ty, "xyz")
+    >>> f = Box('f', x @ z, y @ z)
+    >>> assert f.trace().make_progressive()\\
+    ...     == Trace(arg=f, n=1, left=False)
+    """
+    def __init__(self, arg: Diagram, n=1, left=False):
+        if left or n < 1:
+            raise NotImplementedError
+        if arg.dom[-n:] != arg.cod[-n:]:
+            raise AxiomError
+        self.arg, self.n, self.left = arg, n, left
+        name = f"({arg}).trace({n})"
+        dom, cod = arg.dom[:-n], arg.cod[:-n]
+        Box.__init__(self, name, dom, cod)
+
+    def downgrade(self, box_factory=frobenius.Box):
+        return box_factory.trace(
+            self.arg.downgrade(box_factory), self.n, self.left)
+
+    dagger = traced.Trace.dagger
+    __repr__ = traced.Trace.__repr__
 
 
 spiders, cups, caps = Diagram.spiders, Diagram.cups, Diagram.caps

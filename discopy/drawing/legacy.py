@@ -252,8 +252,9 @@ def nx2diagram(graph: "networkx.Graph", factory: type) -> "monoidal.Diagram":
                 swaps = swaps >> _id(swaps.cod[:offset + i])\
                     @ factory.swap(swaps.cod[offset + i:j], swaps.cod[j])\
                     @ _id(swaps.cod[j + 1:])
-                scan = scan[:offset + i] + scan[j:] + scan[offset + i:j]\
+                scan = scan[:offset + i] + scan[j:j + 1] + scan[offset + i:j]\
                     + scan[j + 1:]
+                assert len(scan) == len(swaps.cod)
             elif j < offset + i:
                 swaps = swaps >> _id(swaps.cod[:j])\
                     @ factory.swap(swaps.cod[j], swaps.cod[j + 1:offset + i])\
@@ -261,6 +262,7 @@ def nx2diagram(graph: "networkx.Graph", factory: type) -> "monoidal.Diagram":
                 scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j + 1]\
                     + scan[offset + i:]
                 offset -= 1
+                assert len(scan) == len(swaps.cod)
         cod_nodes = [
             Node("cod", obj=obj, i=i, depth=depth)
             for i, obj in enumerate(box.cod.inside)]

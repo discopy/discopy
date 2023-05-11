@@ -46,13 +46,13 @@ from discopy.cat import (
     assert_isparallel,
 )
 from discopy.monoidal import Whiskerable
-from discopy.utils import assert_isinstance, mmap
+from discopy.utils import assert_isinstance, unbiased, NamedGeneric
 
 import numpy as np
 
 
 @factory
-class Matrix(Composable[int], Whiskerable):
+class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -249,7 +249,9 @@ class Matrix(Composable[int], Whiskerable):
         with backend('numpy') as np:
             return cls(np.identity(dom, dtype=cls.dtype or int), dom, dom)
 
-    @mmap
+    twist = id
+
+    @unbiased
     def then(self, other: Matrix) -> Matrix:
         assert_isinstance(other, type(self))
         assert_iscomposable(self, other)
@@ -306,6 +308,8 @@ class Matrix(Composable[int], Whiskerable):
         array[right:, :left] = Matrix.id(left).array
         array[:right, left:] = Matrix.id(right).array
         return cls(array, dom, cod)
+
+    braid = swap
 
     def transpose(self) -> Matrix:
         return type(self)(self.array.transpose(), self.cod, self.dom)
@@ -374,7 +378,7 @@ class Matrix(Composable[int], Whiskerable):
         return sum(
             self.id(self.dom).then(*n * [self]) for n in range(self.dom + 1))
 
-    def trace(self, n=1) -> Matrix:
+    def trace(self, n=1, left=False) -> Matrix:
         """
         The trace of a Boolean matrix, computed with :meth:`Matrix.repeat`.
 

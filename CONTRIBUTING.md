@@ -16,8 +16,9 @@ Then you should check you haven't broken anything by running the test suite:
 
 ```shell
 pip install ".[test]" .
-coverage run -m pytest --doctest-modules --pycodestyle
-coverage report -m discopy/*.py discopy/*/*.py
+pycodestyle discopy
+coverage run --source=discopy -m pytest --doctest-modules
+coverage report -m
 ```
 
 ## Build the docs

@@ -55,6 +55,7 @@ from __future__ import annotations
 import itertools
 from abc import ABC, abstractmethod
 from typing import Iterator
+from dataclasses import dataclass
 from warnings import warn
 
 from discopy import cat, drawing, messages
@@ -1026,6 +1027,32 @@ def assert_isatomic(typ: Ty, cls: type = None):
     if not typ.is_atomic:
         raise ValueError(messages.NOT_ATOMIC.format(
             factory_name(cls), len(typ)))
+
+
+@dataclass
+class Match:
+    """ A match is a diagram with a hole, given by:
+
+    Parameters:
+        above : The diagram above the hole.
+        below : The diagram below the hole.
+        left : The wires left of the hole.
+        right : The wires right of the hole.
+    """
+
+    above: Diagram
+    below: Diagram
+    left: Ty
+    right: Ty
+
+    def subs(self, target: Diagram) -> Diagram:
+        """
+        Substitute a diagram inside the hole.
+
+        Parameters:
+            target : The diagram to substitute inside the hole.
+        """
+        return self.above >> self.left @ target @ self.right >> self.below
 
 
 Diagram.draw = drawing.draw

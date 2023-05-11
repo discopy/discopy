@@ -81,6 +81,8 @@ class Diagram(pivotal.Diagram, balanced.Diagram):
         Parameters:
             n : The number of wires to trace.
         """
+        if not n:
+            return self
         if left:
             return self.caps(self.dom[:n].r, self.dom[:n]) @ self.dom[n:]\
                 >> self.dom[:n].r @ self\
