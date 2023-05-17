@@ -125,7 +125,6 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
            [0, 2],
            [0, 4]])
     """
-    dtype = None
 
     def cast(self, dtype: type) -> Matrix:
         """
