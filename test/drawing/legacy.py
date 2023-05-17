@@ -146,31 +146,6 @@ def test_Node_repr():
         == "Node('dom', depth=1, i=0, obj=cat.Ob('x'))"
 
 
-def test_diagramize():
-    x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
-    with raises(AxiomError):
-        @Diagram[y, x]
-        def diagram(wire):
-            return f(wire)
-    with raises(AxiomError):
-        @Diagram[x, x]
-        def diagram(wire):
-            return f(wire)
-    with raises(AxiomError):
-        @Diagram[x @ x, x]
-        def diagram(left, right):
-            return f(left, right)
-    with raises(AxiomError):
-        @Diagram[x, x @ y]
-        def diagram(wire):
-            return wire, f(offset=0)
-    with raises(TypeError):
-        @Diagram[x, y]
-        def diagram(wire):
-            return f(x)
-
-
 @draw_and_compare('empty_diagram.png')
 def test_empty_diagram():
     return Id()

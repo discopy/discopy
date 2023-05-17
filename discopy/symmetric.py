@@ -94,7 +94,7 @@ class Diagram(balanced.Diagram):
     >>> f = Box('f', x @ x, x)
     >>> g = Box('g', x, x @ x)
 
-    >>> @Diagram[x @ x @ x, x @ x @ x]
+    >>> @Diagram.from_callable(x @ x @ x, x @ x @ x)
     ... def diagram(x0, x1, x2):
     ...     x3 = f(x2, x0)
     ...     x4, x5 = g(x1)
@@ -111,12 +111,12 @@ class Diagram(balanced.Diagram):
     >>> from discopy.utils import AxiomError
 
     >>> with raises(AxiomError) as err:
-    ...     Diagram[x, x @ x](lambda x: (x, x))
+    ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
     symmetric.Diagram does not have copy or discard.
 
     >>> with raises(AxiomError) as err:
-    ...     Diagram[x, Ty()](lambda x: ())
+    ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
     symmetric.Diagram does not have copy or discard.
 

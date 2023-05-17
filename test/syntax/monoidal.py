@@ -334,3 +334,28 @@ def test_Layer_merge_cup_cap():
 def test_Layer_scalars():
     a, b = Box("a", Ty(), Ty()), Box("b", Ty(), Ty())
     assert Layer.cast(a).merge(Layer.cast(b)) == Layer(Ty(), a, Ty(), b, Ty())
+
+
+def test_Diagram_from_callable():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    with raises(AxiomError):
+        @Diagram.from_callable(y, x)
+        def diagram(wire):
+            return f(wire)
+    with raises(AxiomError):
+        @Diagram.from_callable(x, x)
+        def diagram(wire):
+            return f(wire)
+    with raises(AxiomError):
+        @Diagram.from_callable(x @ x, x)
+        def diagram(left, right):
+            return f(left, right)
+    with raises(AxiomError):
+        @Diagram.from_callable(x, x @ y)
+        def diagram(wire):
+            return wire, f(offset=0)
+    with raises(TypeError):
+        @Diagram.from_callable(x, y)
+        def diagram(wire):
+            return f(x)

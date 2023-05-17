@@ -53,7 +53,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from typing import Iterator
+from typing import Iterator, Callable
 from dataclasses import dataclass
 
 from discopy import cat, drawing, hypergraph, messages
@@ -458,25 +458,6 @@ class Diagram(cat.Arrow, Whiskerable):
             interchange
             normalize
             normal_form
-
-    Note
-    ----
-    Diagrams can be defined using the standard syntax for Python functions.
-
-    When a box has an empty domain then we can specify the offset as argument.
-
-    >>> x = Ty('x')
-    >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
-    >>> @Diagram[x, x]
-    ... def snake(left):
-    ...     middle, right = cap(offset=1)
-    ...     cup(left, middle)
-    ...     return right
-    >>> snake.draw(
-    ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
-
-    .. image:: /_static/drawing/diagramize.png
-        :align: center
     """
     ty_factory = Ty
     layer_factory = Layer
@@ -487,9 +468,30 @@ class Diagram(cat.Arrow, Whiskerable):
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
 
-    def __class_getitem__(cls, key):
+    @classmethod
+    def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Diagram]:
+        """
+        Define a diagram using the standard syntax for Python functions.
+
+        Note that we can specify the offset as argument.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+        >>> @Diagram.from_callable(x, x)
+        ... def snake(left):
+        ...     middle, right = cap(offset=1)
+        ...     cup(left, middle)
+        ...     return right
+        >>> snake.draw(
+        ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
+
+        .. image:: /_static/drawing/diagramize.png
+            :align: center
+        """
         def decorator(func):
-            hypergraph = cls.hypergraph_factory.from_callable(*key)(func)
+            hypergraph = cls.hypergraph_factory.from_callable(dom, cod)(func)
             return hypergraph.to_diagram()
 
         return decorator
