@@ -94,10 +94,10 @@ class Diagram(symmetric.Diagram):
     >>> x = Ty('x')
     >>> f = Box('f', x, x)
 
-    >>> copy_then_apply = Diagram[x, x @ x](
+    >>> copy_then_apply = Diagram.from_callable(x, x @ x)(
     ...     lambda x: (f(x), f(x)))
 
-    >>> @Diagram[x, x @ x]
+    >>> @Diagram.from_callable(x, x @ x)
     ... def apply_then_copy(x):
     ...     y = f(x)
     ...     return x, x
