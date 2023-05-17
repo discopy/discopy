@@ -236,8 +236,10 @@ class Circuit(tensor.Diagram):
 
         Returns
         -------
-        tensor : :class:`discopy.tensor.Tensor`
-            If :code:`backend is not None` or :code:`mixed=False`.
+        tensor : Tensor[float]
+            If :code:`backend is not None`.
+        tensor : Tensor[complex]
+            If :code:`mixed=False`.
         channel : :class:`Channel`
             Otherwise.
 
@@ -262,13 +264,20 @@ class Circuit(tensor.Diagram):
         >>> circuit = Bits(1, 0) @ Ket(0) >> Discard(bit ** 2 @ qubit)
         >>> assert circuit.eval() == Channel(dom=CQ(), cod=CQ(), array=[1])
 
-        We can execute any circuit on a `pytket.Backend`:
+        We can execute any circuit on a `pytket.Backend` and get a
+        :class:`discopy.tensor.Tensor` of real-valued probabilities.
 
         >>> circuit = Ket(0, 0) >> sqrt(2) @ H @ X >> CX >> Measure() @ Bra(0)
         >>> from discopy.quantum.tk import mockBackend
         >>> backend = mockBackend({(0, 1): 512, (1, 0): 512})
         >>> assert circuit.eval(backend=backend, n_shots=2**10).round()\\
-        ...     == Tensor[complex](dom=Dim(1), cod=Dim(2), array=[0., 1.])
+        ...     == Tensor[float](dom=Dim(1), cod=Dim(2), array=[0., 1.])
+
+        Note
+        ----
+        Any extra parameter is passed to :meth:`Circuit.get_counts`.
+        For instance, to evaluate a unitary circuit (i.e. with no measurements)
+        on a ``pytket.Backend`` one should set ``measure_all=True``.
         """
         from discopy.quantum import channel
         if contractor is not None:
@@ -300,11 +309,11 @@ class Circuit(tensor.Diagram):
             *circuits[1:], backend=backend, **params)
         for i, circuit in enumerate(circuits):
             n_bits = len(circuit.post_processing.dom)
-            result = Tensor[complex].zero(Dim(1), Dim(*(n_bits * (2, ))))
+            result = Tensor[float].zero(Dim(1), Dim(*(n_bits * (2, ))))
             for bitstring, count in counts[i].items():
                 result.array[bitstring] = count
             if circuit.post_processing:
-                result = result >> circuit.post_processing.eval()
+                result = result >> circuit.post_processing.eval().cast(float)
             results.append(result)
         return results if len(results) > 1 else results[0]
 
