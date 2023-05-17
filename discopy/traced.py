@@ -69,7 +69,8 @@ Axioms
 ...     (g @ x >> f >> g @ x).trace(),
 ...     g >> f.trace() >> g)
 >>> tightening_right.draw(
-...     path='docs/_static/traced/tightening-right.png', draw_type_labels=False)
+...     path='docs/_static/traced/tightening-right.png',
+...     draw_type_labels=False)
 
 .. image:: /_static/traced/tightening-right.png
     :align: center

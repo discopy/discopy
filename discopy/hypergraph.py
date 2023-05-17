@@ -747,7 +747,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                             left, right] + wires[len(wires) - len(self.cod):]
                     else:
                         boxes = (self.category.ar.cap_factory(typ, typ),
-                        ) + self.boxes
+                                 ) + self.boxes
                         offsets = (None, ) + self.offsets
                         wires = wires[:len(self.dom)] + [
                             left, right] + wires[len(self.dom):]
