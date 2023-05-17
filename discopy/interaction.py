@@ -70,6 +70,7 @@ from discopy import (
     balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
 from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
+from discopy.rigid import assert_isadjoint
 from discopy.utils import (
     NamedGeneric, unbiased, assert_isinstance, factory_name)
 
