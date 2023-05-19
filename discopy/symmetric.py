@@ -192,7 +192,7 @@ class Diagram(balanced.Diagram):
             and self.to_hypergraph() == other.to_hypergraph()
 
     def __hash__(self):
-        return self.to_hypergraph().__hash__()
+        return hash(self.to_hypergraph())
 
     def depth(self):
         """
