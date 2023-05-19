@@ -1111,7 +1111,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     pos[Node(kind, i=i, j=j)] = pos[box_node]
-        for i in range(self.n_spiders):
+        for i, obj in enumerate(self.spider_types):
             pos[Node("spider", i=i, obj=obj)] = (
                 random.uniform(-width / 2, width / 2),
                 random.uniform(0, height))
