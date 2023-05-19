@@ -397,11 +397,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         boxes = tuple(box.l if left else box.r for box in self.boxes[::-1])
-        dom_wires = self.wires[:len(self.dom)][::-1]
+        dom_wires = self.wires[len(self.wires) - len(self.cod):][::-1]
         box_wires = sum([
             cod_wires[::-1] + dom_wires[::-1]
             for dom_wires, cod_wires in self.box_wires[::-1]], ())
-        cod_wires = self.wires[len(self.wires) - len(self.cod):][::-1]
+        cod_wires = self.wires[:len(self.dom)][::-1]
         wires = dom_wires + box_wires + cod_wires
         return type(self)(
             dom, cod, boxes, wires, self.spider_types, self.offsets[::-1])
