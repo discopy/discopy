@@ -4,6 +4,7 @@ from pytest import raises
 
 from discopy.cat import AxiomError
 from discopy.tensor import *
+from discopy import frobenius
 
 
 def test_backend():
