@@ -29,7 +29,7 @@ from collections.abc import Callable, Mapping
 from inspect import isclass
 
 import random
-from typing import Any, Iterable, Union
+from typing import Any, Iterable, Union, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 
@@ -59,7 +59,8 @@ from discopy.utils import (
     tuplify,
     untuplify,
 )
-from discopy.monoidal import Ty, Box, Diagram
+if TYPE_CHECKING:
+    from discopy.cat import Ty, Box, Diagram
 
 
 class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):

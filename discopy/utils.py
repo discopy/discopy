@@ -12,10 +12,10 @@ from typing import (
     Iterable,
     TypeVar,
     Any,
-    Hashable,
-    Literal,
-    cast,
-    Union, Sequence, Collection, Type, Optional,
+    Collection,
+    Type,
+    Optional,
+    TYPE_CHECKING,
 )
 
 import json
@@ -23,7 +23,8 @@ from functools import wraps
 from networkx import Graph, connected_components
 
 from discopy import messages
-from discopy.monoidal import Ty, Diagram
+if TYPE_CHECKING:
+    from discopy.monoidal import Ty, Diagram
 
 KT = TypeVar('KT')
 VT = TypeVar('VT')
