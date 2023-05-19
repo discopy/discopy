@@ -29,12 +29,17 @@ from collections.abc import Callable, Mapping
 from inspect import isclass
 
 import random
+from typing import Any, Iterable, Union
 
 import matplotlib.pyplot as plt
 
-from networkx import DiGraph as Graph, spring_layout, draw_networkx
+from networkx import (
+    DiGraph as Graph,
+    spring_layout,
+    draw_networkx,
+    dag_longest_path_length,
+)
 from networkx.algorithms.isomorphism import is_isomorphic
-from networkx import dag_longest_path_length
 
 from discopy import drawing, messages
 from discopy.cat import Category
@@ -54,6 +59,7 @@ from discopy.utils import (
     tuplify,
     untuplify,
 )
+from discopy.monoidal import Ty, Box, Diagram
 
 
 class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
@@ -65,7 +71,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         dom (frobenius.Ty) : The domain of the diagram, i.e. its input.
         cod (frobenius.Ty) : The codomain of the diagram, i.e. its output.
         boxes (tuple[frobenius.Box, ...]) : The boxes inside the diagram.
-        wires (tuple[Any]) : List of wires from ports to spiders.
+        wires (tuple[Any, ...]) : List of wires from ports to spiders.
         spider_types : Mapping[Any, frobenius.Ty]
             Mapping from spiders to atomic types, if :code:`None` then this is
             computed from the types of ports.
@@ -140,7 +146,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
-            wires: tuple[Any, ...], spider_types: Mapping[Any, Ty] = None,
+            wires: tuple[Any, ...],
+            spider_types: Union[Mapping[Any, Ty], Iterable[Ty]] = None,
             offsets: tuple[int | None, ...] = None):
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
@@ -172,7 +179,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         self.offsets = offsets or tuple(len(boxes) * [None])
 
     @property
-    def box_wires(self) -> list[tuple[tuple[int], tuple[int]]]:
+    def box_wires(self) -> list[tuple[tuple[int, ...], tuple[int, ...]]]:
         """
         The wires connecting the boxes of a hypergraph.
 
@@ -283,7 +290,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     twist = id
 
     @unbiased
-    def then(self, other):
+    def then(self, other: Hypergraph):
         """
         Composition of two hypergraph diagrams, i.e. their :func:`pushout`.
         """
@@ -304,7 +311,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         return type(self)(dom, cod, boxes, tuple(wires), spider_types, offsets)
 
     @unbiased
-    def tensor(self, other):
+    def tensor(self, other: Hypergraph):
         """ Tensor of two hypergraph diagrams, i.e. their disjoint union. """
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         boxes, offsets = self.boxes + other.boxes, self.offsets + other.offsets
@@ -437,7 +444,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         cups and caps to form a feedback loop.
 
         Parameters:
-            diagram : The diagram to trace.
+            n : The number of wires to trace.
             left : Whether to trace on the left or right.
         """
         assert_istraceable(self, n, left)
@@ -507,7 +514,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             return self.dagger()
         raise NotImplementedError
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any):
         if not isinstance(other, Hypergraph):
             return False
         return self.is_parallel(other) and is_isomorphic(

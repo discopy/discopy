@@ -15,7 +15,7 @@ from typing import (
     Hashable,
     Literal,
     cast,
-    Union,
+    Union, Sequence, Collection, Type, Optional,
 )
 
 import json
@@ -23,7 +23,7 @@ from functools import wraps
 from networkx import Graph, connected_components
 
 from discopy import messages
-
+from discopy.monoidal import Ty, Diagram
 
 KT = TypeVar('KT')
 VT = TypeVar('VT')
@@ -357,7 +357,8 @@ Pushout = tuple[dict[int, int], dict[int, int]]
 
 def pushout(
         left: int, right: int,
-        left_boundary: list[int], right_boundary: list[int]) -> Pushout:
+        left_boundary: Collection[int], right_boundary: Collection[int]) \
+        -> Pushout:
     """
     Computes the pushout of two finite mappings using connected components.
 
