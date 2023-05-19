@@ -24,7 +24,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> x, y, z = map(Ty, "xyz")
+>>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
 >>> unit, delete = Merge(x, n=0), Copy(x, n=0)

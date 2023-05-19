@@ -373,7 +373,7 @@ def pushout(
     """
     if len(left_boundary) != len(right_boundary):
         raise ValueError
-    components, left_pushout, right_pushout = set(), dict(), dict()
+    components, left_pushout, right_pushout = set(), {}, {}
     left_proper = sorted(set(range(left)) - set(left_boundary))
     left_pushout.update({j: i for i, j in enumerate(left_proper)})
     graph = Graph([
