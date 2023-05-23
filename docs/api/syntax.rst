@@ -12,7 +12,7 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
     discopy.braided
     discopy.balanced
     discopy.symmetric
-    discopy.cartesian
+    discopy.comonoid
     discopy.traced
     discopy.closed
     discopy.rigid
@@ -21,3 +21,4 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
     discopy.compact
     discopy.frobenius
     discopy.hypergraph
+    discopy.interaction

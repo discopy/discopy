@@ -26,41 +26,16 @@ Summary
 
 from __future__ import annotations
 
+from typing import Callable
+
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
-from discopy.frobenius import Ty, Cup, Category
+from discopy.frobenius import Dim, Cup, Category
 from discopy.matrix import Matrix, backend
 from discopy.monoidal import assert_isatomic
 from discopy.rigid import assert_isadjoint
 from discopy.utils import factory_name, assert_isinstance, product
-
-
-@factory
-class Dim(Ty):
-    """
-    A dimension is a tuple of positive integers
-    with product ``@`` and unit ``Dim(1)``.
-
-    Example
-    -------
-    >>> Dim(1) @ Dim(2) @ Dim(3)
-    Dim(2, 3)
-    """
-    ob_factory = int
-
-    def __init__(self, *inside: int):
-        for dim in inside:
-            assert_isinstance(dim, int)
-            if dim < 1:
-                raise ValueError
-        super().__init__(*(dim for dim in inside if dim > 1))
-
-    def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
-
-    __str__ = __repr__
-    l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
 
 @factory
@@ -98,7 +73,7 @@ class Tensor(Matrix):
     >>> m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     >>> v = Tensor([0, 1], Dim(1), Dim(2))
     >>> v >> m >> v.dagger()
-    Tensor([0], dom=Dim(1), cod=Dim(1))
+    Tensor[int64]([0], dom=Dim(1), cod=Dim(1))
 
     Notes
     -----
@@ -114,7 +89,7 @@ class Tensor(Matrix):
     These can be substituted and lambdifed.
 
     >>> v.subs(phi, 0).lambdify(psi, dtype=int)(1)
-    Tensor([0, 1], dom=Dim(1), cod=Dim(2))
+    Tensor[int]([0, 1], dom=Dim(1), cod=Dim(2))
 
     We can also use jax.numpy using Tensor.backend.
 
@@ -271,7 +246,8 @@ class Tensor(Matrix):
         ...     == Tensor([0, 0, 0, 0], Dim(2), Dim(2))
         """
         with backend() as np:
-            return cls(np.zeros((dom @ cod).inside), dom, cod)
+            return cls(np.zeros((dom @ cod).inside, dtype=cls.dtype or int),
+                       dom, cod)
 
     def jacobian(self, *variables: "list[sympy.Symbol]", **params) -> Tensor:
         """
@@ -346,9 +322,9 @@ class Functor(frobenius.Functor):
     def __init__(
             self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
             dom: cat.Category = None, dtype: type = int):
-        self.dom, self.dtype = dom or type(self).dom, dtype
+        self.dtype = dtype
         cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])
-        super().__init__(ob, ar, cod)
+        super().__init__(ob, ar, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
         return factory_name(type(self)) + f"(ob={self.ob}, ar={self.ar}, "\
@@ -421,7 +397,7 @@ class Diagram(frobenius.Diagram):
         >>> from tensornetwork.contractors import auto
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
-        dtype = dtype or Tensor.dtype
+        dtype = dtype or int
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
@@ -548,8 +524,8 @@ class Cup(frobenius.Cup, Box):
     A tensor cup is a frobenius cup in a tensor diagram.
 
     Parameters:
-        left (Ty) : The atomic type.
-        right (Ty) : Its adjoint.
+        left (Dim) : The atomic type.
+        right (Dim) : Its adjoint.
     """
     __ambiguous_inheritance__ = (frobenius.Cup, )
 
@@ -559,8 +535,8 @@ class Cap(frobenius.Cap, Box):
     A tensor cap is a frobenius cap in a tensor diagram.
 
     Parameters:
-        left (Ty) : The atomic type.
-        right (Ty) : Its adjoint.
+        left (Dim) : The atomic type.
+        right (Dim) : Its adjoint.
     """
     __ambiguous_inheritance__ = (frobenius.Cap, )
 

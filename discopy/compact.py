@@ -18,6 +18,46 @@ Summary
     Swap
     Category
     Functor
+
+Axioms
+------
+
+>>> from discopy.drawing import Equation
+>>> x, y = Ty('x'), Ty('y')
+
+* Snake equations:
+
+>>> snake = Equation(Id(x.l).transpose(left=True), Id(x), Id(x.r).transpose())
+>>> assert snake
+>>> snake.draw(path="docs/_static/compact/snake.png")
+
+.. image:: /_static/compact/snake.png
+    :align: center
+
+* Yanking (a.k.a. Reidemeister move 1):
+
+>>> right_loop = x @ Cap(x, x.r) >> Swap(x, x) @ x.r >> x @ Cup(x, x.r)
+>>> left_loop = Cap(x.r, x) @ x >> x.r @ Swap(x, x) >> Cup(x.r, x) @ x
+>>> yanking = Equation(left_loop, Id(x), right_loop)
+>>> assert yanking
+>>> yanking.draw(path="docs/_static/compact/yanking.png")
+
+.. image:: /_static/compact/yanking.png
+    :align: center
+
+>>> cap_yanking = Equation(Cap(x, x.r) >> Swap(x, x.r), Cap(x.r, x))
+>>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
+>>> assert cap_yanking and cup_yanking
+>>> Equation(cap_yanking, cup_yanking, symbol='', space=1).draw(
+...     figsize=(6, 3), path="docs/_static/compact/yanking_cup_and_cap.png")
+
+.. image:: /_static/compact/yanking_cup_and_cap.png
+    :align: center
+
+* Coherence:
+
+>>> assert Diagram.caps(x @ y, y.r @ x.r)\\
+...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
 """
 
 from discopy import symmetric, ribbon
@@ -36,6 +76,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram):
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
     ty_factory = Ty
+    trace_factory = ribbon.Diagram.trace_factory
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
@@ -112,7 +153,12 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
+class Hypergraph(symmetric.Hypergraph):
+    category, functor = Category, Functor
+
+
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
+Diagram.hypergraph_factory = Hypergraph
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

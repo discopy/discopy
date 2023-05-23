@@ -7,7 +7,7 @@ from discopy import (
     monoidal,
     braided,
     symmetric,
-    cartesian,
+    comonoid,
     traced,
     closed,
     rigid,

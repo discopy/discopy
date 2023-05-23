@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-The free hypergraph category, i.e. diagrams with swaps and spiders.
+The free symmetric category with a supply of spiders, also known as special
+commutative Frobenius algebras.
 
-Spiders are also known as dagger special commutative Frobenius algebras.
+Diagrams in the free hypergraph category are faithfully encoded as
+:class:`Hypergraph`, see :cite:t:`BonchiEtAl22`.
 
 Summary
 -------
@@ -23,16 +25,45 @@ Summary
     Spider
     Category
     Functor
+
+Axioms
+------
+
+>>> from discopy.drawing import Equation
+
+>>> x, y, z = map(Ty, "xyz")
+
+>>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
+>>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
+
+* Frobenius:
+
+>>> frobenius = Equation(
+...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
+>>> assert frobenius
+>>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
+
+.. image:: /_static/frobenius/frobenius.png
+    :align: center
+
+* Speciality:
+
+>>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
+>>> assert special
+>>> special.draw(path="docs/_static/frobenius/special.png")
+
+.. image:: /_static/frobenius/special.png
+    :align: center
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import compact, pivotal
+from discopy import comonoid, compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import assert_isatomic
-from discopy.utils import factory_name
+from discopy.utils import factory_name, assert_isinstance
 
 
 class Ob(pivotal.Ob):
@@ -57,15 +88,44 @@ class Ty(pivotal.Ty):
 
 
 @factory
-class Diagram(compact.Diagram):
+class Dim(Ty):
     """
-    A frobenius diagram is a compact diagram with :class:`Spider` boxes.
+    A dimension is a tuple of positive integers
+    with product ``@`` and unit ``Dim(1)``.
+
+    Example
+    -------
+    >>> Dim(1) @ Dim(2) @ Dim(3)
+    Dim(2, 3)
+    """
+    ob_factory = int
+
+    def __init__(self, *inside: int):
+        for dim in inside:
+            assert_isinstance(dim, int)
+            if dim < 1:
+                raise ValueError
+        super().__init__(*(dim for dim in inside if dim > 1))
+
+    def __repr__(self):
+        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
+
+    __str__ = __repr__
+    l = r = property(lambda self: self.factory(*self.inside[::-1]))
+
+
+@factory
+class Diagram(compact.Diagram, comonoid.Diagram):
+    """
+    A frobenius diagram is a compact diagram and a comonoid diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
+    __ambiguous_inheritance__ = (compact.Diagram, comonoid.Diagram)
+
     ty_factory = Ty
 
     @classmethod
@@ -109,21 +169,21 @@ class Diagram(compact.Diagram):
         """
         F = compact.Functor(
             ob=lambda x: x, ar=lambda f:
-                f.unfuse() if isinstance(f, Spider) else f)
-        F.dom, F.cod = Category(), Category()
+                f.unfuse() if isinstance(f, Spider) else f,
+            dom=Category(), cod=Category())
         return F(self)
 
 
-class Box(compact.Box, Diagram):
+class Box(compact.Box, comonoid.Box, Diagram):
     """
-    A frobenius box is a compact box in a frobenius diagram.
+    A frobenius box is a compact and comonoid box in a frobenius diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (compact.Box, )
+    __ambiguous_inheritance__ = (compact.Box, comonoid.Box)
 
 
 class Cup(compact.Cup, Box):
@@ -148,7 +208,7 @@ class Cap(compact.Cap, Box):
     __ambiguous_inheritance__ = (compact.Cap, )
 
 
-class Swap(compact.Swap, Box):
+class Swap(compact.Swap, comonoid.Swap, Box):
     """
     A frobenius swap is a compact swap in a frobenius diagram.
 
@@ -156,7 +216,7 @@ class Swap(compact.Swap, Box):
         left (Ty) : The type on the top left and bottom right.
         right (Ty) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (compact.Swap, )
+    __ambiguous_inheritance__ = (compact.Swap, comonoid.Swap)
 
 
 class Spider(Box):
@@ -214,7 +274,7 @@ class Spider(Box):
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
-class Category(compact.Category):
+class Category(compact.Category, comonoid.Category):
     """
     A hypergraph category is a compact category with a method :code:`spiders`.
 
@@ -222,10 +282,12 @@ class Category(compact.Category):
         ob : The objects of the category, default is :class:`Ty`.
         ar : The arrows of the category, default is :class:`Diagram`.
     """
+    __ambiguous_inheritance__ = (compact.Category, comonoid.Category)
+
     ob, ar = Ty, Diagram
 
 
-class Functor(compact.Functor):
+class Functor(compact.Functor, comonoid.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
 
@@ -234,13 +296,19 @@ class Functor(compact.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
+    __ambiguous_inheritance__ = (compact.Functor, comonoid.Functor)
+
     dom = cod = Category()
 
     def __call__(self, other):
+        if isinstance(other, Dim):
+            return sum([self.ob[x] for x in other], self.cod.ob())
         if isinstance(other, Spider):
             return self.cod.ar.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
-        return super().__call__(other)
+        if isinstance(other, (comonoid.Copy, comonoid.Merge)):
+            return comonoid.Functor.__call__(self, other)
+        return compact.Functor.__call__(self, other)
 
 
 def interleaving(cls: type, factory: Callable
@@ -315,7 +383,11 @@ def coherence(cls: type, factory: Callable
     return method
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    category, functor = Category, Functor
+
+
+Diagram.hypergraph_factory = Hypergraph
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
-
 Id = Diagram.id

@@ -1,72 +1,73 @@
 from pytest import raises
 
 from discopy.hypergraph import *
-
+from discopy.frobenius import Ty, Box, Cap, Hypergraph as H
 
 def test_pushout():
     with raises(ValueError):
         pushout(1, 1, [0], [0, 1])
 
 
-def test_Diagram_init():
+def test_Hypergraph_init():
     x, y = map(Ty, "xy")
     with raises(ValueError):
-        Diagram(x, x, [], [])
+        H(x, x, (), ())
     with raises(AxiomError):
-        Diagram(x, y, [], [0, 0])
+        H(x, y, (), (0, 0))
 
 
-def test_Diagram_str():
+def test_Hypergraph_str():
     x, y = map(Ty, "xy")
-    assert str(Swap(x, y)) == "Swap(x, y)"
-    assert str(spiders(1, 0, x @ y))\
-        == "x @ Spider(1, 0, y) >> Spider(1, 0, x)"
+    assert str(H.swap(x, y)) == "Swap(x, y)"
+    assert str(H.spiders(1, 0, x @ y))\
+        == "Spider(1, 0, x) @ y >> Spider(1, 0, y)"
 
 
-def test_Diagram_repr():
+def test_Hypergraph_repr():
     x, y = map(Ty, "xy")
-    assert repr(spiders(1, 0, x @ y))\
-        == "hypergraph.Diagram("\
+    assert repr(H.spiders(1, 0, x @ y))\
+        == "frobenius.Hypergraph("\
            "dom=frobenius.Ty(frobenius.Ob('x'), frobenius.Ob('y')), "\
-           "cod=frobenius.Ty(), boxes=[], wires=[0, 1])"
+           "cod=frobenius.Ty(), boxes=(), wires=(0, 1))"
 
-def test_Diagram_then():
+def test_Hypergraph_then():
     x, y = map(Ty, "xy")
     with raises(AxiomError):
-        Id(x) >> Id(y)
+        H.id(x) >> H.id(y)
 
 
-def test_Diagram_tensor():
+def test_Hypergraph_tensor():
+    Id = H.id
     assert Id().tensor(Id(), Id()) == Id().tensor() == Id()
 
 
-def test_Diagram_getitem():
+def test_Hypergraph_getitem():
     with raises(NotImplementedError):
-        spiders(1, 2, Ty('x'))[0]
+        H.spiders(1, 2, Ty('x'))[0]
 
 
-def test_Diagram_bijection():
+def test_Hypergraph_bijection():
     with raises(ValueError):
-        spiders(1, 2, Ty('x')).bijection
+        H.spiders(1, 2, Ty('x')).bijection
 
 
 def test_Box():
-    box = Box('box', Ty('x'), Ty('y'))
-    assert box == box and box == box @ Id() and box != 1
+    box = Box('box', Ty('x'), Ty('y')).to_hypergraph()
+    assert box == box and box == box @ H.id() and box != 1
 
 
 def test_AxiomError():
     x, y = map(Ty, "xy")
     with raises(AxiomError):
-        cups(x @ y, x @ y)
+        H.cups(x @ y, x @ y)
     with raises(AxiomError):
-        caps(x @ y, x @ y)
+        H.caps(x @ y, x @ y)
 
 
 def test_cups():
     x = Ty('x')
-    assert Diagram.cups(x, x).make_monogamous().dagger()\
-        == Diagram.caps(x, x).make_monogamous()
-    assert Diagram.caps(x, x).make_monogamous().dagger()\
-        == Diagram.cups(x, x).make_monogamous()
-    assert Cap(x, x).downgrade() == frobenius.Cap(x, x)
+    assert H.cups(x, x).make_monogamous().dagger()\
+        == H.caps(x, x).make_monogamous()
+    assert H.caps(x, x).make_monogamous().dagger()\
+        == H.cups(x, x).make_monogamous()
+    assert H.caps(x, x).to_diagram() == Cap(x, x)

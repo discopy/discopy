@@ -14,28 +14,30 @@ jobs:
       matrix:
         python-version: [ 3.9 ]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install linter
       run:
-        python -m pip install pycodestyle coverage
+        python -m pip install pycodestyle coverage pylint
     - name: Check for errors
       run:
         # stop the build if there are Python syntax errors or undefined names
         pycodestyle discopy
+    - name: pylint
+      run:
+        pylint discopy
   build_and_test:
-    needs: lint
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: [ 3.9 ]
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install base package
@@ -52,9 +54,6 @@ jobs:
     - name: Coverage report
       run:
         coverage report --fail-under=99 --show-missing
-    - name: Linting
-      run:
-        pylint discopy
     - name: Install nbmake and test notebooks
       run: |
         python -m pip install nbmake

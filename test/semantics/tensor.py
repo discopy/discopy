@@ -4,6 +4,7 @@ from pytest import raises
 
 from discopy.cat import AxiomError
 from discopy.tensor import *
+from discopy import frobenius
 
 
 def test_backend():
@@ -25,7 +26,8 @@ def test_backend():
 def test_Tensor_repr_with_tf():
     with backend('tensorflow'):
         alice = Tensor([1, 2], Dim(1), Dim(2))
-        assert repr(alice) == 'Tensor([1, 2], dom=Dim(1), cod=Dim(2))'
+        assert repr(alice)\
+            == "Tensor[<dtype: 'int64'>]([1, 2], dom=Dim(1), cod=Dim(2))"
 
 
 def test_Dim():
@@ -48,7 +50,7 @@ def test_Tensor():
     assert Tensor([1], Dim(1), Dim(1))
     m = Tensor([0, 1, 1, 0], Dim(2), Dim(2))
     assert repr(m) == str(m)\
-        == "Tensor([0, 1, 1, 0], dom=Dim(2), cod=Dim(2))"
+        == "Tensor[int64]([0, 1, 1, 0], dom=Dim(2), cod=Dim(2))"
     u = Tensor([1, 0, 0, 0], Dim(2), Dim(2))
     v = Tensor([0, 0, 0, 1], Dim(2), Dim(2))
     assert u + v == Tensor.id(Dim(2))
@@ -126,7 +128,7 @@ def test_Tensor_tensor():
     assert v @ v == Tensor([1, 0, 0, 0], dom=Dim(1), cod=Dim(2, 2))
     assert v @ v.dagger() == v << v.dagger()
 
-    x, y = Ty('x'), Ty('y')
+    x, y = frobenius.Ty('x'), frobenius.Ty('y')
     f, g = frobenius.Box('f', x, x), frobenius.Box('g', y, y)
     ob, ar = {x: 2, y: 3}, {f: [1, 0, 0, 1], g: list(range(9))}
     F = Functor(ob, ar)
@@ -146,7 +148,7 @@ def test_tensor_spiders():
 
 
 def test_Functor_repr():
-    x = Ty('x')
+    x = frobenius.Ty('x')
     F = Functor({x: 2}, {}, dom=frobenius.Category(), dtype=bool)
     assert repr(F) ==\
         "tensor.Functor(ob={frobenius.Ty(frobenius.Ob('x')): 2}, ar={}, "\
@@ -154,8 +156,8 @@ def test_Functor_repr():
 
 
 def test_Functor_call():
-    x, y = Ty('x'), Ty('y')
-    f, g = frobenius.Box('f', x @ x, y), frobenius.Box('g', y, Ty())
+    x, y = frobenius.Ty('x'), frobenius.Ty('y')
+    f, g = frobenius.Box('f', x @ x, y), frobenius.Box('g', y, frobenius.Ty())
     ob = {x: 2, y: 3}
     ar = {f: list(range(2 * 2 * 3)), g: list(range(3))}
     F = Functor(ob, ar)
@@ -167,7 +169,7 @@ def test_Functor_call():
 
 
 def test_Functor_swap():
-    x, y = Ty('x'), Ty('y')
+    x, y = frobenius.Ty('x'), frobenius.Ty('y')
     f, g = frobenius.Box('f', x, x), frobenius.Box('g', y, y)
     F = Functor({x: 2, y: 3}, {f: [1, 2, 3, 4], g: list(range(9))})
     assert F(f @ g >> frobenius.Swap(x, y)) == \
@@ -181,7 +183,7 @@ def test_AxiomError():
 
 
 def test_Functor_sum():
-    x, y = Ty('x'), Ty('y')
+    x, y = frobenius.Ty('x'), frobenius.Ty('y')
     f = frobenius.Box('f', x, y)
     F = Functor({x: 1, y: 2}, {f: [1, 0]})
     assert F(f + f) == F(f) + F(f)
