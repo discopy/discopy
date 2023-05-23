@@ -468,6 +468,8 @@ def tikz_and_compare(file, folder, **params):
                 os.remove(test_path)
         return wrapper
     return decorator
+
+
 def tuplify(stuff: any) -> tuple:
     """
     Turns anything into a tuple, do nothing if it is already.
