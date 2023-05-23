@@ -191,6 +191,12 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
         the number of shots, etc. See the `PennyLane plugin
         documentation <https://pennylane.ai/plugins/>`_
         for more details.
+    diff_method : str, default: "best"
+        The differentiation method to use to obtain gradients for the
+        PennyLane circuit. Some gradient methods are only compatible
+        with simulated circuits. See the `PennyLane documentation
+        <https://docs.pennylane.ai/en/stable/introduction/interfaces.html>`_
+        for more details.
 
     Returns
     -------
