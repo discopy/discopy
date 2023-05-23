@@ -32,7 +32,7 @@ Summary
 """
 
 from discopy import messages, rigid, frobenius, messages
-from discopy.cat import factory
+from discopy.cat import factory, AxiomError
 from discopy.grammar import thue
 from discopy.rigid import Ob
 

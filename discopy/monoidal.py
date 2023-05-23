@@ -609,6 +609,11 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> f, g = Box('f', x, y), Box('g', z, w)
         >>> assert f @ z >> y @ g == Diagram.decode(
         ...     dom=x @ z, cod=y @ w, boxes=[f, g], offsets=[0, 1])
+
+        Note
+        ----
+        If ``boxes_and_offsets is None``
+        then we set it to ``zip(boxes, offstes)``.
         """
         if boxes_and_offsets is None:
             boxes_and_offsets = zip(boxes, offsets)

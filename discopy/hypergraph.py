@@ -38,9 +38,9 @@ from networkx import (
     spring_layout,
     draw_networkx,
     dag_longest_path_length,
+    weisfeiler_lehman_graph_hash,
 )
 from networkx.algorithms.isomorphism import is_isomorphic
-from networkx import dag_longest_path_length, weisfeiler_lehman_graph_hash
 
 from discopy import drawing, messages
 from discopy.cat import Category
