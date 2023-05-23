@@ -90,9 +90,6 @@ def tk_op_to_pennylane(tk_op):
     ----------
     tk_op : :class:`pytket.circuit.Op`
         The pytket :class:`Op` to convert.
-    str_map : dict[str, :class:`sympy.core.symbol.Symbol`]
-        A mapping from strings to SymPy symbols (necessary as
-        `circ.to_tk()` does not copy symbol references).
 
     Returns
     -------
@@ -128,8 +125,6 @@ def extract_ops_from_tk(tk_circ):
     ----------
     tk_circ : :class:`discopy.quantum.tk.Circuit`
         The pytket circuit to extract the operations from.
-    str_map : dict of str: :class:`sympy.core.symbol.Symbol`
-        A mapping from strings to SymPy symbols.
 
     Returns
     -------
@@ -164,7 +159,7 @@ def get_post_selection_dict(tk_circ):
 
     Returns
     -------
-    dict of int: int
+    dict of int
         A mapping from qubit indices to pytket classical indices.
     """
     q_post_sels = {}
@@ -190,6 +185,18 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
         circuit outputs states or un-normalized probabilities.
         Probabilities can be used with more PennyLane backpropagation
         methods.
+    backend_config : dict, default: None
+        A dictionary of PennyLane backend configration options,
+        including the provider (e.g. IBM or Honeywell), the device,
+        the number of shots, etc. See the `PennyLane plugin
+        documentation <https://pennylane.ai/plugins/>`_
+        for more details.
+    diff_method : str, default: "best"
+        The differentiation method to use to obtain gradients for the
+        PennyLane circuit. Some gradient methods are only compatible
+        with simulated circuits. See the `PennyLane documentation
+        <https://docs.pennylane.ai/en/stable/introduction/interfaces.html>`_
+        for more details.
 
     Returns
     -------

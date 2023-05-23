@@ -570,6 +570,18 @@ class Circuit(tensor.Diagram):
             probabilties of measuring the computational basis states
             when run. If False, it returns the unnormalized quantum
             states in the computational basis.
+        backend_config : dict, default: None
+            A dictionary of PennyLane backend configration options,
+            including the provider (e.g. IBM or Honeywell), the device,
+            the number of shots, etc. See the `PennyLane plugin
+            documentation <https://pennylane.ai/plugins/>`_
+            for more details.
+        diff_method : str, default: "best"
+            The differentiation method to use to obtain gradients for the
+            PennyLane circuit. Some gradient methods are only compatible
+            with simulated circuits. See the `PennyLane documentation
+            <https://docs.pennylane.ai/en/stable/introduction/interfaces.html>`_
+            for more details.
 
         Returns
         -------
