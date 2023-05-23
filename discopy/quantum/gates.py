@@ -458,11 +458,21 @@ class Controlled(QuantumGate):
 
         if distance == 1:
             return self
-        src, tgt = (0, 1) if distance > 0 else (1, 0)
-        perm = Circuit.permutation([src, *range(2, n_qubits), tgt])
-        diagram = perm[::-1]\
-            >> type(self)(controlled) @ qubit ** (abs(distance) - 1)\
-            >> perm
+
+        skipped_qbs = n_qubits - (1 + len(controlled.dom))
+
+        if distance > 0:
+            pattern = [0,
+                       *range(skipped_qbs + 1, n_qubits),
+                       *range(1, skipped_qbs + 1)]
+        else:
+            pattern = [n_qubits - 1, *range(n_qubits - 1)]
+
+        perm = Circuit.permutation(pattern)
+        diagram = (perm
+                   >> type(self)(controlled) @ Id(skipped_qbs)
+                   >> perm[::-1])
+
         return diagram
 
     def grad(self, var, **params):

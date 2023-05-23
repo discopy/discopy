@@ -780,7 +780,7 @@ class Circuit(tensor.Diagram):
         for x in sorted(filter(lambda x: x < head, indices), reverse=True):
             gate, head = Controlled(gate, distance=head - x), x
         head = indices[-1]
-        for x in sorted(filter(lambda x: x > head, indices), reverse=True):
+        for x in sorted(filter(lambda x: x > head, indices)):
             gate, head = Controlled(gate, distance=head - x), x
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]

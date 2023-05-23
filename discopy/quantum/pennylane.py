@@ -83,6 +83,7 @@ OP_MAP = {
 
 
 def tk_op_to_pennylane(tk_op):
+def tk_op_to_pennylane(tk_op):
     """
     Extract the operation, parameters and wires from
     a pytket :class:`Op`, and return the corresponding PennyLane operation.
