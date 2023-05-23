@@ -370,10 +370,6 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         """
         Simplify by going back and forth to :class:`Hypergraph`.
 
-        Parameters:
-            functor_factory : Passed to :meth:`Hypergraph.upgrade`.
-            box_factory : Passed to :meth:`Hypergraph.downgrade`.
-
         Example
         -------
         >>> x = Ty[frobenius.Ty]('x')

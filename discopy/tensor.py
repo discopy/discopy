@@ -26,6 +26,8 @@ Summary
 
 from __future__ import annotations
 
+from typing import Callable
+
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable

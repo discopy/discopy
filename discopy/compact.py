@@ -60,7 +60,7 @@ Axioms
 ...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
 """
 
-from discopy import symmetric, ribbon, hypergraph
+from discopy import symmetric, ribbon
 from discopy.cat import factory
 from discopy.pivotal import Ob, Ty
 
@@ -76,6 +76,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram):
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
     ty_factory = Ty
+    trace_factory = ribbon.Diagram.trace_factory
 
 
 class Box(symmetric.Box, ribbon.Box, Diagram):
@@ -152,12 +153,12 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    category = Category()
+class Hypergraph(symmetric.Hypergraph):
+    category, functor = Category, Functor
 
 
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
-Diagram.hypergraph_factory, Diagram.functor_factory = Hypergraph, Functor
+Diagram.hypergraph_factory = Hypergraph
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
