@@ -161,10 +161,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         if spider_types is None:
             spider_types = {
                 spider: port.obj for spider, port in zip(wires, self.ports)}
-        spider_types = spider_types if isinstance(spider_types, Mapping)\
-            else {i: obj for i, obj in enumerate(spider_types)}
-        relabeling = list(sorted(set(wires), key=lambda i: wires.index(i)))
-        relabeling += list(sorted(set(spider_types) - set(relabeling)))
+        if not isinstance(spider_types, Mapping):
+            spider_types = dict(enumerate(spider_types))
+        relabeling = sorted(set(wires), key=wires.index)
+        relabeling += sorted(set(spider_types) - set(relabeling))
         self.wires = tuple(relabeling.index(s) for s in wires)
         self.spider_types = tuple(map(
             lambda typ: typ.r if getattr(typ, "z", 0) else typ,
