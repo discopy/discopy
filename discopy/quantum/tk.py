@@ -92,6 +92,16 @@ class Circuit(tk.Circuit):
                         for d in [self.post_processing] if d]
         return '.'.join(init + gates + post_select + scalar + post_process)
 
+    def __getstate__(self):
+        state = super().__getstate__()
+        state[0].update(self.__dict__)
+        return state
+
+    def __setstate__(self, state):
+        for attr in ['scalar', 'post_selection', 'post_processing']:
+            setattr(self, attr, state[0].pop(attr))
+        super().__setstate__(state)
+
     @property
     def n_bits(self):
         """ Number of bits in a circuit. """
