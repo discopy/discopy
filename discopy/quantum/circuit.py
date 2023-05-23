@@ -558,7 +558,8 @@ class Circuit(tensor.Diagram):
         from discopy.quantum.tk import to_tk
         return to_tk(self)
 
-    def to_pennylane(self, probabilities=False):
+    def to_pennylane(self, probabilities=False, backend_config=None,
+                     diff_method='best'):
         """
         Export DisCoPy circuit to PennylaneCircuit.
 
@@ -569,13 +570,27 @@ class Circuit(tensor.Diagram):
             probabilties of measuring the computational basis states
             when run. If False, it returns the unnormalized quantum
             states in the computational basis.
+        backend_config : dict, default: None
+            A dictionary of PennyLane backend configration options,
+            including the provider (e.g. IBM or Honeywell), the device,
+            the number of shots, etc. See the `PennyLane plugin
+            documentation <https://pennylane.ai/plugins/>`_
+            for more details.
+        diff_method : str, default: "best"
+            The differentiation method to use to obtain gradients for the
+            PennyLane circuit. Some gradient methods are only compatible
+            with simulated circuits. See the `PennyLane documentation
+            <https://docs.pennylane.ai/en/stable/introduction/interfaces.html>`_
+            for more details.
 
         Returns
         -------
         :class:`discopy.quantum.pennylane.PennylaneCircuit`
         """
         from discopy.quantum.pennylane import to_pennylane
-        return to_pennylane(self, probabilities=probabilities)
+        return to_pennylane(self, probabilities=probabilities,
+                            backend_config=backend_config,
+                            diff_method=diff_method)
 
     @staticmethod
     def from_tk(*tk_circuits):
@@ -759,7 +774,7 @@ class Circuit(tensor.Diagram):
         for x in sorted(filter(lambda x: x < head, indices), reverse=True):
             gate, head = Controlled(gate, distance=head - x), x
         head = indices[-1]
-        for x in sorted(filter(lambda x: x > head, indices), reverse=True):
+        for x in sorted(filter(lambda x: x > head, indices)):
             gate, head = Controlled(gate, distance=head - x), x
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
