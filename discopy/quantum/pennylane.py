@@ -160,7 +160,7 @@ def get_post_selection_dict(tk_circ):
 
     Returns
     -------
-    dict of int: int
+    dict of int
         A mapping from qubit indices to pytket classical indices.
     """
     q_post_sels = {}
