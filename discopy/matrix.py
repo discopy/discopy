@@ -38,7 +38,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from discopy import cat, monoidal, config
+from discopy import cat, monoidal, config, messages
 from discopy.cat import (
     factory,
     Composable,
@@ -264,7 +264,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             return monoidal.Diagram.tensor(self, other, *others)
         assert_isinstance(other, type(self))
         dom, cod = self.dom + other.dom, self.cod + other.cod
-        array = Matrix.zero(dom, cod).array
+        array = self.zero(dom, cod).array
         array[:self.dom, :self.cod] = self.array
         array[self.dom:, self.cod:] = other.array
         return type(self)(array, dom, cod)

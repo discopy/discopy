@@ -85,17 +85,20 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.utils import (
+    factory,
     factory_name,
     from_tree,
     rsubs,
     unbiased,
-    assert_isinstance,
     MappingOrCallable,
+    Composable,
+    AxiomError,
+    assert_isinstance,
+    assert_iscomposable,
+    assert_isparallel,
 )
 
 dumps, loads = utils.dumps, utils.loads
-
-T = TypeVar('T')
 
 
 @total_ordering
@@ -155,99 +158,6 @@ class Ob:
         >>> assert Ob.from_tree(x.to_tree()) == x
         """
         return cls(tree['name'])
-
-
-class Composable(ABC, Generic[T]):
-    """
-    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
-    for forward and backward composition with some method :code:`then`.
-
-    Example
-    -------
-    >>> class List(list, Composable):
-    ...     def then(self, other):
-    ...         return self + other
-    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
-    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
-    """
-    factory: Type[Composable]
-    sum_factory: Type[Composable]
-    ty_factory: Type[T]
-    dom: T
-    cod: T
-
-    @abstractmethod
-    def then(self, other: Optional[Composable[T]], *others: Composable[T]
-             ) -> Composable[T]:
-        """
-        Sequential composition, to be instantiated.
-
-        Parameters:
-            other : The other composable object to compose sequentially.
-        """
-
-    def is_composable(self, other: Composable) -> bool:
-        """
-        Whether two objects are composable, i.e. the codomain of the first is
-        the domain of the second.
-
-        Parameters:
-            other : The other composable object.
-        """
-        return self.cod == other.dom
-
-    def is_parallel(self, other: Composable) -> bool:
-        """
-        Whether two composable objects are parallel, i.e. they have the same
-        domain and codomain.
-
-        Parameters:
-            other : The other composable object.
-        """
-        return (self.dom, self.cod) == (other.dom, other.cod)
-
-    __rshift__ = __llshift__ = lambda self, other: self.then(other)
-    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
-
-
-def factory(cls: Type[Composable]) -> Type[Composable]:
-    """
-    Allows the identity and composition of an :class:`Arrow` subclass to remain
-    within the subclass.
-
-    Parameters:
-        cls : Some subclass of :class:`Arrow`.
-
-    Note
-    ----
-    The factory method pattern (`FMP`_) is used all over DisCoPy.
-
-    .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
-
-    Example
-    -------
-    Let's create :code:`Circuit` as a subclass of :class:`Arrow` with an
-    :class:`Ob` subclass :code:`Qubit` as domain and codomain.
-
-    >>> class Qubit(Ob): ...
-    >>> @factory
-    ... class Circuit(Arrow):
-    ...     ty_factory = Qubit
-
-    The :code:`Circuit` subclass itself has a subclass :code:`Gate` as boxes.
-
-    >>> class Gate(Box, Circuit):
-    ...     pass
-
-    The identity and composition of :code:`Circuit` is again a :code:`Circuit`.
-
-    >>> X = Gate('X', Qubit(), Qubit())
-    >>> assert isinstance(X >> X, Circuit)
-    >>> assert isinstance(Circuit.id(), Circuit)
-    >>> assert isinstance(Circuit.id().dom, Qubit)
-    """
-    cls.factory = cls
-    return cls
 
 
 @factory
@@ -533,10 +443,6 @@ class Arrow(Composable[Ob]):
         return cls(inside, dom, cod, _scan=False)
 
 
-class AxiomError(Exception):
-    """ When arrows do not compose. """
-
-
 @total_ordering
 class Box(Arrow):
     """
@@ -615,19 +521,17 @@ class Box(Arrow):
         return hash(Arrow.__repr__(self))
 
     def __eq__(self, other):
-        if isinstance(other, type(self)):
-            eq_data = bool(self.data == other.data)
-            return self.name == other.name and self.is_parallel(other)\
-                and self.is_dagger == other.is_dagger and eq_data
-        return isinstance(other, self.factory) and other.inside == (self, )
+        if isinstance(other, Box):
+            return type(self) == type(other)\
+                and self.name == other.name\
+                and self.is_parallel(other)\
+                and self.is_dagger == other.is_dagger\
+                and bool(self.data == other.data)
+        return isinstance(other, Arrow)\
+            and self >> self.id(self.cod) == other  # cast box as diagram
 
     def __lt__(self, other):
         return self.name < other.name
-
-    def __call__(self, *args, **kwargs):
-        if hasattr(self, "_apply"):
-            return self._apply(self, *args, **kwargs)
-        raise TypeError("Box is not callable, try drawing.diagramize.")
 
     def to_tree(self) -> dict:
         tree = {
@@ -829,6 +733,13 @@ class Category:
     def __repr__(self):
         return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
 
+    def __eq__(self, other):
+        return isinstance(other, Category)\
+            and (self.ob, self.ar) == (other.ob, other.ar)
+
+    def __hash__(self):
+        return hash((self.ob, self.ar))
+
 
 class Functor(Composable[Category]):
     """
@@ -880,9 +791,7 @@ class Functor(Composable[Category]):
         Parameters:
             dom : The domain of the functor.
         """
-        result = cls(lambda x: x, lambda f: f, cod=dom)
-        result.dom = dom or cls.dom
-        return result
+        return cls(lambda x: x, lambda f: f, dom=dom, cod=dom)
 
     def then(self, other: Functor) -> Functor:
         """
@@ -907,19 +816,16 @@ class Functor(Composable[Category]):
         cat.Functor(ob=<function ...>, ar=...)
         """
         assert_isinstance(other, Functor)
-        assert_isparallel(self, other)
-        ob = self.ob.then(other)
-        ar = self.ar.then(other)
-        result = type(self)(ob, ar, other.cod)
-        result.dom = self.dom
-        return result
+        assert_iscomposable(self, other)
+        ob, ar = self.ob.then(other), self.ar.then(other)
+        return type(self)(ob, ar, dom=self.dom, cod=other.cod)
 
     def __init__(
             self,
             ob: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
             ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
-            cod: Category = None):
-        self.cod = cod or type(self).cod
+            dom: Category = None, cod: Category = None):
+        self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
         self.ob: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
         self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
 
@@ -953,33 +859,6 @@ class Functor(Composable[Category]):
         for box in other.inside:
             result = result >> self(box)
         return result
-
-
-def assert_iscomposable(left: Composable, right: Composable):
-    """
-    Raise :class:`AxiomError` if two objects are not composable,
-    i.e. the domain of ``other`` is not the codomain of ``self``.
-
-    Parameters:
-        left : A composable object.
-        right : Another composable object.
-    """
-    if not left.is_composable(right):
-        raise AxiomError(messages.NOT_COMPOSABLE.format(
-            left, right, left.cod, right.dom))
-
-
-def assert_isparallel(left: Composable, right: Composable):
-    """
-    Raise :class:`AxiomError` if two composable objects do not have the
-    same domain and codomain.
-
-    Parameters:
-        left : A composable object.
-        right : Another composable object.
-    """
-    if not left.is_parallel(right):
-        raise AxiomError(messages.NOT_PARALLEL.format(left, right))
 
 
 Arrow.sum_factory = Sum

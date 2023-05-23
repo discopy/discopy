@@ -2,12 +2,12 @@
 
 """
 The free compact category on a symmetric traced category, or more generally the
-free ribbon category on a balanced traced category. Concretely, this is a
-"glorification of the construction of the integers from the natural numbers".
+free ribbon category on a balanced traced category.
 
-This so-called Int-construction first appeared in Joyal, Street & Verity
-:cite:p:`JoyalEtAl96`. It is sometimes called the "geometry of interaction"
-construction, see :cite:t:`Abramsky96`.
+Concretely, this is a "glorification of the construction of the integers from
+the natural numbers". This so-called Int-construction first appeared in Joyal,
+Street & Verity :cite:p:`JoyalEtAl96`. It is sometimes called the "geometry of
+interaction" construction, see :cite:t:`Abramsky96`.
 
 Summary
 -------
@@ -52,11 +52,12 @@ Example
 ...         loves: Box('L', N @ N, S),
 ...         Bob: Box('B', T(), N)},
 ...     cod=Int(Category(T, D)))
+>>> image = F(noun_phrase).inside.to_hypergraph().interchange(1, 3)\\
+...     .to_diagram().interchange(1, 2).naturality(2, left=False)
 
 >>> from discopy.drawing import Equation
->>> Equation(noun_phrase, F(noun_phrase).simplify().inside.interchange(1, 2
-...     ).naturality(2, left=False), symbol="$\\\\mapsto$").draw(
-...          figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
+>>> Equation(noun_phrase, image, symbol="$\\\\mapsto$").draw(
+...     figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
 
 .. image:: /_static/int/alice-loves-bob.png
     :align: center
@@ -367,13 +368,9 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         """ The drawing of an integer diagram is the drawing of its inside. """
         return self.inside.draw(**params)
 
-    def simplify(self, functor_factory: type = None, box_factory: type = None):
+    def simplify(self):
         """
-        Simplify by going back and forth to :class:`hypergraph.Diagram`.
-
-        Parameters:
-            functor_factory : Passed to :meth:`hypergraph.Diagram.upgrade`.
-            box_factory : Passed to :meth:`hypergraph.Diagram.downgrade`.
+        Simplify by going back and forth to :class:`Hypergraph`.
 
         Example
         -------
@@ -392,12 +389,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         .. image:: /_static/int/simplify.png
             :align: center
         """
-        from discopy import hypergraph
-        functor_factory = functor_factory or frobenius.Functor
-        box_factory = box_factory or frobenius.Box
-        inside = hypergraph.Diagram.upgrade(
-            self.inside, functor_factory).simplify().downgrade(box_factory)
-        return type(self)(inside, self.dom, self.cod)
+        return type(self)(self.inside.simplify(), self.dom, self.cod)
 
     @wraps(balanced.Diagram.naturality)
     def naturality(self, i: int, left=True, down=True, braid=None) -> Diagram:

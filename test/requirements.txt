@@ -1,7 +1,7 @@
 pytest
 coverage
 pycodestyle
-pytket==1.1.0
+pytket
 pyzx>=0.7.0
 sympy==1.9
 tensorflow

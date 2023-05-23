@@ -19,52 +19,112 @@ Summary
 
 Axioms
 ------
-The dagger of :code:`Swap(x, y)` is :code:`Swap(y, x)`.
-
->>> x, y, z = map(Ty, "xyz")
->>> assert Diagram.swap(x, y @ z)[::-1] == Diagram.swap(y @ z, x)
-
-Swaps have their dagger as inverse, up to :meth:`braided.Diagram.simplify`.
-
->>> swap_unswap = Swap(x, y) >> Swap(y, x)
->>> assert swap_unswap.simplify() == Id(x @ y)
 
 >>> from discopy.drawing import Equation
->>> Equation(swap_unswap, Id(x @ y)).draw(
+>>> x, y, z, w = map(Ty, "xyzw")
+>>> f, g = Box("f", x, y), Box("g", z, w)
+
+* Triangle:
+
+>>> assert Diagram.swap(Ty(), x) == Id(x) == Diagram.swap(x, Ty())
+
+* Hexagon:
+
+>>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
+>>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
+>>> Equation(Diagram.swap(x, y @ z), Diagram.swap(x @ y, z), symbol='').draw(
+...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+
+.. image:: /_static/symmetric/hexagons.png
+    :align: center
+
+* Involution (a.k.a. Reidemeister move 2):
+
+>>> assert Swap(x, y)[::-1] == Swap(y, x)
+>>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+>>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
 ...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
 
 .. image:: /_static/symmetric/inverse.png
     :align: center
 
-The hexagon equations hold on the nose.
+* Naturality:
 
->>> left_hexagon = Swap(x, y) @ z >> y @ Swap(x, z)
->>> assert left_hexagon == Diagram.swap(x, y @ z)
->>> right_hexagon = x @ Swap(y, z) >> Swap(x, z) @ y
->>> assert right_hexagon == Diagram.swap(x @ y, z)
->>> Equation(left_hexagon, right_hexagon, symbol='').draw(
-...     space=2, path='docs/_static/symmetric/hexagons.png', figsize=(5, 2))
+>>> assert f @ g >> Swap(f.cod, g.cod) == Swap(f.dom, g.dom) >> g @ f
+>>> Equation(f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f).draw(
+...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
 
-.. image:: /_static/symmetric/hexagons.png
+.. image:: /_static/symmetric/naturality.png
+    :align: center
+
+* Yang-Baxter (a.k.a. Reidemeister move 3):
+
+>>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
+>>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
+>>> assert yang_baxter_left == yang_baxter_right
+>>> Equation(yang_baxter_left, yang_baxter_right).draw(
+...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
+
+.. image:: /_static/symmetric/yang-baxter.png
     :align: center
 """
 
 from __future__ import annotations
 
-from discopy import monoidal, braided, messages
+from discopy import monoidal, balanced, hypergraph, messages
 from discopy.cat import factory
 from discopy.monoidal import Ty, PRO
 
 
 @factory
-class Diagram(braided.Diagram):
+class Diagram(balanced.Diagram):
     """
-    A symmetric diagram is a braided diagram with :class:`Swap` boxes.
+    A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
 
     Parameters:
         inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+
+    Note
+    ----
+    Symmetric diagrams can be defined using the standard syntax for functions.
+
+    >>> x = Ty('x')
+    >>> f = Box('f', x @ x, x)
+    >>> g = Box('g', x, x @ x)
+
+    >>> @Diagram.from_callable(x @ x @ x, x @ x @ x)
+    ... def diagram(x0, x1, x2):
+    ...     x3 = f(x2, x0)
+    ...     x4, x5 = g(x1)
+    ...     return x5, x3, x4
+    >>> diagram.draw(draw_type_labels=False,
+    ...              path='docs/_static/symmetric/decorator.png')
+
+    .. image:: /_static/symmetric/decorator.png
+        :align: center
+
+    Every variable must be used exactly once or this will raise an error.
+
+    >>> from pytest import raises
+    >>> from discopy.utils import AxiomError
+
+    >>> with raises(AxiomError) as err:
+    ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
+    >>> print(err.value)
+    symmetric.Diagram does not have copy or discard.
+
+    >>> with raises(AxiomError) as err:
+    ...     Diagram.from_callable(x, Ty())(lambda x: ())
+    >>> print(err.value)
+    symmetric.Diagram does not have copy or discard.
+
+
+    Note
+    ----
+    As for :class:`discopy.balanced.Diagram`, our symmetric diagrams are traced
+    by default. However now we have that the axioms for trace hold on the nose.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
 
@@ -79,7 +139,7 @@ class Diagram(braided.Diagram):
 
         Note
         ----
-        This calls :func:`braided.hexagon` and :attr:`braid_factory`.
+        This calls :func:`balanced.hexagon` and :attr:`braid_factory`.
         """
         return cls.braid(left, right)
 
@@ -117,20 +177,52 @@ class Diagram(braided.Diagram):
         """
         return self >> self.permutation(list(xs), self.cod)
 
+    def to_hypergraph(self) -> Hypergraph:
+        """ Translate a diagram into a hypergraph. """
+        category = Category(self.ty_factory, self.factory)
+        functor = self.hypergraph_factory.functor
+        return self.hypergraph_factory[category, functor].from_diagram(self)
 
-class Box(braided.Box, Diagram):
+    def simplify(self):
+        """ Simplify by translating back and forth to hypergraph. """
+        return self.to_hypergraph().to_diagram()
+
+    def __eq__(self, other):
+        return isinstance(other, self.factory)\
+            and self.to_hypergraph() == other.to_hypergraph()
+
+    def __hash__(self):
+        return hash(self.to_hypergraph())
+
+    def depth(self):
+        """
+        The depth of a symmetric diagram.
+
+        Examples
+        --------
+        >>> x = Ty('x')
+        >>> f = Box('f', x, x)
+        >>> assert Id(x).depth() == Id().depth() == 0
+        >>> assert f.depth() == (f @ f).depth() == 1
+        >>> assert (f @ f >> Swap(x, x)).depth() == 1
+        >>> assert (f >> f).depth() == 2 and (f >> f >> f).depth() == 3
+        """
+        return self.to_hypergraph().depth()
+
+
+class Box(balanced.Box, Diagram):
     """
-    A symmetric box is a braided box in a symmetric diagram.
+    A symmetric box is a balanced box in a symmetric diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (braided.Box, )
+    __ambiguous_inheritance__ = (balanced.Box, )
 
 
-class Swap(braided.Braid, Box):
+class Swap(balanced.Braid, Box):
     """
     The swap of atomic types :code:`left` and :code:`right`.
 
@@ -144,7 +236,7 @@ class Swap(braided.Braid, Box):
     For complex types, use :meth:`Diagram.swap` instead.
     """
     def __init__(self, left, right):
-        braided.Braid.__init__(self, left, right)
+        balanced.Braid.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod,
                      draw_as_wires=True, draw_as_braid=False)
 
@@ -152,9 +244,25 @@ class Swap(braided.Braid, Box):
         return type(self)(self.right, self.left)
 
 
-class Category(braided.Category):
+class Trace(balanced.Trace, Box):
     """
-    A symmetric category is a braided category with a method :code:`swap`.
+    A trace in a symmetric category.
+
+    Parameters:
+        arg : The diagram to trace.
+        left : Whether to trace the wires on the left or right.
+
+    See also
+    --------
+    :meth:`Diagram.trace`
+    """
+    __ambiguous_inheritance__ = (balanced.Trace, )
+    __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
+
+
+class Category(balanced.Category):
+    """
+    A symmetric category is a balanced category with a method :code:`swap`.
 
     Parameters:
         ob : The objects of the category, default is :class:`Ty`.
@@ -163,7 +271,7 @@ class Category(braided.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(monoidal.Functor):
+class Functor(balanced.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
 
@@ -182,5 +290,11 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
+class Hypergraph(balanced.Hypergraph):
+    category, functor = Category, Functor
+
+
+Diagram.hypergraph_factory = Hypergraph
 Diagram.braid_factory = Swap
+Diagram.trace_factory = Trace
 Id = Diagram.id
