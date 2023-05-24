@@ -51,10 +51,8 @@ def test_normal_form():
     diagram = w1 @ w2 >>\
         Id(n) @ Cap(n, n.l) @ Id(n) >> Id(n @ n) @ Cup(n.l, n)
     expected_result = w1 @ w2
-    assert expected_result == diagram.normal_form()
-
-    with raises(ValueError) as err:
-        (w2 >> w1 @ Id(n)).normal_form()
+    assert expected_result == diagram.normal_form()\
+        == (w2 >> w1 @ Id(n)).normal_form()
 
 
 def test_from_tree():

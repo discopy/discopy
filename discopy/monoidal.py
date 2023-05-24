@@ -586,20 +586,44 @@ class Diagram(cat.Arrow, Whiskerable):
         return self.dom, list(zip(self.boxes, self.offsets))
 
     @classmethod
-    def decode(cls, dom: Ty, boxes_and_offsets: list[tuple[Box, int]]
-               ) -> Diagram:
+    def decode(
+            cls,
+            dom: Ty,
+            boxes_and_offsets: list[tuple[Box, int]] = None,
+            boxes: list[Box] = None,
+            offsets: list[int] = None,
+            cod: Ty = None) -> Diagram:
         """
         Turn a tuple of boxes and offsets into a diagram.
 
         Parameters:
             dom : The domain of the diagram.
+            cod : The codomain of the diagram.
             boxes_and_offsets : The boxes and offsets of the diagram.
+            boxes : The list of boxes.
+            offsets : The list of offsets.
+
+        Example
+        -------
+        >>> x, y, z, w = map(Ty, "xyzw")
+        >>> f, g = Box('f', x, y), Box('g', z, w)
+        >>> assert f @ z >> y @ g == Diagram.decode(
+        ...     dom=x @ z, cod=y @ w, boxes=[f, g], offsets=[0, 1])
+
+        Note
+        ----
+        If ``boxes_and_offsets is None``
+        then we set it to ``zip(boxes, offstes)``.
         """
+        if boxes_and_offsets is None:
+            boxes_and_offsets = zip(boxes, offsets)
         diagram = cls.id(dom)
         for box, offset in boxes_and_offsets:
             left = diagram.cod[:offset]
             right = diagram.cod[offset + len(box.dom):]
             diagram = diagram >> left @ box @ right
+        if cod is not None:
+            assert_iscomposable(diagram, cls.id(cod))
         return diagram
 
     def to_drawing(self):
@@ -667,7 +691,6 @@ class Diagram(cat.Arrow, Whiskerable):
 
         Example
         -------
-        >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
         >>> assert Id(x @ y).depth() == 0
@@ -790,12 +813,12 @@ class Diagram(cat.Arrow, Whiskerable):
         """
         cache = set()
         for diagram in itertools.chain([self], self.normalize(**params)):
-            if diagram in cache:
+            if str(diagram) in cache:
                 exception = NotImplementedError(
                     messages.NOT_CONNECTED.format(self))
                 exception.last_step = diagram
                 raise exception
-            cache.add(diagram)
+            cache.add(str(diagram))
         return diagram
 
     @classmethod

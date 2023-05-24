@@ -54,7 +54,7 @@ Examples
 >>> ar = {Alice: Ket(0),
 ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
 ...       Bob: Ket(1)}
->>> F = rigid.Functor(ob, ar, cod=Category(Ty, Circuit))
+>>> F = pregroup.Functor(ob, ar, cod=Category(Ty, Circuit))
 >>> assert abs(F(sentence).eval().array) ** 2
 
 >>> from discopy.drawing import Equation
@@ -778,27 +778,6 @@ class Circuit(tensor.Diagram):
             gate, head = Controlled(gate, distance=head - x), x
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
-
-    def __getattr__(self, attr):
-        from discopy.quantum.gates import GATES, Box, Rotation, Controlled
-        if attr in GATES:
-            gate = GATES[attr]
-            if isinstance(gate, Controlled)\
-                    and isinstance(gate.controlled, Controlled):
-                gate = gate.controlled.controlled
-                return lambda i, j, k: self.apply_controlled(gate, i, j, k)
-            if isinstance(gate, Controlled):
-                gate = gate.controlled
-                return lambda i, j: self.apply_controlled(gate, i, j)
-            if isinstance(gate, Box):
-                return lambda i: self.apply_controlled(gate, i)
-            if issubclass(gate, Rotation) and issubclass(gate, Controlled):
-                gate = gate.controlled
-                return lambda phi, i, j: self.apply_controlled(gate(phi), i, j)
-            if issubclass(gate, Rotation):
-                return lambda phi, i: self.apply_controlled(gate(phi), i)
-        raise AttributeError(messages.HAS_NO_ATTRIBUTE.format(
-            factory_name(type(self)), attr))
 
 
 class Box(tensor.Box, Circuit):

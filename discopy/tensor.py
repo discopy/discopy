@@ -32,9 +32,8 @@ from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup, Category
-from discopy.matrix import Matrix, backend
+from discopy.matrix import Matrix, backend, set_backend, get_backend
 from discopy.monoidal import assert_isatomic
-from discopy.rigid import assert_isadjoint
 from discopy.utils import factory_name, assert_isinstance, product
 
 
@@ -91,7 +90,7 @@ class Tensor(Matrix):
     >>> v.subs(phi, 0).lambdify(psi, dtype=int)(1)
     Tensor[int]([0, 1], dom=Dim(1), cod=Dim(2))
 
-    We can also use jax.numpy using Tensor.backend.
+    We can also use jax.numpy using :func:`backend`.
 
     >>> with backend('jax'):
     ...     f = lambda *xs: d.lambdify(phi, psi, dtype=float)(*xs).array
@@ -153,7 +152,7 @@ class Tensor(Matrix):
     def cup_factory(cls, left: Dim, right: Dim) -> Tensor:
         assert_isinstance(left, Dim)
         assert_isinstance(right, Dim)
-        assert_isadjoint(left, right)
+        left.assert_isadjoint(right)
         return cls(cls.id(left).array, left @ right, Dim(1))
 
     @classmethod
@@ -182,10 +181,11 @@ class Tensor(Matrix):
         assert_isatomic(typ, Dim)
         n, = typ.inside
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        result = cls.zero(dom, cod)
-        for i in range(n):
-            result.array[len(dom @ cod) * (i, )] = 1
-        return result
+        with backend('numpy'):
+            result = cls.zero(dom, cod)
+            for i in range(n):
+                result.array[len(dom @ cod) * (i, )] = 1
+            return result
 
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None

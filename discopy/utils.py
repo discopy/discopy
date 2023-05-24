@@ -4,6 +4,9 @@
 
 from __future__ import annotations
 
+import os
+import json
+from functools import wraps
 from abc import ABC, abstractmethod
 from typing import (
     Callable,
@@ -12,6 +15,10 @@ from typing import (
     Iterable,
     TypeVar,
     Any,
+    Hashable,
+    Literal,
+    cast,
+    Union,
     Collection,
     Type,
     Optional,
@@ -21,8 +28,11 @@ from typing import (
 import json
 from functools import wraps
 from networkx import Graph, connected_components
+from matplotlib.testing.compare import compare_images
 
 from discopy import messages
+from discopy.config import DRAWING_DEFAULT
+
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram
 
@@ -393,6 +403,71 @@ def pushout(
         j: len(left_proper) + len(components) + i
         for i, j in enumerate(right_proper)})
     return left_pushout, right_pushout
+
+
+class BinaryBoxConstructor:
+    """
+    Box constructor with attributes ``left`` and ``right`` as input.
+
+    Parameters:
+        left : Some attribute on the left.
+        right : Some attribute on the right.
+    """
+    def __init__(self, left, right):
+        self.left, self.right = left, right
+
+    def __repr__(self):
+        return factory_name(type(self))\
+            + f"({repr(self.left)}, {repr(self.right)})"
+
+    def to_tree(self) -> dict:
+        """ Serialise a binary box constructor. """
+        left, right = self.left.to_tree(), self.right.to_tree()
+        return dict(factory=factory_name(type(self)), left=left, right=right)
+
+    @classmethod
+    def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
+        """ Decode a serialised binary box constructor. """
+        return cls(*map(from_tree, (tree['left'], tree['right'])))
+
+
+def draw_and_compare(file, folder, tol, **params):
+    """ Draw a given diagram and compare the result with a baseline. """
+    def decorator(func):
+        def wrapper():
+            diagram = func()
+            draw = params.get('draw', type(diagram).draw)
+            true_path = os.path.join(folder, file)
+            test_path = os.path.join(folder, '.' + file)
+            draw(diagram, path=test_path, show=False, **params)
+            test = compare_images(true_path, test_path, tol)
+            assert test is None
+            os.remove(test_path)
+        return wrapper
+    return decorator
+
+
+def tikz_and_compare(file, folder, **params):
+    """ Tikz a given diagram and compare the result with a baseline. """
+    def decorator(func):
+        def wrapper():
+            diagram = func()
+            draw = params.get('draw', type(diagram).draw)
+            true_paths = [os.path.join(folder, file)]
+            test_paths = [os.path.join(folder, '.' + file)]
+            if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
+                true_paths.append(
+                    true_paths[0].replace('.tikz', '.tikzstyles'))
+                test_paths.append(
+                    test_paths[0].replace('.tikz', '.tikzstyles'))
+            draw(diagram, path=test_paths[0], **dict(params, to_tikz=True))
+            for true_path, test_path in zip(true_paths, test_paths):
+                with open(true_path, "r") as true:
+                    with open(test_path, "r") as test:
+                        assert true.read() == test.read()
+                os.remove(test_path)
+        return wrapper
+    return decorator
 
 
 def tuplify(stuff: any) -> tuple:

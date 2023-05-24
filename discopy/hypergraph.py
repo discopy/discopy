@@ -38,6 +38,7 @@ from networkx import (
     spring_layout,
     draw_networkx,
     dag_longest_path_length,
+    weisfeiler_lehman_graph_hash,
 )
 from networkx.algorithms.isomorphism import is_isomorphic
 
@@ -522,8 +523,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
-        return hash(getattr(self, attr) for attr in [
-            'dom', 'cod', 'boxes', 'wires', 'n_spiders'])
+        return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
+            self.to_graph(), node_attr="box")))
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
@@ -1082,7 +1083,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     obj = self.spider_types[spider]
                     spider_node = Node("spider", i=spider, obj=obj)
                     port_node = Node(case, i=i, j=j)
-                    graph.add_node(port_node, j=j)
+                    graph.add_node(port_node, j=j, box=None)
                     if case == "dom":
                         graph.add_edge(spider_node, port_node)
                         graph.add_edge(port_node, box_node)
