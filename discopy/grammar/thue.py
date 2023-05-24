@@ -2,7 +2,7 @@
 A formal grammar is a free monoidal category with words and rules as boxes.
 
 Formal grammars are also known as string rewriting or semi-Thue systems, they
-were introduced by Thue :cite:`Thue14`, see :cite:`Power13` for a translation.
+were introduced by Thue :cite:`Thue14`.
 
 The parsing problem is to decide, given two strings, whether there exists a
 diagram from one to the other. It has been shown to be undecidable by Post

@@ -7,7 +7,7 @@ from discopy import (
     monoidal,
     braided,
     symmetric,
-    comonoid,
+    markov,
     traced,
     closed,
     rigid,
@@ -27,4 +27,4 @@ from discopy import (
     messages,
 )
 
-__version__ = '1.0.1'
+__version__ = '1.1.0'

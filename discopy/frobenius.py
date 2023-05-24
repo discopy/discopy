@@ -60,7 +60,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import comonoid, compact, pivotal, hypergraph
+from discopy import markov, compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import assert_isatomic
 from discopy.utils import factory_name, assert_isinstance
@@ -115,16 +115,16 @@ class Dim(Ty):
 
 
 @factory
-class Diagram(compact.Diagram, comonoid.Diagram):
+class Diagram(compact.Diagram, markov.Diagram):
     """
-    A frobenius diagram is a compact diagram and a comonoid diagram.
+    A frobenius diagram is a compact diagram and a Markov diagram.
 
     Parameters:
         inside(Layer) : The layers of the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    __ambiguous_inheritance__ = (compact.Diagram, comonoid.Diagram)
+    __ambiguous_inheritance__ = (compact.Diagram, markov.Diagram)
 
     ty_factory = Ty
 
@@ -174,16 +174,16 @@ class Diagram(compact.Diagram, comonoid.Diagram):
         return F(self)
 
 
-class Box(compact.Box, comonoid.Box, Diagram):
+class Box(compact.Box, markov.Box, Diagram):
     """
-    A frobenius box is a compact and comonoid box in a frobenius diagram.
+    A frobenius box is a compact and Markov box in a frobenius diagram.
 
     Parameters:
         name (str) : The name of the box.
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (compact.Box, comonoid.Box)
+    __ambiguous_inheritance__ = (compact.Box, markov.Box)
 
 
 class Cup(compact.Cup, Box):
@@ -208,15 +208,15 @@ class Cap(compact.Cap, Box):
     __ambiguous_inheritance__ = (compact.Cap, )
 
 
-class Swap(compact.Swap, comonoid.Swap, Box):
+class Swap(compact.Swap, markov.Swap, Box):
     """
-    A frobenius swap is a compact swap in a frobenius diagram.
+    A frobenius swap is a compact and Markov swap in a frobenius diagram.
 
     Parameters:
         left (Ty) : The type on the top left and bottom right.
         right (Ty) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (compact.Swap, comonoid.Swap)
+    __ambiguous_inheritance__ = (compact.Swap, markov.Swap)
 
 
 class Spider(Box):
@@ -274,7 +274,7 @@ class Spider(Box):
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
-class Category(compact.Category, comonoid.Category):
+class Category(compact.Category, markov.Category):
     """
     A hypergraph category is a compact category with a method :code:`spiders`.
 
@@ -282,12 +282,12 @@ class Category(compact.Category, comonoid.Category):
         ob : The objects of the category, default is :class:`Ty`.
         ar : The arrows of the category, default is :class:`Diagram`.
     """
-    __ambiguous_inheritance__ = (compact.Category, comonoid.Category)
+    __ambiguous_inheritance__ = (compact.Category, markov.Category)
 
     ob, ar = Ty, Diagram
 
 
-class Functor(compact.Functor, comonoid.Functor):
+class Functor(compact.Functor, markov.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
 
@@ -296,7 +296,7 @@ class Functor(compact.Functor, comonoid.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    __ambiguous_inheritance__ = (compact.Functor, comonoid.Functor)
+    __ambiguous_inheritance__ = (compact.Functor, markov.Functor)
 
     dom = cod = Category()
 
@@ -306,8 +306,8 @@ class Functor(compact.Functor, comonoid.Functor):
         if isinstance(other, Spider):
             return self.cod.ar.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
-        if isinstance(other, (comonoid.Copy, comonoid.Merge)):
-            return comonoid.Functor.__call__(self, other)
+        if isinstance(other, (markov.Copy, markov.Merge)):
+            return markov.Functor.__call__(self, other)
         return compact.Functor.__call__(self, other)
 
 
