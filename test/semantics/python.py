@@ -30,7 +30,7 @@ def test_trace():
 
 
 def test_FinSet():
-    from discopy.comonoid import Ty, Diagram, Functor, Category
+    from discopy.markov import Ty, Diagram, Functor, Category
 
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)
