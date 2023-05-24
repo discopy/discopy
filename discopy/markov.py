@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free Markov category, i.e. with a terminal object and a supply of
+The free Markov category, i.e. a semicartesian category with a supply of
 commutative comonoid, see :cite:t:`FritzLiang23`.
 
 Summary
