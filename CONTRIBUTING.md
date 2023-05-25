@@ -42,8 +42,8 @@ sphinx-build docs docs/_build/html
 New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `twine`:
 
 ```shell
-git tag 'X.X.X'
-python -m build
+git tag 'X.X.X'  # push to remote repo also
+python -m build  # from a clean clone
 pip install twine
 twine upload dist/*
 ```
