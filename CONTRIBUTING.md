@@ -15,7 +15,7 @@ pip install .
 Then you should check you haven't broken anything by running the test suite:
 
 ```shell
-pip install ".[test]" .
+pip install ".[test]"
 pycodestyle discopy
 coverage run --source=discopy -m pytest --doctest-modules
 coverage report -m
@@ -39,10 +39,11 @@ sphinx-build docs docs/_build/html
 
 ## Release a version
 
-New versions of the package are released on [PyPI](https://pypi.org/project/discopy/) using `twine`:
+New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `twine`:
 
 ```shell
+git tag 'X.X.X'  # push to remote repo
+python -m build  # from a clean clone
 pip install twine
-python setup.py sdist
 twine upload dist/*
 ```
