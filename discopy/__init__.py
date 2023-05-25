@@ -27,4 +27,6 @@ from discopy import (
     messages,
 )
 
-__version__ = '1.1.1'
+from discopy.version import (
+    version as __version__,
+    version_tuple as __version_info__)

@@ -19,3 +19,4 @@ docs/_api/*
 build/*
 dist/*
 todo.md
+discopy/version.py

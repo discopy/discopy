@@ -1,6 +1,10 @@
 name: build
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+      - 'main'
+  pull_request:
 
 env:
   SRC_DIR: discopy
@@ -41,13 +45,10 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install base package
-      run: pip install .
+      run: python -m pip install .[test]
     - name: Install coverage and pytest
       run:
         python -m pip install coverage pytest
-    - name: Install test dependencies
-      run:
-        python -m pip install -r ${{ env.TEST_DIR }}/requirements.txt
     - name: Test with pytest
       run:
         coverage run --source=${{ env.SRC_DIR }} -m pytest ${{ env.SRC_DIR }} ${{ env.TEST_DIR }} --doctest-modules
