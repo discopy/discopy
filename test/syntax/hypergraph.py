@@ -30,6 +30,12 @@ def test_Hypergraph_repr():
            "dom=frobenius.Ty(frobenius.Ob('x'), frobenius.Ob('y')), "\
            "cod=frobenius.Ty(), boxes=(), wires=(0, 1))"
 
+
+def test_Hypergraph_hash():
+    x, y = map(Ty, "xy")
+    assert hash(H.id(x @ y)) == hash(H.id(x) @ H.id(y))
+
+
 def test_Hypergraph_then():
     x, y = map(Ty, "xy")
     with raises(AxiomError):

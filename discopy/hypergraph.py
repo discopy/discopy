@@ -1065,10 +1065,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         graph = Graph()
         graph.add_nodes_from(
-            Node("spider", i=i, obj=obj)
+            (Node("spider", i=i, obj=obj), dict(box=None))
             for i, obj in enumerate(self.spider_types))
         graph.add_nodes_from(
-            (Node("input", i=i, obj=obj), dict(i=i))
+            (Node("input", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.dom))
         graph.add_edges_from(
             (Node("input", i=i, obj=obj), Node("spider", i=j, obj=obj))
@@ -1091,7 +1091,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                         graph.add_edge(box_node, port_node)
                         graph.add_edge(port_node, spider_node)
         graph.add_nodes_from(
-            (Node("output", i=i, obj=obj), dict(i=i))
+            (Node("output", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.cod))
         graph.add_edges_from(
             (Node("spider", i=j, obj=obj), Node("output", i=i, obj=obj))
