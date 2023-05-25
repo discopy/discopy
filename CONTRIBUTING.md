@@ -33,7 +33,7 @@ pytest --nbmake docs/notebooks/*.ipynb
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
 
 ```shell
-pip install ".[docs]" .
+pip install ".[docs]"
 sphinx-build docs docs/_build/html
 ```
 
