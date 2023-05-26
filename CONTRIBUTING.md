@@ -18,7 +18,7 @@ Then you should check you haven't broken anything by running the test suite:
 pip install ".[test]"
 pycodestyle discopy
 coverage run --source=discopy -m pytest --doctest-modules
-coverage report -m
+coverage report -m --fail-under=99
 ```
 
 You should also check that the notebooks work fine:
@@ -39,11 +39,13 @@ sphinx-build docs docs/_build/html
 
 ## Release a version
 
-New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `twine`:
+New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `twine`.
+You should run the following commands from a clean clone of the repo:
 
 ```shell
-git tag 'X.X.X'  # push to remote repo
-python -m build  # from a clean clone
 pip install twine
+git tag X.X.X
+git push origin --tags
+python -m build
 twine upload dist/*
 ```
