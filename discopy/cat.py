@@ -24,6 +24,8 @@ We can create dagger functors from the free category to itself:
 from functools import total_ordering
 from collections.abc import Mapping, Iterable
 
+import numpy as np
+
 from discopy import messages
 from discopy.utils import factory_name, from_tree, rsubs, rmap
 
@@ -503,7 +505,7 @@ class Box(Arrow):
     """
     def __init__(self, name, dom, cod, **params):
         def recursive_free_symbols(data):
-            if hasattr(data, 'tolist'):
+            if isinstance(data, np.ndarray):
                 data = data.tolist()
             if isinstance(data, Mapping):
                 data = data.values()
