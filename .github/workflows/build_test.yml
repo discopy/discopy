@@ -44,10 +44,10 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'  # caching pip dependencies
     - name: Install base package
       run: |
-        # Install PyTorch without CUDA!
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu  # Install PyTorch without CUDA
         python -m pip install .[test]
     - name: Install coverage and pytest
       run:
