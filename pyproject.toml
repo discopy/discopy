@@ -40,7 +40,7 @@ dependencies = [
 test = [
     "pytest",
     "coverage",
-    "pycodestyle",
+    "pyproject-flake8",
     "pytket",
     "pyzx >= 0.7.0",
     "sympy == 1.9",
@@ -86,15 +86,18 @@ packages = [
 [tool.setuptools_scm]
 write_to = "discopy/version.py"
 
-[pycodestyle]
-ignore = [
+[tool.flake8]
+extend-ignore = [
     "E731",
     "E741",
     "E743",
     "W503"
 ]
+per-file-ignores = [
+    "__init__.py:F401"
+]
 
 [tool.pytest.ini_options]
 testpaths = [
-    "test"
+    "test/*/*.py"
 ]

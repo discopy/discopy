@@ -25,11 +25,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install linter
       run:
-        python -m pip install pycodestyle coverage pylint
+        python -m pip install pyproject-flake8 coverage pylint
     - name: Check for errors
       run:
         # stop the build if there are Python syntax errors or undefined names
-        pycodestyle discopy
+        pflake8 discopy
     - name: pylint
       run:
         pylint discopy
