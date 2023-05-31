@@ -92,7 +92,6 @@ extend-ignore = [
     "E741",
     "E743",
     "W503",
-    # TODO: remove the following and fix them
     "F811",
 ]
 per-file-ignores = [
