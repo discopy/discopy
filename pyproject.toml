@@ -95,7 +95,6 @@ extend-ignore = [
     # TODO: remove the following and fix them
     "F811",
     "F821",
-    "F841"
 ]
 per-file-ignores = [
     "__init__.py:F401"

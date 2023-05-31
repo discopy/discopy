@@ -191,7 +191,6 @@ class Grid:
             if row and row[0].start > 0:
                 td = SubElement(tr, "td")
                 td.set("colspan", str(row[0].start))
-            offset = 0
             for cell, next_cell in zip(row, row[1:] + [None]):
                 if cell.start == cell.stop:
                     td = SubElement(tr, "td")
@@ -211,7 +210,6 @@ class Grid:
                         td.set("colspan", str(
                             width - cell.stop if next_cell is None
                             else next_cell.start - cell.stop))
-                    offset = cell.stop
         return ElementTree(root)
 
     def to_ascii(self, _debug=False) -> str:

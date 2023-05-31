@@ -780,7 +780,6 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         for spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
-            n_legs = len(input_wires) + len(output_wires)
             if len(input_wires) == 1:
                 continue
             depth = getattr(self.ports[max(input_wires)], "depth", -1) + 1\
