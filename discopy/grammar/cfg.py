@@ -37,12 +37,17 @@ The axioms of multicategories (aka operads) hold on the nose.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from discopy import monoidal
 from discopy.cat import factory, Category, Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
 from discopy.utils import (
     assert_isinstance, factory_name, assert_isatomic, AxiomError)
+
+if TYPE_CHECKING:
+    import nltk
 
 
 @factory
@@ -105,7 +110,7 @@ class Tree:
     def __eq__(self, other):
         return self.root == other.root and self.branches == other.branches
 
-    def to_diagram(self, contravariant=False) -> discopy.monoidal.Diagram:
+    def to_diagram(self, contravariant=False) -> monoidal.Diagram:
         """
         Interface between Tree and monoidal.Diagram.
 
@@ -160,7 +165,7 @@ class Rule(Tree, thue.Rule):
         if isinstance(other, Tree):
             return other.root == self and other.branches == []
 
-    def to_diagram(self) -> discopy.monoidal.Box:
+    def to_diagram(self) -> monoidal.Box:
         return monoidal.Box(self.name, self.dom, self.cod)
 
 

@@ -53,7 +53,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from typing import Iterator, Callable
+from typing import Iterator, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from warnings import warn
 
@@ -68,6 +68,9 @@ from discopy.utils import (
     Whiskerable,
     AxiomError,
 )
+
+if TYPE_CHECKING:
+    import sympy
 
 
 @factory

@@ -44,6 +44,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from typing import Iterator
+
 from discopy import cat, monoidal, closed, messages
 from discopy.cat import factory
 from discopy.utils import (

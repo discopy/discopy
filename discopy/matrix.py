@@ -39,7 +39,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from types import ModuleType
-from typing import Union, Literal as L
+from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
 from discopy.cat import (
@@ -50,6 +50,9 @@ from discopy.cat import (
 )
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, unbiased, NamedGeneric
+
+if TYPE_CHECKING:
+    import sympy
 
 
 @factory

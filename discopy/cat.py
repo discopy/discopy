@@ -80,7 +80,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import total_ordering, cached_property
 from typing import (
-    Callable, Mapping, Iterable, Optional, Type)
+    Callable, Mapping, Iterable, Optional, Type, TYPE_CHECKING)
 
 from discopy import messages, utils
 from discopy.utils import (
@@ -95,6 +95,9 @@ from discopy.utils import (
     assert_iscomposable,
     assert_isparallel,
 )
+
+if TYPE_CHECKING:
+    import sympy
 
 dumps, loads = utils.dumps, utils.loads
 

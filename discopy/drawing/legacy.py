@@ -33,6 +33,8 @@ from abc import ABC, abstractmethod
 from math import sqrt
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
+from typing import TYPE_CHECKING
+
 import matplotlib.pyplot as plt
 from PIL import Image
 from matplotlib.patches import PathPatch
@@ -41,6 +43,9 @@ from matplotlib.path import Path
 from discopy.config import (  # noqa: F401
     DRAWING_ATTRIBUTES as ATTRIBUTES,
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
+
+if TYPE_CHECKING:
+    from discopy import monoidal
 
 
 class Node:
@@ -708,7 +713,7 @@ class Equation:
     .. image:: /_static/drawing/frobenius-axioms.png
         :align: center
     """
-    def __init__(self, *terms: discopy.monoidal.Diagram, symbol="=", space=1):
+    def __init__(self, *terms: monoidal.Diagram, symbol="=", space=1):
         self.terms, self.symbol, self.space = terms, symbol, space
 
     def __repr__(self):
