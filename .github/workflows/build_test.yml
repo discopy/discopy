@@ -47,11 +47,11 @@ jobs:
         cache: 'pip'  # caching pip dependencies
     - name: Install base package
       run: |
-        python -m pip install torch --index-url https://download.pytorch.org/whl/cpu  # Install PyTorch without CUDA
-        python -m pip install .[test]
+        pip install torch --index-url https://download.pytorch.org/whl/cpu  # Install PyTorch without CUDA
+        pip install .[test]
     - name: Install coverage and pytest
       run:
-        python -m pip install coverage pytest
+        pip install coverage pytest
     - name: Test with pytest
       run:
         coverage run --source=${{ env.SRC_DIR }} -m pytest --doctest-modules
