@@ -91,7 +91,6 @@ extend-ignore = [
     "E731",
     "E741",
     "E743",
-    "W503",
     "F811",
 ]
 per-file-ignores = [
