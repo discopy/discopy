@@ -31,10 +31,11 @@ Summary
         brute_force
 """
 
-from discopy import messages, rigid, frobenius, messages
-from discopy.cat import factory, AxiomError
+from discopy import rigid, frobenius, messages
+from discopy.cat import factory
+from discopy.utils import AxiomError
 from discopy.grammar import thue
-from discopy.rigid import Ob
+from discopy.rigid import Ob  # noqa: F401
 
 
 @factory

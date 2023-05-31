@@ -41,7 +41,7 @@ from contextlib import contextmanager
 from types import ModuleType
 from typing import Union, Literal as L
 
-from discopy import cat, monoidal, config, messages
+from discopy import monoidal, config, messages
 from discopy.cat import (
     factory,
     Composable,
@@ -50,8 +50,6 @@ from discopy.cat import (
 )
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, unbiased, NamedGeneric
-
-import numpy as np
 
 
 @factory
@@ -95,6 +93,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     The default data type is determined by underlying array datastructure of
     the backend used. An array is initialised with ``array`` as parameter and
     the dtype of the ``Matrix`` object is the data type of this array.
+    >>> import numpy as np
     >>> assert Matrix([1, 0], dom=1, cod=2).dtype == np.int64
     >>> assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
     >>> assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128

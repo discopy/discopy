@@ -32,9 +32,9 @@ from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup, Category
-from discopy.matrix import Matrix, backend, set_backend, get_backend
-from discopy.monoidal import assert_isatomic
-from discopy.utils import factory_name, assert_isinstance, product
+from discopy.matrix import Matrix, backend
+from discopy.utils import (
+    factory_name, assert_isinstance, product, assert_isatomic)
 
 
 @factory

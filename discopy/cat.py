@@ -77,11 +77,10 @@ Functors are bubble-preserving.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from functools import total_ordering, cached_property
 from typing import (
-    Callable, Mapping, Iterable, Optional, TypeVar, Generic, Type)
+    Callable, Mapping, Iterable, Optional, Type)
 
 from discopy import messages, utils
 from discopy.utils import (
@@ -92,7 +91,6 @@ from discopy.utils import (
     unbiased,
     MappingOrCallable,
     Composable,
-    AxiomError,
     assert_isinstance,
     assert_iscomposable,
     assert_isparallel,
@@ -302,7 +300,7 @@ class Arrow(Composable[Ob]):
             others : The other arrows to compose.
 
         Raises:
-            cat.AxiomError : Whenever `self` and `others` do not compose.
+            AxiomError : Whenever `self` and `others` do not compose.
         """
         if any(isinstance(other, Sum) for other in others):
             return self.sum_factory((self, )).then(*others)

@@ -38,8 +38,7 @@ from PIL import Image
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
-from discopy.utils import assert_isinstance
-from discopy.config import (
+from discopy.config import (  # noqa: F401
     DRAWING_ATTRIBUTES as ATTRIBUTES,
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 

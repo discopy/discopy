@@ -56,7 +56,10 @@ from discopy.cat import rsubs
 from discopy.matrix import get_backend
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
-from discopy.tensor import Dim, Tensor, backend
+from discopy.tensor import (  # noqa: F401
+    Dim, Tensor,
+    backend
+)
 from discopy.utils import factory_name, assert_isinstance
 
 

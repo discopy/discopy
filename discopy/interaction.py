@@ -66,8 +66,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import wraps
 
-from discopy import (
-    balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
+from discopy import (  # noqa: F401
+    balanced,
+    traced,
+    rigid,
+    pivotal,
+    ribbon,
+    frobenius,
+    messages
+)
 from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
 from discopy.utils import (

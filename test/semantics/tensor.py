@@ -2,7 +2,7 @@ import numpy as np
 import tensornetwork as tn
 from pytest import raises
 
-from discopy.cat import AxiomError
+from discopy.utils import AxiomError
 from discopy.tensor import *
 from discopy import frobenius
 

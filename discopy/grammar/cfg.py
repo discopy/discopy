@@ -38,10 +38,11 @@ The axioms of multicategories (aka operads) hold on the nose.
 from __future__ import annotations
 
 from discopy import monoidal
-from discopy.cat import factory, Category, Functor, AxiomError
+from discopy.cat import factory, Category, Functor
 from discopy.grammar import thue
-from discopy.monoidal import Ty, assert_isatomic
-from discopy.utils import assert_isinstance, factory_name
+from discopy.monoidal import Ty
+from discopy.utils import (
+    assert_isinstance, factory_name, assert_isatomic, AxiomError)
 
 
 @factory

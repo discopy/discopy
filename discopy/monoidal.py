@@ -58,16 +58,15 @@ from dataclasses import dataclass
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
-from discopy.cat import Ob, AxiomError
+from discopy.cat import Ob
 from discopy.utils import (
     factory,
     factory_name,
     from_tree,
     assert_isinstance,
     assert_iscomposable,
-    assert_isatomic,
-    Composable,
     Whiskerable,
+    AxiomError,
 )
 
 
@@ -418,7 +417,7 @@ class Layer(cat.Box):
         for layer in diagram.inside:
             left, box, right = layer
             if len(left) < offset:
-                raise cat.AxiomError(
+                raise AxiomError(
                     messages.NOT_MERGEABLE.format(self, other))
             boxes_or_types[-1] @= left[offset:]
             boxes_or_types += [box, right[:0]]
@@ -679,7 +678,7 @@ class Diagram(cat.Arrow, Whiskerable):
                     self = self.factory(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
-                except cat.AxiomError:
+                except AxiomError:
                     continue
             if not keep_on_going:
                 break

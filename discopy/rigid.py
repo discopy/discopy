@@ -45,9 +45,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import cat, monoidal, closed, messages
-from discopy.cat import AxiomError, factory
-from discopy.monoidal import assert_isatomic
-from discopy.utils import assert_isinstance, factory_name, BinaryBoxConstructor
+from discopy.cat import factory
+from discopy.utils import (
+    assert_isinstance,
+    factory_name,
+    BinaryBoxConstructor,
+    AxiomError,
+    assert_isatomic
+)
 
 
 class Ob(cat.Ob):

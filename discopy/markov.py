@@ -73,7 +73,8 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.cat import factory
-from discopy.monoidal import Ty, assert_isatomic
+from discopy.monoidal import Ty
+from discopy.utils import assert_isatomic
 
 
 @factory

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from discopy import monoidal
     import lxml
 
 TABLE_STYLE = ".diagram .wire { border-left: 4px solid; text-align: left; } "\
@@ -42,7 +43,7 @@ class Cell:
     """
     start: int
     stop: int
-    label: discopy.monoidal.Ty | discopy.monoidal.Box = None
+    label: monoidal.Ty | monoidal.Box = None
 
     def __add__(self, offset: int) -> Cell:
         return Cell(self.start + offset, self.stop + offset, self.label)
@@ -57,7 +58,7 @@ class Cell:
 class Wire(Cell):
     """ A wire is a cell with ``stop = start``. """
 
-    def __init__(self, start: int, label: discopy.monoidal.Ty = None):
+    def __init__(self, start: int, label: monoidal.Ty = None):
         super().__init__(start, start, label)
 
     def __add__(self, offset: int) -> Wire:
@@ -271,7 +272,7 @@ class Grid:
         return '\n'.join(map(row_to_ascii, self.rows)).strip('\n')
 
     @staticmethod
-    def from_diagram(diagram: discopy.monoidal.Diagram) -> Grid:
+    def from_diagram(diagram: monoidal.Diagram) -> Grid:
         """
         Layout a diagram on a grid.
 

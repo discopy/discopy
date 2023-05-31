@@ -36,11 +36,16 @@ Summary
 import re
 
 from discopy import closed, messages
-from discopy.cat import factory, AxiomError
+from discopy.cat import factory
 from discopy.grammar import thue
 from discopy.closed import Ty, Over, Under
 from discopy.utils import (
-    assert_isinstance, factory_name, from_tree, BinaryBoxConstructor)
+    assert_isinstance,
+    factory_name,
+    from_tree,
+    BinaryBoxConstructor,
+    AxiomError
+)
 
 
 @factory

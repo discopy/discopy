@@ -4,10 +4,10 @@
 
 from __future__ import annotations
 
-import os
 import json
-from functools import wraps
+import os
 from abc import ABC, abstractmethod
+from functools import wraps
 from typing import (
     Callable,
     Generic,
@@ -15,20 +15,14 @@ from typing import (
     Iterable,
     TypeVar,
     Any,
-    Hashable,
-    Literal,
-    cast,
-    Union,
     Collection,
     Type,
     Optional,
     TYPE_CHECKING,
 )
 
-import json
-from functools import wraps
-from networkx import Graph, connected_components
 from matplotlib.testing.compare import compare_images
+from networkx import Graph, connected_components
 
 from discopy import messages
 from discopy.config import DRAWING_DEFAULT

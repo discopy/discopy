@@ -42,11 +42,10 @@ from networkx import (
 )
 from networkx.algorithms.isomorphism import is_isomorphic
 
-from discopy import drawing, messages
+from discopy import messages
 from discopy.cat import Category
 from discopy.drawing import Node
 from discopy.utils import (
-    factory,
     factory_name,
     assert_isinstance,
     pushout,

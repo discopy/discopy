@@ -61,9 +61,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal
-from discopy.cat import factory, AxiomError
-from discopy.monoidal import Ty, assert_isatomic, Match
-from discopy.utils import factory_name, from_tree, BinaryBoxConstructor
+from discopy.cat import factory
+from discopy.monoidal import Ty, Match
+from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
 
 
 @factory
