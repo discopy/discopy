@@ -30,7 +30,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
-
+>>> Diagram.structure_preserving = True
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
@@ -51,6 +51,8 @@ Axioms
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
 >>> assert special
 >>> special.draw(path="docs/_static/frobenius/special.png")
+
+>>> Diagram.structure_preserving = False
 
 .. image:: /_static/frobenius/special.png
     :align: center
