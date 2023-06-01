@@ -56,10 +56,7 @@ from discopy.cat import rsubs
 from discopy.matrix import get_backend
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
-from discopy.tensor import (  # noqa: F401
-    Dim, Tensor,
-    backend
-)
+from discopy.tensor import backend
 from discopy.utils import factory_name, assert_isinstance
 
 
@@ -263,6 +260,7 @@ class Digits(ClassicalGate):
 
     Examples
     --------
+    >>> from discopy.tensor import Dim, Tensor
     >>> assert Digits(2, dim=4).eval()\\
     ...     == Tensor[complex](dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
     """
@@ -322,6 +320,7 @@ class Ket(SelfConjugate, QuantumGate):
     """
     Implements qubit preparation for a given bitstring.
 
+    >>> from discopy.tensor import Dim, Tensor
     >>> assert Ket(1, 0).cod == qubit ** 2
     >>> assert Ket(1, 0).eval()\\
     ...     == Tensor[complex](dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
@@ -354,6 +353,7 @@ class Bra(SelfConjugate, QuantumGate):
     """
     Implements qubit post-selection for a given bitstring.
 
+    >>> from discopy.tensor import Dim, Tensor
     >>> assert Bra(1, 0).dom == qubit ** 2
     >>> assert Bra(1, 0).eval()\\
     ...     == Tensor[complex](dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
