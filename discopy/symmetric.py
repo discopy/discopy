@@ -98,13 +98,13 @@ class Diagram(balanced.Diagram):
     When set to `True`, the underlying hypergraphs are used for hashing and
     equality checking.
     The default value of `structure_preserving` is `False`.
-    >>> from discopy.drawing import Equation
     >>> x, y = Ty("x"), Ty("y")
     >>> id_hash = hash(Id(x @ y))
     >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
     >>> Diagram.structure_preserving = True
     >>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
     >>> assert id_hash != hash(Id(x @ y))
+    >>> Diagram.structure_preserving = False
 
     Note
     ----
@@ -208,16 +208,16 @@ class Diagram(balanced.Diagram):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
-    def _get_strcuture(self):
+    def _get_structure(self):
         return self.to_hypergraph() if self.structure_preserving else (
             self.inside, self.cod, self.dom)
 
     def __eq__(self, other):
         return isinstance(other, self.factory)\
-            and self._get_strcuture() == other._get_strcuture()
+            and self._get_structure() == other._get_structure()
 
     def __hash__(self):
-        return hash(self._get_strcuture())
+        return hash(self._get_structure())
 
     def depth(self):
         """
