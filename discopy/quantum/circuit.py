@@ -70,7 +70,6 @@ Examples
 from __future__ import annotations
 
 from collections.abc import Mapping
-from math import pi  # noqa: F401
 
 from discopy import messages, tensor, frobenius
 from discopy.cat import factory, Category
@@ -675,6 +674,7 @@ class Circuit(tensor.Diagram):
 
         Examples
         --------
+        >>> from math import pi
         >>> from sympy.abc import phi
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX

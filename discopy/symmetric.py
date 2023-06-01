@@ -73,7 +73,7 @@ from __future__ import annotations
 
 from discopy import monoidal, balanced, messages
 from discopy.cat import factory
-from discopy.monoidal import Ty, PRO
+from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 
 
 @factory
