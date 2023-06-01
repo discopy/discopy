@@ -28,11 +28,12 @@ Axioms
 
 >>> from discopy.drawing import Equation
 >>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> from discopy import symmetric
+>>> symmetric.Diagram.structure_preserving = True
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
 * Vanishing
-
 >>> assert f.trace(n=0) == f == f.trace(n=0, left=True)
 >>> assert f.trace(n=2) == f.trace().trace()
 >>> assert f.trace(n=2, left=True) == f.trace(left=True).trace(left=True)
@@ -98,6 +99,8 @@ Axioms
     :align: center
 
 >>> assert sliding_left and sliding_right
+
+>>> symmetric.Diagram.structure_preserving = False
 """
 
 from discopy import monoidal

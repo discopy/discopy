@@ -330,6 +330,9 @@ class Layer(cat.Box):
     def __eq__(self, other):
         return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
+    def __hash__(self):
+        return hash(tuple(self))
+
     def __repr__(self):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"

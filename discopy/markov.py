@@ -24,6 +24,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
+>>> Diagram.structure_preserving = True
 >>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
@@ -61,6 +62,8 @@ Axioms
 >>> assert Diagram.merge(x @ x, n=0) == unit @ unit
 >>> assert Diagram.merge(x @ x)\\
 ...     == x @ Swap(x, x) @ x >> merge @ merge
+
+>>> Diagram.structure_preserving = False
 
 Note
 ----

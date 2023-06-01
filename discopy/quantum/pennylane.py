@@ -46,14 +46,19 @@ associated weights should be passed to `eval()` as `symbols=` and
 `weights=`.
 """
 
+from __future__ import annotations
+
 from itertools import product
 import pennylane as qml
 import sympy
 import torch
 from pytket import OpType
+from typing import TYPE_CHECKING
 
-from discopy.quantum import Circuit
 from discopy.quantum.gates import Scalar
+
+if TYPE_CHECKING:
+    from discopy.quantum import Circuit
 
 OP_MAP = {
     OpType.X: qml.PauliX,

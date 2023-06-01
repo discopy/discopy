@@ -57,6 +57,11 @@ def test_Hypergraph_bijection():
         H.spiders(1, 2, Ty('x')).bijection
 
 
+def test_Hypergraph_rotate():
+    assert H.id() == \
+           H.id().rotate(left=False).rotate(left=True)
+
+
 def test_Box():
     box = Box('box', Ty('x'), Ty('y')).to_hypergraph()
     assert box == box and box == box @ H.id() and box != 1
