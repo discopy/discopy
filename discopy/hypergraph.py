@@ -42,11 +42,10 @@ from networkx import (
 )
 from networkx.algorithms.isomorphism import is_isomorphic
 
-from discopy import drawing, messages
+from discopy import messages
 from discopy.cat import Category
 from discopy.drawing import Node
 from discopy.utils import (
-    factory,
     factory_name,
     assert_isinstance,
     pushout,
@@ -781,7 +780,6 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         for spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
-            n_legs = len(input_wires) + len(output_wires)
             if len(input_wires) == 1:
                 continue
             depth = getattr(self.ports[max(input_wires)], "depth", -1) + 1\

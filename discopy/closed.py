@@ -53,7 +53,7 @@ Axioms
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, messages
+from discopy import cat, monoidal
 from discopy.cat import Category, factory
 from discopy.utils import (
     factory_name,

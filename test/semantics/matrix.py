@@ -1,8 +1,8 @@
 import numpy as np
 from pytest import raises
 
-from discopy.cat import AxiomError
 from discopy.matrix import Matrix, backend
+from discopy.utils import AxiomError
 
 
 def test_bad_composition():

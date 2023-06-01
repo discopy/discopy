@@ -44,10 +44,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from typing import Iterator
+
 from discopy import cat, monoidal, closed, messages
-from discopy.cat import AxiomError, factory
-from discopy.monoidal import assert_isatomic
-from discopy.utils import assert_isinstance, factory_name, BinaryBoxConstructor
+from discopy.cat import factory
+from discopy.utils import (
+    assert_isinstance,
+    factory_name,
+    BinaryBoxConstructor,
+    AxiomError,
+    assert_isatomic
+)
 
 
 class Ob(cat.Ob):
@@ -281,7 +288,6 @@ class Diagram(closed.Diagram):
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        offset = len(self.dom) - n
         base, exponent = self.dom[n:], self.dom[:n]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 

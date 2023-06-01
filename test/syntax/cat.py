@@ -3,6 +3,7 @@
 from pytest import raises
 
 from discopy.cat import *
+from discopy.utils import AxiomError
 
 
 def test_main():

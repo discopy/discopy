@@ -47,7 +47,6 @@ associated weights should be passed to `eval()` as `symbols=` and
 """
 
 from itertools import product
-import numpy as np
 import pennylane as qml
 import sympy
 import torch

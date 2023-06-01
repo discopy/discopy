@@ -67,7 +67,13 @@ from dataclasses import dataclass
 from functools import wraps
 
 from discopy import (
-    balanced, traced, rigid, pivotal, ribbon, frobenius, messages)
+    balanced,
+    traced,
+    rigid,
+    pivotal,
+    ribbon,
+    messages
+)
 from discopy.cat import Composable, assert_iscomposable
 from discopy.monoidal import Whiskerable
 from discopy.utils import (
@@ -372,6 +378,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
 
         Example
         -------
+        >>> from discopy import frobenius
         >>> x = Ty[frobenius.Ty]('x')
         >>> D = Diagram[frobenius.Diagram]
         >>> left_snake = D.id(-x).transpose(left=True)

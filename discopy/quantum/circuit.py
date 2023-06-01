@@ -70,9 +70,8 @@ Examples
 from __future__ import annotations
 
 from collections.abc import Mapping
-from math import pi
 
-from discopy import messages, rigid, tensor, frobenius
+from discopy import messages, tensor, frobenius
 from discopy.cat import factory, Category
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
@@ -291,7 +290,6 @@ class Circuit(tensor.Diagram):
             return Tensor[complex](array, f(self.dom), f(self.cod))
 
         from discopy.quantum import channel
-        from discopy.quantum.gates import Bits
         if backend is None:
             if others:
                 return [circuit.eval(mixed=mixed, **params)
@@ -676,6 +674,7 @@ class Circuit(tensor.Diagram):
 
         Examples
         --------
+        >>> from math import pi
         >>> from sympy.abc import phi
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX

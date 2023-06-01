@@ -1,6 +1,7 @@
 from pytest import raises
 
 from discopy.traced import *
+from discopy.utils import AxiomError
 
 
 def test_trace_repr():

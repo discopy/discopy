@@ -26,15 +26,19 @@ Summary
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup, Category
-from discopy.matrix import Matrix, backend, set_backend, get_backend
-from discopy.monoidal import assert_isatomic
-from discopy.utils import factory_name, assert_isinstance, product
+from discopy.matrix import Matrix, backend
+from discopy.utils import (
+    factory_name, assert_isinstance, product, assert_isatomic)
+
+if TYPE_CHECKING:
+    import sympy
+    import tensornetwork
 
 
 @factory
@@ -320,7 +324,7 @@ class Functor(frobenius.Functor):
     dom, cod = frobenius.Category(), Category(Dim, Tensor)
 
     def __init__(
-            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
+            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, list],
             dom: cat.Category = None, dtype: type = int):
         self.dtype = dtype
         cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])

@@ -34,8 +34,8 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, traced
 from discopy.cat import factory
-from discopy.monoidal import Ty, assert_isatomic
-from discopy.utils import factory_name
+from discopy.monoidal import Ty
+from discopy.utils import factory_name, assert_isatomic
 
 
 @factory

@@ -10,6 +10,7 @@ from pytest import raises
 from discopy.quantum.channel import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
+from discopy import rigid
 
 
 def test_index2bitstring():

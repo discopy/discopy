@@ -5,6 +5,7 @@ from pytest import raises
 from discopy.cat import *
 from discopy.monoidal import *
 from discopy.drawing import spiral
+from discopy.utils import AxiomError
 
 
 def test_Ty():

@@ -31,7 +31,7 @@ Example
     :align: center
 """
 from discopy import monoidal
-from discopy.monoidal import Ty
+from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name
 
 

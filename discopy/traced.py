@@ -100,8 +100,8 @@ Axioms
 >>> assert sliding_left and sliding_right
 """
 
-from discopy import monoidal, messages
-from discopy.cat import factory, AxiomError
+from discopy import monoidal
+from discopy.cat import factory
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
