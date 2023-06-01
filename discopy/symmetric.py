@@ -100,9 +100,11 @@ class Diagram(balanced.Diagram):
     The default value of `structure_preserving` is `False`.
     >>> from discopy.drawing import Equation
     >>> x, y = Ty("x"), Ty("y")
+    >>> id_hash = hash(Id(x @ y))
     >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
     >>> Diagram.structure_preserving = True
     >>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+    >>> assert id_hash != hash(Id(x @ y))
 
     Note
     ----
