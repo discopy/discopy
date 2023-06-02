@@ -49,3 +49,5 @@ git push origin --tags
 python -m build
 twine upload dist/*
 ```
+
+Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.
