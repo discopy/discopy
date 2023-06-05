@@ -51,6 +51,7 @@ def test_Tensor():
     u = Tensor(Dim(2), Dim(2), [1, 0, 0, 0])
     v = Tensor(Dim(2), Dim(2), [0, 0, 0, 1])
     assert u + v == Tensor.id(Dim(2))
+    assert Sum([m >> v, m >> u]) == m >> Sum([v, u])
     with raises(TypeError):
         u + [0, 0, 0, 1]
     with raises(AxiomError):
@@ -63,6 +64,7 @@ def test_Tensor():
     m = Tensor(Dim(2, 2), Dim(2), arr)
     assert m == m and np.all(m == arr)
     m = Tensor(Dim(2), Dim(2), [0, 1, 1, 0])
+    assert m.then() == m
     assert Tensor.id(Dim(2)).then(*(m, m)) == m >> m.dagger()
 
 
