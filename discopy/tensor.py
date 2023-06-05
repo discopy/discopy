@@ -31,11 +31,9 @@ from typing import Callable, TYPE_CHECKING
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
-from discopy.frobenius import Ty, Cup, Category
+from discopy.frobenius import Dim, Cup, Category
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend)
-from discopy.monoidal import assert_isatomic, Layer
-from discopy.rigid import assert_isadjoint
 from discopy.utils import (
     factory_name, assert_isinstance, product, assert_isatomic, NamedGeneric)
 
