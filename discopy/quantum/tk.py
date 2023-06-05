@@ -192,7 +192,13 @@ class Circuit(tk.Circuit):
         assert (backend is not None) ^ (experiment is not None), "Either backend or experiment must be provided."
         
         if experiment is not None:
-            counts = [experiment.get_result(h).get_counts() for h in handles]
+            counts = []
+            for h in handles:
+                print(h)
+                process_job = experiment.get_process_job(handle=h)
+                print(process_job)
+                counts.append(experiment.get_result(h).get_counts())
+            # counts = [experiment.get_result(h).get_counts() for h in handles]
         else:
             counts = [backend.get_result(h, timeout=None).get_counts() for h in handles]
         
