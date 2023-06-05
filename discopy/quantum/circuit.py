@@ -54,7 +54,7 @@ Examples
 >>> ar = {Alice: Ket(0),
 ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
 ...       Bob: Ket(1)}
->>> F = rigid.Functor(ob, ar, cod=Category(Ty, Circuit))
+>>> F = pregroup.Functor(ob, ar, cod=Category(Ty, Circuit))
 >>> assert abs(F(sentence).eval().array) ** 2
 
 >>> from discopy.drawing import Equation
@@ -70,9 +70,8 @@ Examples
 from __future__ import annotations
 
 from collections.abc import Mapping
-from math import pi
 
-from discopy import messages, rigid, tensor, frobenius
+from discopy import messages, tensor, frobenius
 from discopy.cat import factory, Category
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
@@ -291,7 +290,6 @@ class Circuit(tensor.Diagram[complex]):
             return Tensor[complex](array, f(self.dom), f(self.cod))
 
         from discopy.quantum import channel
-        from discopy.quantum.gates import Bits
         if backend is None:
             if others:
                 return [circuit.eval(mixed=mixed, **params)
@@ -558,7 +556,8 @@ class Circuit(tensor.Diagram[complex]):
         from discopy.quantum.tk import to_tk
         return to_tk(self)
 
-    def to_pennylane(self, probabilities=False):
+    def to_pennylane(self, probabilities=False, backend_config=None,
+                     diff_method='best'):
         """
         Export DisCoPy circuit to PennylaneCircuit.
 
@@ -569,13 +568,27 @@ class Circuit(tensor.Diagram[complex]):
             probabilties of measuring the computational basis states
             when run. If False, it returns the unnormalized quantum
             states in the computational basis.
+        backend_config : dict, default: None
+            A dictionary of PennyLane backend configration options,
+            including the provider (e.g. IBM or Honeywell), the device,
+            the number of shots, etc. See the `PennyLane plugin
+            documentation <https://pennylane.ai/plugins/>`_
+            for more details.
+        diff_method : str, default: "best"
+            The differentiation method to use to obtain gradients for the
+            PennyLane circuit. Some gradient methods are only compatible
+            with simulated circuits. See the `PennyLane documentation
+            <https://docs.pennylane.ai/en/stable/introduction/interfaces.html>`_
+            for more details.
 
         Returns
         -------
         :class:`discopy.quantum.pennylane.PennylaneCircuit`
         """
         from discopy.quantum.pennylane import to_pennylane
-        return to_pennylane(self, probabilities=probabilities)
+        return to_pennylane(self, probabilities=probabilities,
+                            backend_config=backend_config,
+                            diff_method=diff_method)
 
     @staticmethod
     def from_tk(*tk_circuits):
@@ -661,6 +674,7 @@ class Circuit(tensor.Diagram[complex]):
 
         Examples
         --------
+        >>> from math import pi
         >>> from sympy.abc import phi
         >>> from discopy.quantum import *
         >>> circuit = Rz(phi / 2) @ Rz(phi + 1) >> CX
@@ -759,31 +773,10 @@ class Circuit(tensor.Diagram[complex]):
         for x in sorted(filter(lambda x: x < head, indices), reverse=True):
             gate, head = Controlled(gate, distance=head - x), x
         head = indices[-1]
-        for x in sorted(filter(lambda x: x > head, indices), reverse=True):
+        for x in sorted(filter(lambda x: x > head, indices)):
             gate, head = Controlled(gate, distance=head - x), x
         return self\
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
-
-    def __getattr__(self, attr):
-        from discopy.quantum.gates import GATES, Box, Rotation, Controlled
-        if attr in GATES:
-            gate = GATES[attr]
-            if isinstance(gate, Controlled)\
-                    and isinstance(gate.controlled, Controlled):
-                gate = gate.controlled.controlled
-                return lambda i, j, k: self.apply_controlled(gate, i, j, k)
-            if isinstance(gate, Controlled):
-                gate = gate.controlled
-                return lambda i, j: self.apply_controlled(gate, i, j)
-            if isinstance(gate, Box):
-                return lambda i: self.apply_controlled(gate, i)
-            if issubclass(gate, Rotation) and issubclass(gate, Controlled):
-                gate = gate.controlled
-                return lambda phi, i, j: self.apply_controlled(gate(phi), i, j)
-            if issubclass(gate, Rotation):
-                return lambda phi, i: self.apply_controlled(gate(phi), i)
-        raise AttributeError(messages.HAS_NO_ATTRIBUTE.format(
-            factory_name(type(self)), attr))
 
 
 class Box(tensor.Box[complex], Circuit):
@@ -894,11 +887,11 @@ class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
     dom = cod = Category(Ty, Circuit)
 
-    def __init__(self, ob, ar, cod=None):
+    def __init__(self, ob, ar, dom=None, cod=None):
         if isinstance(ob, Mapping):
             ob = {x: qubit ** y if isinstance(y, int) else y
                   for x, y in ob.items()}
-        super().__init__(ob, ar, cod)
+        super().__init__(ob, ar, dom=dom, cod=cod)
 
 
 def index2bitstring(i: int, length: int) -> tuple[int, ...]:

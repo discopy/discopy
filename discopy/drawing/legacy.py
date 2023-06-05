@@ -24,8 +24,6 @@ Summary
         :toctree:
 
         diagram2nx
-        nx2diagram
-        diagramize
 """
 
 from __future__ import annotations
@@ -35,56 +33,19 @@ from abc import ABC, abstractmethod
 from math import sqrt
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
+from typing import TYPE_CHECKING
+
 import matplotlib.pyplot as plt
 from PIL import Image
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
-from discopy.utils import assert_isinstance
+from discopy.config import (  # noqa: F401
+    DRAWING_ATTRIBUTES as ATTRIBUTES,
+    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 
-# Mapping from attribute to function from box to default value.
-ATTRIBUTES = {
-    "draw_as_braid": lambda _: False,
-    "draw_as_wires": lambda box: box.draw_as_braid,
-    "draw_as_spider": lambda _: False,
-    "draw_as_brakets": lambda _: False,
-    "draw_as_discards": lambda _: False,
-    "draw_as_measures": lambda _: False,
-    "draw_as_controlled": lambda _: False,
-    "shape": lambda box:
-        "circle" if getattr(box, "draw_as_spider", False) else None,
-    "color": lambda box:
-        "red" if getattr(box, "draw_as_spider", False) else "white",
-    "drawing_name": lambda box: box.name,
-    "tikzstyle_name": lambda box: box.name,
-}
-# Default drawing parameters.
-DEFAULT = {
-    "aspect": "auto",
-    "fontsize": 12,
-    "margins": (.05, .1),
-    "textpad": (.1, .1),
-    "color": 'white',
-    "use_tikzstyles": False,
-    "braid_shadow": (.3, .1)
-}
-# Mapping from tikz colors to hexcodes.
-COLORS = {
-    "white": '#ffffff',
-    "red": '#e8a5a5',
-    "green": '#d8f8d8',
-    "blue": '#776ff3',
-    "yellow": '#f7f700',
-    "black": '#000000',
-}
-# Mapping from tikz shapes to matplotlib shapes.
-SHAPES = {
-    "rectangle": 's',
-    "triangle_up": '^',
-    "triangle_down": 'v',
-    "circle": 'o',
-    "plus": '+',
-}
+if TYPE_CHECKING:
+    from discopy import monoidal
 
 
 class Node:
@@ -215,70 +176,6 @@ def diagram2nx(diagram):
         add_node(node, (pos[scan[i]][0], 0))
         graph.add_edge(scan[i], node)
     return graph, pos
-
-
-def nx2diagram(graph: "networkx.Graph", factory: type) -> "monoidal.Diagram":
-    """
-    Builds a diagram given a networkx graph,
-    this is called by :meth:`diagramize`.
-
-    Parameters:
-        graph : with nodes for inputs, outputs, boxes and their co/domain.
-        factory : e.g. :class:`discopy.monoidal.Diagram`.
-
-    Note
-    ----
-    Box nodes with no inputs need an offset attribute.
-    """
-    _id, _ty = factory.id, factory.ty_factory
-    inputs, outputs, boxes = [], [], []
-    for node in graph.nodes:
-        for kind, nodelist in zip(
-                ["input", "output", "box"],
-                [inputs, outputs, boxes]):
-            if node.kind == kind:
-                nodelist.append(node)
-    scan, diagram = inputs, _id(_ty(*[node.obj for node in inputs]))
-    for depth, box_node in enumerate(boxes):
-        box, offset = box_node.box, getattr(box_node, "offset", 0)
-        swaps = _id(diagram.cod)
-        for i, obj in enumerate(box.dom.inside):
-            target = Node("dom", obj=obj, i=i, depth=depth)
-            source, = graph.neighbors(target)
-            j = scan.index(source)
-            if i == 0:
-                offset = j
-            elif j > offset + i:
-                swaps = swaps >> _id(swaps.cod[:offset + i])\
-                    @ factory.swap(swaps.cod[offset + i:j], swaps.cod[j])\
-                    @ _id(swaps.cod[j + 1:])
-                scan = scan[:offset + i] + scan[j:j + 1] + scan[offset + i:j]\
-                    + scan[j + 1:]
-                assert len(scan) == len(swaps.cod)
-            elif j < offset + i:
-                swaps = swaps >> _id(swaps.cod[:j])\
-                    @ factory.swap(swaps.cod[j], swaps.cod[j + 1:offset + i])\
-                    @ _id(swaps.cod[offset + i:])
-                scan = scan[:j] + scan[j + 1:offset + i] + scan[j:j + 1]\
-                    + scan[offset + i:]
-                offset -= 1
-                assert len(scan) == len(swaps.cod)
-        cod_nodes = [
-            Node("cod", obj=obj, i=i, depth=depth)
-            for i, obj in enumerate(box.cod.inside)]
-        left, right = swaps.cod[:offset], swaps.cod[offset + len(box.dom):]
-        scan = scan[:offset] + cod_nodes + scan[offset + len(box.dom):]
-        diagram = diagram >> swaps >> _id(left) @ box @ _id(right)
-    swaps = _id(diagram.cod)
-    for i, target in enumerate(outputs):
-        source, = graph.neighbors(target)
-        j = scan.index(source)
-        if i < j:
-            swaps = swaps >> _id(swaps.cod[:i])\
-                @ factory.swap(swaps.cod[i:j], swaps.cod[j:j + 1])\
-                @ _id(swaps.cod[j + 1:])
-            scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
-    return diagram >> swaps
 
 
 class Backend(ABC):
@@ -816,7 +713,7 @@ class Equation:
     .. image:: /_static/drawing/frobenius-axioms.png
         :align: center
     """
-    def __init__(self, *terms: discopy.monoidal.Diagram, symbol="=", space=1):
+    def __init__(self, *terms: monoidal.Diagram, symbol="=", space=1):
         self.terms, self.symbol, self.space = terms, symbol, space
 
     def __repr__(self):
@@ -871,94 +768,8 @@ class Equation:
             margins=params.get('margins', DEFAULT['margins']),
             aspect=params.get('aspect', DEFAULT['aspect']))
 
-
-def diagramize(dom, cod, boxes, factory=None):
-    """
-    Define a diagram using the syntax for Python functions.
-
-    Parameters
-    ----------
-    dom, cod : :class:`discopy.monoidal.Ty`
-        Domain and codomain of the diagram.
-    boxes : list
-        List of boxes in the signature.
-    factory : type
-        e.g. `discopy.monoidal.Diagram`, only needed when there are no boxes.
-
-    Returns
-    -------
-    decorator : function
-        Decorator which turns a function into a diagram.
-
-    Example
-    -------
-    >>> from discopy.rigid import Ty, Cup, Cap
-    >>> x = Ty('x')
-    >>> cup, cap = Cup(x, x.r), Cap(x.r, x)
-    >>> @diagramize(dom=x, cod=x, boxes=[cup, cap])
-    ... def snake(left):
-    ...     middle, right = cap(offset=1)
-    ...     cup(left, middle)
-    ...     return right
-    >>> snake.draw(
-    ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
-
-    .. image:: /_static/drawing/diagramize.png
-        :align: center
-    """
-    if factory is None and not boxes:
-        raise ValueError("If not boxes you need to specify factory.")
-    factory = factory or boxes[0].factory
-
-    def decorator(func):
-        import networkx as nx
-        from discopy.cat import AxiomError
-        from discopy.python import tuplify, untuplify
-        graph, box_nodes = nx.Graph(), []
-
-        def apply(box, *inputs, offset=None):
-            for node in inputs:
-                assert_isinstance(node, Node)
-            if len(inputs) != len(box.dom):
-                raise AxiomError(f"Expected {len(box.dom)} inputs, "
-                                 f"got {len(inputs)} instead.")
-            depth = len(box_nodes)
-            box_node = Node("box", box=box, depth=depth, offset=offset)
-            box_nodes.append(box_node)
-            graph.add_node(box_node)
-            for i, obj in enumerate(box.dom.inside):
-                if inputs[i].obj != obj:
-                    raise AxiomError(f"Expected {obj} as input, "
-                                     f"got {inputs[i].obj} instead.")
-                dom_node = Node("dom", obj=obj, i=i, depth=depth)
-                graph.add_edge(inputs[i], dom_node)
-            outputs = []
-            for i, obj in enumerate(box.cod.inside):
-                cod_node = Node("cod", obj=obj, i=i, depth=depth)
-                outputs.append(cod_node)
-            return untuplify(outputs)
-        for box in boxes:
-            box._apply = apply
-        inputs = []
-        for i, obj in enumerate(dom.inside):
-            node = Node("input", obj=obj, i=i)
-            inputs.append(node)
-            graph.add_node(node)
-        outputs = tuplify(func(*inputs))
-        for i, obj in enumerate(cod.inside):
-            if outputs[i].obj != obj:
-                raise AxiomError(f"Expected {obj} as output, "
-                                 f"got {outputs[i].obj} instead.")
-            node = Node("output", obj=obj, i=i)
-            graph.add_edge(outputs[i], node)
-        for box in boxes:
-            del box._apply
-        result = nx2diagram(graph, factory)
-        if result.cod != cod:
-            raise AxiomError(f"Expected diagram.cod == {cod}, "
-                             f"got {result.cod} instead.")  # pragma: no cover
-        return result
-    return decorator
+    def __bool__(self):
+        return all(term == self.terms[0] for term in self.terms)
 
 
 def draw_discard(backend, positions, node, **params):

@@ -61,9 +61,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal
-from discopy.cat import factory, AxiomError
-from discopy.monoidal import Ty, assert_isatomic, Match
-from discopy.utils import factory_name, from_tree
+from discopy.cat import factory
+from discopy.monoidal import Ty, Match
+from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
 
 
 @factory
@@ -112,6 +112,19 @@ class Diagram(monoidal.Diagram):
             left : Whether to slide left or right.
             down : Whether to slide down or up.
             braid : The braiding method to be used.
+
+        Examples
+        --------
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, y)
+        >>> top_left = f @ z >> Braid(y, z)
+        >>> top_right = z @ f >> Braid(z, y)
+        >>> bot_left = Braid(z, x) >> f @ z
+        >>> bot_right = Braid(x, z) >> z @ f
+        >>> assert top_right.naturality(0) == bot_left
+        >>> assert top_left.naturality(0, left=False) == bot_right
+        >>> assert bot_right.naturality(1, down=False) == top_left
+        >>> assert bot_left.naturality(1, left=False, down=False) == top_right
         """
         braid = braid or self.braid
         left_wires, box, right_wires = self.inside[i]
@@ -144,32 +157,6 @@ class Box(monoidal.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
     __ambiguous_inheritance__ = (monoidal.Box, )
-
-
-class BinaryBoxConstructor:
-    """
-    Box constructor with attributes ``left`` and ``right`` as input.
-
-    Parameters:
-        left : Some attribute on the left.
-        right : Some attribute on the right.
-    """
-    def __init__(self, left, right):
-        self.left, self.right = left, right
-
-    def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.left)}, {repr(self.right)})"
-
-    def to_tree(self) -> dict:
-        """ Serialise a binary box constructor. """
-        left, right = self.left.to_tree(), self.right.to_tree()
-        return dict(factory=factory_name(type(self)), left=left, right=right)
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
-        """ Decode a serialised binary box constructor. """
-        return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
 class Braid(BinaryBoxConstructor, Box):

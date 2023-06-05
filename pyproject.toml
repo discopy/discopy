@@ -1,0 +1,104 @@
+[build-system]
+requires = ["setuptools>=42.0", "wheel", "setuptools_scm[toml]>=3.4"]
+
+[project]
+dynamic = ["version"]
+name = "discopy"
+description = "The Python toolkit for computing with string diagrams."
+readme = "README.md"
+requires-python = ">=3.9"
+license =  {file = "LICENSE"}
+keywords = [
+    "category theory",
+    "string diagrams",
+    "natural language processing",
+    "quantum computing"
+]
+authors = [
+  {name = "DisCoPy"},
+  {email = "contact@discopy.org"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering"
+]
+dependencies = [
+  "numpy >= 1.18.1",
+  "networkx >= 2.4",
+  "matplotlib >= 3.1.2",
+  "pillow >= 6.2.1"
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "coverage",
+    "pyproject-flake8",
+    "pytket",
+    "pyzx >= 0.7.0",
+    "sympy == 1.9",
+    "tensorflow",
+    "tensornetwork",
+    "jax",
+    "jaxlib",
+    "torch",
+    "pennylane >= 0.29.1",
+    "pennylane-qiskit",
+    "pennylane-honeywell",
+    "lxml",
+    "nltk",
+    "pylint"
+]
+docs  = [
+    "sphinx == 4.5.0",
+    "sphinx-book-theme == 0.3.3",
+    "m2r2 == 0.3.2",
+    "nbsphinx == 0.8.9",
+    "ipykernel == 6.17.0",
+    "sphinxcontrib-youtube == 1.2.0",
+    "jinja2 == 3.0.3",
+    "sphinxcontrib-bibtex == 2.4.0",
+    "IPython"
+]
+
+[project.urls]
+Homepage = "https://discopy.org"
+Documentation = "https://docs.discopy.org"
+Repository = "https://github.com/discopy/discopy"
+Issue-Tracker = "https://github.com/discopy/discopy/issues"
+Download = "https://pypi.org/project/discopy"
+
+[tool.setuptools]
+packages = [
+    "discopy",
+    "discopy.drawing",
+    "discopy.grammar",
+    "discopy.quantum"
+]
+
+[tool.setuptools_scm]
+write_to = "discopy/version.py"
+
+[tool.flake8]
+extend-ignore = [
+    "E731",
+    "E741",
+    "E743",
+    "F811",
+]
+per-file-ignores = [
+    "__init__.py:F401"
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "discopy",
+    "test/*/*.py"
+]

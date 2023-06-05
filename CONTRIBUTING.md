@@ -15,10 +15,17 @@ pip install .
 Then you should check you haven't broken anything by running the test suite:
 
 ```shell
-pip install ".[test]" .
+pip install ".[test]"
 pycodestyle discopy
 coverage run --source=discopy -m pytest --doctest-modules
-coverage report -m
+coverage report -m --fail-under=99
+```
+
+You should also check that the notebooks work fine:
+
+```shell
+pip install nbmake
+pytest --nbmake docs/notebooks/*.ipynb
 ```
 
 ## Build the docs
@@ -26,6 +33,21 @@ coverage report -m
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
 
 ```shell
-pip install ".[docs]" .
+pip install ".[docs]"
 sphinx-build docs docs/_build/html
 ```
+
+## Release a version
+
+New versions (tag with 'X.X.X') of the package are released on [PyPI](https://pypi.org/project/discopy/) using `twine`.
+You should run the following commands from a clean clone of the repo:
+
+```shell
+pip install twine
+git tag X.X.X
+git push origin --tags
+python -m build
+twine upload dist/*
+```
+
+Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.

@@ -1,65 +1,21 @@
-import os
 
-from matplotlib.testing.compare import compare_images
 from pytest import raises
 
-from discopy.cat import AxiomError
+from discopy import utils
+from discopy.utils import AxiomError
 from discopy.compact import *
 from discopy.drawing import *
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/src/imgs/', 'test/src/tikz/', 10
 
 
-def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL, **params):
-    def decorator(func):
-        def wrapper():
-            true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '.' + file)
-            func().draw(path=test_path, show=False, **params)
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
-            os.remove(test_path)
-        return wrapper
-    return decorator
+def draw_and_compare(file, **params):
+    tol = params.pop('tol', TOL)
+    return utils.draw_and_compare(file, IMG_FOLDER, tol, **params)
 
 
-def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
-    def decorator(func):
-        def wrapper():
-            true_paths = [os.path.join(folder, file)]
-            test_paths = [os.path.join(folder, '.' + file)]
-            if params.get("use_tikzstyles", DEFAULT['use_tikzstyles']):
-                true_paths.append(
-                    true_paths[0].replace('.tikz', '.tikzstyles'))
-                test_paths.append(
-                    test_paths[0].replace('.tikz', '.tikzstyles'))
-            func().draw(path=test_paths[0], **dict(params, to_tikz=True))
-            for true_path, test_path in zip(true_paths, test_paths):
-                with open(true_path, "r") as true:
-                    with open(test_path, "r") as test:
-                        assert true.read() == test.read()
-                os.remove(test_path)
-        return wrapper
-    return decorator
-
-
-def spiral(n_cups):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    x = Ty('x')
-    unit, counit = Box('unit', Ty(), x), Box('counit', x, Ty())
-    cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
-    for box in [unit, counit, cup, cap]:
-        box.draw_as_spider, box.color, box.drawing_name = True, "black", ""
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(x ** i) @ cap @ Id(x ** (i + 1))
-    result = result >> Id(x ** n_cups) @ counit @ Id(x ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(x ** (n_cups - i - 1)) @ cup @ Id(x ** (n_cups - i - 1))
-    return result
+def tikz_and_compare(file, **params):
+    return utils.tikz_and_compare(file, TIKZ_FOLDER, **params)
 
 
 @draw_and_compare(
@@ -144,33 +100,6 @@ def test_Node_repr():
     from discopy.cat import Ob
     assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
         == "Node('dom', depth=1, i=0, obj=cat.Ob('x'))"
-
-
-def test_diagramize():
-    x, y = Ty('x'), Ty('y')
-    f = Box('f', x, y)
-    with raises(AxiomError):
-        @diagramize(y, x, [f])
-        def diagram(wire):
-            return f(wire)
-    with raises(AxiomError):
-        @diagramize(x, x, [f])
-        def diagram(wire):
-            return f(wire)
-    with raises(AxiomError):
-        @diagramize(x @ x, x, [f])
-        def diagram(left, right):
-            return f(left, right)
-    with raises(AxiomError):
-        @diagramize(x, x @ y, [f])
-        def diagram(wire):
-            return wire, f(offset=0)
-    with raises(TypeError):
-        @diagramize(x, y, [f])
-        def diagram(wire):
-            return f(x)
-    with raises(ValueError):
-        diagramize(x, x, [])
 
 
 @draw_and_compare('empty_diagram.png')

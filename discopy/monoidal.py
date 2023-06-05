@@ -53,14 +53,24 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from abc import ABC, abstractmethod
-from typing import Iterator
+from typing import Iterator, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from warnings import warn
 
-from discopy import cat, drawing, messages
-from discopy.cat import factory, Ob, AxiomError, assert_iscomposable
-from discopy.utils import factory_name, from_tree, assert_isinstance
+from discopy import cat, drawing, hypergraph, messages
+from discopy.cat import Ob
+from discopy.utils import (
+    factory,
+    factory_name,
+    from_tree,
+    assert_isinstance,
+    assert_iscomposable,
+    Whiskerable,
+    AxiomError,
+)
+
+if TYPE_CHECKING:
+    import sympy
 
 
 @factory
@@ -101,8 +111,8 @@ class Ty(cat.Ob):
     def __init__(self, *inside: str | cat.Ob):
         for obj in inside:
             assert_isinstance(obj, (str, self.ob_factory))
-        self.inside = tuple(
-            self.ob_factory(x) if isinstance(x, str) else x for x in inside)
+        self.inside = tuple(x if isinstance(x, self.ob_factory)
+                            else self.ob_factory(x) for x in inside)
         super().__init__(str(self))
 
     def tensor(self, *others: Ty) -> Ty:
@@ -320,6 +330,9 @@ class Layer(cat.Box):
     def __eq__(self, other):
         return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
+    def __hash__(self):
+        return hash(tuple(self))
+
     def __repr__(self):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
@@ -410,7 +423,7 @@ class Layer(cat.Box):
         for layer in diagram.inside:
             left, box, right = layer
             if len(left) < offset:
-                raise cat.AxiomError(
+                raise AxiomError(
                     messages.NOT_MERGEABLE.format(self, other))
             boxes_or_types[-1] @= left[offset:]
             boxes_or_types += [box, right[:0]]
@@ -430,48 +443,6 @@ class Layer(cat.Box):
     @classmethod
     def from_tree(cls, tree: dict) -> Layer:
         return cls(*(map(from_tree, tree['inside'])))
-
-
-class Whiskerable(ABC):
-    """
-    Abstract class implementing the syntactic sugar :code:`@` for whiskering
-    and parallel composition with some method :code:`tensor`.
-    """
-    @classmethod
-    @abstractmethod
-    def id(cls, dom: any) -> Whiskerable:
-        """
-        Identity on a given domain, to be instantiated.
-
-        Parameters:
-            dom : The object on which to take the identity.
-        """
-
-    @abstractmethod
-    def tensor(self, other: Whiskerable) -> Whiskerable:
-        """
-        Parallel composition, to be instantiated.
-
-        Parameters:
-            other : The other diagram to compose in parallel.
-        """
-
-    @classmethod
-    def whisker(cls, other: any) -> Whiskerable:
-        """
-        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
-        nothing.
-
-        Parameters:
-            other : The whiskering object.
-        """
-        return other if isinstance(other, Whiskerable) else cls.id(other)
-
-    def __matmul__(self, other):
-        return self.tensor(self.whisker(other))
-
-    def __rmatmul__(self, other):
-        return self.whisker(other).tensor(self)
 
 
 @factory
@@ -505,6 +476,34 @@ class Diagram(cat.Arrow, Whiskerable):
         for layer in inside:
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
+
+    @classmethod
+    def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Diagram]:
+        """
+        Define a diagram using the standard syntax for Python functions.
+
+        Note that we can specify the offset as argument.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> cup, cap = Box('cup', x @ x, Ty()), Box('cap', Ty(), x @ x)
+        >>> @Diagram.from_callable(x, x)
+        ... def snake(left):
+        ...     middle, right = cap(offset=1)
+        ...     cup(left, middle)
+        ...     return right
+        >>> snake.draw(
+        ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
+
+        .. image:: /_static/drawing/diagramize.png
+            :align: center
+        """
+        def decorator(func):
+            hypergraph = cls.hypergraph_factory.from_callable(dom, cod)(func)
+            return hypergraph.to_diagram()
+
+        return decorator
 
     def tensor(self, other: Diagram = None, *others: Diagram) -> Diagram:
         """
@@ -592,20 +591,44 @@ class Diagram(cat.Arrow, Whiskerable):
         return self.dom, list(zip(self.boxes, self.offsets))
 
     @classmethod
-    def decode(cls, dom: Ty, boxes_and_offsets: list[tuple[Box, int]]
-               ) -> Diagram:
+    def decode(
+            cls,
+            dom: Ty,
+            boxes_and_offsets: list[tuple[Box, int]] = None,
+            boxes: list[Box] = None,
+            offsets: list[int] = None,
+            cod: Ty = None) -> Diagram:
         """
         Turn a tuple of boxes and offsets into a diagram.
 
         Parameters:
             dom : The domain of the diagram.
+            cod : The codomain of the diagram.
             boxes_and_offsets : The boxes and offsets of the diagram.
+            boxes : The list of boxes.
+            offsets : The list of offsets.
+
+        Example
+        -------
+        >>> x, y, z, w = map(Ty, "xyzw")
+        >>> f, g = Box('f', x, y), Box('g', z, w)
+        >>> assert f @ z >> y @ g == Diagram.decode(
+        ...     dom=x @ z, cod=y @ w, boxes=[f, g], offsets=[0, 1])
+
+        Note
+        ----
+        If ``boxes_and_offsets is None``
+        then we set it to ``zip(boxes, offstes)``.
         """
+        if boxes_and_offsets is None:
+            boxes_and_offsets = zip(boxes, offsets)
         diagram = cls.id(dom)
         for box, offset in boxes_and_offsets:
             left = diagram.cod[:offset]
             right = diagram.cod[offset + len(box.dom):]
             diagram = diagram >> left @ box @ right
+        if cod is not None:
+            assert_iscomposable(diagram, cls.id(cod))
         return diagram
 
     def to_drawing(self):
@@ -661,7 +684,7 @@ class Diagram(cat.Arrow, Whiskerable):
                     self = self.factory(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
-                except cat.AxiomError:
+                except AxiomError:
                     continue
             if not keep_on_going:
                 break
@@ -673,7 +696,6 @@ class Diagram(cat.Arrow, Whiskerable):
 
         Example
         -------
-        >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
         >>> assert Id(x @ y).depth() == 0
@@ -796,12 +818,12 @@ class Diagram(cat.Arrow, Whiskerable):
         """
         cache = set()
         for diagram in itertools.chain([self], self.normalize(**params)):
-            if diagram in cache:
+            if str(diagram) in cache:
                 exception = NotImplementedError(
                     messages.NOT_CONNECTED.format(self))
                 exception.last_step = diagram
                 raise exception
-            cache.add(diagram)
+            cache.add(str(diagram))
         return diagram
 
     @classmethod
@@ -869,15 +891,6 @@ class Box(cat.Box, Diagram):
         cat.Box.__init__(self, name, dom, cod, **params)
         inside = (self.layer_factory.cast(self), )
         Diagram.__init__(self, inside, dom, cod)
-
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return cat.Box.__eq__(self, other)
-        return isinstance(other, self.factory)\
-            and other.inside == (self.layer_factory.cast(self), )
-
-    def __hash__(self):
-        return hash(repr(self))
 
 
 class Sum(cat.Sum, Box):
@@ -1008,10 +1021,10 @@ class Functor(cat.Functor):
             return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):
             result = self.ob[self.dom.ob(other)]
-            dtype = getattr(self.cod.ob, "__origin__", self.cod.ob)
+            cod_type = getattr(self.cod.ob, "__origin__", self.cod.ob)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
-            return result if isinstance(result, dtype) else\
-                (result, ) if dtype == tuple else self.cod.ob(result)
+            return result if isinstance(result, cod_type) else\
+                (result, ) if cod_type == tuple else self.cod.ob(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
@@ -1019,14 +1032,6 @@ class Functor(cat.Functor):
                 result = result @ self(box_or_typ)
             return result
         return super().__call__(other)
-
-
-def assert_isatomic(typ: Ty, cls: type = None):
-    cls = cls or type(typ)
-    assert_isinstance(typ, cls)
-    if not typ.is_atomic:
-        raise ValueError(messages.NOT_ATOMIC.format(
-            factory_name(cls), len(typ)))
 
 
 @dataclass
@@ -1055,10 +1060,21 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
+class Hypergraph(hypergraph.Hypergraph):
+    category, functor = Category, Functor
+
+    def to_diagram(self):
+        if not self.is_monogamous:
+            raise AxiomError(factory_name(
+                self.category.ar) + " does not have copy or discard.")
+        return super().to_diagram()
+
+
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 Diagram.to_grid = drawing.Grid.from_diagram
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
+Diagram.hypergraph_factory = Hypergraph
 Id = Diagram.id

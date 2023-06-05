@@ -6,7 +6,7 @@ from discopy.interaction import *
 def test_Ty_repr():
     t = Ty[int](positive=1, negative=2)
     assert repr(t)\
-        == str(t) == "interaction.Ty[builtins.int](positive=1, negative=2)"
+        == str(t) == "interaction.Ty[int](positive=1, negative=2)"
 
 
 def test_Ty_str():

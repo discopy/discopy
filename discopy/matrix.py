@@ -24,6 +24,7 @@ Summary
         :toctree:
 
         backend
+        set_backend
         get_backend
 
 See also
@@ -37,8 +38,10 @@ See also
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import ModuleType
+from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
-from discopy import cat, monoidal, config
+from discopy import monoidal, config, messages
 from discopy.cat import (
     factory,
     Composable,
@@ -47,6 +50,9 @@ from discopy.cat import (
 )
 from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, unbiased, NamedGeneric
+
+if TYPE_CHECKING:
+    import sympy
 
 
 @factory
@@ -90,9 +96,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     The default data type is determined by underlying array datastructure of
     the backend used. An array is initialised with ``array`` as parameter and
     the dtype of the ``Matrix`` object is the data type of this array.
-
     >>> import numpy as np
-
     >>> assert Matrix([1, 0], dom=1, cod=2).dtype == np.int64
     >>> assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
     >>> assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
@@ -250,7 +254,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             return monoidal.Diagram.tensor(self, other, *others)
         assert_isinstance(other, type(self))
         dom, cod = self.dom + other.dom, self.cod + other.cod
-        array = Matrix.zero(dom, cod).array
+        array = self.zero(dom, cod).array
         array[:self.dom, :self.cod] = self.array
         array[self.dom:, self.cod:] = other.array
         return type(self)(array, dom, cod)
@@ -408,7 +412,14 @@ def array2string(array, **params):
 
 
 class Backend:
-    def __init__(self, module, array=None):
+    """
+    A matrix backend.
+
+    Parameters:
+        module : The main module of the backend.
+        array : The array class of the backend.
+    """
+    def __init__(self, module: ModuleType, array: type = None):
         self.module, self.array = module, array or module.array
 
     def __getattr__(self, attr):
@@ -416,24 +427,28 @@ class Backend:
 
 
 class NumPy(Backend):
+    """ NumPy backend. """
     def __init__(self):
         import numpy
         super().__init__(numpy)
 
 
 class JAX(Backend):
+    """ JAX backend. """
     def __init__(self):
         import jax
         super().__init__(jax.numpy)
 
 
 class PyTorch(Backend):
+    """ PyTorch backend. """
     def __init__(self):
         import torch
         super().__init__(torch, array=torch.as_tensor)
 
 
 class TensorFlow(Backend):
+    """ TensorFlow backend. """
     def __init__(self):
         import tensorflow.experimental.numpy as tnp
         from tensorflow.python.ops.numpy_ops import np_config
@@ -442,18 +457,30 @@ class TensorFlow(Backend):
 
 
 BACKENDS = {
-    'np': NumPy,
     'numpy': NumPy,
     'jax': JAX,
-    'jax.numpy': JAX,
     'pytorch': PyTorch,
-    'torch': PyTorch,
     'tensorflow': TensorFlow,
 }
 
+BackendName = Union[tuple(L[x] for x in BACKENDS)]
+
 
 @contextmanager
-def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
+def backend(name: BackendName = None,
+            _stack=[config.DEFAULT_BACKEND], _cache=dict()):
+    """
+    Context manager for matrix backend.
+
+    Parameters:
+        name : The name of the backend, default is ``"numpy"``.
+
+    Example
+    -------
+    >>> with backend('jax'):
+    ...     assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
+    ...         == 'jaxlib.xla_extension'
+    """
     name = name or _stack[-1]
     _stack.append(name)
     try:
@@ -464,6 +491,35 @@ def backend(name=None, _stack=[config.DEFAULT_BACKEND], _cache=dict()):
         _stack.pop()
 
 
-def get_backend():
+def set_backend(name: BackendName) -> None:
+    """
+    Override the default backend.
+
+    Parameters:
+        name : The name of the backend.
+
+    Example
+    -------
+    >>> set_backend('jax')
+    >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
+    ...     == 'jaxlib.xla_extension'
+    >>> set_backend('numpy')
+    >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
+    ...     == 'numpy'
+    """
+    backend.__wrapped__.__defaults__[1][-1] = name
+
+
+def get_backend() -> Backend:
+    """
+    Get the current backend.
+
+    Example
+    -------
+    >>> set_backend('jax')
+    >>> assert isinstance(get_backend(), JAX)
+    >>> set_backend('numpy')
+    >>> assert isinstance(get_backend(), NumPy)
+    """
     with backend() as result:
         return result

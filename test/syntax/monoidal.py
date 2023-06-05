@@ -4,6 +4,8 @@ from pytest import raises
 
 from discopy.cat import *
 from discopy.monoidal import *
+from discopy.drawing import spiral
+from discopy.utils import AxiomError
 
 
 def test_Ty():
@@ -221,22 +223,6 @@ def test_InterchangerError():
     assert str(err.value) == messages.INTERCHANGER_ERROR.format(f, g)
 
 
-def spiral(n_cups, _type=Ty('x')):
-    """
-    Implements the asymptotic worst-case for normal_form, see arXiv:1804.07832.
-    """
-    unit, counit = Box('unit', Ty(), _type), Box('counit', _type, Ty())
-    cup, cap = Box('cup', _type @ _type, Ty()), Box('cap', Ty(), _type @ _type)
-    result = unit
-    for i in range(n_cups):
-        result = result >> Id(_type ** i) @ cap @ Id(_type ** (i + 1))
-    result = result >> Id(_type ** n_cups) @ counit @ Id(_type ** n_cups)
-    for i in range(n_cups):
-        result = result >>\
-            Id(_type ** (n_cups - i - 1)) @ cup @ Id(_type ** (n_cups - i - 1))
-    return result
-
-
 def test_spiral(n_cups=2):
     diagram = spiral(n_cups)
     unit, counit = diagram.boxes[0], diagram.boxes[n_cups + 1]
@@ -334,3 +320,28 @@ def test_Layer_merge_cup_cap():
 def test_Layer_scalars():
     a, b = Box("a", Ty(), Ty()), Box("b", Ty(), Ty())
     assert Layer.cast(a).merge(Layer.cast(b)) == Layer(Ty(), a, Ty(), b, Ty())
+
+
+def test_Diagram_from_callable():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    with raises(AxiomError):
+        @Diagram.from_callable(y, x)
+        def diagram(wire):
+            return f(wire)
+    with raises(AxiomError):
+        @Diagram.from_callable(x, x)
+        def diagram(wire):
+            return f(wire)
+    with raises(AxiomError):
+        @Diagram.from_callable(x @ x, x)
+        def diagram(left, right):
+            return f(left, right)
+    with raises(AxiomError):
+        @Diagram.from_callable(x, x @ y)
+        def diagram(wire):
+            return wire, f(offset=0)
+    with raises(TypeError):
+        @Diagram.from_callable(x, y)
+        def diagram(wire):
+            return f(x)

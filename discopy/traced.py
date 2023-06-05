@@ -1,8 +1,13 @@
 # -*- coding: utf-8 -*-
 
 """
-The free traced category, i.e.
-diagrams with swaps where outputs can feedback into inputs.
+The free traced category, i.e. diagrams where outputs can feedback into inputs.
+
+Note that these diagrams are planar traced so that e.g. :mod:`pivotal` diagrams
+are traced in this sense. See :mod:`symmetric` for the usual notion of trace.
+
+Whenever the diagrams are also :mod:`symmetric`, their equality can be checked
+by translation to monogamous :mod:`hypergraph`.
 
 Summary
 -------
@@ -17,12 +22,91 @@ Summary
     Trace
     Category
     Functor
+
+Axioms
+------
+
+>>> from discopy.drawing import Equation
+>>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> from discopy import symmetric
+>>> symmetric.Diagram.structure_preserving = True
+>>> x = Ty('x')
+>>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
+
+* Vanishing
+>>> assert f.trace(n=0) == f == f.trace(n=0, left=True)
+>>> assert f.trace(n=2) == f.trace().trace()
+>>> assert f.trace(n=2, left=True) == f.trace(left=True).trace(left=True)
+
+* Superposing
+
+>>> assert (x @ f).trace() == x @ f.trace()
+>>> assert (f @ x).trace(left=True) == f.trace(left=True) @ x
+
+* Yanking
+
+>>> yanking = Equation(
+...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
+>>> yanking.draw(
+...     path='docs/_static/traced/yanking.png', draw_type_labels=False)
+
+.. image:: /_static/traced/yanking.png
+    :align: center
+
+>>> assert yanking
+
+* Naturality
+
+>>> tightening_left = Equation(
+...     (x @ g >> f >> x @ g).trace(left=True),
+...     g >> f.trace(left=True) >> g)
+>>> tightening_left.draw(
+...     path='docs/_static/traced/tightening-left.png', draw_type_labels=False)
+
+.. image:: /_static/traced/tightening-left.png
+    :align: center
+
+>>> tightening_right = Equation(
+...     (g @ x >> f >> g @ x).trace(),
+...     g >> f.trace() >> g)
+>>> tightening_right.draw(
+...     path='docs/_static/traced/tightening-right.png',
+...     draw_type_labels=False)
+
+.. image:: /_static/traced/tightening-right.png
+    :align: center
+
+>>> assert tightening_left and tightening_right
+
+* Dinaturality
+
+>>> sliding_left = Equation(
+...     (f >> g @ x).trace(left=True),
+...     (g @ x >> f).trace(left=True))
+>>> sliding_left.draw(
+...     path='docs/_static/traced/sliding-left.png', draw_type_labels=False)
+
+.. image:: /_static/traced/sliding-left.png
+    :align: center
+
+>>> sliding_right = Equation(
+...     (f >> x @ g).trace(),
+...     (x @ g >> f).trace())
+>>> sliding_right.draw(
+...     path='docs/_static/traced/sliding-right.png', draw_type_labels=False)
+
+.. image:: /_static/traced/sliding-right.png
+    :align: center
+
+>>> assert sliding_left and sliding_right
+
+>>> symmetric.Diagram.structure_preserving = False
 """
 
-from discopy import monoidal, messages
-from discopy.cat import factory, AxiomError
+from discopy import monoidal
+from discopy.cat import factory
 from discopy.monoidal import Ty
-from discopy.utils import factory_name, assert_isinstance
+from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
 @factory
@@ -84,14 +168,10 @@ class Trace(Box, monoidal.Bubble):
     :meth:`Diagram.trace`
     """
     def __init__(self, arg: Diagram, left=False):
+        assert_isinstance(arg, self.factory)
+        assert_istraceable(arg, n=1, left=left)
         self.left = left
-        assert_isinstance(arg, Diagram)
         name = f"Trace({arg}" + ", left=True)" if left else ")"
-        traced_dom, traced_cod = (arg.dom[:1], arg.cod[:1]) if left\
-            else (arg.dom[-1:], arg.cod[-1:])
-        if traced_dom != traced_cod:
-            raise AxiomError(
-                messages.NOT_TRACEABLE.format(traced_dom, traced_cod))
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom, cod)
@@ -102,12 +182,15 @@ class Trace(Box, monoidal.Bubble):
 
     def to_drawing(self):
         traced_wire = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
+        dom, cod, traced_wire = map(
+            self.ty_factory.to_drawing, [self.dom, self.cod, traced_wire])
         cup = Box('cup', traced_wire ** 2, Ty(), draw_as_wires=True)
         cap = Box('cap', Ty(), traced_wire ** 2, draw_as_wires=True)
-        result = cap @ self.dom >> traced_wire @ self.arg >> cup @ self.cod\
+        cup, cap, arg = map(self.factory.to_drawing, [cup, cap, self.arg])
+        result = cap @ dom >> traced_wire @ arg >> cup @ cod\
             if self.left\
-            else self.dom @ cap >> self.arg @ traced_wire >> self.cod @ cup
-        return result.to_drawing()
+            else dom @ cap >> arg @ traced_wire >> cod @ cup
+        return result
 
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)
@@ -126,7 +209,7 @@ class Category(monoidal.Category):
 
 class Functor(monoidal.Functor):
     """
-    A cartesian functor is a monoidal functor that preserves traces.
+    A traced functor is a monoidal functor that preserves traces.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
@@ -164,6 +247,10 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-Diagram.trace_factory = Trace
+class Hypergraph(monoidal.Hypergraph):
+    category, functor = Category, Functor
 
+
+Diagram.hypergraph_factory = Hypergraph
+Diagram.trace_factory = Trace
 Id = Diagram.id

@@ -19,12 +19,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-try:
-    from lxml.etree import SubElement, ElementTree
-    from lxml.html import Element
-except ImportError:
-    pass
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from discopy import monoidal
+    import lxml
 
 TABLE_STYLE = ".diagram .wire { border-left: 4px solid; text-align: left; } "\
               ".diagram .box { border: 4px solid; text-align: center; }"\
@@ -44,7 +43,7 @@ class Cell:
     """
     start: int
     stop: int
-    label: discopy.monoidal.Ty | discopy.monoidal.Box = None
+    label: monoidal.Ty | monoidal.Box = None
 
     def __add__(self, offset: int) -> Cell:
         return Cell(self.start + offset, self.stop + offset, self.label)
@@ -58,7 +57,8 @@ class Cell:
 
 class Wire(Cell):
     """ A wire is a cell with ``stop = start``. """
-    def __init__(self, start: int, label: discopy.monoidal.Ty = None):
+
+    def __init__(self, start: int, label: monoidal.Ty = None):
         super().__init__(start, start, label)
 
     def __add__(self, offset: int) -> Wire:
@@ -105,6 +105,11 @@ class Grid:
     def to_html(self) -> lxml.etree.ElementTree:
         """
         Turn a grid into an html table.
+
+        Notes
+        -----
+        This function requires the `lxml` package to be installed in addition
+        to the default requirements.
 
         Examples
         --------
@@ -165,6 +170,8 @@ class Grid:
             <iframe src="../_static/drawing/example.html"
             class="diagram-frame" height="500"></iframe>
         """
+        from lxml.etree import SubElement, ElementTree
+        from lxml.html import Element
         root = Element("div")
         style = SubElement(root, "style")
         style.text = TABLE_STYLE
@@ -184,7 +191,6 @@ class Grid:
             if row and row[0].start > 0:
                 td = SubElement(tr, "td")
                 td.set("colspan", str(row[0].start))
-            offset = 0
             for cell, next_cell in zip(row, row[1:] + [None]):
                 if cell.start == cell.stop:
                     td = SubElement(tr, "td")
@@ -204,7 +210,6 @@ class Grid:
                         td.set("colspan", str(
                             width - cell.stop if next_cell is None
                             else next_cell.start - cell.stop))
-                    offset = cell.stop
         return ElementTree(root)
 
     def to_ascii(self, _debug=False) -> str:
@@ -261,10 +266,11 @@ class Grid:
                     result += space + str(
                         cell.label.name)[:width].center(width, box_chr)
             return result
+
         return '\n'.join(map(row_to_ascii, self.rows)).strip('\n')
 
     @staticmethod
-    def from_diagram(diagram: discopy.monoidal.Diagram) -> Grid:
+    def from_diagram(diagram: monoidal.Diagram) -> Grid:
         """
         Layout a diagram on a grid.
 
@@ -287,6 +293,7 @@ class Grid:
              [Cell(0, 4, f), Cell(6, 8, s), Cell(10, 16, f[::-1])],
              [Wire(1, x), Wire(3, x), Wire(11, x)])
         """
+
         def make_boxes_as_small_as_possible(
                 rows: list[list[Cell]]) -> list[list[Cell]]:
             for top, middle, bottom in zip(rows, rows[1:], rows[2:]):
@@ -326,6 +333,7 @@ class Grid:
                     for j, cell in enumerate(row):
                         cell.start += space * int(cell.start >= limit)
                         cell.stop += space * int(cell.stop >= limit)
+
         rows = [[Wire(2 * i + 1, x) for i, x in enumerate(diagram.dom)]]
         for layer in diagram.inside:
             offset = 0

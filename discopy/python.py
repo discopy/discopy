@@ -33,7 +33,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from discopy.cat import Composable, assert_iscomposable
-from discopy.monoidal import Whiskerable
+from discopy.utils import tuplify, untuplify, Whiskerable
+
 
 Ty = tuple[type, ...]
 
@@ -47,30 +48,6 @@ def exp(base: Ty, exponent: Ty) -> Ty:
         exponent (python.Ty) : The exponent type.
     """
     return (Callable[list(exponent), tuple[base]], )
-
-
-def tuplify(stuff: any) -> tuple:
-    """
-    Turns anything into a tuple, do nothing if it is already.
-
-    Parameters:
-        stuff : The stuff to turn into a tuple.
-    """
-    return stuff if isinstance(stuff, tuple) else (stuff, )
-
-
-def untuplify(stuff: tuple) -> any:
-    """
-    Takes the element out of a tuple if it has length 1, otherwise do nothing.
-
-    Parameters:
-        stuff : The tuple out of which to take the element.
-
-    Important
-    ---------
-    This is the inverse of :func:`tuplify`, except on tuples of length 1.
-    """
-    return stuff[0] if len(stuff) == 1 else stuff
 
 
 def is_tuple(typ: type) -> bool:

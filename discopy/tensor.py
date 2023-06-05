@@ -26,44 +26,22 @@ Summary
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Ty, Cup, Category
-from discopy.matrix import Matrix, backend
+from discopy.matrix import (  # noqa: F401
+    Matrix, backend, set_backend, get_backend)
 from discopy.monoidal import assert_isatomic, Layer
 from discopy.rigid import assert_isadjoint
 from discopy.utils import (
-    factory_name, assert_isinstance, product, NamedGeneric)
+    factory_name, assert_isinstance, product, assert_isatomic, NamedGeneric)
 
-
-@factory
-class Dim(Ty):
-    """
-    A dimension is a tuple of positive integers
-    with product ``@`` and unit ``Dim(1)``.
-
-    Example
-    -------
-    >>> Dim(1) @ Dim(2) @ Dim(3)
-    Dim(2, 3)
-    """
-    ob_factory = int
-
-    def __init__(self, *inside: int):
-        for dim in inside:
-            assert_isinstance(dim, int)
-            if dim < 1:
-                raise ValueError
-        super().__init__(*(dim for dim in inside if dim > 1))
-
-    def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
-
-    __str__ = __repr__
-    l = r = property(lambda self: self.factory(*self.inside[::-1]))
+if TYPE_CHECKING:
+    import sympy
+    import tensornetwork
 
 
 @factory
@@ -119,7 +97,7 @@ class Tensor(Matrix):
     >>> v.subs(phi, 0).lambdify(psi, dtype=int)(1)
     Tensor[int]([0, 1], dom=Dim(1), cod=Dim(2))
 
-    We can also use jax.numpy using Tensor.backend.
+    We can also use jax.numpy using :func:`backend`.
 
     >>> with backend('jax'):
     ...     f = lambda *xs: d.lambdify(phi, psi, dtype=float)(*xs).array
@@ -181,7 +159,7 @@ class Tensor(Matrix):
     def cup_factory(cls, left: Dim, right: Dim) -> Tensor:
         assert_isinstance(left, Dim)
         assert_isinstance(right, Dim)
-        assert_isadjoint(left, right)
+        left.assert_isadjoint(right)
         return cls(cls.id(left).array, left @ right, Dim(1))
 
     @classmethod
@@ -210,10 +188,11 @@ class Tensor(Matrix):
         assert_isatomic(typ, Dim)
         n, = typ.inside
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        result = cls.zero(dom, cod)
-        for i in range(n):
-            result.array[len(dom @ cod) * (i, )] = 1
-        return result
+        with backend('numpy'):
+            result = cls.zero(dom, cod)
+            for i in range(n):
+                result.array[len(dom @ cod) * (i, )] = 1
+            return result
 
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
@@ -348,11 +327,11 @@ class Functor(frobenius.Functor):
     dom, cod = frobenius.Category(), Category(Dim, Tensor)
 
     def __init__(
-            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
+            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, list],
             dom: cat.Category = None, dtype: type = int):
-        self.dom, self.dtype = dom or type(self).dom, dtype
+        self.dtype = dtype
         cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])
-        super().__init__(ob, ar, cod)
+        super().__init__(ob, ar, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
         return factory_name(type(self)) + f"(ob={self.ob}, ar={self.ar}, "\
@@ -580,8 +559,8 @@ class Cup(frobenius.Cup, Box):
     A tensor cup is a frobenius cup in a tensor diagram.
 
     Parameters:
-        left (Ty) : The atomic type.
-        right (Ty) : Its adjoint.
+        left (Dim) : The atomic type.
+        right (Dim) : Its adjoint.
     """
     __ambiguous_inheritance__ = (frobenius.Cup, )
 
@@ -591,8 +570,8 @@ class Cap(frobenius.Cap, Box):
     A tensor cap is a frobenius cap in a tensor diagram.
 
     Parameters:
-        left (Ty) : The atomic type.
-        right (Ty) : Its adjoint.
+        left (Dim) : The atomic type.
+        right (Dim) : Its adjoint.
     """
     __ambiguous_inheritance__ = (frobenius.Cap, )
 

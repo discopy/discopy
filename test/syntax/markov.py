@@ -1,9 +1,19 @@
 from __future__ import annotations
+from pytest import raises
 
 from discopy.python import Function
 
-from discopy.cartesian import *
+from discopy.markov import *
 from discopy import *
+
+
+def test_spider_factory():
+    with raises(ValueError):
+        Diagram.spider_factory(2, 2, Ty('x'))
+
+
+def test_Merge_dagger():
+    assert Merge(Ty('x')).dagger() == Copy(Ty('x'))
 
 
 def test_equations():

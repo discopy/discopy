@@ -26,7 +26,7 @@ from math import pi
 from discopy import cat, rigid, tensor, quantum
 from discopy.cat import factory
 from discopy.frobenius import Category
-from discopy.quantum.circuit import qubit
+from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
 from discopy.quantum.gates import Scalar as GatesScalar
@@ -375,7 +375,8 @@ def gate2zx(box):
 
 
 circuit2zx = quantum.circuit.Functor(
-    ob={qubit: PRO(1)}, ar=gate2zx, cod=Category(PRO, Diagram))
+    ob={qubit: PRO(1)}, ar=gate2zx,
+    dom=Category(quantum.circuit.Ty, Circuit), cod=Category(PRO, Diagram))
 
 H = Box('H', PRO(1), PRO(1))
 H.dagger = lambda: H
