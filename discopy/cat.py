@@ -285,8 +285,12 @@ class Arrow:
             return self
         if any(isinstance(other, Sum) for other in others):
             return self.sum([self]).then(*others)
-        if any(not isinstance(other, Arrow) for other in others):
-            raise TypeError
+        for i, other in enumerate(others):
+            if not isinstance(other, Arrow):
+                raise TypeError(messages.type_err(Arrow, other))
+        for x, y in zip((self, ) + others, others):
+            if x.cod != y.dom:
+                raise AxiomError(messages.does_not_compose(x, y))
         boxes = self.boxes + sum([other.boxes for other in others], [])
         return self.upgrade(Arrow(self.dom, others[-1].cod, boxes))
 
