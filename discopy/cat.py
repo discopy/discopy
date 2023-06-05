@@ -25,7 +25,7 @@ from functools import total_ordering
 from collections.abc import Mapping, Iterable
 
 from discopy import messages
-from discopy.utils import factory_name, from_tree, rsubs, rmap
+from discopy.utils import factory_name, from_tree, rsubs, unbiased
 
 
 @total_ordering
@@ -721,12 +721,11 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    def then(self, *others):
-        if len(others) != 1:
-            return super().then(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(list(others))
+    @unbiased
+    def then(self, other):
+        other = other if isinstance(other, Sum) else Sum((other, ))
         unit = Sum([], self.dom, other.cod)
-        terms = [f.then(g) for f in self.terms for g in other.terms]
+        terms = tuple(f.then(g) for f in self.terms for g in other.terms)
         return self.upgrade(sum(terms, unit))
 
     def dagger(self):
