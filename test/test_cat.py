@@ -127,6 +127,9 @@ def test_Arrow_then():
     with raises(TypeError) as err:
         f >> x
     assert str(err.value) == messages.type_err(Arrow, x)
+    with raises(AxiomError) as err:
+        g >> f
+    assert str(err.value) == messages.does_not_compose(g, f)
 
 
 def test_Arrow_dagger():

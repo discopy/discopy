@@ -27,7 +27,7 @@ from collections.abc import Mapping, Iterable
 import numpy as np
 
 from discopy import messages
-from discopy.utils import factory_name, from_tree, rsubs, rmap
+from discopy.utils import factory_name, from_tree, rsubs, unbiased
 
 
 @total_ordering
@@ -285,17 +285,16 @@ class Arrow:
         """
         if not others:
             return self
-        if len(others) > 1:
-            return self.then(others[0]).then(*others[1:])
-        other, = others
-        if isinstance(other, Sum):
-            return self.sum([self]).then(other)
-        if not isinstance(other, Arrow):
-            raise TypeError(messages.type_err(Arrow, other))
-        if self.cod != other.dom:
-            raise AxiomError(messages.does_not_compose(self, other))
-        return self.upgrade(Arrow(
-            self.dom, other.cod, self.boxes + other.boxes, _scan=False))
+        if any(isinstance(other, Sum) for other in others):
+            return self.sum([self]).then(*others)
+        for i, other in enumerate(others):
+            if not isinstance(other, Arrow):
+                raise TypeError(messages.type_err(Arrow, other))
+        for x, y in zip((self, ) + others, others):
+            if x.cod != y.dom:
+                raise AxiomError(messages.does_not_compose(x, y))
+        boxes = self.boxes + sum([other.boxes for other in others], [])
+        return self.upgrade(Arrow(self.dom, others[-1].cod, boxes))
 
     def __rshift__(self, other):
         return self.then(other)
@@ -724,10 +723,9 @@ class Sum(Box):
     def __len__(self):
         return len(self.terms)
 
-    def then(self, *others):
-        if len(others) != 1:
-            return super().then(*others)
-        other = others[0] if isinstance(others[0], Sum) else Sum(list(others))
+    @unbiased
+    def then(self, other):
+        other = other if isinstance(other, Sum) else Sum((other, ))
         unit = Sum([], self.dom, other.cod)
         terms = [f.then(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))

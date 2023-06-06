@@ -4,6 +4,8 @@
 
 from collections.abc import Mapping, Iterable
 
+from functools import wraps
+
 import json
 
 
@@ -100,3 +102,19 @@ def load_corpus(url):
         diagrams = loads(f.read())
 
     return diagrams
+
+
+def unbiased(binary_method):
+    """
+    Turn a biased method with signature (self, other) to an unbiased one, i.e.
+    with signature (self, *others), see the `nLab`_.
+
+    .. _nLab: https://ncatlab.org/nlab/show/biased+definition
+    """
+    @wraps(binary_method)
+    def method(self, *others):
+        result = self
+        for other in others:
+            result = binary_method(result, other)
+        return result
+    return method

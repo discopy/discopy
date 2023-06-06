@@ -152,7 +152,7 @@ class CQMap(Tensor):
 
     def then(self, *others):
         if len(others) != 1:
-            return monoidal.Diagram.then(self, *others)
+            return Tensor.then(self, *others)
         other, = others
         return CQMap(
             self.dom, other.cod, utensor=self.utensor >> other.utensor)

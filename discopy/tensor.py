@@ -252,7 +252,12 @@ class Tensor(rigid.Box, metaclass=TensorType):
             and Tensor.np.all(Tensor.np.array(self.array == other.array))
 
     def then(self, *others):
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
+        if not others:
+            return self
+        if len(others) > 1:
+            head, *tail = others
+            return self.then(head).then(*tail)
+        if any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.then(self, *others)
         other, = others
         if not isinstance(other, Tensor):
