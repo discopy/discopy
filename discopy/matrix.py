@@ -33,8 +33,10 @@ array([[2, 0],
 
 from discopy import messages, monoidal
 from discopy.cat import AxiomError
-from discopy.monoidal import PRO
+from discopy.monoidal import PRO, Sum
 from discopy.tensor import array2string
+from discopy.utils import unbiased
+
 import numpy as np
 
 
@@ -83,11 +85,10 @@ class Matrix(monoidal.Box):
     def __str__(self):
         return repr(self)
 
-    def then(self, *others):
-        from discopy import Sum, Tensor
-        if len(others) != 1 or any(isinstance(other, Sum) for other in others):
-            return Tensor.then(self, *others)
-        other, = others
+    @unbiased
+    def then(self, other):
+        if isinstance(other, Sum):
+            return monoidal.Diagram.then(self, other)
         if not isinstance(other, Matrix):
             raise TypeError(messages.type_err(Matrix, other))
         if self.cod != other.dom:
@@ -96,7 +97,6 @@ class Matrix(monoidal.Box):
         return Matrix(self.dom, other.cod, array)
 
     def tensor(self, *others):
-        from discopy import Sum
         if len(others) != 1 or any(isinstance(other, Sum) for other in others):
             return monoidal.Diagram.tensor(self, *others)
         other = others[0]

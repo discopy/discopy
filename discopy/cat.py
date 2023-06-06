@@ -725,7 +725,7 @@ class Sum(Box):
     def then(self, other):
         other = other if isinstance(other, Sum) else Sum((other, ))
         unit = Sum([], self.dom, other.cod)
-        terms = tuple(f.then(g) for f in self.terms for g in other.terms)
+        terms = [f.then(g) for f in self.terms for g in other.terms]
         return self.upgrade(sum(terms, unit))
 
     def dagger(self):
