@@ -42,6 +42,7 @@ def test_block_diag():
     with raises(ValueError):
         block_diag([[[1]]])
 
+
 def test_Tensor_then():
     assert Matrix(PRO(1), PRO(1), [1])
     m = Matrix(PRO(2), PRO(2), [0, 1, 1, 0])
