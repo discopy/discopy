@@ -234,6 +234,37 @@ class Diagram(balanced.Diagram):
         """
         return self.to_hypergraph().depth()
 
+    def foliation(self) -> list[Diagram]:
+        """
+        Merges layers together to reduce the length of a diagram.
+
+        Example
+        -------
+        >>> from discopy.symmetric import *
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f, g, h = Box('f', x, y @ y), Box('g', x, y), Box('h', y, x)
+        >>> diagram_1 = (h >> f) @ g
+        >>> diagram_2 = x >> Id(y) @ Swap(y,y) >> x.dagger()
+        >>> print(diagram)
+        g @ y >> g[::-1] @ y >> x @ h
+        >>> print(diagram.foliation())
+        g @ y >> g[::-1] @ h
+
+        Note
+        ----
+        If one defines a foliation as a sequence of unmergeable layers, there
+        may exist many distinct foliations for the same diagram. This method
+        scans top to bottom and merges layers eagerly.
+        """
+        layers = []
+        h = self.to_hypergraph()
+        print(h)
+        for box, wires in zip(h.boxes, h.box_wires):
+            print(box, wires)
+        return layers
+
+
+
 
 class Box(balanced.Box, Diagram):
     """
