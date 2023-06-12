@@ -38,7 +38,7 @@ class QuantumGate(Box):
     @property
     def array(self):
         """ The array of a quantum gate. """
-        return self._array
+        return Tensor.np.array(self._array)
 
     def __repr__(self):
         if self in GATES:
@@ -97,7 +97,7 @@ class ClassicalGate(Box):
     @property
     def array(self):
         """ The array of a classical gate. """
-        return self.data
+        return Tensor.np.array(self.data)
 
     def __eq__(self, other):
         if not isinstance(other, ClassicalGate):
@@ -199,7 +199,7 @@ class Digits(ClassicalGate):
     def array(self):
         array = numpy.zeros(len(self._digits) * (self._dim, ))
         array[self._digits] = 1
-        return array
+        return Tensor.np.array(array)
 
     def dagger(self):
         return Digits(*self.digits, dim=self.dim, _dagger=not self._dagger)
