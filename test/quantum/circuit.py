@@ -762,3 +762,8 @@ def test_pennylane_gradient_methods():
         loss = p_var_circ.eval().norm(dim=0, p=2)
         loss.backward()
         assert weights[0].grad is not None
+
+
+def test_loads_dumps():
+    from discopy.utils import loads, dumps
+    assert loads(dumps(Rx(1))) == Rx(1)
