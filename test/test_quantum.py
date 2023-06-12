@@ -925,3 +925,8 @@ def test_CCX_decompose(x, y, z):
     print(unitary_mat.real)
 
     assert (out == unitary_mat).all()
+
+
+def test_loads_dumps():
+    from discopy.utils import loads, dumps
+    assert loads(dumps(Rx(1))) == Rx(1)
