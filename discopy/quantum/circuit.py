@@ -117,6 +117,14 @@ class Ob(RealConjugate, rigid.Ob):
     def __repr__(self):
         return self.name
 
+    @classmethod
+    def from_tree(cls, tree: dict) -> "Ob":
+        dim, z = tree['dim'], tree.get('z', 0)
+        return cls(dim=dim, z=z)
+
+    def to_tree(self) -> dict:
+        return dict(dim=self.dim, **super().to_tree())
+
 
 class Digit(Ob):
     """
