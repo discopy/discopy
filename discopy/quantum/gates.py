@@ -479,7 +479,7 @@ class Rotation(Parametrized, QuantumGate):
 
     @classmethod
     def from_tree(cls, tree: dict):
-        return cls(tree['data'], tree.get('z', 0))
+        return cls(tree['data'])
 
     @property
     def phase(self):

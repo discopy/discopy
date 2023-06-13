@@ -118,7 +118,7 @@ class Ob(RealConjugate, rigid.Ob):
         return self.name
 
     @classmethod
-    def from_tree(cls, tree: dict) -> Ob:
+    def from_tree(cls, tree: dict) -> "Ob":
         dim, z = tree['dim'], tree.get('z', 0)
         return cls(dim=dim, z=z)
 

@@ -929,4 +929,5 @@ def test_CCX_decompose(x, y, z):
 
 def test_loads_dumps():
     from discopy.utils import loads, dumps
+    d= dumps(Rx(1))
     assert loads(dumps(Rx(1))) == Rx(1)
