@@ -570,6 +570,10 @@ class Rotation(Parametrized, QuantumGate):
         QuantumGate.__init__(self, name, dom, cod, z=z)
         Parametrized.__init__(self, name, dom, cod, is_mixed=False, data=phase)
 
+    @classmethod
+    def from_tree(cls, tree: dict):
+        return cls(tree['data'], tree.get('z', 0))
+
     @property
     def phase(self):
         """ The phase of a rotation gate. """

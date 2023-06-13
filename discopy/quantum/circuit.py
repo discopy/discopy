@@ -103,6 +103,14 @@ class Ob(frobenius.Ob):
     def __repr__(self):
         return f"{factory_name(type(self))}({self.dim})"
 
+    @classmethod
+    def from_tree(cls, tree: dict) -> Ob:
+        dim, z = tree['dim'], tree.get('z', 0)
+        return cls(dim=dim, z=z)
+
+    def to_tree(self) -> dict:
+        return dict(dim=self.dim, **super().to_tree())
+
 
 class Digit(Ob):
     """
