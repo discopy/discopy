@@ -32,6 +32,8 @@ Summary
     Ry
     Rz
     CU1
+    CRz
+    CRx
     Scalar
     MixedScalar
     Sqrt
@@ -43,8 +45,6 @@ Summary
         :nosignatures:
         :toctree:
 
-        CRz
-        CRx
         sqrt
         scalar
 """

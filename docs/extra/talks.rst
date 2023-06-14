@@ -41,17 +41,17 @@ The first demo of DisCoPy experiments on quantum hardware was presented at
 
 .. youtube:: NJFYXZyeMj0
 
-.. _qnlp-experiment: https://github.com/discopy/discopy/blob/main/docs/notebooks/qnlp-experiment.ipynb
+.. _qnlp-experiment: https://github.com/discopy/discopy/blob/legacy/docs/notebooks/qnlp-experiment.ipynb
 .. _QNLP 2020: https://quantumweek2020.cambridgequantum.com/qnlp.html
 
 QNLP 2019
 ---------
 
 The first demo of DisCoPy was presented at
-`the first QNLP workshop <http://www.cs.ox.ac.uk/QNLP2019/>`_
+`the first QNLP workshop <http://www.cs.ox.ac.uk/QNLP2019>`_
 see the corresponding notebooks alice-loves-bob_ and bob-is-rich_.
 
 .. youtube:: 3UKqpL7Z0Uc
 
-.. _alice-loves-bob: https://github.com/discopy/discopy/blob/main/notebooks/alice-loves-bob.ipynb
-.. _bob-is-rich: https://github.com/discopy/discopy/blob/main/notebooks/bob-is-rich.ipynb
+.. _alice-loves-bob: https://github.com/discopy/discopy/blob/legacy/docs/notebooks/alice-loves-bob.ipynb
+.. _bob-is-rich: https://github.com/discopy/discopy/blob/legacy/docs/notebooks/bob-is-rich.ipynb

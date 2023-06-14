@@ -34,6 +34,7 @@ Axioms
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
 * Vanishing
+
 >>> assert f.trace(n=0) == f == f.trace(n=0, left=True)
 >>> assert f.trace(n=2) == f.trace().trace()
 >>> assert f.trace(n=2, left=True) == f.trace(left=True).trace(left=True)

@@ -21,7 +21,6 @@ Summary
     Category
     Functor
     Composable
-    AxiomError
 
 .. admonition:: Functions
 
