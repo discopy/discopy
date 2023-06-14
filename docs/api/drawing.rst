@@ -5,7 +5,7 @@ drawing
     :no-members:
 
 .. autosummary::
-   :template: class.rst
+   :template: module.rst
    :toctree: ../_api
 
    discopy.drawing.Node
