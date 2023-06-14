@@ -6,7 +6,7 @@ quantum.tk
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.tk.Circuit
    discopy.quantum.tk.to_tk

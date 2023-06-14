@@ -6,7 +6,7 @@ quantum.pennylane
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.pennylane.PennyLaneCircuit
    discopy.quantum.pennylane.to_pennylane

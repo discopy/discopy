@@ -6,7 +6,7 @@ hypergraph
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.hypergraph.pushout
    discopy.hypergraph.Ty

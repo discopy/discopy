@@ -6,7 +6,7 @@ quantum.circuit
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.circuit.Ob
    discopy.quantum.circuit.Digit

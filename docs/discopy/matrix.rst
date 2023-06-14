@@ -6,6 +6,6 @@ matrix
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.matrix.Matrix

@@ -6,7 +6,7 @@ monoidal
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.monoidal.Ty
    discopy.monoidal.PRO

@@ -6,7 +6,7 @@ quantum.optics
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.optics.Diagram
    discopy.quantum.optics.Box

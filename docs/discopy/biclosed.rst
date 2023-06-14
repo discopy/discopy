@@ -6,7 +6,7 @@ biclosed
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.biclosed.Ty
    discopy.biclosed.Over

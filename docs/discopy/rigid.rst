@@ -6,7 +6,7 @@ rigid
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.rigid.Ob
    discopy.rigid.Ty

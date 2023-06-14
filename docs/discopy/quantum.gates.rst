@@ -6,7 +6,7 @@ quantum.gates
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.gates.QuantumGate
    discopy.quantum.gates.ClassicalGate

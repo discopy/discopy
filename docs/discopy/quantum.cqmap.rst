@@ -6,7 +6,7 @@ quantum.cqmap
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.cqmap.CQ
    discopy.quantum.cqmap.C
