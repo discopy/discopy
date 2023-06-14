@@ -6,7 +6,7 @@ quantum.zx
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.quantum.zx.Diagram
    discopy.quantum.zx.Id

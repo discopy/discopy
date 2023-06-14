@@ -6,7 +6,7 @@ tensor
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.tensor.Dim
    discopy.tensor.Tensor

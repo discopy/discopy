@@ -6,7 +6,7 @@ grammar.cfg
 
 .. autosummary::
    :template: class.rst
-   :toctree: ../_autosummary
+   :toctree: ../_api
 
    discopy.grammar.cfg.Word
    discopy.grammar.cfg.CFG
