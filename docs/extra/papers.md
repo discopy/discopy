@@ -4,7 +4,7 @@
 
 ### Category Theory for Quantum Natural Language Processing
 
-https://arxiv.org/abs/2212.06615
+<arXiv:2212.06615>
 
 Alexis Toumi
 
@@ -17,7 +17,7 @@ The second chapter uses DisCopy to implement QNLP models as parameterised functo
 
 ### Categorical Tools for Natural Language Processing
 
-https://arxiv.org/abs/2212.06636
+<arXiv:2212.06636>
 
 Giovanni de Felice
 
@@ -28,7 +28,7 @@ This thesis develops the translation between category theory and computational l
 
 ### DisCoPy: Monoidal categories in Python
 
-https://doi.org/10.4204/EPTCS.333.13
+<doi:10.4204/EPTCS.333.13>
 
 Giovanni de Felice, Alexis Toumi, Bob Coecke
 
@@ -37,7 +37,7 @@ We introduce DisCoPy, an open source toolbox for computing with monoidal categor
 
 ### Diagrammatic Differentiation for Quantum Machine Learning
 
-https://doi.org/10.4204/EPTCS.343.7
+<doi:10.4204/EPTCS.343.7>
 
 Alexis Toumi, Richie Yeung, Giovanni de Felice
 
@@ -46,7 +46,7 @@ We introduce diagrammatic differentiation for tensor calculus by generalising th
 
 ### DisCoPy for the quantum computer scientist
 
-https://arxiv.org/abs/2205.05190
+<arXiv:2205.05190>
 
 Alexis Toumi, Giovanni de Felice, Richie Yeung
 
@@ -55,7 +55,7 @@ DisCoPy (Distributional Compositional Python) is an open source toolbox for comp
 
 ### Functorial Language Models
 
-https://arxiv.org/abs/2103.14411
+<arXiv:2103.14411>
 
 Alexis Toumi, Alex Koziell-Pipe
 

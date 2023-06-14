@@ -30,9 +30,8 @@ Summary
 See also
 --------
 
-* :class:`Tensor` is a subclass of :class:`Matrix` with the Kronecker product
-  as tensor.
-* :class:`Matrix` is used to evaluate :class:`quantum.optics.Diagram`.
+* :class:`discopy.tensor.Tensor` is a subclass of :class:`Matrix` with the
+  Kronecker product as tensor.
 
 """
 from __future__ import annotations
@@ -182,26 +181,27 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             and (self.dom, self.cod) == (other.dom, other.cod)\
             and (self.array == other.array).all()
 
-    def is_close(self, other: Matrix, rtol=1.e-8, atol=1.e-8) -> bool:
+    def is_close(self, other: Matrix, rtol: float = 1.e-8, atol: float = 1.e-8
+                 ) -> bool:
         """
         Whether a matrix is numerically close to an ``other``.
 
         Parameters:
             other : The other matrix with which to check closeness.
-            rtol: float
-                    The relative tolerance parameter (see Notes).
-                    Default value for results of order unity is 1.e-5
-            atol : float
-                    The absolute tolerance parameter (see Notes).
-                    Default value for results of order unity is 1.e-8
+            rtol:
+                The relative tolerance parameter (see Notes).
+                Default value for results of order unity is 1.e-5
+            atol :
+                The absolute tolerance parameter (see Notes).
+                Default value for results of order unity is 1.e-8
 
         Notes:
-       (taken from np.isclose documentation)
+        (taken from np.isclose documentation)
 
             For finite values, isclose uses the following equation to
             test whether two floating point values are equivalent.
 
-             absolute(`a` - `b`) <= (`atol` + `rtol` * absolute(`b`))
+            absolute(`a` - `b`) <= (`atol` + `rtol` * absolute(`b`))
 
             Unlike the built-in `math.isclose`, the above equation is not
             symmetric in `a` and `b` -- it assumes `b` is the reference
