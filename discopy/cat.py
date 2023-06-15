@@ -259,8 +259,8 @@ class Arrow:
 
         Parameters
         ----------
-        other : cat.Arrow
-            such that `self.cod == other.dom`
+        others : cat.Arrow
+            such that `self.cod == others[0].dom`
             and `all(x.cod == y.dom for x, y in zip(others, others[1:])`.
 
         Returns
