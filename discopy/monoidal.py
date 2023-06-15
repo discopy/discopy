@@ -252,6 +252,10 @@ class PRO(Ty):
             n = n.name
         super().__init__(*(n * [1]))
 
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(len(tree["objects"]))
+
     def __repr__(self):
         return "PRO({})".format(len(self))
 

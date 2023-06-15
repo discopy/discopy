@@ -6,7 +6,8 @@ import warnings
 
 import numpy
 
-from discopy.cat import AxiomError, rsubs
+from discopy.utils import from_tree
+from discopy.cat import rsubs
 from discopy.tensor import array2string, Dim, Tensor
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id,
@@ -34,6 +35,20 @@ class QuantumGate(Box):
         super().__init__(
             name, dom, dom, is_mixed=False, data=data,
             _dagger=_dagger, _conjugate=_conjugate)
+
+    @classmethod
+    def from_tree(cls, tree):
+        n_qubits = len(from_tree(tree["dom"]))
+        return cls(tree['name'], n_qubits, tree['array'],
+                   tree.get('data', None), tree['_dagger'], tree['_conjugate'])
+
+    def to_tree(self):
+        return {
+            **super().to_tree(),
+            'array': self._array,
+            '_dagger': self._dagger,
+            '_conjugate': self._conjugate,
+        }
 
     @property
     def array(self):
@@ -309,6 +324,17 @@ class Controlled(QuantumGate):
         self.draw_as_controlled = True
         array = None
         super().__init__(self.name, n_qubits, array, data=controlled.data)
+
+    def to_tree(self):
+        return {
+            **super().to_tree(),
+            'controlled': self.controlled.to_tree(),
+            'distance': self.distance,
+        }
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(from_tree(tree['controlled']), tree['distance'])
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
