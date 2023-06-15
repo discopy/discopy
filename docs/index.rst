@@ -1,17 +1,49 @@
-.. mdinclude:: ../README.md
+.. image:: /_static/snake-equation.png
+
+#####################
+DisCoPy documentation
+#####################
+
+.. include:: ../README.md
+    :parser: myst_parser.sphinx_
+    :start-line: 10
 
 .. toctree::
-   :maxdepth: 3
-   :caption: Contents
+    :caption: Reference API
+    :hidden:
 
-   talks
-   notebooks
-   api
+    api/cat
+    api/monoidal
+    api/rigid
+    api/biclosed
+    api/hypergraph
+    api/matrix
+    api/tensor
+    api/quantum
+    api/grammar
+    api/drawing
+    api/utils
+
+.. toctree::
+    :caption: Notebooks
+    :hidden:
+
+    notebooks/basics
+    notebooks/advanced
+    notebooks/qnlp
+
+
+.. toctree::
+    :caption: Extra
+    :hidden:
+
+    extra/talks
+    extra/blogs
+    extra/papers
 
 
 Indices and tables
 ------------------
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

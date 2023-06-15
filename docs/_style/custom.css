@@ -1,0 +1,26 @@
+:root {
+    --pst-color-link: 230,126,0;
+}
+
+.content-container a {
+    font-weight: 500;
+}
+
+.diagram-frame { width: 100%; border: none; }
+
+#architecture-diagram .api-title { font-size: smaller; font-style: italic; vertical-align: bottom; }
+#architecture-diagram .syntax { background-color: rgba(250,250,250); }
+#architecture-diagram .semantics { background-color: rgba(250,250,250); }
+#architecture-diagram .grammar { background-color: rgba(250,250,250); }
+#architecture-diagram .quantum { background-color: rgba(250,250,250); }
+#architecture-diagram .top { border-top: 1px solid #c9c9c9; padding-top: 10px; margin-top: 5px;}
+#architecture-diagram .bottom { border-bottom: 1px solid #c9c9c9; padding-bottom: 10px;}
+#architecture-diagram .left { border-left: 1px solid #c9c9c9; }
+#architecture-diagram .right { border-right: 1px solid #c9c9c9; }
+#architecture-diagram .top-left { border-top: 1px solid #c9c9c9; border-left: 1px solid #c9c9c9; border-top-left-radius: 20px; padding-top: 10px;}
+#architecture-diagram .top-right { border-top: 1px solid #c9c9c9; border-right: 1px solid #c9c9c9; border-top-right-radius: 20px; padding-top: 10px;}
+#architecture-diagram .bottom-left { border-bottom: 1px solid #c9c9c9; border-left: 1px solid #c9c9c9; border-bottom-left-radius: 20px; padding-bottom: 10px;}
+#architecture-diagram .bottom-right { border-bottom: 1px solid #c9c9c9; border-right: 1px solid #c9c9c9; border-bottom-right-radius: 20px; padding-bottom: 10px;}
+#architecture-diagram { text-align: center; border-spacing: 0; box-sizing:content-box; border-collapse: separate;}
+#architecture-diagram td {vertical-align: top; margin: 5px;}
+#architecture-diagram pre { text-align: center; display: inline-block; margin: auto; padding: 0; background-color: inherit; border: 0; box-shadow: none; line-height: 1.2;}
