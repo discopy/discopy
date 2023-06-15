@@ -247,7 +247,6 @@ class Arrow:
     def __radd__(self, other):
         return self + other
 
-    # @unbiased
     def then(self, *others):
         """
         Returns the composition of `self` with arrows `others`.
@@ -296,14 +295,6 @@ class Arrow:
                 raise AxiomError(messages.does_not_compose(x, y))
         boxes = self.boxes + sum([other.boxes for other in others], [])
         return self.upgrade(Arrow(self.dom, others[-1].cod, boxes))
-        # if isinstance(other, Sum):
-        #     return self.sum([self]).then(other)
-        # if not isinstance(other, Arrow):
-        #     raise TypeError(messages.type_err(Arrow, other))
-        # if self.cod != other.dom:
-        #     raise AxiomError(messages.does_not_compose(self, other))
-        # boxes = self.boxes + other.boxes
-        # return self.upgrade(Arrow(self.dom, other.cod, boxes))
 
     def __rshift__(self, other):
         return self.then(other)
