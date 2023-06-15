@@ -4,6 +4,7 @@
 
 from discopy import messages, cat, monoidal, rigid, quantum, tensor
 from discopy.monoidal import Sum
+from discopy.utils import from_tree
 from discopy.rigid import Functor, PRO
 from discopy.quantum.circuit import Circuit, qubit
 from discopy.quantum.gates import (
@@ -267,6 +268,12 @@ class Spider(Box):
         self.draw_as_spider, self.drawing_name = True, phase or ""
         self.tikzstyle_name = name
 
+    @classmethod
+    def from_tree(cls, tree):
+        n_legs_in = len(from_tree(tree["dom"]))
+        n_legs_out = len(from_tree(tree["cod"]))
+        return cls(n_legs_in, n_legs_out, tree["data"])
+
     @property
     def name(self):
         return "{}({}, {}{})".format(
@@ -366,6 +373,10 @@ class Had(Box):
         self.drawing_name, self.tikzstyle_name, = '', 'H'
         self.color, self.shape = "yellow", "rectangle"
 
+    @classmethod
+    def from_tree(cls, _):
+        return cls()
+
     def __repr__(self):
         return self.name
 
@@ -381,6 +392,10 @@ class Scalar(Box):
     def __init__(self, data):
         super().__init__("scalar", PRO(0), PRO(0), data=data)
         self.drawing_name = format_number(data)
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(tree["data"])
 
     @property
     def name(self):

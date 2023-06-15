@@ -54,7 +54,13 @@ def dumps(obj):
         'dom': {'factory': 'discopy.cat.Ob', 'name': 'x'},
         'factory': 'discopy.cat.Arrow'}
     """
-    return json.dumps(obj.to_tree())
+    try:
+        return json.dumps(obj.to_tree())
+    except TypeError:
+        raise TypeError(
+            "The given object cannot be serialised using JSON."
+            "Consider using `pickle.dumps` instead."
+        )
 
 
 def loads(raw):
