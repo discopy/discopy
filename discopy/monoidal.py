@@ -41,7 +41,7 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from discopy import cat, messages, drawing, rewriting
 from discopy.cat import Ob
 from discopy.messages import WarnOnce
-from discopy.utils import factory_name, from_tree
+from discopy.utils import factory_name, from_tree, unbiased
 
 warn_permutation = WarnOnce()
 
@@ -410,14 +410,15 @@ class Diagram(cat.Arrow):
         """
         return self._layers
 
-    def then(self, *others):
-        if not others or any(isinstance(other, Sum) for other in others):
-            return super().then(*others)
-        layers = self.layers.then(*[other.layers for other in others])
+    @unbiased
+    def then(self, other):
+        if isinstance(other, Sum):
+            return super().then(other)
+        layers = self.layers.then(other.layers)
         boxes = [box for _, box, _ in layers]
         offsets = [len(left) for left, _, _ in layers]
         return self.upgrade(
-            Diagram(self.dom, others[-1].cod, boxes, offsets, layers))
+            Diagram(self.dom, other.cod, boxes, offsets, layers))
 
     def tensor(self, other=None, *rest):
         """
