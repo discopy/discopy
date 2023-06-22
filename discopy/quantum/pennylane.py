@@ -101,6 +101,8 @@ def tk_op_to_pennylane(tk_op):
         The PennyLane operation equivalent to the input pytket Op.
     list of (:class:`torch.FloatTensor` or :class:`sympy.core.symbol.Symbol`)
         The parameters of the operation.
+    list of :class:`sympy.core.symbol.Symbol`
+        The free symbols in the parameters of the operation.
     list of int
         The wires/qubits to apply the operation to.
     """
@@ -142,6 +144,8 @@ def extract_ops_from_tk(tk_circ):
         The corresponding parameters of the operations.
     list of list of int
         The corresponding wires of the operations.
+    set of :class:`sympy.core.symbol.Symbol`
+        The free symbols in the parameters of the tket circuit.
     """
     op_list, params_list, wires_list = [], [], []
     symbols_set = set()
@@ -436,8 +440,6 @@ class PennyLaneCircuit:
 
         Parameters
         ----------
-        symbols : list of :class:`sympy.core.symbol.Symbol`
-            The symbols from the original DisCoPy circuit.
         weights : list of :class:`torch.FloatTensor`
             The weights to substitute for the symbols.
 
