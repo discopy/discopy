@@ -535,7 +535,7 @@ class Rx(AntiConjugate, Rotation):
         with backend() as np, default_dtype(init_stack=self.dtype) as dtype:
             with self.modules() as module:
                 pi = module.pi()
-            half_theta = np.copy(np.asarray(pi * self.phase.detach().numpy(), dtype=dtype.like_backend(np)))
+            half_theta = np.copy(np.asarray(pi * self.phase.cpu().detach().numpy(), dtype=dtype.like_backend(np)))
             with self.modules() as module:
                 sin, cos = module.sin(half_theta), module.cos(half_theta)
             return np.stack((cos, -1j * sin, -1j * sin, cos)).reshape(2, 2)

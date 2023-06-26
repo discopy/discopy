@@ -267,7 +267,10 @@ class Circuit(tensor.Diagram):
         """
         from discopy.quantum import cqmap
         if dtype is None:
-            dtype = Dtype.merged(self._infer_dtype(), complex)
+            try:
+                dtype = Dtype.merged(self._infer_dtype(), complex)
+            except:
+                dtype = 'complex64'
         with default_dtype(init_stack=dtype) as dtype:
             if contractor is not None:
                 array = contractor(*self.to_tn(mixed=mixed)).tensor
