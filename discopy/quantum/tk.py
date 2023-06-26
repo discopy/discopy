@@ -117,6 +117,7 @@ class Circuit(tk.Circuit):
         self.post_processing >>= process
         return self
 
+
     def get_counts(self, *others, backend=None, **params):
         """ Runs a circuit on a backend and returns the counts. """
         n_shots = params.get("n_shots", 2**10)
@@ -134,7 +135,73 @@ class Circuit(tk.Circuit):
                 compilation.apply(circuit)
         handles = backend.process_circuits(
             (self, ) + others, n_shots=n_shots, seed=seed)
-        counts = [backend.get_result(h).get_counts() for h in handles]
+        counts = [backend.get_result(h, timeout=None).get_counts() for h in handles]
+        if normalize:
+            counts = list(map(probs_from_counts, counts))
+        if post_select:
+            for i, circuit in enumerate((self, ) + others):
+                post_selected = dict()
+                for bitstring, count in counts[i].items():
+                    if all(bitstring[index] == value
+                           for index, value in circuit.post_selection.items()):
+                        key = tuple(
+                            value for index, value in enumerate(bitstring)
+                            if index not in circuit.post_selection)
+                        post_selected.update({key: count})
+                counts[i] = post_selected
+        if scale:
+            for i, circuit in enumerate((self, ) + others):
+                for bitstring in counts[i]:
+                    counts[i][bitstring] *= circuit.scalar
+        return counts
+
+
+    def get_handles(self, *others, backend=None, compilation_backend=None, **params):
+        """ Gets handles from processing circuit on backend."""
+        n_shots = params.get("n_shots", 2**10)
+        scale = params.get("scale", True)
+        post_select = params.get("post_select", True)
+        compilation = params.get("compilation", None)
+        compilation_backend = params.get("compilation_backend", None)    # If compiling to different backend before executing on Aer
+        normalize = params.get("normalize", True)
+        measure_all = params.get("measure_all", False)
+        seed = params.get("seed", None)
+        if measure_all:
+            for circuit in (self, ) + others:
+                circuit.measure_all()
+        if compilation is not None:
+            for circuit in (self, ) + others:
+                compilation.apply(circuit)
+        if compilation_backend is not None:
+            for circuit in (self, ) + others:
+                compiled_circuit = compilation_backend.get_compiled_circuit(circuit)
+                handles = backend.process_circuits((compiled_circuit, ) + others, n_shots=n_shots, seed=seed)
+                return handles
+        handles = backend.process_circuits(
+            (self, ) + others, n_shots=n_shots, seed=seed)
+        
+        return handles
+    
+    def get_counts_from_handles(self, handles, *others, backend=None, experiment=None, **params):
+        """Gets `eval` result from handles."""
+        scale = params.get("scale", True)
+        post_select = params.get("post_select", True)
+        normalize = params.get("normalize", True)
+
+        # Either backend xor experiment must be provided.
+        assert (backend is not None) ^ (experiment is not None), "Either backend or experiment must be provided."
+        
+        if experiment is not None:
+            counts = []
+            for h in handles:
+                print(h)
+                process_job = experiment.get_process_job(handle=h)
+                print(process_job)
+                counts.append(experiment.get_result(h).get_counts())
+            # counts = [experiment.get_result(h).get_counts() for h in handles]
+        else:
+            counts = [backend.get_result(h, timeout=None).get_counts() for h in handles]
+        
         if normalize:
             counts = list(map(probs_from_counts, counts))
         if post_select:
