@@ -133,3 +133,9 @@ def test_sum_adjoint():
     two_boxes = two + boxes
     assert two_boxes.l == two.l + boxes.l
     assert two_boxes.l.r == two_boxes
+
+
+def test_pickle():
+    import pickle
+    f = pickle.load(open('test/src/pickles/rigid.Box.legacy.pickle', 'rb'))
+    assert f == Box('f', Ty('x', 'x'), Ty('y'))
