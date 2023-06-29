@@ -312,8 +312,7 @@ class Layer(cat.Box):
         if 'boxes_or_types' not in state:  # Backward compatibility
             self.boxes_or_types = tuple(
                 state[key] for key in ['_left', '_box', '_right'])
-        else:
-            self.__dict__.update(state)
+        super().__setstate__(state)
 
     def __init__(self, left: Ty, box: Box, right: Ty, *more):
         if len(more) % 2:
