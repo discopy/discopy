@@ -138,4 +138,4 @@ def test_sum_adjoint():
 def test_pickle():
     import pickle
     f = pickle.load(open('test/src/pickles/rigid.Box.legacy.pickle', 'rb'))
-    assert f == Box('f', Ty('x', 'x'), Ty('y'))
+    assert f.__dict__ == Box('f', Ty('x', 'x'), Ty('y')).__dict__
