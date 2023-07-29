@@ -52,6 +52,7 @@ test = [
     "pennylane >= 0.29.1",
     "pennylane-qiskit",
     "pennylane-honeywell",
+    "qiskit-aer",
     "lxml",
     "nltk",
     "pylint"
