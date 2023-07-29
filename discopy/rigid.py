@@ -586,16 +586,16 @@ class Box(closed.Box, Diagram):
         return result
 
 
-class Sum(monoidal.Sum, Box):
+class Sum(closed.Sum, Box):
     """
-    A rigid sum is a monoidal sum that can be transposed.
+    A rigid sum is a closed sum that can be transposed.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (monoidal.Sum, )
+    __ambiguous_inheritance__ = (closed.Sum, )
 
     def rotate(self, left=False) -> Sum:
         if left:
