@@ -14,6 +14,7 @@ Summary
     Diagram
     Box
     Swap
+    Sum
     Category
     Functor
 
@@ -285,6 +286,18 @@ class Trace(balanced.Trace, Box):
     __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
 
 
+class Sum(balanced.Sum, Box):
+    """
+    A symmetric sum is a balanced sum and a symmetric box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (balanced.Sum, )
+
+
 class Category(balanced.Category):
     """
     A symmetric category is a balanced category with a method :code:`swap`.
@@ -322,4 +335,5 @@ class Hypergraph(balanced.Hypergraph):
 Diagram.hypergraph_factory = Hypergraph
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
+Diagram.sum_factory = Sum
 Id = Diagram.id
