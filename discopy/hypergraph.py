@@ -630,10 +630,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         return True
 
     @property
-    def is_polygynous(self) -> bool:
+    def is_left_monogamous(self) -> bool:
         """
-        Checks polygyny, i.e. if each non-scalar spider is connected to exactly
-        one output port.
+        Checks left monogamy, i.e. if each non-scalar spider is connected to
+        exactly one output port.
         """
         return all(len(x) == 1 for x, y in self.spider_wires if x.union(y))
 
@@ -767,14 +767,14 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     ).make_monogamous()
         return self
 
-    def make_polygynous(self) -> Hypergraph:
+    def make_left_monogamous(self) -> Hypergraph:
         """
-        Introduce spider boxes to make self polygynous.
+        Introduce spider boxes to make self left monogamous.
 
         Example
         -------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H, Spider
-        >>> h = H.spiders(2, 3, Ty('x')).make_polygynous()
+        >>> h = H.spiders(2, 3, Ty('x')).make_left_monogamous()
         >>> assert h.boxes == (Spider(2, 1, Ty('x')), )
         >>> assert h.wires == (0, 1) + (0, 1, 2) + (2, 2, 2)
         """
@@ -798,7 +798,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             spider_types = self.spider_types + len(input_wires) * (typ, )
             return type(self)(
                 self.dom, self.cod, boxes, tuple(wires), spider_types, offsets
-            ).make_polygynous()
+            ).make_left_monogamous()
         return self
 
     def make_causal(self) -> Hypergraph:
@@ -817,8 +817,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> assert H.spiders(2, 1, x).make_causal().boxes\\
         ...     == (Spider(2, 1, x),)
         """
-        if not self.is_polygynous:
-            return self.make_polygynous().make_causal()
+        if not self.is_left_monogamous:
+            return self.make_left_monogamous().make_causal()
         for input_spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
             if not input_wires:
@@ -909,7 +909,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         * either we first :meth:`make_bijective` (introducing spiders) then
           :meth:`make_monogamous` (introducing cups and caps) and finally
           :meth:`make_causal` (introducing traces)
-        * or we first :meth:`make_polygynous` (introducing merges) then
+        * or we first :meth:`make_left_monogamous` (introducing merges) then
           :meth:`make_causal` (introducing traces) and finally
           :meth:`make_bijective` (introducing copies).
 
