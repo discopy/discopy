@@ -103,5 +103,6 @@ pythonpath = [
     "."
 ]
 testpaths = [
+    "discopy",
     "test/*/*.py"
 ]
