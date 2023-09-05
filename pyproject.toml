@@ -99,6 +99,9 @@ per-file-ignores = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = [
+    "."
+]
 testpaths = [
     "discopy",
     "test/*/*.py"
