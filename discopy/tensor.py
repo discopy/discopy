@@ -541,7 +541,7 @@ class Box(frobenius.Box, Diagram):
     def __new__(cls, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:
-                data = np.array(getattr(kwargs, "data", []))
+                data = np.array(kwargs.get("data", []))
                 # The dtype of an np.arrays is a class that contains a type
                 # attribute that is the actual type. However, other backends
                 # have different structures, so this is the easiest option:
