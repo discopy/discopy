@@ -30,6 +30,7 @@ classifiers = [
     "Topic :: Scientific/Engineering"
 ]
 dependencies = [
+  "pyyaml >= 6",
   "numpy >= 1.18.1",
   "networkx >= 2.4",
   "matplotlib >= 3.1.2",
