@@ -467,7 +467,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
                     node = tn.CopyNode(
                         sum(dims), outputs[offset].dimension, dtype=dtype)
             else:
-                array = box.eval(dtype=dtype).array
+                array = box.eval().array
                 node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(outputs[offset + i], node[i])
@@ -534,18 +534,6 @@ class Box(frobenius.Box, Diagram):
     Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
-
-    def __class_getitem__(cls, dtype):
-        result = super().__class_getitem__(dtype)
-        factory = cls.factory[dtype]
-        class Result(result, factory):
-            pass
-        Result.factory = factory
-        Result.__module__ = cls.__module__
-        Result.__name__ = Result.__qualname__ = \
-            f"{cls.__name__}[{dtype.__name__}]"
-        return Result
-
     def __new__(cls, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:

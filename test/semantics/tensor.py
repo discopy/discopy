@@ -222,13 +222,13 @@ def test_Diagram_swap():
 
 
 def test_Box():
-    f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
-    assert repr(f) == "tensor.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
+    f = Box[int]('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert repr(f) == "tensor.Box[int]('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
     assert {f: 42}[f] == 42
 
 
 def test_Spider():
-    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider(1, 2, Dim(3))"
+    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider[float64](1, 2, Dim(3))"
     assert Spider(1, 2, Dim(2)).dagger() == Spider(2, 1, Dim(2))
     with raises(ValueError):
         Spider(1, 2, Dim(2, 3))
