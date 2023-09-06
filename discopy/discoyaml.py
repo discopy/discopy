@@ -1,10 +1,24 @@
 import yaml
-from yaml import ScalarNode
 
-from discopy.cat import Ob
-from discopy.frobenius import Diagram
+from discopy import frobenius
 
-def from_yaml(data: yaml.Node) -> Diagram:
+
+class Ty(frobenius.Ty):
+    """"""
+
+class MappingBox(frobenius.Box):
+    """"""
+
+class SequenceBox(frobenius.Box):
+    """"""
+
+class CollectionBox(MappingBox, SequenceBox):
+    """"""
+
+class Box(Ty, CollectionBox):
+    """"""
+
+def from_yaml(data: yaml.Node) -> Box:
     match data:
-        case ScalarNode(value=value):
-            return Ob(value)
+        case yaml.ScalarNode(value=value):
+            return Ty(value)
