@@ -534,6 +534,7 @@ class Box(frobenius.Box, Diagram):
     Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
+
     def __new__(cls, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:

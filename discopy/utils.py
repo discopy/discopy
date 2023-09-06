@@ -170,7 +170,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
 
         for attr in attributes:
-           setattr(Result, attr, getattr(Result, attr, None))
+            setattr(Result, attr, getattr(Result, attr, None))
         return Result
 
 
