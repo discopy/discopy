@@ -313,7 +313,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     def dagger(self) -> Matrix:
         return self.conjugate().transpose()
 
-    def map(self, func: Callable[[T], T], dtype: Optional[type] = None) -> Matrix:
+    def map(self, func: Callable, dtype: Optional[type] = None) -> Matrix:
         array = list(map(func, self.array.reshape(-1)))
         return type(self)[dtype or self.dtype](array, self.dom, self.cod)
 
