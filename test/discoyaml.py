@@ -1,16 +1,16 @@
 import yaml
 
-from discopy.cat import *
-
-from discopy.discoyaml import from_yaml
+from discopy.frobenius import Id, Functor
+from discopy.discoyaml import *
 
 
 ob_x = from_yaml(yaml.compose("x"))
+box_x_to_y = from_yaml(yaml.compose("x: y"))
 
 
 def test_main():
     x, y, z = ob_x, Ob('y'), Ob('z')
-    f, g, h = Box('f', x, y), Box('g', y, z), Box('h', z, x)
+    f, g, h = box_x_to_y, Box('g', y, z), Box('h', z, x)
     assert Id(x) >> f == f == f >> Id(y)
     assert (f >> g).dom == f.dom and (f >> g).cod == g.cod
     assert f >> g >> h == f >> (g >> h)
