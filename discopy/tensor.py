@@ -446,6 +446,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
+        if dtype is None:
+            dtype = self.dtype
         nodes = [
             tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
             for i, dim in enumerate(self.dom.inside)]

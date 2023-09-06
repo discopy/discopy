@@ -35,7 +35,7 @@ from discopy.utils import factory_name
 
 
 @factory
-class Diagram(tensor.Diagram):
+class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ty_factory = PRO
 
@@ -224,7 +224,7 @@ class Diagram(tensor.Diagram):
         return diagram
 
 
-class Box(tensor.Box, Diagram):
+class Box(tensor.Box[complex], Diagram):
     """
     A ZX box is a tensor box in a ZX diagram.
 
@@ -236,7 +236,7 @@ class Box(tensor.Box, Diagram):
     __ambiguous_inheritance__ = (tensor.Box, )
 
 
-class Sum(tensor.Sum, Box):
+class Sum(tensor.Sum[complex], Box):
     """
     A formal sum of ZX diagrams with the same domain and codomain.
 
@@ -248,7 +248,7 @@ class Sum(tensor.Sum, Box):
     __ambiguous_inheritance__ = (tensor.Sum, )
 
 
-class Swap(tensor.Swap, Box):
+class Swap(tensor.Swap[complex], Box):
     """ Swap in a ZX diagram. """
     def __repr__(self):
         return "SWAP"
@@ -256,10 +256,8 @@ class Swap(tensor.Swap, Box):
     __str__ = __repr__
 
 
-class Spider(tensor.Spider[float], Box):
+class Spider(tensor.Spider[complex], Box):
     """ Abstract spider box. """
-    def __new__(cls, *args, **kwargs):
-        return object.__new__(cls)
 
     def __init__(self, n_legs_in, n_legs_out, phase=0):
         super().__init__(n_legs_in, n_legs_out, PRO(1), phase)

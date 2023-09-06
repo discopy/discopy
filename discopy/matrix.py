@@ -38,8 +38,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from types import ModuleType
-from typing import Union, Literal as L, Callable, TYPE_CHECKING, TypeVar,\
-    Optional
+from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
 from discopy.cat import (
@@ -53,8 +52,6 @@ from discopy.utils import assert_isinstance, unbiased, NamedGeneric
 
 if TYPE_CHECKING:
     import sympy
-
-T = TypeVar("T")
 
 
 @factory
@@ -313,7 +310,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     def dagger(self) -> Matrix:
         return self.conjugate().transpose()
 
-    def map(self, func: Callable, dtype: Optional[type] = None) -> Matrix:
+    def map(self, func: Callable, dtype: type | None = None) -> Matrix:
         array = list(map(func, self.array.reshape(-1)))
         return type(self)[dtype or self.dtype](array, self.dom, self.cod)
 
