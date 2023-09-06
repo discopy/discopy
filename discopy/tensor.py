@@ -421,7 +421,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> from tensornetwork.contractors import auto
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
-        dtype = dtype or int
+        dtype = dtype or self.dtype
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
