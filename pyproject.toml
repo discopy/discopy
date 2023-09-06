@@ -6,7 +6,7 @@ dynamic = ["version"]
 name = "discopy"
 description = "The Python toolkit for computing with string diagrams."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license =  {file = "LICENSE"}
 keywords = [
     "category theory",
