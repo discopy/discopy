@@ -649,7 +649,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> men = Box("men", Dim(1), Dim(2), [0, 1])
     >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
-    >>> assert men_are_mortal.eval(dtype=bool)
+    >>> assert men_are_mortal.eval() == 1
     >>> men_are_mortal.draw(draw_type_labels=False,
     ...                     path='docs/_static/tensor/men-are-mortal.png')
 

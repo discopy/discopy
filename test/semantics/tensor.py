@@ -83,7 +83,7 @@ def test_Spider_to_tn_pytorch():
             d = Dim(2)
 
             alice = Box[float64]("Alice", Dim(1), d,
-                        np.array([1, 2]).requires_grad_(True))
+                        np.array([1., 2.]).requires_grad_(True))
             tensor = alice >> Spider[float64](1, 2, d) >> \
                      Spider[float64](2, 0, d)
             result = tensor.eval(contractor=tn.contractors.auto).array

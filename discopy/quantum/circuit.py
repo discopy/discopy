@@ -798,8 +798,6 @@ class Box(tensor.Box[complex], Circuit):
         data : The array inside the box.
         is_mixed : Whether the box is mixed.
     """
-    def __new__(cls, *args, **kwargs):
-        return object.__new__(cls)
 
     def __init__(self, name: str, dom: Ty, cod: Ty,
                  data=None, is_mixed=True, **params):
