@@ -1,11 +1,10 @@
 import yaml
 
-from discopy.frobenius import Id, Functor
 from discopy.discoyaml import *
 
 
-ob_x = from_yaml(yaml.compose("x"))
-box_x_to_y = from_yaml(yaml.compose("x: y"))
+ob_x = from_yaml_documents(yaml.compose("x"))
+box_x_to_y = from_yaml_documents(yaml.compose("x: y"))
 
 
 def test_main():
