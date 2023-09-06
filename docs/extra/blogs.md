@@ -13,16 +13,16 @@ These two blog posts introduce QNLP with DisCoPy and [lambeq](https://github.com
 
 This blog by [Pawel Sobocinski](https://www.ioc.ee/~pawel/) is what got us hooked to string diagrams.
 
-* https://graphicallinearalgebra.net/
+* <https://graphicallinearalgebra.net>
 
 ## Monads and comonads
 
 Dan Marsden writing about applications of string diagrams to monads, comonads and theoretical computer science.
 
-* https://stringdiagram.com/
+* <https://stringdiagram.com>
 
 ## Azimuth
 
 [John Baez](https://math.ucr.edu/home/baez/)'s blog is a great place to learn about string diagrams and category theory.
 
-* https://johncarlosbaez.wordpress.com/?s=string+diagram
+* <https://johncarlosbaez.wordpress.com/?s=string+diagram>

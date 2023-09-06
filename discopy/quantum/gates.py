@@ -32,6 +32,8 @@ Summary
     Ry
     Rz
     CU1
+    CRz
+    CRx
     Scalar
     MixedScalar
     Sqrt
@@ -43,8 +45,6 @@ Summary
         :nosignatures:
         :toctree:
 
-        CRz
-        CRx
         sqrt
         scalar
 """
@@ -569,6 +569,10 @@ class Rotation(Parametrized, QuantumGate):
         dom = cod = qubit ** n_qubits
         QuantumGate.__init__(self, name, dom, cod, z=z)
         Parametrized.__init__(self, name, dom, cod, is_mixed=False, data=phase)
+
+    @classmethod
+    def from_tree(cls, tree: dict):
+        return cls(tree['data'], tree.get('z', 0))
 
     @property
     def phase(self):

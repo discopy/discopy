@@ -40,7 +40,7 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.napoleon',
               'sphinx.ext.autosummary',
               'sphinx.ext.viewcode',
-              'm2r2',
+              'myst_parser',
               'sphinx.ext.mathjax',
               'youtube',
               'bases-fullname',
@@ -90,7 +90,14 @@ html_theme_options = {
     "repository_url": "https://github.com/discopy/discopy",
     "use_repository_button": True,
     "path_to_docs": "docs",
-    "extra_navbar": "",
+    # "extra_navbar": "",
+}
+myst_enable_extensions = ["attrs_block"]
+myst_url_schemes = {
+    "http": None,
+    "https": None,
+    "doi": "https://doi.org/{{path}}",
+    "arXiv": "https://arxiv.org/abs/{{path}}",
 }
 
 master_doc = 'index'

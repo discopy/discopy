@@ -19,6 +19,7 @@ Summary
     Box
     Eval
     Curry
+    Sum
     Category
     Functor
 
@@ -314,8 +315,21 @@ class Curry(monoidal.Bubble, Box):
         Box.__init__(self, name, dom, cod)
 
 
+class Sum(monoidal.Sum, Box):
+    """
+    A closed sum is a monoidal sum and a closed box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (monoidal.Sum, )
+
+
 Diagram.over, Diagram.under, Diagram.exp\
     = map(staticmethod, (Over, Under, Exp))
+Diagram.sum_factory = Sum
 
 Id = Diagram.id
 

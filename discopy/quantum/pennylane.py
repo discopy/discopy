@@ -101,11 +101,14 @@ def tk_op_to_pennylane(tk_op):
         The PennyLane operation equivalent to the input pytket Op.
     list of (:class:`torch.FloatTensor` or :class:`sympy.core.symbol.Symbol`)
         The parameters of the operation.
+    list of :class:`sympy.core.symbol.Symbol`
+        The free symbols in the parameters of the operation.
     list of int
         The wires/qubits to apply the operation to.
     """
     wires = [x.index[0] for x in tk_op.qubits]
     params = tk_op.op.params
+    symbols = set()
 
     remapped_params = []
     for param in params:
@@ -113,10 +116,12 @@ def tk_op_to_pennylane(tk_op):
         param /= 2
         if not isinstance(param, sympy.Expr):
             param = torch.tensor(param)
+        else:
+            symbols.update(param.free_symbols)
 
         remapped_params.append(param)
 
-    return OP_MAP[tk_op.op.type], remapped_params, wires
+    return OP_MAP[tk_op.op.type], remapped_params, symbols, wires
 
 
 def extract_ops_from_tk(tk_circ):
@@ -139,17 +144,21 @@ def extract_ops_from_tk(tk_circ):
         The corresponding parameters of the operations.
     list of list of int
         The corresponding wires of the operations.
+    set of :class:`sympy.core.symbol.Symbol`
+        The free symbols in the parameters of the tket circuit.
     """
     op_list, params_list, wires_list = [], [], []
+    symbols_set = set()
 
     for op in tk_circ.__iter__():
         if op.op.type != OpType.Measure:
-            op, params, wires = tk_op_to_pennylane(op)
+            op, params, symbols, wires = tk_op_to_pennylane(op)
             op_list.append(op)
             params_list.append(params)
             wires_list.append(wires)
+            symbols_set.update(symbols)
 
-    return op_list, params_list, wires_list
+    return op_list, params_list, wires_list, symbols_set
 
 
 def get_post_selection_dict(tk_circ):
@@ -212,7 +221,8 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
                          'supported.')
 
     tk_circ = disco_circuit.to_tk()
-    op_list, params_list, wires_list = extract_ops_from_tk(tk_circ)
+    op_list, params_list, wires_list, symbols_set = \
+        extract_ops_from_tk(tk_circ)
 
     post_selection = get_post_selection_dict(tk_circ)
 
@@ -222,6 +232,7 @@ def to_pennylane(disco_circuit: Circuit, probabilities=False,
             scalar *= box.array
 
     return PennyLaneCircuit(op_list,
+                            list(symbols_set),
                             params_list,
                             wires_list,
                             probabilities,
@@ -240,10 +251,11 @@ class PennyLaneCircuit:
     """
     Implement a pennylane circuit with post-selection.
     """
-    def __init__(self, ops, params, wires, probabilities,
+    def __init__(self, ops, symbols, params, wires, probabilities,
                  post_selection, scale, n_qubits, backend_config,
                  diff_method):
         self._ops = ops
+        self._symbols = symbols
         self._params = params
         self._wires = wires
         self._probabilities = probabilities
@@ -315,14 +327,15 @@ class PennyLaneCircuit:
         return any(isinstance(expr, sympy.Expr) for expr_list in
                    self._params for expr in expr_list)
 
-    def initialise_concrete_params(self, symbols, weights):
+    def initialise_concrete_params(self, symbol_weight_map):
         """
         Given concrete values for each of the SymPy symbols, substitute
         the symbols for the values to obtain concrete parameters, via
         the `param_substitution` method.
         """
         if self._contains_sympy:
-            self._concrete_params = self.param_substitution(symbols, weights)
+            weights = [symbol_weight_map[symbol] for symbol in self._symbols]
+            self._concrete_params = self.param_substitution(weights)
 
     def draw(self):
         """
@@ -421,14 +434,12 @@ class PennyLaneCircuit:
         else:
             return torch.reshape(post_selected_states, (2,) * open_wires)
 
-    def param_substitution(self, symbols, weights):
+    def param_substitution(self, weights):
         """
         Substitute symbolic parameters (SymPy symbols) with floats.
 
         Parameters
         ----------
-        symbols : list of :class:`sympy.core.symbol.Symbol`
-            The symbols from the original DisCoPy circuit.
         weights : list of :class:`torch.FloatTensor`
             The weights to substitute for the symbols.
 
@@ -443,7 +454,7 @@ class PennyLaneCircuit:
             concrete_list = []
             for expr in expr_list:
                 if isinstance(expr, sympy.Expr):
-                    f_expr = sympy.lambdify([symbols], expr)
+                    f_expr = sympy.lambdify([self._symbols], expr)
                     expr = f_expr(weights)
                 concrete_list.append(expr)
             concrete_params.append(concrete_list)

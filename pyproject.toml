@@ -52,19 +52,20 @@ test = [
     "pennylane >= 0.29.1",
     "pennylane-qiskit",
     "pennylane-honeywell",
+    "qiskit-aer",
     "lxml",
     "nltk",
     "pylint"
 ]
 docs  = [
-    "sphinx == 4.5.0",
-    "sphinx-book-theme == 0.3.3",
-    "m2r2 == 0.3.2",
-    "nbsphinx == 0.8.9",
-    "ipykernel == 6.17.0",
-    "sphinxcontrib-youtube == 1.2.0",
-    "jinja2 == 3.0.3",
-    "sphinxcontrib-bibtex == 2.4.0",
+    "sphinx == 6.0.*",
+    "sphinx-book-theme == 1.0.*",
+    "myst-parser == 2.0.*",
+    "nbsphinx == 0.9.*",
+    "ipykernel == 6.23.*",
+    "sphinxcontrib-youtube == 1.2.*",
+    "jinja2 == 3.1.*",
+    "sphinxcontrib-bibtex == 2.5.*",
     "IPython"
 ]
 
@@ -98,6 +99,9 @@ per-file-ignores = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = [
+    "."
+]
 testpaths = [
     "discopy",
     "test/*/*.py"

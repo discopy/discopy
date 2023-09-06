@@ -206,6 +206,25 @@ class Tensor(Matrix):
         return frobenius.Diagram.spiders.__func__(
             cls, n_legs_in, n_legs_out, typ, phase)
 
+    @classmethod
+    def copy(cls, x: Dim, n: int) -> Tensor:
+        """
+        Constructs spiders of dimension `x` with one leg in and `n` legs out.
+
+        Parameters:
+            x : The type of the spiders.
+            n : The number of legs out for each spider.
+
+        Example
+        -------
+        >>> from discopy import markov
+        >>> n = markov.Ty('n')
+        >>> F = Functor(ob={n: Dim(2)}, ar={}, dom=markov.Category())
+        >>> assert F(markov.Copy(n, 2)) == Tensor[int].copy(Dim(2), 2)\\
+        ...     == Tensor[int]([1, 0, 0, 0, 0, 0, 0, 1], Dim(2), Dim(2, 2))
+        """
+        return cls.spiders(1, n, x)
+
     def transpose(self, left=False) -> Tensor:
         """
         Returns the diagrammatic transpose.
