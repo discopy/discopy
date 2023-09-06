@@ -406,7 +406,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     ty_factory = Dim
 
-    def eval(self, contractor: Callable = None) -> Tensor:
+    def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """
         Evaluate a tensor diagram as a :class:`Tensor`.
 
@@ -421,11 +421,12 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> from tensornetwork.contractors import auto
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
+        dtype = dtype or int
         if contractor is None:
             return Functor(
-                ob=lambda x: x, ar=lambda f: f.array, dtype=self.dtype)(self)
-        array = contractor(*self.to_tn(dtype=self.dtype)).tensor
-        return Tensor[self.dtype](array, self.dom, self.cod)
+                ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
+        array = contractor(*self.to_tn(dtype=dtype)).tensor
+        return Tensor[dtype](array, self.dom, self.cod)
 
     def to_tn(self, dtype: type = None) -> tuple[
             list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
@@ -469,7 +470,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
                     node = tn.CopyNode(
                         sum(dims), outputs[offset].dimension, dtype=dtype)
             else:
-                array = box.eval().array
+                array = box.eval(dtype=dtype).array
                 node = tn.Node(array, str(box))
             for i, _ in enumerate(box.dom):
                 tn.connect(outputs[offset + i], node[i])
@@ -649,7 +650,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> men = Box("men", Dim(1), Dim(2), [0, 1])
     >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
-    >>> assert men_are_mortal.eval() == 1
+    >>> assert men_are_mortal.eval(dtype=bool)
     >>> men_are_mortal.draw(draw_type_labels=False,
     ...                     path='docs/_static/tensor/men-are-mortal.png')
 
