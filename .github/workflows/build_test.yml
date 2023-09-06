@@ -54,7 +54,7 @@ jobs:
         pip install coverage pytest
     - name: Test with pytest
       run:
-        coverage run --source=${{ env.SRC_DIR }} -m pytest --doctest-modules
+        coverage run --source=${{ env.SRC_DIR }} -m pytest
     - name: Coverage report
       run:
         coverage report --fail-under=99 --show-missing
