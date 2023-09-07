@@ -78,12 +78,14 @@ def test_Spider_to_tn_pytorch():
     try:
         with backend('pytorch') as np:
             tn.set_default_backend('pytorch')
+            from torch import float64
 
             d = Dim(2)
 
-            alice = Box("Alice", Dim(1), d,
+            alice = Box[float64]("Alice", Dim(1), d,
                         np.array([1., 2.]).requires_grad_(True))
-            tensor = alice >> Spider(1, 2, d) >> Spider(2, 0, d)
+            tensor = alice >> Spider[float64](1, 2, d) >> \
+                     Spider[float64](2, 0, d)
             result = tensor.eval(contractor=tn.contractors.auto).array
             assert result.item() == 3
     finally:
@@ -222,13 +224,13 @@ def test_Diagram_swap():
 
 
 def test_Box():
-    f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
-    assert repr(f) == "tensor.Box('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
+    f = Box[int]('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    assert repr(f) == "tensor.Box[int]('f', Dim(2), Dim(2), data=[0, 1, 1, 0])"
     assert {f: 42}[f] == 42
 
 
 def test_Spider():
-    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider(1, 2, Dim(3))"
+    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider[float64](1, 2, Dim(3))"
     assert Spider(1, 2, Dim(2)).dagger() == Spider(2, 1, Dim(2))
     with raises(ValueError):
         Spider(1, 2, Dim(2, 3))

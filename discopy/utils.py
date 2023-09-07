@@ -168,6 +168,9 @@ class NamedGeneric(Generic[TypeVar('T')]):
 
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
+
+        for attr in attributes:
+            setattr(Result, attr, getattr(Result, attr, None))
         return Result
 
 
@@ -332,13 +335,13 @@ def load_corpus(url):
         return loads(f.read())
 
 
-def assert_isinstance(object, cls: type | tuple[type, ...]):
+def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
     cls_name = ' | '.join(map(factory_name, classes))
-    if not any(isinstance(object, cls) for cls in classes):
+    if not any(isinstance(object_, cls) for cls in classes):
         raise TypeError(messages.TYPE_ERROR.format(
-            cls_name, factory_name(type(object))))
+            cls_name, factory_name(type(object_))))
 
 
 def unbiased(binary_method):

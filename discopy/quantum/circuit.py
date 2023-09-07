@@ -168,7 +168,7 @@ class Ty(frobenius.Ty):
 
 
 @factory
-class Circuit(tensor.Diagram):
+class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.
 
@@ -787,7 +787,7 @@ class Circuit(tensor.Diagram):
             >> self.cod[:offset] @ gate @ self.cod[offset + len(gate.dom):]
 
 
-class Box(tensor.Box, Circuit):
+class Box(tensor.Box[complex], Circuit):
     """
     A circuit box is a tensor box in a circuit diagram.
 
@@ -798,6 +798,7 @@ class Box(tensor.Box, Circuit):
         data : The array inside the box.
         is_mixed : Whether the box is mixed.
     """
+
     def __init__(self, name: str, dom: Ty, cod: Ty,
                  data=None, is_mixed=True, **params):
         if not is_mixed:
@@ -808,7 +809,7 @@ class Box(tensor.Box, Circuit):
             else:
                 raise ValueError(messages.BOX_IS_MIXED)
         self._is_mixed = is_mixed
-        tensor.Box.__init__(self, name, dom, cod, data=data, **params)
+        tensor.Box[complex].__init__(self, name, dom, cod, data=data, **params)
 
     @property
     def array(self):
@@ -834,7 +835,7 @@ class Box(tensor.Box, Circuit):
         return self if self.z is None else super().rotate(left)
 
 
-class Sum(tensor.Sum, Box):
+class Sum(tensor.Sum[complex], Box):
     """ Sums of circuits. """
     @property
     def is_mixed(self):
