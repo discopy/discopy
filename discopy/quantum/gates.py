@@ -769,7 +769,7 @@ GATES = {
 
 for attr, gate in GATES.items():
     def closure(attr=attr, gate=gate):
-        """ Eaiest way around the Python late binding gotcha. """
+        """ Easiest way around the Python late binding gotcha. """
         if isinstance(gate, Controlled)\
                 and isinstance(gate.controlled, Controlled):
             def method(self, i: int, j: int, k: int) -> Circuit:
