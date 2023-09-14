@@ -2,4 +2,4 @@ Bibliography
 ============
 
 .. bibliography::
-    :all:
+    :cited:

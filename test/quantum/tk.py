@@ -7,6 +7,7 @@ from pytest import raises
 
 from discopy.quantum import tk
 from discopy.quantum.gates import *
+from discopy.tensor import Tensor, Dim
 
 
 def test_Circuit_to_tk():

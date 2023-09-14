@@ -28,6 +28,8 @@ Axioms
 
 >>> from discopy.drawing import Equation
 >>> from discopy.symmetric import Ty, Box, Swap, Id
+>>> from discopy import symmetric
+>>> symmetric.Diagram.structure_preserving = True
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
@@ -98,10 +100,12 @@ Axioms
     :align: center
 
 >>> assert sliding_left and sliding_right
+
+>>> symmetric.Diagram.structure_preserving = False
 """
 
-from discopy import monoidal, messages
-from discopy.cat import factory, AxiomError
+from discopy import monoidal
+from discopy.cat import factory
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 

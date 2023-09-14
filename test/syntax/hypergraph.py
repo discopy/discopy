@@ -30,6 +30,12 @@ def test_Hypergraph_repr():
            "dom=frobenius.Ty(frobenius.Ob('x'), frobenius.Ob('y')), "\
            "cod=frobenius.Ty(), boxes=(), wires=(0, 1))"
 
+
+def test_Hypergraph_hash():
+    x, y = map(Ty, "xy")
+    assert hash(H.id(x @ y)) == hash(H.id(x) @ H.id(y))
+
+
 def test_Hypergraph_then():
     x, y = map(Ty, "xy")
     with raises(AxiomError):
@@ -49,6 +55,11 @@ def test_Hypergraph_getitem():
 def test_Hypergraph_bijection():
     with raises(ValueError):
         H.spiders(1, 2, Ty('x')).bijection
+
+
+def test_Hypergraph_rotate():
+    assert H.id() == \
+           H.id().rotate(left=False).rotate(left=True)
 
 
 def test_Box():

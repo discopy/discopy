@@ -10,19 +10,20 @@
 
 DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wikipedia.org/wiki/String_diagram).
 
-* **Organisation:** https://discopy.org
-* **Documentation:** https://docs.discopy.org
-* **Source code:** https://github.com/discopy/discopy
-* **Paper (for applied category theorists):** https://doi.org/10.4204/EPTCS.333.13
-* **Paper (for quantum computer scientists):** https://arxiv.org/abs/2205.05190
+* **Organisation:** <https://discopy.org>
+* **Documentation:** <https://docs.discopy.org>
+* **Source code:** <https://github.com/discopy/discopy>
+* **Paper (for applied category theorists):** <https://doi.org/10.4204/EPTCS.333.13>
+* **Paper (for quantum computer scientists):** <https://arxiv.org/abs/2205.05190>
 
 DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/DisCoCat) and [QNLP](https://en.wikipedia.org/wiki/Quantum_natural_language_processing). This has now become its own library: [lambeq](https://cqcl.github.io/lambeq).
 
 ## Features
 
-* a data structure for arrows in free [dagger categories](https://en.wikipedia.org/wiki/Dagger_category) with formal sums, unary operators and symbolic variables from [SymPy](https://www.sympy.org/en/index.html)
-* data structures for string diagrams in any ([pre](https://ncatlab.org/nlab/show/premonoidal+category))[monoidal category](https://en.wikipedia.org/wiki/Monoidal_category) in the [hierarchy of graphical languages](https://en.wikipedia.org/wiki/String_diagram#Hierarchy_of_graphical_languages) (braids, twists, spiders, etc.)
-* methods for diagram composition, drawing, rewriting and evaluation as:
+* an `Arrow` data structure for free [dagger categories](https://en.wikipedia.org/wiki/Dagger_category) with formal sums, unary operators and symbolic variables from [SymPy](https://www.sympy.org/en/index.html)
+* a `Diagram` data structure for planar string diagrams in any ([pre](https://ncatlab.org/nlab/show/premonoidal+category))[monoidal category](https://en.wikipedia.org/wiki/Monoidal_category) in the [hierarchy of graphical languages](https://en.wikipedia.org/wiki/String_diagram#Hierarchy_of_graphical_languages) (with braids, twists, spiders, etc.)
+* a `Hypergraph` data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
+* methods for diagram composition, drawing, rewriting and `Functor` evaluation into:
   - Python code, i.e. wires as types and boxes as functions
   - [tensor networks](https://en.wikipedia.org/wiki/Tensor_network), i.e. wires as dimensions and boxes as arrays from [NumPy](https://numpy.org), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork) and [JAX](https://github.com/google/jax)
 * an implementation of [categorical quantum mechanics](https://en.wikipedia.org/wiki/Categorical_quantum_mechanics) interfacing with:

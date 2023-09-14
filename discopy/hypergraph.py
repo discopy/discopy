@@ -38,14 +38,14 @@ from networkx import (
     spring_layout,
     draw_networkx,
     dag_longest_path_length,
+    weisfeiler_lehman_graph_hash,
 )
 from networkx.algorithms.isomorphism import is_isomorphic
 
-from discopy import drawing, messages
+from discopy import messages
 from discopy.cat import Category
 from discopy.drawing import Node
 from discopy.utils import (
-    factory,
     factory_name,
     assert_isinstance,
     pushout,
@@ -522,8 +522,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
-        return hash(getattr(self, attr) for attr in [
-            'dom', 'cod', 'boxes', 'wires', 'n_spiders'])
+        return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
+            self.to_graph(), node_attr="box")))
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
@@ -630,10 +630,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         return True
 
     @property
-    def is_polygynous(self) -> bool:
+    def is_left_monogamous(self) -> bool:
         """
-        Checks polygyny, i.e. if each non-scalar spider is connected to exactly
-        one output port.
+        Checks left monogamy, i.e. if each non-scalar spider is connected to
+        exactly one output port.
         """
         return all(len(x) == 1 for x, y in self.spider_wires if x.union(y))
 
@@ -767,20 +767,19 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     ).make_monogamous()
         return self
 
-    def make_polygynous(self) -> Hypergraph:
+    def make_left_monogamous(self) -> Hypergraph:
         """
-        Introduce spider boxes to make self polygynous.
+        Introduce spider boxes to make self left monogamous.
 
         Example
         -------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H, Spider
-        >>> h = H.spiders(2, 3, Ty('x')).make_polygynous()
+        >>> h = H.spiders(2, 3, Ty('x')).make_left_monogamous()
         >>> assert h.boxes == (Spider(2, 1, Ty('x')), )
         >>> assert h.wires == (0, 1) + (0, 1, 2) + (2, 2, 2)
         """
         for spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
-            n_legs = len(input_wires) + len(output_wires)
             if len(input_wires) == 1:
                 continue
             depth = getattr(self.ports[max(input_wires)], "depth", -1) + 1\
@@ -799,7 +798,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             spider_types = self.spider_types + len(input_wires) * (typ, )
             return type(self)(
                 self.dom, self.cod, boxes, tuple(wires), spider_types, offsets
-            ).make_polygynous()
+            ).make_left_monogamous()
         return self
 
     def make_causal(self) -> Hypergraph:
@@ -818,8 +817,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> assert H.spiders(2, 1, x).make_causal().boxes\\
         ...     == (Spider(2, 1, x),)
         """
-        if not self.is_polygynous:
-            return self.make_polygynous().make_causal()
+        if not self.is_left_monogamous:
+            return self.make_left_monogamous().make_causal()
         for input_spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
             if not input_wires:
@@ -910,7 +909,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         * either we first :meth:`make_bijective` (introducing spiders) then
           :meth:`make_monogamous` (introducing cups and caps) and finally
           :meth:`make_causal` (introducing traces)
-        * or we first :meth:`make_polygynous` (introducing merges) then
+        * or we first :meth:`make_left_monogamous` (introducing merges) then
           :meth:`make_causal` (introducing traces) and finally
           :meth:`make_bijective` (introducing copies).
 
@@ -1064,10 +1063,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         graph = Graph()
         graph.add_nodes_from(
-            Node("spider", i=i, obj=obj)
+            (Node("spider", i=i, obj=obj), dict(box=None))
             for i, obj in enumerate(self.spider_types))
         graph.add_nodes_from(
-            (Node("input", i=i, obj=obj), dict(i=i))
+            (Node("input", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.dom))
         graph.add_edges_from(
             (Node("input", i=i, obj=obj), Node("spider", i=j, obj=obj))
@@ -1082,7 +1081,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     obj = self.spider_types[spider]
                     spider_node = Node("spider", i=spider, obj=obj)
                     port_node = Node(case, i=i, j=j)
-                    graph.add_node(port_node, j=j)
+                    graph.add_node(port_node, j=j, box=None)
                     if case == "dom":
                         graph.add_edge(spider_node, port_node)
                         graph.add_edge(port_node, box_node)
@@ -1090,7 +1089,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                         graph.add_edge(box_node, port_node)
                         graph.add_edge(port_node, spider_node)
         graph.add_nodes_from(
-            (Node("output", i=i, obj=obj), dict(i=i))
+            (Node("output", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.cod))
         graph.add_edges_from(
             (Node("spider", i=j, obj=obj), Node("output", i=i, obj=obj))

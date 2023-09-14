@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The free symmetric category with a supply of (co)commutative (co)monoid,
-also called copy-discard category, see :cite:t:`FritzLiang23`.
+The free Markov category, i.e. a semicartesian category with a supply of
+commutative comonoid, see :cite:t:`FritzLiang23`.
 
 Summary
 -------
@@ -24,6 +24,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
+>>> Diagram.structure_preserving = True
 >>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
@@ -62,9 +63,11 @@ Axioms
 >>> assert Diagram.merge(x @ x)\\
 ...     == x @ Swap(x, x) @ x >> merge @ merge
 
+>>> Diagram.structure_preserving = False
+
 Note
 ----
-Equality of comonoid diagrams is computed by translation to hypergraph.
+Equality of Markov diagrams is computed by translation to hypergraph.
 Both copy and merge boxes are translated to spiders, thus when they appear
 in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 """
@@ -73,13 +76,14 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.cat import factory
-from discopy.monoidal import Ty, assert_isatomic
+from discopy.monoidal import Ty
+from discopy.utils import assert_isatomic
 
 
 @factory
 class Diagram(symmetric.Diagram):
     """
-    A comonoid diagram is a symmetric diagram with :class:`Copy` boxes.
+    A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
 
     Parameters:
         inside(Layer) : The layers inside the diagram.
@@ -88,7 +92,7 @@ class Diagram(symmetric.Diagram):
 
     Note
     ----
-    We can create arbitrary comonoid diagrams with the standard notation for
+    We can create arbitrary Markov diagrams with the standard notation for
     Python functions.
 
     >>> x = Ty('x')
@@ -104,9 +108,9 @@ class Diagram(symmetric.Diagram):
 
     >>> from discopy.drawing import Equation
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(
-    ...     path="docs/_static/comonoid/copy_and_apply.png")
+    ...     path="docs/_static/markov/copy_and_apply.png")
 
-    .. image:: /_static/comonoid/copy_and_apply.png
+    .. image:: /_static/markov/copy_and_apply.png
     """
     @classmethod
     def spider_factory(cls, n_legs_in, n_legs_out, typ, phase=None):
@@ -141,7 +145,7 @@ class Diagram(symmetric.Diagram):
 
 class Box(symmetric.Box, Diagram):
     """
-    A comonoid box is a symmetric box in a comonoid diagram.
+    A Markov box is a symmetric box in a Markov diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -153,7 +157,7 @@ class Box(symmetric.Box, Diagram):
 
 class Swap(symmetric.Swap, Box):
     """
-    Symmetric swap in a comonoid diagram.
+    Symmetric swap in a Markov diagram.
 
     Parameters:
         left (monoidal.Ty) : The type on the top left and bottom right.
@@ -164,7 +168,7 @@ class Swap(symmetric.Swap, Box):
 
 class Trace(symmetric.Trace, Box):
     """
-    A trace in a category with comonoids.
+    A trace in a Markov category.
 
     Parameters:
         arg : The diagram to trace.
@@ -211,9 +215,21 @@ class Merge(Box):
         return Copy(self.cod, len(self.dom))
 
 
+class Sum(symmetric.Sum, Box):
+    """
+    A markov sum is a symmetric sum and a markov box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (symmetric.Sum, )
+
+
 class Category(symmetric.Category):
     """
-    A comonoid category is a symmetric category with a method :code:`copy`.
+    A Markov category is a symmetric category with a method :code:`copy`.
 
     Parameters:
         ob : The type of objects.
@@ -224,7 +240,7 @@ class Category(symmetric.Category):
 
 class Functor(symmetric.Functor):
     """
-    A comonoid functor is a symmetric functor that preserves copies.
+    A Markov functor is a symmetric functor that preserves copies.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
@@ -250,9 +266,9 @@ class Functor(symmetric.Functor):
 
     >>> from discopy.drawing import Equation
     >>> Equation(bialgebra_l, bialgebra_r, symbol="=").draw(
-    ...     path="docs/_static/comonoid/bialgebra.png")
+    ...     path="docs/_static/markov/bialgebra.png")
 
-    .. image:: /_static/comonoid/bialgebra.png
+    .. image:: /_static/markov/bialgebra.png
     """
     dom = cod = Category(Ty, Diagram)
 
@@ -276,4 +292,5 @@ Diagram.hypergraph_factory = Hypergraph
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
+Diagram.sum_factory = Sum
 Id = Diagram.id

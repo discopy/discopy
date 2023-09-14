@@ -14,6 +14,7 @@ Summary
     Diagram
     Box
     Swap
+    Sum
     Category
     Functor
 
@@ -21,6 +22,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
+>>> Diagram.structure_preserving = True
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f, g = Box("f", x, y), Box("g", z, w)
 
@@ -65,15 +67,17 @@ Axioms
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
 ...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
 
+>>> Diagram.structure_preserving = False
+
 .. image:: /_static/symmetric/yang-baxter.png
     :align: center
 """
 
 from __future__ import annotations
 
-from discopy import monoidal, balanced, hypergraph, messages
+from discopy import monoidal, balanced, messages
 from discopy.cat import factory
-from discopy.monoidal import Ty, PRO
+from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 
 
 @factory
@@ -85,6 +89,23 @@ class Diagram(balanced.Diagram):
         inside(Layer) : The layers inside the diagram.
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
+
+    Note
+    ____
+    Symmetric diagrams have a class property `structure_preserving`, that
+    changes the behaviour of equality and hashing.
+    When set to `False`, two diagrams equal if they are built from the same
+    layers.
+    When set to `True`, the underlying hypergraphs are used for hashing and
+    equality checking.
+    The default value of `structure_preserving` is `False`.
+    >>> x, y = Ty("x"), Ty("y")
+    >>> id_hash = hash(Id(x @ y))
+    >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
+    >>> Diagram.structure_preserving = True
+    >>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+    >>> assert id_hash != hash(Id(x @ y))
+    >>> Diagram.structure_preserving = False
 
     Note
     ----
@@ -127,6 +148,7 @@ class Diagram(balanced.Diagram):
     by default. However now we have that the axioms for trace hold on the nose.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
+    structure_preserving = False
 
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -187,12 +209,16 @@ class Diagram(balanced.Diagram):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
+    def _get_structure(self):
+        return self.to_hypergraph() if self.structure_preserving else (
+            self.inside, self.cod, self.dom)
+
     def __eq__(self, other):
         return isinstance(other, self.factory)\
-            and self.to_hypergraph() == other.to_hypergraph()
+            and self._get_structure() == other._get_structure()
 
     def __hash__(self):
-        return hash(self.to_hypergraph())
+        return hash(self._get_structure())
 
     def depth(self):
         """
@@ -260,6 +286,18 @@ class Trace(balanced.Trace, Box):
     __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
 
 
+class Sum(balanced.Sum, Box):
+    """
+    A symmetric sum is a balanced sum and a symmetric box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (balanced.Sum, )
+
+
 class Category(balanced.Category):
     """
     A symmetric category is a balanced category with a method :code:`swap`.
@@ -297,4 +335,5 @@ class Hypergraph(balanced.Hypergraph):
 Diagram.hypergraph_factory = Hypergraph
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
+Diagram.sum_factory = Sum
 Id = Diagram.id

@@ -3,7 +3,7 @@ from pytest import raises
 
 from discopy.python import Function
 
-from discopy.comonoid import *
+from discopy.markov import *
 from discopy import *
 
 

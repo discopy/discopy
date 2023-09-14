@@ -4,15 +4,17 @@
 DisCoPy documentation
 #####################
 
-.. mdinclude:: ../README.md
+.. include:: ../README.md
+    :parser: myst_parser.sphinx_
     :start-line: 10
     :end-line: 37
 
 .. raw:: html
-   :file: api/architecture.html
+    :file: api/architecture.html
 
-.. mdinclude:: ../README.md
-   :start-line: 39
+.. include:: ../README.md
+    :parser: myst_parser.sphinx_
+    :start-line: 39
 
 .. toctree::
     :caption: Reference API

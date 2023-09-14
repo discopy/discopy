@@ -53,22 +53,24 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from typing import Iterator, Callable
+from typing import Iterator, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
-from discopy.cat import Ob, AxiomError
+from discopy.cat import Ob
 from discopy.utils import (
     factory,
     factory_name,
     from_tree,
     assert_isinstance,
     assert_iscomposable,
-    assert_isatomic,
-    Composable,
     Whiskerable,
+    AxiomError,
 )
+
+if TYPE_CHECKING:
+    import sympy
 
 
 @factory
@@ -328,6 +330,9 @@ class Layer(cat.Box):
     def __eq__(self, other):
         return isinstance(other, type(self)) and tuple(self) == tuple(other)
 
+    def __hash__(self):
+        return hash(tuple(self))
+
     def __repr__(self):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self))})"
@@ -418,7 +423,7 @@ class Layer(cat.Box):
         for layer in diagram.inside:
             left, box, right = layer
             if len(left) < offset:
-                raise cat.AxiomError(
+                raise AxiomError(
                     messages.NOT_MERGEABLE.format(self, other))
             boxes_or_types[-1] @= left[offset:]
             boxes_or_types += [box, right[:0]]
@@ -586,20 +591,44 @@ class Diagram(cat.Arrow, Whiskerable):
         return self.dom, list(zip(self.boxes, self.offsets))
 
     @classmethod
-    def decode(cls, dom: Ty, boxes_and_offsets: list[tuple[Box, int]]
-               ) -> Diagram:
+    def decode(
+            cls,
+            dom: Ty,
+            boxes_and_offsets: list[tuple[Box, int]] = None,
+            boxes: list[Box] = None,
+            offsets: list[int] = None,
+            cod: Ty = None) -> Diagram:
         """
         Turn a tuple of boxes and offsets into a diagram.
 
         Parameters:
             dom : The domain of the diagram.
+            cod : The codomain of the diagram.
             boxes_and_offsets : The boxes and offsets of the diagram.
+            boxes : The list of boxes.
+            offsets : The list of offsets.
+
+        Example
+        -------
+        >>> x, y, z, w = map(Ty, "xyzw")
+        >>> f, g = Box('f', x, y), Box('g', z, w)
+        >>> assert f @ z >> y @ g == Diagram.decode(
+        ...     dom=x @ z, cod=y @ w, boxes=[f, g], offsets=[0, 1])
+
+        Note
+        ----
+        If ``boxes_and_offsets is None``
+        then we set it to ``zip(boxes, offstes)``.
         """
+        if boxes_and_offsets is None:
+            boxes_and_offsets = zip(boxes, offsets)
         diagram = cls.id(dom)
         for box, offset in boxes_and_offsets:
             left = diagram.cod[:offset]
             right = diagram.cod[offset + len(box.dom):]
             diagram = diagram >> left @ box @ right
+        if cod is not None:
+            assert_iscomposable(diagram, cls.id(cod))
         return diagram
 
     def to_drawing(self):
@@ -655,7 +684,7 @@ class Diagram(cat.Arrow, Whiskerable):
                     self = self.factory(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
-                except cat.AxiomError:
+                except AxiomError:
                     continue
             if not keep_on_going:
                 break
@@ -667,7 +696,6 @@ class Diagram(cat.Arrow, Whiskerable):
 
         Example
         -------
-        >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f, g = Box('f', x, y), Box('g', y, x)
         >>> assert Id(x @ y).depth() == 0
@@ -790,12 +818,12 @@ class Diagram(cat.Arrow, Whiskerable):
         """
         cache = set()
         for diagram in itertools.chain([self], self.normalize(**params)):
-            if diagram in cache:
+            if str(diagram) in cache:
                 exception = NotImplementedError(
                     messages.NOT_CONNECTED.format(self))
                 exception.last_step = diagram
                 raise exception
-            cache.add(diagram)
+            cache.add(str(diagram))
         return diagram
 
     @classmethod

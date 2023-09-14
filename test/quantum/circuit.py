@@ -10,6 +10,7 @@ from pytest import raises
 from discopy.quantum.channel import *
 from discopy.quantum.circuit import *
 from discopy.quantum.gates import *
+from discopy import rigid
 
 
 def test_index2bitstring():
@@ -577,6 +578,7 @@ def test_Circuit_to_pennylane(capsys):
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
     weights = [torch.tensor(1.), torch.tensor(2.), torch.tensor(3.)]
+    symbol_weight_map = dict(zip(symbols, weights))
 
     var_circ = Circuit.decode(
         dom=qubit ** 0, boxes_and_offsets=zip(
@@ -587,7 +589,7 @@ def test_Circuit_to_pennylane(capsys):
              3, 2, 0, 0, 0, 0, 0, 0, 1, 0]))
 
     p_var_circ = var_circ.to_pennylane()
-    p_var_circ.initialise_concrete_params(symbols, weights)
+    p_var_circ.initialise_concrete_params(symbol_weight_map)
     p_var_circ.draw()
 
     captured = capsys.readouterr()
@@ -605,7 +607,7 @@ def test_Circuit_to_pennylane(capsys):
                        conc_circ.eval().array)
 
     p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
-    p_var_circ_prob.initialise_concrete_params(symbols, weights)
+    p_var_circ_prob.initialise_concrete_params(symbol_weight_map)
     conc_circ_prob = (conc_circ >> Measure())
 
     assert (np.allclose(p_var_circ_prob.eval().numpy(),
@@ -706,10 +708,11 @@ def test_pennylane_uninitialized():
 def test_pennylane_parameter_reference():
     x = sympy.symbols('x')
     p = torch.nn.Parameter(torch.tensor(1.))
+    symbol_weight_map = {x: p}
 
     circ = Rx(x)
     p_circ = circ.to_pennylane()
-    p_circ.initialise_concrete_params([x], [p])
+    p_circ.initialise_concrete_params(symbol_weight_map)
 
     with torch.no_grad():
         p.add_(1.)
@@ -739,10 +742,11 @@ def test_pennylane_gradient_methods():
         weights = [torch.tensor(1., requires_grad=True),
                    torch.tensor(2., requires_grad=True),
                    torch.tensor(3., requires_grad=True)]
+        symbol_weight_map = dict(zip(symbols, weights))
 
         p_var_circ = var_circ.to_pennylane(probabilities=True,
                                            diff_method=diff_method)
-        p_var_circ.initialise_concrete_params(symbols, weights)
+        p_var_circ.initialise_concrete_params(symbol_weight_map)
 
         loss = p_var_circ.eval().norm(dim=0, p=2)
         loss.backward()
@@ -753,11 +757,17 @@ def test_pennylane_gradient_methods():
         weights = [torch.tensor(1., requires_grad=True),
                    torch.tensor(2., requires_grad=True),
                    torch.tensor(3., requires_grad=True)]
+        symbol_weight_map = dict(zip(symbols, weights))
 
         p_var_circ = var_circ.to_pennylane(probabilities=False,
                                            diff_method=diff_method)
-        p_var_circ.initialise_concrete_params(symbols, weights)
+        p_var_circ.initialise_concrete_params(symbol_weight_map)
 
         loss = p_var_circ.eval().norm(dim=0, p=2)
         loss.backward()
         assert weights[0].grad is not None
+
+
+def test_loads_dumps():
+    from discopy.utils import loads, dumps
+    assert loads(dumps(Rx(1))) == Rx(1)

@@ -2,7 +2,7 @@ import numpy as np
 import tensornetwork as tn
 from pytest import raises
 
-from discopy.cat import AxiomError
+from discopy.utils import AxiomError
 from discopy.tensor import *
 from discopy import frobenius
 
@@ -76,7 +76,7 @@ def test_Spider_to_tn():
 
 def test_Spider_to_tn_pytorch():
     try:
-        with backend('torch') as np:
+        with backend('pytorch') as np:
             tn.set_default_backend('pytorch')
 
             d = Dim(2)
@@ -259,7 +259,7 @@ def test_Tensor_adjoint_eval():
 
 
 def test_non_numpy_eval():
-    with backend('torch'):
+    with backend('pytorch'):
         with raises(Exception):
             Swap(Dim(2), Dim(2)).eval()
 

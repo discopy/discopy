@@ -19,6 +19,7 @@ Summary
     Box
     Eval
     Curry
+    Sum
     Category
     Functor
 
@@ -96,6 +97,50 @@ class Ty(monoidal.Ty):
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.inside))})"
 
+    @property
+    def left(self) -> Ty:
+        return self.inside[0].left if self.is_exp else None
+
+    @property
+    def right(self) -> Ty:
+        return self.inside[0].right if self.is_exp else None
+
+    @property
+    def is_exp(self):
+        """
+        Whether the type is an :class:`Exp` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x ** y).is_exp and (x ** y @ Ty()).is_exp
+        """
+        return len(self) == 1 and isinstance(self.inside[0], Exp)
+
+    @property
+    def is_under(self):
+        """
+        Whether the type is an :class:`Under` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x >> y).is_under and (x >> y @ Ty()).is_under
+        """
+        return len(self) == 1 and isinstance(self.inside[0], Under)
+
+    @property
+    def is_over(self):
+        """
+        Whether the type is an :class:`Over` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x << y).is_over and (x << y @ Ty()).is_over
+        """
+        return len(self) == 1 and isinstance(self.inside[0], Over)
+
 
 class Exp(Ty, cat.Ob):
     """
@@ -109,10 +154,15 @@ class Exp(Ty, cat.Ob):
 
     def __init__(self, base: Ty, exponent: Ty):
         self.base, self.exponent = base, exponent
-        # TODO : replace left and right by base and exponent
-        self.left, self.right =\
-            (exponent, base) if isinstance(self, Under) else (base, exponent)
         super().__init__(self)
+
+    @property
+    def left(self):
+        return self.exponent if isinstance(self, Under) else self.base
+
+    @property
+    def right(self):
+        return self.base if isinstance(self, Under) else self.exponent
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -265,8 +315,21 @@ class Curry(monoidal.Bubble, Box):
         Box.__init__(self, name, dom, cod)
 
 
+class Sum(monoidal.Sum, Box):
+    """
+    A closed sum is a monoidal sum and a closed box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (monoidal.Sum, )
+
+
 Diagram.over, Diagram.under, Diagram.exp\
     = map(staticmethod, (Over, Under, Exp))
+Diagram.sum_factory = Sum
 
 Id = Diagram.id
 

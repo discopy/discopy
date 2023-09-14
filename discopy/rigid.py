@@ -44,11 +44,17 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from typing import Iterator
+
 from discopy import cat, monoidal, closed, messages
-from discopy.braided import BinaryBoxConstructor
-from discopy.cat import AxiomError, factory
-from discopy.monoidal import assert_isatomic
-from discopy.utils import assert_isinstance, factory_name
+from discopy.cat import factory
+from discopy.utils import (
+    assert_isinstance,
+    factory_name,
+    BinaryBoxConstructor,
+    AxiomError,
+    assert_isatomic
+)
 
 
 class Ob(cat.Ob):
@@ -282,7 +288,6 @@ class Diagram(closed.Diagram):
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
             return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        offset = len(self.dom) - n
         base, exponent = self.dom[n:], self.dom[:n]
         return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
@@ -567,8 +572,8 @@ class Box(closed.Box, Diagram):
         dom, cod = (
             getattr(x, 'l' if left else 'r') for x in (self.cod, self.dom))
         z = self.z + (-1 if left else 1)
-        return type(self)(
-            self.name, dom, cod, data=self.data, is_dagger=self.is_dagger, z=z)
+        return type(self)(self.name, dom=dom, cod=cod,
+                          data=self.data, is_dagger=self.is_dagger, z=z)
 
     @property
     def is_transpose(self):
@@ -581,26 +586,21 @@ class Box(closed.Box, Diagram):
         return result
 
 
-class Sum(monoidal.Sum, Box):
+class Sum(closed.Sum, Box):
     """
-    A rigid sum is a monoidal sum that can be transposed.
+    A rigid sum is a closed sum that can be transposed.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (monoidal.Sum, )
+    __ambiguous_inheritance__ = (closed.Sum, )
 
-    @property
-    def l(self) -> Sum:
-        """ The left transpose of a sum, i.e. the sum of left transposes. """
-        return self.sum_factory(
-            tuple(term.l for term in self.terms), self.cod.l, self.dom.l)
-
-    @property
-    def r(self) -> Sum:
-        """ The right transpose of a sum, i.e. the sum of right transposes. """
+    def rotate(self, left=False) -> Sum:
+        if left:
+            return self.sum_factory(
+                tuple(term.l for term in self.terms), self.cod.l, self.dom.l)
         return self.sum_factory(
             tuple(term.r for term in self.terms), self.cod.r, self.dom.r)
 
@@ -625,19 +625,15 @@ class Cup(BinaryBoxConstructor, Box):
     def __init__(self, left: Ty, right: Ty):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
-        assert_isadjoint(left, right)
+        left.assert_isadjoint(right)
         name = f"Cup({left}, {right})"
         dom, cod = left @ right, self.ty_factory()
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
-    @property
-    def l(self):
-        return self.cap_factory(self.right.l, self.left.l)
-
-    @property
-    def r(self):
-        return self.cap_factory(self.right.r, self.left.r)
+    def rotate(self, left=False):
+        return self.cap_factory(self.right.l, self.left.l) if left\
+            else self.cap_factory(self.right.r, self.left.r)
 
     def dagger(self):
         """
@@ -667,19 +663,15 @@ class Cap(BinaryBoxConstructor, Box):
     def __init__(self, left: Ty, right: Ty):
         assert_isatomic(left, Ty)
         assert_isatomic(right, Ty)
-        assert_isadjoint(right, left)
+        right.assert_isadjoint(left)
         name = f"Cap({left}, {right})"
         dom, cod = self.ty_factory(), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
-    @property
-    def l(self):
-        return self.cup_factory(self.right.l, self.left.l)
-
-    @property
-    def r(self):
-        return self.cup_factory(self.right.r, self.left.r)
+    def rotate(self, left=False):
+        return self.cup_factory(self.right.l, self.left.l) if left\
+            else self.cup_factory(self.right.r, self.left.r)
 
     def dagger(self):
         """
@@ -775,7 +767,6 @@ def nesting(cls: type, factory: Callable) -> Callable[[Ty, Ty], Diagram]:
     return method
 
 
-assert_isadjoint = Ty.assert_isadjoint
 Diagram.cup_factory, Diagram.cap_factory, Diagram.sum_factory = Cup, Cap, Sum
 
 Id = Diagram.id

@@ -1,46 +1,21 @@
-import os
 
-from matplotlib.testing.compare import compare_images
 from pytest import raises
 
-from discopy.cat import AxiomError
+from discopy import utils
+from discopy.utils import AxiomError
 from discopy.compact import *
 from discopy.drawing import *
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/src/imgs/', 'test/src/tikz/', 10
 
 
-def draw_and_compare(file, folder=IMG_FOLDER, tol=TOL, **params):
-    def decorator(func):
-        def wrapper():
-            true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '.' + file)
-            func().draw(path=test_path, show=False, **params)
-            test = compare_images(true_path, test_path, tol)
-            assert test is None
-            os.remove(test_path)
-        return wrapper
-    return decorator
+def draw_and_compare(file, **params):
+    tol = params.pop('tol', TOL)
+    return utils.draw_and_compare(file, IMG_FOLDER, tol, **params)
 
 
-def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
-    def decorator(func):
-        def wrapper():
-            true_paths = [os.path.join(folder, file)]
-            test_paths = [os.path.join(folder, '.' + file)]
-            if params.get("use_tikzstyles", DEFAULT['use_tikzstyles']):
-                true_paths.append(
-                    true_paths[0].replace('.tikz', '.tikzstyles'))
-                test_paths.append(
-                    test_paths[0].replace('.tikz', '.tikzstyles'))
-            func().draw(path=test_paths[0], **dict(params, to_tikz=True))
-            for true_path, test_path in zip(true_paths, test_paths):
-                with open(true_path, "r") as true:
-                    with open(test_path, "r") as test:
-                        assert true.read() == test.read()
-                os.remove(test_path)
-        return wrapper
-    return decorator
+def tikz_and_compare(file, **params):
+    return utils.tikz_and_compare(file, TIKZ_FOLDER, **params)
 
 
 @draw_and_compare(

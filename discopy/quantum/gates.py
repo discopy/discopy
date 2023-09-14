@@ -32,6 +32,8 @@ Summary
     Ry
     Rz
     CU1
+    CRz
+    CRx
     Scalar
     MixedScalar
     Sqrt
@@ -43,8 +45,6 @@ Summary
         :nosignatures:
         :toctree:
 
-        CRz
-        CRx
         sqrt
         scalar
 """
@@ -56,7 +56,7 @@ from discopy.cat import rsubs
 from discopy.matrix import get_backend
 from discopy.quantum.circuit import (
     Circuit, Digit, Ty, bit, qubit, Box, Swap, Sum, Id)
-from discopy.tensor import Dim, Tensor, backend
+from discopy.tensor import backend
 from discopy.utils import factory_name, assert_isinstance
 
 
@@ -260,6 +260,7 @@ class Digits(ClassicalGate):
 
     Examples
     --------
+    >>> from discopy.tensor import Dim, Tensor
     >>> assert Digits(2, dim=4).eval()\\
     ...     == Tensor[complex](dom=Dim(1), cod=Dim(4), array=[0, 0, 1, 0])
     """
@@ -297,7 +298,7 @@ class Digits(ClassicalGate):
 
     @property
     def array(self):
-        with backend() as np:
+        with backend('numpy') as np:
             array = np.zeros(len(self._digits) * (self._dim, ))
             array[self._digits] = 1
             return array
@@ -319,6 +320,7 @@ class Ket(SelfConjugate, QuantumGate):
     """
     Implements qubit preparation for a given bitstring.
 
+    >>> from discopy.tensor import Dim, Tensor
     >>> assert Ket(1, 0).cod == qubit ** 2
     >>> assert Ket(1, 0).eval()\\
     ...     == Tensor[complex](dom=Dim(1), cod=Dim(2, 2), array=[0, 0, 1, 0])
@@ -351,6 +353,7 @@ class Bra(SelfConjugate, QuantumGate):
     """
     Implements qubit post-selection for a given bitstring.
 
+    >>> from discopy.tensor import Dim, Tensor
     >>> assert Bra(1, 0).dom == qubit ** 2
     >>> assert Bra(1, 0).eval()\\
     ...     == Tensor[complex](dom=Dim(2, 2), cod=Dim(1), array=[0, 0, 1, 0])
@@ -567,6 +570,10 @@ class Rotation(Parametrized, QuantumGate):
         QuantumGate.__init__(self, name, dom, cod, z=z)
         Parametrized.__init__(self, name, dom, cod, is_mixed=False, data=phase)
 
+    @classmethod
+    def from_tree(cls, tree: dict):
+        return cls(tree['data'], tree.get('z', 0))
+
     @property
     def phase(self):
         """ The phase of a rotation gate. """
@@ -758,3 +765,64 @@ GATES = {
     'CRz': CRz,
     'CU1': CU1,
 }
+
+
+for attr, gate in GATES.items():
+    def closure(attr=attr, gate=gate):
+        """ Eaiest way around the Python late binding gotcha. """
+        if isinstance(gate, Controlled)\
+                and isinstance(gate.controlled, Controlled):
+            def method(self, i: int, j: int, k: int) -> Circuit:
+                """
+                Apply {} gate to a circuit given qubit indices.
+
+                Parameters:
+                    i : First control index.
+                    j : Second control index.
+                    k : Target index.
+                """
+                return self.apply_controlled(
+                    gate.controlled.controlled, i, j, k)
+        elif isinstance(gate, Controlled):
+            def method(self, i: int, j: int) -> Circuit:
+                """
+                Apply {} gate to a circuit given qubit indices.
+
+                Parameters:
+                    i : Control index.
+                    j : Target index.
+                """
+                return self.apply_controlled(gate.controlled, i, j)
+        elif isinstance(gate, Box):
+            def method(self, i: int) -> Circuit:
+                """
+                Apply {} gate to a circuit given qubit index.
+
+                Parameters:
+                    i : Target index.
+                """
+                return self.apply_controlled(gate, i)
+        elif issubclass(gate, Rotation) and issubclass(gate, Controlled):
+            def method(self, phi: float, i: int, j: int) -> Circuit:
+                """
+                Apply :class:`{}` to a circuit given phase and indices.
+
+                Parameters:
+                    phi : Phase.
+                    i : Control index.
+                    j : Target index.
+                """
+                return self.apply_controlled(gate.controlled(phi), i, j)
+        elif issubclass(gate, Rotation):
+            def method(self, phi: float, i: int) -> Circuit:
+                """
+                Apply :class:`{}` to a circuit given phase and target index.
+
+                Parameters:
+                    phi : Phase.
+                    i : Target index.
+                """
+                return self.apply_controlled(gate(phi), i)
+        method.__doc__ = method.__doc__.format(attr)
+        return method
+    setattr(Circuit, attr, closure())

@@ -13,8 +13,6 @@ NOT_TRACEABLE = "Cannot trace {} with {}."
 NOT_ADJOINT = "{} and {} are not adjoints."
 NOT_RIGID_ADJOINT = "{} is not the left adjoint of {}, maybe you meant to use"\
                     " a pivotal type rather than a rigid one?"
-NOT_PREGROUP = "Expected a pregroup diagram of shape `word @ ... @ word "\
-               ">> cups_and_swaps`, use diagram.draw() instead."
 MISSING_TYPES_FOR_EMPTY_SUM = "Empty sum needs a domain and codomain."
 MATRIX_TWO_DTYPES = "Matrix class cannot be indexed twice."
 MATRIX_REPEAT_ERROR = "The reflexive transitive closure is only defined for "\
@@ -29,3 +27,4 @@ ZERO_DISTANCE_CONTROLLED = "Zero-distance controlled gates are ill-defined."
 HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
 WRONG_COD = "Expected inside.cod == {}, got {} instead."
+COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"

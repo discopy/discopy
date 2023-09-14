@@ -26,16 +26,20 @@ Summary
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup, Category
-from discopy.matrix import Matrix, backend
-from discopy.monoidal import assert_isatomic
-from discopy.rigid import assert_isadjoint
-from discopy.utils import factory_name, assert_isinstance, product
+from discopy.matrix import (  # noqa: F401
+    Matrix, backend, set_backend, get_backend)
+from discopy.utils import (
+    factory_name, assert_isinstance, product, assert_isatomic)
+
+if TYPE_CHECKING:
+    import sympy
+    import tensornetwork
 
 
 @factory
@@ -91,7 +95,7 @@ class Tensor(Matrix):
     >>> v.subs(phi, 0).lambdify(psi, dtype=int)(1)
     Tensor[int]([0, 1], dom=Dim(1), cod=Dim(2))
 
-    We can also use jax.numpy using Tensor.backend.
+    We can also use jax.numpy using :func:`backend`.
 
     >>> with backend('jax'):
     ...     f = lambda *xs: d.lambdify(phi, psi, dtype=float)(*xs).array
@@ -153,7 +157,7 @@ class Tensor(Matrix):
     def cup_factory(cls, left: Dim, right: Dim) -> Tensor:
         assert_isinstance(left, Dim)
         assert_isinstance(right, Dim)
-        assert_isadjoint(left, right)
+        left.assert_isadjoint(right)
         return cls(cls.id(left).array, left @ right, Dim(1))
 
     @classmethod
@@ -182,10 +186,11 @@ class Tensor(Matrix):
         assert_isatomic(typ, Dim)
         n, = typ.inside
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
-        result = cls.zero(dom, cod)
-        for i in range(n):
-            result.array[len(dom @ cod) * (i, )] = 1
-        return result
+        with backend('numpy'):
+            result = cls.zero(dom, cod)
+            for i in range(n):
+                result.array[len(dom @ cod) * (i, )] = 1
+            return result
 
     @classmethod
     def spiders(cls, n_legs_in: int, n_legs_out: int, typ: Dim, phase=None
@@ -200,6 +205,25 @@ class Tensor(Matrix):
         """
         return frobenius.Diagram.spiders.__func__(
             cls, n_legs_in, n_legs_out, typ, phase)
+
+    @classmethod
+    def copy(cls, x: Dim, n: int) -> Tensor:
+        """
+        Constructs spiders of dimension `x` with one leg in and `n` legs out.
+
+        Parameters:
+            x : The type of the spiders.
+            n : The number of legs out for each spider.
+
+        Example
+        -------
+        >>> from discopy import markov
+        >>> n = markov.Ty('n')
+        >>> F = Functor(ob={n: Dim(2)}, ar={}, dom=markov.Category())
+        >>> assert F(markov.Copy(n, 2)) == Tensor[int].copy(Dim(2), 2)\\
+        ...     == Tensor[int]([1, 0, 0, 0, 0, 0, 0, 1], Dim(2), Dim(2, 2))
+        """
+        return cls.spiders(1, n, x)
 
     def transpose(self, left=False) -> Tensor:
         """
@@ -320,7 +344,7 @@ class Functor(frobenius.Functor):
     dom, cod = frobenius.Category(), Category(Dim, Tensor)
 
     def __init__(
-            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, array],
+            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, list],
             dom: cat.Category = None, dtype: type = int):
         self.dtype = dtype
         cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])
