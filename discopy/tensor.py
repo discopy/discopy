@@ -110,7 +110,7 @@ class Tensor(Matrix):
         assert_isinstance(dom, Dim)
         assert_isinstance(cod, Dim)
         super().__init__(array, product(dom.inside), product(cod.inside))
-        self.array = self.array.reshape(dom.inside + cod.inside)
+        self.array = self.array.reshape(dom.inside + cod.inside or (1, ))
         self.dom, self.cod = dom, cod
 
     @classmethod

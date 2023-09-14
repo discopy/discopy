@@ -420,9 +420,9 @@ def counts2tensor(counts: dict[tuple[int, ...], float]) -> Tensor[float]:
 
 def tensor2counts(tensor: Tensor[float]) -> dict[tuple[int, ...], float]:
     """ Turns a tensor into dictionary of counts. """
-    array = tensor.inside
+    array = tensor.array
     with backend('numpy') as np:
-        return {key: array[key] for key in np.argwhere(array > 0)}
+        return {key: array[tuple(key)] for key in np.argwhere(array > 0)}
 
 
 def mockBackend(*counts):

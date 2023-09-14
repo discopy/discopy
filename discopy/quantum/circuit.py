@@ -368,11 +368,12 @@ class Circuit(tensor.Diagram):
                 if result.array[bits]:
                     counts[bits] = result.array[bits].real
             return counts
-        counts = self.to_tk().get_counts(
-            *(other.to_tk() for other in others), backend=backend, **params)
-        for count, circuit in zip(counts, (self, ) + others):
+        from discopy.quantum import tk
+        tk_circuits = [c.to_tk() for c in (self, ) + others]
+        counts = tk.Circuit.get_counts(*tk_circuits, backend=backend, **params)
+        for count, tk_circuit in zip(counts, tk_circuits):
             if not count:  # Circuit.eval assumes non-empty counts.
-                count[len(circuit.post_processing.dom) * (0, )] = 0
+                count[len(tk_circuit.post_processing.dom) * (0, )] = 0
         return counts if len(counts) > 1 else counts[0]
 
     def measure_all(self) -> Circuit:
