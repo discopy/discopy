@@ -290,7 +290,6 @@ class Circuit(tensor.Diagram):
         Tensor[float]([0. , 0.5, 0.5, 0. ], dom=Dim(1), cod=Dim(2, 2))
         """
         from discopy.quantum import channel
-        from discopy.quantum.gates import Bits
         from discopy.quantum.tk import counts2tensor
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor

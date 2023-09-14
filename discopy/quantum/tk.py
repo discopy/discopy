@@ -33,7 +33,7 @@ import pytket as tk
 from pytket.circuit import Bit, Op, OpType, Qubit
 from pytket.utils import probs_from_counts
 
-from discopy.tensor import Dim, Tensor
+from discopy.tensor import Dim, Tensor, backend
 from discopy.quantum.circuit import Functor, Id, bit, qubit, Circuit as Diagram
 from discopy.quantum.gates import (
     ClassicalGate, Controlled, QuantumGate, Bits, Bra, Digits, Ket,
