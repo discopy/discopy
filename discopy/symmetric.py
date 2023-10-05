@@ -22,7 +22,6 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.structure_preserving = True
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f, g = Box("f", x, y), Box("g", z, w)
 
@@ -43,7 +42,8 @@ Axioms
 * Involution (a.k.a. Reidemeister move 2):
 
 >>> assert Swap(x, y)[::-1] == Swap(y, x)
->>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+>>> with Diagram.hypergraph_equality:
+...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
 >>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
 ...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
 
@@ -52,8 +52,11 @@ Axioms
 
 * Naturality:
 
->>> assert f @ g >> Swap(f.cod, g.cod) == Swap(f.dom, g.dom) >> g @ f
->>> Equation(f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f).draw(
+>>> naturality = Equation(
+...     f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f)
+>>> with Diagram.hypergraph_equality:
+...     assert naturality
+>>> naturality.draw(
 ...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
 
 .. image:: /_static/symmetric/naturality.png
@@ -63,11 +66,10 @@ Axioms
 
 >>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
->>> assert yang_baxter_left == yang_baxter_right
+>>> with Diagram.hypergraph_equality:
+...     assert yang_baxter_left == yang_baxter_right
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
 ...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
-
->>> Diagram.structure_preserving = False
 
 .. image:: /_static/symmetric/yang-baxter.png
     :align: center
@@ -75,9 +77,12 @@ Axioms
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from discopy import monoidal, balanced, messages
 from discopy.cat import factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
+from discopy.utils import classproperty
 
 
 @factory
@@ -219,6 +224,15 @@ class Diagram(balanced.Diagram):
 
     def __hash__(self):
         return hash(self._get_structure())
+
+    @classproperty
+    @contextmanager
+    def hypergraph_equality(cls):
+        tmp, cls.structure_preserving = cls.structure_preserving, True
+        try:
+            yield
+        finally:
+            cls.structure_preserving = tmp
 
     def depth(self):
         """

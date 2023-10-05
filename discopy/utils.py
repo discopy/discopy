@@ -678,3 +678,12 @@ def assert_istraceable(arg: Diagram, n=1, left=False):
     if traced_dom != traced_cod:
         raise AxiomError(
             messages.NOT_TRACEABLE.format(traced_dom, traced_cod))
+
+
+class classproperty(object):
+    """ Adapted from https://stackoverflow.com/a/5192374/18783670 """
+    def __init__(self, f):
+        self.f = f
+
+    def __get__(self, _, x):
+        return self.f(x)
