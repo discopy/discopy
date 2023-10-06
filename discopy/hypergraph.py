@@ -289,16 +289,17 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                    for i, obj in enumerate(self.cod)]
         return inputs + doms_and_cods + outputs
 
-    def rebracket(self, flat_wires: list[Spider]):
+    def rebracket(
+            self, flat_wires: list[Spider], boxes=None, dom=None):
         """
         Rebracket a flat list of :class:`Spider` into a proper :class:`Wiring`.
         """
-        dom_wires = tuple(flat_wires[:len(self.dom)])
-        box_wires, i = [], len(self.dom)
-        for depth, box in enumerate(self.boxes):
-            box_wires.append((
+        box_wires, i = [], len(dom or self.dom)
+        dom_wires = tuple(flat_wires[:i])
+        for depth, box in enumerate(boxes or self.boxes):
+            box_wires.append(tuple(map(tuple, (
                 flat_wires[i:i + len(box.dom)],
-                flat_wires[i + len(box.dom):i + len(box.dom @ box.cod)]))
+                flat_wires[i + len(box.dom):i + len(box.dom @ box.cod)]))))
             i += len(box.dom @ box.cod)
         cod_wires = tuple(flat_wires[i:])
         return (dom_wires, tuple(box_wires), cod_wires)
@@ -703,7 +704,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
         >>> spider = H.spiders(3, 2, Ty('x')).make_bijective()
         >>> assert spider.boxes == (Spider(3, 2, Ty('x')), )
-        >>> assert spider.wires == (0, 1, 2) + (0, 1, 2) + (3, 4) + (3, 4)
+        >>> assert spider.wires == ((0, 1, 2), (((0, 1, 2), (3, 4)),), (3, 4))
 
         >>> copy = H.spiders(1, 2, Ty('x', 'y')).make_bijective()
         >>> assert copy.boxes == (Spider(1, 2, Ty('x')), Spider(1, 2, Ty('y')))
@@ -737,7 +738,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             spider_types += n_legs * [typ]
             del spider_types[spider]
             f_wires = [w - 1 if w > spider else w for w in f_wires]
-            wires = self.rebracket(f_wires)
+            wires = self.rebracket(f_wires, boxes=boxes)
             return type(self)(
                 self.dom, self.cod, tuple(boxes),
                 wires, spider_types, offsets).make_bijective()
@@ -752,8 +753,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> from discopy.frobenius import Ty, Box, Cup, Cap, Spider
         >>> x = Ty('x')
         >>> h = Box('f', x, x).transpose().to_hypergraph().make_monogamous()
-        >>> assert h.boxes == (Cap(x, x), Box('f', x, x), Cup(x, x))
-        >>> assert h.wires == (0, ) + (1, 2) + (1, 3) + (0, 3) + (2, )
+        >>> assert list(zip(h.boxes, h.box_wires)) == [
+        ...     (Cap(x, x),      ((),     (1, 2))),
+        ...     (Box('f', x, x), ((1,),   (3,)  )),
+        ...     (Cup(x, x),      ((0, 3), ()    ))]
         """
         if not self.is_bijective:
             return self.make_bijective().make_monogamous()
@@ -786,7 +789,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                         offsets = (None, ) + self.offsets
                         fwires = fwires[:len(self.dom)] + [
                             left, right] + fwires[len(self.dom):]
-                    wires = self.rebracket(fwires)
+                    wires = self.rebracket(fwires, boxes=boxes)
                     spider_types[left] = spider_types[right] = typ
                     del spider_types[spider]
                     return type(self)(
@@ -803,7 +806,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H, Spider
         >>> h = H.spiders(2, 3, Ty('x')).make_left_monogamous()
         >>> assert h.boxes == (Spider(2, 1, Ty('x')), )
-        >>> assert h.wires == (0, 1) + (0, 1, 2) + (2, 2, 2)
+        >>> assert h.wires == ((0, 1), (((0, 1), (2,)),), (2, 2, 2))
         """
         for spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
@@ -822,7 +825,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             fwires = fwires[:i] + list(range(
                 self.n_spiders, self.n_spiders + len(input_wires))
             ) + [spider] + fwires[i:]
-            wires = self.rebracket(fwires)
+            wires = self.rebracket(fwires, boxes=boxes)
             spider_types = self.spider_types + len(input_wires) * (typ, )
             return type(self)(
                 self.dom, self.cod, boxes, wires, spider_types, offsets
@@ -860,18 +863,19 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                 return arg.make_causal().explicit_trace()
             input_wire, = input_wires
             for output_wire in output_wires:
-                if output_wire < input_wire:
-                    dom, cod = self.dom @ typ, self.cod @ typ
-                    spider_types = self.spider_types + (typ, )
-                    output_spider = len(spider_types) - 1
-                    fwires = list(self.flat_wires)
-                    fwires[output_wire] = output_spider
-                    fwires = fwires[:len(self.dom)] + [output_spider]\
-                        + fwires[len(self.dom):] + [input_spider]
-                    boxes, wires = self.boxes, self.rebracket(fwires)
-                    arg = type(self)(
-                        dom, cod, boxes, wires, spider_types, self.offsets)
-                    return arg.make_causal().explicit_trace()
+                if input_wire < output_wire:
+                    continue
+                dom, cod = self.dom @ typ, self.cod @ typ
+                spider_types = self.spider_types + (typ, )
+                output_spider = len(spider_types) - 1
+                fwires = list(self.flat_wires)
+                fwires[output_wire] = output_spider
+                fwires = fwires[:len(self.dom)] + [output_spider]\
+                    + fwires[len(self.dom):] + [input_spider]
+                wires = self.rebracket(fwires, dom=dom)
+                arg = type(self)(
+                    dom, cod, self.boxes, wires, spider_types, self.offsets)
+                return arg.make_causal().explicit_trace()
         return self
 
     @classmethod
