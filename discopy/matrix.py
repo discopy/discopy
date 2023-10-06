@@ -292,6 +292,8 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         -------
         >>> Matrix.swap(1, 1)
         Matrix[int64]([0, 1, 1, 0], dom=2, cod=2)
+        >>> Matrix.swap(2,1)
+        Matrix[int64]([0, 1, 0, 0, 0, 1, 1, 0, 0], dom=3, cod=3)
         """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
