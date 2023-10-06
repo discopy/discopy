@@ -107,10 +107,9 @@ class Diagram(balanced.Diagram):
     >>> x, y = Ty("x"), Ty("y")
     >>> id_hash = hash(Id(x @ y))
     >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
-    >>> Diagram.structure_preserving = True
-    >>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
-    >>> assert id_hash != hash(Id(x @ y))
-    >>> Diagram.structure_preserving = False
+    >>> with Diagram.hypergraph_equality:
+    ...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+    ...     assert id_hash != hash(Id(x @ y))
 
     Note
     ----
