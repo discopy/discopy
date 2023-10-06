@@ -23,7 +23,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.structure_preserving = True
+>>> Diagram.use_hypergraph_equality = True
 >>> x, y = Ty('x'), Ty('y')
 
 * Snake equations:
@@ -60,7 +60,7 @@ Axioms
 >>> assert Diagram.caps(x @ y, y.r @ x.r)\\
 ...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)
 
->>> Diagram.structure_preserving = False
+>>> Diagram.use_hypergraph_equality = False
 """
 
 from discopy import symmetric, ribbon

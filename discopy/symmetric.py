@@ -97,13 +97,13 @@ class Diagram(balanced.Diagram):
 
     Note
     ____
-    Symmetric diagrams have a class property `structure_preserving`, that
+    Symmetric diagrams have a class property `use_hypergraph_equality`, that
     changes the behaviour of equality and hashing.
     When set to `False`, two diagrams equal if they are built from the same
     layers.
     When set to `True`, the underlying hypergraphs are used for hashing and
     equality checking.
-    The default value of `structure_preserving` is `False`.
+    The default value of `use_hypergraph_equality` is `False`.
     >>> x, y = Ty("x"), Ty("y")
     >>> id_hash = hash(Id(x @ y))
     >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
@@ -152,7 +152,7 @@ class Diagram(balanced.Diagram):
     by default. However now we have that the axioms for trace hold on the nose.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
-    structure_preserving = False
+    use_hypergraph_equality = False
 
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -214,7 +214,7 @@ class Diagram(balanced.Diagram):
         return self.to_hypergraph().to_diagram()
 
     def _get_structure(self):
-        return self.to_hypergraph() if self.structure_preserving else (
+        return self.to_hypergraph() if self.use_hypergraph_equality else (
             self.inside, self.cod, self.dom)
 
     def __eq__(self, other):
@@ -227,11 +227,11 @@ class Diagram(balanced.Diagram):
     @classproperty
     @contextmanager
     def hypergraph_equality(cls):
-        tmp, cls.structure_preserving = cls.structure_preserving, True
+        tmp, cls.use_hypergraph_equality = cls.use_hypergraph_equality, True
         try:
             yield
         finally:
-            cls.structure_preserving = tmp
+            cls.use_hypergraph_equality = tmp
 
     def depth(self):
         """
