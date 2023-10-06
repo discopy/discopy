@@ -13,7 +13,7 @@ def test_Hypergraph_init():
     with raises(ValueError):
         H(x, x, (), ())
     with raises(AxiomError):
-        H(x, y, (), (0, 0))
+        H(x, y, (), ((0,), (), (0,)))
 
 
 def test_Hypergraph_str():
@@ -28,7 +28,7 @@ def test_Hypergraph_repr():
     assert repr(H.spiders(1, 0, x @ y))\
         == "frobenius.Hypergraph("\
            "dom=frobenius.Ty(frobenius.Ob('x'), frobenius.Ob('y')), "\
-           "cod=frobenius.Ty(), boxes=(), wires=(0, 1))"
+           "cod=frobenius.Ty(), boxes=(), wires=((0, 1), (), ()))"
 
 
 def test_Hypergraph_hash():

@@ -294,9 +294,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         Rebracket a flat list of :class:`Spider` into a proper :class:`Wiring`.
         """
-        box_wires, i = [], len(dom or self.dom)
+        dom = self.dom if dom is None else dom
+        boxes = self.boxes if boxes is None else boxes
+        box_wires, i = [], len(dom)
         dom_wires = tuple(flat_wires[:i])
-        for depth, box in enumerate(boxes or self.boxes):
+        for depth, box in enumerate(boxes):
             box_wires.append(tuple(map(tuple, (
                 flat_wires[i:i + len(box.dom)],
                 flat_wires[i + len(box.dom):i + len(box.dom @ box.cod)]))))
@@ -1083,6 +1085,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                 graph.successors(box_node), key=lambda node: node.i)))
         wires += tuple(map(
             predecessor, sorted(outputs, key=lambda node: node.i)))
+        wires = Hypergraph.rebracket(None, wires, dom=dom, boxes=boxes)
         return cls(dom, cod, boxes, wires, spider_types, offsets)
 
     def to_graph(self) -> Graph:
