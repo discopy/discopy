@@ -295,8 +295,8 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
-        array[right:, :left] = Matrix.id(left).array
-        array[:right, left:] = Matrix.id(right).array
+        array[:left, right:] = Matrix.id(left).array
+        array[left:, :right] = Matrix.id(right).array
         return cls(array, dom, cod)
 
     braid = swap
