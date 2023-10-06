@@ -63,17 +63,37 @@ if TYPE_CHECKING:
     from discopy.cat import Ty, Box, Diagram
 
 
+""" The labels of spiders can be of any type. """
+Spider = Any
+
+""" Ports are lists of spider labels. """
+Ports = tuple[Spider, ...]
+
+"""
+Wires for a hypergraphs are given by a triple `dom_wires, box_wires, cod_wires`
+where `dom_wires`, `cod_wires` are the input and output ports for the overall
+hypergraph while `box_wires` are the input and output ports for each box.
+"""
+Wires = tuple[Ports, tuple[tuple[Ports, Ports], ...], Ports]
+
 class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     """
-    A hypergraph is given by a domain, a codomain, a list of boxes, a list of
+    A hypergraph is given by:
+
+        - a domain, a codomain and a list of boxes,
+        - a triple `dom_wires, box_wires, cod_wires`
+        - an optional mapping from spiders to types.
+
+
+    The ports
     spider types and a list of wires from :meth:`ports` to spiders.
 
     Parameters:
         dom (frobenius.Ty) : The domain of the diagram, i.e. its input.
         cod (frobenius.Ty) : The codomain of the diagram, i.e. its output.
         boxes (tuple[frobenius.Box, ...]) : The boxes inside the diagram.
-        wires (tuple[Any, ...]) : List of wires from ports to spiders.
-        spider_types : Mapping[Any, frobenius.Ty]
+        wires (Wires) : List of wires from ports to spiders.
+        spider_types : Mapping[Spider, frobenius.Ty]
             Mapping from spiders to atomic types, if :code:`None` then this is
             computed from the types of ports.
         offsets : tuple[int | None, ...]

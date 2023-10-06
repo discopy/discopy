@@ -104,6 +104,7 @@ class Diagram(balanced.Diagram):
     When set to `True`, the underlying hypergraphs are used for hashing and
     equality checking.
     The default value of `use_hypergraph_equality` is `False`.
+
     >>> x, y = Ty("x"), Ty("y")
     >>> id_hash = hash(Id(x @ y))
     >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
