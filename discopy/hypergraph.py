@@ -76,6 +76,7 @@ hypergraph while `box_wires` are the input and output ports for each box.
 """
 Wires = tuple[Ports, tuple[tuple[Ports, Ports], ...], Ports]
 
+
 class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     """
     A hypergraph is given by:
