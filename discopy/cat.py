@@ -522,7 +522,7 @@ class Box(Arrow):
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return type(self) == type(other)\
+            return type(self) is type(other)\
                 and self.name == other.name\
                 and self.is_parallel(other)\
                 and self.is_dagger == other.is_dagger\
@@ -830,7 +830,7 @@ class Functor(Composable[Category]):
         self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
 
     def __eq__(self, other):
-        return type(self) == type(other)\
+        return type(self) is type(other)\
             and (self.ob, self.ar, self.cod) == (other.ob, other.ar, other.cod)
 
     def __repr__(self):

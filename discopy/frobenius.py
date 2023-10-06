@@ -30,7 +30,6 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.structure_preserving = True
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
@@ -40,7 +39,8 @@ Axioms
 
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
->>> assert frobenius
+>>> with Diagram.hypergraph_equality:
+...     assert frobenius
 >>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
 
 .. image:: /_static/frobenius/frobenius.png
@@ -49,10 +49,9 @@ Axioms
 * Speciality:
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
->>> assert special
+>>> with Diagram.hypergraph_equality:
+...     assert special
 >>> special.draw(path="docs/_static/frobenius/special.png")
-
->>> Diagram.structure_preserving = False
 
 .. image:: /_static/frobenius/special.png
     :align: center
