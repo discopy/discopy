@@ -64,125 +64,6 @@ def test_Circuit_spiders():
         assert np.isclose(flat_tensor[0], 1) and np.isclose(flat_tensor[-1], 1)
 
 
-def test_Circuit_to_pennylane(capsys):
-    bell_state = Circuit.caps(qubit, qubit)
-    bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
-    p_snake = snake.to_pennylane()
-    p_snake.draw()
-
-    captured = capsys.readouterr()
-    assert captured.out == \
-        ("0: ───────╭●──H─┤0>\n"
-         "1: ──H─╭●─╰X────┤0>\n"
-         "2: ────╰X───────┤  State\n")
-
-    assert np.allclose(p_snake.eval().numpy(), snake.eval().array)
-
-    p_snake_prob = snake.to_pennylane(probabilities=True)
-    snake_prob = (snake >> Measure())
-
-    assert np.allclose(p_snake_prob.eval().numpy(), snake_prob.eval().array)
-
-    no_open_snake = (bell_state @ Ket(0) >> Bra(0) @ bell_effect)[::-1]
-    p_no_open_snake = no_open_snake.to_pennylane()
-    p_no_open_snake.draw()
-
-    captured = capsys.readouterr()
-    assert captured.out == \
-        ("0: ───────╭●──H─┤0>\n"
-         "1: ──H─╭●─╰X────┤0>\n"
-         "2: ────╰X───────┤0>\n")
-
-    assert np.allclose(p_no_open_snake.eval().numpy(),
-                       no_open_snake.eval().array)
-
-    # probabilities should not be normalized if all wires are post-selected
-    p_no_open_snake_prob = no_open_snake.to_pennylane(probabilities=True)
-
-    assert np.allclose(p_no_open_snake_prob.eval().numpy(),
-                       no_open_snake.eval().array)
-
-    x, y, z = sympy.symbols('x y z')
-    symbols = [x, y, z]
-    weights = [torch.tensor([1.]), torch.tensor([2.]), torch.tensor([3.])]
-
-    boxes = [
-        Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
-        CRz(0.18), CRz(y), CX, H, sqrt(2), Bra(0, 0), Ket(0),
-        Rx(0.446), Rz(0.256), Rx(z), CX, H, sqrt(2), Bra(0, 0)]
-    offsets = [
-        0, 0, 0, 0, 0, 0, 1, 2, 0, 1, 2, 2, 3, 2, 0, 0, 0, 0, 0, 0, 1, 0]
-    var_circ = Circuit.decode(Ty(), zip(boxes, offsets))
-
-    p_var_circ = var_circ.to_pennylane()
-    p_var_circ.draw(symbols, weights)
-
-    captured = capsys.readouterr()
-    assert captured.out == \
-        ("0: ──RX(2.80)──RZ(1.61)──RX(18.85)─╭●──H─┤0>\n"
-         "1: ──H────────╭●───────────────────╰X────┤0>\n"
-         "2: ──H────────╰RZ(1.13)─╭●───────────────┤  State\n"
-         "3: ──H──────────────────╰RZ(12.57)─╭●──H─┤0>\n"
-         "4: ──RX(3.47)──RZ(6.28)──RX(5.76)──╰X────┤0>\n")
-
-    var_f = var_circ.lambdify(*symbols)
-    conc_circ = var_f(*[a.item() for a in weights])
-
-    assert np.allclose(p_var_circ.eval(symbols, weights).numpy(),
-                       conc_circ.eval().array)
-
-    p_var_circ_prob = var_circ.to_pennylane(probabilities=True)
-    conc_circ_prob = (conc_circ >> Measure())
-
-    assert (np.allclose(p_var_circ_prob.eval(symbols, weights).numpy(),
-                        conc_circ_prob.eval().array))
-
-
-def test_PennyLaneCircuit_mixed_error():
-    bell_state = Circuit.caps(qubit, qubit)
-    bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
-    snake = (snake >> Measure())
-    with raises(ValueError):
-        snake.to_pennylane()
-
-
-def test_PennylaneCircuit_draw(capsys):
-    bell_state = Circuit.caps(qubit, qubit)
-    bell_effect = bell_state[::-1]
-    snake = (bell_state @ Id(qubit) >> Bra(0) @ bell_effect)[::-1]
-    p_circ = snake.to_pennylane()
-    p_circ.draw()
-
-    captured = capsys.readouterr()
-    assert captured.out == \
-        ("0: ───────╭●──H─┤0>\n"
-         "1: ──H─╭●─╰X────┤0>\n"
-         "2: ────╰X───────┤  State\n")
-
-
-def test_pennylane_ops():
-    ops = [X, Y, Z, S, T, H, CX, CZ]
-
-    for op in ops:
-        disco = (Id().tensor(*([Ket(0)] * len(op.dom))) >> op).eval().array
-        plane = op.to_pennylane().eval().numpy()
-
-        assert np.allclose(disco, plane)
-
-
-def test_pennylane_parameterized_ops():
-    ops = [Rx, Ry, Rz, CRx, CRz]
-
-    for op in ops:
-        p_op = op(0.5)
-        disco = (Id().tensor(*([Ket(0)] * len(p_op.dom))) >> p_op).eval().array
-        plane = p_op.to_pennylane().eval().numpy()
-
-        assert np.allclose(disco, plane, atol=10e-5)
-
-
 def test_bra_ket_inputs():
     bad_inputs = ['0', '1', 2]
     for box in [Bra, Ket]:
@@ -490,26 +371,6 @@ def test_CX_decompose(x, y):
     assert (out == unitary_mat).all()
 
 
-@pytest.mark.parametrize('x,y', [(0, 1), (0, 2), (1, 0), (2, 0), (5, 0)])
-def test_CX_decompose(x, y):
-    n = abs(x - y) + 1
-    binary_mat = np.eye(n, dtype=int)
-    binary_mat[y] = np.bitwise_xor(binary_mat[x], binary_mat[y])
-
-    N = 1 << n
-    unitary_mat = np.zeros(shape=(N, N))
-    for i in range(N):
-        bits = index2bitstring(i, n)
-        v = bitstring2index(binary_mat @ bits % 2)
-        unitary_mat[i][v] = 1
-
-    # take transpose because tensor axes follow diagrammatic order
-    out = Id(n).CX(x, y).eval().array.reshape(N, N).T
-    # but CX matrices are self transpose
-    assert (out == out.T).all()
-    assert (out == unitary_mat).all()
-
-
 @pytest.mark.parametrize('x,y, z', [(0, 1, 2), (0, 2, 4),
                                     (0, 4, 2), (4, 2, 0),
                                     (0, 4, 1), (4, 0, 1)])
@@ -536,7 +397,7 @@ def test_CCX_decompose(x, y, z):
     assert (out == unitary_mat).all()
 
 
-def test_Circuit_to_pennylane(capsys):
+def test_circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
@@ -614,7 +475,7 @@ def test_Circuit_to_pennylane(capsys):
                         conc_circ_prob.eval().array))
 
 
-def test_PennyLaneCircuit_mixed_error():
+def test_pennylane_circuit_mixed_error():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
@@ -623,7 +484,7 @@ def test_PennyLaneCircuit_mixed_error():
         snake.to_pennylane()
 
 
-def test_PennylaneCircuit_draw(capsys):
+def test_pennylane_circuit_draw(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
     snake = (bell_state @ Id(1) >> Bra(0) @ bell_effect)[::-1]
