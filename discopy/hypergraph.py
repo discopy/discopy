@@ -90,6 +90,7 @@ SpiderTypes = Union[Mapping[Spider, "Ty"], Iterable["Ty"]]
 Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
+
 class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     """
     A hypergraph is given by:
