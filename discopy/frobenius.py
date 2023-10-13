@@ -23,6 +23,7 @@ Summary
     Cap
     Swap
     Spider
+    Bubble
     Category
     Functor
 
@@ -61,7 +62,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import markov, compact, pivotal, hypergraph
+from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.utils import factory_name, assert_isinstance, assert_isatomic
 
@@ -85,6 +86,21 @@ class Ty(pivotal.Ty):
         inside (frobenius.Ob) : The objects inside the type.
     """
     ob_factory = Ob
+
+
+@factory
+class PRO(rigid.PRO, Ty):
+    """
+    A PRO is a natural number ``n`` seen as a frobenius type with unnamed objects.
+
+    Parameters
+    ----------
+    n : int
+        The length of the PRO type.
+    """
+    __ambiguous_inheritance__ = (rigid.PRO, )
+
+    l = r = property(lambda self: self)
 
 
 @factory
@@ -218,6 +234,10 @@ class Swap(compact.Swap, markov.Swap, Box):
     """
     __ambiguous_inheritance__ = (compact.Swap, markov.Swap)
 
+    def rotate(self, left=False):
+        del left
+        return self
+
 
 class Spider(Box):
     """
@@ -273,6 +293,12 @@ class Spider(Box):
         return coherence(self.factory, type(self))(
             len(self.dom), len(self.cod), self.typ, self.phase)
 
+
+class Bubble(monoidal.Bubble, Box):
+    """
+    A Frobenius bubble is a monoidal bubble in a frobenius diagram.
+    """
+    __ambiguous_inheritance__ = (monoidal.Bubble, )
 
 class Category(compact.Category, markov.Category):
     """

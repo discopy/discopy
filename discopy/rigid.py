@@ -167,7 +167,7 @@ class Ty(closed.Ty):
 @factory
 class PRO(monoidal.PRO, Ty):
     """
-    A PRO is a natural number ``n`` seen as a rigid type with unnamed objects.
+    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
 
     Parameters
     ----------
