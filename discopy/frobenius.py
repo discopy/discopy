@@ -91,7 +91,8 @@ class Ty(pivotal.Ty):
 @factory
 class PRO(rigid.PRO, Ty):
     """
-    A PRO is a natural number ``n`` seen as a frobenius type with unnamed objects.
+    A PRO is a natural number ``n`` seen as a frobenius type with unnamed
+    objects.
 
     Parameters
     ----------
@@ -299,6 +300,7 @@ class Bubble(monoidal.Bubble, Box):
     A Frobenius bubble is a monoidal bubble in a frobenius diagram.
     """
     __ambiguous_inheritance__ = (monoidal.Bubble, )
+
 
 class Category(compact.Category, markov.Category):
     """

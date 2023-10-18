@@ -61,7 +61,8 @@ parallel wires coincide and the twist is the identity.
 
 from discopy import rigid, pivotal, balanced
 from discopy.cat import factory
-from discopy.pivotal import Ty, PRO
+from discopy.pivotal import Ty, PRO  # noqa: F401
+
 
 @factory
 class Diagram(pivotal.Diagram, balanced.Diagram):
