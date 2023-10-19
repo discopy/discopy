@@ -222,7 +222,6 @@ class Arrow(Composable[Ob]):
         else:
             self.__dict__.update(state)
 
-
     def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
                  _scan: bool = True) -> None:
         ty_factory = type(self).ty_factory
