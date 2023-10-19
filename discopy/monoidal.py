@@ -108,6 +108,11 @@ class Ty(cat.Ob):
 
     __ambiguous_inheritance__ = True
 
+    def __setstate__(self, state):
+        if 'inside' not in state:  # Backward compatibility
+            self.inside = state['_objects']
+        super().__setstate__(state)
+
     def __init__(self, *inside: str | cat.Ob):
         for obj in inside:
             assert_isinstance(obj, (str, self.ob_factory))
@@ -303,6 +308,13 @@ class Layer(cat.Box):
         more : More boxes and types to the right,
                used by :meth:`Diagram.foliation`.
     """
+    def __setstate__(self, state):
+        if 'boxes_or_types' not in state:  # Backward compatibility
+            self.boxes_or_types = tuple(
+                state[key] for key in ['_left', '_box', '_right'])
+        else:
+            self.__dict__.update(state)
+
     def __init__(self, left: Ty, box: Box, right: Ty, *more):
         if len(more) % 2:
             raise ValueError(messages.LAYERS_MUST_BE_ODD)
@@ -470,6 +482,11 @@ class Diagram(cat.Arrow, Whiskerable):
     """
     ty_factory = Ty
     layer_factory = Layer
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        if 'inside' not in state:  # Backward compatibility
+            self.inside = tuple(state['_layers'])
 
     def __init__(
             self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):
