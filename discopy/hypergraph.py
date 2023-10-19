@@ -72,10 +72,10 @@ Spider = Any
 """ The labels of spiders can be of any type. """
 
 Wires = tuple[Spider, ...]
-""" Wires are lists of :class:`Spider` labels. """
+""" Wires are n-tuples of :class:`Spider` labels. """
 
 Boundary = tuple[Wires, Wires]
-""" A boundary is a pair of lists of :class:`Wires`. """
+""" A boundary is a pair of input and output :class:`Wires`. """
 
 Wiring = tuple[Wires, tuple[Boundary, ...], Wires]
 """
@@ -106,11 +106,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     :class:`Wires` are lists of :class:`Spider` label which can be of any type.
 
     Parameters:
-        dom (frobenius.Ty) : The domain of the diagram, i.e. its input.
-        cod (frobenius.Ty) : The codomain of the diagram, i.e. its output.
-        boxes (tuple[frobenius.Box, ...]) : The boxes inside the diagram.
-        wires : List of wires from ports to spiders.
-        spider_types
+        dom (category.ob) : The domain of the diagram, i.e. its input.
+        cod (category.ob) : The codomain of the diagram, i.e. its output.
+        boxes (tuple[category.ar, ...]) : The boxes inside the diagram.
+        wires (Wiring) : List of wires from ports to spiders.
+        spider_types (SpiderTypes) :
             Optional mapping from spiders to atomic types, if ``None`` then
             this is computed from the types of ports.
         offsets : tuple[int | None, ...]
@@ -132,14 +132,15 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
 
     Note
     ----
-    Hypergraphs are parameterised by a ``category``, i.e. ``dom`` and ``cod``
-    are of type ``category.ob`` and each box is of type ``category.ar``.
+    The ``Hypergraph`` class is parameterised by a ``Category``, i.e. instances
+    of ``Hypergraph[C]`` have ``dom: C.ob`` and ``cod: C.ob`` as boundary and
+    ``boxes: tuple[C.ar, ...]`` as generators. For example:
 
     >>> from discopy.frobenius import Hypergraph as H
     >>> from discopy.frobenius import Ty, Diagram
     >>> assert H.category.ob == Ty and H.category.ar == Diagram
 
-    They are also parameterised by a ``functor`` called by :meth:`to_diagram`.
+    They are also parameterised by a ``Functor`` called by :meth:`to_diagram`.
 
     >>> from discopy.frobenius import Functor
     >>> assert H.functor == Functor
@@ -315,7 +316,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     def scalar_spiders(self):
         """ The zero-legged spiders in a hypergraph diagram. """
         return [
-            i for i, (x, y) in enumerate(self.spider_wires) if not len(x | y)]
+            i for i, (x, y) in enumerate(self.spider_wires) if not x and not y]
 
     @classmethod
     def id(cls, dom=None) -> Hypergraph:
