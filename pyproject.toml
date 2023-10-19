@@ -104,6 +104,9 @@ pythonpath = [
 ]
 testpaths = [
     "discopy",
-    "test/*/*.py"
+    "test"
+]
+python_files = [
+    "*.py",
 ]
 addopts = "--doctest-modules"

@@ -552,9 +552,12 @@ class Box(closed.Box, Diagram):
     __ambiguous_inheritance__ = (closed.Box, )
 
     def __setstate__(self, state):
+        aa = dict(state)
         if 'inside' not in state:  # Backward compatibility
             self.z = state['_z']
         super().__setstate__(state)
+        if self.z is None:
+            self.z = 0
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
         self.z = z

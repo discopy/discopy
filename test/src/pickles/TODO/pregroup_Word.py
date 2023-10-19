@@ -1,5 +1,3 @@
-from discopy.rigid import Id, Cup, Ty
-from discopy.grammar import *
 from discopy.grammar.pregroup import *
 
 

@@ -143,6 +143,12 @@ class Qudit(Ob):
         name = "qubit" if dim == 2 else f"Qudit({dim})"
         super().__init__(name, dim)
 
+    def __setstate__(self, state):
+        if "_dim" in state:
+            state["dim"] = state["_dim"]
+            del state["_dim"]
+        super().__setstate__(state)
+
 
 @factory
 class Ty(frobenius.Ty):
@@ -810,6 +816,14 @@ class Box(tensor.Box[complex], Circuit):
                 raise ValueError(messages.BOX_IS_MIXED)
         self._is_mixed = is_mixed
         tensor.Box[complex].__init__(self, name, dom, cod, data=data, **params)
+
+    def __setstate__(self, state):
+        if "_is_mixed" not in state:
+            state["_is_mixed"] = state["_mixed"]
+            del state["_mixed"]
+        super().__setstate__(state)
+        if "data" not in self.__dict__:
+            pass
 
     @property
     def array(self):
