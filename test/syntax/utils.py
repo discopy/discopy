@@ -41,6 +41,6 @@ def test_pickle(fn):
     with open(f"test/src/pickles/0.6/{fn}", 'rb') as f:
         new = pickle.load(f)
     old_d, new_d = old.__dict__, new.__dict__
-    assert old_d == new_d  and all(
+    assert old_d == new_d and all(
         old_d[key].__dict__ == new_d[key].__dict__
         for key in list(old_d.keys()) if hasattr(old_d[key], "__dict__"))

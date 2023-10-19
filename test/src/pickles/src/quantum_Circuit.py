@@ -3,7 +3,6 @@ from discopy.quantum.gates import *
 
 import sympy
 
-
 x, y, z = sympy.symbols('x y z')
 boxes = [
     Ket(0), Rx(0.552), Rz(x), Rx(0.917), Ket(0, 0, 0), H, H, H,
