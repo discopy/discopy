@@ -5,7 +5,10 @@ from discopy import rigid
 from discopy.cat import Ob
 from discopy.utils import *
 
+import pytest
 from pytest import warns
+
+from os import listdir
 
 zip_mock = MagicMock()
 zip_mock.open().__enter__().read.return_value =\
@@ -28,3 +31,16 @@ def test_deprecated_from_tree():
         'boxes': [], 'offsets': []}
     with warns(DeprecationWarning):
         assert from_tree(tree) == rigid.Id(rigid.Ty('n'))
+
+
+@pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
+def test_pickle(fn):
+    import pickle
+    with open(f"test/src/pickles/main/{fn}", 'rb') as f:
+        old = pickle.load(f)
+    with open(f"test/src/pickles/0.6/{fn}", 'rb') as f:
+        new = pickle.load(f)
+    old_d, new_d = old.__dict__, new.__dict__
+    assert old_d == new_d  and all(
+        old_d[key].__dict__ == new_d[key].__dict__
+        for key in list(old_d.keys()) if hasattr(old_d[key], "__dict__"))
