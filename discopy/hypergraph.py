@@ -95,15 +95,17 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     """
     A hypergraph is given by:
 
-    - a domain, a codomain and a list of boxes
+    - a domain, a codomain and an n-tuple of boxes
     - a :class:`Wiring` triple ``dom_wires, box_wires, cod_wires`` where
         - ``(dom_wires, cod_wires)`` is the :class:`Boundary` of the hypergraph
         - ``box_wires: tuple[Boundary, ...]`` is the boundary of each box
     - an optional mapping :class:`SpiderTypes` from spiders to types
 
-    A :class:`Boundary` is just a pair of lists of :class:`Wires`.
+    A :class:`Boundary` is just a pair of input and output :class:`Wires`.
 
-    :class:`Wires` are lists of :class:`Spider` label which can be of any type.
+    :class:`Wires` are n-tuples of :class:`Spider` labels.
+
+    :class:`Spider` labels can be of any type.
 
     Parameters:
         dom (category.ob) : The domain of the diagram, i.e. its input.
