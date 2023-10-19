@@ -137,5 +137,9 @@ def test_sum_adjoint():
 
 def test_pickle():
     import pickle
-    f = pickle.load(open('test/src/pickles/rigid.Box.legacy.pickle', 'rb'))
-    assert f.__dict__ == Box('f', Ty('x', 'x'), Ty('y')).__dict__
+    old_f = pickle.load(open('test/src/pickles/rigid.Box.legacy.pickle', 'rb'))
+    new_f = Box('f', Ty('x', 'x'), Ty('y'))
+    old_d, new_d = old_f.__dict__, new_f.__dict__
+    assert old_d == new_d  and all(
+        old_d[key].__dict__ == new_d[key].__dict__
+        for key in list(old_d.keys()) if hasattr(old_d[key], "__dict__"))
