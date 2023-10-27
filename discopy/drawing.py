@@ -18,6 +18,8 @@ def _import_matplotlib():
 
 # Mapping from attribute to function from box to default value.
 ATTRIBUTES = {
+    "draw_as_frame_top": lambda _: False,
+    "draw_as_frame_bot": lambda _: False,
     "draw_as_wires": lambda _: False,
     "draw_as_spider": lambda _: False,
     "shape": lambda box:
@@ -569,6 +571,65 @@ def draw(diagram, **params):
         ("draw_as_measures", draw_measure),
         (None, draw_box)]
 
+    def is_frame_top(node):
+        return node.kind == "box" and node.box.draw_as_frame_top
+
+    def is_frame_bot(node):
+        return node.kind == "box" and node.box.draw_as_frame_bot
+
+    def draw_frames(backend, graph, positions, **params):
+        for node in graph.nodes():
+            if is_frame_top(node):
+                box = node.box
+                if params.get('draw_box_labels', True):
+                    backend.draw_text(box.drawing_name, *positions[node],
+                        ha='center', va='center',
+                        fontsize=params.get('fontsize', None))
+
+        # maps the center of the box to the outside of the box
+        in_to_out = {}
+        for source, target in graph.edges():
+            if is_frame_top(target):
+                in_to_out[target] = source
+            if is_frame_bot(source):
+                in_to_out[source] = target
+        top_frame_bounds = {}
+        bot_frame_bounds = {}
+
+        # collect the vertical wires associated to each frame
+        for source, target in graph.edges():
+            if is_frame_top(source):
+                src = in_to_out[source]
+                if src not in top_frame_bounds:
+                    top_frame_bounds[src] = []
+                top_frame_bounds[src].append(target)
+            if is_frame_bot(target):
+                tgt = in_to_out[target]
+                if tgt not in bot_frame_bounds:
+                    bot_frame_bounds[tgt] = []
+                bot_frame_bounds[tgt].append(source)
+
+        for frame_bounds in [top_frame_bounds, bot_frame_bounds]:
+            for source, targets in frame_bounds.items():
+                # draw inside wires
+                for i in range(1, len(targets) - 2):
+                    t0 = targets[i]
+                    t1 = targets[i + 1]
+                    if (not getattr(t0.obj, 'frame_wire', False) or
+                        not getattr(t1.obj, 'frame_wire', False)):
+                        backend.draw_wire(positions[t0], positions[t1])
+                target = targets[-1]
+                # draw side wires
+                for t in (targets[0], targets[-1]):
+                    p0 = positions[t][0], positions[source][1]
+                    p1 = positions[t]
+                    backend.draw_wire(p0, p1)
+                # draw outside wire
+                p0 = positions[targets[0]][0], positions[source][1]
+                p1 = positions[targets[-1]][0], positions[source][1]
+                backend.draw_wire(p0, p1)
+        return backend
+
     def draw_wires(backend, graph, positions):
         for source, target in graph.edges():
             def inside_a_box(node):
@@ -577,6 +638,8 @@ def draw(diagram, **params):
                     and not node.box.draw_as_spider
             if inside_a_box(source) or inside_a_box(target):
                 continue  # no need to draw wires inside a box
+            if is_frame_top(source) or is_frame_bot(target):
+                continue  # no need to draw wires inside a frame
             backend.draw_wire(
                 positions[source], positions[target],
                 bend_out=source.kind == "box", bend_in=target.kind == "box")
@@ -627,10 +690,12 @@ def draw(diagram, **params):
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend = draw_wires(backend, graph, positions)
+    backend = draw_frames(backend, graph, positions, **params)
     backend.draw_spiders(graph, positions, **params)
     box_nodes = [node for node in graph.nodes if node.kind == "box"]
     for node in box_nodes:
-        if node.box.draw_as_spider or node.box.draw_as_wires:
+        if (node.box.draw_as_spider or node.box.draw_as_wires
+            or node.box.draw_as_frame_top or node.box.draw_as_frame_bot):
             continue
         for attr, drawing_method in drawing_methods:
             if attr is None or getattr(node.box, attr, False):
