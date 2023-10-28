@@ -84,6 +84,21 @@ class Ty(rigid.Ty):
 
 
 @factory
+class PRO(rigid.PRO, Ty):
+    """
+    A pivotal PRO is a natural number ``n``
+    seen as a pivotal type of length ``n``.
+
+    Parameters
+    ----------
+    n : int
+        The length of the PRO type.
+    """
+    __ambiguous_inheritance__ = (rigid.PRO, )
+    l = r = property(lambda self: self)
+
+
+@factory
 class Diagram(rigid.Diagram, traced.Diagram):
     """
     A pivotal diagram is a rigid diagram and a traced diagram

@@ -22,7 +22,6 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.structure_preserving = True
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f, g = Box("f", x, y), Box("g", z, w)
 
@@ -43,7 +42,8 @@ Axioms
 * Involution (a.k.a. Reidemeister move 2):
 
 >>> assert Swap(x, y)[::-1] == Swap(y, x)
->>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+>>> with Diagram.hypergraph_equality:
+...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
 >>> Equation(Swap(x, y) >> Swap(y, x), Id(x @ y)).draw(
 ...     path='docs/_static/symmetric/inverse.png', figsize=(3, 2))
 
@@ -52,8 +52,11 @@ Axioms
 
 * Naturality:
 
->>> assert f @ g >> Swap(f.cod, g.cod) == Swap(f.dom, g.dom) >> g @ f
->>> Equation(f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f).draw(
+>>> naturality = Equation(
+...     f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f)
+>>> with Diagram.hypergraph_equality:
+...     assert naturality
+>>> naturality.draw(
 ...     path='docs/_static/symmetric/naturality.png', figsize=(3, 2))
 
 .. image:: /_static/symmetric/naturality.png
@@ -63,11 +66,10 @@ Axioms
 
 >>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)
->>> assert yang_baxter_left == yang_baxter_right
+>>> with Diagram.hypergraph_equality:
+...     assert yang_baxter_left == yang_baxter_right
 >>> Equation(yang_baxter_left, yang_baxter_right).draw(
 ...     path='docs/_static/symmetric/yang-baxter.png', figsize=(3, 2))
-
->>> Diagram.structure_preserving = False
 
 .. image:: /_static/symmetric/yang-baxter.png
     :align: center
@@ -75,9 +77,12 @@ Axioms
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from discopy import monoidal, balanced, messages
 from discopy.cat import factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
+from discopy.utils import classproperty
 
 
 @factory
@@ -92,20 +97,20 @@ class Diagram(balanced.Diagram):
 
     Note
     ____
-    Symmetric diagrams have a class property `structure_preserving`, that
+    Symmetric diagrams have a class property `use_hypergraph_equality`, that
     changes the behaviour of equality and hashing.
     When set to `False`, two diagrams equal if they are built from the same
     layers.
     When set to `True`, the underlying hypergraphs are used for hashing and
     equality checking.
-    The default value of `structure_preserving` is `False`.
+    The default value of `use_hypergraph_equality` is `False`.
+
     >>> x, y = Ty("x"), Ty("y")
     >>> id_hash = hash(Id(x @ y))
     >>> assert Swap(x, y) >> Swap(y, x) != Id(x @ y)
-    >>> Diagram.structure_preserving = True
-    >>> assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
-    >>> assert id_hash != hash(Id(x @ y))
-    >>> Diagram.structure_preserving = False
+    >>> with Diagram.hypergraph_equality:
+    ...     assert Swap(x, y) >> Swap(y, x) == Id(x @ y)
+    ...     assert id_hash != hash(Id(x @ y))
 
     Note
     ----
@@ -148,7 +153,7 @@ class Diagram(balanced.Diagram):
     by default. However now we have that the axioms for trace hold on the nose.
     """
     twist_factory = classmethod(lambda cls, dom: cls.id(dom))
-    structure_preserving = False
+    use_hypergraph_equality = False
 
     @classmethod
     def swap(cls, left: monoidal.Ty, right: monoidal.Ty) -> Diagram:
@@ -210,7 +215,7 @@ class Diagram(balanced.Diagram):
         return self.to_hypergraph().to_diagram()
 
     def _get_structure(self):
-        return self.to_hypergraph() if self.structure_preserving else (
+        return self.to_hypergraph() if self.use_hypergraph_equality else (
             self.inside, self.cod, self.dom)
 
     def __eq__(self, other):
@@ -219,6 +224,15 @@ class Diagram(balanced.Diagram):
 
     def __hash__(self):
         return hash(self._get_structure())
+
+    @classproperty
+    @contextmanager
+    def hypergraph_equality(cls):
+        tmp, cls.use_hypergraph_equality = cls.use_hypergraph_equality, True
+        try:
+            yield
+        finally:
+            cls.use_hypergraph_equality = tmp
 
     def depth(self):
         """

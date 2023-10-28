@@ -106,3 +106,4 @@ testpaths = [
     "discopy",
     "test/*/*.py"
 ]
+addopts = "--doctest-modules"

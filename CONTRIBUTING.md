@@ -17,7 +17,7 @@ Then you should check you haven't broken anything by running the test suite:
 ```shell
 pip install ".[test]"
 pycodestyle discopy
-coverage run --source=discopy -m pytest --doctest-modules
+coverage run -m pytest
 coverage report -m --fail-under=99
 ```
 

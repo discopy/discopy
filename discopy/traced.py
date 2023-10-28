@@ -29,7 +29,7 @@ Axioms
 >>> from discopy.drawing import Equation
 >>> from discopy.symmetric import Ty, Box, Swap, Id
 >>> from discopy import symmetric
->>> symmetric.Diagram.structure_preserving = True
+>>> symmetric.Diagram.use_hypergraph_equality = True
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
@@ -101,7 +101,7 @@ Axioms
 
 >>> assert sliding_left and sliding_right
 
->>> symmetric.Diagram.structure_preserving = False
+>>> symmetric.Diagram.use_hypergraph_equality = False
 """
 
 from discopy import monoidal
