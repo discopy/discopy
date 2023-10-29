@@ -10,8 +10,6 @@ class Arrow(monoidal.Bubble):
     """
     def __init__(self, graph: nx.DiGraph):
         nodes = sorted(graph.nodes)
-        dom = monoidal.Ty(*(n for n in nodes if graph.in_degree(n) > 0))
-        cod = monoidal.Ty(*(n for n in nodes if graph.out_degree(n) > 0))
         inside = monoidal.Id().tensor(*(Box(graph, node) for node in nodes))
         super().__init__(inside)
 

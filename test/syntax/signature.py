@@ -4,16 +4,23 @@ import networkx as nx
 from discopy import signature
 
 
-def test_Arrow():
+def test_merengue():
     sig = nx.DiGraph()
-    sig.add_edge('x', 'x')
-    sig.add_edge('w', 'f')
-    sig.add_edge('x', 'f')
-    sig.add_edge('f', 'y')
-    sig.add_edge('y', 'g')
-    sig.add_edge('g', 'z')
+    # crack
+    sig.add_edge('egg', 'crack')
+    sig.add_edge('crack', 'white')
+    sig.add_edge('crack', 'yolk')
+    # mix
+    sig.add_edge('white', 'mix')
+    sig.add_edge('yolk', 'mix')
+    sig.add_edge('mix', 'egg')
+    signature.Arrow(sig).draw()
 
-    ar = signature.Arrow(sig)
-    f = signature.Box(sig, 'f')
-    x = signature.Box(sig, 'x')
-    (f @ ar @ x).draw()
+    crack = signature.Box(sig, 'crack')
+    mix = signature.Box(sig, 'mix')
+
+    crack_tensor_mix = crack @ mix
+    crack_then_mix = crack >> mix
+
+    from discopy.drawing import Equation
+    Equation(crack_tensor_mix, crack_then_mix, symbol=' and ').draw(space=2, figsize=(8, 2))
