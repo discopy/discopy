@@ -148,6 +148,11 @@ class Feedback(monoidal.Bubble, Box):
     """
     Feedback is a bubble that takes a diagram from `x @ y.delay()` to `z @ y`
     and returns a box from `x` to `z`.
+
+    Examples
+    --------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> Box('f', x @ y.delay(), x @ y).feedback().draw()
     """
     to_drawing = symmetric.Trace.to_drawing
 
