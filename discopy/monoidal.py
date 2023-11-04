@@ -834,6 +834,49 @@ class Sum(cat.Sum, Box):
         return drawing.equation(*self.terms, symbol='+', **params)
 
 
+
+class Frame(Box):
+    """
+    A subclass of monoidal.Box that supports higher order boxes, i.e. box that has another diagram inside it. 
+    """
+    def __init__(self, name, dom, cod, insides):
+        """
+        Initializes a Frame object with a name, domain, codomain, and a list of insides.
+        """
+        self._insides = insides
+        super().__init__(str(name), dom, cod)
+
+    def to_drawing(self):
+        """
+        Decomposes a Frame object into a diagram of boxes, where the insides are sandwiched by top 
+        and bottom boxes with *-wires acting as walls between multiple holes.
+        """
+        print('hello', repr(self), type(self))
+        ss = Ob('')
+        ss.frame_wire = True
+        s = Ty(ss, ss)
+        dom_s = s.tensor(*[d.dom @ s for d in self._insides])
+        cod_s = s.tensor(*[d.cod @ s for d in self._insides])
+        top = Box(f'[{self.name}]', self.dom, dom_s)
+        bot = Box(f'[\{self.name}]', cod_s, self.cod)
+        top.drawing_name = self.name
+        top.draw_as_frame_top = True
+        bot.draw_as_frame_bot = True
+
+        mid = Id(s).tensor(*[d.to_drawing() @ Id(s) for d in self._insides])
+        return top >> mid >> bot
+
+    @property
+    def insides(self):
+        """
+        Returns the list of insides of a Frame object.
+        """
+        return self._insides
+
+    def __repr__(self):
+        return "Frame({}, dom={}, cod={}, insides={})".format(
+            repr(self.name), repr(self.dom), repr(self.cod), repr(self.insides))
+
 class Bubble(cat.Bubble, Box):
     """
     Bubble in a monoidal diagram, i.e. a unary operator on homsets.
