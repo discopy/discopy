@@ -937,14 +937,21 @@ class Functor(cat.Functor):
     .. image:: ../_static/imgs/monoidal/functor-example.png
         :align: center
     """
-    def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
+    def __init__(self, ob, ar, frame=None, ob_factory=None, ar_factory=None, frame_factory=None):
         if ob_factory is None:
             ob_factory = Ty
         if ar_factory is None:
             ar_factory = Diagram
+        if frame_factory is None:
+            frame_factory = Frame
+        self.frame = frame or (lambda x: x)
+        self.frame_factory = frame_factory
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
+        if isinstance(diagram, Frame):
+            return self.frame(self.frame_factory(diagram.name, self(diagram.dom), self(diagram.cod),
+                                [self(i) for i in diagram.insides]))
         if isinstance(diagram, (Sum, Bubble)):
             super().__call__(diagram)
         if isinstance(diagram, Ty):
