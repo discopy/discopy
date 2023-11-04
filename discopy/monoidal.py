@@ -629,45 +629,26 @@ class Diagram(cat.Arrow):
         ar_factory.upgrade = staticmethod(upgrade)
         return ar_factory
 
-    def open_bubbles(self):
+    def to_drawing(self):
         """
         Called when drawing bubbles. Replace each bubble by::
 
             open_bubble\\
-                >> Id(left) @ open_bubbles(bubble.inside) @ Id(right)\\
+                >> Id(left) @ to_drawing(bubble.inside) @ Id(right)\\
                 >> close_bubble
 
         for :code:`left = Ty(bubble.drawing_name)` and :code:`right = Ty("")`.
         :meth:`Diagram.downgrade` gets called in the process.
         """
-        if not any(isinstance(box, Bubble) for box in self.boxes):
+        if not any(hasattr(box, 'to_drawing') for box in self.boxes):
             return self.downgrade()
 
-        class OpenBubbles(Functor):
-            def __call__(self, diagram):
-                diagram = diagram.downgrade()
-                if isinstance(diagram, Bubble):
-                    obj = Ob(diagram.drawing_name)
-                    obj.draw_as_box = True
-                    left, right = Ty(obj), Ty("")
-                    open_bubble = Box(
-                        "open_bubble",
-                        diagram.dom, left @ diagram.inside.dom @ right)
-                    close_bubble = Box(
-                        "_close",
-                        left @ diagram.inside.cod @ right, diagram.cod)
-                    open_bubble.draw_as_wires = True
-                    close_bubble.draw_as_wires = True
-                    # Wires can go straight only if types have the same length.
-                    if len(diagram.dom) == len(diagram.inside.dom):
-                        open_bubble.bubble_opening = True
-                    if len(diagram.cod) == len(diagram.inside.cod):
-                        close_bubble.bubble_closing = True
-                    return open_bubble\
-                        >> Id(left) @ self(diagram.inside) @ Id(right)\
-                        >> close_bubble
-                return super().__call__(diagram)
-        return OpenBubbles(lambda x: x, lambda f: f)(self)
+        def to_drawing_ar(diagram):
+            print(diagram, type(diagram))
+            if hasattr(diagram, 'to_drawing'):
+                return diagram.to_drawing()
+            return diagram
+        return Functor(lambda x: x, lambda f: to_drawing_ar(f))(self)
 
     draw = drawing.draw
     to_gif = drawing.to_gif
@@ -770,6 +751,9 @@ class Box(cat.Box, Diagram):
 
     def __hash__(self):
         return hash(repr(self))
+
+    def to_drawing(self):
+        return self
 
 
 class BinaryBoxConstructor:
@@ -910,6 +894,27 @@ class Bubble(cat.Bubble, Box):
         result = Bubble(self.inside.downgrade(), Ty(*self.dom), Ty(*self.cod))
         result.drawing_name = self.drawing_name
         return result
+
+    def to_drawing(self):
+        obj = Ob(self.drawing_name)
+        obj.draw_as_box = True
+        left, right = Ty(obj), Ty("")
+        open_bubble = Box(
+            "open_bubble",
+            self.dom, left @ self.inside.dom @ right)
+        close_bubble = Box(
+            "_close",
+            left @ self.inside.cod @ right, self.cod)
+        open_bubble.draw_as_wires = True
+        close_bubble.draw_as_wires = True
+        # Wires can go straight only if types have the same length.
+        if len(self.dom) == len(self.inside.dom):
+            open_bubble.bubble_opening = True
+        if len(self.cod) == len(self.inside.cod):
+            close_bubble.bubble_closing = True
+        return open_bubble\
+            >> Id(left) @ self(self.inside) @ Id(right)\
+            >> close_bubble
 
 
 Diagram.sum = Sum
