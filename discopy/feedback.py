@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 """
-The free feedback category, i.e. diagrams with delay.
+The free feedback category, i.e.
+diagrams with a later endofunctor and a feedback operator.
 
 Summary
 -------
@@ -11,11 +12,13 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Ty
+    Layer
     Diagram
     Box
     Swap
-    Sum
+    Feedback
     Category
     Functor
 """
@@ -23,70 +26,52 @@ Summary
 from __future__ import annotations
 
 from discopy import cat, monoidal, symmetric, messages
-from discopy.cat import factory
+from discopy.utils import factory, assert_isinstance
 
 
 class Ob(cat.Ob):
-    """ A feedback object is an object with a `time_step`. """
-    def __init__(self, name: str, time_step: int = 0):
-        self.time_step = time_step
+    """ A feedback object is an object with a `delay`. """
+    def __init__(self, name: str, delay: int = 0):
+        assert_isinstance(delay, int)
+        if delay < 0: raise NotImplementedError
+        self.delay = delay
         super().__init__(name)
 
-    def delay(self, n_steps=1):
-        return type(self)(self.name, self.time_step + n_steps)
-
-    @property
-    def d(self):
-        return self.delay()
-
-    @property
-    def f(self):
-        return self.delay(n=-1)
+    def later(self, n_steps=1):
+        return type(self)(self.name, self.delay + n_steps)
 
     def __repr__(self):
-        time_step = "" if not self.time_step else f", {self.time_step}"
-        return factory_name(type(self)) + f"({self.name}{time_step})"
+        delay = "" if not self.delay else f", {self.delay}"
+        return factory_name(type(self)) + f"({self.name}{delay})"
 
     def __str__(self):
         result = super().__str__()
-        if self.time_step > 0:
-            for _ in range(self.time_step):
-                result += ".d"
-        elif self.time_step < 0:
-            for _ in range(self.time_step):
-                result += ".f"
+        if self.delay == 1:
+            result += ".later()"
+        elif self.delay > 1:
+            result += f".later(n={self.delay})"
         return result
 
 @factory
 class Ty(monoidal.Ty):
-    """ A feedback type is a monoidal type with a `delay` method. """
+    """ A feedback type is a monoidal type with a `later` method. """
     ob_factory = Ob
 
-    def delay(self, n_steps=1):
-        return type(self)(*tuple(x.delay(n_steps) for x in self.inside))
-
-    @property
-    def d(self):
-        if len(self) != 1: raise TypeError
-        return type(self)(self.inside[0].d)
-
-    @property
-    def f(self):
-        if len(self) != 1: raise TypeError
-        return type(self)(self.inside[0].f)
+    def later(self, n_steps=1):
+        return type(self)(*tuple(x.later(n_steps) for x in self.inside))
 
 
 class Layer(monoidal.Layer):
-    """ A feedback layer is a monoidal layer with a `delay` method. """
-    def delay(self, n_steps=1):
-        boxes_or_types = tuple(x.delay(n_steps) for x in self.boxes_or_types)
+    """ A feedback layer is a monoidal layer with a `later` method. """
+    def later(self, n_steps=1):
+        boxes_or_types = tuple(x.later(n_steps) for x in self.boxes_or_types)
         return type(self)(*boxes_or_types)
 
 
 @factory
 class Diagram(symmetric.Diagram):
     """
-    A feedback diagram is a symmetric diagram with a :meth:`delay` endofunctor
+    A feedback diagram is a symmetric diagram with a :meth:`later` endofunctor
     and a :meth:`feedback` operator.
 
     Parameters:
@@ -97,9 +82,9 @@ class Diagram(symmetric.Diagram):
     ty_factory = Ty
     layer_factory = Layer
 
-    def delay(self, n_steps=1):
-        dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
-        inside = tuple(box.delay(n_steps) for box in self.inside)
+    def later(self, n_steps=1):
+        dom, cod = self.dom.later(n_steps), self.cod.later(n_steps)
+        inside = tuple(box.later(n_steps) for box in self.inside)
         return type(self)(inside, dom, cod)
 
     def feedback(self, n_wires=1):
@@ -117,15 +102,15 @@ class Box(symmetric.Box, Diagram):
     """
     __ambiguous_inheritance__ = (symmetric.Box, )
 
-    def __init__(self, name, dom, cod, time_step: int = 0, **params):
-        self.time_step, self.params = time_step, params
+    def __init__(self, name, dom, cod, delay: int = 0, **params):
+        self.delay, self._params = delay, params
         super().__init__(name, dom, cod, **params)
 
-    def delay(self, n_steps=1):
-        dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
-        time_step = self.time_step + n_steps
+    def later(self, n_steps=1):
+        dom, cod = self.dom.later(n_steps), self.cod.later(n_steps)
+        delay = self.delay + n_steps
         return type(self)(
-            self.name, dom, cod, time_step=time_step, **self.params)
+            self.name, dom, cod, delay=delay, **self._params)
 
 
 class Swap(symmetric.Swap, Box):
@@ -140,41 +125,41 @@ class Swap(symmetric.Swap, Box):
         symmetric.Swap.__init__(self, left, right)
         Box.__init__(self, self.name, self.dom, self.cod)
 
-    def delay(self, n_steps=1):
-        return type(self)(self.left.delay(n_steps), self.right.delay(n_steps))
+    def later(self, n_steps=1):
+        return type(self)(self.left.later(n_steps), self.right.later(n_steps))
 
 
 class Feedback(monoidal.Bubble, Box):
     """
-    Feedback is a bubble that takes a diagram from `x @ y.delay()` to `z @ y`
+    Feedback is a bubble that takes a diagram from `x @ y.later()` to `z @ y`
     and returns a box from `x` to `z`.
 
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
-    >>> Box('f', x @ y.delay(), x @ y).feedback().draw()
+    >>> Box('f', x @ y.later(), x @ y).feedback().draw()
     """
     to_drawing = symmetric.Trace.to_drawing
 
     def __init__(self, inside: Diagram,
-                 n_wires: int = 1, time_step:int = 0, left=False):
+                 n_wires: int = 1, delay:int = 0, left=False):
         if n_wires <= 0: raise ValueError
         if left: raise NotImplementedError
         future, past = inside.dom[-n_wires:], inside.cod[-n_wires:]
-        if future != past.delay(): raise AxiomError
-        dom = inside.dom[:-n_wires].delay(time_step)
-        cod = inside.cod[:-n_wires].delay(time_step)
-        self.n_wires, self.time_step, self.left = n_wires, time_step, left
+        if future != past.later(): raise AxiomError
+        dom = inside.dom[:-n_wires].later(delay)
+        cod = inside.cod[:-n_wires].later(delay)
+        self.n_wires, self.delay, self.left = n_wires, delay, left
         monoidal.Bubble.__init__(self, inside, dom, cod)
-        Box.__init__(self, self.name, dom, cod, time_step)
+        Box.__init__(self, self.name, dom, cod, delay)
 
-    def delay(self, n_steps=1):
-        return type(self)(self.inside, self.n_wires, self.time_step + n_steps)
+    def later(self, n_steps=1):
+        return type(self)(self.inside, self.n_wires, self.delay + n_steps)
 
 
 class Category(symmetric.Category):
     """
-    A feedback category is a symmetric category with methods :code:`delay`
+    A feedback category is a symmetric category with methods :code:`later`
     and :code:`feedback`.
 
     Parameters:
@@ -186,7 +171,7 @@ class Category(symmetric.Category):
 
 class Functor(symmetric.Functor):
     """
-    A feedback functor is a symmetric one that preserves delay and feedback.
+    A feedback functor is a symmetric one that preserves later and feedback.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
@@ -198,6 +183,11 @@ class Functor(symmetric.Functor):
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
+        if isinstance(other, Ob) and other.delay:
+            result = self(type(other)(other.name))
+            for _ in range(other.delay):
+                result = result.later()
+            return result
         if isinstance(other, Feedback):
             n_wires = len(self(other.inside.dom[-other.n_wires:]))
             return self(other.inside).feedback(n_wires)
