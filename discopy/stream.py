@@ -30,6 +30,13 @@ class Ty(NamedGeneric['base']):
         """ Constructs the constant stream for a given base type `x`. """
         return cls(now=x, later=None)
 
+    def delay(self) -> Ty:
+        """ Delays a stream of types by pre-pending with the unit. """
+        return type(self)(now=type(self)(), later=lambda: self)
+
+    def unroll(self) -> Ty:
+        return type(self)(self.now @ self.later().now, self.later().later)
+
 
 @dataclass
 class Stream(Composable, Whiskerable, NamedGeneric['category']):
@@ -71,9 +78,21 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def constant(cls, diagram: category.ar) -> Stream:
         return cls(dom=None, cod=None, mem=None, now=diagram, later=None)
 
+    def delay(self) -> Stream:
+        dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
+        now, later = self.category.ar.id(), lambda: self
+        return type(self)(dom, cod, mem, now, later)
+
+    def unroll(self) -> Stream:
+        later = self.later()
+        dom, cod, mem = self.dom.unroll(), self.cod.unroll(), later.mem
+        now = self.now @ later.dom.now >> self.cod.now @ self.category.ar.swap(
+            self.mem.now, later.dom.now) >> self.cod.now @ later.now
+        return type(self)(dom, cod, mem, now, later.later)
+
     def id(): ...
     def then(): ...
     def tensor(): ...
     def swap(): ...
-    def feedback(): ...
+    def feedback(self): ...
 
