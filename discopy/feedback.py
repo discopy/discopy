@@ -26,7 +26,7 @@ Summary
 from __future__ import annotations
 
 from discopy import cat, monoidal, symmetric, messages
-from discopy.utils import factory, assert_isinstance
+from discopy.utils import factory, factory_name, assert_isinstance
 
 
 class Ob(cat.Ob):
@@ -48,11 +48,11 @@ class Ob(cat.Ob):
         return factory_name(type(self)) + f"({self.name}{time_step})"
 
     def __str__(self):
-        result = super().__str__()
+        result = super(type(self), self).__str__()
         if self.time_step == 1:
             result += ".delay()"
         elif self.time_step > 1:
-            result += f".delay(n={self.time_step})"
+            result += f".delay({self.time_step})"
         return result
 
 
@@ -91,8 +91,8 @@ class Diagram(symmetric.Diagram):
         inside = tuple(box.delay(n_steps) for box in self.inside)
         return type(self)(inside, dom, cod)
 
-    def feedback(self, n_wires=1):
-        return self.feedback_factory(self, n_wires)
+    def feedback(self, dom=None, cod=None, mem=None):
+        return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
 
 
 class Box(symmetric.Box, Diagram):
@@ -119,6 +119,8 @@ class Box(symmetric.Box, Diagram):
     def reset(self):
         return type(self)(self.name, self.dom, self.cod, **self._params)
 
+    __str__ = Ob.__str__
+
 
 class Swap(symmetric.Swap, Box):
     """
@@ -138,8 +140,8 @@ class Swap(symmetric.Swap, Box):
 
 class Feedback(monoidal.Bubble, Box):
     """
-    Feedback is a bubble that takes a diagram from `x @ y.delay()` to `z @ y`
-    and returns a box from `x` to `z`.
+    Feedback is a bubble that takes a diagram from `dom @ mem.delay()` to
+    `cod @ mem` and returns a box from `dom` to `cod`.
 
     Examples
     --------
@@ -148,23 +150,22 @@ class Feedback(monoidal.Bubble, Box):
     """
     to_drawing = symmetric.Trace.to_drawing
 
-    def __init__(self, inside: Diagram,
-                 n_wires: int = 1, time_step: int = 0, left=False):
-        if n_wires <= 0: raise ValueError
+    def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
         if left: raise NotImplementedError
-        future, past = inside.dom[-n_wires:], inside.cod[-n_wires:]
-        if future != past.delay(): raise AxiomError
-        dom = inside.dom[:-n_wires].delay(time_step)
-        cod = inside.cod[:-n_wires].delay(time_step)
-        self.n_wires, self.time_step, self.left = n_wires, time_step, left
-        monoidal.Bubble.__init__(self, inside, dom, cod)
-        Box.__init__(self, self.name, dom, cod, time_step)
+        mem = arg.cod[-1:] if mem is None else mem
+        dom = arg.dom[:-len(mem)] if dom is None else dom
+        cod = arg.cod[:-len(mem)] if cod is None else cod
+        if arg.dom != dom @ mem.delay(): raise AxiomError
+        if arg.cod != cod @ mem: raise AxiomError
+        self.mem, self.left = mem, left
+        monoidal.Bubble.__init__(self, arg, dom, cod)
+        Box.__init__(self, self.name, dom, cod)
 
     def delay(self, n_steps=1):
-        return type(self)(self.inside, self.n_wires, self.time_step + n_steps)
+        return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
 
     def reset(self):
-        return type(self)(self.inside, self.n_wires)
+        return type(self)(self.arg, mem=self.mem)
 
 
 class Category(symmetric.Category):
@@ -199,8 +200,8 @@ class Functor(symmetric.Functor):
                 result = result.delay()
             return result
         if isinstance(other, Feedback):
-            n_wires = len(self(other.inside.dom[-other.n_wires:]))
-            return self(other.inside).feedback(n_wires)
+            dom, cod, mem = map(self, (other.dom, other.cod, other.mem))
+            return self(other.arg).feedback(dom=dom, cod=cod, mem=mem)
         return super().__call__(other)
 
 

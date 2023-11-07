@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 from discopy import symmetric
 from discopy.utils import (
-    AxiomError, Composable, Whiskerable, NamedGeneric, assert_isinstance)
+    AxiomError, Composable, Whiskerable, NamedGeneric,
+    assert_isinstance, unbiased)
 
 
 @dataclass
@@ -36,6 +37,19 @@ class Ty(NamedGeneric['base']):
 
     def unroll(self) -> Ty:
         return type(self)(self.now @ self.later().now, self.later().later)
+
+    def map(self, func: Callable[[base], base]) -> Ty:
+        return type(self)(func(self.now), lambda: self.later().map(func))
+
+    def __getitem__(self, key) -> Ty:
+        return self.map(lambda x: x[key])
+
+    @unbiased
+    def tensor(self, other: Ty) -> Ty:
+        return type(self)(
+            self.now @ other.now, lambda: self.later() @ other.later())
+
+    __add__ = __matmul__ = symmetric.Ty.__matmul__
 
 
 @dataclass
@@ -94,5 +108,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def then(): ...
     def tensor(): ...
     def swap(): ...
-    def feedback(self): ...
 
+    def feedback(
+            self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
+        if mem is None and hasattr(self.category.ob, "__getitem__"):
+            mem = self.dom[-1:]
+            dom = self.dom[:-1]
+            cod = self.cod[:-1]
+        elif mem is None: raise NotImplementedError
+        if self.dom.now != dom.now: raise AxiomError
+        if self.cod.now != cod.now + mem.now: raise AxiomError
+        type(self)(dom, cod, self.mem @ mem, self.now, self.later)
