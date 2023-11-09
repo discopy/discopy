@@ -644,7 +644,6 @@ class Diagram(cat.Arrow):
             return self.downgrade()
 
         def to_drawing_ar(diagram):
-            print(diagram, type(diagram))
             if hasattr(diagram, 'to_drawing'):
                 return diagram.to_drawing()
             return diagram
@@ -818,31 +817,24 @@ class Sum(cat.Sum, Box):
         return drawing.equation(*self.terms, symbol='+', **params)
 
 
-
-class Frame(Box):
-    """
-    A subclass of monoidal.Box that supports higher order boxes, i.e. box that has another diagram inside it. 
-    """
-    def __init__(self, name, dom, cod, insides):
-        """
-        Initializes a Frame object with a name, domain, codomain, and a list of insides.
-        """
-        self._insides = insides
-        super().__init__(str(name), dom, cod)
+class Frame(cat.Frame, Box):
+    def __init__(self, name, dom, cod, insides, **params):
+        self.drawing_name = params.get("drawing_name", "")
+        cat.Frame.__init__(self, name, dom, cod, insides)
+        Box.__init__(self, self._name, self.dom, self.cod, data=self.data)
 
     def to_drawing(self):
         """
-        Decomposes a Frame object into a diagram of boxes, where the insides are sandwiched by top 
-        and bottom boxes with *-wires acting as walls between multiple holes.
+        Decompose into a diagram where the insides are sandwiched by boxes and
+        wires acting as walls between holes.
         """
-        print('hello', repr(self), type(self))
         ss = Ob('')
         ss.frame_wire = True
         s = Ty(ss, ss)
         dom_s = s.tensor(*[d.dom @ s for d in self._insides])
         cod_s = s.tensor(*[d.cod @ s for d in self._insides])
         top = Box(f'[{self.name}]', self.dom, dom_s)
-        bot = Box(f'[\{self.name}]', cod_s, self.cod)
+        bot = Box(f'[\\{self.name}]', cod_s, self.cod)
         top.drawing_name = self.name
         top.draw_as_frame_top = True
         bot.draw_as_frame_bot = True
@@ -857,9 +849,6 @@ class Frame(Box):
         """
         return self._insides
 
-    def __repr__(self):
-        return "Frame({}, dom={}, cod={}, insides={})".format(
-            repr(self.name), repr(self.dom), repr(self.cod), repr(self.insides))
 
 class Bubble(cat.Bubble, Box):
     """
@@ -942,22 +931,15 @@ class Functor(cat.Functor):
     .. image:: ../_static/imgs/monoidal/functor-example.png
         :align: center
     """
-    def __init__(self, ob, ar, frame=None, ob_factory=None, ar_factory=None, frame_factory=None):
+    def __init__(self, ob, ar, ob_factory=None, ar_factory=None):
         if ob_factory is None:
             ob_factory = Ty
         if ar_factory is None:
             ar_factory = Diagram
-        if frame_factory is None:
-            frame_factory = Frame
-        self.frame = frame or (lambda x: x)
-        self.frame_factory = frame_factory
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
-        if isinstance(diagram, Frame):
-            return self.frame(self.frame_factory(diagram.name, self(diagram.dom), self(diagram.cod),
-                                [self(i) for i in diagram.insides]))
-        if isinstance(diagram, (Sum, Bubble)):
+        if isinstance(diagram, (Sum, Frame, Bubble)):
             super().__call__(diagram)
         if isinstance(diagram, Ty):
             return self.ob_factory().tensor(*[

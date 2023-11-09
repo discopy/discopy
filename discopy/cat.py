@@ -767,6 +767,38 @@ class Sum(Box):
         return cls(terms=terms, dom=dom, cod=cod)
 
 
+class Frame(Box):
+    """ A box that has diagrams inside it. """
+    def __init__(self, name, dom, cod, insides):
+        self._insides = insides
+        super().__init__(str(name), dom, cod)
+
+    @property
+    def insides(self):
+        """ The list of diagrams inside the Frame. """
+        return self._insides
+
+    def __repr__(self):
+        return "Frame({}, dom={}, cod={}, insides={})".format(
+            repr(self.name), repr(self.dom), repr(self.cod),
+            repr(self.insides))
+
+    def to_tree(self):
+        return {
+            'factory': factory_name(self),
+            'name': self.name,
+            'dom': self.dom.to_tree(),
+            'cod': self.cod.to_tree(),
+            'insides': [i.to_tree() for i in self.insides]}
+
+    @classmethod
+    def from_tree(cls, tree):
+        name = tree['name']
+        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
+        insides = list(map(from_tree, tree['insides']))
+        return cls(name=name, dom=dom, cod=cod, insides=insides)
+
+
 class Bubble(Box):
     """ A unary operator on homsets. """
     def __init__(self, inside, dom=None, cod=None):
@@ -807,6 +839,7 @@ class Bubble(Box):
 
 
 Arrow.sum = Sum
+Arrow.frame_factory = Frame
 Arrow.bubble_factory = Bubble
 
 
@@ -900,6 +933,10 @@ class Functor:
         if isinstance(arrow, Sum):
             return self.ar_factory.sum(
                 list(map(self, arrow)), self(arrow.dom), self(arrow.cod))
+        if isinstance(arrow, Frame):
+            return self.ar_factory.frame_factory(
+                name=arrow.name, dom=self(arrow.dom), cod=self(arrow.cod),
+                insides=list(map(self, arrow.insides)))
         if isinstance(arrow, Bubble):
             return self(arrow.inside).bubble(
                 dom=self(arrow.dom), cod=self(arrow.cod))
