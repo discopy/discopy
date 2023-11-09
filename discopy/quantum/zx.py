@@ -154,7 +154,7 @@ class Diagram(tensor.Diagram):
         def node2box(node, n_legs_in, n_legs_out):
             if graph.type(node) not in {VertexType.Z, VertexType.X}:
                 raise NotImplementedError  # pragma: no cover
-            return (Z if graph.type(node) == VertexType.Z else X)(
+            return (Z if graph.type(node) == VertexType.Z else X)(  # noqa
                 n_legs_in, n_legs_out, graph.phase(node) * .5)
 
         def move(scan, source, target):
@@ -185,7 +185,7 @@ class Diagram(tensor.Diagram):
             return scan, diagram, offset
 
         missing_boundary = any(
-            graph.type(node) == VertexType.BOUNDARY
+            graph.type(node) == VertexType.BOUNDARY  # noqa
             and node not in graph.inputs() + graph.outputs()
             for node in graph.vertices())
         if missing_boundary:
