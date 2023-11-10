@@ -640,14 +640,7 @@ class Diagram(cat.Arrow):
         for :code:`left = Ty(bubble.drawing_name)` and :code:`right = Ty("")`.
         :meth:`Diagram.downgrade` gets called in the process.
         """
-        if not any(hasattr(box, 'to_drawing') for box in self.boxes):
-            return self.downgrade()
-
-        def to_drawing_ar(diagram):
-            if hasattr(diagram, 'to_drawing'):
-                return diagram.to_drawing()
-            return diagram
-        return Functor(lambda x: x, lambda f: to_drawing_ar(f))(self)
+        return Functor(lambda x: x, lambda f: f, ar_factory=DrawingRewrite)(self)
 
     draw = drawing.draw
     to_gif = drawing.to_gif
@@ -660,6 +653,44 @@ class Diagram(cat.Arrow):
     depth = rewriting.depth
     width = rewriting.width
     layer_factory = Layer
+
+
+class DrawingRewrite(Diagram):
+    def frame_factory(name, dom, cod, insides):
+        ss = Ob('')
+        ss.frame_wire = True
+        s = Ty(ss, ss)
+        dom_s = s.tensor(*[d.dom @ s for d in insides])
+        cod_s = s.tensor(*[d.cod @ s for d in insides])
+        top = Box(f'[{name}]', dom, dom_s)
+        bot = Box(f'[\\{name}]', cod_s, cod)
+        top.drawing_name = name
+        top.draw_as_frame_top = True
+        bot.draw_as_frame_bot = True
+
+        mid = Id(s).tensor(*[d @ Id(s) for d in insides])
+        return top >> mid >> bot
+
+    def bubble_factory(inside, dom, cod, **params):
+        obj = Ob('')
+        obj.draw_as_box = True
+        left, right = Ty(obj), Ty("")
+        open_bubble = Box(
+            "open_bubble",
+            dom, left @ inside.dom @ right)
+        close_bubble = Box(
+            "_close",
+            left @ inside.cod @ right, cod)
+        open_bubble.draw_as_wires = True
+        close_bubble.draw_as_wires = True
+        # Wires can go straight only if types have the same length.
+        if len(dom) == len(inside.dom):
+            open_bubble.bubble_opening = True
+        if len(cod) == len(inside.cod):
+            close_bubble.bubble_closing = True
+        return open_bubble\
+            >> Id(left) @ inside @ Id(right)\
+            >> close_bubble
 
 
 class Id(cat.Id, Diagram):
@@ -751,9 +782,6 @@ class Box(cat.Box, Diagram):
     def __hash__(self):
         return hash(repr(self))
 
-    def to_drawing(self):
-        return self
-
 
 class BinaryBoxConstructor:
     """ Box constructor with left and right as input. """
@@ -823,25 +851,6 @@ class Frame(cat.Frame, Box):
         cat.Frame.__init__(self, name, dom, cod, insides)
         Box.__init__(self, self._name, self.dom, self.cod, data=self.data)
 
-    def to_drawing(self):
-        """
-        Decompose into a diagram where the insides are sandwiched by boxes and
-        wires acting as walls between holes.
-        """
-        ss = Ob('')
-        ss.frame_wire = True
-        s = Ty(ss, ss)
-        dom_s = s.tensor(*[d.dom @ s for d in self._insides])
-        cod_s = s.tensor(*[d.cod @ s for d in self._insides])
-        top = Box(f'[{self.name}]', self.dom, dom_s)
-        bot = Box(f'[\\{self.name}]', cod_s, self.cod)
-        top.drawing_name = self.name
-        top.draw_as_frame_top = True
-        bot.draw_as_frame_bot = True
-
-        mid = Id(s).tensor(*[d.to_drawing() @ Id(s) for d in self._insides])
-        return top >> mid >> bot
-
     @property
     def insides(self):
         """
@@ -884,29 +893,9 @@ class Bubble(cat.Bubble, Box):
         result.drawing_name = self.drawing_name
         return result
 
-    def to_drawing(self):
-        obj = Ob(self.drawing_name)
-        obj.draw_as_box = True
-        left, right = Ty(obj), Ty("")
-        open_bubble = Box(
-            "open_bubble",
-            self.dom, left @ self.inside.dom @ right)
-        close_bubble = Box(
-            "_close",
-            left @ self.inside.cod @ right, self.cod)
-        open_bubble.draw_as_wires = True
-        close_bubble.draw_as_wires = True
-        # Wires can go straight only if types have the same length.
-        if len(self.dom) == len(self.inside.dom):
-            open_bubble.bubble_opening = True
-        if len(self.cod) == len(self.inside.cod):
-            close_bubble.bubble_closing = True
-        return open_bubble\
-            >> Id(left) @ self(self.inside) @ Id(right)\
-            >> close_bubble
-
 
 Diagram.sum = Sum
+Diagram.frame_factory = Frame
 Diagram.bubble_factory = Bubble
 
 

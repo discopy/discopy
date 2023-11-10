@@ -938,7 +938,8 @@ class Functor:
                 name=arrow.name, dom=self(arrow.dom), cod=self(arrow.cod),
                 insides=list(map(self, arrow.insides)))
         if isinstance(arrow, Bubble):
-            return self(arrow.inside).bubble(
+            return self.ar_factory.bubble_factory(
+                inside=self(arrow.inside),
                 dom=self(arrow.dom), cod=self(arrow.cod))
         if isinstance(arrow, Ob):
             return self.ob[arrow]
