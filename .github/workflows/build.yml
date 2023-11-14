@@ -53,10 +53,6 @@ jobs:
     - name: Test
       run:
         coverage run -m pytest
-    - name: Notebooks
-      run:
-        pip install nbmake
-        pytest --nbmake ${{ env.DOCS_DIR }}/notebooks/*.ipynb
     - name: Coverage
       run:
         coverage report --fail-under=99 --show-missing

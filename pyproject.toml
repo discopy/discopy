@@ -104,6 +104,7 @@ pythonpath = [
 ]
 testpaths = [
     "discopy",
-    "test/*/*.py"
+    "test/*/*.py",
+    "docs/notebooks/*.ipynb",
 ]
-addopts = "--doctest-modules"
+addopts = "--doctest-modules --nbmake"
