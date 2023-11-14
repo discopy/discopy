@@ -55,7 +55,8 @@ test = [
     "qiskit-aer",
     "lxml",
     "nltk",
-    "pylint"
+    "pylint",
+    "nbmake",
 ]
 docs  = [
     "sphinx == 6.0.*",
