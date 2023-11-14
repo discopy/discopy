@@ -142,6 +142,16 @@ class Diagram(symmetric.Diagram):
         """
         return cls.copy(x, n).dagger()
 
+    @classmethod
+    def discard(cls, x: monoidal.Ty, n=2) -> Diagram:
+        """
+        The discard of an atomic type :code:`x`.
+
+        Parameters:
+            x : The type to discard.
+        """
+        return cls.copy(x, 0)
+
 
 class Box(symmetric.Box, Diagram):
     """
@@ -194,6 +204,10 @@ class Copy(Box):
         super().__init__(name=f"Copy({x}, {n})", dom=x, cod=x ** n,
                          draw_as_spider=True, color="black", drawing_name="")
 
+    def __new__(cls, x: monoidal.Ty, n: int = 2):
+        return super().__new__(cls) if n else\
+            cls.discard_factory.__new__(cls.discard_factory, x)
+
     def dagger(self) -> Merge:
         return Merge(self.dom, len(self.cod))
 
@@ -213,6 +227,17 @@ class Merge(Box):
 
     def dagger(self) -> Merge:
         return Copy(self.cod, len(self.dom))
+
+
+class Discard(Copy):
+    """
+    The discard of an atomic type :code:`x`.
+
+    Parameters:
+        x : The type to discard.
+    """
+    def __init__(self, x: monoidal.Ty, *args, **kwargs):
+        super().__init__(x, 0)
 
 
 class Sum(symmetric.Sum, Box):
@@ -292,5 +317,6 @@ Diagram.hypergraph_factory = Hypergraph
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Id = Diagram.id
