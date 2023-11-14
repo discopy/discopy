@@ -6,7 +6,7 @@ dynamic = ["version"]
 name = "discopy"
 description = "The Python toolkit for computing with string diagrams."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license =  {file = "LICENSE"}
 keywords = [
     "category theory",
@@ -30,6 +30,7 @@ classifiers = [
     "Topic :: Scientific/Engineering"
 ]
 dependencies = [
+  "pyyaml >= 6",
   "numpy >= 1.18.1",
   "networkx >= 2.4",
   "matplotlib >= 3.1.2",
