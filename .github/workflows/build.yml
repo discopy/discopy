@@ -69,6 +69,7 @@ jobs:
         python-version: [ 3.9 ]
     steps:
     - uses: actions/checkout@v3
+    - uses: docker://pandoc/core:2.9
     - name: Setup Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
@@ -76,12 +77,10 @@ jobs:
         cache: 'pip'  # caching pip dependencies
     - name: Install base package
       run: |
-        pip install ".[docs]"
+        pip install .[docs]
     - name: Build docs
-      uses: ammaraskar/sphinx-action@master
-      with:
-        docs-folder: "${{ env.DOCS_DIR }}"
-        build-command: "sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html"
+      run: |
+        sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html
     - name: Upload docs
       uses: actions/upload-artifact@v3
       with:
