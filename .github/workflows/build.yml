@@ -68,6 +68,24 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'  # caching pip dependencies
+    - name: Cache Pandoc
+      uses: actions/cache@v2
+      with:
+        path: ~/.cache/pandoc
+        key: ${{ runner.os }}-pandoc
+        restore-keys: |
+          ${{ runner.os }}-pandoc
+    - name: Install Pandoc on Ubuntu
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pandoc
+    - name: Cache docs build
+      uses: actions/cache@v2
+      with:
+        path: docs/_build
+        key: ${{ runner.os }}-docs-${{ hashFiles('docs/_api/**') }}
+        restore-keys: |
+          ${{ runner.os }}-docs-
     - name: Install
       run: |
         sudo apt-get install -y pandoc
