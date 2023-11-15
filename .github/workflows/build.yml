@@ -73,7 +73,8 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y pandoc
     - name: Debug - Print cache key
-      run: echo "Cache key: ${{ runner.os }}-docs-${{ hashFiles('${{ env.SRC_DIR }}/**') }}"
+      run: |
+        echo "Cache key: ${{ runner.os }}-docs-${{ hashFiles('${{ env.SRC_DIR }}/**') }}"
     - name: Cache docs build
       uses: actions/cache@v2
       with:
