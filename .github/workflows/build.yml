@@ -75,7 +75,7 @@ jobs:
         path: |
           ${{ env.DOCS_DIR }}/_api
           ${{ env.DOCS_DIR }}/_build
-        key: ${{ runner.os }}-docs-${{ hashFiles('{discopy,docs}/**') }}
+        key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**', 'docs/**') }}  # TODO: refactor to use env.SRC_DIR and DOCS_DIR
         restore-keys: |
           ${{ runner.os }}-docs
     - name: Install
