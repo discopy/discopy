@@ -815,7 +815,8 @@ class Box(tensor.Box[complex], Circuit):
             else:
                 raise ValueError(messages.BOX_IS_MIXED)
         self._is_mixed = is_mixed
-        tensor.Box[complex].__init__(self, name, dom, cod, data=data, **params)
+        with backend() as np:
+            tensor.Box[complex].__init__(self, name, dom, cod, data=np.array(data, dtype=np.complex128), **params)
 
     def __setstate__(self, state):
         if "_is_mixed" not in state:

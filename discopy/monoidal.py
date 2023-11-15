@@ -486,7 +486,7 @@ class Diagram(cat.Arrow, Whiskerable):
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
-            state = {
+            state |= {
                 'dom': state['_dom'], 'cod': state['_cod'],
                 'inside': tuple(state['_layers'])}
         super().__setstate__(state)

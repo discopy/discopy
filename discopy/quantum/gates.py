@@ -215,6 +215,11 @@ class QuantumGate(Box):
     is_mixed = False
     is_classical = False
 
+    def __setstate__(self, state):
+        if "name" in state and state["name"] in GATES and hasattr(GATES[state["name"]], "data"):
+            state["data"] = GATES[state["name"]].data
+        super().__setstate__(state)
+
 
 class ClassicalGate(SelfConjugate):
     """
