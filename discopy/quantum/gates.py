@@ -215,6 +215,12 @@ class QuantumGate(Box):
     is_mixed = False
     is_classical = False
 
+    def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
+        if data is not None and hasattr(data, "__len__"):
+            with backend() as np:
+                data = np.array(data, dtype=complex)
+        super().__init__(name, dom, cod, data, **params)
+
     def __setstate__(self, state):
         if "_name" in state:
             if state["_name"] in GATES and hasattr(
