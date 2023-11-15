@@ -82,10 +82,10 @@ jobs:
     - name: Cache docs build
       uses: actions/cache@v2
       with:
-        path: docs/_build
-        key: ${{ runner.os }}-docs-${{ hashFiles('docs/_api/**') }}
-        restore-keys: |
-          ${{ runner.os }}-docs-
+        path: |
+          ${{ env.DOCS_DIR }}/_api
+          ${{ env.DOCS_DIR }}/_build/html/.doctrees
+        key: ${{ runner.os }}-docs-${{ hashFiles('${{ env.SRC_DIR }}/**') }}
     - name: Install
       run: |
         sudo apt-get install -y pandoc
