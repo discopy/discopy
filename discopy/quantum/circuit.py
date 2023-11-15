@@ -822,8 +822,6 @@ class Box(tensor.Box[complex], Circuit):
             state["_is_mixed"] = state["_mixed"]
             del state["_mixed"]
         super().__setstate__(state)
-        if "data" not in self.__dict__:
-            pass
 
     @property
     def array(self):

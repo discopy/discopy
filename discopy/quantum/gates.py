@@ -397,7 +397,7 @@ class Controlled(QuantumGate):
     draw_as_controlled = True
 
     def __setstate__(self, state):
-        if 'distance' not in state: import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         super().__setstate__(state)
 
     def __init__(self, controlled, distance=1):
