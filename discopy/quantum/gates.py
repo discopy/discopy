@@ -216,8 +216,12 @@ class QuantumGate(Box):
     is_classical = False
 
     def __setstate__(self, state):
-        if "name" in state and state["name"] in GATES and hasattr(GATES[state["name"]], "data"):
-            state["data"] = GATES[state["name"]].data
+        if "_name" in state:
+            if state["_name"] in GATES and hasattr(
+                    GATES[state["_name"]], "data"):
+                state["data"] = GATES[state["_name"]].data
+        if "_array" in state and not state["_array"] is None:
+            state["data"] = state['_array'].flatten().tolist()
         super().__setstate__(state)
 
 
@@ -400,10 +404,6 @@ class Controlled(QuantumGate):
         If negative, the control is on the right of the target.
     """
     draw_as_controlled = True
-
-    def __setstate__(self, state):
-        import pdb; pdb.set_trace()
-        super().__setstate__(state)
 
     def __init__(self, controlled, distance=1):
         assert_isinstance(controlled, QuantumGate)
