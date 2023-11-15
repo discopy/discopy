@@ -10,7 +10,6 @@ env:
   SRC_DIR: discopy
   TEST_DIR: test
   DOCS_DIR: docs
-  CACHE_KEY: ${{ hashFiles('discopy/**') }}
 
 jobs:
   lint:
@@ -76,7 +75,7 @@ jobs:
         path: |
           ${{ env.DOCS_DIR }}/_api
           ${{ env.DOCS_DIR }}/_build
-        key: ${{ runner.os }}-docs-${{ env.CACHE_KEY }}
+        key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**') }}
         restore-keys: |
           ${{ runner.os }}-docs
     - name: Install
