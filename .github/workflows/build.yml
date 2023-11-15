@@ -10,7 +10,7 @@ env:
   SRC_DIR: discopy
   TEST_DIR: test
   DOCS_DIR: docs
-  CACHE_KEY: ${{ hashFiles('discopy/**')
+  CACHE_KEY: ${{ hashFiles('discopy/**') }}
 
 jobs:
   lint:
