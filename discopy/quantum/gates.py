@@ -401,10 +401,6 @@ class Controlled(QuantumGate):
     """
     draw_as_controlled = True
 
-    def __setstate__(self, state):
-        import pdb; pdb.set_trace()
-        super().__setstate__(state)
-
     def __init__(self, controlled, distance=1):
         assert_isinstance(controlled, QuantumGate)
         if not distance:
