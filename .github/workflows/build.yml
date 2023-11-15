@@ -69,19 +69,22 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
     - name: Cache
+      id: cache
       uses: actions/cache@v2
       with:
         path: |
           ${{ env.DOCS_DIR }}/_api
           ${{ env.DOCS_DIR }}/_build
-        key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**') }}
+        key: ${{ runner.os }}-docs-${{ hashFiles('{discopy,docs}/**') }}
         restore-keys: |
           ${{ runner.os }}-docs
     - name: Install
+      if: steps.cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get update
         sudo apt-get install -y pandoc
         pip install .[docs]
     - name: Build
+      if: steps.cache.outputs.cache-hit != 'true'
       run: |
         sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html
