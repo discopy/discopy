@@ -85,8 +85,3 @@ jobs:
     - name: Build
       run: |
         sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html
-    - name: Upload
-      uses: actions/upload-artifact@v3
-      with:
-        name: docs
-        path: ${{ env.DOCS_DIR }}/_build/html
