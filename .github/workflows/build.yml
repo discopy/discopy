@@ -68,20 +68,19 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'  # caching pip dependencies
+    - name: Check for changes in source files
+      run: |
+        changed_files=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '${{ env.SRC_DIR }}/|${{ env.DOCS_DIR }}' || true)
+        if [ -z "$changed_files" ]; then
+          echo "No changes in source files. Cancelling the job."
+          exit 0
+        else
+          echo "Changes detected in source files. Continuing with the job."
+        fi
     - name: Install Pandoc on Ubuntu
       run: |
         sudo apt-get update
         sudo apt-get install -y pandoc
-    - name: Debug - Print cache key
-      run: |
-        echo "Cache key: ${{ runner.os }}-docs-${{ hashFiles('${{ env.SRC_DIR }}/**') }}"
-    - name: Cache docs build
-      uses: actions/cache@v2
-      with:
-        path: |
-          ${{ env.DOCS_DIR }}/_api
-          ${{ env.DOCS_DIR }}/_build/html/.doctrees
-        key: ${{ runner.os }}-docs-${{ hashFiles('${{ env.SRC_DIR }}/**') }}
     - name: Install
       run: |
         sudo apt-get install -y pandoc
