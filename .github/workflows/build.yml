@@ -72,13 +72,11 @@ jobs:
       uses: actions/cache@v2
       with:
         path: |
-          ${{ env.DOCS_DIR }}
+          ${{ env.DOCS_DIR }}/_api
+          ${{ env.DOCS_DIR }}/_build
         key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**') }}
         restore-keys: |
           ${{ runner.os }}-docs
-    - name: debug
-      run: |
-        ls docs
     - name: Install
       run: |
         sudo apt-get update
@@ -92,4 +90,3 @@ jobs:
       with:
         name: docs
         path: ${{ env.DOCS_DIR }}/_build/html
-
