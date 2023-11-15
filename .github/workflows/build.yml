@@ -68,13 +68,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
-    - name: Cache docs build
-      id: primary
+    - name: Cache
       uses: actions/cache@v2
       with:
         path: |
-          ${{ env.DOCS_DIR }}/_api
-          ${{ env.DOCS_DIR }}/_build
+          ${{ env.DOCS_DIR }}
         key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**') }}
         restore-keys: |
           ${{ runner.os }}-docs
