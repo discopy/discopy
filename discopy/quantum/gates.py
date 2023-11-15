@@ -48,7 +48,7 @@ Summary
         sqrt
         scalar
 """
-
+import copy
 from math import e, pi
 
 from discopy import messages
@@ -217,17 +217,16 @@ class QuantumGate(Box):
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
         if data is not None and hasattr(data, "__len__"):
-            with backend() as np:
-                data = np.array(data, dtype=complex)
+            data = [complex(v) for v in data]
         super().__init__(name, dom, cod, data, **params)
 
     def __setstate__(self, state):
+        if "_array" in state and not state["_array"] is None:
+            state["data"] = state['_array'].flatten().tolist()
         if "_name" in state:
             if state["_name"] in GATES and hasattr(
                     GATES[state["_name"]], "data"):
-                state["data"] = GATES[state["_name"]].data
-        if "_array" in state and not state["_array"] is None:
-            state["data"] = state['_array'].flatten().tolist()
+                state["data"] = copy.deepcopy(GATES[state["_name"]].data)
         super().__setstate__(state)
 
 
@@ -546,6 +545,11 @@ class Parametrized(Box):
     def __init__(self, name, dom, cod, data=None, **params):
         self.drawing_name = f'{name}({data})'
         Box.__init__(self, name, dom, cod, data=data, **params)
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        if self.is_dagger is None:
+            self.is_dagger = False
 
     @property
     def modules(self):
