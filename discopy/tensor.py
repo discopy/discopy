@@ -35,7 +35,7 @@ from discopy.frobenius import Dim, Cup, Category
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend)
 from discopy.utils import (
-    factory_name, assert_isinstance, product, assert_isatomic)
+    factory_name, assert_isinstance, product, assert_isatomic, NamedGeneric)
 
 if TYPE_CHECKING:
     import sympy
@@ -206,6 +206,25 @@ class Tensor(Matrix):
         return frobenius.Diagram.spiders.__func__(
             cls, n_legs_in, n_legs_out, typ, phase)
 
+    @classmethod
+    def copy(cls, x: Dim, n: int) -> Tensor:
+        """
+        Constructs spiders of dimension `x` with one leg in and `n` legs out.
+
+        Parameters:
+            x : The type of the spiders.
+            n : The number of legs out for each spider.
+
+        Example
+        -------
+        >>> from discopy import markov
+        >>> n = markov.Ty('n')
+        >>> F = Functor(ob={n: Dim(2)}, ar={}, dom=markov.Category())
+        >>> assert F(markov.Copy(n, 2)) == Tensor[int].copy(Dim(2), 2)\\
+        ...     == Tensor[int]([1, 0, 0, 0, 0, 0, 0, 1], Dim(2), Dim(2, 2))
+        """
+        return cls.spiders(1, n, x)
+
     def transpose(self, left=False) -> Tensor:
         """
         Returns the diagrammatic transpose.
@@ -374,7 +393,7 @@ class Functor(frobenius.Functor):
 
 
 @factory
-class Diagram(frobenius.Diagram):
+class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
 
@@ -402,7 +421,7 @@ class Diagram(frobenius.Diagram):
         >>> from tensornetwork.contractors import auto
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
         """
-        dtype = dtype or int
+        dtype = dtype or self.dtype
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
@@ -428,6 +447,8 @@ class Diagram(frobenius.Diagram):
         >>> assert output_edge_order == [node[0]]
         """
         import tensornetwork as tn
+        if dtype is None:
+            dtype = self.dtype
         nodes = [
             tn.CopyNode(2, getattr(dim, 'dim', dim), f'input_{i}', dtype=dtype)
             for i, dim in enumerate(self.dom.inside)]
@@ -508,8 +529,32 @@ class Box(frobenius.Box, Diagram):
         cod : The codomain of the box, i.e. its output dimension.
         data : The array inside the tensor box.
         dtype : The datatype for the entries of the array.
+
+    Example
+    -------
+    >>> b1 = Box('sauce_0', Dim(1), Dim(2), data=[0.84193562, 0.91343221])
+    >>> b1.eval()
+    Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
+    
+    def __setstate__(self, state):
+        if "data" not in state and "_array" in state and state["_array"] is not None:
+            state['data'] = state['_array']
+            del state["_array"]
+        super().__setstate__(state)
+
+    def __new__(cls, *args, **kwargs):
+        with backend() as np:
+            if cls.dtype is None:
+                data = np.array(kwargs.get("data", []))
+                # The dtype of an np.arrays is a class that contains a type
+                # attribute that is the actual type. However, other backends
+                # have different structures, so this is the easiest option:
+                dtype = getattr(data.dtype, "type", data.dtype)
+                kwargs["data"] = data
+                return cls.__new__(cls[dtype],  *args, **kwargs)
+            return object.__new__(cls)
 
     @property
     def array(self):

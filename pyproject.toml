@@ -52,6 +52,7 @@ test = [
     "pennylane >= 0.29.1",
     "pennylane-qiskit",
     "pennylane-honeywell",
+    "qiskit-aer",
     "lxml",
     "nltk",
     "pylint"
@@ -98,7 +99,14 @@ per-file-ignores = [
 ]
 
 [tool.pytest.ini_options]
+pythonpath = [
+    "."
+]
 testpaths = [
     "discopy",
-    "test/*/*.py"
+    "test"
 ]
+python_files = [
+    "*.py",
+]
+addopts = "--doctest-modules"

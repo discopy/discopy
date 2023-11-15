@@ -15,6 +15,7 @@ Summary
     Box
     Braid
     Twist
+    Sum
     Category
     Functor
 
@@ -166,6 +167,18 @@ class Twist(Box):
         return type(self)(self.dom, not self.is_dagger)
 
 
+class Sum(braided.Sum, Box):
+    """
+    A balanced sum is a braided sum and a balanced box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (braided.Sum, )
+
+
 class Category(braided.Category, traced.Category):
     """
     A braided category is a monoidal category with a method :code:`braid`.
@@ -206,4 +219,5 @@ Diagram.hypergraph_factory = Hypergraph
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace
+Diagram.sum_factory = Sum
 Id = Diagram.id

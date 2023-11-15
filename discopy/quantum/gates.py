@@ -405,6 +405,11 @@ class Controlled(QuantumGate):
         name = f'C{controlled}'
         dom = cod = qubit ** n_qubits
         QuantumGate.__init__(self, name, dom, cod, data=controlled.data)
+    
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        if "distance" not in self.__dict__:
+            print("asdf")
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
@@ -709,6 +714,9 @@ class Sqrt(Scalar):
     def __init__(self, data):
         super().__init__(data, name="sqrt")
         self.drawing_name = f"sqrt({format_number(data)})"
+    
+    def __setstate__(self, state):
+        super().__setstate__(state)
 
     @property
     def array(self):
@@ -769,7 +777,7 @@ GATES = {
 
 for attr, gate in GATES.items():
     def closure(attr=attr, gate=gate):
-        """ Eaiest way around the Python late binding gotcha. """
+        """ Easiest way around the Python late binding gotcha. """
         if isinstance(gate, Controlled)\
                 and isinstance(gate.controlled, Controlled):
             def method(self, i: int, j: int, k: int) -> Circuit:

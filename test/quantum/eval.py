@@ -34,7 +34,7 @@ pure_circuits = [
 contractor = tn.contractors.auto
 
 def is_close_smallno(a, b):
-    return a.is_close(b, rtol=1.e-15, atol=1.e-15) 
+    return a.is_close(b, rtol=1.e-15, atol=1.e-15)
 
 
 @pytest.mark.parametrize('c', pure_circuits + mixed_circuits)

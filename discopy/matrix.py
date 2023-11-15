@@ -128,21 +128,6 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
            [0, 2],
            [0, 4]])
     """
-    dtype = None
-
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        if cls.dtype not in _cache or _cache[cls.dtype] != cls:
-            _cache.clear()
-            _cache[cls.dtype] = cls  # Ensure Matrix == Matrix[Matrix.dtype].
-        if dtype not in _cache:
-            class C(cls.factory):
-                pass
-
-            C.__name__ = C.__qualname__ = cls.factory.__name__\
-                + f"[{getattr(dtype, '__name__', str(dtype))}]"
-            C.dtype = dtype
-            _cache[dtype] = C
-        return _cache[dtype]
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -157,7 +142,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         """
         return type(self)[dtype](self.array, self.dom, self.cod)
 
-    def __new__(cls, array, dom: int, cod: int):
+    def __new__(cls, array, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:
                 array = np.array(array)
@@ -165,7 +150,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
                 # attribute that is the actual type. However, other backends
                 # have different structures, so this is the easiest option:
                 dtype = getattr(array.dtype, "type", array.dtype)
-                return cls.__new__(cls[dtype], array, dom, cod)
+                return cls.__new__(cls[dtype], array, *args, **kwargs)
             return object.__new__(cls)
 
     def __init__(self, array, dom: int, cod: int):
@@ -307,11 +292,13 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         -------
         >>> Matrix.swap(1, 1)
         Matrix[int64]([0, 1, 1, 0], dom=2, cod=2)
+        >>> Matrix.swap(2,1)
+        Matrix[int64]([0, 1, 0, 0, 0, 1, 1, 0, 0], dom=3, cod=3)
         """
         dom = cod = left + right
         array = Matrix.zero(dom, cod).array
-        array[right:, :left] = Matrix.id(left).array
-        array[:right, left:] = Matrix.id(right).array
+        array[:left, right:] = Matrix.id(left).array
+        array[left:, :right] = Matrix.id(right).array
         return cls(array, dom, cod)
 
     braid = swap
@@ -325,7 +312,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     def dagger(self) -> Matrix:
         return self.conjugate().transpose()
 
-    def map(self, func: Callable[[dtype], dtype], dtype=None) -> Matrix:
+    def map(self, func: Callable, dtype: type | None = None) -> Matrix:
         array = list(map(func, self.array.reshape(-1)))
         return type(self)[dtype or self.dtype](array, self.dom, self.cod)
 

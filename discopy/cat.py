@@ -115,10 +115,10 @@ class Ob:
     >>> assert x == x_ and x != y
     """
     def __setstate__(self, state):
-        if 'name' not in state:  # Backward compatibility
-            self.name = state['_name']
-        else:
-            self.__dict__.update(state)
+        if "name" not in state:
+            state["name"] = state["_name"]
+            del state["_name"]
+        self.__dict__.update(state)
 
     def __init__(self, name: str = ""):
         assert_isinstance(name, str)
@@ -219,8 +219,7 @@ class Arrow(Composable[Ob]):
         if 'inside' not in state:  # Backward compatibility
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
-        else:
-            self.__dict__.update(state)
+        self.__dict__.update(state)
 
     def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
                  _scan: bool = True) -> None:
@@ -541,7 +540,7 @@ class Box(Arrow):
 
     def __eq__(self, other):
         if isinstance(other, Box):
-            return type(self) == type(other)\
+            return type(self) is type(other)\
                 and self.name == other.name\
                 and self.is_parallel(other)\
                 and self.is_dagger == other.is_dagger\
@@ -849,7 +848,7 @@ class Functor(Composable[Category]):
         self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
 
     def __eq__(self, other):
-        return type(self) == type(other)\
+        return type(self) is type(other)\
             and (self.ob, self.ar, self.cod) == (other.ob, other.ar, other.cod)
 
     def __repr__(self):

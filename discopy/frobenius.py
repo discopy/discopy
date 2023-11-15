@@ -23,6 +23,7 @@ Summary
     Cap
     Swap
     Spider
+    Bubble
     Category
     Functor
 
@@ -30,7 +31,6 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.structure_preserving = True
 >>> x, y, z = map(Ty, "xyz")
 
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
@@ -40,7 +40,8 @@ Axioms
 
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
->>> assert frobenius
+>>> with Diagram.hypergraph_equality:
+...     assert frobenius
 >>> frobenius.draw(path="docs/_static/frobenius/frobenius.png")
 
 .. image:: /_static/frobenius/frobenius.png
@@ -49,10 +50,9 @@ Axioms
 * Speciality:
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
->>> assert special
+>>> with Diagram.hypergraph_equality:
+...     assert special
 >>> special.draw(path="docs/_static/frobenius/special.png")
-
->>> Diagram.structure_preserving = False
 
 .. image:: /_static/frobenius/special.png
     :align: center
@@ -62,7 +62,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import markov, compact, pivotal, hypergraph
+from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.utils import factory_name, assert_isinstance, assert_isatomic
 
@@ -86,6 +86,22 @@ class Ty(pivotal.Ty):
         inside (frobenius.Ob) : The objects inside the type.
     """
     ob_factory = Ob
+
+
+@factory
+class PRO(rigid.PRO, Ty):
+    """
+    A PRO is a natural number ``n`` seen as a frobenius type with unnamed
+    objects.
+
+    Parameters
+    ----------
+    n : int
+        The length of the PRO type.
+    """
+    __ambiguous_inheritance__ = (rigid.PRO, )
+
+    l = r = property(lambda self: self)
 
 
 @factory
@@ -219,6 +235,10 @@ class Swap(compact.Swap, markov.Swap, Box):
     """
     __ambiguous_inheritance__ = (compact.Swap, markov.Swap)
 
+    def rotate(self, left=False):
+        del left
+        return self
+
 
 class Spider(Box):
     """
@@ -273,6 +293,13 @@ class Spider(Box):
     def unfuse(self) -> Diagram:
         return coherence(self.factory, type(self))(
             len(self.dom), len(self.cod), self.typ, self.phase)
+
+
+class Bubble(monoidal.Bubble, Box):
+    """
+    A Frobenius bubble is a monoidal bubble in a frobenius diagram.
+    """
+    __ambiguous_inheritance__ = (monoidal.Bubble, )
 
 
 class Category(compact.Category, markov.Category):

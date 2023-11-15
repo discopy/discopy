@@ -172,7 +172,7 @@ class Ty(closed.Ty):
 @factory
 class PRO(monoidal.PRO, Ty):
     """
-    A PRO is a natural number ``n`` seen as a rigid type with unnamed objects.
+    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
 
     Parameters
     ----------
@@ -552,9 +552,12 @@ class Box(closed.Box, Diagram):
     __ambiguous_inheritance__ = (closed.Box, )
 
     def __setstate__(self, state):
+        aa = dict(state)
         if 'inside' not in state:  # Backward compatibility
             self.z = state['_z']
         super().__setstate__(state)
+        if self.z is None:
+            self.z = 0
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
         self.z = z
@@ -596,16 +599,16 @@ class Box(closed.Box, Diagram):
         return result
 
 
-class Sum(monoidal.Sum, Box):
+class Sum(closed.Sum, Box):
     """
-    A rigid sum is a monoidal sum that can be transposed.
+    A rigid sum is a closed sum that can be transposed.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (monoidal.Sum, )
+    __ambiguous_inheritance__ = (closed.Sum, )
 
     def rotate(self, left=False) -> Sum:
         if left:

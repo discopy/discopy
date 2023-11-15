@@ -24,7 +24,7 @@ Axioms
 ------
 
 >>> from discopy.drawing import Equation
->>> Diagram.structure_preserving = True
+>>> Diagram.use_hypergraph_equality = True
 >>> x = Ty('x')
 
 >>> copy, merge = Copy(x), Merge(x)
@@ -63,7 +63,7 @@ Axioms
 >>> assert Diagram.merge(x @ x)\\
 ...     == x @ Swap(x, x) @ x >> merge @ merge
 
->>> Diagram.structure_preserving = False
+>>> Diagram.use_hypergraph_equality = False
 
 Note
 ----
@@ -215,6 +215,18 @@ class Merge(Box):
         return Copy(self.cod, len(self.dom))
 
 
+class Sum(symmetric.Sum, Box):
+    """
+    A markov sum is a symmetric sum and a markov box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (symmetric.Sum, )
+
+
 class Category(symmetric.Category):
     """
     A Markov category is a symmetric category with a method :code:`copy`.
@@ -280,4 +292,5 @@ Diagram.hypergraph_factory = Hypergraph
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
+Diagram.sum_factory = Sum
 Id = Diagram.id
