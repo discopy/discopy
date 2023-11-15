@@ -58,30 +58,8 @@ jobs:
         coverage report --fail-under=99 --show-missing
   docs:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ 3.9 ]
     steps:
-    - uses: actions/checkout@v3
-    - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
-    - name: Cache
-      uses: actions/cache@v2
-      with:
-        path: |
-          ${{ env.DOCS_DIR }}/_api
-          ${{ env.DOCS_DIR }}/_build
-        key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**') }}
-        restore-keys: |
-          ${{ runner.os }}-docs
-    - name: Install
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y pandoc
-        pip install .[docs]
-    - name: Build
-      run: |
-        sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html
+      - uses: actions/checkout@v3
+      - uses: ammaraskar/sphinx-action@master
+        with:
+          docs-folder: ${{ env.DOCS_DIR }}
