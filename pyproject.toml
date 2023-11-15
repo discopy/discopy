@@ -55,7 +55,8 @@ test = [
     "qiskit-aer",
     "lxml",
     "nltk",
-    "pylint"
+    "pylint",
+    "nbmake",
 ]
 docs  = [
     "sphinx == 6.0.*",
@@ -104,9 +105,7 @@ pythonpath = [
 ]
 testpaths = [
     "discopy",
-    "test"
+    "test/*/*.py",
+    "docs/notebooks/*.ipynb",
 ]
-python_files = [
-    "*.py",
-]
-addopts = "--doctest-modules"
+addopts = "--doctest-modules --nbmake"

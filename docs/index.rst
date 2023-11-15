@@ -31,6 +31,7 @@ DisCoPy documentation
     :hidden:
 
     notebooks/diagrams
+    notebooks/examples
     notebooks/qnlp
     notebooks/diag-diff
     notebooks/21-05-03-tallcat
