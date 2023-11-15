@@ -111,6 +111,7 @@ class Ty(cat.Ob):
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
             self.inside = state['_objects']
+            del state['_objects']
         super().__setstate__(state)
 
     def __init__(self, *inside: str | cat.Ob):
@@ -312,6 +313,7 @@ class Layer(cat.Box):
         if 'boxes_or_types' not in state:  # Backward compatibility
             self.boxes_or_types = tuple(
                 state[key] for key in ['_left', '_box', '_right'])
+            del state['_left'], state['_box'], state['_right']
         super().__setstate__(state)
 
     def __init__(self, left: Ty, box: Box, right: Ty, *more):
@@ -483,9 +485,11 @@ class Diagram(cat.Arrow, Whiskerable):
     layer_factory = Layer
 
     def __setstate__(self, state):
-        super().__setstate__(state)
         if 'inside' not in state:  # Backward compatibility
-            self.inside = tuple(state['_layers'])
+            state = {
+                'dom': state['_dom'], 'cod': state['_cod'],
+                'inside': tuple(state['_layers'])}
+        super().__setstate__(state)
 
     def __init__(
             self, inside: tuple[Layer, ...], dom: Ty, cod: Ty, _scan=True):

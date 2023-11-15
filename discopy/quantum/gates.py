@@ -396,6 +396,10 @@ class Controlled(QuantumGate):
     """
     draw_as_controlled = True
 
+    def __setstate__(self, state):
+        if 'distance' not in state: import pdb; pdb.set_trace()
+        super().__setstate__(state)
+
     def __init__(self, controlled, distance=1):
         assert_isinstance(controlled, QuantumGate)
         if not distance:
@@ -405,11 +409,6 @@ class Controlled(QuantumGate):
         name = f'C{controlled}'
         dom = cod = qubit ** n_qubits
         QuantumGate.__init__(self, name, dom, cod, data=controlled.data)
-    
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        if "distance" not in self.__dict__:
-            print("asdf")
 
     def dagger(self):
         return Controlled(self.controlled.dagger(), distance=self.distance)
@@ -714,9 +713,6 @@ class Sqrt(Scalar):
     def __init__(self, data):
         super().__init__(data, name="sqrt")
         self.drawing_name = f"sqrt({format_number(data)})"
-    
-    def __setstate__(self, state):
-        super().__setstate__(state)
 
     @property
     def array(self):

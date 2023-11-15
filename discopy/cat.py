@@ -219,6 +219,7 @@ class Arrow(Composable[Ob]):
         if 'inside' not in state:  # Backward compatibility
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
+            del state['_dom'], state['_cod'], state['_boxes']
         self.__dict__.update(state)
 
     def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
@@ -478,6 +479,7 @@ class Box(Arrow):
         if 'inside' not in state:  # Backward compatibility
             self.name, self.data, self.is_dagger = (
                 state['_name'], state['_data'], state['_dagger'])
+            del state['_name'], state['_data'], state['_dagger']
         super().__setstate__(state)
 
     def __init__(
