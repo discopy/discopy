@@ -76,6 +76,9 @@ jobs:
         key: ${{ runner.os }}-docs-${{ hashFiles('discopy/**') }}
         restore-keys: |
           ${{ runner.os }}-docs
+    - name: debug
+      run: |
+        ls docs
     - name: Install
       run: |
         sudo apt-get update
