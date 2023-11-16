@@ -115,7 +115,7 @@ class Ob:
     >>> assert x == x_ and x != y
     """
     def __setstate__(self, state):
-        if "name" not in state:
+        if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
             del state["_name"]
         self.__dict__.update(state)

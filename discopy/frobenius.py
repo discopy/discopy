@@ -271,6 +271,14 @@ class Spider(Box):
         Box.__init__(self, name, dom, cod, data=data, **params)
         self.drawing_name = "" if not data else str(data)
 
+    def __setstate__(self, state):
+        if "_name" in state and state["_name"] == type(self).__name__:
+            phase = state.get("_data", None)
+            str_data = "" if phase is None else f", {phase}"
+            state["_name"] = type(self).__name__\
+                + f"({state['_dom'].n}, {state['_cod'].n}, {self.typ}{str_data})"
+        super().__setstate__(state)
+
     @property
     def phase(self):
         """ The phase of the spider. """

@@ -109,8 +109,8 @@ class Ty(cat.Ob):
     __ambiguous_inheritance__ = True
 
     def __setstate__(self, state):
-        if 'inside' not in state:  # Backward compatibility
-            self.inside = state['_objects']
+        if 'inside' not in state and "_objects" in state:
+            state["inside"] = state['_objects']
             del state['_objects']
         super().__setstate__(state)
 
@@ -250,6 +250,11 @@ class PRO(Ty):
     def __init__(self, n: int = 0):
         assert_isinstance(n, int)
         self.n = n
+
+    def __setstate__(self, state):
+        if "n" not in state:
+            state = {"n": state["_name"]}
+        super().__setstate__(state)
 
     @property
     def inside(self):
