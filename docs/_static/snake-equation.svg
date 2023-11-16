@@ -11,6 +11,11 @@
 <![CDATA[text.f0 {font-family:cmr10;font-size:9.96264px}
 ]]>
 </style>
+<style>
+html[data-color-mode="dark"] .letters, {
+    fill: #ffffff;
+}
+</style>
 <g id='page1'>
 <g stroke-miterlimit='10' transform='translate(105.462745,28.844576)scale(0.996264,-0.996264)'>
 <g stroke='currentColor'>
