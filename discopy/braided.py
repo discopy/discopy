@@ -184,6 +184,14 @@ class Braid(BinaryBoxConstructor, Box):
             self, name, dom, cod, is_dagger=is_dagger, draw_as_braid=True)
         BinaryBoxConstructor.__init__(self, left, right)
 
+    def __setstate__(self, state):
+        if "_name" in state:
+            state["_name"] = type(self).__name__ + (
+                              f"({state['right']}, {state['left']})" if state.get("_is_dagger", False) else
+                              f"({state['left']}, {state['right']})"
+            )
+        super().__setstate__(state)
+
     def __repr__(self):
         str_is_dagger = ", is_dagger=True" if self.is_dagger else ""
         return factory_name(type(self)) + \

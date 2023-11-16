@@ -253,7 +253,7 @@ class PRO(Ty):
 
     def __setstate__(self, state):
         if "n" not in state:
-            state = {"n": state["_name"]}
+            state = {"n": len(state["_objects"])}
         super().__setstate__(state)
 
     @property
