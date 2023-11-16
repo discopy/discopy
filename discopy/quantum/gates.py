@@ -546,11 +546,6 @@ class Parametrized(Box):
         self.drawing_name = f'{name}({data})'
         Box.__init__(self, name, dom, cod, data=data, **params)
 
-    def __setstate__(self, state):
-        super().__setstate__(state)
-        if self.is_dagger is None:
-            self.is_dagger = False
-
     @property
     def modules(self):
         if self.free_symbols:
@@ -728,6 +723,11 @@ class Sqrt(Scalar):
     def __init__(self, data):
         super().__init__(data, name="sqrt")
         self.drawing_name = f"sqrt({format_number(data)})"
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        if self.is_dagger is None:
+            self.is_dagger = False
 
     @property
     def array(self):
