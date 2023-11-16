@@ -12,8 +12,8 @@
 ]]>
 </style>
 <style>
-html[data-color-mode="dark"] .letters, {
-    fill: #ffffff;
+html[data-color-mode="dark"] {
+    stroke: #ffffff;
 }
 </style>
 <g id='page1'>
