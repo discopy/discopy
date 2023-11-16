@@ -33,15 +33,11 @@ def test_deprecated_from_tree():
         assert from_tree(tree) == rigid.Id(rigid.Ty('n'))
 
 
-# @pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
-def test_pickle(fn = "quantum.Circuit.pickle"):
+@pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
+def test_pickle(fn):
     import pickle
     with open(f"test/src/pickles/main/{fn}", 'rb') as f:
         new = pickle.load(f)
     with open(f"test/src/pickles/0.6/{fn}", 'rb') as f:
         old = pickle.load(f)
-    old_d, new_d = old.__dict__, new.__dict__
-    for key in list(old_d.keys()):
-        if hasattr(old_d[key], "__dict__") and key in new_d:
-            assert old_d[key].__dict__ == new_d[key].__dict__
     assert old == new
