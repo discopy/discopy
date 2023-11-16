@@ -538,6 +538,12 @@ class Box(frobenius.Box, Diagram):
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
 
+    def __setstate__(self, state):
+        if "data" not in state and state.get("_array", None) is not None:
+            state['data'] = state['_array']
+            del state["_array"]
+        super().__setstate__(state)
+
     def __new__(cls, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:

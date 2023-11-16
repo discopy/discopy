@@ -48,7 +48,7 @@ Summary
         sqrt
         scalar
 """
-
+import copy
 from math import e, pi
 
 from discopy import messages
@@ -214,6 +214,20 @@ class QuantumGate(Box):
     """ Quantum gates, i.e. unitaries on n qubits. """
     is_mixed = False
     is_classical = False
+
+    def __init__(self, name: str, dom: Ty, cod: Ty, data=None, **params):
+        if data is not None and hasattr(data, "__len__"):
+            data = [complex(v) for v in data]
+        super().__init__(name, dom, cod, data, **params)
+
+    def __setstate__(self, state):
+        if "_array" in state and not state["_array"] is None:
+            state["data"] = state['_array'].flatten().tolist()
+        if "_name" in state:
+            if state["_name"] in GATES and hasattr(
+                    GATES[state["_name"]], "data"):
+                state["data"] = copy.deepcopy(GATES[state["_name"]].data)
+        super().__setstate__(state)
 
 
 class ClassicalGate(SelfConjugate):
@@ -709,6 +723,11 @@ class Sqrt(Scalar):
     def __init__(self, data):
         super().__init__(data, name="sqrt")
         self.drawing_name = f"sqrt({format_number(data)})"
+
+    def __setstate__(self, state):
+        super().__setstate__(state)
+        if self.is_dagger is None:
+            self.is_dagger = False
 
     @property
     def array(self):

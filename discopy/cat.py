@@ -114,6 +114,12 @@ class Ob:
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
     """
+    def __setstate__(self, state):
+        if "name" not in state and "_name" in state:
+            state["name"] = state["_name"]
+            del state["_name"]
+        self.__dict__.update(state)
+
     def __init__(self, name: str = ""):
         assert_isinstance(name, str)
         self.name = name
@@ -208,6 +214,13 @@ class Arrow(Composable[Ob]):
     see :class:`monoidal.PRO`.
     """
     ty_factory = Ob
+
+    def __setstate__(self, state):
+        if 'inside' not in state:  # Backward compatibility
+            self.dom, self.cod, self.inside = (
+                state['_dom'], state['_cod'], tuple(state['_boxes']))
+            del state['_dom'], state['_cod'], state['_boxes']
+        self.__dict__.update(state)
 
     def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
                  _scan: bool = True) -> None:
@@ -462,6 +475,13 @@ class Box(Arrow):
     >>> f = Box('f', x, y, data=[42])
     >>> assert f.inside == (f, )
     """
+    def __setstate__(self, state):
+        if 'inside' not in state:  # Backward compatibility
+            self.name, self.data, self.is_dagger = (
+                state['_name'], state['_data'], state['_dagger'])
+            del state['_name'], state['_data'], state['_dagger']
+        super().__setstate__(state)
+
     def __init__(
             self, name: str, dom: Ob, cod: Ob, data=None, is_dagger=False):
         assert_isinstance(name, str)

@@ -413,6 +413,15 @@ class BinaryBoxConstructor:
     def __init__(self, left, right):
         self.left, self.right = left, right
 
+    def __setstate__(self, state):
+        if "_name" in state:
+            state["_name"] = type(self).__name__ + (
+                              f"({state['right']}, {state['left']})"
+                              if state.get("_is_dagger", False) else
+                              f"({state['left']}, {state['right']})"
+            )
+        super().__setstate__(state)
+
     def __repr__(self):
         return factory_name(type(self))\
             + f"({repr(self.left)}, {repr(self.right)})"
