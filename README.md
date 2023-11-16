@@ -1,6 +1,5 @@
-
-<a href="https://discopy.org/">
-    <img width="60%" src="docs/_static/snake-equation.svg" alt="Snake equation" style="overflow: visible; padding: 2%"></img>
+<a href="https://discopy.org/" style="overflow: visible">
+    <img src="docs/_static/snake-equation.svg" alt="Snake equation" width="60%" style="padding: 2%">
 </a>
 
 # DisCoPy
