@@ -1,5 +1,5 @@
 
-![snake equation](https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation.png)
+![snake equation](https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation.svg)
 
 # DisCoPy
 
