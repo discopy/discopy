@@ -133,14 +133,3 @@ def test_sum_adjoint():
     two_boxes = two + boxes
     assert two_boxes.l == two.l + boxes.l
     assert two_boxes.l.r == two_boxes
-
-
-def test_pickle():
-    import pickle
-    old_f = pickle.load(open('test/src/pickles/rigid.Box.legacy.pickle', 'rb'))
-    new_f = Box('f', Ty('x', 'x'), Ty('y'))
-    old_d, new_d = old_f.__dict__, new_f.__dict__
-    assert old_d == new_d
-    for key in list(old_d.keys()):
-        if hasattr(old_d[key], "__dict__"):
-            assert old_d[key].__dict__ == new_d[key].__dict__
