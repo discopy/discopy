@@ -187,7 +187,8 @@ class Braid(BinaryBoxConstructor, Box):
     def __setstate__(self, state):
         if "_name" in state:
             state["_name"] = type(self).__name__ + (
-                              f"({state['right']}, {state['left']})" if state.get("_is_dagger", False) else
+                              f"({state['right']}, {state['left']})"
+                              if state.get("_is_dagger", False) else
                               f"({state['left']}, {state['right']})"
             )
         super().__setstate__(state)

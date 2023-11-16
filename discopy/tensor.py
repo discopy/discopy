@@ -537,9 +537,9 @@ class Box(frobenius.Box, Diagram):
     Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
     __ambiguous_inheritance__ = (frobenius.Box, )
-    
+
     def __setstate__(self, state):
-        if "data" not in state and "_array" in state and state["_array"] is not None:
+        if "data" not in state and state.get("_array", None) is not None:
             state['data'] = state['_array']
             del state["_array"]
         super().__setstate__(state)
