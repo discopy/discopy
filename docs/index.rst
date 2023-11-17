@@ -1,4 +1,5 @@
-.. image:: /_static/snake-equation.png
+.. raw:: html
+    :file: _static/snake-equation.svg
 
 #####################
 DisCoPy documentation

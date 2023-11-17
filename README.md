@@ -1,5 +1,7 @@
-
-![snake equation](https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/snake-equation-dark.svg">
+  <img alt="Snake equation" width="60%" src="docs/_static/snake-equation.svg">
+</picture>
 
 # DisCoPy
 
