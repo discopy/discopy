@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/_static/snake-equation-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="docs/_static/snake-equation.svg">
+  <img alt="Snake equation" src="docs/_static/snake-equation.svg">
 </picture>
 
 # DisCoPy
