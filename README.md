@@ -1,7 +1,7 @@
-<a href="https://discopy.org/">
-    <img src="docs/_static/snake-equation.svg#gh-light-mode-only" alt="Snake equation" width="60%">
-    <img src="docs/_static/snake-equation-dark.svg#gh-dark-mode-only" alt="Snake equation" width="60%">
-</a>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/_static/snake-equation-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/_static/snake-equation.svg">
+</picture>
 
 # DisCoPy
 
