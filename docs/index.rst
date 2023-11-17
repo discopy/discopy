@@ -8,14 +8,14 @@ DisCoPy documentation
 .. include:: ../README.md
     :parser: myst_parser.sphinx_
     :start-line: 10
-    :end-line: 37
+    :end-line: 39
 
 .. raw:: html
     :file: api/architecture.html
 
 .. include:: ../README.md
     :parser: myst_parser.sphinx_
-    :start-line: 39
+    :start-line: 42
 
 .. toctree::
     :caption: Reference API
