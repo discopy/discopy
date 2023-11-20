@@ -60,7 +60,7 @@ test = [
 ]
 docs  = [
     "sphinx == 7.2.*",
-    "sphinx-book-theme @ git+https://github.com/executablebooks/sphinx-book-theme.git@v1.1.0rc1",
+    "sphinx-book-theme == 1.0.1",
     "myst-parser == 2.0.*",
     "nbsphinx == 0.9.*",
     "ipykernel == 6.23.*",
