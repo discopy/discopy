@@ -58,10 +58,14 @@ or [open an issue](https://github.com/discopy/discopy/issues/new).
 
 ## How to cite
 
-If you wish to cite DisCoPy in an academic publication, we suggest you cite:
+If you used DisCoPy in the context of an academic publication, we suggest you cite:
 
 * G. de Felice, A. Toumi & B. Coecke, _DisCoPy: Monoidal Categories in Python_, EPTCS 333, 2021, pp. 183-197, [DOI: 10.4204/EPTCS.333.13](https://doi.org/10.4204/EPTCS.333.13)
 
 If furthermore your work is related to quantum computing, you can also cite:
 
 * A. Toumi, G. de Felice & R. Yeung, _DisCoPy for the quantum computer scientist_, [arXiv:2205.05190](https://arxiv.org/abs/2205.05190)
+
+If you use any of the recent features (e.g. `Hypergraph`) you should also mention:
+
+* A. Toumi, R. Yeung, B. Poór & G. de Felice, _DisCoPy: the Hierarchy of Graphical Languages in Python_ [arXiv:2311.10608](https://arxiv.org/abs/2311.10608)
