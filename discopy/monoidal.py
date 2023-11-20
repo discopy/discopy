@@ -657,9 +657,10 @@ class Diagram(cat.Arrow):
 
 class DrawingRewrite(Diagram):
     def frame_factory(name, dom, cod, insides):
-        ss = Ob('')
-        ss.frame_wire = True
-        s = Ty(ss, ss)
+        sl, sr = Ob(''), Ob('')
+        sl.frame_wire = 'l'
+        sr.frame_wire = 'r'
+        s = Ty(sl, sr)
         dom_s = s.tensor(*[d.dom @ s for d in insides])
         cod_s = s.tensor(*[d.cod @ s for d in insides])
         top = Box(f'[{name}]', dom, dom_s)

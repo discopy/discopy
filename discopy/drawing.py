@@ -616,8 +616,12 @@ def draw(diagram, **params):
                 for i in range(1, len(targets) - 2):
                     t0 = targets[i]
                     t1 = targets[i + 1]
-                    if not getattr(t0.obj, 'frame_wire', False) or\
-                       not getattr(t1.obj, 'frame_wire', False):
+                    # don't draw wires through the frame edge
+                    # but do draw wires between two frame edges
+                    # that are not seperated by a wire
+                    t0_wire_type = getattr(t0.obj, 'frame_wire', 'x')
+                    t1_wire_type = getattr(t1.obj, 'frame_wire', 'x')
+                    if not (t0_wire_type == 'l' and t1_wire_type == 'r'):
                         backend.draw_wire(positions[t0], positions[t1])
                 target = targets[-1]
                 # draw side wires
