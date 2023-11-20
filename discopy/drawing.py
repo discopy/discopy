@@ -105,7 +105,7 @@ def diagram2nx(diagram):
         from nodes to pairs of floats.
     """
     import networkx as nx
-    diagram = add_drawing_attributes(diagram.open_bubbles())
+    diagram = add_drawing_attributes(diagram.to_drawing())
     graph, pos = nx.DiGraph(), dict()
 
     def add_node(node, position):
@@ -582,7 +582,8 @@ def draw(diagram, **params):
             if is_frame_top(node):
                 box = node.box
                 if params.get('draw_box_labels', True):
-                    backend.draw_text(box.drawing_name, *positions[node],
+                    backend.draw_text(
+                        box.drawing_name, *positions[node],
                         ha='center', va='center',
                         fontsize=params.get('fontsize', None))
 
@@ -615,8 +616,12 @@ def draw(diagram, **params):
                 for i in range(1, len(targets) - 2):
                     t0 = targets[i]
                     t1 = targets[i + 1]
-                    if (not getattr(t0.obj, 'frame_wire', False) or
-                        not getattr(t1.obj, 'frame_wire', False)):
+                    # don't draw wires through the frame edge
+                    # but do draw wires between two frame edges
+                    # that are not seperated by a wire
+                    t0_wire_type = getattr(t0.obj, 'frame_wire', 'x')
+                    t1_wire_type = getattr(t1.obj, 'frame_wire', 'x')
+                    if not (t0_wire_type == 'l' and t1_wire_type == 'r'):
                         backend.draw_wire(positions[t0], positions[t1])
                 target = targets[-1]
                 # draw side wires
@@ -694,8 +699,8 @@ def draw(diagram, **params):
     backend.draw_spiders(graph, positions, **params)
     box_nodes = [node for node in graph.nodes if node.kind == "box"]
     for node in box_nodes:
-        if (node.box.draw_as_spider or node.box.draw_as_wires
-            or node.box.draw_as_frame_top or node.box.draw_as_frame_bot):
+        if node.box.draw_as_spider or node.box.draw_as_wires or\
+           node.box.draw_as_frame_top or node.box.draw_as_frame_bot:
             continue
         for attr, drawing_method in drawing_methods:
             if attr is None or getattr(node.box, attr, False):

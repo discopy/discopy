@@ -629,45 +629,18 @@ class Diagram(cat.Arrow):
         ar_factory.upgrade = staticmethod(upgrade)
         return ar_factory
 
-    def open_bubbles(self):
+    def to_drawing(self):
         """
         Called when drawing bubbles. Replace each bubble by::
 
             open_bubble\\
-                >> Id(left) @ open_bubbles(bubble.inside) @ Id(right)\\
+                >> Id(left) @ to_drawing(bubble.inside) @ Id(right)\\
                 >> close_bubble
 
         for :code:`left = Ty(bubble.drawing_name)` and :code:`right = Ty("")`.
         :meth:`Diagram.downgrade` gets called in the process.
         """
-        if not any(isinstance(box, Bubble) for box in self.boxes):
-            return self.downgrade()
-
-        class OpenBubbles(Functor):
-            def __call__(self, diagram):
-                diagram = diagram.downgrade()
-                if isinstance(diagram, Bubble):
-                    obj = Ob(diagram.drawing_name)
-                    obj.draw_as_box = True
-                    left, right = Ty(obj), Ty("")
-                    open_bubble = Box(
-                        "open_bubble",
-                        diagram.dom, left @ diagram.inside.dom @ right)
-                    close_bubble = Box(
-                        "_close",
-                        left @ diagram.inside.cod @ right, diagram.cod)
-                    open_bubble.draw_as_wires = True
-                    close_bubble.draw_as_wires = True
-                    # Wires can go straight only if types have the same length.
-                    if len(diagram.dom) == len(diagram.inside.dom):
-                        open_bubble.bubble_opening = True
-                    if len(diagram.cod) == len(diagram.inside.cod):
-                        close_bubble.bubble_closing = True
-                    return open_bubble\
-                        >> Id(left) @ self(diagram.inside) @ Id(right)\
-                        >> close_bubble
-                return super().__call__(diagram)
-        return OpenBubbles(lambda x: x, lambda f: f)(self)
+        return Functor(lambda x: x, lambda f: f, ar_factory=DrawingRewrite)(self)
 
     draw = drawing.draw
     to_gif = drawing.to_gif
@@ -680,6 +653,45 @@ class Diagram(cat.Arrow):
     depth = rewriting.depth
     width = rewriting.width
     layer_factory = Layer
+
+
+class DrawingRewrite(Diagram):
+    def frame_factory(name, dom, cod, insides):
+        sl, sr = Ob(''), Ob('')
+        sl.frame_wire = 'l'
+        sr.frame_wire = 'r'
+        s = Ty(sl, sr)
+        dom_s = s.tensor(*[d.dom @ s for d in insides])
+        cod_s = s.tensor(*[d.cod @ s for d in insides])
+        top = Box(f'[{name}]', dom, dom_s)
+        bot = Box(f'[\\{name}]', cod_s, cod)
+        top.drawing_name = name
+        top.draw_as_frame_top = True
+        bot.draw_as_frame_bot = True
+
+        mid = Id(s).tensor(*[d @ Id(s) for d in insides])
+        return top >> mid >> bot
+
+    def bubble_factory(inside, dom, cod, **params):
+        obj = Ob('')
+        obj.draw_as_box = True
+        left, right = Ty(obj), Ty("")
+        open_bubble = Box(
+            "open_bubble",
+            dom, left @ inside.dom @ right)
+        close_bubble = Box(
+            "_close",
+            left @ inside.cod @ right, cod)
+        open_bubble.draw_as_wires = True
+        close_bubble.draw_as_wires = True
+        # Wires can go straight only if types have the same length.
+        if len(dom) == len(inside.dom):
+            open_bubble.bubble_opening = True
+        if len(cod) == len(inside.cod):
+            close_bubble.bubble_closing = True
+        return open_bubble\
+            >> Id(left) @ inside @ Id(right)\
+            >> close_bubble
 
 
 class Id(cat.Id, Diagram):
@@ -834,6 +846,20 @@ class Sum(cat.Sum, Box):
         return drawing.equation(*self.terms, symbol='+', **params)
 
 
+class Frame(cat.Frame, Box):
+    def __init__(self, name, dom, cod, insides, **params):
+        self.drawing_name = params.get("drawing_name", "")
+        cat.Frame.__init__(self, name, dom, cod, insides)
+        Box.__init__(self, self._name, self.dom, self.cod, data=self.data)
+
+    @property
+    def insides(self):
+        """
+        Returns the list of insides of a Frame object.
+        """
+        return self._insides
+
+
 class Bubble(cat.Bubble, Box):
     """
     Bubble in a monoidal diagram, i.e. a unary operator on homsets.
@@ -870,6 +896,7 @@ class Bubble(cat.Bubble, Box):
 
 
 Diagram.sum = Sum
+Diagram.frame_factory = Frame
 Diagram.bubble_factory = Bubble
 
 
@@ -902,7 +929,7 @@ class Functor(cat.Functor):
         super().__init__(ob, ar, ob_factory=ob_factory, ar_factory=ar_factory)
 
     def __call__(self, diagram):
-        if isinstance(diagram, (Sum, Bubble)):
+        if isinstance(diagram, (Sum, Frame, Bubble)):
             super().__call__(diagram)
         if isinstance(diagram, Ty):
             return self.ob_factory().tensor(*[
