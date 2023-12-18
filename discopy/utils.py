@@ -155,7 +155,12 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
-                        pass
+                        def __reduce__(self):
+                            red = super().__reduce__()
+                            if '[' in red[1][0].__name__:
+                                red = (red[0], (origin, ) + red[1][1:]) + red[2:]
+                            return red
+
                     C.__module__ = origin.__module__
                     names = [getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
