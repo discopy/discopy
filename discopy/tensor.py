@@ -539,23 +539,28 @@ class Box(frobenius.Box, Diagram):
     __ambiguous_inheritance__ = (frobenius.Box, )
 
     def __setstate__(self, state):
+        NamedGeneric.__setstate__(self, state)
         if "data" not in state and state.get("_array", None) is not None:
             state['data'] = state['_array']
             del state["_array"]
-        NamedGeneric.__setstate__(self, state)
         super().__setstate__(state)
+        if self.dtype is None:
+            self.data, self.dtype = self._get_data_dtype(self.data)
+            self.__class__ = self.__class__[self.dtype]
 
     def __new__(cls, *args, **kwargs):
-        with backend() as np:
-            if cls.dtype is None:
-                data = np.array(kwargs.get("data", []))
-                # The dtype of an np.arrays is a class that contains a type
-                # attribute that is the actual type. However, other backends
-                # have different structures, so this is the easiest option:
-                dtype = getattr(data.dtype, "type", data.dtype)
-                kwargs["data"] = data
-                return cls.__new__(cls[dtype],  *args, **kwargs)
+        if not args and not kwargs or cls.dtype is not None:
             return object.__new__(cls)
+        data, dtype = cls._get_data_dtype(kwargs.get("data", []))
+        kwargs["data"] = data
+        return cls.__new__(cls[dtype],  *args, **kwargs)
+
+    @staticmethod
+    def _get_data_dtype(data):
+        with backend() as np:
+            data = np.array(data)
+            dtype = getattr(data.dtype, "type", data.dtype)
+            return data, dtype
 
     @property
     def array(self):
