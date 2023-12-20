@@ -64,8 +64,8 @@ def test_pickle_version_compatibility(fn):
     assert old == new
 
 
-# @pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/src/pickles/src"])])
-def test_pickle_unpickle(pkg = "tensor_Box"):
+@pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/src/pickles/src"])])
+def test_pickle_unpickle(pkg):
     sys.path.append('test/src/pickles/src')
     impmodule = __import__(pkg)
     exp = impmodule.pick
