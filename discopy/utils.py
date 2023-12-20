@@ -155,9 +155,16 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
+                        # We need this to fix pickling of nested classes
+                        # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
                         def __reduce__(self):
                             func, args, *data = super().__reduce__()
-                            return (func, (origin,) + args[1:]) + tuple(data)
+                            # Check if class name is of the form:
+                            # *ClassName*[*type*]
+                            if '[' in args[0].__name__:
+                                args = (origin, ) + args[1:]
+                                data |= {"__class_getitem__values__": values}
+                            return (func, args) + tuple(data)
 
                     C.__module__ = origin.__module__
                     names = [getattr(v, "__name__", str(v)) for v in values]
@@ -175,6 +182,11 @@ class NamedGeneric(Generic[TypeVar('T')]):
         for attr in attributes:
             setattr(Result, attr, getattr(Result, attr, None))
         return Result
+
+    def __setstate__(self, state):
+        if "__class_getitem__values__" in state:
+            new_cls = self.__class__[state["__class_getitem__values__"]]
+            self.__class__ = new_cls
 
 
 def product(xs: list, unit=1):
