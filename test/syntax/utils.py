@@ -44,6 +44,17 @@ def test_deprecated_from_tree():
         assert from_tree(tree) == rigid.Id(rigid.Ty('n'))
 
 
+def test_named_generic_cache():
+    from discopy import tensor as dt
+    box, box_int, box_float = dt.Box, dt.Box[int], dt.Box[float]
+    assert box_int is dt.Box[int]
+    assert box is not box_int and box_float is not box_int
+    diag_int = dt.Diagram[int]
+    assert diag_int is dt.Diagram[int]
+    assert box_int is dt.Box[int]
+
+
+
 @pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
 def test_pickle_version_compatibility(fn):
     with open(f"test/src/pickles/main/{fn}", 'rb') as f:

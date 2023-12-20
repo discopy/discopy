@@ -139,22 +139,27 @@ class NamedGeneric(Generic[TypeVar('T')]):
     >>> assert L[int]([1, 2, 3]).type_param == int
     >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
     """
+    _cache = dict()
+
     def __class_getitem__(_, attributes):
         if not isinstance(attributes, tuple):
             attributes = (attributes,)
 
         class Result(Generic[TypeVar(attributes)]):
-            def __class_getitem__(cls, values, _cache=dict()):
+            def __class_getitem__(cls, values):
+                if hasattr(cls, "__is_named_generic__"):
+                    cls = cls.__bases__[0]
                 values = values if isinstance(values, tuple) else (values,)
                 cls_values = tuple(
                     getattr(cls, attr, None) for attr in attributes)
-                if cls_values not in _cache or _cache[cls_values] != cls:
-                    _cache.clear()
-                    _cache[cls_values] = cls
-                if values not in _cache:
+                if cls not in NamedGeneric._cache:
+                    NamedGeneric._cache[cls] = {cls_values: cls}
+                if values not in NamedGeneric._cache[cls]:
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
+                        __is_named_generic__ = True
+
                         # We need this to fix pickling of nested classes
                         # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
                         def __reduce__(self):
@@ -173,8 +178,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     C.__origin__ = cls
                     for attr, value in zip(attributes, values):
                         setattr(C, attr, value)
-                    _cache[values] = C
-                return _cache[values]
+                    NamedGeneric._cache[cls][values] = C
+                return NamedGeneric._cache[cls][values]
 
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
