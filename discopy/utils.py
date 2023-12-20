@@ -156,10 +156,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
 
                     class C(origin):
                         def __reduce__(self):
-                            red = super().__reduce__()
-                            if '[' in red[1][0].__name__:
-                                red = (red[0], (origin, ) + red[1][1:]) + red[2:]
-                            return red
+                            func, args, *data = super().__reduce__()
+                            return (func, (origin,) + args[1:]) + tuple(data)
 
                     C.__module__ = origin.__module__
                     names = [getattr(v, "__name__", str(v)) for v in values]
