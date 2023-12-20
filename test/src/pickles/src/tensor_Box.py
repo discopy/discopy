@@ -7,4 +7,3 @@ food = Box("food", Dim(1), Dim(2), data=[4, 5])
 
 pick = alice @ eats @ food >>\
           Cup(Dim(2), Dim(2)) @ Id(Dim(3)) @ Cup(Dim(2), Dim(2))
-print(pick)

@@ -559,6 +559,9 @@ class Box(frobenius.Box, Diagram):
     def _get_data_dtype(data):
         with backend() as np:
             data = np.array(data)
+            # The dtype of an np.arrays is a class that contains a type
+            # attribute that is the actual type. However, other backends
+            # have different structures, so this is the easiest option:
             dtype = getattr(data.dtype, "type", data.dtype)
             return data, dtype
 

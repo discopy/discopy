@@ -44,8 +44,8 @@ def test_deprecated_from_tree():
         assert from_tree(tree) == rigid.Id(rigid.Ty('n'))
 
 
-# @pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
-def test_pickle_version_compatibility(fn = 'tensor.Box.pickle'):
+@pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
+def test_pickle_version_compatibility(fn):
     with open(f"test/src/pickles/main/{fn}", 'rb') as f:
         new = pickle.load(f)
     with open(f"test/src/pickles/0.6/{fn}", 'rb') as f:
@@ -53,8 +53,8 @@ def test_pickle_version_compatibility(fn = 'tensor.Box.pickle'):
     assert old == new
 
 
-@pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/src/pickles/src"])])
-def test_pickle_unpickle(pkg):
+# @pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/src/pickles/src"])])
+def test_pickle_unpickle(pkg = "tensor_Box"):
     sys.path.append('test/src/pickles/src')
     impmodule = __import__(pkg)
     exp = impmodule.pick
