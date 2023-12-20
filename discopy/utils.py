@@ -158,13 +158,13 @@ class NamedGeneric(Generic[TypeVar('T')]):
                         # We need this to fix pickling of nested classes
                         # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
                         def __reduce__(self):
-                            func, args, *data = super().__reduce__()
+                            func, args, data = super().__reduce__()
                             # Check if class name is of the form:
                             # *ClassName*[*type*]
                             if '[' in args[0].__name__:
                                 args = (origin, ) + args[1:]
                                 data |= {"__class_getitem__values__": values}
-                            return (func, args) + tuple(data)
+                            return func, args, data
 
                     C.__module__ = origin.__module__
                     names = [getattr(v, "__name__", str(v)) for v in values]
