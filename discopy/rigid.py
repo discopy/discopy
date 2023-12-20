@@ -562,8 +562,6 @@ class Box(closed.Box, Diagram):
             self.z = state['_z']
             del state['_z']
         super().__setstate__(state)
-        if self.z is None:
-            self.z = 0
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
         self.z = z
