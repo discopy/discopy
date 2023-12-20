@@ -1,14 +1,17 @@
+from os import listdir
+
+import pickle
+
+import pytest
+from pytest import warns
+
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 from discopy import rigid
 from discopy.cat import Ob
 from discopy.utils import *
-
-import pytest
-from pytest import warns
-
-from os import listdir
+from discopy.tensor import Box
 
 zip_mock = MagicMock()
 zip_mock.open().__enter__().read.return_value =\
@@ -35,9 +38,12 @@ def test_deprecated_from_tree():
 
 @pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
 def test_pickle(fn):
-    import pickle
     with open(f"test/src/pickles/main/{fn}", 'rb') as f:
         new = pickle.load(f)
     with open(f"test/src/pickles/0.6/{fn}", 'rb') as f:
         old = pickle.load(f)
     assert old == new
+
+def test_parameterised_box_pickle():
+    box = Box("A", 2, 3)
+    assert pickle.loads(pickle.dumps(box)) == box
