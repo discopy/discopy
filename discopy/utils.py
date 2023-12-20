@@ -148,10 +148,9 @@ class NamedGeneric(Generic[TypeVar('T')]):
                 values = values if isinstance(values, tuple) else (values,)
                 cls_values = tuple(
                     getattr(cls, attr, None) for attr in attributes)
-                if cls_values not in _cache or _cache[cls_values] != cls:
-                    _cache.clear()
-                    _cache[cls_values] = cls
-                if values not in _cache:
+                if cls not in _cache:
+                    _cache[cls] = {cls_values: cls}
+                if values not in _cache[cls]:
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
@@ -163,8 +162,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     C.__origin__ = cls
                     for attr, value in zip(attributes, values):
                         setattr(C, attr, value)
-                    _cache[values] = C
-                return _cache[values]
+                    _cache[cls][values] = C
+                return _cache[cls][values]
 
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
