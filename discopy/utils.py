@@ -139,22 +139,27 @@ class NamedGeneric(Generic[TypeVar('T')]):
     >>> assert L[int]([1, 2, 3]).type_param == int
     >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
     """
+    _cache = dict()
+
     def __class_getitem__(_, attributes):
         if not isinstance(attributes, tuple):
             attributes = (attributes,)
 
         class Result(Generic[TypeVar(attributes)]):
-            def __class_getitem__(cls, values, _cache=dict()):
+            def __class_getitem__(cls, values):
+                if hasattr(cls, "__is_named_generic__"):
+                    cls = cls.__bases__[0]
                 values = values if isinstance(values, tuple) else (values,)
                 cls_values = tuple(
                     getattr(cls, attr, None) for attr in attributes)
-                if cls not in _cache:
-                    _cache[cls] = {cls_values: cls}
-                if values not in _cache[cls]:
+                if cls not in NamedGeneric._cache:
+                    NamedGeneric._cache[cls] = {cls_values: cls}
+                if values not in NamedGeneric._cache[cls]:
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
-                        pass
+                        __is_named_generic__ = True
+
                     C.__module__ = origin.__module__
                     names = [getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
@@ -162,8 +167,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     C.__origin__ = cls
                     for attr, value in zip(attributes, values):
                         setattr(C, attr, value)
-                    _cache[cls][values] = C
-                return _cache[cls][values]
+                    NamedGeneric._cache[cls][values] = C
+                return NamedGeneric._cache[cls][values]
 
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"

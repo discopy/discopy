@@ -102,9 +102,6 @@ class Tensor(Matrix):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        """ We need a fresh cache for Tensor. """
-        return Matrix.__class_getitem__.__func__(cls, dtype, _cache)
 
     def __init__(self, array, dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)

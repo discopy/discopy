@@ -153,10 +153,6 @@ class Channel(Tensor):
     """
     dtype = complex
 
-    def __class_getitem__(cls, dtype: type, _cache=dict()):
-        """ We need a fresh cache for Channel. """
-        return Tensor.__class_getitem__.__func__(cls, dtype, _cache)
-
     def __init__(self, array, dom: CQ, cod: CQ):
         assert_isinstance(dom, CQ)
         assert_isinstance(cod, CQ)
