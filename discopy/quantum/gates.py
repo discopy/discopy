@@ -227,6 +227,7 @@ class QuantumGate(Box):
             if state["_name"] in GATES and hasattr(
                     GATES[state["_name"]], "data"):
                 state["data"] = copy.deepcopy(GATES[state["_name"]].data)
+                state["_z"] = GATES[state["_name"]].z
         super().__setstate__(state)
 
 
@@ -693,6 +694,10 @@ class Scalar(Parametrized):
         name = "scalar" if name is None else name
         dom, cod = qubit ** 0, qubit ** 0
         super().__init__(name, dom, cod, is_mixed=is_mixed, data=data, z=None)
+
+    def __setstate__(self, state):
+        state["_z"] = None
+        super().__setstate__(state)
 
     def __repr__(self):
         return super().__repr__()[:-1] + (
