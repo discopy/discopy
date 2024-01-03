@@ -34,6 +34,37 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
   - [PennyLane](https://pennylane.ai/) for automatic differentiation
 * an implementation of formal grammars ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to [lambeq](https://cqcl.github.io/lambeq), [spaCy](https://spacy.io/) and [NLTK](https://www.nltk.org/)
 
+## Example: Cooking
+
+This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
+
+```python
+from discopy.symmetric import Ty as Ingredient, Box as Step, Diagram as Recipe
+
+egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
+crack = Step("crack", egg, white @ yolk)
+merge = lambda x: Step("merge", x @ x, x)
+
+# DisCoPy allows string diagrams to be defined as Python functions
+
+@Recipe.from_callable(egg @ egg, white @ yolk)
+def crack_two_eggs(left_egg, right_egg):
+    left_white, left_yolk = crack(left_egg)
+    right_white, right_yolk = crack(right_egg)
+    return (merge(white)(left_white, right_white),
+            merge(yolk)(left_yolk, right_yolk))
+
+# ... or in point-free style using parallel (@) and sequential (>>) composition
+
+assert crack_two_eggs == crack @ crack\
+  >> white @ Recipe.swap(yolk, white) @ yolk\
+  >> merge(white) @ merge(yolk)
+
+crack_two_eggs.draw()
+```
+
+![crack_two_eggs.draw()](test/src/imgs/crack-eggs.png)
+
 ## Architecture
 
 Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.

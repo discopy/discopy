@@ -8,7 +8,6 @@ from discopy.drawing import *
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/src/imgs/', 'test/src/tikz/', 10
 
-
 def draw_and_compare(file, **params):
     tol = params.pop('tol', TOL)
     return utils.draw_and_compare(file, IMG_FOLDER, tol, **params)
@@ -19,7 +18,8 @@ def tikz_and_compare(file, **params):
 
 
 @draw_and_compare(
-    'crack-eggs.png', figsize=(5, 6), fontsize=18, aspect='equal')
+    'crack-eggs.png',
+    figsize=(4, 4), aspect='auto', margins=(0.1, 0.025))
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
