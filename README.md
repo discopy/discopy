@@ -65,12 +65,6 @@ crack_two_eggs.draw()
 
 ![crack_two_eggs.draw()](test/src/imgs/crack-eggs.png)
 
-## Architecture
-
-Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
-
-[![architecture](https://github.com/discopy/discopy/raw/main/docs/api/architecture.png)](https://docs.discopy.org#architecture)
-
 ## Quickstart
 
 ```shell
