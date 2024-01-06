@@ -7,15 +7,14 @@ DisCoPy documentation
 
 .. include:: ../README.md
     :parser: myst_parser.sphinx_
-    :start-line: 10
-    :end-line: 39
+
+Architecture
+------------
+
+Software dependencies between modules go top-to-bottom, left-to-right and forgetful functors between categories go the other way.
 
 .. raw:: html
     :file: api/architecture.html
-
-.. include:: ../README.md
-    :parser: myst_parser.sphinx_
-    :start-line: 42
 
 .. toctree::
     :caption: Reference API
