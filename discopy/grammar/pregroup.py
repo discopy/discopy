@@ -178,6 +178,9 @@ class Swap(frobenius.Swap, Box):
     """
     A pregroup swap is a frobenius swap in a pregroup diagram.
     """
+    def rotate(self, left=False):
+        return (type(self)(self.left.l, self.right.l) if left else
+                type(self)(self.left.r, self.right.r))
 
 
 class Spider(frobenius.Spider, Box):

@@ -61,3 +61,11 @@ def test_from_tree():
     loves = Word('loves', n.r @ s @ n.l)
     sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
     assert sentence == from_tree(sentence.to_tree())
+
+
+def test_pregroup_swap_rotation():
+    s, n = Ty('s'), Ty('n')
+    assert Swap(n, s).r.dom == Swap(n, s).dom.r
+    assert Swap(n, s).l.dom == Swap(n, s).dom.l
+    assert Swap(n, s).l.cod == Swap(n, s).cod.l
+    assert Swap(n, s).r.cod == Swap(n, s).cod.r
