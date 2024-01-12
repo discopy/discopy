@@ -65,7 +65,7 @@ def test_from_tree():
 
 def test_pregroup_swap_rotation():
     s, n = Ty('s'), Ty('n')
-    assert Swap(n, s).r.dom == Swap(n, s).dom.r
-    assert Swap(n, s).l.dom == Swap(n, s).dom.l
-    assert Swap(n, s).l.cod == Swap(n, s).cod.l
-    assert Swap(n, s).r.cod == Swap(n, s).cod.r
+    assert Swap(n, s).r.dom == Swap(n, s).cod.r
+    assert Swap(n, s).l.dom == Swap(n, s).cod.l
+    assert Swap(n, s).l.cod == Swap(n, s).dom.l
+    assert Swap(n, s).r.cod == Swap(n, s).dom.r
