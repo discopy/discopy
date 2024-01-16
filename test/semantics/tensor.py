@@ -230,7 +230,7 @@ def test_Box():
 
 
 def test_Spider():
-    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider[float64](1, 2, Dim(3))"
+    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider(1, 2, Dim(3))"
     assert Spider(1, 2, Dim(2)).dagger() == Spider(2, 1, Dim(2))
     with raises(ValueError):
         Spider(1, 2, Dim(2, 3))
@@ -258,6 +258,13 @@ def test_Tensor_adjoint_eval():
     tensor1 = diagram.eval()
     tensor2 = diagram.transpose_box(2).transpose_box(0, left=True).eval()
     assert tensor1 == tensor2
+
+
+def test_Tensor_dtype_inference():
+    assert Box("F(A)", Dim(1), Dim(1), data=None) == Box("F(A)", Dim(1), Dim(1))
+    assert Box("X", Dim(1), Dim(1), data=[1]) == Box[np.int64]("X", Dim(1), Dim(1), data=[1])
+    assert Box("Y", Dim(1), Dim(1), data=[1.]) == Box[np.float64]("Y", Dim(1), Dim(1), data=[1.])
+    assert Box("Y", Dim(1), Dim(1), data=[1]) != Box("Y", Dim(1), Dim(1), data=[1.])
 
 
 def test_non_numpy_eval():
