@@ -525,7 +525,6 @@ class Box(frobenius.Box, Diagram):
         dom : The domain of the box, i.e. its input dimension.
         cod : The codomain of the box, i.e. its output dimension.
         data : The array inside the tensor box.
-        dtype : The datatype for the entries of the array.
 
     Example
     -------
@@ -541,16 +540,17 @@ class Box(frobenius.Box, Diagram):
             state['data'] = state['_array']
             del state["_array"]
         super().__setstate__(state)
-        if self.dtype is None:
+        if self.dtype is None and self.data is not None:
             self.data, self.dtype = self._get_data_dtype(self.data)
             self.__class__ = self.__class__[self.dtype]
 
-    def __new__(cls, *args, **kwargs):
-        if not args and not kwargs or cls.dtype is not None:
+    def __new__(
+            cls, name=None, dom=None, cod=None, data=None, *args, **kwargs):
+        if cls.dtype is not None or data is None:
             return object.__new__(cls)
-        data, dtype = cls._get_data_dtype(kwargs.get("data", []))
-        kwargs["data"] = data
-        return cls.__new__(cls[dtype],  *args, **kwargs)
+        data, dtype = cls._get_data_dtype(data)
+        return cls.__new__(
+            cls[dtype],  name, dom, cod, data, *args, **kwargs)
 
     @staticmethod
     def _get_data_dtype(data):
