@@ -540,7 +540,7 @@ class Box(frobenius.Box, Diagram):
             state['data'] = state['_array']
             del state["_array"]
         super().__setstate__(state)
-        if self.dtype is None and self.data:
+        if self.dtype is None and self.data is not None:
             self.data, self.dtype = self._get_data_dtype(self.data)
             self.__class__ = self.__class__[self.dtype]
 

@@ -261,8 +261,8 @@ def test_Tensor_adjoint_eval():
 
 
 def test_Tensor_dtype_inference():
-    assert Box("F(A)", Dim(1), Dim(1), data=None) == Box("F(A)", Dim(1), Dim(1))
-    assert Box("X", Dim(1), Dim(1), data=[1]) == Box[np.int64]("X", Dim(1), Dim(1), data=[1])
+    assert Box("F(A)", Dim(1), Dim(1), data=None).dtype is None
+    assert Box("X", Dim(1), Dim(1), data=[0]) == Box[np.int64]("X", Dim(1), Dim(1), data=[0])
     assert Box("Y", Dim(1), Dim(1), data=[1.]) == Box[np.float64]("Y", Dim(1), Dim(1), data=[1.])
     assert Box("Y", Dim(1), Dim(1), data=[1]) != Box("Y", Dim(1), Dim(1), data=[1.])
 
