@@ -149,10 +149,10 @@ def test_circuit2zx():
     assert circuit2zx(circuit) == Diagram.decode(
         dom=PRO(0), boxes_and_offsets=zip([
             X(0, 1), X(0, 1), scalar(0.5), H, X(1, 1),
-            Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0),
-            X(1, 2), X(1, 2), Z(2, 1), X(1, 0),
+            Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0), scalar(2 ** 0.5),
+            X(1, 2), X(1, 2), Z(2, 1), X(1, 0), scalar(2 ** 0.5),
             Z(1, 2), Z(1, 2), X(2, 1), Z(1, 0)],
-            [0, 1, 2, 0, 1, 0, 2, 1, 1, 0, 2, 1, 1, 0, 2, 1, 1]))
+            [0, 1, 2, 0, 1, 0, 2, 1, 1, 2, 0, 2, 1, 1, 2, 0, 2, 1, 1]))
 
     # Verify XYZ=iI
     t = circuit2zx(quantum.Z >> quantum.Y >> quantum.X)
