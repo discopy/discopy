@@ -357,11 +357,11 @@ def gate2zx(box):
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
-        return Z(1, 2) @ Z(1, 2, box.phase)\
-            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+        return Z(1, 2) @ Z(1, 2, box.phase / 2)\
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase / 2)) @ Id(1)
     if isinstance(box, Controlled) and box.name.startswith('CRx'):
-        return X(1, 2) @ X(1, 2, box.phase)\
-            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
+        return X(1, 2) @ X(1, 2, box.phase / 2)\
+            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase / 2)) @ Id(1)
     if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
