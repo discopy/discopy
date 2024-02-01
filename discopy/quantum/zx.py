@@ -348,6 +348,9 @@ def scalar(data):
     return Scalar(data)
 
 
+root2 = scalar(2 ** 0.5)
+
+
 def gate2zx(box):
     """ Turns gates into ZX diagrams. """
     if isinstance(box, (Bra, Ket)):
@@ -357,13 +360,11 @@ def gate2zx(box):
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
-        s = scalar(2 ** 0.5)
         return Z(1, 2) @ Z(1, 2, box.phase / 2)\
-            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase / 2)) @ Id(1) @ s
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase / 2)) @ Id(1) @ root2
     if isinstance(box, Controlled) and box.name.startswith('CRx'):
-        s = scalar(2 ** 0.5)
         return X(1, 2) @ X(1, 2, box.phase / 2)\
-            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase / 2)) @ Id(1) @ s
+            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase / 2)) @ Id(1) @ root2
     if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
@@ -380,8 +381,8 @@ def gate2zx(box):
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         quantum.S: Z(1, 1, .25),
         quantum.T: Z(1, 1, .125),
-        CZ: Z(1, 2) @ Id(1) >> Id(1) @ H @ Id(1) >> Id(1) @ Z(2, 1),
-        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ H @ Id(1) >> Id(1) @ Z(2, 1) @ root2,
+        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ root2}
     return standard_gates[box]
 
 
