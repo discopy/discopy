@@ -37,13 +37,10 @@ def test_repeat():
 
 def test_autotyping():
     import torch
-    import tensorflow as tf
     assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float64
     assert Matrix([0.5j], dom=1, cod=1).dtype == np.complex128
     with backend('jax'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == np.float32
     with backend('pytorch'):
         assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == torch.float32
-    with backend('tensorflow'):
-        assert Matrix([0.5, 0.5], dom=1, cod=2).dtype == tf.float64
 

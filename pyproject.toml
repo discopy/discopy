@@ -44,7 +44,6 @@ test = [
     "pytket",
     "pyzx >= 0.7.0",
     "sympy == 1.9",
-    "tensorflow",
     "tensornetwork",
     "jax",
     "jaxlib",

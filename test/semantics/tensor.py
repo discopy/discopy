@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 import tensornetwork as tn
 from pytest import raises
@@ -8,26 +10,16 @@ from discopy import frobenius
 
 
 def test_backend():
+    
     import jax.numpy
     import torch
-    import tensorflow.experimental.numpy as tnp
     assert isinstance(Tensor.id().array, np.ndarray)
     with backend('jax'):
         assert isinstance(Tensor.id().array, jax.numpy.ndarray)
         with backend('pytorch'):
             assert isinstance(Tensor.id().array, torch.Tensor)
-            with backend('tensorflow'):
-                assert isinstance(Tensor.id().array, tnp.ndarray)
-            assert isinstance(Tensor.id().array, torch.Tensor)
         assert isinstance(Tensor.id().array, jax.numpy.ndarray)
     assert isinstance(Tensor.id().array, np.ndarray)
-
-
-def test_Tensor_repr_with_tf():
-    with backend('tensorflow'):
-        alice = Tensor([1, 2], Dim(1), Dim(2))
-        assert repr(alice)\
-            == "Tensor[<dtype: 'int64'>]([1, 2], dom=Dim(1), cod=Dim(2))"
 
 
 def test_Dim():
