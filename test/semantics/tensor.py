@@ -1,5 +1,3 @@
-import sys
-
 import numpy as np
 import tensornetwork as tn
 from pytest import raises
@@ -10,7 +8,6 @@ from discopy import frobenius
 
 
 def test_backend():
-    
     import jax.numpy
     import torch
     assert isinstance(Tensor.id().array, np.ndarray)
