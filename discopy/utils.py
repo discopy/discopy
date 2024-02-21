@@ -144,7 +144,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
     def __class_getitem__(_, attributes):
         if not isinstance(attributes, tuple):
             attributes = (attributes,)
-        
+
         G = Generic.__class_getitem__(tuple(map(TypeVar, attributes)))
 
         class Result(G):
