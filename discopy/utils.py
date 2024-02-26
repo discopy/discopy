@@ -145,7 +145,9 @@ class NamedGeneric(Generic[TypeVar('T')]):
         if not isinstance(attributes, tuple):
             attributes = (attributes,)
 
-        class Result(Generic[TypeVar(attributes)]):
+        G = Generic.__class_getitem__(tuple(map(TypeVar, attributes)))
+
+        class Result(G):
             def __class_getitem__(cls, values):
                 if hasattr(cls, "__is_named_generic__"):
                     cls = cls.__bases__[0]
