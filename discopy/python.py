@@ -229,7 +229,9 @@ class Function(Composable[Ty], Whiskerable):
             n : The number of types to trace over.
         """
         if left:
-            raise NotImplementedError
+            dom, cod, traced = self.dom[n:], self.cod[n:], self.dom[:n]
+            swapped = self.swap(dom, traced) >> self >> self.swap(traced, cod)
+            return swapped.trace(n)
         dom, cod, traced = self.dom[:-n], self.cod[:-n], self.dom[-n:]
         fixed = (self >> self.discard(cod) @ traced).fix()
         return self.copy(dom) >> dom @ fixed\
