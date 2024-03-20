@@ -37,6 +37,7 @@ You should run the following commands from a clean clone of the repo:
 
 ```shell
 pip install twine
+pip install 'build<0.10.0'
 git tag X.X.X
 git push origin --tags
 python -m build
