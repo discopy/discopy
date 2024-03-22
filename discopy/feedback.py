@@ -25,15 +25,16 @@ Summary
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, symmetric, messages
-from discopy.utils import factory, factory_name, assert_isinstance
+from discopy import cat, monoidal, symmetric
+from discopy.utils import factory, factory_name, assert_isinstance, AxiomError
 
 
 class Ob(cat.Ob):
     """ A feedback object is an object with a `time_step`. """
     def __init__(self, name: str, time_step: int = 0):
         assert_isinstance(time_step, int)
-        if time_step < 0: raise NotImplementedError
+        if time_step < 0:
+            raise NotImplementedError
         self.time_step = time_step
         super().__init__(name)
 
@@ -151,12 +152,15 @@ class Feedback(monoidal.Bubble, Box):
     to_drawing = symmetric.Trace.to_drawing
 
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
-        if left: raise NotImplementedError
+        if left:
+            raise NotImplementedError
         mem = arg.cod[-1:] if mem is None else mem
         dom = arg.dom[:-len(mem)] if dom is None else dom
         cod = arg.cod[:-len(mem)] if cod is None else cod
-        if arg.dom != dom @ mem.delay(): raise AxiomError
-        if arg.cod != cod @ mem: raise AxiomError
+        if arg.dom != dom @ mem.delay():
+            raise AxiomError
+        if arg.cod != cod @ mem:
+            raise AxiomError
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom, cod)
         Box.__init__(self, self.name, dom, cod)

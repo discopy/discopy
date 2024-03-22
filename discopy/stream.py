@@ -115,7 +115,10 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             mem = self.dom[-1:]
             dom = self.dom[:-1]
             cod = self.cod[:-1]
-        elif mem is None: raise NotImplementedError
-        if self.dom.now != dom.now: raise AxiomError
-        if self.cod.now != cod.now + mem.now: raise AxiomError
+        elif mem is None:
+            raise NotImplementedError
+        if self.dom.now != dom.now:
+            raise AxiomError
+        if self.cod.now != cod.now + mem.now:
+            raise AxiomError
         type(self)(dom, cod, self.mem @ mem, self.now, self.later)
