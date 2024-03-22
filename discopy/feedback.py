@@ -147,7 +147,11 @@ class Feedback(monoidal.Bubble, Box):
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
-    >>> Box('f', x @ y.delay(), x @ y).feedback().draw()
+    >>> Box('f', x @ y.delay(), x @ y).feedback().draw(
+    ...     path="docs/_static/feedback/feedback-example.png")
+
+    .. image:: /_static/feedback/feedback-example.png
+        :align: center
     """
     to_drawing = symmetric.Trace.to_drawing
 
