@@ -18,13 +18,16 @@ class Ty(NamedGeneric['base']):
     base = symmetric.Ty
 
     now: base = None
-    later: Callable[[], Ty[base]] = None
+    _later: Callable[[], Ty[base]] = None
 
-    def __init__(self, now: base = None, later: Callable[[], Ty[base]] = None):
+    def __init__(self, now: base = None, _later: Callable[[], Ty[base]] = None):
         now = now if isinstance(now, self.base) else (
             self.base() if now is None else self.base(now))
-        later = (lambda: self) if later is None else later
-        self.now, self.later = now, later
+        self.now, self._later = now, _later
+    
+    @property
+    def later(self):
+        return self._later or (lambda: self)
 
     @classmethod
     def constant(cls, x: base):
@@ -69,15 +72,15 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     cod: ty_factory
     mem: ty_factory
     now: category.ar
-    later: Callable[[], Stream[category]] = None
+    _later: Callable[[], Stream[category]] = None
 
     def __init__(
             self, dom: ty_factory, cod: ty_factory, mem: ty_factory,
-            now: category.ar, later: Callable[[], Stream[category]] = None):
+            now: category.ar, _later: Callable[[], Stream[category]] = None):
         assert_isinstance(now, self.category.ar)
-        if later is None:
+        if _later is None:
             dom, cod = map(Ty[self.category.ob], (now.dom, now.cod))
-            later, mem = (lambda: self), Ty[self.category.ob]()
+            mem = Ty[self.category.ob]()
         assert_isinstance(dom, Ty[self.category.ob])
         assert_isinstance(cod, Ty[self.category.ob])
         assert_isinstance(mem, Ty[self.category.ob])
@@ -86,11 +89,15 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         if now.cod != cod.now + mem.now:
             raise AxiomError
         self.dom, self.cod, self.mem = dom, cod, mem
-        self.now, self.later = now, later
+        self.now, self._later = now, _later
+    
+    @property
+    def later(self):
+        return self._later or (lambda: self)
 
     @classmethod
     def constant(cls, diagram: category.ar) -> Stream:
-        return cls(dom=None, cod=None, mem=None, now=diagram, later=None)
+        return cls(dom=None, cod=None, mem=None, now=diagram, _later=None)
 
     def delay(self) -> Stream:
         dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]

@@ -191,8 +191,8 @@ class Copy(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        super().__init__(name=f"Copy({x}, {n})", dom=x, cod=x ** n,
-                         draw_as_spider=True, color="black", drawing_name="")
+        Box.__init__(self, name=f"Copy({x}, {n})", dom=x, cod=x ** n,
+                     draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Merge:
         return Merge(self.dom, len(self.cod))
@@ -208,8 +208,8 @@ class Merge(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        super().__init__(name=f"Merge({x}, {n})", dom=x ** n, cod=x,
-                         draw_as_spider=True, color="black", drawing_name="")
+        Box.__init__(self, name=f"Merge({x}, {n})", dom=x ** n, cod=x,
+                     draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Merge:
         return Copy(self.cod, len(self.dom))
