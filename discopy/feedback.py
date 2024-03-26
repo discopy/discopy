@@ -37,33 +37,41 @@ from discopy.utils import (
 
 
 class Ob(cat.Ob):
-    """ A feedback object is an object with a `time_step`. """
-    def __init__(self, name: str, time_step: int = 0):
+    """
+    A feedback object is an object with a `time_step` and an optional argument
+    `is_constant` for whether the object is interpreted as a constant stream.
+    """
+    def __init__(
+            self, name: str, time_step: int = 0, is_constant: bool = True):
         assert_isinstance(time_step, int)
+        assert_isinstance(is_constant, bool)
         if time_step < 0:
             raise NotImplementedError
-        self.time_step = time_step
+        self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
 
     def delay(self, n_steps=1):
-        return type(self)(self.name, self.time_step + n_steps)
+        return Ob(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
-    def head(self):
-        """ Syntactic sugar for :class:`Head`. """
-        return Head(self)
+    def head(self) -> Head | None:
+        """ Syntactic sugar for :class:`Head` or `None` if self is delayed. """
+        return None if self.time_step else Head(self)
 
     @property
-    def tail(self):
-        """ Syntactic sugar for :class:`Tail`. """
-        return Tail(self)
+    def tail(self) -> Ob | None:
+        """ Syntactic sugar for :class:`Tail` or `self` if `is_constant`. """
+        return self.delay(-1) if self.time_step > 0 else (
+            self if self.is_constant else Tail(self))
 
     def reset(self) -> Ob:
-        return type(self)(self.name)
+        return Ob(self.name, self.is_constant)
 
     def __repr__(self):
-        time_step = "" if not self.time_step else f", {self.time_step}"
-        return factory_name(type(self)) + f"({repr(self.name)}{time_step})"
+        time_step = f", time_step={self.time_step}" if self.time_step else ""
+        is_constant = "" if self.is_constant else f", is_constant=False"
+        return factory_name(type(self)
+            ) + f"({repr(self.name)}{time_step}{is_constant})"
 
     def __str__(self, _super=cat.Ob):
         result = _super.__str__(self)
@@ -75,42 +83,71 @@ class Ob(cat.Ob):
 
 
 class Head(Ob):
-    """ The head of a feedback object, i.e. the first element of a stream. """
-    def __init__(self, arg: Ob):
+    """
+    The head of a feedback object, interpreted as the first element of a stream
+    followed by the constant stream on the empty type.
+
+    Note the object `arg: Ob` cannot be itself a `Head` or be delayed.
+    """
+    def __init__(self, arg: Ob, time_step: int = 0):
+        assert_isinstance(arg, Ob)
+        if isinstance(arg, Head) or arg.time_step:
+            return ValueError
         self.arg = arg
-        super().__init__(name=f"{arg}.head")
-    
+        super().__init__(f"{arg}.head", time_step, is_constant=False)
+
     def __repr__(self):
-        return factory_name(type(self)) + f"({repr(self.arg)})"
-    
+        time_step = f", time_step={self.time_step}" if self.time_step else ""
+        return factory_name(type(self)) + f"({repr(self.arg)}{time_step})"
+
     def delay(self, n_steps=1):
-        return type(self)(self.arg.delay(n_steps))
+        return type(self)(self.arg, self.time_step + n_steps)
+
+    def reset(self) -> Head:
+        return type(self)(self.arg)
+
+    @property
+    def head(self):
+        return None if self.time_step else self
+
+    @property
+    def tail(self):
+        return self.delay(-1) if self.time_step else None
 
 
 class Tail(Ob):
-    """ The tail of a feedback object, i.e. the last elements of a stream. """
-    def __init__(self, arg: Ob):
+    """
+    The tail of a non-constant feedback object, interpreted as the stream
+    starting from the second time step.
+    """
+    def __init__(self, arg: Ob, time_step: int = 0):
+        assert_isinstance(arg, Ob)
+        if isinstance(arg, Head) or arg.is_constant or arg.time_step > 0:
+            return ValueError
         self.arg = arg
-        super().__init__(name=f"{arg}.tail")
-    
-    delay, __repr__ = Head.delay, Head.__repr__
+        super().__init__(f"{arg}.tail", time_step, is_constant=False)
+
+    delay, reset, __repr__ = Head.delay, Head.reset, Head.__repr__
 
 
 @factory
 class Ty(monoidal.Ty):
-    """ A feedback type is a monoidal type with `delay` method. """
+    """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
     ob_factory = Ob
 
     def delay(self, n_steps=1):
+        """ The delay of a feedback type by `n_steps`. """
         return type(self)(*tuple(x.delay(n_steps) for x in self.inside))
-    
+
     @property
     def head(self):
-        return type(self)(*(x.head for x in self.inside))
-    
+        """ The head of a feedback type, see :class:`Head`. """
+        return type(self)(*(x.head for x in self.inside if x.head))
+
     @property
     def tail(self):
-        return type(self)(*(x.tail for x in self.inside))
+        """ The tail of a feedback type, see :class:`Tail`. """
+        return type(self)(*(x.tail for x in self.inside if x.tail))
 
 
 class Layer(monoidal.Layer):
@@ -130,6 +167,20 @@ class Diagram(markov.Diagram):
         inside(monoidal.Layer) : The layers inside the diagram.
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
+
+    Example
+    -------
+    >>> x = Ty('x')
+    >>> zero = Box('0', Ty(), x.head)
+    >>> rand = Box('rand', Ty(), x)
+    >>> plus = Box('+', x @ x, x)
+    >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
+    ...         >> FollowedBy(x) >> Copy(x)).feedback()
+    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.png",
+    ...           figsize=(5, 5), margins=(0.25, 0.01))
+
+    .. image:: /_static/feedback/feedback-random-walk.png
+        :align: center
     """
     ty_factory = Ty
     layer_factory = Layer
@@ -141,6 +192,11 @@ class Diagram(markov.Diagram):
 
     def feedback(self, dom=None, cod=None, mem=None):
         return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
+
+    @classmethod
+    def wait(cls, dom: Ty) -> Diagram:
+        """ Wait one time step, i.e. `Swap(x, x.delay()).feedback()` """
+        return cls.swap(dom, dom.delay()).feedback()
 
 
 class Box(markov.Box, Diagram):
@@ -249,13 +305,13 @@ class Feedback(monoidal.Bubble, Box):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
 
 
-class After(Box):
-    """ The operation that takes `x.head @ x.tail.delay()` and returns `x`. """ 
+class FollowedBy(Box):
+    """ The isomorphism between `x.head @ x.tail.delay()` and `x`. """
     def __init__(self, cod: Ty, is_dagger=False):
         dom, cod = cod.head @ cod.tail.delay(), cod
         dom, cod = (cod, dom) if is_dagger else (dom, cod)
-        super().__init__(f"After({cod})", dom, cod, is_dagger=is_dagger)
-    
+        super().__init__(f"FollowedBy({cod})", dom, cod, is_dagger=is_dagger)
+
     def delay(self, n_steps=1):
         arg = self.dom if self.is_dagger else self.cod
         return type(self)(arg.delay(n_steps), self.is_dagger)
@@ -287,20 +343,21 @@ class Functor(markov.Functor):
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
-        if isinstance(other, Head):
-            return self(other.arg).head
-        if isinstance(other, Tail):
-            return self(other.arg).tail
-        if isinstance(other, After):
-            return self.cod.ar.after(self(other.arg))
-        if isinstance(other, Feedback):
-            dom, cod, mem = map(self, (other.dom, other.cod, other.mem))
-            return self(other.arg).feedback(dom=dom, cod=cod, mem=mem)
         if isinstance(other, (Ob, Box)) and other.time_step:
             result = self(other.reset())
             for _ in range(other.time_step):
                 result = result.delay()
             return result
+        if isinstance(other, Head):
+            return self(other.arg).head
+        if isinstance(other, Tail):
+            return self(other.arg).tail
+        if isinstance(other, FollowedBy):
+            arg = other.dom if other.is_dagger else other.cod
+            return self.cod.ar.followed_by(self(arg))
+        if isinstance(other, Feedback):
+            dom, cod, mem = map(self, (other.dom, other.cod, other.mem))
+            return self(other.arg).feedback(dom=dom, cod=cod, mem=mem)
         return super().__call__(other)
 
 
