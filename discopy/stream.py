@@ -126,11 +126,23 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return type(self)(dom, cod, mem, now, later.later)
 
     @classmethod
-    def id(cls, x: Ty) -> Stream: ...
-    def then(self, *others: Stream) -> Stream: ...
-    def tensor(self, *others: Stream) -> Stream: ...
+    def id(cls, x: Ty) -> Stream:
+        raise NotImplementedError
+
+    def then(self, *others: Stream) -> Stream:
+        raise NotImplementedError
+
+    def tensor(self, *others: Stream) -> Stream:
+        raise NotImplementedError
+
     @classmethod
-    def swap(cls, left: Ty, right: Ty) -> Stream: ...
+    def swap(cls, left: Ty, right: Ty) -> Stream:
+        raise NotImplementedError
+
+    @classmethod
+    def copy(cls, dom: Ty, n: int = 2) -> Stream:
+        raise NotImplementedError
+
 
     def feedback(
             self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
