@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from discopy import cat, monoidal, markov
 from discopy.utils import (
-    factory, factory_name, assert_isinstance, AxiomError, assert_isatomic)
+    factory, factory_name, assert_isinstance, AxiomError)
 
 
 class Ob(cat.Ob):
@@ -68,14 +68,15 @@ class Ob(cat.Ob):
         return Ob(self.name, self.is_constant)
 
     def __eq__(self, other):
-        return super().__eq__(other) and (self.time_step, self.is_constant
-            ) == (other.time_step, other.is_constant)
+        return (
+            super().__eq__(other) and self.time_step == other.time_step
+            and self.is_constant == other.is_constant)
 
     def __repr__(self):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
-        is_constant = "" if self.is_constant else f", is_constant=False"
-        return factory_name(type(self)
-            ) + f"({repr(self.name)}{time_step}{is_constant})"
+        is_constant = "" if self.is_constant else ", is_constant=False"
+        return factory_name(
+            type(self)) + f"({repr(self.name)}{time_step}{is_constant})"
 
     def __str__(self, _super=cat.Ob):
         result = _super.__str__(self)
@@ -262,7 +263,7 @@ class Copy(markov.Copy, Box):
         x : The type to copy.
         n : The number of copies.
     """
-    def __init__(self, x: feedback.Ty, n: int = 2):
+    def __init__(self, x: Ty, n: int = 2):
         markov.Copy.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
 
@@ -278,7 +279,7 @@ class Merge(markov.Merge, Box):
         x : The type of wires to merge.
         n : The number of wires to merge.
     """
-    def __init__(self, x: feedback.Ty, n: int = 2):
+    def __init__(self, x: Ty, n: int = 2):
         markov.Merge.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
 
@@ -376,25 +377,26 @@ class Functor(markov.Functor):
     -------
     Let's compute the Fibonacci sequence as a stream of Python functions:
 
-    >>> x = Ty('int')
-    >>> zero, one = Box('0', Ty(), x.head), Box('1', Ty(), x.head)
-    >>> plus = Box('+', x @ x, x)
-    >>> fib = ((Copy(x) >> one @ Diagram.wait(x) @ x
-    ...          >> FollowedBy(x) @ x >> plus).delay()
-    ...         >> zero @ x.delay() >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> fib.draw(draw_type_labels=False, figsize=(5, 5),
-    ...          path="docs/_static/feedback/feedback-fibonacci.png")
+x = Ty('int')
+zero, one = Box('0', Ty(), x.head), Box('1', Ty(), x.head)
+plus = Box('+', x @ x, x)
+fib = ((Copy(x) >> one @ Diagram.wait(x) @ x
+         >> FollowedBy(x) @ x >> plus).delay()
+        >> zero @ x.delay() >> FollowedBy(x) >> Copy(x)).feedback()
+fib.draw(draw_type_labels=False, figsize=(5, 5),
+         path="docs/_static/feedback/feedback-fibonacci.png")
+
+from discopy import stream, python
+F = Functor(
+    ob={x: int},
+    ar={zero: lambda: 0, one: lambda: 1,
+        plus: lambda x, y: x + y},
+    cod=stream.Category(python.Ty, python.Function))
+assert F(fib).unroll(5).now() == (0, 1, 1, 2, 3)
 
     .. image:: /_static/feedback/feedback-fibonacci.png
         :align: center
 
-    >>> from discopy import stream, python
-    >>> F = Functor(
-    ...     ob={x: int},
-    ...     ar={zero: lambda: 0, one: lambda: 1,
-    ...         plus: lambda x, y: x + y},
-    ...     cod=stream.Category(python.Ty, python.Function))
-    >>> F(fib).unroll(5).now()
     (0, 1, 1, 2, 3)
     """
     dom = cod = Category(Ty, Diagram)

@@ -20,7 +20,8 @@ class Ty(NamedGeneric['base']):
     now: base = None
     _later: Callable[[], Ty[base]] = None
 
-    def __init__(self, now: base = None, _later: Callable[[], Ty[base]] = None):
+    def __init__(
+            self, now: base = None, _later: Callable[[], Ty[base]] = None):
         now = now if isinstance(now, self.base) else (
             self.base() if now is None else self.base(now))
         self.now, self._later = now, _later
@@ -77,8 +78,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def __init__(
             self, now: category.ar, dom: ty_factory, cod: ty_factory,
             mem: ty_factory, _later: Callable[[], Stream[category]] = None):
-        now = now if isinstance(now, self.category.ar
-            ) else self.category.ar(now, dom, cod)
+        now = now if isinstance(
+            now, self.category.ar) else self.category.ar(now, dom, cod)
         assert_isinstance(now, self.category.ar)
         if _later is None:
             dom, cod = map(Ty[self.category.ob], (now.dom, now.cod))
