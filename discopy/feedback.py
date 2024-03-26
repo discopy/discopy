@@ -300,21 +300,34 @@ class Feedback(monoidal.Bubble, Box):
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom, cod)
         Box.__init__(self, self.name, dom, cod)
+        mem_name = "" if len(mem) == 1 else f"mem={mem}"
+        self.name = f"({self.arg}).feedback({mem_name})"
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
 
+    __str__ = Box.__str__
+
 
 class FollowedBy(Box):
     """ The isomorphism between `x.head @ x.tail.delay()` and `x`. """
-    def __init__(self, cod: Ty, is_dagger=False):
+    def __init__(self, cod: Ty, is_dagger=False, time_step=0):
+        dagger_name = ", is_dagger=True" if is_dagger else ""
+        name = f"FollowedBy({cod}{dagger_name})"
         dom, cod = cod.head @ cod.tail.delay(), cod
         dom, cod = (cod, dom) if is_dagger else (dom, cod)
-        super().__init__(f"FollowedBy({cod})", dom, cod, is_dagger=is_dagger)
+        dom, cod = [x.delay(time_step) for x in (dom, cod)]
+        super().__init__(name, dom, cod, time_step, is_dagger=is_dagger)
+
+    def __repr__(self):
+        arg = self.dom if self.is_dagger else self.cod
+        is_dagger = ", is_dagger=True" if self.is_dagger else ""
+        time_step = f", time_step={self.time_step}" if self.time_step else ""
+        return f"FollowedBy({repr(arg)}{is_dagger}{time_step})"
 
     def delay(self, n_steps=1):
         arg = self.dom if self.is_dagger else self.cod
-        return type(self)(arg.delay(n_steps), self.is_dagger)
+        return type(self)(arg, self.is_dagger, self.time_step + n_steps)
 
 
 class Category(markov.Category):
@@ -339,6 +352,27 @@ class Functor(markov.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
             The codomain, :code:`Category(Ty, Diagram)` by default.
+
+    Example
+    -------
+    Let's compute the Fibonacci sequence as a stream of Python functions:
+
+    >>> x = Ty('int')
+    >>> zero, one = Box('0', Ty(), x.head), Box('1', Ty(), x.head)
+    >>> plus = Box('+', x @ x, x)
+    >>> fib = (Copy(x) >> (one @ Diagram.wait(x)).delay() @ x
+    ...        >> FollowedBy(x).delay() @ x >> zero @ plus.delay()
+    ...        >> FollowedBy(x) >> Copy(x)).feedback()
+    >>> fib.draw()
+
+    >>> from discopy import stream, python
+    >>> F = Functor(
+    ...     ob={x: int},
+    ...     ar={zero: lambda: 0, one: lambda: 1,
+    ...         plus: lambda x, y: x + y},
+    ...     cod=stream.Category(python.Ty, python.Function)}
+    >>> F(fib).unroll(5).now()
+    (0, 1, 1, 2, 3)
     """
     dom = cod = Category(Ty, Diagram)
 

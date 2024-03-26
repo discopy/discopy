@@ -24,7 +24,7 @@ class Ty(NamedGeneric['base']):
         now = now if isinstance(now, self.base) else (
             self.base() if now is None else self.base(now))
         self.now, self._later = now, _later
-    
+
     @property
     def later(self):
         return self._later or (lambda: self)
@@ -75,8 +75,10 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     _later: Callable[[], Stream[category]] = None
 
     def __init__(
-            self, dom: ty_factory, cod: ty_factory, mem: ty_factory,
-            now: category.ar, _later: Callable[[], Stream[category]] = None):
+            self, now: category.ar, dom: ty_factory, cod: ty_factory,
+            mem: ty_factory, _later: Callable[[], Stream[category]] = None):
+        now = now if isinstance(now, self.category.ar
+            ) else self.category.ar(now, dom, cod)
         assert_isinstance(now, self.category.ar)
         if _later is None:
             dom, cod = map(Ty[self.category.ob], (now.dom, now.cod))
@@ -90,7 +92,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             raise AxiomError
         self.dom, self.cod, self.mem = dom, cod, mem
         self.now, self._later = now, _later
-    
+
     @property
     def later(self):
         return self._later or (lambda: self)
@@ -104,7 +106,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         now, later = self.category.ar.id(), lambda: self
         return type(self)(dom, cod, mem, now, later)
 
-    def unroll(self) -> Stream:
+    def unroll(self, n_steps=1) -> Stream:
+        assert_isinstance(n_steps, int)
+        if n_steps < 0:
+            raise ValueError
+        if n_steps == 0:
+            return self
+        if n_steps > 1:
+            return self.unroll().unroll(n_steps - 1)
         later = self.later()
         dom, cod, mem = self.dom.unroll(), self.cod.unroll(), later.mem
         now = self.now @ later.dom.now >> self.cod.now @ self.category.ar.swap(
@@ -129,3 +138,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         if self.cod.now != cod.now + mem.now:
             raise AxiomError
         type(self)(dom, cod, self.mem @ mem, self.now, self.later)
+
+
+@dataclass
+class Category(symmetric.Category):
+    def __init__(self, ob: type, ar: type):
+        super().__init__(Ty[ob], Stream[ar])
