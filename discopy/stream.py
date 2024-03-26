@@ -4,6 +4,7 @@ from typing import Callable
 from dataclasses import dataclass
 
 from discopy import symmetric
+from discopy.python import is_tuple
 from discopy.utils import (
     AxiomError, Composable, Whiskerable, NamedGeneric,
     assert_isinstance, unbiased)
@@ -22,7 +23,10 @@ class Ty(NamedGeneric['base']):
 
     def __init__(
             self, now: base = None, _later: Callable[[], Ty[base]] = None):
-        now = now if isinstance(now, self.base) else (
+        if is_tuple(self.base) and not isinstance(now, tuple):
+            now = (now, )
+        origin = getattr(self.base, "__origin__", self.base)
+        now = now if isinstance(now, origin) else (
             self.base() if now is None else self.base(now))
         self.now, self._later = now, _later
 
@@ -51,7 +55,7 @@ class Ty(NamedGeneric['base']):
     @unbiased
     def tensor(self, other: Ty) -> Ty:
         return type(self)(
-            self.now @ other.now, lambda: self.later() @ other.later())
+            self.now + other.now, lambda: self.later() + other.later())
 
     __add__ = __matmul__ = symmetric.Ty.__matmul__
 
