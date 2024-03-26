@@ -20,3 +20,9 @@ from discopy.quantum.gates import (
     Rx, Ry, Rz, CU1, CRz, CRx, CZ, CX,
     X, Y, Z, H, S, T, scalar, sqrt,
 )
+
+# Backward compatibility with pickles from DisCoPy v0.6
+circuit.Discard = Discard
+circuit.Measure = Measure
+circuit.Encode = Encode
+circuit.MixedState = MixedState

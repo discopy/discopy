@@ -127,6 +127,12 @@ class Digit(Ob):
         name = "bit" if dim == 2 else f"Digit({dim})"
         super().__init__(name, dim)
 
+    def __setstate__(self, state):
+        if "_dim" in state:
+            state["dim"] = state["_dim"]
+            del state["_dim"]
+        super(type(self), self).__setstate__(state)
+
 
 class Qudit(Ob):
     """
@@ -142,12 +148,8 @@ class Qudit(Ob):
     def __init__(self, dim, z=0):
         name = "qubit" if dim == 2 else f"Qudit({dim})"
         super().__init__(name, dim)
-
-    def __setstate__(self, state):
-        if "_dim" in state:
-            state["dim"] = state["_dim"]
-            del state["_dim"]
-        super().__setstate__(state)
+    
+    __setstate__ = Digit.__setstate__
 
 
 @factory
