@@ -148,7 +148,6 @@ class Qudit(Ob):
     def __init__(self, dim, z=0):
         name = "qubit" if dim == 2 else f"Qudit({dim})"
         super().__init__(name, dim)
-    
     __setstate__ = Digit.__setstate__
 
 
