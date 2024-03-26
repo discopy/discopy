@@ -67,6 +67,10 @@ class Ob(cat.Ob):
     def reset(self) -> Ob:
         return Ob(self.name, self.is_constant)
 
+    def __eq__(self, other):
+        return super().__eq__(other) and (self.time_step, self.is_constant
+            ) == (other.time_step, other.is_constant)
+
     def __repr__(self):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         is_constant = "" if self.is_constant else f", is_constant=False"
@@ -226,7 +230,12 @@ class Box(markov.Box, Diagram):
         dom, cod = self.dom.reset(), self.cod.reset()
         return type(self)(self.name, dom, cod, **self._params)
 
-    __str__ = lambda self: Ob.__str__(self, _super=markov.Box)
+    def __str__(self):
+        return Ob.__str__(self, _super=markov.Box)
+
+    def __repr__(self):
+        time_step = f", time_step={self.time_step}" if self.time_step else ""
+        return super().__repr__()[:-1] + time_step + ")"
 
 
 class Swap(markov.Swap, Box):
@@ -257,6 +266,9 @@ class Copy(markov.Copy, Box):
         markov.Copy.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
 
+    def delay(self, n_steps=1):
+        return type(self)(self.dom.delay(n_steps), len(self.cod))
+
 
 class Merge(markov.Merge, Box):
     """
@@ -269,6 +281,9 @@ class Merge(markov.Merge, Box):
     def __init__(self, x: feedback.Ty, n: int = 2):
         markov.Merge.__init__(self, x, n)
         Box.__init__(self, self.name, self.dom, self.cod)
+
+    def delay(self, n_steps=1):
+        return type(self)(self.cod.delay(n_steps), len(self.dom))
 
 
 class Feedback(monoidal.Bubble, Box):
@@ -306,6 +321,10 @@ class Feedback(monoidal.Bubble, Box):
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
 
+    def __repr__(self):
+        arg, mem = map(repr, (self.arg, self.mem))
+        return factory_name(type(self)) + f"({arg}, mem={mem})"
+
     __str__ = Box.__str__
 
 
@@ -320,7 +339,7 @@ class FollowedBy(Box):
         super().__init__(name, dom, cod, time_step, is_dagger=is_dagger)
 
     def __repr__(self):
-        arg = self.dom if self.is_dagger else self.cod
+        arg = (self.dom if self.is_dagger else self.cod).delay(-self.time_step)
         is_dagger = ", is_dagger=True" if self.is_dagger else ""
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return f"FollowedBy({repr(arg)}{is_dagger}{time_step})"
@@ -360,17 +379,21 @@ class Functor(markov.Functor):
     >>> x = Ty('int')
     >>> zero, one = Box('0', Ty(), x.head), Box('1', Ty(), x.head)
     >>> plus = Box('+', x @ x, x)
-    >>> fib = (Copy(x) >> (one @ Diagram.wait(x)).delay() @ x
-    ...        >> FollowedBy(x).delay() @ x >> zero @ plus.delay()
-    ...        >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> fib.draw()
+    >>> fib = ((Copy(x) >> one @ Diagram.wait(x) @ x
+    ...          >> FollowedBy(x) @ x >> plus).delay()
+    ...         >> zero @ x.delay() >> FollowedBy(x) >> Copy(x)).feedback()
+    >>> fib.draw(draw_type_labels=False, figsize=(5, 5),
+    ...          path="docs/_static/feedback/feedback-fibonacci.png")
+
+    .. image:: /_static/feedback/feedback-fibonacci.png
+        :align: center
 
     >>> from discopy import stream, python
     >>> F = Functor(
     ...     ob={x: int},
     ...     ar={zero: lambda: 0, one: lambda: 1,
     ...         plus: lambda x, y: x + y},
-    ...     cod=stream.Category(python.Ty, python.Function)}
+    ...     cod=stream.Category(python.Ty, python.Function))
     >>> F(fib).unroll(5).now()
     (0, 1, 1, 2, 3)
     """

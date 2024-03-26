@@ -77,7 +77,7 @@ from __future__ import annotations
 from discopy import symmetric, monoidal, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import Ty
-from discopy.utils import assert_isatomic
+from discopy.utils import assert_isatomic, factory_name
 
 
 @factory
@@ -191,11 +191,16 @@ class Copy(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        Box.__init__(self, name=f"Copy({x}, {n})", dom=x, cod=x ** n,
+        name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
+        Box.__init__(self, name, dom=x, cod=x ** n,
                      draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Merge:
         return Merge(self.dom, len(self.cod))
+
+    def __repr__(self):
+        return (
+            factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
 
 
 class Merge(Box):
@@ -208,11 +213,16 @@ class Merge(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        Box.__init__(self, name=f"Merge({x}, {n})", dom=x ** n, cod=x,
+        name = f"Merge({x}" + ("" if n == 2 else f", {n}") + ")"
+        Box.__init__(self, name, dom=x ** n, cod=x,
                      draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Merge:
         return Copy(self.cod, len(self.dom))
+
+    def __repr__(self):
+        return (
+            factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
 
 
 class Sum(symmetric.Sum, Box):
