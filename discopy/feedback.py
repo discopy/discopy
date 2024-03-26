@@ -65,7 +65,7 @@ class Ob(cat.Ob):
             self if self.is_constant else Tail(self))
 
     def reset(self) -> Ob:
-        return Ob(self.name, self.is_constant)
+        return Ob(self.name, time_step=0, is_constant=self.is_constant)
 
     def __eq__(self, other):
         return (
@@ -348,6 +348,10 @@ class FollowedBy(Box):
     def delay(self, n_steps=1):
         arg = self.dom if self.is_dagger else self.cod
         return type(self)(arg, self.is_dagger, self.time_step + n_steps)
+
+    def reset(self):
+        arg = self.dom if self.is_dagger else self.cod
+        return type(self)(arg, self.is_dagger)
 
 
 class Category(markov.Category):
