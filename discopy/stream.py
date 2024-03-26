@@ -143,7 +143,6 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         raise NotImplementedError
 
-
     def feedback(
             self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
         if mem is None and hasattr(self.category.ob, "__getitem__"):
