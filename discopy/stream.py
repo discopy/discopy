@@ -23,7 +23,7 @@ Example
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Optional
 from dataclasses import dataclass
 
 from discopy import symmetric
@@ -104,26 +104,25 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     now: category.ar
     dom: ty_factory
     cod: ty_factory
-    mem: ty_factory
+    mem: category.ob
     _later: Callable[[], Stream[category]] = None
 
     def __init__(
             self, now: category.ar, dom: ty_factory, cod: ty_factory,
-            mem: ty_factory, _later: Callable[[], Stream[category]] = None):
-        now = now if isinstance(
-            now, self.category.ar) else self.category.ar(now, dom, cod)
+            mem_dom: category.ob, mem_cod: category.ob, _later: Callable[[], Stream[category]] = None):
         assert_isinstance(now, self.category.ar)
         if _later is None:
             dom, cod = map(Ty[self.category.ob], (now.dom, now.cod))
-            mem = Ty[self.category.ob]()
+            mem_dom = mem_cod = None
         assert_isinstance(dom, Ty[self.category.ob])
         assert_isinstance(cod, Ty[self.category.ob])
-        assert_isinstance(mem, Ty[self.category.ob])
-        if now.dom != dom.now:
+        assert_isinstance(mem_cod, self.category.ob)
+        if now.dom != dom.now + mem_dom:
             raise AxiomError
-        if now.cod != cod.now + mem.now:
+        if now.cod != cod.now + mem_cod:
             raise AxiomError
-        self.dom, self.cod, self.mem = dom, cod, mem
+        self.dom, self.cod = dom, cod
+        self.mem_dom, self.mem_cod = mem_dom, mem_cod
         self.now, self._later = now, _later
 
     @property
@@ -132,12 +131,19 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def constant(cls, diagram: category.ar) -> Stream:
-        return cls(dom=None, cod=None, mem=None, now=diagram, _later=None)
+        return cls(dom=None, cod=None, mem_dom=None, mem_cod=None, now=diagram, _later=None)
+
+    @classmethod
+    def singleton(cls, diagram: category.ar) -> Stream:
+        return cls(now=diagram, _later=lambda : cls.id(),
+                   dom=None, cod=None, mem_dom=None, mem_cod=None)
 
     def delay(self) -> Stream:
-        dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
+        if self.mem_dom != Ty[self.category.ob]():
+            raise AxiomError
+        dom, cod = [x.delay() for x in (self.dom, self.cod)]
         now, later = self.category.ar.id(), lambda: self
-        return type(self)(now, dom, cod, mem, later)
+        return type(self)(now, dom, cod, mem_dom=Ty[self.category.ob](), mem_cod=self.mem_dom, later)
 
     def unroll(self, n_steps=1) -> Stream:
         assert_isinstance(n_steps, int)
@@ -148,17 +154,20 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         if n_steps > 1:
             return self.unroll().unroll(n_steps - 1)
         later = self.later()
-        dom, cod, mem = self.dom.unroll(), self.cod.unroll(), later.mem
+        dom, cod, mem_dom, mem_cod = self.dom.unroll(), self.cod.unroll(), later.mem_dom, later.mem_cod
         now = self.now @ later.dom.now >> self.cod.now @ self.category.ar.swap(
-            self.mem.now, later.dom.now) >> self.cod.now @ later.now
-        return type(self)(now, dom, cod, mem, later.later)
+            self.mem_cod, later.dom.now) >> self.cod.now @ later.now
+        return type(self)(now, dom, cod, mem_dom, mem_cod, later.later)
 
     @classmethod
-    def id(cls, x: Ty) -> Stream:
-        raise NotImplementedError
+    def id(cls, x: Optional[Ty] = None) -> Stream:
+        _later = None if x._later is None else lambda : cls.id(x.later())
+        return cls(now=cls.category.ar.id(x.now), _later=_later, dom=x, cod=x,
+                   mem_dom=None, mem_cod=None)
 
     def then(self, *others: Stream) -> Stream:
-        raise NotImplementedError
+        now=self.now >> self.id()
+        return cls(now=now, _later=_later)
 
     def tensor(self, *others: Stream) -> Stream:
         raise NotImplementedError
