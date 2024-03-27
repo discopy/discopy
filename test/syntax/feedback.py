@@ -1,5 +1,12 @@
+from pytest import raises
+
 from discopy import *
 from discopy.feedback import *
+
+
+def test_invalid_inputs():
+    with raises(NotImplementedError):
+        Ty('x').delay(-1)
 
 
 def test_Diagram_repr():

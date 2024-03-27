@@ -27,7 +27,47 @@ Summary
 Axioms
 ------
 
->>>
+A feedback category is a symmetric monoidal category with a monoidal
+endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
+:meth:`Diagram.feedback` of the following shape:
+
+>>> from discopy.drawing import Equation
+
+>>> x, y, z = map(Ty, "xyz")
+>>> Box('f', x @ y.delay(), z @ y).feedback().draw(
+...     path="docs/_static/feedback/feedback-example.png")
+
+.. image:: /_static/feedback/feedback-example.png
+    :align: center
+
+such that the following equations are satisfied:
+
+* Vanishing
+
+>>> assert Box('f', x, y).feedback(mem=Ty()) == Box('f', x, y)
+
+* Joining
+
+>>> f = Box('f', x @ (y @ y).delay(), z @ y @ y)
+>>> assert f.feedback(mem=y @ y) == f.feedback().feedback()
+
+* Strength
+
+>>> f, g = Box('f', x @ y.delay(), z @ y), Box('g', x, y)
+>>> Equation(g @ f.feedback(), (g @ f).feedback()).draw(
+...     path='docs/_static/feedback/strength.png', draw_type_labels=False)
+
+.. image:: /_static/feedback/strength.png
+    :align: center
+
+* Sliding
+
+>>> h = Box('h', y, y)
+>>> Equation((f >> z @ h).feedback(), (x @ h.d >> f).feedback()).draw(
+...     path='docs/_static/feedback/sliding.png', draw_type_labels=False)
+
+.. image:: /_static/traced/sliding.png
+    :align: center
 
 """
 
@@ -53,6 +93,7 @@ class Ob(cat.Ob):
         super().__init__(name)
 
     def delay(self, n_steps=1):
+        """ The delay of a feedback object. """
         return Ob(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
@@ -83,10 +124,12 @@ class Ob(cat.Ob):
     def __str__(self, _super=cat.Ob):
         result = _super.__str__(self)
         if self.time_step == 1:
-            result += ".delay()"
+            result += ".d"
         elif self.time_step > 1:
             result += f".delay({self.time_step})"
         return result
+    
+    d = property(lambda self: self.delay())
 
 
 class Head(Ob):
@@ -193,17 +236,22 @@ class Diagram(markov.Diagram):
     layer_factory = Layer
 
     def delay(self, n_steps=1):
+        """ The delay of a feedback diagram. """
         dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
         inside = tuple(box.delay(n_steps) for box in self.inside)
         return type(self)(inside, dom, cod)
 
     def feedback(self, dom=None, cod=None, mem=None):
-        return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
+        if mem is None or len(mem) == 1:
+            return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
+        return self if not mem else self.feedback(mem=mem[:-1]).feedback()
 
     @classmethod
     def wait(cls, dom: Ty) -> Diagram:
         """ Wait one time step, i.e. `Swap(x, x.delay()).feedback()` """
         return cls.swap(dom, dom.delay()).feedback()
+
+    d = property(lambda self: self.delay())
 
 
 class Box(markov.Box, Diagram):
@@ -296,8 +344,8 @@ class Feedback(monoidal.Bubble, Box):
 
     Examples
     --------
-    >>> x, y = Ty('x'), Ty('y')
-    >>> Box('f', x @ y.delay(), x @ y).feedback().draw(
+    >>> x, y, z = map(Ty, "xyz")
+    >>> Box('f', x @ y.delay(), z @ y).feedback().draw(
     ...     path="docs/_static/feedback/feedback-example.png")
 
     .. image:: /_static/feedback/feedback-example.png
