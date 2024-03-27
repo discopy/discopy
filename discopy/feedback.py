@@ -382,28 +382,6 @@ class Functor(markov.Functor):
     Example
     -------
     Let's compute the Fibonacci sequence as a stream of Python functions:
-
-x = Ty('int')
-zero, one = Box('0', Ty(), x.head), Box('1', Ty(), x.head)
-plus = Box('+', x @ x, x)
-fib = ((Copy(x) >> one @ Diagram.wait(x) @ x
-         >> FollowedBy(x) @ x >> plus).delay()
-        >> zero @ x.delay() >> FollowedBy(x) >> Copy(x)).feedback()
-fib.draw(draw_type_labels=False, figsize=(5, 5),
-         path="docs/_static/feedback/feedback-fibonacci.png")
-
-from discopy import stream, python
-F = Functor(
-    ob={x: int},
-    ar={zero: lambda: 0, one: lambda: 1,
-        plus: lambda x, y: x + y},
-    cod=stream.Category(python.Ty, python.Function))
-assert F(fib).unroll(5).now() == (0, 1, 1, 2, 3)
-
-    .. image:: /_static/feedback/feedback-fibonacci.png
-        :align: center
-
-    (0, 1, 1, 2, 3)
     """
     dom = cod = Category(Ty, Diagram)
 

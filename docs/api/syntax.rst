@@ -23,4 +23,3 @@ DisCoPy's mathematical core: a zoo of diagrams, categories and functors.
     discopy.hypergraph
     discopy.interaction
     discopy.feedback
-    discopy.stream
