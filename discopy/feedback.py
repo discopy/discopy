@@ -128,7 +128,7 @@ class Ob(cat.Ob):
         elif self.time_step > 1:
             result += f".delay({self.time_step})"
         return result
-    
+
     d = property(lambda self: self.delay())
 
 
