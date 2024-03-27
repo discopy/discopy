@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """
-The free feedback category, i.e.
-diagrams with a delay endofunctor and a feedback operator.
+The free feedback category, i.e. diagrams with delayed feedback loops.
+
+We follow the definition of :cite:t:`DiLavoreEtAl22` with some extra structure
+for the head and tail of streams with the :class:`FollowedBy` generator.
 
 Summary
 -------
