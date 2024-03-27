@@ -139,11 +139,11 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
                    dom=None, cod=None, mem_dom=None, mem_cod=None)
 
     def delay(self) -> Stream:
-        if self.mem_dom != Ty[self.category.ob]():
-            raise AxiomError
+        # if self.mem_dom != Ty[self.category.ob]():
+        #     raise AxiomError
         dom, cod = [x.delay() for x in (self.dom, self.cod)]
-        now, later = self.category.ar.id(), lambda: self
-        return type(self)(now, dom, cod, mem_dom=Ty[self.category.ob](), mem_cod=self.mem_dom, later)
+        now, later = self.category.ar.id(self.mem_dom), lambda: self
+        return type(self)(now, dom, cod, mem_dom=self.mem_dom, mem_cod=self.mem_dom, _later=later)
 
     def unroll(self, n_steps=1) -> Stream:
         assert_isinstance(n_steps, int)
@@ -161,6 +161,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def id(cls, x: Optional[Ty] = None) -> Stream:
+        if x is None:
+            x = Ty[cls.category.ar]()
         _later = None if x._later is None else lambda : cls.id(x.later())
         return cls(now=cls.category.ar.id(x.now), _later=_later, dom=x, cod=x,
                    mem_dom=None, mem_cod=None)
