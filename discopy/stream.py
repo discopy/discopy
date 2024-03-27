@@ -1,3 +1,26 @@
+"""
+The category of monoidal streams over a monoidal category.
+
+We follow the definition of intensional streams from  :cite:t:`DiLavoreEtAl22`.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Ty
+    Stream
+    Category
+
+Example
+-------
+
+>>> x = Ty('x')
+"""
+
 from __future__ import annotations
 
 from typing import Callable
@@ -7,7 +30,7 @@ from discopy import symmetric
 from discopy.python import is_tuple
 from discopy.utils import (
     AxiomError, Composable, Whiskerable, NamedGeneric,
-    assert_isinstance, unbiased)
+    assert_isinstance, unbiased, factory_name)
 
 
 @dataclass
@@ -29,6 +52,11 @@ class Ty(NamedGeneric['base']):
         now = now if isinstance(now, origin) else (
             self.base() if now is None else self.base(now))
         self.now, self._later = now, _later
+    
+    def __repr__(self):
+        factory = f"{factory_name(type(self))}[{factory_name(self.base)}]" 
+        _later = "" if self._later is None else f", _later={repr(self._later)}"
+        return factory + f"({repr(self.now)}{_later})"
 
     @property
     def later(self):
@@ -73,10 +101,10 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     category = symmetric.Category
     ty_factory = Ty[category.ob]
 
+    now: category.ar
     dom: ty_factory
     cod: ty_factory
     mem: ty_factory
-    now: category.ar
     _later: Callable[[], Stream[category]] = None
 
     def __init__(
@@ -109,7 +137,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def delay(self) -> Stream:
         dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
         now, later = self.category.ar.id(), lambda: self
-        return type(self)(dom, cod, mem, now, later)
+        return type(self)(now, dom, cod, mem, later)
 
     def unroll(self, n_steps=1) -> Stream:
         assert_isinstance(n_steps, int)
@@ -123,7 +151,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         dom, cod, mem = self.dom.unroll(), self.cod.unroll(), later.mem
         now = self.now @ later.dom.now >> self.cod.now @ self.category.ar.swap(
             self.mem.now, later.dom.now) >> self.cod.now @ later.now
-        return type(self)(dom, cod, mem, now, later.later)
+        return type(self)(now, dom, cod, mem, later.later)
 
     @classmethod
     def id(cls, x: Ty) -> Stream:
