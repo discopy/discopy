@@ -182,16 +182,19 @@ class Trace(Box, monoidal.Bubble):
         return factory_name(type(self)) + f"({self.arg}, left={self.left})"
 
     def to_drawing(self):
-        traced_wire = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
-        dom, cod, traced_wire = map(
-            self.ty_factory.to_drawing, [self.dom, self.cod, traced_wire])
-        cup = Box('cup', traced_wire ** 2, Ty(), draw_as_wires=True)
-        cap = Box('cap', Ty(), traced_wire ** 2, draw_as_wires=True)
+        traced_dom = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
+        traced_cod = self.arg.cod[:1] if self.left else self.arg.cod[-1:]
+        dom, cod, traced_dom, traced_cod = map(self.ty_factory.to_drawing, [
+            self.dom, self.cod, traced_dom, traced_cod])
+        cup_dom = (
+            traced_dom @ traced_cod if self.left else traced_cod @ traced_dom)
+        cup = Box('cup', cup_dom, Ty(), draw_as_wires=True)
+        cap = Box('cap', Ty(), traced_dom ** 2, draw_as_wires=True)
         cup, cap, arg = map(self.factory.to_drawing, [cup, cap, self.arg])
-        result = cap @ dom >> traced_wire @ arg >> cup @ cod\
-            if self.left\
-            else dom @ cap >> arg @ traced_wire >> cod @ cup
-        return result
+        return (
+            cap @ dom >> traced_dom @ arg >> cup @ cod
+            if self.left
+            else dom @ cap >> arg @ traced_dom >> cod @ cup)
 
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)
