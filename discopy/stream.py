@@ -72,9 +72,14 @@ class Ty(NamedGeneric['base']):
         """ Constructs the stream with `x` now and the empty stream later. """
         return cls(now=x, _later=lambda: cls())
 
-    def delay(self) -> Ty:
+    def delay(self, n_steps: int = 1) -> Ty:
         """ Delays a stream of types by pre-pending with the unit. """
-        return type(self)(type(self)(), lambda: self)
+        assert_isinstance(n_steps, int)
+        if n_steps < 0:
+            raise ValueError
+        if n_steps == 1:
+            return type(self)(type(self)(), lambda: self)
+        return self if n_steps == 0 else self.delay().delay(n_steps - 1)
 
     def unroll(self) -> Ty:
         return type(self)(self.now @ self.later().now, self.later().later)
@@ -148,12 +153,13 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         dom, cod = map(Ty[self.category.ob].singleton, diagram.dom)
         return cls(diagram, dom, cod, _later=lambda : cls.id())
 
-    def delay(self) -> Stream:
-        # if self.mem_dom != Ty[self.category.ob]():
-        #     raise AxiomError
+    def delay(self, n_steps=1) -> Stream:
+        if n_steps != 1:
+            return Ty.delay(self, n_steps)
         dom, cod = [x.delay() for x in (self.dom, self.cod)]
+        mem_dom = mem_cod = self.mem_dom
         now, later = self.category.ar.id(self.mem_dom), lambda: self
-        return type(self)(now, dom, cod, mem_dom=self.mem_dom, mem_cod=self.mem_dom, _later=later)
+        return type(self)(now, dom, cod, mem_dom, mem_cod, _later=later)
 
     def unroll(self, n_steps=1) -> Stream:
         assert_isinstance(n_steps, int)
@@ -210,4 +216,4 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 @dataclass
 class Category(symmetric.Category):
     def __init__(self, ob: type, ar: type):
-        super().__init__(Ty[ob], Stream[ar])
+        super().__init__(Ty[ob], Stream[symmetric.Category(ob, ar)])
