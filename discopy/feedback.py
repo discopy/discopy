@@ -69,6 +69,15 @@ such that the following equations are satisfied:
 .. image:: /_static/traced/sliding.png
     :align: center
 
+We also implement :class:`Head` and :class:`Tail` on objects together with an
+isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
+
+This satisfies the following equations:
+
+>>> assert x.head.head == x.head
+>>> assert x.head.tail == Ty()
+>>> assert x.delay().head == Ty()
+>>> assert x.delay().tail == x
 """
 
 from __future__ import annotations
@@ -198,6 +207,8 @@ class Ty(monoidal.Ty):
     def tail(self):
         """ The tail of a feedback type, see :class:`Tail`. """
         return type(self)(*(x.tail for x in self.inside if x.tail))
+
+    d = property(lambda self: self.delay())
 
 
 class Layer(monoidal.Layer):
