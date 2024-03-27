@@ -65,7 +65,12 @@ class Ty(NamedGeneric['base']):
     @classmethod
     def constant(cls, x: base):
         """ Constructs the constant stream for a given base type `x`. """
-        return cls(now=x, later=None)
+        return cls(now=x, _later=None)
+    
+    @classmethod
+    def singleton(cls, x: base):
+        """ Constructs the stream with `x` now and the empty stream later. """
+        return cls(now=x, _later=lambda: cls())
 
     def delay(self) -> Ty:
         """ Delays a stream of types by pre-pending with the unit. """
@@ -102,20 +107,25 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     ty_factory = Ty[category.ob]
 
     now: category.ar
-    dom: ty_factory
-    cod: ty_factory
-    mem: category.ob
+    dom: ty_factory = None
+    cod: ty_factory = None
+    mem_dom: category.ob = None
+    mem_cod: category.ob = None
     _later: Callable[[], Stream[category]] = None
 
     def __init__(
-            self, now: category.ar, dom: ty_factory, cod: ty_factory,
-            mem_dom: category.ob, mem_cod: category.ob, _later: Callable[[], Stream[category]] = None):
+            self, now: category.ar,
+            dom: ty_factory = None, cod: ty_factory = None,
+            mem_dom: category.ob = None, mem_cod: category.ob = None,
+            _later: Callable[[], Stream[category]] = None):
         assert_isinstance(now, self.category.ar)
-        if _later is None:
-            dom, cod = map(Ty[self.category.ob], (now.dom, now.cod))
-            mem_dom = mem_cod = None
+        dom = Ty[self.category.ob](now.dom) if dom is None else dom
+        cod = Ty[self.category.ob](now.dom) if cod is None else cod
+        mem_dom = Ty[self.category.ob]() if mem_dom is None else mem_dom
+        mem_cod = Ty[self.category.ob]() if mem_cod is None else mem_cod
         assert_isinstance(dom, Ty[self.category.ob])
         assert_isinstance(cod, Ty[self.category.ob])
+        assert_isinstance(mem_dom, self.category.ob)
         assert_isinstance(mem_cod, self.category.ob)
         if now.dom != dom.now + mem_dom:
             raise AxiomError
@@ -131,12 +141,12 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def constant(cls, diagram: category.ar) -> Stream:
-        return cls(dom=None, cod=None, mem_dom=None, mem_cod=None, now=diagram, _later=None)
+        return cls(diagram)
 
     @classmethod
     def singleton(cls, diagram: category.ar) -> Stream:
-        return cls(now=diagram, _later=lambda : cls.id(),
-                   dom=None, cod=None, mem_dom=None, mem_cod=None)
+        dom, cod = map(Ty[self.category.ob].singleton, diagram.dom)
+        return cls(diagram, dom, cod, _later=lambda : cls.id())
 
     def delay(self) -> Stream:
         # if self.mem_dom != Ty[self.category.ob]():
