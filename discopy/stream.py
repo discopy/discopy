@@ -125,9 +125,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             _later: Callable[[], Stream[category]] = None):
         assert_isinstance(now, self.category.ar)
         dom = Ty[self.category.ob](now.dom) if dom is None else dom
-        cod = Ty[self.category.ob](now.dom) if cod is None else cod
-        mem_dom = Ty[self.category.ob]() if mem_dom is None else mem_dom
-        mem_cod = Ty[self.category.ob]() if mem_cod is None else mem_cod
+        cod = Ty[self.category.ob](now.cod) if cod is None else cod
+        mem_dom = self.category.ob() if mem_dom is None else mem_dom
+        mem_cod = self.category.ob() if mem_cod is None else mem_cod
         assert_isinstance(dom, Ty[self.category.ob])
         assert_isinstance(cod, Ty[self.category.ob])
         assert_isinstance(mem_dom, self.category.ob)
@@ -162,6 +162,21 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return type(self)(now, dom, cod, mem_dom, mem_cod, _later=later)
 
     def unroll(self, n_steps=1) -> Stream:
+        """
+        Unrolling a stream for `n_steps`.
+
+        Example
+        -------
+        >>> from discopy.drawing import Equation
+        >>> x, y = map(symmetric.Ty, "xy")
+        >>> now = symmetric.Box('f', x @ y, x @ y)
+        >>> f = Stream(now, dom=Ty(x), cod=Ty(x), mem_dom=y, mem_cod=y)
+        >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
+        ...     figsize=(8, 4), path="docs/_static/stream/unroll.png")
+
+        .. image:: /_static/stream/unroll.png
+            :align: center
+        """
         assert_isinstance(n_steps, int)
         if n_steps < 0:
             raise ValueError
@@ -170,18 +185,23 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         if n_steps > 1:
             return self.unroll().unroll(n_steps - 1)
         later = self.later()
-        dom, cod, mem_dom, mem_cod = self.dom.unroll(), self.cod.unroll(), later.mem_dom, later.mem_cod
-        now = self.now @ later.dom.now >> self.cod.now @ self.category.ar.swap(
+        if later.mem_dom != self.mem_cod:
+            raise AxiomError
+        dom, cod = self.dom.unroll(), self.cod.unroll()
+        mem_dom, mem_cod = later.mem_dom, later.mem_cod
+        now = self.dom.now @ self.category.ar.swap(later.dom.now, self.mem_dom)
+        now >>= self.now @ later.dom.now
+        now >>= self.cod.now @ self.category.ar.swap(
             self.mem_cod, later.dom.now) >> self.cod.now @ later.now
         return type(self)(now, dom, cod, mem_dom, mem_cod, later.later)
 
     @classmethod
     def id(cls, x: Optional[Ty] = None) -> Stream:
-        if x is None:
-            x = Ty[cls.category.ar]()
+        x = Ty[cls.category.ob]() if x is None else x
+        assert_isinstance(x, Ty)
+        now, dom, cod = cls.category.ar.id(x.now), x, x
         _later = None if x._later is None else lambda : cls.id(x.later())
-        return cls(now=cls.category.ar.id(x.now), _later=_later, dom=x, cod=x,
-                   mem_dom=None, mem_cod=None)
+        return cls(now, dom, cod, _later=_later)
 
     def then(self, *others: Stream) -> Stream:
         now=self.now >> self.id()
