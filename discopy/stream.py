@@ -14,14 +14,7 @@ Summary
     Ty
     Stream
     Category
-
-Example
--------
-
->>> x = Ty('x')
-
 """
-
 from __future__ import annotations
 
 from typing import Callable, Optional
@@ -53,7 +46,7 @@ class Ty(NamedGeneric['base']):
         now = now if isinstance(now, origin) else (
             self.base() if now is None else self.base(now))
         self.now, self._later = now, _later
-    
+
     def __repr__(self):
         factory = f"{factory_name(type(self))}[{factory_name(self.base)}]" 
         _later = "" if self._later is None else f", _later={repr(self._later)}"
@@ -70,8 +63,27 @@ class Ty(NamedGeneric['base']):
     
     @classmethod
     def singleton(cls, x: base):
-        """ Constructs the stream with `x` now and the empty stream later. """
+        """
+        Constructs the stream with `x` now and the empty stream later.
+        
+        >>> x = Ty.singleton(symmetric.Ty('x'))
+        >>> print(x.now, x.later().now, x.later().later().now)
+        x Ty() Ty()
+        """
         return cls(now=x, _later=lambda: cls())
+    
+    @classmethod
+    def sequence(cls, name: str, n_steps: int = 0):
+        """
+        Constructs the stream `x0`, `x1`, etc.
+        
+        >>> x = Ty.sequence('x')
+        >>> print(x.now, x.later().now, x.later().later().now)
+        x0 x1 x2
+        """
+        now = cls.base(f"{name}{n_steps}")
+        _later = lambda: cls.sequence(name, n_steps + 1)
+        return cls(now, _later)
 
     def delay(self, n_steps: int = 1) -> Ty:
         """ Delays a stream of types by pre-pending with the unit. """
@@ -115,27 +127,40 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     now: category.ar
     dom: ty_factory = None
     cod: ty_factory = None
-    mem_dom: category.ob = None
-    mem_cod: category.ob = None
+    mem: ty_factory = None
     _later: Callable[[], Stream[category]] = None
 
     def __init__(
             self, now: category.ar,
-            dom: ty_factory = None, cod: ty_factory = None,
-            mem_dom: category.ob = None, mem_cod: category.ob = None,
-            _later: Callable[[], Stream[category]] = None):
+            dom: ty_factory = None,
+            cod: ty_factory = None,
+            mem: ty_factory = None,
+            _later: Callable[[], Stream[category]] = None,
+            _nested_check=True):
         assert_isinstance(now, self.category.ar)
         dom = Ty[self.category.ob](now.dom) if dom is None else dom
         cod = Ty[self.category.ob](now.cod) if cod is None else cod
-        mem_dom = self.category.ob() if mem_dom is None else mem_dom
-        mem_cod = self.category.ob() if mem_cod is None else mem_cod
-        if now.dom != dom.now + mem_dom:
-            raise AxiomError
-        if now.cod != cod.now + mem_cod:
-            raise AxiomError
-        self.dom, self.cod = dom, cod
-        self.mem_dom, self.mem_cod = mem_dom, mem_cod
+        mem = Ty[self.category.ob]() if mem is None else mem
+        self.dom, self.cod, self.mem = dom, cod, mem
         self.now, self._later = now, _later
+        if now.dom != dom.now + self.mem_dom:
+            raise AxiomError
+        if now.cod != cod.now + self.mem_cod:
+            raise AxiomError
+        if _nested_check:
+            later = self.later()
+            print(f"Checking {later.now}")
+            assert later.mem_dom == self.mem_cod
+            assert later.dom.now == self.dom.later().now
+            assert later.cod.now == self.cod.later().now
+    
+    @property
+    def mem_dom(self):
+        return self.mem.now
+    
+    @property
+    def mem_cod(self):
+        return self.mem.later().now
 
     @property
     def later(self):
@@ -149,14 +174,21 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def singleton(cls, diagram: category.ar) -> Stream:
         dom, cod = map(Ty[self.category.ob].singleton, diagram.dom)
         return cls(diagram, dom, cod, _later=lambda : cls.id())
+    
+    @classmethod
+    def sequence(cls, box: symmetric.Box, n_steps: int = 0) -> Stream:
+        dom, cod = (Ty[cls.category.ob].sequence(name, n_steps)
+                    for name in [box.dom.name, box.cod.name])
+        now = type(box)(f"{box.name}{n_steps}", dom.now, cod.now)
+        _later = lambda: cls.sequence(box, n_steps + 1)
+        return cls(now, dom, cod, _later=_later, _nested_check=False)
 
     def delay(self, n_steps=1) -> Stream:
         if n_steps != 1:
             return Ty.delay(self, n_steps)
-        dom, cod = [x.delay() for x in (self.dom, self.cod)]
-        mem_dom = mem_cod = self.mem_dom
-        now, later = self.category.ar.id(self.mem_dom), lambda: self
-        return type(self)(now, dom, cod, mem_dom, mem_cod, _later=later)
+        dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
+        now, later = self.category.ar.id(self.mem.now), lambda: self
+        return type(self)(now, dom, cod, mem, _later=later, _nested_check=False)
 
     def unroll(self, n_steps=1) -> Stream:
         """
@@ -168,7 +200,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         >>> from discopy.drawing import Equation
         >>> x, y = map(symmetric.Ty, "xy")
         >>> now = symmetric.Box('f', x @ y, x @ y)
-        >>> f = Stream(now, dom=Ty(x), cod=Ty(x), mem_dom=y, mem_cod=y)
+        >>> f = Stream(now, dom=Ty(x), cod=Ty(x), mem=Ty(y))
         >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
         ...     figsize=(8, 4), path="docs/_static/stream/unroll.png")
 
@@ -183,15 +215,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         if n_steps > 1:
             return self.unroll().unroll(n_steps - 1)
         later = self.later()
-        if later.mem_dom != self.mem_cod:
-            raise AxiomError
         dom, cod = self.dom.unroll(), self.cod.unroll()
-        mem_dom, mem_cod = later.mem_dom, later.mem_cod
+        mem_dom, mem_cod = self.mem.now, later.mem_cod
+        mem = Ty[self.category.ob](mem_dom, self.mem.later().later)
         now = self.dom.now @ self.category.ar.swap(later.dom.now, self.mem_dom)
         now >>= self.now @ later.dom.now
         now >>= self.cod.now @ self.category.ar.swap(
             self.mem_cod, later.dom.now) >> self.cod.now @ later.now
-        return type(self)(now, dom, cod, mem_dom, mem_cod, later.later)
+        return type(self)(now, dom, cod, mem, later.later)
 
     @classmethod
     def id(cls, x: Optional[Ty] = None) -> Stream:
@@ -215,22 +246,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         raise NotImplementedError
-    
-    def set_mem_dom(self, mem_dom: category.ob) -> Stream:
-        assert_isinstance(mem_dom, self.category.ob)
-        if not issubclass(self.category.ob, (symmetric.Ty, tuple)):
-            raise NotImplementedError
-        if self.mem_dom == mem_dom:
-            return self
-        if self.dom.now[-len(mem_dom) or len(self.dom.now):] != mem_dom:
-            raise ValueError
-        dom_now = self.dom.now[:-len(mem_dom) or len(self.dom.now)]
-        dom = Ty[self.category.ob](dom_now, _later=self.dom.later())
-        return type(self)(
-            self.now, dom, self.cod, mem_dom, self.mem_cod, self._later)
 
     def feedback(
-            self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
+            self, dom: Ty = None, cod: Ty = None, mem: Ty = None, _nested_check=True) -> Stream:
         """
         The delayed feedback of a monoidal stream.
 
@@ -243,21 +261,28 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         >>> dom, cod = Ty(x) @ Ty(z).delay(), Ty(y @ z)
         >>> f = Stream(f0, dom, cod, _later=lambda: Stream(f1))
         >>> f.feedback(dom=Ty(x), cod=Ty(y), mem=Ty(z)).unroll().now.draw()
-
         """
         if mem is None or dom is None or cod is None:
             raise NotImplementedError
-        if self.now.dom != dom.now + self.mem_dom:
+        if self.now.dom != dom.now + mem.now:
             raise AxiomError
-        if self.cod.now != cod.now + self.mem_cod + mem.now:
+        if self.cod.now != cod.now + mem.later().now:
             raise AxiomError
-        mem_dom, mem_cod = self.mem_dom, self.mem_cod + mem.now
         def _later():
-            return self.later().set_mem_dom(mem_cod).feedback(
-                dom.later(), cod.later(), mem.later())
-        return type(self)(self.now, dom, cod, mem_dom, mem_cod, _later)
+            return self.later().feedback(
+                dom.later(), cod.later(), mem.later(), _nested_check=False)
+        return type(self)(self.now, dom, cod, self.mem @ mem, _later, _nested_check=_nested_check)
 
 @dataclass
 class Category(symmetric.Category):
+    """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
     def __init__(self, ob: type, ar: type):
         super().__init__(Ty[ob], Stream[symmetric.Category(ob, ar)])
+
+
+def generic_feedback_example(n_steps = 0, _nested_check=2):
+    name = f"f{n_steps}"
+    x, y, z = [Ty.sequence(x, n_steps) for x in "xyz"]
+    now = symmetric.Box(name, x.now @ z.now, y.now @ z.later().now)
+    _later = lambda: generic_feedback_example(n_steps + 1, _nested_check - 1)
+    return Stream(now, x @ z, y @ z.later(), _later=_later, _nested_check=False)
