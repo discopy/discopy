@@ -200,20 +200,60 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     def then(self, *others: Stream) -> Stream:
-        now=self.now >> self.id()
-        return cls(now=now, _later=_later)
+        if not others:
+            return self
+
+        other = others[0]
+        swap = self.category.ar.swap
+
+        now = self.now @ other.mem_dom
+        now >>= self.dom.now @ swap(self.mem_cod, other.mem_dom)
+        now >>= other.now @ self.mem_cod
+        now >>= other.cod.now @ swap(other.mem_dom, self.mem_cod)
+
+        later = lambda: self.later() >> other.later()
+
+        mem_dom = self.mem_dom @ other.mem_dom
+        mem_cod = self.mem_dom @ other.mem_cod
+
+        combined = type(self)(
+            now, self.dom, other.cod, mem_dom, mem_cod, later)
+
+        return combined.then(*others[1:])
 
     def tensor(self, *others: Stream) -> Stream:
-        raise NotImplementedError
+        if not others:
+            return self
+
+        other = others[0]
+        swap = self.category.ar.swap
+        now = self.dom.now @ swap(other.dom.now, self.mem_dom) @ other.mem_dom
+        now >>= self.now @ other.now
+        now >>= self.cod.now @ swap(
+            self.mem_cod, other.cod.now) @ other.mem_cod
+
+        later = lambda: self.later() @ other.later()
+
+        mem_dom = self.mem_dom @ other.mem_dom
+        mem_cod = self.mem_cod @ other.mem_dom
+
+        dom = self.dom @ other.dom
+        cod = self.cod @ other.cod
+
+        combined = type(self)(now, dom, cod, mem_dom, mem_cod, later)
+
+        return combined.tensor(*others[1:])
+
+
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> Stream:
-        raise NotImplementedError
+        return cls.constant(cls.category.ar.swap(left.now, right.now))
 
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
-        raise NotImplementedError
-    
+        return cls.constant(cls.category.ar.copy(dom.now, n))
+
     def set_mem_dom(self, mem_dom: category.ob) -> Stream:
         assert_isinstance(mem_dom, self.category.ob)
         if not issubclass(self.category.ob, (symmetric.Ty, tuple)):
