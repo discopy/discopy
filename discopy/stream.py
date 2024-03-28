@@ -213,6 +213,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         raise NotImplementedError
+    
+    def set_mem_dom(self, mem_dom: category.ob) -> Stream:
+        assert_isinstance(mem_dom, self.category.ob)
+        if not issubclass(self.category.ob, (symmetric.Ty, tuple)):
+            raise NotImplementedError
+        dom = self.dom[:-len(mem_dom) or len(dom)]
+        return type(self)(
+            self.now, dom, self.cod, mem_dom, self.mem_cod, self._later)
 
     def feedback(
             self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
@@ -222,22 +230,21 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         Example
         -------
         >>> x, y = map(symmetric.Ty, "xy")
-        >>> now = symmetric.Box('f', x @ y, x @ y)
+        >>> now = symmetric.Box('f', x @ x @ y, x @ y)
         >>> f = Stream.constant(now)
-        >>> dom, cod, mem = Ty(x) @ Ty.singleton(y), Ty(x), Ty(y)
-        >>> assert f.feedback(dom, cod, mem) == Stream(
-        ...     now, dom, cod, mem_dom=y, mem_cod=y)
+        >>> dom, cod, mem = Ty(x @ x) @ Ty.singleton(y), Ty(x), Ty(y)
+        >>> f.feedback(dom, cod, mem).unroll()
         """
         if mem is None or dom is None or cod is None:
             raise NotImplementedError
-        if self.now.dom != dom.now:
+        if self.now.dom != dom.now + self.mem_dom:
             raise AxiomError
-        if self.cod.now != cod.now + mem.now:
+        if self.cod.now != cod.now + self.mem_cod + mem.now:
             raise AxiomError
         mem_dom, mem_cod = self.mem_dom, self.mem_cod + mem.now
-        _later = None if self._later is None else (
-            lambda: self.later().feedback(
-                dom.later(), cod.later(), mem.later()))
+        def _later():
+            return self.later().set_mem_dom(mem_cod).feedback(
+                dom.later(), cod.later(), mem.later())
         return type(self)(self.now, dom, cod, mem_dom, mem_cod, _later)
 
 @dataclass
