@@ -1,7 +1,7 @@
 """
 The category of monoidal streams over a monoidal category.
 
-# We follow t\he definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
+We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 
 Summary
 -------
@@ -24,7 +24,7 @@ from discopy import symmetric
 from discopy.python import is_tuple
 from discopy.utils import (
     AxiomError, Composable, Whiskerable, NamedGeneric,
-    assert_isinstance, unbiased, factory_name)
+    assert_isinstance, unbiased, inductive, factory_name)
 
 
 @dataclass
@@ -74,7 +74,8 @@ class Ty(NamedGeneric['base']):
         """
         return cls(now=x, _later=lambda: cls())
 
-    def delay(self, n_steps: int = 1) -> Ty:
+    @inductive
+    def delay(self) -> Ty:
         """
         Delays a stream of types by pre-pending with the unit.
         
@@ -84,12 +85,7 @@ class Ty(NamedGeneric['base']):
         x @ y
         x @ y
         """
-        assert_isinstance(n_steps, int)
-        if n_steps < 0:
-            raise ValueError
-        if n_steps == 1:
-            return type(self)(self.base(), lambda: self)
-        return self if n_steps == 0 else self.delay().delay(n_steps - 1)
+        return type(self)(self.base(), lambda: self)
     
     @classmethod
     def sequence(cls, x: base, n_steps: int = 0):
@@ -185,14 +181,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         _later = lambda: cls.sequence(box, n_steps + 1)
         return cls(now, dom, cod, _later=_later)
 
-    def delay(self, n_steps=1) -> Stream:
-        if n_steps != 1:
-            return Ty.delay(self, n_steps)
+    @inductive
+    def delay(self) -> Stream:
         dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
         now, later = self.category.ar.id(self.mem.now), lambda: self
         return type(self)(now, dom, cod, mem, _later=later)
 
-    def unroll(self, n_steps=1) -> Stream:
+    @inductive
+    def unroll(self) -> Stream:
         """
         Unrolling a stream for `n_steps`.
 
@@ -209,13 +205,6 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         .. image:: /_static/stream/unroll.png
             :align: center
         """
-        assert_isinstance(n_steps, int)
-        if n_steps < 0:
-            raise ValueError
-        if n_steps == 0:
-            return self
-        if n_steps > 1:
-            return self.unroll().unroll(n_steps - 1)
         later = self.later()
         dom, cod = self.dom.unroll(), self.cod.unroll()
         mem_dom, mem_cod = self.mem.now, later.mem_cod
@@ -296,9 +285,15 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
+
+        >>> def feedback_example(n=0):
+        ...     x, y, z = [Ty.sequence(x, n) for x in "xyz"]
+        ...     dom, cod = x.now @ z.now, y.now @ z.later().now
+        ...     now = symmetric.Box(f"f{n}", dom, cod)
+        ...     _later = lambda: feedback_example(n + 1)
+        ...     return Stream(now, x @ z, y @ z.later(), Ty(), _later)
+        >>> f, fb = feedback_example(), feedback_example().feedback()
         >>> from discopy.drawing import Equation
-        >>> f = feedback_example()
-        >>> fb = f.feedback()
         >>> Equation(f.unroll(3).now, fb.unroll(3).now, symbol="$\\\\mapsto$"
         ...     ).draw(path="docs/_static/stream/feedback.png")
 
@@ -322,10 +317,3 @@ class Category(symmetric.Category):
     """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
     def __init__(self, ob: type, ar: type):
         super().__init__(Ty[ob], Stream[symmetric.Category(ob, ar)])
-
-
-def feedback_example(n=0):
-    x, y, z = [Ty.sequence(x, n) for x in "xyz"]
-    now = symmetric.Box(f"f{n}", x.now @ z.now, y.now @ z.later().now)
-    _later = lambda: feedback_example(n + 1)
-    return Stream(now, x @ z, y @ z.later(), Ty(), _later)
