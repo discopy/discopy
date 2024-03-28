@@ -48,7 +48,7 @@ class Ty(NamedGeneric['base']):
         self.now, self._later = now, _later
 
     def __repr__(self):
-        factory = f"{factory_name(type(self))}[{factory_name(self.base)}]" 
+        factory = f"{factory_name(type(self))}[{factory_name(self.base)}]"
         _later = "" if self._later is None else f", _later={repr(self._later)}"
         return factory + f"({repr(self.now)}{_later})"
 
@@ -60,7 +60,7 @@ class Ty(NamedGeneric['base']):
     def constant(cls, x: base):
         """ Constructs the constant stream for a given base type `x`. """
         return cls(now=x, _later=None)
-    
+
     @classmethod
     def singleton(cls, x: base):
         """
@@ -149,7 +149,6 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             raise AxiomError
         if _nested_check:
             later = self.later()
-            print(f"Checking {later.now}")
             assert later.mem_dom == self.mem_cod
             assert later.dom.now == self.dom.later().now
             assert later.cod.now == self.cod.later().now
@@ -229,23 +228,63 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         x = Ty[cls.category.ob]() if x is None else x
         assert_isinstance(x, Ty)
         now, dom, cod = cls.category.ar.id(x.now), x, x
-        _later = None if x._later is None else lambda : cls.id(x.later())
+        _later = None if x._later is None else lambda: cls.id(x.later())
         return cls(now, dom, cod, _later=_later)
 
     def then(self, *others: Stream) -> Stream:
-        now=self.now >> self.id()
-        return cls(now=now, _later=_later)
+        if not others:
+            return self
+
+        other = others[0]
+        swap = self.category.ar.swap
+
+        now = self.now @ other.mem_dom
+        now >>= self.dom.now @ swap(self.mem_cod, other.mem_dom)
+        now >>= other.now @ self.mem_cod
+        now >>= other.cod.now @ swap(other.mem_dom, self.mem_cod)
+
+        mem_dom = self.mem_dom @ other.mem_dom
+        mem_cod = self.mem_dom @ other.mem_cod
+
+        def _later():
+            return self.later() >> other.later()
+
+        combined = type(self)(
+            now, self.dom, other.cod, mem_dom, mem_cod, _later)
+
+        return combined.then(*others[1:])
 
     def tensor(self, *others: Stream) -> Stream:
-        raise NotImplementedError
+        if not others:
+            return self
+
+        other = others[0]
+        swap = self.category.ar.swap
+        now = self.dom.now @ swap(other.dom.now, self.mem_dom) @ other.mem_dom
+        now >>= self.now @ other.now
+        now >>= self.cod.now @ swap(
+            self.mem_cod, other.cod.now) @ other.mem_cod
+
+        mem_dom = self.mem_dom @ other.mem_dom
+        mem_cod = self.mem_cod @ other.mem_dom
+
+        dom = self.dom @ other.dom
+        cod = self.cod @ other.cod
+
+        def _later():
+            return self.later().tensor(other.later())
+
+        combined = type(self)(now, dom, cod, mem_dom, mem_cod, _later)
+
+        return combined.tensor(*others[1:])
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> Stream:
-        raise NotImplementedError
+        return cls.constant(cls.category.ar.swap(left.now, right.now))
 
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
-        raise NotImplementedError
+        return cls.constant(cls.category.ar.copy(dom.now, n))
 
     def feedback(
             self, dom: Ty = None, cod: Ty = None, mem: Ty = None, _nested_check=True) -> Stream:
@@ -272,6 +311,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             return self.later().feedback(
                 dom.later(), cod.later(), mem.later(), _nested_check=False)
         return type(self)(self.now, dom, cod, self.mem @ mem, _later, _nested_check=_nested_check)
+
 
 @dataclass
 class Category(symmetric.Category):
