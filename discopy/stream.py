@@ -19,6 +19,7 @@ Example
 -------
 
 >>> x = Ty('x')
+
 """
 
 from __future__ import annotations
@@ -78,7 +79,7 @@ class Ty(NamedGeneric['base']):
         if n_steps < 0:
             raise ValueError
         if n_steps == 1:
-            return type(self)(type(self)(), lambda: self)
+            return type(self)(self.base(), lambda: self)
         return self if n_steps == 0 else self.delay().delay(n_steps - 1)
 
     def unroll(self) -> Ty:
@@ -163,6 +164,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
+
         >>> from discopy.drawing import Equation
         >>> x, y = map(symmetric.Ty, "xy")
         >>> now = symmetric.Box('f', x @ y, x @ y)
@@ -218,7 +220,12 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         assert_isinstance(mem_dom, self.category.ob)
         if not issubclass(self.category.ob, (symmetric.Ty, tuple)):
             raise NotImplementedError
-        dom = self.dom[:-len(mem_dom) or len(dom)]
+        if self.mem_dom == mem_dom:
+            return self
+        if self.dom.now[-len(mem_dom) or len(self.dom.now):] != mem_dom:
+            raise ValueError
+        dom_now = self.dom.now[:-len(mem_dom) or len(self.dom.now)]
+        dom = Ty[self.category.ob](dom_now, _later=self.dom.later())
         return type(self)(
             self.now, dom, self.cod, mem_dom, self.mem_cod, self._later)
 
@@ -229,11 +236,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
-        >>> x, y = map(symmetric.Ty, "xy")
-        >>> now = symmetric.Box('f', x @ x @ y, x @ y)
-        >>> f = Stream.constant(now)
-        >>> dom, cod, mem = Ty(x @ x) @ Ty.singleton(y), Ty(x), Ty(y)
-        >>> f.feedback(dom, cod, mem).unroll()
+        
+        >>> x, y, z = map(symmetric.Ty, "xyz")
+        >>> f0 = symmetric.Box('f0', x, y @ z)
+        >>> f1 = symmetric.Box('f1', x @ z, y @ z)
+        >>> dom, cod = Ty(x) @ Ty(z).delay(), Ty(y @ z)
+        >>> f = Stream(f0, dom, cod, _later=lambda: Stream(f1))
+        >>> f.feedback(dom=Ty(x), cod=Ty(y), mem=Ty(z)).unroll().now.draw()
+
         """
         if mem is None or dom is None or cod is None:
             raise NotImplementedError
