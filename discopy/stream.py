@@ -128,10 +128,6 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         cod = Ty[self.category.ob](now.cod) if cod is None else cod
         mem_dom = self.category.ob() if mem_dom is None else mem_dom
         mem_cod = self.category.ob() if mem_cod is None else mem_cod
-        assert_isinstance(dom, Ty[self.category.ob])
-        assert_isinstance(cod, Ty[self.category.ob])
-        assert_isinstance(mem_dom, self.category.ob)
-        assert_isinstance(mem_cod, self.category.ob)
         if now.dom != dom.now + mem_dom:
             raise AxiomError
         if now.cod != cod.now + mem_cod:
@@ -220,18 +216,29 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     def feedback(
             self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
-        if mem is None and hasattr(self.category.ob, "__getitem__"):
-            mem = self.dom[-1:]
-            dom = self.dom[:-1]
-            cod = self.cod[:-1]
-        elif mem is None:
+        """
+        The delayed feedback of a monoidal stream.
+
+        Example
+        -------
+        >>> x, y = map(symmetric.Ty, "xy")
+        >>> now = symmetric.Box('f', x @ y, x @ y)
+        >>> f = Stream.constant(now)
+        >>> dom, cod, mem = Ty(x) @ Ty.singleton(y), Ty(x), Ty(y)
+        >>> assert f.feedback(dom, cod, mem) == Stream(
+        ...     now, dom, cod, mem_dom=y, mem_cod=y)
+        """
+        if mem is None or dom is None or cod is None:
             raise NotImplementedError
-        if self.dom.now != dom.now:
+        if self.now.dom != dom.now:
             raise AxiomError
         if self.cod.now != cod.now + mem.now:
             raise AxiomError
-        type(self)(dom, cod, self.mem @ mem, self.now, self.later)
-
+        mem_dom, mem_cod = self.mem_dom, self.mem_cod + mem.now
+        _later = None if self._later is None else (
+            lambda: self.later().feedback(
+                dom.later(), cod.later(), mem.later()))
+        return type(self)(self.now, dom, cod, mem_dom, mem_cod, _later)
 
 @dataclass
 class Category(symmetric.Category):
