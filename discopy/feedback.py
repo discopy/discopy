@@ -491,8 +491,8 @@ class Functor(markov.Functor):
             arg = other.dom if other.is_dagger else other.cod
             return self.cod.ar.followed_by(self(arg))
         if isinstance(other, Feedback):
-            dom, cod, mem = map(self, (other.dom, other.cod, other.mem))
-            return self(other.arg).feedback(dom=dom, cod=cod, mem=mem)
+            return self(other.arg).feedback(*map(self, (
+                other.dom, other.cod, other.mem)))
         return super().__call__(other)
 
 

@@ -14,6 +14,23 @@ Summary
     Ty
     Stream
     Category
+
+Example
+-------
+
+>>> from discopy import feedback, drawing
+>>> x, y, z = map(feedback.Ty, "xyz")
+>>> f = feedback.Box('f', x @ z.delay(), y @ z)
+>>> F = feedback.Functor(
+...     ob=lambda x: Ty.sequence(x.name),
+...     ar={f: feedback_example()},
+...     cod=Category())
+>>> drawing.Equation(f, F(f).unroll(2).now, symbol="$\\\\mapsto$").draw(
+...     path="docs/_static/stream/box-to-stream.png")
+
+>>> fb = f.feedback()
+>>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
+...     path="docs/_static/stream/feedback-to-stream.png")
 """
 from __future__ import annotations
 
@@ -166,6 +183,12 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             raise AxiomError
         if now.cod != cod.now + self.mem_cod:
             raise AxiomError
+
+    def check_later(self):
+        later = self.later
+        assert self.dom.later.now == later.dom.now
+        assert self.cod.later.now == later.cod.now
+        assert self.mem.later.now == later.mem.now
     
     @property
     def mem_dom(self):
@@ -277,44 +300,55 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return cls(now, dom, cod, _later=_later)
 
     def feedback(
-            self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
+        self, dom: Ty = None, cod: Ty = None, mem: Ty = None, _first_call=True
+        ) -> Stream:
         """
         The delayed feedback of a monoidal stream.
 
         Example
         -------
+        >>> x, y, z = map(Ty.sequence, "xyz")
+        >>> f, fb = feedback_example(), feedback_example().feedback(x, y, z)
 
-        >>> def feedback_example(n=0):
-        ...     x, y, z = [Ty.sequence(x, n) for x in "xyz"]
-        ...     dom, cod = x.now @ z.now, y.now @ z.later.now
-        ...     now = symmetric.Box(f"f{n}", dom, cod)
-        ...     _later = lambda: feedback_example(n + 1)
-        ...     return Stream(now, x @ z, y @ z.later, Ty(), _later)
-        >>> f, fb = feedback_example(), feedback_example().feedback()
         >>> from discopy.drawing import Equation
-        >>> Equation(f.unroll(3).now, fb.unroll(3).now, symbol="$\\\\mapsto$"
-        ...     ).draw(path="docs/_static/stream/feedback.png")
+        >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
+        ...     ).draw(path="docs/_static/stream/feedback-example.png")
 
-        .. image:: /_static/stream/feedback.png
+        .. image:: /_static/stream/feedback-example.png
             :align: center
         """
         if mem is None:
-            dom, cod = [X.map(lambda x: x[:-1]) for X in (self.dom, self.cod)]
-            mem = self.cod.map(lambda x: x[-1:])
-        if self.now.dom != dom.now + mem.now:
-            raise AxiomError
-        if self.cod.now != cod.now + mem.later.now:
-            raise AxiomError
+            raise NotImplementedError
+        assert self.dom.now == dom.now if _first_call else (
+            self.dom.now == dom.now + mem.now)
+        assert self.cod.now == cod.now + mem.now if _first_call else (
+            self.cod.now == cod.now + mem.later.now)
         def _later():
-            return self.later.feedback(dom.later, cod.later, mem.later)
-        return type(self)(self.now, dom, cod, self.mem @ mem, _later)
+            return self.later.feedback(dom.later, cod.later, mem.later, False)
+        mem = mem.delay() if _first_call else mem
+        return type(self)(self.now, dom, cod, mem @ self.mem, _later)
 
 
 @dataclass
 class Category(symmetric.Category):
     """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
-    def __init__(self, ob: type, ar: type):
-        super().__init__(Ty[ob], Stream[symmetric.Category(ob, ar)])
+    def __init__(self, ob: type = None, ar: type = None):
+        ob = Ty if ob is None else Ty[ob]
+        ar = Stream if ar is None else Stream[symmetric.Category(ob, ar)]
+        super().__init__(ob, ar)
 
 
 Stream.followed_by = classmethod(Stream.id.__func__)
+
+
+def feedback_example(n=0):
+    x, y, z, w = [lambda n, x=x: symmetric.Ty(f"{x}{n}") for x in "xyzw"]
+    now_dom = x(0) @ w(0) if n == 0 else x(n) @ z(n - 1) @ w(n)
+    now_cod = y(n) @ z(n) @ w(n + 1)
+    now = symmetric.Box(f"f{n}", now_dom, now_cod)
+    dom = Ty.sequence('x', n) @ Ty.sequence('z').delay() if n == 0 else (
+        Ty.sequence('x', n) @ Ty.sequence('z', n - 1))
+    cod = Ty.sequence('y', n) @ Ty.sequence('z', n)
+    mem = Ty.sequence('w', n)
+    return Stream(now, dom, cod, mem, lambda: feedback_example(n + 1))
+    
