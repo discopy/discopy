@@ -69,7 +69,7 @@ such that the following equations are satisfied:
 .. image:: /_static/traced/sliding.png
     :align: center
 
-We also implement :class:`Head` and :class:`Tail` on objects together with an
+We also implement :class:`head` and :class:`tail` endofunctors together with an
 isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
 
 This satisfies the following equations:
@@ -106,15 +106,15 @@ class Ob(cat.Ob):
         return Ob(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
-    def head(self) -> Head | None:
-        """ Syntactic sugar for :class:`Head` or `None` if self is delayed. """
-        return None if self.time_step else Head(self)
+    def head(self) -> HeadOb | None:
+        """ Syntactic sugar for :class:`HeadOb` or `None` if delayed. """
+        return None if self.time_step else HeadOb(self)
 
     @property
     def tail(self) -> Ob | None:
-        """ Syntactic sugar for :class:`Tail` or `self` if `is_constant`. """
+        """ Syntactic sugar for :class:`TailOb` or `self` if `is_constant`. """
         return self.delay(-1) if self.time_step > 0 else (
-            self if self.is_constant else Tail(self))
+            self if self.is_constant else TailOb(self))
 
     def reset(self) -> Ob:
         return Ob(self.name, time_step=0, is_constant=self.is_constant)
@@ -141,16 +141,16 @@ class Ob(cat.Ob):
     d = property(lambda self: self.delay())
 
 
-class Head(Ob):
+class HeadOb(Ob):
     """
     The head of a feedback object, interpreted as the first element of a stream
     followed by the constant stream on the empty type.
 
-    Note the object `arg: Ob` cannot be itself a `Head` or be delayed.
+    Note the object `arg: Ob` cannot be itself a `HeadOb` or be delayed.
     """
     def __init__(self, arg: Ob, time_step: int = 0):
         assert_isinstance(arg, Ob)
-        if isinstance(arg, Head) or arg.time_step:
+        if isinstance(arg, HeadOb) or arg.time_step:
             return ValueError
         self.arg = arg
         super().__init__(f"{arg}.head", time_step, is_constant=False)
@@ -162,7 +162,7 @@ class Head(Ob):
     def delay(self, n_steps=1):
         return type(self)(self.arg, self.time_step + n_steps)
 
-    def reset(self) -> Head:
+    def reset(self) -> HeadOb:
         return type(self)(self.arg)
 
     @property
@@ -174,19 +174,19 @@ class Head(Ob):
         return self.delay(-1) if self.time_step else None
 
 
-class Tail(Ob):
+class TailOb(Ob):
     """
     The tail of a non-constant feedback object, interpreted as the stream
     starting from the second time step.
     """
     def __init__(self, arg: Ob, time_step: int = 0):
         assert_isinstance(arg, Ob)
-        if isinstance(arg, Head) or arg.is_constant or arg.time_step > 0:
+        if isinstance(arg, HeadOb) or arg.is_constant or arg.time_step > 0:
             return ValueError
         self.arg = arg
         super().__init__(f"{arg}.tail", time_step, is_constant=False)
 
-    delay, reset, __repr__ = Head.delay, Head.reset, Head.__repr__
+    delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
 @factory
@@ -203,12 +203,12 @@ class Ty(monoidal.Ty):
 
     @property
     def head(self):
-        """ The head of a feedback type, see :class:`Head`. """
+        """ The head of a feedback type, see :class:`HeadOb`. """
         return type(self)(*(x.head for x in self.inside if x.head))
 
     @property
     def tail(self):
-        """ The tail of a feedback type, see :class:`Tail`. """
+        """ The tail of a feedback type, see :class:`TailOb`. """
         return type(self)(*(x.tail for x in self.inside if x.tail))
 
     d = property(lambda self: self.delay())
@@ -266,6 +266,8 @@ class Diagram(markov.Diagram):
         return cls.swap(dom, dom.delay()).feedback()
 
     d = property(lambda self: self.delay())
+    head = property(lambda self: Head(self))
+    tail = property(lambda self: Tail(self))
 
 
 class Box(markov.Box, Diagram):
@@ -349,6 +351,34 @@ class Merge(markov.Merge, Box):
 
     def delay(self, n_steps=1):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
+    
+
+class Head(monoidal.Bubble, Box):
+    """
+    The head of a feedback diagram, interpreted as the first element followed
+    by the identity stream on the empty type.
+    """
+    def __init__(self, arg: Diagram, time_step=0, _attr="head"):
+        self.time_step = time_step
+        dom, cod = (
+            getattr(x, _attr).delay(time_step) for x in [arg.dom, arg.cod])
+        monoidal.Bubble.__init__(self, arg, dom, cod)
+        Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod)
+
+    delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+
+
+
+class Tail(monoidal.Bubble, Box):
+    """
+    The tail of a feedback diagram, interpreted as the stream starting from the
+    second time step with the identity on the empty type at the first step.
+    """
+    def __init__(self, arg: Diagram, time_step=0):
+        Head.__init__(self, arg, time_step, _attr="tail")
+
+    delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+
 
 
 class Feedback(monoidal.Bubble, Box):
@@ -453,9 +483,9 @@ class Functor(markov.Functor):
             for _ in range(other.time_step):
                 result = result.delay()
             return result
-        if isinstance(other, Head):
+        if isinstance(other, (HeadOb, Head)):
             return self(other.arg).head
-        if isinstance(other, Tail):
+        if isinstance(other, (TailOb, Tail)):
             return self(other.arg).tail
         if isinstance(other, FollowedBy):
             arg = other.dom if other.is_dagger else other.cod
