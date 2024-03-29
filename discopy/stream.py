@@ -58,6 +58,8 @@ class Ty(NamedGeneric['base']):
     def later(self):
         return self if self.is_constant else self._later()
     
+    head, tail = property(lambda self: self.singleton(self.now)), later
+    
     @property
     def is_constant(self):
         return self._later is None
@@ -144,6 +146,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     _later: Callable[[], Stream[category]] = None
 
     later, is_constant = Ty.later, Ty.is_constant
+    head, tail = Ty.head, Ty.tail
 
     def __init__(
             self, now: category.ar,
@@ -151,7 +154,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             cod: ty_factory = None,
             mem: ty_factory = None,
             _later: Callable[[], Stream[category]] = None):
-        assert_isinstance(now, self.category.ar)
+        if not isinstance(now, self.category.ar):
+            now = self.category.ar(now, dom.now, cod.now)
         dom = Ty[self.category.ob](now.dom) if dom is None else dom
         cod = Ty[self.category.ob](now.cod) if cod is None else cod
         mem = Ty[self.category.ob]() if mem is None else mem
@@ -176,7 +180,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def singleton(cls, diagram: category.ar) -> Stream:
-        dom, cod = map(Ty[self.category.ob].singleton, diagram.dom)
+        dom, cod = map(Ty[cls.category.ob].singleton, diagram.dom)
         return cls(diagram, dom, cod, _later=lambda: cls.id())
     
     @classmethod
@@ -192,7 +196,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def delay(self) -> Stream:
         dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
         now, _later = self.category.ar.id(self.mem.now), lambda: self
-        return type(self)(now, dom, cod, mem, _later=later)
+        return type(self)(now, dom, cod, mem, _later)
 
     @inductive
     def unroll(self) -> Stream:
@@ -234,11 +238,11 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def then(self, other: Stream) -> Stream:
         swap = self.category.ar.swap
         now = self.now @ other.mem_dom
-        now >>= self.dom.now @ swap(self.mem_cod, other.mem_dom)
+        now >>= self.cod.now @ swap(self.mem_cod, other.mem_dom)
         now >>= other.now @ self.mem_cod
         now >>= other.cod.now @ swap(other.mem_dom, self.mem_cod)
         dom, cod, mem = self.dom, other.cod, self.mem @ other.mem
-        _later = None if self._layer is None and other._layer is None else (
+        _later = None if self._later is None and other._later is None else (
             lambda: self.later >> other.later)
         return type(self)(now, self.dom, other.cod, mem, _later)
 
@@ -259,17 +263,17 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> Stream:
-        now = self.category.ar.swap(left.now, right.now)
+        now = cls.category.ar.swap(left.now, right.now)
         dom, cod = left @ right, right @ left
         _later = None if left.is_constant and right.is_constant else (
             lambda: cls.swap(left.later, right.later))
-        return Stream(now, dom, cod, _later=_later)
+        return cls(now, dom, cod, _later=_later)
 
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         now, cod = cls.category.ar.copy(dom.now, n), dom ** n
         _later = None if dom.is_constant else lambda: cls.copy(dom.later, n)
-        return Stream(now, dom, cod, _later=_later)
+        return cls(now, dom, cod, _later=_later)
 
     def feedback(
             self, dom: Ty = None, cod: Ty = None, mem: Ty = None) -> Stream:
@@ -310,3 +314,6 @@ class Category(symmetric.Category):
     """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
     def __init__(self, ob: type, ar: type):
         super().__init__(Ty[ob], Stream[symmetric.Category(ob, ar)])
+
+
+Stream.followed_by = classmethod(Stream.id.__func__)
