@@ -1,5 +1,12 @@
+from pytest import raises
+
 from discopy import *
 from discopy.feedback import *
+
+
+def test_invalid_inputs():
+    with raises(NotImplementedError):
+        Ty('x').delay(-1)
 
 
 def test_Diagram_repr():
@@ -14,10 +21,8 @@ def test_Diagram_repr():
     assert eval(str(fib)) == fib
     assert eval(repr(fib)) == fib
 
-def test_Functor():
-    from discopy import *
-    from discopy.feedback import *
 
+def test_Functor():
     x = Ty('int')
     zero, one, plus = Box('0', Ty(), x), Box('1', Ty(), x), Box('+', x @ x, x)
     fib = ((Copy(x) >> one.head @ Diagram.wait(x) @ x

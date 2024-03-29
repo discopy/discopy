@@ -18,7 +18,6 @@ from discopy import (
     hypergraph,
     interaction,
     feedback,
-    stream,
     python,
     matrix,
     tensor,

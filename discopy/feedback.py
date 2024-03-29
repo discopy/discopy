@@ -27,8 +27,57 @@ Summary
 Axioms
 ------
 
->>>
+A feedback category is a symmetric monoidal category with a monoidal
+endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
+:meth:`Diagram.feedback` of the following shape:
 
+>>> from discopy.drawing import Equation
+
+>>> x, y, z = map(Ty, "xyz")
+>>> Box('f', x @ y.delay(), z @ y).feedback().draw(
+...     path="docs/_static/feedback/feedback-example.png")
+
+.. image:: /_static/feedback/feedback-example.png
+    :align: center
+
+such that the following equations are satisfied:
+
+* Vanishing
+
+>>> assert Box('f', x, y).feedback(mem=Ty()) == Box('f', x, y)
+
+* Joining
+
+>>> f = Box('f', x @ (y @ y).delay(), z @ y @ y)
+>>> assert f.feedback(mem=y @ y) == f.feedback().feedback()
+
+* Strength
+
+>>> f, g = Box('f', x @ y.delay(), z @ y), Box('g', x, y)
+>>> Equation(g @ f.feedback(), (g @ f).feedback()).draw(
+...     path='docs/_static/feedback/strength.png', draw_type_labels=False)
+
+.. image:: /_static/feedback/strength.png
+    :align: center
+
+* Sliding
+
+>>> h = Box('h', y, y)
+>>> Equation((f >> z @ h).feedback(), (x @ h.d >> f).feedback()).draw(
+...     path='docs/_static/feedback/sliding.png', draw_type_labels=False)
+
+.. image:: /_static/traced/sliding.png
+    :align: center
+
+We also implement :class:`Head` and :class:`Tail` on objects together with an
+isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
+
+This satisfies the following equations:
+
+>>> assert x.head.head == x.head
+>>> assert x.head.tail == Ty()
+>>> assert x.delay().head == Ty()
+>>> assert x.delay().tail == x
 """
 
 from __future__ import annotations
@@ -53,6 +102,7 @@ class Ob(cat.Ob):
         super().__init__(name)
 
     def delay(self, n_steps=1):
+        """ The delay of a feedback object. """
         return Ob(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
@@ -83,10 +133,12 @@ class Ob(cat.Ob):
     def __str__(self, _super=cat.Ob):
         result = _super.__str__(self)
         if self.time_step == 1:
-            result += ".delay()"
+            result += ".d"
         elif self.time_step > 1:
             result += f".delay({self.time_step})"
         return result
+
+    d = property(lambda self: self.delay())
 
 
 class Head(Ob):
@@ -159,6 +211,8 @@ class Ty(monoidal.Ty):
         """ The tail of a feedback type, see :class:`Tail`. """
         return type(self)(*(x.tail for x in self.inside if x.tail))
 
+    d = property(lambda self: self.delay())
+
 
 class Layer(monoidal.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
@@ -196,17 +250,22 @@ class Diagram(markov.Diagram):
     layer_factory = Layer
 
     def delay(self, n_steps=1):
+        """ The delay of a feedback diagram. """
         dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
         inside = tuple(box.delay(n_steps) for box in self.inside)
         return type(self)(inside, dom, cod)
 
     def feedback(self, dom=None, cod=None, mem=None):
-        return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
+        if mem is None or len(mem) == 1:
+            return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
+        return self if not mem else self.feedback(mem=mem[:-1]).feedback()
 
     @classmethod
     def wait(cls, dom: Ty) -> Diagram:
         """ Wait one time step, i.e. `Swap(x, x.delay()).feedback()` """
         return cls.swap(dom, dom.delay()).feedback()
+
+    d = property(lambda self: self.delay())
 
 
 class Box(markov.Box, Diagram):
@@ -299,8 +358,8 @@ class Feedback(monoidal.Bubble, Box):
 
     Examples
     --------
-    >>> x, y = Ty('x'), Ty('y')
-    >>> Box('f', x @ y.delay(), x @ y).feedback().draw(
+    >>> x, y, z = map(Ty, "xyz")
+    >>> Box('f', x @ y.delay(), z @ y).feedback().draw(
     ...     path="docs/_static/feedback/feedback-example.png")
 
     .. image:: /_static/feedback/feedback-example.png
@@ -385,28 +444,6 @@ class Functor(markov.Functor):
     Example
     -------
     Let's compute the Fibonacci sequence as a stream of Python functions:
-
-x = Ty('int')
-zero, one = Box('0', Ty(), x.head), Box('1', Ty(), x.head)
-plus = Box('+', x @ x, x)
-fib = ((Copy(x) >> one @ Diagram.wait(x) @ x
-         >> FollowedBy(x) @ x >> plus).delay()
-        >> zero @ x.delay() >> FollowedBy(x) >> Copy(x)).feedback()
-fib.draw(draw_type_labels=False, figsize=(5, 5),
-         path="docs/_static/feedback/feedback-fibonacci.png")
-
-from discopy import stream, python
-F = Functor(
-    ob={x: int},
-    ar={zero: lambda: 0, one: lambda: 1,
-        plus: lambda x, y: x + y},
-    cod=stream.Category(python.Ty, python.Function))
-assert F(fib).unroll(5).now() == (0, 1, 1, 2, 3)
-
-    .. image:: /_static/feedback/feedback-fibonacci.png
-        :align: center
-
-    (0, 1, 1, 2, 3)
     """
     dom = cod = Category(Ty, Diagram)
 
