@@ -36,4 +36,6 @@ def test_Functor():
             plus: lambda x, y: x + y},
         cod=stream.Category(python.Ty, python.Function))
 
+    F(Diagram.wait(x))
+    assert F(zero >> Diagram.wait(x)).unroll(5).now() == ((), 0, 0, 0, 0)
     assert F(fib).unroll(5).now() == (0, 1, 1, 2, 3)

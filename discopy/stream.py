@@ -179,9 +179,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return cls(diagram)
 
     @classmethod
-    def singleton(cls, diagram: category.ar) -> Stream:
-        dom, cod = map(Ty[cls.category.ob].singleton, diagram.dom)
-        return cls(diagram, dom, cod, _later=lambda: cls.id())
+    def singleton(cls, arg: category.ar) -> Stream:
+        dom, cod = map(Ty[cls.category.ob].singleton, (arg.dom, arg.cod))
+        return cls(arg, dom, cod, _later=lambda: cls.id())
     
     @classmethod
     def sequence(cls, box: symmetric.Box, n_steps: int = 0) -> Stream:
