@@ -69,11 +69,7 @@ such that the following equations are satisfied:
 .. image:: /_static/traced/sliding.png
     :align: center
 
-<<<<<<< HEAD
-We also implement :class:`Head` and :class:`Tail` on objects together with an
-=======
 We also implement :class:`head` and :class:`tail` endofunctors together with an
->>>>>>> feedback
 isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
 
 This satisfies the following equations:
@@ -88,7 +84,7 @@ from __future__ import annotations
 
 from discopy import cat, monoidal, markov
 from discopy.utils import (
-    factory, factory_name, assert_isinstance, AxiomError)
+    inductive, factory, factory_name, assert_isinstance, AxiomError)
 
 
 class Ob(cat.Ob):

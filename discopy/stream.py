@@ -109,6 +109,7 @@ class Ty(NamedGeneric['base']):
         now = sum([cls.base(f"{obj}{n_steps}") for obj in x], cls.base())
         return cls(now, _later=lambda: cls.sequence(x, n_steps + 1))
 
+    @inductive
     def unroll(self) -> Ty:
         return type(self)(self.now @ self.later.now, self.later._later)
 
@@ -299,7 +300,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         """
         if mem is None:
             dom, cod = [X.map(lambda x: x[:-1]) for X in (self.dom, self.cod)]
-            mem = self.dom.map(lambda x: x[-1:])
+            mem = self.cod.map(lambda x: x[-1:])
         if self.now.dom != dom.now + mem.now:
             raise AxiomError
         if self.cod.now != cod.now + mem.later.now:
