@@ -71,14 +71,13 @@ def fib(x):
 
 
 def test_fibonacci_eq():
-    Diagram.use_hypergraph_equality = True
-
-    assert fib == (
-        copy.d >> one.head.d @ wait.d @ X.d
-               >> fby.d @ X.d
-               >> plus.d
-               >> zero.head @ X.d
-               >> fby >> copy).feedback()
+    with Diagram.hypergraph_equality:
+        assert fib == (
+            copy.d >> one.head.d @ wait.d @ X.d
+                >> fby.d @ X.d
+                >> plus.d
+                >> zero.head @ X.d
+                >> fby >> copy).feedback()
 
 
 def test_fibonacci_functor():
