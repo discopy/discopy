@@ -104,7 +104,7 @@ from __future__ import annotations
 
 from discopy import cat, monoidal, markov
 from discopy.utils import (
-    inductive, factory, factory_name, assert_isinstance, AxiomError)
+    factory, factory_name, assert_isinstance, AxiomError)
 
 
 class Ob(cat.Ob):

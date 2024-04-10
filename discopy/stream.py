@@ -72,9 +72,9 @@ class Ty(NamedGeneric['base']):
     @property
     def later(self):
         return self if self.is_constant else self._later()
-    
+
     head, tail = property(lambda self: self.singleton(self.now)), later
-    
+
     @property
     def is_constant(self):
         return self._later is None
@@ -88,7 +88,7 @@ class Ty(NamedGeneric['base']):
     def singleton(cls, x: base):
         """
         Constructs the stream with `x` now and the empty stream later.
-        
+
         >>> XY = Ty.singleton(symmetric.Ty('x', 'y'))
         >>> for x in [XY.now, XY.later.now, XY.later.later.now]: print(x)
         x @ y
@@ -101,7 +101,7 @@ class Ty(NamedGeneric['base']):
     def delay(self) -> Ty:
         """
         Delays a stream of types by pre-pending with the unit.
-        
+
         >>> XY = Ty(symmetric.Ty('x', 'y')).delay()
         >>> for x in [XY.now, XY.later.now, XY.later.later.now]: print(x)
         Ty()
@@ -109,12 +109,12 @@ class Ty(NamedGeneric['base']):
         x @ y
         """
         return type(self)(self.base(), lambda: self)
-    
+
     @classmethod
     def sequence(cls, x: base, n_steps: int = 0):
         """
         Constructs the stream `x0`, `x1`, etc.
-        
+
         >>> XY = Ty.sequence(symmetric.Ty('x', 'y'))
         >>> for x in [XY.now, XY.later.now, XY.later.later.now]: print(x)
         x0 @ y0
@@ -187,11 +187,11 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         assert self.dom.later.now == later.dom.now
         assert self.cod.later.now == later.cod.now
         assert self.mem.later.now == later.mem.now
-    
+
     @property
     def mem_dom(self):
         return self.mem.now
-    
+
     @property
     def mem_cod(self):
         return self.mem.later.now
@@ -204,14 +204,14 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def singleton(cls, arg: category.ar) -> Stream:
         dom, cod = map(Ty[cls.category.ob].singleton, (arg.dom, arg.cod))
         return cls(arg, dom, cod, _later=lambda: cls.id())
-    
+
     @classmethod
     def sequence(
             cls, name: str, dom: Ty, cod: Ty, mem: Ty = None, n_steps: int = 0,
             box_factory=symmetric.Box) -> Stream:
         """
         Produce a stream of boxes indexed by a time step.
-        
+
         Example
         -------
         >>> x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
@@ -254,8 +254,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         """
         later = self.later
         dom, cod = self.dom.unroll(), self.cod.unroll()
-        mem_dom, mem_cod = self.mem.now, later.mem_cod
-        mem = Ty[self.category.ob](mem_dom, self.mem.later._later)
+        mem = Ty[self.category.ob](self.mem.now, self.mem.later._later)
         now = self.dom.now @ self.category.ar.swap(later.dom.now, self.mem_dom)
         now >>= self.now @ later.dom.now
         now >>= self.cod.now @ self.category.ar.swap(
@@ -267,7 +266,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         """
         The identity on a stream of objects is a stream of identity morphisms
         in the underlying category.
-        
+
         Example
         -------
         >>> id_x = Stream.id(Ty.sequence('x'))
@@ -303,7 +302,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         dom, cod, mem = self.dom, other.cod, self.mem @ other.mem
         _later = None if self._later is None and other._later is None else (
             lambda: self.later >> other.later)
-        return type(self)(now, self.dom, other.cod, mem, _later)
+        return type(self)(now, dom, cod, mem, _later)
 
     @unbiased
     def tensor(self, other: Stream) -> Stream:
@@ -329,6 +328,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         dom = self.dom @ other.dom
         cod = self.cod @ other.cod
         mem = self.mem @ other.mem
+
         def _later():
             return self.later.tensor(other.later)
         return type(self)(now, dom, cod, mem, _later)
@@ -349,7 +349,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     def feedback(
         self, dom: Ty = None, cod: Ty = None, mem: Ty = None, _first_call=True
-        ) -> Stream:
+    ) -> Stream:
         """
         The delayed feedback of a monoidal stream.
 
@@ -372,11 +372,12 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             self.dom.now == dom.now + mem.now)
         assert self.cod.now == cod.now + mem.now if _first_call else (
             self.cod.now == cod.now + mem.later.now)
+
         def _later():
             return self.later.feedback(dom.later, cod.later, mem.later, False)
         mem = mem.delay() if _first_call else mem
         return type(self)(self.now, dom, cod, mem @ self.mem, _later)
-    
+
     def unroll_and_draw(self, n_steps=1, **params):
         return self.unroll(n_steps).now.simplify().draw(**params)
 
@@ -396,4 +397,3 @@ Stream.followed_by = classmethod(Stream.id.__func__)
 def feedback_example():
     x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
     return Stream.sequence("f", x @ m.delay(), y @ m)
-    
