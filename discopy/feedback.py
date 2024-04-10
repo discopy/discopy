@@ -78,6 +78,26 @@ This satisfies the following equations:
 >>> assert x.head.tail == Ty()
 >>> assert x.delay().head == Ty()
 >>> assert x.delay().tail == x
+
+Note
+----
+
+Every traced symmetric category is a feedback category with a trivial delay:
+
+>>> from discopy import symmetric
+>>> symmetric.Ty.delay = symmetric.Diagram.delay = lambda self: self
+>>> symmetric.Diagram.feedback = lambda self, dom=None, cod=None, mem=None:\\
+...     self.trace(len(mem))
+
+>>> F0 = Functor(
+...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Category)
+>>> assert F0(x.delay()) == F0(x)
+
+>>> F = Functor(
+...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
+...     cod=symmetric.Category)
+>>> f = Box('f', x @ y.delay(), z @ y)
+>>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
 """
 
 from __future__ import annotations
