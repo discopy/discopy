@@ -74,7 +74,7 @@ def test_fibonacci_eq():
     Diagram.use_hypergraph_equality = True
 
     assert fib == (
-        copy.d >> one.head.d @ wait.d @ X.dcl
+        copy.d >> one.head.d @ wait.d @ X.d
                >> fby.d @ X.d
                >> plus.d
                >> zero.head @ X.d
