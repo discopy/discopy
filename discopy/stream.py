@@ -67,9 +67,8 @@ class Ty(NamedGeneric['base']):
         self.now, self._later = now, _later
 
     def __repr__(self):
-        factory = f"{factory_name(type(self))}[{factory_name(self.base)}]"
         _later = "" if self.is_constant else f", _later={repr(self._later)}"
-        return factory + f"({repr(self.now)}{_later})"
+        return factory_name(type(self)) + f"({repr(self.now)}{_later})"
 
     @property
     def later(self):
@@ -128,7 +127,7 @@ class Ty(NamedGeneric['base']):
 
     @inductive
     def unroll(self) -> Ty:
-        return type(self)(self.now @ self.later.now, self.later._later)
+        return type(self)(self.now + self.later.now, self.later._later)
 
     def map(self, func: Callable[[base], base]) -> Ty:
         return type(self)(func(self.now), lambda: self.later.map(func))
@@ -317,7 +316,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         .. image:: /_static/stream/feedback-example.png
             :align: center
         """
-        if mem is None:
+        if mem is None or dom is None or cod is None:
             raise NotImplementedError
         assert self.dom.now == dom.now if _first_call else (
             self.dom.now == dom.now + mem.now)
@@ -333,8 +332,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 class Category(symmetric.Category):
     """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
     def __init__(self, ob: type = None, ar: type = None):
-        ob = Ty if ob is None else Ty[ob]
         ar = Stream if ar is None else Stream[symmetric.Category(ob, ar)]
+        ob = Ty if ob is None else Ty[ob]
         super().__init__(ob, ar)
 
 

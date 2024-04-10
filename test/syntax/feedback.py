@@ -22,7 +22,7 @@ def test_Diagram_repr():
     assert eval(repr(fib)) == fib
 
 
-def test_Functor():
+def test_fibonacci():
     x = Ty('int')
     zero, one, plus = Box('0', Ty(), x), Box('1', Ty(), x), Box('+', x @ x, x)
     fib = ((Copy(x) >> one.head @ Diagram.wait(x) @ x

@@ -112,7 +112,13 @@ class Function(Composable[Ty], Whiskerable):
             lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
 
     def __call__(self, *xs):
-        return self.inside(*xs)
+        if len(xs) != len(self.dom):
+            raise ValueError
+        ys = self.inside(*xs)
+        if len(self.cod) != 1 and (
+                not isinstance(ys, tuple) or len(self.cod) != len(ys)):
+            raise RuntimeError
+        return ys
 
     def tensor(self, other: Function) -> Function:
         """
@@ -269,3 +275,8 @@ class Dict(Composable[int], Whiskerable):
     @staticmethod
     def copy(x: int, n=2) -> Dict:
         return Dict({i: i % x for i in range(n * x)}, x, n * x)
+
+
+class Category:
+    ob = Ty
+    ar = Function
