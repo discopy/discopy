@@ -1,6 +1,7 @@
 from discopy import *
 from discopy.stream import *
 
+
 def test_feedback():
     T, S = Ty[python.Ty], Stream[python.Category]
     x, y, z = int, str, bool

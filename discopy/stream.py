@@ -207,7 +207,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     
     @classmethod
     def sequence(
-            cls, name: str, dom: Ty, cod: Ty, n_steps: int = 0,
+            cls, name: str, dom: Ty, cod: Ty, mem: Ty = None, n_steps: int = 0,
             box_factory=symmetric.Box) -> Stream:
         """
         Produce a stream of boxes indexed by a time step.
@@ -222,9 +222,11 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         f1 : x1 @ m0 -> y1 @ m1
         f2 : x2 @ m1 -> y2 @ m2
         """
-        now = box_factory(f"{name}{n_steps}", dom.now, cod.now)
-        return cls(now, dom, cod, _later=lambda: cls.sequence(
-            name, dom.later, cod.later, n_steps + 1, box_factory))
+        mem = Ty[cls.category.ob]() if mem is None else mem
+        now = box_factory(
+            f"{name}{n_steps}", dom.now @ mem.now, cod.now @ mem.later.now)
+        return cls(now, dom, cod, mem, _later=lambda: cls.sequence(
+            name, dom.later, cod.later, mem.later, n_steps + 1, box_factory))
 
     @inductive
     def delay(self) -> Stream:
@@ -280,6 +282,16 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @unbiased
     def then(self, other: Stream) -> Stream:
+        """
+        Composition of streams is given by swapping the memories as follows:
+
+        Example
+        -------
+        >>> x, y, z, m, n = [Ty.sequence(symmetric.Ty(n)) for n in "xyzmn"]
+        >>> f = Stream.sequence("f", x, y, m)
+        >>> g = Stream.sequence("g", y, z, n)
+        >>> f >> g
+        """
         swap = self.category.ar.swap
         now = self.now @ other.mem_dom
         now >>= self.cod.now @ swap(self.mem_cod, other.mem_dom)
@@ -292,6 +304,16 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @unbiased
     def tensor(self, other: Stream) -> Stream:
+        """
+        Tensor of streams is given by swapping the memories as follows:
+
+        Example
+        -------
+        >>> x, y, z, w, m, n = [Ty.sequence(symmetric.Ty(n)) for n in "xyzwmn"]
+        >>> f = Stream.sequence("f", x, y, m)
+        >>> g = Stream.sequence("g", z, w, n)
+        >>> f @ g
+        """
         assert_isinstance(other, Stream)
         swap = self.category.ar.swap
         now = self.dom.now @ swap(other.dom.now, self.mem_dom) @ other.mem_dom
