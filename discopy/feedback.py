@@ -197,7 +197,7 @@ class Ty(monoidal.Ty):
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
         return type(self)(*tuple(x.delay(n_steps) for x in self.inside))
-    
+
     def reset(self):
         return type(self)(*tuple(x.reset() for x in self.inside))
 
@@ -351,7 +351,7 @@ class Merge(markov.Merge, Box):
 
     def delay(self, n_steps=1):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
-    
+
 
 class Head(monoidal.Bubble, Box):
     """
@@ -368,7 +368,6 @@ class Head(monoidal.Bubble, Box):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-
 class Tail(monoidal.Bubble, Box):
     """
     The tail of a feedback diagram, interpreted as the stream starting from the
@@ -378,7 +377,6 @@ class Tail(monoidal.Bubble, Box):
         Head.__init__(self, arg, time_step, _attr="tail")
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
-
 
 
 class Feedback(monoidal.Bubble, Box):
