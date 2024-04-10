@@ -290,13 +290,16 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         >>> x, y, z, m, n = [Ty.sequence(symmetric.Ty(n)) for n in "xyzmn"]
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", y, z, n)
-        >>> f >> g
+        >>> (f >> g).now.draw(path="docs/_static/stream/stream-then.png")
+
+        .. image:: /_static/stream/stream-then.png
+            :align: center
         """
         swap = self.category.ar.swap
         now = self.now @ other.mem_dom
         now >>= self.cod.now @ swap(self.mem_cod, other.mem_dom)
         now >>= other.now @ self.mem_cod
-        now >>= other.cod.now @ swap(other.mem_dom, self.mem_cod)
+        now >>= other.cod.now @ swap(other.mem_cod, self.mem_cod)
         dom, cod, mem = self.dom, other.cod, self.mem @ other.mem
         _later = None if self._later is None and other._later is None else (
             lambda: self.later >> other.later)
@@ -312,7 +315,10 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         >>> x, y, z, w, m, n = [Ty.sequence(symmetric.Ty(n)) for n in "xyzwmn"]
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", z, w, n)
-        >>> f @ g
+        >>> (f @ g).now.draw(path="docs/_static/stream/stream-tensor.png")
+
+        .. image:: /_static/stream/stream-tensor.png
+            :align: center
         """
         assert_isinstance(other, Stream)
         swap = self.category.ar.swap
@@ -370,6 +376,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             return self.later.feedback(dom.later, cod.later, mem.later, False)
         mem = mem.delay() if _first_call else mem
         return type(self)(self.now, dom, cod, mem @ self.mem, _later)
+    
+    def unroll_and_draw(self, n_steps=1, **params):
+        return self.unroll(n_steps).now.simplify().draw(**params)
 
 
 @dataclass
