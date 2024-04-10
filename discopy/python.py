@@ -32,7 +32,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from discopy.cat import Composable, assert_iscomposable
+from discopy.cat import Composable, assert_iscomposable, assert_isinstance
 from discopy.utils import tuplify, untuplify, Whiskerable
 
 
@@ -114,10 +114,14 @@ class Function(Composable[Ty], Whiskerable):
     def __call__(self, *xs):
         if len(xs) != len(self.dom):
             raise ValueError
+        for (x, t) in zip(xs, self.dom):
+            assert_isinstance(x, t)
         ys = self.inside(*xs)
         if len(self.cod) != 1 and (
                 not isinstance(ys, tuple) or len(self.cod) != len(ys)):
             raise RuntimeError
+        for (y, t) in zip(tuplify(ys), self.cod):
+            assert_isinstance(y, t)
         return ys
 
     def tensor(self, other: Function) -> Function:

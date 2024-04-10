@@ -207,13 +207,25 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return cls(arg, dom, cod, _later=lambda: cls.id())
     
     @classmethod
-    def sequence(cls, box: symmetric.Box, n_steps: int = 0) -> Stream:
-        ty_factory = Ty[cls.category.ob]
-        dom, cod = ((ty_factory.sequence(x, n_steps))
-                    for x in [box.dom, box.cod])
-        now = type(box)(f"{box.name}{n_steps}", dom.now, cod.now)
-        _later = lambda: cls.sequence(box, n_steps + 1)
-        return cls(now, dom, cod, _later=_later)
+    def sequence(
+            cls, name: str, dom: Ty, cod: Ty, n_steps: int = 0,
+            box_factory=symmetric.Box) -> Stream:
+        """
+        Produce a stream of boxes indexed by a time step.
+        
+        Example
+        -------
+        >>> x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
+        >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
+        >>> for fi in [f.now, f.later.now, f.later.later.now]:
+        ...     print(fi, ":", fi.dom, "->", fi.cod)
+        f0 : x0 -> y0 @ m0
+        f1 : x1 @ m0 -> y1 @ m1
+        f2 : x2 @ m1 -> y2 @ m2
+        """
+        now = box_factory(f"{name}{n_steps}", dom.now, cod.now)
+        return cls(now, dom, cod, _later=lambda: cls.sequence(
+            name, dom.later, cod.later, n_steps + 1, box_factory))
 
     @inductive
     def delay(self) -> Stream:
@@ -306,8 +318,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
-        >>> x, y, z = map(Ty.sequence, "xyz")
-        >>> f, fb = feedback_example(), feedback_example().feedback(x, y, z)
+        >>> x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
+        >>> f = Stream.sequence("f", x @ m.delay(), y @ m)
+        >>> fb = f.feedback(x, y, m)
 
         >>> from discopy.drawing import Equation
         >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
@@ -338,16 +351,3 @@ class Category(symmetric.Category):
 
 
 Stream.followed_by = classmethod(Stream.id.__func__)
-
-
-def feedback_example(n=0):
-    x, y, z, w = [lambda n, x=x: symmetric.Ty(f"{x}{n}") for x in "xyzw"]
-    now_dom = x(0) @ w(0) if n == 0 else x(n) @ z(n - 1) @ w(n)
-    now_cod = y(n) @ z(n) @ w(n + 1)
-    now = symmetric.Box(f"f{n}", now_dom, now_cod)
-    dom = Ty.sequence('x', n) @ Ty.sequence('z').delay() if n == 0 else (
-        Ty.sequence('x', n) @ Ty.sequence('z', n - 1))
-    cod = Ty.sequence('y', n) @ Ty.sequence('z', n)
-    mem = Ty.sequence('w', n)
-    return Stream(now, dom, cod, mem, lambda: feedback_example(n + 1))
-    
