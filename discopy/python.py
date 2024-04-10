@@ -115,13 +115,13 @@ class Function(Composable[Ty], Whiskerable):
         if len(xs) != len(self.dom):
             raise ValueError
         for (x, t) in zip(xs, self.dom):
-            assert_isinstance(x, t)
+            callable(x) or assert_isinstance(x, t)
         ys = self.inside(*xs)
         if len(self.cod) != 1 and (
                 not isinstance(ys, tuple) or len(self.cod) != len(ys)):
             raise RuntimeError
         for (y, t) in zip(tuplify(ys), self.cod):
-            assert_isinstance(y, t)
+            callable(y) or assert_isinstance(y, t)
         return ys
 
     def tensor(self, other: Function) -> Function:
