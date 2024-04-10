@@ -430,6 +430,7 @@ class Feedback(monoidal.Bubble, Box):
         Box.__init__(self, self.name, dom, cod)
         mem_name = "" if len(mem) == 1 else f"mem={mem}"
         self.name = f"({self.arg}).feedback({mem_name})"
+        self.use_hypergraph_equality = False
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
@@ -439,6 +440,8 @@ class Feedback(monoidal.Bubble, Box):
         return factory_name(type(self)) + f"({arg}, mem={mem})"
 
     __str__ = Box.__str__
+    _get_structure = markov.Trace._get_structure
+    __eq__ = markov.Trace.__eq__
 
 
 class FollowedBy(Box):
@@ -501,10 +504,10 @@ class Functor(markov.Functor):
             for _ in range(other.time_step):
                 result = result.delay()
             return result
-        if isinstance(other, (HeadOb, Head)):
-            return self(other.arg).head
-        if isinstance(other, (TailOb, Tail)):
-            return self(other.arg).tail
+        if isinstance(other, (HeadOb, TailOb, Head, Tail)):
+            result = self(other.arg)
+            attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
+            return getattr(result, attr, result)
         if isinstance(other, FollowedBy):
             arg = other.dom if other.is_dagger else other.cod
             return self.cod.ar.followed_by(self(arg))
