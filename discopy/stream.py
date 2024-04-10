@@ -19,16 +19,15 @@ Example
 -------
 
 >>> from discopy import feedback, drawing
->>> x, y, z = map(feedback.Ty, "xyz")
->>> f = feedback.Box('f', x @ z.delay(), y @ z)
+>>> x, y, m = map(feedback.Ty, "xym")
+>>> f = feedback.Box('f', x @ m.delay(), y @ m)
+>>> fb = f.feedback()
+
 >>> F = feedback.Functor(
 ...     ob=lambda x: Ty.sequence(x.name),
 ...     ar={f: feedback_example()},
 ...     cod=Category())
->>> drawing.Equation(f, F(f).unroll(2).now, symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/stream/box-to-stream.png")
 
->>> fb = f.feedback()
 >>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/stream/feedback-to-stream.png")
 """
@@ -263,6 +262,16 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def id(cls, x: Optional[Ty] = None) -> Stream:
+        """
+        The identity on a stream of objects is a stream of identity morphisms
+        in the underlying category.
+        
+        Example
+        -------
+        >>> id_x = Stream.id(Ty.sequence('x'))
+        >>> print(id_x.now, id_x.later.now, id_x.later.later.now)
+        Id(x0) Id(x1) Id(x2)
+        """
         x = Ty[cls.category.ob]() if x is None else x
         assert_isinstance(x, Ty)
         now, dom, cod = cls.category.ar.id(x.now), x, x
@@ -351,3 +360,9 @@ class Category(symmetric.Category):
 
 
 Stream.followed_by = classmethod(Stream.id.__func__)
+
+
+def feedback_example():
+    x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
+    return Stream.sequence("f", x @ m.delay(), y @ m)
+    
