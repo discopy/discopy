@@ -14,7 +14,7 @@ def test_Function():
 
     assert f.uncurry().curry()(True)(1j) == f(True)(1j)
     assert f.uncurry(left=False).curry(left=False)(True)(1j) == f(True)(1j)
-    assert g.curry().uncurry()(True, 1j) == g(1j, True)
+    assert g.curry().uncurry()(1j, True) == g(1j, True)
     assert g.curry(left=False).uncurry(left=False)(1j, True) == g(1j, True)
 
 
