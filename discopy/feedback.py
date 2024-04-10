@@ -78,6 +78,26 @@ This satisfies the following equations:
 >>> assert x.head.tail == Ty()
 >>> assert x.delay().head == Ty()
 >>> assert x.delay().tail == x
+
+Note
+----
+
+Every traced symmetric category is a feedback category with a trivial delay:
+
+>>> from discopy import symmetric
+>>> symmetric.Ty.delay = symmetric.Diagram.delay = lambda self: self
+>>> symmetric.Diagram.feedback = lambda self, dom=None, cod=None, mem=None:\\
+...     self.trace(len(mem))
+
+>>> F0 = Functor(
+...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Category)
+>>> assert F0(x.delay()) == F0(x)
+
+>>> F = Functor(
+...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
+...     cod=symmetric.Category)
+>>> f = Box('f', x @ y.delay(), z @ y)
+>>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
 """
 
 from __future__ import annotations
@@ -197,7 +217,7 @@ class Ty(monoidal.Ty):
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
         return type(self)(*tuple(x.delay(n_steps) for x in self.inside))
-    
+
     def reset(self):
         return type(self)(*tuple(x.reset() for x in self.inside))
 
@@ -351,7 +371,7 @@ class Merge(markov.Merge, Box):
 
     def delay(self, n_steps=1):
         return type(self)(self.cod.delay(n_steps), len(self.dom))
-    
+
 
 class Head(monoidal.Bubble, Box):
     """
@@ -368,7 +388,6 @@ class Head(monoidal.Bubble, Box):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-
 class Tail(monoidal.Bubble, Box):
     """
     The tail of a feedback diagram, interpreted as the stream starting from the
@@ -378,7 +397,6 @@ class Tail(monoidal.Bubble, Box):
         Head.__init__(self, arg, time_step, _attr="tail")
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
-
 
 
 class Feedback(monoidal.Bubble, Box):
