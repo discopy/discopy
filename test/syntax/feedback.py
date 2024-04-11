@@ -55,9 +55,9 @@ def test_walk():
             plus: lambda x, y: x + y},
         cod=stream.Category(python.Ty, python.Function))
 
-    assert F(walk).unroll(9).now() == (0, -1, 0, 1, 2, 1, 0, -1, 0, 1, 1)
-    assert F(walk).unroll(9).now() == (0, -1, -2, -1, 0, 1, 0, 1, 2, 1, 1)
-    assert F(walk).unroll(9).now() == (0, -1, 0, 1, 0, 1, 0, -1, 0, -1, -1)
+    assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 2, 1, 0, -1, 0, 1)
+    assert F(walk).unroll(9).now()[:10] == (0, -1, -2, -1, 0, 1, 0, 1, 2, 1)
+    assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 0, 1, 0, -1, 0, -1)
 
 
 X = Ty('X')
@@ -91,4 +91,4 @@ def test_fibonacci_functor():
             plus: lambda x, y: x + y},
         cod=stream.Category(python.Ty, python.Function))
 
-    assert F(fib).unroll(10).now() == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
+    assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)

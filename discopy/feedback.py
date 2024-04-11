@@ -155,11 +155,9 @@ class Ob(cat.Ob):
 
     def __str__(self, _super=cat.Ob):
         result = _super.__str__(self)
-        if self.time_step == 1:
-            result += ".d"
-        elif self.time_step > 1:
-            result += f".delay({self.time_step})"
-        return result
+        if self.time_step <= 3:
+            return result + self.time_step * ".d"
+        return result + f".delay({self.time_step})"
 
     d = property(lambda self: self.delay())
 
@@ -245,8 +243,7 @@ class Ty(monoidal.Ty):
 class Layer(monoidal.Layer):
     """ A feedback layer is a monoidal layer with a `delay` method. """
     def delay(self, n_steps=1):
-        boxes_or_types = tuple(x.delay(n_steps) for x in self.boxes_or_types)
-        return type(self)(*boxes_or_types)
+        return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
 
 
 @factory
@@ -293,6 +290,12 @@ class Diagram(markov.Diagram):
         """ Wait one time step, i.e. `Swap(x, x.delay()).feedback()` """
         return cls.swap(dom, dom.delay()).feedback()
 
+    @property
+    def time_step(self) -> int:
+        if len(self) != 1 or self != self.boxes[0]:
+            raise ValueError
+        return self.boxes[0].time_step
+
     d = property(lambda self: self.delay())
     head = property(lambda self: Head(self))
     tail = property(lambda self: Tail(self))
@@ -309,17 +312,17 @@ class Box(markov.Box, Diagram):
     """
     __ambiguous_inheritance__ = (markov.Box, )
 
-    time_step = 0
+    _time_step = 0
+    time_step = property(lambda self: self._time_step)
 
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
-        self.time_step, self._params = time_step, params
+        self._time_step, self._params = time_step, params
         super().__init__(name, dom, cod, **params)
 
     def delay(self, n_steps=1):
         dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
-        time_step = self.time_step + n_steps
-        return type(self)(
-            self.name, dom, cod, time_step=time_step, **self._params)
+        time_step = self._time_step + n_steps
+        return type(self)(self.name, dom, cod, time_step, **self._params)
 
     def reset(self):
         dom, cod = [x.delay(-self.time_step) for x in (self.dom, self.cod)]
@@ -331,6 +334,12 @@ class Box(markov.Box, Diagram):
     def __repr__(self):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return super().__repr__()[:-1] + time_step + ")"
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.time_step == other.time_step
+
+    def __hash__(self):
+        return hash((super().__hash__(), self.time_step))
 
 
 class Swap(markov.Swap, Box):
@@ -387,13 +396,13 @@ class Head(monoidal.Bubble, Box):
     by the identity stream on the empty type.
     """
     def __init__(self, arg: Diagram, time_step=0, _attr="head"):
-        self.time_step = time_step
         dom, cod = (
             getattr(x, _attr).delay(time_step) for x in [arg.dom, arg.cod])
         monoidal.Bubble.__init__(self, arg, dom, cod)
-        Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod)
+        Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+    __str__ = Box.__str__
 
 
 class Tail(monoidal.Bubble, Box):
@@ -405,6 +414,7 @@ class Tail(monoidal.Bubble, Box):
         Head.__init__(self, arg, time_step, _attr="tail")
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
+    __str__ = Box.__str__
 
 
 class Feedback(monoidal.Bubble, Box):
@@ -454,27 +464,26 @@ class Feedback(monoidal.Bubble, Box):
 
 class FollowedBy(Box):
     """ The isomorphism between `x.head @ x.tail.delay()` and `x`. """
-    def __init__(self, cod: Ty, is_dagger=False, time_step=0):
+    def __init__(self, arg: Ty, is_dagger=False, time_step=0):
+        self.arg = arg
         dagger_name = ", is_dagger=True" if is_dagger else ""
-        name = f"FollowedBy({cod}{dagger_name})"
-        dom, cod = cod.head @ cod.tail.delay(), cod
+        name = f"FollowedBy({arg}{dagger_name})"
+        dom, cod = arg.head @ arg.tail.delay(), arg
         dom, cod = (cod, dom) if is_dagger else (dom, cod)
         dom, cod = [x.delay(time_step) for x in (dom, cod)]
         super().__init__(name, dom, cod, time_step, is_dagger=is_dagger)
 
     def __repr__(self):
-        arg = (self.dom if self.is_dagger else self.cod).delay(-self.time_step)
         is_dagger = ", is_dagger=True" if self.is_dagger else ""
         time_step = f", time_step={self.time_step}" if self.time_step else ""
-        return f"FollowedBy({repr(arg)}{is_dagger}{time_step})"
+        return f"FollowedBy({repr(self.arg)}{is_dagger}{time_step})"
 
     def delay(self, n_steps=1):
         arg = self.dom if self.is_dagger else self.cod
         return type(self)(arg, self.is_dagger, self.time_step + n_steps)
 
     def reset(self):
-        arg = self.dom if self.is_dagger else self.cod
-        return type(self)(arg, self.is_dagger)
+        return type(self)(self.arg, self.is_dagger)
 
 
 class Category(markov.Category):

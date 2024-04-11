@@ -860,7 +860,9 @@ class Functor(Composable[Category]):
 
     def __call__(self, other):
         if isinstance(other, Ob):
-            return self.ob[other]
+            result = self.ob[other]
+            return result if isinstance(result, self.cod.ob)\
+                else self.cod.ar(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
                        self.cod.ar.zero(self(other.dom), self(other.cod)))

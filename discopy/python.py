@@ -94,6 +94,12 @@ class Function(Composable[Ty], Whiskerable):
 
     type_checking = True
 
+    def __init__(self, inside: Callable, dom: Ty, cod: Ty):
+        dom, cod = map(tuplify, (dom, cod))
+        for t in dom + cod:
+            assert_isinstance(t, type)
+        self.inside, self.dom, self.cod = inside, dom, cod
+
     def id(dom: Ty) -> Function:
         """
         The identity function on a given tuple of types :code:`dom`.
