@@ -126,7 +126,7 @@ class Ty(NamedGeneric['base']):
 
     @inductive
     def unroll(self) -> Ty:
-        return type(self)(self.now + self.later.now, self.later._later)
+        return type(self)(self.now + self.later.now, lambda: self.later.later)
 
     def map(self, func: Callable[[base], base]) -> Ty:
         return type(self)(func(self.now), lambda: self.later.map(func))
@@ -243,9 +243,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         -------
 
         >>> from discopy.drawing import Equation
-        >>> x, y = map(symmetric.Ty, "xy")
-        >>> now = symmetric.Box('f', x @ y, x @ y)
-        >>> f = Stream(now, dom=Ty(x), cod=Ty(x), mem=Ty(y))
+        >>> f = Stream.sequence("f", *map(Ty.sequence, "xym"))
         >>> Equation(f.now, f.unroll().now, f.unroll(2).now, symbol=',').draw(
         ...     figsize=(8, 4), path="docs/_static/stream/unroll.png")
 
@@ -259,7 +257,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         now >>= self.now @ later.dom.now
         now >>= self.cod.now @ self.category.ar.swap(
             self.mem_cod, later.dom.now) >> self.cod.now @ later.now
-        return type(self)(now, dom, cod, mem, _later=later._later)
+        return type(self)(now, dom, cod, mem, _later=lambda: later.later)
 
     @classmethod
     def id(cls, x: Optional[Ty] = None) -> Stream:

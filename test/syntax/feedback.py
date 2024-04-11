@@ -30,7 +30,7 @@ def test_functor_python_stream():
         ob={x: int},
         ar={zero: lambda: 0},
         cod=stream.Category(python.Ty, python.Function))
-    assert F(wait @ zero).unroll(2).now(1, 2, 3) == (0, 1, 0, 2, 0, 3)
+    assert F(wait @ zero).unroll(2).now(1, 2, 3) == (0, ) + (1, 0) + (2, 0) + (3, )
 
 
 def test_walk():
@@ -65,9 +65,8 @@ copy, plus = Copy(X), Box('+', X @ X, X)
 @Diagram.feedback
 @Diagram.from_callable(X.d, X @ X)
 def fib(x):
-    x = fby(zero.head(), plus.d(
-    fby.d(one.head.d(), wait.d(x)), x))
-    return (x, x)
+    y = fby(zero.head(), plus.d(fby.d(one.head.d(), wait.d(x)), x))
+    return (y, y)
 
 
 def test_fibonacci_eq():

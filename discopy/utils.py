@@ -367,7 +367,9 @@ def inductive(induction_step):
         assert_isinstance(n_steps, int)
         if n_steps < 0:
             raise ValueError
-        return method(induction_step(self), n_steps - 1) if n_steps else self
+        if n_steps == 0:
+            return self
+        return method(induction_step(self), n_steps - 1)
     return method
 
 
