@@ -16,6 +16,11 @@ def test_Merge_dagger():
     assert Merge(Ty('x')).dagger() == Copy(Ty('x'))
 
 
+def test_Discard():
+    assert isinstance(Discard(Ty('x')), Discard)
+    assert isinstance(Copy(Ty('x'), n=0), Discard)
+
+
 def test_equations():
     x = Ty('x')
     copy, discard = Copy(x), Copy(x, 0)

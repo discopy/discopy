@@ -53,6 +53,15 @@ Alexis Toumi, Giovanni de Felice, Richie Yeung
 **Abstract:**
 DisCoPy (Distributional Compositional Python) is an open source toolbox for computing with string diagrams and functors. In particular, the diagram data structure allows to encode various kinds of quantum processes, with functors for classical simulation and optimisation, as well as compilation and evaluation on quantum hardware. This includes the ZX calculus and its many variants, the parameterised circuits used in quantum machine learning, but also linear optical quantum computing. We review the recent developments of the library in this direction, making DisCoPy a toolbox for the quantum computer scientist.
 
+### DisCoPy: the Hierarchy of Graphical Languages in Python
+
+<arXiv:2311.10608>
+
+Alexis Toumi, Richie Yeung, Boldizsár Poór, Giovanni de Felice
+
+**Abstract:**
+DisCoPy is a Python toolkit for computing with monoidal categories. It comes with two flexible data structures for string diagrams: the first one for planar monoidal categories based on lists of layers, the second one for symmetric monoidal categories based on cospans of hypergraphs. Algorithms for functor application then allow to translate string diagrams into code for numerical computation, be it differentiable, probabilistic or quantum. This report gives an overview of the library and the new developments released in its version 1.0. In particular, we showcase the implementation of diagram equality for a large fragment of the hierarchy of graphical languages for monoidal categories, as well as a new syntax for defining string diagrams as Python functions.
+
 ### Functorial Language Models
 
 <arXiv:2103.14411>

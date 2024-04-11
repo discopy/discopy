@@ -10,24 +10,13 @@ from discopy import frobenius
 def test_backend():
     import jax.numpy
     import torch
-    import tensorflow.experimental.numpy as tnp
     assert isinstance(Tensor.id().array, np.ndarray)
     with backend('jax'):
         assert isinstance(Tensor.id().array, jax.numpy.ndarray)
         with backend('pytorch'):
             assert isinstance(Tensor.id().array, torch.Tensor)
-            with backend('tensorflow'):
-                assert isinstance(Tensor.id().array, tnp.ndarray)
-            assert isinstance(Tensor.id().array, torch.Tensor)
         assert isinstance(Tensor.id().array, jax.numpy.ndarray)
     assert isinstance(Tensor.id().array, np.ndarray)
-
-
-def test_Tensor_repr_with_tf():
-    with backend('tensorflow'):
-        alice = Tensor([1, 2], Dim(1), Dim(2))
-        assert repr(alice)\
-            == "Tensor[<dtype: 'int64'>]([1, 2], dom=Dim(1), cod=Dim(2))"
 
 
 def test_Dim():
@@ -230,7 +219,7 @@ def test_Box():
 
 
 def test_Spider():
-    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider[float64](1, 2, Dim(3))"
+    assert repr(Spider(1, 2, Dim(3))) == "tensor.Spider(1, 2, Dim(3))"
     assert Spider(1, 2, Dim(2)).dagger() == Spider(2, 1, Dim(2))
     with raises(ValueError):
         Spider(1, 2, Dim(2, 3))
@@ -258,6 +247,13 @@ def test_Tensor_adjoint_eval():
     tensor1 = diagram.eval()
     tensor2 = diagram.transpose_box(2).transpose_box(0, left=True).eval()
     assert tensor1 == tensor2
+
+
+def test_Tensor_dtype_inference():
+    assert Box("F(A)", Dim(1), Dim(1), data=None).dtype is None
+    assert Box("X", Dim(1), Dim(1), data=[0]) == Box[np.int64]("X", Dim(1), Dim(1), data=[0])
+    assert Box("Y", Dim(1), Dim(1), data=[1.]) == Box[np.float64]("Y", Dim(1), Dim(1), data=[1.])
+    assert Box("Y", Dim(1), Dim(1), data=[1]) != Box("Y", Dim(1), Dim(1), data=[1.])
 
 
 def test_non_numpy_eval():

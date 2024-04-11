@@ -1,4 +1,5 @@
-.. image:: /_static/snake-equation.png
+.. raw:: html
+    :file: _static/snake-equation.svg
 
 #####################
 DisCoPy documentation
@@ -6,15 +7,15 @@ DisCoPy documentation
 
 .. include:: ../README.md
     :parser: myst_parser.sphinx_
-    :start-line: 10
-    :end-line: 37
+    :start-line: 8
+
+Architecture
+------------
+
+Software dependencies between modules go top-to-bottom, left-to-right and forgetful functors between categories go the other way.
 
 .. raw:: html
     :file: api/architecture.html
-
-.. include:: ../README.md
-    :parser: myst_parser.sphinx_
-    :start-line: 39
 
 .. toctree::
     :caption: Reference API
@@ -31,10 +32,12 @@ DisCoPy documentation
     :hidden:
 
     notebooks/diagrams
+    notebooks/examples
     notebooks/qnlp
     notebooks/diag-diff
     notebooks/21-05-03-tallcat
     notebooks/21-05-05-tallcat
+    notebooks/higher-order-discocat
 
 
 .. toctree::

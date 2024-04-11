@@ -59,9 +59,9 @@ parallel wires coincide and the twist is the identity.
     :align: center
 """
 
-from discopy import pivotal, balanced
+from discopy import rigid, pivotal, balanced
 from discopy.cat import factory
-from discopy.pivotal import Ty
+from discopy.pivotal import Ty, PRO  # noqa: F401
 
 
 @factory
@@ -180,7 +180,8 @@ class Braid(balanced.Braid, Box):
 
     def rotate(self, left=False):
         del left
-        return self
+        braid = type(self)(*self.cod.r)
+        return braid.dagger() if self.is_dagger else braid
 
 
 class Twist(balanced.Twist, Box):
@@ -198,6 +199,18 @@ class Twist(balanced.Twist, Box):
     def rotate(self, left=False):
         del left
         return self
+
+
+class Sum(rigid.Sum, Box):
+    """
+    A ribbon sum is a sum of ribbon diagrams.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+    __ambiguous_inheritance__ = (rigid.Sum, )
 
 
 class Category(pivotal.Category, balanced.Category):

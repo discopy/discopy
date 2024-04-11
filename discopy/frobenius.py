@@ -23,6 +23,7 @@ Summary
     Cap
     Swap
     Spider
+    Bubble
     Category
     Functor
 
@@ -61,7 +62,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from discopy import markov, compact, pivotal, hypergraph
+from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.cat import factory
 from discopy.utils import factory_name, assert_isinstance, assert_isatomic
 
@@ -85,6 +86,22 @@ class Ty(pivotal.Ty):
         inside (frobenius.Ob) : The objects inside the type.
     """
     ob_factory = Ob
+
+
+@factory
+class PRO(rigid.PRO, Ty):
+    """
+    A PRO is a natural number ``n`` seen as a frobenius type with unnamed
+    objects.
+
+    Parameters
+    ----------
+    n : int
+        The length of the PRO type.
+    """
+    __ambiguous_inheritance__ = (rigid.PRO, )
+
+    l = r = property(lambda self: self)
 
 
 @factory
@@ -218,6 +235,10 @@ class Swap(compact.Swap, markov.Swap, Box):
     """
     __ambiguous_inheritance__ = (compact.Swap, markov.Swap)
 
+    def rotate(self, left=False):
+        del left
+        return self
+
 
 class Spider(Box):
     """
@@ -250,6 +271,15 @@ class Spider(Box):
         Box.__init__(self, name, dom, cod, data=data, **params)
         self.drawing_name = "" if not data else str(data)
 
+    def __setstate__(self, state):
+        if "_name" in state and state["_name"] == type(self).__name__:
+            phase = state.get("_data", None)
+            str_data = "" if phase is None else f", {phase}"
+            cod, dom = state['_dom'], state['_cod']
+            state["_name"] = type(self).__name__\
+                + f"({dom.n}, {cod.n}, {state['_typ']}{str_data})"
+        super().__setstate__(state)
+
     @property
     def phase(self):
         """ The phase of the spider. """
@@ -272,6 +302,13 @@ class Spider(Box):
     def unfuse(self) -> Diagram:
         return coherence(self.factory, type(self))(
             len(self.dom), len(self.cod), self.typ, self.phase)
+
+
+class Bubble(monoidal.Bubble, Box):
+    """
+    A Frobenius bubble is a monoidal bubble in a frobenius diagram.
+    """
+    __ambiguous_inheritance__ = (monoidal.Bubble, )
 
 
 class Category(compact.Category, markov.Category):

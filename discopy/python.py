@@ -31,9 +31,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from contextlib import contextmanager
 
 from discopy.cat import Composable, assert_iscomposable, assert_isinstance
-from discopy.utils import tuplify, untuplify, Whiskerable
+from discopy.utils import tuplify, untuplify, Whiskerable, classproperty
 
 
 Ty = tuple[type, ...]
@@ -91,6 +92,8 @@ class Function(Composable[Ty], Whiskerable):
     dom: Ty
     cod: Ty
 
+    type_checking = True
+
     def id(dom: Ty) -> Function:
         """
         The identity function on a given tuple of types :code:`dom`.
@@ -111,17 +114,28 @@ class Function(Composable[Ty], Whiskerable):
         return Function(
             lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
 
+    @classproperty
+    @contextmanager
+    def no_type_checking(cls):
+        tmp, cls.type_checking = cls.type_checking, False
+        try:
+            yield
+        finally:
+            cls.type_checking = tmp
+
     def __call__(self, *xs):
-        if len(xs) != len(self.dom):
-            raise ValueError
-        for (x, t) in zip(xs, self.dom):
-            callable(x) or assert_isinstance(x, t)
+        if self.type_checking:
+            if len(xs) != len(self.dom):
+                raise ValueError
+            for (x, t) in zip(xs, self.dom):
+                callable(x) or assert_isinstance(x, t)
         ys = self.inside(*xs)
-        if len(self.cod) != 1 and (
-                not isinstance(ys, tuple) or len(self.cod) != len(ys)):
-            raise RuntimeError
-        for (y, t) in zip(tuplify(ys), self.cod):
-            callable(y) or assert_isinstance(y, t)
+        if self.type_checking:
+            if len(self.cod) != 1 and (
+                    not isinstance(ys, tuple) or len(self.cod) != len(ys)):
+                raise RuntimeError
+            for (y, t) in zip(tuplify(ys), self.cod):
+                callable(y) or assert_isinstance(y, t)
         return ys
 
     def tensor(self, other: Function) -> Function:

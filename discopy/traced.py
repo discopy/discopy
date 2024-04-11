@@ -224,7 +224,7 @@ class Functor(monoidal.Functor):
 
     Example
     -------
-    Let's compute the golden ratio by applying a traced functor.
+    Let's compute the golden ratio by applying a (hacky) traced functor.
 
     >>> from math import sqrt
     >>> from discopy import python
@@ -232,10 +232,11 @@ class Functor(monoidal.Functor):
     >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
     >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
     >>> F = Functor(
-    ...     ob={x: int},
-    ...     ar={f: lambda x=1: (x, 1 + 1 / x), g: lambda: (1 + sqrt(5)) / 2},
+    ...     ob={x: (float, )},
+    ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
     ...     cod=Category(python.Ty, python.Function))
-    >>> assert F(f.trace())() == F(g)()
+    >>> with python.Function.no_type_checking:
+    ...     assert F(f.trace())() == F(g)()
 
     >>> from discopy.drawing import Equation
     >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")

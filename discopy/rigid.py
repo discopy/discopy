@@ -72,6 +72,12 @@ class Ob(cat.Ob):
     """
     __ambiguous_inheritance__ = True
 
+    def __setstate__(self, state):
+        if '_z' in state:  # Backward compatibility
+            self.z = state['_z']
+            del state['_z']
+        super().__setstate__(state)
+
     def __init__(self, name: str, z: int = 0):
         assert_isinstance(z, int)
         self.z = z
@@ -127,6 +133,11 @@ class Ty(closed.Ty):
     >>> assert n.l.r == n == n.r.l
     >>> assert (s @ n).l == n.l @ s.l and (s @ n).r == n.r @ s.r
     """
+    def __setstate__(self, state):
+        if '_z' in state:  # Backward compatibility
+            del state['_z']
+        super().__setstate__(state)
+
     def assert_isadjoint(self, other):
         """
         Raise ``AxiomError`` if two rigid types are not adjoints.
@@ -167,7 +178,7 @@ class Ty(closed.Ty):
 @factory
 class PRO(monoidal.PRO, Ty):
     """
-    A PRO is a natural number ``n`` seen as a rigid type with unnamed objects.
+    A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
 
     Parameters
     ----------
@@ -545,6 +556,12 @@ class Box(closed.Box, Diagram):
     >>> assert f.l.l != f != f.r.r
     """
     __ambiguous_inheritance__ = (closed.Box, )
+
+    def __setstate__(self, state):
+        if '_z' in state:  # Backward compatibility
+            self.z = state['_z']
+            del state['_z']
+        super().__setstate__(state)
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
         self.z = z
