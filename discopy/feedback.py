@@ -143,6 +143,9 @@ class Ob(cat.Ob):
         return (
             super().__eq__(other) and self.time_step == other.time_step
             and self.is_constant == other.is_constant)
+        
+    def __hash__(self):
+        return hash((self.name, self.time_step, self.is_constant))
 
     def __repr__(self):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
@@ -171,7 +174,7 @@ class HeadOb(Ob):
     def __init__(self, arg: Ob, time_step: int = 0):
         assert_isinstance(arg, Ob)
         if isinstance(arg, HeadOb) or arg.time_step:
-            return ValueError
+            raise ValueError
         self.arg = arg
         super().__init__(f"{arg}.head", time_step, is_constant=False)
 
@@ -198,11 +201,16 @@ class TailOb(Ob):
     """
     The tail of a non-constant feedback object, interpreted as the stream
     starting from the second time step.
+
+    Example
+    -------
+    >>> x = Ob('x', is_constant=False)
+    >>> assert x.tail == TailOb(x)
     """
     def __init__(self, arg: Ob, time_step: int = 0):
         assert_isinstance(arg, Ob)
         if isinstance(arg, HeadOb) or arg.is_constant or arg.time_step > 0:
-            return ValueError
+            raise ValueError
         self.arg = arg
         super().__init__(f"{arg}.tail", time_step, is_constant=False)
 
@@ -314,7 +322,7 @@ class Box(markov.Box, Diagram):
             self.name, dom, cod, time_step=time_step, **self._params)
 
     def reset(self):
-        dom, cod = self.dom.reset(), self.cod.reset()
+        dom, cod = [x.delay(-self.time_step) for x in (self.dom, self.cod)]
         return type(self)(self.name, dom, cod, **self._params)
 
     def __str__(self):
@@ -494,7 +502,16 @@ class Functor(markov.Functor):
 
     Example
     -------
-    Let's compute the Fibonacci sequence as a stream of Python functions:
+    >>> x, y, m = [Ty(Ob(n, is_constant=False)) for n in "xym"]
+    >>> f = Box('f', x @ m.d, y @ m)
+    >>> g = Box('g', y.d @ m.d.d, x.d @ m.d)
+    >>> F = Functor({x: y.d, y: x.d, m: m.d}, {f: g})
+
+    >>> assert F(f.delay()) == F(f).delay()
+    >>> assert F(f.feedback()) == F(f).feedback()
+    >>> assert F(x.head) == F(x).head and F(x.tail) == F(x).tail
+    >>> assert F(FollowedBy(x)) == FollowedBy(F(x))
+    >>> assert F(f.head) == F(f).head and F(f.tail) == F(f).tail
     """
     dom = cod = Category(Ty, Diagram)
 
@@ -509,9 +526,10 @@ class Functor(markov.Functor):
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
             result = self(other.arg)
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
-            default = (
+            if hasattr(result, attr):
+                return getattr(result, attr)
+            return (
                 self.ar if isinstance(other, (Head, Tail)) else self.ob)[other]
-            return getattr(result, attr, default)
         if isinstance(other, FollowedBy):
             arg = other.dom if other.is_dagger else other.cod
             return self.cod.ar.followed_by(self(arg))
@@ -528,5 +546,5 @@ class Hypergraph(markov.Hypergraph):
 Diagram.hypergraph_factory = Hypergraph
 Diagram.braid_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
-Diagram.feedback_factory = Feedback
+Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Id = Diagram.id

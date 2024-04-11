@@ -8,6 +8,10 @@ from discopy.feedback import *
 def test_invalid_inputs():
     with raises(NotImplementedError):
         Ty('x').delay(-1)
+    with raises(ValueError):
+        HeadOb(Ob('x').delay())
+    with raises(ValueError):
+        TailOb(Ob('x').delay())
 
 
 def test_Diagram_repr():
