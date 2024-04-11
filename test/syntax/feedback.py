@@ -85,7 +85,7 @@ def test_fibonacci_eq():
 
 def test_fibonacci_functor():
     F = Functor(
-        ob={X: int},
+        ob={X: (int, )},
         ar={zero: lambda: 0,
             one: lambda: 1,
             plus: lambda x, y: x + y},
