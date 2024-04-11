@@ -228,15 +228,15 @@ class Functor(monoidal.Functor):
 
     >>> from math import sqrt
     >>> from discopy import python
-    >>> x, R = Ty('$\\\\mathbb{R}$'), (float, )
+    >>> x = Ty('$\\\\mathbb{R}$')
     >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
     >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
-    >>> hack = python.Function(
-    ...     lambda x=1.: (x, 1 + 1. / x), R, R + R, type_checking=False)
     >>> F = Functor(
-    ...     ob={x: R}, ar={f: hack, g: lambda: (1 + sqrt(5)) / 2},
+    ...     ob={x: (float, )},
+    ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
     ...     cod=Category(python.Ty, python.Function))
-    >>> assert F(f.trace())() == F(g)()
+    >>> with python.Function.no_type_checking:
+    ...     assert F(f.trace())() == F(g)()
 
     >>> from discopy.drawing import Equation
     >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")

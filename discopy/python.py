@@ -31,9 +31,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from contextlib import contextmanager
 
 from discopy.cat import Composable, assert_iscomposable, assert_isinstance
-from discopy.utils import tuplify, untuplify, Whiskerable
+from discopy.utils import tuplify, untuplify, Whiskerable, classproperty
 
 
 Ty = tuple[type, ...]
@@ -90,7 +91,8 @@ class Function(Composable[Ty], Whiskerable):
     inside: Callable
     dom: Ty
     cod: Ty
-    type_checking: bool = True
+
+    type_checking = True
 
     def id(dom: Ty) -> Function:
         """
@@ -111,6 +113,15 @@ class Function(Composable[Ty], Whiskerable):
         assert_iscomposable(self, other)
         return Function(
             lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
+
+    @classproperty
+    @contextmanager
+    def no_type_checking(cls):
+        tmp, cls.type_checking = cls.type_checking, False
+        try:
+            yield
+        finally:
+            cls.type_checking = tmp
 
     def __call__(self, *xs):
         if self.type_checking:
