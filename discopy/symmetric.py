@@ -299,6 +299,10 @@ class Trace(balanced.Trace, Box):
     __ambiguous_inheritance__ = (balanced.Trace, )
     __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
 
+    def _get_structure(self):
+        return super()._get_structure() if self.use_hypergraph_equality else (
+            type(self), self.dom, self.cod, self.arg._get_structure())
+
 
 class Sum(balanced.Sum, Box):
     """

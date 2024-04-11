@@ -382,6 +382,19 @@ def unbiased(binary_method):
     return method
 
 
+def inductive(induction_step):
+    """ Turn a method with no input () to one with input (n_steps=1). """
+    @wraps(induction_step)
+    def method(self, n_steps=1):
+        assert_isinstance(n_steps, int)
+        if n_steps < 0:
+            raise ValueError
+        if n_steps == 0:
+            return self
+        return method(induction_step(self), n_steps - 1)
+    return method
+
+
 Pushout = tuple[dict[int, int], dict[int, int]]
 
 

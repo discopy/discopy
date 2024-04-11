@@ -16,6 +16,8 @@ from discopy import (
     compact,
     frobenius,
     hypergraph,
+    interaction,
+    feedback,
     python,
     matrix,
     tensor,

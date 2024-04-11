@@ -864,7 +864,7 @@ class Functor(Composable[Category]):
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
                        self.cod.ar.zero(self(other.dom), self(other.cod)))
-        if isinstance(other, Bubble):
+        if isinstance(other, Bubble) and hasattr(self.cod.ar, "bubble"):
             return self(other.arg).bubble(
                 dom=self(other.dom), cod=self(other.cod))
         if isinstance(other, Box) and other.is_dagger:

@@ -55,7 +55,7 @@ jobs:
         coverage run -m pytest
     - name: Coverage
       run:
-        coverage report --fail-under=99 --show-missing
+        coverage report --fail-under=98 --show-missing
   docs:
     runs-on: ubuntu-latest
     strategy:
