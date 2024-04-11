@@ -109,6 +109,10 @@ from discopy.utils import (
     factory, factory_name, assert_isinstance, AxiomError)
 
 
+def str_delayed(time_step: int):
+    return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
+
+
 class Ob(cat.Ob):
     """
     A feedback object is an object with a `time_step` and an optional argument
@@ -155,13 +159,8 @@ class Ob(cat.Ob):
         return factory_name(
             type(self)) + f"({repr(self.name)}{time_step}{is_constant})"
 
-    def __str__(self, _super=cat.Ob):
-        result = _super.__str__(self)
-        if self.time_step == 1:
-            result += ".d"
-        elif self.time_step > 1:
-            result += f".delay({self.time_step})"
-        return result
+    def __str__(self):
+        return super().__str__() + str_delayed(self.time_step)
 
     d = property(lambda self: self.delay())
 
@@ -328,7 +327,7 @@ class Box(markov.Box, Diagram):
         return type(self)(self.name, dom, cod, **self._params)
 
     def __str__(self):
-        return Ob.__str__(self, _super=markov.Box)
+        return super().__str__() + str_delayed(self.time_step)
 
     def __repr__(self):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
