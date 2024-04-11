@@ -209,6 +209,10 @@ class Copy(Box):
         return super().__new__(cls) if n else\
             cls.discard_factory.__new__(cls.discard_factory, x)
 
+    def __new__(cls, x: monoidal.Ty, n: int = 2):
+        return super().__new__(cls) if n else\
+            cls.discard_factory.__new__(cls.discard_factory, x)
+
     def dagger(self) -> Merge:
         return Merge(self.dom, len(self.cod))
 
@@ -237,6 +241,17 @@ class Merge(Box):
     def __repr__(self):
         return (
             factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
+
+
+class Discard(Copy):
+    """
+    The discard of an atomic type :code:`x`.
+
+    Parameters:
+        x : The type to discard.
+    """
+    def __init__(self, x: monoidal.Ty, *args, **kwargs):
+        super().__init__(x, 0)
 
 
 class Discard(Copy):
