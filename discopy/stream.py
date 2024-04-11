@@ -39,7 +39,7 @@ from dataclasses import dataclass
 from discopy import symmetric
 from discopy.python import is_tuple
 from discopy.utils import (
-    AxiomError, Composable, Whiskerable, NamedGeneric,
+    AxiomError, Composable, Whiskerable, NamedGeneric, get_origin,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 
@@ -60,8 +60,7 @@ class Ty(NamedGeneric['base']):
             self, now: base = None, _later: Callable[[], Ty[base]] = None):
         if is_tuple(self.base) and not isinstance(now, (tuple, type(None))):
             now = (now, )
-        origin = getattr(self.base, "__origin__", self.base)
-        now = now if isinstance(now, origin) else (
+        now = now if isinstance(now, get_origin(self.base)) else (
             self.base() if now is None else self.base(now))
         self.now, self._later = now, _later
 
