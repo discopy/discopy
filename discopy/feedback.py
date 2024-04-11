@@ -501,13 +501,17 @@ class Functor(markov.Functor):
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
             result = self(other.reset())
+            if not hasattr(result, "delay"):
+                return (self.ob if isinstance(other, Ob) else self.ar)[other]
             for _ in range(other.time_step):
                 result = result.delay()
             return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
             result = self(other.arg)
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
-            return getattr(result, attr, result)
+            default = (
+                self.ar if isinstance(other, (Head, Tail)) else self.ob)[other]
+            return getattr(result, attr, default)
         if isinstance(other, FollowedBy):
             arg = other.dom if other.is_dagger else other.cod
             return self.cod.ar.followed_by(self(arg))
@@ -518,7 +522,7 @@ class Functor(markov.Functor):
 
 
 class Hypergraph(markov.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Category, markov.Functor
 
 
 Diagram.hypergraph_factory = Hypergraph
