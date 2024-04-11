@@ -143,7 +143,7 @@ class Ob(cat.Ob):
         return (
             super().__eq__(other) and self.time_step == other.time_step
             and self.is_constant == other.is_constant)
-        
+
     def __hash__(self):
         return hash((self.name, self.time_step, self.is_constant))
 
