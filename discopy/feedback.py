@@ -15,6 +15,8 @@ Summary
     :toctree:
 
     Ob
+    HeadOb
+    TailOb
     Ty
     Layer
     Diagram
@@ -66,7 +68,7 @@ such that the following equations are satisfied:
 >>> Equation((f >> z @ h).feedback(), (x @ h.d >> f).feedback()).draw(
 ...     path='docs/_static/feedback/sliding.png', draw_type_labels=False)
 
-.. image:: /_static/traced/sliding.png
+.. image:: /_static/feedback/sliding.png
     :align: center
 
 We also implement :class:`head` and :class:`tail` endofunctors together with an
