@@ -226,10 +226,10 @@ class Ty(monoidal.Ty):
 
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
-        return type(self)(*tuple(x.delay(n_steps) for x in self.inside))
+        return type(self)(*(x.delay(n_steps) for x in self.inside))
 
     def reset(self):
-        return type(self)(*tuple(x.reset() for x in self.inside))
+        return type(self)(*(x.reset() for x in self.inside))
 
     @property
     def head(self):
