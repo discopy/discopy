@@ -139,23 +139,40 @@ class NamedGeneric(Generic[TypeVar('T')]):
     >>> assert L[int]([1, 2, 3]).type_param == int
     >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
     """
+    _cache = dict()
+
     def __class_getitem__(_, attributes):
         if not isinstance(attributes, tuple):
             attributes = (attributes,)
 
-        class Result(Generic[TypeVar(attributes)]):
-            def __class_getitem__(cls, values, _cache=dict()):
+        G = Generic.__class_getitem__(tuple(map(TypeVar, attributes)))
+
+        class Result(G):
+            def __class_getitem__(cls, values):
+                if hasattr(cls, "__is_named_generic__"):
+                    cls = cls.__bases__[0]
                 values = values if isinstance(values, tuple) else (values,)
                 cls_values = tuple(
                     getattr(cls, attr, None) for attr in attributes)
-                if cls_values not in _cache or _cache[cls_values] != cls:
-                    _cache.clear()
-                    _cache[cls_values] = cls
-                if values not in _cache:
+                if cls not in NamedGeneric._cache:
+                    NamedGeneric._cache[cls] = {cls_values: cls}
+                if values not in NamedGeneric._cache[cls]:
                     origin = getattr(cls, "__origin__", cls)
 
                     class C(origin):
-                        pass
+                        __is_named_generic__ = True
+
+                        # We need this to fix pickling of nested classes
+                        # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
+                        def __reduce__(self):
+                            func, args, data = super().__reduce__()
+                            # Check if class name is of the form:
+                            # *ClassName*[*type*]
+                            if '[' in args[0].__name__:
+                                args = (origin, ) + args[1:]
+                                data |= {"__class_getitem__values__": values}
+                            return func, args, data
+
                     C.__module__ = origin.__module__
                     names = [getattr(v, "__name__", str(v)) for v in values]
                     C.__name__ = C.__qualname__ = origin.__name__\
@@ -163,8 +180,8 @@ class NamedGeneric(Generic[TypeVar('T')]):
                     C.__origin__ = cls
                     for attr, value in zip(attributes, values):
                         setattr(C, attr, value)
-                    _cache[values] = C
-                return _cache[values]
+                    NamedGeneric._cache[cls][values] = C
+                return NamedGeneric._cache[cls][values]
 
             __name__ = __qualname__\
                 = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
@@ -172,6 +189,11 @@ class NamedGeneric(Generic[TypeVar('T')]):
         for attr in attributes:
             setattr(Result, attr, getattr(Result, attr, None))
         return Result
+
+    def __setstate__(self, state):
+        if "__class_getitem__values__" in state:
+            new_cls = self.__class__[state["__class_getitem__values__"]]
+            self.__class__ = new_cls
 
 
 def product(xs: list, unit=1):
@@ -425,6 +447,15 @@ class BinaryBoxConstructor:
     """
     def __init__(self, left, right):
         self.left, self.right = left, right
+
+    def __setstate__(self, state):
+        if "_name" in state:
+            state["_name"] = type(self).__name__ + (
+                              f"({state['right']}, {state['left']})"
+                              if state.get("_is_dagger", False) else
+                              f"({state['left']}, {state['right']})"
+            )
+        super().__setstate__(state)
 
     def __repr__(self):
         return factory_name(type(self))\

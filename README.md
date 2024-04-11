@@ -1,9 +1,11 @@
-
-![snake equation](https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation.png)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation-dark.svg">
+  <img alt="Snake equation" width="60%" src="https://github.com/discopy/discopy/raw/main/docs/_static/snake-equation.svg">
+</picture>
 
 # DisCoPy
 
-[![build](https://github.com/discopy/discopy/actions/workflows/build_test.yml/badge.svg)](https://github.com/discopy/discopy/actions/workflows/build_test.yml)
+[![build](https://github.com/discopy/discopy/actions/workflows/build.yml/badge.svg)](https://github.com/discopy/discopy/actions/workflows/build.yml)
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://docs.discopy.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 [![DOI: 10.4204/EPTCS.333.13](http://img.shields.io/badge/DOI-10.4204/EPTCS.333.13-brightgreen.svg)](https://doi.org/10.4204/EPTCS.333.13)
@@ -32,11 +34,36 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
   - [PennyLane](https://pennylane.ai/) for automatic differentiation
 * an implementation of formal grammars ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to [lambeq](https://cqcl.github.io/lambeq), [spaCy](https://spacy.io/) and [NLTK](https://www.nltk.org/)
 
-## Architecture
+## Example: Cooking
 
-Software dependencies between modules go top-to-bottom, left-to-right and [forgetful functors](https://en.wikipedia.org/wiki/Forgetful_functor) between categories go the other way.
+This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
 
-[![architecture](https://github.com/discopy/discopy/raw/main/docs/api/architecture.png)](https://docs.discopy.org#architecture)
+```python
+from discopy.symmetric import Ty as Ingredient, Box as Step, Diagram as Recipe
+
+egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
+crack = Step("crack", egg, white @ yolk)
+merge = lambda x: Step("merge", x @ x, x)
+
+# DisCoPy allows string diagrams to be defined as Python functions
+
+@Recipe.from_callable(egg @ egg, white @ yolk)
+def crack_two_eggs(left_egg, right_egg):
+    left_white, left_yolk = crack(left_egg)
+    right_white, right_yolk = crack(right_egg)
+    return (merge(white)(left_white, right_white),
+            merge(yolk)(left_yolk, right_yolk))
+
+# ... or in point-free style using parallel (@) and sequential (>>) composition
+
+assert crack_two_eggs == crack @ crack\
+  >> white @ Recipe.swap(yolk, white) @ yolk\
+  >> merge(white) @ merge(yolk)
+
+crack_two_eggs.draw()
+```
+
+![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/src/imgs/crack-eggs.png)
 
 ## Quickstart
 
@@ -56,10 +83,14 @@ or [open an issue](https://github.com/discopy/discopy/issues/new).
 
 ## How to cite
 
-If you wish to cite DisCoPy in an academic publication, we suggest you cite:
+If you used DisCoPy in the context of an academic publication, we suggest you cite:
 
 * G. de Felice, A. Toumi & B. Coecke, _DisCoPy: Monoidal Categories in Python_, EPTCS 333, 2021, pp. 183-197, [DOI: 10.4204/EPTCS.333.13](https://doi.org/10.4204/EPTCS.333.13)
 
 If furthermore your work is related to quantum computing, you can also cite:
 
 * A. Toumi, G. de Felice & R. Yeung, _DisCoPy for the quantum computer scientist_, [arXiv:2205.05190](https://arxiv.org/abs/2205.05190)
+
+If you use any of the recent features (e.g. `Hypergraph`) you should also mention:
+
+* A. Toumi, R. Yeung, B. Poór & G. de Felice, _DisCoPy: the Hierarchy of Graphical Languages in Python_ [arXiv:2311.10608](https://arxiv.org/abs/2311.10608)

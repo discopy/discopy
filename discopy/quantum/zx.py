@@ -266,6 +266,16 @@ class Spider(tensor.Spider[complex], Box):
         phase_str = f", {self.phase}" if self.phase else ""
         self.name = f"{factory_str}({n_legs_in}, {n_legs_out}{phase_str})"
 
+    def __setstate__(self, state):
+        if "_name" in state and state["_name"] == type(self).__name__:
+            phase = state.get("_data", None)
+            phase_str = f', {phase}' if phase else ''
+            state["_name"] = (
+                type(self).__name__ +
+                f"({state['_dom'].n}, {state['_cod'].n}{phase_str})"
+            )
+        super().__setstate__(state)
+
     def __repr__(self):
         return str(self).replace(type(self).__name__, factory_name(type(self)))
 
@@ -338,6 +348,9 @@ def scalar(data):
     return Scalar(data)
 
 
+root2 = scalar(2 ** 0.5)
+
+
 def gate2zx(box):
     """ Turns gates into ZX diagrams. """
     if isinstance(box, (Bra, Ket)):
@@ -347,11 +360,11 @@ def gate2zx(box):
     if isinstance(box, (Rz, Rx)):
         return (Z if isinstance(box, Rz) else X)(1, 1, box.phase)
     if isinstance(box, Controlled) and box.name.startswith('CRz'):
-        return Z(1, 2) @ Z(1, 2, box.phase)\
-            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
+        return Z(1, 2) @ Z(1, 2, box.phase / 2)\
+            >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase / 2)) @ Id(1) @ root2
     if isinstance(box, Controlled) and box.name.startswith('CRx'):
-        return X(1, 2) @ X(1, 2, box.phase)\
-            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase)) @ Id(1)
+        return X(1, 2) @ X(1, 2, box.phase / 2)\
+            >> Id(1) @ (Z(2, 1) >> X(1, 0, -box.phase / 2)) @ Id(1) @ root2
     if isinstance(box, quantum.CU1):
         return Z(1, 2, box.phase) @ Z(1, 2, box.phase)\
             >> Id(1) @ (X(2, 1) >> Z(1, 0, -box.phase)) @ Id(1)
@@ -368,8 +381,8 @@ def gate2zx(box):
         quantum.Y: Z(1, 1, .5) >> X(1, 1, .5) @ scalar(1j),
         quantum.S: Z(1, 1, .25),
         quantum.T: Z(1, 1, .125),
-        CZ: Z(1, 2) @ Id(1) >> Id(1) @ H @ Id(1) >> Id(1) @ Z(2, 1),
-        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ scalar(2 ** 0.5)}
+        CZ: Z(1, 2) @ Id(1) >> Id(1) @ H @ Id(1) >> Id(1) @ Z(2, 1) @ root2,
+        CX: Z(1, 2) @ Id(1) >> Id(1) @ X(2, 1) @ root2}
     return standard_gates[box]
 
 

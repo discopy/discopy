@@ -21,13 +21,6 @@ coverage run -m pytest
 coverage report -m --fail-under=99
 ```
 
-You should also check that the notebooks work fine:
-
-```shell
-pip install nbmake
-pytest --nbmake docs/notebooks/*.ipynb
-```
-
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
@@ -44,6 +37,7 @@ You should run the following commands from a clean clone of the repo:
 
 ```shell
 pip install twine
+pip install 'build<0.10.0'
 git tag X.X.X
 git push origin --tags
 python -m build
