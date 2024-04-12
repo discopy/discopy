@@ -254,17 +254,6 @@ class Discard(Copy):
         super().__init__(x, 0)
 
 
-class Discard(Copy):
-    """
-    The discard of an atomic type :code:`x`.
-
-    Parameters:
-        x : The type to discard.
-    """
-    def __init__(self, x: monoidal.Ty, *args, **kwargs):
-        super().__init__(x, 0)
-
-
 class Sum(symmetric.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.

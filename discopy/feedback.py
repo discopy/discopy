@@ -15,6 +15,8 @@ Summary
     :toctree:
 
     Ob
+    HeadOb
+    TailOb
     Ty
     Layer
     Diagram
@@ -66,7 +68,7 @@ such that the following equations are satisfied:
 >>> Equation((f >> z @ h).feedback(), (x @ h.d >> f).feedback()).draw(
 ...     path='docs/_static/feedback/sliding.png', draw_type_labels=False)
 
-.. image:: /_static/traced/sliding.png
+.. image:: /_static/feedback/sliding.png
     :align: center
 
 We also implement :class:`head` and :class:`tail` endofunctors together with an
@@ -105,6 +107,10 @@ from __future__ import annotations
 from discopy import cat, monoidal, markov
 from discopy.utils import (
     factory, factory_name, assert_isinstance, AxiomError)
+
+
+def str_delayed(time_step: int):
+    return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
 
 
 class Ob(cat.Ob):
@@ -153,11 +159,8 @@ class Ob(cat.Ob):
         return factory_name(
             type(self)) + f"({repr(self.name)}{time_step}{is_constant})"
 
-    def __str__(self, _super=cat.Ob):
-        result = _super.__str__(self)
-        if self.time_step <= 3:
-            return result + self.time_step * ".d"
-        return result + f".delay({self.time_step})"
+    def __str__(self):
+        return super().__str__() + str_delayed(self.time_step)
 
     d = property(lambda self: self.delay())
 
@@ -222,10 +225,10 @@ class Ty(monoidal.Ty):
 
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
-        return type(self)(*tuple(x.delay(n_steps) for x in self.inside))
+        return type(self)(*(x.delay(n_steps) for x in self.inside))
 
     def reset(self):
-        return type(self)(*tuple(x.reset() for x in self.inside))
+        return type(self)(*(x.reset() for x in self.inside))
 
     @property
     def head(self):
@@ -329,7 +332,7 @@ class Box(markov.Box, Diagram):
         return type(self)(self.name, dom, cod, **self._params)
 
     def __str__(self):
-        return Ob.__str__(self, _super=markov.Box)
+        return super().__str__() + str_delayed(self.time_step)
 
     def __repr__(self):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
