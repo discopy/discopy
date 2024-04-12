@@ -36,10 +36,11 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 >>> from discopy.drawing import Equation
 
 >>> x, y, z = map(Ty, "xyz")
->>> Box('f', x @ y.delay(), z @ y).feedback().draw(
-...     path="docs/_static/feedback/feedback-example.png")
+>>> f = Box('f', x @ y.delay(), z @ y)
+>>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
+...     path="docs/_static/feedback/feedback-operator.png", figsize=(8, 4))
 
-.. image:: /_static/feedback/feedback-example.png
+.. image:: /_static/feedback/feedback-operator.png
     :align: center
 
 such that the following equations are satisfied:
@@ -81,6 +82,10 @@ This satisfies the following equations:
 >>> assert x.delay().head == Ty()
 >>> assert x.delay().tail == x
 
+Note
+----
+
+Without loss of generality, we assume that
 Note
 ----
 
@@ -143,7 +148,7 @@ class Ob(cat.Ob):
             self if self.is_constant else TailOb(self))
 
     def reset(self) -> Ob:
-        """ Reset an object to time step zero. """
+        """ Reset an object to time step zero, used in :class:`Functor`. """
         return Ob(self.name, time_step=0, is_constant=self.is_constant)
 
     def __eq__(self, other):
@@ -305,6 +310,16 @@ class Diagram(markov.Diagram):
 
     @property
     def time_step(self) -> int:
+        """
+        The time step of a diagram is defined only if it is in fact a box.
+
+        This is used for checking equality between boxes and diagrams.
+
+        Example
+        -------
+        >>> f = Box('f', 'x', 'y')
+        >>> assert f.delay(42).time_step == 42
+        """
         if len(self) != 1 or self != self.boxes[0]:
             raise ValueError
         return self.boxes[0].time_step
@@ -322,6 +337,7 @@ class Box(markov.Box, Diagram):
         name (str) : The name of the box.
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
+        _time_step (int) : The number of times the box has been delayed.
     """
     __ambiguous_inheritance__ = (markov.Box, )
 
@@ -332,12 +348,19 @@ class Box(markov.Box, Diagram):
         self._time_step, self._params = time_step, params
         super().__init__(name, dom, cod, **params)
 
+    def to_drawing(self):
+        result = super().to_drawing()
+        if result.drawing_name:
+            result.drawing_name += str_delayed(self.time_step)
+        return result
+
     def delay(self, n_steps=1):
         dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
         time_step = self._time_step + n_steps
         return type(self)(self.name, dom, cod, time_step, **self._params)
 
     def reset(self):
+        """ Reset a box to time step zero, used in :class:`Functor`. """
         dom, cod = [x.delay(-self.time_step) for x in (self.dom, self.cod)]
         return type(self)(self.name, dom, cod, **self._params)
 
@@ -539,12 +562,12 @@ class Functor(markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
-            result = self(other.reset())
-            if not hasattr(result, "delay"):
-                return (self.ob if isinstance(other, Ob) else self.ar)[other]
-            for _ in range(other.time_step):
-                result = result.delay()
-            return result
+            cod = getattr(self.cod, "ob" if isinstance(other, Ob) else "ar")
+            if hasattr(cod, "delay"):
+                result = self(other.reset())
+                for _ in range(other.time_step):
+                    result = result.delay()
+                return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
             result = self(other.arg)
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
@@ -552,17 +575,18 @@ class Functor(markov.Functor):
                 return getattr(result, attr)
             return (
                 self.ar if isinstance(other, (Head, Tail)) else self.ob)[other]
-        if isinstance(other, FollowedBy):
+        if isinstance(
+                other, FollowedBy) and hasattr(self.cod.ar, "followed_by"):
             arg = other.dom if other.is_dagger else other.cod
             return self.cod.ar.followed_by(self(arg))
-        if isinstance(other, Feedback):
+        if isinstance(other, Feedback) and hasattr(self.cod.ar, "feedback"):
             return self(other.arg).feedback(*map(self, (
                 other.dom, other.cod, other.mem)))
         return super().__call__(other)
 
 
 class Hypergraph(markov.Hypergraph):
-    category, functor = Category, markov.Functor
+    category, functor = Category, Functor
 
 
 Diagram.hypergraph_factory = Hypergraph
