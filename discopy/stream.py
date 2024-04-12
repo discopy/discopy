@@ -23,10 +23,11 @@ Example
 >>> f = feedback.Box('f', x @ m.delay(), y @ m)
 >>> fb = f.feedback()
 
->>> X, Y, M = [Ty.sequence(symmetric.Ty(n)) for n in "XYM"]
->>> Ff = Stream.sequence("f", x @ m.delay(), y @ m)
+>>> X, Y, M = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
+>>> Ff = Stream.sequence("f", X @ M.delay(), Y @ M)
 
->>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff})
+>>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff},
+...                      cod=feedback.Category(Ty, Stream))
 
 >>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/stream/feedback-to-stream.png")
@@ -49,8 +50,12 @@ from discopy.utils import (
 @dataclass
 class Ty(NamedGeneric['base']):
     """
-    A `stream.Ty[base]` is a `base` for now and an optional function from the
-    empty tuple to `stream.Ty[base]` for later, the constant stream by default.
+    A stream of types from some underlying class `base`.
+
+    Parameters:
+        now (base) : The value of the stream at time step zero.
+        _later (Optional[Callable[[], Ty[base]]]) :
+            A thunk for the tail of the stream, constant by default.
     """
     base = symmetric.Ty  # The underlying class of types.
 
@@ -72,22 +77,24 @@ class Ty(NamedGeneric['base']):
         return factory_name(type(self)) + f"({repr(self.now)}{_later})"
 
     @property
-    def later(self):
+    def later(self) -> Ty:
+        """ The tail of a stream, or `self` if :meth:`is_constant`. """
         return self if self.is_constant else self._later()
 
-    head, tail = property(lambda self: self.singleton(self.now)), later
+    @property
+    def head(self) -> Ty:
+        """ The :meth:`singleton` over the first time step. """
+        return self.singleton(self.now)
+
+    tail = later
 
     @property
-    def is_constant(self):
+    def is_constant(self) -> bool:
+        """ Whether a stream of type is constant. """
         return self._later is None
 
     @classmethod
-    def constant(cls, x: base):
-        """ Constructs the constant stream for a given base type `x`. """
-        return cls(now=x, _later=None)
-
-    @classmethod
-    def singleton(cls, x: base):
+    def singleton(cls, x: base) -> Ty:
         """
         Constructs the stream with `x` now and the empty stream later.
 
@@ -112,8 +119,10 @@ class Ty(NamedGeneric['base']):
         """
         return type(self)(self.base(), lambda: self)
 
+    d = property(lambda self: self.delay())
+
     @classmethod
-    def sequence(cls, x: base, n_steps: int = 0):
+    def sequence(cls, x: base, n_steps: int = 0) -> Ty:
         """
         Constructs the stream `x0`, `x1`, etc.
 
@@ -128,13 +137,29 @@ class Ty(NamedGeneric['base']):
 
     @inductive
     def unroll(self) -> Ty:
-        return type(self)(self.now + self.later.now, lambda: self.later.later)
+        """
+        Unroll a stream `x0, x1, x2, x3, ...` to `x0 @ x1, x2, x3, ...`.
 
-    def map(self, func: Callable[[base], base]) -> Ty:
-        return type(self)(func(self.now), lambda: self.later.map(func))
+        >>> U = Ty.sequence('x').unroll()
+        >>> for x in [U.now, U.later.now, U.later.later.now]: print(x)
+        x0 @ x1
+        x2
+        x3
+        """
+        return type(self)(self.now + self.later.now, lambda: self.later.later)
 
     @unbiased
     def tensor(self, other: Ty) -> Ty:
+        """
+        The tensor of streams of types is computed pointwise.
+
+        >>> X, Y = map(Ty.sequence, "xy")
+        >>> XY = X @ Y
+        >>> for x in [XY.now, XY.later.now, XY.later.later.now]: print(x)
+        x0 @ y0
+        x1 @ y1
+        x2 @ y2
+        """
         if not isinstance(other, Ty):
             return NotImplemented
         return type(self)(
@@ -147,12 +172,41 @@ class Ty(NamedGeneric['base']):
 @dataclass
 class Stream(Composable, Whiskerable, NamedGeneric['category']):
     """
-    A `Stream[category]` is given by a triple of `stream.Ty[category.ob]` for
-    domain, codomain and memory, a `category.ar` for `now` and an optional
-    function from the empty tuple to `Stream[category]` for `_later`.
+    Monoidal streams over an underlying `category`.
 
-    If `_later is None` then a constant stream is initialised.
-    In that case, the domain, codomain and memory are computed from `now`.
+    Parameters:
+        now (category.ar) : The value of the stream at time step zero.
+        dom (Optional[Ty[category.ob]]) :
+            The domain of the stream, constant `now.dom` if `_later is None`.
+        cod (Optional[Ty[category.ob]]) :
+            The codomain of the stream, constant `now.dom` if `_later is None`.
+        mem (Optional[Ty[category.ob]]) :
+            The memory of the stream, the constant empty type by default.
+        _later (Optional[Callable[[], Stream[category]]]) :
+            A thunk for the tail of the stream, constant by default.
+
+    Example
+    -------
+    >>> from discopy import python
+    >>> T, S = Ty[python.Ty], Stream[python.Category]
+    >>> x, y, m = int, bool, str
+    >>> now = python.Function(lambda n: (bool(n % 2), str(n)), x, (y, m))
+    >>> dom, cod, mem = T(x), T(y), T(m).delay()
+    >>> later = S(lambda n, s: (bool(n % 2), f"{s} {n}"), dom, cod, mem.later)
+    >>> f = S(now, dom, cod, mem, lambda: later)
+    >>> f.unroll(2).now(1, 2, 3)
+    (True, False, True, '1 2 3')
+
+    Note
+    ----
+    The parameters should satisfy the following conditions:
+
+    >>> assert now.dom == dom.now + mem.now
+    >>> assert now.cod == cod.now + mem.later.now
+
+    >>> assert dom.later.now == later.dom.now
+    >>> assert cod.later.now == later.cod.now
+    >>> assert mem.later.now == later.mem.now
     """
     category = symmetric.Category
     ty_factory = Ty[category.ob]
@@ -172,11 +226,12 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             cod: ty_factory = None,
             mem: ty_factory = None,
             _later: Callable[[], Stream[category]] = None):
-        if not isinstance(now, self.category.ar):
-            now = self.category.ar(now, dom.now, cod.now)
         dom = Ty[self.category.ob](now.dom) if dom is None else dom
         cod = Ty[self.category.ob](now.cod) if cod is None else cod
         mem = Ty[self.category.ob]() if mem is None else mem
+        if not isinstance(now, self.category.ar):
+            now = self.category.ar(
+                now, dom.now + mem.now, cod.now + mem.later.now)
         self.dom, self.cod, self.mem = dom, cod, mem
         self.now, self._later = now, _later
         if now.dom != dom.now + self.mem_dom:
@@ -185,6 +240,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             raise AxiomError
 
     def check_later(self):
+        """ Check that later has consistent domain, codomain and memory. """
         later = self.later
         assert self.dom.later.now == later.dom.now
         assert self.cod.later.now == later.cod.now
@@ -192,15 +248,13 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @property
     def mem_dom(self):
+        """ The memory wire on the left-hand side of the domain of now. """
         return self.mem.now
 
     @property
     def mem_cod(self):
+        """ The memory wire on the left-hand side of the codomain of now. """
         return self.mem.later.now
-
-    @classmethod
-    def constant(cls, diagram: category.ar) -> Stream:
-        return cls(diagram)
 
     @classmethod
     def singleton(cls, arg: category.ar) -> Stream:
@@ -236,6 +290,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         now, _later = self.category.ar.id(self.mem.now), lambda: self
         return type(self)(now, dom, cod, mem, _later)
 
+    d = property(lambda self: self.delay())
+
     @inductive
     def unroll(self) -> Stream:
         """
@@ -254,7 +310,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         """
         later = self.later
         dom, cod = self.dom.unroll(), self.cod.unroll()
-        mem = Ty[self.category.ob](self.mem.now, self.mem.later._later)
+        mem = Ty[self.category.ob](self.mem.now, lambda: self.mem.later.later)
         now = self.dom.now @ self.category.ar.swap(later.dom.now, self.mem_dom)
         now >>= self.now @ later.dom.now
         now >>= self.cod.now @ self.category.ar.swap(
