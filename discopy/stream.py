@@ -299,15 +299,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         assert self.cod.later.now == later.cod.now
         assert self.mem.later.now == later.mem.now
 
-    @property
-    def mem_dom(self):
-        """ The memory wire on the left-hand side of the domain of now. """
-        return self.mem.now
-
-    @property
-    def mem_cod(self):
-        """ The memory wire on the left-hand side of the codomain of now. """
-        return self.mem.later.now
+    mem_dom = property(lambda self: self.mem.now)
+    mem_cod = property(lambda self: self.mem.later.now)
 
     @classmethod
     def singleton(cls, arg: category.ar) -> Stream:
@@ -465,6 +458,11 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     ) -> Stream:
         """
         The delayed feedback of a monoidal stream.
+
+        Parameters:
+            dom (Ty) : The domain of the result.
+            cod (Ty) : The domain of the result.
+            mem (Ty) : The memory over which we are taking a feedback.
 
         Example
         -------
