@@ -1,5 +1,5 @@
 """
-The category of monoidal streams over a monoidal category.
+The feedback category of monoidal streams over a symmetric monoidal category.
 
 We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 
@@ -23,13 +23,16 @@ Example
 >>> f = feedback.Box('f', x @ m.delay(), y @ m)
 >>> fb = f.feedback()
 
->>> F = feedback.Functor(
-...     ob=lambda x: Ty.sequence(x.name),
-...     ar={f: feedback_example()},
-...     cod=Category())
+>>> X, Y, M = [Ty.sequence(symmetric.Ty(n)) for n in "XYM"]
+>>> Ff = Stream.sequence("f", x @ m.delay(), y @ m)
+
+>>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff})
 
 >>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/stream/feedback-to-stream.png")
+
+.. image:: /_static/stream/feedback-to-stream.png
+    :align: center
 """
 from __future__ import annotations
 
@@ -49,7 +52,7 @@ class Ty(NamedGeneric['base']):
     A `stream.Ty[base]` is a `base` for now and an optional function from the
     empty tuple to `stream.Ty[base]` for later, the constant stream by default.
     """
-    base = symmetric.Ty
+    base = symmetric.Ty  # The underlying class of types.
 
     now: base = None
     _later: Callable[[], Ty[base]] = None
@@ -378,6 +381,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def unroll_and_draw(self, n_steps=1, **params):
         return self.unroll(n_steps).now.simplify().draw(**params)
 
+    followed_by = id
+
 
 @dataclass
 class Category(symmetric.Category):
@@ -386,11 +391,3 @@ class Category(symmetric.Category):
         ar = Stream if ar is None else Stream[symmetric.Category(ob, ar)]
         ob = Ty if ob is None else Ty[ob]
         super().__init__(ob, ar)
-
-
-Stream.followed_by = classmethod(Stream.id.__func__)
-
-
-def feedback_example():
-    x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
-    return Stream.sequence("f", x @ m.delay(), y @ m)
