@@ -203,8 +203,9 @@ class Ty(NamedGeneric['base']):
         """
         if not isinstance(other, Ty):
             return NotImplemented
-        return type(self)(
-            self.now + other.now, lambda: self.later + other.later)
+        _later = None if self.is_constant and other.is_constant else (
+            lambda: self.later.tensor(other.later))
+        return type(self)(self.now + other.now, _later)
 
     __add__ = __matmul__ = symmetric.Ty.__matmul__
     __pow__ = symmetric.Ty.__pow__
@@ -267,6 +268,10 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             cod: ty_factory = None,
             mem: ty_factory = None,
             _later: Callable[[], Stream[category]] = None):
+        if dom is None or cod is None:
+            if mem is not None or _later is not None:
+                raise ValueError(
+                    "Cannot have mem or _later if dom or cod is None.")
         dom = Ty[self.category.ob](now.dom) if dom is None else dom
         cod = Ty[self.category.ob](now.cod) if cod is None else cod
         mem = Ty[self.category.ob]() if mem is None else mem
@@ -276,9 +281,13 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             now = self.category.ar(
                 now, dom.now + mem.now, cod.now + mem.later.now)
         if now.dom != dom.now + mem.now:
-            raise AxiomError
+            raise AxiomError(f"{dom.now + mem.now} != {now.dom}")
         if now.cod != cod.now + mem.later.now:
-            raise AxiomError
+            raise AxiomError(f"{dom.now + mem.later.now} != {now.dom}")
+        if _later is None:
+            if not all(x.is_constant for x in [dom, cod, mem]):
+                raise ValueError(
+                    "Constant streams should have constant dom, cod and mem")
         self.dom, self.cod, self.mem = dom, cod, mem
         self.now, self._later = now, _later
 
@@ -403,7 +412,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         now >>= other.now @ self.mem_cod
         now >>= other.cod.now @ swap(other.mem_cod, self.mem_cod)
         dom, cod, mem = self.dom, other.cod, self.mem @ other.mem
-        _later = None if self._later is None and other._later is None else (
+        _later = None if self.is_constant and other.is_constant else (
             lambda: self.later >> other.later)
         return type(self)(now, dom, cod, mem, _later)
 
@@ -431,9 +440,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         dom = self.dom @ other.dom
         cod = self.cod @ other.cod
         mem = self.mem @ other.mem
-
-        def _later():
-            return self.later.tensor(other.later)
+        _later = None if self.is_constant and other.is_constant else (
+            lambda: self.later.tensor(other.later))
         return type(self)(now, dom, cod, mem, _later)
 
     @classmethod
@@ -472,7 +480,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             :align: center
         """
         if mem is None or dom is None or cod is None:
-            raise NotImplementedError
+            if not self.is_constant or dom is not None or cod is not None:
+                raise NotImplementedError
+
         assert self.dom.now == dom.now if _first_call else (
             self.dom.now == dom.now + mem.now)
         assert self.cod.now == cod.now + mem.now if _first_call else (

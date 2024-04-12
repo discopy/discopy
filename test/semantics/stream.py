@@ -1,5 +1,21 @@
+from pytest import raises
+
 from discopy import *
 from discopy.stream import *
+
+def test_errors():
+    T, S = Ty[python.Ty], Stream[python.Category]
+    with raises(ValueError):
+        S(lambda x: x, mem=T(int))
+    dom = cod = mem = T(int)
+    now = python.Function(lambda x, y: (x + y, x - y), (int, int), (int, int))
+    with raises(AxiomError):
+        S(now, dom, cod)
+    with raises(AxiomError):
+        S(now, dom, cod, mem.head)
+    with raises(AxiomError):
+        non_constant = T(dom, _later=lambda: dom)
+        S(now, non_constant, cod, mem)
 
 
 def test_python_stream():
