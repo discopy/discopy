@@ -36,7 +36,8 @@ Axioms
 >>> split, merge = Spider(1, 2, x), Spider(2, 1, x)
 >>> unit, counit = Spider(0, 1, x), Spider(1, 0, x)
 
-* Frobenius:
+Frobenius
+=========
 
 >>> frobenius = Equation(
 ...     split @ x >> x @ merge, merge >> split, x @ split >> merge @ x)
@@ -47,7 +48,8 @@ Axioms
 .. image:: /_static/frobenius/frobenius.png
     :align: center
 
-* Speciality:
+Speciality
+==========
 
 >>> special = Equation(split >> merge, Spider(1, 1, x), Id(x))
 >>> with Diagram.hypergraph_equality:

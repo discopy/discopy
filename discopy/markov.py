@@ -30,7 +30,8 @@ Axioms
 >>> copy, merge = Copy(x), Merge(x)
 >>> unit, delete = Merge(x, n=0), Copy(x, n=0)
 
-* Commutative monoid:
+Commutative monoid
+==================
 
 >>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge)
 >>> associativity = Equation(merge @ x >> merge, x @ merge >> merge)
@@ -42,7 +43,8 @@ Axioms
 .. image:: /_static/frobenius/monoid.png
     :align: center
 
-* Cocommutative comonoid:
+Cocommutative comonoid
+======================
 
 >>> counitality = Equation(copy >> delete @ x, Id(x), copy >> x @ delete)
 >>> coassociativity = Equation(copy >> copy @ x, copy >> x @ copy)
@@ -54,7 +56,8 @@ Axioms
 .. image:: /_static/frobenius/comonoid.png
     :align: center
 
-* Coherence:
+Coherence
+=========
 
 >>> assert Diagram.copy(x @ x, n=0) == delete @ delete
 >>> assert Diagram.copy(x @ x)\\

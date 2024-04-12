@@ -49,16 +49,20 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 
 such that the following equations are satisfied:
 
-* Vanishing
+Vanishing
+=========
 
 >>> assert Box('f', x, y).feedback(mem=Ty()) == Box('f', x, y)
 
-* Joining
+Joining
+=======
 
 >>> f = Box('f', x @ (m @ m).delay(), y @ m @ m)
 >>> assert f.feedback(mem=m @ m) == f.feedback().feedback()
 
-* Strength (can only be checked up to a functor into streams)
+Strength
+========
+This can only be checked up to a functor into streams.
 
 >>> from discopy import stream
 >>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Category())
@@ -77,7 +81,9 @@ such that the following equations are satisfied:
 .. image:: /_static/feedback/strength.png
     :align: center
 
-* Sliding (can only be checked up to extensional equivalence of streams)
+Sliding
+=======
+This can only be checked up to extensional equivalence of streams.
 
 >>> from discopy import symmetric
 >>> n = Ty("n")
@@ -102,20 +108,6 @@ such that the following equations are satisfied:
 
 Note
 ----
-We also implement endofunctors :class:`Head` and :class:`Tail` together with an
-isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
-
-This satisfies the following equations:
-
->>> assert x.head.head == x.head
->>> assert x.head.tail == Ty()
->>> assert x.delay().head == Ty()
->>> assert x.delay().tail == x
-
-In the category of streams, this is just the identity.
-
-Note
-----
 Every traced symmetric category is a feedback category with a trivial delay:
 
 >>> from discopy import symmetric
@@ -132,6 +124,20 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     cod=symmetric.Category)
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
+
+Note
+----
+We also implement endofunctors :class:`Head` and :class:`Tail` together with an
+isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
+
+This satisfies the following equations:
+
+>>> assert x.head.head == x.head
+>>> assert x.head.tail == Ty()
+>>> assert x.delay().head == Ty()
+>>> assert x.delay().tail == x
+
+In the category of streams, this is just the identity.
 """
 
 from __future__ import annotations
