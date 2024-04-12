@@ -143,6 +143,7 @@ class Ob(cat.Ob):
             self if self.is_constant else TailOb(self))
 
     def reset(self) -> Ob:
+        """ Reset an object to time step zero. """
         return Ob(self.name, time_step=0, is_constant=self.is_constant)
 
     def __eq__(self, other):
@@ -227,9 +228,6 @@ class Ty(monoidal.Ty):
         """ The delay of a feedback type by `n_steps`. """
         return type(self)(*(x.delay(n_steps) for x in self.inside))
 
-    def reset(self):
-        return type(self)(*(x.reset() for x in self.inside))
-
     @property
     def head(self):
         """ The head of a feedback type, see :class:`HeadOb`. """
@@ -281,16 +279,28 @@ class Diagram(markov.Diagram):
         """ The delay of a feedback diagram. """
         dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
         inside = tuple(box.delay(n_steps) for box in self.inside)
-        return type(self)(inside, dom, cod)
+        return type(self)(inside, dom, cod, _scan=False)
 
     def feedback(self, dom=None, cod=None, mem=None):
+        """ Syntactic sugar for :class:`Feedback`. """
         if mem is None or len(mem) == 1:
             return self.feedback_factory(self, dom=dom, cod=cod, mem=mem)
         return self if not mem else self.feedback(mem=mem[:-1]).feedback()
 
     @classmethod
     def wait(cls, dom: Ty) -> Diagram:
-        """ Wait one time step, i.e. `Swap(x, x.delay()).feedback()` """
+        """
+        Wait one time step, i.e. `Swap(x, x.delay()).feedback()`.
+
+        Example
+        -------
+        >>> x = Ty('x')
+        >>> assert Diagram.wait(x) == Swap(x, x.delay()).feedback()
+        >>> Diagram.wait(x).draw(path="docs/_static/feedback/wait.png")
+
+        .. image:: /_static/feedback/wait.png
+            :align: center
+        """
         return cls.swap(dom, dom.delay()).feedback()
 
     @property
