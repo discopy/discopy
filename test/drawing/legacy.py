@@ -31,6 +31,11 @@ def test_draw_eggs():
         >> merge(white) @ merge(yolk)
 
 
+@draw_and_compare("bubble-straight-wire.png", draw_type_labels=False)
+def test_draw_bubble_wires():
+    return (Ty('x') @ Box('s', Ty(), Ty())).bubble()
+
+
 @draw_and_compare(
     'spiral.png', draw_type_labels=False,
     draw_box_labels=False, aspect='equal')
