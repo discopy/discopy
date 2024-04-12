@@ -75,6 +75,59 @@ category of streams of python types and functions.
 ...         one: cod.ar.singleton(python.Function(lambda: 1, (), int)),
 ...         plus: lambda x, y: x + y}, cod=cod)
 >>> assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
+
+
+Axioms
+------
+Note that we can only check equality of streams up to a finite number of steps.
+
+>>> from discopy.stream import *
+>>> all_eq = lambda xs: len(set(xs)) == 1
+>>> eq_up_to_n = lambda *xs, n=3: all_eq(x.unroll(n).now for x in xs)
+
+>>> x, y, z, w, m, n, o = map(Ty, "xyzwmno")
+>>> f = Stream.sequence('f', x, y, m)
+>>> g = Stream.sequence('g', y, z, n)
+>>> h = Stream.sequence('h', z, w, o)
+
+* Unitality and associativity hold on the nose:
+
+>>> _id = Stream.id
+>>> assert eq_up_to_n(f @ _id(), f, _id() @ f)
+>>> assert eq_up_to_n(f >> _id(f.cod), f, _id(f.dom) >> f)
+
+>>> assert eq_up_to_n((f >> g) >> h), (f >> (g >> h))
+
+* Associativity of tensor holds up to interchanger:
+
+>>> from discopy.drawing import Equation
+>>> drawing.Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
+...     path="docs/_static/stream/feedback-associativity.png")
+
+.. image:: /_static/stream/feedback-associativity.png
+    :align: center
+
+>>> eq_up_to_interchanger = lambda *xs: all_eq(
+...     monoidal.Diagram.normal_form(x.now) for x in xs)
+>>> assert eq_up_to_interchanger((f @ g) @ h, f @ (g @ h))
+
+* Interchanger holds up to permutation of the memories:
+
+>>> x_, y_, z_, m_, n_ = [
+...     Ty.sequence(symmetric.Ty(name + "'")) for name in "xyzmn"]
+>>> f_ = Stream.sequence("f'", x_, y_, m_)
+>>> g_ = Stream.sequence("g'", y_, z_, n_)
+
+>>> LHS, RHS = f @ f_ >> g @ g_, (f >> g) @ (f_ >> g_)
+>>> drawing.Equation(LHS.now, RHS.now, symbol="$\\\\sim$").draw(
+...     path="docs/_static/stream/feedback-interchanger.png", figsize=(8, 6))
+
+.. image:: /_static/stream/feedback-interchanger.png
+    :align: center
+
+>>> pi, id_dom = (0, 1, 2, 4, 3, 5), symmetric.Id(LHS.now.dom)
+>>> with symmetric.Diagram.hypergraph_equality:
+...     assert LHS.now == id_dom.permute(*pi) >> RHS.now.permute(*pi)
 """
 from __future__ import annotations
 
@@ -391,7 +444,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
-        >>> x, y, z, m, n = [Ty.sequence(symmetric.Ty(n)) for n in "xyzmn"]
+        >>> x, y, z, m, n = map(Ty.sequence, "xyzmn")
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", y, z, n)
         >>> (f >> g).now.draw(path="docs/_static/stream/stream-then.png")
@@ -416,7 +469,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         Example
         -------
-        >>> x, y, z, w, m, n = [Ty.sequence(symmetric.Ty(n)) for n in "xyzwmn"]
+        >>> x, y, z, w, m, n = map(Ty.sequence, "xyzwmn")
         >>> f = Stream.sequence("f", x, y, m)
         >>> g = Stream.sequence("g", z, w, n)
         >>> (f @ g).now.draw(path="docs/_static/stream/stream-tensor.png")

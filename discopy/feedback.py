@@ -25,12 +25,14 @@ Summary
     Box
     Swap
     Feedback
+    FollowedBy
+    Head
+    Tail
     Category
     Functor
 
 Axioms
 ------
-
 A feedback category is a symmetric monoidal category with a monoidal
 endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 :meth:`Diagram.feedback` of the following shape:
@@ -74,7 +76,9 @@ such that the following equations are satisfied:
 .. image:: /_static/feedback/sliding.png
     :align: center
 
-We also implement :class:`head` and :class:`tail` endofunctors together with an
+Note
+----
+We also implement :meth:`head` and :meth:`tail` endofunctors together with an
 isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
 
 This satisfies the following equations:
@@ -165,7 +169,10 @@ class Ob(cat.Ob):
     def __str__(self):
         return super().__str__() + str_delayed(self.time_step)
 
-    d = property(lambda self: self.delay())
+    @property
+    def d(self):
+        """ Syntactic sugar for meth:`delay`. """
+        return self.delay()
 
 
 class HeadOb(Ob):
@@ -240,7 +247,7 @@ class Ty(monoidal.Ty):
         """ The tail of a feedback type, see :class:`TailOb`. """
         return type(self)(*(x.tail for x in self.inside if x.tail))
 
-    d = property(lambda self: self.delay())
+    d = Ob.d
 
 
 class Layer(monoidal.Layer):
@@ -321,9 +328,17 @@ class Diagram(markov.Diagram):
             raise ValueError
         return self.boxes[0].time_step
 
-    d = property(lambda self: self.delay())
-    head = property(lambda self: Head(self))
-    tail = property(lambda self: Tail(self))
+    @property
+    def head(self):
+        """ Syntactic sugar for :class:`Head`. """
+        return Head(self)
+
+    @property
+    def tail(self):
+        """ Syntactic sugar for :class:`Tail`. """
+        return Tail(self)
+
+    d = Ob.d
 
 
 class Box(markov.Box, Diagram):
