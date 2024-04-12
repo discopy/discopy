@@ -85,7 +85,7 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> all_eq = lambda xs: len(set(xs)) == 1
 >>> eq_up_to_n = lambda *xs, n=3: all_eq(x.unroll(n).now for x in xs)
 
->>> x, y, z, w, m, n, o = map(Ty, "xyzwmno")
+>>> x, y, z, w, m, n, o = map(Ty.sequence, "xyzwmno")
 >>> f = Stream.sequence('f', x, y, m)
 >>> g = Stream.sequence('g', y, z, n)
 >>> h = Stream.sequence('h', z, w, o)
