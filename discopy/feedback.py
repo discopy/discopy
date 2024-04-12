@@ -543,7 +543,32 @@ class Feedback(monoidal.Bubble, Box):
 
 
 class FollowedBy(Box):
-    """ The isomorphism between `x.head @ x.tail.delay()` and `x`. """
+    """
+    The isomorphism between `x.head @ x.tail.delay()` and `x`.
+
+    In the category of streams, this is just the identity.
+
+    Example
+    -------
+    >>> from discopy import stream
+    >>> x = Ty(Ob('x', is_constant=False))
+    >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.png")
+
+    .. image:: /_static/feedback/followed-by.png
+        :align: center
+
+    >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Category())
+    >>> X, Xh, Xtd = map(F, (x, x.head, x.tail.delay()))
+    >>> for xh, xtd in [(Xh.now, Xtd.now),
+    ...                 (Xh.later.now, Xtd.later.now),
+    ...                 (Xh.later.later.now, Xtd.later.later.now)]:
+    ...     print(f"({xh}, {xtd})")
+    (x0, Ty())
+    (Ty(), x1)
+    (Ty(), x2)
+    >>> eq_up_to_F = lambda f, g: F(f).unroll(2).now == F(g).unroll(2).now
+    >>> assert eq_up_to_F(FollowedBy(x), Id(x))
+    """
     def __init__(self, arg: Ty, is_dagger=False, time_step=0):
         self.arg = arg
         dagger_name = ", is_dagger=True" if is_dagger else ""
@@ -606,19 +631,18 @@ class Functor(markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
-            cod = getattr(self.cod, "ob" if isinstance(other, Ob) else "ar")
+            cod = self.cod.ob if isinstance(other, Ob) else self.cod.ar
             if hasattr(cod, "delay"):
                 result = self(other.reset())
                 for _ in range(other.time_step):
                     result = result.delay()
                 return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
-            result = self(other.arg)
+            cod = self.cod.ar if isinstance(
+                other, (Head, Tail)) else self.cod.ob
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
-            if hasattr(result, attr):
-                return getattr(result, attr)
-            return (
-                self.ar if isinstance(other, (Head, Tail)) else self.ob)[other]
+            if hasattr(cod, attr):
+                return getattr(self(other.arg), attr)
         if isinstance(
                 other, FollowedBy) and hasattr(self.cod.ar, "followed_by"):
             arg = other.dom if other.is_dagger else other.cod

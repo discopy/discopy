@@ -31,9 +31,3 @@ def test_python_stream():
     s.unroll().check_later()
     assert s.feedback(T(x), T(y), T(m)).unroll(2).now(1, 2, 3) == (
         True, False, True, '1 2 3')
-
-x, y, z, m, n = map(Ty.sequence, "xyzmn")
-x_, y_, z_, m_, n_ = [Ty.sequence(symmetric.Ty(name + "_")) for name in "xyzmn"]
-f, g = Stream.sequence('f', x, y, m), Stream.sequence('g', y, z, n)
-f_, g_ = Stream.sequence('f_', x_, y_, m_), Stream.sequence('g_', y_, z_, n_)
-LHS, RHS = (f >> g) @ (f_ @ g_), f @ f_ >> g @ g_
