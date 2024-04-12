@@ -86,11 +86,6 @@ This satisfies the following equations:
 
 Note
 ----
-
-Without loss of generality, we assume that
-Note
-----
-
 Every traced symmetric category is a feedback category with a trivial delay:
 
 >>> from discopy import symmetric

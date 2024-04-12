@@ -15,8 +15,9 @@ Summary
     Stream
     Category
 
-Example
--------
+Note
+----
+Monoidal streams form a :mod:`feedback` category as follows:
 
 >>> from discopy import feedback, drawing
 >>> x, y, m = map(feedback.Ty, "xym")
@@ -34,6 +35,46 @@ Example
 
 .. image:: /_static/stream/feedback-to-stream.png
     :align: center
+
+Example
+-------
+We can define the Fibonacci sequence as a feedback diagram interpreted in the
+category of streams of python types and functions.
+
+>>> from discopy import *
+>>> from discopy.feedback import *
+
+>>> X = Ty('X')
+>>> fby, wait = FollowedBy(X), Swap(X, X.d).feedback()
+>>> zero, one = Box('zero', Ty(), X.head), Box('one', Ty(), X.head)
+>>> copy, plus = Copy(X), Box('plus', X @ X, X)
+
+>>> @Diagram.feedback
+... @Diagram.from_callable(X.d, X @ X)
+... def fib(x):
+...     y = fby(zero(), plus.d(fby.d(one.d(), wait.d(x)), x))
+...     return (y, y)
+
+>>> fib_ = (copy.d >> one.d @ wait.d @ X.d
+...                >> fby.d @ X.d
+...                >> plus.d
+...                >> zero @ X.d
+...                >> fby >> copy).feedback()
+>>> with Diagram.hypergraph_equality:
+...     assert fib == fib_
+>>> fib_.draw(draw_type_labels=False, figsize=(5, 5),
+...           path="docs/_static/stream/fibonacci-feedback.png")
+
+.. image:: /_static/stream/fibonacci-feedback.png
+    :align: center
+
+>>> cod = stream.Category(python.Ty, python.Function)
+>>> F = feedback.Functor(
+...     ob={X: int},
+...     ar={zero: cod.ar.singleton(python.Function(lambda: 0, (), int)),
+...         one: cod.ar.singleton(python.Function(lambda: 1, (), int)),
+...         plus: lambda x, y: x + y}, cod=cod)
+>>> assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
 """
 from __future__ import annotations
 
@@ -229,19 +270,22 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         dom = Ty[self.category.ob](now.dom) if dom is None else dom
         cod = Ty[self.category.ob](now.cod) if cod is None else cod
         mem = Ty[self.category.ob]() if mem is None else mem
+        for typ in (dom, cod, mem):
+            assert_isinstance(typ, Ty)
         if not isinstance(now, self.category.ar):
             now = self.category.ar(
                 now, dom.now + mem.now, cod.now + mem.later.now)
+        if now.dom != dom.now + mem.now:
+            raise AxiomError
+        if now.cod != cod.now + mem.later.now:
+            raise AxiomError
         self.dom, self.cod, self.mem = dom, cod, mem
         self.now, self._later = now, _later
-        if now.dom != dom.now + self.mem_dom:
-            raise AxiomError
-        if now.cod != cod.now + self.mem_cod:
-            raise AxiomError
 
     def check_later(self):
         """ Check that later has consistent domain, codomain and memory. """
         later = self.later
+        assert_isinstance(later, type(self))
         assert self.dom.later.now == later.dom.now
         assert self.cod.later.now == later.cod.now
         assert self.mem.later.now == later.mem.now
@@ -258,6 +302,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def singleton(cls, arg: category.ar) -> Stream:
+        """
+        Construct the stream with a given arrow now and the empty stream later.
+        """
         dom, cod = map(Ty[cls.category.ob].singleton, (arg.dom, arg.cod))
         return cls(arg, dom, cod, _later=lambda: cls.id())
 
@@ -286,6 +333,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @inductive
     def delay(self) -> Stream:
+        """ Delay a stream by one time step, shortened to `self.d`. """
         dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
         now, _later = self.category.ar.id(self.mem.now), lambda: self
         return type(self)(now, dom, cod, mem, _later)
@@ -320,8 +368,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def id(cls, x: Optional[Ty] = None) -> Stream:
         """
-        The identity on a stream of objects is a stream of identity morphisms
-        in the underlying category.
+        Construct a stream of identity arrows.
 
         Example
         -------
@@ -391,6 +438,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> Stream:
+        """ Construct a stream of swaps. """
         now = cls.category.ar.swap(left.now, right.now)
         dom, cod = left @ right, right @ left
         _later = None if left.is_constant and right.is_constant else (
@@ -399,6 +447,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
+        """ Construct a stream of diagonal morphisms. """
         now, cod = cls.category.ar.copy(dom.now, n), dom ** n
         _later = None if dom.is_constant else lambda: cls.copy(dom.later, n)
         return cls(now, dom, cod, _later=_later)
@@ -433,9 +482,6 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             return self.later.feedback(dom.later, cod.later, mem.later, False)
         mem = mem.delay() if _first_call else mem
         return type(self)(self.now, dom, cod, mem @ self.mem, _later)
-
-    def unroll_and_draw(self, n_steps=1, **params):
-        return self.unroll(n_steps).now.simplify().draw(**params)
 
     followed_by = id
 
