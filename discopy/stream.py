@@ -36,8 +36,11 @@ Monoidal streams form a feedback category as follows:
 .. image:: /_static/stream/feedback-to-stream.png
     :align: center
 
-Example
--------
+Examples
+--------
+
+Fibonacci
+=========
 We can define the Fibonacci sequence as a feedback diagram interpreted in the
 category of streams of python types and functions.
 
@@ -76,6 +79,31 @@ category of streams of python types and functions.
 ...         plus: lambda x, y: x + y}, cod=cod)
 >>> assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
 
+Random walk
+===========
+We can define a simple random walk as a feedback diagram interpreted in the
+category of streams of python types and probabilistic functions.
+
+>>> from random import choice, seed; seed(420)
+>>> rand = Box('rand', Ty(), X)
+>>> F.ar[rand] = lambda: choice([-1, +1])
+
+>>> @Diagram.feedback
+... @Diagram.from_callable(X.d, X @ X)
+... def walk(x):
+...     x = plus.d(rand.d(), x)
+...     x = fby(zero(), x)
+...     return (x, x)
+
+>>> walk.draw(draw_type_labels=False, figsize=(5, 5),
+...           path="docs/_static/stream/random-walk-feedback.png")
+
+.. image:: /_static/stream/random-walk-feedback.png
+    :align: center
+
+>>> assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 2, 1, 0, -1, 0, 1)
+>>> assert F(walk).unroll(9).now()[:10] == (0, -1, -2, -1, 0, 1, 0, 1, 2, 1)
+>>> assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 0, 1, 0, -1, 0, -1)
 
 Axioms
 ------
