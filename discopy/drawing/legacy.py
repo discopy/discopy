@@ -112,6 +112,7 @@ def diagram2nx(diagram):
         for i, obj in enumerate(box.cod.inside):
             position = (
                 pos[scan[off + i]][0] if len(box.dom) == len(box.cod)
+                else pos[scan[off + i + 1]][0] if bubble_closing
                 else x_pos - len(box.cod[1:]) / 2 + i,
                 len(diagram) - depth - .75)
             wire = Node("cod", obj=obj, i=i, depth=depth)
