@@ -95,16 +95,20 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> _id = Stream.id
 >>> assert eq_up_to_n(f @ _id(), f, _id() @ f)
 >>> assert eq_up_to_n(f >> _id(f.cod), f, _id(f.dom) >> f)
-
 >>> assert eq_up_to_n((f >> g) >> h), (f >> (g >> h))
+>>> ((f >> g) >> h).now.draw(
+...     path="docs/_static/stream/feedback-associativity.png")
+
+.. image:: /_static/stream/feedback-associativity.png
+    :align: center
 
 * Associativity of tensor holds up to interchanger:
 
 >>> from discopy.drawing import Equation
 >>> drawing.Equation(*map(lambda x: x.now, ((f @ g) @ h, f @ (g @ h)))).draw(
-...     path="docs/_static/stream/feedback-associativity.png")
+...     path="docs/_static/stream/feedback-tensor-associativity.png")
 
-.. image:: /_static/stream/feedback-associativity.png
+.. image:: /_static/stream/feedback-tensor-associativity.png
     :align: center
 
 >>> eq_up_to_interchanger = lambda *xs: all_eq(
