@@ -17,7 +17,7 @@ Summary
 
 Note
 ----
-Monoidal streams form a :mod:`feedback` category as follows:
+Monoidal streams form a feedback category as follows:
 
 >>> from discopy import feedback, drawing
 >>> x, y, m = map(feedback.Ty, "xym")
@@ -132,6 +132,8 @@ Note that we can only check equality of streams up to a finite number of steps.
 >>> pi, id_dom = (0, 1, 2, 4, 3, 5), symmetric.Id(LHS.now.dom)
 >>> with symmetric.Diagram.hypergraph_equality:
 ...     assert LHS.now == id_dom.permute(*pi) >> RHS.now.permute(*pi)
+
+See :mod:`discopy.feedback` for the other axioms for feedback categories.
 """
 from __future__ import annotations
 
