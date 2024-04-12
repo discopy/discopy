@@ -39,8 +39,8 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 
 >>> from discopy.drawing import Equation
 
->>> x, y, z = map(Ty, "xyz")
->>> f = Box('f', x @ y.delay(), z @ y)
+>>> x, y, m = map(Ty, "xym")
+>>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/feedback/feedback-operator.png", figsize=(8, 4))
 
@@ -55,30 +55,54 @@ such that the following equations are satisfied:
 
 * Joining
 
->>> f = Box('f', x @ (y @ y).delay(), z @ y @ y)
->>> assert f.feedback(mem=y @ y) == f.feedback().feedback()
+>>> f = Box('f', x @ (m @ m).delay(), y @ m @ m)
+>>> assert f.feedback(mem=m @ m) == f.feedback().feedback()
 
-* Strength
+* Strength (can only be checked up to a functor into streams)
 
->>> f, g = Box('f', x @ y.delay(), z @ y), Box('g', x, y)
->>> Equation(g @ f.feedback(), (g @ f).feedback()).draw(
+>>> from discopy import stream
+>>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Category())
+>>> F = Functor(
+...     F0, lambda f: stream.Stream.sequence(f.name, F0(f.dom), F0(f.cod)),
+...     cod=stream.Category())
+>>> all_eq = lambda xs: len(set(xs)) == 1
+>>> eq_up_to_F = lambda *fs, n=2: all_eq(F(f).unroll(2).now for f in fs)
+
+>>> f, g = Box('f', x @ m.delay(), y @ m), Box('g', x, y)
+>>> strength = Equation(g @ f.feedback(), (g @ f).feedback())
+>>> assert eq_up_to_F(*strength.terms)
+>>> strength.draw(
 ...     path='docs/_static/feedback/strength.png', draw_type_labels=False)
 
 .. image:: /_static/feedback/strength.png
     :align: center
 
-* Sliding
+* Sliding (can only be checked up to extensional equivalence of streams)
 
->>> h = Box('h', y, y)
->>> Equation((f >> z @ h).feedback(), (x @ h.d >> f).feedback()).draw(
+>>> from discopy import symmetric
+>>> n = Ty("n")
+>>> h = Box('h', m, n)  # assume h is an isomorphism
+>>> f = Box('f', x @ n.d, y @ m)
+>>> sliding = Equation((f >> y @ h).feedback(), (x @ h.d >> f).feedback())
+>>> sliding.draw(
 ...     path='docs/_static/feedback/sliding.png', draw_type_labels=False)
 
 .. image:: /_static/feedback/sliding.png
     :align: center
 
+>>> LHS, RHS = sliding.terms
+>>> eq = Equation(*map(lambda f: F(f).unroll(2).now, sliding.terms),
+...     symbol="$\\\\sim$").draw(path='docs/_static/feedback/slide-unroll.png')
+>>> with symmetric.Diagram.hypergraph_equality:
+...     assert F(LHS).unroll(2).now == F(RHS).unroll(2).now\\
+...         >> F(y).unroll(2).now @ F(h).later.later.now
+
+.. image:: /_static/feedback/slide-unroll.png
+    :align: center
+
 Note
 ----
-We also implement :meth:`head` and :meth:`tail` endofunctors together with an
+We also implement endofunctors :class:`Head` and :class:`Tail` together with an
 isomorphism :class:`FollowedBy` between `x` and `x.head @ x.tail.delay()`.
 
 This satisfies the following equations:
@@ -87,6 +111,8 @@ This satisfies the following equations:
 >>> assert x.head.tail == Ty()
 >>> assert x.delay().head == Ty()
 >>> assert x.delay().tail == x
+
+In the category of streams, this is just the identity.
 
 Note
 ----
@@ -104,7 +130,7 @@ Every traced symmetric category is a feedback category with a trivial delay:
 >>> F = Functor(
 ...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
 ...     cod=symmetric.Category)
->>> f = Box('f', x @ y.delay(), z @ y)
+>>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
 """
 
