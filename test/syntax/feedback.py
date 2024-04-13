@@ -27,6 +27,39 @@ def test_Diagram_repr():
     assert eval(repr(fib)) == fib
 
 
+def test_functor_python_stream():
+    x = Ty('x')
+    zero, wait = Box('zero', Ty(), x), Diagram.wait(x)
+    F = Functor(
+        ob={x: int},
+        ar={zero: lambda: 0},
+        cod=stream.Category(python.Ty, python.Function))
+    assert F(wait @ zero).unroll(2).now(1, 2, 3) == (0, ) + (1, 0) + (2, 0) + (3, )
+
+
+def test_walk():
+    seed(420)
+    X, fby = Ty('X'), FollowedBy(Ty('X'))
+    zero, rand, plus = Box('0', Ty(), X), Box('rand', Ty(), X), Box('+', X @ X, X)
+
+    @Diagram.feedback
+    @Diagram.from_callable(X.d, X @ X)
+    def walk(x):
+        y = fby(zero.head(), plus.d(rand.d(), x))
+        return (y, y)
+
+    F = Functor(
+        ob={X: int},
+        ar={zero: lambda: 0,
+            rand: lambda: choice([-1, +1]),
+            plus: lambda x, y: x + y},
+        cod=stream.Category(python.Ty, python.Function))
+
+    assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 2, 1, 0, -1, 0, 1)
+    assert F(walk).unroll(9).now()[:10] == (0, -1, -2, -1, 0, 1, 0, 1, 2, 1)
+    assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 0, 1, 0, -1, 0, -1)
+
+
 X = Ty('X')
 fby, wait = FollowedBy(X), Swap(X, X.d).feedback()
 zero, one = Box('0', Ty(), X), Box('1', Ty(), X)
@@ -48,3 +81,14 @@ def test_fibonacci_eq():
                 >> plus.d
                 >> zero.head @ X.d
                 >> fby >> copy).feedback()
+
+
+def test_fibonacci_functor():
+    F = Functor(
+        ob={X: (int, )},
+        ar={zero: lambda: 0,
+            one: lambda: 1,
+            plus: lambda x, y: x + y},
+        cod=stream.Category(python.Ty, python.Function))
+
+    assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)

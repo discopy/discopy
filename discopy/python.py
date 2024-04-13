@@ -34,7 +34,8 @@ from dataclasses import dataclass
 from contextlib import contextmanager
 
 from discopy.cat import Composable, assert_iscomposable, assert_isinstance
-from discopy.utils import tuplify, untuplify, Whiskerable, classproperty
+from discopy.utils import (
+    tuplify, untuplify, Whiskerable, classproperty, get_origin)
 
 
 Ty = tuple[type, ...]
@@ -58,7 +59,7 @@ def is_tuple(typ: type) -> bool:
     Parameters:
         typ : The type to check for equality with tuple.
     """
-    return getattr(typ, "__origin__", typ) is tuple
+    return get_origin(typ) is tuple
 
 
 @dataclass
@@ -93,6 +94,10 @@ class Function(Composable[Ty], Whiskerable):
     cod: Ty
 
     type_checking = True
+
+    def __init__(self, inside: Callable, dom: Ty, cod: Ty):
+        dom, cod = map(tuplify, (dom, cod))
+        self.inside, self.dom, self.cod = inside, dom, cod
 
     def id(dom: Ty) -> Function:
         """

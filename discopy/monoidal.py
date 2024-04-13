@@ -67,6 +67,7 @@ from discopy.utils import (
     assert_iscomposable,
     Whiskerable,
     AxiomError,
+    get_origin,
 )
 
 if TYPE_CHECKING:
@@ -1041,12 +1042,13 @@ class Functor(cat.Functor):
 
     def __call__(self, other):
         if isinstance(other, PRO):
-            return sum(other.n * [self.ob[other.factory(1)]], self.cod.ob())
+            result = cat.Functor.__call__(self, other.factory(1))
+            return sum(other.n * [result], self.cod.ob())
         if isinstance(other, Ty):
             return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):
             result = self.ob[self.dom.ob(other)]
-            cod_type = getattr(self.cod.ob, "__origin__", self.cod.ob)
+            cod_type = get_origin(self.cod.ob)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
                 (result, ) if cod_type == tuple else self.cod.ob(result)

@@ -93,6 +93,7 @@ from discopy.utils import (
     assert_isinstance,
     assert_iscomposable,
     assert_isparallel,
+    get_origin,
 )
 
 if TYPE_CHECKING:
@@ -860,7 +861,10 @@ class Functor(Composable[Category]):
 
     def __call__(self, other):
         if isinstance(other, Ob):
-            return self.ob[other]
+            result, origin = self.ob[other], get_origin(self.cod.ob)
+            if isinstance(result, origin):
+                return result
+            return (result, ) if origin == tuple else self.cod.ob(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
                        self.cod.ar.zero(self(other.dom), self(other.cod)))

@@ -26,7 +26,8 @@ Axioms
 >>> Diagram.use_hypergraph_equality = True
 >>> x, y = Ty('x'), Ty('y')
 
-* Snake equations:
+Snake equations
+===============
 
 >>> snake = Equation(Id(x.l).transpose(left=True), Id(x), Id(x.r).transpose())
 >>> assert snake
@@ -35,7 +36,9 @@ Axioms
 .. image:: /_static/compact/snake.png
     :align: center
 
-* Yanking (a.k.a. Reidemeister move 1):
+Yanking
+=======
+a.k.a. Reidemeister move 1
 
 >>> right_loop = x @ Cap(x, x.r) >> Swap(x, x) @ x.r >> x @ Cup(x, x.r)
 >>> left_loop = Cap(x.r, x) @ x >> x.r @ Swap(x, x) >> Cup(x.r, x) @ x
@@ -55,7 +58,8 @@ Axioms
 .. image:: /_static/compact/yanking_cup_and_cap.png
     :align: center
 
-* Coherence:
+Coherence
+=========
 
 >>> assert Diagram.caps(x @ y, y.r @ x.r)\\
 ...     == Cap(x, x.r) @ Cap(y, y.r) >> x @ Diagram.swap(x.r, y @ y.r)

@@ -110,6 +110,11 @@ class MappingOrCallable(Mapping[KT, VT]):
         return MappingOrCallable(lambda key: other[self[key]])
 
 
+def get_origin(typ):
+    """ Get origin of a parameterized generic type. """
+    return getattr(typ, "__origin__", typ)
+
+
 class NamedGeneric(Generic[TypeVar('T')]):
     """
     A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
@@ -157,7 +162,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
                 if cls not in NamedGeneric._cache:
                     NamedGeneric._cache[cls] = {cls_values: cls}
                 if values not in NamedGeneric._cache[cls]:
-                    origin = getattr(cls, "__origin__", cls)
+                    origin = get_origin(cls)
 
                     class C(origin):
                         __is_named_generic__ = True

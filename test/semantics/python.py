@@ -26,7 +26,7 @@ def test_fixed_point():
 
 def test_trace():
     with raises(NotImplementedError):
-        Function.id([int]).trace(left=True)
+        Function.id(int).trace(left=True)
 
 
 def test_FinSet():
