@@ -768,7 +768,7 @@ class Sum(Box):
 
 
 class Frame(Box):
-    """ A box that has diagrams inside it. """
+    """ A box that has a list of diagrams inside it. """
     def __init__(self, name, dom, cod, insides):
         self._insides = insides
         super().__init__(str(name), dom, cod)
