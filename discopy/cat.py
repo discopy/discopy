@@ -689,15 +689,16 @@ class Bubble(Box):
         args : The arrows inside the bubble.
         dom : The domain of the bubble, default is that of :code:`other`.
         cod : The codomain of the bubble, default is that of :code:`other`.
-        method : The interpretation of the bubble when functors apply to it.
+        name (str) : An optional name for the bubble.
+        method (str) : The method to call when a functor is applied to it.
         kwargs : Passed to the `__init__` of :class:`Box`.
     """
     def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
-                 method="bubble", **kwargs):
+                 name="Bubble", method="bubble", **kwargs):
         dom, = set(arg.dom for arg in args) if dom is None else (dom, )
         cod, = set(arg.cod for arg in args) if cod is None else (cod, )
         self.args, self.method = args, method
-        Box.__init__(self, "Bubble", dom, cod, **kwargs)
+        Box.__init__(self, name, dom, cod, **kwargs)
 
     @property
     def arg(self):
@@ -711,6 +712,16 @@ class Bubble(Box):
         """ Whether the bubble is identity on objects. """
         return len(self.args) == 1 and (
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
+
+    def __eq__(self, other):
+        if isinstance(other, Bubble):
+            return all(getattr(self, x) == getattr(other, x) for x in (
+                "args", "dom", "cod", "name", "method"))
+        return not isinstance(other, Box) and super().__eq__(other)
+
+    def __hash__(self):
+        return hash(tuple(getattr(self, x) for x in [
+            "args", "dom", "cod", "name", "method"]))
 
     def __str__(self):
         str_args = ",".join(map(str, self.args))
@@ -883,7 +894,7 @@ class Functor(Composable[Category]):
                        self.cod.ar.zero(self(other.dom), self(other.cod)))
         if isinstance(other, Bubble) and hasattr(self.cod.ar, other.method):
             dom, cod = map(self, (other.dom, other.cod))
-            return getattr(self(other.arg), other.method)(
+            return getattr(self.cod.ar, other.method)(
                 *map(self, other.args), dom=dom, cod=cod)
         if isinstance(other, Box) and other.is_dagger:
             return self(other.dagger()).dagger()

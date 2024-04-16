@@ -957,29 +957,41 @@ class Bubble(cat.Bubble, Box):
     types :code:`dom` and :code:`cod`.
 
     Parameters:
-        arg : The diagram inside the bubble.
+        args : The diagrams inside the bubble.
         dom : The domain of the bubble, default is that of :code:`other`.
         cod : The codomain of the bubble, default is that of :code:`other`.
+        drawing_name (str) : The name of the bubble when drawing it.
+        draw_as_bubble (bool) : Whether to draw as a bubble or as a frame.
 
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
-    >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
+    >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
     >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
 
     .. image:: /_static/monoidal/bubble-example.png
+        :align: center
+
+    >>> b = Bubble(f, g, h, dom=x, cod=y @ y)
+    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.png')
+
+    .. image:: /_static/monoidal/bubble-multiple-args.png
         :align: center
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
 
     def __init__(
             self, *args: Diagram, dom: Ty = None, cod: Ty = None, **kwargs):
-        self.drawing_name = kwargs.pop("drawing_name", "")
         cat.Bubble.__init__(self, *args, dom=dom, cod=cod)
+        self.drawing_name = kwargs.pop("drawing_name", "")
+        self.draw_as_bubble = kwargs.pop(
+            "draw_as_bubble", (len(args) == 1
+                               and len(self.arg.dom) == len(self.dom)
+                               and len(self.arg.cod) == len(self.cod)))
         Box.__init__(self, self.name, self.dom, self.cod, **kwargs)
 
-    def to_drawing(self):
+    def to_bubble_drawing(self):
         dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
         argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
         left, right = Ty(self.drawing_name), Ty("")
@@ -991,6 +1003,19 @@ class Bubble(cat.Bubble, Box):
         _open.bubble_opening = len(dom) == len(argdom)
         _close.bubble_closing = len(cod) == len(argcod)
         return _open >> left @ self.arg.to_drawing() @ right >> _close
+
+    def to_frame_drawing(self):
+        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
+        inside = Id().tensor(*[
+            arg.to_drawing().bubble(
+                draw_as_bubble=True, dom=Ty(), cod=Ty()).to_drawing()
+            for arg in self.args])
+        return inside.bubble(
+            draw_as_bubble=True, dom=dom, cod=cod).to_drawing()
+
+    def to_drawing(self):
+        return self.to_bubble_drawing(
+            ) if self.draw_as_bubble else self.to_frame_drawing()
 
 
 class Category(cat.Category):
