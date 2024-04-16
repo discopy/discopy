@@ -973,10 +973,11 @@ class Bubble(cat.Bubble, Box):
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
 
-    def __init__(self, arg: Diagram, dom: Ty = None, cod: Ty = None, **params):
-        self.drawing_name = params.get("drawing_name", "")
-        cat.Bubble.__init__(self, arg, dom, cod)
-        Box.__init__(self, self.name, self.dom, self.cod, data=self.data)
+    def __init__(
+            self, *args: Diagram, dom: Ty = None, cod: Ty = None, **kwargs):
+        self.drawing_name = kwargs.pop("drawing_name", "")
+        cat.Bubble.__init__(self, *args, dom=dom, cod=cod)
+        Box.__init__(self, self.name, self.dom, self.cod, **kwargs)
 
     def to_drawing(self):
         dom, cod = self.dom.to_drawing(), self.cod.to_drawing()

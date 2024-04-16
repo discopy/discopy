@@ -59,21 +59,19 @@ def test_walk():
     assert F(walk).unroll(9).now()[:10] == (0, -1, -2, -1, 0, 1, 0, 1, 2, 1)
     assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 0, 1, 0, -1, 0, -1)
 
-
-X = Ty('X')
-fby, wait = FollowedBy(X), Swap(X, X.d).feedback()
-zero, one = Box('0', Ty(), X), Box('1', Ty(), X)
-copy, plus = Copy(X), Box('+', X @ X, X)
-
-
-@Diagram.feedback
-@Diagram.from_callable(X.d, X @ X)
-def fib(x):
-    y = fby(zero.head(), plus.d(fby.d(one.head.d(), wait.d(x)), x))
-    return (y, y)
+def test_fibonacci():
+    X = Ty('X')
+    fby, wait = FollowedBy(X), Swap(X, X.d).feedback()
+    zero, one = Box('0', Ty(), X), Box('1', Ty(), X)
+    copy, plus = Copy(X), Box('+', X @ X, X)
 
 
-def test_fibonacci_eq():
+    @Diagram.feedback
+    @Diagram.from_callable(X.d, X @ X)
+    def fib(x):
+        y = fby(zero.head(), plus.d(fby.d(one.head.d(), wait.d(x)), x))
+        return (y, y)
+
     with Diagram.hypergraph_equality:
         assert fib == (
             copy.d >> one.head.d @ wait.d @ X.d
@@ -82,8 +80,6 @@ def test_fibonacci_eq():
                 >> zero.head @ X.d
                 >> fby >> copy).feedback()
 
-
-def test_fibonacci_functor():
     F = Functor(
         ob={X: (int, )},
         ar={zero: lambda: 0,
