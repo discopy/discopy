@@ -99,27 +99,33 @@ def diagram2nx(diagram):
     def add_box(scan, box, off, depth, x_pos):
         bubble_opening = getattr(box, "bubble_opening", False)
         bubble_closing = getattr(box, "bubble_closing", False)
+        frame_opening = getattr(box, "frame_opening", False)
+        frame_closing = getattr(box, "frame_closing", False)
         bubble = bubble_opening or bubble_closing
         node = Node("box", box=box, depth=depth)
         add_node(node, (x_pos, len(diagram) - depth - .5))
         for i, obj in enumerate(box.dom.inside):
+            y_pos = len(diagram) - depth - (.75 if frame_opening else .25)
             wire, position = Node("dom", obj=obj, i=i, depth=depth), (
-                pos[scan[off + i]][0], len(diagram) - depth - .25)
+                pos[scan[off + i]][0], y_pos)
             add_node(wire, position)
             graph.add_edge(scan[off + i], wire)
             if not bubble or bubble_closing and i in [0, len(box.dom) - 1]:
                 graph.add_edge(wire, node)
         for i, obj in enumerate(box.cod.inside):
+            y_pos = len(diagram) - depth - (.25 if frame_closing else .75)
+            align_wires = len(box.dom) == len(box.cod) and not frame_closing
             position = (
-                pos[scan[off + i]][0] if len(box.dom) == len(box.cod)
+                pos[scan[off + i]][0] if align_wires
                 else pos[scan[off + i + 1]][0] if bubble_closing
-                else x_pos - len(box.cod[1:]) / 2 + i,
-                len(diagram) - depth - .75)
+                else x_pos - len(box.cod[1:]) / 2 + i, y_pos)
+            if frame_opening and i in (0, len(box.cod[1:])):
+                position = (position[0] + (.25 if i else -.25), position[1])
             wire = Node("cod", obj=obj, i=i, depth=depth)
             add_node(wire, position)
             if not bubble or bubble_opening and i in [0, len(box.cod) - 1]:
                 graph.add_edge(node, wire)
-        if bubble_opening or bubble_closing:
+        if bubble_opening or bubble_closing:  # Make wires go through bubbles.
             source_ty, target_ty = (box.dom, box.cod[1:-1]) if bubble_opening\
                 else (box.dom[1:-1], box.cod)
             for i, (source_obj, target_obj) in enumerate(zip(
@@ -490,6 +496,10 @@ def draw(diagram, **params):
     diagram = diagram.to_drawing()
 
     drawing_methods = [
+        ("frame_opening", draw_frame_opening),
+        ("frame_closing", draw_frame_closing),
+        ("frame_slot_opening", draw_frame_opening),
+        ("frame_slot_closing", draw_frame_closing),
         ("draw_as_brakets", draw_brakets),
         ("draw_as_controlled", draw_controlled_gate),
         ("draw_as_discards", draw_discard),
@@ -771,6 +781,24 @@ class Equation:
 
     def __bool__(self):
         return all(term == self.terms[0] for term in self.terms)
+
+
+def draw_frame_opening(backend, positions, node, **params):
+    box, depth = node.box, node.depth
+    obj_left, obj_right = box.cod.inside[0], box.cod.inside[-1]
+    left = Node("cod", obj=obj_left, depth=depth, i=0)
+    right = Node("cod", obj=obj_right, depth=depth, i=len(box.cod[1:]))
+    backend.draw_wire(positions[left], positions[right])
+    return backend
+
+
+def draw_frame_closing(backend, positions, node, **params):
+    box, depth = node.box, node.depth
+    obj_left, obj_right = box.dom.inside[0], box.dom.inside[-1]
+    left = Node("dom", obj=obj_left, depth=depth, i=0)
+    right = Node("dom", obj=obj_right, depth=depth, i=len(box.dom[1:]))
+    backend.draw_wire(positions[left], positions[right])
+    return backend
 
 
 def draw_discard(backend, positions, node, **params):

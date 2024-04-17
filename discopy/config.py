@@ -17,6 +17,10 @@ DRAWING_ATTRIBUTES = {
     "draw_as_discards": lambda _: False,
     "draw_as_measures": lambda _: False,
     "draw_as_controlled": lambda _: False,
+    "frame_opening": lambda _: False,
+    "frame_closing": lambda _: False,
+    "frame_slot_opening": lambda _: False,
+    "frame_slot_closing": lambda _: False,
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:

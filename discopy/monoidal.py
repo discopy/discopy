@@ -998,10 +998,11 @@ class Bubble(cat.Bubble, Box):
         left.inside[0].always_draw_label = True
         _open = Box("_open", dom, left @ argdom @ right).to_drawing()
         _close = Box("_close", left @ argcod @ right, cod).to_drawing()
-        _open.draw_as_wires = _close.draw_as_wires = True
-        # Wires can go straight only if types have the same length.
-        _open.bubble_opening = len(dom) == len(argdom)
-        _close.bubble_closing = len(cod) == len(argcod)
+        if len(dom) == len(argdom) and len(cod) == len(argcod):
+            _open.bubble_opening = _close.bubble_closing = True
+            _open.draw_as_wires = _close.draw_as_wires = True
+        else:
+            _open.frame_slot_opening = _close.frame_slot_closing = True
         return _open >> left @ self.arg.to_drawing() @ right >> _close
 
     def to_frame_drawing(self):
@@ -1010,8 +1011,11 @@ class Bubble(cat.Bubble, Box):
             arg.to_drawing().bubble(
                 draw_as_bubble=True, dom=Ty(), cod=Ty()).to_drawing()
             for arg in self.args])
-        return inside.bubble(
-            draw_as_bubble=True, dom=dom, cod=cod).to_drawing()
+        left, right = Ty(self.drawing_name), Ty("")
+        _open = Box("_open", dom, left @ right).to_drawing()
+        _close = Box("_close", left @ right, cod).to_drawing()
+        _open.frame_opening = _close.frame_closing = True
+        return _open >> left @ inside @ right >> _close
 
     def to_drawing(self):
         return self.to_bubble_drawing(
