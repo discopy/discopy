@@ -19,8 +19,9 @@ DRAWING_ATTRIBUTES = {
     "draw_as_controlled": lambda _: False,
     "frame_opening": lambda _: False,
     "frame_closing": lambda _: False,
-    "frame_slot_opening": lambda _: False,
-    "frame_slot_closing": lambda _: False,
+    "frame_slot_boundary": lambda _: False,
+    "frame_slot_opening": lambda box: box.frame_slot_boundary,
+    "frame_slot_closing": lambda box: box.frame_slot_boundary,
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:

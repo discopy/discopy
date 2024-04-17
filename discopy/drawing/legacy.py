@@ -101,6 +101,7 @@ def diagram2nx(diagram):
         bubble_closing = getattr(box, "bubble_closing", False)
         frame_opening = getattr(box, "frame_opening", False)
         frame_closing = getattr(box, "frame_closing", False)
+        frame_slot_boundary = getattr(box, "frame_slot_boundary", False)
         bubble = bubble_opening or bubble_closing
         node = Node("box", box=box, depth=depth)
         add_node(node, (x_pos, len(diagram) - depth - .5))
@@ -119,7 +120,11 @@ def diagram2nx(diagram):
                 pos[scan[off + i]][0] if align_wires
                 else pos[scan[off + i + 1]][0] if bubble_closing
                 else x_pos - len(box.cod[1:]) / 2 + i, y_pos)
-            if frame_opening and i in (0, len(box.cod[1:])):
+            if frame_slot_boundary and i == 0:
+                position = (pos[scan[off]][0], position[1])
+            if frame_slot_boundary and i == len(box.cod[1:]):
+                position = (pos[scan[off + len(box.dom[1:])]][0], position[1])
+            elif frame_opening and i in (0, len(box.cod[1:])):
                 position = (position[0] + (.25 if i else -.25), position[1])
             wire = Node("cod", obj=obj, i=i, depth=depth)
             add_node(wire, position)
@@ -498,6 +503,7 @@ def draw(diagram, **params):
     drawing_methods = [
         ("frame_opening", draw_frame_opening),
         ("frame_closing", draw_frame_closing),
+        ("frame_slot_boundary", draw_frame_boundary),
         ("frame_slot_opening", draw_frame_opening),
         ("frame_slot_closing", draw_frame_closing),
         ("draw_as_brakets", draw_brakets),
@@ -799,6 +805,11 @@ def draw_frame_closing(backend, positions, node, **params):
     right = Node("dom", obj=obj_right, depth=depth, i=len(box.dom[1:]))
     backend.draw_wire(positions[left], positions[right])
     return backend
+
+
+def draw_frame_boundary(backend, positions, node, **params):
+    backend = draw_frame_closing(backend, positions, node, **params)
+    return draw_frame_opening(backend, positions, node, **params)
 
 
 def draw_discard(backend, positions, node, **params):
