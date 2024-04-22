@@ -478,7 +478,7 @@ class Head(monoidal.Bubble, Box):
     def __init__(self, arg: Diagram, time_step=0, _attr="head"):
         dom, cod = (
             getattr(x, _attr).delay(time_step) for x in [arg.dom, arg.cod])
-        monoidal.Bubble.__init__(self, arg, dom, cod)
+        monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, f"({arg}).{_attr}", self.dom, self.cod, time_step)
 
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
@@ -524,7 +524,7 @@ class Feedback(monoidal.Bubble, Box):
         if arg.cod != cod @ mem:
             raise AxiomError
         self.mem, self.left = mem, left
-        monoidal.Bubble.__init__(self, arg, dom, cod)
+        monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, self.name, dom, cod)
         mem_name = "" if len(mem) == 1 else f"mem={mem}"
         self.name = f"({self.arg}).feedback({mem_name})"

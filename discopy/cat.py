@@ -342,9 +342,9 @@ class Arrow(Composable[Ob]):
         """
         return cls.sum_factory((), dom, cod)
 
-    def bubble(self, **params) -> Bubble:
+    def bubble(self, *args, **kwargs) -> Bubble:
         """ Unary operator on homsets. """
-        return self.bubble_factory(self, **params)
+        return self.bubble_factory(self, *args, **kwargs)
 
     @property
     def free_symbols(self) -> "set[sympy.Symbol]":
@@ -686,47 +686,71 @@ class Bubble(Box):
     objects :code:`dom` and :code:`cod`.
 
     Parameters:
-        arg : The arrow inside the bubble.
+        args : The arrows inside the bubble.
         dom : The domain of the bubble, default is that of :code:`other`.
         cod : The codomain of the bubble, default is that of :code:`other`.
+        name (str) : An optional name for the bubble.
+        method (str) : The method to call when a functor is applied to it.
+        kwargs : Passed to the `__init__` of :class:`Box`.
     """
-    def __init__(self, arg: Arrow, dom: Ob = None, cod: Ob = None):
-        dom = arg.dom if dom is None else dom
-        cod = arg.cod if cod is None else cod
-        self.arg = arg
-        Box.__init__(self, "Bubble", dom, cod)
+    def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
+                 name="Bubble", method="bubble", **kwargs):
+        dom, = set(arg.dom for arg in args) if dom is None else (dom, )
+        cod, = set(arg.cod for arg in args) if cod is None else (cod, )
+        self.args, self.method = args, method
+        Box.__init__(self, name, dom, cod, **kwargs)
+
+    @property
+    def arg(self):
+        """ The arrow inside the bubble if there is exactly one. """
+        if len(self.args) == 1:
+            return self.args[0]
+        raise ValueError(f"{self} has multiple args.")
 
     @property
     def is_id_on_objects(self):
         """ Whether the bubble is identity on objects. """
-        return (self.dom, self.cod) == (self.arg.dom, self.arg.cod)
+        return len(self.args) == 1 and (
+            self.dom, self.cod) == (self.arg.dom, self.arg.cod)
+
+    def __eq__(self, other):
+        if isinstance(other, Bubble):
+            return all(getattr(self, x) == getattr(other, x) for x in (
+                "args", "dom", "cod", "name", "method"))
+        return not isinstance(other, Box) and super().__eq__(other)
+
+    def __hash__(self):
+        return hash(tuple(getattr(self, x) for x in [
+            "args", "dom", "cod", "name", "method"]))
 
     def __str__(self):
-        str_args = '' if self.is_id_on_objects\
-            else f'dom={self.dom}, cod={self.cod}'
-        return f"({self.arg}).bubble({str_args})"
+        str_args = ",".join(map(str, self.args))
+        str_dom_cod = '' if self.is_id_on_objects else (
+            f'dom={self.dom}, cod={self.cod}')
+        return f"({str_args}).bubble({str_dom_cod})"
 
     def __repr__(self):
-        str_args = repr(self.arg) if self.is_id_on_objects else\
-            f"{repr(self.arg)}, dom={repr(self.dom)}, cod={repr(self.cod)}"
-        return f"{factory_name(type(self))}({str_args})"
+        repr_args = ", ".join(map(repr, self.args))
+        repr_dom_cod = "" if self.is_id_on_objects else (
+            f", dom={repr(self.dom)}, cod={repr(self.cod)}")
+        return factory_name(type(self)) + (f"({repr_args}{repr_dom_cod})")
 
     @property
     def free_symbols(self):
-        return super().free_symbols.union(self.arg.free_symbols)
+        return super().free_symbols.union(*[f.free_symbols for f in self.args])
 
     def to_tree(self):
         return {
             'factory': factory_name(type(self)),
-            'arg': self.arg.to_tree(),
+            'args': [f.to_tree() for f in self.args],
             'dom': self.dom.to_tree(),
             'cod': self.cod.to_tree()}
 
     @classmethod
     def from_tree(cls, tree):
-        dom, cod, arg = map(from_tree, (
-            tree['dom'], tree['cod'], tree['arg']))
-        return cls(arg=arg, dom=dom, cod=cod)
+        args = [tree['arg']] if 'args' not in tree else tree['args']
+        dom, cod = map(from_tree, (tree['dom'], tree['cod']))
+        return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
 @dataclass
@@ -868,9 +892,10 @@ class Functor(Composable[Category]):
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
                        self.cod.ar.zero(self(other.dom), self(other.cod)))
-        if isinstance(other, Bubble) and hasattr(self.cod.ar, "bubble"):
-            return self(other.arg).bubble(
-                dom=self(other.dom), cod=self(other.cod))
+        if isinstance(other, Bubble) and hasattr(self.cod.ar, other.method):
+            dom, cod = map(self, (other.dom, other.cod))
+            return getattr(self.cod.ar, other.method)(
+                *map(self, other.args), dom=dom, cod=cod)
         if isinstance(other, Box) and other.is_dagger:
             return self(other.dagger()).dagger()
         if isinstance(other, Box):

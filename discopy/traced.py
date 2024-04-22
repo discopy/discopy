@@ -180,7 +180,7 @@ class Trace(Box, monoidal.Bubble):
         name = f"Trace({arg}" + ", left=True)" if left else ")"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
-        monoidal.Bubble.__init__(self, arg, dom, cod)
+        monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
 
     def __repr__(self):

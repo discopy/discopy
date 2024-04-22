@@ -957,39 +957,86 @@ class Bubble(cat.Bubble, Box):
     types :code:`dom` and :code:`cod`.
 
     Parameters:
-        arg : The diagram inside the bubble.
+        args : The diagrams inside the bubble.
         dom : The domain of the bubble, default is that of :code:`other`.
         cod : The codomain of the bubble, default is that of :code:`other`.
+        drawing_name (str) : The name of the bubble when drawing it.
+        draw_as_bubble (bool) : Whether to draw as a bubble or as a frame.
 
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
-    >>> f, g = Box('f', x, y ** 3), Box('g', y, y @ y)
+    >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
     >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
     >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
 
     .. image:: /_static/monoidal/bubble-example.png
         :align: center
+
+    >>> b = Bubble(f, g, h, dom=x, cod=y @ y)
+    >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.png')
+
+    .. image:: /_static/monoidal/bubble-multiple-args.png
+        :align: center
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
 
-    def __init__(self, arg: Diagram, dom: Ty = None, cod: Ty = None, **params):
-        self.drawing_name = params.get("drawing_name", "")
-        cat.Bubble.__init__(self, arg, dom, cod)
-        Box.__init__(self, self.name, self.dom, self.cod, data=self.data)
+    def __init__(
+            self, *args: Diagram, dom: Ty = None, cod: Ty = None, **kwargs):
+        cat.Bubble.__init__(self, *args, dom=dom, cod=cod)
+        self.drawing_name = kwargs.pop("drawing_name", "")
+        self.draw_as_bubble = kwargs.pop(
+            "draw_as_bubble", (len(args) == 1
+                               and len(self.arg.dom) == len(self.dom)
+                               and len(self.arg.cod) == len(self.cod)))
+        Box.__init__(self, self.name, self.dom, self.cod, **kwargs)
 
-    def to_drawing(self):
+    def to_bubble_drawing(self):
         dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
         argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
         left, right = Ty(self.drawing_name), Ty("")
         left.inside[0].always_draw_label = True
         _open = Box("_open", dom, left @ argdom @ right).to_drawing()
         _close = Box("_close", left @ argcod @ right, cod).to_drawing()
-        _open.draw_as_wires = _close.draw_as_wires = True
-        # Wires can go straight only if types have the same length.
-        _open.bubble_opening = len(dom) == len(argdom)
-        _close.bubble_closing = len(cod) == len(argcod)
+        if len(dom) == len(argdom) and len(cod) == len(argcod):
+            _open.bubble_opening = _close.bubble_closing = True
+            _open.draw_as_wires = _close.draw_as_wires = True
+        else:
+            _open.frame_slot_opening = _close.frame_slot_closing = True
         return _open >> left @ self.arg.to_drawing() @ right >> _close
+
+    def to_frame_drawing(self):
+        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
+        if self.args == 1:
+            inside = self.arg.to_drawing().bubble(
+                draw_as_bubble=True, dom=Ty(), cod=Ty()).to_drawing()
+        else:
+            left = right = Ty('')
+            first_arg = self.args[0].to_drawing()
+            last_arg = self.args[-1].to_drawing()
+            open_first_slot = Box(
+                "open", Ty(), left @ first_arg.dom @ right).to_drawing()
+            open_first_slot.frame_slot_opening = True
+            inside = open_first_slot >> left @ first_arg @ right
+            for f, g in zip(self.args, self.args[1:]):
+                b_dom, b_cod = [
+                    left @ x.to_drawing() @ right for x in [f.cod, g.dom]]
+                b = Box("boundary", b_dom, b_cod)
+                b.frame_slot_boundary = True
+                inside >>= b.to_drawing() >> left @ g.to_drawing() @ right
+            close_last_slot = Box(
+                "close", left @ last_arg.cod @ right, Ty()).to_drawing()
+            close_last_slot.frame_slot_closing = True
+            inside >>= close_last_slot
+        left, right = Ty(self.drawing_name), Ty("")
+        _open = Box("_open", dom, left @ right).to_drawing()
+        _close = Box("_close", left @ right, cod).to_drawing()
+        _open.frame_opening = _close.frame_closing = True
+        return _open >> left @ inside @ right >> _close
+
+    def to_drawing(self):
+        return self.to_bubble_drawing(
+            ) if self.draw_as_bubble else self.to_frame_drawing()
 
 
 class Category(cat.Category):
