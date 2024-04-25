@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-DisCopy's legacy drawing: turn a diagram into a directed graph then plot it.
+DisCopy's drawing backends: Matplotlib and TikZ.
 
 Summary
 -------
@@ -10,20 +10,9 @@ Summary
     :nosignatures:
     :toctree:
 
-    Node
     Backend
-    TikzBackend
-    MatBackend
-    Equation
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        diagram2nx
+    TikZ
+    Matplotlib
 """
 
 from __future__ import annotations
@@ -40,36 +29,14 @@ from PIL import Image
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
+from discopy.drawing import Node
+
 from discopy.config import (  # noqa: F401
     DRAWING_ATTRIBUTES as ATTRIBUTES,
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 
 if TYPE_CHECKING:
     from discopy import monoidal
-
-
-class Node:
-    """ Node in a :class:`networkx.Graph`, can hold arbitrary data. """
-    def __init__(self, kind, **data):
-        self.kind, self.data = kind, data
-        for key, value in data.items():
-            setattr(self, key, value)
-
-    def __eq__(self, other):
-        return isinstance(other, Node)\
-            and (self.kind, self.data) == (other.kind, other.data)
-
-    def __repr__(self):
-        str_data = ", ".join(
-            f"{key}={repr(value)}"
-            for key, value in sorted(self.data.items())
-        )
-        return f"Node({repr(self.kind)}, {str_data})"
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    __str__ = __repr__
 
 
 def diagram2nx(diagram):
@@ -96,41 +63,53 @@ def diagram2nx(diagram):
         graph.add_node(node)
         pos.update({node: position})
 
-    def add_box(scan, box, off, depth, x_pos):
+    def add_box(scan, box, off, j, x_pos):
         bubble_opening = getattr(box, "bubble_opening", False)
         bubble_closing = getattr(box, "bubble_closing", False)
+        frame_opening = getattr(box, "frame_opening", False)
+        frame_closing = getattr(box, "frame_closing", False)
+        frame_slot_boundary = getattr(box, "frame_slot_boundary", False)
         bubble = bubble_opening or bubble_closing
-        node = Node("box", box=box, depth=depth)
-        add_node(node, (x_pos, len(diagram) - depth - .5))
-        for i, obj in enumerate(box.dom.inside):
-            wire, position = Node("dom", obj=obj, i=i, depth=depth), (
-                pos[scan[off + i]][0], len(diagram) - depth - .25)
+        node = Node("box", box=box, j=j)
+        add_node(node, (x_pos, len(diagram) - j - .5))
+        for i, x in enumerate(box.dom.inside):
+            y_pos = len(diagram) - j - (.75 if frame_opening else .25)
+            wire, position = Node("box_dom", x=x, i=i, j=j), (
+                pos[scan[off + i]][0], len(diagram) - j - .25)
             add_node(wire, position)
             graph.add_edge(scan[off + i], wire)
             if not bubble or bubble_closing and i in [0, len(box.dom) - 1]:
                 graph.add_edge(wire, node)
-        for i, obj in enumerate(box.cod.inside):
+        for i, x in enumerate(box.cod.inside):
+            y_pos = len(diagram) - j - (.25 if frame_closing else .75)
+            align_wires = len(box.dom) == len(box.cod) and not frame_closing
             position = (
-                pos[scan[off + i]][0] if len(box.dom) == len(box.cod)
-                else x_pos - len(box.cod[1:]) / 2 + i,
-                len(diagram) - depth - .75)
-            wire = Node("cod", obj=obj, i=i, depth=depth)
+                pos[scan[off + i]][0] if align_wires
+                else pos[scan[off + i + 1]][0] if bubble_closing
+                else x_pos - len(box.cod[1:]) / 2 + i, y_pos)
+            if frame_slot_boundary and i == 0:
+                position = (pos[scan[off]][0], position[1])
+            if frame_slot_boundary and i == len(box.cod[1:]):
+                position = (pos[scan[off + len(box.dom[1:])]][0], position[1])
+            elif frame_opening and i in (0, len(box.cod[1:])):
+                position = (position[0] + (.25 if i else -.25), position[1])
+            wire = Node("cod", x=x, i=i, j=j)
             add_node(wire, position)
             if not bubble or bubble_opening and i in [0, len(box.cod) - 1]:
                 graph.add_edge(node, wire)
-        if bubble_opening or bubble_closing:
+        if bubble_opening or bubble_closing:  # Make wires go through bubbles.
             source_ty, target_ty = (box.dom, box.cod[1:-1]) if bubble_opening\
                 else (box.dom[1:-1], box.cod)
-            for i, (source_obj, target_obj) in enumerate(zip(
+            for i, (source_x, target_x) in enumerate(zip(
                     source_ty.inside, target_ty.inside)):
                 source_i, target_i = (i, i + 1) if bubble_opening\
                     else (i + 1, i)
-                source = Node("dom", obj=source_obj, i=source_i, depth=depth)
-                target = Node("cod", obj=target_obj, i=target_i, depth=depth)
+                source = Node("box_dom", x=source_x, i=source_i, j=j)
+                target = Node("box_cod", x=target_x, i=target_i, j=j)
                 graph.add_edge(source, target)
         return scan[:off]\
-            + [Node("cod", obj=obj, i=i, depth=depth)
-               for i, obj in enumerate(box.cod.inside)]\
+            + [Node("box_cod", x=x, i=i, j=j)
+               for i, x in enumerate(box.cod.inside)]\
             + scan[off + len(box.dom):]
 
     def make_space(scan, box, off):
@@ -164,15 +143,15 @@ def diagram2nx(diagram):
         return x_pos
 
     scan = []
-    for i, obj in enumerate(diagram.dom.inside):
-        node = Node("input", obj=obj, i=i)
+    for i, x in enumerate(diagram.dom.inside):
+        node = Node("dom", x=x, i=i)
         add_node(node, (i, len(diagram) or 1))
         scan.append(node)
-    for depth, (box, off) in enumerate(zip(diagram.boxes, diagram.offsets)):
+    for j, (box, off) in enumerate(zip(diagram.boxes, diagram.offsets)):
         x_pos = make_space(scan, box, off)
-        scan = add_box(scan, box, off, depth, x_pos)
-    for i, obj in enumerate(diagram.cod.inside):
-        node = Node("output", obj=obj, i=i)
+        scan = add_box(scan, box, off, j, x_pos)
+    for i, x in enumerate(diagram.cod.inside):
+        node = Node("cod", x=x, i=i)
         add_node(node, (pos[scan[i]][0], 0))
         graph.add_edge(scan[i], node)
     return graph, pos
@@ -213,7 +192,7 @@ class Backend(ABC):
         """ Output the drawing. """
 
 
-class TikzBackend(Backend):
+class TikZ(Backend):
     """ Tikz drawing backend. """
     def __init__(self, use_tikzstyles=None):
         self.use_tikzstyles = DEFAULT["use_tikzstyles"]\
@@ -357,7 +336,7 @@ class TikzBackend(Backend):
             print(''.join(begin + nodes + edges + end))
 
 
-class MatBackend(Backend):
+class Matplotlib(Backend):
     """ Matplotlib drawing backend. """
     def __init__(self, axis=None, figsize=None, linewidth=1):
         self.axis = axis or plt.subplots(figsize=figsize, facecolor='white')[1]
@@ -439,64 +418,16 @@ class MatBackend(Backend):
             plt.show()
 
 
-def needs_asymmetry(diagram):
-    if hasattr(diagram, "terms"):
-        return any(needs_asymmetry(d) for d in diagram.terms)
-    return any(
-        box.is_dagger
-        or getattr(box, "is_conjugate", False)
-        or getattr(box, "is_transpose", False)
-        for box in diagram.boxes)
-
-
-def draw(diagram, **params):
-    """
-    Draws a diagram using networkx and matplotlib.
-
-    Parameters
-    ----------
-    draw_as_nodes : bool, optional
-        Whether to draw boxes as nodes, default is :code:`False`.
-    color : string, optional
-        Color of the box or node, default is white (:code:`'#ffffff'`) for
-        boxes and red (:code:`'#ff0000'`) for nodes.
-    textpad : pair of floats, optional
-        Padding between text and wires, default is :code:`(0.1, 0.1)`.
-    draw_type_labels : bool, optional
-        Whether to draw type labels, default is :code:`False`.
-    draw_box_labels : bool, optional
-        Whether to draw box labels, default is :code:`True`.
-    aspect : string, optional
-        Aspect ratio, one of :code:`['auto', 'equal']`.
-    margins : tuple, optional
-        Margins, default is :code:`(0.05, 0.05)`.
-    nodesize : float, optional
-        Node size for spiders and controlled gates.
-    fontsize : int, optional
-        Font size for the boxes, default is :code:`12`.
-    fontsize_types : int, optional
-        Font size for the types, default is :code:`12`.
-    figsize : tuple, optional
-        Figure size.
-    path : str, optional
-        Where to save the image, if `None` we call :code:`plt.show()`.
-    to_tikz : bool, optional
-        Whether to output tikz code instead of matplotlib.
-    asymmetry : float, optional
-        Make a box and its dagger mirror images, default is
-        :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
-    """
-    diagram = diagram.to_drawing()
-
+def draw(graph, positions, **params):
     drawing_methods = [
+        ("frame_opening", draw_frame_opening),
+        ("frame_closing", draw_frame_closing),
+        ("frame_slot_boundary", draw_frame),
         ("draw_as_brakets", draw_brakets),
         ("draw_as_controlled", draw_controlled_gate),
         ("draw_as_discards", draw_discard),
         ("draw_as_measures", draw_measure),
         (None, draw_box)]
-
-    params['asymmetry'] = params.get(
-        'asymmetry', .25 * needs_asymmetry(diagram))
 
     def draw_wires(backend, graph, positions):
         for source, target in graph.edges():
@@ -533,15 +464,15 @@ def draw(diagram, **params):
                             target_position, [-1, 1], braid_shadow))
             backend.draw_wire(
                 source_position, target_position, bend_out, bend_in)
-            if source.kind in ["input", "cod"]\
+            if source.kind in ["dom", "box_cod"]\
                     and (params.get('draw_type_labels', True)
-                         or getattr(source.obj, "always_draw_label", False)
+                         or getattr(source.x, "always_draw_label", False)
                          and params.get('draw_box_labels', True)):
                 i, j = positions[source]
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
-                pad_j = 0 if source.kind == "input" else pad_j
+                pad_j = 0 if source.kind == "dom" else pad_j
                 backend.draw_text(
-                    str(source.obj), i + pad_i, j - pad_j,
+                    str(source.x), i + pad_i, j - pad_j,
                     fontsize=params.get('fontsize_types',
                                         params.get('fontsize', None)),
                     verticalalignment='top')
@@ -557,23 +488,22 @@ def draw(diagram, **params):
                for n, (x, y) in pos.items()}
         for box_node in graph.nodes:
             if box_node.kind == "box":
-                for i, obj in enumerate(box_node.box.dom.inside):
-                    node = Node("dom", obj=obj, i=i, depth=box_node.depth)
+                for i, x in enumerate(box_node.box.dom.inside):
+                    node = Node("box_dom", x=x, i=i, j=box_node.j)
                     pos[node] = (
                         pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
-                for i, obj in enumerate(box_node.box.cod.inside):
-                    node = Node("cod", obj=obj, i=i, depth=box_node.depth)
+                for i, x in enumerate(box_node.box.cod.inside):
+                    node = Node("box_cod", x=x, i=i, j=box_node.j)
                     pos[node] = (
                         pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
         return pos
 
     scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
-    graph, positions = diagram2nx(diagram)
     positions = scale_and_pad(graph, positions, scale, pad)
     backend = params.pop('backend') if 'backend' in params else\
-        TikzBackend(use_tikzstyles=params.get('use_tikzstyles', None))\
+        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))\
         if params.get('to_tikz', False)\
-        else MatBackend(figsize=params.get('figsize', None),
+        else Matplotlib(figsize=params.get('figsize', None),
                         linewidth=params.get('linewidth', 1))
 
     min_size = 0.01
@@ -601,24 +531,24 @@ def draw(diagram, **params):
 
 def draw_box(backend, positions, node, **params):
     """ Draws a box node on a given backend. """
-    box, depth = node.box, node.depth
-    asymmetry = params.get('asymmetry')
+    box, j = node.box, node.j
+    asymmetry = params.get('asymmetry', 0)
     if not box.dom and not box.cod:
         left, right = positions[node][0], positions[node][0]
     elif not box.dom:
         left, right = (
-            positions[Node("cod", obj=box.cod.inside[i], i=i, depth=depth)][0]
+            positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
             for i in [0, len(box.cod) - 1])
     elif not box.cod:
         left, right = (
-            positions[Node("dom", obj=box.dom.inside[i], i=i, depth=depth)][0]
+            positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
             for i in [0, len(box.dom) - 1])
     else:
         top_left, top_right = (
-            positions[Node("dom", obj=box.dom.inside[i], i=i, depth=depth)][0]
+            positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
             for i in [0, len(box.dom) - 1])
         bottom_left, bottom_right = (
-            positions[Node("cod", obj=box.cod.inside[i], i=i, depth=depth)][0]
+            positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
             for i in [0, len(box.cod) - 1])
         left = min(top_left, bottom_left)
         right = max(top_right, bottom_right)
@@ -646,138 +576,37 @@ def draw_box(backend, positions, node, **params):
     return backend
 
 
-def to_gif(diagram, *diagrams, **params):  # pragma: no cover
-    """
-    Builds a gif with the normalisation steps.
-
-    Parameters
-    ----------
-    diagrams : :class:`Diagram`, optional
-        Sequence of diagrams to draw.
-    path : str
-        Where to save the image, if :code:`None` a gif gets created.
-    timestep : int, optional
-        Time step in milliseconds, default is :code:`500`.
-    loop : bool, optional
-        Whether to loop, default is :code:`False`
-    params : any, optional
-        Passed to :meth:`Diagram.draw`.
-    """
-    path = params.pop("path", None)
-    timestep = params.get("timestep", 500)
-    loop = params.get("loop", False)
-    steps, frames = (diagram, ) + diagrams, []
-    path = path or os.path.basename(NamedTemporaryFile(
-        suffix='.gif', prefix='tmp_', dir='.').name)
-    with TemporaryDirectory() as directory:
-        for i, _diagram in enumerate(steps):
-            tmp_path = os.path.join(directory, f'{i}.png')
-            _diagram.draw(path=tmp_path, **params)
-            frames.append(Image.open(tmp_path))
-        if loop:
-            frames = frames + frames[::-1]
-        frames[0].save(path, format='GIF', append_images=frames[1:],
-                       save_all=True, duration=timestep,
-                       **{'loop': 0} if loop else {})
-        try:
-            from IPython.display import HTML
-            return HTML(f'<img src="{path}">')
-        except ImportError:
-            return f'<img src="{path}">'
+def draw_frame(backend, positions, node, opening=True, closing=True, **params):
+    if opening and closing:
+        backend = draw_frame(backend, positions, node, closing=False)
+        backend = draw_frame(backend, positions, node, opening=False)
+        return backend
+    if not opening and not closing:
+        return backend
+    box, j, kind = node.box, node.j, "box_cod" if opening else "box_dom"
+    x_left, x_right = (box.cod.inside[0], box.cod.inside[-1]) if opening else (
+        box.dom.inside[0], box.dom.inside[-1])
+    left = Node(kind, x=x_left, j=j, i=0)
+    right = Node(
+        kind, x=x_right, j=j, i=len(box.cod if opening else box.dom) - 1)
+    backend.draw_wire(positions[left], positions[right])
+    return backend
 
 
-class Equation:
-    """
-    An equation is a list of diagrams with a dedicated draw method.
+def draw_frame_opening(backend, positions, node, **params):
+    return draw_frame(backend, positions, node, closing=False, **params)
 
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between the terms.
-        space : The space between the terms.
 
-    Example
-    -------
-    >>> from discopy.tensor import Spider, Swap, Dim, Id
-    >>> dim = Dim(2)
-    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
-    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
-    >>> special = Equation(mu >> delta, Id(dim))
-    >>> frobenius = Equation(
-    ...     delta @ Id(dim) >> Id(dim) @ mu,
-    ...     mu >> delta,
-    ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
-    ...          path='docs/_static/drawing/frobenius-axioms.png')
-
-    .. image:: /_static/drawing/frobenius-axioms.png
-        :align: center
-    """
-    def __init__(self, *terms: monoidal.Diagram, symbol="=", space=1):
-        self.terms, self.symbol, self.space = terms, symbol, space
-
-    def __repr__(self):
-        return f"Equation({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f" {self.symbol} ".join(map(str, self.terms))
-
-    def draw(self, path=None, space=None, **params):
-        """
-        Drawing an equation.
-
-        Parameters:
-            path : Where to save the drawing.
-            space : The amount of space between the terms.
-            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
-        """
-        def height(term):
-            # i.e. if isinstance(diagram, (Sum, Equation))
-            if hasattr(term, "terms"):
-                return max(height(d) for d in term.terms)
-            return len(term.to_drawing()) or 1
-
-        params['asymmetry'] = params.get(
-            'asymmetry', .25 * needs_asymmetry(self))
-        space = space or self.space
-        max_height = max(map(height, self.terms))
-        pad = params.get('pad', (0, 0))
-        scale_x, scale_y = params.get('scale', (1, 1))
-        backend = params['backend'] if 'backend' in params\
-            else TikzBackend(
-                use_tikzstyles=params.get('use_tikzstyles', None))\
-            if params.get('to_tikz', False)\
-            else MatBackend(figsize=params.get('figsize', None))
-
-        for i, term in enumerate(self.terms):
-            scale = (scale_x, scale_y * max_height / height(term))
-            term.draw(**dict(
-                params, show=False, path=None,
-                backend=backend, scale=scale, pad=pad))
-            pad = (backend.max_width + space, 0)
-            if i < len(self.terms) - 1:
-                backend.draw_text(
-                    self.symbol, pad[0], scale_y * max_height / 2)
-                pad = (pad[0] + space, pad[1])
-
-        return backend.output(
-            path=path,
-            baseline=max_height / 2,
-            tikz_options=params.get('tikz_options', None),
-            show=params.get("show", True),
-            margins=params.get('margins', DEFAULT['margins']),
-            aspect=params.get('aspect', DEFAULT['aspect']))
-
-    def __bool__(self):
-        return all(term == self.terms[0] for term in self.terms)
+def draw_frame_closing(backend, positions, node, **params):
+    return draw_frame(backend, positions, node, opening=False, **params)
 
 
 def draw_discard(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
-    box, depth = node.box, node.depth
+    box, j = node.box, node.j
     for i in range(len(box.dom)):
-        obj = box.dom.inside[i]
-        wire = Node("dom", obj=obj, depth=depth, i=i)
+        x = box.dom.inside[i]
+        wire = Node("box_dom", x=x, j=j, i=i)
         middle = positions[wire]
         left, right = middle[0] - .25, middle[0] + .25
         height = positions[node][1] + .25
@@ -802,12 +631,12 @@ def draw_measure(backend, positions, node, **params):
 
 def draw_brakets(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.gates.Ket` box. """
-    box, depth = node.box, node.depth
+    box, j = node.box, node.j
     is_bra = len(box.dom) > 0
     for i, bit in enumerate(box._digits):
-        kind = "dom" if is_bra else "cod"
-        obj = box.dom.inside[i] if is_bra else box.cod.inside[i]
-        wire = Node(kind, obj=obj, depth=depth, i=i)
+        kind = "box_dom" if is_bra else "box_cod"
+        x = box.dom.inside[i] if is_bra else box.cod.inside[i]
+        wire = Node(kind, x=x, j=j, i=i)
         middle = positions[wire]
         left = middle[0] - .25, middle[1]
         right = middle[0] + .25, middle[1]
@@ -823,19 +652,19 @@ def draw_brakets(backend, positions, node, **params):
 
 def draw_controlled_gate(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.gates.Controlled` gate. """
-    box, depth = node.box, node.depth
+    box, j = node.box, node.j
     distance = box.distance
     c_size = len(box.controlled.dom)
 
     index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
-    dom = Node("dom", obj=box.dom.inside[0], i=index[0], depth=depth)
-    cod = Node("cod", obj=box.cod.inside[0], i=index[0], depth=depth)
+    dom = Node("box_dom", x=box.dom.inside[0], i=index[0], j=j)
+    cod = Node("box_cod", x=box.cod.inside[0], i=index[0], j=j)
     middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
     controlled_box = box.controlled.to_drawing()
-    controlled = Node("box", box=controlled_box, depth=depth)
-    # TODO select obj properly for classical gates
-    c_dom = Node("dom", obj=box.dom.inside[0], i=index[1], depth=depth)
-    c_cod = Node("cod", obj=box.cod.inside[0], i=index[1], depth=depth)
+    controlled = Node("box", box=controlled_box, j=j)
+    # TODO select x properly for classical gates
+    c_dom = Node("box_dom", x=box.dom.inside[0], i=index[1], j=j)
+    c_cod = Node("box_cod", x=box.cod.inside[0], i=index[1], j=j)
     c_middle =\
         positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
     target = (positions[c_dom][0] + (c_size - 1) / 2,
@@ -855,11 +684,11 @@ def draw_controlled_gate(backend, positions, node, **params):
     else:
         fake_positions = {controlled: target}
         for i in range(c_size):
-            dom_node = Node("dom", obj=box.dom.inside[i], i=i, depth=depth)
+            dom_node = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
             x, y = positions[c_dom][0] + i, positions[c_dom][1]
             fake_positions[dom_node] = x, y
 
-            cod_node = Node("cod", obj=box.cod.inside[i], i=i, depth=depth)
+            cod_node = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
             x, y = positions[c_cod][0] + i, positions[c_cod][1]
             fake_positions[cod_node] = x, y
 
@@ -894,8 +723,8 @@ def draw_controlled_gate(backend, positions, node, **params):
     # draw all the other vertical wires
     extra_offset = 1 if distance > 0 else len(box.controlled.dom)
     for i in range(extra_offset, extra_offset + abs(distance) - 1):
-        node1 = Node("dom", obj=box.dom.inside[i], i=i, depth=depth)
-        node2 = Node("cod", obj=box.cod.inside[i], i=i, depth=depth)
+        node1 = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
+        node2 = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
         backend.draw_wire(positions[node1], positions[node2])
 
     # TODO change bend_in and bend_out for tikz backend

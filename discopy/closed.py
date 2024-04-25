@@ -303,7 +303,7 @@ class Curry(monoidal.Bubble, Box):
         left : Whether to curry on the left or right.
     """
     def __init__(self, arg: Diagram, n=1, left=True):
-        self.arg, self.n, self.left = arg, n, left
+        self.n, self.left = n, left
         name = f"Curry({arg}, {n}, {left})"
         if left:
             dom = arg.dom[:len(arg.dom) - n]
@@ -311,7 +311,7 @@ class Curry(monoidal.Bubble, Box):
         else:
             dom, cod = arg.dom[n:], arg.dom[:n] >> arg.cod
         monoidal.Bubble.__init__(
-            self, arg, dom, cod, drawing_name="$\\Lambda$")
+            self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
 
 

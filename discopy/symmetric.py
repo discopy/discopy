@@ -25,11 +25,13 @@ Axioms
 >>> x, y, z, w = map(Ty, "xyzw")
 >>> f, g = Box("f", x, y), Box("g", z, w)
 
-* Triangle:
+Triangle
+========
 
 >>> assert Diagram.swap(Ty(), x) == Id(x) == Diagram.swap(x, Ty())
 
-* Hexagon:
+Hexagon
+=======
 
 >>> assert Diagram.swap(x, y @ z) == Swap(x, y) @ z >> y @ Swap(x, z)
 >>> assert Diagram.swap(x @ y, z) == x @ Swap(y, z) >> Swap(x, z) @ y
@@ -39,7 +41,9 @@ Axioms
 .. image:: /_static/symmetric/hexagons.png
     :align: center
 
-* Involution (a.k.a. Reidemeister move 2):
+Involution
+==========
+a.k.a. Reidemeister move 2
 
 >>> assert Swap(x, y)[::-1] == Swap(y, x)
 >>> with Diagram.hypergraph_equality:
@@ -50,7 +54,8 @@ Axioms
 .. image:: /_static/symmetric/inverse.png
     :align: center
 
-* Naturality:
+Naturality
+==========
 
 >>> naturality = Equation(
 ...     f @ g >> Swap(f.cod, g.cod), Swap(f.dom, g.dom) >> g @ f)
@@ -62,7 +67,11 @@ Axioms
 .. image:: /_static/symmetric/naturality.png
     :align: center
 
-* Yang-Baxter (a.k.a. Reidemeister move 3):
+Yang-Baxter
+===========
+a.k.a. Reidemeister move 3
+
+This is a special case of naturality.
 
 >>> yang_baxter_left = Swap(x, y) @ z >> y @ Swap(x, z) >> Swap(y, z) @ x
 >>> yang_baxter_right = x @ Swap(y, z) >> Swap(x, z) @ y >> z @ Swap(x, y)

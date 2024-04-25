@@ -110,6 +110,11 @@ class MappingOrCallable(Mapping[KT, VT]):
         return MappingOrCallable(lambda key: other[self[key]])
 
 
+def get_origin(typ):
+    """ Get origin of a parameterized generic type. """
+    return getattr(typ, "__origin__", typ)
+
+
 class NamedGeneric(Generic[TypeVar('T')]):
     """
     A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
@@ -157,7 +162,7 @@ class NamedGeneric(Generic[TypeVar('T')]):
                 if cls not in NamedGeneric._cache:
                     NamedGeneric._cache[cls] = {cls_values: cls}
                 if values not in NamedGeneric._cache[cls]:
-                    origin = getattr(cls, "__origin__", cls)
+                    origin = get_origin(cls)
 
                     class C(origin):
                         __is_named_generic__ = True
@@ -731,3 +736,28 @@ class classproperty(object):
 
     def __get__(self, _, x):
         return self.f(x)
+
+
+class Node:
+    """ Node in a :class:`networkx.Graph`, can hold arbitrary data. """
+    def __init__(self, kind, **data):
+        self.kind, self.data = kind, data
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def __eq__(self, other):
+        return isinstance(other, Node)\
+            and (self.kind, self.data) == (other.kind, other.data)
+
+    def __repr__(self):
+        return f"""Node({repr(self.kind)}, {", ".join(
+            f"{key}={value}" for key, value in sorted(self.data.items()))})"""
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def shift_i(self, i):
+        return Node(self.kind, **dict(self.data, i=self.i + i))
+
+    def shift_j(self, j):
+        return Node(self.kind, **dict(self.data, j=self.j + j))

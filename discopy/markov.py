@@ -30,7 +30,8 @@ Axioms
 >>> copy, merge = Copy(x), Merge(x)
 >>> unit, delete = Merge(x, n=0), Copy(x, n=0)
 
-* Commutative monoid:
+Commutative monoid
+==================
 
 >>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge)
 >>> associativity = Equation(merge @ x >> merge, x @ merge >> merge)
@@ -42,7 +43,8 @@ Axioms
 .. image:: /_static/frobenius/monoid.png
     :align: center
 
-* Cocommutative comonoid:
+Cocommutative comonoid
+======================
 
 >>> counitality = Equation(copy >> delete @ x, Id(x), copy >> x @ delete)
 >>> coassociativity = Equation(copy >> copy @ x, copy >> x @ copy)
@@ -54,7 +56,8 @@ Axioms
 .. image:: /_static/frobenius/comonoid.png
     :align: center
 
-* Coherence:
+Coherence
+=========
 
 >>> assert Diagram.copy(x @ x, n=0) == delete @ delete
 >>> assert Diagram.copy(x @ x)\\
@@ -204,6 +207,10 @@ class Copy(Box):
         name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
         Box.__init__(self, name, dom=x, cod=x ** n,
                      draw_as_spider=True, color="black", drawing_name="")
+
+    def __new__(cls, x: monoidal.Ty, n: int = 2):
+        return super().__new__(cls) if n else\
+            cls.discard_factory.__new__(cls.discard_factory, x)
 
     def __new__(cls, x: monoidal.Ty, n: int = 2):
         return super().__new__(cls) if n else\

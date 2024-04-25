@@ -33,18 +33,21 @@ Axioms
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
-* Vanishing
+Vanishing
+=========
 
 >>> assert f.trace(n=0) == f == f.trace(n=0, left=True)
 >>> assert f.trace(n=2) == f.trace().trace()
 >>> assert f.trace(n=2, left=True) == f.trace(left=True).trace(left=True)
 
-* Superposing
+Superposing
+===========
 
 >>> assert (x @ f).trace() == x @ f.trace()
 >>> assert (f @ x).trace(left=True) == f.trace(left=True) @ x
 
-* Yanking
+Yanking
+=======
 
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
@@ -56,7 +59,8 @@ Axioms
 
 >>> assert yanking
 
-* Naturality
+Naturality
+==========
 
 >>> tightening_left = Equation(
 ...     (x @ g >> f >> x @ g).trace(left=True),
@@ -79,7 +83,8 @@ Axioms
 
 >>> assert tightening_left and tightening_right
 
-* Dinaturality
+Dinaturality
+============
 
 >>> sliding_left = Equation(
 ...     (f >> g @ x).trace(left=True),
@@ -175,7 +180,7 @@ class Trace(Box, monoidal.Bubble):
         name = f"Trace({arg}" + ", left=True)" if left else ")"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
-        monoidal.Bubble.__init__(self, arg, dom, cod)
+        monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
 
     def __repr__(self):
