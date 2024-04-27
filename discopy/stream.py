@@ -63,7 +63,6 @@ category of streams of python types and functions.
 ...                >> plus.d
 ...                >> zero @ X.d
 ...                >> fby >> copy).feedback()
->>> (plus.d >> zero @ X.d).draw()
 >>> with Diagram.hypergraph_equality:
 ...     assert fib == fib_
 >>> fib_.draw(draw_type_labels=False, figsize=(5, 5),
