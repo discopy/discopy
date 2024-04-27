@@ -112,8 +112,6 @@ class Drawing(Composable, Whiskerable):
         return self.is_parallel(other) and self.positions == other.positions
 
     def draw(self, **params):
-        if self.width and not self.height:
-            return self.stretch(1).draw(**params)
         asymmetry = params.pop("asymmetry", 0.25 * any(
             box.is_dagger
             or getattr(box, "is_conjugate", False)
@@ -126,6 +124,9 @@ class Drawing(Composable, Whiskerable):
         for j, box in enumerate(self.boxes):
             if not box.dom and not box.cod:
                 continue
+            if box.draw_as_wires or box.draw_as_spider:
+                if len(box.dom) == 1 or len(box.cod) == 1:
+                    continue
             box_dom_nodes, box_cod_nodes = ([
                     Node(kind, i=i, j=j, x=x) for i, x in enumerate(xs.inside)]
                 for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
@@ -209,6 +210,16 @@ class Drawing(Composable, Whiskerable):
             if (y_min <= p.y <= y_max if inclusive else y_min < p.y < y_max)})
 
     @property
+    def is_identity(self):
+        """ A drawing with no boxes is the identity. """
+        return not self.boxes
+
+    @property
+    def is_empty(self):
+        """ A drawing with no boxes and no wires is empty. """
+        return self.is_identity and not self.dom
+
+    @property
     def is_box(self):
         """ Whether the drawing is just one box. """
         return len(self.boxes) == 1 and self.is_parallel(self.boxes[0])
@@ -288,7 +299,7 @@ class Drawing(Composable, Whiskerable):
         cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom.inside)]
         offset = 0 if len(dom) > 1 else 0.5
         result.add_nodes({
-            x: Point(i + offset, 0) for i, x in enumerate(dom_nodes)})
+            x: Point(i + offset, 1) for i, x in enumerate(dom_nodes)})
         result.add_nodes({
             x: Point(i + offset, 0) for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
@@ -312,6 +323,10 @@ class Drawing(Composable, Whiskerable):
             :align: center
         """
         assert_iscomposable(self, other)
+        if self.is_identity:
+            return other
+        if other.is_identity:
+            return self
         dom, cod = self.dom, other.cod
         tmp_cod = [Node("tmp_cod", i=i) for i, n in enumerate(self.cod_nodes)]
         tmp_dom = [Node("tmp_dom", i=i) for i, n in enumerate(other.dom_nodes)]
@@ -378,6 +393,10 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/tensor.png
             :align: center
         """
+        if self.is_empty:
+            return other
+        if other.is_empty:
+            return self
         mapping = {
             n: n.shift_j(len(self.boxes)) for n in other.box_nodes + (
                 other.box_dom_nodes + other.box_cod_nodes)}
