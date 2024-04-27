@@ -439,8 +439,6 @@ def draw_box(backend, positions, node, **params):
     # dictionary key is (is_dagger, is_conjugate)
     points = [[left, height], [right, height],
               [right, height + .5], [left, height + .5]]
-    box.is_conjugate = getattr(box, "is_conjugate", False)
-    box.is_transpose = getattr(box, "is_transpose", False)
     if box.is_transpose:
         points[0][0] -= asymmetry
     elif box.is_conjugate:
@@ -564,7 +562,7 @@ def draw_controlled_gate(backend, positions, node, **params):
     dom = Node("box_dom", x=box.dom.inside[0], i=index[0], j=j)
     cod = Node("box_cod", x=box.cod.inside[0], i=index[0], j=j)
     middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
-    controlled_box = box.controlled.to_drawing()
+    controlled_box = box.controlled.to_drawing().box
     controlled = Node("box", box=controlled_box, j=j)
     # TODO select x properly for classical gates
     c_dom = Node("box_dom", x=box.dom.inside[0], i=index[1], j=j)
@@ -610,7 +608,8 @@ def draw_controlled_gate(backend, positions, node, **params):
             if next_box.name == "X":
                 shift_boundary = False
         else:
-            backend = draw_box(backend, fake_positions, controlled, **params)
+            backend = draw_box(
+                backend, fake_positions, controlled_box, **params)
 
         if shift_boundary:
             if box.distance > 0:

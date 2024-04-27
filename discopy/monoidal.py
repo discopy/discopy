@@ -215,6 +215,9 @@ class Ty(Ob):
 
     __add__ = __matmul__
 
+    def to_drawing(self) -> Ty:
+        return Ty(*map(str, self.inside))
+
 
 @factory
 class PRO(Ty):
@@ -295,6 +298,7 @@ class PRO(Ty):
         return cls(tree['n'])
 
 
+@factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -318,7 +322,6 @@ class Dim(Ty):
         return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
 
     __str__ = __repr__
-
 
 
 class Layer(cat.Box):
@@ -674,9 +677,10 @@ class Diagram(cat.Arrow, Whiskerable):
 
     def to_drawing(self) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
-        return Functor(
-            lambda x: x, lambda f: f.to_drawing(),
-            cod=Category(self.ty_factory, Drawing))(self)
+        ob = ar = lambda x: x.to_drawing()
+        dom = Category(self.ty_factory, self.factory)
+        cod = Category(Ty, Drawing)
+        return Functor(ob, ar, dom, cod)(self)
 
     def to_staircases(self):  # pylint:
         """
@@ -1086,7 +1090,7 @@ class Functor(cat.Functor):
             method = "frame" if other.draw_as_frame else "bubble"
             return getattr(Drawing, method)(
                 *map(self, other.args),
-                dom=other.dom, cod=other.cod,
+                dom=other.dom.to_drawing(), cod=other.cod.to_drawing(),
                 name=other.drawing_name, horizontal=other.draw_horizontal)
         return super().__call__(other)
 

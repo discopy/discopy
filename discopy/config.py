@@ -10,6 +10,9 @@ IGNORE_WARNINGS = [
 
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
+    "is_dagger": lambda _: False,
+    "is_conjugate": lambda _: False,
+    "is_transpose": lambda _: False,
     "bubble_opening": lambda _: False,
     "bubble_closing": lambda _: False,
     "draw_as_braid": lambda _: False,
@@ -20,11 +23,9 @@ DRAWING_ATTRIBUTES = {
     "draw_as_discards": lambda _: False,
     "draw_as_measures": lambda _: False,
     "draw_as_controlled": lambda _: False,
-    "frame_opening": lambda _: False,
-    "frame_closing": lambda _: False,
-    "frame_slot_boundary": lambda _: False,
-    "frame_slot_opening": lambda box: box.frame_slot_boundary,
-    "frame_slot_closing": lambda box: box.frame_slot_boundary,
+    "controlled": lambda _: None,  # Used for drawing controlled gates.
+    "distance": lambda _: None,  # Used for drawing controlled gates.
+    "_digits": lambda _: None,  # Used for drawing brakets.
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:

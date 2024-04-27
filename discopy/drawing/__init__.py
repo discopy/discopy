@@ -23,16 +23,6 @@ from discopy.drawing.drawing import (
 )
 
 
-def needs_asymmetry(diagram):
-    if hasattr(diagram, "terms"):
-        return any(needs_asymmetry(d) for d in diagram.terms)
-    return any(
-        box.is_dagger
-        or getattr(box, "is_conjugate", False)
-        or getattr(box, "is_transpose", False)
-        for box in diagram.boxes)
-
-
 def draw(diagram, **params):
     """
     Draws a diagram using networkx and matplotlib.
@@ -70,8 +60,6 @@ def draw(diagram, **params):
         Make a box and its dagger mirror images, default is
         :code:`.25 * any(box.is_dagger for box in diagram.boxes)`.
     """
-    params['asymmetry'] = params.get(
-        'asymmetry', .25 * needs_asymmetry(diagram))
     return diagram.to_drawing().draw(**params)
 
 

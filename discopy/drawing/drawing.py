@@ -74,6 +74,9 @@ class Drawing(Composable, Whiskerable):
     positions = property(lambda self: self.inside.positions)
 
     def __init__(self, inside, dom, cod, boxes=(), width=0., height=0., _check=True):
+        from discopy.monoidal import Ty
+        assert_isinstance(dom, Ty)
+        assert_isinstance(cod, Ty)
         self.inside, self.dom, self.cod = inside, dom, cod
         self.boxes, self.width, self.height = boxes, width, height
         assert_isinstance(width, (int, float))
@@ -121,7 +124,12 @@ class Drawing(Composable, Whiskerable):
     def draw(self, **params):
         if self.width and not self.height:
             return self.stretch(1).draw(**params)
-        return backend.draw(*self.inside, **params)
+        asymmetry = params.pop("asymmetry", 0.25 * any(
+            box.is_dagger
+            or getattr(box, "is_conjugate", False)
+            or getattr(box, "is_transpose", False)
+            for box in self.boxes))
+        return backend.draw(*self.inside, asymmetry=asymmetry, **params)
 
     def union(self, other, dom, cod, _check=True):
         graph = nx.union(self.inside.graph, other.inside.graph)
@@ -208,8 +216,11 @@ class Drawing(Composable, Whiskerable):
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
         """ Draw a diagram with just one box. """
+        from discopy.monoidal import Box
+        box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
+        old_box, box = box, Box(box.name, box_dom, box_cod)
         for attr, default in DRAWING_ATTRIBUTES.items():
-            setattr(box, attr, getattr(box, attr, default(box)))
+            setattr(box, attr, getattr(old_box, attr, default(box)))
 
         bubble_opening, bubble_closing = box.bubble_opening, box.bubble_closing
         if bubble_opening:
@@ -597,6 +608,12 @@ class Equation:
     def __str__(self):
         return f" {self.symbol} ".join(map(str, self.terms))
 
+    def to_drawing(self):
+        result = self.terms[0].to_drawing()
+        for term in self.terms[1:]:
+            result = result.add(term.to_drawing(), self.symbol, self.space)
+        return result
+
     def draw(self, path=None, **params):
         """
         Drawing an equation.
@@ -605,10 +622,7 @@ class Equation:
             path : Where to save the drawing.
             params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
         """
-        result = self.terms[0].to_drawing()
-        for term in self.terms[1:]:
-            result = result.add(term.to_drawing(), self.symbol, self.space)
-        return result.draw(path=path, **params)
+        return self.to_drawing().draw(path=path, **params)
 
 
     def __bool__(self):
