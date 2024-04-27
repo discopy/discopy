@@ -143,6 +143,15 @@ class Drawing(Composable, Whiskerable):
     def add_edges(self, edges: list[tuple[Node, Node]]):
         self.graph.add_edges_from(edges)
 
+    @property
+    def actual_width(self):
+        """
+        The difference between max and min x coordinate.
+        This can be different from width when dom and cod have length <= 1.
+        """
+        return max([x for (x, _) in self.positions.values()] + [0]
+            ) - min([x for (x, _) in self.positions.values()] + [0])
+
     def set_width_and_height(self):
         self.width = max([x for (x, _) in self.positions.values()] + [0])
         self.height = max([y for (_, y) in self.positions.values()] + [0])
@@ -228,17 +237,20 @@ class Drawing(Composable, Whiskerable):
 
         if bubble_opening:
             result.add_nodes({
-                cod[0]: Point(0, 0), box_cod[0]: Point(0, 0.25),
-                cod[-1]: Point(width, 0), box_cod[-1]: Point(width, 0.25)})
+                cod[0]: Point(0, 0), box_cod[0]: Point(0, 0),
+                cod[-1]: Point(width, 0), box_cod[-1]: Point(width, 0)})
             cod, box_cod = cod[1:-1], box_cod[1:-1]
         if bubble_closing:
             result.add_nodes({
-                dom[0]: Point(0, 1), box_dom[0]: Point(0, 0.75),
-                dom[-1]: Point(width, 1), box_dom[-1]: Point(width, 0.75)})
+                dom[0]: Point(0, 1), box_dom[0]: Point(0, 1),
+                dom[-1]: Point(width, 1), box_dom[-1]: Point(width, 1)})
             dom, box_dom = dom[1:-1], box_dom[1:-1]
         result.add_nodes({
             x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
-                (dom, 1), (box_dom, 0.75), (box_cod, 0.25), (cod, 0)]
+                (dom, 1),
+                (box_dom, 1 if box.draw_as_wires else 0.75),
+                (box_cod, 0 if box.draw_as_wires else 0.25),
+                (cod, 0)]
             for i, x in enumerate(xs)})
         return result
 
@@ -292,9 +304,9 @@ class Drawing(Composable, Whiskerable):
             top = result.positions[tmp_cod[i]].x
             bot = result.positions[tmp_dom[i]].x
             if top > bot:
-                result.make_space(top - bot, bot, 0, cut)
+                result.make_space(top - bot, (i > 0) * bot, 0, cut)
             elif top < bot:
-                result.make_space(bot - top, top, cut, result.height)
+                result.make_space(bot - top, (i > 0) * top, cut, result.height)
             source, = self.graph.predecessors(u)
             target, = other.graph.successors(v)
             result.add_edges([(source, mapping.get(target, target))])
@@ -393,18 +405,26 @@ class Drawing(Composable, Whiskerable):
     def frame_opening(dom, arg_dom, left, right):
         result = Drawing.bubble_opening(dom, arg_dom, left, right)
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-.25) for n in result.box_dom_nodes})
+            n: result.positions[n].shift(y=-.5) for n in result.box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=.25) for n in result.box_cod_nodes})
+            n: result.positions[n].shift(y=.5) for n in result.box_cod_nodes})
+        arg_cod_nodes = result.box_cod_nodes[1:-1]
+        result.graph.remove_edges_from([
+            (u, v) for u in result.box_dom_nodes for v in result.box_nodes] + [
+            (u, v) for u in result.box_nodes for v in arg_cod_nodes])
         return result
 
     @staticmethod
     def frame_closing(arg_cod, cod, left, right):
         result = Drawing.bubble_closing(arg_cod, cod, left, right)
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-.25) for n in result.box_dom_nodes})
+            n: result.positions[n].shift(y=-.5) for n in result.box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=.25) for n in result.box_cod_nodes})
+            n: result.positions[n].shift(y=.5) for n in result.box_cod_nodes})
+        arg_dom_nodes = result.box_dom_nodes[1:-1]
+        result.graph.remove_edges_from([
+            (u, v) for u in arg_dom_nodes for v in result.box_nodes] + [
+            (u, v) for u in result.box_nodes for v in result.box_cod_nodes])
         return result
 
     def bubble(self, dom=None, cod=None, name=None, horizontal=False,
@@ -440,11 +460,12 @@ class Drawing(Composable, Whiskerable):
             bot = Drawing.bubble_closing(arg_cod, cod, left, right)
         middle = self if height is None else self.stretch(height - self.height)
         result = top >> left @ middle @ right >> bot
+        result.relabel_nodes(copy=False, positions={
+            n: p.shift(x=-0.5) for n, p in result.positions.items()})
         if width is not None and result.width != width:
             space = (width - result.width) / 2
             result.make_space(space, 0.01)
             result.make_space(space, result.width)
-            assert result.width == width
         if len(dom) == len(arg_dom):
             dom_nodes, arg_dom_nodes = ([
                     Node(kind, x=x, i=i + off, j=0)
@@ -495,10 +516,11 @@ class Drawing(Composable, Whiskerable):
         method = getattr(Drawing.id(empty), "tensor" if horizontal else "then")
         params = dict(height=max([arg.height for arg in args] + [0])
             ) if horizontal else dict(
-                width=max([arg.width for arg in args] + [0]) + 1)
+                width=max([arg.actual_width for arg in args] + [0]) + 2)
         result = method(*(arg.bubble(
             empty, empty, draw_as_frame=True, **params)
             for arg in args)).bubble(dom, cod, name, draw_as_frame=True)
+        top, bot = result.box_nodes[0], result.box_nodes[-1]
         for i, source in enumerate(result.dom_nodes):
             target, = result.graph.successors(source)
             for n in (source, target):
@@ -509,7 +531,6 @@ class Drawing(Composable, Whiskerable):
             for n in (source, target):
                 x = i + (result.width - len(result.cod) + 1) / 2
                 result.positions[n] = Point(x, result.positions[n].y)
-        result.make_space(-0.5, 0.01)
         result.relabel_nodes(copy=False, positions={
             n: p.shift(y=0.5)
             for n in result.nodes for p in [result.positions[n]]

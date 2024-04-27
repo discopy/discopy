@@ -1012,39 +1012,6 @@ class Bubble(cat.Bubble, Box):
 
     to_drawing = Diagram.to_drawing
 
-    def to_frame_drawing(self):
-        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
-        if self.args == 1:
-            inside = self.arg.to_drawing().bubble(
-                draw_as_bubble=True, dom=Ty(), cod=Ty()).to_drawing()
-        else:
-            left = right = Ty('')
-            first_arg = self.args[0].to_drawing()
-            last_arg = self.args[-1].to_drawing()
-            open_first_slot = Box(
-                "open", Ty(), left @ first_arg.dom @ right).to_drawing()
-            open_first_slot.frame_slot_opening = True
-            inside = open_first_slot >> left @ first_arg @ right
-            for f, g in zip(self.args, self.args[1:]):
-                b_dom, b_cod = [
-                    left @ x.to_drawing() @ right for x in [f.cod, g.dom]]
-                b = Box("boundary", b_dom, b_cod)
-                b.frame_slot_boundary = True
-                inside >>= b.to_drawing() >> left @ g.to_drawing() @ right
-            close_last_slot = Box(
-                "close", left @ last_arg.cod @ right, Ty()).to_drawing()
-            close_last_slot.frame_slot_closing = True
-            inside >>= close_last_slot
-        left, right = Ty(self.drawing_name), Ty("")
-        _open = Box("_open", dom, left @ right).to_drawing()
-        _close = Box("_close", left @ right, cod).to_drawing()
-        _open.frame_opening = _close.frame_closing = True
-        return _open >> left @ inside @ right >> _close
-
-    def to_drawing(self):
-        return self.to_bubble_drawing(
-            ) if self.draw_as_bubble else self.to_frame_drawing()
-
 
 class Category(cat.Category):
     """
