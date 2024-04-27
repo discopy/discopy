@@ -956,6 +956,7 @@ class Sum(cat.Sum, Box):
         terms = tuple(f.tensor(g) for f in self.terms for g in other.terms)
         return self.sum_factory(terms, dom, cod)
 
+    to_drawing = Diagram.to_drawing
 
 class Bubble(cat.Bubble, Box):
     """

@@ -19,6 +19,7 @@ from discopy.drawing.drawing import (
     Point,
     PlaneGraph,
     Drawing,
+    Equation,
 )
 
 
@@ -112,92 +113,6 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
             return HTML(f'<img src="{path}">')
         except ImportError:
             return f'<img src="{path}">'
-
-
-class Equation:
-    """
-    An equation is a list of diagrams with a dedicated draw method.
-
-    Parameters:
-        terms : The terms of the equation.
-        symbol : The symbol between the terms.
-        space : The space between the terms.
-
-    Example
-    -------
-    >>> from discopy.tensor import Spider, Swap, Dim, Id
-    >>> dim = Dim(2)
-    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
-    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
-    >>> special = Equation(mu >> delta, Id(dim))
-    >>> frobenius = Equation(
-    ...     delta @ Id(dim) >> Id(dim) @ mu,
-    ...     mu >> delta,
-    ...     Id(dim) @ delta >> mu @ Id(dim))
-    >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
-    ...          path='docs/_static/drawing/frobenius-axioms.png')
-
-    .. image:: /_static/drawing/frobenius-axioms.png
-        :align: center
-    """
-    def __init__(self, *terms: "monoidal.Diagram", symbol="=", space=1):
-        self.terms, self.symbol, self.space = terms, symbol, space
-
-    def __repr__(self):
-        return f"Equation({', '.join(map(repr, self.terms))})"
-
-    def __str__(self):
-        return f" {self.symbol} ".join(map(str, self.terms))
-
-    def draw(self, path=None, space=None, **params):
-        """
-        Drawing an equation.
-
-        Parameters:
-            path : Where to save the drawing.
-            space : The amount of space between the terms.
-            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
-        """
-        def height(term):
-            # i.e. if isinstance(diagram, (Sum, Equation))
-            if hasattr(term, "terms"):
-                return max(height(d) for d in term.terms)
-            return len(term) or 1
-
-        params['asymmetry'] = params.get(
-            'asymmetry', .25 * needs_asymmetry(self))
-        space = space or self.space
-        max_height = max(map(height, self.terms))
-        pad = params.get('pad', (0, 0))
-        scale_x, scale_y = params.get('scale', (1, 1))
-        backend = params['backend'] if 'backend' in params\
-            else TikZ(
-                use_tikzstyles=params.get('use_tikzstyles', None))\
-            if params.get('to_tikz', False)\
-            else Matplotlib(figsize=params.get('figsize', None))
-
-        for i, term in enumerate(self.terms):
-            scale = (scale_x, scale_y * max_height / height(term))
-            term.draw(**dict(
-                params, show=False, path=None,
-                backend=backend, scale=scale, pad=pad))
-            pad = (backend.max_width + space, 0)
-            if i < len(self.terms) - 1:
-                backend.draw_text(
-                    self.symbol, pad[0], scale_y * max_height / 2)
-                pad = (pad[0] + space, pad[1])
-
-        return backend.output(
-            path=path,
-            baseline=max_height / 2,
-            tikz_options=params.get('tikz_options', None),
-            show=params.get("show", True),
-            margins=params.get('margins', DEFAULT['margins']),
-            aspect=params.get('aspect', DEFAULT['aspect']))
-
-    def __bool__(self):
-        return all(term == self.terms[0] for term in self.terms)
 
 
 def spiral(n_cups):

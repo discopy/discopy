@@ -12,6 +12,7 @@ Summary
     Point
     PlaneGraph
     Drawing
+    Equation
 
 Example
 -------
@@ -537,6 +538,81 @@ class Drawing(Composable, Whiskerable):
             if n.kind == "dom" or "box" in n.kind and n.j == 0})
         return result
 
+    def zero(dom, cod):
+        from discopy.monoidal import Box
+        result = Box("zero", dom, cod).to_drawing()
+        result.zero_drawing = True
+        return result
+
+    def add(self, other: Drawing, symbol="+", space=1):
+        """ Concatenate two drawings with a symbol in between. """
+        from discopy.monoidal import Box
+        if getattr(self, "zero_drawing", False):
+            return other
+        if getattr(other, "zero_drawing", False):
+            return self
+        empty = type(self.dom)()
+        scalar = Box(symbol, empty, empty, draw_as_spider=True, color="white")
+        result = self @ scalar.to_drawing() @ other
+        result.make_space(space - 1, self.width + 1)  # Right of the scalar.
+        result.make_space(space - 1, self.width)  # Left of the scalar.
+        return result
+
+    __add__ = add
+
+
+class Equation:
+    """
+    An equation is a list of diagrams with a dedicated draw method.
+
+    Parameters:
+        terms : The terms of the equation.
+        symbol : The symbol between the terms.
+        space : The space between the terms.
+
+    Example
+    -------
+    >>> from discopy.tensor import Spider, Swap, Dim, Id
+    >>> dim = Dim(2)
+    >>> mu, eta = Spider(2, 1, dim), Spider(0, 1, dim)
+    >>> delta, upsilon = Spider(1, 2, dim), Spider(1, 0, dim)
+    >>> special = Equation(mu >> delta, Id(dim))
+    >>> frobenius = Equation(
+    ...     delta @ Id(dim) >> Id(dim) @ mu,
+    ...     mu >> delta,
+    ...     Id(dim) @ delta >> mu @ Id(dim))
+    >>> Equation(special, frobenius, symbol=', ').draw(
+    ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
+    ...          path='docs/_static/drawing/frobenius-axioms.png')
+
+    .. image:: /_static/drawing/frobenius-axioms.png
+        :align: center
+    """
+    def __init__(self, *terms: "monoidal.Diagram", symbol="=", space=1):
+        self.terms, self.symbol, self.space = terms, symbol, space
+
+    def __repr__(self):
+        return f"Equation({', '.join(map(repr, self.terms))})"
+
+    def __str__(self):
+        return f" {self.symbol} ".join(map(str, self.terms))
+
+    def draw(self, path=None, **params):
+        """
+        Drawing an equation.
+
+        Parameters:
+            path : Where to save the drawing.
+            params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
+        """
+        result = self.terms[0].to_drawing()
+        for term in self.terms[1:]:
+            result = result.add(term.to_drawing(), self.symbol, self.space)
+        return result.draw(path=path, **params)
+
+
+    def __bool__(self):
+        return all(term == self.terms[0] for term in self.terms)
 
 for kind in ["dom", "cod", "box", "box_dom", "box_cod"]:
     setattr(Drawing, f"{kind}_nodes", property(lambda self, kind=kind: [
