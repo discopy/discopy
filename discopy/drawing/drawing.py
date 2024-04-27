@@ -396,7 +396,11 @@ class Drawing(Composable, Whiskerable):
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """
         if self.is_box:
-            return Drawing.from_box(self.boxes[0].dagger())
+            box = self.box.dagger()
+            for attr in DRAWING_ATTRIBUTES:
+                setattr(box, attr, getattr(self.box, attr))
+            return Drawing.from_box(box)
+
         mapping = {n: Node("box", box=n.box[::-1], j=len(self.boxes) - n.j - 1)
                    for n in self.nodes if n.kind == "box"}
         mapping.update({

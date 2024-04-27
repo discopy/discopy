@@ -1015,7 +1015,12 @@ class Bubble(cat.Bubble, Box):
         else:
             self.draw_as_frame = draw_as_frame
 
-    to_drawing = Diagram.to_drawing
+    def to_drawing(self):
+        method = "frame" if self.draw_as_frame else "bubble"
+        return getattr(Drawing, method)(
+            *[arg.to_drawing() for arg in self.args],
+            dom=self.dom.to_drawing(), cod=self.cod.to_drawing(),
+            name=self.drawing_name, horizontal=self.draw_horizontal)
 
 
 class Category(cat.Category):
@@ -1087,11 +1092,7 @@ class Functor(cat.Functor):
                 result = result @ self(box_or_typ)
             return result
         if isinstance(other, Bubble) and self.cod.ar is Drawing:
-            method = "frame" if other.draw_as_frame else "bubble"
-            return getattr(Drawing, method)(
-                *map(self, other.args),
-                dom=other.dom.to_drawing(), cod=other.cod.to_drawing(),
-                name=other.drawing_name, horizontal=other.draw_horizontal)
+            return other.to_drawing()
         return super().__call__(other)
 
 

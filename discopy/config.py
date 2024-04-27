@@ -10,7 +10,6 @@ IGNORE_WARNINGS = [
 
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
-    # "is_dagger": lambda box: box.is_dagger,
     "is_conjugate": lambda _: False,
     "is_transpose": lambda _: False,
     "bubble_opening": lambda _: False,
@@ -42,7 +41,7 @@ DRAWING_DEFAULT = {
     "textpad": (.1, .1),
     "color": 'white',
     "use_tikzstyles": False,
-    "braid_shadow": (0.15, 0.05)
+    "braid_shadow": (.3, .1)
 }
 
 # Mapping from tikz colors to hexcodes.
