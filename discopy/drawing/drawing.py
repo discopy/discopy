@@ -13,17 +13,6 @@ Summary
     PlaneGraph
     Drawing
     Equation
-
-Example
--------
->>> import itertools
->>> from discopy.drawing import spiral, to_gif
->>> steps = [step.foliation() for step in spiral(2).normalize()]
->>> steps = [step for step, _ in itertools.groupby(steps)]
->>> result = to_gif(*steps, loop=True, path="docs/_static/drawing/spiral.gif")
-
-.. image:: /_static/drawing/spiral.gif
-    :align: center
 """
 
 
@@ -130,7 +119,23 @@ class Drawing(Composable, Whiskerable):
             or getattr(box, "is_conjugate", False)
             or getattr(box, "is_transpose", False)
             for box in self.boxes))
+        self.recenter_box_nodes()
         return backend.draw(*self.inside, asymmetry=asymmetry, **params)
+
+    def recenter_box_nodes(self):
+        for j, box in enumerate(self.boxes):
+            if not box.dom and not box.cod:
+                continue
+            box_dom_nodes, box_cod_nodes = ([
+                    Node(kind, i=i, j=j, x=x) for i, x in enumerate(xs.inside)]
+                for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
+            left, right = (minmax(
+                    self.positions[n].x for n in box_dom_nodes + box_cod_nodes)
+                for minmax in (min, max))
+            box_node = Node("box", j=j, box=box)
+            self.positions[box_node] = Point(
+                (right + left) / 2, self.positions[box_node].y)
+
 
     def union(self, other, dom, cod, _check=True):
         graph = nx.union(self.inside.graph, other.inside.graph)
@@ -219,15 +224,18 @@ class Drawing(Composable, Whiskerable):
         """ Draw a diagram with just one box. """
         from discopy.monoidal import Box
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
-        old_box, box = box, Box(box.name, box_dom, box_cod)
+        old_box, box = box, Box(
+            box.name, box_dom, box_cod, is_dagger=box.is_dagger)
+
         for attr, default in DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
 
-        if box.draw_as_wires:
+        bubble_opening, bubble_closing = box.bubble_opening, box.bubble_closing
+
+        if box.draw_as_wires and not (bubble_opening or bubble_closing):
             for obj in box.cod.inside:
                 obj.reposition_label = True
 
-        bubble_opening, bubble_closing = box.bubble_opening, box.bubble_closing
         if bubble_opening:
             width = max(1, len(box.dom), len(box.cod[1:-1]))
         elif bubble_closing:
