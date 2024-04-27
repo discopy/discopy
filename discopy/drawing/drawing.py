@@ -76,7 +76,8 @@ class Drawing(Composable, Whiskerable):
     def __init__(self, inside, dom, cod, boxes=(), width=0., height=0., _check=True):
         from discopy.monoidal import Ty
         assert_isinstance(dom, Ty)
-        assert_isinstance(cod, Ty)
+        assert_isinstance(cod
+        , Ty)
         self.inside, self.dom, self.cod = inside, dom, cod
         self.boxes, self.width, self.height = boxes, width, height
         assert_isinstance(width, (int, float))
@@ -221,6 +222,10 @@ class Drawing(Composable, Whiskerable):
         old_box, box = box, Box(box.name, box_dom, box_cod)
         for attr, default in DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
+
+        if box.draw_as_wires:
+            for obj in box.cod.inside:
+                obj.reposition_label = True
 
         bubble_opening, bubble_closing = box.bubble_opening, box.bubble_closing
         if bubble_opening:

@@ -350,6 +350,7 @@ def draw(graph, positions, **params):
                          or getattr(source.x, "always_draw_label", False)
                          and params.get('draw_box_labels', True)):
                 i, j = positions[source]
+                j += 0.25 if hasattr(source.x, "reposition_label") else 0
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
                 pad_j = 0 if source.kind == "dom" else pad_j
                 backend.draw_text(
