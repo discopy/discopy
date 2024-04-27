@@ -14,19 +14,19 @@ def test_Function():
 
     assert f.uncurry().curry()(True)(1j) == f(True)(1j)
     assert f.uncurry(left=False).curry(left=False)(True)(1j) == f(True)(1j)
-    assert g.curry().uncurry()(True, 1j) == g(True, 1j)
-    assert g.curry(left=False).uncurry(left=False)(True, 1j) == g(True, 1j)
+    assert g.curry().uncurry()(1j, True) == g(1j, True)
+    assert g.curry(left=False).uncurry(left=False)(1j, True) == g(1j, True)
 
 
 def test_fixed_point():
     from math import sqrt
-    phi = Function(lambda x=1: 1 + 1 / x, [int], [int]).fix()
+    phi = Function(lambda x=1: 1 + 1 / x, dom=(float,), cod=(float,)).fix()
     assert phi() == (1 + sqrt(5)) / 2
 
 
 def test_trace():
     with raises(NotImplementedError):
-        Function.id([int]).trace(left=True)
+        Function.id(int).trace(left=True)
 
 
 def test_FinSet():

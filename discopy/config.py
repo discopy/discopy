@@ -10,8 +10,11 @@ IGNORE_WARNINGS = [
 
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
+    "bubble_opening": lambda _: False,
+    "bubble_closing": lambda _: False,
     "draw_as_braid": lambda _: False,
-    "draw_as_wires": lambda box: box.draw_as_braid,
+    "draw_as_wires": lambda box: any(getattr(box, a) for a in [
+        "bubble_opening", "bubble_closing", "draw_as_braid"]),
     "draw_as_spider": lambda _: False,
     "draw_as_brakets": lambda _: False,
     "draw_as_discards": lambda _: False,
@@ -27,7 +30,7 @@ DRAWING_ATTRIBUTES = {
 
 # Default drawing parameters.
 DRAWING_DEFAULT = {
-    "aspect": "auto",
+    "aspect": "equal",
     "fontsize": 12,
     "margins": (.05, .1),
     "textpad": (.1, .1),

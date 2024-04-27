@@ -30,7 +30,8 @@ Axioms
 >>> copy, merge = Copy(x), Merge(x)
 >>> unit, delete = Merge(x, n=0), Copy(x, n=0)
 
-* Commutative monoid:
+Commutative monoid
+==================
 
 >>> unitality = Equation(unit @ x >> merge, Id(x), x @ unit >> merge)
 >>> associativity = Equation(merge @ x >> merge, x @ merge >> merge)
@@ -42,7 +43,8 @@ Axioms
 .. image:: /_static/frobenius/monoid.png
     :align: center
 
-* Cocommutative comonoid:
+Cocommutative comonoid
+======================
 
 >>> counitality = Equation(copy >> delete @ x, Id(x), copy >> x @ delete)
 >>> coassociativity = Equation(copy >> copy @ x, copy >> x @ copy)
@@ -54,7 +56,8 @@ Axioms
 .. image:: /_static/frobenius/comonoid.png
     :align: center
 
-* Coherence:
+Coherence
+=========
 
 >>> assert Diagram.copy(x @ x, n=0) == delete @ delete
 >>> assert Diagram.copy(x @ x)\\
@@ -77,7 +80,7 @@ from __future__ import annotations
 from discopy import symmetric, monoidal, hypergraph
 from discopy.cat import factory
 from discopy.monoidal import Ty
-from discopy.utils import assert_isatomic
+from discopy.utils import assert_isatomic, factory_name
 
 
 @factory
@@ -201,8 +204,13 @@ class Copy(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        super().__init__(name=f"Copy({x}, {n})", dom=x, cod=x ** n,
-                         draw_as_spider=True, color="black", drawing_name="")
+        name = f"Copy({x}" + ("" if n == 2 else f", {n}") + ")"
+        Box.__init__(self, name, dom=x, cod=x ** n,
+                     draw_as_spider=True, color="black", drawing_name="")
+
+    def __new__(cls, x: monoidal.Ty, n: int = 2):
+        return super().__new__(cls) if n else\
+            cls.discard_factory.__new__(cls.discard_factory, x)
 
     def __new__(cls, x: monoidal.Ty, n: int = 2):
         return super().__new__(cls) if n else\
@@ -210,6 +218,10 @@ class Copy(Box):
 
     def dagger(self) -> Merge:
         return Merge(self.dom, len(self.cod))
+
+    def __repr__(self):
+        return (
+            factory_name(type(self)) + f"({repr(self.dom)}, {len(self.cod)})")
 
 
 class Merge(Box):
@@ -222,11 +234,16 @@ class Merge(Box):
     """
     def __init__(self, x: monoidal.Ty, n: int = 2):
         assert_isatomic(x, monoidal.Ty)
-        super().__init__(name=f"Merge({x}, {n})", dom=x ** n, cod=x,
-                         draw_as_spider=True, color="black", drawing_name="")
+        name = f"Merge({x}" + ("" if n == 2 else f", {n}") + ")"
+        Box.__init__(self, name, dom=x ** n, cod=x,
+                     draw_as_spider=True, color="black", drawing_name="")
 
     def dagger(self) -> Merge:
         return Copy(self.cod, len(self.dom))
+
+    def __repr__(self):
+        return (
+            factory_name(type(self)) + f"({repr(self.cod)}, {len(self.dom)})")
 
 
 class Discard(Copy):

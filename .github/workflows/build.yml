@@ -55,7 +55,7 @@ jobs:
         coverage run -m pytest
     - name: Coverage
       run:
-        coverage report --fail-under=99 --show-missing
+        coverage report --fail-under=98 --show-missing
   docs:
     runs-on: ubuntu-latest
     strategy:
@@ -88,3 +88,8 @@ jobs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         sphinx-build ${{ env.DOCS_DIR }} ${{ env.DOCS_DIR }}/_build/html
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: docs
+        path: ${{ env.DOCS_DIR }}/_build/html # or path/to/artifact

@@ -33,18 +33,21 @@ Axioms
 >>> x = Ty('x')
 >>> f, g = Box('f', x @ x, x @ x), Box('g', x, x)
 
-* Vanishing
+Vanishing
+=========
 
 >>> assert f.trace(n=0) == f == f.trace(n=0, left=True)
 >>> assert f.trace(n=2) == f.trace().trace()
 >>> assert f.trace(n=2, left=True) == f.trace(left=True).trace(left=True)
 
-* Superposing
+Superposing
+===========
 
 >>> assert (x @ f).trace() == x @ f.trace()
 >>> assert (f @ x).trace(left=True) == f.trace(left=True) @ x
 
-* Yanking
+Yanking
+=======
 
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
@@ -56,7 +59,8 @@ Axioms
 
 >>> assert yanking
 
-* Naturality
+Naturality
+==========
 
 >>> tightening_left = Equation(
 ...     (x @ g >> f >> x @ g).trace(left=True),
@@ -79,7 +83,8 @@ Axioms
 
 >>> assert tightening_left and tightening_right
 
-* Dinaturality
+Dinaturality
+============
 
 >>> sliding_left = Equation(
 ...     (f >> g @ x).trace(left=True),
@@ -175,23 +180,26 @@ class Trace(Box, monoidal.Bubble):
         name = f"Trace({arg}" + ", left=True)" if left else ")"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
-        monoidal.Bubble.__init__(self, arg, dom, cod)
+        monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.arg}, left={self.left})"
 
     def to_drawing(self):
-        traced_wire = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
-        dom, cod, traced_wire = map(
-            self.ty_factory.to_drawing, [self.dom, self.cod, traced_wire])
-        cup = Box('cup', traced_wire ** 2, Ty(), draw_as_wires=True)
-        cap = Box('cap', Ty(), traced_wire ** 2, draw_as_wires=True)
+        traced_dom = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
+        traced_cod = self.arg.cod[:1] if self.left else self.arg.cod[-1:]
+        dom, cod, traced_dom, traced_cod = map(self.ty_factory.to_drawing, [
+            self.dom, self.cod, traced_dom, traced_cod])
+        cup_dom = (
+            traced_dom @ traced_cod if self.left else traced_cod @ traced_dom)
+        cup = Box('cup', cup_dom, Ty(), draw_as_wires=True)
+        cap = Box('cap', Ty(), traced_dom ** 2, draw_as_wires=True)
         cup, cap, arg = map(self.factory.to_drawing, [cup, cap, self.arg])
-        result = cap @ dom >> traced_wire @ arg >> cup @ cod\
-            if self.left\
-            else dom @ cap >> arg @ traced_wire >> cod @ cup
-        return result
+        return (
+            cap @ dom >> traced_dom @ arg >> cup @ cod
+            if self.left
+            else dom @ cap >> arg @ traced_dom >> cod @ cup)
 
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)
@@ -221,7 +229,7 @@ class Functor(monoidal.Functor):
 
     Example
     -------
-    Let's compute the golden ratio by applying a traced functor.
+    Let's compute the golden ratio by applying a (hacky) traced functor.
 
     >>> from math import sqrt
     >>> from discopy import python
@@ -229,10 +237,11 @@ class Functor(monoidal.Functor):
     >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
     >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
     >>> F = Functor(
-    ...     ob={x: int},
-    ...     ar={f: lambda x=1: (x, 1 + 1 / x), g: lambda: (1 + sqrt(5)) / 2},
+    ...     ob={x: (float, )},
+    ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
     ...     cod=Category(python.Ty, python.Function))
-    >>> assert F(f.trace())() == F(g)()
+    >>> with python.Function.no_type_checking:
+    ...     assert F(f.trace())() == F(g)()
 
     >>> from discopy.drawing import Equation
     >>> Equation(f.trace(), g).draw(path="docs/_static/traced/golden.png")
