@@ -600,6 +600,29 @@ def draw_frame_closing(backend, positions, node, **params):
     return draw_frame(backend, positions, node, opening=False, **params)
 
 
+def draw_frame_opening(backend, positions, node, **params):
+    box, depth = node.box, node.depth
+    obj_left, obj_right = box.cod.inside[0], box.cod.inside[-1]
+    left = Node("cod", obj=obj_left, depth=depth, i=0)
+    right = Node("cod", obj=obj_right, depth=depth, i=len(box.cod[1:]))
+    backend.draw_wire(positions[left], positions[right])
+    return backend
+
+
+def draw_frame_closing(backend, positions, node, **params):
+    box, depth = node.box, node.depth
+    obj_left, obj_right = box.dom.inside[0], box.dom.inside[-1]
+    left = Node("dom", obj=obj_left, depth=depth, i=0)
+    right = Node("dom", obj=obj_right, depth=depth, i=len(box.dom[1:]))
+    backend.draw_wire(positions[left], positions[right])
+    return backend
+
+
+def draw_frame_boundary(backend, positions, node, **params):
+    backend = draw_frame_closing(backend, positions, node, **params)
+    return draw_frame_opening(backend, positions, node, **params)
+
+
 def draw_discard(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
     box, j = node.box, node.j
