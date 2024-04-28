@@ -191,6 +191,9 @@ class Exp(Ty, cat.Ob):
     def from_tree(cls, tree):
         return cls(*map(from_tree, (tree['base'], tree['exponent'])))
 
+    def to_drawing(self):
+        return Ty(str(self)).to_drawing()
+
 
 class Over(Exp):
     """
@@ -264,6 +267,9 @@ class Diagram(monoidal.Diagram):
         base, exponent = self.cod.base, self.cod.exponent
         return self @ exponent >> self.ev(base, exponent, True) if left\
             else exponent @ self >> self.ev(base, exponent, False)
+
+    def to_drawing(self):
+        return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
 class Box(monoidal.Box, Diagram):
@@ -360,13 +366,15 @@ class Functor(monoidal.Functor):
 
     def __call__(self, other):
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls):
+            if isinstance(other, cls) and hasattr(self.cod.ar, attr):
                 method = getattr(self.cod.ar, attr)
                 return method(self(other.base), self(other.exponent))
-        if isinstance(other, Curry):
+        if isinstance(other, Ty) and other.inside == (other, ):
+            return self.ob[other]  # Avoid infinite recursion when drawing.
+        if isinstance(other, Curry) and hasattr(self.cod.ar, "curry"):
             return self.cod.ar.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
-        if isinstance(other, Eval):
+        if isinstance(other, Eval) and hasattr(self.cod.ar, "ev"):
             return self.cod.ar.ev(
                 self(other.base), self(other.exponent), other.left)
         return super().__call__(other)

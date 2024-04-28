@@ -62,6 +62,20 @@ def test_draw_sentence():
     return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
 
 
+@draw_and_compare('categorial-grammar.png', aspect='equal')
+def test_draw_sentence():
+    from discopy.closed import Ty
+    from discopy.grammar.categorial import Word, BA, FA
+
+    s, n = map(Ty, 'sn')
+
+    Alice = Word('Alice', n)
+    loves = Word('loves', (n >> s) << n)
+    Bob = Word('Bob', n)
+
+    return Alice @ loves @ Bob >> n @ FA((n >> s) << n) >> BA(n >> s)
+
+
 @draw_and_compare('bialgebra.png', aspect='equal')
 def test_draw_bialgebra():
     from discopy.quantum.zx import Z, X, Id, SWAP

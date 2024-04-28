@@ -415,14 +415,18 @@ class Drawing(Composable, Whiskerable):
 
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """
-        if self.is_box:
-            box = self.box.dagger()
+        def box_dagger(box):
+            result = box.dagger()
             for attr in DRAWING_ATTRIBUTES:
-                setattr(box, attr, getattr(self.box, attr))
-            return Drawing.from_box(box)
+                setattr(result, attr, getattr(box, attr))
+            return result
 
-        mapping = {n: Node("box", box=n.box[::-1], j=len(self.boxes) - n.j - 1)
-                   for n in self.nodes if n.kind == "box"}
+        if self.is_box:
+            return Drawing.from_box(box_dagger(self.box))
+
+        mapping = {
+            n: Node("box", box=box_dagger(n.box), j=len(self.boxes) - n.j - 1)
+            for n in self.nodes if n.kind == "box"}
         mapping.update({
             n: Node(kd, i=n.i, j=len(self.boxes) - n.j - 1, x=n.x)
             for (k, kd) in [("box_dom", "box_cod"), ("box_cod", "box_dom")]
@@ -435,7 +439,8 @@ class Drawing(Composable, Whiskerable):
         inside = PlaneGraph(graph, positions={
             mapping[n]: Point(x, self.height - y)
             for n, (x, y) in self.positions.items()})
-        dom, cod, boxes = self.cod, self.dom, self.boxes[::-1]
+        dom, cod = self.cod, self.dom
+        boxes = tuple(map(box_dagger, self.boxes[::-1]))
         return Drawing(inside, dom, cod, boxes, self.width, self.height)
 
     @staticmethod
@@ -601,6 +606,9 @@ class Drawing(Composable, Whiskerable):
         return result
 
     __add__ = add
+
+    def to_drawing(self):
+        return self
 
 
 class Equation:

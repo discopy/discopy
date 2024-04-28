@@ -59,7 +59,7 @@ Examples
 
 >>> from discopy.drawing import Equation
 >>> Equation(
-...     sentence.to_drawing(), F(sentence), symbol='$\\\\mapsto$').draw(
+...     sentence, F(sentence), symbol='$\\\\mapsto$').draw(
 ...         figsize=(6, 3), nodesize=.5,
 ...         path='docs/_static/quantum/functor-example.png')
 

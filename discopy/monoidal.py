@@ -675,12 +675,12 @@ class Diagram(cat.Arrow, Whiskerable):
             assert_iscomposable(diagram, cls.id(cod))
         return diagram
 
-    def to_drawing(self) -> Drawing:
+    def to_drawing(self, functor_factory=None) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
         ob = ar = lambda x: x.to_drawing()
         dom = Category(self.ty_factory, self.factory)
         cod = Category(Ty, Drawing)
-        return Functor(ob, ar, dom, cod)(self)
+        return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
     def to_staircases(self):  # pylint:
         """
