@@ -13,6 +13,41 @@ Summary
     PlaneGraph
     Drawing
     Equation
+
+Axioms
+------
+
+* Associativity and unit
+
+>>> from discopy.monoidal import Ty, Box
+
+>>> x, y, z, w = map(Ty, "xyzw")
+>>> f = Box('f', x, y).to_drawing()
+>>> g = Box('g', y, z).to_drawing()
+>>> h = Box('h', z, w).to_drawing()
+
+>>> assert (f >> g) >> h == f >> (g >> h)
+>>> assert (f @ g) @ h == f @ (g @ h)
+
+>>> assert f >> Drawing.id(f.cod) == f == Drawing.id(f.dom) >> f
+>>> assert f @ Drawing.id() == f == Drawing.id() @ f
+
+* Interchanger
+
+>>> f0, f1 = (Box(f'f{i}', f'x{i}', f'y{i}').to_drawing() for i in (0, 1))
+>>> g0, g1 = (Box(f'g{i}', f'y{i}', f'z{i}').to_drawing() for i in (0, 1))
+
+>>> Equation(f0 @ f1 >> g0 @ g1, (f0 >> g0) @ (f1 >> g1)).draw(
+...     path="docs/_static/drawing/interchanger-1.png")
+
+.. image:: /_static/drawing/interchanger-1.png
+    :align: center
+
+>>> Equation(f @ g.dom >> f.cod @ g, f @ g, f.dom @ g >> f @ g.cod).draw(
+...     path="docs/_static/drawing/interchanger-2.png")
+
+.. image:: /_static/drawing/interchanger-2.png
+    :align: center
 """
 
 
@@ -354,8 +389,10 @@ class Drawing(Composable, Whiskerable):
         return result
 
     @staticmethod
-    def id(dom: "monoidal.Ty", length=0) -> Drawing:
+    def id(dom: "monoidal.Ty" = None, length=0) -> Drawing:
         """ Draw the identity diagram. """
+        from discopy.monoidal import Ty
+        dom = Ty() if dom is None else dom
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(inside, dom, dom, width=len(dom), _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
@@ -656,14 +693,15 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/vertical-frame.png
             :align: center
         """
-        args, empty = (self, ) + others, type(self.dom)()
+        from discopy.monoidal import Ty
+        args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
                 width=max([arg.actual_width for arg in args] + [0]) + 2
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        result =  getattr(Drawing.id(empty), method)(*(arg.bubble(
-            empty, empty, draw_as_square=True, **params)
+        result =  getattr(Drawing.id(), method)(*(arg.bubble(
+            Ty(), Ty(), draw_as_square=True, **params)
             for arg in args)).bubble(dom, cod, name, draw_as_square=True)
         for i, source in enumerate(result.dom_nodes):
             target, = result.graph.successors(source)
@@ -689,13 +727,12 @@ class Drawing(Composable, Whiskerable):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Box
+        from discopy.monoidal import Ty, Box
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
             return self
-        empty = type(self.dom)()
-        scalar = Box(symbol, empty, empty, draw_as_spider=True, color="white")
+        scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
         result = self @ scalar.to_drawing() @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
