@@ -67,7 +67,7 @@ from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.cat import factory
-from discopy.utils import factory_name, assert_isinstance, assert_isatomic
+from discopy.utils import factory_name, assert_isatomic
 
 
 class Ob(pivotal.Ob):

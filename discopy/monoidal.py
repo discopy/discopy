@@ -962,6 +962,7 @@ class Sum(cat.Sum, Box):
 
     to_drawing = Diagram.to_drawing
 
+
 class Bubble(cat.Bubble, Box):
     """
     A bubble is a box with diagrams :code:`args` inside and an optional pair of

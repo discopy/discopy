@@ -18,7 +18,6 @@ Summary
 
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from math import sqrt
 
@@ -36,10 +35,10 @@ from discopy.config import (  # noqa: F401
     DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
 
 if TYPE_CHECKING:
-    from discopy import monoidal
+    from discopy.drawing import PlaneGraph
 
 
-def draw(graph: "PlaneGraph", **params):
+def draw(graph: PlaneGraph, **params):
     """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
     backend = (
         TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
@@ -135,8 +134,8 @@ class Backend(ABC):
                 source_position, target_position, bend_out, bend_in)
             if source.kind in ["dom", "box_cod"]\
                     and (params.get('draw_type_labels', True)
-                            or getattr(source.x, "always_draw_label", False)
-                            and params.get('draw_box_labels', True)):
+                         or getattr(source.x, "always_draw_label", False)
+                         and params.get('draw_box_labels', True)):
                 i, j = graph.positions[source]
                 j += 0.25 if hasattr(source.x, "reposition_label") else 0
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
@@ -191,7 +190,7 @@ class Backend(ABC):
 
         # dictionary key is (is_dagger, is_conjugate)
         points = [[left, height], [right, height],
-                [right, height + .5], [left, height + .5]]
+                  [right, height + .5], [left, height + .5]]
         if box.is_transpose:
             points[0][0] -= asymmetry
         elif box.is_conjugate:
@@ -203,8 +202,8 @@ class Backend(ABC):
         self.draw_polygon(*points, color=box.color)
         if params.get('draw_box_labels', True):
             self.draw_text(box.drawing_name, *positions[node],
-                            ha='center', va='center',
-                            fontsize=params.get('fontsize', None))
+                           ha='center', va='center',
+                           fontsize=params.get('fontsize', None))
 
     def draw_discard(self, positions, node, **params):
         """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
@@ -267,7 +266,7 @@ class Backend(ABC):
             positions[c_dom][0],
             (positions[c_dom][1] + positions[c_cod][1]) / 2)
         target = (positions[c_dom][0] + (c_size - 1) / 2,
-                (positions[c_dom][1] + positions[c_cod][1]) / 2)
+                  (positions[c_dom][1] + positions[c_cod][1]) / 2)
         target_boundary = target
         if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
             self.draw_wire(positions[c_dom], positions[c_cod])
@@ -304,7 +303,7 @@ class Backend(ABC):
                 if next_box.name == "X":
                     shift_boundary = False
             else:
-                self.draw_box(fake_positions, controlled_box, **params)
+                self.draw_box(fake_positions, controlled, **params)
 
             if shift_boundary:
                 if box.distance > 0:

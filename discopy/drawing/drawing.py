@@ -54,19 +54,19 @@ class Drawing(Composable, Whiskerable):
     dom: "monoidal.Ty"
     cod: "monoidal.Ty"
     boxes: tuple["monoidal.Box", ...] = ()
-    width: float = 0.
-    height: float = 0.
+    width: float = 0
+    height: float = 0
 
     graph = property(lambda self: self.inside.graph)
     nodes = property(lambda self: self.graph.nodes)
     edges = property(lambda self: self.graph.edges)
     positions = property(lambda self: self.inside.positions)
 
-    def __init__(self, inside, dom, cod, boxes=(), width=0., height=0., _check=True):
+    def __init__(
+            self, inside, dom, cod, boxes=(), width=0, height=0, _check=True):
         from discopy.monoidal import Ty
         assert_isinstance(dom, Ty)
-        assert_isinstance(cod
-        , Ty)
+        assert_isinstance(cod, Ty)
         self.inside, self.dom, self.cod = inside, dom, cod
         self.boxes, self.width, self.height = boxes, width, height
         assert_isinstance(width, (int, float))
@@ -137,7 +137,6 @@ class Drawing(Composable, Whiskerable):
             self.positions[box_node] = Point(
                 (right + left) / 2, self.positions[box_node].y)
 
-
     def union(self, other, dom, cod, _check=True):
         graph = nx.union(self.inside.graph, other.inside.graph)
         inside = PlaneGraph(graph, self.positions | other.positions)
@@ -165,7 +164,8 @@ class Drawing(Composable, Whiskerable):
         The difference between max and min x coordinate.
         This can be different from width when dom and cod have length <= 1.
         """
-        return max([x for (x, _) in self.positions.values()] + [0]
+        return max(
+                [x for (x, _) in self.positions.values()] + [0]
             ) - min([x for (x, _) in self.positions.values()] + [0])
 
     def set_width_and_height(self):
@@ -406,7 +406,8 @@ class Drawing(Composable, Whiskerable):
             self = self.stretch(other.height - self.height)
         elif self.height > other.height:
             other = other.stretch(self.height - other.height)
-        x_shift = max([p.x + 1 for p in self.positions.values()] + [0]
+        x_shift = max(
+                [p.x + 1 for p in self.positions.values()] + [0]
             ) - min([p.x for p in other.positions.values()] + [0.5])
         return self.union(other.relabel_nodes(mapping, positions={
             n: p.shift(x=x_shift) for n, p in other.positions.items()}),
@@ -486,12 +487,6 @@ class Drawing(Composable, Whiskerable):
 
         .. image:: /_static/drawing/bubble-drawing.png
             :align: center
-
-        >>> f.bubble(d @ c @ c, b @ a @ a, name="g", draw_as_frame=True).draw(
-        ...     path="docs/_static/drawing/frame-drawing.png")
-
-        .. image:: /_static/drawing/frame-drawing.png
-            :align: center
         """
         dom = self.dom if dom is None else dom
         cod = self.cod if cod is None else cod
@@ -500,7 +495,7 @@ class Drawing(Composable, Whiskerable):
         left.inside[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
-        if draw_as_frame:
+        if draw_as_frame or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
         else:
@@ -562,13 +557,13 @@ class Drawing(Composable, Whiskerable):
         """
         args, empty = (self, ) + others, type(self.dom)()
         method = getattr(Drawing.id(empty), "tensor" if horizontal else "then")
-        params = dict(height=max([arg.height for arg in args] + [0])
+        params = dict(
+                height=max([arg.height for arg in args] + [0])
             ) if horizontal else dict(
                 width=max([arg.actual_width for arg in args] + [0]) + 2)
         result = method(*(arg.bubble(
             empty, empty, draw_as_frame=True, **params)
             for arg in args)).bubble(dom, cod, name, draw_as_frame=True)
-        top, bot = result.box_nodes[0], result.box_nodes[-1]
         for i, source in enumerate(result.dom_nodes):
             target, = result.graph.successors(source)
             for n in (source, target):
@@ -659,7 +654,6 @@ class Equation:
             params : Passed to :meth:`discopy.monoidal.Diagram.draw`.
         """
         return self.to_drawing().draw(path=path, **params)
-
 
     def __bool__(self):
         return all(term == self.terms[0] for term in self.terms)
