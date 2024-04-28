@@ -30,12 +30,12 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "red" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
-    "tikzstyle_name": lambda box: box.name,
+    "tikzstyle_name": lambda box: (
+        box.name if box.name.isidentifier() else "symbol"),
 }
 
 # Default drawing parameters.
 DRAWING_DEFAULT = {
-    "aspect": "equal",
     "fontsize": 12,
     "margins": (.05, .1),
     "textpad": (.1, .1),

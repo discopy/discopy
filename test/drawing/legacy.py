@@ -99,14 +99,6 @@ def test_copy_to_tikz():
     return copy_x @ copy_y >> Id(x) @ Swap(x, y) @ Id(y)
 
 
-
-
-def test_Node_repr():
-    from discopy.cat import Ob
-    assert repr(Node('dom', depth=1, i=0, obj=Ob('x')))\
-        == "Node('dom', depth=1, i=0, obj=cat.Ob('x'))"
-
-
 @draw_and_compare('empty_diagram.png')
 def test_empty_diagram():
     return Id()

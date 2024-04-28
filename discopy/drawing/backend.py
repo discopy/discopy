@@ -10,6 +10,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    draw
     Backend
     TikZ
     Matplotlib
@@ -36,6 +37,30 @@ from discopy.config import (  # noqa: F401
 
 if TYPE_CHECKING:
     from discopy import monoidal
+
+
+def draw(graph: "PlaneGraph", **params):
+    """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
+    backend = (
+        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
+        if params.get('to_tikz', False)
+        else Matplotlib(figsize=params.get('figsize', None),
+                        linewidth=params.get('linewidth', 1)))
+    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
+
+    max_v = max(graph.height, graph.width, 0.01)
+    params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
+
+    backend.draw_wires(graph, **params)
+    backend.draw_boxes(graph, **params)
+    backend.draw_spiders(graph, **params)
+
+    return backend.output(
+        path=params.get('path', None),
+        baseline=graph.height / 2 or .5,
+        tikz_options=params.get('tikz_options', None),
+        show=params.get('show', True), aspect=aspect,
+        margins=params.get('margins', DEFAULT['margins']))
 
 
 class Backend(ABC):
@@ -123,14 +148,190 @@ class Backend(ABC):
                     verticalalignment='top')
 
     def draw_boxes(self, graph, **params):
+        drawing_methods = [
+            ("draw_as_brakets", "draw_brakets"),
+            ("draw_as_controlled", "draw_controlled_gate"),
+            ("draw_as_discards", "draw_discard"),
+            ("draw_as_measures", "draw_measure"),
+            (None, "draw_box")]
         box_nodes = [node for node in graph.nodes if node.kind == "box"]
         for node in box_nodes:
             if node.box.draw_as_spider or node.box.draw_as_wires:
                 continue
-            for attr, drawing_method in DRAWING_METHODS:
-                if attr is None or getattr(node.box, attr, False):
-                    drawing_method(self, graph.positions, node, **params)
+            for attribute, method in drawing_methods:
+                if attribute is None or getattr(node.box, attribute, False):
+                    getattr(self, method)(graph.positions, node, **params)
                     break
+
+    def draw_box(self, positions, node, **params):
+        """ Draws a box node on a given backend. """
+        box, j = node.box, node.j
+        asymmetry = params.get('asymmetry', 0)
+        if not box.dom and not box.cod:
+            left, right = positions[node][0], positions[node][0]
+        elif not box.dom:
+            left, right = (
+                positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
+                for i in [0, len(box.cod) - 1])
+        elif not box.cod:
+            left, right = (
+                positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
+                for i in [0, len(box.dom) - 1])
+        else:
+            top_left, top_right = (
+                positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
+                for i in [0, len(box.dom) - 1])
+            bottom_left, bottom_right = (
+                positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
+                for i in [0, len(box.cod) - 1])
+            left = min(top_left, bottom_left)
+            right = max(top_right, bottom_right)
+        height = positions[node][1] - .25
+        left, right = left - .25, right + .25
+
+        # dictionary key is (is_dagger, is_conjugate)
+        points = [[left, height], [right, height],
+                [right, height + .5], [left, height + .5]]
+        if box.is_transpose:
+            points[0][0] -= asymmetry
+        elif box.is_conjugate:
+            points[3][0] -= asymmetry
+        elif box.is_dagger:
+            points[1][0] += asymmetry
+        else:
+            points[2][0] += asymmetry
+        self.draw_polygon(*points, color=box.color)
+        if params.get('draw_box_labels', True):
+            self.draw_text(box.drawing_name, *positions[node],
+                            ha='center', va='center',
+                            fontsize=params.get('fontsize', None))
+
+    def draw_discard(self, positions, node, **params):
+        """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
+        box, j = node.box, node.j
+        for i in range(len(box.dom)):
+            x = box.dom.inside[i]
+            wire = Node("box_dom", x=x, j=j, i=i)
+            middle = positions[wire]
+            left, right = middle[0] - .25, middle[0] + .25
+            height = positions[node][1] + .25
+            for j in range(3):
+                source = (left + .1 * j, height - .1 * j)
+                target = (right - .1 * j, height - .1 * j)
+                self.draw_wire(source, target)
+
+    def draw_measure(self, positions, node, **params):
+        """ Draws a :class:`discopy.quantum.circuit.Measure` box. """
+        self.draw_box(positions, node, **dict(params, draw_box_labels=False))
+        i, j = positions[node]
+        self.draw_wire((i - .15, j - .1), (i, j + .1), bend_in=True)
+        self.draw_wire((i, j + .1), (i + .15, j - .1), bend_out=True)
+        self.draw_wire((i, j - .1), (i + .05, j + .15), style='->')
+
+    def draw_brakets(self, positions, node, **params):
+        """ Draws a :class:`discopy.quantum.gates.Ket` box. """
+        box, j = node.box, node.j
+        is_bra = len(box.dom) > 0
+        for i, bit in enumerate(box._digits):
+            kind = "box_dom" if is_bra else "box_cod"
+            x = box.dom.inside[i] if is_bra else box.cod.inside[i]
+            wire = Node(kind, x=x, j=j, i=i)
+            middle = positions[wire]
+            left = middle[0] - .25, middle[1]
+            right = middle[0] + .25, middle[1]
+            top = middle[0], middle[1] + .5
+            bottom = middle[0], middle[1] - .5
+            self.draw_polygon(
+                left, right, bottom if is_bra else top, color=box.color)
+            self.draw_text(
+                bit, middle[0], middle[1] + (-.25 if is_bra else .2),
+                ha='center', va='center',
+                fontsize=params.get('fontsize', None))
+
+    def draw_controlled_gate(self, positions, node, **params):
+        """ Draws a :class:`discopy.quantum.gates.Controlled` gate. """
+        box, j = node.box, node.j
+        distance = box.distance
+        c_size = len(box.controlled.dom)
+
+        index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
+        dom = Node("box_dom", x=box.dom.inside[0], i=index[0], j=j)
+        cod = Node("box_cod", x=box.cod.inside[0], i=index[0], j=j)
+        middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
+        controlled_box = box.controlled.to_drawing().box
+        controlled = Node("box", box=controlled_box, j=j)
+        # TODO select x properly for classical gates
+        c_dom = Node("box_dom", x=box.dom.inside[0], i=index[1], j=j)
+        c_cod = Node("box_cod", x=box.cod.inside[0], i=index[1], j=j)
+        c_middle = (
+            positions[c_dom][0],
+            (positions[c_dom][1] + positions[c_cod][1]) / 2)
+        target = (positions[c_dom][0] + (c_size - 1) / 2,
+                (positions[c_dom][1] + positions[c_cod][1]) / 2)
+        target_boundary = target
+        if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
+            self.draw_wire(positions[c_dom], positions[c_cod])
+            eps = 1e-10
+            perturbed_target = target[0], target[1] + eps
+            self.draw_node(
+                *perturbed_target,
+                shape="circle", color="white", edgecolor="black",
+                nodesize=2 * params.get("nodesize", 1))
+            self.draw_node(
+                *target, shape="plus",
+                nodesize=2 * params.get("nodesize", 1))
+        else:
+            fake_positions = {controlled: target}
+            for i in range(c_size):
+                dom_node = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
+                x, y = positions[c_dom][0] + i, positions[c_dom][1]
+                fake_positions[dom_node] = x, y
+
+                cod_node = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
+                x, y = positions[c_cod][0] + i, positions[c_cod][1]
+                fake_positions[cod_node] = x, y
+
+            shift_boundary = True
+            if hasattr(box.controlled, "draw_as_controlled"):
+                self.draw_controlled_gate(fake_positions, controlled, **params)
+
+                next_box = box.controlled
+                while hasattr(next_box, "controlled"):
+                    if controlled_box.distance * next_box.distance < 0:
+                        shift_boundary = False
+                        break
+                    next_box = next_box.controlled
+                if next_box.name == "X":
+                    shift_boundary = False
+            else:
+                self.draw_box(fake_positions, controlled_box, **params)
+
+            if shift_boundary:
+                if box.distance > 0:
+                    target_boundary = c_middle[0] - .25, c_middle[1]
+                else:
+                    target_boundary = (
+                        c_middle[0] + c_size - 1 + .25, c_middle[1])
+            else:
+                if box.distance > 0:
+                    target_boundary = c_middle[0], c_middle[1]
+                else:
+                    target_boundary = c_middle[0] + c_size - 1, c_middle[1]
+        self.draw_wire(positions[dom], positions[cod])
+
+        # draw all the other vertical wires
+        extra_offset = 1 if distance > 0 else len(box.controlled.dom)
+        for i in range(extra_offset, extra_offset + abs(distance) - 1):
+            node1 = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
+            node2 = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
+            self.draw_wire(positions[node1], positions[node2])
+
+        # TODO change bend_in and bend_out for tikz backend
+        self.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
+
+        self.draw_node(
+            *middle, color="black", shape="circle",
+            nodesize=params.get("nodesize", 1))
 
 
 class TikZ(Backend):
@@ -233,7 +434,7 @@ class TikZ(Backend):
                    for node in graph.nodes
                    if node.kind == "box" and node.box.draw_as_spider]
         for node, color, shape in spiders:
-            i, j = positions[node]
+            i, j = graph.positions[node]
             text = node.box.drawing_name if draw_box_labels else ""
             if self.use_tikzstyles:
                 style = f"\\tikzstyle{{{node.box.tikzstyle_name}}}=" \
@@ -342,11 +543,10 @@ class Matplotlib(Backend):
     def output(self, path=None, show=True, **params):
         xlim, ylim = params.get("xlim", None), params.get("ylim", None)
         margins = params.get("margins", DEFAULT['margins'])
-        aspect = params.get("aspect", DEFAULT['aspect'])
         plt.margins(*margins)
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
-        self.axis.set_aspect(aspect)
+        self.axis.set_aspect(params.get("aspect"))
         plt.axis('off')
         if xlim is not None:
             self.axis.set_xlim(*xlim)
@@ -357,209 +557,3 @@ class Matplotlib(Backend):
             plt.close()
         if show:
             plt.show()
-
-
-def draw(graph, **params):
-    backend = (
-        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
-        if params.get('to_tikz', False)
-        else Matplotlib(figsize=params.get('figsize', None),
-                        linewidth=params.get('linewidth', 1)))
-    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
-
-    max_v = max(graph.height, graph.width, 0.01)
-    params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
-
-    backend.draw_wires(graph, **params)
-    backend.draw_boxes(graph, **params)
-    backend.draw_spiders(graph, **params)
-
-    return backend.output(
-        path=params.get('path', None),
-        baseline=graph.height / 2 or .5,
-        tikz_options=params.get('tikz_options', None),
-        show=params.get('show', True), aspect=aspect,
-        margins=params.get('margins', DEFAULT['margins']))
-
-
-def draw_box(backend, positions, node, **params):
-    """ Draws a box node on a given backend. """
-    box, j = node.box, node.j
-    asymmetry = params.get('asymmetry', 0)
-    if not box.dom and not box.cod:
-        left, right = positions[node][0], positions[node][0]
-    elif not box.dom:
-        left, right = (
-            positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
-            for i in [0, len(box.cod) - 1])
-    elif not box.cod:
-        left, right = (
-            positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
-            for i in [0, len(box.dom) - 1])
-    else:
-        top_left, top_right = (
-            positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
-            for i in [0, len(box.dom) - 1])
-        bottom_left, bottom_right = (
-            positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
-            for i in [0, len(box.cod) - 1])
-        left = min(top_left, bottom_left)
-        right = max(top_right, bottom_right)
-    height = positions[node][1] - .25
-    left, right = left - .25, right + .25
-
-    # dictionary key is (is_dagger, is_conjugate)
-    points = [[left, height], [right, height],
-              [right, height + .5], [left, height + .5]]
-    if box.is_transpose:
-        points[0][0] -= asymmetry
-    elif box.is_conjugate:
-        points[3][0] -= asymmetry
-    elif box.is_dagger:
-        points[1][0] += asymmetry
-    else:
-        points[2][0] += asymmetry
-    backend.draw_polygon(*points, color=box.color)
-    if params.get('draw_box_labels', True):
-        backend.draw_text(box.drawing_name, *positions[node],
-                          ha='center', va='center',
-                          fontsize=params.get('fontsize', None))
-
-
-def draw_discard(backend, positions, node, **params):
-    """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
-    box, j = node.box, node.j
-    for i in range(len(box.dom)):
-        x = box.dom.inside[i]
-        wire = Node("box_dom", x=x, j=j, i=i)
-        middle = positions[wire]
-        left, right = middle[0] - .25, middle[0] + .25
-        height = positions[node][1] + .25
-        for j in range(3):
-            source = (left + .1 * j, height - .1 * j)
-            target = (right - .1 * j, height - .1 * j)
-            backend.draw_wire(source, target)
-
-
-def draw_measure(backend, positions, node, **params):
-    """ Draws a :class:`discopy.quantum.circuit.Measure` box. """
-    backend = draw_box(backend, positions, node,
-                       **dict(params, draw_box_labels=False))
-    i, j = positions[node]
-    backend.draw_wire((i - .15, j - .1), (i, j + .1), bend_in=True)
-    backend.draw_wire((i, j + .1), (i + .15, j - .1), bend_out=True)
-    backend.draw_wire((i, j - .1), (i + .05, j + .15), style='->')
-
-
-def draw_brakets(backend, positions, node, **params):
-    """ Draws a :class:`discopy.quantum.gates.Ket` box. """
-    box, j = node.box, node.j
-    is_bra = len(box.dom) > 0
-    for i, bit in enumerate(box._digits):
-        kind = "box_dom" if is_bra else "box_cod"
-        x = box.dom.inside[i] if is_bra else box.cod.inside[i]
-        wire = Node(kind, x=x, j=j, i=i)
-        middle = positions[wire]
-        left = middle[0] - .25, middle[1]
-        right = middle[0] + .25, middle[1]
-        top = middle[0], middle[1] + .5
-        bottom = middle[0], middle[1] - .5
-        backend.draw_polygon(
-            left, right, bottom if is_bra else top, color=box.color)
-        backend.draw_text(
-            bit, middle[0], middle[1] + (-.25 if is_bra else .2),
-            ha='center', va='center', fontsize=params.get('fontsize', None))
-
-
-def draw_controlled_gate(backend, positions, node, **params):
-    """ Draws a :class:`discopy.quantum.gates.Controlled` gate. """
-    box, j = node.box, node.j
-    distance = box.distance
-    c_size = len(box.controlled.dom)
-
-    index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
-    dom = Node("box_dom", x=box.dom.inside[0], i=index[0], j=j)
-    cod = Node("box_cod", x=box.cod.inside[0], i=index[0], j=j)
-    middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
-    controlled_box = box.controlled.to_drawing().box
-    controlled = Node("box", box=controlled_box, j=j)
-    # TODO select x properly for classical gates
-    c_dom = Node("box_dom", x=box.dom.inside[0], i=index[1], j=j)
-    c_cod = Node("box_cod", x=box.cod.inside[0], i=index[1], j=j)
-    c_middle =\
-        positions[c_dom][0], (positions[c_dom][1] + positions[c_cod][1]) / 2
-    target = (positions[c_dom][0] + (c_size - 1) / 2,
-              (positions[c_dom][1] + positions[c_cod][1]) / 2)
-    target_boundary = target
-    if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
-        backend.draw_wire(positions[c_dom], positions[c_cod])
-        eps = 1e-10
-        perturbed_target = target[0], target[1] + eps
-        backend.draw_node(
-            *perturbed_target,
-            shape="circle", color="white", edgecolor="black",
-            nodesize=2 * params.get("nodesize", 1))
-        backend.draw_node(
-            *target, shape="plus",
-            nodesize=2 * params.get("nodesize", 1))
-    else:
-        fake_positions = {controlled: target}
-        for i in range(c_size):
-            dom_node = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
-            x, y = positions[c_dom][0] + i, positions[c_dom][1]
-            fake_positions[dom_node] = x, y
-
-            cod_node = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
-            x, y = positions[c_cod][0] + i, positions[c_cod][1]
-            fake_positions[cod_node] = x, y
-
-        shift_boundary = True
-        if hasattr(box.controlled, "draw_as_controlled"):
-            backend = draw_controlled_gate(
-                backend, fake_positions, controlled, **params)
-
-            next_box = box.controlled
-            while hasattr(next_box, "controlled"):
-                if controlled_box.distance * next_box.distance < 0:
-                    shift_boundary = False
-                    break
-                next_box = next_box.controlled
-            if next_box.name == "X":
-                shift_boundary = False
-        else:
-            backend = draw_box(
-                backend, fake_positions, controlled_box, **params)
-
-        if shift_boundary:
-            if box.distance > 0:
-                target_boundary = c_middle[0] - .25, c_middle[1]
-            else:
-                target_boundary = c_middle[0] + c_size - 1 + .25, c_middle[1]
-        else:
-            if box.distance > 0:
-                target_boundary = c_middle[0], c_middle[1]
-            else:
-                target_boundary = c_middle[0] + c_size - 1, c_middle[1]
-    backend.draw_wire(positions[dom], positions[cod])
-
-    # draw all the other vertical wires
-    extra_offset = 1 if distance > 0 else len(box.controlled.dom)
-    for i in range(extra_offset, extra_offset + abs(distance) - 1):
-        node1 = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
-        node2 = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
-        backend.draw_wire(positions[node1], positions[node2])
-
-    # TODO change bend_in and bend_out for tikz backend
-    backend.draw_wire(middle, target_boundary, bend_in=True, bend_out=True)
-
-    backend.draw_node(
-        *middle, color="black", shape="circle",
-        nodesize=params.get("nodesize", 1))
-
-
-DRAWING_METHODS = [
-    ("draw_as_brakets", draw_brakets),
-    ("draw_as_controlled", draw_controlled_gate),
-    ("draw_as_discards", draw_discard),
-    ("draw_as_measures", draw_measure),
-    (None, draw_box)]
