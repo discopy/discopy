@@ -55,6 +55,7 @@ Axioms
 from __future__ import annotations
 
 from discopy import cat, monoidal
+from discopy.drawing import Drawing
 from discopy.cat import Category, factory
 from discopy.utils import (
     factory_name,
@@ -369,14 +370,15 @@ class Functor(monoidal.Functor):
             if isinstance(other, cls) and hasattr(self.cod.ar, attr):
                 method = getattr(self.cod.ar, attr)
                 return method(self(other.base), self(other.exponent))
-        if isinstance(other, Ty) and other.inside == (other, ):
-            return self.ob[other]  # Avoid infinite recursion when drawing.
         if isinstance(other, Curry) and hasattr(self.cod.ar, "curry"):
             return self.cod.ar.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
         if isinstance(other, Eval) and hasattr(self.cod.ar, "ev"):
             return self.cod.ar.ev(
                 self(other.base), self(other.exponent), other.left)
+        if self.cod.ar is Drawing:
+            if isinstance(other, Ty) and other.inside == (other, ):
+                return self.ob[other]  # Avoid infinite recursion when drawing.
         return super().__call__(other)
 
 
