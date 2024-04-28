@@ -60,10 +60,10 @@ class Backend(ABC):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
 
-    def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
+    def draw_spiders(self, graph, draw_box_labels=True, **params):
         """ Draws a list of boxes depicted as spiders. """
         spider_widths = [
-            positions[n][0] for n in graph.nodes
+            p.x for n, p in graph.positions.items()
             if n.kind == 'box' and n.box.draw_as_spider]
         if spider_widths:
             self.max_width = max(self.max_width, max(spider_widths))
@@ -71,6 +71,66 @@ class Backend(ABC):
     @abstractmethod
     def output(self, path=None, show=True, **params):
         """ Output the drawing. """
+
+    def draw_wires(self, graph, **params):
+        for source, target in graph.edges():
+            def inside_a_box(node):
+                return node.kind == "box"\
+                    and not node.box.draw_as_wires\
+                    and not node.box.draw_as_spider
+            if inside_a_box(source) or inside_a_box(target):
+                continue  # no need to draw wires inside a box
+            braid_shadow = DEFAULT["braid_shadow"]
+            source_position = graph.positions[source]
+            target_position = graph.positions[target]
+            bend_out, bend_in = source.kind == "box", target.kind == "box"
+            if source.kind == "box" and source.box.draw_as_braid:
+                if source.box.is_dagger and target.i == 0:
+                    source_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            source_position, [-1, -1], braid_shadow))
+                if not source.box.is_dagger and target.i == 1:
+                    source_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            source_position, [1, -1], braid_shadow))
+            if target.kind == "box" and target.box.draw_as_braid:
+                if target.box.is_dagger and source.i == 1:
+                    target_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            target_position, [1, 1], braid_shadow))
+                if not target.box.is_dagger and source.i == 0:
+                    target_position = tuple(
+                        x + b * shadow
+                        for x, b, shadow in zip(
+                            target_position, [-1, 1], braid_shadow))
+            self.draw_wire(
+                source_position, target_position, bend_out, bend_in)
+            if source.kind in ["dom", "box_cod"]\
+                    and (params.get('draw_type_labels', True)
+                            or getattr(source.x, "always_draw_label", False)
+                            and params.get('draw_box_labels', True)):
+                i, j = graph.positions[source]
+                j += 0.25 if hasattr(source.x, "reposition_label") else 0
+                pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
+                pad_j = 0 if source.kind == "dom" else pad_j
+                self.draw_text(
+                    str(source.x), i + pad_i, j - pad_j,
+                    fontsize=params.get('fontsize_types',
+                                        params.get('fontsize', None)),
+                    verticalalignment='top')
+
+    def draw_boxes(self, graph, **params):
+        box_nodes = [node for node in graph.nodes if node.kind == "box"]
+        for node in box_nodes:
+            if node.box.draw_as_spider or node.box.draw_as_wires:
+                continue
+            for attr, drawing_method in DRAWING_METHODS:
+                if attr is None or getattr(node.box, attr, False):
+                    drawing_method(self, graph.positions, node, **params)
+                    break
 
 
 class TikZ(Backend):
@@ -168,7 +228,7 @@ class TikZ(Backend):
             self.nodes[source], self.nodes[target]))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
+    def draw_spiders(self, graph, draw_box_labels=True, **params):
         spiders = [(node, node.box.color, node.box.shape)
                    for node in graph.nodes
                    if node.kind == "box" and node.box.draw_as_spider]
@@ -187,7 +247,7 @@ class TikZ(Backend):
                 options +=\
                     f", scale={params.get('nodesize')}"  # pragma: no cover
             self.add_node(i, j, text, options)
-        super().draw_spiders(graph, positions, draw_box_labels)
+        super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
         baseline = params.get("baseline", 0)
@@ -261,7 +321,7 @@ class Matplotlib(Backend):
                 path, facecolor='none', linewidth=self.linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
-    def draw_spiders(self, graph, positions, draw_box_labels=True, **params):
+    def draw_spiders(self, graph, draw_box_labels=True, **params):
         import networkx as nx
         nodes = {node for node in graph.nodes
                  if node.kind == "box" and node.box.draw_as_spider}
@@ -270,14 +330,14 @@ class Matplotlib(Backend):
             colors = {n: n.box.color for n, s in shapes.items() if s == shape}
             nodes, colors = zip(*colors.items())
             nx.draw_networkx_nodes(
-                graph, positions, nodelist=nodes,
+                *graph.inside, nodelist=nodes,
                 node_color=[COLORS[color] for color in colors],
                 node_shape=SHAPES[shape], ax=self.axis,
                 node_size=300 * params.get("nodesize", 1))
             if draw_box_labels:
                 labels = {node: node.box.drawing_name for node in nodes}
-                nx.draw_networkx_labels(graph, positions, labels)
-        super().draw_spiders(graph, positions, draw_box_labels)
+                nx.draw_networkx_labels(*graph.inside, labels)
+        super().draw_spiders(graph, draw_box_labels)
 
     def output(self, path=None, show=True, **params):
         xlim, ylim = params.get("xlim", None), params.get("ylim", None)
@@ -299,116 +359,27 @@ class Matplotlib(Backend):
             plt.show()
 
 
-def draw(graph, positions, **params):
-    drawing_methods = [
-        ("frame_opening", draw_frame_opening),
-        ("frame_closing", draw_frame_closing),
-        ("frame_slot_boundary", draw_frame),
-        ("draw_as_brakets", draw_brakets),
-        ("draw_as_controlled", draw_controlled_gate),
-        ("draw_as_discards", draw_discard),
-        ("draw_as_measures", draw_measure),
-        (None, draw_box)]
-
-    def draw_wires(backend, graph, positions):
-        for source, target in graph.edges():
-            def inside_a_box(node):
-                return node.kind == "box"\
-                    and not node.box.draw_as_wires\
-                    and not node.box.draw_as_spider
-            if inside_a_box(source) or inside_a_box(target):
-                continue  # no need to draw wires inside a box
-            braid_shadow, source_position, target_position =\
-                DEFAULT["braid_shadow"], positions[source], positions[target]
-            bend_out, bend_in = source.kind == "box", target.kind == "box"
-            if source.kind == "box" and source.box.draw_as_braid:
-                if source.box.is_dagger and target.i == 0:
-                    source_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            source_position, [-1, -1], braid_shadow))
-                if not source.box.is_dagger and target.i == 1:
-                    source_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            source_position, [1, -1], braid_shadow))
-            if target.kind == "box" and target.box.draw_as_braid:
-                if target.box.is_dagger and source.i == 1:
-                    target_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            target_position, [1, 1], braid_shadow))
-                if not target.box.is_dagger and source.i == 0:
-                    target_position = tuple(
-                        x + b * shadow
-                        for x, b, shadow in zip(
-                            target_position, [-1, 1], braid_shadow))
-            backend.draw_wire(
-                source_position, target_position, bend_out, bend_in)
-            if source.kind in ["dom", "box_cod"]\
-                    and (params.get('draw_type_labels', True)
-                         or getattr(source.x, "always_draw_label", False)
-                         and params.get('draw_box_labels', True)):
-                i, j = positions[source]
-                j += 0.25 if hasattr(source.x, "reposition_label") else 0
-                pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
-                pad_j = 0 if source.kind == "dom" else pad_j
-                backend.draw_text(
-                    str(source.x), i + pad_i, j - pad_j,
-                    fontsize=params.get('fontsize_types',
-                                        params.get('fontsize', None)),
-                    verticalalignment='top')
-        return backend
-
-    def scale_and_pad(graph, pos, scale, pad):
-        if len(pos) == 0:
-            return pos
-        widths, heights = zip(*pos.values())
-        min_width, min_height = min(widths), min(heights)
-        pos = {n: ((x - min_width) * scale[0] + pad[0],
-                   (y - min_height) * scale[1] + pad[1])
-               for n, (x, y) in pos.items()}
-        for box_node in graph.nodes:
-            if box_node.kind == "box":
-                for i, x in enumerate(box_node.box.dom.inside):
-                    node = Node("box_dom", x=x, i=i, j=box_node.j)
-                    pos[node] = (
-                        pos[node][0], pos[node][1] - .25 * (scale[1] - 1))
-                for i, x in enumerate(box_node.box.cod.inside):
-                    node = Node("box_cod", x=x, i=i, j=box_node.j)
-                    pos[node] = (
-                        pos[node][0], pos[node][1] + .25 * (scale[1] - 1))
-        return pos
-
-    scale, pad = params.get('scale', (1, 1)), params.get('pad', (0, 0))
-    positions = scale_and_pad(graph, positions, scale, pad)
-    backend = params.pop('backend') if 'backend' in params else\
-        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))\
-        if params.get('to_tikz', False)\
+def draw(graph, **params):
+    backend = (
+        TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
+        if params.get('to_tikz', False)
         else Matplotlib(figsize=params.get('figsize', None),
-                        linewidth=params.get('linewidth', 1))
+                        linewidth=params.get('linewidth', 1)))
+    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
 
-    min_size = 0.01
-    max_v = max([v for p in positions.values() for v in p] + [min_size])
+    max_v = max(graph.height, graph.width, 0.01)
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
-    backend = draw_wires(backend, graph, positions)
-    backend.draw_spiders(graph, positions, **params)
-    box_nodes = [node for node in graph.nodes if node.kind == "box"]
-    for node in box_nodes:
-        if node.box.draw_as_spider or node.box.draw_as_wires:
-            continue
-        for attr, drawing_method in drawing_methods:
-            if attr is None or getattr(node.box, attr, False):
-                backend = drawing_method(backend, positions, node, **params)
-                break
+    backend.draw_wires(graph, **params)
+    backend.draw_boxes(graph, **params)
+    backend.draw_spiders(graph, **params)
+
     return backend.output(
         path=params.get('path', None),
-        baseline=len(box_nodes) / 2 or .5,
+        baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
-        show=params.get('show', True),
-        margins=params.get('margins', DEFAULT['margins']),
-        aspect=params.get('aspect', DEFAULT['aspect']))
+        show=params.get('show', True), aspect=aspect,
+        margins=params.get('margins', DEFAULT['margins']))
 
 
 def draw_box(backend, positions, node, **params):
@@ -453,55 +424,6 @@ def draw_box(backend, positions, node, **params):
         backend.draw_text(box.drawing_name, *positions[node],
                           ha='center', va='center',
                           fontsize=params.get('fontsize', None))
-    return backend
-
-
-def draw_frame(backend, positions, node, opening=True, closing=True, **params):
-    if opening and closing:
-        backend = draw_frame(backend, positions, node, closing=False)
-        backend = draw_frame(backend, positions, node, opening=False)
-        return backend
-    if not opening and not closing:
-        return backend
-    box, j, kind = node.box, node.j, "box_cod" if opening else "box_dom"
-    x_left, x_right = (box.cod.inside[0], box.cod.inside[-1]) if opening else (
-        box.dom.inside[0], box.dom.inside[-1])
-    left = Node(kind, x=x_left, j=j, i=0)
-    right = Node(
-        kind, x=x_right, j=j, i=len(box.cod if opening else box.dom) - 1)
-    backend.draw_wire(positions[left], positions[right])
-    return backend
-
-
-def draw_frame_opening(backend, positions, node, **params):
-    return draw_frame(backend, positions, node, closing=False, **params)
-
-
-def draw_frame_closing(backend, positions, node, **params):
-    return draw_frame(backend, positions, node, opening=False, **params)
-
-
-def draw_frame_opening(backend, positions, node, **params):
-    box, depth = node.box, node.depth
-    obj_left, obj_right = box.cod.inside[0], box.cod.inside[-1]
-    left = Node("cod", obj=obj_left, depth=depth, i=0)
-    right = Node("cod", obj=obj_right, depth=depth, i=len(box.cod[1:]))
-    backend.draw_wire(positions[left], positions[right])
-    return backend
-
-
-def draw_frame_closing(backend, positions, node, **params):
-    box, depth = node.box, node.depth
-    obj_left, obj_right = box.dom.inside[0], box.dom.inside[-1]
-    left = Node("dom", obj=obj_left, depth=depth, i=0)
-    right = Node("dom", obj=obj_right, depth=depth, i=len(box.dom[1:]))
-    backend.draw_wire(positions[left], positions[right])
-    return backend
-
-
-def draw_frame_boundary(backend, positions, node, **params):
-    backend = draw_frame_closing(backend, positions, node, **params)
-    return draw_frame_opening(backend, positions, node, **params)
 
 
 def draw_discard(backend, positions, node, **params):
@@ -518,8 +440,6 @@ def draw_discard(backend, positions, node, **params):
             target = (right - .1 * j, height - .1 * j)
             backend.draw_wire(source, target)
 
-    return backend
-
 
 def draw_measure(backend, positions, node, **params):
     """ Draws a :class:`discopy.quantum.circuit.Measure` box. """
@@ -529,7 +449,6 @@ def draw_measure(backend, positions, node, **params):
     backend.draw_wire((i - .15, j - .1), (i, j + .1), bend_in=True)
     backend.draw_wire((i, j + .1), (i + .15, j - .1), bend_out=True)
     backend.draw_wire((i, j - .1), (i + .05, j + .15), style='->')
-    return backend
 
 
 def draw_brakets(backend, positions, node, **params):
@@ -550,7 +469,6 @@ def draw_brakets(backend, positions, node, **params):
         backend.draw_text(
             bit, middle[0], middle[1] + (-.25 if is_bra else .2),
             ha='center', va='center', fontsize=params.get('fontsize', None))
-    return backend
 
 
 def draw_controlled_gate(backend, positions, node, **params):
@@ -637,4 +555,11 @@ def draw_controlled_gate(backend, positions, node, **params):
     backend.draw_node(
         *middle, color="black", shape="circle",
         nodesize=params.get("nodesize", 1))
-    return backend
+
+
+DRAWING_METHODS = [
+    ("draw_as_brakets", draw_brakets),
+    ("draw_as_controlled", draw_controlled_gate),
+    ("draw_as_discards", draw_discard),
+    ("draw_as_measures", draw_measure),
+    (None, draw_box)]

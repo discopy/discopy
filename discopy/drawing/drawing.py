@@ -118,7 +118,7 @@ class Drawing(Composable, Whiskerable):
             or getattr(box, "is_transpose", False)
             for box in self.boxes))
         self.recenter_box_nodes()
-        return backend.draw(*self.inside, asymmetry=asymmetry, **params)
+        return backend.draw(self, asymmetry=asymmetry, **params)
 
     def recenter_box_nodes(self):
         for j, box in enumerate(self.boxes):
@@ -663,6 +663,7 @@ class Equation:
 
     def __bool__(self):
         return all(term == self.terms[0] for term in self.terms)
+
 
 for kind in ["dom", "cod", "box", "box_dom", "box_cod"]:
     setattr(Drawing, f"{kind}_nodes", property(lambda self, kind=kind: [
