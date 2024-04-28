@@ -971,7 +971,9 @@ class Bubble(cat.Bubble, Box):
     Parameters:
         args (Diagram) : The diagrams inside the bubble.
         drawing_name (str) : The label to use when drawing, empty by default.
+        draw_as_square (bool) : Whether to draw the bubble as a square.
         draw_as_frame (bool) : Whether to draw the bubble as a frame.
+        draw_vertically (bool) : Whether to draw the frame slots vertically.
         kwargs : Passed to :class:`cat.Bubble`.
 
     Raises:
@@ -981,7 +983,7 @@ class Bubble(cat.Bubble, Box):
     --------
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
-    >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
+    >>> d = (f.bubble(dom=x ** 3, cod=y, draw_as_square=True) >> g).bubble()
     >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
 
     .. image:: /_static/monoidal/bubble-example.png
@@ -993,7 +995,7 @@ class Bubble(cat.Bubble, Box):
     .. image:: /_static/monoidal/bubble-multiple-args.png
         :align: center
 
-    >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_horizontal=False)
+    >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True)
     >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.png')
 
     .. image:: /_static/monoidal/frame-vertical-args.png
@@ -1002,26 +1004,34 @@ class Bubble(cat.Bubble, Box):
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
 
-    def __init__(self, *args: Diagram, drawing_name: str = None,
-                 draw_as_frame: bool = None, draw_horizontal=True, **kwargs):
+    def __init__(
+            self, *args: Diagram, drawing_name: str = None,
+            draw_as_frame: bool = None, draw_as_square: bool = False,
+            draw_vertically=False, **kwargs):
         cat.Bubble.__init__(self, *args, **kwargs)
         Box.__init__(self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
-        self.draw_horizontal = draw_horizontal
+        self.draw_vertically = draw_vertically
         if draw_as_frame is None:
             draw_as_bubble = (len(args) == 1
                               and len(self.dom) == len(self.arg.dom)
                               and len(self.cod) == len(self.arg.cod))
-            self.draw_as_frame = not draw_as_bubble
-        else:
-            self.draw_as_frame = draw_as_frame
+            draw_as_frame = not draw_as_bubble and not draw_as_square
+        self.draw_as_frame = draw_as_frame
+        self.draw_as_square = draw_as_square
 
     def to_drawing(self):
         method = "frame" if self.draw_as_frame else "bubble"
-        return getattr(Drawing, method)(
-            *[arg.to_drawing() for arg in self.args],
-            dom=self.dom.to_drawing(), cod=self.cod.to_drawing(),
-            name=self.drawing_name, horizontal=self.draw_horizontal)
+        args = [arg.to_drawing() for arg in self.args]
+        kwargs = dict(
+            dom=self.dom.to_drawing(),
+            cod=self.cod.to_drawing(),
+            name=self.drawing_name)
+        if self.draw_as_frame:
+            kwargs['draw_vertically'] = self.draw_vertically
+        else:
+            kwargs['draw_as_square'] = self.draw_as_square
+        return getattr(Drawing, method)(*args, **kwargs)
 
 
 class Category(cat.Category):

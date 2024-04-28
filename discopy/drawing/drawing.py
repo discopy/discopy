@@ -49,7 +49,32 @@ class PlaneGraph(NamedTuple):
 
 @dataclass
 class Drawing(Composable, Whiskerable):
-    """ A diagram drawing is a plane graph with designated dom and cod. """
+    """
+    A drawing is a plane graph with designated input and output types.
+
+    Parameters:
+        inside (PlaneGraph) : The plane graph underlying the drawing.
+        dom (monoidal.Ty) : The domain of the drawing, i.e. its input type.
+        cod (monoidal.Ty) : The codomain of the drawing, i.e. its output type.
+        boxes (tuple[monoidal.Box, ...]) : The boxes inside the drawing.
+        width (float) : The width of the drawing.
+        height (float) : The height of the drawing.
+        _check (bool) : Whether to call :meth:`validate_attributes`.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            validate_attributes
+            draw
+            from_box
+            id
+            then
+            tensor
+            dagger
+            bubble
+            frame
+    """
     inside: PlaneGraph
     dom: "monoidal.Ty"
     cod: "monoidal.Ty"
@@ -64,27 +89,40 @@ class Drawing(Composable, Whiskerable):
 
     def __init__(
             self, inside, dom, cod, boxes=(), width=0, height=0, _check=True):
-        from discopy.monoidal import Ty
-        assert_isinstance(dom, Ty)
-        assert_isinstance(cod, Ty)
         self.inside, self.dom, self.cod = inside, dom, cod
         self.boxes, self.width, self.height = boxes, width, height
-        assert_isinstance(width, (int, float))
         if _check:
             self.validate_attributes()
 
     def validate_attributes(self):
+        """
+        Check that the attributes of a drawing are consistent.
+
+        >>> from discopy.monoidal import Ty, Id
+        >>> x = Ty('x')
+        >>> drawing = Id(x).to_drawing()
+        >>> drawing.add_edges([(Node("cod", i=0, x=x), Node("dom", i=0, x=x))])
+        >>> drawing.validate_attributes()
+        Traceback (most recent call last):
+        ...
+        ValueError: Wrong edge Node('cod', i=0, x=x) -> Node('dom', i=0, x=x)
+        """
+        from discopy.monoidal import Ty, Box
+        assert_isinstance(self.dom, Ty)
+        assert_isinstance(self.cod, Ty)
+        for box in self.boxes:
+            assert_isinstance(box, Box)
         assert self.dom_nodes == [
-            Node("dom", i=i, x=x) for i, x in enumerate(self.dom.inside)]
+            Node("dom", i=i, x=x) for i, x in enumerate(self.dom)]
         assert self.cod_nodes == [
-            Node("cod", i=i, x=x) for i, x in enumerate(self.cod.inside)]
+            Node("cod", i=i, x=x) for i, x in enumerate(self.cod)]
         assert self.box_nodes == [
             Node("box", j=j, box=box) for j, box in enumerate(self.boxes)]
         for j, box in enumerate(self.boxes):
             box_node = self.box_nodes[j]
             box_dom_nodes, box_cod_nodes = ([
                 Node(f"box_{kind}", i=i, j=j, x=x)
-                for i, x in enumerate(xs.inside)] for kind, xs in [
+                for i, x in enumerate(xs)] for kind, xs in [
                     ("dom", box.dom), ("cod", box.cod)])
             assert list(self.graph.predecessors(box_node)) == box_dom_nodes
             assert list(self.graph.successors(box_node)) == box_cod_nodes
@@ -96,14 +134,16 @@ class Drawing(Composable, Whiskerable):
             elif source.kind in ("dom", "box_cod"):
                 assert target.kind in ("cod", "box_dom")
             else:
-                raise ValueError
+                raise ValueError(f"Wrong edge {source} -> {target}")
 
         assert self.height >= (1 if self.boxes else 0)
         assert self.width >= (1 if self.boxes else 0)
         assert self.width >= max(x for (x, _) in self.positions.values())
         assert self.height >= max(y for (_, y) in self.positions.values())
 
-        assert set(self.positions.keys()) == set(self.nodes)
+        assert set(self.positions.keys()) == set(self.nodes) == set(
+            self.dom_nodes + self.cod_nodes) + set(
+                self.box_dom_nodes + self.box_nodes + self.box_cod_nodes)
         assert all(isinstance(x, Point) for x in self.positions.values())
 
     def __eq__(self, other):
@@ -112,6 +152,7 @@ class Drawing(Composable, Whiskerable):
         return self.is_parallel(other) and self.positions == other.positions
 
     def draw(self, **params):
+        """ Call :meth:`recenter_box_nodes` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.25 * any(
             box.is_dagger
             or getattr(box, "is_conjugate", False)
@@ -121,6 +162,7 @@ class Drawing(Composable, Whiskerable):
         return backend.draw(self, asymmetry=asymmetry, **params)
 
     def recenter_box_nodes(self):
+        """ Recenter boxes in the middle of their input and output wires. """
         for j, box in enumerate(self.boxes):
             if not box.dom and not box.cod:
                 continue
@@ -128,7 +170,7 @@ class Drawing(Composable, Whiskerable):
                 if len(box.dom) == 1 or len(box.cod) == 1:
                     continue
             box_dom_nodes, box_cod_nodes = ([
-                    Node(kind, i=i, j=j, x=x) for i, x in enumerate(xs.inside)]
+                    Node(kind, i=i, j=j, x=x) for i, x in enumerate(xs)]
                 for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
             left, right = (minmax(
                     self.positions[n].x for n in box_dom_nodes + box_cod_nodes)
@@ -138,6 +180,7 @@ class Drawing(Composable, Whiskerable):
                 (right + left) / 2, self.positions[box_node].y)
 
     def union(self, other, dom, cod, _check=True):
+        """ Take the union of two drawings, assuming nodes are distinct. """
         graph = nx.union(self.inside.graph, other.inside.graph)
         inside = PlaneGraph(graph, self.positions | other.positions)
         boxes = self.boxes + other.boxes
@@ -146,6 +189,7 @@ class Drawing(Composable, Whiskerable):
         return Drawing(inside, dom, cod, boxes, width, height, _check)
 
     def add_nodes(self, positions: dict[Node, Point]):
+        """ Add nodes to the graph given their positions. """
         if not positions:
             return
         self.graph.add_nodes_from({
@@ -156,6 +200,7 @@ class Drawing(Composable, Whiskerable):
         self.height = max(self.height, max(j for (_, j) in positions.values()))
 
     def add_edges(self, edges: list[tuple[Node, Node]]):
+        """ Add edges from a list. """
         self.graph.add_edges_from(edges)
 
     @property
@@ -169,12 +214,14 @@ class Drawing(Composable, Whiskerable):
             ) - min([x for (x, _) in self.positions.values()] + [0])
 
     def set_width_and_height(self):
+        """ Compute the width and height and update the attributes. """
         self.width = max([x for (x, _) in self.positions.values()] + [0])
         self.height = max([y for (_, y) in self.positions.values()] + [0])
         return self
 
     def relabel_nodes(
             self, mapping=dict(), positions=dict(), copy=True, _check=False):
+        """ Relabel nodes and/or their positions. """
         graph = nx.relabel_nodes(self.graph, mapping, copy)
         if copy:
             positions = {mapping.get(node, node): positions.get(node, pos)
@@ -226,13 +273,29 @@ class Drawing(Composable, Whiskerable):
 
     @property
     def box(self):
+        """ Syntactic sugar for self.boxes[0] when self.is_box """
         if not self.is_box:
             raise ValueError
         return self.boxes[0]
 
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
-        """ Draw a diagram with just one box. """
+        """
+        Draw a diagram with just one box.
+
+        >>> from discopy.monoidal import Ty, Box
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, y @ z)
+        >>> assert f.to_drawing() == Drawing.from_box(f)
+        >>> for ps in f.to_drawing().positions.items(): print(*ps)
+        Node('box', box=f, j=0) Point(x=0.5, y=0.5)
+        Node('dom', i=0, x=x) Point(x=0.5, y=1)
+        Node('box_dom', i=0, j=0, x=x) Point(x=0.5, y=0.75)
+        Node('box_cod', i=0, j=0, x=y) Point(x=0.0, y=0.25)
+        Node('box_cod', i=1, j=0, x=z) Point(x=1.0, y=0.25)
+        Node('cod', i=0, x=y) Point(x=0.0, y=0)
+        Node('cod', i=1, x=z) Point(x=1.0, y=0)
+        """
         from discopy.monoidal import Box
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
         old_box, box = box, Box(
@@ -261,8 +324,8 @@ class Drawing(Composable, Whiskerable):
         box_node = Node("box", box=box, j=0)
         result.add_nodes({box_node: Point(width / 2, 0.5)})
 
-        dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom.inside)]
-        cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod.inside)]
+        dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom)]
+        cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod)]
         box_dom = [Node("box_dom", i=i, j=0, x=x.x) for i, x in enumerate(dom)]
         box_cod = [Node("box_cod", i=i, j=0, x=x.x) for i, x in enumerate(cod)]
 
@@ -295,8 +358,8 @@ class Drawing(Composable, Whiskerable):
         """ Draw the identity diagram. """
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(inside, dom, dom, width=len(dom), _check=False)
-        dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom.inside)]
-        cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom.inside)]
+        dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
+        cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom)]
         offset = 0 if len(dom) > 1 else 0.5
         result.add_nodes({
             x: Point(i + offset, 1) for i, x in enumerate(dom_nodes)})
@@ -445,18 +508,42 @@ class Drawing(Composable, Whiskerable):
 
     @staticmethod
     def bubble_opening(dom, arg_dom, left, right):
+        """
+        Construct the opening of a bubble as a box drawn as wires.
+
+        >>> from discopy.monoidal import Ty
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Drawing.bubble_opening(x, y, z, Ty("")).draw(
+        ...     path="docs/_static/drawing/bubble-opening.png")
+
+        .. image:: /_static/drawing/bubble-opening.png
+            :align: center
+        """
         from discopy.monoidal import Box
         return Drawing.from_box(
             Box("top", dom, left @ arg_dom @ right, bubble_opening=True))
 
     @staticmethod
     def bubble_closing(arg_cod, cod, left, right):
+        """ Construct the closing of a bubble as a drawing with one box. """
         from discopy.monoidal import Box
         return Drawing.from_box(
             Box("bot", left @ arg_cod @ right, cod, bubble_closing=True))
 
     @staticmethod
     def frame_opening(dom, arg_dom, left, right):
+        """
+        Construct the opening of a frame as the opening of a bubble squashed to
+        zero height so that it looks like half of a rectangle.
+
+        >>> from discopy.monoidal import Ty
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Drawing.frame_opening(x, y, z, Ty("")).draw(
+        ...     path="docs/_static/drawing/frame-opening.png")
+
+        .. image:: /_static/drawing/frame-opening.png
+            :align: center
+        """
         result = Drawing.bubble_opening(dom, arg_dom, left, right)
         result.relabel_nodes(copy=False, positions={
             n: result.positions[n].shift(y=-.5) for n in result.box_dom_nodes})
@@ -470,6 +557,7 @@ class Drawing(Composable, Whiskerable):
 
     @staticmethod
     def frame_closing(arg_cod, cod, left, right):
+        """ Closing of a frame, see :meth:`frame_opening`. """
         result = Drawing.bubble_closing(arg_cod, cod, left, right)
         result.relabel_nodes(copy=False, positions={
             n: result.positions[n].shift(y=-.5) for n in result.box_dom_nodes})
@@ -481,9 +569,17 @@ class Drawing(Composable, Whiskerable):
             (u, v) for u in result.box_nodes for v in result.box_cod_nodes])
         return result
 
-    def bubble(self, dom=None, cod=None, name=None, horizontal=False,
-               width=None, height=None, draw_as_frame=False) -> Drawing:
+    def bubble(self, dom=None, cod=None, name=None,
+               width=None, height=None, draw_as_square=False) -> Drawing:
         """
+        Draw a closed line around a drawing, with some wires coming in and out.
+
+        Parameters:
+            dom (monoidal.Ty) : The wires coming into the bubble.
+            cod (monoidal.Ty) : The wires coming out of the bubble.
+            name (str) : The label of the bubble, drawn on the top left.
+            width
+
         >>> from discopy.symmetric import *
         >>> a, b, c, d = map(Ty, "abcd")
         >>> f = Box('f', a @ b, c @ d).to_drawing()
@@ -497,10 +593,10 @@ class Drawing(Composable, Whiskerable):
         cod = self.cod if cod is None else cod
         arg_dom, arg_cod = self.dom, self.cod
         left, right = type(dom)(name or ""), type(dom)("")
-        left.inside[0].always_draw_label = True
+        left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
-        if draw_as_frame or not wires_can_go_straight:
+        if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)
         else:
@@ -517,7 +613,7 @@ class Drawing(Composable, Whiskerable):
         if len(dom) == len(arg_dom):
             dom_nodes, arg_dom_nodes = ([
                     Node(kind, x=x, i=i + off, j=0)
-                    for i, x in enumerate(xs.inside)]
+                    for i, x in enumerate(xs)]
                 for (kind, xs, off) in [
                     ("box_dom", dom, 0), ("box_cod", arg_dom, 1)])
             node = Node("box", j=0, box=top.box)
@@ -527,7 +623,7 @@ class Drawing(Composable, Whiskerable):
         if len(cod) == len(arg_cod):
             arg_cod_nodes, cod_nodes = ([
                     Node(kind, x=x, i=i + off, j=len(result.boxes) - 1)
-                    for i, x in enumerate(xs.inside)]
+                    for i, x in enumerate(xs)]
                 for (kind, xs, off) in [
                     ("box_dom", arg_cod, 1), ("box_cod", cod, 0)])
             node = Node("box", j=len(result.boxes) - 1, box=bot.box)
@@ -537,7 +633,7 @@ class Drawing(Composable, Whiskerable):
         return result
 
     def frame(self, *others: Drawing,
-              dom=None, cod=None, name=None, horizontal=False) -> Drawing:
+              dom=None, cod=None, name=None, draw_vertically=False) -> Drawing:
         """
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
@@ -548,27 +644,27 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/single-frame.png
             :align: center
 
-        >>> Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y, draw_horizontal=True
+        >>> Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y
         ...     ).draw(path="docs/_static/drawing/horizontal-frame.png")
 
         .. image:: /_static/drawing/horizontal-frame.png
             :align: center
 
-        >>> Bubble(f, g, h, dom=x, cod=y @ y, draw_horizontal=False
+        >>> Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True
         ...     ).draw(path="docs/_static/drawing/vertical-frame.png")
 
         .. image:: /_static/drawing/vertical-frame.png
             :align: center
         """
         args, empty = (self, ) + others, type(self.dom)()
-        method = getattr(Drawing.id(empty), "tensor" if horizontal else "then")
+        method = "then" if draw_vertically else "tensor"
         params = dict(
-                height=max([arg.height for arg in args] + [0])
-            ) if horizontal else dict(
-                width=max([arg.actual_width for arg in args] + [0]) + 2)
-        result = method(*(arg.bubble(
-            empty, empty, draw_as_frame=True, **params)
-            for arg in args)).bubble(dom, cod, name, draw_as_frame=True)
+                width=max([arg.actual_width for arg in args] + [0]) + 2
+            ) if draw_vertically else dict(
+                height=max([arg.height for arg in args] + [0]))
+        result =  getattr(Drawing.id(empty), method)(*(arg.bubble(
+            empty, empty, draw_as_square=True, **params)
+            for arg in args)).bubble(dom, cod, name, draw_as_square=True)
         for i, source in enumerate(result.dom_nodes):
             target, = result.graph.successors(source)
             for n in (source, target):

@@ -137,11 +137,12 @@ class Backend(ABC):
                          or getattr(source.x, "always_draw_label", False)
                          and params.get('draw_box_labels', True)):
                 i, j = graph.positions[source]
-                j += 0.25 if hasattr(source.x, "reposition_label") else 0
+                if hasattr(source.x.inside[0], "reposition_label"):
+                    j += 0.25  # The label of e.g. cups, caps and swaps.
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
                 pad_j = 0 if source.kind == "dom" else pad_j
                 self.draw_text(
-                    str(source.x), i + pad_i, j - pad_j,
+                    str(source.x.inside[0]), i + pad_i, j - pad_j,
                     fontsize=params.get('fontsize_types',
                                         params.get('fontsize', None)),
                     verticalalignment='top')
@@ -170,18 +171,18 @@ class Backend(ABC):
             left, right = positions[node][0], positions[node][0]
         elif not box.dom:
             left, right = (
-                positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
+                positions[Node("box_cod", x=box.cod[i], i=i, j=j)][0]
                 for i in [0, len(box.cod) - 1])
         elif not box.cod:
             left, right = (
-                positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
+                positions[Node("box_dom", x=box.dom[i], i=i, j=j)][0]
                 for i in [0, len(box.dom) - 1])
         else:
             top_left, top_right = (
-                positions[Node("box_dom", x=box.dom.inside[i], i=i, j=j)][0]
+                positions[Node("box_dom", x=box.dom[i], i=i, j=j)][0]
                 for i in [0, len(box.dom) - 1])
             bottom_left, bottom_right = (
-                positions[Node("box_cod", x=box.cod.inside[i], i=i, j=j)][0]
+                positions[Node("box_cod", x=box.cod[i], i=i, j=j)][0]
                 for i in [0, len(box.cod) - 1])
             left = min(top_left, bottom_left)
             right = max(top_right, bottom_right)
@@ -209,7 +210,7 @@ class Backend(ABC):
         """ Draws a :class:`discopy.quantum.circuit.Discard` box. """
         box, j = node.box, node.j
         for i in range(len(box.dom)):
-            x = box.dom.inside[i]
+            x = box.dom[i]
             wire = Node("box_dom", x=x, j=j, i=i)
             middle = positions[wire]
             left, right = middle[0] - .25, middle[0] + .25
@@ -233,7 +234,7 @@ class Backend(ABC):
         is_bra = len(box.dom) > 0
         for i, bit in enumerate(box._digits):
             kind = "box_dom" if is_bra else "box_cod"
-            x = box.dom.inside[i] if is_bra else box.cod.inside[i]
+            x = box.dom[i] if is_bra else box.cod[i]
             wire = Node(kind, x=x, j=j, i=i)
             middle = positions[wire]
             left = middle[0] - .25, middle[1]
@@ -254,14 +255,14 @@ class Backend(ABC):
         c_size = len(box.controlled.dom)
 
         index = (0, distance) if distance > 0 else (c_size - distance - 1, 0)
-        dom = Node("box_dom", x=box.dom.inside[0], i=index[0], j=j)
-        cod = Node("box_cod", x=box.cod.inside[0], i=index[0], j=j)
+        dom = Node("box_dom", x=box.dom[0], i=index[0], j=j)
+        cod = Node("box_cod", x=box.cod[0], i=index[0], j=j)
         middle = positions[dom][0], (positions[dom][1] + positions[cod][1]) / 2
         controlled_box = box.controlled.to_drawing().box
         controlled = Node("box", box=controlled_box, j=j)
         # TODO select x properly for classical gates
-        c_dom = Node("box_dom", x=box.dom.inside[0], i=index[1], j=j)
-        c_cod = Node("box_cod", x=box.cod.inside[0], i=index[1], j=j)
+        c_dom = Node("box_dom", x=box.dom[0], i=index[1], j=j)
+        c_cod = Node("box_cod", x=box.cod[0], i=index[1], j=j)
         c_middle = (
             positions[c_dom][0],
             (positions[c_dom][1] + positions[c_cod][1]) / 2)
@@ -282,11 +283,11 @@ class Backend(ABC):
         else:
             fake_positions = {controlled: target}
             for i in range(c_size):
-                dom_node = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
+                dom_node = Node("box_dom", x=box.dom[i], i=i, j=j)
                 x, y = positions[c_dom][0] + i, positions[c_dom][1]
                 fake_positions[dom_node] = x, y
 
-                cod_node = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
+                cod_node = Node("box_cod", x=box.cod[i], i=i, j=j)
                 x, y = positions[c_cod][0] + i, positions[c_cod][1]
                 fake_positions[cod_node] = x, y
 
@@ -321,8 +322,8 @@ class Backend(ABC):
         # draw all the other vertical wires
         extra_offset = 1 if distance > 0 else len(box.controlled.dom)
         for i in range(extra_offset, extra_offset + abs(distance) - 1):
-            node1 = Node("box_dom", x=box.dom.inside[i], i=i, j=j)
-            node2 = Node("box_cod", x=box.cod.inside[i], i=i, j=j)
+            node1 = Node("box_dom", x=box.dom[i], i=i, j=j)
+            node2 = Node("box_cod", x=box.cod[i], i=i, j=j)
             self.draw_wire(positions[node1], positions[node2])
 
         # TODO change bend_in and bend_out for tikz backend
