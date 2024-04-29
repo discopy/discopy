@@ -379,10 +379,10 @@ def unbiased(binary_method):
     .. _nLab: https://ncatlab.org/nlab/show/biased+definition
     """
     @wraps(binary_method)
-    def method(self, *others):
+    def method(self, *others, **params):
         result = self
         for other in others:
-            result = binary_method(result, other)
+            result = binary_method(result, other, **params)
         return result
     return method
 

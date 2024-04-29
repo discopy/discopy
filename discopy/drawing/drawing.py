@@ -1,6 +1,8 @@
 """
 The category of labeled progressive plane graphs.
 
+This was first defined in :cite:t:`JoyalStreet88`.
+
 Summary
 -------
 
@@ -406,20 +408,26 @@ class Drawing(Composable, Whiskerable):
         return result
 
     @unbiased
-    def then(self, other: Drawing) -> Drawing:
+    def then(self, other: Drawing, draw_step_by_step=False) -> Drawing:
         """
         Draw one diagram composed with another.
 
+        This is done by calling :meth:`make_space` to align the output wires of
+        `self` and the input wires of `other` while keeping them straight.
+
         Example
         -------
-        >>> from discopy.monoidal import Ty, Box
-        >>> x, y, z = map(Ty, "xyz")
-        >>> f = Drawing.from_box(Box('f', x, y @ z))
-        >>> g = Drawing.from_box(Box('g', z @ y, x))
-        >>> d = f @ y >> y @ g
-        >>> d.draw(path="docs/_static/drawing/composition.png")
+        >>> from discopy.monoidal import Ty, Box, Diagram
+        >>> x = Ty('x')
+        >>> f = Drawing.from_box(Box('f', x, x @ x @ x))
+        >>> g = Drawing.from_box(Box('g', x @ x, x))
+        >>> top, bottom = g @ f, g @ f @ f
+        >>> Diagram.to_gif(
+        ...     *top.then(bottom, draw_step_by_step=True), loop=True,
+        ...     path="docs/_static/drawing/composition.gif")
+        <IPython.core.display.HTML object>
 
-        .. image:: /_static/drawing/composition.png
+        .. image:: /_static/drawing/composition.gif
             :align: center
         """
         assert_iscomposable(self, other)
@@ -440,6 +448,8 @@ class Drawing(Composable, Whiskerable):
             dict(zip(self.cod_nodes, tmp_cod)), positions, _check=False).union(
                 other.relabel_nodes(mapping), dom, cod, _check=False)
         cut = other.height + 0.5
+        if draw_step_by_step:
+            steps = [result.relabel_nodes(copy=True)]
         for i, (u, v) in enumerate(zip(self.cod_nodes, other.dom_nodes)):
             top = result.positions[tmp_cod[i]].x
             bot = result.positions[tmp_dom[i]].x
@@ -450,6 +460,8 @@ class Drawing(Composable, Whiskerable):
             source, = self.graph.predecessors(u)
             target, = other.graph.successors(v)
             result.add_edges([(source, mapping.get(target, target))])
+            if draw_step_by_step:
+                steps.append(result.relabel_nodes(copy=True))
         result.graph.remove_nodes_from(tmp_dom + tmp_cod)
         [result.positions.pop(n) for n in tmp_dom + tmp_cod]
         result = result.relabel_nodes(positions={
@@ -458,7 +470,7 @@ class Drawing(Composable, Whiskerable):
         if result.height != self.height + other.height - (
                 1 if self.height + other.height > 1 else 0):
             pass
-        return result
+        return steps if draw_step_by_step else result
 
     def stretch(self, y):
         """
