@@ -700,7 +700,7 @@ class Drawing(Composable, Whiskerable):
                 width=max([arg.actual_width for arg in args] + [0]) + 2
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        result =  getattr(Drawing.id(), method)(*(arg.bubble(
+        result = getattr(Drawing.id(), method)(*(arg.bubble(
             Ty(), Ty(), draw_as_square=True, **params)
             for arg in args)).bubble(dom, cod, name, draw_as_square=True)
         for i, source in enumerate(result.dom_nodes):

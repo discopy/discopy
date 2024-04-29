@@ -107,7 +107,7 @@ class Diagram(symmetric.Diagram):
     >>> @Diagram.from_callable(x, x @ x)
     ... def apply_then_copy(x):
     ...     y = f(x)
-    ...     return x, x
+    ...     return y, y
 
     >>> from discopy.drawing import Equation
     >>> Equation(copy_then_apply, apply_then_copy, symbol="$\\\\neq$").draw(

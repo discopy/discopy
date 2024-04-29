@@ -83,9 +83,13 @@ def to_gif(diagram, *diagrams, **params):  # pragma: no cover
     path = params.pop("path", None)
     timestep = params.get("timestep", 500)
     loop = params.get("loop", False)
-    steps, frames = (diagram, ) + diagrams, []
+    steps, frames = [d.to_drawing() for d in (diagram, ) + diagrams], []
     path = path or os.path.basename(NamedTemporaryFile(
         suffix='.gif', prefix='tmp_', dir='.').name)
+    if 'figsize' not in params:
+        params['figsize'] = tuple(
+            max(getattr(step, attr) for step in steps)
+            for attr in ("width", "height"))
     with TemporaryDirectory() as directory:
         for i, _diagram in enumerate(steps):
             tmp_path = os.path.join(directory, f'{i}.png')

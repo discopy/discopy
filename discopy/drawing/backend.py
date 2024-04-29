@@ -42,7 +42,7 @@ def draw(graph: PlaneGraph, **params):
     """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
     aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
     figsize = params.get('figsize', None if aspect == 'auto' else (
-        graph.width, graph.height))
+        graph.width or 1, graph.height or 1))
     backend = (
         TikZ(use_tikzstyles=params.get('use_tikzstyles', None))
         if params.get('to_tikz', False)

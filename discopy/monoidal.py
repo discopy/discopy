@@ -682,7 +682,7 @@ class Diagram(cat.Arrow, Whiskerable):
         cod = Category(Ty, Drawing)
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
-    def to_staircases(self):  # pylint:
+    def to_staircases(self):
         """
         Splits layers with more than one box into staircases.
 
@@ -707,10 +707,14 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> diagram = f0 @ Id(y) >> f0.dagger() @ f1
+        >>> diagram = f0 @ f1.dagger() >> f0.dagger() @ f1
         >>> print(diagram)
-        f0 @ y >> f0[::-1] @ y >> x @ f1
-        >>> print(diagram.foliation())
+        f0 @ x >> y @ f1[::-1] >> f0[::-1] @ y >> x @ f1
+        >>> diagram.foliation().draw(
+        ...     path='docs/_static/monoidal/foliation-example.png')
+
+    .. image:: /_static/monoidal/foliation-example.png
+        :align: center
         f0 @ y >> f0[::-1] @ f1
 
         Note
