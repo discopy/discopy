@@ -453,29 +453,25 @@ class Drawing(Composable, Whiskerable):
             return self
         dom, cod = self.dom, other.cod
 
-        edges = list(zip(self.cod_nodes, other.dom_nodes))
-
-        tmp_dom = [Node("tmp_dom", i=i) for i, n in enumerate(other.dom_nodes)]
-        other_mapping = {
-            n: n.shift_j(len(self.boxes))
-            for n in other.nodes if "box" in n.kind}
-        other_dom_nodes = other.dom_nodes
-        other_mapping.update(dict(zip(other_dom_nodes, tmp_dom)))
-        other = other.relabel_nodes(other_mapping)
-
         tmp_cod = [Node("tmp_cod", i=i) for i, n in enumerate(self.cod_nodes)]
         mapping = dict(zip(self.cod_nodes, tmp_cod))
         positions = {
             n: p.shift(y=other.height + 1) for n, p in self.positions.items()}
-        width = max(self.width, other.width)
-        height = self.height + other.height + 1
+
+        tmp_dom = [Node("tmp_dom", i=i) for i, n in enumerate(other.dom_nodes)]
+        other_mapping = dict(zip(other.dom_nodes, tmp_dom))
+        other_mapping.update({
+            n: n.shift_j(len(self.boxes))
+            for n in other.nodes if "box" in n.kind})
+
         result = self.relabel_nodes(mapping, positions, _check=False).union(
-                other, dom, cod, width, height, _check=False)
+                other.relabel_nodes(other_mapping), dom, cod, _check=False)
+        result.height = self.height + other.height + 1
 
         cut, top_width, bot_width = other.height + 0.5, self.width, other.width
         if draw_step_by_step:
             steps = [result.relabel_nodes(copy=True)]
-        for i, (u, v) in enumerate(edges):
+        for i, (u, v) in enumerate(zip(self.cod_nodes, other.dom_nodes)):
             top = result.positions[tmp_cod[i]].x
             bot = result.positions[tmp_dom[i]].x
             if top > bot:
@@ -485,18 +481,18 @@ class Drawing(Composable, Whiskerable):
                 top_width += bot - top
                 result.make_space(bot - top, (i > 0) * top, cut, result.height)
             source, = self.graph.predecessors(u)
-            target, = other.graph.successors(other_mapping[v])
+            target, = other.graph.successors(v)
             result.add_edges([(source, other_mapping.get(target, target))])
             if draw_step_by_step:
                 steps.append(result.relabel_nodes(copy=True))
 
         result.graph.remove_nodes_from(tmp_dom + tmp_cod)
         [result.positions.pop(n) for n in tmp_dom + tmp_cod]
-        result = result.relabel_nodes(positions={
+        result.relabel_nodes(copy=False, positions={
             n: p.shift(y=-1)
             for n, p in result.positions.items() if p.y > other.height})
         result.width = max(top_width, bot_width)
-        result.height -= 1
+        result.height = self.height + other.height
         return steps if draw_step_by_step else result
 
     def stretch(self, y):
@@ -548,9 +544,11 @@ class Drawing(Composable, Whiskerable):
         x_shift = max(
                 [p.x + 1 for p in self.positions.values()] + [0]
             ) - min([p.x for p in other.positions.values()] + [0.5])
-        return self.union(other.relabel_nodes(mapping, positions={
+        result = self.union(other.relabel_nodes(mapping, positions={
             n: p.shift(x=x_shift) for n, p in other.positions.items()}),
             dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
+        result.width = self.width + other.width + 1
+        return result
 
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """
