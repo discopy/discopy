@@ -52,6 +52,7 @@ def draw(graph: PlaneGraph, **params):
     max_v = max(graph.height, graph.width, 0.01)
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
+    backend.draw_boundary(graph, **params)
     backend.draw_wires(graph, **params)
     backend.draw_boxes(graph, **params)
     backend.draw_spiders(graph, **params)
@@ -97,6 +98,10 @@ class Backend(ABC):
     @abstractmethod
     def output(self, path=None, show=True, **params):
         """ Output the drawing. """
+
+    def draw_boundary(self, graph, **params):
+        x, y = graph.width, graph.height
+        self.draw_polygon((0, 0), (x, 0), (x, y), (0, y))
 
     def draw_wires(self, graph, **params):
         for source, target in graph.edges():

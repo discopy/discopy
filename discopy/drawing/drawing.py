@@ -247,37 +247,22 @@ class Drawing(Composable, Whiskerable):
         """ Add edges from a list. """
         self.graph.add_edges_from(edges)
 
-    @property
-    def actual_width(self):
-        """
-        The difference between max and min x coordinate.
-        This can be different from width when dom and cod have length <= 1.
-        """
-        return max(
-                [x for (x, _) in self.positions.values()] + [0]
-            ) - min([x for (x, _) in self.positions.values()] + [0])
-
-    def set_width_and_height(self):
-        """ Compute the width and height and update the attributes. """
-        self.width = max([x for (x, _) in self.positions.values()] + [0])
-        self.height = max([y for (_, y) in self.positions.values()] + [0])
-        return self
-
     def relabel_nodes(
             self, mapping=dict(), positions=dict(), copy=True, _check=False):
         """ Relabel nodes and/or their positions. """
         graph = nx.relabel_nodes(self.graph, mapping, copy)
-        if copy:
-            positions = {mapping.get(node, node): positions.get(node, pos)
-                         for node, pos in self.positions.items()}
-            inside, boxes = PlaneGraph(graph, positions), self.boxes
-            result = Drawing(inside, self.dom, self.cod, boxes, _check=_check)
-            return result.set_width_and_height()
-        self.positions.update(positions)
-        return self.set_width_and_height()
+        if not copy:
+            self.positions.update(positions)
+            return self
+        positions = {mapping.get(node, node): positions.get(node, pos)
+                        for node, pos in self.positions.items()}
+        inside = PlaneGraph(graph, positions)
+        dom, cod, boxes = self.dom, self.cod, self.boxes
+        x, y = self.width, self.height
+        return Drawing(inside, dom, cod, boxes, x, y, _check=_check)
 
     def make_space(self, space, x,
-                   y_min=None, y_max=None, inclusive=True, copy=False):
+                   y_min=None, y_max=None, exclusive=False, copy=False):
         """
         Make some horizontal space after position x
         for all nodes between y_min and y_max (inclusive).
@@ -293,12 +278,15 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/make-space.png
             :align: center
         """
+        if space < 0:
+            raise ValueError
         y_min = 0 if y_min is None else y_min
         y_max = self.height if y_max is None else y_max
-        return self.relabel_nodes(copy=copy, positions={
-            n: p.shift(x=((p.x >= x) * space))
-            for n, p in self.positions.items()
-            if (y_min <= p.y <= y_max if inclusive else y_min < p.y < y_max)})
+        result = self.relabel_nodes(copy=copy, positions={
+            n: p.shift(x=((p.x > x if exclusive else p.x >= x) * space))
+            for n, p in self.positions.items() if y_min <= p.y <= y_max})
+        result.width += space
+        return result
 
     @property
     def is_identity(self):
@@ -332,13 +320,17 @@ class Drawing(Composable, Whiskerable):
         >>> f = Box('f', x, y @ z)
         >>> assert f.to_drawing() == Drawing.from_box(f)
         >>> for ps in f.to_drawing().positions.items(): print(*ps)
-        Node('box', box=f, j=0) Point(x=0.5, y=0.5)
-        Node('dom', i=0, x=x) Point(x=0.5, y=1)
-        Node('box_dom', i=0, j=0, x=x) Point(x=0.5, y=0.75)
-        Node('box_cod', i=0, j=0, x=y) Point(x=0.0, y=0.25)
-        Node('box_cod', i=1, j=0, x=z) Point(x=1.0, y=0.25)
-        Node('cod', i=0, x=y) Point(x=0.0, y=0)
-        Node('cod', i=1, x=z) Point(x=1.0, y=0)
+        Node('box', box=f, j=0) Point(x=1.0, y=0.5)
+        Node('box-corner-00', j=0) Point(x=0.25, y=0.75)
+        Node('box-corner-01', j=0) Point(x=0.25, y=0.25)
+        Node('box-corner-10', j=0) Point(x=1.75, y=0.75)
+        Node('box-corner-11', j=0) Point(x=1.75, y=0.25)
+        Node('dom', i=0, x=x) Point(x=1.0, y=1)
+        Node('box_dom', i=0, j=0, x=x) Point(x=1.0, y=0.75)
+        Node('box_cod', i=0, j=0, x=y) Point(x=0.5, y=0.25)
+        Node('box_cod', i=1, j=0, x=z) Point(x=1.5, y=0.25)
+        Node('cod', i=0, x=y) Point(x=0.5, y=0)
+        Node('cod', i=1, x=z) Point(x=1.5, y=0)
         """
         from discopy.monoidal import Box
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
@@ -495,7 +487,7 @@ class Drawing(Composable, Whiskerable):
         result.height = self.height + other.height
         return steps if draw_step_by_step else result
 
-    def stretch(self, y):
+    def stretch(self, y, copy=True):
         """
         Stretch input and output wires to increase the height of a diagram
         by a given length.
@@ -509,9 +501,11 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/stretch.png
             :align: center
         """
-        return self.relabel_nodes(positions={n: p.shift(y=(
+        result = self.relabel_nodes(copy=copy, positions={n: p.shift(y=(
                 y if n.kind == "dom" else 0 if n.kind == "cod" else y / 2))
             for n, p in self.positions.items()})
+        result.height += y
+        return result
 
     @unbiased
     def tensor(self, other: Drawing) -> Drawing:
@@ -547,7 +541,7 @@ class Drawing(Composable, Whiskerable):
         result = self.union(other.relabel_nodes(mapping, positions={
             n: p.shift(x=x_shift) for n, p in other.positions.items()}),
             dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
-        result.width = self.width + other.width + 1
+        result.width = x_shift + other.width
         return result
 
     def dagger(self) -> Drawing:
@@ -678,12 +672,12 @@ class Drawing(Composable, Whiskerable):
             bot = Drawing.bubble_closing(arg_cod, cod, left, right)
         middle = self if height is None else self.stretch(height - self.height)
         result = top >> left @ middle @ right >> bot
-        result.relabel_nodes(copy=False, positions={
-            n: p.shift(x=-0.5) for n, p in result.positions.items()})
         if width is not None and result.width != width:
+            if result.width > width:
+                raise ValueError
             space = (width - result.width) / 2
-            result.make_space(space, 0.01)
-            result.make_space(space, result.width)
+            result.make_space(space, 1)
+            result.make_space(space, result.width - 1)
         if len(dom) == len(arg_dom):
             dom_nodes, arg_dom_nodes = ([
                     Node(kind, x=x, i=i + off, j=0)
@@ -734,7 +728,7 @@ class Drawing(Composable, Whiskerable):
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
-                width=max([arg.width for arg in args] + [0]) + 2
+                width=max([arg.width for arg in args] + [0]) + 2.5
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
         result = getattr(Drawing.id(), method)(*(arg.bubble(
