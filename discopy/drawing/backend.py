@@ -169,39 +169,14 @@ class Backend(ABC):
         """ Draws a box node on a given backend. """
         box, j = node.box, node.j
         asymmetry = params.get('asymmetry', 0)
-        if not box.dom and not box.cod:
-            left, right = positions[node][0], positions[node][0]
-        elif not box.dom:
-            left, right = (
-                positions[Node("box_cod", x=box.cod[i], i=i, j=j)][0]
-                for i in [0, len(box.cod) - 1])
-        elif not box.cod:
-            left, right = (
-                positions[Node("box_dom", x=box.dom[i], i=i, j=j)][0]
-                for i in [0, len(box.dom) - 1])
-        else:
-            top_left, top_right = (
-                positions[Node("box_dom", x=box.dom[i], i=i, j=j)][0]
-                for i in [0, len(box.dom) - 1])
-            bottom_left, bottom_right = (
-                positions[Node("box_cod", x=box.cod[i], i=i, j=j)][0]
-                for i in [0, len(box.cod) - 1])
-            left = min(top_left, bottom_left)
-            right = max(top_right, bottom_right)
-        height = positions[node][1] - .25
-        left, right = left - .25, right + .25
-
-        # dictionary key is (is_dagger, is_conjugate)
-        points = [[left, height], [right, height],
-                  [right, height + .5], [left, height + .5]]
-        if box.is_transpose:
-            points[0][0] -= asymmetry
-        elif box.is_conjugate:
-            points[3][0] -= asymmetry
-        elif box.is_dagger:
-            points[1][0] += asymmetry
-        else:
-            points[2][0] += asymmetry
+        points = [positions[Node(f"box-corner-{c}", j=j)]
+                  for c in ["00", "01", "11", "10"]]
+        i = (0 if box.is_conjugate else
+             1 if box.is_transpose else
+             2 if box.is_dagger else 3)
+        if box.is_conjugate or box.is_transpose:
+            asymmetry *= -1
+        points[i] = points[i].shift(x=asymmetry)
         self.draw_polygon(*points, color=box.color)
         if params.get('draw_box_labels', True):
             self.draw_text(box.drawing_name, *positions[node],

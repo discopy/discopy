@@ -229,9 +229,7 @@ class Drawing(Composable, Whiskerable):
         """ Add nodes to the graph given their positions. """
         if not positions:
             return
-        self.graph.add_nodes_from({
-            n: dict(box=n.box) if n.kind == "box" else dict(kind=n.kind, i=n.i)
-            for n in positions})
+        self.graph.add_nodes_from(positions)
         self.positions.update(positions)
         self.width = max(self.width, max(i for (i, _) in positions.values()))
         self.height = max(self.height, max(j for (_, j) in positions.values()))
@@ -348,11 +346,15 @@ class Drawing(Composable, Whiskerable):
                 obj.reposition_label = True
 
         if bubble_opening:
-            width = max(1, len(box.dom), len(box.cod[1:-1]))
+            width = max(len(box.dom), len(box.cod) - 2) + 0.5
         elif bubble_closing:
-            width = max(1, len(box.dom[1:-1]), len(box.cod))
+            width = max(len(box.dom) - 2, len(box.cod)) + 0.5
+        elif len(box.dom) <= 1 and len(box.cod) <= 1:
+            width = 1
         else:
-            width = max(1, len(box.dom) - 1, len(box.cod) - 1)
+            width = max(len(box.dom), len(box.cod))
+
+        left, right = 0.25, width - 0.25
 
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(
@@ -376,11 +378,16 @@ class Drawing(Composable, Whiskerable):
                 cod[0]: Point(0, 0), box_cod[0]: Point(0, 0),
                 cod[-1]: Point(width, 0), box_cod[-1]: Point(width, 0)})
             cod, box_cod = cod[1:-1], box_cod[1:-1]
-        if bubble_closing:
+        elif bubble_closing:
             result.add_nodes({
                 dom[0]: Point(0, 1), box_dom[0]: Point(0, 1),
                 dom[-1]: Point(width, 1), box_dom[-1]: Point(width, 1)})
             dom, box_dom = dom[1:-1], box_dom[1:-1]
+        else:
+            result.add_nodes({
+                Node(f"box-corner-{i}{j}", j=0): Point(x, y)
+                for i, x in enumerate([left, right])
+                for j, y in enumerate([0.75, 0.25])})
         result.add_nodes({
             x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
                 (dom, 1),
@@ -439,8 +446,8 @@ class Drawing(Composable, Whiskerable):
         tmp_cod = [Node("tmp_cod", i=i) for i, n in enumerate(self.cod_nodes)]
         tmp_dom = [Node("tmp_dom", i=i) for i, n in enumerate(other.dom_nodes)]
         mapping = {
-            n: n.shift_j(len(self.boxes)) for n in other.box_nodes + (
-                other.box_dom_nodes + other.box_cod_nodes)}
+            n: n.shift_j(len(self.boxes))
+            for n in other.nodes if "box" in n.kind}
         mapping.update(dict(zip(other.dom_nodes, tmp_dom)))
         positions = {
             n: p.shift(y=other.height + 1) for n, p in self.positions.items()}
@@ -510,8 +517,8 @@ class Drawing(Composable, Whiskerable):
         if other.is_empty:
             return self
         mapping = {
-            n: n.shift_j(len(self.boxes)) for n in other.box_nodes + (
-                other.box_dom_nodes + other.box_cod_nodes)}
+            n: n.shift_j(len(self.boxes))
+            for n in other.nodes if "box" in n.kind}
         mapping.update({n: n.shift_i(len(self.dom)) for n in other.dom_nodes})
         mapping.update({n: n.shift_i(len(self.cod)) for n in other.cod_nodes})
         if self.height < other.height:

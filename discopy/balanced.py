@@ -153,6 +153,8 @@ class Twist(Box):
     :class:`Twist` is only defined for atomic types (i.e. of length 1).
     For complex types, use :meth:`Diagram.twist` instead.
     """
+    drawing_name = "Twist"
+
     def __init__(self, dom: monoidal.Ty, is_dagger=False):
         assert_isatomic(dom, monoidal.Ty)
         name = type(self).__name__ + f"({dom})"
