@@ -124,6 +124,15 @@ class Drawing(Composable, Whiskerable):
     edges = property(lambda self: self.graph.edges)
     positions = property(lambda self: self.inside.positions)
 
+    def nodes_of_kind(self, kind):
+        return [node for node in self.nodes if node.kind == kind]
+
+    box_nodes = property(lambda self: self.nodes_of_kind("box"))
+    dom_nodes = property(lambda self: self.nodes_of_kind("dom"))
+    cod_nodes = property(lambda self: self.nodes_of_kind("cod"))
+    box_dom_nodes = property(lambda self: self.nodes_of_kind("box_dom"))
+    box_cod_nodes = property(lambda self: self.nodes_of_kind("box_cod"))
+
     def __init__(
             self, inside, dom, cod, boxes=(), width=0, height=0, _check=True):
         self.inside, self.dom, self.cod = inside, dom, cod
@@ -216,13 +225,13 @@ class Drawing(Composable, Whiskerable):
             self.positions[box_node] = Point(
                 (right + left) / 2, self.positions[box_node].y)
 
-    def union(self, other, dom, cod, _check=True):
+    def union(self, other, dom, cod, width=None, height=None, _check=True):
         """ Take the union of two drawings, assuming nodes are distinct. """
         graph = nx.union(self.inside.graph, other.inside.graph)
         inside = PlaneGraph(graph, self.positions | other.positions)
         boxes = self.boxes + other.boxes
-        width = max(self.width, other.width)
-        height = max(self.height, other.height)
+        width = width or max(self.width, other.width)
+        height = height or max(self.height, other.height)
         return Drawing(inside, dom, cod, boxes, width, height, _check)
 
     def add_nodes(self, positions: dict[Node, Point]):
@@ -388,6 +397,7 @@ class Drawing(Composable, Whiskerable):
                 Node(f"box-corner-{i}{j}", j=0): Point(x, y)
                 for i, x in enumerate([left, right])
                 for j, y in enumerate([0.75, 0.25])})
+
         result.add_nodes({
             x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
                 (dom, 1),
@@ -437,46 +447,56 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/composition.gif
             :align: center
         """
-        assert_iscomposable(self, other)
         if self.is_identity:
             return other
         if other.is_identity:
             return self
         dom, cod = self.dom, other.cod
-        tmp_cod = [Node("tmp_cod", i=i) for i, n in enumerate(self.cod_nodes)]
+
+        edges = list(zip(self.cod_nodes, other.dom_nodes))
+
         tmp_dom = [Node("tmp_dom", i=i) for i, n in enumerate(other.dom_nodes)]
-        mapping = {
+        other_mapping = {
             n: n.shift_j(len(self.boxes))
             for n in other.nodes if "box" in n.kind}
-        mapping.update(dict(zip(other.dom_nodes, tmp_dom)))
+        other_dom_nodes = other.dom_nodes
+        other_mapping.update(dict(zip(other_dom_nodes, tmp_dom)))
+        other = other.relabel_nodes(other_mapping)
+
+        tmp_cod = [Node("tmp_cod", i=i) for i, n in enumerate(self.cod_nodes)]
+        mapping = dict(zip(self.cod_nodes, tmp_cod))
         positions = {
             n: p.shift(y=other.height + 1) for n, p in self.positions.items()}
-        result = self.relabel_nodes(
-            dict(zip(self.cod_nodes, tmp_cod)), positions, _check=False).union(
-                other.relabel_nodes(mapping), dom, cod, _check=False)
-        cut = other.height + 0.5
+        width = max(self.width, other.width)
+        height = self.height + other.height + 1
+        result = self.relabel_nodes(mapping, positions, _check=False).union(
+                other, dom, cod, width, height, _check=False)
+
+        cut, top_width, bot_width = other.height + 0.5, self.width, other.width
         if draw_step_by_step:
             steps = [result.relabel_nodes(copy=True)]
-        for i, (u, v) in enumerate(zip(self.cod_nodes, other.dom_nodes)):
+        for i, (u, v) in enumerate(edges):
             top = result.positions[tmp_cod[i]].x
             bot = result.positions[tmp_dom[i]].x
             if top > bot:
+                bot_width += top - bot
                 result.make_space(top - bot, (i > 0) * bot, 0, cut)
             elif top < bot:
+                top_width += bot - top
                 result.make_space(bot - top, (i > 0) * top, cut, result.height)
             source, = self.graph.predecessors(u)
-            target, = other.graph.successors(v)
-            result.add_edges([(source, mapping.get(target, target))])
+            target, = other.graph.successors(other_mapping[v])
+            result.add_edges([(source, other_mapping.get(target, target))])
             if draw_step_by_step:
                 steps.append(result.relabel_nodes(copy=True))
+
         result.graph.remove_nodes_from(tmp_dom + tmp_cod)
         [result.positions.pop(n) for n in tmp_dom + tmp_cod]
         result = result.relabel_nodes(positions={
             n: p.shift(y=-1)
             for n, p in result.positions.items() if p.y > other.height})
-        if result.height != self.height + other.height - (
-                1 if self.height + other.height > 1 else 0):
-            pass
+        result.width = max(top_width, bot_width)
+        result.height -= 1
         return steps if draw_step_by_step else result
 
     def stretch(self, y):
@@ -716,7 +736,7 @@ class Drawing(Composable, Whiskerable):
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
-                width=max([arg.actual_width for arg in args] + [0]) + 2
+                width=max([arg.width for arg in args] + [0]) + 2
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
         result = getattr(Drawing.id(), method)(*(arg.bubble(
@@ -817,8 +837,3 @@ class Equation:
 
     def __bool__(self):
         return all(term == self.terms[0] for term in self.terms)
-
-
-for kind in ["dom", "cod", "box", "box_dom", "box_cod"]:
-    setattr(Drawing, f"{kind}_nodes", property(lambda self, kind=kind: [
-        node for node in self.nodes if node.kind == kind]))
