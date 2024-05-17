@@ -10,10 +10,12 @@ IGNORE_WARNINGS = [
 
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
+    "height": lambda _: 1,
     "is_conjugate": lambda _: False,
     "is_transpose": lambda _: False,
     "bubble_opening": lambda _: False,
     "bubble_closing": lambda _: False,
+    "frame_boundary": lambda _: False,
     "draw_as_braid": lambda _: False,
     "draw_as_wires": lambda box: any(getattr(box, a) for a in [
         "bubble_opening", "bubble_closing", "draw_as_braid"]),
@@ -37,7 +39,7 @@ DRAWING_ATTRIBUTES = {
 # Default drawing parameters.
 DRAWING_DEFAULT = {
     "fontsize": 12,
-    "margins": (.05, .1),
+    "margins": (0, 0),
     "textpad": (.1, .1),
     "color": 'white',
     "use_tikzstyles": False,

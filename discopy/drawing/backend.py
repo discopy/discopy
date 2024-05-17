@@ -99,9 +99,9 @@ class Backend(ABC):
     def output(self, path=None, show=True, **params):
         """ Output the drawing. """
 
-    def draw_boundary(self, graph, **params):
+    def draw_boundary(self, graph, boundary_color="white", **params):
         x, y = graph.width, graph.height
-        self.draw_polygon((0, 0), (x, 0), (x, y), (0, y))
+        self.draw_polygon((0, 0), (x, 0), (x, y), (0, y), color=boundary_color)
 
     def draw_wires(self, graph, **params):
         for source, target in graph.edges():

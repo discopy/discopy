@@ -139,9 +139,9 @@ class NamedGeneric(Generic[TypeVar('T')]):
 
     >>> from dataclasses import dataclass
     >>> @dataclass
-    ... class L(NamedGeneric["type_param"]):
+    ... class L(NamedGeneric["dtype"]):
     ...     inside: list
-    >>> assert L[int]([1, 2, 3]).type_param == int
+    >>> assert L[int]([1, 2, 3]).dtype == int
     >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
     """
     _cache = dict()

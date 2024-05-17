@@ -537,10 +537,9 @@ class Diagram(cat.Arrow, Whiskerable):
         ...     middle, right = cap(offset=1)
         ...     cup(left, middle)
         ...     return right
-        >>> snake.draw(
-        ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
+        >>> snake.draw(path='docs/_static/monoidal/diagramize.png')
 
-        .. image:: /_static/drawing/diagramize.png
+        .. image:: /_static/monoidal/diagramize.png
             :align: center
         """
         def decorator(func):
@@ -570,7 +569,6 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
-        ...     figsize=(2, 2),
         ...     path='docs/_static/monoidal/tensor-example.png')
 
         .. image:: /_static/monoidal/tensor-example.png
@@ -626,8 +624,7 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> assert dom == x @ z
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
-        >>> diagram.draw(figsize=(2, 2),
-        ...        path='docs/_static/monoidal/arrow-example.png')
+        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.png')
 
         .. image:: /_static/monoidal/arrow-example.png
             :align: center
@@ -1077,7 +1074,7 @@ class Functor(cat.Functor):
 
     >>> from discopy.drawing import Equation
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
-    ...     figsize=(4, 2), path='docs/_static/monoidal/functor-example.png')
+    ...     path='docs/_static/monoidal/functor-example.png')
 
     .. image:: /_static/monoidal/functor-example.png
         :align: center

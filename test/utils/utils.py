@@ -55,18 +55,18 @@ def test_named_generic_cache():
 
 
 
-@pytest.mark.parametrize('fn', listdir('test/src/pickles/main/'))
+@pytest.mark.parametrize('fn', listdir('test/utils/pickles/main/'))
 def test_pickle_version_compatibility(fn):
-    with open(f"test/src/pickles/main/{fn}", 'rb') as f:
+    with open(f"test/utils/pickles/main/{fn}", 'rb') as f:
         new = pickle.load(f)
-    with open(f"test/src/pickles/0.6/{fn}", 'rb') as f:
+    with open(f"test/utils/pickles/0.6/{fn}", 'rb') as f:
         old = pickle.load(f)
     assert old == new
 
 
-@pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/src/pickles/src"])])
+@pytest.mark.parametrize('pkg', [module for _, module, _ in pkgutil.iter_modules(["test/utils/pickles/src"])])
 def test_pickle_unpickle(pkg):
-    sys.path.append('test/src/pickles/src')
+    sys.path.append('test/utils/pickles/src')
     impmodule = __import__(pkg)
     exp = impmodule.pick
     act = pickle.loads(pickle.dumps(impmodule.pick))

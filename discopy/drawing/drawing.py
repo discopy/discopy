@@ -198,30 +198,30 @@ class Drawing(Composable, Whiskerable):
         return self.is_parallel(other) and self.positions == other.positions
 
     def draw(self, **params):
-        """ Call :meth:`recenter_box_nodes` then :func:`backend.draw`. """
+        """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.25 * any(
-            box.is_dagger
-            or getattr(box, "is_conjugate", False)
-            or getattr(box, "is_transpose", False)
+            box.is_dagger or box.is_conjugate or box.is_transpose
             for box in self.boxes))
-        self.recenter_box_nodes()
+        self.add_box_corners()
         return backend.draw(self, asymmetry=asymmetry, **params)
 
-    def recenter_box_nodes(self):
-        """ Recenter boxes in the middle of their input and output wires. """
+    def add_box_corners(self):
+        """ Recenter boxes w.r.t their wires then draw the corners. """
         for j, box in enumerate(self.boxes):
-            if not box.dom and not box.cod:
-                continue
-            if box.draw_as_wires or box.draw_as_spider:
-                if len(box.dom) == 1 or len(box.cod) == 1:
-                    continue
+            box_node = Node("box", j=j, box=box)
+            box_x, box_y = self.positions[box_node]
             box_dom_nodes, box_cod_nodes = ([
                     Node(kind, i=i, j=j, x=x) for i, x in enumerate(xs)]
                 for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
-            left, right = (minmax(
-                    self.positions[n].x for n in box_dom_nodes + box_cod_nodes)
-                for minmax in (min, max))
-            box_node = Node("box", j=j, box=box)
+            xs = [self.positions[n].x for n in box_dom_nodes + box_cod_nodes]
+            left, right = min(xs + [box_x]) - 0.25, max(xs + [box_x]) + 0.25
+            self.add_nodes({
+                Node(f"box-corner-{a}{b}", j=j): Point(x, box_y + y)
+                for a, x in enumerate([left, right])
+                for b, y in enumerate([-0.25, 0.25])})
+            if box.draw_as_wires or box.draw_as_spider:
+                if len(box.dom) == 1 or len(box.cod) == 1:
+                    continue
             self.positions[box_node] = Point(
                 (right + left) / 2, self.positions[box_node].y)
 
@@ -288,6 +288,34 @@ class Drawing(Composable, Whiskerable):
         result.width += space
         return result
 
+    def reposition_dom_nodes(self):
+        """ Recenter dom nodes, used when drawing frames. """
+        box_dom = self.boxes[0].dom
+        xs = [self.positions[n].x for n in self.nodes
+              if n.kind == "box_cod" and n.j == 0]
+        box_x = self.positions[self.box_nodes[0]].x
+        left, right = min(xs + [box_x]), max(xs + [box_x])
+        for i, x in enumerate(box_dom):
+            target = Node("box_dom", i=i, j=0, x=x)
+            source, = self.graph.predecessors(target)
+            for n in (source, target):
+                x = (right + left - len(box_dom) + 1) / 2 + i
+                self.positions[n] = Point(x, self.positions[n].y)
+
+    def reposition_cod_nodes(self):
+        """ Recenter cod nodes to recover legacy behaviour for layers. """
+        box_cod = self.boxes[-1].cod
+        xs = [self.positions[n].x for n in self.nodes
+              if n.kind == "box_dom" and n.j == len(self.boxes) - 1]
+        box_x = self.positions[self.box_nodes[-1]].x
+        left, right = min(xs + [box_x]), max(xs + [box_x])
+        for i, x in enumerate(box_cod):
+            source = Node("box_cod", i=i, j=len(self.boxes) - 1, x=x)
+            target, = self.graph.successors(source)
+            for n in (source, target):
+                x = (right + left - len(box_cod) + 1) / 2 + i
+                self.positions[n] = Point(x, self.positions[n].y)
+
     @property
     def is_identity(self):
         """ A drawing with no boxes is the identity. """
@@ -304,9 +332,14 @@ class Drawing(Composable, Whiskerable):
         return len(self.boxes) == 1 and self.is_parallel(self.boxes[0])
 
     @property
+    def is_layer(self):
+        """ Whether the drawing is just one box with wires on both sides. """
+        return len(self.boxes) == 1
+
+    @property
     def box(self):
         """ Syntactic sugar for self.boxes[0] when self.is_box """
-        if not self.is_box:
+        if not self.is_layer:
             raise ValueError
         return self.boxes[0]
 
@@ -321,16 +354,16 @@ class Drawing(Composable, Whiskerable):
         >>> assert f.to_drawing() == Drawing.from_box(f)
         >>> for ps in f.to_drawing().positions.items(): print(*ps)
         Node('box', box=f, j=0) Point(x=1.0, y=0.5)
-        Node('box-corner-00', j=0) Point(x=0.25, y=0.75)
-        Node('box-corner-01', j=0) Point(x=0.25, y=0.25)
-        Node('box-corner-10', j=0) Point(x=1.75, y=0.75)
-        Node('box-corner-11', j=0) Point(x=1.75, y=0.25)
         Node('dom', i=0, x=x) Point(x=1.0, y=1)
         Node('box_dom', i=0, j=0, x=x) Point(x=1.0, y=0.75)
         Node('box_cod', i=0, j=0, x=y) Point(x=0.5, y=0.25)
         Node('box_cod', i=1, j=0, x=z) Point(x=1.5, y=0.25)
         Node('cod', i=0, x=y) Point(x=0.5, y=0)
         Node('cod', i=1, x=z) Point(x=1.5, y=0)
+        >>> f.draw(path="docs/_static/drawing/box.png")
+
+        .. image:: /_static/drawing/box.png
+            :align: center
         """
         from discopy.monoidal import Box
         box_dom, box_cod = box.dom.to_drawing(), box.cod.to_drawing()
@@ -340,29 +373,30 @@ class Drawing(Composable, Whiskerable):
         for attr, default in DRAWING_ATTRIBUTES.items():
             setattr(box, attr, getattr(old_box, attr, default(box)))
 
-        bubble_opening, bubble_closing = box.bubble_opening, box.bubble_closing
+        if box.draw_as_wires and not box.frame_boundary:
+            for i, obj in enumerate(box.cod.inside):
+                obj.reposition_label = 0.5 if (
+                    box.bubble_closing or box.bubble_opening and i) else 0.25
 
-        if box.draw_as_wires and not (bubble_opening or bubble_closing):
-            for obj in box.cod.inside:
-                obj.reposition_label = True
-
-        if bubble_opening:
+        if box.bubble_opening:
             width = max(len(box.dom), len(box.cod) - 2) + 0.5
-        elif bubble_closing:
+        elif box.bubble_closing:
             width = max(len(box.dom) - 2, len(box.cod)) + 0.5
         elif len(box.dom) <= 1 and len(box.cod) <= 1:
             width = 1
         else:
             width = max(len(box.dom), len(box.cod))
 
+        height = box.height
+
         left, right = 0.25, width - 0.25
 
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(
-            inside, box.dom, box.cod, (box, ), width, 1, _check=False)
+            inside, box.dom, box.cod, (box, ), width, height, _check=False)
 
         box_node = Node("box", box=box, j=0)
-        result.add_nodes({box_node: Point(width / 2, 0.5)})
+        result.add_nodes({box_node: Point(width / 2, height / 2)})
 
         dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom)]
         cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod)]
@@ -374,26 +408,25 @@ class Drawing(Composable, Whiskerable):
         result.add_edges([(box_node, x) for x in box_cod])
         result.add_edges(list(zip(box_cod, cod)))
 
-        if bubble_opening:
+        if box.bubble_opening:
             result.add_nodes({
-                cod[0]: Point(0, 0), box_cod[0]: Point(0, 0),
-                cod[-1]: Point(width, 0), box_cod[-1]: Point(width, 0)})
+                cod[0]: Point(left, 0),
+                box_cod[0]: Point(left, 0),
+                box_cod[-1]: Point(right, 0),
+                cod[-1]: Point(right, 0)})
             cod, box_cod = cod[1:-1], box_cod[1:-1]
-        elif bubble_closing:
+        elif box.bubble_closing:
             result.add_nodes({
-                dom[0]: Point(0, 1), box_dom[0]: Point(0, 1),
-                dom[-1]: Point(width, 1), box_dom[-1]: Point(width, 1)})
+                dom[0]: Point(left, height),
+                box_dom[0]: Point(left, height),
+                box_dom[-1]: Point(right, height),
+                dom[-1]: Point(right, height)})
             dom, box_dom = dom[1:-1], box_dom[1:-1]
-        else:
-            result.add_nodes({
-                Node(f"box-corner-{i}{j}", j=0): Point(x, y)
-                for i, x in enumerate([left, right])
-                for j, y in enumerate([0.75, 0.25])})
 
         result.add_nodes({
             x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
-                (dom, 1),
-                (box_dom, 1 if box.draw_as_wires else 0.75),
+                (dom, height),
+                (box_dom, height if box.draw_as_wires else height - 0.25),
                 (box_cod, 0 if box.draw_as_wires else 0.25),
                 (cod, 0)]
             for i, x in enumerate(xs)})
@@ -401,18 +434,36 @@ class Drawing(Composable, Whiskerable):
 
     @staticmethod
     def id(dom: "monoidal.Ty" = None, length=0) -> Drawing:
-        """ Draw the identity diagram. """
+        """
+        Draw the identity diagram.
+
+        >>> from discopy.monoidal import Ty
+        >>> Drawing.id(Ty()).draw(path="docs/_static/drawing/empty.png")
+
+        .. image:: /_static/drawing/empty.png
+            :align: center
+
+        >>> Drawing.id(Ty('x')).draw(path="docs/_static/drawing/idx.png")
+
+        .. image:: /_static/drawing/idx.png
+            :align: center
+
+        >>> Drawing.id(Ty('x', 'y')).draw(path="docs/_static/drawing/idxy.png")
+
+        .. image:: /_static/drawing/idxy.png
+            :align: center
+        """
         from discopy.monoidal import Ty
         dom = Ty() if dom is None else dom
         inside = PlaneGraph(nx.DiGraph(), dict())
-        result = Drawing(inside, dom, dom, width=len(dom), _check=False)
+        height, width = 0.5, len(dom) - 0.5 if len(dom) > 1 else 0.5
+        result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
         cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom)]
-        offset = 0 if len(dom) > 1 else 0.5
         result.add_nodes({
-            x: Point(i + offset, 1) for i, x in enumerate(dom_nodes)})
+            x: Point(i + 0.25, 1) for i, x in enumerate(dom_nodes)})
         result.add_nodes({
-            x: Point(i + offset, 0) for i, x in enumerate(cod_nodes)})
+            x: Point(i + 0.25, 0) for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
         return result
 
@@ -430,15 +481,20 @@ class Drawing(Composable, Whiskerable):
         >>> x = Ty('x')
         >>> f = Drawing.from_box(Box('f', x, x @ x @ x))
         >>> g = Drawing.from_box(Box('g', x @ x, x))
-        >>> top, bottom = g @ f, g @ f @ f
+        >>> u = Drawing.from_box(Box('u', Ty(), x ** 3))
+        >>> v = Drawing.from_box(Box('v', x ** 7, Ty()))
+
+        >>> top, bottom = u >> g @ f, g @ f @ f >> v
         >>> Diagram.to_gif(
         ...     *top.then(bottom, draw_step_by_step=True), loop=True,
+        ...     draw_type_labels=False, draw_box_labels=False,
         ...     path="docs/_static/drawing/composition.gif")
         <IPython.core.display.HTML object>
 
         .. image:: /_static/drawing/composition.gif
             :align: center
         """
+        assert_iscomposable(self, other)
         if self.is_identity:
             return other
         if other.is_identity:
@@ -483,8 +539,13 @@ class Drawing(Composable, Whiskerable):
         result.relabel_nodes(copy=False, positions={
             n: p.shift(y=-1)
             for n, p in result.positions.items() if p.y > other.height})
-        result.width = max(top_width, bot_width)
         result.height = self.height + other.height
+        result.width = max(top_width, bot_width)
+        if draw_step_by_step:
+            for step in steps:
+                step.width = result.width
+        if other.is_layer and not other.box.draw_as_wires:
+            result.reposition_cod_nodes()  # Recover legacy behaviour.
         return steps if draw_step_by_step else result
 
     def stretch(self, y, copy=True):
@@ -535,13 +596,10 @@ class Drawing(Composable, Whiskerable):
             self = self.stretch(other.height - self.height)
         elif self.height > other.height:
             other = other.stretch(self.height - other.height)
-        x_shift = max(
-                [p.x + 1 for p in self.positions.values()] + [0]
-            ) - min([p.x for p in other.positions.values()] + [0.5])
         result = self.union(other.relabel_nodes(mapping, positions={
-            n: p.shift(x=x_shift) for n, p in other.positions.items()}),
+            n: p.shift(x=self.width) for n, p in other.positions.items()}),
             dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
-        result.width = x_shift + other.width
+        result.width = self.width + other.width
         return result
 
     def dagger(self) -> Drawing:
@@ -575,9 +633,9 @@ class Drawing(Composable, Whiskerable):
         return Drawing(inside, dom, cod, boxes, self.width, self.height)
 
     @staticmethod
-    def bubble_opening(dom, arg_dom, left, right):
+    def bubble_opening(dom, arg_dom, left, right, frame_boundary=False):
         """
-        Construct the opening of a bubble as a box drawn as wires.
+        Construct the opening of a bubble, i.e. a box drawn as wires.
 
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
@@ -588,21 +646,34 @@ class Drawing(Composable, Whiskerable):
             :align: center
         """
         from discopy.monoidal import Box
-        return Drawing.from_box(
-            Box("top", dom, left @ arg_dom @ right, bubble_opening=True))
+        return Box(
+            "top", dom, left @ arg_dom @ right,
+            bubble_opening=True, frame_boundary=frame_boundary,
+            height=(0.5 if frame_boundary else 1)).to_drawing()
 
     @staticmethod
-    def bubble_closing(arg_cod, cod, left, right):
-        """ Construct the closing of a bubble as a drawing with one box. """
+    def bubble_closing(arg_cod, cod, left, right, frame_boundary=False):
+        """
+        Construct the closing of a bubble, i.e. a box drawn as wires.
+
+        >>> from discopy.monoidal import Ty
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Drawing.bubble_closing(x, y, z, Ty("")).draw(
+        ...     path="docs/_static/drawing/bubble-closing.png")
+
+        .. image:: /_static/drawing/bubble-closing.png
+            :align: center
+        """
         from discopy.monoidal import Box
-        return Drawing.from_box(
-            Box("bot", left @ arg_cod @ right, cod, bubble_closing=True))
+        return Box("bot", left @ arg_cod @ right, cod,
+            bubble_closing=True, frame_boundary=frame_boundary,
+            height=(0.5 if frame_boundary else 1)).to_drawing()
 
     @staticmethod
     def frame_opening(dom, arg_dom, left, right):
         """
         Construct the opening of a frame as the opening of a bubble squashed to
-        zero height so that it looks like half of a rectangle.
+        zero height so that it looks like the upper half of a rectangle.
 
         >>> from discopy.monoidal import Ty
         >>> x, y, z = map(Ty, "xyz")
@@ -612,11 +683,12 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/frame-opening.png
             :align: center
         """
-        result = Drawing.bubble_opening(dom, arg_dom, left, right)
+        result = Drawing.bubble_opening(
+            dom, arg_dom, left, right, frame_boundary=True)
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-.5) for n in result.box_dom_nodes})
+            n: result.positions[n].shift(y=-0.25) for n in result.box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=.5) for n in result.box_cod_nodes})
+            n: result.positions[n].shift(y=0.25) for n in result.box_cod_nodes})
         arg_cod_nodes = result.box_cod_nodes[1:-1]
         result.graph.remove_edges_from([
             (u, v) for u in result.box_dom_nodes for v in result.box_nodes] + [
@@ -625,12 +697,24 @@ class Drawing(Composable, Whiskerable):
 
     @staticmethod
     def frame_closing(arg_cod, cod, left, right):
-        """ Closing of a frame, see :meth:`frame_opening`. """
-        result = Drawing.bubble_closing(arg_cod, cod, left, right)
+        """
+        Construct the closing of a frame as the closing of a bubble squashed to
+        zero height so that it looks like the lower half of a rectangle.
+
+        >>> from discopy.monoidal import Ty
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Drawing.frame_closing(x, y, z, Ty("")).draw(
+        ...     path="docs/_static/drawing/frame-closing.png")
+
+        .. image:: /_static/drawing/frame-closing.png
+            :align: center
+        """
+        result = Drawing.bubble_closing(
+            arg_cod, cod, left, right, frame_boundary=True)
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-.5) for n in result.box_dom_nodes})
+            n: result.positions[n].shift(y=-0.25) for n in result.box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=.5) for n in result.box_cod_nodes})
+            n: result.positions[n].shift(y=0.25) for n in result.box_cod_nodes})
         arg_dom_nodes = result.box_dom_nodes[1:-1]
         result.graph.remove_edges_from([
             (u, v) for u in arg_dom_nodes for v in result.box_nodes] + [
@@ -676,8 +760,8 @@ class Drawing(Composable, Whiskerable):
             if result.width > width:
                 raise ValueError
             space = (width - result.width) / 2
-            result.make_space(space, 1)
-            result.make_space(space, result.width - 1)
+            result.make_space(space, 0.25, exclusive=True)
+            result.make_space(space, result.width - 0.25)
         if len(dom) == len(arg_dom):
             dom_nodes, arg_dom_nodes = ([
                     Node(kind, x=x, i=i + off, j=0)
@@ -728,26 +812,14 @@ class Drawing(Composable, Whiskerable):
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
-                width=max([arg.width for arg in args] + [0]) + 2.5
+                width=max([arg.width for arg in args] + [0]) + 1
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
         result = getattr(Drawing.id(), method)(*(arg.bubble(
             Ty(), Ty(), draw_as_square=True, **params)
             for arg in args)).bubble(dom, cod, name, draw_as_square=True)
-        for i, source in enumerate(result.dom_nodes):
-            target, = result.graph.successors(source)
-            for n in (source, target):
-                x = i + (result.width - len(result.dom) + 1) / 2
-                result.positions[n] = Point(x, result.positions[n].y)
-        for i, target in enumerate(result.cod_nodes):
-            source, = result.graph.predecessors(target)
-            for n in (source, target):
-                x = i + (result.width - len(result.cod) + 1) / 2
-                result.positions[n] = Point(x, result.positions[n].y)
-        result.relabel_nodes(copy=False, positions={
-            n: p.shift(y=0.5)
-            for n in result.nodes for p in [result.positions[n]]
-            if n.kind == "dom" or "box" in n.kind and n.j == 0})
+        result.reposition_dom_nodes()
+        result.reposition_cod_nodes()
         return result
 
     def zero(dom, cod):
@@ -796,7 +868,7 @@ class Equation:
     ...     mu >> delta,
     ...     Id(dim) @ delta >> mu @ Id(dim))
     >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', draw_type_labels=False, figsize=(8, 2),
+    ...          aspect='equal', draw_type_labels=False,
     ...          path='docs/_static/drawing/frobenius-axioms.png')
 
     .. image:: /_static/drawing/frobenius-axioms.png

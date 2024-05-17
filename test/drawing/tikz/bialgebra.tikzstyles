@@ -3,3 +3,4 @@
 \tikzstyle{Z}=[fill={rgb,255: red,216; green,248; blue,216}]
 \tikzstyle{symbol}=[fill={rgb,255: red,255; green,255; blue,255}]
 % Edge styles
+\tikzstyle{box}=[-, fill={rgb,255: red,255; green,255; blue,255}]
