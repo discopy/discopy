@@ -30,7 +30,7 @@ DRAWING_ATTRIBUTES = {
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:
-        "red" if getattr(box, "draw_as_spider", False) else "white",
+        "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol"),
@@ -41,7 +41,8 @@ DRAWING_DEFAULT = {
     "fontsize": 12,
     "margins": (0, 0),
     "textpad": (2**-4, 2**-4),
-    "color": 'white',
+    "facecolor": "white",
+    "edgecolor": "black",
     "use_tikzstyles": False,
     "braid_shadow": (.3, .1)
 }

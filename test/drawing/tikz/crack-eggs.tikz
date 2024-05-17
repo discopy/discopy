@@ -48,8 +48,8 @@
 \node [] (45) at (3.75, 3.75) {};
 \node [] (46) at (3.75, 3.25) {};
 \node [style=none, fill=white] (47) at (3.0, 3.5) {crack};
-\node [circle, fill=red, scale=0.447] (48) at (1.0, 1.5) {merge};
-\node [circle, fill=red, scale=0.447] (48) at (3.0, 0.5) {merge};
+\node [circle, fill=black, scale=0.447] (48) at (1.0, 1.5) {merge};
+\node [circle, fill=black, scale=0.447] (48) at (3.0, 0.5) {merge};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [-, fill={white}] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);

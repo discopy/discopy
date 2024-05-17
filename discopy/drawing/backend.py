@@ -78,7 +78,7 @@ class Backend(ABC):
         """ Draws a node for a given position, color and shape. """
         self.max_width = max(self.max_width, i)
 
-    def draw_polygon(self, *points, color=DEFAULT["color"]):
+    def draw_polygon(self, *points, facecolor=None, edgecolor=None):
         """ Draws a polygon given a list of points. """
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
@@ -101,7 +101,7 @@ class Backend(ABC):
 
     def draw_boundary(self, graph, boundary_color="white", **params):
         x, y = graph.width, graph.height
-        self.draw_polygon((0, 0), (x, 0), (x, y), (0, y), color=boundary_color)
+        self.draw_polygon((0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
 
     def draw_wires(self, graph, **params):
         for source, target in graph.edges():
@@ -181,7 +181,7 @@ class Backend(ABC):
         if box.is_conjugate or box.is_transpose:
             asymmetry *= -1
         points[i] = points[i].shift(x=asymmetry)
-        self.draw_polygon(*points, color=box.color)
+        self.draw_polygon(*points, facecolor=box.color)
         if params.get('draw_box_labels', True):
             self.draw_text(box.drawing_name, *positions[node],
                            ha='center', va='center',
@@ -223,7 +223,7 @@ class Backend(ABC):
             top = middle[0], middle[1] + .5
             bottom = middle[0], middle[1] - .5
             self.draw_polygon(
-                left, right, bottom if is_bra else top, color=box.color)
+                left, right, bottom if is_bra else top, facecolor=box.color)
             self.draw_text(
                 bit, middle[0], middle[1] + (-.25 if is_bra else .2),
                 ha='center', va='center',
@@ -366,24 +366,26 @@ class TikZ(Backend):
         self.add_node(i, j, text, options)
         super().draw_text(text, i, j, **params)
 
-    def draw_polygon(self, *points, color=DEFAULT["color"]):
+    def draw_polygon(
+            self, *points,
+            facecolor=DEFAULT["facecolor"], edgecolor=DEFAULT["edgecolor"]):
         nodes = []
         for point in points:
             nodes.append(self.add_node(*point))
         nodes.append(nodes[0])
         if self.use_tikzstyles:
-            style_name = "box" if color == DEFAULT["color"]\
-                else f"{color}_box"
+            style_name = "box" if facecolor == DEFAULT["facecolor"]\
+                else f"{facecolor}_box"
             style = f"\\tikzstyle{{{style_name}}}=" \
-                    f"[-, fill={self.format_color(color)}]\n"
+                    f"[-, fill={self.format_color(facecolor)}]\n"
             if style not in self.edge_styles:
                 self.edge_styles.append(style)
             options = f"style={style_name}"
         else:
-            options = f"-, fill={{{color}}}"
+            options = f"-, fill={{{facecolor}}}"
         str_connections = " to ".join(f"({node}.center)" for node in nodes)
         self.edgelayer.append(f"\\draw [{options}] {str_connections};\n")
-        super().draw_polygon(*points, color=color)
+        super().draw_polygon(*points)
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None):
@@ -485,13 +487,20 @@ class Matplotlib(Backend):
             edgecolors=params.get("edgecolor", None))
         super().draw_node(i, j, **params)
 
-    def draw_polygon(self, *points, color=DEFAULT["color"]):
+    def draw_polygon(
+            self,
+            *points,
+            facecolor=DEFAULT["facecolor"],
+            edgecolor=DEFAULT["edgecolor"]):
         codes = [Path.MOVETO]
         codes += len(points[1:]) * [Path.LINETO] + [Path.CLOSEPOLY]
         path = Path(points + points[:1], codes)
         self.axis.add_patch(PathPatch(
-            path, facecolor=COLORS[color], linewidth=self.linewidth))
-        super().draw_polygon(*points, color=color)
+            path,
+            linewidth=self.linewidth,
+            facecolor=COLORS[facecolor],
+            edgecolor=COLORS[edgecolor]))
+        super().draw_polygon(*points)
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None):
