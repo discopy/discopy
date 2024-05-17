@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import PathPatch
 from matplotlib.path import Path
 
-from discopy.drawing import Node
+from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
     DRAWING_ATTRIBUTES as ATTRIBUTES,
@@ -147,7 +147,6 @@ class Backend(ABC):
                 if hasattr(source.x.inside[0], "reposition_label"):
                     j += 0.25  # The label of e.g. cups, caps and swaps.
                 pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
-                pad_j = 0 if source.kind == "dom" else pad_j
                 self.draw_text(
                     str(source.x.inside[0]), i + pad_i, j - pad_j,
                     fontsize=params.get('fontsize_types',
@@ -245,11 +244,12 @@ class Backend(ABC):
         # TODO select x properly for classical gates
         c_dom = Node("box_dom", x=box.dom[0], i=index[1], j=j)
         c_cod = Node("box_cod", x=box.cod[0], i=index[1], j=j)
-        c_middle = (
+        c_middle = Point(
             positions[c_dom][0],
             (positions[c_dom][1] + positions[c_cod][1]) / 2)
-        target = (positions[c_dom][0] + (c_size - 1) / 2,
-                  (positions[c_dom][1] + positions[c_cod][1]) / 2)
+        target = Point(
+            positions[c_dom][0] + (c_size - 1) / 2,
+            (positions[c_dom][1] + positions[c_cod][1]) / 2)
         target_boundary = target
         if controlled_box.name == "X":  # CX gets drawn as a circled plus sign.
             self.draw_wire(positions[c_dom], positions[c_cod])
@@ -263,7 +263,11 @@ class Backend(ABC):
                 *target, shape="plus",
                 nodesize=2 * params.get("nodesize", 1))
         else:
-            fake_positions = {controlled: target}
+            fake_positions = {controlled: target} | {
+                Node(f"box-corner-{a}{b}", j=j): target.shift(x=x, y=y)
+                for a, x in enumerate([-0.25, 0.25])
+                for b, y in enumerate([-0.25, 0.25])}
+
             for i in range(c_size):
                 dom_node = Node("box_dom", x=box.dom[i], i=i, j=j)
                 x, y = positions[c_dom][0] + i, positions[c_dom][1]

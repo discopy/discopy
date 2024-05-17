@@ -4,7 +4,7 @@ import os
 from PIL import Image
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 
-from discopy.utils import Node
+from discopy.utils import Node, Point
 from discopy.drawing import backend, drawing
 from discopy.drawing.backend import (
     Backend,

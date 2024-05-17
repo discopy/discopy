@@ -40,7 +40,7 @@ DRAWING_ATTRIBUTES = {
 DRAWING_DEFAULT = {
     "fontsize": 12,
     "margins": (0, 0),
-    "textpad": (.1, .1),
+    "textpad": (2**-4, 2**-4),
     "color": 'white',
     "use_tikzstyles": False,
     "braid_shadow": (.3, .1)

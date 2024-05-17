@@ -60,22 +60,13 @@ from dataclasses import dataclass
 
 import networkx as nx
 
-from discopy.drawing import backend, Node
+from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
     Composable, Whiskerable, assert_isinstance, assert_iscomposable, unbiased)
 
 if TYPE_CHECKING:
     from discopy import monoidal
-
-
-class Point(NamedTuple):
-    """ A point is a pair of floats for the x and y coordinates. """
-    x: float
-    y: float
-
-    def shift(self, x=0, y=0):
-        return Point(self.x + x, self.y + y)
 
 
 class PlaneGraph(NamedTuple):

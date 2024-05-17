@@ -18,6 +18,7 @@ from typing import (
     Collection,
     Type,
     Optional,
+    NamedTuple,
     TYPE_CHECKING,
 )
 
@@ -484,7 +485,7 @@ def draw_and_compare(file, folder, tol, **params):
             diagram = func()
             draw = params.get('draw', type(diagram).draw)
             true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '.' + file)
+            test_path = os.path.join(folder, '_' + file)
             draw(diagram, path=test_path, show=False, **params)
             test = compare_images(true_path, test_path, tol)
             assert test is None
@@ -500,7 +501,7 @@ def tikz_and_compare(file, folder, **params):
             diagram = func()
             draw = params.get('draw', type(diagram).draw)
             true_paths = [os.path.join(folder, file)]
-            test_paths = [os.path.join(folder, '.' + file)]
+            test_paths = [os.path.join(folder, '_' + file)]
             if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
                 true_paths.append(
                     true_paths[0].replace('.tikz', '.tikzstyles'))
@@ -761,3 +762,12 @@ class Node:
 
     def shift_j(self, j):
         return Node(self.kind, **dict(self.data, j=self.j + j))
+
+
+class Point(NamedTuple):
+    """ A point is a pair of floats for the x and y coordinates. """
+    x: float
+    y: float
+
+    def shift(self, x=0, y=0):
+        return Point(self.x + x, self.y + y)
