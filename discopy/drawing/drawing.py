@@ -190,7 +190,7 @@ class Drawing(Composable, Whiskerable):
 
     def draw(self, **params):
         """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
-        asymmetry = params.pop("asymmetry", 0.25 * any(
+        asymmetry = params.pop("asymmetry", 0.125 * any(
             box.is_dagger or box.is_conjugate or box.is_transpose
             for box in self.boxes))
         self.add_box_corners()
@@ -279,33 +279,52 @@ class Drawing(Composable, Whiskerable):
         result.width += space
         return result
 
-    def reposition_dom_nodes(self):
+    def reposition_box_dom(self, j=0):
         """ Recenter dom nodes, used when drawing frames. """
-        box_dom = self.boxes[0].dom
+        box_dom = self.boxes[j].dom
         xs = [self.positions[n].x for n in self.nodes
-              if n.kind == "box_cod" and n.j == 0]
-        box_x = self.positions[self.box_nodes[0]].x
+              if n.kind == "box_cod" and n.j == j]
+        box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
         for i, x in enumerate(box_dom):
-            target = Node("box_dom", i=i, j=0, x=x)
+            target = Node("box_dom", i=i, j=j, x=x)
             source, = self.graph.predecessors(target)
             for n in (source, target):
                 x = (right + left - len(box_dom) + 1) / 2 + i
                 self.positions[n] = Point(x, self.positions[n].y)
 
-    def reposition_cod_nodes(self):
+    def reposition_box_cod(self, j=-1):
         """ Recenter cod nodes to recover legacy behaviour for layers. """
-        box_cod = self.boxes[-1].cod
+        j = j if j > 0 else len(self.boxes) + j
+        box = self.boxes[j]
+        if box.bubble_closing and len(box.dom[1:-1]) == len(box.cod):
+            return  # Otherwise the wires would bend when coming out.
         xs = [self.positions[n].x for n in self.nodes
-              if n.kind == "box_dom" and n.j == len(self.boxes) - 1]
-        box_x = self.positions[self.box_nodes[-1]].x
+            if n.kind == "box_dom" and n.j == j]
+        box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
-        for i, x in enumerate(box_cod):
-            source = Node("box_cod", i=i, j=len(self.boxes) - 1, x=x)
+        for i, x in enumerate(box.cod):
+            source = Node("box_cod", i=i, j=j, x=x)
             target, = self.graph.successors(source)
+            if target.kind != "cod":
+                return  # Otherwise we would have to reposition everything.
             for n in (source, target):
-                x = (right + left - len(box_cod) + 1) / 2 + i
+                x = (right + left - len(box.cod) + 1) / 2 + i
                 self.positions[n] = Point(x, self.positions[n].y)
+
+    def align_box_cod(self, j=-1):
+        """ Align outputs with inputs when they have equal number of wires. """
+        j = j if j > 0 else len(self.boxes) + j
+        box = self.boxes[j]
+        for i, (x_dom, x_cod) in enumerate(zip(box.dom, box.cod)):
+            dom_node = Node("box_dom", i=i, j=j, x=x_dom)
+            cod_node = Node("box_cod", i=i, j=j, x=x_cod)
+            target, = self.graph.successors(cod_node)
+            if target.kind != "cod":
+                return  # Otherwise we would have to reposition everything.
+            x, _ = self.positions[dom_node]
+            _, y = self.positions[cod_node]
+            self.positions[cod_node] = Point(x, y)
 
     @property
     def is_identity(self):
@@ -532,11 +551,14 @@ class Drawing(Composable, Whiskerable):
             for n, p in result.positions.items() if p.y > other.height})
         result.height = self.height + other.height
         result.width = max(top_width, bot_width)
+        for j, box in enumerate(other.boxes):  # Recover legacy behaviour.
+            if len(box.dom) == len(box.cod):
+                result.align_box_cod(len(self.boxes) + j)
+            else:
+                result.reposition_box_cod(len(self.boxes) + j)
         if draw_step_by_step:
             for step in steps:
                 step.width = result.width
-        if other.is_layer and not other.box.draw_as_wires:
-            result.reposition_cod_nodes()  # Recover legacy behaviour.
         return steps if draw_step_by_step else result
 
     def stretch(self, y, copy=True):
@@ -809,8 +831,8 @@ class Drawing(Composable, Whiskerable):
         result = getattr(Drawing.id(), method)(*(arg.bubble(
             Ty(), Ty(), draw_as_square=True, **params)
             for arg in args)).bubble(dom, cod, name, draw_as_square=True)
-        result.reposition_dom_nodes()
-        result.reposition_cod_nodes()
+        result.reposition_box_dom()
+        result.reposition_box_cod()
         return result
 
     def zero(dom, cod):
