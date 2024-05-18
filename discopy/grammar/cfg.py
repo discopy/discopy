@@ -117,8 +117,11 @@ class Tree:
         >>> x = Ty('x')
         >>> f = Rule(x @ x, x, name='f')
         >>> tree = f(f(f, f), f)
-        >>> print(tree.to_diagram().foliation())
-        f @ f @ x @ x >> f @ f >> f
+        >>> tree.to_diagram().foliation().draw(
+        ...     path='docs/_static/grammar/tree-to-diagram.png')
+
+        .. image:: /_static/grammar/tree-to-diagram.png
+            :align: center
         """
         return self.root.to_diagram()\
             << monoidal.Id().tensor(*[t.to_diagram() for t in self.branches])

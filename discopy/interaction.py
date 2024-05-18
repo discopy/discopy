@@ -56,7 +56,7 @@ Example
 
 >>> from discopy.drawing import Equation
 >>> Equation(noun_phrase, image, symbol="$\\\\mapsto$").draw(
-...     figsize=(10, 4), path="docs/_static/int/alice-loves-bob.png")
+...     path="docs/_static/int/alice-loves-bob.png")
 
 .. image:: /_static/int/alice-loves-bob.png
     :align: center

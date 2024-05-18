@@ -1,0 +1,4 @@
+% Node styles
+\tikzstyle{COPY}=[fill={rgb,255: red,0; green,0; blue,0}]
+% Edge styles
+\tikzstyle{box}=[-, fill={rgb,255: red,255; green,255; blue,255}]

@@ -234,6 +234,8 @@ class Diagram(closed.Diagram):
     ty_factory = Ty
     layer_factory = Layer
 
+    to_drawing = monoidal.Diagram.to_drawing
+
     over = staticmethod(lambda base, exponent: base << exponent)
     under = staticmethod(lambda base, exponent: exponent >> base)
 

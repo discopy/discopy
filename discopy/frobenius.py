@@ -17,6 +17,7 @@ Summary
 
     Ob
     Ty
+    Dim
     Diagram
     Box
     Cup
@@ -66,7 +67,7 @@ from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.cat import factory
-from discopy.utils import factory_name, assert_isinstance, assert_isatomic
+from discopy.utils import factory_name, assert_isatomic
 
 
 class Ob(pivotal.Ob):
@@ -107,29 +108,10 @@ class PRO(rigid.PRO, Ty):
 
 
 @factory
-class Dim(Ty):
-    """
-    A dimension is a tuple of positive integers
-    with product ``@`` and unit ``Dim(1)``.
+class Dim(monoidal.Dim, Ty):
+    """ A dimension is a tuple of integers greater than one seen as a type. """
+    __ambiguous_inheritance__ = (monoidal.Dim, )
 
-    Example
-    -------
-    >>> Dim(1) @ Dim(2) @ Dim(3)
-    Dim(2, 3)
-    """
-    ob_factory = int
-
-    def __init__(self, *inside: int):
-        for dim in inside:
-            assert_isinstance(dim, int)
-            if dim < 1:
-                raise ValueError
-        super().__init__(*(dim for dim in inside if dim > 1))
-
-    def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
-
-    __str__ = __repr__
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
 
@@ -340,8 +322,6 @@ class Functor(compact.Functor, markov.Functor):
     dom = cod = Category()
 
     def __call__(self, other):
-        if isinstance(other, Dim):
-            return sum([self.ob[x] for x in other], self.cod.ob())
         if isinstance(other, Spider):
             return self.cod.ar.spiders(
                 len(other.dom), len(other.cod), self(other.typ))

@@ -189,13 +189,13 @@ class Trace(Box, monoidal.Bubble):
     def to_drawing(self):
         traced_dom = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
         traced_cod = self.arg.cod[:1] if self.left else self.arg.cod[-1:]
-        dom, cod, traced_dom, traced_cod = map(self.ty_factory.to_drawing, [
-            self.dom, self.cod, traced_dom, traced_cod])
+        empty, dom, cod, traced_dom, traced_cod = (x.to_drawing() for x in [
+            Ty(), self.dom, self.cod, traced_dom, traced_cod])
         cup_dom = (
             traced_dom @ traced_cod if self.left else traced_cod @ traced_dom)
-        cup = Box('cup', cup_dom, Ty(), draw_as_wires=True)
-        cap = Box('cap', Ty(), traced_dom ** 2, draw_as_wires=True)
-        cup, cap, arg = map(self.factory.to_drawing, [cup, cap, self.arg])
+        cup = Box('cup', cup_dom, empty, draw_as_wires=True)
+        cap = Box('cap', empty, traced_dom ** 2, draw_as_wires=True)
+        cup, cap, arg = (f.to_drawing() for f in [cup, cap, self.arg])
         return (
             cap @ dom >> traced_dom @ arg >> cup @ cod
             if self.left
