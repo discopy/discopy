@@ -91,7 +91,7 @@ def test_Circuit_get_counts_snake():
 
 
 def test_Circuit_get_counts_empty():
-    assert not Id(qubit).get_counts(backend=tk.mockBackend({}))
+    assert Id(qubit).get_counts(backend=tk.mockBackend({})) == {(): 0}
 
 
 

@@ -293,8 +293,12 @@ class Circuit(tensor.Diagram[complex]):
         Any extra parameter is passed to :meth:`Circuit.get_counts`.
         For instance, to evaluate a unitary circuit (i.e. with no measurements)
         on a ``pytket.Backend`` one should set ``measure_all=True``.
+
+        >>> (H @ X >> CX).eval(backend=backend, measure_all=True).round(1)
+        Tensor[float]([0. , 0.5, 0.5, 0. ], dom=Dim(1), cod=Dim(2, 2))
         """
         from discopy.quantum import channel
+        from discopy.quantum.tk import counts2tensor
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
@@ -304,8 +308,6 @@ class Circuit(tensor.Diagram[complex]):
                 lambda x: x.inside[0].dim, {},
                 dtype=complex, dom=Category(Ty, Circuit))
             return Tensor[complex](array, f(self.dom), f(self.cod))
-
-        from discopy.quantum import channel
         if backend is None:
             if others:
                 return [circuit.eval(mixed=mixed, **params)
@@ -318,18 +320,9 @@ class Circuit(tensor.Diagram[complex]):
                 lambda f: f.array,
                 dom=Category(Ty, Circuit),
                 dtype=complex)(self)
-        circuits = [circuit.to_tk() for circuit in (self, ) + others]
-        results, counts = [], circuits[0].get_counts(
-            *circuits[1:], backend=backend, **params)
-        for i, circuit in enumerate(circuits):
-            n_bits = len(circuit.post_processing.dom)
-            result = Tensor[float].zero(Dim(1), Dim(*(n_bits * (2, ))))
-            for bitstring, count in counts[i].items():
-                result.array[bitstring] = count
-            if circuit.post_processing:
-                result = result >> circuit.post_processing.eval().cast(float)
-            results.append(result)
-        return results if len(results) > 1 else results[0]
+        counts = self.get_counts(*others, backend=backend, **params)
+        results = list(map(counts2tensor, [counts] if not others else counts))
+        return results if others else results[0]
 
     def get_counts(self, *others, backend=None, **params):
         """
@@ -341,10 +334,10 @@ class Circuit(tensor.Diagram[complex]):
             Other circuits to process in batch.
         backend : pytket.Backend, optional
             Backend on which to run the circuit, if none then `numpy`.
-        n_shots : int, optional
-            Number of shots, default is :code:`2**10`.
         measure_all : bool, optional
             Whether to measure all qubits, default is :code:`False`.
+        n_shots : int, optional
+            Number of shots, default is :code:`2**10`.
         normalize : bool, optional
             Whether to normalize the counts, default is :code:`True`.
         post_select : bool, optional
@@ -370,6 +363,9 @@ class Circuit(tensor.Diagram[complex]):
         >>> circuit.get_counts(backend=backend, n_shots=2**10)
         {(0, 1): 0.5, (1, 0): 0.5}
         """
+        if params.pop('measure_all', False):
+            self = self.measure_all()
+            others = tuple(map(Circuit.measure_all, others))
         if backend is None:
             if others:
                 return [circuit.get_counts(**params)
@@ -380,9 +376,20 @@ class Circuit(tensor.Diagram[complex]):
                 if result.array[bits]:
                     counts[bits] = result.array[bits].real
             return counts
-        counts = self.to_tk().get_counts(
-            *(other.to_tk() for other in others), backend=backend, **params)
+        from discopy.quantum import tk
+        tk_circuits = [c.to_tk() for c in (self, ) + others]
+        counts = tk.Circuit.get_counts(*tk_circuits, backend=backend, **params)
+        for count, tk_circuit in zip(counts, tk_circuits):
+            if not count:  # Circuit.eval assumes non-empty counts.
+                count[len(tk_circuit.post_processing.dom) * (0, )] = 0
         return counts if len(counts) > 1 else counts[0]
+
+    def measure_all(self) -> Circuit:
+        from discopy.quantum.gates import Measure
+        if any(isinstance(x, Qudit) and x.dim != 2 for x in self.cod.inside):
+            raise NotImplementedError
+        return self >> self.id().tensor(*(
+            Measure() if x == qubit else Id(x) for x in self.cod))
 
     def measure(self, mixed=False):
         """
