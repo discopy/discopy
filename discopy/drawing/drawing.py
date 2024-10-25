@@ -408,9 +408,9 @@ class Drawing(Composable, Whiskerable):
                     box.bubble_closing or box.bubble_opening and i) else 0.25
 
         if box.bubble_opening:
-            width = max(len(box.dom), len(box.cod) - 2) + 0.5
+            width = max(1, len(box.dom), len(box.cod) - 2) + 0.5
         elif box.bubble_closing:
-            width = max(len(box.dom) - 2, len(box.cod)) + 0.5
+            width = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
         elif len(box.dom) <= 1 and len(box.cod) <= 1:
             width = 1
         else:
