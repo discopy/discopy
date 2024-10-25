@@ -710,15 +710,14 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> diagram.foliation().draw(
         ...     path='docs/_static/monoidal/foliation-example.png')
 
-    .. image:: /_static/monoidal/foliation-example.png
-        :align: center
-        f0 @ y >> f0[::-1] @ f1
+        .. image:: /_static/monoidal/foliation-example.png
+            :align: center
 
         Note
         ----
-        If one defines a foliation as a sequence of unmergeable layers, there
-        may exist many distinct foliations for the same diagram. This method
-        scans top to bottom and merges layers eagerly.
+        If one defines a foliation as a sequence of unmergeable layers,
+        there may exist many distinct foliations for the same diagram.
+        This method scans top to bottom and merges layers eagerly.
         """
         while len(self) > 1:
             keep_on_going = False
