@@ -269,8 +269,6 @@ class Drawing(Composable, Whiskerable):
         .. image:: /_static/drawing/make-space.png
             :align: center
         """
-        if space < 0:
-            raise ValueError
         y_min = 0 if y_min is None else y_min
         y_max = self.height if y_max is None else y_max
         result = self.relabel_nodes(copy=copy, positions={
@@ -352,6 +350,24 @@ class Drawing(Composable, Whiskerable):
         if not self.is_layer:
             raise ValueError
         return self.boxes[0]
+
+    @property
+    def left_is_whiskered(self):
+        """ Whether `self = x @ f` for some non-empty type `x`. """
+        if len(self.dom) == 0:
+            return False
+        left_dom = Node("dom", i=0, x=self.dom[0])
+        target, = self.graph.successors(left_dom)
+        return target.kind == "cod" and target.i == 0
+
+    @property
+    def right_is_whiskered(self):
+        """ Whether `self = f @ x` for some non-empty type `x`. """
+        if len(self.dom) == 0:
+            return False
+        right_dom = Node("dom", i=len(self.dom) - 1, x=self.dom[-1])
+        target, = self.graph.successors(right_dom)
+        return target.kind == "cod" and target.i == len(self.cod) - 1
 
     @staticmethod
     def from_box(box: "monoidal.Box") -> Drawing:
@@ -609,10 +625,12 @@ class Drawing(Composable, Whiskerable):
             self = self.stretch(other.height - self.height)
         elif self.height > other.height:
             other = other.stretch(self.height - other.height)
+        x_shift = self.width + (
+            0.25 if self.right_is_whiskered or other.left_is_whiskered else 0)
         result = self.union(other.relabel_nodes(mapping, positions={
-            n: p.shift(x=self.width) for n, p in other.positions.items()}),
+            n: p.shift(x=x_shift) for n, p in other.positions.items()}),
             dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
-        result.width = self.width + other.width
+        result.width = x_shift + other.width
         return result
 
     def dagger(self) -> Drawing:
@@ -769,6 +787,9 @@ class Drawing(Composable, Whiskerable):
             bot = Drawing.bubble_closing(arg_cod, cod, left, right)
         middle = self if height is None else self.stretch(height - self.height)
         result = top >> left @ middle @ right >> bot
+        x = 0.75 if draw_as_square else 0.25
+        # result.make_space(-0.25, x)
+        # result.make_space(-0.25, result.width - x, exclusive=True)
         if width is not None and result.width != width:
             if result.width > width:
                 raise ValueError
@@ -833,6 +854,8 @@ class Drawing(Composable, Whiskerable):
             for arg in args)).bubble(dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
+        # result.make_space(-0.25, 0.25, exclusive=True)
+        # result.make_space(-0.25, result.width - 0.25)
         return result
 
     def zero(dom, cod):
