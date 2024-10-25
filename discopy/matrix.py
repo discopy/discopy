@@ -390,7 +390,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
 
     def lambdify(
             self, *symbols: "sympy.Symbol", dtype=None, **kwargs) -> Callable:
-        from sympy import lambdify, Matrix
+        from sympy import lambdify
         with backend() as np:
             flat_array = self.array.flatten().tolist()
             array = lambdify(symbols, flat_array, modules=np.module, **kwargs)
