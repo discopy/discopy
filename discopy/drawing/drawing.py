@@ -309,6 +309,9 @@ class Drawing(Composable, Whiskerable):
             for n in (source, target):
                 x = (right + left - len(box.cod) + 1) / 2 + i
                 self.positions[n] = Point(x, self.positions[n].y)
+            if box.draw_as_spider and len(box.cod) == 1:
+                box_node = Node("box", box=box, j=j)
+                self.positions[box_node] = Point(x, self.positions[box_node].y)
 
     def align_box_cod(self, j=-1):
         """ Align outputs with inputs when they have equal number of wires. """
@@ -788,9 +791,8 @@ class Drawing(Composable, Whiskerable):
             bot = Drawing.bubble_closing(arg_cod, cod, left, right)
         middle = self if height is None else self.stretch(height - self.height)
         result = top >> left @ middle @ right >> bot
-        x = 0.75 if draw_as_square else 0.25
-        # result.make_space(-0.25, x)
-        # result.make_space(-0.25, result.width - x, exclusive=True)
+        result.make_space(-0.25, 0.25, exclusive=True)
+        result.make_space(-0.25, result.width - 0.25)
         if width is not None and result.width != width:
             if result.width > width:
                 raise ValueError
@@ -855,8 +857,6 @@ class Drawing(Composable, Whiskerable):
             for arg in args)).bubble(dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
-        # result.make_space(-0.25, 0.25, exclusive=True)
-        # result.make_space(-0.25, result.width - 0.25)
         return result
 
     def zero(dom, cod):
