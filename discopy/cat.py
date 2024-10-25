@@ -694,7 +694,7 @@ class Bubble(Box):
         kwargs : Passed to the `__init__` of :class:`Box`.
 
     Raises:
-        ValueError : When dom is None and but all the args have the same dom.
+        ValueError : When dom is None but all the args have the same dom.
     """
     def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
                  name="", method="bubble", **kwargs):

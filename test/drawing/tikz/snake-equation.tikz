@@ -2,8 +2,8 @@
 \begin{pgfonlayer}{nodelayer}
 \node (0) at (0, 1.0) {};
 \node [] (1) at (0, 0) {};
-\node [] (2) at (8.5, 0) {};
-\node [] (3) at (8.5, 2) {};
+\node [] (2) at (9.25, 0) {};
+\node [] (3) at (9.25, 2) {};
 \node [] (4) at (0, 2) {};
 \node [] (5) at (0.5, 2) {};
 \node [] (6) at (0.5, 1) {};
@@ -15,21 +15,21 @@
 \node [] (12) at (2.5, 0) {};
 \node [style=none, fill=white, right] (13) at (2.7, 1.05) {x};
 \node [] (14) at (1.0, 0.5) {};
-\node [] (15) at (4.25, 2) {};
-\node [] (16) at (4.25, 0) {};
-\node [style=none, fill=white, right] (17) at (4.45, 1.8) {x};
-\node [] (18) at (6.5, 1.5) {};
-\node [] (19) at (6.0, 1) {};
-\node [] (20) at (7.0, 1) {};
-\node [] (21) at (6.0, 0) {};
-\node [style=none, fill=white, right] (22) at (6.2, 1.05) {x};
-\node [style=none, fill=white, right] (23) at (7.2, 1.05) {x.l};
-\node [] (24) at (8.0, 2) {};
-\node [] (25) at (8.0, 1) {};
-\node [style=none, fill=white, right] (26) at (8.2, 1.8) {x};
-\node [] (27) at (7.5, 0.5) {};
-\node [circle, fill=white, scale=0.343] (28) at (3.5, 1.0) {=};
-\node [circle, fill=white, scale=0.343] (29) at (5.0, 1.0) {=};
+\node [] (15) at (4.5, 2) {};
+\node [] (16) at (4.5, 0) {};
+\node [style=none, fill=white, right] (17) at (4.7, 1.8) {x};
+\node [] (18) at (7.25, 1.5) {};
+\node [] (19) at (6.75, 1) {};
+\node [] (20) at (7.75, 1) {};
+\node [] (21) at (6.75, 0) {};
+\node [style=none, fill=white, right] (22) at (6.95, 1.05) {x};
+\node [style=none, fill=white, right] (23) at (7.95, 1.05) {x.l};
+\node [] (24) at (8.75, 2) {};
+\node [] (25) at (8.75, 1) {};
+\node [style=none, fill=white, right] (26) at (8.95, 1.8) {x};
+\node [] (27) at (8.25, 0.5) {};
+\node [circle, fill=white, scale=0.329] (28) at (3.5, 1.0) {=};
+\node [circle, fill=white, scale=0.329] (29) at (5.5, 1.0) {=};
 \end{pgfonlayer}
 \begin{pgfonlayer}{edgelayer}
 \draw [-, fill={white}] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
