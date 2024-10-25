@@ -568,10 +568,11 @@ class Drawing(Composable, Whiskerable):
         result.height = self.height + other.height
         result.width = max(top_width, bot_width)
         for j, box in enumerate(other.boxes):  # Recover legacy behaviour.
-            if len(box.dom) == len(box.cod):
+            if len(box.dom) == len(box.cod) and not box.frame_boundary:
                 result.align_box_cod(len(self.boxes) + j)
             else:
                 result.reposition_box_cod(len(self.boxes) + j)
+                
         if draw_step_by_step:
             for step in steps:
                 step.width = result.width
