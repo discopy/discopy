@@ -101,7 +101,8 @@ class Backend(ABC):
 
     def draw_boundary(self, graph, boundary_color="white", **params):
         x, y = graph.width, graph.height
-        self.draw_polygon((0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
+        self.draw_polygon(
+            (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
 
     def draw_wires(self, graph, **params):
         for source, target in graph.edges():

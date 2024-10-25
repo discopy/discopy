@@ -246,7 +246,7 @@ class Drawing(Composable, Whiskerable):
             self.positions.update(positions)
             return self
         positions = {mapping.get(node, node): positions.get(node, pos)
-                        for node, pos in self.positions.items()}
+                     for node, pos in self.positions.items()}
         inside = PlaneGraph(graph, positions)
         dom, cod, boxes = self.dom, self.cod, self.boxes
         x, y = self.width, self.height
@@ -298,7 +298,7 @@ class Drawing(Composable, Whiskerable):
         if box.bubble_closing and len(box.dom[1:-1]) == len(box.cod):
             return  # Otherwise the wires would bend when coming out.
         xs = [self.positions[n].x for n in self.nodes
-            if n.kind == "box_dom" and n.j == j]
+              if n.kind == "box_dom" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
         for i, x in enumerate(box.cod):
@@ -575,7 +575,6 @@ class Drawing(Composable, Whiskerable):
                 result.align_box_cod(len(self.boxes) + j)
             else:
                 result.reposition_box_cod(len(self.boxes) + j)
-                
         if draw_step_by_step:
             for step in steps:
                 step.width = result.width
@@ -700,7 +699,8 @@ class Drawing(Composable, Whiskerable):
             :align: center
         """
         from discopy.monoidal import Box
-        return Box("bot", left @ arg_cod @ right, cod,
+        return Box(
+            "bot", left @ arg_cod @ right, cod,
             bubble_closing=True, frame_boundary=frame_boundary,
             height=(0.5 if frame_boundary else 1)).to_drawing()
 
@@ -720,14 +720,15 @@ class Drawing(Composable, Whiskerable):
         """
         result = Drawing.bubble_opening(
             dom, arg_dom, left, right, frame_boundary=True)
+        box_dom_nodes = result.box_dom_nodes
+        box_cod_nodes = result.box_cod_nodes
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-0.25) for n in result.box_dom_nodes})
+            n: result.positions[n].shift(y=-0.25) for n in box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=0.25) for n in result.box_cod_nodes})
-        arg_cod_nodes = result.box_cod_nodes[1:-1]
+            n: result.positions[n].shift(y=0.25) for n in box_cod_nodes})
         result.graph.remove_edges_from([
-            (u, v) for u in result.box_dom_nodes for v in result.box_nodes] + [
-            (u, v) for u in result.box_nodes for v in arg_cod_nodes])
+            (u, v) for u in box_dom_nodes for v in result.box_nodes] + [
+            (u, v) for u in result.box_nodes for v in box_cod_nodes[1:-1]])
         return result
 
     @staticmethod
@@ -746,14 +747,15 @@ class Drawing(Composable, Whiskerable):
         """
         result = Drawing.bubble_closing(
             arg_cod, cod, left, right, frame_boundary=True)
+        box_dom_nodes = result.box_dom_nodes
+        box_cod_nodes = result.box_cod_nodes
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=-0.25) for n in result.box_dom_nodes})
+            n: result.positions[n].shift(y=-0.25) for n in box_dom_nodes})
         result.relabel_nodes(copy=False, positions={
-            n: result.positions[n].shift(y=0.25) for n in result.box_cod_nodes})
-        arg_dom_nodes = result.box_dom_nodes[1:-1]
+            n: result.positions[n].shift(y=0.25) for n in box_cod_nodes})
         result.graph.remove_edges_from([
-            (u, v) for u in arg_dom_nodes for v in result.box_nodes] + [
-            (u, v) for u in result.box_nodes for v in result.box_cod_nodes])
+            (u, v) for u in box_dom_nodes[1:-1] for v in result.box_nodes] + [
+            (u, v) for u in result.box_nodes for v in box_cod_nodes])
         return result
 
     def bubble(self, dom=None, cod=None, name=None,
