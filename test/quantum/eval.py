@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-
 import pytest
 import tensornetwork as tn
+import numpy as np
 
 from discopy.quantum import (
     Circuit, IQPansatz,
