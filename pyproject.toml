@@ -57,6 +57,7 @@ test = [
     "nltk",
     "pylint",
     "nbmake",
+    "quimb",
 ]
 docs  = [
     "sphinx == 7.2.*",
