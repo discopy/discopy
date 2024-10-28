@@ -392,7 +392,9 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             self, *symbols: "sympy.Symbol", dtype=None, **kwargs) -> Callable:
         from sympy import lambdify
         with backend() as np:
-            array = lambdify(symbols, self.array.tolist(), modules=np.module, **kwargs)
+            array = lambdify(
+                symbols, self.array.tolist(), modules=np.module, **kwargs
+            )
         dtype = dtype or self.dtype
         return lambda *xs: type(self)[dtype](array(*xs), self.dom, self.cod)
 
