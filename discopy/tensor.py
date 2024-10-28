@@ -40,6 +40,7 @@ from discopy.utils import (
 if TYPE_CHECKING:
     import sympy
     import tensornetwork
+    import quimb
 
 
 @factory
