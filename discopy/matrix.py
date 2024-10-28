@@ -145,11 +145,11 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
     def __new__(cls, array, *args, **kwargs):
         with backend() as np:
             if cls.dtype is None:
-                array = np.array(array)
+                _array = np.array(array)
                 # The dtype of an np.arrays is a class that contains a type
                 # attribute that is the actual type. However, other backends
                 # have different structures, so this is the easiest option:
-                dtype = getattr(array.dtype, "type", array.dtype)
+                dtype = getattr(_array.dtype, "type", _array.dtype)
                 return cls.__new__(cls[dtype], array, *args, **kwargs)
             return object.__new__(cls)
 
@@ -392,7 +392,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
             self, *symbols: "sympy.Symbol", dtype=None, **kwargs) -> Callable:
         from sympy import lambdify
         with backend() as np:
-            array = lambdify(symbols, self.array, modules=np.module, **kwargs)
+            array = lambdify(symbols, self.array.tolist(), modules=np.module, **kwargs)
         dtype = dtype or self.dtype
         return lambda *xs: type(self)[dtype](array(*xs), self.dom, self.cod)
 
