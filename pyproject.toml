@@ -6,7 +6,7 @@ dynamic = ["version"]
 name = "discopy"
 description = "The Python toolkit for computing with string diagrams."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license =  {file = "LICENSE"}
 keywords = [
     "category theory",
@@ -24,9 +24,9 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering"
 ]
 dependencies = [
@@ -43,7 +43,7 @@ test = [
     "pyproject-flake8",
     "pytket",
     "pyzx >= 0.7.3, < 0.8",
-    "sympy == 1.9",
+    "sympy >= 1.13",
     "tensornetwork",
     "jax",
     "jaxlib",
