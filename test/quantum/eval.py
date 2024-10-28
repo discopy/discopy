@@ -78,7 +78,6 @@ def test_pytorch_consistent_eval(c):
 
 @pytest.mark.parametrize('c', pure_circuits)
 def test_quimb_pure_eval(c):
-    print(c)
     t = c.to_quimb().contract()
     t = t.data.transpose(*np.argsort(t.inds))
 
