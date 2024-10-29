@@ -104,6 +104,20 @@ class Backend(ABC):
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
 
+    def draw_wire_label(self, x, i, j, **params):
+        draw_label_anyway = params.get('draw_box_labels', True) and getattr(
+            x, "always_draw_label", False)
+        if not params.get('draw_type_labels', True) and not draw_label_anyway:
+            return
+        if hasattr(x.inside[0], "reposition_label"):
+            j += 0.25  # The label of e.g. cups, caps and swaps.
+        label = str(x.inside[0])
+        pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
+        i += pad_i
+        j -= pad_j
+        fontsize = params.get('fontsize_types', params.get('fontsize', None))
+        self.draw_text(label, i, j, verticalalignment='top', fontsize=fontsize)
+
     def draw_wires(self, graph, **params):
         for source, target in graph.edges():
             def inside_a_box(node):
@@ -112,10 +126,14 @@ class Backend(ABC):
                     and not node.box.draw_as_spider
             if inside_a_box(source) or inside_a_box(target):
                 continue  # no need to draw wires inside a box
-            braid_shadow = DEFAULT["braid_shadow"]
             source_position = graph.positions[source]
             target_position = graph.positions[target]
+            if source.kind in ["dom", "box_cod"]:
+                self.draw_wire_label(source.x, *source_position, **params)
+            if source_position == target_position:
+                continue
             bend_out, bend_in = source.kind == "box", target.kind == "box"
+            braid_shadow = DEFAULT["braid_shadow"]
             if source.kind == "box" and source.box.draw_as_braid:
                 if source.box.is_dagger and target.i == 0:
                     source_position = tuple(
@@ -140,19 +158,6 @@ class Backend(ABC):
                             target_position, [-1, 1], braid_shadow))
             self.draw_wire(
                 source_position, target_position, bend_out, bend_in)
-            if source.kind in ["dom", "box_cod"]\
-                    and (params.get('draw_type_labels', True)
-                         or getattr(source.x, "always_draw_label", False)
-                         and params.get('draw_box_labels', True)):
-                i, j = graph.positions[source]
-                if hasattr(source.x.inside[0], "reposition_label"):
-                    j += 0.25  # The label of e.g. cups, caps and swaps.
-                pad_i, pad_j = params.get('textpad', DEFAULT['textpad'])
-                self.draw_text(
-                    str(source.x.inside[0]), i + pad_i, j - pad_j,
-                    fontsize=params.get('fontsize_types',
-                                        params.get('fontsize', None)),
-                    verticalalignment='top')
 
     def draw_boxes(self, graph, **params):
         drawing_methods = [
