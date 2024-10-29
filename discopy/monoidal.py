@@ -1005,20 +1005,27 @@ class Bubble(cat.Bubble, Box):
     __ambiguous_inheritance__ = (cat.Bubble, )
 
     def __init__(
-            self, *args: Diagram, drawing_name: str = None,
-            draw_as_frame: bool = None, draw_as_square: bool = False,
+            self, *args: Diagram,
+            drawing_name: str = None,
+            draw_as_frame: bool = None,
+            draw_as_square: bool = None,
             draw_vertically=False, **kwargs):
         cat.Bubble.__init__(self, *args, **kwargs)
         Box.__init__(self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
-        if draw_as_frame is None:
-            draw_as_bubble = (len(args) == 1
+        can_draw_as_square = len(args) == 1
+        can_draw_as_bubble = (can_draw_as_square
                               and len(self.dom) == len(self.arg.dom)
                               and len(self.cod) == len(self.arg.cod))
-            draw_as_frame = not draw_as_bubble and not draw_as_square
-        self.draw_as_frame = draw_as_frame
-        self.draw_as_square = draw_as_square
+        if len(args) == 1:
+            can_draw_as_bubble = (len(self.dom), len(self.cod)) == (
+                len(self.arg.dom), len(self.arg.cod))
+            self.draw_as_square = draw_as_square or not can_draw_as_bubble
+            self.draw_as_frame = draw_as_frame or not self.draw_as_square
+        else:
+            self.draw_as_frame = True
+            self.draw_as_square = False
 
     def to_drawing(self):
         method = "frame" if self.draw_as_frame else "bubble"
