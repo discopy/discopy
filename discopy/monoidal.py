@@ -1022,7 +1022,8 @@ class Bubble(cat.Bubble, Box):
             can_draw_as_bubble = (len(self.dom), len(self.cod)) == (
                 len(self.arg.dom), len(self.arg.cod))
             self.draw_as_square = draw_as_square or not can_draw_as_bubble
-            self.draw_as_frame = draw_as_frame or not self.draw_as_square
+            self.draw_as_frame = draw_as_frame or (
+                not can_draw_as_bubble and not self.draw_as_square)
         else:
             self.draw_as_frame = True
             self.draw_as_square = False
