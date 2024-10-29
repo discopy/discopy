@@ -307,8 +307,7 @@ class Diagram(markov.Diagram):
     >>> plus = Box('+', x @ x, x)
     >>> walk = (rand.delay() @ x.delay() >> zero @ plus.delay()
     ...         >> FollowedBy(x) >> Copy(x)).feedback()
-    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.png",
-    ...           figsize=(5, 5), margins=(0.25, 0.01))
+    >>> walk.draw(path="docs/_static/feedback/feedback-random-walk.png")
 
     .. image:: /_static/feedback/feedback-random-walk.png
         :align: center
@@ -394,8 +393,8 @@ class Box(markov.Box, Diagram):
 
     def to_drawing(self):
         result = super().to_drawing()
-        if result.drawing_name:
-            result.drawing_name += str_delayed(self.time_step)
+        if result.box.drawing_name:
+            result.box.drawing_name += str_delayed(self.time_step)
         return result
 
     def delay(self, n_steps=1):

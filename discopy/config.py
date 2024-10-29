@@ -10,33 +10,39 @@ IGNORE_WARNINGS = [
 
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
+    "height": lambda _: 1,
+    "is_conjugate": lambda _: False,
+    "is_transpose": lambda _: False,
+    "bubble_opening": lambda _: False,
+    "bubble_closing": lambda _: False,
+    "frame_boundary": lambda _: False,
     "draw_as_braid": lambda _: False,
-    "draw_as_wires": lambda box: box.draw_as_braid,
+    "draw_as_wires": lambda box: any(getattr(box, a) for a in [
+        "bubble_opening", "bubble_closing", "draw_as_braid"]),
     "draw_as_spider": lambda _: False,
     "draw_as_brakets": lambda _: False,
     "draw_as_discards": lambda _: False,
     "draw_as_measures": lambda _: False,
     "draw_as_controlled": lambda _: False,
-    "frame_opening": lambda _: False,
-    "frame_closing": lambda _: False,
-    "frame_slot_boundary": lambda _: False,
-    "frame_slot_opening": lambda box: box.frame_slot_boundary,
-    "frame_slot_closing": lambda box: box.frame_slot_boundary,
+    "controlled": lambda _: None,  # Used for drawing controlled gates.
+    "distance": lambda _: None,  # Used for drawing controlled gates.
+    "_digits": lambda _: None,  # Used for drawing brakets.
     "shape": lambda box:
         "circle" if getattr(box, "draw_as_spider", False) else None,
     "color": lambda box:
-        "red" if getattr(box, "draw_as_spider", False) else "white",
+        "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
-    "tikzstyle_name": lambda box: box.name,
+    "tikzstyle_name": lambda box: (
+        box.name if box.name.isidentifier() else "symbol"),
 }
 
 # Default drawing parameters.
 DRAWING_DEFAULT = {
-    "aspect": "auto",
     "fontsize": 12,
-    "margins": (.05, .1),
-    "textpad": (.1, .1),
-    "color": 'white',
+    "margins": (0, 0),
+    "textpad": (2**-4, 2**-4),
+    "facecolor": "white",
+    "edgecolor": "black",
     "use_tikzstyles": False,
     "braid_shadow": (.3, .1)
 }

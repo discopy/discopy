@@ -13,6 +13,7 @@ Summary
 
     Ty
     PRO
+    Dim
     Layer
     Diagram
     Box
@@ -59,6 +60,8 @@ from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
 from discopy.cat import Ob
+from discopy.drawing import Drawing
+from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
     factory,
     factory_name,
@@ -75,7 +78,7 @@ if TYPE_CHECKING:
 
 
 @factory
-class Ty(cat.Ob):
+class Ty(Ob):
     """
     A type is a tuple of objects with :meth:`Ty.tensor` as concatenation.
 
@@ -162,14 +165,6 @@ class Ty(cat.Ob):
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
-    def to_drawing(self) -> Ty:
-        """ Called before :meth:`Diagram.draw`. """
-        def obj_to_drawing(obj):
-            result = cat.Ob(str(obj))
-            result.always_draw_label = getattr(obj, "always_draw_label", False)
-            return result
-        return Ty(*map(obj_to_drawing, self.inside))
-
     @property
     def is_atomic(self) -> bool:
         """ Whether a type is atomic, i.e. it has length 1. """
@@ -219,6 +214,9 @@ class Ty(cat.Ob):
         return self.tensor(other)
 
     __add__ = __matmul__
+
+    def to_drawing(self) -> Ty:
+        return Ty(*map(str, self.inside))
 
 
 @factory
@@ -292,15 +290,38 @@ class PRO(Ty):
     def __pow__(self, n_times):
         return self.factory(n_times * self.n)
 
-    def to_drawing(self):
-        return Ty(*self.n * [Ob()])
-
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}
 
     @classmethod
     def from_tree(cls, tree):
         return cls(tree['n'])
+
+
+@factory
+class Dim(Ty):
+    """
+    A dimension is a tuple of positive integers
+    with product ``@`` and unit ``Dim(1)``.
+
+    Example
+    -------
+    >>> Dim(1) @ Dim(2) @ Dim(3)
+    Dim(2, 3)
+    """
+    ob_factory = int
+
+    def __init__(self, *inside: int):
+        for dim in inside:
+            assert_isinstance(dim, int)
+            if dim < 1:
+                raise ValueError
+        super().__init__(*(dim for dim in inside if dim > 1))
+
+    def __repr__(self):
+        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
+
+    __str__ = __repr__
 
 
 class Layer(cat.Box):
@@ -342,6 +363,10 @@ class Layer(cat.Box):
     def __iter__(self):
         for box_or_typ in self.boxes_or_types:
             yield box_or_typ
+
+    @property
+    def boxes(self):
+        return list(self.boxes_or_types[1::2])
 
     def __getitem__(self, key):
         return self.boxes_or_types[key]
@@ -390,13 +415,6 @@ class Layer(cat.Box):
     def dagger(self) -> Layer:
         return type(self)(*(
             x.dagger() if i % 2 else x for i, x in enumerate(self)))
-
-    def to_drawing(self) -> Diagram:
-        """ Called before :meth:`Diagram.draw`. """
-        result = Ty()
-        for box_or_typ in self:
-            result = result @ box_or_typ.to_drawing()
-        return result
 
     @property
     def boxes_and_offsets(self) -> list[tuple[Box, int]]:
@@ -519,10 +537,9 @@ class Diagram(cat.Arrow, Whiskerable):
         ...     middle, right = cap(offset=1)
         ...     cup(left, middle)
         ...     return right
-        >>> snake.draw(
-        ...     figsize=(3, 3), path='docs/_static/drawing/diagramize.png')
+        >>> snake.draw(path='docs/_static/monoidal/diagramize.png')
 
-        .. image:: /_static/drawing/diagramize.png
+        .. image:: /_static/monoidal/diagramize.png
             :align: center
         """
         def decorator(func):
@@ -552,7 +569,6 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> assert f0 @ f1 == f0.tensor(f1) == f0 @ Id(z) >> Id(y) @ f1
 
         >>> (f0 @ f1).draw(
-        ...     figsize=(2, 2),
         ...     path='docs/_static/monoidal/tensor-example.png')
 
         .. image:: /_static/monoidal/tensor-example.png
@@ -574,7 +590,7 @@ class Diagram(cat.Arrow, Whiskerable):
     @property
     def boxes(self) -> list[Box]:
         """ The boxes in each layer of the diagram. """
-        return list(box for _, box, _ in self)
+        return sum([layer.boxes for layer in self.inside], [])
 
     @property
     def offsets(self) -> list[int]:
@@ -608,8 +624,7 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> assert dom == x @ z
         >>> assert boxes_and_offsets == [(f0, 0), (f1, 1), (g, 0)]
         >>> assert diagram == Diagram.decode(*diagram.encode())
-        >>> diagram.draw(figsize=(2, 2),
-        ...        path='docs/_static/monoidal/arrow-example.png')
+        >>> diagram.draw(path='docs/_static/monoidal/arrow-example.png')
 
         .. image:: /_static/monoidal/arrow-example.png
             :align: center
@@ -657,13 +672,14 @@ class Diagram(cat.Arrow, Whiskerable):
             assert_iscomposable(diagram, cls.id(cod))
         return diagram
 
-    def to_drawing(self):
+    def to_drawing(self, functor_factory=None) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
-        return cat.Functor(
-            ob=lambda x: x.to_drawing(), ar=Layer.to_drawing, cod=Category())(
-                self)
+        ob = ar = lambda x: x.to_drawing()
+        dom = Category(self.ty_factory, self.factory)
+        cod = Category(Ty, Drawing)
+        return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
-    def to_staircases(self):  # pylint:
+    def to_staircases(self):
         """
         Splits layers with more than one box into staircases.
 
@@ -688,17 +704,20 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> diagram = f0 @ Id(y) >> f0.dagger() @ f1
+        >>> diagram = f0 @ f1.dagger() >> f0.dagger() @ f1
         >>> print(diagram)
-        f0 @ y >> f0[::-1] @ y >> x @ f1
-        >>> print(diagram.foliation())
-        f0 @ y >> f0[::-1] @ f1
+        f0 @ x >> y @ f1[::-1] >> f0[::-1] @ y >> x @ f1
+        >>> diagram.foliation().draw(
+        ...     path='docs/_static/monoidal/foliation-example.png')
+
+        .. image:: /_static/monoidal/foliation-example.png
+            :align: center
 
         Note
         ----
-        If one defines a foliation as a sequence of unmergeable layers, there
-        may exist many distinct foliations for the same diagram. This method
-        scans top to bottom and merges layers eagerly.
+        If one defines a foliation as a sequence of unmergeable layers,
+        there may exist many distinct foliations for the same diagram.
+        This method scans top to bottom and merges layers eagerly.
         """
         while len(self) > 1:
             keep_on_going = False
@@ -902,21 +921,16 @@ class Box(cat.Box, Diagram):
     """
     __ambiguous_inheritance__ = (cat.Box, )
 
-    def to_drawing(self) -> Box:
-        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
-        result = Box(self.name, dom, cod, is_dagger=self.is_dagger)
-        for attr, default in drawing.ATTRIBUTES.items():
-            setattr(result, attr, getattr(self, attr, default(result)))
-        return result
-
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
-        for attr in drawing.ATTRIBUTES:
-            value = params.pop(attr, None)
-            if value is not None:
-                setattr(self, attr, value)
+        for attr in DRAWING_ATTRIBUTES:
+            if attr in params:
+                setattr(self, attr, params.pop(attr))
         cat.Box.__init__(self, name, dom, cod, **params)
         inside = (self.layer_factory.cast(self), )
         Diagram.__init__(self, inside, dom, cod)
+
+    def to_drawing(self):
+        return Drawing.from_box(self)
 
 
 class Sum(cat.Sum, Box):
@@ -946,97 +960,86 @@ class Sum(cat.Sum, Box):
         terms = tuple(f.tensor(g) for f in self.terms for g in other.terms)
         return self.sum_factory(terms, dom, cod)
 
-    def draw(self, **params):
-        """ Drawing a sum as an equation with :code:`symbol='+'`. """
-        return drawing.Equation(*self.terms, symbol='+').draw(**params)
+    to_drawing = Diagram.to_drawing
 
 
 class Bubble(cat.Bubble, Box):
     """
-    A bubble is a box with a diagram :code:`arg` inside and an optional pair of
+    A bubble is a box with diagrams :code:`args` inside and an optional pair of
     types :code:`dom` and :code:`cod`.
 
     Parameters:
-        args : The diagrams inside the bubble.
-        dom : The domain of the bubble, default is that of :code:`other`.
-        cod : The codomain of the bubble, default is that of :code:`other`.
-        drawing_name (str) : The name of the bubble when drawing it.
-        draw_as_bubble (bool) : Whether to draw as a bubble or as a frame.
+        args (Diagram) : The diagrams inside the bubble.
+        drawing_name (str) : The label to use when drawing, empty by default.
+        draw_as_square (bool) : Whether to draw the bubble as a square.
+        draw_as_frame (bool) : Whether to draw the bubble as a frame.
+        draw_vertically (bool) : Whether to draw the frame slots vertically.
+        kwargs : Passed to :class:`cat.Bubble`.
+
+    Raises:
+        ValueError : When dom is None but all the args have the same dom.
 
     Examples
     --------
     >>> x, y = Ty('x'), Ty('y')
     >>> f, g, h = Box('f', x, y ** 3), Box('g', y, y @ y), Box('h', x, y)
-    >>> d = (f.bubble(dom=x @ x, cod=y) >> g).bubble()
+    >>> d = (f.bubble(dom=x ** 3, cod=y, draw_as_square=True) >> g).bubble()
     >>> d.draw(path='docs/_static/monoidal/bubble-example.png')
 
     .. image:: /_static/monoidal/bubble-example.png
         :align: center
 
-    >>> b = Bubble(f, g, h, dom=x, cod=y @ y)
+    >>> b = Bubble(f, g, h >> h[::-1], dom=x, cod=y @ y)
     >>> b.draw(path='docs/_static/monoidal/bubble-multiple-args.png')
 
     .. image:: /_static/monoidal/bubble-multiple-args.png
         :align: center
+
+    >>> b = Bubble(f, g, h, dom=x, cod=y @ y, draw_vertically=True)
+    >>> b.draw(path='docs/_static/monoidal/frame-vertical-args.png')
+
+    .. image:: /_static/monoidal/frame-vertical-args.png
+        :align: center
+
     """
     __ambiguous_inheritance__ = (cat.Bubble, )
 
     def __init__(
-            self, *args: Diagram, dom: Ty = None, cod: Ty = None, **kwargs):
-        cat.Bubble.__init__(self, *args, dom=dom, cod=cod)
-        self.drawing_name = kwargs.pop("drawing_name", "")
-        self.draw_as_bubble = kwargs.pop(
-            "draw_as_bubble", (len(args) == 1
-                               and len(self.arg.dom) == len(self.dom)
-                               and len(self.arg.cod) == len(self.cod)))
-        Box.__init__(self, self.name, self.dom, self.cod, **kwargs)
-
-    def to_bubble_drawing(self):
-        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
-        argdom, argcod = self.arg.dom.to_drawing(), self.arg.cod.to_drawing()
-        left, right = Ty(self.drawing_name), Ty("")
-        left.inside[0].always_draw_label = True
-        _open = Box("_open", dom, left @ argdom @ right).to_drawing()
-        _close = Box("_close", left @ argcod @ right, cod).to_drawing()
-        if len(dom) == len(argdom) and len(cod) == len(argcod):
-            _open.bubble_opening = _close.bubble_closing = True
-            _open.draw_as_wires = _close.draw_as_wires = True
+            self, *args: Diagram,
+            drawing_name: str = None,
+            draw_as_frame: bool = None,
+            draw_as_square: bool = None,
+            draw_vertically=False, **kwargs):
+        cat.Bubble.__init__(self, *args, **kwargs)
+        Box.__init__(self, self.name, self.dom, self.cod)
+        self.drawing_name = "" if drawing_name is None else drawing_name
+        self.draw_vertically = draw_vertically
+        can_draw_as_square = len(args) == 1
+        can_draw_as_bubble = (can_draw_as_square
+                              and len(self.dom) == len(self.arg.dom)
+                              and len(self.cod) == len(self.arg.cod))
+        if len(args) == 1:
+            can_draw_as_bubble = (len(self.dom), len(self.cod)) == (
+                len(self.arg.dom), len(self.arg.cod))
+            self.draw_as_square = draw_as_square or not can_draw_as_bubble
+            self.draw_as_frame = draw_as_frame or (
+                not can_draw_as_bubble and not self.draw_as_square)
         else:
-            _open.frame_slot_opening = _close.frame_slot_closing = True
-        return _open >> left @ self.arg.to_drawing() @ right >> _close
-
-    def to_frame_drawing(self):
-        dom, cod = self.dom.to_drawing(), self.cod.to_drawing()
-        if self.args == 1:
-            inside = self.arg.to_drawing().bubble(
-                draw_as_bubble=True, dom=Ty(), cod=Ty()).to_drawing()
-        else:
-            left = right = Ty('')
-            first_arg = self.args[0].to_drawing()
-            last_arg = self.args[-1].to_drawing()
-            open_first_slot = Box(
-                "open", Ty(), left @ first_arg.dom @ right).to_drawing()
-            open_first_slot.frame_slot_opening = True
-            inside = open_first_slot >> left @ first_arg @ right
-            for f, g in zip(self.args, self.args[1:]):
-                b_dom, b_cod = [
-                    left @ x.to_drawing() @ right for x in [f.cod, g.dom]]
-                b = Box("boundary", b_dom, b_cod)
-                b.frame_slot_boundary = True
-                inside >>= b.to_drawing() >> left @ g.to_drawing() @ right
-            close_last_slot = Box(
-                "close", left @ last_arg.cod @ right, Ty()).to_drawing()
-            close_last_slot.frame_slot_closing = True
-            inside >>= close_last_slot
-        left, right = Ty(self.drawing_name), Ty("")
-        _open = Box("_open", dom, left @ right).to_drawing()
-        _close = Box("_close", left @ right, cod).to_drawing()
-        _open.frame_opening = _close.frame_closing = True
-        return _open >> left @ inside @ right >> _close
+            self.draw_as_frame = True
+            self.draw_as_square = False
 
     def to_drawing(self):
-        return self.to_bubble_drawing(
-            ) if self.draw_as_bubble else self.to_frame_drawing()
+        method = "frame" if self.draw_as_frame else "bubble"
+        args = [arg.to_drawing() for arg in self.args]
+        kwargs = dict(
+            dom=self.dom.to_drawing(),
+            cod=self.cod.to_drawing(),
+            name=self.drawing_name)
+        if self.draw_as_frame:
+            kwargs['draw_vertically'] = self.draw_vertically
+        else:
+            kwargs['draw_as_square'] = self.draw_as_square
+        return getattr(Drawing, method)(*args, **kwargs)
 
 
 class Category(cat.Category):
@@ -1078,7 +1081,7 @@ class Functor(cat.Functor):
 
     >>> from discopy.drawing import Equation
     >>> Equation(source, target, symbol='$\\\\mapsto$').draw(
-    ...     figsize=(4, 2), path='docs/_static/monoidal/functor-example.png')
+    ...     path='docs/_static/monoidal/functor-example.png')
 
     .. image:: /_static/monoidal/functor-example.png
         :align: center
@@ -1091,6 +1094,8 @@ class Functor(cat.Functor):
         if isinstance(other, PRO):
             result = cat.Functor.__call__(self, other.factory(1))
             return sum(other.n * [result], self.cod.ob())
+        if isinstance(other, Dim):
+            return sum([self.ob[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):
             return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):
@@ -1105,6 +1110,8 @@ class Functor(cat.Functor):
             for box_or_typ in tail:
                 result = result @ self(box_or_typ)
             return result
+        if isinstance(other, Bubble) and self.cod.ar is Drawing:
+            return other.to_drawing()
         return super().__call__(other)
 
 
@@ -1146,7 +1153,6 @@ class Hypergraph(hypergraph.Hypergraph):
 
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
-Diagram.to_grid = drawing.Grid.from_diagram
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble

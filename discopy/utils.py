@@ -18,6 +18,7 @@ from typing import (
     Collection,
     Type,
     Optional,
+    NamedTuple,
     TYPE_CHECKING,
 )
 
@@ -139,9 +140,9 @@ class NamedGeneric(Generic[TypeVar('T')]):
 
     >>> from dataclasses import dataclass
     >>> @dataclass
-    ... class L(NamedGeneric["type_param"]):
+    ... class L(NamedGeneric["dtype"]):
     ...     inside: list
-    >>> assert L[int]([1, 2, 3]).type_param == int
+    >>> assert L[int]([1, 2, 3]).dtype == int
     >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
     """
     _cache = dict()
@@ -379,10 +380,10 @@ def unbiased(binary_method):
     .. _nLab: https://ncatlab.org/nlab/show/biased+definition
     """
     @wraps(binary_method)
-    def method(self, *others):
+    def method(self, *others, **params):
         result = self
         for other in others:
-            result = binary_method(result, other)
+            result = binary_method(result, other, **params)
         return result
     return method
 
@@ -484,7 +485,7 @@ def draw_and_compare(file, folder, tol, **params):
             diagram = func()
             draw = params.get('draw', type(diagram).draw)
             true_path = os.path.join(folder, file)
-            test_path = os.path.join(folder, '.' + file)
+            test_path = os.path.join(folder, '_' + file)
             draw(diagram, path=test_path, show=False, **params)
             test = compare_images(true_path, test_path, tol)
             assert test is None
@@ -500,7 +501,7 @@ def tikz_and_compare(file, folder, **params):
             diagram = func()
             draw = params.get('draw', type(diagram).draw)
             true_paths = [os.path.join(folder, file)]
-            test_paths = [os.path.join(folder, '.' + file)]
+            test_paths = [os.path.join(folder, '_' + file)]
             if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
                 true_paths.append(
                     true_paths[0].replace('.tikz', '.tikzstyles'))
@@ -736,3 +737,37 @@ class classproperty(object):
 
     def __get__(self, _, x):
         return self.f(x)
+
+
+class Node:
+    """ Node in a :class:`networkx.Graph`, can hold arbitrary data. """
+    def __init__(self, kind, **data):
+        self.kind, self.data = kind, data
+        for key, value in data.items():
+            setattr(self, key, value)
+
+    def __eq__(self, other):
+        return isinstance(other, Node)\
+            and (self.kind, self.data) == (other.kind, other.data)
+
+    def __repr__(self):
+        return f"""Node({repr(self.kind)}, {", ".join(
+            f"{key}={value}" for key, value in sorted(self.data.items()))})"""
+
+    def __hash__(self):
+        return hash(repr(self))
+
+    def shift_i(self, i):
+        return Node(self.kind, **dict(self.data, i=self.i + i))
+
+    def shift_j(self, j):
+        return Node(self.kind, **dict(self.data, j=self.j + j))
+
+
+class Point(NamedTuple):
+    """ A point is a pair of floats for the x and y coordinates. """
+    x: float
+    y: float
+
+    def shift(self, x=0, y=0):
+        return Point(self.x + x, self.y + y)

@@ -393,8 +393,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
         from sympy import lambdify
         with backend() as np:
             array = lambdify(
-                symbols, self.array.tolist(), modules=np.module, **kwargs
-            )
+                symbols, self.array.tolist(), modules=np.module, **kwargs)
         dtype = dtype or self.dtype
         return lambda *xs: type(self)[dtype](array(*xs), self.dom, self.cod)
 

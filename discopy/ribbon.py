@@ -29,8 +29,7 @@ the trace of the braid is unitary.
 >>> twist_l = Braid(x, x).trace(left=True)
 >>> twist_r = Braid(x, x).trace(left=False)
 >>> eq = Equation(twist_l >> twist_l[::-1], Id(x), twist_r >> twist_r[::-1])
->>> eq.draw(figsize=(6, 4), margins=(.2, .1),
-...         path='docs/_static/ribbon/twist-untwist.png')
+>>> eq.draw(margins=(.2, 0), path='docs/_static/ribbon/twist-untwist.png')
 
 .. image:: /_static/ribbon/twist-untwist.png
     :align: center
@@ -52,8 +51,7 @@ Strict ribbon categories have diagrams with knots, i.e. ribbons where the two
 parallel wires coincide and the twist is the identity.
 
 >>> eq_strict = Equation(twist_l, Id(x), twist_r)
->>> eq_strict.draw(figsize=(4, 2), margins=(.2, .1),
-...                path='docs/_static/ribbon/strict.png')
+>>> eq_strict.draw(margins=(.2, .1), path='docs/_static/ribbon/strict.png')
 
 .. image:: /_static/ribbon/strict.png
     :align: center
