@@ -40,6 +40,7 @@ from discopy.utils import (
 if TYPE_CHECKING:
     import sympy
     import tensornetwork
+    import quimb
 
 
 @factory
@@ -424,6 +425,55 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
         array = contractor(*self.to_tn(dtype=dtype)).tensor
         return Tensor[dtype](array, self.dom, self.cod)
+
+    def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
+        """
+        Convert a tensor diagram to a quimb tensor.
+
+        Parameters:
+            dtype : Used for spiders.
+
+        Examples
+        --------
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> t_net = (vector >> vector[::-1]).to_quimb()
+        >>> assert t_net.contract(preserve_tensor=True).data == 1
+        """
+        import quimb.tensor as qtn
+        inputs = [
+                qtn.COPY_tensor(
+                    d=getattr(dim, 'dim', dim),
+                    inds=(f'inp{i}', f'inp{i}_end')
+                ) for i, dim in enumerate(self.dom.inside)]
+        tensors = inputs[:]
+        scan = [(t, 1) for t in inputs]
+
+        for i, (box, off) in enumerate(zip(self.boxes, self.offsets)):
+            if isinstance(box, Swap):
+                scan[off], scan[off + 1] = scan[off + 1], scan[off]
+                continue
+
+            in_inds = [f't{i}_i{j}' for j in range(len(box.dom))]
+            out_inds = [f't{i}_o{j}' for j in range(len(box.cod))]
+            t = qtn.Tensor(
+                data=box.eval().array,
+                inds=in_inds + out_inds,
+            )
+            tensors.append(t)
+            for j in range(len(box.dom)):
+                other_t, other_ind = scan[off + j]
+                qtn.connect(other_t, t, other_ind, j)
+
+            scan[off:off + len(box.dom)] = [
+                (t, len(box.dom) + ind) for ind in range(len(out_inds))
+            ]
+
+        tensor_net = qtn.TensorNetwork(tensors)
+        tensor_net.reindex({
+            t.inds[j]: f'out{i}' for i, (t, j) in enumerate(scan)
+        }, inplace=True)
+
+        return tensor_net
 
     def to_tn(self, dtype: type = None) -> tuple[
             list["tensornetwork.Node"], list["tensornetwork.Edge"]]:
