@@ -63,7 +63,7 @@ assert crack_two_eggs == crack @ crack\
 crack_two_eggs.draw()
 ```
 
-![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/src/imgs/crack-eggs.png)
+![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
 
 ## Quickstart
 
