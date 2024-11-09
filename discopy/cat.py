@@ -682,19 +682,22 @@ class Sum(Box):
 
 class Bubble(Box):
     """
-    A bubble is a box with an arrow :code:`arg` inside and an optional pair of
+    A bubble is a box with arrow :code:`args` inside and an optional pair of
     objects :code:`dom` and :code:`cod`.
 
     Parameters:
         args : The arrows inside the bubble.
-        dom : The domain of the bubble, default is that of :code:`other`.
-        cod : The codomain of the bubble, default is that of :code:`other`.
+        dom : The domain of the bubble, default is that of :code:`args`.
+        cod : The codomain of the bubble, default is that of :code:`args`.
         name (str) : An optional name for the bubble.
         method (str) : The method to call when a functor is applied to it.
         kwargs : Passed to the `__init__` of :class:`Box`.
+
+    Raises:
+        ValueError : When dom is None but all the args have the same dom.
     """
     def __init__(self, *args: Arrow, dom: Ob = None, cod: Ob = None,
-                 name="Bubble", method="bubble", **kwargs):
+                 name="", method="bubble", **kwargs):
         dom, = set(arg.dom for arg in args) if dom is None else (dom, )
         cod, = set(arg.cod for arg in args) if cod is None else (cod, )
         self.args, self.method = args, method

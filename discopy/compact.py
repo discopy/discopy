@@ -53,7 +53,7 @@ a.k.a. Reidemeister move 1
 >>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
 >>> assert cap_yanking and cup_yanking
 >>> Equation(cap_yanking, cup_yanking, symbol='', space=1).draw(
-...     figsize=(6, 3), path="docs/_static/compact/yanking_cup_and_cap.png")
+...     path="docs/_static/compact/yanking_cup_and_cap.png")
 
 .. image:: /_static/compact/yanking_cup_and_cap.png
     :align: center

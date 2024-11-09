@@ -1,0 +1,49 @@
+\begin{tikzpicture}[baseline=(0.base)]
+\begin{pgfonlayer}{nodelayer}
+\node (0) at (0, 3.0) {};
+\node [] (1) at (0, 0) {};
+\node [] (2) at (5.0, 0) {};
+\node [] (3) at (5.0, 6) {};
+\node [] (4) at (0, 6) {};
+\node [] (5) at (4.5, 5.5) {};
+\node [] (6) at (4.5, 5.25) {};
+\node [] (7) at (4.5, 0.75) {};
+\node [] (8) at (2.0, 4.5) {};
+\node [] (9) at (0.5, 4.25) {};
+\node [] (10) at (3.5, 4.25) {};
+\node [] (11) at (0.5, 0.75) {};
+\node [] (12) at (3.5, 1.75) {};
+\node [] (13) at (2.0, 3.5) {};
+\node [] (14) at (1.5, 3.25) {};
+\node [] (15) at (2.5, 3.25) {};
+\node [] (16) at (1.5, 1.75) {};
+\node [] (17) at (2.5, 2.75) {};
+\node [] (18) at (2.5, 2.5) {};
+\node [] (19) at (2.5, 1.5) {};
+\node [] (20) at (2.5, 0.5) {};
+\node [style=unit, scale=0.408] (21) at (4.5, 5.5) {};
+\node [style=cap, scale=0.408] (21) at (2.0, 4.5) {};
+\node [style=cap, scale=0.408] (21) at (2.0, 3.5) {};
+\node [style=counit, scale=0.408] (21) at (2.5, 2.5) {};
+\node [style=cup, scale=0.408] (21) at (2.5, 1.5) {};
+\node [style=cup, scale=0.408] (21) at (2.5, 0.5) {};
+\end{pgfonlayer}
+\begin{pgfonlayer}{edgelayer}
+\draw [style=box] (1.center) to (2.center) to (3.center) to (4.center) to (1.center);
+\draw [in=90, out=-90] (5.center) to (6.center);
+\draw [in=90, out=-90] (6.center) to (7.center);
+\draw [in=90, out=180, looseness=0.3452] (8.center) to (9.center);
+\draw [in=90, out=0, looseness=0.3452] (8.center) to (10.center);
+\draw [in=90, out=-90] (9.center) to (11.center);
+\draw [in=90, out=-90] (10.center) to (12.center);
+\draw [in=90, out=180, looseness=0.9391] (13.center) to (14.center);
+\draw [in=90, out=0, looseness=0.9391] (13.center) to (15.center);
+\draw [in=90, out=-90] (14.center) to (16.center);
+\draw [in=90, out=-90] (15.center) to (17.center);
+\draw [in=90, out=-90] (17.center) to (18.center);
+\draw [in=180, out=-90, looseness=0.5093] (16.center) to (19.center);
+\draw [in=0, out=-90, looseness=0.5093] (12.center) to (19.center);
+\draw [in=180, out=-90, looseness=0.2605] (11.center) to (20.center);
+\draw [in=0, out=-90, looseness=0.2605] (7.center) to (20.center);
+\end{pgfonlayer}
+\end{tikzpicture}
