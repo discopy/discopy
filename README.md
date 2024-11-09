@@ -136,7 +136,7 @@ Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https
 ### Functors & Rewrites
 
 **Monoidal functors** compute the meaning of a diagram, given an interpretation for each wire and for each box.
-In particular, **tensor functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork) or [JAX](https://github.com/google/jax).
+In particular, **tensor-valued functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork) or [JAX](https://github.com/google/jax).
 Applied to pregroup diagrams, DisCoPy implements the
 **categorical compositional distributional** (_DisCoCat_) models of
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
@@ -154,7 +154,7 @@ F = pregroup.Functor(
 assert F(sentence)
 ```
 
-**Free functors** (i.e. from diagrams to diagrams) can fill each box with a complex diagram.
+**Diagram-valued functors** can fill each box with a complex diagram.
 The result can then be simplified using `diagram.normalize()` to remove the snakes, this is called [autonomisation](https://arxiv.org/abs/1411.3827).
 
 ```python
