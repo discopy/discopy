@@ -94,7 +94,7 @@ assert crack_two_eggs == crack @ crack\
 crack_two_eggs.draw()
 ```
 
-![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
+![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/crack-eggs.png)
 
 Note that by default, diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right- hand side.
 In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e. `f @ g = f @ g.dom >> f.cod @ g` which is different from `f.dom @ g >> f @ g.cod`.
@@ -114,7 +114,7 @@ assert crack_two_eggs_at_once == Diagram(
 crack_two_eggs_at_once.draw()
 ```
 
-![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.png)
+![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/crack-two-eggs-at-once.png)
 
 ## Example: Alice loves Bob
 
@@ -131,7 +131,7 @@ right_snake =  Cap(x, x.l) @ x >> x @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-![snake equations, with types](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/typed-snake-equation.png)
+![snake equations, with types](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/typed-snake-equation.png)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -147,7 +147,7 @@ sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
 sentence.foliation().draw()
 ```
 
-![Alice loves Bob](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/alice-loves-bob.png)
+![Alice loves Bob](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/alice-loves-bob.png)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
