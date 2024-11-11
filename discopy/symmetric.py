@@ -134,7 +134,7 @@ class Diagram(balanced.Diagram):
     ...     x3 = f(x2, x0)
     ...     x4, x5 = g(x1)
     ...     return x5, x3, x4
-    >>> diagram.draw(draw_type_labels=False,
+    >>> diagram.draw(wire_labels=False,
     ...              path='docs/_static/symmetric/decorator.png')
 
     .. image:: /_static/symmetric/decorator.png

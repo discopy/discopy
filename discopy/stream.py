@@ -63,7 +63,7 @@ category of streams of python types and functions.
 ...                >> fby >> copy).feedback()
 >>> with Diagram.hypergraph_equality:
 ...     assert fib == fib_
->>> fib_.draw(draw_type_labels=False, figsize=(5, 5),
+>>> fib_.draw(wire_labels=False, figsize=(5, 5),
 ...           path="docs/_static/stream/fibonacci-feedback.png")
 
 .. image:: /_static/stream/fibonacci-feedback.png
@@ -93,7 +93,7 @@ category of streams of python types and probabilistic functions.
 ...     x = fby(zero(), x)
 ...     return (x, x)
 
->>> walk.draw(draw_type_labels=False, figsize=(5, 5),
+>>> walk.draw(wire_labels=False, figsize=(5, 5),
 ...           path="docs/_static/stream/random-walk-feedback.png")
 
 .. image:: /_static/stream/random-walk-feedback.png

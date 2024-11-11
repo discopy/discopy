@@ -734,8 +734,8 @@ class Circuit(tensor.Diagram[complex]):
 
     def draw(self, **params):
         """ We draw the labels of a circuit whenever it's mixed. """
-        draw_type_labels = params.get('draw_type_labels') or self.is_mixed
-        params = dict({'draw_type_labels': draw_type_labels}, **params)
+        wire_labels = params.get('wire_labels') or self.is_mixed
+        params = dict({'wire_labels': wire_labels}, **params)
         return super().draw(**params)
 
     @staticmethod

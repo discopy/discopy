@@ -61,13 +61,13 @@ def test_crack_two_eggs_at_once():
     return crack_two_eggs_at_once
 
 
-@draw_and_compare("bubble-straight-wire.png", draw_type_labels=False)
+@draw_and_compare("bubble-straight-wire.png", wire_labels=False)
 def test_draw_bubble_wires():
     return (Ty('x') @ Box('s', Ty(), Ty())).bubble()
 
 
 @draw_and_compare(
-    'spiral.png', draw_type_labels=False,
+    'spiral.png', wire_labels=False,
     draw_box_labels=False, aspect='equal')
 def test_draw_spiral():
     return spiral(2)
@@ -115,7 +115,7 @@ def test_draw_bialgebra():
 
 
 @draw_and_compare("snake-equation.png",
-                  aspect='auto', figsize=(5, 2), draw_type_labels=False)
+                  aspect='auto', figsize=(5, 2), wire_labels=False)
 def test_snake_equation():
     from discopy.rigid import Ty, Id
     x = Ty('x')
@@ -129,7 +129,7 @@ def test_draw_typed_snake():
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
 
 
-@tikz_and_compare("spiral.tikz", draw_type_labels=False, use_tikzstyles=True)
+@tikz_and_compare("spiral.tikz", wire_labels=False, use_tikzstyles=True)
 def test_spiral_to_tikz():
     return spiral(2)
 
@@ -202,14 +202,14 @@ def test_tikz_eggs():
         >> merge(white) @ merge(yolk)
 
 
-@draw_and_compare('long-controlled.png', draw_type_labels=False, tol=5)
+@draw_and_compare('long-controlled.png', wire_labels=False, tol=5)
 def test_draw_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
 
 
-@tikz_and_compare('long-controlled.tikz', draw_type_labels=False)
+@tikz_and_compare('long-controlled.tikz', wire_labels=False)
 def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(

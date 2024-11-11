@@ -76,7 +76,7 @@ This can only be checked up to a functor into streams.
 >>> strength = Equation(g @ f.feedback(), (g @ f).feedback())
 >>> assert eq_up_to_F(*strength.terms)
 >>> strength.draw(
-...     path='docs/_static/feedback/strength.png', draw_type_labels=False)
+...     path='docs/_static/feedback/strength.png', wire_labels=False)
 
 .. image:: /_static/feedback/strength.png
     :align: center
@@ -91,7 +91,7 @@ This can only be checked up to extensional equivalence of streams.
 >>> f = Box('f', x @ n.d, y @ m)
 >>> sliding = Equation((f >> y @ h).feedback(), (x @ h.d >> f).feedback())
 >>> sliding.draw(
-...     path='docs/_static/feedback/sliding.png', draw_type_labels=False)
+...     path='docs/_static/feedback/sliding.png', wire_labels=False)
 
 .. image:: /_static/feedback/sliding.png
     :align: center

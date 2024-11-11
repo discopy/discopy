@@ -713,7 +713,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
     >>> men_are_mortal = (men >> mortal.bubble()).bubble()
     >>> assert men_are_mortal.eval(dtype=bool)
-    >>> men_are_mortal.draw(draw_type_labels=False,
+    >>> men_are_mortal.draw(wire_labels=False,
     ...                     path='docs/_static/tensor/men-are-mortal.png')
 
     .. image:: /_static/tensor/men-are-mortal.png
@@ -732,7 +732,7 @@ class Bubble(monoidal.Bubble, Box):
     >>> assert lhs.eval(dtype=Expr) == rhs.eval(dtype=Expr)
 
     >>> from discopy.drawing import Equation
-    >>> Equation(lhs, rhs).draw(figsize=(5, 2), draw_type_labels=False,
+    >>> Equation(lhs, rhs).draw(figsize=(5, 2), wire_labels=False,
     ...                         path='docs/_static/tensor/product-rule.png')
 
     .. image:: /_static/tensor/product-rule.png
@@ -754,7 +754,7 @@ class Bubble(monoidal.Bubble, Box):
         >>> lhs, rhs = Box.grad(f(g), x), f(g).grad(x)
 
         >>> from discopy.drawing import Equation
-        >>> Equation(lhs, rhs).draw(draw_type_labels=False,
+        >>> Equation(lhs, rhs).draw(wire_labels=False,
         ...                         path='docs/_static/tensor/chain-rule.png')
 
         .. image:: /_static/tensor/chain-rule.png
