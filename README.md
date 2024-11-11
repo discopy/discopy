@@ -237,15 +237,13 @@ We can use this geometry of interaction to interpret words as processes rather t
 
 ```python
 from discopy.interaction import Ty, Int
-from discopy.drawing import Equation
-from discopy.grammar.pregroup import Word, Cup, Diagram, Functor
-from discopy.compact import Ty as T, Diagram as D, Box, Category, Swap
+from discopy.compact import Ty as T, Diagram as D, Box, Category
 
 N = T("N")
 A, L, B = Box('A', N, N), Box('L', N @ N, N @ N), Box('B', N, N)
 G = pregroup.Functor(
     ob={s: Ty[T](), n: Ty[T](N, N)},
-    ar={Alice: A, loves: Swap(N, N) >> L, Bob: B},
+    ar={Alice: A, loves: D.swap(N, N) >> L, Bob: B},
     cod=Int(Category(T, D)))
 
 ALB_trace = (A @ B >> L).trace(left=True).trace(left=False)
@@ -286,6 +284,8 @@ The feedback operation is given by:
 We can use this to unroll our diagram of the previous section:
 
 ```python
+from discopy.stream import Ty, Stream
+
 N = Ty("N")
 A, B = [Stream.sequence(f, N, N) for f in "AB"]
 L = Stream.sequence('L', N.delay() @ N.delay(), N @ N)
