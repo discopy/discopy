@@ -69,7 +69,8 @@ Yanking
 >>> yanking = Equation(
 ...     Swap(x, x).trace(left=True), Id(x), Swap(x, x).trace())
 >>> yanking.draw(
-...     path='docs/_static/traced/yanking.png', wire_labels=False)
+...     path='docs/_static/traced/yanking.png',
+...     wire_labels=False, figsize=(4, 1))
 
 .. image:: /_static/traced/yanking.png
     :align: center

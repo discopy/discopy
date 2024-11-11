@@ -33,8 +33,7 @@ DRAWING_ATTRIBUTES = {
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
     "tikzstyle_name": lambda box: (
-        box.name if box.name.isidentifier() else "symbol"),
-    "needs_"
+        box.name if box.name.isidentifier() else "symbol")
 }
 
 # Default drawing parameters.
