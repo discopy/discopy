@@ -274,7 +274,7 @@ where $X_0$ and $X^+$ are the head and the tail of the stream $X$.
 
 This comes with a delay $d(X) \in Ob(Stream(C))$ given by the monoidal unit $d(X)_0 = I$, $d(X)^+ = X$ and feedback operation given by:
 
-![feedback unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/feedback/feedback-unrolling.png)
+![feedback unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/stream/feedback-unrolling.png)
 
 We can use this to unroll our diagram of the previous section:
 
