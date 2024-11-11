@@ -100,8 +100,13 @@ crack_two_eggs.draw()
 
 ![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/crack-eggs.png)
 
-By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right- hand side.
-In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e. `f @ g = f @ g.dom >> f.cod @ g` which is different from `f.dom @ g >> f @ g.cod`.
+By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
+In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e.
+
+```python
+f @ g = f @ g.dom >> f.cod @ g != f.dom @ g >> f @ g.cod
+```
+
 We can get more general diagrams by specifying the list of layers `inside` manually or by calling the method [`Diagram.foliation`](https://docs.discopy.org/en/main/_api/discopy.monoidal.Diagram.html#discopy.monoidal.Diagram.foliation).
 
 ```python
@@ -162,6 +167,7 @@ Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https
 
 **Monoidal functors** compute the meaning of a diagram, given an interpretation for each wire and for each box.
 In particular, **tensor-valued functors** evaluate a diagram as a tensor network using [numpy](https://numpy.org/), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork) or [JAX](https://github.com/google/jax).
+
 Applied to pregroup diagrams, DisCoPy implements the
 **categorical compositional distributional** (_DisCoCat_) models of
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
@@ -266,13 +272,14 @@ If we relax this assumption we get the concept of a [`feedback`](https://docs.di
 Given a symmetric category $C$, we can construct a feedback category of **monoidal streams** $Stream(C)$ where
 
 - the objects are infinite sequences of objects $Ob(Stream(C)) = C \times Ob(Stream(C))$,
-- the arrows are infinite sequences of arrows $Stream(C)(X, Y) = \coprod_{M} Stream(C)(X, Y, M)$ defined by
+- the arrows are infinite sequences of arrows $Stream(C)(X, Y) = \coprod_{M} Stream(C)(X, Y, M)$ defined by:
 
 $$Stream(C)(X, Y, M) = C(X_0 \otimes M_0, Y_0 \otimes M_1)  \times Stream(C)(X^+, Y^+, M^+)$$
 
 where $X_0$ and $X^+$ are the head and the tail of the stream $X$.
 
-This comes with a delay $d(X) \in Ob(Stream(C))$ given by the monoidal unit $d(X)_0 = I$, $d(X)^+ = X$ and feedback operation given by:
+This comes with a delay $d(X) \in Ob(Stream(C))$ given by the monoidal unit as head $d(X)_0 = I$ and the given object as tail $d(X)^+ = X$.
+The feedback operation is given by:
 
 ![feedback unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/stream/feedback-unrolling.png)
 
