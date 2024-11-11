@@ -32,7 +32,7 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
   - [PennyLane](https://pennylane.ai/) for automatic differentiation
 * a [`Hypergraph`](https://docs.discopy.org/en/main/_api/discopy.hypergraph.Hypergraph.html) data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
 * a [`Stream`](https://docs.discopy.org/en/main/_api/discopy.stream.Stream.html) data structure, an implementation of [monoidal streams](https://arxiv.org/abs/2212.14494) as a [category with delayed feedback](https://doi.org/10.1051/ita:2002009)
-* the [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction, i.e. the free tortile category on a balanced traced category, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction)
+* the [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction), i.e. the free tortile/compact closed category on a balanced/symmetric traced category
 
 ## Quickstart
 
@@ -40,23 +40,22 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 pip install discopy
 ```
 
-If you want to see DisCoPy in action, check out the examples:
+If you want to see DisCoPy in action, you can check out the following notebooks:
 
-- [Cooking](#example-cooking)
-- [Alice loves Bob](#example-alice-loves-bob)
-- [Geometry of Chatbot Interaction]()
+- [What is a diagram?](https://docs.discopy.org/en/main/notebooks/diagrams.html)
+- [QNLP Tutorial](https://docs.discopy.org/en/main/notebooks/qnlp.html)
+
+Or you can keep scrolling down to the examples on [Cooking](#example-cooking), [Alice loves Bob](#example-alice-loves-bob) and the [Geometry of Chatbot Interaction](#geometry-of-chatbot-interaction).
 
 ## Contribute
 
 We're keen to welcome new contributors!
 
-First, read the [contributing guidelines](https://github.com/discopy/discopy/blob/main/CONTRIBUTING.md).
-Then get in touch on [Discord](https://discopy.org/discord)
-or [open an issue](https://github.com/discopy/discopy/issues/new).
+First, read the [contributing guidelines](https://github.com/discopy/discopy/blob/main/CONTRIBUTING.md) then [open an issue](https://github.com/discopy/discopy/issues/new).
 
 ## How to cite
 
-If you used DisCoPy in the context of an academic publication, we suggest you cite:
+If you use DisCoPy in the context of an academic publication, we suggest you cite:
 
 * G. de Felice, A. Toumi & B. Coecke, _DisCoPy: Monoidal Categories in Python_, EPTCS 333, 2021, pp. 183-197, [DOI: 10.4204/EPTCS.333.13](https://doi.org/10.4204/EPTCS.333.13)
 
@@ -77,16 +76,14 @@ from discopy.symmetric import Ty, Box, Diagram
 
 egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
 crack = Box("crack", egg, white @ yolk)
-merge = lambda x: Box("merge", x @ x, x)
+merge = lambda X: Box("merge", X @ X, X)
 
 # DisCoPy allows string diagrams to be defined as Python functions
 
 @Diagram.from_callable(egg @ egg, white @ yolk)
-def crack_two_eggs(left_egg, right_egg):
-    left_white, left_yolk = crack(left_egg)
-    right_white, right_yolk = crack(right_egg)
-    return (merge(white)(left_white, right_white),
-            merge(yolk)(left_yolk, right_yolk))
+def crack_two_eggs(x, y):
+    (a, b), (c, d) = crack(x), crack(y)
+    return (merge(white)(a, c), merge(yolk)(b, d))
 
 # ... or in point-free style using parallel (@) and sequential (>>) composition
 
@@ -99,37 +96,58 @@ crack_two_eggs.draw()
 
 ![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
 
+Note that by default, diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right- hand side.
+In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e. `f @ g = f @ g.dom >> f.cod @ g` which is different from `f.dom @ g >> f @ g.cod`.
+We can get more general diagrams by specifying the list of layers `inside` manually or by calling the method [`Diagram.foliation`](https://docs.discopy.org/en/main/_api/discopy.monoidal.Diagram.html#discopy.monoidal.Diagram.foliation).
+
+```python
+from discopy.monoidal import Layer
+
+crack_two_eggs_at_once = crack_two_eggs.foliation()
+
+assert crack_two_eggs_at_once == Diagram(
+  dom=egg @ egg, cod=white @ yolk, inside=(
+    Layer(Ty(), crack, Ty(), crack, Ty()),
+    Layer(white, Diagram.swap(yolk, white), yolk),
+    Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
+
+crack_two_eggs_at_once.draw()
+```
+
+![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.png)
+
 ## Example: Alice loves Bob
 
 ### Snakes & Sentences
 
-Wires can be bended using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
+Wires can be bent using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
-from discopy import Cup, Cap
+from discopy.rigid import Ty, Id, Cup, Cap
 
 x = Ty('x')
-left_snake = Id(x) @ Cap(x.r, x) >> Cup(x, x.r) @ Id(x)
-right_snake =  Cap(x, x.l) @ Id(x) >> Id(x) @ Cup(x.l, x)
+left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
+right_snake =  Cap(x, x.l) @ x >> x @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 ```
 
-![snake equations, with types](https://raw.githubusercontent.com/discopy/discopy/legacy/docs/_static/imgs/typed-snake-equation.png)
+![snake equations, with types](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/typed-snake-equation.png)
 
-In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar) (see Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an  introduction).
+In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
+See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
 
 ```python
 from discopy.grammar.pregroup import Ty, Word, Cup
 
-s, n = Ty('s'), Ty('n')
+s, n = Ty('s'), Ty('n')  # sentence and noun
 Alice, Bob = Word('Alice', n), Word('Bob', n)
 loves = Word('loves', n.r @ s @ n.l)
 
-sentence = Alice @ loves @ Bob\
-    >> Cup(n, n.r) @ s @ Cup(n.l, n)
+sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
+sentence.foliation().draw()
 ```
 
-![Alice loves Bob](https://raw.githubusercontent.com/discopy/discopy/legacy/docs/_static/imgs/alice-loves-bob.png)
+![Alice loves Bob](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/alice-loves-bob.png)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
@@ -170,7 +188,7 @@ def wiring(word):
 W = pregroup.Functor(ob={s: s, n: n}, ar=wiring)
 
 rewrite_steps = W(sentence).normalize()
-sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000)
+sentence.to_gif(*rewrite_steps)
 ```
 
 ![autonomisation](https://raw.githubusercontent.com/discopy/discopy/legacy/docs/_static/imgs/autonomisation.gif)
@@ -185,7 +203,9 @@ The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-
 
 i.e. the same way we can freely add inverses to a commutative monoid to get a group, e.g. $\mathbb{N} \hookrightarrow Int(\mathbb{N}) = \mathbb{Z}$ where
 
-$$Int(M) \ = \ (M \times M) \ / \ \big\{ (x, x') \sim (y, y') \ \vert \ x + y' = x' + y \big\}$$
+$$
+Int(M) \ = \ (M \times M) \ / \ \{ (x, x') \sim (y, y') \ \vert \ x + y' = x' + y \}
+$$
 
 you can freely add cups and caps to a [`symmetric`](https://docs.discopy.org/en/main/_api/discopy.symmetric.html) or [`balanced`](https://docs.discopy.org/en/main/_api/discopy.balanced.html) category to get a [`compact`](https://docs.discopy.org/en/main/_api/discopy.compact.html) or [`tortile`](https://docs.discopy.org/en/main/_api/discopy.tortile.html) category.
 

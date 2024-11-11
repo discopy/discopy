@@ -17,9 +17,7 @@ def tikz_and_compare(file, **params):
     return utils.tikz_and_compare(file, TIKZ_FOLDER, **params)
 
 
-@draw_and_compare(
-    'crack-eggs.png',
-    figsize=(4, 4), aspect='auto', margins=(0.1, 0.025))
+@draw_and_compare('crack-eggs.png')
 def test_draw_eggs():
     def merge(x):
         return Box('merge', x @ x, x)
@@ -29,6 +27,38 @@ def test_draw_eggs():
     return crack @ crack\
         >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
         >> merge(white) @ merge(yolk)
+
+@draw_and_compare('crack-two-eggs-at-once.png')
+def test_crack_two_eggs_at_once():
+    from discopy.monoidal import Layer
+    from discopy.symmetric import Ty, Box, Diagram
+
+    egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
+    crack = Box("crack", egg, white @ yolk)
+    merge = lambda X: Box("merge", X @ X, X)
+
+    # DisCoPy allows string diagrams to be defined as Python functions
+
+    @Diagram.from_callable(egg @ egg, white @ yolk)
+    def crack_two_eggs(x, y):
+        (a, b), (c, d) = crack(x), crack(y)
+        return (merge(white)(a, c), merge(yolk)(b, d))
+
+    # ... or in point-free style using parallel (@) and sequential (>>) composition
+
+    assert crack_two_eggs == crack @ crack\
+        >> white @ Diagram.swap(yolk, white) @ yolk\
+        >> merge(white) @ merge(yolk)
+
+    crack_two_eggs_at_once = crack_two_eggs.foliation()
+
+    assert crack_two_eggs_at_once == Diagram(
+        dom=egg @ egg, cod=white @ yolk, inside=(
+            Layer(Ty(), crack, Ty(), crack, Ty()),
+            Layer(white, Diagram.swap(yolk, white), yolk),
+            Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
+
+    return crack_two_eggs_at_once
 
 
 @draw_and_compare("bubble-straight-wire.png", draw_type_labels=False)
@@ -53,13 +83,14 @@ def test_draw_who():
         >> Id(n.r) @ update @ Id(s.l @ n)
 
 
-@draw_and_compare('sentence-as-diagram.png', aspect='equal')
-def test_draw_sentence():
+@draw_and_compare('alice-loves-bob.png')
+def test_draw_pregroup_sentence():
     from discopy.grammar.pregroup import Ty, Cup, Word, Id
     s, n = Ty('s'), Ty('n')
     Alice, Bob = Word('Alice', n), Word('Bob', n)
     loves = Word('loves', n.r @ s @ n.l)
-    return Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ Id(s) @ Cup(n.l, n)
+    return sentence.foliation()
 
 
 @draw_and_compare('categorial-grammar.png', aspect='equal')
@@ -183,3 +214,26 @@ def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
+
+def test_to_gif():
+    from discopy.grammar.pregroup import (
+         Ty, Cup, Cap, Box, Word, Functor)
+
+    s, n = Ty('s'), Ty('n')
+    Alice, Bob = Word('Alice', n), Word('Bob', n)
+    loves = Word('loves', n.r @ s @ n.l)
+
+    sentence = Alice @ loves @ Bob\
+        >> Cup(n, n.r) @ s @ Cup(n.l, n)
+
+    def wiring(word):
+        if word.cod == n:  # word is a noun
+            return word
+        if word.cod == n.r @ s @ n.l:  # word is a transitive verb
+            box = Box(word.name, n @ n, s)
+            return Cap(n.r, n) @ Cap(n, n.l) >> n.r @ box @ n.l
+
+    W = Functor(ob={s: s, n: n}, ar=wiring)
+
+    rewrite_steps = W(sentence).normalize()
+    sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000, figsize=(4, 4))
