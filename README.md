@@ -45,7 +45,11 @@ If you want to see DisCoPy in action, you can check out the following notebooks:
 - [What is a diagram?](https://docs.discopy.org/en/main/notebooks/diagrams.html)
 - [QNLP Tutorial](https://docs.discopy.org/en/main/notebooks/qnlp.html)
 
-Or you can keep scrolling down to the examples on [Cooking](#example-cooking), [Alice loves Bob](#example-alice-loves-bob) and the [Geometry of Chatbot Interaction](#geometry-of-chatbot-interaction).
+Or you can keep scrolling down to the examples:
+
+- [Cooking](#example-cooking)
+- [Alice loves Bob](#example-alice-loves-bob)
+- [Geometry of Chatbot Interaction](#geometry-of-chatbot-interaction).
 
 ## Contribute
 
