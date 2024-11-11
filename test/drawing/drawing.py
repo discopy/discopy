@@ -122,7 +122,7 @@ def test_snake_equation():
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
 
 
-@draw_and_compare('typed-snake-equation.png', figsize=(5, 2), aspect='auto')
+@draw_and_compare('typed-snake-equation.png', figsize=(4, 1))
 def test_draw_typed_snake():
     from discopy.rigid import Ty, Id
     x = Ty('x')
@@ -236,4 +236,6 @@ def test_to_gif():
     W = Functor(ob={s: s, n: n}, ar=wiring)
 
     rewrite_steps = W(sentence).normalize()
-    sentence.to_gif(*rewrite_steps, path='autonomisation.gif', timestep=1000, figsize=(4, 4))
+    params = dict(
+        path=IMG_FOLDER + 'autonomisation.gif', timestep=1000, figsize=(4, 4))
+    sentence.to_gif(*rewrite_steps, **params)

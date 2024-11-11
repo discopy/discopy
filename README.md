@@ -123,15 +123,18 @@ crack_two_eggs_at_once.draw()
 Wires can be bent using two special kinds of boxes: **cups** and **caps**, which satisfy the [snake equations](https://ncatlab.org/nlab/show/triangle+identities).
 
 ```python
+from discopy.drawing import Equation
 from discopy.rigid import Ty, Id, Cup, Cap
 
 x = Ty('x')
 left_snake = x @ Cap(x.r, x) >> Cup(x, x.r) @ x
 right_snake =  Cap(x, x.l) @ x >> x @ Cup(x.l, x)
 assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
+
+Equation(left_snake, Id(x), right_snake).draw()
 ```
 
-![snake equations, with types](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/typed-snake-equation.png)
+![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/typed-snake-equation.png)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -191,7 +194,7 @@ rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps)
 ```
 
-![autonomisation](https://raw.githubusercontent.com/discopy/discopy/legacy/docs/_static/imgs/autonomisation.gif)
+![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/autonomisation.gif)
 
 ## Geometry of Chatbot Interaction
 
@@ -204,7 +207,7 @@ The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-
 i.e. the same way we can freely add inverses to a commutative monoid to get a group, e.g. $\mathbb{N} \hookrightarrow Int(\mathbb{N}) = \mathbb{Z}$ where
 
 $$
-Int(M) \ = \ (M \times M) \ / \ \{ (x, x') \sim (y, y') \ \vert \ x + y' = x' + y \}
+Int(M) \ = \ (M \times M) \ / \ \set{ (x, x') \sim (y, y') \ \vert \ x + y' = x' + y }
 $$
 
 you can freely add cups and caps to a [`symmetric`](https://docs.discopy.org/en/main/_api/discopy.symmetric.html) or [`balanced`](https://docs.discopy.org/en/main/_api/discopy.balanced.html) category to get a [`compact`](https://docs.discopy.org/en/main/_api/discopy.compact.html) or [`tortile`](https://docs.discopy.org/en/main/_api/discopy.tortile.html) category.
