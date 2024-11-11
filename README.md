@@ -100,7 +100,7 @@ crack_two_eggs.draw()
 
 ![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/crack-eggs.png)
 
-Note that by default, diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right- hand side.
+By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right- hand side.
 In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e. `f @ g = f @ g.dom >> f.cod @ g` which is different from `f.dom @ g >> f @ g.cod`.
 We can get more general diagrams by specifying the list of layers `inside` manually or by calling the method [`Diagram.foliation`](https://docs.discopy.org/en/main/_api/discopy.monoidal.Diagram.html#discopy.monoidal.Diagram.foliation).
 
@@ -217,11 +217,12 @@ $$
 you can freely add cups and caps to a [`symmetric`](https://docs.discopy.org/en/main/_api/discopy.symmetric.html) or [`balanced`](https://docs.discopy.org/en/main/_api/discopy.balanced.html) category to get a [`compact`](https://docs.discopy.org/en/main/_api/discopy.compact.html) or [`tortile`](https://docs.discopy.org/en/main/_api/discopy.tortile.html) category.
 
 The only condition is that the monoid needs to be **cancellative**, i.e. $x + n = y + n \implies x = y$.
+
 The [vertical categorification](https://ncatlab.org/nlab/show/vertical+categorification) of a cancellative monoid is called a [`traced`](https://docs.discopy.org/en/main/_api/discopy.traced.html) category, where the diagrams can have feedback loops:
 
 ![right trace](https://github.com/discopy/discopy/blob/97c002fa8eaefefc53287d960a54ebd5ac96dedd/docs/_static/traced/right-trace.png)
 
-Given a traced category $C$, we construct $Int(C)$ with objects given by $Ob(Int(C)) = Ob(C) \times Ob(C)$, arrows given by $Int(C)((x, x'), (y, y')) = C(x \otimes y', x' \otimes y)$ and the composition is given by **symmetric feedback**:
+Given a traced category $C$, we construct $Int(C)$ with objects given by pairs of objects $Ob(Int(C)) = Ob(C) \times Ob(C)$, arrows given by $Int(C)((x_0, x_1), (y_0, y_1)) = C(x_0 \otimes y_1, x_1 \otimes y_0)$ and the composition is given by **symmetric feedback**:
 
 ![symmetric feedback](https://github.com/discopy/discopy/blob/97c002fa8eaefefc53287d960a54ebd5ac96dedd/docs/_static/int/symmetric-feedback.png)
 
@@ -241,11 +242,16 @@ G = pregroup.Functor(
     ar={Alice: A, loves: Swap(N, N) >> L, Bob: B},
     cod=Int(Category(T, D)))
 
+ALB_trace = (A @ B >> L).trace(left=True).trace(left=False)
+
 with D.hypergraph_equality:
-  assert G(sentence).inside == (A @ B >> L).trace(left=True).trace(left=False)
+  assert G(sentence).inside == ALB_trace
+
+Equation(sentence.foliation(), ALB_trace.foliation(), symbol="$\\mapsto$"
+  ).draw(path="docs/_static/int/alice-loves-traces.png")
 ```
 
-![](alice-loves-feedback.png)
+![Alice loves traces](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/int/alice-loves-traces.png)
 
 ### Streams and delayed feedback
 
