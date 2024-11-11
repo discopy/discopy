@@ -283,10 +283,10 @@ N = Ty("N")
 A, B = [Stream.sequence(f, N, N) for f in "AB"]
 L = Stream.sequence('L', N.delay() @ N.delay(), N @ N)
 ALB = (L >> A @ B).feedback(dom=Ty(), cod=Ty(), mem=N @ N)
-ALB.unroll(2).now.draw(path="alice-loves-unrolling.png")
+ALB.unroll(2).now.draw(path="docs/_static/stream/alice-loves-unrolling.png")
 ```
 
-![](alice-loves-unrolling.png)
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/feedback/alice-loves-unrolling.png)
 
 
 > The play is set in a basement with computers everywhere, Alice and Bob are dressed like hackers with black hoodies and nerdy glasses, they have somewhat of a hipster vibe.
