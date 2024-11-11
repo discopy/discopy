@@ -557,9 +557,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
 
         >>> from discopy.drawing import Equation
         >>> Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\\\mapsto$"
-        ...     ).draw(path="docs/_static/stream/feedback-example.png")
+        ...     ).draw(path="docs/_static/stream/feedback-unrolling.png")
 
-        .. image:: /_static/stream/feedback-example.png
+        .. image:: /_static/stream/feedback-unrolling.png
             :align: center
         """
         if mem is None or dom is None or cod is None:

@@ -257,28 +257,24 @@ Equation(sentence.foliation(), ALB_trace.foliation(), symbol="$\\mapsto$"
 
 A key axiom of traced monoidal categories which allows to simplify diagrams is the **yanking equation**:
 
-![yanking](https://docs.discopy.org/en/main/_images/yanking1.png)
+![yanking](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/traced/yanking.png)
 
 If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
 
-![feedback](https://docs.discopy.org/en/main/_images/feedback-operator.png)
+![feedback operator](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/feedback/feedback-operator.png)
 
-Given a symmetric category $C$, we can construct a feedback category of **monoidal streams** $Stream(C)$ where the objects are infinite sequences of objects $Ob(Stream(C)) = C \times Ob(Stream(C))$, and the arrows are infinite sequences of arrows $Stream(C)(X, Y) = \coprod_{M} Stream(C)(X, Y, M)$ defined by
+Given a symmetric category $C$, we can construct a feedback category of **monoidal streams** $Stream(C)$ where
+
+- the objects are infinite sequences of objects $Ob(Stream(C)) = C \times Ob(Stream(C))$,
+- the arrows are infinite sequences of arrows $Stream(C)(X, Y) = \coprod_{M} Stream(C)(X, Y, M)$ defined by
+
 $$Stream(C)(X, Y, M) = C(X_0 \otimes M_0, Y_0 \otimes M_1)  \times Stream(C)(X^+, Y^+, M^+)$$
+
 where $X_0$ and $X^+$ are the head and the tail of the stream $X$.
+
 This comes with a delay $d(X) \in Ob(Stream(C))$ given by the monoidal unit $d(X)_0 = I$, $d(X)^+ = X$ and feedback operation given by:
 
-```python
-from discopy import symmetric
-from discopy.stream import Ty, Stream
-
-x, y, m = [Ty.sequence(symmetric.Ty(n)) for n in "xym"]
-f = Stream.sequence("f", x @ m.delay(), y @ m)
-fb = f.feedback(x, y, m)
-Equation(f.unroll(2).now, fb.unroll(2).now, symbol="$\\mapsto$").draw()
-```
-
-![](https://docs.discopy.org/en/main/_images/feedback-example1.png)
+![feedback unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/feedback/feedback-unrolling.png)
 
 We can use this to unroll our diagram of the previous section:
 

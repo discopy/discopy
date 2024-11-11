@@ -42,7 +42,7 @@ endofunctor :meth:`Diagram.delay`, shortened to `.d` and a method
 >>> x, y, m = map(Ty, "xym")
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> Equation(f, f.feedback(), symbol="$\\\\mapsto$").draw(
-...     path="docs/_static/feedback/feedback-operator.png", figsize=(8, 4))
+...     path="docs/_static/feedback/feedback-operator.png")
 
 .. image:: /_static/feedback/feedback-operator.png
     :align: center
@@ -503,11 +503,14 @@ class Feedback(monoidal.Bubble, Box):
 
     Examples
     --------
+    >>> from discopy.drawing import Equation
     >>> x, y, z = map(Ty, "xyz")
-    >>> Box('f', x @ y.delay(), z @ y).feedback().draw(
-    ...     path="docs/_static/feedback/feedback-example.png")
+    >>> f = Box('f', x @ y.delay(), z @ y)
+    >>> fb = f.feedback()
+    >>> Equation(f, fb, symbol="$\\\\mapsto$").draw(
+    ...     path="docs/_static/feedback/feedback-operator.png")
 
-    .. image:: /_static/feedback/feedback-example.png
+    .. image:: /_static/feedback/feedback-operator.png
         :align: center
     """
     to_drawing = markov.Trace.to_drawing
