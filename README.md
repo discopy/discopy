@@ -215,11 +215,11 @@ you can freely add cups and caps to a [`symmetric`](https://docs.discopy.org/en/
 The only condition is that the monoid needs to be **cancellative**, i.e. $x + n = y + n \implies x = y$.
 The [vertical categorification](https://ncatlab.org/nlab/show/vertical+categorification) of a cancellative monoid is called a [`traced`](https://docs.discopy.org/en/main/_api/discopy.traced.html) category, where the diagrams can have feedback loops:
 
-![](trace.png)
+![right trace](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/traced/right-trace.png)
 
 Given a traced category $C$, we construct $Int(C)$ with objects given by $Ob(Int(C)) = Ob(C) \times Ob(C)$, arrows given by $Int(C)((x, x'), (y, y')) = C(x \otimes y', x' \otimes y)$ and the composition is given by **symmetric feedback**:
 
-![symmetric feedback]()
+![symmetric feedback](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/traced/symmetric-feedback.png)
 
 The structure theorem of Joyal-Street-Verity says that the embedding $C \hookrightarrow Int(C)$ is fully-faithful, i.e. we can remove all the snakes and replace all the cups and caps with feedback loops.
 We can use this geometry of interaction to interpret words as processes rather than states:

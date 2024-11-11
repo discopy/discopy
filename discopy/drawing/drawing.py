@@ -191,7 +191,8 @@ class Drawing(Composable, Whiskerable):
     def draw(self, **params):
         """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.125 * any(
-            box.is_dagger or box.is_conjugate or box.is_transpose
+            box.is_conjugate or box.is_transpose or (
+                box.is_dagger and not box.draw_as_braid)
             for box in self.boxes))
         self.add_box_corners()
         return backend.draw(self, asymmetry=asymmetry, **params)

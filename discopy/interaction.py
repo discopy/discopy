@@ -198,12 +198,32 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
         -------
 
         >>> from discopy.ribbon import Ty as T, Diagram as D, Box as B
-        >>> u, v, w, x, y, z = map(Ty[T], "uvwxyz")
-        >>> f = Diagram[D](B('f', T('x', 'v'), T('y', 'u')), x @ -u, y @ -v)
-        >>> g = Diagram[D](B('g', T('y', 'w'), T('z', 'v')), y @ -v, z @ -w)
+        >>> x0, y0, z0 = map(T, [obj + "0" for obj in "xyz"])
+        >>> x1, y1, z1 = map(T, [obj + "1" for obj in "xyz"])
+        >>> X, Y, Z = Ty[T](x0, x1), Ty[T](y0, y1), Ty[T](z0, z1)
+        >>> f = Diagram[D](B('f', x0 @ y1, y0 @ x1), X, Y)
+        >>> g = Diagram[D](B('g', y0 @ z1, z0 @ y1), Y, Z)
         >>> (f >> g).draw(path='docs/_static/int/composition.png')
 
         .. image:: /_static/int/composition.png
+            :align: center
+
+        Note
+        ----
+
+        In the compact case, composition is equivalent to symmetric feedback:
+
+        >>> from discopy.interaction import *
+        >>> from discopy.compact import Ty, Box, Swap, Cup, Cap
+        >>> f_, g_ = Box('f', x0 @ y1, x1 @ y0), Box('g', y0 @ z1, y1 @ z0)
+        >>> caps = (x0 @ Cap(y1, y1.r) @ Cap(y0.r, y0) @ z1).foliation()
+        >>> cups = (x1 @ Cup(y0, y0.r) @ Cup(y1.r, y1) @ z0).foliation()
+        >>> symmetric_feedback =\\
+        ...     caps >> (f_ @ Swap(y1.r, y0.r) @ g_).foliation() >> cups
+        >>> symmetric_feedback.draw(
+        ...     path='docs/_static/int/symmetric-feedback.png')
+
+        .. image:: /_static/int/symmetric-feedback.png
             :align: center
         """
         assert_iscomposable(self, other)
