@@ -34,6 +34,7 @@ DRAWING_ATTRIBUTES = {
     "drawing_name": lambda box: box.name,
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol"),
+    "needs_"
 }
 
 # Default drawing parameters.
