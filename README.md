@@ -239,20 +239,21 @@ We can use this geometry of interaction to interpret words as processes rather t
 from discopy.interaction import Ty, Int
 from discopy.compact import Ty as T, Diagram as D, Box, Category
 
-N = T("N")
-A, L, B = Box('A', N, N), Box('L', N @ N, N @ N), Box('B', N, N)
+N, S = T('N'), T('S')
+A, B = Box('A', N, N), Box('B', N, N)
+L = Box('L', N @ S @ N, N @ S @ N)
+swaps = D.permutation((2, 1, 0), N @ S @ N)
 G = pregroup.Functor(
-    ob={s: Ty[T](), n: Ty[T](N, N)},
-    ar={Alice: A, loves: D.swap(N, N) >> L, Bob: B},
+    ob={s: Ty[T](S, S), n: Ty[T](N, N)},
+    ar={Alice: A, loves: swaps >> L, Bob: B},
     cod=Int(Category(T, D)))
 
-ALB_trace = (A @ B >> L).trace(left=True).trace(left=False)
+ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
 
 with D.hypergraph_equality:
   assert G(sentence).inside == ALB_trace
 
-Equation(sentence.foliation(), ALB_trace.foliation(), symbol="$\\mapsto$"
-  ).draw(path="docs/_static/int/alice-loves-traces.png")
+Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
 ```
 
 ![Alice loves traces](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/int/alice-loves-traces.png)
@@ -286,14 +287,14 @@ We can use this to unroll our diagram of the previous section:
 ```python
 from discopy.stream import Ty, Stream
 
-N = Ty("N")
+N, S = Ty("N"), Ty("S")
 A, B = [Stream.sequence(f, N, N) for f in "AB"]
-L = Stream.sequence('L', N.delay() @ N.delay(), N @ N)
-ALB = (L >> A @ B).feedback(dom=Ty(), cod=Ty(), mem=N @ N)
-ALB.unroll(2).now.draw(path="docs/_static/stream/alice-loves-unrolling.png")
+L = Stream.sequence('L', S.head @ N.delay() @ N.delay(), N @ N)
+ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
+ALB.unroll(2).now.foliation().draw()
 ```
 
-![Alice loves unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/feedback/alice-loves-unrolling.png)
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/stream/alice-loves-unrolling.png)
 
 
 > The play is set in a basement with computers everywhere, Alice and Bob are dressed like hackers with black hoodies and nerdy glasses, they have somewhat of a hipster vibe.
