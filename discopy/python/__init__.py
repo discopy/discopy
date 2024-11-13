@@ -3,27 +3,14 @@
 """
 The category of Python types and functions.
 
-
-Summary
--------
-
 .. autosummary::
-    :template: class.rst
-    :nosignatures:
-    :toctree:
+    :template: module.rst
+    :toctree: ../_api
 
-    Ty
-    multiplicative.Function
-    additive.Function
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        multiplicative.exp
+    discopy.python.finset
+    discopy.python.function
+    discopy.python.additive
+    discopy.python.multiplicative
 """
 
 from discopy.python.finset import Dict

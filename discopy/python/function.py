@@ -2,6 +2,16 @@
 
 """
 The category of Python functions with sequential composition.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Function
 """
 from __future__ import annotations
 
@@ -17,6 +27,21 @@ from discopy.utils import (
 
 @dataclass
 class Function(Composable[type], Whiskerable):
+    """
+    Python function with tuple as tensor.
+
+    Parameters:
+        inside : The callable Python object inside the function.
+        dom : The domain of the function, i.e. its input type.
+        cod : The codomain of the function, i.e. its output type.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+    """
     inside: Callable
     dom: type
     cod: type
