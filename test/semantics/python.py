@@ -31,11 +31,33 @@ def test_trace():
 
 def test_FinSet():
     from discopy.markov import Ty, Diagram, Functor, Category
+    from discopy.python import finset
 
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)
-    F = Functor({x: 1}, {}, cod=Category(int, Dict))
+    F = Functor({x: 1}, {}, cod=Category(int, finset.Function))
 
     assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
     assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)
     assert F(copy >> swap) == F(copy)
+
+
+def test_additive_Function():
+    from discopy.interaction import Ty, Diagram
+    from discopy.python.additive import Ty as T, Function, Id, Swap, Merge
+    
+    x = (int, )
+    m, e = Function.merge(x, n=2), Function.merge(x, n=0)
+
+    eq = lambda *fs: all(fs[0].is_parallel(f) for f in fs) and all(
+        len(set(f(42, i) for f in fs)) == 1 for i in range(len(fs[0].dom)))
+    
+    assert eq(Swap(x, x) >> m, m)
+    assert eq(x @ e >> m, Id(x), e @ x >> m)
+    assert eq(m @ x >> m, x @ m >> m, Function.merge(x, n=3))
+    assert eq(Function.merge(x + x), x @ Swap(x, x) @ x >> m @ m)
+    assert eq(Swap(x, x).trace(), Id(x))
+    
+    T, D = Ty[tuple], Diagram[Function]
+
+    assert eq(D.id(T(x, x)).transpose().inside, Id(x + x))
