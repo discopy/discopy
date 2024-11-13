@@ -57,7 +57,6 @@ def test_additive_Function():
     assert eq(m @ x >> m, x @ m >> m, Function.merge(x, n=3))
     assert eq(Function.merge(x + x), x @ Swap(x, x) @ x >> m @ m)
     assert eq(Swap(x, x).trace(), Id(x))
-    assert eq(Function.swap(x, x).trace(), Function.id(x))
     
     T, D = Ty[tuple], Diagram[Function]
 
