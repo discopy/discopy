@@ -3,6 +3,7 @@
 """
 The category of Python types and functions.
 
+
 Summary
 -------
 
@@ -12,7 +13,8 @@ Summary
     :toctree:
 
     Ty
-    Function
+    multiplicative.Function
+    additive.Function
 
 .. admonition:: Functions
 
@@ -21,9 +23,7 @@ Summary
         :nosignatures:
         :toctree:
 
-        exp
-        tuplify
-        untuplify
+        multiplicative.exp
 """
 
 from discopy.python.finset import Dict

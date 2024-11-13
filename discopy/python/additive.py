@@ -13,15 +13,6 @@ Summary
 
     Ty
     Function
-
-.. admonition:: Functions
-
-    .. autosummary::
-        :template: function.rst
-        :nosignatures:
-        :toctree:
-
-        is_union
 """
 
 from __future__ import annotations
@@ -41,7 +32,24 @@ def tagged(tag, dom):
 
 
 class Function(function.Function):
-    """ Python functions with disjoint union as tensor. """
+    """
+    Python functions with disjoint union as tensor.
+
+    Parameters:
+        inside : The callable Python object inside the function.
+        dom : The domain of the function, i.e. its list of input types.
+        cod : The codomain of the function, i.e. its list of output types.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+            tensor
+            swap
+            trace
+    """
     ty_factory = Ty
 
     def __init__(self, inside, dom, cod, is_swap_of=None):
@@ -122,9 +130,19 @@ class Function(function.Function):
             return obj if len(cod) == 1 else result
         return Function(inside, dom, cod)
 
+    @staticmethod
+    def merge(x: Ty, n=2) -> Function:
+        def inside(obj, tag=0):
+            if len(x) == 1:
+                assert tag % len(x) == 0
+                return obj
+            return (obj, tag % len(x))
+        return Function(inside, n * x, x)
 
-Function.braid = Function.swap
-Function.twist = Function.id
+
+Swap = Function.braid = Function.swap
+Id = Function.twist = Function.id
+Merge = Function.merge
 
 
 class Category:

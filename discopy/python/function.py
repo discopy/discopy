@@ -17,31 +17,6 @@ from discopy.utils import (
 
 @dataclass
 class Function(Composable[type], Whiskerable):
-    """
-    A function is a callable :code:`inside`
-    with a pair of types :code:`dom` and :code:`cod`.
-
-    Parameters:
-        inside : The callable Python object inside the function.
-        dom : The domain of the function, i.e. its input type.
-        cod : The codomain of the function, i.e. its output type.
-
-    .. admonition:: Summary
-
-        .. autosummary::
-
-            id
-            then
-            tensor
-            swap
-            copy
-            discard
-            ev
-            curry
-            uncurry
-            fix
-            trace
-    """
     inside: Callable
     dom: type
     cod: type

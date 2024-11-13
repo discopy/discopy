@@ -43,16 +43,22 @@ def test_FinSet():
 
 
 def test_additive_Function():
-    from discopy.python.additive import Ty as T, Function
+    from discopy.interaction import Ty, Diagram
+    from discopy.python.additive import Ty as T, Function, Id, Swap, Merge
     
     x = (int, )
-    assert Function.swap(x, x).trace()(42) == 42  # Yanking equation
+    m, e = Function.merge(x, n=2), Function.merge(x, n=0)
 
-    from discopy.interaction import Ty, Diagram
+    eq = lambda *fs: all(fs[0].is_parallel(f) for f in fs) and all(
+        len(set(f(42, i) for f in fs)) == 1 for i in range(len(fs[0].dom)))
+    
+    assert eq(Swap(x, x) >> m, m)
+    assert eq(x @ e >> m, Id(x), e @ x >> m)
+    assert eq(m @ x >> m, x @ m >> m, Function.merge(x, n=3))
+    assert eq(Function.merge(x + x), x @ Swap(x, x) @ x >> m @ m)
+    assert eq(Swap(x, x).trace(), Id(x))
+    assert eq(Function.swap(x, x).trace(), Function.id(x))
     
     T, D = Ty[tuple], Diagram[Function]
 
-    assert D.id(T(x, x)).transpose().inside(42, 0) == (42, 0)\
-        == D.id(T(x, x)).transpose(left=True).inside(42, 0)
-    assert D.id(T(x, x)).transpose().inside(42, 1) == (42, 1)\
-        == D.id(T(x, x)).transpose(left=True).inside(42, 1)
+    assert eq(D.id(T(x, x)).transpose().inside, Id(x + x))

@@ -1,6 +1,28 @@
 # -*- coding: utf-8 -*-
 
-""" The category of Python functions with tuple as monoidal product. """
+"""
+The category of Python functions with tuple as monoidal product.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    Ty
+    Function
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        exp
+"""
 
 from __future__ import annotations
 
@@ -27,6 +49,30 @@ def exp(base: Ty, exponent: Ty) -> Ty:
 
 
 class Function(function.Function):
+    """
+    Python function with tuple as tensor.
+
+    Parameters:
+        inside : The callable Python object inside the function.
+        dom : The domain of the function, i.e. its list of input types.
+        cod : The codomain of the function, i.e. its list of output types.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+            tensor
+            swap
+            copy
+            discard
+            ev
+            curry
+            uncurry
+            fix
+            trace
+    """
     ty_factory = Ty
 
     def __call__(self, *xs):
