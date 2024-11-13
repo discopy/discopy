@@ -44,12 +44,12 @@ class Function(function.Function):
 
         .. autosummary::
 
-            id
-            then
             tensor
             swap
             trace
     """
+    __ambiguous_inheritance__ = True
+
     ty_factory = Ty
 
     def __init__(self, inside, dom, cod, is_swap_of=None):

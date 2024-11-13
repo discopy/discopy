@@ -61,8 +61,6 @@ class Function(function.Function):
 
         .. autosummary::
 
-            id
-            then
             tensor
             swap
             copy
@@ -73,6 +71,8 @@ class Function(function.Function):
             fix
             trace
     """
+    __ambiguous_inheritance__ = True
+
     ty_factory = Ty
 
     def __call__(self, *xs):

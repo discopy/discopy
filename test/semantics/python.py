@@ -31,11 +31,11 @@ def test_trace():
 
 def test_FinSet():
     from discopy.markov import Ty, Diagram, Functor, Category
-    from discopy.python.finset import Dict
+    from discopy.python import finset
 
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)
-    F = Functor({x: 1}, {}, cod=Category(int, Dict))
+    F = Functor({x: 1}, {}, cod=Category(int, finset.Function))
 
     assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
     assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)

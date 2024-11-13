@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The category of Python types and functions.
+Categories of Python functions.
 
 .. autosummary::
     :template: module.rst
@@ -13,5 +13,4 @@ The category of Python types and functions.
     discopy.python.multiplicative
 """
 
-from discopy.python.finset import Dict
 from discopy.python.multiplicative import exp, Ty, Function, Category

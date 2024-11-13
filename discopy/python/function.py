@@ -28,7 +28,7 @@ from discopy.utils import (
 @dataclass
 class Function(Composable[type], Whiskerable):
     """
-    Python function with tuple as tensor.
+    Python function with sequential composition.
 
     Parameters:
         inside : The callable Python object inside the function.
