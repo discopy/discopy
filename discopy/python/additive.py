@@ -27,10 +27,6 @@ from discopy.python import function
 Ty = tuple[type, ...]
 
 
-def tagged(tag, dom):
-    return () if len(dom) == 1 else (tag, )
-
-
 class Function(function.Function):
     """
     Python functions with disjoint union as tensor.
@@ -59,7 +55,7 @@ class Function(function.Function):
     def __call__(self, obj, tag=0):
         if self.type_checking:
             assert_isinstance(obj, self.dom[tag])
-        result = self.inside(obj, *tagged(tag, self.dom))
+        result = self.inside(obj, *(() if len(self.dom) == 1 else (tag, )))
         if self.type_checking:
             obj, tag = (result, 0) if len(self.cod) == 1 else result
             assert_isinstance(obj, self.cod[tag])
@@ -76,10 +72,10 @@ class Function(function.Function):
 
         def inside(obj, tag=0):
             if tag < len(self.dom):
-                result = self(obj, *tagged(tag, self.dom))
+                result = self(obj, tag)
                 obj, tag = (result, 0) if len(self.cod) == 1 else result
             else:
-                result = other(obj, *tagged(tag - len(self.dom), other.dom))
+                result = other(obj, tag - len(self.dom))
                 obj, tag = (result, 0) if len(other.cod) == 1 else result
                 tag += len(self.cod)
             return obj if len(cod) == 1 else (obj, tag)
@@ -125,7 +121,7 @@ class Function(function.Function):
             run_at_least_once = True
             while run_at_least_once or tag >= len(cod):
                 run_at_least_once = False
-                result = self(obj, *tagged(tag, self.dom))
+                result = self(obj, tag)
                 obj, tag = (result, 0) if len(self.cod) == 1 else result
             return obj if len(cod) == 1 else result
         return Function(inside, dom, cod)
