@@ -167,9 +167,8 @@ from typing import Callable, Optional
 from dataclasses import dataclass
 
 from discopy import symmetric
-from discopy.python import is_tuple
 from discopy.utils import (
-    AxiomError, Composable, Whiskerable, NamedGeneric, get_origin,
+    AxiomError, Composable, Whiskerable, NamedGeneric, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 

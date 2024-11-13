@@ -31,6 +31,7 @@ def test_trace():
 
 def test_FinSet():
     from discopy.markov import Ty, Diagram, Functor, Category
+    from discopy.python.finset import Dict
 
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)
@@ -39,3 +40,19 @@ def test_FinSet():
     assert F(copy >> discard @ x) == F(Diagram.id(x)) == F(copy >> x @ discard)
     assert F(copy >> copy @ x) == F(Diagram.copy(x, 3)) == F(copy >> x @ copy)
     assert F(copy >> swap) == F(copy)
+
+
+def test_additive_Function():
+    from discopy.python.additive import Ty as T, Function
+    
+    x = (int, )
+    assert Function.swap(x, x).trace()(42) == 42  # Yanking equation
+
+    from discopy.interaction import Ty, Diagram
+    
+    T, D = Ty[tuple], Diagram[Function]
+
+    assert D.id(T(x, x)).transpose().inside(42, 0) == (42, 0)\
+        == D.id(T(x, x)).transpose(left=True).inside(42, 0)
+    assert D.id(T(x, x)).transpose().inside(42, 1) == (42, 1)\
+        == D.id(T(x, x)).transpose(left=True).inside(42, 1)
