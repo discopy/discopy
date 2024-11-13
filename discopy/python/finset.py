@@ -7,7 +7,7 @@ The category of finite sets implemented as Python dictionaries.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from discopy.cat import Composable, assert_iscomposable, assert_isinstance
+from discopy.cat import Composable
 from discopy.utils import Whiskerable
 
 

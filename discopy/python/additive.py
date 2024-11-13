@@ -28,8 +28,7 @@ from __future__ import annotations
 
 from functools import cache
 
-from discopy.cat import Composable
-from discopy.utils import Whiskerable, NamedGeneric, assert_isinstance, tuplify
+from discopy.utils import assert_isinstance, tuplify
 from discopy.python import function
 
 
@@ -66,6 +65,7 @@ class Function(function.Function):
             other : The other function to compose in sequence.
         """
         dom, cod = self.dom + other.dom, self.cod + other.cod
+
         def inside(obj, tag=0):
             if tag < len(self.dom):
                 result = self(obj, *tagged(tag, self.dom))
@@ -88,6 +88,7 @@ class Function(function.Function):
             y : The tuple of types on the right.
         """
         x, y = map(tuplify, (x, y))
+
         def inside(obj, tag=0):
             new_tag = tag + len(y) if tag < len(x) else tag - len(x)
             if len(x + y) == 1:
@@ -110,7 +111,8 @@ class Function(function.Function):
         """
         if left:
             raise NotImplementedError
-        dom, cod, traced = self.dom[:-n], self.cod[:-n], self.dom[-n:]
+        dom, cod = self.dom[:-n], self.cod[:-n]
+
         def inside(obj, tag=0):
             run_at_least_once = True
             while run_at_least_once or tag >= len(cod):
