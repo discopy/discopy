@@ -22,22 +22,18 @@ Summary
         :toctree:
 
         exp
-        tuplify
-        untuplify
-        is_tuple
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from contextlib import contextmanager
 
-from discopy.cat import Composable, assert_iscomposable, assert_isinstance
-from discopy.utils import (
-    tuplify, untuplify, Whiskerable, classproperty, get_origin)
+from discopy.cat import assert_isinstance
+from discopy.utils import tuplify, untuplify
+from discopy.python import function
 
 
+""" Functions have lists of types as input and output. """
 Ty = tuple[type, ...]
 
 
@@ -52,33 +48,19 @@ def exp(base: Ty, exponent: Ty) -> Ty:
     return (Callable[list(exponent), tuple[base]], )
 
 
-def is_tuple(typ: type) -> bool:
+class Function(function.Function):
     """
-    Whether a given type is tuple or a paramaterised tuple.
-
-    Parameters:
-        typ : The type to check for equality with tuple.
-    """
-    return get_origin(typ) is tuple
-
-
-@dataclass
-class Function(Composable[Ty], Whiskerable):
-    """
-    A function is a callable :code:`inside`
-    with a pair of types :code:`dom` and :code:`cod`.
+    Python function with tuple as tensor.
 
     Parameters:
         inside : The callable Python object inside the function.
-        dom : The domain of the function, i.e. its input type.
-        cod : The codomain of the function, i.e. its output type.
+        dom : The domain of the function, i.e. its list of input types.
+        cod : The codomain of the function, i.e. its list of output types.
 
     .. admonition:: Summary
 
         .. autosummary::
 
-            id
-            then
             tensor
             swap
             copy
@@ -89,44 +71,9 @@ class Function(Composable[Ty], Whiskerable):
             fix
             trace
     """
-    inside: Callable
-    dom: Ty
-    cod: Ty
+    __ambiguous_inheritance__ = True
 
-    type_checking = True
-
-    def __init__(self, inside: Callable, dom: Ty, cod: Ty):
-        dom, cod = map(tuplify, (dom, cod))
-        self.inside, self.dom, self.cod = inside, dom, cod
-
-    def id(dom: Ty) -> Function:
-        """
-        The identity function on a given tuple of types :code:`dom`.
-
-        Parameters:
-            dom (python.Ty) : The typle of types on which to take the identity.
-        """
-        return Function(lambda *xs: untuplify(xs), dom, dom)
-
-    def then(self, other: Function) -> Function:
-        """
-        The sequential composition of two functions, called with :code:`>>`.
-
-        Parameters:
-            other : The other function to compose in sequence.
-        """
-        assert_iscomposable(self, other)
-        return Function(
-            lambda *args: other(*tuplify(self(*args))), self.dom, other.cod)
-
-    @classproperty
-    @contextmanager
-    def no_type_checking(cls):
-        tmp, cls.type_checking = cls.type_checking, False
-        try:
-            yield
-        finally:
-            cls.type_checking = tmp
+    ty_factory = Ty
 
     def __call__(self, *xs):
         if self.type_checking:
@@ -232,8 +179,8 @@ class Function(Composable[Ty], Whiskerable):
         Parameters:
             left : Whether to uncurry on the left or right.
         """
-        base, exponent = self.cod[0].__args__[-1], self.cod[0].__args__[:-1]
-        base = tuple(base.__args__) if is_tuple(base) else (base, )
+        traced = self.cod[0].__args__
+        base, exponent = traced[-1].__args__, traced[:-1]
         return self @ exponent >> Function.ev(base, exponent) if left\
             else exponent @ self >> Function.ev(base, exponent, left=False)
 
@@ -252,7 +199,7 @@ class Function(Composable[Ty], Whiskerable):
 
     def trace(self, n=1, left=False):
         """
-        The trace of a function.
+        The multiplicative trace of a function.
 
         Parameters:
             n : The number of types to trace over.
@@ -265,39 +212,6 @@ class Function(Composable[Ty], Whiskerable):
             >> self >> cod @ self.discard(traced)
 
     exp = over = under = staticmethod(lambda x, y: exp(x, y))
-
-
-@dataclass
-class Dict(Composable[int], Whiskerable):
-    inside: dict[int, int]
-    dom: int
-    cod: int
-
-    def __getitem__(self, key):
-        return self.inside[key]
-
-    @staticmethod
-    def id(x: int = 0):
-        return Dict({i: i for i in range(x)}, x, x)
-
-    def then(self, other: Dict) -> Dict:
-        inside = {i: self[other[i]] for i in range(other.cod)}
-        return Dict(inside, self.dom, other.cod)
-
-    def tensor(self, other: Dict) -> Dict:
-        inside = {i: self[i] for i in range(self.cod)}
-        inside.update({
-            self.cod + i: self.dom + other[i] for i in range(other.cod)})
-        return Dict(inside, self.dom + other.dom, self.cod + other.cod)
-
-    @staticmethod
-    def swap(x: int, y: int) -> Dict:
-        inside = {i: i + x if i < x else i - x for i in range(x + y)}
-        return Dict(inside, x + y, x + y)
-
-    @staticmethod
-    def copy(x: int, n=2) -> Dict:
-        return Dict({i: i % x for i in range(n * x)}, x, n * x)
 
 
 class Category:

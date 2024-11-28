@@ -363,6 +363,16 @@ def load_corpus(url):
         return loads(f.read())
 
 
+def is_tuple(typ: type) -> bool:
+    """
+    Whether a given type is tuple or a paramaterised tuple.
+
+    Parameters:
+        typ : The type to check for equality with tuple.
+    """
+    return get_origin(typ) is tuple
+
+
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
