@@ -296,6 +296,7 @@ ALB.unroll(2).now.foliation().draw()
 
 ![Alice loves unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/stream/alice-loves-unrolling.png)
 
+Now if we use the [`python`](https://docs.discopy.org/en/main/_api/discopy.python.html) module to interpret each box as a call to a chatbot with the prompt as input, we can get an output along the following lines:
 
 > The play is set in a basement with computers everywhere, Alice and Bob are dressed like hackers with black hoodies and nerdy glasses, they have somewhat of a hipster vibe.
 > 
