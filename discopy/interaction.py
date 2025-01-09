@@ -431,7 +431,7 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
 def Int(category: traced.Category) -> ribbon.Category:
     """
     The Int construction, i.e. the free ribbon category on a given balanced
-    traced `category`, with :class:`interaction.Ty` as objects and 
+    traced `category`, with :class:`interaction.Ty` as objects and
     :class:`interaction.Diagram` as arrows.
 
     Parameters:
