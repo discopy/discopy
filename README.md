@@ -98,7 +98,7 @@ assert crack_two_eggs == crack @ crack\
 crack_two_eggs.draw()
 ```
 
-![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/crack-eggs.png)
+![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
 
 By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
 In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e.
@@ -123,7 +123,7 @@ assert crack_two_eggs_at_once == Diagram(
 crack_two_eggs_at_once.draw()
 ```
 
-![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/crack-two-eggs-at-once.png)
+![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.png)
 
 ## Example: Alice loves Bob
 
@@ -143,7 +143,7 @@ assert left_snake.normal_form() == Id(x) == right_snake.normal_form()
 Equation(left_snake, Id(x), right_snake).draw()
 ```
 
-![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/typed-snake-equation.png)
+![Equation(left_snake, Id(x), right_snake).draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/typed-snake-equation.png)
 
 In particular, DisCoPy can draw the grammatical structure of natural language sentences encoded as reductions in a [pregroup grammar](https://ncatlab.org/nlab/show/pregroup+grammar).
 See Lambek, [From Word To Sentence (2008)](http://www.math.mcgill.ca/barr/lambek/pdffiles/2008lambek.pdf) for an introduction.
@@ -159,7 +159,7 @@ sentence = Alice @ loves @ Bob >> Cup(n, n.r) @ s @ Cup(n.l, n)
 sentence.foliation().draw()
 ```
 
-![Alice loves Bob](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/alice-loves-bob.png)
+![Alice loves Bob](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/alice-loves-bob.png)
 
 Many other grammatical frameworks can be encoded as diagrams, e.g. [`cfg`](https://docs.discopy.org/en/main/_api/discopy.grammar.cfg.html) (context-free), [`categorial`](https://docs.discopy.org/en/main/_api/discopy.grammar.categorial.html) and [`dependency`](https://docs.discopy.org/en/main/_api/discopy.grammar.dependency.html) grammars.
 
@@ -204,7 +204,7 @@ rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps)
 ```
 
-![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/interaction-readme/test/drawing/imgs/autonomisation.gif)
+![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/autonomisation.gif)
 
 ## Geometry of Chatbot Interaction
 
@@ -256,17 +256,17 @@ with D.hypergraph_equality:
 Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
 ```
 
-![Alice loves traces](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/int/alice-loves-traces.png)
+![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.png)
 
 ### Streams and delayed feedback
 
 A key axiom of traced monoidal categories which allows to simplify diagrams is the **yanking equation**:
 
-![yanking](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/traced/yanking.png)
+![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.png)
 
 If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
 
-![feedback operator](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/feedback/feedback-operator.png)
+![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.png)
 
 Given a symmetric category $C$, we can construct a feedback category of **monoidal streams** $Stream(C)$ where
 
@@ -280,7 +280,7 @@ where $X_0$ and $X^+$ are the head and the tail of the stream $X$.
 This comes with a delay $d(X) \in Ob(Stream(C))$ given by the monoidal unit as head $d(X)_0 = I$ and the given object as tail $d(X)^+ = X$.
 The feedback operation is given by:
 
-![feedback unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/stream/feedback-unrolling.png)
+![feedback unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/feedback-unrolling.png)
 
 We can use this to unroll our diagram of the previous section:
 
@@ -294,7 +294,7 @@ ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
 ALB.unroll(2).now.foliation().draw()
 ```
 
-![Alice loves unrolling](https://github.com/discopy/discopy/raw/interaction-readme/docs/_static/stream/alice-loves-unrolling.png)
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.png)
 
 Now if we use the [`python`](https://docs.discopy.org/en/main/_api/discopy.python.html) module to interpret each box as a call to a chatbot with the prompt as input, we can get an output along the following lines:
 
