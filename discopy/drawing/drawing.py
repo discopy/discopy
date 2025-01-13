@@ -191,7 +191,8 @@ class Drawing(Composable, Whiskerable):
     def draw(self, **params):
         """ Call :meth:`add_box_corners` then :func:`backend.draw`. """
         asymmetry = params.pop("asymmetry", 0.125 * any(
-            box.is_dagger or box.is_conjugate or box.is_transpose
+            box.is_conjugate or box.is_transpose or (
+                box.is_dagger and not box.draw_as_braid)
             for box in self.boxes))
         self.add_box_corners()
         return backend.draw(self, asymmetry=asymmetry, **params)
@@ -516,7 +517,7 @@ class Drawing(Composable, Whiskerable):
         >>> top, bottom = u >> g @ f, g @ f @ f >> v
         >>> Diagram.to_gif(
         ...     *top.then(bottom, draw_step_by_step=True), loop=True,
-        ...     draw_type_labels=False, draw_box_labels=False,
+        ...     wire_labels=False, draw_box_labels=False,
         ...     path="docs/_static/drawing/composition.gif")
         <IPython.core.display.HTML object>
 
@@ -907,7 +908,7 @@ class Equation:
     ...     mu >> delta,
     ...     Id(dim) @ delta >> mu @ Id(dim))
     >>> Equation(special, frobenius, symbol=', ').draw(
-    ...          aspect='equal', draw_type_labels=False,
+    ...          aspect='equal', wire_labels=False,
     ...          path='docs/_static/drawing/frobenius-axioms.png')
 
     .. image:: /_static/drawing/frobenius-axioms.png

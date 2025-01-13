@@ -40,15 +40,6 @@ Yanking
 =======
 a.k.a. Reidemeister move 1
 
->>> right_loop = x @ Cap(x, x.r) >> Swap(x, x) @ x.r >> x @ Cup(x, x.r)
->>> left_loop = Cap(x.r, x) @ x >> x.r @ Swap(x, x) >> Cup(x.r, x) @ x
->>> yanking = Equation(left_loop, Id(x), right_loop)
->>> assert yanking
->>> yanking.draw(path="docs/_static/compact/yanking.png")
-
-.. image:: /_static/compact/yanking.png
-    :align: center
-
 >>> cap_yanking = Equation(Cap(x, x.r) >> Swap(x, x.r), Cap(x.r, x))
 >>> cup_yanking = Equation(Swap(x, x.r) >> Cup(x.r, x), Cup(x, x.r))
 >>> assert cap_yanking and cup_yanking

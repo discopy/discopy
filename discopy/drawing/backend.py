@@ -107,7 +107,7 @@ class Backend(ABC):
     def draw_wire_label(self, x, i, j, **params):
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
             x, "always_draw_label", False)
-        if not params.get('draw_type_labels', True) and not draw_label_anyway:
+        if not params.get('wire_labels', True) and not draw_label_anyway:
             return
         if hasattr(x.inside[0], "reposition_label"):
             j += 0.25  # The label of e.g. cups, caps and swaps.

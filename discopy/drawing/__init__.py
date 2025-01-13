@@ -36,7 +36,7 @@ def draw(diagram, **params):
         boxes and red (:code:`'#ff0000'`) for nodes.
     textpad : pair of floats, optional
         Padding between text and wires, default is :code:`(0.1, 0.1)`.
-    draw_type_labels : bool, optional
+    wire_labels : bool, optional
         Whether to draw type labels, default is :code:`False`.
     draw_box_labels : bool, optional
         Whether to draw box labels, default is :code:`True`.
