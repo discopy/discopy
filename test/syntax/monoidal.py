@@ -186,6 +186,15 @@ def test_Diagram_interchange():
     assert d.interchange(2, 0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
 
 
+def test_Diagram_substitute():
+    x = Ty("x")
+    f, g, h = Box("f", x @ x @ x, x @ x), Box("g", x, x), Box("h", x @ x, x)
+    inside, outside = f >> g @ g, f @ x >> x @ h
+    index_of_the_box = 0
+    result = outside.substitute(index_of_the_box, inside)
+    assert result == inside @ x >> x @ h
+
+
 def test_Diagram_normalize():
     x, y = Ty('x'), Ty('y')
     f0, f1 = Box('f0', x, y), Box('f1', y, x)
