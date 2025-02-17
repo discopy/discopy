@@ -409,4 +409,5 @@ class Hypergraph(hypergraph.Hypergraph):
 Diagram.hypergraph_factory = Hypergraph
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
+Diagram.bubble_factory = Bubble
 Id = Diagram.id
