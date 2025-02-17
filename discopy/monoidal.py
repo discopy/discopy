@@ -831,7 +831,8 @@ class Diagram(cat.Arrow, Whiskerable):
         -------
         >>> from discopy.monoidal import *
         >>> x = Ty('x')
-        >>> f, g, h = Box('f', x @ x @ x, x @ x), Box('g', x, x), Box('h', x @ x, x)
+        >>> f = Box('f', x @ x @ x, x @ x)
+        >>> g, h = Box('g', x, x), Box('h', x @ x, x)
         >>> inside, outside = f >> g @ g, f @ x >> x @ h
         >>> index_of_the_box = 0
         >>> result = outside.substitute(index_of_the_box, inside)
