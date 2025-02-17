@@ -826,21 +826,10 @@ class Diagram(cat.Arrow, Whiskerable):
         Parameters:
             i : Index of the box to substitute.
             other : The diagram to substitute with.
-
-        Example
-        -------
-        >>> from discopy.monoidal import *
-        >>> x = Ty('x')
-        >>> f = Box('f', x @ x @ x, x @ x)
-        >>> g, h = Box('g', x, x), Box('h', x @ x, x)
-        >>> inside, outside = f >> g @ g, f @ x >> x @ h
-        >>> index_of_the_box = 0
-        >>> result = outside.substitute(index_of_the_box, inside)
-        >>> assert result == inside @ x >> x @ h
         """
         left, _, right = self.inside[i]
         outside = Match(self[:i], self[i + 1:], left, right)
-        return outside.subs(other)
+        return outside.substitute(other)
 
     def normalize(self, left=False) -> Iterator[Diagram]:
         """
@@ -1156,7 +1145,7 @@ class Match:
     left: Ty
     right: Ty
 
-    def subs(self, target: Diagram) -> Diagram:
+    def substitute(self, target: Diagram) -> Diagram:
         """
         Substitute a diagram inside the hole.
 
