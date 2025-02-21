@@ -145,7 +145,7 @@ class Diagram(monoidal.Diagram):
                       below=self[i + len(source):] if down else self[i + 1:],
                       left=left_wires[:-1] if left else left_wires,
                       right=right_wires if left else right_wires[1:])
-        return match.subs(target)
+        return match.substitute(target)
 
 
 class Box(monoidal.Box, Diagram):

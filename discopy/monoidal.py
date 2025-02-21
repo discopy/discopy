@@ -817,6 +817,20 @@ class Diagram(cat.Arrow, Whiskerable):
             raise AxiomError(messages.INTERCHANGER_ERROR.format(box0, box1))
         return self[:i] >> layer1 >> layer0 >> self[i + 2:]
 
+    def substitute(self, i: int, other: Diagram) -> Diagram:
+        """
+        Implements operadic composition of nested diagrams,
+        replacing box :code:`i` with diagram :code:`other`.
+        See Patterson et al :cite:t:`Patterson21`.
+
+        Parameters:
+            i : Index of the box to substitute.
+            other : The diagram to substitute with.
+        """
+        left, _, right = self.inside[i]
+        outside = Match(self[:i], self[i + 1:], left, right)
+        return outside.substitute(other)
+
     def normalize(self, left=False) -> Iterator[Diagram]:
         """
         Implements normalisation of boundary-connected diagrams,
@@ -1131,7 +1145,7 @@ class Match:
     left: Ty
     right: Ty
 
-    def subs(self, target: Diagram) -> Diagram:
+    def substitute(self, target: Diagram) -> Diagram:
         """
         Substitute a diagram inside the hole.
 
