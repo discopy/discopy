@@ -397,6 +397,10 @@ class Layer(cat.Box):
         left, box, right = self
         return type(self)(left, box.subs(*args), right)
 
+    def substitute(self, other, indices: tuple[int]) -> Layer:
+        left, box, right = self
+        return type(self)(left, box.substitute(other, indices), right)
+
     @classmethod
     def cast(cls, box: Box) -> Layer:
         """
@@ -817,19 +821,24 @@ class Diagram(cat.Arrow, Whiskerable):
             raise AxiomError(messages.INTERCHANGER_ERROR.format(box0, box1))
         return self[:i] >> layer1 >> layer0 >> self[i + 2:]
 
-    def substitute(self, i: int, other: Diagram) -> Diagram:
+    def substitute(self, other, indices: list[int]):
         """
         Implements operadic composition of nested diagrams,
-        replacing box :code:`i` with diagram :code:`other`.
+        replacing the box with diagram :code:`other`.
         See Patterson et al :cite:t:`Patterson21`.
 
         Parameters:
-            i : Index of the box to substitute.
             other : The diagram to substitute with.
+            indices : A path to a nested box to substitute.
         """
-        left, _, right = self.inside[i]
-        outside = Match(self[:i], self[i + 1:], left, right)
-        return outside.substitute(other)
+        if len(indices) == 0:
+            return self
+        (i, *subindices) = indices
+        inside = tuple(
+            layer.substitute(other, subindices)
+            if i == j else layer
+            for j, layer in enumerate(self.inside))
+        return self.factory(inside, self.dom, self.cod, _scan=False)
 
     def normalize(self, left=False) -> Iterator[Diagram]:
         """
