@@ -282,6 +282,8 @@ The feedback operation is given by:
 
 ![feedback unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/feedback-unrolling.png)
 
+**Conjecture:** There is a notion of "delayed compact category" such that the Int-construction on a feedback category is delayed compact and there is a left biadjoint to the forgetful 2-functor from the 2-category of delayed compact category to that of feedback categories. The unit of this biadjunction is faithful and it is full precisely when the delay morphisms are invertible.
+
 We can use this to unroll our diagram of the previous section:
 
 ```python
