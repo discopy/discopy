@@ -61,11 +61,41 @@ def test_constant_eval():
     
 
     g_eval = g >> Eval(Ty() >> y)
-    F_eval = x @ h >> Eval(x >> y)
+    h_eval = x @ h >> Eval(x >> y)
 
     test_str = "Slicing two ways!"
     assert F(f)(test_str) == len(test_str)
     assert F(f)(test_str) == F(g_eval)(test_str)
-    assert F(g_eval)(test_str) == F(F_eval)(test_str)
+    assert F(g_eval)(test_str) == F(h_eval)(test_str)
+
+
+def test_partial_eval():
+    x, y, z = map(Ty, "xyz")
     
+    f = Box("f", x @ y, z)
+    g = Box("g", Ty(), (x @ y) >> z)
+    g2 = Box("g2", Ty(), y >> (x >> z))
+    h = Box("h", y, x >> z)
+
+    g_eval = x @ y @ g >> Eval(x @ y >> z)
+    h_eval = x @ h >> Eval(x >> z)
+    g_partial_eval = (x @ ((y @ g2) >> Eval((y) >> (x >> z))) ) >> Eval(x >> z)
+
+    from discopy.python import Function
+    F = Functor(
+        ob={x: str, y: int, z: str},
+        ar={f: lambda a, b: a[:b],
+            g: lambda: lambda a, b: a[:b],
+            g2: lambda: lambda b: lambda a: a[:b],
+            h: lambda b: lambda a: a[:b],
+            },
+        cod=Category(tuple[type, ...], Function))
+    
+    test_str = "Partial evaluator"
+    str_slice = 7
+    
+    assert F(f)(test_str, str_slice) == "Partial"
+    assert F(f)(test_str, str_slice) == F(g_eval)(test_str, str_slice)
+    assert F(g_eval)(test_str, str_slice) == F(g_partial_eval)(test_str, str_slice)
+    assert F(g_partial_eval)(test_str, str_slice) == F(h_eval)(test_str, str_slice)
 
