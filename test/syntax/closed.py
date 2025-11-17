@@ -43,3 +43,29 @@ def test_python_Functor():
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.uncurry(left=False).curry(left=False))(True)(1.2) == F(g)(True)(1.2)
+
+
+def test_constant_eval():
+    x, y = map(Ty, "xy")
+    f = Box("f", x, y)
+    g = Box("g", x, Ty() >> y)
+    h = Box("h", Ty(), x >> y)
+
+    from discopy.python import Function
+    F = Functor(
+        ob={x: str, y: int},
+        ar={f: lambda a: len(a),
+            g: lambda a: lambda: len(a),
+            h: lambda: lambda a: len(a)},
+        cod=Category(tuple[type, ...], Function))
+    
+
+    g_eval = g >> Eval(Ty() >> y)
+    F_eval = x @ h >> Eval(x >> y)
+
+    test_str = "Slicing two ways!"
+    assert F(f)(test_str) == len(test_str)
+    assert F(f)(test_str) == F(g_eval)(test_str)
+    assert F(g_eval)(test_str) == F(F_eval)(test_str)
+    
+
