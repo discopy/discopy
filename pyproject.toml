@@ -51,6 +51,7 @@ test = [
     "pennylane == 0.34.0",
     "pennylane-qiskit",
     "pennylane-honeywell",
+    "autoray",
     "qiskit < 0.46",
     "qiskit-aer",
     "lxml",
