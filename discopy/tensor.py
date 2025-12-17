@@ -468,11 +468,15 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
                 (t, len(box.dom) + ind) for ind in range(len(out_inds))
             ]
 
-        tensor_net = qtn.TensorNetwork(tensors)
-        tensor_net.reindex({
-            t.inds[j]: f'out{i}' for i, (t, j) in enumerate(scan)
-        }, inplace=True)
+        for i, (t, j) in enumerate(scan):
+            output = qtn.COPY_tensor(
+                d=t.data.shape[j],
+                inds=(f'out{i}_start', f'out{i}')
+            )
+            qtn.connect(t, output, j, 0)
+            tensors.append(output)
 
+        tensor_net = qtn.TensorNetwork(tensors)
         return tensor_net
 
     def to_tn(self, dtype: type = None) -> tuple[
