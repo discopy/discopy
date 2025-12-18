@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from typing import List
 from pytest import raises
 
 from discopy.closed import *
@@ -75,3 +76,7 @@ def test_additive_Function():
     T, D = Ty[tuple], Diagram[Function]
 
     assert eq(D.id(T(X, X)).transpose().inside, Id(X + X))
+
+def test_list_generic_in_function():
+    func = Function(sum, List[int], int)
+    assert func([1, 2, 3]) == 6
