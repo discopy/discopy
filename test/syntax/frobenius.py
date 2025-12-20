@@ -1,6 +1,12 @@
 from pytest import raises
 
 from discopy.frobenius import *
+from discopy import cat
+
+
+def test_Ob_eq():
+    assert Ob('a') == Ob('a').l.r and Ob('a') != 'a'
+    assert Ob('a') == cat.Ob('a') and Ob('a', z=1) != cat.Ob('a')
 
 
 def test_Functor_call():

@@ -94,6 +94,9 @@ class Ob(cat.Ob):
         return type(self)(self.name, self.z + 1)
 
     def __eq__(self, other):
+        if type(other) is cat.Ob:
+            # TODO use cat.Ob.__eq__ instead of name equality check
+            return self.z == 0 and self.name == other.name
         return cat.Ob.__eq__(self, other) and self.z == other.z
 
     def __hash__(self):
