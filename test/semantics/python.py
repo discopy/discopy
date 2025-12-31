@@ -24,6 +24,8 @@ def test_fixed_point():
     phi = Function(lambda x=1: 1 + 1 / x, dom=(float,), cod=(float,)).fix()
     assert phi() == (1 + sqrt(5)) / 2
 
+    fact = lambda f=None: lambda n: 1 if n < 2 else n * f(n - 1) if f else 1
+    assert Function(fact, (callable,), (callable,)).fix()()(5) == 120
 
 def test_trace():
     with raises(NotImplementedError):
