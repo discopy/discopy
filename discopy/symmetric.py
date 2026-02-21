@@ -89,7 +89,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from discopy import monoidal, balanced, messages
-from discopy.cat import factory
+from discopy.cat import Arrow, factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 
@@ -232,7 +232,9 @@ class Diagram(balanced.Diagram):
             and self._get_structure() == other._get_structure()
 
     def __hash__(self):
-        return hash(self._get_structure())
+        if self.use_hypergraph_equality:
+            return hash(self._get_structure())
+        return hash(repr(self))
 
     @classproperty
     @contextmanager
@@ -269,6 +271,11 @@ class Box(balanced.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
     __ambiguous_inheritance__ = (balanced.Box, )
+
+    def __hash__(self):
+        if self.use_hypergraph_equality:
+            return hash(self.to_hypergraph())
+        return hash(Arrow.__repr__(self))
 
 
 class Swap(balanced.Braid, Box):

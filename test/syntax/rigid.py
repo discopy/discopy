@@ -17,6 +17,16 @@ def test_Ob_hash():
     assert {a: 42}[a] == 42
 
 
+def test_Box_hash():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    assert f == f @ Id()
+    assert hash(f) == hash(f @ Id())
+    assert hash(f) == hash(Id() @ f)
+    assert f @ Id() in {f}
+    assert {f: 42}[f @ Id()] == 42
+
+
 def test_Ob_repr():
     assert repr(Ob('a', z=42)) == "rigid.Ob('a', z=42)"
 
