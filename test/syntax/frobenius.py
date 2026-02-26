@@ -18,6 +18,18 @@ def test_Functor_call():
         F(F)
 
 
+def test_Box_hash():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    assert f == f @ Id()
+    assert hash(f) == hash(f @ Id())
+    assert hash(f) == hash(Id() @ f)
+    assert f @ Id() in {f}
+    assert {f: 42}[f @ Id()] == 42
+    s = Spider(1, 2, x)
+    assert hash(s) == hash(s @ Id())
+
+
 def test_spider_adjoint():
     n = Ty('n')
     one = Box('one', Ty(), n)

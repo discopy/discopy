@@ -585,7 +585,7 @@ class Box(closed.Box, Diagram):
         return monoidal.Box.__eq__(self, other)
 
     def __hash__(self):
-        return hash(repr(self))
+        return hash(cat.Arrow.__repr__(self))
 
     def rotate(self, left=False):
         dom, cod = (

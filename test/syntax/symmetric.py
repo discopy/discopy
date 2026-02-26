@@ -14,6 +14,25 @@ def test_Swap():
         Swap(x ** 2, Ty())
 
 
+def test_Box_hash():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    assert f == f @ Id()
+    assert hash(f) == hash(f @ Id())
+    assert hash(f) == hash(Id() @ f)
+    assert f @ Id() in {f}
+    assert {f: 42}[f @ Id()] == 42
+
+
+def test_Box_hash_hypergraph():
+    x, y = Ty('x'), Ty('y')
+    f = Box('f', x, y)
+    with Diagram.hypergraph_equality:
+        assert f == f @ Id()
+        assert hash(f) == hash(f @ Id())
+        assert f @ Id() in {f}
+
+
 def test_Diagram_permutation():
     x = PRO(1)
     tmp, Diagram.ty_factory = Diagram.ty_factory, PRO
