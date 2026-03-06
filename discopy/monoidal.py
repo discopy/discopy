@@ -181,7 +181,13 @@ class Ty(Ob):
             + f"({', '.join(map(repr, self.inside))})"
 
     def __str__(self):
-        return ' @ '.join(map(str, self.inside)) or type(self).__name__ + '()'
+        if not self.inside:
+            return type(self).__name__ + '()'
+        parts = []
+        for ob in self.inside:
+            s = str(ob)
+            parts.append('"{}"'.format(s) if s == '' else s)
+        return ' @ '.join(parts)
 
     def __len__(self):
         return len(self.inside)
