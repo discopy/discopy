@@ -74,8 +74,7 @@ class Add(Box):
 @register_translation("MultiheadAttention")
 class Attention(Box):
     def __init__(self, name: str):
-        super().__init__(name, dom=T @ T @ T, cod=T @ T)
-
+        super().__init__(name, dom=T @ T @ T @ P, cod=T @ T)
 
 @register_translation("getitem")
 class Projection(Box):
