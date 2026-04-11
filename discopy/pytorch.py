@@ -49,6 +49,8 @@ def register_translation(type_name: str):
 
 
 # --- Translated Boxes ---
+# Note: Classes are registered using the exact strings torch.fx uses to identify operations.
+
 @register_translation("get_attr")
 class InitParam(Box):
     """
