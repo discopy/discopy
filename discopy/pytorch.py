@@ -1,24 +1,46 @@
+# -*- coding: utf-8 -*-
+
+"""
+PyTorch-to-DisCoPy translation utilities for Markov diagrams.
+
+This module builds Markov representations from torch.fx graphs, using
+explicit parameter morphisms (C -> P) and data morphisms (C -> T).
+
+Example
+-------
+>>> import torch.nn as nn
+>>> from discopy.pytorch import from_torch
+>>> class SimpleMHA(nn.Module):
+>>>     def __init__(self):
+>>>         super().__init__()
+>>>         self.attention = nn.MultiheadAttention(embed_dim=256, num_heads=8)
+
+>>>     def forward(self, query, key, value):
+>>>         return self.attention(query, key, value)[0]
+
+>>> model = SimpleLinearModel()
+>>> diagram = from_torch(model)
+>>> diagram.draw()
+"""
+
 from collections.abc import Callable
-from discopy.markov import Ty, Box
+from discopy.markov import Box, Ty, Diagram, Hypergraph, Id, Copy, Swap
 
 
 # --- Object Types ---
-C = Ty("C")  # Context: Represents the abstract "source"
-T = Ty("T")  # Tensor: Represents a data wire (e.g., an activation)
+C = Ty("C")  # Context: Represents the abstract source
+T = Ty("T")  # Tensor: Represents a data wire
 P = Ty("P")  # Parameter: Represents a trainable parameter
 
 # --- Registration ---
 TRANSLATION_REGISTRY: dict[str, Callable] = {}
 
-
 def register_translation(type_name: str):
     """
-    Maps the exact string name of a PyTorch class, FX node op, or Python operator to a Box.
+    Decorator to map torch.fx ops to DisCoPy boxes.
     
-    Rules for 'type_name':
-    - PyTorch Layers: Use type(module).__name__ (e.g., "Linear", "MultiheadAttention")
-    - FX Graph Nodes: Use node.op (e.g., "placeholder", "get_attr")
-    - Python Operators: Use func.__name__ (e.g., "add", "getitem")
+    Note: 'type_name' must match the torch.fx node.op (e.g., 'placeholder')
+    or the name of the module/function being called (e.g., 'Linear').
     """
     def decorator(cls):
         TRANSLATION_REGISTRY[type_name] = cls
