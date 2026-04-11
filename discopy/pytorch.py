@@ -53,50 +53,31 @@ def register_translation(type_name: str):
 
 @register_translation("get_attr")
 class InitParam(Box):
-    """
-    Lifts the abstract context C into a Parameter P.
-    """
     def __init__(self, name: str):
         super().__init__(name, dom=C, cod=P)
 
-
 @register_translation("placeholder")
 class Placeholder(Box):
-    """
-    Represents the entry point of data into the model.
-    """
     def __init__(self, name: str):
         super().__init__(name, dom=C, cod=T)
-
 
 @register_translation("Linear")
 class Linear(Box):
     def __init__(self, name: str):
         super().__init__(name, dom=T @ P, cod=T)
 
-
 @register_translation("add")
 class Add(Box):
-    """
-    Merges two tensor paths via addition.
-    """
     def __init__(self, name="add"):
         super().__init__(name, dom=T @ T, cod=T)
 
-
 @register_translation("MultiheadAttention")
 class Attention(Box):
-    """
-    Standard Multi-Head Attention operation.
-    """
     def __init__(self, name: str):
         super().__init__(name, dom=T @ T @ T, cod=T @ T)
 
 
 @register_translation("getitem")
 class Projection(Box):
-    """
-    Represents selecting a specific output from a product.
-    """
     def __init__(self, name: str):
         super().__init__(f"proj_{name}", dom=T @ T, cod=T)
