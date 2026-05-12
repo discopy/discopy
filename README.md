@@ -18,7 +18,7 @@ DisCoPy is a Python toolkit for computing with [string diagrams](https://en.wiki
 * **Paper (for applied category theorists):** <https://doi.org/10.4204/EPTCS.333.13>
 * **Paper (for quantum computer scientists):** <https://arxiv.org/abs/2205.05190>
 
-DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/DisCoCat) and [QNLP](https://en.wikipedia.org/wiki/Quantum_natural_language_processing). This has now become its own library: [lambeq](https://cqcl.github.io/lambeq).
+DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/DisCoCat) and [QNLP](https://en.wikipedia.org/wiki/Quantum_natural_language_processing). This has now become its own library: [lambeq](https://github.com/Quantinuum/lambeq).
 
 ## Features
 
