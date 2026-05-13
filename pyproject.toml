@@ -49,7 +49,7 @@ test = [
     "jaxlib <= 0.4.28",
     "torch",
     "pennylane == 0.34.0",
-    "autoray < 0.8",
+    "autoray < 0.8  ",
     "pennylane-qiskit",
     "pennylane-honeywell",
     "qiskit < 0.46",
@@ -58,7 +58,7 @@ test = [
     "nltk",
     "pylint",
     "nbmake",
-    "quimb",
+    "quimb < 1.8.4",
 ]
 docs  = [
     "sphinx == 7.2.*",
