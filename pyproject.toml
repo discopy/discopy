@@ -1,12 +1,13 @@
 [build-system]
-requires = ["setuptools>=42.0", "wheel", "setuptools_scm[toml]>=3.4"]
+requires = ["uv_build>=0.11.13,<0.12"]
+build-backend = "uv_build"
 
 [project]
-dynamic = ["version"]
 name = "discopy"
+version = "1.2.3.dev5"
 description = "The Python toolkit for computing with string diagrams."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license =  {file = "LICENSE"}
 keywords = [
     "category theory",
@@ -24,53 +25,132 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering"
 ]
 dependencies = [
-  "numpy >= 1.18.1",
-  "networkx >= 2.4",
-  "matplotlib >= 3.1.2",
-  "pillow >= 6.2.1"
+  "numpy",
+  "networkx",
+  "matplotlib",
+  "pillow"
+]
+
+[dependency-groups]
+dev = [
+    "coverage",
+    "nbmake",
+    "pyproject-flake8",
+    "pylint",
+    "pytest",
+]
+docs = [
+    "IPython",
+    "ipykernel == 6.23.*",
+    "jinja2 == 3.1.*",
+    "myst-parser == 2.0.*",
+    "nbsphinx == 0.9.*",
+    "sphinx == 7.2.*",
+    "sphinx-book-theme == 1.1.*",
+    "sphinxcontrib-bibtex == 2.5.*",
+    "sphinxcontrib-youtube == 1.4.*",
+]
+test = [
+    "jax<0.6.0",
+    "jaxlib<0.6.0",
+    "lxml",
+    "nltk",
+    "pytket",
+    "pyzx",
+    "qiskit",
+    "qiskit-aer",
+    "sympy",
+    "tensornetwork",
+    "torch",
 ]
 
 [project.optional-dependencies]
-test = [
-    "pytest",
-    "coverage",
-    "pyproject-flake8",
+quantum = [
     "pytket",
-    "pyzx >= 0.7.3, < 0.8",
-    "sympy >= 1.13",
+    "pyzx",
+    "sympy",
     "tensornetwork",
-    "jax <= 0.4.28",
-    "jaxlib <= 0.4.28",
+    "jax<0.6.0",
+    "jaxlib<0.6.0",
     "torch",
-    "pennylane == 0.34.0",
-    "autoray == 0.7.0",
-    "pennylane-qiskit",
-    "pennylane-honeywell",
-    "qiskit < 0.46",
+    "qiskit",
     "qiskit-aer",
+]
+grammar = [
+    "nltk",
+]
+xml = [
+    "lxml",
+]
+test = [
+    "jax<0.6.0",
+    "jaxlib<0.6.0",
     "lxml",
     "nltk",
-    "pylint",
-    "nbmake",
-    "quimb == 1.8.4",
+    "pytket",
+    "pyzx",
+    "qiskit",
+    "qiskit-aer",
+    "sympy",
+    "tensornetwork",
+    "torch",
 ]
-docs  = [
-    "sphinx == 7.2.*",
-    "sphinx-book-theme == 1.1.*",
+all = [
+    "IPython",
+    "ipykernel == 6.23.*",
+    "jax<0.6.0",
+    "jaxlib<0.6.0",
+    "jinja2 == 3.1.*",
+    "lxml",
     "myst-parser == 2.0.*",
     "nbsphinx == 0.9.*",
-    "ipykernel == 6.23.*",
-    "sphinxcontrib-youtube == 1.4.*",
-    "jinja2 == 3.1.*",
+    "nltk",
+    "pytket",
+    "pyzx",
+    "qiskit",
+    "qiskit-aer",
+    "sphinx == 7.2.*",
+    "sphinx-book-theme == 1.1.*",
     "sphinxcontrib-bibtex == 2.5.*",
-    "IPython"
+    "sphinxcontrib-youtube == 1.4.*",
+    "sympy",
+    "tensornetwork",
+    "torch",
 ]
+docs  = [
+    "IPython",
+    "ipykernel == 6.23.*",
+    "jinja2 == 3.1.*",
+    "myst-parser == 2.0.*",
+    "nbsphinx == 0.9.*",
+    "sphinx == 7.2.*",
+    "sphinx-book-theme == 1.1.*",
+    "sphinxcontrib-bibtex == 2.5.*",
+    "sphinxcontrib-youtube == 1.4.*",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", marker = "platform_system == 'Linux'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.build-backend]
+module-root = ""
+source-exclude = ["discopy/version.py"]
+wheel-exclude = ["discopy/version.py"]
 
 [project.urls]
 Homepage = "https://discopy.org"
@@ -78,17 +158,6 @@ Documentation = "https://docs.discopy.org"
 Repository = "https://github.com/discopy/discopy"
 Issue-Tracker = "https://github.com/discopy/discopy/issues"
 Download = "https://pypi.org/project/discopy"
-
-[tool.setuptools]
-packages = [
-    "discopy",
-    "discopy.drawing",
-    "discopy.grammar",
-    "discopy.quantum"
-]
-
-[tool.setuptools_scm]
-write_to = "discopy/version.py"
 
 [tool.flake8]
 extend-ignore = [
@@ -110,4 +179,7 @@ testpaths = [
     "test/*/*.py",
     "docs/notebooks/*.ipynb",
 ]
-addopts = "--doctest-modules --nbmake"
+norecursedirs = [
+    "test/utils/pickles/TODO",
+]
+addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
