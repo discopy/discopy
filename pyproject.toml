@@ -49,7 +49,7 @@ test = [
     "jaxlib <= 0.4.28",
     "torch",
     "pennylane == 0.34.0",
-    "autoray < 0.8  ",
+    "autoray == 0.7.0",
     "pennylane-qiskit",
     "pennylane-honeywell",
     "qiskit < 0.46",
