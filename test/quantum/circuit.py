@@ -397,6 +397,7 @@ def test_CCX_decompose(x, y, z):
     assert (out == unitary_mat).all()
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_circuit_to_pennylane(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
@@ -475,6 +476,7 @@ def test_circuit_to_pennylane(capsys):
                         conc_circ_prob.eval().array))
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_circuit_mixed_error():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
@@ -484,6 +486,7 @@ def test_pennylane_circuit_mixed_error():
         snake.to_pennylane()
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_circuit_draw(capsys):
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
@@ -498,6 +501,7 @@ def test_pennylane_circuit_draw(capsys):
          "2: ────╰X───────┤  State\n")
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_ops():
     ops = [X, Y, Z, S, T, H, CX, CZ]
 
@@ -508,6 +512,7 @@ def test_pennylane_ops():
         assert np.allclose(disco, plane)
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_parameterized_ops():
     ops = [Rx, Ry, Rz, CRx, CRz]
 
@@ -519,6 +524,7 @@ def test_pennylane_parameterized_ops():
         assert np.allclose(disco, plane, atol=10e-5)
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_devices():
     bell_state = Circuit.caps(qubit, qubit)
     bell_effect = bell_state[::-1]
@@ -548,6 +554,7 @@ def test_pennylane_devices():
         aer_circ = snake.to_pennylane(backend_config=aer_backend_corrupt)
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_uninitialized():
     x, y, z = sympy.symbols('x y z')
     var_circ = Circuit.decode(
@@ -566,6 +573,7 @@ def test_pennylane_uninitialized():
         p_var_circ.eval()
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_parameter_reference():
     x = sympy.symbols('x')
     p = torch.nn.Parameter(torch.tensor(1.))
@@ -586,6 +594,7 @@ def test_pennylane_parameter_reference():
     assert p_circ._concrete_params[0][0] == p
 
 
+@pytest.mark.skip("Deprecated support for PennyLane")
 def test_pennylane_gradient_methods():
     x, y, z = sympy.symbols('x y z')
     symbols = [x, y, z]
