@@ -7,7 +7,13 @@
 *.blg
 *.pag
 *.gz
-.*
+.coverage
+.pylintrc
+.pytest_cache
+.readthedocs.yaml
+.uv-cache
+.venv
+.vscode
 *.out
 *.toc
 *.pyc

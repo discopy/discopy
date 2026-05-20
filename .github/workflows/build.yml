@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'main'
+      - 'tooling/uv-migration'
   pull_request:
 
 env:
@@ -30,7 +31,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install linter
       run:
-        uv sync --locked --python ${{ matrix.python-version }} --group dev
+        uv sync --locked --group dev
     - name: Check for errors
       run:
         # stop the build if there are Python syntax errors or undefined names
@@ -56,7 +57,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install
       run:
-        uv sync --locked --python ${{ matrix.python-version }} --group dev --group test
+        uv sync --locked --group dev --group test
     - name: Test
       run:
         uv run coverage run -m pytest
@@ -94,7 +95,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y pandoc
-        uv sync --locked --python ${{ matrix.python-version }} --no-default-groups --group docs
+        uv sync --locked --group docs
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
