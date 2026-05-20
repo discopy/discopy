@@ -2,9 +2,6 @@
 
 So excited to have you here! If you want any guidance whatsoever, don't hesitate to reach out on [Discord](https://discopy.org/discord)!
 
-## Run the tests
-
-DisCoPy uses [uv](https://docs.astral.sh/uv/) for local development, dependency groups, locking, and builds.
 The first step is to clone DisCoPy and install the default development environment:
 
 ```shell
@@ -13,23 +10,36 @@ cd discopy
 uv sync
 ```
 
-Then you should check you haven't broken anything by running the test suite:
+## Package infrastructure
+
+DisCoPy uses [uv](https://docs.astral.sh/uv/).
+
+Different dependency groups are available (switch with `uv sync --group <group-name>`):
+- no group: minimal set of dependencies required to work with DisCoPy.
+- `dev`: testing and linting tools.
+- `quantum`: includes quantum computating dependencies
+- `grammar`: natural language processing libraries
+- `docs`: for generating the documentation
+Since dependency groups are not standard, we also provide equivalents via optional dependencies.
+
+## Run the tests
+
+After cloning the repository, you should check you haven't broken anything by running the test suite.
+Use `uv sync --dev` before running any part of the test suite, and `uv sync --dev --group all`
+if you want to run the full test suite involving all extra dependencies.
 
 ```shell
-uv sync --group test
+uv sync --dev --group all
 uv run pflake8 discopy
 uv run pylint discopy
 uv run coverage run -m pytest
 uv run coverage report -m --fail-under=98
 ```
 
-The quantum and integration dependencies are intentionally kept outside the default install.
-Use `uv sync --group test` before running the full test suite.
-Use `uv sync --group all` if you want the development, test, and docs groups in one environment.
-
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
+You'll need to install [pandoc](https://pandoc.org/) as an external dependency not managed by `uv`.
 
 ```shell
 uv sync --group docs
@@ -39,7 +49,7 @@ uv run sphinx-build docs docs/_build/html
 ## Build without uv
 
 The project uses the `uv_build` PEP 517 build backend, so package builds still work from standard Python tooling.
-If you do not use uv, create a virtual environment and install the relevant extras manually:
+If you do not use `uv`, create a virtual environment and install the relevant extras manually:
 
 ```shell
 python -m venv .venv

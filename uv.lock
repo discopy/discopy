@@ -942,11 +942,16 @@ quantum = [
     { name = "torch", version = "2.12.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'linux'" },
 ]
 test = [
+    { name = "coverage" },
     { name = "jax" },
     { name = "jaxlib" },
+    { name = "nbmake" },
     { name = "nltk" },
     { name = "pennylane" },
     { name = "pennylane-qiskit" },
+    { name = "pylint" },
+    { name = "pyproject-flake8" },
+    { name = "pytest" },
     { name = "pytket" },
     { name = "pyzx" },
     { name = "qiskit" },
@@ -961,7 +966,7 @@ test = [
 [package.dev-dependencies]
 all = [
     { name = "coverage" },
-    { name = "discopy", extra = ["docs", "test"] },
+    { name = "discopy", extra = ["docs", "grammar", "quantum"] },
     { name = "nbmake" },
     { name = "pylint" },
     { name = "pyproject-flake8" },
@@ -977,12 +982,16 @@ dev = [
 docs = [
     { name = "discopy", extra = ["docs"] },
 ]
-test = [
-    { name = "discopy", extra = ["test"] },
+grammar = [
+    { name = "discopy", extra = ["grammar"] },
+]
+quantum = [
+    { name = "discopy", extra = ["quantum"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "coverage", marker = "extra == 'test'" },
     { name = "discopy", extras = ["grammar", "quantum"], marker = "extra == 'test'" },
     { name = "ipykernel", marker = "extra == 'docs'", specifier = "==6.23.*" },
     { name = "ipython", marker = "extra == 'docs'" },
@@ -991,6 +1000,7 @@ requires-dist = [
     { name = "jinja2", marker = "extra == 'docs'", specifier = "==3.1.*" },
     { name = "matplotlib" },
     { name = "myst-parser", marker = "extra == 'docs'", specifier = "==2.0.*" },
+    { name = "nbmake", marker = "extra == 'test'" },
     { name = "nbsphinx", marker = "extra == 'docs'", specifier = "==0.9.*" },
     { name = "networkx" },
     { name = "nltk", marker = "extra == 'grammar'" },
@@ -998,6 +1008,9 @@ requires-dist = [
     { name = "pennylane", marker = "extra == 'quantum'", specifier = ">=0.45.0" },
     { name = "pennylane-qiskit", marker = "extra == 'quantum'", specifier = ">=0.45.0" },
     { name = "pillow" },
+    { name = "pylint", marker = "extra == 'test'" },
+    { name = "pyproject-flake8", marker = "extra == 'test'" },
+    { name = "pytest", marker = "extra == 'test'" },
     { name = "pytket", marker = "extra == 'quantum'" },
     { name = "pyzx", marker = "extra == 'quantum'", specifier = "==0.7.3" },
     { name = "qiskit", marker = "extra == 'quantum'" },
@@ -1018,7 +1031,8 @@ provides-extras = ["quantum", "grammar", "test", "docs"]
 all = [
     { name = "coverage" },
     { name = "discopy", extras = ["docs"] },
-    { name = "discopy", extras = ["test"] },
+    { name = "discopy", extras = ["grammar"] },
+    { name = "discopy", extras = ["quantum"] },
     { name = "nbmake" },
     { name = "pylint" },
     { name = "pyproject-flake8" },
@@ -1032,7 +1046,8 @@ dev = [
     { name = "pytest" },
 ]
 docs = [{ name = "discopy", extras = ["docs"] }]
-test = [{ name = "discopy", extras = ["test"] }]
+grammar = [{ name = "discopy", extras = ["grammar"] }]
+quantum = [{ name = "discopy", extras = ["quantum"] }]
 
 [[package]]
 name = "docutils"
