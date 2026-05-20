@@ -44,12 +44,8 @@ dev = [
     "pylint",
     "pytest",
 ]
-docs = [
-    "discopy[docs]",
-]
-test = [
-    "discopy[test]",
-]
+docs = ["discopy[docs]"]
+test = ["discopy[test]"]
 all = [
     { include-group = "dev" },
     { include-group = "docs" },
@@ -69,6 +65,7 @@ quantum = [
     "qiskit-aer",
     "pennylane>=0.45.0",
     "pennylane-qiskit>=0.45.0",
+    "quimb",
 ]
 grammar = [
     "nltk",
