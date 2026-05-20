@@ -4,7 +4,8 @@ So excited to have you here! If you want any guidance whatsoever, don't hesitate
 
 ## Run the tests
 
-The first step is clone DisCoPy and install it locally.
+DisCoPy uses [uv](https://docs.astral.sh/uv/) for local development, dependency groups, locking, and builds.
+The first step is to clone DisCoPy and install the default development environment:
 
 ```shell
 git clone https://github.com/discopy/discopy.git
@@ -22,6 +23,9 @@ uv run coverage run -m pytest
 uv run coverage report -m --fail-under=99
 ```
 
+The quantum and integration dependencies are intentionally kept outside the default install.
+Use `uv sync --group test` before running the full test suite.
+
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
@@ -29,6 +33,35 @@ You can build the documentation locally with [sphinx](https://www.sphinx-doc.org
 ```shell
 uv sync --group docs
 uv run sphinx-build docs docs/_build/html
+```
+
+## Build without uv
+
+The project uses the `uv_build` PEP 517 build backend, so package builds still work from standard Python tooling.
+If you do not use uv, create a virtual environment and install the relevant extras manually:
+
+```shell
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e '.[test]'
+python -m pip install coverage pyproject-flake8 pylint pytest nbmake
+```
+
+Then run:
+
+```shell
+pflake8 discopy
+pylint discopy
+coverage run -m pytest
+coverage report -m --fail-under=99
+```
+
+To build distributions without uv:
+
+```shell
+python -m pip install build
+python -m build
 ```
 
 ## Release a version
