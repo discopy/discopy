@@ -86,6 +86,8 @@ quantum = [
     "torch",
     "qiskit",
     "qiskit-aer",
+    "pennylane>=0.45.0",
+    "pennylane-qiskit>=0.45.0",
 ]
 grammar = [
     "nltk",
