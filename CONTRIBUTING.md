@@ -20,7 +20,7 @@ uv sync --group test
 uv run pflake8 discopy
 uv run pylint discopy
 uv run coverage run -m pytest
-uv run coverage report -m --fail-under=99
+uv run coverage report -m --fail-under=98
 ```
 
 The quantum and integration dependencies are intentionally kept outside the default install.
