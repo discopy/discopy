@@ -25,7 +25,7 @@ from typing import (
 from matplotlib.testing.compare import compare_images
 from networkx import Graph, connected_components
 
-from discopy import messages
+import discopy.messages as messages
 from discopy.config import DRAWING_DEFAULT
 
 if TYPE_CHECKING:
