@@ -45,29 +45,10 @@ dev = [
     "pytest",
 ]
 docs = [
-    "IPython",
-    "ipykernel == 6.23.*",
-    "jinja2 == 3.1.*",
-    "myst-parser == 2.0.*",
-    "nbsphinx == 0.9.*",
-    "sphinx == 7.2.*",
-    "sphinx-book-theme == 1.1.*",
-    "sphinxcontrib-bibtex == 2.5.*",
-    "sphinxcontrib-youtube == 1.4.*",
+    "discopy[docs]",
 ]
 test = [
-    "jax<0.6.0",
-    "jaxlib<0.6.0",
-    "lxml",
-    "nltk",
-    "pytket",
-    "pyzx == 0.7.3",
-    "qiskit",
-    "qiskit-aer",
-    "quimb>=1.14.0",
-    "sympy",
-    "tensornetwork",
-    "torch",
+    "discopy[test]",
 ]
 all = [
     { include-group = "dev" },
@@ -81,8 +62,8 @@ quantum = [
     "pyzx == 0.7.3",
     "sympy",
     "tensornetwork",
-    "jax<0.6.0",
-    "jaxlib<0.6.0",
+    "jax",
+    "jaxlib",
     "torch",
     "qiskit",
     "qiskit-aer",
@@ -93,17 +74,7 @@ grammar = [
     "nltk",
 ]
 test = [
-    "jax<0.6.0",
-    "jaxlib<0.6.0",
-    "lxml",
-    "nltk",
-    "pytket",
-    "pyzx == 0.7.3",
-    "qiskit",
-    "qiskit-aer",
-    "sympy",
-    "tensornetwork",
-    "torch",
+    "discopy[grammar,quantum]",
 ]
 docs  = [
     "IPython",
