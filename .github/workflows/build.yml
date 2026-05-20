@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.12", "3.13", "3.14" ]
+        python-version: [ "3.12", "3.14" ]
     steps:
     - uses: actions/checkout@v4
     - name: Setup uv
@@ -57,7 +57,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install
       run:
-        uv sync --locked --group dev --group test
+        uv sync --locked --group dev --group all
     - name: Test
       run:
         uv run coverage run -m pytest
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ "3.12" ]
+        python-version: [ "3.14" ]
     steps:
     - uses: actions/checkout@v4
     - name: Setup uv
