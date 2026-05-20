@@ -25,6 +25,7 @@ uv run coverage report -m --fail-under=99
 
 The quantum and integration dependencies are intentionally kept outside the default install.
 Use `uv sync --group test` before running the full test suite.
+Use `uv sync --group all` if you want the development, test, and docs groups in one environment.
 
 ## Build the docs
 

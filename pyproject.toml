@@ -64,9 +64,15 @@ test = [
     "pyzx == 0.7.3",
     "qiskit",
     "qiskit-aer",
+    "quimb>=1.14.0",
     "sympy",
     "tensornetwork",
     "torch",
+]
+all = [
+    { include-group = "dev" },
+    { include-group = "docs" },
+    { include-group = "test" },
 ]
 
 [project.optional-dependencies]
@@ -93,28 +99,6 @@ test = [
     "pyzx == 0.7.3",
     "qiskit",
     "qiskit-aer",
-    "sympy",
-    "tensornetwork",
-    "torch",
-]
-all = [
-    "IPython",
-    "ipykernel == 6.23.*",
-    "jax<0.6.0",
-    "jaxlib<0.6.0",
-    "jinja2 == 3.1.*",
-    "lxml",
-    "myst-parser == 2.0.*",
-    "nbsphinx == 0.9.*",
-    "nltk",
-    "pytket",
-    "pyzx == 0.7.3",
-    "qiskit",
-    "qiskit-aer",
-    "sphinx == 7.2.*",
-    "sphinx-book-theme == 1.1.*",
-    "sphinxcontrib-bibtex == 2.5.*",
-    "sphinxcontrib-youtube == 1.4.*",
     "sympy",
     "tensornetwork",
     "torch",

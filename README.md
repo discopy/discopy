@@ -29,7 +29,6 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 * an implementation of [categorical quantum mechanics](https://en.wikipedia.org/wiki/Categorical_quantum_mechanics) interfacing with:
   - [tket](https://github.com/CQCL/tket) for circuit compilation
   - [PyZX](https://github.com/Quantomatic/pyzx) for optimisation with the [ZX calculus](https://zxcalculus.com/)
-  - [PennyLane](https://pennylane.ai/) for automatic differentiation
 * a [`Hypergraph`](https://docs.discopy.org/en/main/_api/discopy.hypergraph.Hypergraph.html) data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
 * a [`Stream`](https://docs.discopy.org/en/main/_api/discopy.stream.Stream.html) data structure, an implementation of [monoidal streams](https://arxiv.org/abs/2212.14494) as a [category with delayed feedback](https://doi.org/10.1051/ita:2002009)
 * the [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction), i.e. the free tortile/compact closed category on a balanced/symmetric traced category
