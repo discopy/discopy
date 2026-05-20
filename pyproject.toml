@@ -61,7 +61,7 @@ test = [
     "lxml",
     "nltk",
     "pytket",
-    "pyzx",
+    "pyzx == 0.7.3",
     "qiskit",
     "qiskit-aer",
     "sympy",
@@ -72,7 +72,7 @@ test = [
 [project.optional-dependencies]
 quantum = [
     "pytket",
-    "pyzx",
+    "pyzx == 0.7.3",
     "sympy",
     "tensornetwork",
     "jax<0.6.0",
@@ -84,16 +84,13 @@ quantum = [
 grammar = [
     "nltk",
 ]
-xml = [
-    "lxml",
-]
 test = [
     "jax<0.6.0",
     "jaxlib<0.6.0",
     "lxml",
     "nltk",
     "pytket",
-    "pyzx",
+    "pyzx == 0.7.3",
     "qiskit",
     "qiskit-aer",
     "sympy",
@@ -111,7 +108,7 @@ all = [
     "nbsphinx == 0.9.*",
     "nltk",
     "pytket",
-    "pyzx",
+    "pyzx == 0.7.3",
     "qiskit",
     "qiskit-aer",
     "sphinx == 7.2.*",

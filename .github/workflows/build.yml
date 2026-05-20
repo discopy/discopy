@@ -23,46 +23,21 @@ jobs:
       uses: astral-sh/setup-uv@v5
       with:
         enable-cache: true
-    - name: Install Python ${{ matrix.python-version }}
-      run:
-        uv python install ${{ matrix.python-version }}
-    - name: Check lockfile
-      run:
-        uv lock --check
-    - name: Install
+        cache-dependency-glob: uv.lock
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install linter
       run:
         uv sync --locked --python ${{ matrix.python-version }} --group dev
     - name: Check for errors
       run:
-        uv run pflake8 ${{ env.SRC_DIR }}
-    - name: Pylint
+        # stop the build if there are Python syntax errors or undefined names
+        uv run pflake8 discopy
+    - name: pylint
       run:
-        uv run pylint ${{ env.SRC_DIR }}
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: [ "3.11" ]
-    steps:
-    - uses: actions/checkout@v4
-    - name: Setup uv
-      uses: astral-sh/setup-uv@v5
-      with:
-        enable-cache: true
-    - name: Install Python ${{ matrix.python-version }}
-      run:
-        uv python install ${{ matrix.python-version }}
-    - name: Check lockfile
-      run:
-        uv lock --check
-    - name: Build package
-      run:
-        uv build --python ${{ matrix.python-version }}
-    - name: Upload distributions
-      uses: actions/upload-artifact@v4
-      with:
-        name: dist
-        path: dist/*
+        uv run pylint discopy
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -74,12 +49,11 @@ jobs:
       uses: astral-sh/setup-uv@v5
       with:
         enable-cache: true
-    - name: Install Python ${{ matrix.python-version }}
-      run:
-        uv python install ${{ matrix.python-version }}
-    - name: Check lockfile
-      run:
-        uv lock --check
+        cache-dependency-glob: uv.lock
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
     - name: Install
       run:
         uv sync --locked --python ${{ matrix.python-version }} --group dev --group test
@@ -100,12 +74,11 @@ jobs:
       uses: astral-sh/setup-uv@v5
       with:
         enable-cache: true
-    - name: Install Python ${{ matrix.python-version }}
-      run:
-        uv python install ${{ matrix.python-version }}
-    - name: Check lockfile
-      run:
-        uv lock --check
+        cache-dependency-glob: uv.lock
+    - name: Setup Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
     - name: Cache
       id: cache
       uses: actions/cache@v3
@@ -121,7 +94,7 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y pandoc
-        uv sync --locked --python ${{ matrix.python-version }} --group docs
+        uv sync --locked --python ${{ matrix.python-version }} --no-default-groups --group docs
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
