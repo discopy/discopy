@@ -902,7 +902,6 @@ wheels = [
 
 [[package]]
 name = "discopy"
-version = "1.2.3.dev5"
 source = { editable = "." }
 dependencies = [
     { name = "matplotlib" },

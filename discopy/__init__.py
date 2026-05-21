@@ -2,8 +2,6 @@
 
 """ DisCoPy: the Python toolkit for computing with string diagrams. """
 
-from importlib import metadata
-
 from discopy import (
     cat,
     monoidal,
@@ -31,12 +29,3 @@ from discopy import (
     config,
     messages,
 )
-
-try:
-    __version__ = metadata.version("discopy")
-except metadata.PackageNotFoundError:
-    __version__ = "0+unknown"
-
-__version_info__ = tuple(
-    int(part) if part.isdigit() else part
-    for part in __version__.replace("-", ".").split("."))
