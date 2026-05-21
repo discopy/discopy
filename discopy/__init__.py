@@ -32,4 +32,5 @@ from discopy import (
 
 from discopy.version import (
     version as __version__,
-    version_tuple as __version_info__)
+    version_tuple as __version_info__
+)

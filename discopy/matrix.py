@@ -482,7 +482,7 @@ def backend(name: BackendName = None,
     -------
     >>> with backend('jax'):
     ...     assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
-    ...         == 'jaxlib.xla_extension'
+    ...         == 'jaxlib._jax'
     """
     name = name or _stack[-1]
     _stack.append(name)
@@ -505,7 +505,7 @@ def set_backend(name: BackendName) -> None:
     -------
     >>> set_backend('jax')
     >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
-    ...     == 'jaxlib.xla_extension'
+    ...     == 'jaxlib._jax'
     >>> set_backend('numpy')
     >>> assert type(Matrix([0, 1, 1, 0], 2, 2).array).__module__\\
     ...     == 'numpy'
