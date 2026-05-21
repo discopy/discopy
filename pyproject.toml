@@ -94,6 +94,9 @@ docs  = [
     "sphinxcontrib-youtube == 1.4.*",
 ]
 
+[tool.setuptools_scm]
+version_file = "discopy/version.py"
+
 [tool.uv]
 default-groups = ["dev"]
 
