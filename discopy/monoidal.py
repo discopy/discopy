@@ -186,7 +186,7 @@ class Ty(Ob):
         parts = []
         for ob in self.inside:
             s = str(ob)
-            parts.append('"{}"'.format(s) if s == '' else s)
+            parts.append(type(self).__name__ + '("")' if s == '' else s)
         return ' @ '.join(parts)
 
     def __len__(self):
