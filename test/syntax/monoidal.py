@@ -29,6 +29,10 @@ def test_Ty_repr():
 
 def test_Ty_str():
     assert str(Ty('x')) == 'x'
+    assert str(Ty()) == 'Ty()'
+    assert str(Ty("")) == 'Ty("")'
+    assert str(Ty()) != str(Ty(""))
+    assert str(Ty("x", "")) == 'x @ Ty("")'
 
 
 def test_Ty_getitem():
