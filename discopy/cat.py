@@ -509,6 +509,17 @@ class Box(Arrow):
             self.name, self.dom, self.cod, is_dagger=self.is_dagger,
             data=rsubs(self.data, *args))
 
+    def substitute(self, other, indices: list[int]):
+        if len(indices) == 0:
+            assert self.is_parallel(other)
+            return self
+        if len(indices) == 1:
+            if indices[0] != 0:
+                raise ValueError("box subindex is always 0")
+            assert self.is_parallel(other)
+            return other
+        raise ValueError("too many indices")
+
     def lambdify(self, *symbols: "sympy.Symbol", **kwargs) -> Callable:
         if not any(x in self.free_symbols for x in symbols):
             return lambda *xs: self
