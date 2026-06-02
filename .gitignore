@@ -26,3 +26,8 @@ build/*
 dist/*
 todo.md
 discopy/version.py
+
+# marimo (session cache, md export, editor layouts)
+__marimo__
+*_markdown.md
+docs/notebooks/layouts/
