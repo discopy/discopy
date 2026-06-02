@@ -36,6 +36,42 @@ uv run coverage run -m pytest
 uv run coverage report -m --fail-under=98
 ```
 
+## Run the benchmarks
+
+DisCoPy uses [CodSpeed](https://codspeed.io) via [pytest-codspeed](https://github.com/CodSpeedHQ/pytest-codspeed) to track performance over time. Benchmarks live under `test/bench/` (integration) and as `test_*_bench` functions inside existing unit test files (micro-benchmarks).
+
+Install the bench extra and run locally:
+
+```shell
+uv sync --group dev --extra bench
+uv run pytest test/bench/ --codspeed -v          # small + medium sizes
+BENCH_FLAGS=bench:full uv run pytest test/bench/ --codspeed -v   # all sizes
+```
+
+Without `--codspeed` the `benchmark` fixture is a no-op passthrough — micro-benchmarks in unit test files collect and pass during normal `uv run pytest` without the bench extra installed.
+
+**Adding a new benchmark alongside a unit test:**
+
+```python
+import pytest
+
+@pytest.mark.benchmark(group="my-module-micro")
+def test_my_thing_bench(benchmark):
+    # setup (not timed)
+    data = build_fixture()
+    # only this lambda is instrumented
+    benchmark(lambda: my_function(data))
+```
+
+**Wiring CodSpeed in GitHub:**
+The `.github/workflows/codspeed.yml` workflow runs on every push to `main` and on pull requests. To upload results to the CodSpeed dashboard you need to add a `CODSPEED_TOKEN` secret to the repository:
+
+1. Sign in at <https://codspeed.io> and create a project linked to this repository.
+2. Copy the token from the CodSpeed project settings.
+3. Add it as a repository secret named `CODSPEED_TOKEN` at *Settings → Secrets and variables → Actions*.
+
+The workflow runs cleanly without the token (walltime mode collects and prints results locally) — the secret is only required for the dashboard upload.
+
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):

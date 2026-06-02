@@ -1,0 +1,45 @@
+name: CodSpeed
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*', 'bench-*']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: codspeed-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write   # required for CodSpeed OIDC token
+
+jobs:
+  codspeed:
+    name: Benchmarks (walltime)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install dependencies
+        run: uv sync --group dev --extra bench
+
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: walltime
+          # PRs: small+medium only (default BENCH_FLAGS="").
+          # main / tags / manual: full suite with large workloads.
+          run: |
+            if [ "${{ github.event_name }}" = "pull_request" ]; then
+              uv run pytest test/bench/ --codspeed -v
+            else
+              BENCH_FLAGS=bench:full uv run pytest test/bench/ --codspeed -v
+            fi

@@ -6,6 +6,7 @@
 # DisCoPy
 
 [![build](https://github.com/discopy/discopy/actions/workflows/build.yml/badge.svg)](https://github.com/discopy/discopy/actions/workflows/build.yml)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/discopy/discopy)
 [![readthedocs](https://readthedocs.org/projects/discopy/badge/?version=main)](https://docs.discopy.org/)
 [![PyPI version](https://badge.fury.io/py/discopy.svg)](https://badge.fury.io/py/discopy)
 [![DOI: 10.4204/EPTCS.333.13](http://img.shields.io/badge/DOI-10.4204/EPTCS.333.13-brightgreen.svg)](https://doi.org/10.4204/EPTCS.333.13)

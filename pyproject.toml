@@ -82,6 +82,9 @@ test = [
     "pylint",
     "pytest",
 ]
+bench = [
+    "pytest-codspeed>=3.0",
+]
 docs  = [
     "IPython",
     "ipykernel == 6.23.*",
@@ -93,6 +96,9 @@ docs  = [
     "sphinxcontrib-bibtex == 2.5.*",
     "sphinxcontrib-youtube == 1.4.*",
 ]
+
+[tool.setuptools.packages.find]
+include = ["discopy*"]
 
 [tool.setuptools_scm]
 version_file = "discopy/version.py"
@@ -145,4 +151,7 @@ testpaths = [
 norecursedirs = [
     "test/utils/pickles/TODO",
 ]
-addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
+addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO --ignore=test/bench"
+markers = [
+    "benchmark: codspeed/pytest-benchmark marker",
+]

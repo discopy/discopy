@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import pytest
 from pytest import raises
 
 from discopy.cat import *
@@ -214,6 +215,13 @@ def test_Diagram_normal_form():
     assert (f0 >> f1).normal_form() == f0 >> f1
     assert (Id(x) @ f1 >> f0 @ Id(x)).normal_form() == f0 @ f1
     assert (f0 @ f1).normal_form(left=True) == Id(x) @ f1 >> f0 @ Id(x)
+
+
+def test_Diagram_then_bench(benchmark):
+    """Micro-benchmark: bulk sequential composition via Diagram.then()."""
+    x = Ty('x')
+    boxes = [Box(f'f{i}', x, x) for i in range(50)]
+    benchmark(lambda: Id(x).then(*boxes))
 
 
 def test_AxiomError():
