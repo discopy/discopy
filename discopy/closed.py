@@ -50,11 +50,14 @@ Axioms
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
+from inspect import signature
 
 from discopy import biclosed, markov
 from discopy.drawing import Drawing
 from discopy.cat import Category, factory
 from discopy.utils import (
+    assert_isinstance,
     factory_name,
     from_tree,
 )
@@ -65,12 +68,12 @@ class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
     right exponentials coincide, i.e. `X << Y == X ** Y == Y >> X`.
-
     Applying a type to an anonymous function yields a diagram e.g.
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> f = X(lambda x: (X >> Y)(lambda y: y(x)))
-    >>> assert f == Di
+    >>> print(f)
+
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
@@ -83,8 +86,12 @@ class Ty(biclosed.Ty):
         return Exp(other, self)
 
     def __call__(self, func):
-        raise NotImplementedError
-        
+        varnames = list(signature(func).parameters.keys())
+        if len(varnames) != 1:
+            raise NotImplementedError
+        var = Variable(self, varnames[0])
+        return Abstraction(var, func(var))
+
 
 class Exp(Ty, biclosed.Exp):
     "An exponential object in a markov category."
@@ -92,6 +99,48 @@ class Exp(Ty, biclosed.Exp):
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
+
+
+class Term:
+    cod: Ty
+
+    def __call__(self, other):
+        return Application(self, other)
+
+@dataclass
+class Variable(Term):
+    cod: Ty
+    name: str
+
+    def __str__(self):
+        return self.name
+
+
+@dataclass
+class Application(Term):
+    func: Term
+    args: Term
+
+    def __init__(self, func, args):
+        assert_isinstance(func.cod, Exp)
+        assert func.cod.exponent == args.cod
+        self.cod, self.func, self.args = func.cod.base, func, args
+
+    def __str__(self):
+        return f"{self.func}({self.args})"
+        
+
+@dataclass
+class Abstraction(Term):
+    var: Variable
+    body: Term
+
+    def __init__(self, var, body):
+        self.cod = var.cod >> body.cod
+        self.var, self.body = var, body
+    
+    def __str__(self):
+        return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
 
 
 @factory
@@ -170,6 +219,7 @@ class Functor(markov.Functor, biclosed.Functor):
 
 class Hypergraph(markov.Hypergraph):
     category, functor = Category, Functor
+
 
 
 Diagram.hypergraph_factory = Hypergraph
