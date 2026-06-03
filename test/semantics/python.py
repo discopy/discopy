@@ -3,7 +3,7 @@
 from typing import List
 from pytest import raises
 
-from discopy.closed import *
+from discopy.biclosed import *
 from discopy.python import *
 
 

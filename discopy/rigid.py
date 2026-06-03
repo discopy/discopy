@@ -46,7 +46,7 @@ from collections.abc import Callable
 
 from typing import Iterator
 
-from discopy import cat, monoidal, closed, messages
+from discopy import cat, monoidal, biclosed, messages
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
@@ -120,9 +120,9 @@ class Ob(cat.Ob):
 
 
 @factory
-class Ty(closed.Ty):
+class Ty(biclosed.Ty):
     """
-    A rigid type is a closed type with rigid objects inside.
+    A rigid type is a biclosed type with rigid objects inside.
 
     Parameters:
         inside (tuple[Ob, ...]) : The objects inside the type.
@@ -208,9 +208,9 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(closed.Diagram):
+class Diagram(biclosed.Diagram):
     """
-    A rigid diagram is a closed diagram
+    A rigid diagram is a biclosed diagram
     with :class:`Cup` and :class:`Cap` boxes.
 
     Parameters:
@@ -538,9 +538,9 @@ class Diagram(closed.Diagram):
         return super().normal_form(**params)
 
 
-class Box(closed.Box, Diagram):
+class Box(biclosed.Box, Diagram):
     """
-    A rigid box is a closed box in a rigid diagram.
+    A rigid box is a biclosed box in a rigid diagram.
 
     Parameters:
         name : The name of the box.
@@ -557,7 +557,7 @@ class Box(closed.Box, Diagram):
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
     """
-    __ambiguous_inheritance__ = (closed.Box, )
+    __ambiguous_inheritance__ = (biclosed.Box, )
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -567,7 +567,7 @@ class Box(closed.Box, Diagram):
 
     def __init__(self, name: str, dom: Ty, cod: Ty, data=None, z=0, **params):
         self.z = z
-        closed.Box.__init__(self, name, dom, cod, data=data, **params)
+        biclosed.Box.__init__(self, name, dom, cod, data=data, **params)
 
     def __str__(self):
         return cat.Box.__str__(self) if not self.z\
@@ -575,8 +575,8 @@ class Box(closed.Box, Diagram):
 
     def __repr__(self):
         if self.is_dagger:
-            return closed.Box.__repr__(self)
-        return closed.Box.__repr__(self)[:-1] + (
+            return biclosed.Box.__repr__(self)
+        return biclosed.Box.__repr__(self)[:-1] + (
             f', z={self.z})' if self.z else ')')
 
     def __eq__(self, other):
@@ -605,16 +605,16 @@ class Box(closed.Box, Diagram):
         return result
 
 
-class Sum(closed.Sum, Box):
+class Sum(biclosed.Sum, Box):
     """
-    A rigid sum is a closed sum that can be transposed.
+    A rigid sum is a biclosed sum that can be transposed.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (closed.Sum, )
+    __ambiguous_inheritance__ = (biclosed.Sum, )
 
     def rotate(self, left=False) -> Sum:
         if left:
@@ -700,7 +700,7 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
-class Category(closed.Category):
+class Category(biclosed.Category):
     """
     A rigid category is a monoidal category
     with methods :code:`l`, :code:`r`, :code:`cups` and :code:`caps`.
@@ -712,9 +712,9 @@ class Category(closed.Category):
     ob, ar = Ty, Diagram
 
 
-class Functor(closed.Functor):
+class Functor(biclosed.Functor):
     """
-    A rigid functor is a closed functor that preserves cups and caps.
+    A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
         ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.

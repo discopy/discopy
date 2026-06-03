@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-The free closed monoidal category, i.e. with exponential objects.
+The free biclosed monoidal category, i.e. with left and right exponentials.
 
 Summary
 -------
@@ -33,22 +33,22 @@ Axioms
 
 >>> from discopy.drawing import Equation
 >>> Equation(f.uncurry().curry(), f).draw(
-...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
+...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
 
-.. image:: /_static/closed/curry-left.png
+.. image:: /_static/biclosed/curry-left.png
     :align: center
 
 >>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
-...     path='docs/_static/closed/curry-right.png', margins=(0.1, 0.05))
+...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
 
-.. image:: /_static/closed/curry-right.png
+.. image:: /_static/biclosed/curry-right.png
     :align: center
 
 >>> Equation(
 ...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False)).draw(
-...         path='docs/_static/closed/uncurry.png')
+...         path='docs/_static/biclosed/uncurry.png')
 
-.. image:: /_static/closed/uncurry.png
+.. image:: /_static/biclosed/uncurry.png
     :align: center
 """
 
@@ -66,7 +66,7 @@ from discopy.utils import (
 @factory
 class Ty(monoidal.Ty):
     """
-    A closed type is a monoidal type that can be exponentiated.
+    A biclosed type is a monoidal type that can be exponentiated.
 
     Parameters:
         inside (Ty) : The objects inside the type.
@@ -223,7 +223,7 @@ class Under(Exp):
 @factory
 class Diagram(monoidal.Diagram):
     """
-    A closed diagram is a monoidal diagram
+    A biclosed diagram is a monoidal diagram
     with :class:`Curry` and :class:`Eval` boxes.
 
     Parameters:
@@ -260,7 +260,7 @@ class Diagram(monoidal.Diagram):
 
     def uncurry(self: Diagram, left=True) -> Diagram:
         """
-        Uncurry a closed diagram by composing it with :meth:`Diagram.ev`.
+        Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
 
         Parameters:
             left : Whether to uncurry on the left or right.
@@ -275,7 +275,7 @@ class Diagram(monoidal.Diagram):
 
 class Box(monoidal.Box, Diagram):
     """
-    A closed box is a monoidal box in a closed diagram.
+    A biclosed box is a monoidal box in a biclosed diagram.
 
     Parameters:
         name (str) : The name of the box.
@@ -302,7 +302,7 @@ class Eval(Box):
 
 class Curry(monoidal.Bubble, Box):
     """
-    The currying of a closed diagram.
+    The currying of a biclosed diagram.
 
     Parameters:
         arg : The diagram to curry.
@@ -324,7 +324,7 @@ class Curry(monoidal.Bubble, Box):
 
 class Sum(monoidal.Sum, Box):
     """
-    A closed sum is a monoidal sum and a closed box.
+    A biclosed sum is a monoidal sum and a biclosed box.
 
     Parameters:
         terms (tuple[Diagram, ...]) : The terms of the formal sum.
@@ -343,7 +343,7 @@ Id = Diagram.id
 
 class Category(monoidal.Category):
     """
-    A closed category is a monoidal category with methods :code:`exp`
+    A biclosed category is a monoidal category with methods :code:`exp`
     (:code:`over` and / or :code:`under`), :code:`ev` and :code:`curry`.
 
     Parameters:
@@ -355,7 +355,7 @@ class Category(monoidal.Category):
 
 class Functor(monoidal.Functor):
     """
-    A closed functor is a monoidal functor
+    A biclosed functor is a monoidal functor
     that preserves evaluation and currying.
 
     Parameters:

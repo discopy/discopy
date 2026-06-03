@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-A categorial grammar is a free closed category with words as boxes.
+A categorial grammar is a free biclosed category with words as boxes.
 
 Summary
 -------
@@ -35,10 +35,10 @@ Summary
 
 import re
 
-from discopy import closed, messages
+from discopy import biclosed, messages
 from discopy.cat import factory
 from discopy.grammar import thue
-from discopy.closed import Ty, Over, Under
+from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -49,9 +49,9 @@ from discopy.utils import (
 
 
 @factory
-class Diagram(closed.Diagram):
+class Diagram(biclosed.Diagram):
     """
-    A categorial diagram is a closed diagram with rules and words as boxes.
+    A categorial diagram is a biclosed diagram with rules and words as boxes.
     """
     def to_pregroup(self):
         from discopy.grammar import pregroup
@@ -94,7 +94,7 @@ class Diagram(closed.Diagram):
         return BX(middle << left, middle >> right)
 
 
-class Box(closed.Box, Diagram):
+class Box(biclosed.Box, Diagram):
     """
     A categorial box is a grammar rule in a categorial diagram.
     """
@@ -107,18 +107,18 @@ class Word(thue.Word, Box):
 
     Parameters:
         name (str) : The name of the word.
-        cod (closed.Ty) : The grammatical type of the word.
-        dom (closed.Ty) : An optional domain for the word, empty by default.
+        cod (biclosed.Ty) : The grammatical type of the word.
+        dom (biclosed.Ty) : An optional domain for the word, empty by default.
     """
 
 
-class Eval(closed.Eval, Box):
+class Eval(biclosed.Eval, Box):
     """
     Evaluation box in a categorial grammar, equivalent to :class:``FA``.
     """
 
 
-class Curry(closed.Curry, Box):
+class Curry(biclosed.Curry, Box):
     """
     The currying of a categorial diagram.
     """
@@ -217,9 +217,9 @@ class BX(BinaryBoxConstructor, Box):
         BinaryBoxConstructor.__init__(self, left, right)
 
 
-class Functor(closed.Functor):
+class Functor(biclosed.Functor):
     """
-    A categorial functor is a closed functor with a predefined mapping
+    A categorial functor is a biclosed functor with a predefined mapping
     for categorial rules.
 
     Parameters:
@@ -227,7 +227,7 @@ class Functor(closed.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = closed.Category(Ty, Diagram)
+    dom = cod = biclosed.Category(Ty, Diagram)
 
     def __call__(self, other):
         if isinstance(other, FA):

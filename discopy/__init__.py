@@ -9,7 +9,7 @@ from discopy import (
     symmetric,
     markov,
     traced,
-    closed,
+    biclosed,
     rigid,
     pivotal,
     ribbon,

@@ -1,10 +1,10 @@
-from discopy.closed import *
+from discopy.bibiclosed import *
 
 
 def test_Over():
     x, y = Ty('x'), Ty('y')
     assert repr(Over(x, y))\
-        == "closed.Over(closed.Ty(cat.Ob('x')), closed.Ty(cat.Ob('y')))"
+        == "biclosed.Over(biclosed.Ty(cat.Ob('x')), biclosed.Ty(cat.Ob('y')))"
     assert {Over(x, y): 42}[Over(x, y)] == 42
     assert Over(x, y) != Under(x, y)
 
@@ -12,7 +12,7 @@ def test_Over():
 def test_Under():
     x, y = Ty('x'), Ty('y')
     assert repr(Under(x, y))\
-        == "closed.Under(closed.Ty(cat.Ob('x')), closed.Ty(cat.Ob('y')))"
+        == "biclosed.Under(biclosed.Ty(cat.Ob('x')), biclosed.Ty(cat.Ob('y')))"
     assert {Under(x, y): 42}[Under(x, y)] == 42
     assert Under(x, y) != Over(x, y)
 
