@@ -1,4 +1,4 @@
-from discopy.bibiclosed import *
+from discopy.biclosed import *
 
 
 def test_Over():
