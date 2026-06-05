@@ -56,7 +56,7 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from warnings import warn
 
-from discopy import cat, drawing, hypergraph, messages
+from discopy import cat, drawing, hypergraph, combinatorial_map, messages
 from discopy.abc import MonoidalCategory
 from discopy.cat import Ob
 from discopy.drawing import Drawing
@@ -1174,6 +1174,10 @@ class Hypergraph(hypergraph.Hypergraph):
         return super().to_diagram()
 
 
+class CombinatorialMap(combinatorial_map.CombinatorialMap):
+    category, functor = Category, Functor
+
+
 Diagram.draw = drawing.draw
 Diagram.to_gif = drawing.to_gif
 
@@ -1181,4 +1185,5 @@ Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
 Drawing.ob = Ty
+Diagram.map_factory = CombinatorialMap
 Id = Diagram.id

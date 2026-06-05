@@ -140,8 +140,13 @@ class Hypergraph(symmetric.Hypergraph):
     functor = Functor
 
 
+class CombinatorialMap(symmetric.CombinatorialMap):
+    category, functor = Category, Functor
+
+
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
+Diagram.combinatorial_map_factory = CombinatorialMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

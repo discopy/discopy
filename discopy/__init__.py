@@ -18,6 +18,7 @@ from discopy import (
     closed,
     frobenius,
     hypergraph,
+    combinatorial_map,
     interaction,
     feedback,
     stream,

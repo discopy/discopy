@@ -267,6 +267,11 @@ class Hypergraph(monoidal.Hypergraph):
     functor = Functor
 
 
+class CombinatorialMap(monoidal.CombinatorialMap):
+    category, functor = Category, Functor
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.combinatorial_map_factory = CombinatorialMap
 Diagram.trace_factory = Trace
 Id = Diagram.id

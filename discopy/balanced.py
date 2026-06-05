@@ -202,7 +202,12 @@ class Hypergraph(traced.Hypergraph):
     functor = Functor
 
 
+class CombinatorialMap(traced.CombinatorialMap):
+    category, functor = Category, Functor
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.combinatorial_map_factory = CombinatorialMap
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace
