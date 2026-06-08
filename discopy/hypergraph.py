@@ -534,10 +534,26 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> g = Box('g', x, Ty()).to_hypergraph()
         >>> assert (f >> g).interchange(0, 1).simplify() == f >> g
         """
+        def diagram_size(diagram):
+            result = len(diagram)
+            boxes = sum([
+                list(getattr(layer, "boxes", (layer, )))
+                for layer in getattr(diagram, "inside", ())], [])
+            for box in boxes:
+                for attr in ("arg", "args"):
+                    if not hasattr(box, attr):
+                        continue
+                    args = getattr(box, attr)
+                    if attr == "arg":
+                        args = (args, )
+                    result += sum(map(diagram_size, args))
+            return result
+
+        size = diagram_size(self.to_diagram())
         for i in range(len(self.boxes)):
             for j in range(len(self.boxes)):
                 result = self.interchange(i, j)
-                if len(result.to_diagram()) < len(self.to_diagram()):
+                if diagram_size(result.to_diagram()) < size:
                     return result.simplify()
         return self
 
