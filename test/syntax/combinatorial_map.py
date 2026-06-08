@@ -1,9 +1,9 @@
+import shutil
+
 from pytest import raises
 
 from discopy.combinatorial_map import (
-    permutation_from_cycles,
-    is_fixpoint_free_involution,
-    cycles,
+    Permutation,
     port_side,
 )
 from discopy.compact import Box, Ty, CombinatorialMap as M, Hypergraph as H
@@ -11,10 +11,13 @@ from discopy.utils import AxiomError
 
 
 def test_cycles():
-    assert cycles((1, 0, 3, 2)) == ((0, 1), (2, 3))
-    assert permutation_from_cycles([(0, 1), (2, 3)], 4) == (1, 0, 3, 2)
-    assert is_fixpoint_free_involution((1, 0))
-    assert not is_fixpoint_free_involution((0,))
+    assert Permutation((1, 0, 3, 2)).cycles() == ((0, 1), (2, 3))
+    assert Permutation.from_cycles([(0, 1), (2, 3)], 4) == (1, 0, 3, 2)
+    assert Permutation((1, 0)).is_fixpoint_free_involution()
+    assert not Permutation((0,)).is_fixpoint_free_involution()
+    assert Permutation.identity(2) == (0, 1)
+    assert Permutation((1, 0)).compose((1, 0)) == (0, 1)
+    assert Permutation((1, 0)).tensor((1, 0)) == (1, 0, 3, 2)
 
 
 def test_port_side():
@@ -139,11 +142,21 @@ def test_euler_characteristic():
     assert box.euler_characteristic == 0
     assert (box @ scalar).euler_characteristic == 1
 
-
 def test_draw_map(tmp_path):
     x, y = map(Ty, "xy")
-    path = tmp_path / "map.png"
+    path = tmp_path / "map.dot"
     cmap = M.from_box(Box('f', x, y))
-    fig, ax = cmap.draw_map(path=path, show=False, seed=0)
+    dot = cmap.draw_map(seed=0)
+    assert "graph combinatorial_map" in dot
+    assert "layout=\"neato\"" in dot
+    assert 'v0 [label="f", width="0.22", height="0.22"]' in dot
+    assert "xlabel=\"(1 2)\"" not in dot
+    assert "p1" not in dot
+    assert 'b0 -- v0 [len="0.85", taillabel="0", headlabel="1"]' in dot
+    assert cmap.draw_map(path=path, seed=0) == str(path)
     assert path.exists()
-    assert fig is ax.figure
+    assert path.read_text().startswith("graph combinatorial_map")
+    if shutil.which("dot") is not None:
+        png_path = tmp_path / "map.png"
+        assert cmap.draw_map(path=png_path, engine="dot") == str(png_path)
+        assert png_path.exists()

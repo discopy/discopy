@@ -12,11 +12,11 @@ two permutations on these ports:
 """
 
 from __future__ import annotations
-from discopy.cat import Category, Functor
 
 from collections.abc import Iterable
-from math import cos, pi, sin
-from typing import Any, TYPE_CHECKING, ClassVar
+import shutil
+import subprocess
+from typing import Any, TYPE_CHECKING
 
 from discopy import messages, hypergraph
 from discopy.drawing import Node
@@ -37,77 +37,138 @@ if TYPE_CHECKING:
 Port = Node
 """ A port in a combinatorial map. """
 
-Permutation = tuple[int, ...]
-""" A permutation, represented by its action on ``range(len(perm))``. """
-
 LEFT_PORTS = {"input", "cod"}
 RIGHT_PORTS = {"dom", "output"}
 BOUNDARY_PORTS = {"input", "output"}
 
 
-def _assert_permutation(perm: Permutation, size: int):
-    if len(perm) != size:
-        raise ValueError
-    if sorted(perm) != list(range(size)):
-        raise ValueError
-
-
-def cycles(perm: Iterable[int]) -> tuple[tuple[int, ...], ...]:
+class Permutation(tuple):
     """
-    Return the cycles of a permutation.
+    A permutation, represented by its action on ``range(len(self))``.
 
     Examples
     --------
-    >>> cycles((1, 0, 3, 2))
+    >>> Permutation((1, 0, 3, 2)).cycles()
     ((0, 1), (2, 3))
-    """
-    perm = tuple(perm)
-    _assert_permutation(perm, len(perm))
-    result, seen = [], set()
-    for i in range(len(perm)):
-        if i in seen:
-            continue
-        cycle, j = [], i
-        while j not in seen:
-            seen.add(j)
-            cycle.append(j)
-            j = perm[j]
-        result.append(tuple(cycle))
-    return tuple(result)
-
-
-def permutation_from_cycles(
-        permutation_cycles: Iterable[Iterable[int]], size: int) -> Permutation:
-    """
-    Build a permutation from cycles.
-
-    Examples
-    --------
-    >>> permutation_from_cycles([(0, 1), (2, 3)], 4)
+    >>> Permutation.from_cycles([(0, 1), (2, 3)], 4)
     (1, 0, 3, 2)
+    >>> Permutation((1, 0)).is_fixpoint_free_involution()
+    True
     """
-    result = list(range(size))
-    seen = set()
-    for cycle in map(tuple, permutation_cycles):
-        if len(set(cycle)) != len(cycle):
+    def __new__(cls, inside: Iterable[int] = (), size: int | None = None):
+        inside = tuple(inside)
+        if size is None:
+            size = len(inside)
+        if len(inside) != size:
             raise ValueError
-        for i in cycle:
-            if i < 0 or i >= size or i in seen:
+        if sorted(inside) != list(range(size)):
+            raise ValueError
+        return tuple.__new__(cls, inside)
+
+    @classmethod
+    def identity(cls, size: int) -> Permutation:
+        """ The identity permutation on ``range(size)``. """
+        return cls(range(size), size)
+
+    @classmethod
+    def from_cycles(
+            cls, permutation_cycles: Iterable[Iterable[int]],
+            size: int) -> Permutation:
+        """ Build a permutation from cycles. """
+        result = list(range(size))
+        seen = set()
+        for cycle in map(tuple, permutation_cycles):
+            if len(set(cycle)) != len(cycle):
                 raise ValueError
-            seen.add(i)
-        for source, target in zip(cycle, cycle[1:] + cycle[:1]):
-            result[source] = target
-    return tuple(result)
+            for i in cycle:
+                if i < 0 or i >= size or i in seen:
+                    raise ValueError
+                seen.add(i)
+            for source, target in zip(cycle, cycle[1:] + cycle[:1]):
+                result[source] = target
+        return cls(result, size)
 
+    @classmethod
+    def from_transpositions(
+            cls, transpositions: Iterable[tuple[int, int]],
+            size: int) -> Permutation:
+        """ Build a permutation from disjoint 2-cycles. """
+        result = list(range(size))
+        seen = set()
+        for left, right in transpositions:
+            if left == right:
+                raise ValueError
+            if left < 0 or right < 0 or left >= size or right >= size:
+                raise ValueError
+            if left in seen or right in seen:
+                raise ValueError
+            seen.update([left, right])
+            result[left], result[right] = right, left
+        return cls(result, size)
 
-def is_fixpoint_free_involution(perm: Iterable[int]) -> bool:
-    """ Whether a permutation is a product of disjoint 2-cycles. """
-    perm = tuple(perm)
-    try:
-        _assert_permutation(perm, len(perm))
-    except ValueError:
-        return False
-    return all(perm[i] != i and perm[perm[i]] == i for i in range(len(perm)))
+    @classmethod
+    def from_relabels(
+            cls, relabelings: Iterable[tuple[Iterable[int], dict[int, int]]],
+            size: int) -> Permutation:
+        """ Relabel and merge permutations with disjoint target indices. """
+        result = list(range(size))
+        for old, mapping in relabelings:
+            old = cls(old)
+            for i, j in enumerate(old):
+                if i in mapping and j in mapping:
+                    result[mapping[i]] = mapping[j]
+        return cls(result, size)
+
+    def cycles(self) -> tuple[tuple[int, ...], ...]:
+        """ Return the cycles of the permutation. """
+        result, seen = [], set()
+        for i in range(len(self)):
+            if i in seen:
+                continue
+            result.append(self.cycle(i, seen))
+        return tuple(result)
+
+    def cycle(
+            self, start: int,
+            seen: set[int] | None = None) -> tuple[int, ...]:
+        """ Return the cycle reached from ``start``. """
+        if start < 0 or start >= len(self):
+            raise ValueError
+        cycle, local_seen, i = [], set() if seen is None else seen, start
+        while i not in local_seen:
+            local_seen.add(i)
+            cycle.append(i)
+            i = self[i]
+        return tuple(cycle)
+
+    def compose(self, other: Iterable[int]) -> Permutation:
+        """ Return ``self o other``, i.e. ``result[i] == self[other[i]]``. """
+        other = type(self)(other, len(self))
+        return type(self)((self[other[i]] for i in range(len(self))), len(self))
+
+    def inverse(self) -> Permutation:
+        """ Return the inverse permutation. """
+        result = list(range(len(self)))
+        for source, target in enumerate(self):
+            result[target] = source
+        return type(self)(result, len(self))
+
+    def tensor(self, other: Iterable[int]) -> Permutation:
+        """ Return the disjoint union of two permutations. """
+        other = type(self)(other)
+        shift = len(self)
+        return type(self)(
+            tuple(self) + tuple(shift + i for i in other),
+            len(self) + len(other))
+
+    def relabel(self, mapping: dict[int, int], size: int) -> Permutation:
+        """ Relabel preserved indices, fixing everything else. """
+        return type(self).from_relabels([(self, mapping)], size)
+
+    def is_fixpoint_free_involution(self) -> bool:
+        """ Whether this is a product of disjoint 2-cycles. """
+        return all(self[i] != i and self[self[i]] == i
+                   for i in range(len(self)))
 
 
 def port_side(port: Port) -> str:
@@ -162,8 +223,9 @@ class CombinatorialMap(
         if len(self.offsets) != len(self.boxes):
             raise ValueError
 
-        self.edge = tuple(edge)
-        self.node = self.canonical_node() if node is None else tuple(node)
+        self.edge = Permutation(edge, len(self.ports))
+        self.node = self.canonical_node() if node is None\
+            else Permutation(node, len(self.ports))
         self._validate()
 
     @property
@@ -203,23 +265,18 @@ class CombinatorialMap(
             if not box_ports:
                 result.append(())
                 continue
-            cycle, seen, i = [], set(), box_ports[0]
-            while i not in seen:
-                seen.add(i)
-                cycle.append(i)
-                i = self.node[i]
-            result.append(tuple(cycle))
+            result.append(self.node.cycle(box_ports[0]))
         return tuple(result)
 
     @property
     def face_permutation(self) -> Permutation:
         """ The face permutation ``node o edge``. """
-        return tuple(self.node[self.edge[i]] for i in range(self.n_ports))
+        return self.node.compose(self.edge)
 
     @property
     def face_cycles(self) -> tuple[tuple[int, ...], ...]:
         """ The cycles of the face permutation. """
-        return cycles(self.face_permutation)
+        return self.face_permutation.cycles()
 
     faces = face_cycles
 
@@ -230,13 +287,11 @@ class CombinatorialMap(
 
     def canonical_node(self) -> Permutation:
         """ The canonical box orientation in fixed local port order. """
-        return permutation_from_cycles(self.box_port_indices, len(self.ports))
+        return Permutation.from_cycles(self.box_port_indices, len(self.ports))
 
     def _validate(self):
         ports = self.ports
-        _assert_permutation(self.edge, len(ports))
-        _assert_permutation(self.node, len(ports))
-        if not is_fixpoint_free_involution(self.edge):
+        if not self.edge.is_fixpoint_free_involution():
             raise ValueError
 
         for i, j in enumerate(self.edge):
@@ -255,8 +310,8 @@ class CombinatorialMap(
                 continue
             if {self.node[i] for i in box_ports} != set(box_ports):
                 raise ValueError
-            if len(cycles(tuple(box_ports.index(self.node[i])
-                                for i in box_ports))) != 1:
+            if len(Permutation(tuple(box_ports.index(self.node[i])
+                                     for i in box_ports)).cycles()) != 1:
                 raise ValueError
 
     def __repr__(self):
@@ -277,10 +332,8 @@ class CombinatorialMap(
     def id(cls, dom=None) -> CombinatorialMap:
         dom = cls.category.ob() if dom is None else dom
         n_ports = 2 * len(dom)
-        edge = list(range(n_ports))
-        for i in range(len(dom)):
-            edge[i] = i + len(dom)
-            edge[i + len(dom)] = i
+        edge = Permutation.from_transpositions(
+            ((i, i + len(dom)) for i in range(len(dom))), n_ports)
         return cls(dom, dom, (), edge)
 
     @classmethod
@@ -288,15 +341,11 @@ class CombinatorialMap(
         left = len(box.dom)
         right = len(box.cod)
         n_ports = 2 * (left + right)
-        edge = list(range(n_ports))
-        for i in range(left):
-            edge[i] = left + i
-            edge[left + i] = i
-        for i in range(right):
-            source = left + left + i
-            target = left + left + right + i
-            edge[source] = target
-            edge[target] = source
+        edge = Permutation.from_transpositions(
+            [(i, left + i) for i in range(left)]
+            + [(left + left + i, left + left + right + i)
+               for i in range(right)],
+            n_ports)
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
@@ -334,32 +383,24 @@ class CombinatorialMap(
                 other_map[i] = new_index
                 new_index += 1
 
-        edge = list(range(new_index))
-
-        def add_pair(left, right):
-            edge[left], edge[right] = right, left
-
+        edge_pairs = []
         for i in range(self.n_ports):
             j = self.edge[i]
             if i < j and i not in remove_self and j not in remove_self:
-                add_pair(self_map[i], self_map[j])
+                edge_pairs.append((self_map[i], self_map[j]))
         for i in range(other.n_ports):
             j = other.edge[i]
             if i < j and i not in remove_other and j not in remove_other:
-                add_pair(other_map[i], other_map[j])
+                edge_pairs.append((other_map[i], other_map[j]))
 
         for left, right in zip(self_outputs, other_inputs):
             left_partner = self.edge[left]
             right_partner = other.edge[right]
-            add_pair(self_map[left_partner], other_map[right_partner])
+            edge_pairs.append((self_map[left_partner], other_map[right_partner]))
 
-        node = list(range(new_index))
-        for i, j in enumerate(self.node):
-            if i in self_map and j in self_map:
-                node[self_map[i]] = self_map[j]
-        for i, j in enumerate(other.node):
-            if i in other_map and j in other_map:
-                node[other_map[i]] = other_map[j]
+        edge = Permutation.from_transpositions(edge_pairs, new_index)
+        node = Permutation.from_relabels(
+            [(self.node, self_map), (other.node, other_map)], new_index)
 
         return type(self)(dom, cod, boxes, edge, node, offsets)
 
@@ -393,14 +434,10 @@ class CombinatorialMap(
                 cod_start + self_cod + i)
 
         n_ports = self.n_ports + other.n_ports
-        edge, node = list(range(n_ports)), list(range(n_ports))
-        for mapping, old_edge, old_node in [
-                (self_map, self.edge, self.node),
-                (other_map, other.edge, other.node)]:
-            for i, j in enumerate(old_edge):
-                edge[mapping[i]] = mapping[j]
-            for i, j in enumerate(old_node):
-                node[mapping[i]] = mapping[j]
+        edge = Permutation.from_relabels(
+            [(self.edge, self_map), (other.edge, other_map)], n_ports)
+        node = Permutation.from_relabels(
+            [(self.node, self_map), (other.node, other_map)], n_ports)
         return type(self)(dom, cod, boxes, edge, node, offsets)
 
     def to_hypergraph(self) -> hypergraph.Hypergraph:
@@ -420,112 +457,101 @@ class CombinatorialMap(
             self.dom, self.cod, self.boxes, wires,
             tuple(spider_types), self.offsets)
 
+    def to_dot(self, engine="neato", seed=None, graph_attr=None) -> str:
+        """ Encode the combinatorial map as Graphviz DOT. """
+        attrs = {
+            "layout": engine,
+            "overlap": "false",
+            "splines": "true",
+            "outputorder": "edgesfirst",
+            "bgcolor": "transparent",
+            "margin": "0.04",
+        } | (graph_attr or {})
+        if seed is not None:
+            attrs["start"] = str(seed)
+
+        def attr_string(attributes):
+            return ", ".join(
+                f'{key}="{value}"' for key, value in attributes.items())
+
+        lines = [
+            "graph combinatorial_map {",
+            f"  graph [{attr_string(attrs)}];",
+            '  node [shape=circle, color=black, fixedsize=true, '
+            'fontname="Helvetica", fontsize="12"];',
+            '  edge [color=black, penwidth="1.4", fontsize="9"];',
+        ]
+
+        port_nodes = {}
+        for vertex in range(len(self.boxes)):
+            box = self.boxes[vertex]
+            label = "@" if (len(box.dom), len(box.cod)) == (2, 1)\
+                else "ꟛ" if (len(box.dom), len(box.cod)) == (1, 2)\
+                else getattr(box, "name", "")
+            lines.append(
+                f'  v{vertex} [label="{label}", width="0.22", '
+                f'height="0.22"];')
+            for port_index in self.node_cycles[vertex]:
+                port_nodes[port_index] = f"v{vertex}"
+        for port_index, port in enumerate(self.ports):
+            if port.kind in BOUNDARY_PORTS:
+                lines.append(
+                    f'  b{port_index} [label="", style=filled, '
+                    f'fillcolor=black, width="0.06", height="0.06", '
+                    f'xlabel="{port.kind} {port.i}"];')
+                port_nodes[port_index] = f"b{port_index}"
+
+        def node_name(port_index):
+            return port_nodes[port_index]
+
+        for i, j in enumerate(self.edge):
+            if i < j:
+                lines.append(
+                    f'  {node_name(i)} -- {node_name(j)} '
+                    f'[len="0.85", taillabel="{i}", headlabel="{j}"];')
+        lines.append("}")
+        return "\n".join(lines) + "\n"
+
     def draw_map(
-            self, seed=None, path=None, ax=None, show=True,
-            node_size=.09, boundary_size=.05, figsize=None):
+            self, path=None, engine="neato", format=None, seed=None,
+            show=False, graph_attr=None):
         """
-        Draw as a combinatorial map, with vertices as black dots.
+        Draw as a combinatorial map using Graphviz.
 
         This is intended for map-like pictures, closer to the rooted trivalent
         maps in Zeilberger's linear-lambda-terms paper than to the usual
         DisCoPy box-and-wire drawing.
+
+        If ``path`` is ``None``, return the DOT source. If ``path`` ends in
+        ``.dot`` or ``.gv``, write DOT source. Otherwise, render with Graphviz.
         """
-        import matplotlib.pyplot as plt
-        import networkx as nx
-        from matplotlib.patches import FancyArrowPatch
+        dot = self.to_dot(engine=engine, seed=seed, graph_attr=graph_attr)
+        if path is None:
+            return dot
 
-        graph, port_vertices = nx.MultiGraph(), {}
-        for vertex in range(len(self.boxes)):
-            graph.add_node(("box", vertex))
-        for port_index, port in enumerate(self.ports):
-            if port.kind in BOUNDARY_PORTS:
-                node = (port.kind, port.i)
-            else:
-                node = ("box", port.depth)
-            port_vertices[port_index] = node
-            graph.add_node(node)
-        for i, j in enumerate(self.edge):
-            if i < j:
-                graph.add_edge(port_vertices[i], port_vertices[j])
+        path = str(path)
+        suffix = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+        if suffix in ["dot", "gv"]:
+            with open(path, "w", encoding="utf-8") as stream:
+                stream.write(dot)
+            return path
 
-        if len(graph) == 0:
-            pos = {}
-        elif len(graph) == 1:
-            node, = graph.nodes
-            pos = {node: (0, 0)}
-        else:
-            pos = nx.spring_layout(graph, seed=seed)
-        for i in range(len(self.dom)):
-            pos[("input", i)] = (i - (len(self.dom) - 1) / 2, 1)
-        for i in range(len(self.cod)):
-            pos[("output", i)] = (i - (len(self.cod) - 1) / 2, -1)
+        executable = shutil.which(engine) or shutil.which("dot")
+        if executable is None:
+            raise RuntimeError(
+                f"Graphviz executable {engine!r} was not found.")
 
-        if ax is None:
-            fig, ax = plt.subplots(figsize=figsize or (4, 4))
-        else:
-            fig = ax.figure
-        ax.set_aspect("equal")
-        ax.axis("off")
-
-        port_pos = {}
-        for vertex, cycle in enumerate(self.node_cycles):
-            x, y = pos[("box", vertex)]
-            for k, port_index in enumerate(cycle):
-                angle = 2 * pi * k / len(cycle) + pi / 2 if cycle else 0
-                port_pos[port_index] = (
-                    x + node_size * cos(angle),
-                    y + node_size * sin(angle))
-        for port_index, port in enumerate(self.ports):
-            if port.kind in BOUNDARY_PORTS:
-                port_pos[port_index] = pos[port_vertices[port_index]]
-
-        def draw_edge(source_pos, target_pos, rad=0):
-            arrow = FancyArrowPatch(
-                source_pos, target_pos, arrowstyle="-",
-                connectionstyle=f"arc3,rad={rad}",
-                color="black", linewidth=1.4, mutation_scale=1)
-            ax.add_patch(arrow)
-
-        pair_counts = {}
-        for i, j in enumerate(self.edge):
-            if i >= j:
-                continue
-            source, target = port_vertices[i], port_vertices[j]
-            key = tuple(sorted((source, target)))
-            count = pair_counts.get(key, 0)
-            pair_counts[key] = count + 1
-            rad = .35 if source == target else .15 * ((count + 1) // 2)
-            if count % 2:
-                rad *= -1
-            draw_edge(port_pos[i], port_pos[j], rad)
-
-        for vertex in range(len(self.boxes)):
-            x, y = pos[("box", vertex)]
-            circle = plt.Circle((x, y), node_size, color="black", zorder=3)
-            ax.add_patch(circle)
-            cycle = self.node_cycles[vertex]
-            for port_index in cycle:
-                port_x, port_y = port_pos[port_index]
-                ax.plot(
-                    [x, port_x], [y, port_y],
-                    color="black", linewidth=1.4, zorder=4)
-
-        for node in graph.nodes:
-            if node[0] == "box":
-                continue
-            x, y = pos[node]
-            ax.add_patch(plt.Circle(
-                (x, y), boundary_size, color="black", zorder=3))
-
-        xs = [x for x, _ in pos.values()] or [0]
-        ys = [y for _, y in pos.values()] or [0]
-        pad = .3
-        ax.set_xlim(min(xs) - pad, max(xs) + pad)
-        ax.set_ylim(min(ys) - pad, max(ys) + pad)
-        if path is not None:
-            fig.savefig(path, bbox_inches="tight")
+        output_format = format or suffix or "svg"
+        subprocess.run(
+            [executable, f"-T{output_format}", "-o", path],
+            input=dot, text=True, check=True)
         if show:
-            plt.show()
-        return fig, ax
+            try:
+                from IPython.display import Image, SVG, display
+                display(SVG(filename=path) if output_format == "svg"
+                        else Image(filename=path))
+            except ImportError:
+                pass
+        return path
 
     draw_as_map = draw_map
