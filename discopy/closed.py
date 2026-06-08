@@ -101,14 +101,16 @@ class Exp(Ty, biclosed.Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-class Term:
+class TermBase:
     cod: Ty
 
     def __call__(self, other):
         return Application(self, other)
 
+type Term = Variable | Application | Abstraction
+
 @dataclass
-class Variable(Term):
+class Variable(TermBase):
     cod: Ty
     name: str
 
@@ -117,7 +119,7 @@ class Variable(Term):
 
 
 @dataclass
-class Application(Term):
+class Application(TermBase):
     func: Term
     args: Term
 
@@ -131,7 +133,7 @@ class Application(Term):
         
 
 @dataclass
-class Abstraction(Term):
+class Abstraction(TermBase):
     var: Variable
     body: Term
 
@@ -141,6 +143,8 @@ class Abstraction(Term):
     
     def __str__(self):
         return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
+
+
 
 
 @factory
