@@ -54,13 +54,8 @@ from dataclasses import dataclass
 from inspect import signature
 
 from discopy import biclosed, markov
-from discopy.drawing import Drawing
 from discopy.cat import Category, factory
-from discopy.utils import (
-    assert_isinstance,
-    factory_name,
-    from_tree,
-)
+from discopy.utils import assert_isinstance
 
 
 @factory
@@ -107,7 +102,9 @@ class TermBase:
     def __call__(self, other):
         return Application(self, other)
 
+
 type Term = Variable | Application | Abstraction
+
 
 @dataclass
 class Variable(TermBase):
@@ -130,7 +127,7 @@ class Application(TermBase):
 
     def __str__(self):
         return f"{self.func}({self.args})"
-        
+
 
 @dataclass
 class Abstraction(TermBase):
@@ -140,18 +137,16 @@ class Abstraction(TermBase):
     def __init__(self, var, body):
         self.cod = var.cod >> body.cod
         self.var, self.body = var, body
-    
+
     def __str__(self):
         return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
-
-
 
 
 @factory
 class Diagram(markov.Diagram, biclosed.Diagram):
     """
     A closed diagram is both a markov and a biclosed diagram.
-    
+
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
     @classmethod
@@ -224,14 +219,13 @@ class Functor(markov.Functor, biclosed.Functor):
     def __call__(self, other):
         if isinstance(other, Eval):
             return self.cod.ar.copy(self(other.dom), len(other.cod))
-        if isinstance(other, Merge):
+        if isinstance(other, markov.Merge):
             return self.cod.ar.merge(self(other.cod), len(other.dom))
         return super().__call__(other)
 
 
 class Hypergraph(markov.Hypergraph):
     category, functor = Category, Functor
-
 
 
 Diagram.hypergraph_factory = Hypergraph
