@@ -26,26 +26,19 @@ Axioms
 :meth:`Diagram.curry` and :meth:`Diagram.uncurry` are inverses.
 
 >>> x, y, z = map(Ty, "xyz")
->>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
+>>> f, g = Box('f', x, z << y), Box('g', x @ y, z)
 
 >>> from discopy.drawing import Equation
 >>> Equation(f.uncurry().curry(), f).draw(
-...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
+...     path='docs/_static/closed/curry-left.png', margins=(0.1, 0.05))
 
-.. image:: /_static/biclosed/curry-left.png
+.. image:: /_static/closed/curry-left.png
     :align: center
 
->>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
-...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
+>>> Equation(g.curry().uncurry(), g).draw(
+...     path='docs/_static/closed/uncurry.png')
 
-.. image:: /_static/biclosed/curry-right.png
-    :align: center
-
->>> Equation(
-...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False)).draw(
-...         path='docs/_static/biclosed/uncurry.png')
-
-.. image:: /_static/biclosed/uncurry.png
+.. image:: /_static/closed/uncurry.png
     :align: center
 """
 
@@ -53,7 +46,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from inspect import signature
 
-from discopy import biclosed, markov
+from discopy import cat, biclosed, markov
 from discopy.cat import Category, factory
 from discopy.utils import assert_isinstance
 
@@ -217,10 +210,8 @@ class Functor(markov.Functor, biclosed.Functor):
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
-        if isinstance(other, Eval):
-            return self.cod.ar.copy(self(other.dom), len(other.cod))
-        if isinstance(other, markov.Merge):
-            return self.cod.ar.merge(self(other.cod), len(other.dom))
+        if isinstance(other, (cat.Ob, biclosed.Eval, biclosed.Curry)):
+            return biclosed.Functor.__call__(self, other)
         return super().__call__(other)
 
 

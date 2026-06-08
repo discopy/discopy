@@ -28,18 +28,3 @@ def test_to_rigid():
     f_ = rigid.Box('f', x_, y_)
     assert Diagram.to_rigid(diagram)\
         == rigid.Id(x_ @ y_.l) @ f_ >> rigid.Id(x_) @ rigid.Cup(y_.l, y_)
-
-
-def test_python_Functor():
-    x, y, z = map(Ty, "xyz")
-    f, g = Box('f', y, z << x), Box('g', y, z >> x)
-
-    from discopy.python import Function
-    F = Functor(
-        ob={x: complex, y: bool, z: float},
-        ar={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
-            g: lambda y: lambda z: z + 1j if y else -1j},
-        cod=Category(tuple[type, ...], Function))
-
-    assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
-    assert F(g.uncurry(left=False).curry(left=False))(True)(1.2) == F(g)(True)(1.2)

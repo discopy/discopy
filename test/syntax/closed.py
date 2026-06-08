@@ -13,3 +13,19 @@ def test_str():
     X, Y = Ty("X"), Ty("Y")
     f = X(lambda x: (X >> Y)(lambda y: y(x)))
     assert str(f) == "X(lambda x: (X >> Y)(lambda y: y(x)))"
+
+
+def test_python_Functor():
+    x, y, z = map(Ty, "xyz")
+    f, g = Box('f', y, x >> z), Box('g', x @ y, z)
+
+    from discopy.python import Function
+    F = Functor(
+        ob={x: complex, y: bool, z: float},
+        ar={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
+            g: lambda x, y: abs(x + 1j if y else -1j)},
+        cod=Category(tuple[type, ...], Function))
+
+    assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
+    assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
+
