@@ -22,7 +22,7 @@ def test_to_rigid():
 
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)
-    diagram = Id(x << y) @ f >> Diagram.ev(x, y)
+    diagram = Id(x << y) @ f >> Diagram.ev(x, y, left=True)
     assert Diagram.to_rigid(x) == rigid.Ty('x')
     x_, y_ = rigid.Ty('x'), rigid.Ty('y')
     f_ = rigid.Box('f', x_, y_)

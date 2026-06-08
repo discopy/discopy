@@ -32,20 +32,20 @@ Axioms
 >>> f, g, h = Box('f', x, z << y), Box('g', x @ y, z), Box('h', y, x >> z)
 
 >>> from discopy.drawing import Equation
->>> Equation(f.uncurry().curry(), f).draw(
+>>> Equation(f.uncurry(left=True).curry(left=True), f).draw(
 ...     path='docs/_static/biclosed/curry-left.png', margins=(0.1, 0.05))
 
 .. image:: /_static/biclosed/curry-left.png
     :align: center
 
->>> Equation(h.uncurry(left=False).curry(left=False), h).draw(
+>>> Equation(h.uncurry().curry(), h).draw(
 ...     path='docs/_static/biclosed/curry-right.png', margins=(0.1, 0.05))
 
 .. image:: /_static/biclosed/curry-right.png
     :align: center
 
 >>> Equation(
-...     g.curry().uncurry(), g, g.curry(left=False).uncurry(left=False)).draw(
+...     g.curry(left=True).uncurry(left=True), g, g.curry().uncurry()).draw(
 ...         path='docs/_static/biclosed/uncurry.png')
 
 .. image:: /_static/biclosed/uncurry.png
@@ -235,7 +235,7 @@ class Diagram(monoidal.Diagram):
 
     ty_factory = Ty
 
-    def curry(self, n=1, left=True) -> Diagram:
+    def curry(self, n=1, left=False) -> Diagram:
         """
         Wrapper around :class:`Curry` called by :class:`Functor`.
 
@@ -246,7 +246,7 @@ class Diagram(monoidal.Diagram):
         return self.curry_factory(self, n, left)
 
     @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
+    def ev(cls, base: Ty, exponent: Ty, left=False) -> Eval:
         """
         Wrapper around :class:`Eval` called by :class:`Functor`.
 
@@ -258,7 +258,7 @@ class Diagram(monoidal.Diagram):
         return cls.eval_factory(
             base << exponent if left else exponent >> base)
 
-    def uncurry(self: Diagram, left=True) -> Diagram:
+    def uncurry(self: Diagram, left=False) -> Diagram:
         """
         Uncurry a biclosed diagram by composing it with :meth:`Diagram.ev`.
 
@@ -309,7 +309,7 @@ class Curry(monoidal.Bubble, Box):
         n : The number of atomic types to curry.
         left : Whether to curry on the left or right.
     """
-    def __init__(self, arg: Diagram, n=1, left=True):
+    def __init__(self, arg: Diagram, n=1, left=False):
         self.n, self.left = n, left
         name = f"Curry({arg}, {n}, {left})"
         if left:

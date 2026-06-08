@@ -142,9 +142,6 @@ class Diagram(markov.Diagram, biclosed.Diagram):
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
-    @classmethod
-    def ev(cls, base: Ty, exponent: Ty, left=True) -> Eval:
-        return cls.eval_factory(base << exponent, left)
 
 
 class Box(markov.Box, biclosed.Box, Diagram):
@@ -155,11 +152,6 @@ class Box(markov.Box, biclosed.Box, Diagram):
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
     __ambiguous_inheritance__ = (biclosed.Eval, )
-
-    def __init__(self, x: Exp, left=True):
-        self.base, self.exponent, self.left = x.base, x.exponent, left
-        dom = x @ self.exponent if left else self.exponent @ x
-        Box.__init__(self, "Eval" + str(x), dom, self.base)
 
 
 class Curry(biclosed.Curry, Box):
