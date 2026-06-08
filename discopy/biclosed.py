@@ -292,12 +292,18 @@ class Eval(Box):
     Parameters:
         x : The exponential type to evaluate.
     """
-    def __init__(self, x: Exp):
+    def __init__(self, x: Exp, left=None, is_dagger=False):
         self.base, self.exponent = x.base, x.exponent
-        self.left = isinstance(x, Over)
+        self.left = isinstance(x, Over) if left is None else left
         dom, cod = (x @ self.exponent, self.base) if self.left\
             else (self.exponent @ x, self.base)
-        super().__init__("Eval" + str(x), dom, cod)
+        dom, cod = (cod, dom) if is_dagger else (dom, cod)
+        super().__init__("Eval" + str(x), dom, cod, is_dagger=is_dagger)
+
+    def dagger(self):
+        left, is_dagger = self.left, not self.is_dagger
+        x = self.base << self.exponent if left else self.exponent >> self.base
+        return type(self)(x, left, is_dagger)
 
 
 class Curry(monoidal.Bubble, Box):

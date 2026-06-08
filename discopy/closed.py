@@ -61,7 +61,7 @@ class Ty(biclosed.Ty):
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> f = X(lambda x: (X >> Y)(lambda y: y(x)))
-    >>> f.to_diagram().`draw(path='docs/_static/closed/diagram.png')
+    >>> f.to_diagram().draw(path='docs/_static/closed/diagram.png')
 
     .. image:: /_static/closed/diagram.png
         :align: center
@@ -209,6 +209,12 @@ class Eval(biclosed.Eval, Box):
 class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
     __ambiguous_inheritance__ = (markov.Swap, )
+
+    def to_drawing(self):
+        if self.left:
+            raise NotImplementedError
+        f, e = self.arg, Eval(self.cod, is_dagger=True)
+        return (f >> e).trace(left=True).to_drawing()
 
 
 class Swap(markov.Swap, Box):
