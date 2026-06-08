@@ -44,10 +44,11 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
+from abc import abstractproperty
 from inspect import signature
 
 from discopy import cat, biclosed, markov
-from discopy.cat import Category, factory
+from discopy.cat import factory
 from discopy.utils import assert_isinstance
 
 
@@ -56,12 +57,14 @@ class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
     right exponentials coincide, i.e. `X << Y == X ** Y == Y >> X`.
-    Applying a type to an anonymous function yields a diagram e.g.
+    Applying a type to an anonymous function yields a :class:`Term` e.g.
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> f = X(lambda x: (X >> Y)(lambda y: y(x)))
-    >>> print(f)
-    X(lambda x: (X >> Y)(lambda y: y(x)))
+    >>> f.to_diagram().`draw(path='docs/_static/closed/diagram.png')
+
+    .. image:: /_static/closed/diagram.png
+        :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
@@ -94,12 +97,15 @@ class TermBase:
 
     def __call__(self, other):
         return Application(self, other)
+    
+    @abstractproperty
+    def freevars(self) -> list[Variable]: ...
 
 
 type Term = Variable | Application | Abstraction
 
 
-@dataclass
+@dataclass(frozen=True)
 class Variable(TermBase):
     cod: Ty
     name: str
@@ -107,32 +113,78 @@ class Variable(TermBase):
     def __str__(self):
         return self.name
 
+    @property
+    def freevars(self):
+        return [self]
 
-@dataclass
+    def to_diagram(self, category=None):
+        return (category or Category).ar.id(self.cod)
+
+
+@dataclass(frozen=True)
 class Application(TermBase):
     func: Term
     args: Term
 
-    def __init__(self, func, args):
-        assert_isinstance(func.cod, Exp)
-        assert func.cod.exponent == args.cod
-        self.cod, self.func, self.args = func.cod.base, func, args
+    def __post_init__(self):
+        assert_isinstance(self.func.cod, Exp)
+        assert self.func.cod.exponent == self.args.cod
+
+    @property
+    def cod(self):
+        return self.func.cod
 
     def __str__(self):
         return f"{self.func}({self.args})"
 
+    @property
+    def freevars(self, bound=None):
+        return self.func.freevars + self.args.freevars
 
-@dataclass
+    def to_diagram(self, category=None):
+        if set(self.func.freevars).intersection(self.args.freevars):
+            raise NotImplementedError
+        return self.args.to_diagram(category) @ self.func.to_diagram(category
+            ) >> Eval(self.func.cod)
+
+
+@dataclass(frozen=True)
 class Abstraction(TermBase):
     var: Variable
     body: Term
 
-    def __init__(self, var, body):
-        self.cod = var.cod >> body.cod
-        self.var, self.body = var, body
+    @property
+    def cod(self):
+        return self.var.cod >> self.body.cod
 
     def __str__(self):
         return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
+
+    @property
+    def freevars(self):
+        return list(filter(lambda x: x != self.var, self.body.freevars))
+
+    def to_diagram(self, category=None):
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        body = self.body.to_diagram(category)
+        p = body.permutation(
+            [j for j in range(n) if j != i] + [i], body.dom).dagger()
+        return (p >> body).curry()
+
+
+@dataclass
+class Substitution:
+    inside: Dict[Variable, Term]
+
+    def __call__(self, term: Term) -> Term:
+        if isinstance(term, Variable):
+            return self.inside.get(term, term)
+        elif isinstance(term, Application):
+            return self(term.func)(self(term.args))
+        elif isinstance(term, Abstraction):
+            other = Substitution(
+                {k: v for k, v in self.inside.items() if k != term.var})
+            return other(term)
 
 
 @factory
