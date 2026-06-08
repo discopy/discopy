@@ -12,7 +12,7 @@
 .pytest_cache
 .readthedocs.yaml
 .uv-cache
-.venv
+.venv*
 .vscode
 *.out
 *.toc
