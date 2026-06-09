@@ -186,8 +186,8 @@ class Functor(braided.Functor, traced.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
     """
@@ -195,14 +195,14 @@ class Functor(braided.Functor, traced.Functor):
 
     def __call__(self, other):
         if isinstance(other, Twist):
-            return self.cod.ar.twist(self(other.dom))
+            return self.cod.twist(self(other.dom))
         if isinstance(other, Trace):
             return traced.Functor.__call__(self, other)
         return braided.Functor.__call__(self, other)
 
 
 class Hypergraph(traced.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

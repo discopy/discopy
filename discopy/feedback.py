@@ -598,8 +598,8 @@ class Functor(markov.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 
@@ -620,30 +620,30 @@ class Functor(markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
-            cod = self.cod.ob if isinstance(other, Ob) else self.cod.ar
+            cod = self.cod.ty_factory if isinstance(other, Ob) else self.cod
             if hasattr(cod, "delay"):
                 result = self(other.reset())
                 for _ in range(other.time_step):
                     result = result.delay()
                 return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
-            cod = self.cod.ar if isinstance(
-                other, (Head, Tail)) else self.cod.ob
+            cod = self.cod if isinstance(
+                other, (Head, Tail)) else self.cod.ty_factory
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
             if hasattr(cod, attr):
                 return getattr(self(other.arg), attr)
         if isinstance(
-                other, FollowedBy) and hasattr(self.cod.ar, "followed_by"):
+                other, FollowedBy) and hasattr(self.cod, "followed_by"):
             arg = other.dom if other.is_dagger else other.cod
-            return self.cod.ar.followed_by(self(arg))
-        if isinstance(other, Feedback) and hasattr(self.cod.ar, "feedback"):
+            return self.cod.followed_by(self(arg))
+        if isinstance(other, Feedback) and hasattr(self.cod, "feedback"):
             return self(other.arg).feedback(*map(self, (
                 other.dom, other.cod, other.mem)))
         return super().__call__(other)
 
 
 class Hypergraph(markov.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

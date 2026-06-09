@@ -299,8 +299,8 @@ class Functor(compact.Functor, markov.Functor):
     A hypergraph functor is a compact functor that preserves spiders.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     __ambiguous_inheritance__ = (compact.Functor, markov.Functor)
@@ -309,7 +309,7 @@ class Functor(compact.Functor, markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, Spider):
-            return self.cod.ar.spiders(
+            return self.cod.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
         if isinstance(other, (markov.Copy, markov.Merge)):
             return markov.Functor.__call__(self, other)
@@ -389,7 +389,7 @@ def coherence(cls: type, factory: Callable
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

@@ -274,8 +274,8 @@ class Functor(symmetric.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 
@@ -304,14 +304,14 @@ class Functor(symmetric.Functor):
 
     def __call__(self, other):
         if isinstance(other, Copy):
-            return self.cod.ar.copy(self(other.dom), len(other.cod))
+            return self.cod.copy(self(other.dom), len(other.cod))
         if isinstance(other, Merge):
-            return self.cod.ar.merge(self(other.cod), len(other.dom))
+            return self.cod.merge(self(other.cod), len(other.dom))
         return super().__call__(other)
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
     def to_diagram(self, make_causal_first=True) -> Diagram:
         return super().to_diagram(

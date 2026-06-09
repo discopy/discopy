@@ -704,8 +704,8 @@ class Functor(closed.Functor):
     A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Example
@@ -736,9 +736,9 @@ class Functor(closed.Functor):
         if isinstance(other, Ob):
             return self(other.r).l if other.z < 0 else self(other.l).r
         if isinstance(other, Cup):
-            return self.cod.ar.cups(self(other.dom[:1]), self(other.dom[1:]))
+            return self.cod.cups(self(other.dom[:1]), self(other.dom[1:]))
         if isinstance(other, Cap):
-            return self.cod.ar.caps(self(other.cod[:1]), self(other.cod[1:]))
+            return self.cod.caps(self(other.cod[:1]), self(other.cod[1:]))
         if isinstance(other, Box):
             if not hasattr(other, "z") or not other.z:
                 return super().__call__(other)

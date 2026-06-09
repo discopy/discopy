@@ -223,8 +223,8 @@ class Functor(biclosed.Functor):
     for categorial rules.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -232,27 +232,27 @@ class Functor(biclosed.Functor):
     def __call__(self, other):
         if isinstance(other, FA):
             left, right = other.over.left, other.over.right
-            return self.cod.ar.fa(self(left), self(right))
+            return self.cod.fa(self(left), self(right))
         if isinstance(other, BA):
             left, right = other.under.left, other.under.right
-            return self.cod.ar.ba(self(left), self(right))
+            return self.cod.ba(self(left), self(right))
         for cls, method in [(FC, 'fc'), (BC, 'bc')]:
             if isinstance(other, cls):
                 left = other.dom.inside[0].left
                 middle = other.dom.inside[0].right
                 right = other.dom.inside[1].right
-                return getattr(self.cod.ar, method)(
+                return getattr(self.cod, method)(
                     self(left), self(middle), self(right))
         if isinstance(other, FX):
             left = other.dom.inside[0].left
             middle = other.dom.inside[0].right
             right = other.dom.inside[1].left
-            return self.cod.ar.fx(self(left), self(middle), self(right))
+            return self.cod.fx(self(left), self(middle), self(right))
         if isinstance(other, BX):
             left = other.dom.inside[0].right
             middle = other.dom.inside[0].left
             right = other.dom.inside[1].right
-            return self.cod.ar.bx(self(left), self(middle), self(right))
+            return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
 
 

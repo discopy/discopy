@@ -75,9 +75,11 @@ Functors are bubble-preserving.
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from functools import total_ordering, cached_property
 from typing import (
-    Callable, Mapping, Iterable, Optional, Type, TYPE_CHECKING)
+    Callable, Generic, Mapping, Iterable, Optional, Type, TypeVar,
+    TYPE_CHECKING)
 
 from discopy import messages, utils
 from discopy.utils import (
@@ -87,7 +89,6 @@ from discopy.utils import (
     rsubs,
     unbiased,
     MappingOrCallable,
-    Category,
     assert_isinstance,
     assert_iscomposable,
     assert_isparallel,
@@ -163,6 +164,66 @@ class Ob:
         >>> assert Ob.from_tree(x.to_tree()) == x
         """
         return cls(tree['name'])
+
+
+T = TypeVar('T')
+
+
+class Category(ABC, Generic[T]):
+    """
+    A category is an arrow type, i.e. a class with the appropriate methods
+    :code:`dom`, :code:`cod`, :code:`id` and :code:`then`, together with a
+    :attr:`ty_factory` for its objects.
+
+    As such, it also implements the syntactic sugar :code:`>>` and :code:`<<`
+    for forward and backward composition with the method :code:`then`.
+
+    Example
+    -------
+    >>> class List(list, Category):
+    ...     def then(self, other):
+    ...         return self + other
+    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
+    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
+    """
+    factory: Type[Category]
+    sum_factory: Type[Category]
+    ty_factory: Type[T]
+    dom: T
+    cod: T
+
+    @abstractmethod
+    def then(self, other: Optional[Category[T]], *others: Category[T]
+             ) -> Category[T]:
+        """
+        Sequential composition, to be instantiated.
+
+        Parameters:
+            other : The other arrow to compose sequentially.
+        """
+
+    def is_composable(self, other: Category) -> bool:
+        """
+        Whether two arrows are composable, i.e. the codomain of the first is
+        the domain of the second.
+
+        Parameters:
+            other : The other arrow.
+        """
+        return self.cod == other.dom
+
+    def is_parallel(self, other: Category) -> bool:
+        """
+        Whether two arrows are parallel, i.e. they have the same
+        domain and codomain.
+
+        Parameters:
+            other : The other arrow.
+        """
+        return (self.dom, self.cod) == (other.dom, other.cod)
+
+    __rshift__ = __llshift__ = lambda self, other: self.then(other)
+    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
 @factory
@@ -760,8 +821,8 @@ class Functor(Category[type]):
     codomain category :code:`cod`.
 
     Parameters:
-        ob : Mapping from :class:`Ob` to :code:`cod.ob`.
-        ar : Mapping from :class:`Box` to :code:`cod.ar`.
+        ob : Mapping from :class:`Ob` to :code:`cod.ty_factory`.
+        ar : Mapping from :class:`Box` to :code:`cod`.
         cod : The codomain, :code:`Arrow` by default.
 
     Example
@@ -794,7 +855,7 @@ class Functor(Category[type]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ty_factory = Category
+    ty_factory = type
     dom = cod = Arrow
 
     @classmethod
@@ -855,26 +916,26 @@ class Functor(Category[type]):
 
     def __call__(self, other):
         if isinstance(other, Ob):
-            result, origin = self.ob[other], get_origin(self.cod.ob)
+            result, origin = self.ob[other], get_origin(self.cod.ty_factory)
             if isinstance(result, origin):
                 return result
-            return (result, ) if origin == tuple else self.cod.ob(result)
+            return (result, ) if origin == tuple else self.cod.ty_factory(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
-                       self.cod.ar.zero(self(other.dom), self(other.cod)))
-        if isinstance(other, Bubble) and hasattr(self.cod.ar, other.method):
+                       self.cod.zero(self(other.dom), self(other.cod)))
+        if isinstance(other, Bubble) and hasattr(self.cod, other.method):
             dom, cod = map(self, (other.dom, other.cod))
-            return getattr(self.cod.ar, other.method)(
+            return getattr(self.cod, other.method)(
                 *map(self, other.args), dom=dom, cod=cod)
         if isinstance(other, Box) and other.is_dagger:
             return self(other.dagger()).dagger()
         if isinstance(other, Box):
             result = self.ar[other]
             # This allows some nice syntactic sugar for the ar mapping.
-            return result if isinstance(result, self.cod.ar)\
-                else self.cod.ar(result, self(other.dom), self(other.cod))
+            return result if isinstance(result, self.cod)\
+                else self.cod(result, self(other.dom), self(other.cod))
         assert_isinstance(other, Arrow)
-        result = self.cod.ar.id(self(other.dom))
+        result = self.cod.id(self(other.dom))
         for box in other.inside:
             result = result >> self(box)
         return result

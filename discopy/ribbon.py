@@ -216,8 +216,8 @@ class Functor(pivotal.Functor, balanced.Functor):
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :
-            Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from atomic :class:`pivotal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
