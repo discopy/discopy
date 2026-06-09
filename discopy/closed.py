@@ -45,7 +45,7 @@ Axioms
 from __future__ import annotations
 from dataclasses import dataclass
 from abc import abstractproperty
-from typing import Dict
+from typing import Dict, Callable
 from inspect import signature
 
 from discopy import cat, biclosed, markov
@@ -58,13 +58,24 @@ class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
     right exponentials coincide, i.e. `X << Y == X ** Y == Y >> X`.
-    Applying a type to an anonymous function yields a :class:`Term` e.g.
+
+    Applying a closed type to a function yields an :class:`Term` e.g.
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
     >>> t.to_diagram().draw(path='docs/_static/closed/diagram.png')
 
     .. image:: /_static/closed/diagram.png
+        :align: center
+
+    Applying a closed type to a string yields a :class:`Constant` e.g.
+
+    >>> N, S = Ty("N"), Ty("S")
+    >>> Alice, loves, Bob = N("Alice"), (N >> (N >> S))("loves"), N("Bob")
+    >>> loves(Alice)(Bob).to_diagram().draw(
+    ...     path='docs/_static/closed/alice-loves-bob.png', margins=(.3, 0), figsize=(5, 4))
+
+    .. image:: /_static/closed/alice-loves-bob.png
         :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
@@ -77,12 +88,16 @@ class Ty(biclosed.Ty):
     def __rshift__(self, other):
         return Exp(other, self)
 
-    def __call__(self, func):
-        varnames = list(signature(func).parameters.keys())
-        if len(varnames) != 1:
-            raise NotImplementedError
-        var = Variable(self, varnames[0])
-        return Abstraction(var, func(var))
+    def __call__(self, arg):
+        if isinstance(arg, Callable):
+            varnames = list(signature(arg).parameters.keys())
+            if len(varnames) != 1:
+                raise NotImplementedError
+            var = Variable(self, varnames[0])
+            return Abstraction(var, arg(var))
+        if isinstance(arg, str):
+            return Constant(self, arg)
+        raise ValueError
 
 
 class Exp(Ty, biclosed.Exp):
@@ -103,7 +118,24 @@ class TermBase:
     def freevars(self) -> list[Variable]: ...
 
 
-type Term = Variable | Application | Abstraction
+type Term = Constant | Variable | Application | Abstraction
+
+
+@dataclass(frozen=True)
+class Constant(TermBase):
+    cod: Ty
+    name: str
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def freevars(self):
+        return []
+
+    def to_diagram(self, category=None, box_factory=None):
+        category, box_factory = category or Category, box_factory or Box
+        return box_factory(self.name, category.ar.ty_factory(), self.cod)
 
 
 @dataclass(frozen=True)
@@ -129,11 +161,13 @@ class Application(TermBase):
 
     def __post_init__(self):
         assert_isinstance(self.func.cod, Exp)
-        assert self.func.cod.exponent == self.args.cod
+        if self.func.cod.exponent != self.args.cod:
+            raise ValueError(
+                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
 
     @property
     def cod(self):
-        return self.func.cod
+        return self.func.cod.base
 
     def __str__(self):
         return f"{self.func}({self.args})"
@@ -195,6 +229,8 @@ class Diagram(markov.Diagram, biclosed.Diagram):
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
+    ty_factory = Ty
+
     @property
     def is_linear(self):
         return all(box.is_linear for box in self.boxes)
@@ -218,9 +254,10 @@ class Curry(biclosed.Curry, Box):
     __ambiguous_inheritance__ = (markov.Swap, )
 
     def to_drawing(self):
-        if self.left or not self.is_linear:
-            raise super().to_drawing()
-        f, e = self.arg, Eval(self.cod, is_dagger=True)
+        if self.left:
+            f, e = self.arg, Eval(self.cod, left=True).dagger()
+            return (f >> e).trace().to_drawing()
+        f, e = self.arg, Eval(self.cod).dagger()
         return (f >> e).trace(left=True).to_drawing()
 
 
