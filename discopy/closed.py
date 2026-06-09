@@ -73,7 +73,8 @@ class Ty(biclosed.Ty):
     >>> N, S = Ty("N"), Ty("S")
     >>> Alice, loves, Bob = N("Alice"), (N >> (N >> S))("loves"), N("Bob")
     >>> loves(Alice)(Bob).to_diagram().draw(
-    ...     path='docs/_static/closed/alice-loves-bob.png', margins=(.3, 0), figsize=(5, 4))
+    ...     path='docs/_static/closed/alice-loves-bob.png',
+    ...     margins=(.3, 0), figsize=(5, 4))
 
     .. image:: /_static/closed/alice-loves-bob.png
         :align: center
@@ -239,7 +240,7 @@ class Diagram(markov.Diagram, biclosed.Diagram):
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
     __ambiguous_inheritance__ = (markov.Box, biclosed.Box)
-    
+
     is_linear = True
 
 
