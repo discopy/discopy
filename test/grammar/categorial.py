@@ -222,9 +222,9 @@ def test_to_pregroup():
     from discopy.grammar.pregroup import Cup, Cap, Id, Swap
     x, y = biclosed.Ty('x'), biclosed.Ty('y')
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
-    assert Diagram.to_pregroup(Curry(BA(x >> y))).normal_form()\
+    assert Diagram.to_pregroup(Curry(BA(x >> y), left=True)).normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.to_pregroup(Curry(FA(x << y), left=False)).normal_form()\
+    assert Diagram.to_pregroup(Curry(FA(x << y))).normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
     assert Diagram.to_pregroup(FC(x << y, y << x))\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)

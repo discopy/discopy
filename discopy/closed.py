@@ -45,6 +45,7 @@ Axioms
 from __future__ import annotations
 from dataclasses import dataclass
 from abc import abstractproperty
+from typing import Dict
 from inspect import signature
 
 from discopy import cat, biclosed, markov
@@ -97,7 +98,7 @@ class TermBase:
 
     def __call__(self, other):
         return Application(self, other)
-    
+
     @abstractproperty
     def freevars(self) -> list[Variable]: ...
 
@@ -144,8 +145,8 @@ class Application(TermBase):
     def to_diagram(self, category=None):
         if set(self.func.freevars).intersection(self.args.freevars):
             raise NotImplementedError
-        return self.args.to_diagram(category) @ self.func.to_diagram(category
-            ) >> Eval(self.func.cod)
+        return self.args.to_diagram(category) @ self.func.to_diagram(
+            category) >> Eval(self.func.cod)
 
 
 @dataclass(frozen=True)
