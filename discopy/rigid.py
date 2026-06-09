@@ -704,7 +704,8 @@ class Functor(closed.Functor):
     A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 

@@ -51,7 +51,7 @@ from networkx import (
 from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import messages
-from discopy.cat import Category
+from discopy.cat import MonoidalCategory
 from discopy.drawing import Node
 from discopy.utils import (
     factory_name,
@@ -60,7 +60,6 @@ from discopy.utils import (
     unbiased,
     NamedGeneric,
     AxiomError,
-    Whiskerable,
     assert_isatomic,
     assert_istraceable,
     classproperty,
@@ -94,7 +93,7 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
 
-class Hypergraph(Category, Whiskerable, NamedGeneric['functor']):
+class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     """
     A hypergraph is given by:
 
@@ -112,7 +111,8 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['functor']):
 
     Parameters:
         dom (category.ty_factory) : The domain of the diagram, i.e. its input.
-        cod (category.ty_factory) : The codomain of the diagram, i.e. its output.
+        cod (category.ty_factory) :
+            The codomain of the diagram, i.e. its output.
         boxes (tuple[category, ...]) : The boxes inside the diagram.
         wires (Wiring) : List of wires from ports to spiders.
         spider_types (SpiderTypes) :
@@ -427,14 +427,16 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['functor']):
         if not getattr(left, 'r', left[::-1]) == right:
             raise AxiomError
         dom_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
-        return cls(left @ right, cls.category.ty_factory(), (), (dom_wires, (), ()))
+        return cls(
+            left @ right, cls.category.ty_factory(), (), (dom_wires, (), ()))
 
     @classmethod
     def caps(cls, left, right):
         if not getattr(left, 'r', left[::-1]) == right:
             raise AxiomError
         cod_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
-        return cls(cls.category.ty_factory(), left @ right, (), ((), (), cod_wires))
+        return cls(
+            cls.category.ty_factory(), left @ right, (), ((), (), cod_wires))
 
     def transpose(self, left=False):
         """ The transpose of a hypergraph diagram. """

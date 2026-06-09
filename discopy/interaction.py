@@ -74,8 +74,7 @@ from discopy import (
     ribbon,
     messages
 )
-from discopy.cat import Category, assert_iscomposable
-from discopy.monoidal import Whiskerable
+from discopy.cat import MonoidalCategory, assert_iscomposable
 from discopy.utils import (
     NamedGeneric, classproperty, unbiased, assert_isinstance, factory_name)
 
@@ -147,7 +146,7 @@ class Ty(NamedGeneric['natural']):
 
 
 @dataclass
-class Diagram(Category[Ty], Whiskerable, NamedGeneric['natural']):
+class Diagram(MonoidalCategory[Ty], NamedGeneric['natural']):
     """
     An integer diagram from ``x`` to ``y`` is a :attr:`natural` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.

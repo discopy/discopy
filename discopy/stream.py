@@ -166,9 +166,9 @@ from typing import Callable, Optional
 from dataclasses import dataclass
 
 from discopy import symmetric
-from discopy.cat import Category
+from discopy.cat import MonoidalCategory
 from discopy.utils import (
-    AxiomError, Whiskerable, NamedGeneric, get_origin, is_tuple,
+    AxiomError, NamedGeneric, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 
@@ -296,7 +296,7 @@ class Ty(NamedGeneric['base']):
 
 
 @dataclass
-class Stream(Category, Whiskerable, NamedGeneric['category']):
+class Stream(MonoidalCategory, NamedGeneric['category']):
     """
     Monoidal streams over an underlying `category`.
 
@@ -391,7 +391,8 @@ class Stream(Category, Whiskerable, NamedGeneric['category']):
         """
         Construct the stream with a given arrow now and the empty stream later.
         """
-        dom, cod = map(Ty[cls.category.ty_factory].singleton, (arg.dom, arg.cod))
+        dom, cod = map(
+            Ty[cls.category.ty_factory].singleton, (arg.dom, arg.cod))
         return cls(arg, dom, cod, _later=lambda: cls.id())
 
     @classmethod
@@ -444,7 +445,8 @@ class Stream(Category, Whiskerable, NamedGeneric['category']):
         """
         later = self.later
         dom, cod = self.dom.unroll(), self.cod.unroll()
-        mem = Ty[self.category.ty_factory](self.mem.now, lambda: self.mem.later.later)
+        mem = Ty[self.category.ty_factory](
+            self.mem.now, lambda: self.mem.later.later)
         now = self.dom.now @ self.category.swap(later.dom.now, self.mem_dom)
         now >>= self.now @ later.dom.now
         now >>= self.cod.now @ self.category.swap(

@@ -17,12 +17,11 @@ Summary
 from __future__ import annotations
 
 from dataclasses import dataclass
-from discopy.cat import Category
-from discopy.utils import Whiskerable
+from discopy.cat import MonoidalCategory
 
 
 @dataclass
-class Function(Category[int], Whiskerable):
+class Function(MonoidalCategory[int]):
     """
     A function between finite sets encoded as a Python dictionary.
 
