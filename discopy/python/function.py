@@ -19,7 +19,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 
-from discopy.cat import MonoidalCategory
+from discopy.abc import MonoidalCategory
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
     tuplify, untuplify, classproperty)

@@ -17,7 +17,7 @@ Summary
 from __future__ import annotations
 
 from dataclasses import dataclass
-from discopy.cat import MonoidalCategory
+from discopy.abc import MonoidalCategory
 
 
 @dataclass
