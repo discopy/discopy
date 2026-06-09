@@ -61,8 +61,8 @@ class Ty(biclosed.Ty):
     Applying a type to an anonymous function yields a :class:`Term` e.g.
 
     >>> X, Y = Ty("X"), Ty("Y")
-    >>> f = X(lambda x: (X >> Y)(lambda y: y(x)))
-    >>> f.to_diagram().draw(path='docs/_static/closed/diagram.png')
+    >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
+    >>> t.to_diagram().draw(path='docs/_static/closed/diagram.png')
 
     .. image:: /_static/closed/diagram.png
         :align: center
@@ -195,16 +195,22 @@ class Diagram(markov.Diagram, biclosed.Diagram):
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
+    @property
+    def is_linear(self):
+        return all(box.is_linear for box in self.boxes)
 
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
     __ambiguous_inheritance__ = (markov.Box, biclosed.Box)
+    
+    is_linear = True
 
 
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
     __ambiguous_inheritance__ = (biclosed.Eval, )
+    drawing_name = "$\\Lambda$"
 
 
 class Curry(biclosed.Curry, Box):
@@ -212,8 +218,8 @@ class Curry(biclosed.Curry, Box):
     __ambiguous_inheritance__ = (markov.Swap, )
 
     def to_drawing(self):
-        if self.left:
-            raise NotImplementedError
+        if self.left or not self.is_linear:
+            raise super().to_drawing()
         f, e = self.arg, Eval(self.cod, is_dagger=True)
         return (f >> e).trace(left=True).to_drawing()
 
@@ -231,6 +237,8 @@ class Trace(markov.Trace, Box):
 class Copy(markov.Copy, Box):
     "A markov copy in a closed category"
     __ambiguous_inheritance__ = (markov.Copy, )
+
+    is_linear = False
 
 
 class Sum(markov.Sum, biclosed.Sum, Box):
