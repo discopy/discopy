@@ -57,12 +57,13 @@ parallel wires coincide and the twist is the identity.
 """
 
 from discopy import rigid, pivotal, balanced
+from discopy.abc import RibbonCategory
 from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
 
 
 @factory
-class Diagram(pivotal.Diagram, balanced.Diagram):
+class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
     """
     A ribbon diagram is a pivotal diagram and a balanced diagram.
 

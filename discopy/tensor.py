@@ -34,8 +34,9 @@ from discopy.cat import factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend)
+from discopy.abc import NamedGeneric
 from discopy.utils import (
-    factory_name, assert_isinstance, product, assert_isatomic, NamedGeneric)
+    factory_name, assert_isinstance, product, assert_isatomic)
 
 if TYPE_CHECKING:
     import sympy

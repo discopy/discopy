@@ -33,13 +33,14 @@ The axiom for the twist holds on the nose.
 from __future__ import annotations
 
 from discopy import monoidal, braided, traced
+from discopy.abc import BalancedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
 
 @factory
-class Diagram(braided.Diagram, traced.Diagram):
+class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
 

@@ -74,10 +74,10 @@ from discopy import (
     ribbon,
     messages
 )
-from discopy.abc import MonoidalCategory
+from discopy.abc import RibbonCategory, TracedCategory, NamedGeneric
 from discopy.cat import assert_iscomposable
 from discopy.utils import (
-    NamedGeneric, classproperty, unbiased, assert_isinstance, factory_name)
+    classproperty, unbiased, assert_isinstance, factory_name)
 
 
 @dataclass
@@ -147,7 +147,7 @@ class Ty(NamedGeneric['natural']):
 
 
 @dataclass
-class Diagram(MonoidalCategory[Ty], NamedGeneric['natural']):
+class Diagram(RibbonCategory[Ty], NamedGeneric['natural']):
     """
     An integer diagram from ``x`` to ``y`` is a :attr:`natural` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.
@@ -426,11 +426,17 @@ class Diagram(MonoidalCategory[Ty], NamedGeneric['natural']):
     trace = traced.Diagram.trace
     trace_factory = classmethod(pivotal.Diagram.trace_factory.__func__)
     transpose = rigid.Diagram.transpose
+    # The remaining ribbon structure is derived from the concrete categories,
+    # following the same idiom as `trace` and `transpose` above.
+    twist = classmethod(balanced.Diagram.twist.__func__)
+    ev = classmethod(rigid.Diagram.ev.__func__)
+    curry = rigid.Diagram.curry
+    conjugate = pivotal.Diagram.conjugate
     boxes = property(lambda self: self.inside.boxes)
     to_drawing = lambda self: self.inside.to_drawing()
 
 
-def Int(category: type) -> type:
+def Int(category: TracedCategory) -> RibbonCategory:
     """
     The Int construction, i.e. the free ribbon category on a given balanced
     traced `category`, with :class:`interaction.Ty` as objects and

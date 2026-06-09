@@ -166,9 +166,9 @@ from typing import Callable, Optional
 from dataclasses import dataclass
 
 from discopy import symmetric
-from discopy.abc import MonoidalCategory
+from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.utils import (
-    AxiomError, NamedGeneric, get_origin, is_tuple,
+    AxiomError, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 

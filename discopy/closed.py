@@ -54,6 +54,7 @@ Axioms
 from __future__ import annotations
 
 from discopy import cat, monoidal
+from discopy.abc import ClosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
@@ -220,7 +221,7 @@ class Under(Exp):
 
 
 @factory
-class Diagram(monoidal.Diagram):
+class Diagram(monoidal.Diagram, ClosedCategory):
     """
     A closed diagram is a monoidal diagram
     with :class:`Curry` and :class:`Eval` boxes.

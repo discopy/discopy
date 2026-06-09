@@ -46,6 +46,7 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, closed, messages
+from discopy.abc import RigidCategory
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
@@ -207,7 +208,7 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(closed.Diagram):
+class Diagram(closed.Diagram, RigidCategory):
     """
     A rigid diagram is a closed diagram
     with :class:`Cup` and :class:`Cap` boxes.
