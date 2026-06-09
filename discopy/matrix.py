@@ -43,11 +43,10 @@ from typing import Union, Literal as L, Callable, TYPE_CHECKING
 from discopy import monoidal, config, messages
 from discopy.cat import (
     factory,
-    Category,
+    MonoidalCategory,
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.monoidal import Whiskerable
 from discopy.utils import assert_isinstance, unbiased, NamedGeneric
 
 if TYPE_CHECKING:
@@ -55,7 +54,7 @@ if TYPE_CHECKING:
 
 
 @factory
-class Matrix(Category[int], Whiskerable, NamedGeneric['dtype']):
+class Matrix(MonoidalCategory[int], NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 

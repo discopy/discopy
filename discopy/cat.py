@@ -19,6 +19,7 @@ Summary
     Sum
     Bubble
     Category
+    MonoidalCategory
     Functor
 
 .. admonition:: Functions
@@ -224,6 +225,49 @@ class Category(ABC, Generic[T]):
 
     __rshift__ = __llshift__ = lambda self, other: self.then(other)
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
+
+
+class MonoidalCategory(Category[T]):
+    """
+    A monoidal category is a :class:`Category` with a method :code:`tensor`,
+    implementing the syntactic sugar :code:`@` for whiskering and parallel
+    composition.
+    """
+    @classmethod
+    @abstractmethod
+    def id(cls, dom: any) -> MonoidalCategory:
+        """
+        Identity on a given domain, to be instantiated.
+
+        Parameters:
+            dom : The object on which to take the identity.
+        """
+
+    @abstractmethod
+    def tensor(self, other: MonoidalCategory) -> MonoidalCategory:
+        """
+        Parallel composition, to be instantiated.
+
+        Parameters:
+            other : The other arrow to compose in parallel.
+        """
+
+    @classmethod
+    def whisker(cls, other: any) -> MonoidalCategory:
+        """
+        Apply :meth:`MonoidalCategory.id` if :code:`other` is not tensorable
+        else do nothing.
+
+        Parameters:
+            other : The whiskering object.
+        """
+        return other if isinstance(other, MonoidalCategory) else cls.id(other)
+
+    def __matmul__(self, other):
+        return self.tensor(self.whisker(other))
+
+    def __rmatmul__(self, other):
+        return self.whisker(other).tensor(self)
 
 
 @factory
@@ -815,7 +859,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-class Functor(Category[type]):
+class Functor(Category[type[Category]]):
     """
     A functor is a pair of maps :code:`ob` and :code:`ar` and an optional
     codomain category :code:`cod`.
@@ -919,7 +963,8 @@ class Functor(Category[type]):
             result, origin = self.ob[other], get_origin(self.cod.ty_factory)
             if isinstance(result, origin):
                 return result
-            return (result, ) if origin == tuple else self.cod.ty_factory(result)
+            return (result, ) if origin == tuple\
+                else self.cod.ty_factory(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
                        self.cod.zero(self(other.dom), self(other.cod)))

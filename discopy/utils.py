@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-from abc import ABC, abstractmethod
 from functools import wraps
 from typing import (
     Callable,
@@ -591,48 +590,6 @@ def factory(cls: Type[Category]) -> Type[Category]:
     """
     cls.factory = cls
     return cls
-
-
-class Whiskerable(ABC):
-    """
-    Abstract class implementing the syntactic sugar :code:`@` for whiskering
-    and parallel composition with some method :code:`tensor`.
-    """
-    @classmethod
-    @abstractmethod
-    def id(cls, dom: any) -> Whiskerable:
-        """
-        Identity on a given domain, to be instantiated.
-
-        Parameters:
-            dom : The object on which to take the identity.
-        """
-
-    @abstractmethod
-    def tensor(self, other: Whiskerable) -> Whiskerable:
-        """
-        Parallel composition, to be instantiated.
-
-        Parameters:
-            other : The other diagram to compose in parallel.
-        """
-
-    @classmethod
-    def whisker(cls, other: any) -> Whiskerable:
-        """
-        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
-        nothing.
-
-        Parameters:
-            other : The whiskering object.
-        """
-        return other if isinstance(other, Whiskerable) else cls.id(other)
-
-    def __matmul__(self, other):
-        return self.tensor(self.whisker(other))
-
-    def __rmatmul__(self, other):
-        return self.whisker(other).tensor(self)
 
 
 class AxiomError(Exception):

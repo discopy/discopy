@@ -20,7 +20,6 @@ Summary
     Sum
     Bubble
     Functor
-    Whiskerable
 
 Axioms
 ------
@@ -58,7 +57,7 @@ from dataclasses import dataclass
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
-from discopy.cat import Ob
+from discopy.cat import Ob, MonoidalCategory
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
@@ -67,7 +66,6 @@ from discopy.utils import (
     from_tree,
     assert_isinstance,
     assert_iscomposable,
-    Whiskerable,
     AxiomError,
     get_origin,
 )
@@ -482,7 +480,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, Whiskerable):
+class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -1060,7 +1058,8 @@ class Functor(cat.Functor):
     A monoidal functor is a functor that preserves the tensor product.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
@@ -1103,7 +1102,8 @@ class Functor(cat.Functor):
             cod_type = get_origin(self.cod.ty_factory)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
-                (result, ) if cod_type == tuple else self.cod.ty_factory(result)
+                (result, ) if cod_type == tuple\
+                else self.cod.ty_factory(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
