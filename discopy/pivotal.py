@@ -240,8 +240,8 @@ class Functor(rigid.Functor):
     A pivotal functor is a rigid functor on a pivotal category.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram

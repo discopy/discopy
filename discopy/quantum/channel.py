@@ -311,26 +311,26 @@ class Functor(tensor.Functor):
         if not isinstance(other, Box):
             return frobenius.Functor.__call__(self, other)
         if isinstance(other, Discard):
-            return self.cod.ar.discard(self(other.dom))
+            return self.cod.discard(self(other.dom))
         if isinstance(other, Measure):
-            measure = self.cod.ar.measure(
+            measure = self.cod.measure(
                 self(other.dom).quantum, destructive=other.destructive)
-            measure = measure @ self.cod.ar.discard(self(other.dom).classical)\
+            measure = measure @ self.cod.discard(self(other.dom).classical)\
                 if other.override_bits else measure
             return measure
         if isinstance(other, (MixedState, Encode)):
             return self(other.dagger()).dagger()
         if isinstance(other, Scalar):
             scalar = other.array if other.is_mixed else abs(other.array) ** 2
-            return self.cod.ar(scalar, CQ(), CQ())
+            return self.cod(scalar, CQ(), CQ())
         if not other.is_mixed and other.is_classical:
             dom, cod = self(other.dom).classical, self(other.cod).classical
-            return self.cod.ar.single(
+            return self.cod.single(
                 Tensor[self.dtype](other.array, dom, cod))
         if not other.is_mixed:
             dom, cod = self(other.dom).quantum, self(other.cod).quantum
-            return self.cod.ar.double(
+            return self.cod.double(
                 Tensor[self.dtype](other.array, dom, cod))
         if hasattr(other, "array"):
-            return self.cod.ar(other.array, self(other.dom), self(other.cod))
+            return self.cod(other.array, self(other.dom), self(other.cod))
         return frobenius.Functor.__call__(self, other)

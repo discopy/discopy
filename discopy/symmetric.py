@@ -214,9 +214,7 @@ class Diagram(balanced.Diagram):
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
-        category = self.factory
-        functor = self.hypergraph_factory.functor
-        return self.hypergraph_factory[category, functor].from_diagram(self)
+        return self.hypergraph_factory.from_diagram(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -337,8 +335,8 @@ class Functor(balanced.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
     """
@@ -346,12 +344,12 @@ class Functor(balanced.Functor):
 
     def __call__(self, other):
         if isinstance(other, Swap):
-            return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
+            return self.cod.swap(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
 
 class Hypergraph(balanced.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

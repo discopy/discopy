@@ -346,24 +346,24 @@ class Functor(monoidal.Functor):
     that preserves evaluation and currying.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
 
     def __call__(self, other):
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls) and hasattr(self.cod.ar, attr):
-                method = getattr(self.cod.ar, attr)
+            if isinstance(other, cls) and hasattr(self.cod, attr):
+                method = getattr(self.cod, attr)
                 return method(self(other.base), self(other.exponent))
-        if isinstance(other, Curry) and hasattr(self.cod.ar, "curry"):
-            return self.cod.ar.curry(
+        if isinstance(other, Curry) and hasattr(self.cod, "curry"):
+            return self.cod.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
-        if isinstance(other, Eval) and hasattr(self.cod.ar, "ev"):
-            return self.cod.ar.ev(
+        if isinstance(other, Eval) and hasattr(self.cod, "ev"):
+            return self.cod.ev(
                 self(other.base), self(other.exponent), other.left)
-        if self.cod.ar is Drawing:
+        if self.cod is Drawing:
             if isinstance(other, Ty) and other.inside == (other, ):
                 return self.ob[other]  # Avoid infinite recursion when drawing.
         return super().__call__(other)

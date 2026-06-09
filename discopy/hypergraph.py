@@ -91,7 +91,7 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
 
-class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
+class Hypergraph(Category, Whiskerable, NamedGeneric['functor']):
     """
     A hypergraph is given by:
 
@@ -108,9 +108,9 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
     :class:`Spider` labels can be of any type.
 
     Parameters:
-        dom (category.ob) : The domain of the diagram, i.e. its input.
-        cod (category.ob) : The codomain of the diagram, i.e. its output.
-        boxes (tuple[category.ar, ...]) : The boxes inside the diagram.
+        dom (category.ty_factory) : The domain of the diagram, i.e. its input.
+        cod (category.ty_factory) : The codomain of the diagram, i.e. its output.
+        boxes (tuple[category, ...]) : The boxes inside the diagram.
         wires (Wiring) : List of wires from ports to spiders.
         spider_types (SpiderTypes) :
             Optional mapping from spiders to atomic types, if ``None`` then
@@ -140,7 +140,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
 
     >>> from discopy.frobenius import Hypergraph as H
     >>> from discopy.frobenius import Ty, Diagram
-    >>> assert H.category.ob == Ty and H.category.ar == Diagram
+    >>> assert H.category.ty_factory == Ty and H.category == Diagram
 
     They are also parameterised by a ``Functor`` called by :meth:`to_diagram`.
 
@@ -174,19 +174,19 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == ((0, 1), (((0,), (2,)), ((1,), (3,))), (2, 3))
     """
-    category = None
     functor = None
 
-    ty_factory = classproperty(lambda cls: cls.category.ob)
+    category = classproperty(lambda cls: cls.functor.dom)
+    ty_factory = classproperty(lambda cls: cls.category.ty_factory)
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             wires: Wiring, spider_types: SpiderTypes = None,
             offsets: tuple[int | None, ...] = None):
-        assert_isinstance(dom, self.category.ob)
-        assert_isinstance(cod, self.category.ob)
+        assert_isinstance(dom, self.category.ty_factory)
+        assert_isinstance(cod, self.category.ty_factory)
         for box in boxes:
-            assert_isinstance(box, self.category.ar)
+            assert_isinstance(box, self.category)
         self.dom, self.cod, self.boxes = dom, cod, boxes
         dom_wires, box_wires, cod_wires = wires
 
@@ -222,7 +222,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
 
         for obj in self.spider_types:
-            assert_isatomic(obj, self.category.ob)
+            assert_isatomic(obj, self.category.ty_factory)
         for obj, wires in zip(self.spider_types, self.spider_wires):
             adjoint = getattr(obj, "r", obj)
             for i in set.union(*wires):
@@ -324,7 +324,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
 
     @classmethod
     def id(cls, dom=None) -> Hypergraph:
-        dom = cls.category.ob() if dom is None else dom
+        dom = cls.category.ty_factory() if dom is None else dom
         dom_wires = cod_wires = tuple(range(len(dom)))
         return cls(dom, dom, (), (dom_wires, (), cod_wires))
 
@@ -415,27 +415,27 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
         return cls.spiders(n, 1, typ)
 
     cup_factory = classmethod(lambda cls, left, right: cls.from_box(
-        cls.category.ar.cup_factory(left, right)))
+        cls.category.cup_factory(left, right)))
     cap_factory = classmethod(lambda cls, left, right: cls.from_box(
-        cls.category.ar.cap_factory(left, right)))
+        cls.category.cap_factory(left, right)))
 
     @classmethod
     def cups(cls, left, right):
         if not getattr(left, 'r', left[::-1]) == right:
             raise AxiomError
         dom_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
-        return cls(left @ right, cls.category.ob(), (), (dom_wires, (), ()))
+        return cls(left @ right, cls.category.ty_factory(), (), (dom_wires, (), ()))
 
     @classmethod
     def caps(cls, left, right):
         if not getattr(left, 'r', left[::-1]) == right:
             raise AxiomError
         cod_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
-        return cls(cls.category.ob(), left @ right, (), ((), (), cod_wires))
+        return cls(cls.category.ty_factory(), left @ right, (), ((), (), cod_wires))
 
     def transpose(self, left=False):
         """ The transpose of a hypergraph diagram. """
-        return self.category.ar.transpose(self, left)
+        return self.category.transpose(self, left)
 
     def rotate(self, left=False):
         """
@@ -462,7 +462,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
 
         Note
         ----
-        When ``category.ar.trace_factory`` is a subclass of ``category.ar``,
+        When ``category.trace_factory`` is a subclass of ``category``,
         e.g. for symmetric diagrams, then the result is just one big trace box
         wrapped up as a hypergraph.
 
@@ -470,8 +470,8 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
         for compact diagrams, in which case we use this method to introduce
         cup and cap boxes.
         """
-        factory = self.category.ar.trace_factory
-        if isclass(factory) and issubclass(factory, self.category.ar):
+        factory = self.category.trace_factory
+        if isclass(factory) and issubclass(factory, self.category):
             return self.from_box(factory(self.to_diagram(), left))
         return factory.__func__(type(self), self, left)
 
@@ -733,7 +733,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
             else:
                 node = self.ports[min(output_wires)]
                 depth = len(boxes) if node.kind == "output" else node.depth
-            boxes = boxes[:depth] + [self.category.ar.spider_factory(
+            boxes = boxes[:depth] + [self.category.spider_factory(
                 len(input_wires), len(output_wires), typ)] + boxes[depth:]
             offsets = self.offsets[:depth] + (None, ) + self.offsets[depth:]
             for j, port in enumerate(input_wires.union(output_wires)):
@@ -786,12 +786,12 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
                     fwires[source], fwires[target] = left, right
                     if cups_or_caps == "cups":
                         boxes = self.boxes + (
-                            self.category.ar.cup_factory(typ, typ), )
+                            self.category.cup_factory(typ, typ), )
                         offsets = self.offsets + (None, )
                         fwires = fwires[:len(fwires) - len(self.cod)] + [
                             left, right] + fwires[len(fwires) - len(self.cod):]
                     else:
-                        boxes = (self.category.ar.cap_factory(typ, typ),
+                        boxes = (self.category.cap_factory(typ, typ),
                                  ) + self.boxes
                         offsets = (None, ) + self.offsets
                         fwires = fwires[:len(self.dom)] + [
@@ -821,7 +821,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
                 continue
             depth = getattr(self.ports[max(input_wires)], "depth", -1) + 1\
                 if input_wires else 0
-            boxes = self.boxes[:depth] + (self.category.ar.spider_factory(
+            boxes = self.boxes[:depth] + (self.category.spider_factory(
                 len(input_wires), 1, typ), ) + self.boxes[depth:]
             offsets = self.offsets[:depth] + (None, ) + self.offsets[depth:]
             fwires = list(self.flat_wires)
@@ -966,7 +966,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
                 return self.make_causal().make_bijective().to_diagram()
             else:
                 return self.make_monogamous().make_causal().to_diagram()
-        diagram, scan = self.category.ar.id(self.dom), self.dom_wires
+        diagram, scan = self.category.id(self.dom), self.dom_wires
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]
             for i, obj in enumerate(box.dom):
@@ -1039,7 +1039,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
                     outputs.append(spider)
                 return untuplify(outputs)
 
-            cls.category.ar.__call__ = apply
+            cls.category.__call__ = apply
             for i, obj in enumerate(dom):
                 input_node = Node("input", obj=obj, i=i)
                 input_spider = Node("spider", obj=obj, i=i)
@@ -1049,7 +1049,7 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
                 assert_isinstance(spider, Node)
                 node = Node("output", obj=spider.obj, i=i)
                 graph.add_edge(spider, node)
-            del cls.category.ar.__call__
+            del cls.category.__call__
             result = cls.from_graph(graph)
             if result.cod != cod:
                 raise AxiomError(f"Expected diagram.cod == {cod}, "
@@ -1076,8 +1076,8 @@ class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
                     [inputs, outputs, box_nodes, spider_nodes]):
                 if node.kind == kind:
                     nodelist.append(node)
-        dom = sum([n.obj for n in inputs], cls.category.ob())
-        cod = sum([n.obj for n in outputs], cls.category.ob())
+        dom = sum([n.obj for n in inputs], cls.category.ty_factory())
+        cod = sum([n.obj for n in outputs], cls.category.ty_factory())
         boxes = tuple(n.box for n in box_nodes)
         offsets = tuple(n.offset for n in box_nodes)
         spider_types = {n: n.obj for n in spider_nodes}

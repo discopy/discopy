@@ -62,8 +62,9 @@ import networkx as nx
 
 from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
+from discopy.cat import Category
 from discopy.utils import (
-    Category, Whiskerable, assert_isinstance, assert_iscomposable, unbiased)
+    Whiskerable, assert_isinstance, assert_iscomposable, unbiased)
 
 if TYPE_CHECKING:
     from discopy import monoidal

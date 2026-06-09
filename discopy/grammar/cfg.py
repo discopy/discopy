@@ -216,9 +216,9 @@ class Algebra(Functor):
     as codomain.
 
     Parameters:
-        ob (dict[monoidal.Ty, cod.ob]) :
+        ob (dict[monoidal.Ty, cod.ty_factory]) :
             The mapping from domain to codomain colours.
-        ar (dict[Rule, cod.ar]):
+        ar (dict[Rule, cod]):
             The mapping from domain to codomain operations.
         cod (Operad) : The codomain of the algebra.
     """

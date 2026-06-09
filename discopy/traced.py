@@ -228,8 +228,8 @@ class Functor(monoidal.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 
@@ -259,12 +259,12 @@ class Functor(monoidal.Functor):
     def __call__(self, other):
         if isinstance(other, Trace):
             n = len(self(other.arg.dom)) - len(self(other.dom))
-            return self.cod.ar.trace(self(other.arg), n, left=other.left)
+            return self.cod.trace(self(other.arg), n, left=other.left)
         return super().__call__(other)
 
 
 class Hypergraph(monoidal.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

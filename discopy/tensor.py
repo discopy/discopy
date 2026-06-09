@@ -388,7 +388,7 @@ class Functor(frobenius.Functor):
             with backend() as np:
                 array = np.moveaxis(array, list(source), list(target))
             scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
-        return self.cod.ar(array, self(other.dom), self(other.cod))
+        return self.cod(array, self(other.dom), self(other.cod))
 
 
 @factory

@@ -444,7 +444,7 @@ def Int(category: type) -> type:
     >>> from discopy.ribbon import Diagram as D
     >>> assert Int(D) == Diagram[D]
     """
-    return Diagram[category.ar]
+    return Diagram[category]
 
 
 Id = Diagram.id

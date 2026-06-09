@@ -234,8 +234,8 @@ class Functor(monoidal.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
     """
@@ -243,7 +243,7 @@ class Functor(monoidal.Functor):
 
     def __call__(self, other):
         if isinstance(other, Braid) and not other.is_dagger:
-            return self.cod.ar.braid(self(other.dom[0]), self(other.dom[1]))
+            return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
 

@@ -1060,8 +1060,8 @@ class Functor(cat.Functor):
     A monoidal functor is a functor that preserves the tensor product.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Important
@@ -1093,24 +1093,24 @@ class Functor(cat.Functor):
     def __call__(self, other):
         if isinstance(other, PRO):
             result = cat.Functor.__call__(self, other.factory(1))
-            return sum(other.n * [result], self.cod.ob())
+            return sum(other.n * [result], self.cod.ty_factory())
         if isinstance(other, Dim):
-            return sum([self.ob[x] for x in other], self.cod.ob())
+            return sum([self.ob[x] for x in other], self.cod.ty_factory())
         if isinstance(other, Ty):
-            return sum(map(self, other.inside), self.cod.ob())
+            return sum(map(self, other.inside), self.cod.ty_factory())
         if isinstance(other, cat.Ob):
-            result = self.ob[self.dom.ob(other)]
-            cod_type = get_origin(self.cod.ob)
+            result = self.ob[self.dom.ty_factory(other)]
+            cod_type = get_origin(self.cod.ty_factory)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
-                (result, ) if cod_type == tuple else self.cod.ob(result)
+                (result, ) if cod_type == tuple else self.cod.ty_factory(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
             for box_or_typ in tail:
                 result = result @ self(box_or_typ)
             return result
-        if isinstance(other, Bubble) and self.cod.ar is Drawing:
+        if isinstance(other, Bubble) and self.cod is Drawing:
             return other.to_drawing()
         return super().__call__(other)
 
@@ -1142,12 +1142,12 @@ class Match:
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Diagram, Functor
+    functor = Functor
 
     def to_diagram(self):
         if not self.is_monogamous:
             raise AxiomError(factory_name(
-                self.category.ar) + " does not have copy or discard.")
+                self.category) + " does not have copy or discard.")
         return super().to_diagram()
 
 
