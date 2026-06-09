@@ -40,7 +40,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from discopy import monoidal
-from discopy.cat import factory, Category, Functor
+from discopy.cat import factory, Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
 from discopy.utils import (
@@ -197,7 +197,7 @@ class Id(Rule):
         return f"Id({self.dom})"
 
 
-class Operad(Category):
+class Operad:
     """
     An operad is a category with a method ``__call__`` which constructs a tree
     from a root and a list of branches.

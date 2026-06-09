@@ -410,7 +410,7 @@ def to_rigid(self):
         ob=lambda x: rigid.Ty(x.inside[0].name),
         ar=lambda f: rigid.Box(
             f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
-        cod=rigid.Category())(self)
+        cod=rigid.Diagram)(self)
 
 
 Id = Diagram.id

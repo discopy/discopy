@@ -20,7 +20,6 @@ Summary
     Diagram
     Box
     Trace
-    Category
     Functor
 
 Axioms
@@ -223,17 +222,6 @@ class Trace(Box, monoidal.Bubble):
         return self.arg.dagger().trace(left=self.left)
 
 
-class Category(monoidal.Category):
-    """
-    A traced category is a monoidal category with a method :code:`trace`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(monoidal.Functor):
     """
     A traced functor is a monoidal functor that preserves traces.
@@ -243,7 +231,7 @@ class Functor(monoidal.Functor):
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
 
     Example
     -------
@@ -257,7 +245,7 @@ class Functor(monoidal.Functor):
     >>> F = Functor(
     ...     ob={x: (float, )},
     ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
-    ...     cod=Category(python.Ty, python.Function))
+    ...     cod=python.Function)
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()
 
@@ -266,7 +254,7 @@ class Functor(monoidal.Functor):
 
     .. image:: /_static/traced/golden.png
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Trace):
@@ -276,7 +264,7 @@ class Functor(monoidal.Functor):
 
 
 class Hypergraph(monoidal.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

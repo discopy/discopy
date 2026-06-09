@@ -16,7 +16,6 @@ Summary
     Cup
     Cap
     Swap
-    Category
     Functor
 
 Axioms
@@ -122,17 +121,6 @@ class Swap(symmetric.Swap, ribbon.Braid, Box):
     __ambiguous_inheritance__ = (symmetric.Swap, ribbon.Braid, )
 
 
-class Category(symmetric.Category, ribbon.Category):
-    """
-    A compact category is both a symmetric category and a ribbon category.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`pivotal.Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(symmetric.Functor, ribbon.Functor):
     """
     A compact functor is both a symmetric functor and a ribbon functor.
@@ -143,7 +131,7 @@ class Functor(symmetric.Functor, ribbon.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category()
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Swap):
@@ -152,7 +140,7 @@ class Functor(symmetric.Functor, ribbon.Functor):
 
 
 class Hypergraph(symmetric.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
 
 Id = Diagram.id

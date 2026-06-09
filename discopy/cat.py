@@ -20,7 +20,6 @@ Summary
     Bubble
     Category
     Functor
-    Composable
 
 .. admonition:: Functions
 
@@ -76,7 +75,6 @@ Functors are bubble-preserving.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import total_ordering, cached_property
 from typing import (
     Callable, Mapping, Iterable, Optional, Type, TYPE_CHECKING)
@@ -89,7 +87,7 @@ from discopy.utils import (
     rsubs,
     unbiased,
     MappingOrCallable,
-    Composable,
+    Category,
     assert_isinstance,
     assert_iscomposable,
     assert_isparallel,
@@ -168,7 +166,7 @@ class Ob:
 
 
 @factory
-class Arrow(Composable[Ob]):
+class Arrow(Category[Ob]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -756,40 +754,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-@dataclass
-class Category:
-    """
-    A category is just a pair of Python types :code:`ob` and :code:`ar` with
-    appropriate methods :code:`dom`, :code:`cod`, :code:`id` and :code:`then`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ob`.
-        ar : The arrows of the category, default is :class:`Arrow`.
-
-    Example
-    -------
-    >>> Category()
-    Category(cat.Ob, cat.Arrow)
-    >>> CAT
-    Category(cat.Category, cat.Functor)
-    """
-    ob, ar = Ob, Arrow
-
-    def __init__(self, ob: type = None, ar: type = None):
-        self.ob, self.ar = (ob or type(self).ob), (ar or type(self).ar)
-
-    def __repr__(self):
-        return f"Category({factory_name(self.ob)}, {factory_name(self.ar)})"
-
-    def __eq__(self, other):
-        return isinstance(other, Category)\
-            and (self.ob, self.ar) == (other.ob, other.ar)
-
-    def __hash__(self):
-        return hash((self.ob, self.ar))
-
-
-class Functor(Composable[Category]):
+class Functor(Category[type]):
     """
     A functor is a pair of maps :code:`ob` and :code:`ar` and an optional
     codomain category :code:`cod`.
@@ -797,7 +762,7 @@ class Functor(Composable[Category]):
     Parameters:
         ob : Mapping from :class:`Ob` to :code:`cod.ob`.
         ar : Mapping from :class:`Box` to :code:`cod.ar`.
-        cod : The codomain, :code:`Category(Ob, Arrow)` by default.
+        cod : The codomain, :code:`Arrow` by default.
 
     Example
     -------
@@ -829,10 +794,11 @@ class Functor(Composable[Category]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    dom = cod = Category(Ob, Arrow)
+    ty_factory = Category
+    dom = cod = Arrow
 
     @classmethod
-    def id(cls, dom: Category = None) -> Functor:
+    def id(cls, dom: type = None) -> Functor:
         """
         The identity functor on a given category ``dom``.
 
@@ -872,7 +838,7 @@ class Functor(Composable[Category]):
             self,
             ob: Mapping[Ob, Ob] | Callable[[Ob], Ob] | None = None,
             ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
-            dom: Category = None, cod: Category = None):
+            dom: type = None, cod: type = None):
         self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
         self.ob: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
         self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
@@ -882,7 +848,8 @@ class Functor(Composable[Category]):
             and (self.ob, self.ar, self.cod) == (other.ob, other.ar, other.cod)
 
     def __repr__(self):
-        cod_repr = "" if self.cod == type(self).cod else f", cod={self.cod}"
+        cod_repr = "" if self.cod == type(self).cod\
+            else f", cod={factory_name(self.cod)}"
         return factory_name(type(self))\
             + f"(ob={self.ob}, ar={self.ar}{cod_repr})"
 
@@ -915,5 +882,5 @@ class Functor(Composable[Category]):
 
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
-CAT = Category(Category, Functor)
+CAT = Functor
 Id = Arrow.id

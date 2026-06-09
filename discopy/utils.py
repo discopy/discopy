@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import json
 import os
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from functools import wraps
 from typing import (
     Callable,
@@ -554,52 +554,78 @@ def untuplify(stuff: tuple) -> any:
 T = TypeVar('T')
 
 
-class Composable(ABC, Generic[T]):
+class CategoryMeta(ABCMeta):
     """
-    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
-    for forward and backward composition with some method :code:`then`.
+    Metaclass for :class:`Category` that exposes any arrow type as a category,
+    i.e. with its objects ``ob`` (the :attr:`Category.ty_factory`) and its
+    arrows ``ar`` (the class itself).
+
+    This is what makes it possible to use an arrow type wherever a category is
+    expected, e.g. as the domain or codomain of a :class:`cat.Functor`.
+    """
+    @property
+    def ob(cls) -> type:
+        return cls.ty_factory
+
+    @property
+    def ar(cls) -> type:
+        return cls
+
+
+class Category(ABC, Generic[T], metaclass=CategoryMeta):
+    """
+    A category is an arrow type, i.e. a class with the appropriate methods
+    :code:`dom`, :code:`cod`, :code:`id` and :code:`then`, together with a
+    :attr:`ty_factory` for its objects.
+
+    As such, it also implements the syntactic sugar :code:`>>` and :code:`<<`
+    for forward and backward composition with the method :code:`then`.
+
+    The objects ``ob`` of the category are given by its :attr:`ty_factory` and
+    its arrows ``ar`` are the instances of the class itself, see
+    :class:`CategoryMeta`.
 
     Example
     -------
-    >>> class List(list, Composable):
+    >>> class List(list, Category):
     ...     def then(self, other):
     ...         return self + other
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
-    factory: Type[Composable]
-    sum_factory: Type[Composable]
+    factory: Type[Category]
+    sum_factory: Type[Category]
     ty_factory: Type[T]
     dom: T
     cod: T
 
     @abstractmethod
-    def then(self, other: Optional[Composable[T]], *others: Composable[T]
-             ) -> Composable[T]:
+    def then(self, other: Optional[Category[T]], *others: Category[T]
+             ) -> Category[T]:
         """
         Sequential composition, to be instantiated.
 
         Parameters:
-            other : The other composable object to compose sequentially.
+            other : The other arrow to compose sequentially.
         """
 
-    def is_composable(self, other: Composable) -> bool:
+    def is_composable(self, other: Category) -> bool:
         """
-        Whether two objects are composable, i.e. the codomain of the first is
+        Whether two arrows are composable, i.e. the codomain of the first is
         the domain of the second.
 
         Parameters:
-            other : The other composable object.
+            other : The other arrow.
         """
         return self.cod == other.dom
 
-    def is_parallel(self, other: Composable) -> bool:
+    def is_parallel(self, other: Category) -> bool:
         """
-        Whether two composable objects are parallel, i.e. they have the same
+        Whether two arrows are parallel, i.e. they have the same
         domain and codomain.
 
         Parameters:
-            other : The other composable object.
+            other : The other arrow.
         """
         return (self.dom, self.cod) == (other.dom, other.cod)
 
@@ -607,7 +633,7 @@ class Composable(ABC, Generic[T]):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-def factory(cls: Type[Composable]) -> Type[Composable]:
+def factory(cls: Type[Category]) -> Type[Category]:
     """
     Allows the identity and composition of an :class:`Arrow` subclass to remain
     within the subclass.
@@ -695,7 +721,7 @@ class AxiomError(Exception):
     """ The gods of category theory are not happy. """
 
 
-def assert_iscomposable(left: Composable, right: Composable):
+def assert_iscomposable(left: Category, right: Category):
     """
     Raise :class:`AxiomError` if two objects are not composable,
     i.e. the domain of ``other`` is not the codomain of ``self``.
@@ -709,7 +735,7 @@ def assert_iscomposable(left: Composable, right: Composable):
             left, right, left.cod, right.dom))
 
 
-def assert_isparallel(left: Composable, right: Composable):
+def assert_isparallel(left: Category, right: Category):
     """
     Raise :class:`AxiomError` if two composable objects do not have the
     same domain and codomain.

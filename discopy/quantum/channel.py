@@ -44,7 +44,7 @@ Channel([0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j], dom=CQ(), cod=Q(Dim(2)))
 from __future__ import annotations
 
 from discopy import frobenius, tensor
-from discopy.cat import factory, Category
+from discopy.cat import factory
 from discopy.frobenius import Ty, Diagram, Box
 from discopy.matrix import backend
 from discopy.quantum.circuit import (
@@ -151,6 +151,7 @@ class Channel(Tensor):
         dom : The domain of the channel.
         cod : The codomain of the channel.
     """
+    ty_factory = CQ
     dtype = complex
 
     def __init__(self, array, dom: CQ, cod: CQ):
@@ -298,9 +299,9 @@ class Functor(tensor.Functor):
         ob (dict[cat.Ob, CQ]) : The object mapping.
         ar (dict[cat.Box, array]) : The arrow mapping.
         dom : The domain of the functor.
-        dtype : The datatype for the codomain ``Category(CQ, Channel[dtype])``.
+        dtype : The datatype for the codomain ``Channel[dtype]``.
     """
-    dom, cod = frobenius.Category(), Category(CQ, Channel)
+    dom, cod = frobenius.Diagram, Channel
 
     def __call__(self, other):
         if isinstance(other, Digit):

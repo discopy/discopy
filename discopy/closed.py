@@ -18,7 +18,6 @@ Summary
     Coeval
     Curry
     Sum
-    Category
     Functor
 
 Axioms
@@ -300,20 +299,24 @@ class Sum(markov.Sum, biclosed.Sum, Box):
     __ambiguous_inheritance__ = (markov.Sum, biclosed.Sum)
 
 
-class Category(markov.Category, biclosed.Category):
+Diagram.over, Diagram.under, Diagram.exp\
+    = map(staticmethod, (Over, Under, Exp))
+Diagram.sum_factory = Sum
+
+Id = Diagram.id
+
+
+class Functor(monoidal.Functor):
     """
-    A Markov category is a markov category with a method :code:`curry`.
+    A closed functor is a monoidal functor
+    that preserves evaluation and currying.
 
     Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
+        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        cod (Category) : The codomain of the functor.
     """
-    ob, ar = Ty, Diagram
-
-
-class Functor(markov.Functor, biclosed.Functor):
-    "A Markov functor is a markov functor that preserves currying."
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, (

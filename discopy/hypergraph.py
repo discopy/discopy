@@ -60,10 +60,10 @@ from discopy.utils import (
     unbiased,
     NamedGeneric,
     AxiomError,
-    Composable,
     Whiskerable,
     assert_isatomic,
     assert_istraceable,
+    classproperty,
     tuplify,
     untuplify,
 )
@@ -94,7 +94,7 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
 
-class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
+class Hypergraph(Category, Whiskerable, NamedGeneric['category', 'functor']):
     """
     A hypergraph is given by:
 
@@ -179,6 +179,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     """
     category = None
     functor = None
+
+    ty_factory = classproperty(lambda cls: cls.category.ob)
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
@@ -1054,8 +1056,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         return cls.functor(
             ob=lambda typ: typ, ar=cls.from_box,
-            dom=Category(old.ty_factory, type(old)),
-            cod=Category(old.ty_factory, cls))(old)
+            dom=type(old), cod=cls)(old)
 
     def to_diagram(self, make_causal_first: bool = False) -> Diagram:
         """

@@ -42,7 +42,7 @@ Example
 >>> noun_phrase = Alice @ who @ loves @ Bob\\
 ...     >> Cup(n, n.r) @ n @ Diagram.cups((n.r @ s).l, n.r @ s) @ Cup(n.l, n)
 
->>> from discopy.frobenius import Ty as T, Diagram as D, Box, Category, Swap
+>>> from discopy.frobenius import Ty as T, Diagram as D, Box, Swap
 >>> S, N = map(T, "SN")
 >>> F = Functor(
 ...     ob={s: Ty[T](S), n: Ty[T](N)},
@@ -50,7 +50,7 @@ Example
 ...         who: Box('W', S @ N, N @ N),
 ...         loves: Box('L', N @ N, S),
 ...         Bob: Box('B', T(), N)},
-...     cod=Int(Category(T, D)))
+...     cod=Int(D))
 >>> image = F(noun_phrase).inside.to_hypergraph().interchange(1, 3)\\
 ...     .to_diagram().interchange(1, 2).naturality(2, left=False)
 
@@ -74,10 +74,10 @@ from discopy import (
     ribbon,
     messages
 )
-from discopy.cat import Composable, assert_iscomposable
+from discopy.cat import Category, assert_iscomposable
 from discopy.monoidal import Whiskerable
 from discopy.utils import (
-    NamedGeneric, unbiased, assert_isinstance, factory_name)
+    NamedGeneric, classproperty, unbiased, assert_isinstance, factory_name)
 
 
 @dataclass
@@ -147,7 +147,7 @@ class Ty(NamedGeneric['natural']):
 
 
 @dataclass
-class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
+class Diagram(Category[Ty], Whiskerable, NamedGeneric['natural']):
     """
     An integer diagram from ``x`` to ``y`` is a :attr:`natural` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.
@@ -171,6 +171,8 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     ...     == D.id(T(2, 2)).transpose(left=True)
     """
     natural = ribbon.Diagram
+
+    ty_factory = classproperty(lambda cls: Ty[cls.natural.ty_factory])
 
     inside: natural
     dom: Ty
@@ -428,21 +430,21 @@ class Diagram(Composable[Ty], Whiskerable, NamedGeneric['natural']):
     to_drawing = lambda self: self.inside.to_drawing()
 
 
-def Int(category: traced.Category) -> ribbon.Category:
+def Int(category: type) -> type:
     """
     The Int construction, i.e. the free ribbon category on a given balanced
     traced `category`, with :class:`interaction.Ty` as objects and
     :class:`interaction.Diagram` as arrows.
 
     Parameters:
-        category : A balanced traced category.
+        category : A balanced traced category, i.e. an arrow type.
 
     Example
     -------
-    >>> from discopy.ribbon import Ty as T, Diagram as D, Category
-    >>> assert Int(Category(T, D)) == Category(Ty[T], Diagram[D])
+    >>> from discopy.ribbon import Diagram as D
+    >>> assert Int(D) == Diagram[D]
     """
-    return ribbon.Category(Ty[category.ob], Diagram[category.ar])
+    return Diagram[category.ar]
 
 
 Id = Diagram.id

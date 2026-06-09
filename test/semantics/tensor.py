@@ -140,10 +140,10 @@ def test_tensor_spiders():
 
 def test_Functor_repr():
     x = frobenius.Ty('x')
-    F = Functor({x: 2}, {}, dom=frobenius.Category(), dtype=bool)
+    F = Functor({x: 2}, {}, dom=frobenius.Diagram, dtype=bool)
     assert repr(F) ==\
         "tensor.Functor(ob={frobenius.Ty(frobenius.Ob('x')): 2}, ar={}, "\
-        "dom=Category(frobenius.Ty, frobenius.Diagram), dtype=bool)"
+        "dom=frobenius.Diagram, dtype=bool)"
 
 
 def test_Functor_call():

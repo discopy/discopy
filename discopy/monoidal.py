@@ -19,7 +19,6 @@ Summary
     Box
     Sum
     Bubble
-    Category
     Functor
     Whiskerable
 
@@ -689,8 +688,8 @@ class Diagram(cat.Arrow, Whiskerable):
     def to_drawing(self, functor_factory=None) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
         ob = ar = lambda x: x.to_drawing()
-        dom = Category(self.ty_factory, self.factory)
-        cod = Category(Ty, Drawing)
+        dom = self.factory
+        cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
     def to_staircases(self):
@@ -707,7 +706,7 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> print(diagram.foliation().to_staircases())
         f1 @ x >> x @ f0
         """
-        return Functor.id(Category(self.ty_factory, self.factory))(self)
+        return Functor.id(self.factory)(self)
 
     def foliation(self):
         """
@@ -1083,19 +1082,6 @@ class Bubble(cat.Bubble, Box):
         return getattr(Drawing, method)(*args, **kwargs)
 
 
-class Category(cat.Category):
-    """
-    A monoidal category is a category with a method :code:`tensor`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    __ambiguous_inheritance__ = True
-
-    ob, ar = Ty, Diagram
-
-
 class Functor(cat.Functor):
     """
     A monoidal functor is a functor that preserves the tensor product.
@@ -1129,7 +1115,7 @@ class Functor(cat.Functor):
     """
     __ambiguous_inheritance__ = True
 
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, PRO):
@@ -1183,7 +1169,7 @@ class Match:
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
     def to_diagram(self):
         if not self.is_monogamous:
@@ -1198,4 +1184,5 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
+Drawing.ty_factory = Ty
 Id = Diagram.id

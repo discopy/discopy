@@ -17,7 +17,6 @@ Summary
     Cap
     Swap
     Word
-    Category
     Functor
 
 .. admonition:: Functions
@@ -95,7 +94,7 @@ class Diagram(frobenius.Diagram):
     >>> from discopy import tensor
     >>> ob = {s: 1, n: 2}
     >>> ar = {Alice: [1, 0], loves: [0, 1, 1, 0], Bob: [0, 1]}
-    >>> F = tensor.Functor(ob, ar, dom=Category(), dtype=bool)
+    >>> F = tensor.Functor(ob, ar, dom=Diagram, dtype=bool)
     >>> assert F(sentence)
     """
     ty_factory = Ty
@@ -208,15 +207,9 @@ class Word(thue.Word, Box):
         return f"Word({repr(self.name)}, {repr(self.cod)}{extra})"
 
 
-class Category(frobenius.Category):
-    """ A pregroup category has rigid types and frobenius diagrams. """
-    ob = Ty
-    ar = Diagram
-
-
 class Functor(frobenius.Functor):
     """ A pregroup functor is a frobenius functor with a pregroup domain. """
-    dom = cod = Category()
+    dom = cod = Diagram
 
 
 def eager_parse(*words, target=Ty('s')):

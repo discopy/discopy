@@ -28,7 +28,6 @@ Summary
     FollowedBy
     Head
     Tail
-    Category
     Functor
 
 Axioms
@@ -65,10 +64,10 @@ Strength
 This can only be checked up to a functor into streams.
 
 >>> from discopy import stream
->>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Category())
+>>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Stream)
 >>> F = Functor(
 ...     F0, lambda f: stream.Stream.sequence(f.name, F0(f.dom), F0(f.cod)),
-...     cod=stream.Category())
+...     cod=stream.Stream)
 >>> all_eq = lambda xs: len(set(xs)) == 1
 >>> eq_up_to_F = lambda *fs, n=2: all_eq(F(f).unroll(2).now for f in fs)
 
@@ -116,12 +115,12 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Category)
+...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
 >>> F = Functor(
 ...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
-...     cod=symmetric.Category)
+...     cod=symmetric.Diagram)
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
 
@@ -559,7 +558,7 @@ class FollowedBy(Box):
     .. image:: /_static/feedback/followed-by.png
         :align: center
 
-    >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Category())
+    >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Stream)
     >>> X, Xh, Xtd = map(F, (x, x.head, x.tail.delay()))
     >>> for xh, xtd in [(Xh.now, Xtd.now),
     ...                 (Xh.later.now, Xtd.later.now),
@@ -593,18 +592,6 @@ class FollowedBy(Box):
         return type(self)(self.arg, self.is_dagger)
 
 
-class Category(markov.Category):
-    """
-    A feedback category is a markov category with methods :code:`delay`
-    and :code:`feedback`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(markov.Functor):
     """
     A feedback functor is a markov one that preserves delay and feedback.
@@ -614,7 +601,7 @@ class Functor(markov.Functor):
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
 
     Example
     -------
@@ -629,7 +616,7 @@ class Functor(markov.Functor):
     >>> assert F(FollowedBy(x)) == FollowedBy(F(x))
     >>> assert F(f.head) == F(f).head and F(f.tail) == F(f).tail
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
@@ -656,7 +643,7 @@ class Functor(markov.Functor):
 
 
 class Hypergraph(markov.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

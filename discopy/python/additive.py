@@ -139,8 +139,3 @@ class Function(function.Function):
 Swap = Function.braid = Function.swap
 Id = Function.twist = Function.id
 Merge = Function.merge
-
-
-class Category:
-    ob = Ty
-    ar = Function

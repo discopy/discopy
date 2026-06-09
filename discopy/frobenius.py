@@ -25,7 +25,6 @@ Summary
     Swap
     Spider
     Bubble
-    Category
     Functor
 
 Axioms
@@ -171,7 +170,7 @@ class Diagram(compact.Diagram, markov.Diagram):
         F = compact.Functor(
             ob=lambda x: x, ar=lambda f:
                 f.unfuse() if isinstance(f, Spider) else f,
-            dom=Category(), cod=Category())
+            dom=Diagram, cod=Diagram)
         return F(self)
 
 
@@ -295,19 +294,6 @@ class Bubble(monoidal.Bubble, Box):
     __ambiguous_inheritance__ = (monoidal.Bubble, )
 
 
-class Category(compact.Category, markov.Category):
-    """
-    A hypergraph category is a compact category with a method :code:`spiders`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    __ambiguous_inheritance__ = (compact.Category, markov.Category)
-
-    ob, ar = Ty, Diagram
-
-
 class Functor(compact.Functor, markov.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
@@ -319,7 +305,7 @@ class Functor(compact.Functor, markov.Functor):
     """
     __ambiguous_inheritance__ = (compact.Functor, markov.Functor)
 
-    dom = cod = Category()
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Spider):
@@ -403,7 +389,7 @@ def coherence(cls: type, factory: Callable
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

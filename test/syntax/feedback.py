@@ -33,7 +33,7 @@ def test_functor_python_stream():
     F = Functor(
         ob={x: int},
         ar={zero: lambda: 0},
-        cod=stream.Category(python.Ty, python.Function))
+        cod=stream.Stream[python.Function])
     assert F(wait @ zero).unroll(2).now(1, 2, 3) == (0, ) + (1, 0) + (2, 0) + (3, )
 
 
@@ -53,7 +53,7 @@ def test_walk():
         ar={zero: lambda: 0,
             rand: lambda: choice([-1, +1]),
             plus: lambda x, y: x + y},
-        cod=stream.Category(python.Ty, python.Function))
+        cod=stream.Stream[python.Function])
 
     assert F(walk).unroll(9).now()[:10] == (0, -1, 0, 1, 2, 1, 0, -1, 0, 1)
     assert F(walk).unroll(9).now()[:10] == (0, -1, -2, -1, 0, 1, 0, 1, 2, 1)
@@ -85,6 +85,6 @@ def test_fibonacci():
         ar={zero: lambda: 0,
             one: lambda: 1,
             plus: lambda x, y: x + y},
-        cod=stream.Category(python.Ty, python.Function))
+        cod=stream.Stream[python.Function])
 
     assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)

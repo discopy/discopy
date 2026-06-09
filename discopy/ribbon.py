@@ -16,7 +16,6 @@ Summary
     Cup
     Cap
     Braid
-    Category
     Functor
 
 Axioms
@@ -211,17 +210,6 @@ class Sum(rigid.Sum, Box):
     __ambiguous_inheritance__ = (rigid.Sum, )
 
 
-class Category(pivotal.Category, balanced.Category):
-    """
-    A ribbon category is both a pivotal category and a balanced category.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(pivotal.Functor, balanced.Functor):
     """
     A ribbon functor is both a pivotal functor and a balanced functor.
@@ -232,7 +220,7 @@ class Functor(pivotal.Functor, balanced.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Braid):
