@@ -18,6 +18,7 @@ Summary
     Diagram
     Box
     Eval
+    Coeval
     Curry
     Sum
     Category
@@ -292,18 +293,45 @@ class Eval(Box):
     Parameters:
         x : The exponential type to evaluate.
     """
-    def __init__(self, x: Exp, left=None, is_dagger=False):
+    def __init__(self, x: Exp, left=None):
         self.base, self.exponent = x.base, x.exponent
         self.left = isinstance(x, Over) if left is None else left
         dom, cod = (x @ self.exponent, self.base) if self.left\
             else (self.exponent @ x, self.base)
-        dom, cod = (cod, dom) if is_dagger else (dom, cod)
-        super().__init__("Eval" + str(x), dom, cod, is_dagger=is_dagger)
+        super().__init__("Eval" + str(x), dom, cod)
 
-    def dagger(self):
-        left, is_dagger = self.left, not self.is_dagger
-        x = self.base << self.exponent if left else self.exponent >> self.base
-        return type(self)(x, left, is_dagger)
+    @property
+    def exp(self) -> Exp:
+        """ The exponential type that this box evaluates. """
+        return self.base << self.exponent if self.left\
+            else self.exponent >> self.base
+
+    def dagger(self) -> Coeval:
+        return self.coeval_factory(self.exp, self.left)
+
+
+class Coeval(Box):
+    """
+    The coevaluation of an exponential type, i.e. the dagger of :class:`Eval`.
+
+    Parameters:
+        x : The exponential type to coevaluate.
+    """
+    def __init__(self, x: Exp, left=None):
+        self.base, self.exponent = x.base, x.exponent
+        self.left = isinstance(x, Over) if left is None else left
+        cod, dom = (x @ self.exponent, self.base) if self.left\
+            else (self.exponent @ x, self.base)
+        super().__init__("Coeval" + str(x), dom, cod)
+
+    @property
+    def exp(self) -> Exp:
+        """ The exponential type that this box coevaluates. """
+        return self.base << self.exponent if self.left\
+            else self.exponent >> self.base
+
+    def dagger(self) -> Eval:
+        return self.eval_factory(self.exp, self.left)
 
 
 class Curry(monoidal.Bubble, Box):
@@ -382,6 +410,9 @@ class Functor(monoidal.Functor):
         if isinstance(other, Eval) and hasattr(self.cod.ar, "ev"):
             return self.cod.ar.ev(
                 self(other.base), self(other.exponent), other.left)
+        if isinstance(other, Coeval) and hasattr(self.cod.ar, "ev"):
+            return self.cod.ar.ev(
+                self(other.base), self(other.exponent), other.left).dagger()
         if self.cod.ar is Drawing:
             if isinstance(other, Ty) and other.inside == (other, ):
                 return self.ob[other]  # Avoid infinite recursion when drawing.
@@ -402,3 +433,4 @@ Id = Diagram.id
 Diagram.to_rigid = to_rigid
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval

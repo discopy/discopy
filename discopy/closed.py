@@ -15,6 +15,7 @@ Summary
     Diagram
     Box
     Eval
+    Coeval
     Curry
     Sum
     Category
@@ -180,8 +181,8 @@ class Application(TermBase):
     def to_diagram(self, category=None):
         if set(self.func.freevars).intersection(self.args.freevars):
             raise NotImplementedError
-        return self.args.to_diagram(category) @ self.func.to_diagram(
-            category) >> Eval(self.func.cod)
+        return self.func.to_diagram(category) @ self.args.to_diagram(
+            category) >> Eval(self.func.cod, left=True)
 
 
 @dataclass(frozen=True)
@@ -205,7 +206,7 @@ class Abstraction(TermBase):
         body = self.body.to_diagram(category)
         p = body.permutation(
             [j for j in range(n) if j != i] + [i], body.dom).dagger()
-        return (p >> body).curry()
+        return (p >> body).curry(left=True)
 
 
 @dataclass
@@ -247,7 +248,13 @@ class Box(markov.Box, biclosed.Box, Diagram):
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
     __ambiguous_inheritance__ = (biclosed.Eval, )
-    drawing_name = "$\\Lambda$"
+    drawing_name = "Eval"
+
+
+class Coeval(biclosed.Coeval, Box):
+    "The coevaluation of an exponential type, i.e. the dagger of an Eval."
+    __ambiguous_inheritance__ = (biclosed.Coeval, )
+    drawing_name = "$\\lambda$"
 
 
 class Curry(biclosed.Curry, Box):
@@ -256,9 +263,9 @@ class Curry(biclosed.Curry, Box):
 
     def to_drawing(self):
         if self.left:
-            f, e = self.arg, Eval(self.cod, left=True).dagger()
+            f, e = self.arg, Coeval(self.cod, left=True)
             return (f >> e).trace().to_drawing()
-        f, e = self.arg, Eval(self.cod).dagger()
+        f, e = self.arg, Coeval(self.cod)
         return (f >> e).trace(left=True).to_drawing()
 
 
@@ -307,7 +314,8 @@ class Functor(markov.Functor, biclosed.Functor):
     dom = cod = Category(Ty, Diagram)
 
     def __call__(self, other):
-        if isinstance(other, (cat.Ob, biclosed.Eval, biclosed.Curry)):
+        if isinstance(other, (
+                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
             return biclosed.Functor.__call__(self, other)
         return super().__call__(other)
 
@@ -321,6 +329,7 @@ Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = lambda X: Copy(X, 0)
 Diagram.sum_factory = Sum
