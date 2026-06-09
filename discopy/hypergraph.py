@@ -51,7 +51,7 @@ from networkx import (
 from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import messages
-from discopy.cat import MonoidalCategory
+from discopy.abc import MonoidalCategory
 from discopy.drawing import Node
 from discopy.utils import (
     factory_name,

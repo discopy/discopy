@@ -74,7 +74,8 @@ from discopy import (
     ribbon,
     messages
 )
-from discopy.cat import MonoidalCategory, assert_iscomposable
+from discopy.abc import MonoidalCategory
+from discopy.cat import assert_iscomposable
 from discopy.utils import (
     NamedGeneric, classproperty, unbiased, assert_isinstance, factory_name)
 

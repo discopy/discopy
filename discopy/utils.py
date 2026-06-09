@@ -28,7 +28,7 @@ from discopy.config import DRAWING_DEFAULT
 
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram
-    from discopy.cat import Category
+    from discopy.abc import Category
 
 KT = TypeVar('KT')
 VT = TypeVar('VT')

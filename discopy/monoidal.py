@@ -57,7 +57,8 @@ from dataclasses import dataclass
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
-from discopy.cat import Ob, MonoidalCategory
+from discopy.abc import MonoidalCategory
+from discopy.cat import Ob
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (

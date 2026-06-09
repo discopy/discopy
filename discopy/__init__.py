@@ -3,6 +3,7 @@
 """ DisCoPy: the Python toolkit for computing with string diagrams. """
 
 from discopy import (
+    abc,
     cat,
     monoidal,
     braided,

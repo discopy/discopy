@@ -41,9 +41,9 @@ from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
+from discopy.abc import MonoidalCategory
 from discopy.cat import (
     factory,
-    MonoidalCategory,
     assert_iscomposable,
     assert_isparallel,
 )
