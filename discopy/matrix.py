@@ -41,13 +41,13 @@ from types import ModuleType
 from typing import Union, Literal as L, Callable, TYPE_CHECKING
 
 from discopy import monoidal, config, messages
-from discopy.abc import MonoidalCategory
+from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.cat import (
     factory,
     assert_iscomposable,
     assert_isparallel,
 )
-from discopy.utils import assert_isinstance, unbiased, NamedGeneric
+from discopy.utils import assert_isinstance, unbiased
 
 if TYPE_CHECKING:
     import sympy

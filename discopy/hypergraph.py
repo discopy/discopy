@@ -51,14 +51,13 @@ from networkx import (
 from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import messages
-from discopy.abc import MonoidalCategory
+from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.drawing import Node
 from discopy.utils import (
     factory_name,
     assert_isinstance,
     pushout,
     unbiased,
-    NamedGeneric,
     AxiomError,
     assert_isatomic,
     assert_istraceable,

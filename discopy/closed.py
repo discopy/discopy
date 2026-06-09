@@ -226,7 +226,7 @@ class Substitution:
 
 
 @factory
-class Diagram(markov.Diagram, biclosed.Diagram):
+class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.
 
