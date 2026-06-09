@@ -43,7 +43,7 @@ from typing import Union, Literal as L, Callable, TYPE_CHECKING
 from discopy import monoidal, config, messages
 from discopy.cat import (
     factory,
-    Composable,
+    Category,
     assert_iscomposable,
     assert_isparallel,
 )
@@ -55,7 +55,7 @@ if TYPE_CHECKING:
 
 
 @factory
-class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
+class Matrix(Category[int], Whiskerable, NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
 
@@ -128,6 +128,7 @@ class Matrix(Composable[int], Whiskerable, NamedGeneric['dtype']):
            [0, 2],
            [0, 4]])
     """
+    ty_factory = int
 
     def cast(self, dtype: type) -> Matrix:
         """

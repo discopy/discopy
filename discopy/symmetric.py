@@ -15,7 +15,6 @@ Summary
     Box
     Swap
     Sum
-    Category
     Functor
 
 Axioms
@@ -215,7 +214,7 @@ class Diagram(balanced.Diagram):
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
-        category = Category(self.ty_factory, self.factory)
+        category = self.factory
         functor = self.hypergraph_factory.functor
         return self.hypergraph_factory[category, functor].from_diagram(self)
 
@@ -332,17 +331,6 @@ class Sum(balanced.Sum, Box):
     __ambiguous_inheritance__ = (balanced.Sum, )
 
 
-class Category(balanced.Category):
-    """
-    A symmetric category is a balanced category with a method :code:`swap`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(balanced.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
@@ -352,9 +340,9 @@ class Functor(balanced.Functor):
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Swap):
@@ -363,7 +351,7 @@ class Functor(balanced.Functor):
 
 
 class Hypergraph(balanced.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

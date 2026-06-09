@@ -4,7 +4,7 @@ from discopy import *
 from discopy.stream import *
 
 def test_errors():
-    T, S = Ty[python.Ty], Stream[python.Category]
+    T, S = Ty[python.Ty], Stream[python.Function]
     with raises(ValueError):
         S(lambda x: x, mem=T(int))
     dom = cod = mem = T(int)
@@ -19,7 +19,7 @@ def test_errors():
 
 
 def test_python_stream():
-    T, S = Ty[python.Ty], Stream[python.Category]
+    T, S = Ty[python.Ty], Stream[python.Function]
     x, y, m = int, bool, str
     dom = T(x) @ T(m).delay()
     cod = T(y) @ T(m)

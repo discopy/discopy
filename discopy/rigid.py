@@ -19,7 +19,6 @@ Summary
     Cup
     Cap
     Sum
-    Category
     Functor
 
 Axioms
@@ -700,18 +699,6 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
-class Category(closed.Category):
-    """
-    A rigid category is a monoidal category
-    with methods :code:`l`, :code:`r`, :code:`cups` and :code:`caps`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(closed.Functor):
     """
     A rigid functor is a closed functor that preserves cups and caps.
@@ -741,7 +728,7 @@ class Functor(closed.Functor):
     .. image:: /_static/rigid/functor-example.png
         :align: center
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:

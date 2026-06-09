@@ -212,8 +212,3 @@ class Function(function.Function):
             >> self >> cod @ self.discard(traced)
 
     exp = over = under = staticmethod(lambda x, y: exp(x, y))
-
-
-class Category:
-    ob = Ty
-    ar = Function

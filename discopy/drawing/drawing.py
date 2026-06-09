@@ -63,7 +63,7 @@ import networkx as nx
 from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
-    Composable, Whiskerable, assert_isinstance, assert_iscomposable, unbiased)
+    Category, Whiskerable, assert_isinstance, assert_iscomposable, unbiased)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -76,7 +76,7 @@ class PlaneGraph(NamedTuple):
 
 
 @dataclass
-class Drawing(Composable, Whiskerable):
+class Drawing(Category, Whiskerable):
     """
     A drawing is a plane graph with designated input and output types.
 

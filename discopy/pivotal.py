@@ -18,7 +18,6 @@ Summary
     Box
     Cup
     Cap
-    Category
     Functor
 
 Axioms
@@ -236,18 +235,6 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
-class Category(rigid.Category):
-    """
-    A pivotal category is a rigid category
-    where left and right adjoints coincide.
-
-    Parameters:
-    ob : The type of objects.
-    ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
@@ -257,7 +244,7 @@ class Functor(rigid.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

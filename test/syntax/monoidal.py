@@ -292,7 +292,10 @@ def test_Functor_call():
 
 
 def test_PRO_Functor():
-    G = Functor(lambda x: x @ x, lambda f: f, cod=Category(PRO, Diagram))
+    class PRODiagram(Diagram):
+        ty_factory = PRO
+
+    G = Functor(lambda x: x @ x, lambda f: f, cod=PRODiagram)
     assert G(PRO(2)) == PRO(4)
 
 

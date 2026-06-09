@@ -61,7 +61,7 @@ class Diagram(closed.Diagram):
             ar=lambda f: pregroup.Box(f.name,
                                       Diagram.to_pregroup(f.dom),
                                       Diagram.to_pregroup(f.cod)),
-            cod=pregroup.Category())(self)
+            cod=pregroup.Diagram)(self)
 
     @staticmethod
     def fa(left, right):
@@ -227,7 +227,7 @@ class Functor(closed.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = closed.Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, FA):

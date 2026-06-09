@@ -31,7 +31,7 @@ from typing import Callable, TYPE_CHECKING
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
 from discopy.cat import factory, assert_iscomposable
-from discopy.frobenius import Dim, Cup, Category
+from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend)
 from discopy.utils import (
@@ -103,6 +103,7 @@ class Tensor(Matrix):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
+    ty_factory = Dim
 
     def __init__(self, array, dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)
@@ -217,7 +218,7 @@ class Tensor(Matrix):
         -------
         >>> from discopy import markov
         >>> n = markov.Ty('n')
-        >>> F = Functor(ob={n: Dim(2)}, ar={}, dom=markov.Category())
+        >>> F = Functor(ob={n: Dim(2)}, ar={}, dom=markov.Diagram)
         >>> assert F(markov.Copy(n, 2)) == Tensor[int].copy(Dim(2), 2)\\
         ...     == Tensor[int]([1, 0, 0, 0, 0, 0, 0, 1], Dim(2), Dim(2, 2))
         """
@@ -304,13 +305,13 @@ class Tensor(Matrix):
 class Functor(frobenius.Functor):
     """
     A tensor functor is a frobenius functor with a domain category ``dom``
-    and ``Category(Dim, Tensor[dtype])`` as codomain for a given ``dtype``.
+    and ``Tensor[dtype]`` as codomain for a given ``dtype``.
 
     Parameters:
         ob : The object mapping.
         ar : The arrow mapping.
         dom : The domain of the functor.
-        dtype : The datatype for the codomain ``Category(Dim, Tensor[dtype])``.
+        dtype : The datatype for the codomain ``Tensor[dtype]``.
 
     Example
     -------
@@ -324,7 +325,7 @@ class Functor(frobenius.Functor):
     >>> F = Functor(
     ...     ob={s: 1, n: 2},
     ...     ar={Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]},
-    ...     dom=rigid.Category(), dtype=bool)
+    ...     dom=rigid.Diagram, dtype=bool)
     >>> F(diagram)
     Tensor[bool]([True], dom=Dim(1), cod=Dim(1))
 
@@ -339,18 +340,18 @@ class Functor(frobenius.Functor):
 
     >>> assert F(diagram) == F(rewrite)
     """
-    dom, cod = frobenius.Category(), Category(Dim, Tensor)
+    dom, cod = frobenius.Diagram, Tensor
 
     def __init__(
             self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, list],
-            dom: cat.Category = None, dtype: type = int):
+            dom: type = None, dtype: type = int):
         self.dtype = dtype
-        cod = Category(type(self).cod.ob, type(self).cod.ar[dtype])
+        cod = type(self).cod[dtype]
         super().__init__(ob, ar, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
         return factory_name(type(self)) + f"(ob={self.ob}, ar={self.ar}, "\
-            + f"dom={self.dom}, dtype={self.dtype.__name__})"
+            + f"dom={factory_name(self.dom)}, dtype={self.dtype.__name__})"
 
     def __call__(self, other):
         if isinstance(other, Dim):

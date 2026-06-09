@@ -12,7 +12,6 @@ We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 
     Ty
     Stream
-    Category
 
 ## Note
 
@@ -27,7 +26,7 @@ Monoidal streams form a feedback category as follows:
 >>> Ff = Stream.sequence("f", X @ M.delay(), Y @ M)
 
 >>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff},
-...                      cod=feedback.Category(Ty, Stream))
+...                      cod=Stream)
 
 >>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/stream/feedback-to-stream.png")
@@ -69,7 +68,7 @@ category of streams of python types and functions.
 .. image:: /_static/stream/fibonacci-feedback.png
     :align: center
 
->>> cod = stream.Category(python.Ty, python.Function)
+>>> cod = stream.Stream[python.Function]
 >>> F = feedback.Functor(
 ...     ob={X: int},
 ...     ar={zero: cod.ar.singleton(python.Function(lambda: 0, (), int)),
@@ -168,7 +167,7 @@ from dataclasses import dataclass
 
 from discopy import symmetric
 from discopy.utils import (
-    AxiomError, Composable, Whiskerable, NamedGeneric, get_origin, is_tuple,
+    AxiomError, Category, Whiskerable, NamedGeneric, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 
@@ -296,7 +295,7 @@ class Ty(NamedGeneric['base']):
 
 
 @dataclass
-class Stream(Composable, Whiskerable, NamedGeneric['category']):
+class Stream(Category, Whiskerable, NamedGeneric['category']):
     """
     Monoidal streams over an underlying `category`.
 
@@ -314,7 +313,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     Example
     -------
     >>> from discopy import python
-    >>> T, S = Ty[python.Ty], Stream[python.Category]
+    >>> T, S = Ty[python.Ty], Stream[python.Function]
     >>> x, y, m = int, bool, str
     >>> now = python.Function(lambda n: (bool(n % 2), str(n)), x, (y, m))
     >>> dom, cod, mem = T(x), T(y), T(m).delay()
@@ -334,8 +333,8 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     >>> assert cod.later.now == later.cod.now
     >>> assert mem.later.now == later.mem.now
     """
-    category = symmetric.Category
-    ty_factory = Ty[category.ob]
+    category = symmetric.Diagram
+    ty_factory = classproperty(lambda cls: Ty[cls.category.ob])
 
     now: category.ar
     dom: ty_factory = None
@@ -576,12 +575,3 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return type(self)(self.now, dom, cod, mem @ self.mem, _later)
 
     followed_by = id
-
-
-@dataclass
-class Category(symmetric.Category):
-    """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
-    def __init__(self, ob: type = None, ar: type = None):
-        ar = Stream if ar is None else Stream[symmetric.Category(ob, ar)]
-        ob = Ty if ob is None else Ty[ob]
-        super().__init__(ob, ar)

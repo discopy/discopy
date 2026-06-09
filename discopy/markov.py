@@ -16,7 +16,6 @@ Summary
     Box
     Swap
     Copy
-    Category
     Functor
 
 
@@ -79,7 +78,7 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.cat import factory
-from discopy.monoidal import Ty
+from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
@@ -269,17 +268,6 @@ class Sum(symmetric.Sum, Box):
     __ambiguous_inheritance__ = (symmetric.Sum, )
 
 
-class Category(symmetric.Category):
-    """
-    A Markov category is a symmetric category with a method :code:`copy`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(symmetric.Functor):
     """
     A Markov functor is a symmetric functor that preserves copies.
@@ -289,7 +277,7 @@ class Functor(symmetric.Functor):
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
 
     Example
     -------
@@ -300,7 +288,7 @@ class Functor(symmetric.Functor):
     >>> add = Box('add', x @ x, x)
     >>> from discopy import python
     >>> F = Functor({x: int}, {add: lambda a, b: a + b},
-    ...             cod=Category(python.Ty, python.Function))
+    ...             cod=python.Function)
     >>> copy = Copy(x)
     >>> bialgebra_l = copy @ copy >> Id(x) @ Swap(x, x) @ Id(x) >> add @ add
     >>> bialgebra_r = add >> copy
@@ -312,7 +300,7 @@ class Functor(symmetric.Functor):
 
     .. image:: /_static/markov/bialgebra.png
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Copy):
@@ -323,7 +311,7 @@ class Functor(symmetric.Functor):
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Category, Functor
+    category, functor = Diagram, Functor
 
     def to_diagram(self, make_causal_first=True) -> Diagram:
         return super().to_diagram(

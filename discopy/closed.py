@@ -20,7 +20,6 @@ Summary
     Eval
     Curry
     Sum
-    Category
     Functor
 
 Axioms
@@ -56,7 +55,7 @@ from __future__ import annotations
 
 from discopy import cat, monoidal
 from discopy.drawing import Drawing
-from discopy.cat import Category, factory
+from discopy.cat import factory
 from discopy.utils import (
     factory_name,
     from_tree,
@@ -341,18 +340,6 @@ Diagram.sum_factory = Sum
 Id = Diagram.id
 
 
-class Category(monoidal.Category):
-    """
-    A closed category is a monoidal category with methods :code:`exp`
-    (:code:`over` and / or :code:`under`), :code:`ev` and :code:`curry`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(monoidal.Functor):
     """
     A closed functor is a monoidal functor
@@ -363,7 +350,7 @@ class Functor(monoidal.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
@@ -389,7 +376,7 @@ def to_rigid(self):
         ob=lambda x: rigid.Ty(x.inside[0].name),
         ar=lambda f: rigid.Box(
             f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
-        cod=rigid.Category())(self)
+        cod=rigid.Diagram)(self)
 
 
 Id = Diagram.id

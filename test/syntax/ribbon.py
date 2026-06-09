@@ -10,7 +10,7 @@ def test_Kauffman():
         def braid(x, y):
             return (A @ x @ y) + (Cup(x, y) >> A.dagger() >> Cap(x, y))
 
-    Kauffman = Functor(ob={x: x}, ar={}, cod=Category(Ty, Polynomial))
+    Kauffman = Functor(ob={x: x}, ar={}, cod=Polynomial)
 
     assert Kauffman(Braid(x, x))\
         == (A @ x @ x) + (Cup(x, x) >> A.dagger() >> Cap(x, x))

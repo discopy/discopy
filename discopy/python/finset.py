@@ -17,12 +17,12 @@ Summary
 from __future__ import annotations
 
 from dataclasses import dataclass
-from discopy.cat import Composable
+from discopy.cat import Category
 from discopy.utils import Whiskerable
 
 
 @dataclass
-class Function(Composable[int], Whiskerable):
+class Function(Category[int], Whiskerable):
     """
     A function between finite sets encoded as a Python dictionary.
 
@@ -44,6 +44,8 @@ class Function(Composable[int], Whiskerable):
     inside: dict[int, int]
     dom: int
     cod: int
+
+    ty_factory = int
 
     def __getitem__(self, key):
         return self.inside[key]

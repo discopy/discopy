@@ -39,7 +39,7 @@ def test_python_Functor():
         ob={x: complex, y: bool, z: float},
         ar={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
             g: lambda y: lambda z: z + 1j if y else -1j},
-        cod=Category(tuple[type, ...], Function))
+        cod=Function)
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.uncurry(left=False).curry(left=False))(True)(1.2) == F(g)(True)(1.2)

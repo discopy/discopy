@@ -63,7 +63,7 @@ def test_Functor():
     F = frobenius.Functor(
         ob=lambda _: PRO(1),
         ar=lambda f: Z(len(f.dom), len(f.cod)),
-        cod=frobenius.Category(PRO, Diagram))
+        cod=Diagram)
     assert F(f) == Z(1, 1)
     assert F(frobenius.Swap(x, x)) == Diagram.permutation([1, 0]) == SWAP
     assert F(frobenius.Cup(x.l, x)) == Z(2, 0)
