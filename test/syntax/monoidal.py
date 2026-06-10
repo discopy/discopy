@@ -186,6 +186,20 @@ def test_Diagram_interchange():
     assert d.interchange(2, 0) == Id(x) @ f1 >> f0 @ Id(x) >> f1 @ f0
 
 
+def test_Diagram_size():
+    x, y, z = map(Ob, "xyz")
+    f, g = Box('f', x, y), Box('g', y, z)
+    assert Id(x).size == 0
+    assert f.size == 1
+    assert (f >> g).size == 2
+    assert (f >> g).bubble().size == 3
+
+    a, b, c, d = map(Ty, "abcd")
+    diagram = (
+        Box('f', a, b) @ Box('g', c, d)).foliation()
+    assert len(diagram) == 1 and diagram.size == 2
+
+
 def test_Diagram_substitute():
     x = Ty("x")
     f, g, h = Box("f", x @ x @ x, x @ x), Box("g", x, x), Box("h", x @ x, x)

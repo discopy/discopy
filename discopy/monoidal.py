@@ -368,6 +368,10 @@ class Layer(cat.Box):
     def boxes(self):
         return list(self.boxes_or_types[1::2])
 
+    @property
+    def size(self):
+        return sum(box.size for box in self.boxes)
+
     def __getitem__(self, key):
         return self.boxes_or_types[key]
 
@@ -520,6 +524,10 @@ class Diagram(cat.Arrow, Whiskerable):
         for layer in inside:
             assert_isinstance(layer, Layer)
         super().__init__(inside, dom, cod, _scan=_scan)
+
+    @property
+    def size(self):
+        return sum(box.size for box in self.inside)
 
     @classmethod
     def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Diagram]:
@@ -943,6 +951,10 @@ class Box(cat.Box, Diagram):
         inside = (self.layer_factory.cast(self), )
         Diagram.__init__(self, inside, dom, cod)
 
+    @property
+    def size(self):
+        return 1
+
     def to_drawing(self):
         return Drawing.from_box(self)
 
@@ -964,6 +976,10 @@ class Sum(cat.Sum, Box):
     (f @ x >> x @ f) + (f @ x >> x @ f)
     """
     __ambiguous_inheritance__ = (cat.Sum, )
+
+    @property
+    def size(self):
+        return 1
 
     def tensor(self, other=None, *others):
         if other is None or others:
@@ -1041,6 +1057,11 @@ class Bubble(cat.Bubble, Box):
         else:
             self.draw_as_frame = True
             self.draw_as_square = False
+
+    @property
+    def size(self):
+        """ The number of boxes in a bubble, counting its arguments. """
+        return 1 + sum(arg.size for arg in self.args)
 
     def to_drawing(self):
         method = "frame" if self.draw_as_frame else "bubble"
