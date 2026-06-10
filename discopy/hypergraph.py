@@ -718,7 +718,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         Checks that the causal graph has no directed cycle.
         As an edge case, we also need to check that there are no scalar
-        spiders when the diagram has no boxes, otherwise 
+        spiders, otherwise the causal graph has 0 nodes and is thus trivially
+        acyclic.
 
         Examples
         --------
@@ -728,11 +729,15 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> g = Box('f', x @ z, y @ z)
 
         >>> # Simple case: cup and caps and trace form cycles
-        >>> assert not (Cap(x, x) >> x @ f >> Cup(x, x)).to_hypergraph().is_acyclic
+        >>> assert not (
+        ...     Cap(x, x) >> x @ f >> Cup(x, x)
+        ... ).to_hypergraph().is_acyclic
         >>> assert not g.trace().to_hypergraph().is_acyclic
 
         >>> # Breaking causality but not acyclicity:
-        >>> f_snake = (Cap(x, x) @ x >> x @ f @ x >> x @ Cup(x, x)).to_hypergraph()
+        >>> f_snake = (
+        ...     Cap(x, x) @ x >> x @ f @ x >> x @ Cup(x, x)
+        ... ).to_hypergraph()
         >>> assert not f_snake.is_causal and f_snake.is_acyclic
 
         >>> # Edge case: cyclic hypergraph without boxes
