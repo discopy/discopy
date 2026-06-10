@@ -1,6 +1,6 @@
 from pytest import raises
 
-from discopy.closed import Ty
+from discopy.biclosed import Ty
 from discopy.grammar.categorial import *
 
 tree = {
@@ -85,14 +85,14 @@ def test_BA():
     x, y = Ty('x'), Ty('y')
     with raises(TypeError):
         BA(x << y)
-    assert "BA(closed.Ty(closed.Under(" in repr(BA(x >> y))
+    assert "BA(biclosed.Ty(biclosed.Under(" in repr(BA(x >> y))
 
 
 def test_FA():
     x, y = Ty('x'), Ty('y')
     with raises(TypeError):
         FA(x >> y)
-    assert "FA(closed.Ty(closed.Over" in repr(FA(x << y))
+    assert "FA(biclosed.Ty(biclosed.Over" in repr(FA(x << y))
 
 
 def test_FC():
@@ -152,7 +152,7 @@ def test_Functor():
 def categorial_diagram():
     from discopy.grammar.categorial import Box, Diagram, FA, BA, FC
 
-    S, NP = closed.Ty('S'), closed.Ty('NP')
+    S, NP = biclosed.Ty('S'), biclosed.Ty('NP')
     boxes = [
         Word('that', NP),
         Word("'s", ((NP >> S) << NP)),
@@ -174,7 +174,7 @@ def categorial_diagram():
         BA((NP >> S)),
     ]
     offsets = [0, 1, 2, 1, 2, 3, 3, 4, 5, 6, 5, 4, 3, 2, 1, 0]
-    return Diagram.decode(closed.Ty(), zip(boxes, offsets))
+    return Diagram.decode(biclosed.Ty(), zip(boxes, offsets))
 
 
 def test_to_tree():
@@ -220,11 +220,11 @@ def pregroup_diagram():
 def test_to_pregroup():
     from discopy.grammar import pregroup
     from discopy.grammar.pregroup import Cup, Cap, Id, Swap
-    x, y = closed.Ty('x'), closed.Ty('y')
+    x, y = biclosed.Ty('x'), biclosed.Ty('y')
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
-    assert Diagram.to_pregroup(Curry(BA(x >> y))).normal_form()\
+    assert Diagram.to_pregroup(Curry(BA(x >> y), left=True)).normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.to_pregroup(Curry(FA(x << y), left=False)).normal_form()\
+    assert Diagram.to_pregroup(Curry(FA(x << y))).normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
     assert Diagram.to_pregroup(FC(x << y, y << x))\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
