@@ -242,7 +242,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         -------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
 
-        >>> x, y, z = map(Ty, "xyz")
+        >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y).to_hypergraph()
         >>> for wires in (f >> H.spiders(1, 2, y)).spider_wires: print(wires)
         ({0}, {1})
@@ -668,16 +668,20 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     @property
     def is_left_monogamous(self) -> bool:
         """
-        Checks left monogamy, i.e. if each non-scalar spider is connected to
-        exactly one output port.
+        Checks left monogamy, i.e. if each non-scalar spider is connected
+        to exactly one input port.
         """
         return all(len(x) == 1 for x, y in self.spider_wires if x.union(y))
 
     @property
     def is_causal(self) -> bool:
         """
-        Checks causality, i.e. if each spider is connected to exactly one
-        input port and has no directed cycle.
+        Checks causality, i.e. if each non-scalar spider is connected to
+        exactly one input port, there is no directed cycle, and wires point
+        forward in the current port order. It is equivalent to:
+        - is_left_monogamous
+        - is_acyclic
+        - is_topological_ordered
 
         If the diagram is causal then it lives in a symmetric monoidal
         category with a supply of commutative comonoids.
@@ -688,20 +692,34 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         Examples
         --------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
-        >>> x, y = map(Ty, "xy")
+        >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y).to_hypergraph()
         >>> assert f.is_causal
         >>> assert (f >> H.spiders(1, 0, y)).is_causal
         >>> assert (H.spiders(1, 2, x) >> f @ f).is_causal
 
+        >>> g = Box('g', y, z).to_hypergraph()
+        >>> assert (f >> g).interchange(0, 1).is_acyclic
+        >>> assert not (f >> g).interchange(0, 1).is_causal
 
         >>> cycle = H.caps(x, x) >> H.cups(x, x)
+        >>> assert not cycle.is_acyclic
         >>> assert not cycle.is_causal
+        >>> assert cycle.make_causal().is_causal
 
         >>> assert not H.cups(x, x).is_causal
         """
-        return all(len(input_wires) == 1
-                   for input_wires, _ in self.spider_wires)\
+        return all(len(input_wires) == 1 and all(
+            u < v for u in input_wires for v in output_wires)
+            for input_wires, output_wires in self.spider_wires)
+
+    @property
+    def is_acyclic(self) -> bool:
+        """
+        Checks that the causal graph has no directed cycle and no closed
+        scalar spider.
+        """
+        return not self.scalar_spiders\
             and is_directed_acyclic_graph(self.causal_graph())
 
     @property
@@ -927,26 +945,23 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         """
         if not self.is_left_monogamous:
             return self.make_left_monogamous().make_causal()
-        if self.is_causal and self.is_topologically_ordered:
-            result = self.topological_order()
-            assert result.is_causal and result.is_topologically_ordered
-            return result
+        for input_spider, (typ, (input_wires, output_wires)) in enumerate(
+                zip(self.spider_types, self.spider_wires)):
+            if input_wires:
+                continue
+            assert not output_wires
+            dom, cod, boxes = self.dom @ typ, self.cod @ typ, self.boxes
+            dom_wires = self.dom_wires + (input_spider, )
+            cod_wires = self.cod_wires + (input_spider, )
+            wires = (dom_wires, self.box_wires, cod_wires)
+            arg = type(self)(
+                dom, cod, boxes, wires, self.spider_types, self.offsets)
+            return arg.make_causal().explicit_trace()
+        if self.is_causal:
+            return self
         causal_graph = self.causal_graph()
         for input_spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
-            if not input_wires:
-                assert not output_wires
-                dom, cod, boxes = self.dom @ typ, self.cod @ typ, self.boxes
-                dom_wires = self.dom_wires + (input_spider, )
-                cod_wires = self.cod_wires + (input_spider, )
-                wires = (dom_wires, self.box_wires, cod_wires)
-                arg = type(self)(
-                    dom, cod, boxes, wires, self.spider_types, self.offsets)
-                causal_arg = arg.make_causal()
-                assert causal_arg.is_causal
-                explicit_arg = causal_arg.explicit_trace()
-                assert explicit_arg.is_causal
-                return explicit_arg
             input_wire, = input_wires
             for output_wire in output_wires:
                 if input_wire < output_wire\
@@ -962,11 +977,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                 wires = self.rebracket(fwires, dom=dom)
                 arg = type(self)(
                     dom, cod, self.boxes, wires, spider_types, self.offsets)
-                causal_arg = arg.make_causal()
-                assert causal_arg.is_causal
-                explicit_arg = causal_arg.explicit_trace()
-                assert explicit_arg.is_causal
-                return explicit_arg
+                return arg.make_causal().explicit_trace()
         assert self.is_causal
         return self
 
@@ -1047,13 +1058,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
         x @ Swap(x, x) >> v[::-1] @ x
         """
-        if not self.is_causal or not self.is_monogamous:
+        if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
             if make_causal_first:
                 return self.make_causal().make_bijective().to_diagram()
             else:
                 return self.make_monogamous().make_causal().to_diagram()
-        if not self.is_topologically_ordered:
-            return self.make_causal().to_diagram()
         diagram, scan = self.category.ar.id(self.dom), self.dom_wires
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]

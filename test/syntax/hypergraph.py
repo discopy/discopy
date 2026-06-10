@@ -55,7 +55,7 @@ def test_Hypergraph_getitem():
 def test_Hypergraph_bijection():
     with raises(ValueError):
         H.spiders(1, 2, Ty('x')).bijection
-        
+
 
 def test_Hypergraph_make_causal_does_not_assume_topological_order():
     x, y, z = map(Ty, "xyz")
@@ -64,7 +64,12 @@ def test_Hypergraph_make_causal_does_not_assume_topological_order():
         x, z, (g, f),
         ((0,), (((1,), (2,)), ((0,), (1,))), (2,)))
 
-    assert h.is_causal
+    assert h.is_left_monogamous
+    assert h.is_acyclic
+    assert not h.is_topologically_ordered
+    assert not h.is_causal
+    assert h.make_causal().is_causal
+    assert h.topological_order().is_causal
 
 
 def test_Hypergraph_simplify_bubble_size():
@@ -110,17 +115,17 @@ def test_cups():
 def test_simplify():
     from discopy.markov import Diagram, Box, Ty, Copy, Swap, Trace
     C, T, P = map(Ty, "CTP")
-    linear, param_linear, add, x = (
+    linear, param_linear, add, placeholder = (
         Box('linear', T @ P, T),
         Box('param_linear', C, P),
         Box('add', T @ T, T),
         Box('placeholder', C, T),
     )
-    residual_block = Trace(Trace(Copy(C) @ T @ P >> C @ C @ linear >> param_linear @ C @ T >> P @ x @ T >> P @ Copy(T) @ T >> P @ T @ Swap(T, T) >> P @ add @ T >> Swap(P, T) @ T >> T @ Swap(P, T)))
-    ref = Copy(C) >> x @ C >> Copy(T) @ C >> T @ T @ param_linear >> T @ Swap(T, P) >> linear @ T >> Swap(T, T) >> add
+    residual_block = Trace(Trace(Copy(C) @ T @ P >> C @ C @ linear >> param_linear @ C @ T >> P @ placeholder @ T >> P @ Copy(T) @ T >> P @ T @ Swap(T, T) >> P @ add @ T >> Swap(P, T) @ T >> T @ Swap(P, T)))
+    ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Swap(P, T) @ T >> linear @ T >> Swap(T, T) >> add
     simpl = residual_block.to_hypergraph().simplify().to_diagram()
+
     with Diagram.hypergraph_equality:
-        assert residual_block.dom == ref.dom == simpl.dom
-        assert residual_block.cod == ref.cod == simpl.cod
         assert residual_block == ref == simpl
+
     assert simpl == ref
