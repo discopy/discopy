@@ -64,7 +64,9 @@ class Ty(biclosed.Ty):
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
-    >>> t.to_diagram().draw(path='docs/_static/closed/diagram.png')
+    >>> t.to_diagram().draw(
+    ...     path='docs/_static/closed/diagram.png',
+    ...     aspect="auto", figsize=(8, 8))
 
     .. image:: /_static/closed/diagram.png
         :align: center
