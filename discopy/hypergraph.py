@@ -744,7 +744,10 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         port = len(self.dom)
         for box in self.boxes:
             dom_ports = range(port, port + len(box.dom))
-            cod_ports = range(port + len(box.dom), port + len(box.dom @ box.cod))
+            cod_ports = range(
+                port + len(box.dom),
+                port + len(box.dom @ box.cod)
+            )
             graph.add_edges_from(
                 (source, target)
                 for source in dom_ports for target in cod_ports)
@@ -964,8 +967,8 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                 zip(self.spider_types, self.spider_wires)):
             input_wire, = input_wires
             for output_wire in output_wires:
-                if input_wire < output_wire\
-                        and not has_path(causal_graph, output_wire, input_wire):
+                if input_wire < output_wire and\
+                        not has_path(causal_graph, output_wire, input_wire):
                     continue
                 dom, cod = self.dom @ typ, self.cod @ typ
                 spider_types = self.spider_types + (typ, )
