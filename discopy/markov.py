@@ -77,13 +77,14 @@ in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
+from discopy.abc import MarkovCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
 @factory
-class Diagram(symmetric.Diagram):
+class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
 

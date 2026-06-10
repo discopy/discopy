@@ -142,6 +142,7 @@ In the category of streams, this is just the identity.
 from __future__ import annotations
 
 from discopy import cat, monoidal, markov
+from discopy.abc import FeedbackCategory
 from discopy.utils import (
     factory, factory_name, assert_isinstance, AxiomError)
 
@@ -288,7 +289,7 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(markov.Diagram):
+class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
     and a :meth:`feedback` operator.
