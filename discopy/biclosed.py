@@ -294,20 +294,13 @@ class Eval(Box):
         x : The exponential type to evaluate.
     """
     def __init__(self, x: Exp, left=None):
-        self.base, self.exponent = x.base, x.exponent
-        self.left = isinstance(x, Over) if left is None else left
-        dom, cod = (x @ self.exponent, self.base) if self.left\
-            else (self.exponent @ x, self.base)
+        self.x, self.left = x, isinstance(x, Over) if left is None else left
+        dom, cod = (x @ x.exponent, x.base) if self.left\
+            else (x.exponent @ x, x.base)
         super().__init__("Eval" + str(x), dom, cod)
 
-    @property
-    def exp(self) -> Exp:
-        """ The exponential type that this box evaluates. """
-        return self.base << self.exponent if self.left\
-            else self.exponent >> self.base
-
     def dagger(self) -> Coeval:
-        return self.coeval_factory(self.exp, self.left)
+        return self.coeval_factory(self.x, self.left)
 
 
 class Coeval(Box):
@@ -318,20 +311,13 @@ class Coeval(Box):
         x : The exponential type to coevaluate.
     """
     def __init__(self, x: Exp, left=None):
-        self.base, self.exponent = x.base, x.exponent
-        self.left = isinstance(x, Over) if left is None else left
-        cod, dom = (x @ self.exponent, self.base) if self.left\
-            else (self.exponent @ x, self.base)
+        self.x, self.left = x, isinstance(x, Over) if left is None else left
+        cod, dom = (x @ x.exponent, x.base) if self.left\
+            else (x.exponent @ x, x.base)
         super().__init__("Coeval" + str(x), dom, cod)
 
-    @property
-    def exp(self) -> Exp:
-        """ The exponential type that this box coevaluates. """
-        return self.base << self.exponent if self.left\
-            else self.exponent >> self.base
-
     def dagger(self) -> Eval:
-        return self.eval_factory(self.exp, self.left)
+        return self.eval_factory(self.x, self.left)
 
 
 class Curry(monoidal.Bubble, Box):
@@ -407,12 +393,10 @@ class Functor(monoidal.Functor):
         if isinstance(other, Curry) and hasattr(self.cod.ar, "curry"):
             return self.cod.ar.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
-        if isinstance(other, Eval) and hasattr(self.cod.ar, "ev"):
-            return self.cod.ar.ev(
-                self(other.base), self(other.exponent), other.left)
-        if isinstance(other, Coeval) and hasattr(self.cod.ar, "ev"):
-            return self.cod.ar.ev(
-                self(other.base), self(other.exponent), other.left).dagger()
+        if isinstance(other, (Eval, Coeval)) and hasattr(self.cod.ar, "ev"):
+            base, exponent, left = other.x.base, other.x.exponent, other.left
+            result = self.cod.ar.ev(self(base), self(exponent), left)
+            return result.dagger() if isinstance(other, Coeval) else result
         if self.cod.ar is Drawing:
             if isinstance(other, Ty) and other.inside == (other, ):
                 return self.ob[other]  # Avoid infinite recursion when drawing.
