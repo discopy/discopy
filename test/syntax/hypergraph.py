@@ -57,6 +57,34 @@ def test_Hypergraph_bijection():
         H.spiders(1, 2, Ty('x')).bijection
 
 
+def test_Hypergraph_make_causal_does_not_assume_topological_order():
+    x, y, z = map(Ty, "xyz")
+    f, g = Box('f', x, y), Box('g', y, z)
+    h = H(
+        x, z, (g, f),
+        ((0,), (((1,), (2,)), ((0,), (1,))), (2,)))
+
+    assert h.is_left_monogamous
+    assert h.is_acyclic
+    assert not h.is_topologically_ordered
+    assert not h.is_causal
+    assert h.make_causal().is_causal
+    assert h.topological_order().is_causal
+
+
+def test_Hypergraph_simplify_bubble_size():
+    x = Ty('x')
+    f = Box('f', Ty(), x)
+    g, h = Box('g', x, x), Box('h', x, Ty())
+    diagram = f >> (g >> h).bubble()
+    hypergraph = diagram.to_hypergraph()
+    interchanged = hypergraph.interchange(0, 1)
+
+    assert len(diagram) == 2 and diagram.size == 4
+    assert interchanged.to_diagram().size > diagram.size
+    assert interchanged.simplify() == hypergraph
+
+
 def test_Hypergraph_rotate():
     assert H.id() == \
            H.id().rotate(left=False).rotate(left=True)
@@ -82,3 +110,22 @@ def test_cups():
     assert H.caps(x, x).make_monogamous().dagger()\
         == H.cups(x, x).make_monogamous()
     assert H.caps(x, x).to_diagram() == Cap(x, x)
+
+
+def test_simplify():
+    from discopy.markov import Diagram, Box, Ty, Copy, Swap, Trace
+    C, T, P = map(Ty, "CTP")
+    linear, param_linear, add, placeholder = (
+        Box('linear', T @ P, T),
+        Box('param_linear', C, P),
+        Box('add', T @ T, T),
+        Box('placeholder', C, T),
+    )
+    residual_block = Trace(Trace(Copy(C) @ T @ P >> C @ C @ linear >> param_linear @ C @ T >> P @ placeholder @ T >> P @ Copy(T) @ T >> P @ T @ Swap(T, T) >> P @ add @ T >> Swap(P, T) @ T >> T @ Swap(P, T)))
+    ref = Copy(C) >> param_linear @ C >> P @ placeholder >> P @ Copy(T) >> Swap(P, T) @ T >> linear @ T >> Swap(T, T) >> add
+    simpl = residual_block.to_hypergraph().simplify().to_diagram()
+
+    with Diagram.hypergraph_equality:
+        assert residual_block == ref == simpl
+
+    assert simpl == ref

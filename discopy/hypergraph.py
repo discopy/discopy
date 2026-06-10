@@ -42,7 +42,10 @@ from networkx import (
     DiGraph as Graph,
     spring_layout,
     draw_networkx,
+    has_path,
+    is_directed_acyclic_graph,
     dag_longest_path_length,
+    topological_sort,
     weisfeiler_lehman_graph_hash,
 )
 from networkx.algorithms.isomorphism import is_isomorphic
@@ -239,7 +242,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         -------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
 
-        >>> x, y, z = map(Ty, "xyz")
+        >>> x, y = map(Ty, "xy")
         >>> f = Box('f', x, y).to_hypergraph()
         >>> for wires in (f >> H.spiders(1, 2, y)).spider_wires: print(wires)
         ({0}, {1})
@@ -534,10 +537,12 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> g = Box('g', x, Ty()).to_hypergraph()
         >>> assert (f >> g).interchange(0, 1).simplify() == f >> g
         """
+
+        size = self.to_diagram().size
         for i in range(len(self.boxes)):
             for j in range(len(self.boxes)):
                 result = self.interchange(i, j)
-                if len(result.to_diagram()) < len(self.to_diagram()):
+                if result.to_diagram().size < size:
                     return result.simplify()
         return self
 
@@ -663,16 +668,20 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     @property
     def is_left_monogamous(self) -> bool:
         """
-        Checks left monogamy, i.e. if each non-scalar spider is connected to
-        exactly one output port.
+        Checks left monogamy, i.e. if each non-scalar spider is connected
+        to exactly one input port.
         """
         return all(len(x) == 1 for x, y in self.spider_wires if x.union(y))
 
     @property
     def is_causal(self) -> bool:
         """
-        Checks causality, i.e. if each spider is connected to exactly one
-        output port and to zero or more input ports all with higher indices.
+        Checks causality, i.e. if each non-scalar spider is connected to
+        exactly one input port, there is no directed cycle, and wires point
+        forward in the current port order. It is equivalent to:
+        - is_left_monogamous
+        - is_acyclic
+        - is_topological_ordered
 
         If the diagram is causal then it lives in a symmetric monoidal
         category with a supply of commutative comonoids.
@@ -683,21 +692,122 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         Examples
         --------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
-        >>> x, y = map(Ty, "xy")
+        >>> x, y, z = map(Ty, "xyz")
         >>> f = Box('f', x, y).to_hypergraph()
         >>> assert f.is_causal
         >>> assert (f >> H.spiders(1, 0, y)).is_causal
         >>> assert (H.spiders(1, 2, x) >> f @ f).is_causal
 
+        >>> g = Box('g', y, z).to_hypergraph()
+        >>> assert (f >> g).interchange(0, 1).is_acyclic
+        >>> assert not (f >> g).interchange(0, 1).is_causal
 
         >>> cycle = H.caps(x, x) >> H.cups(x, x)
+        >>> assert not cycle.is_acyclic
         >>> assert not cycle.is_causal
+        >>> assert cycle.make_causal().is_causal
 
         >>> assert not H.cups(x, x).is_causal
         """
         return all(len(input_wires) == 1 and all(
             u < v for u in input_wires for v in output_wires)
             for input_wires, output_wires in self.spider_wires)
+
+    @property
+    def is_acyclic(self) -> bool:
+        """
+        Checks that the causal graph has no directed cycle.
+        As an edge case, we also need to check that there are no scalar
+        spiders, otherwise the causal graph has 0 nodes and is thus trivially
+        acyclic.
+
+        Examples
+        --------
+        >>> from discopy.frobenius import Ty, Box, Cap, Cup, Hypergraph as H
+        >>> x, y, z = map(Ty, 'xyz')
+        >>> f = Box('f', x, x)
+        >>> g = Box('f', x @ z, y @ z)
+
+        >>> # Simple case: cup and caps and trace form cycles
+        >>> assert not (
+        ...     Cap(x, x) >> x @ f >> Cup(x, x)
+        ... ).to_hypergraph().is_acyclic
+        >>> assert not g.trace().to_hypergraph().is_acyclic
+
+        >>> # Breaking causality but not acyclicity:
+        >>> f_snake = (
+        ...     Cap(x, x) @ x >> x @ f @ x >> x @ Cup(x, x)
+        ... ).to_hypergraph()
+        >>> assert not f_snake.is_causal and f_snake.is_acyclic
+
+        >>> # Edge case: cyclic hypergraph without boxes
+        >>> assert not (Cap(x, x) >> Cup(x, x)).to_hypergraph().is_acyclic
+        """
+        return not self.scalar_spiders\
+            and is_directed_acyclic_graph(self.causal_graph())
+
+    @property
+    def is_topologically_ordered(self) -> bool:
+        """
+        Checks that causal wires point forward in the current port order.
+        """
+        return all(all(
+            u < v for u in input_wires for v in output_wires)
+            for input_wires, output_wires in self.spider_wires)
+
+    def causal_graph(self) -> Graph:
+        """
+        Directed graph on ports induced by spiders and boxes.
+        """
+        graph = Graph()
+        graph.add_nodes_from(range(len(self.ports)))
+        for input_wires, output_wires in self.spider_wires:
+            graph.add_edges_from(
+                (source, target)
+                for source in input_wires for target in output_wires)
+        port = len(self.dom)
+        for box in self.boxes:
+            dom_ports = range(port, port + len(box.dom))
+            cod_ports = range(
+                port + len(box.dom),
+                port + len(box.dom @ box.cod)
+            )
+            graph.add_edges_from(
+                (source, target)
+                for source in dom_ports for target in cod_ports)
+            port += len(box.dom @ box.cod)
+        return graph
+
+    def topological_order(self) -> Hypergraph:
+        """
+        Reorder boxes so that causal wires point forward in ``flat_wires``.
+        """
+        graph = Graph()
+        graph.add_nodes_from(range(len(self.boxes)))
+        for input_wires, output_wires in self.spider_wires:
+            if len(input_wires) != 1:
+                continue
+            input_port, = input_wires
+            input_node = self.ports[input_port]
+            input_box = getattr(input_node, "depth", None)\
+                if input_node.kind == "cod" else None
+            for output_port in output_wires:
+                output_node = self.ports[output_port]
+                output_box = getattr(output_node, "depth", None)\
+                    if output_node.kind == "dom" else None
+                if input_box is not None and output_box is not None\
+                        and input_box != output_box:
+                    graph.add_edge(input_box, output_box)
+        order = tuple(topological_sort(graph))
+        if order == tuple(range(len(self.boxes))):
+            return self
+        boxes = tuple(self.boxes[i] for i in order)
+        box_wires = tuple(self.box_wires[i] for i in order)
+        offsets = tuple(self.offsets[i] for i in order)
+        return type(self)(
+            self.dom, self.cod, boxes, (self.dom_wires, box_wires,
+                                        self.cod_wires),
+            self.spider_types, offsets)
 
     def make_bijective(self) -> Hypergraph:
         """
@@ -734,7 +844,11 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             boxes = boxes[:depth] + [self.category.ar.spider_factory(
                 len(input_wires), len(output_wires), typ)] + boxes[depth:]
             offsets = self.offsets[:depth] + (None, ) + self.offsets[depth:]
-            for j, port in enumerate(input_wires.union(output_wires)):
+            port_key = lambda port: (
+                getattr(self.ports[port], "i", port), port)
+            ports = tuple(sorted(input_wires, key=port_key))\
+                + tuple(sorted(output_wires, key=port_key))
+            for j, port in enumerate(ports):
                 f_wires[port] = len(spider_types) + j
             i = len(self.dom) + len(
                 sum([sum(ports, ()) for ports in self.box_wires[:depth]], ()))
@@ -747,6 +861,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             return type(self)(
                 self.dom, self.cod, tuple(boxes),
                 wires, spider_types, offsets).make_bijective()
+        assert self.is_bijective
         return self
 
     def make_monogamous(self) -> Hypergraph:
@@ -800,6 +915,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                     return type(self)(
                         self.dom, self.cod, boxes, wires, spider_types, offsets
                     ).make_monogamous()
+        assert self.is_monogamous
         return self
 
     def make_left_monogamous(self) -> Hypergraph:
@@ -826,7 +942,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             for j, port in enumerate(input_wires):
                 fwires[port] = self.n_spiders + j
             i = len(self.dom) + len(
-                sum([sum(fwires, []) for wires in self.box_wires[:depth]], []))
+                sum([sum(wires, ()) for wires in self.box_wires[:depth]], ()))
             fwires = fwires[:i] + list(range(
                 self.n_spiders, self.n_spiders + len(input_wires))
             ) + [spider] + fwires[i:]
@@ -835,6 +951,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             return type(self)(
                 self.dom, self.cod, boxes, wires, spider_types, offsets
             ).make_left_monogamous()
+        assert self.is_left_monogamous
         return self
 
     def make_causal(self) -> Hypergraph:
@@ -857,18 +974,25 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             return self.make_left_monogamous().make_causal()
         for input_spider, (typ, (input_wires, output_wires)) in enumerate(
                 zip(self.spider_types, self.spider_wires)):
-            if not input_wires:
-                assert not output_wires
-                dom, cod, boxes = self.dom @ typ, self.cod @ typ, self.boxes
-                dom_wires = self.dom_wires + (input_spider, )
-                cod_wires = self.cod_wires + (input_spider, )
-                wires = (dom_wires, self.box_wires, cod_wires)
-                arg = type(self)(
-                    dom, cod, boxes, wires, self.spider_types, self.offsets)
-                return arg.make_causal().explicit_trace()
+            if input_wires:
+                continue
+            assert not output_wires
+            dom, cod, boxes = self.dom @ typ, self.cod @ typ, self.boxes
+            dom_wires = self.dom_wires + (input_spider, )
+            cod_wires = self.cod_wires + (input_spider, )
+            wires = (dom_wires, self.box_wires, cod_wires)
+            arg = type(self)(
+                dom, cod, boxes, wires, self.spider_types, self.offsets)
+            return arg.make_causal().explicit_trace()
+        if self.is_causal:
+            return self
+        causal_graph = self.causal_graph()
+        for input_spider, (typ, (input_wires, output_wires)) in enumerate(
+                zip(self.spider_types, self.spider_wires)):
             input_wire, = input_wires
             for output_wire in output_wires:
-                if input_wire < output_wire:
+                if input_wire < output_wire and\
+                        not has_path(causal_graph, output_wire, input_wire):
                     continue
                 dom, cod = self.dom @ typ, self.cod @ typ
                 spider_types = self.spider_types + (typ, )
@@ -881,6 +1005,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
                 arg = type(self)(
                     dom, cod, self.boxes, wires, spider_types, self.offsets)
                 return arg.make_causal().explicit_trace()
+        assert self.is_causal
         return self
 
     @classmethod
@@ -960,7 +1085,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
         >>> print(x @ H.swap(x, x) >> v[::-1] @ x)
         x @ Swap(x, x) >> v[::-1] @ x
         """
-        if not self.is_causal or not self.is_monogamous:
+        if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
             if make_causal_first:
                 return self.make_causal().make_bijective().to_diagram()
             else:
