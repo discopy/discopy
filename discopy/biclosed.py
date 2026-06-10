@@ -21,7 +21,6 @@ Summary
     Coeval
     Curry
     Sum
-    Category
     Functor
 
 Axioms
@@ -57,7 +56,7 @@ from __future__ import annotations
 
 from discopy import cat, monoidal
 from discopy.drawing import Drawing
-from discopy.cat import Category, factory
+from discopy.cat import factory
 from discopy.utils import (
     factory_name,
     from_tree,
@@ -361,45 +360,34 @@ Diagram.sum_factory = Sum
 Id = Diagram.id
 
 
-class Category(monoidal.Category):
-    """
-    A biclosed category is a monoidal category with methods :code:`exp`
-    (:code:`over` and / or :code:`under`), :code:`ev` and :code:`curry`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(monoidal.Functor):
     """
     A biclosed functor is a monoidal functor
     that preserves evaluation and currying.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls) and hasattr(self.cod.ar, attr):
-                method = getattr(self.cod.ar, attr)
+            if isinstance(other, cls) and hasattr(self.cod, attr):
+                method = getattr(self.cod, attr)
                 return method(self(other.base), self(other.exponent))
-        if isinstance(other, Curry) and hasattr(self.cod.ar, "curry"):
-            return self.cod.ar.curry(
+        if isinstance(other, Curry) and hasattr(self.cod, "curry"):
+            return self.cod.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
-        if isinstance(other, (Eval, Coeval)) and hasattr(self.cod.ar, "ev"):
+        if isinstance(other, (Eval, Coeval)) and hasattr(self.cod, "ev"):
             base, exponent, left = other.x.base, other.x.exponent, other.left
-            result = self.cod.ar.ev(self(base), self(exponent), left)
+            result = self.cod.ev(self(base), self(exponent), left)
             return result.dagger() if isinstance(other, Coeval) else result
-        if self.cod.ar is Drawing:
+        if self.cod is Drawing:
             if isinstance(other, Ty) and other.inside == (other, ):
-                return self.ob[other]  # Avoid infinite recursion when drawing.
+                return self.ob[other]
         return super().__call__(other)
 
 

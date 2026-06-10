@@ -700,7 +700,7 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
-class Functor(closed.Functor):
+class Functor(biclosed.Functor):
     """
     A rigid functor is a biclosed functor that preserves cups and caps.
 
