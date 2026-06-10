@@ -826,7 +826,7 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
             for j, port in enumerate(input_wires):
                 fwires[port] = self.n_spiders + j
             i = len(self.dom) + len(
-                sum([sum(fwires, []) for wires in self.box_wires[:depth]], []))
+                sum([sum(map(list, wires), []) for wires in self.box_wires[:depth]], []))
             fwires = fwires[:i] + list(range(
                 self.n_spiders, self.n_spiders + len(input_wires))
             ) + [spider] + fwires[i:]

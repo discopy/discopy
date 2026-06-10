@@ -66,7 +66,7 @@ class Ty(biclosed.Ty):
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
     >>> t.to_diagram().draw(
     ...     path='docs/_static/closed/diagram.png',
-    ...     aspect="auto", figsize=(8, 8))
+    ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
     .. image:: /_static/closed/diagram.png
         :align: center
@@ -207,8 +207,8 @@ class Abstraction(TermBase):
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.to_diagram(category)
         p = body.permutation(
-            [j for j in range(n) if j != i] + [i], body.dom).dagger()
-        return (p >> body).curry(left=True)
+            [i] + [j for j in range(n) if j != i], body.dom)
+        return (p >> body).curry()
 
 
 @dataclass
