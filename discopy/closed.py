@@ -49,6 +49,7 @@ from typing import Dict, Callable
 from inspect import signature
 
 from discopy import cat, biclosed, markov
+from discopy.abc import ClosedCategory
 from discopy.cat import factory
 from discopy.utils import assert_isinstance
 
