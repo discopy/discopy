@@ -110,7 +110,6 @@ class Ty(Ob):
     """
     ob_factory = cat.Ob
 
-
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
             state["inside"] = state['_objects']
