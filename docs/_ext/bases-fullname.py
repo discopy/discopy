@@ -5,12 +5,11 @@ Add an attribute `__ambiguous_inheritance__: bool | list[type]` to your class.
 """
 
 def process_bases(app, name, obj, options, bases):
-    ambiguity = getattr(obj, "__ambiguous_inheritance__", False)
-    if isinstance(ambiguity, bool):
-        ambiguity = bases if ambiguity else ()
-    for i, base in enumerate(bases):
-        if base in ambiguity:
-            bases[i] = ":class:`{}.{}`".format(base.__module__, base.__name__)
+    if isinstance(obj, type):
+        ambiguity = set(base for base in obj.__bases__ if base.__module__ is not obj.__module__)
+        for i, base in enumerate(bases):
+            if base in ambiguity:
+                bases[i] = ":class:`{}.{}`".format(base.__module__, base.__name__)
 
 
 def setup(app):

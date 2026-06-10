@@ -176,7 +176,6 @@ class Box(monoidal.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (monoidal.Box, )
 
 
 class Trace(Box, monoidal.Bubble):

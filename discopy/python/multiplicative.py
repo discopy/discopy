@@ -71,7 +71,6 @@ class Function(function.Function):
             fix
             trace
     """
-    __ambiguous_inheritance__ = True
 
     ty_factory = Ty
 

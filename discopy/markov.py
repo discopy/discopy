@@ -165,7 +165,6 @@ class Box(symmetric.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (symmetric.Box, )
 
 
 class Swap(symmetric.Swap, Box):
@@ -176,7 +175,6 @@ class Swap(symmetric.Swap, Box):
         left (monoidal.Ty) : The type on the top left and bottom right.
         right (monoidal.Ty) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (symmetric.Swap, )
 
 
 class Trace(symmetric.Trace, Box):
@@ -191,7 +189,6 @@ class Trace(symmetric.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    __ambiguous_inheritance__ = (symmetric.Trace, )
 
 
 class Copy(Box):
@@ -266,7 +263,6 @@ class Sum(symmetric.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (symmetric.Sum, )
 
 
 class Category(symmetric.Category):

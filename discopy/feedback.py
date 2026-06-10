@@ -382,7 +382,6 @@ class Box(markov.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
         _time_step (int) : The number of times the box has been delayed.
     """
-    __ambiguous_inheritance__ = (markov.Box, )
 
     _time_step = 0
     time_step = property(lambda self: self._time_step)
