@@ -266,6 +266,24 @@ class Arrow(Composable[Ob]):
     def __len__(self):
         return len(self.inside)
 
+    @property
+    def size(self):
+        """
+        The number of boxes in an arrow, counting boxes inside bubbles.
+
+        Example
+        -------
+        >>> x, y, z = map(Ob, "xyz")
+        >>> f, g = Box('f', x, y), Box('g', y, z)
+        >>> assert Id(x).size == 0 and f.size == 1
+        >>> assert (f >> g).size == 2
+        >>> assert (f >> g).bubble().size == 3
+        """
+        return sum(
+            box.size
+            for layer in self.inside
+            for box in getattr(layer, "boxes", (layer, )))
+
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
             return f"{factory_name(type(self))}.id({repr(self.dom)})"
@@ -541,6 +559,11 @@ class Box(Arrow):
     def __hash__(self):
         return hash(Arrow.__repr__(self))
 
+    @property
+    def size(self):
+        """ The number of boxes in a box. """
+        return 1
+
     def __eq__(self, other):
         if isinstance(other, Box):
             return type(self) is type(other)\
@@ -741,6 +764,11 @@ class Bubble(Box):
     @property
     def free_symbols(self):
         return super().free_symbols.union(*[f.free_symbols for f in self.args])
+
+    @property
+    def size(self):
+        """ The number of boxes in a bubble, counting its arguments. """
+        return super().size + sum(arg.size for arg in self.args)
 
     def to_tree(self):
         return {

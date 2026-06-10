@@ -66,6 +66,20 @@ def test_Hypergraph_make_causal_does_not_assume_topological_order():
 
     assert h.is_causal
 
+
+def test_Hypergraph_simplify_bubble_size():
+    x = Ty('x')
+    f = Box('f', Ty(), x)
+    g, h = Box('g', x, x), Box('h', x, Ty())
+    diagram = f >> (g >> h).bubble()
+    hypergraph = diagram.to_hypergraph()
+    interchanged = hypergraph.interchange(0, 1)
+
+    assert len(diagram) == 2 and diagram.size == 4
+    assert interchanged.to_diagram().size > diagram.size
+    assert interchanged.simplify() == hypergraph
+
+
 def test_Hypergraph_rotate():
     assert H.id() == \
            H.id().rotate(left=False).rotate(left=True)

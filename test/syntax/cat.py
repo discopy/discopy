@@ -66,6 +66,21 @@ def test_Arrow_len():
     assert len(Arrow((), Ob('x'), Ob('x'))) == 0
 
 
+def test_Arrow_size():
+    x, y, z = map(Ob, "xyz")
+    f, g = Box('f', x, y), Box('g', y, z)
+    assert Id(x).size == 0
+    assert f.size == 1
+    assert (f >> g).size == 2
+    assert (f >> g).bubble().size == 3
+
+    from discopy.monoidal import Ty, Box as MonoidalBox
+    a, b, c, d = map(Ty, "abcd")
+    diagram = (
+        MonoidalBox('f', a, b) @ MonoidalBox('g', c, d)).foliation()
+    assert len(diagram) == 1 and diagram.size == 2
+
+
 def test_Arrow_getitem():
     f, g = Box('f', Ob('x'), Ob('y')), Box('g', Ob('y'), Ob('z'))
     arrow = f >> g >> g.dagger() >> f.dagger()\
