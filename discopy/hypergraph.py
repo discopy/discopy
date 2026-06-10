@@ -716,8 +716,27 @@ class Hypergraph(Composable, Whiskerable, NamedGeneric['category', 'functor']):
     @property
     def is_acyclic(self) -> bool:
         """
-        Checks that the causal graph has no directed cycle and no closed
-        scalar spider.
+        Checks that the causal graph has no directed cycle.
+        As an edge case, we also need to check that there are no scalar
+        spiders when the diagram has no boxes, otherwise 
+
+        Examples
+        --------
+        >>> from discopy.frobenius import Ty, Box, Cap, Cup, Hypergraph as H
+        >>> x, y, z = map(Ty, 'xyz')
+        >>> f = Box('f', x, x)
+        >>> g = Box('f', x @ z, y @ z)
+
+        >>> # Simple case: cup and caps and trace form cycles
+        >>> assert not (Cap(x, x) >> x @ f >> Cup(x, x)).to_hypergraph().is_acyclic
+        >>> assert not g.trace().to_hypergraph().is_acyclic
+
+        >>> # Breaking causality but not acyclicity:
+        >>> f_snake = (Cap(x, x) @ x >> x @ f @ x >> x @ Cup(x, x)).to_hypergraph()
+        >>> assert not f_snake.is_causal and f_snake.is_acyclic
+
+        >>> # Edge case: cyclic hypergraph without boxes
+        >>> assert not (Cap(x, x) >> Cup(x, x)).to_hypergraph().is_acyclic
         """
         return not self.scalar_spiders\
             and is_directed_acyclic_graph(self.causal_graph())
