@@ -293,7 +293,7 @@ def test_Functor_init():
 def test_Functor_repr():
     assert repr(Functor({Ty('x'): Ty('y')}, {})) ==\
         "monoidal.Functor("\
-        "ob={monoidal.Ty(cat.Ob('x')): monoidal.Ty(cat.Ob('y'))}, ar={})"
+        "ob_map={monoidal.Ty(cat.Ob('x')): monoidal.Ty(cat.Ob('y'))}, ar_map={})"
 
 
 def test_Functor_call():

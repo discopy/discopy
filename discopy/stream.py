@@ -83,7 +83,7 @@ category of streams of python types and probabilistic functions.
 
 >>> from random import choice, seed; seed(420)
 >>> rand = Box('rand', Ty(), X)
->>> F.ar[rand] = lambda: choice([-1, +1])
+>>> F.ar_map[rand] = lambda: choice([-1, +1])
 
 >>> @Diagram.feedback
 ... @Diagram.from_callable(X.d, X @ X)

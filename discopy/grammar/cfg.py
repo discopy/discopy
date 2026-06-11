@@ -226,9 +226,9 @@ class Algebra(Functor):
 
     def __call__(self, other):
         if isinstance(other, Id):
-            return self.cod.id(self.ob[other.dom])
+            return self.cod.id(self.ob_map[other.dom])
         if isinstance(other, Rule):
-            return self.ar[other]
+            return self.ar_map[other]
         if isinstance(other, Tree):
             return self(other.root)(*map(self, other.branches))
         raise TypeError

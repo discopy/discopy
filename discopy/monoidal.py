@@ -1116,11 +1116,11 @@ class Functor(cat.Functor):
             result = cat.Functor.__call__(self, other.factory(1))
             return sum(other.n * [result], self.cod.ty_factory())
         if isinstance(other, Dim):
-            return sum([self.ob[x] for x in other], self.cod.ty_factory())
+            return sum([self.ob_map[x] for x in other], self.cod.ty_factory())
         if isinstance(other, Ty):
             return sum(map(self, other.inside), self.cod.ty_factory())
         if isinstance(other, cat.Ob):
-            result = self.ob[self.dom.ty_factory(other)]
+            result = self.ob_map[self.dom.ty_factory(other)]
             cod_type = get_origin(self.cod.ty_factory)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
