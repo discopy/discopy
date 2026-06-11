@@ -122,7 +122,8 @@ class TermBase:
     def freevars(self) -> list[Variable]: ...
 
 
-type Term = Constant | Variable | Application | Abstraction
+from typing import Union
+Term = Union["Constant", "Variable", "Application", "Abstraction"]
 
 
 @dataclass(frozen=True)
