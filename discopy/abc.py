@@ -102,7 +102,7 @@ class MonoidalCategory(Category[T]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
     both its objects and its arrows.
-    
+
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
     @classmethod
@@ -354,7 +354,7 @@ class HypergraphCategory(CompactCategory[T], MarkovCategory[T]):
     """
     A hypergraph category is a symmetric category with a supply of spiders,
     i.e. special commutative Frobenius algebras on each objects.
-    
+
     This makes it both a :class:`CompactCategory` and a :class:`MarkovCategory`
     """
     @classmethod
