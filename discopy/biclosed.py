@@ -388,7 +388,7 @@ class Functor(monoidal.Functor):
         if self.cod is Drawing:
             if isinstance(other, Ty) and other.inside == (other, ):
                 return self.ob[other]
-        return super().__call__(other)
+        return monoidal.Functor.__call__(self, other)
 
 
 def to_rigid(self):
