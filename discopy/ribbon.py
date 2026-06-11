@@ -16,7 +16,6 @@ Summary
     Cup
     Cap
     Braid
-    Category
     Functor
 
 Axioms
@@ -58,12 +57,13 @@ parallel wires coincide and the twist is the identity.
 """
 
 from discopy import rigid, pivotal, balanced
+from discopy.abc import RibbonCategory
 from discopy.cat import factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
 
 
 @factory
-class Diagram(pivotal.Diagram, balanced.Diagram):
+class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
     """
     A ribbon diagram is a pivotal diagram and a balanced diagram.
 
@@ -206,28 +206,17 @@ class Sum(rigid.Sum, Box):
     """
 
 
-class Category(pivotal.Category, balanced.Category):
-    """
-    A ribbon category is both a pivotal category and a balanced category.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(pivotal.Functor, balanced.Functor):
     """
     A ribbon functor is both a pivotal functor and a balanced functor.
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :
-            Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from atomic :class:`pivotal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Braid):

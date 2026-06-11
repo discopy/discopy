@@ -20,7 +20,6 @@ Summary
     Diagram
     Box
     Trace
-    Category
     Functor
 
 Axioms
@@ -128,13 +127,14 @@ Dinaturality
 """
 
 from discopy import monoidal
+from discopy.abc import TracedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
 @factory
-class Diagram(monoidal.Diagram):
+class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.
 
@@ -222,27 +222,16 @@ class Trace(Box, monoidal.Bubble):
         return self.arg.dagger().trace(left=self.left)
 
 
-class Category(monoidal.Category):
-    """
-    A traced category is a monoidal category with a method :code:`trace`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(monoidal.Functor):
     """
     A traced functor is a monoidal functor that preserves traces.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
 
     Example
     -------
@@ -256,7 +245,7 @@ class Functor(monoidal.Functor):
     >>> F = Functor(
     ...     ob={x: (float, )},
     ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
-    ...     cod=Category(python.Ty, python.Function))
+    ...     cod=python.Function)
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()
 
@@ -265,17 +254,17 @@ class Functor(monoidal.Functor):
 
     .. image:: /_static/traced/golden.png
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Trace):
             n = len(self(other.arg.dom)) - len(self(other.dom))
-            return self.cod.ar.trace(self(other.arg), n, left=other.left)
+            return self.cod.trace(self(other.arg), n, left=other.left)
         return super().__call__(other)
 
 
 class Hypergraph(monoidal.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

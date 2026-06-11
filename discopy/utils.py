@@ -6,18 +6,15 @@ from __future__ import annotations
 
 import json
 import os
-from abc import ABC, abstractmethod
 from functools import wraps
 from typing import (
     Callable,
-    Generic,
     Mapping,
     Iterable,
     TypeVar,
     Any,
     Collection,
     Type,
-    Optional,
     NamedTuple,
     TYPE_CHECKING,
 )
@@ -30,6 +27,7 @@ from discopy.config import DRAWING_DEFAULT
 
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram
+    from discopy.abc import Category
 
 KT = TypeVar('KT')
 VT = TypeVar('VT')
@@ -114,92 +112,6 @@ class MappingOrCallable(Mapping[KT, VT]):
 def get_origin(typ):
     """ Get origin of a parameterized generic type. """
     return getattr(typ, "__origin__", typ)
-
-
-class NamedGeneric(Generic[TypeVar('T')]):
-    """
-    A ``NamedGeneric`` is a ``Generic`` where the type parameter has a name.
-
-    Parameters:
-        attr : The name of the type parameter.
-
-    Note
-    ----
-    In a standard ``Generic`` class, the type parameter disappears when the
-    member of the class is instantiated, e.g.
-
-    >>> assert list[int]([1, 2, 3])\\
-    ...     == list[float]([1, 2, 3])\\
-    ...     == [1, 2, 3]
-
-    In a ``NamedGeneric``, the type parameter is attached to the members of the
-    class so that we have access to it.
-
-    Example
-    -------
-
-    >>> from dataclasses import dataclass
-    >>> @dataclass
-    ... class L(NamedGeneric["dtype"]):
-    ...     inside: list
-    >>> assert L[int]([1, 2, 3]).dtype == int
-    >>> assert L[int]([1, 2, 3]) != L[float]([1, 2, 3])
-    """
-    _cache = dict()
-
-    def __class_getitem__(_, attributes):
-        if not isinstance(attributes, tuple):
-            attributes = (attributes,)
-
-        G = Generic.__class_getitem__(tuple(map(TypeVar, attributes)))
-
-        class Result(G):
-            def __class_getitem__(cls, values):
-                if hasattr(cls, "__is_named_generic__"):
-                    cls = cls.__bases__[0]
-                values = values if isinstance(values, tuple) else (values,)
-                cls_values = tuple(
-                    getattr(cls, attr, None) for attr in attributes)
-                if cls not in NamedGeneric._cache:
-                    NamedGeneric._cache[cls] = {cls_values: cls}
-                if values not in NamedGeneric._cache[cls]:
-                    origin = get_origin(cls)
-
-                    class C(origin):
-                        __is_named_generic__ = True
-
-                        # We need this to fix pickling of nested classes
-                        # https://stackoverflow.com/questions/1947904/how-can-i-pickle-a-dynamically-created-nested-class-in-python
-                        def __reduce__(self):
-                            func, args, data = super().__reduce__()
-                            # Check if class name is of the form:
-                            # *ClassName*[*type*]
-                            if '[' in args[0].__name__:
-                                args = (origin, ) + args[1:]
-                                data |= {"__class_getitem__values__": values}
-                            return func, args, data
-
-                    C.__module__ = origin.__module__
-                    names = [getattr(v, "__name__", str(v)) for v in values]
-                    C.__name__ = C.__qualname__ = origin.__name__\
-                        + f"[{', '.join(names)}]"
-                    C.__origin__ = cls
-                    for attr, value in zip(attributes, values):
-                        setattr(C, attr, value)
-                    NamedGeneric._cache[cls][values] = C
-                return NamedGeneric._cache[cls][values]
-
-            __name__ = __qualname__\
-                = f"NamedGeneric[{', '.join(map(repr, attributes))}]"
-
-        for attr in attributes:
-            setattr(Result, attr, getattr(Result, attr, None))
-        return Result
-
-    def __setstate__(self, state):
-        if "__class_getitem__values__" in state:
-            new_cls = self.__class__[state["__class_getitem__values__"]]
-            self.__class__ = new_cls
 
 
 def product(xs: list, unit=1):
@@ -551,63 +463,7 @@ def untuplify(stuff: tuple) -> any:
     return stuff[0] if len(stuff) == 1 else stuff
 
 
-T = TypeVar('T')
-
-
-class Composable(ABC, Generic[T]):
-    """
-    Abstract class implementing the syntactic sugar :code:`>>` and :code:`<<`
-    for forward and backward composition with some method :code:`then`.
-
-    Example
-    -------
-    >>> class List(list, Composable):
-    ...     def then(self, other):
-    ...         return self + other
-    >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
-    >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
-    """
-    factory: Type[Composable]
-    sum_factory: Type[Composable]
-    ty_factory: Type[T]
-    dom: T
-    cod: T
-
-    @abstractmethod
-    def then(self, other: Optional[Composable[T]], *others: Composable[T]
-             ) -> Composable[T]:
-        """
-        Sequential composition, to be instantiated.
-
-        Parameters:
-            other : The other composable object to compose sequentially.
-        """
-
-    def is_composable(self, other: Composable) -> bool:
-        """
-        Whether two objects are composable, i.e. the codomain of the first is
-        the domain of the second.
-
-        Parameters:
-            other : The other composable object.
-        """
-        return self.cod == other.dom
-
-    def is_parallel(self, other: Composable) -> bool:
-        """
-        Whether two composable objects are parallel, i.e. they have the same
-        domain and codomain.
-
-        Parameters:
-            other : The other composable object.
-        """
-        return (self.dom, self.cod) == (other.dom, other.cod)
-
-    __rshift__ = __llshift__ = lambda self, other: self.then(other)
-    __lshift__ = __lrshift__ = lambda self, other: other.then(self)
-
-
-def factory(cls: Type[Composable]) -> Type[Composable]:
+def factory(cls: Type[Category]) -> Type[Category]:
     """
     Allows the identity and composition of an :class:`Arrow` subclass to remain
     within the subclass.
@@ -649,53 +505,11 @@ def factory(cls: Type[Composable]) -> Type[Composable]:
     return cls
 
 
-class Whiskerable(ABC):
-    """
-    Abstract class implementing the syntactic sugar :code:`@` for whiskering
-    and parallel composition with some method :code:`tensor`.
-    """
-    @classmethod
-    @abstractmethod
-    def id(cls, dom: any) -> Whiskerable:
-        """
-        Identity on a given domain, to be instantiated.
-
-        Parameters:
-            dom : The object on which to take the identity.
-        """
-
-    @abstractmethod
-    def tensor(self, other: Whiskerable) -> Whiskerable:
-        """
-        Parallel composition, to be instantiated.
-
-        Parameters:
-            other : The other diagram to compose in parallel.
-        """
-
-    @classmethod
-    def whisker(cls, other: any) -> Whiskerable:
-        """
-        Apply :meth:`Whiskerable.id` if :code:`other` is not tensorable else do
-        nothing.
-
-        Parameters:
-            other : The whiskering object.
-        """
-        return other if isinstance(other, Whiskerable) else cls.id(other)
-
-    def __matmul__(self, other):
-        return self.tensor(self.whisker(other))
-
-    def __rmatmul__(self, other):
-        return self.whisker(other).tensor(self)
-
-
 class AxiomError(Exception):
     """ The gods of category theory are not happy. """
 
 
-def assert_iscomposable(left: Composable, right: Composable):
+def assert_iscomposable(left: Category, right: Category):
     """
     Raise :class:`AxiomError` if two objects are not composable,
     i.e. the domain of ``other`` is not the codomain of ``self``.
@@ -709,7 +523,7 @@ def assert_iscomposable(left: Composable, right: Composable):
             left, right, left.cod, right.dom))
 
 
-def assert_isparallel(left: Composable, right: Composable):
+def assert_isparallel(left: Category, right: Category):
     """
     Raise :class:`AxiomError` if two composable objects do not have the
     same domain and codomain.

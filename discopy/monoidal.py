@@ -19,9 +19,7 @@ Summary
     Box
     Sum
     Bubble
-    Category
     Functor
-    Whiskerable
 
 Axioms
 ------
@@ -59,6 +57,7 @@ from dataclasses import dataclass
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
+from discopy.abc import MonoidalCategory
 from discopy.cat import Ob
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
@@ -68,7 +67,6 @@ from discopy.utils import (
     from_tree,
     assert_isinstance,
     assert_iscomposable,
-    Whiskerable,
     AxiomError,
     get_origin,
 )
@@ -491,7 +489,7 @@ class Layer(cat.Box):
 
 
 @factory
-class Diagram(cat.Arrow, Whiskerable):
+class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
     types :code:`dom` and :code:`cod` as domain and codomain.
@@ -687,8 +685,8 @@ class Diagram(cat.Arrow, Whiskerable):
     def to_drawing(self, functor_factory=None) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
         ob = ar = lambda x: x.to_drawing()
-        dom = Category(self.ty_factory, self.factory)
-        cod = Category(Ty, Drawing)
+        dom = self.factory
+        cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
     def to_staircases(self):
@@ -705,7 +703,7 @@ class Diagram(cat.Arrow, Whiskerable):
         >>> print(diagram.foliation().to_staircases())
         f1 @ x >> x @ f0
         """
-        return Functor.id(Category(self.ty_factory, self.factory))(self)
+        return Functor.id(self.factory)(self)
 
     def foliation(self):
         """
@@ -1078,25 +1076,14 @@ class Bubble(cat.Bubble, Box):
         return getattr(Drawing, method)(*args, **kwargs)
 
 
-class Category(cat.Category):
-    """
-    A monoidal category is a category with a method :code:`tensor`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-
-    ob, ar = Ty, Diagram
-
-
 class Functor(cat.Functor):
     """
     A monoidal functor is a functor that preserves the tensor product.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Important
@@ -1122,29 +1109,30 @@ class Functor(cat.Functor):
         :align: center
     """
 
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, PRO):
             result = cat.Functor.__call__(self, other.factory(1))
-            return sum(other.n * [result], self.cod.ob())
+            return sum(other.n * [result], self.cod.ty_factory())
         if isinstance(other, Dim):
-            return sum([self.ob[x] for x in other], self.cod.ob())
+            return sum([self.ob[x] for x in other], self.cod.ty_factory())
         if isinstance(other, Ty):
-            return sum(map(self, other.inside), self.cod.ob())
+            return sum(map(self, other.inside), self.cod.ty_factory())
         if isinstance(other, cat.Ob):
-            result = self.ob[self.dom.ob(other)]
-            cod_type = get_origin(self.cod.ob)
+            result = self.ob[self.dom.ty_factory(other)]
+            cod_type = get_origin(self.cod.ty_factory)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
-                (result, ) if cod_type == tuple else self.cod.ob(result)
+                (result, ) if cod_type == tuple\
+                else self.cod.ty_factory(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
             for box_or_typ in tail:
                 result = result @ self(box_or_typ)
             return result
-        if isinstance(other, Bubble) and self.cod.ar is Drawing:
+        if isinstance(other, Bubble) and self.cod is Drawing:
             return other.to_drawing()
         return super().__call__(other)
 
@@ -1176,12 +1164,12 @@ class Match:
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
     def to_diagram(self):
         if not self.is_monogamous:
             raise AxiomError(factory_name(
-                self.category.ar) + " does not have copy or discard.")
+                self.category) + " does not have copy or discard.")
         return super().to_diagram()
 
 
@@ -1191,4 +1179,5 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
+Drawing.ty_factory = Ty
 Id = Diagram.id

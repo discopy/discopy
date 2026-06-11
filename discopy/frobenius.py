@@ -25,7 +25,6 @@ Summary
     Swap
     Spider
     Bubble
-    Category
     Functor
 
 Axioms
@@ -66,6 +65,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
+from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import factory_name, assert_isatomic
 
@@ -114,7 +114,7 @@ class Dim(monoidal.Dim, Ty):
 
 
 @factory
-class Diagram(compact.Diagram, markov.Diagram):
+class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
     A frobenius diagram is a compact diagram and a Markov diagram.
 
@@ -168,7 +168,7 @@ class Diagram(compact.Diagram, markov.Diagram):
         F = compact.Functor(
             ob=lambda x: x, ar=lambda f:
                 f.unfuse() if isinstance(f, Spider) else f,
-            dom=Category(), cod=Category())
+            dom=Diagram, cod=Diagram)
         return F(self)
 
 
@@ -287,33 +287,22 @@ class Bubble(monoidal.Bubble, Box):
     """
 
 
-class Category(compact.Category, markov.Category):
-    """
-    A hypergraph category is a compact category with a method :code:`spiders`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-
-    ob, ar = Ty, Diagram
-
-
 class Functor(compact.Functor, markov.Functor):
     """
     A hypergraph functor is a compact functor that preserves spiders.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
 
-    dom = cod = Category()
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Spider):
-            return self.cod.ar.spiders(
+            return self.cod.spiders(
                 len(other.dom), len(other.cod), self(other.typ))
         if isinstance(other, (markov.Copy, markov.Merge)):
             return markov.Functor.__call__(self, other)
@@ -393,7 +382,7 @@ def coherence(cls: type, factory: Callable
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

@@ -18,7 +18,6 @@ Summary
     Box
     Cup
     Cap
-    Category
     Functor
 
 Axioms
@@ -57,6 +56,7 @@ We also have its dagger and its transpose:
 from __future__ import annotations
 
 from discopy import cat, rigid, traced
+from discopy.abc import PivotalCategory
 from discopy.cat import factory
 
 
@@ -97,7 +97,7 @@ class PRO(rigid.PRO, Ty):
 
 
 @factory
-class Diagram(rigid.Diagram, traced.Diagram):
+class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram
     with pivotal types as domain and codomain.
@@ -232,28 +232,17 @@ class Cap(rigid.Cap, Box):
         return self.cup_factory(self.left, self.right)
 
 
-class Category(rigid.Category):
-    """
-    A pivotal category is a rigid category
-    where left and right adjoints coincide.
-
-    Parameters:
-    ob : The type of objects.
-    ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(rigid.Functor):
     """
     A pivotal functor is a rigid functor on a pivotal category.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

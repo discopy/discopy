@@ -12,7 +12,6 @@ We adapted the definition of intensional streams from :cite:t:`DiLavoreEtAl22`.
 
     Ty
     Stream
-    Category
 
 ## Note
 
@@ -27,7 +26,7 @@ Monoidal streams form a feedback category as follows:
 >>> Ff = Stream.sequence("f", X @ M.delay(), Y @ M)
 
 >>> F = feedback.Functor(ob={x: X, y: Y, m: M}, ar={f: Ff},
-...                      cod=feedback.Category(Ty, Stream))
+...                      cod=Stream)
 
 >>> drawing.Equation(fb, F(fb).unroll(2).now, symbol="$\\\\mapsto$").draw(
 ...     path="docs/_static/stream/feedback-to-stream.png")
@@ -69,11 +68,11 @@ category of streams of python types and functions.
 .. image:: /_static/stream/fibonacci-feedback.png
     :align: center
 
->>> cod = stream.Category(python.Ty, python.Function)
+>>> cod = stream.Stream[python.Function]
 >>> F = feedback.Functor(
 ...     ob={X: int},
-...     ar={zero: cod.ar.singleton(python.Function(lambda: 0, (), int)),
-...         one: cod.ar.singleton(python.Function(lambda: 1, (), int)),
+...     ar={zero: cod.singleton(python.Function(lambda: 0, (), int)),
+...         one: cod.singleton(python.Function(lambda: 1, (), int)),
 ...         plus: lambda x, y: x + y}, cod=cod)
 >>> assert F(fib).unroll(9).now()[:10] == (0, 1, 1, 2, 3, 5, 8, 13, 21, 34)
 
@@ -167,8 +166,9 @@ from typing import Callable, Optional
 from dataclasses import dataclass
 
 from discopy import symmetric
+from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.utils import (
-    AxiomError, Composable, Whiskerable, NamedGeneric, get_origin, is_tuple,
+    AxiomError, get_origin, is_tuple,
     assert_isinstance, unbiased, inductive, classproperty, factory_name)
 
 
@@ -296,17 +296,17 @@ class Ty(NamedGeneric['base']):
 
 
 @dataclass
-class Stream(Composable, Whiskerable, NamedGeneric['category']):
+class Stream(MonoidalCategory, NamedGeneric['category']):
     """
     Monoidal streams over an underlying `category`.
 
     Parameters:
-        now (category.ar) : The value of the stream at time step zero.
-        dom (Optional[Ty[category.ob]]) :
+        now (category) : The value of the stream at time step zero.
+        dom (Optional[Ty[category.ty_factory]]) :
             The domain of the stream, constant `now.dom` if `_later is None`.
-        cod (Optional[Ty[category.ob]]) :
+        cod (Optional[Ty[category.ty_factory]]) :
             The codomain of the stream, constant `now.dom` if `_later is None`.
-        mem (Optional[Ty[category.ob]]) :
+        mem (Optional[Ty[category.ty_factory]]) :
             The memory of the stream, the constant empty type by default.
         _later (Optional[Callable[[], Stream[category]]]) :
             A thunk for the tail of the stream, constant by default.
@@ -314,7 +314,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     Example
     -------
     >>> from discopy import python
-    >>> T, S = Ty[python.Ty], Stream[python.Category]
+    >>> T, S = Ty[python.Ty], Stream[python.Function]
     >>> x, y, m = int, bool, str
     >>> now = python.Function(lambda n: (bool(n % 2), str(n)), x, (y, m))
     >>> dom, cod, mem = T(x), T(y), T(m).delay()
@@ -334,10 +334,10 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     >>> assert cod.later.now == later.cod.now
     >>> assert mem.later.now == later.mem.now
     """
-    category = symmetric.Category
-    ty_factory = Ty[category.ob]
+    category = symmetric.Diagram
+    ty_factory = classproperty(lambda cls: Ty[cls.category.ty_factory])
 
-    now: category.ar
+    now: category
     dom: ty_factory = None
     cod: ty_factory = None
     mem: ty_factory = None
@@ -347,7 +347,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     head, tail = Ty.head, Ty.tail
 
     def __init__(
-            self, now: category.ar,
+            self, now: category,
             dom: ty_factory = None,
             cod: ty_factory = None,
             mem: ty_factory = None,
@@ -356,13 +356,13 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             if mem is not None or _later is not None:
                 raise ValueError(
                     "Cannot have mem or _later if dom or cod is None.")
-        dom = Ty[self.category.ob](now.dom) if dom is None else dom
-        cod = Ty[self.category.ob](now.cod) if cod is None else cod
-        mem = Ty[self.category.ob]() if mem is None else mem
+        dom = Ty[self.category.ty_factory](now.dom) if dom is None else dom
+        cod = Ty[self.category.ty_factory](now.cod) if cod is None else cod
+        mem = Ty[self.category.ty_factory]() if mem is None else mem
         for typ in (dom, cod, mem):
             assert_isinstance(typ, Ty)
-        if not isinstance(now, self.category.ar):
-            now = self.category.ar(
+        if not isinstance(now, self.category):
+            now = self.category(
                 now, dom.now + mem.now, cod.now + mem.later.now)
         if now.dom != dom.now + mem.now:
             raise AxiomError(f"{dom.now + mem.now} != {now.dom}")
@@ -387,11 +387,12 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     mem_cod = property(lambda self: self.mem.later.now)
 
     @classmethod
-    def singleton(cls, arg: category.ar) -> Stream:
+    def singleton(cls, arg: category) -> Stream:
         """
         Construct the stream with a given arrow now and the empty stream later.
         """
-        dom, cod = map(Ty[cls.category.ob].singleton, (arg.dom, arg.cod))
+        dom, cod = map(
+            Ty[cls.category.ty_factory].singleton, (arg.dom, arg.cod))
         return cls(arg, dom, cod, _later=lambda: cls.id())
 
     @classmethod
@@ -411,7 +412,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         f1 : x1 @ m0 -> y1 @ m1
         f2 : x2 @ m1 -> y2 @ m2
         """
-        mem = Ty[cls.category.ob]() if mem is None else mem
+        mem = Ty[cls.category.ty_factory]() if mem is None else mem
         now = box_factory(
             f"{name}{n_steps}", dom.now @ mem.now, cod.now @ mem.later.now)
         return cls(now, dom, cod, mem, _later=lambda: cls.sequence(
@@ -421,7 +422,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     def delay(self) -> Stream:
         """ Delay a stream by one time step, shortened to `self.d`. """
         dom, cod, mem = [x.delay() for x in (self.dom, self.cod, self.mem)]
-        now, _later = self.category.ar.id(self.mem.now), lambda: self
+        now, _later = self.category.id(self.mem.now), lambda: self
         return type(self)(now, dom, cod, mem, _later)
 
     d = property(lambda self: self.delay())
@@ -444,10 +445,11 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         """
         later = self.later
         dom, cod = self.dom.unroll(), self.cod.unroll()
-        mem = Ty[self.category.ob](self.mem.now, lambda: self.mem.later.later)
-        now = self.dom.now @ self.category.ar.swap(later.dom.now, self.mem_dom)
+        mem = Ty[self.category.ty_factory](
+            self.mem.now, lambda: self.mem.later.later)
+        now = self.dom.now @ self.category.swap(later.dom.now, self.mem_dom)
         now >>= self.now @ later.dom.now
-        now >>= self.cod.now @ self.category.ar.swap(
+        now >>= self.cod.now @ self.category.swap(
             self.mem_cod, later.dom.now) >> self.cod.now @ later.now
         return type(self)(now, dom, cod, mem, _later=lambda: later.later)
 
@@ -462,9 +464,9 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         >>> print(id_x.now, id_x.later.now, id_x.later.later.now)
         Id(x0) Id(x1) Id(x2)
         """
-        x = Ty[cls.category.ob]() if x is None else x
+        x = Ty[cls.category.ty_factory]() if x is None else x
         assert_isinstance(x, Ty)
-        now, dom, cod = cls.category.ar.id(x.now), x, x
+        now, dom, cod = cls.category.id(x.now), x, x
         _later = None if x.is_constant else lambda: cls.id(x.later)
         return cls(now, dom, cod, _later=_later)
 
@@ -483,7 +485,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         .. image:: /_static/stream/stream-then.png
             :align: center
         """
-        swap = self.category.ar.swap
+        swap = self.category.swap
         now = self.now @ other.mem_dom
         now >>= self.cod.now @ swap(self.mem_cod, other.mem_dom)
         now >>= other.now @ self.mem_cod
@@ -509,7 +511,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
             :align: center
         """
         assert_isinstance(other, Stream)
-        swap = self.category.ar.swap
+        swap = self.category.swap
         now = self.dom.now @ swap(other.dom.now, self.mem_dom) @ other.mem_dom
         now >>= self.now @ other.now
         now >>= self.cod.now @ swap(
@@ -524,7 +526,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> Stream:
         """ Construct a stream of swaps. """
-        now = cls.category.ar.swap(left.now, right.now)
+        now = cls.category.swap(left.now, right.now)
         dom, cod = left @ right, right @ left
         _later = None if left.is_constant and right.is_constant else (
             lambda: cls.swap(left.later, right.later))
@@ -533,7 +535,7 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
     @classmethod
     def copy(cls, dom: Ty, n: int = 2) -> Stream:
         """ Construct a stream of diagonal morphisms. """
-        now, cod = cls.category.ar.copy(dom.now, n), dom ** n
+        now, cod = cls.category.copy(dom.now, n), dom ** n
         _later = None if dom.is_constant else lambda: cls.copy(dom.later, n)
         return cls(now, dom, cod, _later=_later)
 
@@ -576,12 +578,3 @@ class Stream(Composable, Whiskerable, NamedGeneric['category']):
         return type(self)(self.now, dom, cod, mem @ self.mem, _later)
 
     followed_by = id
-
-
-@dataclass
-class Category(symmetric.Category):
-    """ Syntactic sugar for `Category(Ty[category.ob], Stream[category])`. """
-    def __init__(self, ob: type = None, ar: type = None):
-        ar = Stream if ar is None else Stream[symmetric.Category(ob, ar)]
-        ob = Ty if ob is None else Ty[ob]
-        super().__init__(ob, ar)

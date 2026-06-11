@@ -19,14 +19,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 
-from discopy.cat import Composable
+from discopy.abc import MonoidalCategory
 from discopy.utils import (
-    Whiskerable, assert_iscomposable, assert_isinstance,
+    assert_iscomposable, assert_isinstance,
     tuplify, untuplify, classproperty)
 
 
 @dataclass
-class Function(Composable[type], Whiskerable):
+class Function(MonoidalCategory[type]):
     """
     Python function with sequential composition.
 
@@ -46,6 +46,7 @@ class Function(Composable[type], Whiskerable):
     dom: type
     cod: type
 
+    ty_factory = tuple[type, ...]
     type_checking = True
 
     def __init__(self, inside: Callable, dom: type, cod: type):

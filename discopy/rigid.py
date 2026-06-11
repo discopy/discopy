@@ -19,7 +19,6 @@ Summary
     Cup
     Cap
     Sum
-    Category
     Functor
 
 Axioms
@@ -47,6 +46,7 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
+from discopy.abc import RigidCategory
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
@@ -206,7 +206,7 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(biclosed.Diagram):
+class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram
     with :class:`Cup` and :class:`Cap` boxes.
@@ -695,25 +695,14 @@ class Cap(BinaryBoxConstructor, Box):
         raise AxiomError("Rigid caps have no dagger, use pivotal instead.")
 
 
-class Category(biclosed.Category):
-    """
-    A rigid category is a monoidal category
-    with methods :code:`l`, :code:`r`, :code:`cups` and :code:`caps`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(biclosed.Functor):
     """
     A rigid functor is a biclosed functor that preserves cups and caps.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) : Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Example
@@ -736,7 +725,7 @@ class Functor(biclosed.Functor):
     .. image:: /_static/rigid/functor-example.png
         :align: center
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
@@ -744,9 +733,9 @@ class Functor(biclosed.Functor):
         if isinstance(other, Ob):
             return self(other.r).l if other.z < 0 else self(other.l).r
         if isinstance(other, Cup):
-            return self.cod.ar.cups(self(other.dom[:1]), self(other.dom[1:]))
+            return self.cod.cups(self(other.dom[:1]), self(other.dom[1:]))
         if isinstance(other, Cap):
-            return self.cod.ar.caps(self(other.cod[:1]), self(other.cod[1:]))
+            return self.cod.caps(self(other.cod[:1]), self(other.cod[1:]))
         if isinstance(other, Box):
             if not hasattr(other, "z") or not other.z:
                 return super().__call__(other)

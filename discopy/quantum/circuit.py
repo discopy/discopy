@@ -54,7 +54,7 @@ Examples
 >>> ar = {Alice: Ket(0),
 ...       loves: CX << sqrt(2) @ H @ X << Ket(0, 0),
 ...       Bob: Ket(1)}
->>> F = pregroup.Functor(ob, ar, cod=Category(Ty, Circuit))
+>>> F = pregroup.Functor(ob, ar, cod=Circuit)
 >>> assert abs(F(sentence).eval().array) ** 2
 
 >>> from discopy.drawing import Equation
@@ -71,7 +71,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from discopy import messages, tensor, frobenius
-from discopy.cat import factory, Category
+from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
@@ -297,11 +297,11 @@ class Circuit(tensor.Diagram[complex]):
         if contractor is not None:
             array = contractor(*self.to_tn(mixed=mixed)).tensor
             if self.is_mixed or mixed:
-                f = channel.Functor({}, {}, dom=Category(Ty, Circuit))
+                f = channel.Functor({}, {}, dom=Circuit)
                 return channel.Channel(array, f(self.dom), f(self.cod))
             f = tensor.Functor(
                 lambda x: x.inside[0].dim, {},
-                dtype=complex, dom=Category(Ty, Circuit))
+                dtype=complex, dom=Circuit)
             return Tensor[complex](array, f(self.dom), f(self.cod))
 
         from discopy.quantum import channel
@@ -311,11 +311,11 @@ class Circuit(tensor.Diagram[complex]):
                         for circuit in (self, ) + others]
             if mixed or self.is_mixed:
                 return channel.Functor(
-                    {}, {}, dom=Category(Ty, Circuit), dtype=complex)(self)
+                    {}, {}, dom=Circuit, dtype=complex)(self)
             return tensor.Functor(
                 lambda x: x.inside[0].dim,
                 lambda f: f.array,
-                dom=Category(Ty, Circuit),
+                dom=Circuit,
                 dtype=complex)(self)
         circuits = [circuit.to_tk() for circuit in (self, ) + others]
         results, counts = [], circuits[0].get_counts(
@@ -904,7 +904,7 @@ class Swap(tensor.Swap, Box):
 
 class Functor(frobenius.Functor):
     """ :class:`Circuit`-valued functor. """
-    dom = cod = Category(Ty, Circuit)
+    dom = cod = Circuit
 
     def __init__(self, ob, ar, dom=None, cod=None):
         if isinstance(ob, Mapping):

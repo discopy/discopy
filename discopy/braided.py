@@ -15,7 +15,6 @@ Summary
     Box
     Braid
     Sum
-    Category
     Functor
 
 .. admonition:: Functions
@@ -62,13 +61,14 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal
+from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
 
 
 @factory
-class Diagram(monoidal.Diagram):
+class Diagram(monoidal.Diagram, BraidedCategory):
     """
     A braided diagram is a monoidal diagram with :class:`Braid` boxes.
 
@@ -226,33 +226,22 @@ class Sum(monoidal.Sum, Box):
     """
 
 
-class Category(monoidal.Category):
-    """
-    A braided category is a monoidal category with a method :code:`braid`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(monoidal.Functor):
     """
     A braided functor is a monoidal functor that preserves braids.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Braid) and not other.is_dagger:
-            return self.cod.ar.braid(self(other.dom[0]), self(other.dom[1]))
+            return self.cod.braid(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
 

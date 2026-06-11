@@ -16,7 +16,6 @@ Summary
     Box
     Swap
     Copy
-    Category
     Functor
 
 
@@ -78,13 +77,14 @@ in the same diagram they automatically satisfy the :mod:`frobenius` axioms.
 from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
+from discopy.abc import MarkovCategory
 from discopy.cat import factory
-from discopy.monoidal import Ty
+from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
 @factory
-class Diagram(symmetric.Diagram):
+class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
 
@@ -265,27 +265,16 @@ class Sum(symmetric.Sum, Box):
     """
 
 
-class Category(symmetric.Category):
-    """
-    A Markov category is a symmetric category with a method :code:`copy`.
-
-    Parameters:
-        ob : The type of objects.
-        ar : The type of arrows.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(symmetric.Functor):
     """
     A Markov functor is a symmetric functor that preserves copies.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
 
     Example
     -------
@@ -296,7 +285,7 @@ class Functor(symmetric.Functor):
     >>> add = Box('add', x @ x, x)
     >>> from discopy import python
     >>> F = Functor({x: int}, {add: lambda a, b: a + b},
-    ...             cod=Category(python.Ty, python.Function))
+    ...             cod=python.Function)
     >>> copy = Copy(x)
     >>> bialgebra_l = copy @ copy >> Id(x) @ Swap(x, x) @ Id(x) >> add @ add
     >>> bialgebra_r = add >> copy
@@ -308,18 +297,18 @@ class Functor(symmetric.Functor):
 
     .. image:: /_static/markov/bialgebra.png
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Copy):
-            return self.cod.ar.copy(self(other.dom), len(other.cod))
+            return self.cod.copy(self(other.dom), len(other.cod))
         if isinstance(other, Merge):
-            return self.cod.ar.merge(self(other.cod), len(other.dom))
+            return self.cod.merge(self(other.cod), len(other.dom))
         return super().__call__(other)
 
 
 class Hypergraph(hypergraph.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
     def to_diagram(self, make_causal_first=True) -> Diagram:
         return super().to_diagram(

@@ -53,6 +53,6 @@ def test_neural_network():
             bias: lambda: -1, **{
                 weight: lambda x, w=w: x * w
                 for weight, w in zip(weights, range(4))}},
-        cod=Category(tuple[type, ...], Function))
+        cod=Function)
 
     assert F(network)(42, 43) == max(0, sum([42 * 0, 43 * 1, 42 * 2, 43 * 3, -1]))

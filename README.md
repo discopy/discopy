@@ -172,14 +172,13 @@ Applied to pregroup diagrams, DisCoPy implements the
 [Clark, Coecke, Sadrzadeh (2008)](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.363.8703&rep=rep1&type=pdf).
 
 ```python
-from discopy.cat import Category
 from discopy.grammar import pregroup
 from discopy.tensor import Dim, Tensor
 
 F = pregroup.Functor(
     ob={s: 1, n: 2},
     ar={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
-    cod=Category(Dim, Tensor))
+    cod=Tensor)
 
 assert F(sentence)
 ```
@@ -236,7 +235,7 @@ We can use this geometry of interaction to interpret words as processes rather t
 
 ```python
 from discopy.interaction import Ty, Int
-from discopy.compact import Ty as T, Diagram as D, Box, Category
+from discopy.compact import Ty as T, Diagram as D, Box
 
 N, S = T('N'), T('S')
 A, B = Box('A', N, N), Box('B', N, N)
@@ -245,7 +244,7 @@ swaps = D.permutation((2, 1, 0), N @ S @ N)
 G = pregroup.Functor(
     ob={s: Ty[T](S, S), n: Ty[T](N, N)},
     ar={Alice: A, loves: swaps >> L, Bob: B},
-    cod=Int(Category(T, D)))
+    cod=Int(D))
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
 

@@ -15,7 +15,6 @@ Summary
     Box
     Swap
     Sum
-    Category
     Functor
 
 Axioms
@@ -89,13 +88,14 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from discopy import monoidal, balanced, messages
+from discopy.abc import SymmetricCategory
 from discopy.cat import Arrow, factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 
 
 @factory
-class Diagram(balanced.Diagram):
+class Diagram(balanced.Diagram, SymmetricCategory):
     """
     A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
 
@@ -215,9 +215,7 @@ class Diagram(balanced.Diagram):
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
-        category = Category(self.ty_factory, self.factory)
-        functor = self.hypergraph_factory.functor
-        return self.hypergraph_factory[category, functor].from_diagram(self)
+        return self.hypergraph_factory.from_diagram(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -329,38 +327,27 @@ class Sum(balanced.Sum, Box):
     """
 
 
-class Category(balanced.Category):
-    """
-    A symmetric category is a balanced category with a method :code:`swap`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(balanced.Functor):
     """
     A symmetric functor is a monoidal functor that preserves swaps.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, Swap):
-            return self.cod.ar.swap(self(other.dom[0]), self(other.dom[1]))
+            return self.cod.swap(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
 
 
 class Hypergraph(balanced.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

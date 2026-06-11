@@ -28,7 +28,6 @@ Summary
     FollowedBy
     Head
     Tail
-    Category
     Functor
 
 Axioms
@@ -65,10 +64,10 @@ Strength
 This can only be checked up to a functor into streams.
 
 >>> from discopy import stream
->>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Category())
+>>> F0 = Functor(lambda x: stream.Ty.sequence(x.name), cod=stream.Stream)
 >>> F = Functor(
 ...     F0, lambda f: stream.Stream.sequence(f.name, F0(f.dom), F0(f.cod)),
-...     cod=stream.Category())
+...     cod=stream.Stream)
 >>> all_eq = lambda xs: len(set(xs)) == 1
 >>> eq_up_to_F = lambda *fs, n=2: all_eq(F(f).unroll(2).now for f in fs)
 
@@ -116,12 +115,12 @@ Every traced symmetric category is a feedback category with a trivial delay:
 ...     self.trace(len(mem))
 
 >>> F0 = Functor(
-...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Category)
+...     ob=lambda x: symmetric.Ty(x.name), ar={}, cod=symmetric.Diagram)
 >>> assert F0(x.delay()) == F0(x)
 
 >>> F = Functor(
 ...     ob=F0, ar=lambda f: symmetric.Box(f.name, F0(f.dom), F0(f.cod)),
-...     cod=symmetric.Category)
+...     cod=symmetric.Diagram)
 >>> f = Box('f', x @ m.delay(), y @ m)
 >>> assert F(f.delay()) == F(f) and F(f.feedback()) == F(f).trace()
 
@@ -143,6 +142,7 @@ In the category of streams, this is just the identity.
 from __future__ import annotations
 
 from discopy import cat, monoidal, markov
+from discopy.abc import FeedbackCategory
 from discopy.utils import (
     factory, factory_name, assert_isinstance, AxiomError)
 
@@ -289,7 +289,7 @@ class Layer(monoidal.Layer):
 
 
 @factory
-class Diagram(markov.Diagram):
+class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
     and a :meth:`feedback` operator.
@@ -558,7 +558,7 @@ class FollowedBy(Box):
     .. image:: /_static/feedback/followed-by.png
         :align: center
 
-    >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Category())
+    >>> F = Functor({x: stream.Ty.sequence('x')}, cod=stream.Stream)
     >>> X, Xh, Xtd = map(F, (x, x.head, x.tail.delay()))
     >>> for xh, xtd in [(Xh.now, Xtd.now),
     ...                 (Xh.later.now, Xtd.later.now),
@@ -592,28 +592,16 @@ class FollowedBy(Box):
         return type(self)(self.arg, self.is_dagger)
 
 
-class Category(markov.Category):
-    """
-    A feedback category is a markov category with methods :code:`delay`
-    and :code:`feedback`.
-
-    Parameters:
-        ob : The objects of the category, default is :class:`Ty`.
-        ar : The arrows of the category, default is :class:`Diagram`.
-    """
-    ob, ar = Ty, Diagram
-
-
 class Functor(markov.Functor):
     """
     A feedback functor is a markov one that preserves delay and feedback.
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod.ar`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
-            The codomain, :code:`Category(Ty, Diagram)` by default.
+            The codomain, :code:`Diagram` by default.
 
     Example
     -------
@@ -628,34 +616,34 @@ class Functor(markov.Functor):
     >>> assert F(FollowedBy(x)) == FollowedBy(F(x))
     >>> assert F(f.head) == F(f).head and F(f.tail) == F(f).tail
     """
-    dom = cod = Category(Ty, Diagram)
+    dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
-            cod = self.cod.ob if isinstance(other, Ob) else self.cod.ar
+            cod = self.cod.ty_factory if isinstance(other, Ob) else self.cod
             if hasattr(cod, "delay"):
                 result = self(other.reset())
                 for _ in range(other.time_step):
                     result = result.delay()
                 return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
-            cod = self.cod.ar if isinstance(
-                other, (Head, Tail)) else self.cod.ob
+            cod = self.cod if isinstance(
+                other, (Head, Tail)) else self.cod.ty_factory
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
             if hasattr(cod, attr):
                 return getattr(self(other.arg), attr)
         if isinstance(
-                other, FollowedBy) and hasattr(self.cod.ar, "followed_by"):
+                other, FollowedBy) and hasattr(self.cod, "followed_by"):
             arg = other.dom if other.is_dagger else other.cod
-            return self.cod.ar.followed_by(self(arg))
-        if isinstance(other, Feedback) and hasattr(self.cod.ar, "feedback"):
+            return self.cod.followed_by(self(arg))
+        if isinstance(other, Feedback) and hasattr(self.cod, "feedback"):
             return self(other.arg).feedback(*map(self, (
                 other.dom, other.cod, other.mem)))
         return super().__call__(other)
 
 
 class Hypergraph(markov.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph
