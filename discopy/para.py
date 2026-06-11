@@ -384,3 +384,19 @@ class Reparam(Composable, Whiskerable, NamedGeneric['category']):
 
     def __str__(self):
         return f"{self.source} => {self.target} by {self.reparam_box}"
+
+
+class Category(symmetric.Category):
+    """
+    Syntactic sugar for `Category(Ty[category.ob], Para[category])`.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            __init__
+    """
+    def __init__(self, ob: type = None, ar: type = None):
+        ar = Diagram if ar is None else Diagram[symmetric.Category(ob, ar)]
+        ob = Ty if ob is None else Ty[ob]
+        super().__init__(ob, ar)
