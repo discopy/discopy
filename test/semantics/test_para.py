@@ -111,3 +111,7 @@ def test_para_python():
     assert h.cod == (float, )
     assert h.params == (P, Q)
     assert h.inside(1, "abc", "defg") == 1 + 3 + 4
+
+    # Data input: A=1; P = "abc"; Q = "defg"
+    # f runs: f(1, "abc") -> float(len("abc") + 1) = 4.0
+    # g runs: g(4,0, "defg") -> 4.0 + len("defg") = 4.0 + 4 = 8.0
