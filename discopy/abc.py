@@ -43,16 +43,16 @@ T = TypeVar('T')
 
 class Category(ABC, Generic[T]):
     """
-    A category is an arrow type, i.e. a class with the appropriate methods
-    :code:`dom`, :code:`cod`, :code:`id` and :code:`then`, together with a
-    :attr:`ty_factory` for its objects.
+    A category is a Python class with methods :code:`dom, cod, id, then`,
+    together with an attribute :attr:`ty_factory` for its objects.
 
-    As such, it also implements the syntactic sugar :code:`>>` and :code:`<<`
+    This base class also implements syntactic sugar :code:`>>` and :code:`<<`
     for forward and backward composition with the method :code:`then`.
 
     Example
     -------
     >>> class List(list, Category):
+    ...     ty_factory, dom, cod = NoneType, None, None
     ...     def then(self, other):
     ...         return self + other
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
@@ -100,13 +100,14 @@ class Category(ABC, Generic[T]):
 
 class MonoidalCategory(Category[T]):
     """
-    A monoidal category is a :class:`Category` with a method :code:`tensor`,
-    implementing the syntactic sugar :code:`@` for whiskering and parallel
-    composition.
+    A monoidal category is a :class:`Category` with a method :code:`tensor` for
+    both its objects and its arrows.
+    
+    This base class also implements syntactic sugar :code:`@` for whiskering.
     """
     @classmethod
     @abstractmethod
-    def id(cls, dom: any) -> MonoidalCategory:
+    def id(cls, dom: T) -> MonoidalCategory:
         """
         Identity on a given domain, to be instantiated.
 
@@ -124,7 +125,7 @@ class MonoidalCategory(Category[T]):
         """
 
     @classmethod
-    def whisker(cls, other: any) -> MonoidalCategory:
+    def whisker(cls, other: T) -> MonoidalCategory:
         """
         Apply :meth:`MonoidalCategory.id` if :code:`other` is not tensorable
         else do nothing.
@@ -141,6 +142,88 @@ class MonoidalCategory(Category[T]):
         return self.whisker(other).tensor(self)
 
 
+class TracedCategory(MonoidalCategory[T]):
+    """
+    A traced category is a :class:`MonoidalCategory` with a method
+    :code:`trace` for the partial trace of a morphism over some objects.
+    """
+    @abstractmethod
+    def trace(self, n: int = 1, left: bool = False) -> TracedCategory:
+        """
+        The trace of a morphism, to be instantiated.
+
+        Parameters:
+            n : The number of objects to trace over.
+            left : Whether to trace the wires on the left or right.
+        """
+
+
+class BiclosedCategory(MonoidalCategory[T]):
+    """
+    A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
+    and :code:`curry` for the evaluation and currying of morphisms.
+
+    We also assume the type for objects comes with methods for left and right
+    exponentials :code`x << y` and :code`x >> y`.
+    """
+    @classmethod
+    @abstractmethod
+    def ev(cls, base: T, exponent: T, left: bool = True) -> BiclosedCategory:
+        """
+        The evaluation of an exponential type, to be instantiated.
+
+        Parameters:
+            base : The base of the exponential type.
+            exponent : The exponent of the exponential type.
+            left : Whether to take the left or right evaluation.
+        """
+
+    @abstractmethod
+    def curry(self, n: int = 1, left: bool = True) -> BiclosedCategory:
+        """
+        The currying of a morphism, to be instantiated.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+        """
+
+
+class RigidCategory(BiclosedCategory[T]):
+    """
+    A rigid category is a :class:`BiclosedCategory` where every object has a
+    left and right adjoint, witnessed by methods :code:`cups` and :code:`caps`.
+    """
+    @classmethod
+    @abstractmethod
+    def cups(cls, left: T, right: T) -> RigidCategory:
+        """
+        The cups witnessing :code:`right` as the adjoint of :code:`left`.
+
+        Parameters:
+            left : The left-hand side of the cups.
+            right : Its adjoint, i.e. the right-hand side of the cups.
+        """
+
+    @classmethod
+    @abstractmethod
+    def caps(cls, left: T, right: T) -> RigidCategory:
+        """
+        The caps witnessing :code:`right` as the adjoint of :code:`left`.
+
+        Parameters:
+            left : The left-hand side of the caps.
+            right : Its adjoint, i.e. the right-hand side of the caps.
+        """
+
+
+class PivotalCategory(RigidCategory[T], TracedCategory[T]):
+    """
+    A pivotal category is a :class:`RigidCategory` where the left and right
+    adjoints coincide, hence it is also a :class:`TracedCategory`.
+    """
+
+
 class BraidedCategory(MonoidalCategory[T]):
     """
     A braided category is a :class:`MonoidalCategory` with a method
@@ -155,22 +238,6 @@ class BraidedCategory(MonoidalCategory[T]):
         Parameters:
             left : The object on the left of the braid.
             right : The object on the right of the braid.
-        """
-
-
-class TracedCategory(MonoidalCategory[T]):
-    """
-    A traced category is a :class:`MonoidalCategory` with a method
-    :code:`trace` for the partial trace of a morphism over some objects.
-    """
-    @abstractmethod
-    def trace(self, n: int = 1, left: bool = False) -> TracedCategory:
-        """
-        The trace of a morphism, to be instantiated.
-
-        Parameters:
-            n : The number of objects to trace over.
-            left : Whether to trace the wires on the left or right.
         """
 
 
@@ -193,8 +260,8 @@ class BalancedCategory(BraidedCategory[T], TracedCategory[T]):
 
 class SymmetricCategory(BalancedCategory[T]):
     """
-    A symmetric category is a :class:`BalancedCategory` with a method
-    :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
+    A symmetric category is a :class:`BalancedCategory` where the braid is its
+    own inverse called :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
     """
     @classmethod
     @abstractmethod
@@ -236,6 +303,13 @@ class MarkovCategory(SymmetricCategory[T]):
         """
 
 
+class ClosedCategory(BiclosedCategory[T], MarkovCategory[T]):
+    """
+    A closed category is a symmetric :class:`BiclosedCategory`. We also assume
+    it comes with copy and discard so it is also a :class:`MarkovCategory`.
+    """
+
+
 class FeedbackCategory(MarkovCategory[T]):
     """
     A feedback category is a :class:`MarkovCategory` with a :code:`delay`
@@ -262,79 +336,41 @@ class FeedbackCategory(MarkovCategory[T]):
         """
 
 
-class ClosedCategory(MonoidalCategory[T]):
-    """
-    A closed category is a :class:`MonoidalCategory` with methods :code:`ev`
-    and :code:`curry` for the evaluation and currying of morphisms.
-    """
-    @classmethod
-    @abstractmethod
-    def ev(cls, base: T, exponent: T, left: bool = True) -> ClosedCategory:
-        """
-        The evaluation of an exponential type, to be instantiated.
-
-        Parameters:
-            base : The base of the exponential type.
-            exponent : The exponent of the exponential type.
-            left : Whether to take the left or right evaluation.
-        """
-
-    @abstractmethod
-    def curry(self, n: int = 1, left: bool = True) -> ClosedCategory:
-        """
-        The currying of a morphism, to be instantiated.
-
-        Parameters:
-            n : The number of objects to curry.
-            left : Whether to curry on the left or right.
-        """
-
-
-class RigidCategory(ClosedCategory[T]):
-    """
-    A rigid category is a :class:`ClosedCategory` where every object has a
-    left and right adjoint, witnessed by methods :code:`cups` and :code:`caps`.
-    """
-    @classmethod
-    @abstractmethod
-    def cups(cls, left: T, right: T) -> RigidCategory:
-        """
-        The cups witnessing :code:`right` as the adjoint of :code:`left`.
-
-        Parameters:
-            left : The left-hand side of the cups.
-            right : Its adjoint, i.e. the right-hand side of the cups.
-        """
-
-    @classmethod
-    @abstractmethod
-    def caps(cls, left: T, right: T) -> RigidCategory:
-        """
-        The caps witnessing :code:`right` as the adjoint of :code:`left`.
-
-        Parameters:
-            left : The left-hand side of the caps.
-            right : Its adjoint, i.e. the right-hand side of the caps.
-        """
-
-
-class PivotalCategory(RigidCategory[T], TracedCategory[T]):
-    """
-    A pivotal category is a :class:`RigidCategory` where the left and right
-    adjoints coincide, hence it is also a :class:`TracedCategory`, with a
-    method :code:`conjugate` for the horizontal reflection of a morphism.
-    """
-    @abstractmethod
-    def conjugate(self) -> PivotalCategory:
-        """ The horizontal reflection of a morphism, to be instantiated. """
-
-
 class RibbonCategory(PivotalCategory[T], BalancedCategory[T]):
     """
-    A ribbon category is a :class:`PivotalCategory` and a
-    :class:`BalancedCategory`, i.e. a balanced category where every object has
-    an adjoint.
+    A ribbon category is a :class:`PivotalCategory` which is also a
+    :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
+
+
+class CompactCategory(RibbonCategory[T], SymmetricCategory[T]):
+    """
+    A compact category is a :class:`RibbonCategory` which is also a
+    :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
+    """
+
+
+class HypergraphCategory(CompactCategory[T], MarkovCategory[T]):
+    """
+    A hypergraph category is a symmetric category with a supply of spiders,
+    i.e. special commutative Frobenius algebras on each objects.
+    
+    This makes it both a :class:`CompactCategory` and a :class:`MarkovCategory`
+    """
+    @classmethod
+    @abstractmethod
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: T, phases=None
+                ) -> HypergraphCategory:
+        """
+        The spiders on a given type with ``n_legs_in`` and ``n_legs_out`` and
+        some optional vector of ``phases``.
+
+        Parameters:
+            n_legs_in : The number of legs in for each spider.
+            n_legs_out : The number of legs out for each spider.
+            typ : The type of the spiders.
+            phases : The phase for each spider.
+        """
 
 
 class NamedGeneric(Generic[TypeVar('T')]):

@@ -58,12 +58,13 @@ Coherence
 """
 
 from discopy import symmetric, ribbon
+from discopy.abc import CompactCategory
 from discopy.cat import factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
 @factory
-class Diagram(symmetric.Diagram, ribbon.Diagram):
+class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """
     A compact diagram is a symmetric diagram and a ribbon diagram.
 

@@ -55,6 +55,7 @@ Axioms
 from __future__ import annotations
 
 from discopy import cat, monoidal
+from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import factory
 from discopy.utils import (
@@ -221,7 +222,7 @@ class Under(Exp):
 
 
 @factory
-class Diagram(monoidal.Diagram):
+class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
     with :class:`Curry` and :class:`Eval` boxes.

@@ -65,6 +65,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
+from discopy.abc import HypergraphCategory
 from discopy.cat import factory
 from discopy.utils import factory_name, assert_isatomic
 
@@ -115,7 +116,7 @@ class Dim(monoidal.Dim, Ty):
 
 
 @factory
-class Diagram(compact.Diagram, markov.Diagram):
+class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
     A frobenius diagram is a compact diagram and a Markov diagram.
 
