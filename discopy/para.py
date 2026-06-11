@@ -3,6 +3,11 @@
 """
 The category of parametric maps, Para.
 
+Para is a construction that turns a symmetric monoidal category :math:`\\mathcal{C}` into a
+category :math:`\\mathbf{Para}(\\mathcal{C})` where morphisms are equipped with parameter space.
+A morphism in :math:`\\mathbf{Para}(\\mathcal{C})` from :math:`A` to :math:`B` with parameters
+:math:`P` is a morphism :math:`A \\otimes P \\to B` in :math:`\\mathcal{C}`.
+
 Summary
 -------
 
@@ -14,27 +19,46 @@ Summary
     Diagram
     Box
     Reparam
+    Category
 
 Axioms
 ------
-We can check that :meth:`Diagram.tensor` follows the Para axiom:
-:code:`(f @ g).dom == f.data_dom @ g.data_dom @ f.params @ g.params`
 
->>> a, b, c, d = map(Ty, "ABCD")
+* Sequential composition :math:`(P, f) >> (Q, g) = (P \\otimes Q, (f \\otimes \\mathrm{id}_Q) >> g)`
+
+>>> from discopy.symmetric import Ty
+>>> a, b, c = map(Ty, "ABC")
 >>> p, q = map(Ty, "PQ")
 >>> f = Box("f", a, b, p)
->>> g = Box("g", c, d, q)
->>> assert (f @ g).params == p @ q
->>> assert (f @ g).data_dom == a @ c
->>> assert (f @ g).dom == a @ c @ p @ q
+>>> g = Box("g", b, c, q)
+>>> assert (f >> g).params == p @ q
+>>> assert (f >> g).dom == a
+>>> assert (f >> g).cod == c
+>>> assert (f >> g).inside.dom == a @ p @ q
 
-We can check that :meth:`Diagram.then` follows the Para axiom:
-:code:`(f >> g).params == f.params @ g.params`
+* Parallel composition :math:`(P, f) \\space @ \\space (Q, g) = (P \\otimes Q, (\\mathrm{id}_A \\otimes \\mathrm{swap}_{C, P} \\otimes \\mathrm{id}_Q) >> (f \\otimes g))`
 
->>> h = Box("h", b, c, p)
->>> assert (f >> h).params == p @ p
->>> assert (f >> h).data_dom == a
->>> assert (f >> h).dom == a @ p @ p
+>>> d = Ty('D')
+>>> h = Box("h", c, d, q)
+>>> assert (f @ h).params == p @ q
+>>> assert (f @ h).dom == a @ c
+>>> assert (f @ h).cod == b @ d
+>>> assert (f @ h).inside.dom == a @ c @ p @ q
+
+* Reparameterization :math:`f\\mathrm{.reparam}(r1 >> r2) == f\\mathrm{.reparam}(r2)\\mathrm{.reparam}(r1)`
+
+>>> p_prime, p_prime_prime = Ty("P'"), Ty("P''")
+>>> r2 = Box("r2", p_prime, p)
+>>> r1 = Box("r1", p_prime_prime, p_prime)
+>>> assert f.reparam(r1 >> r2) == f.reparam(r2).reparam(r1)
+
+References
+----------
+
+* :cite:t:`Gavranovic24` Gavranovic, B., 2024.
+  Fundamental Components of Deep Learning: A Category-Theoretic Approach.
+* :cite:t:`GavranovicEtAl24` Gavranovic, B. et al., 2024.
+  Position: Categorical Deep Learning is an Algebraic Theory of All Architectures.
 """
 
 from __future__ import annotations
@@ -46,7 +70,7 @@ from discopy.utils import assert_isinstance, factory_name
 
 
 def _as_para_diagram(diagram):
-    """Map a monoidal diagram into a Para diagram with empty parameters."""
+    """Map a symmetric monoidal diagram into a Para diagram with empty parameters."""
     if isinstance(diagram, Diagram):
         return diagram
     result = Diagram(diagram.inside, diagram.dom, diagram.cod)
@@ -68,12 +92,26 @@ def _as_monoidal_diagram(diagram):
 @factory
 class Diagram(symmetric.Diagram):
     """
-    A Para diagram is a symmetric diagram with a parameter space.
+    A Para diagram is a morphism in the base category with a parameter space.
 
     Parameters:
-        inside (tuple[Layer, ...]) : The layers of the diagram.
-        dom (monoidal.Ty) : The domain of the diagram.
-        cod (monoidal.Ty) : The codomain of the diagram.
+        inside (category.ar) : The underlying morphism :math:`A \\otimes P \\to B`.
+        dom (category.ob) : The data domain :math:`A`.
+        cod (category.ob) : The data codomain :math:`B`.
+        params (category.ob) : The parameter space :math:`P`.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+            tensor
+            swap
+            copy
+            reparameterize
+            draw
+            to_drawing
     """
     ty_factory = Ty
 
@@ -101,7 +139,7 @@ class Diagram(symmetric.Diagram):
 
         Parameters:
             path (str, optional) : The path where to save the drawing.
-            params : Passed to :meth:`symmetric.Diagram.draw`.
+            params : Passed to :meth:`category.ar.draw`.
         """
         return super().draw(path=path, **params)
 
@@ -110,7 +148,7 @@ class Diagram(symmetric.Diagram):
         Reparameterize a Para morphism by a morphism on parameter spaces.
 
         Parameters:
-            reparam_box (symmetric.Diagram) : The morphism on parameter spaces.
+            reparam_box (category.ar) : The morphism on parameter spaces.
 
         The reparam_box must satisfy :code:`reparam_box.cod == self.params`.
         """
@@ -135,7 +173,7 @@ class Diagram(symmetric.Diagram):
         The identity morphism in Para.
 
         Parameters:
-            dom (monoidal.Ty) : The domain of the identity.
+            dom (category.ob) : The domain of the identity.
         """
         underlying = symmetric.Diagram.id(dom)
         result = Diagram(
@@ -151,8 +189,6 @@ class Diagram(symmetric.Diagram):
 
         Parameters:
             other (Diagram) : The other Para morphism.
-
-        Axiom: (P, f) >> (Q, g) = (P @ Q, (f @ id_Q) >> g)
         """
         other = _as_para_diagram(other)
 
@@ -180,9 +216,6 @@ class Diagram(symmetric.Diagram):
 
         Parameters:
             other (Diagram) : The other Para morphism.
-
-        Axiom: (P, f) @ (Q, g) = (P @ Q, (id_A @ swap(C, P) @ id_Q) >> (f @ g))
-        where f: A @ P -> B and g: C @ Q -> D.
         """
         other = _as_para_diagram(other)
         base_self = _as_monoidal_diagram(self)
@@ -209,24 +242,17 @@ class Diagram(symmetric.Diagram):
 
 class Box(symmetric.Box, Diagram):
     """
-    A Para box is a symmetric box with a parameter space.
+    A Para box is a diagram with a single box in the base category.
 
     Parameters:
         name (str) : The name of the box.
-        data_dom (monoidal.Ty) : The data domain of the box.
-        data_cod (monoidal.Ty) : The data codomain of the box.
-        params (monoidal.Ty, optional) : The parameter space of the box.
-    """
-    def __init__(
-            self, name: str, data_dom: Ty, data_cod: Ty, params: Ty = Ty(),
-            **kwargs):
-        self._params = params
-        self._data_dom = data_dom
-        self._data_cod = data_cod
+        dom (category.ob) : The data domain of the box.
+        cod (category.ob) : The data codomain of the box.
+        params (category.ob, optional) : The parameter space of the box.
 
-        structural_dom = data_dom @ params
-        super().__init__(name, structural_dom, data_cod, **kwargs)
+    .. admonition:: Summary
 
+        .. autosummary::
 
 class Reparam:
     """
@@ -235,8 +261,16 @@ class Reparam:
     Parameters:
         source (Diagram) : The source Para morphism.
         target (Diagram) : The target Para morphism.
-        reparam_box (symmetric.Diagram) : The morphism on parameter spaces.
-        validate (bool, optional) : Whether to validate the reparameterization.
+        reparam_box (category.ar) : The morphism on parameter spaces.
+
+    .. admonition:: Summary
+
+        .. autosummary::
+
+            id
+            then
+            tensor
+            draw
     """
     def __init__(self, source: Diagram, target: Diagram, reparam_box, validate=True):
         self.source = _as_para_diagram(source)
