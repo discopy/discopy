@@ -138,8 +138,8 @@ class Constant(TermBase):
         return []
 
     def to_diagram(self, category=None, box_factory=None):
-        category, box_factory = category or Category, box_factory or Box
-        return box_factory(self.name, category.ar.ty_factory(), self.cod)
+        category, box_factory = category or Diagram, box_factory or Box
+        return box_factory(self.name, category.ty_factory(), self.cod)
 
 
 @dataclass(frozen=True)
@@ -155,7 +155,7 @@ class Variable(TermBase):
         return [self]
 
     def to_diagram(self, category=None):
-        return (category or Category).ar.id(self.cod)
+        return (category or Diagram).id(self.cod)
 
 
 @dataclass(frozen=True)
@@ -301,15 +301,15 @@ class Sum(markov.Sum, biclosed.Sum, Box):
 
 
 Diagram.over, Diagram.under, Diagram.exp\
-    = map(staticmethod, (Over, Under, Exp))
+    = map(staticmethod, (biclosed.Over, biclosed.Under, Exp))
 Diagram.sum_factory = Sum
 
 Id = Diagram.id
 
 
-class Functor(monoidal.Functor):
+class Functor(markov.Functor):
     """
-    A closed functor is a monoidal functor
+    A closed functor is a markov functor
     that preserves evaluation and currying.
 
     Parameters:
@@ -328,7 +328,7 @@ class Functor(monoidal.Functor):
 
 
 class Hypergraph(markov.Hypergraph):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

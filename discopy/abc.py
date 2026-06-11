@@ -21,6 +21,9 @@ Summary
     BraidedCategory
     TracedCategory
     BalancedCategory
+    SymmetricCategory
+    MarkovCategory
+    FeedbackCategory
     ClosedCategory
     RigidCategory
     PivotalCategory
@@ -185,6 +188,77 @@ class BalancedCategory(BraidedCategory[T], TracedCategory[T]):
 
         Parameters:
             dom : The object on which to take the twist.
+        """
+
+
+class SymmetricCategory(BalancedCategory[T]):
+    """
+    A symmetric category is a :class:`BalancedCategory` with a method
+    :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
+    """
+    @classmethod
+    @abstractmethod
+    def swap(cls, left: T, right: T) -> SymmetricCategory:
+        """
+        The swap of two objects, to be instantiated.
+
+        Parameters:
+            left : The object on the left of the swap.
+            right : The object on the right of the swap.
+        """
+
+
+class MarkovCategory(SymmetricCategory[T]):
+    """
+    A Markov category is a :class:`SymmetricCategory` with methods
+    :code:`copy` and :code:`merge` for the supply of commutative comonoids.
+    """
+    @classmethod
+    @abstractmethod
+    def copy(cls, x: T, n: int = 2) -> MarkovCategory:
+        """
+        Make :code:`n` copies of a given object :code:`x`.
+
+        Parameters:
+            x : The object to copy.
+            n : The number of copies.
+        """
+
+    @classmethod
+    @abstractmethod
+    def merge(cls, x: T, n: int = 2) -> MarkovCategory:
+        """
+        Merge :code:`n` copies of a given object :code:`x`.
+
+        Parameters:
+            x : The object to merge.
+            n : The number of copies.
+        """
+
+
+class FeedbackCategory(MarkovCategory[T]):
+    """
+    A feedback category is a :class:`MarkovCategory` with a :code:`delay`
+    endofunctor and a :code:`feedback` operator.
+    """
+    @abstractmethod
+    def delay(self, n_steps: int = 1) -> FeedbackCategory:
+        """
+        The delay endofunctor applied to a morphism.
+
+        Parameters:
+            n_steps : The number of time steps to delay.
+        """
+
+    @abstractmethod
+    def feedback(self, dom=None, cod=None, mem=None) -> FeedbackCategory:
+        """
+        The feedback operator on a morphism.
+
+        Parameters:
+            dom : The domain of the feedback.
+            cod : The codomain of the feedback.
+            mem : The memory type to trace over.
         """
 
 

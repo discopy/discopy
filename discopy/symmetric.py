@@ -88,13 +88,14 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 from discopy import monoidal, balanced, messages
+from discopy.abc import SymmetricCategory
 from discopy.cat import Arrow, factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 
 
 @factory
-class Diagram(balanced.Diagram):
+class Diagram(balanced.Diagram, SymmetricCategory):
     """
     A symmetric diagram is a balanced diagram with :class:`Swap` boxes.
 
