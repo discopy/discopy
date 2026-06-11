@@ -70,7 +70,6 @@ class Ob(cat.Ob):
     >>> a = Ob('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
-    __ambiguous_inheritance__ = True
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -185,7 +184,6 @@ class PRO(monoidal.PRO, Ty):
     n : int
         The length of the PRO type.
     """
-    __ambiguous_inheritance__ = (monoidal.PRO, )
     l = r = property(lambda self: self)
 
 
@@ -229,7 +227,6 @@ class Diagram(biclosed.Diagram):
     .. image:: /_static/rigid/diagram-example.png
         :align: center
     """
-    __ambiguous_inheritance__ = True
 
     ty_factory = Ty
     layer_factory = Layer
@@ -557,7 +554,6 @@ class Box(biclosed.Box, Diagram):
     >>> assert f.r.l == f == f.l.r
     >>> assert f.l.l != f != f.r.r
     """
-    __ambiguous_inheritance__ = (biclosed.Box, )
 
     def __setstate__(self, state):
         if '_z' in state:  # Backward compatibility
@@ -614,7 +610,6 @@ class Sum(biclosed.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (biclosed.Sum, )
 
     def rotate(self, left=False) -> Sum:
         if left:

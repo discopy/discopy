@@ -110,8 +110,6 @@ class Ty(Ob):
     """
     ob_factory = cat.Ob
 
-    __ambiguous_inheritance__ = True
-
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
             state["inside"] = state['_objects']
@@ -947,7 +945,6 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
     """
-    __ambiguous_inheritance__ = (cat.Box, )
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
         for attr in DRAWING_ATTRIBUTES:
@@ -981,7 +978,6 @@ class Sum(cat.Sum, Box):
     >>> print(f @ (f + f))
     (f @ x >> x @ f) + (f @ x >> x @ f)
     """
-    __ambiguous_inheritance__ = (cat.Sum, )
 
     @property
     def size(self):
@@ -1038,7 +1034,6 @@ class Bubble(cat.Bubble, Box):
         :align: center
 
     """
-    __ambiguous_inheritance__ = (cat.Bubble, )
 
     def __init__(
             self, *args: Diagram,
@@ -1091,7 +1086,6 @@ class Category(cat.Category):
         ob : The type of objects.
         ar : The type of arrows.
     """
-    __ambiguous_inheritance__ = True
 
     ob, ar = Ty, Diagram
 
@@ -1127,7 +1121,6 @@ class Functor(cat.Functor):
     .. image:: /_static/monoidal/functor-example.png
         :align: center
     """
-    __ambiguous_inheritance__ = True
 
     dom = cod = Category(Ty, Diagram)
 

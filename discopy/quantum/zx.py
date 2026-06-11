@@ -234,7 +234,6 @@ class Box(tensor.Box[complex], Diagram):
         dom (rigid.PRO) : The domain of the box, i.e. its input.
         cod (rigid.PRO) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (tensor.Box, )
 
 
 class Sum(tensor.Sum[complex], Box):
@@ -246,7 +245,6 @@ class Sum(tensor.Sum[complex], Box):
         dom (Dim) : The domain of the formal sum.
         cod (Dim) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (tensor.Sum, )
 
 
 class Swap(tensor.Swap[complex], Box):
