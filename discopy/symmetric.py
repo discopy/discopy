@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Permutation
     Diagram
     Box
     Swap
@@ -81,6 +82,14 @@ This is a special case of naturality.
 
 .. image:: /_static/symmetric/yang-baxter.png
     :align: center
+
+Permutations
+============
+
+>>> perm = Permutation([2, 0, 1], x @ y @ z)
+>>> assert perm.cod == z @ x @ y
+>>> assert perm.then(perm.dagger()) == Permutation.id(x @ y @ z)
+>>> assert perm @ Permutation.id(w) == Permutation([2, 0, 1, 3], x @ y @ z @ w)
 """
 
 from __future__ import annotations
@@ -91,7 +100,138 @@ from discopy import monoidal, balanced, traced, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import Arrow, ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
-from discopy.utils import classproperty
+from discopy.utils import (
+    factory_name, classproperty, assert_isinstance, AxiomError)
+
+
+class Permutation:
+    """
+    A permutation of a type, forming a dagger monoidal category.
+
+    A permutation is stored as a list of integers ``inside`` with a domain
+    type ``dom``. The convention is that ``inside[i] = j`` means output wire
+    ``i`` comes from input wire ``j``.
+
+    Parameters:
+        inside : A list of integers encoding the permutation.
+        dom : The domain type, default is ``PRO(len(inside))``.
+
+    Examples
+    --------
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> perm = Permutation([1, 2, 0], x @ y @ z)
+    >>> assert perm.cod == y @ z @ x
+    >>> assert perm.dagger() == Permutation([2, 0, 1], y @ z @ x)
+    >>> assert perm.then(perm.dagger()) == Permutation.id(x @ y @ z)
+    """
+    ty_factory = Ty
+
+    def __init__(self, inside: list[int], dom: monoidal.Ty = None):
+        inside = list(inside)
+        dom = PRO(len(inside)) if dom is None else dom
+        if sorted(inside) != list(range(len(dom))):
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(len(dom), inside))
+        if len(inside) != len(dom):
+            raise ValueError(
+                messages.WRONG_PERMUTATION.format(len(dom), inside))
+        self.inside = inside
+        self.dom = dom
+
+    @property
+    def cod(self) -> monoidal.Ty:
+        """The codomain: ``cod[i] = dom[inside[i]]``."""
+        if not self.inside:
+            return self.dom
+        return self.dom[:0].tensor(
+            *[self.dom[j] for j in self.inside])
+
+    @property
+    def is_identity(self) -> bool:
+        return self.inside == list(range(len(self.dom)))
+
+    @classmethod
+    def id(cls, dom: monoidal.Ty = None) -> Permutation:
+        """The identity permutation on a given type."""
+        dom = cls.ty_factory() if dom is None else dom
+        return cls(list(range(len(dom))), dom)
+
+    def then(self, other: Permutation) -> Permutation:
+        """
+        Sequential composition:
+        ``(self >> other).inside[i] = other.inside[self.inside[i]]``.
+        """
+        if self.cod != other.dom:
+            raise AxiomError(
+                f"Permutation {self} does not compose with {other}: "
+                f"{self.cod} != {other.dom}")
+        composed = [other.inside[self.inside[i]]
+                    for i in range(len(self.inside))]
+        return type(self)(composed, self.dom)
+
+    def tensor(self, other: Permutation) -> Permutation:
+        """
+        Parallel composition: place ``self`` and ``other`` side by side.
+        """
+        n = len(self.inside)
+        inside = self.inside + [j + n for j in other.inside]
+        dom = self.dom @ other.dom
+        return type(self)(inside, dom)
+
+    def dagger(self) -> Permutation:
+        """
+        The inverse permutation.
+
+        If ``self.inside[i] = j``, then ``self.dagger().inside[j] = i``.
+        """
+        n = len(self.inside)
+        inv = [0] * n
+        for i, j in enumerate(self.inside):
+            inv[j] = i
+        return type(self)(inv, self.cod)
+
+    def __matmul__(self, other):
+        if isinstance(other, Permutation):
+            return self.tensor(other)
+        return NotImplemented
+
+    def __rshift__(self, other):
+        if isinstance(other, Permutation):
+            return self.then(other)
+        return NotImplemented
+
+    def __eq__(self, other):
+        return isinstance(other, Permutation)\
+            and self.inside == other.inside and self.dom == other.dom
+
+    def __hash__(self):
+        return hash((tuple(self.inside), self.dom))
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}"\
+            f"({self.inside}, {repr(self.dom)})"
+
+    def __str__(self):
+        if self.is_identity:
+            return f"Perm.id({self.dom})"
+        return f"Perm({self.inside}, {self.dom})"
+
+    def __len__(self):
+        return len(self.inside)
+
+    def whisker(self, left: monoidal.Ty = None,
+                right: monoidal.Ty = None) -> Permutation:
+        """
+        Whisker this permutation with identity permutations.
+
+        ``left @ self @ right`` as permutations.
+        """
+        result = self
+        if left is not None and len(left) > 0:
+            result = type(self).id(left).tensor(result)
+        if right is not None and len(right) > 0:
+            result = result.tensor(type(self).id(right))
+        return result
 
 
 @ar_factory
