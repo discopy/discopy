@@ -63,34 +63,34 @@ References
 
 from __future__ import annotations
 
-from discopy import monoidal, symmetric
+from dataclasses import dataclass
+import warnings
+from discopy import symmetric
+from discopy.drawing import Drawing, Equation
 from discopy.cat import factory
-from discopy.monoidal import Ty
-from discopy.utils import assert_isinstance, factory_name
+from discopy.symmetric import Ty
+from discopy.utils import (
+    Composable, Whiskerable, NamedGeneric, assert_isinstance,
+    unbiased, factory_name)
 
 
 def _as_para_diagram(diagram):
     """Map a symmetric monoidal diagram into a Para diagram with empty parameters."""
     if isinstance(diagram, Diagram):
         return diagram
-    result = Diagram(diagram.inside, diagram.dom, diagram.cod)
-    result._params = Ty()
-    result._data_dom = diagram.dom
-    result._data_cod = diagram.cod
-    return result
+    return Diagram(diagram, diagram.dom, diagram.cod, diagram.ty_factory())
 
 
-def _as_monoidal_diagram(diagram):
-    """Strip Para metadata and keep only the underlying symmetric diagram."""
-    if isinstance(diagram, symmetric.Diagram):
-        return symmetric.Diagram(diagram.inside, diagram.dom, diagram.cod)
-    if isinstance(diagram, monoidal.Diagram):
-        return symmetric.Diagram(diagram.inside, diagram.dom, diagram.cod)
+def _as_symmetric_diagram(diagram):
+    """Remove parameters and keep only the underlying diagram."""
+    if isinstance(diagram, Diagram):
+        return diagram.inside
     return diagram
 
 
 @factory
-class Diagram(symmetric.Diagram):
+@dataclass
+class Diagram(Composable, Whiskerable, NamedGeneric['category']):
     """
     A Para diagram is a morphism in the base category with a parameter space.
 
@@ -113,25 +113,40 @@ class Diagram(symmetric.Diagram):
             draw
             to_drawing
     """
-    ty_factory = Ty
+    category = symmetric.Category  # default base category
+    inside: category.ar
+    dom: category.ob = None
+    cod: category.ob = None
+    params: category.ob = None
 
-    def __init__(self, inside, dom, cod, _scan=True):
-        super().__init__(inside, dom, cod, _scan=_scan)
+    def __post_init__(self):
+        if self.dom is None:
+            self.dom = self.inside.dom
+        if self.cod is None:
+            self.cod = self.inside.cod
+        if self.params is None:
+            self.params = self.inside.ty_factory()
+        if self.inside.dom != self.dom + self.params:
+            raise ValueError(f"Domain mismatch: {self.inside.dom} "
+                             f"!= {self.dom} + {self.params}")
+        if self.inside.cod != self.cod:
+            raise ValueError(f"Codomain mismatch: {self.inside.cod} "
+                             f"!= {self.cod}")
 
     @property
-    def params(self) -> Ty:
-        """The parameter space (P) of the parametric morphism."""
-        return getattr(self, "_params", Ty())
+    def ty_factory(self):
+        """ The type factory of the base category. """
+        return self.dom.factory if hasattr(self.dom, "factory") else type(self.dom)
 
-    @property
-    def data_dom(self) -> Ty:
-        """The data input (A), distinct from the structural dom (A @ P)."""
-        return getattr(self, "_data_dom", self.dom)
-
-    @property
-    def data_cod(self) -> Ty:
-        """The data output (B)."""
-        return getattr(self, "_data_cod", self.cod)
+    def to_drawing(self):
+        """
+        Convert the Para diagram into a drawing of its structural diagram.
+        """
+        if hasattr(self.inside, "to_drawing"):
+            return self.inside.to_drawing()
+        
+        return Drawing.from_box(self.inside) if hasattr(self.inside, "name")\
+            else self.inside
 
     def draw(self, path=None, **params):
         """
@@ -141,9 +156,13 @@ class Diagram(symmetric.Diagram):
             path (str, optional) : The path where to save the drawing.
             params : Passed to :meth:`category.ar.draw`.
         """
-        return super().draw(path=path, **params)
+        if not hasattr(self.inside, "draw"):
+            warnings.warn(
+                f"Base category {self.category} does not support drawing.")
+            return None
+        return self.inside.draw(path=path, **params)
 
-    def reparameterize(self, reparam_box: symmetric.Diagram) -> Diagram:
+    def reparameterize(self, reparam_box: category.ar) -> Diagram:
         """
         Reparameterize a Para morphism by a morphism on parameter spaces.
 
@@ -152,36 +171,27 @@ class Diagram(symmetric.Diagram):
 
         The reparam_box must satisfy :code:`reparam_box.cod == self.params`.
         """
-        reparam_box = _as_monoidal_diagram(reparam_box)
+        reparam_box = _as_symmetric_diagram(reparam_box)
         if reparam_box.cod != self.params:
             raise ValueError(
-                f"Parameter mismatch: {reparam_box.cod} != {self.params}")
-        base_self = _as_monoidal_diagram(self)
-        left = symmetric.Diagram.id(self.data_dom) @ reparam_box
-        target = left >> base_self
-        result = Diagram(target.inside, target.dom, target.cod, _scan=False)
-        result._params = reparam_box.dom
-        result._data_dom = self.data_dom
-        result._data_cod = self.data_cod
-        return result
+                f"Parameter space type mismatch: "
+                f"{reparam_box.cod} != {self.params}")
+        left = self.category.ar.id(self.dom) @ reparam_box
+        return self.factory(
+            left >> self.inside, self.dom, self.cod, reparam_box.dom)
 
     reparam = reparameterize
 
     @classmethod
-    def id(cls, dom: Ty = Ty()) -> Diagram:
+    def id(cls, dom: category.ob = None) -> Diagram:
         """
         The identity morphism in Para.
 
         Parameters:
             dom (category.ob) : The domain of the identity.
         """
-        underlying = symmetric.Diagram.id(dom)
-        result = Diagram(
-            underlying.inside, underlying.dom, underlying.cod, _scan=False)
-        result._params = Ty()
-        result._data_dom = dom
-        result._data_cod = dom
-        return result
+        dom = dom or cls.category.ob()
+        return cls(cls.category.ar.id(dom), dom, dom, cls.category.ob())
 
     def then(self, other: Diagram) -> Diagram:
         """
@@ -191,25 +201,14 @@ class Diagram(symmetric.Diagram):
             other (Diagram) : The other Para morphism.
         """
         other = _as_para_diagram(other)
-
-        if self.data_cod != other.data_dom:
+        if self.cod != other.dom:
             raise ValueError(
-                f"Data domain mismatch: {self.data_cod} != {other.data_dom}")
+                f"Data domain mismatch: {self.cod} != {other.dom}")
+        id_Q = self.category.ar.id(other.params)
+        return self.factory((self.inside @ id_Q) >> other.inside,
+                            self.dom, other.cod, self.params + other.params)
 
-        base_self = _as_monoidal_diagram(self)
-        base_other = _as_monoidal_diagram(other)
-        base_id_Q = symmetric.Diagram.id(other.params)
-        underlying_seq = (base_self @ base_id_Q) >> base_other
-
-        result = Diagram(
-            underlying_seq.inside, underlying_seq.dom, underlying_seq.cod,
-            _scan=False)
-        result._params = self.params @ other.params
-        result._data_dom = self.data_dom
-        result._data_cod = other.data_cod
-
-        return result
-    
+    @unbiased
     def tensor(self, other: Diagram) -> Diagram:
         """
         Parallel composition of Para morphisms.
@@ -218,29 +217,39 @@ class Diagram(symmetric.Diagram):
             other (Diagram) : The other Para morphism.
         """
         other = _as_para_diagram(other)
-        base_self = _as_monoidal_diagram(self)
-        base_other = _as_monoidal_diagram(other)
+        a, p = self.dom, self.params
+        c, q = other.dom, other.params
+        swap = self.category.ar.swap(c, p)
+        swaps = self.category.ar.id(a) @ swap @ self.category.ar.id(q)
+        return self.factory(swaps >> (self.inside @ other.inside),
+                            a + c, self.cod + other.cod, p + q)
 
-        # We need to swap the first params (P) with the second data input (C)
-        # to keep all params at the end: A @ C @ P @ Q
-        a, p = self.data_dom, self.params
-        c, q = other.data_dom, other.params
+    @classmethod
+    def swap(cls, left: category.ob, right: category.ob) -> Diagram:
+        """
+        The swap morphism in Para.
 
-        swaps = symmetric.Diagram.id(a)\
-            @ symmetric.Diagram.swap(c, p)\
-            @ symmetric.Diagram.id(q)
+        Parameters:
+            left (category.ob) : The left domain.
+            right (category.ob) : The right domain.
+        """
+        return cls(cls.category.ar.swap(left, right),
+                   left + right, right + left, cls.category.ob())
 
-        underlying = swaps >> (base_self @ base_other)
+    @classmethod
+    def copy(cls, dom: category.ob, n: int = 2) -> Diagram:
+        """
+        The copy morphism in Para.
 
-        result = Diagram(
-            underlying.inside, underlying.dom, underlying.cod, _scan=False)
-        result._params = p @ q
-        result._data_dom = a @ c
-        result._data_cod = self.data_cod @ other.data_cod
-        return result
+        Parameters:
+            dom (category.ob) : The domain of the copy.
+            n (int) : The number of copies.
+        """
+        return cls(cls.category.ar.copy(dom, n),
+                   dom, dom ** n, cls.category.ob())
 
 
-class Box(symmetric.Box, Diagram):
+class Box(Diagram):
     """
     A Para box is a diagram with a single box in the base category.
 
@@ -254,7 +263,25 @@ class Box(symmetric.Box, Diagram):
 
         .. autosummary::
 
-class Reparam:
+            __init__
+    """
+    def __init__(
+            self, name: str, dom: category.ob, cod: category.ob,
+            params: category.ob = None, **kwargs):
+        import importlib
+        params = params or (dom.factory() if hasattr(dom, "factory")
+                            else self.category.ob())
+        try:
+            module = importlib.import_module(self.category.ar.__module__)
+            box_cls = getattr(module, "Box")
+        except (ImportError, AttributeError):
+            box_cls = symmetric.Box
+        inside = box_cls(name, dom + params, cod, **kwargs)
+        super().__init__(inside, dom, cod, params)
+
+
+@dataclass
+class Reparam(Composable, Whiskerable, NamedGeneric['category']):
     """
     A reparameterization 2-cell.
 
@@ -272,22 +299,24 @@ class Reparam:
             tensor
             draw
     """
-    def __init__(self, source: Diagram, target: Diagram, reparam_box, validate=True):
-        self.source = _as_para_diagram(source)
-        self.target = _as_para_diagram(target)
-        self.reparam_box = _as_monoidal_diagram(reparam_box)
-        if validate:
-            self._validate()
+    category = symmetric.Category
 
-    def _validate(self):
-        if self.source.data_dom != self.target.data_dom:
+    source: Diagram
+    target: Diagram
+    reparam_box: category.ar
+
+    def __post_init__(self):
+        self.source = _as_para_diagram(self.source)
+        self.target = _as_para_diagram(self.target)
+        self.reparam_box = _as_symmetric_diagram(self.reparam_box)
+        if self.source.dom != self.target.dom:
             raise ValueError(
-                f"Data domain mismatch: {self.source.data_dom} "
-                f"!= {self.target.data_dom}")
-        if self.source.data_cod != self.target.data_cod:
+                f"Data domain mismatch: {self.source.dom} "
+                f"!= {self.target.dom}")
+        if self.source.cod != self.target.cod:
             raise ValueError(
-                f"Data codomain mismatch: {self.source.data_cod} "
-                f"!= {self.target.data_cod}")
+                f"Data codomain mismatch: {self.source.cod} "
+                f"!= {self.target.cod}")
         if self.reparam_box.cod != self.source.params:
             raise ValueError(
                 f"Source parameter mismatch: {self.reparam_box.cod} "
@@ -297,20 +326,20 @@ class Reparam:
                 f"Target parameter mismatch: {self.reparam_box.dom} "
                 f"!= {self.target.params}")
 
-        expected = self.source.reparameterize(self.reparam_box)
-        if expected != self.target:
-            raise ValueError(
-                "The reparameterization square does not commute.")
+    @classmethod
+    def id(cls, dom: Diagram) -> Reparam:
+        """ The identity reparameterization 2-cell. """
+        return cls(dom, dom, cls.category.ar.id(dom.params))
 
     @property
-    def data_dom(self):
+    def dom(self):
         """ The data domain of the 2-cell. """
-        return self.source.data_dom
+        return self.source.dom
 
     @property
-    def data_cod(self):
+    def cod(self):
         """ The data codomain of the 2-cell. """
-        return self.source.data_cod
+        return self.source.cod
 
     def draw(self, path=None, **params):
         """
@@ -320,9 +349,7 @@ class Reparam:
             path (str, optional) : The path where to save the drawing.
             params : Passed to :meth:`discopy.drawing.Equation.draw`.
         """
-        from discopy.drawing import Equation
         return Equation(self.source, self.target).draw(path=path, **params)
-
 
     def then(self, other: Reparam) -> Reparam:
         """
@@ -335,10 +362,9 @@ class Reparam:
         if self.target != other.source:
             raise ValueError("2-cells are not vertically composable.")
         reparam_box = other.reparam_box >> self.reparam_box
-        return Reparam(self.source, other.target, reparam_box, validate=False)
+        return type(self)(self.source, other.target, reparam_box)
 
-    __rshift__ = then
-
+    @unbiased
     def tensor(self, other: Reparam) -> Reparam:
         """
         Horizontal composition of 2-cells.
@@ -350,9 +376,7 @@ class Reparam:
         reparam_box = self.reparam_box @ other.reparam_box
         source = self.source @ other.source
         target = self.target @ other.target
-        return Reparam(source, target, reparam_box, validate=False)
-
-    __matmul__ = tensor
+        return type(self)(source, target, reparam_box)
 
     def __repr__(self):
         return f"{factory_name(type(self))}({self.source!r}, " \
