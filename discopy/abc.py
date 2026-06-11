@@ -34,79 +34,14 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from functools import total_ordering, reduce
-import operator
-from typing import Generic, Optional, Type, TypeVar, Self
+from typing import Generic, Optional, Type, TypeVar
 
-from discopy.utils import get_origin, factory_name, assert_isinstance
+from discopy.utils import get_origin
 
-
-@total_ordering
-class Ob:
-    """
-    An object with a string as :code:`name`.
-
-    Parameters:
-        name : The name of the object.
-
-    Example
-    -------
-    >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
-    >>> assert x == x_ and x != y
-    """
-    def __setstate__(self, state):
-        if "name" not in state and "_name" in state:
-            state["name"] = state["_name"]
-            del state["_name"]
-        self.__dict__.update(state)
-
-    def __init__(self, name: str = ""):
-        assert_isinstance(name, str)
-        self.name = name
-
-    def __repr__(self):
-        return f"{factory_name(type(self))}({repr(self.name)})"
-
-    def __str__(self):
-        return str(self.name)
-
-    def __eq__(self, other):
-        return isinstance(other, type(self)) and self.name == other.name
-
-    def __hash__(self):
-        return hash(repr(self))
-
-    def __lt__(self, other):
-        return self.name < other.name
-
-    def to_tree(self) -> dict:
-        """
-        Serialise a DisCoPy object, see :func:`dumps`.
-
-        Example
-        -------
-        >>> Ob('x').to_tree()
-        {'factory': 'cat.Ob', 'name': 'x'}
-        """
-        return {'factory': factory_name(type(self)), 'name': self.name}
-
-    @classmethod
-    def from_tree(cls, tree: dict) -> Ob:
-        """
-        Decode a serialised DisCoPy object, see :func:`loads`.
-
-        Parameters:
-            tree : DisCoPy serialisation.
-
-        Example
-        -------
-        >>> x = Ob('x')
-        >>> assert Ob.from_tree(x.to_tree()) == x
-        """
-        return cls(tree['name'])
+T = TypeVar('T')
 
 
-class Category[T: Ob](ABC):
+class Category(ABC, Generic[T]):
     """
     A category is a Python class with methods :code:`dom, cod, id, then`,
     together with an attribute :attr:`ty_factory` for its objects.
@@ -163,25 +98,7 @@ class Category[T: Ob](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class MonoidalOb(Ob):
-    @abstractmethod
-    def __matmul__(self, other: Self) -> Self:
-        """
-        Construct the binary tensor object.
-        """
-
-    @abstractmethod
-    def unit(cls) -> Self:
-        """
-        Returns the monoidal unit.
-        """
-
-    @classmethod
-    def tensor(cls, *others: Self) -> Self:
-        return reduce(cls.__matmul__, others, initial=cls.unit())
-
-
-class MonoidalCategory[T: MonoidalOb](Category[T]):
+class MonoidalCategory(Category[T]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
     both its objects and its arrows.
@@ -190,7 +107,7 @@ class MonoidalCategory[T: MonoidalOb](Category[T]):
     """
     @classmethod
     @abstractmethod
-    def id(cls, dom: T) -> Self:
+    def id(cls, dom: T) -> MonoidalCategory:
         """
         Identity on a given domain, to be instantiated.
 
@@ -199,7 +116,7 @@ class MonoidalCategory[T: MonoidalOb](Category[T]):
         """
 
     @abstractmethod
-    def tensor(self, other: Self) -> Self:
+    def tensor(self, other: MonoidalCategory) -> MonoidalCategory:
         """
         Parallel composition, to be instantiated.
 
@@ -208,7 +125,7 @@ class MonoidalCategory[T: MonoidalOb](Category[T]):
         """
 
     @classmethod
-    def whisker(cls, other: T) -> Self:
+    def whisker(cls, other: T) -> MonoidalCategory:
         """
         Apply :meth:`MonoidalCategory.id` if :code:`other` is not tensorable
         else do nothing.
@@ -216,7 +133,7 @@ class MonoidalCategory[T: MonoidalOb](Category[T]):
         Parameters:
             other : The whiskering object.
         """
-        return other if isinstance(other, cls) else cls.id(other)
+        return other if isinstance(other, MonoidalCategory) else cls.id(other)
 
     def __matmul__(self, other):
         return self.tensor(self.whisker(other))
@@ -225,13 +142,13 @@ class MonoidalCategory[T: MonoidalOb](Category[T]):
         return self.whisker(other).tensor(self)
 
 
-class TracedCategory[T: MonoidalOb](MonoidalCategory[T]):
+class TracedCategory(MonoidalCategory[T]):
     """
     A traced category is a :class:`MonoidalCategory` with a method
     :code:`trace` for the partial trace of a morphism over some objects.
     """
     @abstractmethod
-    def trace(self, n: int = 1, left: bool = False) -> Self:
+    def trace(self, n: int = 1, left: bool = False) -> TracedCategory:
         """
         The trace of a morphism, to be instantiated.
 
@@ -241,15 +158,7 @@ class TracedCategory[T: MonoidalOb](MonoidalCategory[T]):
         """
 
 
-class BiclosedOb(MonoidalOb):
-    @abstractmethod
-    def hom(self, *others: Self):
-        """
-        Construct the exponential object
-        """
-
-
-class BiclosedCategory[T: BiclosedOb]](MonoidalCategory[T]):
+class BiclosedCategory(MonoidalCategory[T]):
     """
     A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
     and :code:`curry` for the evaluation and currying of morphisms.
