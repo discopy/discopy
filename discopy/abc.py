@@ -52,7 +52,7 @@ class Category(ABC, Generic[T]):
     Example
     -------
     >>> class List(list, Category):
-    ...     ty_factory, dom, cod = NoneType, None, None
+    ...     ty_factory, dom, cod = type(None), None, None
     ...     def then(self, other):
     ...         return self + other
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
