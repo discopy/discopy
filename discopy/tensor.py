@@ -588,7 +588,6 @@ class Box(frobenius.Box, Diagram):
     >>> b1.eval()
     Tensor[float64]([0.84193562, 0.91343221], dom=Dim(1), cod=Dim(2))
     """
-    __ambiguous_inheritance__ = (frobenius.Box, )
 
     def __setstate__(self, state):
         NamedGeneric.__setstate__(self, state)
@@ -639,7 +638,6 @@ class Cup(frobenius.Cup, Box):
         left (Dim) : The atomic type.
         right (Dim) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (frobenius.Cup, )
 
 
 class Cap(frobenius.Cap, Box):
@@ -650,7 +648,6 @@ class Cap(frobenius.Cap, Box):
         left (Dim) : The atomic type.
         right (Dim) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (frobenius.Cap, )
 
 
 class Swap(frobenius.Swap, Box):
@@ -661,7 +658,6 @@ class Swap(frobenius.Swap, Box):
         left (Dim) : The type on the top left and bottom right.
         right (Dim) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (frobenius.Swap, )
 
 
 class Spider(frobenius.Spider, Box):
@@ -686,7 +682,6 @@ class Spider(frobenius.Spider, Box):
     .. image:: /_static/tensor/frobenius-example.png
         :align: center
     """
-    __ambiguous_inheritance__ = (frobenius.Spider, )
 
 
 class Sum(monoidal.Sum, Box):
@@ -698,7 +693,6 @@ class Sum(monoidal.Sum, Box):
         dom (Dim) : The domain of the formal sum.
         cod (Dim) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (monoidal.Sum, )
 
 
 class Bubble(monoidal.Bubble, Box):
@@ -744,7 +738,6 @@ class Bubble(monoidal.Bubble, Box):
     .. image:: /_static/tensor/product-rule.png
         :align: center
     """
-    __ambiguous_inheritance__ = (monoidal.Bubble, )
 
     def __init__(self, inside, func=lambda x: int(not x), **params):
         self.func = func

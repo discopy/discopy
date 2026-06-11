@@ -58,7 +58,6 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
     .. _nLab: https://ncatlab.org/nlab/show/traced+monoidal+category)
     """
-    __ambiguous_inheritance__ = True
 
     @classmethod
     def twist(cls, dom: monoidal.Ty) -> Diagram:
@@ -116,7 +115,6 @@ class Box(braided.Box, traced.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (braided.Box, traced.Box)
 
 
 class Braid(braided.Braid, Box):
@@ -137,7 +135,6 @@ class Trace(traced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    __ambiguous_inheritance__ = (traced.Trace, )
 
 
 class Twist(Box):
@@ -178,7 +175,6 @@ class Sum(braided.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (braided.Sum, )
 
 
 class Functor(braided.Functor, traced.Functor):

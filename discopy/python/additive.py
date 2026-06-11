@@ -44,7 +44,6 @@ class Function(function.Function):
             swap
             trace
     """
-    __ambiguous_inheritance__ = True
 
     ty_factory = Ty
 

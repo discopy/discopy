@@ -102,7 +102,6 @@ class PRO(rigid.PRO, Ty):
     n : int
         The length of the PRO type.
     """
-    __ambiguous_inheritance__ = (rigid.PRO, )
 
     l = r = property(lambda self: self)
 
@@ -110,7 +109,6 @@ class PRO(rigid.PRO, Ty):
 @factory
 class Dim(monoidal.Dim, Ty):
     """ A dimension is a tuple of integers greater than one seen as a type. """
-    __ambiguous_inheritance__ = (monoidal.Dim, )
 
     l = r = property(lambda self: self.factory(*self.inside[::-1]))
 
@@ -125,7 +123,6 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    __ambiguous_inheritance__ = (compact.Diagram, markov.Diagram)
 
     ty_factory = Ty
 
@@ -184,7 +181,6 @@ class Box(compact.Box, markov.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (compact.Box, markov.Box)
 
 
 class Cup(compact.Cup, Box):
@@ -195,7 +191,6 @@ class Cup(compact.Cup, Box):
         left (Ty) : The atomic type.
         right (Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (compact.Cup, )
 
 
 class Cap(compact.Cap, Box):
@@ -206,7 +201,6 @@ class Cap(compact.Cap, Box):
         left (Ty) : The atomic type.
         right (Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (compact.Cap, )
 
 
 class Swap(compact.Swap, markov.Swap, Box):
@@ -217,7 +211,6 @@ class Swap(compact.Swap, markov.Swap, Box):
         left (Ty) : The type on the top left and bottom right.
         right (Ty) : The type on the top right and bottom left.
     """
-    __ambiguous_inheritance__ = (compact.Swap, markov.Swap)
 
     def rotate(self, left=False):
         del left
@@ -292,7 +285,6 @@ class Bubble(monoidal.Bubble, Box):
     """
     A Frobenius bubble is a monoidal bubble in a frobenius diagram.
     """
-    __ambiguous_inheritance__ = (monoidal.Bubble, )
 
 
 class Functor(compact.Functor, markov.Functor):
@@ -305,7 +297,6 @@ class Functor(compact.Functor, markov.Functor):
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
-    __ambiguous_inheritance__ = (compact.Functor, markov.Functor)
 
     dom = cod = Diagram
 

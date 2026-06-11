@@ -152,7 +152,6 @@ class Exp(Ty, cat.Ob):
         base : The base type.
         exponent : The exponent type.
     """
-    __ambiguous_inheritance__ = (cat.Ob, )
 
     def __init__(self, base: Ty, exponent: Ty):
         self.base, self.exponent = base, exponent
@@ -232,7 +231,6 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    __ambiguous_inheritance__ = True
 
     ty_factory = Ty
 
@@ -283,7 +281,6 @@ class Box(monoidal.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (monoidal.Box, )
 
 
 class Eval(Box):
@@ -351,7 +348,6 @@ class Sum(monoidal.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (monoidal.Sum, )
 
 
 Diagram.over, Diagram.under, Diagram.exp\

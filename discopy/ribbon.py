@@ -138,7 +138,6 @@ class Box(pivotal.Box, balanced.Box, Diagram):
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (pivotal.Box, balanced.Box, )
 
 
 class Cup(pivotal.Cup, Box):
@@ -149,7 +148,6 @@ class Cup(pivotal.Cup, Box):
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (pivotal.Cup, )
 
 
 class Cap(pivotal.Cap, Box):
@@ -160,7 +158,6 @@ class Cap(pivotal.Cap, Box):
         left (pivotal.Ty) : The atomic type.
         right (pivotal.Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (pivotal.Cap, )
 
 
 class Braid(balanced.Braid, Box):
@@ -172,7 +169,6 @@ class Braid(balanced.Braid, Box):
         right (pivotal.Ty) : The type on the top right and bottom left.
         is_dagger (bool) : Braiding over or under.
     """
-    __ambiguous_inheritance__ = (balanced.Braid, )
 
     z = 0
 
@@ -208,7 +204,6 @@ class Sum(rigid.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (rigid.Sum, )
 
 
 class Functor(pivotal.Functor, balanced.Functor):

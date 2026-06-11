@@ -106,7 +106,6 @@ class Ty(biclosed.Ty):
 
 class Exp(Ty, biclosed.Exp):
     "An exponential object in a markov category."
-    __ambiguous_inheritance__ = (biclosed.Exp, )
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
@@ -242,26 +241,22 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
-    __ambiguous_inheritance__ = (markov.Box, biclosed.Box)
 
     is_linear = True
 
 
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
-    __ambiguous_inheritance__ = (biclosed.Eval, )
     drawing_name = "Eval"
 
 
 class Coeval(biclosed.Coeval, Box):
     "The coevaluation of an exponential type, i.e. the dagger of an Eval."
-    __ambiguous_inheritance__ = (biclosed.Coeval, )
     drawing_name = "$\\lambda$"
 
 
 class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
-    __ambiguous_inheritance__ = (markov.Swap, )
 
     def to_drawing(self):
         if self.left:
@@ -273,17 +268,14 @@ class Curry(biclosed.Curry, Box):
 
 class Swap(markov.Swap, Box):
     "Symmetric swap in a closed diagram."
-    __ambiguous_inheritance__ = (markov.Swap, )
 
 
 class Trace(markov.Trace, Box):
     "A trace in a closed category."
-    __ambiguous_inheritance__ = (markov.Trace, )
 
 
 class Copy(markov.Copy, Box):
     "A markov copy in a closed category"
-    __ambiguous_inheritance__ = (markov.Copy, )
 
     is_linear = False
 
@@ -297,7 +289,6 @@ class Sum(markov.Sum, biclosed.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-    __ambiguous_inheritance__ = (markov.Sum, biclosed.Sum)
 
 
 Diagram.over, Diagram.under, Diagram.exp\

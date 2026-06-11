@@ -93,7 +93,6 @@ class PRO(rigid.PRO, Ty):
     n : int
         The length of the PRO type.
     """
-    __ambiguous_inheritance__ = (rigid.PRO, )
     l = r = property(lambda self: self)
 
 
@@ -182,7 +181,6 @@ class Box(rigid.Box, Diagram):
         dom (Ty) : The domain of the box, i.e. its input.
         cod (Ty) : The codomain of the box, i.e. its output.
     """
-    __ambiguous_inheritance__ = (rigid.Box, )
 
     def rotate(self, left=False):
         del left
@@ -214,7 +212,6 @@ class Cup(rigid.Cup, Box):
         left (Ty) : The atomic type.
         right (Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (rigid.Cup, )
 
     def dagger(self) -> Cap:
         """ The dagger of a pivotal cup. """
@@ -229,7 +226,6 @@ class Cap(rigid.Cap, Box):
         left (Ty) : The atomic type.
         right (Ty) : Its adjoint.
     """
-    __ambiguous_inheritance__ = (rigid.Cap, )
 
     def dagger(self) -> Cup:
         """ The dagger of a pivotal cap. """
