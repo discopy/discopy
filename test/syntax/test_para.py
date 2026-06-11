@@ -1,7 +1,7 @@
 import os
 from discopy.monoidal import Ty
 from discopy.symmetric import Box as SBox
-from discopy.learning.para import Box, Reparam
+from discopy.para import Box, Reparam
 
 
 def test_para_composition_metadata():
