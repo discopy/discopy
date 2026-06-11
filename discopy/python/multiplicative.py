@@ -72,7 +72,7 @@ class Function(function.Function):
             trace
     """
 
-    ty_factory = Ty
+    ob = Ty
 
     def __call__(self, *xs):
         if self.type_checking:

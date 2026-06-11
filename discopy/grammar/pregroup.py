@@ -97,7 +97,7 @@ class Diagram(frobenius.Diagram):
     >>> F = tensor.Functor(ob, ar, dom=Diagram, dtype=bool)
     >>> assert F(sentence)
     """
-    ty_factory = Ty
+    ob = Ty
 
     def normal_form(self, **params):
         """

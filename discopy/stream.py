@@ -302,11 +302,11 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
 
     Parameters:
         now (category) : The value of the stream at time step zero.
-        dom (Optional[Ty[category.ty_factory]]) :
+        dom (Optional[Ty[category.ob]]) :
             The domain of the stream, constant `now.dom` if `_later is None`.
-        cod (Optional[Ty[category.ty_factory]]) :
+        cod (Optional[Ty[category.ob]]) :
             The codomain of the stream, constant `now.dom` if `_later is None`.
-        mem (Optional[Ty[category.ty_factory]]) :
+        mem (Optional[Ty[category.ob]]) :
             The memory of the stream, the constant empty type by default.
         _later (Optional[Callable[[], Stream[category]]]) :
             A thunk for the tail of the stream, constant by default.
@@ -335,12 +335,12 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
     >>> assert mem.later.now == later.mem.now
     """
     category = symmetric.Diagram
-    ty_factory = classproperty(lambda cls: Ty[cls.category.ty_factory])
+    ob = classproperty(lambda cls: Ty[cls.category.ob])
 
     now: category
-    dom: ty_factory = None
-    cod: ty_factory = None
-    mem: ty_factory = None
+    dom: ob = None
+    cod: ob = None
+    mem: ob = None
     _later: Callable[[], Stream[category]] = None
 
     later, is_constant = Ty.later, Ty.is_constant
@@ -348,17 +348,17 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
 
     def __init__(
             self, now: category,
-            dom: ty_factory = None,
-            cod: ty_factory = None,
-            mem: ty_factory = None,
+            dom: ob = None,
+            cod: ob = None,
+            mem: ob = None,
             _later: Callable[[], Stream[category]] = None):
         if dom is None or cod is None:
             if mem is not None or _later is not None:
                 raise ValueError(
                     "Cannot have mem or _later if dom or cod is None.")
-        dom = Ty[self.category.ty_factory](now.dom) if dom is None else dom
-        cod = Ty[self.category.ty_factory](now.cod) if cod is None else cod
-        mem = Ty[self.category.ty_factory]() if mem is None else mem
+        dom = Ty[self.category.ob](now.dom) if dom is None else dom
+        cod = Ty[self.category.ob](now.cod) if cod is None else cod
+        mem = Ty[self.category.ob]() if mem is None else mem
         for typ in (dom, cod, mem):
             assert_isinstance(typ, Ty)
         if not isinstance(now, self.category):
@@ -392,7 +392,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         Construct the stream with a given arrow now and the empty stream later.
         """
         dom, cod = map(
-            Ty[cls.category.ty_factory].singleton, (arg.dom, arg.cod))
+            Ty[cls.category.ob].singleton, (arg.dom, arg.cod))
         return cls(arg, dom, cod, _later=lambda: cls.id())
 
     @classmethod
@@ -412,7 +412,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         f1 : x1 @ m0 -> y1 @ m1
         f2 : x2 @ m1 -> y2 @ m2
         """
-        mem = Ty[cls.category.ty_factory]() if mem is None else mem
+        mem = Ty[cls.category.ob]() if mem is None else mem
         now = box_factory(
             f"{name}{n_steps}", dom.now @ mem.now, cod.now @ mem.later.now)
         return cls(now, dom, cod, mem, _later=lambda: cls.sequence(
@@ -445,7 +445,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         """
         later = self.later
         dom, cod = self.dom.unroll(), self.cod.unroll()
-        mem = Ty[self.category.ty_factory](
+        mem = Ty[self.category.ob](
             self.mem.now, lambda: self.mem.later.later)
         now = self.dom.now @ self.category.swap(later.dom.now, self.mem_dom)
         now >>= self.now @ later.dom.now
@@ -464,7 +464,7 @@ class Stream(MonoidalCategory, NamedGeneric['category']):
         >>> print(id_x.now, id_x.later.now, id_x.later.later.now)
         Id(x0) Id(x1) Id(x2)
         """
-        x = Ty[cls.category.ty_factory]() if x is None else x
+        x = Ty[cls.category.ob]() if x is None else x
         assert_isinstance(x, Ty)
         now, dom, cod = cls.category.id(x.now), x, x
         _later = None if x.is_constant else lambda: cls.id(x.later)

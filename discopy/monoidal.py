@@ -237,12 +237,12 @@ class PRO(Ty):
 
     Note
     ----
-    If ``ty_factory`` is ``PRO`` then :class:`Diagram` will automatically turn
+    If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
     any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
 
     >>> @factory
     ... class Circuit(Diagram):
-    ...     ty_factory = PRO
+    ...     ob = PRO
     >>> class Gate(Box, Circuit): ...
     >>> CX = Gate('CX', 2, 2)
 
@@ -458,7 +458,7 @@ class Layer(cat.Box):
         """
         assert_iscomposable(self, other)
         try:
-            diagram = Diagram.normal_form(self.boxes_or_types[1].factory(
+            diagram = Diagram.normal_form(self.boxes_or_types[1].ar(
                 (self, other), self.dom, other.cod).to_staircases())
         except NotImplementedError as exception:  # Eckmann-Hilton argument.
             diagram = exception.last_step
@@ -511,7 +511,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
             normalize
             normal_form
     """
-    ty_factory = Ty
+    ob = Ty
     layer_factory = Layer
 
     def __setstate__(self, state):
@@ -590,12 +590,12 @@ class Diagram(cat.Arrow, MonoidalCategory):
             return self.tensor(other).tensor(*others)
         if isinstance(other, Sum):
             return self.sum_factory((self, )).tensor(other)
-        assert_isinstance(other, self.factory)
-        assert_isinstance(self, other.factory)
+        assert_isinstance(other, self.ar)
+        assert_isinstance(self, other.ar)
         inside = tuple(layer @ other.dom for layer in self.inside)\
             + tuple(self.cod @ layer for layer in other.inside)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        return self.factory(inside, dom, cod, _scan=False)
+        return self.ar(inside, dom, cod, _scan=False)
 
     @property
     def boxes(self) -> list[Box]:
@@ -685,7 +685,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
     def to_drawing(self, functor_factory=None) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
         ob = ar = lambda x: x.to_drawing()
-        dom = self.factory
+        dom = self.ar
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
@@ -703,7 +703,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> print(diagram.foliation().to_staircases())
         f1 @ x >> x @ f0
         """
-        return Functor.id(self.factory)(self)
+        return Functor.id(self.ar)(self)
 
     def foliation(self):
         """
@@ -736,7 +736,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
                 try:
                     inside = self.inside[:i] + (first.merge(second), )\
                         + self.inside[i + 2:]
-                    self = self.factory(inside, self.dom, self.cod)
+                    self = self.ar(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
                 except AxiomError:
@@ -1082,7 +1082,7 @@ class Functor(cat.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
@@ -1114,18 +1114,18 @@ class Functor(cat.Functor):
     def __call__(self, other):
         if isinstance(other, PRO):
             result = cat.Functor.__call__(self, other.factory(1))
-            return sum(other.n * [result], self.cod.ty_factory())
+            return sum(other.n * [result], self.cod.ob())
         if isinstance(other, Dim):
-            return sum([self.ob_map[x] for x in other], self.cod.ty_factory())
+            return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):
-            return sum(map(self, other.inside), self.cod.ty_factory())
+            return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):
-            result = self.ob_map[self.dom.ty_factory(other)]
-            cod_type = get_origin(self.cod.ty_factory)
+            result = self.ob_map[self.dom.ob(other)]
+            cod_type = get_origin(self.cod.ob)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
                 (result, ) if cod_type == tuple\
-                else self.cod.ty_factory(result)
+                else self.cod.ob(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
@@ -1179,5 +1179,5 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
-Drawing.ty_factory = Ty
+Drawing.ob = Ty
 Id = Diagram.id

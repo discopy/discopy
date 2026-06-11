@@ -311,7 +311,7 @@ def test_Functor_call():
 
 def test_PRO_Functor():
     class PRODiagram(Diagram):
-        ty_factory = PRO
+        ob = PRO
 
     G = Functor(lambda x: x @ x, lambda f: f, cod=PRODiagram)
     assert G(PRO(2)) == PRO(4)

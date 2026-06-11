@@ -68,7 +68,7 @@ class Tree:
     >>> S = Rule(vp @ np, s)
     >>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
     """
-    ty_factory = Ty
+    ob = Ty
 
     def __init__(self, root: Rule, *branches: Tree):
         assert_isinstance(root, Rule)
@@ -216,7 +216,7 @@ class Algebra(Functor):
     as codomain.
 
     Parameters:
-        ob (dict[monoidal.Ty, cod.ty_factory]) :
+        ob (dict[monoidal.Ty, cod.ob]) :
             The mapping from domain to codomain colours.
         ar (dict[Rule, cod]):
             The mapping from domain to codomain operations.

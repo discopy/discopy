@@ -124,7 +124,7 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
 
-    ty_factory = Ty
+    ob = Ty
 
     @classmethod
     def caps(cls, left, right):
@@ -277,7 +277,7 @@ class Spider(Box):
         return type(self)(len(self.cod), len(self.dom), self.typ, self.phase)
 
     def unfuse(self) -> Diagram:
-        return coherence(self.factory, type(self))(
+        return coherence(self.ar, type(self))(
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
@@ -293,7 +293,7 @@ class Functor(compact.Functor, markov.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

@@ -184,7 +184,7 @@ class Circuit(tensor.Diagram[complex]):
         dom (quantum.circuit.Ty) : The domain of the circuit diagram.
         cod (quantum.circuit.Ty) : The codomain of the circuit diagram.
     """
-    ty_factory = Ty
+    ob = Ty
 
     @classmethod
     def id(cls, dom: int | Ty = None):

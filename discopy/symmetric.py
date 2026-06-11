@@ -226,7 +226,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             self.inside, self.cod, self.dom)
 
     def __eq__(self, other):
-        return isinstance(other, self.factory)\
+        return isinstance(other, self.ar)\
             and self._get_structure() == other._get_structure()
 
     def __hash__(self):
@@ -333,7 +333,7 @@ class Functor(balanced.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.

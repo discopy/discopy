@@ -109,8 +109,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     :class:`Spider` labels can be of any type.
 
     Parameters:
-        dom (category.ty_factory) : The domain of the diagram, i.e. its input.
-        cod (category.ty_factory) :
+        dom (category.ob) : The domain of the diagram, i.e. its input.
+        cod (category.ob) :
             The codomain of the diagram, i.e. its output.
         boxes (tuple[category, ...]) : The boxes inside the diagram.
         wires (Wiring) : List of wires from ports to spiders.
@@ -142,7 +142,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
 
     >>> from discopy.frobenius import Hypergraph as H
     >>> from discopy.frobenius import Ty, Diagram
-    >>> assert H.category.ty_factory == Ty and H.category == Diagram
+    >>> assert H.category.ob == Ty and H.category == Diagram
 
     They are also parameterised by a ``Functor`` called by :meth:`to_diagram`.
 
@@ -179,14 +179,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     functor = None
 
     category = classproperty(lambda cls: cls.functor.dom)
-    ty_factory = classproperty(lambda cls: cls.category.ty_factory)
+    ob = classproperty(lambda cls: cls.category.ob)
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             wires: Wiring, spider_types: SpiderTypes = None,
             offsets: tuple[int | None, ...] = None):
-        assert_isinstance(dom, self.category.ty_factory)
-        assert_isinstance(cod, self.category.ty_factory)
+        assert_isinstance(dom, self.category.ob)
+        assert_isinstance(cod, self.category.ob)
         for box in boxes:
             assert_isinstance(box, self.category)
         self.dom, self.cod, self.boxes = dom, cod, boxes
@@ -224,7 +224,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
 
         for obj in self.spider_types:
-            assert_isatomic(obj, self.category.ty_factory)
+            assert_isatomic(obj, self.category.ob)
         for obj, wires in zip(self.spider_types, self.spider_wires):
             adjoint = getattr(obj, "r", obj)
             for i in set.union(*wires):
@@ -326,7 +326,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
 
     @classmethod
     def id(cls, dom=None) -> Hypergraph:
-        dom = cls.category.ty_factory() if dom is None else dom
+        dom = cls.category.ob() if dom is None else dom
         dom_wires = cod_wires = tuple(range(len(dom)))
         return cls(dom, dom, (), (dom_wires, (), cod_wires))
 
@@ -427,7 +427,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             raise AxiomError
         dom_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(
-            left @ right, cls.category.ty_factory(), (), (dom_wires, (), ()))
+            left @ right, cls.category.ob(), (), (dom_wires, (), ()))
 
     @classmethod
     def caps(cls, left, right):
@@ -435,7 +435,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             raise AxiomError
         cod_wires = tuple(range(len(left))) + tuple(reversed(range(len(left))))
         return cls(
-            cls.category.ty_factory(), left @ right, (), ((), (), cod_wires))
+            cls.category.ob(), left @ right, (), ((), (), cod_wires))
 
     def transpose(self, left=False):
         """ The transpose of a hypergraph diagram. """
@@ -1202,8 +1202,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                     [inputs, outputs, box_nodes, spider_nodes]):
                 if node.kind == kind:
                     nodelist.append(node)
-        dom = sum([n.obj for n in inputs], cls.category.ty_factory())
-        cod = sum([n.obj for n in outputs], cls.category.ty_factory())
+        dom = sum([n.obj for n in inputs], cls.category.ob())
+        cod = sum([n.obj for n in outputs], cls.category.ob())
         boxes = tuple(n.box for n in box_nodes)
         offsets = tuple(n.offset for n in box_nodes)
         spider_types = {n: n.obj for n in spider_nodes}

@@ -172,7 +172,7 @@ class Diagram(RibbonCategory[Ty], NamedGeneric['natural']):
     """
     natural = ribbon.Diagram
 
-    ty_factory = classproperty(lambda cls: Ty[cls.natural.ty_factory])
+    ob = classproperty(lambda cls: Ty[cls.natural.ob])
 
     inside: natural
     dom: Ty
@@ -266,7 +266,7 @@ class Diagram(RibbonCategory[Ty], NamedGeneric['natural']):
         .. image:: /_static/int/idr.png
             :align: center
         """
-        dom = Ty[cls.natural.ty_factory]() if dom is None else dom
+        dom = Ty[cls.natural.ob]() if dom is None else dom
         positive, negative = dom
         inside = cls.natural.id(positive) @ cls.natural.twist(negative)
         return cls(inside, dom, dom)

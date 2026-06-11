@@ -151,7 +151,7 @@ class Channel(Tensor):
         dom : The domain of the channel.
         cod : The codomain of the channel.
     """
-    ty_factory = CQ
+    ob = CQ
     dtype = complex
 
     def __init__(self, array, dom: CQ, cod: CQ):

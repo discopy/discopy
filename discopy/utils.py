@@ -487,7 +487,7 @@ def factory(cls: Type[Category]) -> Type[Category]:
     ...     pass
     >>> @factory
     ... class Circuit(Arrow):
-    ...     ty_factory = Qubit
+    ...     ob = Qubit
 
     The :code:`Circuit` subclass itself has a subclass :code:`Gate` as boxes.
 
@@ -502,6 +502,7 @@ def factory(cls: Type[Category]) -> Type[Category]:
     >>> assert isinstance(Circuit.id().dom, Qubit)
     """
     cls.factory = cls
+    cls.ar = cls
     return cls
 
 

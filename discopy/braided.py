@@ -99,7 +99,7 @@ class Diagram(monoidal.Diagram, BraidedCategory):
                 zip(self.inside, self.inside[1:])):
             if x == y and isinstance(f, Braid) and f == g[::-1]:
                 inside = self.inside[:i] + self.inside[i + 2:]
-                return self.factory(
+                return self.ar(
                     inside, self.dom, self.cod, _scan=False).simplify()
         return self
 
@@ -232,7 +232,7 @@ class Functor(monoidal.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.

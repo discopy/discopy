@@ -44,7 +44,7 @@ class Function(MonoidalCategory[int]):
     dom: int
     cod: int
 
-    ty_factory = int
+    ob = int
 
     def __getitem__(self, key):
         return self.inside[key]

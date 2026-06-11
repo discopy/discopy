@@ -67,7 +67,7 @@ class Word(Rule):
     """
     def __init__(self, name: str, cod: monoidal.Ty, dom: monoidal.Ty = None,
                  **params):
-        dom = self.ty_factory() if dom is None else dom
+        dom = self.ob() if dom is None else dom
         Rule.__init__(self, dom=dom, cod=cod, name=name, **params)
 
     def __repr__(self):

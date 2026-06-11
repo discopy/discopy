@@ -207,11 +207,11 @@ class Arrow(Category[Ob]):
 
     Note
     ----
-    If ``dom`` or ``cod`` are not instances of ``ty_factory``, they are
+    If ``dom`` or ``cod`` are not instances of ``ob``, they are
     automatically cast. This means one can use e.g. ``int`` instead of ``Ob``,
     see :class:`monoidal.PRO`.
     """
-    ty_factory = Ob
+    ob = Ob
 
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
@@ -222,9 +222,9 @@ class Arrow(Category[Ob]):
 
     def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
                  _scan: bool = True) -> None:
-        ty_factory = type(self).ty_factory
-        dom = dom if isinstance(dom, ty_factory) else ty_factory(dom)
-        cod = cod if isinstance(cod, ty_factory) else ty_factory(cod)
+        ob = type(self).ob
+        dom = dom if isinstance(dom, ob) else ob(dom)
+        cod = cod if isinstance(cod, ob) else ob(cod)
         self.dom, self.cod, self.inside = dom, cod, inside
         if _scan:
             for box in inside:
@@ -240,7 +240,7 @@ class Arrow(Category[Ob]):
         if isinstance(key, slice):
             if key.step == -1:
                 inside = tuple(box.dagger() for box in self.inside[key])
-                return self.factory(inside, self.cod, self.dom, _scan=False)
+                return self.ar(inside, self.cod, self.dom, _scan=False)
             if (key.step or 1) != 1:
                 raise IndexError
             inside = self.inside[key]
@@ -250,7 +250,7 @@ class Arrow(Category[Ob]):
                 if (key.start or 0) <= -len(self):
                     return self.id(self.dom)
                 return self.id(self.inside[key.start or 0].dom)
-            return self.factory(
+            return self.ar(
                 inside, inside[0].dom, inside[-1].cod, _scan=False)
         if isinstance(key, int):
             if key >= len(self) or key < -len(self):
@@ -266,14 +266,14 @@ class Arrow(Category[Ob]):
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
             return f"{factory_name(type(self))}.id({repr(self.dom)})"
-        return f"{factory_name(self.factory)}(inside={repr(self.inside)}, " \
+        return f"{factory_name(self.ar)}(inside={repr(self.inside)}, " \
                f"dom={repr(self.dom)}, cod={repr(self.cod)})"
 
     def __str__(self):
         return ' >> '.join(map(str, self.inside)) or f"Id({self.dom})"
 
     def __eq__(self, other):
-        return isinstance(other, self.factory)\
+        return isinstance(other, self.ar)\
             and self.is_parallel(other) and self.inside == other.inside
 
     def __hash__(self):
@@ -295,15 +295,15 @@ class Arrow(Category[Ob]):
 
         Note
         ----
-        If ``dom`` is not provided, we use the default value of ``ty_factory``.
+        If ``dom`` is not provided, we use the default value of ``ob``.
 
         Example
         -------
         >>> assert Arrow.id() == Id() == Id(Ob())
         >>> assert Arrow.id('x') == Id('x') == Id(Ob('x'))
         """
-        dom = cls.ty_factory() if dom is None else dom
-        return cls.factory((), dom, dom, _scan=False)
+        dom = cls.ob() if dom is None else dom
+        return cls.ar((), dom, dom, _scan=False)
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -319,10 +319,10 @@ class Arrow(Category[Ob]):
             return self.sum_factory((self, )).then(*others)
         inside, dom, cod = self.inside, self.dom, self.cod
         for other in others:
-            assert_isinstance(other, self.factory)
-            assert_isinstance(self, other.factory)
+            assert_isinstance(other, self.ar)
+            assert_isinstance(self, other.ar)
             inside, cod = inside + other.inside, other.cod
-        return self.factory(inside, dom, cod)
+        return self.ar(inside, dom, cod)
 
     def dagger(self) -> Arrow:
         """ Contravariant involution, called with :code:`[::-1]`. """
@@ -383,7 +383,7 @@ class Arrow(Category[Ob]):
         >>> assert (f >> g).subs(psi, 1) == f >> g.subs(psi, 1)
         """
         inside = tuple(box.subs(*args) for box in self.inside)
-        return self.factory(inside, self.dom, self.cod, _scan=False)
+        return self.ar(inside, self.dom, self.cod, _scan=False)
 
     def lambdify(self, *symbols: "sympy.Symbol", **kwargs) -> Callable:
         """
@@ -402,7 +402,7 @@ class Arrow(Category[Ob]):
         >>> assert (f >> g).lambdify(phi, psi)(42, 43)\\
         ...     == Box('f', x, y, data=42) >> Box('g', y, z, data=43)
         """
-        return lambda *xs: self.factory(
+        return lambda *xs: self.ar(
             dom=self.dom, cod=self.cod, inside=tuple(
                 box.lambdify(*symbols, **kwargs)(*xs) for box in self.inside))
 
@@ -759,7 +759,7 @@ class Functor(Category[type[Category]]):
     optional codomain category :code:`cod`.
 
     Parameters:
-        ob : Mapping from :class:`Ob` to :code:`cod.ty_factory`.
+        ob : Mapping from :class:`Ob` to :code:`cod.ob`.
         ar : Mapping from :class:`Box` to :code:`cod`.
         cod : The codomain, :code:`Arrow` by default.
 
@@ -794,7 +794,7 @@ class Functor(Category[type[Category]]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ty_factory = type
+    ob = type
     dom = cod = Arrow
 
     @classmethod
@@ -858,11 +858,11 @@ class Functor(Category[type[Category]]):
     def __call__(self, other):
         if isinstance(other, Ob):
             result = self.ob_map[other]
-            origin = get_origin(self.cod.ty_factory)
+            origin = get_origin(self.cod.ob)
             if isinstance(result, origin):
                 return result
             return (result, ) if origin == tuple\
-                else self.cod.ty_factory(result)
+                else self.cod.ob(result)
         if isinstance(other, Sum):
             return sum(map(self, other.terms),
                        self.cod.zero(self(other.dom), self(other.cod)))

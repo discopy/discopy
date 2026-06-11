@@ -104,7 +104,7 @@ class Tensor(Matrix):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    ty_factory = Dim
+    ob = Dim
 
     def __init__(self, array, dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)
@@ -406,7 +406,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Dim(2) @ vector
     """
-    ty_factory = Dim
+    ob = Dim
 
     def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """

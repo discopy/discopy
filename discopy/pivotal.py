@@ -107,7 +107,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    ty_factory = Ty
+    ob = Ty
 
     def dagger(self):
         """
@@ -238,7 +238,7 @@ class Functor(rigid.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

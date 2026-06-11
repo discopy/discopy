@@ -312,7 +312,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
     .. image:: /_static/feedback/feedback-random-walk.png
         :align: center
     """
-    ty_factory = Ty
+    ob = Ty
     layer_factory = Layer
 
     def delay(self, n_steps=1):
@@ -598,7 +598,7 @@ class Functor(markov.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
@@ -620,7 +620,7 @@ class Functor(markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, (Ob, Box)) and other.time_step:
-            cod = self.cod.ty_factory if isinstance(other, Ob) else self.cod
+            cod = self.cod.ob if isinstance(other, Ob) else self.cod
             if hasattr(cod, "delay"):
                 result = self(other.reset())
                 for _ in range(other.time_step):
@@ -628,7 +628,7 @@ class Functor(markov.Functor):
                 return result
         if isinstance(other, (HeadOb, TailOb, Head, Tail)):
             cod = self.cod if isinstance(
-                other, (Head, Tail)) else self.cod.ty_factory
+                other, (Head, Tail)) else self.cod.ob
             attr = "head" if isinstance(other, (HeadOb, Head)) else "tail"
             if hasattr(cod, attr):
                 return getattr(self(other.arg), attr)

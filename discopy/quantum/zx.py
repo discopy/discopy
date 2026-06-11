@@ -36,7 +36,7 @@ from discopy.utils import factory_name
 @factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
-    ty_factory = PRO
+    ob = PRO
 
     @staticmethod
     def swap(left, right):

@@ -73,7 +73,7 @@ class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
         dom (pivotal.Ty) : The domain of the diagram, i.e. its input.
         cod (pivotal.Ty) : The codomain of the diagram, i.e. its output.
     """
-    ty_factory = Ty
+    ob = Ty
     trace_factory = ribbon.Diagram.trace_factory
 
 
@@ -124,7 +124,7 @@ class Functor(symmetric.Functor, ribbon.Functor):
 
     Parameters:
         ob (Mapping[pivotal.Ty, pivotal.Ty]) :
-            Map from atomic :class:`pivotal.Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`pivotal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
