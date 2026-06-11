@@ -142,8 +142,8 @@ def test_Functor_repr():
     x = frobenius.Ty('x')
     F = Functor({x: 2}, {}, dom=frobenius.Diagram, dtype=bool)
     assert repr(F) ==\
-        "tensor.Functor(ob={frobenius.Ty(frobenius.Ob('x')): 2}, ar={}, "\
-        "dom=frobenius.Diagram, dtype=bool)"
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, "\
+        "ar_map={}, dom=frobenius.Diagram, dtype=bool)"
 
 
 def test_Functor_call():

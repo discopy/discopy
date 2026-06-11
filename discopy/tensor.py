@@ -351,8 +351,10 @@ class Functor(frobenius.Functor):
         super().__init__(ob, ar, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
-        return factory_name(type(self)) + f"(ob={self.ob}, ar={self.ar}, "\
-            + f"dom={factory_name(self.dom)}, dtype={self.dtype.__name__})"
+        return factory_name(type(self))\
+            + f"(ob_map={self.ob_map}, ar_map={self.ar_map}, "\
+            + f"dom={factory_name(self.dom)}, "\
+            + f"dtype={self.dtype.__name__})"
 
     def __call__(self, other):
         if isinstance(other, Dim):

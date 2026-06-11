@@ -755,8 +755,8 @@ class Bubble(Box):
 
 class Functor(Category[type[Category]]):
     """
-    A functor is a pair of maps :code:`ob` and :code:`ar` and an optional
-    codomain category :code:`cod`.
+    A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
+    optional codomain category :code:`cod`.
 
     Parameters:
         ob : Mapping from :class:`Ob` to :code:`cod.ty_factory`.
@@ -773,7 +773,8 @@ class Functor(Category[type[Category]]):
 
     Tip
     ---
-    Both :code:`ob` and :code:`ar` can be a function rather than a dictionary.
+    Both :code:`ob_map` and :code:`ar_map` can be a function rather than a
+    dictionary.
     In conjunction with :attr:`Box.data`, this can be used to create a
     :class:`Functor` from a free category with infinitely many generators.
 
@@ -823,14 +824,14 @@ class Functor(Category[type[Category]]):
         >>> x, y = Ob('x'), Ob('y')
         >>> F, G = Functor({x: y}, {}), Functor({y: x}, {})
         >>> print(F >> G)
-        cat.Functor(ob={cat.Ob('x'): cat.Ob('x')}, ar={})
+        cat.Functor(ob_map={cat.Ob('x'): cat.Ob('x')}, ar_map={})
         >>> assert F >> Functor.id() == F != Functor.id() >> F
         >>> print(Functor.id() >> F)  # doctest: +ELLIPSIS
-        cat.Functor(ob=<function ...>, ar=...)
+        cat.Functor(ob_map=<function ...>, ar_map=...)
         """
         assert_isinstance(other, Functor)
         assert_iscomposable(self, other)
-        ob, ar = self.ob.then(other), self.ar.then(other)
+        ob, ar = self.ob_map.then(other), self.ar_map.then(other)
         return type(self)(ob, ar, dom=self.dom, cod=other.cod)
 
     def __init__(
@@ -839,22 +840,25 @@ class Functor(Category[type[Category]]):
             ar: Mapping[Box, Arrow] | Callable[[Box], Arrow] | None = None,
             dom: type = None, cod: type = None):
         self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
-        self.ob: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
-        self.ar: MappingOrCallable[Box, Arrow] = MappingOrCallable(ar or {})
+        self.ob_map: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
+        self.ar_map: MappingOrCallable[Box, Arrow] = MappingOrCallable(
+            ar or {})
 
     def __eq__(self, other):
         return type(self) is type(other)\
-            and (self.ob, self.ar, self.cod) == (other.ob, other.ar, other.cod)
+            and (self.ob_map, self.ar_map, self.cod)\
+            == (other.ob_map, other.ar_map, other.cod)
 
     def __repr__(self):
         cod_repr = "" if self.cod == type(self).cod\
             else f", cod={factory_name(self.cod)}"
         return factory_name(type(self))\
-            + f"(ob={self.ob}, ar={self.ar}{cod_repr})"
+            + f"(ob_map={self.ob_map}, ar_map={self.ar_map}{cod_repr})"
 
     def __call__(self, other):
         if isinstance(other, Ob):
-            result, origin = self.ob[other], get_origin(self.cod.ty_factory)
+            result = self.ob_map[other]
+            origin = get_origin(self.cod.ty_factory)
             if isinstance(result, origin):
                 return result
             return (result, ) if origin == tuple\
@@ -869,7 +873,7 @@ class Functor(Category[type[Category]]):
         if isinstance(other, Box) and other.is_dagger:
             return self(other.dagger()).dagger()
         if isinstance(other, Box):
-            result = self.ar[other]
+            result = self.ar_map[other]
             # This allows some nice syntactic sugar for the ar mapping.
             return result if isinstance(result, self.cod)\
                 else self.cod(result, self(other.dom), self(other.cod))

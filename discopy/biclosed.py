@@ -384,7 +384,8 @@ class Functor(monoidal.Functor):
             return result.dagger() if isinstance(other, Coeval) else result
         if self.cod is Drawing:
             if isinstance(other, Ty) and other.inside == (other, ):
-                return self.ob[other]
+                # Avoid infinite recursion when drawing.
+                return self.ob_map[other]
         return super().__call__(other)
 
 
