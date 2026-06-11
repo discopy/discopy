@@ -38,10 +38,8 @@ from typing import Generic, Optional, Type, TypeVar
 
 from discopy.utils import get_origin
 
-T = TypeVar('T')
 
-
-class Category(ABC, Generic[T]):
+class Category[T](ABC):
     """
     A category is a Python class with methods :code:`dom, cod, id, then`,
     together with an attribute :attr:`ty_factory` for its objects.
@@ -98,7 +96,7 @@ class Category(ABC, Generic[T]):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class MonoidalCategory(Category[T]):
+class MonoidalCategory[T](Category[T]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
     both its objects and its arrows.
@@ -142,7 +140,7 @@ class MonoidalCategory(Category[T]):
         return self.whisker(other).tensor(self)
 
 
-class TracedCategory(MonoidalCategory[T]):
+class TracedCategory[T](MonoidalCategory[T]):
     """
     A traced category is a :class:`MonoidalCategory` with a method
     :code:`trace` for the partial trace of a morphism over some objects.
@@ -158,7 +156,7 @@ class TracedCategory(MonoidalCategory[T]):
         """
 
 
-class BiclosedCategory(MonoidalCategory[T]):
+class BiclosedCategory[T](MonoidalCategory[T]):
     """
     A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
     and :code:`curry` for the evaluation and currying of morphisms.
@@ -189,7 +187,7 @@ class BiclosedCategory(MonoidalCategory[T]):
         """
 
 
-class RigidCategory(BiclosedCategory[T]):
+class RigidCategory[T](BiclosedCategory[T]):
     """
     A rigid category is a :class:`BiclosedCategory` where every object has a
     left and right adjoint, witnessed by methods :code:`cups` and :code:`caps`.
@@ -217,14 +215,14 @@ class RigidCategory(BiclosedCategory[T]):
         """
 
 
-class PivotalCategory(RigidCategory[T], TracedCategory[T]):
+class PivotalCategory[T](RigidCategory[T], TracedCategory[T]):
     """
     A pivotal category is a :class:`RigidCategory` where the left and right
     adjoints coincide, hence it is also a :class:`TracedCategory`.
     """
 
 
-class BraidedCategory(MonoidalCategory[T]):
+class BraidedCategory[T](MonoidalCategory[T]):
     """
     A braided category is a :class:`MonoidalCategory` with a method
     :code:`braid` for the natural isomorphism :code:`x @ y -> y @ x`.
@@ -241,7 +239,7 @@ class BraidedCategory(MonoidalCategory[T]):
         """
 
 
-class BalancedCategory(BraidedCategory[T], TracedCategory[T]):
+class BalancedCategory[T](BraidedCategory[T], TracedCategory[T]):
     """
     A balanced category is a :class:`BraidedCategory` and a
     :class:`TracedCategory` with a method :code:`twist` for the natural
@@ -258,7 +256,7 @@ class BalancedCategory(BraidedCategory[T], TracedCategory[T]):
         """
 
 
-class SymmetricCategory(BalancedCategory[T]):
+class SymmetricCategory[T](BalancedCategory[T]):
     """
     A symmetric category is a :class:`BalancedCategory` where the braid is its
     own inverse called :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
@@ -275,7 +273,7 @@ class SymmetricCategory(BalancedCategory[T]):
         """
 
 
-class MarkovCategory(SymmetricCategory[T]):
+class MarkovCategory[T](SymmetricCategory[T]):
     """
     A Markov category is a :class:`SymmetricCategory` with methods
     :code:`copy` and :code:`merge` for the supply of commutative comonoids.
@@ -303,14 +301,14 @@ class MarkovCategory(SymmetricCategory[T]):
         """
 
 
-class ClosedCategory(BiclosedCategory[T], MarkovCategory[T]):
+class ClosedCategory[T](BiclosedCategory[T], MarkovCategory[T]):
     """
     A closed category is a symmetric :class:`BiclosedCategory`. We also assume
     it comes with copy and discard so it is also a :class:`MarkovCategory`.
     """
 
 
-class FeedbackCategory(MarkovCategory[T]):
+class FeedbackCategory[T](MarkovCategory[T]):
     """
     A feedback category is a :class:`MarkovCategory` with a :code:`delay`
     endofunctor and a :code:`feedback` operator.
@@ -336,21 +334,21 @@ class FeedbackCategory(MarkovCategory[T]):
         """
 
 
-class RibbonCategory(PivotalCategory[T], BalancedCategory[T]):
+class RibbonCategory[T](PivotalCategory[T], BalancedCategory[T]):
     """
     A ribbon category is a :class:`PivotalCategory` which is also a
     :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
 
 
-class CompactCategory(RibbonCategory[T], SymmetricCategory[T]):
+class CompactCategory[T](RibbonCategory[T], SymmetricCategory[T]):
     """
     A compact category is a :class:`RibbonCategory` which is also a
     :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
     """
 
 
-class HypergraphCategory(CompactCategory[T], MarkovCategory[T]):
+class HypergraphCategory[T](CompactCategory[T], MarkovCategory[T]):
     """
     A hypergraph category is a symmetric category with a supply of spiders,
     i.e. special commutative Frobenius algebras on each objects.
