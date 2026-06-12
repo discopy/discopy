@@ -208,7 +208,7 @@ class CombinatorialMap(
         offsets : Optional drawing offsets, preserved through conversion.
     """
     category = None
-    functo = None
+    functor = None
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],

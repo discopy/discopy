@@ -207,7 +207,7 @@ class CombinatorialMap(traced.CombinatorialMap):
 
 
 Diagram.hypergraph_factory = Hypergraph
-Diagram.combinatorial_map_factory = CombinatorialMap
+Diagram.map_factory = CombinatorialMap
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace

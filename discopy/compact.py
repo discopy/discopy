@@ -148,5 +148,5 @@ Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
-Diagram.combinatorial_map_factory = CombinatorialMap
+Diagram.map_factory = CombinatorialMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

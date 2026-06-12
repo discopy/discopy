@@ -43,14 +43,17 @@ Axioms
 """
 
 from __future__ import annotations
+from pyparsing import common
 from dataclasses import dataclass
-from abc import abstractproperty
-from typing import Dict, Callable
+from abc import ABC, abstractmethod
+from typing import Dict, Callable, Self
 from inspect import signature
+from functools import reduce
 
 from discopy import cat, biclosed, markov
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
+from discopy.combinatorial_map import Permutation
 from discopy.utils import assert_isinstance
 
 
@@ -111,14 +114,41 @@ class Exp(Ty, biclosed.Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-class TermBase:
+class TermBase(ABC):
     cod: Ty
 
-    def __call__(self, other):
-        return Application(self, other)
+    def __call__(self, *others: Term):
+        return reduce(lambda fun, arg: Application(fun, arg), others, self)
 
-    @abstractproperty
+    @staticmethod
+    def abs(*vars) -> Callable[[Term], Term]:
+        def _inner(body):
+            cont = body
+            for var in vars:
+                cont = Abstraction(var, cont)
+            return cont
+        return _inner
+
+    def to_map(self, category=None, box_factory=None) -> CombinatorialMap:
+        cmap, freevars = self._to_map_data(category, box_factory)
+        if cmap.dom != _tensor_types(
+                (variable.cod for variable in freevars), category):
+            raise ValueError
+        if cmap.cod != self.cod or len(cmap.cod) != 1:
+            raise ValueError
+        if any(len(cycle) != 3 for cycle in cmap.node_cycles):
+            raise ValueError
+        return cmap
+
+    @property
+    @abstractmethod
     def freevars(self) -> list[Variable]: ...
+
+    @abstractmethod
+    def to_diagram(self, category=None) -> Diagram: ...
+
+    @abstractmethod
+    def _to_map_data(self, category=None, box_factory=None): ...
 
 
 type Term = Constant | Variable | Application | Abstraction
@@ -133,12 +163,15 @@ class Constant(TermBase):
         return self.name
 
     @property
-    def freevars(self):
+    def freevars(self) -> list[Variable]:
         return []
 
     def to_diagram(self, category=None, box_factory=None):
         category, box_factory = category or Diagram, box_factory or Box
         return box_factory(self.name, category.ob(), self.cod)
+
+    def _to_map_data(self, category=None, box_factory=None):
+        raise ValueError("Constants are not pure linear lambda terms.")
 
 
 @dataclass(frozen=True)
@@ -155,6 +188,10 @@ class Variable(TermBase):
 
     def to_diagram(self, category=None):
         return (category or Diagram).id(self.cod)
+
+    def _to_map_data(self, category=None, box_factory=None):
+        category = category or Category
+        return _map_factory(category).id(self.cod), (self, )
 
 
 @dataclass(frozen=True)
@@ -185,6 +222,16 @@ class Application(TermBase):
         return self.func.to_diagram(category) @ self.args.to_diagram(
             category) >> Eval(self.func.cod, left=True)
 
+    def _to_map_data(self, category=None, box_factory=None):
+        category, box_factory = category or Category, box_factory or Box
+        func_map, func_vars = self.func._to_map_data(category, box_factory)
+        args_map, args_vars = self.args._to_map_data(category, box_factory)
+        if common_vars := set(func_vars).intersection(args_vars):
+            raise ValueError(f"Non-linear term: variable{'' if len(common_vars) == 1 else 's'} {', '.join(var.name for var in common_vars)} used more than once")
+        app = box_factory("@", self.func.cod @ self.args.cod, self.cod)
+        return (func_map @ args_map) >> _map_factory(category).from_box(app),\
+            func_vars + args_vars
+
 
 @dataclass(frozen=True)
 class Abstraction(TermBase):
@@ -208,6 +255,84 @@ class Abstraction(TermBase):
         p = body.permutation(
             [i] + [j for j in range(n) if j != i], body.dom)
         return (p >> body).curry()
+
+    def _to_map_data(self, category=None, box_factory=None):
+        category, box_factory = category or Category, box_factory or Box
+        body_map, body_vars = self.body._to_map_data(category, box_factory)
+        matches = [
+            index for index, variable in enumerate(body_vars)
+            if variable == self.var]
+        if len(matches) != 1:
+            raise ValueError(
+                "Non-linear term: bound variables must occur exactly once.")
+        index, = matches
+        lam = box_factory(
+            "lambda", self.body.cod, self.cod @ self.var.cod)
+        cmap = _abstract_map(body_map, index, lam, self.cod, category)
+        return cmap, body_vars[:index] + body_vars[index + 1:]
+
+
+def _map_factory(category=None):
+    category = category or Category
+    return getattr(category.ar, "map_factory", CombinatorialMap)
+
+
+def _tensor_types(types, category=None):
+    result = (category or Category).ob()
+    for typ in types:
+        result = result @ typ
+    return result
+
+
+def _abstract_map(body_map, var_index, lam, cod, category=None):
+    map_factory = _map_factory(category)
+    old_dom, old_cod = len(body_map.dom), len(body_map.cod)
+    if old_cod != 1:
+        raise ValueError
+
+    old_input = var_index
+    old_output = body_map.n_ports - 1
+    new_dom = _tensor_types(
+        (obj for i, obj in enumerate(body_map.dom) if i != var_index),
+        category)
+    boxes = body_map.boxes + (lam, )
+    offsets = body_map.offsets + (None, )
+
+    mapping, new_index = {}, 0
+    for i in range(old_dom):
+        if i != old_input:
+            mapping[i] = new_index
+            new_index += 1
+    for i in range(old_dom, body_map.n_ports - old_cod):
+        mapping[i] = new_index
+        new_index += 1
+
+    lambda_dom = new_index
+    lambda_root = new_index + 1
+    lambda_param = new_index + 2
+    new_output = new_index + 3
+
+    edge_pairs = []
+    for i, j in enumerate(body_map.edge):
+        if i < j and i not in [old_input, old_output]\
+                and j not in [old_input, old_output]:
+            edge_pairs.append((mapping[i], mapping[j]))
+
+    input_partner = body_map.edge[old_input]
+    output_partner = body_map.edge[old_output]
+    if input_partner == old_output:
+        edge_pairs.append((lambda_param, lambda_dom))
+    else:
+        edge_pairs.append((mapping[input_partner], lambda_param))
+        edge_pairs.append((mapping[output_partner], lambda_dom))
+    edge_pairs.append((lambda_root, new_output))
+    edge = Permutation.from_transpositions(edge_pairs, new_output + 1)
+
+    node = Permutation.from_cycles(
+        [tuple(mapping[i] for i in cycle) for cycle in body_map.node_cycles]
+        + [(lambda_dom, lambda_root, lambda_param)],
+        new_output + 1)
+    return map_factory(new_dom, cod, boxes, edge, node, offsets)
 
 
 @dataclass
@@ -322,7 +447,12 @@ class Hypergraph(markov.Hypergraph):
     functor = Functor
 
 
+class CombinatorialMap(markov.CombinatorialMap):
+    category, functor = Category, Functor
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CombinatorialMap
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry

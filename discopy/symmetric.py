@@ -355,7 +355,7 @@ class CombinatorialMap(balanced.CombinatorialMap):
 
 
 Diagram.hypergraph_factory = Hypergraph
-Diagram.combinatorial_map_factory = CombinatorialMap
+Diagram.map_factory = CombinatorialMap
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum

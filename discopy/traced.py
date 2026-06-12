@@ -272,6 +272,6 @@ class CombinatorialMap(monoidal.CombinatorialMap):
 
 
 Diagram.hypergraph_factory = Hypergraph
-Diagram.combinatorial_map_factory = CombinatorialMap
+Diagram.map_factory = CombinatorialMap
 Diagram.trace_factory = Trace
 Id = Diagram.id
