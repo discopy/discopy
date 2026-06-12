@@ -523,23 +523,6 @@ def ar_factory(cls):
     return cls
 
 
-def factory(cls):
-    """
-    Deprecated. Use :func:`ob_factory` or :func:`ar_factory` instead.
-
-    Allows the identity and composition of an :class:`Arrow` subclass to remain
-    within the subclass, and the tensor product of a :class:`Ty` subclass to
-    remain within the subclass.
-
-    Parameters:
-        cls : Some subclass of :class:`Arrow` or :class:`Ty`.
-    """
-    cls.ob = cls
-    cls.factory = cls
-    cls.ar = cls
-    return cls
-
-
 class AxiomError(Exception):
     """ The gods of category theory are not happy. """
 

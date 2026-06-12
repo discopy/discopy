@@ -62,7 +62,7 @@ from discopy.cat import ar_factory
 from discopy.pivotal import Ty, PRO  # noqa: F401
 
 
-ar_factory
+@ar_factory
 class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
     """
     A ribbon diagram is a pivotal diagram and a balanced diagram.

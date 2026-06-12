@@ -140,7 +140,7 @@ def Q(dim=Dim(1)) -> CQ:
     return CQ(quantum=dim)
 
 
-ar_factory
+@ar_factory
 class Channel(Tensor):
     """
     A channel is a tensor with :class:`CQ` types as ``dom`` and ``cod``.

@@ -94,7 +94,7 @@ from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 
 
-ar_factory
+@ar_factory
 class Diagram(balanced.Diagram, SymmetricCategory):
     """
     A symmetric diagram is a balanced diagram with :class:`Swap` boxes.

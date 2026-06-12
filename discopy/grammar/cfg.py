@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     import nltk
 
 
-ar_factory
+@ar_factory
 class Tree:
     """
     A tree is a rule for the ``root`` and a list of trees called ``branches``.

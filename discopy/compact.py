@@ -63,7 +63,7 @@ from discopy.cat import ar_factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
-ar_factory
+@ar_factory
 class Diagram(symmetric.Diagram, ribbon.Diagram, CompactCategory):
     """
     A compact diagram is a symmetric diagram and a ribbon diagram.

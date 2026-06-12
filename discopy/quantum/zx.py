@@ -33,7 +33,7 @@ from discopy.rigid import Sum, PRO
 from discopy.utils import factory_name
 
 
-ar_factory
+@ar_factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ob = PRO

@@ -48,7 +48,7 @@ from discopy.utils import (
 )
 
 
-ar_factory
+@ar_factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.

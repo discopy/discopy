@@ -62,7 +62,6 @@ from discopy.cat import Ob
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
-    factory,
     ob_factory,
     ar_factory,
     factory_name,

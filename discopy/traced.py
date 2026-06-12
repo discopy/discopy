@@ -133,7 +133,7 @@ from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
-ar_factory
+@ar_factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.

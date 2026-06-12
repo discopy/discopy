@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     import quimb
 
 
-ar_factory
+@ar_factory
 class Tensor(Matrix):
     """
     A tensor is a :class:`Matrix` with dimensions as domain and codomain and
@@ -394,7 +394,7 @@ class Functor(frobenius.Functor):
         return self.cod(array, self(other.dom), self(other.cod))
 
 
-ar_factory
+@ar_factory
 class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.

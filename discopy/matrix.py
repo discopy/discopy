@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     import sympy
 
 
-ar_factory
+@ar_factory
 class Matrix(MonoidalCategory[int], NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.

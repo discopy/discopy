@@ -67,7 +67,7 @@ from discopy.monoidal import Ty, Match
 from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
 
 
-ar_factory
+@ar_factory
 class Diagram(monoidal.Diagram, BraidedCategory):
     """
     A braided diagram is a monoidal diagram with :class:`Braid` boxes.

@@ -37,7 +37,7 @@ from discopy.grammar import thue
 from discopy.rigid import Ob  # noqa: F401
 
 
-ob_factory
+@ob_factory
 class Ty(rigid.Ty):
     """
     A pregroup type is a rigid type.
@@ -67,7 +67,7 @@ class Ty(rigid.Ty):
             raise AxiomError(messages.NOT_ADJOINT.format(self, other))
 
 
-ar_factory
+@ar_factory
 class Diagram(frobenius.Diagram):
     """
     A pregroup diagram is a rigid diagram with :class:`Word` boxes.

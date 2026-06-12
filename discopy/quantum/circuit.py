@@ -151,7 +151,7 @@ class Qudit(Ob):
     __setstate__ = Digit.__setstate__
 
 
-ob_factory
+@ob_factory
 class Ty(frobenius.Ty):
     """
     A circuit type is a frobenius type with :class:`Digit` and :class:`Qudit`
@@ -174,7 +174,7 @@ class Ty(frobenius.Ty):
     ob_factory = Ob
 
 
-ar_factory
+@ar_factory
 class Circuit(tensor.Diagram[complex]):
     """
     A circuit is a tensor diagram with bits and qubits as ``dom`` and ``cod``.

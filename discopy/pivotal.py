@@ -71,7 +71,7 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(self.name, (self.z + 1) % 2))
 
 
-ob_factory
+@ob_factory
 class Ty(rigid.Ty):
     """
     A pivotal type is a rigid type with pivotal objects inside.
@@ -82,7 +82,7 @@ class Ty(rigid.Ty):
     ob_factory = Ob
 
 
-ob_factory
+@ob_factory
 class PRO(rigid.PRO, Ty):
     """
     A pivotal PRO is a natural number ``n``
@@ -96,7 +96,7 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-ar_factory
+@ar_factory
 class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram

@@ -83,7 +83,7 @@ from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
-ar_factory
+@ar_factory
 class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
