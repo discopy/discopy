@@ -12,6 +12,7 @@ Summary
     :toctree:
 
     Permutation
+    Layer
     Diagram
     Box
     Swap
@@ -90,6 +91,17 @@ Permutations
 >>> assert perm.cod == z @ x @ y
 >>> assert perm.then(perm.dagger()) == Permutation.id(x @ y @ z)
 >>> assert perm @ Permutation.id(w) == Permutation([2, 0, 1, 3], x @ y @ z @ w)
+
+Layers
+======
+
+>>> p = Permutation([1, 0], x @ y)
+>>> layer = Layer(p, f, Permutation.id(y))
+>>> assert layer.dom == x @ y @ x @ y
+>>> assert layer.cod == y @ x @ y @ y
+>>> layer2 = Layer(Permutation.id(z), g, Permutation.id(w))
+>>> combined = layer @ layer2
+>>> assert combined.dom == layer.dom @ layer2.dom
 """
 
 from __future__ import annotations
@@ -234,6 +246,112 @@ class Permutation:
         return result
 
 
+class Layer:
+    """
+    A symmetric layer is an alternating sequence
+    ``(perm, box, perm, ..., box, perm)`` representing boxes in parallel
+    with permutations routing wires between them.
+
+    The layer represents the parallel composite
+    ``perm0 @ box0 @ perm1 @ ... @ boxN @ permN+1``.
+
+    Parameters:
+        *inside : Alternating :class:`Permutation` and :class:`Box` objects,
+                  with permutations at even positions and boxes at odd.
+
+    Examples
+    --------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f = Box('f', x, y)
+    >>> p = Permutation([1, 0], x @ y)
+    >>> layer = Layer(p, f, Permutation.id(y))
+    >>> assert layer.dom == x @ y @ x @ y
+    >>> assert layer.cod == y @ x @ y @ y
+    """
+    def __init__(self, *inside):
+        if len(inside) < 3 or len(inside) % 2 == 0:
+            raise ValueError(
+                "Layer needs an odd number of elements (>= 3).")
+        self.inside = inside
+
+    @property
+    def perms(self) -> tuple:
+        """The permutations at even positions."""
+        return tuple(self.inside[::2])
+
+    @property
+    def boxes(self) -> tuple:
+        """The boxes at odd positions."""
+        return tuple(self.inside[1::2])
+
+    @property
+    def dom(self) -> monoidal.Ty:
+        ty = self.inside[0].dom[:0]
+        for x in self.inside:
+            ty = ty @ x.dom
+        return ty
+
+    @property
+    def cod(self) -> monoidal.Ty:
+        ty = self.inside[0].dom[:0]
+        for x in self.inside:
+            ty = ty @ x.cod
+        return ty
+
+    def tensor(self, other: Layer) -> Layer:
+        """
+        Parallel composition: merge boundary permutations.
+
+        ``Layer(p0, b0, p1) @ Layer(q0, c0, q1) == Layer(p0, b0, p1 @ q0, c0, q1)``
+        """
+        *head, last_perm = self.inside
+        first_perm, *tail = other.inside
+        return type(self)(*head, last_perm @ first_perm, *tail)
+
+    def dagger(self) -> Layer:
+        """Dagger each component (parallel, not reversed)."""
+        return type(self)(*(x.dagger() for x in self.inside))
+
+    def __matmul__(self, other):
+        if isinstance(other, Layer):
+            return self.tensor(other)
+        if isinstance(other, Permutation):
+            *head, last = self.inside
+            return type(self)(*head, last @ other)
+        return NotImplemented
+
+    def __rmatmul__(self, other):
+        if isinstance(other, Permutation):
+            first, *tail = self.inside
+            return type(self)(other @ first, *tail)
+        return NotImplemented
+
+    def to_diagram(self) -> Diagram:
+        """Expand to a :class:`Diagram` by converting permutations to swaps."""
+        result = None
+        for x in self.inside:
+            if isinstance(x, Permutation):
+                d = Diagram.permutation(x.inside, x.dom)
+            else:
+                layer = Diagram.layer_factory.cast(x)
+                d = Diagram((layer,), x.dom, x.cod, _scan=False)
+            result = d if result is None else result @ d
+        return result
+
+    def __eq__(self, other):
+        return isinstance(other, type(self)) and self.inside == other.inside
+
+    def __hash__(self):
+        return hash(self.inside)
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}"\
+            f"({', '.join(map(repr, self.inside))})"
+
+    def __str__(self):
+        return ' @ '.join(map(str, self.inside))
+
+
 @ar_factory
 class Diagram(balanced.Diagram, SymmetricCategory):
     """
@@ -353,6 +471,38 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self >> self.permutation(list(xs), self.cod)
 
+    @classmethod
+    def from_perm(cls, perm: Permutation) -> Diagram:
+        """
+        Create a diagram from a :class:`Permutation`.
+
+        Examples
+        --------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> perm = Permutation([2, 0, 1], x @ y @ z)
+        >>> d = Diagram.from_perm(perm)
+        >>> assert d.dom == x @ y @ z and d.cod == z @ x @ y
+        """
+        if perm.is_identity:
+            return cls.id(perm.dom)
+        return cls.permutation(perm.inside, perm.dom)
+
+    @classmethod
+    def from_layer(cls, layer: Layer) -> Diagram:
+        """
+        Create a diagram from a symmetric :class:`Layer`.
+
+        Examples
+        --------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> p = Permutation([1, 0], x @ y)
+        >>> layer = Layer(p, f, Permutation.id(y))
+        >>> d = Diagram.from_layer(layer)
+        >>> assert d.dom == layer.dom and d.cod == layer.cod
+        """
+        return layer.to_diagram()
+
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
         return self.hypergraph_factory.from_diagram(self)
@@ -435,6 +585,10 @@ class Swap(balanced.Braid, Box):
 
     def dagger(self):
         return type(self)(self.right, self.left)
+
+    def to_perm(self) -> Permutation:
+        """Convert this swap to a :class:`Permutation`."""
+        return Permutation([1, 0], self.dom)
 
 
 class Trace(balanced.Trace, Box):
