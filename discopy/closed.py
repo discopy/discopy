@@ -50,11 +50,11 @@ from inspect import signature
 
 from discopy import cat, biclosed, markov
 from discopy.abc import ClosedCategory
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 from discopy.utils import assert_isinstance
 
 
-@factory
+ob_factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
@@ -225,7 +225,7 @@ class Substitution:
             return other(term)
 
 
-@factory
+ar_factory
 class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.

@@ -78,12 +78,12 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
-@factory
+ar_factory
 class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.

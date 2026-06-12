@@ -128,12 +128,12 @@ Dinaturality
 
 from discopy import monoidal
 from discopy.abc import TracedCategory
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
-@factory
+ar_factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.

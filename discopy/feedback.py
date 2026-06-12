@@ -260,7 +260,7 @@ class TailOb(Ob):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-@factory
+ob_factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
     ob_factory = Ob
@@ -288,7 +288,7 @@ class Layer(monoidal.Layer):
         return type(self)(*[x.delay(n_steps) for x in self.boxes_or_types])
 
 
-@factory
+ar_factory
 class Diagram(markov.Diagram, FeedbackCategory):
     """
     A feedback diagram is a markov diagram with a :meth:`delay` endofunctor
