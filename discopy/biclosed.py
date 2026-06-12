@@ -15,6 +15,11 @@ Summary
     Exp
     Over
     Under
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
     Diagram
     Box
     Eval
@@ -54,11 +59,17 @@ Axioms
 
 from __future__ import annotations
 
+from abc import abstractproperty
+from dataclasses import dataclass
+from inspect import signature
+from typing import Callable
+
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
+    assert_isinstance,
     factory_name,
     from_tree,
 )
@@ -74,16 +85,31 @@ class Ty(monoidal.Ty):
 
     Note
     ----
-    We can exponentials of types.
+    Applying a biclosed type to a string yields a :class:`Constant` e.g.
 
-    >>> x, y, z = Ty(*"xyz")
-    >>> print((x ** y) ** z)
-    ((x ** y) ** z)
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> x, f, g = X("x"), (X >> Y)("f"), (Y << X)("g")
 
-    We can also distinguish left- and right-exponentials.
+    Terms can be the :class:`Application` of a function to an argument from its
+    left ``>>`` or right ``>>`` with the type inferred automatically e.g.
 
-    >>> print((x >> y) << z)
-    ((x >> y) << z)
+    >>> xf, gx = x >> f, g << x
+    >>> assert xf.cod == Y == gx.cod
+
+    Applying a biclosed type to a function yields an :class:`Abstraction` e.g.
+
+    >>> f_, g_ = X(lambda x, left=True: x >> f), X(lambda x: g << x)
+    >>> assert f.cod == f_.cod == X >> Y and g.cod == g_.cod == Y << X
+
+    Terms are required to be linear and planar, they can be drawn as diagrams:
+
+    >>> Alice, loves, Bob = N("Alice"), (N >> (N >> S))("loves"), N("Bob")
+    >>> (Alice >> (loves << Bob)).to_diagram().draw(
+    ...     path='docs/_static/closed/alice-loves-bob.png',
+    ...     margins=(.3, 0), figsize=(5, 4))
+
+    .. image:: /_static/biclosed/very-big-car.png
+        :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
@@ -94,6 +120,24 @@ class Ty(monoidal.Ty):
 
     def __rshift__(self, other):
         return Under(other, self)
+
+    def __call__(self, arg):
+        if isinstance(arg, Callable):
+            parameters = dict(signature(arg).parameters)
+            left = False
+            if "left" in parameters:
+                left_param = parameters.pop("left")
+                left = left_param.default
+                if not isinstance(left, bool):
+                    raise NotImplementedError
+            varnames = list(parameters.keys())
+            if len(varnames) != 1:
+                raise NotImplementedError
+            var = Variable(self, varnames[0])
+            return Abstraction(var, arg(var), left)
+        if isinstance(arg, str):
+            return Constant(self, arg)
+        raise ValueError
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -299,6 +343,10 @@ class Eval(Box):
     def dagger(self) -> Coeval:
         return self.coeval_factory(self.x, self.left)
 
+    @property
+    def drawing_name(self):
+        return "<<" if self.left else ">>"
+
 
 class Coeval(Box):
     """
@@ -307,6 +355,8 @@ class Coeval(Box):
     Parameters:
         x : The exponential type to coevaluate.
     """
+    drawing_name = "lambda"
+
     def __init__(self, x: Exp, left=None):
         self.x, self.left = x, isinstance(x, Over) if left is None else left
         cod, dom = (x @ x.exponent, x.base) if self.left\
@@ -337,6 +387,143 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+
+
+class TermBase:
+    """
+    A term in the internal language of a biclosed category.
+
+    Applications and abstractions carry a ``left`` flag: left application
+    evaluates an :class:`Over` type with the function on the left, while right
+    application evaluates an :class:`Under` type with the function on the right.
+    """
+    cod: Ty
+
+    def __call__(self, other, left=True):
+        return Application(self, other, left)
+
+    def __lshift__(self, other):
+        return Application(self, other, left=True)
+
+    def __rshift__(self, other):
+        return Application(other, self, left=False)
+
+    @abstractproperty
+    def freevars(self) -> list[Variable]:
+        ...
+
+
+@dataclass(frozen=True)
+class Constant(TermBase):
+    cod: Ty
+    name: str
+
+    def __str__(self):
+        return f"{self.cod}({repr(self.name)})"
+
+    @property
+    def freevars(self):
+        return []
+
+    def to_diagram(self, category=Diagram, box_factory=None):
+        box_factory = box_factory or Box
+        return box_factory(self.name, category.ob(), self.cod)
+
+
+@dataclass(frozen=True)
+class Variable(TermBase):
+    cod: Ty
+    name: str
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def freevars(self):
+        return [self]
+
+    def to_diagram(self, category=Diagram):
+        return category.id(self.cod)
+
+
+@dataclass(frozen=True)
+class Application(TermBase):
+    func: Term
+    args: Term
+    left: bool = True
+
+    def __post_init__(self):
+        exp = Over if self.left else Under
+        assert_isinstance(self.func.cod, exp)
+        if self.func.cod.exponent != self.args.cod:
+            raise ValueError(
+                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
+        if set(self.func.freevars).intersection(self.args.freevars):
+            raise ValueError("Expected disjoint free variables.")
+
+    @property
+    def cod(self):
+        return self.func.cod.base
+
+    def __str__(self):
+        func = f"({self.func})" if isinstance(self.func, Application)\
+            else str(self.func)
+        args = f"({self.args})" if isinstance(self.args, Application)\
+            else str(self.args)
+        return f"{func} << {args}" if self.left else f"{args} >> {func}"
+
+    @property
+    def freevars(self):
+        return self.func.freevars + self.args.freevars if self.left\
+            else self.args.freevars + self.func.freevars
+
+    def to_diagram(self, category=Diagram):
+        func, args = self.func.to_diagram(category), self.args.to_diagram(
+            category)
+        ev = category.eval_factory(self.func.cod, left=self.left)
+        return func @ args >> ev if self.left else args @ func >> ev
+
+
+@dataclass(frozen=True)
+class Abstraction(TermBase):
+    var: Variable
+    body: Term
+    left: bool = False
+
+    def __post_init__(self):
+        if self.body.freevars.count(self.var) != 1:
+            raise ValueError("Expected variable to occur exactly once.")
+        index = self.body.freevars.index(self.var)
+        if self.left and index != len(self.body.freevars) - 1:
+            raise ValueError("Expected abstraction of right-most variable.")
+        if not self.left and index != 0:
+            raise ValueError("Expected abstraction of left-most variable.")
+
+    @property
+    def cod(self):
+        return self.body.cod << self.var.cod if self.left\
+            else self.var.cod >> self.body.cod
+
+    def __str__(self):
+        left = ", left=True" if self.left else ""
+        return f"{self.var.cod}(lambda {self.var.name}{left}: {self.body})"
+
+    @property
+    def freevars(self):
+        return list(filter(lambda x: x != self.var, self.body.freevars))
+
+    def to_diagram(self, category=Diagram):
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        body = self.body.to_diagram(category)
+        indices = [j for j in range(n) if j != i]
+        order = indices + [i] if self.left else [i] + indices
+        if order == list(range(n)):
+            return body.curry(left=self.left)
+        return (body.permutation(order, body.dom) >> body).curry(
+            left=self.left)
+
+
+type Term = Constant | Variable | Application | Abstraction
 
 
 class Sum(monoidal.Sum, Box):

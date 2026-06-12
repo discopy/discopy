@@ -73,66 +73,86 @@ tree = {
 def test_Diagram():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     assert Diagram.id(x) == Id(x)
-    assert Diagram.ba(x, y) == BA(x >> y)
-    assert Diagram.fa(x, y) == FA(x << y)
-    assert Diagram.fc(x, y, z) == FC(x << y, y << z)
-    assert Diagram.bc(x, y, z) == BC(x >> y, y >> z)
-    assert Diagram.fx(x, y, z) == FX(x << y, z >> y)
-    assert Diagram.bx(x, y, z) == BX(y << x, y >> z)
+    assert Diagram.ba(x, y) == Eval(x >> y)
+    assert Diagram.fa(x, y) == Eval(x << y)
+    assert Diagram.fc(x, y, z)\
+        == (Id(x << y) @ Id(y << z) @ Id(z)
+            >> Id(x << y) @ Eval(y << z)
+            >> Eval(x << y)).curry(left=True)
+    assert Diagram.bc(x, y, z)\
+        == (Id(x) @ Id(x >> y) @ Id(y >> z)
+            >> Eval(x >> y) @ Id(y >> z)
+            >> Eval(y >> z)).curry()
+    assert Diagram.fx(x, y, z) == ForwardCrossedComposition(x << y, z >> y)
+    assert Diagram.bx(x, y, z) == BackwardCrossedComposition(y << x, y >> z)
 
 
 def test_BA():
     x, y = Ty('x'), Ty('y')
+    a, b = Constant(x, 'a'), Constant(x >> y, 'b')
     with raises(TypeError):
-        BA(x << y)
-    assert "BA(biclosed.Ty(biclosed.Under(" in repr(BA(x >> y))
+        BA(a, Constant(x << y, 'f'))
+    assert BA(a, b).cod == y
 
 
 def test_FA():
     x, y = Ty('x'), Ty('y')
+    f, a = Constant(x << y, 'f'), Constant(y, 'a')
     with raises(TypeError):
-        FA(x >> y)
-    assert "FA(biclosed.Ty(biclosed.Over" in repr(FA(x << y))
+        FA(Constant(x >> y, 'g'), a)
+    assert FA(f, a).cod == x
 
 
 def test_FC():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Constant(x << y, 'f'), Constant(y << z, 'g')
     with raises(TypeError):
-        FC(x >> y, y >> x)
+        FC(Constant(x >> y, 'f'), Constant(y >> x, 'g'))
     with raises(TypeError):
-        FC(x << y, y >> x)
+        FC(f, Constant(y >> x, 'g'))
     with raises(AxiomError):
-        FC(x << y, z << y)
+        FC(f, Constant(z << y, 'g'))
+    assert FC(f, g).cod == x << z
 
 
 def test_BC():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Constant(x >> y, 'f'), Constant(y >> z, 'g')
     with raises(TypeError):
-        BC(x << y, y << x)
+        BC(Constant(x << y, 'f'), Constant(y << x, 'g'))
     with raises(TypeError):
-        BC(x >> y, y << x)
+        BC(f, Constant(y << x, 'g'))
     with raises(AxiomError):
-        BC(x >> y, z >> y)
+        BC(f, Constant(z >> y, 'g'))
+    assert BC(f, g).cod == x >> z
 
 
 def test_FX():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Constant(x << y, 'f'), Constant(z >> y, 'g')
     with raises(TypeError):
-        FX(x >> y, y >> x)
+        FX(Constant(x >> y, 'f'), Constant(y >> x, 'g'))
     with raises(TypeError):
-        FX(x << y, y << x)
+        FX(f, Constant(y << x, 'g'))
     with raises(AxiomError):
-        FX(x << y, y >> x)
+        FX(f, Constant(y >> x, 'g'))
+    assert FX(f, g).to_diagram()\
+        == Word('f', x << y) @ Word('g', z >> y)\
+        >> ForwardCrossedComposition(x << y, z >> y)
 
 
 def test_BX():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Constant(y << x, 'f'), Constant(y >> z, 'g')
     with raises(TypeError):
-        BX(x >> y, y >> x)
+        BX(Constant(x >> y, 'f'), Constant(y >> x, 'g'))
     with raises(TypeError):
-        BX(x << y, y << x)
+        BX(f, Constant(y << x, 'g'))
     with raises(AxiomError):
-        BX(x << y, y >> x)
+        BX(f, Constant(x >> y, 'g'))
+    assert BX(f, g).to_diagram()\
+        == Word('f', y << x) @ Word('g', y >> z)\
+        >> BackwardCrossedComposition(y << x, y >> z)
 
 
 def test_Functor():
@@ -141,51 +161,47 @@ def test_Functor():
     IdF = Functor(lambda x: x, lambda f: f)
     assert IdF(x >> y << x) == x >> y << x
     assert IdF(Curry(f)) == Curry(f)
-    assert IdF(FA(x << y)) == FA(x << y)
-    assert IdF(BA(x >> y)) == BA(x >> y)
-    assert IdF(FC(x << y, y << x)) == FC(x << y, y << x)
-    assert IdF(BC(x >> y, y >> x)) == BC(x >> y, y >> x)
-    assert IdF(FX(x << y, z >> y)) == FX(x << y, z >> y)
-    assert IdF(BX(y << x, y >> z)) == BX(y << x, y >> z)
+    assert IdF(ForwardCrossedComposition(x << y, z >> y))\
+        == ForwardCrossedComposition(x << y, z >> y)
+    assert IdF(BackwardCrossedComposition(y << x, y >> z))\
+        == BackwardCrossedComposition(y << x, y >> z)
 
 
-def categorial_diagram():
-    from discopy.grammar.categorial import Box, Diagram, FA, BA, FC
+def test_Term():
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    f, g = Constant(x << y, 'f'), Constant(y << z, 'g')
+    a, b = Constant(x, 'a'), Constant(x >> y, 'b')
+    c, d = Constant(y >> z, 'c'), Constant(z >> y, 'd')
+    e, k = Constant(y << x, 'e'), Constant(y >> z, 'k')
 
-    S, NP = biclosed.Ty('S'), biclosed.Ty('NP')
-    boxes = [
-        Word('that', NP),
-        Word("'s", ((NP >> S) << NP)),
-        Word('exactly', ((NP >> S) >> (NP >> S))),
-        Box('bx', (((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
-             ((NP >> S) << NP)),
-        Word('what', (NP << (S << NP))),
-        Word('i', NP),
-        Box('tr', NP, (S << (NP >> S))),
-        Word('showed', ((NP >> S) << NP)),
-        Word('to', (((NP >> S) >> (NP >> S)) << NP)),
-        Word('her', NP),
-        FA((((NP >> S) >> (NP >> S)) << NP)),
-        Box('bx', (((NP >> S) << NP) @ ((NP >> S) >> (NP >> S))),
-             ((NP >> S) << NP)),
-        FC((S << (NP >> S)), ((NP >> S) << NP)),
-        FA((NP << (S << NP))),
-        FA(((NP >> S) << NP)),
-        BA((NP >> S)),
-    ]
-    offsets = [0, 1, 2, 1, 2, 3, 3, 4, 5, 6, 5, 4, 3, 2, 1, 0]
-    return Diagram.decode(biclosed.Ty(), zip(boxes, offsets))
+    assert isinstance(f, TermBase)
+    assert f(Constant(y, 'arg')).to_diagram()\
+        == Word('f', x << y) @ Word('arg', y) >> Eval(x << y)
+    assert FA(f, Constant(y, 'arg')).to_diagram()\
+        == Word('f', x << y) @ Word('arg', y) >> Eval(x << y)
+    assert BA(a, b).to_diagram()\
+        == Word('a', x) @ Word('b', x >> y) >> Eval(x >> y)
+    assert FC(f, g).to_diagram()\
+        == Word('f', x << y) @ Word('g', y << z)\
+        >> Diagram.fc(x, y, z)
+    assert BC(b, c).to_diagram()\
+        == Word('b', x >> y) @ Word('c', y >> z)\
+        >> Diagram.bc(x, y, z)
+    assert FX(f, d).cod == z >> x
+    assert BX(e, k).cod == z << x
+    assert FX(f, d).to_diagram()\
+        == Word('f', x << y) @ Word('d', z >> y)\
+        >> ForwardCrossedComposition(x << y, z >> y)
+    assert BX(e, k).to_diagram()\
+        == Word('e', y << x) @ Word('k', y >> z)\
+        >> BackwardCrossedComposition(y << x, y >> z)
 
 
 def test_to_tree():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     for diagram in [
-            FA(x << y),
-            BA(x >> y),
-            FC(x << y, y << x),
-            BC(x >> y, y >> x),
-            FX(x << y, z >> y),
-            BX(y << x, y >> z)]:
+            ForwardCrossedComposition(x << y, z >> y),
+            BackwardCrossedComposition(y << x, y >> z)]:
         assert from_tree(diagram.to_tree()) == diagram
 
 
@@ -222,23 +238,25 @@ def test_to_pregroup():
     from discopy.grammar.pregroup import Cup, Cap, Id, Swap
     x, y = biclosed.Ty('x'), biclosed.Ty('y')
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
-    assert Diagram.to_pregroup(Curry(BA(x >> y), left=True)).normal_form()\
+    assert Diagram.to_pregroup(Diagram.ba(x, y).curry(left=True))\
+        .normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.to_pregroup(Curry(FA(x << y))).normal_form()\
+    assert Diagram.to_pregroup(Diagram.fa(x, y).curry())\
+        .normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
-    assert Diagram.to_pregroup(FC(x << y, y << x))\
+    assert Diagram.to_pregroup(Diagram.fc(x, y, x)).normal_form()\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
-    assert Diagram.to_pregroup(BC(x >> y, y >> x))\
+    assert Diagram.to_pregroup(Diagram.bc(x, y, x)).normal_form()\
         == Id(x_.r) @ Cup(y_, y_.r) @ Id(x_)
-    assert Diagram.to_pregroup(FX(x << y, x >> y))\
+    assert Diagram.to_pregroup(ForwardCrossedComposition(x << y, x >> y))\
         == Id(x_) @ Swap(y_.l, x_.r) @ Id(y_) >>\
         Swap(x_, x_.r) @ Cup(y_.l, y_)
-    assert Diagram.to_pregroup(BX(y << x, y >> x))\
+    assert Diagram.to_pregroup(BackwardCrossedComposition(y << x, y >> x))\
         == Id(y_) @ Swap(x_.l, y_.r) @ Id(x_) >>\
         Cup(y_, y_.r) @ Swap(x_.l, x_)
 
 
 def test_tree2diagram():
     diagram = tree2diagram(tree)
-    assert diagram == categorial_diagram()
-    assert diagram.to_pregroup() == pregroup_diagram()
+    assert diagram.to_pregroup().normal_form()\
+        == pregroup_diagram().normal_form()

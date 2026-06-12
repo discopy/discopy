@@ -12,6 +12,11 @@ Summary
 
     Ty
     Exp
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
     Diagram
     Box
     Eval
@@ -43,8 +48,8 @@ Axioms
 """
 
 from __future__ import annotations
-from dataclasses import dataclass
 from abc import abstractproperty
+from dataclasses import dataclass
 from typing import Dict, Callable
 from inspect import signature
 
@@ -111,11 +116,18 @@ class Exp(Ty, biclosed.Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-class TermBase:
-    cod: Ty
-
+class TermBase(biclosed.TermBase):
+    """
+    A term in the internal language of a closed category.
+    """
     def __call__(self, other):
         return Application(self, other)
+
+    def __lshift__(self, other):
+        return Application(self, other)
+
+    def __rshift__(self, other):
+        return Application(other, self)
 
     @abstractproperty
     def freevars(self) -> list[Variable]: ...
@@ -125,16 +137,9 @@ type Term = Constant | Variable | Application | Abstraction
 
 
 @dataclass(frozen=True)
-class Constant(TermBase):
+class Constant(biclosed.Constant, TermBase):
     cod: Ty
     name: str
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def freevars(self):
-        return []
 
     def to_diagram(self, category=None, box_factory=None):
         category, box_factory = category or Diagram, box_factory or Box
@@ -142,23 +147,16 @@ class Constant(TermBase):
 
 
 @dataclass(frozen=True)
-class Variable(TermBase):
+class Variable(biclosed.Variable, TermBase):
     cod: Ty
     name: str
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def freevars(self):
-        return [self]
 
     def to_diagram(self, category=None):
         return (category or Diagram).id(self.cod)
 
 
 @dataclass(frozen=True)
-class Application(TermBase):
+class Application(biclosed.Application, TermBase):
     func: Term
     args: Term
 
@@ -175,10 +173,6 @@ class Application(TermBase):
     def __str__(self):
         return f"{self.func}({self.args})"
 
-    @property
-    def freevars(self, bound=None):
-        return self.func.freevars + self.args.freevars
-
     def to_diagram(self, category=None):
         if set(self.func.freevars).intersection(self.args.freevars):
             raise NotImplementedError
@@ -187,9 +181,12 @@ class Application(TermBase):
 
 
 @dataclass(frozen=True)
-class Abstraction(TermBase):
+class Abstraction(biclosed.Abstraction, TermBase):
     var: Variable
     body: Term
+
+    def __post_init__(self):
+        pass  # No need to check for planarity or linearity.
 
     @property
     def cod(self):
@@ -197,10 +194,6 @@ class Abstraction(TermBase):
 
     def __str__(self):
         return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
-
-    @property
-    def freevars(self):
-        return list(filter(lambda x: x != self.var, self.body.freevars))
 
     def to_diagram(self, category=None):
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
@@ -247,12 +240,11 @@ class Box(markov.Box, biclosed.Box, Diagram):
 
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
-    drawing_name = "Eval"
+    drawing_name = "__call__"
 
 
 class Coeval(biclosed.Coeval, Box):
     "The coevaluation of an exponential type, i.e. the dagger of an Eval."
-    drawing_name = "$\\lambda$"
 
 
 class Curry(biclosed.Curry, Box):
