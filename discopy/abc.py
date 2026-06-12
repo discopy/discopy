@@ -331,6 +331,14 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
             left : The object on the left of the swap.
             right : The object on the right of the swap.
         """
+    
+    @classmethod
+    def twist(cls, dom: C0) -> C1:
+        return cls.id(dom)
+
+    @classmethod
+    def braid(cls, left: C0, right: C0) -> C1:
+        return cls.swap(left, right)
 
     @classmethod
     def twist(cls, dom: C0) -> C1:
