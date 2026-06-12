@@ -297,7 +297,7 @@ class BTR(TypeRaising):
 
     def simplify(self):
         return (self.base << self.child.cod)(
-            lambda f: f << self.child.simplify())
+            lambda f, left=True: f << self.child.simplify())
 
 
 @dataclass(frozen=True)
@@ -384,11 +384,12 @@ class FX(BinaryTerm):
     def cod(self):
         return self.right.cod.exponent >> self.left.cod.base
 
-    def to_diagram(self, category=Diagram):
+    def to_diagram(self, category=Diagram, **kwargs):
         left, middle = self.left.cod.base, self.left.cod.exponent
         right = self.right.cod.exponent
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.fx(left, middle, right)
+        return self.left.to_diagram(category=category, **kwargs)\
+            @ self.right.to_diagram(category=category, **kwargs)\
+            >> category.fx(left, middle, right)
 
 
 @dataclass(frozen=True)
@@ -407,11 +408,12 @@ class BX(BinaryTerm):
     def cod(self):
         return self.right.cod.base << self.left.cod.exponent
 
-    def to_diagram(self, category=Diagram):
+    def to_diagram(self, category=Diagram, **kwargs):
         left, middle = self.left.cod.exponent, self.left.cod.base
         right = self.right.cod.base
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.bx(left, middle, right)
+        return self.left.to_diagram(category=category, **kwargs)\
+            @ self.right.to_diagram(category=category, **kwargs)\
+            >> category.bx(left, middle, right)
 
 
 type Term = (

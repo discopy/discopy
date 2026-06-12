@@ -477,8 +477,8 @@ class Application(TermBase):
             else self.args.freevars + self.func.freevars
 
     def to_diagram(self, category=Diagram, **kwargs):
-        func = self.func.to_diagram(category, **kwargs)
-        args = self.args.to_diagram(category, **kwargs)
+        func = self.func.to_diagram(category=category, **kwargs)
+        args = self.args.to_diagram(category=category, **kwargs)
         ev = category.eval_factory(self.func.cod, left=self.left)
         return func @ args >> ev if self.left else args @ func >> ev
 
