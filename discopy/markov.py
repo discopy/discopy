@@ -316,7 +316,7 @@ class Hypergraph(hypergraph.Hypergraph):
 
 
 class CombinatorialMap(symmetric.CombinatorialMap):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

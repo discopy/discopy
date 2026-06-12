@@ -12,6 +12,7 @@ two permutations on these ports:
 """
 
 from __future__ import annotations
+from discopy.abc import MonoidalCategory, NamedGeneric
 
 from collections.abc import Iterable
 import shutil
@@ -22,10 +23,8 @@ from discopy import messages, hypergraph
 from discopy.drawing import Node
 from discopy.utils import (
     AxiomError,
-    Composable,
-    NamedGeneric,
-    Whiskerable,
     assert_isinstance,
+    classproperty,
     factory_name,
     unbiased,
 )
@@ -194,8 +193,7 @@ def _same_type(left, right) -> bool:
     return right in [left, left_r] or left in [right, right_r]
 
 
-class CombinatorialMap(
-        Composable, Whiskerable, NamedGeneric["category", "functor"]):
+class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
     """
     A bijective oriented hypergraph with interfaces.
 
@@ -207,17 +205,18 @@ class CombinatorialMap(
         node : A permutation fixing interfaces and cycling each box.
         offsets : Optional drawing offsets, preserved through conversion.
     """
-    category = None
     functor = None
+    category = classproperty(lambda cls: cls.functor.dom)
+    ty_factory = classproperty(lambda cls: cls.category.ty_factory)
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             edge: Iterable[int], node: Iterable[int] | None = None,
             offsets: tuple[int | None, ...] | None = None):
-        assert_isinstance(dom, self.category.ob)
-        assert_isinstance(cod, self.category.ob)
+        assert_isinstance(dom, self.category.ty_factory)
+        assert_isinstance(cod, self.category.ty_factory)
         for box in boxes:
-            assert_isinstance(box, self.category.ar)
+            assert_isinstance(box, self.category)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
         self.offsets = offsets or tuple(len(boxes) * [None])
         if len(self.offsets) != len(self.boxes):
@@ -330,7 +329,7 @@ class CombinatorialMap(
 
     @classmethod
     def id(cls, dom=None) -> CombinatorialMap:
-        dom = cls.category.ob() if dom is None else dom
+        dom = cls.category.ty_factory() if dom is None else dom
         n_ports = 2 * len(dom)
         edge = Permutation.from_transpositions(
             ((i, i + len(dom)) for i in range(len(dom))), n_ports)
@@ -440,6 +439,68 @@ class CombinatorialMap(
             [(self.node, self_map), (other.node, other_map)], n_ports)
         return type(self)(dom, cod, boxes, edge, node, offsets)
 
+    def plug_input(
+            self, input_index: int, box: Box,
+            cod: Ty) -> CombinatorialMap:
+        """
+        Plug an input boundary and the output root into a new box.
+
+        If ``self : A @ x -> y`` and ``box : y -> z @ x``, then
+        ``self.plug_input(i, box, z)`` removes the ``i``-th input, wires the
+        old output to the domain of ``box``, wires the removed input to the
+        second output of ``box``, and leaves the first output of ``box`` as the
+        new root.
+        """
+        assert_isinstance(box, self.category)
+        if len(self.cod) != 1 or len(box.dom) != 1 or len(box.cod) != 2:
+            raise ValueError
+        if input_index < 0 or input_index >= len(self.dom):
+            raise ValueError
+
+        old_input, old_output = input_index, self.n_ports - 1
+        new_dom = self.category.ty_factory()
+        for i, obj in enumerate(self.dom):
+            if i != input_index:
+                new_dom = new_dom @ obj
+        boxes = self.boxes + (box, )
+        offsets = self.offsets + (None, )
+
+        mapping, new_index = {}, 0
+        for i in range(len(self.dom)):
+            if i != old_input:
+                mapping[i] = new_index
+                new_index += 1
+        for i in range(len(self.dom), self.n_ports - len(self.cod)):
+            mapping[i] = new_index
+            new_index += 1
+
+        box_dom = new_index
+        box_root = new_index + 1
+        box_parameter = new_index + 2
+        new_output = new_index + 3
+
+        edge_pairs = []
+        for i, j in enumerate(self.edge):
+            if i < j and i not in [old_input, old_output]\
+                    and j not in [old_input, old_output]:
+                edge_pairs.append((mapping[i], mapping[j]))
+
+        input_partner = self.edge[old_input]
+        output_partner = self.edge[old_output]
+        if input_partner == old_output:
+            edge_pairs.append((box_parameter, box_dom))
+        else:
+            edge_pairs.append((mapping[input_partner], box_parameter))
+            edge_pairs.append((mapping[output_partner], box_dom))
+        edge_pairs.append((box_root, new_output))
+        edge = Permutation.from_transpositions(edge_pairs, new_output + 1)
+
+        node = Permutation.from_cycles(
+            [tuple(mapping[i] for i in cycle) for cycle in self.node_cycles]
+            + [(box_dom, box_root, box_parameter)],
+            new_output + 1)
+        return type(self)(new_dom, cod, boxes, edge, node, offsets)
+
     def to_hypergraph(self) -> hypergraph.Hypergraph:
         """ Forget orientation and return the underlying bijective hypergraph. """
         spider_types, flat_wires = [], [None] * self.n_ports
@@ -452,7 +513,7 @@ class CombinatorialMap(
             flat_wires[i] = flat_wires[j] = spider
         wires = hypergraph.Hypergraph.rebracket(
             None, flat_wires, dom=self.dom, boxes=self.boxes)
-        factory = hypergraph.Hypergraph[self.category, self.functor]
+        factory = hypergraph.Hypergraph[self.functor]
         return factory(
             self.dom, self.cod, self.boxes, wires,
             tuple(spider_types), self.offsets)

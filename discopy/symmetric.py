@@ -351,7 +351,7 @@ class Hypergraph(balanced.Hypergraph):
 
 
 class CombinatorialMap(balanced.CombinatorialMap):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

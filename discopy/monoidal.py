@@ -1175,7 +1175,7 @@ class Hypergraph(hypergraph.Hypergraph):
 
 
 class CombinatorialMap(combinatorial_map.CombinatorialMap):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.draw = drawing.draw

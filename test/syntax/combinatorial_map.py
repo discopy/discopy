@@ -31,7 +31,7 @@ def test_default_compact_setting():
     x, y = map(Ty, "xy")
     f = Box('f', x, y)
     cmap = M.from_box(f)
-    assert isinstance(f, M.category.ar)
+    assert isinstance(f, M.category)
     assert cmap.to_hypergraph().category == M.category
 
 

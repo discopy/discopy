@@ -203,7 +203,7 @@ class Hypergraph(traced.Hypergraph):
 
 
 class CombinatorialMap(traced.CombinatorialMap):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph

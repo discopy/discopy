@@ -141,7 +141,7 @@ class Hypergraph(symmetric.Hypergraph):
 
 
 class CombinatorialMap(symmetric.CombinatorialMap):
-    category, functor = Category, Functor
+    functor = Functor
 
 
 Id = Diagram.id
