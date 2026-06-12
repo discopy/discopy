@@ -34,7 +34,7 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, Type, TypeVar, ClassVar
+from typing import Generic, Type, TypeVar, ClassVar
 
 from discopy.utils import get_origin
 
