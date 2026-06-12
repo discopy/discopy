@@ -225,11 +225,17 @@ class Constant(biclosed.Constant, TermBase):
     def to_diagram(self, category=Diagram, box_factory=Word):
         return box_factory(self.name, dom=self.cod.ob(), cod=self.cod)
 
+    def simplify(self):
+        return self
+
 
 @dataclass(frozen=True)
 class Variable(biclosed.Variable, TermBase):
     cod: Ty
     name: str
+
+    def simplify(self):
+        return self
 
 
 @dataclass(frozen=True)
@@ -238,20 +244,29 @@ class Abstraction(biclosed.Abstraction, TermBase):
     body: Term
     left: bool = False
 
+    def simplify(self):
+        return Abstraction(self.var, self.body.simplify(), self.left)
+
 
 class FA(TermBase, biclosed.Application):
     def __init__(self, func, args):
         biclosed.Application.__init__(self, func, args)
+
+    def simplify(self):
+        return FA(self.func.simplify(), self.args.simplify())
 
 
 class BA(TermBase, biclosed.Application):
     def __init__(self, args, func):
         biclosed.Application.__init__(self, func, args, left=False)
 
+    def simplify(self):
+        return BA(self.args.simplify(), self.func.simplify())
+
 
 @dataclass(frozen=True)
 class TypeRaising(TermBase):
-    continuation: Ty
+    base: Ty
     child: Term
 
     @property
@@ -259,28 +274,30 @@ class TypeRaising(TermBase):
         return self.child.freevars
 
     def __str__(self):
-        return f"{type(self).__name__}({self.continuation}, {self.child})"
+        return f"{type(self).__name__}({self.base}, {self.child})"
 
     def to_diagram(self, **kwargs):
-        self.simplify().to_diagram(**kwargs)
+        return self.simplify().to_diagram(**kwargs)
 
 
 class FTR(TypeRaising):
     @property
     def cod(self):
-        return self.continuation << (self.child.cod >> self.continuation)
-    
+        return self.base << (self.child.cod >> self.base)
+
     def simplify(self):
-        return (self.child.cod >> self.continuation)(lambda f: self.child >> f)
+        return (self.child.cod >> self.base)(
+            lambda f: self.child.simplify() >> f)
 
 
 class BTR(TypeRaising):
     @property
     def cod(self):
-        return (self.continuation << self.child.cod) >> self.child.cod
+        return (self.base << self.child.cod) >> self.base
 
     def simplify(self):
-        return (self.continuation << self.child.cod)(lambda f: f << self.child)
+        return (self.base << self.child.cod)(
+            lambda f: f << self.child.simplify())
 
 
 @dataclass(frozen=True)
@@ -289,7 +306,7 @@ class BinaryTerm(TermBase):
     right: Term
 
     def to_diagram(self, **kwargs):
-        self.simplify().to_diagram(**kwargs)
+        return self.simplify().to_diagram(**kwargs)
 
     def __post_init__(self):
         if set(self.left.freevars).intersection(self.right.freevars):
@@ -301,6 +318,9 @@ class BinaryTerm(TermBase):
 
     def __str__(self):
         return f"{type(self).__name__}({self.left}, {self.right})"
+
+    def simplify(self):
+        return type(self)(self.left.simplify(), self.right.simplify())
 
     def to_diagram(self):
         return self.simplify().to_diagram()
@@ -323,8 +343,8 @@ class FC(BinaryTerm):
         return self.left.cod.base << self.right.cod.exponent
 
     def simplify(self):
-        return self.right.cod.exponent(
-            lambda x: self.left << (self.right << x))
+        f, g = self.left.simplify(), self.right.simplify()
+        return self.right.cod.exponent(lambda x: f << (g << x))
 
 
 @dataclass(frozen=True)
@@ -344,8 +364,8 @@ class BC(BinaryTerm):
         return self.left.cod.exponent >> self.right.cod.base
 
     def simplify(self):
-        return self.left.cod.exponent(
-            lambda x, left=True: (x >> self.left) >> self.right)
+        f, g = self.left.simplify(), self.right.simplify()
+        return self.left.cod.exponent(lambda x, left=True: (x >> f) >> g)
 
 
 @dataclass(frozen=True)

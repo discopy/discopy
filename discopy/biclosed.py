@@ -467,7 +467,9 @@ class Application(TermBase):
 
     def __str__(self):
         func, args = self.func, self.args
-        return f"{func} << ({args})" if self.left else f"{args} >> {func}"
+        func = f"({func})" if isinstance(func, Application) else str(func)
+        args = f"({args})" if isinstance(args, Application) else str(args)
+        return f"{func} << {args}" if self.left else f"{args} >> {func}"
 
     @property
     def freevars(self):
