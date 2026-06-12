@@ -144,7 +144,7 @@ from __future__ import annotations
 from discopy import cat, monoidal, markov
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    factory, factory_name, assert_isinstance, AxiomError)
+    ob_factory, ar_factory, factory_name, assert_isinstance, AxiomError)
 
 
 def str_delayed(time_step: int):
