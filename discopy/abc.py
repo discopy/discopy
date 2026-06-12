@@ -34,7 +34,7 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, Type, TypeVar, ClassVar
+from typing import Generic, Type, TypeVar, ClassVar
 
 from discopy.utils import get_origin
 
@@ -192,8 +192,7 @@ class ResiduatedMonoid[T](Monoid[T]):
 
 
 class BiclosedCategory[
-        C0: ResiduatedMonoid, C1: BiclosedCategory
-    ](MonoidalCategory[C0, C1]):
+        C0: ResiduatedMonoid, C1: BiclosedCategory](MonoidalCategory[C0, C1]):
     """
     A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
     and :code:`curry` for the evaluation and currying of morphisms.
@@ -285,7 +284,8 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class BalancedCategory[C0, C1](BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+class BalancedCategory[C0, C1](
+        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
     """
     A balanced category is a :class:`BraidedCategory` and a
     :class:`TracedCategory` with a method :code:`twist` for the natural
@@ -380,14 +380,16 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         """
 
 
-class RibbonCategory[C0, C1](PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
+class RibbonCategory[C0, C1](
+        PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
     """
     A ribbon category is a :class:`PivotalCategory` which is also a
     :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
 
 
-class CompactCategory[C0, C1](RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
+class CompactCategory[C0, C1](
+        RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
     """
     A compact category is a :class:`RibbonCategory` which is also a
     :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
