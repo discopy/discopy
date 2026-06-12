@@ -14,7 +14,6 @@ from typing import (
     TypeVar,
     Any,
     Collection,
-    Type,
     NamedTuple,
     TYPE_CHECKING,
 )

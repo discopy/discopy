@@ -81,7 +81,7 @@ from typing import (
 
 from discopy import messages, utils
 from discopy.abc import Category
-from discopy.utils import (
+from discopy.utils import (  # noqa: F401
     ob_factory,
     ar_factory,
     factory_name,
