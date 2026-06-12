@@ -42,7 +42,7 @@ from discopy.utils import get_origin
 class Category[T](ABC):
     """
     A category is a Python class with methods :code:`dom, cod, id, then`,
-    together with an attribute :attr:`ty_factory` for its objects.
+    together with an attribute :attr:`ob` for its objects.
 
     This base class also implements syntactic sugar :code:`>>` and :code:`<<`
     for forward and backward composition with the method :code:`then`.
@@ -50,15 +50,15 @@ class Category[T](ABC):
     Example
     -------
     >>> class List(list, Category):
-    ...     ty_factory, dom, cod = type(None), None, None
+    ...     ob, dom, cod = type(None), None, None
     ...     def then(self, other):
     ...         return self + other
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
-    factory: Type[Category]
+    ar: Type[Category]
     sum_factory: Type[Category]
-    ty_factory: Type[T]
+    ob: Type[T]
     dom: T
     cod: T
 

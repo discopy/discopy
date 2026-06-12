@@ -31,13 +31,13 @@ Summary
 """
 
 from discopy import rigid, frobenius, messages
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 from discopy.utils import AxiomError
 from discopy.grammar import thue
 from discopy.rigid import Ob  # noqa: F401
 
 
-@factory
+@ob_factory
 class Ty(rigid.Ty):
     """
     A pregroup type is a rigid type.
@@ -67,7 +67,7 @@ class Ty(rigid.Ty):
             raise AxiomError(messages.NOT_ADJOINT.format(self, other))
 
 
-@factory
+@ar_factory
 class Diagram(frobenius.Diagram):
     """
     A pregroup diagram is a rigid diagram with :class:`Word` boxes.
@@ -97,7 +97,7 @@ class Diagram(frobenius.Diagram):
     >>> F = tensor.Functor(ob, ar, dom=Diagram, dtype=bool)
     >>> assert F(sentence)
     """
-    ty_factory = Ty
+    ob = Ty
 
     def normal_form(self, **params):
         """

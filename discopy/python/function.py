@@ -46,7 +46,7 @@ class Function(MonoidalCategory[type]):
     dom: type
     cod: type
 
-    ty_factory = tuple[type, ...]
+    ob = tuple[type, ...]
     type_checking = True
 
     def __init__(self, inside: Callable, dom: type, cod: type):

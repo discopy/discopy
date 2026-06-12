@@ -57,14 +57,14 @@ from __future__ import annotations
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
     factory_name,
     from_tree,
 )
 
 
-@factory
+@ob_factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -220,7 +220,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@factory
+@ar_factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
@@ -232,7 +232,7 @@ class Diagram(monoidal.Diagram, BiclosedCategory):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
 
-    ty_factory = Ty
+    ob = Ty
 
     def curry(self, n=1, left=False) -> Diagram:
         """
@@ -364,7 +364,7 @@ class Functor(monoidal.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

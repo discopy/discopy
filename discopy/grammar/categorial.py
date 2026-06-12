@@ -36,7 +36,7 @@ Summary
 import re
 
 from discopy import biclosed, messages
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.grammar import thue
 from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
@@ -48,7 +48,7 @@ from discopy.utils import (
 )
 
 
-@factory
+@ar_factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.
@@ -224,7 +224,7 @@ class Functor(biclosed.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

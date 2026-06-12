@@ -45,7 +45,7 @@ class Function(function.Function):
             trace
     """
 
-    ty_factory = Ty
+    ob = Ty
 
     def __init__(self, inside, dom, cod, is_swap_of=None):
         self.is_swap_of = is_swap_of

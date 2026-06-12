@@ -43,7 +43,7 @@ from typing import Union, Literal as L, Callable, TYPE_CHECKING
 from discopy import monoidal, config, messages
 from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.cat import (
-    factory,
+    ar_factory,
     assert_iscomposable,
     assert_isparallel,
 )
@@ -53,7 +53,7 @@ if TYPE_CHECKING:
     import sympy
 
 
-@factory
+@ar_factory
 class Matrix(MonoidalCategory[int], NamedGeneric['dtype']):
     """
     A matrix is an ``array`` with natural numbers as ``dom`` and ``cod``.
@@ -127,7 +127,7 @@ class Matrix(MonoidalCategory[int], NamedGeneric['dtype']):
            [0, 2],
            [0, 4]])
     """
-    ty_factory = int
+    ob = int
 
     def cast(self, dtype: type) -> Matrix:
         """
@@ -161,7 +161,7 @@ class Matrix(MonoidalCategory[int], NamedGeneric['dtype']):
             self.array = np.array(array, dtype=self.dtype).reshape((dom, cod))
 
     def __eq__(self, other):
-        return isinstance(other, self.factory)\
+        return isinstance(other, self.ar)\
             and self.dtype == other.dtype\
             and (self.dom, self.cod) == (other.dom, other.cod)\
             and (self.array == other.array).all()

@@ -62,7 +62,8 @@ from discopy.cat import Ob
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
-    factory,
+    ob_factory,
+    ar_factory,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -75,7 +76,7 @@ if TYPE_CHECKING:
     import sympy
 
 
-@factory
+@ob_factory
 class Ty(Ob):
     """
     A type is a tuple of objects with :meth:`Ty.tensor` as concatenation.
@@ -139,10 +140,10 @@ class Ty(Ob):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented
-            assert_isinstance(self, other.factory)
-            assert_isinstance(other, self.factory)
+            assert_isinstance(self, other.ob)
+            assert_isinstance(other, self.ob)
         inside = self.inside + tuple(x for t in others for x in t.inside)
-        return self.factory(*inside)
+        return self.ob(*inside)
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -167,7 +168,7 @@ class Ty(Ob):
         return len(self) == 1
 
     def __eq__(self, other):
-        return isinstance(other, self.factory) and self.inside == other.inside
+        return isinstance(other, self.ob) and self.inside == other.inside
 
     def __hash__(self):
         return hash(repr(self))
@@ -194,11 +195,11 @@ class Ty(Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.factory(*self.inside[key])
+            return self.ob(*self.inside[key])
         return cat.Arrow.__getitem__(self, key)
 
     def __pow__(self, n_times):
-        return self.factory().tensor(*n_times * [self])
+        return self.ob().tensor(*n_times * [self])
 
     def to_tree(self):
         return {
@@ -221,7 +222,7 @@ class Ty(Ob):
         return Ty(*map(str, self.inside))
 
 
-@factory
+@ob_factory
 class PRO(Ty):
     """
     A PRO is a natural number ``n`` seen as a type with addition as tensor.
@@ -237,12 +238,12 @@ class PRO(Ty):
 
     Note
     ----
-    If ``ty_factory`` is ``PRO`` then :class:`Diagram` will automatically turn
+    If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
     any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
 
-    >>> @factory
+    >>> @ar_factory
     ... class Circuit(Diagram):
-    ...     ty_factory = PRO
+    ...     ob = PRO
     >>> class Gate(Box, Circuit): ...
     >>> CX = Gate('CX', 2, 2)
 
@@ -265,13 +266,13 @@ class PRO(Ty):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented  # This allows whiskering on the left.
-            assert_isinstance(self, other.factory)
-            assert_isinstance(other, self.factory)
-        return self.factory(self.n + sum(other.n for other in others))
+            assert_isinstance(self, other.ob)
+            assert_isinstance(other, self.ob)
+        return self.ob(self.n + sum(other.n for other in others))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.factory(len(self.inside[key]))
+            return self.ob(len(self.inside[key]))
         return cat.Arrow.__getitem__(self, key)
 
     def __len__(self):
@@ -284,13 +285,13 @@ class PRO(Ty):
         return f"PRO({self.n})"
 
     def __eq__(self, other):
-        return isinstance(other, self.factory) and self.n == other.n
+        return isinstance(other, self.ob) and self.n == other.n
 
     def __hash__(self):
         return hash(repr(self))
 
     def __pow__(self, n_times):
-        return self.factory(n_times * self.n)
+        return self.ob(n_times * self.n)
 
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}
@@ -300,7 +301,7 @@ class PRO(Ty):
         return cls(tree['n'])
 
 
-@factory
+@ob_factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -458,7 +459,7 @@ class Layer(cat.Box):
         """
         assert_iscomposable(self, other)
         try:
-            diagram = Diagram.normal_form(self.boxes_or_types[1].factory(
+            diagram = Diagram.normal_form(self.boxes_or_types[1].ar(
                 (self, other), self.dom, other.cod).to_staircases())
         except NotImplementedError as exception:  # Eckmann-Hilton argument.
             diagram = exception.last_step
@@ -488,7 +489,7 @@ class Layer(cat.Box):
         return cls(*(map(from_tree, tree['inside'])))
 
 
-@factory
+@ar_factory
 class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
@@ -511,7 +512,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
             normalize
             normal_form
     """
-    ty_factory = Ty
+    ob = Ty
     layer_factory = Layer
 
     def __setstate__(self, state):
@@ -590,12 +591,12 @@ class Diagram(cat.Arrow, MonoidalCategory):
             return self.tensor(other).tensor(*others)
         if isinstance(other, Sum):
             return self.sum_factory((self, )).tensor(other)
-        assert_isinstance(other, self.factory)
-        assert_isinstance(self, other.factory)
+        assert_isinstance(other, self.ar)
+        assert_isinstance(self, other.ar)
         inside = tuple(layer @ other.dom for layer in self.inside)\
             + tuple(self.cod @ layer for layer in other.inside)
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
-        return self.factory(inside, dom, cod, _scan=False)
+        return self.ar(inside, dom, cod, _scan=False)
 
     @property
     def boxes(self) -> list[Box]:
@@ -685,7 +686,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
     def to_drawing(self, functor_factory=None) -> Drawing:
         """ Called before :meth:`Diagram.draw`. """
         ob = ar = lambda x: x.to_drawing()
-        dom = self.factory
+        dom = self.ar
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
@@ -703,7 +704,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> print(diagram.foliation().to_staircases())
         f1 @ x >> x @ f0
         """
-        return Functor.id(self.factory)(self)
+        return Functor.id(self.ar)(self)
 
     def foliation(self):
         """
@@ -736,7 +737,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
                 try:
                     inside = self.inside[:i] + (first.merge(second), )\
                         + self.inside[i + 2:]
-                    self = self.factory(inside, self.dom, self.cod)
+                    self = self.ar(inside, self.dom, self.cod)
                     keep_on_going = True
                     break
                 except AxiomError:
@@ -1082,7 +1083,7 @@ class Functor(cat.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
@@ -1113,19 +1114,19 @@ class Functor(cat.Functor):
 
     def __call__(self, other):
         if isinstance(other, PRO):
-            result = cat.Functor.__call__(self, other.factory(1))
-            return sum(other.n * [result], self.cod.ty_factory())
+            result = cat.Functor.__call__(self, other.ob(1))
+            return sum(other.n * [result], self.cod.ob())
         if isinstance(other, Dim):
-            return sum([self.ob_map[x] for x in other], self.cod.ty_factory())
+            return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):
-            return sum(map(self, other.inside), self.cod.ty_factory())
+            return sum(map(self, other.inside), self.cod.ob())
         if isinstance(other, cat.Ob):
-            result = self.ob_map[self.dom.ty_factory(other)]
-            cod_type = get_origin(self.cod.ty_factory)
+            result = self.ob_map[self.dom.ob(other)]
+            cod_type = get_origin(self.cod.ob)
             # Syntactic sugar {x: n} in tensor and {x: int} in python.
             return result if isinstance(result, cod_type) else\
                 (result, ) if cod_type == tuple\
-                else self.cod.ty_factory(result)
+                else self.cod.ob(result)
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
@@ -1179,5 +1180,5 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
-Drawing.ty_factory = Ty
+Drawing.ob = Ty
 Id = Diagram.id

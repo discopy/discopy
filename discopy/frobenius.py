@@ -66,7 +66,7 @@ from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 from discopy.utils import factory_name, assert_isatomic
 
 
@@ -80,7 +80,7 @@ class Ob(pivotal.Ob):
     l = r = property(lambda self: self)
 
 
-@factory
+@ob_factory
 class Ty(pivotal.Ty):
     """
     A frobenius type is a pivotal type with frobenius objects inside.
@@ -91,7 +91,7 @@ class Ty(pivotal.Ty):
     ob_factory = Ob
 
 
-@factory
+@ob_factory
 class PRO(rigid.PRO, Ty):
     """
     A PRO is a natural number ``n`` seen as a frobenius type with unnamed
@@ -106,14 +106,14 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-@factory
+@ob_factory
 class Dim(monoidal.Dim, Ty):
     """ A dimension is a tuple of integers greater than one seen as a type. """
 
-    l = r = property(lambda self: self.factory(*self.inside[::-1]))
+    l = r = property(lambda self: self.ob(*self.inside[::-1]))
 
 
-@factory
+@ar_factory
 class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
     A frobenius diagram is a compact diagram and a Markov diagram.
@@ -124,7 +124,7 @@ class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
 
-    ty_factory = Ty
+    ob = Ty
 
     @classmethod
     def caps(cls, left, right):
@@ -277,7 +277,7 @@ class Spider(Box):
         return type(self)(len(self.cod), len(self.dom), self.typ, self.phase)
 
     def unfuse(self) -> Diagram:
-        return coherence(self.factory, type(self))(
+        return coherence(self.ar, type(self))(
             len(self.dom), len(self.cod), self.typ, self.phase)
 
 
@@ -293,7 +293,7 @@ class Functor(compact.Functor, markov.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

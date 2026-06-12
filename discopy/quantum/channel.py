@@ -44,7 +44,7 @@ Channel([0.5+0.j, 0.5+0.j, 0.5+0.j, 0.5+0.j], dom=CQ(), cod=Q(Dim(2)))
 from __future__ import annotations
 
 from discopy import frobenius, tensor
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.frobenius import Ty, Diagram, Box
 from discopy.matrix import backend
 from discopy.quantum.circuit import (
@@ -140,7 +140,7 @@ def Q(dim=Dim(1)) -> CQ:
     return CQ(quantum=dim)
 
 
-@factory
+@ar_factory
 class Channel(Tensor):
     """
     A channel is a tensor with :class:`CQ` types as ``dom`` and ``cod``.
@@ -151,7 +151,7 @@ class Channel(Tensor):
         dom : The domain of the channel.
         cod : The codomain of the channel.
     """
-    ty_factory = CQ
+    ob = CQ
     dtype = complex
 
     def __init__(self, array, dom: CQ, cod: CQ):

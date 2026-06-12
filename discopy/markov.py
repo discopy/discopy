@@ -78,12 +78,12 @@ from __future__ import annotations
 
 from discopy import symmetric, monoidal, hypergraph
 from discopy.abc import MarkovCategory
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import assert_isatomic, factory_name
 
 
-@factory
+@ar_factory
 class Diagram(symmetric.Diagram, MarkovCategory):
     """
     A Markov diagram is a symmetric diagram with :class:`Copy` boxes.
@@ -271,7 +271,7 @@ class Functor(symmetric.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.

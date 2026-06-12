@@ -34,12 +34,12 @@ from __future__ import annotations
 
 from discopy import monoidal, braided, traced
 from discopy.abc import BalancedCategory
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
 
-@factory
+@ar_factory
 class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
     """
     A balanced diagram is a braided diagram with :class:`Twist`.
@@ -183,7 +183,7 @@ class Functor(braided.Functor, traced.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.

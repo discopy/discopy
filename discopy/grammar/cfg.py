@@ -40,7 +40,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from discopy import monoidal
-from discopy.cat import factory, Functor
+from discopy.cat import ar_factory, Functor
 from discopy.grammar import thue
 from discopy.monoidal import Ty
 from discopy.utils import (
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
     import nltk
 
 
-@factory
+@ar_factory
 class Tree:
     """
     A tree is a rule for the ``root`` and a list of trees called ``branches``.
@@ -68,7 +68,7 @@ class Tree:
     >>> S = Rule(vp @ np, s)
     >>> sentence = S(VP(Caesar, crossed), NP(the, Rubicon))
     """
-    ty_factory = Ty
+    ob = Ty
 
     def __init__(self, root: Rule, *branches: Tree):
         assert_isinstance(root, Rule)
@@ -216,7 +216,7 @@ class Algebra(Functor):
     as codomain.
 
     Parameters:
-        ob (dict[monoidal.Ty, cod.ty_factory]) :
+        ob (dict[monoidal.Ty, cod.ob]) :
             The mapping from domain to codomain colours.
         ar (dict[Rule, cod]):
             The mapping from domain to codomain operations.

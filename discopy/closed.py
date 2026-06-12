@@ -50,11 +50,11 @@ from inspect import signature
 
 from discopy import cat, biclosed, markov
 from discopy.abc import ClosedCategory
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 from discopy.utils import assert_isinstance
 
 
-@factory
+@ob_factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
@@ -138,7 +138,7 @@ class Constant(TermBase):
 
     def to_diagram(self, category=None, box_factory=None):
         category, box_factory = category or Diagram, box_factory or Box
-        return box_factory(self.name, category.ty_factory(), self.cod)
+        return box_factory(self.name, category.ob(), self.cod)
 
 
 @dataclass(frozen=True)
@@ -225,14 +225,14 @@ class Substitution:
             return other(term)
 
 
-@factory
+@ar_factory
 class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
-    ty_factory = Ty
+    ob = Ty
 
     @property
     def is_linear(self):
@@ -305,7 +305,7 @@ class Functor(biclosed.Functor, markov.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

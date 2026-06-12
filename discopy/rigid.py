@@ -47,7 +47,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import RigidCategory
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -118,7 +118,7 @@ class Ob(cat.Ob):
         return cls(name=name, z=z)
 
 
-@factory
+@ob_factory
 class Ty(biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
@@ -152,12 +152,12 @@ class Ty(biclosed.Ty):
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
-        return self.factory(*[x.l for x in self.inside[::-1]])
+        return self.ob(*[x.l for x in self.inside[::-1]])
 
     @property
     def r(self) -> Ty:
         """ The right adjoint of the type. """
-        return self.factory(*[x.r for x in self.inside[::-1]])
+        return self.ob(*[x.r for x in self.inside[::-1]])
 
     @property
     def z(self) -> int:
@@ -174,7 +174,7 @@ class Ty(biclosed.Ty):
     ob_factory = Ob
 
 
-@factory
+@ob_factory
 class PRO(monoidal.PRO, Ty):
     """
     A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
@@ -205,7 +205,7 @@ class Layer(monoidal.Layer):
     r = property(lambda self: self.rotate(left=False))
 
 
-@factory
+@ar_factory
 class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram
@@ -228,7 +228,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         :align: center
     """
 
-    ty_factory = Ty
+    ob = Ty
     layer_factory = Layer
 
     to_drawing = monoidal.Diagram.to_drawing
@@ -322,7 +322,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         inside = tuple(
             layer.l if left else layer.r for layer in self.inside[::-1])
-        return self.factory(inside, dom, cod, _scan=False)
+        return self.ar(inside, dom, cod, _scan=False)
 
     l = property(lambda self: self.rotate(left=True))
     r = property(lambda self: self.rotate(left=False))
@@ -491,7 +491,7 @@ class Diagram(biclosed.Diagram, RigidCategory):
                     yield diagram
                     cap += 1
             inside = diagram.inside[:cap] + diagram.inside[cup + 1:]
-            yield diagram.factory(
+            yield diagram.ar(
                 inside, diagram.dom, diagram.cod, _scan=False)
 
         diagram = self
@@ -641,7 +641,7 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         left.assert_isadjoint(right)
         name = f"Cup({left}, {right})"
-        dom, cod = left @ right, self.ty_factory()
+        dom, cod = left @ right, self.ob()
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -679,7 +679,7 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         right.assert_isadjoint(left)
         name = f"Cap({left}, {right})"
-        dom, cod = self.ty_factory(), left @ right
+        dom, cod = self.ob(), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -701,7 +701,7 @@ class Functor(biclosed.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 

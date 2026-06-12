@@ -30,7 +30,7 @@ from typing import Callable, TYPE_CHECKING
 
 from discopy import (
     cat, monoidal, rigid, symmetric, frobenius)
-from discopy.cat import factory, assert_iscomposable
+from discopy.cat import ar_factory, assert_iscomposable
 from discopy.frobenius import Dim, Cup
 from discopy.matrix import (  # noqa: F401
     Matrix, backend, set_backend, get_backend)
@@ -44,7 +44,7 @@ if TYPE_CHECKING:
     import quimb
 
 
-@factory
+@ar_factory
 class Tensor(Matrix):
     """
     A tensor is a :class:`Matrix` with dimensions as domain and codomain and
@@ -104,7 +104,7 @@ class Tensor(Matrix):
     ...     import jax
     ...     assert jax.grad(f)(1., 2.) == 2.
     """
-    ty_factory = Dim
+    ob = Dim
 
     def __init__(self, array, dom: Dim, cod: Dim):
         assert_isinstance(dom, Dim)
@@ -394,7 +394,7 @@ class Functor(frobenius.Functor):
         return self.cod(array, self(other.dom), self(other.cod))
 
 
-@factory
+@ar_factory
 class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     A tensor diagram is a frobenius diagram with tensor boxes.
@@ -406,7 +406,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     >>> print(diagram)
     vector[::-1] >> vector >> Dim(2) @ vector
     """
-    ty_factory = Dim
+    ob = Dim
 
     def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
         """

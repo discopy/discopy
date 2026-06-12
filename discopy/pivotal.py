@@ -57,7 +57,7 @@ from __future__ import annotations
 
 from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
-from discopy.cat import factory
+from discopy.cat import ob_factory, ar_factory
 
 
 class Ob(rigid.Ob):
@@ -71,7 +71,7 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(self.name, (self.z + 1) % 2))
 
 
-@factory
+@ob_factory
 class Ty(rigid.Ty):
     """
     A pivotal type is a rigid type with pivotal objects inside.
@@ -82,7 +82,7 @@ class Ty(rigid.Ty):
     ob_factory = Ob
 
 
-@factory
+@ob_factory
 class PRO(rigid.PRO, Ty):
     """
     A pivotal PRO is a natural number ``n``
@@ -96,7 +96,7 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-@factory
+@ar_factory
 class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
     """
     A pivotal diagram is a rigid diagram and a traced diagram
@@ -107,7 +107,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         dom (Ty) : The domain of the diagram, i.e. its input.
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
-    ty_factory = Ty
+    ob = Ty
 
     def dagger(self):
         """
@@ -238,7 +238,7 @@ class Functor(rigid.Functor):
 
     Parameters:
         ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ty_factory`.
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """

@@ -128,12 +128,12 @@ Dinaturality
 
 from discopy import monoidal
 from discopy.abc import TracedCategory
-from discopy.cat import factory
+from discopy.cat import ar_factory
 from discopy.monoidal import Ty
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
-@factory
+@ar_factory
 class Diagram(monoidal.Diagram, TracedCategory):
     """
     A traced diagram is a monoidal diagram with :class:`Trace` boxes.
@@ -191,7 +191,7 @@ class Trace(Box, monoidal.Bubble):
     :meth:`Diagram.trace`
     """
     def __init__(self, arg: Diagram, left=False):
-        assert_isinstance(arg, self.factory)
+        assert_isinstance(arg, self.ar)
         assert_istraceable(arg, n=1, left=left)
         self.left = left
         name = f"Trace({arg}" + ", left=True)" if left else ")"
@@ -228,7 +228,7 @@ class Functor(monoidal.Functor):
 
     Parameters:
         ob (Mapping[monoidal.Ty, monoidal.Ty]) :
-            Map from :class:`monoidal.Ty` to :code:`cod.ty_factory`.
+            Map from :class:`monoidal.Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
