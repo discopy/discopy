@@ -26,7 +26,7 @@ from discopy.utils import (
 
 
 @dataclass
-class Function(MonoidalCategory[type]):
+class Function(MonoidalCategory):
     """
     Python function with sequential composition.
 

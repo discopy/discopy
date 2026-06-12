@@ -34,15 +34,15 @@ Summary
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Generic, Optional, Type, TypeVar
+from typing import Generic, Optional, Type, TypeVar, ClassVar
 
 from discopy.utils import get_origin
 
 
-class Category[T](ABC):
+class Category[C0, C1: Category](ABC):
     """
-    A category is a Python class with methods :code:`dom, cod, id, then`,
-    together with an attribute :attr:`ob` for its objects.
+    A category is a class with two class variables ``ob, ar``, two attributes
+    ``dom, cod`` and two methods ``id, then``.
 
     This base class also implements syntactic sugar :code:`>>` and :code:`<<`
     for forward and backward composition with the method :code:`then`.
@@ -56,39 +56,47 @@ class Category[T](ABC):
     >>> assert List([1, 2]) >> List([3]) == List([1, 2, 3])
     >>> assert List([3]) << List([1, 2]) == List([1, 2, 3])
     """
-    ar: Type[Category]
-    sum_factory: Type[Category]
-    ob: Type[T]
-    dom: T
-    cod: T
+    ob: ClassVar[Type[C0]]
+    ar: ClassVar[Type[C1]]
+    dom: C0
+    cod: C0
 
+    @classmethod
     @abstractmethod
-    def then(self, other: Optional[Category[T]], *others: Category[T]
-             ) -> Category[T]:
+    def id(cls, dom: C0) -> C1:
         """
-        Sequential composition, to be instantiated.
+        Identity morphism on an object :code:`dom: C0`, to be instantiated.
 
         Parameters:
-            other : The other arrow to compose sequentially.
+            dom (C0) : The domain of an identity is also its codomain.
         """
 
-    def is_composable(self, other: Category) -> bool:
+    @abstractmethod
+    def then(self, *others: C1) -> C1:
         """
-        Whether two arrows are composable, i.e. the codomain of the first is
+        Sequential composition of `n >= 1` morphisms, to be instantiated.
+
+        Parameters:
+            other : The other morphism to compose sequentially.
+        """
+
+    def is_composable(self, other: C1) -> bool:
+        """
+        Whether two morphisms are composable, i.e. the codomain of the first is
         the domain of the second.
 
         Parameters:
-            other : The other arrow.
+            other : The other morphism.
         """
         return self.cod == other.dom
 
     def is_parallel(self, other: Category) -> bool:
         """
-        Whether two arrows are parallel, i.e. they have the same
+        Whether two morphisms are parallel, i.e. they have the same
         domain and codomain.
 
         Parameters:
-            other : The other arrow.
+            other : The other morphism.
         """
         return (self.dom, self.cod) == (other.dom, other.cod)
 
@@ -96,40 +104,47 @@ class Category[T](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class MonoidalCategory[T](Category[T]):
+class Monoid[T]:
+    """
+    A monoid is a class with class variable ``ob`` and class method ``tensor``.
+    """
+    ob: ClassVar[Type[T]]
+
+    @classmethod
+    @abstractmethod
+    def tensor(cls, *objects: T) -> T:
+        """
+        The n-ary product of a monoid.
+        """
+
+    def __matmul__(self, other):
+        return self.tensor(other)
+
+
+class MonoidalCategory[C0: Monoid, C1: MonoidalCategory](Category[C0, C1]):
     """
     A monoidal category is a :class:`Category` with a method :code:`tensor` for
-    both its objects and its arrows.
+    both its objects and its morphisms.
 
     This base class also implements syntactic sugar :code:`@` for whiskering.
     """
     @classmethod
     @abstractmethod
-    def id(cls, dom: T) -> MonoidalCategory:
+    def tensor(cls, *morphisms: C1) -> C1:
         """
-        Identity on a given domain, to be instantiated.
+        Parallel composition of ``n >= 0`` morphisms, to be instantiated.
 
         Parameters:
-            dom : The object on which to take the identity.
-        """
-
-    @abstractmethod
-    def tensor(self, other: MonoidalCategory) -> MonoidalCategory:
-        """
-        Parallel composition, to be instantiated.
-
-        Parameters:
-            other : The other arrow to compose in parallel.
+            other : The other morphism to compose in parallel.
         """
 
     @classmethod
-    def whisker(cls, other: T) -> MonoidalCategory:
+    def whisker(cls, other: C0 | C1) -> C1:
         """
-        Apply :meth:`MonoidalCategory.id` if :code:`other` is not tensorable
-        else do nothing.
+        Do nothing if ``other`` is already a morphism else apply :meth:`id`.
 
         Parameters:
-            other : The whiskering object.
+            other : The object or morphism to be tensored on the left or right.
         """
         return other if isinstance(other, MonoidalCategory) else cls.id(other)
 
@@ -140,13 +155,13 @@ class MonoidalCategory[T](Category[T]):
         return self.whisker(other).tensor(self)
 
 
-class TracedCategory[T](MonoidalCategory[T]):
+class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
     """
     A traced category is a :class:`MonoidalCategory` with a method
     :code:`trace` for the partial trace of a morphism over some objects.
     """
     @abstractmethod
-    def trace(self, n: int = 1, left: bool = False) -> TracedCategory:
+    def trace(self, n: int = 1, left: bool = False) -> C1:
         """
         The trace of a morphism, to be instantiated.
 
@@ -156,7 +171,29 @@ class TracedCategory[T](MonoidalCategory[T]):
         """
 
 
-class BiclosedCategory[T](MonoidalCategory[T]):
+class ResiduatedMonoid[T](Monoid[T]):
+    """
+    A monoid is residuated when it comes with methods ``over`` and ``under``
+    with syntactic sugar ``<<`` and ``>>``.
+    """
+    @abstractmethod
+    def over(self, other: T) -> T:
+        """ The right-to-left exponential object ``self`` to the ``other``. """
+
+    @abstractmethod
+    def under(self, other: T) -> T:
+        """ The left-to-right exponential object ``self`` to the ``other``. """
+
+    def __lshift__(self, other):
+        return self.over(other)
+
+    def __rshift__(self, other):
+        return other.under(self)
+
+
+class BiclosedCategory[
+        C0: ResiduatedMonoid, C1: BiclosedCategory
+    ](MonoidalCategory[C0, C1]):
     """
     A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
     and :code:`curry` for the evaluation and currying of morphisms.
@@ -166,7 +203,7 @@ class BiclosedCategory[T](MonoidalCategory[T]):
     """
     @classmethod
     @abstractmethod
-    def ev(cls, base: T, exponent: T, left: bool = True) -> BiclosedCategory:
+    def ev(cls, base: C0, exponent: C0, left: bool = True) -> C1:
         """
         The evaluation of an exponential type, to be instantiated.
 
@@ -177,7 +214,7 @@ class BiclosedCategory[T](MonoidalCategory[T]):
         """
 
     @abstractmethod
-    def curry(self, n: int = 1, left: bool = True) -> BiclosedCategory:
+    def curry(self, n: int = 1, left: bool = True) -> C1:
         """
         The currying of a morphism, to be instantiated.
 
@@ -187,14 +224,23 @@ class BiclosedCategory[T](MonoidalCategory[T]):
         """
 
 
-class RigidCategory[T](BiclosedCategory[T]):
+class Pregroup[T](ResiduatedMonoid[T]):
     """
-    A rigid category is a :class:`BiclosedCategory` where every object has a
-    left and right adjoint, witnessed by methods :code:`cups` and :code:`caps`.
+    A pregroup is a residuated monoid where the left and right exponentials are
+    given by tensoring with the chosen left and right duals for each object.
+    """
+    l: T
+    r: T
+
+
+class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
+    """
+    A rigid category is a :class:`BiclosedCategory` with a :class:`Pregroup` as
+    object type and methods for :code:`cups` and :code:`caps`.
     """
     @classmethod
     @abstractmethod
-    def cups(cls, left: T, right: T) -> RigidCategory:
+    def cups(cls, left: C0, right: C0) -> C1:
         """
         The cups witnessing :code:`right` as the adjoint of :code:`left`.
 
@@ -205,7 +251,7 @@ class RigidCategory[T](BiclosedCategory[T]):
 
     @classmethod
     @abstractmethod
-    def caps(cls, left: T, right: T) -> RigidCategory:
+    def caps(cls, left: C0, right: C0) -> C1:
         """
         The caps witnessing :code:`right` as the adjoint of :code:`left`.
 
@@ -215,21 +261,21 @@ class RigidCategory[T](BiclosedCategory[T]):
         """
 
 
-class PivotalCategory[T](RigidCategory[T], TracedCategory[T]):
+class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
     """
     A pivotal category is a :class:`RigidCategory` where the left and right
     adjoints coincide, hence it is also a :class:`TracedCategory`.
     """
 
 
-class BraidedCategory[T](MonoidalCategory[T]):
+class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
     """
     A braided category is a :class:`MonoidalCategory` with a method
     :code:`braid` for the natural isomorphism :code:`x @ y -> y @ x`.
     """
     @classmethod
     @abstractmethod
-    def braid(cls, left: T, right: T) -> BraidedCategory:
+    def braid(cls, left: C0, right: C0) -> C1:
         """
         The braid of two objects, to be instantiated.
 
@@ -239,7 +285,7 @@ class BraidedCategory[T](MonoidalCategory[T]):
         """
 
 
-class BalancedCategory[T](BraidedCategory[T], TracedCategory[T]):
+class BalancedCategory[C0, C1](BraidedCategory[C0, C1], TracedCategory[C0, C1]):
     """
     A balanced category is a :class:`BraidedCategory` and a
     :class:`TracedCategory` with a method :code:`twist` for the natural
@@ -247,7 +293,7 @@ class BalancedCategory[T](BraidedCategory[T], TracedCategory[T]):
     """
     @classmethod
     @abstractmethod
-    def twist(cls, dom: T) -> BalancedCategory:
+    def twist(cls, dom: C0) -> C1:
         """
         The twist on an object, to be instantiated.
 
@@ -256,14 +302,14 @@ class BalancedCategory[T](BraidedCategory[T], TracedCategory[T]):
         """
 
 
-class SymmetricCategory[T](BalancedCategory[T]):
+class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
     """
     A symmetric category is a :class:`BalancedCategory` where the braid is its
     own inverse called :code:`swap` for the symmetry :code:`x @ y -> y @ x`.
     """
     @classmethod
     @abstractmethod
-    def swap(cls, left: T, right: T) -> SymmetricCategory:
+    def swap(cls, left: C0, right: C0) -> C1:
         """
         The swap of two objects, to be instantiated.
 
@@ -273,14 +319,14 @@ class SymmetricCategory[T](BalancedCategory[T]):
         """
 
 
-class MarkovCategory[T](SymmetricCategory[T]):
+class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     """
     A Markov category is a :class:`SymmetricCategory` with methods
     :code:`copy` and :code:`merge` for the supply of commutative comonoids.
     """
     @classmethod
     @abstractmethod
-    def copy(cls, x: T, n: int = 2) -> MarkovCategory:
+    def copy(cls, x: C0, n: int = 2) -> C1:
         """
         Make :code:`n` copies of a given object :code:`x`.
 
@@ -291,7 +337,7 @@ class MarkovCategory[T](SymmetricCategory[T]):
 
     @classmethod
     @abstractmethod
-    def merge(cls, x: T, n: int = 2) -> MarkovCategory:
+    def merge(cls, x: C0, n: int = 2) -> C1:
         """
         Merge :code:`n` copies of a given object :code:`x`.
 
@@ -301,20 +347,20 @@ class MarkovCategory[T](SymmetricCategory[T]):
         """
 
 
-class ClosedCategory[T](BiclosedCategory[T], MarkovCategory[T]):
+class ClosedCategory[C0, C1](BiclosedCategory[C0, C1], MarkovCategory[C0, C1]):
     """
     A closed category is a symmetric :class:`BiclosedCategory`. We also assume
     it comes with copy and discard so it is also a :class:`MarkovCategory`.
     """
 
 
-class FeedbackCategory[T](MarkovCategory[T]):
+class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
     """
     A feedback category is a :class:`MarkovCategory` with a :code:`delay`
     endofunctor and a :code:`feedback` operator.
     """
     @abstractmethod
-    def delay(self, n_steps: int = 1) -> FeedbackCategory:
+    def delay(self, n_steps: int = 1) -> C1:
         """
         The delay endofunctor applied to a morphism.
 
@@ -323,7 +369,7 @@ class FeedbackCategory[T](MarkovCategory[T]):
         """
 
     @abstractmethod
-    def feedback(self, dom=None, cod=None, mem=None) -> FeedbackCategory:
+    def feedback(self, dom: C0, cod: C0, mem: C0) -> C1:
         """
         The feedback operator on a morphism.
 
@@ -334,21 +380,22 @@ class FeedbackCategory[T](MarkovCategory[T]):
         """
 
 
-class RibbonCategory[T](PivotalCategory[T], BalancedCategory[T]):
+class RibbonCategory[C0, C1](PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
     """
     A ribbon category is a :class:`PivotalCategory` which is also a
     :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
 
 
-class CompactCategory[T](RibbonCategory[T], SymmetricCategory[T]):
+class CompactCategory[C0, C1](RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
     """
     A compact category is a :class:`RibbonCategory` which is also a
     :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
     """
 
 
-class HypergraphCategory[T](CompactCategory[T], MarkovCategory[T]):
+class HypergraphCategory[C0, C1](
+        CompactCategory[C0, C1], MarkovCategory[C0, C1]):
     """
     A hypergraph category is a symmetric category with a supply of spiders,
     i.e. special commutative Frobenius algebras on each objects.
@@ -357,17 +404,14 @@ class HypergraphCategory[T](CompactCategory[T], MarkovCategory[T]):
     """
     @classmethod
     @abstractmethod
-    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: T, phases=None
-                ) -> HypergraphCategory:
+    def spiders(cls, n_legs_in: int, n_legs_out: int, typ: C0) -> C1:
         """
-        The spiders on a given type with ``n_legs_in`` and ``n_legs_out`` and
-        some optional vector of ``phases``.
+        The spiders on a given type with ``n_legs_in`` and ``n_legs_out``.
 
         Parameters:
             n_legs_in : The number of legs in for each spider.
             n_legs_out : The number of legs out for each spider.
             typ : The type of the spiders.
-            phases : The phase for each spider.
         """
 
 

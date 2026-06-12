@@ -165,7 +165,7 @@ class Ob:
 
 
 @factory
-class Arrow(Category[Ob]):
+class Arrow(Category):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -753,7 +753,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-class Functor(Category[type[Category]]):
+class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an
     optional codomain category :code:`cod`.
@@ -794,7 +794,7 @@ class Functor(Category[type[Category]]):
     >>> m.data.append(False)
     >>> assert F(m) == m[::-1]
     """
-    ob = type
+    ob = type[Category]
     dom = cod = Arrow
 
     @classmethod

@@ -46,7 +46,7 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
-from discopy.abc import RigidCategory
+from discopy.abc import Pregroup, RigidCategory
 from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
@@ -119,7 +119,7 @@ class Ob(cat.Ob):
 
 
 @factory
-class Ty(biclosed.Ty):
+class Ty(biclosed.Ty, Pregroup):
     """
     A rigid type is a biclosed type with rigid objects inside.
 
@@ -165,13 +165,13 @@ class Ty(biclosed.Ty):
         assert_isatomic(self)
         return self.inside[0].z
 
-    def __lshift__(self, other):
+    ob_factory = Ob
+
+    def over(self, other):
         return self @ other.l
 
-    def __rshift__(self, other):
-        return self.r @ other
-
-    ob_factory = Ob
+    def under(self, other):
+        return other.r @ self
 
 
 @factory
