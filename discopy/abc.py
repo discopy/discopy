@@ -231,6 +231,18 @@ class Pregroup[T](ResiduatedMonoid[T]):
     l: T
     r: T
 
+    def tensor(self, *others: T) -> T:
+        return super(Monoid, self).tensor(*others)
+
+    def __matmul__(self, other: T) -> T:
+        return self.tensor(other)
+
+    def over(self, other: T) -> T:
+        return self @ other.l
+
+    def under(self, other: T) -> T:
+        return other.r @ self
+
 
 class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
     """

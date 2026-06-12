@@ -119,7 +119,7 @@ class Ob(cat.Ob):
 
 
 @ob_factory
-class Ty(biclosed.Ty, Pregroup):
+class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
 
@@ -166,12 +166,6 @@ class Ty(biclosed.Ty, Pregroup):
         return self.inside[0].z
 
     ob_factory = Ob
-
-    def over(self, other):
-        return self @ other.l
-
-    def under(self, other):
-        return other.r @ self
 
 
 @ob_factory
