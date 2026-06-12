@@ -117,6 +117,12 @@ class Exp(Ty, biclosed.Exp):
 class TermBase(ABC):
     cod: Ty
 
+    def __eq__(self, other):
+        return isinstance(other, TermBase) and _alpha_equal(self, other)
+
+    def __hash__(self):
+        return hash(_alpha_key(self))
+
     def __call__(self, *others: Term):
         return reduce(lambda fun, arg: Application(fun, arg), others, self)
 
@@ -143,7 +149,7 @@ class TermBase(ABC):
 type Term = Constant | Variable | Application | Abstraction
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Constant(TermBase):
     cod: Ty
     name: str
@@ -163,7 +169,7 @@ class Constant(TermBase):
         raise ValueError("Constants are not pure linear lambda terms.")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Variable(TermBase):
     cod: Ty
     name: str
@@ -185,7 +191,7 @@ class Variable(TermBase):
         return cmap
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Application(TermBase):
     func: Term
     args: Term
@@ -229,7 +235,7 @@ class Application(TermBase):
         return cmap
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Abstraction(TermBase):
     var: Variable
     body: Term
@@ -267,6 +273,61 @@ class Abstraction(TermBase):
         cmap = body_map.plug_input(index, lam, self.cod)
         assert_term_map(cmap, self, category)
         return cmap
+
+
+def _alpha_equal(left, right, left_bound=None, right_bound=None):
+    left_bound = () if left_bound is None else left_bound
+    right_bound = () if right_bound is None else right_bound
+    if isinstance(left, Constant) and isinstance(right, Constant):
+        return (left.cod, left.name) == (right.cod, right.name)
+    if isinstance(left, Variable) and isinstance(right, Variable):
+        left_index = _lookup_bound(left_bound, left)
+        right_index = _lookup_bound(right_bound, right)
+        if left_index is not None or right_index is not None:
+            return left.cod == right.cod and left_index == right_index
+        return (left.cod, left.name) == (right.cod, right.name)
+    if isinstance(left, Application) and isinstance(right, Application):
+        return _alpha_equal(left.func, right.func, left_bound, right_bound)\
+            and _alpha_equal(left.args, right.args, left_bound, right_bound)
+    if isinstance(left, Abstraction) and isinstance(right, Abstraction):
+        if left.var.cod != right.var.cod:
+            return False
+        index = len(left_bound)
+        return _alpha_equal(
+            left.body, right.body,
+            left_bound + ((left.var, index), ),
+            right_bound + ((right.var, index), ))
+    return False
+
+
+def _alpha_key(term, bound=None):
+    bound = () if bound is None else bound
+    if isinstance(term, Constant):
+        return ("constant", term.cod, term.name)
+    if isinstance(term, Variable):
+        index = _lookup_bound(bound, term)
+        return ("bound", term.cod, index) if index is not None\
+            else ("free", term.cod, term.name)
+    if isinstance(term, Application):
+        return ("application", _alpha_key(term.func, bound),
+                _alpha_key(term.args, bound))
+    if isinstance(term, Abstraction):
+        index = len(bound)
+        return ("abstraction", term.var.cod, _alpha_key(
+            term.body, bound + ((term.var, index), )))
+    raise TypeError
+
+
+def _lookup_bound(bound, variable):
+    for other, index in reversed(bound):
+        if _same_variable(other, variable):
+            return index
+    return None
+
+
+def _same_variable(left, right):
+    return isinstance(left, Variable) and isinstance(right, Variable)\
+        and (left.cod, left.name) == (right.cod, right.name)
 
 
 def assert_term_map(cmap, term, category: type[CombinatorialMap] | None = None):

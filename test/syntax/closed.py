@@ -17,6 +17,17 @@ def test_str():
     assert str(f) == "X(lambda x: (X >> Y)(lambda y: y(x)))"
 
 
+def test_term_equality_is_alpha_equivalence():
+    X, Y = map(Ty, "XY")
+    x, y = Variable(X, "x"), Variable(X, "y")
+    assert X(lambda x: x) == X(lambda y: y)
+    assert hash(X(lambda x: x)) == hash(X(lambda y: y))
+    assert X(lambda x: (X >> Y)(lambda f: f(x)))\
+        == X(lambda y: (X >> Y)(lambda g: g(y)))
+    assert x != y
+    assert Abstraction(x, y) != Abstraction(y, x)
+
+
 def test_python_Functor():
     x, y, z = map(Ty, "xyz")
     f, g = Box("f", y, x >> z), Box("g", x @ y, z)
