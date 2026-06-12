@@ -91,7 +91,7 @@ class Ty(monoidal.Ty):
     >>> x, f, g = X("x"), (X >> Y)("f"), (Y << X)("g")
 
     Terms can be the :class:`Application` of a function to an argument from its
-    left ``>>`` or right ``>>`` with the type inferred automatically e.g.
+    left ``>>`` or right ``<<`` with the type inferred automatically e.g.
 
     >>> xf, gx = x >> f, g << x
     >>> assert xf.cod == Y == gx.cod
