@@ -63,6 +63,8 @@ from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
     factory,
+    ob_factory,
+    ar_factory,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -75,7 +77,7 @@ if TYPE_CHECKING:
     import sympy
 
 
-@factory
+@ob_factory
 class Ty(Ob):
     """
     A type is a tuple of objects with :meth:`Ty.tensor` as concatenation.
@@ -139,10 +141,10 @@ class Ty(Ob):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented
-            assert_isinstance(self, other.factory)
-            assert_isinstance(other, self.factory)
+            assert_isinstance(self, other.ob)
+            assert_isinstance(other, self.ob)
         inside = self.inside + tuple(x for t in others for x in t.inside)
-        return self.factory(*inside)
+        return self.ob(*inside)
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -167,7 +169,7 @@ class Ty(Ob):
         return len(self) == 1
 
     def __eq__(self, other):
-        return isinstance(other, self.factory) and self.inside == other.inside
+        return isinstance(other, self.ob) and self.inside == other.inside
 
     def __hash__(self):
         return hash(repr(self))
@@ -194,11 +196,11 @@ class Ty(Ob):
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.factory(*self.inside[key])
+            return self.ob(*self.inside[key])
         return cat.Arrow.__getitem__(self, key)
 
     def __pow__(self, n_times):
-        return self.factory().tensor(*n_times * [self])
+        return self.ob().tensor(*n_times * [self])
 
     def to_tree(self):
         return {
@@ -221,7 +223,7 @@ class Ty(Ob):
         return Ty(*map(str, self.inside))
 
 
-@factory
+@ob_factory
 class PRO(Ty):
     """
     A PRO is a natural number ``n`` seen as a type with addition as tensor.
@@ -240,7 +242,7 @@ class PRO(Ty):
     If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
     any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
 
-    >>> @factory
+    >>> @ar_factory
     ... class Circuit(Diagram):
     ...     ob = PRO
     >>> class Gate(Box, Circuit): ...
@@ -265,13 +267,13 @@ class PRO(Ty):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented  # This allows whiskering on the left.
-            assert_isinstance(self, other.factory)
-            assert_isinstance(other, self.factory)
-        return self.factory(self.n + sum(other.n for other in others))
+            assert_isinstance(self, other.ob)
+            assert_isinstance(other, self.ob)
+        return self.ob(self.n + sum(other.n for other in others))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.factory(len(self.inside[key]))
+            return self.ob(len(self.inside[key]))
         return cat.Arrow.__getitem__(self, key)
 
     def __len__(self):
@@ -284,13 +286,13 @@ class PRO(Ty):
         return f"PRO({self.n})"
 
     def __eq__(self, other):
-        return isinstance(other, self.factory) and self.n == other.n
+        return isinstance(other, self.ob) and self.n == other.n
 
     def __hash__(self):
         return hash(repr(self))
 
     def __pow__(self, n_times):
-        return self.factory(n_times * self.n)
+        return self.ob(n_times * self.n)
 
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}
@@ -300,7 +302,7 @@ class PRO(Ty):
         return cls(tree['n'])
 
 
-@factory
+@ob_factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -488,7 +490,7 @@ class Layer(cat.Box):
         return cls(*(map(from_tree, tree['inside'])))
 
 
-@factory
+@ar_factory
 class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
@@ -1113,7 +1115,7 @@ class Functor(cat.Functor):
 
     def __call__(self, other):
         if isinstance(other, PRO):
-            result = cat.Functor.__call__(self, other.factory(1))
+            result = cat.Functor.__call__(self, other.ob(1))
             return sum(other.n * [result], self.cod.ob())
         if isinstance(other, Dim):
             return sum([self.ob_map[x] for x in other], self.cod.ob())

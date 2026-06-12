@@ -82,6 +82,8 @@ from discopy import messages, utils
 from discopy.abc import Category
 from discopy.utils import (
     factory,
+    ob_factory,
+    ar_factory,
     factory_name,
     from_tree,
     rsubs,
@@ -164,7 +166,7 @@ class Ob:
         return cls(tree['name'])
 
 
-@factory
+@ar_factory
 class Arrow(Category[Ob]):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
