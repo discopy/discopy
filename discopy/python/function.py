@@ -19,14 +19,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from contextlib import contextmanager
 
-from discopy.abc import MonoidalCategory
+from discopy.abc import Category
 from discopy.utils import (
     assert_iscomposable, assert_isinstance,
-    tuplify, untuplify, classproperty)
+    tuplify, untuplify, classproperty, ar_factory)
 
 
+@ar_factory
 @dataclass
-class Function(MonoidalCategory):
+class Function(Category):
     """
     Python function with sequential composition.
 
