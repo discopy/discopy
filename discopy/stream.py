@@ -187,7 +187,7 @@ class Ty(NamedGeneric['base']):
     now: base = None
     _later: Callable[[], Ty[base]] = None
 
-    factory = classproperty(lambda cls: cls)
+    ob = classproperty(lambda cls: cls)
 
     def __init__(
             self, now: base = None, _later: Callable[[], Ty[base]] = None):
