@@ -103,9 +103,10 @@ class Ty(monoidal.Ty):
 
     Terms are required to be linear and planar, they can be drawn as diagrams:
 
-    >>> Alice, loves, Bob = N("Alice"), (N >> (N >> S))("loves"), N("Bob")
+    >>> N, S = Ty("N"), Ty("S")
+    >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
     >>> (Alice >> (loves << Bob)).to_diagram().draw(
-    ...     path='docs/_static/closed/alice-loves-bob.png',
+    ...     path='docs/_static/biclosed/alice-loves-bob.png',
     ...     margins=(.3, 0), figsize=(5, 4))
 
     .. image:: /_static/biclosed/very-big-car.png
@@ -425,8 +426,7 @@ class Constant(TermBase):
     def freevars(self):
         return []
 
-    def to_diagram(self, category=Diagram, box_factory=None):
-        box_factory = box_factory or Box
+    def to_diagram(self, category=Diagram, box_factory=Box):
         return box_factory(self.name, category.ob(), self.cod)
 
 
@@ -442,7 +442,7 @@ class Variable(TermBase):
     def freevars(self):
         return [self]
 
-    def to_diagram(self, category=Diagram):
+    def to_diagram(self, category=Diagram, **kwargs):
         return category.id(self.cod)
 
 
@@ -466,20 +466,17 @@ class Application(TermBase):
         return self.func.cod.base
 
     def __str__(self):
-        func = f"({self.func})" if isinstance(self.func, Application)\
-            else str(self.func)
-        args = f"({self.args})" if isinstance(self.args, Application)\
-            else str(self.args)
-        return f"{func} << {args}" if self.left else f"{args} >> {func}"
+        func, args = self.func, self.args
+        return f"{func} << ({args})" if self.left else f"{args} >> {func}"
 
     @property
     def freevars(self):
         return self.func.freevars + self.args.freevars if self.left\
             else self.args.freevars + self.func.freevars
 
-    def to_diagram(self, category=Diagram):
-        func, args = self.func.to_diagram(category), self.args.to_diagram(
-            category)
+    def to_diagram(self, category=Diagram, **kwargs):
+        func = self.func.to_diagram(category, **kwargs)
+        args = self.args.to_diagram(category, **kwargs)
         ev = category.eval_factory(self.func.cod, left=self.left)
         return func @ args >> ev if self.left else args @ func >> ev
 
@@ -494,15 +491,15 @@ class Abstraction(TermBase):
         if self.body.freevars.count(self.var) != 1:
             raise ValueError("Expected variable to occur exactly once.")
         index = self.body.freevars.index(self.var)
-        if self.left and index != len(self.body.freevars) - 1:
-            raise ValueError("Expected abstraction of right-most variable.")
-        if not self.left and index != 0:
+        if self.left and index != 0:
             raise ValueError("Expected abstraction of left-most variable.")
+        if not self.left and index != len(self.body.freevars) - 1:
+            raise ValueError("Expected abstraction of right-most variable.")
 
     @property
     def cod(self):
-        return self.body.cod << self.var.cod if self.left\
-            else self.var.cod >> self.body.cod
+        return self.var.cod >> self.body.cod if self.left\
+            else self.body.cod << self.var.cod
 
     def __str__(self):
         left = ", left=True" if self.left else ""
@@ -512,15 +509,8 @@ class Abstraction(TermBase):
     def freevars(self):
         return list(filter(lambda x: x != self.var, self.body.freevars))
 
-    def to_diagram(self, category=Diagram):
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        body = self.body.to_diagram(category)
-        indices = [j for j in range(n) if j != i]
-        order = indices + [i] if self.left else [i] + indices
-        if order == list(range(n)):
-            return body.curry(left=self.left)
-        return (body.permutation(order, body.dom) >> body).curry(
-            left=self.left)
+    def to_diagram(self, **kwargs):
+        return self.body.to_diagram(**kwargs).curry(left=not self.left)
 
 
 type Term = Constant | Variable | Application | Abstraction

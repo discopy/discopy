@@ -33,16 +33,16 @@ def test_Term():
         >> Eval(y >> x, left=False)
 
     var = Variable(y, 'var')
-    assert Abstraction(var, f << var, left=True).cod == x << y
-    assert Abstraction(var, var >> g).cod == y >> x
+    assert Abstraction(var, f << var).cod == x << y
+    assert Abstraction(var, var >> g, left=True).cod == y >> x
 
 
 def test_Term_str():
     x, y = Ty('x'), Ty('y')
     f, g, a = Constant(x << y, 'f'), Constant(y >> x, 'g'), Constant(y, 'a')
     var = Variable(y, 'var')
-    terms = [f << a, a >> g, y(lambda u, left=True: f << u),
-             y(lambda u: u >> g), f << var]
+    terms = [f << a, a >> g, y(lambda u: f << u),
+             y(lambda u, left=True: u >> g), f << var]
     env = locals()
     assert all(eval(str(term), env) == term for term in terms)
 
@@ -67,9 +67,9 @@ def test_Term_linear_planar():
     with raises(ValueError):
         z(lambda u, left=True: f << var)
     with raises(ValueError):
-        Abstraction(var, fvar << var)
+        Abstraction(var, var >> gvar)
     with raises(ValueError):
-        Abstraction(var, var >> gvar, left=True)
+        Abstraction(var, fvar << var, left=True)
 
 
 def test_to_rigid():

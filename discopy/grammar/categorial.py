@@ -145,202 +145,6 @@ class Curry(biclosed.Curry, Box):
     """
 
 
-class TermBase(biclosed.TermBase):
-    """
-    A term in the internal language of a categorial grammar.
-    """
-    def __call__(self, other, left=True):
-        return FA(self, other) if left else BA(other, self)
-
-    def __lshift__(self, other):
-        return FA(self, other)
-
-    def __rshift__(self, other):
-        return BA(self, other)
-
-
-@dataclass(frozen=True)
-class Constant(biclosed.Constant, TermBase):
-    cod: Ty
-    name: str
-
-    def to_diagram(self, category=Diagram, box_factory=None):
-        if box_factory is None:
-            return Word(self.name, self.cod)
-        return box_factory(self.name, category.ob(), self.cod)
-
-
-@dataclass(frozen=True)
-class Variable(biclosed.Variable, TermBase):
-    cod: Ty
-    name: str
-
-
-@dataclass(frozen=True)
-class Abstraction(biclosed.Abstraction, TermBase):
-    var: Variable
-    body: Term
-    left: bool = False
-
-
-@dataclass(frozen=True)
-class BinaryTerm(TermBase):
-    left: Term
-    right: Term
-
-    def __post_init__(self):
-        if set(self.left.freevars).intersection(self.right.freevars):
-            raise ValueError("Expected disjoint free variables.")
-
-    @property
-    def freevars(self):
-        return self.left.freevars + self.right.freevars
-
-
-@dataclass(frozen=True)
-class FA(BinaryTerm):
-    """ Forward application term, i.e. ``A/B B -> A``. """
-    def __post_init__(self):
-        super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        if self.left.cod.exponent != self.right.cod:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.exponent, self.right.cod))
-
-    @property
-    def cod(self):
-        return self.left.cod.base
-
-    def __str__(self):
-        return f"{self.left} << {self.right}"
-
-    def to_diagram(self, category=Diagram):
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.fa(self.left.cod.base, self.left.cod.exponent)
-
-
-@dataclass(frozen=True)
-class BA(BinaryTerm):
-    """ Backward application term, i.e. ``B B\\A -> A``. """
-    def __post_init__(self):
-        super().__post_init__()
-        assert_isinstance(self.right.cod, Under)
-        if self.right.cod.exponent != self.left.cod:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod, self.right.cod.exponent))
-
-    @property
-    def cod(self):
-        return self.right.cod.base
-
-    def __str__(self):
-        return f"{self.left} >> {self.right}"
-
-    def to_diagram(self, category=Diagram):
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.ba(
-                self.right.cod.exponent, self.right.cod.base)
-
-
-@dataclass(frozen=True)
-class FC(BinaryTerm):
-    """ Forward composition term, i.e. ``A/B B/C -> A/C``. """
-    def __post_init__(self):
-        super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Over)
-        if self.left.cod.exponent != self.right.cod.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.exponent, self.right.cod.base))
-
-    @property
-    def cod(self):
-        return self.left.cod.base << self.right.cod.exponent
-
-    def to_diagram(self, category=Diagram):
-        left, middle = self.left.cod.base, self.left.cod.exponent
-        right = self.right.cod.exponent
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.fc(left, middle, right)
-
-
-@dataclass(frozen=True)
-class BC(BinaryTerm):
-    """ Backward composition term, i.e. ``B\\C A\\B -> A\\C``. """
-    def __post_init__(self):
-        super().__post_init__()
-        assert_isinstance(self.left.cod, Under)
-        assert_isinstance(self.right.cod, Under)
-        if self.left.cod.base != self.right.cod.exponent:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.base, self.right.cod.exponent))
-
-    @property
-    def cod(self):
-        return self.left.cod.exponent >> self.right.cod.base
-
-    def to_diagram(self, category=Diagram):
-        left, middle = self.left.cod.exponent, self.left.cod.base
-        right = self.right.cod.base
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.bc(left, middle, right)
-
-
-@dataclass(frozen=True)
-class FX(BinaryTerm):
-    """ Forward crossed composition term, i.e. ``A/B C\\B -> C\\A``. """
-    def __post_init__(self):
-        super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Under)
-        if self.left.cod.exponent != self.right.cod.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.exponent, self.right.cod.base))
-
-    @property
-    def cod(self):
-        return self.right.cod.exponent >> self.left.cod.base
-
-    def to_diagram(self, category=Diagram):
-        left, middle = self.left.cod.base, self.left.cod.exponent
-        right = self.right.cod.exponent
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.fx(left, middle, right)
-
-
-@dataclass(frozen=True)
-class BX(BinaryTerm):
-    """ Backward crossed composition term, i.e. ``B/A B\\C -> A/C``. """
-    def __post_init__(self):
-        super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Under)
-        if self.left.cod.base != self.right.cod.exponent:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.base, self.right.cod.exponent))
-
-    @property
-    def cod(self):
-        return self.right.cod.base << self.left.cod.exponent
-
-    def to_diagram(self, category=Diagram):
-        left, middle = self.left.cod.exponent, self.left.cod.base
-        right = self.right.cod.base
-        return self.left.to_diagram(category) @ self.right.to_diagram(
-            category) >> category.bx(left, middle, right)
-
-
-type Term = (
-    Constant | Variable | Abstraction
-    | FA | BA | FC | BC | FX | BX)
-
-
 class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
@@ -394,6 +198,205 @@ class Functor(biclosed.Functor):
             right = other.dom.inside[1].right
             return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
+
+
+class TermBase(biclosed.TermBase):
+    """
+    A term in the internal language of a categorial grammar.
+    """
+    def __call__(self, other, left=True):
+        return FA(self, other) if left else BA(other, self)
+
+    def __lshift__(self, other):
+        return FA(self, other)
+
+    def __rshift__(self, other):
+        return BA(self, other)
+
+    def to_diagram(self, category=Diagram, box_factory=Word):
+        return super().to_diagram(category=category, box_factory=box_factory)
+
+
+@dataclass(frozen=True)
+class Constant(biclosed.Constant, TermBase):
+    cod: Ty
+    name: str
+
+    def to_diagram(self, category=Diagram, box_factory=Word):
+        return box_factory(self.name, dom=self.cod.ob(), cod=self.cod)
+
+
+@dataclass(frozen=True)
+class Variable(biclosed.Variable, TermBase):
+    cod: Ty
+    name: str
+
+
+@dataclass(frozen=True)
+class Abstraction(biclosed.Abstraction, TermBase):
+    var: Variable
+    body: Term
+    left: bool = False
+
+
+class FA(TermBase, biclosed.Application):
+    def __init__(self, func, args):
+        biclosed.Application.__init__(self, func, args)
+
+
+class BA(TermBase, biclosed.Application):
+    def __init__(self, args, func):
+        biclosed.Application.__init__(self, func, args, left=False)
+
+
+@dataclass(frozen=True)
+class TypeRaising(TermBase):
+    continuation: Ty
+    child: Term
+
+    @property
+    def freevars(self):
+        return self.child.freevars
+
+    def __str__(self):
+        return f"{type(self).__name__}({self.continuation}, {self.child})"
+
+    def to_diagram(self, **kwargs):
+        self.simplify().to_diagram(**kwargs)
+
+
+class FTR(TypeRaising):
+    @property
+    def cod(self):
+        return self.continuation << (self.child.cod >> self.continuation)
+    
+    def simplify(self):
+        return (self.child.cod >> self.continuation)(lambda f: self.child >> f)
+
+
+class BTR(TypeRaising):
+    @property
+    def cod(self):
+        return (self.continuation << self.child.cod) >> self.child.cod
+
+    def simplify(self):
+        return (self.continuation << self.child.cod)(lambda f: f << self.child)
+
+
+@dataclass(frozen=True)
+class BinaryTerm(TermBase):
+    left: Term
+    right: Term
+
+    def to_diagram(self, **kwargs):
+        self.simplify().to_diagram(**kwargs)
+
+    def __post_init__(self):
+        if set(self.left.freevars).intersection(self.right.freevars):
+            raise ValueError("Expected disjoint free variables.")
+
+    @property
+    def freevars(self):
+        return self.left.freevars + self.right.freevars
+
+    def __str__(self):
+        return f"{type(self).__name__}({self.left}, {self.right})"
+
+    def to_diagram(self):
+        return self.simplify().to_diagram()
+
+
+@dataclass(frozen=True)
+class FC(BinaryTerm):
+    """ Forward composition term, i.e. ``(A << B)(B << C) -> (A << C)``. """
+    def __post_init__(self):
+        super().__post_init__()
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Over)
+        if self.right.cod.base != self.left.cod.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self.left.cod, self.right.cod,
+                self.left.cod.exponent, self.right.cod.base))
+
+    @property
+    def cod(self):
+        return self.left.cod.base << self.right.cod.exponent
+
+    def simplify(self):
+        return self.right.cod.exponent(
+            lambda x: self.left << (self.right << x))
+
+
+@dataclass(frozen=True)
+class BC(BinaryTerm):
+    """ Backward composition term, i.e. ``(A >> B)(B >> C) -> (A >> C)``. """
+    def __post_init__(self):
+        super().__post_init__()
+        assert_isinstance(self.left.cod, Under)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.base != self.right.cod.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self.left.cod, self.right.cod,
+                self.left.cod.base, self.right.cod.exponent))
+
+    @property
+    def cod(self):
+        return self.left.cod.exponent >> self.right.cod.base
+
+    def simplify(self):
+        return self.left.cod.exponent(
+            lambda x, left=True: (x >> self.left) >> self.right)
+
+
+@dataclass(frozen=True)
+class FX(BinaryTerm):
+    """ Forward crossed composition term, i.e. ``A/B C\\B -> C\\A``. """
+    def __post_init__(self):
+        super().__post_init__()
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.exponent != self.right.cod.base:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self.left.cod, self.right.cod,
+                self.left.cod.exponent, self.right.cod.base))
+
+    @property
+    def cod(self):
+        return self.right.cod.exponent >> self.left.cod.base
+
+    def to_diagram(self, category=Diagram):
+        left, middle = self.left.cod.base, self.left.cod.exponent
+        right = self.right.cod.exponent
+        return self.left.to_diagram(category) @ self.right.to_diagram(
+            category) >> category.fx(left, middle, right)
+
+
+@dataclass(frozen=True)
+class BX(BinaryTerm):
+    """ Backward crossed composition term, i.e. ``B/A B\\C -> A/C``. """
+    def __post_init__(self):
+        super().__post_init__()
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.base != self.right.cod.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self.left.cod, self.right.cod,
+                self.left.cod.base, self.right.cod.exponent))
+
+    @property
+    def cod(self):
+        return self.right.cod.base << self.left.cod.exponent
+
+    def to_diagram(self, category=Diagram):
+        left, middle = self.left.cod.exponent, self.left.cod.base
+        right = self.right.cod.base
+        return self.left.to_diagram(category) @ self.right.to_diagram(
+            category) >> category.bx(left, middle, right)
+
+
+type Term = (
+    Constant | Variable | Abstraction
+    | FA | BA | FC | BC | FX | BX)
 
 
 def cat2ty(string: str) -> Ty:

@@ -87,12 +87,10 @@ def test_Diagram():
     assert Diagram.bx(x, y, z) == BackwardCrossedComposition(y << x, y >> z)
 
 
-def test_BA():
-    x, y = Ty('x'), Ty('y')
-    a, b = Constant(x, 'a'), Constant(x >> y, 'b')
-    with raises(TypeError):
-        BA(a, Constant(x << y, 'f'))
-    assert BA(a, b).cod == y
+def test_BA_FA():
+    X, Y = Ty('X'), Ty('Y')
+    x, f, g = X("x"), (Y << X)("f"), (X >> Y)("g")
+    assert (FA(f, x)).cod == Y == BA(x, g).cod
 
 
 def test_FA():
@@ -175,18 +173,12 @@ def test_Term():
     e, k = Constant(y << x, 'e'), Constant(y >> z, 'k')
 
     assert isinstance(f, TermBase)
-    assert f(Constant(y, 'arg')).to_diagram()\
+    assert (f << Constant(y, 'arg')).to_diagram()\
         == Word('f', x << y) @ Word('arg', y) >> Eval(x << y)
     assert FA(f, Constant(y, 'arg')).to_diagram()\
         == Word('f', x << y) @ Word('arg', y) >> Eval(x << y)
     assert BA(a, b).to_diagram()\
         == Word('a', x) @ Word('b', x >> y) >> Eval(x >> y)
-    assert FC(f, g).to_diagram()\
-        == Word('f', x << y) @ Word('g', y << z)\
-        >> Diagram.fc(x, y, z)
-    assert BC(b, c).to_diagram()\
-        == Word('b', x >> y) @ Word('c', y >> z)\
-        >> Diagram.bc(x, y, z)
     assert FX(f, d).cod == z >> x
     assert BX(e, k).cod == z << x
     assert FX(f, d).to_diagram()\
@@ -195,6 +187,8 @@ def test_Term():
     assert BX(e, k).to_diagram()\
         == Word('e', y << x) @ Word('k', y >> z)\
         >> BackwardCrossedComposition(y << x, y >> z)
+    assert FC(f, g).simplify() == z(lambda x: f << (g << x))
+    assert BC(b, c).simplify() == x(lambda x, left=True: x >> b >> c)
 
 
 def test_to_tree():
