@@ -143,13 +143,16 @@ class Diagram(monoidal.Diagram, TracedCategory):
         dom (monoidal.Ty) : The domain of the diagram, i.e. its input.
         cod (monoidal.Ty) : The codomain of the diagram, i.e. its output.
     """
-    def trace(self, n=1, left=False):
+    def trace(self, n=1, left=False, delay=None):
         """
-        Feed ``n`` outputs back into inputs.
+        Feed ``n`` outputs back into inputs, optionally guarded by a delay
+        endofunctor.
 
         Parameters:
             n : The number of output wires to feedback into inputs.
             left : Whether to trace the wires on the left or right.
+            delay : Number of delay steps for the feedback endofunctor, or
+                ``None`` for the standard trace (identity endofunctor).
 
         Example
         -------
@@ -164,7 +167,8 @@ class Diagram(monoidal.Diagram, TracedCategory):
         .. image:: /_static/traced/trace.png
         """
         return self if n == 0\
-            else self.trace_factory(self, left).trace(n - 1, left)
+            else self.trace_factory(self, left, delay=delay).trace(
+                n - 1, left, delay=delay)
 
 
 class Box(monoidal.Box, Diagram):
@@ -180,28 +184,39 @@ class Box(monoidal.Box, Diagram):
 
 class Trace(Box, monoidal.Bubble):
     """
-    A trace is a diagram ``arg`` with an output wire fed back into an input.
+    A trace is a diagram ``arg`` with an output wire fed back into an input,
+    optionally guarded by a delay endofunctor.
 
     Parameters:
         arg : The diagram to trace.
         left : Whether to trace the wires on the left or right.
+        delay : Number of delay steps for the feedback endofunctor, or
+            ``None`` for the standard trace (identity endofunctor).
+            When set, the traced wire in ``arg.dom`` must equal the traced
+            wire in ``arg.cod`` shifted by ``delay`` steps.
 
     See also
     --------
     :meth:`Diagram.trace`
     """
-    def __init__(self, arg: Diagram, left=False):
+    def __init__(self, arg: Diagram, left=False, delay=None):
         assert_isinstance(arg, self.ar)
-        assert_istraceable(arg, n=1, left=left)
+        assert_istraceable(arg, n=1, left=left, delay=delay)
         self.left = left
-        name = f"Trace({arg}" + ", left=True)" if left else ")"
+        self.delay_steps = delay
+        left_str = ", left=True" if left else ""
+        delay_str = f", delay={delay}" if delay is not None else ""
+        name = f"Trace({arg}{left_str}{delay_str})"
         dom, cod = (arg.dom[1:], arg.cod[1:]) if left\
             else (arg.dom[:-1], arg.cod[:-1])
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, name, dom, cod)
 
     def __repr__(self):
-        return factory_name(type(self)) + f"({self.arg}, left={self.left})"
+        delay = f", delay={self.delay_steps}" \
+            if self.delay_steps is not None else ""
+        return (factory_name(type(self))
+                + f"({self.arg}, left={self.left}{delay})")
 
     def to_drawing(self):
         traced_dom = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
@@ -259,7 +274,9 @@ class Functor(monoidal.Functor):
     def __call__(self, other):
         if isinstance(other, Trace):
             n = len(self(other.arg.dom)) - len(self(other.dom))
-            return self.cod.trace(self(other.arg), n, left=other.left)
+            kwargs = {} if other.delay_steps is None \
+                else {'delay': other.delay_steps}
+            return self.cod.trace(self(other.arg), n, left=other.left, **kwargs)
         return super().__call__(other)
 
 

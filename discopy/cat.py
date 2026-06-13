@@ -104,40 +104,73 @@ dumps, loads = utils.dumps, utils.loads
 @total_ordering
 class Ob:
     """
-    An object with a string as :code:`name`.
+    An object with a string as :code:`name` and an optional :code:`delay`.
 
     Parameters:
         name : The name of the object.
+        delay : Number of steps of the delay endofunctor, or ``None``
+            for the identity endofunctor (standard, non-delayable object).
 
     Example
     -------
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
+
+    >>> x0 = Ob('x', delay=0)
+    >>> assert x0 != x and x0.shift() == Ob('x', delay=1)
     """
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
             del state["_name"]
+        if "_delay" not in state:
+            state["_delay"] = None
         self.__dict__.update(state)
 
-    def __init__(self, name: str = ""):
+    def __init__(self, name: str = "", delay: int | None = None):
         assert_isinstance(name, str)
+        if delay is not None:
+            assert_isinstance(delay, int)
         self.name = name
+        self._delay = delay
 
     def __repr__(self):
-        return f"{factory_name(type(self))}({repr(self.name)})"
+        delay = f", delay={self._delay}" if self._delay is not None else ""
+        return f"{factory_name(type(self))}({repr(self.name)}{delay})"
 
     def __str__(self):
         return str(self.name)
 
     def __eq__(self, other):
-        return isinstance(other, type(self)) and self.name == other.name
+        return (isinstance(other, type(self))
+                and self.name == other.name
+                and self._delay == getattr(other, '_delay', None))
 
     def __hash__(self):
         return hash(repr(self))
 
     def __lt__(self, other):
         return self.name < other.name
+
+    def shift(self, n: int = 1) -> Ob:
+        """
+        Apply the delay endofunctor ``n`` steps.
+
+        Returns ``self`` unchanged when ``delay`` is ``None``
+        (identity endofunctor / non-delayable object).
+
+        Parameters:
+            n : Number of steps to shift.
+
+        Example
+        -------
+        >>> x0 = Ob('x', delay=0)
+        >>> assert x0.shift() == Ob('x', delay=1)
+        >>> assert Ob('x').shift() == Ob('x')
+        """
+        if self._delay is None:
+            return self
+        return type(self)(self.name, delay=self._delay + n)
 
     def to_tree(self) -> dict:
         """
@@ -148,7 +181,10 @@ class Ob:
         >>> Ob('x').to_tree()
         {'factory': 'cat.Ob', 'name': 'x'}
         """
-        return {'factory': factory_name(type(self)), 'name': self.name}
+        tree = {'factory': factory_name(type(self)), 'name': self.name}
+        if self._delay is not None:
+            tree['delay'] = self._delay
+        return tree
 
     @classmethod
     def from_tree(cls, tree: dict) -> Ob:
@@ -163,7 +199,7 @@ class Ob:
         >>> x = Ob('x')
         >>> assert Ob.from_tree(x.to_tree()) == x
         """
-        return cls(tree['name'])
+        return cls(tree['name'], delay=tree.get('delay'))
 
 
 @ar_factory

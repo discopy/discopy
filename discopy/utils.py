@@ -562,11 +562,12 @@ def assert_isatomic(typ: Ty, cls: type = None):
             factory_name(cls), len(typ)))
 
 
-def assert_istraceable(arg: Diagram, n=1, left=False):
+def assert_istraceable(arg: Diagram, n=1, left=False, delay=None):
     """ Raise :class:`AxiomError` if a diagram is not traceable. """
     traced_dom, traced_cod = (arg.dom[:n], arg.cod[:n]) if left\
         else (arg.dom[len(arg.dom) - n:], arg.cod[len(arg.cod) - n:])
-    if traced_dom != traced_cod:
+    expected = traced_cod if delay is None else traced_cod.shift(delay)
+    if traced_dom != expected:
         raise AxiomError(
             messages.NOT_TRACEABLE.format(traced_dom, traced_cod))
 

@@ -80,6 +80,14 @@ from discopy.utils import (
     classproperty, unbiased, assert_isinstance, factory_name)
 
 
+def _is_delayable(ty) -> bool:
+    """Return True if all atomic objects in *ty* carry a delay attribute."""
+    try:
+        return all(ob._delay is not None for ob in ty.inside)
+    except AttributeError:
+        return False
+
+
 @dataclass
 class Ty(NamedGeneric['natural']):
     """
@@ -234,12 +242,17 @@ class Diagram(RibbonCategory[Ty], NamedGeneric['natural']):
         z, w = other.cod
         braid = self.natural.braid
         dom, cod = type(self.dom)(x, u), type(self.cod)(z, w)
-        inside = (
+        n_v = v if isinstance(v, int) else len(v)
+        body = (
             x @ braid(w, v)
             >> self.inside @ w
             >> y @ braid(w, u).dagger()
             >> other.inside @ u
-            >> z @ braid(v, u)).trace(n=v if isinstance(v, int) else len(v))
+            >> z @ braid(v, u))
+        if hasattr(body, 'feedback') and _is_delayable(v):
+            inside = body.feedback(mem=v)
+        else:
+            inside = body.trace(n=n_v)
         return type(self)(inside, dom, cod)
 
     @classmethod

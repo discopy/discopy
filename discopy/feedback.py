@@ -155,19 +155,28 @@ class Ob(cat.Ob):
     """
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
+
+    The keyword ``delay`` is an alias for ``time_step``.
     """
     def __init__(
-            self, name: str, time_step: int = 0, is_constant: bool = True):
+            self, name: str, time_step: int = 0, is_constant: bool = True,
+            *, delay: int | None = None):
+        if delay is not None:
+            time_step = delay
         assert_isinstance(time_step, int)
         assert_isinstance(is_constant, bool)
         if time_step < 0:
             raise NotImplementedError
         self.time_step, self.is_constant = time_step, is_constant
-        super().__init__(name)
+        super().__init__(name, delay=time_step)
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
         return Ob(self.name, self.time_step + n_steps, self.is_constant)
+
+    def shift(self, n: int = 1) -> Ob:
+        """ Apply the delay endofunctor ``n`` steps (alias for ``delay``). """
+        return self.delay(n)
 
     @property
     def head(self) -> HeadOb | None:
@@ -269,6 +278,10 @@ class Ty(monoidal.Ty):
         """ The delay of a feedback type by `n_steps`. """
         return type(self)(*(x.delay(n_steps) for x in self.inside))
 
+    def shift(self, n: int = 1) -> Ty:
+        """ Apply the delay endofunctor ``n`` steps (alias for ``delay``). """
+        return self.delay(n)
+
     @property
     def head(self):
         """ The head of a feedback type, see :class:`HeadOb`. """
@@ -320,6 +333,21 @@ class Diagram(markov.Diagram, FeedbackCategory):
         dom, cod = self.dom.delay(n_steps), self.cod.delay(n_steps)
         inside = tuple(box.delay(n_steps) for box in self.inside)
         return type(self)(inside, dom, cod, _scan=False)
+
+    def trace(self, n=1, left=False, delay=None):
+        """
+        Feed ``n`` outputs back into inputs.
+
+        When ``delay`` is ``None`` this is the standard Markov trace.
+        When ``delay`` is set (an integer), each feedback wire is routed
+        through ``n`` sequential :class:`Feedback` boxes.
+        """
+        if delay is None:
+            return super().trace(n, left)
+        if n == 0:
+            return self
+        return self.feedback_factory(
+            self, delay=delay).trace(n - 1, left, delay=delay)
 
     def feedback(self, dom=None, cod=None, mem=None):
         """ Syntactic sugar for :class:`Feedback`. """
@@ -514,21 +542,23 @@ class Feedback(monoidal.Bubble, Box):
     """
     to_drawing = markov.Trace.to_drawing
 
-    def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
+    def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False,
+                 delay: int = 1):
         if left:
             raise NotImplementedError
         mem = arg.cod[-1:] if mem is None else mem
         dom = arg.dom[:-len(mem)] if dom is None else dom
         cod = arg.cod[:-len(mem)] if cod is None else cod
-        if arg.dom != dom @ mem.delay():
+        if arg.dom != dom @ mem.delay(delay):
             raise AxiomError
         if arg.cod != cod @ mem:
             raise AxiomError
-        self.mem, self.left = mem, left
+        self.mem, self.left, self.delay_steps = mem, left, delay
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, self.name, dom, cod)
         mem_name = "" if len(mem) == 1 else f"mem={mem}"
-        self.name = f"({self.arg}).feedback({mem_name})"
+        delay_name = "" if delay == 1 else f", delay={delay}"
+        self.name = f"({self.arg}).feedback({mem_name}{delay_name})"
         self.use_hypergraph_equality = False
 
     def delay(self, n_steps=1):

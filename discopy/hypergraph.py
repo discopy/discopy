@@ -69,6 +69,14 @@ if TYPE_CHECKING:
     from discopy.cat import Ty, Box, Diagram
 
 
+def _is_delayable(ty) -> bool:
+    """Return True if all atomic objects in *ty* carry a delay attribute."""
+    try:
+        return all(ob._delay is not None for ob in ty.inside)
+    except AttributeError:
+        return False
+
+
 Spider = Any
 """ The labels of spiders can be of any type. """
 
@@ -473,13 +481,23 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         Otherwise, we assume that the trace factory is a class method, e.g.
         for compact diagrams, in which case we use this method to introduce
         cup and cap boxes.
+
+        When the traced type is delayable (its atomic objects carry a
+        ``delay`` attribute) and the category has a ``feedback_factory``,
+        a :class:`~discopy.feedback.Feedback` box is introduced instead of
+        a plain trace.
         """
+        traced_ty = self.dom[:1] if left else self.dom[-1:]
+        if (hasattr(self.category, 'feedback_factory')
+                and _is_delayable(traced_ty)):
+            fb_factory = self.category.feedback_factory
+            return self.from_box(fb_factory(self.to_diagram(), mem=traced_ty))
         factory = self.category.trace_factory
         if isclass(factory) and issubclass(factory, self.category):
             return self.from_box(factory(self.to_diagram(), left))
         return factory.__func__(type(self), self, left)
 
-    def trace(self, n=1, left=False):
+    def trace(self, n=1, left=False, delay=None):
         """
         The trace of a hypergraph is its pre- and post-composition with
         cups and caps to form a feedback loop.
@@ -487,8 +505,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         Parameters:
             n : The number of wires to trace.
             left : Whether to trace on the left or right.
+            delay : Passed through but not used at the hypergraph level;
+                the delay is handled by :meth:`explicit_trace`.
         """
-        assert_istraceable(self, n, left)
+        assert_istraceable(self, n, left, delay=delay)
         dom, cod = (self.dom[n:], self.cod[n:]) if left\
             else (self.dom[:-n], self.cod[:-n])
         traced_wires = self.dom[:n] if left else self.dom[len(self.dom) - n:]

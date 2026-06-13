@@ -115,12 +115,31 @@ class Ty(Ob):
             del state['_objects']
         super().__setstate__(state)
 
-    def __init__(self, *inside: str | cat.Ob):
+    def __init__(self, *inside: str | cat.Ob, delay: int | None = None):
         for obj in inside:
             assert_isinstance(obj, (str, self.ob_factory))
-        self.inside = tuple(x if isinstance(x, self.ob_factory)
-                            else self.ob_factory(x) for x in inside)
+        def _make(x):
+            ob = x if isinstance(x, self.ob_factory) else self.ob_factory(x)
+            return ob if delay is None else type(ob)(ob.name, delay=delay)
+        self.inside = tuple(_make(x) for x in inside)
         super().__init__(str(self))
+
+    def shift(self, n: int = 1) -> Ty:
+        """
+        Apply the delay endofunctor pointwise to each atomic object.
+
+        Objects with ``delay=None`` are unchanged (identity endofunctor).
+
+        Parameters:
+            n : Number of steps to shift.
+
+        Example
+        -------
+        >>> x = Ty('x', delay=0)
+        >>> assert x.shift() == Ty('x', delay=1)
+        >>> assert Ty('x').shift() == Ty('x')
+        """
+        return self.ob(*(x.shift(n) for x in self.inside))
 
     def tensor(self, *others: Ty) -> Ty:
         """

@@ -152,7 +152,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         return self.rotate().dagger()
 
     @classmethod
-    def trace_factory(cls, diagram: Diagram, left=False):
+    def trace_factory(cls, diagram: Diagram, left=False, delay=None):
         """
         The trace of a pivotal diagram is its pre- and post-composition with
         cups and caps to form a feedback loop.
@@ -160,6 +160,7 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         Parameters:
             diagram : The diagram to trace.
             left : Whether to trace on the left or right.
+            delay : Accepted for interface uniformity; not used here.
         """
         traced_wire = diagram.dom[:1] if left else diagram.dom[-1:]
         dom, cod = (diagram.dom[1:], diagram.cod[1:]) if left\
