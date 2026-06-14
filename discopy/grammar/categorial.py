@@ -248,6 +248,7 @@ class Abstraction(biclosed.Abstraction, TermBase):
 
 
 class FA(TermBase, biclosed.Application):
+    "Application of type ``Y`` with subterms of type ``Y << X`` and ``X``."
     def __init__(self, func, args):
         biclosed.Application.__init__(self, func, args)
 
@@ -256,6 +257,7 @@ class FA(TermBase, biclosed.Application):
 
 
 class BA(TermBase, biclosed.Application):
+    "Application of type ``Y`` with subterms of type ``X`` and ``X >> Y``."
     def __init__(self, args, func):
         biclosed.Application.__init__(self, func, args, left=False)
 
@@ -265,6 +267,7 @@ class BA(TermBase, biclosed.Application):
 
 @dataclass(frozen=True)
 class TypeRaising(TermBase):
+    "Abstract superclass of :class:`FTR` and :class:`BTR`."
     base: Ty
     child: Term
 
@@ -280,6 +283,7 @@ class TypeRaising(TermBase):
 
 
 class FTR(TypeRaising):
+    "Forward type raising ``Y << (X >> Y)`` with base ``Y`` and child ``X``."
     @property
     def cod(self):
         return self.base << (self.child.cod >> self.base)
@@ -290,6 +294,7 @@ class FTR(TypeRaising):
 
 
 class BTR(TypeRaising):
+    "Backward type raising ``(Y << X) >> Y`` with base ``Y`` and child ``X``."
     @property
     def cod(self):
         return (self.base << self.child.cod) >> self.base
@@ -301,11 +306,9 @@ class BTR(TypeRaising):
 
 @dataclass(frozen=True)
 class BinaryTerm(TermBase):
+    "Abstract superclass of :class:`FC`, :class:`BC`, :class:`FX`, :class:`BX`"
     left: Term
     right: Term
-
-    def to_diagram(self, **kwargs):
-        return self.simplify().to_diagram(**kwargs)
 
     def __post_init__(self):
         if set(self.left.freevars).intersection(self.right.freevars):
@@ -321,13 +324,13 @@ class BinaryTerm(TermBase):
     def simplify(self):
         return type(self)(self.left.simplify(), self.right.simplify())
 
-    def to_diagram(self):
-        return self.simplify().to_diagram()
+    def to_diagram(self, **kwargs):
+        return self.simplify().to_diagram(**kwargs)
 
 
 @dataclass(frozen=True)
 class FC(BinaryTerm):
-    """ Forward composition term, i.e. ``(A << B)(B << C) -> (A << C)``. """
+    "Forward composition ``A << C`` with subterms ``A << B`` and ``B << C``. "
     def __post_init__(self):
         super().__post_init__()
         assert_isinstance(self.left.cod, Over)
@@ -348,7 +351,7 @@ class FC(BinaryTerm):
 
 @dataclass(frozen=True)
 class BC(BinaryTerm):
-    """ Backward composition term, i.e. ``(A >> B)(B >> C) -> (A >> C)``. """
+    "Backward composition ``A >> C`` with subterms ``A >> B`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
         assert_isinstance(self.left.cod, Under)
@@ -369,7 +372,7 @@ class BC(BinaryTerm):
 
 @dataclass(frozen=True)
 class FX(BinaryTerm):
-    """ Forward crossed composition term, i.e. ``A/B C\\B -> C\\A``. """
+    "Forward crossing ``A >> C`` with subterms ``B << A`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
         assert_isinstance(self.left.cod, Over)
@@ -393,7 +396,7 @@ class FX(BinaryTerm):
 
 @dataclass(frozen=True)
 class BX(BinaryTerm):
-    """ Backward crossed composition term, i.e. ``B/A B\\C -> A/C``. """
+    "Backward crossing ``A << C`` with subterms ``B << A`` and ``C >> B``."
     def __post_init__(self):
         super().__post_init__()
         assert_isinstance(self.left.cod, Over)

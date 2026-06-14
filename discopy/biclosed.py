@@ -109,7 +109,7 @@ class Ty(monoidal.Ty):
     ...     path='docs/_static/biclosed/alice-loves-bob.png',
     ...     margins=(.3, 0), figsize=(5, 4))
 
-    .. image:: /_static/biclosed/very-big-car.png
+    .. image:: /_static/biclosed/alice-loves-bob.png
         :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
