@@ -393,10 +393,6 @@ class Curry(monoidal.Bubble, Box):
 class TermBase:
     """
     A term in the internal language of a biclosed category.
-
-    Applications and abstractions carry a ``left`` flag: left application
-    evaluates an :class:`Over` type with the function on the left, while right
-    application evaluates an :class:`Under` type with the function on the right.
     """
     cod: Ty
 

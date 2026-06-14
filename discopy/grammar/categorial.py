@@ -51,7 +51,6 @@ from discopy.grammar import thue
 from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
     assert_isinstance,
-    from_tree,
     BinaryBoxConstructor,
     AxiomError
 )

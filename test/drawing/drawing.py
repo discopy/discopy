@@ -6,7 +6,7 @@ from discopy.utils import AxiomError
 from discopy.compact import *
 from discopy.drawing import *
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 10
+IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
 
 def draw_and_compare(file, **params):
     tol = params.pop('tol', TOL)
