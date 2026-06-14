@@ -207,14 +207,14 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
     """
     functor = None
     category = classproperty(lambda cls: cls.functor.dom)
-    ty_factory = classproperty(lambda cls: cls.category.ty_factory)
+    ob = classproperty(lambda cls: cls.category.ob)
 
     def __init__(
             self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
             edge: Iterable[int], node: Iterable[int] | None = None,
             offsets: tuple[int | None, ...] | None = None):
-        assert_isinstance(dom, self.category.ty_factory)
-        assert_isinstance(cod, self.category.ty_factory)
+        assert_isinstance(dom, self.category.ob)
+        assert_isinstance(cod, self.category.ob)
         for box in boxes:
             assert_isinstance(box, self.category)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
@@ -329,7 +329,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
 
     @classmethod
     def id(cls, dom=None) -> CombinatorialMap:
-        dom = cls.category.ty_factory() if dom is None else dom
+        dom = cls.category.ob() if dom is None else dom
         n_ports = 2 * len(dom)
         edge = Permutation.from_transpositions(
             ((i, i + len(dom)) for i in range(len(dom))), n_ports)
@@ -458,7 +458,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
             raise ValueError
 
         old_input, old_output = input_index, self.n_ports - 1
-        new_dom = self.category.ty_factory()
+        new_dom = self.category.ob()
         for i, obj in enumerate(self.dom):
             if i != input_index:
                 new_dom = new_dom @ obj
@@ -540,7 +540,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
             raise ValueError
 
         def term_type(obj):
-            if isinstance(obj, self.category.ty_factory)\
+            if isinstance(obj, self.category.ob)\
                     and len(obj) == 1\
                     and isinstance(obj.inside[0], Exp):
                 return obj.inside[0]
@@ -724,8 +724,8 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         ports = self.ports
 
         def port_type(obj):
-            return obj if isinstance(obj, self.category.ty_factory)\
-                else self.category.ty_factory(obj)
+            return obj if isinstance(obj, self.category.ob)\
+                else self.category.ob(obj)
 
         input_ports = [
             port for port in sorted(component)
@@ -737,7 +737,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
                 or extra_input_index > len(input_ports):
             raise ValueError
 
-        dom = self.category.ty_factory()
+        dom = self.category.ob()
         mapping, new_index = {}, 0
         input_iter = iter(input_ports)
         for i in range(len(input_ports) + (extra_input_root is not None)):

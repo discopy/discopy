@@ -12,6 +12,8 @@ from discopy.closed import (
     Eval,
     Coeval,
     CombinatorialMap,
+    pack,
+    unpack,
 )
 
 
@@ -57,6 +59,29 @@ def test_python_Functor():
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
 
 
+def test_pack_unpack_terms():
+    X, Y = map(Ty, "XY")
+    x, y = Variable(X, "x"), Variable(Y, "y")
+
+    pair = pack(x, y)
+    assert pair.dom == X @ Y
+    assert pair.cod == X @ Y
+    assert pair.to_diagram().dom == X @ Y
+    assert pair.to_diagram().cod == X @ Y
+    assert pair.to_map() == CombinatorialMap.id(X @ Y)
+
+    swap = unpack(pair, lambda a, b: pack(b, a))
+    assert swap.dom == X @ Y
+    assert swap.cod == Y @ X
+    assert swap.to_diagram().dom == X @ Y
+    assert swap.to_diagram().cod == Y @ X
+    assert swap.to_map().dom == X @ Y
+    assert swap.to_map().cod == Y @ X
+
+    assert unpack(pair, lambda a, b: pack(a, b))\
+        == unpack(pair, lambda c, d: pack(c, d))
+
+
 def test_python_Func():
     x, y, z = map(Ty, "xyz")
     f, g = Box("f", y, x >> z), Box("g", x @ y, z)
@@ -76,5 +101,4 @@ def test_python_Func():
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
-
 

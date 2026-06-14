@@ -43,17 +43,15 @@ Axioms
 """
 
 from __future__ import annotations
-from pyparsing import common
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Dict, Callable, Self
+from typing import Dict, Callable
 from inspect import signature
 from functools import reduce
 
 from discopy import cat, biclosed, markov, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.combinatorial_map import Permutation
 from discopy.utils import assert_isinstance
 
 
@@ -116,6 +114,11 @@ class Exp(Ty, biclosed.Exp):
 
 class TermBase(ABC):
     cod: Ty
+    ob = Ty
+
+    @property
+    def dom(self):
+        return _tensor_types(variable.cod for variable in self.freevars)
 
     def __eq__(self, other):
         return isinstance(other, TermBase) and _alpha_equal(self, other)
@@ -125,6 +128,35 @@ class TermBase(ABC):
 
     def __call__(self, *others: Term):
         return reduce(lambda fun, arg: Application(fun, arg), others, self)
+
+    @classmethod
+    def id(cls, dom):
+        variables = tuple(
+            Variable(obj, f"x{i}") for i, obj in enumerate(dom))
+        return variables[0] if len(variables) == 1 else pack(*variables)
+
+    @classmethod
+    def ev(cls, base, exponent, left=True):
+        exp = exponent >> base
+        func, arg = Variable(exp, "f"), Variable(exponent, "x")
+        return Application(func, arg)
+
+    def then(self: Term, other: Term) -> Term:
+        if self.cod != other.dom:
+            raise ValueError
+        return unpack(self, other.freevars, other)
+
+    def tensor(self: Term, other=None, *others):
+        if other is None:
+            return self
+        return pack(self, other, *others)
+
+    def curry(self: Term, n=1, left=True):
+        if n != 1 or not left:
+            raise NotImplementedError
+        if not self.freevars:
+            raise ValueError
+        return Abstraction(self.freevars[-1], self)
 
     @staticmethod
     def abs(*vars) -> Callable[[Term], Term]:
@@ -144,9 +176,6 @@ class TermBase(ABC):
 
     @abstractmethod
     def to_map(self, category=None) -> CombinatorialMap: ...
-
-
-type Term = Constant | Variable | Application | Abstraction
 
 
 @dataclass(frozen=True, eq=False)
@@ -275,6 +304,124 @@ class Abstraction(TermBase):
         return cmap
 
 
+@dataclass(frozen=True, eq=False)
+class Pack(TermBase):
+    terms: tuple[Term, ...]
+
+    def __init__(self, *terms: Term):
+        object.__setattr__(self, "terms", tuple(terms))
+
+    @property
+    def cod(self):
+        return _tensor_types(term.cod for term in self.terms)
+
+    def __str__(self):
+        return "pack(" + ", ".join(map(str, self.terms)) + ")"
+
+    @property
+    def freevars(self):
+        return sum([term.freevars for term in self.terms], [])
+
+    def to_diagram(self, category=None):
+        category = category or Diagram
+        result = category.id(category.ty_factory())
+        for term in self.terms:
+            result = result @ term.to_diagram(category)
+        return result
+
+    def to_map(self, category=None):
+        category = category or CombinatorialMap
+        result = category.id()
+        for term in self.terms:
+            result = result @ term.to_map(category)
+        assert_term_map(result, self, category)
+        return result
+
+
+@dataclass(frozen=True, eq=False)
+class Unpack(TermBase):
+    package: Term
+    variables: tuple[Variable, ...]
+    body: Term
+
+    def __init__(self, package: Term, variables, body: Term):
+        variables = tuple(variables)
+        if _tensor_types(variable.cod for variable in variables)\
+                != package.cod:
+            raise ValueError
+        object.__setattr__(self, "package", package)
+        object.__setattr__(self, "variables", variables)
+        object.__setattr__(self, "body", body)
+
+    @property
+    def cod(self):
+        return self.body.cod
+
+    def __str__(self):
+        names = ", ".join(variable.name for variable in self.variables)
+        return f"unpack({self.package}, lambda {names}: {self.body})"
+
+    @property
+    def freevars(self):
+        return self.package.freevars + [
+            variable for variable in self.body.freevars
+            if variable not in self.variables]
+
+    def _remaining(self):
+        return [
+            variable for variable in self.body.freevars
+            if variable not in self.variables]
+
+    def _permutation(self):
+        remaining = self._remaining()
+        result = []
+        for variable in self.body.freevars:
+            if variable in self.variables:
+                result.append(self.variables.index(variable))
+            else:
+                result.append(len(self.variables) + remaining.index(variable))
+        return result
+
+    def to_diagram(self, category=None):
+        category = category or Diagram
+        remaining = self._remaining()
+        remaining_dom = _tensor_types(
+            (variable.cod for variable in remaining), category)
+        package = self.package.to_diagram(category)
+        start = package @ category.id(remaining_dom)
+        permutation = category.permutation(
+            self._permutation(), self.package.cod @ remaining_dom)
+        return start >> permutation >> self.body.to_diagram(category)
+
+    def to_map(self, category=None):
+        category = category or CombinatorialMap
+        diagram = self.to_diagram(category.category)
+        result = category.from_hypergraph(diagram.to_hypergraph())
+        assert_term_map(result, self, category)
+        return result
+
+
+type Term = Constant | Variable | Application | Abstraction | Pack | Unpack
+
+
+def pack(*terms: Term) -> Pack:
+    return Pack(*terms)
+
+
+def unpack(package: Term, variables=None, body: Term | None = None) -> Unpack:
+    if callable(variables) and body is None:
+        func = variables
+        names = list(signature(func).parameters.keys())
+        if len(names) != len(package.cod):
+            raise ValueError
+        variables = tuple(
+            Variable(obj, name) for obj, name in zip(package.cod, names))
+        body = func(*variables)
+    elif body is None:
+        raise ValueError
+    return Unpack(package, variables, body)
+
+
 def _alpha_equal(left, right, left_bound=None, right_bound=None):
     left_bound = () if left_bound is None else left_bound
     right_bound = () if right_bound is None else right_bound
@@ -297,6 +444,28 @@ def _alpha_equal(left, right, left_bound=None, right_bound=None):
             left.body, right.body,
             left_bound + ((left.var, index), ),
             right_bound + ((right.var, index), ))
+    if isinstance(left, Pack) and isinstance(right, Pack):
+        return len(left.terms) == len(right.terms) and all(
+            _alpha_equal(l, r, left_bound, right_bound)
+            for l, r in zip(left.terms, right.terms))
+    if isinstance(left, Unpack) and isinstance(right, Unpack):
+        if len(left.variables) != len(right.variables):
+            return False
+        if not _alpha_equal(
+                left.package, right.package, left_bound, right_bound):
+            return False
+        for lvar, rvar in zip(left.variables, right.variables):
+            if lvar.cod != rvar.cod:
+                return False
+        shift = len(left_bound)
+        return _alpha_equal(
+            left.body, right.body,
+            left_bound + tuple(
+                (variable, shift + i)
+                for i, variable in enumerate(left.variables)),
+            right_bound + tuple(
+                (variable, shift + i)
+                for i, variable in enumerate(right.variables)))
     return False
 
 
@@ -315,6 +484,17 @@ def _alpha_key(term, bound=None):
         index = len(bound)
         return ("abstraction", term.var.cod, _alpha_key(
             term.body, bound + ((term.var, index), )))
+    if isinstance(term, Pack):
+        return ("pack", tuple(_alpha_key(t, bound) for t in term.terms))
+    if isinstance(term, Unpack):
+        shift = len(bound)
+        return (
+            "unpack",
+            _alpha_key(term.package, bound),
+            tuple(variable.cod for variable in term.variables),
+            _alpha_key(term.body, bound + tuple(
+                (variable, shift + i)
+                for i, variable in enumerate(term.variables))))
     raise TypeError
 
 
@@ -330,22 +510,26 @@ def _same_variable(left, right):
         and (left.cod, left.name) == (right.cod, right.name)
 
 
+def _tensor_types(types, category=None):
+    factory = Ty if category is None else getattr(
+        category, "ty_factory", None)
+    if factory is None:
+        factory = category.category.ty_factory
+    result = factory()
+    for typ in types:
+        result = result @ typ
+    return result
+
+
 def assert_term_map(cmap, term, category: type[CombinatorialMap] | None = None):
     category = category or CombinatorialMap
     if cmap.dom != _tensor_types(
             (variable.cod for variable in term.freevars), category):
         raise ValueError
-    if cmap.cod != term.cod or len(cmap.cod) != 1:
+    if cmap.cod != term.cod:
         raise ValueError
     if any(len(cycle) != 3 for cycle in cmap.node_cycles):
         raise ValueError
-
-
-def _tensor_types(types, category=None):
-    result = (category or CombinatorialMap).category.ty_factory()
-    for typ in types:
-        result = result @ typ
-    return result
 
 
 @dataclass
@@ -361,6 +545,14 @@ class Substitution:
             other = Substitution(
                 {k: v for k, v in self.inside.items() if k != term.var})
             return other(term)
+        elif isinstance(term, Pack):
+            return pack(*(self(t) for t in term.terms))
+        elif isinstance(term, Unpack):
+            package = self(term.package)
+            other = Substitution({
+                k: v for k, v in self.inside.items()
+                if k not in term.variables})
+            return unpack(package, term.variables, other(term.body))
         else:
             raise ValueError(f"not a term: {term!r}")
 
@@ -372,7 +564,7 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
-    ob = Ty
+    ob = ty_factory = Ty
 
     @property
     def is_linear(self):
