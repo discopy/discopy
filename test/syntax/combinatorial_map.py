@@ -260,7 +260,7 @@ def test_whiteboard_term():
     assert term == term.to_map().to_term()
 
 
-def test_petersen_shaped_term():
+def test_petersen_term():
     r"""
     -- typechecks: https://play.haskell.org/saved/7Yl6teux
     petersen :: (((t1 -> t0) -> t5) -> t6)
@@ -293,6 +293,7 @@ def test_petersen_shaped_term():
 
     cmap = petersen.to_map()
     assert len(cmap.ports) == 34
+    # cmap.draw()
     # cmap.to_hypergraph().simplify().to_diagram().foliation().draw()
     assert_freevars_as_domain(petersen, cmap)
     assert_trivalent_map(cmap, Ty(), petersen.cod, vertices=11)

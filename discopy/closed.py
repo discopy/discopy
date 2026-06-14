@@ -118,7 +118,7 @@ class TermBase(ABC):
 
     @property
     def dom(self):
-        return _tensor_types(variable.cod for variable in self.freevars)
+        return self.ob().tensor(*(variable.cod for variable in self.freevars))
 
     def __eq__(self, other):
         return isinstance(other, TermBase) and _alpha_equal(self, other)
@@ -313,7 +313,7 @@ class Pack(TermBase):
 
     @property
     def cod(self):
-        return _tensor_types(term.cod for term in self.terms)
+        return self.ob().tensor(*(term.cod for term in self.terms))
 
     def __str__(self):
         return "pack(" + ", ".join(map(str, self.terms)) + ")"
@@ -324,7 +324,7 @@ class Pack(TermBase):
 
     def to_diagram(self, category=None):
         category = category or Diagram
-        result = category.id(category.ty_factory())
+        result = category.id(category.ob())
         for term in self.terms:
             result = result @ term.to_diagram(category)
         return result
@@ -346,7 +346,7 @@ class Unpack(TermBase):
 
     def __init__(self, package: Term, variables, body: Term):
         variables = tuple(variables)
-        if _tensor_types(variable.cod for variable in variables)\
+        if Ty().tensor(*(variable.cod for variable in variables))\
                 != package.cod:
             raise ValueError
         object.__setattr__(self, "package", package)
@@ -385,8 +385,8 @@ class Unpack(TermBase):
     def to_diagram(self, category=None):
         category = category or Diagram
         remaining = self._remaining()
-        remaining_dom = _tensor_types(
-            (variable.cod for variable in remaining), category)
+        remaining_dom = category.ob().tensor(
+            *(variable.cod for variable in remaining))
         package = self.package.to_diagram(category)
         start = package @ category.id(remaining_dom)
         permutation = category.permutation(
@@ -422,87 +422,85 @@ def unpack(package: Term, variables=None, body: Term | None = None) -> Unpack:
     return Unpack(package, variables, body)
 
 
-def _alpha_equal(left, right, left_bound=None, right_bound=None):
-    left_bound = () if left_bound is None else left_bound
-    right_bound = () if right_bound is None else right_bound
+def _alpha_equal(left, right, left_sub=None, right_sub=None):
+    left_sub = Substitution(()) if left_sub is None else left_sub
+    right_sub = Substitution(()) if right_sub is None else right_sub
     if isinstance(left, Constant) and isinstance(right, Constant):
         return (left.cod, left.name) == (right.cod, right.name)
     if isinstance(left, Variable) and isinstance(right, Variable):
-        left_index = _lookup_bound(left_bound, left)
-        right_index = _lookup_bound(right_bound, right)
-        if left_index is not None or right_index is not None:
-            return left.cod == right.cod and left_index == right_index
-        return (left.cod, left.name) == (right.cod, right.name)
+        return _alpha_variable(left, left_sub) == _alpha_variable(
+            right, right_sub)
     if isinstance(left, Application) and isinstance(right, Application):
-        return _alpha_equal(left.func, right.func, left_bound, right_bound)\
-            and _alpha_equal(left.args, right.args, left_bound, right_bound)
+        return _alpha_equal(left.func, right.func, left_sub, right_sub)\
+            and _alpha_equal(left.args, right.args, left_sub, right_sub)
     if isinstance(left, Abstraction) and isinstance(right, Abstraction):
         if left.var.cod != right.var.cod:
             return False
-        index = len(left_bound)
+        variable = _alpha_bound(left.var.cod, len(left_sub))
         return _alpha_equal(
             left.body, right.body,
-            left_bound + ((left.var, index), ),
-            right_bound + ((right.var, index), ))
+            left_sub.extend(((left.var, variable), )),
+            right_sub.extend(((right.var, variable), )))
     if isinstance(left, Pack) and isinstance(right, Pack):
         return len(left.terms) == len(right.terms) and all(
-            _alpha_equal(l, r, left_bound, right_bound)
+            _alpha_equal(l, r, left_sub, right_sub)
             for l, r in zip(left.terms, right.terms))
     if isinstance(left, Unpack) and isinstance(right, Unpack):
         if len(left.variables) != len(right.variables):
             return False
-        if not _alpha_equal(
-                left.package, right.package, left_bound, right_bound):
+        if not _alpha_equal(left.package, right.package, left_sub, right_sub):
             return False
-        for lvar, rvar in zip(left.variables, right.variables):
+        left_extension, right_extension = [], []
+        for i, (lvar, rvar) in enumerate(
+                zip(left.variables, right.variables)):
             if lvar.cod != rvar.cod:
                 return False
-        shift = len(left_bound)
+            variable = _alpha_bound(lvar.cod, len(left_sub) + i)
+            left_extension.append((lvar, variable))
+            right_extension.append((rvar, variable))
         return _alpha_equal(
             left.body, right.body,
-            left_bound + tuple(
-                (variable, shift + i)
-                for i, variable in enumerate(left.variables)),
-            right_bound + tuple(
-                (variable, shift + i)
-                for i, variable in enumerate(right.variables)))
+            left_sub.extend(left_extension),
+            right_sub.extend(right_extension))
     return False
 
 
-def _alpha_key(term, bound=None):
-    bound = () if bound is None else bound
+def _alpha_key(term, substitution=None):
+    substitution = Substitution(()) if substitution is None else substitution
     if isinstance(term, Constant):
         return ("constant", term.cod, term.name)
     if isinstance(term, Variable):
-        index = _lookup_bound(bound, term)
-        return ("bound", term.cod, index) if index is not None\
-            else ("free", term.cod, term.name)
+        return _alpha_variable(term, substitution)
     if isinstance(term, Application):
-        return ("application", _alpha_key(term.func, bound),
-                _alpha_key(term.args, bound))
+        return ("application", _alpha_key(term.func, substitution),
+                _alpha_key(term.args, substitution))
     if isinstance(term, Abstraction):
-        index = len(bound)
+        variable = _alpha_bound(term.var.cod, len(substitution))
         return ("abstraction", term.var.cod, _alpha_key(
-            term.body, bound + ((term.var, index), )))
+            term.body, substitution.extend(((term.var, variable), ))))
     if isinstance(term, Pack):
-        return ("pack", tuple(_alpha_key(t, bound) for t in term.terms))
+        return ("pack", tuple(
+            _alpha_key(t, substitution) for t in term.terms))
     if isinstance(term, Unpack):
-        shift = len(bound)
+        extension = tuple(
+            (variable, _alpha_bound(variable.cod, len(substitution) + i))
+            for i, variable in enumerate(term.variables))
         return (
             "unpack",
-            _alpha_key(term.package, bound),
+            _alpha_key(term.package, substitution),
             tuple(variable.cod for variable in term.variables),
-            _alpha_key(term.body, bound + tuple(
-                (variable, shift + i)
-                for i, variable in enumerate(term.variables))))
+            _alpha_key(term.body, substitution.extend(extension)))
     raise TypeError
 
 
-def _lookup_bound(bound, variable):
-    for other, index in reversed(bound):
-        if _same_variable(other, variable):
-            return index
-    return None
+def _alpha_bound(cod, index):
+    return Variable(cod, ("bound", index))
+
+
+def _alpha_variable(variable, substitution):
+    image = substitution(variable)
+    return ("free", variable.cod, variable.name) if image is variable\
+        else ("bound", image.cod, image.name)
 
 
 def _same_variable(left, right):
@@ -510,21 +508,10 @@ def _same_variable(left, right):
         and (left.cod, left.name) == (right.cod, right.name)
 
 
-def _tensor_types(types, category=None):
-    factory = Ty if category is None else getattr(
-        category, "ty_factory", None)
-    if factory is None:
-        factory = category.category.ty_factory
-    result = factory()
-    for typ in types:
-        result = result @ typ
-    return result
-
-
 def assert_term_map(cmap, term, category: type[CombinatorialMap] | None = None):
     category = category or CombinatorialMap
-    if cmap.dom != _tensor_types(
-            (variable.cod for variable in term.freevars), category):
+    if cmap.dom != category.ob().tensor(
+            *(variable.cod for variable in term.freevars)):
         raise ValueError
     if cmap.cod != term.cod:
         raise ValueError
@@ -534,24 +521,41 @@ def assert_term_map(cmap, term, category: type[CombinatorialMap] | None = None):
 
 @dataclass
 class Substitution:
-    inside: Dict[Variable, Term]
+    inside: Dict[Variable, Term] | tuple[tuple[Variable, Term], ...]
+
+    def __len__(self):
+        return len(tuple(self.items()))
+
+    def items(self):
+        return self.inside.items() if hasattr(self.inside, "items")\
+            else self.inside
+
+    def extend(self, inside) -> Substitution:
+        items = inside.items() if hasattr(inside, "items") else inside
+        return type(self)(tuple(self.items()) + tuple(items))
+
+    def without(self, variables) -> Substitution:
+        return type(self)(tuple(
+            (k, v) for k, v in self.items()
+            if all(not _same_variable(k, variable)
+                   for variable in variables)))
 
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
-            return self.inside.get(term, term)
+            for variable, image in reversed(tuple(self.items())):
+                if _same_variable(variable, term):
+                    return image
+            return term
         elif isinstance(term, Application):
             return self(term.func)(self(term.args))
         elif isinstance(term, Abstraction):
-            other = Substitution(
-                {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+            other = self.without((term.var, ))
+            return Abstraction(term.var, other(term.body))
         elif isinstance(term, Pack):
             return pack(*(self(t) for t in term.terms))
         elif isinstance(term, Unpack):
             package = self(term.package)
-            other = Substitution({
-                k: v for k, v in self.inside.items()
-                if k not in term.variables})
+            other = self.without(term.variables)
             return unpack(package, term.variables, other(term.body))
         else:
             raise ValueError(f"not a term: {term!r}")
@@ -564,7 +568,7 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
 
     A diagram applied to another post-composes their tensor with an `Eval`.
     """
-    ob = ty_factory = Ty
+    ob = Ty
 
     @property
     def is_linear(self):
@@ -625,7 +629,6 @@ class Sum(markov.Sum, biclosed.Sum, Box):
 
 Diagram.over, Diagram.under, Diagram.exp\
     = map(staticmethod, (biclosed.Over, biclosed.Under, Exp))
-Diagram.sum_factory = Sum
 
 Id = Diagram.id
 

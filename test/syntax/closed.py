@@ -12,6 +12,7 @@ from discopy.closed import (
     Eval,
     Coeval,
     CombinatorialMap,
+    Substitution,
     pack,
     unpack,
 )
@@ -38,6 +39,13 @@ def test_term_equality_is_alpha_equivalence():
         == X(lambda y: (X >> Y)(lambda g: g(y)))
     assert x != y
     assert Abstraction(x, y) != Abstraction(y, x)
+
+
+def test_substitution_under_abstraction():
+    X = Ty("X")
+    x, y, z = (Variable(X, name) for name in "xyz")
+    assert Substitution({x: z})(Abstraction(x, x)) == Abstraction(x, x)
+    assert Substitution({y: z})(Abstraction(x, y)) == Abstraction(x, z)
 
 
 def test_python_Functor():
@@ -101,4 +109,3 @@ def test_python_Func():
 
     assert F(f.uncurry().curry())(True)(1j) == F(f)(True)(1j)
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
-

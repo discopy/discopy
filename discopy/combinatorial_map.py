@@ -329,7 +329,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
 
     @classmethod
     def id(cls, dom=None) -> CombinatorialMap:
-        dom = cls.category.ob() if dom is None else dom
+        dom = cls.ob() if dom is None else dom
         n_ports = 2 * len(dom)
         edge = Permutation.from_transpositions(
             ((i, i + len(dom)) for i in range(len(dom))), n_ports)
@@ -352,7 +352,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         """ Build a combinatorial map from a bijective hypergraph. """
         if not old.is_bijective:
             raise ValueError
-        factory = cls if cls.category is not None else cls[
+        factory = cls if cls.functor is not None else cls[
             type(old).category, type(old).functor]
         return factory(
             old.dom, old.cod, old.boxes, old.bijection,
@@ -458,7 +458,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
             raise ValueError
 
         old_input, old_output = input_index, self.n_ports - 1
-        new_dom = self.category.ob()
+        new_dom = self.ob()
         for i, obj in enumerate(self.dom):
             if i != input_index:
                 new_dom = new_dom @ obj
@@ -513,7 +513,9 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
             flat_wires[i] = flat_wires[j] = spider
         wires = hypergraph.Hypergraph.rebracket(
             None, flat_wires, dom=self.dom, boxes=self.boxes)
-        factory = hypergraph.Hypergraph[self.functor]
+        factory = getattr(
+            self.category, "hypergraph_factory",
+            hypergraph.Hypergraph[self.functor])
         return factory(
             self.dom, self.cod, self.boxes, wires,
             tuple(spider_types), self.offsets)
@@ -724,8 +726,8 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         ports = self.ports
 
         def port_type(obj):
-            return obj if isinstance(obj, self.category.ob)\
-                else self.category.ob(obj)
+            return obj if isinstance(obj, self.ob)\
+                else self.ob(obj)
 
         input_ports = [
             port for port in sorted(component)
@@ -737,7 +739,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
                 or extra_input_index > len(input_ports):
             raise ValueError
 
-        dom = self.category.ob()
+        dom = self.ob()
         mapping, new_index = {}, 0
         input_iter = iter(input_ports)
         for i in range(len(input_ports) + (extra_input_root is not None)):
