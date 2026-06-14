@@ -13,6 +13,32 @@ env:
   DOCS_DIR: docs
 
 jobs:
+  check-config:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Check RTD Python version matches pyproject.toml requires-python
+      run: |
+        python3 -c "
+        import tomllib, re, sys
+        with open('pyproject.toml', 'rb') as f:
+            data = tomllib.load(f)
+        req = data['project']['requires-python']
+        m = re.search(r'>=(\d+\.\d+)', req)
+        if not m:
+            print(f'Could not parse requires-python: {req}'); sys.exit(1)
+        min_py = m.group(1)
+        with open('.readthedocs.yaml') as f:
+            rtd = f.read()
+        m = re.search(r'python:\s+\"(\d+\.\d+)\"', rtd)
+        if not m:
+            print('Could not parse Python version from .readthedocs.yaml'); sys.exit(1)
+        rtd_py = m.group(1)
+        if min_py != rtd_py:
+            print(f'MISMATCH: pyproject.toml requires Python >={min_py} but .readthedocs.yaml specifies {rtd_py}')
+            sys.exit(1)
+        print(f'OK: both specify Python {min_py}')
+        "
   lint:
     runs-on: ubuntu-latest
     strategy:
