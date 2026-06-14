@@ -19,6 +19,7 @@ from __future__ import annotations
 
 from functools import cache
 
+from discopy.abc import SymmetricCategory
 from discopy.utils import assert_isinstance, tuplify
 from discopy.python import function
 
@@ -27,7 +28,7 @@ from discopy.python import function
 Ty = tuple[type, ...]
 
 
-class Function(function.Function):
+class Function(function.Function, SymmetricCategory):
     """
     Python functions with disjoint union as tensor.
 

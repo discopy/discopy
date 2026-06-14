@@ -112,10 +112,12 @@ class Monoid[T]:
 
     @classmethod
     @abstractmethod
-    def tensor(cls, *objects: T) -> T:
-        """
-        The n-ary product of a monoid.
-        """
+    def tensor(cls) -> T:
+        """ The unit of a monoid. """
+
+    @abstractmethod
+    def tensor(self, *objects: T) -> T:
+        """ The n-ary product of a monoid for ``n > 0``. """
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -330,6 +332,14 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
             right : The object on the right of the swap.
         """
 
+    @classmethod
+    def twist(cls, dom: C0) -> C1:
+        return cls.id(dom)
+
+    @classmethod
+    def braid(cls, left: C0, right: C0) -> C1:
+        return cls.swap(left, right)
+
 
 class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     """
@@ -344,17 +354,6 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
 
         Parameters:
             x : The object to copy.
-            n : The number of copies.
-        """
-
-    @classmethod
-    @abstractmethod
-    def merge(cls, x: C0, n: int = 2) -> C1:
-        """
-        Merge :code:`n` copies of a given object :code:`x`.
-
-        Parameters:
-            x : The object to merge.
             n : The number of copies.
         """
 
