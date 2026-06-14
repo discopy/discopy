@@ -96,7 +96,7 @@ def test_draw_pregroup_sentence():
 @draw_and_compare('categorial-grammar.png', aspect='equal')
 def test_draw_sentence():
     from discopy.biclosed import Ty
-    from discopy.grammar.categorial import Diagram, Word
+    from discopy.grammar.categorial import Eval, Word
 
     s, n = map(Ty, 'sn')
 
@@ -104,8 +104,7 @@ def test_draw_sentence():
     loves = Word('loves', (n >> s) << n)
     Bob = Word('Bob', n)
 
-    return Alice @ loves @ Bob >> n @ Diagram.fa(n >> s, n)\
-        >> Diagram.ba(n, s)
+    return Alice @ loves @ Bob >> n @ Eval((n >> s) << n) >> Eval(n >> s)
 
 
 @draw_and_compare('bialgebra.png', aspect='equal')

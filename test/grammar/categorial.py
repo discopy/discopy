@@ -1,5 +1,6 @@
 from pytest import raises
 
+from discopy.utils import from_tree
 from discopy.biclosed import Ty
 from discopy.grammar.categorial import *
 
