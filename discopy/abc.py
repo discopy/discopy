@@ -112,10 +112,12 @@ class Monoid[T]:
 
     @classmethod
     @abstractmethod
-    def tensor(cls, *objects: T) -> T:
-        """
-        The n-ary product of a monoid.
-        """
+    def tensor(cls) -> T:
+        """ The unit of a monoid. """
+
+    @abstractmethod
+    def tensor(self, *objects: T) -> T:
+        """ The n-ary product of a monoid for ``n > 0``. """
 
     def __matmul__(self, other):
         return self.tensor(other)
