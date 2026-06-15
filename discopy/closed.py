@@ -234,7 +234,7 @@ class Variable(biclosed.Variable, TermBase):
     typ: Ty
     name: str
 
-    def to_diagram(self, category=Diagram, context=None):
+    def eval(self, functor=None, context=None):
         if not context:
             return category.id(self.typ)
         return category.tensor(*[
@@ -260,18 +260,19 @@ class Application(biclosed.Application, TermBase):
     def __str__(self):
         return f"{self.func}({self.args})"
 
-    def to_diagram(self, category=Diagram, context=None):
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
         evaluate = Eval(self.func.typ, left=True)
         if context is None:
             overlap = set(self.func.freevars).intersection(self.args.freevars)
             if not overlap:
-                func = self.func.to_diagram(category)
-                args = self.args.to_diagram(category)
+                func = self.func.eval(functor=functor)
+                args = self.args.eval(functor=functor)
                 return func @ args >> evaluate
             context = Context(list(set(self.freevars)), category)
-        func = self.func.to_diagram(category=category, context=context)
-        args = self.args.to_diagram(category=category, context=context)
-        return category.copy(context.dom) >> func @ args >> evaluate
+        func = self.func.eval(functor=functor, context=context)
+        args = self.args.eval(functor=functor, context=context)
+        return functor.cod.copy(context.dom) >> func @ args >> evaluate
 
 
 @dataclass(frozen=True)
@@ -289,13 +290,13 @@ class Abstraction(biclosed.Abstraction, TermBase):
     def __str__(self):
         return f"{self.var.typ}(lambda {self.var.name}: {self.body})"
 
-    def to_diagram(self, category=Diagram, context=None):
+    def eval(self, functor=None, context=None):
         if context:
             new_context = self.var + context.inside
-            body = self.body.to_diagram(category=category, context=new_context)
+            body = self.body.eval(functor=functor, context=new_context)
             return body.curry()
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        body = self.body.to_diagram(category)
+        body = self.body.eval(functor=functor)
         p = body.permutation(
             [i] + [j for j in range(n) if j != i], body.dom)
         return (p >> body).curry()

@@ -620,8 +620,8 @@ class Abstraction(TermBase):
     def freevars(self):
         return list(filter(lambda x: x != self.var, self.body.freevars))
 
-    def to_diagram(self, **kwargs):
-        return self.body.to_diagram(**kwargs).curry(left=not self.left)
+    def eval(self, functor=None):
+        return self.body.eval(functor).curry(left=not self.left)
 
 
 type Term = Constant | Variable | Application | Abstraction
