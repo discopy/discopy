@@ -205,9 +205,6 @@ class TermBase(biclosed.TermBase):
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other, left=True):
-        return FA(self, other) if left else BA(other, self)
-
     def __lshift__(self, other):
         return FA(self, other)
 
@@ -246,7 +243,7 @@ class FA(TermBase, biclosed.Application):
         biclosed.Application.__init__(self, func, args)
 
     def simplify(self):
-        return FA(self.func.simplify(), self.args.simplify())
+        return self.func.simplify() << self.args.simplify()
 
 
 class BA(TermBase, biclosed.Application):
@@ -255,7 +252,7 @@ class BA(TermBase, biclosed.Application):
         biclosed.Application.__init__(self, func, args, left=False)
 
     def simplify(self):
-        return BA(self.args.simplify(), self.func.simplify())
+        return self.args.simplify() >> self.func.simplify()
 
 
 @dataclass(frozen=True)
@@ -476,3 +473,5 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 Id = Diagram.id
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
+Ty.variable_factory = Variable
+Ty.abstraction_factory = Abstraction

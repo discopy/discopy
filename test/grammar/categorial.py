@@ -103,6 +103,42 @@ def test_BA_FA():
     assert FA(f, x).eval() == f.eval() @ x.eval() >> Eval(Y << X)
 
 
+def test_terms_simplify_and_eval():
+    X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
+    x = Constant(Box("x", Ty(), X))
+    f_left = Constant(Box("f", X, Y), left=True)
+    g_left = Constant(Box("g", Y, Z), left=True)
+    f_right = Constant(Box("f", X, Y))
+    g_right = Constant(Box("g", Y, Z))
+    var = Variable("x", X)
+    abstraction = Abstraction(var, f_left << var)
+
+    assert x.simplify() is x
+    assert var.simplify() is var
+    assert abstraction.simplify() == abstraction
+    assert (f_left << x).simplify() == f_left << x
+    assert (x >> f_right).simplify() == x >> f_right
+
+    for term in [FTR(Y, x), BTR(Y, x)]:
+        assert term.freevars == []
+        assert str(term) == f"{type(term).__name__}({Y}, {x})"
+        assert isinstance(term.simplify(), Abstraction)
+        assert term.eval() == term.simplify().eval()
+    assert FTR(Y, x).typ == Y << (X >> Y)
+    assert BTR(Y, x).typ == (Y << X) >> Y
+
+    fc, bc = FC(g_left, f_left), BC(f_right, g_right)
+    assert fc.freevars == []
+    assert str(fc) == f"FC({g_left}, {f_left})"
+    assert fc.simplify() == X(lambda x: g_left << (f_left << x))
+    assert bc.simplify() == X(lambda x, left=True: (x >> f_right) >> g_right)
+    assert fc.eval() == fc.simplify().eval()
+    assert bc.eval() == bc.simplify().eval()
+
+    assert FX(g_left, f_right).simplify() == FX(g_left, f_right)
+    assert BX(f_left, g_right).simplify() == BX(f_left, g_right)
+
+
 def test_FC_BC_FX_BX():
     X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
     f, g = Box("f", X, Y), Box("g", Y, Z)
@@ -129,6 +165,14 @@ def test_FC_BC_FX_BX():
         FX(f_left, g_right)
     with raises(AxiomError):
         BX(g_left, f_right)
+
+    repeated = Variable("repeated", X << X)
+    with raises(ValueError):
+        FC(repeated, repeated)
+    with raises(AxiomError):
+        ForwardCrossedComposition(X << Y, Z >> X)
+    with raises(AxiomError):
+        BackwardCrossedComposition(Y << X, Z >> X)
 
     assert FX(g_left, f_right).eval()\
         == g.curry(left=True) @ f.curry(left=False)\
@@ -213,3 +257,13 @@ def test_tree2diagram():
     diagram = tree2diagram(tree)
     assert diagram.to_pregroup().normal_form()\
         == pregroup_diagram().normal_form()
+
+    custom_tree = {
+        "type": "custom",
+        "cat": "S",
+        "children": [
+            {"word": "word", "cat": "NP"}]}
+    assert tree2diagram(custom_tree) == Word("word", Ty("NP"))\
+        >> Box("custom", Ty("NP"), Ty("S"))
+    assert tree2diagram({"word": "word", "cat": "NP"}, dom=Ty("D"))\
+        == Word("word", Ty("NP"), dom=Ty("D"))
