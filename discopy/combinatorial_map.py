@@ -15,6 +15,7 @@ from __future__ import annotations
 from discopy.abc import MonoidalCategory, NamedGeneric
 
 from collections.abc import Iterable
+from io import BytesIO
 import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING
@@ -39,6 +40,8 @@ Port = Node
 LEFT_PORTS = {"input", "cod"}
 RIGHT_PORTS = {"dom", "output"}
 BOUNDARY_PORTS = {"input", "output"}
+IN_PORTS = {"input", "dom"}
+OUT_PORTS = {"cod", "output"}
 
 
 class Permutation(tuple):
@@ -185,6 +188,15 @@ def port_side(port: Port) -> str:
         return "left"
     if port.kind in RIGHT_PORTS:
         return "right"
+    raise ValueError
+
+
+def port_direction(port: Port) -> str:
+    """ Return ``"in"`` or ``"out"`` for a port. """
+    if port.kind in IN_PORTS:
+        return "in"
+    if port.kind in OUT_PORTS:
+        return "out"
     raise ValueError
 
 
@@ -783,8 +795,17 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         return type(self)(
             dom, cod, tuple(included_boxes), edge, node, tuple(offsets))
 
-    def to_dot(self, engine="neato", seed=None, graph_attr=None) -> str:
-        """ Encode the combinatorial map as Graphviz DOT. """
+    def to_dot(
+            self, engine="neato", seed=None, graph_attr=None,
+            boundary_labels=True, trivalent_symbols=True,
+            box_labels=None) -> str:
+        """
+        Encode the combinatorial map as Graphviz DOT.
+
+        The drawing has one node per box, one point per boundary port, and one
+        edge per 2-cycle of ``edge``. Port indices are shown as edge endpoint
+        labels rather than drawn as separate nodes.
+        """
         attrs = {
             "layout": engine,
             "overlap": "false",
@@ -796,88 +817,136 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         if seed is not None:
             attrs["start"] = str(seed)
 
+        def escape(value):
+            return str(value).replace("\\", "\\\\").replace('"', r'\"')
+
         def attr_string(attributes):
             return ", ".join(
-                f'{key}="{value}"' for key, value in attributes.items())
+                f'{key}="{escape(value)}"'
+                for key, value in attributes.items())
+
+        def box_label(box):
+            if box_labels is not None:
+                return box_labels(box)
+            arity = len(box.dom), len(box.cod)
+            name = type(box).__name__
+            if trivalent_symbols and name == "Eval" and arity == (2, 1):
+                return "@"
+            if trivalent_symbols and name == "Coeval" and arity == (1, 2):
+                return "ꟛ"
+            return getattr(box, "drawing_name", None)\
+                or getattr(box, "name", None)\
+                or f"{arity[0]}->{arity[1]}"
+
+        def boundary_label(port):
+            if not boundary_labels:
+                return ""
+            return f"{port.kind} {port.i}"
 
         lines = [
             "graph combinatorial_map {",
             f"  graph [{attr_string(attrs)}];",
-            '  node [shape=circle, color=black, fixedsize=true, '
-            'fontname="Helvetica", fontsize="12"];',
+            '  node [shape=circle, color=black, fontname="Helvetica", '
+            'fontsize="12"];',
             '  edge [color=black, penwidth="1.4", fontsize="9"];',
         ]
 
         port_nodes = {}
         for vertex in range(len(self.boxes)):
             box = self.boxes[vertex]
-            label = "@" if (len(box.dom), len(box.cod)) == (2, 1)\
-                else "ꟛ" if (len(box.dom), len(box.cod)) == (1, 2)\
-                else getattr(box, "name", "")
+            attributes = dict(
+                label=box_label(box), width="0.32", height="0.32")
             lines.append(
-                f'  v{vertex} [label="{label}", width="0.22", '
-                f'height="0.22"];')
+                f"  v{vertex} [{attr_string(attributes)}];")
             for port_index in self.node_cycles[vertex]:
                 port_nodes[port_index] = f"v{vertex}"
         for port_index, port in enumerate(self.ports):
             if port.kind in BOUNDARY_PORTS:
+                attributes = dict(
+                    shape="point", label="", width="0.08", height="0.08",
+                    xlabel=boundary_label(port))
                 lines.append(
-                    f'  b{port_index} [label="", style=filled, '
-                    f'fillcolor=black, width="0.06", height="0.06", '
-                    f'xlabel="{port.kind} {port.i}"];')
+                    f"  b{port_index} [{attr_string(attributes)}];")
                 port_nodes[port_index] = f"b{port_index}"
 
         def node_name(port_index):
             return port_nodes[port_index]
 
+        def edge_direction(left, right):
+            left_in = port_direction(self.ports[left]) == "in"
+            right_in = port_direction(self.ports[right]) == "in"
+            if left_in and right_in:
+                return "both"
+            if left_in:
+                return "back"
+            if right_in:
+                return "forward"
+            return "none"
+
         for i, j in enumerate(self.edge):
             if i < j:
+                attributes = dict(
+                    len="0.85", taillabel=i, headlabel=j,
+                    labeldistance="1.6", dir=edge_direction(i, j))
                 lines.append(
                     f'  {node_name(i)} -- {node_name(j)} '
-                    f'[len="0.85", taillabel="{i}", headlabel="{j}"];')
+                    f'[{attr_string(attributes)}];')
         lines.append("}")
         return "\n".join(lines) + "\n"
 
-    def draw_map(
+    def draw(
             self, path=None, engine="neato", format=None, seed=None,
-            show=False, graph_attr=None):
+            show=True, graph_attr=None, boundary_labels=True,
+            trivalent_symbols=True, box_labels=None, block=True):
         """
         Draw as a combinatorial map using Graphviz.
 
-        This is intended for map-like pictures, closer to the rooted trivalent
-        maps in Zeilberger's linear-lambda-terms paper than to the usual
-        DisCoPy box-and-wire drawing.
+        This is intended for map-like pictures rather than the usual DisCoPy
+        box-and-wire drawing.
 
-        If ``path`` is ``None``, return the DOT source. If ``path`` ends in
-        ``.dot`` or ``.gv``, write DOT source. Otherwise, render with Graphviz.
+        If ``path`` ends in ``.dot`` or ``.gv``, write DOT source. Otherwise,
+        render with Graphviz. When ``show`` is true, display the rendered graph
+        in a matplotlib window.
         """
-        dot = self.to_dot(engine=engine, seed=seed, graph_attr=graph_attr)
-        if path is None:
-            return dot
+        dot = self.to_dot(
+            engine=engine, seed=seed, graph_attr=graph_attr,
+            boundary_labels=boundary_labels,
+            trivalent_symbols=trivalent_symbols,
+            box_labels=box_labels)
 
-        path = str(path)
-        suffix = path.rsplit(".", 1)[-1].lower() if "." in path else ""
+        path = None if path is None else str(path)
+        suffix = "" if path is None else (
+            path.rsplit(".", 1)[-1].lower() if "." in path else "")
         if suffix in ["dot", "gv"]:
             with open(path, "w", encoding="utf-8") as stream:
                 stream.write(dot)
-            return path
+            return None
 
         executable = shutil.which(engine) or shutil.which("dot")
         if executable is None:
             raise RuntimeError(
                 f"Graphviz executable {engine!r} was not found.")
 
-        output_format = format or suffix or "svg"
-        subprocess.run(
-            [executable, f"-T{output_format}", "-o", path],
-            input=dot, text=True, check=True)
-        if show:
-            try:
-                from IPython.display import Image, SVG, display
-                display(SVG(filename=path) if output_format == "svg"
-                        else Image(filename=path))
-            except ImportError:
-                pass
-        return path
+        if path is not None:
+            output_format = format or suffix or "svg"
+            subprocess.run(
+                [executable, f"-T{output_format}", "-o", path],
+                input=dot.encode(), check=True)
+        if not show:
+            return None
 
-    draw_as_map = draw_map
+        png = subprocess.run(
+            [executable, "-Tpng"], input=dot.encode(),
+            capture_output=True, check=True).stdout
+        import matplotlib.image as mpimg
+        import matplotlib.pyplot as plt
+        image = mpimg.imread(BytesIO(png), format="png")
+        height, width = image.shape[:2]
+        figsize = (max(width / 100, 1), max(height / 100, 1))
+        figure, axis = plt.subplots(figsize=figsize, facecolor="white")
+        axis.imshow(image)
+        axis.axis("off")
+        figure.subplots_adjust(
+            top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+        plt.show(block=block)
+        return None

@@ -4,6 +4,7 @@ from pytest import raises
 
 from discopy.combinatorial_map import (
     Permutation,
+    port_direction,
     port_side,
 )
 from discopy.utils import AxiomError
@@ -25,6 +26,8 @@ def test_port_side():
     ports = M.id(x).ports
     assert port_side(ports[0]) == "left"
     assert port_side(ports[1]) == "right"
+    assert port_direction(ports[0]) == "in"
+    assert port_direction(ports[1]) == "out"
 
 
 def test_default_compact_setting():
