@@ -62,7 +62,7 @@ from __future__ import annotations
 from abc import abstractproperty, abstractmethod
 from dataclasses import dataclass
 from inspect import signature
-from typing import Callable, ClassVar
+from typing import Callable, Optional, ClassVar
 
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
@@ -487,14 +487,14 @@ class Constant(TermBase):
     A constant term of defined by a :class:`Diagram` with ``dom=X, cod=Y``.
     The constant has type ``Y`` if ``X`` is empty else it has type either
     ``Y << X`` if ``left=True`` else ``X >> Y``.
-    
+
     Attributes:
         inside (Diagram): The diagram which defines the constant.
         left (Optional[bool]): Whether the domain comes from the left or right.
     """
     inside: Diagram
     left: Optional[bool] = None
-    
+
     def __post_init__(self):
         if self.left is None and self.inside.dom:
             object.__setattr__(self, "left", False)
@@ -524,7 +524,7 @@ class Constant(TermBase):
 class Variable(TermBase):
     """
     A variable with a string as name and a :class:`Ty`.
-    
+
     Attributes:
         name (str): The name of the variable
         typ (Ty): The type of the variable.
@@ -549,7 +549,7 @@ class Application(TermBase):
     """
     The application ``x >> f`` (``f << x``) of a term ``f`` of type ``X >> Y``
     (``Y << X``) to an argument of type ``X`` coming from its left (or right).
-    
+
     Attributes:
         func (Term): The function being applied.
         args (Term): The arguments to which the function is applied.

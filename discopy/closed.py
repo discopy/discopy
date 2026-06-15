@@ -50,8 +50,7 @@ Axioms
 from __future__ import annotations
 from abc import abstractproperty
 from dataclasses import dataclass
-from typing import Dict, Callable, ClassVar
-from inspect import signature
+from typing import Dict, ClassVar
 
 from discopy import cat, biclosed, markov
 from discopy.abc import ClosedCategory
@@ -325,6 +324,7 @@ class Substitution:
             other = Substitution(
                 {k: v for k, v in self.inside.items() if k != term.var})
             return other(term)
+
 
 Ty.variable_factory = Variable
 Ty.abstraction_factory = Abstraction
