@@ -90,106 +90,64 @@ def test_Diagram():
 
 def test_BA_FA():
     X, Y = Ty('X'), Ty('Y')
-    x, f, g = X("x"), (Y << X)("f"), (X >> Y)("g")
-    assert (FA(f, x)).cod == Y == BA(x, g).cod
+    x = Constant(Box("x", Ty(), X))
+    f, g = Constant(Box("f", X, Y), left=True), Constant(Box("g", X, Y))
 
+    assert (FA(f, x)).typ == Y == BA(x, g).typ
 
-def test_FA():
-    x, y = Ty('x'), Ty('y')
-    f, a = Constant(x << y, 'f'), Constant(y, 'a')
     with raises(TypeError):
-        FA(Constant(x >> y, 'g'), a)
-    assert FA(f, a).cod == x
+        FA(x, f)
+    with raises(TypeError):
+        FA(g, x)
+
+    assert FA(f, x).eval() == f.eval() @ x.eval() >> Eval(Y << X)
 
 
-def test_FC():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = Constant(x << y, 'f'), Constant(y << z, 'g')
+def test_FC_BC_FX_BX():
+    X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
+    f, g = Box("f", X, Y), Box("g", Y, Z)
+    f_left, g_left = Constant(f, left=True), Constant(g, left=True)
+    f_right, g_right = Constant(f), Constant(g)
+
+    assert FC(g_left, f_left).typ == BX(f_left, g_right).typ == Z << X
+    assert BC(f_right, g_right).typ == FX(g_left, f_right).typ == X >> Z
+
     with raises(TypeError):
-        FC(Constant(x >> y, 'f'), Constant(y >> x, 'g'))
+        FC(f_right, g_left)
     with raises(TypeError):
-        FC(f, Constant(y >> x, 'g'))
+        BC(g_left, f_right)
+    with raises(TypeError):
+        FX(f_right, g_right)
+    with raises(TypeError):
+        BX(g_right, f_right)
+
     with raises(AxiomError):
-        FC(f, Constant(z << y, 'g'))
-    assert FC(f, g).cod == x << z
-
-
-def test_BC():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = Constant(x >> y, 'f'), Constant(y >> z, 'g')
-    with raises(TypeError):
-        BC(Constant(x << y, 'f'), Constant(y << x, 'g'))
-    with raises(TypeError):
-        BC(f, Constant(y << x, 'g'))
+        FC(f_left, g_left)
     with raises(AxiomError):
-        BC(f, Constant(z >> y, 'g'))
-    assert BC(f, g).cod == x >> z
-
-
-def test_FX():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = Constant(x << y, 'f'), Constant(z >> y, 'g')
-    with raises(TypeError):
-        FX(Constant(x >> y, 'f'), Constant(y >> x, 'g'))
-    with raises(TypeError):
-        FX(f, Constant(y << x, 'g'))
+        BC(g_right, f_right)
     with raises(AxiomError):
-        FX(f, Constant(y >> x, 'g'))
-    assert FX(f, g).to_diagram()\
-        == Word('f', x << y) @ Word('g', z >> y)\
-        >> ForwardCrossedComposition(x << y, z >> y)
-
-
-def test_BX():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = Constant(y << x, 'f'), Constant(y >> z, 'g')
-    with raises(TypeError):
-        BX(Constant(x >> y, 'f'), Constant(y >> x, 'g'))
-    with raises(TypeError):
-        BX(f, Constant(y << x, 'g'))
+        FX(f_left, g_right)
     with raises(AxiomError):
-        BX(f, Constant(x >> y, 'g'))
-    assert BX(f, g).to_diagram()\
-        == Word('f', y << x) @ Word('g', y >> z)\
-        >> BackwardCrossedComposition(y << x, y >> z)
+        BX(g_left, f_right)
+
+    assert FX(g_left, f_right).eval()\
+        == g.curry(left=True) @ f.curry(left=False)\
+        >> ForwardCrossedComposition(Z << Y, X >> Y)
+    assert BX(f_left, g_right).eval()\
+        == f.curry(left=True) @ g.curry(left=False)\
+        >> BackwardCrossedComposition(Y << X, Y >> Z)
 
 
 def test_Functor():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
     f = Box('f', x, y)
-    IdF = Functor(lambda x: x, lambda f: f)
-    assert IdF(x >> y << x) == x >> y << x
-    assert IdF(Curry(f)) == Curry(f)
-    assert IdF(ForwardCrossedComposition(x << y, z >> y))\
+    F = Functor(lambda x: x, lambda f: f)
+    assert F(x >> y << x) == x >> y << x
+    assert F(Curry(f)) == Curry(f)
+    assert F(ForwardCrossedComposition(x << y, z >> y))\
         == ForwardCrossedComposition(x << y, z >> y)
-    assert IdF(BackwardCrossedComposition(y << x, y >> z))\
+    assert F(BackwardCrossedComposition(y << x, y >> z))\
         == BackwardCrossedComposition(y << x, y >> z)
-
-
-def test_Term():
-    x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = Constant(x << y, 'f'), Constant(y << z, 'g')
-    a, b = Constant(x, 'a'), Constant(x >> y, 'b')
-    c, d = Constant(y >> z, 'c'), Constant(z >> y, 'd')
-    e, k = Constant(y << x, 'e'), Constant(y >> z, 'k')
-
-    assert isinstance(f, TermBase)
-    assert (f << Constant(y, 'arg')).to_diagram()\
-        == Word('f', x << y) @ Word('arg', y) >> Eval(x << y)
-    assert FA(f, Constant(y, 'arg')).to_diagram()\
-        == Word('f', x << y) @ Word('arg', y) >> Eval(x << y)
-    assert BA(a, b).to_diagram()\
-        == Word('a', x) @ Word('b', x >> y) >> Eval(x >> y)
-    assert FX(f, d).cod == z >> x
-    assert BX(e, k).cod == z << x
-    assert FX(f, d).to_diagram()\
-        == Word('f', x << y) @ Word('d', z >> y)\
-        >> ForwardCrossedComposition(x << y, z >> y)
-    assert BX(e, k).to_diagram()\
-        == Word('e', y << x) @ Word('k', y >> z)\
-        >> BackwardCrossedComposition(y << x, y >> z)
-    assert FC(f, g).simplify() == z(lambda x: f << (g << x))
-    assert BC(b, c).simplify() == x(lambda x, left=True: x >> b >> c)
 
 
 def test_to_tree():

@@ -20,47 +20,41 @@ def test_Under():
 
 def test_Term():
     x, y = Ty('x'), Ty('y')
-    f, g, a = Constant(x << y, 'f'), Constant(y >> x, 'g'), Constant(y, 'a')
+    f, g = Constant(Box('f', y, x), left=True), Constant(Box('g', y, x))
+    a = Constant(Box('a', Ty(), y))
 
     assert isinstance(f, TermBase)
-    assert (f << a).cod == x
-    assert (f << a).to_diagram()\
-        == Box('f', Ty(), x << y) @ Box('a', Ty(), y)\
-        >> Eval(x << y, left=True)
-    assert (a >> g).cod == x
-    assert (a >> g).to_diagram()\
-        == Box('a', Ty(), y) @ Box('g', Ty(), y >> x)\
-        >> Eval(y >> x, left=False)
+    assert (f << a).typ == x
+    assert (f << a).eval()\
+        == f.inside.curry(left=True) @ a.inside >> Eval(x << y, left=True)
+    assert (a >> g).typ == x
+    assert (a >> g).eval()\
+        == a.inside @ g.inside.curry(left=False) >> Eval(y >> x, left=False)
 
-    var = Variable(y, 'var')
-    assert Abstraction(var, f << var).cod == x << y
-    assert Abstraction(var, var >> g, left=True).cod == y >> x
+    var = Variable('var', y)
+    assert Abstraction(var, f << var).typ == x << y
+    assert Abstraction(var, var >> g, left=True).typ == y >> x
 
 
 def test_Term_str():
-    x, y = Ty('x'), Ty('y')
-    f, g, a = Constant(x << y, 'f'), Constant(y >> x, 'g'), Constant(y, 'a')
-    var = Variable(y, 'var')
-    terms = [f << a, a >> g, y(lambda u: f << u),
-             y(lambda u, left=True: u >> g), f << var]
-    env = locals()
-    assert all(eval(str(term), env) == term for term in terms)
-
-
-def test_Term_str_constants():
-    N, S = Ty("N"), Ty("S")
-    Alice_loves_Bob = N("Alice") >> (((N >> S) << N)("loves") << N("Bob"))
-    assert str(Alice_loves_Bob) == (
-        "N('Alice') >> (((N >> S) << N)('loves') << N('Bob'))")
+    X, Y = Ty('X'), Ty('Y')
+    f, g = Box('f', X, Y), Box('g', X, Y)
+    x, y = Box('x', Ty(), X), Variable("y", X)
+    assert str(Constant(f, left=True) << Constant(x)) ==\
+        "Constant(f, left=True) << Constant(x)"
+    assert str(Constant(x) >> Constant(g)) == "Constant(x) >> Constant(g)"
+    assert str(X(lambda y: Constant(f, left=True) << y)) ==\
+        "X(lambda y: Constant(f, left=True) << y)"
+    assert str(Constant(f, left=True) << y) == "Constant(f, left=True) << y"
 
 
 def test_Term_linear_planar():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
-    f, g = Constant(x << y, 'f'), Constant(y >> x, 'g')
-    fvar = Variable(x << y, 'fvar')
-    gvar = Variable(y >> x, 'gvar')
-    h = Constant((x << y) << y, 'h')
-    var = Variable(y, 'var')
+    f, g = Constant(Box('f', y, x), left=True), Constant(Box('g', y, x))
+    fvar = Variable('fvar', x << y)
+    gvar = Variable('gvar', y >> x)
+    h = Constant(Box('h', y, (x << y)), left=True)
+    var = Variable('var', y)
 
     with raises(ValueError):
         h << var << var

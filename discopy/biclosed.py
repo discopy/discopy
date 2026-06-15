@@ -15,11 +15,6 @@ Summary
     Exp
     Over
     Under
-    TermBase
-    Constant
-    Variable
-    Application
-    Abstraction
     Diagram
     Box
     Eval
@@ -27,6 +22,11 @@ Summary
     Curry
     Sum
     Functor
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
 
 Axioms
 ------
@@ -59,10 +59,10 @@ Axioms
 
 from __future__ import annotations
 
-from abc import abstractproperty
+from abc import abstractproperty, abstractmethod
 from dataclasses import dataclass
 from inspect import signature
-from typing import Callable
+from typing import Callable, ClassVar
 
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
@@ -85,32 +85,7 @@ class Ty(monoidal.Ty):
 
     Note
     ----
-    Applying a biclosed type to a string yields a :class:`Constant` e.g.
-
-    >>> X, Y = Ty("X"), Ty("Y")
-    >>> x, f, g = X("x"), (X >> Y)("f"), (Y << X)("g")
-
-    Terms can be the :class:`Application` of a function to an argument from its
-    left ``>>`` or right ``<<`` with the type inferred automatically e.g.
-
-    >>> xf, gx = x >> f, g << x
-    >>> assert xf.cod == Y == gx.cod
-
-    Applying a biclosed type to a function yields an :class:`Abstraction` e.g.
-
-    >>> f_, g_ = X(lambda x, left=True: x >> f), X(lambda x: g << x)
-    >>> assert f.cod == f_.cod == X >> Y and g.cod == g_.cod == Y << X
-
-    Terms are required to be linear and planar, they can be drawn as diagrams:
-
-    >>> N, S = Ty("N"), Ty("S")
-    >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
-    >>> (Alice >> (loves << Bob)).to_diagram().draw(
-    ...     path='docs/_static/biclosed/alice-loves-bob.png',
-    ...     margins=(.3, 0), figsize=(5, 4))
-
-    .. image:: /_static/biclosed/alice-loves-bob.png
-        :align: center
+    Applying a biclosed type to a callable yields a :class:`Abstraction`.
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
@@ -134,10 +109,8 @@ class Ty(monoidal.Ty):
             varnames = list(parameters.keys())
             if len(varnames) != 1:
                 raise NotImplementedError
-            var = Variable(self, varnames[0])
-            return Abstraction(var, arg(var), left)
-        if isinstance(arg, str):
-            return Constant(self, arg)
+            var = self.variable_factory(varnames[0], self)
+            return self.abstraction_factory(var, arg(var), left)
         raise ValueError
 
     def __repr__(self):
@@ -390,14 +363,116 @@ class Curry(monoidal.Bubble, Box):
         Box.__init__(self, name, dom, cod)
 
 
+class Sum(monoidal.Sum, Box):
+    """
+    A biclosed sum is a monoidal sum and a biclosed box.
+
+    Parameters:
+        terms (tuple[Diagram, ...]) : The terms of the formal sum.
+        dom (Ty) : The domain of the formal sum.
+        cod (Ty) : The codomain of the formal sum.
+    """
+
+
+Id = Diagram.id
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
+Diagram.over, Diagram.under, Diagram.exp\
+    = map(staticmethod, (Over, Under, Exp))
+Diagram.sum_factory = Sum
+
+
+class Functor(monoidal.Functor):
+    """
+    A biclosed functor is a monoidal functor
+    that preserves evaluation and currying.
+
+    Parameters:
+        ob (Mapping[Ty, Ty]) :
+            Map from atomic :class:`Ty` to :code:`cod.ob`.
+        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        cod (Category) : The codomain of the functor.
+    """
+    dom = cod = Diagram
+
+    def __call__(self, other):
+        if isinstance(other, TermBase):
+            return other.eval(self)
+        for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
+            if isinstance(other, cls) and hasattr(self.cod, attr):
+                method = getattr(self.cod, attr)
+                return method(self(other.base), self(other.exponent))
+        if isinstance(other, Curry) and hasattr(self.cod, "curry"):
+            return self.cod.curry(
+                self(other.arg), len(self(other.cod.exponent)), other.left)
+        if isinstance(other, (Eval, Coeval)) and hasattr(self.cod, "ev"):
+            base, exponent, left = other.x.base, other.x.exponent, other.left
+            result = self.cod.ev(self(base), self(exponent), left)
+            return result.dagger() if isinstance(other, Coeval) else result
+        if self.cod is Drawing:
+            if isinstance(other, Ty) and other.inside == (other, ):
+                # Avoid infinite recursion when drawing.
+                return self.ob_map[other]
+        return super().__call__(other)
+
+
 class TermBase:
     """
-    A term in the internal language of a biclosed category.
-    """
-    cod: Ty
+    A term in the internal language of biclosed categories.
 
-    def __call__(self, other, left=True):
-        return Application(self, other, left)
+    Attributes:
+        typ (Ty): The type of a term, i.e. the codomain of its morphism.
+
+    Note
+    ----
+    Constant terms can be instantiated from any diagram, if the domain is not
+    empty (i.e. the diagram is a process not a state) then the constant is a
+    given a function type with the argument coming either the left or right:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> x = Constant(Box("x", Ty(), X))
+    >>> f, g = Constant(Box("f", X, Y)), Constant(Box("g", X, Y), left=True)
+    >>> assert x.typ == X and f.typ == X >> Y and g.typ == Y << X
+
+    Terms can be the :class:`Application` of a function to an argument from its
+    left ``>>`` or right ``<<`` with the type inferred automatically e.g.
+
+    >>> xf, gx = x >> f, g << x
+    >>> assert xf.typ == Y == gx.typ
+
+    Applying a biclosed type to a function yields an :class:`Abstraction` e.g.
+
+    >>> f_, g_ = X(lambda x, left=True: x >> f), X(lambda x: g << x)
+    >>> assert f.typ == f_.typ == X >> Y and g.typ == g_.typ == Y << X
+
+    Terms are required to be linear and planar, they can be drawn as diagrams:
+
+    >>> I, N, S = Ty(), Ty("N"), Ty("S")
+    >>> Alice, Bob = Constant(Box("Alice", I, N)), Constant(Box("Bob", I, N))
+    >>> loves = Constant(Box("loves", N, N >> S), left=True)
+    >>> (Alice >> (loves << Bob)).draw(
+    ...     path='docs/_static/biclosed/alice-loves-bob.png',
+    ...     margins=(.3, 0), figsize=(5, 4))
+    """
+    typ: Ty
+    functor: ClassVar[Functor] = Functor.id(Diagram)
+
+    @abstractproperty
+    def freevars(self) -> list[Variable]:
+        "The list of all occurrences of free variables, i.e. with duplicates."
+
+    @abstractmethod
+    def eval(functor: Functor = None) -> BiclosedCategory:
+        """
+        The evaluation of a :class:`Functor` on a term gives a morphism in its
+        codomain. By default, this is the identity functor on the free biclosed
+        category, i.e. terms are compiled to diagrams with constants as boxes.
+        """
+
+    def draw(self, **kwargs):
+        "Drawing a term by evaluating it in the free biclosed category."
+        return self.eval().draw(**kwargs)
 
     def __lshift__(self, other):
         return Application(self, other, left=True)
@@ -405,31 +480,57 @@ class TermBase:
     def __rshift__(self, other):
         return Application(other, self, left=False)
 
-    @abstractproperty
-    def freevars(self) -> list[Variable]:
-        ...
-
 
 @dataclass(frozen=True)
 class Constant(TermBase):
-    cod: Ty
-    name: str
+    """
+    A constant term of defined by a :class:`Diagram` with ``dom=X, cod=Y``.
+    The constant has type ``Y`` if ``X`` is empty else it has type either
+    ``Y << X`` if ``left=True`` else ``X >> Y``.
+    
+    Attributes:
+        inside (Diagram): The diagram which defines the constant.
+        left (Optional[bool]): Whether the domain comes from the left or right.
+    """
+    inside: Diagram
+    left: Optional[bool] = None
+    
+    def __post_init__(self):
+        if self.left is None and self.inside.dom:
+            object.__setattr__(self, "left", False)
 
     def __str__(self):
-        return f"{self.cod}({repr(self.name)})"
+        return f"Constant({self.inside}{', left=True' if self.left else ''})"
+
+    @property
+    def typ(self) -> Ty:
+        if self.left is None:
+            return self.inside.cod
+        dom, cod = self.inside.dom, self.inside.cod
+        return cod << dom if self.left else dom >> cod
 
     @property
     def freevars(self):
         return []
 
-    def to_diagram(self, category=Diagram, box_factory=Box):
-        return box_factory(self.name, category.ob(), self.cod)
+    def eval(self, functor=None):
+        functor = functor or self.functor
+        arg = self.inside if self.left is None else self.inside.curry(
+            n=len(self.inside.dom), left=self.left)
+        return functor(arg)
 
 
 @dataclass(frozen=True)
 class Variable(TermBase):
-    cod: Ty
+    """
+    A variable with a string as name and a :class:`Ty`.
+    
+    Attributes:
+        name (str): The name of the variable
+        typ (Ty): The type of the variable.
+    """
     name: str
+    typ: Ty
 
     def __str__(self):
         return self.name
@@ -438,28 +539,38 @@ class Variable(TermBase):
     def freevars(self):
         return [self]
 
-    def to_diagram(self, category=Diagram, **kwargs):
-        return category.id(self.cod)
+    def eval(self, functor=None):
+        functor = functor or self.functor
+        return functor.cod.id(functor(self.typ))
 
 
 @dataclass(frozen=True)
 class Application(TermBase):
+    """
+    The application ``x >> f`` (``f << x``) of a term ``f`` of type ``X >> Y``
+    (``Y << X``) to an argument of type ``X`` coming from its left (or right).
+    
+    Attributes:
+        func (Term): The function being applied.
+        args (Term): The arguments to which the function is applied.
+        left (bool): Whether the argument comes in from the left or right.
+    """
     func: Term
     args: Term
     left: bool = True
 
     def __post_init__(self):
         exp = Over if self.left else Under
-        assert_isinstance(self.func.cod, exp)
-        if self.func.cod.exponent != self.args.cod:
+        assert_isinstance(self.func.typ, exp)
+        if self.func.typ.exponent != self.args.typ:
             raise ValueError(
-                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
+                f"Expected {self.func.typ.exponent}, got {self.args.typ}")
         if set(self.func.freevars).intersection(self.args.freevars):
             raise ValueError("Expected disjoint free variables.")
 
     @property
-    def cod(self):
-        return self.func.cod.base
+    def typ(self):
+        return self.func.typ.base
 
     def __str__(self):
         func, args = self.func, self.args
@@ -472,10 +583,12 @@ class Application(TermBase):
         return self.func.freevars + self.args.freevars if self.left\
             else self.args.freevars + self.func.freevars
 
-    def to_diagram(self, category=Diagram, **kwargs):
-        func = self.func.to_diagram(category=category, **kwargs)
-        args = self.args.to_diagram(category=category, **kwargs)
-        ev = category.eval_factory(self.func.cod, left=self.left)
+    def eval(self, functor=None):
+        functor = functor or self.functor
+        func = self.func.eval(functor=functor)
+        args = self.args.eval(functor=functor)
+        base, exponent = self.func.typ.base, self.func.typ.exponent
+        ev = functor.cod.ev(functor(base), functor(exponent), left=self.left)
         return func @ args >> ev if self.left else args @ func >> ev
 
 
@@ -495,13 +608,13 @@ class Abstraction(TermBase):
             raise ValueError("Expected abstraction of right-most variable.")
 
     @property
-    def cod(self):
-        return self.var.cod >> self.body.cod if self.left\
-            else self.body.cod << self.var.cod
+    def typ(self):
+        return self.var.typ >> self.body.typ if self.left\
+            else self.body.typ << self.var.typ
 
     def __str__(self):
         left = ", left=True" if self.left else ""
-        return f"{self.var.cod}(lambda {self.var.name}{left}: {self.body})"
+        return f"{self.var.typ}(lambda {self.var.name}{left}: {self.body})"
 
     @property
     def freevars(self):
@@ -513,69 +626,5 @@ class Abstraction(TermBase):
 
 type Term = Constant | Variable | Application | Abstraction
 
-
-class Sum(monoidal.Sum, Box):
-    """
-    A biclosed sum is a monoidal sum and a biclosed box.
-
-    Parameters:
-        terms (tuple[Diagram, ...]) : The terms of the formal sum.
-        dom (Ty) : The domain of the formal sum.
-        cod (Ty) : The codomain of the formal sum.
-    """
-
-
-Diagram.over, Diagram.under, Diagram.exp\
-    = map(staticmethod, (Over, Under, Exp))
-Diagram.sum_factory = Sum
-
-Id = Diagram.id
-
-
-class Functor(monoidal.Functor):
-    """
-    A biclosed functor is a monoidal functor
-    that preserves evaluation and currying.
-
-    Parameters:
-        ob (Mapping[Ty, Ty]) :
-            Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
-        cod (Category) : The codomain of the functor.
-    """
-    dom = cod = Diagram
-
-    def __call__(self, other):
-        for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls) and hasattr(self.cod, attr):
-                method = getattr(self.cod, attr)
-                return method(self(other.base), self(other.exponent))
-        if isinstance(other, Curry) and hasattr(self.cod, "curry"):
-            return self.cod.curry(
-                self(other.arg), len(self(other.cod.exponent)), other.left)
-        if isinstance(other, (Eval, Coeval)) and hasattr(self.cod, "ev"):
-            base, exponent, left = other.x.base, other.x.exponent, other.left
-            result = self.cod.ev(self(base), self(exponent), left)
-            return result.dagger() if isinstance(other, Coeval) else result
-        if self.cod is Drawing:
-            if isinstance(other, Ty) and other.inside == (other, ):
-                # Avoid infinite recursion when drawing.
-                return self.ob_map[other]
-        return super().__call__(other)
-
-
-def to_rigid(self):
-    from discopy import rigid
-
-    return Functor(
-        ob=lambda x: rigid.Ty(x.inside[0].name),
-        ar=lambda f: rigid.Box(
-            f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
-        cod=rigid.Diagram)(self)
-
-
-Id = Diagram.id
-Diagram.to_rigid = to_rigid
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
+Ty.variable_factory = Variable
+Ty.abstraction_factory = Abstraction
