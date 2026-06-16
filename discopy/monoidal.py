@@ -690,6 +690,10 @@ class Diagram(cat.Arrow, MonoidalCategory):
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
+    def to_map(self) -> CombinatorialMap:
+        """ Translate a diagram into a combinatorial map. """
+        return self.map_factory.from_diagram(self)
+
     def to_staircases(self):
         """
         Splits layers with more than one box into staircases.

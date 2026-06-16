@@ -57,10 +57,12 @@ Coherence
 >>> Diagram.use_hypergraph_equality = False
 """
 
-from discopy import symmetric, ribbon
+from discopy import messages, symmetric, ribbon
 from discopy.abc import CompactCategory
 from discopy.cat import ar_factory
+from discopy.combinatorial_map import _same_type, port_side
 from discopy.pivotal import Ob, Ty  # noqa: F401
+from discopy.utils import AxiomError
 
 
 @ar_factory
@@ -142,6 +144,15 @@ class Hypergraph(symmetric.Hypergraph):
 
 class CombinatorialMap(symmetric.CombinatorialMap):
     functor = Functor
+
+    @classmethod
+    def validate_wire(cls, source, target):
+        """ Validate compact wires, with adjoints reversing orientation. """
+        if port_side(source) == port_side(target):
+            raise AxiomError
+        if not _same_type(source.obj, target.obj):
+            raise AxiomError(messages.TYPE_ERROR.format(
+                source.obj, target.obj))
 
 
 Id = Diagram.id
