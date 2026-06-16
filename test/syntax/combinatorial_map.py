@@ -144,6 +144,29 @@ def test_from_box_and_to_hypergraph():
     assert cmap.to_hypergraph() == f.to_hypergraph()
 
 
+def test_to_diagram_preserves_orientation(monkeypatch):
+    from discopy.compact import Ty, Box, Id
+
+    x, y, z, w = map(Ty, "xyzw")
+    f, g = Box("f", x, z), Box("g", y, w)
+
+    diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
+    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram != diagram.to_hypergraph().to_diagram().normal_form()
+
+
+def test_quotient_swap_involutivity():
+    from discopy.compact import Ty, Id
+
+    x, y, w, z = map(Ty, "xyzw")
+
+    diagram = Id(x @ y).swap(x, y).swap(y, x)
+    assert diagram == diagram.to_map().to_diagram().normal_form()
+
+    diagram = Id(x @ y @ w @ z).swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
+    assert diagram == diagram.to_map().to_diagram().normal_form()
+
+
 def test_diagram_to_map():
     from discopy.monoidal import Ty, Box
 
@@ -182,25 +205,25 @@ def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
 
 
 def test_structural_maps_and_errors():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty as CTy, Box as CBox, CombinatorialMap as CM
     from discopy.markov import Ty as MTy, CombinatorialMap as MM
 
-    x, y = map(Ty, "xy")
-    assert M.swap(x, y).to_hypergraph() == M.category.swap(
+    x, y = map(CTy, "xy")
+    assert CM.swap(x, y).to_hypergraph() == CM.category.swap(
         x, y).to_hypergraph()
-    assert M.cups(x, x.r).dom == x @ x.r
-    assert M.caps(x.r, x).cod == x.r @ x
+    assert CM.cups(x, x.r).dom == x @ x.r
+    assert CM.caps(x.r, x).cod == x.r @ x
     with raises(AxiomError):
-        M.cups(x, y)
+        CM.cups(x, y)
     with raises(AxiomError):
-        M.caps(x, y)
+        CM.caps(x, y)
 
     mx = MTy("x")
     assert MM.copy(mx, 2).boxes == (MM.category.copy(mx, 2), )
     assert MM.merge(mx, 2).boxes == (MM.category.merge(mx, 2), )
     assert MM.discard(mx).boxes == (MM.category.copy(mx, 0), )
 
-    f = M.from_box(Box("f", x, y))
+    f = CM.from_box(CBox("f", x, y))
     assert f.trace(0) is f
     with raises(ValueError):
         f.trace(-1)

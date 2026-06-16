@@ -299,8 +299,19 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1
         return len(self.boxes) - self.n_ports // 2 + len(self.face_cycles)
 
     def canonical_node(self) -> Permutation:
-        """ The canonical box orientation in fixed local port order. """
-        return Permutation.from_cycles(self.box_port_indices, len(self.ports))
+        """
+        The canonical box orientation.
+
+        We go through input/domain ports in order, then through output/codomain
+        ports in reverse order, matching the counter-clockwise boundary order
+        of an ordinary box.
+        """
+        cycles = []
+        for box, ports in zip(self.boxes, self.box_port_indices):
+            dom = ports[:len(box.dom)]
+            cod = ports[len(box.dom):]
+            cycles.append(dom + tuple(reversed(cod)))
+        return Permutation.from_cycles(cycles, len(self.ports))
 
     def _validate(self):
         ports = self.ports
@@ -688,6 +699,68 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1
         return factory(
             self.dom, self.cod, self.boxes, wires,
             tuple(spider_types), self.offsets)
+
+    def to_diagram(self) -> Diagram:
+        """
+        Downgrade to a diagram directly, preserving node orientation.
+
+        The construction scans the currently open wire labels from left to
+        right. For each box, it swaps boundary wires until the box domain wires
+        are adjacent at the requested offset, applies the box, and replaces
+        consumed domain labels by the box codomain labels.
+        """
+        edge_wire = {}
+        for i, j in enumerate(self.edge):
+            if i <= j:
+                edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
+
+        def wire(port_index):
+            return edge_wire[port_index]
+
+        diagram = self.category.id(self.dom)
+        scan = [wire(i) for i in range(len(self.dom))]
+
+        for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
+            box_ports = self.box_port_indices[depth]
+            dom_ports = box_ports[:len(box.dom)]
+            cod_ports = box_ports[len(box.dom):]
+            dom_wires = [wire(i) for i in dom_ports]
+            cod_wires = [wire(i) for i in cod_ports]
+
+            for i, wire_id in enumerate(dom_wires):
+                j = scan.index(wire_id)
+                if i == 0 and offset is None:
+                    offset = 0
+                if j > offset + i:
+                    diagram >>= diagram.cod[:offset + i] @ diagram.swap(
+                        diagram.cod[offset + i:j], diagram.cod[j]
+                    ) @ diagram.cod[j + 1:]
+                    scan = (scan[:offset + i] + scan[j:j + 1]) + (
+                        scan[offset + i:j] + scan[j + 1:])
+                elif j < offset + i:
+                    diagram >>= diagram.cod[:j] @ diagram.swap(
+                        diagram.cod[j], diagram.cod[j + 1:offset + i]
+                    ) @ diagram.cod[offset + i:]
+                    scan = (scan[:j] + scan[j + 1:offset + i]) + (
+                        scan[j:j + 1] + scan[offset + i:])
+                    offset -= 1
+
+            offset = 0 if offset is None else offset
+            scan = scan[:offset] + cod_wires + scan[offset + len(box.dom):]
+            diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
+                offset + len(box.dom):]
+
+        cod_wires = [
+            wire(self.n_ports - len(self.cod) + i)
+            for i in range(len(self.cod))]
+        for i, wire_id in enumerate(cod_wires):
+            j = scan.index(wire_id)
+            if i < j:
+                diagram >>= diagram.cod[:i] @ diagram.swap(
+                    diagram.cod[i:j], diagram.cod[j:j + 1]
+                ) @ diagram.cod[j + 1:]
+                scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
+        return diagram
 
     def to_term(self, input_names: Iterable[str] | None = None):
         """
