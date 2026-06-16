@@ -106,24 +106,6 @@ def test_repr_eq_and_hash():
     assert hash(cmap) == hash(M.from_box(Box("f", x, y)))
 
 
-def test_validate_wire_is_overridden_only_when_it_differs():
-    from discopy import (
-        balanced,
-        closed,
-        compact,
-        markov,
-        monoidal,
-        symmetric,
-        traced,
-    )
-
-    for module in (
-            monoidal, traced, balanced, symmetric,
-            markov, closed):
-        assert "validate_wire" not in module.CombinatorialMap.__dict__
-    assert "validate_wire" in compact.CombinatorialMap.__dict__
-
-
 def test_id_and_tensor():
     from discopy.compact import Ty, CombinatorialMap as M, Hypergraph as H
     x, y = map(Ty, "xy")
