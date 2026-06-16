@@ -21,7 +21,7 @@ from discopy.abc import MonoidalCategory
 
 
 @dataclass
-class Function(MonoidalCategory[int]):
+class Function(MonoidalCategory):
     """
     A function between finite sets encoded as a Python dictionary.
 

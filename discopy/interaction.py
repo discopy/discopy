@@ -147,7 +147,7 @@ class Ty(NamedGeneric['natural']):
 
 
 @dataclass
-class Diagram(RibbonCategory[Ty], NamedGeneric['natural']):
+class Diagram(RibbonCategory, NamedGeneric['natural']):
     """
     An integer diagram from ``x`` to ``y`` is a :attr:`natural` diagram
     from ``x.positive @ y.negative`` to ``x.negative @ y.positive``.

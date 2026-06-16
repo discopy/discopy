@@ -87,7 +87,7 @@ class Ty(monoidal.Ty):
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
-            else super().__pow__(other)
+            else monoidal.Ty.__pow__(self, other)
 
     def __lshift__(self, other):
         return Over(self, other)

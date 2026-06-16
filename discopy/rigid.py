@@ -46,7 +46,7 @@ from collections.abc import Callable
 from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
-from discopy.abc import RigidCategory
+from discopy.abc import Pregroup, RigidCategory
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
     assert_isinstance,
@@ -119,7 +119,7 @@ class Ob(cat.Ob):
 
 
 @ob_factory
-class Ty(biclosed.Ty):
+class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
 
@@ -164,12 +164,6 @@ class Ty(biclosed.Ty):
         """ The winding number is only defined for types of length 1. """
         assert_isatomic(self)
         return self.inside[0].z
-
-    def __lshift__(self, other):
-        return self @ other.l
-
-    def __rshift__(self, other):
-        return self.r @ other
 
     ob_factory = Ob
 
