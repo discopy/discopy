@@ -146,7 +146,8 @@ class Permutation(tuple):
     def compose(self, other: Iterable[int]) -> Permutation:
         """ Return ``self o other``, i.e. ``result[i] == self[other[i]]``. """
         other = type(self)(other, len(self))
-        return type(self)((self[other[i]] for i in range(len(self))), len(self))
+        elems = (self[other[i]] for i in range(len(self)))
+        return type(self)(elems, len(self))
 
     def inverse(self) -> Permutation:
         """ Return the inverse permutation. """
@@ -207,7 +208,9 @@ def _same_type(left, right) -> bool:
     return right in [left, left_r] or left in [right, right_r]
 
 
-class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1], NamedGeneric['functor']):
+class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
+    MonoidalCategory[C0, C1], NamedGeneric['functor']
+):
     """
     A bijective oriented hypergraph with interfaces.
 
@@ -682,7 +685,9 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1
         return type(self)(new_dom, cod, boxes, edge, node, offsets)
 
     def to_hypergraph(self) -> hypergraph.Hypergraph:
-        """ Forget orientation and return the underlying bijective hypergraph. """
+        """
+        Forget orientation and return the underlying bijective hypergraph.
+        """
         spider_types, flat_wires = [], [None] * self.n_ports
         for i in range(self.n_ports):
             j = self.edge[i]
@@ -790,8 +795,10 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1
                 return obj.inside[0]
             return obj
 
-        variables = tuple(Variable(obj, name)
-                          for obj, name in zip(map(term_type, self.dom), names))
+        variables = tuple(
+            Variable(obj, name)
+            for obj, name in zip(map(term_type, self.dom), names)
+        )
         counter = [len(variables)]
 
         def fresh(obj):
@@ -1059,7 +1066,6 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1
             if box_labels is not None:
                 return box_labels(box)
             arity = len(box.dom), len(box.cod)
-            name = type(box).__name__
             return getattr(box, "drawing_name", None)\
                 or getattr(box, "name", None)\
                 or f"{arity[0]}->{arity[1]}"

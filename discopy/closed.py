@@ -517,7 +517,11 @@ def unpack(package: Term, variables=None, body: Term | None = None) -> Unpack:
     return Unpack(package, variables, body)
 
 
-def assert_term_map(cmap, term, category: type[CombinatorialMap] | None = None):
+def assert_term_map(
+    cmap,
+    term,
+    category: type[CombinatorialMap] | None = None
+):
     category = category or CombinatorialMap
     if cmap.dom != category.ob().tensor(
             *(variable.cod for variable in term.freevars)):
