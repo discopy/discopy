@@ -90,10 +90,10 @@ def test_Diagram():
 
 def test_BA_FA():
     X, Y = Ty('X'), Ty('Y')
-    x = Constant(Box("x", Ty(), X))
-    f, g = Constant(Box("f", X, Y), left=True), Constant(Box("g", X, Y))
+    x = Constant("x", X)
+    f, g = Constant("f", Y << X), Constant("g", X >> Y)
 
-    assert (FA(f, x)).typ == Y == BA(x, g).typ
+    assert FA(f, x).cod == Y == BA(x, g).cod
 
     with raises(TypeError):
         FA(x, f)
@@ -105,33 +105,35 @@ def test_BA_FA():
 
 def test_terms_simplify_and_eval():
     X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
-    x = Constant(Box("x", Ty(), X))
-    f_left = Constant(Box("f", X, Y), left=True)
-    g_left = Constant(Box("g", Y, Z), left=True)
-    f_right = Constant(Box("f", X, Y))
-    g_right = Constant(Box("g", Y, Z))
+    x = Constant("x", X)
+    f_left = Constant("f", Y << X)
+    g_left = Constant("g", Z << Y)
+    f_right = Constant("f", X >> Y)
+    g_right = Constant("g", Y >> Z)
     var = Variable("x", X)
-    abstraction = Abstraction(var, f_left << var)
+    abstraction = Abstraction(var, f_left(var))
 
     assert x.simplify() is x
     assert var.simplify() is var
     assert abstraction.simplify() == abstraction
-    assert (f_left << x).simplify() == f_left << x
-    assert (x >> f_right).simplify() == x >> f_right
+    assert f_left(x).simplify() == f_left(x)
+    assert x(f_right, left=True).simplify() == x(f_right, left=True)
 
     for term in [FTR(Y, x), BTR(Y, x)]:
         assert term.freevars == []
         assert str(term) == f"{type(term).__name__}({Y}, {x})"
         assert isinstance(term.simplify(), Abstraction)
         assert term.eval() == term.simplify().eval()
-    assert FTR(Y, x).typ == Y << (X >> Y)
-    assert BTR(Y, x).typ == (Y << X) >> Y
+    assert FTR(Y, x).cod == Y << (X >> Y)
+    assert BTR(Y, x).cod == (Y << X) >> Y
 
     fc, bc = FC(g_left, f_left), BC(f_right, g_right)
     assert fc.freevars == []
     assert str(fc) == f"FC({g_left}, {f_left})"
-    assert fc.simplify() == X(lambda x: g_left << (f_left << x))
-    assert bc.simplify() == X(lambda x, left=True: (x >> f_right) >> g_right)
+    x_var = Variable("x", X)
+    assert fc.simplify() == Abstraction(x_var, g_left(f_left(x_var)))
+    assert bc.simplify() == Abstraction(
+        x_var, x_var(f_right, left=True)(g_right, left=True), left=True)
     assert fc.eval() == fc.simplify().eval()
     assert bc.eval() == bc.simplify().eval()
 
@@ -141,12 +143,11 @@ def test_terms_simplify_and_eval():
 
 def test_FC_BC_FX_BX():
     X, Y, Z = Ty('X'), Ty('Y'), Ty('Z')
-    f, g = Box("f", X, Y), Box("g", Y, Z)
-    f_left, g_left = Constant(f, left=True), Constant(g, left=True)
-    f_right, g_right = Constant(f), Constant(g)
+    f_left, g_left = Constant("f", Y << X), Constant("g", Z << Y)
+    f_right, g_right = Constant("f", X >> Y), Constant("g", Y >> Z)
 
-    assert FC(g_left, f_left).typ == BX(f_left, g_right).typ == Z << X
-    assert BC(f_right, g_right).typ == FX(g_left, f_right).typ == X >> Z
+    assert FC(g_left, f_left).cod == BX(f_left, g_right).cod == Z << X
+    assert BC(f_right, g_right).cod == FX(g_left, f_right).cod == X >> Z
 
     with raises(TypeError):
         FC(f_right, g_left)
@@ -175,10 +176,10 @@ def test_FC_BC_FX_BX():
         BackwardCrossedComposition(Y << X, Z >> X)
 
     assert FX(g_left, f_right).eval()\
-        == g.curry(left=True) @ f.curry(left=False)\
+        == g_left @ f_right\
         >> ForwardCrossedComposition(Z << Y, X >> Y)
     assert BX(f_left, g_right).eval()\
-        == f.curry(left=True) @ g.curry(left=False)\
+        == f_left @ g_right\
         >> BackwardCrossedComposition(Y << X, Y >> Z)
 
 

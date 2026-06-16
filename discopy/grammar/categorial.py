@@ -74,12 +74,12 @@ class Diagram(biclosed.Diagram):
     @staticmethod
     def fa(left, right):
         """ Forward application. """
-        return Diagram.eval_factory(left << right, left=True)
+        return Diagram.eval_factory(left << right)
 
     @staticmethod
     def ba(left, right):
         """ Backward application. """
-        return Diagram.eval_factory(left >> right, left=False)
+        return Diagram.eval_factory(left >> right)
 
     @staticmethod
     def fc(left, middle, right):
@@ -88,8 +88,8 @@ class Diagram(biclosed.Diagram):
             Diagram.id(left << middle) @ Diagram.id(middle << right)
             @ Diagram.id(right)
             >> Diagram.id(left << middle)
-            @ Diagram.eval_factory(middle << right, left=True)
-            >> Diagram.eval_factory(left << middle, left=True)
+            @ Diagram.eval_factory(middle << right)
+            >> Diagram.eval_factory(left << middle)
         ).curry(left=True)
 
     @staticmethod
@@ -98,9 +98,9 @@ class Diagram(biclosed.Diagram):
         return (
             Diagram.id(left) @ Diagram.id(left >> middle)
             @ Diagram.id(middle >> right)
-            >> Diagram.eval_factory(left >> middle, left=False)
+            >> Diagram.eval_factory(left >> middle)
             @ Diagram.id(middle >> right)
-            >> Diagram.eval_factory(middle >> right, left=False)
+            >> Diagram.eval_factory(middle >> right)
         ).curry()
 
     @staticmethod
@@ -199,36 +199,39 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
 
-class TermBase(biclosed.TermBase):
+class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a categorial grammar.
     """
     functor = Functor.id(Diagram)
+    freevars = None
 
-    def __call__(self, other, left=True):
-        return FA(self, other) if left else BA(self, other)
-
-
-class Constant(biclosed.Constant, TermBase):
-    typ: Ty
-    name: str
-
-    def simplify(self):
-        return self
+    def __call__(self, other, left=False):
+        return BA(self, other) if left else FA(self, other)
 
 
-class Variable(biclosed.Variable, TermBase):
-    typ: Ty
-    name: str
+class Constant(TermBase, biclosed.Constant):
+    def __init__(self, name: str, cod: Ty):
+        biclosed.Constant.__init__(self, name, cod)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
 
     def simplify(self):
         return self
 
 
-class Abstraction(biclosed.Abstraction, TermBase):
+class Variable(TermBase, biclosed.Variable):
+    def simplify(self):
+        return self
+
+
+class Abstraction(TermBase, biclosed.Abstraction):
     var: Variable
     body: Term
     left: bool = False
+
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        biclosed.Abstraction.__init__(self, var, body, left)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
 
     def simplify(self):
         return Abstraction(self.var, self.body.simplify(), self.left)
@@ -237,33 +240,32 @@ class Abstraction(biclosed.Abstraction, TermBase):
 class FA(TermBase, biclosed.Application):
     "Application of type ``Y`` with subterms of type ``Y << X`` and ``X``."
     def __init__(self, func, args):
-        biclosed.Application.__init__(self, func, args)
+        biclosed.Application.__init__(self, func, args, left=False)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
 
     def simplify(self):
-        return self.func.simplify() << self.args.simplify()
+        return self.func.simplify()(self.args.simplify())
 
 
 class BA(TermBase, biclosed.Application):
     "Application of type ``Y`` with subterms of type ``X`` and ``X >> Y``."
     def __init__(self, args, func):
-        biclosed.Application.__init__(self, func, args, left=False)
+        biclosed.Application.__init__(self, func, args, left=True)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
 
     def simplify(self):
-        return self.args.simplify() >> self.func.simplify()
+        return self.args.simplify()(self.func.simplify(), left=True)
 
 
-@dataclass(frozen=True)
 class TypeRaising(TermBase):
     "Abstract superclass of :class:`FTR` and :class:`BTR`."
     base: Ty
     child: Term
 
-    @property
-    def freevars(self):
-        return self.child.freevars
-
-    def __str__(self):
-        return f"{type(self).__name__}({self.base}, {self.child})"
+    def __init__(self, base, child, cod):
+        name = f"{type(self).__name__}({base}, {child})"
+        self.base, self.child, self.freevars = base, child, child.freevars
+        super().__init__(name, child.dom, cod)
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
@@ -271,24 +273,22 @@ class TypeRaising(TermBase):
 
 class FTR(TypeRaising):
     "Forward type raising ``Y << (X >> Y)`` with base ``Y`` and child ``X``."
-    @property
-    def typ(self):
-        return self.base << (self.child.typ >> self.base)
+    def __init__(self, base, child):
+        super().__init__(base, child, base << (child.cod >> base))
 
     def simplify(self):
-        return (self.child.typ >> self.base)(
-            lambda f: self.child.simplify() >> f)
+        f = Variable("f", self.child.cod >> self.base)
+        return Abstraction(f, self.child.simplify()(f, left=True))
 
 
 class BTR(TypeRaising):
     "Backward type raising ``(Y << X) >> Y`` with base ``Y`` and child ``X``."
-    @property
-    def typ(self):
-        return (self.base << self.child.typ) >> self.base
+    def __init__(self, base, child):
+        super().__init__(base, child, (base << child.cod) >> base)
 
     def simplify(self):
-        return (self.base << self.child.typ)(
-            lambda f, left=True: f << self.child.simplify())
+        f = Variable("f", self.base << self.child.cod)
+        return Abstraction(f, f(self.child.simplify()), left=True)
 
 
 @dataclass(frozen=True)
@@ -300,10 +300,8 @@ class BinaryTerm(TermBase):
     def __post_init__(self):
         if set(self.left.freevars).intersection(self.right.freevars):
             raise ValueError("Expected disjoint free variables.")
-
-    @property
-    def freevars(self):
-        return self.left.freevars + self.right.freevars
+        object.__setattr__(
+            self, "freevars", self.left.freevars + self.right.freevars)
 
     def __str__(self):
         return f"{type(self).__name__}({self.left}, {self.right})"
@@ -320,20 +318,21 @@ class FC(BinaryTerm):
     "Forward composition ``A << C`` with subterms ``A << B`` and ``B << C``. "
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.typ, Over)
-        assert_isinstance(self.right.typ, Over)
-        if self.right.typ.base != self.left.typ.exponent:
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Over)
+        if self.right.cod.base != self.left.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.typ, self.right.typ,
-                self.left.typ.exponent, self.right.typ.base))
+                self.left.cod, self.right.cod,
+                self.left.cod.exponent, self.right.cod.base))
 
     @property
-    def typ(self):
-        return self.left.typ.base << self.right.typ.exponent
+    def cod(self):
+        return self.left.cod.base << self.right.cod.exponent
 
     def simplify(self):
         f, g = self.left.simplify(), self.right.simplify()
-        return self.right.typ.exponent(lambda x: f << (g << x))
+        x = Variable("x", self.right.cod.exponent)
+        return Abstraction(x, f(g(x)))
 
 
 @dataclass(frozen=True)
@@ -341,20 +340,21 @@ class BC(BinaryTerm):
     "Backward composition ``A >> C`` with subterms ``A >> B`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.typ, Under)
-        assert_isinstance(self.right.typ, Under)
-        if self.left.typ.base != self.right.typ.exponent:
+        assert_isinstance(self.left.cod, Under)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.base != self.right.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.typ, self.right.typ,
-                self.left.typ.base, self.right.typ.exponent))
+                self.left.cod, self.right.cod,
+                self.left.cod.base, self.right.cod.exponent))
 
     @property
-    def typ(self):
-        return self.left.typ.exponent >> self.right.typ.base
+    def cod(self):
+        return self.left.cod.exponent >> self.right.cod.base
 
     def simplify(self):
         f, g = self.left.simplify(), self.right.simplify()
-        return self.left.typ.exponent(lambda x, left=True: (x >> f) >> g)
+        x = Variable("x", self.left.cod.exponent)
+        return Abstraction(x, x(f, left=True)(g, left=True), left=True)
 
 
 @dataclass(frozen=True)
@@ -362,20 +362,20 @@ class FX(BinaryTerm):
     "Forward crossing ``A >> C`` with subterms ``B << A`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.typ, Over)
-        assert_isinstance(self.right.typ, Under)
-        if self.left.typ.exponent != self.right.typ.base:
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.exponent != self.right.cod.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.typ, self.right.typ,
-                self.left.typ.exponent, self.right.typ.base))
+                self.left.cod, self.right.cod,
+                self.left.cod.exponent, self.right.cod.base))
 
     @property
-    def typ(self):
-        return self.right.typ.exponent >> self.left.typ.base
+    def cod(self):
+        return self.right.cod.exponent >> self.left.cod.base
 
     def eval(self, functor=None):
-        functor, X = functor or self.functor, self.left.typ.base
-        Y, Z = self.left.typ.exponent, self.right.typ.exponent
+        functor, X = functor or self.functor, self.left.cod.base
+        Y, Z = self.left.cod.exponent, self.right.cod.exponent
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
@@ -385,20 +385,20 @@ class BX(BinaryTerm):
     "Backward crossing ``A << C`` with subterms ``A << B`` and ``C >> B``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.typ, Over)
-        assert_isinstance(self.right.typ, Under)
-        if self.left.typ.base != self.right.typ.exponent:
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.base != self.right.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.typ, self.right.typ,
-                self.left.typ.base, self.right.typ.exponent))
+                self.left.cod, self.right.cod,
+                self.left.cod.base, self.right.cod.exponent))
 
     @property
-    def typ(self):
-        return self.right.typ.base << self.left.typ.exponent
+    def cod(self):
+        return self.right.cod.base << self.left.cod.exponent
 
     def eval(self, functor=None):
-        functor, Z = functor or self.functor, self.right.typ.base
-        X, Y = self.left.typ.exponent, self.left.typ.base
+        functor, Z = functor or self.functor, self.right.cod.base
+        X, Y = self.left.cod.exponent, self.left.cod.base
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
 
@@ -406,7 +406,6 @@ class BX(BinaryTerm):
 type Term = (
     Constant | Variable | Abstraction
     | FA | BA | FC | BC | FX | BX)
-
 
 def cat2ty(string: str) -> Ty:
     """

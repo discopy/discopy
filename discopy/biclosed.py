@@ -427,6 +427,7 @@ class TermBase(Box):
     Attributes:
         dom (Ty): The tensor of the types for each free variable.
         cod (Ty): The type of a term, i.e. the codomain of its morphism.
+        freevars (Ty): The list of free variables.
         functor (Functor): The functor to evaluate the term, ``id`` by default.
 
     Note
@@ -459,14 +460,8 @@ class TermBase(Box):
     """
     dom: Ty
     cod: Ty
+    freevars: list[Variable]
     functor: ClassVar[Functor] = Functor.id(Diagram)
-
-    @abstractproperty
-    def freevars(self) -> list[Variable]:
-        """
-        The list of all occurrences of free variables, we assume each variable
-        is used exactly once so there are no duplicates.
-        """
 
     @abstractmethod
     def eval(functor: Functor = None) -> BiclosedCategory:
@@ -497,10 +492,7 @@ class Constant(TermBase):
     """
     def __init__(self, name: Ty, cod: Ty, **kwargs):
         super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
-
-    @property
-    def freevars(self):
-        return []
+        self.freevars = []
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -517,10 +509,7 @@ class Variable(TermBase):
     """
     def __init__(self, name: str, cod: Ty):
         super().__init__(name, dom=cod, cod=cod)
-
-    @property
-    def freevars(self):
-        return [self]
+        self.freevars = [self]
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -538,28 +527,27 @@ class Application(TermBase):
         args (Term): The arguments to which the function is applied.
         left (bool): Whether the argument comes in from the left or right.
     """
-    def __init__(self, func: Term, args: Term, left: bool = True):
+    def __init__(self, func: Term, args: Term, left: bool = False):
         assert_isinstance(func, TermBase)
         assert_isinstance(args, TermBase)
-        exp = Under if left else Over
-        assert_isinstance(func.cod, exp)
-        if func.cod.exponent != args.cod:
-            raise ValueError(
-                f"Expected {func.cod.exponent}, got {args.cod}")
-        if set(func.freevars).intersection(args.freevars):
-            raise ValueError("Expected disjoint free variables.")
+        assert_isinstance(func.cod, Exp)
         self.func, self.args, self.left = func, args, left
+        self.freevars = func.freevars + args.freevars if left\
+            else args.freevars + func.freevars
         dom = args.dom @ func.dom if left else func.dom @ args.dom
         cod = func.cod.base
         fname = f"({func})" if isinstance(func, Application) else str(func)
         xname = f"({args})" if isinstance(args, Application) else str(args)
         name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
         super().__init__(name, dom, cod)
-
-    @property
-    def freevars(self):
-        return self.func.freevars + self.args.freevars if self.left\
-            else self.args.freevars + self.func.freevars
+        self.__post_init__()
+    
+    def __post_init__(self):
+        if self.func.cod.exponent != self.args.cod:
+            raise ValueError(
+                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
+        if set(self.func.freevars).intersection(self.args.freevars):
+            raise ValueError("Expected disjoint free variables.")
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -586,17 +574,14 @@ class Abstraction(TermBase):
             raise ValueError("Expected abstraction of right-most variable.")
         self.var, self.body, self.left = var, body, left
         left_str = ", left=True" if left else ""
+        self.freevars = body.freevars[slice(1) if left else slice(None, -1)]
         name = f"{var.cod}(lambda {var.name}{left_str}: {body})"
         dom = body.dom[1:] if left else body.dom[:-1]
         cod = var.cod >> body.cod if left else body.cod << var.cod
         super().__init__(name, dom, cod)
 
-    @property
-    def freevars(self):
-        return self.body.freevars[slice(1) if self.left else slice(None, -1)]
-
     def eval(self, functor=None):
-        return self.body.curry(left=not self.left).eval(functor)
+        return (functor or self.functor)(self.body.curry(left=not self.left))
 
 
 type Term = Constant | Variable | Application | Abstraction

@@ -48,7 +48,6 @@ Axioms
 """
 
 from __future__ import annotations
-from abc import abstractproperty
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
@@ -68,7 +67,7 @@ class Ty(biclosed.Ty):
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
-    >>> t.to_diagram().draw(
+    >>> t.draw(
     ...     path='docs/_static/closed/diagram.png',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
@@ -106,10 +105,13 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def is_linear(self):
         return all(box.is_linear for box in self.boxes)
 
+    @classmethod
+    def ev(cls, base: Ty, exponent: Ty, left: bool = True):
+        return cls.eval_factory(exponent >> base, left=left)
+
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
-
     is_linear = True
 
 
@@ -158,13 +160,6 @@ class Sum(markov.Sum, biclosed.Sum, Box):
     """
 
 
-Diagram.over, Diagram.under, Diagram.exp\
-    = map(staticmethod, (biclosed.Over, biclosed.Under, Exp))
-Diagram.sum_factory = Sum
-
-Id = Diagram.id
-
-
 class Functor(biclosed.Functor, markov.Functor):
     """
     A closed functor is a markov functor
@@ -198,6 +193,7 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = lambda X: Copy(X, 0)
 Diagram.sum_factory = Sum
+Diagram.exp = Diagram.under = Diagram.over = staticmethod(Exp)
 
 Id = Diagram.id
 
@@ -206,100 +202,83 @@ class TermBase(biclosed.TermBase):
     """
     A term in the internal language of a closed category.
     """
+    functor = Functor.id(Diagram)
+
     def __call__(self, other):
-        return Application(self, other)
-
-    def __lshift__(self, other):
-        return Application(self, other)
-
-    def __rshift__(self, other):
-        return Application(other, self)
-
-    @abstractproperty
-    def freevars(self) -> list[Variable]: ...
+        return Application(self, other, left=False)
 
 
 type Term = Constant | Variable | Application | Abstraction
 
 
 class Constant(biclosed.Constant, TermBase):
-    def to_diagram(self, category=Diagram, context=None):
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
         if not context:
-            return super().to_diagram(category)
-        d = category.discard()
-        return d >> super().to_diagram(category)
+            return super().eval(functor)
+        return functor.cod.discard(functor(context.dom)) >> super().eval(
+            functor)
 
 
 class Variable(biclosed.Variable, TermBase):
-    typ: Ty
+    freevars = None
     name: str
 
-    def eval(self, functor=None, context=None):
-        if not context:
-            return category.id(self.typ)
-        return category.tensor(*[
-            category.id(x) if x == self else category.discard(x)
-            for x in context])
-
-
-@dataclass(frozen=True)
-class Application(biclosed.Application, TermBase):
-    func: Term
-    args: Term
-
-    def __post_init__(self):
-        assert_isinstance(self.func.typ, Exp)
-        if self.func.typ.exponent != self.args.typ:
-            raise ValueError(
-                f"Expected {self.func.typ.exponent}, got {self.args.typ}")
-
-    @property
-    def typ(self):
-        return self.func.typ.base
-
-    def __str__(self):
-        return f"{self.func}({self.args})"
+    def __init__(self, name: str, cod: Ty):
+        super().__init__(name, cod)
+        self.freevars = [self]
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
-        evaluate = Eval(self.func.typ, left=True)
+        if not context:
+            return functor.cod.id(functor(self.cod))
+        return functor.cod.tensor(*[
+            functor.cod.id(functor(x.cod)) if x == self
+            else functor.cod.discard(functor(x.cod))
+            for x in context.inside])
+
+
+class Application(TermBase, biclosed.Application):
+    def __post_init__(self):
+        pass  # No need to check for linearity anymore.
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        base, exponent = self.func.cod.base, self.func.cod.exponent
+        evaluate = functor.cod.ev(functor(base), functor(exponent))
         if context is None:
             overlap = set(self.func.freevars).intersection(self.args.freevars)
             if not overlap:
                 func = self.func.eval(functor=functor)
                 args = self.args.eval(functor=functor)
                 return func @ args >> evaluate
-            context = Context(list(set(self.freevars)), category)
+            context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(context.dom) >> func @ args >> evaluate
+        return functor.cod.copy(functor(context.dom)) >> func @ args >> evaluate
 
 
-@dataclass(frozen=True)
-class Abstraction(biclosed.Abstraction, TermBase):
-    var: Variable
-    body: Term
-
-    def __post_init__(self):
-        pass  # No need to check for planarity or linearity.
-
-    @property
-    def typ(self):
-        return self.var.typ >> self.body.typ
-
-    def __str__(self):
-        return f"{self.var.typ}(lambda {self.var.name}: {self.body})"
+class Abstraction(TermBase, biclosed.Abstraction):
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        if body.freevars.count(var) < 1:
+            raise ValueError("Expected variable to occur at least once.")
+        self.var, self.body, self.left = var, body, left
+        self.freevars = [x for x in body.freevars if x != var]
+        name = f"{var.cod}(lambda {var.name}: {body})"
+        dom = Ty().tensor(*[x.cod for x in self.freevars])
+        cod = var.cod >> body.cod
+        TermBase.__init__(self, name, dom, cod)
 
     def eval(self, functor=None, context=None):
+        functor = functor or self.functor
         if context:
-            new_context = self.var + context.inside
+            new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry()
+            return body.curry(left=True)
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
-        p = body.permutation(
-            [i] + [j for j in range(n) if j != i], body.dom)
-        return (p >> body).curry()
+        p = [0] + [j + 1 for j in range(n) if j != i]
+        return (body.permutation(p, body.dom).dagger() >> body).curry()
 
 
 @dataclass
@@ -309,7 +288,7 @@ class Context:
 
     @property
     def dom(self):
-        return self.category.ob.tensor(*[x.typ for x in self.inside])
+        return self.category.ob.tensor(*[x.cod for x in self.inside])
 
 
 @dataclass
