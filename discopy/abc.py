@@ -112,10 +112,12 @@ class Monoid[T]:
 
     @classmethod
     @abstractmethod
-    def tensor(cls, *objects: T) -> T:
-        """
-        The n-ary product of a monoid.
-        """
+    def tensor(cls) -> T:
+        """ The unit of a monoid. """
+
+    @abstractmethod
+    def tensor(self, *objects: T) -> T:
+        """ The n-ary product of a monoid for ``n > 0``. """
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -192,8 +194,7 @@ class ResiduatedMonoid[T](Monoid[T]):
 
 
 class BiclosedCategory[
-        C0: ResiduatedMonoid, C1: BiclosedCategory
-    ](MonoidalCategory[C0, C1]):
+        C0: ResiduatedMonoid, C1: BiclosedCategory](MonoidalCategory[C0, C1]):
     """
     A biclosed category is a :class:`MonoidalCategory` with methods :code:`ev`
     and :code:`curry` for the evaluation and currying of morphisms.
@@ -231,6 +232,18 @@ class Pregroup[T](ResiduatedMonoid[T]):
     """
     l: T
     r: T
+
+    def tensor(self, *others: T) -> T:
+        return super(Monoid, self).tensor(*others)
+
+    def __matmul__(self, other: T) -> T:
+        return self.tensor(other)
+
+    def over(self, other: T) -> T:
+        return self @ other.l
+
+    def under(self, other: T) -> T:
+        return other.r @ self
 
 
 class RigidCategory[C0: Pregroup, C1: RigidCategory](BiclosedCategory[C0, C1]):
@@ -285,7 +298,8 @@ class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class BalancedCategory[C0, C1](BraidedCategory[C0, C1], TracedCategory[C0, C1]):
+class BalancedCategory[C0, C1](
+        BraidedCategory[C0, C1], TracedCategory[C0, C1]):
     """
     A balanced category is a :class:`BraidedCategory` and a
     :class:`TracedCategory` with a method :code:`twist` for the natural
@@ -318,6 +332,14 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
             right : The object on the right of the swap.
         """
 
+    @classmethod
+    def twist(cls, dom: C0) -> C1:
+        return cls.id(dom)
+
+    @classmethod
+    def braid(cls, left: C0, right: C0) -> C1:
+        return cls.swap(left, right)
+
 
 class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     """
@@ -332,17 +354,6 @@ class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
 
         Parameters:
             x : The object to copy.
-            n : The number of copies.
-        """
-
-    @classmethod
-    @abstractmethod
-    def merge(cls, x: C0, n: int = 2) -> C1:
-        """
-        Merge :code:`n` copies of a given object :code:`x`.
-
-        Parameters:
-            x : The object to merge.
             n : The number of copies.
         """
 
@@ -380,14 +391,16 @@ class FeedbackCategory[C0, C1](MarkovCategory[C0, C1]):
         """
 
 
-class RibbonCategory[C0, C1](PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
+class RibbonCategory[C0, C1](
+        PivotalCategory[C0, C1], BalancedCategory[C0, C1]):
     """
     A ribbon category is a :class:`PivotalCategory` which is also a
     :class:`BalancedCategory`, i.e. where diagrams can draw knots and links.
     """
 
 
-class CompactCategory[C0, C1](RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
+class CompactCategory[C0, C1](
+        RibbonCategory[C0, C1], SymmetricCategory[C0, C1]):
     """
     A compact category is a :class:`RibbonCategory` which is also a
     :class:`SymmetricCategory`, i.e. with cups, caps and swaps.
