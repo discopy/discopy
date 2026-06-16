@@ -293,7 +293,6 @@ def test_whiteboard_term():
     X, Y, Z = map(Ty, "XYZ")
     term = (Y >> X)(lambda x: Y(lambda y: X(lambda z: z)(x(y))))
     assert term.cod == (Y >> X) >> (Y >> X)
-    term.to_map().draw()
     assert term == term.to_map().to_term()
 
 
@@ -328,10 +327,7 @@ def test_petersen_term():
     )
 
     cmap = petersen.to_map()
-    cmap.draw()
     assert len(cmap.ports) == 34
-    # cmap.draw()
-    # cmap.to_hypergraph().simplify().to_diagram().foliation().draw()
     assert_freevars_as_domain(petersen, cmap)
     assert_trivalent_map(cmap, Ty(), petersen.cod, vertices=11)
 

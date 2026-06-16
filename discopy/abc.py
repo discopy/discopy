@@ -340,14 +340,6 @@ class SymmetricCategory[C0, C1](BalancedCategory[C0, C1]):
     def braid(cls, left: C0, right: C0) -> C1:
         return cls.swap(left, right)
 
-    @classmethod
-    def twist(cls, dom: C0) -> C1:
-        return cls.id(dom)
-
-    @classmethod
-    def braid(cls, left: C0, right: C0) -> C1:
-        return cls.swap(left, right)
-
 
 class MarkovCategory[C0, C1](SymmetricCategory[C0, C1]):
     """
