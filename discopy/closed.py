@@ -54,7 +54,6 @@ from typing import Dict, ClassVar
 from discopy import cat, biclosed, markov
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.utils import assert_isinstance
 
 
 @ob_factory
@@ -255,7 +254,8 @@ class Application(TermBase, biclosed.Application):
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(functor(context.dom)) >> func @ args >> evaluate
+        return functor.cod.copy(functor(context.dom))\
+            >> func @ args >> evaluate
 
 
 class Abstraction(TermBase, biclosed.Abstraction):

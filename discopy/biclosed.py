@@ -59,10 +59,9 @@ Axioms
 
 from __future__ import annotations
 
-from abc import abstractproperty, abstractmethod
-from dataclasses import dataclass
+from abc import abstractmethod
 from inspect import signature
-from typing import Callable, Optional, ClassVar
+from typing import Callable, ClassVar
 
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
@@ -541,7 +540,7 @@ class Application(TermBase):
         name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
         super().__init__(name, dom, cod)
         self.__post_init__()
-    
+
     def __post_init__(self):
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(

@@ -407,6 +407,7 @@ type Term = (
     Constant | Variable | Abstraction
     | FA | BA | FC | BC | FX | BX)
 
+
 def cat2ty(string: str) -> Ty:
     """
     Translate the string representation of a CCG category into DisCoPy.
