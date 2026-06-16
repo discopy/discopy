@@ -494,7 +494,7 @@ def _alpha_key(term, substitution=None):
 
 
 def _alpha_bound(cod, index):
-    return Variable(cod, ("bound", index))
+    return Variable(cod, f"__bound_{index}")
 
 
 def _alpha_variable(variable, substitution):

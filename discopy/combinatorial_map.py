@@ -12,13 +12,13 @@ two permutations on these ports:
 """
 
 from __future__ import annotations
-from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.abc import MonoidalCategory, NamedGeneric, Monoid
 
 from collections.abc import Iterable
 from io import BytesIO
 import shutil
 import subprocess
-from typing import Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, ClassVar
 
 from discopy import messages, hypergraph
 from discopy.drawing import Node
@@ -31,7 +31,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.cat import Ty, Box
+    from discopy.monoidal import Ty, Box, Diagram, Functor
 
 
 Port = Node
@@ -207,7 +207,7 @@ def _same_type(left, right) -> bool:
     return right in [left, left_r] or left in [right, right_r]
 
 
-class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
+class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](MonoidalCategory[C0, C1], NamedGeneric['functor']):
     """
     A bijective oriented hypergraph with interfaces.
 
@@ -219,12 +219,12 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         node : A permutation fixing interfaces and cycling each box.
         offsets : Optional drawing offsets, preserved through conversion.
     """
-    functor = None
+    functor: ClassVar[Functor]
     category = classproperty(lambda cls: cls.functor.dom)
     ob = classproperty(lambda cls: cls.category.ob)
 
     def __init__(
-            self, dom: Ty, cod: Ty, boxes: tuple[Box, ...],
+            self, dom: C0, cod: C0, boxes: tuple[Box, ...],
             edge: Iterable[int], node: Iterable[int] | None = None,
             offsets: tuple[int | None, ...] | None = None):
         assert_isinstance(dom, self.category.ob)
