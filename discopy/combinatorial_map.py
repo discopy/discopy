@@ -175,28 +175,30 @@ class Permutation(tuple):
 
 def port_side(port: Port) -> str:
     """
-    Return ``"left"`` or ``"right"`` for a port.
+    Return ``"up"`` or ``"down"`` for a port.
 
     Examples
     --------
     >>> port_side(Node("input", i=0, obj=None))
-    'left'
+    'up'
     >>> port_side(Node("output", i=0, obj=None))
-    'right'
+    'down'
     """
+    is_adjoint = bool(getattr(port.obj, "z", 0) % 2)
     if port.kind in LEFT_PORTS:
-        return "left"
+        return "down" if is_adjoint else "up"
     if port.kind in RIGHT_PORTS:
-        return "right"
+        return "up" if is_adjoint else "down"
     raise ValueError
 
 
 def port_direction(port: Port) -> str:
     """ Return ``"in"`` or ``"out"`` for a port. """
+    is_adjoint = bool(getattr(port.obj, "z", 0) % 2)
     if port.kind in IN_PORTS:
-        return "in"
+        return "out" if is_adjoint else "in"
     if port.kind in OUT_PORTS:
-        return "out"
+        return "in" if is_adjoint else "out"
     raise ValueError
 
 
@@ -306,11 +308,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
             raise ValueError
 
         for i, j in enumerate(self.edge):
-            if port_side(ports[i]) == port_side(ports[j]):
-                raise AxiomError
-            if not _same_type(ports[i].obj, ports[j].obj):
-                raise AxiomError(messages.TYPE_ERROR.format(
-                    ports[i].obj, ports[j].obj))
+            type(self).validate_wire(ports[i], ports[j])
 
         for i, port in enumerate(ports):
             if port.kind in BOUNDARY_PORTS and self.node[i] != i:
@@ -325,11 +323,32 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
                                      for i in box_ports)).cycles()) != 1:
                 raise ValueError
 
+    @classmethod
+    def validate_wire(cls, source: Port, target: Port):
+        """ Validate whether two ports can be connected by a wire. """
+        if source.kind in LEFT_PORTS and target.kind in LEFT_PORTS\
+                or source.kind in RIGHT_PORTS and target.kind in RIGHT_PORTS:
+            raise AxiomError
+        if source.obj != target.obj:
+            raise AxiomError(messages.TYPE_ERROR.format(
+                source.obj, target.obj))
+
     def __repr__(self):
+        def port_repr(index, port):
+            port_depth = getattr(port, "depth", None)
+            depth = "" if port_depth is None else f"@{port_depth}"
+            return (
+                f"{port.kind}{depth}[{port.i}]:{port.obj}:"
+                f"{port_side(port)}/{port_direction(port)}"
+                f"->{self.edge[index]}")
+
+        ports = tuple(
+            port_repr(index, port)
+            for index, port in enumerate(self.ports))
         return factory_name(type(self))\
             + f"(dom={repr(self.dom)}, cod={repr(self.cod)}, " \
               f"boxes={repr(self.boxes)}, edge={repr(self.edge)}, " \
-              f"node={repr(self.node)})"
+              f"node={repr(self.node)}, ports={repr(ports)})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CombinatorialMap) and (
@@ -360,6 +379,22 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
+    def from_diagram(cls, old: Diagram) -> CombinatorialMap:
+        """
+        Turn a :class:`Diagram` into a :class:`CombinatorialMap`.
+
+        This follows the same architecture as :meth:`Hypergraph.from_diagram`:
+        traverse the diagram with the hierarchy-specific functor and let the
+        codomain map decide which categorical structure is represented as
+        wiring and which structure is kept as boxes.
+        """
+        factory = cls if cls.functor is not None else cls[
+            type(old), type(old).functor]
+        return factory.functor(
+            ob=lambda typ: typ, ar=factory.from_box,
+            dom=type(old), cod=factory)(old)
+
+    @classmethod
     def from_hypergraph(cls, old: hypergraph.Hypergraph) -> CombinatorialMap:
         """ Build a combinatorial map from a bijective hypergraph. """
         if not old.is_bijective:
@@ -369,6 +404,75 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         return factory(
             old.dom, old.cod, old.boxes, old.bijection,
             offsets=old.offsets)
+
+    @classmethod
+    def braid(cls, left: Ty, right: Ty) -> CombinatorialMap:
+        """ The braid, remembered as a box to preserve over/under data. """
+        return cls.from_box(cls.category.braid(left, right))
+
+    @classmethod
+    def twist(cls, dom: Ty) -> CombinatorialMap:
+        """ The twist, remembered as a box. """
+        return cls.from_box(cls.category.twist(dom))
+
+    @classmethod
+    def swap(cls, left: Ty, right: Ty) -> CombinatorialMap:
+        """ The symmetry, encoded as boundary wiring. """
+        dom, cod = left @ right, right @ left
+        left_len, right_len = len(left), len(right)
+        output_start = len(dom)
+        edge = Permutation.from_transpositions(
+            [(i, output_start + right_len + i)
+             for i in range(left_len)]
+            + [(left_len + i, output_start + i)
+               for i in range(right_len)],
+            2 * len(dom))
+        return cls(dom, cod, (), edge)
+
+    @classmethod
+    def cups(cls, left: Ty, right: Ty) -> CombinatorialMap:
+        """ Cups, encoded as boundary wiring when types are adjoint. """
+        if not getattr(left, "r", left[::-1]) == right:
+            raise AxiomError
+        size = len(left)
+        edge = Permutation.from_transpositions(
+            ((i, size + size - 1 - i) for i in range(size)),
+            2 * size)
+        return cls(left @ right, cls.ob(), (), edge)
+
+    @classmethod
+    def caps(cls, left: Ty, right: Ty) -> CombinatorialMap:
+        """ Caps, encoded as boundary wiring when types are adjoint. """
+        if not getattr(left, "r", left[::-1]) == right:
+            raise AxiomError
+        size = len(left)
+        edge = Permutation.from_transpositions(
+            ((i, size + size - 1 - i) for i in range(size)),
+            2 * size)
+        return cls(cls.ob(), left @ right, (), edge)
+
+    @classmethod
+    def copy(cls, typ: Ty, n: int = 2) -> CombinatorialMap:
+        """ Copy is kept as a box: one input cannot wire to many outputs. """
+        return cls.from_box(cls.category.copy(typ, n))
+
+    @classmethod
+    def merge(cls, typ: Ty, n: int = 2) -> CombinatorialMap:
+        """ Merge is kept as a box: many inputs cannot wire to one output. """
+        return cls.from_box(cls.category.merge(typ, n))
+
+    @classmethod
+    def discard(cls, typ: Ty) -> CombinatorialMap:
+        """ Discard is kept as a box. """
+        return cls.copy(typ, 0)
+
+    @classmethod
+    def spiders(
+            cls, n_legs_in: int, n_legs_out: int,
+            typ: Ty, phases=None) -> CombinatorialMap:
+        """ Spiders are kept as boxes, including their phase data. """
+        return cls.from_box(cls.category.spiders(
+            n_legs_in, n_legs_out, typ, phases))
 
     @unbiased
     def then(self, other: CombinatorialMap) -> CombinatorialMap:
@@ -384,36 +488,89 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         remove_self = set(self_outputs)
         remove_other = set(other_inputs)
 
-        self_map, other_map, new_index = {}, {}, 0
-        for i in range(self.n_ports):
-            if i not in remove_self:
-                self_map[i] = new_index
-                new_index += 1
-        for i in range(other.n_ports):
-            if i not in remove_other:
-                other_map[i] = new_index
-                new_index += 1
+        shift = self.n_ports
+        removed = remove_self | {shift + i for i in remove_other}
+        kept = [i for i in range(self.n_ports + other.n_ports)
+                if i not in removed]
+        mapping = {old: new for new, old in enumerate(kept)}
+        self_map = {
+            i: mapping[i] for i in range(self.n_ports) if i in mapping}
+        other_map = {
+            i: mapping[shift + i]
+            for i in range(other.n_ports) if shift + i in mapping}
+
+        edge = dict(enumerate(self.edge))
+        edge.update({
+            shift + i: shift + j for i, j in enumerate(other.edge)})
+        glue = dict(zip(self_outputs, (shift + i for i in other_inputs)))
+        glue.update({j: i for i, j in glue.items()})
+
+        def follow(port):
+            port = edge[port]
+            seen = set()
+            while port in removed:
+                if port in seen:
+                    return None
+                seen.add(port)
+                port = edge[glue[port]]
+            return port
 
         edge_pairs = []
-        for i in range(self.n_ports):
-            j = self.edge[i]
-            if i < j and i not in remove_self and j not in remove_self:
-                edge_pairs.append((self_map[i], self_map[j]))
-        for i in range(other.n_ports):
-            j = other.edge[i]
-            if i < j and i not in remove_other and j not in remove_other:
-                edge_pairs.append((other_map[i], other_map[j]))
+        for i in kept:
+            j = follow(i)
+            if j is not None and i < j:
+                edge_pairs.append((mapping[i], mapping[j]))
 
-        for left, right in zip(self_outputs, other_inputs):
-            left_partner = self.edge[left]
-            right_partner = other.edge[right]
-            edge_pairs.append((self_map[left_partner], other_map[right_partner]))
-
-        edge = Permutation.from_transpositions(edge_pairs, new_index)
+        edge = Permutation.from_transpositions(edge_pairs, len(kept))
         node = Permutation.from_relabels(
-            [(self.node, self_map), (other.node, other_map)], new_index)
+            [(self.node, self_map), (other.node, other_map)], len(kept))
 
         return type(self)(dom, cod, boxes, edge, node, offsets)
+
+    def trace(self, n: int = 1, left: bool = False) -> CombinatorialMap:
+        """ Partial trace, encoded by splicing traced boundary wires. """
+        if n < 0:
+            raise ValueError
+        if not n:
+            return self
+        if n > min(len(self.dom), len(self.cod)):
+            raise ValueError
+
+        if left:
+            dom, cod = self.dom[n:], self.cod[n:]
+            traced_inputs = range(n)
+            traced_outputs = range(
+                self.n_ports - len(self.cod),
+                self.n_ports - len(self.cod) + n)
+        else:
+            dom, cod = self.dom[:-n], self.cod[:-n]
+            traced_inputs = range(len(dom), len(self.dom))
+            traced_outputs = range(self.n_ports - n, self.n_ports)
+
+        trace_pair = dict(zip(traced_inputs, traced_outputs))
+        trace_pair.update(dict(zip(traced_outputs, traced_inputs)))
+        removed = set(trace_pair)
+        kept = [i for i in range(self.n_ports) if i not in removed]
+        mapping = {old: new for new, old in enumerate(kept)}
+
+        def follow(port):
+            seen = set()
+            while port in removed:
+                if port in seen:
+                    return None
+                seen.add(port)
+                port = self.edge[trace_pair[port]]
+            return port
+
+        edge_pairs = []
+        for i in kept:
+            j = follow(self.edge[i])
+            if j is not None and i < j:
+                edge_pairs.append((mapping[i], mapping[j]))
+
+        edge = Permutation.from_transpositions(edge_pairs, len(kept))
+        node = Permutation.from_relabels([(self.node, mapping)], len(kept))
+        return type(self)(dom, cod, self.boxes, edge, node, self.offsets)
 
     @unbiased
     def tensor(self, other: CombinatorialMap) -> CombinatorialMap:
@@ -797,7 +954,7 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
 
     def to_dot(
             self, engine="neato", seed=None, graph_attr=None,
-            boundary_labels=True, trivalent_symbols=True,
+            boundary_labels=True,
             box_labels=None) -> str:
         """
         Encode the combinatorial map as Graphviz DOT.
@@ -830,10 +987,6 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
                 return box_labels(box)
             arity = len(box.dom), len(box.cod)
             name = type(box).__name__
-            if trivalent_symbols and name == "Eval" and arity == (2, 1):
-                return "@"
-            if trivalent_symbols and name == "Coeval" and arity == (1, 2):
-                return "ꟛ"
             return getattr(box, "drawing_name", None)\
                 or getattr(box, "name", None)\
                 or f"{arity[0]}->{arity[1]}"
@@ -911,7 +1064,6 @@ class CombinatorialMap(MonoidalCategory, NamedGeneric['functor']):
         dot = self.to_dot(
             engine=engine, seed=seed, graph_attr=graph_attr,
             boundary_labels=boundary_labels,
-            trivalent_symbols=trivalent_symbols,
             box_labels=box_labels)
 
         path = None if path is None else str(path)

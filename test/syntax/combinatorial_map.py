@@ -1,5 +1,3 @@
-import shutil
-
 from pytest import raises
 
 from discopy.combinatorial_map import (
@@ -24,8 +22,8 @@ def test_port_side():
     from discopy.compact import Ty, CombinatorialMap as M
     x = Ty("x")
     ports = M.id(x).ports
-    assert port_side(ports[0]) == "left"
-    assert port_side(ports[1]) == "right"
+    assert port_side(ports[0]) == "up"
+    assert port_side(ports[1]) == "down"
     assert port_direction(ports[0]) == "in"
     assert port_direction(ports[1]) == "out"
 
