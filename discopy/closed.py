@@ -197,7 +197,7 @@ Diagram.exp = Diagram.under = Diagram.over = staticmethod(Exp)
 Id = Diagram.id
 
 
-class TermBase(biclosed.TermBase):
+class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a closed category.
     """
@@ -210,7 +210,7 @@ class TermBase(biclosed.TermBase):
 type Term = Constant | Variable | Application | Abstraction
 
 
-class Constant(biclosed.Constant, TermBase):
+class Constant(TermBase, biclosed.Constant):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
@@ -219,14 +219,7 @@ class Constant(biclosed.Constant, TermBase):
             functor)
 
 
-class Variable(biclosed.Variable, TermBase):
-    freevars = None
-    name: str
-
-    def __init__(self, name: str, cod: Ty):
-        super().__init__(name, cod)
-        self.freevars = [self]
-
+class Variable(TermBase, biclosed.Variable):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
@@ -239,15 +232,17 @@ class Variable(biclosed.Variable, TermBase):
 
 class Application(TermBase, biclosed.Application):
     def __post_init__(self):
-        pass  # No need to check for linearity anymore.
+        self.overlap = set(self.func.freevars).intersection(self.args.freevars)
+        self.freevars = list(set(self.func.freevars + self.args.freevars))\
+            if self.overlap else self.func.freevars + self.args.freevars
+        self.dom = self.ob.tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         base, exponent = self.func.cod.base, self.func.cod.exponent
         evaluate = functor.cod.ev(functor(base), functor(exponent))
         if context is None:
-            overlap = set(self.func.freevars).intersection(self.args.freevars)
-            if not overlap:
+            if not self.overlap:
                 func = self.func.eval(functor=functor)
                 args = self.args.eval(functor=functor)
                 return func @ args >> evaluate
@@ -259,15 +254,9 @@ class Application(TermBase, biclosed.Application):
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
-    def __init__(self, var: Variable, body: Term, left: bool = False):
-        if body.freevars.count(var) < 1:
-            raise ValueError("Expected variable to occur at least once.")
-        self.var, self.body, self.left = var, body, left
-        self.freevars = [x for x in body.freevars if x != var]
-        name = f"{var.cod}(lambda {var.name}: {body})"
-        dom = Ty().tensor(*[x.cod for x in self.freevars])
-        cod = var.cod >> body.cod
-        TermBase.__init__(self, name, dom, cod)
+    def __post_init__(self):
+        self.freevars = [x for x in self.body.freevars if x != self.var]
+        self.dom = self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -277,7 +266,7 @@ class Abstraction(TermBase, biclosed.Abstraction):
             return body.curry(left=True)
         i, n = self.body.freevars.index(self.var), len(self.body.freevars)
         body = self.body.eval(functor=functor)
-        p = [0] + [j + 1 for j in range(n) if j != i]
+        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
         return (body.permutation(p, body.dom).dagger() >> body).curry()
 
 
@@ -307,4 +296,6 @@ class Substitution:
 
 
 Ty.variable_factory = Variable
+Ty.constant_factory = Constant
+Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction

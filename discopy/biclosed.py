@@ -531,8 +531,6 @@ class Application(TermBase):
         assert_isinstance(args, TermBase)
         assert_isinstance(func.cod, Exp)
         self.func, self.args, self.left = func, args, left
-        self.freevars = func.freevars + args.freevars if left\
-            else args.freevars + func.freevars
         dom = args.dom @ func.dom if left else func.dom @ args.dom
         cod = func.cod.base
         fname = f"({func})" if isinstance(func, Application) else str(func)
@@ -547,6 +545,8 @@ class Application(TermBase):
                 f"Expected {self.func.cod.exponent}, got {self.args.cod}")
         if set(self.func.freevars).intersection(self.args.freevars):
             raise ValueError("Expected disjoint free variables.")
+        self.freevars = func.freevars + args.freevars if self.left\
+            else args.freevars + func.freevars
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -564,20 +564,23 @@ class Abstraction(TermBase):
     left: bool = False
 
     def __init__(self, var: Variable, body: Term, left: bool = False):
-        if body.freevars.count(var) != 1:
-            raise ValueError("Expected variable to occur exactly once.")
-        index = body.freevars.index(var)
-        if left and index != 0:
-            raise ValueError("Expected abstraction of left-most variable.")
-        if not left and index != len(body.freevars) - 1:
-            raise ValueError("Expected abstraction of right-most variable.")
         self.var, self.body, self.left = var, body, left
         left_str = ", left=True" if left else ""
-        self.freevars = body.freevars[slice(1) if left else slice(None, -1)]
         name = f"{var.cod}(lambda {var.name}{left_str}: {body})"
         dom = body.dom[1:] if left else body.dom[:-1]
         cod = var.cod >> body.cod if left else body.cod << var.cod
         super().__init__(name, dom, cod)
+        self.__post_init__()
+
+    def __post_init__(self):
+        if self.body.freevars.count(self.var) != 1:
+            raise ValueError("Expected variable to occur exactly once.")
+        index = self.body.freevars.index(self.var)
+        if self.left and index != 0:
+            raise ValueError("Expected abstraction of left-most variable.")
+        if not self.left and index != len(self.body.freevars) - 1:
+            raise ValueError("Expected abstraction of right-most variable.")
+        self.freevars = body.freevars[slice(1) if left else slice(None, -1)]
 
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))
