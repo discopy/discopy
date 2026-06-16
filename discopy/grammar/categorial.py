@@ -205,11 +205,8 @@ class TermBase(biclosed.TermBase):
     """
     functor = Functor.id(Diagram)
 
-    def __lshift__(self, other):
-        return FA(self, other)
-
-    def __rshift__(self, other):
-        return BA(self, other)
+    def __call__(self, other, left=True):
+        return FA(self, other) if left else BA(self, other)
 
 
 class Constant(biclosed.Constant, TermBase):
@@ -473,5 +470,3 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 Id = Diagram.id
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
-Ty.variable_factory = Variable
-Ty.abstraction_factory = Abstraction

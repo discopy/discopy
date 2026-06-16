@@ -85,7 +85,8 @@ class Ty(monoidal.Ty):
 
     Note
     ----
-    Applying a biclosed type to a callable yields a :class:`Abstraction`.
+    Applying a biclosed type to a callable yields a :class:`Abstraction`,
+    applying it to a string yields a :class:`Constant`.
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
@@ -98,7 +99,9 @@ class Ty(monoidal.Ty):
         return Under(other, self)
 
     def __call__(self, arg):
-        if isinstance(arg, Callable):
+        if isinstance(arg, str):
+            return self.constant_factory(arg, self)
+        elif isinstance(arg, Callable):
             parameters = dict(signature(arg).parameters)
             left = False
             if "left" in parameters:
@@ -389,9 +392,9 @@ class Functor(monoidal.Functor):
     that preserves evaluation and currying.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
@@ -417,12 +420,14 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class TermBase:
+class TermBase(Box):
     """
     A term in the internal language of biclosed categories.
 
     Attributes:
-        typ (Ty): The type of a term, i.e. the codomain of its morphism.
+        dom (Ty): The tensor of the types for each free variable.
+        cod (Ty): The type of a term, i.e. the codomain of its morphism.
+        functor (Functor): The functor to evaluate the term, ``id`` by default.
 
     Note
     ----
@@ -431,36 +436,37 @@ class TermBase:
     given a function type with the argument coming either the left or right:
 
     >>> X, Y = Ty("X"), Ty("Y")
-    >>> x = Constant(Box("x", Ty(), X))
-    >>> f, g = Constant(Box("f", X, Y)), Constant(Box("g", X, Y), left=True)
-    >>> assert x.typ == X and f.typ == X >> Y and g.typ == Y << X
+    >>> x, f, g = X("x"), (X >> Y)("f"), (Y << X)("g")
 
     Terms can be the :class:`Application` of a function to an argument from its
     left ``>>`` or right ``<<`` with the type inferred automatically e.g.
 
-    >>> xf, gx = x >> f, g << x
-    >>> assert xf.typ == Y == gx.typ
+    >>> xf, gx = x(f, left=True), g(x)
+    >>> assert xf.cod == Y == gx.cod
 
     Applying a biclosed type to a function yields an :class:`Abstraction` e.g.
 
-    >>> f_, g_ = X(lambda x, left=True: x >> f), X(lambda x: g << x)
-    >>> assert f.typ == f_.typ == X >> Y and g.typ == g_.typ == Y << X
+    >>> f_, g_ = X(lambda y, left=True: y(f, left=True)), X(lambda y: g(y))
+    >>> assert f.cod == f_.cod == X >> Y and g.cod == g_.cod == Y << X
 
     Terms are required to be linear and planar, they can be drawn as diagrams:
 
-    >>> I, N, S = Ty(), Ty("N"), Ty("S")
-    >>> Alice, Bob = Constant(Box("Alice", I, N)), Constant(Box("Bob", I, N))
-    >>> loves = Constant(Box("loves", N, N >> S), left=True)
-    >>> (Alice >> (loves << Bob)).draw(
+    >>> N, S = Ty("N"), Ty("S")
+    >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
+    >>> Alice(loves(Bob), left=True).draw(
     ...     path='docs/_static/biclosed/alice-loves-bob.png',
     ...     margins=(.3, 0), figsize=(5, 4))
     """
-    typ: Ty
+    dom: Ty
+    cod: Ty
     functor: ClassVar[Functor] = Functor.id(Diagram)
 
     @abstractproperty
     def freevars(self) -> list[Variable]:
-        "The list of all occurrences of free variables, i.e. with duplicates."
+        """
+        The list of all occurrences of free variables, we assume each variable
+        is used exactly once so there are no duplicates.
+        """
 
     @abstractmethod
     def eval(functor: Functor = None) -> BiclosedCategory:
@@ -474,14 +480,11 @@ class TermBase:
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
 
-    def __lshift__(self, other):
-        return Application(self, other, left=True)
-
-    def __rshift__(self, other):
-        return Application(other, self, left=False)
+    def __call__(self, other, left=False):
+        args = (other, self, left) if left else (self, other, left)
+        return self.cod.application_factory(*args)
 
 
-@dataclass(frozen=True)
 class Constant(TermBase):
     """
     A constant term of defined by a :class:`Diagram` with ``dom=X, cod=Y``.
@@ -492,22 +495,8 @@ class Constant(TermBase):
         inside (Diagram): The diagram which defines the constant.
         left (Optional[bool]): Whether the domain comes from the left or right.
     """
-    inside: Diagram
-    left: Optional[bool] = None
-
-    def __post_init__(self):
-        if self.left is None and self.inside.dom:
-            object.__setattr__(self, "left", False)
-
-    def __str__(self):
-        return f"Constant({self.inside}{', left=True' if self.left else ''})"
-
-    @property
-    def typ(self) -> Ty:
-        if self.left is None:
-            return self.inside.cod
-        dom, cod = self.inside.dom, self.inside.cod
-        return cod << dom if self.left else dom >> cod
+    def __init__(self, name: Ty, cod: Ty, **kwargs):
+        super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
 
     @property
     def freevars(self):
@@ -515,25 +504,19 @@ class Constant(TermBase):
 
     def eval(self, functor=None):
         functor = functor or self.functor
-        arg = self.inside if self.left is None else self.inside.curry(
-            n=len(self.inside.dom), left=self.left)
-        return functor(arg)
+        return functor.ar_map[self]
 
 
-@dataclass(frozen=True)
 class Variable(TermBase):
     """
     A variable with a string as name and a :class:`Ty`.
 
     Attributes:
         name (str): The name of the variable
-        typ (Ty): The type of the variable.
+        cod (Ty): The type of the variable.
     """
-    name: str
-    typ: Ty
-
-    def __str__(self):
-        return self.name
+    def __init__(self, name: str, cod: Ty):
+        super().__init__(name, dom=cod, cod=cod)
 
     @property
     def freevars(self):
@@ -541,42 +524,37 @@ class Variable(TermBase):
 
     def eval(self, functor=None):
         functor = functor or self.functor
-        return functor.cod.id(functor(self.typ))
+        return functor.cod.id(functor(self.cod))
 
 
-@dataclass(frozen=True)
 class Application(TermBase):
     """
-    The application ``x >> f`` (``f << x``) of a term ``f`` of type ``X >> Y``
-    (``Y << X``) to an argument of type ``X`` coming from its left (or right).
+    The application either ``func(args)`` of a term ``func`` of type ``Y << X``
+    to a term ``args`` of type ``X`` or ``args(func, left=True)`` of a term
+    ``args`` of type ``X`` fed as input to a term ``func`` of type ``X >> Y``.
 
     Attributes:
         func (Term): The function being applied.
         args (Term): The arguments to which the function is applied.
         left (bool): Whether the argument comes in from the left or right.
     """
-    func: Term
-    args: Term
-    left: bool = True
-
-    def __post_init__(self):
-        exp = Over if self.left else Under
-        assert_isinstance(self.func.typ, exp)
-        if self.func.typ.exponent != self.args.typ:
+    def __init__(self, func: Term, args: Term, left: bool = True):
+        assert_isinstance(func, TermBase)
+        assert_isinstance(args, TermBase)
+        exp = Under if left else Over
+        assert_isinstance(func.cod, exp)
+        if func.cod.exponent != args.cod:
             raise ValueError(
-                f"Expected {self.func.typ.exponent}, got {self.args.typ}")
-        if set(self.func.freevars).intersection(self.args.freevars):
+                f"Expected {func.cod.exponent}, got {args.cod}")
+        if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-
-    @property
-    def typ(self):
-        return self.func.typ.base
-
-    def __str__(self):
-        func, args = self.func, self.args
-        func = f"({func})" if isinstance(func, Application) else str(func)
-        args = f"({args})" if isinstance(args, Application) else str(args)
-        return f"{func} << {args}" if self.left else f"{args} >> {func}"
+        self.func, self.args, self.left = func, args, left
+        dom = args.dom @ func.dom if left else func.dom @ args.dom
+        cod = func.cod.base
+        fname = f"({func})" if isinstance(func, Application) else str(func)
+        xname = f"({args})" if isinstance(args, Application) else str(args)
+        name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
+        super().__init__(name, dom, cod)
 
     @property
     def freevars(self):
@@ -587,44 +565,43 @@ class Application(TermBase):
         functor = functor or self.functor
         func = self.func.eval(functor=functor)
         args = self.args.eval(functor=functor)
-        base, exponent = self.func.typ.base, self.func.typ.exponent
-        ev = functor.cod.ev(functor(base), functor(exponent), left=self.left)
-        return func @ args >> ev if self.left else args @ func >> ev
+        base, exponent = self.func.cod.base, self.func.cod.exponent
+        ev = functor.cod.ev(
+            functor(base), functor(exponent), left=not self.left)
+        return args @ func >> ev if self.left else func @ args >> ev
 
 
-@dataclass(frozen=True)
 class Abstraction(TermBase):
     var: Variable
     body: Term
     left: bool = False
 
-    def __post_init__(self):
-        if self.body.freevars.count(self.var) != 1:
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        if body.freevars.count(var) != 1:
             raise ValueError("Expected variable to occur exactly once.")
-        index = self.body.freevars.index(self.var)
-        if self.left and index != 0:
+        index = body.freevars.index(var)
+        if left and index != 0:
             raise ValueError("Expected abstraction of left-most variable.")
-        if not self.left and index != len(self.body.freevars) - 1:
+        if not left and index != len(body.freevars) - 1:
             raise ValueError("Expected abstraction of right-most variable.")
-
-    @property
-    def typ(self):
-        return self.var.typ >> self.body.typ if self.left\
-            else self.body.typ << self.var.typ
-
-    def __str__(self):
-        left = ", left=True" if self.left else ""
-        return f"{self.var.typ}(lambda {self.var.name}{left}: {self.body})"
+        self.var, self.body, self.left = var, body, left
+        left_str = ", left=True" if left else ""
+        name = f"{var.cod}(lambda {var.name}{left_str}: {body})"
+        dom = body.dom[1:] if left else body.dom[:-1]
+        cod = var.cod >> body.cod if left else body.cod << var.cod
+        super().__init__(name, dom, cod)
 
     @property
     def freevars(self):
-        return list(filter(lambda x: x != self.var, self.body.freevars))
+        return self.body.freevars[slice(1) if self.left else slice(None, -1)]
 
     def eval(self, functor=None):
-        return self.body.eval(functor).curry(left=not self.left)
+        return self.body.curry(left=not self.left).eval(functor)
 
 
 type Term = Constant | Variable | Application | Abstraction
 
 Ty.variable_factory = Variable
+Ty.constant_factory = Constant
+Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
