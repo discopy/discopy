@@ -13,8 +13,7 @@ from discopy.closed import (
     Coeval,
     CombinatorialMap,
     Substitution,
-    _alpha_bound,
-    _alpha_key,
+    TermBase,
     assert_term_map,
     pack,
     unpack,
@@ -59,14 +58,14 @@ def test_term_equality_is_alpha_equivalence():
         unpack(pair, (x, ), x)
     with raises(ValueError):
         unpack(pair, (x, Variable(Y, "z")), pack(y, x))
-    assert isinstance(_alpha_bound(X, 0).name, str)
-    assert _alpha_key(c)[0] == "constant"
-    assert _alpha_key(Application(Variable(X >> X, "f"), x))[0]\
+    assert isinstance(TermBase.alpha_bound(X, 0).name, str)
+    assert c.alpha_key(Substitution(()))[0] == "constant"
+    assert Application(Variable(X >> X, "f"), x).alpha_key(
+        Substitution(()))[0]\
         == "application"
-    assert _alpha_key(pair)[0] == "pack"
-    assert _alpha_key(unpack(pair, (x, y), pair))[0] == "unpack"
-    with raises(TypeError):
-        _alpha_key(object())
+    assert pair.alpha_key(Substitution(()))[0] == "pack"
+    assert unpack(pair, (x, y), pair).alpha_key(Substitution(()))[0]\
+        == "unpack"
 
 
 def test_substitution_under_abstraction():
