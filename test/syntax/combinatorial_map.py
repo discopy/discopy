@@ -2,6 +2,7 @@ from pytest import raises
 
 from discopy.combinatorial_map import (
     Permutation,
+    Port,
     port_direction,
     port_side,
 )
@@ -16,6 +17,27 @@ def test_cycles():
     assert Permutation.identity(2) == (0, 1)
     assert Permutation((1, 0)).compose((1, 0)) == (0, 1)
     assert Permutation((1, 0)).tensor((1, 0)) == (1, 0, 3, 2)
+    assert Permutation((1, 2, 0)).inverse() == (2, 0, 1)
+    assert Permutation((1, 0, 2)).relabel({0: 2, 1: 0}, 3) == (2, 1, 0)
+    assert Permutation((1, 2, 0)).cycle(1) == (1, 2, 0)
+    with raises(ValueError):
+        Permutation((0, 0))
+    with raises(ValueError):
+        Permutation((0,), size=2)
+    with raises(ValueError):
+        Permutation.from_cycles([(0, 0)], 1)
+    with raises(ValueError):
+        Permutation.from_cycles([(0, 2)], 2)
+    with raises(ValueError):
+        Permutation.from_cycles([(0, 1), (1, 2)], 3)
+    with raises(ValueError):
+        Permutation.from_transpositions([(0, 0)], 2)
+    with raises(ValueError):
+        Permutation.from_transpositions([(0, 2)], 2)
+    with raises(ValueError):
+        Permutation.from_transpositions([(0, 1), (1, 2)], 4)
+    with raises(ValueError):
+        Permutation((0,)).cycle(1)
 
 
 def test_port_side():
@@ -26,6 +48,15 @@ def test_port_side():
     assert port_side(ports[1]) == "down"
     assert port_direction(ports[0]) == "in"
     assert port_direction(ports[1]) == "out"
+    adjoint_ports = M.id(x.r).ports
+    assert port_side(adjoint_ports[0]) == "down"
+    assert port_side(adjoint_ports[1]) == "up"
+    assert port_direction(adjoint_ports[0]) == "out"
+    assert port_direction(adjoint_ports[1]) == "in"
+    with raises(ValueError):
+        port_side(Port("spider", obj=x))
+    with raises(ValueError):
+        port_direction(Port("spider", obj=x))
 
 
 def test_default_compact_setting():
@@ -60,6 +91,19 @@ def test_M_init():
         M(f.dom, f.cod, (f,), valid.edge, tuple(range(valid.n_ports)))
     with raises(AxiomError):
         M(x, y, (), (1, 0))
+    with raises(ValueError):
+        M(f.dom, f.cod, (f,), valid.edge, valid.node, offsets=(None, None))
+
+
+def test_repr_eq_and_hash():
+    from discopy.compact import Ty, Box, CombinatorialMap as M
+
+    x, y = map(Ty, "xy")
+    cmap = M.from_box(Box("f", x, y))
+    assert "ports=" in repr(cmap)
+    assert cmap == M.from_box(Box("f", x, y))
+    assert cmap != object()
+    assert hash(cmap) == hash(M.from_box(Box("f", x, y)))
 
 
 def test_validate_wire_is_overridden_only_when_it_differs():
@@ -137,6 +181,33 @@ def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
     assert copy.to_map().boxes == (copy, )
 
 
+def test_structural_maps_and_errors():
+    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.markov import Ty as MTy, CombinatorialMap as MM
+
+    x, y = map(Ty, "xy")
+    assert M.swap(x, y).to_hypergraph() == M.category.swap(
+        x, y).to_hypergraph()
+    assert M.cups(x, x.r).dom == x @ x.r
+    assert M.caps(x.r, x).cod == x.r @ x
+    with raises(AxiomError):
+        M.cups(x, y)
+    with raises(AxiomError):
+        M.caps(x, y)
+
+    mx = MTy("x")
+    assert MM.copy(mx, 2).boxes == (MM.category.copy(mx, 2), )
+    assert MM.merge(mx, 2).boxes == (MM.category.merge(mx, 2), )
+    assert MM.discard(mx).boxes == (MM.category.copy(mx, 0), )
+
+    f = M.from_box(Box("f", x, y))
+    assert f.trace(0) is f
+    with raises(ValueError):
+        f.trace(-1)
+    with raises(ValueError):
+        f.trace(2)
+
+
 def test_scalar_box():
     from discopy.compact import Ty, Box, CombinatorialMap as M
 
@@ -201,6 +272,58 @@ def test_tensor():
     assert (f @ g).to_hypergraph() == f.to_hypergraph() @ g.to_hypergraph()
     assert (f @ M.id()) == f
     assert (M.id() @ f) == f
+
+
+def test_plug_input():
+    from discopy.compact import Ty, Box, CombinatorialMap as M
+
+    x, y, z = map(Ty, "xyz")
+    direct = M.id(x).plug_input(0, Box("lambda", x, y @ x), y)
+    assert direct.dom == Ty()
+    assert direct.cod == y
+    assert direct.node_cycles[-1] == (0, 1, 2)
+
+    f = M.from_box(Box("f", z, x))
+    indirect = f.plug_input(0, Box("lambda", x, y @ z), y)
+    assert indirect.dom == Ty()
+    assert indirect.cod == y
+    assert len(indirect.boxes) == 2
+    with raises(ValueError):
+        f.plug_input(-1, Box("lambda", x, y @ z), y)
+    with raises(ValueError):
+        f.plug_input(0, Box("bad", Ty(), y @ z), y)
+
+
+def test_dot_and_draw_non_interactive(tmp_path, monkeypatch):
+    from discopy import combinatorial_map
+    from discopy.compact import Ty, Box, CombinatorialMap as M
+
+    x, y = map(Ty, "xy")
+    cmap = M.from_box(Box("f", x, y))
+    dot = cmap.to_dot(
+        seed=7, boundary_labels=False,
+        box_labels=lambda box: f"box:{box.name}")
+    assert 'start="7"' in dot
+    assert 'box:f' in dot
+    assert 'xlabel=""' in dot
+
+    dot_path = tmp_path / "map.dot"
+    assert cmap.draw(dot_path, show=False) is None
+    assert dot_path.read_text(encoding="utf-8") == cmap.to_dot()
+
+    calls = []
+
+    def fake_run(command, input=None, check=None, **kwargs):
+        calls.append((command, input, check, kwargs))
+
+    monkeypatch.setattr(combinatorial_map.shutil, "which", lambda _: "dot")
+    monkeypatch.setattr(combinatorial_map.subprocess, "run", fake_run)
+    assert cmap.draw(tmp_path / "map.svg", show=False) is None
+    assert calls[0][0][:2] == ["dot", "-Tsvg"]
+
+    monkeypatch.setattr(combinatorial_map.shutil, "which", lambda _: None)
+    with raises(RuntimeError):
+        cmap.draw(show=False)
 
 
 def test_tensor_then():

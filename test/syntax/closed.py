@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pytest import raises
+
 from discopy.closed import (
     Application,
     Abstraction,
@@ -12,6 +14,8 @@ from discopy.closed import (
     CombinatorialMap,
     Substitution,
     _alpha_bound,
+    _alpha_key,
+    assert_term_map,
     pack,
     unpack,
 )
@@ -27,18 +31,42 @@ def test_str():
     X, Y = Ty("X"), Ty("Y")
     f = X(lambda x: (X >> Y)(lambda y: y(x)))
     assert str(f) == "X(lambda x: (X >> Y)(lambda y: y(x)))"
+    assert str(X("c")) == "c"
+    x, y = Variable(X, "x"), Variable(Y, "y")
+    assert str(pack(x, y)) == "pack(x, y)"
+    assert str(unpack(pack(x, y), (x, y), pack(y, x)))\
+        == "unpack(pack(x, y), lambda x, y: pack(y, x))"
 
 
 def test_term_equality_is_alpha_equivalence():
     X, Y = map(Ty, "XY")
     x, y = Variable(X, "x"), Variable(X, "y")
+    c, d = X("c"), X("d")
+    pair = pack(x, y)
     assert X(lambda x: x) == X(lambda y: y)
     assert hash(X(lambda x: x)) == hash(X(lambda y: y))
     assert X(lambda x: (X >> Y)(lambda f: f(x)))\
         == X(lambda y: (X >> Y)(lambda g: g(y)))
     assert x != y
+    assert c == X("c")
+    assert c != d
     assert Abstraction(x, y) != Abstraction(y, x)
+    assert Abstraction(x, x) != Abstraction(Variable(Y, "x"), y)
+    assert pack(x) != pair
+    assert unpack(pair, (x, y), pack(x, y))\
+        != unpack(x, (x, ), x)
+    with raises(ValueError):
+        unpack(pair, (x, ), x)
+    with raises(ValueError):
+        unpack(pair, (x, Variable(Y, "z")), pack(y, x))
     assert isinstance(_alpha_bound(X, 0).name, str)
+    assert _alpha_key(c)[0] == "constant"
+    assert _alpha_key(Application(Variable(X >> X, "f"), x))[0]\
+        == "application"
+    assert _alpha_key(pair)[0] == "pack"
+    assert _alpha_key(unpack(pair, (x, y), pair))[0] == "unpack"
+    with raises(TypeError):
+        _alpha_key(object())
 
 
 def test_substitution_under_abstraction():
@@ -46,6 +74,40 @@ def test_substitution_under_abstraction():
     x, y, z = (Variable(X, name) for name in "xyz")
     assert Substitution({x: z})(Abstraction(x, x)) == Abstraction(x, x)
     assert Substitution({y: z})(Abstraction(x, y)) == Abstraction(x, z)
+    f = Variable(X >> X, "f")
+    pair = pack(x, y)
+    substitution = Substitution({x: z, y: x})
+    assert substitution(Application(f, x)) == Application(f, z)
+    assert substitution(pair) == pack(z, x)
+    assert substitution(unpack(pair, (x, y), pack(x, y)))\
+        == unpack(pack(z, x), (x, y), pack(x, y))
+    with raises(ValueError):
+        substitution(object())
+
+
+def test_term_base_helpers_and_errors():
+    X, Y = map(Ty, "XY")
+    x, y = Variable(X, "x"), Variable(Y, "y")
+
+    assert Variable.id(X) == Variable(X, "x0")
+    assert Variable.id(X @ Y) == pack(Variable(X, "x0"), Variable(Y, "x1"))
+    assert Variable.ev(Y, X) == Application(Variable(X >> Y, "f"), x)
+    assert x.tensor() is x
+    assert x.tensor(y) == pack(x, y)
+    assert x.then(Variable(X, "z")) == unpack(x, (Variable(X, "z"), ),
+                                             Variable(X, "z"))
+    assert Variable.abs(x)(x) == Abstraction(x, x)
+
+    with raises(NotImplementedError):
+        X(lambda x, y: x)
+    with raises(ValueError):
+        X(42)
+    with raises(ValueError):
+        x.then(y)
+    with raises(NotImplementedError):
+        x.curry(n=2)
+    with raises(ValueError):
+        X("constant").curry()
 
 
 def test_python_Functor():
@@ -88,6 +150,41 @@ def test_pack_unpack_terms():
 
     assert unpack(pair, lambda a, b: pack(a, b))\
         == unpack(pair, lambda c, d: pack(c, d))
+    with raises(ValueError):
+        unpack(pair, lambda a: a)
+    with raises(ValueError):
+        unpack(pair)
+    with raises(ValueError):
+        unpack(x, (x, y), x)
+
+
+def test_term_failures_and_assertions():
+    X, Y = map(Ty, "XY")
+    x, y = Variable(X, "x"), Variable(Y, "y")
+    f = Variable(X >> X, "f")
+    higher = Variable(X >> (X >> X), "h")
+
+    assert X("c").to_diagram().dom == Ty()
+    with raises(ValueError):
+        X("c").to_map()
+    with raises(TypeError):
+        Application(x, x)
+    with raises(ValueError):
+        Application(f, y)
+    with raises(NotImplementedError):
+        Application(Application(higher, x), x).to_diagram()
+    with raises(ValueError):
+        Abstraction(x, y).to_map()
+    with raises(ValueError):
+        Abstraction(x, Application(Application(higher, x), x)).to_map()
+
+    cmap = CombinatorialMap.id(X)
+    with raises(ValueError):
+        assert_term_map(cmap, y)
+    with raises(ValueError):
+        assert_term_map(CombinatorialMap.id(Y), x)
+    with raises(ValueError):
+        assert_term_map(CombinatorialMap.from_box(Box("f", X @ X, X)), f)
 
 
 def test_python_Func():
