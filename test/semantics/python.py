@@ -34,6 +34,44 @@ def test_FinSet():
     from discopy.markov import Ty, Diagram, Functor
     from discopy.python import finset
 
+    p = finset.Permutation.swap(2, 3)
+    assert isinstance(p, finset.Function)
+    assert isinstance(p, finset.SymmetricCategory)
+    assert p == (3, 4, 0, 1, 2)
+    assert p[-1] == 2
+    assert p >> p.inverse() == finset.Permutation.id(5)
+    assert p @ finset.Permutation((1, 0)) == (3, 4, 0, 1, 2, 6, 5)
+    assert finset.Function.swap(2, 3).inside == dict(enumerate(p))
+    assert finset.Permutation((1, 0, 3, 2)).cycles() == ((0, 1), (2, 3))
+    assert finset.Permutation.from_cycles([(0, 1), (2, 3)], 4)\
+        == (1, 0, 3, 2)
+    assert finset.Permutation((1, 0)).is_fixpoint_free_involution()
+    assert not finset.Permutation((0,)).is_fixpoint_free_involution()
+    assert finset.Permutation.identity(2) == (0, 1)
+    assert finset.Permutation((1, 0)).compose((1, 0)) == (0, 1)
+    assert finset.Permutation((1, 2, 0)).inverse() == (2, 0, 1)
+    assert finset.Permutation((1, 0, 2)).conjugate((2, 0, 1))\
+        == (2, 1, 0)
+    assert finset.Permutation((1, 2, 0)).cycle(1) == (1, 2, 0)
+    with raises(ValueError):
+        finset.Permutation((0, 0))
+    with raises(ValueError):
+        finset.Permutation((0,), size=2)
+    with raises(ValueError):
+        finset.Permutation.from_cycles([(0, 0)], 1)
+    with raises(ValueError):
+        finset.Permutation.from_cycles([(0, 2)], 2)
+    with raises(ValueError):
+        finset.Permutation.from_cycles([(0, 1), (1, 2)], 3)
+    with raises(ValueError):
+        finset.Permutation.from_transpositions([(0, 0)], 2)
+    with raises(ValueError):
+        finset.Permutation.from_transpositions([(0, 2)], 2)
+    with raises(ValueError):
+        finset.Permutation.from_transpositions([(0, 1), (1, 2)], 4)
+    with raises(ValueError):
+        finset.Permutation((0,)).cycle(1)
+
     x = Ty('x')
     copy, discard, swap = Diagram.copy(x), Diagram.copy(x, 0), Diagram.swap(x, x)
     F = Functor({x: 1}, {}, cod=finset.Function)

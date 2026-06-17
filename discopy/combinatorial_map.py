@@ -8,7 +8,7 @@ then the domain and codomain ports of each box, then outputs. A map is given by
 two permutations on these ports:
 
 * ``edge`` is a fixpoint-free involution pairing left and right ports;
-* ``node`` fixes interfaces and orients the ports of each box.
+* ``node`` is derived from the canonical counter-clockwise port order of boxes.
 """
 
 from __future__ import annotations
@@ -22,6 +22,7 @@ from typing import Any, TYPE_CHECKING, ClassVar
 
 from discopy import messages, hypergraph
 from discopy.drawing import Node
+from discopy.python.finset import Permutation
 from discopy.utils import (
     AxiomError,
     assert_isinstance,
@@ -37,141 +38,11 @@ if TYPE_CHECKING:
 Port = Node
 """ A port in a combinatorial map. """
 
-LEFT_PORTS = {"input", "cod"}
-RIGHT_PORTS = {"dom", "output"}
+NEGATIVE_PORTS = {"input", "cod"}
+POSITIVE_PORTS = {"dom", "output"}
 BOUNDARY_PORTS = {"input", "output"}
 IN_PORTS = {"input", "dom"}
 OUT_PORTS = {"cod", "output"}
-
-
-class Permutation(tuple):
-    """
-    A permutation, represented by its action on ``range(len(self))``.
-
-    Examples
-    --------
-    >>> Permutation((1, 0, 3, 2)).cycles()
-    ((0, 1), (2, 3))
-    >>> Permutation.from_cycles([(0, 1), (2, 3)], 4)
-    (1, 0, 3, 2)
-    >>> Permutation((1, 0)).is_fixpoint_free_involution()
-    True
-    """
-    def __new__(cls, inside: Iterable[int] = (), size: int | None = None):
-        inside = tuple(inside)
-        if size is None:
-            size = len(inside)
-        if len(inside) != size:
-            raise ValueError
-        if sorted(inside) != list(range(size)):
-            raise ValueError
-        return tuple.__new__(cls, inside)
-
-    @classmethod
-    def identity(cls, size: int) -> Permutation:
-        """ The identity permutation on ``range(size)``. """
-        return cls(range(size), size)
-
-    @classmethod
-    def from_cycles(
-            cls, permutation_cycles: Iterable[Iterable[int]],
-            size: int) -> Permutation:
-        """ Build a permutation from cycles. """
-        result = list(range(size))
-        seen = set()
-        for cycle in map(tuple, permutation_cycles):
-            if len(set(cycle)) != len(cycle):
-                raise ValueError
-            for i in cycle:
-                if i < 0 or i >= size or i in seen:
-                    raise ValueError
-                seen.add(i)
-            for source, target in zip(cycle, cycle[1:] + cycle[:1]):
-                result[source] = target
-        return cls(result, size)
-
-    @classmethod
-    def from_transpositions(
-            cls, transpositions: Iterable[tuple[int, int]],
-            size: int) -> Permutation:
-        """ Build a permutation from disjoint 2-cycles. """
-        result = list(range(size))
-        seen = set()
-        for left, right in transpositions:
-            if left == right:
-                raise ValueError
-            if left < 0 or right < 0 or left >= size or right >= size:
-                raise ValueError
-            if left in seen or right in seen:
-                raise ValueError
-            seen.update([left, right])
-            result[left], result[right] = right, left
-        return cls(result, size)
-
-    @classmethod
-    def from_relabels(
-            cls, relabelings: Iterable[tuple[Iterable[int], dict[int, int]]],
-            size: int) -> Permutation:
-        """ Relabel and merge permutations with disjoint target indices. """
-        result = list(range(size))
-        for old, mapping in relabelings:
-            old = cls(old)
-            for i, j in enumerate(old):
-                if i in mapping and j in mapping:
-                    result[mapping[i]] = mapping[j]
-        return cls(result, size)
-
-    def cycles(self) -> tuple[tuple[int, ...], ...]:
-        """ Return the cycles of the permutation. """
-        result, seen = [], set()
-        for i in range(len(self)):
-            if i in seen:
-                continue
-            result.append(self.cycle(i, seen))
-        return tuple(result)
-
-    def cycle(
-            self, start: int,
-            seen: set[int] | None = None) -> tuple[int, ...]:
-        """ Return the cycle reached from ``start``. """
-        if start < 0 or start >= len(self):
-            raise ValueError
-        cycle, local_seen, i = [], set() if seen is None else seen, start
-        while i not in local_seen:
-            local_seen.add(i)
-            cycle.append(i)
-            i = self[i]
-        return tuple(cycle)
-
-    def compose(self, other: Iterable[int]) -> Permutation:
-        """ Return ``self o other``, i.e. ``result[i] == self[other[i]]``. """
-        other = type(self)(other, len(self))
-        elems = (self[other[i]] for i in range(len(self)))
-        return type(self)(elems, len(self))
-
-    def inverse(self) -> Permutation:
-        """ Return the inverse permutation. """
-        result = list(range(len(self)))
-        for source, target in enumerate(self):
-            result[target] = source
-        return type(self)(result, len(self))
-
-    def tensor(self, other: Iterable[int]) -> Permutation:
-        """ Return the disjoint union of two permutations. """
-        other = type(self)(other)
-        shift = len(self)
-        return type(self)(
-            tuple(self) + tuple(shift + i for i in other),
-            len(self) + len(other))
-
-    def relabel(self, mapping: dict[int, int], size: int) -> Permutation:
-        """ Relabel preserved indices, fixing everything else. """
-        return type(self).from_relabels([(self, mapping)], size)
-
-    def is_fixpoint_free_involution(self) -> bool:
-        """ Whether this is a product of disjoint 2-cycles. """
-        return all(self[i] != i and self[self[i]] == i
-                   for i in range(len(self)))
 
 
 def port_side(port: Port) -> str:
@@ -186,9 +57,9 @@ def port_side(port: Port) -> str:
     'down'
     """
     is_adjoint = bool(getattr(port.obj, "z", 0) % 2)
-    if port.kind in LEFT_PORTS:
+    if port.kind in NEGATIVE_PORTS:
         return "down" if is_adjoint else "up"
-    if port.kind in RIGHT_PORTS:
+    if port.kind in POSITIVE_PORTS:
         return "up" if is_adjoint else "down"
     raise ValueError
 
@@ -219,7 +90,6 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         cod : The codomain of the map.
         boxes : The boxes inside the map.
         edge : A fixpoint-free involution on ports.
-        node : A permutation fixing interfaces and cycling each box.
         offsets : Optional drawing offsets, preserved through conversion.
     """
     functor: ClassVar[Functor]
@@ -228,7 +98,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
 
     def __init__(
             self, dom: C0, cod: C0, boxes: tuple[Box, ...],
-            edge: Iterable[int], node: Iterable[int] | None = None,
+            edge: Iterable[int],
             offsets: tuple[int | None, ...] | None = None):
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
@@ -240,8 +110,6 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             raise ValueError
 
         self.edge = Permutation(edge, len(self.ports))
-        self.node = self.canonical_node() if node is None\
-            else Permutation(node, len(self.ports))
         self._validate()
 
     @property
@@ -301,19 +169,15 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         """ Euler characteristic ``V - E + F``. """
         return len(self.boxes) - self.n_ports // 2 + len(self.face_cycles)
 
-    def canonical_node(self) -> Permutation:
+    @property
+    def node(self) -> Permutation:
         """
         The canonical box orientation.
 
-        We go through input/domain ports in order, then through output/codomain
-        ports in reverse order, matching the counter-clockwise boundary order
-        of an ordinary box.
+        Box ports are already in their canonical local counter-clockwise
+        order, so each box contributes its consecutive port interval.
         """
-        cycles = []
-        for box, ports in zip(self.boxes, self.box_port_indices):
-            dom = ports[:len(box.dom)]
-            cod = ports[len(box.dom):]
-            cycles.append(dom + tuple(reversed(cod)))
+        cycles = list(self.box_port_indices)
         return Permutation.from_cycles(cycles, len(self.ports))
 
     def _validate(self):
@@ -324,24 +188,11 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         for i, j in enumerate(self.edge):
             type(self).validate_wire(ports[i], ports[j])
 
-        for i, port in enumerate(ports):
-            if port.kind in BOUNDARY_PORTS and self.node[i] != i:
-                raise ValueError
-
-        for box_ports in self.box_port_indices:
-            if not box_ports:
-                continue
-            if {self.node[i] for i in box_ports} != set(box_ports):
-                raise ValueError
-            if len(Permutation(tuple(box_ports.index(self.node[i])
-                                     for i in box_ports)).cycles()) != 1:
-                raise ValueError
-
     @classmethod
     def validate_wire(cls, source: Port, target: Port):
         """ Validate whether two ports can be connected by a wire. """
-        if source.kind in LEFT_PORTS and target.kind in LEFT_PORTS\
-                or source.kind in RIGHT_PORTS and target.kind in RIGHT_PORTS:
+        if source.kind in NEGATIVE_PORTS and target.kind in NEGATIVE_PORTS\
+                or source.kind in POSITIVE_PORTS and target.kind in POSITIVE_PORTS:
             raise AxiomError
         if source.obj != target.obj:
             raise AxiomError(messages.TYPE_ERROR.format(
@@ -362,15 +213,15 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return factory_name(type(self))\
             + f"(dom={repr(self.dom)}, cod={repr(self.cod)}, " \
               f"boxes={repr(self.boxes)}, edge={repr(self.edge)}, " \
-              f"node={repr(self.node)}, ports={repr(ports)})"
+              f"ports={repr(ports)})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CombinatorialMap) and (
-            self.dom, self.cod, self.boxes, self.edge, self.node
-        ) == (other.dom, other.cod, other.boxes, other.edge, other.node)
+            self.dom, self.cod, self.boxes, self.edge
+        ) == (other.dom, other.cod, other.boxes, other.edge)
 
     def __hash__(self):
-        return hash((self.dom, self.cod, self.boxes, self.edge, self.node))
+        return hash((self.dom, self.cod, self.boxes, self.edge))
 
     @classmethod
     def id(cls, dom=None) -> CombinatorialMap:
@@ -507,12 +358,6 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         kept = [i for i in range(self.n_ports + other.n_ports)
                 if i not in removed]
         mapping = {old: new for new, old in enumerate(kept)}
-        self_map = {
-            i: mapping[i] for i in range(self.n_ports) if i in mapping}
-        other_map = {
-            i: mapping[shift + i]
-            for i in range(other.n_ports) if shift + i in mapping}
-
         edge = dict(enumerate(self.edge))
         edge.update({
             shift + i: shift + j for i, j in enumerate(other.edge)})
@@ -536,10 +381,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
                 edge_pairs.append((mapping[i], mapping[j]))
 
         edge = Permutation.from_transpositions(edge_pairs, len(kept))
-        node = Permutation.from_relabels(
-            [(self.node, self_map), (other.node, other_map)], len(kept))
-
-        return type(self)(dom, cod, boxes, edge, node, offsets)
+        return type(self)(dom, cod, boxes, edge, offsets=offsets)
 
     def trace(self, n: int = 1, left: bool = False) -> CombinatorialMap:
         """ Partial trace, encoded by splicing traced boundary wires. """
@@ -583,8 +425,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
                 edge_pairs.append((mapping[i], mapping[j]))
 
         edge = Permutation.from_transpositions(edge_pairs, len(kept))
-        node = Permutation.from_relabels([(self.node, mapping)], len(kept))
-        return type(self)(dom, cod, self.boxes, edge, node, self.offsets)
+        return type(self)(dom, cod, self.boxes, edge, offsets=self.offsets)
 
     @unbiased
     def tensor(self, other: CombinatorialMap) -> CombinatorialMap:
@@ -616,11 +457,46 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
                 cod_start + self_cod + i)
 
         n_ports = self.n_ports + other.n_ports
-        edge = Permutation.from_relabels(
-            [(self.edge, self_map), (other.edge, other_map)], n_ports)
-        node = Permutation.from_relabels(
-            [(self.node, self_map), (other.node, other_map)], n_ports)
-        return type(self)(dom, cod, boxes, edge, node, offsets)
+        edge_pairs = []
+        for old_edge, mapping in [(self.edge, self_map),
+                                  (other.edge, other_map)]:
+            for i, j in enumerate(old_edge):
+                if i < j:
+                    edge_pairs.append((mapping[i], mapping[j]))
+        edge = Permutation.from_transpositions(edge_pairs, n_ports)
+        return type(self)(dom, cod, boxes, edge, offsets=offsets)
+
+    def interchange(self, i: int, j: int) -> CombinatorialMap:
+        """
+        Interchange boxes at indices ``i`` and ``j``.
+
+        The edge permutation is relabeled so that ports follow the canonical
+        order induced by the new box order.
+        """
+        boxes, offsets = list(self.boxes), list(self.offsets)
+        boxes[i], boxes[j] = boxes[j], boxes[i]
+        offsets[i], offsets[j] = offsets[j], offsets[i]
+        boxes, offsets = tuple(boxes), tuple(offsets)
+
+        old_ports = self.box_port_indices
+        start = len(self.dom)
+        new_ports = {}
+        for box_index, box in enumerate(boxes):
+            stop = start + len(box.dom @ box.cod)
+            old_index = j if box_index == i else i if box_index == j\
+                else box_index
+            new_ports[old_index] = tuple(range(start, stop))
+            start = stop
+
+        mapping = {i: i for i in range(self.n_ports)}
+        for old_index, ports in enumerate(old_ports):
+            for old, new in zip(ports, new_ports[old_index]):
+                mapping[old] = new
+
+        port_permutation = Permutation(
+            (mapping[port] for port in range(self.n_ports)), self.n_ports)
+        edge = self.edge.conjugate(port_permutation)
+        return type(self)(self.dom, self.cod, boxes, edge, offsets=offsets)
 
     def plug_input(
             self, input_index: int, box: Box,
@@ -678,11 +554,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         edge_pairs.append((box_root, new_output))
         edge = Permutation.from_transpositions(edge_pairs, new_output + 1)
 
-        node = Permutation.from_cycles(
-            [tuple(mapping[i] for i in cycle) for cycle in self.node_cycles]
-            + [(box_dom, box_root, box_parameter)],
-            new_output + 1)
-        return type(self)(new_dom, cod, boxes, edge, node, offsets)
+        return type(self)(new_dom, cod, boxes, edge, offsets=offsets)
 
     def to_hypergraph(self) -> hypergraph.Hypergraph:
         """
@@ -807,8 +679,8 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             return variable
 
         def same_map_shape(left, right):
-            return (left.dom, left.cod, left.edge, left.node) == (
-                right.dom, right.cod, right.edge, right.node)
+            return (left.dom, left.cod, left.boxes, left.edge) == (
+                right.dom, right.cod, right.boxes, right.edge)
 
         def go(cmap, context):
             cmap._assert_rooted_trivalent_map()
@@ -1024,13 +896,8 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             edge_pairs.append((new_input, mapping[extra_input_root]))
 
         edge = Permutation.from_transpositions(edge_pairs, size)
-        node = Permutation.from_cycles(
-            [tuple(mapping[port] for port in self.node_cycles[depth])
-             for depth, box_ports in enumerate(self.box_port_indices)
-             if set(box_ports) <= component],
-            size)
         return type(self)(
-            dom, cod, tuple(included_boxes), edge, node, tuple(offsets))
+            dom, cod, tuple(included_boxes), edge, offsets=tuple(offsets))
 
     def to_dot(
             self, engine="neato", seed=None, graph_attr=None,

@@ -1,43 +1,11 @@
 from pytest import raises
 
 from discopy.combinatorial_map import (
-    Permutation,
     Port,
     port_direction,
     port_side,
 )
 from discopy.utils import AxiomError
-
-
-def test_cycles():
-    assert Permutation((1, 0, 3, 2)).cycles() == ((0, 1), (2, 3))
-    assert Permutation.from_cycles([(0, 1), (2, 3)], 4) == (1, 0, 3, 2)
-    assert Permutation((1, 0)).is_fixpoint_free_involution()
-    assert not Permutation((0,)).is_fixpoint_free_involution()
-    assert Permutation.identity(2) == (0, 1)
-    assert Permutation((1, 0)).compose((1, 0)) == (0, 1)
-    assert Permutation((1, 0)).tensor((1, 0)) == (1, 0, 3, 2)
-    assert Permutation((1, 2, 0)).inverse() == (2, 0, 1)
-    assert Permutation((1, 0, 2)).relabel({0: 2, 1: 0}, 3) == (2, 1, 0)
-    assert Permutation((1, 2, 0)).cycle(1) == (1, 2, 0)
-    with raises(ValueError):
-        Permutation((0, 0))
-    with raises(ValueError):
-        Permutation((0,), size=2)
-    with raises(ValueError):
-        Permutation.from_cycles([(0, 0)], 1)
-    with raises(ValueError):
-        Permutation.from_cycles([(0, 2)], 2)
-    with raises(ValueError):
-        Permutation.from_cycles([(0, 1), (1, 2)], 3)
-    with raises(ValueError):
-        Permutation.from_transpositions([(0, 0)], 2)
-    with raises(ValueError):
-        Permutation.from_transpositions([(0, 2)], 2)
-    with raises(ValueError):
-        Permutation.from_transpositions([(0, 1), (1, 2)], 4)
-    with raises(ValueError):
-        Permutation((0,)).cycle(1)
 
 
 def test_port_side():
@@ -81,18 +49,10 @@ def test_M_init():
         M(x, x, (), (0,))
     with raises(AxiomError):
         M(x @ y, x @ y, (), (1, 0, 3, 2))
-    with raises(ValueError):
-        g = Box("g", x, x)
-        M(g.dom, g.cod, (g,), M.from_box(g).edge, (1, 0, 2, 3))
-    assert M(f.dom, f.cod, (f,), valid.edge, (0, 1, 4, 2, 3, 5)).node_cycles == (
-        (2, 4, 3),
-    )
-    with raises(ValueError):
-        M(f.dom, f.cod, (f,), valid.edge, tuple(range(valid.n_ports)))
     with raises(AxiomError):
         M(x, y, (), (1, 0))
     with raises(ValueError):
-        M(f.dom, f.cod, (f,), valid.edge, valid.node, offsets=(None, None))
+        M(f.dom, f.cod, (f,), valid.edge, offsets=(None, None))
 
 
 def test_repr_eq_and_hash():
@@ -126,19 +86,8 @@ def test_from_box_and_to_hypergraph():
     assert cmap.to_hypergraph() == f.to_hypergraph()
 
 
-def test_to_diagram_preserves_orientation(monkeypatch):
-    from discopy.compact import Ty, Box, Id
-
-    x, y, z, w = map(Ty, "xyzw")
-    f, g = Box("f", x, z), Box("g", y, w)
-
-    diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
-    assert diagram == diagram.to_map().to_diagram().normal_form()
-    assert diagram != diagram.to_hypergraph().to_diagram().normal_form()
-
-
-def test_quotient_swap_involutivity():
-    from discopy.compact import Ty, Id
+def test_eliminate_swaps():
+    from discopy.compact import Ty, Id, Box
 
     x, y, w, z = map(Ty, "xyzw")
 
@@ -147,6 +96,12 @@ def test_quotient_swap_involutivity():
 
     diagram = Id(x @ y @ w @ z).swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
     assert diagram == diagram.to_map().to_diagram().normal_form()
+
+    f, g = Box("f", x, z), Box("g", y, w)
+
+    diagram = Id(x @ y).swap(x, y) >> g @ x >> Id(w @ x).swap(w, x) >> f @ w
+    assert diagram == diagram.to_map().to_diagram().normal_form()
+    assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
 def test_diagram_to_map():
@@ -277,6 +232,27 @@ def test_tensor():
     assert (f @ g).to_hypergraph() == f.to_hypergraph() @ g.to_hypergraph()
     assert (f @ M.id()) == f
     assert (M.id() @ f) == f
+
+
+def test_interchange():
+    from discopy.compact import Ty, Box, CombinatorialMap as M
+
+    x, y, z, w, a, b = map(Ty, "xyzwab")
+    f, g, h = Box("f", x, y), Box("g", z, w), Box("h", a, b)
+    cmap = M.from_box(f) @ M.from_box(g) @ M.from_box(h)
+    swapped = cmap.interchange(0, 2)
+    assert swapped.boxes == (h, g, f)
+    assert swapped.dom == cmap.dom
+    assert swapped.cod == cmap.cod
+    assert swapped.edge == (7, 5, 3, 2, 11, 1, 10, 0, 9, 8, 6, 4)
+    assert swapped != cmap
+    assert swapped.interchange(2, 0) == cmap
+    with raises(IndexError):
+        cmap.interchange(0, 3)
+
+    scalar_f, scalar_g = Box("s", Ty(), Ty()), Box("t", Ty(), Ty())
+    scalar = M.from_box(scalar_f) @ M.from_box(scalar_g)
+    assert scalar.interchange(0, 1).boxes == (scalar_g, scalar_f)
 
 
 def test_plug_input():
