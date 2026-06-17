@@ -531,22 +531,22 @@ class Application(TermBase):
         assert_isinstance(args, TermBase)
         assert_isinstance(func.cod, Exp)
         self.func, self.args, self.left = func, args, left
-        dom = args.dom @ func.dom if left else func.dom @ args.dom
+        if self.func.cod.exponent != self.args.cod:
+            raise ValueError(
+                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
         cod = func.cod.base
         fname = f"({func})" if isinstance(func, Application) else str(func)
         xname = f"({args})" if isinstance(args, Application) else str(args)
         name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
+        dom = self.__check_dom__(func, args, left)
         super().__init__(name, dom, cod)
-        self.__post_init__()
 
-    def __post_init__(self):
-        if self.func.cod.exponent != self.args.cod:
-            raise ValueError(
-                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
-        if set(self.func.freevars).intersection(self.args.freevars):
+    def __check_dom__(self, func, args, left):
+        if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
-        self.freevars = self.func.freevars + self.args.freevars if self.left\
-            else self.args.freevars + self.func.freevars
+        self.freevars = func.freevars + args.freevars if self.left\
+            else args.freevars + func.freevars
+        return args.dom @ func.dom if left else func.dom @ args.dom
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -567,12 +567,11 @@ class Abstraction(TermBase):
         self.var, self.body, self.left = var, body, left
         left_str = ", left=True" if left else ""
         name = f"{var.cod}(lambda {var.name}{left_str}: {body})"
-        dom = body.dom[1:] if left else body.dom[:-1]
         cod = var.cod >> body.cod if left else body.cod << var.cod
+        dom = self.__check_dom__()
         super().__init__(name, dom, cod)
-        self.__post_init__()
 
-    def __post_init__(self):
+    def __check_dom__(self):
         body_freevars = self.body.freevars
         if body_freevars.count(self.var) != 1:
             raise ValueError("Expected variable to occur exactly once.")
@@ -582,6 +581,7 @@ class Abstraction(TermBase):
         if not self.left and index != len(body_freevars) - 1:
             raise ValueError("Expected abstraction of right-most variable.")
         self.freevars = body_freevars[1:] if self.left else body_freevars[:-1]
+        return body.dom[1:] if left else body.dom[:-1]
 
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))

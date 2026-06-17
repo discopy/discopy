@@ -231,11 +231,11 @@ class Variable(TermBase, biclosed.Variable):
 
 
 class Application(TermBase, biclosed.Application):
-    def __post_init__(self):
-        self.overlap = set(self.func.freevars).intersection(self.args.freevars)
-        self.freevars = list(set(self.func.freevars + self.args.freevars))\
-            if self.overlap else self.func.freevars + self.args.freevars
-        self.dom = self.ob.tensor(*[x.cod for x in self.freevars])
+    def __check_dom__(self, func, args, left):
+        self.overlap = set(func.freevars).intersection(args.freevars)
+        self.freevars = list(set(func.freevars + args.freevars))\
+            if self.overlap else func.freevars + args.freevars
+        return self.ob.tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -254,9 +254,9 @@ class Application(TermBase, biclosed.Application):
 
 
 class Abstraction(TermBase, biclosed.Abstraction):
-    def __post_init__(self):
+    def __check_dom__(self):
         self.freevars = [x for x in self.body.freevars if x != self.var]
-        self.dom = self.ob().tensor(*[x.cod for x in self.freevars])
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
