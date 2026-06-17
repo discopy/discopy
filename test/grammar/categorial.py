@@ -1,5 +1,6 @@
 from pytest import raises
 
+from discopy import grammar, biclosed
 from discopy.utils import from_tree
 from discopy.biclosed import Ty
 from discopy.grammar.categorial import *
@@ -139,6 +140,25 @@ def test_terms_simplify_and_eval():
 
     assert FX(g_left, f_right).simplify() == FX(g_left, f_right)
     assert BX(f_left, g_right).simplify() == BX(f_left, g_right)
+
+
+def test_complex_sentence():
+    n, p, s = Ty('n'), Ty('p'), Ty('s')
+
+    That = Constant("That", n)
+    was = Constant("was", (n >> s) << n)
+    exactly = Constant("exactly", n << n)
+    what = Constant("what", n << (s << n))
+    I = Constant("I", n)
+    showed = Constant("showed", ((n >> s) << p) << n)
+    to = Constant("to", p << n)
+    her = Constant("her", n)
+
+    sentence = That(was(exactly(what(FC(
+        FTR(s, I), BX(showed, BTR((n >> s), to(her))))))), left=True)
+
+    assert sentence.constants == [That, was, exactly, what, I, showed, to, her]
+    assert eval(str(sentence)) == eval(repr(sentence)) == sentence
 
 
 def test_FC_BC_FX_BX():

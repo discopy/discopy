@@ -52,7 +52,8 @@ from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
     assert_isinstance,
     BinaryBoxConstructor,
-    AxiomError
+    AxiomError,
+    factory_name,
 )
 
 
@@ -252,6 +253,9 @@ class BA(TermBase, biclosed.Application):
     def simplify(self):
         return self.args.simplify()(self.func.simplify(), left=True)
 
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.args!r}, {self.func!r})"
+
 
 class TypeRaising(TermBase):
     "Abstract superclass of :class:`FTR` and :class:`BTR`."
@@ -265,6 +269,13 @@ class TypeRaising(TermBase):
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
+
+    @property
+    def constants(self):
+        return self.child.constants
 
 
 class FTR(TypeRaising):
@@ -287,7 +298,7 @@ class BTR(TypeRaising):
         return Abstraction(f, f(self.child.simplify()), left=True)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class BinaryTerm(TermBase):
     "Abstract superclass of :class:`FC`, :class:`BC`, :class:`FX`, :class:`BX`"
     left: Term
@@ -309,8 +320,15 @@ class BinaryTerm(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
 
-@dataclass(frozen=True)
+    @property
+    def constants(self):
+        return self.left.constants + self.right.constants
+
+
+@dataclass(frozen=True, repr=False)
 class FC(BinaryTerm):
     "Forward composition ``A << C`` with subterms ``A << B`` and ``B << C``. "
     def __post_init__(self):
@@ -332,7 +350,7 @@ class FC(BinaryTerm):
         return Abstraction(x, f(g(x)))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class BC(BinaryTerm):
     "Backward composition ``A >> C`` with subterms ``A >> B`` and ``B >> C``."
     def __post_init__(self):
@@ -354,7 +372,7 @@ class BC(BinaryTerm):
         return Abstraction(x, x(f, left=True)(g, left=True), left=True)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class FX(BinaryTerm):
     "Forward crossing ``A >> C`` with subterms ``B << A`` and ``B >> C``."
     def __post_init__(self):
@@ -372,7 +390,7 @@ class FX(BinaryTerm):
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, repr=False)
 class BX(BinaryTerm):
     "Backward crossing ``A << C`` with subterms ``A << B`` and ``C >> B``."
     def __post_init__(self):

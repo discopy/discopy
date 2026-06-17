@@ -199,8 +199,7 @@ class Exp(Ty, cat.Ob):
         return f"({self.base} ** {self.exponent})"
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.base)}, {repr(self.exponent)})"
+        return factory_name(type(self)) + f"({self.base!r}, {self.exponent!r})"
 
     def to_tree(self):
         return {
@@ -493,9 +492,16 @@ class Constant(TermBase):
         super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
         self.freevars = []
 
+    @property
+    def constants(self):
+        return [self]
+
     def eval(self, functor=None):
         functor = functor or self.functor
         return functor.ar_map[self]
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
 
 class Variable(TermBase):
@@ -513,6 +519,12 @@ class Variable(TermBase):
     def eval(self, functor=None):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
+
+    @property
+    def constants(self):
+        return []
+
+    __repr__ = Constant.__repr__
 
 
 class Application(TermBase):
@@ -534,9 +546,7 @@ class Application(TermBase):
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
                 f"Expected {self.func.cod.exponent}, got {self.args.cod}")
-        cod = func.cod.base
-        fname = f"({func})" if isinstance(func, Application) else str(func)
-        xname = f"({args})" if isinstance(args, Application) else str(args)
+        cod, fname, xname = func.cod.base, str(func), str(args)
         name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
         dom = self.__check_dom__(func, args, left)
         super().__init__(name, dom, cod)
@@ -557,6 +567,16 @@ class Application(TermBase):
         ev = functor.cod.ev(
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
+
+    def __repr__(self):
+        func, args = repr(self.func), repr(self.args)
+        left = ", left=True" if self.left else ""
+        return factory_name(type(self)) + f"({func}, {args}{left})"
+
+    @property
+    def constants(self):
+        return self.args.constants + self.func.constants if self.left\
+            else self.func.constants + self.args.constants
 
 
 class Abstraction(TermBase):
@@ -586,6 +606,15 @@ class Abstraction(TermBase):
 
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))
+
+    def __repr__(self):
+        var, body = repr(self.var), repr(self.body)
+        left = ", left=True" if self.left else ""
+        return factory_name(type(self)) + f"({var}, {body}{left})"
+
+    @property
+    def constants(self):
+        return self.body.constants
 
 
 type Term = Constant | Variable | Application | Abstraction
