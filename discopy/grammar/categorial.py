@@ -85,9 +85,7 @@ class Diagram(biclosed.Diagram):
     def fc(left, middle, right):
         """ Forward composition. """
         return (
-            Diagram.id(left << middle) @ Diagram.id(middle << right)
-            @ Diagram.id(right)
-            >> Diagram.id(left << middle)
+            Diagram.id(left << middle)
             @ Diagram.eval_factory(middle << right)
             >> Diagram.eval_factory(left << middle)
         ).curry(left=True)
@@ -96,9 +94,7 @@ class Diagram(biclosed.Diagram):
     def bc(left, middle, right):
         """ Backward composition. """
         return (
-            Diagram.id(left) @ Diagram.id(left >> middle)
-            @ Diagram.id(middle >> right)
-            >> Diagram.eval_factory(left >> middle)
+            Diagram.eval_factory(left >> middle)
             @ Diagram.id(middle >> right)
             >> Diagram.eval_factory(middle >> right)
         ).curry()
@@ -362,12 +358,7 @@ class FX(BinaryTerm):
     "Forward crossing ``A >> C`` with subterms ``B << A`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Under)
-        if self.left.cod.exponent != self.right.cod.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.exponent, self.right.cod.base))
+        ForwardCrossedComposition(self.left.cod, self.right.cod)
 
     @property
     def cod(self):
@@ -385,12 +376,7 @@ class BX(BinaryTerm):
     "Backward crossing ``A << C`` with subterms ``A << B`` and ``C >> B``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Under)
-        if self.left.cod.base != self.right.cod.exponent:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                self.left.cod, self.right.cod,
-                self.left.cod.base, self.right.cod.exponent))
+        BackwardCrossedComposition(self.left.cod, self.right.cod)
 
     @property
     def cod(self):
