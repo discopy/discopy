@@ -298,6 +298,7 @@ class BinaryTerm(TermBase):
             raise ValueError("Expected disjoint free variables.")
         object.__setattr__(
             self, "freevars", self.left.freevars + self.right.freevars)
+        object.__setattr__(self, "dom", self.left.dom + self.right.dom)
 
     def __str__(self):
         return f"{type(self).__name__}({self.left}, {self.right})"
