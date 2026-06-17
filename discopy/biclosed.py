@@ -542,6 +542,7 @@ class Application(TermBase):
         super().__init__(name, dom, cod)
 
     def __check_dom__(self, func, args, left):
+        assert_isinstance(func.cod, Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
         self.freevars = func.freevars + args.freevars if self.left\
@@ -581,7 +582,7 @@ class Abstraction(TermBase):
         if not self.left and index != len(body_freevars) - 1:
             raise ValueError("Expected abstraction of right-most variable.")
         self.freevars = body_freevars[1:] if self.left else body_freevars[:-1]
-        return body.dom[1:] if left else body.dom[:-1]
+        return self.body.dom[1:] if self.left else self.body.dom[:-1]
 
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))
