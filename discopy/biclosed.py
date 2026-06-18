@@ -362,6 +362,14 @@ class Curry(monoidal.Bubble, Box):
         monoidal.Bubble.__init__(
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
+    
+
+    def to_drawing(self):
+        if self.left:
+            f, e = self.arg, self.coeval_factory(self.cod, left=True)
+            return (f >> e).to_drawing().trace()
+        f, e = self.arg, self.coeval_factory(self.cod)
+        return (f >> e).to_drawing().trace(left=True)
 
 
 class Sum(monoidal.Sum, Box):
