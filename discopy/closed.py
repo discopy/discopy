@@ -177,7 +177,7 @@ class TermBase(ABC):
     def to_diagram(self, category=None) -> Diagram: ...
 
     @abstractmethod
-    def to_map(self, category=None) -> CombinatorialMap: ...
+    def to_map(self, category=None) -> CMap: ...
 
     @abstractmethod
     def alpha_equal(self, other, left_sub, right_sub) -> bool: ...
@@ -238,10 +238,10 @@ class Variable(TermBase):
         return (category or Diagram).id(self.cod)
 
     def to_map(self, category=None):
-        category = category or CombinatorialMap
-        cmap = category.id(self.cod)
-        assert_term_map(cmap, self, category)
-        return cmap
+        category = category or CMap
+        cm = category.id(self.cod)
+        assert_term_map(cm, self, category)
+        return cm
 
     def alpha_equal(self, other, left_sub, right_sub) -> bool:
         return isinstance(other, Variable)\
@@ -286,7 +286,7 @@ class Application(TermBase):
             category) >> Eval(self.func.cod, left=True)
 
     def to_map(self, category=None):
-        category = category or CombinatorialMap
+        category = category or CMap
         func_map = self.func.to_map(category)
         args_map = self.args.to_map(category)
         if common_vars := set(self.func.freevars).intersection(
@@ -296,9 +296,9 @@ class Application(TermBase):
             raise ValueError(messages.NON_LINEAR_TERM.format(
                 suffix=plural, names=names))
         app = Eval(self.func.cod, left=True)
-        cmap = (func_map @ args_map) >> category.from_box(app)
-        assert_term_map(cmap, self, category)
-        return cmap
+        cm = (func_map @ args_map) >> category.from_box(app)
+        assert_term_map(cm, self, category)
+        return cm
 
     def alpha_equal(self, other, left_sub, right_sub) -> bool:
         return isinstance(other, Application)\
@@ -334,7 +334,7 @@ class Abstraction(TermBase):
         return (p >> body).curry()
 
     def to_map(self, category=None):
-        category = category or CombinatorialMap
+        category = category or CMap
         body_map = self.body.to_map(category)
         free_vars = self.body.freevars
         matches = [
@@ -345,9 +345,9 @@ class Abstraction(TermBase):
                 suffix="s", names=[free_vars[i] for i in matches]))
         index, = matches
         lam = Coeval(self.cod, left=True)
-        cmap = body_map.plug_input(index, lam, self.cod)
-        assert_term_map(cmap, self, category)
-        return cmap
+        cm = body_map.plug_input(index, lam, self.cod)
+        assert_term_map(cm, self, category)
+        return cm
 
     def alpha_equal(self, other, left_sub, right_sub) -> bool:
         if not isinstance(other, Abstraction) or self.var.cod != other.var.cod:
@@ -390,7 +390,7 @@ class Pack(TermBase):
         return result
 
     def to_map(self, category=None):
-        category = category or CombinatorialMap
+        category = category or CMap
         result = category.id()
         for term in self.terms:
             result = result @ term.to_map(category)
@@ -463,7 +463,7 @@ class Unpack(TermBase):
         return start >> permutation >> self.body.to_diagram(category)
 
     def to_map(self, category=None):
-        category = category or CombinatorialMap
+        category = category or CMap
         diagram = self.to_diagram(category.category)
         result = category.from_hypergraph(diagram.to_hypergraph())
         assert_term_map(result, self, category)
@@ -525,9 +525,9 @@ def unpack(package: Term, variables=None, body: Term | None = None) -> Unpack:
 def assert_term_map(
     cmap,
     term,
-    category: type[CombinatorialMap] | None = None
+    category: type[CMap] | None = None
 ):
-    category = category or CombinatorialMap
+    category = category or CMap
     if cmap.dom != category.ob().tensor(
             *(variable.cod for variable in term.freevars)):
         raise ValueError
@@ -674,12 +674,12 @@ class Hypergraph(markov.Hypergraph):
     functor = Functor
 
 
-class CombinatorialMap(markov.CombinatorialMap):
+class CMap(markov.CMap):
     functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph
-Diagram.map_factory = CombinatorialMap
+Diagram.map_factory = CMap
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry

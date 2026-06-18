@@ -315,12 +315,12 @@ class Hypergraph(hypergraph.Hypergraph):
             make_causal_first=make_causal_first)
 
 
-class CombinatorialMap(symmetric.CombinatorialMap):
+class CMap(symmetric.CMap):
     functor = Functor
 
 
 Diagram.hypergraph_factory = Hypergraph
-Diagram.map_factory = CombinatorialMap
+Diagram.map_factory = CMap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace

@@ -56,7 +56,7 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from dataclasses import dataclass
 from warnings import warn
 
-from discopy import cat, drawing, hypergraph, combinatorial_map, messages
+from discopy import cat, drawing, hypergraph, cmap, messages
 from discopy.abc import MonoidalCategory
 from discopy.cat import Ob
 from discopy.drawing import Drawing
@@ -690,7 +690,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
         cod = Drawing
         return (functor_factory or Functor)(ob, ar, dom, cod)(self)
 
-    def to_map(self) -> CombinatorialMap:
+    def to_map(self) -> CMap:
         """ Translate a diagram into a combinatorial map. """
         return self.map_factory.from_diagram(self)
 
@@ -1178,7 +1178,7 @@ class Hypergraph(hypergraph.Hypergraph):
         return super().to_diagram()
 
 
-class CombinatorialMap(combinatorial_map.CombinatorialMap):
+class CMap(cmap.CMap):
     functor = Functor
 
 
@@ -1189,5 +1189,5 @@ Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
 Drawing.ob = Ty
-Diagram.map_factory = CombinatorialMap
+Diagram.map_factory = CMap
 Id = Diagram.id

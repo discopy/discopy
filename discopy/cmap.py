@@ -79,7 +79,7 @@ def _same_type(left, right) -> bool:
     return right in [left, left_r] or left in [right, right_r]
 
 
-class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
+class CMap[C0: Monoid, C1: CMap](
     MonoidalCategory[C0, C1], NamedGeneric['functor']
 ):
     """
@@ -214,7 +214,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
               f"ports={repr(ports)})"
 
     def __eq__(self, other: Any):
-        return isinstance(other, CombinatorialMap) and (
+        return isinstance(other, CMap) and (
             self.dom, self.cod, self.boxes, self.edge
         ) == (other.dom, other.cod, other.boxes, other.edge)
 
@@ -222,7 +222,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return hash((self.dom, self.cod, self.boxes, self.edge))
 
     @classmethod
-    def id(cls, dom=None) -> CombinatorialMap:
+    def id(cls, dom=None) -> CMap:
         dom = cls.ob() if dom is None else dom
         n_ports = 2 * len(dom)
         edge = Permutation.from_transpositions(
@@ -230,7 +230,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return cls(dom, dom, (), edge)
 
     @classmethod
-    def from_box(cls, box: Box) -> CombinatorialMap:
+    def from_box(cls, box: Box) -> CMap:
         left = len(box.dom)
         right = len(box.cod)
         n_ports = 2 * (left + right)
@@ -242,9 +242,9 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
-    def from_diagram(cls, old: Diagram) -> CombinatorialMap:
+    def from_diagram(cls, old: Diagram) -> CMap:
         """
-        Turn a :class:`Diagram` into a :class:`CombinatorialMap`.
+        Turn a :class:`Diagram` into a :class:`CMap`.
 
         This follows the same architecture as :meth:`Hypergraph.from_diagram`:
         traverse the diagram with the hierarchy-specific functor and let the
@@ -258,7 +258,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             dom=type(old), cod=factory)(old)
 
     @classmethod
-    def from_hypergraph(cls, old: hypergraph.Hypergraph) -> CombinatorialMap:
+    def from_hypergraph(cls, old: hypergraph.Hypergraph) -> CMap:
         """ Build a combinatorial map from a bijective hypergraph. """
         if not old.is_bijective:
             raise ValueError
@@ -269,17 +269,17 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             offsets=old.offsets)
 
     @classmethod
-    def braid(cls, left: Ty, right: Ty) -> CombinatorialMap:
+    def braid(cls, left: Ty, right: Ty) -> CMap:
         """ The braid, remembered as a box to preserve over/under data. """
         return cls.from_box(cls.category.braid(left, right))
 
     @classmethod
-    def twist(cls, dom: Ty) -> CombinatorialMap:
+    def twist(cls, dom: Ty) -> CMap:
         """ The twist, remembered as a box. """
         return cls.from_box(cls.category.twist(dom))
 
     @classmethod
-    def swap(cls, left: Ty, right: Ty) -> CombinatorialMap:
+    def swap(cls, left: Ty, right: Ty) -> CMap:
         """ The symmetry, encoded as boundary wiring. """
         dom, cod = left @ right, right @ left
         left_len, right_len = len(left), len(right)
@@ -293,7 +293,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return cls(dom, cod, (), edge)
 
     @classmethod
-    def cups(cls, left: Ty, right: Ty) -> CombinatorialMap:
+    def cups(cls, left: Ty, right: Ty) -> CMap:
         """ Cups, encoded as boundary wiring when types are adjoint. """
         if not getattr(left, "r", left[::-1]) == right:
             raise AxiomError
@@ -304,7 +304,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return cls(left @ right, cls.ob(), (), edge)
 
     @classmethod
-    def caps(cls, left: Ty, right: Ty) -> CombinatorialMap:
+    def caps(cls, left: Ty, right: Ty) -> CMap:
         """ Caps, encoded as boundary wiring when types are adjoint. """
         if not getattr(left, "r", left[::-1]) == right:
             raise AxiomError
@@ -315,30 +315,30 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return cls(cls.ob(), left @ right, (), edge)
 
     @classmethod
-    def copy(cls, typ: Ty, n: int = 2) -> CombinatorialMap:
+    def copy(cls, typ: Ty, n: int = 2) -> CMap:
         """ Copy is kept as a box: one input cannot wire to many outputs. """
         return cls.from_box(cls.category.copy(typ, n))
 
     @classmethod
-    def merge(cls, typ: Ty, n: int = 2) -> CombinatorialMap:
+    def merge(cls, typ: Ty, n: int = 2) -> CMap:
         """ Merge is kept as a box: many inputs cannot wire to one output. """
         return cls.from_box(cls.category.merge(typ, n))
 
     @classmethod
-    def discard(cls, typ: Ty) -> CombinatorialMap:
+    def discard(cls, typ: Ty) -> CMap:
         """ Discard is kept as a box. """
         return cls.copy(typ, 0)
 
     @classmethod
     def spiders(
             cls, n_legs_in: int, n_legs_out: int,
-            typ: Ty, phases=None) -> CombinatorialMap:
+            typ: Ty, phases=None) -> CMap:
         """ Spiders are kept as boxes, including their phase data. """
         return cls.from_box(cls.category.spiders(
             n_legs_in, n_legs_out, typ, phases))
 
     @unbiased
-    def then(self, other: CombinatorialMap) -> CombinatorialMap:
+    def then(self, other: CMap) -> CMap:
         """ Sequential composition, gluing output ports to input ports. """
         if not self.cod == other.dom:
             raise AxiomError
@@ -381,7 +381,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         edge = Permutation.from_transpositions(edge_pairs, len(kept))
         return type(self)(dom, cod, boxes, edge, offsets=offsets)
 
-    def trace(self, n: int = 1, left: bool = False) -> CombinatorialMap:
+    def trace(self, n: int = 1, left: bool = False) -> CMap:
         """ Partial trace, encoded by splicing traced boundary wires. """
         if n < 0:
             raise ValueError
@@ -426,7 +426,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         return type(self)(dom, cod, self.boxes, edge, offsets=self.offsets)
 
     @unbiased
-    def tensor(self, other: CombinatorialMap) -> CombinatorialMap:
+    def tensor(self, other: CMap) -> CMap:
         """ Tensor product, given by disjoint union of permutations. """
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         boxes = self.boxes + other.boxes
@@ -464,7 +464,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         edge = Permutation.from_transpositions(edge_pairs, n_ports)
         return type(self)(dom, cod, boxes, edge, offsets=offsets)
 
-    def interchange(self, i: int, j: int) -> CombinatorialMap:
+    def interchange(self, i: int, j: int) -> CMap:
         """
         Interchange boxes at indices ``i`` and ``j``.
 
@@ -498,7 +498,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
 
     def plug_input(
             self, input_index: int, box: Box,
-            cod: Ty) -> CombinatorialMap:
+            cod: Ty) -> CMap:
         """
         Plug an input boundary and the output root into a new box.
 
@@ -767,7 +767,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             return f"{port.kind} {port.i}"
 
         lines = [
-            "graph combinatorial_map {",
+            "graph cmap {",
             f"  graph [{attr_string(attrs)}];",
             '  node [shape=circle, color=black, fontname="Helvetica", '
             'fontsize="12"];',

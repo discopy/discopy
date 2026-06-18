@@ -60,7 +60,7 @@ Coherence
 from discopy import messages, symmetric, ribbon
 from discopy.abc import CompactCategory
 from discopy.cat import ar_factory
-from discopy.combinatorial_map import _same_type, port_side
+from discopy.cmap import _same_type, port_side
 from discopy.pivotal import Ob, Ty  # noqa: F401
 from discopy.utils import AxiomError
 
@@ -142,7 +142,7 @@ class Hypergraph(symmetric.Hypergraph):
     functor = Functor
 
 
-class CombinatorialMap(symmetric.CombinatorialMap):
+class CMap(symmetric.CMap):
     functor = Functor
 
     @classmethod
@@ -159,5 +159,5 @@ Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
-Diagram.map_factory = CombinatorialMap
+Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

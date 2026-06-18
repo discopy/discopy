@@ -1,6 +1,6 @@
 from pytest import raises
 
-from discopy.combinatorial_map import (
+from discopy.cmap import (
     Port,
     port_direction,
     port_side,
@@ -9,7 +9,7 @@ from discopy.utils import AxiomError
 
 
 def test_port_side():
-    from discopy.compact import Ty, CombinatorialMap as M
+    from discopy.compact import Ty, CMap as M
     x = Ty("x")
     ports = M.id(x).ports
     assert port_side(ports[0]) == "up"
@@ -28,16 +28,16 @@ def test_port_side():
 
 
 def test_default_compact_setting():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
     x, y = map(Ty, "xy")
     f = Box("f", x, y)
-    cmap = M.from_box(f)
+    cm = M.from_box(f)
     assert isinstance(f, M.category)
-    assert cmap.to_hypergraph().category == M.category
+    assert cm.to_hypergraph().category == M.category
 
 
 def test_M_init():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
     x, y, z = map(Ty, "xyz")
     f = Box("f", x @ y, z)
     valid = M.from_box(f)
@@ -56,18 +56,18 @@ def test_M_init():
 
 
 def test_repr_eq_and_hash():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y = map(Ty, "xy")
-    cmap = M.from_box(Box("f", x, y))
-    assert "ports=" in repr(cmap)
-    assert cmap == M.from_box(Box("f", x, y))
-    assert cmap != object()
-    assert hash(cmap) == hash(M.from_box(Box("f", x, y)))
+    cm = M.from_box(Box("f", x, y))
+    assert "ports=" in repr(cm)
+    assert cm == M.from_box(Box("f", x, y))
+    assert cm != object()
+    assert hash(cm) == hash(M.from_box(Box("f", x, y)))
 
 
 def test_id_and_tensor():
-    from discopy.compact import Ty, CombinatorialMap as M, Hypergraph as H
+    from discopy.compact import Ty, CMap as M, Hypergraph as H
     x, y = map(Ty, "xy")
     assert M.id(x).edge == (1, 0)
     assert M.id(x).node == (0, 1)
@@ -77,13 +77,13 @@ def test_id_and_tensor():
 
 
 def test_from_box_and_to_hypergraph():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
     x, y = map(Ty, "xy")
     f = Box("f", x, y)
-    cmap = M.from_box(f)
-    assert cmap.edge == (1, 0, 3, 2)
-    assert cmap.node == (0, 2, 1, 3)
-    assert cmap.to_hypergraph() == f.to_hypergraph()
+    cm = M.from_box(f)
+    assert cm.edge == (1, 0, 3, 2)
+    assert cm.node == (0, 2, 1, 3)
+    assert cm.to_hypergraph() == f.to_hypergraph()
 
 
 def test_eliminate_swaps():
@@ -117,11 +117,11 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     from discopy.symmetric import Ty, Id
 
     x, y = map(Ty, "xy")
-    cmap = Id(x @ y).permute(1, 0).to_map()
-    assert cmap.dom == x @ y
-    assert cmap.cod == y @ x
-    assert cmap.boxes == ()
-    assert cmap.edge == (3, 2, 1, 0)
+    cm = Id(x @ y).permute(1, 0).to_map()
+    assert cm.dom == x @ y
+    assert cm.cod == y @ x
+    assert cm.boxes == ()
+    assert cm.edge == (3, 2, 1, 0)
 
 
 def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
@@ -142,8 +142,8 @@ def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
 
 
 def test_structural_maps_and_errors():
-    from discopy.compact import Ty as CTy, Box as CBox, CombinatorialMap as CM
-    from discopy.markov import Ty as MTy, CombinatorialMap as MM
+    from discopy.compact import Ty as CTy, Box as CBox, CMap as CM
+    from discopy.markov import Ty as MTy, CMap as MM
 
     x, y = map(CTy, "xy")
     assert CM.swap(x, y).to_hypergraph() == CM.category.swap(
@@ -169,14 +169,14 @@ def test_structural_maps_and_errors():
 
 
 def test_scalar_box():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     s = Box("s", Ty(), Ty())
-    cmap = M.from_box(s)
-    assert cmap.edge == ()
-    assert cmap.node == ()
-    assert cmap.euler_characteristic == 1
-    assert cmap.to_hypergraph() == s.to_hypergraph()
+    cm = M.from_box(s)
+    assert cm.edge == ()
+    assert cm.node == ()
+    assert cm.euler_characteristic == 1
+    assert cm.to_hypergraph() == s.to_hypergraph()
 
 
 def test_zipping_cups_and_caps():
@@ -186,7 +186,7 @@ def test_zipping_cups_and_caps():
     ╰─╯ ╰─╯ ╰─╯ ╰─╯ │    │
     """
 
-    from discopy.compact import Ty, Diagram as D, CombinatorialMap as M
+    from discopy.compact import Ty, Diagram as D, CMap as M
 
     x, y = map(Ty, 'xy')
 
@@ -199,7 +199,7 @@ def test_zipping_cups_and_caps():
 
 
 def test_from_hypergraph():
-    from discopy.compact import Ty, Box, CombinatorialMap as M, Hypergraph as H
+    from discopy.compact import Ty, Box, CMap as M, Hypergraph as H
 
     x, y = map(Ty, "xy")
     f = Box("f", x, y).to_hypergraph()
@@ -209,7 +209,7 @@ def test_from_hypergraph():
 
 
 def test_then():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y, z, w = map(Ty, "xyzw")
     f, g, h = [
@@ -224,7 +224,7 @@ def test_then():
 
 
 def test_tensor():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y, z = map(Ty, "xyz")
     f = M.from_box(Box("f", x, y))
@@ -235,20 +235,20 @@ def test_tensor():
 
 
 def test_interchange():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y, z, w, a, b = map(Ty, "xyzwab")
     f, g, h = Box("f", x, y), Box("g", z, w), Box("h", a, b)
-    cmap = M.from_box(f) @ M.from_box(g) @ M.from_box(h)
-    swapped = cmap.interchange(0, 2)
+    cm = M.from_box(f) @ M.from_box(g) @ M.from_box(h)
+    swapped = cm.interchange(0, 2)
     assert swapped.boxes == (h, g, f)
-    assert swapped.dom == cmap.dom
-    assert swapped.cod == cmap.cod
+    assert swapped.dom == cm.dom
+    assert swapped.cod == cm.cod
     assert swapped.edge == (7, 5, 3, 2, 11, 1, 10, 0, 9, 8, 6, 4)
-    assert swapped != cmap
-    assert swapped.interchange(2, 0) == cmap
+    assert swapped != cm
+    assert swapped.interchange(2, 0) == cm
     with raises(IndexError):
-        cmap.interchange(0, 3)
+        cm.interchange(0, 3)
 
     scalar_f, scalar_g = Box("s", Ty(), Ty()), Box("t", Ty(), Ty())
     scalar = M.from_box(scalar_f) @ M.from_box(scalar_g)
@@ -256,7 +256,7 @@ def test_interchange():
 
 
 def test_plug_input():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y, z = map(Ty, "xyz")
     direct = M.id(x).plug_input(0, Box("lambda", x, y @ x), y)
@@ -276,12 +276,12 @@ def test_plug_input():
 
 
 def test_dot_and_draw_non_interactive(tmp_path, monkeypatch):
-    from discopy import combinatorial_map
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy import cmap
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y = map(Ty, "xy")
-    cmap = M.from_box(Box("f", x, y))
-    dot = cmap.to_dot(
+    cm = M.from_box(Box("f", x, y))
+    dot = cm.to_dot(
         seed=7, boundary_labels=False,
         box_labels=lambda box: f"box:{box.name}")
     assert 'start="7"' in dot
@@ -289,26 +289,26 @@ def test_dot_and_draw_non_interactive(tmp_path, monkeypatch):
     assert 'xlabel=""' in dot
 
     dot_path = tmp_path / "map.dot"
-    assert cmap.draw(dot_path, show=False) is None
-    assert dot_path.read_text(encoding="utf-8") == cmap.to_dot()
+    assert cm.draw(dot_path, show=False) is None
+    assert dot_path.read_text(encoding="utf-8") == cm.to_dot()
 
     calls = []
 
     def fake_run(command, input=None, check=None, **kwargs):
         calls.append((command, input, check, kwargs))
 
-    monkeypatch.setattr(combinatorial_map.shutil, "which", lambda _: "dot")
-    monkeypatch.setattr(combinatorial_map.subprocess, "run", fake_run)
-    assert cmap.draw(tmp_path / "map.svg", show=False) is None
+    monkeypatch.setattr(cmap.shutil, "which", lambda _: "dot")
+    monkeypatch.setattr(cmap.subprocess, "run", fake_run)
+    assert cm.draw(tmp_path / "map.svg", show=False) is None
     assert calls[0][0][:2] == ["dot", "-Tsvg"]
 
-    monkeypatch.setattr(combinatorial_map.shutil, "which", lambda _: None)
+    monkeypatch.setattr(cmap.shutil, "which", lambda _: None)
     with raises(RuntimeError):
-        cmap.draw(show=False)
+        cm.draw(show=False)
 
 
 def test_tensor_then():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
 
     x, y, z, a, b = map(Ty, "xyzab")
     f1 = M.from_box(Box("f1", x, y))
@@ -320,7 +320,7 @@ def test_tensor_then():
 
 
 def test_then_tensor():
-    from discopy.compact import Ty, Box, CombinatorialMap as M
+    from discopy.compact import Ty, Box, CMap as M
     x1, x2, y1, y2, z = map(Ty, ["x1", "x2", "y1", "y2", "z"])
     f1 = M.from_box(Box("f1", x1, y1))
     f2 = M.from_box(Box("f2", x2, y2))
@@ -331,7 +331,7 @@ def test_then_tensor():
 
 
 def test_euler_characteristic():
-    from discopy.closed import Ty, Box, CombinatorialMap as M
+    from discopy.closed import Ty, Box, CMap as M
     x, y = map(Ty, "xy")
     wire = M.id(x)
     box = M.from_box(Box("f", x, y))
@@ -341,3 +341,16 @@ def test_euler_characteristic():
     assert box.face_cycles == ((0, 2, 3, 1),)
     assert box.euler_characteristic == 0
     assert (box @ scalar).euler_characteristic == 1
+
+def test_zeilberger_term():
+    from discopy.closed import Ty
+    """
+    λx.λy.x(λz.yz)
+    x : (0 -> 1) -> 2
+    y : 0 -> 3
+    z : 0
+    """
+    a, b, c = map(Ty, 'abc')
+    term = ((a >> b) >> c)(lambda x: (a >> b)(lambda y: x(a(lambda z: y(z)))))
+    term.to_map().draw()
+

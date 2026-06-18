@@ -11,7 +11,7 @@ from discopy.closed import (
     Box,
     Eval,
     Coeval,
-    CombinatorialMap,
+    CMap,
     Substitution,
     TermBase,
     assert_term_map,
@@ -137,7 +137,7 @@ def test_pack_unpack_terms():
     assert pair.cod == X @ Y
     assert pair.to_diagram().dom == X @ Y
     assert pair.to_diagram().cod == X @ Y
-    assert pair.to_map() == CombinatorialMap.id(X @ Y)
+    assert pair.to_map() == CMap.id(X @ Y)
 
     swap = unpack(pair, lambda a, b: pack(b, a))
     assert swap.dom == X @ Y
@@ -177,13 +177,13 @@ def test_term_failures_and_assertions():
     with raises(ValueError):
         Abstraction(x, Application(Application(higher, x), x)).to_map()
 
-    cmap = CombinatorialMap.id(X)
+    cm = CMap.id(X)
     with raises(ValueError):
-        assert_term_map(cmap, y)
+        assert_term_map(cm, y)
     with raises(ValueError):
-        assert_term_map(CombinatorialMap.id(Y), x)
+        assert_term_map(CMap.id(Y), x)
     with raises(ValueError):
-        assert_term_map(CombinatorialMap.from_box(Box("f", X @ X, X)), f)
+        assert_term_map(CMap.from_box(Box("f", X @ X, X)), f)
 
 
 def test_python_Func():
@@ -207,28 +207,28 @@ def test_python_Func():
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
 
 
-def assert_trivalent_map(cmap, dom, cod, vertices):
-    assert cmap.dom == dom
-    assert cmap.cod == cod
-    assert len(cmap.cod) == 1
-    assert len(cmap.boxes) == vertices
-    assert all(len(cycle) == 3 for cycle in cmap.node_cycles)
-    assert cmap.ports[-1].kind == "output"
-    assert cmap.node[-1] == len(cmap.ports) - 1
-    assert cmap.edge[-1] != len(cmap.ports) - 1
+def assert_trivalent_map(cm, dom, cod, vertices):
+    assert cm.dom == dom
+    assert cm.cod == cod
+    assert len(cm.cod) == 1
+    assert len(cm.boxes) == vertices
+    assert all(len(cycle) == 3 for cycle in cm.node_cycles)
+    assert cm.ports[-1].kind == "output"
+    assert cm.node[-1] == len(cm.ports) - 1
+    assert cm.edge[-1] != len(cm.ports) - 1
 
 
 def test_term_to_map_identity():
     X = Ty("X")
     x = Variable(X, "x")
     identity = Abstraction(x, x)
-    cmap = identity.to_map()
-    assert_trivalent_map(cmap, Ty(), identity.cod, vertices=1)
-    assert len(cmap.ports) == 4
-    assert isinstance(cmap.boxes[0], Coeval)
-    assert cmap.boxes[0].dom == X
-    assert cmap.boxes[0].cod == identity.cod @ X
-    assert cmap.to_term() == X(lambda x: x)
+    cm = identity.to_map()
+    assert_trivalent_map(cm, Ty(), identity.cod, vertices=1)
+    assert len(cm.ports) == 4
+    assert isinstance(cm.boxes[0], Coeval)
+    assert cm.boxes[0].dom == X
+    assert cm.boxes[0].cod == identity.cod @ X
+    assert cm.to_term() == X(lambda x: x)
 
 
 def test_term_to_map_b_combinator():
@@ -239,13 +239,13 @@ def test_term_to_map_b_combinator():
     b = Abstraction(
         x, Abstraction(y, Abstraction(z, Application(x, Application(y, z))))
     )
-    cmap = b.to_map()
-    assert_trivalent_map(cmap, Ty(), b.cod, vertices=5)
-    assert len(cmap.ports) == 16
-    assert [type(box) for box in cmap.boxes] == [Eval, Eval, Coeval, Coeval, Coeval]
-    assert [len(box.dom) for box in cmap.boxes] == [2, 2, 1, 1, 1]
-    assert [len(box.cod) for box in cmap.boxes] == [1, 1, 2, 2, 2]
-    assert cmap.to_term() == b
+    cm = b.to_map()
+    assert_trivalent_map(cm, Ty(), b.cod, vertices=5)
+    assert len(cm.ports) == 16
+    assert [type(box) for box in cm.boxes] == [Eval, Eval, Coeval, Coeval, Coeval]
+    assert [len(box.dom) for box in cm.boxes] == [2, 2, 1, 1, 1]
+    assert [len(box.cod) for box in cm.boxes] == [1, 1, 2, 2, 2]
+    assert cm.to_term() == b
 
 
 def test_term_to_map_open_terms_use_domain_boundary():
@@ -256,14 +256,14 @@ def test_term_to_map_open_terms_use_domain_boundary():
     print(f"{variable.dom!r}, {variable.cod!r}")
     assert variable.dom == X
     assert variable.cod == X
-    assert variable == CombinatorialMap.id(X)
+    assert variable == CMap.id(X)
 
     application = Application(f, x)
-    cmap = application.to_map()
-    assert_trivalent_map(cmap, (X >> Y) @ X, Y, vertices=1)
-    assert isinstance(cmap.boxes[0], Eval)
-    assert [port.kind for port in cmap.ports[:2]] == ["input", "input"]
-    assert cmap.to_term(["f", "x"]) == application
+    cm = application.to_map()
+    assert_trivalent_map(cm, (X >> Y) @ X, Y, vertices=1)
+    assert isinstance(cm.boxes[0], Eval)
+    assert [port.kind for port in cm.ports[:2]] == ["input", "input"]
+    assert cm.to_term(["f", "x"]) == application
 
 
 def test_whiteboard_term():
@@ -303,9 +303,9 @@ def test_petersen_term():
         (t2 >> t3) >> ((t4 >> t5) >> (((t1 >> t0) >> t2) >> ((t3 >> t4) >> t6)))
     )
 
-    cmap = petersen.to_map()
-    assert len(cmap.ports) == 34
-    assert_trivalent_map(cmap, Ty(), petersen.cod, vertices=11)
+    cm = petersen.to_map()
+    assert len(cm.ports) == 34
+    assert_trivalent_map(cm, Ty(), petersen.cod, vertices=11)
 
-    roundtrip = cmap.to_term()
+    roundtrip = cm.to_term()
     assert petersen == roundtrip
