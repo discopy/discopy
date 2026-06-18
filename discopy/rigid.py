@@ -227,9 +227,6 @@ class Diagram(biclosed.Diagram, RigidCategory):
 
     to_drawing = monoidal.Diagram.to_drawing
 
-    over = staticmethod(lambda base, exponent: base << exponent)
-    under = staticmethod(lambda base, exponent: exponent >> base)
-
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left=True) -> Diagram:
         return base @ cls.cups(exponent.l, exponent) if left\

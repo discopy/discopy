@@ -88,14 +88,23 @@ class Ty(monoidal.Ty):
     applying it to a string yields a :class:`Constant`.
     """
     def __pow__(self, other: Ty) -> Ty:
-        return Exp(self, other) if isinstance(other, Ty)\
+        return self.exp(other) if isinstance(other, Ty)\
             else monoidal.Ty.__pow__(self, other)
 
+    def exp(self, other: Ty) -> Ty:
+        return self.ob(self.exp_factory(self, other))
+
+    def over(self, other: Ty) -> Ty:
+        return self.ob(self.over_factory(self, other))
+
+    def under(self, other: Ty) -> Ty:
+        return self.ob(self.under_factory(self, other))
+
     def __lshift__(self, other):
-        return Over(self, other)
+        return self.over(other)
 
     def __rshift__(self, other):
-        return Under(other, self)
+        return other.under(self)
 
     def __call__(self, arg):
         if isinstance(arg, str):
@@ -120,51 +129,21 @@ class Ty(monoidal.Ty):
             + f"({', '.join(map(repr, self.inside))})"
 
     @property
-    def left(self) -> Ty:
-        return self.inside[0].left if self.is_exp else None
-
-    @property
-    def right(self) -> Ty:
-        return self.inside[0].right if self.is_exp else None
-
-    @property
     def is_exp(self):
-        """
-        Whether the type is an :class:`Exp` object.
-
-        Example
-        -------
-        >>> x, y = Ty('x'), Ty('y')
-        >>> assert (x ** y).is_exp and (x ** y @ Ty()).is_exp
-        """
         return len(self) == 1 and isinstance(self.inside[0], Exp)
 
     @property
-    def is_under(self):
-        """
-        Whether the type is an :class:`Under` object.
-
-        Example
-        -------
-        >>> x, y = Ty('x'), Ty('y')
-        >>> assert (x >> y).is_under and (x >> y @ Ty()).is_under
-        """
-        return len(self) == 1 and isinstance(self.inside[0], Under)
-
+    def base(self):
+        assert self.is_exp
+        return self.inside[0].base
+    
     @property
-    def is_over(self):
-        """
-        Whether the type is an :class:`Over` object.
-
-        Example
-        -------
-        >>> x, y = Ty('x'), Ty('y')
-        >>> assert (x << y).is_over and (x << y @ Ty()).is_over
-        """
-        return len(self) == 1 and isinstance(self.inside[0], Over)
+    def exponent(self):
+        assert self.is_exp
+        return self.inside[0].exponent
 
 
-class Exp(Ty, cat.Ob):
+class Exp(cat.Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -173,24 +152,19 @@ class Exp(Ty, cat.Ob):
         exponent : The exponent type.
     """
 
+    ob = Ty
+
     def __init__(self, base: Ty, exponent: Ty):
+        assert_isinstance(base, self.ob)
+        assert_isinstance(exponent, self.ob)
+
+        assert self.ob == base.ob == exponent.ob
         self.base, self.exponent = base, exponent
-        super().__init__(self)
-
-    @property
-    def left(self):
-        return self.exponent if isinstance(self, Under) else self.base
-
-    @property
-    def right(self):
-        return self.base if isinstance(self, Under) else self.exponent
+        super().__init__(str(self))
 
     def __eq__(self, other):
-        if isinstance(other, type(self)):
-            return (self.base, self.exponent) == (other.base, other.exponent)
-        if isinstance(other, Exp):
-            return False  # Avoid infinite loop with Over(x, y) == Under(x, y).
-        return isinstance(other, Ty) and other.inside == (self, )
+        return isinstance(other, type(self))\
+            and (self.base, self.exponent) == (other.base, other.exponent)
 
     def __hash__(self):
         return hash(repr(self))
@@ -210,9 +184,6 @@ class Exp(Ty, cat.Ob):
     @classmethod
     def from_tree(cls, tree):
         return cls(*map(from_tree, (tree['base'], tree['exponent'])))
-
-    def to_drawing(self):
-        return Ty(str(self)).to_drawing()
 
 
 class Over(Exp):
@@ -310,7 +281,10 @@ class Eval(Box):
         x : The exponential type to evaluate.
     """
     def __init__(self, x: Exp, left=None):
-        self.x, self.left = x, isinstance(x, Over) if left is None else left
+        assert x.is_exp
+        self.x = x
+        exp = x.inside[0]
+        self.left = isinstance(exp, Over) if left is None else left
         dom, cod = (x @ x.exponent, x.base) if self.left\
             else (x.exponent @ x, x.base)
         super().__init__("Eval" + str(x), dom, cod)
@@ -333,7 +307,10 @@ class Coeval(Box):
     drawing_name = "lambda"
 
     def __init__(self, x: Exp, left=None):
-        self.x, self.left = x, isinstance(x, Over) if left is None else left
+        assert x.is_exp
+        self.x = x
+        exp = x.inside[0]
+        self.left = isinstance(exp, Over) if left is None else left
         cod, dom = (x @ x.exponent, x.base) if self.left\
             else (x.exponent @ x, x.base)
         super().__init__("Coeval" + str(x), dom, cod)
@@ -386,8 +363,6 @@ Id = Diagram.id
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
-Diagram.over, Diagram.under, Diagram.exp\
-    = map(staticmethod, (Over, Under, Exp))
 Diagram.sum_factory = Sum
 
 
@@ -408,9 +383,12 @@ class Functor(monoidal.Functor):
         if isinstance(other, TermBase):
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
-            if isinstance(other, cls) and hasattr(self.cod, attr):
-                method = getattr(self.cod, attr)
-                return method(self(other.base), self(other.exponent))
+            if isinstance(other, cls):
+                base, exponent = self(other.base), self(other.exponent)
+                if hasattr(base, attr):
+                    return getattr(base, attr)(exponent)
+                if hasattr(self.cod, attr):
+                    return getattr(self.cod, attr)(base, exponent)
         if isinstance(other, Curry) and hasattr(self.cod, "curry"):
             return self.cod.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
@@ -510,6 +488,9 @@ class Constant(TermBase):
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
+    def __str__(self):
+        return f"{self.cod!s}({self.name!r})"
+
 
 class Variable(TermBase):
     """
@@ -548,18 +529,19 @@ class Application(TermBase):
     def __init__(self, func: Term, args: Term, left: bool = False):
         assert_isinstance(func, TermBase)
         assert_isinstance(args, TermBase)
-        assert_isinstance(func.cod, Exp)
+        if not func.cod.is_exp:
+            raise TypeError(f"Expected {Exp}, got {type(func.cod)}")
         self.func, self.args, self.left = func, args, left
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
                 f"Expected {self.func.cod.exponent}, got {self.args.cod}")
-        cod, fname, xname = func.cod.base, str(func), str(args)
+        cod, fname, xname = func.cod.base, func.name, args.name
         name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
         dom = self.__check_dom__(func, args, left)
         super().__init__(name, dom, cod)
 
     def __check_dom__(self, func, args, left):
-        assert_isinstance(func.cod, Under if left else Over)
+        assert_isinstance(func.cod.inside[0], Under if left else Over)
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
         self.freevars = func.freevars + args.freevars if self.left\
@@ -630,3 +612,4 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
