@@ -52,7 +52,7 @@ from functools import reduce
 from discopy import cat, biclosed, markov, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.utils import assert_isinstance, AxiomError
+from discopy.utils import AxiomError
 
 
 @ob_factory
@@ -259,9 +259,15 @@ class Application(TermBase):
 
     def __post_init__(self):
         if not self.func.cod.is_exp:
-            raise AxiomError(messages.TYPE_ERROR.format(Exp(Ty('_'), Ty('_')), self.func.cod))
+            raise AxiomError(messages.TYPE_ERROR.format(
+                Exp(Ty('_'), Ty('_')),
+                self.func.cod
+            ))
         if self.func.cod.right != self.args.cod:
-            raise AxiomError(messages.TYPE_ERROR.format(self.func.cod.right, self.args.cod))
+            raise AxiomError(messages.TYPE_ERROR.format(
+                self.func.cod.right,
+                self.args.cod
+            ))
 
     @property
     def cod(self):

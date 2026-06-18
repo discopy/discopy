@@ -189,8 +189,11 @@ class CMap[C0: Monoid, C1: CMap](
     @classmethod
     def validate_wire(cls, source: Port, target: Port):
         """ Validate whether two ports can be connected by a wire. """
-        if source.kind in NEGATIVE_PORTS and target.kind in NEGATIVE_PORTS\
-                or source.kind in POSITIVE_PORTS and target.kind in POSITIVE_PORTS:
+        if source.kind in NEGATIVE_PORTS \
+                and target.kind in NEGATIVE_PORTS:
+            raise AxiomError
+        if source.kind in POSITIVE_PORTS \
+                and target.kind in POSITIVE_PORTS:
             raise AxiomError
         if source.obj != target.obj:
             raise AxiomError(messages.TYPE_ERROR.format(
@@ -645,7 +648,6 @@ class CMap[C0: Monoid, C1: CMap](
             Application,
             Coeval,
             Eval,
-            Exp,
             Variable,
         )
 
@@ -685,10 +687,16 @@ class CMap[C0: Monoid, C1: CMap](
                     raise ValueError
                 func_port, arg_port = [
                     i for i in box_ports if self.ports[i].kind == "dom"]
-                return dfs(func_port, bound_ports, lambda func:
-                    dfs(arg_port, bound_ports, lambda arg:
-                        continuation(Application(func, arg))
-                    )
+                return dfs(
+                    func_port,
+                    bound_ports,
+                    lambda func:
+                        dfs(
+                            arg_port,
+                            bound_ports,
+                            lambda arg:
+                                continuation(Application(func, arg))
+                        )
                 )
 
             # import pdb; pdb.set_trace()
