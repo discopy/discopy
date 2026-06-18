@@ -205,6 +205,10 @@ class Permutation(Function, SymmetricCategory):
             result[target] = source
         return type(self)(result, len(self))
 
+    def inverse(self):
+        """ Return the inverse permutation. """
+        return self.dagger()
+
     def conjugate(self, by):
         """ Return ``by o self o by^-1``. """
         by = type(self)(by, len(self))

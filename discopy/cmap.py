@@ -656,8 +656,11 @@ class CMap[C0: Monoid, C1: CMap](
         if len(names) != len(self.dom):
             raise ValueError
 
+        def term_type(obj):
+            return obj.inside[0] if getattr(obj, "is_exp", False) else obj
+
         variables = tuple(
-            Variable(obj, name)
+            Variable(term_type(obj), name)
             for obj, name in zip(self.dom, names)
         )
         counter = len(variables)
@@ -702,7 +705,7 @@ class CMap[C0: Monoid, C1: CMap](
             # import pdb; pdb.set_trace()
 
             if isinstance(box, Coeval):
-                cod = self.ports[port].obj
+                cod = term_type(self.ports[port].obj)
                 if node.kind != "cod" or node.i != 0\
                         or not cod.is_exp:
                     raise ValueError

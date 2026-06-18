@@ -11,15 +11,22 @@ Summary
     :nosignatures:
     :toctree:
 
-    Diagram
-    Box
-    Word
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
     FA
     BA
     FC
     BC
     FX
     BX
+    Diagram
+    Box
+    Word
+    ForwardCrossedComposition
+    BackwardCrossedComposition
     Functor
 
 .. admonition:: Functions
@@ -33,6 +40,9 @@ Summary
         tree2diagram
 """
 
+from __future__ import annotations
+
+from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
@@ -41,10 +51,9 @@ from discopy.grammar import thue
 from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
     assert_isinstance,
-    factory_name,
-    from_tree,
     BinaryBoxConstructor,
-    AxiomError
+    AxiomError,
+    factory_name,
 )
 
 
@@ -66,32 +75,40 @@ class Diagram(biclosed.Diagram):
     @staticmethod
     def fa(left, right):
         """ Forward application. """
-        return FA(left << right)
+        return Diagram.eval_factory(left << right)
 
     @staticmethod
     def ba(left, right):
         """ Backward application. """
-        return BA(left >> right)
+        return Diagram.eval_factory(left >> right)
 
     @staticmethod
     def fc(left, middle, right):
         """ Forward composition. """
-        return FC(left << middle, middle << right)
+        return (
+            Diagram.id(left << middle)
+            @ Diagram.eval_factory(middle << right)
+            >> Diagram.eval_factory(left << middle)
+        ).curry(left=True)
 
     @staticmethod
     def bc(left, middle, right):
         """ Backward composition. """
-        return BC(left >> middle, middle >> right)
+        return (
+            Diagram.eval_factory(left >> middle)
+            @ Diagram.id(middle >> right)
+            >> Diagram.eval_factory(middle >> right)
+        ).curry()
 
     @staticmethod
     def fx(left, middle, right):
         """ Forward crossed composition. """
-        return FX(left << middle, right >> middle)
+        return ForwardCrossedComposition(left << middle, right >> middle)
 
     @staticmethod
     def bx(left, middle, right):
         """ Backward crossed composition. """
-        return BX(middle << left, middle >> right)
+        return BackwardCrossedComposition(middle << left, middle >> right)
 
 
 class Box(biclosed.Box, Diagram):
@@ -114,7 +131,7 @@ class Word(thue.Word, Box):
 
 class Eval(biclosed.Eval, Box):
     """
-    Evaluation box in a categorial grammar, equivalent to :class:``FA``.
+    Evaluation box in a categorial grammar.
     """
 
 
@@ -124,72 +141,7 @@ class Curry(biclosed.Curry, Box):
     """
 
 
-def unaryBoxConstructor(attr):
-    class Constructor:
-        @classmethod
-        def from_tree(cls, tree):
-            return cls(from_tree(tree[attr]))
-
-        def to_tree(self):
-            return {
-                'factory': factory_name(type(self)),
-                attr: getattr(self, attr).to_tree()}
-    return Constructor
-
-
-class FA(unaryBoxConstructor("over"), Box):
-    """ Forward application rule. """
-    def __init__(self, over):
-        assert_isinstance(over, Over)
-        self.over = over
-        dom, cod = over @ over.exponent, over.base
-        Box.__init__(self, f"FA{over}", dom, cod)
-
-    def __repr__(self):
-        return f"FA({repr(self.dom[:1])})"
-
-
-class BA(unaryBoxConstructor("under"), Box):
-    """ Backward application rule. """
-    def __init__(self, under):
-        assert_isinstance(under, Under)
-        self.under = under
-        dom, cod = under.exponent @ under, under.base
-        Box.__init__(self, f"BA{under}", dom, cod)
-
-    def __repr__(self):
-        return f"BA({repr(self.dom[1:])})"
-
-
-class FC(BinaryBoxConstructor, Box):
-    """ Forward composition rule. """
-    def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Over)
-        if left.exponent != right.base:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                left, right, left.exponent, right.base))
-        name = f"FC({left}, {right})"
-        dom, cod = left @ right, left.base << right.exponent
-        Box.__init__(self, name, dom, cod)
-        BinaryBoxConstructor.__init__(self, left, right)
-
-
-class BC(BinaryBoxConstructor, Box):
-    """ Backward composition rule. """
-    def __init__(self, left, right):
-        assert_isinstance(left, Under)
-        assert_isinstance(right, Under)
-        if left.base != right.exponent:
-            raise AxiomError(messages.NOT_COMPOSABLE.format(
-                left, right, left.base, right.exponent))
-        name = f"BC({left}, {right})"
-        dom, cod = left @ right, left.exponent >> right.base
-        Box.__init__(self, name, dom, cod)
-        BinaryBoxConstructor.__init__(self, left, right)
-
-
-class FX(BinaryBoxConstructor, Box):
+class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
         assert_isinstance(left, Over)
@@ -197,13 +149,13 @@ class FX(BinaryBoxConstructor, Box):
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
-        name = f"FX({left}, {right})"
+        name = f"ForwardCrossedComposition({left}, {right})"
         dom, cod = left @ right, right.exponent >> left.base
         Box.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
 
 
-class BX(BinaryBoxConstructor, Box):
+class BackwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Backward crossed composition rule. """
     def __init__(self, left, right):
         assert_isinstance(left, Over)
@@ -211,7 +163,7 @@ class BX(BinaryBoxConstructor, Box):
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
-        name = f"BX({left}, {right})"
+        name = f"BackwardCrossedComposition({left}, {right})"
         dom, cod = left @ right, right.base << left.exponent
         Box.__init__(self, name, dom, cod)
         BinaryBoxConstructor.__init__(self, left, right)
@@ -231,30 +183,234 @@ class Functor(biclosed.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, FA):
-            left, right = other.over.left, other.over.right
-            return self.cod.fa(self(left), self(right))
-        if isinstance(other, BA):
-            left, right = other.under.left, other.under.right
-            return self.cod.ba(self(left), self(right))
-        for cls, method in [(FC, 'fc'), (BC, 'bc')]:
-            if isinstance(other, cls):
-                left = other.dom.inside[0].left
-                middle = other.dom.inside[0].right
-                right = other.dom.inside[1].right
-                return getattr(self.cod, method)(
-                    self(left), self(middle), self(right))
-        if isinstance(other, FX):
+        if isinstance(other, ForwardCrossedComposition):
             left = other.dom.inside[0].left
             middle = other.dom.inside[0].right
             right = other.dom.inside[1].left
             return self.cod.fx(self(left), self(middle), self(right))
-        if isinstance(other, BX):
+        if isinstance(other, BackwardCrossedComposition):
             left = other.dom.inside[0].right
             middle = other.dom.inside[0].left
             right = other.dom.inside[1].right
             return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
+
+
+class TermBase(Box, biclosed.TermBase):
+    """
+    A term in the internal language of a categorial grammar.
+    """
+    functor = Functor.id(Diagram)
+    freevars = None
+
+    def __call__(self, other, left=False):
+        return BA(self, other) if left else FA(self, other)
+
+
+class Constant(TermBase, biclosed.Constant):
+    def __init__(self, name: str, cod: Ty):
+        biclosed.Constant.__init__(self, name, cod)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
+
+    def simplify(self):
+        return self
+
+
+class Variable(TermBase, biclosed.Variable):
+    def simplify(self):
+        return self
+
+
+class Abstraction(TermBase, biclosed.Abstraction):
+    var: Variable
+    body: Term
+    left: bool = False
+
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        biclosed.Abstraction.__init__(self, var, body, left)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
+
+    def simplify(self):
+        return Abstraction(self.var, self.body.simplify(), self.left)
+
+
+class FA(TermBase, biclosed.Application):
+    "Application of type ``Y`` with subterms of type ``Y << X`` and ``X``."
+    def __init__(self, func, args):
+        biclosed.Application.__init__(self, func, args, left=False)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
+
+    def simplify(self):
+        return self.func.simplify()(self.args.simplify())
+
+
+class BA(TermBase, biclosed.Application):
+    "Application of type ``Y`` with subterms of type ``X`` and ``X >> Y``."
+    def __init__(self, args, func):
+        biclosed.Application.__init__(self, func, args, left=True)
+        TermBase.__init__(self, self.name, self.dom, self.cod)
+
+    def simplify(self):
+        return self.args.simplify()(self.func.simplify(), left=True)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.args!r}, {self.func!r})"
+
+
+class TypeRaising(TermBase):
+    "Abstract superclass of :class:`FTR` and :class:`BTR`."
+    base: Ty
+    child: Term
+
+    def __init__(self, base, child, cod):
+        name = f"{type(self).__name__}({base}, {child})"
+        self.base, self.child, self.freevars = base, child, child.freevars
+        super().__init__(name, child.dom, cod)
+
+    def eval(self, **kwargs):
+        return self.simplify().eval(**kwargs)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
+
+    @property
+    def constants(self):
+        return self.child.constants
+
+
+class FTR(TypeRaising):
+    "Forward type raising ``Y << (X >> Y)`` with base ``Y`` and child ``X``."
+    def __init__(self, base, child):
+        super().__init__(base, child, base << (child.cod >> base))
+
+    def simplify(self):
+        f = Variable("f", self.child.cod >> self.base)
+        return Abstraction(f, self.child.simplify()(f, left=True))
+
+
+class BTR(TypeRaising):
+    "Backward type raising ``(Y << X) >> Y`` with base ``Y`` and child ``X``."
+    def __init__(self, base, child):
+        super().__init__(base, child, (base << child.cod) >> base)
+
+    def simplify(self):
+        f = Variable("f", self.base << self.child.cod)
+        return Abstraction(f, f(self.child.simplify()), left=True)
+
+
+@dataclass(frozen=True, repr=False)
+class BinaryTerm(TermBase):
+    "Abstract superclass of :class:`FC`, :class:`BC`, :class:`FX`, :class:`BX`"
+    left: Term
+    right: Term
+
+    def __post_init__(self):
+        if set(self.left.freevars).intersection(self.right.freevars):
+            raise ValueError("Expected disjoint free variables.")
+        object.__setattr__(
+            self, "freevars", self.left.freevars + self.right.freevars)
+        object.__setattr__(self, "dom", self.left.dom + self.right.dom)
+
+    def __str__(self):
+        return f"{type(self).__name__}({self.left}, {self.right})"
+
+    def simplify(self):
+        return type(self)(self.left.simplify(), self.right.simplify())
+
+    def eval(self, **kwargs):
+        return self.simplify().eval(**kwargs)
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
+
+    @property
+    def constants(self):
+        return self.left.constants + self.right.constants
+
+
+@dataclass(frozen=True, repr=False)
+class FC(BinaryTerm):
+    "Forward composition ``A << C`` with subterms ``A << B`` and ``B << C``. "
+    def __post_init__(self):
+        super().__post_init__()
+        assert_isinstance(self.left.cod, Over)
+        assert_isinstance(self.right.cod, Over)
+        if self.right.cod.base != self.left.cod.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self.left.cod, self.right.cod,
+                self.left.cod.exponent, self.right.cod.base))
+
+    @property
+    def cod(self):
+        return self.left.cod.base << self.right.cod.exponent
+
+    def simplify(self):
+        f, g = self.left.simplify(), self.right.simplify()
+        x = Variable("x", self.right.cod.exponent)
+        return Abstraction(x, f(g(x)))
+
+
+@dataclass(frozen=True, repr=False)
+class BC(BinaryTerm):
+    "Backward composition ``A >> C`` with subterms ``A >> B`` and ``B >> C``."
+    def __post_init__(self):
+        super().__post_init__()
+        assert_isinstance(self.left.cod, Under)
+        assert_isinstance(self.right.cod, Under)
+        if self.left.cod.base != self.right.cod.exponent:
+            raise AxiomError(messages.NOT_COMPOSABLE.format(
+                self.left.cod, self.right.cod,
+                self.left.cod.base, self.right.cod.exponent))
+
+    @property
+    def cod(self):
+        return self.left.cod.exponent >> self.right.cod.base
+
+    def simplify(self):
+        f, g = self.left.simplify(), self.right.simplify()
+        x = Variable("x", self.left.cod.exponent)
+        return Abstraction(x, x(f, left=True)(g, left=True), left=True)
+
+
+@dataclass(frozen=True, repr=False)
+class FX(BinaryTerm):
+    "Forward crossing ``A >> C`` with subterms ``B << A`` and ``B >> C``."
+    def __post_init__(self):
+        super().__post_init__()
+        ForwardCrossedComposition(self.left.cod, self.right.cod)
+
+    @property
+    def cod(self):
+        return self.right.cod.exponent >> self.left.cod.base
+
+    def eval(self, functor=None):
+        functor, X = functor or self.functor, self.left.cod.base
+        Y, Z = self.left.cod.exponent, self.right.cod.exponent
+        f, g = self.left.eval(functor), self.right.eval(functor)
+        return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
+
+
+@dataclass(frozen=True, repr=False)
+class BX(BinaryTerm):
+    "Backward crossing ``A << C`` with subterms ``A << B`` and ``C >> B``."
+    def __post_init__(self):
+        super().__post_init__()
+        BackwardCrossedComposition(self.left.cod, self.right.cod)
+
+    @property
+    def cod(self):
+        return self.right.cod.base << self.left.cod.exponent
+
+    def eval(self, functor=None):
+        functor, Z = functor or self.functor, self.right.cod.base
+        X, Y = self.left.cod.exponent, self.left.cod.base
+        f, g = self.left.eval(functor), self.right.eval(functor)
+        return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
+
+
+type Term = (
+    Constant | Variable | Abstraction
+    | FA | BA | FC | BC | FX | BX)
 
 
 def cat2ty(string: str) -> Ty:
@@ -303,14 +459,17 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
     dom = Ty().tensor(*[child.cod for child in children])
     cod = cat2ty(tree['cat'])
     if tree['type'] == 'ba':
-        box = BA(dom.inside[1])
+        rule = Diagram.ba(dom[:1], dom.inside[1].base)
     elif tree['type'] == 'fa':
-        box = FA(dom.inside[0])
+        rule = Diagram.fa(dom.inside[0].base, dom[1:])
     elif tree['type'] == 'fc':
-        box = FC(dom.inside[0], dom.inside[1])
+        rule = Diagram.fc(
+            dom.inside[0].base,
+            dom.inside[0].exponent,
+            dom.inside[1].exponent)
     else:
-        box = Box(tree['type'], dom, cod)
-    return Id().tensor(*children) >> box
+        rule = Box(tree['type'], dom, cod)
+    return Id().tensor(*children) >> rule
 
 
 Id = Diagram.id

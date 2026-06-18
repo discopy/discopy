@@ -12,6 +12,11 @@ Summary
 
     Ty
     Exp
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
     Diagram
     Box
     Eval
@@ -44,12 +49,9 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
-from typing import Dict, Callable
-from inspect import signature
-from functools import reduce
+from typing import ClassVar
 
-from discopy import cat, biclosed, markov, messages
+from discopy import cat, monoidal, biclosed, markov, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import AxiomError
@@ -65,22 +67,11 @@ class Ty(biclosed.Ty):
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
-    >>> t.to_diagram().draw(
+    >>> t.draw(
     ...     path='docs/_static/closed/diagram.png',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
     .. image:: /_static/closed/diagram.png
-        :align: center
-
-    Applying a closed type to a string yields a :class:`Constant` e.g.
-
-    >>> N, S = Ty("N"), Ty("S")
-    >>> Alice, loves, Bob = N("Alice"), (N >> (N >> S))("loves"), N("Bob")
-    >>> loves(Alice)(Bob).to_diagram().draw(
-    ...     path='docs/_static/closed/alice-loves-bob.png',
-    ...     margins=(.3, 0), figsize=(5, 4))
-
-    .. image:: /_static/closed/alice-loves-bob.png
         :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
@@ -93,488 +84,12 @@ class Ty(biclosed.Ty):
     def __rshift__(self, other):
         return Exp(other, self)
 
-    def __call__(self, arg):
-        if isinstance(arg, Callable):
-            varnames = list(signature(arg).parameters.keys())
-            if len(varnames) != 1:
-                raise NotImplementedError
-            var = Variable(self, varnames[0])
-            return Abstraction(var, arg(var))
-        if isinstance(arg, str):
-            return Constant(self, arg)
-        raise ValueError
-
 
 class Exp(Ty, biclosed.Exp):
     "An exponential object in a markov category."
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
-
-
-class TermBase(ABC):
-    cod: Ty
-    ob = Ty
-
-    @property
-    def dom(self):
-        return self.ob().tensor(*(variable.cod for variable in self.freevars))
-
-    def __eq__(self, other):
-        return isinstance(other, TermBase)\
-            and self.alpha_equal(
-                other, Substitution(()), Substitution(()))
-
-    def __hash__(self):
-        return hash(self.alpha_key(Substitution(())))
-
-    def __call__(self, *others: Term):
-        return reduce(lambda fun, arg: Application(fun, arg), others, self)
-
-    @classmethod
-    def id(cls, dom):
-        variables = tuple(
-            Variable(obj, f"x{i}") for i, obj in enumerate(dom))
-        return variables[0] if len(variables) == 1 else pack(*variables)
-
-    @classmethod
-    def ev(cls, base, exponent, left=True):
-        exp = exponent >> base
-        func, arg = Variable(exp, "f"), Variable(exponent, "x")
-        return Application(func, arg)
-
-    def then(self: Term, other: Term) -> Term:
-        if self.cod != other.dom:
-            raise ValueError
-        return unpack(self, other.freevars, other)
-
-    def tensor(self: Term, other=None, *others):
-        if other is None:
-            return self
-        return pack(self, other, *others)
-
-    def curry(self: Term, n=1, left=True):
-        if n != 1 or not left:
-            raise NotImplementedError
-        if not self.freevars:
-            raise ValueError
-        return Abstraction(self.freevars[-1], self)
-
-    @staticmethod
-    def abs(*vars) -> Callable[[Term], Term]:
-        def _inner(body):
-            cont = body
-            for var in vars:
-                cont = Abstraction(var, cont)
-            return cont
-        return _inner
-
-    @property
-    @abstractmethod
-    def freevars(self) -> list[Variable]: ...
-
-    @abstractmethod
-    def to_diagram(self, category=None) -> Diagram: ...
-
-    @abstractmethod
-    def to_map(self, category=None) -> CMap: ...
-
-    @abstractmethod
-    def alpha_equal(self, other, left_sub, right_sub) -> bool: ...
-
-    @abstractmethod
-    def alpha_key(self, substitution): ...
-
-    @staticmethod
-    def alpha_bound(cod, index):
-        return Variable(cod, f"__bound_{index}")
-
-
-@dataclass(frozen=True, eq=False)
-class Constant(TermBase):
-    cod: Ty
-    name: str
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def freevars(self) -> list[Variable]:
-        return []
-
-    def to_diagram(self, category=None, box_factory=None):
-        category, box_factory = category or Diagram, box_factory or Box
-        return box_factory(self.name, category.ob(), self.cod)
-
-    def to_map(self, category=None):
-        raise ValueError("Constants are not pure linear lambda terms.")
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Constant)\
-            and (self.cod, self.name) == (other.cod, other.name)
-
-    def alpha_key(self, substitution):
-        return ("constant", self.cod, self.name)
-
-
-@dataclass(frozen=True, eq=False)
-class Variable(TermBase):
-    cod: Ty
-    name: str
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def freevars(self):
-        return [self]
-
-    def to_diagram(self, category=None):
-        return (category or Diagram).id(self.cod)
-
-    def to_map(self, category=None):
-        category = category or CMap
-        cm = category.id(self.cod)
-        assert_term_map(cm, self, category)
-        return cm
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Variable)\
-            and self.alpha_key(left_sub) == other.alpha_key(right_sub)
-
-    def alpha_key(self, substitution):
-        image = substitution(self)
-        return ("free", self.cod, self.name) if image is self\
-            else ("bound", image.cod, image.name)
-
-    def same_variable(self, other):
-        return isinstance(other, Variable)\
-            and (self.cod, self.name) == (other.cod, other.name)
-
-
-@dataclass(frozen=True, eq=False)
-class Application(TermBase):
-    func: Term
-    args: Term
-
-    def __post_init__(self):
-        if not self.func.cod.is_exp:
-            raise AxiomError(messages.TYPE_ERROR.format(
-                Exp(Ty('_'), Ty('_')),
-                self.func.cod
-            ))
-        if self.func.cod.right != self.args.cod:
-            raise AxiomError(messages.TYPE_ERROR.format(
-                self.func.cod.right,
-                self.args.cod
-            ))
-
-    @property
-    def cod(self):
-        return self.func.cod.left
-
-    def __str__(self):
-        return f"{self.func}({self.args})"
-
-    @property
-    def freevars(self, bound=None):
-        return self.func.freevars + self.args.freevars
-
-    def to_diagram(self, category=None):
-        if dupes := set(self.func.freevars).intersection(self.args.freevars):
-            raise AxiomError(messages.NON_AFFINE_TERM(*dupes))
-        return self.func.to_diagram(category) @ self.args.to_diagram(
-            category) >> Eval(self.func.cod, left=True)
-
-    def to_map(self, category=None):
-        category = category or CMap
-        func_map = self.func.to_map(category)
-        args_map = self.args.to_map(category)
-        if dupes := set(self.func.freevars).intersection(
-                self.args.freevars):
-            raise AxiomError(messages.NON_AFFINE_TERM(*dupes))
-        app = Eval(self.func.cod, left=True)
-        cm = (func_map @ args_map) >> category.from_box(app)
-        assert_term_map(cm, self, category)
-        return cm
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Application)\
-            and self.func.alpha_equal(other.func, left_sub, right_sub)\
-            and self.args.alpha_equal(other.args, left_sub, right_sub)
-
-    def alpha_key(self, substitution):
-        return ("application", self.func.alpha_key(substitution),
-                self.args.alpha_key(substitution))
-
-
-@dataclass(frozen=True, eq=False)
-class Abstraction(TermBase):
-    var: Variable
-    body: Term
-
-    @property
-    def cod(self) -> Ty:
-        return self.var.cod >> self.body.cod
-
-    def __str__(self):
-        return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
-
-    @property
-    def freevars(self):
-        return list(filter(lambda x: x != self.var, self.body.freevars))
-
-    def to_diagram(self, category=None):
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        body = self.body.to_diagram(category)
-        p = body.permutation(
-            [i] + [j for j in range(n) if j != i], body.dom)
-        return (p >> body).curry()
-
-    def to_map(self, category=None):
-        category = category or CMap
-        body_map = self.body.to_map(category)
-        free_vars = self.body.freevars
-        matches = [
-            index for index, variable in enumerate(free_vars)
-            if variable == self.var]
-        if len(matches) == 0:
-            raise AxiomError(messages.NON_RELEVANT_TERM.format(var=self.var))
-        if len(matches) > 1:
-            raise AxiomError(messages.NON_AFFINE_TERM(self.var))
-        index, = matches
-        lam = Coeval(self.cod, left=True)
-        cm = body_map.plug_input(index, lam, self.cod)
-        assert_term_map(cm, self, category)
-        return cm
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        if not isinstance(other, Abstraction) or self.var.cod != other.var.cod:
-            return False
-        variable = self.alpha_bound(self.var.cod, len(left_sub))
-        return self.body.alpha_equal(
-            other.body,
-            left_sub.extend(((self.var, variable), )),
-            right_sub.extend(((other.var, variable), )))
-
-    def alpha_key(self, substitution):
-        variable = self.alpha_bound(self.var.cod, len(substitution))
-        return ("abstraction", self.var.cod, self.body.alpha_key(
-            substitution.extend(((self.var, variable), ))))
-
-
-@dataclass(frozen=True, eq=False)
-class Pack(TermBase):
-    terms: tuple[Term, ...]
-
-    def __init__(self, *terms: Term):
-        object.__setattr__(self, "terms", tuple(terms))
-
-    @property
-    def cod(self):
-        return self.ob().tensor(*(term.cod for term in self.terms))
-
-    def __str__(self):
-        return "pack(" + ", ".join(map(str, self.terms)) + ")"
-
-    @property
-    def freevars(self):
-        return sum([term.freevars for term in self.terms], [])
-
-    def to_diagram(self, category=None):
-        category = category or Diagram
-        result = category.id(category.ob())
-        for term in self.terms:
-            result = result @ term.to_diagram(category)
-        return result
-
-    def to_map(self, category=None):
-        category = category or CMap
-        result = category.id()
-        for term in self.terms:
-            result = result @ term.to_map(category)
-        assert_term_map(result, self, category)
-        return result
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Pack) and len(self.terms) == len(other.terms)\
-            and all(left.alpha_equal(right, left_sub, right_sub)
-                    for left, right in zip(self.terms, other.terms))
-
-    def alpha_key(self, substitution):
-        return ("pack", tuple(
-            term.alpha_key(substitution) for term in self.terms))
-
-
-@dataclass(frozen=True, eq=False)
-class Unpack(TermBase):
-    package: Term
-    variables: tuple[Variable, ...]
-    body: Term
-
-    def __init__(self, package: Term, variables, body: Term):
-        variables = tuple(variables)
-        if Ty().tensor(*(variable.cod for variable in variables))\
-                != package.cod:
-            raise ValueError
-        object.__setattr__(self, "package", package)
-        object.__setattr__(self, "variables", variables)
-        object.__setattr__(self, "body", body)
-
-    @property
-    def cod(self):
-        return self.body.cod
-
-    def __str__(self):
-        names = ", ".join(variable.name for variable in self.variables)
-        return f"unpack({self.package}, lambda {names}: {self.body})"
-
-    @property
-    def freevars(self):
-        return self.package.freevars + [
-            variable for variable in self.body.freevars
-            if variable not in self.variables]
-
-    def _remaining(self):
-        return [
-            variable for variable in self.body.freevars
-            if variable not in self.variables]
-
-    def _permutation(self):
-        remaining = self._remaining()
-        result = []
-        for variable in self.body.freevars:
-            if variable in self.variables:
-                result.append(self.variables.index(variable))
-            else:
-                result.append(len(self.variables) + remaining.index(variable))
-        return result
-
-    def to_diagram(self, category=None):
-        category = category or Diagram
-        remaining = self._remaining()
-        remaining_dom = category.ob().tensor(
-            *(variable.cod for variable in remaining))
-        package = self.package.to_diagram(category)
-        start = package @ category.id(remaining_dom)
-        permutation = category.permutation(
-            self._permutation(), self.package.cod @ remaining_dom)
-        return start >> permutation >> self.body.to_diagram(category)
-
-    def to_map(self, category=None):
-        category = category or CMap
-        diagram = self.to_diagram(category.category)
-        result = category.from_hypergraph(diagram.to_hypergraph())
-        assert_term_map(result, self, category)
-        return result
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        if not isinstance(other, Unpack)\
-                or len(self.variables) != len(other.variables):
-            return False
-        if not self.package.alpha_equal(
-                other.package, left_sub, right_sub):
-            return False
-        left_extension, right_extension = [], []
-        for i, (left_var, right_var) in enumerate(
-                zip(self.variables, other.variables)):
-            if left_var.cod != right_var.cod:
-                return False
-            variable = self.alpha_bound(left_var.cod, len(left_sub) + i)
-            left_extension.append((left_var, variable))
-            right_extension.append((right_var, variable))
-        return self.body.alpha_equal(
-            other.body,
-            left_sub.extend(left_extension),
-            right_sub.extend(right_extension))
-
-    def alpha_key(self, substitution):
-        extension = tuple(
-            (variable, self.alpha_bound(
-                variable.cod, len(substitution) + i))
-            for i, variable in enumerate(self.variables))
-        return (
-            "unpack",
-            self.package.alpha_key(substitution),
-            tuple(variable.cod for variable in self.variables),
-            self.body.alpha_key(substitution.extend(extension)))
-
-
-type Term = Constant | Variable | Application | Abstraction | Pack | Unpack
-
-
-def pack(*terms: Term) -> Pack:
-    return Pack(*terms)
-
-
-def unpack(package: Term, variables=None, body: Term | None = None) -> Unpack:
-    if callable(variables) and body is None:
-        func = variables
-        names = list(signature(func).parameters.keys())
-        if len(names) != len(package.cod):
-            raise ValueError
-        variables = tuple(
-            Variable(obj, name) for obj, name in zip(package.cod, names))
-        body = func(*variables)
-    elif body is None:
-        raise ValueError
-    return Unpack(package, variables, body)
-
-
-def assert_term_map(
-    cmap,
-    term,
-    category: type[CMap] | None = None
-):
-    category = category or CMap
-    if cmap.dom != category.ob().tensor(
-            *(variable.cod for variable in term.freevars)):
-        raise ValueError
-    if cmap.cod != term.cod:
-        raise ValueError
-    if any(len(cycle) != 3 for cycle in cmap.node_cycles):
-        raise ValueError
-
-
-@dataclass
-class Substitution:
-    inside: Dict[Variable, Term] | tuple[tuple[Variable, Term], ...]
-
-    def __len__(self):
-        return len(tuple(self.items()))
-
-    def items(self):
-        return self.inside.items() if hasattr(self.inside, "items")\
-            else self.inside
-
-    def extend(self, inside) -> Substitution:
-        items = inside.items() if hasattr(inside, "items") else inside
-        return type(self)(tuple(self.items()) + tuple(items))
-
-    def without(self, variables) -> Substitution:
-        return type(self)(tuple(
-            (k, v) for k, v in self.items()
-            if all(not k.same_variable(variable)
-                   for variable in variables)))
-
-    def __call__(self, term: Term) -> Term:
-        if isinstance(term, Variable):
-            for variable, image in reversed(tuple(self.items())):
-                if variable.same_variable(term):
-                    return image
-            return term
-        if isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        if isinstance(term, Abstraction):
-            other = self.without((term.var, ))
-            return Abstraction(term.var, other(term.body))
-        if isinstance(term, Pack):
-            return pack(*(self(t) for t in term.terms))
-        if isinstance(term, Unpack):
-            package = self(term.package)
-            other = self.without(term.variables)
-            return unpack(package, term.variables, other(term.body))
-        raise ValueError(f"not a term: {term!r}")
 
 
 @ar_factory
@@ -590,32 +105,30 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def is_linear(self):
         return all(box.is_linear for box in self.boxes)
 
+    @classmethod
+    def ev(cls, base: Ty, exponent: Ty, left: bool = True):
+        return cls.eval_factory(exponent >> base, left=left)
+
+    def to_drawing(self):
+        return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
-
     is_linear = True
 
 
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
-    drawing_name = "Eval"
+    drawing_name = "__call__"
 
 
 class Coeval(biclosed.Coeval, Box):
     "The coevaluation of an exponential type, i.e. the dagger of an Eval."
-    drawing_name = "$\\lambda$"
 
 
 class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
-
-    def to_drawing(self):
-        if self.left:
-            f, e = self.arg, Coeval(self.cod, left=True)
-            return (f >> e).trace().to_drawing()
-        f, e = self.arg, Coeval(self.cod)
-        return (f >> e).trace(left=True).to_drawing()
 
 
 class Swap(markov.Swap, Box):
@@ -641,12 +154,6 @@ class Sum(markov.Sum, biclosed.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-
-
-Diagram.over, Diagram.under, Diagram.exp\
-    = map(staticmethod, (biclosed.Over, biclosed.Under, Exp))
-
-Id = Diagram.id
 
 
 class Functor(biclosed.Functor, markov.Functor):
@@ -687,5 +194,158 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = lambda X: Copy(X, 0)
 Diagram.sum_factory = Sum
+Diagram.exp = Diagram.under = Diagram.over = staticmethod(Exp)
 
 Id = Diagram.id
+
+
+class TermBase(Box, biclosed.TermBase):
+    """
+    A term in the internal language of a closed category.
+    """
+    functor = Functor.id(Diagram)
+    __eq__ = biclosed.TermBase.__eq__
+    __hash__ = biclosed.TermBase.__hash__
+
+    def __call__(self, other):
+        return Application(self, other, left=False)
+
+    def to_diagram(self, category=None):
+        if category is not None and category is not Diagram:
+            raise NotImplementedError
+        return self.eval()
+
+
+class Constant(TermBase, biclosed.Constant):
+    def to_map(self, category=None):
+        raise ValueError("Constants are not pure linear lambda terms.")
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if not context:
+            return super().eval(functor)
+        return functor.cod.discard(functor(context.dom)) >> super().eval(
+            functor)
+
+
+class Variable(TermBase, biclosed.Variable):
+    def __init__(self, name: str | Ty, cod: Ty | str):
+        if isinstance(name, Ty) and isinstance(cod, str):
+            name, cod = cod, name
+        super().__init__(name, cod)
+
+    def to_map(self, category=None):
+        category = category or CMap
+        cmap = category.id(self.cod)
+        assert_term_map(cmap, self, category)
+        return cmap
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if not context:
+            return functor.cod.id(functor(self.cod))
+        return functor.cod.tensor(*[
+            functor.cod.id(functor(x.cod)) if x == self
+            else functor.cod.discard(functor(x.cod))
+            for x in context.inside])
+
+
+class Application(TermBase, biclosed.Application):
+    def __check_dom__(self, func, args, left):
+        self.overlap = set(func.freevars).intersection(args.freevars)
+        self.freevars = list(set(func.freevars + args.freevars))\
+            if self.overlap else func.freevars + args.freevars
+        return self.ob.tensor(*[x.cod for x in self.freevars])
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        base, exponent = self.func.cod.base, self.func.cod.exponent
+        evaluate = functor.cod.ev(functor(base), functor(exponent))
+        if context is None:
+            if not self.overlap:
+                func = self.func.eval(functor=functor)
+                args = self.args.eval(functor=functor)
+                return func @ args >> evaluate
+            context = Context(self.freevars)
+        func = self.func.eval(functor=functor, context=context)
+        args = self.args.eval(functor=functor, context=context)
+        return functor.cod.copy(functor(context.dom))\
+            >> func @ args >> evaluate
+
+    def to_map(self, category=None):
+        category = category or CMap
+        func_map = self.func.to_map(category)
+        args_map = self.args.to_map(category)
+        if self.overlap:
+            raise AxiomError(messages.NON_AFFINE_TERM(*self.overlap))
+        app = Eval(self.func.cod, left=True)
+        cmap = (func_map @ args_map) >> category.from_box(app)
+        assert_term_map(cmap, self, category)
+        return cmap
+
+
+class Abstraction(TermBase, biclosed.Abstraction):
+    def __check_dom__(self):
+        self.freevars = [x for x in self.body.freevars if x != self.var]
+        return self.ob().tensor(*[x.cod for x in self.freevars])
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if context:
+            new_context = Context([self.var] + context.inside)
+            body = self.body.eval(functor=functor, context=new_context)
+            return body.curry(left=True)
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        body = self.body.eval(functor=functor)
+        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
+        return (body.permutation(p, body.dom).dagger() >> body).curry()
+
+    def to_map(self, category=None):
+        category = category or CMap
+        body_map = self.body.to_map(category)
+        free_vars = self.body.freevars
+        matches = [
+            index for index, variable in enumerate(free_vars)
+            if variable == self.var]
+        if len(matches) == 0:
+            raise AxiomError(messages.NON_RELEVANT_TERM.format(var=self.var))
+        if len(matches) > 1:
+            raise AxiomError(messages.NON_AFFINE_TERM(self.var))
+        index, = matches
+        lam = Coeval(self.cod, left=True)
+        cmap = body_map.plug_input(index, lam, self.cod)
+        assert_term_map(cmap, self, category)
+        return cmap
+
+
+type Term = Constant | Variable | Application | Abstraction
+
+
+def assert_term_map(cmap, term, category: type[CMap] | None = None):
+    category = category or CMap
+    if cmap.dom != category.ob().tensor(
+            *(variable.cod for variable in term.freevars)):
+        raise ValueError
+    if cmap.cod != term.cod:
+        raise ValueError
+    if any(len(cycle) != 3 for cycle in cmap.node_cycles):
+        raise ValueError
+
+
+@dataclass
+class Context:
+    inside: list[Variable]
+    category: ClassVar[type[ClosedCategory]] = Diagram
+
+    @property
+    def dom(self):
+        return self.category.ob.tensor(*[x.cod for x in self.inside])
+
+
+Substitution = biclosed.Substitution
+
+
+Ty.variable_factory = Variable
+Ty.constant_factory = Constant
+Ty.application_factory = Application
+Ty.abstraction_factory = Abstraction
