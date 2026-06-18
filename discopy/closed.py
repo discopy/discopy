@@ -52,7 +52,7 @@ from functools import reduce
 from discopy import cat, biclosed, markov, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.utils import assert_isinstance
+from discopy.utils import assert_isinstance, AxiomError
 
 
 @ob_factory
@@ -275,8 +275,8 @@ class Application(TermBase):
         return self.func.freevars + self.args.freevars
 
     def to_diagram(self, category=None):
-        if set(self.func.freevars).intersection(self.args.freevars):
-            raise NotImplementedError
+        if dupes := set(self.func.freevars).intersection(self.args.freevars):
+            raise AxiomError(messages.NON_AFFINE_TERM(*dupes))
         return self.func.to_diagram(category) @ self.args.to_diagram(
             category) >> Eval(self.func.cod, left=True)
 
@@ -284,12 +284,9 @@ class Application(TermBase):
         category = category or CMap
         func_map = self.func.to_map(category)
         args_map = self.args.to_map(category)
-        if common_vars := set(self.func.freevars).intersection(
+        if dupes := set(self.func.freevars).intersection(
                 self.args.freevars):
-            plural = "" if len(common_vars) == 1 else "s"
-            names = ", ".join(var.name for var in common_vars)
-            raise ValueError(messages.NON_LINEAR_TERM.format(
-                suffix=plural, names=names))
+            raise AxiomError(messages.NON_AFFINE_TERM(*dupes))
         app = Eval(self.func.cod, left=True)
         cm = (func_map @ args_map) >> category.from_box(app)
         assert_term_map(cm, self, category)
@@ -335,9 +332,10 @@ class Abstraction(TermBase):
         matches = [
             index for index, variable in enumerate(free_vars)
             if variable == self.var]
-        if len(matches) != 1:
-            raise ValueError(messages.NON_LINEAR_TERM.format(
-                suffix="s", names=[free_vars[i] for i in matches]))
+        if len(matches) == 0:
+            raise AxiomError(messages.NON_RELEVANT_TERM.format(var=self.var))
+        if len(matches) > 1:
+            raise AxiomError(messages.NON_AFFINE_TERM(self.var))
         index, = matches
         lam = Coeval(self.cod, left=True)
         cm = body_map.plug_input(index, lam, self.cod)

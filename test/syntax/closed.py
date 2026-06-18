@@ -1,4 +1,5 @@
 from __future__ import annotations
+from discopy.utils import AxiomError
 
 from pytest import raises
 
@@ -166,15 +167,15 @@ def test_term_failures_and_assertions():
     assert X("c").to_diagram().dom == Ty()
     with raises(ValueError):
         X("c").to_map()
-    with raises(TypeError):
+    with raises(AxiomError):
         Application(x, x)
-    with raises(ValueError):
+    with raises(AxiomError):
         Application(f, y)
-    with raises(NotImplementedError):
+    with raises(AxiomError):
         Application(Application(higher, x), x).to_diagram()
-    with raises(ValueError):
+    with raises(AxiomError):
         Abstraction(x, y).to_map()
-    with raises(ValueError):
+    with raises(AxiomError):
         Abstraction(x, Application(Application(higher, x), x)).to_map()
 
     cm = CMap.id(X)
