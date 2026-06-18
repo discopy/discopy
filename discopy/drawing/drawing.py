@@ -644,7 +644,6 @@ class Drawing(TracedCategory):
             return self
         if n > 1:
             return self.trace(left=left).trace(n=n - 1, left=left)
-        empty = self.dom[:0]
         dom = self.dom[1:] if left else self.dom[:-1]
         cod = self.cod[1:] if left else self.cod[:-1]
         traced_dom = self.dom[:1] if left else self.dom[-1:]
