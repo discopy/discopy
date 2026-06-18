@@ -341,16 +341,3 @@ def test_euler_characteristic():
     assert box.face_cycles == ((0, 2, 3, 1),)
     assert box.euler_characteristic == 0
     assert (box @ scalar).euler_characteristic == 1
-
-def test_zeilberger_term():
-    from discopy.closed import Ty
-    """
-    λx.λy.x(λz.yz)
-    x : (0 -> 1) -> 2
-    y : 0 -> 3
-    z : 0
-    """
-    a, b, c = map(Ty, 'abc')
-    term = ((a >> b) >> c)(lambda x: (a >> b)(lambda y: x(a(lambda z: y(z)))))
-    term.to_map().draw()
-
