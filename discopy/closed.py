@@ -219,11 +219,16 @@ class Constant(TermBase):
 
 @dataclass(frozen=True, eq=False)
 class Variable(TermBase):
-    cod: Ty
+    ty: Ty
     name: str
 
     def __str__(self):
         return self.name
+
+    # REVIEW: Can we avoid this?
+    @property
+    def cod(self) -> Ty:
+        return self.ty.inside[0] if self.ty.is_exp else self.ty
 
     @property
     def freevars(self):
@@ -311,7 +316,7 @@ class Abstraction(TermBase):
     body: Term
 
     @property
-    def cod(self):
+    def cod(self) -> Ty:
         return self.var.cod >> self.body.cod
 
     def __str__(self):

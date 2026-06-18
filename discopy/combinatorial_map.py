@@ -634,20 +634,19 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
                 scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
         return diagram
 
-    def to_term(self, input_names: Iterable[str] | None = None):
+    def to_term(
+            self, input_names: Iterable[str] | None = None):
         """
-        Recover the linear lambda term represented by a rooted trivalent map.
-
-        This implements the inverse transformation from Zeilberger's
-        correspondence. The map is expected to have its ordered free-variable
-        context on ``dom`` and a singleton root on ``cod``.
+        Recover a term by an oriented DFS from the root, building up a term
+        in continuation-passing style.
         """
         from discopy.closed import (
             Abstraction,
             Application,
+            Coeval,
+            Eval,
             Exp,
             Variable,
-            assert_term_map,
         )
 
         self._assert_rooted_trivalent_map()
@@ -655,142 +654,62 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         if len(names) != len(self.dom):
             raise ValueError
 
-        def term_type(obj):
-            if isinstance(obj, self.category.ob)\
-                    and len(obj) == 1\
-                    and isinstance(obj.inside[0], Exp):
-                return obj.inside[0]
-            return obj
-
         variables = tuple(
             Variable(obj, name)
-            for obj, name in zip(map(term_type, self.dom), names)
+            for obj, name in zip(self.dom, names)
         )
-        counter = [len(variables)]
+        counter = len(variables)
 
         def fresh(obj):
-            variable = Variable(obj, f"x{counter[0]}")
-            counter[0] += 1
+            nonlocal counter
+            variable = Variable(obj, f"x{counter}")
+            counter += 1
             return variable
 
-        def same_map_shape(left, right):
-            return (left.dom, left.cod, left.boxes, left.edge) == (
-                right.dom, right.cod, right.boxes, right.edge)
+        def dfs(port, bound_ports, continuation):
+            port = self.edge[port]
+            if port in bound_ports:
+                return continuation(bound_ports[port])
 
-        def go(cmap, context):
-            cmap._assert_rooted_trivalent_map()
-            if not cmap.boxes:
-                if len(cmap.dom) != 1 or len(cmap.cod) != 1:
-                    raise ValueError
-                if cmap.edge != (1, 0):
-                    raise ValueError
-                return context[0]
-
-            root_output = cmap.n_ports - 1
-            root_port = cmap.edge[root_output]
-            root_box = cmap.ports[root_port].depth
-            root_cycle = set(cmap.node_cycles[root_box])
-            removed = root_cycle | {root_output}
-            components = cmap._components(removed)
-
-            ports = cmap.ports
-            attachments = []
-            for port in cmap.node_cycles[root_box]:
-                partner = cmap.edge[port]
-                if partner not in removed:
-                    attachments.append((port, partner))
-            component_of = {
-                port: index
-                for index, component in enumerate(components)
-                for port in component}
-            attached_components = {
-                component_of[partner] for _, partner in attachments}
-
-            if len(attached_components) == 2:
-                subterms = []
-                for component_index in attached_components:
-                    component = components[component_index]
-                    root_partner, = [
-                        partner for _, partner in attachments
-                        if partner in component]
-                    submap = cmap._component_as_map(component, root_partner)
-                    sub_context = tuple(
-                        context[ports[i].i]
-                        for i in sorted(component)
-                        if ports[i].kind == "input")
-                    subterms.append(go(submap, sub_context))
-
-                for func, arg in [subterms, tuple(reversed(subterms))]:
-                    try:
-                        term = Application(func, arg)
-                    except (TypeError, ValueError):
-                        continue
-                    if same_map_shape(term.to_map(type(cmap)), cmap):
-                        return term
+            node = self.ports[port]
+            if node.kind == "input":
+                return continuation(variables[node.i])
+            if node.kind in BOUNDARY_PORTS or node.depth is None:
                 raise ValueError
 
-            if len(attached_components) > 1:
-                raise ValueError
+            box = self.boxes[node.depth]
+            box_ports = self.box_port_indices[node.depth]
 
-            cod = term_type(cmap.cod[0])
-            if len(cmap.cod) != 1 or not isinstance(cod, Exp):
-                raise ValueError
-            variable = fresh(cod.exponent)
-
-            root_box_ports = cmap.box_port_indices[root_box]
-            body_ports = [i for i in root_box_ports
-                          if ports[i].kind == "dom"]
-            parameter_ports = [
-                i for i in root_box_ports
-                if ports[i].kind == "cod" and i != root_port]
-            if len(body_ports) != 1 or len(parameter_ports) != 1:
-                raise ValueError
-            body_port, parameter_port = body_ports[0], parameter_ports[0]
-            body_partner = cmap.edge[body_port]
-            parameter_partner = cmap.edge[parameter_port]
-
-            candidates = []
-            if body_partner == parameter_port\
-                    and parameter_partner == body_port:
-                if len(cmap.dom) != 0:
+            if isinstance(box, Eval):
+                if node.kind != "cod" or node.i != 0:
                     raise ValueError
-                candidates.append((type(cmap).id(variable.cod), (variable, )))
-            else:
-                if body_partner in removed or parameter_partner in removed:
-                    raise ValueError
-                if component_of[body_partner] != component_of[
-                        parameter_partner]:
-                    raise ValueError
-                component = components[component_of[body_partner]]
-                old_context = tuple(
-                    context[ports[i].i]
-                    for i in sorted(component)
-                    if ports[i].kind == "input")
-                for input_index in range(len(old_context) + 1):
-                    body_context = (
-                        old_context[:input_index]
-                        + (variable, )
-                        + old_context[input_index:])
-                    candidates.append((
-                        cmap._component_as_map(
-                            component, body_partner,
-                            extra_input_root=parameter_partner,
-                            extra_input_obj=variable.cod,
-                            extra_input_index=input_index),
-                        body_context))
+                func_port, arg_port = [
+                    i for i in box_ports if self.ports[i].kind == "dom"]
+                return dfs(func_port, bound_ports, lambda func:
+                    dfs(arg_port, bound_ports, lambda arg:
+                        continuation(Application(func, arg))
+                    )
+                )
 
-            for body_map, body_context in candidates:
-                try:
-                    term = Abstraction(variable, go(body_map, body_context))
-                except (TypeError, ValueError):
-                    continue
-                term_map = term.to_map(type(cmap))
-                if same_map_shape(term_map, cmap):
-                    assert_term_map(term_map, term, type(cmap))
-                    return term
+            if isinstance(box, Coeval):
+                cod = self.ports[port].obj
+                if node.kind != "cod" or node.i != 0\
+                        or not isinstance(cod, Exp):
+                    raise ValueError
+                body_port, = [
+                    i for i in box_ports if self.ports[i].kind == "dom"]
+                parameter_port, = [
+                    i for i in box_ports
+                    if self.ports[i].kind == "cod" and i != port]
+                variable = fresh(cod.exponent)
+                return dfs(
+                    body_port,
+                    bound_ports | {parameter_port: variable},
+                    lambda body: continuation(Abstraction(variable, body)))
+
             raise ValueError
 
-        return go(self, variables)
+        return dfs(self.n_ports - 1, {}, lambda term: term)
 
     def _assert_rooted_trivalent_map(self):
         if len(self.cod) != 1:
@@ -803,96 +722,6 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             raise ValueError
         if any(len(cycle) != 3 for cycle in self.node_cycles):
             raise ValueError
-
-    def _components(self, removed: set[int]) -> tuple[set[int], ...]:
-        """ Connected components of the port graph after deleting ports. """
-        kept = set(range(self.n_ports)) - removed
-        adjacency = {port: set() for port in kept}
-        for port in tuple(kept):
-            other = self.edge[port]
-            if other in kept:
-                adjacency[port].add(other)
-                adjacency[other].add(port)
-        for cycle in self.node_cycles:
-            for left, right in zip(cycle, cycle[1:] + cycle[:1]):
-                if left in kept and right in kept:
-                    adjacency[left].add(right)
-                    adjacency[right].add(left)
-
-        components, unseen = [], set(kept)
-        while unseen:
-            start = unseen.pop()
-            component, stack = {start}, [start]
-            while stack:
-                port = stack.pop()
-                for other in adjacency[port]:
-                    if other in unseen:
-                        unseen.remove(other)
-                        component.add(other)
-                        stack.append(other)
-            components.append(component)
-        return tuple(components)
-
-    def _component_as_map(
-            self, component: set[int], output_root: int,
-            extra_input_root: int | None = None,
-            extra_input_obj: Any = None,
-            extra_input_index: int | None = None) -> CombinatorialMap:
-        """ Re-root a connected component as a smaller map. """
-        ports = self.ports
-
-        def port_type(obj):
-            return obj if isinstance(obj, self.ob)\
-                else self.ob(obj)
-
-        input_ports = [
-            port for port in sorted(component)
-            if ports[port].kind == "input"]
-        if extra_input_root is None:
-            extra_input_index = None
-        elif extra_input_index is None\
-                or extra_input_index < 0\
-                or extra_input_index > len(input_ports):
-            raise ValueError
-
-        dom = self.ob()
-        mapping, new_index = {}, 0
-        input_iter = iter(input_ports)
-        for i in range(len(input_ports) + (extra_input_root is not None)):
-            if i == extra_input_index:
-                dom = dom @ extra_input_obj
-                new_input = new_index
-                new_index += 1
-            else:
-                port = next(input_iter)
-                mapping[port] = new_index
-                dom = dom @ port_type(ports[port].obj)
-                new_index += 1
-
-        included_boxes, offsets = [], []
-        for depth, box_ports in enumerate(self.box_port_indices):
-            if set(box_ports) <= component:
-                included_boxes.append(self.boxes[depth])
-                offsets.append(self.offsets[depth])
-                for port in box_ports:
-                    mapping[port] = new_index
-                    new_index += 1
-
-        cod = port_type(ports[output_root].obj)
-        output = new_index
-        size = output + 1
-        edge_pairs = []
-        for port in sorted(component):
-            other = self.edge[port]
-            if port < other and other in component:
-                edge_pairs.append((mapping[port], mapping[other]))
-        edge_pairs.append((mapping[output_root], output))
-        if extra_input_root is not None:
-            edge_pairs.append((new_input, mapping[extra_input_root]))
-
-        edge = Permutation.from_transpositions(edge_pairs, size)
-        return type(self)(
-            dom, cod, tuple(included_boxes), edge, offsets=tuple(offsets))
 
     def to_dot(
             self, engine="neato", seed=None, graph_attr=None,
