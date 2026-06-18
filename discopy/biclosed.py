@@ -136,7 +136,7 @@ class Ty(monoidal.Ty):
     def base(self):
         assert self.is_exp
         return self.inside[0].base
-    
+
     @property
     def exponent(self):
         assert self.is_exp

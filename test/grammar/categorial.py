@@ -251,24 +251,24 @@ def pregroup_diagram():
 
 
 def test_to_pregroup():
-from discopy.grammar import pregroup
-from discopy.grammar.pregroup import Cup, Cap, Id, Swap
-x, y = Ty('x'), Ty('y')
-x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
-assert Diagram.ba(x, y).curry(left=True).to_pregroup().normal_form()\
-    == Cap(y_, y_.l) @ Id(x_)
-assert Diagram.fa(x, y).curry().to_pregroup().normal_form()\
-    == Id(y_) @ Cap(x_.r, x_)
-assert Diagram.to_pregroup(Diagram.fc(x, y, x)).normal_form()\
-    == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
-assert Diagram.to_pregroup(Diagram.bc(x, y, x)).normal_form()\
-    == Id(x_.r) @ Cup(y_, y_.r) @ Id(x_)
-assert Diagram.to_pregroup(ForwardCrossedComposition(x << y, x >> y))\
-    == Id(x_) @ Swap(y_.l, x_.r) @ Id(y_) >>\
-    Swap(x_, x_.r) @ Cup(y_.l, y_)
-assert Diagram.to_pregroup(BackwardCrossedComposition(y << x, y >> x))\
-    == Id(y_) @ Swap(x_.l, y_.r) @ Id(x_) >>\
-    Cup(y_, y_.r) @ Swap(x_.l, x_)
+    from discopy.grammar import pregroup
+    from discopy.grammar.pregroup import Cup, Cap, Id, Swap
+    x, y = Ty('x'), Ty('y')
+    x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
+    assert Diagram.ba(x, y).curry(left=True).to_pregroup().normal_form()\
+        == Cap(y_, y_.l) @ Id(x_)
+    assert Diagram.fa(x, y).curry().to_pregroup().normal_form()\
+        == Id(y_) @ Cap(x_.r, x_)
+    assert Diagram.to_pregroup(Diagram.fc(x, y, x)).normal_form()\
+        == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
+    assert Diagram.to_pregroup(Diagram.bc(x, y, x)).normal_form()\
+        == Id(x_.r) @ Cup(y_, y_.r) @ Id(x_)
+    assert Diagram.to_pregroup(ForwardCrossedComposition(x << y, x >> y))\
+        == Id(x_) @ Swap(y_.l, x_.r) @ Id(y_) >>\
+        Swap(x_, x_.r) @ Cup(y_.l, y_)
+    assert Diagram.to_pregroup(BackwardCrossedComposition(y << x, y >> x))\
+        == Id(y_) @ Swap(x_.l, y_.r) @ Id(x_) >>\
+        Cup(y_, y_.r) @ Swap(x_.l, x_)
 
 
 def test_tree2diagram():
