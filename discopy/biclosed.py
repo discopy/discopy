@@ -62,7 +62,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from inspect import signature
 from dataclasses import dataclass
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, Self, Iterable
 
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
@@ -426,7 +426,7 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class TermBase(Box):
+class TermBase[T](Box):
     """
     A term in the internal language of biclosed categories.
 
@@ -485,6 +485,14 @@ class TermBase(Box):
         category, i.e. terms are compiled to diagrams with constants as boxes.
         """
 
+    @abstractmethod
+    def __substitute__(self, subst: Substitution) -> Term:
+        """
+        Substitute the current term by a given substitution.
+        Can be called as `subst(self)` as well.
+        """
+        raise NotImplementedError
+
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
@@ -522,6 +530,9 @@ class Constant(TermBase):
     @property
     def constants(self):
         return [self]
+    
+    def __substitute__(self, subst: Substitution) -> Constant:
+        return self
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -549,6 +560,9 @@ class Variable(TermBase):
     def eval(self, functor=None):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
+
+    def __substitute__(self, subst: Substitution) -> Term:
+        return subst.lookup(self)
 
     @property
     def constants(self):
@@ -597,6 +611,9 @@ class Application(TermBase):
         self.freevars = func.freevars + args.freevars if self.left\
             else args.freevars + func.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
+
+    def __substitute__(self, subst: Substitution) -> Term:
+        return type(self)(subst(self.func), subst(self.args), self.left)
 
     def eval(self, functor=None):
         functor = functor or self.functor
@@ -653,6 +670,11 @@ class Abstraction(TermBase):
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))
 
+    def __substitute__(self, subst: Substitution) -> Term:
+        inner_subst = subst.without((self.var, ))
+        return type(self)(
+            self.var, inner_subst(self.body), left=self.left)
+
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)
         left = ", left=True" if self.left else ""
@@ -676,8 +698,8 @@ type Term = Constant | Variable | Application | Abstraction
 
 
 @dataclass
-class Substitution:
-    inside: dict[Variable, Term] | tuple[tuple[Variable, Term], ...]
+class Substitution[V: Variable, T: Term]:
+    inside: dict[V, T] | tuple[tuple[V, T], ...]
 
     def __len__(self):
         return len(tuple(self.items()))
@@ -686,32 +708,29 @@ class Substitution:
         return self.inside.items() if hasattr(self.inside, "items")\
             else self.inside
 
-    def extend(self, inside) -> Substitution:
+    def lookup(self, v: V) -> T:
+        try:
+            # lookup without resorting to `TermBase.__hash__`
+            # because hashing depends on substitutions and would
+            # otherwise trigger an infinite loop
+            return next(t for x, t in self.items() if x == v)
+        except StopIteration:
+            return v
+
+    def extend(self, inside: dict[V, T] | tuple[tuple[V, T], ...]) -> Self:
         items = inside.items() if hasattr(inside, "items") else inside
         return type(self)(tuple(self.items()) + tuple(items))
 
-    def without(self, variables) -> Substitution:
+    def without(self, variables: Iterable[V]) -> Self:
         return type(self)(tuple(
             (k, v) for k, v in self.items()
             if all(not k.same_variable(variable)
                    for variable in variables)))
 
-    def __call__(self, term: Term) -> Term:
-        if isinstance(term, Variable):
-            for variable, image in reversed(tuple(self.items())):
-                if variable.same_variable(term):
-                    return image
-            return term
-        if isinstance(term, Constant):
-            return term
-        if isinstance(term, Application):
-            return type(term)(
-                self(term.func), self(term.args), left=term.left)
-        if isinstance(term, Abstraction):
-            other = self.without((term.var, ))
-            return type(term)(
-                term.var, other(term.body), left=term.left)
-        raise ValueError(f"not a term: {term!r}")
+    def __call__(self, term: T) -> T:
+        assert_isinstance(term, TermBase)
+        return term.__substitute__(self)
+
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant

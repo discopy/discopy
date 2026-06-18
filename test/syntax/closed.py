@@ -60,7 +60,7 @@ def test_substitution_under_abstraction():
     f = Variable(X >> X, "f")
     substitution = Substitution({x: z, y: x})
     assert substitution(Application(f, x)) == Application(f, z)
-    with raises(ValueError):
+    with raises(TypeError):
         substitution(object())
 
 

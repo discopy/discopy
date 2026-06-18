@@ -41,6 +41,7 @@ Summary
 """
 
 from __future__ import annotations
+from typing import Self
 
 from dataclasses import dataclass
 import re
@@ -48,7 +49,7 @@ import re
 from discopy import biclosed, messages
 from discopy.cat import ar_factory
 from discopy.grammar import thue
-from discopy.biclosed import Ty, Over, Under
+from discopy.biclosed import Ty, Over, Under, Substitution
 from discopy.utils import (
     assert_isinstance,
     BinaryBoxConstructor,
@@ -270,6 +271,9 @@ class TypeRaising(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
+    def __substitute__(self, subst: Substitution) -> Self:
+        return type(self)(self.base, subst(self.child), self.cod)
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
 
@@ -325,6 +329,9 @@ class BinaryTerm(TermBase):
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
+
+    def __substitute__(self, subst: Substitution) -> Self:
+        return type(self)(subst(self.left), subst(self.right))
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
