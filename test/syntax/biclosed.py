@@ -52,10 +52,10 @@ def test_Term_str():
     X, Y = Ty('X'), Ty('Y')
     f, g = (Y << X)("f"), (X >> Y)("g")
     x, y = X("x"), Variable("y", X)
-    assert str(f(x)) == "f(x)"
-    assert str(x(g, left=True)) == "x(g, left=True)"
-    assert str(X(lambda y: f(y))) == "X(lambda y: f(y))"
-    assert str(f(y)) == "f(y)"
+    assert str(f(x)) == "(Y << X)('f')(X('x'))"
+    assert str(x(g, left=True)) == "X('x')((X >> Y)('g'), left=True)"
+    assert str(X(lambda y: f(y))) == "X(lambda y: (Y << X)('f')(y))"
+    assert str(f(y)) == "(Y << X)('f')(y)"
 
 
 def test_Term_linear_planar():
