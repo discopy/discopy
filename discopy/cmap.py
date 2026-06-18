@@ -691,17 +691,19 @@ class CMap[C0: Monoid, C1: CMap](
                     )
                 )
 
+            # import pdb; pdb.set_trace()
+
             if isinstance(box, Coeval):
                 cod = self.ports[port].obj
                 if node.kind != "cod" or node.i != 0\
-                        or not isinstance(cod, Exp):
+                        or not cod.is_exp:
                     raise ValueError
                 body_port, = [
                     i for i in box_ports if self.ports[i].kind == "dom"]
                 parameter_port, = [
                     i for i in box_ports
                     if self.ports[i].kind == "cod" and i != port]
-                variable = fresh(cod.exponent)
+                variable = fresh(cod.right)
                 return dfs(
                     body_port,
                     bound_ports | {parameter_port: variable},

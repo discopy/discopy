@@ -219,16 +219,11 @@ class Constant(TermBase):
 
 @dataclass(frozen=True, eq=False)
 class Variable(TermBase):
-    ty: Ty
+    cod: Ty
     name: str
 
     def __str__(self):
         return self.name
-
-    # REVIEW: Can we avoid this?
-    @property
-    def cod(self) -> Ty:
-        return self.ty.inside[0] if self.ty.is_exp else self.ty
 
     @property
     def freevars(self):
@@ -263,14 +258,14 @@ class Application(TermBase):
     args: Term
 
     def __post_init__(self):
-        assert_isinstance(self.func.cod, Exp)
-        if self.func.cod.exponent != self.args.cod:
-            raise ValueError(
-                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
+        if not self.func.cod.is_exp:
+            raise AxiomError(messages.TYPE_ERROR.format(Exp(Ty('_'), Ty('_')), self.func.cod))
+        if self.func.cod.right != self.args.cod:
+            raise AxiomError(messages.TYPE_ERROR.format(self.func.cod.right, self.args.cod))
 
     @property
     def cod(self):
-        return self.func.cod.base
+        return self.func.cod.left
 
     def __str__(self):
         return f"{self.func}({self.args})"
