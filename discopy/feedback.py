@@ -496,7 +496,7 @@ class Tail(monoidal.Bubble, Box):
     __str__ = Box.__str__
 
 
-class Feedback(markov.Trace, Box):
+class Feedback(monoidal.Bubble, Box):
     """
     Feedback is a bubble that takes a diagram from `dom @ mem.delay()` to
     `cod @ mem` and returns a box from `dom` to `cod`.
@@ -540,6 +540,9 @@ class Feedback(markov.Trace, Box):
     __str__ = Box.__str__
     _get_structure = markov.Trace._get_structure
     __eq__ = markov.Trace.__eq__
+
+    def to_drawing(self):
+        return self.arg.to_drawing().trace()
 
 
 class FollowedBy(Box):

@@ -129,6 +129,7 @@ Dinaturality
 from discopy import monoidal
 from discopy.abc import TracedCategory
 from discopy.cat import ar_factory
+from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
