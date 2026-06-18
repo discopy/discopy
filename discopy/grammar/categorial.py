@@ -277,6 +277,12 @@ class TypeRaising(TermBase):
     def constants(self):
         return self.child.constants
 
+    def alpha_key(self, substitution):
+        return (
+            type(self).__name__,
+            self.base,
+            self.child.alpha_key(substitution))
+
 
 class FTR(TypeRaising):
     "Forward type raising ``Y << (X >> Y)`` with base ``Y`` and child ``X``."
@@ -326,6 +332,12 @@ class BinaryTerm(TermBase):
     @property
     def constants(self):
         return self.left.constants + self.right.constants
+
+    def alpha_key(self, substitution):
+        return (
+            type(self).__name__,
+            self.left.alpha_key(substitution),
+            self.right.alpha_key(substitution))
 
 
 @dataclass(frozen=True, repr=False)

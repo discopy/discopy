@@ -496,6 +496,7 @@ class TermBase(Box):
     def alpha_equal(self, other, left_sub, right_sub) -> bool:
         return self.alpha_key(left_sub) == other.alpha_key(right_sub)
 
+    @abstractmethod
     def alpha_key(self, substitution):
         raise NotImplementedError
 
@@ -529,10 +530,6 @@ class Constant(TermBase):
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Constant)\
-            and (self.cod, self.name) == (other.cod, other.name)
-
     def alpha_key(self, substitution):
         return ("constant", self.cod, self.name)
 
@@ -558,10 +555,6 @@ class Variable(TermBase):
         return []
 
     __repr__ = Constant.__repr__
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Variable)\
-            and self.alpha_key(left_sub) == other.alpha_key(right_sub)
 
     def alpha_key(self, substitution):
         image = substitution(self)
@@ -624,11 +617,6 @@ class Application(TermBase):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
 
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return isinstance(other, Application) and self.left == other.left\
-            and self.func.alpha_equal(other.func, left_sub, right_sub)\
-            and self.args.alpha_equal(other.args, left_sub, right_sub)
-
     def alpha_key(self, substitution):
         return (
             "application",
@@ -673,17 +661,6 @@ class Abstraction(TermBase):
     @property
     def constants(self):
         return self.body.constants
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        if not isinstance(other, Abstraction)\
-                or self.left != other.left\
-                or self.var.cod != other.var.cod:
-            return False
-        variable = self.alpha_bound(self.var.cod, len(left_sub))
-        return self.body.alpha_equal(
-            other.body,
-            left_sub.extend(((self.var, variable), )),
-            right_sub.extend(((other.var, variable), )))
 
     def alpha_key(self, substitution):
         variable = self.alpha_bound(self.var.cod, len(substitution))
