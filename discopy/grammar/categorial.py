@@ -159,8 +159,8 @@ class Curry(biclosed.Curry, Box):
 class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Under)
+        assert left.is_over
+        assert right.is_under
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
@@ -173,8 +173,8 @@ class ForwardCrossedComposition(BinaryBoxConstructor, Box):
 class BackwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Backward crossed composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Under)
+        assert left.is_over
+        assert right.is_under
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
@@ -348,8 +348,8 @@ class FC(BinaryTerm):
     "Forward composition ``A << C`` with subterms ``A << B`` and ``B << C``. "
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Over)
+        assert self.left.cod.is_over
+        assert self.right.cod.is_over
         if self.right.cod.base != self.left.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 self.left.cod, self.right.cod,
@@ -370,8 +370,8 @@ class BC(BinaryTerm):
     "Backward composition ``A >> C`` with subterms ``A >> B`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.cod, Under)
-        assert_isinstance(self.right.cod, Under)
+        assert self.left.cod.is_under
+        assert self.right.cod.is_under
         if self.left.cod.base != self.right.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 self.left.cod, self.right.cod,

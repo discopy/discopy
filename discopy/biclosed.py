@@ -133,6 +133,14 @@ class Ty(monoidal.Ty):
         return len(self) == 1 and isinstance(self.inside[0], Exp)
 
     @property
+    def is_over(self):
+        return len(self) == 1 and isinstance(self.inside[0], Over)
+
+    @property
+    def is_under(self):
+        return len(self) == 1 and isinstance(self.inside[0], Under)
+
+    @property
     def base(self):
         assert self.is_exp
         return self.inside[0].base
@@ -184,6 +192,14 @@ class Exp(cat.Ob):
     @classmethod
     def from_tree(cls, tree):
         return cls(*map(from_tree, (tree['base'], tree['exponent'])))
+
+    @property
+    def left(self):
+        return self.exponent if isinstance(self, Under) else self.base
+
+    @property
+    def right(self):
+        return self.base if isinstance(self, Under) else self.exponent
 
 
 class Over(Exp):
@@ -535,7 +551,7 @@ class Application(TermBase):
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
                 f"Expected {self.func.cod.exponent}, got {self.args.cod}")
-        cod, fname, xname = func.cod.base, func.name, args.name
+        cod, fname, xname = func.cod.base, str(func), str(args)
         name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
         dom = self.__check_dom__(func, args, left)
         super().__init__(name, dom, cod)

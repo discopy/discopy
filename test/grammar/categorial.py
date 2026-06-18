@@ -168,13 +168,13 @@ def test_FC_BC_FX_BX():
     assert FC(g_left, f_left).cod == BX(f_left, g_right).cod == Z << X
     assert BC(f_right, g_right).cod == FX(g_left, f_right).cod == X >> Z
 
-    with raises(TypeError):
+    with raises(AssertionError):
         FC(f_right, g_left)
-    with raises(TypeError):
+    with raises(AssertionError):
         BC(g_left, f_right)
-    with raises(TypeError):
+    with raises(AssertionError):
         FX(f_right, g_right)
-    with raises(TypeError):
+    with raises(AssertionError):
         BX(g_right, f_right)
 
     with raises(AxiomError):
