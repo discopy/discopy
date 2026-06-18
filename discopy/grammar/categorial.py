@@ -50,7 +50,6 @@ from discopy.grammar import thue
 from discopy.utils import (
     ob_factory,
     ar_factory,
-    assert_isinstance,
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
