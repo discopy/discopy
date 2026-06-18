@@ -388,10 +388,11 @@ class Box(markov.Box, Diagram):
 
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
         self._time_step, self._params = time_step, params
-        super().__init__(name, dom, cod, **params)
+        markov.Box.__init__(self, name, dom, cod, **params)
+        Diagram.__init__(self, self.inside, dom, cod)
 
     def to_drawing(self):
-        result = super().to_drawing()
+        result = monoidal.Box.to_drawing(self)
         if result.box.drawing_name:
             result.box.drawing_name += str_delayed(self.time_step)
         return result
@@ -512,8 +513,6 @@ class Feedback(monoidal.Bubble, Box):
     .. image:: /_static/feedback/feedback-operator.png
         :align: center
     """
-    to_drawing = markov.Trace.to_drawing
-
     def __init__(self, arg: Diagram, dom=None, cod=None, mem=None, left=False):
         if left:
             raise NotImplementedError
@@ -541,6 +540,9 @@ class Feedback(monoidal.Bubble, Box):
     __str__ = Box.__str__
     _get_structure = markov.Trace._get_structure
     __eq__ = markov.Trace.__eq__
+
+    def to_drawing(self):
+        return self.arg.to_drawing().trace()
 
 
 class FollowedBy(Box):

@@ -62,7 +62,7 @@ import networkx as nx
 
 from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
-from discopy.abc import MonoidalCategory
+from discopy.abc import TracedCategory
 from discopy.utils import (
     assert_isinstance, assert_iscomposable, unbiased)
 
@@ -77,7 +77,7 @@ class PlaneGraph(NamedTuple):
 
 
 @dataclass
-class Drawing(MonoidalCategory):
+class Drawing(TracedCategory):
     """
     A drawing is a plane graph with designated input and output types.
 
@@ -637,6 +637,24 @@ class Drawing(MonoidalCategory):
             dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
         result.width = x_shift + other.width
         return result
+
+    def trace(self, n=1, left=False) -> Drawing:
+        from discopy.monoidal import Box, Ty
+        if n == 0:
+            return self
+        if n > 1:
+            return self.trace(left=left).trace(n=n - 1, left=left)
+        dom = self.dom[1:] if left else self.dom[:-1]
+        cod = self.cod[1:] if left else self.cod[:-1]
+        traced_dom = self.dom[:1] if left else self.dom[-1:]
+        traced_cod = self.cod[:1] if left else self.cod[-1:]
+        cap_cod, cup_dom = traced_dom ** 2, (
+            traced_dom @ traced_cod if left else traced_cod @ traced_dom)
+        cup = Box('cup', cup_dom, Ty(), draw_as_wires=True).to_drawing()
+        cap = Box('cap', Ty(), cap_cod, draw_as_wires=True).to_drawing()
+        return (
+            cap @ dom >> traced_dom @ self >> cup @ cod if left
+            else dom @ cap >> self @ traced_dom >> cod @ cup)
 
     def dagger(self) -> Drawing:
         """ The reflection of a drawing along the the horizontal axis. """

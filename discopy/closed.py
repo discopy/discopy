@@ -51,7 +51,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, biclosed, markov
+from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
 
@@ -108,6 +108,9 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
 
+    def to_drawing(self):
+        return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
@@ -125,13 +128,6 @@ class Coeval(biclosed.Coeval, Box):
 
 class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
-
-    def to_drawing(self):
-        if self.left:
-            f, e = self.arg, Coeval(self.cod, left=True)
-            return (f >> e).trace().to_drawing()
-        f, e = self.arg, Coeval(self.cod)
-        return (f >> e).trace(left=True).to_drawing()
 
 
 class Swap(markov.Swap, Box):
