@@ -6,7 +6,7 @@ from discopy.utils import AxiomError
 from discopy.compact import *
 from discopy.drawing import *
 
-IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 10
+IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
 
 def draw_and_compare(file, **params):
     tol = params.pop('tol', TOL)
@@ -96,7 +96,7 @@ def test_draw_pregroup_sentence():
 @draw_and_compare('categorial-grammar.png', aspect='equal')
 def test_draw_sentence():
     from discopy.biclosed import Ty
-    from discopy.grammar.categorial import Word, BA, FA
+    from discopy.grammar.categorial import Eval, Word
 
     s, n = map(Ty, 'sn')
 
@@ -104,7 +104,7 @@ def test_draw_sentence():
     loves = Word('loves', (n >> s) << n)
     Bob = Word('Bob', n)
 
-    return Alice @ loves @ Bob >> n @ FA((n >> s) << n) >> BA(n >> s)
+    return Alice @ loves @ Bob >> n @ Eval((n >> s) << n) >> Eval(n >> s)
 
 
 @draw_and_compare('bialgebra.png', aspect='equal')

@@ -129,7 +129,7 @@ Dinaturality
 from discopy import monoidal
 from discopy.abc import TracedCategory
 from discopy.cat import ar_factory
-from discopy.monoidal import Ty
+from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
@@ -165,6 +165,9 @@ class Diagram(monoidal.Diagram, TracedCategory):
         """
         return self if n == 0\
             else self.trace_factory(self, left).trace(n - 1, left)
+
+    def to_drawing(self):
+        return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
 
 
 class Box(monoidal.Box, Diagram):
@@ -203,23 +206,11 @@ class Trace(Box, monoidal.Bubble):
     def __repr__(self):
         return factory_name(type(self)) + f"({self.arg}, left={self.left})"
 
-    def to_drawing(self):
-        traced_dom = self.arg.dom[:1] if self.left else self.arg.dom[-1:]
-        traced_cod = self.arg.cod[:1] if self.left else self.arg.cod[-1:]
-        empty, dom, cod, traced_dom, traced_cod = (x.to_drawing() for x in [
-            Ty(), self.dom, self.cod, traced_dom, traced_cod])
-        cup_dom = (
-            traced_dom @ traced_cod if self.left else traced_cod @ traced_dom)
-        cup = Box('cup', cup_dom, empty, draw_as_wires=True)
-        cap = Box('cap', empty, traced_dom ** 2, draw_as_wires=True)
-        cup, cap, arg = (f.to_drawing() for f in [cup, cap, self.arg])
-        return (
-            cap @ dom >> traced_dom @ arg >> cup @ cod
-            if self.left
-            else dom @ cap >> arg @ traced_dom >> cod @ cup)
-
     def dagger(self):
         return self.arg.dagger().trace(left=self.left)
+
+    def to_drawing(self):
+        return self.ar.to_drawing(self)
 
 
 class Functor(monoidal.Functor):

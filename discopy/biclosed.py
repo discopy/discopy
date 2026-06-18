@@ -22,6 +22,11 @@ Summary
     Curry
     Sum
     Functor
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
 
 Axioms
 ------
@@ -54,11 +59,16 @@ Axioms
 
 from __future__ import annotations
 
+from abc import abstractmethod
+from inspect import signature
+from typing import Callable, ClassVar
+
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
+    assert_isinstance,
     factory_name,
     from_tree,
 )
@@ -74,16 +84,8 @@ class Ty(monoidal.Ty):
 
     Note
     ----
-    We can exponentials of types.
-
-    >>> x, y, z = Ty(*"xyz")
-    >>> print((x ** y) ** z)
-    ((x ** y) ** z)
-
-    We can also distinguish left- and right-exponentials.
-
-    >>> print((x >> y) << z)
-    ((x >> y) << z)
+    Applying a biclosed type to a callable yields a :class:`Abstraction`,
+    applying it to a string yields a :class:`Constant`.
     """
     def __pow__(self, other: Ty) -> Ty:
         return Exp(self, other) if isinstance(other, Ty)\
@@ -94,6 +96,24 @@ class Ty(monoidal.Ty):
 
     def __rshift__(self, other):
         return Under(other, self)
+
+    def __call__(self, arg):
+        if isinstance(arg, str):
+            return self.constant_factory(arg, self)
+        elif isinstance(arg, Callable):
+            parameters = dict(signature(arg).parameters)
+            left = False
+            if "left" in parameters:
+                left_param = parameters.pop("left")
+                left = left_param.default
+                if not isinstance(left, bool):
+                    raise NotImplementedError
+            varnames = list(parameters.keys())
+            if len(varnames) != 1:
+                raise NotImplementedError
+            var = self.variable_factory(varnames[0], self)
+            return self.abstraction_factory(var, arg(var), left)
+        raise ValueError
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -179,8 +199,7 @@ class Exp(Ty, cat.Ob):
         return f"({self.base} ** {self.exponent})"
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.base)}, {repr(self.exponent)})"
+        return factory_name(type(self)) + f"({self.base!r}, {self.exponent!r})"
 
     def to_tree(self):
         return {
@@ -299,6 +318,10 @@ class Eval(Box):
     def dagger(self) -> Coeval:
         return self.coeval_factory(self.x, self.left)
 
+    @property
+    def drawing_name(self):
+        return "<<" if self.left else ">>"
+
 
 class Coeval(Box):
     """
@@ -307,6 +330,8 @@ class Coeval(Box):
     Parameters:
         x : The exponential type to coevaluate.
     """
+    drawing_name = "lambda"
+
     def __init__(self, x: Exp, left=None):
         self.x, self.left = x, isinstance(x, Over) if left is None else left
         cod, dom = (x @ x.exponent, x.base) if self.left\
@@ -338,6 +363,13 @@ class Curry(monoidal.Bubble, Box):
             self, arg, dom=dom, cod=cod, drawing_name="$\\Lambda$")
         Box.__init__(self, name, dom, cod)
 
+    def to_drawing(self):
+        if self.left:
+            f, e = self.arg, self.coeval_factory(self.cod, left=True)
+            return (f >> e).to_drawing().trace()
+        f, e = self.arg, self.coeval_factory(self.cod)
+        return (f >> e).to_drawing().trace(left=True)
+
 
 class Sum(monoidal.Sum, Box):
     """
@@ -350,11 +382,13 @@ class Sum(monoidal.Sum, Box):
     """
 
 
+Id = Diagram.id
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
 Diagram.over, Diagram.under, Diagram.exp\
     = map(staticmethod, (Over, Under, Exp))
 Diagram.sum_factory = Sum
-
-Id = Diagram.id
 
 
 class Functor(monoidal.Functor):
@@ -363,14 +397,16 @@ class Functor(monoidal.Functor):
     that preserves evaluation and currying.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
     """
     dom = cod = Diagram
 
     def __call__(self, other):
+        if isinstance(other, TermBase):
+            return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls) and hasattr(self.cod, attr):
                 method = getattr(self.cod, attr)
@@ -389,18 +425,208 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-def to_rigid(self):
-    from discopy import rigid
+class TermBase(Box):
+    """
+    A term in the internal language of biclosed categories.
 
-    return Functor(
-        ob=lambda x: rigid.Ty(x.inside[0].name),
-        ar=lambda f: rigid.Box(
-            f.name, Diagram.to_rigid(f.dom), Diagram.to_rigid(f.cod)),
-        cod=rigid.Diagram)(self)
+    Attributes:
+        dom (Ty): The tensor of the types for each free variable.
+        cod (Ty): The type of a term, i.e. the codomain of its morphism.
+        freevars (Ty): The list of free variables.
+        functor (Functor): The functor to evaluate the term, ``id`` by default.
+
+    Note
+    ----
+    Constant terms can be instantiated from any diagram, if the domain is not
+    empty (i.e. the diagram is a process not a state) then the constant is a
+    given a function type with the argument coming either the left or right:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> x, f, g = X("x"), (X >> Y)("f"), (Y << X)("g")
+
+    Terms can be the :class:`Application` of a function to an argument from its
+    left ``>>`` or right ``<<`` with the type inferred automatically e.g.
+
+    >>> xf, gx = x(f, left=True), g(x)
+    >>> assert xf.cod == Y == gx.cod
+
+    Applying a biclosed type to a function yields an :class:`Abstraction` e.g.
+
+    >>> f_, g_ = X(lambda y, left=True: y(f, left=True)), X(lambda y: g(y))
+    >>> assert f.cod == f_.cod == X >> Y and g.cod == g_.cod == Y << X
+
+    Terms are required to be linear and planar, they can be drawn as diagrams:
+
+    >>> N, S = Ty("N"), Ty("S")
+    >>> Alice, loves, Bob = N("Alice"), ((N >> S) << N)("loves"), N("Bob")
+    >>> Alice(loves(Bob), left=True).draw(
+    ...     path='docs/_static/biclosed/alice-loves-bob.png',
+    ...     margins=(.3, 0), figsize=(5, 4))
+    """
+    dom: Ty
+    cod: Ty
+    freevars: list[Variable]
+    functor: ClassVar[Functor] = Functor.id(Diagram)
+
+    @abstractmethod
+    def eval(functor: Functor = None) -> BiclosedCategory:
+        """
+        The evaluation of a :class:`Functor` on a term gives a morphism in its
+        codomain. By default, this is the identity functor on the free biclosed
+        category, i.e. terms are compiled to diagrams with constants as boxes.
+        """
+
+    def draw(self, **kwargs):
+        "Drawing a term by evaluating it in the free biclosed category."
+        return self.eval().draw(**kwargs)
+
+    def __call__(self, other, left=False):
+        args = (other, self, left) if left else (self, other, left)
+        return self.cod.application_factory(*args)
 
 
-Id = Diagram.id
-Diagram.to_rigid = to_rigid
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
+class Constant(TermBase):
+    """
+    A constant term of defined by a :class:`Diagram` with ``dom=X, cod=Y``.
+    The constant has type ``Y`` if ``X`` is empty else it has type either
+    ``Y << X`` if ``left=True`` else ``X >> Y``.
+
+    Attributes:
+        inside (Diagram): The diagram which defines the constant.
+        left (Optional[bool]): Whether the domain comes from the left or right.
+    """
+    def __init__(self, name: Ty, cod: Ty, **kwargs):
+        super().__init__(name, dom=self.ob(), cod=cod, **kwargs)
+        self.freevars = []
+
+    @property
+    def constants(self):
+        return [self]
+
+    def eval(self, functor=None):
+        functor = functor or self.functor
+        return functor.ar_map[self]
+
+    def __repr__(self):
+        return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
+
+
+class Variable(TermBase):
+    """
+    A variable with a string as name and a :class:`Ty`.
+
+    Attributes:
+        name (str): The name of the variable
+        cod (Ty): The type of the variable.
+    """
+    def __init__(self, name: str, cod: Ty):
+        super().__init__(name, dom=cod, cod=cod)
+        self.freevars = [self]
+
+    def eval(self, functor=None):
+        functor = functor or self.functor
+        return functor.cod.id(functor(self.cod))
+
+    @property
+    def constants(self):
+        return []
+
+    __repr__ = Constant.__repr__
+
+
+class Application(TermBase):
+    """
+    The application either ``func(args)`` of a term ``func`` of type ``Y << X``
+    to a term ``args`` of type ``X`` or ``args(func, left=True)`` of a term
+    ``args`` of type ``X`` fed as input to a term ``func`` of type ``X >> Y``.
+
+    Attributes:
+        func (Term): The function being applied.
+        args (Term): The arguments to which the function is applied.
+        left (bool): Whether the argument comes in from the left or right.
+    """
+    def __init__(self, func: Term, args: Term, left: bool = False):
+        assert_isinstance(func, TermBase)
+        assert_isinstance(args, TermBase)
+        assert_isinstance(func.cod, Exp)
+        self.func, self.args, self.left = func, args, left
+        if self.func.cod.exponent != self.args.cod:
+            raise ValueError(
+                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
+        cod, fname, xname = func.cod.base, str(func), str(args)
+        name = f"{xname}({fname}, left=True)" if left else f"{fname}({xname})"
+        dom = self.__check_dom__(func, args, left)
+        super().__init__(name, dom, cod)
+
+    def __check_dom__(self, func, args, left):
+        assert_isinstance(func.cod, Under if left else Over)
+        if set(func.freevars).intersection(args.freevars):
+            raise ValueError("Expected disjoint free variables.")
+        self.freevars = func.freevars + args.freevars if self.left\
+            else args.freevars + func.freevars
+        return args.dom @ func.dom if left else func.dom @ args.dom
+
+    def eval(self, functor=None):
+        functor = functor or self.functor
+        func = self.func.eval(functor=functor)
+        args = self.args.eval(functor=functor)
+        base, exponent = self.func.cod.base, self.func.cod.exponent
+        ev = functor.cod.ev(
+            functor(base), functor(exponent), left=not self.left)
+        return args @ func >> ev if self.left else func @ args >> ev
+
+    def __repr__(self):
+        func, args = repr(self.func), repr(self.args)
+        left = ", left=True" if self.left else ""
+        return factory_name(type(self)) + f"({func}, {args}{left})"
+
+    @property
+    def constants(self):
+        return self.args.constants + self.func.constants if self.left\
+            else self.func.constants + self.args.constants
+
+
+class Abstraction(TermBase):
+    var: Variable
+    body: Term
+    left: bool = False
+
+    def __init__(self, var: Variable, body: Term, left: bool = False):
+        self.var, self.body, self.left = var, body, left
+        left_str = ", left=True" if left else ""
+        name = f"{var.cod}(lambda {var.name}{left_str}: {body})"
+        cod = var.cod >> body.cod if left else body.cod << var.cod
+        dom = self.__check_dom__()
+        super().__init__(name, dom, cod)
+
+    def __check_dom__(self):
+        body_freevars = self.body.freevars
+        if body_freevars.count(self.var) != 1:
+            raise ValueError("Expected variable to occur exactly once.")
+        index = body_freevars.index(self.var)
+        if self.left and index != 0:
+            raise ValueError("Expected abstraction of left-most variable.")
+        if not self.left and index != len(body_freevars) - 1:
+            raise ValueError("Expected abstraction of right-most variable.")
+        self.freevars = body_freevars[1:] if self.left else body_freevars[:-1]
+        return self.body.dom[1:] if self.left else self.body.dom[:-1]
+
+    def eval(self, functor=None):
+        return (functor or self.functor)(self.body.curry(left=not self.left))
+
+    def __repr__(self):
+        var, body = repr(self.var), repr(self.body)
+        left = ", left=True" if self.left else ""
+        return factory_name(type(self)) + f"({var}, {body}{left})"
+
+    @property
+    def constants(self):
+        return self.body.constants
+
+
+type Term = Constant | Variable | Application | Abstraction
+
+Ty.variable_factory = Variable
+Ty.constant_factory = Constant
+Ty.application_factory = Application
+Ty.abstraction_factory = Abstraction

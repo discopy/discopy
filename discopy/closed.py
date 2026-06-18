@@ -12,6 +12,11 @@ Summary
 
     Ty
     Exp
+    TermBase
+    Constant
+    Variable
+    Application
+    Abstraction
     Diagram
     Box
     Eval
@@ -44,14 +49,11 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from abc import abstractproperty
-from typing import Dict, Callable
-from inspect import signature
+from typing import Dict, ClassVar
 
-from discopy import cat, biclosed, markov
+from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.utils import assert_isinstance
 
 
 @ob_factory
@@ -64,22 +66,11 @@ class Ty(biclosed.Ty):
 
     >>> X, Y = Ty("X"), Ty("Y")
     >>> t = X(lambda x: (X >> Y)(lambda f: f(x)))
-    >>> t.to_diagram().draw(
+    >>> t.draw(
     ...     path='docs/_static/closed/diagram.png',
     ...     aspect="auto", figsize=(8, 8), margins=(0.2, 0))
 
     .. image:: /_static/closed/diagram.png
-        :align: center
-
-    Applying a closed type to a string yields a :class:`Constant` e.g.
-
-    >>> N, S = Ty("N"), Ty("S")
-    >>> Alice, loves, Bob = N("Alice"), (N >> (N >> S))("loves"), N("Bob")
-    >>> loves(Alice)(Bob).to_diagram().draw(
-    ...     path='docs/_static/closed/alice-loves-bob.png',
-    ...     margins=(.3, 0), figsize=(5, 4))
-
-    .. image:: /_static/closed/alice-loves-bob.png
         :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
@@ -92,137 +83,12 @@ class Ty(biclosed.Ty):
     def __rshift__(self, other):
         return Exp(other, self)
 
-    def __call__(self, arg):
-        if isinstance(arg, Callable):
-            varnames = list(signature(arg).parameters.keys())
-            if len(varnames) != 1:
-                raise NotImplementedError
-            var = Variable(self, varnames[0])
-            return Abstraction(var, arg(var))
-        if isinstance(arg, str):
-            return Constant(self, arg)
-        raise ValueError
-
 
 class Exp(Ty, biclosed.Exp):
     "An exponential object in a markov category."
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
-
-
-class TermBase:
-    cod: Ty
-
-    def __call__(self, other):
-        return Application(self, other)
-
-    @abstractproperty
-    def freevars(self) -> list[Variable]: ...
-
-
-type Term = Constant | Variable | Application | Abstraction
-
-
-@dataclass(frozen=True)
-class Constant(TermBase):
-    cod: Ty
-    name: str
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def freevars(self):
-        return []
-
-    def to_diagram(self, category=None, box_factory=None):
-        category, box_factory = category or Diagram, box_factory or Box
-        return box_factory(self.name, category.ob(), self.cod)
-
-
-@dataclass(frozen=True)
-class Variable(TermBase):
-    cod: Ty
-    name: str
-
-    def __str__(self):
-        return self.name
-
-    @property
-    def freevars(self):
-        return [self]
-
-    def to_diagram(self, category=None):
-        return (category or Diagram).id(self.cod)
-
-
-@dataclass(frozen=True)
-class Application(TermBase):
-    func: Term
-    args: Term
-
-    def __post_init__(self):
-        assert_isinstance(self.func.cod, Exp)
-        if self.func.cod.exponent != self.args.cod:
-            raise ValueError(
-                f"Expected {self.func.cod.exponent}, got {self.args.cod}")
-
-    @property
-    def cod(self):
-        return self.func.cod.base
-
-    def __str__(self):
-        return f"{self.func}({self.args})"
-
-    @property
-    def freevars(self, bound=None):
-        return self.func.freevars + self.args.freevars
-
-    def to_diagram(self, category=None):
-        if set(self.func.freevars).intersection(self.args.freevars):
-            raise NotImplementedError
-        return self.func.to_diagram(category) @ self.args.to_diagram(
-            category) >> Eval(self.func.cod, left=True)
-
-
-@dataclass(frozen=True)
-class Abstraction(TermBase):
-    var: Variable
-    body: Term
-
-    @property
-    def cod(self):
-        return self.var.cod >> self.body.cod
-
-    def __str__(self):
-        return f"{self.var.cod}(lambda {self.var.name}: {self.body})"
-
-    @property
-    def freevars(self):
-        return list(filter(lambda x: x != self.var, self.body.freevars))
-
-    def to_diagram(self, category=None):
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
-        body = self.body.to_diagram(category)
-        p = body.permutation(
-            [i] + [j for j in range(n) if j != i], body.dom)
-        return (p >> body).curry()
-
-
-@dataclass
-class Substitution:
-    inside: Dict[Variable, Term]
-
-    def __call__(self, term: Term) -> Term:
-        if isinstance(term, Variable):
-            return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
-            other = Substitution(
-                {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
 
 
 @ar_factory
@@ -238,32 +104,30 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     def is_linear(self):
         return all(box.is_linear for box in self.boxes)
 
+    @classmethod
+    def ev(cls, base: Ty, exponent: Ty, left: bool = True):
+        return cls.eval_factory(exponent >> base, left=left)
+
+    def to_drawing(self):
+        return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
+
 
 class Box(markov.Box, biclosed.Box, Diagram):
     "A closed box is a markov and biclosed box in a closed diagram."
-
     is_linear = True
 
 
 class Eval(biclosed.Eval, Box):
     "The evaluation of an exponential type."
-    drawing_name = "Eval"
+    drawing_name = "__call__"
 
 
 class Coeval(biclosed.Coeval, Box):
     "The coevaluation of an exponential type, i.e. the dagger of an Eval."
-    drawing_name = "$\\lambda$"
 
 
 class Curry(biclosed.Curry, Box):
     "The currying of a closed diagram."
-
-    def to_drawing(self):
-        if self.left:
-            f, e = self.arg, Coeval(self.cod, left=True)
-            return (f >> e).trace().to_drawing()
-        f, e = self.arg, Coeval(self.cod)
-        return (f >> e).trace(left=True).to_drawing()
 
 
 class Swap(markov.Swap, Box):
@@ -289,13 +153,6 @@ class Sum(markov.Sum, biclosed.Sum, Box):
         dom (Ty) : The domain of the formal sum.
         cod (Ty) : The codomain of the formal sum.
     """
-
-
-Diagram.over, Diagram.under, Diagram.exp\
-    = map(staticmethod, (biclosed.Over, biclosed.Under, Exp))
-Diagram.sum_factory = Sum
-
-Id = Diagram.id
 
 
 class Functor(biclosed.Functor, markov.Functor):
@@ -331,5 +188,110 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = lambda X: Copy(X, 0)
 Diagram.sum_factory = Sum
+Diagram.exp = Diagram.under = Diagram.over = staticmethod(Exp)
 
 Id = Diagram.id
+
+
+class TermBase(Box, biclosed.TermBase):
+    """
+    A term in the internal language of a closed category.
+    """
+    functor = Functor.id(Diagram)
+
+    def __call__(self, other):
+        return Application(self, other, left=False)
+
+
+type Term = Constant | Variable | Application | Abstraction
+
+
+class Constant(TermBase, biclosed.Constant):
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if not context:
+            return super().eval(functor)
+        return functor.cod.discard(functor(context.dom)) >> super().eval(
+            functor)
+
+
+class Variable(TermBase, biclosed.Variable):
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if not context:
+            return functor.cod.id(functor(self.cod))
+        return functor.cod.tensor(*[
+            functor.cod.id(functor(x.cod)) if x == self
+            else functor.cod.discard(functor(x.cod))
+            for x in context.inside])
+
+
+class Application(TermBase, biclosed.Application):
+    def __check_dom__(self, func, args, left):
+        self.overlap = set(func.freevars).intersection(args.freevars)
+        self.freevars = list(set(func.freevars + args.freevars))\
+            if self.overlap else func.freevars + args.freevars
+        return self.ob.tensor(*[x.cod for x in self.freevars])
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        base, exponent = self.func.cod.base, self.func.cod.exponent
+        evaluate = functor.cod.ev(functor(base), functor(exponent))
+        if context is None:
+            if not self.overlap:
+                func = self.func.eval(functor=functor)
+                args = self.args.eval(functor=functor)
+                return func @ args >> evaluate
+            context = Context(self.freevars)
+        func = self.func.eval(functor=functor, context=context)
+        args = self.args.eval(functor=functor, context=context)
+        return functor.cod.copy(functor(context.dom))\
+            >> func @ args >> evaluate
+
+
+class Abstraction(TermBase, biclosed.Abstraction):
+    def __check_dom__(self):
+        self.freevars = [x for x in self.body.freevars if x != self.var]
+        return self.ob().tensor(*[x.cod for x in self.freevars])
+
+    def eval(self, functor=None, context=None):
+        functor = functor or self.functor
+        if context:
+            new_context = Context([self.var] + context.inside)
+            body = self.body.eval(functor=functor, context=new_context)
+            return body.curry(left=True)
+        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+        body = self.body.eval(functor=functor)
+        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
+        return (body.permutation(p, body.dom).dagger() >> body).curry()
+
+
+@dataclass
+class Context:
+    inside: list[Variable]
+    category: ClassVar[type[ClosedCategory]] = Diagram
+
+    @property
+    def dom(self):
+        return self.category.ob.tensor(*[x.cod for x in self.inside])
+
+
+@dataclass
+class Substitution:
+    inside: Dict[Variable, Term]
+
+    def __call__(self, term: Term) -> Term:
+        if isinstance(term, Variable):
+            return self.inside.get(term, term)
+        elif isinstance(term, Application):
+            return self(term.func)(self(term.args))
+        elif isinstance(term, Abstraction):
+            other = Substitution(
+                {k: v for k, v in self.inside.items() if k != term.var})
+            return other(term)
+
+
+Ty.variable_factory = Variable
+Ty.constant_factory = Constant
+Ty.application_factory = Application
+Ty.abstraction_factory = Abstraction
