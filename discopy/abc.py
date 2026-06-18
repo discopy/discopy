@@ -239,8 +239,7 @@ class Pregroup[T](ResiduatedMonoid[T]):
     def __matmul__(self, other: T) -> T:
         return self.tensor(other)
 
-    
-    (self, other: T) -> T:
+    def over(self, other: T) -> T:
         return self @ other.l
 
     def under(self, other: T) -> T:
