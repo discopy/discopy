@@ -198,7 +198,7 @@ class Permutation(Function, SymmetricCategory):
         elems = (self[other[i]] for i in range(len(self)))
         return type(self)(elems, len(self))
 
-    def inverse(self):
+    def dagger(self):
         """ Return the inverse permutation. """
         result = list(range(len(self)))
         for source, target in enumerate(self):
