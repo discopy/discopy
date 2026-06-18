@@ -162,8 +162,6 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
         """ The cycles of the face permutation. """
         return self.face_permutation.cycles()
 
-    faces = face_cycles
-
     @property
     def euler_characteristic(self) -> int:
         """ Euler characteristic ``V - E + F``. """
@@ -591,18 +589,15 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
             if i <= j:
                 edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
 
-        def wire(port_index):
-            return edge_wire[port_index]
-
         diagram = self.category.id(self.dom)
-        scan = [wire(i) for i in range(len(self.dom))]
+        scan = [edge_wire[i] for i in range(len(self.dom))]
 
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             box_ports = self.box_port_indices[depth]
             dom_ports = box_ports[:len(box.dom)]
             cod_ports = box_ports[len(box.dom):]
-            dom_wires = [wire(i) for i in dom_ports]
-            cod_wires = [wire(i) for i in cod_ports]
+            dom_wires = [edge_wire[i] for i in dom_ports]
+            cod_wires = [edge_wire[i] for i in cod_ports]
 
             for i, wire_id in enumerate(dom_wires):
                 j = scan.index(wire_id)
@@ -628,7 +623,7 @@ class CombinatorialMap[C0: Monoid, C1: CombinatorialMap](
                 offset + len(box.dom):]
 
         cod_wires = [
-            wire(self.n_ports - len(self.cod) + i)
+            edge_wire[self.n_ports - len(self.cod) + i]
             for i in range(len(self.cod))]
         for i, wire_id in enumerate(cod_wires):
             j = scan.index(wire_id)

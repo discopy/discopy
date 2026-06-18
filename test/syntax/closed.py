@@ -218,37 +218,17 @@ def assert_trivalent_map(cmap, dom, cod, vertices):
     assert cmap.edge[-1] != len(cmap.ports) - 1
 
 
-def assert_freevars_as_domain(term, cmap):
-    dom = Ty()
-    for variable in term.freevars:
-        dom = dom @ variable.cod
-    assert cmap.dom == dom
-
-
-def assert_round_trips_through_term(cmap, input_names=None):
-    term = cmap.to_term(input_names)
-    new = term.to_map(type(cmap))
-    assert (new.dom, new.cod, new.edge, new.node) == (
-        cmap.dom,
-        cmap.cod,
-        cmap.edge,
-        cmap.node,
-    )
-    return term
-
-
 def test_term_to_map_identity():
     X = Ty("X")
     x = Variable(X, "x")
     identity = Abstraction(x, x)
     cmap = identity.to_map()
-    assert_freevars_as_domain(identity, cmap)
     assert_trivalent_map(cmap, Ty(), identity.cod, vertices=1)
     assert len(cmap.ports) == 4
     assert isinstance(cmap.boxes[0], Coeval)
     assert cmap.boxes[0].dom == X
     assert cmap.boxes[0].cod == identity.cod @ X
-    assert not assert_round_trips_through_term(cmap).freevars
+    assert cmap.to_term() == X(lambda x: x)
 
 
 def test_term_to_map_b_combinator():
@@ -260,13 +240,12 @@ def test_term_to_map_b_combinator():
         x, Abstraction(y, Abstraction(z, Application(x, Application(y, z))))
     )
     cmap = b.to_map()
-    assert_freevars_as_domain(b, cmap)
     assert_trivalent_map(cmap, Ty(), b.cod, vertices=5)
     assert len(cmap.ports) == 16
     assert [type(box) for box in cmap.boxes] == [Eval, Eval, Coeval, Coeval, Coeval]
     assert [len(box.dom) for box in cmap.boxes] == [2, 2, 1, 1, 1]
     assert [len(box.cod) for box in cmap.boxes] == [1, 1, 2, 2, 2]
-    assert not assert_round_trips_through_term(cmap).freevars
+    assert cmap.to_term() == b
 
 
 def test_term_to_map_open_terms_use_domain_boundary():
@@ -274,18 +253,17 @@ def test_term_to_map_open_terms_use_domain_boundary():
     x = Variable(X, "x")
     f = Variable(X >> Y, "f")
     variable = x.to_map()
-    assert_freevars_as_domain(x, variable)
+    print(f"{variable.dom!r}, {variable.cod!r}")
     assert variable.dom == X
     assert variable.cod == X
     assert variable == CombinatorialMap.id(X)
 
     application = Application(f, x)
     cmap = application.to_map()
-    assert_freevars_as_domain(application, cmap)
     assert_trivalent_map(cmap, (X >> Y) @ X, Y, vertices=1)
     assert isinstance(cmap.boxes[0], Eval)
     assert [port.kind for port in cmap.ports[:2]] == ["input", "input"]
-    assert str(assert_round_trips_through_term(cmap, ["f", "x"])) == "f(x)"
+    assert cmap.to_term(["f", "x"]) == application
 
 
 def test_whiteboard_term():
@@ -307,7 +285,7 @@ def test_petersen_term():
     petersen = \ a b c d e -> a (\ f -> c (e (b (d f))))
     """
 
-    t0, t1, t2, t3, t4, t5, t6 = (Ty(f"x{i}") for i in range(7))
+    t0, t1, t2, t3, t4, t5, t6 = (Ty(f"t{i}") for i in range(7))
 
     petersen = (((t1 >> t0) >> t5) >> t6)(
         lambda a: (t2 >> t3)(
@@ -327,7 +305,6 @@ def test_petersen_term():
 
     cmap = petersen.to_map()
     assert len(cmap.ports) == 34
-    assert_freevars_as_domain(petersen, cmap)
     assert_trivalent_map(cmap, Ty(), petersen.cod, vertices=11)
 
     roundtrip = cmap.to_term()
