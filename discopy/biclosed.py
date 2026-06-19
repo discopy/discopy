@@ -130,23 +130,49 @@ class Ty(monoidal.Ty):
 
     @property
     def is_exp(self):
+        """
+        Whether the type is an :class:`Exp` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x ** y).is_exp and (x ** y @ Ty()).is_exp
+        """
         return len(self) == 1 and isinstance(self.inside[0], Exp)
 
     @property
     def is_over(self):
+        """
+        Whether the type is an :class:`Over` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x << y).is_over and (x << y @ Ty()).is_over
+        """
         return len(self) == 1 and isinstance(self.inside[0], Over)
 
     @property
     def is_under(self):
+        """
+        Whether the type is an :class:`Under` object.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> assert (x >> y).is_under and (x >> y @ Ty()).is_under
+        """
         return len(self) == 1 and isinstance(self.inside[0], Under)
 
     @property
     def base(self):
+        "The base of an exponential type, assumes ``self.is_exp``."
         assert self.is_exp
         return self.inside[0].base
 
     @property
     def exponent(self):
+        "The exponent of an exponential type, assumes ``self.is_exp``."
         assert self.is_exp
         return self.inside[0].exponent
 
