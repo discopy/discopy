@@ -1188,6 +1188,6 @@ Diagram.to_gif = drawing.to_gif
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
 Diagram.hypergraph_factory = Hypergraph
-Drawing.ob = Ty
 Diagram.map_factory = CMap
+Drawing.ob = Ty
 Id = Diagram.id

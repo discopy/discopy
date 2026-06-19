@@ -12,7 +12,7 @@ two permutations on these ports:
 """
 
 from __future__ import annotations
-from discopy.abc import CompactCategory, NamedGeneric, Pregroup
+from enum import StrEnum
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -20,10 +20,11 @@ from io import BytesIO
 from math import lcm
 import shutil
 import subprocess
-from typing import Any, TYPE_CHECKING, ClassVar
+from typing import Any, TYPE_CHECKING, ClassVar, Callable, Literal
 
 from discopy import messages, hypergraph
-from discopy.cat import Box
+from discopy.cat import Ob
+from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
 from discopy.utils import (
     AxiomError,
@@ -34,56 +35,63 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ty, Diagram, Functor
+    from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
+    from discopy.biclosed import Term
+
+class PortKind(StrEnum):
+    INPUT = "input"
+    OUTPUT = "output"
+    DOM = "dom"
+    COD = "cod"
+
+    @property
+    def is_negative(self) -> bool:
+        return self == "dom" or self == "output"
+
+    @property
+    def is_positive(self) -> bool:
+        return self == "input" or self == "cod"
+
+    @property
+    def is_boundary(self) -> bool:
+        return self == "input" or self == "output"
+
+    @property
+    def is_input(self) -> bool:
+        return self == "input" or self == "dom"
+
+    @property
+    def is_output(self) -> bool:
+        return self == "cod" or self == "output"
 
 
 @dataclass(frozen=True)
 class Port:
     """ A port in a combinatorial map. """
-    kind: str
-    i: int | None = None
-    obj: Any = None
-    depth: int | None = None
+    kind: PortKind
+    i: int
+    obj: Ob
+    depth: float
 
-NEGATIVE_PORTS = {"input", "cod"}
-POSITIVE_PORTS = {"dom", "output"}
-BOUNDARY_PORTS = {"input", "output"}
-IN_PORTS = {"input", "dom"}
-OUT_PORTS = {"cod", "output"}
+    @property
+    def side(self) -> Literal["up"] | Literal["down"]:
+        """ Return the side of the box on which the port lies. """
+        is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
+        if self.kind.is_input:
+            return "down" if is_adjoint else "up"
+        if self.kind.is_output:
+            return "up" if is_adjoint else "down"
+        raise ValueError
 
-
-def port_side(port: Port) -> str:
-    """
-    Return ``"up"`` or ``"down"`` for a port.
-
-    Examples
-    --------
-    >>> port_side(Port("input", i=0, obj=None))
-    'up'
-    >>> port_side(Port("output", i=0, obj=None))
-    'down'
-    """
-    is_adjoint = bool(getattr(port.obj, "z", 0) % 2)
-    if port.kind in NEGATIVE_PORTS:
-        return "down" if is_adjoint else "up"
-    if port.kind in POSITIVE_PORTS:
-        return "up" if is_adjoint else "down"
-    raise ValueError
-
-
-def port_direction(port: Port) -> str:
-    """ Return ``"in"`` or ``"out"`` for a port. """
-    is_adjoint = bool(getattr(port.obj, "z", 0) % 2)
-    if port.kind in IN_PORTS:
-        return "out" if is_adjoint else "in"
-    if port.kind in OUT_PORTS:
-        return "in" if is_adjoint else "out"
-    raise ValueError
-
-
-def _same_type(left, right) -> bool:
-    left_r, right_r = getattr(left, "r", left), getattr(right, "r", right)
-    return right in [left, left_r] or left in [right, right_r]
+    @property
+    def direction(self) -> Literal["in"] | Literal["out"]:
+        """ Return whether the port is an input or an output. """
+        is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
+        if self.kind.is_input:
+            return "out" if is_adjoint else "in"
+        if self.kind.is_output:
+            return "in" if is_adjoint else "out"
+        raise ValueError
 
 
 class CMap[C0: Pregroup, C1: CMap](
@@ -110,7 +118,6 @@ class CMap[C0: Pregroup, C1: CMap](
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
         for box in boxes:
-            assert_isinstance(box, Box)
             assert_isinstance(box, self.category)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
         self.offsets = offsets or tuple(len(boxes) * [None])
@@ -118,19 +125,19 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
 
         self.edge = Permutation(edge, len(self.ports))
-        self._validate()
+        self.validate()
 
     @property
     def ports(self) -> list[Port]:
         """ The ports in the map, in fixed Hypergraph order. """
-        inputs = [Port("input", i=i, obj=obj)
+        inputs = [Port(PortKind.INPUT, i=i, obj=obj, depth=float('-inf'))
                   for i, obj in enumerate(self.dom)]
         box_ports = sum([[
-            Port(kind, depth=depth, i=i, obj=obj)
+            Port(kind, i=i, obj=obj, depth=depth)
             for i, obj in enumerate(typ)]
             for depth, box in enumerate(self.boxes)
-            for kind, typ in [("dom", box.dom), ("cod", box.cod)]], [])
-        outputs = [Port("output", i=i, obj=obj)
+            for kind, typ in [(PortKind.DOM, box.dom), (PortKind.COD, box.cod)]], [])
+        outputs = [Port(PortKind.OUTPUT, i=i, obj=obj, depth=float('+inf'))
                    for i, obj in enumerate(self.cod)]
         return inputs + box_ports + outputs
 
@@ -186,26 +193,44 @@ class CMap[C0: Pregroup, C1: CMap](
         cycles = list(self.box_port_indices)
         return Permutation.from_cycles(cycles, len(self.ports))
 
-    def _validate(self):
+    def validate(self):
         ports = self.ports
         if not self.edge.is_fixpoint_free_involution():
             raise ValueError
 
         for i, j in enumerate(self.edge):
+            if i > j:
+                continue
             type(self).validate_wire(ports[i], ports[j])
 
     @classmethod
     def validate_wire(cls, source: Port, target: Port):
-        """ Validate whether two ports can be connected by a wire. """
-        if source.kind in NEGATIVE_PORTS \
-                and target.kind in NEGATIVE_PORTS:
-            raise AxiomError
-        if source.kind in POSITIVE_PORTS \
-                and target.kind in POSITIVE_PORTS:
-            raise AxiomError
-        if source.obj != target.obj:
-            raise AxiomError(messages.TYPE_ERROR.format(
+        """
+        Validate whether two ports can be connected by a wire.
+        By default, these are the rules for symmetric categories
+        which are the weakest setting :class:`CMap` can represent.
+        """
+        def compatible(left, right):
+            return left == right or getattr(left, "r", None) == right\
+                or left == getattr(right, "r", None)
+
+        def oriented(left, right):
+            return left.kind.is_positive and right.kind.is_negative
+
+        def boundary_adjunction(left, right):
+            return left.kind.is_boundary and right.kind.is_boundary\
+                and left.direction != right.direction
+
+        if not compatible(source.obj, target.obj):
+            raise AxiomError(messages.NOT_ADJOINT.format(
                 source.obj, target.obj))
+        if not (
+                oriented(source, target)
+                or oriented(target, source)
+                or boundary_adjunction(source, target)):
+            raise AxiomError(
+                messages.NOT_TRACEABLE.format(source, target)
+            )
 
     def __repr__(self):
         def port_repr(index, port):
@@ -213,16 +238,16 @@ class CMap[C0: Pregroup, C1: CMap](
             depth = "" if port_depth is None else f"@{port_depth}"
             return (
                 f"{port.kind}{depth}[{port.i}]:{port.obj}:"
-                f"{port_side(port)}/{port_direction(port)}"
+                f"{port.side}/{port.direction}"
                 f"->{self.edge[index]}")
 
         ports = tuple(
             port_repr(index, port)
             for index, port in enumerate(self.ports))
         return factory_name(type(self))\
-            + f"(dom={repr(self.dom)}, cod={repr(self.cod)}, " \
-              f"boxes={repr(self.boxes)}, edge={repr(self.edge)}, " \
-              f"ports={repr(ports)})"
+            + f"(dom={self.dom!r}, cod={self.cod!r}, " \
+              f"boxes={self.boxes!r}, edge={self.edge!r}, " \
+              f"ports={ports!r})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap) and (
@@ -334,15 +359,18 @@ class CMap[C0: Pregroup, C1: CMap](
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
         return cls.category.ev(base, exponent, left).to_map()
 
-    def curry(self, n: int = 1, left: bool = False, expand: bool = False) -> CMap:
+    def curry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        The currying of a morphism, to be instantiated.
+        The currying functor applied on this map.
+
+        Note:
+            This will use the free closed structure obtained from the map
+            representation by introducing adjoint ports, even if the host
+            category already has closed structure.
 
         Parameters:
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
-            expand : Whether to represent currying via the free compact closed
-                structure or via the host category if it is (bi)closed.
 
         >>> from discopy.compact import Ty, Box, CMap
         >>> from discopy.drawing import Equation
@@ -354,20 +382,12 @@ class CMap[C0: Pregroup, C1: CMap](
         .. image:: /_static/cmap/curry.png
             :align: center
         """
-        cls = type(self)
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
-            if expand:
-                return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-            else:
-                return cls.from_box(cls.category.ev(base, exponent, True))
+            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
         else:
             base, exponent = self.dom[n:], self.dom[:n]
-            if expand:
-                return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
-            else:
-                print(cls.category.ev(base, exponent, False))
-                return self >> cls.ev(base, exponent, True)
+            return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     def uncurry(self, left=False) -> Diagram:
         """
@@ -552,7 +572,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def plug_input(
             self, input_index: int, box: Box,
-            cod: Ty) -> CMap:
+            cod: C0) -> CMap:
         """
         Plug an input boundary and the output root into a new box.
 
@@ -707,36 +727,37 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
 
         def term_type(obj):
-            return obj.inside[0] if getattr(obj, "is_exp", False) else obj
+            assert_isinstance(obj, self.category.ob)
+            return obj if hasattr(obj, "inside") else obj.ob(obj)
 
         variables = tuple(
-            Variable(term_type(obj), name)
+            Variable(name, term_type(obj))
             for obj, name in zip(self.dom, names)
         )
         counter = len(variables)
 
         def fresh(obj):
             nonlocal counter
-            variable = Variable(obj, f"x{counter}")
+            variable = Variable(f"x{counter}", obj)
             counter += 1
             return variable
 
-        def dfs(port, bound_ports, continuation):
-            port = self.edge[port]
-            if port in bound_ports:
-                return continuation(bound_ports[port])
+        def dfs(port_idx: int, bound_ports: dict[int, Variable], continuation: Callable[[Term], Term]):
+            port_idx = self.edge[port_idx]
+            if port_idx in bound_ports:
+                return continuation(bound_ports[port_idx])
 
-            node = self.ports[port]
-            if node.kind == "input":
-                return continuation(variables[node.i])
-            if node.kind in BOUNDARY_PORTS or node.depth is None:
+            port = self.ports[port_idx]
+            if port.kind == PortKind.INPUT:
+                return continuation(variables[port.i])
+            if port.kind.is_boundary or port.depth is None:
                 raise ValueError
 
-            box = self.boxes[node.depth]
-            box_ports = self.box_port_indices[node.depth]
+            box = self.boxes[port.depth]
+            box_ports = self.box_port_indices[port.depth]
 
             if isinstance(box, Eval):
-                if node.kind != "cod" or node.i != 0:
+                if port.kind != PortKind.COD or port.i != 0:
                     raise ValueError
                 func_port, arg_port = [
                     i for i in box_ports if self.ports[i].kind == "dom"]
@@ -755,16 +776,16 @@ class CMap[C0: Pregroup, C1: CMap](
             # import pdb; pdb.set_trace()
 
             if isinstance(box, Coeval):
-                cod = term_type(self.ports[port].obj)
-                if node.kind != "cod" or node.i != 0\
+                cod = term_type(self.ports[port_idx].obj)
+                if port.kind != PortKind.COD or port.i != 0\
                         or not cod.is_exp:
                     raise ValueError
                 body_port, = [
-                    i for i in box_ports if self.ports[i].kind == "dom"]
+                    i for i in box_ports if self.ports[i].kind == PortKind.DOM]
                 parameter_port, = [
                     i for i in box_ports
-                    if self.ports[i].kind == "cod" and i != port]
-                variable = fresh(cod.right)
+                    if self.ports[i].kind == PortKind.COD and i != port_idx]
+                variable = fresh(cod.exponent)
                 return dfs(
                     body_port,
                     bound_ports | {parameter_port: variable},
@@ -863,7 +884,7 @@ class CMap[C0: Pregroup, C1: CMap](
         def port_cell(port_index, port, colspan, width):
             tooltip = escape_html(
                 f"{port.kind} {port.i}: {port.obj} "
-                f"({port_side(port)}, {port_direction(port)})")
+                f"({port.side}, {port.direction})")
             text = escape_html(port.i) if port_indices else ""
             cellpadding = 2 if port_indices else 0
             height = 18 if port_indices else 0
@@ -922,11 +943,11 @@ class CMap[C0: Pregroup, C1: CMap](
                 compass = "n" if self.ports[port_index].kind == "dom" else "s"
                 port_nodes[port_index] = f"v{vertex}:p{port_index}:{compass}"
         input_ports = [
-            i for i, port in enumerate(self.ports) if port.kind == "input"]
+            i for i, port in enumerate(self.ports) if port.kind == PortKind.INPUT]
         output_ports = [
-            i for i, port in enumerate(self.ports) if port.kind == "output"]
+            i for i, port in enumerate(self.ports) if port.kind == PortKind.OUTPUT]
         for name, ports, compass in [
-                ("input", input_ports, "s"), ("output", output_ports, "n")]:
+                (PortKind.INPUT, input_ports, "s"), (PortKind.OUTPUT, output_ports, "n")]:
             if not ports:
                 continue
             attributes = dict(label=Html(boundary_table(ports)))
@@ -944,8 +965,8 @@ class CMap[C0: Pregroup, C1: CMap](
             return port_nodes[port_index]
 
         def edge_direction(left, right):
-            left_in = port_direction(self.ports[left]) == "in"
-            right_in = port_direction(self.ports[right]) == "in"
+            left_in = self.ports[left].direction == "in"
+            right_in = self.ports[right].direction == "in"
             if left_in and right_in:
                 return "both"
             if left_in:
@@ -993,13 +1014,13 @@ class CMap[C0: Pregroup, C1: CMap](
             port_indices=port_indices)
 
         show = show if show is not None else path is None
-        path = None if path is None else str(path)
-        suffix = "" if path is None else (
-            path.rsplit(".", 1)[-1].lower() if "." in path else "")
-        if suffix in ["dot", "gv"]:
-            with open(path, "w", encoding="utf-8") as stream:
-                stream.write(dot)
-            return None
+        if path is not None:
+            suffix = "" if path is None else (
+                path.rsplit(".", 1)[-1].lower() if "." in path else "")
+            if suffix in ["dot", "gv"]:
+                with open(path, "w", encoding="utf-8") as stream:
+                    stream.write(dot)
+                return None
 
         executable = shutil.which(engine) or shutil.which("dot")
         if executable is None:

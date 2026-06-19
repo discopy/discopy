@@ -648,7 +648,12 @@ class Hypergraph(markov.Hypergraph):
     functor = Functor
 
 
+class CMap(markov.CMap):
+    functor = Functor
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.braid_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy

@@ -126,11 +126,11 @@ Dinaturality
 ...     assert sliding_left and sliding_right
 """
 
-from discopy import monoidal
+from discopy import monoidal, messages
 from discopy.abc import TracedCategory
 from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
-from discopy.utils import factory_name, assert_isinstance, assert_istraceable
+from discopy.utils import factory_name, assert_isinstance, assert_istraceable, AxiomError
 
 
 @ar_factory

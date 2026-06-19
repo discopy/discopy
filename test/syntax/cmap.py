@@ -1,30 +1,21 @@
 from pytest import raises
 
-from discopy.cmap import (
-    Port,
-    port_direction,
-    port_side,
-)
 from discopy.utils import AxiomError
 
 
-def test_port_side():
+def test_port_side_and_direction():
     from discopy.compact import Ty, CMap as M
     x = Ty("x")
     ports = M.id(x).ports
-    assert port_side(ports[0]) == "up"
-    assert port_side(ports[1]) == "down"
-    assert port_direction(ports[0]) == "in"
-    assert port_direction(ports[1]) == "out"
+    assert ports[0].side == "up"
+    assert ports[1].side == "down"
+    assert ports[0].direction == "in"
+    assert ports[1].direction == "out"
     adjoint_ports = M.id(x.r).ports
-    assert port_side(adjoint_ports[0]) == "down"
-    assert port_side(adjoint_ports[1]) == "up"
-    assert port_direction(adjoint_ports[0]) == "out"
-    assert port_direction(adjoint_ports[1]) == "in"
-    with raises(ValueError):
-        port_side(Port("spider", obj=x))
-    with raises(ValueError):
-        port_direction(Port("spider", obj=x))
+    assert adjoint_ports[0].side == "down"
+    assert adjoint_ports[1].side == "up"
+    assert adjoint_ports[0].direction == "out"
+    assert adjoint_ports[1].direction == "in"
 
 
 def test_default_compact_setting():
@@ -127,7 +118,7 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
 def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
     from discopy.braided import Ty as BTy, Braid
     from discopy.compact import Ty as CTy, Cup, Cap
-    from discopy.markov import Ty as MTy, Diagram as MDiagram
+    from discopy.markov import Ty as MTy, Copy as MCopy
 
     bx, by = map(BTy, "xy")
     assert Braid(bx, by).to_map().boxes == (Braid(bx, by), )
@@ -137,7 +128,7 @@ def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
     assert Cap(cx.r, cx).to_map().boxes == ()
 
     mx = MTy("x")
-    copy = MDiagram.copy(mx, 2)
+    copy = MCopy(mx, 2)
     assert copy.to_map().boxes == (copy, )
 
 

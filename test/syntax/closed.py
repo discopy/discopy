@@ -34,8 +34,7 @@ def test_str():
 
 def test_term_equality_is_alpha_equivalence():
     X, Y = map(Ty, "XY")
-    x, y = Variable(X, "x"), Variable(X, "y")
-    c, d = X("c"), X("d")
+    x, y, c, d = map(X, "xycd")
 
     assert X(lambda x: x) == X(lambda y: y)
     assert hash(X(lambda x: x)) == hash(X(lambda y: y))
@@ -45,19 +44,19 @@ def test_term_equality_is_alpha_equivalence():
     assert c == X("c")
     assert c != d
     assert Abstraction(x, y) != Abstraction(y, x)
-    assert Abstraction(x, x) != Abstraction(Variable(Y, "x"), y)
+    assert Abstraction(x, x) != Abstraction(Y("x"), y)
     assert isinstance(TermBase.alpha_bound(X, 0).name, str)
     assert c.alpha_key(Substitution(()))[0] == "constant"
-    assert Application(Variable(X >> X, "f"), x).alpha_key(
+    assert Application(Variable("f", X >> X), x).alpha_key(
         Substitution(()))[0] == "application"
 
 
 def test_substitution_under_abstraction():
     X = Ty("X")
-    x, y, z = (Variable(X, name) for name in "xyz")
+    x, y, z = (Variable(name, X) for name in "xyz")
     assert Substitution({x: z})(Abstraction(x, x)) == Abstraction(x, x)
     assert Substitution({y: z})(Abstraction(x, y)) == Abstraction(x, z)
-    f = Variable(X >> X, "f")
+    f = Variable("f", X >> X)
     substitution = Substitution({x: z, y: x})
     assert substitution(Application(f, x)) == Application(f, z)
     with raises(TypeError):
@@ -96,9 +95,9 @@ def assert_trivalent_map(cmap, dom, cod, vertices):
 
 def test_term_failures_and_assertions():
     X, Y = map(Ty, "XY")
-    x, y = Variable(X, "x"), Variable(Y, "y")
-    f = Variable(X >> X, "f")
-    higher = Variable(X >> (X >> X), "h")
+    x, y = Variable("x", X), Variable("y", Y)
+    f = Variable("f", X >> X)
+    higher = Variable("h", X >> (X >> X))
 
     assert X("c").to_diagram().dom == Ty()
     with raises(ValueError):
@@ -125,7 +124,7 @@ def test_term_failures_and_assertions():
 
 def test_term_to_map_identity():
     X = Ty("X")
-    x = Variable(X, "x")
+    x = Variable("x", X)
     identity = Abstraction(x, x)
     cmap = identity.to_map()
     assert_trivalent_map(cmap, Ty(), identity.cod, vertices=1)

@@ -49,11 +49,12 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from typing import ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
+from discopy.utils import AxiomError
 
 
 @ob_factory
@@ -172,7 +173,7 @@ class Hypergraph(markov.Hypergraph):
     functor = Functor
 
 
-class CMap(markov.CMap):
+class CMap(biclosed.CMap):
     functor = Functor
 
 
@@ -211,6 +212,12 @@ type Term = Constant | Variable | Application | Abstraction
 
 
 class Constant(TermBase, biclosed.Constant):
+    def __str__(self):
+        return self.name
+
+    def to_map(self, category=None):
+        raise ValueError("Constants are not pure linear lambda terms.")
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
@@ -220,6 +227,11 @@ class Constant(TermBase, biclosed.Constant):
 
 
 class Variable(TermBase, biclosed.Variable):
+    def __init__(self, name: str | Ty, cod: Ty | str):
+        if isinstance(name, Ty) and isinstance(cod, str):
+            name, cod = cod, name
+        super().__init__(name, cod)
+
     def to_map(self, category=None):
         category = category or CMap
         cmap = category.id(self.cod)

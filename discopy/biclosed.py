@@ -64,14 +64,14 @@ from inspect import signature
 from dataclasses import dataclass
 from typing import Callable, ClassVar, Self, Iterable
 
-from discopy import cat, monoidal
+from discopy import cat, monoidal, messages
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
-    from_tree,
+    from_tree, AxiomError,
 )
 
 
@@ -420,13 +420,6 @@ class Sum(monoidal.Sum, Box):
     """
 
 
-Id = Diagram.id
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.sum_factory = Sum
-
-
 class Functor(monoidal.Functor):
     """
     A biclosed functor is a monoidal functor
@@ -462,6 +455,18 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
+
+
+class CMap(monoidal.CMap):
+    functor = Functor
+
+
+Id = Diagram.id
+Diagram.map_factory = CMap
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
+Diagram.sum_factory = Sum
 
 
 class TermBase(Box):
@@ -579,6 +584,9 @@ class Constant(TermBase):
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
+    def __str__(self):
+        return f"{self.cod}({self.name!r})"
+
     def alpha_key(self, substitution):
         return ("constant", self.cod, self.name)
 
@@ -632,7 +640,8 @@ class Application(TermBase):
     def __init__(self, func: Term, args: Term, left: bool = False):
         assert_isinstance(func, TermBase)
         assert_isinstance(args, TermBase)
-        assert_isinstance(func.cod, Exp)
+        if not func.cod.is_exp:
+            raise TypeError
         self.func, self.args, self.left = func, args, left
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
