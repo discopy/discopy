@@ -462,25 +462,7 @@ def untuplify(stuff: tuple) -> any:
     return stuff[0] if len(stuff) == 1 else stuff
 
 
-def ob_factory(cls):
-    """
-    Allows the tensor product of a :class:`Ty` subclass to remain within
-    the subclass.
-
-    Parameters:
-        cls : Some subclass of :class:`Ty`.
-
-    Note
-    ----
-    The factory method pattern (`FMP`_) is used all over DisCoPy.
-
-    .. _FMP: https://en.wikipedia.org/wiki/Factory_method_pattern
-    """
-    cls.ob = cls
-    return cls
-
-
-def ar_factory(cls):
+def arrow_factory(cls):
     """
     Allows the identity and composition of an :class:`Arrow` subclass to remain
     within the subclass.
@@ -502,7 +484,7 @@ def ar_factory(cls):
     >>> from discopy.cat import Ob, Arrow, Box
     >>> class Qubit(Ob):
     ...     pass
-    >>> @ar_factory
+    >>> @arrow_factory
     ... class Circuit(Arrow):
     ...     ob = Qubit
 

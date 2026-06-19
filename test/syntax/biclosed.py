@@ -1,4 +1,5 @@
 from discopy.biclosed import *
+from discopy import cat
 from pytest import raises
 
 
@@ -20,6 +21,8 @@ def test_Under():
 
 def test_Term():
     x, y = Ty('x'), Ty('y')
+    assert isinstance((x << y).inside[0], cat.Ob)
+    assert not isinstance((x << y).inside[0], Ty)
     f, g = (x << y)("f"), (y >> x)("g")
     a = y("a")
 

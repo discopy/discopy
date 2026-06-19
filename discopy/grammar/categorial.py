@@ -46,7 +46,7 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
-from discopy.cat import ar_factory
+from discopy.cat import arrow_factory
 from discopy.grammar import thue
 from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
@@ -57,7 +57,7 @@ from discopy.utils import (
 )
 
 
-@ar_factory
+@arrow_factory
 class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.

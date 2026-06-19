@@ -801,7 +801,9 @@ class Drawing(TracedCategory):
         dom = self.dom if dom is None else dom
         cod = self.cod if cod is None else cod
         arg_dom, arg_cod = self.dom, self.cod
-        left, right = type(dom)(name or ""), type(dom)("")
+        from discopy.monoidal import Ob, Ty
+        left = Ty(Ob(name or "", dom.dom, arg_dom.dom))
+        right = Ty(Ob("", arg_dom.cod, dom.cod))
         left[0].always_draw_label = True
         wires_can_go_straight = (
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
@@ -844,7 +846,8 @@ class Drawing(TracedCategory):
         return result
 
     def frame(self, *others: Drawing,
-              dom=None, cod=None, name=None, draw_vertically=False) -> Drawing:
+              dom=None, cod=None, name=None, draw_vertically=False,
+              frame_colour=None) -> Drawing:
         """
         >>> from discopy.monoidal import *
         >>> x, y = Ty('x'), Ty('y')
@@ -867,16 +870,20 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/vertical-frame.png
             :align: center
         """
-        from discopy.monoidal import Ty
+        from discopy.monoidal import Colour, Ty
+        frame_colour = frame_colour or DRAWING_ATTRIBUTES['frame_colour'](self)
+        frame_type = Ty.id(Colour(frame_colour))
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
                 width=max([arg.width for arg in args] + [0]) + 1
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        result = getattr(Drawing.id(), method)(*(arg.bubble(
-            Ty(), Ty(), draw_as_square=True, **params)
-            for arg in args)).bubble(dom, cod, name, draw_as_square=True)
+        slots = tuple(arg.bubble(
+            frame_type, frame_type, draw_as_square=True, **params)
+            for arg in args)
+        result = getattr(slots[0], method)(*slots[1:]).bubble(
+            dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
         result.reposition_box_cod()
         return result

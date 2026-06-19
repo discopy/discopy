@@ -47,7 +47,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import arrow_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -118,7 +118,7 @@ class Ob(cat.Ob):
         return cls(name=name, z=z)
 
 
-@ob_factory
+@arrow_factory
 class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
@@ -152,12 +152,12 @@ class Ty(Pregroup, biclosed.Ty):
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
-        return self.ob(*[x.l for x in self.inside[::-1]])
+        return self.ar(*[x.l for x in self.inside[::-1]])
 
     @property
     def r(self) -> Ty:
         """ The right adjoint of the type. """
-        return self.ob(*[x.r for x in self.inside[::-1]])
+        return self.ar(*[x.r for x in self.inside[::-1]])
 
     @property
     def z(self) -> int:
@@ -168,7 +168,7 @@ class Ty(Pregroup, biclosed.Ty):
     ob_factory = Ob
 
 
-@ob_factory
+@arrow_factory
 class PRO(monoidal.PRO, Ty):
     """
     A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
@@ -199,7 +199,7 @@ class Layer(monoidal.Layer):
     r = property(lambda self: self.rotate(left=False))
 
 
-@ar_factory
+@arrow_factory
 class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram

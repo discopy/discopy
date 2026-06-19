@@ -66,15 +66,16 @@ from typing import Callable, ClassVar
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import arrow_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
     from_tree,
+    get_origin,
 )
 
 
-@ob_factory
+@arrow_factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -87,15 +88,17 @@ class Ty(monoidal.Ty):
     Applying a biclosed type to a callable yields a :class:`Abstraction`,
     applying it to a string yields a :class:`Constant`.
     """
+    ob_factory = cat.Ob
+
     def __pow__(self, other: Ty) -> Ty:
-        return Exp(self, other) if isinstance(other, Ty)\
+        return self.ar(Exp(self, other)) if isinstance(other, Ty)\
             else monoidal.Ty.__pow__(self, other)
 
     def __lshift__(self, other):
-        return Over(self, other)
+        return self.ar(Over(self, other))
 
     def __rshift__(self, other):
-        return Under(other, self)
+        return self.ar(Under(other, self))
 
     def __call__(self, arg):
         if isinstance(arg, str):
@@ -163,8 +166,26 @@ class Ty(monoidal.Ty):
         """
         return len(self) == 1 and isinstance(self.inside[0], Over)
 
+    @property
+    def base(self):
+        return self.inside[0].base
 
-class Exp(Ty, cat.Ob):
+    @property
+    def exponent(self):
+        return self.inside[0].exponent
+
+
+class ExpMeta(type):
+    """Recognise both an atomic exponential and its singleton type."""
+
+    def __instancecheck__(cls, other):
+        if type.__instancecheck__(cls, other):
+            return True
+        return isinstance(other, Ty) and len(other) == 1\
+            and type.__instancecheck__(cls, other.inside[0])
+
+
+class Exp(cat.Ob, metaclass=ExpMeta):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -175,7 +196,7 @@ class Exp(Ty, cat.Ob):
 
     def __init__(self, base: Ty, exponent: Ty):
         self.base, self.exponent = base, exponent
-        super().__init__(self)
+        super().__init__(str(self))
 
     @property
     def left(self):
@@ -186,11 +207,8 @@ class Exp(Ty, cat.Ob):
         return self.base if isinstance(self, Under) else self.exponent
 
     def __eq__(self, other):
-        if isinstance(other, type(self)):
-            return (self.base, self.exponent) == (other.base, other.exponent)
-        if isinstance(other, Exp):
-            return False  # Avoid infinite loop with Over(x, y) == Under(x, y).
-        return isinstance(other, Ty) and other.inside == (self, )
+        return type(self) is type(other) and (
+            self.base, self.exponent) == (other.base, other.exponent)
 
     def __hash__(self):
         return hash(repr(self))
@@ -239,7 +257,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@arrow_factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram
@@ -310,7 +328,7 @@ class Eval(Box):
         x : The exponential type to evaluate.
     """
     def __init__(self, x: Exp, left=None):
-        self.x, self.left = x, isinstance(x, Over) if left is None else left
+        self.x, self.left = x, x.is_over if left is None else left
         dom, cod = (x @ x.exponent, x.base) if self.left\
             else (x.exponent @ x, x.base)
         super().__init__("Eval" + str(x), dom, cod)
@@ -333,7 +351,7 @@ class Coeval(Box):
     drawing_name = "lambda"
 
     def __init__(self, x: Exp, left=None):
-        self.x, self.left = x, isinstance(x, Over) if left is None else left
+        self.x, self.left = x, x.is_over if left is None else left
         cod, dom = (x @ x.exponent, x.base) if self.left\
             else (x.exponent @ x, x.base)
         super().__init__("Coeval" + str(x), dom, cod)
@@ -410,7 +428,10 @@ class Functor(monoidal.Functor):
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls) and hasattr(self.cod, attr):
                 method = getattr(self.cod, attr)
-                return method(self(other.base), self(other.exponent))
+                result = method(self(other.base), self(other.exponent))
+                cod_type = get_origin(self.cod.ob)
+                return result if isinstance(result, cod_type) else\
+                    (result, ) if cod_type == tuple else self.cod.ob(result)
         if isinstance(other, Curry) and hasattr(self.cod, "curry"):
             return self.cod.curry(
                 self(other.arg), len(self(other.cod.exponent)), other.left)
@@ -548,7 +569,9 @@ class Application(TermBase):
     def __init__(self, func: Term, args: Term, left: bool = False):
         assert_isinstance(func, TermBase)
         assert_isinstance(args, TermBase)
-        assert_isinstance(func.cod, Exp)
+        if not func.cod.is_exp:
+            raise TypeError(f"Expected {factory_name(Exp)}, got "
+                            f"{factory_name(type(func.cod))} instead.")
         self.func, self.args, self.left = func, args, left
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
@@ -559,7 +582,10 @@ class Application(TermBase):
         super().__init__(name, dom, cod)
 
     def __check_dom__(self, func, args, left):
-        assert_isinstance(func.cod, Under if left else Over)
+        if not (func.cod.is_under if left else func.cod.is_over):
+            expected = Under if left else Over
+            raise TypeError(f"Expected {factory_name(expected)}, got "
+                            f"{factory_name(type(func.cod))} instead.")
         if set(func.freevars).intersection(args.freevars):
             raise ValueError("Expected disjoint free variables.")
         self.freevars = func.freevars + args.freevars if self.left\

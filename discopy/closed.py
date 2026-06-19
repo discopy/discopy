@@ -53,10 +53,10 @@ from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import arrow_factory
 
 
-@ob_factory
+@arrow_factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
@@ -74,24 +74,24 @@ class Ty(biclosed.Ty):
         :align: center
     """
     def __pow__(self, other: Ty) -> Ty:
-        return Exp(self, other) if isinstance(other, Ty)\
+        return self.ar(Exp(self, other)) if isinstance(other, Ty)\
             else super().__pow__(other)
 
     def __lshift__(self, other):
-        return Exp(self, other)
+        return self.ar(Exp(self, other))
 
     def __rshift__(self, other):
-        return Exp(other, self)
+        return self.ar(Exp(other, self))
 
 
-class Exp(Ty, biclosed.Exp):
+class Exp(biclosed.Exp):
     "An exponential object in a markov category."
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
 
 
-@ar_factory
+@arrow_factory
 class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     """
     A closed diagram is both a markov and a biclosed diagram.

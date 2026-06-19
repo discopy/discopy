@@ -5,14 +5,61 @@ from pytest import raises
 from discopy.cat import *
 from discopy.monoidal import *
 from discopy.drawing import spiral
-from discopy.utils import AxiomError
+from discopy.utils import AxiomError, from_tree
 
 
 def test_Ty():
     x, y, z = Ty('x'), Ty('y'), Ty('z')
+    assert Ty.ob is Colour and Ty.ar is Ty
+    assert isinstance(white, cat.Ob)
+    assert isinstance(x, cat.FreeCategory)
+    assert isinstance(x, cat.Ob) and not isinstance(x, Ob)
     assert x @ y != y @ x
+    assert x >> y == x @ y
     assert x @ Ty() == x == Ty() @ x
     assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
+
+
+def test_coloured_Ty():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x = Ty(Ob("x", red, green))
+    y = Ty(Ob("y", green, blue))
+    path = x @ y
+
+    assert Ty() == Ty.id(white)
+    assert path.dom == red and path.cod == blue
+    assert Ty.id(red) >> path == path == path >> Ty.id(blue)
+    assert path[:0] == Ty.id(red)
+    assert path[1:1] == Ty.id(green)
+    assert path[len(path):] == Ty.id(blue)
+    assert path[::-1].dom == blue and path[::-1].cod == red
+    assert path[::-1][::-1] == path
+
+    with raises(AxiomError):
+        y @ x
+    with raises(AxiomError):
+        Ty(Ob("x", red, green), Ob("z", blue, red))
+
+
+def test_coloured_Ty_power_and_steps():
+    red, green = map(Colour, ("red", "green"))
+    loop = Ty(Ob("x", red, red))
+    assert loop ** 0 == Ty.id(red)
+    assert loop ** 2 == loop @ loop
+    assert (loop @ loop @ loop)[::2] == loop @ loop
+    with raises(AxiomError):
+        Ty(Ob("y", red, green)) ** 2
+
+
+def test_coloured_Ty_tree_and_legacy_tree():
+    red, green = map(Colour, ("red", "green"))
+    typ = Ty(Ob("x", red, green))
+    assert from_tree(typ.to_tree()) == typ
+    assert from_tree(Ty.id(red).to_tree()) == Ty.id(red)
+    legacy = {
+        'factory': 'monoidal.Ty',
+        'inside': [{'factory': 'cat.Ob', 'name': 'x'}]}
+    assert from_tree(legacy) == Ty('x')
 
 
 def test_Ty_init():
@@ -204,6 +251,14 @@ def test_Diagram_size():
     assert len(diagram) == 1 and diagram.size == 2
 
 
+def test_Box_globularity():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x, y = Ty(Ob("x", red, green)), Ty(Ob("y", red, green))
+    assert Box("f", x, y)[::-1][::-1] == Box("f", x, y)
+    with raises(AxiomError):
+        Box("f", x, Ty(Ob("z", red, blue)))
+
+
 def test_Diagram_substitute():
     x = Ty("x")
     f, g, h = Box("f", x @ x @ x, x @ x), Box("g", x, x), Box("h", x @ x, x)
@@ -322,6 +377,37 @@ def test_Functor_sum():
     f, g = Box('f', x, y), Box('g', x, y)
     F = Functor(ob={x: y, y: x}, ar={f: g[::-1], g: f[::-1]})
     assert F(f + g) == F(f) + F(g)
+
+
+def test_coloured_Functor():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    pink, lime, cyan = map(Colour, ("pink", "lime", "cyan"))
+    x = Ty(Ob("x", red, green))
+    y = Ty(Ob("y", green, blue))
+    X = Ty(Ob("X", pink, lime))
+    Y = Ty(Ob("Y", lime, cyan))
+    F = Functor(
+        {x: X, y: Y}, {},
+        colour={red: pink, green: lime, blue: cyan})
+
+    assert F(red) == pink
+    assert F(x @ y) == X @ Y
+    assert F(Ty.id(green)) == Ty.id(lime)
+    assert Functor.id()(x @ y) == x @ y
+
+    red2, purple, blue2 = map(
+        Colour, ("salmon", "purple", "navy"))
+    U = Ty(Ob("U", red2, purple))
+    V = Ty(Ob("V", purple, blue2))
+    G = Functor(
+        {X: U, Y: V}, {},
+        colour={pink: red2, lime: purple, cyan: blue2})
+    assert (F >> G)(x @ y) == U @ V
+    assert (F >> G)(red) == red2
+
+    bad = Functor({x: Y}, {}, colour={red: pink, green: lime})
+    with raises(AxiomError):
+        bad(x)
 
 
 def test_Sum():

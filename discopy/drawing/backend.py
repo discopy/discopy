@@ -53,6 +53,7 @@ def draw(graph: PlaneGraph, **params):
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend.draw_boundary(graph, **params)
+    backend.draw_regions(graph, **params)
     backend.draw_wires(graph, **params)
     backend.draw_boxes(graph, **params)
     backend.draw_spiders(graph, **params)
@@ -103,6 +104,9 @@ class Backend(ABC):
         x, y = graph.width, graph.height
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
+
+    def draw_regions(self, graph, **params):
+        """Draw coloured 0-cell regions when supported by the backend."""
 
     def draw_wire_label(self, x, i, j, **params):
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
@@ -504,9 +508,69 @@ class Matplotlib(Backend):
         self.axis.add_patch(PathPatch(
             path,
             linewidth=self.linewidth,
-            facecolor=COLORS[facecolor],
-            edgecolor=COLORS[edgecolor]))
+            facecolor=COLORS.get(facecolor, facecolor),
+            edgecolor=COLORS.get(edgecolor, edgecolor)))
         super().draw_polygon(*points)
+
+    @staticmethod
+    def _region_colour(typ, side="cod"):
+        from discopy.monoidal import Colour, white
+        colour = getattr(typ, side, white)
+        return colour.name if isinstance(colour, Colour) else white.name
+
+    def _draw_right_region(self, source, target, width, facecolor,
+                           bend_out=False):
+        mid = (target[0], source[1]) if bend_out\
+            else (source[0], target[1])
+        points = [source, mid, target, (width, target[1]),
+                  (width, source[1]), source]
+        codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3,
+                 Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        self.axis.add_patch(PathPatch(
+            Path(points, codes), linewidth=0,
+            facecolor=facecolor, edgecolor='none'))
+
+    def draw_regions(self, graph, **params):
+        """Fill planar regions, leaving TikZ's legacy output unchanged."""
+        left_colour = self._region_colour(graph.dom, "dom")
+        self._draw_right_region(
+            (0, 0), (0, graph.height), graph.width, left_colour)
+
+        separators = []
+
+        def inside_a_box(node):
+            return node.kind == "box" and not node.box.draw_as_wires\
+                and not node.box.draw_as_spider
+
+        for source, target in graph.edges():
+            if inside_a_box(source) or inside_a_box(target):
+                continue
+            source_position, target_position = (
+                graph.positions[source], graph.positions[target])
+            if source_position == target_position:
+                continue
+            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
+            colour = self._region_colour(typ)
+            bend_out = source.kind == "box"
+            x = (source_position.x + target_position.x) / 2
+            separators.append((x, source_position, target_position,
+                               colour, bend_out))
+
+        for node in graph.box_nodes:
+            box = node.box
+            if box.draw_as_wires or box.draw_as_spider:
+                continue
+            j = node.j
+            top_right = graph.positions[Node("box-corner-11", j=j)]
+            bottom_right = graph.positions[Node("box-corner-10", j=j)]
+            separators.append((top_right.x, top_right, bottom_right,
+                               self._region_colour(box.dom), False))
+
+        for _, source, target, colour, bend_out in sorted(
+                separators, key=lambda item: item[0]):
+            self._draw_right_region(
+                source, target, graph.width, colour, bend_out=bend_out)
+        super().draw_regions(graph, **params)
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None):

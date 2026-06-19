@@ -11,6 +11,8 @@ Summary
     :nosignatures:
     :toctree:
 
+    Colour
+    Ob
     Ty
     PRO
     Dim
@@ -52,34 +54,101 @@ We can check the Eckmann-Hilton argument, up to interchanger.
 from __future__ import annotations
 
 import itertools
-from typing import Iterator, Callable, TYPE_CHECKING
 from dataclasses import dataclass
+from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
 from discopy.abc import MonoidalCategory
-from discopy.cat import Ob
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
-    ob_factory,
-    ar_factory,
+    arrow_factory,
     factory_name,
     from_tree,
     assert_isinstance,
     assert_iscomposable,
     AxiomError,
     get_origin,
+    MappingOrCallable,
 )
 
 if TYPE_CHECKING:
     import sympy
 
 
-@ob_factory
-class Ty(Ob):
+@dataclass(frozen=True)
+class Colour(cat.Ob):
+    """A 0-cell, drawn using its matplotlib-compatible name."""
+
+    name: str
+
+    def __post_init__(self):
+        assert_isinstance(self.name, str)
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.name!r})"
+
+
+white = Colour("white")
+
+
+class Ob(cat.Ob):
+    """A generating 1-cell with a colour on either side."""
+
+    def __init__(self, name: str = "", dom: Colour = white,
+                 cod: Colour = white):
+        assert_isinstance(dom, Colour)
+        assert_isinstance(cod, Colour)
+        self.dom, self.cod = dom, cod
+        super().__init__(name)
+
+    def __setstate__(self, state):
+        state.setdefault('dom', white)
+        state.setdefault('cod', white)
+        super().__setstate__(state)
+
+    def dagger(self):
+        return type(self)(self.name, self.cod, self.dom)
+
+    def is_composable(self, other):
+        return isinstance(other, Ob) and self.cod == other.dom
+
+    def __eq__(self, other):
+        return type(self) is type(other) and (
+            self.name, self.dom, self.cod) == (
+                other.name, other.dom, other.cod)
+
+    def __hash__(self):
+        return hash((type(self), self.name, self.dom, self.cod))
+
+    def __repr__(self):
+        if self.dom == self.cod == white:
+            return repr(cat.Ob(self.name))
+        return (f"{factory_name(type(self))}({self.name!r}, "
+                f"dom={self.dom!r}, cod={self.cod!r})")
+
+    def to_tree(self):
+        tree = super().to_tree()
+        tree['factory'] = factory_name(type(self))
+        if self.dom != white:
+            tree['dom'] = self.dom.to_tree()
+        if self.cod != white:
+            tree['cod'] = self.cod.to_tree()
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        dom = from_tree(tree['dom']) if 'dom' in tree else white
+        cod = from_tree(tree['cod']) if 'cod' in tree else white
+        return cls(tree['name'], dom, cod)
+
+
+@arrow_factory
+class Ty(cat.Ob, cat.FreeMonoid):
     """
-    A type is a tuple of objects with :meth:`Ty.tensor` as concatenation.
+    A type is a composable path of objects with :meth:`Ty.tensor`
+    as concatenation.
 
     Parameters:
         inside : The objects inside the type (or their names).
@@ -107,43 +176,84 @@ class Ty(Ob):
     >>> assert t[0] != t.inside[0] == Ob('x')
     >>> assert t[1:] == t[-2:] == Ty('y', 'z')
     """
-    ob_factory = cat.Ob
+    colour_factory = Colour
+    ob = Colour
+    ob_factory = Ob
+    allow_step = True
+
+    @classmethod
+    def _generator_type(cls):
+        return cls.ob_factory
+
+    @classmethod
+    def _generator_dom(cls, generator):
+        return getattr(generator, 'dom', white)
+
+    @classmethod
+    def _generator_cod(cls, generator):
+        return getattr(generator, 'cod', white)
+
+    @classmethod
+    def _generator_dagger(cls, generator):
+        return generator.dagger()\
+            if hasattr(generator, 'dagger') else generator
+
+    @classmethod
+    def _from_path(cls, inside, dom, cod, _scan=True):
+        if inside:
+            result = cls.ar(*inside)
+            if (result.dom, result.cod) != (dom, cod):
+                raise AxiomError(messages.NOT_PARALLEL.format(
+                    (result.dom, result.cod), (dom, cod)))
+            return result
+        return cls.ar.id(dom)
 
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
             state["inside"] = state['_objects']
             del state['_objects']
-        super().__setstate__(state)
+        if 'dom' not in state:
+            first = state['inside'][0] if state['inside'] else None
+            state['dom'] = first.dom if self.is_generator(first) else white
+        if 'cod' not in state:
+            last = state['inside'][-1] if state['inside'] else None
+            state['cod'] = last.cod if self.is_generator(last) else white
+        self.__dict__.update(state)
+        if not hasattr(self, 'name'):
+            self.name = str(self)
 
-    def __init__(self, *inside: str | cat.Ob):
+    @staticmethod
+    def is_generator(obj):
+        return isinstance(obj, Ob) and not isinstance(obj, Ty)
+
+    def __init__(self, *inside: str | cat.Ob,
+                 dom: Colour = None, cod: Colour = None,
+                 _scan: bool = True):
         for obj in inside:
-            assert_isinstance(obj, (str, self.ob_factory))
-        self.inside = tuple(x if isinstance(x, self.ob_factory)
-                            else self.ob_factory(x) for x in inside)
-        super().__init__(str(self))
+            assert_isinstance(obj, (str, self.ob_factory) + (
+                (cat.Ob, ) if type(self) is Ty else ()))
+        self.inside = tuple(
+            self.ob_factory(x.name) if type(self) is Ty
+            and type(x) is cat.Ob else x
+            if isinstance(x, self.ob_factory) or (
+                type(self) is Ty and isinstance(x, cat.Ob))
+            else self.ob_factory(x) for x in inside)
+        inferred_dom = self.inside[0].dom\
+            if self.inside and self.is_generator(self.inside[0]) else white
+        inferred_cod = self.inside[-1].cod\
+            if self.inside and self.is_generator(self.inside[-1]) else white
+        dom = inferred_dom if dom is None else dom
+        cod = inferred_cod if cod is None else cod
+        self._init_path(self.inside, dom, cod, _scan)
+        cat.Ob.__init__(self, str(self))
 
-    def tensor(self, *others: Ty) -> Ty:
-        """
-        Returns the tensor of types, i.e. the concatenation of their lists
-        of objects. This is called with the binary operator :code:`@`.
-
-        Parameters:
-            others : The other types to tensor.
-
-        Tip
-        ---
-        A list of types can be tensored by calling :code:`Ty().tensor`.
-
-        >>> list_of_types = [Ty('x'), Ty('y'), Ty('z')]
-        >>> assert Ty().tensor(*list_of_types) == Ty('x', 'y', 'z')
-        """
-        for other in others:
-            if not isinstance(other, Ty):
-                return NotImplemented
-            assert_isinstance(self, other.ob)
-            assert_isinstance(other, self.ob)
-        inside = self.inside + tuple(x for t in others for x in t.inside)
-        return self.ob(*inside)
+    @classmethod
+    def id(cls, colour: Colour):
+        assert_isinstance(colour, cls.colour_factory)
+        result = cls()
+        result.dom = result.cod = colour
+        result.name = str(result)
+        return result
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -168,61 +278,74 @@ class Ty(Ob):
         return len(self) == 1
 
     def __eq__(self, other):
-        return isinstance(other, self.ob) and self.inside == other.inside
+        return type(self) is type(other) and self.inside == other.inside\
+            and (self.dom, self.cod) == (other.dom, other.cod)
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
+        if not self.inside and self.dom != white:
+            return f"{factory_name(type(self))}.id({self.dom!r})"
         return factory_name(type(self))\
             + f"({', '.join(map(repr, self.inside))})"
 
     def __str__(self):
         if not self.inside:
-            return type(self).__name__ + '()'
+            return type(self).__name__ + '()' if self.dom == white\
+                else f"Id({self.dom})"
         parts = []
         for ob in self.inside:
             s = str(ob)
             parts.append(type(self).__name__ + '("")' if s == '' else s)
         return ' @ '.join(parts)
 
-    def __len__(self):
-        return len(self.inside)
-
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
 
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            return self.ob(*self.inside[key])
-        return cat.Arrow.__getitem__(self, key)
-
     def __pow__(self, n_times):
-        return self.ob().tensor(*n_times * [self])
+        assert_isinstance(n_times, int)
+        if n_times <= 0:
+            return self.ar.id(self.dom)
+        return self.tensor(*(n_times - 1) * [self])
 
     def to_tree(self):
-        return {
+        tree = {
             'factory': factory_name(type(self)),
             'inside': [x.to_tree() for x in self.inside]}
+        if not self.inside and self.dom != white:
+            tree['dom'] = self.dom.to_tree()
+            tree['cod'] = self.cod.to_tree()
+        return tree
 
     @classmethod
     def from_tree(cls, tree):
         if "inside" not in tree:
             warn("Outdated dumps", DeprecationWarning)
             return cls(*map(from_tree, tree['objects']))
-        return cls(*map(from_tree, tree['inside']))
+        inside = tuple(map(from_tree, tree['inside']))
+        # Old dumps used cat.Ob as the generators of monoidal.Ty.
+        inside = tuple(
+            cls.ob_factory(x.name) if type(x) is cat.Ob else x for x in inside)
+        if inside:
+            return cls(*inside)
+        if 'colour' in tree:  # Backward compatibility with early colour dumps.
+            return cls.id(from_tree(tree['colour']))
+        if 'dom' in tree:
+            return cls(dom=from_tree(tree['dom']), cod=from_tree(tree['cod']))
+        return cls()
 
-    def __matmul__(self, other):
-        return self.tensor(other)
-
-    __add__ = __matmul__
+    __add__ = cat.FreeMonoid.__matmul__
 
     def to_drawing(self) -> Ty:
-        return Ty(*map(str, self.inside))
+        if not self.inside:
+            return Ty.id(self.dom)
+        return Ty(*(Ob(str(x), getattr(x, 'dom', white),
+                       getattr(x, 'cod', white)) for x in self.inside))
 
 
-@ob_factory
+@arrow_factory
 class PRO(Ty):
     """
     A PRO is a natural number ``n`` seen as a type with addition as tensor.
@@ -241,7 +364,7 @@ class PRO(Ty):
     If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
     any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
 
-    >>> @ar_factory
+    >>> @arrow_factory
     ... class Circuit(Diagram):
     ...     ob = PRO
     >>> class Gate(Box, Circuit): ...
@@ -252,11 +375,16 @@ class PRO(Ty):
     def __init__(self, n: int = 0):
         assert_isinstance(n, int)
         self.n = n
+        self.dom = self.cod = white
+        cat.Ob.__init__(self, str(self))
 
     def __setstate__(self, state):
         if "n" not in state:
             state = {"n": len(state["_objects"])}
-        super().__setstate__(state)
+        state.setdefault("dom", white)
+        state.setdefault("cod", white)
+        state.setdefault("name", f"PRO({state['n']})")
+        self.__dict__.update(state)
 
     @property
     def inside(self):
@@ -266,13 +394,13 @@ class PRO(Ty):
         for other in others:
             if not isinstance(other, Ty):
                 return NotImplemented  # This allows whiskering on the left.
-            assert_isinstance(self, other.ob)
-            assert_isinstance(other, self.ob)
-        return self.ob(self.n + sum(other.n for other in others))
+            assert_isinstance(self, other.ar)
+            assert_isinstance(other, self.ar)
+        return self.ar(self.n + sum(other.n for other in others))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
-            return self.ob(len(self.inside[key]))
+            return self.ar(len(self.inside[key]))
         return cat.Arrow.__getitem__(self, key)
 
     def __len__(self):
@@ -285,13 +413,13 @@ class PRO(Ty):
         return f"PRO({self.n})"
 
     def __eq__(self, other):
-        return isinstance(other, self.ob) and self.n == other.n
+        return isinstance(other, self.ar) and self.n == other.n
 
     def __hash__(self):
         return hash(repr(self))
 
     def __pow__(self, n_times):
-        return self.ob(n_times * self.n)
+        return self.ar(n_times * self.n)
 
     def to_tree(self):
         return {'factory': factory_name(type(self)), 'n': self.n}
@@ -301,7 +429,7 @@ class PRO(Ty):
         return cls(tree['n'])
 
 
-@ob_factory
+@arrow_factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -339,6 +467,8 @@ class Layer(cat.Box):
         more : More boxes and types to the right,
                used by :meth:`Diagram.foliation`.
     """
+    ob = Ty
+
     def __setstate__(self, state):
         if 'boxes_or_types' not in state:  # Backward compatibility
             self.boxes_or_types = tuple(
@@ -489,7 +619,7 @@ class Layer(cat.Box):
         return cls(*(map(from_tree, tree['inside'])))
 
 
-@ar_factory
+@arrow_factory
 class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
@@ -943,9 +1073,26 @@ class Box(cat.Box, Diagram):
     >>> assert Id(Ty('x', 'y')) >> f == f == f >> Id(Ty('z'))
     >>> assert Id(Ty()) @ f == f == f @ Id(Ty())
     >>> assert f == f[::-1][::-1]
+
+    Coloured wires separate matplotlib regions.
+
+    >>> red, green, blue = map(Colour, ("red", "green", "blue"))
+    >>> x = Ty(Ob("x", red, green))
+    >>> y = Ty(Ob("y", green, blue))
+    >>> z = Ty(Ob("z", red, blue))
+    >>> coloured = Box("coloured", x @ y, z)
+    >>> coloured.draw(path='docs/_static/monoidal/coloured-box.png')
+
+    .. image:: /_static/monoidal/coloured-box.png
+        :align: center
     """
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):
+        dom = dom if isinstance(dom, self.ob) else self.ob(dom)
+        cod = cod if isinstance(cod, self.ob) else self.ob(cod)
+        if (dom.dom, dom.cod) != (cod.dom, cod.cod):
+            raise AxiomError(messages.NOT_GLOBULAR.format(
+                dom.dom, dom.cod, cod.dom, cod.cod))
         for attr in DRAWING_ATTRIBUTES:
             if attr in params:
                 setattr(self, attr, params.pop(attr))
@@ -977,6 +1124,8 @@ class Sum(cat.Sum, Box):
     >>> print(f @ (f + f))
     (f @ x >> x @ f) + (f @ x >> x @ f)
     """
+
+    ob = Ty
 
     @property
     def size(self):
@@ -1032,7 +1181,23 @@ class Bubble(cat.Bubble, Box):
     .. image:: /_static/monoidal/frame-vertical-args.png
         :align: center
 
+    Coloured frames distinguish their outside, frame and slot regions.
+
+    >>> red, blue = map(Colour, ("red", "blue"))
+    >>> x = Ty(Ob("x", red, blue))
+    >>> f = Box("f", x, x)
+    >>> frame = f.bubble(
+    ...     dom=Ty(Ob("boundary", blue, red)),
+    ...     cod=Ty(Ob("boundary", blue, red)),
+    ...     draw_as_frame=True)
+    >>> frame.draw(path='docs/_static/monoidal/coloured-frame.png')
+
+    .. image:: /_static/monoidal/coloured-frame.png
+        :align: center
+
     """
+
+    ob = Ty
 
     def __init__(
             self, *args: Diagram,
@@ -1044,6 +1209,7 @@ class Bubble(cat.Bubble, Box):
         Box.__init__(self, self.name, self.dom, self.cod)
         self.drawing_name = "" if drawing_name is None else drawing_name
         self.draw_vertically = draw_vertically
+        self.frame_colour = DRAWING_ATTRIBUTES['frame_colour'](self)
         can_draw_as_square = len(args) == 1
         can_draw_as_bubble = (can_draw_as_square
                               and len(self.dom) == len(self.arg.dom)
@@ -1072,6 +1238,7 @@ class Bubble(cat.Bubble, Box):
             name=self.drawing_name)
         if self.draw_as_frame:
             kwargs['draw_vertically'] = self.draw_vertically
+            kwargs['frame_colour'] = self.frame_colour
         else:
             kwargs['draw_as_square'] = self.draw_as_square
         return getattr(Drawing, method)(*args, **kwargs)
@@ -1112,21 +1279,71 @@ class Functor(cat.Functor):
 
     dom = cod = Diagram
 
+    def __init__(self, ob=None, ar=None, dom=None, cod=None, colour=None):
+        super().__init__(ob, ar, dom=dom, cod=cod)
+        self.colour_map = MappingOrCallable(colour or {})
+        self._default_colour_map = colour is None
+
+    @classmethod
+    def id(cls, dom=None):
+        return cls(lambda x: x, lambda f: f, colour=lambda x: x,
+                   dom=dom, cod=dom)
+
+    def then(self, other):
+        assert_isinstance(other, Functor)
+        assert_iscomposable(self, other)
+        return type(self)(
+            self.ob_map.then(other), self.ar_map.then(other),
+            colour=MappingOrCallable(lambda x: other(self(x))),
+            dom=self.dom, cod=other.cod)
+
+    def __eq__(self, other):
+        return super().__eq__(other) and self.colour_map == other.colour_map\
+            and self._default_colour_map == other._default_colour_map
+
+    def __repr__(self):
+        result = super().__repr__()
+        if self._default_colour_map:
+            return result
+        suffix = ')' if result.endswith(')') else ''
+        return result[:-len(suffix) if suffix else None] + (
+            f", colour_map={self.colour_map!r}{suffix}")
+
+    def _map_colour(self, colour):
+        return colour if self._default_colour_map else self.colour_map[colour]
+
+    def _map_atomic(self, key):
+        result = self.ob_map[key]
+        cod_type = get_origin(self.cod.ob)
+        return result if isinstance(result, cod_type) else\
+            (result, ) if cod_type == tuple else self.cod.ob(result)
+
     def __call__(self, other):
+        if isinstance(other, Colour):
+            return self._map_colour(other)
         if isinstance(other, PRO):
-            result = cat.Functor.__call__(self, other.ob(1))
+            result = self._map_atomic(other.ar(1))
             return sum(other.n * [result], self.cod.ob())
         if isinstance(other, Dim):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):
-            return sum(map(self, other.inside), self.cod.ob())
-        if isinstance(other, cat.Ob):
-            result = self.ob_map[self.dom.ob(other)]
-            cod_type = get_origin(self.cod.ob)
-            # Syntactic sugar {x: n} in tensor and {x: int} in python.
-            return result if isinstance(result, cod_type) else\
-                (result, ) if cod_type == tuple\
-                else self.cod.ob(result)
+            if not other.inside:
+                colour = self(other.dom)
+                return self.cod.ob.id(colour) if hasattr(self.cod.ob, 'id')\
+                    and isinstance(colour, Colour) else self.cod.ob()
+            images = list(map(self, other.inside))
+            result = images[0]
+            for image in images[1:]:
+                result = result + image
+            return result
+        if isinstance(other, self.dom.ob.ob_factory):
+            result = self._map_atomic(self.dom.ob(other))
+            if isinstance(other, Ob) and isinstance(result, Ty):
+                expected = self(other.dom), self(other.cod)
+                if (result.dom, result.cod) != expected:
+                    raise AxiomError(messages.NOT_GLOBULAR.format(
+                        result.dom, result.cod, *expected))
+            return result
         if isinstance(other, Layer):
             head, *tail = other
             result = self(head)
