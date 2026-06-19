@@ -12,7 +12,8 @@ two permutations on these ports:
 """
 
 from __future__ import annotations
-from discopy.abc import MonoidalCategory, NamedGeneric, Monoid
+from sympy import true
+from discopy.abc import CompactCategory, NamedGeneric, Monoid
 
 from collections.abc import Iterable
 from io import BytesIO
@@ -80,7 +81,7 @@ def _same_type(left, right) -> bool:
 
 
 class CMap[C0: Monoid, C1: CMap](
-    MonoidalCategory[C0, C1], NamedGeneric['functor']
+    CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     """
     A bijective oriented hypergraph with interfaces.
@@ -272,16 +273,6 @@ class CMap[C0: Monoid, C1: CMap](
             offsets=old.offsets)
 
     @classmethod
-    def braid(cls, left: Ty, right: Ty) -> CMap:
-        """ The braid, remembered as a box to preserve over/under data. """
-        return cls.from_box(cls.category.braid(left, right))
-
-    @classmethod
-    def twist(cls, dom: Ty) -> CMap:
-        """ The twist, remembered as a box. """
-        return cls.from_box(cls.category.twist(dom))
-
-    @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
         """ The symmetry, encoded as boundary wiring. """
         dom, cod = left @ right, right @ left
@@ -331,6 +322,18 @@ class CMap[C0: Monoid, C1: CMap](
     def discard(cls, typ: Ty) -> CMap:
         """ Discard is kept as a box. """
         return cls.copy(typ, 0)
+
+    @classmethod
+    def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
+        return cls.from_box(cls.category.ev(base, exponent, left))
+
+    @classmethod
+    def curry(self, n: int = 1, left: bool = True) -> CMap:
+        if left:
+            base, exponent = self.dom[:-n], self.dom[-n:]
+            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
+        base, exponent = self.dom[n:], self.dom[:n]
+        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
     @classmethod
     def spiders(
