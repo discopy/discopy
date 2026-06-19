@@ -73,19 +73,12 @@ class Ty(biclosed.Ty):
     .. image:: /_static/closed/diagram.png
         :align: center
     """
-    def __pow__(self, other: Ty) -> Ty:
-        return self.ar(Exp(self, other)) if isinstance(other, Ty)\
-            else super().__pow__(other)
-
-    def __lshift__(self, other):
-        return self.ar(Exp(self, other))
-
-    def __rshift__(self, other):
-        return self.ar(Exp(other, self))
 
 
 class Exp(biclosed.Exp):
     "An exponential object in a markov category."
+
+    ty_factory = Ty
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
@@ -188,7 +181,7 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = lambda X: Copy(X, 0)
 Diagram.sum_factory = Sum
-Diagram.exp = Diagram.under = Diagram.over = staticmethod(Exp)
+Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
 Id = Diagram.id
 

@@ -132,8 +132,7 @@ def test_draw_pregroup_sentence():
 
 @draw_and_compare('categorial-grammar.png', aspect='equal')
 def test_draw_sentence():
-    from discopy.biclosed import Ty
-    from discopy.grammar.categorial import Eval, Word
+    from discopy.grammar.categorial import Eval, Ty, Word
 
     s, n = map(Ty, 'sn')
 
