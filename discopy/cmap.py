@@ -15,6 +15,7 @@ from __future__ import annotations
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from io import BytesIO
 from math import lcm
 import shutil
@@ -23,7 +24,6 @@ from typing import Any, TYPE_CHECKING, ClassVar
 
 from discopy import messages, hypergraph
 from discopy.cat import Box
-from discopy.drawing import Node
 from discopy.python.finset import Permutation
 from discopy.utils import (
     AxiomError,
@@ -37,8 +37,13 @@ if TYPE_CHECKING:
     from discopy.monoidal import Ty, Diagram, Functor
 
 
-Port = Node
-""" A port in a combinatorial map. """
+@dataclass(frozen=True)
+class Port:
+    """ A port in a combinatorial map. """
+    kind: str
+    i: int | None = None
+    obj: Any = None
+    depth: int | None = None
 
 NEGATIVE_PORTS = {"input", "cod"}
 POSITIVE_PORTS = {"dom", "output"}
@@ -53,9 +58,9 @@ def port_side(port: Port) -> str:
 
     Examples
     --------
-    >>> port_side(Node("input", i=0, obj=None))
+    >>> port_side(Port("input", i=0, obj=None))
     'up'
-    >>> port_side(Node("output", i=0, obj=None))
+    >>> port_side(Port("output", i=0, obj=None))
     'down'
     """
     is_adjoint = bool(getattr(port.obj, "z", 0) % 2)
@@ -118,14 +123,14 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def ports(self) -> list[Port]:
         """ The ports in the map, in fixed Hypergraph order. """
-        inputs = [Node("input", i=i, obj=obj)
+        inputs = [Port("input", i=i, obj=obj)
                   for i, obj in enumerate(self.dom)]
         box_ports = sum([[
-            Node(kind, depth=depth, i=i, obj=obj)
+            Port(kind, depth=depth, i=i, obj=obj)
             for i, obj in enumerate(typ)]
             for depth, box in enumerate(self.boxes)
             for kind, typ in [("dom", box.dom), ("cod", box.cod)]], [])
-        outputs = [Node("output", i=i, obj=obj)
+        outputs = [Port("output", i=i, obj=obj)
                    for i, obj in enumerate(self.cod)]
         return inputs + box_ports + outputs
 
@@ -343,7 +348,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.drawing import Equation
         >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
         >>> f = Box("f", X @ Y, Z)
-        >>> f.curry().to_map().draw(
+        >>> f.curry().uncurry().to_map().draw(
         ...     path='docs/_static/cmap/curry.png', show=False)
 
         .. image:: /_static/cmap/curry.png
