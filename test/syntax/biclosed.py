@@ -4,6 +4,14 @@ from pytest import raises
 
 def test_Over():
     x, y = Ty('x'), Ty('y')
+    assert isinstance(x.over_factory(x, y), cat.Ob)
+    assert not isinstance(x.over_factory(x, y), Ty)
+    assert x.over(y) == x << y
+    assert isinstance(x ** y, Ty)
+    assert not isinstance((x ** y).inside[0], Ty)
+    assert isinstance(x << y, Ty)
+    assert not isinstance((x << y).inside[0], Ty)
+    assert (x << y).inside == (Over(x, y), )
     assert repr(Over(x, y))\
         == "biclosed.Over(biclosed.Ty(cat.Ob('x')), biclosed.Ty(cat.Ob('y')))"
     assert {Over(x, y): 42}[Over(x, y)] == 42
@@ -12,6 +20,12 @@ def test_Over():
 
 def test_Under():
     x, y = Ty('x'), Ty('y')
+    assert isinstance(y.under_factory(y, x), cat.Ob)
+    assert not isinstance(y.under_factory(y, x), Ty)
+    assert y.under(x) == x >> y
+    assert isinstance(x >> y, Ty)
+    assert not isinstance((x >> y).inside[0], Ty)
+    assert (x >> y).inside == (Under(y, x), )
     assert repr(Under(x, y))\
         == "biclosed.Under(biclosed.Ty(cat.Ob('x')), biclosed.Ty(cat.Ob('y')))"
     assert {Under(x, y): 42}[Under(x, y)] == 42
@@ -38,10 +52,10 @@ def test_Term_str():
     X, Y = Ty('X'), Ty('Y')
     f, g = (Y << X)("f"), (X >> Y)("g")
     x, y = X("x"), Variable("y", X)
-    assert str(f(x)) == "f(x)"
-    assert str(x(g, left=True)) == "x(g, left=True)"
-    assert str(X(lambda y: f(y))) == "X(lambda y: f(y))"
-    assert str(f(y)) == "f(y)"
+    assert str(f(x)) == "(Y << X)('f')(X('x'))"
+    assert str(x(g, left=True)) == "X('x')((X >> Y)('g'), left=True)"
+    assert str(X(lambda y: f(y))) == "X(lambda y: (Y << X)('f')(y))"
+    assert str(f(y)) == "(Y << X)('f')(y)"
 
 
 def test_Term_linear_planar():

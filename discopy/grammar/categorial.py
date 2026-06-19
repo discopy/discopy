@@ -46,15 +46,31 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
-from discopy.cat import ar_factory
 from discopy.grammar import thue
-from discopy.biclosed import Ty, Over, Under
 from discopy.utils import (
-    assert_isinstance,
+    ob_factory,
+    ar_factory,
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
 )
+
+
+@ob_factory
+class Ty(biclosed.Ty):
+    "Base class for categorial grammar types."
+
+
+class Over(biclosed.Over):
+    "Categorial grammar type ``base << exponent``."
+
+    ob = Ty
+
+
+class Under(biclosed.Under):
+    "Categorial grammar type ``exponent >> base``."
+
+    ob = Ty
 
 
 @ar_factory
@@ -62,6 +78,8 @@ class Diagram(biclosed.Diagram):
     """
     A categorial diagram is a biclosed diagram with rules and words as boxes.
     """
+    ob = Ty
+
     def to_pregroup(self):
         from discopy.grammar import pregroup
 
@@ -75,29 +93,25 @@ class Diagram(biclosed.Diagram):
     @staticmethod
     def fa(left, right):
         """ Forward application. """
-        return Diagram.eval_factory(left << right)
+        return Eval(left << right)
 
     @staticmethod
     def ba(left, right):
         """ Backward application. """
-        return Diagram.eval_factory(left >> right)
+        return Eval(left >> right)
 
     @staticmethod
     def fc(left, middle, right):
         """ Forward composition. """
         return (
-            Diagram.id(left << middle)
-            @ Diagram.eval_factory(middle << right)
-            >> Diagram.eval_factory(left << middle)
+            (left << middle) @ Eval(middle << right) >> Eval(left << middle)
         ).curry(left=True)
 
     @staticmethod
     def bc(left, middle, right):
         """ Backward composition. """
         return (
-            Diagram.eval_factory(left >> middle)
-            @ Diagram.id(middle >> right)
-            >> Diagram.eval_factory(middle >> right)
+            Eval(left >> middle) @ (middle >> right) >> Eval(middle >> right)
         ).curry()
 
     @staticmethod
@@ -144,8 +158,8 @@ class Curry(biclosed.Curry, Box):
 class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Under)
+        assert left.is_over
+        assert right.is_under
         if left.exponent != right.base:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.exponent, right.base))
@@ -158,8 +172,8 @@ class ForwardCrossedComposition(BinaryBoxConstructor, Box):
 class BackwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Backward crossed composition rule. """
     def __init__(self, left, right):
-        assert_isinstance(left, Over)
-        assert_isinstance(right, Under)
+        assert left.is_over
+        assert right.is_under
         if left.base != right.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 left, right, left.base, right.exponent))
@@ -333,8 +347,8 @@ class FC(BinaryTerm):
     "Forward composition ``A << C`` with subterms ``A << B`` and ``B << C``. "
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.cod, Over)
-        assert_isinstance(self.right.cod, Over)
+        assert self.left.cod.is_over
+        assert self.right.cod.is_over
         if self.right.cod.base != self.left.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 self.left.cod, self.right.cod,
@@ -355,8 +369,8 @@ class BC(BinaryTerm):
     "Backward composition ``A >> C`` with subterms ``A >> B`` and ``B >> C``."
     def __post_init__(self):
         super().__post_init__()
-        assert_isinstance(self.left.cod, Under)
-        assert_isinstance(self.right.cod, Under)
+        assert self.left.cod.is_under
+        assert self.right.cod.is_under
         if self.left.cod.base != self.right.cod.exponent:
             raise AxiomError(messages.NOT_COMPOSABLE.format(
                 self.left.cod, self.right.cod,
@@ -475,3 +489,11 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 Id = Diagram.id
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
+
+Ty.variable_factory = Variable
+Ty.constant_factory = Constant
+Ty.application_factory =\
+    lambda func, args, left=False: BA(args, func) if left else FA(func, args)
+Ty.abstraction_factory = Abstraction
+
+Ty.over_factory, Ty.under_factory = Over, Under
