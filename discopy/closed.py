@@ -49,12 +49,11 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, messages
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.utils import AxiomError
 
 
 @ob_factory
@@ -74,19 +73,12 @@ class Ty(biclosed.Ty):
     .. image:: /_static/closed/diagram.png
         :align: center
     """
-    def __pow__(self, other: Ty) -> Ty:
-        return Exp(self, other) if isinstance(other, Ty)\
-            else super().__pow__(other)
-
-    def __lshift__(self, other):
-        return Exp(self, other)
-
-    def __rshift__(self, other):
-        return Exp(other, self)
 
 
-class Exp(Ty, biclosed.Exp):
+class Exp(biclosed.Exp):
     "An exponential object in a markov category."
+
+    ob = Ty
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
@@ -194,7 +186,7 @@ Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
 Diagram.discard_factory = lambda X: Copy(X, 0)
 Diagram.sum_factory = Sum
-Diagram.exp = Diagram.under = Diagram.over = staticmethod(Exp)
+Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
 Id = Diagram.id
 
@@ -215,11 +207,10 @@ class TermBase(Box, biclosed.TermBase):
             raise NotImplementedError
         return self.eval()
 
+type Term = Constant | Variable | Application | Abstraction
+
 
 class Constant(TermBase, biclosed.Constant):
-    def to_map(self, category=None):
-        raise ValueError("Constants are not pure linear lambda terms.")
-
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
@@ -229,11 +220,6 @@ class Constant(TermBase, biclosed.Constant):
 
 
 class Variable(TermBase, biclosed.Variable):
-    def __init__(self, name: str | Ty, cod: Ty | str):
-        if isinstance(name, Ty) and isinstance(cod, str):
-            name, cod = cod, name
-        super().__init__(name, cod)
-
     def to_map(self, category=None):
         category = category or CMap
         cmap = category.id(self.cod)
@@ -316,9 +302,6 @@ class Abstraction(TermBase, biclosed.Abstraction):
         cmap = body_map.plug_input(index, lam, self.cod)
         assert_term_map(cmap, self, category)
         return cmap
-
-
-type Term = Constant | Variable | Application | Abstraction
 
 
 def assert_term_map(cmap, term, category: type[CMap] | None = None):

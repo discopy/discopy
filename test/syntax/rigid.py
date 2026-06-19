@@ -17,6 +17,12 @@ def test_Ob_hash():
     assert {a: 42}[a] == 42
 
 
+def test_Ty_over_under():
+    x, y = Ty('x'), Ty('y')
+    assert x.over(y) == x @ y.l == x << y
+    assert y.under(x) == x.r @ y == x >> y
+
+
 def test_Box_hash():
     x, y = Ty('x'), Ty('y')
     f = Box('f', x, y)

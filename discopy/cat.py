@@ -755,6 +755,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
+@ar_factory
 class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an

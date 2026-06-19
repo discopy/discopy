@@ -2,7 +2,6 @@ from pytest import raises
 
 from discopy import cat, grammar, biclosed
 from discopy.utils import from_tree
-from discopy.biclosed import Ty
 from discopy.grammar.categorial import *
 
 tree = {
@@ -145,19 +144,19 @@ def test_terms_simplify_and_eval():
 def test_complex_sentence():
     n, p, s = Ty('n'), Ty('p'), Ty('s')
 
-    That = Constant("That", n)
-    was = Constant("was", (n >> s) << n)
-    exactly = Constant("exactly", n << n)
-    what = Constant("what", n << (s << n))
-    I = Constant("I", n)
-    showed = Constant("showed", ((n >> s) << p) << n)
-    to = Constant("to", p << n)
-    her = Constant("her", n)
+    That = n("That")
+    is_ = ((n >> s) << n)("is")
+    exactly = (n << n)("exactly")
+    what = (n << (s << n))("what")
+    I = n("I")
+    showed = (((n >> s) << p) << n)("showed")
+    to = (p << n)("to")
+    her = n("her.")
 
-    sentence = That(was(exactly(what(FC(
+    sentence = That(is_(exactly(what(FC(
         FTR(s, I), BX(showed, BTR((n >> s), to(her))))))), left=True)
 
-    assert sentence.constants == [That, was, exactly, what, I, showed, to, her]
+    assert sentence.constants == [That, is_, exactly, what, I, showed, to, her]
     assert eval(str(sentence)) == eval(repr(sentence)) == sentence
 
 
@@ -169,13 +168,13 @@ def test_FC_BC_FX_BX():
     assert FC(g_left, f_left).cod == BX(f_left, g_right).cod == Z << X
     assert BC(f_right, g_right).cod == FX(g_left, f_right).cod == X >> Z
 
-    with raises(TypeError):
+    with raises(AssertionError):
         FC(f_right, g_left)
-    with raises(TypeError):
+    with raises(AssertionError):
         BC(g_left, f_right)
-    with raises(TypeError):
+    with raises(AssertionError):
         FX(f_right, g_right)
-    with raises(TypeError):
+    with raises(AssertionError):
         BX(g_right, f_right)
 
     with raises(AxiomError):
@@ -254,13 +253,11 @@ def pregroup_diagram():
 def test_to_pregroup():
     from discopy.grammar import pregroup
     from discopy.grammar.pregroup import Cup, Cap, Id, Swap
-    x, y = biclosed.Ty('x'), biclosed.Ty('y')
+    x, y = Ty('x'), Ty('y')
     x_, y_ = pregroup.Ty('x'), pregroup.Ty('y')
-    assert Diagram.to_pregroup(Diagram.ba(x, y).curry(left=True))\
-        .normal_form()\
+    assert Diagram.ba(x, y).curry(left=True).to_pregroup().normal_form()\
         == Cap(y_, y_.l) @ Id(x_)
-    assert Diagram.to_pregroup(Diagram.fa(x, y).curry())\
-        .normal_form()\
+    assert Diagram.fa(x, y).curry().to_pregroup().normal_form()\
         == Id(y_) @ Cap(x_.r, x_)
     assert Diagram.to_pregroup(Diagram.fc(x, y, x)).normal_form()\
         == Id(x_) @ Cup(y_.l, y_) @ Id(x_.l)
