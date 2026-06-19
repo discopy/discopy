@@ -200,13 +200,21 @@ class Ty(cat.Ob, cat.FreeMonoid):
 
     @classmethod
     def _from_path(cls, inside, dom, cod, _scan=True):
-        if inside:
-            result = cls.ar(*inside)
-            if (result.dom, result.cod) != (dom, cod):
-                raise AxiomError(messages.NOT_PARALLEL.format(
-                    (result.dom, result.cod), (dom, cod)))
-            return result
-        return cls.ar.id(dom)
+        if not inside:
+            if dom != cod:
+                raise AxiomError(messages.NOT_PARALLEL.format(dom, cod))
+            return cls.ar.id(dom)
+        if cls.ar.__init__ is Ty.__init__:
+            # Skip re-inferring dom/cod and (if _scan=False) re-scanning
+            # the boundaries, both already known to the caller.
+            return cls.ar(*inside, dom=dom, cod=cod, _scan=_scan)
+        # Subclasses such as Dim override __init__ with a different
+        # signature, so we fall back to reconstructing and checking.
+        result = cls.ar(*inside)
+        if (result.dom, result.cod) != (dom, cod):
+            raise AxiomError(messages.NOT_PARALLEL.format(
+                (result.dom, result.cod), (dom, cod)))
+        return result
 
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
@@ -226,18 +234,31 @@ class Ty(cat.Ob, cat.FreeMonoid):
     def is_generator(obj):
         return isinstance(obj, Ob) and not isinstance(obj, Ty)
 
+    def _coerce_generator(self, x: str | cat.Ob) -> cat.Ob:
+        """ Turn a constructor argument into a ``self.ob_factory``. """
+        if isinstance(x, self.ob_factory):
+            return x
+        if isinstance(x, str):
+            return self.ob_factory(x)
+        return self._coerce_legacy_generator(x)
+
+    def _coerce_legacy_generator(self, x: cat.Ob) -> cat.Ob:
+        """
+        Old dumps and pickles used a plain :class:`cat.Ob`, with no colour,
+        as the generators of :class:`monoidal.Ty`. We only allow this for
+        the base :class:`Ty` class, where it gets upgraded to ``Ob(x.name)``.
+        """
+        if type(self) is Ty and type(x) is cat.Ob:
+            return self.ob_factory(x.name)
+        raise AxiomError(messages.TYPE_ERROR.format(self.ob_factory, type(x)))
+
     def __init__(self, *inside: str | cat.Ob,
                  dom: Colour = None, cod: Colour = None,
                  _scan: bool = True):
         for obj in inside:
             assert_isinstance(obj, (str, self.ob_factory) + (
                 (cat.Ob, ) if type(self) is Ty else ()))
-        self.inside = tuple(
-            self.ob_factory(x.name) if type(self) is Ty
-            and type(x) is cat.Ob else x
-            if isinstance(x, self.ob_factory) or (
-                type(self) is Ty and isinstance(x, cat.Ob))
-            else self.ob_factory(x) for x in inside)
+        self.inside = tuple(map(self._coerce_generator, inside))
         inferred_dom = self.inside[0].dom\
             if self.inside and self.is_generator(self.inside[0]) else white
         inferred_cod = self.inside[-1].cod\
