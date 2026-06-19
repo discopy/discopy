@@ -275,38 +275,6 @@ def test_plug_input():
         f.plug_input(0, Box("bad", Ty(), y @ z), y)
 
 
-def test_dot_and_draw_non_interactive(tmp_path, monkeypatch):
-    from discopy import cmap
-    from discopy.compact import Ty, Box, CMap as M
-
-    x, y = map(Ty, "xy")
-    cm = M.from_box(Box("f", x, y))
-    dot = cm.to_dot(
-        seed=7, boundary_labels=False,
-        box_labels=lambda box: f"box:{box.name}")
-    assert 'start="7"' in dot
-    assert 'box:f' in dot
-    assert 'xlabel=""' in dot
-
-    dot_path = tmp_path / "map.dot"
-    assert cm.draw(dot_path, show=False) is None
-    assert dot_path.read_text(encoding="utf-8") == cm.to_dot()
-
-    calls = []
-
-    def fake_run(command, input=None, check=None, **kwargs):
-        calls.append((command, input, check, kwargs))
-
-    monkeypatch.setattr(cmap.shutil, "which", lambda _: "dot")
-    monkeypatch.setattr(cmap.subprocess, "run", fake_run)
-    assert cm.draw(tmp_path / "map.svg", show=False) is None
-    assert calls[0][0][:2] == ["dot", "-Tsvg"]
-
-    monkeypatch.setattr(cmap.shutil, "which", lambda _: None)
-    with raises(RuntimeError):
-        cm.draw(show=False)
-
-
 def test_tensor_then():
     from discopy.compact import Ty, Box, CMap as M
 

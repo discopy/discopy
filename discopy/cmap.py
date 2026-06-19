@@ -12,16 +12,17 @@ two permutations on these ports:
 """
 
 from __future__ import annotations
-from sympy import true
-from discopy.abc import CompactCategory, NamedGeneric, Monoid
+from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 
 from collections.abc import Iterable
 from io import BytesIO
+from math import lcm
 import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar
 
 from discopy import messages, hypergraph
+from discopy.cat import Box
 from discopy.drawing import Node
 from discopy.python.finset import Permutation
 from discopy.utils import (
@@ -33,7 +34,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ty, Box, Diagram, Functor
+    from discopy.monoidal import Ty, Diagram, Functor
 
 
 Port = Node
@@ -80,7 +81,7 @@ def _same_type(left, right) -> bool:
     return right in [left, left_r] or left in [right, right_r]
 
 
-class CMap[C0: Monoid, C1: CMap](
+class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     """
@@ -104,6 +105,7 @@ class CMap[C0: Monoid, C1: CMap](
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
         for box in boxes:
+            assert_isinstance(box, Box)
             assert_isinstance(box, self.category)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
         self.offsets = offsets or tuple(len(boxes) * [None])
@@ -240,7 +242,7 @@ class CMap[C0: Monoid, C1: CMap](
         n_ports = 2 * (left + right)
         edge = Permutation.from_transpositions(
             [(i, left + i) for i in range(left)]
-            + [(left + left + i, left + left + right + i)
+            + [(2 * left + i, 2 * left + right + i)
                for i in range(right)],
             n_ports)
         return cls(box.dom, box.cod, (box, ), edge)
@@ -325,15 +327,56 @@ class CMap[C0: Monoid, C1: CMap](
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
-        return cls.from_box(cls.category.ev(base, exponent, left))
+        return cls.category.ev(base, exponent, left).to_map()
 
-    @classmethod
-    def curry(self, n: int = 1, left: bool = True) -> CMap:
+    def curry(self, n: int = 1, left: bool = False, expand: bool = False) -> CMap:
+        """
+        The currying of a morphism, to be instantiated.
+
+        Parameters:
+            n : The number of objects to curry.
+            left : Whether to curry on the left or right.
+            expand : Whether to represent currying via the free compact closed
+                structure or via the host category if it is (bi)closed.
+
+        >>> from discopy.compact import Ty, Box, CMap
+        >>> from discopy.drawing import Equation
+        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+        >>> f = Box("f", X @ Y, Z)
+        >>> f.curry().to_map().draw(
+        ...     path='docs/_static/cmap/curry.png', show=False)
+
+        .. image:: /_static/cmap/curry.png
+            :align: center
+        """
+        cls = type(self)
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        base, exponent = self.dom[n:], self.dom[:n]
-        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
+            if expand:
+                return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
+            else:
+                return cls.from_box(cls.category.ev(base, exponent, True))
+        else:
+            base, exponent = self.dom[n:], self.dom[:n]
+            if expand:
+                return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
+            else:
+                print(cls.category.ev(base, exponent, False))
+                return self >> cls.ev(base, exponent, True)
+
+    def uncurry(self, left=False) -> Diagram:
+        """
+        Uncurry a combinatorial map by composing it with :meth:`CMap.ev`.
+
+        Parameters:
+            left : Whether to uncurry on the left or right.
+        """
+        print(self.cod)
+        if not self.cod.is_exp:
+            raise ValueError
+        base, exponent = self.cod.left, self.cod.right
+        return self @ exponent >> self.ev(base, exponent, True) if left\
+            else exponent @ self >> self.ev(base, exponent, False)
 
     @classmethod
     def spiders(
@@ -347,7 +390,7 @@ class CMap[C0: Monoid, C1: CMap](
     def then(self, other: CMap) -> CMap:
         """ Sequential composition, gluing output ports to input ports. """
         if not self.cod == other.dom:
-            raise AxiomError
+            raise AxiomError(messages.TYPE_ERROR.format(other.dom, self.cod))
         dom, cod = self.dom, other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
@@ -597,7 +640,6 @@ class CMap[C0: Monoid, C1: CMap](
 
         diagram = self.category.id(self.dom)
         scan = [edge_wire[i] for i in range(len(self.dom))]
-
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             box_ports = self.box_port_indices[depth]
             dom_ports = box_ports[:len(box.dom)]
@@ -740,73 +782,158 @@ class CMap[C0: Monoid, C1: CMap](
             raise ValueError
 
     def to_dot(
-            self, engine="neato", seed=None, graph_attr=None,
-            boundary_labels=True,
-            box_labels=None) -> str:
+            self, engine="dot", seed=None, graph_attr=None,
+            port_indices=False) -> str:
         """
         Encode the combinatorial map as Graphviz DOT.
 
-        The drawing has one node per box, one point per boundary port, and one
-        edge per 2-cycle of ``edge``. Port indices are shown as edge endpoint
-        labels rather than drawn as separate nodes.
+        The drawing has HTML-table nodes for the boundary interfaces and for
+        each box, with one table port for each object in the signature, and
+        one direct edge per 2-cycle of ``edge``.
+
+        >>> from discopy.closed import Ty
+        >>> t0, t1, t2, t3, t4, t5, t6 = (Ty(f"t{i}") for i in range(7))
+        >>> petersen = (((t1 >> t0) >> t5) >> t6)(
+        ...     lambda a: (t2 >> t3)(
+        ...         lambda b: (t4 >> t5)(
+        ...             lambda c: ((t1 >> t0) >> t2)(
+        ...                 lambda d: (t3 >> t4)(
+        ...                     lambda e: a((t1 >> t0)(lambda f: c(e(b(d(f))))))
+        ...                 )
+        ...             )
+        ...         )
+        ...     )
+        ... )
+        >>> petersen.to_map().draw(
+        ...     path="docs/_static/cmap/petersen.png")
         """
         attrs = {
             "layout": engine,
+            "rankdir": "TB",
             "overlap": "false",
             "splines": "true",
             "outputorder": "edgesfirst",
-            "bgcolor": "transparent",
+            "bgcolor": "white",
             "margin": "0.04",
         } | (graph_attr or {})
         if seed is not None:
             attrs["start"] = str(seed)
 
+        class Html:
+            def __init__(self, value):
+                self.value = value
+
         def escape(value):
             return str(value).replace("\\", "\\\\").replace('"', r'\"')
 
+        def escape_html(value):
+            return str(value).replace("&", "&amp;").replace(
+                "<", "&lt;").replace(">", "&gt;").replace(
+                    '"', "&quot;")
+
         def attr_string(attributes):
             return ", ".join(
-                f'{key}="{escape(value)}"'
+                f'{key}=<{value.value}>' if isinstance(value, Html)
+                else f'{key}="{escape(value)}"'
                 for key, value in attributes.items())
 
-        def box_label(box):
-            if box_labels is not None:
-                return box_labels(box)
-            arity = len(box.dom), len(box.cod)
-            return getattr(box, "drawing_name", None)\
-                or getattr(box, "name", None)\
-                or f"{arity[0]}->{arity[1]}"
+        def boundary_label(port_index):
+            return f"{port_index}" if port_indices else ""
 
-        def boundary_label(port):
-            if not boundary_labels:
-                return ""
-            return f"{port.kind} {port.i}"
+        def boundary_cell(port_index, port):
+            tooltip = escape_html(f"{port.kind} {port.i}: {port.obj}")
+            return (
+                f'<TD PORT="p{port_index}" TOOLTIP="{tooltip}" '
+                f'BORDER="0" CELLPADDING="4">'
+                f'{escape_html(boundary_label(port_index))}</TD>')
+
+        def boundary_table(port_indices):
+            return (
+                '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0"><TR>'
+                + "".join(
+                    boundary_cell(port_index, self.ports[port_index])
+                    for port_index in port_indices)
+                + "</TR></TABLE>")
+
+        def port_cell(port_index, port, colspan, width):
+            tooltip = escape_html(
+                f"{port.kind} {port.i}: {port.obj} "
+                f"({port_side(port)}, {port_direction(port)})")
+            text = escape_html(port.i) if port_indices else ""
+            cellpadding = 2 if port_indices else 0
+            height = 18 if port_indices else 0
+            fixedsize = ' FIXEDSIZE="TRUE"' if port_indices else ""
+            return (
+                f'<TD PORT="p{port_index}" TOOLTIP="{tooltip}" '
+                f'BORDER="0" CELLPADDING="{cellpadding}" '
+                f'COLSPAN="{colspan}" WIDTH="{width}" '
+                f'HEIGHT="{height}"{fixedsize}>{text}</TD>')
+
+        def port_row(port_indices, grid, box_width):
+            colspan = grid // len(port_indices)
+            width = round(box_width / len(port_indices))
+            return "<TR>" + "".join(
+                port_cell(
+                    port_index, self.ports[port_index], colspan, width)
+                for port_index in port_indices) + "</TR>"
+
+        def box_table(vertex, box):
+            box_ports = self.box_port_indices[vertex]
+            dom_ports = box_ports[:len(box.dom)]
+            cod_ports = box_ports[len(box.dom):]
+            dom_arity, cod_arity = len(dom_ports), len(cod_ports)
+            grid = lcm(dom_arity or 1, cod_arity or 1)
+            box_width = 18 * max(dom_arity, cod_arity, 1)
+            rows = []
+            if dom_ports:
+                rows.append(port_row(dom_ports, grid, box_width))
+            box_label = getattr(box, "drawing_name", box.name)
+            rows.append(
+                f'<TR><TD BORDER="1" CELLPADDING="6" '
+                f'COLSPAN="{grid}" WIDTH="{box_width}">'
+                f'{escape_html(box_label)}</TD></TR>')
+            if cod_ports:
+                rows.append(port_row(cod_ports, grid, box_width))
+            return (
+                '<TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0">'
+                + "".join(rows) + "</TABLE>")
 
         lines = [
             "graph cmap {",
             f"  graph [{attr_string(attrs)}];",
-            '  node [shape=circle, color=black, fontname="Helvetica", '
-            'fontsize="12"];',
-            '  edge [color=black, penwidth="1.4", fontsize="9"];',
+            '  node [shape=plain, color=black, fontname="Helvetica", '
+            'fontsize="12", margin="0"];',
+            '  edge [color=black, penwidth="1.4", fontsize="9", '
+            'headclip="true", tailclip="true"];',
         ]
 
         port_nodes = {}
         for vertex in range(len(self.boxes)):
             box = self.boxes[vertex]
-            attributes = dict(
-                label=box_label(box), width="0.32", height="0.32")
+            attributes = dict(label=Html(box_table(vertex, box)))
             lines.append(
                 f"  v{vertex} [{attr_string(attributes)}];")
-            for port_index in self.node_cycles[vertex]:
-                port_nodes[port_index] = f"v{vertex}"
-        for port_index, port in enumerate(self.ports):
-            if port.kind in BOUNDARY_PORTS:
-                attributes = dict(
-                    shape="point", label="", width="0.08", height="0.08",
-                    xlabel=boundary_label(port))
-                lines.append(
-                    f"  b{port_index} [{attr_string(attributes)}];")
-                port_nodes[port_index] = f"b{port_index}"
+            for port_index in self.box_port_indices[vertex]:
+                compass = "n" if self.ports[port_index].kind == "dom" else "s"
+                port_nodes[port_index] = f"v{vertex}:p{port_index}:{compass}"
+        input_ports = [
+            i for i, port in enumerate(self.ports) if port.kind == "input"]
+        output_ports = [
+            i for i, port in enumerate(self.ports) if port.kind == "output"]
+        for name, ports, compass in [
+                ("input", input_ports, "s"), ("output", output_ports, "n")]:
+            if not ports:
+                continue
+            attributes = dict(label=Html(boundary_table(ports)))
+            lines.append(f"  {name} [{attr_string(attributes)}];")
+            for port_index in ports:
+                port_nodes[port_index] = f"{name}:p{port_index}:{compass}"
+
+        for rank, name, ports in [
+                ("min", "input", input_ports),
+                ("max", "output", output_ports)]:
+            if ports:
+                lines.append(f"  {{ rank={rank}; {name}; }}")
 
         def node_name(port_index):
             return port_nodes[port_index]
@@ -822,11 +949,20 @@ class CMap[C0: Monoid, C1: CMap](
                 return "forward"
             return "none"
 
+        def port_label(port_index):
+            return self.ports[port_index].obj
+
+        def edge_labels(left, right):
+            left_label, right_label = port_label(left), port_label(right)
+            if left_label == right_label:
+                return dict(label=left_label)
+            return dict(taillabel=left_label, headlabel=right_label)
+
         for i, j in enumerate(self.edge):
             if i < j:
                 attributes = dict(
-                    len="0.85", taillabel=i, headlabel=j,
-                    labeldistance="1.6", dir=edge_direction(i, j))
+                    len="0.85", labeldistance="1.6",
+                    dir=edge_direction(i, j)) | edge_labels(i, j)
                 lines.append(
                     f'  {node_name(i)} -- {node_name(j)} '
                     f'[{attr_string(attributes)}];')
@@ -834,9 +970,9 @@ class CMap[C0: Monoid, C1: CMap](
         return "\n".join(lines) + "\n"
 
     def draw(
-            self, path=None, engine="neato", format=None, seed=None,
-            show=True, graph_attr=None, boundary_labels=True,
-            trivalent_symbols=True, box_labels=None, block=True):
+            self, path=None, engine="dot", format=None, seed=None,
+            show=None, graph_attr=None, boundary_labels=True,
+            box_labels=None, port_indices=False, block=True):
         """
         Draw as a combinatorial map using Graphviz.
 
@@ -849,9 +985,9 @@ class CMap[C0: Monoid, C1: CMap](
         """
         dot = self.to_dot(
             engine=engine, seed=seed, graph_attr=graph_attr,
-            boundary_labels=boundary_labels,
-            box_labels=box_labels)
+            port_indices=port_indices)
 
+        show = show if show is not None else path is None
         path = None if path is None else str(path)
         suffix = "" if path is None else (
             path.rsplit(".", 1)[-1].lower() if "." in path else "")
