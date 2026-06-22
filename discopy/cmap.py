@@ -38,6 +38,7 @@ if TYPE_CHECKING:
     from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
     from discopy.biclosed import Term
 
+
 class PortKind(StrEnum):
     INPUT = "input"
     OUTPUT = "output"
@@ -136,7 +137,8 @@ class CMap[C0: Pregroup, C1: CMap](
             Port(kind, i=i, obj=obj, depth=depth)
             for i, obj in enumerate(typ)]
             for depth, box in enumerate(self.boxes)
-            for kind, typ in [(PortKind.DOM, box.dom), (PortKind.COD, box.cod)]], [])
+            for kind, typ in [
+                (PortKind.DOM, box.dom), (PortKind.COD, box.cod)]], [])
         outputs = [Port(PortKind.OUTPUT, i=i, obj=obj, depth=float('+inf'))
                    for i, obj in enumerate(self.cod)]
         return inputs + box_ports + outputs
@@ -741,7 +743,7 @@ class CMap[C0: Pregroup, C1: CMap](
         if len(names) != len(self.dom):
             raise ValueError
 
-        def term_type(obj):
+        def term_type(obj: Ty) -> Ty:
             assert_isinstance(obj, self.category.ob)
             return obj if hasattr(obj, "inside") else obj.ob(obj)
 
@@ -751,13 +753,17 @@ class CMap[C0: Pregroup, C1: CMap](
         )
         counter = len(variables)
 
-        def fresh(obj):
+        def fresh(obj: Ty) -> Variable:
             nonlocal counter
             variable = Variable(f"x{counter}", obj)
             counter += 1
             return variable
 
-        def dfs(port_idx: int, bound_ports: dict[int, Variable], continuation: Callable[[Term], Term]):
+        def dfs(
+            port_idx: int,
+            bound_ports: dict[int, Variable],
+            continuation: Callable[[Term], Term]
+        ) -> Term:
             port_idx = self.edge[port_idx]
             if port_idx in bound_ports:
                 return continuation(bound_ports[port_idx])
@@ -837,7 +843,8 @@ class CMap[C0: Pregroup, C1: CMap](
         ...         lambda b: (t4 >> t5)(
         ...             lambda c: ((t1 >> t0) >> t2)(
         ...                 lambda d: (t3 >> t4)(
-        ...                     lambda e: a((t1 >> t0)(lambda f: c(e(b(d(f))))))
+        ...                     lambda e:
+        ...                         a((t1 >> t0)(lambda f: c(e(b(d(f))))))
         ...                 )
         ...             )
         ...         )
@@ -953,14 +960,19 @@ class CMap[C0: Pregroup, C1: CMap](
             lines.append(
                 f"  v{vertex} [{attr_string(attributes)}];")
             for port_index in self.box_port_indices[vertex]:
-                compass = "n" if self.ports[port_index].kind == "dom" else "s"
-                port_nodes[port_index] = f"v{vertex}:p{port_index}:{compass}"
+                compass = "n" if self.ports[
+                    port_index].kind == "dom" else "s"
+                port_nodes[port_index] = (
+                    f"v{vertex}:p{port_index}:{compass}")
         input_ports = [
-            i for i, port in enumerate(self.ports) if port.kind == PortKind.INPUT]
+            i for i, port in enumerate(self.ports)
+            if port.kind == PortKind.INPUT]
         output_ports = [
-            i for i, port in enumerate(self.ports) if port.kind == PortKind.OUTPUT]
+            i for i, port in enumerate(self.ports)
+            if port.kind == PortKind.OUTPUT]
         for name, ports, compass in [
-                (PortKind.INPUT, input_ports, "s"), (PortKind.OUTPUT, output_ports, "n")]:
+                (PortKind.INPUT, input_ports, "s"),
+                (PortKind.OUTPUT, output_ports, "n")]:
             if not ports:
                 continue
             attributes = dict(label=Html(boundary_table(ports)))

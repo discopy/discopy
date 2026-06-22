@@ -208,6 +208,7 @@ class TermBase(Box, biclosed.TermBase):
             raise NotImplementedError
         return self.eval()
 
+
 type Term = Constant | Variable | Application | Abstraction
 
 

@@ -64,14 +64,14 @@ from inspect import signature
 from dataclasses import dataclass
 from typing import Callable, ClassVar, Self, Iterable
 
-from discopy import cat, monoidal, messages
+from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
-    from_tree, AxiomError,
+    from_tree,
 )
 
 
@@ -573,7 +573,7 @@ class Constant(TermBase):
     @property
     def constants(self):
         return [self]
-    
+
     def __substitute__(self, subst: Substitution) -> Constant:
         return self
 

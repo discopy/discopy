@@ -47,6 +47,7 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
+from discopy.biclosed import Substitution
 from discopy.grammar import thue
 from discopy.utils import (
     ob_factory,
