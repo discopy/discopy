@@ -171,13 +171,18 @@ class FreeCategory(Category):
     Note
     ----
     Subclasses are assumed to have a ``generator_factory`` class attribute
-    for the type of the generators, and an ``__init__`` of the form
-    ``ar(inside, dom, cod, _scan=True)``.
+    for the type of the generators, and an ``_init_inside_dom_cod`` method
+    of the form ``_init_inside_dom_cod(inside, dom, cod, _scan=True)``,
+    which defaults to ``__init__`` but can be overridden separately when
+    the public constructor has a different, more user-friendly signature.
     """
 
     generator_factory = None
 
     def __init__(self, inside, dom, cod, _scan=True):
+        self._init_inside_dom_cod(inside, dom, cod, _scan)
+
+    def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
         ob = type(self).ob
         dom = dom if isinstance(dom, ob) else ob(dom)
         cod = cod if isinstance(cod, ob) else ob(cod)
@@ -196,10 +201,17 @@ class FreeCategory(Category):
                     previous, cod, previous, cod))
 
     @classmethod
+    def _new(cls, inside, dom, cod, _scan=True):
+        """ Build a new ``cls.ar`` bypassing its public constructor. """
+        result = cls.ar.__new__(cls.ar)
+        result._init_inside_dom_cod(inside, dom, cod, _scan)
+        return result
+
+    @classmethod
     def id(cls, dom=None):
         """The identity path, with no generators inside."""
         dom = cls.ob() if dom is None else dom
-        return cls.ar((), dom=dom, cod=dom, _scan=False)
+        return cls._new((), dom=dom, cod=dom, _scan=False)
 
     def then(self, *others):
         inside, dom, cod = self.inside, self.dom, self.cod
@@ -210,7 +222,7 @@ class FreeCategory(Category):
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     self, other, cod, other.dom))
             inside, cod = inside + other.inside, other.cod
-        return self.ar(inside, dom=dom, cod=cod, _scan=False)
+        return self._new(inside, dom=dom, cod=cod, _scan=False)
 
     def __iter__(self):
         return iter(self.inside)
@@ -223,7 +235,7 @@ class FreeCategory(Category):
             if key.step == -1:
                 inside = tuple(x.dagger() for x in self.inside[key])
                 if inside:
-                    return self.ar(
+                    return self._new(
                         inside, dom=inside[0].dom, cod=inside[-1].cod,
                         _scan=True)
                 start = key.indices(len(self))[0]
@@ -234,7 +246,7 @@ class FreeCategory(Category):
                 inside = self.inside[key]
                 if not inside:
                     return self.id(self.dom)
-                return self.ar(
+                return self._new(
                     inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=True)
             inside = self.inside[key]
             if not inside:
@@ -243,7 +255,7 @@ class FreeCategory(Category):
                 if (key.start or 0) <= -len(self):
                     return self.id(self.dom)
                 return self.id(self.inside[key.start or 0].dom)
-            return self.ar(
+            return self._new(
                 inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=False)
         if isinstance(key, int):
             if key >= len(self) or key < -len(self):

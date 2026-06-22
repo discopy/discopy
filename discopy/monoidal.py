@@ -96,23 +96,23 @@ white = Colour("white")
 class Ob(cat.Ob):
     """A generating 1-cell with a colour on either side."""
 
-    def __init__(self, name: str = "", dom: Colour = white,
-                 cod: Colour = white):
+    def __init__(self, name: str, dom: Colour = white,
+                 cod: Colour = white, is_dagger: bool = False):
         assert_isinstance(dom, Colour)
         assert_isinstance(cod, Colour)
+        self.is_dagger = is_dagger
         self.dom, self.cod = dom, cod
         super().__init__(name)
 
     def __setstate__(self, state):
         state.setdefault('dom', white)
         state.setdefault('cod', white)
+        state.setdefault('is_dagger', False)
         super().__setstate__(state)
 
     def dagger(self):
-        return type(self)(self.name, self.cod, self.dom)
-
-    def is_composable(self, other):
-        return isinstance(other, Ob) and self.cod == other.dom
+        return type(self)(
+            self.name, self.cod, self.dom, is_dagger=not self.is_dagger)
 
     def __eq__(self, other):
         return type(self) is type(other) and (
@@ -135,13 +135,15 @@ class Ob(cat.Ob):
             tree['dom'] = self.dom.to_tree()
         if self.cod != white:
             tree['cod'] = self.cod.to_tree()
+        if self.is_dagger:
+            tree['is_dagger'] = True
         return tree
 
     @classmethod
     def from_tree(cls, tree):
         dom = from_tree(tree['dom']) if 'dom' in tree else white
         cod = from_tree(tree['cod']) if 'cod' in tree else white
-        return cls(tree['name'], dom, cod)
+        return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree)
 
 
 class FreeMonoid(cat.FreeCategory, Monoid):
@@ -187,7 +189,6 @@ class Ty(cat.Ob, FreeMonoid):
     >>> assert t[0] != t.inside[0] == Ob('x')
     >>> assert t[1:] == t[-2:] == Ty('y', 'z')
     """
-    colour_factory = Colour
     ob = Colour
     generator_factory = Ob
 
@@ -202,10 +203,6 @@ class Ty(cat.Ob, FreeMonoid):
         self.__dict__.update(state)
         if not hasattr(self, 'name'):
             self.name = str(self)
-
-    @staticmethod
-    def is_generator(obj):
-        return isinstance(obj, Ob) and not isinstance(obj, Ty)
 
     def _coerce_generator(self, x: str | cat.Ob) -> cat.Ob:
         """ Turn a constructor argument into a ``self.generator_factory``. """
@@ -229,28 +226,19 @@ class Ty(cat.Ob, FreeMonoid):
     def __init__(self, *inside: str | cat.Ob,
                  dom: Colour = None, cod: Colour = None,
                  _scan: bool = True):
-        if len(inside) == 1 and isinstance(inside[0], tuple):
-            inside, = inside  # FreeCategory reconstructs with a single tuple.
+        self._init_inside_dom_cod(inside, dom, cod, _scan)
+
+    def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
         for obj in inside:
             assert_isinstance(obj, (str, self.generator_factory) + (
                 (cat.Ob, ) if type(self) is Ty else ()))
         inside = tuple(map(self._coerce_generator, inside))
         if dom is None:
-            dom = inside[0].dom\
-                if inside and self.is_generator(inside[0]) else white
+            dom = inside[0].dom if inside else white
         if cod is None:
-            cod = inside[-1].cod\
-                if inside and self.is_generator(inside[-1]) else white
-        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
+            cod = inside[-1].cod if inside else white
+        cat.FreeCategory._init_inside_dom_cod(self, inside, dom, cod, _scan)
         cat.Ob.__init__(self, str(self))
-
-    @classmethod
-    def id(cls, colour: Colour):
-        assert_isinstance(colour, cls.colour_factory)
-        result = cls()
-        result.dom = result.cod = colour
-        result.name = str(result)
-        return result
 
     def count(self, obj: cat.Ob) -> int:
         """
@@ -288,13 +276,15 @@ class Ty(cat.Ob, FreeMonoid):
             + f"({', '.join(map(repr, self.inside))})"
 
     def __str__(self):
+        name = type(self).__name__
         if not self.inside:
-            return type(self).__name__ + '()' if self.dom == white\
-                else f"Id({self.dom})"
+            if self.dom == white:
+                return f"{name}()"
+            return f"{name}.id({self.dom})"
         parts = []
         for ob in self.inside:
             s = str(ob)
-            parts.append(type(self).__name__ + '("")' if s == '' else s)
+            parts.append(f'{name}("")' if s == '' else s)
         return ' @ '.join(parts)
 
     def __iter__(self):
@@ -304,6 +294,7 @@ class Ty(cat.Ob, FreeMonoid):
     def __pow__(self, n_times):
         assert_isinstance(n_times, int)
         if n_times <= 0:
+            assert self.dom == self.cod
             return self.ar.id(self.dom)
         return self.tensor(*(n_times - 1) * [self])
 
@@ -324,11 +315,10 @@ class Ty(cat.Ob, FreeMonoid):
         inside = tuple(map(from_tree, tree['inside']))
         # Old dumps used cat.Ob as the generators of monoidal.Ty.
         inside = tuple(
-            cls.generator_factory(x.name) if type(x) is cat.Ob else x for x in inside)
+            cls.generator_factory(x.name) if type(x) is cat.Ob else x
+            for x in inside)
         if inside:
             return cls(*inside)
-        if 'colour' in tree:  # Backward compatibility with early colour dumps.
-            return cls.id(from_tree(tree['colour']))
         if 'dom' in tree:
             return cls(dom=from_tree(tree['dom']), cod=from_tree(tree['cod']))
         return cls()
@@ -442,14 +432,18 @@ class Dim(Ty):
     generator_factory = int
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True):
-        if len(inside) == 1 and isinstance(inside[0], tuple):
-            inside, = inside  # FreeCategory reconstructs with a single tuple.
         for dim in inside:
             assert_isinstance(dim, int)
             if dim < 1:
                 raise ValueError
-        super().__init__(*(dim for dim in inside if dim > 1),
-                         dom=dom, cod=cod, _scan=False)
+        self._init_inside_dom_cod(
+            tuple(dim for dim in inside if dim > 1), dom, cod, _scan=False)
+
+    def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
+        cat.FreeCategory._init_inside_dom_cod(
+            self, inside, white if dom is None else dom,
+            white if cod is None else cod, _scan)
+        cat.Ob.__init__(self, str(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
