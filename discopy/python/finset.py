@@ -190,9 +190,6 @@ class Permutation(Function, SymmetricCategory):
         return tuple(cycle)
 
     def then(self, other):
-        return self.compose(other)
-
-    def compose(self, other):
         """ Return ``self o other``, i.e. ``result[i] == self[other[i]]``. """
         other = type(self)(other, len(self))
         elems = (self[other[i]] for i in range(len(self)))
@@ -212,7 +209,7 @@ class Permutation(Function, SymmetricCategory):
     def conjugate(self, by):
         """ Return ``by o self o by^-1``. """
         by = type(self)(by, len(self))
-        return by.compose(self).compose(by.inverse())
+        return by.then(self).then(by.inverse())
 
     def tensor(self, other=None, *others):
         """ Return the disjoint union of permutations. """

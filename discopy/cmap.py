@@ -7,8 +7,23 @@ The ports of a map are ordered as in :mod:`discopy.hypergraph`: inputs,
 then the domain and codomain ports of each box, then outputs. A map is given by
 two permutations on these ports:
 
-* ``edge`` is a fixpoint-free involution pairing left and right ports;
+* ``edge`` is a fixpoint-free involution pairing ports into wires;
 * ``node`` is derived from the canonical counter-clockwise port order of boxes.
+
+Their composite determines the faces of the map. Closed wire components are
+stored separately in ``scalars`` together with their types.
+
+Summary
+-------
+
+.. autosummary::
+    :template: class.rst
+    :nosignatures:
+    :toctree:
+
+    PortKind
+    Port
+    CMap
 """
 
 from __future__ import annotations
@@ -39,6 +54,8 @@ if TYPE_CHECKING:
 
 
 class PortKind(StrEnum):
+    """ The four kinds of ports in a :class:`CMap`. """
+
     INPUT = "input"
     OUTPUT = "output"
     DOM = "dom"
@@ -46,28 +63,41 @@ class PortKind(StrEnum):
 
     @property
     def is_negative(self) -> bool:
+        """ Whether the port is a box input or map output. """
         return self == "dom" or self == "output"
 
     @property
     def is_positive(self) -> bool:
+        """ Whether the port is a map input or box output. """
         return self == "input" or self == "cod"
 
     @property
     def is_boundary(self) -> bool:
+        """ Whether the port belongs to the map boundary. """
         return self == "input" or self == "output"
 
     @property
     def is_input(self) -> bool:
+        """ Whether the port is drawn on the input side of a node. """
         return self == "input" or self == "dom"
 
     @property
     def is_output(self) -> bool:
+        """ Whether the port is drawn on the output side of a node. """
         return self == "cod" or self == "output"
 
 
 @dataclass(frozen=True)
 class Port:
-    """ A port in a combinatorial map. """
+    """
+    A port in a combinatorial map.
+
+    Parameters:
+        kind : The kind of boundary or box port.
+        i : The position within its boundary or box side.
+        obj : The type carried by the port.
+        depth : The box index, with inputs at ``-inf`` and outputs at ``+inf``.
+    """
     kind: PortKind
     i: int
     obj: Ob
@@ -75,7 +105,7 @@ class Port:
 
     @property
     def side(self) -> Literal["up"] | Literal["down"]:
-        """ Return the side of the box on which the port lies. """
+        """ The side on which the port is drawn. """
         is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
         if self.kind.is_input:
             return "down" if is_adjoint else "up"
@@ -83,7 +113,7 @@ class Port:
 
     @property
     def direction(self) -> Literal["in"] | Literal["out"]:
-        """ Return whether the port is an input or an output. """
+        """ The direction of the wire at the port. """
         is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
         if self.kind.is_input:
             return "out" if is_adjoint else "in"
@@ -94,7 +124,10 @@ class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     """
-    A oriented bijective hypergraph with interfaces.
+    An oriented bijective hypergraph with interfaces.
+
+    The edge involution gives the wires, while the cyclic order of ports around
+    each box gives the orientation.
 
     Parameters:
         dom : The domain of the map.
@@ -103,6 +136,16 @@ class CMap[C0: Pregroup, C1: CMap](
         edge : A fixpoint-free involution on ports.
         offsets : Optional drawing offsets, preserved through conversion.
         scalars : The types of closed wire components with no ports.
+
+    Example
+    -------
+    >>> from discopy.compact import Ty, Box
+    >>> x, y, z = map(Ty, "xyz")
+    >>> cmap = Box("f", x @ y, z).to_map()
+    >>> [port.kind.value for port in cmap.ports]
+    ['input', 'input', 'dom', 'dom', 'cod', 'output']
+    >>> tuple(cmap.edge), cmap.node_cycles
+    ((2, 3, 0, 1, 5, 4), ((2, 3, 4),))
     """
     functor: ClassVar[Functor]
     require_planar: ClassVar[bool] = True
@@ -131,7 +174,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def ports(self) -> list[Port]:
-        """ The ports in the map, in fixed Hypergraph order. """
+        """ The ports in fixed hypergraph order. """
         inputs = [Port(PortKind.INPUT, i=i, obj=obj, depth=float('-inf'))
                   for i, obj in enumerate(self.dom)]
         box_ports = sum([[
@@ -151,7 +194,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def box_port_indices(self) -> tuple[tuple[int, ...], ...]:
-        """ Port indices for each box. """
+        """ The consecutive port indices belonging to each box. """
         result, start = [], len(self.dom)
         for box in self.boxes:
             stop = start + len(box.dom @ box.cod)
@@ -161,7 +204,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def node_cycles(self) -> tuple[tuple[int, ...], ...]:
-        """ The node cycles, with empty cycles for zero-arity boxes. """
+        """ The oriented port cycle of each box, including empty boxes. """
         result = []
         for box_ports in self.box_port_indices:
             if not box_ports:
@@ -173,7 +216,7 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def face_permutation(self) -> Permutation:
         """ The face permutation ``node o edge``. """
-        return self.node.compose(self.edge)
+        return self.node.then(self.edge)
 
     @property
     def face_cycles(self) -> tuple[tuple[int, ...], ...]:
@@ -217,7 +260,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         node = Permutation.from_cycles(cycles, self.n_ports)
         return vertices - self.n_ports // 2\
-            + len(node.compose(self.edge).cycles()) + len(self.scalars)
+            + len(node.then(self.edge).cycles()) + len(self.scalars)
 
     @property
     def node(self) -> Permutation:
@@ -231,6 +274,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return Permutation.from_cycles(cycles, len(self.ports))
 
     def validate(self):
+        """ Validate the edge involution, wires and required planarity. """
         ports = self.ports
         if not self.edge.is_fixpoint_free_involution():
             raise ValueError
@@ -274,9 +318,12 @@ class CMap[C0: Pregroup, C1: CMap](
     @classmethod
     def validate_wire(cls, source: Port, target: Port):
         """
-        Validate whether two ports can be connected by a wire.
-        By default, these are the rules for symmetric categories
-        which are the weakest setting :class:`CMap` can represent.
+        Validate a wire between two ports.
+
+        Subclasses override this hook to enforce their categorical structure.
+
+        Raises:
+            AxiomError : If the types or orientations are incompatible.
         """
         def compatible(left, right):
             return left == right or getattr(left, "r", None) == right\
@@ -334,6 +381,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def id(cls, dom=None) -> CMap:
+        """ The identity map, with each input wired to its output. """
         dom = cls.ob() if dom is None else dom
         n_ports = 2 * len(dom)
         edge = Permutation.from_transpositions(
@@ -342,6 +390,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def from_box(cls, box: Box) -> CMap:
+        """ Embed a box, wiring its boundary to fresh box ports. """
         left = len(box.dom)
         right = len(box.cod)
         n_ports = 2 * (left + right)
@@ -357,10 +406,18 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         Turn a :class:`Diagram` into a :class:`CMap`.
 
-        This follows the same architecture as :meth:`Hypergraph.from_diagram`:
-        traverse the diagram with the hierarchy-specific functor and let the
-        codomain map decide which categorical structure is represented as
-        wiring and which structure is kept as boxes.
+        Structure available at the map's categorical level becomes wiring;
+        structure from the next level remains represented by boxes.
+
+        >>> from discopy.braided import Ty, Braid
+        >>> from discopy.monoidal import CMap
+        >>> x, y = map(Ty, "xy")
+        >>> CMap.from_diagram(Braid(x, y)).boxes == (Braid(x, y),)
+        True
+        >>> from discopy.symmetric import Ty as STy, Swap
+        >>> x, y = map(STy, "xy")
+        >>> Swap(x, y).to_map().boxes
+        ()
         """
         factory = cls if cls.functor is not None else cls[
             type(old), type(old).functor]
@@ -370,7 +427,12 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def from_hypergraph(cls, old: hypergraph.Hypergraph) -> CMap:
-        """ Build a combinatorial map from a bijective hypergraph. """
+        """
+        Build a combinatorial map from a bijective hypergraph.
+
+        Raises:
+            ValueError : If a spider is not incident to zero or two ports.
+        """
         if not old.is_bijective:
             raise ValueError
         factory = cls if cls.functor is not None else cls[
@@ -381,7 +443,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
-        """ The symmetry, encoded as boundary wiring. """
+        """ The symmetry encoded as boundary wiring. """
         dom, cod = left @ right, right @ left
         left_len, right_len = len(left), len(right)
         output_start = len(dom)
@@ -395,7 +457,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def cups(cls, left: Ty, right: Ty) -> CMap:
-        """ Cups, encoded as boundary wiring when types are adjoint. """
+        """ A cup encoded as boundary wiring between adjoint types. """
         if not getattr(left, "r", left[::-1]) == right:
             raise AxiomError
         size = len(left)
@@ -406,7 +468,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def caps(cls, left: Ty, right: Ty) -> CMap:
-        """ Caps, encoded as boundary wiring when types are adjoint. """
+        """ A cap encoded as boundary wiring between adjoint types. """
         if not getattr(left, "r", left[::-1]) == right:
             raise AxiomError
         size = len(left)
@@ -432,11 +494,12 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
+        """ Evaluation kept as a box. """
         return cls.from_box(cls.category.ev(base, exponent, left))
 
     def curry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        The currying functor applied on this map.
+        Curry a combinatorial map using compact wiring.
 
         Note:
             This will use the free closed structure obtained from the map
@@ -449,12 +512,8 @@ class CMap[C0: Pregroup, C1: CMap](
 
         >>> from discopy.compact import Ty, Box
         >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
-        >>> f = Box("f", X @ Y, Z)
-        >>> f.to_map().curry().draw(
-        ...     path='docs/_static/cmap/curry.png', show=False)
-
-        .. image:: /_static/cmap/curry.png
-            :align: center
+        >>> f = Box("f", X @ Y, Z).to_map()
+        >>> assert f.curry().uncurry() == f
         """
         if n < 0 or n > len(self.dom):
             raise ValueError
@@ -475,10 +534,7 @@ class CMap[C0: Pregroup, C1: CMap](
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
 
-        >>> from discopy.compact import Ty, Box
-        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
-        >>> f = Box("f", X @ Y, Z).to_map()
-        >>> assert f.curry().uncurry() == f
+        This is inverse to :meth:`curry` when applied on the same side.
         """
         if n < 0 or n > len(self.cod):
             raise ValueError
@@ -503,7 +559,17 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @unbiased
     def then(self, other: CMap) -> CMap:
-        """ Sequential composition, gluing output ports to input ports. """
+        """
+        Compose maps by gluing output ports to input ports.
+
+        Closed components created by gluing are retained in :attr:`scalars`.
+
+        >>> from discopy.compact import Ty, CMap
+        >>> x = Ty("x")
+        >>> scalar = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
+        >>> scalar.scalars == (x,)
+        True
+        """
         if not self.cod == other.dom:
             raise AxiomError(messages.TYPE_ERROR.format(other.dom, self.cod))
         dom, cod = self.dom, other.cod
@@ -553,7 +619,13 @@ class CMap[C0: Pregroup, C1: CMap](
             scalars=scalars)
 
     def trace(self, n: int = 1, left: bool = False) -> CMap:
-        """ Partial trace, encoded by splicing traced boundary wires. """
+        """
+        Trace boundary wires by splicing the selected inputs and outputs.
+
+        Parameters:
+            n : The number of wires to trace.
+            left : Whether to trace the leftmost rather than rightmost wires.
+        """
         if n < 0:
             raise ValueError
         if not n:
@@ -603,7 +675,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @unbiased
     def tensor(self, other: CMap) -> CMap:
-        """ Tensor product, given by disjoint union of permutations. """
+        """ Tensor product given by disjoint union of the two maps. """
         dom, cod = self.dom @ other.dom, self.cod @ other.cod
         boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
@@ -648,6 +720,13 @@ class CMap[C0: Pregroup, C1: CMap](
 
         The edge permutation is relabeled so that ports follow the canonical
         order induced by the new box order.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f, g = Box("f", x, x), Box("g", y, y)
+        >>> cmap = f.to_map() @ g.to_map()
+        >>> cmap.interchange(0, 1).boxes == (g, f)
+        True
         """
         boxes, offsets = list(self.boxes), list(self.offsets)
         boxes[i], boxes[j] = boxes[j], boxes[i]
@@ -686,6 +765,10 @@ class CMap[C0: Pregroup, C1: CMap](
         ``self.plug_input(i, box, z)`` removes the ``i``-th input, wires the
         old output to the domain of ``box``, wires the removed input to the
         non-root output of ``box``, and leaves ``root_index`` as the new root.
+
+        Raises:
+            ValueError : If the map or box does not have the required arity,
+                or either index is out of range.
         """
         assert_isinstance(box, self.category)
         if len(self.cod) != 1 or len(box.dom) != 1 or len(box.cod) != 2:
@@ -741,6 +824,12 @@ class CMap[C0: Pregroup, C1: CMap](
     def to_hypergraph(self) -> hypergraph.Hypergraph:
         """
         Forget orientation and return the underlying bijective hypergraph.
+
+        >>> from discopy.compact import Ty, Box, CMap
+        >>> x, y = map(Ty, "xy")
+        >>> cmap = Box("f", x, y).to_map()
+        >>> CMap.from_hypergraph(cmap.to_hypergraph()) == cmap
+        True
         """
         spider_types, flat_wires = [], [None] * self.n_ports
         for i in range(self.n_ports):
@@ -767,6 +856,12 @@ class CMap[C0: Pregroup, C1: CMap](
         right. For each box, it swaps boundary wires until the box domain wires
         are adjacent at the requested offset, applies the box, and replaces
         consumed domain labels by the box codomain labels.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> cmap = Box("f", x, y).to_map()
+        >>> cmap.to_diagram().to_map() == cmap
+        True
         """
         edge_wire = {}
         for i, j in enumerate(self.edge):
@@ -826,6 +921,12 @@ class CMap[C0: Pregroup, C1: CMap](
         The drawing has HTML-table nodes for the boundary interfaces and for
         each box, with one table port for each object in the signature, and
         one direct edge per 2-cycle of ``edge``.
+
+        Parameters:
+            engine : The Graphviz layout engine.
+            seed : An optional Graphviz layout seed.
+            graph_attr : Additional graph attributes.
+            port_indices : Whether to display port indices.
 
         >>> from discopy.compact import Ty, CMap
         >>> CMap.id(Ty("x")).to_dot().startswith("graph cmap")
@@ -999,6 +1100,26 @@ class CMap[C0: Pregroup, C1: CMap](
         If ``path`` ends in ``.dot`` or ``.gv``, write DOT source. Otherwise,
         render with Graphviz. When ``show`` is true, display the rendered graph
         in a matplotlib window.
+
+        Parameters:
+            path : The output path, or ``None`` to display the map.
+            engine : The Graphviz layout engine.
+            format : The rendered format, inferred from ``path`` by default.
+            seed : An optional Graphviz layout seed.
+            show : Whether to display the rendered image.
+            graph_attr : Additional Graphviz graph attributes.
+            boundary_labels : Accepted for drawing API compatibility.
+            box_labels : Accepted for drawing API compatibility.
+            port_indices : Whether to display port indices.
+            block : Whether displaying blocks execution.
+
+        >>> from discopy.compact import Ty, Box
+        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+        >>> Box("f", X @ Y, Z).to_map().curry().draw(
+        ...     path="docs/_static/cmap/curry.png", show=False)
+
+        .. image:: /_static/cmap/curry.png
+            :align: center
         """
         dot = self.to_dot(
             engine=engine, seed=seed, graph_attr=graph_attr,
