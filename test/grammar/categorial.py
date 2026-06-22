@@ -101,8 +101,6 @@ def test_BA_FA():
         FA(g, x)
 
     assert FA(f, x).eval() == f.eval() @ x.eval() >> Eval(Y << X)
-    assert FA(f, x).to_map().boxes == (f, x, Eval(Y << X))
-    assert BA(x, g).to_map().boxes == (x, g, Eval(X >> Y))
 
 
 def test_terms_simplify_and_eval():
@@ -128,8 +126,6 @@ def test_terms_simplify_and_eval():
         assert term.eval() == term.simplify().eval()
     assert FTR(Y, x).cod == Y << (X >> Y)
     assert BTR(Y, x).cod == (Y << X) >> Y
-    assert FTR(Y, x).to_map() == FTR(Y, x).simplify().to_map()
-    assert BTR(Y, x).to_map() == BTR(Y, x).simplify().to_map()
 
     fc, bc = FC(g_left, f_left), BC(f_right, g_right)
     assert fc.freevars == []
@@ -140,8 +136,6 @@ def test_terms_simplify_and_eval():
         x_var, x_var(f_right, left=True)(g_right, left=True), left=True)
     assert fc.eval() == fc.simplify().eval()
     assert bc.eval() == bc.simplify().eval()
-    assert fc.to_map() == fc.simplify().to_map()
-    assert bc.to_map() == bc.simplify().to_map()
 
     assert FX(g_left, f_right).simplify() == FX(g_left, f_right)
     assert BX(f_left, g_right).simplify() == BX(f_left, g_right)
@@ -162,7 +156,6 @@ def test_complex_sentence():
     sentence = That(is_(exactly(what(FC(
         FTR(s, I), BX(showed, BTR((n >> s), to(her))))))), left=True)
 
-    assert sentence.to_map().cod == s
     assert sentence.constants == [That, is_, exactly, what, I, showed, to, her]
     assert eval(str(sentence)) == eval(repr(sentence)) == sentence
 
@@ -207,10 +200,6 @@ def test_FC_BC_FX_BX():
     assert BX(f_left, g_right).eval()\
         == f_left @ g_right\
         >> BackwardCrossedComposition(Y << X, Y >> Z)
-    assert FX(g_left, f_right).to_map().boxes[-1]\
-        == ForwardCrossedComposition(Z << Y, X >> Y)
-    assert BX(f_left, g_right).to_map().boxes[-1]\
-        == BackwardCrossedComposition(Y << X, Y >> Z)
 
 
 def test_Functor():

@@ -76,19 +76,6 @@ def test_Term_linear_planar():
         Abstraction(var, var(gvar, left=True), left=True)
 
 
-def test_term_from_map():
-    x, y = Ty('x'), Ty('y')
-    f, x_var = Variable('f', y << x), Variable('x', x)
-    g, var = Variable('g', x >> y), Variable('x0', x)
-
-    assert CMap.from_box(Eval(y << x)).to_term(['f', 'x']) == f(x_var)
-    assert CMap.from_box(Eval(x >> y)).to_term(['x', 'g'])\
-        == x_var(g, left=True)
-
-    cmap = CMap.id(x).plug_input(0, Coeval(x << x), x << x)
-    assert cmap.to_term() == Abstraction(var, var)
-
-
 def test_to_rigid():
     from discopy import rigid
 

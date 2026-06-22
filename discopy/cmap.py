@@ -20,7 +20,7 @@ from io import BytesIO
 from math import lcm
 import shutil
 import subprocess
-from typing import Any, TYPE_CHECKING, ClassVar, Callable, Literal
+from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
 from discopy import messages, hypergraph
 from discopy.cat import Ob
@@ -36,7 +36,6 @@ from discopy.utils import (
 
 if TYPE_CHECKING:
     from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
-    from discopy.biclosed import Term
 
 
 class PortKind(StrEnum):
@@ -818,117 +817,6 @@ class CMap[C0: Pregroup, C1: CMap](
                 scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
         return diagram
 
-    def to_term(
-            self, input_names: Iterable[str] | None = None):
-        """
-        Recover a term by an oriented DFS from the root, building up a term
-        in continuation-passing style.
-        """
-        self.assert_rooted_map()
-        names = tuple(
-            (f"x{i}" for i in range(len(self.dom)))
-            if input_names is None else input_names)
-        if len(names) != len(self.dom):
-            raise ValueError
-
-        def term_type(obj: Ty) -> Ty:
-            assert_isinstance(obj, self.category.ob)
-            return obj if hasattr(obj, "inside") else obj.ob(obj)
-
-        cod = term_type(self.cod)
-        variable_factory = cod.variable_factory
-        constant_factory = cod.constant_factory
-        application_factory = cod.application_factory
-        abstraction_factory = cod.abstraction_factory
-        eval_factory = self.category.eval_factory
-        coeval_factory = self.category.coeval_factory
-
-        variables = tuple(
-            variable_factory(name, term_type(obj))
-            for obj, name in zip(self.dom, names)
-        )
-        counter = len(variables)
-
-        def fresh(obj: Ty) -> Term:
-            nonlocal counter
-            variable = variable_factory(f"x{counter}", obj)
-            counter += 1
-            return variable
-
-        def dfs(
-            port_idx: int,
-            bound_ports: dict[int, Term],
-            continuation: Callable[[Term], Term]
-        ) -> Term:
-            port_idx = self.edge[port_idx]
-            if port_idx in bound_ports:
-                return continuation(bound_ports[port_idx])
-
-            port = self.ports[port_idx]
-            if port.kind == PortKind.INPUT:
-                return continuation(variables[port.i])
-            if port.kind.is_boundary or port.depth is None:
-                raise ValueError
-
-            box = self.boxes[port.depth]
-            box_ports = self.box_port_indices[port.depth]
-
-            if isinstance(box, eval_factory):
-                if port.kind != PortKind.COD or port.i != 0:
-                    raise ValueError
-                dom_ports = [
-                    i for i in box_ports if self.ports[i].kind == "dom"]
-                func_port, arg_port = dom_ports if box.left\
-                    else tuple(reversed(dom_ports))
-                return dfs(
-                    func_port,
-                    bound_ports,
-                    lambda func:
-                        dfs(
-                            arg_port,
-                            bound_ports,
-                            lambda arg:
-                                continuation(application_factory(
-                                    func, arg, left=not box.left))
-                        )
-                )
-
-            if isinstance(box, coeval_factory):
-                cod = term_type(self.ports[port_idx].obj)
-                if port.kind != PortKind.COD or not cod.is_exp:
-                    raise ValueError
-                body_port, = [
-                    i for i in box_ports if self.ports[i].kind == PortKind.DOM]
-                parameter_port, = [
-                    i for i in box_ports
-                    if self.ports[i].kind == PortKind.COD and i != port_idx]
-                variable = fresh(cod.exponent)
-                return dfs(
-                    body_port,
-                    bound_ports | {parameter_port: variable},
-                    lambda body: continuation(abstraction_factory(
-                        variable, body, left=not box.left)))
-
-            if port.kind == PortKind.COD and not box.dom and len(box.cod) == 1:
-                return continuation(constant_factory(
-                    box.name, term_type(box.cod)))
-
-            raise ValueError
-
-        return dfs(self.n_ports - 1, {}, lambda term: term)
-
-    def assert_rooted_map(self):
-        if len(self.cod) != 1:
-            raise ValueError
-        if self.scalars:
-            raise ValueError
-        if self.n_ports == 0 or self.ports[-1].kind != PortKind.OUTPUT:
-            raise ValueError
-        if self.node[-1] != self.n_ports - 1:
-            raise ValueError
-        if self.edge[-1] == self.n_ports - 1:
-            raise ValueError
-
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
             port_indices=False) -> str:
@@ -939,22 +827,9 @@ class CMap[C0: Pregroup, C1: CMap](
         each box, with one table port for each object in the signature, and
         one direct edge per 2-cycle of ``edge``.
 
-        >>> from discopy.closed import Ty
-        >>> t0, t1, t2, t3, t4, t5, t6 = (Ty(f"t{i}") for i in range(7))
-        >>> petersen = (((t1 >> t0) >> t5) >> t6)(
-        ...     lambda a: (t2 >> t3)(
-        ...         lambda b: (t4 >> t5)(
-        ...             lambda c: ((t1 >> t0) >> t2)(
-        ...                 lambda d: (t3 >> t4)(
-        ...                     lambda e:
-        ...                         a((t1 >> t0)(lambda f: c(e(b(d(f))))))
-        ...                 )
-        ...             )
-        ...         )
-        ...     )
-        ... )
-        >>> petersen.to_map().draw(
-        ...     path="docs/_static/cmap/petersen.png")
+        >>> from discopy.compact import Ty, CMap
+        >>> CMap.id(Ty("x")).to_dot().startswith("graph cmap")
+        True
         """
         attrs = {
             "layout": engine,

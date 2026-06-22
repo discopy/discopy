@@ -22,6 +22,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
     TermBase
     Constant
     Variable
@@ -61,15 +62,13 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from dataclasses import dataclass
-from typing import Callable, ClassVar, Self, Iterable
+from typing import Callable, ClassVar
 
-from discopy import cat, monoidal, messages
+from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
-    AxiomError,
     assert_isinstance,
     factory_name,
     from_tree,
@@ -107,24 +106,6 @@ class Ty(monoidal.Ty):
 
     def __rshift__(self, other):
         return other.under(self)
-
-    def __call__(self, arg):
-        if isinstance(arg, str):
-            return self.constant_factory(arg, self)
-        elif isinstance(arg, Callable):
-            parameters = dict(signature(arg).parameters)
-            left = False
-            if "left" in parameters:
-                left_param = parameters.pop("left")
-                left = left_param.default
-                if not isinstance(left, bool):
-                    raise NotImplementedError
-            varnames = list(parameters.keys())
-            if len(varnames) != 1:
-                raise NotImplementedError
-            var = self.variable_factory(varnames[0], self)
-            return self.abstraction_factory(var, arg(var), left)
-        raise ValueError
 
     def __call__(self, arg):
         if isinstance(arg, str):
@@ -421,6 +402,13 @@ class Sum(monoidal.Sum, Box):
     """
 
 
+Id = Diagram.id
+Diagram.curry_factory = Curry
+Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
+Diagram.sum_factory = Sum
+
+
 class Functor(monoidal.Functor):
     """
     A biclosed functor is a monoidal functor
@@ -462,12 +450,7 @@ class CMap(monoidal.CMap):
     functor = Functor
 
 
-Id = Diagram.id
 Diagram.map_factory = CMap
-Diagram.curry_factory = Curry
-Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
-Diagram.sum_factory = Sum
 
 
 class TermBase(Box):
@@ -513,14 +496,6 @@ class TermBase(Box):
     freevars: list[Variable]
     functor: ClassVar[Functor] = Functor.id(Diagram)
 
-    def __eq__(self, other):
-        return isinstance(other, TermBase)\
-            and self.alpha_equal(
-                other, Substitution(()), Substitution(()))
-
-    def __hash__(self):
-        return hash(self.alpha_key(Substitution(())))
-
     @abstractmethod
     def eval(functor: Functor = None) -> BiclosedCategory:
         """
@@ -529,39 +504,13 @@ class TermBase(Box):
         category, i.e. terms are compiled to diagrams with constants as boxes.
         """
 
-    @abstractmethod
-    def __substitute__(self, subst: Substitution) -> Term:
-        """
-        Substitute the current term by a given substitution.
-        Can be called as `subst(self)` as well.
-        """
-        raise NotImplementedError
-
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
 
-    @property
-    def map_category(self):
-        return self.functor.cod.map_factory
-
-    def to_map(self, category=None):
-        raise NotImplementedError
-
     def __call__(self, other, left=False):
         args = (other, self, left) if left else (self, other, left)
         return self.cod.application_factory(*args)
-
-    def alpha_equal(self, other, left_sub, right_sub) -> bool:
-        return self.alpha_key(left_sub) == other.alpha_key(right_sub)
-
-    @abstractmethod
-    def alpha_key(self, substitution):
-        raise NotImplementedError
-
-    @staticmethod
-    def alpha_bound(cod, index):
-        return cod.variable_factory(f"__bound_{index}", cod)
 
 
 class Constant(TermBase):
@@ -582,27 +531,15 @@ class Constant(TermBase):
     def constants(self):
         return [self]
 
-    def __substitute__(self, subst: Substitution) -> Constant:
-        return self
-
     def eval(self, functor=None):
         functor = functor or self.functor
         return functor.ar_map[self]
-
-    def to_map(self, category=None):
-        category = category or self.map_category
-        cmap = category.from_box(self)
-        assert_term_map(cmap, self, category)
-        return cmap
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
     def __str__(self):
-        return f"{self.cod}({self.name!r})"
-
-    def alpha_key(self, substitution):
-        return ("constant", self.cod, self.name)
+        return f"{self.cod!s}({self.name!r})"
 
 
 class Variable(TermBase):
@@ -621,29 +558,11 @@ class Variable(TermBase):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
 
-    def to_map(self, category=None):
-        category = category or self.map_category
-        cmap = category.id(self.cod)
-        assert_term_map(cmap, self, category)
-        return cmap
-
-    def __substitute__(self, subst: Substitution) -> Term:
-        return subst.lookup(self)
-
     @property
     def constants(self):
         return []
 
     __repr__ = Constant.__repr__
-
-    def alpha_key(self, substitution):
-        image = substitution(self)
-        return ("free", self.cod, self.name) if image is self\
-            else ("bound", image.cod, image.name)
-
-    def same_variable(self, other):
-        return isinstance(other, Variable)\
-            and (self.cod, self.name) == (other.cod, other.name)
 
 
 class Application(TermBase):
@@ -661,7 +580,7 @@ class Application(TermBase):
         assert_isinstance(func, TermBase)
         assert_isinstance(args, TermBase)
         if not func.cod.is_exp:
-            raise TypeError
+            raise TypeError(f"Expected {Exp}, got {type(func.cod)}")
         self.func, self.args, self.left = func, args, left
         if self.func.cod.exponent != self.args.cod:
             raise ValueError(
@@ -679,9 +598,6 @@ class Application(TermBase):
             else args.freevars + func.freevars
         return args.dom @ func.dom if left else func.dom @ args.dom
 
-    def __substitute__(self, subst: Substitution) -> Term:
-        return type(self)(subst(self.func), subst(self.args), self.left)
-
     def eval(self, functor=None):
         functor = functor or self.functor
         func = self.func.eval(functor=functor)
@@ -690,19 +606,6 @@ class Application(TermBase):
         ev = functor.cod.ev(
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
-
-    def to_map(self, category=None):
-        category = category or self.map_category
-        if getattr(self, "overlap", ()):
-            raise AxiomError(messages.NON_AFFINE_TERM(*self.overlap))
-        func_map = self.func.to_map(category)
-        args_map = self.args.to_map(category)
-        app = category.category.eval_factory(
-            self.func.cod, left=not self.left)
-        cmap = (args_map @ func_map if self.left else func_map @ args_map)\
-            >> category.from_box(app)
-        assert_term_map(cmap, self, category)
-        return cmap
 
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
@@ -713,13 +616,6 @@ class Application(TermBase):
     def constants(self):
         return self.args.constants + self.func.constants if self.left\
             else self.func.constants + self.args.constants
-
-    def alpha_key(self, substitution):
-        return (
-            "application",
-            self.left,
-            self.func.alpha_key(substitution),
-            self.args.alpha_key(substitution))
 
 
 class Abstraction(TermBase):
@@ -750,29 +646,6 @@ class Abstraction(TermBase):
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))
 
-    def to_map(self, category=None):
-        category = category or self.map_category
-        body_map = self.body.to_map(category)
-        matches = [
-            index for index, variable in enumerate(self.body.freevars)
-            if variable == self.var]
-        if len(matches) == 0:
-            raise AxiomError(messages.NON_RELEVANT_TERM.format(var=self.var))
-        if len(matches) > 1:
-            raise AxiomError(messages.NON_AFFINE_TERM(self.var))
-        index, = matches
-        lam = category.category.coeval_factory(
-            self.cod, left=not self.left)
-        cmap = body_map.plug_input(
-            index, lam, self.cod, root_index=int(self.left))
-        assert_term_map(cmap, self, category)
-        return cmap
-
-    def __substitute__(self, subst: Substitution) -> Term:
-        inner_subst = subst.without((self.var, ))
-        return type(self)(
-            self.var, inner_subst(self.body), left=self.left)
-
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)
         left = ", left=True" if self.left else ""
@@ -782,62 +655,8 @@ class Abstraction(TermBase):
     def constants(self):
         return self.body.constants
 
-    def alpha_key(self, substitution):
-        variable = self.alpha_bound(self.var.cod, len(substitution))
-        return (
-            "abstraction",
-            self.left,
-            self.var.cod,
-            self.body.alpha_key(
-                substitution.extend(((self.var, variable), ))))
-
 
 type Term = Constant | Variable | Application | Abstraction
-
-
-def assert_term_map(cmap, term, category: type[CMap] | None = None):
-    category = category or term.map_category
-    if cmap.dom != category.ob().tensor(
-            *(variable.cod for variable in term.freevars)):
-        raise ValueError
-    if cmap.cod != term.cod:
-        raise ValueError
-
-
-@dataclass
-class Substitution[V: Variable, T: Term]:
-    inside: dict[V, T] | tuple[tuple[V, T], ...]
-
-    def __len__(self):
-        return len(tuple(self.items()))
-
-    def items(self):
-        return self.inside.items() if hasattr(self.inside, "items")\
-            else self.inside
-
-    def lookup(self, v: V) -> T:
-        try:
-            # lookup without resorting to `TermBase.__hash__`
-            # because hashing depends on substitutions and would
-            # otherwise trigger an infinite loop
-            return next(t for x, t in self.items() if x == v)
-        except StopIteration:
-            return v
-
-    def extend(self, inside: dict[V, T] | tuple[tuple[V, T], ...]) -> Self:
-        items = inside.items() if hasattr(inside, "items") else inside
-        return type(self)(tuple(self.items()) + tuple(items))
-
-    def without(self, variables: Iterable[V]) -> Self:
-        return type(self)(tuple(
-            (k, v) for k, v in self.items()
-            if all(not k.same_variable(variable)
-                   for variable in variables)))
-
-    def __call__(self, term: T) -> T:
-        assert_isinstance(term, TermBase)
-        return term.__substitute__(self)
-
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant

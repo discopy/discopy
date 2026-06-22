@@ -425,16 +425,3 @@ def test_euler_characteristic():
     assert box.face_cycles == ((0, 2, 3, 1),)
     assert box.euler_characteristic == 2
     assert (box @ scalar).euler_characteristic == 3
-
-
-def test_to_term_errors():
-    from discopy.closed import Ty, Box, CMap as M
-
-    x, y = map(Ty, "xy")
-    with raises(ValueError):
-        M.id(x).to_term([])
-    with raises(ValueError):
-        M(x, x, (), [1, 0], (), (x)).to_term([])
-    with raises(ValueError):
-        M.id(x @ y).to_term()
-    assert M.from_box(Box("c", Ty(), x)).to_term() == x("c")

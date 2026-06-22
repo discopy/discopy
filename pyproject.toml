@@ -96,9 +96,6 @@ docs  = [
 [tool.setuptools_scm]
 version_file = "discopy/version.py"
 
-[tool.setuptools.packages.find]
-include = ["discopy*"]
-
 [tool.uv]
 default-groups = ["dev"]
 

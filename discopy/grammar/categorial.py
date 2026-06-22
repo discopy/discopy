@@ -28,6 +28,7 @@ Summary
     ForwardCrossedComposition
     BackwardCrossedComposition
     Functor
+    CMap
 
 .. admonition:: Functions
 
@@ -41,13 +42,11 @@ Summary
 """
 
 from __future__ import annotations
-from typing import Self
 
 from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
-from discopy.biclosed import Substitution
 from discopy.grammar import thue
 from discopy.utils import (
     ob_factory,
@@ -71,12 +70,6 @@ class Over(biclosed.Over):
 
 class Under(biclosed.Under):
     "Categorial grammar type ``exponent >> base``."
-
-    ob = Ty
-
-
-class Exp(biclosed.Exp):
-    "Categorial grammar type ``base ** exponent``."
 
     ob = Ty
 
@@ -163,12 +156,6 @@ class Curry(biclosed.Curry, Box):
     """
 
 
-class Coeval(biclosed.Coeval, Box):
-    """
-    Coevaluation box in a categorial grammar.
-    """
-
-
 class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
@@ -185,8 +172,6 @@ class ForwardCrossedComposition(BinaryBoxConstructor, Box):
 
 class BackwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Backward crossed composition rule. """
-    drawing_name = "BX"
-
     def __init__(self, left, right):
         assert left.is_over
         assert right.is_under
@@ -245,7 +230,7 @@ class TermBase(Box, biclosed.TermBase):
         return BA(self, other) if left else FA(self, other)
 
 
-class Constant(biclosed.Constant, TermBase):
+class Constant(TermBase, biclosed.Constant):
     def __init__(self, name: str, cod: Ty):
         biclosed.Constant.__init__(self, name, cod)
         TermBase.__init__(self, self.name, self.dom, self.cod)
@@ -254,12 +239,12 @@ class Constant(biclosed.Constant, TermBase):
         return self
 
 
-class Variable(biclosed.Variable, TermBase):
+class Variable(TermBase, biclosed.Variable):
     def simplify(self):
         return self
 
 
-class Abstraction(biclosed.Abstraction, TermBase):
+class Abstraction(TermBase, biclosed.Abstraction):
     var: Variable
     body: Term
     left: bool = False
@@ -272,7 +257,7 @@ class Abstraction(biclosed.Abstraction, TermBase):
         return Abstraction(self.var, self.body.simplify(), self.left)
 
 
-class FA(biclosed.Application, TermBase):
+class FA(TermBase, biclosed.Application):
     "Application of type ``Y`` with subterms of type ``Y << X`` and ``X``."
     def __init__(self, func, args):
         biclosed.Application.__init__(self, func, args, left=False)
@@ -282,7 +267,7 @@ class FA(biclosed.Application, TermBase):
         return self.func.simplify()(self.args.simplify())
 
 
-class BA(biclosed.Application, TermBase):
+class BA(TermBase, biclosed.Application):
     "Application of type ``Y`` with subterms of type ``X`` and ``X >> Y``."
     def __init__(self, args, func):
         biclosed.Application.__init__(self, func, args, left=True)
@@ -308,24 +293,12 @@ class TypeRaising(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
-    def to_map(self, category=None):
-        return self.simplify().to_map(category)
-
-    def __substitute__(self, subst: Substitution) -> Self:
-        return type(self)(self.base, subst(self.child), self.cod)
-
     def __repr__(self):
         return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
 
     @property
     def constants(self):
         return self.child.constants
-
-    def alpha_key(self, substitution):
-        return (
-            type(self).__name__,
-            self.base,
-            self.child.alpha_key(substitution))
 
 
 class FTR(TypeRaising):
@@ -370,24 +343,12 @@ class BinaryTerm(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
-    def to_map(self, category=None):
-        return self.simplify().to_map(category)
-
-    def __substitute__(self, subst: Substitution) -> Self:
-        return type(self)(subst(self.left), subst(self.right))
-
     def __repr__(self):
         return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
 
     @property
     def constants(self):
         return self.left.constants + self.right.constants
-
-    def alpha_key(self, substitution):
-        return (
-            type(self).__name__,
-            self.left.alpha_key(substitution),
-            self.right.alpha_key(substitution))
 
 
 @dataclass(frozen=True, repr=False)
@@ -451,14 +412,6 @@ class FX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
-    def to_map(self, category=None):
-        category = category or self.map_category
-        cmap = self.left.to_map(category) @ self.right.to_map(category)\
-            >> category.from_box(ForwardCrossedComposition(
-                self.left.cod, self.right.cod))
-        biclosed.assert_term_map(cmap, self, category)
-        return cmap
-
 
 @dataclass(frozen=True, repr=False)
 class BX(BinaryTerm):
@@ -476,14 +429,6 @@ class BX(BinaryTerm):
         X, Y = self.left.cod.exponent, self.left.cod.base
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
-
-    def to_map(self, category=None):
-        category = category or self.map_category
-        cmap = self.left.to_map(category) @ self.right.to_map(category)\
-            >> category.from_box(BackwardCrossedComposition(
-                self.left.cod, self.right.cod))
-        biclosed.assert_term_map(cmap, self, category)
-        return cmap
 
 
 type Term = (
@@ -554,7 +499,6 @@ Id = Diagram.id
 Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
-Diagram.coeval_factory = Coeval
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant
@@ -562,4 +506,4 @@ Ty.application_factory =\
     lambda func, args, left=False: BA(args, func) if left else FA(func, args)
 Ty.abstraction_factory = Abstraction
 
-Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
+Ty.over_factory, Ty.under_factory = Over, Under

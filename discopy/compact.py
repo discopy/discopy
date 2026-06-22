@@ -60,7 +60,7 @@ Coherence
 from discopy import symmetric, ribbon
 from discopy.abc import CompactCategory
 from discopy.cat import ar_factory
-from discopy.pivotal import Ty
+from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
 @ar_factory
