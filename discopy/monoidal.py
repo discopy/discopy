@@ -216,9 +216,10 @@ class Ty(cat.Ob, FreeMonoid):
         """
         Old dumps and pickles used a plain :class:`cat.Ob`, with no colour,
         as the generators of :class:`monoidal.Ty`. We only allow this for
-        the base :class:`Ty` class, where it gets upgraded to ``Ob(x.name)``.
+        subclasses whose generators are plain :class:`Ob`, where it gets
+        upgraded to ``Ob(x.name)``.
         """
-        if type(self) is Ty and type(x) is cat.Ob:
+        if self.generator_factory is Ob and type(x) is cat.Ob:
             return self.generator_factory(x.name)
         raise AxiomError(
             messages.TYPE_ERROR.format(self.generator_factory, type(x)))
@@ -231,7 +232,7 @@ class Ty(cat.Ob, FreeMonoid):
     def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
         for obj in inside:
             assert_isinstance(obj, (str, self.generator_factory) + (
-                (cat.Ob, ) if type(self) is Ty else ()))
+                (cat.Ob, ) if self.generator_factory is Ob else ()))
         inside = tuple(map(self._coerce_generator, inside))
         if dom is None:
             dom = inside[0].dom if inside else white
@@ -362,6 +363,11 @@ class PRO(Ty):
     def __init__(self, n: int = 0):
         assert_isinstance(n, int)
         self.n = n
+        self.dom = self.cod = white
+        cat.Ob.__init__(self, str(self))
+
+    def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
+        self.n = len(inside)
         self.dom = self.cod = white
         cat.Ob.__init__(self, str(self))
 

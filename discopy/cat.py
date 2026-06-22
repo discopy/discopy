@@ -234,20 +234,10 @@ class FreeCategory(Category):
         if isinstance(key, slice):
             if key.step == -1:
                 inside = tuple(x.dagger() for x in self.inside[key])
-                if inside:
-                    return self._new(
-                        inside, dom=inside[0].dom, cod=inside[-1].cod,
-                        _scan=True)
-                start = key.indices(len(self))[0]
-                boundary = self.cod if start >= len(self) else self.dom\
-                    if start < 0 else self.inside[start].cod
-                return self.id(boundary)
-            if (key.step or 1) != 1:
-                inside = self.inside[key]
-                if not inside:
-                    return self.id(self.dom)
                 return self._new(
-                    inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=True)
+                    inside, dom=self.cod, cod=self.dom, _scan=False)
+            if (key.step or 1) != 1:
+                raise IndexError
             inside = self.inside[key]
             if not inside:
                 if (key.start or 0) >= len(self):

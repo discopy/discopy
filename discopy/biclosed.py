@@ -63,7 +63,7 @@ from abc import abstractmethod
 from inspect import signature
 from typing import Callable, ClassVar
 
-from discopy import cat, monoidal
+from discopy import monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ar_factory
