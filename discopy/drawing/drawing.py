@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, arrow_factory)
+    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -76,7 +76,7 @@ class PlaneGraph(NamedTuple):
     positions: dict[Node, Point]
 
 
-@arrow_factory
+@ar_factory
 @dataclass
 class Drawing(TracedCategory):
     """

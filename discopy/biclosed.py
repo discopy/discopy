@@ -66,7 +66,7 @@ from typing import Callable, ClassVar
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
-from discopy.cat import arrow_factory
+from discopy.cat import ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -74,7 +74,7 @@ from discopy.utils import (
 )
 
 
-@arrow_factory
+@ar_factory
 class Ty(monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
@@ -254,7 +254,7 @@ class Under(Exp):
         return f"({self.exponent} >> {self.base})"
 
 
-@arrow_factory
+@ar_factory
 class Diagram(monoidal.Diagram, BiclosedCategory):
     """
     A biclosed diagram is a monoidal diagram

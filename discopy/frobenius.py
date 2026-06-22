@@ -66,7 +66,7 @@ from collections.abc import Callable
 
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
-from discopy.cat import arrow_factory
+from discopy.cat import ar_factory
 from discopy.utils import factory_name, assert_isatomic
 
 
@@ -80,7 +80,7 @@ class Ob(pivotal.Ob):
     l = r = property(lambda self: self)
 
 
-@arrow_factory
+@ar_factory
 class Ty(pivotal.Ty):
     """
     A frobenius type is a pivotal type with frobenius objects inside.
@@ -88,10 +88,10 @@ class Ty(pivotal.Ty):
     Parameters:
         inside (frobenius.Ob) : The objects inside the type.
     """
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@arrow_factory
+@ar_factory
 class PRO(rigid.PRO, Ty):
     """
     A PRO is a natural number ``n`` seen as a frobenius type with unnamed
@@ -106,14 +106,14 @@ class PRO(rigid.PRO, Ty):
     l = r = property(lambda self: self)
 
 
-@arrow_factory
+@ar_factory
 class Dim(monoidal.Dim, Ty):
     """ A dimension is a tuple of integers greater than one seen as a type. """
 
     l = r = property(lambda self: self.ar(*self.inside[::-1]))
 
 
-@arrow_factory
+@ar_factory
 class Diagram(compact.Diagram, markov.Diagram, HypergraphCategory):
     """
     A frobenius diagram is a compact diagram and a Markov diagram.

@@ -28,7 +28,7 @@ Summary
         :nosignatures:
         :toctree:
 
-        arrow_factory
+        ar_factory
         dumps
         loads
 
@@ -81,7 +81,7 @@ from typing import Callable, Mapping, Iterable, TYPE_CHECKING
 from discopy import messages, utils
 from discopy.abc import Category
 from discopy.utils import (  # noqa: F401
-    arrow_factory,
+    ar_factory,
     factory_name,
     from_tree,
     rsubs,
@@ -257,7 +257,7 @@ class FreeCategory(Category):
         return self[::-1]
 
 
-@arrow_factory
+@ar_factory
 class Arrow(FreeCategory):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
@@ -776,7 +776,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-@arrow_factory
+@ar_factory
 class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an

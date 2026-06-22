@@ -63,7 +63,7 @@ from discopy.abc import Monoid, MonoidalCategory
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
-    arrow_factory,
+    ar_factory,
     factory_name,
     from_tree,
     assert_isinstance,
@@ -155,7 +155,7 @@ class FreeMonoid(cat.FreeCategory, Monoid):
     then = tensor
 
 
-@arrow_factory
+@ar_factory
 class Ty(cat.Ob, FreeMonoid):
     """
     A type is a composable path of objects with :meth:`Ty.tensor`
@@ -189,22 +189,16 @@ class Ty(cat.Ob, FreeMonoid):
     """
     colour_factory = Colour
     ob = Colour
-    ob_factory = Ob
-
-    @property
-    def generator_factory(self):
-        return self.ob_factory
+    generator_factory = Ob
 
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
             state["inside"] = state['_objects']
             del state['_objects']
         if 'dom' not in state:
-            first = state['inside'][0] if state['inside'] else None
-            state['dom'] = first.dom if self.is_generator(first) else white
+            state['dom'] = white
         if 'cod' not in state:
-            last = state['inside'][-1] if state['inside'] else None
-            state['cod'] = last.cod if self.is_generator(last) else white
+            state['cod'] = white
         self.__dict__.update(state)
         if not hasattr(self, 'name'):
             self.name = str(self)
@@ -214,11 +208,11 @@ class Ty(cat.Ob, FreeMonoid):
         return isinstance(obj, Ob) and not isinstance(obj, Ty)
 
     def _coerce_generator(self, x: str | cat.Ob) -> cat.Ob:
-        """ Turn a constructor argument into a ``self.ob_factory``. """
-        if isinstance(x, self.ob_factory):
+        """ Turn a constructor argument into a ``self.generator_factory``. """
+        if isinstance(x, self.generator_factory):
             return x
         if isinstance(x, str):
-            return self.ob_factory(x)
+            return self.generator_factory(x)
         return self._coerce_legacy_generator(x)
 
     def _coerce_legacy_generator(self, x: cat.Ob) -> cat.Ob:
@@ -228,8 +222,9 @@ class Ty(cat.Ob, FreeMonoid):
         the base :class:`Ty` class, where it gets upgraded to ``Ob(x.name)``.
         """
         if type(self) is Ty and type(x) is cat.Ob:
-            return self.ob_factory(x.name)
-        raise AxiomError(messages.TYPE_ERROR.format(self.ob_factory, type(x)))
+            return self.generator_factory(x.name)
+        raise AxiomError(
+            messages.TYPE_ERROR.format(self.generator_factory, type(x)))
 
     def __init__(self, *inside: str | cat.Ob,
                  dom: Colour = None, cod: Colour = None,
@@ -237,7 +232,7 @@ class Ty(cat.Ob, FreeMonoid):
         if len(inside) == 1 and isinstance(inside[0], tuple):
             inside, = inside  # FreeCategory reconstructs with a single tuple.
         for obj in inside:
-            assert_isinstance(obj, (str, self.ob_factory) + (
+            assert_isinstance(obj, (str, self.generator_factory) + (
                 (cat.Ob, ) if type(self) is Ty else ()))
         inside = tuple(map(self._coerce_generator, inside))
         if dom is None:
@@ -329,7 +324,7 @@ class Ty(cat.Ob, FreeMonoid):
         inside = tuple(map(from_tree, tree['inside']))
         # Old dumps used cat.Ob as the generators of monoidal.Ty.
         inside = tuple(
-            cls.ob_factory(x.name) if type(x) is cat.Ob else x for x in inside)
+            cls.generator_factory(x.name) if type(x) is cat.Ob else x for x in inside)
         if inside:
             return cls(*inside)
         if 'colour' in tree:  # Backward compatibility with early colour dumps.
@@ -347,7 +342,7 @@ class Ty(cat.Ob, FreeMonoid):
                        getattr(x, 'cod', white)) for x in self.inside))
 
 
-@arrow_factory
+@ar_factory
 class PRO(Ty):
     """
     A PRO is a natural number ``n`` seen as a type with addition as tensor.
@@ -366,7 +361,7 @@ class PRO(Ty):
     If ``ob`` is ``PRO`` then :class:`Diagram` will automatically turn
     any ``n: int`` into ``PRO(n)``. Thus ``PRO`` never needs to be called.
 
-    >>> @arrow_factory
+    >>> @ar_factory
     ... class Circuit(Diagram):
     ...     ob = PRO
     >>> class Gate(Box, Circuit): ...
@@ -433,7 +428,7 @@ class PRO(Ty):
         return cls(tree['n'])
 
 
-@arrow_factory
+@ar_factory
 class Dim(Ty):
     """
     A dimension is a tuple of positive integers
@@ -444,7 +439,7 @@ class Dim(Ty):
     >>> Dim(1) @ Dim(2) @ Dim(3)
     Dim(2, 3)
     """
-    ob_factory = int
+    generator_factory = int
 
     def __init__(self, *inside: int, dom=None, cod=None, _scan=True):
         if len(inside) == 1 and isinstance(inside[0], tuple):
@@ -633,7 +628,7 @@ class Layer(cat.Box):
         return cls(*(map(from_tree, tree['inside'])))
 
 
-@arrow_factory
+@ar_factory
 class Diagram(cat.Arrow, MonoidalCategory):
     """
     A diagram is a tuple of composable layers :code:`inside` with a pair of
@@ -1350,7 +1345,7 @@ class Functor(cat.Functor):
             for image in images[1:]:
                 result = result + image
             return result
-        if isinstance(other, self.dom.ob.ob_factory):
+        if isinstance(other, self.dom.ob.generator_factory):
             result = self._map_atomic(self.dom.ob(other))
             if isinstance(other, Ob) and isinstance(result, Ty):
                 expected = self(other.dom), self(other.cod)

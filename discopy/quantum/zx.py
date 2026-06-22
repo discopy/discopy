@@ -24,7 +24,7 @@ Summary
 from math import pi
 
 from discopy import cat, rigid, tensor, quantum
-from discopy.cat import arrow_factory
+from discopy.cat import ar_factory
 from discopy.quantum.circuit import qubit, Circuit
 from discopy.quantum.gates import (
     Bra, Ket, Rz, Rx, CX, CZ, Controlled, format_number)
@@ -33,7 +33,7 @@ from discopy.rigid import Sum, PRO
 from discopy.utils import factory_name
 
 
-@arrow_factory
+@ar_factory
 class Diagram(tensor.Diagram[complex]):
     """ ZX Diagram. """
     ob = PRO

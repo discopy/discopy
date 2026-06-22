@@ -29,7 +29,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from discopy.abc import ClosedCategory
-from discopy.utils import assert_isinstance, tuplify, untuplify, arrow_factory
+from discopy.utils import assert_isinstance, tuplify, untuplify, ar_factory
 from discopy.python import function
 
 
@@ -48,7 +48,7 @@ def exp(base: Ty, exponent: Ty) -> Ty:
     return (Callable[list(exponent), tuple[base]], )
 
 
-@arrow_factory
+@ar_factory
 class Function(function.Function, ClosedCategory):
     """
     Python function with tuple as tensor.
