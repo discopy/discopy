@@ -802,8 +802,6 @@ def assert_term_map(cmap, term, category: type[CMap] | None = None):
         raise ValueError
     if cmap.cod != term.cod:
         raise ValueError
-    if not term.constants and any(len(cycle) != 3 for cycle in cmap.node_cycles):
-        raise ValueError
 
 
 @dataclass

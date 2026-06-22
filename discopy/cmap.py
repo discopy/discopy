@@ -80,9 +80,7 @@ class Port:
         is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
         if self.kind.is_input:
             return "down" if is_adjoint else "up"
-        if self.kind.is_output:
-            return "up" if is_adjoint else "down"
-        raise ValueError
+        return "up" if is_adjoint else "down"
 
     @property
     def direction(self) -> Literal["in"] | Literal["out"]:
@@ -90,9 +88,7 @@ class Port:
         is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
         if self.kind.is_input:
             return "out" if is_adjoint else "in"
-        if self.kind.is_output:
-            return "in" if is_adjoint else "out"
-        raise ValueError
+        return "in" if is_adjoint else "out"
 
 
 class CMap[C0: Pregroup, C1: CMap](
@@ -790,8 +786,10 @@ class CMap[C0: Pregroup, C1: CMap](
         Recover a term by an oriented DFS from the root, building up a term
         in continuation-passing style.
         """
-        self._assert_rooted_trivalent_map()
-        names = tuple(input_names or (f"x{i}" for i in range(len(self.dom))))
+        self._assert_rooted_map()
+        names = tuple(
+            (f"x{i}" for i in range(len(self.dom)))
+            if input_names is None else input_names)
         if len(names) != len(self.dom):
             raise ValueError
 
@@ -801,6 +799,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         cod = term_type(self.cod)
         variable_factory = cod.variable_factory
+        constant_factory = cod.constant_factory
         application_factory = cod.application_factory
         abstraction_factory = cod.abstraction_factory
         eval_factory = self.category.eval_factory
@@ -872,11 +871,15 @@ class CMap[C0: Pregroup, C1: CMap](
                     lambda body: continuation(abstraction_factory(
                         variable, body, left=not box.left)))
 
+            if port.kind == PortKind.COD and not box.dom and len(box.cod) == 1:
+                return continuation(constant_factory(
+                    box.name, term_type(box.cod)))
+
             raise ValueError
 
         return dfs(self.n_ports - 1, {}, lambda term: term)
 
-    def _assert_rooted_trivalent_map(self):
+    def _assert_rooted_map(self):
         if len(self.cod) != 1:
             raise ValueError
         if self.n_ports == 0 or self.ports[-1].kind != "output":
@@ -884,8 +887,6 @@ class CMap[C0: Pregroup, C1: CMap](
         if self.node[-1] != self.n_ports - 1:
             raise ValueError
         if self.edge[-1] == self.n_ports - 1:
-            raise ValueError
-        if any(len(cycle) != 3 for cycle in self.node_cycles):
             raise ValueError
 
     def to_dot(

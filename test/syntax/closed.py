@@ -83,12 +83,11 @@ def test_python_Functor():
     assert F(g.curry().uncurry())(1j, True) == F(g)(1j, True)
 
 
-def assert_trivalent_map(cmap, dom, cod, vertices):
+def assert_rooted_map(cmap, dom, cod, vertices):
     assert cmap.dom == dom
     assert cmap.cod == cod
     assert len(cmap.cod) == 1
     assert len(cmap.boxes) == vertices
-    assert all(len(cycle) == 3 for cycle in cmap.node_cycles)
     assert cmap.ports[-1].kind == "output"
     assert cmap.node[-1] == len(cmap.ports) - 1
     assert cmap.edge[-1] != len(cmap.ports) - 1
@@ -131,18 +130,21 @@ def test_term_to_map_with_constants():
     assert c.to_map().dom == Ty()
     assert c.to_map().cod == X
     assert c.to_map().boxes == (c,)
+    assert c.to_map().to_term() == c
 
     application = Application(f, x)
     cmap = application.to_map()
     assert cmap.dom == X
     assert cmap.cod == Y
     assert [type(box) for box in cmap.boxes] == [Constant, Eval]
+    assert cmap.to_term(["x"]) == application
 
     abstraction = Abstraction(x, application)
     cmap = abstraction.to_map()
     assert cmap.dom == Ty()
     assert cmap.cod == X >> Y
     assert [type(box) for box in cmap.boxes] == [Constant, Eval, Coeval]
+    assert cmap.to_term() == abstraction
 
 
 def test_term_to_map_identity():
@@ -150,7 +152,7 @@ def test_term_to_map_identity():
     x = Variable("x", X)
     identity = Abstraction(x, x)
     cmap = identity.to_map()
-    assert_trivalent_map(cmap, Ty(), identity.cod, vertices=1)
+    assert_rooted_map(cmap, Ty(), identity.cod, vertices=1)
     assert len(cmap.ports) == 4
     assert isinstance(cmap.boxes[0], Coeval)
     assert cmap.boxes[0].dom == X
@@ -167,7 +169,7 @@ def test_term_to_map_b_combinator():
         x, Abstraction(y, Abstraction(z, Application(x, Application(y, z))))
     )
     cmap = b.to_map()
-    assert_trivalent_map(cmap, Ty(), b.cod, vertices=5)
+    assert_rooted_map(cmap, Ty(), b.cod, vertices=5)
     assert len(cmap.ports) == 16
     assert [type(box) for box in cmap.boxes]\
         == [Eval, Eval, Coeval, Coeval, Coeval]
@@ -187,7 +189,7 @@ def test_term_to_map_open_terms_use_domain_boundary():
 
     application = Application(f, x)
     cmap = application.to_map()
-    assert_trivalent_map(cmap, (X >> Y) @ X, Y, vertices=1)
+    assert_rooted_map(cmap, (X >> Y) @ X, Y, vertices=1)
     assert isinstance(cmap.boxes[0], Eval)
     assert [port.kind for port in cmap.ports[:2]] == ["input", "input"]
     assert cmap.to_term(["f", "x"]) == application
@@ -233,7 +235,7 @@ def test_petersen_term():
 
     cmap = petersen.to_map()
     assert len(cmap.ports) == 34
-    assert_trivalent_map(cmap, Ty(), petersen.cod, vertices=11)
+    assert_rooted_map(cmap, Ty(), petersen.cod, vertices=11)
 
     roundtrip = cmap.to_term()
     assert petersen == roundtrip
