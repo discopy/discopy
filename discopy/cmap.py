@@ -382,7 +382,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, Box
         >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
         >>> f = Box("f", X @ Y, Z)
-        >>> f.to_map().curry().uncurry().draw(
+        >>> f.to_map().curry().draw(
         ...     path='docs/_static/cmap/curry.png', show=False)
 
         .. image:: /_static/cmap/curry.png
@@ -406,6 +406,11 @@ class CMap[C0: Pregroup, C1: CMap](
         Parameters:
             n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
+
+        >>> from discopy.compact import Ty, Box
+        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
+        >>> f = Box("f", X @ Y, Z).to_map()
+        >>> assert f.curry().uncurry() == f
         """
         if n < 0 or n > len(self.cod):
             raise ValueError
