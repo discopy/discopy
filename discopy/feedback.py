@@ -156,6 +156,8 @@ class Ob(cat.Ob):
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
     """
+    dom = cod = monoidal.white
+
     def __init__(
             self, name: str, time_step: int = 0, is_constant: bool = True):
         assert_isinstance(time_step, int)
@@ -164,6 +166,9 @@ class Ob(cat.Ob):
             raise NotImplementedError
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
+
+    def dagger(self):
+        return self
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """

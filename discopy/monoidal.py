@@ -190,42 +190,10 @@ class Ty(cat.Ob, FreeMonoid):
     colour_factory = Colour
     ob = Colour
     ob_factory = Ob
-    allow_step = True
 
-    @classmethod
-    def _generator_type(cls):
-        return cls.ob_factory
-
-    @classmethod
-    def _generator_dom(cls, generator):
-        return getattr(generator, 'dom', white)
-
-    @classmethod
-    def _generator_cod(cls, generator):
-        return getattr(generator, 'cod', white)
-
-    @classmethod
-    def _generator_dagger(cls, generator):
-        return generator.dagger()\
-            if hasattr(generator, 'dagger') else generator
-
-    @classmethod
-    def _from_path(cls, inside, dom, cod, _scan=True):
-        if not inside:
-            if dom != cod:
-                raise AxiomError(messages.NOT_PARALLEL.format(dom, cod))
-            return cls.ar.id(dom)
-        if cls.ar.__init__ is Ty.__init__:
-            # Skip re-inferring dom/cod and (if _scan=False) re-scanning
-            # the boundaries, both already known to the caller.
-            return cls.ar(*inside, dom=dom, cod=cod, _scan=_scan)
-        # Subclasses such as Dim override __init__ with a different
-        # signature, so we fall back to reconstructing and checking.
-        result = cls.ar(*inside)
-        if (result.dom, result.cod) != (dom, cod):
-            raise AxiomError(messages.NOT_PARALLEL.format(
-                (result.dom, result.cod), (dom, cod)))
-        return result
+    @property
+    def generator_factory(self):
+        return self.ob_factory
 
     def __setstate__(self, state):
         if 'inside' not in state and "_objects" in state:
@@ -266,31 +234,19 @@ class Ty(cat.Ob, FreeMonoid):
     def __init__(self, *inside: str | cat.Ob,
                  dom: Colour = None, cod: Colour = None,
                  _scan: bool = True):
+        if len(inside) == 1 and isinstance(inside[0], tuple):
+            inside, = inside  # FreeCategory reconstructs with a single tuple.
         for obj in inside:
             assert_isinstance(obj, (str, self.ob_factory) + (
                 (cat.Ob, ) if type(self) is Ty else ()))
-        self.inside = tuple(map(self._coerce_generator, inside))
-        inferred_dom = self.inside[0].dom\
-            if self.inside and self.is_generator(self.inside[0]) else white
-        inferred_cod = self.inside[-1].cod\
-            if self.inside and self.is_generator(self.inside[-1]) else white
-        dom = inferred_dom if dom is None else dom
-        cod = inferred_cod if cod is None else cod
-        self.dom, self.cod = dom, cod
-        if _scan:
-            for generator in self.inside:
-                assert_isinstance(generator, self._generator_type())
-            previous = dom
-            for generator in self.inside:
-                generator_dom = self._generator_dom(generator)
-                generator_cod = self._generator_cod(generator)
-                if previous != generator_dom:
-                    raise AxiomError(messages.NOT_COMPOSABLE.format(
-                        previous, generator, previous, generator_dom))
-                previous = generator_cod
-            if previous != cod:
-                raise AxiomError(messages.NOT_COMPOSABLE.format(
-                    previous, cod, previous, cod))
+        inside = tuple(map(self._coerce_generator, inside))
+        if dom is None:
+            dom = inside[0].dom\
+                if inside and self.is_generator(inside[0]) else white
+        if cod is None:
+            cod = inside[-1].cod\
+                if inside and self.is_generator(inside[-1]) else white
+        cat.FreeCategory.__init__(self, inside, dom, cod, _scan)
         cat.Ob.__init__(self, str(self))
 
     @classmethod
@@ -322,63 +278,6 @@ class Ty(cat.Ob, FreeMonoid):
     def is_atomic(self) -> bool:
         """ Whether a type is atomic, i.e. it has length 1. """
         return len(self) == 1
-
-    def tensor(self, *others):
-        if any(not isinstance(other, self.ar) for other in others):
-            return NotImplemented
-        inside, dom, cod = self.inside, self.dom, self.cod
-        for other in others:
-            if cod != other.dom:
-                raise AxiomError(messages.NOT_COMPOSABLE.format(
-                    self, other, cod, other.dom))
-            inside, cod = inside + other.inside, other.cod
-        return self._from_path(inside, dom, cod, _scan=False)
-
-    then = tensor
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            if key.step == -1:
-                inside = tuple(
-                    self._generator_dagger(x) for x in self.inside[key])
-                if inside:
-                    return self._from_path(
-                        inside, self._generator_dom(inside[0]),
-                        self._generator_cod(inside[-1]), _scan=True)
-                start = key.indices(len(self))[0]
-                boundary = self.cod if start >= len(self) else self.dom\
-                    if start < 0 else self._generator_cod(self.inside[start])
-                return self._from_path((), boundary, boundary, _scan=False)
-            if (key.step or 1) != 1:
-                if not type(self).allow_step:
-                    raise IndexError
-                inside = self.inside[key]
-                if not inside:
-                    return self._from_path((), self.dom, self.dom,
-                                            _scan=False)
-                return self._from_path(
-                    inside, self._generator_dom(inside[0]),
-                    self._generator_cod(inside[-1]), _scan=True)
-            inside = self.inside[key]
-            if not inside:
-                if (key.start or 0) >= len(self):
-                    return self._from_path((), self.cod, self.cod,
-                                            _scan=False)
-                if (key.start or 0) <= -len(self):
-                    return self._from_path((), self.dom, self.dom,
-                                            _scan=False)
-                boundary = self._generator_dom(self.inside[key.start or 0])
-                return self._from_path((), boundary, boundary, _scan=False)
-            return self._from_path(
-                inside, self._generator_dom(inside[0]),
-                self._generator_cod(inside[-1]), _scan=False)
-        if isinstance(key, int):
-            if key >= len(self) or key < -len(self):
-                raise IndexError
-            if key < 0:
-                return self[len(self) + key]
-            return self[key:key + 1]
-        raise TypeError
 
     def __eq__(self, other):
         return type(self) is type(other) and self.inside == other.inside\
@@ -501,6 +400,8 @@ class PRO(Ty):
             assert_isinstance(other, self.ar)
         return self.ar(self.n + sum(other.n for other in others))
 
+    then = tensor
+
     def __getitem__(self, key):
         if isinstance(key, slice):
             return self.ar(len(self.inside[key]))
@@ -545,12 +446,22 @@ class Dim(Ty):
     """
     ob_factory = int
 
-    def __init__(self, *inside: int):
+    def __init__(self, *inside: int, dom=None, cod=None, _scan=True):
+        if len(inside) == 1 and isinstance(inside[0], tuple):
+            inside, = inside  # FreeCategory reconstructs with a single tuple.
         for dim in inside:
             assert_isinstance(dim, int)
             if dim < 1:
                 raise ValueError
-        super().__init__(*(dim for dim in inside if dim > 1))
+        super().__init__(*(dim for dim in inside if dim > 1),
+                         dom=dom, cod=cod, _scan=False)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return self.ar(*self.inside[key])
+        if key >= len(self) or key < -len(self):
+            raise IndexError
+        return self.ar(self.inside[key])
 
     def __repr__(self):
         return f"Dim({', '.join(map(repr, self.inside)) or '1'})"

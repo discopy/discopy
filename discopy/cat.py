@@ -175,7 +175,7 @@ class FreeCategory(Category):
     ``ar(inside, dom, cod, _scan=True)``.
     """
 
-    allow_step = False
+    generator_factory = None
 
     def __init__(self, inside, dom, cod, _scan=True):
         ob = type(self).ob
@@ -184,7 +184,7 @@ class FreeCategory(Category):
         self.dom, self.cod, self.inside = dom, cod, tuple(inside)
         if _scan:
             for generator in inside:
-                assert_isinstance(generator, type(self).generator_factory)
+                assert_isinstance(generator, self.generator_factory)
             previous = dom
             for generator in inside:
                 if previous != generator.dom:
@@ -199,7 +199,7 @@ class FreeCategory(Category):
     def id(cls, dom=None):
         """The identity path, with no generators inside."""
         dom = cls.ob() if dom is None else dom
-        return cls.ar((), dom, dom, _scan=False)
+        return cls.ar((), dom=dom, cod=dom, _scan=False)
 
     def then(self, *others):
         inside, dom, cod = self.inside, self.dom, self.cod
@@ -210,7 +210,7 @@ class FreeCategory(Category):
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     self, other, cod, other.dom))
             inside, cod = inside + other.inside, other.cod
-        return self.ar(inside, dom, cod, _scan=False)
+        return self.ar(inside, dom=dom, cod=cod, _scan=False)
 
     def __iter__(self):
         return iter(self.inside)
@@ -224,19 +224,18 @@ class FreeCategory(Category):
                 inside = tuple(x.dagger() for x in self.inside[key])
                 if inside:
                     return self.ar(
-                        inside, inside[0].dom, inside[-1].cod, _scan=True)
+                        inside, dom=inside[0].dom, cod=inside[-1].cod,
+                        _scan=True)
                 start = key.indices(len(self))[0]
                 boundary = self.cod if start >= len(self) else self.dom\
                     if start < 0 else self.inside[start].cod
                 return self.id(boundary)
             if (key.step or 1) != 1:
-                if not type(self).allow_step:
-                    raise IndexError
                 inside = self.inside[key]
                 if not inside:
                     return self.id(self.dom)
                 return self.ar(
-                    inside, inside[0].dom, inside[-1].cod, _scan=True)
+                    inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=True)
             inside = self.inside[key]
             if not inside:
                 if (key.start or 0) >= len(self):
@@ -245,7 +244,7 @@ class FreeCategory(Category):
                     return self.id(self.dom)
                 return self.id(self.inside[key.start or 0].dom)
             return self.ar(
-                inside, inside[0].dom, inside[-1].cod, _scan=False)
+                inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=False)
         if isinstance(key, int):
             if key >= len(self) or key < -len(self):
                 raise IndexError

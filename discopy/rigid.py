@@ -77,10 +77,15 @@ class Ob(cat.Ob):
             del state['_z']
         super().__setstate__(state)
 
+    dom = cod = monoidal.white
+
     def __init__(self, name: str, z: int = 0):
         assert_isinstance(z, int)
         self.z = z
         super().__init__(name)
+
+    def dagger(self) -> Ob:
+        return self
 
     @property
     def l(self) -> Ob:

@@ -518,10 +518,6 @@ class Matplotlib(Backend):
             edgecolor=COLORS.get(edgecolor, edgecolor)))
         super().draw_polygon(*points)
 
-    @staticmethod
-    def _region_colour(typ, side="cod"):
-        return getattr(typ, side).name
-
     def _draw_right_region(self, source, target, width, facecolor,
                            bend_out=False):
         mid = (target[0], source[1]) if bend_out\
@@ -536,9 +532,8 @@ class Matplotlib(Backend):
 
     def draw_regions(self, graph, **params):
         """Fill planar regions, leaving TikZ's legacy output unchanged."""
-        left_colour = self._region_colour(graph.dom, "dom")
         self._draw_right_region(
-            (0, 0), (0, graph.height), graph.width, left_colour)
+            (0, 0), (0, graph.height), graph.width, graph.dom.dom.name)
 
         separators = []
 
@@ -548,11 +543,10 @@ class Matplotlib(Backend):
             if source_position == target_position:
                 continue
             typ = getattr(source, 'x', None) or getattr(target, 'x', None)
-            colour = self._region_colour(typ)
             bend_out = source.kind == "box"
             x = (source_position.x + target_position.x) / 2
             separators.append((x, source_position, target_position,
-                               colour, bend_out))
+                               typ.cod.name, bend_out))
 
         for node in graph.box_nodes:
             box = node.box
@@ -562,7 +556,7 @@ class Matplotlib(Backend):
             top_right = graph.positions[Node("box-corner-11", j=j)]
             bottom_right = graph.positions[Node("box-corner-10", j=j)]
             separators.append((top_right.x, top_right, bottom_right,
-                               self._region_colour(box.dom), False))
+                               box.dom.cod.name, False))
 
         for _, source, target, colour, bend_out in sorted(
                 separators, key=lambda item: item[0]):

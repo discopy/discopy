@@ -87,7 +87,6 @@ class Ty(monoidal.Ty):
     Applying a biclosed type to a callable yields a :class:`Abstraction`,
     applying it to a string yields a :class:`Constant`.
     """
-    ob_factory = cat.Ob
 
     def __pow__(self, other: Ty) -> Ty:
         return self.exp(other) if isinstance(other, Ty)\
@@ -179,7 +178,7 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Exp(cat.Ob):
+class Exp(monoidal.Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -195,6 +194,9 @@ class Exp(cat.Ob):
         assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
+
+    def dagger(self):
+        return self
 
     def __eq__(self, other):
         return isinstance(other, type(self))\
