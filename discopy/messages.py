@@ -29,3 +29,10 @@ HAS_NO_ATTRIBUTE = "{!r} object has no attribute {!r}"
 WRONG_DOM = "Expected inside.dom == {}, got {} instead."
 WRONG_COD = "Expected inside.cod == {}, got {} instead."
 COMPLEX_TYPE_HAS_NO_ATTR = "{!r} object of length != 1 has no attribute {!r}"
+NON_RELEVANT_TERM = "Non-linear term: variable {var} never used"
+
+
+def NON_AFFINE_TERM(*dupes):
+    plural = '' if len(dupes) <= 1 else 's'
+    vars = ', '.join(map(str, dupes))
+    return f"Non-linear term: variable{plural} {vars} used more than once"
