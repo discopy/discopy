@@ -98,7 +98,7 @@ class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     """
-    A bijective oriented hypergraph with interfaces.
+    A oriented bijective hypergraph with interfaces.
 
     Parameters:
         dom : The domain of the map.
@@ -221,13 +221,18 @@ class CMap[C0: Pregroup, C1: CMap](
             return left.kind.is_boundary and right.kind.is_boundary\
                 and left.direction != right.direction
 
+        def compact_adjunction(left, right):
+            return left.kind.is_boundary != right.kind.is_boundary\
+                and left.direction == right.direction
+
         if not compatible(source.obj, target.obj):
             raise AxiomError(messages.NOT_ADJOINT.format(
                 source.obj, target.obj))
         if not (
                 oriented(source, target)
                 or oriented(target, source)
-                or boundary_adjunction(source, target)):
+                or boundary_adjunction(source, target)
+                or compact_adjunction(source, target)):
             raise AxiomError(
                 messages.NOT_TRACEABLE.format(source, target)
             )
@@ -372,36 +377,46 @@ class CMap[C0: Pregroup, C1: CMap](
             n : The number of objects to curry.
             left : Whether to curry on the left or right.
 
-        >>> from discopy.compact import Ty, Box, CMap
-        >>> from discopy.drawing import Equation
+        >>> from discopy.compact import Ty, Box
         >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
         >>> f = Box("f", X @ Y, Z)
-        >>> f.curry().uncurry().to_map().draw(
+        >>> f.to_map().curry().uncurry().draw(
         ...     path='docs/_static/cmap/curry.png', show=False)
 
         .. image:: /_static/cmap/curry.png
             :align: center
         """
+        if n < 0 or n > len(self.dom):
+            raise ValueError
+        if not n:
+            return self
         if left:
             base, exponent = self.dom[:-n], self.dom[-n:]
-            return base @ self.caps(exponent, exponent.l) >> self @ exponent.l
-        else:
-            base, exponent = self.dom[n:], self.dom[:n]
-            return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
+            return base @ self.caps(
+                exponent, exponent.l) >> self @ exponent.l
+        base, exponent = self.dom[n:], self.dom[:n]
+        return self.caps(exponent.r, exponent) @ base >> exponent.r @ self
 
-    def uncurry(self, left=False) -> Diagram:
+    def uncurry(self, n: int = 1, left: bool = False) -> CMap:
         """
-        Uncurry a combinatorial map by composing it with :meth:`CMap.ev`.
+        Uncurry a combinatorial map.
 
         Parameters:
+            n : The number of objects to uncurry.
             left : Whether to uncurry on the left or right.
         """
-        print(self.cod)
-        if not self.cod.is_exp:
+        if n < 0 or n > len(self.cod):
             raise ValueError
-        base, exponent = self.cod.left, self.cod.right
-        return self @ exponent >> self.ev(base, exponent, True) if left\
-            else exponent @ self >> self.ev(base, exponent, False)
+        if not n:
+            return self
+        if left:
+            base, exponent_l = self.cod[:-n], self.cod[-n:]
+            exponent = exponent_l.r
+            return self @ exponent >> base @ self.cups(
+                exponent.l, exponent)
+        exponent_r, base = self.cod[:n], self.cod[n:]
+        exponent = exponent_r.l
+        return exponent @ self >> self.cups(exponent, exponent.r) @ base
 
     @classmethod
     def spiders(
@@ -772,8 +787,6 @@ class CMap[C0: Pregroup, C1: CMap](
                                 continuation(Application(func, arg))
                         )
                 )
-
-            # import pdb; pdb.set_trace()
 
             if isinstance(box, Coeval):
                 cod = term_type(self.ports[port_idx].obj)
