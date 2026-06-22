@@ -989,17 +989,6 @@ class CMap[C0: Pregroup, C1: CMap](
         def node_name(port_index):
             return port_nodes[port_index]
 
-        def edge_direction(left, right):
-            left_in = self.ports[left].direction == "in"
-            right_in = self.ports[right].direction == "in"
-            if left_in and right_in:
-                return "both"
-            if left_in:
-                return "back"
-            if right_in:
-                return "forward"
-            return "none"
-
         def port_label(port_index):
             return self.ports[port_index].obj
 
@@ -1012,8 +1001,7 @@ class CMap[C0: Pregroup, C1: CMap](
         for i, j in enumerate(self.edge):
             if i < j:
                 attributes = dict(
-                    len="0.85", labeldistance="1.6",
-                    dir=edge_direction(i, j)) | edge_labels(i, j)
+                    len="0.85", labeldistance="1.6") | edge_labels(i, j)
                 lines.append(
                     f'  {node_name(i)} -- {node_name(j)} '
                     f'[{attr_string(attributes)}];')
