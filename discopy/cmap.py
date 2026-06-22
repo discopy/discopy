@@ -824,7 +824,7 @@ class CMap[C0: Pregroup, C1: CMap](
         Recover a term by an oriented DFS from the root, building up a term
         in continuation-passing style.
         """
-        self._assert_rooted_map()
+        self.assert_rooted_map()
         names = tuple(
             (f"x{i}" for i in range(len(self.dom)))
             if input_names is None else input_names)
@@ -917,10 +917,12 @@ class CMap[C0: Pregroup, C1: CMap](
 
         return dfs(self.n_ports - 1, {}, lambda term: term)
 
-    def _assert_rooted_map(self):
+    def assert_rooted_map(self):
         if len(self.cod) != 1:
             raise ValueError
-        if self.n_ports == 0 or self.ports[-1].kind != "output":
+        if self.scalars:
+            raise ValueError
+        if self.n_ports == 0 or self.ports[-1].kind != PortKind.OUTPUT:
             raise ValueError
         if self.node[-1] != self.n_ports - 1:
             raise ValueError

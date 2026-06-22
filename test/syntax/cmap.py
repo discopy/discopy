@@ -434,5 +434,7 @@ def test_to_term_errors():
     with raises(ValueError):
         M.id(x).to_term([])
     with raises(ValueError):
+        M(x, x, (), [1, 0], (), (x)).to_term([])
+    with raises(ValueError):
         M.id(x @ y).to_term()
     assert M.from_box(Box("c", Ty(), x)).to_term() == x("c")
