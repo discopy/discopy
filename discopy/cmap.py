@@ -109,12 +109,12 @@ class Port:
     side: Literal["up"] | Literal["down"]
 
     @property
-    def direction(self) -> Literal["up"] | Literal["down"]:
-        """ The adjoint-aware direction of the wire at the port. """
+    def direction(self) -> Literal["in"] | Literal["out"]:
+        """ Return whether the port is an input or an output. """
         is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
         if self.kind.is_input:
-            return "down" if is_adjoint else "up"
-        return "up" if is_adjoint else "down"
+            return "out" if is_adjoint else "in"
+        return "in" if is_adjoint else "out"
 
 
 class CMap[C0: Pregroup, C1: CMap](
