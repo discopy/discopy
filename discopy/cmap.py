@@ -107,6 +107,7 @@ class CMap[C0: Pregroup, C1: CMap](
         boxes : The boxes inside the map.
         edge : A fixpoint-free involution on ports.
         offsets : Optional drawing offsets, preserved through conversion.
+        scalars : The types of closed wire components with no ports.
     """
     functor: ClassVar[Functor]
     category = classproperty(lambda cls: cls.functor.dom)
@@ -115,15 +116,19 @@ class CMap[C0: Pregroup, C1: CMap](
     def __init__(
             self, dom: C0, cod: C0, boxes: tuple[Box, ...],
             edge: Iterable[int],
-            offsets: tuple[int | None, ...] | None = None):
+            offsets: tuple[int | None, ...] | None = None,
+            scalars: tuple[C0, ...] = ()):
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
         for box in boxes:
             assert_isinstance(box, self.category)
+        for scalar in scalars:
+            assert_isinstance(scalar, self.category.ob)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
         self.offsets = offsets or tuple(len(boxes) * [None])
         if len(self.offsets) != len(self.boxes):
             raise ValueError
+        self.scalars = tuple(scalars)
 
         self.edge = Permutation(edge, len(self.ports))
         self.validate()
@@ -182,7 +187,8 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def euler_characteristic(self) -> int:
         """ Euler characteristic ``V - E + F``. """
-        return len(self.boxes) - self.n_ports // 2 + len(self.face_cycles)
+        return len(self.boxes) - self.n_ports // 2\
+            + len(self.face_cycles) + len(self.scalars)
 
     @property
     def node(self) -> Permutation:
@@ -204,6 +210,33 @@ class CMap[C0: Pregroup, C1: CMap](
             if i > j:
                 continue
             type(self).validate_wire(ports[i], ports[j])
+
+    def _internal_glued_scalars(self, edge, glue, removed, objects) -> tuple:
+        """
+        Compute the scalar types created by a gluing operation.
+        """
+        def scalar_type(obj):
+            result = obj if isinstance(obj, self.category.ob)\
+                else self.ob(obj)
+            return result.r if getattr(result, "z", 0) % 2 else result
+
+        removed, seen, result = set(removed), set(), []
+        for start in removed:
+            if start in seen:
+                continue
+            stack, internal = [start], True
+            seen.add(start)
+            while stack:
+                port = stack.pop()
+                for neighbor in (edge[port], glue[port]):
+                    if neighbor not in removed:
+                        internal = False
+                    elif neighbor not in seen:
+                        seen.add(neighbor)
+                        stack.append(neighbor)
+            if internal:
+                result.append(scalar_type(objects[start]))
+        return tuple(result)
 
     @classmethod
     def validate_wire(cls, source: Port, target: Port):
@@ -254,15 +287,17 @@ class CMap[C0: Pregroup, C1: CMap](
         return factory_name(type(self))\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
               f"boxes={self.boxes!r}, edge={self.edge!r}, " \
-              f"ports={ports!r})"
+              f"ports={ports!r}, scalars={self.scalars!r})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap) and (
-            self.dom, self.cod, self.boxes, self.edge
-        ) == (other.dom, other.cod, other.boxes, other.edge)
+            self.dom, self.cod, self.boxes, self.edge, self.scalars
+        ) == (
+            other.dom, other.cod, other.boxes, other.edge, other.scalars)
 
     def __hash__(self):
-        return hash((self.dom, self.cod, self.boxes, self.edge))
+        return hash((
+            self.dom, self.cod, self.boxes, self.edge, self.scalars))
 
     @classmethod
     def id(cls, dom=None) -> CMap:
@@ -364,7 +399,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True) -> CMap:
-        return cls.category.ev(base, exponent, left).to_map()
+        return cls.from_box(cls.category.ev(base, exponent, left))
 
     def curry(self, n: int = 1, left: bool = False) -> CMap:
         """
@@ -457,6 +492,11 @@ class CMap[C0: Pregroup, C1: CMap](
             shift + i: shift + j for i, j in enumerate(other.edge)})
         glue = dict(zip(self_outputs, (shift + i for i in other_inputs)))
         glue.update({j: i for i, j in glue.items()})
+        objects = {i: port.obj for i, port in enumerate(self.ports)}
+        objects.update({
+            shift + i: port.obj for i, port in enumerate(other.ports)})
+        scalars = self.scalars + other.scalars\
+            + self._internal_glued_scalars(edge, glue, removed, objects)
 
         def follow(port):
             port = edge[port]
@@ -475,7 +515,9 @@ class CMap[C0: Pregroup, C1: CMap](
                 edge_pairs.append((mapping[i], mapping[j]))
 
         edge = Permutation.from_transpositions(edge_pairs, len(kept))
-        return type(self)(dom, cod, boxes, edge, offsets=offsets)
+        return type(self)(
+            dom, cod, boxes, edge, offsets=offsets,
+            scalars=scalars)
 
     def trace(self, n: int = 1, left: bool = False) -> CMap:
         """ Partial trace, encoded by splicing traced boundary wires. """
@@ -502,6 +544,9 @@ class CMap[C0: Pregroup, C1: CMap](
         removed = set(trace_pair)
         kept = [i for i in range(self.n_ports) if i not in removed]
         mapping = {old: new for new, old in enumerate(kept)}
+        scalars = self.scalars + self._internal_glued_scalars(
+            dict(enumerate(self.edge)), trace_pair, removed,
+            {i: port.obj for i, port in enumerate(self.ports)})
 
         def follow(port):
             seen = set()
@@ -519,7 +564,9 @@ class CMap[C0: Pregroup, C1: CMap](
                 edge_pairs.append((mapping[i], mapping[j]))
 
         edge = Permutation.from_transpositions(edge_pairs, len(kept))
-        return type(self)(dom, cod, self.boxes, edge, offsets=self.offsets)
+        return type(self)(
+            dom, cod, self.boxes, edge, offsets=self.offsets,
+            scalars=scalars)
 
     @unbiased
     def tensor(self, other: CMap) -> CMap:
@@ -558,7 +605,9 @@ class CMap[C0: Pregroup, C1: CMap](
                 if i < j:
                     edge_pairs.append((mapping[i], mapping[j]))
         edge = Permutation.from_transpositions(edge_pairs, n_ports)
-        return type(self)(dom, cod, boxes, edge, offsets=offsets)
+        return type(self)(
+            dom, cod, boxes, edge, offsets=offsets,
+            scalars=self.scalars + other.scalars)
 
     def interchange(self, i: int, j: int) -> CMap:
         """
@@ -590,22 +639,25 @@ class CMap[C0: Pregroup, C1: CMap](
         port_permutation = Permutation(
             (mapping[port] for port in range(self.n_ports)), self.n_ports)
         edge = self.edge.conjugate(port_permutation)
-        return type(self)(self.dom, self.cod, boxes, edge, offsets=offsets)
+        return type(self)(
+            self.dom, self.cod, boxes, edge, offsets=offsets,
+            scalars=self.scalars)
 
     def plug_input(
             self, input_index: int, box: Box,
-            cod: C0) -> CMap:
+            cod: C0, root_index: int = 0) -> CMap:
         """
         Plug an input boundary and the output root into a new box.
 
         If ``self : A @ x -> y`` and ``box : y -> z @ x``, then
         ``self.plug_input(i, box, z)`` removes the ``i``-th input, wires the
         old output to the domain of ``box``, wires the removed input to the
-        second output of ``box``, and leaves the first output of ``box`` as the
-        new root.
+        non-root output of ``box``, and leaves ``root_index`` as the new root.
         """
         assert_isinstance(box, self.category)
         if len(self.cod) != 1 or len(box.dom) != 1 or len(box.cod) != 2:
+            raise ValueError
+        if root_index not in [0, 1]:
             raise ValueError
         if input_index < 0 or input_index >= len(self.dom):
             raise ValueError
@@ -628,8 +680,9 @@ class CMap[C0: Pregroup, C1: CMap](
             new_index += 1
 
         box_dom = new_index
-        box_root = new_index + 1
-        box_parameter = new_index + 2
+        box_outputs = (new_index + 1, new_index + 2)
+        box_root = box_outputs[root_index]
+        box_parameter = box_outputs[1 - root_index]
         new_output = new_index + 3
 
         edge_pairs = []
@@ -648,7 +701,9 @@ class CMap[C0: Pregroup, C1: CMap](
         edge_pairs.append((box_root, new_output))
         edge = Permutation.from_transpositions(edge_pairs, new_output + 1)
 
-        return type(self)(new_dom, cod, boxes, edge, offsets=offsets)
+        return type(self)(
+            new_dom, cod, boxes, edge, offsets=offsets,
+            scalars=self.scalars)
 
     def to_hypergraph(self) -> hypergraph.Hypergraph:
         """

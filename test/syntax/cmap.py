@@ -189,6 +189,18 @@ def test_zipping_cups_and_caps():
     assert zipping_expr(D, x @ y).to_map() == zipping_expr(M, x @ y) == M.id(x @ y)
 
 
+def test_scalar_is_not_eliminated():
+    from discopy.compact import Ty, Diagram as D, CMap as M
+
+    x = Ty("x")
+    scalar = M.caps(x.r, x) >> M.cups(x.r, x)
+
+    assert scalar != M.id()
+    assert scalar.scalars == (x,)
+    assert scalar.euler_characteristic == 1
+    assert (D.caps(x.r, x) >> D.cups(x.r, x)).to_map() == scalar
+
+
 def test_from_hypergraph():
     from discopy.compact import Ty, Box, CMap as M, Hypergraph as H
 
