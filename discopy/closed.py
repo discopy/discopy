@@ -51,10 +51,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
-from discopy import cat, monoidal, biclosed, markov, messages
+from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
-from discopy.utils import AxiomError
 
 
 @ob_factory
@@ -212,12 +211,9 @@ class TermBase(Box, biclosed.TermBase):
 type Term = Constant | Variable | Application | Abstraction
 
 
-class Constant(TermBase, biclosed.Constant):
+class Constant(biclosed.Constant, TermBase):
     def __str__(self):
         return self.name
-
-    def to_map(self, category=None):
-        raise ValueError("Constants are not pure linear lambda terms.")
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -227,17 +223,11 @@ class Constant(TermBase, biclosed.Constant):
             functor)
 
 
-class Variable(TermBase, biclosed.Variable):
+class Variable(biclosed.Variable, TermBase):
     def __init__(self, name: str | Ty, cod: Ty | str):
         if isinstance(name, Ty) and isinstance(cod, str):
             name, cod = cod, name
         super().__init__(name, cod)
-
-    def to_map(self, category=None):
-        category = category or CMap
-        cmap = category.id(self.cod)
-        assert_term_map(cmap, self, category)
-        return cmap
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -249,7 +239,7 @@ class Variable(TermBase, biclosed.Variable):
             for x in context.inside])
 
 
-class Application(TermBase, biclosed.Application):
+class Application(biclosed.Application, TermBase):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
         self.freevars = list(set(func.freevars + args.freevars))\
@@ -271,19 +261,8 @@ class Application(TermBase, biclosed.Application):
         return functor.cod.copy(functor(context.dom))\
             >> func @ args >> evaluate
 
-    def to_map(self, category=None):
-        category = category or CMap
-        func_map = self.func.to_map(category)
-        args_map = self.args.to_map(category)
-        if self.overlap:
-            raise AxiomError(messages.NON_AFFINE_TERM(*self.overlap))
-        app = Eval(self.func.cod, left=True)
-        cmap = (func_map @ args_map) >> category.from_box(app)
-        assert_term_map(cmap, self, category)
-        return cmap
 
-
-class Abstraction(TermBase, biclosed.Abstraction):
+class Abstraction(biclosed.Abstraction, TermBase):
     def __check_dom__(self):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
@@ -299,33 +278,8 @@ class Abstraction(TermBase, biclosed.Abstraction):
         p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
         return (body.permutation(p, body.dom).dagger() >> body).curry()
 
-    def to_map(self, category=None):
-        category = category or CMap
-        body_map = self.body.to_map(category)
-        free_vars = self.body.freevars
-        matches = [
-            index for index, variable in enumerate(free_vars)
-            if variable == self.var]
-        if len(matches) == 0:
-            raise AxiomError(messages.NON_RELEVANT_TERM.format(var=self.var))
-        if len(matches) > 1:
-            raise AxiomError(messages.NON_AFFINE_TERM(self.var))
-        index, = matches
-        lam = Coeval(self.cod, left=True)
-        cmap = body_map.plug_input(index, lam, self.cod)
-        assert_term_map(cmap, self, category)
-        return cmap
 
-
-def assert_term_map(cmap, term, category: type[CMap] | None = None):
-    category = category or CMap
-    if cmap.dom != category.ob().tensor(
-            *(variable.cod for variable in term.freevars)):
-        raise ValueError
-    if cmap.cod != term.cod:
-        raise ValueError
-    if any(len(cycle) != 3 for cycle in cmap.node_cycles):
-        raise ValueError
+assert_term_map = biclosed.assert_term_map
 
 
 @dataclass

@@ -64,11 +64,12 @@ from inspect import signature
 from dataclasses import dataclass
 from typing import Callable, ClassVar, Self, Iterable
 
-from discopy import cat, monoidal
+from discopy import cat, monoidal, messages
 from discopy.abc import BiclosedCategory
 from discopy.drawing import Drawing
 from discopy.cat import ob_factory, ar_factory
 from discopy.utils import (
+    AxiomError,
     assert_isinstance,
     factory_name,
     from_tree,
@@ -540,6 +541,13 @@ class TermBase(Box):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
 
+    @property
+    def map_category(self):
+        return self.functor.cod.map_factory
+
+    def to_map(self, category=None):
+        raise NotImplementedError
+
     def __call__(self, other, left=False):
         args = (other, self, left) if left else (self, other, left)
         return self.cod.application_factory(*args)
@@ -581,6 +589,12 @@ class Constant(TermBase):
         functor = functor or self.functor
         return functor.ar_map[self]
 
+    def to_map(self, category=None):
+        category = category or self.map_category
+        cmap = category.from_box(self)
+        assert_term_map(cmap, self, category)
+        return cmap
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
@@ -606,6 +620,12 @@ class Variable(TermBase):
     def eval(self, functor=None):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
+
+    def to_map(self, category=None):
+        category = category or self.map_category
+        cmap = category.id(self.cod)
+        assert_term_map(cmap, self, category)
+        return cmap
 
     def __substitute__(self, subst: Substitution) -> Term:
         return subst.lookup(self)
@@ -671,6 +691,19 @@ class Application(TermBase):
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
 
+    def to_map(self, category=None):
+        category = category or self.map_category
+        if getattr(self, "overlap", ()):
+            raise AxiomError(messages.NON_AFFINE_TERM(*self.overlap))
+        func_map = self.func.to_map(category)
+        args_map = self.args.to_map(category)
+        app = category.category.eval_factory(
+            self.func.cod, left=not self.left)
+        cmap = (args_map @ func_map if self.left else func_map @ args_map)\
+            >> category.from_box(app)
+        assert_term_map(cmap, self, category)
+        return cmap
+
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
         left = ", left=True" if self.left else ""
@@ -717,6 +750,24 @@ class Abstraction(TermBase):
     def eval(self, functor=None):
         return (functor or self.functor)(self.body.curry(left=not self.left))
 
+    def to_map(self, category=None):
+        category = category or self.map_category
+        body_map = self.body.to_map(category)
+        matches = [
+            index for index, variable in enumerate(self.body.freevars)
+            if variable == self.var]
+        if len(matches) == 0:
+            raise AxiomError(messages.NON_RELEVANT_TERM.format(var=self.var))
+        if len(matches) > 1:
+            raise AxiomError(messages.NON_AFFINE_TERM(self.var))
+        index, = matches
+        lam = category.category.coeval_factory(
+            self.cod, left=not self.left)
+        cmap = body_map.plug_input(
+            index, lam, self.cod, root_index=int(self.left))
+        assert_term_map(cmap, self, category)
+        return cmap
+
     def __substitute__(self, subst: Substitution) -> Term:
         inner_subst = subst.without((self.var, ))
         return type(self)(
@@ -742,6 +793,17 @@ class Abstraction(TermBase):
 
 
 type Term = Constant | Variable | Application | Abstraction
+
+
+def assert_term_map(cmap, term, category: type[CMap] | None = None):
+    category = category or term.map_category
+    if cmap.dom != category.ob().tensor(
+            *(variable.cod for variable in term.freevars)):
+        raise ValueError
+    if cmap.cod != term.cod:
+        raise ValueError
+    if not term.constants and any(len(cycle) != 3 for cycle in cmap.node_cycles):
+        raise ValueError
 
 
 @dataclass

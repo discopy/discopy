@@ -245,27 +245,21 @@ class TermBase(Box, biclosed.TermBase):
         return BA(self, other) if left else FA(self, other)
 
 
-class Constant(TermBase, biclosed.Constant):
+class Constant(biclosed.Constant, TermBase):
     def __init__(self, name: str, cod: Ty):
         biclosed.Constant.__init__(self, name, cod)
         TermBase.__init__(self, self.name, self.dom, self.cod)
 
-    def to_map(self, category=None):
-        return (category or CMap).from_box(self)
-
     def simplify(self):
         return self
 
 
-class Variable(TermBase, biclosed.Variable):
-    def to_map(self, category=None):
-        return (category or CMap).id(self.cod)
-
+class Variable(biclosed.Variable, TermBase):
     def simplify(self):
         return self
 
 
-class Abstraction(TermBase, biclosed.Abstraction):
+class Abstraction(biclosed.Abstraction, TermBase):
     var: Variable
     body: Term
     left: bool = False
@@ -274,47 +268,25 @@ class Abstraction(TermBase, biclosed.Abstraction):
         biclosed.Abstraction.__init__(self, var, body, left)
         TermBase.__init__(self, self.name, self.dom, self.cod)
 
-    def to_map(self, category=None):
-        category = category or CMap
-        body_map = self.body.to_map(category)
-        matches = [
-            index for index, variable in enumerate(self.body.freevars)
-            if variable == self.var]
-        if len(matches) != 1:
-            raise ValueError
-        box = category.category.coeval_factory(self.cod, left=not self.left)
-        return body_map.plug_input(
-            matches[0], box, self.cod, root_index=int(self.left))
-
     def simplify(self):
         return Abstraction(self.var, self.body.simplify(), self.left)
 
 
-class FA(TermBase, biclosed.Application):
+class FA(biclosed.Application, TermBase):
     "Application of type ``Y`` with subterms of type ``Y << X`` and ``X``."
     def __init__(self, func, args):
         biclosed.Application.__init__(self, func, args, left=False)
         TermBase.__init__(self, self.name, self.dom, self.cod)
 
-    def to_map(self, category=None):
-        category = category or CMap
-        return self.func.to_map(category) @ self.args.to_map(category)\
-            >> category.from_box(category.category.eval_factory(self.func.cod))
-
     def simplify(self):
         return self.func.simplify()(self.args.simplify())
 
 
-class BA(TermBase, biclosed.Application):
+class BA(biclosed.Application, TermBase):
     "Application of type ``Y`` with subterms of type ``X`` and ``X >> Y``."
     def __init__(self, args, func):
         biclosed.Application.__init__(self, func, args, left=True)
         TermBase.__init__(self, self.name, self.dom, self.cod)
-
-    def to_map(self, category=None):
-        category = category or CMap
-        return self.args.to_map(category) @ self.func.to_map(category)\
-            >> category.from_box(category.category.eval_factory(self.func.cod))
 
     def simplify(self):
         return self.args.simplify()(self.func.simplify(), left=True)
@@ -337,7 +309,7 @@ class TypeRaising(TermBase):
         return self.simplify().eval(**kwargs)
 
     def to_map(self, category=None):
-        return self.simplify().to_map(category or CMap)
+        return self.simplify().to_map(category)
 
     def __substitute__(self, subst: Substitution) -> Self:
         return type(self)(self.base, subst(self.child), self.cod)
@@ -399,7 +371,7 @@ class BinaryTerm(TermBase):
         return self.simplify().eval(**kwargs)
 
     def to_map(self, category=None):
-        return self.simplify().to_map(category or CMap)
+        return self.simplify().to_map(category)
 
     def __substitute__(self, subst: Substitution) -> Self:
         return type(self)(subst(self.left), subst(self.right))
@@ -480,10 +452,12 @@ class FX(BinaryTerm):
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
     def to_map(self, category=None):
-        category = category or CMap
-        return self.left.to_map(category) @ self.right.to_map(category)\
+        category = category or self.map_category
+        cmap = self.left.to_map(category) @ self.right.to_map(category)\
             >> category.from_box(ForwardCrossedComposition(
                 self.left.cod, self.right.cod))
+        biclosed.assert_term_map(cmap, self, category)
+        return cmap
 
 
 @dataclass(frozen=True, repr=False)
@@ -504,10 +478,12 @@ class BX(BinaryTerm):
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
 
     def to_map(self, category=None):
-        category = category or CMap
-        return self.left.to_map(category) @ self.right.to_map(category)\
+        category = category or self.map_category
+        cmap = self.left.to_map(category) @ self.right.to_map(category)\
             >> category.from_box(BackwardCrossedComposition(
                 self.left.cod, self.right.cod))
+        biclosed.assert_term_map(cmap, self, category)
+        return cmap
 
 
 type Term = (

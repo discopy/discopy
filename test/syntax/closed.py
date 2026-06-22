@@ -6,6 +6,7 @@ from pytest import raises
 from discopy.closed import (
     Application,
     Abstraction,
+    Constant,
     Variable,
     Ty,
     Functor,
@@ -100,8 +101,7 @@ def test_term_failures_and_assertions():
     higher = Variable("h", X >> (X >> X))
 
     assert X("c").to_diagram().dom == Ty()
-    with raises(ValueError):
-        X("c").to_map()
+    assert X("c").to_map() == CMap.from_box(X("c"))
     with raises(TypeError):
         Application(x, x)
     with raises(ValueError):
@@ -120,6 +120,29 @@ def test_term_failures_and_assertions():
         assert_term_map(CMap.id(Y), x)
     with raises(ValueError):
         assert_term_map(CMap.from_box(Box("f", X @ X, X)), f)
+
+
+def test_term_to_map_with_constants():
+    X, Y = map(Ty, "XY")
+    c = X("c")
+    f = (X >> Y)("f")
+    x = Variable("x", X)
+
+    assert c.to_map().dom == Ty()
+    assert c.to_map().cod == X
+    assert c.to_map().boxes == (c,)
+
+    application = Application(f, x)
+    cmap = application.to_map()
+    assert cmap.dom == X
+    assert cmap.cod == Y
+    assert [type(box) for box in cmap.boxes] == [Constant, Eval]
+
+    abstraction = Abstraction(x, application)
+    cmap = abstraction.to_map()
+    assert cmap.dom == Ty()
+    assert cmap.cod == X >> Y
+    assert [type(box) for box in cmap.boxes] == [Constant, Eval, Coeval]
 
 
 def test_term_to_map_identity():

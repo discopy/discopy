@@ -159,6 +159,21 @@ def test_structural_maps_and_errors():
         f.trace(2)
 
 
+def test_curry_uncurry_roundtrip():
+    from discopy.compact import Ty, Box
+
+    x, y, z = map(Ty, "xyz")
+    cmap = Box("f", x @ y, z).to_map()
+    assert cmap.curry().uncurry() == cmap
+    assert cmap.curry(left=True).uncurry(left=True) == cmap
+    assert cmap.curry(n=0).uncurry(n=0) == cmap
+    assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
+    with raises(ValueError):
+        cmap.curry(n=3)
+    with raises(ValueError):
+        cmap.uncurry(n=2)
+
+
 def test_scalar_box():
     from discopy.compact import Ty, Box, CMap as M
 
