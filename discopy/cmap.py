@@ -790,14 +790,6 @@ class CMap[C0: Pregroup, C1: CMap](
         Recover a term by an oriented DFS from the root, building up a term
         in continuation-passing style.
         """
-        from discopy.closed import (
-            Abstraction,
-            Application,
-            Coeval,
-            Eval,
-            Variable,
-        )
-
         self._assert_rooted_trivalent_map()
         names = tuple(input_names or (f"x{i}" for i in range(len(self.dom))))
         if len(names) != len(self.dom):
@@ -807,21 +799,28 @@ class CMap[C0: Pregroup, C1: CMap](
             assert_isinstance(obj, self.category.ob)
             return obj if hasattr(obj, "inside") else obj.ob(obj)
 
+        cod = term_type(self.cod)
+        variable_factory = cod.variable_factory
+        application_factory = cod.application_factory
+        abstraction_factory = cod.abstraction_factory
+        eval_factory = self.category.eval_factory
+        coeval_factory = self.category.coeval_factory
+
         variables = tuple(
-            Variable(name, term_type(obj))
+            variable_factory(name, term_type(obj))
             for obj, name in zip(self.dom, names)
         )
         counter = len(variables)
 
-        def fresh(obj: Ty) -> Variable:
+        def fresh(obj: Ty) -> Term:
             nonlocal counter
-            variable = Variable(f"x{counter}", obj)
+            variable = variable_factory(f"x{counter}", obj)
             counter += 1
             return variable
 
         def dfs(
             port_idx: int,
-            bound_ports: dict[int, Variable],
+            bound_ports: dict[int, Term],
             continuation: Callable[[Term], Term]
         ) -> Term:
             port_idx = self.edge[port_idx]
@@ -837,11 +836,13 @@ class CMap[C0: Pregroup, C1: CMap](
             box = self.boxes[port.depth]
             box_ports = self.box_port_indices[port.depth]
 
-            if isinstance(box, Eval):
+            if isinstance(box, eval_factory):
                 if port.kind != PortKind.COD or port.i != 0:
                     raise ValueError
-                func_port, arg_port = [
+                dom_ports = [
                     i for i in box_ports if self.ports[i].kind == "dom"]
+                func_port, arg_port = dom_ports if box.left\
+                    else tuple(reversed(dom_ports))
                 return dfs(
                     func_port,
                     bound_ports,
@@ -850,14 +851,14 @@ class CMap[C0: Pregroup, C1: CMap](
                             arg_port,
                             bound_ports,
                             lambda arg:
-                                continuation(Application(func, arg))
+                                continuation(application_factory(
+                                    func, arg, left=not box.left))
                         )
                 )
 
-            if isinstance(box, Coeval):
+            if isinstance(box, coeval_factory):
                 cod = term_type(self.ports[port_idx].obj)
-                if port.kind != PortKind.COD or port.i != 0\
-                        or not cod.is_exp:
+                if port.kind != PortKind.COD or not cod.is_exp:
                     raise ValueError
                 body_port, = [
                     i for i in box_ports if self.ports[i].kind == PortKind.DOM]
@@ -868,7 +869,8 @@ class CMap[C0: Pregroup, C1: CMap](
                 return dfs(
                     body_port,
                     bound_ports | {parameter_port: variable},
-                    lambda body: continuation(Abstraction(variable, body)))
+                    lambda body: continuation(abstraction_factory(
+                        variable, body, left=not box.left)))
 
             raise ValueError
 

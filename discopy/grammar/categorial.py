@@ -75,6 +75,12 @@ class Under(biclosed.Under):
     ob = Ty
 
 
+class Exp(biclosed.Exp):
+    "Categorial grammar type ``base ** exponent``."
+
+    ob = Ty
+
+
 @ar_factory
 class Diagram(biclosed.Diagram):
     """
@@ -157,6 +163,12 @@ class Curry(biclosed.Curry, Box):
     """
 
 
+class Coeval(biclosed.Coeval, Box):
+    """
+    Coevaluation box in a categorial grammar.
+    """
+
+
 class ForwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Forward crossed composition rule. """
     def __init__(self, left, right):
@@ -173,6 +185,8 @@ class ForwardCrossedComposition(BinaryBoxConstructor, Box):
 
 class BackwardCrossedComposition(BinaryBoxConstructor, Box):
     """ Backward crossed composition rule. """
+    drawing_name = "BX"
+
     def __init__(self, left, right):
         assert left.is_over
         assert right.is_under
@@ -212,6 +226,14 @@ class Functor(biclosed.Functor):
         return super().__call__(other)
 
 
+class CMap(biclosed.CMap):
+    """
+    A combinatorial map for categorial diagrams.
+    """
+
+    functor = Functor
+
+
 class TermBase(Box, biclosed.TermBase):
     """
     A term in the internal language of a categorial grammar.
@@ -228,11 +250,17 @@ class Constant(TermBase, biclosed.Constant):
         biclosed.Constant.__init__(self, name, cod)
         TermBase.__init__(self, self.name, self.dom, self.cod)
 
+    def to_map(self, category=None):
+        return (category or CMap).from_box(self)
+
     def simplify(self):
         return self
 
 
 class Variable(TermBase, biclosed.Variable):
+    def to_map(self, category=None):
+        return (category or CMap).id(self.cod)
+
     def simplify(self):
         return self
 
@@ -246,6 +274,18 @@ class Abstraction(TermBase, biclosed.Abstraction):
         biclosed.Abstraction.__init__(self, var, body, left)
         TermBase.__init__(self, self.name, self.dom, self.cod)
 
+    def to_map(self, category=None):
+        category = category or CMap
+        body_map = self.body.to_map(category)
+        matches = [
+            index for index, variable in enumerate(self.body.freevars)
+            if variable == self.var]
+        if len(matches) != 1:
+            raise ValueError
+        box = category.category.coeval_factory(self.cod, left=not self.left)
+        return body_map.plug_input(
+            matches[0], box, self.cod, root_index=int(self.left))
+
     def simplify(self):
         return Abstraction(self.var, self.body.simplify(), self.left)
 
@@ -256,6 +296,11 @@ class FA(TermBase, biclosed.Application):
         biclosed.Application.__init__(self, func, args, left=False)
         TermBase.__init__(self, self.name, self.dom, self.cod)
 
+    def to_map(self, category=None):
+        category = category or CMap
+        return self.func.to_map(category) @ self.args.to_map(category)\
+            >> category.from_box(category.category.eval_factory(self.func.cod))
+
     def simplify(self):
         return self.func.simplify()(self.args.simplify())
 
@@ -265,6 +310,11 @@ class BA(TermBase, biclosed.Application):
     def __init__(self, args, func):
         biclosed.Application.__init__(self, func, args, left=True)
         TermBase.__init__(self, self.name, self.dom, self.cod)
+
+    def to_map(self, category=None):
+        category = category or CMap
+        return self.args.to_map(category) @ self.func.to_map(category)\
+            >> category.from_box(category.category.eval_factory(self.func.cod))
 
     def simplify(self):
         return self.args.simplify()(self.func.simplify(), left=True)
@@ -285,6 +335,9 @@ class TypeRaising(TermBase):
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
+
+    def to_map(self, category=None):
+        return self.simplify().to_map(category or CMap)
 
     def __substitute__(self, subst: Substitution) -> Self:
         return type(self)(self.base, subst(self.child), self.cod)
@@ -344,6 +397,9 @@ class BinaryTerm(TermBase):
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
+
+    def to_map(self, category=None):
+        return self.simplify().to_map(category or CMap)
 
     def __substitute__(self, subst: Substitution) -> Self:
         return type(self)(subst(self.left), subst(self.right))
@@ -423,6 +479,12 @@ class FX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
+    def to_map(self, category=None):
+        category = category or CMap
+        return self.left.to_map(category) @ self.right.to_map(category)\
+            >> category.from_box(ForwardCrossedComposition(
+                self.left.cod, self.right.cod))
+
 
 @dataclass(frozen=True, repr=False)
 class BX(BinaryTerm):
@@ -440,6 +502,12 @@ class BX(BinaryTerm):
         X, Y = self.left.cod.exponent, self.left.cod.base
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
+
+    def to_map(self, category=None):
+        category = category or CMap
+        return self.left.to_map(category) @ self.right.to_map(category)\
+            >> category.from_box(BackwardCrossedComposition(
+                self.left.cod, self.right.cod))
 
 
 type Term = (
@@ -507,8 +575,10 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 
 Id = Diagram.id
+Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
+Diagram.coeval_factory = Coeval
 
 Ty.variable_factory = Variable
 Ty.constant_factory = Constant
@@ -516,4 +586,4 @@ Ty.application_factory =\
     lambda func, args, left=False: BA(args, func) if left else FA(func, args)
 Ty.abstraction_factory = Abstraction
 
-Ty.over_factory, Ty.under_factory = Over, Under
+Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
