@@ -174,6 +174,7 @@ class Hypergraph(markov.Hypergraph):
 
 class CMap(biclosed.CMap):
     functor = Functor
+    require_planar = True
 
 
 Diagram.hypergraph_factory = Hypergraph

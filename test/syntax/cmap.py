@@ -95,6 +95,16 @@ def test_eliminate_swaps():
     assert diagram.to_map() == diagram.to_hypergraph().to_diagram().to_map()
 
 
+def test_to_diagram_preserves_offsets():
+    from discopy.compact import Ty, Box, CMap as M
+
+    x, y, z = map(Ty, "xyz")
+    delayed = Box("h", x @ y, z)
+    cmap = M(delayed.dom, delayed.cod, (delayed, ),
+             M.from_box(delayed).edge, offsets=(2, ))
+    assert cmap.to_diagram().to_map() == cmap
+
+
 def test_diagram_to_map():
     from discopy.monoidal import Ty, Box
 
@@ -105,7 +115,8 @@ def test_diagram_to_map():
 
 
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
-    from discopy.symmetric import Ty, Id
+    from discopy.monoidal import CMap as MMap
+    from discopy.symmetric import Ty, Id, CMap as SMap
 
     x, y = map(Ty, "xy")
     cm = Id(x @ y).permute(1, 0).to_map()
@@ -114,26 +125,72 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     assert cm.boxes == ()
     assert cm.edge == (3, 2, 1, 0)
 
+    x = Ty("x")
+    with raises(AxiomError):
+        MMap(x @ x, x @ x, (), (3, 2, 1, 0))
+    assert SMap(x @ x, x @ x, (), (3, 2, 1, 0))\
+        == SMap.swap(x, x)
 
-def test_diagram_to_map_keeps_non_wiring_structure_as_boxes():
+
+def test_diagram_to_map_respects_current_structure_and_keeps_next_free():
+    from discopy.monoidal import Ty as MTy, Box as MBox, CMap as MMap
     from discopy.braided import Ty as BTy, Braid
-    from discopy.compact import Ty as CTy, Cup, Cap
-    from discopy.markov import Ty as MTy, Copy as MCopy
+    from discopy.symmetric import Ty as STy, Swap, CMap as SMap
+    from discopy.compact import Ty as CTy, Cup, Cap, CMap
+    from discopy.traced import Ty as TTy, Box as TBox, Trace, CMap as TCMap
+    from discopy.balanced import Ty as BalTy, Twist
+    from discopy.closed import Ty as ClosedTy, Eval, CMap as ClosedM
+    from discopy.markov import Ty as MarkovTy, Copy as MCopy, CMap as MM
+    from discopy import frobenius
+
+    mx, my = map(MTy, "xy")
+    f = MBox("f", mx, my)
+    assert MMap.require_planar is False
+    assert f.to_map() == MMap.from_box(f)
 
     bx, by = map(BTy, "xy")
-    assert Braid(bx, by).to_map().boxes == (Braid(bx, by), )
+    braid = Braid(bx, by)
+    assert MMap.from_diagram(braid).boxes == (braid, )
+
+    sx, sy = map(STy, "xy")
+    assert SMap.require_planar is True
+    assert Swap(sx, sy).to_map() == SMap.swap(sx, sy)
 
     cx = CTy("x")
-    assert Cup(cx, cx.r).to_map().boxes == ()
-    assert Cap(cx.r, cx).to_map().boxes == ()
+    cup, cap = Cup(cx, cx.r), Cap(cx.r, cx)
+    assert SMap.from_diagram(cup).boxes == (cup, )
+    assert cup.to_map() == CMap.cups(cx, cx.r)
+    assert cap.to_map() == CMap.caps(cx.r, cx)
 
-    mx = MTy("x")
+    tx = TTy("x")
+    traced_box = TBox("f", tx, tx)
+    assert Trace(traced_box).to_map() == traced_box.to_map().trace()
+
+    bx = BalTy("x")
+    twist = Twist(bx)
+    assert TCMap.from_diagram(twist).boxes == (twist, )
+    assert twist.to_map().boxes == ()
+
+    cx, cy = map(ClosedTy, "xy")
+    ev = Eval(cy << cx)
+    assert ev.to_map() == ClosedM.ev(cy, cx, left=False)
+    assert ev.to_map().boxes == (ev, )
+
+    mx = MarkovTy("x")
     copy = MCopy(mx, 2)
-    assert copy.to_map().boxes == (copy, )
+    assert copy.to_map() == MM.copy(mx, 2)
+
+    fx = frobenius.Ty("x")
+    spider = frobenius.Spider(1, 2, fx)
+    assert MM.from_diagram(spider).boxes == (spider, )
+    assert spider.to_map() == frobenius.CMap.spiders(1, 2, fx)
 
 
 def test_structural_maps_and_errors():
     from discopy.compact import Ty as CTy, Box as CBox, CMap as CM
+    from discopy.cmap import Port, PortKind
+    from discopy.closed import Ty as ClosedTy, CMap as ClosedM
+    from discopy import frobenius
     from discopy.markov import Ty as MTy, CMap as MM
 
     x, y = map(CTy, "xy")
@@ -145,11 +202,24 @@ def test_structural_maps_and_errors():
         CM.cups(x, y)
     with raises(AxiomError):
         CM.caps(x, y)
+    with raises(AxiomError):
+        CM.validate_wire(
+            Port(PortKind.INPUT, 0, x, 0),
+            Port(PortKind.COD, 0, x, 0))
+
+    cx, cy = map(ClosedTy, "xy")
+    assert ClosedM.ev(cy, cx).boxes == (
+        ClosedM.category.ev(cy, cx), )
 
     mx = MTy("x")
     assert MM.copy(mx, 2).boxes == (MM.category.copy(mx, 2), )
     assert MM.merge(mx, 2).boxes == (MM.category.merge(mx, 2), )
     assert MM.discard(mx).boxes == (MM.category.copy(mx, 0), )
+
+    fx = frobenius.Ty("x")
+    assert frobenius.CMap.spiders(1, 2, fx).boxes == (
+        frobenius.Diagram.spiders(1, 2, fx), )
+    assert frobenius.Diagram.map_factory is frobenius.CMap
 
     f = CM.from_box(CBox("f", x, y))
     assert f.trace(0) is f
@@ -157,6 +227,26 @@ def test_structural_maps_and_errors():
         f.trace(-1)
     with raises(ValueError):
         f.trace(2)
+
+
+def test_trace():
+    from discopy.compact import Ty, Box, CMap as M
+
+    x, y = map(Ty, "xy")
+    assert M.id(x).trace().scalars == (x, )
+    assert M.id(x).trace(left=True).scalars == (x, )
+    assert M.swap(x, x).trace() == M.id(x)
+
+    f = M.from_box(Box("f", x @ y, x @ y))
+    right_trace = f.trace()
+    assert right_trace.dom == x
+    assert right_trace.cod == x
+    assert right_trace.boxes == f.boxes
+
+    left_trace = f.trace(left=True)
+    assert left_trace.dom == y
+    assert left_trace.cod == y
+    assert left_trace.boxes == f.boxes
 
 
 def test_curry_uncurry_roundtrip():
@@ -181,6 +271,7 @@ def test_scalar_box():
     cm = M.from_box(s)
     assert cm.edge == ()
     assert cm.node == ()
+    assert cm.node_cycles == ((), )
     assert cm.euler_characteristic == 1
     assert cm.to_hypergraph() == s.to_hypergraph()
 
@@ -287,8 +378,15 @@ def test_plug_input():
     assert indirect.dom == Ty()
     assert indirect.cod == y
     assert len(indirect.boxes) == 2
+
+    right_root = M.id(x).plug_input(
+        0, Box("lambda", x, x @ y), y, root_index=1)
+    assert right_root.dom == Ty()
+    assert right_root.cod == y
     with raises(ValueError):
         f.plug_input(-1, Box("lambda", x, y @ z), y)
+    with raises(ValueError):
+        f.plug_input(0, Box("lambda", x, y @ z), y, root_index=2)
     with raises(ValueError):
         f.plug_input(0, Box("bad", Ty(), y @ z), y)
 
@@ -323,7 +421,18 @@ def test_euler_characteristic():
     box = M.from_box(Box("f", x, y))
     scalar = M.from_box(Box("s", Ty(), Ty()))
     assert wire.face_cycles == ((0, 1),)
-    assert wire.euler_characteristic == 0
+    assert wire.euler_characteristic == 2
     assert box.face_cycles == ((0, 2, 3, 1),)
-    assert box.euler_characteristic == 0
-    assert (box @ scalar).euler_characteristic == 1
+    assert box.euler_characteristic == 2
+    assert (box @ scalar).euler_characteristic == 3
+
+
+def test_to_term_errors():
+    from discopy.closed import Ty, Box, CMap as M
+
+    x, y = map(Ty, "xy")
+    with raises(ValueError):
+        M.id(x).to_term([])
+    with raises(ValueError):
+        M.id(x @ y).to_term()
+    assert M.from_box(Box("c", Ty(), x)).to_term() == x("c")

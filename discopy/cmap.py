@@ -106,6 +106,7 @@ class CMap[C0: Pregroup, C1: CMap](
         scalars : The types of closed wire components with no ports.
     """
     functor: ClassVar[Functor]
+    require_planar: ClassVar[bool] = True
     category = classproperty(lambda cls: cls.functor.dom)
     ob = classproperty(lambda cls: cls.category.ob)
 
@@ -182,9 +183,42 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def euler_characteristic(self) -> int:
-        """ Euler characteristic ``V - E + F``. """
-        return len(self.boxes) - self.n_ports // 2\
-            + len(self.face_cycles) + len(self.scalars)
+        """
+        Euler characteristic ``V - E + F`` with boundary at infinity.
+
+        For open maps, the input and output ports are treated as points on one
+        outer boundary circle, ordered as inputs left-to-right followed by
+        outputs right-to-left. Thus a connected planar open map has Euler
+        characteristic 2.
+
+        >>> from discopy.symmetric import Ty, Box, Swap
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z)
+        >>> f.to_map().euler_characteristic
+        2
+        >>> (Swap(y, x) >> f).to_map().euler_characteristic
+        0
+        """
+        if not self.n_ports:
+            return len(self.boxes) + len(self.scalars)
+
+        cycles, vertices = [], len(self.boxes)
+        for box, box_ports in zip(self.boxes, self.box_port_indices):
+            dom_ports = box_ports[:len(box.dom)]
+            cod_ports = box_ports[len(box.dom):]
+            cycle = tuple(reversed(dom_ports)) + tuple(cod_ports)
+            if cycle:
+                cycles.append(cycle)
+
+        boundary = tuple(range(len(self.dom))) + tuple(range(
+            self.n_ports - 1, self.n_ports - len(self.cod) - 1, -1))
+        if boundary:
+            cycles.append(boundary)
+            vertices += 1
+
+        node = Permutation.from_cycles(cycles, self.n_ports)
+        return vertices - self.n_ports // 2\
+            + len(node.compose(self.edge).cycles()) + len(self.scalars)
 
     @property
     def node(self) -> Permutation:
@@ -207,7 +241,11 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
-    def _internal_glued_scalars(self, edge, glue, removed, objects) -> tuple:
+        if not self.require_planar and self.n_ports\
+                and self.euler_characteristic != 2:
+            raise AxiomError(messages.NOT_PLANAR.format(self))
+
+    def _new_scalars(self, edge, glue, removed, objects) -> tuple:
         """
         Compute the scalar types created by a gluing operation.
         """
@@ -492,7 +530,7 @@ class CMap[C0: Pregroup, C1: CMap](
         objects.update({
             shift + i: port.obj for i, port in enumerate(other.ports)})
         scalars = self.scalars + other.scalars\
-            + self._internal_glued_scalars(edge, glue, removed, objects)
+            + self._new_scalars(edge, glue, removed, objects)
 
         def follow(port):
             port = edge[port]
@@ -540,7 +578,7 @@ class CMap[C0: Pregroup, C1: CMap](
         removed = set(trace_pair)
         kept = [i for i in range(self.n_ports) if i not in removed]
         mapping = {old: new for new, old in enumerate(kept)}
-        scalars = self.scalars + self._internal_glued_scalars(
+        scalars = self.scalars + self._new_scalars(
             dict(enumerate(self.edge)), trace_pair, removed,
             {i: port.obj for i, port in enumerate(self.ports)})
 

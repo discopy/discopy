@@ -26,6 +26,7 @@ Summary
     Spider
     Bubble
     Functor
+    CMap
 
 Axioms
 ------
@@ -385,7 +386,12 @@ class Hypergraph(hypergraph.Hypergraph):
     functor = Functor
 
 
+class CMap(compact.CMap):
+    functor = Functor
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble

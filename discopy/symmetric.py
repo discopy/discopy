@@ -352,6 +352,7 @@ class Hypergraph(balanced.Hypergraph):
 
 class CMap(balanced.CMap):
     functor = Functor
+    require_planar = True
 
 
 Diagram.hypergraph_factory = Hypergraph

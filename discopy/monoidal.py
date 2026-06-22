@@ -1180,6 +1180,7 @@ class Hypergraph(hypergraph.Hypergraph):
 
 class CMap(cmap.CMap):
     functor = Functor
+    require_planar = False
 
 
 Diagram.draw = drawing.draw
