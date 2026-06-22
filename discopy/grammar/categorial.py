@@ -63,13 +63,13 @@ class Ty(biclosed.Ty):
 class Over(biclosed.Over):
     "Categorial grammar type ``base << exponent``."
 
-    ty_factory = Ty
+    ob = Ty
 
 
 class Under(biclosed.Under):
     "Categorial grammar type ``exponent >> base``."
 
-    ty_factory = Ty
+    ob = Ty
 
 
 @arrow_factory

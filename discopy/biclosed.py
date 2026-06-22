@@ -188,11 +188,11 @@ class Exp(cat.Ob):
         exponent : The exponent type.
     """
 
-    ty_factory = Ty
+    ob = Ty
 
     def __init__(self, base: Ty, exponent: Ty):
-        assert_isinstance(base, self.ty_factory)
-        assert_isinstance(exponent, self.ty_factory)
+        assert_isinstance(base, self.ob)
+        assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
 

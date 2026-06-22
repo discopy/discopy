@@ -114,8 +114,6 @@ class Monoid[C0, C1: Monoid](Category[C0, C1]):
     type. We do not enforce this constraint so that :class:`monoidal.Ty` can
     instead take colours as objects.
     """
-    ar: ClassVar[Type[C1]]
-
     @classmethod
     @abstractmethod
     def tensor(cls) -> C1:
@@ -124,7 +122,7 @@ class Monoid[C0, C1: Monoid](Category[C0, C1]):
     @classmethod
     def id(cls, dom: C0 = None) -> C1:
         """The monoidal unit, seen as an identity morphism."""
-        return cls.ar()
+        return cls.tensor()
 
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:

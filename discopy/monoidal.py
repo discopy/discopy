@@ -59,7 +59,7 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, messages
-from discopy.abc import MonoidalCategory
+from discopy.abc import Monoid, MonoidalCategory
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
@@ -144,8 +144,19 @@ class Ob(cat.Ob):
         return cls(tree['name'], dom, cod)
 
 
+class FreeMonoid(cat.FreeCategory, Monoid):
+    """A free category whose composition is also its monoid product."""
+
+    def tensor(self, *others):
+        if any(not isinstance(other, self.ar) for other in others):
+            return NotImplemented
+        return cat.FreeCategory.then(self, *others)
+
+    then = tensor
+
+
 @arrow_factory
-class Ty(cat.Ob, cat.FreeMonoid):
+class Ty(cat.Ob, FreeMonoid):
     """
     A type is a composable path of objects with :meth:`Ty.tensor`
     as concatenation.
@@ -265,7 +276,21 @@ class Ty(cat.Ob, cat.FreeMonoid):
             if self.inside and self.is_generator(self.inside[-1]) else white
         dom = inferred_dom if dom is None else dom
         cod = inferred_cod if cod is None else cod
-        self._init_path(self.inside, dom, cod, _scan)
+        self.dom, self.cod = dom, cod
+        if _scan:
+            for generator in self.inside:
+                assert_isinstance(generator, self._generator_type())
+            previous = dom
+            for generator in self.inside:
+                generator_dom = self._generator_dom(generator)
+                generator_cod = self._generator_cod(generator)
+                if previous != generator_dom:
+                    raise AxiomError(messages.NOT_COMPOSABLE.format(
+                        previous, generator, previous, generator_dom))
+                previous = generator_cod
+            if previous != cod:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    previous, cod, previous, cod))
         cat.Ob.__init__(self, str(self))
 
     @classmethod
@@ -297,6 +322,63 @@ class Ty(cat.Ob, cat.FreeMonoid):
     def is_atomic(self) -> bool:
         """ Whether a type is atomic, i.e. it has length 1. """
         return len(self) == 1
+
+    def tensor(self, *others):
+        if any(not isinstance(other, self.ar) for other in others):
+            return NotImplemented
+        inside, dom, cod = self.inside, self.dom, self.cod
+        for other in others:
+            if cod != other.dom:
+                raise AxiomError(messages.NOT_COMPOSABLE.format(
+                    self, other, cod, other.dom))
+            inside, cod = inside + other.inside, other.cod
+        return self._from_path(inside, dom, cod, _scan=False)
+
+    then = tensor
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            if key.step == -1:
+                inside = tuple(
+                    self._generator_dagger(x) for x in self.inside[key])
+                if inside:
+                    return self._from_path(
+                        inside, self._generator_dom(inside[0]),
+                        self._generator_cod(inside[-1]), _scan=True)
+                start = key.indices(len(self))[0]
+                boundary = self.cod if start >= len(self) else self.dom\
+                    if start < 0 else self._generator_cod(self.inside[start])
+                return self._from_path((), boundary, boundary, _scan=False)
+            if (key.step or 1) != 1:
+                if not type(self).allow_step:
+                    raise IndexError
+                inside = self.inside[key]
+                if not inside:
+                    return self._from_path((), self.dom, self.dom,
+                                            _scan=False)
+                return self._from_path(
+                    inside, self._generator_dom(inside[0]),
+                    self._generator_cod(inside[-1]), _scan=True)
+            inside = self.inside[key]
+            if not inside:
+                if (key.start or 0) >= len(self):
+                    return self._from_path((), self.cod, self.cod,
+                                            _scan=False)
+                if (key.start or 0) <= -len(self):
+                    return self._from_path((), self.dom, self.dom,
+                                            _scan=False)
+                boundary = self._generator_dom(self.inside[key.start or 0])
+                return self._from_path((), boundary, boundary, _scan=False)
+            return self._from_path(
+                inside, self._generator_dom(inside[0]),
+                self._generator_cod(inside[-1]), _scan=False)
+        if isinstance(key, int):
+            if key >= len(self) or key < -len(self):
+                raise IndexError
+            if key < 0:
+                return self[len(self) + key]
+            return self[key:key + 1]
+        raise TypeError
 
     def __eq__(self, other):
         return type(self) is type(other) and self.inside == other.inside\
@@ -357,7 +439,7 @@ class Ty(cat.Ob, cat.FreeMonoid):
             return cls(dom=from_tree(tree['dom']), cod=from_tree(tree['cod']))
         return cls()
 
-    __add__ = cat.FreeMonoid.__matmul__
+    __add__ = FreeMonoid.__matmul__
 
     def to_drawing(self) -> Ty:
         if not self.inside:

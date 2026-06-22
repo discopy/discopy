@@ -79,7 +79,7 @@ from functools import total_ordering, cached_property
 from typing import Callable, Mapping, Iterable, TYPE_CHECKING
 
 from discopy import messages, utils
-from discopy.abc import Category, Monoid
+from discopy.abc import Category
 from discopy.utils import (  # noqa: F401
     arrow_factory,
     factory_name,
@@ -165,56 +165,41 @@ class Ob:
 
 
 class FreeCategory(Category):
-    """A category whose arrows are paths of generating arrows."""
+    """
+    A category whose arrows are paths of generating arrows.
 
-    generator = None
+    Note
+    ----
+    Subclasses are assumed to have a ``generator_factory`` class attribute
+    for the type of the generators, and an ``__init__`` of the form
+    ``ar(inside, dom, cod, _scan=True)``.
+    """
+
     allow_step = False
 
-    @classmethod
-    def _generator_type(cls):
-        return cls.generator
-
-    @classmethod
-    def _generator_dom(cls, generator):
-        return generator.dom
-
-    @classmethod
-    def _generator_cod(cls, generator):
-        return generator.cod
-
-    @classmethod
-    def _generator_dagger(cls, generator):
-        return generator.dagger()
-
-    def _init_path(self, inside, dom, cod, _scan=True):
+    def __init__(self, inside, dom, cod, _scan=True):
         ob = type(self).ob
         dom = dom if isinstance(dom, ob) else ob(dom)
         cod = cod if isinstance(cod, ob) else ob(cod)
         self.dom, self.cod, self.inside = dom, cod, tuple(inside)
         if _scan:
             for generator in inside:
-                assert_isinstance(generator, type(self)._generator_type())
+                assert_isinstance(generator, type(self).generator_factory)
             previous = dom
             for generator in inside:
-                generator_dom = type(self)._generator_dom(generator)
-                generator_cod = type(self)._generator_cod(generator)
-                if previous != generator_dom:
+                if previous != generator.dom:
                     raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
-                        previous, generator, previous, generator_dom))
-                previous = generator_cod
+                        previous, generator, previous, generator.dom))
+                previous = generator.cod
             if previous != cod:
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     previous, cod, previous, cod))
 
     @classmethod
-    def _from_path(cls, inside, dom, cod, _scan=True):
-        return cls.ar(inside, dom, cod, _scan=_scan)
-
-    @classmethod
     def id(cls, dom=None):
         """The identity path, with no generators inside."""
         dom = cls.ob() if dom is None else dom
-        return cls._from_path((), dom, dom, _scan=False)
+        return cls.ar((), dom, dom, _scan=False)
 
     def then(self, *others):
         inside, dom, cod = self.inside, self.dom, self.cod
@@ -225,7 +210,7 @@ class FreeCategory(Category):
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     self, other, cod, other.dom))
             inside, cod = inside + other.inside, other.cod
-        return self._from_path(inside, dom, cod, _scan=False)
+        return self.ar(inside, dom, cod, _scan=False)
 
     def __iter__(self):
         return iter(self.inside)
@@ -236,16 +221,13 @@ class FreeCategory(Category):
     def __getitem__(self, key):
         if isinstance(key, slice):
             if key.step == -1:
-                inside = tuple(type(self)._generator_dagger(x)
-                               for x in self.inside[key])
+                inside = tuple(x.dagger() for x in self.inside[key])
                 if inside:
-                    return self._from_path(
-                        inside, type(self)._generator_dom(inside[0]),
-                        type(self)._generator_cod(inside[-1]), _scan=True)
+                    return self.ar(
+                        inside, inside[0].dom, inside[-1].cod, _scan=True)
                 start = key.indices(len(self))[0]
                 boundary = self.cod if start >= len(self) else self.dom\
-                    if start < 0 else type(self)._generator_cod(
-                        self.inside[start])
+                    if start < 0 else self.inside[start].cod
                 return self.id(boundary)
             if (key.step or 1) != 1:
                 if not type(self).allow_step:
@@ -253,20 +235,17 @@ class FreeCategory(Category):
                 inside = self.inside[key]
                 if not inside:
                     return self.id(self.dom)
-                return self._from_path(
-                    inside, type(self)._generator_dom(inside[0]),
-                    type(self)._generator_cod(inside[-1]), _scan=True)
+                return self.ar(
+                    inside, inside[0].dom, inside[-1].cod, _scan=True)
             inside = self.inside[key]
             if not inside:
                 if (key.start or 0) >= len(self):
                     return self.id(self.cod)
                 if (key.start or 0) <= -len(self):
                     return self.id(self.dom)
-                return self.id(type(self)._generator_dom(
-                    self.inside[key.start or 0]))
-            return self._from_path(
-                inside, type(self)._generator_dom(inside[0]),
-                type(self)._generator_cod(inside[-1]), _scan=False)
+                return self.id(self.inside[key.start or 0].dom)
+            return self.ar(
+                inside, inside[0].dom, inside[-1].cod, _scan=False)
         if isinstance(key, int):
             if key >= len(self) or key < -len(self):
                 raise IndexError
@@ -277,17 +256,6 @@ class FreeCategory(Category):
 
     def dagger(self):
         return self[::-1]
-
-
-class FreeMonoid(FreeCategory, Monoid):
-    """A free category whose composition is also its monoid product."""
-
-    def tensor(self, *others):
-        if any(not isinstance(other, self.ar) for other in others):
-            return NotImplemented
-        return FreeCategory.then(self, *others)
-
-    then = tensor
 
 
 @arrow_factory
@@ -339,20 +307,12 @@ class Arrow(FreeCategory):
     """
     ob = Ob
 
-    @classmethod
-    def _generator_type(cls):
-        return Box
-
     def __setstate__(self, state):
         if 'inside' not in state:  # Backward compatibility
             self.dom, self.cod, self.inside = (
                 state['_dom'], state['_cod'], tuple(state['_boxes']))
             del state['_dom'], state['_cod'], state['_boxes']
         self.__dict__.update(state)
-
-    def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
-                 _scan: bool = True) -> None:
-        self._init_path(inside, dom, cod, _scan)
 
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
@@ -949,6 +909,7 @@ class Functor(Category):
         return result
 
 
+Arrow.generator_factory = Box
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 CAT = Functor

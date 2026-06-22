@@ -108,6 +108,18 @@ class Backend(ABC):
     def draw_regions(self, graph, **params):
         """Draw coloured 0-cell regions when supported by the backend."""
 
+    @staticmethod
+    def visible_edges(graph):
+        """ Yield the edges of a graph that are not inside a box. """
+        def inside_a_box(node):
+            return node.kind == "box"\
+                and not node.box.draw_as_wires\
+                and not node.box.draw_as_spider
+        for source, target in graph.edges():
+            if inside_a_box(source) or inside_a_box(target):
+                continue  # no need to draw wires inside a box
+            yield source, target
+
     def draw_wire_label(self, x, i, j, **params):
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
             x, "always_draw_label", False)
@@ -123,13 +135,7 @@ class Backend(ABC):
         self.draw_text(label, i, j, verticalalignment='top', fontsize=fontsize)
 
     def draw_wires(self, graph, **params):
-        for source, target in graph.edges():
-            def inside_a_box(node):
-                return node.kind == "box"\
-                    and not node.box.draw_as_wires\
-                    and not node.box.draw_as_spider
-            if inside_a_box(source) or inside_a_box(target):
-                continue  # no need to draw wires inside a box
+        for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
             if source.kind in ["dom", "box_cod"]:
@@ -514,9 +520,7 @@ class Matplotlib(Backend):
 
     @staticmethod
     def _region_colour(typ, side="cod"):
-        from discopy.monoidal import Colour, white
-        colour = getattr(typ, side, white)
-        return colour.name if isinstance(colour, Colour) else white.name
+        return getattr(typ, side).name
 
     def _draw_right_region(self, source, target, width, facecolor,
                            bend_out=False):
@@ -538,13 +542,7 @@ class Matplotlib(Backend):
 
         separators = []
 
-        def inside_a_box(node):
-            return node.kind == "box" and not node.box.draw_as_wires\
-                and not node.box.draw_as_spider
-
-        for source, target in graph.edges():
-            if inside_a_box(source) or inside_a_box(target):
-                continue
+        for source, target in self.visible_edges(graph):
             source_position, target_position = (
                 graph.positions[source], graph.positions[target])
             if source_position == target_position:
