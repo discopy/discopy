@@ -28,6 +28,7 @@ Summary
     ForwardCrossedComposition
     BackwardCrossedComposition
     Functor
+    CMap
 
 .. admonition:: Functions
 

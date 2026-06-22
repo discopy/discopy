@@ -24,6 +24,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
 
 Axioms
 ------

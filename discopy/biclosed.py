@@ -22,6 +22,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
     TermBase
     Constant
     Variable
