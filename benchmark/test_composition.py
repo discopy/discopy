@@ -9,7 +9,10 @@ This module is deliberately kept outside of ``test/*/*.py`` so that it is
 not collected by the default ``pytest`` run (see ``testpaths`` in
 ``pyproject.toml``). It is meant to be run explicitly, e.g.
 
-    uv run pytest benchmark/
+    uv run pytest benchmark/ -s
+
+The ``-s`` flag is needed to see the printed timing report, since pytest
+captures stdout by default.
 
 Timings use ``time.process_time()`` (CPU time, immune to scheduling noise)
 with the garbage collector disabled during the timed region, and report
@@ -29,10 +32,10 @@ K_NOT = 200      # Width of the NOT-gate tensors/series.
 N_ADDER = 20     # Size of the ripple-carry adder.
 N_SPIRAL = 16    # Number of nested cups/caps in the spiral.
 
-_durations = []
+_results = []
 
 
-def timeit(fn, repeats=REPEATS):
+def timeit(label, fn, repeats=REPEATS):
     """ Median process-time of calling ``fn()``, with the GC disabled. """
     times = []
     gc_was_enabled = gc.isenabled()
@@ -46,7 +49,7 @@ def timeit(fn, repeats=REPEATS):
         if gc_was_enabled:
             gc.enable()
     duration = median(times)
-    _durations.append(duration)
+    _results.append((label, duration))
     return result, duration
 
 
@@ -66,12 +69,18 @@ def test_not_gate_diagram():
     not_gate = Box('NOT', bit, bit)
 
     tensor_k, _ = timeit(
+        "build k-fold tensor (Diagram)",
         lambda: repeated(lambda a, b: a.tensor(b), not_gate, K_NOT))
     series_k, _ = timeit(
+        "build k-fold series (Diagram)",
         lambda: repeated(lambda a, b: a.then(b), not_gate, K_NOT))
 
-    _, _ = timeit(lambda: tensor_k.then(tensor_k))
-    _, _ = timeit(lambda: series_k.tensor(series_k))
+    _, _ = timeit(
+        "Benchmark #3, large-boundary composition (Diagram)",
+        lambda: tensor_k.then(tensor_k))
+    _, _ = timeit(
+        "tensor of two k-fold series (Diagram)",
+        lambda: series_k.tensor(series_k))
 
 
 def test_not_gate_hypergraph():
@@ -79,12 +88,18 @@ def test_not_gate_hypergraph():
     not_gate = Box('NOT', bit, bit).to_hypergraph()
 
     tensor_k, _ = timeit(
+        "build k-fold tensor (Hypergraph)",
         lambda: repeated(lambda a, b: a.tensor(b), not_gate, K_NOT))
     series_k, _ = timeit(
+        "build k-fold series (Hypergraph)",
         lambda: repeated(lambda a, b: a.then(b), not_gate, K_NOT))
 
-    _, _ = timeit(lambda: tensor_k.then(tensor_k))
-    _, _ = timeit(lambda: series_k.tensor(series_k))
+    _, _ = timeit(
+        "Benchmark #3, large-boundary composition (Hypergraph)",
+        lambda: tensor_k.then(tensor_k))
+    _, _ = timeit(
+        "tensor of two k-fold series (Hypergraph)",
+        lambda: series_k.tensor(series_k))
 
 
 def make_adder(n, full_adder):
@@ -117,10 +132,23 @@ def test_adder_diagram():
     adder_n = make_adder(N_ADDER, full_adder)
 
     adder_next, _ = timeit(
+        "adder(n) -> adder(n+1) (Diagram)",
         lambda: adder_step(adder_n, N_ADDER, full_adder, bit))
 
     assert adder_next.dom == bit ** (2 * N_ADDER + 3)
     assert adder_next.cod == bit ** (N_ADDER + 2)
+
+
+def adder_step_hypergraph(adder_hg, k, full_adder_hg, bit):
+    """ Hypergraph counterpart of :func:`adder_step`. """
+    reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
+    reorder2 = [k] + list(range(k)) + [k + 1]
+    perm1 = Diagram.permutation(reorder1, bit ** (k + 3)).to_hypergraph()
+    perm2 = Diagram.permutation(reorder2, bit ** (k + 2)).to_hypergraph()
+    id_bb = Id(bit @ bit).to_hypergraph()
+    id_k = Id(bit ** k).to_hypergraph()
+    return adder_hg.tensor(id_bb).then(perm1)\
+        .then(id_k.tensor(full_adder_hg)).then(perm2)
 
 
 def test_adder_hypergraph():
@@ -129,18 +157,9 @@ def test_adder_hypergraph():
     adder_n = make_adder(N_ADDER, full_adder).to_hypergraph()
     full_adder_hg = full_adder.to_hypergraph()
 
-    def step():
-        k = N_ADDER
-        reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
-        reorder2 = [k] + list(range(k)) + [k + 1]
-        perm1 = Diagram.permutation(reorder1, bit ** (k + 3)).to_hypergraph()
-        perm2 = Diagram.permutation(reorder2, bit ** (k + 2)).to_hypergraph()
-        id_bb = Id(bit @ bit).to_hypergraph()
-        id_k = Id(bit ** k).to_hypergraph()
-        return adder_n.tensor(id_bb).then(perm1)\
-            .then(id_k.tensor(full_adder_hg)).then(perm2)
-
-    adder_next, _ = timeit(step)
+    adder_next, _ = timeit(
+        "adder(n) -> adder(n+1) (Hypergraph)",
+        lambda: adder_step_hypergraph(adder_n, N_ADDER, full_adder_hg, bit))
 
     assert adder_next.dom == bit ** (2 * N_ADDER + 3)
     assert adder_next.cod == bit ** (N_ADDER + 2)
@@ -162,10 +181,12 @@ def make_spiral(n_cups):
 
 
 def test_spiral_diagram():
-    spiral, _ = timeit(lambda: make_spiral(N_SPIRAL)[0])
+    spiral, _ = timeit(
+        "build spiral (Diagram)", lambda: make_spiral(N_SPIRAL)[0])
     unit, counit = spiral.boxes[0], spiral.boxes[N_SPIRAL + 1]
 
-    spiral_nf, _ = timeit(lambda: spiral.normal_form())
+    spiral_nf, _ = timeit(
+        "spiral normal_form (Diagram)", lambda: spiral.normal_form())
 
     assert spiral_nf.boxes[N_SPIRAL] == unit
     assert spiral_nf.boxes[-1] == counit
@@ -174,14 +195,27 @@ def test_spiral_diagram():
 def test_spiral_hypergraph():
     spiral, _, _ = make_spiral(N_SPIRAL)
 
-    spiral_hg, _ = timeit(lambda: spiral.to_hypergraph())
+    spiral_hg, _ = timeit(
+        "build spiral (Hypergraph)", lambda: spiral.to_hypergraph())
     unrolled_hg = spiral.normal_form().to_hypergraph()
 
-    _, _ = timeit(lambda: spiral_hg == unrolled_hg)
+    _, _ = timeit(
+        "spiral isomorphism check (Hypergraph)",
+        lambda: spiral_hg == unrolled_hg)
 
 
 def test_zz_total_time_budget():
-    """ Sanity check that the whole benchmark fits in the time budget. """
-    total = sum(_durations)
+    """ Sanity check that the whole benchmark fits in the time budget.
+
+    Named ``test_zz_*`` so it runs last, after every other test has
+    appended its timing to ``_results``. Run with ``-s`` to see the table.
+    """
+    width = max(len(label) for label, _ in _results)
+    print(f"\n{'label':<{width}}  seconds")
+    for label, duration in _results:
+        print(f"{label:<{width}}  {duration:.4f}")
+
+    total = sum(duration for _, duration in _results)
+    print(f"{'total':<{width}}  {total:.4f}")
     assert total < TIME_BUDGET, \
         f"Benchmark took {total:.1f}s, over the {TIME_BUDGET}s budget."
