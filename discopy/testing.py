@@ -35,22 +35,22 @@ generated diagrams in any monoidal category, e.g. :mod:`discopy.symmetric`.
 ...     f, g, h = random_composable_triple(
 ...         symmetric.Box, symmetric.Ty('x'), seed=seed)
 ...     return f.check_associativity(g, h)
->>> assert not check_property(associativity_holds)
+>>> assert check_property(associativity_holds)
 
 >>> def unitality_holds(seed):
 ...     f = random_diagram(symmetric.Box, symmetric.Ty('x'), seed=seed)
 ...     return f.check_unitality()
->>> assert not check_property(unitality_holds)
+>>> assert check_property(unitality_holds)
 
 Some axioms only hold up to some notion of equality, e.g. the swap is its
 own inverse only up to :attr:`symmetric.Diagram.hypergraph_equality`.
 
 >>> def swap_inverse_holds(seed):
-...     x = random_ty(symmetric.Ty, seed=seed)
-...     y = random_ty(symmetric.Ty, seed=seed + 1)
+...     x = random_ty(symmetric.Ty, min_length=1, seed=seed)
+...     y = random_ty(symmetric.Ty, min_length=1, seed=seed + 1)
 ...     with symmetric.Diagram.hypergraph_equality:
 ...         return symmetric.Diagram.check_swap_inverse(x, y)
->>> assert not check_property(swap_inverse_holds)
+>>> assert check_property(swap_inverse_holds)
 """
 
 from __future__ import annotations
@@ -88,17 +88,17 @@ def random_ty(
 
 
 def random_diagram(
-        box: type, dom, n_boxes: int = 5, objects=DEFAULT_OBJECTS,
+        box: type, dom=None, n_boxes: int = 5, objects=DEFAULT_OBJECTS,
         max_cod_length: int = 2,
         seed: int = None, rng: _random.Random = None):
     """
-    Generate a random diagram with domain ``dom``, by repeatedly whiskering
-    and composing with boxes of a random domain (a sub-type of the current
-    codomain) and a random codomain.
+    Generate a random diagram, by repeatedly whiskering and composing with
+    boxes of a random domain (a sub-type of the current codomain) and a
+    random codomain.
 
     Parameters:
         box : The class of boxes to generate, e.g. :class:`monoidal.Box`.
-        dom : The domain of the diagram.
+        dom : The domain of the diagram, random by default.
         n_boxes : The number of boxes to compose.
         objects : The pool of names to draw atomic objects from.
         max_cod_length : The maximum length of the codomain of each box.
@@ -112,28 +112,30 @@ def random_diagram(
     >>> assert diagram.dom == Ty('x')
     """
     rng = rng or _random.Random(seed)
+    if dom is None:
+        dom = random_ty(box.ob, objects, 1, max_cod_length, rng=rng)
     ty = type(dom)
     diagram, cod = box.id(dom), dom
     for i in range(n_boxes):
         left = rng.randint(0, len(cod))
         right = rng.randint(left, len(cod))
-        box_dom, box_cod = cod[left:right], random_ty(
-            ty, objects, 0, max_cod_length, rng=rng)
-        new_box = box(f"f{i}", box_dom, box_cod)
+        box_cod = random_ty(ty, objects, 0, max_cod_length, rng=rng)
+        new_box = box(f"f{i}", cod[left:right], box_cod)
         diagram = diagram >> cod[:left] @ new_box @ cod[right:]
         cod = cod[:left] @ box_cod @ cod[right:]
     return diagram
 
 
 def random_parallel_pair(
-        box: type, dom, n_boxes: int = 3,
+        box: type, dom=None, n_boxes: int = 3,
         seed: int = None, rng: _random.Random = None, **kwargs):
     """
-    Generate a random pair of parallel diagrams, i.e. with the same domain.
+    Generate a random pair of parallel diagrams, i.e. with the same domain
+    and codomain.
 
     Parameters:
         box : The class of boxes to generate.
-        dom : The shared domain of the two diagrams.
+        dom : The shared domain of the two diagrams, random by default.
         n_boxes : The number of boxes to compose for each diagram.
         seed : A seed for reproducibility, ignored if ``rng`` is given.
         rng : A random number generator, ``random.Random(seed)`` by default.
@@ -143,16 +145,17 @@ def random_parallel_pair(
     -------
     >>> from discopy.monoidal import Ty, Box
     >>> f, g = random_parallel_pair(Box, Ty('x'), seed=420)
-    >>> assert f.dom == g.dom == Ty('x')
+    >>> assert f.is_parallel(g)
     """
     rng = rng or _random.Random(seed)
     f = random_diagram(box, dom, n_boxes, rng=rng, **kwargs)
-    g = random_diagram(box, dom, n_boxes, rng=rng, **kwargs)
+    g = random_diagram(box, f.dom, n_boxes, rng=rng, **kwargs)
+    g = g >> box("g", g.cod, f.cod)
     return f, g
 
 
 def random_composable_pair(
-        box: type, dom, n_boxes: int = 3,
+        box: type, dom=None, n_boxes: int = 3,
         seed: int = None, rng: _random.Random = None, **kwargs):
     """
     Generate a random pair of composable diagrams, i.e. such that the
@@ -160,7 +163,7 @@ def random_composable_pair(
 
     Parameters:
         box : The class of boxes to generate.
-        dom : The domain of the first diagram.
+        dom : The domain of the first diagram, random by default.
         n_boxes : The number of boxes to compose for each diagram.
         seed : A seed for reproducibility, ignored if ``rng`` is given.
         rng : A random number generator, ``random.Random(seed)`` by default.
@@ -170,7 +173,7 @@ def random_composable_pair(
     -------
     >>> from discopy.monoidal import Ty, Box
     >>> f, g = random_composable_pair(Box, Ty('x'), seed=420)
-    >>> assert f.cod == g.dom
+    >>> assert f.is_composable(g)
     """
     rng = rng or _random.Random(seed)
     f = random_diagram(box, dom, n_boxes, rng=rng, **kwargs)
@@ -179,7 +182,7 @@ def random_composable_pair(
 
 
 def random_composable_triple(
-        box: type, dom, n_boxes: int = 3,
+        box: type, dom=None, n_boxes: int = 3,
         seed: int = None, rng: _random.Random = None, **kwargs):
     """
     Generate a random triple of pairwise composable diagrams, e.g. for
@@ -187,7 +190,7 @@ def random_composable_triple(
 
     Parameters:
         box : The class of boxes to generate.
-        dom : The domain of the first diagram.
+        dom : The domain of the first diagram, random by default.
         n_boxes : The number of boxes to compose for each diagram.
         seed : A seed for reproducibility, ignored if ``rng`` is given.
         rng : A random number generator, ``random.Random(seed)`` by default.
@@ -207,22 +210,19 @@ def random_composable_triple(
 
 def check_property(
         predicate: Callable[[int], bool],
-        n_trials: int = 100, seed: int = 0) -> list[int]:
+        n_trials: int = 100, seed: int = 0) -> bool:
     """
-    Run a property-based test, i.e. check that ``predicate`` holds for
-    ``n_trials`` random seeds, returning the list of seeds for which it
-    fails (so that an empty list means the property held for every trial).
+    Run a property-based test, i.e. check that ``predicate`` holds for every
+    seed in ``range(seed, seed + n_trials)``.
 
     Parameters:
         predicate : A function from a seed to a boolean.
         n_trials : The number of random trials to run.
-        seed : The first seed to try, the following ones being ``seed + 1``,
-            ``seed + 2``, etc.
+        seed : The first seed to try.
 
     Example
     -------
-    >>> assert not check_property(lambda seed: seed >= 0, n_trials=10)
-    >>> failures = check_property(lambda seed: seed >= 5, n_trials=10)
-    >>> assert failures == [0, 1, 2, 3, 4]
+    >>> assert check_property(lambda seed: seed >= 0, n_trials=10)
+    >>> assert not check_property(lambda seed: seed < 5, n_trials=10)
     """
-    return [seed + i for i in range(n_trials) if not predicate(seed + i)]
+    return all(predicate(seed + i) for i in range(n_trials))
