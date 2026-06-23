@@ -191,7 +191,7 @@ class Ty(Ob):
 
     def __iter__(self):
         for i in range(len(self)):
-            yield self[i]
+            yield self[i:i + 1]
 
     def __getitem__(self, key):
         if isinstance(key, slice):
