@@ -31,7 +31,9 @@ Summary
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
+from functools import cached_property
 from inspect import isclass
+from itertools import chain
 
 import random
 from typing import Any, Iterable, Union, TYPE_CHECKING
@@ -204,8 +206,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             if len(box_cod_wires) != len(box.cod):
                 raise ValueError
 
-        flat_wires = dom_wires + sum(
-            [x + y for x, y in box_wires], ()) + cod_wires
+        flat_wires = dom_wires + tuple(
+            chain.from_iterable(x + y for x, y in box_wires)) + cod_wires
         connected_spiders = set(flat_wires)
 
         if spider_types is None:
@@ -214,27 +216,32 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         if not isinstance(spider_types, Mapping):
             spider_types = dict(enumerate(spider_types))
 
-        relabeling = sorted(connected_spiders, key=flat_wires.index)
+        first_occurrence = {}
+        for index, spider in enumerate(flat_wires):
+            first_occurrence.setdefault(spider, index)
+        relabeling = sorted(connected_spiders, key=first_occurrence.get)
         relabeling += sorted(set(spider_types.keys()) - connected_spiders)
         self.spider_types = tuple(map(
             lambda typ: typ.r if getattr(typ, "z", 0) else typ,
             [spider_types[s] for s in relabeling]))
-        self.flat_wires = tuple(relabeling.index(s) for s in flat_wires)
+        new_index = {s: i for i, s in enumerate(relabeling)}
+        self.flat_wires = tuple(new_index[s] for s in flat_wires)
         self.wires = self.rebracket(self.flat_wires)
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
 
+        ports = self.ports
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
         for obj, wires in zip(self.spider_types, self.spider_wires):
             adjoint = getattr(obj, "r", obj)
             for i in set.union(*wires):
-                if self.ports[i].obj not in [obj, adjoint]:
+                if ports[i].obj not in [obj, adjoint]:
                     raise AxiomError(messages.TYPE_ERROR.format(
-                        obj, self.ports[i].obj))
+                        obj, ports[i].obj))
 
         self.offsets = offsets or tuple(len(boxes) * [None])
 
-    @property
+    @cached_property
     def spider_wires(self) -> list[tuple[set[int], set[int]]]:
         """
         The input and output wires for each spider of a hypergraph.
@@ -263,7 +270,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             result[spider][1].add(port + n_ports)
         return result
 
-    @property
+    @cached_property
     def ports(self):
         """
         The ports in a diagram.
@@ -287,11 +294,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         """
         inputs = [Node("input", i=i, obj=obj)
                   for i, obj in enumerate(self.dom)]
-        doms_and_cods = sum([[
+        doms_and_cods = [
             Node(kind, depth=depth, i=i, obj=obj)
-            for i, obj in enumerate(typ)]
             for depth, box in enumerate(self.boxes)
-            for kind, typ in [("dom", box.dom), ("cod", box.cod)]], [])
+            for kind, typ in [("dom", box.dom), ("cod", box.cod)]
+            for i, obj in enumerate(typ)]
         outputs = [Node("output", i=i, obj=obj)
                    for i, obj in enumerate(self.cod)]
         return inputs + doms_and_cods + outputs
