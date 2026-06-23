@@ -340,7 +340,7 @@ class Ty(cat.Ob, FreeMonoid):
 
     def __iter__(self):
         for i in range(len(self)):
-            yield self[i]
+            yield self[i:i + 1]
 
     def __pow__(self, n_times):
         assert_isinstance(n_times, int)
