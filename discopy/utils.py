@@ -588,6 +588,7 @@ class Node:
         self.kind, self.data = kind, data
         for key, value in data.items():
             setattr(self, key, value)
+        self.__hash = None
 
     def __eq__(self, other):
         return isinstance(other, Node)\
@@ -598,7 +599,9 @@ class Node:
             f"{key}={value}" for key, value in sorted(self.data.items()))})"""
 
     def __hash__(self):
-        return hash(repr(self))
+        if self.__hash is None:
+            self.__hash = hash(repr(self))
+        return self.__hash
 
     def shift_i(self, i):
         return Node(self.kind, **dict(self.data, i=self.i + i))
