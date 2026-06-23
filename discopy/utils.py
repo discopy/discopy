@@ -285,10 +285,12 @@ def is_tuple(typ: type) -> bool:
 def assert_isinstance(object_, cls: type | tuple[type, ...]):
     """ Raise ``TypeError`` if ``object`` is not instance of ``cls``. """
     classes = cls if isinstance(cls, tuple) else (cls, )
+    for cls in classes:
+        if isinstance(object_, get_origin(cls)):
+            return
     cls_name = ' | '.join(map(factory_name, classes))
-    if not any(isinstance(object_, get_origin(cls)) for cls in classes):
-        raise TypeError(messages.TYPE_ERROR.format(
-            cls_name, factory_name(type(object_))))
+    raise TypeError(messages.TYPE_ERROR.format(
+        cls_name, factory_name(type(object_))))
 
 
 def unbiased(binary_method):
