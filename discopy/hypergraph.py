@@ -408,6 +408,24 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     braid = swap
 
     @classmethod
+    def permutation(cls, xs: list[int], dom) -> Hypergraph:
+        """
+        The hypergraph that encodes a given permutation, with the same
+        semantics as :meth:`discopy.symmetric.Diagram.permutation` but
+        built directly as wires rather than as a chain of swap boxes,
+        i.e. in time linear rather than quadratic in ``len(xs)``.
+
+        Parameters:
+            xs : A list of integers representing a permutation.
+            dom : A type of the same length as ``xs``.
+        """
+        if list(range(len(dom))) != sorted(xs):
+            raise ValueError(messages.WRONG_PERMUTATION.format(len(dom), xs))
+        cod, boxes = dom.ob(*(dom.inside[i] for i in xs)), ()
+        dom_wires, cod_wires = tuple(range(len(dom))), tuple(xs)
+        return cls(dom, cod, boxes, (dom_wires, (), cod_wires))
+
+    @classmethod
     def spiders(cls, n_legs_in, n_legs_out, typ):
         dom, cod = typ ** n_legs_in, typ ** n_legs_out
         boxes, spider_types = (), tuple(typ)

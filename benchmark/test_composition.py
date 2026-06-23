@@ -23,7 +23,7 @@ import gc
 import time
 from statistics import median
 
-from discopy.symmetric import Ty, Box, Id, Diagram
+from discopy.symmetric import Ty, Box, Id
 
 REPEATS = 3
 TIME_BUDGET = 300  # 5 minutes, in seconds.
@@ -143,8 +143,9 @@ def adder_step_hypergraph(adder_hg, k, full_adder_hg, bit):
     """ Hypergraph counterpart of :func:`adder_step`. """
     reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
     reorder2 = [k] + list(range(k)) + [k + 1]
-    perm1 = Diagram.permutation(reorder1, bit ** (k + 3)).to_hypergraph()
-    perm2 = Diagram.permutation(reorder2, bit ** (k + 2)).to_hypergraph()
+    Hypergraph = type(adder_hg)
+    perm1 = Hypergraph.permutation(reorder1, bit ** (k + 3))
+    perm2 = Hypergraph.permutation(reorder2, bit ** (k + 2))
     id_bb = Id(bit @ bit).to_hypergraph()
     id_k = Id(bit ** k).to_hypergraph()
     return adder_hg.tensor(id_bb).then(perm1)\
