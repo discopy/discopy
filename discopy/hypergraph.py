@@ -30,6 +30,7 @@ Summary
 
 from __future__ import annotations
 
+import heapq
 from collections.abc import Callable, Mapping
 from functools import cached_property
 from inspect import isclass
@@ -45,7 +46,6 @@ from networkx import (
     spring_layout,
     draw_networkx,
     has_path,
-    is_directed_acyclic_graph,
     dag_longest_path_length,
     topological_sort,
     weisfeiler_lehman_graph_hash,
@@ -582,12 +582,131 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     def __eq__(self, other: Any):
         if not isinstance(other, Hypergraph):
             return False
-        return self.is_parallel(other) and is_isomorphic(
+        if not self.is_parallel(other):
+            return False
+        self_ok = self.is_monogamous and self.is_acyclic
+        other_ok = other.is_monogamous and other.is_acyclic
+        if self_ok != other_ok:
+            return False
+        if self_ok:
+            self_form, other_form = self._canonical_form(), other._canonical_form()
+            if self_form is not None and other_form is not None:
+                return (self_form.boxes, self_form.wires)\
+                    == (other_form.boxes, other_form.wires)
+        return is_isomorphic(
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
+        if self.is_monogamous and self.is_acyclic:
+            return hash((
+                self.dom, self.cod,
+                tuple(sorted(repr(box) for box in self.boxes))))
         return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
             self.to_graph(), node_attr="box")))
+
+    def _box_dependencies(self):
+        """
+        Box-level dependency graph induced by the wiring, used to detect
+        cycles and to compute a canonical box order in linear time, as an
+        alternative to building the full port-level :meth:`causal_graph`.
+
+        Returns a producer and a consumer box index for each spider
+        (``-1`` for the global boundary), a mapping from each spider to its
+        position in :attr:`dom_wires` and the resulting dependents/indegree
+        lists for the boxes.
+        """
+        producer, consumer = [-1] * self.n_spiders, [-1] * self.n_spiders
+        for i, (box_dom, box_cod) in enumerate(self.box_wires):
+            for spider in box_dom:
+                consumer[spider] = i
+            for spider in box_cod:
+                producer[spider] = i
+        dom_port = {spider: i for i, spider in enumerate(self.dom_wires)}
+        dependents = [[] for _ in self.boxes]
+        indegree = [0] * len(self.boxes)
+        for i, (box_dom, _) in enumerate(self.box_wires):
+            for spider in box_dom:
+                j = producer[spider]
+                if j != -1:
+                    dependents[j].append(i)
+                    indegree[i] += 1
+        return producer, consumer, dom_port, dependents, indegree
+
+    def _is_acyclic_fast(self) -> bool:
+        """
+        Checks acyclicity of the box-level dependency graph with a plain
+        Kahn's algorithm, avoiding the construction of a full networkx
+        graph on ports.
+        """
+        _, _, _, dependents, indegree = self._box_dependencies()
+        indegree, seen = list(indegree), 0
+        ready = [i for i, d in enumerate(indegree) if d == 0]
+        while ready:
+            i = ready.pop()
+            seen += 1
+            for j in dependents[i]:
+                indegree[j] -= 1
+                if indegree[j] == 0:
+                    ready.append(j)
+        return seen == len(self.boxes)
+
+    def _boundary_connected_order(self) -> tuple[int, ...] | None:
+        """
+        Canonical order for the boxes of an acyclic and monogamous
+        hypergraph, i.e. one that is equivalent to an ordinary string
+        diagram. The order is computed with a variant of Kahn's algorithm
+        that breaks ties between independent boxes using their content and
+        the canonical rank of their dependencies, so that it only depends
+        on the underlying morphism and not on the initial presentation.
+
+        Returns ``None`` if some tie could not be resolved this way, e.g.
+        because of a genuine symmetry between two independent boxes, in
+        which case the caller should fall back to a slower method.
+        """
+        producer, _, dom_port, dependents, indegree = self._box_dependencies()
+        indegree = list(indegree)
+        cod_index = [
+            {spider: i for i, spider in enumerate(cod_wires)}
+            for _, cod_wires in self.box_wires]
+        rank = [None] * len(self.boxes)
+
+        def key(i):
+            box_dom, _ = self.box_wires[i]
+            return repr(self.boxes[i]), tuple(
+                ("dom", dom_port[s]) if producer[s] == -1
+                else ("box", rank[producer[s]], cod_index[producer[s]][s])
+                for s in box_dom)
+
+        heap = [(key(i), i) for i, d in enumerate(indegree) if d == 0]
+        heapq.heapify(heap)
+        order = []
+        while heap:
+            current_key, i = heapq.heappop(heap)
+            if heap and heap[0][0] == current_key:
+                return None
+            rank[i] = len(order)
+            order.append(i)
+            for j in dependents[i]:
+                indegree[j] -= 1
+                if indegree[j] == 0:
+                    heapq.heappush(heap, (key(j), j))
+        return tuple(order) if len(order) == len(self.boxes) else None
+
+    def _canonical_form(self) -> Hypergraph | None:
+        """
+        Canonical form of an acyclic and monogamous hypergraph, used to
+        compare such "boundary-connected" string diagrams in linear time
+        instead of checking for graph isomorphism. Returns ``None`` if no
+        canonical order of the boxes could be determined.
+        """
+        order = self._boundary_connected_order()
+        if order is None:
+            return None
+        return type(self)(
+            self.dom, self.cod, tuple(self.boxes[i] for i in order),
+            (self.dom_wires, tuple(self.box_wires[i] for i in order),
+             self.cod_wires),
+            self.spider_types)
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
@@ -771,8 +890,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         >>> # Edge case: cyclic hypergraph without boxes
         >>> assert not (Cap(x, x) >> Cup(x, x)).to_hypergraph().is_acyclic
         """
-        return not self.scalar_spiders\
-            and is_directed_acyclic_graph(self.causal_graph())
+        return not self.scalar_spiders and self._is_acyclic_fast()
 
     @property
     def is_topologically_ordered(self) -> bool:
