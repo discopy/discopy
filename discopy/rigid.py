@@ -37,6 +37,23 @@ Axioms
 
 .. image:: /_static/rigid/typed-snake-equation.png
     :align: center
+
+Taking an adjoint reverses the direction of a wire, hence it swaps the
+domain and codomain colours of its objects. The unit and counit of an
+adjunction, i.e. :class:`Cap` and :class:`Cup`, must start and end on a
+white wire, but the wire they create in between is free to carry any
+colour:
+
+>>> from discopy.monoidal import Colour, white
+>>> blue = Colour('blue')
+>>> u = Ty(Ob('u', dom=white, cod=blue))
+>>> assert u.r.inside[0].dom == blue and u.r.inside[0].cod == white
+>>> cap, cup = Cap(u, u.l), Cup(u, u.r)
+>>> Equation(cap, cup, symbol="").draw(
+...     figsize=(4, 2), path='docs/_static/rigid/coloured-snake-equation.png')
+
+.. image:: /_static/rigid/coloured-snake-equation.png
+    :align: center
 """
 
 from __future__ import annotations
@@ -51,19 +68,27 @@ from discopy.cat import ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
+    from_tree,
     BinaryBoxConstructor,
     AxiomError,
     assert_isatomic
 )
 
 
-class Ob(cat.Ob):
+class Ob(monoidal.Ob):
     """
     A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
     Parameters:
         name : The name of the object.
         z : The winding number.
+        dom : The domain colour.
+        cod : The codomain colour.
+
+    Note
+    ----
+    Taking an adjoint reverses the direction of the wire, hence it
+    swaps the domain and codomain colours.
 
     Example
     -------
@@ -77,12 +102,12 @@ class Ob(cat.Ob):
             del state['_z']
         super().__setstate__(state)
 
-    dom = cod = monoidal.white
-
-    def __init__(self, name: str, z: int = 0):
+    def __init__(self, name: str, z: int = 0,
+                 dom: monoidal.Colour = monoidal.white,
+                 cod: monoidal.Colour = monoidal.white):
         assert_isinstance(z, int)
         self.z = z
-        super().__init__(name)
+        super().__init__(name, dom, cod)
 
     def dagger(self) -> Ob:
         return self
@@ -90,22 +115,26 @@ class Ob(cat.Ob):
     @property
     def l(self) -> Ob:
         """ The left adjoint of the object. """
-        return type(self)(self.name, self.z - 1)
+        return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
     def r(self) -> Ob:
         """ The right adjoint of the object. """
-        return type(self)(self.name, self.z + 1)
+        return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
-        return cat.Ob.__eq__(self, other) and self.z == other.z
+        return monoidal.Ob.__eq__(self, other)\
+            and isinstance(other, Ob) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.name)}{', z=' + repr(self.z) if self.z else ''})"
+        z_repr = ', z=' + repr(self.z) if self.z else ''
+        if self.dom == self.cod == monoidal.white:
+            return f"{factory_name(type(self))}({self.name!r}{z_repr})"
+        return f"{factory_name(type(self))}({self.name!r}{z_repr}, " \
+            f"dom={self.dom!r}, cod={self.cod!r})"
 
     def __str__(self):
         return str(self.name) + (
@@ -120,7 +149,9 @@ class Ob(cat.Ob):
     @classmethod
     def from_tree(cls, tree):
         name, z = tree['name'], tree.get('z', 0)
-        return cls(name=name, z=z)
+        dom = from_tree(tree['dom']) if 'dom' in tree else monoidal.white
+        cod = from_tree(tree['cod']) if 'cod' in tree else monoidal.white
+        return cls(name=name, z=z, dom=dom, cod=cod)
 
 
 @ar_factory

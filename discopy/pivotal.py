@@ -68,7 +68,8 @@ class Ob(rigid.Ob):
         name : The name of the object.
         z (bool) : Whether the object is an adjoint or not.
     """
-    l = r = property(lambda self: type(self)(self.name, (self.z + 1) % 2))
+    l = r = property(lambda self: type(self)(
+        self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
 
 @ar_factory
