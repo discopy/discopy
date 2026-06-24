@@ -9,13 +9,13 @@ def test_port_side_and_direction():
     ports = M.id(x).ports
     assert ports[0].side == "up"
     assert ports[1].side == "down"
-    assert ports[0].direction == "up"
-    assert ports[1].direction == "down"
+    assert ports[0].direction == "in"
+    assert ports[1].direction == "out"
     adjoint_ports = M.id(x.r).ports
     assert adjoint_ports[0].side == "up"
     assert adjoint_ports[1].side == "down"
-    assert adjoint_ports[0].direction == "down"
-    assert adjoint_ports[1].direction == "up"
+    assert adjoint_ports[0].direction == "out"
+    assert adjoint_ports[1].direction == "in"
 
 
 def test_default_compact_setting():
