@@ -11,11 +11,13 @@ Summary
     :nosignatures:
     :toctree:
 
-    Permutation
     Function
+    Cycles
+    Permutation
 """
 
 from __future__ import annotations
+from typing import Iterable, Self, Any
 
 from dataclasses import dataclass
 
@@ -75,6 +77,10 @@ class Function(MonoidalCategory):
         return Function({i: i % x for i in range(n * x)}, x, n * x)
 
 
+type Cycle = Iterable[int]
+type Cycles = Iterable[Cycle]
+
+
 class Permutation(Function, SymmetricCategory):
     """
     A permutation of a finite set, seen as a bijective finite-set function.
@@ -105,38 +111,36 @@ class Permutation(Function, SymmetricCategory):
     def __iter__(self):
         return (self[i] for i in range(self.cod))
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int) -> int:
         if isinstance(key, slice):
             return tuple(self)[key]
         return super().__getitem__(key % len(self))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.cod
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(tuple(self))
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, Permutation):
             return tuple(self) == tuple(other)
         if isinstance(other, tuple):
             return tuple(self) == other
         return super().__eq__(other)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(tuple(self))
 
     @classmethod
-    def id(cls, dom: int = 0):
+    def id(cls, dom: int = 0) -> Self:
+        """ The identity permutation on ``range(size)``. """
         return cls(range(dom), dom)
 
-    @classmethod
-    def identity(cls, size: int):
-        """ The identity permutation on ``range(size)``. """
-        return cls.id(size)
+    identity = id
 
     @classmethod
-    def from_cycles(cls, cycles, size: int):
+    def from_cycles(cls, cycles: Cycles, size: int) -> Self:
         """ Build a permutation from cycles. """
         result = list(range(size))
         seen = set()
@@ -152,7 +156,7 @@ class Permutation(Function, SymmetricCategory):
         return cls(result, size)
 
     @classmethod
-    def from_transpositions(cls, transpositions, size: int):
+    def from_transpositions(cls, transpositions: Cycles, size: int) -> Self:
         """ Build a permutation from disjoint 2-cycles. """
         result = list(range(size))
         seen = set()
@@ -167,7 +171,7 @@ class Permutation(Function, SymmetricCategory):
             result[left], result[right] = right, left
         return cls(result, size)
 
-    def cycles(self) -> tuple[tuple[int, ...], ...]:
+    def cycles(self) -> Cycles:
         """ Return the cycles of the permutation. """
         result, seen = [], set()
         for i in range(len(self)):
@@ -178,7 +182,7 @@ class Permutation(Function, SymmetricCategory):
 
     def cycle(
             self, start: int,
-            seen: set[int] | None = None) -> tuple[int, ...]:
+            seen: set[int] | None = None) -> Cycle:
         """ Return the cycle reached from ``start``. """
         if start < 0 or start >= len(self):
             raise ValueError
@@ -189,29 +193,27 @@ class Permutation(Function, SymmetricCategory):
             i = self[i]
         return tuple(cycle)
 
-    def then(self, other):
-        """ Return ``self o other``, i.e. ``result[i] == self[other[i]]``. """
+    def then(self, other: Self) -> Self:
+        """ Return ``self ; other``, i.e. ``result[i] == other[self[i]]``. """
         other = type(self)(other, len(self))
-        elems = (self[other[i]] for i in range(len(self)))
+        elems = (other[self[i]] for i in range(len(self)))
         return type(self)(elems, len(self))
 
-    def dagger(self):
+    def dagger(self) -> Self:
         """ Return the inverse permutation. """
         result = list(range(len(self)))
         for source, target in enumerate(self):
             result[target] = source
         return type(self)(result, len(self))
 
-    def inverse(self):
-        """ Return the inverse permutation. """
-        return self.dagger()
+    inverse = dagger
 
-    def conjugate(self, by):
-        """ Return ``by o self o by^-1``. """
-        by = type(self)(by, len(self))
-        return by.then(self).then(by.inverse())
+    def conjugate(self, other: Self) -> Self:
+        """ Return ``other^-1 ; self ; other``. """
+        other = type(self)(other, len(self))
+        return other.dagger().then(self).then(other)
 
-    def tensor(self, other=None, *others):
+    def tensor(self, other=None, *others) -> Self:
         """ Return the disjoint union of permutations. """
         if other is None:
             return self
@@ -223,13 +225,13 @@ class Permutation(Function, SymmetricCategory):
         return result.tensor(*others)
 
     @classmethod
-    def swap(cls, left: int, right: int):
+    def swap(cls, left: int, right: int) -> Self:
         inside = tuple(
             i + right if i < left else i - left
             for i in range(left + right))
         return cls(inside, left + right)
 
-    def trace(self, n: int = 1, left: bool = False):
+    def trace(self, n: int = 1, left: bool = False) -> Self:
         raise NotImplementedError
 
     def is_fixpoint_free_involution(self) -> bool:

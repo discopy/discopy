@@ -49,6 +49,7 @@ def test_FinSet():
     assert not finset.Permutation((0,)).is_fixpoint_free_involution()
     assert finset.Permutation.identity(2) == (0, 1)
     assert finset.Permutation((1, 0)).then((1, 0)) == (0, 1)
+    assert finset.Permutation((1, 0, 2)).then((1, 2, 0)) == (2, 1, 0)
     assert finset.Permutation((1, 2, 0)).inverse() == (2, 0, 1)
     assert finset.Permutation((1, 0, 2)).conjugate((2, 0, 1))\
         == (2, 1, 0)
