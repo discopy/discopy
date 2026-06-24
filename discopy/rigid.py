@@ -41,23 +41,31 @@ Axioms
 Objects may be coloured on both sides, i.e. an object ``F : a -> b`` is a
 wire separating a region ``a`` on its left from a region ``b`` on its
 right. Taking an adjoint reverses the direction of the wire, hence it
-swaps the two regions: ``F.r : b -> a``. The cup and cap of the adjunction
-``F -| F.r`` then satisfy the snake equations for any colours ``a`` and
-``b``:
+swaps the two regions: ``G = F.r : b -> a``. The unit and counit of the
+adjunction, i.e. ``eta = Cap(G, F)`` and ``epsilon = Cup(F, G)``, then
+satisfy the snake equations, one for ``F`` and one for ``G``, for any
+colours ``a`` and ``b``:
 
 >>> from discopy.monoidal import Colour
 >>> a, b = Colour('blue'), Colour('green')
 >>> F = Ty(Ob('F', dom=a, cod=b))
->>> assert F.r.inside[0].dom == b and F.r.inside[0].cod == a
->>> left_snake = Id(F) @ Cap(F.r, F) >> Cup(F, F.r) @ Id(F)
->>> right_snake = Cap(F, F.l) @ Id(F) >> Id(F) @ Cup(F.l, F)
->>> assert left_snake.normal_form() == Id(F) == right_snake.normal_form()
+>>> G = F.r
+>>> eta, epsilon = Cap(G, F), Cup(F, G)
+>>> left_snake = Id(F) @ eta >> epsilon @ Id(F)
+>>> right_snake = eta @ Id(G) >> Id(G) @ epsilon
+>>> assert left_snake.normal_form() == Id(F)
+>>> assert right_snake.normal_form() == Id(G)
 
 >>> from discopy.drawing import Equation
->>> Equation(left_snake, Id(F), right_snake).draw(
-...     figsize=(6, 2), path='docs/_static/rigid/coloured-snake-equation.png')
+>>> Equation(left_snake, Id(F)).draw(
+...     figsize=(3, 2), path='docs/_static/rigid/coloured-snake-equation.png')
+>>> Equation(right_snake, Id(G)).draw(
+...     figsize=(3, 2), path='docs/_static/rigid/coloured-snake-equation-G.png')
 
 .. image:: /_static/rigid/coloured-snake-equation.png
+    :align: center
+
+.. image:: /_static/rigid/coloured-snake-equation-G.png
     :align: center
 """
 
