@@ -67,6 +67,42 @@ colours ``a`` and ``b``:
 
 .. image:: /_static/rigid/coloured-snake-equation-G.png
     :align: center
+
+The abstract picture above is an instance of the free-forgetful adjunction
+between sets and monoids. ``F`` is the free monoid functor, sending a set of
+generators to the set of words over it, ``G`` is its right adjoint, the
+forgetful functor, sending a monoid to its underlying set. The unit ``eta``
+sends a generator to the length-one word on it, while the counit ``epsilon``
+evaluates a word of elements of a monoid as their product:
+
+>>> from functools import reduce
+>>> def Free(X):
+...     ''' The free monoid on a set ``X``, i.e. words over ``X``. '''
+...     words = {()} | {(x, ) for x in X}
+...     for _ in range(2):
+...         words |= {u + v for u in words for v in words}
+...     return words, tuple.__add__, ()
+
+>>> def Forget(M):
+...     ''' The underlying set of a monoid ``M = (elements, mult, unit)``. '''
+...     elements, _, _ = M
+...     return elements
+
+>>> def eta(x):
+...     ''' The unit, sending a generator to the length-one word on it. '''
+...     return (x, )
+
+>>> def epsilon(M):
+...     ''' The counit, evaluating a word of elements of ``M`` as a product. '''
+...     elements, mult, unit = M
+...     return lambda word: reduce(mult, word, unit)
+
+>>> X = {'a', 'b'}
+>>> M = ({0, 1, 2}, lambda x, y: (x + y) % 3, 0)
+
+>>> assert all(epsilon(M)(eta(x)) == x for x in Forget(M))
+>>> assert all(
+...     epsilon(Free(X))(tuple(map(eta, word))) == word for word in Free(X)[0])
 """
 
 from __future__ import annotations
