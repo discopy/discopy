@@ -236,8 +236,14 @@ class FreeCategory(Category):
                 inside = tuple(x.dagger() for x in self.inside[key])
                 return self._new(
                     inside, dom=self.cod, cod=self.dom, _scan=False)
-            if (key.step or 1) != 1:
+            if key.step is not None and key.step < 0:
                 raise IndexError
+            if (key.step or 1) != 1:
+                inside = self.inside[key]
+                if not inside:
+                    return self.id(self.dom)
+                return self._new(
+                    inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=True)
             inside = self.inside[key]
             if not inside:
                 if (key.start or 0) >= len(self):
