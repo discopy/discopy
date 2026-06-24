@@ -38,19 +38,24 @@ Axioms
 .. image:: /_static/rigid/typed-snake-equation.png
     :align: center
 
-Taking an adjoint reverses the direction of a wire, hence it swaps the
-domain and codomain colours of its objects. The unit and counit of an
-adjunction, i.e. :class:`Cap` and :class:`Cup`, must start and end on a
-white wire, but the wire they create in between is free to carry any
-colour:
+Objects may be coloured on both sides, i.e. an object ``F : a -> b`` is a
+wire separating a region ``a`` on its left from a region ``b`` on its
+right. Taking an adjoint reverses the direction of the wire, hence it
+swaps the two regions: ``F.r : b -> a``. The cup and cap of the adjunction
+``F -| F.r`` then satisfy the snake equations for any colours ``a`` and
+``b``:
 
->>> from discopy.monoidal import Colour, white
->>> blue = Colour('blue')
->>> u = Ty(Ob('u', dom=white, cod=blue))
->>> assert u.r.inside[0].dom == blue and u.r.inside[0].cod == white
->>> cap, cup = Cap(u, u.l), Cup(u, u.r)
->>> Equation(cap, cup, symbol="").draw(
-...     figsize=(4, 2), path='docs/_static/rigid/coloured-snake-equation.png')
+>>> from discopy.monoidal import Colour
+>>> a, b = Colour('blue'), Colour('green')
+>>> F = Ty(Ob('F', dom=a, cod=b))
+>>> assert F.r.inside[0].dom == b and F.r.inside[0].cod == a
+>>> left_snake = Id(F) @ Cap(F.r, F) >> Cup(F, F.r) @ Id(F)
+>>> right_snake = Cap(F, F.l) @ Id(F) >> Id(F) @ Cup(F.l, F)
+>>> assert left_snake.normal_form() == Id(F) == right_snake.normal_form()
+
+>>> from discopy.drawing import Equation
+>>> Equation(left_snake, Id(F), right_snake).draw(
+...     figsize=(6, 2), path='docs/_static/rigid/coloured-snake-equation.png')
 
 .. image:: /_static/rigid/coloured-snake-equation.png
     :align: center
@@ -668,7 +673,7 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         left.assert_isadjoint(right)
         name = f"Cup({left}, {right})"
-        dom, cod = left @ right, self.ob()
+        dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -706,7 +711,7 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         right.assert_isadjoint(left)
         name = f"Cap({left}, {right})"
-        dom, cod = self.ob(), left @ right
+        dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 

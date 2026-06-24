@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
+    assert_isinstance, assert_iscomposable, unbiased, ar_factory, AxiomError)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -633,9 +633,22 @@ class Drawing(TracedCategory):
             other = other.stretch(self.height - other.height)
         x_shift = self.width + (
             0.25 if self.right_is_whiskered or other.left_is_whiskered else 0)
+
+        def concat(left, right):
+            # Drawings are laid out side by side without re-checking that the
+            # coloured regions are contiguous: an :class:`Equation` puts terms
+            # with unrelated boundary colours next to one another.
+            try:
+                return left @ right
+            except AxiomError:
+                return type(left)._new(
+                    left.inside + right.inside,
+                    dom=left.dom if left.inside else right.dom,
+                    cod=right.cod if right.inside else left.cod, _scan=False)
         result = self.union(other.relabel_nodes(mapping, positions={
             n: p.shift(x=x_shift) for n, p in other.positions.items()}),
-            dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
+            dom=concat(self.dom, other.dom),
+            cod=concat(self.cod, other.cod), _check=False)
         result.width = x_shift + other.width
         return result
 
