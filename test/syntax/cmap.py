@@ -9,13 +9,13 @@ def test_port_side_and_direction():
     ports = M.id(x).ports
     assert ports[0].side == "up"
     assert ports[1].side == "down"
-    assert ports[0].direction == "in"
-    assert ports[1].direction == "out"
+    assert ports[0].direction == "up"
+    assert ports[1].direction == "down"
     adjoint_ports = M.id(x.r).ports
-    assert adjoint_ports[0].side == "down"
-    assert adjoint_ports[1].side == "up"
-    assert adjoint_ports[0].direction == "out"
-    assert adjoint_ports[1].direction == "in"
+    assert adjoint_ports[0].side == "up"
+    assert adjoint_ports[1].side == "down"
+    assert adjoint_ports[0].direction == "down"
+    assert adjoint_ports[1].direction == "up"
 
 
 def test_default_compact_setting():
@@ -204,8 +204,8 @@ def test_structural_maps_and_errors():
         CM.caps(x, y)
     with raises(AxiomError):
         CM.validate_wire(
-            Port(PortKind.INPUT, 0, x, 0),
-            Port(PortKind.COD, 0, x, 0))
+            Port(PortKind.INPUT, 0, x, 0, "up"),
+            Port(PortKind.COD, 0, x, 0, "down"))
 
     cx, cy = map(ClosedTy, "xy")
     assert ClosedM.ev(cy, cx).boxes == (

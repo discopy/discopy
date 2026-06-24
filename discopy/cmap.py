@@ -3,6 +3,9 @@
 """
 Combinatorial maps with interfaces.
 
+See `combinatorial map
+<https://en.wikipedia.org/wiki/Combinatorial_map>`_ for background.
+
 The ports of a map are ordered as in :mod:`discopy.hypergraph`: inputs,
 then the domain and codomain ports of each box, then outputs. A map is given by
 two permutations on these ports:
@@ -97,27 +100,21 @@ class Port:
         i : The position within its boundary or box side.
         obj : The type carried by the port.
         depth : The box index, with inputs at ``-inf`` and outputs at ``+inf``.
+        side : The vertical side on which the port is drawn.
     """
     kind: PortKind
     i: int
     obj: Ob
     depth: float
+    side: Literal["up"] | Literal["down"]
 
     @property
-    def side(self) -> Literal["up"] | Literal["down"]:
-        """ The side on which the port is drawn. """
+    def direction(self) -> Literal["up"] | Literal["down"]:
+        """ The adjoint-aware direction of the wire at the port. """
         is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
         if self.kind.is_input:
             return "down" if is_adjoint else "up"
         return "up" if is_adjoint else "down"
-
-    @property
-    def direction(self) -> Literal["in"] | Literal["out"]:
-        """ The direction of the wire at the port. """
-        is_adjoint = bool(getattr(self.obj, "z", 0) % 2)
-        if self.kind.is_input:
-            return "out" if is_adjoint else "in"
-        return "in" if is_adjoint else "out"
 
 
 class CMap[C0: Pregroup, C1: CMap](
@@ -175,15 +172,20 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def ports(self) -> list[Port]:
         """ The ports in fixed hypergraph order. """
-        inputs = [Port(PortKind.INPUT, i=i, obj=obj, depth=float('-inf'))
+        def port(kind, i, obj, depth):
+            return Port(
+                kind, i=i, obj=obj, depth=depth,
+                side="up" if kind.is_input else "down")
+
+        inputs = [port(PortKind.INPUT, i=i, obj=obj, depth=float('-inf'))
                   for i, obj in enumerate(self.dom)]
         box_ports = sum([[
-            Port(kind, i=i, obj=obj, depth=depth)
+            port(kind, i=i, obj=obj, depth=depth)
             for i, obj in enumerate(typ)]
             for depth, box in enumerate(self.boxes)
             for kind, typ in [
                 (PortKind.DOM, box.dom), (PortKind.COD, box.cod)]], [])
-        outputs = [Port(PortKind.OUTPUT, i=i, obj=obj, depth=float('+inf'))
+        outputs = [port(PortKind.OUTPUT, i=i, obj=obj, depth=float('+inf'))
                    for i, obj in enumerate(self.cod)]
         return inputs + box_ports + outputs
 
@@ -215,8 +217,8 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def face_permutation(self) -> Permutation:
-        """ The face permutation ``node o edge``. """
-        return self.node.then(self.edge)
+        """ The face permutation ``edge ; node``. """
+        return self.edge.then(self.node)
 
     @property
     def face_cycles(self) -> tuple[tuple[int, ...], ...]:
@@ -260,7 +262,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         node = Permutation.from_cycles(cycles, self.n_ports)
         return vertices - self.n_ports // 2\
-            + len(node.then(self.edge).cycles()) + len(self.scalars)
+            + len(self.edge.then(node).cycles()) + len(self.scalars)
 
     @property
     def node(self) -> Permutation:
