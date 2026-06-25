@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
+    assert_isinstance, assert_iscomposable, unbiased, ar_factory, AxiomError)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -296,7 +296,7 @@ class Drawing(TracedCategory):
 
     def reposition_box_cod(self, j=-1):
         """ Recenter cod nodes to recover legacy behaviour for layers. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         if box.bubble_closing and len(box.dom[1:-1]) == len(box.cod):
             return  # Otherwise the wires would bend when coming out.
@@ -318,7 +318,7 @@ class Drawing(TracedCategory):
 
     def align_box_cod(self, j=-1):
         """ Align outputs with inputs when they have equal number of wires. """
-        j = j if j > 0 else len(self.boxes) + j
+        j = j if j >= 0 else len(self.boxes) + j
         box = self.boxes[j]
         for i, (x_dom, x_cod) in enumerate(zip(box.dom, box.cod)):
             dom_node = Node("box_dom", i=i, j=j, x=x_dom)
@@ -527,9 +527,9 @@ class Drawing(TracedCategory):
             :align: center
         """
         assert_iscomposable(self, other)
-        if self.is_identity:
+        if self.is_identity and self.height <= 1:
             return other
-        if other.is_identity:
+        if other.is_identity and other.height <= 1:
             return self
         dom, cod = self.dom, other.cod
 
@@ -902,14 +902,22 @@ class Drawing(TracedCategory):
             return other
         if getattr(other, "zero_drawing", False):
             return self
-        frame_type = Ty.id(Colour("white"))
         height = max(self.height, other.height)
+        self = self.stretch(height - self.height)
+        other = other.stretch(height - other.height)
         scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
-        self, scalar, other = (
-            term.bubble(frame_type, frame_type, draw_as_square=True,
-                         height=height)
-            for term in (self, scalar.to_drawing(), other))
-        result = self @ scalar @ other
+        try:
+            result = self @ scalar.to_drawing() @ other
+        except AxiomError:
+            # The boundary colours of self and other don't match, e.g. an
+            # Equation between terms of different colours: give each term
+            # its own white-bordered slot, as for Drawing.frame.
+            frame_type = Ty.id(Colour("white"))
+            self, scalar, other = (
+                term.bubble(frame_type, frame_type, draw_as_square=True,
+                             height=height)
+                for term in (self, scalar.to_drawing(), other))
+            result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
         return result
