@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, ar_factory, AxiomError)
+    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -633,22 +633,9 @@ class Drawing(TracedCategory):
             other = other.stretch(self.height - other.height)
         x_shift = self.width + (
             0.25 if self.right_is_whiskered or other.left_is_whiskered else 0)
-
-        def concat(left, right):
-            # Drawings are laid out side by side without re-checking that the
-            # coloured regions are contiguous: an :class:`Equation` puts terms
-            # with unrelated boundary colours next to one another.
-            try:
-                return left @ right
-            except AxiomError:
-                return type(left)._new(
-                    left.inside + right.inside,
-                    dom=left.dom if left.inside else right.dom,
-                    cod=right.cod if right.inside else left.cod, _scan=False)
         result = self.union(other.relabel_nodes(mapping, positions={
             n: p.shift(x=x_shift) for n, p in other.positions.items()}),
-            dom=concat(self.dom, other.dom),
-            cod=concat(self.cod, other.cod), _check=False)
+            dom=self.dom @ other.dom, cod=self.cod @ other.cod, _check=False)
         result.width = x_shift + other.width
         return result
 
@@ -910,13 +897,19 @@ class Drawing(TracedCategory):
 
     def add(self, other: Drawing, symbol="+", space=1):
         """ Concatenate two drawings with a symbol in between. """
-        from discopy.monoidal import Ty, Box
+        from discopy.monoidal import Colour, Ty, Box
         if getattr(self, "zero_drawing", False):
             return other
         if getattr(other, "zero_drawing", False):
             return self
+        frame_type = Ty.id(Colour("white"))
+        height = max(self.height, other.height)
         scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
-        result = self @ scalar.to_drawing() @ other
+        self, scalar, other = (
+            term.bubble(frame_type, frame_type, draw_as_square=True,
+                         height=height)
+            for term in (self, scalar.to_drawing(), other))
+        result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
         return result
