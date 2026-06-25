@@ -10,8 +10,8 @@ The ports of a map are ordered as in :mod:`discopy.hypergraph`: inputs,
 then the domain and codomain ports of each box, then outputs. A map is given by
 two permutations on these ports:
 
-* ``edge`` is a fixpoint-free involution pairing ports into wires;
-* ``node`` is derived from the canonical clockwise port order of boxes.
+* ``edges`` is a fixpoint-free involution pairing ports into wires;
+* ``orientation`` is derived from the canonical clockwise port order of boxes.
 
 Their composite determines the faces of the map. Closed wire components are
 stored separately in ``scalars`` together with their types.
@@ -81,12 +81,12 @@ class PortKind(StrEnum):
 
     @property
     def is_input(self) -> bool:
-        """ Whether the port is drawn on the input side of a node. """
+        """ Whether the port is drawn on the input side. """
         return self == "input" or self == "dom"
 
     @property
     def is_output(self) -> bool:
-        """ Whether the port is drawn on the output side of a node. """
+        """ Whether the port is drawn on the output side. """
         return self == "cod" or self == "output"
 
 
@@ -123,14 +123,14 @@ class CMap[C0: Pregroup, C1: CMap](
     """
     An oriented bijective hypergraph with interfaces.
 
-    The edge involution gives the wires, while the cyclic order of ports around
-    each box gives the orientation.
+    The edges involution gives the wires, while the cyclic order of ports
+    around each box gives the orientation.
 
     Parameters:
         dom : The domain of the map.
         cod : The codomain of the map.
         boxes : The boxes inside the map.
-        edge : A fixpoint-free involution on ports.
+        edges : A fixpoint-free involution on ports.
         offsets : Optional drawing offsets, preserved through conversion.
         scalars : The types of closed wire components with no ports.
 
@@ -141,7 +141,7 @@ class CMap[C0: Pregroup, C1: CMap](
     >>> cmap = Box("f", x @ y, z).to_map()
     >>> [port.kind.value for port in cmap.ports]
     ['input', 'input', 'dom', 'dom', 'cod', 'output']
-    >>> tuple(cmap.edge), cmap.node_cycles
+    >>> tuple(cmap.edges), cmap.orientation_cycles
     ((2, 3, 0, 1, 5, 4), ((2, 3, 4),))
     """
     functor: ClassVar[Functor]
@@ -151,7 +151,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def __init__(
             self, dom: C0, cod: C0, boxes: tuple[Box, ...],
-            edge: Iterable[int],
+            edges: Iterable[int],
             offsets: tuple[int | None, ...] | None = None,
             scalars: tuple[C0, ...] = ()):
         assert_isinstance(dom, self.category.ob)
@@ -166,7 +166,7 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
         self.scalars = tuple(scalars)
 
-        self.edge = Permutation(edge, len(self.ports))
+        self.edges = Permutation(edges, len(self.ports))
         self.validate()
 
     @property
@@ -205,20 +205,20 @@ class CMap[C0: Pregroup, C1: CMap](
         return tuple(result)
 
     @property
-    def node_cycles(self) -> tuple[tuple[int, ...], ...]:
+    def orientation_cycles(self) -> tuple[tuple[int, ...], ...]:
         """ The oriented port cycle of each box, including empty boxes. """
         result = []
         for box_ports in self.box_port_indices:
             if not box_ports:
                 result.append(())
                 continue
-            result.append(self.node.cycle(box_ports[0]))
+            result.append(self.orientation.cycle(box_ports[0]))
         return tuple(result)
 
     @property
     def face_permutation(self) -> Permutation:
-        """ The face permutation ``edge ; node``. """
-        return self.edge.then(self.node)
+        """ The face permutation ``edges ; orientation``. """
+        return self.edges.then(self.orientation)
 
     @property
     def face_cycles(self) -> tuple[tuple[int, ...], ...]:
@@ -260,31 +260,30 @@ class CMap[C0: Pregroup, C1: CMap](
             cycles.append(boundary)
             vertices += 1
 
-        node = Permutation.from_cycles(cycles, self.n_ports)
+        orientation = Permutation.from_cycles(cycles, self.n_ports)
         return vertices - self.n_ports // 2\
-            + len(self.edge.then(node).cycles()) + len(self.scalars)
+            + len(self.edges.then(orientation).cycles()) + len(self.scalars)
 
     @property
-    def node(self) -> Permutation:
+    def orientation(self) -> Permutation:
         """
         The canonical box orientation,
 
         Each box contributes its clockwise local port order: domain ports from
         left to right, then codomain ports from right to left.
         """
-        cycles = []
-        for box, box_ports in zip(self.boxes, self.box_port_indices):
-            dom_ports, cod_ports = box_ports[:len(box.dom)], box_ports[len(box.dom):]
-            cycles.append(tuple(reversed(dom_ports)) + tuple(cod_ports))
+        cycles = [
+            box_ports[:len(box.dom)] + tuple(reversed(box_ports[len(box.dom):]))
+            for box, box_ports in zip(self.boxes, self.box_port_indices)]
         return Permutation.from_cycles(cycles, len(self.ports))
 
     def validate(self):
-        """ Validate the edge involution, wires and required planarity. """
+        """ Validate the edges involution, wires and required planarity. """
         ports = self.ports
-        if not self.edge.is_fixpoint_free_involution():
+        if not self.edges.is_fixpoint_free_involution():
             raise ValueError
 
-        for i, j in enumerate(self.edge):
+        for i, j in enumerate(self.edges):
             if i > j:
                 continue
             type(self).validate_wire(ports[i], ports[j])
@@ -293,10 +292,14 @@ class CMap[C0: Pregroup, C1: CMap](
                 and self.euler_characteristic != 2:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 
-    def _new_scalars(self, edge, glue, removed, objects) -> tuple:
+    def _new_scalars(self, edges, glue, removed, objects) -> tuple:
         """
         Compute the scalar types created by a gluing operation.
         """
+        def scalar_type(obj):
+            result = obj if isinstance(obj, self.category.ob)\
+                else self.ob(obj)
+            return result.r if getattr(result, "z", 0) % 2 else result
 
         removed, seen, result = set(removed), set(), []
         for start in removed:
@@ -306,17 +309,14 @@ class CMap[C0: Pregroup, C1: CMap](
             seen.add(start)
             while stack:
                 port = stack.pop()
-                for neighbor in (edge[port], glue[port]):
+                for neighbor in (edges[port], glue[port]):
                     if neighbor not in removed:
                         internal = False
                     elif neighbor not in seen:
                         seen.add(neighbor)
                         stack.append(neighbor)
             if internal:
-                obj = objects[start]
-                result = obj if isinstance(obj, self.category.ob)\
-                    else self.ob(obj)
-                result.append(result.r if getattr(result, "z", 0) % 2 else result)
+                result.append(scalar_type(objects[start]))
         return tuple(result)
 
     @classmethod
@@ -363,25 +363,25 @@ class CMap[C0: Pregroup, C1: CMap](
             return (
                 f"{port.kind}{depth}[{port.i}]:{port.obj}:"
                 f"{port.side}/{port.direction}"
-                f"->{self.edge[index]}")
+                f"->{self.edges[index]}")
 
         ports = tuple(
             port_repr(index, port)
             for index, port in enumerate(self.ports))
         return factory_name(type(self))\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
-              f"boxes={self.boxes!r}, edge={self.edge!r}, " \
+              f"boxes={self.boxes!r}, edges={self.edges!r}, " \
               f"ports={ports!r}, scalars={self.scalars!r})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap) and (
-            self.dom, self.cod, self.boxes, self.edge, self.scalars
+            self.dom, self.cod, self.boxes, self.edges, self.scalars
         ) == (
-            other.dom, other.cod, other.boxes, other.edge, other.scalars)
+            other.dom, other.cod, other.boxes, other.edges, other.scalars)
 
     def __hash__(self):
         return hash((
-            self.dom, self.cod, self.boxes, self.edge, self.scalars))
+            self.dom, self.cod, self.boxes, self.edges, self.scalars))
 
     @classmethod
     def id(cls, dom=None) -> CMap:
@@ -592,9 +592,9 @@ class CMap[C0: Pregroup, C1: CMap](
         kept = [i for i in range(self.n_ports + other.n_ports)
                 if i not in removed]
         mapping = {old: new for new, old in enumerate(kept)}
-        edge = dict(enumerate(self.edge))
+        edge = dict(enumerate(self.edges))
         edge.update({
-            shift + i: shift + j for i, j in enumerate(other.edge)})
+            shift + i: shift + j for i, j in enumerate(other.edges)})
         glue = dict(zip(self_outputs, (shift + i for i in other_inputs)))
         glue.update({j: i for i, j in glue.items()})
         objects = {i: port.obj for i, port in enumerate(self.ports)}
@@ -656,7 +656,7 @@ class CMap[C0: Pregroup, C1: CMap](
         kept = [i for i in range(self.n_ports) if i not in removed]
         mapping = {old: new for new, old in enumerate(kept)}
         scalars = self.scalars + self._new_scalars(
-            dict(enumerate(self.edge)), trace_pair, removed,
+            dict(enumerate(self.edges)), trace_pair, removed,
             {i: port.obj for i, port in enumerate(self.ports)})
 
         def follow(port):
@@ -665,12 +665,12 @@ class CMap[C0: Pregroup, C1: CMap](
                 if port in seen:
                     return None
                 seen.add(port)
-                port = self.edge[trace_pair[port]]
+                port = self.edges[trace_pair[port]]
             return port
 
         edge_pairs = []
         for i in kept:
-            j = follow(self.edge[i])
+            j = follow(self.edges[i])
             if j is not None and i < j:
                 edge_pairs.append((mapping[i], mapping[j]))
 
@@ -710,8 +710,8 @@ class CMap[C0: Pregroup, C1: CMap](
 
         n_ports = self.n_ports + other.n_ports
         edge_pairs = []
-        for old_edge, mapping in [(self.edge, self_map),
-                                  (other.edge, other_map)]:
+        for old_edge, mapping in [(self.edges, self_map),
+                                  (other.edges, other_map)]:
             for i, j in enumerate(old_edge):
                 if i < j:
                     edge_pairs.append((mapping[i], mapping[j]))
@@ -724,7 +724,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         Interchange boxes at indices ``i`` and ``j``.
 
-        The edge permutation is relabeled so that ports follow the canonical
+        The edges permutation is relabeled so that ports follow the canonical
         order induced by the new box order.
 
         >>> from discopy.compact import Ty, Box
@@ -756,7 +756,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         port_permutation = Permutation(
             (mapping[port] for port in range(self.n_ports)), self.n_ports)
-        edge = self.edge.conjugate(port_permutation)
+        edge = self.edges.conjugate(port_permutation)
         return type(self)(
             self.dom, self.cod, boxes, edge, offsets=offsets,
             scalars=self.scalars)
@@ -808,13 +808,13 @@ class CMap[C0: Pregroup, C1: CMap](
         new_output = new_index + 3
 
         edge_pairs = []
-        for i, j in enumerate(self.edge):
+        for i, j in enumerate(self.edges):
             if i < j and i not in [old_input, old_output]\
                     and j not in [old_input, old_output]:
                 edge_pairs.append((mapping[i], mapping[j]))
 
-        input_partner = self.edge[old_input]
-        output_partner = self.edge[old_output]
+        input_partner = self.edges[old_input]
+        output_partner = self.edges[old_output]
         if input_partner == old_output:
             edge_pairs.append((box_parameter, box_dom))
         else:
@@ -839,7 +839,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         spider_types, flat_wires = [], [None] * self.n_ports
         for i in range(self.n_ports):
-            j = self.edge[i]
+            j = self.edges[i]
             if i > j:
                 continue
             spider = len(spider_types)
@@ -856,7 +856,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def to_diagram(self) -> Diagram:
         """
-        Downgrade to a diagram directly, preserving node orientation.
+        Downgrade to a diagram directly, preserving box orientation.
 
         The construction scans the currently open wire labels from left to
         right. For each box, it swaps boundary wires until the box domain wires
@@ -870,7 +870,7 @@ class CMap[C0: Pregroup, C1: CMap](
         True
         """
         edge_wire = {}
-        for i, j in enumerate(self.edge):
+        for i, j in enumerate(self.edges):
             if i <= j:
                 edge_wire[i] = edge_wire[j] = len(edge_wire) // 2
 
@@ -926,7 +926,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         The drawing has HTML-table nodes for the boundary interfaces and for
         each box, with one table port for each object in the signature, and
-        one direct edge per 2-cycle of ``edge``.
+        one direct edge per 2-cycle of ``edges``.
 
         Parameters:
             engine : The Graphviz layout engine.
@@ -1083,7 +1083,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 return dict(label=left_label)
             return dict(taillabel=left_label, headlabel=right_label)
 
-        for i, j in enumerate(self.edge):
+        for i, j in enumerate(self.edges):
             if i < j:
                 attributes = dict(
                     len="0.85", labeldistance="1.6") | edge_labels(i, j)

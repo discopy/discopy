@@ -43,7 +43,7 @@ def test_M_init():
     with raises(AxiomError):
         M(x, y, (), (1, 0))
     with raises(ValueError):
-        M(f.dom, f.cod, (f,), valid.edge, offsets=(None, None))
+        M(f.dom, f.cod, (f,), valid.edges, offsets=(None, None))
 
 
 def test_repr_eq_and_hash():
@@ -60,8 +60,8 @@ def test_repr_eq_and_hash():
 def test_id_and_tensor():
     from discopy.compact import Ty, CMap as M, Hypergraph as H
     x, y = map(Ty, "xy")
-    assert M.id(x).edge == (1, 0)
-    assert M.id(x).node == (0, 1)
+    assert M.id(x).edges == (1, 0)
+    assert M.id(x).orientation == (0, 1)
     assert M.id().tensor() == M.id()
     assert M.id(x).tensor(M.id(y)) == M.id(x) @ M.id(y)
     assert (M.id(x) @ M.id(y)).to_hypergraph() == H.id(x @ y)
@@ -72,12 +72,12 @@ def test_from_box_and_to_hypergraph():
     x, y, z = map(Ty, "xyz")
     f = Box("f", x, y)
     cm = M.from_box(f)
-    assert cm.edge == (1, 0, 3, 2)
-    assert cm.node == (0, 2, 1, 3)
+    assert cm.edges == (1, 0, 3, 2)
+    assert cm.orientation == (0, 2, 1, 3)
     assert cm.to_hypergraph() == f.to_hypergraph()
 
     multi_input = M.from_box(Box("g", x @ y, z))
-    assert multi_input.node_cycles == ((2, 3, 4),)
+    assert multi_input.orientation_cycles == ((2, 3, 4),)
 
 
 def test_eliminate_swaps():
@@ -104,7 +104,7 @@ def test_to_diagram_preserves_offsets():
     x, y, z = map(Ty, "xyz")
     delayed = Box("h", x @ y, z)
     cmap = M(delayed.dom, delayed.cod, (delayed, ),
-             M.from_box(delayed).edge, offsets=(2, ))
+             M.from_box(delayed).edges, offsets=(2, ))
     assert cmap.to_diagram().to_map() == cmap
 
 
@@ -126,7 +126,7 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
     assert cm.dom == x @ y
     assert cm.cod == y @ x
     assert cm.boxes == ()
-    assert cm.edge == (3, 2, 1, 0)
+    assert cm.edges == (3, 2, 1, 0)
 
     x = Ty("x")
     with raises(AxiomError):
@@ -272,9 +272,9 @@ def test_scalar_box():
 
     s = Box("s", Ty(), Ty())
     cm = M.from_box(s)
-    assert cm.edge == ()
-    assert cm.node == ()
-    assert cm.node_cycles == ((), )
+    assert cm.edges == ()
+    assert cm.orientation == ()
+    assert cm.orientation_cycles == ((), )
     assert cm.euler_characteristic == 1
     assert cm.to_hypergraph() == s.to_hypergraph()
 
@@ -356,7 +356,7 @@ def test_interchange():
     assert swapped.boxes == (h, g, f)
     assert swapped.dom == cm.dom
     assert swapped.cod == cm.cod
-    assert swapped.edge == (7, 5, 3, 2, 11, 1, 10, 0, 9, 8, 6, 4)
+    assert swapped.edges == (7, 5, 3, 2, 11, 1, 10, 0, 9, 8, 6, 4)
     assert swapped != cm
     assert swapped.interchange(2, 0) == cm
     with raises(IndexError):
@@ -374,7 +374,7 @@ def test_plug_input():
     direct = M.id(x).plug_input(0, Box("lambda", x, y @ x), y)
     assert direct.dom == Ty()
     assert direct.cod == y
-    assert direct.node_cycles[-1] == (0, 2, 1)
+    assert direct.orientation_cycles[-1] == (0, 2, 1)
 
     f = M.from_box(Box("f", z, x))
     indirect = f.plug_input(0, Box("lambda", x, y @ z), y)
