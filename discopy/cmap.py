@@ -11,7 +11,7 @@ then the domain and codomain ports of each box, then outputs. A map is given by
 two permutations on these ports:
 
 * ``edge`` is a fixpoint-free involution pairing ports into wires;
-* ``node`` is derived from the canonical counter-clockwise port order of boxes.
+* ``node`` is derived from the canonical clockwise port order of boxes.
 
 Their composite determines the faces of the map. Closed wire components are
 stored separately in ``scalars`` together with their types.
@@ -267,12 +267,15 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def node(self) -> Permutation:
         """
-        The canonical box orientation.
+        The canonical box orientation,
 
-        Box ports are already in their canonical local counter-clockwise
-        order, so each box contributes its consecutive port interval.
+        Each box contributes its clockwise local port order: domain ports from
+        left to right, then codomain ports from right to left.
         """
-        cycles = list(self.box_port_indices)
+        cycles = []
+        for box, box_ports in zip(self.boxes, self.box_port_indices):
+            dom_ports, cod_ports = box_ports[:len(box.dom)], box_ports[len(box.dom):]
+            cycles.append(tuple(reversed(dom_ports)) + tuple(cod_ports))
         return Permutation.from_cycles(cycles, len(self.ports))
 
     def validate(self):
@@ -294,10 +297,6 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         Compute the scalar types created by a gluing operation.
         """
-        def scalar_type(obj):
-            result = obj if isinstance(obj, self.category.ob)\
-                else self.ob(obj)
-            return result.r if getattr(result, "z", 0) % 2 else result
 
         removed, seen, result = set(removed), set(), []
         for start in removed:
@@ -314,7 +313,10 @@ class CMap[C0: Pregroup, C1: CMap](
                         seen.add(neighbor)
                         stack.append(neighbor)
             if internal:
-                result.append(scalar_type(objects[start]))
+                obj = objects[start]
+                result = obj if isinstance(obj, self.category.ob)\
+                    else self.ob(obj)
+                result.append(result.r if getattr(result, "z", 0) % 2 else result)
         return tuple(result)
 
     @classmethod
@@ -569,6 +571,8 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> from discopy.compact import Ty, CMap
         >>> x = Ty("x")
         >>> scalar = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
+        >>> scalar.boxes
+        ()
         >>> scalar.scalars == (x,)
         True
         """

@@ -69,12 +69,15 @@ def test_id_and_tensor():
 
 def test_from_box_and_to_hypergraph():
     from discopy.compact import Ty, Box, CMap as M
-    x, y = map(Ty, "xy")
+    x, y, z = map(Ty, "xyz")
     f = Box("f", x, y)
     cm = M.from_box(f)
     assert cm.edge == (1, 0, 3, 2)
     assert cm.node == (0, 2, 1, 3)
     assert cm.to_hypergraph() == f.to_hypergraph()
+
+    multi_input = M.from_box(Box("g", x @ y, z))
+    assert multi_input.node_cycles == ((2, 3, 4),)
 
 
 def test_eliminate_swaps():
@@ -371,7 +374,7 @@ def test_plug_input():
     direct = M.id(x).plug_input(0, Box("lambda", x, y @ x), y)
     assert direct.dom == Ty()
     assert direct.cod == y
-    assert direct.node_cycles[-1] == (0, 1, 2)
+    assert direct.node_cycles[-1] == (0, 2, 1)
 
     f = M.from_box(Box("f", z, x))
     indirect = f.plug_input(0, Box("lambda", x, y @ z), y)
