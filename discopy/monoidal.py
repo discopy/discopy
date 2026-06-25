@@ -360,7 +360,7 @@ class PRO(Ty):
 
     >>> assert CX @ 2 >> 2 @ CX == CX @ CX
     """
-    def __init__(self, n: int = 0):
+    def __init__(self, n: int = 0, dom: Colour = None, cod: Colour = None):
         assert_isinstance(n, int)
         self.n = n
         self.dom = self.cod = white
