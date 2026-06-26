@@ -134,10 +134,23 @@ class Backend(ABC):
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
         self.draw_text(label, i, j, verticalalignment='top', fontsize=fontsize)
 
+    @staticmethod
+    def is_frame_boundary(node):
+        """ Whether a node belongs to the sides of a frame, i.e. the box drawn
+        around the terms of an :class:`Equation` with coloured boundaries. """
+        box = getattr(node, "box", None)
+        if box is not None and getattr(box, "frame_boundary", False):
+            return True
+        typ = getattr(node, "x", None)
+        return typ is not None and getattr(
+            typ.inside[0], "frame_boundary", False)
+
     def draw_wires(self, graph, **params):
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
+            if self.is_frame_boundary(source) or self.is_frame_boundary(target):
+                continue  # The sides of a frame are not drawn as wires.
             if source.kind in ["dom", "box_cod"]:
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
@@ -526,11 +539,11 @@ class Matplotlib(Backend):
                   (width, source[1]), source]
         codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3,
                  Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
-        # Draw the outline in the fill colour so that the antialiased seams
-        # between abutting same-colour regions do not show up as grey lines.
+        # Disable antialiasing so that abutting same-colour regions do not
+        # leave a hairline seam where the background shows through.
         self.axis.add_patch(PathPatch(
-            Path(points, codes), linewidth=1,
-            facecolor=facecolor, edgecolor=facecolor))
+            Path(points, codes), linewidth=0, antialiased=False,
+            facecolor=facecolor, edgecolor='none'))
 
     def draw_regions(self, graph, **params):
         """Fill planar regions, leaving TikZ's legacy output unchanged."""
