@@ -85,7 +85,7 @@ def test_from_box_and_to_hypergraph():
 
     multi_input = M.from_box(Box("g", x @ y, z))
     assert multi_input.orientation == Permutation.from_cycles(
-        [(5, 0, 1), (2, 3, 4)], 6)
+        [(1, 0, 5), (2, 3, 4)], 6)
 
 
 def test_eliminate_swaps():
@@ -143,70 +143,62 @@ def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
         == SMap.swap(x, x)
 
 
-def test_diagram_to_map_respects_current_structure_and_keeps_next_free():
-    from discopy.monoidal import Ty as MTy, Box as MBox, CMap as MMap
-    from discopy.braided import Ty as BTy, Braid
-    from discopy.symmetric import Ty as STy, Swap, CMap as SMap
-    from discopy.compact import Ty as CTy, Cup, Cap, CMap
-    from discopy.traced import Ty as TTy, Box as TBox, Trace, CMap as TCMap
-    from discopy.balanced import Ty as BalTy, Twist
-    from discopy.closed import Ty as ClosedTy, Eval, CMap as ClosedM
-    from discopy.markov import Ty as MarkovTy, Copy as MCopy, CMap as MM
-    from discopy import frobenius
-
-    mx, my = map(MTy, "xy")
-    f = MBox("f", mx, my)
-    assert MMap.require_planar is False
-    assert f.to_map() == MMap.from_box(f)
-
-    bx, by = map(BTy, "xy")
-    braid = Braid(bx, by)
-    assert MMap.from_diagram(braid).boxes == (braid, )
-
-    sx, sy = map(STy, "xy")
-    assert SMap.require_planar is True
-    assert Swap(sx, sy).to_map() == SMap.swap(sx, sy)
-
-    cx = CTy("x")
-    cup, cap = Cup(cx, cx.r), Cap(cx.r, cx)
-    assert SMap.from_diagram(cup).boxes == (cup, )
-    assert cup.to_map() == CMap.cups(cx, cx.r)
-    assert cap.to_map() == CMap.caps(cx.r, cx)
-
-    tx = TTy("x")
-    traced_box = TBox("f", tx, tx)
-    assert Trace(traced_box).to_map() == traced_box.to_map().trace()
-
-    bx = BalTy("x")
-    twist = Twist(bx)
-    assert TCMap.from_diagram(twist).boxes == (twist, )
-    assert twist.to_map().boxes == ()
-
-    cx, cy = map(ClosedTy, "xy")
-    ev = Eval(cy << cx)
-    assert ev.to_map() == ClosedM.ev(cy, cx, left=False)
-    assert ev.to_map().boxes == (ev, )
-
-    mx = MarkovTy("x")
-    copy = MCopy(mx, 2)
-    assert copy.to_map() == MM.copy(mx, 2)
-
-    fx = frobenius.Ty("x")
-    spider = frobenius.Spider(1, 2, fx)
-    assert MM.from_diagram(spider).boxes == (spider, )
-    assert spider.to_map() == frobenius.CMap.spiders(1, 2, fx)
-
-
-def test_structural_maps_and_errors():
+def test_diagram_to_map_structure_and_errors():
     from discopy import (
+        balanced,
+        braided,
         closed,
         compact,
         frobenius,
         markov,
         monoidal,
+        symmetric,
         traced,
     )
     from discopy.cmap import Port, PortKind
+
+    mx, my = map(monoidal.Ty, "xy")
+    f = monoidal.Box("f", mx, my)
+    assert monoidal.CMap.require_planar is True
+    assert f.to_map() == monoidal.CMap.from_box(f)
+
+    bx, by = map(braided.Ty, "xy")
+    braid = braided.Braid(bx, by)
+    assert monoidal.CMap.from_diagram(braid).boxes == (braid, )
+
+    sx, sy = map(symmetric.Ty, "xy")
+    assert symmetric.CMap.require_planar is False
+    assert symmetric.Swap(sx, sy).to_map() == symmetric.CMap.swap(sx, sy)
+
+    cx = compact.Ty("x")
+    cup = compact.Cup(cx, cx.r)
+    cap = compact.Cap(cx.r, cx)
+    assert symmetric.CMap.from_diagram(cup).boxes == (cup, )
+    assert cup.to_map() == compact.CMap.cups(cx, cx.r)
+    assert cap.to_map() == compact.CMap.caps(cx.r, cx)
+
+    tx = traced.Ty("x")
+    traced_box = traced.Box("f", tx, tx)
+    assert traced.Trace(traced_box).to_map() == traced_box.to_map().trace()
+
+    bx = balanced.Ty("x")
+    twist = balanced.Twist(bx)
+    assert traced.CMap.from_diagram(twist).boxes == (twist, )
+    assert twist.to_map().boxes == (twist, )
+
+    cx, cy = map(closed.Ty, "xy")
+    ev = closed.Eval(cy << cx)
+    assert ev.to_map() == closed.CMap.ev(cy, cx, left=False)
+    assert ev.to_map().boxes == (ev, )
+
+    mx = markov.Ty("x")
+    copy = markov.Copy(mx, 2)
+    assert copy.to_map() == markov.CMap.copy(mx, 2)
+
+    fx = frobenius.Ty("x")
+    spider = frobenius.Spider(1, 2, fx)
+    assert markov.CMap.from_diagram(spider).boxes == (spider, )
+    assert spider.to_map() == frobenius.CMap.spiders(1, 2, fx)
 
     x, y = map(compact.Ty, "xy")
     assert to_hypergraph(compact.CMap.swap(x, y)) == compact.CMap.category.swap(

@@ -159,7 +159,7 @@ class CMap[C0: Pregroup, C1: CMap](
     ...     (0, 3), (1, 4), (2, 8), (5, 7), (6, 10), (9, 11)], 12)
     True
     >>> cm.orientation == Permutation.from_cycles([
-    ...     (10, 11, 0, 1, 2), (3, 4, 5, 6), (7, 8, 9)], 12)
+    ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
     """
 
@@ -251,9 +251,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z)
         >>> f.to_map().euler_characteristic
-        0
-        >>> (Swap(y, x) >> f).to_map().euler_characteristic
         2
+        >>> (Swap(y, x) >> f).to_map().euler_characteristic
+        0
         """
         vertices = len(self.boxes) + bool(self.boundary_cycle)
         return vertices - self.n_ports // 2\
@@ -274,7 +274,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> f, g = Box('f', x @ y, x @ z), Box('g', z @ z, z)
         >>> cm = (f @ z >> x @ g).to_map()
         >>> assert cm.orientation == Permutation.from_cycles([
-        ...     (10, 11, 0, 1, 2), # boundary
+        ...     (2, 1, 0, 10, 11), # boundary
         ...     (3, 4, 5, 6),      # f
         ...     (7, 8, 9),         # g
         ... ], 12), f"got {cm.orientation.cycles()!r}"
@@ -288,7 +288,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """ The clockwise cycle of the virtual boundary apex. """
         inputs = tuple(range(len(self.dom)))
         outputs = tuple(range(self.n_ports - len(self.cod), self.n_ports))
-        return inputs + outputs
+        return tuple(reversed(inputs)) + outputs
 
     @property
     def is_boundary_identity(self) -> bool:
@@ -312,7 +312,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
-        if not self.require_planar and not self.boxes and self.n_ports\
+        if self.require_planar and not self.boxes and self.n_ports\
                 and not self.is_boundary_identity:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 

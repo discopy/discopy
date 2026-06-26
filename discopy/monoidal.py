@@ -1180,19 +1180,15 @@ class Hypergraph(hypergraph.Hypergraph):
 
 class CMap(cmap.CMap):
     functor = Functor
-    require_planar = False
+    require_planar = True
 
     @classmethod
     def validate_indirect_wire(cls, source: cmap.Port, target: cmap.Port):
-        """ Validate an indirect wire in a non-traced setting. """
-        super().validate_indirect_wire(source, target)
-        if source.depth > target.depth:
-            raise AxiomError(messages.NOT_TRACEABLE.format(source, target))
+        raise AxiomError(messages.NOT_TRACEABLE.format(source, target))
 
     @classmethod
     def validate_compact_wire(cls, source: cmap.Port, target: cmap.Port):
-        """ Reject compact wires in non-compact settings. """
-        raise AxiomError(messages.NOT_TRACEABLE.format(source, target))
+        raise AxiomError
 
 
 Diagram.draw = drawing.draw
