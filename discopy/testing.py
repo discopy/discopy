@@ -70,8 +70,11 @@ DEFAULT_OBJECTS = ALPHABET
 class Falsified(AssertionError):
     """
     Raised by :func:`check_property` when a predicate is falsified, carrying
-    the minimal counterexample found by shrinking.
+    the minimal counterexample found by shrinking as its ``example`` attribute.
     """
+    def __init__(self, example):
+        self.example = example
+        super().__init__(repr(example))
 
 
 class _Source:
@@ -308,20 +311,38 @@ def check_property(
 
     Example
     -------
-    The property that a random type has length at most one is false, and the
-    smallest counterexample is a type of length two with minimal objects:
+    The interchange law does not hold on the nose for monoidal diagrams, only
+    up to interchanger normal form. We generate a pair of boxes with atomic
+    domain and codomain, then check that their two interchanger forms are
+    syntactically equal:
 
-    >>> from discopy.monoidal import Ty
-    >>> generator = lambda rng: random_ty(Ty, rng=rng)
-    >>> check_property(generator, lambda x: len(x) < 2)
-    Traceback (most recent call last):
-    ...
-    discopy.testing.Falsified: monoidal.Ty(cat.Ob('a'), cat.Ob('a'))
+    >>> from discopy.monoidal import Ty, Box
+    >>> def two_boxes(rng):
+    ...     atom = lambda: random_ty(Ty, min_length=1, max_length=1, rng=rng)
+    ...     return Box('f', atom(), atom()), Box('g', atom(), atom())
+    >>> def interchange_on_the_nose(boxes):
+    ...     f, g = boxes
+    ...     return f @ g.dom >> f.cod @ g == f.dom @ g >> f @ g.cod
+
+    The smallest counterexample is a pair of boxes on a single atomic wire:
+
+    >>> try:
+    ...     check_property(two_boxes, interchange_on_the_nose)
+    ... except Falsified as error:
+    ...     f, g = error.example
+    >>> assert f.dom == f.cod == g.dom == g.cod == Ty('a')
+
+    These two diagrams are not equal on the nose, but they do become equal
+    once we put them in interchanger normal form:
+
+    >>> lhs, rhs = f @ g.dom >> f.cod @ g, f.dom @ g >> f @ g.cod
+    >>> assert lhs != rhs
+    >>> assert lhs.normal_form() == rhs.normal_form()
     """
     rng = _random.Random(seed)
     for _ in range(n_trials):
         source = _Source(rng=rng)
         if not predicate(generator(source)):
             minimal = _shrink(generator, predicate, source.taken)
-            raise Falsified(repr(generator(_Source(minimal))))
+            raise Falsified(generator(_Source(minimal)))
     return True

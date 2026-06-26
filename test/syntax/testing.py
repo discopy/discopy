@@ -5,10 +5,13 @@
 from discopy import (
     monoidal, braided, balanced, symmetric, rigid, pivotal,
     markov, compact, frobenius, feedback)
+from pytest import raises
+
 from discopy.abc import Monoid, Pregroup
 from discopy.testing import (
     random_ty, random_diagram, random_parallel_pair,
-    random_composable_pair, random_composable_triple, check_property)
+    random_composable_pair, random_composable_triple,
+    check_property, Falsified)
 
 N_TRIALS = 30
 
@@ -202,3 +205,26 @@ def test_frobenius_and_speciality():
 def test_random_parallel_pair_is_parallel():
     f, g = random_parallel_pair(symmetric.Box, symmetric.Ty('x'), seed=420)
     assert f.is_parallel(g)
+
+
+def test_interchanger_shrinks_to_minimal():
+    # The interchange law holds only up to interchanger normal form, not on
+    # the nose. Shrinking should find the smallest counterexample: a pair of
+    # boxes on a single atomic wire 'a'.
+    def two_boxes(rng):
+        atom = lambda: random_ty(
+            monoidal.Ty, min_length=1, max_length=1, rng=rng)
+        f = monoidal.Box('f', atom(), atom())
+        g = monoidal.Box('g', atom(), atom())
+        return f, g
+
+    def interchange_on_the_nose(boxes):
+        f, g = boxes
+        return f @ g.dom >> f.cod @ g == f.dom @ g >> f @ g.cod
+
+    with raises(Falsified) as error:
+        check_property(two_boxes, interchange_on_the_nose)
+    f, g = error.value.example
+    assert f.dom == f.cod == g.dom == g.cod == monoidal.Ty('a')
+    lhs, rhs = f @ g.dom >> f.cod @ g, f.dom @ g >> f @ g.cod
+    assert lhs != rhs and lhs.normal_form() == rhs.normal_form()
