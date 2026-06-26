@@ -632,24 +632,6 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                     indegree[i] += 1
         return producer, consumer, dom_port, dependents, indegree
 
-    def _is_acyclic_fast(self) -> bool:
-        """
-        Checks acyclicity of the box-level dependency graph with a plain
-        Kahn's algorithm, avoiding the construction of a full networkx
-        graph on ports.
-        """
-        _, _, _, dependents, indegree = self._box_dependencies()
-        indegree, seen = list(indegree), 0
-        ready = [i for i, d in enumerate(indegree) if d == 0]
-        while ready:
-            i = ready.pop()
-            seen += 1
-            for j in dependents[i]:
-                indegree[j] -= 1
-                if indegree[j] == 0:
-                    ready.append(j)
-        return seen == len(self.boxes)
-
     @cached_property
     def is_boundary_connected(self) -> bool:
         """
@@ -689,8 +671,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         >>> assert H.id(Ty()).is_boundary_connected
         """
         n_boxes = len(self.boxes)
-        boundary = self.n_spiders + n_boxes
-        parent = list(range(boundary + 1))
+        n_spiders_and_boxes = self.n_spiders + n_boxes
+        parent = list(range(n_spiders_and_boxes + 1))
 
         def find(i):
             while parent[i] != i:
@@ -706,9 +688,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         for i, (box_dom, box_cod) in enumerate(self.box_wires):
             for spider in box_dom + box_cod:
                 union(self.n_spiders + i, spider)
-        for spider in self.dom_wires + self.cod_wires:
-            union(boundary, spider)
-        return len({find(i) for i in range(boundary + 1)}) == 1
+        for spider in self.dom_wires:
+            union(n_spiders_and_boxes, spider)
+        for spider in self.cod_wires:
+            union(n_spiders_and_boxes, spider)
+        return len({find(i) for i in range(n_spiders_and_boxes + 1)}) == 1
 
     @cached_property
     def _is_fast_eligible(self) -> bool:
@@ -1003,7 +987,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     @property
     def is_acyclic(self) -> bool:
         """
-        Checks that the causal graph has no directed cycle.
+        Checks that the causal graph has no directed cycle, with a plain
+        Kahn's algorithm on the box-level dependency graph, avoiding the
+        construction of a full networkx graph on ports.
         As an edge case, we also need to check that there are no scalar
         spiders, otherwise the causal graph has 0 nodes and is thus trivially
         acyclic.
@@ -1030,7 +1016,19 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         >>> # Edge case: cyclic hypergraph without boxes
         >>> assert not (Cap(x, x) >> Cup(x, x)).to_hypergraph().is_acyclic
         """
-        return not self.scalar_spiders and self._is_acyclic_fast()
+        if self.scalar_spiders:
+            return False
+        _, _, _, dependents, indegree = self._box_dependencies()
+        indegree, seen = list(indegree), 0
+        ready = [i for i, d in enumerate(indegree) if d == 0]
+        while ready:
+            i = ready.pop()
+            seen += 1
+            for j in dependents[i]:
+                indegree[j] -= 1
+                if indegree[j] == 0:
+                    ready.append(j)
+        return seen == len(self.boxes)
 
     @property
     def is_topologically_ordered(self) -> bool:
