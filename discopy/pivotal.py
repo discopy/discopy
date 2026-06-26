@@ -151,6 +151,34 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         """
         return self.rotate().dagger()
 
+    def to_hypergraph(self) -> Hypergraph:
+        """
+        Translate a pivotal diagram into a :class:`Hypergraph`.
+
+        Unlike :mod:`symmetric` diagrams, pivotal diagrams are planar, so their
+        hypergraph is only a faithful encoding when the diagram is
+        boundary-connected, see Delpeuch and Vicary :cite:t:`DelpeuchVicary22`.
+        We check this by computing the :meth:`normal_form`, raising a
+        :class:`NotImplementedError` à la place otherwise.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> assert f.transpose(left=True).to_hypergraph()\\
+        ...     == f.transpose(left=False).to_hypergraph()
+
+        A diagram that is not boundary-connected has no faithful hypergraph:
+
+        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
+        >>> (s0 @ s1).to_hypergraph()
+        Traceback (most recent call last):
+        ...
+        NotImplementedError: s0 >> s1 is not boundary-connected.
+        """
+        self.normal_form()
+        return self.hypergraph_factory.from_diagram(self)
+
     @classmethod
     def trace_factory(cls, diagram: Diagram, left=False):
         """
@@ -245,5 +273,15 @@ class Functor(rigid.Functor):
     dom = cod = Diagram
 
 
+class Hypergraph(traced.Hypergraph):
+    """
+    A pivotal hypergraph is a traced hypergraph translated with a pivotal
+    :class:`Functor`, so that cups and caps are encoded as hypergraph cups and
+    caps rather than as opaque boxes.
+    """
+    functor = Functor
+
+
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
+Diagram.hypergraph_factory = Hypergraph
 Id = Diagram.id

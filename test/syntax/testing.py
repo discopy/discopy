@@ -203,13 +203,21 @@ def test_frobenius_and_speciality():
 
 
 def test_pivotal_transpose():
-    # The pivotal axiom (left and right transpose coincide) is semantic, i.e.
-    # it need not hold for free diagrams, so we instead check that our formula
-    # agrees with the library's transpose, which is built the same way.
+    # check_transpose builds the two transposes the same way as the library.
     x, y = pivotal.Ty('x'), pivotal.Ty('y')
     f = pivotal.Box('f', x, y)
     assert f.check_transpose() == (
         f.transpose(left=True) == f.transpose(left=False))
+
+    # The pivotal axiom is semantic: it fails on the nose but is witnessed by
+    # the pivotal hypergraph, which forgets planarity.
+    def predicate(g):
+        return g.transpose(left=True).to_hypergraph()\
+            == g.transpose(left=False).to_hypergraph()
+    assert check_property(
+        lambda rng: pivotal.Box(
+            'g', nonempty(pivotal.Ty)(rng), nonempty(pivotal.Ty)(rng)),
+        predicate, n_trials=N_TRIALS)
 
 
 def test_random_parallel_pair_is_parallel():
