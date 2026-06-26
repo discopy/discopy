@@ -53,6 +53,7 @@ def draw(graph: PlaneGraph, **params):
     params['nodesize'] = round(params.get('nodesize', 1.) / sqrt(max_v), 3)
 
     backend.draw_boundary(graph, **params)
+    backend.draw_regions(graph, **params)
     backend.draw_wires(graph, **params)
     backend.draw_boxes(graph, **params)
     backend.draw_spiders(graph, **params)
@@ -83,7 +84,7 @@ class Backend(ABC):
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
 
@@ -104,6 +105,21 @@ class Backend(ABC):
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
 
+    def draw_regions(self, graph, **params):
+        """Draw coloured 0-cell regions when supported by the backend."""
+
+    @staticmethod
+    def visible_edges(graph):
+        """ Yield the edges of a graph that are not inside a box. """
+        def inside_a_box(node):
+            return node.kind == "box"\
+                and not node.box.draw_as_wires\
+                and not node.box.draw_as_spider
+        for source, target in graph.edges():
+            if inside_a_box(source) or inside_a_box(target):
+                continue  # no need to draw wires inside a box
+            yield source, target
+
     def draw_wire_label(self, x, i, j, **params):
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
             x, "always_draw_label", False)
@@ -118,16 +134,24 @@ class Backend(ABC):
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
         self.draw_text(label, i, j, verticalalignment='top', fontsize=fontsize)
 
+    @staticmethod
+    def is_frame_boundary(node):
+        """ Whether a node belongs to the sides of a frame, i.e. the box drawn
+        around the terms of an :class:`Equation` with coloured boundaries. """
+        box = getattr(node, "box", None)
+        if box is not None and getattr(box, "frame_boundary", False):
+            return True
+        typ = getattr(node, "x", None)
+        return typ is not None and getattr(
+            typ.inside[0], "frame_boundary", False)
+
     def draw_wires(self, graph, **params):
-        for source, target in graph.edges():
-            def inside_a_box(node):
-                return node.kind == "box"\
-                    and not node.box.draw_as_wires\
-                    and not node.box.draw_as_spider
-            if inside_a_box(source) or inside_a_box(target):
-                continue  # no need to draw wires inside a box
+        for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
+            # The sides of a frame are drawn with zero width.
+            is_frame_boundary = self.is_frame_boundary(source)\
+                or self.is_frame_boundary(target)
             if source.kind in ["dom", "box_cod"]:
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
@@ -157,7 +181,8 @@ class Backend(ABC):
                         for x, b, shadow in zip(
                             target_position, [-1, 1], braid_shadow))
             self.draw_wire(
-                source_position, target_position, bend_out, bend_in)
+                source_position, target_position, bend_out, bend_in,
+                linewidth=(0 if is_frame_boundary else None))
 
     def draw_boxes(self, graph, **params):
         drawing_methods = [
@@ -394,7 +419,7 @@ class TikZ(Backend):
         super().draw_polygon(*points)
 
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -504,12 +529,61 @@ class Matplotlib(Backend):
         self.axis.add_patch(PathPatch(
             path,
             linewidth=self.linewidth,
-            facecolor=COLORS[facecolor],
-            edgecolor=COLORS[edgecolor]))
+            facecolor=COLORS.get(facecolor, facecolor),
+            edgecolor=COLORS.get(edgecolor, edgecolor)))
         super().draw_polygon(*points)
 
+    def _draw_right_region(self, source, target, width, facecolor,
+                           bend_out=False):
+        mid = (target[0], source[1]) if bend_out\
+            else (source[0], target[1])
+        points = [source, mid, target, (width, target[1]),
+                  (width, source[1]), source]
+        codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3,
+                 Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        # Disable antialiasing so that abutting same-colour regions do not
+        # leave a hairline seam where the background shows through.
+        self.axis.add_patch(PathPatch(
+            Path(points, codes), linewidth=0, antialiased=False,
+            facecolor=facecolor, edgecolor='none'))
+
+    def draw_regions(self, graph, **params):
+        """Fill planar regions, leaving TikZ's legacy output unchanged."""
+        self._draw_right_region(
+            (0, 0), (0, graph.height), graph.width, graph.dom.dom.name)
+
+        separators = []
+
+        for source, target in self.visible_edges(graph):
+            source_position, target_position = (
+                graph.positions[source], graph.positions[target])
+            if source_position == target_position:
+                continue
+            typ = getattr(source, 'x', None) or getattr(target, 'x', None)
+            bend_out = source.kind == "box"
+            x = (source_position.x + target_position.x) / 2
+            separators.append((x, source_position, target_position,
+                               typ.cod.name, bend_out))
+
+        for node in graph.box_nodes:
+            box = node.box
+            if box.draw_as_wires or box.draw_as_spider:
+                continue
+            j = node.j
+            top_right = graph.positions[Node("box-corner-11", j=j)]
+            bottom_right = graph.positions[Node("box-corner-10", j=j)]
+            separators.append((top_right.x, top_right, bottom_right,
+                               box.dom.cod.name, False))
+
+        for _, source, target, colour, bend_out in sorted(
+                separators, key=lambda item: item[0]):
+            self._draw_right_region(
+                source, target, graph.width, colour, bend_out=bend_out)
+        super().draw_regions(graph, **params)
+
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
+        linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
             self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
@@ -520,7 +594,7 @@ class Matplotlib(Backend):
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             self.axis.add_patch(PathPatch(
-                path, facecolor='none', linewidth=self.linewidth))
+                path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):
