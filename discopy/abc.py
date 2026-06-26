@@ -507,6 +507,29 @@ class PivotalCategory[C0, C1](RigidCategory[C0, C1], TracedCategory[C0, C1]):
         """
         return x.r == x.l
 
+    def check_transpose(self) -> bool:
+        """
+        Check that the left and right transpose of :code:`self` coincide.
+        This is the defining axiom of a pivotal category on top of a rigid one,
+        i.e. that a morphism can be rotated by a full turn in either direction.
+
+        The transpose of :code:`self: x -> y` is built by bending the input and
+        output wires around using :meth:`cups` and :meth:`caps`, on the left to
+        get a morphism :code:`y.l -> x.l` and on the right :code:`y.r -> x.r`.
+        In a pivotal category :code:`x.l == x.r`, so they have the same type.
+
+        Note
+        ----
+        This is in general a semantic axiom, e.g. it need not hold for free
+        pivotal diagrams under syntactic equality.
+        """
+        dom, cod = self.dom, self.cod
+        left_transpose = (cod.l @ self.caps(dom, dom.l)).then(
+            cod.l @ self @ dom.l).then(self.cups(cod.l, cod) @ dom.l)
+        right_transpose = (self.caps(dom.r, dom) @ cod.r).then(
+            dom.r @ self @ cod.r).then(dom.r @ self.cups(cod, cod.r))
+        return left_transpose == right_transpose
+
 
 class BraidedCategory[C0, C1](MonoidalCategory[C0, C1]):
     """
