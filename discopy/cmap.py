@@ -11,9 +11,10 @@ then the domain and codomain ports of each box, then outputs. A map is given by
 two permutations on these ports:
 
 * ``edges`` is a fixpoint-free involution pairing ports into wires;
-* ``orientation`` is derived from the canonical clockwise port order of boxes.
+* ``orientation`` is derived from the canonical clockwise port order of the
+  boundary and boxes.
 
-Their composite determines the faces of the map. Closed wire components are
+Their composite gives the faces of the map. Closed wire components are
 stored separately in ``scalars`` together with their types.
 
 Summary
@@ -121,10 +122,17 @@ class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     """
-    An oriented bijective hypergraph with interfaces.
+    An oriented bijective hypergraph with interface, also known as an open
+    combinatorial map.
 
-    The edges involution gives the wires, while the cyclic order of ports
-    around each box gives the orientation.
+    The edges involution gives the wires by decomposition into 2-cycles, while
+    the vertex permutation gives an orientation to every box.
+
+    Port ordering is fixed by a canonical order given by clockwise order,
+    meaning that every box of arity m and coarity n maps to a (m+n)-cycle
+    consisting of contiguous port indices. The boundary is represented as
+    an apex, as if the domain and codomain ports were connected to the
+    same box.
 
     Parameters:
         dom : The domain of the map.
@@ -136,18 +144,35 @@ class CMap[C0: Pregroup, C1: CMap](
 
     Example
     -------
-    >>> from discopy.compact import Ty, Box
+    >>> from discopy.compact import Ty, Box, CMap
+    >>> from discopy.python.finset import Permutation
     >>> x, y, z = map(Ty, "xyz")
-    >>> cmap = Box("f", x @ y, z).to_map()
-    >>> [port.kind.value for port in cmap.ports]
-    ['input', 'input', 'dom', 'dom', 'cod', 'output']
-    >>> tuple(cmap.edges), cmap.orientation_cycles
-    ((2, 3, 0, 1, 5, 4), ((2, 3, 4),))
+    >>> f, g = map(CMap.from_box, [
+    ...     Box("f", x @ y, x @ z),
+    ...     Box("g", z @ z, z),
+    ... ])
+    >>> cm = f @ z >> x @ g
+    >>> # apex: 10 : x, 11 : z ⊢ 2 : x, 1 : y, 0 : z
+    >>> # f:    3 : x, 4 : y ⊢ 6 : x, 5 : z
+    >>> # g:    7 : z, 8 : z ⊢ 9 : z
+    >>> cm.edges == Permutation.from_cycles([
+    ...     (0, 3), (1, 4), (2, 8), (5, 7), (6, 10), (9, 11)], 12)
+    True
+    >>> cm.orientation == Permutation.from_cycles([
+    ...     (10, 11, 0, 1, 2), (3, 4, 5, 6), (7, 8, 9)], 12)
+    True
     """
+
     functor: ClassVar[Functor]
     require_planar: ClassVar[bool] = True
     category = classproperty(lambda cls: cls.functor.dom)
     ob = classproperty(lambda cls: cls.category.ob)
+
+    dom: C0
+    cod: C0
+    offsets: tuple[int, ...]
+    scalars: tuple[C0, ...]
+    edges: Permutation
 
     def __init__(
             self, dom: C0, cod: C0, boxes: tuple[Box, ...],
@@ -171,7 +196,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     @property
     def ports(self) -> list[Port]:
-        """ The ports in fixed hypergraph order. """
+        """ The ports in canonical orientation order. """
         def port(kind, i, obj, depth):
             return Port(
                 kind, i=i, obj=obj, depth=depth,
@@ -181,10 +206,12 @@ class CMap[C0: Pregroup, C1: CMap](
                   for i, obj in enumerate(self.dom)]
         box_ports = sum([[
             port(kind, i=i, obj=obj, depth=depth)
-            for i, obj in enumerate(typ)]
+            for i, obj in indexed_typ]
             for depth, box in enumerate(self.boxes)
-            for kind, typ in [
-                (PortKind.DOM, box.dom), (PortKind.COD, box.cod)]], [])
+            for kind, indexed_typ in [
+                (PortKind.DOM, tuple(enumerate(box.dom))),
+                (PortKind.COD, tuple(reversed(tuple(enumerate(box.cod)))))]],
+            [])
         outputs = [port(PortKind.OUTPUT, i=i, obj=obj, depth=float('+inf'))
                    for i, obj in enumerate(self.cod)]
         return inputs + box_ports + outputs
@@ -192,90 +219,101 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def n_ports(self) -> int:
         """ The number of ports. """
-        return len(self.ports)
+        return len(self.dom) + sum(
+            len(box.dom) + len(box.cod) for box in self.boxes) + len(self.cod)
+
+    @staticmethod
+    def _hypergraph_to_canonical(dom, boxes, cod) -> tuple[int, ...]:
+        """ Relabel hypergraph port order to canonical orientation order. """
+        result = list(range(len(dom)))
+        start = len(dom)
+        for box in boxes:
+            result.extend(start + i for i in range(len(box.dom)))
+            result.extend(
+                start + len(box.dom) + len(box.cod) - i - 1
+                for i in range(len(box.cod)))
+            start += len(box.dom @ box.cod)
+        result.extend(range(start, start + len(cod)))
+        return tuple(result)
 
     @property
-    def box_port_indices(self) -> tuple[tuple[int, ...], ...]:
+    def _box_port_indices(self) -> tuple[tuple[int, ...], ...]:
         """ The consecutive port indices belonging to each box. """
         result, start = [], len(self.dom)
         for box in self.boxes:
-            stop = start + len(box.dom @ box.cod)
+            stop = start + len(box.dom) + len(box.cod)
             result.append(tuple(range(start, stop)))
             start = stop
         return tuple(result)
 
     @property
-    def orientation_cycles(self) -> tuple[tuple[int, ...], ...]:
-        """ The oriented port cycle of each box, including empty boxes. """
-        result = []
-        for box_ports in self.box_port_indices:
-            if not box_ports:
-                result.append(())
-                continue
-            result.append(self.orientation.cycle(box_ports[0]))
-        return tuple(result)
-
-    @property
-    def face_permutation(self) -> Permutation:
-        """ The face permutation ``edges ; orientation``. """
+    def faces(self) -> Permutation:
+        """ The face permutation, computed as ``edges ; orientation``. """
         return self.edges.then(self.orientation)
-
-    @property
-    def face_cycles(self) -> tuple[tuple[int, ...], ...]:
-        """ The cycles of the face permutation. """
-        return self.face_permutation.cycles()
 
     @property
     def euler_characteristic(self) -> int:
         """
         Euler characteristic ``V - E + F`` with boundary at infinity.
 
-        For open maps, the input and output ports are treated as points on one
-        outer boundary circle, ordered as inputs left-to-right followed by
-        outputs right-to-left. Thus a connected planar open map has Euler
+        For open maps, the input and output ports are treated as one virtual
+        boundary/apex, ordered clockwise as inputs left-to-right followed
+        by outputs right-to-left. Thus a connected planar open map has Euler
         characteristic 2.
 
         >>> from discopy.symmetric import Ty, Box, Swap
         >>> x, y, z = map(Ty, "xyz")
         >>> f = Box("f", x @ y, z)
         >>> f.to_map().euler_characteristic
-        2
-        >>> (Swap(y, x) >> f).to_map().euler_characteristic
         0
+        >>> (Swap(y, x) >> f).to_map().euler_characteristic
+        2
         """
-        if not self.n_ports:
-            return len(self.boxes) + len(self.scalars)
-
-        cycles, vertices = [], len(self.boxes)
-        for box, box_ports in zip(self.boxes, self.box_port_indices):
-            dom_ports = box_ports[:len(box.dom)]
-            cod_ports = box_ports[len(box.dom):]
-            cycle = tuple(reversed(dom_ports)) + tuple(cod_ports)
-            if cycle:
-                cycles.append(cycle)
-
-        boundary = tuple(range(len(self.dom))) + tuple(range(
-            self.n_ports - 1, self.n_ports - len(self.cod) - 1, -1))
-        if boundary:
-            cycles.append(boundary)
-            vertices += 1
-
-        orientation = Permutation.from_cycles(cycles, self.n_ports)
+        vertices = len(self.boxes) + bool(self.boundary_cycle)
         return vertices - self.n_ports // 2\
-            + len(self.edges.then(orientation).cycles()) + len(self.scalars)
+            + len(self.faces.cycles()) + len(self.scalars)
 
     @property
     def orientation(self) -> Permutation:
         """
-        The canonical box orientation,
+        The closed orientation permutation.
 
-        Each box contributes its clockwise local port order: domain ports from
-        left to right, then codomain ports from right to left.
+        The first cycle is the boundary apex, when the boundary is non-empty.
+        Each following non-empty cycle is the contiguous port interval of a
+        box in canonical order: domain ports, then codomain ports.
+
+        >>> from discopy.compact import Ty, Box, CMap
+        >>> from discopy.python.finset import Permutation
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f, g = Box('f', x @ y, x @ z), Box('g', z @ z, z)
+        >>> cm = (f @ z >> x @ g).to_map()
+        >>> assert cm.orientation == Permutation.from_cycles([
+        ...     (10, 11, 0, 1, 2), # boundary
+        ...     (3, 4, 5, 6),      # f
+        ...     (7, 8, 9),         # g
+        ... ], 12), f"got {cm.orientation.cycles()!r}"
         """
-        cycles = [
-            box_ports[:len(box.dom)] + tuple(reversed(box_ports[len(box.dom):]))
-            for box, box_ports in zip(self.boxes, self.box_port_indices)]
-        return Permutation.from_cycles(cycles, len(self.ports))
+        return Permutation.from_cycles(
+            (self.boundary_cycle, ) + self._box_port_indices,
+            len(self.ports))
+
+    @property
+    def boundary_cycle(self) -> tuple[int, ...]:
+        """ The clockwise cycle of the virtual boundary apex. """
+        inputs = tuple(range(len(self.dom)))
+        outputs = tuple(range(self.n_ports - len(self.cod), self.n_ports))
+        return inputs + outputs
+
+    @property
+    def is_boundary_identity(self) -> bool:
+        """ Whether a boundary-only map is wired as an identity. """
+        if self.boxes or len(self.dom) != len(self.cod):
+            return False
+        output_start = self.n_ports - len(self.cod)
+        return all(
+            self.edges[i] == output_start + i
+            and self.edges[output_start + i] == i
+            for i in range(len(self.dom)))
 
     def validate(self):
         """ Validate the edges involution, wires and required planarity. """
@@ -288,8 +326,8 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
-        if not self.require_planar and self.n_ports\
-                and self.euler_characteristic != 2:
+        if not self.require_planar and not self.boxes and self.n_ports\
+                and not self.is_boundary_identity:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 
     def _new_scalars(self, edges, glue, removed, objects) -> tuple:
@@ -400,7 +438,7 @@ class CMap[C0: Pregroup, C1: CMap](
         n_ports = 2 * (left + right)
         edge = Permutation.from_transpositions(
             [(i, left + i) for i in range(left)]
-            + [(2 * left + i, 2 * left + right + i)
+            + [(2 * left + right - i - 1, 2 * left + right + i)
                for i in range(right)],
             n_ports)
         return cls(box.dom, box.cod, (box, ), edge)
@@ -441,8 +479,11 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
         factory = cls if cls.functor is not None else cls[
             type(old).category, type(old).functor]
+        relabel = cls._hypergraph_to_canonical(
+            old.dom, old.boxes, old.cod)
+        edges = Permutation(old.bijection).relabel(relabel)
         return factory(
-            old.dom, old.cod, old.boxes, old.bijection,
+            old.dom, old.cod, old.boxes, edges,
             offsets=old.offsets)
 
     @classmethod
@@ -690,32 +731,23 @@ class CMap[C0: Pregroup, C1: CMap](
         other_dom, other_cod = len(other.dom), len(other.cod)
         self_box_ports = self.n_ports - self_dom - self_cod
         other_box_ports = other.n_ports - other_dom - other_cod
-        self_map, other_map = {}, {}
-
-        for i in range(self_dom):
-            self_map[i] = i
-        for i in range(other_dom):
-            other_map[i] = self_dom + i
-        for i in range(self_box_ports):
-            self_map[self_dom + i] = self_dom + other_dom + i
-        for i in range(other_box_ports):
-            other_map[other_dom + i] = (
-                self_dom + other_dom + self_box_ports + i)
+        self_map = (
+            tuple(range(self_dom))
+            + tuple(range(
+                self_dom + other_dom,
+                self_dom + other_dom + self_box_ports)))
+        other_map = (
+            tuple(range(self_dom, self_dom + other_dom))
+            + tuple(range(
+                self_dom + other_dom + self_box_ports,
+                self_dom + other_dom + self_box_ports + other_box_ports)))
         cod_start = self_dom + other_dom + self_box_ports + other_box_ports
-        for i in range(self_cod):
-            self_map[self.n_ports - self_cod + i] = cod_start + i
-        for i in range(other_cod):
-            other_map[other.n_ports - other_cod + i] = (
-                cod_start + self_cod + i)
-
         n_ports = self.n_ports + other.n_ports
-        edge_pairs = []
-        for old_edge, mapping in [(self.edges, self_map),
-                                  (other.edges, other_map)]:
-            for i, j in enumerate(old_edge):
-                if i < j:
-                    edge_pairs.append((mapping[i], mapping[j]))
-        edge = Permutation.from_transpositions(edge_pairs, n_ports)
+        self_map += tuple(range(cod_start, cod_start + self_cod))
+        other_map += tuple(range(cod_start + self_cod, n_ports))
+
+        edge = self.edges.relabel(self_map, n_ports).then(
+            other.edges.relabel(other_map, n_ports))
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
             scalars=self.scalars + other.scalars)
@@ -739,7 +771,7 @@ class CMap[C0: Pregroup, C1: CMap](
         offsets[i], offsets[j] = offsets[j], offsets[i]
         boxes, offsets = tuple(boxes), tuple(offsets)
 
-        old_ports = self.box_port_indices
+        old_ports = self._box_port_indices
         start = len(self.dom)
         new_ports = {}
         for box_index, box in enumerate(boxes):
@@ -749,14 +781,12 @@ class CMap[C0: Pregroup, C1: CMap](
             new_ports[old_index] = tuple(range(start, stop))
             start = stop
 
-        mapping = {i: i for i in range(self.n_ports)}
+        mapping = list(range(self.n_ports))
         for old_index, ports in enumerate(old_ports):
             for old, new in zip(ports, new_ports[old_index]):
                 mapping[old] = new
 
-        port_permutation = Permutation(
-            (mapping[port] for port in range(self.n_ports)), self.n_ports)
-        edge = self.edges.conjugate(port_permutation)
+        edge = self.edges.relabel(mapping)
         return type(self)(
             self.dom, self.cod, boxes, edge, offsets=offsets,
             scalars=self.scalars)
@@ -802,7 +832,9 @@ class CMap[C0: Pregroup, C1: CMap](
             new_index += 1
 
         box_dom = new_index
-        box_outputs = (new_index + 1, new_index + 2)
+        box_outputs = tuple(
+            new_index + 1 + len(box.cod) - i - 1
+            for i in range(len(box.cod)))
         box_root = box_outputs[root_index]
         box_parameter = box_outputs[1 - root_index]
         new_output = new_index + 3
@@ -837,13 +869,17 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> CMap.from_hypergraph(cmap.to_hypergraph()) == cmap
         True
         """
+        hypergraph_to_canonical = self._hypergraph_to_canonical(
+            self.dom, self.boxes, self.cod)
+        canonical_to_hypergraph = Permutation(hypergraph_to_canonical).dagger()
+        edges = self.edges.relabel(canonical_to_hypergraph)
         spider_types, flat_wires = [], [None] * self.n_ports
         for i in range(self.n_ports):
-            j = self.edges[i]
+            j = edges[i]
             if i > j:
                 continue
             spider = len(spider_types)
-            spider_types.append(self.ports[i].obj)
+            spider_types.append(self.ports[hypergraph_to_canonical[i]].obj)
             flat_wires[i] = flat_wires[j] = spider
         wires = hypergraph.Hypergraph.rebracket(
             None, flat_wires, dom=self.dom, boxes=self.boxes)
@@ -877,9 +913,9 @@ class CMap[C0: Pregroup, C1: CMap](
         diagram = self.category.id(self.dom)
         scan = [edge_wire[i] for i in range(len(self.dom))]
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
-            box_ports = self.box_port_indices[depth]
+            box_ports = self._box_port_indices[depth]
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = box_ports[len(box.dom):]
+            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
             dom_wires = [edge_wire[i] for i in dom_ports]
             cod_wires = [edge_wire[i] for i in cod_ports]
 
@@ -1009,7 +1045,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 for port_index in port_indices) + "</TR>"
 
         def box_table(vertex, box):
-            box_ports = self.box_port_indices[vertex]
+            box_ports = self._box_port_indices[vertex]
             dom_ports = box_ports[:len(box.dom)]
             cod_ports = box_ports[len(box.dom):]
             dom_arity, cod_arity = len(dom_ports), len(cod_ports)
@@ -1044,7 +1080,7 @@ class CMap[C0: Pregroup, C1: CMap](
             attributes = dict(label=Html(box_table(vertex, box)))
             lines.append(
                 f"  v{vertex} [{attr_string(attributes)}];")
-            for port_index in self.box_port_indices[vertex]:
+            for port_index in self._box_port_indices[vertex]:
                 compass = "n" if self.ports[
                     port_index].kind == "dom" else "s"
                 port_nodes[port_index] = (
@@ -1120,8 +1156,8 @@ class CMap[C0: Pregroup, C1: CMap](
             block : Whether displaying blocks execution.
 
         >>> from discopy.compact import Ty, Box
-        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
-        >>> Box("f", X @ Y, Z).to_map().curry().draw(
+        >>> x, y, z = map(Ty, "xyz")
+        >>> Box("f", x @ y, z).to_map().curry().draw(
         ...     path="docs/_static/cmap/curry.png", show=False)
 
         .. image:: /_static/cmap/curry.png

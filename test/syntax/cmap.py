@@ -1,5 +1,6 @@
 from pytest import raises
 
+from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
 
@@ -61,7 +62,8 @@ def test_id_and_tensor():
     from discopy.compact import Ty, CMap as M, Hypergraph as H
     x, y = map(Ty, "xy")
     assert M.id(x).edges == (1, 0)
-    assert M.id(x).orientation == (0, 1)
+    assert M.id(x).orientation == (1, 0)
+    assert M.id(x).faces == (0, 1)
     assert M.id().tensor() == M.id()
     assert M.id(x).tensor(M.id(y)) == M.id(x) @ M.id(y)
     assert (M.id(x) @ M.id(y)).to_hypergraph() == H.id(x @ y)
@@ -73,11 +75,13 @@ def test_from_box_and_to_hypergraph():
     f = Box("f", x, y)
     cm = M.from_box(f)
     assert cm.edges == (1, 0, 3, 2)
-    assert cm.orientation == (0, 2, 1, 3)
+    assert cm.orientation == (3, 2, 1, 0)
+    assert cm.faces == (2, 3, 0, 1)
     assert cm.to_hypergraph() == f.to_hypergraph()
 
     multi_input = M.from_box(Box("g", x @ y, z))
-    assert multi_input.orientation_cycles == ((2, 3, 4),)
+    assert multi_input.orientation == Permutation.from_cycles(
+        [(5, 0, 1), (2, 3, 4)], 6)
 
 
 def test_eliminate_swaps():
@@ -274,7 +278,7 @@ def test_scalar_box():
     cm = M.from_box(s)
     assert cm.edges == ()
     assert cm.orientation == ()
-    assert cm.orientation_cycles == ((), )
+    assert cm.faces == ()
     assert cm.euler_characteristic == 1
     assert cm.to_hypergraph() == s.to_hypergraph()
 
@@ -374,7 +378,8 @@ def test_plug_input():
     direct = M.id(x).plug_input(0, Box("lambda", x, y @ x), y)
     assert direct.dom == Ty()
     assert direct.cod == y
-    assert direct.orientation_cycles[-1] == (0, 2, 1)
+    assert direct.orientation == Permutation.from_cycles(
+        [(0, 1, 2), (3,)], 4)
 
     f = M.from_box(Box("f", z, x))
     indirect = f.plug_input(0, Box("lambda", x, y @ z), y)
@@ -423,8 +428,8 @@ def test_euler_characteristic():
     wire = M.id(x)
     box = M.from_box(Box("f", x, y))
     scalar = M.from_box(Box("s", Ty(), Ty()))
-    assert wire.face_cycles == ((0, 1),)
+    assert wire.faces == Permutation.from_cycles([(0,), (1,)], 2)
     assert wire.euler_characteristic == 2
-    assert box.face_cycles == ((0, 2, 3, 1),)
+    assert box.faces == Permutation.from_cycles([(0, 2), (1, 3)], 4)
     assert box.euler_characteristic == 2
     assert (box @ scalar).euler_characteristic == 3
