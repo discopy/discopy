@@ -8,6 +8,7 @@ from discopy.utils import AxiomError
 from discopy.config import DRAWING_DEFAULT
 from discopy.compact import *
 from discopy.drawing import *
+from discopy import monoidal
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
 
@@ -61,6 +62,42 @@ def test_draw_eggs():
     return crack @ crack\
         >> Id(white) @ Swap(yolk, white) @ Id(yolk)\
         >> merge(white) @ merge(yolk)
+
+
+def test_draw_coloured_regions_and_frame():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+
+    red, green, blue = map(
+        monoidal.Colour, ("red", "green", "blue"))
+    x = monoidal.Ty(monoidal.Ob("x", red, green))
+    y = monoidal.Ty(monoidal.Ob("y", green, blue))
+    z = monoidal.Ty(monoidal.Ob("z", red, blue))
+    box = monoidal.Box("f", x @ y, z)
+    outer = monoidal.Ty(monoidal.Ob("u", blue, red))
+    drawings = [box.to_drawing(), box.bubble(
+        dom=outer, cod=outer, draw_as_frame=True).to_drawing()]
+
+    for drawing in drawings:
+        drawing.add_box_corners()
+        backend = Matplotlib(figsize=(3, 3))
+        backend.draw_regions(drawing)
+        colours = {to_hex(patch.get_facecolor())
+                   for patch in backend.axis.patches}
+        assert {'#ff0000', '#008000', '#0000ff'} <= colours
+        if drawing is drawings[-1]:
+            assert '#d3d3d3' in colours
+        plt.close(backend.axis.figure)
+
+
+@draw_and_compare('coloured-frame.png', wire_labels=False)
+def test_draw_coloured_frame():
+    red, blue = map(monoidal.Colour, ("red", "blue"))
+    x = monoidal.Ty(monoidal.Ob("x", red, blue))
+    boundary = monoidal.Ty(monoidal.Ob("boundary", blue, red))
+    return monoidal.Box("f", x, x).bubble(
+        dom=boundary, cod=boundary, draw_as_frame=True)
+
 
 @draw_and_compare('crack-two-eggs-at-once.png')
 def test_crack_two_eggs_at_once():
