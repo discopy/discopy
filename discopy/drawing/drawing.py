@@ -855,6 +855,24 @@ class Drawing(TracedCategory):
             result.graph.remove_edges_from([(node, x) for x in cod_nodes])
         return result
 
+    def slot(self, colour, **params):
+        """
+        Wrap the drawing in a square slot filled with a background ``colour``,
+        so that several terms can be tiled on the same background.
+
+        This is shared by :meth:`frame`, for its arguments, and by
+        :meth:`add`, for the terms of an :class:`Equation` between
+        differently-coloured diagrams.
+
+        Parameters:
+            colour : The :class:`monoidal.Colour` of the slot's background.
+            params : Passed to :meth:`bubble`, e.g. ``height`` or ``width``.
+        """
+        from discopy.monoidal import Ty
+        frame_type = Ty.id(colour)
+        return self.bubble(
+            frame_type, frame_type, draw_as_square=True, **params)
+
     def frame(self, *others: Drawing,
               dom=None, cod=None, name=None, draw_vertically=False,
               frame_colour=None) -> Drawing:
@@ -880,18 +898,16 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/vertical-frame.png
             :align: center
         """
-        from discopy.monoidal import Colour, Ty
+        from discopy.monoidal import Colour
         frame_colour = frame_colour or DRAWING_ATTRIBUTES['frame_colour'](self)
-        frame_type = Ty.id(Colour(frame_colour))
+        colour = Colour(frame_colour)
         args = (self, ) + others
         method = "then" if draw_vertically else "tensor"
         params = dict(
                 width=max([arg.width for arg in args] + [0]) + 1
             ) if draw_vertically else dict(
                 height=max([arg.height for arg in args] + [0]))
-        slots = tuple(arg.bubble(
-            frame_type, frame_type, draw_as_square=True, **params)
-            for arg in args)
+        slots = tuple(arg.slot(colour, **params) for arg in args)
         result = getattr(slots[0], method)(*slots[1:]).bubble(
             dom, cod, name, draw_as_square=True)
         result.reposition_box_dom()
@@ -922,11 +938,8 @@ class Drawing(TracedCategory):
             # The boundary colours are not white, e.g. an Equation between
             # terms of different colours: give each term its own
             # white-bordered slot, as for Drawing.frame.
-            frame_type = Ty.id(white)
             self, other = (
-                term.bubble(frame_type, frame_type, draw_as_square=True,
-                            height=height)
-                for term in (self, other))
+                term.slot(white, height=height) for term in (self, other))
         result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
