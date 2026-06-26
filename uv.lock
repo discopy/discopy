@@ -872,6 +872,7 @@ all = [
     { name = "pylint" },
     { name = "pyproject-flake8" },
     { name = "pytest" },
+    { name = "tabulate" },
 ]
 dev = [
     { name = "coverage" },
@@ -879,6 +880,7 @@ dev = [
     { name = "pylint" },
     { name = "pyproject-flake8" },
     { name = "pytest" },
+    { name = "tabulate" },
 ]
 docs = [
     { name = "discopy", extra = ["docs"] },
@@ -938,6 +940,7 @@ all = [
     { name = "pylint" },
     { name = "pyproject-flake8" },
     { name = "pytest" },
+    { name = "tabulate" },
 ]
 dev = [
     { name = "coverage" },
@@ -945,6 +948,7 @@ dev = [
     { name = "pylint" },
     { name = "pyproject-flake8" },
     { name = "pytest" },
+    { name = "tabulate" },
 ]
 docs = [{ name = "discopy", extras = ["docs"] }]
 grammar = [{ name = "discopy", extras = ["grammar"] }]
@@ -3585,6 +3589,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/83/d3/803453b36afefb7c2bb238361cd4ae6125a569b4db67cd9e79846ba2d68c/sympy-1.14.0.tar.gz", hash = "sha256:d3d3fe8df1e5a0b42f0e7bdf50541697dbe7d23746e894990c030e2b05e72517", size = 7793921, upload-time = "2025-04-27T18:05:01.611Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a2/09/77d55d46fd61b4a135c444fc97158ef34a095e5681d0a6c10b75bf356191/sympy-1.14.0-py3-none-any.whl", hash = "sha256:e091cc3e99d2141a0ba2847328f5479b05d94a6635cb96148ccb3f34671bd8f5", size = 6299353, upload-time = "2025-04-27T18:04:59.103Z" },
+]
+
+[[package]]
+name = "tabulate"
+version = "0.10.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/46/58/8c37dea7bbf769b20d58e7ace7e5edfe65b849442b00ffcdd56be88697c6/tabulate-0.10.0.tar.gz", hash = "sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d", size = 91754, upload-time = "2026-03-04T18:55:34.402969Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3", size = 39814, upload-time = "2026-03-04T18:55:31.284751Z" },
 ]
 
 [[package]]

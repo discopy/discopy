@@ -29,6 +29,8 @@ import logging
 import time
 from statistics import median
 
+from tabulate import tabulate
+
 from discopy.symmetric import Ty, Box, Id, Diagram
 
 # Sizes swept for every case. A case stops once a measurement or its setup
@@ -224,13 +226,12 @@ def test_zz_report():
     ``_results``. Run with ``--log-cli-level=INFO`` to see the table.
     """
     sizes = sorted({n for row in _results.values() for n in row})
-    header = "| case | " + " | ".join(str(n) for n in sizes) + " |"
-    rule = "| --- |" + " ---: |" * len(sizes)
-    lines = ["", header, rule]
-    for name, row in _results.items():
-        cells = [f"{row[n]:.4f}" if n in row else "" for n in sizes]
-        lines.append("| " + name + " | " + " | ".join(cells) + " |")
-    logging.info("\n".join(lines))
+    table = [
+        [name] + [f"{row[n]:.4f}" if n in row else "" for n in sizes]
+        for name, row in _results.items()]
+    logging.info("\n%s", tabulate(
+        table, headers=["case", *sizes], tablefmt="github",
+        colalign=["left", *["right"] * len(sizes)], disable_numparse=True))
 
     total = time.process_time() - _start_time
     assert total < TIME_BUDGET, \

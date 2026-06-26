@@ -44,6 +44,7 @@ dev = [
     "pyproject-flake8",
     "pylint",
     "pytest",
+    "tabulate",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
