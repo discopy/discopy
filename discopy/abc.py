@@ -104,20 +104,33 @@ class Category[C0, C1: Category](ABC):
     __lshift__ = __lrshift__ = lambda self, other: other.then(self)
 
 
-class Monoid[T]:
+class Monoid[C0, C1: Monoid](Category[C0, C1]):
     """
-    A monoid is a class with class variable ``ob`` and class method ``tensor``.
-    """
-    ob: ClassVar[Type[T]]
+    A monoid is a category with ``then`` given by ``tensor``.
 
+    Note
+    ----
+    Usually, a monoid is expected to have :class:`type(None)` as its object
+    type. We do not enforce this constraint so that :class:`monoidal.Ty` can
+    instead take colours as objects.
+    """
     @classmethod
     @abstractmethod
-    def tensor(cls) -> T:
-        """ The unit of a monoid. """
+    def tensor(cls) -> C1:
+        """The empty tensor, i.e. the monoidal unit."""
+
+    @classmethod
+    def id(cls, dom: C0 = None) -> C1:
+        """The monoidal unit, seen as an identity morphism."""
+        return cls.tensor()
 
     @abstractmethod
-    def tensor(self, *objects: T) -> T:
+    def tensor(self, *objects: C1) -> C1:
         """ The n-ary product of a monoid for ``n > 0``. """
+
+    def then(self, *others: C1) -> C1:
+        """Sequential composition, given by the monoid product."""
+        return self.tensor(*others)
 
     def __matmul__(self, other):
         return self.tensor(other)
@@ -173,17 +186,17 @@ class TracedCategory[C0, C1](MonoidalCategory[C0, C1]):
         """
 
 
-class ResiduatedMonoid[T](Monoid[T]):
+class ResiduatedMonoid[C0, C1: ResiduatedMonoid](Monoid[C0, C1]):
     """
     A monoid is residuated when it comes with methods ``over`` and ``under``
     with syntactic sugar ``<<`` and ``>>``.
     """
     @abstractmethod
-    def over(self, other: T) -> T:
+    def over(self, other: C1) -> C1:
         """ The right-to-left exponential object ``self`` to the ``other``. """
 
     @abstractmethod
-    def under(self, other: T) -> T:
+    def under(self, other: C1) -> C1:
         """ The left-to-right exponential object ``self`` to the ``other``. """
 
     def __lshift__(self, other):
@@ -225,24 +238,18 @@ class BiclosedCategory[
         """
 
 
-class Pregroup[T](ResiduatedMonoid[T]):
+class Pregroup[C0, C1: Pregroup](ResiduatedMonoid[C0, C1]):
     """
     A pregroup is a residuated monoid where the left and right exponentials are
     given by tensoring with the chosen left and right duals for each object.
     """
-    l: T
-    r: T
+    l: C1
+    r: C1
 
-    def tensor(self, *others: T) -> T:
-        return super(Monoid, self).tensor(*others)
-
-    def __matmul__(self, other: T) -> T:
-        return self.tensor(other)
-
-    def over(self, other: T) -> T:
+    def over(self, other: C1) -> C1:
         return self @ other.l
 
-    def under(self, other: T) -> T:
+    def under(self, other: C1) -> C1:
         return other.r @ self
 
 

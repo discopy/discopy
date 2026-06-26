@@ -28,7 +28,6 @@ Summary
         :nosignatures:
         :toctree:
 
-        ob_factory
         ar_factory
         dumps
         loads
@@ -77,13 +76,11 @@ Functors are bubble-preserving.
 from __future__ import annotations
 
 from functools import total_ordering, cached_property
-from typing import (
-    Callable, Mapping, Iterable, TYPE_CHECKING)
+from typing import Callable, Mapping, Iterable, TYPE_CHECKING
 
 from discopy import messages, utils
 from discopy.abc import Category
 from discopy.utils import (  # noqa: F401
-    ob_factory,
     ar_factory,
     factory_name,
     from_tree,
@@ -338,11 +335,6 @@ class Arrow(FreeCategory):
 
         Raises:
             AxiomError : Whenever `self` and `others` do not compose.
-
-        Example
-        -------
-        >>> assert Arrow.id() == Id() == Id(Ob())
-        >>> assert Arrow.id('x') == Id('x') == Id(Ob('x'))
         """
         if any(isinstance(other, Sum) for other in others):
             return self.sum_factory((self, )).then(*others)
@@ -623,7 +615,9 @@ class Sum(Box):
         dom = terms[0].dom if dom is None else dom
         cod = terms[0].cod if cod is None else cod
         for arrow in terms:
-            assert_isparallel(Sum((), dom, cod), arrow)
+            if (dom, cod) != (arrow.dom, arrow.cod):
+                raise utils.AxiomError(messages.NOT_PARALLEL.format(
+                    (dom, cod), arrow))
         str_args = f", dom={repr(dom)}, cod={repr(cod)}" if not terms else ""
         name = f"{factory_name(type(self))}(terms={repr(terms)}{str_args})"
         self.terms = terms

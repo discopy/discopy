@@ -7,6 +7,7 @@ discopy error messages.
 TYPE_ERROR = "Expected {}, got {} instead."
 NOT_COMPOSABLE = "{} does not compose with {}: {} != {}."
 NOT_PARALLEL = "Expected parallel arrows, got {} and {} instead."
+NOT_GLOBULAR = "Expected a globular box, got boundaries {} -> {} and {} -> {}."
 NOT_ATOMIC = "Expected {} of length 1, got length {} instead."
 NOT_CONNECTED = "{} is not boundary-connected."
 NOT_TRACEABLE = "Cannot trace {} with {}."

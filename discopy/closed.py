@@ -53,10 +53,10 @@ from typing import Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import ar_factory
 
 
-@ob_factory
+@ar_factory
 class Ty(biclosed.Ty):
     """
     A closed type is a biclosed type in a symmetric category where left and
