@@ -12,12 +12,14 @@ not collected by the default ``pytest`` run (see ``testpaths`` in
     uv run pytest benchmark/ -v --log-cli-level=INFO --log-cli-format="%(message)s"
 
 Each case is swept over a range of sizes (:data:`SIZES`) to expose its
-scaling trend; a case stops scaling once a single measurement, or its
-untimed setup, exceeds :data:`MAX_SECONDS`, leaving the larger cells blank.
-The final ``test_zz_report`` renders every measurement as a plain markdown
-table, with one row per case and one column per size. Timings are emitted
-via :mod:`logging` at ``INFO`` level so they appear inline in the pytest
-output without needing ``-s``.
+scaling trend. Each case has its own time limit (:data:`CASE_MAX_SECONDS`),
+so cheap-tailed cases run out to the largest sizes while quadratic ones stop
+sooner; a predicted-setup guard (:data:`SETUP_CAP`) and the global
+:data:`TIME_BUDGET` keep the whole sweep bounded, leaving the unreached
+cells blank. The final ``test_zz_report`` renders every measurement as a
+plain markdown table, with one row per case and one column per size.
+Timings are emitted via :mod:`logging` at ``INFO`` level so they appear
+inline in the pytest output without needing ``-s``.
 
 Timings use ``time.process_time()`` (CPU time, immune to scheduling noise)
 with the garbage collector disabled during the timed region, and report
@@ -26,6 +28,7 @@ the median of a few repetitions for the cheap cases.
 
 import gc
 import logging
+import math
 import time
 from statistics import median
 
@@ -33,12 +36,35 @@ from tabulate import tabulate
 
 from discopy.symmetric import Ty, Box, Id, Diagram
 
-# Sizes swept for every case. A case stops once a measurement or its setup
-# crosses MAX_SECONDS, so slow cases simply leave the larger columns blank.
+# Sizes swept for every case, largest first dropped once a case gets too slow.
 SIZES = [10, 20, 50, 100, 200, 500, 1000]
 REPEATS = 3
-MAX_SECONDS = 2.0          # per-cell cap: stop scaling a case past this
-TIME_BUDGET = 300          # total wall budget for the whole sweep, in seconds
+TIME_BUDGET = 300          # total CPU budget for the whole sweep, in seconds
+
+# Per-case cap on a single timed measurement (seconds): a case stops once a
+# measurement crosses its cap. Cheap-tailed cases (the linear-ish Diagram and
+# series builds) get a high cap so they run out to the largest sizes, while
+# the quadratic Hypergraph builds and the spiral normalisation stop sooner.
+# Tuned so the whole sweep fills as much of the table as it can while staying
+# comfortably inside TIME_BUDGET.
+CASE_MAX_SECONDS = {
+    "k-fold tensor (Diagram)": 15.0,
+    "k-fold tensor (Hypergraph)": 6.0,
+    "k-fold series (Diagram)": 15.0,
+    "k-fold series (Hypergraph)": 8.0,
+    "adder step (Diagram)": 8.0,
+    "adder step (Hypergraph)": 8.0,
+    "spiral build (Diagram)": 6.0,
+    "spiral build (Hypergraph)": 3.0,
+    "spiral normal_form (Diagram)": 3.0,
+    "spiral equality (Hypergraph)": 8.0,
+}
+DEFAULT_MAX_SECONDS = 4.0
+# A few cases spend most of their time in *untimed* setup (building the adder,
+# or the two spirals an equality check compares). Predict the next setup from
+# the previous ones and skip a size whose setup would exceed this cap, so we
+# never pay a runaway setup only to abandon the measurement right after.
+SETUP_CAP = 12.0
 
 # case name -> {size: seconds}, in first-seen (i.e. report row) order.
 _results: "dict[str, dict[int, float]]" = {}
@@ -69,25 +95,57 @@ def measure(fn):
     return median(times)
 
 
+def _extrapolate(history, n, default_exponent):
+    """ Predict the cost at size ``n`` from ``(size, cost)`` history.
+
+    Fits a local power law ``cost ~ size ** p`` to the last two points (the
+    benchmarks are polynomial in size), falling back to ``default_exponent``
+    when only one point is known.
+    """
+    prev_n, prev_cost = history[-1]
+    if len(history) >= 2:
+        (n0, c0), (n1, c1) = history[-2], history[-1]
+        if c0 > 0 and c1 > 0 and n1 > n0:
+            exponent = min(max(
+                math.log(c1 / c0) / math.log(n1 / n0), 1.0), 4.0)
+        else:
+            exponent = default_exponent
+    else:
+        exponent = default_exponent
+    return prev_cost * (n / prev_n) ** exponent
+
+
 def run_scaling(name, prepare, sizes=SIZES):
     """ Sweep ``name`` over ``sizes``, recording one row of the report.
 
     ``prepare(n)`` performs any *untimed* setup for size ``n`` and returns a
     zero-argument callable that is then timed. Scaling stops for this case
-    once either the setup or the measured time exceeds :data:`MAX_SECONDS`,
-    or the global :data:`TIME_BUDGET` is exhausted.
+    once the measured time crosses the case's entry in
+    :data:`CASE_MAX_SECONDS`, the predicted setup crosses :data:`SETUP_CAP`,
+    or the global :data:`TIME_BUDGET` is about to be exhausted.
     """
     row = _results.setdefault(name, {})
+    cap = CASE_MAX_SECONDS.get(name, DEFAULT_MAX_SECONDS)
+    setups, timings = [], []
     for n in sizes:
-        if time.process_time() - _start_time > TIME_BUDGET:
+        elapsed = time.process_time() - _start_time
+        # Stop if even an optimistic next measurement risks the global budget.
+        # The 0.75 factor leaves a reserve for one in-flight tail (and for the
+        # prediction undershooting) so a slow runner cannot trip the assert.
+        if timings and \
+                elapsed + _extrapolate(timings, n, 2.0) > 0.75 * TIME_BUDGET:
+            break
+        # Skip a size whose untimed setup is predicted to blow up.
+        if setups and _extrapolate(setups, n, 3.0) > SETUP_CAP:
             break
         setup_start = time.process_time()
         thunk = prepare(n)
-        setup = time.process_time() - setup_start
+        setups.append((n, time.process_time() - setup_start))
         duration = measure(thunk)
+        timings.append((n, duration))
         row[n] = duration
         logging.info("%-32s n=%-5d %9.4f s", name, n, duration)
-        if duration > MAX_SECONDS or setup > MAX_SECONDS:
+        if duration > cap:
             break
 
 
@@ -126,22 +184,6 @@ def test_not_gate_series():
         lambda n: lambda: repeated(lambda a, b: a.then(b), hbox, n))
 
 
-def make_adder(n, full_adder):
-    """ Ripple-carry adder with ``n`` full-adder cells, built incrementally.
-
-    Wire convention: dom = carry_in @ (a_i @ b_i for i < n),
-    cod = carry_out @ (sum_i for i < n).
-    """
-    bit = full_adder.dom[:1]
-    adder = full_adder
-    for k in range(1, n):
-        reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
-        reorder2 = [k] + list(range(k)) + [k + 1]
-        adder = (adder @ Id(bit @ bit)).permute(*reorder1)\
-            .then(Id(bit ** k) @ full_adder).permute(*reorder2)
-    return adder
-
-
 def adder_step(adder, k, full_adder, bit):
     """ One incremental ripple-carry step: adder(k) -> adder(k + 1). """
     reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
@@ -162,21 +204,37 @@ def adder_step_hypergraph(adder_hg, k, full_adder_hg, bit):
         .then(id_k.tensor(full_adder_hg)).then(perm2)
 
 
+def incremental_adder(step, unit):
+    """ A ``prepare(n)`` that grows one adder across the whole size sweep.
+
+    Instead of rebuilding an ``n``-cell adder from scratch at every size
+    (which is itself the dominant, super-quadratic cost), keep the running
+    adder between calls and only extend it from its current size up to ``n``.
+    The untimed setup at each size is then just the incremental extension, so
+    the row reaches noticeably larger sizes within the same budget. The
+    returned thunk times one further ``adder(n) -> adder(n + 1)`` step.
+    """
+    state = {"adder": unit, "size": 1}
+
+    def prepare(n):
+        while state["size"] < n:
+            state["adder"] = step(state["adder"], state["size"])
+            state["size"] += 1
+        adder, k = state["adder"], state["size"]
+        return lambda: step(adder, k)
+    return prepare
+
+
 def test_adder():
     bit = Ty('bit')
     full_adder = Box('FA', bit @ bit @ bit, bit @ bit)
-
-    def prepare_diagram(n):
-        adder_n = make_adder(n, full_adder)
-        return lambda: adder_step(adder_n, n, full_adder, bit)
-    run_scaling("adder step (Diagram)", prepare_diagram)
+    run_scaling("adder step (Diagram)", incremental_adder(
+        lambda adder, k: adder_step(adder, k, full_adder, bit), full_adder))
 
     full_adder_hg = full_adder.to_hypergraph()
-
-    def prepare_hypergraph(n):
-        adder_n = make_adder(n, full_adder).to_hypergraph()
-        return lambda: adder_step_hypergraph(adder_n, n, full_adder_hg, bit)
-    run_scaling("adder step (Hypergraph)", prepare_hypergraph)
+    run_scaling("adder step (Hypergraph)", incremental_adder(
+        lambda adder, k: adder_step_hypergraph(adder, k, full_adder_hg, bit),
+        full_adder_hg))
 
 
 def make_spiral(n_cups):
