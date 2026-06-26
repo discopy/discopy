@@ -60,7 +60,8 @@ colours ``a`` and ``b``:
 >>> Equation(left_snake, Id(F)).draw(
 ...     figsize=(3, 2), path='docs/_static/rigid/coloured-snake-equation.png')
 >>> Equation(right_snake, Id(G)).draw(
-...     figsize=(3, 2), path='docs/_static/rigid/coloured-snake-equation-G.png')
+...     figsize=(3, 2),
+...     path='docs/_static/rigid/coloured-snake-equation-G.png')
 
 .. image:: /_static/rigid/coloured-snake-equation.png
     :align: center
@@ -125,7 +126,8 @@ as a set, while the free functor ``F`` sends a set to its words:
 >>> Free_ = Functor(
 ...     lambda X: Free(X),
 ...     lambda f: MonHom(
-...         lambda x: Free(f.cod)(list(map(f, x.xs))), Free(f.dom), Free(f.cod)),
+...         lambda x: Free(f.cod)(list(map(f, x.xs))),
+...         Free(f.dom), Free(f.cod)),
 ...     dom=Function, cod=MonHom)
 
 >>> GF = Functor(  # the forgetful functor after the free functor
