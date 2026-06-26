@@ -78,7 +78,7 @@ class Ty(biclosed.Ty):
 class Exp(biclosed.Exp):
     "An exponential object in a markov category."
 
-    ty_factory = Ty
+    ob = Ty
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
