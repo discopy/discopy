@@ -605,7 +605,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             self_form = self._boundary_rooted_canonical()
             other_form = other._boundary_rooted_canonical()
             if self_form is not None and other_form is not None:
-                return self_form == other_form
+                return self_form.boxes == other_form.boxes\
+                    and self_form.wires == other_form.wires
         return is_isomorphic(
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
@@ -716,14 +717,17 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         """
         return self.is_monogamous and self.is_boundary_connected
 
-    def _boundary_rooted_canonical(self) -> tuple | None:
+    def _boundary_rooted_canonical(self) -> Hypergraph | None:
         """
         Canonical form of a monogamous, boundary-connected hypergraph, used
         to compare such diagrams in linear time instead of checking for
         graph isomorphism. Computed by a deterministic breadth-first
         traversal rooted at the boundary, assigning each spider and box a
         canonical rank the first time it is reached; this tolerates cycles
-        natively, unlike a topological sort.
+        natively, unlike a topological sort. Two hypergraphs are then equal
+        iff their canonical forms have equal ``boxes`` and ``wires``
+        (compared as plain attributes, not with ``==``, to avoid recursing
+        back into :meth:`__eq__`).
 
         Returns ``None`` if the traversal could not certify a complete
         canonical order, e.g. because of a genuine symmetry between two
@@ -766,16 +770,17 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             return None
 
         box_order = sorted(range(len(self.boxes)), key=box_rank.__getitem__)
-        return (
-            self.dom, self.cod,
+        boxes = tuple(self.boxes[i] for i in box_order)
+        wires = (
             tuple(canon[s] for s in self.dom_wires),
-            tuple(canon[s] for s in self.cod_wires),
             tuple(
-                (self.boxes[i],
-                 tuple(canon[s] for s in self.box_wires[i][0]),
+                (tuple(canon[s] for s in self.box_wires[i][0]),
                  tuple(canon[s] for s in self.box_wires[i][1]))
                 for i in box_order),
-            tuple(self.spider_types[order[c]] for c in range(len(order))))
+            tuple(canon[s] for s in self.cod_wires))
+        spider_types = tuple(
+            self.spider_types[order[c]] for c in range(len(order)))
+        return type(self)(self.dom, self.cod, boxes, wires, spider_types)
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
