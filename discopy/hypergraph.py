@@ -30,7 +30,6 @@ Summary
 
 from __future__ import annotations
 
-import heapq
 from collections.abc import Callable, Mapping
 from functools import cached_property
 from inspect import isclass
@@ -599,23 +598,23 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             return False
         if not self.is_parallel(other):
             return False
-        self_ok = self.is_monogamous and self.is_acyclic
-        other_ok = other.is_monogamous and other.is_acyclic
+        self_ok, other_ok = self._is_fast_eligible, other._is_fast_eligible
         if self_ok != other_ok:
             return False
         if self_ok:
-            self_form, other_form = self._canonical_form(), other._canonical_form()
+            self_form = self._boundary_rooted_canonical()
+            other_form = other._boundary_rooted_canonical()
             if self_form is not None and other_form is not None:
-                return (self_form.boxes, self_form.wires)\
-                    == (other_form.boxes, other_form.wires)
+                return self_form == other_form
         return is_isomorphic(
             self.to_graph(), other.to_graph(), lambda x, y: x == y)
 
     def __hash__(self):
-        if self.is_monogamous and self.is_acyclic:
+        if self._is_fast_eligible:
             return hash((
-                self.dom, self.cod,
-                tuple(sorted(repr(box) for box in self.boxes))))
+                self.dom, self.cod, len(self.boxes), self.n_spiders,
+                tuple(sorted(repr(box) for box in self.boxes)),
+                tuple(sorted(map(repr, self.spider_types)))))
         return hash((self.dom, self.cod, weisfeiler_lehman_graph_hash(
             self.to_graph(), node_attr="box")))
 
@@ -665,63 +664,134 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                     ready.append(j)
         return seen == len(self.boxes)
 
-    def _boundary_connected_order(self) -> tuple[int, ...] | None:
+    @cached_property
+    def is_boundary_connected(self) -> bool:
         """
-        Canonical order for the boxes of an acyclic and monogamous
-        hypergraph, i.e. one that is equivalent to an ordinary string
-        diagram. The order is computed with a variant of Kahn's algorithm
-        that breaks ties between independent boxes using their content and
-        the canonical rank of their dependencies, so that it only depends
-        on the underlying morphism and not on the initial presentation.
+        Checks boundary-connectedness, i.e. whether the graph with boxes as
+        edges and spiders as vertices is connected, after adding one extra
+        boundary node joined to every spider in :attr:`dom_wires` and
+        :attr:`cod_wires`. The boundary node is always added, even when the
+        boundary is empty, so that e.g. a closed diagram with a non-trivial
+        interior (such as a trace of a tensor, or a scalar spider) is *not*
+        boundary-connected: the boundary node then has no edges and is its
+        own isolated component.
 
-        Returns ``None`` if some tie could not be resolved this way, e.g.
-        because of a genuine symmetry between two independent boxes, in
-        which case the caller should fall back to a slower method.
+        Note this has nothing to do with acyclicity: there are acyclic
+        diagrams that are not boundary-connected, e.g. a tensor of two
+        scalar boxes, and there are boundary-connected diagrams that are
+        cyclic, e.g. the trace of an endomorphism.
+
+        Examples
+        --------
+        >>> from discopy.frobenius import Ty, Box, Hypergraph as H
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box('f', x, x).to_hypergraph()
+        >>> assert f.is_boundary_connected
+
+        >>> # The trace of an endomorphism with a non-empty boundary is
+        >>> # boundary-connected even though it is cyclic.
+        >>> g = Box('g', x @ z, y @ z).to_hypergraph()
+        >>> assert g.trace().is_boundary_connected
+
+        >>> # Tracing away the whole domain leaves an empty, closed loop.
+        >>> assert not f.trace().is_boundary_connected
+
+        >>> scalar = Box('s', Ty(), Ty()).to_hypergraph()
+        >>> assert not (scalar @ scalar).is_boundary_connected
+        >>> assert not H.spiders(0, 0, x).is_boundary_connected
+
+        >>> assert H.id(Ty()).is_boundary_connected
         """
-        producer, _, dom_port, dependents, indegree = self._box_dependencies()
-        indegree = list(indegree)
-        cod_index = [
-            {spider: i for i, spider in enumerate(cod_wires)}
-            for _, cod_wires in self.box_wires]
-        rank = [None] * len(self.boxes)
+        n_boxes = len(self.boxes)
+        boundary = self.n_spiders + n_boxes
+        parent = list(range(boundary + 1))
 
-        def key(i):
-            box_dom, _ = self.box_wires[i]
-            return repr(self.boxes[i]), tuple(
-                ("dom", dom_port[s]) if producer[s] == -1
-                else ("box", rank[producer[s]], cod_index[producer[s]][s])
-                for s in box_dom)
+        def find(i):
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
 
-        heap = [(key(i), i) for i, d in enumerate(indegree) if d == 0]
-        heapq.heapify(heap)
-        order = []
-        while heap:
-            current_key, i = heapq.heappop(heap)
-            if heap and heap[0][0] == current_key:
-                return None
-            rank[i] = len(order)
-            order.append(i)
-            for j in dependents[i]:
-                indegree[j] -= 1
-                if indegree[j] == 0:
-                    heapq.heappush(heap, (key(j), j))
-        return tuple(order) if len(order) == len(self.boxes) else None
+        def union(i, j):
+            i, j = find(i), find(j)
+            if i != j:
+                parent[i] = j
 
-    def _canonical_form(self) -> Hypergraph | None:
+        for i, (box_dom, box_cod) in enumerate(self.box_wires):
+            for spider in box_dom + box_cod:
+                union(self.n_spiders + i, spider)
+        for spider in self.dom_wires + self.cod_wires:
+            union(boundary, spider)
+        return len({find(i) for i in range(boundary + 1)}) == 1
+
+    @cached_property
+    def _is_fast_eligible(self) -> bool:
         """
-        Canonical form of an acyclic and monogamous hypergraph, used to
-        compare such "boundary-connected" string diagrams in linear time
-        instead of checking for graph isomorphism. Returns ``None`` if no
-        canonical order of the boxes could be determined.
+        Whether :meth:`__eq__` and :meth:`__hash__` can use the linear-time
+        boundary-rooted canonical form instead of graph isomorphism.
         """
-        order = self._boundary_connected_order()
-        if order is None:
+        return self.is_monogamous and self.is_boundary_connected
+
+    def _boundary_rooted_canonical(self) -> tuple | None:
+        """
+        Canonical form of a monogamous, boundary-connected hypergraph, used
+        to compare such diagrams in linear time instead of checking for
+        graph isomorphism. Computed by a deterministic breadth-first
+        traversal rooted at the boundary, assigning each spider and box a
+        canonical rank the first time it is reached; this tolerates cycles
+        natively, unlike a topological sort.
+
+        Returns ``None`` if the traversal could not certify a complete
+        canonical order, e.g. because of a genuine symmetry between two
+        independent parts of the diagram, in which case the caller should
+        fall back to a slower method.
+        """
+        producer, consumer, _, _, _ = self._box_dependencies()
+        canon: dict[int, int] = {}
+        order: list[int] = []
+
+        def see(spider):
+            if spider not in canon:
+                canon[spider] = len(order)
+                order.append(spider)
+
+        for spider in self.dom_wires:
+            see(spider)
+        for spider in self.cod_wires:
+            see(spider)
+
+        box_rank = [None] * len(self.boxes)
+        next_rank = 0
+        position = 0
+        while position < len(order):
+            spider = order[position]
+            position += 1
+            for box in (producer[spider], consumer[spider]):
+                if box != -1 and box_rank[box] is None:
+                    box_rank[box] = next_rank
+                    next_rank += 1
+                    box_dom, box_cod = self.box_wires[box]
+                    for s in box_dom:
+                        see(s)
+                    for s in box_cod:
+                        see(s)
+
+        if next_rank != len(self.boxes):
             return None
-        return type(self)(
-            self.dom, self.cod, tuple(self.boxes[i] for i in order),
-            (self.dom_wires, tuple(self.box_wires[i] for i in order),
-             self.cod_wires),
-            self.spider_types)
+        if len(order) != self.n_spiders - len(self.scalar_spiders):
+            return None
+
+        box_order = sorted(range(len(self.boxes)), key=box_rank.__getitem__)
+        return (
+            self.dom, self.cod,
+            tuple(canon[s] for s in self.dom_wires),
+            tuple(canon[s] for s in self.cod_wires),
+            tuple(
+                (self.boxes[i],
+                 tuple(canon[s] for s in self.box_wires[i][0]),
+                 tuple(canon[s] for s in self.box_wires[i][1]))
+                for i in box_order),
+            tuple(self.spider_types[order[c]] for c in range(len(order))))
 
     def __repr__(self):
         spider_types = f", spider_types={self.spider_types}"\
