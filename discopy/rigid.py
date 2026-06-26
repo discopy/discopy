@@ -68,41 +68,86 @@ colours ``a`` and ``b``:
 .. image:: /_static/rigid/coloured-snake-equation-G.png
     :align: center
 
-The abstract picture above is an instance of the free-forgetful adjunction
-between sets and monoids. ``F`` is the free monoid functor, sending a set of
-generators to the set of words over it, ``G`` is its right adjoint, the
-forgetful functor, sending a monoid to its underlying set. The unit ``eta``
-sends a generator to the length-one word on it, while the counit ``epsilon``
-evaluates a word of elements of a monoid as their product:
+This is an instance of the free-forgetful adjunction between sets and
+monoids, with ``F`` the free monoid functor, sending a set of generators to
+the monoid of words over it, and ``G`` the forgetful functor, sending a
+monoid to its underlying set. The unit ``eta`` sends a generator to the
+length-one word on it, while the counit ``epsilon`` evaluates a word of
+elements of a monoid as their product:
 
->>> from functools import reduce
->>> def Free(X):
+>>> from functools import lru_cache
+>>> from discopy.abc import Monoid
+>>> from discopy.python.function import Function
+>>> from discopy.cat import Functor, Transformation
+
+>>> class Z3(Monoid):
+...     ''' The monoid of integers modulo three, with addition. '''
+...     ob, dom, cod = type(None), None, None
+...     def __init__(self, n):
+...         self.n = n % 3
+...     def __eq__(self, other):
+...         return isinstance(other, Z3) and self.n == other.n
+...     def __repr__(self):
+...         return f"Z3({self.n})"
+...     @classmethod
+...     def id(cls, dom=None):
+...         return cls(0)
+...     def tensor(self, *others):
+...         return Z3(self.n + sum(other.n for other in others))
+
+>>> @lru_cache
+... def Free(X):
 ...     ''' The free monoid on a set ``X``, i.e. words over ``X``. '''
-...     words = {()} | {(x, ) for x in X}
-...     for _ in range(2):
-...         words |= {u + v for u in words for v in words}
-...     return words, tuple.__add__, ()
+...     class Word(Monoid):
+...         ob, dom, cod = type(None), None, None
+...         def __init__(self, xs=()):
+...             self.xs = list(xs)
+...         def __eq__(self, other):
+...             return isinstance(other, Word) and self.xs == other.xs
+...         def __repr__(self):
+...             return f"Word({self.xs})"
+...         @classmethod
+...         def id(cls, dom=None):
+...             return cls()
+...         def tensor(self, *others):
+...             return Word(self.xs + sum((other.xs for other in others), []))
+...     return Word
 
->>> def Forget(M):
-...     ''' The underlying set of a monoid ``M = (elements, mult, unit)``. '''
-...     elements, _, _ = M
-...     return elements
+>>> class MonHom(Function):
+...     ''' A function between monoids; homomorphism is not enforced. '''
 
->>> def eta(x):
-...     ''' The unit, sending a generator to the length-one word on it. '''
-...     return (x, )
+The forgetful functor ``G`` does nothing to objects, it just views a monoid
+as a set, while the free functor ``F`` sends a set to its words:
 
->>> def epsilon(M):
-...     ''' The counit, evaluating a word of elements of ``M`` as a product. '''
-...     elements, mult, unit = M
-...     return lambda word: reduce(mult, word, unit)
+>>> Forget_ = Functor(
+...     lambda M: M, lambda f: Function(f.inside, f.dom, f.cod),
+...     dom=MonHom, cod=Function)
+>>> Free_ = Functor(
+...     lambda X: Free(X),
+...     lambda f: MonHom(
+...         lambda x: Free(f.cod)(list(map(f, x.xs))), Free(f.dom), Free(f.cod)),
+...     dom=Function, cod=MonHom)
 
->>> X = {'a', 'b'}
->>> M = ({0, 1, 2}, lambda x, y: (x + y) % 3, 0)
+>>> GF = Functor(  # the forgetful functor after the free functor
+...     lambda X: Free(X),
+...     lambda f: Function(Free_.ar_map[f].inside, Free(f.dom), Free(f.cod)),
+...     dom=Function, cod=Function)
+>>> FG = Functor(  # the free functor after the forgetful functor
+...     lambda M: Free(M),
+...     lambda f: MonHom(Free_.ar_map[f].inside, Free(f.dom), Free(f.cod)),
+...     dom=MonHom, cod=MonHom)
 
->>> assert all(epsilon(M)(eta(x)) == x for x in Forget(M))
->>> assert all(
-...     epsilon(Free(X))(tuple(map(eta, word))) == word for word in Free(X)[0])
+>>> eta = Transformation(
+...     lambda X: Function(lambda x: Free(X)([x]), X, Free(X)),
+...     Functor.id(Function), GF)
+>>> epsilon = Transformation(
+...     lambda M: MonHom(lambda w: M.id().tensor(*w.xs), Free(M), M),
+...     FG, Functor.id(MonHom))
+
+>>> X, M = str, Z3
+>>> assert all(eta(X)(x) == Free(X)([x]) for x in ('a', 'b'))
+>>> assert epsilon(M)(Free(M)([Z3(1), Z3(1), Z3(2)])) == Z3(1 + 1 + 2)
+>>> assert all(epsilon(M)(eta(M)(x)) == x for x in (Z3(0), Z3(1), Z3(2)))
 """
 
 from __future__ import annotations
