@@ -339,6 +339,9 @@ def test_scalar_is_not_eliminated():
     assert scalar.euler_characteristic == 1
     assert (D.caps(x.r, x) >> D.cups(x.r, x)).to_map() == scalar
     assert to_hypergraph(scalar).to_map() == scalar
+    dot = scalar.to_dot()
+    assert "scalar0" in dot
+    assert 'scalar0 -- scalar0 [len="0.85", label="x"];' in dot
 
 
 def test_hypergraph_to_map():

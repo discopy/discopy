@@ -1061,6 +1061,19 @@ class CMap[C0: Pregroup, C1: CMap](
             if ports:
                 lines.append(f"  {{ rank={rank}; {name}; }}")
 
+        for i, scalar in enumerate(self.scalars):
+            attributes = dict(
+                label="",
+                width="0.08",
+                height="0.08",
+                shape="point",
+                tooltip=f"scalar {i}: {scalar}")
+            lines.append(f"  scalar{i} [{attr_string(attributes)}];")
+            attributes = dict(len="0.85", label=scalar)
+            lines.append(
+                f"  scalar{i} -- scalar{i} "
+                f"[{attr_string(attributes)}];")
+
         def node_name(port_index):
             return port_nodes[port_index]
 
@@ -1085,8 +1098,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     def draw(
             self, path=None, engine="dot", format=None, seed=None,
-            show=None, graph_attr=None, boundary_labels=True,
-            box_labels=None, port_indices=False, block=True):
+            show=None, graph_attr=None, port_indices=False, block=True):
         """
         Draw as a combinatorial map using Graphviz.
 
@@ -1109,12 +1121,21 @@ class CMap[C0: Pregroup, C1: CMap](
             port_indices : Whether to display port indices.
             block : Whether displaying blocks execution.
 
-        >>> from discopy.compact import Ty, Box
+        >>> from discopy.compact import Ty, Box, CMap
         >>> x, y, z = map(Ty, "xyz")
         >>> Box("f", x @ y, z).to_map().curry().draw(
         ...     path="docs/_static/cmap/curry.png", show=False)
 
         .. image:: /_static/cmap/curry.png
+            :align: center
+
+        Scalars are drawn as dots with a loop, but the combinatorial map
+        structure does not let us retain inclusion:
+
+        >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
+        ...     path="docs/_static/cmap/scalar.png", show=False)
+
+        .. image:: /_static/cmap/scalar.png
             :align: center
         """
         dot = self.to_dot(
