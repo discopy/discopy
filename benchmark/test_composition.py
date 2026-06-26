@@ -9,10 +9,10 @@ This module is deliberately kept outside of ``test/*/*.py`` so that it is
 not collected by the default ``pytest`` run (see ``testpaths`` in
 ``pyproject.toml``). It is meant to be run explicitly, e.g.
 
-    uv run pytest benchmark/ -s
+    uv run pytest benchmark/ -v --log-cli-level=INFO --log-cli-format="%(message)s"
 
-The ``-s`` flag is needed to see the printed timing report, since pytest
-captures stdout by default.
+Timings are emitted via :mod:`logging` at ``INFO`` level so they appear
+inline in the pytest output without needing ``-s``.
 
 Timings use ``time.process_time()`` (CPU time, immune to scheduling noise)
 with the garbage collector disabled during the timed region, and report
@@ -20,6 +20,7 @@ the median of a few repetitions for stability.
 """
 
 import gc
+import logging
 import time
 from statistics import median
 
@@ -50,6 +51,7 @@ def timeit(label, fn, repeats=REPEATS):
             gc.enable()
     duration = median(times)
     _results.append((label, duration))
+    logging.info("%-55s  %.4f s", label, duration)
     return result, duration
 
 
@@ -211,11 +213,10 @@ def test_zz_total_time_budget():
     appended its timing to ``_results``. Run with ``-s`` to see the table.
     """
     width = max(len(label) for label, _ in _results)
-    print(f"\n{'label':<{width}}  seconds")
-    for label, duration in _results:
-        print(f"{label:<{width}}  {duration:.4f}")
-
+    lines = [f"{'label':<{width}}  seconds"]
+    lines += [f"{label:<{width}}  {duration:.4f}" for label, duration in _results]
     total = sum(duration for _, duration in _results)
-    print(f"{'total':<{width}}  {total:.4f}")
+    lines.append(f"{'total':<{width}}  {total:.4f}")
+    logging.info("\n%s", "\n".join(lines))
     assert total < TIME_BUDGET, \
         f"Benchmark took {total:.1f}s, over the {TIME_BUDGET}s budget."

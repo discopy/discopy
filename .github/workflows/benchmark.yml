@@ -28,3 +28,5 @@ jobs:
     - name: Run composition benchmark
       run:
         uv run pytest benchmark/ -v
+          --log-cli-level=INFO
+          --log-cli-format="%(message)s"
