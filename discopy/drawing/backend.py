@@ -84,7 +84,7 @@ class Backend(ABC):
         self.max_width = max(self.max_width, max(i for i, _ in points))
 
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
 
@@ -149,8 +149,9 @@ class Backend(ABC):
         for source, target in self.visible_edges(graph):
             source_position = graph.positions[source]
             target_position = graph.positions[target]
-            if self.is_frame_boundary(source) or self.is_frame_boundary(target):
-                continue  # The sides of a frame are not drawn as wires.
+            # The sides of a frame are drawn with zero width.
+            is_frame_boundary = self.is_frame_boundary(source)\
+                or self.is_frame_boundary(target)
             if source.kind in ["dom", "box_cod"]:
                 self.draw_wire_label(source.x, *source_position, **params)
             if source_position == target_position:
@@ -180,7 +181,8 @@ class Backend(ABC):
                         for x, b, shadow in zip(
                             target_position, [-1, 1], braid_shadow))
             self.draw_wire(
-                source_position, target_position, bend_out, bend_in)
+                source_position, target_position, bend_out, bend_in,
+                linewidth=(0 if is_frame_boundary else None))
 
     def draw_boxes(self, graph, **params):
         drawing_methods = [
@@ -417,7 +419,7 @@ class TikZ(Backend):
         super().draw_polygon(*points)
 
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
         out = -90 if not bend_out or source[0] == target[0]\
             else (180 if source[0] > target[0] else 0)
         inp = 90 if not bend_in or source[0] == target[0]\
@@ -580,7 +582,8 @@ class Matplotlib(Backend):
         super().draw_regions(graph, **params)
 
     def draw_wire(self, source, target,
-                  bend_out=False, bend_in=False, style=None):
+                  bend_out=False, bend_in=False, style=None, linewidth=None):
+        linewidth = self.linewidth if linewidth is None else linewidth
         if style == '->':  # pragma: no cover
             self.axis.arrow(
                 *(source + (target[0] - source[0], target[1] - source[1])),
@@ -591,7 +594,7 @@ class Matplotlib(Backend):
             path = Path([source, mid, target],
                         [Path.MOVETO, Path.CURVE3, Path.CURVE3])
             self.axis.add_patch(PathPatch(
-                path, facecolor='none', linewidth=self.linewidth))
+                path, facecolor='none', linewidth=linewidth))
         super().draw_wire(source, target, bend_out=bend_out, bend_in=bend_in)
 
     def draw_spiders(self, graph, draw_box_labels=True, **params):

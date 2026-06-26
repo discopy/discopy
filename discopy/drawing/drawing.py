@@ -810,8 +810,9 @@ class Drawing(TracedCategory):
             len(dom), len(cod)) == (len(arg_dom), len(arg_cod))
         if draw_as_square:
             # The left and right sides of a square frame, e.g. the slots of an
-            # Equation between coloured terms, are not drawn as wires.
-            left[0].frame_boundary = right[0].frame_boundary = True
+            # Equation between coloured terms, are drawn with zero width.
+            left.inside[0].frame_boundary = right.inside[0].frame_boundary \
+                = True
         if draw_as_square or not wires_can_go_straight:
             top = Drawing.frame_opening(dom, arg_dom, left, right)
             bot = Drawing.frame_closing(arg_cod, cod, left, right)

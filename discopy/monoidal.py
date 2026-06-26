@@ -329,8 +329,12 @@ class Ty(cat.Ob, FreeMonoid):
     def to_drawing(self) -> Ty:
         if not self.inside:
             return Ty.id(self.dom)
-        return Ty(*(Ob(str(x), getattr(x, 'dom', white),
-                       getattr(x, 'cod', white)) for x in self.inside))
+        result = Ty(*(Ob(str(x), getattr(x, 'dom', white),
+                         getattr(x, 'cod', white)) for x in self.inside))
+        for new, old in zip(result.inside, self.inside):
+            if getattr(old, "frame_boundary", False):
+                new.frame_boundary = True
+        return result
 
 
 @ar_factory
