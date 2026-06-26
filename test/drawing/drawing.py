@@ -31,9 +31,6 @@ def test_draw_eggs():
 
 
 def test_draw_coloured_regions_and_frame():
-    from matplotlib.colors import to_hex
-    from matplotlib import pyplot as plt
-
     red, green, blue = map(
         monoidal.Colour, ("red", "green", "blue"))
     x = monoidal.Ty(monoidal.Ob("x", red, green))
@@ -41,19 +38,11 @@ def test_draw_coloured_regions_and_frame():
     z = monoidal.Ty(monoidal.Ob("z", red, blue))
     box = monoidal.Box("f", x @ y, z)
     outer = monoidal.Ty(monoidal.Ob("u", blue, red))
-    drawings = [box.to_drawing(), box.bubble(
-        dom=outer, cod=outer, draw_as_frame=True).to_drawing()]
-
-    for drawing in drawings:
-        drawing.add_box_corners()
-        backend = Matplotlib(figsize=(3, 3))
-        backend.draw_regions(drawing)
-        colours = {to_hex(patch.get_facecolor())
-                   for patch in backend.axis.patches}
-        assert {'#ff0000', '#008000', '#0000ff'} <= colours
-        if drawing is drawings[-1]:
-            assert '#d3d3d3' in colours
-        plt.close(backend.axis.figure)
+    # A box fills its three wire regions.
+    assert {'#ff0000', '#008000', '#0000ff'} <= region_hexes(box)
+    # A frame additionally fills its frame background (lightgrey).
+    frame = box.bubble(dom=outer, cod=outer, draw_as_frame=True)
+    assert {'#ff0000', '#008000', '#0000ff', '#d3d3d3'} <= region_hexes(frame)
 
 
 @draw_and_compare('coloured-frame.png', wire_labels=False)
@@ -63,6 +52,75 @@ def test_draw_coloured_frame():
     boundary = monoidal.Ty(monoidal.Ob("boundary", blue, red))
     return monoidal.Box("f", x, x).bubble(
         dom=boundary, cod=boundary, draw_as_frame=True)
+
+
+def region_hexes(diagram, **params):
+    """The set of region facecolours (as hex) drawn for a diagram."""
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    drawing = diagram.to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_regions(drawing, **params)
+    hexes = {to_hex(patch.get_facecolor()) for patch in backend.axis.patches}
+    plt.close(backend.axis.figure)
+    return hexes
+
+
+def test_draw_regions_uncoloured_shapes():
+    # Region filling runs for cups, caps, swaps, spiders and many-legged
+    # boxes; with no colours every region is the default white.
+    from discopy.frobenius import Spider, Ty as FTy
+    x = Ty('x')
+    shapes = [
+        Cup(x, x.r), Cap(x.r, x), Swap(x, x),
+        Box('f', x @ x, x @ x @ x), Spider(2, 1, FTy('x')),
+        Cap(x.r, x) >> Swap(x.r, x) >> Cup(x, x.r)]
+    for shape in shapes:
+        assert region_hexes(shape) == {'#ffffff'}
+
+
+def test_draw_coloured_cups_and_caps():
+    red, green = map(monoidal.Colour, ("red", "green"))
+    x = Ty(Ob("x", dom=red, cod=green))
+    # A cup and a cap each separate the two boundary regions.
+    assert region_hexes(Cup(x, x.r)) == {'#ff0000', '#008000'}
+    assert region_hexes(Cap(x.r, x)) == {'#ff0000', '#008000'}
+
+
+def test_draw_coloured_crossings_are_monochrome():
+    from discopy.frobenius import Spider, Ty as FTy, Ob as FOb
+    red = monoidal.Colour("red")
+    # Wires that cross or merge must be globular, i.e. carry the same colour
+    # on both sides, so their regions are a single colour.
+    assert region_hexes(Swap(
+        Ty(Ob("x", dom=red, cod=red)), Ty(Ob("y", dom=red, cod=red)))
+    ) == {'#ff0000'}
+    assert region_hexes(Spider(2, 1, FTy(FOb("x", dom=red, cod=red)))) == {
+        '#ff0000'}
+    # A swap of wires separating different regions is not globular.
+    green = monoidal.Colour("green")
+    with raises(AxiomError):
+        Swap(Ty(Ob("x", dom=red, cod=green)), Ty(Ob("y", dom=green, cod=red)))
+
+
+def test_draw_coloured_equation():
+    red, green = map(monoidal.Colour, ("red", "green"))
+    x = Ty(Ob("x", dom=red, cod=green))
+    equation = Equation(Box("f", x, x), Box("g", x, x))
+    colours = region_hexes(equation)
+    # Both term regions show, each in its own white-bordered slot.
+    assert {'#ff0000', '#008000', '#ffffff'} <= colours
+
+
+def test_draw_region_non_colors_string():
+    # Colours need not be discopy COLORS keys: any Matplotlib colour string
+    # (a CSS name or a hex code) is filled as given.
+    for name, hexcode in [("lightgrey", '#d3d3d3'), ("#abcdef", '#abcdef')]:
+        c = monoidal.Colour(name)
+        box = monoidal.Box("f", monoidal.Ty(monoidal.Ob("x", c, c)),
+                           monoidal.Ty(monoidal.Ob("x", c, c)))
+        assert hexcode in region_hexes(box)
 
 
 @draw_and_compare('crack-two-eggs-at-once.png')
