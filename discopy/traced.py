@@ -126,11 +126,17 @@ Dinaturality
 ...     assert sliding_left and sliding_right
 """
 
-from discopy import monoidal
+from discopy import cmap, monoidal, messages
 from discopy.abc import TracedCategory
 from discopy.cat import ar_factory
+from discopy.cmap import Port
 from discopy.monoidal import Ty  # noqa: F401
-from discopy.utils import factory_name, assert_isinstance, assert_istraceable
+from discopy.utils import (
+    AxiomError,
+    factory_name,
+    assert_isinstance,
+    assert_istraceable,
+)
 
 
 @ar_factory
@@ -260,6 +266,13 @@ class Hypergraph(monoidal.Hypergraph):
 
 class CMap(monoidal.CMap):
     functor = Functor
+
+    @classmethod
+    def validate_indirect_wire(cls, source: Port, target: Port):
+        """ Validate an indirect wire in a traced setting. """
+        cmap.CMap.validate_indirect_wire(source, target)
+        if source.depth <= target.depth:
+            raise AxiomError(messages.NOT_TRACEABLE.format(source, target))
 
 
 Diagram.hypergraph_factory = Hypergraph

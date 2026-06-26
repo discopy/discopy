@@ -344,41 +344,59 @@ class CMap[C0: Pregroup, C1: CMap](
         return tuple(result)
 
     @classmethod
+    def validate_direct_wire(cls, source: Port, target: Port):
+        """ Validate a direct wire. """
+        if not source.obj == target.obj:
+            raise AxiomError(messages.NOT_ADJOINT.format(
+                source.obj, target.obj))
+
+    @classmethod
+    def validate_indirect_wire(cls, source: Port, target: Port):
+        """ Validate an indirect wire. """
+        if not source.obj == target.obj:
+            raise AxiomError(messages.NOT_ADJOINT.format(
+                source.obj, target.obj))
+
+    @classmethod
+    def validate_compact_wire(cls, source: Port, target: Port):
+        """ Validate a compact wire. """
+        adjoint_types = getattr(source.obj, "r", None) == target.obj\
+            or source.obj == getattr(target.obj, "r", None)
+        if not adjoint_types:
+            raise AxiomError(messages.NOT_ADJOINT.format(
+                source.obj, target.obj))
+
+    @classmethod
+    def validate_oriented_wire(cls, source: Port, target: Port):
+        """ Validate a positive-to-negative wire. """
+        if source.depth <= target.depth:
+            cls.validate_direct_wire(source, target)
+        else:
+            cls.validate_indirect_wire(source, target)
+
+    @classmethod
     def validate_wire(cls, source: Port, target: Port):
         """
-        Validate a wire between two ports.
+        Validate a monoidal wire between two ports.
 
-        Subclasses override this hook to enforce their categorical structure.
+        Subclasses override this hook to add traced or compact structure.
 
         Raises:
             AxiomError : If the types or orientations are incompatible.
         """
-        def compatible(left, right):
-            return left == right or getattr(left, "r", None) == right\
-                or left == getattr(right, "r", None)
-
-        def oriented(left, right):
-            return left.kind.is_positive and right.kind.is_negative
-
-        def boundary_adjunction(left, right):
-            return left.kind.is_boundary and right.kind.is_boundary\
-                and left.direction != right.direction
-
-        def compact_adjunction(left, right):
-            return left.kind.is_boundary != right.kind.is_boundary\
-                and left.direction == right.direction
-
-        if not compatible(source.obj, target.obj):
-            raise AxiomError(messages.NOT_ADJOINT.format(
-                source.obj, target.obj))
-        if not (
-                oriented(source, target)
-                or oriented(target, source)
-                or boundary_adjunction(source, target)
-                or compact_adjunction(source, target)):
-            raise AxiomError(
-                messages.NOT_TRACEABLE.format(source, target)
-            )
+        same_side = source.kind.is_input == target.kind.is_input
+        same_direction = source.direction == target.direction
+        boundary_mismatch = source.kind.is_boundary != target.kind.is_boundary
+        compact = same_side != same_direction and (
+            same_side or boundary_mismatch)
+        if compact:
+            cls.validate_compact_wire(source, target)
+        elif source.kind.is_positive and target.kind.is_negative:
+            cls.validate_oriented_wire(source, target)
+        elif target.kind.is_positive and source.kind.is_negative:
+            cls.validate_oriented_wire(target, source)
+        else:
+            cls.validate_indirect_wire(source, target)
 
     def __repr__(self):
         def port_repr(index, port):

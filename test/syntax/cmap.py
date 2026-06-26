@@ -198,46 +198,68 @@ def test_diagram_to_map_respects_current_structure_and_keeps_next_free():
 
 
 def test_structural_maps_and_errors():
-    from discopy.compact import Ty as CTy, Box as CBox, CMap as CM
+    from discopy import (
+        closed,
+        compact,
+        frobenius,
+        markov,
+        monoidal,
+        traced,
+    )
     from discopy.cmap import Port, PortKind
-    from discopy.closed import Ty as ClosedTy, CMap as ClosedM
-    from discopy import frobenius
-    from discopy.markov import Ty as MTy, CMap as MM
 
-    x, y = map(CTy, "xy")
-    assert to_hypergraph(CM.swap(x, y)) == CM.category.swap(
+    x, y = map(compact.Ty, "xy")
+    assert to_hypergraph(compact.CMap.swap(x, y)) == compact.CMap.category.swap(
         x, y).to_hypergraph()
-    assert CM.cups(x, x.r).dom == x @ x.r
-    assert CM.caps(x.r, x).cod == x.r @ x
+    assert compact.CMap.cups(x, x.r).dom == x @ x.r
+    assert compact.CMap.caps(x.r, x).cod == x.r @ x
     with raises(AxiomError):
-        CM.cups(x, y)
+        compact.CMap.cups(x, y)
     with raises(AxiomError):
-        CM.caps(x, y)
+        compact.CMap.caps(x, y)
     with raises(AxiomError):
-        CM.validate_wire(
+        compact.CMap(x, x.r, (), (1, 0))
+    with raises(AxiomError):
+        compact.CMap.validate_wire(
             Port(PortKind.INPUT, 0, x, 0, "up"),
             Port(PortKind.COD, 0, x, 0, "down"))
-
-    cx, cy = map(ClosedTy, "xy")
-    assert ClosedM.ev(cy, cx).boxes == (
-        ClosedM.category.ev(cy, cx), )
-
-    mx = MTy("x")
-    assert MM.copy(mx, 2).boxes == (MM.category.copy(mx, 2), )
-    assert MM.merge(mx, 2).boxes == (MM.category.merge(mx, 2), )
-    assert MM.discard(mx).boxes == (MM.category.copy(mx, 0), )
-
-    fx = frobenius.Ty("x")
-    assert frobenius.CMap.spiders(1, 2, fx).boxes == (
-        frobenius.Diagram.spiders(1, 2, fx), )
-    assert frobenius.Diagram.map_factory is frobenius.CMap
-
-    f = CM.from_box(CBox("f", x, y))
+    f = compact.CMap.from_box(compact.Box("f", x, y))
     assert f.trace(0) is f
     with raises(ValueError):
         f.trace(-1)
     with raises(ValueError):
         f.trace(2)
+
+    x = monoidal.Ty("x")
+    with raises(AxiomError):
+        monoidal.CMap.cups(x, x)
+    with raises(AxiomError):
+        monoidal.CMap.caps(x, x)
+    assert monoidal.CMap.id(x).edges == (1, 0)
+    f = monoidal.Box("f", x, x)
+    g = monoidal.Box("g", x, x)
+    with raises(AxiomError):
+        monoidal.CMap(monoidal.Ty(), monoidal.Ty(), (f, g), (3, 2, 1, 0))
+
+    x = traced.Ty("x")
+    with raises(AxiomError):
+        traced.CMap.cups(x, x)
+    with raises(AxiomError):
+        traced.CMap.caps(x, x)
+
+    x, y = map(closed.Ty, "xy")
+    assert closed.CMap.ev(y, x).boxes == (
+        closed.CMap.category.ev(y, x), )
+
+    x = markov.Ty("x")
+    assert markov.CMap.copy(x, 2).boxes == (markov.CMap.category.copy(x, 2), )
+    assert markov.CMap.merge(x, 2).boxes == (markov.CMap.category.merge(x, 2), )
+    assert markov.CMap.discard(x).boxes == (markov.CMap.category.copy(x, 0), )
+
+    x = frobenius.Ty("x")
+    assert frobenius.CMap.spiders(1, 2, x).boxes == (
+        frobenius.Diagram.spiders(1, 2, x), )
+    assert frobenius.Diagram.map_factory is frobenius.CMap
 
 
 def test_trace():
