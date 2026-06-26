@@ -41,7 +41,7 @@ import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
-from discopy import messages, hypergraph
+from discopy import messages
 from discopy.cat import Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
@@ -221,20 +221,6 @@ class CMap[C0: Pregroup, C1: CMap](
         """ The number of ports. """
         return len(self.dom) + sum(
             len(box.dom) + len(box.cod) for box in self.boxes) + len(self.cod)
-
-    @staticmethod
-    def _hypergraph_to_canonical(dom, boxes, cod) -> tuple[int, ...]:
-        """ Relabel hypergraph port order to canonical orientation order. """
-        result = list(range(len(dom)))
-        start = len(dom)
-        for box in boxes:
-            result.extend(start + i for i in range(len(box.dom)))
-            result.extend(
-                start + len(box.dom) + len(box.cod) - i - 1
-                for i in range(len(box.cod)))
-            start += len(box.dom @ box.cod)
-        result.extend(range(start, start + len(cod)))
-        return tuple(result)
 
     @property
     def _box_port_indices(self) -> tuple[tuple[int, ...], ...]:
@@ -466,25 +452,6 @@ class CMap[C0: Pregroup, C1: CMap](
         return factory.functor(
             ob=lambda typ: typ, ar=factory.from_box,
             dom=type(old), cod=factory)(old)
-
-    @classmethod
-    def from_hypergraph(cls, old: hypergraph.Hypergraph) -> CMap:
-        """
-        Build a combinatorial map from a bijective hypergraph.
-
-        Raises:
-            ValueError : If a spider is not incident to zero or two ports.
-        """
-        if not old.is_bijective:
-            raise ValueError
-        factory = cls if cls.functor is not None else cls[
-            type(old).category, type(old).functor]
-        relabeling = Permutation(cls._hypergraph_to_canonical(
-            old.dom, old.boxes, old.cod))
-        edges = Permutation(old.bijection).conjugate(relabeling)
-        return factory(
-            old.dom, old.cod, old.boxes, edges,
-            offsets=old.offsets)
 
     @classmethod
     def swap(cls, left: Ty, right: Ty) -> CMap:
@@ -858,37 +825,6 @@ class CMap[C0: Pregroup, C1: CMap](
         return type(self)(
             new_dom, cod, boxes, edge, offsets=offsets,
             scalars=self.scalars)
-
-    def to_hypergraph(self) -> hypergraph.Hypergraph:
-        """
-        Forget orientation and return the underlying bijective hypergraph.
-
-        >>> from discopy.compact import Ty, Box, CMap
-        >>> x, y = map(Ty, "xy")
-        >>> cmap = Box("f", x, y).to_map()
-        >>> CMap.from_hypergraph(cmap.to_hypergraph()) == cmap
-        True
-        """
-        hypergraph_to_canonical = self._hypergraph_to_canonical(
-            self.dom, self.boxes, self.cod)
-        canonical_to_hypergraph = Permutation(hypergraph_to_canonical).dagger()
-        edges = self.edges.conjugate(canonical_to_hypergraph)
-        spider_types, flat_wires = [], [None] * self.n_ports
-        for i in range(self.n_ports):
-            j = edges[i]
-            if i > j:
-                continue
-            spider = len(spider_types)
-            spider_types.append(self.ports[hypergraph_to_canonical[i]].obj)
-            flat_wires[i] = flat_wires[j] = spider
-        wires = hypergraph.Hypergraph.rebracket(
-            None, flat_wires, dom=self.dom, boxes=self.boxes)
-        factory = getattr(
-            self.category, "hypergraph_factory",
-            hypergraph.Hypergraph[self.functor])
-        return factory(
-            self.dom, self.cod, self.boxes, wires,
-            tuple(spider_types), self.offsets)
 
     def to_diagram(self) -> Diagram:
         """

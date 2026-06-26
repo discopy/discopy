@@ -4,6 +4,10 @@ from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
 
+def to_hypergraph(cmap):
+    return cmap.category.hypergraph_factory.from_map(cmap)
+
+
 def test_port_side_and_direction():
     from discopy.compact import Ty, CMap as M
     x = Ty("x")
@@ -25,7 +29,7 @@ def test_default_compact_setting():
     f = Box("f", x, y)
     cm = M.from_box(f)
     assert isinstance(f, M.category)
-    assert cm.to_hypergraph().category == M.category
+    assert to_hypergraph(cm).category == M.category
 
 
 def test_M_init():
@@ -66,7 +70,7 @@ def test_id_and_tensor():
     assert M.id(x).faces == (0, 1)
     assert M.id().tensor() == M.id()
     assert M.id(x).tensor(M.id(y)) == M.id(x) @ M.id(y)
-    assert (M.id(x) @ M.id(y)).to_hypergraph() == H.id(x @ y)
+    assert to_hypergraph(M.id(x) @ M.id(y)) == H.id(x @ y)
 
 
 def test_from_box_and_to_hypergraph():
@@ -77,7 +81,7 @@ def test_from_box_and_to_hypergraph():
     assert cm.edges == (1, 0, 3, 2)
     assert cm.orientation == (3, 2, 1, 0)
     assert cm.faces == (2, 3, 0, 1)
-    assert cm.to_hypergraph() == f.to_hypergraph()
+    assert to_hypergraph(cm) == f.to_hypergraph()
 
     multi_input = M.from_box(Box("g", x @ y, z))
     assert multi_input.orientation == Permutation.from_cycles(
@@ -201,7 +205,7 @@ def test_structural_maps_and_errors():
     from discopy.markov import Ty as MTy, CMap as MM
 
     x, y = map(CTy, "xy")
-    assert CM.swap(x, y).to_hypergraph() == CM.category.swap(
+    assert to_hypergraph(CM.swap(x, y)) == CM.category.swap(
         x, y).to_hypergraph()
     assert CM.cups(x, x.r).dom == x @ x.r
     assert CM.caps(x.r, x).cod == x.r @ x
@@ -280,7 +284,7 @@ def test_scalar_box():
     assert cm.orientation == ()
     assert cm.faces == ()
     assert cm.euler_characteristic == 1
-    assert cm.to_hypergraph() == s.to_hypergraph()
+    assert to_hypergraph(cm) == s.to_hypergraph()
 
 
 def test_zipping_cups_and_caps():
@@ -312,16 +316,20 @@ def test_scalar_is_not_eliminated():
     assert scalar.scalars == (x,)
     assert scalar.euler_characteristic == 1
     assert (D.caps(x.r, x) >> D.cups(x.r, x)).to_map() == scalar
+    assert to_hypergraph(scalar).to_map() == scalar
 
 
-def test_from_hypergraph():
-    from discopy.compact import Ty, Box, CMap as M, Hypergraph as H
+def test_hypergraph_to_map():
+    from discopy.compact import Ty, Box
 
     x, y = map(Ty, "xy")
     f = Box("f", x, y).to_hypergraph()
-    assert M.from_hypergraph(f).to_hypergraph() == f
-    with raises(ValueError):
-        M.from_hypergraph(H.spiders(1, 2, x))
+    assert to_hypergraph(f.to_map()) == f
+
+    from discopy.frobenius import Ty as FTy, CMap as FM, Hypergraph as FH
+
+    fx = FTy("x")
+    assert FH.spiders(1, 2, fx).to_map() == FM.spiders(1, 2, fx)
 
 
 def test_then():
@@ -334,7 +342,7 @@ def test_then():
     assert ((f >> g) >> h) == (f >> (g >> h))
     assert (f >> M.id(y)) == f
     assert (M.id(x) >> f) == f
-    assert (f >> g).to_hypergraph() == f.to_hypergraph() >> g.to_hypergraph()
+    assert to_hypergraph(f >> g) == to_hypergraph(f) >> to_hypergraph(g)
     with raises(AxiomError):
         f >> f
 
@@ -345,7 +353,7 @@ def test_tensor():
     x, y, z = map(Ty, "xyz")
     f = M.from_box(Box("f", x, y))
     g = M.from_box(Box("g", y, z))
-    assert (f @ g).to_hypergraph() == f.to_hypergraph() @ g.to_hypergraph()
+    assert to_hypergraph(f @ g) == to_hypergraph(f) @ to_hypergraph(g)
     assert (f @ M.id()) == f
     assert (M.id() @ f) == f
 
@@ -406,9 +414,9 @@ def test_tensor_then():
     f1 = M.from_box(Box("f1", x, y))
     f2 = M.from_box(Box("f2", y, z))
     g = M.from_box(Box("g", a, b))
-    assert ((f1 >> f2) @ g).to_hypergraph() == (
-        f1.to_hypergraph() >> f2.to_hypergraph()
-    ) @ g.to_hypergraph()
+    assert to_hypergraph((f1 >> f2) @ g) == (
+        to_hypergraph(f1) >> to_hypergraph(f2)
+    ) @ to_hypergraph(g)
 
 
 def test_then_tensor():
@@ -417,9 +425,9 @@ def test_then_tensor():
     f1 = M.from_box(Box("f1", x1, y1))
     f2 = M.from_box(Box("f2", x2, y2))
     g = M.from_box(Box("g", y1 @ y2, z))
-    assert ((f1 @ f2) >> g).to_hypergraph() == (
-        f1.to_hypergraph() @ f2.to_hypergraph()
-    ) >> g.to_hypergraph()
+    assert to_hypergraph((f1 @ f2) >> g) == (
+        to_hypergraph(f1) @ to_hypergraph(f2)
+    ) >> to_hypergraph(g)
 
 
 def test_euler_characteristic():
