@@ -64,7 +64,7 @@ from discopy.drawing import backend, Node, Point
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.abc import TracedCategory
 from discopy.utils import (
-    assert_isinstance, assert_iscomposable, unbiased, ar_factory, AxiomError)
+    assert_isinstance, assert_iscomposable, unbiased, ar_factory)
 
 if TYPE_CHECKING:
     from discopy import monoidal
@@ -905,19 +905,20 @@ class Drawing(TracedCategory):
         height = max(self.height, other.height)
         self = self.stretch(height - self.height)
         other = other.stretch(height - other.height)
-        scalar = Box(symbol, Ty(), Ty(), draw_as_spider=True, color="white")
-        try:
-            result = self @ scalar.to_drawing() @ other
-        except AxiomError:
-            # The boundary colours of self and other don't match, e.g. an
-            # Equation between terms of different colours: give each term
-            # its own white-bordered slot, as for Drawing.frame.
-            frame_type = Ty.id(Colour("white"))
-            self, scalar, other = (
+        scalar = Box(
+            symbol, Ty(), Ty(), draw_as_spider=True, color="white"
+        ).to_drawing()
+        white = Colour("white")
+        if self.cod.cod != white or other.dom.dom != white:
+            # The boundary colours are not white, e.g. an Equation between
+            # terms of different colours: give each term its own
+            # white-bordered slot, as for Drawing.frame.
+            frame_type = Ty.id(white)
+            self, other = (
                 term.bubble(frame_type, frame_type, draw_as_square=True,
                              height=height)
-                for term in (self, scalar.to_drawing(), other))
-            result = self @ scalar @ other
+                for term in (self, other))
+        result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
         result.make_space(space - 1, self.width)  # Left of the scalar.
         return result
