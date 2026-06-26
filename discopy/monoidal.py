@@ -1266,10 +1266,20 @@ class Functor(cat.Functor):
             Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
+        colour (Mapping[Colour, Colour]) :
+            Map from region :class:`Colour` to :code:`cod` colour.
 
     Important
     ---------
     The keys of the objects mapping must be atomic types, i.e. of length 1.
+
+    Note
+    ----
+    The image of an empty coloured identity ``Ty.id(c)`` keeps its colour
+    only when that colour maps to another :class:`Colour`, i.e. when the
+    ``colour`` map stays within :class:`Colour`. Otherwise the result falls
+    back to the empty type ``cod.ob()`` (which carries no colour). In other
+    words, colour maps are expected to send colours to colours.
 
     Example
     -------
@@ -1320,7 +1330,7 @@ class Functor(cat.Functor):
             return result
         suffix = ')' if result.endswith(')') else ''
         return result[:-len(suffix) if suffix else None] + (
-            f", colour_map={self.colour_map!r}{suffix}")
+            f", colour={self.colour_map!r}{suffix}")
 
     def _map_colour(self, colour):
         return colour if self._default_colour_map else self.colour_map[colour]
@@ -1341,6 +1351,8 @@ class Functor(cat.Functor):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):
             if not other.inside:
+                # Empty coloured identity: keep the colour only if it maps to
+                # a Colour, otherwise fall back to the (colourless) empty type.
                 colour = self(other.dom)
                 return self.cod.ob.id(colour) if hasattr(self.cod.ob, 'id')\
                     and isinstance(colour, Colour) else self.cod.ob()

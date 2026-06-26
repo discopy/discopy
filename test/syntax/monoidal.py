@@ -410,6 +410,25 @@ def test_coloured_Functor():
         bad(x)
 
 
+def test_coloured_Functor_repr():
+    red, green = Colour("red"), Colour("green")
+    x = Ty(Ob("x", red, green))
+    F = Functor({x: x}, {}, colour={red: green, green: red})
+    # The repr uses the constructor parameter name ``colour``, not the
+    # internal ``colour_map`` attribute.
+    assert "colour=" in repr(F) and "colour_map=" not in repr(F)
+
+
+def test_coloured_Functor_empty_identity():
+    green, lime = Colour("green"), Colour("lime")
+    # Colour maps that stay within Colour preserve the empty identity colour.
+    F = Functor({}, {}, colour={green: lime})
+    assert F(Ty.id(green)) == Ty.id(lime) != Ty.id(green)
+    # A colour map leaving Colour drops the colour, falling back to cod.ob().
+    weird = Functor({}, {}, colour=lambda c: c.name)
+    assert weird(Ty.id(green)) == Ty() != Ty.id(green)
+
+
 def test_Sum():
     x = Ty('x')
     f = Box('f', x, x)
