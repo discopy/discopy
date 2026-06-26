@@ -206,29 +206,6 @@ class Permutation(Function, SymmetricCategory):
             result[target] = source
         return type(self)(result, len(self))
 
-    def relabel(self, relabel: Iterable[int], size: int | None = None) -> Self:
-        """
-        Return a copy relabeled by ``relabel[old] = new``.
-
-        >>> Permutation((1, 0, 2)).relabel((1, 2, 0))
-        (0, 2, 1)
-        >>> Permutation((1, 0)).relabel((0, 2), 3)
-        (2, 1, 0)
-        """
-        relabel = tuple(relabel)
-        size = len(self) if size is None else size
-        if len(relabel) != len(self):
-            raise ValueError
-        if size == len(self):
-            return self.conjugate(type(self)(relabel, size))
-        if sorted(relabel) != sorted(set(relabel)) or any(
-                i < 0 or i >= size for i in relabel):
-            raise ValueError
-        result = list(range(size))
-        for source, target in enumerate(self):
-            result[relabel[source]] = relabel[target]
-        return type(self)(result, size)
-
     def conjugate(self, other: Self) -> Self:
         """ Return ``other^-1 ; self ; other``. """
         other = type(self)(other, len(self))
@@ -244,6 +221,14 @@ class Permutation(Function, SymmetricCategory):
             tuple(self) + tuple(shift + i for i in other),
             len(self) + len(other))
         return result.tensor(*others)
+
+    def embed(self, injection: Iterable[int], size: int) -> Self:
+        """ Embed into ``range(size)`` along ``injection``. """
+        injection = tuple(injection)
+        complement = tuple(i for i in range(size) if i not in injection)
+        relabeling = type(self)(injection + complement, size)
+        embedded = self.tensor(type(self).id(size - len(self)))
+        return embedded.conjugate(relabeling)
 
     @classmethod
     def swap(cls, left: int, right: int) -> Self:

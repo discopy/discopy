@@ -479,9 +479,9 @@ class CMap[C0: Pregroup, C1: CMap](
             raise ValueError
         factory = cls if cls.functor is not None else cls[
             type(old).category, type(old).functor]
-        relabel = cls._hypergraph_to_canonical(
-            old.dom, old.boxes, old.cod)
-        edges = Permutation(old.bijection).relabel(relabel)
+        relabeling = Permutation(cls._hypergraph_to_canonical(
+            old.dom, old.boxes, old.cod))
+        edges = Permutation(old.bijection).conjugate(relabeling)
         return factory(
             old.dom, old.cod, old.boxes, edges,
             offsets=old.offsets)
@@ -746,8 +746,8 @@ class CMap[C0: Pregroup, C1: CMap](
         self_map += tuple(range(cod_start, cod_start + self_cod))
         other_map += tuple(range(cod_start + self_cod, n_ports))
 
-        edge = self.edges.relabel(self_map, n_ports).then(
-            other.edges.relabel(other_map, n_ports))
+        edge = self.edges.embed(self_map, n_ports).then(
+            other.edges.embed(other_map, n_ports))
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
             scalars=self.scalars + other.scalars)
@@ -786,7 +786,7 @@ class CMap[C0: Pregroup, C1: CMap](
             for old, new in zip(ports, new_ports[old_index]):
                 mapping[old] = new
 
-        edge = self.edges.relabel(mapping)
+        edge = self.edges.conjugate(Permutation(mapping))
         return type(self)(
             self.dom, self.cod, boxes, edge, offsets=offsets,
             scalars=self.scalars)
@@ -872,7 +872,7 @@ class CMap[C0: Pregroup, C1: CMap](
         hypergraph_to_canonical = self._hypergraph_to_canonical(
             self.dom, self.boxes, self.cod)
         canonical_to_hypergraph = Permutation(hypergraph_to_canonical).dagger()
-        edges = self.edges.relabel(canonical_to_hypergraph)
+        edges = self.edges.conjugate(canonical_to_hypergraph)
         spider_types, flat_wires = [], [None] * self.n_ports
         for i in range(self.n_ports):
             j = edges[i]
