@@ -526,9 +526,11 @@ class Matplotlib(Backend):
                   (width, source[1]), source]
         codes = [Path.MOVETO, Path.CURVE3, Path.CURVE3,
                  Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+        # Draw the outline in the fill colour so that the antialiased seams
+        # between abutting same-colour regions do not show up as grey lines.
         self.axis.add_patch(PathPatch(
-            Path(points, codes), linewidth=0,
-            facecolor=facecolor, edgecolor='none'))
+            Path(points, codes), linewidth=1,
+            facecolor=facecolor, edgecolor=facecolor))
 
     def draw_regions(self, graph, **params):
         """Fill planar regions, leaving TikZ's legacy output unchanged."""
