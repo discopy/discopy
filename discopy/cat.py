@@ -13,6 +13,7 @@ Summary
     :toctree:
 
     Ob
+    FreeCategory
     Arrow
     Box
     Id
@@ -77,7 +78,7 @@ from __future__ import annotations
 
 from functools import total_ordering, cached_property
 from typing import (
-    Callable, Mapping, Iterable, Optional, Type, TYPE_CHECKING)
+    Callable, Mapping, Iterable, TYPE_CHECKING)
 
 from discopy import messages, utils
 from discopy.abc import Category
@@ -166,8 +167,109 @@ class Ob:
         return cls(tree['name'])
 
 
+class FreeCategory(Category):
+    """
+    A category whose arrows are paths of generating arrows.
+
+    Note
+    ----
+    Subclasses are assumed to have a ``generator_factory`` class attribute
+    for the type of the generators, and an ``_init_inside_dom_cod`` method
+    of the form ``_init_inside_dom_cod(inside, dom, cod, _scan=True)``,
+    which defaults to ``__init__`` but can be overridden separately when
+    the public constructor has a different, more user-friendly signature.
+    """
+
+    generator_factory = None
+
+    def __init__(self, inside, dom, cod, _scan=True):
+        self._init_inside_dom_cod(inside, dom, cod, _scan)
+
+    def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
+        ob = type(self).ob
+        dom = dom if isinstance(dom, ob) else ob(dom)
+        cod = cod if isinstance(cod, ob) else ob(cod)
+        self.dom, self.cod, self.inside = dom, cod, tuple(inside)
+        if _scan:
+            for generator in inside:
+                assert_isinstance(generator, self.generator_factory)
+            previous = dom
+            for generator in inside:
+                if previous != generator.dom:
+                    raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
+                        previous, generator, previous, generator.dom))
+                previous = generator.cod
+            if previous != cod:
+                raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
+                    previous, cod, previous, cod))
+
+    @classmethod
+    def _new(cls, inside, dom, cod, _scan=True):
+        """ Build a new ``cls.ar`` bypassing its public constructor. """
+        result = cls.ar.__new__(cls.ar)
+        result._init_inside_dom_cod(inside, dom, cod, _scan)
+        return result
+
+    @classmethod
+    def id(cls, dom=None):
+        """The identity path, with no generators inside."""
+        dom = cls.ob() if dom is None else dom
+        return cls._new((), dom=dom, cod=dom, _scan=False)
+
+    def then(self, *others):
+        inside, dom, cod = self.inside, self.dom, self.cod
+        for other in others:
+            assert_isinstance(other, self.ar)
+            assert_isinstance(self, other.ar)
+            if cod != other.dom:
+                raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
+                    self, other, cod, other.dom))
+            inside, cod = inside + other.inside, other.cod
+        return self._new(inside, dom=dom, cod=cod, _scan=False)
+
+    def __iter__(self):
+        return iter(self.inside)
+
+    def __len__(self):
+        return len(self.inside)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            if key.step == -1:
+                inside = tuple(x.dagger() for x in self.inside[key])
+                return self._new(
+                    inside, dom=self.cod, cod=self.dom, _scan=False)
+            if key.step is not None and key.step < 0:
+                raise IndexError
+            if (key.step or 1) != 1:
+                inside = self.inside[key]
+                if not inside:
+                    return self.id(self.dom)
+                return self._new(
+                    inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=True)
+            inside = self.inside[key]
+            if not inside:
+                if (key.start or 0) >= len(self):
+                    return self.id(self.cod)
+                if (key.start or 0) <= -len(self):
+                    return self.id(self.dom)
+                return self.id(self.inside[key.start or 0].dom)
+            return self._new(
+                inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=False)
+        if isinstance(key, int):
+            if key >= len(self) or key < -len(self):
+                raise IndexError
+            if key < 0:
+                return self[len(self) + key]
+            return self[key:key + 1]
+        raise TypeError
+
+    def dagger(self):
+        return self[::-1]
+
+
 @ar_factory
-class Arrow(Category):
+class Arrow(FreeCategory):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
     objects :code:`dom` and :code:`cod` as domain and codomain.
@@ -222,49 +324,6 @@ class Arrow(Category):
             del state['_dom'], state['_cod'], state['_boxes']
         self.__dict__.update(state)
 
-    def __init__(self, inside: tuple[Box, ...], dom: Ob | str, cod: Ob | str,
-                 _scan: bool = True) -> None:
-        ob = type(self).ob
-        dom = dom if isinstance(dom, ob) else ob(dom)
-        cod = cod if isinstance(cod, ob) else ob(cod)
-        self.dom, self.cod, self.inside = dom, cod, inside
-        if _scan:
-            for box in inside:
-                assert_isinstance(box, Box)
-            for f, g in zip((Id(dom), ) + inside, inside + (Id(cod), )):
-                assert_iscomposable(f, g)
-
-    def __iter__(self):
-        for box in self.inside:
-            yield box
-
-    def __getitem__(self, key):
-        if isinstance(key, slice):
-            if key.step == -1:
-                inside = tuple(box.dagger() for box in self.inside[key])
-                return self.ar(inside, self.cod, self.dom, _scan=False)
-            if (key.step or 1) != 1:
-                raise IndexError
-            inside = self.inside[key]
-            if not inside:
-                if (key.start or 0) >= len(self):
-                    return self.id(self.cod)
-                if (key.start or 0) <= -len(self):
-                    return self.id(self.dom)
-                return self.id(self.inside[key.start or 0].dom)
-            return self.ar(
-                inside, inside[0].dom, inside[-1].cod, _scan=False)
-        if isinstance(key, int):
-            if key >= len(self) or key < -len(self):
-                raise IndexError
-            if key < 0:
-                return self[len(self) + key]
-            return self[key:key + 1]
-        raise TypeError
-
-    def __len__(self):
-        return len(self.inside)
-
     def __repr__(self):
         if not self.inside:  # i.e. self is identity.
             return f"{factory_name(type(self))}.id({repr(self.dom)})"
@@ -287,26 +346,6 @@ class Arrow(Category):
     def __radd__(self, other):
         return self if other == 0 else NotImplemented
 
-    @classmethod
-    def id(cls: Type[Arrow], dom: Optional[Ob] = None) -> Arrow:
-        """
-        The identity arrow with the empty tuple inside, called with ``Id``.
-
-        Parameters:
-            dom : The domain (and codomain) of the identity.
-
-        Note
-        ----
-        If ``dom`` is not provided, we use the default value of ``ob``.
-
-        Example
-        -------
-        >>> assert Arrow.id() == Id() == Id(Ob())
-        >>> assert Arrow.id('x') == Id('x') == Id(Ob('x'))
-        """
-        dom = cls.ob() if dom is None else dom
-        return cls.ar((), dom, dom, _scan=False)
-
     def then(self, *others: Arrow) -> Arrow:
         """
         Sequential composition, called with :code:`>>` and :code:`<<`.
@@ -316,19 +355,15 @@ class Arrow(Category):
 
         Raises:
             AxiomError : Whenever `self` and `others` do not compose.
+
+        Example
+        -------
+        >>> assert Arrow.id() == Id() == Id(Ob())
+        >>> assert Arrow.id('x') == Id('x') == Id(Ob('x'))
         """
         if any(isinstance(other, Sum) for other in others):
             return self.sum_factory((self, )).then(*others)
-        inside, dom, cod = self.inside, self.dom, self.cod
-        for other in others:
-            assert_isinstance(other, self.ar)
-            assert_isinstance(self, other.ar)
-            inside, cod = inside + other.inside, other.cod
-        return self.ar(inside, dom, cod)
-
-    def dagger(self) -> Arrow:
-        """ Contravariant involution, called with :code:`[::-1]`. """
-        return self[::-1]
+        return super().then(*others)
 
     @classmethod
     def zero(cls, dom, cod):
@@ -887,6 +922,7 @@ class Functor(Category):
         return result
 
 
+Arrow.generator_factory = Box
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
 CAT = Functor
