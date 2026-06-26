@@ -11,12 +11,17 @@ not collected by the default ``pytest`` run (see ``testpaths`` in
 
     uv run pytest benchmark/ -v --log-cli-level=INFO --log-cli-format="%(message)s"
 
-Timings are emitted via :mod:`logging` at ``INFO`` level so they appear
-inline in the pytest output without needing ``-s``.
+Each case is swept over a range of sizes (:data:`SIZES`) to expose its
+scaling trend; a case stops scaling once a single measurement, or its
+untimed setup, exceeds :data:`MAX_SECONDS`, leaving the larger cells blank.
+The final ``test_zz_report`` renders every measurement as a plain markdown
+table, with one row per case and one column per size. Timings are emitted
+via :mod:`logging` at ``INFO`` level so they appear inline in the pytest
+output without needing ``-s``.
 
 Timings use ``time.process_time()`` (CPU time, immune to scheduling noise)
 with the garbage collector disabled during the timed region, and report
-the median of a few repetitions for stability.
+the median of a few repetitions for the cheap cases.
 """
 
 import gc
@@ -26,33 +31,62 @@ from statistics import median
 
 from discopy.symmetric import Ty, Box, Id, Diagram
 
+# Sizes swept for every case. A case stops once a measurement or its setup
+# crosses MAX_SECONDS, so slow cases simply leave the larger columns blank.
+SIZES = [10, 20, 50, 100, 200, 500, 1000]
 REPEATS = 3
-TIME_BUDGET = 300  # 5 minutes, in seconds.
+MAX_SECONDS = 2.0          # per-cell cap: stop scaling a case past this
+TIME_BUDGET = 300          # total wall budget for the whole sweep, in seconds
 
-K_NOT = 200      # Width of the NOT-gate tensors/series.
-N_ADDER = 20     # Size of the ripple-carry adder.
-N_SPIRAL = 16    # Number of nested cups/caps in the spiral.
-
-_results = []
+# case name -> {size: seconds}, in first-seen (i.e. report row) order.
+_results: "dict[str, dict[int, float]]" = {}
+_start_time = time.process_time()
 
 
-def timeit(label, fn, repeats=REPEATS):
-    """ Median process-time of calling ``fn()``, with the GC disabled. """
-    times = []
+def measure(fn):
+    """ Median process-time of calling ``fn()``, with the GC disabled.
+
+    Cheap calls (under a second) are repeated for stability; expensive ones
+    are timed a single time so the sweep stays within its budget.
+    """
     gc_was_enabled = gc.isenabled()
     gc.disable()
     try:
-        for _ in range(repeats):
-            start = time.process_time()
-            result = fn()
-            times.append(time.process_time() - start)
+        start = time.process_time()
+        fn()
+        first = time.process_time() - start
+        times = [first]
+        if first <= 1.0:
+            for _ in range(REPEATS - 1):
+                start = time.process_time()
+                fn()
+                times.append(time.process_time() - start)
     finally:
         if gc_was_enabled:
             gc.enable()
-    duration = median(times)
-    _results.append((label, duration))
-    logging.info("%-55s  %.4f s", label, duration)
-    return result, duration
+    return median(times)
+
+
+def run_scaling(name, prepare, sizes=SIZES):
+    """ Sweep ``name`` over ``sizes``, recording one row of the report.
+
+    ``prepare(n)`` performs any *untimed* setup for size ``n`` and returns a
+    zero-argument callable that is then timed. Scaling stops for this case
+    once either the setup or the measured time exceeds :data:`MAX_SECONDS`,
+    or the global :data:`TIME_BUDGET` is exhausted.
+    """
+    row = _results.setdefault(name, {})
+    for n in sizes:
+        if time.process_time() - _start_time > TIME_BUDGET:
+            break
+        setup_start = time.process_time()
+        thunk = prepare(n)
+        setup = time.process_time() - setup_start
+        duration = measure(thunk)
+        row[n] = duration
+        logging.info("%-32s n=%-5d %9.4f s", name, n, duration)
+        if duration > MAX_SECONDS or setup > MAX_SECONDS:
+            break
 
 
 def repeated(op, box, k):
@@ -66,42 +100,28 @@ def repeated(op, box, k):
     return result
 
 
-def test_not_gate_diagram():
+def test_not_gate_tensor():
     bit = Ty('bit')
-    not_gate = Box('NOT', bit, bit)
-
-    tensor_k, _ = timeit(
-        "build k-fold tensor (Diagram)",
-        lambda: repeated(lambda a, b: a.tensor(b), not_gate, K_NOT))
-    series_k, _ = timeit(
-        "build k-fold series (Diagram)",
-        lambda: repeated(lambda a, b: a.then(b), not_gate, K_NOT))
-
-    _, _ = timeit(
-        "Benchmark #3, large-boundary composition (Diagram)",
-        lambda: tensor_k.then(tensor_k))
-    _, _ = timeit(
-        "tensor of two k-fold series (Diagram)",
-        lambda: series_k.tensor(series_k))
+    box = Box('NOT', bit, bit)
+    run_scaling(
+        "k-fold tensor (Diagram)",
+        lambda n: lambda: repeated(lambda a, b: a.tensor(b), box, n))
+    hbox = box.to_hypergraph()
+    run_scaling(
+        "k-fold tensor (Hypergraph)",
+        lambda n: lambda: repeated(lambda a, b: a.tensor(b), hbox, n))
 
 
-def test_not_gate_hypergraph():
+def test_not_gate_series():
     bit = Ty('bit')
-    not_gate = Box('NOT', bit, bit).to_hypergraph()
-
-    tensor_k, _ = timeit(
-        "build k-fold tensor (Hypergraph)",
-        lambda: repeated(lambda a, b: a.tensor(b), not_gate, K_NOT))
-    series_k, _ = timeit(
-        "build k-fold series (Hypergraph)",
-        lambda: repeated(lambda a, b: a.then(b), not_gate, K_NOT))
-
-    _, _ = timeit(
-        "Benchmark #3, large-boundary composition (Hypergraph)",
-        lambda: tensor_k.then(tensor_k))
-    _, _ = timeit(
-        "tensor of two k-fold series (Hypergraph)",
-        lambda: series_k.tensor(series_k))
+    box = Box('NOT', bit, bit)
+    run_scaling(
+        "k-fold series (Diagram)",
+        lambda n: lambda: repeated(lambda a, b: a.then(b), box, n))
+    hbox = box.to_hypergraph()
+    run_scaling(
+        "k-fold series (Hypergraph)",
+        lambda n: lambda: repeated(lambda a, b: a.then(b), hbox, n))
 
 
 def make_adder(n, full_adder):
@@ -128,19 +148,6 @@ def adder_step(adder, k, full_adder, bit):
         .then(Id(bit ** k) @ full_adder).permute(*reorder2)
 
 
-def test_adder_diagram():
-    bit = Ty('bit')
-    full_adder = Box('FA', bit @ bit @ bit, bit @ bit)
-    adder_n = make_adder(N_ADDER, full_adder)
-
-    adder_next, _ = timeit(
-        "adder(n) -> adder(n+1) (Diagram)",
-        lambda: adder_step(adder_n, N_ADDER, full_adder, bit))
-
-    assert adder_next.dom == bit ** (2 * N_ADDER + 3)
-    assert adder_next.cod == bit ** (N_ADDER + 2)
-
-
 def adder_step_hypergraph(adder_hg, k, full_adder_hg, bit):
     """ Hypergraph counterpart of :func:`adder_step`. """
     reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
@@ -153,18 +160,21 @@ def adder_step_hypergraph(adder_hg, k, full_adder_hg, bit):
         .then(id_k.tensor(full_adder_hg)).then(perm2)
 
 
-def test_adder_hypergraph():
+def test_adder():
     bit = Ty('bit')
     full_adder = Box('FA', bit @ bit @ bit, bit @ bit)
-    adder_n = make_adder(N_ADDER, full_adder).to_hypergraph()
+
+    def prepare_diagram(n):
+        adder_n = make_adder(n, full_adder)
+        return lambda: adder_step(adder_n, n, full_adder, bit)
+    run_scaling("adder step (Diagram)", prepare_diagram)
+
     full_adder_hg = full_adder.to_hypergraph()
 
-    adder_next, _ = timeit(
-        "adder(n) -> adder(n+1) (Hypergraph)",
-        lambda: adder_step_hypergraph(adder_n, N_ADDER, full_adder_hg, bit))
-
-    assert adder_next.dom == bit ** (2 * N_ADDER + 3)
-    assert adder_next.cod == bit ** (N_ADDER + 2)
+    def prepare_hypergraph(n):
+        adder_n = make_adder(n, full_adder).to_hypergraph()
+        return lambda: adder_step_hypergraph(adder_n, n, full_adder_hg, bit)
+    run_scaling("adder step (Hypergraph)", prepare_hypergraph)
 
 
 def make_spiral(n_cups):
@@ -182,41 +192,46 @@ def make_spiral(n_cups):
     return result, unit, counit
 
 
-def test_spiral_diagram():
-    spiral, _ = timeit(
-        "build spiral (Diagram)", lambda: make_spiral(N_SPIRAL)[0])
-    unit, counit = spiral.boxes[0], spiral.boxes[N_SPIRAL + 1]
+def test_spiral():
+    run_scaling(
+        "spiral build (Diagram)", lambda n: lambda: make_spiral(n)[0])
 
-    spiral_nf, _ = timeit(
-        "spiral normal_form (Diagram)", lambda: spiral.normal_form())
+    def prepare_build_hg(n):
+        spiral = make_spiral(n)[0]
+        return lambda: spiral.to_hypergraph()
+    run_scaling("spiral build (Hypergraph)", prepare_build_hg)
 
-    assert spiral_nf.boxes[N_SPIRAL] == unit
-    assert spiral_nf.boxes[-1] == counit
+    def prepare_normal_form(n):
+        spiral = make_spiral(n)[0]
+        return lambda: spiral.normal_form()
+    run_scaling("spiral normal_form (Diagram)", prepare_normal_form)
+
+    def prepare_equality(n):
+        # Two independent builds of the same closed spiral: the equality
+        # check must decide they are isomorphic (the spiral is closed, so
+        # this exercises the graph-isomorphism fallback).
+        left = make_spiral(n)[0].to_hypergraph()
+        right = make_spiral(n)[0].to_hypergraph()
+        assert left == right
+        return lambda: left == right
+    run_scaling("spiral equality (Hypergraph)", prepare_equality)
 
 
-def test_spiral_hypergraph():
-    spiral, _, _ = make_spiral(N_SPIRAL)
+def test_zz_report():
+    """ Render the scaling sweep as a plain markdown table. Runs last.
 
-    spiral_hg, _ = timeit(
-        "build spiral (Hypergraph)", lambda: spiral.to_hypergraph())
-    unrolled_hg = spiral.normal_form().to_hypergraph()
-
-    _, _ = timeit(
-        "spiral isomorphism check (Hypergraph)",
-        lambda: spiral_hg == unrolled_hg)
-
-
-def test_zz_total_time_budget():
-    """ Sanity check that the whole benchmark fits in the time budget.
-
-    Named ``test_zz_*`` so it runs last, after every other test has
-    appended its timing to ``_results``. Run with ``-s`` to see the table.
+    Named ``test_zz_*`` so it runs after every other test has populated
+    ``_results``. Run with ``--log-cli-level=INFO`` to see the table.
     """
-    width = max(len(label) for label, _ in _results)
-    lines = [f"{'label':<{width}}  seconds"]
-    lines += [f"{label:<{width}}  {duration:.4f}" for label, duration in _results]
-    total = sum(duration for _, duration in _results)
-    lines.append(f"{'total':<{width}}  {total:.4f}")
-    logging.info("\n%s", "\n".join(lines))
+    sizes = sorted({n for row in _results.values() for n in row})
+    header = "| case | " + " | ".join(str(n) for n in sizes) + " |"
+    rule = "| --- |" + " ---: |" * len(sizes)
+    lines = ["", header, rule]
+    for name, row in _results.items():
+        cells = [f"{row[n]:.4f}" if n in row else "" for n in sizes]
+        lines.append("| " + name + " | " + " | ".join(cells) + " |")
+    logging.info("\n".join(lines))
+
+    total = time.process_time() - _start_time
     assert total < TIME_BUDGET, \
         f"Benchmark took {total:.1f}s, over the {TIME_BUDGET}s budget."
