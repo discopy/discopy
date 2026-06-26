@@ -597,6 +597,10 @@ class Drawing(TracedCategory):
         .. image:: /_static/drawing/stretch.png
             :align: center
         """
+        if not y:
+            # Nothing to stretch: avoid shifting middle nodes by y / 2 == 0.0,
+            # which would turn integer coordinates into floats.
+            return self.relabel_nodes(copy=copy)
         result = self.relabel_nodes(copy=copy, positions={n: p.shift(y=(
                 y if n.kind == "dom" else 0 if n.kind == "cod" else y / 2))
             for n, p in self.positions.items()})
@@ -921,7 +925,7 @@ class Drawing(TracedCategory):
             frame_type = Ty.id(white)
             self, other = (
                 term.bubble(frame_type, frame_type, draw_as_square=True,
-                             height=height)
+                            height=height)
                 for term in (self, other))
         result = self @ scalar @ other
         result.make_space(space - 1, self.width + 1)  # Right of the scalar.
