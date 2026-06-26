@@ -47,17 +47,16 @@ from dataclasses import dataclass
 import re
 
 from discopy import biclosed, messages
+from discopy.cat import ar_factory
 from discopy.grammar import thue
 from discopy.utils import (
-    ob_factory,
-    ar_factory,
     BinaryBoxConstructor,
     AxiomError,
     factory_name,
 )
 
 
-@ob_factory
+@ar_factory
 class Ty(biclosed.Ty):
     "Base class for categorial grammar types."
 

@@ -361,7 +361,8 @@ class Functor(frobenius.Functor):
             return other
         if isinstance(other, Bubble):
             return self(other.arg).map(other.func)
-        if isinstance(other, (cat.Ob, cat.Box)):
+        if isinstance(other, (
+                cat.Ob, cat.Box, monoidal.Colour, monoidal.Ty)):
             return super().__call__(other)
         assert_isinstance(other, monoidal.Diagram)
         dim = lambda scan: len(self(scan))

@@ -144,7 +144,7 @@ from __future__ import annotations
 from discopy import cat, monoidal, markov
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    ob_factory, ar_factory, factory_name, assert_isinstance, AxiomError)
+    ar_factory, factory_name, assert_isinstance, AxiomError)
 
 
 def str_delayed(time_step: int):
@@ -156,6 +156,8 @@ class Ob(cat.Ob):
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
     """
+    dom = cod = monoidal.white
+
     def __init__(
             self, name: str, time_step: int = 0, is_constant: bool = True):
         assert_isinstance(time_step, int)
@@ -164,6 +166,9 @@ class Ob(cat.Ob):
             raise NotImplementedError
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
+
+    def dagger(self):
+        return self
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
@@ -260,10 +265,10 @@ class TailOb(Ob):
     delay, reset, __repr__ = HeadOb.delay, HeadOb.reset, HeadOb.__repr__
 
 
-@ob_factory
+@ar_factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
-    ob_factory = Ob
+    generator_factory = Ob
 
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
@@ -389,7 +394,7 @@ class Box(markov.Box, Diagram):
     def __init__(self, name, dom, cod, time_step: int = 0, **params):
         self._time_step, self._params = time_step, params
         markov.Box.__init__(self, name, dom, cod, **params)
-        Diagram.__init__(self, self.inside, dom, cod)
+        Diagram.__init__(self, self.inside, self.dom, self.cod)
 
     def to_drawing(self):
         result = monoidal.Box.to_drawing(self)

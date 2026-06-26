@@ -47,23 +47,31 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
+    from_tree,
     BinaryBoxConstructor,
     AxiomError,
     assert_isatomic
 )
 
 
-class Ob(cat.Ob):
+class Ob(monoidal.Ob):
     """
     A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
     Parameters:
         name : The name of the object.
         z : The winding number.
+        dom : The domain colour.
+        cod : The codomain colour.
+
+    Note
+    ----
+    Taking an adjoint reverses the direction of the wire, hence it
+    swaps the domain and codomain colours.
 
     Example
     -------
@@ -77,30 +85,39 @@ class Ob(cat.Ob):
             del state['_z']
         super().__setstate__(state)
 
-    def __init__(self, name: str, z: int = 0):
+    def __init__(self, name: str, z: int = 0,
+                 dom: monoidal.Colour = monoidal.white,
+                 cod: monoidal.Colour = monoidal.white):
         assert_isinstance(z, int)
         self.z = z
-        super().__init__(name)
+        super().__init__(name, dom, cod)
+
+    def dagger(self) -> Ob:
+        return self
 
     @property
     def l(self) -> Ob:
         """ The left adjoint of the object. """
-        return type(self)(self.name, self.z - 1)
+        return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
     def r(self) -> Ob:
         """ The right adjoint of the object. """
-        return type(self)(self.name, self.z + 1)
+        return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
-        return cat.Ob.__eq__(self, other) and self.z == other.z
+        return monoidal.Ob.__eq__(self, other)\
+            and isinstance(other, Ob) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
-        return factory_name(type(self))\
-            + f"({repr(self.name)}{', z=' + repr(self.z) if self.z else ''})"
+        z_repr = ', z=' + repr(self.z) if self.z else ''
+        if self.dom == self.cod == monoidal.white:
+            return f"{factory_name(type(self))}({self.name!r}{z_repr})"
+        return f"{factory_name(type(self))}({self.name!r}{z_repr}, " \
+            f"dom={self.dom!r}, cod={self.cod!r})"
 
     def __str__(self):
         return str(self.name) + (
@@ -115,10 +132,12 @@ class Ob(cat.Ob):
     @classmethod
     def from_tree(cls, tree):
         name, z = tree['name'], tree.get('z', 0)
-        return cls(name=name, z=z)
+        dom = from_tree(tree['dom']) if 'dom' in tree else monoidal.white
+        cod = from_tree(tree['cod']) if 'cod' in tree else monoidal.white
+        return cls(name=name, z=z, dom=dom, cod=cod)
 
 
-@ob_factory
+@ar_factory
 class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
@@ -152,12 +171,12 @@ class Ty(Pregroup, biclosed.Ty):
     @property
     def l(self) -> Ty:
         """ The left adjoint of the type. """
-        return self.ob(*[x.l for x in self.inside[::-1]])
+        return self.ar(*[x.l for x in self.inside[::-1]])
 
     @property
     def r(self) -> Ty:
         """ The right adjoint of the type. """
-        return self.ob(*[x.r for x in self.inside[::-1]])
+        return self.ar(*[x.r for x in self.inside[::-1]])
 
     @property
     def z(self) -> int:
@@ -165,10 +184,10 @@ class Ty(Pregroup, biclosed.Ty):
         assert_isatomic(self)
         return self.inside[0].z
 
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@ob_factory
+@ar_factory
 class PRO(monoidal.PRO, Ty):
     """
     A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
@@ -632,7 +651,7 @@ class Cup(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         left.assert_isadjoint(right)
         name = f"Cup({left}, {right})"
-        dom, cod = left @ right, self.ob()
+        dom, cod = left @ right, self.ob(dom=left.dom, cod=left.dom)
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 
@@ -670,7 +689,7 @@ class Cap(BinaryBoxConstructor, Box):
         assert_isatomic(right, Ty)
         right.assert_isadjoint(left)
         name = f"Cap({left}, {right})"
-        dom, cod = self.ob(), left @ right
+        dom, cod = self.ob(dom=left.dom, cod=left.dom), left @ right
         BinaryBoxConstructor.__init__(self, left, right)
         Box.__init__(self, name, dom, cod, draw_as_wires=True)
 

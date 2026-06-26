@@ -57,7 +57,7 @@ from __future__ import annotations
 
 from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import ar_factory
 
 
 class Ob(rigid.Ob):
@@ -68,10 +68,11 @@ class Ob(rigid.Ob):
         name : The name of the object.
         z (bool) : Whether the object is an adjoint or not.
     """
-    l = r = property(lambda self: type(self)(self.name, (self.z + 1) % 2))
+    l = r = property(lambda self: type(self)(
+        self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
 
-@ob_factory
+@ar_factory
 class Ty(rigid.Ty):
     """
     A pivotal type is a rigid type with pivotal objects inside.
@@ -79,10 +80,10 @@ class Ty(rigid.Ty):
     Parameters:
         inside (Ob) : The objects inside the type.
     """
-    ob_factory = Ob
+    generator_factory = Ob
 
 
-@ob_factory
+@ar_factory
 class PRO(rigid.PRO, Ty):
     """
     A pivotal PRO is a natural number ``n``

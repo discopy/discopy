@@ -31,13 +31,13 @@ Summary
 """
 
 from discopy import rigid, frobenius, messages
-from discopy.cat import ob_factory, ar_factory
+from discopy.cat import ar_factory
 from discopy.utils import AxiomError
 from discopy.grammar import thue
 from discopy.rigid import Ob  # noqa: F401
 
 
-@ob_factory
+@ar_factory
 class Ty(rigid.Ty):
     """
     A pregroup type is a rigid type.
