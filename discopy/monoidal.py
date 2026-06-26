@@ -81,7 +81,7 @@ if TYPE_CHECKING:
 class Colour(cat.Ob):
     """A 0-cell, drawn using its matplotlib-compatible name."""
 
-    name: str
+    name: str = "white"
 
     def __post_init__(self):
         assert_isinstance(self.name, str)
@@ -1362,6 +1362,10 @@ class Functor(cat.Functor):
                 result = result + image
             return result
         if isinstance(other, self.dom.ob.generator_factory):
+            if isinstance(other, Ob) and other.is_dagger:
+                # Map a daggered coloured generator functorially: its image is
+                # the dagger of the image of the underlying generator.
+                return self(other.dagger()).dagger()
             result = self._map_atomic(self.dom.ob(other))
             if isinstance(other, Ob) and isinstance(result, Ty):
                 expected = self(other.dom), self(other.cod)

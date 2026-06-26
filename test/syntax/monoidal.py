@@ -125,6 +125,27 @@ def test_PRO_getitem():
     assert all(PRO(42)[i] == PRO(1) for i in range(42))
 
 
+def test_PRO_identity_and_dagger():
+    # PRO(0) is the monoidal unit and identity.
+    assert PRO(0) @ PRO(3) == PRO(3) == PRO(3) @ PRO(0)
+    assert PRO.id() == PRO(0) == PRO.id(PRO(0))
+    # Reversing a PRO is a no-op: all wires are interchangeable.
+    assert PRO(3)[::-1] == PRO(3)
+    assert PRO(3).dagger() == PRO(3)
+
+
+def test_Dim_identity_and_slicing():
+    # Dim(1) is the monoidal unit, dropped on tensor.
+    assert Dim(1) @ Dim(2, 3) == Dim(2, 3) == Dim(2, 3) @ Dim(1)
+    assert Dim(2) @ Dim(3, 4) == Dim(2, 3, 4)
+    # Slicing and indexing return Dim.
+    assert Dim(2, 3, 4)[:2] == Dim(2, 3)
+    assert Dim(2, 3, 4)[1] == Dim(3)
+    assert Dim(2, 3, 4)[1:] == Dim(3, 4)
+    # Reversing reverses the factors.
+    assert Dim(2, 3, 4)[::-1] == Dim(4, 3, 2)
+
+
 def test_Layer_init():
     with raises(ValueError):
         Layer(1, 2, 3, 4)
@@ -427,6 +448,45 @@ def test_coloured_Functor_empty_identity():
     # A colour map leaving Colour drops the colour, falling back to cod.ob().
     weird = Functor({}, {}, colour=lambda c: c.name)
     assert weird(Ty.id(green)) == Ty() != Ty.id(green)
+
+
+def test_coloured_Ob_dagger():
+    red, green = Colour("red"), Colour("green")
+    x = Ob("x", red, green)
+    # Dagger swaps the boundary colours and toggles is_dagger.
+    assert x.dagger() == Ob("x", green, red)
+    assert x.is_dagger is False and x.dagger().is_dagger is True
+    assert x.dagger().dagger() == x and x.dagger().dagger().is_dagger is False
+    # Equality and hashing ignore is_dagger.
+    assert x.dagger() == Ob("x", green, red, is_dagger=True)
+    assert hash(x.dagger()) == hash(Ob("x", green, red))
+
+
+def test_coloured_Functor_dagger():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    pink, lime, cyan = map(Colour, ("pink", "lime", "cyan"))
+    x = Ty(Ob("x", red, green))
+    y = Ty(Ob("y", green, blue))
+    X = Ty(Ob("X", pink, lime))
+    Y = Ty(Ob("Y", lime, cyan))
+    F = Functor(
+        {x: X, y: Y}, {}, colour={red: pink, green: lime, blue: cyan})
+    # Functors send daggered (reversed) coloured types to daggered images.
+    assert F(x[::-1]) == F(x)[::-1]
+    assert F((x @ y)[::-1]) == F(x @ y)[::-1]
+    assert F(x[::-1][::-1]) == F(x)
+
+
+def test_coloured_serialization():
+    red, green, blue = map(Colour, ("red", "green", "blue"))
+    x = Ty(Ob("x", red, green))
+    y = Ty(Ob("y", green, blue))
+    for typ in [x, x[::-1], x @ y, Ty.id(green), Ty()]:
+        assert from_tree(typ.to_tree()) == typ
+    # Daggered generators round-trip, keeping is_dagger.
+    obj = Ob("x", red, green).dagger()
+    restored = from_tree(obj.to_tree())
+    assert restored == obj and restored.is_dagger is True
 
 
 def test_Sum():
