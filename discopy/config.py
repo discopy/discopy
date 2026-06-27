@@ -40,6 +40,9 @@ DRAWING_ATTRIBUTES = {
     "bubble_closing": lambda _: False,
     "frame_boundary": lambda _: False,
     "draw_as_braid": lambda _: False,
+    "draw_as_dual_rail_braid": lambda _: False,
+    "draw_as_dual_rail_twist": lambda _: False,
+    "draw_as_dual_rail_cup": lambda _: False,
     "draw_as_wires": lambda box: any(getattr(box, a) for a in [
         "bubble_opening", "bubble_closing", "draw_as_braid"]),
     "draw_as_spider": lambda _: False,
@@ -71,7 +74,6 @@ DRAWING_DEFAULT = {
     "facecolor": "white",
     "edgecolor": "black",
     "use_tikzstyles": False,
-    "braid_shadow": (.3, .1)
 }
 
 # Mapping from tikz colors to hexcodes.

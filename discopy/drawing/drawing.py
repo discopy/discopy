@@ -79,7 +79,9 @@ def _draws_label(box) -> bool:
     """
     return not any(getattr(box, attr, False) for attr in (
         "draw_as_wires", "draw_as_spider", "draw_as_brakets",
-        "draw_as_controlled", "draw_as_discards", "draw_as_measures"))
+        "draw_as_controlled", "draw_as_discards", "draw_as_measures",
+        "draw_as_dual_rail_braid", "draw_as_dual_rail_twist",
+        "draw_as_dual_rail_cup"))
 
 
 def _box_min_width(box) -> float:

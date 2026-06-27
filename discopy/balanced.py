@@ -32,11 +32,27 @@ The axiom for the twist holds on the nose.
 
 from __future__ import annotations
 
+from copy import copy
+
 from discopy import monoidal, braided, traced
 from discopy.abc import BalancedCategory
 from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
+
+
+def double_rail(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
+    """
+    Doubles every object of a type into the two rails of a ribbon, setting the
+    :attr:`min_right_margin` of the first rail to ``width - 1`` so that the two
+    rails are drawn ``width`` apart rather than at the usual minimal width.
+    """
+    rails = []
+    for ob in typ.inside:
+        left, right = copy(ob), copy(ob)
+        left.min_right_margin = width - 1
+        rails += [left, right]
+    return type(typ)(*rails)
 
 
 @ar_factory
@@ -77,9 +93,15 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
-    def to_braided(self):
+    def to_braided(self, width=0.25):
         """
         Doubles evry object and sends the twist to the braid.
+
+        Parameters:
+            width : The width of a ribbon, i.e. the gap between the two wires
+                encoding each object, default is ``0.25`` (four times closer
+                than the minimal width). If ``None``, the underlying braided
+                diagram is returned rather than its drawing.
 
         Example
         -------
@@ -94,16 +116,21 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.png
         """
+        def double(x):
+            return x @ x if width is None else double_rail(x, width)
+
         class DualRail(Functor):
             cod = braided.Diagram
 
             def __call__(self, other):
                 if isinstance(other, Twist):
-                    braid = braided.Braid(other.dom, other.dom)
-                    return braid >> braid
+                    return DualRailTwist(self(other.dom))
+                if isinstance(other, Braid):
+                    return DualRailBraid(
+                        self(other.left), self(other.right), other.is_dagger)
                 return super().__call__(other)
 
-        return DualRail(lambda x: x @ x, lambda f: f.name)(self)
+        return DualRail(double, lambda f: f.name)(self)
 
 
 class Box(braided.Box, traced.Box, Diagram):
@@ -121,6 +148,58 @@ class Braid(braided.Braid, Box):
     """
     Braid in a balanced category.
     """
+
+
+class DualRailBraid(braided.Box):
+    """
+    The crossing of two ribbons in the dual rail encoding of a swap.
+
+    Unlike the braid of the doubled types (which decomposes into four wire
+    crossings via the hexagon equation), this box is drawn as the two ribbons
+    crossing as a whole. It is only used by :meth:`Diagram.to_braided`.
+
+    Parameters:
+        left : The ribbon (doubled type) on the top left and bottom right.
+        right : The ribbon on the top right and bottom left.
+        is_dagger (bool) : Which ribbon goes over the other.
+    """
+    def __init__(self, left: monoidal.Ty, right: monoidal.Ty, is_dagger=False):
+        self.left, self.right = left, right
+        name = type(self).__name__ + f"({left}, {right})"
+        braided.Box.__init__(
+            self, name, left @ right, right @ left,
+            is_dagger=is_dagger, draw_as_dual_rail_braid=True)
+
+    def __repr__(self):
+        str_is_dagger = ", is_dagger=True" if self.is_dagger else ""
+        return factory_name(type(self))\
+            + f"({self.left!r}, {self.right!r}{str_is_dagger})"
+
+    def dagger(self):
+        return type(self)(self.right, self.left, not self.is_dagger)
+
+
+class DualRailTwist(braided.Box):
+    """
+    The twist of a ribbon in the dual rail encoding, i.e. its two rails
+    crossing each other twice. It is only used by :meth:`Diagram.to_braided`.
+
+    Parameters:
+        dom : The ribbon (doubled type) being twisted.
+        is_dagger (bool) : Which way the rails twist.
+    """
+    def __init__(self, dom: monoidal.Ty, is_dagger=False):
+        name = type(self).__name__ + f"({dom})"
+        braided.Box.__init__(
+            self, name, dom, dom,
+            is_dagger=is_dagger, draw_as_dual_rail_twist=True)
+
+    def __repr__(self):
+        str_is_dagger = ", is_dagger=True" if self.is_dagger else ""
+        return factory_name(type(self)) + f"({self.dom!r}{str_is_dagger})"
+
+    def dagger(self):
+        return type(self)(self.dom, not self.is_dagger)
 
 
 class Trace(traced.Trace, Box):

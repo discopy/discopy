@@ -1,6 +1,35 @@
 from discopy.ribbon import *
 
 
+def test_to_ribbons_width():
+    x = Ty('x')
+
+    # By default the two wires of each ribbon are four times closer.
+    drawing = Diagram.twist(x).to_ribbons().to_drawing()
+    dom = sorted(drawing.positions[n].x for n in drawing.dom_nodes)
+    assert round(dom[1] - dom[0], 3) == 0.25
+
+    # width=1 leaves the wires at the usual minimal width.
+    drawing = Diagram.twist(x).to_ribbons(width=1).to_drawing()
+    dom = sorted(drawing.positions[n].x for n in drawing.dom_nodes)
+    assert round(dom[1] - dom[0], 3) == 1.0
+
+
+def test_to_ribbons_gadgets():
+    x = Ty('x')
+    trace = Braid(x, x).trace(left=True)
+
+    # Cups, caps, braids and twists each become a single dual rail box.
+    boxes = trace.to_ribbons(width=None).boxes
+    assert any(isinstance(b, DualRailCap) for b in boxes)
+    assert any(isinstance(b, DualRailCup) for b in boxes)
+    assert any(isinstance(b, DualRailBraid) for b in boxes)
+
+    cup, = (b for b in boxes if isinstance(b, DualRailCup))
+    assert len(cup.dom) == 4 and len(cup.cod) == 0
+    assert isinstance(cup.dagger(), DualRailCap)
+
+
 def test_Kauffman():
     tmp = Ty.l, Ty.r
     Ty.l = Ty.r = property(lambda self: self)
