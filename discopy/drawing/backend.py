@@ -44,16 +44,20 @@ def draw(graph: PlaneGraph, **params):
     if params.get('legend', False) and not params.get('to_tikz', False):
         colours = Backend.region_colours(graph)
         if colours:
-            # Reserve blank space on the right so the legend, drawn in the
-            # top-right corner, does not overlap the diagram. The legend has
-            # a roughly fixed size in inches, so we convert it to data units
-            # using the figure's horizontal scale (1 unit per inch for the
-            # default equal aspect, otherwise width / figsize).
+            # Make room for the legend by widening the figure rather than
+            # squeezing the diagram: grow the figure and the data width by
+            # the legend's width plus a margin, in inches, keeping the
+            # diagram at the same scale and leaving a constant gap between
+            # the diagram and the legend.
             longest = max(len(c.legend_label) for c in colours.values())
-            legend_inches = 0.9 + 0.13 * longest
-            fig_width = params['figsize'][0] if 'figsize' in params else None
-            units_per_inch = graph.width / fig_width if fig_width else 1
-            space = params.get('legend_space', legend_inches * units_per_inch)
+            legend_inches = 0.5 + 0.085 * longest  # legend width in inches
+            margin_inches = 0.4  # gap between the diagram and the legend
+            extra = legend_inches + margin_inches
+            fig_width = params['figsize'][0] if 'figsize' in params\
+                else (graph.width or 1)
+            if 'figsize' in params:
+                params['figsize'] = (fig_width + extra, params['figsize'][1])
+            space = params.get('legend_space', extra * graph.width / fig_width)
             graph = graph.make_space(
                 space, graph.width, exclusive=True, copy=True)
     figsize = params.get('figsize', None if aspect == 'auto' else (
