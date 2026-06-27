@@ -313,11 +313,13 @@ def test_crack_two_eggs_at_once():
         (a, b), (c, d) = crack(x), crack(y)
         return (merge(white)(a, c), merge(yolk)(b, d))
 
-    # ... or in point-free style using parallel (@) and sequential (>>) composition
+    # ... or in point-free style using parallel (@) and sequential (>>)
+    # composition. from_callable returns the foliated diagram directly, so we
+    # foliate the point-free staircase to compare.
 
-    assert crack_two_eggs == crack @ crack\
-        >> white @ Diagram.swap(yolk, white) @ yolk\
-        >> merge(white) @ merge(yolk)
+    assert crack_two_eggs == (crack @ crack
+        >> white @ Diagram.swap(yolk, white) @ yolk
+        >> merge(white) @ merge(yolk)).foliation()
 
     crack_two_eggs_at_once = crack_two_eggs.foliation()
 

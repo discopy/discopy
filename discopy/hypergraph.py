@@ -1375,7 +1375,11 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
     def to_diagram(self) -> Diagram:
         """
-        Downgrade to :class:`Diagram`, called by :code:`print`.
+        Downgrade to :class:`Diagram`, called by :code:`print`. When the
+        hypergraph is boundary-connected, the boxes are grouped into wide
+        layers (a foliation) rather than a staircase, by scanning the boundary
+        in one pass; this is what :meth:`discopy.symmetric.Diagram.foliation`
+        relies on.
 
         Note
         ----
@@ -1415,31 +1419,64 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
                 raise AxiomError(messages.NO_STRUCTURE_TO_DOWNGRADE.format(
                     factory_name(self.category)))
             return self.make_monogamous().make_causal().to_diagram()
+        # When the hypergraph is boundary-connected, group boxes into wide
+        # layers instead of a staircase: a box is added to the current layer
+        # while its inputs sit to the right of the boxes already in it (i.e.
+        # independent of them); a swap, or a box reaching back to the left,
+        # flushes the layer and starts a new one. ``layer_dom`` is the boundary
+        # the current layer reads from and ``shift`` accumulates the width
+        # change of its boxes, so an offset in ``scan`` maps to ``offset -
+        # shift`` in ``layer_dom``. Otherwise every box is flushed on its own.
+        foliate = self.is_boundary_connected
         diagram, scan = self.category.id(self.dom), self.dom_wires
+        pending, layer_dom, layer_right, shift = [], self.dom, 0, 0
+
+        def flush():
+            nonlocal diagram, pending, layer_right, shift
+            if pending:
+                parts, cursor = [], 0
+                for placed, placed_offset in pending:
+                    parts += [layer_dom[cursor:placed_offset], placed]
+                    cursor = placed_offset + len(placed.dom)
+                parts.append(layer_dom[cursor:])
+                layer = diagram.layer_factory(*parts)
+                diagram >>= diagram.ar((layer,), layer.dom, layer.cod)
+            pending, layer_right, shift = [], 0, 0
+
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]
             for i, obj in enumerate(box.dom):
                 j = scan.index(dom_wires[i])
                 if i == 0 and offset is None:
                     offset = j
-                elif j > offset + i:
-                    diagram >>= diagram.cod[:offset + i] @ diagram.swap(
-                        diagram.cod[offset + i:j], diagram.cod[j]
-                    ) @ diagram.cod[j + 1:]
-                    scan = (scan[:offset + i] + scan[j:j + 1]) + (
-                        scan[offset + i:j] + scan[j + 1:])
-                elif j < offset + i:
-                    diagram >>= diagram.cod[:j] @ diagram.swap(
-                        diagram.cod[j], diagram.cod[j + 1:offset + i]
-                    ) @ diagram.cod[offset + i:]
-                    scan = (scan[:j] + scan[j + 1:offset + i]) + (
-                        scan[j:j + 1] + scan[offset + i:])
-                    offset -= 1
-                assert len(scan) == len(diagram.cod)
+                elif j != offset + i:
+                    flush()  # a swap is a layer of its own
+                    if j > offset + i:
+                        diagram >>= diagram.cod[:offset + i] @ diagram.swap(
+                            diagram.cod[offset + i:j], diagram.cod[j]
+                        ) @ diagram.cod[j + 1:]
+                        scan = (scan[:offset + i] + scan[j:j + 1]) + (
+                            scan[offset + i:j] + scan[j + 1:])
+                    else:
+                        diagram >>= diagram.cod[:j] @ diagram.swap(
+                            diagram.cod[j], diagram.cod[j + 1:offset + i]
+                        ) @ diagram.cod[offset + i:]
+                        scan = (scan[:j] + scan[j + 1:offset + i]) + (
+                            scan[j:j + 1] + scan[offset + i:])
+                        offset -= 1
+                    assert len(scan) == len(diagram.cod)
             offset = 0 if offset is None else offset
+            if pending and offset < layer_right:
+                flush()
+            if not pending:
+                layer_dom = diagram.cod
+            pending.append((box, offset - shift))
+            shift += len(box.cod) - len(box.dom)
+            layer_right = offset + len(box.cod)
             scan = scan[:offset] + cod_wires + scan[offset + len(box.dom):]
-            diagram >>= diagram.cod[:offset] @ box @ diagram.cod[
-                offset + len(box.dom):]
+            if not foliate:
+                flush()
+        flush()
         for i, spider in enumerate(self.cod_wires):
             j = scan.index(spider)
             if i < j:
