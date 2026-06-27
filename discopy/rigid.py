@@ -47,7 +47,8 @@ satisfy the snake equations, one for ``F`` and one for ``G``, for any
 colours ``a`` and ``b``:
 
 >>> from discopy.monoidal import Colour
->>> a, b = Colour('blue'), Colour('green')
+>>> a = Colour('cornflowerblue', label='Function')
+>>> b = Colour('palegreen', label='Morphism')
 >>> F = Ty(Ob('F', dom=a, cod=b))
 >>> G = F.r
 >>> eta, epsilon = Cap(G, F), Cup(F, G)
@@ -58,9 +59,10 @@ colours ``a`` and ``b``:
 
 >>> from discopy.drawing import Equation
 >>> Equation(left_snake, Id(F)).draw(
-...     figsize=(3, 2), path='docs/_static/rigid/coloured-snake-equation.png')
+...     figsize=(3, 2), legend=True,
+...     path='docs/_static/rigid/coloured-snake-equation.png')
 >>> Equation(right_snake, Id(G)).draw(
-...     figsize=(3, 2),
+...     figsize=(3, 2), legend=True,
 ...     path='docs/_static/rigid/coloured-snake-equation-G.png')
 
 .. image:: /_static/rigid/coloured-snake-equation.png
@@ -114,21 +116,21 @@ elements of a monoid as their product:
 ...             return Word(self.xs + sum((other.xs for other in others), []))
 ...     return Word
 
->>> class MonHom(Function):
-...     ''' A function between monoids; homomorphism is not enforced. '''
+>>> class Morphism(Function):
+...     ''' A morphism of monoids; homomorphism not enforced. '''
 
 The forgetful functor ``G`` does nothing to objects, it just views a monoid
 as a set, while the free functor ``F`` sends a set to its words:
 
 >>> Forget_ = Functor(
 ...     lambda M: M, lambda f: Function(f.inside, f.dom, f.cod),
-...     dom=MonHom, cod=Function)
+...     dom=Morphism, cod=Function)
 >>> Free_ = Functor(
 ...     lambda X: Free(X),
-...     lambda f: MonHom(
+...     lambda f: Morphism(
 ...         lambda x: Free(f.cod)(list(map(f, x.xs))),
 ...         Free(f.dom), Free(f.cod)),
-...     dom=Function, cod=MonHom)
+...     dom=Function, cod=Morphism)
 
 >>> GF = Functor(  # the forgetful functor after the free functor
 ...     lambda X: Free(X),
@@ -136,15 +138,15 @@ as a set, while the free functor ``F`` sends a set to its words:
 ...     dom=Function, cod=Function)
 >>> FG = Functor(  # the free functor after the forgetful functor
 ...     lambda M: Free(M),
-...     lambda f: MonHom(Free_.ar_map[f].inside, Free(f.dom), Free(f.cod)),
-...     dom=MonHom, cod=MonHom)
+...     lambda f: Morphism(Free_.ar_map[f].inside, Free(f.dom), Free(f.cod)),
+...     dom=Morphism, cod=Morphism)
 
 >>> eta = Transformation(
 ...     lambda X: Function(lambda x: Free(X)([x]), X, Free(X)),
 ...     Functor.id(Function), GF)
 >>> epsilon = Transformation(
-...     lambda M: MonHom(lambda w: M.id().tensor(*w.xs), Free(M), M),
-...     FG, Functor.id(MonHom))
+...     lambda M: Morphism(lambda w: M.id().tensor(*w.xs), Free(M), M),
+...     FG, Functor.id(Morphism))
 
 >>> X, M = str, Z3
 >>> assert all(eta(X)(x) == Free(X)([x]) for x in ('a', 'b'))
