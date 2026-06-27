@@ -1101,6 +1101,14 @@ class Box(cat.Box, Diagram):
 
     .. image:: /_static/monoidal/coloured-box.png
         :align: center
+
+    Pass ``legend=True`` to label the regions by their colour name.
+
+    >>> coloured.draw(
+    ...     legend=True, path='docs/_static/monoidal/coloured-legend.png')
+
+    .. image:: /_static/monoidal/coloured-legend.png
+        :align: center
     """
 
     def __init__(self, name: str, dom: Ty, cod: Ty, **params):

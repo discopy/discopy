@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 
-from matplotlib.patches import PathPatch
+from matplotlib.patches import PathPatch, Patch
 from matplotlib.path import Path
 
 from discopy.drawing import Node, Point
@@ -57,6 +57,8 @@ def draw(graph: PlaneGraph, **params):
     backend.draw_wires(graph, **params)
     backend.draw_boxes(graph, **params)
     backend.draw_spiders(graph, **params)
+    if params.get('legend', False):
+        backend.draw_legend(graph, **params)
 
     return backend.output(
         path=params.get('path', None),
@@ -107,6 +109,32 @@ class Backend(ABC):
 
     def draw_regions(self, graph, **params):
         """Draw coloured 0-cell regions when supported by the backend."""
+
+    def draw_legend(self, graph, **params):
+        """Draw a legend of region colours when supported by the backend."""
+
+    @staticmethod
+    def region_colours(graph):
+        """
+        The distinct non-white region colours of a diagram, keyed by label.
+
+        Returns an order-preserving mapping from each colour's name to its
+        :class:`monoidal.Colour`, suitable for a drawing legend. White is
+        omitted as it is the neutral background.
+        """
+        colours = {}
+        types = [graph.dom, graph.cod]
+        for box in graph.boxes:
+            types += [box.dom, box.cod]
+        for typ in types:
+            candidates = [getattr(typ, "dom", None), getattr(typ, "cod", None)]
+            for obj in getattr(typ, "inside", ()):
+                candidates += [
+                    getattr(obj, "dom", None), getattr(obj, "cod", None)]
+            for colour in candidates:
+                if colour is not None and colour.name != "white":
+                    colours.setdefault(colour.name, colour)
+        return colours
 
     @staticmethod
     def visible_edges(graph):
@@ -580,6 +608,17 @@ class Matplotlib(Backend):
             self._draw_right_region(
                 source, target, graph.width, colour, bend_out=bend_out)
         super().draw_regions(graph, **params)
+
+    def draw_legend(self, graph, **params):
+        """Add a legend mapping each region colour to its label."""
+        colours = self.region_colours(graph)
+        if not colours:
+            return
+        handles = [Patch(facecolor=colour.name, edgecolor="none", label=name)
+                   for name, colour in colours.items()]
+        self.axis.legend(
+            handles=handles, loc=params.get("legend_loc", "upper right"),
+            fontsize=params.get("fontsize_types", params.get("fontsize")))
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None, linewidth=None):

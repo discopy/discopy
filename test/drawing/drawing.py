@@ -125,6 +125,38 @@ def test_draw_region_non_colors_string():
         assert hexcode in region_hexes(box)
 
 
+def test_draw_legend():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    red, green, blue = map(monoidal.Colour, ("red", "green", "blue"))
+    x = monoidal.Ty(monoidal.Ob("x", red, green))
+    y = monoidal.Ty(monoidal.Ob("y", green, blue))
+    z = monoidal.Ty(monoidal.Ob("z", red, blue))
+    drawing = monoidal.Box("f", x @ y, z).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(3, 3))
+    backend.draw_regions(drawing)
+    backend.draw_legend(drawing)
+    legend = backend.axis.get_legend()
+    labels = [text.get_text() for text in legend.get_texts()]
+    assert set(labels) == {"red", "green", "blue"}
+    # Each swatch is filled with its own colour, white is left out.
+    swatches = {to_hex(handle.get_facecolor())
+                for handle in legend.legend_handles}
+    assert swatches == {'#ff0000', '#008000', '#0000ff'}
+    plt.close(backend.axis.figure)
+
+
+def test_draw_legend_skipped_without_colours():
+    from matplotlib import pyplot as plt
+    drawing = Box("f", Ty("a"), Ty("a")).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_legend(drawing)
+    assert backend.axis.get_legend() is None
+    plt.close(backend.axis.figure)
+
+
 @draw_and_compare('crack-two-eggs-at-once.png')
 def test_crack_two_eggs_at_once():
     from discopy.monoidal import Layer
