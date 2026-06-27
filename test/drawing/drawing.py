@@ -147,6 +147,22 @@ def test_draw_legend():
     plt.close(backend.axis.figure)
 
 
+def test_draw_legend_reserves_space():
+    import os
+    import tempfile
+    from matplotlib import image as mpimg
+    red, green = monoidal.Colour("red"), monoidal.Colour("green")
+    x = monoidal.Ty(monoidal.Ob("x", red, green))
+    box = monoidal.Box("f", x, x)
+    with tempfile.TemporaryDirectory() as folder:
+        without = os.path.join(folder, "without.png")
+        with_legend = os.path.join(folder, "with.png")
+        box.draw(show=False, path=without)
+        box.draw(show=False, legend=True, path=with_legend)
+        # The legend reserves blank space on the right, so the image is wider.
+        assert mpimg.imread(with_legend).shape[1] > mpimg.imread(without).shape[1]
+
+
 def test_draw_legend_skipped_without_colours():
     from matplotlib import pyplot as plt
     drawing = Box("f", Ty("a"), Ty("a")).to_drawing()
