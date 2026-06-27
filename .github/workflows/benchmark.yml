@@ -25,6 +25,12 @@ jobs:
     - name: Install
       run:
         uv sync --locked --group dev --group all
+    - name: Name the artifact after the branch
+      if: always()
+      run: echo "slug=${REF//\//-}" >> "$GITHUB_OUTPUT"
+      id: branch
+      env:
+        REF: ${{ github.head_ref || github.ref_name }}
     - name: Run composition benchmark
       run:
         uv run pytest benchmark/ -v
@@ -34,5 +40,5 @@ jobs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: benchmark-results
+        name: benchmark-results-${{ steps.branch.outputs.slug }}
         path: benchmark-results/
