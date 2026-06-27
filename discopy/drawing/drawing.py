@@ -79,7 +79,9 @@ def _draws_label(box) -> bool:
     """
     return not any(getattr(box, attr, False) for attr in (
         "draw_as_wires", "draw_as_spider", "draw_as_brakets",
-        "draw_as_controlled", "draw_as_discards", "draw_as_measures"))
+        "draw_as_controlled", "draw_as_discards", "draw_as_measures",
+        "draw_as_dual_rail_braid", "draw_as_dual_rail_twist",
+        "draw_as_dual_rail_cup"))
 
 
 def _box_min_width(box) -> float:
@@ -112,10 +114,11 @@ def _ob_right_margin(ob) -> float:
 
     A wire label fits in the unit of space before the next wire; only the part
     of a longer label that overflows is reserved automatically, on top of any
-    manual :attr:`~discopy.cat.Ob.min_right_margin`.
+    manual :attr:`~discopy.cat.Ob.min_right_margin`. A negative margin (e.g.
+    the first rail of a ribbon) pulls the next wire in and is honoured as is.
     """
-    auto = max(0, _ob_label_width(ob) - 1)
-    return max(getattr(ob, "min_right_margin", 0), auto)
+    margin = getattr(ob, "min_right_margin", 0)
+    return margin if margin < 0 else max(margin, _ob_label_width(ob) - 1)
 
 
 def _ob_trailing_margin(ob) -> float:
@@ -125,8 +128,8 @@ def _ob_trailing_margin(ob) -> float:
     the drawing rather than another wire, with only half a unit of space, so a
     label longer than that overflows the drawing and is reserved sooner.
     """
-    auto = max(0, _ob_label_width(ob) - 0.5)
-    return max(getattr(ob, "min_right_margin", 0), auto)
+    margin = getattr(ob, "min_right_margin", 0)
+    return margin if margin < 0 else max(margin, _ob_label_width(ob) - 0.5)
 
 
 def _wire_offsets(ty) -> tuple:
