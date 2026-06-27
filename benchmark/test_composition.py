@@ -34,7 +34,7 @@ from statistics import median
 
 from tabulate import tabulate
 
-from discopy import compact
+from discopy import compact, rigid
 from discopy.symmetric import Ty, Box, Id, Diagram
 from discopy.monoidal import Layer
 
@@ -330,26 +330,32 @@ def repeated_transpose(f, n):
 
 def test_transpose():
     # The two paradigms recognise that the snake-wrapped diagram equals f in
-    # completely different ways: a Diagram needs snake removal (yanking 2 * n
-    # cup/cap pairs, super-linear), whereas the Hypergraph absorbs the snakes
-    # into its wiring so the snake-wrapped and bare diagrams are equal by the
-    # linear-time boundary-rooted canonical form -- the snake-wrapped diagram
-    # is monogamous and boundary-connected, so it takes the fast path, not the
-    # VF2 fallback that the closed spiral above falls back to.
-    x = compact.Ty('x')
-    f = compact.Box('f', x, x)
+    # completely different ways. The Diagram side uses *rigid* diagrams, whose
+    # normal_form genuinely yanks the 2 * n cup/cap snakes back to f (rigid has
+    # left/right duals and a real snake-removal normal form). The Hypergraph
+    # side uses compact diagrams: compact has no separate normal form -- the
+    # hypergraph *is* the compact-closed normal form -- so to_hypergraph
+    # absorbs the snakes and equality with the bare box is by the linear-time
+    # boundary-rooted canonical form (monogamous + boundary-connected), the
+    # fast path rather than the VF2 fallback the closed spiral above hits.
+    rigid_x = rigid.Ty('x')
+    rigid_f = rigid.Box('f', rigid_x, rigid_x)
+    assert repeated_transpose(rigid_f, 1).normal_form() == rigid_f
 
     def prepare_snake_removal(n):
-        g = repeated_transpose(f, n)
+        g = repeated_transpose(rigid_f, n)
         return lambda: g.normal_form()
     run_scaling("transpose snake removal (Diagram)", prepare_snake_removal)
+
+    compact_x = compact.Ty('x')
+    compact_f = compact.Box('f', compact_x, compact_x)
 
     def prepare_equality(n):
         # On the optimized library this hits the linear-time fast path; on the
         # un-optimized one the same call falls back to VF2 -- the benchmark is
         # identical, only the library differs.
-        snaked = repeated_transpose(f, n).to_hypergraph()
-        bare = f.to_hypergraph()
+        snaked = repeated_transpose(compact_f, n).to_hypergraph()
+        bare = compact_f.to_hypergraph()
         assert snaked == bare
         return lambda: snaked == bare
     run_scaling("transpose equality (Hypergraph)", prepare_equality)
