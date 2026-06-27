@@ -17,10 +17,15 @@ BOX_LABEL_CHAR_WIDTH = 12 / 120
 
 
 def box_label_width(box):
-    """ The width needed to fit a box's name on one line, in drawing units. """
+    """ The width needed to fit a box's name on one line, in drawing units.
+
+    LaTeX math (any name containing a ``$``) is rendered by the backend, so
+    its width cannot be guessed from the number of characters: we fall back to
+    the default width and let :attr:`min_width` widen the box if needed.
+    """
     name = getattr(box, "drawing_name", None)
     name = box.name if name is None else name
-    if not name:
+    if not name or "$" in name:
         return 0
     longest_line = max(name.split("\n"), key=len)
     return len(longest_line) * BOX_LABEL_CHAR_WIDTH
@@ -50,6 +55,8 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
+    # Minimum width of the box outline, e.g. to fit a LaTeX name by hand.
+    "min_width": lambda _: 0,
     # Depends on drawing_name, so it must come after it in this mapping.
     "box_label_width": box_label_width,
     "tikzstyle_name": lambda box: (
