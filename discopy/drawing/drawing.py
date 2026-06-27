@@ -110,12 +110,11 @@ def _ob_label_width(ob) -> float:
 def _ob_right_margin(ob) -> float:
     """ How much space to reserve to the right of a wire labelled by ``ob``.
 
-    A label wider than the unit of space before the next wire would collide
-    with it, so that overflow is reserved automatically (leaving a small gap
-    between labels), on top of any manual
-    :attr:`~discopy.cat.Ob.min_right_margin`.
+    A wire label fits in the unit of space before the next wire; only the part
+    of a longer label that overflows is reserved automatically, on top of any
+    manual :attr:`~discopy.cat.Ob.min_right_margin`.
     """
-    auto = max(0, _ob_label_width(ob) - 0.75)
+    auto = max(0, _ob_label_width(ob) - 1)
     return max(getattr(ob, "min_right_margin", 0), auto)
 
 
@@ -123,11 +122,10 @@ def _ob_trailing_margin(ob) -> float:
     """ The margin reserved to the right of the last wire of a type.
 
     Unlike :func:`_ob_right_margin`, the last wire is followed by the edge of
-    the drawing (half a unit away) rather than another wire (a full unit), so
-    a label that needs reserving needs half a unit more to fit in the drawing.
+    the drawing rather than another wire, with only half a unit of space, so a
+    label longer than that overflows the drawing and is reserved sooner.
     """
-    margin = max(0, _ob_label_width(ob) - 0.75)
-    auto = margin + 0.5 if margin else 0
+    auto = max(0, _ob_label_width(ob) - 0.5)
     return max(getattr(ob, "min_right_margin", 0), auto)
 
 
