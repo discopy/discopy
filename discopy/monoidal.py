@@ -741,24 +741,38 @@ class Diagram(cat.Arrow, MonoidalCategory):
         Note
         ----
         If one defines a foliation as a sequence of unmergeable layers,
-        there may exist many distinct foliations for the same diagram.
-        This method scans top to bottom and merges layers eagerly.
+        there may exist many distinct foliations for the same diagram. When
+        the diagram can be translated to a hypergraph (i.e. it has a
+        ``to_hypergraph`` method) and the result is monogamous, causal and
+        boundary-connected, the foliation is read off the hypergraph in one
+        pass over the boundary (see :meth:`discopy.hypergraph.Hypergraph\
+.to_diagram`). Otherwise this scans top to bottom and merges layers eagerly.
         """
-        while len(self) > 1:
+        if hasattr(self, "to_hypergraph"):
+            try:
+                hypergraph = self.to_hypergraph()
+            except TypeError:  # cups and caps do not embed, e.g. in pregroup
+                hypergraph = None
+            if hypergraph is not None and hypergraph.is_monogamous\
+                    and hypergraph.is_causal\
+                    and hypergraph.is_boundary_connected:
+                return hypergraph.to_diagram()
+        diagram = self
+        while len(diagram) > 1:
             keep_on_going = False
             for i, (first, second) in enumerate(zip(
-                    self.inside, self.inside[1:])):
+                    diagram.inside, diagram.inside[1:])):
                 try:
-                    inside = self.inside[:i] + (first.merge(second), )\
-                        + self.inside[i + 2:]
-                    self = self.ar(inside, self.dom, self.cod)
+                    inside = diagram.inside[:i] + (first.merge(second), )\
+                        + diagram.inside[i + 2:]
+                    diagram = diagram.ar(inside, diagram.dom, diagram.cod)
                     keep_on_going = True
                     break
                 except AxiomError:
                     continue
             if not keep_on_going:
                 break
-        return self
+        return diagram
 
     def depth(self):
         """
