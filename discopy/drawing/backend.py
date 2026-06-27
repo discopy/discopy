@@ -623,8 +623,10 @@ class Matplotlib(Backend):
         colours = self.region_colours(graph)
         if not colours:
             return
-        handles = [Patch(facecolor=colour.name, edgecolor="none", label=name)
-                   for name, colour in colours.items()]
+        handles = [
+            Patch(facecolor=colour.name, edgecolor="none",
+                  label=colour.legend_label)
+            for colour in colours.values()]
         self.axis.legend(
             handles=handles, loc=params.get("legend_loc", "upper right"),
             fontsize=params.get("fontsize_types", params.get("fontsize")))

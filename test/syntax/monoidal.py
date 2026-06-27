@@ -41,6 +41,19 @@ def test_coloured_Ty():
         Ty(Ob("x", red, green), Ob("z", blue, red))
 
 
+def test_Colour_label():
+    from discopy.utils import from_tree
+    plain = Colour("cornflowerblue")
+    labelled = Colour("cornflowerblue", label="Function")
+    # The label names the region for the legend but is ignored for identity,
+    # so regions with the same fill colour still merge.
+    assert labelled.legend_label == "Function" and plain.legend_label == \
+        "cornflowerblue"
+    assert labelled == plain and hash(labelled) == hash(plain)
+    assert from_tree(labelled.to_tree()).label == "Function"
+    assert "label='Function'" in repr(labelled)
+
+
 def test_coloured_Ty_power_and_steps():
     red, green = map(Colour, ("red", "green"))
     loop = Ty(Ob("x", red, red))

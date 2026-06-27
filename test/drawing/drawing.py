@@ -173,6 +173,27 @@ def test_draw_legend_skipped_without_colours():
     plt.close(backend.axis.figure)
 
 
+def test_draw_legend_uses_colour_label():
+    from matplotlib.colors import to_hex
+    from matplotlib import pyplot as plt
+    # A label gives the region a name in the legend while filling with its
+    # actual colour.
+    a = monoidal.Colour("cornflowerblue", label="Function")
+    b = monoidal.Colour("palegreen", label="Morphism")
+    x = monoidal.Ty(monoidal.Ob("F", dom=a, cod=b))
+    drawing = monoidal.Box("f", x, x).to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(3, 3))
+    backend.draw_regions(drawing)
+    backend.draw_legend(drawing)
+    legend = backend.axis.get_legend()
+    assert [text.get_text() for text in legend.get_texts()] == [
+        "Function", "Morphism"]
+    assert sorted(to_hex(handle.get_facecolor())
+                  for handle in legend.legend_handles) == ['#6495ed', '#98fb98']
+    plt.close(backend.axis.figure)
+
+
 @draw_and_compare('crack-two-eggs-at-once.png')
 def test_crack_two_eggs_at_once():
     from discopy.monoidal import Layer
