@@ -315,49 +315,62 @@ def test_spiral():
     run_scaling("spiral equality (Hypergraph)", prepare_equality)
 
 
-def repeated_transpose(f, n):
-    """ Wrap an endomorphism ``f`` in ``n`` right-then-left transpose pairs.
+def identity_snake(category, x):
+    """ An identity on ``x`` routed through a right-then-left transpose snake.
 
-    Each ``f.transpose(left=False).transpose(left=True)`` re-routes ``f``
-    through a cap/cup snake on either side without changing its meaning, so
-    the result is equal to ``f`` but carries ``2 * n`` extra snakes.
+    Equal to ``Id(x)`` but built from a cap and a cup, so composing ``n`` of
+    them after a box wraps it in ``n`` snakes while keeping the diagram a
+    *constant* width (unlike nesting transposes, which would make it ``O(n)``
+    wide and so quadratic to convert).
+    """
+    return category.Id(x).transpose(left=False).transpose(left=True)
+
+
+def with_snakes(f, snake, n):
+    """ Compose ``f`` with ``n`` identity snakes, equal to ``f`` but cluttered.
     """
     g = f
     for _ in range(n):
-        g = g.transpose(left=False).transpose(left=True)
+        g = g >> snake
     return g
 
 
 def test_transpose():
-    # The two paradigms recognise that the snake-wrapped diagram equals f in
-    # completely different ways. The Diagram side uses *rigid* diagrams, whose
-    # normal_form genuinely yanks the 2 * n cup/cap snakes back to f (rigid has
-    # left/right duals and a real snake-removal normal form). The Hypergraph
-    # side uses compact diagrams: compact has no separate normal form -- the
-    # hypergraph *is* the compact-closed normal form -- so to_hypergraph
-    # absorbs the snakes and equality with the bare box is by the linear-time
-    # boundary-rooted canonical form (monogamous + boundary-connected), the
-    # fast path rather than the VF2 fallback the closed spiral above hits.
+    # An endomorphism cluttered with n identity snakes, recognised as equal to
+    # f in two completely different ways. The Diagram side uses *rigid*
+    # diagrams, whose normal_form genuinely yanks the snakes back to f (rigid
+    # has left/right duals and a real snake-removal normal form), and which is
+    # super-linear. The Hypergraph side uses compact diagrams -- compact has no
+    # separate normal form, the hypergraph *is* the compact-closed normal form
+    # -- and times the full to_hypergraph + equality, i.e. the snakes are
+    # absorbed during construction and equality with the bare box is then by
+    # the linear-time boundary-rooted canonical form (the snaked diagram is
+    # monogamous and boundary-connected, so the fast path, not the VF2 fallback
+    # the closed spiral above hits). Construction is included in the timing, so
+    # this is the honest linear-vs-super-linear comparison, not just the O(1)
+    # equality of two already-built hypergraphs.
     rigid_x = rigid.Ty('x')
     rigid_f = rigid.Box('f', rigid_x, rigid_x)
-    assert repeated_transpose(rigid_f, 1).normal_form() == rigid_f
+    rigid_snake = identity_snake(rigid, rigid_x)
+    assert with_snakes(rigid_f, rigid_snake, 1).normal_form() == rigid_f
 
     def prepare_snake_removal(n):
-        g = repeated_transpose(rigid_f, n)
+        g = with_snakes(rigid_f, rigid_snake, n)
         return lambda: g.normal_form()
     run_scaling("transpose snake removal (Diagram)", prepare_snake_removal)
 
     compact_x = compact.Ty('x')
     compact_f = compact.Box('f', compact_x, compact_x)
+    compact_snake = identity_snake(compact, compact_x)
+    bare = compact_f.to_hypergraph()
 
     def prepare_equality(n):
-        # On the optimized library this hits the linear-time fast path; on the
-        # un-optimized one the same call falls back to VF2 -- the benchmark is
-        # identical, only the library differs.
-        snaked = repeated_transpose(compact_f, n).to_hypergraph()
-        bare = compact_f.to_hypergraph()
-        assert snaked == bare
-        return lambda: snaked == bare
+        # The diagram is built in setup; the timed call includes to_hypergraph
+        # (the snake-absorbing construction) plus the equality, so this is not
+        # a cheat that excludes the cost of building the hypergraph.
+        g = with_snakes(compact_f, compact_snake, n)
+        assert g.to_hypergraph() == bare
+        return lambda: g.to_hypergraph() == bare
     run_scaling("transpose equality (Hypergraph)", prepare_equality)
 
 
