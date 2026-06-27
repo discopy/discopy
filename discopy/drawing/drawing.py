@@ -70,6 +70,18 @@ if TYPE_CHECKING:
     from discopy import monoidal
 
 
+def _draws_label(box) -> bool:
+    """ Whether a box is drawn as a rectangle with its name in the middle.
+
+    Boxes drawn as wires, spiders, brakets, controlled gates, discards or
+    measures render their own shape rather than a centered label, so their
+    width should not be adjusted to fit :attr:`drawing_name`.
+    """
+    return not any(getattr(box, attr, False) for attr in (
+        "draw_as_wires", "draw_as_spider", "draw_as_brakets",
+        "draw_as_controlled", "draw_as_discards", "draw_as_measures"))
+
+
 class PlaneGraph(NamedTuple):
     """ A plane graph is a graph with a mapping from nodes to points. """
     graph: nx.DiGraph
@@ -209,6 +221,13 @@ class Drawing(TracedCategory):
                 for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
             xs = [self.positions[n].x for n in box_dom_nodes + box_cod_nodes]
             left, right = min(xs + [box_x]) - 0.25, max(xs + [box_x]) + 0.25
+            if _draws_label(box):
+                # Widen the box symmetrically if its name does not fit.
+                label_width = getattr(box, "box_label_width", 0)
+                if label_width > right - left:
+                    center = (left + right) / 2
+                    left = center - label_width / 2
+                    right = center + label_width / 2
             self.add_nodes({
                 Node(f"box-corner-{a}{b}", j=j): Point(x, box_y + y)
                 for a, x in enumerate([left, right])
@@ -418,6 +437,11 @@ class Drawing(TracedCategory):
             width = 1
         else:
             width = max(len(box.dom), len(box.cod))
+
+        if _draws_label(box):
+            # Reserve enough horizontal space to fit the box's name, leaving a
+            # 0.25 margin on either side between the box and its neighbours.
+            width = max(width, box.box_label_width + 0.5)
 
         height = box.height
 

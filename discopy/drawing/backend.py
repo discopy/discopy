@@ -190,7 +190,7 @@ class Backend(ABC):
         self.draw_polygon(*points, facecolor=box.color)
         if params.get('draw_box_labels', True):
             self.draw_text(box.drawing_name, *positions[node],
-                           ha='center', va='center',
+                           ha='center', va='center', family='monospace',
                            fontsize=params.get('fontsize', None))
 
     def draw_discard(self, positions, node, **params):
