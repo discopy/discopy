@@ -313,6 +313,19 @@ def test_draw_typed_snake():
     return Equation(Id(x.r).transpose(left=True), Id(x), Id(x.l).transpose())
 
 
+# tol=50: the abutting coloured regions make this sensitive to sub-pixel
+# boundary shifts across environments, as for test_draw_coloured_frame.
+@draw_and_compare(
+    'coloured-snake-equation.png', figsize=(3, 2), legend=True, tol=50)
+def test_draw_coloured_snake_equation():
+    from discopy.rigid import Ty, Ob, Id, Cup, Cap
+    a = monoidal.Colour("cornflowerblue", label="Function")
+    b = monoidal.Colour("palegreen", label="Morphism")
+    F = Ty(Ob("F", dom=a, cod=b))
+    G = F.r
+    return Equation(Id(F) @ Cap(G, F) >> Cup(F, G) @ Id(F), Id(F))
+
+
 @tikz_and_compare("spiral.tikz", wire_labels=False, use_tikzstyles=True)
 def test_spiral_to_tikz():
     return spiral(2)
