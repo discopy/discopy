@@ -34,12 +34,17 @@ from statistics import median
 
 from tabulate import tabulate
 
+from discopy import compact
 from discopy.symmetric import Ty, Box, Id, Diagram
+from discopy.monoidal import Layer
 
 # Sizes swept for every case, largest first dropped once a case gets too slow.
-SIZES = [10, 20, 50, 100, 200, 500, 1000]
+# Kept fairly fine-grained so the cap-crossing step is small (less wasted time
+# on the abandoned tail) and so setup-bound cases like the adder, where the
+# Diagram/Hypergraph cross over, get more resolution around the crossover.
+SIZES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000]
 REPEATS = 3
-TIME_BUDGET = 300          # total CPU budget for the whole sweep, in seconds
+TIME_BUDGET = 600          # total CPU budget for the whole sweep, in seconds
 
 # Per-case cap on a single timed measurement (seconds): a case stops once a
 # measurement crosses its cap. Cheap-tailed cases (the linear-ish Diagram and
@@ -49,22 +54,31 @@ TIME_BUDGET = 300          # total CPU budget for the whole sweep, in seconds
 # comfortably inside TIME_BUDGET.
 CASE_MAX_SECONDS = {
     "k-fold tensor (Diagram)": 15.0,
+    "k-fold tensor, 1 layer (Diagram)": 15.0,
     "k-fold tensor (Hypergraph)": 6.0,
     "k-fold series (Diagram)": 15.0,
     "k-fold series (Hypergraph)": 8.0,
-    "adder step (Diagram)": 8.0,
-    "adder step (Hypergraph)": 8.0,
+    "adder step (Diagram)": 12.0,
+    "adder step (Hypergraph)": 12.0,
     "spiral build (Diagram)": 6.0,
     "spiral build (Hypergraph)": 3.0,
     "spiral normal_form (Diagram)": 3.0,
     "spiral equality (Hypergraph)": 8.0,
+    "transpose snake removal (Diagram)": 6.0,
+    "transpose equality (Hypergraph)": 8.0,
 }
 DEFAULT_MAX_SECONDS = 4.0
 # A few cases spend most of their time in *untimed* setup (building the adder,
 # or the two spirals an equality check compares). Predict the next setup from
-# the previous ones and skip a size whose setup would exceed this cap, so we
-# never pay a runaway setup only to abandon the measurement right after.
-SETUP_CAP = 12.0
+# the previous ones and skip a size whose setup would exceed the case's cap, so
+# we never pay a runaway setup only to abandon the measurement right after. The
+# adder is given a generous cap so its (incrementally built) construction can
+# reach the sizes where the Hypergraph step overtakes the Diagram one.
+DEFAULT_SETUP_CAP = 12.0
+CASE_SETUP_CAP = {
+    "adder step (Diagram)": 90.0,
+    "adder step (Hypergraph)": 90.0,
+}
 
 # case name -> {size: seconds}, in first-seen (i.e. report row) order.
 _results: "dict[str, dict[int, float]]" = {}
@@ -121,11 +135,13 @@ def run_scaling(name, prepare, sizes=SIZES):
     ``prepare(n)`` performs any *untimed* setup for size ``n`` and returns a
     zero-argument callable that is then timed. Scaling stops for this case
     once the measured time crosses the case's entry in
-    :data:`CASE_MAX_SECONDS`, the predicted setup crosses :data:`SETUP_CAP`,
-    or the global :data:`TIME_BUDGET` is about to be exhausted.
+    :data:`CASE_MAX_SECONDS`, the predicted setup crosses the case's setup cap
+    (:data:`CASE_SETUP_CAP`, else :data:`DEFAULT_SETUP_CAP`), or the global
+    :data:`TIME_BUDGET` is about to be exhausted.
     """
     row = _results.setdefault(name, {})
     cap = CASE_MAX_SECONDS.get(name, DEFAULT_MAX_SECONDS)
+    setup_cap = CASE_SETUP_CAP.get(name, DEFAULT_SETUP_CAP)
     setups, timings = [], []
     for n in sizes:
         elapsed = time.process_time() - _start_time
@@ -136,7 +152,7 @@ def run_scaling(name, prepare, sizes=SIZES):
                 elapsed + _extrapolate(timings, n, 2.0) > 0.75 * TIME_BUDGET:
             break
         # Skip a size whose untimed setup is predicted to blow up.
-        if setups and _extrapolate(setups, n, 3.0) > SETUP_CAP:
+        if setups and _extrapolate(setups, n, 3.0) > setup_cap:
             break
         setup_start = time.process_time()
         thunk = prepare(n)
@@ -160,12 +176,31 @@ def repeated(op, box, k):
     return result
 
 
+def single_layer_tensor(box, k):
+    """ The ``k``-fold tensor of ``box`` as a *single* :class:`Layer`.
+
+    A monoidal ``Diagram`` is a list of layers, and tensoring two diagrams
+    pads every layer of each with the wires of the other, so building a
+    ``k``-fold tensor by repeated ``@`` rebuilds the layer list over and over.
+    The same morphism is just one layer with the ``k`` boxes side by side
+    (interleaved with empty types), which sidesteps that overhead entirely --
+    the residual cost is only the type concatenation in the ``Layer``
+    constructor.
+    """
+    empty = box.dom[:0]
+    layer = Layer(empty, box, empty, *([box, empty] * (k - 1)))
+    return Diagram((layer,), layer.dom, layer.cod)
+
+
 def test_not_gate_tensor():
     bit = Ty('bit')
     box = Box('NOT', bit, bit)
     run_scaling(
         "k-fold tensor (Diagram)",
         lambda n: lambda: repeated(lambda a, b: a.tensor(b), box, n))
+    run_scaling(
+        "k-fold tensor, 1 layer (Diagram)",
+        lambda n: lambda: single_layer_tensor(box, n))
     hbox = box.to_hypergraph()
     run_scaling(
         "k-fold tensor (Hypergraph)",
@@ -268,13 +303,56 @@ def test_spiral():
 
     def prepare_equality(n):
         # Two independent builds of the same closed spiral: the equality
-        # check must decide they are isomorphic (the spiral is closed, so
-        # this exercises the graph-isomorphism fallback).
+        # check must decide they are isomorphic. The spiral is closed (empty
+        # boundary), hence *not* boundary-connected and not monogamous, so
+        # this exercises the networkx graph-isomorphism (VF2) fallback rather
+        # than the linear-time boundary-rooted path (see test_transpose for
+        # the latter).
         left = make_spiral(n)[0].to_hypergraph()
         right = make_spiral(n)[0].to_hypergraph()
         assert left == right
         return lambda: left == right
     run_scaling("spiral equality (Hypergraph)", prepare_equality)
+
+
+def repeated_transpose(f, n):
+    """ Wrap an endomorphism ``f`` in ``n`` right-then-left transpose pairs.
+
+    Each ``f.transpose(left=False).transpose(left=True)`` re-routes ``f``
+    through a cap/cup snake on either side without changing its meaning, so
+    the result is equal to ``f`` but carries ``2 * n`` extra snakes.
+    """
+    g = f
+    for _ in range(n):
+        g = g.transpose(left=False).transpose(left=True)
+    return g
+
+
+def test_transpose():
+    # The two paradigms recognise that the snake-wrapped diagram equals f in
+    # completely different ways: a Diagram needs snake removal (yanking 2 * n
+    # cup/cap pairs, super-linear), whereas the Hypergraph absorbs the snakes
+    # into its wiring so the snake-wrapped and bare diagrams are equal by the
+    # linear-time boundary-rooted canonical form -- the snake-wrapped diagram
+    # is monogamous and boundary-connected, so it takes the fast path, not the
+    # VF2 fallback that the closed spiral above falls back to.
+    x = compact.Ty('x')
+    f = compact.Box('f', x, x)
+
+    def prepare_snake_removal(n):
+        g = repeated_transpose(f, n)
+        return lambda: g.normal_form()
+    run_scaling("transpose snake removal (Diagram)", prepare_snake_removal)
+
+    def prepare_equality(n):
+        # On the optimized library this hits the linear-time fast path; on the
+        # un-optimized one the same call falls back to VF2 -- the benchmark is
+        # identical, only the library differs.
+        snaked = repeated_transpose(f, n).to_hypergraph()
+        bare = f.to_hypergraph()
+        assert snaked == bare
+        return lambda: snaked == bare
+    run_scaling("transpose equality (Hypergraph)", prepare_equality)
 
 
 def test_zz_report():
