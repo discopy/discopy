@@ -242,6 +242,14 @@ def test_draw_wire_min_right_margin():
     return Id(x @ long_type @ x)
 
 
+@draw_and_compare('wire-auto-margin.png', aspect='equal')
+def test_draw_wire_auto_margin():
+    # A long wire label reserves space to its right on its own, so it does
+    # not overflow even without setting min_right_margin by hand.
+    x = Ty('x')
+    return Box('f', x, x @ Ty('a_long_output_type'))
+
+
 def test_to_gif():
     from discopy.grammar.pregroup import (
          Ty, Cup, Cap, Box, Word, Functor)

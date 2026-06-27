@@ -61,7 +61,7 @@ from dataclasses import dataclass
 import networkx as nx
 
 from discopy.drawing import backend, Node, Point
-from discopy.config import DRAWING_ATTRIBUTES
+from discopy.config import DRAWING_ATTRIBUTES, BOX_LABEL_CHAR_WIDTH
 from discopy.abc import TracedCategory
 from discopy.utils import (
     assert_isinstance, assert_iscomposable, unbiased, ar_factory)
@@ -95,18 +95,36 @@ def _box_min_width(box) -> float:
         getattr(box, "box_label_width", 0), getattr(box, "min_width", 0))
 
 
+def _ob_right_margin(ob) -> float:
+    """ How much space to reserve to the right of a wire labelled by ``ob``.
+
+    Wire labels are drawn in a monospace font, so a label wider than the unit
+    of space before the next wire would collide with it. That overflow is
+    reserved automatically (leaving a small gap between adjacent labels), on
+    top of any manual :attr:`~discopy.cat.Ob.min_right_margin`. LaTeX labels
+    (containing a ``$``) are left to the user as their width cannot be guessed.
+    """
+    manual = getattr(ob, "min_right_margin", 0)
+    label = str(ob)
+    if not label or "$" in label:
+        return manual
+    auto = max(0, len(label) * BOX_LABEL_CHAR_WIDTH - 0.75)
+    return max(manual, auto)
+
+
 def _wire_offsets(ty) -> tuple:
     """ The extra x-offset of each wire of a type, and their total.
 
-    Each object's :attr:`min_right_margin` pushes every wire to its right
-    further along, so wire ``i`` is shifted by the sum of the margins of the
-    objects before it. Returns ``(offsets, total)`` where ``total`` is the sum
-    of all the margins, i.e. the extra width the type takes up.
+    Each object's right margin (see :func:`_ob_right_margin`) pushes every
+    wire to its right further along, so wire ``i`` is shifted by the sum of the
+    margins of the objects before it. Returns ``(offsets, total)`` where
+    ``total`` is the sum of all the margins, i.e. the extra width the type
+    takes up.
     """
     offsets, total = [], 0
     for ob in getattr(ty, "inside", ()):
         offsets.append(total)
-        total += getattr(ob, "min_right_margin", 0)
+        total += _ob_right_margin(ob)
     return offsets, total
 
 
