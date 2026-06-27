@@ -565,18 +565,28 @@ class Layer(cat.Box):
         if len(more) % 2:
             raise ValueError(messages.LAYERS_MUST_BE_ODD)
         self.boxes_or_types = (left, box, right) + more
-        name, dom, cod = "", left[:0], left[:0]
+        # Build dom, cod and name from the concatenation of every part in one
+        # pass: ``Ty.tensor`` concatenates all the pieces in a single shot, so
+        # this is linear in the width of the layer. Folding ``dom @ piece``
+        # piece by piece (and rebuilding the name string each step) would
+        # instead be quadratic, which bites for very wide layers.
+        dom_pieces, cod_pieces, names = [], [], []
         for i, box_or_typ in enumerate(self.boxes_or_types):
             if i % 2:
-                assert_isinstance(box, Box)
-                dom, cod = dom @ box_or_typ.dom, cod @ box_or_typ.cod
-                name += ("" if not name else " @ ") + str(box_or_typ)
+                assert_isinstance(box_or_typ, Box)
+                dom_pieces.append(box_or_typ.dom)
+                cod_pieces.append(box_or_typ.cod)
+                names.append(str(box_or_typ))
             else:
                 assert_isinstance(box_or_typ, Ty)
-                dom, cod = dom @ box_or_typ, cod @ box_or_typ
-                name += "" if not box_or_typ\
-                    else ("" if not name else " @ ") + str(box_or_typ)
-        super().__init__(name, dom, cod)
+                dom_pieces.append(box_or_typ)
+                cod_pieces.append(box_or_typ)
+                if box_or_typ:
+                    names.append(str(box_or_typ))
+        empty = left[:0]
+        super().__init__(
+            " @ ".join(names),
+            empty.tensor(*dom_pieces), empty.tensor(*cod_pieces))
 
     def __iter__(self):
         for box_or_typ in self.boxes_or_types:
