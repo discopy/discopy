@@ -95,21 +95,40 @@ def _box_min_width(box) -> float:
         getattr(box, "box_label_width", 0), getattr(box, "min_width", 0))
 
 
+def _ob_label_width(ob) -> float:
+    """ The width of a wire label, or zero if it cannot be guessed.
+
+    Labels are drawn in a monospace font, so their width is their length times
+    a fixed coefficient. LaTeX labels (with a ``$``) are left to the user.
+    """
+    label = str(ob)
+    if not label or "$" in label:
+        return 0
+    return len(label) * BOX_LABEL_CHAR_WIDTH
+
+
 def _ob_right_margin(ob) -> float:
     """ How much space to reserve to the right of a wire labelled by ``ob``.
 
-    Wire labels are drawn in a monospace font, so a label wider than the unit
-    of space before the next wire would collide with it. That overflow is
-    reserved automatically (leaving a small gap between adjacent labels), on
-    top of any manual :attr:`~discopy.cat.Ob.min_right_margin`. LaTeX labels
-    (containing a ``$``) are left to the user as their width cannot be guessed.
+    A label wider than the unit of space before the next wire would collide
+    with it, so that overflow is reserved automatically (leaving a small gap
+    between labels), on top of any manual
+    :attr:`~discopy.cat.Ob.min_right_margin`.
     """
-    manual = getattr(ob, "min_right_margin", 0)
-    label = str(ob)
-    if not label or "$" in label:
-        return manual
-    auto = max(0, len(label) * BOX_LABEL_CHAR_WIDTH - 0.75)
-    return max(manual, auto)
+    auto = max(0, _ob_label_width(ob) - 0.75)
+    return max(getattr(ob, "min_right_margin", 0), auto)
+
+
+def _ob_trailing_margin(ob) -> float:
+    """ The margin reserved to the right of the last wire of a type.
+
+    Unlike :func:`_ob_right_margin`, the last wire is followed by the edge of
+    the drawing (half a unit away) rather than another wire (a full unit), so
+    a label that needs reserving needs half a unit more to fit in the drawing.
+    """
+    margin = max(0, _ob_label_width(ob) - 0.75)
+    auto = margin + 0.5 if margin else 0
+    return max(getattr(ob, "min_right_margin", 0), auto)
 
 
 def _wire_offsets(ty) -> tuple:
@@ -475,37 +494,48 @@ class Drawing(TracedCategory):
                     box.bubble_closing or box.bubble_opening and i) else 0.25
 
         # Extra space added to the right of each wire by its min_right_margin.
-        extra_dom, acc_dom = _wire_offsets(box.dom)
-        extra_cod, acc_cod = _wire_offsets(box.cod)
+        extra_dom, _ = _wire_offsets(box.dom)
+        extra_cod, _ = _wire_offsets(box.cod)
         if box.bubble_opening or box.bubble_closing:
             # The boundary wires of a bubble are placed by hand below, so we
             # leave their wires evenly spaced rather than apply margins.
-            extra_dom, acc_dom = [0] * len(box.dom), 0
-            extra_cod, acc_cod = [0] * len(box.cod), 0
+            extra_dom = [0] * len(box.dom)
+            extra_cod = [0] * len(box.cod)
+        # The margin of the last wire of a row sits to the right of the box
+        # rather than between its wires, so it widens the drawing without
+        # taking part in the centering of the box and its other wires.
+        in_dom = extra_dom[-1] if extra_dom else 0
+        in_cod = extra_cod[-1] if extra_cod else 0
+        trailing = 0
+        if not (box.bubble_opening or box.bubble_closing):
+            for row in (box.dom, box.cod):
+                if row.inside:
+                    trailing = max(
+                        trailing, _ob_trailing_margin(row.inside[-1]))
 
         if box.bubble_opening:
-            width = max(1, len(box.dom), len(box.cod) - 2) + 0.5
+            content = max(1, len(box.dom), len(box.cod) - 2) + 0.5
         elif box.bubble_closing:
-            width = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
+            content = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
         else:
-            width = max(
-                1, len(box.dom) + acc_dom, len(box.cod) + acc_cod)
+            content = max(1, len(box.dom) + in_dom, len(box.cod) + in_cod)
 
         # Reserve enough horizontal space to fit the box's name or min_width,
         # leaving a 0.25 margin on either side between the box and its
         # neighbours.
-        width = max(width, _box_min_width(box) + 0.5)
+        content = max(content, _box_min_width(box) + 0.5)
+        width = content + trailing
 
         height = box.height
 
-        left, right = 0.25, width - 0.25
+        left, right = 0.25, content - 0.25
 
         inside = PlaneGraph(nx.DiGraph(), dict())
         result = Drawing(
             inside, box.dom, box.cod, (box, ), width, height, _check=False)
 
         box_node = Node("box", box=box, j=0)
-        result.add_nodes({box_node: Point(width / 2, height / 2)})
+        result.add_nodes({box_node: Point(content / 2, height / 2)})
 
         dom = [Node("dom", i=i, x=x) for i, x in enumerate(box.dom)]
         cod = [Node("cod", i=i, x=x) for i, x in enumerate(box.cod)]
@@ -533,14 +563,14 @@ class Drawing(TracedCategory):
             dom, box_dom = dom[1:-1], box_dom[1:-1]
 
         result.add_nodes({
-            x: Point((width - len(xs) - acc) / 2 + 0.5 + i + extra[i], y)
+            x: Point((content - len(xs) - acc) / 2 + 0.5 + i + extra[i], y)
             for xs, y, extra, acc in [
-                (dom, height, extra_dom, acc_dom),
+                (dom, height, extra_dom, in_dom),
                 (box_dom, height if box.draw_as_wires else height - 0.25,
-                 extra_dom, acc_dom),
+                 extra_dom, in_dom),
                 (box_cod, 0 if box.draw_as_wires else 0.25,
-                 extra_cod, acc_cod),
-                (cod, 0, extra_cod, acc_cod)]
+                 extra_cod, in_cod),
+                (cod, 0, extra_cod, in_cod)]
             for i, x in enumerate(xs)})
         return result
 
@@ -568,8 +598,11 @@ class Drawing(TracedCategory):
         from discopy.monoidal import Ty
         dom = Ty() if dom is None else dom
         inside = PlaneGraph(nx.DiGraph(), dict())
-        offsets, margin = _wire_offsets(dom)
-        height, width = 0.5, margin + (
+        offsets, _ = _wire_offsets(dom)
+        # The margins between wires plus the last wire's margin to the edge.
+        internal = offsets[-1] if offsets else 0
+        trailing = _ob_trailing_margin(dom.inside[-1]) if dom else 0
+        height, width = 0.5, internal + trailing + (
             len(dom) - 0.5 if len(dom) > 1 else 0.5)
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
