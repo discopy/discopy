@@ -26,3 +26,4 @@ build/*
 dist/*
 todo.md
 discopy/version.py
+benchmark-results/

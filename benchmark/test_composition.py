@@ -409,19 +409,62 @@ def test_transpose():
     run_scaling("transpose equality (Hypergraph)", prepare_equality)
 
 
+def write_report(table_markdown):
+    """ Save the table, the raw timings and a log-log scaling plot.
+
+    Writes ``results.md``, ``results.json`` and ``scaling.png`` into the
+    directory named by the ``BENCHMARK_OUTPUT`` environment variable (default
+    ``benchmark-results``), which the CI workflow uploads as an artifact. The
+    plot splits the Diagram and Hypergraph cases into two panels so their
+    slopes (i.e. their complexities) can be read off and compared.
+    """
+    import json
+    import os
+
+    output = os.environ.get("BENCHMARK_OUTPUT", "benchmark-results")
+    os.makedirs(output, exist_ok=True)
+    with open(os.path.join(output, "results.md"), "w") as file:
+        file.write(table_markdown + "\n")
+    with open(os.path.join(output, "results.json"), "w") as file:
+        json.dump(_results, file, indent=2, sort_keys=True)
+
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    figure, axes = plt.subplots(1, 2, figsize=(13, 6), sharey=True)
+    for name, row in _results.items():
+        axis = axes[1] if "Hypergraph" in name else axes[0]
+        xs = sorted(row)
+        axis.plot(xs, [row[x] for x in xs], marker="o", label=name)
+    for axis, title in zip(axes, ["Diagram", "Hypergraph"]):
+        axis.set(xscale="log", yscale="log", xlabel="size $n$", title=title)
+        axis.grid(True, which="both", linestyle=":", linewidth=.5)
+        axis.legend(fontsize="small")
+    axes[0].set_ylabel("median CPU time (s)")
+    figure.suptitle("Composition benchmark scaling (arXiv:2105.09257)")
+    figure.tight_layout()
+    figure.savefig(os.path.join(output, "scaling.png"), dpi=120)
+    plt.close(figure)
+    logging.info("wrote results.{md,json} and scaling.png to %s/", output)
+
+
 def test_zz_report():
     """ Render the scaling sweep as a plain markdown table. Runs last.
 
     Named ``test_zz_*`` so it runs after every other test has populated
-    ``_results``. Run with ``--log-cli-level=INFO`` to see the table.
+    ``_results``. Run with ``--log-cli-level=INFO`` to see the table, which is
+    also saved with the raw timings and a plot by :func:`write_report`.
     """
     sizes = sorted({n for row in _results.values() for n in row})
     table = [
         [name] + [f"{row[n]:.4f}" if n in row else "" for n in sizes]
         for name, row in _results.items()]
-    logging.info("\n%s", tabulate(
+    table_markdown = tabulate(
         table, headers=["case", *sizes], tablefmt="github",
-        colalign=["left", *["right"] * len(sizes)], disable_numparse=True))
+        colalign=["left", *["right"] * len(sizes)], disable_numparse=True)
+    logging.info("\n%s", table_markdown)
+    write_report(table_markdown)
 
     total = time.process_time() - _start_time
     assert total < TIME_BUDGET, \

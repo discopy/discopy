@@ -30,3 +30,9 @@ jobs:
         uv run pytest benchmark/ -v
           --log-cli-level=INFO
           --log-cli-format="%(message)s"
+    - name: Upload benchmark results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-results
+        path: benchmark-results/
