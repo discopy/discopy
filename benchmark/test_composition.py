@@ -56,6 +56,8 @@ CASE_MAX_SECONDS = {
     "k-fold tensor (Diagram)": 15.0,
     "k-fold tensor, 1 layer (Diagram)": 15.0,
     "k-fold tensor (Hypergraph)": 6.0,
+    "staircase foliation (Diagram)": 6.0,
+    "staircase to hypergraph (Hypergraph)": 6.0,
     "k-fold series (Diagram)": 15.0,
     "k-fold series (Hypergraph)": 8.0,
     "adder step (Diagram)": 12.0,
@@ -192,6 +194,19 @@ def single_layer_tensor(box, k):
     return Diagram((layer,), layer.dom, layer.cod)
 
 
+def staircase(box, k):
+    """ The ``k``-fold tensor of ``box`` as a staircase of ``k`` layers.
+
+    Tensoring two diagrams stacks their layers, so ``box @ box @ ...`` puts
+    each box in its own layer at an increasing offset -- the same morphism as
+    :func:`single_layer_tensor`, but spread over ``k`` layers instead of one.
+    """
+    g = box
+    for _ in range(k - 1):
+        g = g @ box
+    return g
+
+
 def test_not_gate_tensor():
     bit = Ty('bit')
     box = Box('NOT', bit, bit)
@@ -205,6 +220,26 @@ def test_not_gate_tensor():
     run_scaling(
         "k-fold tensor (Hypergraph)",
         lambda n: lambda: repeated(lambda a, b: a.tensor(b), hbox, n))
+
+
+def test_foliation():
+    # The inverse of single_layer_tensor: take the k-layer staircase and pack
+    # it back into one layer. The Diagram does this with foliation, repeatedly
+    # merging adjacent layers (super-linear). The Hypergraph carries no layer
+    # structure at all, so to_hypergraph reaches the maximally-parallel form
+    # directly -- the staircase and the single layer have the same hypergraph.
+    bit = Ty('bit')
+    box = Box('NOT', bit, bit)
+
+    def prepare_foliation(n):
+        st = staircase(box, n)
+        return lambda: st.foliation()
+    run_scaling("staircase foliation (Diagram)", prepare_foliation)
+
+    def prepare_to_hypergraph(n):
+        st = staircase(box, n)
+        return lambda: st.to_hypergraph()
+    run_scaling("staircase to hypergraph (Hypergraph)", prepare_to_hypergraph)
 
 
 def test_not_gate_series():
