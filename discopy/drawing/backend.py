@@ -40,16 +40,22 @@ if TYPE_CHECKING:
 
 def draw(graph: PlaneGraph, **params):
     """ Load a :class:`Backend` and draw a :class:`PlaneGraph` on it. """
+    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
     if params.get('legend', False) and not params.get('to_tikz', False):
         colours = Backend.region_colours(graph)
         if colours:
             # Reserve blank space on the right so the legend, drawn in the
-            # top-right corner, does not overlap the diagram.
-            longest = max(len(name) for name in colours)
-            space = params.get('legend_space', 1.5 + 0.15 * longest)
+            # top-right corner, does not overlap the diagram. The legend has
+            # a roughly fixed size in inches, so we convert it to data units
+            # using the figure's horizontal scale (1 unit per inch for the
+            # default equal aspect, otherwise width / figsize).
+            longest = max(len(c.legend_label) for c in colours.values())
+            legend_inches = 0.9 + 0.13 * longest
+            fig_width = params['figsize'][0] if 'figsize' in params else None
+            units_per_inch = graph.width / fig_width if fig_width else 1
+            space = params.get('legend_space', legend_inches * units_per_inch)
             graph = graph.make_space(
                 space, graph.width, exclusive=True, copy=True)
-    aspect = params.get('aspect', 'auto' if 'figsize' in params else 'equal')
     figsize = params.get('figsize', None if aspect == 'auto' else (
         graph.width or 1, graph.height or 1))
     backend = (
