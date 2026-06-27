@@ -222,6 +222,7 @@ class Ty(Ob):
         result = Ty(*map(str, self.inside))
         for old, new in zip(self.inside, result.inside):
             new.min_right_margin = getattr(old, "min_right_margin", 0)
+            new.ribbon = getattr(old, "ribbon", None)
         return result
 
 

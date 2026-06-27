@@ -37,22 +37,83 @@ from copy import copy
 from discopy import monoidal, braided, traced
 from discopy.abc import BalancedCategory
 from discopy.cat import ar_factory
+from discopy.config import RIBBON_COLORS
 from discopy.monoidal import Ty  # noqa: F401
 from discopy.utils import factory_name, assert_isatomic
 
 
-def double_rail(typ: monoidal.Ty, width=0.25) -> monoidal.Ty:
+class Ribbon:
     """
-    Doubles every object of a type into the two rails of a ribbon, setting the
-    :attr:`min_right_margin` of the first rail to ``width - 1`` so that the two
-    rails are drawn ``width`` apart rather than at the usual minimal width.
+    The colour region of a ribbon in the dual rail encoding of a balanced or
+    ribbon diagram, see :meth:`double_rail`. It is shared by the two rails of a
+    ribbon and carries both the colour filling the inside of the ribbon and the
+    gap between its two rails. Being a property of the region rather than of
+    the rails, it is preserved when the adjoint of a compound type reverses
+    the order of the two rails.
+
+    Parameters:
+        color : The colour filling the inside of the ribbon, or ``None``.
+        width : The gap between the two rails of the ribbon.
+    """
+    def __init__(self, color=None, width=0.25):
+        self.color, self.width = color, width
+
+    def __repr__(self):
+        return f"Ribbon(color={self.color!r}, width={self.width!r})"
+
+
+def double_rail(typ: monoidal.Ty, width=0.25, color=None) -> monoidal.Ty:
+    """
+    Doubles every object of a type into the two rails of a ribbon, both sharing
+    a :class:`Ribbon` so that they are drawn ``width`` apart (rather than at
+    the usual minimal width) and the inside of the ribbon is filled with
+    ``color``.
+
+    Parameters:
+        typ : The type to double.
+        width : The gap between the two rails of each ribbon.
+        color : The colour with which to fill the inside of each ribbon. It can
+            be a colour name (used for every ribbon) or a function from object
+            to colour name (or ``None`` for no fill). Defaults to ``None``.
     """
     rails = []
     for ob in typ.inside:
         left, right = copy(ob), copy(ob)
-        left.min_right_margin = width - 1
+        left.ribbon = right.ribbon = Ribbon(
+            color(ob) if callable(color) else color, width)
         rails += [left, right]
     return type(typ)(*rails)
+
+
+def ribbon_color_map(diagram, color="auto"):
+    """
+    Resolves the ``color`` argument of :meth:`Diagram.to_braided` into a
+    function from object to colour name (or ``None`` for no fill).
+
+    ``color`` can be ``None`` (no fill), a colour name (used for every ribbon),
+    a mapping from object name to colour name, a function from object to colour
+    name, or ``"auto"`` (the default) which cycles through
+    :data:`RIBBON_COLORS` assigning one colour per distinct object. An object
+    and its adjoint encode the same wire, hence share the same ribbon colour.
+    """
+    if color is None or callable(color):
+        return color
+    if hasattr(color, "get"):  # A mapping from object name to colour name.
+        return lambda ob: color.get(ob.name)
+    if color != "auto":  # A single colour name used for every ribbon.
+        return lambda ob: color
+    names = sorted({ob.name for ob in _atoms(diagram)})
+    palette = {name: RIBBON_COLORS[i % len(RIBBON_COLORS)]
+               for i, name in enumerate(names)}
+    return lambda ob: palette.get(ob.name)
+
+
+def _atoms(diagram):
+    # Every object appearing in the domain, codomain or boxes of a diagram.
+    obs = list(getattr(diagram.dom, "inside", ()))
+    for box in diagram.boxes:
+        obs += list(box.dom.inside) + list(box.cod.inside)
+    return obs
 
 
 @ar_factory
@@ -93,7 +154,7 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
             >> cls.twist(dom[1:]) @ cls.twist_factory(dom[0])\
             >> cls.braid(dom[1:], dom[0])
 
-    def to_braided(self, width=0.25):
+    def to_braided(self, width=0.25, color="auto"):
         """
         Doubles evry object and sends the twist to the braid.
 
@@ -102,6 +163,9 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
                 encoding each object, default is ``0.25`` (four times closer
                 than the minimal width). If ``None``, the underlying braided
                 diagram is returned rather than its drawing.
+            color : The colour with which to fill the inside of each ribbon,
+                see :func:`ribbon_color_map`. Defaults to ``"auto"``, i.e. one
+                colour per distinct object. Use ``None`` for no fill.
 
         Example
         -------
@@ -116,8 +180,10 @@ class Diagram(braided.Diagram, traced.Diagram, BalancedCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.png
         """
+        get_color = ribbon_color_map(self, color)
+
         def double(x):
-            return x @ x if width is None else double_rail(x, width)
+            return x @ x if width is None else double_rail(x, width, get_color)
 
         class DualRail(Functor):
             cod = braided.Diagram

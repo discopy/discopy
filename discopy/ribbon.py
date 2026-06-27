@@ -107,7 +107,7 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
         cup = self.cup_factory(self.cod[y - 1], self.cod[y])
         return self >> self.cod[:y - 1] @ cup @ self.cod[y + 1:]
 
-    def to_ribbons(self, width=0.25):
+    def to_ribbons(self, width=0.25, color="auto"):
         """
         Doubles evry object and sends the twist to the braid.
 
@@ -116,6 +116,10 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
                 encoding each object, default is ``0.25`` (four times closer
                 than the minimal width). If ``None``, the underlying ribbon
                 diagram is returned rather than its drawing.
+            color : The colour with which to fill the inside of each ribbon,
+                see :func:`discopy.balanced.ribbon_color_map`. Defaults to
+                ``"auto"``, i.e. one colour per distinct object. Use ``None``
+                for no fill.
 
         Example
         -------
@@ -125,8 +129,11 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
 
         .. image:: /_static/balanced/twist_dual_rail.png
         """
+        get_color = balanced.ribbon_color_map(self, color)
+
         def double(x):
-            return x @ x if width is None else balanced.double_rail(x, width)
+            return x @ x if width is None\
+                else balanced.double_rail(x, width, get_color)
 
         class DualRail(Functor):
             def __call__(self, other):

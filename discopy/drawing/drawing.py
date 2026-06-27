@@ -102,13 +102,21 @@ def _wire_offsets(ty) -> tuple:
 
     Each object's :attr:`min_right_margin` pushes every wire to its right
     further along, so wire ``i`` is shifted by the sum of the margins of the
-    objects before it. Returns ``(offsets, total)`` where ``total`` is the sum
-    of all the margins, i.e. the extra width the type takes up.
+    objects before it. The two rails of a ribbon (i.e. two consecutive wires
+    sharing a :class:`~discopy.balanced.Ribbon`) are instead drawn the ribbon's
+    width apart, whichever order they are in after taking an adjoint. Returns
+    ``(offsets, total)`` where ``total`` is the sum of all the margins, i.e.
+    the extra width the type takes up.
     """
     offsets, total = [], 0
-    for ob in getattr(ty, "inside", ()):
+    obs = list(getattr(ty, "inside", ()))
+    for i, ob in enumerate(obs):
         offsets.append(total)
         total += getattr(ob, "min_right_margin", 0)
+        ribbon = getattr(ob, "ribbon", None)
+        nxt = obs[i + 1] if i + 1 < len(obs) else None
+        if ribbon is not None and getattr(nxt, "ribbon", None) is ribbon:
+            total += ribbon.width - 1  # Squeeze the two rails of a ribbon.
     return offsets, total
 
 

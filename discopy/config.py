@@ -86,6 +86,11 @@ COLORS = {
     "black": '#000000',
 }
 
+# Palette cycled through to fill the inside of ribbons in the dual rail drawing
+# of balanced and ribbon diagrams, one colour per distinct object, see
+# :meth:`discopy.balanced.Diagram.to_braided`.
+RIBBON_COLORS = ("red", "green", "blue", "yellow")
+
 # Mapping from tikz shapes to matplotlib shapes.
 SHAPES = {
     "rectangle": 's',

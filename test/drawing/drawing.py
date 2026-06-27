@@ -242,6 +242,23 @@ def test_draw_wire_min_right_margin():
     return Id(x @ long_type @ x)
 
 
+@draw_and_compare('ribbon-colors.png', wire_labels=False, aspect='equal')
+def test_draw_ribbon_colors():
+    # The inside of each ribbon is filled with a colour in the dual rail
+    # drawing of a ribbon diagram, covering the straight rails, the cups, caps
+    # and braids, with the colour and width preserved across the adjoint.
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    return Braid(x, x).trace(left=False).to_ribbons()
+
+
+@tikz_and_compare('ribbon-colors.tikz', wire_labels=False)
+def test_tikz_ribbon_colors():
+    from discopy.ribbon import Ty, Braid
+    x = Ty('x')
+    return Braid(x, x).trace(left=False).to_ribbons()
+
+
 def test_to_gif():
     from discopy.grammar.pregroup import (
          Ty, Cup, Cap, Box, Word, Functor)

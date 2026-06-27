@@ -85,12 +85,12 @@ class Ob(cat.Ob):
     @property
     def l(self) -> Ob:
         """ The left adjoint of the object. """
-        return type(self)(self.name, self.z - 1)
+        return self._with_drawing_attrs(type(self)(self.name, self.z - 1))
 
     @property
     def r(self) -> Ob:
         """ The right adjoint of the object. """
-        return type(self)(self.name, self.z + 1)
+        return self._with_drawing_attrs(type(self)(self.name, self.z + 1))
 
     def __eq__(self, other):
         return cat.Ob.__eq__(self, other) and self.z == other.z
