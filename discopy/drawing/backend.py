@@ -116,7 +116,8 @@ class Backend(ABC):
         i += pad_i
         j -= pad_j
         fontsize = params.get('fontsize_types', params.get('fontsize', None))
-        self.draw_text(label, i, j, verticalalignment='top', fontsize=fontsize)
+        self.draw_text(label, i, j, verticalalignment='top',
+                       family='monospace', fontsize=fontsize)
 
     def draw_wires(self, graph, **params):
         for source, target in graph.edges():

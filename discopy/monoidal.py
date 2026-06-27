@@ -219,7 +219,10 @@ class Ty(Ob):
     __add__ = __matmul__
 
     def to_drawing(self) -> Ty:
-        return Ty(*map(str, self.inside))
+        result = Ty(*map(str, self.inside))
+        for old, new in zip(self.inside, result.inside):
+            new.min_right_margin = getattr(old, "min_right_margin", 0)
+        return result
 
 
 @ob_factory

@@ -233,6 +233,15 @@ def test_draw_box_min_width():
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
 
 
+@draw_and_compare('wire-min-right-margin.png', aspect='equal')
+def test_draw_wire_min_right_margin():
+    # An object's `min_right_margin` adds space to the right of its wire,
+    # e.g. to fit a long label without colliding with the next wire.
+    x, long_type = Ty('x'), Ty('a_long_type_name')
+    long_type.inside[0].min_right_margin = 1.5
+    return Id(x @ long_type @ x)
+
+
 def test_to_gif():
     from discopy.grammar.pregroup import (
          Ty, Cup, Cap, Box, Word, Functor)

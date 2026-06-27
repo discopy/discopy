@@ -95,6 +95,21 @@ def _box_min_width(box) -> float:
         getattr(box, "box_label_width", 0), getattr(box, "min_width", 0))
 
 
+def _wire_offsets(ty) -> tuple:
+    """ The extra x-offset of each wire of a type, and their total.
+
+    Each object's :attr:`min_right_margin` pushes every wire to its right
+    further along, so wire ``i`` is shifted by the sum of the margins of the
+    objects before it. Returns ``(offsets, total)`` where ``total`` is the sum
+    of all the margins, i.e. the extra width the type takes up.
+    """
+    offsets, total = [], 0
+    for ob in getattr(ty, "inside", ()):
+        offsets.append(total)
+        total += getattr(ob, "min_right_margin", 0)
+    return offsets, total
+
+
 class PlaneGraph(NamedTuple):
     """ A plane graph is a graph with a mapping from nodes to points. """
     graph: nx.DiGraph
@@ -441,14 +456,22 @@ class Drawing(TracedCategory):
                 obj.reposition_label = 0.5 if (
                     box.bubble_closing or box.bubble_opening and i) else 0.25
 
+        # Extra space added to the right of each wire by its min_right_margin.
+        extra_dom, acc_dom = _wire_offsets(box.dom)
+        extra_cod, acc_cod = _wire_offsets(box.cod)
+        if box.bubble_opening or box.bubble_closing:
+            # The boundary wires of a bubble are placed by hand below, so we
+            # leave their wires evenly spaced rather than apply margins.
+            extra_dom, acc_dom = [0] * len(box.dom), 0
+            extra_cod, acc_cod = [0] * len(box.cod), 0
+
         if box.bubble_opening:
             width = max(1, len(box.dom), len(box.cod) - 2) + 0.5
         elif box.bubble_closing:
             width = max(1, len(box.dom) - 2, len(box.cod)) + 0.5
-        elif len(box.dom) <= 1 and len(box.cod) <= 1:
-            width = 1
         else:
-            width = max(len(box.dom), len(box.cod))
+            width = max(
+                1, len(box.dom) + acc_dom, len(box.cod) + acc_cod)
 
         # Reserve enough horizontal space to fit the box's name or min_width,
         # leaving a 0.25 margin on either side between the box and its
@@ -492,11 +515,14 @@ class Drawing(TracedCategory):
             dom, box_dom = dom[1:-1], box_dom[1:-1]
 
         result.add_nodes({
-            x: Point(i + (width - len(xs) + 1) / 2, y) for xs, y in [
-                (dom, height),
-                (box_dom, height if box.draw_as_wires else height - 0.25),
-                (box_cod, 0 if box.draw_as_wires else 0.25),
-                (cod, 0)]
+            x: Point((width - len(xs) - acc) / 2 + 0.5 + i + extra[i], y)
+            for xs, y, extra, acc in [
+                (dom, height, extra_dom, acc_dom),
+                (box_dom, height if box.draw_as_wires else height - 0.25,
+                 extra_dom, acc_dom),
+                (box_cod, 0 if box.draw_as_wires else 0.25,
+                 extra_cod, acc_cod),
+                (cod, 0, extra_cod, acc_cod)]
             for i, x in enumerate(xs)})
         return result
 
@@ -524,14 +550,18 @@ class Drawing(TracedCategory):
         from discopy.monoidal import Ty
         dom = Ty() if dom is None else dom
         inside = PlaneGraph(nx.DiGraph(), dict())
-        height, width = 0.5, len(dom) - 0.5 if len(dom) > 1 else 0.5
+        offsets, margin = _wire_offsets(dom)
+        height, width = 0.5, margin + (
+            len(dom) - 0.5 if len(dom) > 1 else 0.5)
         result = Drawing(inside, dom, dom, (), width, height, _check=False)
         dom_nodes = [Node("dom", i=i, x=x) for i, x in enumerate(dom)]
         cod_nodes = [Node("cod", i=i, x=x) for i, x in enumerate(dom)]
         result.add_nodes({
-            x: Point(i + 0.25, 1) for i, x in enumerate(dom_nodes)})
+            x: Point(i + 0.25 + offsets[i], 1)
+            for i, x in enumerate(dom_nodes)})
         result.add_nodes({
-            x: Point(i + 0.25, 0) for i, x in enumerate(cod_nodes)})
+            x: Point(i + 0.25 + offsets[i], 0)
+            for i, x in enumerate(cod_nodes)})
         result.add_edges(list(zip(dom_nodes, cod_nodes)))
         return result
 

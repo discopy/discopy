@@ -113,7 +113,18 @@ class Ob:
     -------
     >>> x, x_, y = Ob('x'), Ob('x'), Ob('y')
     >>> assert x == x_ and x != y
+
+    Note
+    ----
+    The drawing attribute :code:`min_right_margin` sets how much extra
+    horizontal space (in drawing units) is added to the right of a wire
+    labelled by this object, e.g. to make room for a long label.
+
+    >>> x.min_right_margin = 1.5
     """
+    #: Extra space drawn to the right of a wire labelled by this object.
+    min_right_margin = 0
+
     def __setstate__(self, state):
         if "name" not in state and "_name" in state:
             state["name"] = state["_name"]
