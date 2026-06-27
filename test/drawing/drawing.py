@@ -194,6 +194,25 @@ def test_draw_legend_uses_colour_label():
     plt.close(backend.axis.figure)
 
 
+def test_draw_legend_figsize_and_space():
+    import os
+    import tempfile
+    from matplotlib import image as mpimg
+    red, green = monoidal.Colour("red"), monoidal.Colour("green")
+    x = monoidal.Ty(monoidal.Ob("x", red, green))
+    box = monoidal.Box("f", x, x)
+    with tempfile.TemporaryDirectory() as folder:
+        plain = os.path.join(folder, "plain.png")
+        legend = os.path.join(folder, "legend.png")
+        box.draw(show=False, figsize=(3, 2), path=plain)
+        # With an explicit figsize the figure is widened by legend_space.
+        box.draw(show=False, figsize=(3, 2), legend=True, legend_space=2,
+                 path=legend)
+        assert mpimg.imread(legend).shape[1] > mpimg.imread(plain).shape[1]
+    # legend=True on an uncoloured diagram adds nothing.
+    Box("g", Ty("a"), Ty("a")).draw(show=False, legend=True)
+
+
 @draw_and_compare('crack-two-eggs-at-once.png')
 def test_crack_two_eggs_at_once():
     from discopy.monoidal import Layer
