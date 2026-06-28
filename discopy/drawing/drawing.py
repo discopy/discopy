@@ -684,7 +684,7 @@ class Drawing(TracedCategory):
         result.height += y
         return result
 
-    def frame_dual_rail(self, margin=0.25):
+    def frame_dual_rail(self, margin=0.5):
         """
         Reframe a dual rail drawing so its boundary box contains the cup and
         cap arcs, which fold past the layout, with a uniform ``margin`` on each
