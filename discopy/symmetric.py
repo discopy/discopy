@@ -212,10 +212,6 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self >> self.permutation(list(xs), self.cod)
 
-    def to_hypergraph(self) -> Hypergraph:
-        """ Translate a diagram into a hypergraph. """
-        return hypergraph.Hypergraph[type(self).ar].from_diagram(self)
-
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
