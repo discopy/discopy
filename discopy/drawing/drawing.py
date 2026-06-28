@@ -247,6 +247,7 @@ class Drawing(TracedCategory):
                 box.is_dagger and not box.draw_as_braid)
             for box in self.boxes))
         self.add_box_corners()
+        self.frame_dual_rail()
         return backend.draw(self, asymmetry=asymmetry, **params)
 
     def add_box_corners(self):
