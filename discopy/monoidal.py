@@ -712,13 +712,37 @@ class Diagram(cat.Arrow, MonoidalCategory):
         -------
         >>> x, y = Ty('x'), Ty('y')
         >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
-        >>> diagram = y @ f0 >> f1 @ y
+        >>> diagram = f0 @ y >> y @ f1
         >>> print(diagram.foliation())
-        f1 @ f0
+        f0 @ f1
         >>> print(diagram.foliation().to_staircases())
-        f1 @ x >> x @ f0
+        f0 @ y >> y @ f1
         """
         return Functor.id(self.ar)(self)
+
+    def to_hypergraph(self) -> Hypergraph:
+        """
+        Translate a planar diagram into a hypergraph.
+
+        Each box keeps the offset at which it sits, so
+        :meth:`discopy.hypergraph.Hypergraph.to_diagram` can place it back
+        without ever needing a swap -- this is what makes the round trip work
+        for a category without symmetry. Diagrams that do not embed into a
+        hypergraph (e.g. the cups and caps of a rigid or pregroup category,
+        which are not those of a compact-closed one) return
+        :data:`NotImplemented` rather than raising.
+
+        Example
+        -------
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f0, f1 = Box('f0', x, y), Box('f1', y, x)
+        >>> diagram = f0 @ f1.dagger() >> f0.dagger() @ f1
+        >>> assert diagram.to_hypergraph().to_diagram() == diagram.foliation()
+        """
+        try:
+            return self.hypergraph_factory.from_diagram(self)
+        except TypeError:  # cups and caps do not embed, e.g. in pregroup.
+            return NotImplemented
 
     def foliation(self):
         """
@@ -742,21 +766,18 @@ class Diagram(cat.Arrow, MonoidalCategory):
         ----
         If one defines a foliation as a sequence of unmergeable layers,
         there may exist many distinct foliations for the same diagram. When
-        the diagram can be translated to a hypergraph (i.e. it has a
-        ``to_hypergraph`` method) and the result is monogamous, causal and
-        boundary-connected, the foliation is read off the hypergraph in one
-        pass over the boundary (see :meth:`discopy.hypergraph.Hypergraph\
-.to_diagram`). Otherwise this scans top to bottom and merges layers eagerly.
+        the diagram embeds into a hypergraph (i.e. :meth:`to_hypergraph` does
+        not return :data:`NotImplemented`) and the result is monogamous,
+        causal and boundary-connected, the foliation is read off the
+        hypergraph in one pass over the boundary (see
+        :meth:`discopy.hypergraph.Hypergraph.to_diagram`). Otherwise this scans
+        top to bottom and merges layers eagerly.
         """
-        if hasattr(self, "to_hypergraph"):
-            try:
-                hypergraph = self.to_hypergraph()
-            except TypeError:  # cups and caps do not embed, e.g. in pregroup
-                hypergraph = None
-            if hypergraph is not None and hypergraph.is_monogamous\
-                    and hypergraph.is_causal\
-                    and hypergraph.is_boundary_connected:
-                return hypergraph.to_diagram()
+        hypergraph = self.to_hypergraph()
+        if hypergraph is not NotImplemented and hypergraph.is_monogamous\
+                and hypergraph.is_causal\
+                and hypergraph.is_boundary_connected:
+            return hypergraph.to_diagram()
         diagram = self
         while len(diagram) > 1:
             keep_on_going = False

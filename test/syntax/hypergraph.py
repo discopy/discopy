@@ -20,7 +20,7 @@ def test_Hypergraph_str():
     x, y = map(Ty, "xy")
     assert str(H.swap(x, y)) == "Swap(x, y)"
     assert str(H.spiders(1, 0, x @ y))\
-        == "Spider(1, 0, x) @ y >> Spider(1, 0, y)"
+        == "Spider(1, 0, x) @ Spider(1, 0, y)"
 
 
 def test_Hypergraph_repr():
@@ -174,4 +174,6 @@ def test_simplify():
     with Diagram.hypergraph_equality:
         assert residual_block == ref == simpl
 
-    assert simpl == ref
+    # to_diagram foliates, so simpl is the (tighter) foliation of ref rather
+    # than its point-free, one-box-per-layer presentation.
+    assert simpl == ref.foliation()
