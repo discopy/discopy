@@ -688,9 +688,10 @@ class Drawing(TracedCategory):
         """
         Reframe a dual rail drawing so its boundary box contains the cup and
         cap arcs, which fold past the layout, with a uniform ``margin`` on each
-        side. This keeps the margins right at construction rather than letting
-        the arcs run into the border. Drawings without dual rail cups or caps
-        (found by the ``draw_as_dual_rail_cup`` attribute) are left unchanged.
+        side. The input and output (identity) wires still run all the way to
+        the top and bottom borders, only the folds are held a ``margin`` away.
+        Drawings without dual rail cups or caps (found by the
+        ``draw_as_dual_rail_cup`` attribute) are left unchanged.
         """
         from discopy.config import RIBBON_FOLD_DEPTH
         cups = [node for node in self.box_nodes
@@ -698,8 +699,9 @@ class Drawing(TracedCategory):
         if not cups:
             return self
         xs = [p.x for p in self.positions.values()]
-        ys = [p.y for p in self.positions.values()]
-        left, right, bottom, top = min(xs), max(xs), min(ys), max(ys)
+        # The folds may bulge below the bottom (cups) or above the top (caps).
+        left, right = min(xs), max(xs)
+        bottom, top = 0.0, self.height
         for node in cups:
             box = node.box
             kind, wires = ("box_dom", box.dom) if box.dom\
@@ -717,6 +719,12 @@ class Drawing(TracedCategory):
             for n, p in self.positions.items()})
         self.width = right - left + 2 * margin
         self.height = top - bottom + 2 * margin
+        # The identity wires run to the borders rather than stopping a margin
+        # short, so that the diagram still composes along its inputs/outputs.
+        for node in self.dom_nodes:
+            self.positions[node] = Point(self.positions[node].x, self.height)
+        for node in self.cod_nodes:
+            self.positions[node] = Point(self.positions[node].x, 0)
         return self
 
     @unbiased
