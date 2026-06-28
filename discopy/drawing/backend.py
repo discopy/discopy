@@ -32,7 +32,7 @@ from discopy.drawing import Node, Point
 
 from discopy.config import (  # noqa: F401
     DRAWING_ATTRIBUTES as ATTRIBUTES,
-    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES)
+    DRAWING_DEFAULT as DEFAULT, COLORS, SHAPES, RIBBON_FOLD_DEPTH)
 
 if TYPE_CHECKING:
     from discopy.drawing import PlaneGraph
@@ -182,27 +182,18 @@ class Backend(ABC):
                 ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
                 ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
 
-    def _half_circle_beziers(self, left, right, centre, sign):
-        # The two Bezier control groups of the arc of a half circle, see
-        # _half_circle, from (left, centre) to (right, centre).
+    def _half_circle_beziers(self, left, right, centre, sign, depth=None):
+        # The two Bezier control groups of the arc of a half circle (or ellipse
+        # if ``depth`` differs from the radius), from (left, centre) to
+        # (right, centre) bulging to ``centre + sign * depth`` at the apex.
         middle, radius = (left + right) / 2, (right - left) / 2
-        k = radius * 4 * (sqrt(2) - 1) / 3
-        apex = centre + sign * radius
-        return ([(left, centre), (left, centre + sign * k),
-                 (middle - k, apex), (middle, apex)],
-                [(middle, apex), (middle + k, apex),
-                 (right, centre + sign * k), (right, centre)])
-
-    def _fold_steps(self, left, right, end, centre, sign):
-        # The boundary of one rail of a ribbon fold, from (left, end) to
-        # (right, end): a vertical side down to ``centre``, the arc and back.
-        # The vertical sides are omitted for an unnested fold (end = centre).
-        arc1, arc2 = self._half_circle_beziers(left, right, centre, sign)
-        down = [("line", (left, centre))] if end != centre else []
-        up = [("line", (right, end))] if end != centre else []
-        return down + [
-            ("curve", arc1[1], arc1[2], arc1[3]),
-            ("curve", arc2[1], arc2[2], arc2[3])] + up
+        depth = radius if depth is None else depth
+        kx, ky = (d * 4 * (sqrt(2) - 1) / 3 for d in (radius, depth))
+        apex = centre + sign * depth
+        return ([(left, centre), (left, centre + sign * ky),
+                 (middle - kx, apex), (middle, apex)],
+                [(middle, apex), (middle + kx, apex),
+                 (right, centre + sign * ky), (right, centre)])
 
     def draw_braid_strand(self, source, target, middle, gap=0):
         """
@@ -327,68 +318,52 @@ class Backend(ABC):
                 [(left, end), (left, control), (right, control), (right, end)])
         self._half_circle(left, right, end, centre, -1 if down else 1)
 
-    def _half_circle(self, left, right, end, centre, sign):
-        # A half circle from (left, end) to (right, end) with vertical sides
-        # down to ``centre``, drawn as two quarters with the Bezier constant.
-        middle, radius = (left + right) / 2, (right - left) / 2
-        k = radius * 4 * (sqrt(2) - 1) / 3
+    def _half_circle(self, left, right, end, centre, sign, depth=None):
+        # A half circle (or ellipse if ``depth`` differs from the radius) from
+        # (left, end) to (right, end) with vertical sides down to ``centre``,
+        # drawn as two quarters with the Bezier constant.
         if end != centre:
             self.draw_wire((left, end), (left, centre))
             self.draw_wire((right, centre), (right, end))
-        self.draw_bezier([
-            (left, centre), (left, centre + sign * k),
-            (middle - k, centre + sign * radius),
-            (middle, centre + sign * radius)])
-        self.draw_bezier([
-            (middle, centre + sign * radius),
-            (middle + k, centre + sign * radius),
-            (right, centre + sign * k), (right, centre)])
+        arcs = self._half_circle_beziers(left, right, centre, sign, depth)
+        self.draw_bezier(arcs[0])
+        self.draw_bezier(arcs[1])
 
     @staticmethod
-    def _dual_rail_cup_ends(positions, node):
-        # The left end, right end and shared height of a dual rail cup or cap.
-        box, j = node.box, node.j
-        kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
-        xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in (0, 3)]
-        return xs[0][0], xs[1][0], xs[0][1]
+    def _fold_depths(xs):
+        # The vertical depth of the outer and inner fold of a dual rail cup,
+        # capping the half circle so a wide cup flattens into an ellipse. The
+        # inner fold is one ribbon width shallower, keeping the band width.
+        radius, ribbon = (xs[3][0] - xs[0][0]) / 2, xs[1][0] - xs[0][0]
+        outer = min(radius, RIBBON_FOLD_DEPTH)
+        return outer, outer - ribbon
 
     def draw_dual_rail_cup(self, positions, node, **params):
         """
         Draws a :class:`discopy.ribbon.DualRailCup` (or cap) as a single
         constant-width fold, i.e. two concentric half circles joining the outer
-        and inner rails of two ribbons. Like :meth:`draw_cup_or_cap`, nested
-        folds share the centre of the tightest one they sit in, so the inner
-        ribbon nests snugly rather than bunching up in the middle.
+        and inner rails of two ribbons. A wide cup is flattened into a half
+        ellipse of depth :data:`~discopy.config.RIBBON_FOLD_DEPTH` so that the
+        drawing stays compact, see :meth:`draw_dual_rail.frame_dual_rail`.
         """
         box, j = node.box, node.j
         kind, wires = ("box_dom", box.dom) if box.dom else ("box_cod", box.cod)
         xs = [positions[Node(kind, i=i, j=j, x=wires[i])] for i in range(4)]
-        left, right, end = self._dual_rail_cup_ends(positions, node)
-        down, sign = bool(box.dom), -1 if box.dom else 1
-        # Share the centre of the tightest dual rail fold we are nested in.
-        centre, span = end, float("inf")
-        for other in positions:
-            if other.kind != "box" or other is node\
-                    or not getattr(other.box, "draw_as_dual_rail_cup", False)\
-                    or bool(other.box.dom) != down:
-                continue
-            o_left, o_right, o_end = self._dual_rail_cup_ends(positions, other)
-            if o_left < left and right < o_right and o_right - o_left < span:
-                centre, span = o_end, o_right - o_left
+        end, sign = xs[0][1], -1 if box.dom else 1
+        outer_depth, inner_depth = self._fold_depths(xs)
         color = self._ribbon_color(wires[:1])
         if color is not None:  # Fill the fold between outer and inner arcs.
-            steps = self._fold_steps(xs[0][0], xs[3][0], end, centre, sign)
-            steps.append(("line", (xs[2][0], end)))  # The mouth of the fold.
-            arc1, arc2 = self._half_circle_beziers(
-                xs[1][0], xs[2][0], centre, sign)
-            down = [("line", (xs[2][0], centre))] if end != centre else []
-            up = [("line", (xs[1][0], end))] if end != centre else []
-            steps += down + [  # The inner rail, traversed back to the mouth.
-                ("curve", arc2[2], arc2[1], arc2[0]),
-                ("curve", arc1[2], arc1[1], arc1[0])] + up
-            self.draw_filled_shape((xs[0][0], end), steps, color)
-        for a, b in [(0, 3), (1, 2)]:  # The outer and the inner fold.
-            self._half_circle(xs[a][0], xs[b][0], end, centre, sign)
+            outer = self._half_circle_beziers(
+                xs[0][0], xs[3][0], end, sign, outer_depth)
+            inner = self._half_circle_beziers(
+                xs[1][0], xs[2][0], end, sign, inner_depth)
+            self.draw_filled_shape(outer[0][0], [
+                ("curve", *outer[0][1:]), ("curve", *outer[1][1:]),
+                ("line", inner[1][3]),
+                ("curve", inner[1][2], inner[1][1], inner[1][0]),
+                ("curve", inner[0][2], inner[0][1], inner[0][0])], color)
+        for (a, b), depth in [((0, 3), outer_depth), ((1, 2), inner_depth)]:
+            self._half_circle(xs[a][0], xs[b][0], end, end, sign, depth)
 
     def draw_braid(self, positions, node):
         """

@@ -91,6 +91,12 @@ COLORS = {
 # :meth:`discopy.balanced.Diagram.to_braided`.
 RIBBON_COLORS = ("red", "green", "blue", "yellow")
 
+# The vertical depth that a ribbon cup or cap folds by in the dual rail
+# drawing. It caps the depth of the fold's half circle, so that a wide cup
+# flattens into an ellipse rather than a deep semicircle and the drawing stays
+# compact.
+RIBBON_FOLD_DEPTH = 1.0
+
 # Mapping from tikz shapes to matplotlib shapes.
 SHAPES = {
     "rectangle": 's',

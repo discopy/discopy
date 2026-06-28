@@ -691,6 +691,7 @@ class Drawing(TracedCategory):
         the arcs run into the border. Drawings without dual rail cups or caps
         (found by the ``draw_as_dual_rail_cup`` attribute) are left unchanged.
         """
+        from discopy.config import RIBBON_FOLD_DEPTH
         cups = [node for node in self.box_nodes
                 if getattr(node.box, "draw_as_dual_rail_cup", False)]
         if not cups:
@@ -705,10 +706,11 @@ class Drawing(TracedCategory):
             ends = [self.positions[Node(kind, i=i, j=node.j, x=wires[i])]
                     for i in (0, 3)]
             radius, wire_y = abs(ends[1].x - ends[0].x) / 2, ends[0].y
+            depth = min(radius, RIBBON_FOLD_DEPTH)  # The fold is capped.
             if box.dom:  # A cup folds downwards.
-                bottom = min(bottom, wire_y - radius)
+                bottom = min(bottom, wire_y - depth)
             else:  # A cap folds upwards.
-                top = max(top, wire_y + radius)
+                top = max(top, wire_y + depth)
         self.relabel_nodes(copy=False, positions={
             n: p.shift(x=margin - left, y=margin - bottom)
             for n, p in self.positions.items()})
