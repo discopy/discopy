@@ -58,19 +58,11 @@ def draw(graph: PlaneGraph, **params):
     backend.draw_boxes(graph, **params)
     backend.draw_spiders(graph, **params)
 
-    # The arcs of dual rail cups and caps bulge past the layout, so such a
-    # drawing leaves a uniform margin around its actual content rather than the
-    # boundary box, see Matplotlib.output.
-    ribbon = any(
-        n.kind == "box" and any(getattr(n.box, attr, False) for attr in (
-            "draw_as_dual_rail_cup", "draw_as_dual_rail_braid",
-            "draw_as_dual_rail_twist")) for n in graph.nodes)
-
     return backend.output(
         path=params.get('path', None),
         baseline=graph.height / 2 or .5,
         tikz_options=params.get('tikz_options', None),
-        show=params.get('show', True), aspect=aspect, ribbon=ribbon,
+        show=params.get('show', True), aspect=aspect,
         margins=params.get('margins', DEFAULT['margins']))
 
 
@@ -93,21 +85,6 @@ class Backend(ABC):
     """ Abstract drawing backend. """
     def __init__(self, linewidth=1):
         self.max_width = 0
-        # The bounding box of the drawn geometry, excluding the boundary box
-        # and text, used to leave a uniform margin around e.g. ribbon cups that
-        # bulge past the layout. As [x_min, y_min, x_max, y_max].
-        self.bounds = [float("inf"), float("inf"),
-                       float("-inf"), float("-inf")]
-        self._drawing_boundary = False
-
-    def _extend_bounds(self, points):
-        # Grow the bounding box to contain ``points`` (skipping the boundary).
-        if self._drawing_boundary:
-            return
-        for x, y in points:
-            self.bounds = [
-                min(self.bounds[0], x), min(self.bounds[1], y),
-                max(self.bounds[2], x), max(self.bounds[3], y)]
 
     def draw_text(self, text, i, j, **params):
         """ Draws a piece of text at a given position. """
@@ -116,23 +93,19 @@ class Backend(ABC):
     def draw_node(self, i, j, **params):
         """ Draws a node for a given position, color and shape. """
         self.max_width = max(self.max_width, i)
-        self._extend_bounds([(i, j)])
 
     def draw_polygon(self, *points, facecolor=None, edgecolor=None):
         """ Draws a polygon given a list of points. """
         self.max_width = max(self.max_width, max(i for i, _ in points))
-        self._extend_bounds(points)
 
     def draw_wire(self, source, target,
                   bend_out=False, bend_in=False, style=None):
         """ Draws a wire from source to target, possibly with a Bezier. """
         self.max_width = max(self.max_width, source[0], target[0])
-        self._extend_bounds([source, target])
 
     def draw_bezier(self, points):
         """ Draws a cubic Bezier curve from a list of four control points. """
         self.max_width = max(self.max_width, max(x for x, _ in points))
-        self._extend_bounds(points)
 
     def draw_filled_shape(self, start, steps, color):
         """
@@ -144,7 +117,6 @@ class Backend(ABC):
         """
         points = [start] + [step[-1] for step in steps]
         self.max_width = max([self.max_width] + [x for x, _ in points])
-        self._extend_bounds(points)
 
     @staticmethod
     def _ribbon(typ):
@@ -260,10 +232,8 @@ class Backend(ABC):
 
     def draw_boundary(self, graph, boundary_color="white", **params):
         x, y = graph.width, graph.height
-        self._drawing_boundary = True  # Keep it out of the content bounds.
         self.draw_polygon(
             (0, 0), (x, 0), (x, y), (0, y), edgecolor=boundary_color)
-        self._drawing_boundary = False
 
     def draw_wire_label(self, x, i, j, **params):
         draw_label_anyway = params.get('draw_box_labels', True) and getattr(
@@ -950,20 +920,6 @@ class Matplotlib(Backend):
     def output(self, path=None, show=True, **params):
         xlim, ylim = params.get("xlim", None), params.get("ylim", None)
         margins = params.get("margins", DEFAULT['margins'])
-        # For a dual rail drawing with the default margins, leave a uniform
-        # quarter-unit margin around the content. This keeps the usual box
-        # layout (where wires already sit a quarter unit inside the boundary
-        # and run to the top and bottom edges) while giving the ribbon cups,
-        # whose arcs bulge past the layout, the same margin rather than
-        # touching the border.
-        if params.get("ribbon") and xlim is None and ylim is None\
-                and margins == DEFAULT['margins']\
-                and self.bounds[0] <= self.bounds[2]:
-            x_min, y_min, x_max, y_max = self.bounds
-            height = 2 * params.get("baseline", 0.5)
-            xlim = (x_min - 0.25, x_max + 0.25)
-            ylim = (y_min - 0.25 if y_min < 0 else 0,
-                    y_max + 0.25 if y_max > height else height)
         plt.margins(*margins)
         plt.subplots_adjust(
             top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)

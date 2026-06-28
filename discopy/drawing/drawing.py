@@ -683,6 +683,39 @@ class Drawing(TracedCategory):
         result.height += y
         return result
 
+    def frame_dual_rail(self, margin=0.25):
+        """
+        Reframe a dual rail drawing so its boundary box contains the cup and
+        cap arcs, which fold past the layout, with a uniform ``margin`` on each
+        side. This keeps the margins right at construction rather than letting
+        the arcs run into the border. Drawings without dual rail cups or caps
+        (found by the ``draw_as_dual_rail_cup`` attribute) are left unchanged.
+        """
+        cups = [node for node in self.box_nodes
+                if getattr(node.box, "draw_as_dual_rail_cup", False)]
+        if not cups:
+            return self
+        xs = [p.x for p in self.positions.values()]
+        ys = [p.y for p in self.positions.values()]
+        left, right, bottom, top = min(xs), max(xs), min(ys), max(ys)
+        for node in cups:
+            box = node.box
+            kind, wires = ("box_dom", box.dom) if box.dom\
+                else ("box_cod", box.cod)
+            ends = [self.positions[Node(kind, i=i, j=node.j, x=wires[i])]
+                    for i in (0, 3)]
+            radius, wire_y = abs(ends[1].x - ends[0].x) / 2, ends[0].y
+            if box.dom:  # A cup folds downwards.
+                bottom = min(bottom, wire_y - radius)
+            else:  # A cap folds upwards.
+                top = max(top, wire_y + radius)
+        self.relabel_nodes(copy=False, positions={
+            n: p.shift(x=margin - left, y=margin - bottom)
+            for n, p in self.positions.items()})
+        self.width = right - left + 2 * margin
+        self.height = top - bottom + 2 * margin
+        return self
+
     @unbiased
     def tensor(self, other: Drawing) -> Drawing:
         """

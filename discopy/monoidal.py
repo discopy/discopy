@@ -692,7 +692,8 @@ class Diagram(cat.Arrow, MonoidalCategory):
         ob = ar = lambda x: x.to_drawing()
         dom = self.ar
         cod = Drawing
-        return (functor_factory or Functor)(ob, ar, dom, cod)(self)
+        result = (functor_factory or Functor)(ob, ar, dom, cod)(self)
+        return result.frame_dual_rail()
 
     def to_staircases(self):
         """
