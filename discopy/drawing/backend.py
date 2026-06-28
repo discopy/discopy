@@ -487,10 +487,13 @@ class Backend(ABC):
         crossings = [
             [(dom[0], swap[0], upper), (dom[1], swap[1], upper)],
             [(swap[0], cod[0], lower), (swap[1], cod[1], lower)]]
-        for first_rail, second_rail in crossings:
-            # The first rail goes under at both crossings unless it is dagger.
-            under, over = (second_rail, first_rail) if box.is_dagger\
-                else (first_rail, second_rail)
+        for k, (first_rail, second_rail) in enumerate(crossings):
+            # A twist is a braid followed by another of the same handedness
+            # (not by its inverse), so the same diagonal stays on top: the
+            # rails swap which one goes under between the two crossings.
+            first_under = (k == 0) != box.is_dagger
+            under, over = (first_rail, second_rail) if first_under\
+                else (second_rail, first_rail)
             self.draw_braid_strand(under[0], under[1], under[2], gap=0.15)
             self.draw_braid_strand(over[0], over[1], over[2])
 
