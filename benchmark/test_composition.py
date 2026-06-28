@@ -35,14 +35,15 @@ from statistics import median
 from tabulate import tabulate
 
 from discopy import compact, rigid
-from discopy.symmetric import Ty, Box, Id, Diagram
+from discopy.symmetric import Ty, Box, Id, Diagram, Functor
 from discopy.monoidal import Layer
+from discopy.python import Function
 
 # Sizes swept for every case, largest first dropped once a case gets too slow.
-# Kept fairly fine-grained so the cap-crossing step is small (less wasted time
-# on the abandoned tail) and so setup-bound cases like the adder, where the
-# Diagram/Hypergraph cross over, get more resolution around the crossover.
-SIZES = [10, 20, 30, 50, 70, 100, 150, 200, 300, 500, 700, 1000]
+# A 1-2-5 series (and its multiples by powers of ten): evenly spaced on the
+# log axis the scaling plot uses, so every case gets a comparable number of
+# points across whatever range it reaches before hitting its cap.
+SIZES = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
 REPEATS = 3
 TIME_BUDGET = 600          # total CPU budget for the whole sweep, in seconds
 
@@ -62,6 +63,7 @@ CASE_MAX_SECONDS = {
     "k-fold series (Hypergraph)": 8.0,
     "adder step (Diagram)": 12.0,
     "adder step (Hypergraph)": 12.0,
+    "adder functor (Diagram)": 12.0,
     "spiral build (Diagram)": 6.0,
     "spiral build (Hypergraph)": 3.0,
     "spiral normal_form (Diagram)": 3.0,
@@ -80,6 +82,7 @@ DEFAULT_SETUP_CAP = 12.0
 CASE_SETUP_CAP = {
     "adder step (Diagram)": 90.0,
     "adder step (Hypergraph)": 90.0,
+    "adder functor (Diagram)": 90.0,
 }
 
 # case name -> {size: seconds}, in first-seen (i.e. report row) order.
@@ -254,57 +257,113 @@ def test_not_gate_series():
         lambda n: lambda: repeated(lambda a, b: a.then(b), hbox, n))
 
 
-def adder_step(adder, k, full_adder, bit):
-    """ One incremental ripple-carry step: adder(k) -> adder(k + 1). """
+def permutation(factory, xs, dom):
+    """ A permutation arrow built from swaps, generic over the category.
+
+    Mirrors :meth:`symmetric.Diagram.permutation`, but uses only ``id``,
+    ``swap``, ``tensor`` and ``then`` -- the operations every monoidal
+    category shares -- so the very same code builds a Diagram (when
+    ``factory`` is a ``symmetric.Box``/``Diagram``) or a Hypergraph directly.
+    """
+    if len(dom) <= 1:
+        return factory.id(dom)
+    i = xs[0]
+    head = factory.swap(dom[:i], dom[i:i + 1]).tensor(factory.id(dom[i + 1:]))
+    tail = factory.id(dom[i:i + 1]).tensor(permutation(
+        factory, [x - 1 if x > i else x for x in xs[1:]],
+        dom[:i] + dom[i + 1:]))
+    return head.then(tail)
+
+
+def adder_step(full_adder, adder, k):
+    """ One incremental ripple-carry step: adder(k) -> adder(k + 1).
+
+    Parameterised by the addition box ``full_adder``: a ``symmetric.Box``
+    grows a Diagram-valued adder, a ``Hypergraph`` grows a hypergraph-valued
+    one. Everything else (the identities, the swaps inside the reordering
+    permutations) is taken from the box's own category, ``type(full_adder)``,
+    so the Diagram and Hypergraph adders are built from one single recipe --
+    the only difference is which category the ``full_adder`` lives in.
+    """
+    factory = type(full_adder)
+    bit = full_adder.dom[:1]
     reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
     reorder2 = [k] + list(range(k)) + [k + 1]
-    return (adder @ Id(bit @ bit)).permute(*reorder1)\
-        .then(Id(bit ** k) @ full_adder).permute(*reorder2)
+    step = adder.tensor(factory.id(bit @ bit))
+    step = step.then(permutation(factory, reorder1, step.cod))
+    step = step.then(factory.id(bit ** k).tensor(full_adder))
+    return step.then(permutation(factory, reorder2, step.cod))
 
 
-def adder_step_hypergraph(adder_hg, k, full_adder_hg, bit):
-    """ Hypergraph counterpart of :func:`adder_step`. """
-    reorder1 = list(range(1, k + 1)) + [0, k + 1, k + 2]
-    reorder2 = [k] + list(range(k)) + [k + 1]
-    perm1 = Diagram.permutation(reorder1, bit ** (k + 3)).to_hypergraph()
-    perm2 = Diagram.permutation(reorder2, bit ** (k + 2)).to_hypergraph()
-    id_bb = Id(bit @ bit).to_hypergraph()
-    id_k = Id(bit ** k).to_hypergraph()
-    return adder_hg.tensor(id_bb).then(perm1)\
-        .then(id_k.tensor(full_adder_hg)).then(perm2)
-
-
-def incremental_adder(step, unit):
+def incremental_adder(full_adder, measure=None):
     """ A ``prepare(n)`` that grows one adder across the whole size sweep.
 
     Instead of rebuilding an ``n``-cell adder from scratch at every size
     (which is itself the dominant, super-quadratic cost), keep the running
     adder between calls and only extend it from its current size up to ``n``.
     The untimed setup at each size is then just the incremental extension, so
-    the row reaches noticeably larger sizes within the same budget. The
-    returned thunk times one further ``adder(n) -> adder(n + 1)`` step.
+    the row reaches noticeably larger sizes within the same budget.
+
+    By default the returned thunk times one further ``adder(n) -> adder(n + 1)``
+    step. Pass ``measure(adder, k)`` to time something else built from the
+    running adder instead (e.g. applying a functor to it).
     """
-    state = {"adder": unit, "size": 1}
+    if measure is None:
+        measure = lambda adder, k: lambda: adder_step(full_adder, adder, k)
+    state = {"adder": full_adder, "size": 1}
 
     def prepare(n):
         while state["size"] < n:
-            state["adder"] = step(state["adder"], state["size"])
+            state["adder"] = adder_step(
+                full_adder, state["adder"], state["size"])
             state["size"] += 1
-        adder, k = state["adder"], state["size"]
-        return lambda: step(adder, k)
+        return measure(state["adder"], state["size"])
     return prepare
 
 
 def test_adder():
     bit = Ty('bit')
     full_adder = Box('FA', bit @ bit @ bit, bit @ bit)
-    run_scaling("adder step (Diagram)", incremental_adder(
-        lambda adder, k: adder_step(adder, k, full_adder, bit), full_adder))
+    run_scaling("adder step (Diagram)", incremental_adder(full_adder))
 
     full_adder_hg = full_adder.to_hypergraph()
-    run_scaling("adder step (Hypergraph)", incremental_adder(
-        lambda adder, k: adder_step_hypergraph(adder, k, full_adder_hg, bit),
-        full_adder_hg))
+    run_scaling(
+        "adder step (Hypergraph)", incremental_adder(full_adder_hg))
+
+
+def test_adder_functor():
+    # The adder is the natural case for benchmarking *functor application*: a
+    # Python-valued functor sends the full-adder box to an actual full adder
+    # (sum and carry bits), so applying it to adder(k) compiles the whole
+    # ripple-carry diagram down to one Python function adding its input bits.
+    # We first check that function is correct -- the diagram is a carry-save
+    # accumulator, so reading its k + 1 outputs with weights [1, 2, 2, ..., 2]
+    # recovers the number of ones fed in -- then time the functor application
+    # as the adder grows.
+    bit = Ty('bit')
+    full_adder = Box('FA', bit @ bit @ bit, bit @ bit)
+
+    def full_adder_function(a, b, carry_in):
+        return a ^ b ^ carry_in, (a & b) | (carry_in & (a ^ b))
+
+    functor = Functor(
+        ob={bit: int}, ar={full_adder: full_adder_function}, cod=Function)
+
+    def carry_save_value(outputs):
+        # The first output is the running sum bit (weight 1), the rest are
+        # carries (weight 2 each); their weighted sum is the integer encoded.
+        return outputs[0] + 2 * sum(outputs[1:])
+
+    import itertools
+    adder = full_adder
+    for k in range(1, 5):  # exhaustively check the small adders are correct
+        compiled = functor(adder)
+        for bits in itertools.product((0, 1), repeat=2 * k + 1):
+            assert carry_save_value(compiled(*bits)) == sum(bits)
+        adder = adder_step(full_adder, adder, k)
+
+    run_scaling("adder functor (Diagram)", incremental_adder(
+        full_adder, measure=lambda adder, k: lambda: functor(adder)))
 
 
 def make_spiral(n_cups):
