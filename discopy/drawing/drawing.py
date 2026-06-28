@@ -343,11 +343,13 @@ class Drawing(TracedCategory):
               if n.kind == "box_cod" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
+        offsets, acc = _wire_offsets(box_dom)
+        start = (right + left - (len(box_dom) - 1) - acc) / 2
         for i, x in enumerate(box_dom):
             target = Node("box_dom", i=i, j=j, x=x)
             source, = self.graph.predecessors(target)
             for n in (source, target):
-                x = (right + left - len(box_dom) + 1) / 2 + i
+                x = start + i + offsets[i]
                 self.positions[n] = Point(x, self.positions[n].y)
 
     def reposition_box_cod(self, j=-1):
@@ -360,13 +362,15 @@ class Drawing(TracedCategory):
               if n.kind == "box_dom" and n.j == j]
         box_x = self.positions[self.box_nodes[j]].x
         left, right = min(xs + [box_x]), max(xs + [box_x])
+        offsets, acc = _wire_offsets(box.cod)
+        start = (right + left - (len(box.cod) - 1) - acc) / 2
         for i, x in enumerate(box.cod):
             source = Node("box_cod", i=i, j=j, x=x)
             target, = self.graph.successors(source)
             if target.kind != "cod":
                 return  # Otherwise we would have to reposition everything.
             for n in (source, target):
-                x = (right + left - len(box.cod) + 1) / 2 + i
+                x = start + i + offsets[i]
                 self.positions[n] = Point(x, self.positions[n].y)
             if box.draw_as_spider and len(box.cod) == 1:
                 box_node = Node("box", box=box, j=j)

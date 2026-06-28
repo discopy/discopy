@@ -259,6 +259,16 @@ def test_tikz_ribbon_colors():
     return Braid(x, x).trace(left=False).to_ribbons()
 
 
+@draw_and_compare('nested-ribbons.png', wire_labels=False, aspect='equal')
+def test_draw_nested_ribbons():
+    # Nested cups and caps stay folds of constant (ribbon) width, i.e. the
+    # inner ribbon is squeezed just like the outer one.
+    from discopy.ribbon import Ty, Diagram
+    x, y = Ty('x'), Ty('y')
+    return (Diagram.caps(x @ y, (x @ y).r)
+            >> Diagram.cups(x @ y, (x @ y).r)).to_ribbons()
+
+
 def test_to_gif():
     from discopy.grammar.pregroup import (
          Ty, Cup, Cap, Box, Word, Functor)

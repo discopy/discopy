@@ -169,12 +169,18 @@ class Backend(ABC):
         # The four control points of a braid strand, see draw_braid_strand.
         return [source, (source[0], middle), (target[0], middle), target]
 
-    def _fill_strand_band(self, first, second, middle, color):
-        # Fills the band between two parallel braid strands of a ribbon.
+    def _fill_strand_band(self, first, second, middle, color, gap=0):
+        # Fills the band between two parallel braid strands of a ribbon. A
+        # non-zero gap breaks the band around the crossing, matching the broken
+        # strands, so the ribbon going under is shadowed by the one going over.
         a, b = self._strand(*first, middle), self._strand(*second, middle)
-        self.draw_filled_shape(a[0], [
-            ("curve", a[1], a[2], a[3]), ("line", b[3]),
-            ("curve", b[2], b[1], b[0])], color)
+        spans = [(0, 1)] if not gap else [(0, 0.5 - gap), (0.5 + gap, 1)]
+        for t0, t1 in spans:
+            a_sub, b_sub = (
+                _bezier_subcurve(a, t0, t1), _bezier_subcurve(b, t0, t1))
+            self.draw_filled_shape(a_sub[0], [
+                ("curve", a_sub[1], a_sub[2], a_sub[3]), ("line", b_sub[3]),
+                ("curve", b_sub[2], b_sub[1], b_sub[0])], color)
 
     def _half_circle_beziers(self, left, right, end, sign):
         # The two Bezier control groups of the arc of a half circle, see
@@ -451,9 +457,12 @@ class Backend(ABC):
         right = ([(dom[2], cod[0]), (dom[3], cod[1])],
                  self._ribbon_color(box.dom[2:3]))
         over, under = (left, right) if box.is_dagger else (right, left)
-        for ribbon, color in (under, over):  # Fill under first, then over.
+        # Fill (and stroke) under first, then over: the band going under is
+        # broken around the crossing so the one going over is clearly on top.
+        for (ribbon, color), gap in [(under, 0.2), (over, 0)]:
             if color is not None:  # Fill the band between the two strands.
-                self._fill_strand_band(ribbon[0], ribbon[1], y_middle, color)
+                self._fill_strand_band(
+                    ribbon[0], ribbon[1], y_middle, color, gap)
         for (ribbon, _), gap in [(under, 0.2), (over, 0)]:
             for source, target in ribbon:
                 self.draw_braid_strand(source, target, y_middle, gap)
