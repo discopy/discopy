@@ -54,6 +54,27 @@ parallel wires coincide and the twist is the identity.
 
 .. image:: /_static/ribbon/strict.png
     :align: center
+
+Arbitrary ribbon diagrams, with boxes, braids, twists, cups and caps, are
+drawn in the dual rail encoding by :meth:`Diagram.to_ribbons`. Every object is
+doubled into a coloured ribbon, a braid becomes two ribbons crossing (the one
+going under is shadowed), a twist becomes a ribbon turning over and a cup or
+cap becomes a ribbon folding back.
+
+>>> y, z = Ty('y'), Ty('z')
+>>> f, g = Box('f', x @ y, x @ y), Box('g', x @ y, x @ y)
+>>> diagram = (f @ z
+...     >> x @ y @ Twist(z)
+...     >> x @ Braid(y, z)
+...     >> Braid(x, z) @ y
+...     >> z @ g
+...     >> Braid(z, x) @ y
+...     >> x @ Braid(z, y)).trace(left=False)
+>>> diagram.to_ribbons().draw(
+...     wire_labels=False, path='docs/_static/ribbon/dual_rail.png')
+
+.. image:: /_static/ribbon/dual_rail.png
+    :align: center
 """
 
 from discopy import rigid, pivotal, balanced
@@ -148,6 +169,11 @@ class Diagram(pivotal.Diagram, balanced.Diagram, RibbonCategory):
                 if isinstance(other, Cap):
                     return DualRailCap(
                         self(other.cod[:1]), self(other.cod[1:]))
+                if isinstance(other, Box) and not isinstance(other, Sum):
+                    # A generator is doubled into a box on the rails of its
+                    # ribbons; self doubles its domain and codomain per object.
+                    return Box(other.name, self(other.dom), self(other.cod),
+                               is_dagger=other.is_dagger)
                 return super().__call__(other)
 
         return DualRail(double, lambda f: f)(self)
