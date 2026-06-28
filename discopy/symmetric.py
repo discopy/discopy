@@ -586,15 +586,18 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     def to_layers(self) -> list[Layer]:
         """
-        Foliate into the smallest possible list of symmetric :class:`Layer`,
-        encoding permutations natively rather than as networks of swaps.
+        Foliate into a list of symmetric :class:`Layer`, encoding permutations
+        natively rather than as networks of swaps.
 
-        The boxes are scheduled as early as possible (ASAP), so that the
-        number of box-bearing layers equals the depth of the diagram. Swaps
-        are absorbed into :class:`Permutation`-only layers that route wires
-        between consecutive box-layers; identity permutations are dropped and
-        consecutive permutation-only layers are merged, so permutations are
-        compressed as much as the segmented structure of a layer allows.
+        Boxes are scheduled greedily, in place: scanning the wires from left to
+        right, a box happens as soon as its input wires are already lined up in
+        the right order, otherwise the wire is left as an identity. A
+        :class:`Permutation`-only layer is inserted only when no box can happen
+        without reordering, and just brings the next box's inputs together.
+        This avoids the gratuitous swaps of an ASAP schedule that gathers every
+        box to the left, at the cost of occasionally using one more box-layer.
+        Identity permutations are dropped and consecutive permutation-only
+        layers are merged.
 
         Examples
         --------
@@ -606,9 +609,10 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         >>> layers = (f >> g).to_layers()
         >>> assert [bool(l.boxes) for l in layers] == [True, True]
 
-        Parallel boxes are merged into a single layer:
+        Parallel boxes already in order happen together, with no permutation:
 
         >>> layers = (f @ g.dom >> f.cod @ g).to_layers()
+        >>> assert len(layers) == 1 and len(layers[0].boxes) == 2
 
         Swaps become permutation-only layers and round-trip on the nose:
 
@@ -620,11 +624,10 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             raise NotImplementedError
         empty = self.dom[:0]
         n = len(self.dom)
-        # --- Pass 1: track wires through the diagram, scheduling boxes ASAP.
+        # --- Pass 1: track wires, recording each box's input and output wires.
         frontier = list(range(n))
         wire_type = {i: self.dom[i] for i in range(n)}
-        depth = {i: 0 for i in range(n)}
-        next_id, records = n, []  # records: (box, in_wids, out_wids, layer)
+        next_id, records = n, []  # records: (box, in_wids, out_wids)
         for layer in self.inside:
             delta = 0
             for box, offset in layer.boxes_and_offsets:
@@ -636,16 +639,13 @@ class Diagram(balanced.Diagram, SymmetricCategory):
                     continue
                 out_wids = list(range(next_id, next_id + dim_cod))
                 next_id += dim_cod
-                box_layer = 1 + max((depth[w] for w in in_wids), default=0)
                 for i, w in enumerate(out_wids):
-                    depth[w], wire_type[w] = box_layer, box.cod[i]
+                    wire_type[w] = box.cod[i]
                 frontier[off:off + dim_dom] = out_wids
                 delta += dim_cod - dim_dom
-                records.append((box, in_wids, out_wids, box_layer))
+                records.append((box, tuple(in_wids), tuple(out_wids)))
         output_wids = list(frontier)
-        n_layers = max((layer for _, _, _, layer in records), default=0)
 
-        # --- Pass 2: build a routing permutation then the box-layer per depth.
         def type_of(wids):
             return empty.tensor(*[wire_type[w] for w in wids])
 
@@ -654,20 +654,52 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             return Layer(Permutation(
                 [index[w] for w in target], type_of(source)))
 
-        result, cur = [], list(range(n))
-        for box_layer in range(1, n_layers + 1):
-            in_layer = [r for r in records if r[3] == box_layer]
-            consumed = [w for _, in_wids, _, _ in in_layer for w in in_wids]
-            passthrough = [w for w in cur if w not in set(consumed)]
-            result.append(route(cur, consumed + passthrough))
-            inside = []
-            for box, _, _, _ in in_layer:
-                inside += [Permutation.id(empty), box]
-            inside.append(Permutation.id(type_of(passthrough)))
-            result.append(Layer(*inside))
-            cur = [w for _, _, out_wids, _ in in_layer for w in out_wids]\
-                + passthrough
-        result.append(route(cur, output_wids))
+        # --- Pass 2: schedule boxes greedily in place, scanning left to right.
+        result, frontier, remaining = [], list(range(n)), list(records)
+        while remaining:
+            old, first_input, empties = list(frontier), {}, []
+            for rec in remaining:
+                if rec[1]:
+                    first_input.setdefault(rec[1][0], rec)
+                else:
+                    empties.append(rec)
+            # Empty-domain boxes have no trigger wire, so happen straightaway.
+            segments = [("box", r) for r in empties]
+            fired, i = list(empties), 0
+            while i < len(old):
+                rec = first_input.get(old[i])
+                if rec is not None and tuple(old[i:i + len(rec[1])]) == rec[1]:
+                    segments.append(("box", rec))
+                    fired.append(rec)
+                    i += len(rec[1])
+                else:
+                    segments.append(("wire", old[i]))
+                    i += 1
+            if fired:
+                inside, block = [], []
+                for kind, val in segments:
+                    if kind == "wire":
+                        block.append(val)
+                    else:
+                        inside += [Permutation.id(type_of(block)), val[0]]
+                        block = []
+                inside.append(Permutation.id(type_of(block)))
+                result.append(Layer(*inside))
+                frontier = [w for kind, val in segments for w in (
+                    [val] if kind == "wire" else val[2])]
+                done = set(map(id, fired))
+                remaining = [r for r in remaining if id(r) not in done]
+            else:  # Nobody can happen: permute to line up the next box.
+                avail = [r for r in remaining if set(r[1]) <= set(frontier)]
+                in_wids = min(avail, key=lambda r: min(
+                    frontier.index(w) for w in r[1]))[1]
+                kept = [w for w in frontier if w not in set(in_wids)]
+                k = sum(1 for w in kept if frontier.index(w) < min(
+                    frontier.index(v) for v in in_wids))
+                target = kept[:k] + list(in_wids) + kept[k:]
+                result.append(route(frontier, target))
+                frontier = target
+        result.append(route(frontier, output_wids))
 
         # --- Pass 3: drop identities and merge consecutive permutations.
         layers = []

@@ -113,7 +113,7 @@ def test_Layer():
         Layer(Permutation.id(x), f)
 
 
-def _check_foliation(d, depth=None):
+def _check_foliation(d, depth=None, exact=True):
     layers = d.to_layers()
     # consecutive layers compose and match the diagram boundary
     for first, second in zip(layers, layers[1:]):
@@ -125,7 +125,9 @@ def _check_foliation(d, depth=None):
         assert Diagram.from_layers(layers) == d
     n_box_layers = sum(1 for layer in layers if layer.boxes)
     if depth is not None:
-        assert n_box_layers == depth
+        # In-place scheduling may use one more box-layer than the depth when a
+        # box needs its inputs reordered first, so depth is only a lower bound.
+        assert n_box_layers == depth if exact else n_box_layers >= depth
     return layers
 
 
@@ -185,4 +187,5 @@ def test_to_layers_random():
             # depth() is only reliable when every box has non-empty dom and cod
             reliable = all(len(b.dom) and len(b.cod) for b in diagram.boxes)
             _check_foliation(
-                diagram, depth=diagram.depth() if reliable else None)
+                diagram, depth=diagram.depth() if reliable else None,
+                exact=False)
