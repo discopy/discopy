@@ -102,6 +102,33 @@ Layers
 >>> layer2 = Layer(Permutation.id(z), g, Permutation.id(w))
 >>> combined = layer @ layer2
 >>> assert combined.dom == layer.dom @ layer2.dom
+
+Foliation
+=========
+
+:meth:`Diagram.to_layers` foliates a diagram into the smallest list of
+symmetric layers, scheduling boxes as early as possible and absorbing swaps
+into native permutations. :meth:`Diagram.foliation_drawing` then draws this
+foliation compactly: each permutation becomes a single band of crossing
+wires rather than a staircase of swaps, so the quadratic number of swaps
+collapses into a linear number of permutation layers.
+
+>>> f0, f1 = Box("f0", w, x), Box("f1", z, y)
+>>> g0, g1 = Box("g0", y, z), Box("g1", x, w)
+>>> diagram = Id(x @ y @ z @ w).permute(3, 2, 1, 0) >> f0 @ f1 @ g0 @ g1
+>>> diagram.depth()
+1
+
+The diagram reverses four wires before a single layer of boxes, so its
+foliation has just one permutation layer and one box layer:
+
+>>> from discopy.drawing import Equation
+>>> Equation(diagram, diagram.foliation_drawing(), symbol="=").draw(
+...     path='docs/_static/symmetric/foliation.png', figsize=(7, 6),
+...     margins=(0.05, 0.03))
+
+.. image:: /_static/symmetric/foliation.png
+    :align: center
 """
 
 from __future__ import annotations
@@ -231,6 +258,11 @@ class Permutation:
     def __len__(self):
         return len(self.inside)
 
+    def to_drawing(self):
+        """Draw as a single compact band of crossing wires."""
+        from discopy.drawing import Drawing
+        return Drawing.permutation(self.inside, self.dom)
+
     def whisker(self, left: monoidal.Ty = None,
                 right: monoidal.Ty = None) -> Permutation:
         """
@@ -348,6 +380,17 @@ class Layer:
             else:
                 layer = Diagram.layer_factory.cast(x)
                 d = Diagram((layer,), x.dom, x.cod, _scan=False)
+            result = d if result is None else result @ d
+        return result
+
+    def to_drawing(self):
+        """
+        Draw the layer compactly, with each permutation rendered as a single
+        band of crossing wires rather than a staircase of swaps.
+        """
+        result = None
+        for x in self.inside:
+            d = x.to_drawing()
             result = d if result is None else result @ d
         return result
 
@@ -637,6 +680,31 @@ class Diagram(balanced.Diagram, SymmetricCategory):
                 continue
             layers.append(layer)
         return layers or [Layer(Permutation.id(self.dom))]
+
+    def foliation_drawing(self):
+        """
+        A compact :class:`Drawing` of the diagram's foliation.
+
+        The diagram is foliated with :meth:`to_layers`, then each layer is
+        drawn natively: box-layers as boxes side by side and permutation-only
+        layers as a single band of crossing wires. The result has one row per
+        layer, so it is much shorter than expanding every permutation into a
+        staircase of swaps.
+
+        Examples
+        --------
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> p = Box('p', x, y @ z)
+        >>> q, r, s = Box('q', y, x), Box('r', z, x), Box('s', x @ x, x)
+        >>> d = p >> Swap(y, z) >> r @ q >> s
+        >>> drawing = d.foliation_drawing()
+        >>> assert drawing.dom == d.dom and drawing.cod == d.cod
+        """
+        from discopy.drawing import Drawing
+        result = Drawing.id(self.dom)
+        for layer in self.to_layers():
+            result = result >> layer.to_drawing()
+        return result
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
