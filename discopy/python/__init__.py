@@ -11,6 +11,7 @@ Categories of Python functions.
     discopy.python.function
     discopy.python.additive
     discopy.python.multiplicative
+    discopy.python.lambda_token
 """
 
 from discopy.python.multiplicative import exp, Ty, Function
