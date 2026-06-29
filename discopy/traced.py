@@ -258,6 +258,11 @@ class Hypergraph(monoidal.Hypergraph):
     functor = Functor
 
 
+class CMap(monoidal.CMap):
+    functor = Functor
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
 Id = Diagram.id

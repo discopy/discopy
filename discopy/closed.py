@@ -24,6 +24,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
 
 Axioms
 ------
@@ -49,7 +50,7 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from typing import ClassVar
 
 from discopy import cat, monoidal, biclosed, markov
 from discopy.abc import ClosedCategory
@@ -172,7 +173,13 @@ class Hypergraph(markov.Hypergraph):
     functor = Functor
 
 
+class CMap(biclosed.CMap):
+    functor = Functor
+    require_planar = True
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry
@@ -191,15 +198,25 @@ class TermBase(Box, biclosed.TermBase):
     A term in the internal language of a closed category.
     """
     functor = Functor.id(Diagram)
+    __eq__ = biclosed.TermBase.__eq__
+    __hash__ = biclosed.TermBase.__hash__
 
     def __call__(self, other):
         return Application(self, other, left=False)
+
+    def to_diagram(self, category=None):
+        if category is not None and category is not Diagram:
+            raise NotImplementedError
+        return self.eval()
 
 
 type Term = Constant | Variable | Application | Abstraction
 
 
-class Constant(TermBase, biclosed.Constant):
+class Constant(biclosed.Constant, TermBase):
+    def __str__(self):
+        return self.name
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
@@ -208,7 +225,12 @@ class Constant(TermBase, biclosed.Constant):
             functor)
 
 
-class Variable(TermBase, biclosed.Variable):
+class Variable(biclosed.Variable, TermBase):
+    def __init__(self, name: str | Ty, cod: Ty | str):
+        if isinstance(name, Ty) and isinstance(cod, str):
+            name, cod = cod, name
+        super().__init__(name, cod)
+
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
@@ -219,7 +241,7 @@ class Variable(TermBase, biclosed.Variable):
             for x in context.inside])
 
 
-class Application(TermBase, biclosed.Application):
+class Application(biclosed.Application, TermBase):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
         self.freevars = list(set(func.freevars + args.freevars))\
@@ -242,7 +264,7 @@ class Application(TermBase, biclosed.Application):
             >> func @ args >> evaluate
 
 
-class Abstraction(TermBase, biclosed.Abstraction):
+class Abstraction(biclosed.Abstraction, TermBase):
     def __check_dom__(self):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
@@ -259,6 +281,9 @@ class Abstraction(TermBase, biclosed.Abstraction):
         return (body.permutation(p, body.dom).dagger() >> body).curry()
 
 
+assert_term_map = biclosed.assert_term_map
+
+
 @dataclass
 class Context:
     inside: list[Variable]
@@ -269,19 +294,7 @@ class Context:
         return self.category.ob.tensor(*[x.cod for x in self.inside])
 
 
-@dataclass
-class Substitution:
-    inside: Dict[Variable, Term]
-
-    def __call__(self, term: Term) -> Term:
-        if isinstance(term, Variable):
-            return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
-            other = Substitution(
-                {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+Substitution = biclosed.Substitution
 
 
 Ty.variable_factory = Variable

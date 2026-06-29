@@ -350,7 +350,13 @@ class Hypergraph(balanced.Hypergraph):
     functor = Functor
 
 
+class CMap(balanced.CMap):
+    functor = Functor
+    require_planar = True
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum

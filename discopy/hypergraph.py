@@ -66,7 +66,7 @@ from discopy.utils import (
     untuplify,
 )
 if TYPE_CHECKING:
-    from discopy.cat import Ty, Box, Diagram
+    from discopy.monoidal import Ty, Box, Diagram
 
 
 Spider = Any

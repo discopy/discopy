@@ -140,8 +140,13 @@ class Hypergraph(symmetric.Hypergraph):
     functor = Functor
 
 
+class CMap(symmetric.CMap):
+    functor = Functor
+
+
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
