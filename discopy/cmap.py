@@ -238,6 +238,21 @@ class CMap[C0: Pregroup, C1: CMap](
         return self.edges.then(self.orientation)
 
     @property
+    def n_vertices(self) -> int:
+        """ The number of vertices, including the boundary apex if present. """
+        return len(self.boxes) + bool(self.boundary_cycle)
+
+    @property
+    def n_edges(self) -> int:
+        """ The number of edges. """
+        return self.n_ports // 2
+
+    @property
+    def n_faces(self) -> int:
+        """ The number of faces, including closed scalar components. """
+        return len(self.faces.cycles()) + len(self.scalars)
+
+    @property
     def euler_characteristic(self) -> int:
         """
         Euler characteristic ``V - E + F`` with boundary at infinity.
@@ -255,9 +270,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().euler_characteristic
         0
         """
-        vertices = len(self.boxes) + bool(self.boundary_cycle)
-        return vertices - self.n_ports // 2\
-            + len(self.faces.cycles()) + len(self.scalars)
+        return self.n_vertices - self.n_edges + self.n_faces
 
     @property
     def orientation(self) -> Permutation:

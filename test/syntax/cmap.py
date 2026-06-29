@@ -454,7 +454,13 @@ def test_euler_characteristic():
     box = M.from_box(Box("f", x, y))
     scalar = M.from_box(Box("s", Ty(), Ty()))
     assert wire.faces == Permutation.from_cycles([(0,), (1,)], 2)
+    assert wire.n_vertices == 1
+    assert wire.n_edges == 1
+    assert wire.n_faces == 2
     assert wire.euler_characteristic == 2
     assert box.faces == Permutation.from_cycles([(0, 2), (1, 3)], 4)
+    assert box.n_vertices == 2
+    assert box.n_edges == 2
+    assert box.n_faces == 2
     assert box.euler_characteristic == 2
     assert (box @ scalar).euler_characteristic == 3
