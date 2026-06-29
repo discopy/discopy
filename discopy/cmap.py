@@ -134,6 +134,11 @@ class CMap[C0: Pregroup, C1: CMap](
     an apex, as if the domain and codomain ports were connected to the
     same box.
 
+    The ``require_planar`` flag can be set to enforce non-symmetric monoidal
+    structure globally, including maps with boxes. When the domain or codomain
+    is non-empty, the boundary apex connects the open boundary. Fully closed
+    maps have no boundary apex.
+
     Parameters:
         dom : The domain of the map.
         cod : The codomain of the map.
@@ -240,7 +245,7 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def n_vertices(self) -> int:
         """ The number of vertices, including the boundary apex if present. """
-        return len(self.boxes) + bool(self.boundary_cycle)
+        return len(self.boxes) + bool(len(self.dom) or len(self.cod))
 
     @property
     def n_edges(self) -> int:
@@ -257,10 +262,10 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         Euler characteristic ``V - E + F`` with boundary at infinity.
 
-        For open maps, the input and output ports are treated as one virtual
-        boundary/apex, ordered clockwise as inputs left-to-right followed
-        by outputs right-to-left. Thus a connected planar open map has Euler
-        characteristic 2.
+        For maps with non-empty domain or codomain, the input and output ports
+        are treated as one virtual boundary/apex, ordered clockwise as inputs
+        left-to-right followed by outputs right-to-left. Fully closed maps have
+        no boundary apex.
 
         >>> from discopy.symmetric import Ty, Box, Swap
         >>> x, y, z = map(Ty, "xyz")
@@ -271,6 +276,13 @@ class CMap[C0: Pregroup, C1: CMap](
         0
         """
         return self.n_vertices - self.n_edges + self.n_faces
+
+    @property
+    def is_planar(self) -> bool:
+        """ Whether the Euler characteristic matches a planar map. """
+        if not self.n_ports and not self.boxes:
+            return True
+        return self.euler_characteristic == 2
 
     @property
     def orientation(self) -> Permutation:
@@ -292,9 +304,9 @@ class CMap[C0: Pregroup, C1: CMap](
         ...     (7, 8, 9),         # g
         ... ], 12), f"got {cm.orientation.cycles()!r}"
         """
+        boundary = (self.boundary_cycle, ) if self.boundary_cycle else ()
         return Permutation.from_cycles(
-            (self.boundary_cycle, ) + self._box_port_indices,
-            len(self.ports))
+            boundary + self._box_port_indices, len(self.ports))
 
     @property
     def boundary_cycle(self) -> tuple[int, ...]:
@@ -302,17 +314,6 @@ class CMap[C0: Pregroup, C1: CMap](
         inputs = tuple(range(len(self.dom)))
         outputs = tuple(range(self.n_ports - len(self.cod), self.n_ports))
         return tuple(reversed(inputs)) + outputs
-
-    @property
-    def is_boundary_identity(self) -> bool:
-        """ Whether a boundary-only map is wired as an identity. """
-        if self.boxes or len(self.dom) != len(self.cod):
-            return False
-        output_start = self.n_ports - len(self.cod)
-        return all(
-            self.edges[i] == output_start + i
-            and self.edges[output_start + i] == i
-            for i in range(len(self.dom)))
 
     def validate(self):
         """ Validate the edges involution, wires and required planarity. """
@@ -325,8 +326,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
-        if self.require_planar and not self.boxes and self.n_ports\
-                and not self.is_boundary_identity:
+        if self.require_planar and not self.is_planar:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 
     def splice(

@@ -126,21 +126,25 @@ def test_diagram_to_map():
 
 
 def test_symmetric_diagram_to_map_encodes_swap_as_wiring():
-    from discopy.monoidal import CMap as MMap
-    from discopy.symmetric import Ty, Id, CMap as SMap
+    from discopy import monoidal, symmetric
 
-    x, y = map(Ty, "xy")
-    cm = Id(x @ y).permute(1, 0).to_map()
+    x, y = map(symmetric.Ty, "xy")
+    cm = symmetric.Id(x @ y).permute(1, 0).to_map()
     assert cm.dom == x @ y
     assert cm.cod == y @ x
     assert cm.boxes == ()
     assert cm.edges == (3, 2, 1, 0)
 
-    x = Ty("x")
+    x = symmetric.Ty("x")
     with raises(AxiomError):
-        MMap(x @ x, x @ x, (), (3, 2, 1, 0))
-    assert SMap(x @ x, x @ x, (), (3, 2, 1, 0))\
-        == SMap.swap(x, x)
+        monoidal.CMap(x @ x, x @ x, (), (3, 2, 1, 0))
+    assert symmetric.CMap(x @ x, x @ x, (), (3, 2, 1, 0))\
+        == symmetric.CMap.swap(x, x)
+
+    x, y, z = map(monoidal.Ty, "xyz")
+    f = monoidal.Box("f", x @ y, z)
+    with raises(AxiomError):
+        monoidal.CMap(y @ x, z, (f, ), (3, 2, 1, 0, 5, 4))
 
 
 def test_diagram_to_map_structure_and_errors():
@@ -272,6 +276,16 @@ def test_trace():
     assert left_trace.dom == y
     assert left_trace.cod == y
     assert left_trace.boxes == f.boxes
+
+    scalar_component = M.from_box(Box("h", x, x)).trace()
+    assert scalar_component.dom == Ty()
+    assert scalar_component.cod == Ty()
+    assert len(scalar_component.boxes) == 1
+    assert scalar_component.scalars == ()
+    assert scalar_component.boundary_cycle == ()
+    assert scalar_component.n_vertices == 1
+    assert scalar_component.euler_characteristic == 2
+    assert scalar_component.is_planar
 
 
 def test_curry_uncurry_roundtrip():
@@ -449,18 +463,28 @@ def test_then_tensor():
 
 def test_euler_characteristic():
     from discopy.closed import Ty, Box, CMap as M
+    from discopy.compact import Ty as CTy, Box as CBox
     x, y = map(Ty, "xy")
+    assert M.id().is_planar
     wire = M.id(x)
     box = M.from_box(Box("f", x, y))
-    scalar = M.from_box(Box("s", Ty(), Ty()))
     assert wire.faces == Permutation.from_cycles([(0,), (1,)], 2)
     assert wire.n_vertices == 1
     assert wire.n_edges == 1
     assert wire.n_faces == 2
     assert wire.euler_characteristic == 2
+    assert wire.is_planar
     assert box.faces == Permutation.from_cycles([(0, 2), (1, 3)], 4)
     assert box.n_vertices == 2
     assert box.n_edges == 2
     assert box.n_faces == 2
     assert box.euler_characteristic == 2
-    assert (box @ scalar).euler_characteristic == 3
+    assert box.is_planar
+
+    cx, cy = map(CTy, "xy")
+    cbox = CBox("f", cx, cy).to_map()
+    scalar = cbox.caps(cx.r, cx) >> cbox.cups(cx.r, cx)
+    assert scalar.euler_characteristic == 1
+    assert scalar.is_planar
+    assert (cbox @ scalar).euler_characteristic == 3
+    assert not (cbox @ scalar).is_planar
