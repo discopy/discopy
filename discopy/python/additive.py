@@ -13,14 +13,16 @@ Summary
 
     Ty
     Function
+    Hypergraph
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import cache
 
 from discopy.abc import SymmetricCategory
-from discopy.utils import assert_isinstance, tuplify
+from discopy.utils import assert_isinstance, tuplify, AxiomError
 from discopy.python import function
 
 
@@ -139,3 +141,192 @@ class Function(function.Function, SymmetricCategory):
 Swap = Function.braid = Function.swap
 Id = Function.twist = Function.id
 Merge = Function.merge
+
+
+class Hypergraph:
+    """
+    A hypergraph of additive (token-passing) Python functions, i.e. a string
+    diagram of :class:`Function` in the category with disjoint union as tensor,
+    drawn as a graph of boxes connected by spiders.
+
+    Parameters:
+        dom (Ty) : The domain, i.e. the tuple of input summands.
+        cod (Ty) : The codomain, i.e. the tuple of output summands.
+        boxes (tuple[Function, ...]) : The functions inside the hypergraph.
+        wires : A :code:`(dom_wires, box_wires, cod_wires)` triple of spiders.
+        spider_types (Mapping | Iterable) :
+            Optional types for the spiders, indexed by spider label.
+
+    The wiring is given as in :class:`discopy.hypergraph.Hypergraph`:
+
+    - ``dom_wires`` is one spider for each input,
+    - ``cod_wires`` is one spider for each output,
+    - ``box_wires`` is a ``(box_dom_wires, box_cod_wires)`` pair of spiders for
+      each box, listing the spider read by each of its input ports and the
+      spider written by each of its output ports.
+
+    Note
+    ----
+    Where :class:`discopy.python.multiplicative.Hypergraph` carries data along
+    every wire at once (copy-discard, **left**-monogamous, causal), this one
+    carries a single **token** that hops from wire to wire, as in the
+    Geometry of Interaction. A wire therefore needs a unique *consumer* (the
+    one place the token goes next) but may have many *producers* (the token
+    can arrive on it from different places on different passes) -- the dual
+    condition, **right-monogamy**, i.e. the hypergraph lives in a *cocartesian*
+    (disjoint-union) category.
+
+    Causality is **not** required: cycles are allowed, and a cycle is run as a
+    while loop, exactly as :meth:`Function.trace` runs a trace. The constructor
+    raises :class:`AxiomError` if the hypergraph is not right-monogamous.
+
+    Example
+    -------
+    A single box ``f : (int, int) -> (int, int)`` with its second output wired
+    back to its second input is the trace of ``f``, i.e. a while loop:
+
+    >>> def collatz(obj, tag=0):
+    ...     if tag == 0:  # the value just entered the loop
+    ...         return obj, 1
+    ...     return (1, 0) if obj == 1 else (
+    ...         (3 * obj + 1, 1) if obj % 2 else (obj // 2, 1))
+    >>> f = Function(collatz, (int, int), (int, int))
+    >>> loop = Hypergraph(
+    ...     dom=(int, ), cod=(int, ), boxes=(f, ),
+    ...     wires=((0, ), (((0, 1), (2, 1)), ), (2, )))
+    >>> assert loop(27) == f.trace()(27) == 1
+
+    The token enters on wire ``0``, the box sends it back out on wire ``1``
+    (consumed again by the box) until it finally exits on wire ``2``.
+    """
+    ob = Ty
+
+    def __init__(self, dom, cod, boxes, wires, spider_types=None):
+        assert_isinstance(dom, tuple)
+        assert_isinstance(cod, tuple)
+        for box in boxes:
+            assert_isinstance(box, Function)
+        self.dom, self.cod, self.boxes = tuple(dom), tuple(cod), tuple(boxes)
+        dom_wires, box_wires, cod_wires = wires
+
+        if len(dom_wires) != len(self.dom):
+            raise ValueError
+        if len(cod_wires) != len(self.cod):
+            raise ValueError
+        if len(box_wires) != len(self.boxes):
+            raise ValueError
+        for box, (box_dom_wires, box_cod_wires) in zip(self.boxes, box_wires):
+            if len(box_dom_wires) != len(box.dom):
+                raise ValueError
+            if len(box_cod_wires) != len(box.cod):
+                raise ValueError
+
+        self.dom_wires = tuple(dom_wires)
+        self.box_wires = tuple(
+            (tuple(box_dom), tuple(box_cod)) for box_dom, box_cod in box_wires)
+        self.cod_wires = tuple(cod_wires)
+        self.wires = (self.dom_wires, self.box_wires, self.cod_wires)
+
+        if spider_types is not None and not isinstance(spider_types, Mapping):
+            spider_types = dict(enumerate(spider_types))
+        self.spider_types = spider_types
+
+        if not self.is_right_monogamous:
+            raise AxiomError("Hypergraph is not right-monogamous.")
+
+    @property
+    def spiders(self) -> set:
+        """ The set of spiders appearing in the wiring of the hypergraph. """
+        result = set(self.dom_wires) | set(self.cod_wires)
+        for box_dom, box_cod in self.box_wires:
+            result.update(box_dom)
+            result.update(box_cod)
+        if self.spider_types is not None:
+            result.update(self.spider_types)
+        return result
+
+    @property
+    def spider_wires(self) -> tuple[dict, dict]:
+        """
+        A ``(producers, consumers)`` pair of mappings from each spider to the
+        ports that the token can *leave* from (the domain inputs and the
+        outputs of boxes) and the ports that the token *goes to* (the inputs of
+        boxes and the codomain outputs).
+        """
+        producers = {spider: set() for spider in self.spiders}
+        consumers = {spider: set() for spider in self.spiders}
+        port = 0
+        for spider in self.dom_wires:
+            producers[spider].add(port)
+            port += 1
+        for box_dom, box_cod in self.box_wires:
+            for spider in box_dom:
+                consumers[spider].add(port)
+                port += 1
+            for spider in box_cod:
+                producers[spider].add(port)
+                port += 1
+        for spider in self.cod_wires:
+            consumers[spider].add(port)
+            port += 1
+        return producers, consumers
+
+    @property
+    def is_right_monogamous(self) -> bool:
+        """
+        Checks right-monogamy, i.e. that each non-scalar spider is consumed by
+        exactly one port -- the unique destination of the token on that wire.
+        In that case the hypergraph lives in a cocartesian (disjoint-union)
+        category: a wire may be produced any number of times.
+        """
+        producers, consumers = self.spider_wires
+        return all(
+            len(consumers[spider]) == 1
+            for spider in self.spiders
+            if producers[spider] or consumers[spider])
+
+    @property
+    def _consumer(self) -> dict:
+        """
+        Map each spider to its unique consumer: ``("output", j)`` for the
+        ``j``-th overall output, or ``("box", i, p)`` for the ``p``-th input
+        port of box ``i``.
+        """
+        result = {}
+        for i, (box_dom, _) in enumerate(self.box_wires):
+            for p, spider in enumerate(box_dom):
+                result[spider] = ("box", i, p)
+        for j, spider in enumerate(self.cod_wires):
+            result[spider] = ("output", j)
+        return result
+
+    def __call__(self, obj, tag=0, max_steps=1_000_000):
+        """
+        Evaluate the hypergraph by passing a token through it.
+
+        The token ``(obj, tag)`` enters on input wire ``tag``; at each wire it
+        hops to the unique consumer, running a box (which moves the token from
+        one of its input ports to one of its output ports) until it reaches an
+        output wire. Cycles are run as while loops.
+
+        Parameters:
+            obj : The value carried by the token.
+            tag : The input wire on which the token enters.
+            max_steps : A guard against non-terminating token trajectories.
+        """
+        if not 0 <= tag < len(self.dom_wires):
+            raise ValueError
+        consumer = self._consumer
+        spider = self.dom_wires[tag]
+        for _ in range(max_steps):
+            destination = consumer[spider]
+            if destination[0] == "output":
+                j = destination[1]
+                return obj if len(self.cod) == 1 else (obj, j)
+            _, i, port = destination
+            box = self.boxes[i]
+            result = box(obj, port)
+            obj, out_port = (result, 0) if len(box.cod) == 1 else result
+            spider = self.box_wires[i][1][out_port]
+        raise RuntimeError(
+            f"Token did not exit after {max_steps} steps.")
