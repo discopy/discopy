@@ -402,8 +402,6 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         Validate a monoidal wire between two ports.
 
-        Subclasses override this hook to add traced or compact structure.
-
         Raises:
             AxiomError : If the types or orientations are incompatible.
         """
