@@ -347,7 +347,8 @@ class Layer:
         """
         Parallel composition: merge boundary permutations.
 
-        ``Layer(p0, b0, p1) @ Layer(q0, c0, q1) == Layer(p0, b0, p1 @ q0, c0, q1)``
+        ``Layer(p0, b0, p1) @ Layer(q0, c0, q1)``
+        ``== Layer(p0, b0, p1 @ q0, c0, q1)``
         """
         *head, last_perm = self.inside
         first_perm, *tail = other.inside
