@@ -316,32 +316,42 @@ class CMap[C0: Pregroup, C1: CMap](
                 and not self.is_boundary_identity:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 
-    def _new_scalars(self, edges, glue, removed, objects) -> tuple:
+    def _spliced_edges_and_scalars(
+            self, edges: Permutation,
+            glue: Permutation,
+            ports: list[Port]) -> tuple[Permutation, tuple]:
         """
-        Compute the scalar types created by a gluing operation.
+        Compute the edges and scalars created by a gluing operation.
         """
-        def scalar_type(obj):
-            result = obj if isinstance(obj, self.category.ob)\
-                else self.ob(obj)
-            return result.r if getattr(result, "z", 0) % 2 else result
+        components = edges.coequalizer(glue)
+        removed = {port for port in range(len(glue)) if glue[port] != port}
+        removed_by_component: dict[int, list[int]] = {}
+        for port in removed:
+            removed_by_component.setdefault(components[port], []).append(port)
+        kept = [i for i in range(len(edges)) if i not in removed]
+        mapping = {old: new for new, old in enumerate(kept)}
+        surviving: dict[int, list[int]] = {}
+        for port, component in components.items():
+            if port not in removed:
+                surviving.setdefault(component, []).append(port)
 
-        removed, seen, result = set(removed), set(), []
-        for start in removed:
-            if start in seen:
+        edge_pairs = [
+            tuple(sorted(mapping[port] for port in ports))
+            for ports in surviving.values() if len(ports) == 2]
+        scalars, scalar_components = [], set()
+        for component, removed_ports in removed_by_component.items():
+            if component in surviving or component in scalar_components:
                 continue
-            stack, internal = [start], True
-            seen.add(start)
-            while stack:
-                port = stack.pop()
-                for neighbor in (edges[port], glue[port]):
-                    if neighbor not in removed:
-                        internal = False
-                    elif neighbor not in seen:
-                        seen.add(neighbor)
-                        stack.append(neighbor)
-            if internal:
-                result.append(scalar_type(objects[start]))
-        return tuple(result)
+            scalar = ports[removed_ports[0]].obj
+            scalar = scalar if isinstance(scalar, self.category.ob)\
+                else self.ob(scalar)
+            scalars.append(
+                scalar.r if getattr(scalar, "z", 0) % 2 else scalar)
+            scalar_components.add(component)
+        return (
+            Permutation.from_transpositions(edge_pairs, len(kept)),
+            tuple(scalars)
+        )
 
     @classmethod
     def validate_direct_wire(cls, source: Port, target: Port):
@@ -608,44 +618,14 @@ class CMap[C0: Pregroup, C1: CMap](
         boxes = self.boxes + other.boxes
         offsets = self.offsets + other.offsets
 
-        self_outputs = range(self.n_ports - len(self.cod), self.n_ports)
-        other_inputs = range(len(other.dom))
-        remove_self = set(self_outputs)
-        remove_other = set(other_inputs)
-
-        shift = self.n_ports
-        removed = remove_self | {shift + i for i in remove_other}
-        kept = [i for i in range(self.n_ports + other.n_ports)
-                if i not in removed]
-        mapping = {old: new for new, old in enumerate(kept)}
-        edge = dict(enumerate(self.edges))
-        edge.update({
-            shift + i: shift + j for i, j in enumerate(other.edges)})
-        glue = dict(zip(self_outputs, (shift + i for i in other_inputs)))
-        glue.update({j: i for i, j in glue.items()})
-        objects = {i: port.obj for i, port in enumerate(self.ports)}
-        objects.update({
-            shift + i: port.obj for i, port in enumerate(other.ports)})
-        scalars = self.scalars + other.scalars\
-            + self._new_scalars(edge, glue, removed, objects)
-
-        def follow(port):
-            port = edge[port]
-            seen = set()
-            while port in removed:
-                if port in seen:
-                    return None
-                seen.add(port)
-                port = edge[glue[port]]
-            return port
-
-        edge_pairs = []
-        for i in kept:
-            j = follow(i)
-            if j is not None and i < j:
-                edge_pairs.append((mapping[i], mapping[j]))
-
-        edge = Permutation.from_transpositions(edge_pairs, len(kept))
+        edge = self.edges.tensor(other.edges)
+        ports = self.ports + other.ports
+        glue = Permutation.id(self.n_ports - len(self.cod)).tensor(
+            Permutation.swap(len(self.cod), len(other.dom)),
+            Permutation.id(other.n_ports - len(other.dom)))
+        edge, new_scalars = self._spliced_edges_and_scalars(
+            edge, glue, ports)
+        scalars = self.scalars + other.scalars + new_scalars
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
             scalars=scalars)
@@ -676,31 +656,11 @@ class CMap[C0: Pregroup, C1: CMap](
             traced_inputs = range(len(dom), len(self.dom))
             traced_outputs = range(self.n_ports - n, self.n_ports)
 
-        trace_pair = dict(zip(traced_inputs, traced_outputs))
-        trace_pair.update(dict(zip(traced_outputs, traced_inputs)))
-        removed = set(trace_pair)
-        kept = [i for i in range(self.n_ports) if i not in removed]
-        mapping = {old: new for new, old in enumerate(kept)}
-        scalars = self.scalars + self._new_scalars(
-            dict(enumerate(self.edges)), trace_pair, removed,
-            {i: port.obj for i, port in enumerate(self.ports)})
-
-        def follow(port):
-            seen = set()
-            while port in removed:
-                if port in seen:
-                    return None
-                seen.add(port)
-                port = self.edges[trace_pair[port]]
-            return port
-
-        edge_pairs = []
-        for i in kept:
-            j = follow(self.edges[i])
-            if j is not None and i < j:
-                edge_pairs.append((mapping[i], mapping[j]))
-
-        edge = Permutation.from_transpositions(edge_pairs, len(kept))
+        glue = Permutation.from_transpositions(
+            zip(traced_inputs, traced_outputs), self.n_ports)
+        edge, new_scalars = self._spliced_edges_and_scalars(
+            self.edges, glue, self.ports)
+        scalars = self.scalars + new_scalars
         return type(self)(
             dom, cod, self.boxes, edge, offsets=self.offsets,
             scalars=scalars)

@@ -54,6 +54,8 @@ def test_FinSet():
     assert finset.Permutation((1, 0, 2)).conjugate((2, 0, 1))\
         == (2, 1, 0)
     assert finset.Permutation((1, 2, 0)).cycle(1) == (1, 2, 0)
+    assert finset.Permutation((1, 0, 3, 2)).coequalizer(
+        finset.Permutation((0, 2, 1, 3))) == {0: 0, 1: 0, 2: 0, 3: 0}
     with raises(ValueError):
         finset.Permutation((0, 0))
     with raises(ValueError):
