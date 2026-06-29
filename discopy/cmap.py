@@ -316,7 +316,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 and not self.is_boundary_identity:
             raise AxiomError(messages.NOT_PLANAR.format(self))
 
-    def _spliced_edges_and_scalars(
+    def splice(
             self, edges: Permutation,
             glue: Permutation,
             ports: list[Port]) -> tuple[Permutation, tuple]:
@@ -623,7 +623,7 @@ class CMap[C0: Pregroup, C1: CMap](
         glue = Permutation.id(self.n_ports - len(self.cod)).tensor(
             Permutation.swap(len(self.cod), len(other.dom)),
             Permutation.id(other.n_ports - len(other.dom)))
-        edge, new_scalars = self._spliced_edges_and_scalars(
+        edge, new_scalars = self.splice(
             edge, glue, ports)
         scalars = self.scalars + other.scalars + new_scalars
         return type(self)(
@@ -658,7 +658,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         glue = Permutation.from_transpositions(
             zip(traced_inputs, traced_outputs), self.n_ports)
-        edge, new_scalars = self._spliced_edges_and_scalars(
+        edge, new_scalars = self.splice(
             self.edges, glue, self.ports)
         scalars = self.scalars + new_scalars
         return type(self)(
