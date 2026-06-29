@@ -277,15 +277,16 @@ def test_trace():
     assert left_trace.cod == y
     assert left_trace.boxes == f.boxes
 
-    scalar_component = M.from_box(Box("h", x, x)).trace()
-    assert scalar_component.dom == Ty()
-    assert scalar_component.cod == Ty()
-    assert len(scalar_component.boxes) == 1
-    assert scalar_component.scalars == ()
-    assert scalar_component.boundary_cycle == ()
-    assert scalar_component.n_vertices == 1
-    assert scalar_component.euler_characteristic == 2
-    assert scalar_component.is_planar
+    closed_component = M.from_box(Box("h", x, x)).trace()
+    assert closed_component.dom == Ty()
+    assert closed_component.cod == Ty()
+    assert len(closed_component.boxes) == 1
+    assert closed_component.edges == (1, 0)
+    assert closed_component.scalars == ()
+    assert closed_component.boundary_cycle == ()
+    assert closed_component.n_vertices == 1
+    assert closed_component.euler_characteristic == 2
+    assert closed_component.is_planar
 
 
 def test_curry_uncurry_roundtrip():
@@ -351,16 +352,14 @@ def test_scalar_is_not_eliminated():
 
 
 def test_hypergraph_to_map():
-    from discopy.compact import Ty, Box
+    from discopy import compact, frobenius
 
-    x, y = map(Ty, "xy")
-    f = Box("f", x, y).to_hypergraph()
+    x, y = map(compact.Ty, "xy")
+    f = compact.Box("f", x, y).to_hypergraph()
     assert to_hypergraph(f.to_map()) == f
 
-    from discopy.frobenius import Ty as FTy, CMap as FM, Hypergraph as FH
-
-    fx = FTy("x")
-    assert FH.spiders(1, 2, fx).to_map() == FM.spiders(1, 2, fx)
+    fx = frobenius.Ty("x")
+    assert frobenius.Hypergraph.spiders(1, 2, fx).to_map() == frobenius.CMap.spiders(1, 2, fx)
 
 
 def test_then():
@@ -462,12 +461,13 @@ def test_then_tensor():
 
 
 def test_euler_characteristic():
-    from discopy.closed import Ty, Box, CMap as M
-    from discopy.compact import Ty as CTy, Box as CBox
-    x, y = map(Ty, "xy")
-    assert M.id().is_planar
-    wire = M.id(x)
-    box = M.from_box(Box("f", x, y))
+    from discopy import closed, compact
+    # from discopy.closed import Ty, Box, CMap as M
+    # from discopy.compact import Ty as CTy, Box as CBox
+    x, y = map(closed.Ty, "xy")
+    assert closed.CMap.id().is_planar
+    wire = closed.CMap.id(x)
+    box = closed.CMap.from_box(closed.Box("f", x, y))
     assert wire.faces == Permutation.from_cycles([(0,), (1,)], 2)
     assert wire.n_vertices == 1
     assert wire.n_edges == 1
@@ -481,8 +481,8 @@ def test_euler_characteristic():
     assert box.euler_characteristic == 2
     assert box.is_planar
 
-    cx, cy = map(CTy, "xy")
-    cbox = CBox("f", cx, cy).to_map()
+    cx, cy = map(compact.Ty, "xy")
+    cbox = compact.Box("f", cx, cy).to_map()
     scalar = cbox.caps(cx.r, cx) >> cbox.cups(cx.r, cx)
     assert scalar.euler_characteristic == 1
     assert scalar.is_planar
