@@ -235,19 +235,16 @@ class FreeCategory(Category):
         if not isinstance(key, slice):
             raise TypeError
         start, _, step = key.indices(len(self))
-        if step < 0:
-            if step != -1:
-                raise IndexError
-            inside = tuple(gen.dagger() for gen in self.inside[key])
-            return self.ar(inside=inside, dom=self.cod, cod=self.dom,
-                           _scan=False)
         inside = self.inside[key]
+        if step < 0:  # A negative step reverses the path, hence the dagger.
+            inside = tuple(gen.dagger() for gen in inside)
         if inside:
             dom, cod = inside[0].dom, inside[-1].cod
+        elif 0 <= start < len(self):
+            dom = cod = self.inside[start].dom
         else:
-            dom = cod = self.inside[start].dom if start < len(self) \
-                else self.cod
-        return self.ar(inside=inside, dom=dom, cod=cod, _scan=step > 1)
+            dom = cod = self.cod if step > 0 else self.dom
+        return self.ar(inside=inside, dom=dom, cod=cod, _scan=abs(step) > 1)
 
     def dagger(self):
         """ Contravariant involution, called with :code:`[::-1]`. """
