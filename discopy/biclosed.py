@@ -22,6 +22,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
     TermBase
     Constant
     Variable
@@ -443,6 +444,13 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
+
+
+class CMap(monoidal.CMap):
+    functor = Functor
+
+
+Diagram.map_factory = CMap
 
 
 class TermBase(Box):

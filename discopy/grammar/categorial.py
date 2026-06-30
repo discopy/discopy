@@ -28,6 +28,7 @@ Summary
     ForwardCrossedComposition
     BackwardCrossedComposition
     Functor
+    CMap
 
 .. admonition:: Functions
 
@@ -208,6 +209,14 @@ class Functor(biclosed.Functor):
             right = other.dom.inside[1].right
             return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
+
+
+class CMap(biclosed.CMap):
+    """
+    A combinatorial map for categorial diagrams.
+    """
+
+    functor = Functor
 
 
 class TermBase(Box, biclosed.TermBase):
@@ -487,6 +496,7 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
 
 
 Id = Diagram.id
+Diagram.map_factory = CMap
 Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 
