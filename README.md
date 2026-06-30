@@ -56,6 +56,10 @@ We're keen to welcome new contributors!
 
 First, read the [contributing guidelines](https://github.com/discopy/discopy/blob/main/CONTRIBUTING.md) then [open an issue](https://github.com/discopy/discopy/issues/new).
 
+Performance is tracked by a composition benchmark (`benchmark/`) built on
+[pytest-benchmark](https://pytest-benchmark.readthedocs.io); see [Run the
+benchmarks](https://github.com/discopy/discopy/blob/main/CONTRIBUTING.md#run-the-benchmarks).
+
 ## How to cite
 
 If you use DisCoPy in the context of an academic publication, we suggest you cite:

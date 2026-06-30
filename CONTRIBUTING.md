@@ -36,6 +36,40 @@ uv run coverage run -m pytest
 uv run coverage report -m --fail-under=98
 ```
 
+## Run the benchmarks
+
+The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
+experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
+outside `testpaths`, so the normal `pytest` run never collects it; the cases are
+also marked `slow`. Each `(case, size)` is a declarative
+[`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
+owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
+hand-rolled timing code.
+
+```shell
+uv sync --group dev
+# small/medium sizes (the default); add BENCH_FLAGS=bench:full for the heavy tail
+uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
+# render the scaling table + log-log plot (polars + matplotlib)
+uv run python benchmark/report.py benchmark-results/bench.json
+```
+
+`report.py` writes `results.md`, `results.csv` and `scaling.png` into
+`benchmark-results/`. To gate on a regression, pass a committed baseline:
+
+```shell
+uv run python benchmark/report.py benchmark-results/bench.json \
+    --baseline benchmark/baseline.json --fail-threshold 0.25
+```
+
+It joins the two runs on `(case, size)` and exits non-zero if any case's median
+regressed by more than the threshold. The baseline is machine-dependent, so
+generate it once on the CI runner (`workflow_dispatch` on `main`, with
+`BENCH_FLAGS=bench:full`) and commit the resulting `bench.json` as
+`benchmark/baseline.json`. The `benchmark` GitHub workflow runs the suite on pull
+requests (smoke sizes) and on `main` / manual dispatch (full sizes), uploading the
+report as an artifact.
+
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):

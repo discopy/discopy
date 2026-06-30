@@ -2,12 +2,15 @@ name: benchmark
 
 on:
   pull_request:
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, synchronize]
+  push:
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # backstop: BENCH_FLAGS=bench:full has no in-process cap (~3-4 min observed)
     strategy:
       matrix:
         python-version: [ "3.14" ]
@@ -24,7 +27,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Install
       run:
-        uv sync --locked --group dev --group all
+        uv sync --locked --group dev
     - name: Name the artifact after the branch
       if: always()
       run: echo "slug=${REF//\//-}" >> "$GITHUB_OUTPUT"
@@ -32,10 +35,22 @@ jobs:
       env:
         REF: ${{ github.head_ref || github.ref_name }}
     - name: Run composition benchmark
+      # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
+      # full size tail (BENCH_FLAGS=bench:full).
+      run: |
+        mkdir -p benchmark-results
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
+        else
+          BENCH_FLAGS=bench:full uv run pytest benchmark/ -v \
+            --benchmark-json=benchmark-results/bench.json
+        fi
+    - name: Render report (and gate on the committed baseline, if present)
+      if: always()
       run:
-        uv run pytest benchmark/ -v
-          --log-cli-level=INFO
-          --log-cli-format="%(message)s"
+        uv run python benchmark/report.py benchmark-results/bench.json
+          --output benchmark-results
+          --baseline benchmark/baseline.json
     - name: Upload benchmark results
       if: always()
       uses: actions/upload-artifact@v4
