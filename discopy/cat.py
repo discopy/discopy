@@ -174,18 +174,15 @@ class FreeCategory(Category):
     Note
     ----
     Subclasses are assumed to have a ``generator_factory`` class attribute
-    for the type of the generators, and an ``_init_inside_dom_cod`` method
-    of the form ``_init_inside_dom_cod(inside, dom, cod, _scan=True)``,
-    which defaults to ``__init__`` but can be overridden separately when
-    the public constructor has a different, more user-friendly signature.
+    for the type of the generators and an arrow factory ``ar`` whose
+    constructor has the signature ``ar(inside, dom, cod, _scan=True)``, used
+    internally to build new arrows (passing ``_scan=False`` to skip the
+    composability check when it is guaranteed by construction).
     """
 
     generator_factory = None
 
     def __init__(self, inside, dom, cod, _scan=True):
-        self._init_inside_dom_cod(inside, dom, cod, _scan)
-
-    def _init_inside_dom_cod(self, inside, dom, cod, _scan=True):
         ob = type(self).ob
         dom = dom if isinstance(dom, ob) else ob(dom)
         cod = cod if isinstance(cod, ob) else ob(cod)
@@ -204,17 +201,10 @@ class FreeCategory(Category):
                     previous, cod, previous, cod))
 
     @classmethod
-    def _new(cls, inside, dom, cod, _scan=True):
-        """ Build a new ``cls.ar`` bypassing its public constructor. """
-        result = cls.ar.__new__(cls.ar)
-        result._init_inside_dom_cod(inside, dom, cod, _scan)
-        return result
-
-    @classmethod
     def id(cls, dom=None):
-        """The identity path, with no generators inside."""
+        """The identity path on ``dom``, with no generators inside."""
         dom = cls.ob() if dom is None else dom
-        return cls._new((), dom=dom, cod=dom, _scan=False)
+        return cls.ar((), dom, dom, _scan=False)
 
     def then(self, *others):
         inside, dom, cod = self.inside, self.dom, self.cod
@@ -225,7 +215,7 @@ class FreeCategory(Category):
                 raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
                     self, other, cod, other.dom))
             inside, cod = inside + other.inside, other.cod
-        return self._new(inside, dom=dom, cod=cod, _scan=False)
+        return self.ar(inside, dom, cod, _scan=False)
 
     def __iter__(self):
         return iter(self.inside)
@@ -234,37 +224,29 @@ class FreeCategory(Category):
         return len(self.inside)
 
     def __getitem__(self, key):
-        if isinstance(key, slice):
-            if key.step == -1:
-                inside = tuple(x.dagger() for x in self.inside[key])
-                return self._new(
-                    inside, dom=self.cod, cod=self.dom, _scan=False)
-            if key.step is not None and key.step < 0:
-                raise IndexError
-            if (key.step or 1) != 1:
-                inside = self.inside[key]
-                if not inside:
-                    return self.id(self.dom)
-                return self._new(
-                    inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=True)
-            inside = self.inside[key]
-            if not inside:
-                if (key.start or 0) >= len(self):
-                    return self.id(self.cod)
-                if (key.start or 0) <= -len(self):
-                    return self.id(self.dom)
-                return self.id(self.inside[key.start or 0].dom)
-            return self._new(
-                inside, dom=inside[0].dom, cod=inside[-1].cod, _scan=False)
         if isinstance(key, int):
             if key >= len(self) or key < -len(self):
                 raise IndexError
-            if key < 0:
-                return self[len(self) + key]
+            key = key + len(self) if key < 0 else key
             return self[key:key + 1]
-        raise TypeError
+        if not isinstance(key, slice):
+            raise TypeError
+        start, _, step = key.indices(len(self))
+        if step < 0:
+            if step != -1:
+                raise IndexError
+            inside = tuple(gen.dagger() for gen in self.inside[key])
+            return self.ar(inside, self.cod, self.dom, _scan=False)
+        inside = self.inside[key]
+        if inside:
+            dom, cod = inside[0].dom, inside[-1].cod
+        else:
+            dom = cod = self.inside[start].dom if start < len(self) \
+                else self.cod
+        return self.ar(inside, dom, cod, _scan=step > 1)
 
     def dagger(self):
+        """ Contravariant involution, called with :code:`[::-1]`. """
         return self[::-1]
 
 
