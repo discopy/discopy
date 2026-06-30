@@ -1181,14 +1181,9 @@ class Hypergraph(hypergraph.Hypergraph):
 class CMap(cmap.CMap):
     functor = Functor
     require_planar = True
-
-    @classmethod
-    def validate_indirect_wire(cls, source: cmap.Port, target: cmap.Port):
-        raise AxiomError(messages.NOT_TRACEABLE.format(source, target))
-
-    @classmethod
-    def validate_compact_wire(cls, source: cmap.Port, target: cmap.Port):
-        raise AxiomError
+    require_acyclic = True
+    require_oriented = True
+    require_connected = True
 
 
 Diagram.draw = drawing.draw

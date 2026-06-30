@@ -134,10 +134,11 @@ class CMap[C0: Pregroup, C1: CMap](
     an apex, as if the domain and codomain ports were connected to the
     same box.
 
-    The ``require_planar`` flag can be set to enforce non-symmetric monoidal
-    structure globally, including maps with boxes. When the domain or codomain
-    is non-empty, the boundary apex connects the open boundary. Fully closed
-    maps have no boundary apex.
+    The ``require_planar``, ``require_acyclic``, ``require_oriented`` and
+    ``require_connected`` flags can be set to enforce non-symmetric,
+    non-traced, non-compact and connected structure globally, including maps
+    with boxes. When the domain or codomain is non-empty, the boundary apex
+    connects the open boundary. Fully closed maps have no boundary apex.
 
     Parameters:
         dom : The domain of the map.
@@ -170,6 +171,9 @@ class CMap[C0: Pregroup, C1: CMap](
 
     functor: ClassVar[Functor]
     require_planar: ClassVar[bool] = True
+    require_acyclic: ClassVar[bool] = False
+    require_oriented: ClassVar[bool] = False
+    require_connected: ClassVar[bool] = False
     category = classproperty(lambda cls: cls.functor.dom)
     ob = classproperty(lambda cls: cls.category.ob)
 
@@ -203,6 +207,8 @@ class CMap[C0: Pregroup, C1: CMap](
     def ports(self) -> list[Port]:
         """ The ports in canonical orientation order. """
         def port(kind, i, obj, depth):
+            if not kind.is_boundary:
+                depth += 0.5 if kind.is_input else -0.5
             return Port(
                 kind, i=i, obj=obj, depth=depth,
                 side="up" if kind.is_input else "down")
@@ -250,12 +256,15 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def n_edges(self) -> int:
         """ The number of edges. """
-        return self.n_ports // 2
+        return self.n_ports // 2 + len(self.scalars)
 
     @property
     def n_faces(self) -> int:
         """ The number of faces, including closed scalar components. """
-        return len(self.faces.cycles()) + len(self.scalars)
+        portless_boxes = sum(
+            not len(box.dom) and not len(box.cod) for box in self.boxes)
+        return len(self.faces.cycles()) + portless_boxes\
+            + len(self.scalars)
 
     @property
     def euler_characteristic(self) -> int:
@@ -275,14 +284,38 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> (Swap(y, x) >> f).to_map().euler_characteristic
         0
         """
+        if len(self.connected_components) != 1:
+            raise ValueError(messages.NOT_CONNECTED.format(self))
+        if not self.n_ports and not self.boxes and not self.scalars:
+            return 2
         return self.n_vertices - self.n_edges + self.n_faces
 
     @property
-    def is_planar(self) -> bool:
-        """ Whether the Euler characteristic matches a planar map. """
-        if not self.n_ports and not self.boxes:
+    def is_scalar(self) -> bool:
+        """
+        Whether the map is scalar, i.e. a single box with no ports, or a
+        single scalar loop.
+        """
+        if self.n_ports > 0:
+            return False
+        if not self.boxes and len(self.scalars) == 1:
             return True
-        return self.euler_characteristic == 2
+        return len(self.boxes) == 1 and not self.scalars
+
+    @property
+    def is_planar(self) -> bool:
+        """
+        Whether the combinatorial map is planar, i.e. all of its non-scalar
+        components have an Euler characteristic of 2.
+        """
+
+        components = [
+            component for component in self.connected_components
+            if not component.is_scalar]
+        if not components:
+            return True
+        return all(
+            component.euler_characteristic == 2 for component in components)
 
     @property
     def orientation(self) -> Permutation:
@@ -326,8 +359,98 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
+        if self.require_acyclic:
+            self.validate_forward_edges(ports)
+
         if self.require_planar and not self.is_planar:
             raise AxiomError(messages.NOT_PLANAR.format(self))
+
+        if self.require_connected and len(self.connected_components) != 1:
+            raise AxiomError(messages.NOT_CONNECTED.format(self))
+
+    @property
+    def connected_components(self) -> list[CMap]:
+        """ The connected components, with the boundary component first. """
+        if not self.n_ports:
+            # Avoid recursively rebuilding the same portless component.
+            if len(self.boxes) + len(self.scalars) <= 1:
+                return [self]
+            components = [
+                type(self)(
+                    self.ob(), self.ob(), (box, ), (),
+                    offsets=(offset, ))
+                for box, offset in zip(self.boxes, self.offsets)]
+            components += [
+                type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
+                for scalar in self.scalars]
+            return components
+
+        component_of = self.edges.coequalizer(self.orientation)
+        boundary = set(range(len(self.dom))) | set(range(
+            self.n_ports - len(self.cod), self.n_ports))
+        boundary_component = component_of[next(iter(boundary))]\
+            if boundary else None
+
+        ports_by_component: dict[int, list[int]] = {}
+        for port, component in component_of.items():
+            ports_by_component.setdefault(component, []).append(port)
+
+        boxes_by_component: dict[int, list[tuple[int, Box]]] = {}
+        offsets_by_component: dict[int, list[int | None]] = {}
+        portless_boxes: list[tuple[int, Box, int | None]] = []
+        for box_index, (box, offset) in enumerate(zip(
+                self.boxes, self.offsets)):
+            box_ports = self._box_port_indices[box_index]
+            if not box_ports:
+                portless_boxes.append((box_index, box, offset))
+                continue
+            component = component_of[box_ports[0]]
+            boxes_by_component.setdefault(component, []).append((
+                box_index, box))
+            offsets_by_component.setdefault(component, []).append(offset)
+
+        if len(ports_by_component) == 1 and not portless_boxes\
+                and not self.scalars:
+            return [self]
+
+        def make_component(component: int) -> CMap:
+            dom = self.dom if component == boundary_component else self.ob()
+            cod = self.cod if component == boundary_component else self.ob()
+            boxes = tuple(box for _, box in boxes_by_component.get(
+                component, ()))
+            offsets = tuple(offsets_by_component.get(component, ()))
+
+            kept_ports = []
+            if component == boundary_component:
+                kept_ports += list(range(len(self.dom)))
+            for box_index, _ in boxes_by_component.get(component, ()):
+                kept_ports += list(self._box_port_indices[box_index])
+            if component == boundary_component:
+                kept_ports += list(range(
+                    self.n_ports - len(self.cod), self.n_ports))
+            mapping = {old: new for new, old in enumerate(kept_ports)}
+            edges = Permutation.from_transpositions(
+                ((mapping[i], mapping[j])
+                 for i, j in enumerate(self.edges)
+                 if i < j and i in mapping and j in mapping),
+                len(kept_ports))
+            return type(self)(dom, cod, boxes, edges, offsets=offsets)
+
+        ordered_components = sorted(
+            ports_by_component,
+            key=lambda component: (
+                component != boundary_component,
+                min(ports_by_component[component])))
+        components = [make_component(component)
+                      for component in ordered_components]
+        components += [
+            type(self)(
+                self.ob(), self.ob(), (box, ), (), offsets=(offset, ))
+            for _, box, offset in portless_boxes]
+        components += [
+            type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
+            for scalar in self.scalars]
+        return components
 
     def splice(
             self, edges: Permutation,
@@ -367,22 +490,15 @@ class CMap[C0: Pregroup, C1: CMap](
         )
 
     @classmethod
-    def validate_direct_wire(cls, source: Port, target: Port):
-        """ Validate a direct wire. """
+    def validate_equal_types(cls, source: Port, target: Port):
+        """ Validate a wire between equal types. """
         if not source.obj == target.obj:
             raise AxiomError(messages.NOT_ADJOINT.format(
                 source.obj, target.obj))
 
     @classmethod
-    def validate_indirect_wire(cls, source: Port, target: Port):
-        """ Validate an indirect wire. """
-        if not source.obj == target.obj:
-            raise AxiomError(messages.NOT_ADJOINT.format(
-                source.obj, target.obj))
-
-    @classmethod
-    def validate_compact_wire(cls, source: Port, target: Port):
-        """ Validate a compact wire. """
+    def validate_adjoint_types(cls, source: Port, target: Port):
+        """ Validate a wire between adjoint types. """
         adjoint_types = getattr(source.obj, "r", None) == target.obj\
             or source.obj == getattr(target.obj, "r", None)
         if not adjoint_types:
@@ -390,34 +506,58 @@ class CMap[C0: Pregroup, C1: CMap](
                 source.obj, target.obj))
 
     @classmethod
-    def validate_oriented_wire(cls, source: Port, target: Port):
-        """ Validate a positive-to-negative wire. """
-        if source.depth <= target.depth:
-            cls.validate_direct_wire(source, target)
-        else:
-            cls.validate_indirect_wire(source, target)
-
-    @classmethod
     def validate_wire(cls, source: Port, target: Port):
         """
-        Validate a monoidal wire between two ports.
+        Validate type compatibility for a wire between two ports.
 
         Raises:
             AxiomError : If the types or orientations are incompatible.
         """
-        same_side = source.kind.is_input == target.kind.is_input
-        same_direction = source.direction == target.direction
-        boundary_mismatch = source.kind.is_boundary != target.kind.is_boundary
-        compact = same_side != same_direction and (
-            same_side or boundary_mismatch)
-        if compact:
-            cls.validate_compact_wire(source, target)
-        elif source.kind.is_positive and target.kind.is_negative:
-            cls.validate_oriented_wire(source, target)
+        if source.kind.is_positive and target.kind.is_negative:
+            cls.validate_equal_types(source, target)
         elif target.kind.is_positive and source.kind.is_negative:
-            cls.validate_oriented_wire(target, source)
+            cls.validate_equal_types(target, source)
+        elif cls.require_oriented:
+            raise AxiomError
         else:
-            cls.validate_indirect_wire(source, target)
+            cls.validate_adjoint_types(source, target)
+
+    def validate_forward_edges(self, ports: list[Port]):
+        """ Validate that box-to-box causal wires are acyclic. """
+        graph = {i: set() for i in range(len(self.boxes))}
+
+        def has_path(source: int, target: int) -> bool:
+            todo, seen = [source], set()
+            while todo:
+                node = todo.pop()
+                if node == target:
+                    return True
+                if node in seen:
+                    continue
+                seen.add(node)
+                todo.extend(graph[node])
+            return False
+
+        for i, j in enumerate(self.edges):
+            if i > j:
+                continue
+            left, right = ports[i], ports[j]
+            if left.kind.is_positive and right.kind.is_negative:
+                source, target = left, right
+            elif right.kind.is_positive and left.kind.is_negative:
+                source, target = right, left
+            else:
+                continue
+            if source.kind != PortKind.COD or target.kind != PortKind.DOM:
+                continue
+            source_depth = int(source.depth + 0.5)
+            target_depth = int(target.depth - 0.5)
+            if source_depth == target_depth:
+                continue
+            if has_path(target_depth, source_depth):
+                raise AxiomError(messages.NOT_TRACEABLE.format(
+                    source, target))
+            graph[source_depth].add(target_depth)
 
     def __repr__(self):
         def port_repr(index, port):

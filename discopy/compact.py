@@ -57,10 +57,9 @@ Coherence
 >>> Diagram.use_hypergraph_equality = False
 """
 
-from discopy import cmap, symmetric, ribbon
+from discopy import symmetric, ribbon
 from discopy.abc import CompactCategory
 from discopy.cat import ar_factory
-from discopy.cmap import Port
 from discopy.pivotal import Ob, Ty  # noqa: F401
 
 
@@ -143,11 +142,8 @@ class Hypergraph(symmetric.Hypergraph):
 
 class CMap(symmetric.CMap):
     functor = Functor
-
-    @classmethod
-    def validate_compact_wire(cls, source: Port, target: Port):
-        """ Validate a compact adjunction wire. """
-        cmap.CMap.validate_compact_wire(source, target)
+    require_oriented = False
+    require_connected = False
 
 
 Id = Diagram.id
