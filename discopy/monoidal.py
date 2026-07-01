@@ -961,13 +961,15 @@ class Diagram(cat.Arrow, MonoidalCategory):
         """
         Translate a planar diagram into a hypergraph.
 
-        Each box keeps the offset at which it sits, so
-        :meth:`discopy.hypergraph.Hypergraph.to_diagram` can place it back
-        without ever needing a swap -- this is what makes the round trip work
-        for a category without symmetry. Diagrams that do not embed into a
-        hypergraph (e.g. the cups and caps of a rigid or pregroup category,
-        which are not those of a compact-closed one) return
-        :data:`NotImplemented` rather than raising.
+        The offset of each *state* (a box with an empty domain) is recorded on
+        the hypergraph, so :meth:`discopy.hypergraph.Hypergraph.to_diagram` can
+        place it back without a swap. A state has no input wires for the
+        boundary scan to follow, so without its offset that scan would default
+        every state to the left and then need swaps to reorder them -- which a
+        category without symmetry (e.g. a formal grammar) does not have.
+        Diagrams that do not embed into a hypergraph (e.g. the cups and caps of
+        a rigid or pregroup category, which are not those of a compact-closed
+        one) return :data:`NotImplemented` rather than raising.
 
         Example
         -------
@@ -977,9 +979,21 @@ class Diagram(cat.Arrow, MonoidalCategory):
         >>> assert diagram.to_hypergraph().to_diagram() == diagram.foliation()
         """
         try:
-            return self.hypergraph_factory.from_diagram(self)
+            graph = self.hypergraph_factory.from_diagram(self)
         except TypeError:  # cups and caps do not embed, e.g. in pregroup.
             return NotImplemented
+        # When no box was absorbed into the wiring (e.g. no swaps), the
+        # diagram's own offsets line up with the hypergraph's boxes and we can
+        # anchor each state at the right place; boxes with a non-empty domain
+        # keep ``None`` as the scan recovers their offset from their inputs.
+        if len(graph.boxes) == len(self.boxes):
+            offsets = tuple(
+                offset if not box.dom else None
+                for box, offset in zip(self.boxes, self.offsets))
+            graph = type(graph)(
+                graph.dom, graph.cod, graph.boxes, graph.wires,
+                graph.spider_types, offsets)
+        return graph
 
     def foliation(self):
         """
