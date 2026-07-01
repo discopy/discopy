@@ -74,11 +74,19 @@ def test_Arrow_getitem():
         arrow["Alice"]
     with raises(IndexError):
         arrow[9]
-    with raises(IndexError):
-        arrow[::-2]
     assert arrow[:] == arrow
     assert arrow[::-1] == arrow.dagger()
     assert arrow[:0] == arrow[:-8] == arrow[-9:-9] == Id(arrow.dom)
+    # Non-unit steps return the corresponding sub-path (daggered when the
+    # step is negative), raising only when the result is not composable.
+    h = Box('h', Ob('x'), Ob('x'))
+    loop = h >> h >> h
+    assert loop[::2] == h >> h
+    assert loop[::-2] == (h >> h).dagger()
+    with raises(AxiomError):
+        arrow[::2]
+    with raises(AxiomError):
+        arrow[::-2]
     for depth, box in enumerate(arrow):
         assert arrow[depth] == box
         assert arrow[-depth] == arrow.inside[-depth]
