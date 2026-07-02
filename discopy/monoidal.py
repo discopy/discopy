@@ -59,7 +59,7 @@ from typing import Iterator, Callable, TYPE_CHECKING
 from warnings import warn
 
 from discopy import cat, drawing, hypergraph, cmap, messages
-from discopy.abc import Monoid, MonoidalCategory
+from discopy.abc import ColouredMonoid, MonoidalCategory
 from discopy.drawing import Drawing
 from discopy.config import DRAWING_ATTRIBUTES
 from discopy.utils import (
@@ -146,7 +146,7 @@ class Ob(cat.Ob):
         return cls(tree['name'], dom, cod, is_dagger='is_dagger' in tree)
 
 
-class FreeMonoid(cat.FreeCategory, Monoid):
+class FreeMonoid(cat.FreeCategory, ColouredMonoid):
     """A free category whose composition is also its monoid product."""
 
     def tensor(self, *others):
