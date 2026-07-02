@@ -22,6 +22,7 @@ from discopy import (
     interaction,
     feedback,
     stream,
+    para,
     python,
     matrix,
     tensor,
