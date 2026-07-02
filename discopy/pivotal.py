@@ -71,6 +71,14 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
+    def dagger(self) -> Ob:
+        """
+        The dagger of a pivotal object coincides with its left and right
+        adjoints, i.e. it flips the parity of the winding number ``z`` and
+        swaps its domain and codomain colours.
+        """
+        return self.l
+
 
 @ar_factory
 class Ty(rigid.Ty):

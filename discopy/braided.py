@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Diagram
     Box
     Braid
@@ -65,6 +66,16 @@ from discopy.abc import BraidedCategory
 from discopy.cat import ar_factory
 from discopy.monoidal import Ty, Match
 from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
+
+
+class Ob(monoidal.Ob):
+    """
+    A braided object is a self-dagger :class:`monoidal.Ob`. From braided
+    categories onwards colours stop making sense, i.e. we cannot add colours to
+    braids or swaps in any meaningful way, so its colours are always white.
+    """
+    def dagger(self) -> Ob:
+        return self
 
 
 @ar_factory

@@ -92,7 +92,7 @@ class Ob(monoidal.Ob):
         super().__init__(name, dom, cod)
 
     def dagger(self) -> Ob:
-        return self
+        raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
     @property
     def l(self) -> Ob:

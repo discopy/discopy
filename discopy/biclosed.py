@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Ob
     Ty
     Exp
     Over
@@ -179,7 +180,17 @@ class Ty(monoidal.Ty):
         return self.inside[0].exponent
 
 
-class Exp(monoidal.Ob):
+class Ob(monoidal.Ob):
+    """
+    A biclosed object is a self-dagger :class:`monoidal.Ob`, i.e. its left and
+    right colours always match. Exponentials do not interact meaningfully with
+    colours, so for now we assume everything is white.
+    """
+    def dagger(self) -> Ob:
+        return self
+
+
+class Exp(Ob):
     """
     A :code:`base` type to an :code:`exponent` type, called with :code:`**`.
 
@@ -195,9 +206,6 @@ class Exp(monoidal.Ob):
         assert_isinstance(exponent, self.ob)
         self.base, self.exponent = base, exponent
         super().__init__(str(self))
-
-    def dagger(self):
-        return self
 
     def __eq__(self, other):
         return isinstance(other, type(self))\

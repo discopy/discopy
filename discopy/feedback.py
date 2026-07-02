@@ -141,7 +141,7 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, markov
+from discopy import monoidal, braided, markov
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     ar_factory, factory_name, assert_isinstance, AxiomError)
@@ -151,13 +151,11 @@ def str_delayed(time_step: int):
     return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
 
 
-class Ob(cat.Ob):
+class Ob(braided.Ob):
     """
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
     """
-    dom = cod = monoidal.white
-
     def __init__(
             self, name: str, time_step: int = 0, is_constant: bool = True):
         assert_isinstance(time_step, int)
@@ -166,9 +164,6 @@ class Ob(cat.Ob):
             raise NotImplementedError
         self.time_step, self.is_constant = time_step, is_constant
         super().__init__(name)
-
-    def dagger(self):
-        return self
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
@@ -205,6 +200,20 @@ class Ob(cat.Ob):
 
     def __str__(self):
         return super().__str__() + str_delayed(self.time_step)
+
+    def to_tree(self):
+        tree = {'factory': factory_name(type(self)), 'name': self.name}
+        if self.time_step:
+            tree['time_step'] = self.time_step
+        if not self.is_constant:
+            tree['is_constant'] = False
+        return tree
+
+    @classmethod
+    def from_tree(cls, tree):
+        return cls(
+            tree['name'], tree.get('time_step', 0),
+            tree.get('is_constant', True))
 
     @property
     def d(self):
