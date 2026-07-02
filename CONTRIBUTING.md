@@ -40,8 +40,8 @@ uv run coverage report -m --fail-under=98
 
 The composition benchmark (`benchmark/test_composition.py`) reproduces the scaling
 experiments of arXiv:2105.09257 for both `Diagram` and `Hypergraph`. It lives
-outside `testpaths`, so the normal `pytest` run never collects it; the cases are
-also marked `slow`. Each `(case, size)` is a declarative
+outside `testpaths`, so the normal `pytest` run never collects it — run it
+explicitly. Each `(case, size)` is a declarative
 [`pytest-benchmark`](https://pytest-benchmark.readthedocs.io) test — the fixture
 owns timing (CPU clock, GC disabled, median of a few rounds), so there is no
 hand-rolled timing code.

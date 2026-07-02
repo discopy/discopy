@@ -152,6 +152,3 @@ norecursedirs = [
     "test/utils/pickles/TODO",
 ]
 addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
-markers = [
-    "slow: long-running benchmark, excluded from the default run via `-m 'not slow'`",
-]

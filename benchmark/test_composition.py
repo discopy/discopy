@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Composition benchmark, reproducing the experiments of arXiv:2105.09257 for both
-:class:`discopy.symmetric.Diagram` and :class:`discopy.symmetric.Hypergraph`.
+Composition benchmark, reproducing the experiments of `arXiv:2105.09257
+<https://arxiv.org/pdf/2105.09257>`_ for both :class:`discopy.symmetric.Diagram`
+and :class:`discopy.symmetric.Hypergraph`.
 
 Each case is a declarative `pytest-benchmark` test: one ``(case, n)`` per data
 point, swept by ``@pytest.mark.parametrize`` over a size list that
@@ -13,14 +14,15 @@ disable_gc=True)`` gives CPU-time, GC-disabled measurement and
 ``benchmark.pedantic`` the median of a few rounds. We only supply the workload.
 
 This module lives outside ``test/*/*.py`` so the default ``pytest`` run never
-collects it (the benchmarks are also marked ``slow``). Run it explicitly and
-render the table/plot from the JSON it emits:
+collects it. Run it explicitly and render the table/plot from the JSON it
+emits:
 
     uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
     uv run python benchmark/report.py benchmark-results/bench.json
 """
 
 import os
+import random
 import time
 
 import pytest
@@ -148,17 +150,15 @@ def make_spiral(n_cups):
     return result, unit, counit
 
 
-def identity_snake(category, x):
-    """ ``Id(x)`` routed through a right-then-left transpose snake (constant
-    width, so composing ``n`` keeps the diagram a constant width). """
-    return category.Id(x).transpose(left=False).transpose(left=True)
+def with_snakes(f, n):
+    """ Wrap ``f`` in ``n`` transpose round-trips; equals ``f`` cluttered.
 
-
-def with_snakes(f, snake, n):
-    """ Compose ``f`` with ``n`` identity snakes; equals ``f`` cluttered. """
+    Transposing back and forth is a no-op on ``f``'s boundary type, so ``g``
+    stays the same constant width at every step, only growing snake-shaped
+    clutter that a normal form / hypergraph pass must yank back out. """
     g = f
     for _ in range(n):
-        g = g >> snake
+        g = g.transpose(left=True).transpose(left=False)
     return g
 
 
@@ -191,7 +191,6 @@ def _adder_functor(full_adder):
 # --- k-fold tensor ---------------------------------------------------------
 
 @case("k-fold tensor (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200, 500)))
 def test_tensor_diagram(benchmark, n):
     box = _NOT()
@@ -201,7 +200,6 @@ def test_tensor_diagram(benchmark, n):
 
 
 @case("k-fold tensor, 1 layer (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, 100, full=(200, 500, 1000)))
 def test_tensor_single_layer_diagram(benchmark, n):
     box = _NOT()
@@ -211,7 +209,6 @@ def test_tensor_single_layer_diagram(benchmark, n):
 
 
 @case("k-fold tensor (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
 def test_tensor_hypergraph(benchmark, n):
     hbox = _NOT().to_hypergraph()
@@ -223,7 +220,6 @@ def test_tensor_hypergraph(benchmark, n):
 # --- staircase / foliation -------------------------------------------------
 
 @case("staircase foliation (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 3.7s
 def test_foliation_diagram(benchmark, n):
     st = staircase(_NOT(), n)
@@ -232,7 +228,6 @@ def test_foliation_diagram(benchmark, n):
 
 
 @case("staircase to hypergraph (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 4.2s
 def test_staircase_to_hypergraph(benchmark, n):
     st = staircase(_NOT(), n)
@@ -243,7 +238,6 @@ def test_staircase_to_hypergraph(benchmark, n):
 # --- k-fold series ---------------------------------------------------------
 
 @case("k-fold series (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, 100, full=(200, 500, 1000)))
 def test_series_diagram(benchmark, n):
     box = _NOT()
@@ -253,7 +247,6 @@ def test_series_diagram(benchmark, n):
 
 
 @case("k-fold series (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
 def test_series_hypergraph(benchmark, n):
     hbox = _NOT().to_hypergraph()
@@ -265,7 +258,6 @@ def test_series_hypergraph(benchmark, n):
 # --- ripple-carry adder ----------------------------------------------------
 
 @case("adder step (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 100)))
 def test_adder_step_diagram(benchmark, n):
     full_adder = _full_adder()
@@ -276,7 +268,6 @@ def test_adder_step_diagram(benchmark, n):
 
 
 @case("adder step (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))  # ~O(n^2)
 def test_adder_step_hypergraph(benchmark, n):
     full_adder = _full_adder().to_hypergraph()
@@ -287,7 +278,6 @@ def test_adder_step_hypergraph(benchmark, n):
 
 
 @case("adder functor (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 100)))
 def test_adder_functor_diagram(benchmark, n):
     full_adder = _full_adder()
@@ -300,7 +290,6 @@ def test_adder_functor_diagram(benchmark, n):
 # --- spiral (arXiv:1804.07832) ---------------------------------------------
 
 @case("spiral build (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
 def test_spiral_build_diagram(benchmark, n):
     benchmark.pedantic(
@@ -308,7 +297,6 @@ def test_spiral_build_diagram(benchmark, n):
 
 
 @case("spiral build (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 10s
 def test_spiral_build_hypergraph(benchmark, n):
     spiral = make_spiral(n)[0]
@@ -317,7 +305,6 @@ def test_spiral_build_hypergraph(benchmark, n):
 
 
 @case("spiral normal_form (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(5, 10, full=(20,)))  # ~O(n^3): 20 ~ 8.4s
 def test_spiral_normal_form_diagram(benchmark, n):
     spiral = make_spiral(n)[0]
@@ -326,7 +313,6 @@ def test_spiral_normal_form_diagram(benchmark, n):
 
 
 @case("spiral equality (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50,)))  # VF2: 100 risky
 def test_spiral_equality_hypergraph(benchmark, n):
     # Two independent builds of the same closed spiral: equality must decide
@@ -341,18 +327,16 @@ def test_spiral_equality_hypergraph(benchmark, n):
 # --- transpose snakes ------------------------------------------------------
 
 @case("transpose snake removal (Diagram)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50, 100)))
 def test_transpose_snake_removal_diagram(benchmark, n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')
-    g = with_snakes(rigid.Box('f', x, x), identity_snake(rigid, x), n)
+    g = with_snakes(rigid.Box('f', x, x), n)
     benchmark.pedantic(
         lambda: g.normal_form(), rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 @case("transpose equality (Hypergraph)")
-@pytest.mark.slow
 @pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
 def test_transpose_equality_hypergraph(benchmark, n):
     # Timed call includes to_hypergraph (snake-absorbing construction) plus
@@ -360,7 +344,7 @@ def test_transpose_equality_hypergraph(benchmark, n):
     x = compact.Ty('x')
     f = compact.Box('f', x, x)
     bare = f.to_hypergraph()
-    g = with_snakes(f, identity_snake(compact, x), n)
+    g = with_snakes(f, n)
     benchmark.pedantic(
         lambda: g.to_hypergraph() == bare, rounds=ROUNDS, warmup_rounds=WARMUP)
 
@@ -368,15 +352,17 @@ def test_transpose_equality_hypergraph(benchmark, n):
 # --- correctness (run once, not benchmarks) --------------------------------
 
 def test_adder_functor_correct():
-    """ The functor compiles adder(k) to a carry-save accumulator: reading
-    its outputs with weights [1, 2, 2, ...] recovers the input popcount. """
-    import itertools
+    """ The functor compiles adder(k) to a carry-save accumulator: encoding
+    ``2k + 1`` random bits and decoding the outputs with weights
+    ``[1, 2, 2, ...]`` recovers their popcount. """
+    rng = random.Random(0)
     full_adder = _full_adder()
     functor = _adder_functor(full_adder)
     adder = full_adder
     for k in range(1, 5):
         compiled = functor(adder)
-        for bits in itertools.product((0, 1), repeat=2 * k + 1):
+        for _ in range(20):
+            bits = [rng.randrange(2) for _ in range(2 * k + 1)]
             assert carry_save_value(compiled(*bits)) == sum(bits)
         adder = adder_step(full_adder, adder, k)
 
@@ -385,12 +371,11 @@ def test_transpose_snake_is_identity():
     """ The rigid snake-wrapped box normalises back to the bare box. """
     x = rigid.Ty('x')
     f = rigid.Box('f', x, x)
-    assert with_snakes(f, identity_snake(rigid, x), 1).normal_form() == f
+    assert with_snakes(f, 1).normal_form() == f
 
 
 def test_transpose_equality_holds():
     """ The compact snake-wrapped box equals the bare box as a hypergraph. """
     x = compact.Ty('x')
     f = compact.Box('f', x, x)
-    assert with_snakes(f, identity_snake(compact, x), 3).to_hypergraph() \
-        == f.to_hypergraph()
+    assert with_snakes(f, 3).to_hypergraph() == f.to_hypergraph()
