@@ -15,7 +15,7 @@ def test_Ty():
     assert isinstance(x, cat.FreeCategory)
     assert isinstance(x, cat.Ob) and not isinstance(x, Ob)
     assert x @ y != y @ x
-    assert x >> y == x @ y
+    assert x.then(y) == x @ y  # >> is overridden by closed.Ob exponentials.
     assert x @ Ty() == x == Ty() @ x
     assert (x @ y) @ z == x @ y @ z == x @ (y @ z)
 

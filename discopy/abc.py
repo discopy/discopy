@@ -115,14 +115,14 @@ class Monoid[C0, C1: Monoid](Category[C0, C1]):
     instead take colours as objects.
     """
     @classmethod
-    @abstractmethod
-    def tensor(cls) -> C1:
-        """The empty tensor, i.e. the monoidal unit."""
+    def unit(cls) -> C1:
+        """The monoidal unit, i.e. the empty tensor ``cls()``."""
+        return cls()
 
     @classmethod
     def id(cls, dom: C0 = None) -> C1:
         """The monoidal unit, seen as an identity morphism."""
-        return cls.tensor()
+        return cls.unit()
 
     @abstractmethod
     def tensor(self, *objects: C1) -> C1:

@@ -51,7 +51,6 @@ from discopy.cat import ar_factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
-    from_tree,
     BinaryBoxConstructor,
     AxiomError,
     assert_isatomic
@@ -131,10 +130,8 @@ class Ob(monoidal.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        name, z = tree['name'], tree.get('z', 0)
-        dom = from_tree(tree['dom']) if 'dom' in tree else monoidal.white
-        cod = from_tree(tree['cod']) if 'cod' in tree else monoidal.white
-        return cls(name=name, z=z, dom=dom, cod=cod)
+        base = monoidal.Ob.from_tree(tree)  # Parses the dom/cod colours.
+        return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
 @ar_factory

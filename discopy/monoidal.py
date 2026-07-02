@@ -150,6 +150,8 @@ class FreeMonoid(cat.FreeCategory, Monoid):
     """A free category whose composition is also its monoid product."""
 
     def tensor(self, *others):
+        # Whiskering: tensoring a type with e.g. a diagram returns
+        # NotImplemented so the other operand's __rmatmul__ takes over.
         if any(not isinstance(other, self.ar) for other in others):
             return NotImplemented
         return cat.FreeCategory.then(self, *others)
@@ -210,15 +212,9 @@ class Ty(cat.Ob, FreeMonoid):
             return x
         if isinstance(x, str):
             return self.generator_factory(x)
-        return self._coerce_legacy_generator(x)
-
-    def _coerce_legacy_generator(self, x: cat.Ob) -> cat.Ob:
-        """
-        Old dumps and pickles used a plain :class:`cat.Ob`, with no colour,
-        as the generators of :class:`monoidal.Ty`. We only allow this for
-        subclasses whose generators are plain :class:`Ob`, where it gets
-        upgraded to ``Ob(x.name)``.
-        """
+        # Old dumps and pickles used a plain cat.Ob, with no colour, as the
+        # generators: upgrade it to Ob(x.name) for subclasses whose
+        # generators are plain Ob.
         if self.generator_factory is Ob and type(x) is cat.Ob:
             return self.generator_factory(x.name)
         raise AxiomError(
