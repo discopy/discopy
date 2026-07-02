@@ -2,11 +2,41 @@
 
 """ Discopy configuration. """
 
+from functools import lru_cache
+
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
+
+@lru_cache(maxsize=1024)
+def text_width(text, fontsize=12):
+    """ The width of a text label in drawing units, i.e. inches.
+
+    Measured from the actual glyph outlines with matplotlib's text layout, so
+    it is accurate for proportional fonts and for mathtext such as a LaTeX
+    name (e.g. ``"$\\Lambda$"``). A drawing unit is one inch and a point is
+    1/72 inch, hence the division of the point-sized text path.
+    """
+    if not text:
+        return 0
+    from matplotlib.textpath import TextPath
+    return TextPath((0, 0), text, size=fontsize).get_extents().width / 72
+
+
+def box_label_width(box):
+    """ The width needed to fit a box's name, in drawing units.
+
+    This is the width of the widest line of the name (see :func:`text_width`),
+    or zero if the box has no name.
+    """
+    name = getattr(box, "drawing_name", None)
+    name = box.name if name is None else name
+    if not name:
+        return 0
+    return max(text_width(line) for line in name.split("\n"))
+
 
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
@@ -32,6 +62,10 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
+    # Minimum width of the box outline, e.g. to fit a LaTeX name by hand.
+    "min_width": lambda _: 0,
+    # Depends on drawing_name, so it must come after it in this mapping.
+    "box_label_width": box_label_width,
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
 }

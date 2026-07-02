@@ -214,6 +214,25 @@ def test_tikz_long_controlled():
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
 
+
+@draw_and_compare('long-box-name.png', aspect='equal')
+def test_draw_long_box_name():
+    # A box gets wider when its name is too long to fit between its wires,
+    # while boxes with short names keep their default size.
+    x = Ty('x')
+    return Box('f', x, x @ x)\
+        >> Box('a_box_with_a_very_long_name', x @ x, x)\
+        >> Box('g', x, x)
+
+
+@draw_and_compare('box-min-width.png', aspect='equal')
+def test_draw_box_min_width():
+    # The width of a box can be set by hand with `min_width`, e.g. for a
+    # LaTeX name whose rendered width cannot be guessed from its characters.
+    x = Ty('x')
+    return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
+
+
 def test_to_gif():
     from discopy.grammar.pregroup import (
          Ty, Cup, Cap, Box, Word, Functor)
