@@ -785,9 +785,14 @@ class CMap[C0: Pregroup, C1: CMap](
             left : Whether to curry on the left or right.
 
         >>> from discopy.compact import Ty, Box
-        >>> X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
-        >>> f = Box("f", X @ Y, Z).to_map()
+        >>> x, y, z = map(Ty, "xyz")
+        >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
+        >>> f.curry().draw(
+        ...     path="docs/_static/cmap/curry.png", show=False)
+
+        .. image:: /_static/cmap/curry.png
+            :align: center
         """
         if n < 0 or n > len(self.dom):
             raise ValueError
@@ -1312,14 +1317,6 @@ class CMap[C0: Pregroup, C1: CMap](
             graph_attr : Additional Graphviz graph attributes.
             port_indices : Whether to display port indices.
             block : Whether displaying blocks execution.
-
-        >>> from discopy.compact import Ty, Box, CMap
-        >>> x, y, z = map(Ty, "xyz")
-        >>> Box("f", x @ y, z).to_map().curry().draw(
-        ...     path="docs/_static/cmap/curry.png", show=False)
-
-        .. image:: /_static/cmap/curry.png
-            :align: center
 
         Scalars are drawn as dots with a loop, but the combinatorial map
         structure does not let us retain inclusion:
