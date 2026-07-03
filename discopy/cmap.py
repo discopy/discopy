@@ -226,12 +226,29 @@ class CMap[C0: Pregroup, C1: CMap](
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
     >>> cm.draw(
-    ...     path="docs/_static/cmap/simple_cmap.png",
+    ...     path="docs/_static/cmap/simple-cmap.png",
     ...     port_indices=True,
     ...     show=False,
     ... )
 
-    .. image:: /_static/cmap/simple_cmap.png
+    .. image:: /_static/cmap/simple-cmap.png
+            :align: center
+
+    Swaps affect the edge permutation but leaves the vertex permutation
+    fixed:
+
+    >>> f, g = map(CMap.from_box, [
+    ...     Box("f", x @ y, z @ x),
+    ...     Box("g", z @ z, z),
+    ... ])
+    >>> cm = (f >> CMap.swap(z, x)) @ z >> x @ g
+    >>> cm.draw(
+    ...     path="docs/_static/cmap/swapped-cmap.png",
+    ...     port_indices=True,
+    ...     show=False,
+    ... )
+
+    .. image:: /_static/cmap/swapped-cmap.png
             :align: center
     """
 
@@ -1178,7 +1195,7 @@ class CMap[C0: Pregroup, C1: CMap](
         def box_table(vertex, box):
             box_ports = self._box_port_indices[vertex]
             dom_ports = box_ports[:len(box.dom)]
-            cod_ports = box_ports[len(box.dom):]
+            cod_ports = tuple(reversed(box_ports[len(box.dom):]))
             dom_arity, cod_arity = len(dom_ports), len(cod_ports)
             grid = lcm(dom_arity or 1, cod_arity or 1)
             box_width = 18 * max(dom_arity, cod_arity, 1)

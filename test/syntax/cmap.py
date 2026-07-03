@@ -416,6 +416,7 @@ def test_to_dot_port_indices_are_absolute():
     assert 'PORT="p6" TOOLTIP="cod 0: x (down, down)" BORDER="0" '\
         'CELLPADDING="2" COLSPAN="1" WIDTH="18" HEIGHT="18" '\
         'FIXEDSIZE="TRUE">6</TD>' in dot
+    assert dot.index('PORT="p6"') < dot.index('PORT="p5"')
 
 
 def test_hypergraph_to_map():
