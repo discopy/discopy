@@ -1227,8 +1227,6 @@ class CMap[C0: Pregroup, C1: CMap](
             seed : An optional Graphviz layout seed.
             show : Whether to display the rendered image.
             graph_attr : Additional Graphviz graph attributes.
-            boundary_labels : Accepted for drawing API compatibility.
-            box_labels : Accepted for drawing API compatibility.
             port_indices : Whether to display port indices.
             block : Whether displaying blocks execution.
 

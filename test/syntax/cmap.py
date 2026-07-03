@@ -1,7 +1,7 @@
 import pytest
 from pytest import raises
 
-from discopy import monoidal, closed, compact, symmetric
+from discopy import closed, compact, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -98,7 +98,8 @@ def test_eliminate_swaps():
     diagram = Id(x @ y).swap(x, y).swap(y, x)
     assert diagram == diagram.to_map().to_diagram().normal_form()
 
-    diagram = Id(x @ y @ w @ z).swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
+    diagram = Id(x @ y @ w @ z)\
+        .swap(x @ y, w @ z).swap(w @ z, x @ y).normal_form()
     assert diagram == diagram.to_map().to_diagram().normal_form()
 
     f, g = Box("f", x, z), Box("g", y, w)
@@ -225,8 +226,8 @@ def test_diagram_to_map_structure_and_errors():
     assert spider.to_map() == frobenius.CMap.spiders(1, 2, fx)
 
     x, y = map(compact.Ty, "xy")
-    assert to_hypergraph(compact.CMap.swap(x, y)) == compact.CMap.category.swap(
-        x, y).to_hypergraph()
+    assert to_hypergraph(compact.CMap.swap(x, y))\
+        == compact.CMap.category.swap(x, y).to_hypergraph()
     assert compact.CMap.cups(x, x.r).dom == x @ x.r
     assert compact.CMap.caps(x.r, x).cod == x.r @ x
     with raises(AxiomError):
@@ -289,8 +290,10 @@ def test_diagram_to_map_structure_and_errors():
         closed.CMap.category.ev(y, x), )
 
     x = markov.Ty("x")
-    assert markov.CMap.copy(x, 2).boxes == (markov.CMap.category.copy(x, 2), )
-    assert markov.CMap.merge(x, 2).boxes == (markov.CMap.category.merge(x, 2), )
+    assert markov.CMap.copy(x, 2).boxes == (
+        markov.CMap.category.copy(x, 2), )
+    assert markov.CMap.merge(x, 2).boxes == (
+        markov.CMap.category.merge(x, 2), )
     assert markov.CMap.discard(x).boxes == (markov.CMap.category.copy(x, 0), )
 
     x = frobenius.Ty("x")
@@ -375,7 +378,8 @@ def test_zipping_cups_and_caps():
         return id @ cap @ cap @ cap @ cap >> cup @ cup @ cup @ cup @ id
 
     assert zipping_expr(D, x).to_map() == zipping_expr(M, x) == M.id(x)
-    assert zipping_expr(D, x @ y).to_map() == zipping_expr(M, x @ y) == M.id(x @ y)
+    assert zipping_expr(D, x @ y).to_map()\
+        == zipping_expr(M, x @ y) == M.id(x @ y)
 
 
 def test_scalar_is_not_eliminated():
@@ -404,7 +408,8 @@ def test_hypergraph_to_map():
     assert to_hypergraph(f.to_map()) == f
 
     fx = frobenius.Ty("x")
-    assert frobenius.Hypergraph.spiders(1, 2, fx).to_map() == frobenius.CMap.spiders(1, 2, fx)
+    assert frobenius.Hypergraph.spiders(1, 2, fx).to_map()\
+        == frobenius.CMap.spiders(1, 2, fx)
 
 
 def test_then():
@@ -412,7 +417,8 @@ def test_then():
 
     x, y, z, w = map(Ty, "xyzw")
     f, g, h = [
-        M.from_box(box) for box in [Box("f", x, y), Box("g", y, z), Box("h", z, w)]
+        M.from_box(box) for box in [
+            Box("f", x, y), Box("g", y, z), Box("h", z, w)]
     ]
     assert ((f >> g) >> h) == (f >> (g >> h))
     assert (f >> M.id(y)) == f
@@ -528,8 +534,7 @@ def test_then_tensor():
 
 def test_euler_characteristic():
     from discopy import closed, compact
-    # from discopy.closed import Ty, Box, CMap as M
-    # from discopy.compact import Ty as CTy, Box as CBox
+
     x, y = map(closed.Ty, "xy")
     assert closed.CMap.id().is_planar
     wire = closed.CMap.id(x)
