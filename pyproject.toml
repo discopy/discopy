@@ -90,6 +90,7 @@ docs  = [
     "sphinx == 7.2.*",
     "sphinx-book-theme == 1.1.*",
     "sphinxcontrib-bibtex == 2.5.*",
+    "sphinxcontrib-tikz == 0.4.*",
     "sphinxcontrib-youtube == 1.4.*",
 ]
 

@@ -400,6 +400,24 @@ def test_scalar_is_not_eliminated():
     assert 'scalar0 -- scalar0 [len="0.85", label="x"];' in dot
 
 
+def test_to_dot_port_indices_are_absolute():
+    from discopy.compact import Ty, Box, CMap as M
+
+    x, y, z = map(Ty, "xyz")
+    f, g = map(M.from_box, [
+        Box("f", x @ y, x @ z),
+        Box("g", z @ z, z),
+    ])
+    dot = (f @ z >> x @ g).to_dot(port_indices=True)
+
+    assert 'PORT="p3" TOOLTIP="dom 0: x (up, up)" BORDER="0" '\
+        'CELLPADDING="2" COLSPAN="1" WIDTH="18" HEIGHT="18" '\
+        'FIXEDSIZE="TRUE">3</TD>' in dot
+    assert 'PORT="p6" TOOLTIP="cod 0: x (down, down)" BORDER="0" '\
+        'CELLPADDING="2" COLSPAN="1" WIDTH="18" HEIGHT="18" '\
+        'FIXEDSIZE="TRUE">6</TD>' in dot
+
+
 def test_hypergraph_to_map():
     from discopy import compact, frobenius
 

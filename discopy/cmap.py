@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
 
 """
-Combinatorial maps with interfaces.
+An implementation of open polarized combinatorial maps.
 
-See `combinatorial map
-<https://en.wikipedia.org/wiki/Combinatorial_map>`_ for background.
+Following :cite:t:`Zeil2016`, a combinatorial map is fully described by a pair
+of permutations :math:`v` and :math:`e` acting on a set of ports :math:`P`
+(also called darts or half-edges), where:
 
-The ports of a map are ordered as in :mod:`discopy.hypergraph`: inputs,
-then the domain and codomain ports of each box, then outputs. A map is given by
-two permutations on these ports:
+* :math:`v` is an arbitrary permutation whose decomposition induces a node for
+  each cycle, giving an orientation on ports;
+* :math:`e` is a fixpoint-free involution, hence its cycle decomposition
+  only contains transpositions which are to be understood as wires of the map.
 
-* ``edges`` is a fixpoint-free involution pairing ports into wires;
-* ``orientation`` is derived from the canonical clockwise port order of the
-  boundary and boxes.
+A map morphism from :math:`(P, v, e)` to :math:`(P', v', e')` is then defined
+as a function :math:`f : P \\rightarrow P'` such that:
 
-Their composite gives the faces of the map. Closed wire components are
-stored separately in ``scalars`` together with their types.
+* :math:`f` defines a homomorphism of the underlying graph:
+  :math:`e; f = f; e'`;
+* :math:`f` respects orientation: :math:`v; f = f; v'`.
+
+From the previous definition we can define :math:`\\mathbf{CMap}` as the
+category of combinatorial maps, from which we can derive the category
+:math:`\\mathrm{Cospan}(\\mathbf{CMap})` of open combinatorial maps.
 
 Summary
 -------
@@ -121,24 +127,76 @@ class Port:
 class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
-    """
-    An oriented bijective hypergraph with interface, also known as an open
-    combinatorial map.
+    r"""
+    An open combinatorial map, also known as an oriented bijective hypergraph
+    with interface.
 
-    The edges involution gives the wires by decomposition into 2-cycles, while
-    the vertex permutation gives an orientation to every box.
+    Contrary to the abstract definition, which has unstructured nodes arising
+    from the given orientation permutation, we take DisCoPy boxes as nodes and
+    derive a canonical clockwise port orientation on boxes: every box of arity
+    :math:`m` and coarity :math:`n` maps to a :math:`(m+n)`-cycle in the
+    generated permutation, consisting of contiguous port indices.
+    The boundary is represented as an apex, as if the input and output ports
+    were connected to the codomain and domain of a virtual box.
 
-    Port ordering is fixed by a canonical order given by clockwise order,
-    meaning that every box of arity m and coarity n maps to a (m+n)-cycle
-    consisting of contiguous port indices. The boundary is represented as
-    an apex, as if the domain and codomain ports were connected to the
-    same box.
+    By default, `CMap` defines a free compact category over a set of boxes,
+    but we also want to be able encode weaker structure for each level of
+    the DisCoPy hierarchy.
+    We therefore further distinguish port sides by assigning a negative
+    polarity on domain ports and a positive polarity on codomain ports
+    by equipping the map with a polarity assignment
+    :math:`m : P \rightarrow \{-1, +1\}`.
 
-    The ``require_planar``, ``require_acyclic``, ``require_oriented`` and
-    ``require_connected`` flags can be set to enforce non-symmetric,
-    non-traced, non-compact and connected structure globally, including maps
-    with boxes. When the domain or codomain is non-empty, the boundary apex
-    connects the open boundary. Fully closed maps have no boundary apex.
+    Four knobs are available to restrict the structure:
+
+    * ``require_planar``: the port orientation give us a way to easily compute
+      whether the map is planar by computing its component-wise Euler
+      characteristic, i.e. disallow swaps;
+    * ``require_acyclic``: checks that the edges are in causal order, i.e.
+      they link positive ports to negative ports with higher rank, i.e. no
+      traced wires;
+    * ``require_oriented``: checks that we connect positive to negative wires,
+      and disallow same-polarity pairings, i.e. we can enforce
+      :math:`e; m = -m` to disallow cups and caps;
+    * ``require_connected``: ensures the map forms a single connected component
+
+    The first three knobs form the following cube of categorical structure,
+    where following an axis means enforcing the corresponding constraint:
+
+    .. tikz::
+        :align: center
+
+        \begin{tikzpicture}[
+          x={(2.5cm,0cm)}, y={(0.8cm,1cm)}, z={(0cm,2cm)},
+          every node/.style={font=\scriptsize, align=center},
+          axis label/.style={font=\tiny, text=gray!35!black},
+          edge/.style={draw, -latex}
+        ]
+          \node (C)  at (0,0,0) {compact};
+          \node (P)  at (1,0,0) {?};
+          \node (A)  at (0,1,0) {?};
+          \node (O)  at (0,0,1) {symmetric};
+          \node (PA) at (1,1,0) {rigid/pivotal};
+          \node (PO) at (1,0,1) {traced};
+          \node (AO) at (0,1,1) {closed};
+          \node (M)  at (1,1,1) {monoidal};
+
+          \draw[edge] (C) -- (P)
+              node[midway, below, sloped, axis label] {planar};
+          \draw[edge] (C) -- (A)
+              node[midway, above, sloped, axis label] {acyclic};
+          \draw[edge] (C) -- (O)
+              node[midway, above, sloped, axis label] {oriented};
+          \draw[edge] (P) -- (PA);
+          \draw[edge] (P) -- (PO);
+          \draw[edge] (A) -- (PA);
+          \draw[edge] (A) -- (AO);
+          \draw[edge] (O) -- (PO);
+          \draw[edge] (O) -- (AO);
+          \draw[edge] (PA) -- (M);
+          \draw[edge] (PO) -- (M);
+          \draw[edge] (AO) -- (M);
+        \end{tikzpicture}
 
     Parameters:
         dom : The domain of the map.
@@ -167,6 +225,14 @@ class CMap[C0: Pregroup, C1: CMap](
     >>> cm.orientation == Permutation.from_cycles([
     ...     (2, 1, 0, 10, 11), (3, 4, 5, 6), (7, 8, 9)], 12)
     True
+    >>> cm.draw(
+    ...     path="docs/_static/cmap/simple_cmap.png",
+    ...     port_indices=True,
+    ...     show=False,
+    ... )
+
+    .. image:: /_static/cmap/simple_cmap.png
+            :align: center
     """
 
     functor: ClassVar[Functor]
@@ -1091,7 +1157,7 @@ class CMap[C0: Pregroup, C1: CMap](
             tooltip = escape_html(
                 f"{port.kind} {port.i}: {port.obj} "
                 f"({port.side}, {port.direction})")
-            text = escape_html(port.i) if port_indices else ""
+            text = escape_html(port_index) if port_indices else ""
             cellpadding = 2 if port_indices else 0
             height = 18 if port_indices else 0
             fixedsize = ' FIXEDSIZE="TRUE"' if port_indices else ""
