@@ -1,7 +1,7 @@
 import pytest
 from pytest import raises
 
-from discopy import closed, compact, symmetric
+from discopy import biclosed, closed, compact, symmetric
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
@@ -302,6 +302,85 @@ def test_diagram_to_map_structure_and_errors():
     assert frobenius.Diagram.map_factory is frobenius.CMap
 
 
+@pytest.mark.parametrize(
+    "module",
+    [
+        compact,
+        closed,
+        biclosed,
+    ]
+)
+def test_curry_uncurry_roundtrip(module):
+    x, y, z = map(module.Ty, "xyz")
+    f = module.Box("f", x @ y, z)
+    cmap = f.to_map()
+
+    assert cmap.curry(n=0).uncurry(n=0) == cmap
+    with raises(ValueError):
+        cmap.curry(n=3)
+    with raises(ValueError):
+        cmap.uncurry(n=2)
+
+    if module is compact:
+        assert cmap.curry().uncurry() == cmap
+        assert cmap.curry(left=True).uncurry(left=True) == cmap
+        assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
+        return
+
+    right = cmap.curry()
+    assert right.dom == y
+    assert right.cod == x >> z
+    assert right.boxes == (
+        f, module.Diagram.coeval_factory(x >> z, left=False))
+    assert f.curry().to_map() == right
+
+    left = cmap.curry(left=True)
+    assert left.dom == x
+    assert left.cod == z << y
+    assert left.boxes == (
+        f, module.Diagram.coeval_factory(z << y, left=True))
+    assert f.curry(left=True).to_map() == left
+
+    h = module.Box("h", y, x >> z)
+    uncurried = h.to_map().uncurry()
+    assert uncurried.dom == x @ y
+    assert uncurried.cod == z
+    assert uncurried.boxes == (
+        h, module.Diagram.eval_factory(x >> z, left=False))
+    assert h.uncurry().to_map() == uncurried
+
+    w = module.Ty("w")
+    k = module.Box("k", x @ y @ z, w)
+    right_two = k.to_map().curry(n=2).uncurry(n=2)
+    assert right_two.dom == x @ y @ z
+    assert right_two.cod == w
+    assert right_two.boxes == (
+        k,
+        module.Diagram.coeval_factory(x @ y >> w, left=False),
+        module.Diagram.eval_factory(x @ y >> w, left=False))
+
+    left_two = k.to_map().curry(n=2, left=True).uncurry(
+        n=2, left=True)
+    assert left_two.dom == x @ y @ z
+    assert left_two.cod == w
+    assert left_two.boxes == (
+        k,
+        module.Diagram.coeval_factory(w << y @ z, left=True),
+        module.Diagram.eval_factory(w << y @ z, left=True))
+
+    right_nested = k.to_map().curry().curry().uncurry(n=2)
+    assert right_nested.dom == x @ y @ z
+    assert right_nested.cod == w
+
+    left_nested = k.to_map().curry(left=True).curry(
+        left=True).uncurry(n=2, left=True)
+    assert left_nested.dom == x @ y @ z
+    assert left_nested.cod == w
+
+    with raises(ValueError):
+        k.to_map().curry(n=2).uncurry()
+
+
 def test_trace():
     from discopy.compact import Ty, Box, CMap as M
 
@@ -331,21 +410,6 @@ def test_trace():
     assert closed_component.n_vertices == 1
     assert closed_component.euler_characteristic == 2
     assert closed_component.is_planar
-
-
-def test_curry_uncurry_roundtrip():
-    from discopy.compact import Ty, Box
-
-    x, y, z = map(Ty, "xyz")
-    cmap = Box("f", x @ y, z).to_map()
-    assert cmap.curry().uncurry() == cmap
-    assert cmap.curry(left=True).uncurry(left=True) == cmap
-    assert cmap.curry(n=0).uncurry(n=0) == cmap
-    assert cmap.curry(n=2, left=True).uncurry(n=2, left=True) == cmap
-    with raises(ValueError):
-        cmap.curry(n=3)
-    with raises(ValueError):
-        cmap.uncurry(n=2)
 
 
 def test_scalar_box():

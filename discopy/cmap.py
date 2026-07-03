@@ -637,10 +637,16 @@ class CMap[C0: Pregroup, C1: CMap](
             target_depth = int(target.depth - 0.5)
             if source_depth == target_depth:
                 continue
+            if self.ignore_forward_edge(source_depth, target_depth):
+                continue
             if has_path(target_depth, source_depth):
                 raise AxiomError(messages.NOT_TRACEABLE.format(
                     source, target))
             graph[source_depth].add(target_depth)
+
+    def ignore_forward_edge(self, source_depth: int, target_depth: int):
+        """ Whether an acyclicity edge should be ignored. """
+        return False
 
     def __repr__(self):
         def port_repr(index, port):
@@ -776,9 +782,9 @@ class CMap[C0: Pregroup, C1: CMap](
         Curry a combinatorial map using compact wiring.
 
         Note:
-            This will use the free closed structure obtained from the map
+            This will use the free compact structure obtained from the map
             representation by introducing adjoint ports, even if the host
-            category already has closed structure.
+            category already has compact structure.
 
         Parameters:
             n : The number of objects to curry.
@@ -789,9 +795,9 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> f = Box("f", x @ y, z).to_map()
         >>> assert f.curry().uncurry() == f
         >>> f.curry().draw(
-        ...     path="docs/_static/cmap/curry.png", show=False)
+        ...     path="docs/_static/cmap/compact-curry.png", show=False)
 
-        .. image:: /_static/cmap/curry.png
+        .. image:: /_static/cmap/compact-curry.png
             :align: center
         """
         if n < 0 or n > len(self.dom):
@@ -1321,6 +1327,8 @@ class CMap[C0: Pregroup, C1: CMap](
         Scalars are drawn as dots with a loop, but the combinatorial map
         structure does not let us retain inclusion:
 
+        >>> from discopy.compact import Ty, CMap
+        >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
         ...     path="docs/_static/cmap/scalar.png", show=False)
 
