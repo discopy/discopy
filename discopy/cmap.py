@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
 
 """
-An implementation of open `combinatorial maps <https://en.wikipedia.org/wiki/Combinatorial_map>`_.
+An implementation of open `combinatorial maps
+<https://en.wikipedia.org/wiki/Combinatorial_map>`_.
 
 A combinatorial map is fully described by a pair of permutations :math:`v` and
-:math:`e` acting on a set of ports :math:`P` (also called darts or half-edges),
-where:
+:math:`e` acting on a set of ports :math:`P` (also called darts or
+half-edges) where:
 
 * :math:`v` is an arbitrary permutation whose decomposition induces a node for
   each cycle, giving an orientation on ports;
@@ -145,9 +146,10 @@ class CMap[C0: Pregroup, C1: CMap](
     We can simplify and encode it by a single morphism
     :math:`\mathrm{boundary} : \mathrm{apex} \rightarrow M` where
     :math:`\mathrm{apex} = \mathrm{dom} \sqcup \mathrm{cod}`
-    Effectively, we simplify even further by integrating this apex as a virtual box
-    within the map, whose signature is the dagger of the overall map. Extra wires
-    connecting the apex to internal nodes encode the data of the previous morphism.
+    Effectively, we simplify even further by integrating this apex as a
+    virtual box within the map, whose signature is the dagger of the overall
+    map. Extra wires connecting the apex to internal nodes encode the data of
+    the previous morphism.
 
     By default, `CMap` defines the free compact category over a set of boxes,
     but we also want to be able to encode weaker structure for each level of
