@@ -136,8 +136,18 @@ class CMap[C0: Pregroup, C1: CMap](
     derive a canonical clockwise port orientation on boxes: every box of arity
     :math:`m` and coarity :math:`n` maps to a :math:`(m+n)`-cycle in the
     generated permutation, consisting of contiguous port indices.
-    The boundary is represented as an apex, as if the input and output ports
-    were connected to the codomain and domain of a virtual box.
+    We also enable scalars to be represented in the symmetric case.
+
+    As for the open structure, usually cospans are given by two morphisms
+    :math:`\mathrm{inputs} : \mathrm{dom} \rightarrow M` and
+    :math:`\mathrm{outputs} : \mathrm{cod} \rightarrow M`, where
+    :math:`\mathrm{dom}` and :mathm:`\mathrm{cod}` are discrete maps.
+    We can simplify and encode it by a single morphism
+    :math:`\mathrm{boundary} : \mathrm{apex} \rightarrow M` where
+    :math:`\mathrm{apex} = \mathrm{dom} \sqcup \mathrm{cod}`
+    Effectively, we simplify even further by integrating this apex as a virtual box
+    within the map, whose signature is the dagger of the overall map. Extra wires
+    connecting the apex to internal nodes encode the data of the previous morphism.
 
     By default, `CMap` defines the free compact category over a set of boxes,
     but we also want to be able to encode weaker structure for each level of
