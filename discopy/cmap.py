@@ -3,6 +3,8 @@
 """
 An implementation of open `combinatorial maps
 <https://en.wikipedia.org/wiki/Combinatorial_map>`_.
+See :cite:`DelpeuchVicary22` for a comprehensive overview of combinatorial
+maps in relation to string diagrams.
 
 A combinatorial map is fully described by a pair of permutations :math:`v` and
 :math:`e` acting on a set of ports :math:`P` (also called darts or
