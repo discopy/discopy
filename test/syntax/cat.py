@@ -281,6 +281,10 @@ def test_Transformation_errors():
     # then only composes with another Transformation.
     with raises(TypeError):
         Transformation.id(F) >> F
+    # A component must be an arrow from dom(x) to cod(x).
+    f = Box('f', x, y)
+    with raises(AxiomError):
+        Transformation({x: f, y: f[::-1]}, F, F)(x)
 
 
 def test_total_ordering():

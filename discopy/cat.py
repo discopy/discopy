@@ -955,12 +955,50 @@ class Transformation:
             components)
 
     def __call__(self, x: Ob) -> Arrow:
-        """ The component of the transformation at a given object. """
-        return self.components[x]
+        """
+        The component of the transformation at a given object ``x``,
+        i.e. the arrow from ``dom(x)`` to ``cod(x)`` -- from ``F(x)`` to
+        ``G(x)`` for the functors ``F = self.dom`` and ``G = self.cod``.
+
+        Parameters:
+            x : The object at which to take the component.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f = Box('f', x, y)
+        >>> F, G = Functor.id(), Functor({x: y, y: x}, {})
+        >>> alpha = Transformation({x: f, y: f[::-1]}, F, G)
+        >>> alpha(x)
+        cat.Box('f', cat.Ob('x'), cat.Ob('y'))
+        >>> assert alpha(x).dom == F(x) and alpha(x).cod == G(x)
+        """
+        component = self.components[x]
+        if component.dom != self.dom(x) or component.cod != self.cod(x):
+            raise utils.AxiomError(
+                f"The component at {x} must be an arrow "
+                f"from {self.dom(x)} to {self.cod(x)}.")
+        return component
 
     @classmethod
     def id(cls, dom: Functor) -> Transformation:
-        """ The identity transformation on a given functor ``dom``. """
+        """
+        The identity transformation on a given functor ``dom``, i.e. the
+        transformation whose component at each object ``x`` is the
+        identity arrow on ``dom(x)``.
+
+        Parameters:
+            dom : The functor on which to take the identity transformation.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> F = Functor({x: y, y: x}, {})
+        >>> alpha = Transformation.id(F)
+        >>> alpha(x)
+        cat.Arrow.id(cat.Ob('y'))
+        >>> assert alpha(x) == F.cod.id(F(x))
+        """
         return cls(lambda x: dom.cod.id(dom(x)), dom, dom)
 
     def then(self, other: Transformation) -> Transformation:
