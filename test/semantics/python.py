@@ -191,3 +191,33 @@ def test_lambda_token_roundtrip():
     f, x = Variable("f", X >> Y), Variable("x", X)
     application = Application(f, x)
     assert to_term(to_hypergraph(application), ["f", "x"]) == application
+
+    # The direct-style to_term agrees with the continuation-passing
+    # cmap.to_term on every term above.
+    for term in (identity, whiteboard, b, petersen, application):
+        assert to_term(to_hypergraph(term)) == term.to_map().to_term()
+
+
+def test_lambda_token_machine():
+    from discopy.closed import Ty, Variable, Application, Abstraction
+    from discopy.python.lambda_token import to_hypergraph
+
+    X = Ty("X")
+    x, z = Variable("x", X), Variable("z", X)
+
+    # Running the machine on (lambda z: z)(x): the token enters on the root
+    # wire (the last input) and exits at the free variable x (the first
+    # output) with a balanced stack, tracing the beta-reduction to x.
+    beta = Application(Abstraction(z, z), x)
+    machine = to_hypergraph(beta)
+    assert machine((), tag=len(machine.dom) - 1) == ((), 0)
+
+    # On f(x) the token exits at the free variable f, asking for its result.
+    f = Variable("f", X >> X)
+    machine = to_hypergraph(Application(f, x))
+    assert machine((), tag=len(machine.dom) - 1) == ((1, ), 0)
+
+    # On (lambda z: f(z))(x) the two paths compose: the token still exits
+    # at f, asking for the result of the beta-reduced term f(x).
+    machine = to_hypergraph(Application(Abstraction(z, Application(f, z)), x))
+    assert machine((), tag=len(machine.dom) - 1) == ((1, ), 0)

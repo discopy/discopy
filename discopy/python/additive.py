@@ -167,8 +167,9 @@ class Hypergraph:
 
     Note
     ----
-    Where :class:`discopy.python.multiplicative.Hypergraph` carries data along
-    every wire at once (copy-discard, **left**-monogamous, causal), this one
+    Where a hypergraph of multiplicative functions
+    (:mod:`discopy.python.multiplicative`) carries data along every wire at
+    once (copy-discard, **left**-monogamous, causal), this one
     carries a single **token** that hops from wire to wire, as in the
     Geometry of Interaction. A wire therefore needs a unique *consumer* (the
     one place the token goes next) but may have many *producers* (the token
@@ -242,7 +243,7 @@ class Hypergraph:
             *(box_dom + box_cod for box_dom, box_cod in self.box_wires))
 
     @property
-    def spider_wires(self) -> tuple[dict, dict]:
+    def producers_and_consumers(self) -> tuple[dict, dict]:
         """
         A ``(producers, consumers)`` pair of mappings from each spider to the
         ports that the token can *leave* from (the domain inputs and the
@@ -270,7 +271,7 @@ class Hypergraph:
         In that case the hypergraph lives in a cocartesian (disjoint-union)
         category: a wire may be produced any number of times.
         """
-        producers, consumers = self.spider_wires
+        producers, consumers = self.producers_and_consumers
         return all(
             len(consumers[spider]) == 1
             for spider in self.spiders
