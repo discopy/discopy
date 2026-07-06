@@ -73,7 +73,7 @@ report as an artifact.
 ## Build the docs
 
 You can build the documentation locally with [sphinx](https://www.sphinx-doc.org/en/master/):
-You'll need to install [pandoc](https://pandoc.org/) as an external dependency not managed by `uv`.
+You'll need to install [pandoc](https://pandoc.org/) and [graphviz](https://graphviz.org/) as external dependencies not managed by `uv`.
 
 ```shell
 uv sync --group docs

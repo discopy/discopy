@@ -203,6 +203,7 @@ class Hypergraph(traced.Hypergraph):
 
 
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = traced.CMap
 Diagram.braid_factory = Braid
 Diagram.twist_factory = Twist
 Diagram.trace_factory = Trace

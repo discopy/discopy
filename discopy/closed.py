@@ -24,6 +24,7 @@ Summary
     Curry
     Sum
     Functor
+    CMap
 
 Axioms
 ------
@@ -172,7 +173,13 @@ class Hypergraph(markov.Hypergraph):
     functor = Functor
 
 
+class CMap(biclosed.CMap):
+    functor = Functor
+    require_planar = False
+
+
 Diagram.hypergraph_factory = Hypergraph
+Diagram.map_factory = CMap
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry
