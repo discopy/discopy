@@ -20,7 +20,7 @@ as a function :math:`f : P \\rightarrow P'` such that:
 * :math:`f` respects orientation: :math:`v; f = f; v'`.
 
 From the previous definition we can define the category of combinatorial maps,
-and the category of _open_ maps is given by cospans where legs are discrete
+and the category of open maps is given by cospans where legs are discrete
 combinatorial maps (containing only scalars).
 
 Summary
@@ -141,7 +141,7 @@ class CMap[C0: Pregroup, C1: CMap](
     As for the open structure, usually cospans are given by two morphisms
     :math:`\mathrm{inputs} : \mathrm{dom} \rightarrow M` and
     :math:`\mathrm{outputs} : \mathrm{cod} \rightarrow M`, where
-    :math:`\mathrm{dom}` and :mathm:`\mathrm{cod}` are discrete maps.
+    :math:`\mathrm{dom}` and :math:`\mathrm{cod}` are discrete maps.
     We can simplify and encode it by a single morphism
     :math:`\mathrm{boundary} : \mathrm{apex} \rightarrow M` where
     :math:`\mathrm{apex} = \mathrm{dom} \sqcup \mathrm{cod}`
