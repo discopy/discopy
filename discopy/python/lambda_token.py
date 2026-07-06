@@ -30,8 +30,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    apply_function
-    curry_function
+    token_function
     to_hypergraph
     to_term
     roundtrip
@@ -43,76 +42,48 @@ from discopy.cmap import PortKind
 from discopy.python.additive import Function, Hypergraph
 
 
-def _token_function(box, push_bit):
+def token_function(box) -> Function:
     """
-    The token-passing :class:`Function` shared by applications and
-    abstractions: the box has ``len(box.dom) + len(box.cod)`` wires meeting it,
-    each both an entry (its domain) and an exit (its codomain). A token
-    reaching the box on one of its *outputs* (a codomain wire) **pushes**
-    ``push_bit`` and continues on the first domain wire; one reaching it on an
-    *input* (a domain wire) **pops** the top bit. The bit distinguishes the
-    two kinds of node so an application cancels the abstraction it meets.
+    The token-passing :class:`Function` of a box in a lambda diagram.
+
+    The box has ``len(box.dom) + len(box.cod)`` wires meeting it, each both an
+    entry (its domain) and an exit (its codomain). A token reaching an
+    application (``Eval``) or an abstraction (``Coeval``) on one of its
+    *outputs* (a codomain wire) **pushes** a bit -- ``0`` for an application,
+    ``1`` for an abstraction, so that an application can cancel the
+    abstraction it meets -- while a token reaching it on an *input* (a domain
+    wire) **pops** the top bit. On any other box (a constant) the token simply
+    turns around.
+
+    Parameters:
+        box : A box of a lambda diagram.
     """
-    n_dom, n_cod = len(box.dom), len(box.cod)
-    n_ports = n_dom + n_cod
+    from discopy import closed
+    n_dom, n_ports = len(box.dom), len(box.dom) + len(box.cod)
+    dom = cod = n_ports * (object, )
+    if not isinstance(box, (closed.Eval, closed.Coeval)):
+        return Function(lambda stack, tag=0: (stack, tag), dom, cod)
+    bit = int(isinstance(box, closed.Coeval))
 
     def inside(stack, tag):
         if tag >= n_dom:               # an output (codomain) wire: push
-            return stack + (push_bit, ), 0
+            return stack + (bit, ), 0
         *rest, _ = stack               # an input (domain) wire: pop
         return tuple(rest), n_dom
-    return Function(inside, (object, ) * n_ports, (object, ) * n_ports)
+    return Function(inside, dom, cod)
 
 
-def apply_function(box) -> Function:
-    """
-    The token-passing :class:`Function` of an application (``Eval``) box, which
-    pushes the bit ``0`` when entered from its output (the result wire).
-
-    Parameters:
-        box : The ``Eval`` box.
-    """
-    return _token_function(box, push_bit=0)
-
-
-def curry_function(box) -> Function:
-    """
-    The token-passing :class:`Function` of an abstraction (``Coeval``) box,
-    which pushes the bit ``1`` when entered from one of its outputs (the
-    function and bound-parameter wires).
-
-    Parameters:
-        box : The ``Coeval`` box.
-    """
-    return _token_function(box, push_bit=1)
-
-
-def _box_function(box):
-    """ The token :class:`Function` for any box of a lambda diagram. """
-    from discopy import closed
-    if isinstance(box, closed.Eval):
-        return apply_function(box)
-    if isinstance(box, closed.Coeval):
-        return curry_function(box)
-    # A constant or variable box: the token simply turns around.
-    n_ports = len(box.dom) + len(box.cod)
-    return Function(
-        lambda stack, tag=0: (stack, tag), (object, ) * n_ports,
-        (object, ) * n_ports)
-
-
-def to_hypergraph(term):
+def to_hypergraph(term) -> Hypergraph:
     """
     Compile a linear lambda term into a token-passing additive hypergraph.
 
-    Each application becomes an :func:`apply_function` and each abstraction a
-    :func:`curry_function`. The wiring comes from the term's rooted
-    combinatorial map (:meth:`discopy.closed.Term.to_map`): every undirected
-    wire becomes the two opposite directed wires a token can travel, so each
-    box both reads (on the way in) and writes (on the way out) all of its
-    wires, and every directed wire has a unique consumer -- the hypergraph is
-    right-monogamous. The term's lambda structure is annotated on the result
-    (as ``hypergraph.lambda_meta``) so :func:`to_term` walks it back to a term.
+    Each box becomes its :func:`token_function` and the wiring is read off the
+    term's rooted combinatorial map (:meth:`discopy.closed.Term.to_map`):
+    every undirected wire becomes the two opposite directed wires a token can
+    travel, so each box both reads (on the way in) and writes (on the way out)
+    all of its wires, and every directed wire has a unique consumer -- the
+    hypergraph is right-monogamous. The map is annotated on the result as
+    ``hypergraph.cmap`` so that :func:`to_term` can walk it back to a term.
 
     Parameters:
         term : A :class:`discopy.closed.Term`.
@@ -120,47 +91,43 @@ def to_hypergraph(term):
     cmap = term.to_map()
     edge = list(cmap.edge)
 
-    # Each undirected edge {p, q} gives two directed wires p->q and q->p.
-    directed, n_spiders = {}, 0
+    # Each undirected edge {p, q} gives two directed wires p -> q and q -> p.
+    directed = {}
     for p, q in enumerate(edge):
-        if (p, q) not in directed:
-            directed[(p, q)] = n_spiders
-            directed[(q, p)] = n_spiders + 1
-            n_spiders += 2
-    out_wire = lambda p: directed[(p, edge[p])]   # token leaving port p
-    in_wire = lambda p: directed[(edge[p], p)]    # token arriving at port p
+        if p < q:
+            directed[p, q], directed[q, p] = len(directed), len(directed) + 1
+    out_wire = lambda p: directed[p, edge[p]]   # token leaving port p
+    in_wire = lambda p: directed[edge[p], p]    # token arriving at port p
 
-    boxes, box_wires = [], []
-    for box, indices in zip(cmap.boxes, cmap.box_port_indices):
-        boxes.append(_box_function(box))
-        box_wires.append((
-            tuple(in_wire(p) for p in indices),     # read on the way in
-            tuple(out_wire(p) for p in indices)))   # written on the way out
-
-    boundary = list(range(len(cmap.dom))) + list(
-        range(cmap.n_ports - len(cmap.cod), cmap.n_ports))
-    dom_wires = tuple(out_wire(p) for p in boundary)
-    cod_wires = tuple(in_wire(p) for p in boundary)
+    box_wires = tuple(
+        (tuple(map(in_wire, indices)),      # read on the way in
+         tuple(map(out_wire, indices)))     # written on the way out
+        for indices in cmap.box_port_indices)
+    boundary = [*range(len(cmap.dom)),
+                *range(cmap.n_ports - len(cmap.cod), cmap.n_ports)]
 
     hypergraph = Hypergraph(
-        dom=(object, ) * len(boundary), cod=(object, ) * len(boundary),
-        boxes=tuple(boxes), wires=(dom_wires, box_wires, cod_wires),
-        spider_types=(object, ) * n_spiders)
-    hypergraph.lambda_meta = {"cmap": cmap}
+        dom=len(boundary) * (object, ), cod=len(boundary) * (object, ),
+        boxes=tuple(map(token_function, cmap.boxes)),
+        wires=(tuple(map(out_wire, boundary)), box_wires,
+               tuple(map(in_wire, boundary))),
+        spider_types=len(directed) * (object, ))
+    hypergraph.cmap = cmap
     return hypergraph
 
 
-def to_term(hypergraph, input_names=None):
+def to_term(hypergraph: Hypergraph, input_names=None):
     """
     Recover a linear lambda term by walking the token machine.
 
-    Starting on the root wire with an empty stack, a token walks the hypergraph
-    against the data-flow -- from each wire to the box producing it. At an
-    application it pushes a bit (output side) and descends into the function,
-    then pops it (input side) and descends into the argument; at an abstraction
-    it binds a fresh variable, pushes, descends into the body and pops. The
-    visited boxes are assembled into a term, alpha-equivalent to the one that
-    produced the hypergraph.
+    Starting on the root wire with an empty stack, a token walks the
+    hypergraph against the data-flow -- from each wire to the box producing
+    it. At an application it pushes a bit (output side) and descends into the
+    function, then pops it (input side) and descends into the argument; at an
+    abstraction it binds a fresh variable, pushes, descends into the body and
+    pops. The pushes and pops are performed by the hypergraph's own boxes and
+    the visited ones are assembled into a term, alpha-equivalent to the one
+    that produced the hypergraph.
 
     Parameters:
         hypergraph : A hypergraph built by :func:`to_hypergraph`.
@@ -168,7 +135,7 @@ def to_term(hypergraph, input_names=None):
     """
     from discopy import closed
 
-    cmap = hypergraph.lambda_meta["cmap"]
+    cmap = hypergraph.cmap
     cmap.assert_rooted_map()
     ports, edge = cmap.ports, cmap.edge
     boxes, box_port_indices = cmap.boxes, cmap.box_port_indices
@@ -181,7 +148,8 @@ def to_term(hypergraph, input_names=None):
         (f"x{i}" for i in range(len(cmap.dom)))
         if input_names is None else input_names)
     if len(names) != len(cmap.dom):
-        raise ValueError
+        raise ValueError(
+            f"Expected {len(cmap.dom)} input names, got {len(names)}.")
     variables = tuple(
         cod.variable_factory(name, term_type(obj))
         for obj, name in zip(cmap.dom, names))
@@ -189,9 +157,8 @@ def to_term(hypergraph, input_names=None):
 
     def fresh(obj):
         nonlocal counter
-        variable = cod.variable_factory(f"x{counter}", obj)
         counter += 1
-        return variable
+        return cod.variable_factory(f"x{counter - 1}", obj)
 
     def walk(port_idx, bound, stack):
         """ Walk the token from ``port_idx``, returning ``(term, stack)``. """
@@ -201,39 +168,34 @@ def to_term(hypergraph, input_names=None):
         port = ports[port_idx]
         if port.kind == PortKind.INPUT:
             return variables[port.i], stack
-        box = boxes[port.depth]
+        box, machine = boxes[port.depth], hypergraph.boxes[port.depth]
         indices = box_port_indices[port.depth]
-        local = indices.index(port_idx)
+        dom_ports = [i for i in indices if ports[i].kind == PortKind.DOM]
 
         if isinstance(box, closed.Eval):
-            dom_ports = [i for i in indices if ports[i].kind == PortKind.DOM]
-            func_port, arg_port = dom_ports if box.left\
-                else tuple(reversed(dom_ports))
-            stack, _ = apply_function(box)(stack, local)        # push (output)
+            func_port, arg_port = dom_ports if box.left else dom_ports[::-1]
+            stack, _ = machine(stack, indices.index(port_idx))   # push
             func, stack = walk(func_port, bound, stack)
-            stack, _ = apply_function(box)(                     # pop (input)
-                stack, indices.index(func_port))
+            stack, _ = machine(stack, indices.index(func_port))  # pop
             arg, stack = walk(arg_port, bound, stack)
             return cod.application_factory(func, arg, left=not box.left), stack
 
         if isinstance(box, closed.Coeval):
-            exp = term_type(ports[port_idx].obj)
-            body_port, = [i for i in indices if ports[i].kind == PortKind.DOM]
+            body_port, = dom_ports
             parameter_port, = [
                 i for i in indices
                 if ports[i].kind == PortKind.COD and i != port_idx]
-            stack, _ = curry_function(box)(stack, local)        # push (output)
-            variable = fresh(exp.exponent)
+            variable = fresh(term_type(port.obj).exponent)
+            stack, _ = machine(stack, indices.index(port_idx))   # push
             body, stack = walk(
                 body_port, bound | {parameter_port: variable}, stack)
-            stack, _ = curry_function(box)(                      # pop (input)
-                stack, indices.index(body_port))
+            stack, _ = machine(stack, indices.index(body_port))  # pop
             return cod.abstraction_factory(
                 variable, body, left=not box.left), stack
 
         if port.kind == PortKind.COD and not box.dom and len(box.cod) == 1:
             return cod.constant_factory(box.name, term_type(box.cod)), stack
-        raise ValueError
+        raise ValueError(f"Unexpected port in token walk: {port}")
 
     term, stack = walk(cmap.n_ports - 1, {}, ())
     if stack:

@@ -206,26 +206,21 @@ class Hypergraph:
         assert_isinstance(cod, tuple)
         for box in boxes:
             assert_isinstance(box, Function)
-        self.dom, self.cod, self.boxes = tuple(dom), tuple(cod), tuple(boxes)
         dom_wires, box_wires, cod_wires = wires
-
-        if len(dom_wires) != len(self.dom):
-            raise ValueError
-        if len(cod_wires) != len(self.cod):
-            raise ValueError
-        if len(box_wires) != len(self.boxes):
-            raise ValueError
-        for box, (box_dom_wires, box_cod_wires) in zip(self.boxes, box_wires):
-            if len(box_dom_wires) != len(box.dom):
-                raise ValueError
-            if len(box_cod_wires) != len(box.cod):
-                raise ValueError
-
-        self.dom_wires = tuple(dom_wires)
+        self.dom, self.cod, self.boxes = tuple(dom), tuple(cod), tuple(boxes)
+        self.dom_wires, self.cod_wires = tuple(dom_wires), tuple(cod_wires)
         self.box_wires = tuple(
             (tuple(box_dom), tuple(box_cod)) for box_dom, box_cod in box_wires)
-        self.cod_wires = tuple(cod_wires)
-        self.wires = (self.dom_wires, self.box_wires, self.cod_wires)
+
+        if len(self.dom_wires) != len(self.dom)\
+                or len(self.cod_wires) != len(self.cod)\
+                or len(self.box_wires) != len(self.boxes) or any(
+                    len(box_dom) != len(box.dom)
+                    or len(box_cod) != len(box.cod)
+                    for box, (box_dom, box_cod)
+                    in zip(self.boxes, self.box_wires)):
+            raise ValueError(
+                "The wires do not match the domain, codomain and boxes.")
 
         if spider_types is not None and not isinstance(spider_types, Mapping):
             spider_types = dict(enumerate(spider_types))
@@ -235,15 +230,16 @@ class Hypergraph:
             raise AxiomError("Hypergraph is not right-monogamous.")
 
     @property
+    def wires(self) -> tuple:
+        """ The ``(dom_wires, box_wires, cod_wires)`` triple of spiders. """
+        return self.dom_wires, self.box_wires, self.cod_wires
+
+    @property
     def spiders(self) -> set:
         """ The set of spiders appearing in the wiring of the hypergraph. """
-        result = set(self.dom_wires) | set(self.cod_wires)
-        for box_dom, box_cod in self.box_wires:
-            result.update(box_dom)
-            result.update(box_cod)
-        if self.spider_types is not None:
-            result.update(self.spider_types)
-        return result
+        return set().union(
+            self.dom_wires, self.cod_wires, self.spider_types or (),
+            *(box_dom + box_cod for box_dom, box_cod in self.box_wires))
 
     @property
     def spider_wires(self) -> tuple[dict, dict]:
@@ -255,20 +251,15 @@ class Hypergraph:
         """
         producers = {spider: set() for spider in self.spiders}
         consumers = {spider: set() for spider in self.spiders}
+        roles = [(producers, self.dom_wires)] + [
+            role for box_dom, box_cod in self.box_wires
+            for role in [(consumers, box_dom), (producers, box_cod)]] + [
+            (consumers, self.cod_wires)]
         port = 0
-        for spider in self.dom_wires:
-            producers[spider].add(port)
-            port += 1
-        for box_dom, box_cod in self.box_wires:
-            for spider in box_dom:
-                consumers[spider].add(port)
+        for role, wires in roles:
+            for spider in wires:
+                role[spider].add(port)
                 port += 1
-            for spider in box_cod:
-                producers[spider].add(port)
-                port += 1
-        for spider in self.cod_wires:
-            consumers[spider].add(port)
-            port += 1
         return producers, consumers
 
     @property
@@ -315,18 +306,14 @@ class Hypergraph:
             max_steps : A guard against non-terminating token trajectories.
         """
         if not 0 <= tag < len(self.dom_wires):
-            raise ValueError
-        consumer = self._consumer
-        spider = self.dom_wires[tag]
+            raise ValueError(f"Invalid input wire: {tag}")
+        consumer, spider = self._consumer, self.dom_wires[tag]
         for _ in range(max_steps):
-            destination = consumer[spider]
-            if destination[0] == "output":
-                j = destination[1]
-                return obj if len(self.cod) == 1 else (obj, j)
-            _, i, port = destination
+            kind, i, *port = consumer[spider]
+            if kind == "output":
+                return obj if len(self.cod) == 1 else (obj, i)
             box = self.boxes[i]
-            result = box(obj, port)
+            result = box(obj, *port)
             obj, out_port = (result, 0) if len(box.cod) == 1 else result
             spider = self.box_wires[i][1][out_port]
-        raise RuntimeError(
-            f"Token did not exit after {max_steps} steps.")
+        raise RuntimeError(f"Token did not exit after {max_steps} steps.")
