@@ -93,6 +93,9 @@ docs  = [
     "sphinxcontrib-youtube == 1.4.*",
 ]
 
+[tool.setuptools.package-data]
+"discopy.drawing" = ["gui.html"]
+
 [tool.setuptools_scm]
 version_file = "discopy/version.py"
 

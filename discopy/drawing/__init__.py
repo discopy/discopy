@@ -21,6 +21,14 @@ from discopy.drawing.drawing import (
     Drawing,
     Equation,
 )
+from discopy.drawing import layout, gui
+from discopy.drawing.layout import (
+    HIERARCHY,
+    Doctrine,
+    ForceLayout,
+    doctrine,
+    to_layout,
+)
 
 
 def draw(diagram, **params):

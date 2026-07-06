@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DisCoPy — functorial force layout</title>
+<style>
+  :root {
+    --bg: #fafafa; --panel: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b;
+    --line: #e0e0e0; --wire: #2a2a2a; --box-fill: #ffffff;
+    --accent: #776ff3; --accent-soft: rgba(119, 111, 243, .15);
+    --chip-off: #f0f0f0; --ring: rgba(119, 111, 243, .55);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16161a; --panel: #1e1e24; --fg: #eaeaea; --muted: #9a9aa5;
+      --line: #33333c; --wire: #d8d8de; --box-fill: #26262e;
+      --chip-off: #26262e; --ring: rgba(150, 143, 255, .6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16161a; --panel: #1e1e24; --fg: #eaeaea; --muted: #9a9aa5;
+    --line: #33333c; --wire: #d8d8de; --box-fill: #26262e;
+    --chip-off: #26262e; --ring: rgba(150, 143, 255, .6);
+  }
+  :root[data-theme="light"] {
+    --bg: #fafafa; --panel: #ffffff; --fg: #1a1a1a; --muted: #6b6b6b;
+    --line: #e0e0e0; --wire: #2a2a2a; --box-fill: #ffffff;
+    --chip-off: #f0f0f0; --ring: rgba(119, 111, 243, .55);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  header {
+    padding: 10px 16px 8px; border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: baseline;
+    background: var(--panel);
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 650; }
+  header h1 span { color: var(--muted); font-weight: 400; }
+  #ladder { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .chip {
+    border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+    padding: 2px 10px; font-size: 12px; background: var(--chip-off);
+    color: var(--fg); user-select: none; transition: all .15s;
+  }
+  .chip.active { background: var(--accent); border-color: var(--accent);
+    color: #fff; }
+  .chip.disabled { opacity: .35; cursor: not-allowed; }
+  .chip.native:not(.active) { border-color: var(--accent); }
+  #main { flex: 1; display: flex; min-height: 0; }
+  aside {
+    width: 250px; flex: none; padding: 12px; overflow-y: auto;
+    border-right: 1px solid var(--line); background: var(--panel);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  aside label.field { display: block; font-size: 12px; color: var(--muted); }
+  select, button {
+    width: 100%; margin-top: 3px; padding: 5px 8px; font: inherit;
+    color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  .row { display: flex; gap: 6px; }
+  #blurb { font-size: 12px; color: var(--muted); min-height: 2.4em; }
+  fieldset {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px 10px; margin: 0;
+  }
+  legend { font-size: 11px; color: var(--muted); padding: 0 4px;
+    text-transform: uppercase; letter-spacing: .06em; }
+  .slider { display: grid; grid-template-columns: 1fr 34px; gap: 6px;
+    align-items: center; font-size: 12px; margin-top: 6px; }
+  .slider .name { grid-column: 1 / 3; color: var(--muted); }
+  input[type=range] { width: 100%; accent-color: var(--accent); margin: 0; }
+  .val { text-align: right; font-variant-numeric: tabular-nums;
+    color: var(--muted); font-size: 11px; }
+  .toggle { display: flex; align-items: center; gap: 6px; font-size: 13px;
+    margin-top: 4px; cursor: pointer; }
+  .toggle input { accent-color: var(--accent); }
+  #status { font-size: 11px; color: var(--muted); line-height: 1.6; }
+  #status b { color: var(--fg); font-weight: 600; }
+  #canvas-wrap { flex: 1; position: relative; min-width: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%;
+    touch-action: none; cursor: grab; }
+  #hint {
+    position: absolute; left: 12px; bottom: 10px; font-size: 11px;
+    color: var(--muted); pointer-events: none; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px;
+    opacity: .9;
+  }
+  @media (max-width: 720px) {
+    #main { flex-direction: column; }
+    aside { width: 100%; border-right: none;
+      border-bottom: 1px solid var(--line); max-height: 45%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>DisCoPy <span>— each level of the hierarchy as a force layout</span></h1>
+  <div id="ladder"></div>
+</header>
+<div id="main">
+  <aside>
+    <label class="field">diagram
+      <select id="example"></select>
+    </label>
+    <div id="blurb"></div>
+    <fieldset>
+      <legend>forces</legend>
+      <div class="slider"><span class="name">wire springs</span>
+        <input type="range" id="k-spring" min="0" max="8" step="0.1"
+          value="3"><span class="val" id="v-spring">3.0</span></div>
+      <div class="slider"><span class="name">box repulsion</span>
+        <input type="range" id="k-repel" min="0" max="3" step="0.05"
+          value="0.8"><span class="val" id="v-repel">0.8</span></div>
+      <div class="slider"><span class="name">progressive gravity</span>
+        <input type="range" id="k-grav" min="0" max="6" step="0.1"
+          value="2.5"><span class="val" id="v-grav">2.5</span></div>
+      <div class="slider"><span class="name">planarity</span>
+        <input type="range" id="k-plan" min="0" max="6" step="0.1"
+          value="2"><span class="val" id="v-plan">2.0</span></div>
+    </fieldset>
+    <fieldset>
+      <legend>view</legend>
+      <label class="toggle"><input type="checkbox" id="t-labels" checked>
+        box labels</label>
+      <label class="toggle"><input type="checkbox" id="t-wire-labels">
+        wire labels</label>
+      <label class="toggle"><input type="checkbox" id="t-rings" checked>
+        pivot rings</label>
+      <label class="toggle"><input type="checkbox" id="t-pause">
+        pause</label>
+    </fieldset>
+    <div class="row">
+      <button id="b-reset">reset</button>
+      <button id="b-jiggle">jiggle</button>
+    </div>
+    <div id="status"></div>
+  </aside>
+  <div id="canvas-wrap">
+    <canvas id="canvas"></canvas>
+    <div id="hint">drag boxes · drag a pivot ring to rotate ·
+      scroll to zoom · drag background to pan</div>
+  </div>
+</div>
+<script>
+"use strict";
+const GALLERY = __GALLERY_JSON__;
+const HIERARCHY = __HIERARCHY_JSON__;
+const COLORS = { white: null, red: "#e8a5a5", green: "#d8f8d8",
+  blue: "#776ff3", yellow: "#f7f700", black: null };
+
+const REST = 0.75, DT = 0.018, SUBSTEPS = 3, DAMP = 0.92;
+const BENDY = new Set(["cup", "cap", "spider"]);
+const CROSSING = new Set(["swap", "braid"]);
+
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+let world = null, FEAT = new Set(), activeLevel = null;
+let cam = { s: 60, tx: 0, ty: 0 };
+const params = { spring: 3, repel: 0.8, grav: 2.5, plan: 2 };
+
+function css(name) {
+  return getComputedStyle(document.documentElement)
+    .getPropertyValue(name).trim();
+}
+
+/* ------------------------------------------------ loading a diagram */
+
+function radiusOf(box) {
+  const n = Math.max(box.dom.length, box.cod.length, 1);
+  return Math.max(0.45, 0.16 + 0.17 * n);
+}
+
+function load(entry) {
+  const spec = entry.spec;
+  world = {
+    spec, title: entry.title,
+    W: Math.max(spec.width, 1), H: Math.max(spec.height, 1),
+    boxes: spec.boxes.map(b => ({
+      ...b, x0: b.x, y0: b.y, theta: 0,
+      vx: 0, vy: 0, om: 0, r: radiusOf(b),
+      light: BENDY.has(b.kind) || CROSSING.has(b.kind) })),
+    dom: spec.dom.map(p => ({ ...p, x0: p.x, y: spec.height })),
+    cod: spec.cod.map(p => ({ ...p, x0: p.x, y: 0 })),
+  };
+  document.getElementById("blurb").textContent = entry.blurb || "";
+  setLevel(spec.doctrine);
+  fitView();
+}
+
+function setLevel(name) {
+  const level = HIERARCHY.find(l => l[0] === name);
+  if (!level || !isSuperset(new Set(level[1]), world.spec.features)) return;
+  activeLevel = name;
+  FEAT = new Set(level[1]);
+  renderLadder();
+  renderStatus();
+}
+
+function isSuperset(set, xs) { return xs.every(x => set.has(x)); }
+
+function renderLadder() {
+  const div = document.getElementById("ladder");
+  div.innerHTML = "";
+  for (const [name, feats] of HIERARCHY) {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    const ok = world && isSuperset(new Set(feats), world.spec.features);
+    if (!ok) chip.classList.add("disabled");
+    if (name === activeLevel) chip.classList.add("active");
+    if (world && name === world.spec.doctrine) chip.classList.add("native");
+    chip.textContent = name;
+    chip.title = ok ? (feats.length ? feats.join(", ") : "planar, no rotation")
+      : "this diagram uses structure this level does not have";
+    if (ok) chip.onclick = () => setLevel(name);
+    div.appendChild(chip);
+  }
+}
+
+function renderStatus() {
+  const el = document.getElementById("status");
+  const native = world.spec.doctrine;
+  const feats = [...FEAT].sort().join(", ") || "none";
+  el.innerHTML = `native doctrine: <b>${native}</b><br>` +
+    `layout level: <b>${activeLevel}</b><br>` +
+    `degrees of freedom: ${feats}`;
+}
+
+/* ------------------------------------------------ port geometry */
+
+function rot(x, y, t) {
+  const c = Math.cos(t), s = Math.sin(t);
+  return [c * x - s * y, s * x + c * y];
+}
+
+// Resolve one end of a wire to a position, an outward tangent for
+// rendering, and the index of the box it is attached to (or null).
+function portPos(ref) {
+  if (ref.kind === "dom") {
+    const p = world.dom[ref.i];
+    return { x: p.x, y: p.y, nx: 0, ny: -1, j: null };
+  }
+  if (ref.kind === "cod") {
+    const p = world.cod[ref.i];
+    return { x: p.x, y: p.y, nx: 0, ny: 1, j: null };
+  }
+  const b = world.boxes[ref.j];
+  const ports = ref.side === "dom" ? b.dom : b.cod;
+  const i = ref.i, n = ports.length;
+  let ox = 0, oy = 0, nx = 0, ny = 0;
+  if (b.kind === "spider") {
+    // Ports are unordered: the wire attaches at the centre, radially.
+  } else if (CROSSING.has(b.kind)) {
+    ox = 0.45 * (i - (n - 1) / 2);
+    oy = ref.side === "dom" ? 0.25 : -0.25;
+    ny = ref.side === "dom" ? 1 : -1;
+  } else if (b.kind === "cup" || b.kind === "cap") {
+    const s = b.kind === "cup" ? 1 : -1;
+    [ox, oy] = rot(0.3 * (i === 0 ? -1 : 1), 0.22 * s, b.theta);
+    [nx, ny] = rot(0, s, b.theta);
+  } else if (FEAT.has("pivots")) {
+    const a = ports[i].angle + b.theta;
+    ox = b.r * Math.cos(a); oy = b.r * Math.sin(a);
+    nx = Math.cos(a); ny = Math.sin(a);
+  } else {
+    ox = 0.5 * (i - (n - 1) / 2);
+    oy = ref.side === "dom" ? 0.28 : -0.28;
+    ny = ref.side === "dom" ? 1 : -1;
+  }
+  return { x: b.x + ox, y: b.y + oy, nx, ny, j: ref.j };
+}
+
+function rotatable(box) {
+  return FEAT.has("pivots") &&
+    (box.kind === "box" || box.kind === "cup" || box.kind === "cap");
+}
+
+/* ------------------------------------------------ physics */
+
+function physics(dt) {
+  const boxes = world.boxes, n = boxes.length;
+  const fx = new Array(n).fill(0), fy = new Array(n).fill(0),
+    tq = new Array(n).fill(0);
+  const ends = world.spec.wires.map(w =>
+    [portPos(w.source), portPos(w.target)]);
+
+  // Springs along wires, progressive gravity, torque on pivots.
+  world.spec.wires.forEach((w, wi) => {
+    const [a, b] = ends[wi];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const dist = Math.max(Math.hypot(dx, dy), 1e-6);
+    const pull = params.spring * (dist - REST) / dist;
+    const bendy = [w.source, w.target].some(e =>
+      e.kind === "box" && BENDY.has(boxes[e.j].kind));
+    const drop = a.y - b.y;  // Positive when the wire flows downward.
+    const grav = bendy ? 0 : params.grav * Math.max(0, REST - drop);
+    for (const [p, sign] of [[a, 1], [b, -1]]) {
+      if (p.j === null) continue;
+      const gx = sign * pull * dx, gy = sign * pull * dy - sign * grav;
+      fx[p.j] += gx; fy[p.j] += gy;
+      if (rotatable(boxes[p.j])) {
+        tq[p.j] += (p.x - boxes[p.j].x) * gy - (p.y - boxes[p.j].y) * gx;
+      }
+    }
+  });
+
+  // Planarity: push crossing wires apart. Braided diagrams stay planar
+  // between their braid boxes; only swaps let wires cross freely.
+  if (params.plan > 0 && !FEAT.has("swaps")) {
+    for (let i = 0; i < ends.length; i++) {
+      for (let k = i + 1; k < ends.length; k++) {
+        if (!segmentsCross(ends[i][0], ends[i][1], ends[k][0], ends[k][1]))
+          continue;
+        const mi = mid(ends[i]), mk = mid(ends[k]);
+        let ux = mi.x - mk.x, uy = mi.y - mk.y;
+        const d = Math.hypot(ux, uy);
+        if (d < 1e-3) { ux = 1; uy = 0; } else { ux /= d; uy /= d; }
+        for (const [pair, s] of [[ends[i], 1], [ends[k], -1]]) {
+          for (const p of pair) {
+            if (p.j === null) continue;
+            fx[p.j] += s * params.plan * ux * 0.5;
+            fy[p.j] += s * params.plan * uy * 0.5;
+          }
+        }
+      }
+    }
+  }
+
+  // Repulsion between boxes; wire-features are lighter than real boxes.
+  for (let i = 0; i < n; i++) {
+    for (let k = i + 1; k < n; k++) {
+      const wgt = (boxes[i].light ? 0.7 : 1) * (boxes[k].light ? 0.7 : 1);
+      let dx = boxes[k].x - boxes[i].x, dy = boxes[k].y - boxes[i].y;
+      const d = Math.max(Math.hypot(dx, dy), 0.05);
+      const f = wgt * params.repel / (d * d * d);
+      fx[i] -= f * dx; fy[i] -= f * dy;
+      fx[k] += f * dx; fy[k] += f * dy;
+    }
+  }
+
+  // Weak centring so diagrams with no boundary do not drift away.
+  if (n) {
+    let cx = 0, cy = 0;
+    for (const b of boxes) { cx += b.x; cy += b.y; }
+    cx /= n; cy /= n;
+    for (let i = 0; i < n; i++) {
+      fx[i] += 0.05 * (world.W / 2 - cx);
+      fy[i] += 0.05 * (world.H / 2 - cy);
+    }
+  }
+
+  // Semi-implicit Euler with damping; the dragged box is skipped.
+  for (let i = 0; i < n; i++) {
+    const b = boxes[i];
+    if (drag && drag.type === "box" && drag.j === i) continue;
+    b.vx = DAMP * (b.vx + dt * fx[i]);
+    b.vy = DAMP * (b.vy + dt * fy[i]);
+    b.x += dt * b.vx; b.y += dt * b.vy;
+    if (rotatable(b)) {
+      b.om = DAMP * (b.om + dt * tq[i] / (b.r * b.r));
+      if (!(drag && drag.type === "ring" && drag.j === i))
+        b.theta += dt * b.om;
+    } else { b.om = 0; }
+  }
+}
+
+function mid([a, b]) { return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
+
+function segmentsCross(a, b, c, d) {
+  const shared = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-3;
+  if (shared(a, c) || shared(a, d) || shared(b, c) || shared(b, d))
+    return false;
+  const o = (p, q, r) =>
+    Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b) &&
+    o(a, b, c) !== 0 && o(c, d, a) !== 0;
+}
+
+/* ------------------------------------------------ rendering */
+
+function toScreen(x, y) { return [cam.tx + cam.s * x, cam.ty - cam.s * y]; }
+function toWorld(px, py) {
+  return [(px - cam.tx) / cam.s, (cam.ty - py) / cam.s];
+}
+
+function fitView() {
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  const pad = 1.2;
+  cam.s = Math.min(cw / (world.W + 2 * pad), ch / (world.H + 2 * pad));
+  cam.s = Math.min(Math.max(cam.s, 8), 140);
+  cam.tx = (cw - cam.s * world.W) / 2;
+  cam.ty = (ch + cam.s * world.H) / 2;
+}
+
+function wirePath(a, b) {
+  // Cubic Bezier leaving each port along its outward tangent; a port
+  // with no tangent (a spider) aims at the other end of the wire.
+  const dist = Math.hypot(b.x - a.x, b.y - a.y);
+  const t = Math.min(Math.max(0.4 * dist, 0.15), 1.1);
+  let [ax, ay, bx, by] = [a.nx, a.ny, b.nx, b.ny];
+  if (!ax && !ay) {
+    ax = (b.x - a.x) / (dist || 1); ay = (b.y - a.y) / (dist || 1);
+  }
+  if (!bx && !by) {
+    bx = (a.x - b.x) / (dist || 1); by = (a.y - b.y) / (dist || 1);
+  }
+  const p0 = toScreen(a.x, a.y), p3 = toScreen(b.x, b.y);
+  const p1 = toScreen(a.x + t * ax, a.y + t * ay);
+  const p2 = toScreen(b.x + t * bx, b.y + t * by);
+  const path = new Path2D();
+  path.moveTo(p0[0], p0[1]);
+  path.bezierCurveTo(p1[0], p1[1], p2[0], p2[1], p3[0], p3[1]);
+  return path;
+}
+
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  if (canvas.width !== cw * dpr || canvas.height !== ch * dpr) {
+    canvas.width = cw * dpr; canvas.height = ch * dpr;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+  if (!world) return;
+  const wire = css("--wire"), fg = css("--fg"), muted = css("--muted"),
+    boxFill = css("--box-fill"), bg = css("--bg"), ring = css("--ring");
+  const showLabels = document.getElementById("t-labels").checked;
+  const showWireLabels = document.getElementById("t-wire-labels").checked;
+  const showRings = document.getElementById("t-rings").checked;
+
+  ctx.lineWidth = Math.max(1.1, cam.s * 0.025);
+  ctx.strokeStyle = wire;
+  ctx.lineCap = "round";
+
+  // Wires.
+  for (const w of world.spec.wires) {
+    const a = portPos(w.source), b = portPos(w.target);
+    ctx.stroke(wirePath(a, b));
+    if (showWireLabels && w.label) {
+      const [lx, ly] = toScreen((a.x * 2 + b.x) / 3, (a.y * 2 + b.y) / 3);
+      ctx.fillStyle = muted;
+      ctx.font = `${Math.max(9, cam.s * 0.2)}px system-ui`;
+      ctx.fillText(w.label, lx + 3, ly - 2);
+    }
+  }
+
+  // Boxes and wire-features.
+  for (const b of world.boxes) {
+    if (b.kind === "spider") {
+      const [x, y] = toScreen(b.x, b.y);
+      ctx.beginPath();
+      ctx.arc(x, y, Math.max(2.5, cam.s * 0.09), 0, 2 * Math.PI);
+      ctx.fillStyle = COLORS[b.color] || fg;
+      ctx.fill();
+      if (showLabels && b.label) {
+        ctx.fillStyle = muted;
+        ctx.font = `${Math.max(9, cam.s * 0.2)}px system-ui`;
+        ctx.fillText(b.label, x + cam.s * 0.12, y - cam.s * 0.12);
+      }
+    } else if (b.kind === "cup" || b.kind === "cap") {
+      drawBend(b, wire);
+    } else if (CROSSING.has(b.kind)) {
+      drawCrossing(b, wire, bg);
+    } else {
+      drawBox(b, { wire, fg, boxFill, ring, showLabels, showRings });
+    }
+  }
+
+  // Boundary ports.
+  ctx.fillStyle = muted;
+  ctx.font = `${Math.max(9, cam.s * 0.22)}px system-ui`;
+  for (const [nodes, dy] of [[world.dom, -0.35], [world.cod, 0.3]]) {
+    for (const p of nodes) {
+      const [x, y] = toScreen(p.x, p.y);
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, 2 * Math.PI);
+      ctx.fill();
+      const [, ly] = toScreen(p.x, p.y - dy);
+      ctx.fillText(p.label, x + 4, ly);
+    }
+  }
+}
+
+function drawBend(b, wire) {
+  // A cup or cap is drawn as an arc joining its two ports.
+  const side = b.kind === "cup" ? 1 : -1;
+  const p0 = portPos({ kind: "box", j: world.boxes.indexOf(b),
+    side: b.kind === "cup" ? "dom" : "cod", i: 0 });
+  const p1 = portPos({ kind: "box", j: world.boxes.indexOf(b),
+    side: b.kind === "cup" ? "dom" : "cod", i: 1 });
+  const [dxn, dyn] = rot(0, -0.62 * side, b.theta);
+  const a = toScreen(p0.x, p0.y), c = toScreen(p1.x, p1.y);
+  const m0 = toScreen(p0.x + dxn, p0.y + dyn);
+  const m1 = toScreen(p1.x + dxn, p1.y + dyn);
+  ctx.strokeStyle = wire;
+  ctx.beginPath();
+  ctx.moveTo(a[0], a[1]);
+  ctx.bezierCurveTo(m0[0], m0[1], m1[0], m1[1], c[0], c[1]);
+  ctx.stroke();
+}
+
+function drawCrossing(b, wire, bg) {
+  // Two strands dom0 -> cod1 and dom1 -> cod0; braids get an over
+  // and an under strand, swaps are drawn flat.
+  const j = world.boxes.indexOf(b);
+  const P = (side, i) => portPos({ kind: "box", j, side, i });
+  const strands = [[P("dom", 0), P("cod", 1)], [P("dom", 1), P("cod", 0)]];
+  const over = b.is_dagger ? 0 : 1;
+  const strand = ([p, q]) => {
+    const a = toScreen(p.x, p.y), c = toScreen(q.x, q.y);
+    const m0 = toScreen(p.x, p.y - 0.3), m1 = toScreen(q.x, q.y + 0.3);
+    const path = new Path2D();
+    path.moveTo(a[0], a[1]);
+    path.bezierCurveTo(m0[0], m0[1], m1[0], m1[1], c[0], c[1]);
+    return path;
+  };
+  ctx.strokeStyle = wire;
+  ctx.stroke(strand(strands[1 - over]));
+  if (b.kind === "braid") {
+    const lw = ctx.lineWidth;
+    ctx.lineWidth = lw * 5;
+    ctx.strokeStyle = bg;
+    ctx.stroke(strand(strands[over]));
+    ctx.lineWidth = lw;
+    ctx.strokeStyle = wire;
+  }
+  ctx.stroke(strand(strands[over]));
+}
+
+function drawBox(b, opts) {
+  const [x, y] = toScreen(b.x, b.y);
+  const pivots = FEAT.has("pivots");
+  if (pivots && opts.showRings) {
+    ctx.save();
+    ctx.strokeStyle = opts.ring;
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(x, y, cam.s * b.r, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
+    for (const [side, ports] of [["dom", b.dom], ["cod", b.cod]]) {
+      ports.forEach((_, i) => {
+        const p = portPos({ kind: "box", j: world.boxes.indexOf(b),
+          side, i });
+        const [px, py] = toScreen(p.x, p.y);
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, 2 * Math.PI);
+        ctx.fillStyle = opts.ring;
+        ctx.fill();
+      });
+    }
+  }
+  const n = Math.max(b.dom.length, b.cod.length, 1);
+  const w = cam.s * (pivots ? Math.min(2 * b.r * 0.8, 0.35 + 0.2 * n)
+    : 0.35 + 0.5 * (n - 1) + 0.3);
+  const h = cam.s * 0.5;
+  ctx.save();
+  ctx.translate(x, y);
+  if (pivots) ctx.rotate(-b.theta);
+  ctx.fillStyle = COLORS[b.color] || opts.boxFill;
+  ctx.strokeStyle = opts.wire;
+  ctx.lineWidth = Math.max(1, cam.s * 0.02);
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(-w / 2, -h / 2, w, h, 3);
+  else ctx.rect(-w / 2, -h / 2, w, h);
+  ctx.fill();
+  ctx.stroke();
+  if (pivots) ctx.rotate(b.theta);
+  if (opts.showLabels && b.label) {
+    ctx.fillStyle = opts.fg;
+    ctx.font = `${Math.max(10, cam.s * 0.26)}px system-ui`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(b.label, 0, 0);
+  }
+  ctx.restore();
+}
+
+/* ------------------------------------------------ interaction */
+
+let drag = null;
+
+canvas.addEventListener("pointerdown", e => {
+  canvas.setPointerCapture(e.pointerId);
+  const rect = canvas.getBoundingClientRect();
+  const [wx, wy] = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+  for (let j = world.boxes.length - 1; j >= 0; j--) {
+    const b = world.boxes[j];
+    const d = Math.hypot(wx - b.x, wy - b.y);
+    if (rotatable(b) && b.kind === "box" &&
+        d > b.r * 0.75 && d < b.r + 0.25) {
+      drag = { type: "ring", j,
+        grab: Math.atan2(wy - b.y, wx - b.x) - b.theta };
+      return;
+    }
+    if (d < Math.max(b.r * 0.75, 0.3)) {
+      drag = { type: "box", j, dx: b.x - wx, dy: b.y - wy };
+      return;
+    }
+  }
+  for (const [nodes, type] of [[world.dom, "dom"], [world.cod, "cod"]]) {
+    for (let i = 0; i < nodes.length; i++) {
+      if (Math.hypot(wx - nodes[i].x, wy - nodes[i].y) < 0.25) {
+        drag = { type, i };
+        return;
+      }
+    }
+  }
+  drag = { type: "pan", px: e.clientX, py: e.clientY,
+    tx: cam.tx, ty: cam.ty };
+});
+
+canvas.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const rect = canvas.getBoundingClientRect();
+  const [wx, wy] = toWorld(e.clientX - rect.left, e.clientY - rect.top);
+  if (drag.type === "pan") {
+    cam.tx = drag.tx + e.clientX - drag.px;
+    cam.ty = drag.ty + e.clientY - drag.py;
+  } else if (drag.type === "box") {
+    const b = world.boxes[drag.j];
+    b.x = wx + drag.dx; b.y = wy + drag.dy; b.vx = b.vy = 0;
+  } else if (drag.type === "ring") {
+    const b = world.boxes[drag.j];
+    b.theta = Math.atan2(wy - b.y, wx - b.x) - drag.grab;
+    b.om = 0;
+  } else if (drag.type === "dom" || drag.type === "cod") {
+    world[drag.type][drag.i].x = wx;
+  }
+});
+
+canvas.addEventListener("pointerup", () => { drag = null; });
+
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const px = e.clientX - rect.left, py = e.clientY - rect.top;
+  const factor = Math.exp(-e.deltaY * 0.0012);
+  const s = Math.min(Math.max(cam.s * factor, 6), 300);
+  cam.tx = px - (px - cam.tx) * (s / cam.s);
+  cam.ty = py - (py - cam.ty) * (s / cam.s);
+  cam.s = s;
+}, { passive: false });
+
+/* ------------------------------------------------ controls */
+
+for (const [id, key] of [["k-spring", "spring"], ["k-repel", "repel"],
+    ["k-grav", "grav"], ["k-plan", "plan"]]) {
+  const input = document.getElementById(id);
+  const val = document.getElementById("v" + id.slice(1));
+  input.addEventListener("input", () => {
+    params[key] = parseFloat(input.value);
+    val.textContent = parseFloat(input.value).toFixed(1);
+  });
+}
+
+document.getElementById("b-reset").addEventListener("click", () => {
+  for (const b of world.boxes) {
+    b.x = b.x0; b.y = b.y0; b.theta = 0;
+    b.vx = b.vy = b.om = 0;
+  }
+  for (const p of world.dom) p.x = p.x0;
+  for (const p of world.cod) p.x = p.x0;
+  setLevel(world.spec.doctrine);
+  fitView();
+});
+
+document.getElementById("b-jiggle").addEventListener("click", () => {
+  for (const b of world.boxes) {
+    b.vx += 4 * (Math.random() - 0.5);
+    b.vy += 4 * (Math.random() - 0.5);
+    if (rotatable(b)) b.om += 4 * (Math.random() - 0.5);
+  }
+});
+
+const select = document.getElementById("example");
+GALLERY.forEach((entry, i) => {
+  const option = document.createElement("option");
+  option.value = i;
+  option.textContent = `${entry.spec.doctrine} · ${entry.title}`;
+  select.appendChild(option);
+});
+select.addEventListener("change", () => load(GALLERY[select.value]));
+
+/* ------------------------------------------------ main loop */
+
+function tick() {
+  if (world && !document.getElementById("t-pause").checked) {
+    for (let i = 0; i < SUBSTEPS; i++) physics(DT);
+  }
+  render();
+  requestAnimationFrame(tick);
+}
+
+load(GALLERY[0]);
+window.addEventListener("resize", fitView);
+tick();
+</script>
+</body>
+</html>

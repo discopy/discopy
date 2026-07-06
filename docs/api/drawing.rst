@@ -9,3 +9,5 @@ drawing
 
     discopy.drawing.drawing
     discopy.drawing.backend
+    discopy.drawing.layout
+    discopy.drawing.gui
