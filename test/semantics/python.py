@@ -179,6 +179,14 @@ def test_lambda_token_roundtrip():
         z, Application(x, Application(y, z)))))
     assert roundtrip(b) == b
 
+    # The Petersen term, see test/syntax/closed.py::test_petersen_term
+    t0, t1, t2, t3, t4, t5, t6 = (Ty(f"t{i}") for i in range(7))
+    petersen = (((t1 >> t0) >> t5) >> t6)(
+        lambda a: (t2 >> t3)(lambda b: (t4 >> t5)(
+            lambda c: ((t1 >> t0) >> t2)(lambda d: (t3 >> t4)(
+                lambda e: a((t1 >> t0)(lambda f: c(e(b(d(f)))))))))))
+    assert roundtrip(petersen) == petersen
+
     # Open terms round-trip given names for their free-variable wires.
     f, x = Variable("f", X >> Y), Variable("x", X)
     application = Application(f, x)
