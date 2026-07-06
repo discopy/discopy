@@ -451,7 +451,7 @@ class Functor(monoidal.Functor):
 class CMap(monoidal.CMap):
     functor = Functor
 
-    require_acyclic = False
+    require_causal = False
 
     def curry(self, n=1, left=False) -> Self:
         """

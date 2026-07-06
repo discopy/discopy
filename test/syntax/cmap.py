@@ -167,7 +167,7 @@ def test_diagram_to_map_structure_and_errors():
     mx, my = map(monoidal.Ty, "xy")
     f = monoidal.Box("f", mx, my)
     assert monoidal.CMap.require_planar is True
-    assert monoidal.CMap.require_acyclic is True
+    assert monoidal.CMap.require_causal is True
     assert monoidal.CMap.require_oriented is True
     assert monoidal.CMap.require_connected is True
     assert f.to_map() == monoidal.CMap.from_box(f)
@@ -178,7 +178,7 @@ def test_diagram_to_map_structure_and_errors():
 
     sx, sy = map(symmetric.Ty, "xy")
     assert symmetric.CMap.require_planar is False
-    assert symmetric.CMap.require_acyclic is False
+    assert symmetric.CMap.require_causal is False
     assert symmetric.CMap.require_oriented is True
     assert symmetric.CMap.require_connected is True
     assert symmetric.Swap(sx, sy).to_map() == symmetric.CMap.swap(sx, sy)
@@ -187,7 +187,7 @@ def test_diagram_to_map_structure_and_errors():
     cup = compact.Cup(cx, cx.r)
     cap = compact.Cap(cx.r, cx)
     assert compact.CMap.require_planar is False
-    assert compact.CMap.require_acyclic is False
+    assert compact.CMap.require_causal is False
     assert compact.CMap.require_oriented is False
     assert compact.CMap.require_connected is False
     assert symmetric.CMap.from_diagram(cup).boxes == (cup, )
@@ -197,7 +197,7 @@ def test_diagram_to_map_structure_and_errors():
     tx = traced.Ty("x")
     traced_box = traced.Box("f", tx, tx)
     assert traced.CMap.require_planar is True
-    assert traced.CMap.require_acyclic is False
+    assert traced.CMap.require_causal is False
     assert traced.CMap.require_oriented is True
     assert traced.CMap.require_connected is True
     assert traced.Trace(traced_box).to_map() == traced_box.to_map().trace()
@@ -210,7 +210,7 @@ def test_diagram_to_map_structure_and_errors():
     cx, cy = map(closed.Ty, "xy")
     ev = closed.Eval(cy << cx)
     assert closed.CMap.require_planar is False
-    assert closed.CMap.require_acyclic is False
+    assert closed.CMap.require_causal is False
     assert closed.CMap.require_oriented is True
     assert closed.CMap.require_connected is True
     assert ev.to_map() == closed.CMap.ev(cy, cx, left=False)

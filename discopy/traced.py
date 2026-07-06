@@ -264,7 +264,7 @@ class Hypergraph(monoidal.Hypergraph):
 
 class CMap(monoidal.CMap):
     functor = Functor
-    require_acyclic = False
+    require_causal = False
 
 
 Diagram.hypergraph_factory = Hypergraph

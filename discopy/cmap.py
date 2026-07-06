@@ -162,7 +162,7 @@ class CMap[C0: Pregroup, C1: CMap](
     * ``require_planar``: the port orientation give us a way to easily compute
       whether the map is planar by computing its component-wise Euler
       characteristic, i.e. disallow swaps;
-    * ``require_acyclic``: checks that the edges are in causal order, i.e.
+    * ``require_causal``: checks that the edges are in causal order, i.e.
       they link positive ports to negative ports with higher rank, i.e. no
       traced wires;
     * ``require_oriented``: checks that we connect positive to negative wires,
@@ -264,7 +264,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
     functor: ClassVar[Functor]
     require_planar: ClassVar[bool] = True
-    require_acyclic: ClassVar[bool] = False
+    require_causal: ClassVar[bool] = False
     require_oriented: ClassVar[bool] = False
     require_connected: ClassVar[bool] = False
     category = classproperty(lambda cls: cls.functor.dom)
@@ -452,7 +452,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 continue
             type(self).validate_wire(ports[i], ports[j])
 
-        if self.require_acyclic:
+        if self.require_causal:
             self.validate_forward_edges(ports)
 
         if self.require_planar and not self.is_planar:
@@ -647,16 +647,10 @@ class CMap[C0: Pregroup, C1: CMap](
             target_depth = int(target.depth - 0.5)
             if source_depth == target_depth:
                 continue
-            if self.ignore_forward_edge(source_depth, target_depth):
-                continue
             if has_path(target_depth, source_depth):
                 raise AxiomError(messages.NOT_TRACEABLE.format(
                     source, target))
             graph[source_depth].add(target_depth)
-
-    def ignore_forward_edge(self, source_depth: int, target_depth: int):
-        """ Whether an acyclicity edge should be ignored. """
-        return False
 
     def __repr__(self):
         def port_repr(index, port):
