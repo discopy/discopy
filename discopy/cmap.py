@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """
-An implementation of open polarized combinatorial maps.
+An implementation of open `combinatorial maps <https://en.wikipedia.org/wiki/Combinatorial_map>`_.
 
-Following :cite:t:`Zeil2016`, a combinatorial map is fully described by a pair
-of permutations :math:`v` and :math:`e` acting on a set of ports :math:`P`
-(also called darts or half-edges), where:
+A combinatorial map is fully described by a pair of permutations :math:`v` and
+:math:`e` acting on a set of ports :math:`P` (also called darts or half-edges),
+where:
 
 * :math:`v` is an arbitrary permutation whose decomposition induces a node for
   each cycle, giving an orientation on ports;
@@ -19,9 +19,9 @@ as a function :math:`f : P \\rightarrow P'` such that:
   :math:`e; f = f; e'`;
 * :math:`f` respects orientation: :math:`v; f = f; v'`.
 
-From the previous definition we can define :math:`\\mathbf{CMap}` as the
-category of combinatorial maps, from which we can derive the category
-:math:`\\mathrm{Cospan}(\\mathbf{CMap})` of open combinatorial maps.
+From the previous definition we can define the category of combinatorial maps,
+and the category of _open_ maps is given by cospans where legs are discrete
+combinatorial maps (containing only scalars).
 
 Summary
 -------
@@ -128,7 +128,7 @@ class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     r"""
-    An open combinatorial map, also known as an oriented bijective hypergraph
+    An open combinatorial map, or equivalently an oriented bijective hypergraph
     with interface.
 
     Contrary to the abstract definition, which has unstructured nodes arising
@@ -232,7 +232,7 @@ class CMap[C0: Pregroup, C1: CMap](
     ... )
 
     .. image:: /_static/cmap/simple-cmap.png
-            :align: center
+        :align: center
 
     Swaps affect the edge permutation but leave the vertex permutation
     fixed:
@@ -249,7 +249,7 @@ class CMap[C0: Pregroup, C1: CMap](
     ... )
 
     .. image:: /_static/cmap/swapped-cmap.png
-            :align: center
+        :align: center
     """
 
     functor: ClassVar[Functor]
