@@ -451,21 +451,12 @@ class Functor(monoidal.Functor):
 class CMap(monoidal.CMap):
     functor = Functor
 
-    # We disable the acyclicity check because we want to represent
-    # currying and uncurrying with trace structure.
     require_acyclic = False
-
-    def ignore_forward_edge(self, source_depth: int, target_depth: int):
-        coeval_factory = getattr(self.category, "coeval_factory", None)
-        return coeval_factory is not None and (
-            isinstance(self.boxes[source_depth], coeval_factory)
-            or isinstance(self.boxes[target_depth], coeval_factory))
 
     def curry(self, n=1, left=False) -> Self:
         """
         Curry a combinatorial map using the closed structure of the host
-        category, without relying on closed structure which isn't necessarily
-        available.
+        category.
 
         Parameters:
             n : The number of objects to curry.

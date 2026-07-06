@@ -210,11 +210,12 @@ def test_diagram_to_map_structure_and_errors():
     cx, cy = map(closed.Ty, "xy")
     ev = closed.Eval(cy << cx)
     assert closed.CMap.require_planar is False
-    assert closed.CMap.require_acyclic is True
+    assert closed.CMap.require_acyclic is False
     assert closed.CMap.require_oriented is True
     assert closed.CMap.require_connected is True
     assert ev.to_map() == closed.CMap.ev(cy, cx, left=False)
     assert ev.to_map().boxes == (ev, )
+    assert closed.Box("f", cx, cx).to_map().trace()
 
     mx = markov.Ty("x")
     copy = markov.Copy(mx, 2)
@@ -268,8 +269,7 @@ def test_diagram_to_map_structure_and_errors():
     x = closed.Ty("x")
     f = closed.Box("f", x, x)
     g = closed.Box("g", x, x)
-    with raises(AxiomError):
-        closed.CMap(closed.Ty(), closed.Ty(), (f, g), (3, 2, 1, 0))
+    assert closed.CMap(closed.Ty(), closed.Ty(), (f, g), (3, 2, 1, 0))
 
     x = traced.Ty("x")
     with raises(AxiomError):

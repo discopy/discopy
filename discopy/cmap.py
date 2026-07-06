@@ -178,13 +178,13 @@ class CMap[C0: Pregroup, C1: CMap](
           \node (O)  at (0,0,1) {symmetric};
           \node (PA) at (1,1,0) {rigid/pivotal};
           \node (PO) at (1,0,1) {traced};
-          \node (AO) at (0,1,1) {closed};
+          \node (AO) at (0,1,1) {?};
           \node (M)  at (1,1,1) {monoidal};
 
           \draw[edge] (C) -- (P)
               node[midway, below, sloped, axis label] {planar};
           \draw[edge] (C) -- (A)
-              node[midway, above, sloped, axis label] {acyclic};
+              node[midway, above, sloped, axis label] {causal};
           \draw[edge] (C) -- (O)
               node[midway, above, sloped, axis label] {oriented};
           \draw[edge] (P) -- (PA);
