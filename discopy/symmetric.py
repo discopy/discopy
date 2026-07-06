@@ -87,7 +87,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from discopy import monoidal, balanced, traced, messages
+from discopy import monoidal, balanced, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import Arrow, ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
@@ -350,9 +350,9 @@ class Hypergraph(balanced.Hypergraph):
     functor = Functor
 
 
-class CMap(traced.CMap):
+class CMap(balanced.CMap):
     functor = Functor
-    require_planar = False
+    require_planar = True
 
 
 Diagram.hypergraph_factory = Hypergraph

@@ -39,9 +39,9 @@ def test_FinSet():
     assert isinstance(p, finset.SymmetricCategory)
     assert p == (3, 4, 0, 1, 2)
     assert p[-1] == 2
-    assert p >> p.dagger() == finset.Permutation.id(5)
+    assert p >> p.inverse() == finset.Permutation.id(5)
     assert p @ finset.Permutation((1, 0)) == (3, 4, 0, 1, 2, 6, 5)
-    assert finset.Function.swap(2, 3).inside == list(p)
+    assert finset.Function.swap(2, 3).inside == dict(enumerate(p))
     assert finset.Permutation((1, 0, 3, 2)).cycles() == ((0, 1), (2, 3))
     assert finset.Permutation.from_cycles([(0, 1), (2, 3)], 4)\
         == (1, 0, 3, 2)
@@ -50,13 +50,10 @@ def test_FinSet():
     assert finset.Permutation.identity(2) == (0, 1)
     assert finset.Permutation((1, 0)).then((1, 0)) == (0, 1)
     assert finset.Permutation((1, 0, 2)).then((1, 2, 0)) == (2, 1, 0)
-    assert finset.Permutation((1, 2, 0)).dagger() == (2, 0, 1)
+    assert finset.Permutation((1, 2, 0)).inverse() == (2, 0, 1)
     assert finset.Permutation((1, 0, 2)).conjugate((2, 0, 1))\
         == (2, 1, 0)
     assert finset.Permutation((1, 2, 0)).cycle(1) == (1, 2, 0)
-    assert finset.Permutation((1, 2, 0)).cycle(-1) == (2, 0, 1)
-    assert finset.Permutation((1, 0, 3, 2)).coequalizer(
-        finset.Permutation((0, 2, 1, 3))) == {0: 0, 1: 0, 2: 0, 3: 0}
     with raises(ValueError):
         finset.Permutation((0, 0))
     with raises(ValueError):

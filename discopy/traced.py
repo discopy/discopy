@@ -130,11 +130,7 @@ from discopy import monoidal
 from discopy.abc import TracedCategory
 from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
-from discopy.utils import (
-    factory_name,
-    assert_isinstance,
-    assert_istraceable,
-)
+from discopy.utils import factory_name, assert_isinstance, assert_istraceable
 
 
 @ar_factory
@@ -264,7 +260,6 @@ class Hypergraph(monoidal.Hypergraph):
 
 class CMap(monoidal.CMap):
     functor = Functor
-    require_acyclic = False
 
 
 Diagram.hypergraph_factory = Hypergraph

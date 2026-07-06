@@ -50,10 +50,9 @@ from networkx import (
 )
 from networkx.algorithms.isomorphism import is_isomorphic
 
-from discopy import cmap, messages
+from discopy import messages
 from discopy.abc import MonoidalCategory, NamedGeneric
 from discopy.drawing import Node
-from discopy.python.finset import Permutation
 from discopy.utils import (
     factory_name,
     assert_isinstance,
@@ -610,75 +609,6 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             j = flat_wires[i + 1:].index(spider) + i + 1
             result[i], result[j] = j, i
         return [result[i] for i in sorted(result)]
-
-    def _hypergraph_to_canonical(self) -> tuple[int, ...]:
-        """ Relabel hypergraph port order to canonical map port order. """
-        result = list(range(len(self.dom)))
-        start = len(self.dom)
-        for box in self.boxes:
-            result.extend(start + i for i in range(len(box.dom)))
-            result.extend(
-                start + len(box.dom) + len(box.cod) - i - 1
-                for i in range(len(box.cod)))
-            start += len(box.dom @ box.cod)
-        result.extend(range(start, start + len(self.cod)))
-        return tuple(result)
-
-    @classmethod
-    def from_map(cls, old) -> Hypergraph:
-        """
-        Forget orientation and return the underlying bijective hypergraph.
-
-        >>> from discopy.compact import Ty, Box, CMap, Hypergraph
-        >>> x, y = map(Ty, "xy")
-        >>> cmap = Box("f", x, y).to_map()
-        >>> Hypergraph.from_map(cmap).to_map() == cmap
-        True
-        """
-        hypergraph_to_canonical = list(range(len(old.dom)))
-        start = len(old.dom)
-        for box in old.boxes:
-            hypergraph_to_canonical.extend(
-                start + i for i in range(len(box.dom)))
-            hypergraph_to_canonical.extend(
-                start + len(box.dom) + len(box.cod) - i - 1
-                for i in range(len(box.cod)))
-            start += len(box.dom @ box.cod)
-        hypergraph_to_canonical.extend(range(start, start + len(old.cod)))
-        hypergraph_to_canonical = tuple(hypergraph_to_canonical)
-        canonical_to_hypergraph = Permutation(hypergraph_to_canonical).dagger()
-        edges = old.edges.conjugate(canonical_to_hypergraph)
-        spider_types, flat_wires = [], [None] * old.n_ports
-        for i in range(old.n_ports):
-            j = edges[i]
-            if i > j:
-                continue
-            spider = len(spider_types)
-            spider_types.append(old.ports[hypergraph_to_canonical[i]].obj)
-            flat_wires[i] = flat_wires[j] = spider
-        spider_types.extend(old.scalars)
-        wires = cls.rebracket(
-            None, flat_wires, dom=old.dom, boxes=old.boxes)
-        factory = cls if cls.functor is not None else cls[type(old).functor]
-        return factory(
-            old.dom, old.cod, old.boxes, wires,
-            tuple(spider_types), old.offsets)
-
-    def to_map(self):
-        """
-        Build a combinatorial map, introducing spider boxes if needed.
-        """
-        if not self.is_bijective:
-            return self.make_bijective().to_map()
-        factory = getattr(self.category, "map_factory", None)
-        if factory is None:
-            factory = cmap.CMap[type(self).category, type(self).functor]
-        relabeling = Permutation(self._hypergraph_to_canonical())
-        edges = Permutation(self.bijection).conjugate(relabeling)
-        scalars = tuple(self.spider_types[i] for i in self.scalar_spiders)
-        return factory(
-            self.dom, self.cod, self.boxes, edges, offsets=self.offsets,
-            scalars=scalars)
 
     @property
     def is_bijective(self) -> bool:
