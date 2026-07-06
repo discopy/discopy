@@ -139,8 +139,8 @@ class CMap[C0: Pregroup, C1: CMap](
     The boundary is represented as an apex, as if the input and output ports
     were connected to the codomain and domain of a virtual box.
 
-    By default, `CMap` defines a free compact category over a set of boxes,
-    but we also want to be able encode weaker structure for each level of
+    By default, `CMap` defines the free compact category over a set of boxes,
+    but we also want to be able to encode weaker structure for each level of
     the DisCoPy hierarchy.
     We therefore further distinguish port sides by assigning a negative
     polarity on domain ports and a positive polarity on codomain ports
@@ -234,7 +234,7 @@ class CMap[C0: Pregroup, C1: CMap](
     .. image:: /_static/cmap/simple-cmap.png
             :align: center
 
-    Swaps affect the edge permutation but leaves the vertex permutation
+    Swaps affect the edge permutation but leave the vertex permutation
     fixed:
 
     >>> f, g = map(CMap.from_box, [
