@@ -39,6 +39,7 @@ Summary
 
         cat2ty
         tree2diagram
+        to_closed
 """
 
 from __future__ import annotations
@@ -494,6 +495,32 @@ def tree2diagram(tree: dict, dom=Ty()) -> Diagram:
         rule = Box(tree['type'], dom, cod)
     return Id().tensor(*children) >> rule
 
+
+def to_closed(self):
+    """
+    Turn a categorial diagram into a closed one, i.e. dropping the distinction
+    between left and right exponentials and making the crossed composition
+    explicit: :class:`ForwardCrossedComposition` and
+    :class:`BackwardCrossedComposition` are expanded into explicit closed
+    diagrams where the crossing is realised by the symmetry.
+
+    Example
+    -------
+    >>> from discopy import closed
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> X, Y, Z = closed.Ty('x'), closed.Ty('y'), closed.Ty('z')
+    >>> assert Diagram.fx(x, y, z).to_closed() == closed.Diagram.fx(X, Y, Z)
+    >>> assert Diagram.bx(x, y, z).to_closed() == closed.Diagram.bx(X, Y, Z)
+    """
+    from discopy import closed
+
+    return Functor(
+        ob=lambda x: closed.Ty(x.inside[0].name),
+        ar=lambda f: closed.Box(f.name, to_closed(f.dom), to_closed(f.cod)),
+        cod=closed.Diagram)(self)
+
+
+Diagram.to_closed = to_closed
 
 Id = Diagram.id
 Diagram.map_factory = CMap

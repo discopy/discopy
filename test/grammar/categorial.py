@@ -250,6 +250,27 @@ def pregroup_diagram():
     return Diagram.decode(Ty(), zip(boxes, offsets))
 
 
+def test_to_closed():
+    from discopy import closed
+
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
+    X, Y, Z = closed.Ty('x'), closed.Ty('y'), closed.Ty('z')
+
+    # Crossed composition is made explicit in the symmetric closed category.
+    assert Diagram.fx(x, y, z).to_closed() == closed.Diagram.fx(X, Y, Z)
+    assert Diagram.bx(x, y, z).to_closed() == closed.Diagram.bx(X, Y, Z)
+
+    fx = Diagram.fx(x, y, z).to_closed()
+    assert fx.dom == (X ** Y) @ (Y ** Z) and fx.cod == Z >> X
+
+    # A full parse translates into a closed diagram with no crossed rules left.
+    diagram = tree2diagram(tree).to_closed()
+    assert diagram.dom == closed.Ty() and diagram.cod == closed.Ty('S')
+    assert not any(isinstance(box, (
+        ForwardCrossedComposition, BackwardCrossedComposition))
+        for box in diagram.boxes)
+
+
 def test_to_pregroup():
     from discopy.grammar import pregroup
     from discopy.grammar.pregroup import Cup, Cap, Id, Swap

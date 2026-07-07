@@ -26,6 +26,15 @@ Summary
     Functor
     CMap
 
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        to_closed
+
 Axioms
 ------
 
@@ -101,6 +110,44 @@ class Diagram(markov.Diagram, biclosed.Diagram, ClosedCategory):
     @classmethod
     def ev(cls, base: Ty, exponent: Ty, left: bool = True):
         return cls.eval_factory(exponent >> base, left=left)
+
+    @staticmethod
+    def fx(left: Ty, middle: Ty, right: Ty) -> Diagram:
+        """
+        Forward crossed composition made explicit in a symmetric closed
+        category, i.e. the composition of ``left << middle`` with
+        ``right >> middle`` into ``right >> left``.
+
+        In a biclosed category this requires the non-planar
+        :class:`~discopy.grammar.categorial.ForwardCrossedComposition` rule,
+        here the crossing is realised by the symmetry.
+
+        Parameters:
+            left : The base of the left function type.
+            middle : The type shared by the two functions.
+            right : The exponent of the right function type.
+        """
+        return (Id(left ** middle) @ Diagram.ev(middle, right)
+                >> Diagram.ev(left, middle)).curry(len(right), left=True)
+
+    @staticmethod
+    def bx(left: Ty, middle: Ty, right: Ty) -> Diagram:
+        """
+        Backward crossed composition made explicit in a symmetric closed
+        category, i.e. the composition of ``middle << left`` with
+        ``middle >> right`` into ``right << left``.
+
+        In a biclosed category this requires the non-planar
+        :class:`~discopy.grammar.categorial.BackwardCrossedComposition` rule,
+        here the crossing is realised by the symmetry.
+
+        Parameters:
+            left : The exponent of the left function type.
+            middle : The type shared by the two functions.
+            right : The base of the right function type.
+        """
+        return (Diagram.ev(middle, left, left=False) @ Id(right ** middle)
+                >> Diagram.ev(right, middle, left=False)).curry(len(left))
 
     def to_drawing(self):
         return monoidal.Diagram.to_drawing(self, functor_factory=Functor)
@@ -295,3 +342,26 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+
+
+def to_closed(self):
+    """
+    Turn a biclosed diagram into a closed one by dropping the distinction
+    between left and right exponentials, i.e. ``x << y`` and ``y >> x`` are
+    both sent to the same closed type ``x ** y``.
+
+    Example
+    -------
+    >>> from discopy import biclosed
+    >>> x, y = biclosed.Ty('x'), biclosed.Ty('y')
+    >>> over = biclosed.Box('f', x, x << y)
+    >>> under = biclosed.Box('f', x, y >> x)
+    >>> assert over.to_closed() == under.to_closed()
+    """
+    return Functor(
+        ob=lambda x: Ty(x.inside[0].name),
+        ar=lambda f: Box(f.name, to_closed(f.dom), to_closed(f.cod)),
+        cod=Diagram)(self)
+
+
+biclosed.Diagram.to_closed = to_closed
