@@ -909,27 +909,17 @@ class Functor(Category):
 Arrow.generator_factory = Box
 
 
-class Transformation:
+@ar_factory
+class Transformation(Category):
     """
-    A (not necessarily natural) transformation between two functors
-    with the same domain and the same codomain.
+    A (not necessarily natural) transformation between two parallel functors.
 
     Parameters:
         components :
-            A mapping from the objects of ``dom.dom`` to arrows of
-            ``dom.cod``, i.e. ``components[x] : dom(x) -> cod(x)``.
+            A mapping from objects ``x`` in the domain category to arrows
+            ``components[x] : dom(x) -> cod(x)`` in the codomain category.
         dom : The domain functor.
         cod : The codomain functor.
-
-    Note
-    ----
-    Together with :class:`Functor`, this makes the objects of
-    :class:`Cat` (i.e. types of arrows) into the objects of a
-    2-category: 1-cells are functors, 2-cells are transformations,
-    composed vertically with :meth:`then` and horizontally by
-    applying functors to transformations, see :meth:`Functor.__call__`.
-    Naturality, i.e. ``components[x] >> cod(f) == dom(f) >> components[y]``
-    for every box ``f : x -> y``, is not enforced.
 
     Example
     -------
@@ -941,6 +931,8 @@ class Transformation:
     >>> beta = Transformation.id(G)
     >>> assert (alpha >> beta)(x) == alpha(x) >> beta(x)
     """
+    ob = Functor
+
     def __init__(
             self, components: Mapping[Ob, Arrow] | Callable[[Ob], Arrow],
             dom: Functor, cod: Functor):
@@ -1010,12 +1002,10 @@ class Transformation:
         """
         assert_isinstance(other, Transformation)
         if self.cod != other.dom:
-            raise utils.AxiomError(
-                "Transformation.cod must be equal to other.dom.")
-        return type(self)(
-            lambda x: self(x) >> other(x), self.dom, other.cod)
-
-    __rshift__ = then
+            raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
+                self, other, self.cod, other.dom))
+        components = lambda x: self(x) >> other(x)
+        return type(self)(components, self.dom, other.cod)
 
     def __eq__(self, other):
         return isinstance(other, Transformation) and (
@@ -1030,5 +1020,4 @@ class Transformation:
 
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
-CAT = Functor
 Id = Arrow.id
