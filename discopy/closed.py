@@ -236,6 +236,17 @@ class TermBase(Box, biclosed.TermBase):
         other = others[0] if len(others) == 1 else Product(*others)
         return Application(self, other, left=False)
 
+    def eval(self, functor=None, context=None):
+        """
+        Evaluate a term by calling :code:`__eval__` then simplifying the
+        result by round-trip to hypergraph, whenever the codomain of the
+        functor is a category of diagrams.
+        """
+        functor = functor or self.functor
+        result = self.__eval__(functor, context)
+        return result.simplify()\
+            if isinstance(result, markov.Diagram) else result
+
 
 type Term = Constant | Variable | Application | Abstraction\
     | Product | Projection | LetStatement
@@ -256,17 +267,15 @@ def unbiased_tensor(functor: Functor, diagrams: list) -> Diagram:
 
 
 class Constant(TermBase, biclosed.Constant):
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if not context:
-            return super().eval(functor)
-        return functor.cod.discard(functor(context.dom)) >> super().eval(
-            functor)
+            return biclosed.Constant.eval(self, functor)
+        return functor.cod.discard(functor(context.dom))\
+            >> biclosed.Constant.eval(self, functor)
 
 
 class Variable(TermBase, biclosed.Variable):
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if not context:
             return functor.cod.id(functor(self.cod))
         return unbiased_tensor(functor, [
@@ -282,8 +291,7 @@ class Application(TermBase, biclosed.Application):
             if self.overlap else func.freevars + args.freevars
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         base, exponent = self.func.cod.base, self.func.cod.exponent
         evaluate = functor.cod.ev(functor(base), functor(exponent))
         if context is None:
@@ -303,8 +311,7 @@ class Abstraction(TermBase, biclosed.Abstraction):
         self.freevars = [x for x in self.body.freevars if x != self.var]
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
@@ -357,8 +364,7 @@ class Product(TermBase):
     def constants(self):
         return [c for term in self.terms for c in term.constants]
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if context is None:
             if not self.overlap:
                 return unbiased_tensor(functor, [
@@ -404,8 +410,7 @@ class Projection(TermBase):
     def constants(self):
         return self.arg.constants
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         arg = self.arg.eval(functor=functor, context=context)
         return arg >> unbiased_tensor(functor, [
             functor.cod.id(functor(x)) if i == self.index
@@ -472,8 +477,7 @@ class LetStatement(TermBase):
     def constants(self):
         return self.expression.constants + self.body.constants
 
-    def eval(self, functor=None, context=None):
-        functor = functor or self.functor
+    def __eval__(self, functor, context):
         if context is None:
             context = Context(self.freevars)
         new_context = Context(list(self.variables) + context.inside)
