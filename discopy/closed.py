@@ -138,6 +138,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "The discard of an atomic type in a closed diagram."
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -186,7 +190,7 @@ Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -203,26 +207,29 @@ class TermBase(Box, biclosed.TermBase):
         return Application(self, other, left=False)
 
 
-type Term = Constant | Variable | Application | Abstraction
-
-
 class Constant(TermBase, biclosed.Constant):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
         if not context:
             return super().eval(functor)
-        return functor.cod.discard(functor(context.dom)) >> super().eval(
+        return functor.cod.discard(context.image(functor)) >> super().eval(
             functor)
 
 
 class Variable(TermBase, biclosed.Variable):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
+
+        def annotated(x):
+            typ = functor(x.cod)
+            return biclosed.annotate(typ, x.name)\
+                if isinstance(typ, monoidal.Ty) else typ
+
         if not context:
-            return functor.cod.id(functor(self.cod))
+            return functor.cod.id(annotated(self))
         return functor.cod.tensor(*[
-            functor.cod.id(functor(x.cod)) if x == self
-            else functor.cod.discard(functor(x.cod))
+            functor.cod.id(annotated(x)) if x == self
+            else functor.cod.discard(annotated(x))
             for x in context.inside])
 
 
@@ -231,7 +238,7 @@ class Application(TermBase, biclosed.Application):
         self.overlap = set(func.freevars).intersection(args.freevars)
         self.freevars = list(set(func.freevars + args.freevars))\
             if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -245,7 +252,7 @@ class Application(TermBase, biclosed.Application):
             context = Context(self.freevars)
         func = self.func.eval(functor=functor, context=context)
         args = self.args.eval(functor=functor, context=context)
-        return functor.cod.copy(functor(context.dom))\
+        return functor.cod.copy(context.image(functor))\
             >> func @ args >> evaluate
 
 
@@ -256,14 +263,18 @@ class Abstraction(TermBase, biclosed.Abstraction):
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
+        n = len(functor(self.var.cod))
         if context:
             new_context = Context([self.var] + context.inside)
             body = self.body.eval(functor=functor, context=new_context)
-            return body.curry(left=True)
-        i, n = self.body.freevars.index(self.var), len(self.body.freevars)
+            return body.curry(n)
+        i = self.body.freevars.index(self.var)
+        offset = sum(
+            len(functor(x.cod)) for x in self.body.freevars[:i])
         body = self.body.eval(functor=functor)
-        p = [0] + [j + 1 if j < i else j for j in range(n) if j != i]
-        return (body.permutation(p, body.dom).dagger() >> body).curry()
+        p = list(range(offset, offset + n)) + [
+            j for j in range(len(body.dom)) if not offset <= j < offset + n]
+        return (body.permutation(p, body.dom).dagger() >> body).curry(n)
 
 
 @dataclass
@@ -275,6 +286,21 @@ class Context:
     def dom(self):
         return self.category.ob.tensor(*[x.cod for x in self.inside])
 
+    def image(self, functor) -> monoidal.Ty:
+        """
+        The image of :attr:`dom` under a functor, with the name of each
+        variable attached to the objects of its wires, see
+        :func:`biclosed.annotate`.
+        """
+        segments = [functor(x.cod) for x in self.inside]
+        if all(isinstance(seg, monoidal.Ty) for seg in segments):
+            segments = [
+                biclosed.annotate(seg, x.name)
+                for seg, x in zip(segments, self.inside)]
+            return segments[0].tensor(*segments[1:]) if segments\
+                else functor(self.dom)
+        return functor(self.dom)
+
 
 @dataclass
 class Substitution:
@@ -283,12 +309,14 @@ class Substitution:
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
-            other = Substitution(
-                {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+        if isinstance(term, Application):
+            return type(term)(self(term.func), self(term.args), term.left)
+        if isinstance(term, Abstraction):
+            other = Substitution({
+                key: value for key, value in self.inside.items()
+                if key != term.var})
+            return type(term)(term.var, other(term.body), term.left)
+        return term
 
 
 Ty.variable_factory = Variable
