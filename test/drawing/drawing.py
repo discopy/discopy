@@ -232,7 +232,7 @@ def test_to_gif():
             box = Box(word.name, n @ n, s)
             return Cap(n.r, n) @ Cap(n, n.l) >> n.r @ box @ n.l
 
-    W = Functor(ob={s: s, n: n}, ar=wiring)
+    W = Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
     rewrite_steps = W(sentence).normalize()
     params = dict(

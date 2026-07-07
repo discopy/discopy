@@ -1126,7 +1126,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         ...     assert back_n_forth(d) == d
         """
         return cls.functor(
-            ob=lambda typ: typ, ar=cls.from_box,
+            ob_map=lambda typ: typ, ar_map=cls.from_box,
             dom=type(old), cod=cls)(old)
 
     def to_diagram(self, make_causal_first: bool = False) -> Diagram:

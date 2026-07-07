@@ -1086,9 +1086,9 @@ class Functor(cat.Functor):
     A monoidal functor is a functor that preserves the tensor product.
 
     Parameters:
-        ob (Mapping[Ty, Ty]) :
+        ob_map (Mapping[Ty, Ty]) :
             Map from atomic :class:`Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
 
     Important

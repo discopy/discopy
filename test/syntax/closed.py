@@ -21,8 +21,8 @@ def test_python_Functor():
 
     from discopy.python import Function
     F = Functor(
-        ob={x: complex, y: bool, z: float},
-        ar={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
+        ob_map={x: complex, y: bool, z: float},
+        ar_map={f: lambda y: lambda x: abs(x) ** 2 if y else 0,
             g: lambda x, y: abs(x + 1j if y else -1j)},
         cod=Function)
 

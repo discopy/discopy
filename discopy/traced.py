@@ -222,9 +222,9 @@ class Functor(monoidal.Functor):
     A traced functor is a monoidal functor that preserves traces.
 
     Parameters:
-        ob (Mapping[monoidal.Ty, monoidal.Ty]) :
+        ob_map (Mapping[monoidal.Ty, monoidal.Ty]) :
             Map from :class:`monoidal.Ty` to :code:`cod.ob`.
-        ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
+        ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) :
             The codomain, :code:`Diagram` by default.
 
@@ -238,8 +238,10 @@ class Functor(monoidal.Functor):
     >>> f = Box('$\\\\lambda x . (x, 1 + 1 / x)$', x, x @ x)
     >>> g = Box('$\\\\frac{1 + \\\\sqrt{5}}{2}$', Ty(), x)
     >>> F = Functor(
-    ...     ob={x: (float, )},
-    ...     ar={f: lambda x=1.: (x, 1 + 1. / x), g: lambda: (1 + sqrt(5)) / 2},
+    ...     ob_map={x: (float, )},
+    ...     ar_map={
+    ...         f: lambda x=1.: (x, 1 + 1. / x),
+    ...         g: lambda: (1 + sqrt(5)) / 2},
     ...     cod=python.Function)
     >>> with python.Function.no_type_checking:
     ...     assert F(f.trace())() == F(g)()

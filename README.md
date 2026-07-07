@@ -176,8 +176,8 @@ from discopy.grammar import pregroup
 from discopy.tensor import Dim, Tensor
 
 F = pregroup.Functor(
-    ob={s: 1, n: 2},
-    ar={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
+    ob_map={s: 1, n: 2},
+    ar_map={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
     cod=Tensor)
 
 assert F(sentence)
@@ -196,7 +196,7 @@ def wiring(word):
         box = Box(word.name, n @ n, s)
         return Cap(n.r, n) @ Cap(n, n.l) >> n.r @ box @ n.l
 
-W = pregroup.Functor(ob={s: s, n: n}, ar=wiring)
+W = pregroup.Functor(ob_map={s: s, n: n}, ar_map=wiring)
 
 rewrite_steps = W(sentence).normalize()
 sentence.to_gif(*rewrite_steps)
@@ -242,8 +242,8 @@ A, B = Box('A', N, N), Box('B', N, N)
 L = Box('L', N @ S @ N, N @ S @ N)
 swaps = D.permutation((2, 1, 0), N @ S @ N)
 G = pregroup.Functor(
-    ob={s: Ty[T](S, S), n: Ty[T](N, N)},
-    ar={Alice: A, loves: swaps >> L, Bob: B},
+    ob_map={s: Ty[T](S, S), n: Ty[T](N, N)},
+    ar_map={Alice: A, loves: swaps >> L, Bob: B},
     cod=Int(D))
 
 ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
