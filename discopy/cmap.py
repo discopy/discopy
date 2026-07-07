@@ -36,7 +36,9 @@ from enum import StrEnum
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
+from itertools import count
 from math import lcm
+from string import ascii_lowercase
 import shutil
 import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
@@ -1018,6 +1020,157 @@ class CMap[C0: Pregroup, C1: CMap](
                 ) @ diagram.cod[j + 1:]
                 scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
         return diagram
+
+    def to_term(self):
+        """
+        Extract the linear lambda term encoded by a rooted trivalent map,
+        i.e. the inverse of Zeilberger's isomorphism from linear lambda terms
+        to rooted trivalent maps, see :meth:`discopy.closed.TermBase.to_map`.
+
+        The single output port is the root and the input ports are the free
+        variables of the term. Box labels and the direction of the wires are
+        ignored: the term structure is recovered with the following naive
+        algorithm. For each root node we remove it from the map; if the
+        result is disconnected then it was an application and we recurse with
+        the two disconnected subtrees as function and argument; if the result
+        is connected then it was an abstraction, we introduce a fresh
+        variable as a new node on the input side and recurse with the subtree
+        at the output side as body. Which subtree is which is determined by
+        the cyclic order of the ports around the removed node, starting from
+        the port facing the root.
+
+        Variable names are recovered from the ``varname`` attribute attached
+        to the objects carried by the ports, see
+        :func:`discopy.biclosed.annotate`; fresh names are generated from a
+        global counter in case the attribute is absent. The result is a
+        :class:`discopy.closed.Term` typed by unification, with fresh atomic
+        types for the type variables left unconstrained.
+
+        Example
+        -------
+        >>> from discopy.closed import Ty
+        >>> term = Ty("a")(lambda v: v)
+        >>> assert term.to_map().to_term() == term
+        """
+        # Imported here to avoid a circular dependency with biclosed.
+        from discopy import biclosed, closed
+
+        if len(self.cod) != 1 or self.scalars:
+            raise ValueError(
+                "Expected a rooted map with a single output port and no "
+                f"scalars, got {self}.")
+        for box in self.boxes:
+            if len(box.dom) + len(box.cod) != 3:
+                raise ValueError(f"Expected trivalent boxes, got {box}.")
+
+        ports, edges = self.ports, self.edges
+        box_ports = self._box_port_indices
+        vertex_of = {
+            port: vertex for vertex, indices in enumerate(box_ports)
+            for port in indices}
+
+        subst, tvars, atoms = {}, count(), {}
+
+        def resolve(typ):
+            while isinstance(typ, int) and typ in subst:
+                typ = subst[typ]
+            return typ
+
+        def unify(left, right):
+            # No occurs check: linear terms are always simply typeable.
+            left, right = resolve(left), resolve(right)
+            if isinstance(left, int) or isinstance(right, int):
+                if not isinstance(left, int):
+                    left, right = right, left
+                if left != right:
+                    subst[left] = right
+                return
+            unify(left[0], right[0])
+            unify(left[1], right[1])
+
+        leaf, variables, visited = {}, {}, set()
+
+        def new_variable(port):
+            obj = ports[port].obj
+            names = {
+                getattr(x, "varname", None)
+                for x in getattr(obj, "inside", (obj, ))}
+            name = names.pop() if len(names) == 1 else None
+            name = biclosed.fresh_name() if name is None else name
+            variable = (name, next(tvars))
+            leaf[port] = variable
+            return variable
+
+        for port, _ in enumerate(self.dom):
+            new_variable(port)
+
+        def connected(source, target, live):
+            seen, todo = {source}, [source]
+            while todo:
+                vertex = todo.pop()
+                if vertex == target:
+                    return True
+                for port in box_ports[vertex]:
+                    other = vertex_of.get(edges[port])
+                    if other in live and other not in seen:
+                        seen.add(other)
+                        todo.append(other)
+            return False
+
+        def extract(entry, live):
+            if entry in leaf:
+                return ('var', leaf[entry]), leaf[entry][1]
+            vertex = vertex_of[entry]
+            visited.add(vertex)
+            live = live - {vertex}
+            cycle = box_ports[vertex]
+            index = cycle.index(entry)
+            first, second = cycle[(index + 1) % 3], cycle[(index + 2) % 3]
+            if edges[first] == second:  # The identity abstraction.
+                variable = new_variable(second)
+                tree = ('abs', variable, ('var', variable))
+                return tree, (variable[1], variable[1])
+            far_first, far_second = edges[first], edges[second]
+            first_vertex = vertex_of.get(far_first)
+            second_vertex = vertex_of.get(far_second)
+            if first_vertex in live and second_vertex in live\
+                    and connected(first_vertex, second_vertex, live):
+                variable = new_variable(second)
+                body, body_type = extract(far_first, live)
+                return ('abs', variable, body), (variable[1], body_type)
+            func, func_type = extract(far_first, live)
+            args, args_type = extract(far_second, live)
+            result_type = next(tvars)
+            unify(func_type, (args_type, result_type))
+            return ('app', func, args), result_type
+
+        root = edges[self.n_ports - 1]
+        tree, _ = extract(root, set(range(len(self.boxes))))
+        if len(visited) != len(self.boxes):
+            raise ValueError(f"Expected a connected rooted map, got {self}.")
+
+        def to_ty(typ):
+            typ = resolve(typ)
+            if isinstance(typ, tuple):
+                return to_ty(typ[0]) >> to_ty(typ[1])
+            if typ not in atoms:
+                index = len(atoms)
+                atoms[typ] = closed.Ty(ascii_lowercase[index % 26] + (
+                    "" if index < 26 else str(index // 26)))
+            return atoms[typ]
+
+        def build(node):
+            if node[0] == 'var':
+                name, tvar = node[1]
+                if node[1] not in variables:
+                    variables[node[1]] = closed.Variable(name, to_ty(tvar))
+                return variables[node[1]]
+            if node[0] == 'app':
+                return build(node[1])(build(node[2]))
+            variable, body = build(('var', node[1])), build(node[2])
+            return closed.Abstraction(variable, body)
+
+        return build(tree)
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
