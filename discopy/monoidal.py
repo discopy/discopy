@@ -1251,7 +1251,7 @@ class Functor(cat.Functor):
             Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
-        colour (Mapping[Colour, Colour]) :
+        colour_map (Mapping[Colour, Colour]) :
             Map from region :class:`Colour` to :code:`cod` colour.
 
     Important
@@ -1260,11 +1260,9 @@ class Functor(cat.Functor):
 
     Note
     ----
-    The image of an empty coloured identity ``Ty.id(c)`` keeps its colour
-    only when that colour maps to another :class:`Colour`, i.e. when the
-    ``colour`` map stays within :class:`Colour`. Otherwise the result falls
-    back to the empty type ``cod.ob()`` (which carries no colour). In other
-    words, colour maps are expected to send colours to colours.
+    Colour maps are expected to send colours to colours, so the image of an
+    empty coloured identity ``Ty.id(c)`` keeps its (mapped) colour whenever
+    ``cod.ob`` has an ``id`` method, e.g. ``F(Ty.id(c)) == Ty.id(F(c))``.
 
     Example
     -------
@@ -1287,38 +1285,36 @@ class Functor(cat.Functor):
 
     dom = cod = Diagram
 
-    def __init__(self, ob=None, ar=None, dom=None, cod=None, colour=None):
+    def __init__(self, ob=None, ar=None, dom=None, cod=None, colour_map=None):
         super().__init__(ob, ar, dom=dom, cod=cod)
-        self.colour_map = MappingOrCallable(colour or {})
-        self._default_colour_map = colour is None
+        self.colour_map = MappingOrCallable(colour_map or {})
 
     @classmethod
     def id(cls, dom=None):
-        return cls(lambda x: x, lambda f: f, colour=lambda x: x,
-                   dom=dom, cod=dom)
+        return cls(lambda x: x, lambda f: f, dom=dom, cod=dom)
 
     def then(self, other):
         assert_isinstance(other, Functor)
         assert_iscomposable(self, other)
         return type(self)(
             self.ob_map.then(other), self.ar_map.then(other),
-            colour=MappingOrCallable(lambda x: other(self(x))),
+            colour_map=self.colour_map.then(other) if self.colour_map
+            else other.colour_map,
             dom=self.dom, cod=other.cod)
 
     def __eq__(self, other):
-        return super().__eq__(other) and self.colour_map == other.colour_map\
-            and self._default_colour_map == other._default_colour_map
+        return super().__eq__(other) and self.colour_map == other.colour_map
 
     def __repr__(self):
         result = super().__repr__()
-        if self._default_colour_map:
+        if not self.colour_map:
             return result
         suffix = ')' if result.endswith(')') else ''
         return result[:-len(suffix) if suffix else None] + (
-            f", colour={self.colour_map!r}{suffix}")
+            f", colour_map={self.colour_map!r}{suffix}")
 
     def _map_colour(self, colour):
-        return colour if self._default_colour_map else self.colour_map[colour]
+        return self.colour_map[colour] if self.colour_map else colour
 
     def _map_atomic(self, key):
         result = self.ob_map[key]
@@ -1336,11 +1332,10 @@ class Functor(cat.Functor):
             return sum([self.ob_map[x] for x in other], self.cod.ob())
         if isinstance(other, Ty):
             if not other.inside:
-                # Empty coloured identity: keep the colour only if it maps to
-                # a Colour, otherwise fall back to the (colourless) empty type.
-                colour = self(other.dom)
-                return self.cod.ob.id(colour) if hasattr(self.cod.ob, 'id')\
-                    and isinstance(colour, Colour) else self.cod.ob()
+                # Empty coloured identity: keep its (mapped) boundary colour.
+                if not hasattr(self.cod.ob, 'id'):
+                    return self.cod.ob()
+                return self.cod.ob.id(self(other.dom))
             images = list(map(self, other.inside))
             result = images[0]
             for image in images[1:]:

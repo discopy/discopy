@@ -111,7 +111,7 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
     the boundaries of its morphisms.
 
     An ordinary :obj:`Monoid` is the special case with a single, trivial
-    colour, e.g. ``()`` or :class:`type(None)`. We do not enforce this so
+    colour, i.e. :class:`type(None)`. We do not enforce this so
     that e.g. :class:`monoidal.Ty` can take colours as objects.
     """
     @classmethod
@@ -137,7 +137,7 @@ class ColouredMonoid[C0, C1: ColouredMonoid](Category[C0, C1]):
 
 
 # A monoid is a coloured monoid with a single, trivial colour.
-type Monoid[C1: ColouredMonoid] = ColouredMonoid[(), C1]
+type Monoid[C1: ColouredMonoid] = ColouredMonoid[type(None), C1]
 
 
 class MonoidalCategory[C0: ColouredMonoid, C1: MonoidalCategory](

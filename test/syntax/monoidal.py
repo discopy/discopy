@@ -409,12 +409,14 @@ def test_coloured_Functor():
     Y = Ty(Ob("Y", lime, cyan))
     F = Functor(
         {x: X, y: Y}, {},
-        colour={red: pink, green: lime, blue: cyan})
+        colour_map={red: pink, green: lime, blue: cyan})
 
     assert F(red) == pink
     assert F(x @ y) == X @ Y
     assert F(Ty.id(green)) == Ty.id(lime)
     assert Functor.id()(x @ y) == x @ y
+    # Composing the identity with a coloured functor keeps its colours.
+    assert (Functor.id() >> F)(red) == pink == (F >> Functor.id())(red)
 
     red2, purple, blue2 = map(
         Colour, ("salmon", "purple", "navy"))
@@ -422,11 +424,11 @@ def test_coloured_Functor():
     V = Ty(Ob("V", purple, blue2))
     G = Functor(
         {X: U, Y: V}, {},
-        colour={pink: red2, lime: purple, cyan: blue2})
+        colour_map={pink: red2, lime: purple, cyan: blue2})
     assert (F >> G)(x @ y) == U @ V
     assert (F >> G)(red) == red2
 
-    bad = Functor({x: Y}, {}, colour={red: pink, green: lime})
+    bad = Functor({x: Y}, {}, colour_map={red: pink, green: lime})
     with raises(AxiomError):
         bad(x)
 
@@ -434,20 +436,15 @@ def test_coloured_Functor():
 def test_coloured_Functor_repr():
     red, green = Colour("red"), Colour("green")
     x = Ty(Ob("x", red, green))
-    F = Functor({x: x}, {}, colour={red: green, green: red})
-    # The repr uses the constructor parameter name ``colour``, not the
-    # internal ``colour_map`` attribute.
-    assert "colour=" in repr(F) and "colour_map=" not in repr(F)
+    F = Functor({x: x}, {}, colour_map={red: green, green: red})
+    assert "colour_map=" in repr(F)
 
 
 def test_coloured_Functor_empty_identity():
     green, lime = Colour("green"), Colour("lime")
-    # Colour maps that stay within Colour preserve the empty identity colour.
-    F = Functor({}, {}, colour={green: lime})
+    # Colour maps preserve the (mapped) colour of an empty identity.
+    F = Functor({}, {}, colour_map={green: lime})
     assert F(Ty.id(green)) == Ty.id(lime) != Ty.id(green)
-    # A colour map leaving Colour drops the colour, falling back to cod.ob().
-    weird = Functor({}, {}, colour=lambda c: c.name)
-    assert weird(Ty.id(green)) == Ty() != Ty.id(green)
 
 
 def test_coloured_Ob_dagger():
@@ -470,7 +467,7 @@ def test_coloured_Functor_dagger():
     X = Ty(Ob("X", pink, lime))
     Y = Ty(Ob("Y", lime, cyan))
     F = Functor(
-        {x: X, y: Y}, {}, colour={red: pink, green: lime, blue: cyan})
+        {x: X, y: Y}, {}, colour_map={red: pink, green: lime, blue: cyan})
     # Functors send daggered (reversed) coloured types to daggered images.
     assert F(x[::-1]) == F(x)[::-1]
     assert F((x @ y)[::-1]) == F(x @ y)[::-1]
