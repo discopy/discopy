@@ -168,8 +168,6 @@ class Ty(monoidal.Ty):
     @property
     def base(self):
         "The base of an exponential type, assumes ``self.is_exp``."
-        if not self.is_exp:
-            print(self)
         assert self.is_exp
         return self.inside[0].base
 
