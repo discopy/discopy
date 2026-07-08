@@ -154,6 +154,21 @@ If you happen to find one, please [open an issue](https://github.com/discopy/dis
 We would be thrilled to welcome contributions in the form of examples, tests, notebooks, etc.
 We are also keen to hear if you spot any part of the documentation that you suspect is broken, outdated or plain wrong.
 
+We use the following convention so that documentation images are generated automatically when running doctests:
+
+```
+Example
+-------
+>>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
+>>> f0, f1 = Box('f0', x, y), Box('f1', z, w)
+>>> (f0 @ f1).draw(path='docs/_static/monoidal/tensor-example.png')
+
+.. image:: /_static/monoidal/tensor-example.png
+    :align: center
+```
+
+For now this is not done automatically so make sure you remember to push changes to these documentation images but don't push if the changes are only due to minor glitches e.g. font aliasing.
+
 ## Request features
 
 DisCoPy has the ambition to cover all of applied category theory.
