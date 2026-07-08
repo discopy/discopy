@@ -27,6 +27,7 @@ Before writing any code, make sure that:
 
 Before pushing anything, make sure that:
 
-- you have added docs and tests that are complete but concise as best as you can
-- you have `uv run` both `pflake8 discopy` and `coverage run -m pytest`
 - you have reported any bugs or confusing docs that you encounter even if unrelated
+- you have added docs and tests that are complete but concise as best as you can
+- you have `uv run` both `pflake8 discopy` and `coverage run -m pytest` as described in @CONTRIBUTING.md
+- you have respected the [code style guide](CONTRIBUTING.md#code-style-guide) e.g. never nesting and never commenting
