@@ -20,10 +20,13 @@ Please read the following documents (<10k tokens) before attempting any serious 
 
 ## How
 
+Before writing any code, make sure that:
+
+1) your change was first described in high-level mathematical terms
+2) this description aligns with the data structures you plan to use
+
 Before pushing anything, make sure that:
 
-- you have first described your change in terms of high-level mathematical definitions
-- you made sure that this description aligns with the data structures you have used
 - you have added docs and tests that are complete but concise as best as you can
-- you have run `pflake8`, `pytest` and checked that `coverage` hasn't dropped
-- you report any bugs or confusing docs that you encounter even if unrelatedww
+- you have `uv run` both `pflake8 discopy` and `coverage run -m pytest`
+- you have reported any bugs or confusing docs that you encounter even if unrelated
