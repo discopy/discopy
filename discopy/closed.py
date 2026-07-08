@@ -138,6 +138,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "A markov discard in a closed category"
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -186,7 +190,7 @@ Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -231,7 +235,7 @@ class Application(TermBase, biclosed.Application):
         self.overlap = set(func.freevars).intersection(args.freevars)
         self.freevars = list(set(func.freevars + args.freevars))\
             if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor

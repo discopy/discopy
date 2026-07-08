@@ -8,6 +8,7 @@ DisCoPy's computational core: categories of functions, matrices and tensors.
     :toctree: ../_api
 
     discopy.python
+    discopy.kleisli
     discopy.matrix
     discopy.tensor
     discopy.stream

@@ -23,6 +23,7 @@ from discopy import (
     feedback,
     stream,
     python,
+    kleisli,
     matrix,
     tensor,
     quantum,
