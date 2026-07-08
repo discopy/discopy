@@ -68,15 +68,28 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
 This example is inspired from Pawel Sobocinski's blog post [Crema di Mascarpone and Diagrammatic Reasoning](https://graphicallinearalgebra.net/2015/05/06/crema-di-mascarpone-rules-of-the-game-part-2-and-diagrammatic-reasoning/).
 
 ```python
-from discopy.symmetric import Ty, Box, Diagram
+from discopy.utils import ob_factory, ar_factory
+from discopy.symmetric import Ty, Box, Diagram, Swap
 
-egg, white, yolk = Ty("egg"), Ty("white"), Ty("yolk")
-crack = Box("crack", egg, white @ yolk)
-merge = lambda X: Box("merge", X @ X, X)
+@ob_factory
+class Ingredient(Ty): ...
+
+@ar_factory
+class Recipe(Diagram):
+  ob = Ingredient
+
+class CookingStep(Box, Recipe): ...
+class CookingSwap(Swap, CookingStep): ...
+
+Recipe.swap_factory = CookingSwap
+
+egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
+crack = CookingStep("crack", egg, white @ yolk)
+merge = lambda X: CookingStep("merge", X @ X, X)
 
 # DisCoPy allows string diagrams to be defined as Python functions
 
-@Diagram.from_callable(egg @ egg, white @ yolk)
+@Recipe.from_callable(egg @ egg, white @ yolk)
 def crack_two_eggs(x, y):
     (a, b), (c, d) = crack(x), crack(y)
     return (merge(white)(a, c), merge(yolk)(b, d))
@@ -84,7 +97,7 @@ def crack_two_eggs(x, y):
 # ... or in point-free style using parallel (@) and sequential (>>) composition
 
 assert crack_two_eggs == crack @ crack\
-  >> white @ Diagram.swap(yolk, white) @ yolk\
+  >> white @ CookingSwap(yolk, white) @ yolk\
   >> merge(white) @ merge(yolk)
 
 crack_two_eggs.draw()
@@ -106,10 +119,10 @@ from discopy.monoidal import Layer
 
 crack_two_eggs_at_once = crack_two_eggs.foliation()
 
-assert crack_two_eggs_at_once == Diagram(
+assert crack_two_eggs_at_once == Recipe(
   dom=egg @ egg, cod=white @ yolk, inside=(
     Layer(Ty(), crack, Ty(), crack, Ty()),
-    Layer(white, Diagram.swap(yolk, white), yolk),
+    Layer(white, CookingSwap(yolk, white), yolk),
     Layer(Ty(), merge(white), Ty(), merge(yolk), Ty())))
 
 crack_two_eggs_at_once.draw()
