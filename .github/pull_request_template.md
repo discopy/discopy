@@ -1,7 +1,9 @@
 <!--
 Thank you for contributing to DisCoPy! See CONTRIBUTING.md for our philosophy, code style guide and LLM guidelines.
 
-Please add a short description of the changes and make sure that it was either written by a human or that it quotes a human's prompt verbatim.
+Please add a short description that was either written by a human or that quotes a human's prompt verbatim.
+
+The detailed description can be LLM-generated.
 -->
 
 ## What
