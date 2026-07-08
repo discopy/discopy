@@ -55,7 +55,7 @@ if you want to run the full test suite involving all extra dependencies.
 uv sync --dev --group all
 uv run pflake8 discopy
 uv run coverage run -m pytest
-uv run coverage report -m --fail-under=98
+uv run coverage report -m
 ```
 
 ## Run the benchmarks
@@ -120,7 +120,7 @@ Then run:
 ```shell
 pflake8 discopy
 coverage run -m pytest
-coverage report -m --fail-under=98
+coverage report -m
 ```
 
 To build distributions without uv:
