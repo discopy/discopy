@@ -257,6 +257,9 @@ class TermBase(Box, biclosed.TermBase):
         return go(self)[0]
 
 
+type Term = Constant | Variable | Application | Abstraction
+
+
 class Constant(TermBase, biclosed.Constant):
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
