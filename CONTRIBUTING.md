@@ -54,7 +54,6 @@ if you want to run the full test suite involving all extra dependencies.
 ```shell
 uv sync --dev --group all
 uv run pflake8 discopy
-uv run pylint discopy
 uv run coverage run -m pytest
 uv run coverage report -m --fail-under=98
 ```
@@ -113,16 +112,15 @@ python -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[test]'
-python -m pip install coverage pyproject-flake8 pylint pytest nbmake
+python -m pip install coverage pyproject-flake8 pytest nbmake
 ```
 
 Then run:
 
 ```shell
 pflake8 discopy
-pylint discopy
 coverage run -m pytest
-coverage report -m --fail-under=99
+coverage report -m --fail-under=98
 ```
 
 To build distributions without uv:
