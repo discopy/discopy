@@ -38,12 +38,6 @@ def text_width(text, fontsize=12):
     return ceil(width / TEXT_WIDTH_RESOLUTION) * TEXT_WIDTH_RESOLUTION
 
 
-def _box_label_width(box):
-    # The width needed to fit the widest line of the box's name; drawing_name
-    # is guaranteed to be set already by the "drawing_name" attribute below.
-    return max(text_width(line) for line in box.drawing_name.split("\n"))
-
-
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,
@@ -76,7 +70,8 @@ DRAWING_ATTRIBUTES = {
     # Minimum width of the box outline, e.g. to fit a LaTeX name by hand.
     "min_width": lambda _: 0,
     # Space needed to fit the box's name (depends on drawing_name above).
-    "box_label_width": _box_label_width,
+    "box_label_width": lambda box: max(
+        text_width(line) for line in box.drawing_name.split("\n")),
     # The width the outline must have to fit the name or the given min_width.
     "box_min_width": lambda box: max(
         box.box_label_width, box.min_width) if box.draws_label else 0,
