@@ -14,7 +14,7 @@ Please read the following documents (<10k tokens) before attempting any serious 
 ## Where
 
 - [discopy](discopy/) contains the code with a lot of modules and a few submodules
-- [discopy.abc](discopy/abc.py) is the main entry point to navigating the architecture
+- [discopy.abc](discopy/abc.py) contains abstract base classes for each level of the hierarchy
 - [test](test/) is split into `syntax` and `semantics` with one file for each module or submodule
 - [docs](docs/) contains notebooks and pictures generated automatically when running the tests
 
