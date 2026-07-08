@@ -30,3 +30,4 @@ Before pushing anything, make sure that:
 - you have added docs and tests that are complete but concise as best as you can
 - you have `uv run` both `pflake8 discopy` and `coverage run -m pytest`
 - you have reported any bugs or confusing docs that you encounter even if unrelated
+- you have checked that you considered all the comments on the PR, including those that were submitted after you started working
