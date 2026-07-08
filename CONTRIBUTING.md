@@ -1,6 +1,33 @@
 # Contributing
 
-So excited to have you here! If you want any guidance whatsoever, don't hesitate to reach out on [Discord](https://discopy.org/discord)!
+~~Let no one enter who does not know geometry.~~
+*Let everyone enter and teach them geometry.*
+
+Thank you for considering contributing to DisCoPy, we're so excited to have you here! If you got this far, you are already part of a new generation of engineers, scientists and mathematicians making equations and programs free of the one-dimensional cave in which they had been chained.
+
+This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we are academics and we are always enthusiastic about collaboration, sharing and discussing ideas and their implementations.
+
+## Make a first contribution
+
+Every bit of contribution will be cherished however big or small, in particular you can:
+
+- [Report bugs](#report-bugs)
+- [Add documentation](#add-documentation)
+- [Request features](#request-features)
+- [Review pull requests](#review-pull-requests)
+
+If you're unsure where to begin, we suggest you start with one of our tutorial notebooks e.g. [What is a diagram?](https://docs.discopy.org/en/main/notebooks/diagrams.html)
+If you're looking for some inspiration on potential applications of string diagrams and category theory, you could try reading:
+
+- the publications of the [Compositionality](https://compositionality.episciences.org/browse/volumes) journal
+- the Applied Category Theory proceedings e.g. [dblp:eptcs429](https://dblp.org/db/series/eptcs/eptcs429.html)
+- this list of papers at the intersection of [Category Theory ∩ Machine Learning](https://github.com/bgavran/Category_Theory_Machine_Learning)
+
+If you want any guidance whatsoever, don't hesitate to reach out on [Discord](https://discopy.org/discord) (sadly not very active) or [open an issue](https://github.com/discopy/discopy/issues/new) even if it's to ask a simple question.
+
+## Get started
+
+DisCoPy uses [uv](https://docs.astral.sh/uv/).
 
 The first step is to clone DisCoPy and install the default development environment:
 
@@ -9,10 +36,6 @@ git clone https://github.com/discopy/discopy.git
 cd discopy
 uv sync
 ```
-
-## Package infrastructure
-
-DisCoPy uses [uv](https://docs.astral.sh/uv/).
 
 Different dependency groups are available (switch with `uv sync --group <group-name>`):
 - no group: minimal set of dependencies required to work with DisCoPy.
@@ -122,3 +145,38 @@ uv publish
 ```
 
 Finally, [create a release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository#creating-a-release) for the newly created tag.
+
+## Report bugs
+
+We try our best to keep DisCoPy as close as possible to the mathematics but as any Python package it mostly likely contains many bugs.
+If you happen to find one, please [open an issue](https://github.com/discopy/discopy/issues/new) with your best attempt at describing what the problem is and how to reproduce it.
+
+## Add documentation
+
+We would be thrilled to welcome contributions in the form of examples, tests, notebooks, etc.
+We are also keen to hear if you spot any part of the documentation that you suspect is broken, outdated or plain wrong.
+
+## Request features
+
+DisCoPy has the ambition to cover all of applied category theory.
+If you are unsure what that can mean you could read [What is applied category theory?](https://www.appliedcategorytheory.org/what-is-applied-category-theory/) or [From quantum foundations via natural language meaning to a theory of everything](https://arxiv.org/abs/1602.07618).
+
+If there's a particular feature needed for your application, we can probably guide you through how to implement it.
+If your request is for some general abstract nonsense that can be used throughout many applications, we're also keen to hear about it.
+
+## Review pull requests
+
+We take our pull request reviews to the same level of rigour and courtesy as our academic peer reviews.
+That is, we do our best to make sure that critical parts of the reasoning / implementation are correct but we also know there can be a next PR / paper fixing our mistakes.
+
+## Code style guide
+
+- DisCoPy is pure. Diagram composition should never cause side-effects, only functor application does when the codomain is effectful.
+- DisCoPy is deterministic. Even in their internal representation, data structures should not depend on sources of non-determinism (e.g. hashing).
+- DisCoPy is transparent. `eval(repr(x)) == x` should always be true and `eval(str(x)) == x` should be true assuming the obvious variable naming convention e.g. `x, y = Ob("x"), Ob("y")` and `f = Box("f", x, y)`. This `str(x)` should be as close as possible to what a mathematician would write on the board.
+- DisCoPy has no secrets. We try as much as possible to avoid using private or semiprivate attributes and let the user be responsible for any damage. Same for methods, we want to expose the interface for every subprocedure so that it can be tested and reused.
+- DisCoPy aims at [never nesting](https://www.youtube.com/watch?v=CFRhGnuXG-4). That is, we believe if your code goes more than three levels deep (a loop in a method in a class) then it's probably written at a wrong level of abstraction.
+- DisCoPy cares about good naming. "Mathematics is the art of giving the same name to different things" (Poincaré)
+
+## LLM guidelines
+
