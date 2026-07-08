@@ -231,7 +231,6 @@ sentence.to_gif(*rewrite_steps)
 
 ## A geometry of chatbot interaction
 
-### 
 
 The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction of [Joyal, Street & Verity (1996)](https://doi.org/10.1017/S0305004100074338) is
 

@@ -1,9 +1,9 @@
 # Contributing
 
 ~~Let no one enter who does not know geometry.~~
-*Let everyone enter and teach them geometry.*
+*Let everyone enter and teach them category thory.*
 
-Thank you for considering contributing to DisCoPy, we're so excited to have you here! If you got this far, you are already part of a new generation of engineers, scientists and mathematicians making equations and programs free of the one-dimensional cave in which they had been chained.
+Thank you for considering contributing to DisCoPy, we're so excited to have you here! If you got this far, you are already part of a new generation of engineers, scientists and mathematicians making equations and programs free of the one-dimensional cave in which they are being chained.
 
 This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we are academics and we are always enthusiastic about collaboration, sharing and discussing ideas and their implementations.
 
