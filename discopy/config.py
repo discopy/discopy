@@ -2,50 +2,18 @@
 
 """ Discopy configuration. """
 
-from functools import lru_cache
-from math import ceil
-
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
-# Text widths are rounded up to a multiple of this resolution, a dyadic
-# rational, so that widened boxes keep the same easy-to-read coordinates
-# (integers plus or minus dyadic rationals) as the rest of a drawing.
-TEXT_WIDTH_RESOLUTION = 2 ** -4
 
-
-@lru_cache(maxsize=1024)
-def text_width(text, fontsize=12):
-    """ The width of a text label in drawing units, i.e. inches.
-
-    Measured from the actual glyph outlines with matplotlib's text layout, so
-    it is accurate for proportional fonts and for mathtext such as a LaTeX
-    name (e.g. ``"$\\Lambda$"``). A drawing unit is one inch and a point is
-    1/72 inch, hence the division of the point-sized text path. The result is
-    rounded up to the nearest :data:`TEXT_WIDTH_RESOLUTION` so that it stays
-    a dyadic rational, e.g. ``0.5625`` rather than ``0.5392252604166666``.
-    """
-    if not text:
-        return 0
-    from matplotlib.textpath import TextPath
-    width = TextPath((0, 0), text, size=fontsize).get_extents().width / 72
-    return ceil(width / TEXT_WIDTH_RESOLUTION) * TEXT_WIDTH_RESOLUTION
-
-
-def box_label_width(box):
-    """ The width needed to fit a box's name, in drawing units.
-
-    This is the width of the widest line of the name (see :func:`text_width`),
-    or zero if the box has no name.
-    """
-    name = getattr(box, "drawing_name", None)
-    name = box.name if name is None else name
-    if not name:
-        return 0
-    return max(text_width(line) for line in name.split("\n"))
+def _box_label_width(box):
+    # The width needed to fit the widest line of the box's name; drawing_name
+    # is guaranteed to be set already by the "drawing_name" attribute below.
+    from discopy.utils import text_width
+    return max(text_width(line) for line in box.drawing_name.split("\n"))
 
 
 # Mapping from attribute to function from box to default value.
@@ -72,10 +40,18 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
+    # Whether the box is drawn as a rectangle with its name in the middle;
+    # other shapes (wires, spiders, ...) draw themselves rather than a label.
+    "draws_label": lambda box: not any((
+        box.draw_as_wires, box.draw_as_spider, box.draw_as_brakets,
+        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures)),
     # Minimum width of the box outline, e.g. to fit a LaTeX name by hand.
     "min_width": lambda _: 0,
-    # Depends on drawing_name, so it must come after it in this mapping.
-    "box_label_width": box_label_width,
+    # Space needed to fit the box's name (depends on drawing_name above).
+    "box_label_width": _box_label_width,
+    # The width the outline must have to fit the name or the given min_width.
+    "box_min_width": lambda box: max(
+        box.box_label_width, box.min_width) if box.draws_label else 0,
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
 }

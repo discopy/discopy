@@ -70,30 +70,6 @@ if TYPE_CHECKING:
     from discopy import monoidal
 
 
-def _draws_label(box) -> bool:
-    """ Whether a box is drawn as a rectangle with its name in the middle.
-
-    Boxes drawn as wires, spiders, brakets, controlled gates, discards or
-    measures render their own shape rather than a centered label, so their
-    width should not be adjusted to fit :attr:`drawing_name`.
-    """
-    return not any(getattr(box, attr, False) for attr in (
-        "draw_as_wires", "draw_as_spider", "draw_as_brakets",
-        "draw_as_controlled", "draw_as_discards", "draw_as_measures"))
-
-
-def _box_min_width(box) -> float:
-    """ The minimum width of a box outline.
-
-    This is the widest of the space needed to fit the box's name (see
-    :func:`discopy.config.box_label_width`) and its user-set :attr:`min_width`.
-    It is zero for boxes that do not draw a centered label.
-    """
-    if not _draws_label(box):
-        return 0
-    return max(box.box_label_width, box.min_width)
-
-
 class PlaneGraph(NamedTuple):
     """ A plane graph is a graph with a mapping from nodes to points. """
     graph: nx.DiGraph
@@ -234,11 +210,10 @@ class Drawing(TracedCategory):
             xs = [self.positions[n].x for n in box_dom_nodes + box_cod_nodes]
             left, right = min(xs + [box_x]) - 0.25, max(xs + [box_x]) + 0.25
             # Widen the box symmetrically if its name/min_width does not fit.
-            min_width = _box_min_width(box)
-            if min_width > right - left:
+            if box.box_min_width > right - left:
                 center = (left + right) / 2
-                left = center - min_width / 2
-                right = center + min_width / 2
+                left = center - box.box_min_width / 2
+                right = center + box.box_min_width / 2
             self.add_nodes({
                 Node(f"box-corner-{a}{b}", j=j): Point(x, box_y + y)
                 for a, x in enumerate([left, right])
@@ -451,7 +426,7 @@ class Drawing(TracedCategory):
 
         # Reserve enough horizontal space to fit the box's name or min_width,
         # leaving a 0.25 margin on either side between the box and its wires.
-        width = max(width, _box_min_width(box) + 0.5)
+        width = max(width, box.box_min_width + 0.5)
 
         height = box.height
 
