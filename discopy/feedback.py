@@ -141,7 +141,7 @@ In the category of streams, this is just the identity.
 
 from __future__ import annotations
 
-from discopy import cat, monoidal, markov
+from discopy import cat, monoidal, markov, hypergraph
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
     ob_factory, ar_factory, factory_name, assert_isinstance, AxiomError)
@@ -644,12 +644,9 @@ class Functor(markov.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(markov.Hypergraph):
-    functor = Functor
-
-
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.braid_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id

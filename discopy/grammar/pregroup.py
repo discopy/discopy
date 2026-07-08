@@ -157,8 +157,14 @@ class Diagram(frobenius.Diagram):
 class Box(frobenius.Box, Diagram):
     """
     A pregroup box is a frobenius box in a pregroup diagram.
+
+    Like :class:`Diagram`, its equality and hashing are pinned to
+    :class:`rigid.Box`: rigid diagrams only embed into their hypergraph
+    category up to the compact quotient, so boxes must keep structural hashing
+    for functor ``ar`` mappings to stay well-defined under hypergraph equality.
     """
     rotate = rigid.Box.rotate
+    __eq__, __hash__ = rigid.Box.__eq__, rigid.Box.__hash__
 
 
 class Cup(frobenius.Cup, Box):

@@ -87,7 +87,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
-from discopy import monoidal, balanced, traced, messages
+from discopy import monoidal, balanced, traced, messages, hypergraph
 from discopy.abc import SymmetricCategory
 from discopy.cat import Arrow, ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
@@ -215,7 +215,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
 
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
-        return self.hypergraph_factory.from_diagram(self)
+        return hypergraph.Hypergraph[type(self).ar].from_diagram(self)
 
     def simplify(self):
         """ Simplify by translating back and forth to hypergraph. """
@@ -346,17 +346,14 @@ class Functor(balanced.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(balanced.Hypergraph):
-    functor = Functor
-
-
 class CMap(traced.CMap):
     functor = Functor
     require_planar = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum

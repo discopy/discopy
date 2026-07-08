@@ -51,7 +51,8 @@ from networkx import (
 from networkx.algorithms.isomorphism import is_isomorphic
 
 from discopy import cmap, messages
-from discopy.abc import MonoidalCategory, NamedGeneric
+from discopy.abc import (
+    HypergraphCategory, MarkovCategory, MonoidalCategory, NamedGeneric)
 from discopy.drawing import Node
 from discopy.python.finset import Permutation
 from discopy.utils import (
@@ -65,6 +66,7 @@ from discopy.utils import (
     classproperty,
     tuplify,
     untuplify,
+    unwind,
 )
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Box, Diagram
@@ -93,7 +95,7 @@ Mapping from :class:`Spider` to atomic :class:`frobenius.Ty`.
 """
 
 
-class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
+class Hypergraph(MonoidalCategory, NamedGeneric['category']):
     """
     A hypergraph is given by:
 
@@ -145,10 +147,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     >>> from discopy.frobenius import Ty, Diagram
     >>> assert H.category.ob == Ty and H.category == Diagram
 
-    They are also parameterised by a ``Functor`` called by :meth:`to_diagram`.
+    The :class:`Functor` used by :meth:`from_diagram` is read off the category
+    itself, i.e. ``H.functor == H.category.functor_factory``.
 
     >>> from discopy.frobenius import Functor
     >>> assert H.functor == Functor
+
+    Thus subclasses of :class:`Diagram` get hypergraphs of their own category
+    without a dedicated ``Hypergraph`` class, e.g. ``Hypergraph[Diagram]``.
 
     Examples
     --------
@@ -177,9 +183,9 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
     >>> assert (f @ g).n_spiders == 4
     >>> assert (f @ g).wires == ((0, 1), (((0,), (2,)), ((1,), (3,))), (2, 3))
     """
-    functor = None
+    category = None
 
-    category = classproperty(lambda cls: cls.functor.dom)
+    functor = classproperty(lambda cls: cls.category.functor_factory)
     ob = classproperty(lambda cls: cls.category.ob)
 
     def __init__(
@@ -217,9 +223,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
 
         relabeling = sorted(connected_spiders, key=flat_wires.index)
         relabeling += sorted(set(spider_types.keys()) - connected_spiders)
-        self.spider_types = tuple(map(
-            lambda typ: typ.r if getattr(typ, "z", 0) else typ,
-            [spider_types[s] for s in relabeling]))
+        self.spider_types = tuple(
+            unwind(spider_types[s]) for s in relabeling)
         self.flat_wires = tuple(relabeling.index(s) for s in flat_wires)
         self.wires = self.rebracket(self.flat_wires)
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
@@ -227,9 +232,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
         for obj, wires in zip(self.spider_types, self.spider_wires):
-            adjoint = getattr(obj, "r", obj)
             for i in set.union(*wires):
-                if self.ports[i].obj not in [obj, adjoint]:
+                if unwind(self.ports[i].obj) != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
                         obj, self.ports[i].obj))
 
@@ -659,7 +663,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         spider_types.extend(old.scalars)
         wires = cls.rebracket(
             None, flat_wires, dom=old.dom, boxes=old.boxes)
-        factory = cls if cls.functor is not None else cls[type(old).functor]
+        factory = cls[old.category]
         return factory(
             old.dom, old.cod, old.boxes, wires,
             tuple(spider_types), old.offsets)
@@ -967,18 +971,20 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                 if self.ports[target].kind in kinds:
                     spider_types = dict(enumerate(self.spider_types))
                     typ = spider_types[spider]
+                    source_obj, target_obj = (
+                        self.ports[source].obj, self.ports[target].obj)
                     left, right = len(spider_types), len(spider_types) + 1
                     fwires = list(self.flat_wires)
                     fwires[source], fwires[target] = left, right
                     if cups_or_caps == "cups":
-                        boxes = self.boxes + (
-                            self.category.cup_factory(typ, typ), )
+                        boxes = self.boxes + (self.category.cup_factory(
+                            source_obj, target_obj), )
                         offsets = self.offsets + (None, )
                         fwires = fwires[:len(fwires) - len(self.cod)] + [
                             left, right] + fwires[len(fwires) - len(self.cod):]
                     else:
-                        boxes = (self.category.cap_factory(typ, typ),
-                                 ) + self.boxes
+                        boxes = (self.category.cap_factory(
+                            source_obj, target_obj), ) + self.boxes
                         offsets = (None, ) + self.offsets
                         fwires = fwires[:len(self.dom)] + [
                             left, right] + fwires[len(self.dom):]
@@ -1125,16 +1131,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         ...           H.spiders(1, 2, x @ y)]:
         ...     assert back_n_forth(d) == d
         """
-        return cls.functor(
-            ob=lambda typ: typ, ar=cls.from_box,
-            dom=type(old), cod=cls)(old)
+        factory = cls[type(old).ar]
+        return factory.functor(
+            ob=lambda typ: typ, ar=factory.from_box,
+            dom=type(old), cod=factory)(old)
 
-    def to_diagram(self, make_causal_first: bool = False) -> Diagram:
+    def to_diagram(self) -> Diagram:
         """
         Downgrade to :class:`Diagram`, called by :code:`print`.
-
-        Parameters:
-            make_causal_first : The order in which we downgrade.
 
         Note
         ----
@@ -1147,6 +1151,13 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
           :meth:`make_causal` (introducing traces) and finally
           :meth:`make_bijective` (introducing copies).
 
+        We use the first order whenever :attr:`category` is a subclass of
+        :class:`HypergraphCategory`, i.e. it has a self-dual supply of spiders.
+        Otherwise, if it is a subclass of :class:`MarkovCategory`, i.e. it has
+        a supply of comonoids, we use the second order and introduce copies.
+        If it is neither then a non-monogamous hypergraph cannot be downgraded
+        and we raise an :class:`AxiomError`.
+
         Examples
         --------
         >>> from discopy.frobenius import Ty, Box, Hypergraph as H
@@ -1158,10 +1169,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         x @ Swap(x, x) >> v[::-1] @ x
         """
         if self.scalar_spiders or not self.is_causal or not self.is_monogamous:
-            if make_causal_first:
-                return self.make_causal().make_bijective().to_diagram()
-            else:
+            if issubclass(self.category, HypergraphCategory):
                 return self.make_monogamous().make_causal().to_diagram()
+            if issubclass(self.category, MarkovCategory):
+                return self.make_causal().make_bijective().to_diagram()
+            if not self.is_monogamous:
+                raise AxiomError(factory_name(self.category)
+                                 + " does not have copy or discard.")
+            return self.make_monogamous().make_causal().to_diagram()
         diagram, scan = self.category.id(self.dom), self.dom_wires
         for depth, (box, offset) in enumerate(zip(self.boxes, self.offsets)):
             dom_wires, cod_wires = self.box_wires[depth]

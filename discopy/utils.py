@@ -432,6 +432,33 @@ def untuplify(stuff: tuple) -> any:
     return stuff[0] if len(stuff) == 1 else stuff
 
 
+def unwind(typ):
+    """
+    Rotate an atomic type until its winding number is zero.
+
+    Parameters:
+        typ : An atomic type with properties ``l``, ``r`` and ``z``.
+
+    Note
+    ----
+    This is the identity on self-dual (e.g. :mod:`frobenius`) types, where the
+    winding number ``z`` is always zero. For rigid and pivotal types it gives a
+    canonical representative for the compact quotient, i.e. the base type on
+    which spiders are labelled.
+
+    Example
+    -------
+    >>> from discopy.rigid import Ty
+    >>> n = Ty('n')
+    >>> assert unwind(n.r.r) == unwind(n.l) == n
+    """
+    while getattr(typ, "z", 0) > 0:
+        typ = typ.l
+    while getattr(typ, "z", 0) < 0:
+        typ = typ.r
+    return typ
+
+
 def ob_factory(cls):
     """
     Allows the tensor product of a :class:`Ty` subclass to remain within

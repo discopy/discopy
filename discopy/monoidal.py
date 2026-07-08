@@ -554,8 +554,9 @@ class Diagram(cat.Arrow, MonoidalCategory):
             :align: center
         """
         def decorator(func):
-            hypergraph = cls.hypergraph_factory.from_callable(dom, cod)(func)
-            return hypergraph.to_diagram()
+            graph = hypergraph.Hypergraph[
+                cls.ar].from_callable(dom, cod)(func)
+            return graph.to_diagram()
 
         return decorator
 
@@ -1168,16 +1169,6 @@ class Match:
         return self.above >> self.left @ target @ self.right >> self.below
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-    def to_diagram(self):
-        if not self.is_monogamous:
-            raise AxiomError(factory_name(
-                self.category) + " does not have copy or discard.")
-        return super().to_diagram()
-
-
 class CMap(cmap.CMap):
     functor = Functor
     require_planar = True
@@ -1191,7 +1182,8 @@ Diagram.to_gif = drawing.to_gif
 
 Diagram.sum_factory = Sum
 Diagram.bubble_factory = Bubble
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Drawing.ob = Ty
 Id = Diagram.id

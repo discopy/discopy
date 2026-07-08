@@ -126,7 +126,7 @@ Dinaturality
 ...     assert sliding_left and sliding_right
 """
 
-from discopy import monoidal
+from discopy import monoidal, hypergraph
 from discopy.abc import TracedCategory
 from discopy.cat import ar_factory
 from discopy.monoidal import Ty  # noqa: F401
@@ -258,16 +258,13 @@ class Functor(monoidal.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(monoidal.Hypergraph):
-    functor = Functor
-
-
 class CMap(monoidal.CMap):
     functor = Functor
     require_acyclic = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
 Diagram.trace_factory = Trace
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Id = Diagram.id
