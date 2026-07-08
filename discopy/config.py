@@ -3,12 +3,18 @@
 """ Discopy configuration. """
 
 from functools import lru_cache
+from math import ceil
 
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
+
+# Text widths are rounded up to a multiple of this resolution, a dyadic
+# rational, so that widened boxes keep the same easy-to-read coordinates
+# (integers plus or minus dyadic rationals) as the rest of a drawing.
+TEXT_WIDTH_RESOLUTION = 2 ** -4
 
 
 @lru_cache(maxsize=1024)
@@ -18,12 +24,15 @@ def text_width(text, fontsize=12):
     Measured from the actual glyph outlines with matplotlib's text layout, so
     it is accurate for proportional fonts and for mathtext such as a LaTeX
     name (e.g. ``"$\\Lambda$"``). A drawing unit is one inch and a point is
-    1/72 inch, hence the division of the point-sized text path.
+    1/72 inch, hence the division of the point-sized text path. The result is
+    rounded up to the nearest :data:`TEXT_WIDTH_RESOLUTION` so that it stays
+    a dyadic rational, e.g. ``0.5625`` rather than ``0.5392252604166666``.
     """
     if not text:
         return 0
     from matplotlib.textpath import TextPath
-    return TextPath((0, 0), text, size=fontsize).get_extents().width / 72
+    width = TextPath((0, 0), text, size=fontsize).get_extents().width / 72
+    return ceil(width / TEXT_WIDTH_RESOLUTION) * TEXT_WIDTH_RESOLUTION
 
 
 def box_label_width(box):
