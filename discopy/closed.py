@@ -52,7 +52,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov
+from discopy import cat, monoidal, biclosed, markov, symmetric
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
 
@@ -205,6 +205,56 @@ class TermBase(Box, biclosed.TermBase):
 
     def __call__(self, other):
         return Application(self, other, left=False)
+
+    def to_map(self) -> symmetric.CMap:
+        """
+        Encode a pure linear lambda term as a rooted trivalent map over a
+        single generating object, i.e. one direction of Zeilberger's
+        isomorphism; the inverse is :meth:`discopy.cmap.CMap.to_term`.
+
+        Each application becomes a node with the function and argument
+        subtrees as inputs and the result as output, each abstraction becomes
+        a node plugging the root and the wire of the abstracted variable, see
+        :meth:`discopy.cmap.CMap.plug_input`. The free variables of the term
+        are the inputs of the map and the root is its output. The names of
+        the variables are attached to the objects of their wires, see
+        :func:`biclosed.annotate`, so that the round-trip from term to map
+        and back is faithful on the nose.
+
+        Example
+        -------
+        >>> a, b = Ty("a"), Ty("b")
+        >>> term = (a >> b)(lambda f: a(lambda v: f(v)))
+        >>> cmap = term.to_map()
+        >>> len(cmap.boxes)
+        3
+        >>> assert cmap.to_term() == term
+        """
+        x = symmetric.Ty("x")
+        application_box = symmetric.Box("@", x @ x, x)
+
+        def go(term):
+            if isinstance(term, Variable):
+                wire = biclosed.annotate(x, term.name)
+                return symmetric.CMap.id(wire), [term]
+            if isinstance(term, Application):
+                func, func_vars = go(term.func)
+                args, args_vars = go(term.args)
+                if set(func_vars) & set(args_vars):
+                    raise ValueError(f"Expected a linear term, got {self}.")
+                return func @ args >> symmetric.CMap.from_box(
+                    application_box), func_vars + args_vars
+            if isinstance(term, Abstraction):
+                body, body_vars = go(term.body)
+                index = body_vars.index(term.var)
+                abstraction_box = symmetric.Box(
+                    "λ", x, x @ biclosed.annotate(x, term.var.name))
+                remaining = body_vars[:index] + body_vars[index + 1:]
+                return body.plug_input(index, abstraction_box, x), remaining
+            raise NotImplementedError(
+                f"Only pure linear terms have a map encoding, got {term}.")
+
+        return go(self)[0]
 
 
 type Term = Constant | Variable | Application | Abstraction
