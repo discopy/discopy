@@ -66,7 +66,6 @@ from discopy.utils import (
     classproperty,
     tuplify,
     untuplify,
-    unwind,
 )
 if TYPE_CHECKING:
     from discopy.monoidal import Ty, Box, Diagram
@@ -224,7 +223,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
         relabeling = sorted(connected_spiders, key=flat_wires.index)
         relabeling += sorted(set(spider_types.keys()) - connected_spiders)
         self.spider_types = tuple(
-            unwind(spider_types[s]) for s in relabeling)
+            spider_types[s].unwind() for s in relabeling)
         self.flat_wires = tuple(relabeling.index(s) for s in flat_wires)
         self.wires = self.rebracket(self.flat_wires)
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
@@ -233,7 +232,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
             assert_isatomic(obj, self.category.ob)
         for obj, wires in zip(self.spider_types, self.spider_wires):
             for i in set.union(*wires):
-                if unwind(self.ports[i].obj) != obj:
+                if self.ports[i].obj.unwind() != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
                         obj, self.ports[i].obj))
 

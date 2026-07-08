@@ -165,6 +165,25 @@ class Ty(Pregroup, biclosed.Ty):
         assert_isatomic(self)
         return self.inside[0].z
 
+    def unwind(self) -> Ty:
+        """
+        Rotate an atomic type until its winding number is zero.
+
+        The previous normalisation applied ``.r`` once, which is only an
+        involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
+
+        Example
+        -------
+        >>> n = Ty('n')
+        >>> assert n.r.r.unwind() == n.l.unwind() == n
+        """
+        typ = self
+        while typ.z > 0:
+            typ = typ.l
+        while typ.z < 0:
+            typ = typ.r
+        return typ
+
     ob_factory = Ob
 
 
