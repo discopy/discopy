@@ -10,6 +10,7 @@ IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
+
 @lru_cache(maxsize=1024)
 def text_width(text, fontsize=12):
     """ The width of a text label in drawing units, i.e. inches.

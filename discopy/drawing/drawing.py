@@ -91,8 +91,7 @@ def _box_min_width(box) -> float:
     """
     if not _draws_label(box):
         return 0
-    return max(
-        getattr(box, "box_label_width", 0), getattr(box, "min_width", 0))
+    return max(box.box_label_width, box.min_width)
 
 
 class PlaneGraph(NamedTuple):
