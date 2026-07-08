@@ -171,12 +171,18 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 
 ## Code style guide
 
-- DisCoPy is pure. Diagram composition should never cause side-effects, only functor application does when the codomain is effectful.
-- DisCoPy is deterministic. Even in their internal representation, data structures should not depend on sources of non-determinism (e.g. hashing).
-- DisCoPy is transparent. `eval(repr(x)) == x` should always be true and `eval(str(x)) == x` should be true assuming the obvious variable naming convention e.g. `x, y = Ob("x"), Ob("y")` and `f = Box("f", x, y)`. This `str(x)` should be as close as possible to what a mathematician would write on the board.
-- DisCoPy has no secrets. We try as much as possible to avoid using private or semiprivate attributes and let the user be responsible for any damage. Same for methods, we want to expose the interface for every subprocedure so that it can be tested and reused.
-- DisCoPy aims at [never nesting](https://www.youtube.com/watch?v=CFRhGnuXG-4). That is, we believe if your code goes more than three levels deep (a loop in a method in a class) then it's probably written at a wrong level of abstraction.
-- DisCoPy cares about good naming. "Mathematics is the art of giving the same name to different things" (Poincaré)
+- **DisCoPy is pure.** Diagram composition should never cause side-effects, only functor application does when the codomain is effectful.
+- **DisCoPy is deterministic.** Even in their internal representation, data structures should not depend on sources of non-determinism (e.g. hashing).
+- **DisCoPy is transparent.** `eval(repr(x)) == x` should always be true and `eval(str(x)) == x` should be true assuming the obvious variable naming convention e.g. `x, y = Ob("x"), Ob("y")` and `f = Box("f", x, y)`. This `str(x)` should be as close as possible to what a mathematician would write on the board.
+- **DisCoPy has no secrets.** We avoid using private or semiprivate attributes and let the user see the internals of each data structure. We expose the interface of every subprocedure as methods that can be tested and reused.
+- **DisCoPy cares about naming.** Classes and methods should have short descriptive names with well-known mathematical definitions.
+- **DisCoPy speaks for itself.** The code should be clear enough that it doesn't need comments, only documentation with links to mathematical definitions.
+- **DisCoPy aims at never nesting.** That is, we believe if your code goes beyond three levels deep then it's probably written at a wrong level of abstraction.
 
 ## LLM guidelines
 
+We accept contributions from large language models so long as they explicitly indicated as such.
+We recommend using our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
+
+LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
+In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).

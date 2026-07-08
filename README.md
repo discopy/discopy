@@ -22,16 +22,19 @@ DisCoPy began as an implementation of [DisCoCat](https://en.wikipedia.org/wiki/D
 
 ## Features
 
-* a [`Diagram`](https://docs.discopy.org/en/main/_api/discopy.monoidal.Diagram.html) data structure for planar string diagrams in any ([pre](https://ncatlab.org/nlab/show/premonoidal+category))[monoidal category](https://en.wikipedia.org/wiki/Monoidal_category) in the [hierarchy of graphical languages](https://en.wikipedia.org/wiki/String_diagram#Hierarchy_of_graphical_languages) (with braids, twists, spiders, etc.) with methods for diagram composition, drawing, rewriting and [`Functor`](https://docs.discopy.org/en/main/_api/discopy.monoidal.Functor.html) evaluation into:
-  - Python code, i.e. wires as types and boxes as functions
-  - [tensor networks](https://en.wikipedia.org/wiki/Tensor_network), i.e. wires as dimensions and boxes as arrays from [NumPy](https://numpy.org), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork), [JAX](https://github.com/google/jax) and [Quimb](https://quimb.readthedocs.io/en/latest)
+* abstract base classes for `Category`, `MonoidalCategory` and their subclasses as described in the [hierarchy of graphical languages](https://en.wikipedia.org/wiki/String_diagram#Hierarchy_of_graphical_languages)  
+* a `Diagram` data structure for string diagrams in any (pre)monoidal category with methods for diagram composition, drawing, rewriting and `Functor` evaluation into:
+  - `Function`, i.e. wires as types and boxes as functions with either disjoint union (`python.additive`) or tuples (`python.multiplicative`)
+  - `Tensor`, i.e. wires as dimensions and boxes as arrays from [NumPy](https://numpy.org), [PyTorch](https://pytorch.org/), [TensorFlow](https://www.tensorflow.org/), [TensorNetwork](https://github.com/google/TensorNetwork), [JAX](https://github.com/google/jax) and [Quimb](https://quimb.readthedocs.io/en/latest)
 * an implementation of formal grammars ([context-free](https://en.wikipedia.org/wiki/Context-free_grammar), [categorial](https://en.wikipedia.org/wiki/Categorial_grammar), [pregroup](https://en.wikipedia.org/wiki/Pregroup_grammar) or [dependency](https://en.wikipedia.org/wiki/Dependency_grammar)) with interfaces to [lambeq](https://cqcl.github.io/lambeq), [spaCy](https://spacy.io/) and [NLTK](https://www.nltk.org/)
 * an implementation of [categorical quantum mechanics](https://en.wikipedia.org/wiki/Categorical_quantum_mechanics) interfacing with:
   - [tket](https://github.com/CQCL/tket) for circuit compilation
   - [PyZX](https://github.com/Quantomatic/pyzx) for optimisation with the [ZX calculus](https://zxcalculus.com/)
-* a [`Hypergraph`](https://docs.discopy.org/en/main/_api/discopy.hypergraph.Hypergraph.html) data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
-* a [`Stream`](https://docs.discopy.org/en/main/_api/discopy.stream.Stream.html) data structure, an implementation of [monoidal streams](https://arxiv.org/abs/2212.14494) as a [category with delayed feedback](https://doi.org/10.1051/ita:2002009)
-* the [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction), i.e. the free tortile/compact closed category on a balanced/symmetric traced category
+* a `Drawing` data structure for labeled graphs embedded in the plane
+* a `Term` data structure for lambda terms in the internal language of (bi)closed monoidal categories and their translation back and forth to diagrams
+* a `Hypergraph` data structure for string diagrams in hypergraph categories and its restrictions to symmetric, traced, compact and Markov categories
+* a `Stream` data structure, an implementation of [monoidal streams](https://arxiv.org/abs/2212.14494) as a [category with delayed feedback](https://doi.org/10.1051/ita:2002009)
+* the `Int`-construction, also called the [geometry of interaction](https://ncatlab.org/nlab/show/Geometry+of+Interaction), i.e. the free tortile/compact closed category on a balanced/symmetric traced category
 
 ## Quickstart
 
@@ -45,7 +48,18 @@ If you want to see DisCoPy in action, you can check out the following notebooks:
 - [QNLP Tutorial](https://docs.discopy.org/en/main/notebooks/qnlp.html)
 - [Geometry of Chatbot Interaction](docs/notebooks/chatbot-interaction.md)
 
-Or you can keep scrolling down to the examples.
+Or you can keep scrolling down, skip the theory and go straight to the examples on [cooking](#example-cooking), [natural language](#example-alice-loves-bob) and [a geometry of chatbot interaction](#a-geometry-of-chatbot-interaction).
+
+## Theory: categories and diagrams
+
+- [`discopy.abc`](discopy/abc.py) describes the hierarchy of monoidal categories with extra structures as described in [Selinger's survey of graphical languages (2009)](https://arxiv.org/abs/0908.3347)
+- each level of the hierarchy is reflected by a concrete module e.g. [`discopy.monoidal`](discopy/monoidal.py) implements the class `Diagram` of morphisms in the free `MonoidalCategory` generated by:
+  1) `Ob` as generating objects and `Ty` as the free monoid over `Ob` with `@` as product and `Ty()` as unit
+  2) `Box` as generating morphisms each with a list of objects `dom: Ty` and `cod: Ty` as input and output.
+- a `Layer(left, box, right, *more)` is a tensor product of an alternating sequence of `Ty` and `Box` with whiskering `X @ f` and `f @ X` by concatenating a layer `f` with a type `X` on its left and right
+- a `Diagram(inside, dom, cod)` is a sequence of composable layers `inside` with a designated input `dom` and output `cod`: the identity diagram is the empty sequence with `dom == cod`, composition `f >> g` is sequence concatenation
+- the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a premonoidal category
+- *the main gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(Ty(), box, Ty())]`
 
 ## Example: Cooking
 
@@ -101,6 +115,25 @@ crack_two_eggs_at_once.draw()
 
 ![crack_two_eggs_at_once.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-two-eggs-at-once.png)
 
+## Theory: functors, terms, maps and hypergraphs
+
+`Functor` is the main algorithm of DisCoPy, there is one for each module X in the hierarchy for the class of functors with domain given by the free X-category defined there.
+Functors can have arbitrary categories as codomain, by default they are endofunctors on the free X-category i.e. they send diagrams to diagrams by opening up boxes.
+When the codomain is a concrete category, functors can perform arbitrary computation e.g. `discopy.matrix`, `discopy.python` and `discopy.drawing` define instances of the `MonoidalCategory` abstract base class, i.e. even the diagram layout algorithm itself is a functor.
+
+However in most applications outside of diagram layout, computing a `for` loop over a list of layers with every swap explicit is not the most elegant way to evaluate a diagram.
+DisCoPy has a number of alternative data structures that can encode different layers of the hierarchy in a faithful way:
+
+- `Term` is a simply-typed lambda term in the internal language of monoidal closed categories, it can represent any diagram with a single output wire
+- `CMap` is a combinatorial map encodes diagrams in any compact closed category as a permutation on the ports of each of its boxes
+- `Hypergraph` encodes any diagram in a hypergraph category, i.e. with spiders (a.k.a. special commutative Frobenius algebras)
+
+These come with methods for converting back and forth to diagrams which allow to e.g. simplify diagrams by removing redundant swaps and to check equality of diagrams up to the axioms of (symmetric, traced, compact, etc.) monoidal categories.
+They can also come with methods for evaluating them directly in a concrete category, e.g. a `CMap` with a `Tensor` on each node can be compiled directly to an Einstein notation without translating it to a list of layers.
+
+Note that while `Functor` implements only functors with free categories as domain, DisCoPy also implements instances of 2-functors i.e. with categories of categories as domain.
+For instance, the `Int`-construction takes traced categories to compact categories and `Stream` takes monoidal categories to feedback categories, see [](#geom)
+
 ## Example: Alice loves Bob
 
 ### Snakes & Sentences
@@ -153,9 +186,9 @@ from discopy.grammar import pregroup
 from discopy.tensor import Dim, Tensor
 
 F = pregroup.Functor(
-    ob={s: 1, n: 2},
-    ar={Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
-    cod=Tensor)
+  {s: 1, n: 2},
+  {Alice: [1, 0], loves: [[0, 1], [1, 0]], Bob: [0, 1]},
+  cod=Tensor)
 
 assert F(sentence)
 ```
@@ -180,6 +213,72 @@ sentence.to_gif(*rewrite_steps)
 ```
 
 ![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/autonomisation.gif)
+
+## A geometry of chatbot interaction
+
+### 
+
+The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction of [Joyal, Street & Verity (1996)](https://doi.org/10.1017/S0305004100074338) is
+
+> a glorification of the construction of the integers from the natural numbers
+
+i.e. the same we can pretend that a commutative monoid is a group so long as it is cancellative (i.e. `a + x == b + x` implies `a == b`) we can pretend that a monoidal category has cups and caps so long as it is traced, i.e. it has feedback loops:
+
+![feedback loop](docs/_static/traced/right-trace.png)
+
+Concretely, we get a compact category where the objects are given by pairs of objects in the traced category, morphisms are bidirectional processes with a positive and a negative direction.
+Composition given by symmetric feedback, i.e. tracing out the common boundary of the two processes so they can communicate along an infinity-shaped pair of wires between them:
+
+![](docs/_static/int/symmetric-feedback.png)
+
+We can use this geometry of interaction to interpret words as processes rather than states:
+
+```python
+from discopy.interaction import Ty, Int
+from discopy.compact import Ty as T, Diagram as D, Box
+
+N, S = T('N'), T('S')
+A, B = Box('A', N, N), Box('B', N, N)
+L = Box('L', N @ S @ N, N @ S @ N)
+swaps = D.permutation((2, 1, 0), N @ S @ N)
+G = pregroup.Functor(
+    ob={s: Ty[T](S, S), n: Ty[T](N, N)},
+    ar={Alice: A, loves: swaps >> L, Bob: B},
+    cod=Int(D))
+
+ALB_trace = (A @ S @ B >> L).trace(left=True).trace(left=False).foliation()
+
+with D.hypergraph_equality:
+  assert G(sentence).inside == ALB_trace
+
+Equation(sentence.foliation(), ALB_trace, symbol="$\\mapsto$").draw()
+```
+
+![Alice loves traces](https://github.com/discopy/discopy/raw/main/docs/_static/int/alice-loves-traces.png)
+
+### Streams and delayed feedback
+
+A key axiom of traced monoidal categories which allows to simplify diagrams is the **yanking equation**:
+
+![yanking](https://github.com/discopy/discopy/raw/main/docs/_static/traced/yanking.png)
+
+If we relax this assumption we get the concept of a [`feedback`](https://docs.discopy.org/en/main/_api/discopy.feedback.html) category where the objects come with a [`delay`](https://docs.discopy.org/en/main/_api/discopy.feedback.Ob.html#discopy.feedback.Ob.delay) operation and the feedback loops have a more restricted shape:
+
+![feedback operator](https://github.com/discopy/discopy/raw/main/docs/_static/feedback/feedback-operator.png)
+
+Given a symmetric category, we can construct a feedback category of **monoidal streams** where the feedback operation is given by adding an internal state. We can use this to unroll our diagram of the previous section:
+
+```python
+from discopy.stream import Ty, Stream
+
+N, S = Ty("N"), Ty("S")
+A, B = [Stream.sequence(f, N, N) for f in "AB"]
+L = Stream.sequence('L', S.head @ N.delay() @ N.delay(), N @ N)
+ALB = (L >> A @ B).feedback(dom=S.head, cod=Ty(), mem=N @ N)
+ALB.unroll(2).now.foliation().draw()
+```
+
+![Alice loves unrolling](https://github.com/discopy/discopy/raw/main/docs/_static/stream/alice-loves-unrolling.png)
 
 ## References
 
