@@ -13,9 +13,9 @@ Please read the following documents (<10k tokens) before attempting any serious 
 
 ## Where
 
-- [discopy](discopy/) contains the code with some submodules (e.g. `drawing`) and a flat list of modules
-- [discopy.abc](discopy/abc.py) is the main entry point to navigating the hiearchy of modules
-- [test](test/) contains one test for each module or submodule
+- [discopy](discopy/) contains the code with a lot of modules and a few submodules
+- [discopy.abc](discopy/abc.py) is the main entry point to navigating the architecture
+- [test](test/) is split into `syntax` and `semantics` with one file for each module or submodule
 - [docs](docs/) contains notebooks and pictures generated automatically when running the tests
 
 ## How
@@ -26,3 +26,4 @@ Before pushing anything, make sure that:
 - you made sure that this description aligns with the data structures you have used
 - you have added docs and tests that are complete but concise as best as you can
 - you have run `pflake8`, `pytest` and checked that `coverage` hasn't dropped
+- you report any bugs or confusing docs that you encounter even if unrelatedww
