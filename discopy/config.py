@@ -2,17 +2,45 @@
 
 """ Discopy configuration. """
 
+from functools import lru_cache
+from math import ceil
+
 DEFAULT_BACKEND = 'numpy'
 NUMPY_THRESHOLD = 16
 IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
+# A point is 1/72 inch; matplotlib measures text in points, drawings in inches.
+POINTS_PER_INCH = 72
+
+# Text widths are rounded up to a multiple of this resolution, a dyadic
+# rational, so that widened boxes keep the same easy-to-read coordinates
+# (integers plus or minus dyadic rationals) as the rest of a drawing.
+TEXT_WIDTH_RESOLUTION = 2 ** -4
+
+
+@lru_cache(maxsize=1024)
+def text_width(text, fontsize=12):
+    """ The width of a text label in drawing units, i.e. inches.
+
+    Measured from the actual glyph outlines with matplotlib's text layout, so
+    it is accurate for proportional fonts and for mathtext such as a LaTeX
+    name (e.g. ``"$\\Lambda$"``). The result is rounded up to the nearest
+    :data:`TEXT_WIDTH_RESOLUTION` so that it stays a dyadic rational, e.g.
+    ``0.5625`` rather than ``0.5392252604166666``.
+    """
+    if not text:
+        return 0
+    from matplotlib.textpath import TextPath
+    width = TextPath((0, 0), text, size=fontsize).get_extents().width
+    width /= POINTS_PER_INCH
+    return ceil(width / TEXT_WIDTH_RESOLUTION) * TEXT_WIDTH_RESOLUTION
+
 
 def _box_label_width(box):
     # The width needed to fit the widest line of the box's name; drawing_name
     # is guaranteed to be set already by the "drawing_name" attribute below.
-    from discopy.utils import text_width
     return max(text_width(line) for line in box.drawing_name.split("\n"))
 
 

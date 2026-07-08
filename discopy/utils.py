@@ -6,8 +6,7 @@ from __future__ import annotations
 
 import json
 import os
-from functools import lru_cache, wraps
-from math import ceil
+from functools import wraps
 from typing import (
     Callable,
     Mapping,
@@ -398,33 +397,6 @@ class BinaryBoxConstructor:
     def from_tree(cls, tree: dict) -> BinaryBoxConstructor:
         """ Decode a serialised binary box constructor. """
         return cls(*map(from_tree, (tree['left'], tree['right'])))
-
-
-# A point is 1/72 inch; matplotlib measures text in points, drawings in inches.
-POINTS_PER_INCH = 72
-
-# Text widths are rounded up to a multiple of this resolution, a dyadic
-# rational, so that widened boxes keep the same easy-to-read coordinates
-# (integers plus or minus dyadic rationals) as the rest of a drawing.
-TEXT_WIDTH_RESOLUTION = 2 ** -4
-
-
-@lru_cache(maxsize=1024)
-def text_width(text, fontsize=12):
-    """ The width of a text label in drawing units, i.e. inches.
-
-    Measured from the actual glyph outlines with matplotlib's text layout, so
-    it is accurate for proportional fonts and for mathtext such as a LaTeX
-    name (e.g. ``"$\\Lambda$"``). The result is rounded up to the nearest
-    :data:`TEXT_WIDTH_RESOLUTION` so that it stays a dyadic rational, e.g.
-    ``0.5625`` rather than ``0.5392252604166666``.
-    """
-    if not text:
-        return 0
-    from matplotlib.textpath import TextPath
-    width = TextPath((0, 0), text, size=fontsize).get_extents().width
-    width /= POINTS_PER_INCH
-    return ceil(width / TEXT_WIDTH_RESOLUTION) * TEXT_WIDTH_RESOLUTION
 
 
 def draw_and_compare(file, folder, tol, **params):
