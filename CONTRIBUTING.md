@@ -141,13 +141,16 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 - **DisCoPy has no secrets.** We avoid using private or semiprivate attributes and let the user see the internals of each data structure. We expose the interface of every subprocedure as methods that can be tested and reused.
 - **DisCoPy cares about naming.** Classes and methods should have short descriptive names, when possible the names correspond to well-known mathematical definitions.
 - **DisCoPy speaks for itself.** The code should be clear enough that it doesn't need comments, only documentation with links to mathematical definitions.
-- **DisCoPy doesn't repeat itself.** The identity and composition of diagrams are defined once in `cat`, not in every level of the hierarchy. If there's duplicate code then you're probably working at the wrong level of abstraction.
+- **DisCoPy does not show off.** If there is a simpler way to name or explain something, don't make it more sound more complicated.
+- **DisCoPy never repeats itself.** The identity and composition of diagrams are defined once in `cat`, not in every level of the hierarchy. If there's duplicate code then you're probably working at the wrong level of abstraction.
 - **DisCoPy aims at never nesting.** We believe if your code goes beyond three levels deep then you're probably working at the wrong level of abstraction.
 
 ## LLM guidelines
 
-We accept contributions from large language models so long as they explicitly indicated as such.
+We accept contributions from large language models so long as they are explicitly indicated as such.
 We recommend using our [AGENTS.md](AGENTS.md) in your prompts so that the model has enough context to give quality results.
 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
+
+One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either written by a human or quoting a human's prompt verbatim.
