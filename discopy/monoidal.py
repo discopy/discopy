@@ -404,6 +404,18 @@ class Layer(cat.Box):
         left, box, right = self
         return type(self)(left, box.subs(*args), right)
 
+    @property
+    def is_generator(self):
+        if len(self.boxes_or_types) != 3:
+            return False
+        left, box, right = self.boxes_or_types
+        return not left.inside and not right.inside
+
+    @property
+    def generator(self):
+        assert self.is_generator
+        return self.boxes_or_types[1]
+
     @classmethod
     def cast(cls, box: Box) -> Layer:
         """
@@ -531,6 +543,17 @@ class Diagram(cat.Arrow, MonoidalCategory):
     @property
     def size(self):
         return sum(box.size for box in self.inside)
+
+    @property
+    def is_generator(self):
+        """ Whether a `Diagram` is a generator, i.e. a single box. """
+        return len(self) == 1 and self.inside[0].is_generator
+
+    @property
+    def generator(self):
+        """ The single box in a generator `Diagram`. """
+        assert self.is_generator
+        return self.inside[0].generator
 
     @classmethod
     def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Diagram]:

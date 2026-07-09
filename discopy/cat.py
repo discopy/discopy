@@ -330,6 +330,17 @@ class Arrow(FreeCategory):
     def __radd__(self, other):
         return self if other == 0 else NotImplemented
 
+    @property
+    def is_generator(self):
+        """ Whether an `Arrow` is a generator, i.e. it has length 1. """
+        return len(self.inside) == 1
+
+    @property
+    def generator(self):
+        """ Returns the only box in an `Arrow` of length 1. """
+        assert self.is_generator
+        return self.inside[0]
+
     def then(self, *others: Arrow) -> Arrow:
         """
         Sequential composition, called with :code:`>>` and :code:`<<`.
@@ -566,8 +577,8 @@ class Box(Arrow):
                 and self.is_parallel(other)\
                 and self.is_dagger == other.is_dagger\
                 and bool(self.data == other.data)
-        return isinstance(other, Arrow)\
-            and self >> self.id(self.cod) == other  # cast box as diagram
+        return isinstance(other, Arrow) and other.is_generator\
+            and other.generator == self
 
     def __lt__(self, other):
         return self.name < other.name

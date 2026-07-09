@@ -221,18 +221,29 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """ Simplify by translating back and forth to hypergraph. """
         return self.to_hypergraph().to_diagram()
 
-    def _get_structure(self):
-        return self.to_hypergraph() if self.use_hypergraph_equality else (
-            self.inside, self.cod, self.dom)
+    @property
+    def representative(self):
+        """
+        Return an encoding of the equivalence class that a diagram belongs to,
+        used as subroutines for equality and hashing.
+
+        When `use_hypergraph_equality`, this calls `to_hypergraph` otherwise it
+        returns the attributes `inside, dom, cod`. On generator diagrams, i.e.
+        equal to just a box, we return the box itself to break the circularity.
+        """
+        if self.is_generator:
+            return self.generator
+        if self.use_hypergraph_equality:
+            return self.to_hypergraph()
+        return (self.inside, self.dom, self.cod)
+            
 
     def __eq__(self, other):
         return isinstance(other, self.ar)\
-            and self._get_structure() == other._get_structure()
+            and self.representative == other.representative
 
     def __hash__(self):
-        if self.use_hypergraph_equality:
-            return hash(self._get_structure())
-        return hash(repr(self))
+        return hash(self.representative)
 
     @classproperty
     @contextmanager
