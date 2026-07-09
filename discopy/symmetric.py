@@ -246,8 +246,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             return self.to_hypergraph().generator
         return super().generator
 
-    @property
-    def representative(self):
+    def hash_data(self):
         """
         Return an encoding of the equivalence class that a diagram belongs to,
         used as subroutines for equality and hashing.
@@ -258,15 +257,9 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         if self.use_hypergraph_equality:
             hypergraph = self.to_hypergraph()
-            return hypergraph.generator or hypergraph
-        return self.generator or (self.inside, self.dom, self.cod)
-
-    def __eq__(self, other):
-        return isinstance(other, self.ar)\
-            and self.representative == other.representative
-
-    def __hash__(self):
-        return hash(self.representative)
+            generator = hypergraph.generator
+            return hypergraph if generator is None else generator.hash_data()
+        return super().hash_data()
 
     @classproperty
     @contextmanager
@@ -302,11 +295,10 @@ class Box(balanced.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-
-    def __hash__(self):
-        if self.use_hypergraph_equality:
-            return hash(self.to_hypergraph())
-        return hash(Arrow.__repr__(self))
+    def hash_data(self):
+        if self.use_hypergraph_equality and not self.is_generator:
+            return Diagram.hash_data(self)
+        return balanced.Box.hash_data(self)
 
 
 class Swap(balanced.Braid, Box):

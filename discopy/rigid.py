@@ -91,7 +91,7 @@ class Ob(cat.Ob):
     def r(self) -> Ob:
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1)
-
+    
     def __eq__(self, other):
         return cat.Ob.__eq__(self, other) and self.z == other.z
 
@@ -566,13 +566,8 @@ class Box(biclosed.Box, Diagram):
         return biclosed.Box.__repr__(self)[:-1] + (
             f', z={self.z})' if self.z else ')')
 
-    def __eq__(self, other):
-        if isinstance(other, Box):
-            return cat.Box.__eq__(self, other) and self.z == other.z
-        return monoidal.Box.__eq__(self, other)
-
-    def __hash__(self):
-        return hash(cat.Arrow.__repr__(self))
+    def hash_data(self):
+        return super().hash_data() + (self.z, )
 
     def rotate(self, left=False):
         dom, cod = (

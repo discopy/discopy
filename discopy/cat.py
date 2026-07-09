@@ -317,13 +317,6 @@ class Arrow(FreeCategory):
     def __str__(self):
         return ' >> '.join(map(str, self.inside)) or f"Id({self.dom})"
 
-    def __eq__(self, other):
-        return isinstance(other, self.ar)\
-            and self.is_parallel(other) and self.inside == other.inside
-
-    def __hash__(self):
-        return hash(repr(self))
-
     def __add__(self, other):
         return self.sum_factory((self, )) + other
 
@@ -338,7 +331,25 @@ class Arrow(FreeCategory):
     @property
     def generator(self):
         """ Returns the only box in an `Arrow` of length 1. """
-        return self.is_generator and self.inside[0]
+        return self.inside[0] if self.is_generator else None
+    
+    def hash_data(self):
+        """
+        Returns data that faithfully describes an `Arrow` making sure that
+        `self.generator.hash_data == self.hash_data` when `self.is_generator`.
+        This is used to define `Arrow.__eq__` and `Arrow.__hash__`.
+        """
+        generator = self.generator
+        if generator is None:
+            return (self.inside, self.dom, self.cod)
+        return generator.hash_data()
+
+    def __eq__(self, other):
+        return isinstance(other, self.ar) and\
+            self.hash_data() == other.hash_data()
+
+    def __hash__(self):
+        return hash(self.hash_data())
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -566,19 +577,9 @@ class Box(Arrow):
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
-    def __hash__(self):
-        return hash(Arrow.__repr__(self))
-
-    def __eq__(self, other):
-        if not isinstance(other, Arrow):
-            return False
-        if isinstance(other, Box):
-            return type(self) is type(other)\
-                and self.name == other.name\
-                and self.is_parallel(other)\
-                and self.is_dagger == other.is_dagger\
-                and bool(self.data == other.data)
-        return other.generator == self
+    def hash_data(self):
+        attributes = self.name, self.dom, self.cod, self.is_dagger, self.data
+        return (type(self), ) + attributes
 
     def __lt__(self, other):
         return self.name < other.name
@@ -641,14 +642,9 @@ class Sum(Box):
         self.terms = terms
         super().__init__(name, dom, cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Sum):
-            return (self.dom, self.cod, self.terms)\
-                == (other.dom, other.cod, other.terms)
-        return len(self.terms) == 1 and self.terms[0] == other
-
-    def __hash__(self):
-        return hash(repr(self))
+    def hash_data(self):
+        return self.terms[0].hash_data() if len(self.terms) == 1 else (
+            type(self), self.terms, self.dom, self.cod)
 
     def __repr__(self):
         return self.name
@@ -745,15 +741,9 @@ class Bubble(Box):
         return len(self.args) == 1 and (
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
-    def __eq__(self, other):
-        if isinstance(other, Bubble):
-            return all(getattr(self, x) == getattr(other, x) for x in (
-                "args", "dom", "cod", "name", "method"))
-        return not isinstance(other, Box) and super().__eq__(other)
-
-    def __hash__(self):
-        return hash(tuple(getattr(self, x) for x in [
-            "args", "dom", "cod", "name", "method"]))
+    def hash_data(self):
+        return (type(self), ) + tuple(getattr(self, x) for x in (
+            "args", "dom", "cod", "name", "method"))
 
     def __str__(self):
         str_args = ",".join(map(str, self.args))
