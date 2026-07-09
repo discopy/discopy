@@ -538,8 +538,8 @@ class Feedback(monoidal.Bubble, Box):
         return factory_name(type(self)) + f"({arg}, mem={mem})"
 
     __str__ = Box.__str__
-    _get_structure = markov.Trace._get_structure
-    __eq__ = markov.Trace.__eq__
+    representative = markov.Trace.representative
+    __eq__, __hash__ = markov.Trace.__eq__, markov.Trace.__hash__
 
     def to_drawing(self):
         return self.arg.to_drawing().trace()

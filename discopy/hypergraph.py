@@ -449,7 +449,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         dom, cod = (x.l if left else x.r for x in (self.cod, self.dom))
         boxes = tuple(box.l if left else box.r for box in self.boxes[::-1])
         dom_wires = self.cod_wires[::-1]
-        box_wires = tuple((x[::-1], y[::-1]) for x, y in self.box_wires[::-1])
+        box_wires = tuple((y[::-1], x[::-1]) for x, y in self.box_wires[::-1])
         cod_wires = self.dom_wires[::-1]
         wires = dom_wires, box_wires, cod_wires
         return type(self)(
@@ -967,18 +967,20 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                 if self.ports[target].kind in kinds:
                     spider_types = dict(enumerate(self.spider_types))
                     typ = spider_types[spider]
+                    source_typ = self.ports[source].obj
+                    target_typ = self.ports[target].obj
                     left, right = len(spider_types), len(spider_types) + 1
                     fwires = list(self.flat_wires)
                     fwires[source], fwires[target] = left, right
                     if cups_or_caps == "cups":
-                        boxes = self.boxes + (
-                            self.category.cup_factory(typ, typ), )
+                        boxes = self.boxes + (self.category.cup_factory(
+                            source_typ, target_typ), )
                         offsets = self.offsets + (None, )
                         fwires = fwires[:len(fwires) - len(self.cod)] + [
                             left, right] + fwires[len(fwires) - len(self.cod):]
                     else:
-                        boxes = (self.category.cap_factory(typ, typ),
-                                 ) + self.boxes
+                        boxes = (self.category.cap_factory(
+                            source_typ, target_typ), ) + self.boxes
                         offsets = (None, ) + self.offsets
                         fwires = fwires[:len(self.dom)] + [
                             left, right] + fwires[len(self.dom):]
@@ -1302,6 +1304,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         """
         Translate a hypergraph into a labeled graph with nodes for inputs,
         outputs, boxes, domain, codomain and spiders.
+
+        Boxes are labeled by their representation so that :meth:`__eq__` and
+        :meth:`__hash__` compare them as generators rather than recursively as
+        hypergraphs.
         """
         graph = Graph()
         graph.add_nodes_from(
@@ -1311,13 +1317,14 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             (Node("input", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.dom))
         graph.add_edges_from(
-            (Node("input", i=i, obj=obj), Node("spider", i=j, obj=obj))
+            (Node("input", i=i, obj=obj),
+             Node("spider", i=j, obj=self.spider_types[j]))
             for i, (j, obj) in enumerate(
                 zip(self.dom_wires, self.dom)))
         for i, (box, (dom_wires, cod_wires)) in enumerate(
                 zip(self.boxes, self.box_wires)):
-            box_node = Node("box", box=box, i=i)
-            graph.add_node(box_node, box=box)
+            box_node = Node("box", i=i)
+            graph.add_node(box_node, box=repr(box))
             for case, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     obj = self.spider_types[spider]
@@ -1334,7 +1341,8 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
             (Node("output", i=i, obj=obj), dict(i=i, box=None))
             for i, obj in enumerate(self.cod))
         graph.add_edges_from(
-            (Node("spider", i=j, obj=obj), Node("output", i=i, obj=obj))
+            (Node("spider", i=j, obj=self.spider_types[j]),
+             Node("output", i=i, obj=obj))
             for i, (j, obj) in enumerate(zip(self.cod_wires, self.cod)))
         return graph
 
@@ -1352,7 +1360,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         for i, obj in enumerate(self.dom):
             pos[Node("input", i=i, obj=obj)] = (i, height)
         for i, (dom_wires, cod_wires) in enumerate(self.box_wires):
-            box_node = Node("box", i=i, box=self.boxes[i])
+            box_node = Node("box", i=i)
             pos[box_node] = (
                 random.uniform(-width / 2, width / 2),
                 random.uniform(0, height))
@@ -1394,7 +1402,7 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
         graph, pos = self.spring_layout(seed=seed, k=k)
         for i, (box, (dom_wires, cod_wires)) in enumerate(
                 zip(self.boxes, self.box_wires)):
-            box_node = Node("box", i=i, box=box)
+            box_node = Node("box", i=i)
             for kind, wires in [("dom", dom_wires), ("cod", cod_wires)]:
                 for j, spider in enumerate(wires):
                     port_node = Node(kind, i=i, j=j)

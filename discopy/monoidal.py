@@ -1192,6 +1192,13 @@ class Match:
 class Hypergraph(hypergraph.Hypergraph):
     functor = Functor
 
+    def to_diagram(self, make_causal_first: bool = False):
+        if not self.is_monogamous:
+            raise AxiomError(factory_name(
+                self.category) + " does not have copy or discard.")
+        return super().to_diagram(make_causal_first)
+
+
 class CMap(cmap.CMap):
     functor = Functor
     require_planar = True

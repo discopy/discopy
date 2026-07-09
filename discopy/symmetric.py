@@ -89,7 +89,7 @@ from contextlib import contextmanager
 
 from discopy import monoidal, balanced, traced, messages
 from discopy.abc import SymmetricCategory
-from discopy.cat import Arrow, ar_factory
+from discopy.cat import ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 
@@ -258,8 +258,11 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         if self.use_hypergraph_equality:
             hypergraph = self.to_hypergraph()
-            return hypergraph.generator or hypergraph
-        return self.generator or (self.inside, self.dom, self.cod)
+            generator = hypergraph.generator
+            return hypergraph if generator is None else generator
+        generator = self.generator
+        return (self.inside, self.dom, self.cod)\
+            if generator is None else generator
 
     def __eq__(self, other):
         return isinstance(other, self.ar)\
@@ -303,10 +306,15 @@ class Box(balanced.Box, Diagram):
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
 
+    def __eq__(self, other):
+        if self.use_hypergraph_equality and not self.is_generator:
+            return Diagram.__eq__(self, other)
+        return super().__eq__(other)
+
     def __hash__(self):
-        if self.use_hypergraph_equality:
-            return hash(self.to_hypergraph())
-        return hash(Arrow.__repr__(self))
+        if self.use_hypergraph_equality and not self.is_generator:
+            return Diagram.__hash__(self)
+        return super().__hash__()
 
 
 class Swap(balanced.Braid, Box):
@@ -345,9 +353,11 @@ class Trace(balanced.Trace, Box):
     """
     __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
 
-    def _get_structure(self):
-        return super()._get_structure() if self.use_hypergraph_equality else (
-            type(self), self.dom, self.cod, self.arg._get_structure())
+    @property
+    def representative(self):
+        if self.use_hypergraph_equality:
+            return super().representative
+        return (type(self), self.dom, self.cod, self.arg.representative)
 
 
 class Sum(balanced.Sum, Box):

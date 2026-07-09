@@ -31,6 +31,9 @@ def test_Box_hash_hypergraph():
         assert f == f @ Id()
         assert hash(f) == hash(f @ Id())
         assert f @ Id() in {f}
+        swap = Swap(x, y)
+        assert swap == swap @ Id()
+        assert hash(swap) == hash(swap @ Id())
 
 
 def test_Diagram_permutation():

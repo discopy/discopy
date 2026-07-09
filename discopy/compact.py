@@ -57,10 +57,11 @@ Coherence
 >>> Diagram.use_hypergraph_equality = False
 """
 
-from discopy import symmetric, ribbon
+from discopy import symmetric, ribbon, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import ar_factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
+from discopy.utils import factory_name, AxiomError
 
 
 @ar_factory
@@ -86,10 +87,6 @@ class Box(symmetric.Box, ribbon.Box, Diagram):
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
-    def __eq__(self, other):
-        if not isinstance(other, Box):
-            return False
-        return symmetric.Box.__eq__(self, other) and self.z == other.z
 
 
 class Cup(ribbon.Cup, Box):
@@ -142,6 +139,22 @@ class Functor(symmetric.Functor, ribbon.Functor):
 
 class Hypergraph(symmetric.Hypergraph):
     functor = Functor
+
+    def to_diagram(self, make_causal_first: bool = False):
+        """
+        A compact hypergraph downgrades to a diagram as long as it is
+        bijective, i.e. it uses no copy or discard.
+
+        >>> from pytest import raises
+        >>> with raises(AxiomError) as err:
+        ...     Hypergraph.spiders(1, 2, Ty('x')).to_diagram()
+        >>> print(err.value)
+        compact.Diagram does not have copy or discard.
+        """
+        if not self.is_bijective:
+            raise AxiomError(factory_name(
+                self.category) + " does not have copy or discard.")
+        return hypergraph.Hypergraph.to_diagram(self, make_causal_first)
 
 
 class CMap(symmetric.CMap):
