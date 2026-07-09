@@ -34,11 +34,11 @@ DRAWING_ATTRIBUTES = {
     "color": lambda box:
         "black" if getattr(box, "draw_as_spider", False) else "white",
     "drawing_name": lambda box: box.name,
-    "no_label": lambda box: not any((
+    "no_label": lambda box: any([
         box.draw_as_wires, box.draw_as_spider, box.draw_as_brakets,
-        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures)),
+        box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures]),
     "min_width": lambda box:
-        text_width(box.drawing_name) if box.no_label else 0,
+        0 if box.no_label else text_width(box.drawing_name),
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
 }
