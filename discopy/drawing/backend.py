@@ -347,8 +347,12 @@ class TikZ(Backend):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
         text = "" if text is None else text
+        # Round for printing only (keep the exact key for wire lookups) so
+        # coordinates stay readable rather than e.g. 0.7890000000000001. Four
+        # decimals preserves the finest positions used (multiples of 1/16).
         self.nodelayer.append(
-            f"\\node [{options or ''}] ({node}) at ({i}, {j}) {{{text}}};\n")
+            f"\\node [{options or ''}] ({node}) "
+            f"at ({round(i, 4)}, {round(j, 4)}) {{{text}}};\n")
         self.nodes.update({(i, j): node})
         return node
 
