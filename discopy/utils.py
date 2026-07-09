@@ -404,8 +404,6 @@ def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
     Measured from the actual glyph outlines with matplotlib's text layout up to
     `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
     """
-    if not text:
-        return 0
     width = TextPath((0, 0), text, size=fontsize).get_extents().width
     return round(width / points_per_inch, rounded)
 
