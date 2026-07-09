@@ -58,7 +58,7 @@ Or you can keep scrolling down, skip the theory and go straight to the examples 
   2) `Box` as generating morphisms each with a list of objects `dom: Ty` and `cod: Ty` as input and output.
 - a `Layer(left, box, right, *more)` is a tensor product of an alternating sequence of `Ty` and `Box` with whiskering `X @ f` and `f @ X` by concatenating a layer `f` with a type `X` on its left and right
 - a `Diagram(inside, dom, cod)` is a sequence of composable layers `inside` with a designated input `dom` and output `cod`: the identity diagram is the empty sequence with `dom == cod`, composition `f >> g` is sequence concatenation
-- the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a premonoidal category
+- the tensor of diagrams is decomposed in terms of composition and whiskering i.e. `f @ g = f @ g.dom >> f.cod @ g`, this is biased in the sense that `f` happens before `g` so that diagrams really live in a [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category)
 - *the first gotcha of DisCoPy:* `Box` is a subclass of `Diagram` with a cyclic reference `list(box.inside) == [Layer(Ty(), box, Ty())]`
 - every categorical structure is implemented with the factory method pattern so that e.g. the method `Diagram.swap` computes the symmetry of arbitrary types with `Diagram.swap_factory = Swap` as subroutine for generating subclasses of `Box` for the symmetry of atomic types
 - *the second gotcha of DisCoPy:* each `C: Category` comes with a class attribute `ar` such that `C.ar = C`; this happens with the decorator `@ar_factory` and it allows for e.g. the subclass `Box` to know that it lives inside a bigger `Diagram` category
@@ -72,16 +72,20 @@ from discopy.utils import ob_factory, ar_factory
 from discopy.symmetric import Ty, Box, Diagram, Swap
 
 @ob_factory
-class Ingredient(Ty): ...
+class Ingredient(Ty):
+  "The objects of the category of recipe diagrams."
 
 @ar_factory
 class Recipe(Diagram):
   ob = Ingredient
 
-class CookingStep(Box, Recipe): ...
-class CookingSwap(Swap, CookingStep): ...
+class CookingStep(Box, Recipe):
+  "A cooking step is a box in a recipe diagram."
 
-Recipe.swap_factory = CookingSwap
+class CookingSwap(Swap, CookingStep):
+  "A cooking swap takes two ingredients `X @ Y` and gives `Y @ X`."
+
+Recipe.swap_factory = CookingSwap  # Recipes need to know how to swap.
 
 egg, white, yolk = Ingredient("egg"), Ingredient("white"), Ingredient("yolk")
 crack = CookingStep("crack", egg, white @ yolk)
@@ -105,14 +109,20 @@ crack_two_eggs.draw()
 
 ![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
 
-By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
-In more abstract terms, they are arrows in a free [premonoidal category](https://en.wikipedia.org/wiki/Premonoidal_category) where the tensor product is biased to the left, i.e.
+By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side:
 
 ```python
-f @ g = f @ g.dom >> f.cod @ g != f.dom @ g >> f @ g.cod
+from discopy.drawing import Equation
+
+A, B, C, D = Ty(*"ABCD")
+f, g = Box("f", A, B), Box("g", C, D)
+assert f @ g == f @ g.dom >> f.cod @ g != f.dom @ g >> f @ g.cod
+Equation(f @ g.dom >> f.cod @ g, f.dom @ g >> f @ g.cod, symbol="!=").draw()
 ```
 
-We can get more general diagrams by specifying the list of layers `inside` manually or by calling the method [`Diagram.foliation`](https://docs.discopy.org/en/main/_api/discopy.monoidal.Diagram.html#discopy.monoidal.Diagram.foliation).
+![](docs/_static/readme/interchanger.png)
+
+We can get more general diagrams by specifying the list of layers `inside` manually or by calling the method `Diagram.foliation`.
 
 ```python
 from discopy.monoidal import Layer
