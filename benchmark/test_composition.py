@@ -258,7 +258,7 @@ def test_series_hypergraph(benchmark, n):
 # --- ripple-carry adder ----------------------------------------------------
 
 @case("adder step (Diagram)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))  # ~O(n^3): 75+ too slow on cloud CPUs
+@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))
 def test_adder_step_diagram(benchmark, n):
     full_adder = _full_adder()
     adder = build_adder(full_adder, n)
@@ -278,7 +278,7 @@ def test_adder_step_hypergraph(benchmark, n):
 
 
 @case("adder functor (Diagram)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))  # ~O(n^3): 75+ too slow on cloud CPUs
+@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))
 def test_adder_functor_diagram(benchmark, n):
     full_adder = _full_adder()
     functor = _adder_functor(full_adder)
@@ -297,7 +297,7 @@ def test_spiral_build_diagram(benchmark, n):
 
 
 @case("spiral build (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, full=(30,)))  # ~O(n^3): 10s/round@50 on Apple Silicon, more on cloud CPUs
+@pytest.mark.parametrize("n", sizes(10, 20, full=(30,)))
 def test_spiral_build_hypergraph(benchmark, n):
     spiral = make_spiral(n)[0]
     benchmark.pedantic(
@@ -305,7 +305,7 @@ def test_spiral_build_hypergraph(benchmark, n):
 
 
 @case("spiral normal_form (Diagram)")
-@pytest.mark.parametrize("n", sizes(5, 10, full=(12,)))  # ~O(n^3): 8.4s/round@20 on Apple Silicon, more on cloud CPUs
+@pytest.mark.parametrize("n", sizes(5, 10, full=(12,)))
 def test_spiral_normal_form_diagram(benchmark, n):
     spiral = make_spiral(n)[0]
     benchmark.pedantic(
@@ -327,7 +327,7 @@ def test_spiral_equality_hypergraph(benchmark, n):
 # --- transpose snakes ------------------------------------------------------
 
 @case("transpose snake removal (Diagram)")
-@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(30,)))  # ~O(n^3): 50+ too slow on cloud CPUs
+@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(30,)))
 def test_transpose_snake_removal_diagram(benchmark, n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')
