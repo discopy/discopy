@@ -37,11 +37,8 @@ DRAWING_ATTRIBUTES = {
     "draws_label": lambda box: not any((
         box.draw_as_wires, box.draw_as_spider, box.draw_as_brakets,
         box.draw_as_controlled, box.draw_as_discards, box.draw_as_measures)),
-    "min_width": lambda _: 0,
-    "box_label_width": lambda box: max(
-        text_width(line) for line in box.drawing_name.split("\n")),
-    "box_min_width": lambda box: max(
-        box.box_label_width, box.min_width) if box.draws_label else 0,
+    "min_width": lambda box:
+        text_width(box.drawing_name) if box.drawing_name else 0,
     "tikzstyle_name": lambda box: (
         box.name if box.name.isidentifier() else "symbol")
 }
