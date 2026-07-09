@@ -1119,7 +1119,7 @@ class Functor(cat.Functor):
     Example
     -------
     >>> x, y, z, w = Ty('x'), Ty('y'), Ty('z'), Ty('w')
-    >>> f0, f1 = Box('f0', x, y, data=[0.1]), Box('f1', z, w, data=[1.1])
+    >>> f0, f1 = Box('f0', x, y, data=0.1), Box('f1', z, w, data=1.1)
     >>> F = Functor({x: z, y: w, z: x, w: y}, {f0: f1, f1: f0})
     >>> assert F(f0) == f1 and F(f1) == f0
     >>> assert F(F(f0)) == f0

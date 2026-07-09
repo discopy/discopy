@@ -414,11 +414,10 @@ class Box(markov.Box, Diagram):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return super().__repr__()[:-1] + time_step + ")"
 
-    def __eq__(self, other):
-        return super().__eq__(other) and self.time_step == other.time_step
-
-    def __hash__(self):
-        return hash((super().__hash__(), self.time_step))
+    def hash_data(self):
+        if self.use_hypergraph_equality and not self.is_generator:
+            return Diagram.hash_data(self)
+        return markov.Box.hash_data(self) + (self.time_step, )
 
 
 class Swap(markov.Swap, Box):
@@ -528,7 +527,7 @@ class Feedback(monoidal.Bubble, Box):
         Box.__init__(self, self.name, dom, cod)
         mem_name = "" if len(mem) == 1 else f"mem={mem}"
         self.name = f"({self.arg}).feedback({mem_name})"
-        self.use_hypergraph_equality = False
+        self.use_hypergraph_equality = False  # Yanking does not hold
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
@@ -538,8 +537,6 @@ class Feedback(monoidal.Bubble, Box):
         return factory_name(type(self)) + f"({arg}, mem={mem})"
 
     __str__ = Box.__str__
-    _get_structure = markov.Trace._get_structure
-    __eq__ = markov.Trace.__eq__
 
     def to_drawing(self):
         return self.arg.to_drawing().trace()

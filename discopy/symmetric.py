@@ -143,18 +143,16 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     Every variable must be used exactly once or this will raise an error.
 
     >>> from pytest import raises
-    >>> from discopy.utils import AxiomError
 
-    >>> with raises(AxiomError) as err:
+    >>> with raises(AttributeError) as err:
     ...     Diagram.from_callable(x, x @ x)(lambda x: (x, x))
     >>> print(err.value)
-    symmetric.Diagram does not have copy or discard.
+    type object 'Diagram' has no attribute 'spider_factory'
 
-    >>> with raises(AxiomError) as err:
+    >>> with raises(AttributeError) as err:
     ...     Diagram.from_callable(x, Ty())(lambda x: ())
     >>> print(err.value)
-    symmetric.Diagram does not have copy or discard.
-
+    type object 'Diagram' has no attribute 'spider_factory'
 
     Note
     ----
@@ -264,11 +262,12 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     @classproperty
     @contextmanager
     def hypergraph_equality(cls):
-        tmp, cls.use_hypergraph_equality = cls.use_hypergraph_equality, True
+        tmp, cls.ar.use_hypergraph_equality =\
+            cls.ar.use_hypergraph_equality, True
         try:
             yield
         finally:
-            cls.use_hypergraph_equality = tmp
+            cls.ar.use_hypergraph_equality = tmp
 
     def depth(self):
         """
@@ -335,11 +334,9 @@ class Trace(balanced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    __eq__, __hash__ = Diagram.__eq__, Diagram.__hash__
-
-    def _get_structure(self):
-        return super()._get_structure() if self.use_hypergraph_equality else (
-            type(self), self.dom, self.cod, self.arg._get_structure())
+    def hash_data(self):
+        return Box.hash_data(self) if self.use_hypergraph_equality else\
+            balanced.Trace.hash_data(self)
 
 
 class Sum(balanced.Sum, Box):

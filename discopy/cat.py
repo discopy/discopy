@@ -742,8 +742,9 @@ class Bubble(Box):
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
     def hash_data(self):
-        return (type(self), ) + tuple(getattr(self, x) for x in (
-            "args", "dom", "cod", "name", "method"))
+        args_data = tuple(f.hash_data() for f in self.args)
+        return (type(self), ) + args_data + tuple(getattr(self, x) for x in (
+            "dom", "cod", "name", "method"))
 
     def __str__(self):
         str_args = ",".join(map(str, self.args))
