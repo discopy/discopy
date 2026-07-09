@@ -10,7 +10,6 @@ IGNORE_WARNINGS = [
     "No GPU/TPU found, falling back to CPU.",
     "Casting complex values to real discards the imaginary part"]
 
-
 # Mapping from attribute to function from box to default value.
 DRAWING_ATTRIBUTES = {
     "height": lambda _: 1,

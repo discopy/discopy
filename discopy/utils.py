@@ -17,6 +17,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from matplotlib.textpath import TextPath
 from networkx import Graph, connected_components
 
 import discopy.messages as messages
@@ -396,23 +397,15 @@ class BinaryBoxConstructor:
         return cls(*map(from_tree, (tree['left'], tree['right'])))
 
 
-# A point is 1/72 inch; matplotlib measures text in points, drawings in inches.
-POINTS_PER_INCH = 72
-
-
 @lru_cache(maxsize=1024)
-def text_width(text, fontsize=12):
+def text_width(text: str, rounded=3, fontsize=12, points_per_inch=72.):
     """ The width of a text label in drawing units, i.e. inches.
 
-    Measured from the actual glyph outlines with matplotlib's text layout, so
-    it is accurate for proportional fonts and for mathtext such as a LaTeX
-    name (e.g. ``"$\\Lambda$"``), rounded to three decimals.
+    Measured from the actual glyph outlines with matplotlib's text layout up to
+    `rounded` decimals at a given `fontsize` and `points_per_inch` conversion.
     """
-    if not text:
-        return 0
-    from matplotlib.textpath import TextPath
     width = TextPath((0, 0), text, size=fontsize).get_extents().width
-    return round(float(width) / POINTS_PER_INCH, 3)
+    return round(width / points_per_inch, rounded)
 
 
 def tuplify(stuff: any) -> tuple:
