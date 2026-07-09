@@ -632,7 +632,8 @@ class Box(frobenius.Box, Diagram):
             drawing_name=f"$\\partial {var}$")
 
     def hash_data(self):
-        data = () if self.data is None else tuple(self.data)
+        data = () if self.data is None else\
+            tuple(self.data) if isinstance(self.data, list) else (self.data, )
         return (self.name, self.dom, self.cod, self.dtype) + data
 
 
