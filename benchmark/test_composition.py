@@ -6,9 +6,9 @@ Composition benchmark, reproducing the experiments of `arXiv:2105.09257
 and :class:`discopy.symmetric.Hypergraph`.
 
 Each case is a declarative `pytest-benchmark` test: one ``(case, n)`` per data
-point, swept by ``@pytest.mark.parametrize`` over a size list that
-:data:`BENCH_FLAGS` gates -- the small/medium sizes always run, the heavy tail
-only under ``BENCH_FLAGS=bench:full`` (set on ``main`` / manual dispatch). The
+point, swept by ``@pytest.mark.parametrize`` over an increasing size list. A
+per-case time budget (:data:`BUDGET_SECONDS`) stops each sweep once a size gets
+too slow, so the heavy tail never runs long enough to blow the CI timeout. The
 ``benchmark`` fixture owns timing: ``@pytest.mark.benchmark(timer=process_time,
 disable_gc=True)`` gives CPU-time, GC-disabled measurement and
 ``benchmark.pedantic`` the median of a few rounds. We only supply the workload.
@@ -32,17 +32,6 @@ from discopy.symmetric import Ty, Box, Id, Diagram, Functor
 from discopy.monoidal import Layer
 from discopy.python import Function
 
-# --- size gating -----------------------------------------------------------
-# A 1-2-5-ish series so points are evenly spaced on the log axis the scaling
-# plot uses. Quadratic cases get shorter lists than the linear ones.
-_FULL = "bench:full" in os.environ.get("BENCH_FLAGS", "").lower()
-
-
-def sizes(*base, full=()):
-    """Sizes for a case: always ``base``, plus the heavy ``full`` tail under
-    ``BENCH_FLAGS=bench:full``."""
-    return list(base) + (list(full) if _FULL else [])
-
 
 def case(group):
     """Shared benchmark marker: CPU-time clock (immune to scheduling noise),
@@ -55,6 +44,46 @@ def case(group):
 # once *outside* the timed thunk (discopy values are immutable), so only the
 # operation under test is timed -- no fresh build per round.
 ROUNDS, WARMUP = 3, 1
+
+
+# --- size budget -----------------------------------------------------------
+# Each case sweeps its sizes (a 1-2-5-ish series, evenly spaced on the log axis
+# the scaling plot uses) in increasing order. The largest sizes are far too
+# slow for a shared CI runner -- setup and measurement both grow super-linear,
+# so the tail can run for minutes and blow the CI timeout. Rather than gate the
+# tail behind a flag, cap it by wall time, with two knobs (both env-overridable
+# to sweep further on dedicated hardware):
+#
+#   * ``BUDGET_SECONDS`` -- per case: once a size overruns it, stop the case
+#     and skip its remaining (larger) sizes; and
+#   * ``TOTAL_SECONDS`` -- whole run: a backstop that stops the sweep for good.
+#
+# Skipped sizes just leave blank cells, which the report table/plot tolerate.
+BUDGET_SECONDS = float(os.environ.get("BENCH_BUDGET_SECONDS", "1.5"))
+TOTAL_SECONDS = float(os.environ.get("BENCH_TOTAL_SECONDS", "240"))
+_spent_budget = set()             # groups whose sweep has hit the per-case cap
+_run_start = {"at": None}         # wall time the first benchmark point began
+
+
+@pytest.fixture(autouse=True)
+def _budget(request):
+    """Skip a benchmark point when a smaller size of its case already overran
+    the per-case budget, or once the whole-run budget is spent; otherwise time
+    it and, if it overran, stop the rest of that case's (larger) sizes."""
+    marker = request.node.get_closest_marker("benchmark")
+    group = marker.kwargs.get("group") if marker else None
+    if group is not None:
+        if _run_start["at"] is None:
+            _run_start["at"] = time.perf_counter()
+        if group in _spent_budget:
+            pytest.skip(f"{group}: a smaller size hit the "
+                        f"{BUDGET_SECONDS:g}s per-case budget")
+        if time.perf_counter() - _run_start["at"] > TOTAL_SECONDS:
+            pytest.skip(f"{TOTAL_SECONDS:g}s total budget reached")
+    start = time.perf_counter()
+    yield
+    if group is not None and time.perf_counter() - start > BUDGET_SECONDS:
+        _spent_budget.add(group)
 
 
 # --- workload builders -----------------------------------------------------
@@ -191,7 +220,7 @@ def _adder_functor(full_adder):
 # --- k-fold tensor ---------------------------------------------------------
 
 @case("k-fold tensor (Diagram)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200, 500)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200, 500])
 def test_tensor_diagram(benchmark, n):
     box = _NOT()
     benchmark.pedantic(
@@ -200,7 +229,7 @@ def test_tensor_diagram(benchmark, n):
 
 
 @case("k-fold tensor, 1 layer (Diagram)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, 100, full=(200, 500, 1000)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200, 500, 1000])
 def test_tensor_single_layer_diagram(benchmark, n):
     box = _NOT()
     benchmark.pedantic(
@@ -209,7 +238,7 @@ def test_tensor_single_layer_diagram(benchmark, n):
 
 
 @case("k-fold tensor (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200])
 def test_tensor_hypergraph(benchmark, n):
     hbox = _NOT().to_hypergraph()
     benchmark.pedantic(
@@ -220,7 +249,7 @@ def test_tensor_hypergraph(benchmark, n):
 # --- staircase / foliation -------------------------------------------------
 
 @case("staircase foliation (Diagram)")
-@pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 3.7s
+@pytest.mark.parametrize("n", [10, 20, 50])  # ~O(n^3): 50 ~ 3.7s
 def test_foliation_diagram(benchmark, n):
     st = staircase(_NOT(), n)
     benchmark.pedantic(
@@ -228,7 +257,7 @@ def test_foliation_diagram(benchmark, n):
 
 
 @case("staircase to hypergraph (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 4.2s
+@pytest.mark.parametrize("n", [10, 20, 50])  # ~O(n^3): 50 ~ 4.2s
 def test_staircase_to_hypergraph(benchmark, n):
     st = staircase(_NOT(), n)
     benchmark.pedantic(
@@ -238,7 +267,7 @@ def test_staircase_to_hypergraph(benchmark, n):
 # --- k-fold series ---------------------------------------------------------
 
 @case("k-fold series (Diagram)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, 100, full=(200, 500, 1000)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200, 500, 1000])
 def test_series_diagram(benchmark, n):
     box = _NOT()
     benchmark.pedantic(
@@ -247,7 +276,7 @@ def test_series_diagram(benchmark, n):
 
 
 @case("k-fold series (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200])
 def test_series_hypergraph(benchmark, n):
     hbox = _NOT().to_hypergraph()
     benchmark.pedantic(
@@ -258,7 +287,7 @@ def test_series_hypergraph(benchmark, n):
 # --- ripple-carry adder ----------------------------------------------------
 
 @case("adder step (Diagram)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 100)))
+@pytest.mark.parametrize("n", [2, 5, 10, 20, 50, 100])
 def test_adder_step_diagram(benchmark, n):
     full_adder = _full_adder()
     adder = build_adder(full_adder, n)
@@ -268,7 +297,7 @@ def test_adder_step_diagram(benchmark, n):
 
 
 @case("adder step (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50,)))  # ~O(n^2)
+@pytest.mark.parametrize("n", [2, 5, 10, 20, 50])  # ~O(n^2)
 def test_adder_step_hypergraph(benchmark, n):
     full_adder = _full_adder().to_hypergraph()
     adder = build_adder(full_adder, n)
@@ -278,7 +307,7 @@ def test_adder_step_hypergraph(benchmark, n):
 
 
 @case("adder functor (Diagram)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 100)))
+@pytest.mark.parametrize("n", [2, 5, 10, 20, 50, 100])
 def test_adder_functor_diagram(benchmark, n):
     full_adder = _full_adder()
     functor = _adder_functor(full_adder)
@@ -290,14 +319,14 @@ def test_adder_functor_diagram(benchmark, n):
 # --- spiral (arXiv:1804.07832) ---------------------------------------------
 
 @case("spiral build (Diagram)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200])
 def test_spiral_build_diagram(benchmark, n):
     benchmark.pedantic(
         lambda: make_spiral(n)[0], rounds=ROUNDS, warmup_rounds=WARMUP)
 
 
 @case("spiral build (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, full=(50,)))  # ~O(n^3): 50 ~ 10s
+@pytest.mark.parametrize("n", [10, 20, 50])  # ~O(n^3): 50 ~ 10s
 def test_spiral_build_hypergraph(benchmark, n):
     spiral = make_spiral(n)[0]
     benchmark.pedantic(
@@ -305,7 +334,7 @@ def test_spiral_build_hypergraph(benchmark, n):
 
 
 @case("spiral normal_form (Diagram)")
-@pytest.mark.parametrize("n", sizes(5, 10, full=(20,)))  # ~O(n^3): 20 ~ 8.4s
+@pytest.mark.parametrize("n", [5, 10, 20])  # ~O(n^3): 20 ~ 8.4s
 def test_spiral_normal_form_diagram(benchmark, n):
     spiral = make_spiral(n)[0]
     benchmark.pedantic(
@@ -313,7 +342,7 @@ def test_spiral_normal_form_diagram(benchmark, n):
 
 
 @case("spiral equality (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50,)))  # VF2: 100 risky
+@pytest.mark.parametrize("n", [5, 10, 20, 50])  # VF2: 100 risky
 def test_spiral_equality_hypergraph(benchmark, n):
     # Two independent builds of the same closed spiral: equality must decide
     # they are isomorphic. The spiral is closed (empty boundary), hence not
@@ -327,7 +356,7 @@ def test_spiral_equality_hypergraph(benchmark, n):
 # --- transpose snakes ------------------------------------------------------
 
 @case("transpose snake removal (Diagram)")
-@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50, 100)))
+@pytest.mark.parametrize("n", [5, 10, 20, 50, 100])
 def test_transpose_snake_removal_diagram(benchmark, n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')
@@ -337,7 +366,7 @@ def test_transpose_snake_removal_diagram(benchmark, n):
 
 
 @case("transpose equality (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+@pytest.mark.parametrize("n", [10, 20, 50, 100, 200])
 def test_transpose_equality_hypergraph(benchmark, n):
     # Timed call includes to_hypergraph (snake-absorbing construction) plus
     # equality; the snaked diagram is monogamous, so the linear fast path.

@@ -10,7 +10,7 @@ on:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 15   # backstop: BENCH_FLAGS=bench:full has no in-process cap (~3-4 min observed)
+    timeout-minutes: 15   # backstop; the per-case time budget keeps the sweep well under this
     strategy:
       matrix:
         python-version: [ "3.14" ]
@@ -35,16 +35,12 @@ jobs:
       env:
         REF: ${{ github.head_ref || github.ref_name }}
     - name: Run composition benchmark
-      # PRs run the small/medium sizes as a smoke; main / manual dispatch run the
-      # full size tail (BENCH_FLAGS=bench:full).
+      # Each case sweeps until it hits the per-case time budget (see
+      # test_composition.py); raise BENCH_BUDGET_SECONDS to sweep the heavy tail
+      # further on dedicated hardware.
       run: |
         mkdir -p benchmark-results
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-        else
-          BENCH_FLAGS=bench:full uv run pytest benchmark/ -v \
-            --benchmark-json=benchmark-results/bench.json
-        fi
+        uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
     - name: Render report (and gate on the committed baseline, if present)
       if: always()
       run:
