@@ -343,7 +343,7 @@ class TikZ(Backend):
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
         return f"{{rgb,255: red,{rgb[0]}; green,{rgb[1]}; blue,{rgb[2]}}}"
 
-    def add_node(self, i, j, text=None, options=None, rounded=None):
+    def add_node(self, i, j, text=None, options=None, rounded=4):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
         text = "" if text is None else text

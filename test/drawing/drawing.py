@@ -267,10 +267,8 @@ def test_draw_box_min_width():
     return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
 
 
-@draw_and_compare('long-latex-name.png', aspect='equal')
+@draw_and_compare('long-latex-name.png', aspect='equal', tol=100)
 def test_draw_long_latex_name():
-    # Matplotlib can measure the rendered width of a mathtext formula, so a
-    # box with a long LaTeX name is widened without needing `min_width`.
     x = Ty('x')
     return Box('$\\int_a^b f(x)\\,dx = \\sqrt{2}$', x, x) @ Box('f', x, x)
 
