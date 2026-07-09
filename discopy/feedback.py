@@ -525,12 +525,13 @@ class Feedback(monoidal.Bubble, Box):
         self.mem, self.left = mem, left
         monoidal.Bubble.__init__(self, arg, dom=dom, cod=cod)
         Box.__init__(self, self.name, dom, cod)
-        mem_name = "" if len(mem) == 1 else f"mem={mem}"
-        self.name = f"({self.arg}).feedback({mem_name})"
-        self.use_hypergraph_equality = False  # Yanking does not hold
 
     def delay(self, n_steps=1):
         return type(self)(self.arg.delay(n_steps), mem=self.mem.delay(n_steps))
+
+    def __str__(self):
+        mem_name = "" if len(self.mem) == 1 else f"mem={self.mem}"
+        return f"({self.arg}).feedback({mem_name})"
 
     def __repr__(self):
         arg, mem = map(repr, (self.arg, self.mem))

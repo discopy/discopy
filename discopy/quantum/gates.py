@@ -229,6 +229,9 @@ class QuantumGate(Box):
                 state["data"] = copy.deepcopy(GATES[state["_name"]].data)
                 state["_z"] = GATES[state["_name"]].z
         super().__setstate__(state)
+    
+    def hash_data(self):
+        return (repr(self), )  # Avoid hashing the matrix data
 
 
 class ClassicalGate(SelfConjugate):
