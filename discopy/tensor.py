@@ -607,7 +607,7 @@ class Box(frobenius.Box, Diagram):
             return object.__new__(cls)
         data, dtype = cls._get_data_dtype(data)
         return cls.__new__(
-            cls[dtype],  name, dom, cod, data, *args, **kwargs)
+            cls[dtype], name, dom, cod, data, *args, **kwargs)
 
     @staticmethod
     def _get_data_dtype(data):
@@ -630,6 +630,10 @@ class Box(frobenius.Box, Diagram):
         return self.bubble(
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
             drawing_name=f"$\\partial {var}$")
+
+    def hash_data(self):
+        data = () if self.data is None else tuple(self.data)
+        return (self.name, self.dom, self.cod, self.dtype) + data
 
 
 class Cup(frobenius.Cup, Box):

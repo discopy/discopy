@@ -537,8 +537,6 @@ class Feedback(monoidal.Bubble, Box):
         arg, mem = map(repr, (self.arg, self.mem))
         return factory_name(type(self)) + f"({arg}, mem={mem})"
 
-    __str__ = Box.__str__
-
     def to_drawing(self):
         return self.arg.to_drawing().trace()
 
