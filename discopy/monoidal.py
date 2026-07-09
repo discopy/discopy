@@ -1192,6 +1192,7 @@ class Match:
 class Hypergraph(hypergraph.Hypergraph):
     functor = Functor
 
+
 class CMap(cmap.CMap):
     functor = Functor
     require_planar = True

@@ -89,7 +89,7 @@ from contextlib import contextmanager
 
 from discopy import monoidal, balanced, traced, messages
 from discopy.abc import SymmetricCategory
-from discopy.cat import Arrow, ar_factory
+from discopy.utils import ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
 from discopy.utils import classproperty
 

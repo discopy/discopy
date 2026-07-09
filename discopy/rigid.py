@@ -91,7 +91,7 @@ class Ob(cat.Ob):
     def r(self) -> Ob:
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1)
-    
+
     def __eq__(self, other):
         return cat.Ob.__eq__(self, other) and self.z == other.z
 

@@ -332,7 +332,7 @@ class Arrow(FreeCategory):
     def generator(self):
         """ Returns the only box in an `Arrow` of length 1. """
         return self.inside[0] if self.is_generator else None
-    
+
     def hash_data(self):
         """
         Returns data that faithfully describes an `Arrow` making sure that
