@@ -338,8 +338,7 @@ class Arrow(FreeCategory):
     @property
     def generator(self):
         """ Returns the only box in an `Arrow` of length 1. """
-        assert self.is_generator
-        return self.inside[0]
+        return self.is_generator and self.inside[0]
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -571,14 +570,15 @@ class Box(Arrow):
         return hash(Arrow.__repr__(self))
 
     def __eq__(self, other):
+        if not isinstance(other, Arrow):
+            return False
         if isinstance(other, Box):
             return type(self) is type(other)\
                 and self.name == other.name\
                 and self.is_parallel(other)\
                 and self.is_dagger == other.is_dagger\
                 and bool(self.data == other.data)
-        return isinstance(other, Arrow) and other.is_generator\
-            and other.generator == self
+        return other.generator == self
 
     def __lt__(self, other):
         return self.name < other.name

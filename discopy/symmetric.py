@@ -222,6 +222,31 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         return self.to_hypergraph().to_diagram()
 
     @property
+    def is_generator(self):
+        """
+        Whether a diagram counts as a single generator
+
+        Warning
+        -------
+        The notion of "box" depends on whether we `use_hypergraph_equality`.
+        For instance, the double transpose of a box is a generator when encoded
+        as a hypergraph but not when it's a diagram, the box for a swap is a
+        generator when encoded as a diagram but not when it's a hypergraph.
+        """
+        if self.use_hypergraph_equality:
+            return self.to_hypergraph().is_generator
+        return super().is_generator
+
+    @property
+    def generator(self):
+        """
+        The generator inside a singleton diagram, see :meth:`is_generator`.
+        """
+        if self.use_hypergraph_equality:
+            return self.to_hypergraph().generator
+        return super().generator
+
+    @property
     def representative(self):
         """
         Return an encoding of the equivalence class that a diagram belongs to,
@@ -231,12 +256,10 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         returns the attributes `inside, dom, cod`. On generator diagrams, i.e.
         equal to just a box, we return the box itself to break the circularity.
         """
-        if self.is_generator:
-            return self.generator
         if self.use_hypergraph_equality:
-            return self.to_hypergraph()
-        return (self.inside, self.dom, self.cod)
-            
+            hypergraph = self.to_hypergraph()
+            return hypergraph.generator or hypergraph
+        return self.generator or (self.inside, self.dom, self.cod)
 
     def __eq__(self, other):
         return isinstance(other, self.ar)\

@@ -413,8 +413,7 @@ class Layer(cat.Box):
 
     @property
     def generator(self):
-        assert self.is_generator
-        return self.boxes_or_types[1]
+        return self.boxes_or_types[1] if self.is_generator else None
 
     @classmethod
     def cast(cls, box: Box) -> Layer:
@@ -552,8 +551,7 @@ class Diagram(cat.Arrow, MonoidalCategory):
     @property
     def generator(self):
         """ The single box in a generator `Diagram`. """
-        assert self.is_generator
-        return self.inside[0].generator
+        return self.inside[0].generator if self.is_generator else None
 
     @classmethod
     def from_callable(cls, dom: Ty, cod: Ty) -> Callable[Callable, Diagram]:
@@ -1193,13 +1191,6 @@ class Match:
 
 class Hypergraph(hypergraph.Hypergraph):
     functor = Functor
-
-    def to_diagram(self):
-        if not self.is_monogamous:
-            raise AxiomError(factory_name(
-                self.category) + " does not have copy or discard.")
-        return super().to_diagram()
-
 
 class CMap(cmap.CMap):
     functor = Functor

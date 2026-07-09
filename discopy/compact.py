@@ -86,6 +86,10 @@ class Box(symmetric.Box, ribbon.Box, Diagram):
         dom (pivotal.Ty) : The domain of the box, i.e. its input.
         cod (pivotal.Ty) : The codomain of the box, i.e. its output.
     """
+    def __eq__(self, other):
+        if not isinstance(other, Box):
+            return False
+        return symmetric.Box.__eq__(self, other) and self.z == other.z
 
 
 class Cup(ribbon.Cup, Box):
