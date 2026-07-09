@@ -109,23 +109,28 @@ crack_two_eggs.draw()
 
 ![crack_two_eggs.draw()](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/crack-eggs.png)
 
-By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side:
+By default, DisCoPy diagrams are made of layers with exactly one box in between some (possibly empty) list of wires on its left- and right-hand side.
+We can get more general diagrams by specifying the list of layers `inside` manually:
 
 ```python
+from discopy.monoidal import Layer
 from discopy.drawing import Equation
 
 A, B, C, D = Ty(*"ABCD")
 f, g = Box("f", A, B), Box("g", C, D)
-assert f @ g == f @ g.dom >> f.cod @ g != f.dom @ g >> f @ g.cod
-Equation(f @ g.dom >> f.cod @ g, f.dom @ g >> f @ g.cod, symbol="!=").draw()
+
+left, right = f @ g.dom >> f.cod @ g, f.dom @ g >> f @ g.cod
+middle = Diagram(inside=(Layer(Ty(), f, Ty(), g, Ty()), ), dom=A @ C, cod=B @ D)
+
+Equation(Equation(
+  left, middle, symbol="$\\rightarrow$"), right, symbol="$\\leftarrow$").draw()
 ```
 
 ![](docs/_static/readme/interchanger.png)
 
-We can get more general diagrams by specifying the list of layers `inside` manually or by calling the method `Diagram.foliation`.
+or by calling the method `Diagram.foliation` which will minimize the length of the diagram:
 
 ```python
-from discopy.monoidal import Layer
 
 crack_two_eggs_at_once = crack_two_eggs.foliation()
 
