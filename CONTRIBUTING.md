@@ -1,11 +1,11 @@
 # Contributing
 
 ~~Let no one enter who does not know geometry.~~
-*Let everyone enter and teach them category thory.*
+*Let everyone enter and teach them category theory.*
 
 Thank you for considering contributing to DisCoPy, we're so excited to have you here! If you got this far, you are already part of a new generation of engineers, scientists and mathematicians making equations and programs free of the one-dimensional cave in which they are being chained.
 
-This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we are academics and we are always enthusiastic about collaboration, sharing and discussing ideas and their implementations.
+This is an open source project which started as part of [two PhD theses](https://docs.discopy.org/en/main/extra/papers.html#phd-theses) i.e. we come from academia and we are always enthusiastic about collaboration, sharing ideas and their implementations.
 
 ## Make a first contribution
 
@@ -23,7 +23,7 @@ If you're looking for some inspiration on potential applications of string diagr
 - the Applied Category Theory proceedings e.g. [dblp:eptcs429](https://dblp.org/db/series/eptcs/eptcs429.html)
 - this list of papers at the intersection of [Category Theory ∩ Machine Learning](https://github.com/bgavran/Category_Theory_Machine_Learning)
 
-If you want any guidance whatsoever, don't hesitate to reach out on [Discord](https://discopy.org/discord) (sadly not very active) or [open an issue](https://github.com/discopy/discopy/issues/new) even if it's to ask a simple question.
+If you want any guidance whatsoever, don't hesitate to reach out on [Discord](https://discopy.org/discord) or [open an issue](https://github.com/discopy/discopy/issues/new) even if it's to ask a simple question.
 
 ## Get started
 
@@ -146,7 +146,7 @@ Finally, [create a release](https://docs.github.com/en/repositories/releasing-pr
 
 ## Report bugs
 
-We try our best to keep DisCoPy as close as possible to the mathematics but as any Python package it mostly likely contains many bugs.
+We try our best to keep DisCoPy as close as possible to the mathematics but as any Python package it mostly likely contains bugs.
 If you happen to find one, please [open an issue](https://github.com/discopy/discopy/issues/new) with your best attempt at describing what the problem is and how to reproduce it.
 
 ## Add documentation
@@ -190,7 +190,7 @@ That is, we do our best to make sure that critical parts of the reasoning / impl
 - **DisCoPy has no secrets.** We avoid using private or semiprivate attributes and let the user see the internals of each data structure. We expose the interface of every subprocedure as methods that can be tested and reused.
 - **DisCoPy cares about naming.** Classes and methods should have short descriptive names, when possible the names correspond to well-known mathematical definitions.
 - **DisCoPy speaks for itself.** The code should be clear enough that it doesn't need comments, only documentation with links to mathematical definitions.
-- **DisCoPy does not show off.** If there is a simpler way to name or explain something, don't make it more sound more complicated.
+- **DisCoPy does not show off.** If there is a simpler way to name or explain something, don't make it sound more complicated.
 - **DisCoPy never repeats itself.** The identity and composition of diagrams are defined once in `cat`, not in every level of the hierarchy. If there's duplicate code then you're probably working at the wrong level of abstraction.
 - **DisCoPy aims at never nesting.** We believe if your code goes beyond three levels deep then you're probably working at the wrong level of abstraction.
 
