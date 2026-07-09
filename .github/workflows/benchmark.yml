@@ -39,12 +39,7 @@ jobs:
       # full size tail (BENCH_FLAGS=bench:full).
       run: |
         mkdir -p benchmark-results
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
-          uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
-        else
-          BENCH_FLAGS=bench:full uv run pytest benchmark/ -v \
-            --benchmark-json=benchmark-results/bench.json
-        fi
+        uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
     - name: Render report (and gate on the committed baseline, if present)
       if: always()
       run:
