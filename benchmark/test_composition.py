@@ -258,7 +258,7 @@ def test_series_hypergraph(benchmark, n):
 # --- ripple-carry adder ----------------------------------------------------
 
 @case("adder step (Diagram)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 100)))
+@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 75)))  # ~O(n^3): 100 ~5.3s/round
 def test_adder_step_diagram(benchmark, n):
     full_adder = _full_adder()
     adder = build_adder(full_adder, n)
@@ -278,7 +278,7 @@ def test_adder_step_hypergraph(benchmark, n):
 
 
 @case("adder functor (Diagram)")
-@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 100)))
+@pytest.mark.parametrize("n", sizes(2, 5, 10, 20, full=(50, 75)))  # ~O(n^3): 100 ~3.6s/round
 def test_adder_functor_diagram(benchmark, n):
     full_adder = _full_adder()
     functor = _adder_functor(full_adder)
@@ -327,7 +327,7 @@ def test_spiral_equality_hypergraph(benchmark, n):
 # --- transpose snakes ------------------------------------------------------
 
 @case("transpose snake removal (Diagram)")
-@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50, 100)))
+@pytest.mark.parametrize("n", sizes(5, 10, 20, full=(50,)))  # ~O(n^3): 100 was too slow
 def test_transpose_snake_removal_diagram(benchmark, n):
     # rigid.normal_form genuinely yanks the snakes back to f (super-linear).
     x = rigid.Ty('x')
@@ -337,10 +337,14 @@ def test_transpose_snake_removal_diagram(benchmark, n):
 
 
 @case("transpose equality (Hypergraph)")
-@pytest.mark.parametrize("n", sizes(10, 20, 50, full=(100, 200)))
+@pytest.mark.parametrize("n", sizes(10, 20, full=(30,)))
 def test_transpose_equality_hypergraph(benchmark, n):
     # Timed call includes to_hypergraph (snake-absorbing construction) plus
-    # equality; the snaked diagram is monogamous, so the linear fast path.
+    # equality; the snaked diagram is monogamous, so equality itself is the
+    # linear fast path -- but to_hypergraph is ~O(n^3) in practice (measured:
+    # 10~1s, 20~7s, 50~98s/round -- so 40+ is tens of seconds/round, 100+ is
+    # minutes/round, 200 is hours). Keep the tail small; this dwarfs every
+    # other case in the suite even at n=30.
     x = compact.Ty('x')
     f = compact.Box('f', x, x)
     bare = f.to_hypergraph()
