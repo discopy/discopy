@@ -209,7 +209,7 @@ class Drawing(TracedCategory):
                 for kind, xs in [("box_dom", box.dom), ("box_cod", box.cod)])
             xs = [self.positions[n].x for n in box_dom_nodes + box_cod_nodes]
             left, right = min(xs + [box_x]) - 0.25, max(xs + [box_x]) + 0.25
-            if right - left < box.min_width:
+            if box.min_width and right - left < box.min_width:
                 center = (left + right) / 2
                 left = center - box.min_width / 2
                 right = center + box.min_width / 2
@@ -424,8 +424,7 @@ class Drawing(TracedCategory):
             width = max(len(box.dom), len(box.cod))
 
         # Leave a 0.25 margin on either side between the box and its wires.
-        width = max(width, box.min_width + 0.5)
-
+        width = max(width, box.min_width + 0.5) if box.min_width else width
         height = box.height
 
         left, right = 0.25, width - 0.25

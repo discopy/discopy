@@ -343,13 +343,13 @@ class TikZ(Backend):
             int(hex, 16) for hex in [hexcode[1:3], hexcode[3:5], hexcode[5:]]]
         return f"{{rgb,255: red,{rgb[0]}; green,{rgb[1]}; blue,{rgb[2]}}}"
 
-    def add_node(self, i, j, text=None, options=None, rounded=4):
+    def add_node(self, i, j, text=None, options=None, rounded=None):
         """ Add a node to the tikz picture, return its unique id. """
         node = len(self.nodes) + 1
         text = "" if text is None else text
-        i, j = round(i, rounded), round(j, rounded)
         self.nodelayer.append(
-            f"\\node [{options or ''}] ({node}) at ({i}, {j}) {{{text}}};\n")
+            f"\\node [{options or ''}] ({node}) at "
+            f"({round(i, rounded)}, {round(j, rounded)}) {{{text}}};\n")
         self.nodes.update({(i, j): node})
         return node
 
