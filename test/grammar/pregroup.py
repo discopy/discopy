@@ -82,3 +82,12 @@ def test_to_hypergraph():
     assert isinstance(round_trip, Diagram)
     assert round_trip.to_hypergraph() == hypergraph
     assert hash(round_trip.to_hypergraph()) == hash(hypergraph)
+
+
+def test_Box_hash():
+    from discopy import frobenius
+    n = Ty('n')
+    word = Word('Alice', n)
+    assert hash(word) == hash(word >> Id(word.cod))
+    with frobenius.Diagram.hypergraph_equality:
+        assert hash(word) == hash(word >> Id(word.cod))

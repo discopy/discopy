@@ -237,11 +237,29 @@ class Diagram(balanced.Diagram, SymmetricCategory):
     @classproperty
     @contextmanager
     def hypergraph_equality(cls):
+        """ Context manager to temporarily use hypergraph equality. """
         tmp, cls.use_hypergraph_equality = cls.use_hypergraph_equality, True
         try:
             yield
         finally:
             cls.use_hypergraph_equality = tmp
+
+    @classproperty
+    @contextmanager
+    def structural_equality(cls):
+        """ Context manager to temporarily use structural equality. """
+        if not cls.use_hypergraph_equality:
+            yield
+            return
+        had = "use_hypergraph_equality" in cls.__dict__
+        cls.use_hypergraph_equality = False
+        try:
+            yield
+        finally:
+            if had:
+                cls.use_hypergraph_equality = True
+            else:
+                del cls.use_hypergraph_equality
 
     def depth(self):
         """

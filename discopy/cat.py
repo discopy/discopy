@@ -77,6 +77,7 @@ Functors are bubble-preserving.
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from functools import total_ordering, cached_property
 from typing import (
     Callable, Mapping, Iterable, TYPE_CHECKING)
@@ -90,6 +91,7 @@ from discopy.utils import (  # noqa: F401
     from_tree,
     rsubs,
     unbiased,
+    classproperty,
     MappingOrCallable,
     assert_isinstance,
     assert_iscomposable,
@@ -323,6 +325,18 @@ class Arrow(FreeCategory):
 
     def __hash__(self):
         return hash(repr(self))
+
+    @classproperty
+    @contextmanager
+    def structural_equality(cls):
+        """
+        Compare arrows by structural equality, a no-op by default.
+
+        Overridden by :class:`symmetric.Diagram` so that :class:`Functor`
+        identifies its domain generators structurally, i.e. by the default
+        :meth:`Box.__hash__`, regardless of ``use_hypergraph_equality``.
+        """
+        yield
 
     def __add__(self, other):
         return self.sum_factory((self, )) + other
@@ -863,6 +877,10 @@ class Functor(Category):
             dom: type = None, cod: type = None):
         self.dom, self.cod = dom or type(self).dom, cod or type(self).cod
         self.ob_map: MappingOrCallable[Ob, Ob] = MappingOrCallable(ob or {})
+        mapping = getattr(ar, "mapping", ar)
+        if isinstance(mapping, Mapping):
+            with self.dom.structural_equality:
+                ar = {box: image for box, image in mapping.items()}
         self.ar_map: MappingOrCallable[Box, Arrow] = MappingOrCallable(
             ar or {})
 
@@ -895,7 +913,8 @@ class Functor(Category):
         if isinstance(other, Box) and other.is_dagger:
             return self(other.dagger()).dagger()
         if isinstance(other, Box):
-            result = self.ar_map[other]
+            with self.dom.structural_equality:
+                result = self.ar_map[other]
             # This allows some nice syntactic sugar for the ar mapping.
             return result if isinstance(result, self.cod)\
                 else self.cod(result, self(other.dom), self(other.cod))

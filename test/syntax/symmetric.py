@@ -33,6 +33,17 @@ def test_Box_hash_hypergraph():
         assert f @ Id() in {f}
 
 
+def test_Functor_hypergraph_equality():
+    x, y = Ty('x'), Ty('y')
+    f, g = Box('f', x, y), Box('g', y, x)
+    F = Functor(ob={x: x, y: y}, ar={f: g[::-1], g: f[::-1]})
+    with Diagram.hypergraph_equality:
+        assert F(f >> g) == g[::-1] >> f[::-1]
+    with Diagram.hypergraph_equality:
+        G = Functor(ob={x: x, y: y}, ar={f: g[::-1], g: f[::-1]})
+    assert G(f >> g) == g[::-1] >> f[::-1]
+
+
 def test_Diagram_permutation():
     x = PRO(1)
     tmp, Diagram.ob = Diagram.ob, PRO

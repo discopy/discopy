@@ -160,8 +160,9 @@ class Box(frobenius.Box, Diagram):
 
     Like :class:`Diagram`, its equality and hashing are pinned to
     :class:`rigid.Box`: rigid diagrams only embed into their hypergraph
-    category up to the compact quotient, so boxes must keep structural hashing
-    for functor ``ar`` mappings to stay well-defined under hypergraph equality.
+    category up to the compact quotient, so pregroup uses structural rather
+    than hypergraph equality. Pinning the box keeps it consistent with the
+    diagram, e.g. ``hash(box) == hash(box >> Id(box.cod))`` under any mode.
     """
     rotate = rigid.Box.rotate
     __eq__, __hash__ = rigid.Box.__eq__, rigid.Box.__hash__
