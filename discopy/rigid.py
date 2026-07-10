@@ -92,6 +92,10 @@ class Ob(cat.Ob):
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1)
 
+    def unwind(self) -> Ob:
+        """ The object with winding number zero. """
+        return type(self)(self.name)
+
     def __eq__(self, other):
         return cat.Ob.__eq__(self, other) and self.z == other.z
 
@@ -167,7 +171,7 @@ class Ty(Pregroup, biclosed.Ty):
 
     def unwind(self) -> Ty:
         """
-        Rotate an atomic type until its winding number is zero.
+        The atomic type with winding number zero, see :meth:`Ob.unwind`.
 
         The previous normalisation applied ``.r`` once, which is only an
         involution for pivotal types: it sent rigid ``n.r`` to ``n.r.r``.
@@ -177,12 +181,7 @@ class Ty(Pregroup, biclosed.Ty):
         >>> n = Ty('n')
         >>> assert n.r.r.unwind() == n.l.unwind() == n
         """
-        typ = self
-        while typ.z > 0:
-            typ = typ.l
-        while typ.z < 0:
-            typ = typ.r
-        return typ
+        return self.ob(self.inside[0].unwind())
 
     ob_factory = Ob
 

@@ -231,10 +231,10 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                 if self.ports[i].obj.unwind() != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
                         obj, self.ports[i].obj))
-            same_side = producers if len(producers) == 2 else\
-                consumers if len(consumers) == 2 else None
-            if same_side is not None:
-                left, right = (self.ports[i].obj for i in sorted(same_side))
+            legs = consumers if not producers and len(consumers) == 2 else\
+                producers if not consumers and len(producers) == 2 else None
+            if legs is not None:  # a cup or a cap between two adjoint types
+                left, right = (self.ports[i].obj for i in sorted(legs))
                 if getattr(left, "r", left) != right\
                         and getattr(right, "r", right) != left:
                     raise AxiomError(messages.NOT_ADJOINT.format(left, right))
