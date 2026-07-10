@@ -168,13 +168,20 @@ class Diagram(rigid.Diagram, traced.Diagram, PivotalCategory):
         >>> assert f.transpose(left=True).to_hypergraph()\\
         ...     == f.transpose(left=False).to_hypergraph()
 
-        A diagram that is not boundary-connected has no faithful hypergraph:
+        A diagram that is not boundary-connected has no faithful hypergraph,
+        e.g. two circles side by side become indistinguishable from two
+        nested circles:
 
-        >>> s0, s1 = Box('s0', Ty(), Ty()), Box('s1', Ty(), Ty())
-        >>> (s0 @ s1).to_hypergraph()
+        >>> circle = lambda t: Cap(t, t.r) >> Cup(t, t.r)
+        >>> nested = Cap(x, x.r) >> x @ circle(y) @ x.r >> Cup(x, x.r)
+        >>> side_by_side = circle(x) @ circle(y)
+        >>> assert nested != side_by_side
+        >>> assert Diagram.hypergraph_factory.from_diagram(nested)\\
+        ...     == Diagram.hypergraph_factory.from_diagram(side_by_side)
+        >>> side_by_side.to_hypergraph()
         Traceback (most recent call last):
         ...
-        NotImplementedError: s0 >> s1 is not boundary-connected.
+        NotImplementedError: Cap(x, x.r) >> Cup(x, x.r) >> Cap(y, y.r) >> Cup(y, y.r) is not boundary-connected.
         """
         self.normal_form()
         return self.hypergraph_factory.from_diagram(self)
