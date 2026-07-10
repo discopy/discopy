@@ -22,6 +22,10 @@ Summary
     Eval
     Coeval
     Curry
+    Swap
+    Trace
+    Copy
+    Discard
     Sum
     Functor
     CMap
@@ -74,6 +78,24 @@ class Ty(biclosed.Ty):
     .. image:: /_static/closed/diagram.png
         :align: center
     """
+    @classmethod
+    def from_biclosed(cls, old: biclosed.Ty) -> Ty:
+        """
+        Translate a biclosed type into a closed type, collapsing left and
+        right exponentials into a single exponential.
+
+        Parameters:
+            old : The biclosed type to translate.
+
+        Example
+        -------
+        >>> x, y = biclosed.Ty("x"), biclosed.Ty("y")
+        >>> assert Ty.from_biclosed(x << y) == Ty.from_biclosed(y >> x)
+        """
+        return cls().tensor(*[
+            cls.from_biclosed(ob.base) ** cls.from_biclosed(ob.exponent)
+            if isinstance(ob, biclosed.Exp) else cls(ob.name)
+            for ob in old.inside])
 
 
 class Exp(biclosed.Exp):
@@ -138,6 +160,10 @@ class Copy(markov.Copy, Box):
     is_linear = False
 
 
+class Discard(markov.Discard, Copy):
+    "The discard of a closed type, i.e. a copy with zero legs."
+
+
 class Sum(markov.Sum, biclosed.Sum, Box):
     """
     A markov sum is a symmetric sum and a markov box.
@@ -164,7 +190,8 @@ class Functor(biclosed.Functor, markov.Functor):
 
     def __call__(self, other):
         if isinstance(other, (
-                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry)):
+                cat.Ob, biclosed.Eval, biclosed.Coeval, biclosed.Curry,
+                biclosed.TermBase)):
             return biclosed.Functor.__call__(self, other)
         return super().__call__(other)
 
@@ -186,7 +213,7 @@ Diagram.curry_factory = Curry
 Diagram.eval_factory = Eval
 Diagram.coeval_factory = Coeval
 Diagram.trace_factory = Trace
-Diagram.discard_factory = lambda X: Copy(X, 0)
+Diagram.discard_factory = Discard
 Diagram.sum_factory = Sum
 Ty.exp_factory = Ty.under_factory = Ty.over_factory = staticmethod(Exp)
 
@@ -199,8 +226,54 @@ class TermBase(Box, biclosed.TermBase):
     """
     functor = Functor.id(Diagram)
 
-    def __call__(self, other):
-        return Application(self, other, left=False)
+    @classmethod
+    def from_biclosed(cls, term: biclosed.Term) -> Term:
+        """
+        Translate a biclosed term into a closed term, dropping planarity by
+        collapsing left and right exponentials into a single exponential.
+
+        Parameters:
+            term : The biclosed term to translate.
+
+        Note
+        ----
+        This method is inherited by :class:`Constant`, :class:`Variable`,
+        :class:`Application` and :class:`Abstraction`, i.e. every closed
+        :class:`Term`.
+
+        Example
+        -------
+        >>> X, Y = biclosed.Ty("X"), biclosed.Ty("Y")
+        >>> g, x = (Y << X)("g"), X("x")
+        >>> print(TermBase.from_biclosed(g(x)))
+        (X >> Y)('g')(X('x'))
+        """
+        functor = biclosed.Functor(
+            ob=lambda x: cls.ob(x.name),
+            ar=lambda c: cls.ob.constant_factory(c.name, functor(c.cod)),
+            dom=biclosed.Diagram, cod=cls.functor.cod)
+        return functor(term)
+
+    def normal_form(self) -> Term:
+        """
+        The beta-normal form of a term, obtained by normal-order reduction.
+
+        Example
+        -------
+        >>> X, Y = Ty("X"), Ty("Y")
+        >>> f, x = (X >> Y)("f"), X("x")
+        >>> assert X(lambda y: f(y))(x).normal_form() == f(x)
+        """
+        term = self
+        if isinstance(term, Application):
+            func = term.func.normal_form()
+            if isinstance(func, Abstraction):
+                return Substitution(
+                    {func.var: term.args})(func.body).normal_form()
+            return type(term)(func, term.args.normal_form(), term.left)
+        if isinstance(term, Abstraction):
+            return type(term)(term.var, term.body.normal_form(), term.left)
+        return term
 
 
 type Term = Constant | Variable | Application | Abstraction
@@ -231,7 +304,7 @@ class Application(TermBase, biclosed.Application):
         self.overlap = set(func.freevars).intersection(args.freevars)
         self.freevars = list(set(func.freevars + args.freevars))\
             if self.overlap else func.freevars + args.freevars
-        return self.ob.tensor(*[x.cod for x in self.freevars])
+        return self.ob().tensor(*[x.cod for x in self.freevars])
 
     def eval(self, functor=None, context=None):
         functor = functor or self.functor
@@ -278,17 +351,30 @@ class Context:
 
 @dataclass
 class Substitution:
+    """
+    The simultaneous substitution of terms for free variables.
+
+    Attributes:
+        inside : The mapping from variables to the terms substituted for them.
+
+    Note
+    ----
+    Substitution is not capture-avoiding: it is up to the caller to ensure
+    that the free variables of the substituted terms do not clash with the
+    bound variables of the term in which they are substituted.
+    """
     inside: Dict[Variable, Term]
 
     def __call__(self, term: Term) -> Term:
         if isinstance(term, Variable):
             return self.inside.get(term, term)
-        elif isinstance(term, Application):
-            return self(term.func)(self(term.args))
-        elif isinstance(term, Abstraction):
+        if isinstance(term, Application):
+            return type(term)(self(term.func), self(term.args), term.left)
+        if isinstance(term, Abstraction):
             other = Substitution(
                 {k: v for k, v in self.inside.items() if k != term.var})
-            return other(term)
+            return type(term)(term.var, other(term.body), term.left)
+        return term
 
 
 Ty.variable_factory = Variable

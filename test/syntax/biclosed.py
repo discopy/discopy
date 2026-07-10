@@ -76,6 +76,44 @@ def test_Term_linear_planar():
         Abstraction(var, var(gvar, left=True), left=True)
 
 
+def test_InternalLanguage_errors():
+    x = Ty('x')
+    with raises(NotImplementedError):
+        x(lambda u, left=1: u)
+    with raises(NotImplementedError):
+        x(lambda u, v: u)
+    with raises(ValueError):
+        x(42)
+
+
+def test_term_Functor():
+    x, y = Ty('x'), Ty('y')
+    f, a = (y << x)("f"), x("a")
+    g, b = (y << x)("g"), x("b")
+    var = Variable("v", x)
+    F = Functor(ob={x: x, y: y}, ar={f: g, a: b})
+
+    assert F(f(a)) == g(b)
+    assert F(var) == var
+    assert F(Abstraction(var, f(var))) == Abstraction(var, g(var))
+
+    h, c = (x >> y)("h"), (x >> y)("k")
+    G = Functor(ob={x: x, y: y}, ar={h: c, a: b})
+    assert G(a(h, left=True)) == b(c, left=True)
+
+    with raises(TypeError):
+        F.map_term(Box('b', x, y))
+
+
+def test_Abstraction_eval():
+    x, y = Ty('x'), Ty('y')
+    f, g = (y << x)("f"), (x >> y)("g")
+    assert x(lambda v: f(v)).eval()\
+        == (f @ Id(x) >> Diagram.ev(y, x, left=True)).curry(left=True)
+    assert x(lambda v, left=True: v(g, left=True)).eval()\
+        == (Id(x) @ g >> Diagram.ev(y, x, left=False)).curry(left=False)
+
+
 def test_to_rigid():
     from discopy import rigid
 

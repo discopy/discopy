@@ -11,6 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    InternalLanguage
     Ty
     Exp
     Over
@@ -75,8 +76,51 @@ from discopy.utils import (
 )
 
 
+class InternalLanguage:
+    """
+    The internal language of a biclosed category, i.e. the interface for types
+    that can construct variables, constants, applications and abstractions.
+
+    Attributes:
+        variable_factory : The class used to construct variables.
+        constant_factory : The class used to construct constants.
+        application_factory : The class used to construct applications.
+        abstraction_factory : The class used to construct abstractions.
+
+    Note
+    ----
+    Applying a type to a callable yields an :class:`Abstraction`,
+    applying it to a string yields a :class:`Constant`.
+
+    A :class:`Functor` with types in the internal language as codomain objects
+    sends terms to terms rather than evaluating them to morphisms.
+    """
+    variable_factory: ClassVar[type]
+    constant_factory: ClassVar[type]
+    application_factory: ClassVar[type]
+    abstraction_factory: ClassVar[type]
+
+    def __call__(self, arg):
+        if isinstance(arg, str):
+            return self.constant_factory(arg, self)
+        elif isinstance(arg, Callable):
+            parameters = dict(signature(arg).parameters)
+            left = False
+            if "left" in parameters:
+                left_param = parameters.pop("left")
+                left = left_param.default
+                if not isinstance(left, bool):
+                    raise NotImplementedError
+            varnames = list(parameters.keys())
+            if len(varnames) != 1:
+                raise NotImplementedError
+            var = self.variable_factory(varnames[0], self)
+            return self.abstraction_factory(var, arg(var), left)
+        raise ValueError
+
+
 @ob_factory
-class Ty(monoidal.Ty):
+class Ty(InternalLanguage, monoidal.Ty):
     """
     A biclosed type is a monoidal type that can be exponentiated.
 
@@ -106,24 +150,6 @@ class Ty(monoidal.Ty):
 
     def __rshift__(self, other):
         return other.under(self)
-
-    def __call__(self, arg):
-        if isinstance(arg, str):
-            return self.constant_factory(arg, self)
-        elif isinstance(arg, Callable):
-            parameters = dict(signature(arg).parameters)
-            left = False
-            if "left" in parameters:
-                left_param = parameters.pop("left")
-                left = left_param.default
-                if not isinstance(left, bool):
-                    raise NotImplementedError
-            varnames = list(parameters.keys())
-            if len(varnames) != 1:
-                raise NotImplementedError
-            var = self.variable_factory(varnames[0], self)
-            return self.abstraction_factory(var, arg(var), left)
-        raise ValueError
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -419,11 +445,26 @@ class Functor(monoidal.Functor):
             Map from atomic :class:`Ty` to :code:`cod.ob`.
         ar_map (Mapping[Box, Diagram]) : Map from :class:`Box` to :code:`cod`.
         cod (Category) : The codomain of the functor.
+
+    Note
+    ----
+    When the codomain objects are types in an :class:`InternalLanguage`, the
+    functor sends terms to terms rather than evaluating them to morphisms:
+
+    >>> X, Y = Ty("X"), Ty("Y")
+    >>> f, x = (Y << X)("f"), X("x")
+    >>> F = Functor(ob={X: Ty("A"), Y: Ty("B")},
+    ...             ar={f: (Ty("B") << Ty("A"))("g"), x: Ty("A")("a")})
+    >>> assert F(f(x)) == F(f)(F(x))
     """
     dom = cod = Diagram
 
     def __call__(self, other):
         if isinstance(other, TermBase):
+            cod_ob = getattr(self.cod, "ob", None)
+            if isinstance(cod_ob, type)\
+                    and issubclass(cod_ob, InternalLanguage):
+                return self.map_term(other)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):
@@ -444,6 +485,27 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
+
+    def map_term(self, term: Term) -> Term:
+        """
+        Send a term to a term in the codomain's :class:`InternalLanguage`,
+        applying the functor to types and looking up constants in ``ar_map``.
+
+        Parameters:
+            term : The term to which the functor is applied.
+        """
+        ob = self.cod.ob
+        if isinstance(term, Constant):
+            return self.ar_map[term]
+        if isinstance(term, Variable):
+            return ob.variable_factory(term.name, self(term.cod))
+        if isinstance(term, Application):
+            return ob.application_factory(
+                self(term.func), self(term.args), term.left)
+        if isinstance(term, Abstraction):
+            return ob.abstraction_factory(
+                self(term.var), self(term.body), term.left)
+        raise TypeError(f"Expected {Term}, got {type(term)}")
 
 
 class CMap(monoidal.CMap):
@@ -644,7 +706,10 @@ class Abstraction(TermBase):
         return self.body.dom[1:] if self.left else self.body.dom[:-1]
 
     def eval(self, functor=None):
-        return (functor or self.functor)(self.body.curry(left=not self.left))
+        functor = functor or self.functor
+        return functor.cod.curry(
+            self.body.eval(functor), len(functor(self.var.cod)),
+            not self.left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)

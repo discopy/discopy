@@ -210,6 +210,37 @@ class Functor(biclosed.Functor):
             return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
 
+    def map_term(self, term):
+        """
+        Send a categorial term to a term in the codomain's internal language,
+        translating composition and type raising into lambda terms.
+
+        Crossed composition requires a symmetric codomain, i.e. one where
+        left and right exponentials coincide.
+
+        Parameters:
+            term : The term to which the functor is applied.
+        """
+        ob = self.cod.ob
+        if isinstance(term, (TypeRaising, FC, BC)):
+            return self(term.simplify())
+        if isinstance(term, (FX, BX)):
+            if ob.over_factory is not ob.under_factory:
+                raise AxiomError(
+                    "Crossed composition requires a codomain with "
+                    "coinciding left and right exponentials.")
+            func, args = self(term.left), self(term.right)
+            if isinstance(term, FX):
+                var = ob.variable_factory(
+                    "x", self(term.right.cod.exponent))
+                body = func(args(var))
+            else:
+                var = ob.variable_factory(
+                    "x", self(term.left.cod.exponent))
+                body = args(func(var))
+            return ob.abstraction_factory(var, body)
+        return super().map_term(term)
+
 
 class CMap(biclosed.CMap):
     """
