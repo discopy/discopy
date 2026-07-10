@@ -595,6 +595,11 @@ class Box(Arrow):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
     def setoid(self):
+        """
+        The equality and hash of a box is given by hashing its type as well as
+        its internal attributes `name, dom, cod, is_dagger` and `data`. In
+        particular if the `data` is not hashable then neither is the `Box`.
+        """
         attributes = self.name, self.dom, self.cod, self.is_dagger, self.data
         return (type(self), ) + attributes
 
@@ -659,7 +664,15 @@ class Sum(Box):
         self.terms = terms
         super().__init__(name, dom, cod)
 
+    @property
+    def is_generator(self):
+        return len(self.terms) == 1 and self.terms[0].is_generator
+
+    def generator(self):
+        return self.terms[0].generator if self.is_generator else None
+
     def setoid(self):
+        """ Ensure that a singleton sum is in fact equal to its only term. """
         return self.terms[0].setoid() if len(self.terms) == 1 else (
             type(self), self.terms, self.dom, self.cod)
 
@@ -759,6 +772,10 @@ class Bubble(Box):
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
     def setoid(self):
+        """
+        Ensure that bubbles are equal if they have the same type, their `args`
+        are equal as well as their attributes `dom, cod, name, method`.
+        """
         args_data = tuple(f.setoid() for f in self.args)
         return (type(self), ) + args_data + tuple(getattr(self, x) for x in (
             "dom", "cod", "name", "method"))

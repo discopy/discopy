@@ -231,7 +231,8 @@ class QuantumGate(Box):
         super().__setstate__(state)
 
     def setoid(self):
-        return (repr(self), )  # Avoid hashing the matrix data
+        """ Avoid checking for equality of matrices when comparing gates. """
+        return (repr(self), )
 
 
 class ClassicalGate(SelfConjugate):

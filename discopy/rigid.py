@@ -567,6 +567,10 @@ class Box(biclosed.Box, Diagram):
             f', z={self.z})' if self.z else ')')
 
     def setoid(self):
+        """
+        Rigid boxes are equal when they are equal as :class:`cat.Box` and their
+        winding numbers `z` are also equal.
+        """
         return super().setoid() + (self.z, )
 
     def rotate(self, left=False):

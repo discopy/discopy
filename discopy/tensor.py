@@ -632,6 +632,7 @@ class Box(frobenius.Box, Diagram):
             drawing_name=f"$\\partial {var}$")
 
     def setoid(self):
+        """ Compare boxes by turning their internal `data` into tuples. """
         data = () if self.data is None else\
             tuple(self.data) if isinstance(self.data, list) else (self.data, )
         return (self.name, self.dom, self.cod, self.dtype) + data
