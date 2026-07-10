@@ -307,20 +307,13 @@ class Functor(symmetric.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(hypergraph.Hypergraph):
-    functor = Functor
-
-    def to_diagram(self, make_causal_first=True) -> Diagram:
-        return super().to_diagram(
-            make_causal_first=make_causal_first)
-
-
 class CMap(symmetric.CMap):
     functor = Functor
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.braid_factory = Swap
 Diagram.trace_factory = Trace

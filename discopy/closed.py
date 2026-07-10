@@ -52,7 +52,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, ClassVar
 
-from discopy import cat, monoidal, biclosed, markov
+from discopy import cat, monoidal, biclosed, markov, hypergraph
 from discopy.abc import ClosedCategory
 from discopy.cat import ob_factory, ar_factory
 
@@ -169,17 +169,14 @@ class Functor(biclosed.Functor, markov.Functor):
         return super().__call__(other)
 
 
-class Hypergraph(markov.Hypergraph):
-    functor = Functor
-
-
 class CMap(biclosed.CMap):
     functor = Functor
     require_planar = False
 
 
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.copy_factory = Copy
 Diagram.braid_factory = Swap
 Diagram.curry_factory = Curry

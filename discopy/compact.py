@@ -57,7 +57,7 @@ Coherence
 >>> Diagram.use_hypergraph_equality = False
 """
 
-from discopy import symmetric, ribbon
+from discopy import symmetric, ribbon, hypergraph
 from discopy.abc import CompactCategory
 from discopy.cat import ar_factory
 from discopy.pivotal import Ob, Ty  # noqa: F401
@@ -136,10 +136,6 @@ class Functor(symmetric.Functor, ribbon.Functor):
         return ribbon.Functor.__call__(self, other)
 
 
-class Hypergraph(symmetric.Hypergraph):
-    functor = Functor
-
-
 class CMap(symmetric.CMap):
     functor = Functor
     require_oriented = False
@@ -149,6 +145,7 @@ class CMap(symmetric.CMap):
 Id = Diagram.id
 
 Diagram.braid_factory = Swap
-Diagram.hypergraph_factory = Hypergraph
+Diagram.functor_factory = Functor
 Diagram.map_factory = CMap
+Hypergraph = hypergraph.Hypergraph[Diagram]
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap

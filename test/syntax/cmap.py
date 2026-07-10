@@ -1,13 +1,13 @@
 import pytest
 from pytest import raises
 
-from discopy import monoidal, closed, compact, symmetric
+from discopy import monoidal, closed, compact, symmetric, hypergraph
 from discopy.python.finset import Permutation
 from discopy.utils import AxiomError
 
 
 def to_hypergraph(cmap):
-    return cmap.category.hypergraph_factory.from_map(cmap)
+    return hypergraph.Hypergraph[cmap.category].from_map(cmap)
 
 
 def test_port_side_and_direction():
