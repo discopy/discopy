@@ -217,21 +217,27 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
 
         relabeling = sorted(connected_spiders, key=flat_wires.index)
         relabeling += sorted(set(spider_types.keys()) - connected_spiders)
-        self.spider_types = tuple(map(
-            lambda typ: typ.r if getattr(typ, "z", 0) else typ,
-            [spider_types[s] for s in relabeling]))
+        self.spider_types = tuple(
+            spider_types[s].unwind() for s in relabeling)
         self.flat_wires = tuple(relabeling.index(s) for s in flat_wires)
         self.wires = self.rebracket(self.flat_wires)
         self.dom_wires, self.box_wires, self.cod_wires = self.wires
 
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
-        for obj, wires in zip(self.spider_types, self.spider_wires):
-            adjoint = getattr(obj, "r", obj)
-            for i in set.union(*wires):
-                if self.ports[i].obj not in [obj, adjoint]:
+        for obj, (producers, consumers) in zip(
+                self.spider_types, self.spider_wires):
+            for i in producers | consumers:
+                if self.ports[i].obj.unwind() != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
                         obj, self.ports[i].obj))
+            same_side = producers if len(producers) == 2 else\
+                consumers if len(consumers) == 2 else None
+            if same_side is not None:
+                left, right = (self.ports[i].obj for i in sorted(same_side))
+                if getattr(left, "r", left) != right\
+                        and getattr(right, "r", right) != left:
+                    raise AxiomError(messages.NOT_ADJOINT.format(left, right))
 
         self.offsets = offsets or tuple(len(boxes) * [None])
 
@@ -967,18 +973,20 @@ class Hypergraph(MonoidalCategory, NamedGeneric['functor']):
                 if self.ports[target].kind in kinds:
                     spider_types = dict(enumerate(self.spider_types))
                     typ = spider_types[spider]
+                    source_obj, target_obj = (
+                        self.ports[source].obj, self.ports[target].obj)
                     left, right = len(spider_types), len(spider_types) + 1
                     fwires = list(self.flat_wires)
                     fwires[source], fwires[target] = left, right
                     if cups_or_caps == "cups":
-                        boxes = self.boxes + (
-                            self.category.cup_factory(typ, typ), )
+                        boxes = self.boxes + (self.category.cup_factory(
+                            source_obj, target_obj), )
                         offsets = self.offsets + (None, )
                         fwires = fwires[:len(fwires) - len(self.cod)] + [
                             left, right] + fwires[len(fwires) - len(self.cod):]
                     else:
-                        boxes = (self.category.cap_factory(typ, typ),
-                                 ) + self.boxes
+                        boxes = (self.category.cap_factory(
+                            source_obj, target_obj), ) + self.boxes
                         offsets = (None, ) + self.offsets
                         fwires = fwires[:len(self.dom)] + [
                             left, right] + fwires[len(self.dom):]

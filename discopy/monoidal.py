@@ -162,6 +162,16 @@ class Ty(Ob):
         obj, = obj.inside if isinstance(obj, Ty) else (obj, )
         return self.inside.count(obj)
 
+    def unwind(self) -> Ty:
+        """
+        Rotate an atomic type to winding number zero.
+
+        This is the identity for monoidal types, which have no winding. It is
+        overridden by :class:`rigid.Ty` to give a canonical representative for
+        the compact quotient, i.e. the base type on which spiders are labelled.
+        """
+        return self
+
     @property
     def is_atomic(self) -> bool:
         """ Whether a type is atomic, i.e. it has length 1. """
@@ -1172,7 +1182,8 @@ class Hypergraph(hypergraph.Hypergraph):
     functor = Functor
 
     def to_diagram(self):
-        if not self.is_monogamous:
+        if not self.is_monogamous and getattr(
+                self.category, "cup_factory", None) is None:
             raise AxiomError(factory_name(
                 self.category) + " does not have copy or discard.")
         return super().to_diagram()
