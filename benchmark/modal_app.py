@@ -71,7 +71,7 @@ image = (
 )
 
 
-@app.function(image=image, cpu=4, memory=4096, timeout=1800)
+@app.function(image=image, cpu=1, memory=4096, timeout=1800)
 def run_group(bench_flags: str, k_expr: str) -> bytes:
     """ Sync the project and run one group's tests, returning the raw
     ``--benchmark-json`` bytes for just that group. """
