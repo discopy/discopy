@@ -182,7 +182,7 @@ These come with methods for converting back and forth to diagrams which allow to
 They can also come with methods for evaluating them directly in a concrete category, e.g. a `CMap` with a `Tensor` on each node can be compiled directly to an Einstein notation without translating it to a list of layers.
 
 Note that while `Functor` implements only functors with free categories as domain, DisCoPy also implements instances of 2-functors i.e. with categories of categories as domain.
-For instance, the `Int`-construction takes traced categories to compact categories and `Stream` takes monoidal categories to feedback categories, see [the example below](#a-geometry-of-chatbot-interaction).
+For instance, the `Int`-construction takes traced categories to compact categories and `Stream` takes monoidal categories to feedback categories, see the [geometry of chatbot interaction](#a-geometry-of-chatbot-interaction) example.
 
 ## Example: Alice loves Bob
 
@@ -264,7 +264,6 @@ sentence.to_gif(*rewrite_steps)
 ![sentence.to_gif(*rewrite_steps)](https://github.com/discopy/discopy/raw/main/test/drawing/imgs/autonomisation.gif)
 
 ## A geometry of chatbot interaction
-
 
 The [`Int`](https://docs.discopy.org/en/main/_api/discopy.interaction.Int.html)-construction of [Joyal, Street & Verity (1996)](https://doi.org/10.1017/S0305004100074338) is
 
