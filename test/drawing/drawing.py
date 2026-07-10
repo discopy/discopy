@@ -159,6 +159,73 @@ def test_draw_region_non_colors_string():
         assert hexcode in region_hexes(box)
 
 
+def test_draw_right_region_example():
+    """
+    Concrete example clarifying ``Matplotlib._draw_right_region`` and the
+    ``Backend.draw_curved_polygon`` primitive it is built on: the curved
+    polygon filling the region to the right of a wire, up to the diagram's
+    right-hand edge.
+
+    Consider a wire leaving a box at its top-right corner (0, 1) and
+    bending down to (1, 0) (``bend_out=True``), inside a diagram of
+    ``width=2``. The region to its right is the curved quadrilateral:
+        * (0, 1) -- ``source``, where the wire leaves the box;
+        * (1, 1) -- the Bezier control point, level with the source and
+          plumb with the target, so the curve hugs the bend;
+        * (1, 0) -- ``target``, where the wire is drawn to next;
+        * (2, 0) -- straight across to the diagram's right-hand edge;
+        * (2, 1) -- straight up along the right-hand edge;
+        * back to (0, 1), closing the polygon.
+    """
+    from matplotlib import pyplot as plt
+    from matplotlib.path import Path
+    backend = Matplotlib(figsize=(2, 2))
+    backend._draw_right_region(
+        (0, 1), (1, 0), width=2, facecolor="red", bend_out=True)
+    path = backend.axis.patches[-1].get_path()
+    assert [tuple(vertex) for vertex in path.vertices] == [
+        (0, 1), (1, 1), (1, 0), (2, 0), (2, 1), (0, 1)]
+    assert list(path.codes) == [
+        Path.MOVETO, Path.CURVE3, Path.CURVE3,
+        Path.LINETO, Path.LINETO, Path.CLOSEPOLY]
+    plt.close(backend.axis.figure)
+
+
+def test_draw_curved_polygon_tikz():
+    # TikZ implements the same generic draw_curved_polygon primitive as
+    # Matplotlib, e.g. so that region drawing could be wired up for it too.
+    backend = TikZ()
+    backend.draw_curved_polygon(
+        (0, 1), (1, 0), (2, 0), (2, 1), facecolor="red", bend_out=True)
+    line = backend.edgelayer[-1]
+    assert "controls" in line
+    assert "fill={red}" in line
+
+
+def test_readable_foreground():
+    # White and light colours get black text, dark colours get white text.
+    assert Backend.readable_foreground("white") == "black"
+    assert Backend.readable_foreground("black") == "white"
+    assert Backend.readable_foreground("yellow") == "black"
+    assert Backend.readable_foreground("darkblue") == "white"
+    # Unrecognised colours fall back to black rather than raising.
+    assert Backend.readable_foreground("not-a-colour") == "black"
+
+
+def test_draw_box_foreground_on_dark_background():
+    # A box with a dark custom colour gets a white label instead of the
+    # default black, so its name stays legible.
+    from matplotlib import pyplot as plt
+    box = monoidal.Box(
+        "f", monoidal.Ty("x"), monoidal.Ty("x"), color="black")
+    drawing = box.to_drawing()
+    drawing.add_box_corners()
+    backend = Matplotlib(figsize=(2, 2))
+    backend.draw_boxes(drawing)
+    assert backend.axis.texts[-1].get_color() == "white"
+    plt.close(backend.axis.figure)
+
+
 @draw_and_compare('crack-two-eggs-at-once.png')
 def test_crack_two_eggs_at_once():
     from discopy.monoidal import Layer
