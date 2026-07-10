@@ -76,6 +76,8 @@ class Function(function.Function, ClosedCategory):
     ob = Ty
 
     def __call__(self, *xs):
+        if all(x is None for x in xs) and not self.dom:
+            xs = ()
         if self.type_checking:
             if len(xs) != len(self.dom):
                 raise ValueError
@@ -83,12 +85,13 @@ class Function(function.Function, ClosedCategory):
                 callable(x) or assert_isinstance(x, t)
         ys = self.inside(*xs)
         if self.type_checking:
-            if len(self.cod) != 1 and (
-                    not isinstance(ys, tuple) or len(self.cod) != len(ys)):
-                raise RuntimeError
+            if not self.cod:
+                assert ys is None or ys == ()
+            elif len(self.cod) != 1:
+                assert isinstance(ys, tuple) and len(self.cod) == len(ys)
             for (y, t) in zip(tuplify(ys), self.cod):
                 callable(y) or assert_isinstance(y, t)
-        return ys
+        return () if ys is None and not self.cod else ys
 
     def tensor(self, other: Function) -> Function:
         """
