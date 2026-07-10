@@ -89,7 +89,8 @@ def run_group(bench_flags: str, k_expr: str) -> bytes:
         cwd="/discopy", check=True, env=env)
     subprocess.run(
         ["uv", "run", "--python", PYTHON_VERSION, "pytest", "benchmark/", "-v",
-         "-k", k_expr, "--benchmark-json=/tmp/bench.json"],
+         "--ignore=benchmark/modal_app.py", "-k", k_expr,
+         "--benchmark-json=/tmp/bench.json"],
         cwd="/discopy", check=True, env=env)
     return pathlib.Path("/tmp/bench.json").read_bytes()
 

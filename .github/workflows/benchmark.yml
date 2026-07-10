@@ -50,7 +50,7 @@ jobs:
       run: |
         mkdir -p benchmark-results
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          uv run pytest benchmark/ -v --benchmark-json=benchmark-results/bench.json
+          uv run pytest benchmark/ -v --ignore=benchmark/modal_app.py --benchmark-json=benchmark-results/bench.json
         else
           uv run --with modal==1.5.1 modal run benchmark/modal_app.py \
             --bench-flags bench:full \
