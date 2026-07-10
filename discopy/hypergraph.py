@@ -230,11 +230,19 @@ class Hypergraph(MonoidalCategory, NamedGeneric['category']):
 
         for obj in self.spider_types:
             assert_isatomic(obj, self.category.ob)
-        for obj, wires in zip(self.spider_types, self.spider_wires):
-            for i in set.union(*wires):
+        for obj, (producers, consumers) in zip(
+                self.spider_types, self.spider_wires):
+            for i in producers | consumers:
                 if self.ports[i].obj.unwind() != obj:
                     raise AxiomError(messages.TYPE_ERROR.format(
                         obj, self.ports[i].obj))
+            same_side = producers if len(producers) == 2 else\
+                consumers if len(consumers) == 2 else None
+            if same_side is not None:
+                left, right = (self.ports[i].obj for i in sorted(same_side))
+                if getattr(left, "r", left) != right\
+                        and getattr(right, "r", right) != left:
+                    raise AxiomError(messages.NOT_ADJOINT.format(left, right))
 
         self.offsets = offsets or tuple(len(boxes) * [None])
 

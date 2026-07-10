@@ -103,6 +103,18 @@ def test_AxiomError():
         H.caps(x @ y, x @ y)
 
 
+def test_non_adjoint_wire():
+    from discopy import compact
+    x = compact.Ty('x')
+    K = compact.Hypergraph
+    # A cap with non-adjoint legs (x, x) is rejected at construction.
+    with raises(AxiomError):
+        K(compact.Ty(), x @ x, (), ((), (), (0, 0)))
+    # Adjoint cups and caps, and self-dual frobenius caps, are fine.
+    assert K.cups(x, x.r) and K.caps(x.r, x)
+    assert Cap(Ty('x'), Ty('x')).to_hypergraph()
+
+
 def test_cups():
     x = Ty('x')
     assert H.cups(x, x).make_monogamous().dagger()\
