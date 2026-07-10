@@ -25,6 +25,7 @@ from discopy import (
     python,
     matrix,
     tensor,
+    neural,
     quantum,
     grammar,
     drawing,
