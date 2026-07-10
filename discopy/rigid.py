@@ -566,8 +566,8 @@ class Box(biclosed.Box, Diagram):
         return biclosed.Box.__repr__(self)[:-1] + (
             f', z={self.z})' if self.z else ')')
 
-    def hash_data(self):
-        return super().hash_data() + (self.z, )
+    def setoid(self):
+        return super().setoid() + (self.z, )
 
     def rotate(self, left=False):
         dom, cod = (

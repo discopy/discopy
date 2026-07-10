@@ -230,7 +230,7 @@ class QuantumGate(Box):
                 state["_z"] = GATES[state["_name"]].z
         super().__setstate__(state)
 
-    def hash_data(self):
+    def setoid(self):
         return (repr(self), )  # Avoid hashing the matrix data
 
 

@@ -414,10 +414,10 @@ class Box(markov.Box, Diagram):
         time_step = f", time_step={self.time_step}" if self.time_step else ""
         return super().__repr__()[:-1] + time_step + ")"
 
-    def hash_data(self):
+    def setoid(self):
         if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.hash_data(self)
-        return markov.Box.hash_data(self) + (self.time_step, )
+            return Diagram.setoid(self)
+        return markov.Box.setoid(self) + (self.time_step, )
 
 
 class Swap(markov.Swap, Box):

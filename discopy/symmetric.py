@@ -244,7 +244,7 @@ class Diagram(balanced.Diagram, SymmetricCategory):
             return self.to_hypergraph().generator
         return super().generator
 
-    def hash_data(self):
+    def setoid(self):
         """
         Return an encoding of the equivalence class that a diagram belongs to,
         used as subroutines for equality and hashing.
@@ -256,8 +256,8 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         if self.use_hypergraph_equality:
             hypergraph = self.to_hypergraph()
             generator = hypergraph.generator
-            return hypergraph if generator is None else generator.hash_data()
-        return super().hash_data()
+            return hypergraph if generator is None else generator.setoid()
+        return super().setoid()
 
     @classproperty
     @contextmanager
@@ -294,10 +294,10 @@ class Box(balanced.Box, Diagram):
         dom (monoidal.Ty) : The domain of the box, i.e. its input.
         cod (monoidal.Ty) : The codomain of the box, i.e. its output.
     """
-    def hash_data(self):
+    def setoid(self):
         if self.use_hypergraph_equality and not self.is_generator:
-            return Diagram.hash_data(self)
-        return balanced.Box.hash_data(self)
+            return Diagram.setoid(self)
+        return balanced.Box.setoid(self)
 
 
 class Swap(balanced.Braid, Box):
@@ -334,9 +334,9 @@ class Trace(balanced.Trace, Box):
     --------
     :meth:`Diagram.trace`
     """
-    def hash_data(self):
-        return Box.hash_data(self) if self.use_hypergraph_equality else\
-            balanced.Trace.hash_data(self)
+    def setoid(self):
+        return Box.setoid(self) if self.use_hypergraph_equality else\
+            balanced.Trace.setoid(self)
 
 
 class Sum(balanced.Sum, Box):

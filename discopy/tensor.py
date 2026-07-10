@@ -631,7 +631,7 @@ class Box(frobenius.Box, Diagram):
             func=lambda x: getattr(x, "diff", lambda _: 0)(var),
             drawing_name=f"$\\partial {var}$")
 
-    def hash_data(self):
+    def setoid(self):
         data = () if self.data is None else\
             tuple(self.data) if isinstance(self.data, list) else (self.data, )
         return (self.name, self.dom, self.cod, self.dtype) + data

@@ -333,23 +333,40 @@ class Arrow(FreeCategory):
         """ Returns the only box in an `Arrow` of length 1. """
         return self.inside[0] if self.is_generator else None
 
-    def hash_data(self):
+    def setoid(self):
         """
         Returns data that faithfully describes an `Arrow` making sure that
-        `self.generator.hash_data == self.hash_data` when `self.is_generator`.
+        `self.generator.setoid == self.setoid` when `self.is_generator`.
         This is used to define `Arrow.__eq__` and `Arrow.__hash__`.
+
+        Abstract
+        --------
+        We are defining a [setoid](https://en.wikipedia.org/wiki/Setoid) with
+        the type `Arrow` quotiented by `f.setoid() == g.setoid()` so that the
+        equivalence class satisfies the axioms of category theory e.g.
+
+        >>> f = Box('f', Ob("X"), Ob("Y"))
+        >>> f_ = f >> Id(f.cod)
+        >>> assert f.setoid() == f_.setoid()
+        >>> assert f is not f_ and f == f_
+
+        Warning
+        -------
+        Messing around with this method can lead to so-called **setoid hell**.
+        In Python there is no way to give a formal proof that a function, e.g.
+        functor application, is in fact a morphism of setoids, i.e. that it
+        sends equal inputs to equal outputs.
         """
         generator = self.generator
         if generator is None:
             return (self.inside, self.dom, self.cod)
-        return generator.hash_data()
+        return generator.setoid()
 
     def __eq__(self, other):
-        return isinstance(other, self.ar) and\
-            self.hash_data() == other.hash_data()
+        return isinstance(other, self.ar) and self.setoid() == other.setoid()
 
     def __hash__(self):
-        return hash(self.hash_data())
+        return hash(self.setoid())
 
     def then(self, *others: Arrow) -> Arrow:
         """
@@ -577,7 +594,7 @@ class Box(Arrow):
     def __str__(self):
         return str(self.name) + ("[::-1]" if self.is_dagger else '')
 
-    def hash_data(self):
+    def setoid(self):
         attributes = self.name, self.dom, self.cod, self.is_dagger, self.data
         return (type(self), ) + attributes
 
@@ -642,8 +659,8 @@ class Sum(Box):
         self.terms = terms
         super().__init__(name, dom, cod)
 
-    def hash_data(self):
-        return self.terms[0].hash_data() if len(self.terms) == 1 else (
+    def setoid(self):
+        return self.terms[0].setoid() if len(self.terms) == 1 else (
             type(self), self.terms, self.dom, self.cod)
 
     def __repr__(self):
@@ -741,8 +758,8 @@ class Bubble(Box):
         return len(self.args) == 1 and (
             self.dom, self.cod) == (self.arg.dom, self.arg.cod)
 
-    def hash_data(self):
-        args_data = tuple(f.hash_data() for f in self.args)
+    def setoid(self):
+        args_data = tuple(f.setoid() for f in self.args)
         return (type(self), ) + args_data + tuple(getattr(self, x) for x in (
             "dom", "cod", "name", "method"))
 
