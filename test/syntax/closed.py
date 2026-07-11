@@ -112,3 +112,87 @@ def test_substitution():
     assert substitution(Abstraction(z, f(z))) == Abstraction(z, f(z))
     # a substitution does not cross a binder for the same variable
     assert substitution(Abstraction(x, f(x))) == Abstraction(x, f(x))
+
+
+def church(n, o=Unitype()):
+    def body(f):
+        def inner(x):
+            result = x
+            for _ in range(n):
+                result = f(result)
+            return result
+        return o(inner)
+    return o(body)
+
+
+def test_unitype():
+    o = Unitype()
+    assert o == Ty("o") and o >> o == o == o << o == o ** o
+    assert o.is_exp and o.base == o.exponent == o
+    assert (o >> Ty("X")) != o  # ordinary exponentials still work
+    assert church(2).cod == o and church(2)(church(2)).cod == o
+
+
+def test_bohm_tree_church_arithmetic():
+    o = Unitype()
+    add = o(lambda m: o(lambda n: o(lambda f: o(lambda x:
+        m(f)(n(f)(x))))))
+    mult = o(lambda m: o(lambda n: o(lambda f: m(n(f)))))
+    exponent = o(lambda m: o(lambda n: n(m)))
+
+    def tree(term):
+        return BohmTree.from_term(term)
+
+    assert tree(add(church(2))(church(3))) == tree(church(5))
+    assert hash(tree(church(5))) == hash(tree(add(church(2))(church(3))))
+    assert tree(mult(church(2))(church(3))) == tree(church(6))
+    assert tree(exponent(church(2))(church(3))) == tree(church(8))
+    assert tree(church(0)) == tree(add(church(0))(church(0)))
+    assert tree(mult(church(2))(church(0))) == tree(church(0))
+
+
+def test_bohm_tree_idempotent():
+    o = Unitype()
+    mult = o(lambda m: o(lambda n: o(lambda f: m(n(f)))))
+    for term in [church(0), church(3), mult(church(2))(church(2))]:
+        tree = BohmTree.from_term(term)
+        assert BohmTree.from_term(tree.to_term()) == tree
+
+
+def test_bohm_tree_budget():
+    o = Unitype()
+    term = church(2)(church(2))  # 2 ** 2, needs several beta steps
+    assert BohmTree.from_term(term, budget=0) is None
+    complete = BohmTree.from_term(term)
+    partial = BohmTree.from_term(term, budget=4)
+    assert partial is not None and partial != complete
+    assert None in partial.args or any(
+        arg and None in arg.args for arg in partial.args)
+    with raises(ValueError):
+        partial.to_term()
+    assert BohmTree.from_term(term, budget=100) == complete
+
+
+def test_bohm_tree_names_and_scope():
+    o = Unitype()
+    identity = o(lambda u: u)
+    tree = BohmTree.from_term(identity)
+    assert tree.variables[0].name == "u"  # names are preserved
+    assert str(tree.to_term()) == str(identity)
+    free = Variable("z", o)
+    tree = BohmTree.from_term(identity(free), scope=(free, ))
+    assert tree.head == 0 and tree.to_term(scope=(free, )) == free
+
+
+def test_bohm_tree_constant_head():
+    o = Unitype()
+    with raises(NotImplementedError):
+        BohmTree.from_term(o("a"))
+
+
+def test_substitution_capture():
+    o = Unitype()
+    u, v = Variable("u", o), Variable("v", o)
+    renamed = Substitution({u: v})(Abstraction(v, u(v)))
+    assert renamed.var not in (u, v)
+    assert renamed.body == v(renamed.var)
