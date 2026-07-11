@@ -307,22 +307,26 @@ class Dim(Ty):
     A dimension is a tuple of positive integers
     with product ``@`` and unit ``Dim(1)``.
 
+    The unit is the class attribute ``unit``, dropped from the tuple:
+    subclasses may override it, e.g. additive dimensions with unit 0.
+
     Example
     -------
     >>> Dim(1) @ Dim(2) @ Dim(3)
     Dim(2, 3)
     """
     ob_factory = int
+    unit = 1
 
     def __init__(self, *inside: int):
         for dim in inside:
             assert_isinstance(dim, int)
-            if dim < 1:
+            if dim < self.unit:
                 raise ValueError
-        super().__init__(*(dim for dim in inside if dim > 1))
+        super().__init__(*(dim for dim in inside if dim != self.unit))
 
     def __repr__(self):
-        return f"Dim({', '.join(map(repr, self.inside)) or '1'})"
+        return f"Dim({', '.join(map(repr, self.inside)) or repr(self.unit)})"
 
     __str__ = __repr__
 
