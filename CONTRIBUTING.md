@@ -206,4 +206,4 @@ We recommend using our [AGENTS.md](AGENTS.md) in your prompts so that the model 
 LLMs have shifted the bottleneck of software development from writing code to reviewing it, please ensure that your AI assistants save more human time than they require to supervise them.
 In particular, AI contributions should be small (a thousand lines is a red line not to cross lightly) and well-planned (delegate the execution not the design).
 
-One specific guideline for PR descriptions: it's fine to have the detailed list of changes LLM-generated but the high-level description should be either written by a human or quoting a human's prompt verbatim.
+One specific guideline for PR descriptions: they should follow the why-what-how template provided [here](.github/pull_request_template.md), in particular it's fine to have the detailed list of changes LLM-generated but the high-level description should be either written by a human or quoting a human's prompt verbatim.
