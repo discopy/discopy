@@ -609,6 +609,66 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
+    def from_wiring(cls, boxes: tuple[Box, ...], wires) -> CMap:
+        """
+        A closed map given by boxes and wires between pairs
+        ``(box_index, port_position)``, where the position counts the
+        domain ports of the box followed by its codomain ports.
+
+        Parameters:
+            boxes : The boxes of the map.
+            wires : Pairs of ``(box_index, port_position)`` pairs.
+
+        Raises:
+            ValueError : If a port is left unwired or wired twice.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, CMap
+        >>> x = Ty('x')
+        >>> f, g = Box('f', x, x @ x), Box('g', x @ x, x)
+        >>> cm = CMap.from_wiring((f, g), [
+        ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
+        >>> assert cm.edges.is_fixpoint_free_involution()
+        >>> CMap.from_wiring((f, ), [((0, 0), (0, 0))])
+        Traceback (most recent call last):
+            ...
+        ValueError: Port (0, 0) is wired to itself.
+        """
+        boxes = tuple(boxes)
+        starts, n_ports = [], 0
+        for box in boxes:
+            starts.append(n_ports)
+            n_ports += len(box.dom) + len(box.cod)
+
+        def global_index(box_index: int, position: int) -> int:
+            box = boxes[box_index]
+            arity, coarity = len(box.dom), len(box.cod)
+            if not 0 <= position < arity + coarity:
+                raise ValueError(
+                    f"Box {box_index} has no port {position}.")
+            if position < arity:
+                return starts[box_index] + position
+            return starts[box_index] + arity\
+                + (coarity - 1 - (position - arity))
+
+        pairs, seen = [], set()
+        for (one, other) in wires:
+            i, j = global_index(*one), global_index(*other)
+            if i == j:
+                raise ValueError(f"Port {one} is wired to itself.")
+            for port, position in ((i, one), (j, other)):
+                if port in seen:
+                    raise ValueError(f"Port {position} is wired twice.")
+            seen.update((i, j))
+            pairs.append((i, j))
+        if len(seen) != n_ports:
+            missing = sorted(set(range(n_ports)) - seen)
+            raise ValueError(f"Ports {missing} are left unwired.")
+        edges = Permutation.from_transpositions(pairs, n_ports)
+        return cls(cls.ob(), cls.ob(), boxes, edges)
+
+    @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
         """
         Turn a :class:`Diagram` into a :class:`CMap`.

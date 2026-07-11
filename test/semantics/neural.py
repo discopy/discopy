@@ -7,10 +7,20 @@ from discopy.neural import Box, CMap, Diagram, Functor, Id
 from discopy.utils import AxiomError
 
 
+def mlp(width):
+    torch = importorskip("torch")
+    return torch.nn.Sequential(
+        torch.nn.Linear(width, 2 * width), torch.nn.Tanh(),
+        torch.nn.Linear(2 * width, width))
+
+
 def test_dim():
+    assert Dim(0) == Dim() == Dim(0, 0)
+    assert Dim(0) @ Dim(2) == Dim(2) and Dim(2) @ Dim(3) == Dim(2, 3)
     assert Dim(2).l == Dim(2).r == Dim(2)
     assert Dim(2, 3).r == Dim(3, 2)
-    assert Dim(1) @ Dim(2) == Dim(2) and Dim(2) @ Dim(3) == Dim(2, 3)
+    with raises(ValueError):
+        Dim(-1)
 
 
 def test_axioms():
@@ -23,15 +33,14 @@ def test_axioms():
 
 
 def test_network_as_box():
-    f = Network('f', Dim(2), Dim(3), hidden_dim=4, hidden_depth=2)
+    f = Network('f', Dim(2), Dim(3))
     g = Network('g', Dim(3), Dim(2))
     assert (f >> g).dom == Dim(2) and (f @ g).cod == Dim(3, 2)
     assert f.dagger().dom == Dim(3) and f.rotate().cod == Dim(2)
-    assert f.width == 5 and repr(f) \
-        == "neural.Network('f', dom=Dim(2), cod=Dim(3))"
+    assert repr(f) == "neural.Network('f', dom=Dim(2), cod=Dim(3))"
     assert Network('f', Dim(2), Dim(3)) == Network('f', Dim(2), Dim(3))
     one, other = (
-        Network('f', Dim(2), Dim(3), data=object()) for _ in range(2))
+        Network('f', Dim(2), Dim(3), module=object()) for _ in range(2))
     assert one != other and one == one.dagger().dagger()
 
 
@@ -104,20 +113,18 @@ def test_decode_sudoku():
     assert decode_sudoku(logits, (1, ) * 16) == (1, ) * 16
 
 
-def test_default_module():
+def test_network_module():
     torch = importorskip("torch")
-    f = Network('f', Dim(2), Dim(3))
-    assert f.module(torch.ones(5, 5)).shape == (5, 5)
-    assert f.module is f.data is f.dagger().module
+    f = Network('f', Dim(2), Dim(3), module=mlp(5))
+    assert f.module(torch.ones(4, 5)).shape == (4, 5)
     assert f(torch.ones(1, 5)).shape == (1, 5)
-    deep = Network('g', Dim(2), Dim(3), hidden_dim=7, hidden_depth=2).module
-    assert deep[0].out_features == 7 and len(deep) == 5
+    assert f.module is f.data is f.dagger().module
 
 
 def test_weight_sharing():
     importorskip("torch")
-    grid = sudoku(2, 4)
-    cell = grid.boxes[0]
+    cell = Network('cell', Dim(0), Dim(4) ** 7, module=mlp(28))
+    grid = sudoku(2, network=cell)
     assert len(grid.module_list) == 1
     assert sum(p.numel() for p in grid.parameters()) \
         == sum(p.numel() for p in cell.module.parameters())
@@ -135,7 +142,7 @@ def test_forward_rerouting():
 
 def test_forward_open_map():
     torch = importorskip("torch")
-    f = Network('f', Dim(2), Dim(3))
+    f = Network('f', Dim(2), Dim(3), module=mlp(5))
     x = torch.rand(4, 2)
     expected = f.module(torch.cat([x, torch.zeros(4, 3)], dim=-1))[:, 2:]
     assert torch.allclose(f.to_map()(x), expected)
@@ -145,7 +152,8 @@ def test_forward_open_map():
 def test_forward_closed_map():
     torch = importorskip("torch")
     torch.manual_seed(0)
-    grid = sudoku(2, 3)
+    cell = Network('cell', Dim(0), Dim(3) ** 7, module=mlp(21))
+    grid = sudoku(2, network=cell)
     states = grid()
     assert len(states) == 16 and all(s.shape == (1, 21) for s in states)
     init = torch.rand(5, sum(grid.port_widths))
@@ -158,28 +166,32 @@ def test_forward_closed_map():
     assert all(p.grad is not None for p in grid.parameters())
 
 
-def test_forward_type_error():
+def test_forward_errors():
     importorskip("torch")
     box_map = Box('f', Dim(2), Dim(2)).to_map()
     with raises(TypeError):
         box_map.module_list
     with raises(TypeError):
         box_map()
+    with raises(ValueError):  # a network with no module
+        Network('f', Dim(2), Dim(2)).to_map().module_list
 
 
 def test_torch_protocol():
     torch = importorskip("torch")
-    grid = sudoku(2, 2)
+    cell = Network('cell', Dim(0), Dim(2) ** 7, module=mlp(14))
+    grid = sudoku(2, network=cell)
     assert grid.train() is grid and grid.eval() is grid
     assert grid.to(torch.float32) is grid
     assert dict(grid.named_parameters()).keys() \
         == grid.state_dict().keys()
     grid.load_state_dict(grid.state_dict())
-    module = grid.as_module()
-    assert list(module.parameters()) == list(grid.parameters())
-    outer = torch.nn.Sequential(module)
+    network = grid.as_network()
+    assert network.dom == network.cod == Dim(0)
+    assert list(network.module.parameters()) == list(grid.parameters())
+    outer = torch.nn.Sequential(network.module)
     assert list(outer.parameters()) == list(grid.parameters())
-    states = module()
+    states = network()
     assert len(states) == 16
 
 
@@ -187,8 +199,10 @@ def test_training():
     torch = importorskip("torch")
     torch.manual_seed(0)
     n_cells, n_digits, dim = 16, 4, 4
-    grid = sudoku(2, dim)
     n_peers = len(sudoku_peers()[0])
+    cell = Network('cell', Dim(0), Dim(dim) ** n_peers,
+                   module=mlp(n_peers * dim))
+    grid = sudoku(2, network=cell)
     embedding = torch.nn.Embedding(n_digits + 1, dim)
     readout = torch.nn.Linear(n_peers * dim, n_digits)
     optimizer = torch.optim.Adam([

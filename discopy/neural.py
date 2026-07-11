@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
 
 """
-The compact closed category of bidirectional neural networks, with dimensions
-as objects and concatenation as tensor.
+The compact closed category of bidirectional neural networks, with additive
+dimensions as objects and concatenation as tensor.
 
 A :class:`Network` with domain ``Dim(a_1, ..., a_m)`` and codomain
 ``Dim(b_1, ..., b_n)`` carries one :class:`torch.nn.Module` from ``R ** w``
 to ``R ** w`` for ``w = a_1 + ... + a_m + b_1 + ... + b_n``, reading incoming
 messages on all its ports and emitting outgoing messages on all its ports.
-Dimensions are self-dual so that cups, caps and swaps are pure rerouting.
+Networks compose with the cartesian product of vector spaces, so the tensor
+of dimensions is their sum with the zero-dimensional space ``Dim(0)`` as
+unit; dimensions are self-dual so that cups, caps and swaps are pure
+rerouting.
 
 The combinatorial maps of this category are graph neural networks: the
 :meth:`CMap.forward` pass does synchronous message passing along the wires,
@@ -17,9 +20,8 @@ which implements the execution formula of the geometry of interaction, see
 of Joyal, Street & Verity :cite:p:`JoyalEtAl96`.
 
 Note that ``import discopy.neural`` does not import ``torch``: networks can
-be built, composed and rewired without it, only building or evaluating their
-modules requires it. Since ``Dim(1)`` is the unit of the tensor, every port
-carries a dimension of at least two.
+be built, composed and rewired without it, only evaluating their modules
+requires it.
 
 Summary
 -------
@@ -29,6 +31,7 @@ Summary
     :nosignatures:
     :toctree:
 
+    Dim
     Diagram
     Box
     Network
@@ -53,24 +56,6 @@ Summary
         check_sudoku
         decode_sudoku
 
-Axioms
-------
-
->>> x, y = Dim(2), Dim(3)
->>> Diagram.use_hypergraph_equality = True
-
-Snake equations, with self-dual objects:
-
->>> assert x.l == x.r == x
->>> assert Id(x).transpose() == Id(x) == Id(x).transpose(left=True)
-
-Yanking:
-
->>> assert Cap(x, x.r) >> Swap(x, x.r) == Cap(x.r, x)
->>> assert Swap(x, x.r) >> Cup(x.r, x) == Cup(x, x.r)
-
->>> Diagram.use_hypergraph_equality = False
-
 Example
 -------
 
@@ -88,18 +73,31 @@ under the execution formula, e.g. rerouting for a snake:
 from __future__ import annotations
 
 import random
-from math import prod
 from typing import TYPE_CHECKING
 
-from discopy import compact
-from discopy.cat import ar_factory
+from discopy import compact, monoidal
+from discopy.cat import ar_factory, ob_factory
 from discopy.cmap import PortKind
-from discopy.frobenius import Dim  # noqa: F401
-from discopy.python.finset import Permutation
+from discopy.pivotal import Ty
 from discopy.utils import assert_isinstance
 
 if TYPE_CHECKING:
     import torch
+
+
+@ob_factory
+class Dim(monoidal.Dim, Ty):
+    """
+    A dimension is a tuple of positive integers seen as a self-dual type,
+    with addition as tensor and the zero-dimensional space as unit.
+
+    Example
+    -------
+    >>> assert Dim(0) == Dim() and Dim(0) @ Dim(2) @ Dim(3) == Dim(2, 3)
+    >>> assert Dim(2, 3).l == Dim(2, 3).r == Dim(3, 2)
+    """
+    unit = 0
+    l = r = property(lambda self: self.ob(*self.inside[::-1]))
 
 
 @ar_factory
@@ -158,83 +156,45 @@ class Swap(compact.Swap, Box):
 
 class Network(Box):
     """
-    A network is a neural box together with a torch module computing it,
-    stored in its ``data`` attribute and built lazily when first accessed.
+    A network is a neural box together with a torch module computing it.
 
-    The module maps ``R ** width`` to ``R ** width``, reading one incoming
-    message and emitting one outgoing message on every port, in the order
-    given by the domain followed by the codomain. Reusing the same network
-    instance, or the same inner module, as several boxes shares its weights.
+    The module maps ``R ** width`` to ``R ** width`` for ``width`` the sum
+    of the domain and codomain dimensions, reading one incoming message and
+    emitting one outgoing message on every port, in the order given by the
+    domain followed by the codomain. Reusing the same network instance, or
+    the same module, as several boxes shares its weights.
 
     Parameters:
         name : The name of the network.
         dom : The domain of the network, i.e. its input.
         cod : The codomain of the network, i.e. its output.
-        data : The inner torch module, built by :meth:`default_module`
-               when it is left as ``None``.
-        hidden_dim : The width of the hidden layers of the default module.
-        hidden_depth : The number of hidden layers of the default module.
+        module : The torch module of the network.
 
     Note
     ----
-    Networks compare equal when they have the same name, shape and inner
-    module, where unbuilt modules compare equal and built modules compare
-    by identity. The dagger and rotation of a network reuse its module,
-    with the weights read in the new port order.
+    Networks compare equal when they have the same name, shape and module,
+    where missing modules compare equal and given modules compare by
+    identity. The dagger and rotation of a network reuse its module, with
+    the weights read in the new port order.
 
     Example
     -------
-    >>> f = Network('f', Dim(2), Dim(3))
-    >>> g = Network('g', Dim(3), Dim(2))
+    >>> import torch
+    >>> f = Network('f', Dim(2), Dim(3), module=torch.nn.Linear(5, 5))
+    >>> g = Network('g', Dim(3), Dim(2), module=torch.nn.Linear(5, 5))
     >>> (f >> g).dom == (f >> g).cod == Dim(2)
     True
-    >>> f.width
-    5
-    >>> import torch
     >>> f.module(torch.ones(1, 5)).shape
     torch.Size([1, 5])
     >>> assert f[::-1].module is f.module
     """
-    def __init__(self, name: str, dom: Dim, cod: Dim, data=None,
-                 hidden_dim: int = None, hidden_depth: int = 1, **params):
-        self.hidden_dim, self.hidden_depth = hidden_dim, hidden_depth
-        super().__init__(name, dom, cod, data=data, **params)
+    def __init__(self, name: str, dom: Dim, cod: Dim,
+                 module: "torch.nn.Module" = None, data=None, **params):
+        self.module = module if module is not None else data
+        super().__init__(name, dom, cod, data=self.module, **params)
 
-    @property
-    def width(self) -> int:
-        """ The total dimension of the ports of the network. """
-        return sum(self.dom.inside) + sum(self.cod.inside)
-
-    @staticmethod
-    def default_module(width: int, hidden_dim: int = None,
-                       hidden_depth: int = 1) -> "torch.nn.Module":
-        """
-        The default architecture: a multi-layer perceptron from ``R ** width``
-        to ``R ** width`` with ``hidden_depth`` hidden layers of size
-        ``hidden_dim``, which defaults to twice the width.
-        """
-        import torch
-        hidden_dim = hidden_dim or 2 * width
-        layers = [torch.nn.Linear(width, hidden_dim), torch.nn.Tanh()]
-        for _ in range(hidden_depth - 1):
-            layers += [torch.nn.Linear(hidden_dim, hidden_dim),
-                       torch.nn.Tanh()]
-        layers.append(torch.nn.Linear(hidden_dim, width))
-        return torch.nn.Sequential(*layers)
-
-    @property
-    def module(self) -> "torch.nn.Module":
-        """
-        The inner torch module, built and written back into ``data`` on
-        first access so that every derived box shares the same weights.
-        """
-        if self.data is None:
-            self.data = self.default_module(
-                self.width, self.hidden_dim, self.hidden_depth)
-        return self.data
-
-    def __call__(self, x: "torch.Tensor") -> "torch.Tensor":
-        return self.module(x)
+    def __call__(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
 
     def __repr__(self):
         return f"neural.Network({self.name!r}, " \
@@ -267,12 +227,11 @@ class CMap(compact.CMap):
     per port, travelling along the wires given by the ``edges`` involution.
     An optimizer only needs :meth:`parameters` and a training loop only
     needs to call the map, so it can be trained like any torch module;
-    :meth:`as_module` wraps it into a genuine one for use inside a larger
-    model.
+    :meth:`as_network` wraps it back into a :class:`Network` with a fresh
+    module inside, for use inside a larger model.
 
     Example
     -------
-    >>> from discopy.python.finset import Permutation
     >>> f = Network('f', Dim(2), Dim(3, 2))
     >>> fm = f.to_map()
     >>> fm.box_ports(0)
@@ -299,67 +258,8 @@ class CMap(compact.CMap):
     def port_widths(self) -> tuple[int, ...]:
         """ The dimension carried by each port of the map. """
         return tuple(
-            prod(getattr(port.obj, "inside", (port.obj, )))
+            sum(getattr(port.obj, "inside", (port.obj, )))
             for port in self.ports)
-
-    @classmethod
-    def from_wiring(cls, boxes: tuple[Box, ...], wires) -> CMap:
-        """
-        A closed map given by boxes and wires between pairs
-        ``(box_index, port_position)``, where the position counts the
-        domain ports of the box followed by its codomain ports.
-
-        Parameters:
-            boxes : The boxes of the map.
-            wires : Pairs of ``(box_index, port_position)`` pairs.
-
-        Raises:
-            ValueError : If a port is left unwired or wired twice.
-
-        Example
-        -------
-        >>> f = Network('f', Dim(2), Dim(2, 3))
-        >>> g = Network('g', Dim(3), Dim(2, 2))
-        >>> cm = CMap.from_wiring((f, g), [
-        ...     ((0, 0), (1, 1)), ((0, 1), (1, 2)), ((0, 2), (1, 0))])
-        >>> assert cm.edges.is_fixpoint_free_involution()
-        >>> CMap.from_wiring((f, ), [((0, 0), (0, 0))])
-        Traceback (most recent call last):
-            ...
-        ValueError: Port (0, 0) is wired to itself.
-        """
-        boxes = tuple(boxes)
-        starts, n_ports = [], 0
-        for box in boxes:
-            starts.append(n_ports)
-            n_ports += len(box.dom) + len(box.cod)
-
-        def global_index(box_index: int, position: int) -> int:
-            box = boxes[box_index]
-            arity, coarity = len(box.dom), len(box.cod)
-            if not 0 <= position < arity + coarity:
-                raise ValueError(
-                    f"Box {box_index} has no port {position}.")
-            if position < arity:
-                return starts[box_index] + position
-            return starts[box_index] + arity\
-                + (coarity - 1 - (position - arity))
-
-        pairs, seen = [], set()
-        for (one, other) in wires:
-            i, j = global_index(*one), global_index(*other)
-            if i == j:
-                raise ValueError(f"Port {one} is wired to itself.")
-            for port, position in ((i, one), (j, other)):
-                if port in seen:
-                    raise ValueError(f"Port {position} is wired twice.")
-            seen.update((i, j))
-            pairs.append((i, j))
-        if len(seen) != n_ports:
-            missing = sorted(set(range(n_ports)) - seen)
-            raise ValueError(f"Ports {missing} are left unwired.")
-        edges = Permutation.from_transpositions(pairs, n_ports)
-        return cls(cls.ob(), cls.ob(), boxes, edges)
 
     @property
     def module_list(self) -> "torch.nn.ModuleList":
@@ -369,6 +269,8 @@ class CMap(compact.CMap):
             modules, seen = [], set()
             for box in self.boxes:
                 assert_isinstance(box, Network)
+                if box.module is None:
+                    raise ValueError(f"{box!r} has no module.")
                 if id(box.module) not in seen:
                     seen.add(id(box.module))
                     modules.append(box.module)
@@ -405,10 +307,15 @@ class CMap(compact.CMap):
         self.module_list.to(*args, **kwargs)
         return self
 
-    def as_module(self) -> "torch.nn.Module":
+    def as_network(self, name: str = "network") -> Network:
         """
-        Wrap the map into a genuine torch module, registering the modules
-        of its networks so that it can be used inside a larger model.
+        Wrap the map back into a :class:`Network` with a fresh torch module
+        inside, whose forward pass is the message passing of the map. The
+        module registers the modules of the networks inside the map, so
+        that the result can be used inside a larger model.
+
+        Parameters:
+            name : The name of the network.
         """
         import torch
         cmap = self
@@ -423,7 +330,7 @@ class CMap(compact.CMap):
                 """ Message passing over the wrapped map. """
                 return cmap.forward(*args, **kwargs)
 
-        return CMapModule()
+        return Network(name, self.dom, self.cod, module=CMapModule())
 
     def forward(self, x: "torch.Tensor" = None, init=None,
                 n_rounds: int = None, inject: bool = True):
@@ -563,8 +470,8 @@ def sudoku(n: int = 2, dim: int = 2, network: Network = None) -> CMap:
         n : The size of a block, i.e. 2 for a 4x4 grid, 3 for 9x9.
         dim : The width of the messages between cells.
         network : The shared cell network,
-                  ``Network('cell', Dim(1), Dim(dim) ** len(peers))``
-                  by default.
+                  ``Network('cell', Dim(0), Dim(dim) ** len(peers))``
+                  by default, with no module.
 
     Example
     -------
@@ -577,7 +484,7 @@ def sudoku(n: int = 2, dim: int = 2, network: Network = None) -> CMap:
     """
     peers = sudoku_peers(n)
     network = network if network is not None\
-        else Network('cell', Dim(1), Dim(dim) ** len(peers[0]))
+        else Network('cell', Dim(0), Dim(dim) ** len(peers[0]))
     wires = [
         ((cell, peers[cell].index(other)), (other, peers[other].index(cell)))
         for cell in range(n ** 4) for other in peers[cell] if cell < other]
