@@ -210,37 +210,6 @@ class Functor(biclosed.Functor):
             return self.cod.bx(self(left), self(middle), self(right))
         return super().__call__(other)
 
-    def map_term(self, term):
-        """
-        Send a categorial term to a term in the codomain's internal language,
-        translating composition and type raising into lambda terms.
-
-        Crossed composition requires a symmetric codomain, i.e. one where
-        left and right exponentials coincide.
-
-        Parameters:
-            term : The term to which the functor is applied.
-        """
-        ob = self.cod.ob
-        if isinstance(term, (TypeRaising, FC, BC)):
-            return self(term.simplify())
-        if isinstance(term, (FX, BX)):
-            if ob.over_factory is not ob.under_factory:
-                raise AxiomError(
-                    "Crossed composition requires a codomain with "
-                    "coinciding left and right exponentials.")
-            func, args = self(term.left), self(term.right)
-            if isinstance(term, FX):
-                var = ob.variable_factory(
-                    "x", self(term.right.cod.exponent))
-                body = func(args(var))
-            else:
-                var = ob.variable_factory(
-                    "x", self(term.left.cod.exponent))
-                body = args(func(var))
-            return ob.abstraction_factory(var, body)
-        return super().map_term(term)
-
 
 class CMap(biclosed.CMap):
     """
@@ -324,6 +293,9 @@ class TypeRaising(TermBase):
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
 
+    def map(self, functor):
+        return functor(self.simplify())
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.base!r}, {self.child!r})"
 
@@ -373,6 +345,9 @@ class BinaryTerm(TermBase):
 
     def eval(self, **kwargs):
         return self.simplify().eval(**kwargs)
+
+    def map(self, functor):
+        return functor(self.simplify())
 
     def __repr__(self):
         return factory_name(type(self)) + f"({self.left!r}, {self.right!r})"
@@ -443,6 +418,16 @@ class FX(BinaryTerm):
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.fx(*map(functor, [X, Y, Z]))
 
+    def map(self, functor):
+        ob = functor.cod.ob
+        if ob.over_factory is not ob.under_factory:
+            raise AxiomError(
+                "Crossed composition requires a codomain with "
+                "coinciding left and right exponentials.")
+        var = ob.variable_factory("x", functor(self.right.cod.exponent))
+        return ob.abstraction_factory(
+            var, functor(self.left)(functor(self.right)(var)))
+
 
 @dataclass(frozen=True, repr=False)
 class BX(BinaryTerm):
@@ -460,6 +445,16 @@ class BX(BinaryTerm):
         X, Y = self.left.cod.exponent, self.left.cod.base
         f, g = self.left.eval(functor), self.right.eval(functor)
         return f @ g >> functor.cod.bx(*map(functor, [X, Y, Z]))
+
+    def map(self, functor):
+        ob = functor.cod.ob
+        if ob.over_factory is not ob.under_factory:
+            raise AxiomError(
+                "Crossed composition requires a codomain with "
+                "coinciding left and right exponentials.")
+        var = ob.variable_factory("x", functor(self.left.cod.exponent))
+        return ob.abstraction_factory(
+            var, functor(self.right)(functor(self.left)(var)))
 
 
 type Term = (

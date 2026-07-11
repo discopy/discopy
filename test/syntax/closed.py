@@ -38,10 +38,10 @@ def test_from_biclosed():
     assert Ty.from_biclosed(x @ (x >> y)) == X @ (X >> Y)
 
     g, a, h = (y << x)("g"), x("a"), (x >> y)("h")
-    assert TermBase.from_biclosed(g(a))\
+    assert g(a).to_closed() == TermBase.from_biclosed(g(a))\
         == Constant("g", X >> Y)(Constant("a", X))
-    assert TermBase.from_biclosed(a(h, left=True))\
-        == Constant("a", X)(Constant("h", X >> Y), left=True)
+    assert a(h, left=True).to_closed()\
+        == Constant("h", X >> Y)(Constant("a", X))
     assert TermBase.from_biclosed(x(lambda v: g(v)))\
         == X(lambda v: Constant("g", X >> Y)(v))
 

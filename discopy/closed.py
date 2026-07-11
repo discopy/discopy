@@ -230,7 +230,7 @@ class TermBase(Box, biclosed.TermBase):
     def from_biclosed(cls, term: biclosed.Term) -> Term:
         """
         Translate a biclosed term into a closed term, dropping planarity by
-        collapsing left and right exponentials into a single exponential.
+        collapsing left and right exponentials and applications.
 
         Parameters:
             term : The biclosed term to translate.
@@ -381,3 +381,4 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+biclosed.TermBase.to_closed = lambda self: TermBase.from_biclosed(self)

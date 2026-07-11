@@ -101,9 +101,6 @@ def test_term_Functor():
     G = Functor(ob={x: x, y: y}, ar={h: c, a: b})
     assert G(a(h, left=True)) == b(c, left=True)
 
-    with raises(TypeError):
-        F.map_term(Box('b', x, y))
-
 
 def test_Abstraction_eval():
     x, y = Ty('x'), Ty('y')

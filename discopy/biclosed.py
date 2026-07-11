@@ -63,7 +63,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from inspect import signature
-from typing import Callable, ClassVar
+from typing import Callable, ClassVar, get_origin
 
 from discopy import cat, monoidal
 from discopy.abc import BiclosedCategory
@@ -461,10 +461,9 @@ class Functor(monoidal.Functor):
 
     def __call__(self, other):
         if isinstance(other, TermBase):
-            cod_ob = getattr(self.cod, "ob", None)
-            if isinstance(cod_ob, type)\
-                    and issubclass(cod_ob, InternalLanguage):
-                return self.map_term(other)
+            if issubclass(
+                    get_origin(self.cod.ob) or self.cod.ob, InternalLanguage):
+                return other.map(self)
             return other.eval(self)
         for cls, attr in [(Over, "over"), (Under, "under"), (Exp, "exp")]:
             if isinstance(other, cls):
@@ -485,27 +484,6 @@ class Functor(monoidal.Functor):
                 # Avoid infinite recursion when drawing.
                 return self.ob_map[other]
         return super().__call__(other)
-
-    def map_term(self, term: Term) -> Term:
-        """
-        Send a term to a term in the codomain's :class:`InternalLanguage`,
-        applying the functor to types and looking up constants in ``ar_map``.
-
-        Parameters:
-            term : The term to which the functor is applied.
-        """
-        ob = self.cod.ob
-        if isinstance(term, Constant):
-            return self.ar_map[term]
-        if isinstance(term, Variable):
-            return ob.variable_factory(term.name, self(term.cod))
-        if isinstance(term, Application):
-            return ob.application_factory(
-                self(term.func), self(term.args), term.left)
-        if isinstance(term, Abstraction):
-            return ob.abstraction_factory(
-                self(term.var), self(term.body), term.left)
-        raise TypeError(f"Expected {Term}, got {type(term)}")
 
 
 class CMap(monoidal.CMap):
@@ -566,6 +544,14 @@ class TermBase(Box):
         category, i.e. terms are compiled to diagrams with constants as boxes.
         """
 
+    @abstractmethod
+    def map(functor: Functor) -> Term:
+        """
+        The image of a term under a :class:`Functor` whose codomain objects
+        are types in an :class:`InternalLanguage`, i.e. a term in the
+        codomain's internal language rather than a morphism.
+        """
+
     def draw(self, **kwargs):
         "Drawing a term by evaluating it in the free biclosed category."
         return self.eval().draw(**kwargs)
@@ -597,6 +583,9 @@ class Constant(TermBase):
         functor = functor or self.functor
         return functor.ar_map[self]
 
+    def map(self, functor):
+        return functor.ar_map[self]
+
     def __repr__(self):
         return factory_name(type(self)) + f"({self.name!r}, {self.cod!r})"
 
@@ -619,6 +608,9 @@ class Variable(TermBase):
     def eval(self, functor=None):
         functor = functor or self.functor
         return functor.cod.id(functor(self.cod))
+
+    def map(self, functor):
+        return functor.cod.ob.variable_factory(self.name, functor(self.cod))
 
     @property
     def constants(self):
@@ -669,6 +661,12 @@ class Application(TermBase):
             functor(base), functor(exponent), left=not self.left)
         return args @ func >> ev if self.left else func @ args >> ev
 
+    def map(self, functor):
+        ob = functor.cod.ob
+        left = self.left and ob.over_factory is not ob.under_factory
+        return ob.application_factory(
+            functor(self.func), functor(self.args), left)
+
     def __repr__(self):
         func, args = repr(self.func), repr(self.args)
         left = ", left=True" if self.left else ""
@@ -710,6 +708,12 @@ class Abstraction(TermBase):
         return functor.cod.curry(
             self.body.eval(functor), len(functor(self.var.cod)),
             not self.left)
+
+    def map(self, functor):
+        ob = functor.cod.ob
+        left = self.left and ob.over_factory is not ob.under_factory
+        return ob.abstraction_factory(
+            functor(self.var), functor(self.body), left)
 
     def __repr__(self):
         var, body = repr(self.var), repr(self.body)

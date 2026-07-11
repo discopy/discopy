@@ -38,7 +38,7 @@ Example
 >>> n, s = categorial.Ty("n"), categorial.Ty("s")
 >>> Alice, sleeps = n("Alice"), (n >> s)("sleeps")
 >>> print(TermBase.from_categorial(Alice(sleeps, left=True)))
-n('Alice')((n >> s)('sleeps'), left=True)
+(n >> s)('sleeps')(n('Alice'))
 """
 
 from __future__ import annotations
@@ -57,7 +57,16 @@ class Ty(closed.Ty):
     Parameters:
         inside (Ty) : The objects inside the type.
     """
-    from_categorial = closed.Ty.from_biclosed
+    @classmethod
+    def from_categorial(cls, old: categorial.Ty) -> Ty:
+        """
+        Translate a categorial type into an abstract type, collapsing left
+        and right exponentials into a single exponential.
+
+        Parameters:
+            old : The categorial type to translate.
+        """
+        return cls.from_biclosed(old)
 
 
 class Exp(closed.Exp):
@@ -77,6 +86,44 @@ class Diagram(closed.Diagram):
         cod (Ty) : The codomain of the diagram, i.e. its output.
     """
     ob = Ty
+
+    @classmethod
+    def fa(cls, left, right):
+        """ Forward application. """
+        return cls.ev(left, right, left=True)
+
+    @classmethod
+    def ba(cls, left, right):
+        """ Backward application. """
+        return cls.ev(right, left, left=False)
+
+    @classmethod
+    def fc(cls, left, middle, right):
+        """ Forward composition. """
+        return (cls.id(left ** middle) @ cls.fa(middle, right)
+                >> cls.fa(left, middle)).curry(left=True)
+
+    @classmethod
+    def bc(cls, left, middle, right):
+        """ Backward composition. """
+        return (cls.ba(left, middle) @ cls.id(middle >> right)
+                >> cls.ba(middle, right)).curry()
+
+    @classmethod
+    def fx(cls, left, middle, right):
+        """
+        Forward crossed composition, i.e. :meth:`fc` in a category
+        where left and right exponentials coincide.
+        """
+        return cls.fc(left, middle, right)
+
+    @classmethod
+    def bx(cls, left, middle, right):
+        """
+        Backward crossed composition, i.e. :meth:`bc` in a category
+        where left and right exponentials coincide.
+        """
+        return cls.bc(left, middle, right)
 
 
 class Box(closed.Box, Diagram):
@@ -141,7 +188,7 @@ class Lexicon(categorial.Functor, closed.Functor):
     ...     ob={n: N, s: S},
     ...     ar={Alice: N("ALICE"), sleeps: (N >> S)("SLEEPS")})
     >>> print(lexicon(Alice(sleeps, left=True)))
-    N('ALICE')((N >> S)('SLEEPS'), left=True)
+    (N >> S)('SLEEPS')(N('ALICE'))
     """
     dom, cod = categorial.Diagram, Diagram
 
@@ -156,7 +203,7 @@ class TermBase(Box, closed.TermBase):
     def from_categorial(cls, term: categorial.Term) -> Term:
         """
         Translate a categorial term into an abstract term, dropping planarity
-        by collapsing left and right exponentials into a single exponential.
+        by collapsing left and right exponentials and applications.
 
         Parameters:
             term : The categorial term to translate.
@@ -171,13 +218,15 @@ class TermBase(Box, closed.TermBase):
         -------
         >>> from discopy.grammar.categorial import Ty as T
         >>> x, y = T("x"), T("y")
-        >>> f, a = (y << x)("f"), x("a")
+        >>> f, g, a = (y << x)("f"), (x >> y)("g"), x("a")
         >>> print(TermBase.from_categorial(f(a)))
         (x >> y)('f')(x('a'))
+        >>> print(TermBase.from_categorial(a(g, left=True)))
+        (x >> y)('g')(x('a'))
         """
         lexicon = Lexicon(
             ob=lambda x: cls.ob(x.name),
-            ar=lambda w: Word(w.name, lexicon(w.cod)))
+            ar=lambda w: cls.ob.constant_factory(w.name, lexicon(w.cod)))
         return lexicon(term)
 
 

@@ -7,7 +7,7 @@ from discopy.utils import AxiomError
 
 
 def test_Diagram():
-    x, y = Ty('x'), Ty('y')
+    x, y, z = Ty('x'), Ty('y'), Ty('z')
     assert Diagram.id(x) == Id(x)
     assert Diagram.ev(y, x, left=False) == Eval(x >> y)
     assert Diagram.swap(x, y) == Swap(x, y)
@@ -15,11 +15,30 @@ def test_Diagram():
     assert Diagram.discard(x) == Copy(x, 0)
     assert Box('f', x @ y, y).curry() == Curry(Box('f', x @ y, y))
 
+    assert Diagram.fa(x, y) == Eval(x ** y, left=True)
+    assert Diagram.ba(x, y) == Eval(x >> y, left=False)
+    fc, bc = Diagram.fc(x, y, z), Diagram.bc(x, y, z)
+    assert fc.dom == (x ** y) @ (y ** z) and fc.cod == x ** z
+    assert bc.dom == (x >> y) @ (y >> z) and bc.cod == x >> z
+    assert Diagram.fx(x, y, z) == fc and Diagram.bx(x, y, z) == bc
+
+
+def test_Lexicon_on_diagrams():
+    x_, y_, z_ = map(categorial.Ty, "xyz")
+    w1, w2 = categorial.Word("w1", y_ << x_), categorial.Word("w2", z_ >> x_)
+    diagram = w1 @ w2 >> categorial.Diagram.fx(y_, x_, z_)
+    lexicon = Lexicon(
+        ob=lambda ob: Ty(ob.name),
+        ar=lambda box: Box(box.name, Ty.from_categorial(box.dom),
+                           Ty.from_categorial(box.cod)))
+    assert lexicon(diagram).cod == Ty("z") >> Ty("y")
+
 
 def test_Term():
     x, y = Ty('x'), Ty('y')
     f, a = (x >> y)("f"), x("a")
     assert isinstance(f, Constant)
+    assert Word("a", x).cod == x and isinstance(Word("a", x), Constant)
     assert f(a).cod == y
     var = Variable("v", x)
     assert Abstraction(var, f(var)).cod == x >> y
@@ -29,7 +48,7 @@ def test_Term():
 
 
 def test_from_categorial():
-    X, Y = Ty("X"), Ty("Y")
+    X, Y, Z = Ty("X"), Ty("Y"), Ty("Z")
     f, g, x = (X >> Y)("f"), (X >> Y)("g"), X("x")
     X_, Y_, Z_ = map(categorial.Ty, "XYZ")
     f_, g_, x_ = (Y_ << X_)("f"), (X_ >> Y_)("g"), X_("x")
@@ -37,32 +56,28 @@ def test_from_categorial():
     assert f_(x_).to_abstract() == f(x)
     assert x_(g_, left=True).to_abstract() == g(x)
 
-    fx = categorial.FX((y << x)("f"), (z >> x)("g"))
-    term = TermBase.from_categorial(fx)
-    assert isinstance(term, Abstraction) and term.cod == Z >> Y
-
-    bx = categorial.BX((y << x)("f"), (y >> z)("g"))
-    term = TermBase.from_categorial(bx)
-    assert isinstance(term, Abstraction) and term.cod == X >> Z
-
-    fc = categorial.FC((z << y)("f"), (y << x)("g"))
-    term = TermBase.from_categorial(fc)
-    assert isinstance(term, Abstraction) and term.cod == X >> Z
-
-    ftr = categorial.FTR(y, a)
-    term = TermBase.from_categorial(ftr)
-    assert isinstance(term, Abstraction) and term.cod == (X >> Y) >> Y
+    assert categorial.FX(f_, (Z_ >> X_)("g")).to_abstract()\
+        == Z(lambda x: f((Z >> X)("g")(x)))
+    assert categorial.BX(f_, (Y_ >> Z_)("g")).to_abstract()\
+        == X(lambda x: (Y >> Z)("g")(f(x)))
+    assert categorial.FC((Z_ << Y_)("h"), f_).to_abstract()\
+        == X(lambda x: (Y >> Z)("h")(f(x)))
+    assert categorial.FTR(Y_, x_).to_abstract()\
+        == (X >> Y)(lambda f: f(x))
 
 
 def test_crossed_composition_requires_symmetry():
     x, y, z = map(categorial.Ty, "xyz")
     fx = categorial.FX((y << x)("f"), (z >> x)("g"))
+    bx = categorial.BX((y << x)("f"), (y >> z)("g"))
     F = categorial.Functor(
         ob=lambda ob: categorial.Ty(ob.name),
         ar=lambda c: categorial.Constant(c.name, c.cod),
         cod=categorial.Diagram)
     with raises(AxiomError):
         F(fx)
+    with raises(AxiomError):
+        F(bx)
 
 
 def test_Lexicon_Montague_semantics():
