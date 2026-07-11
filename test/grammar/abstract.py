@@ -29,14 +29,13 @@ def test_Term():
 
 
 def test_from_categorial():
-    x, y, z = map(categorial.Ty, "xyz")
-    f, g, a = (y << x)("f"), (x >> y)("g"), x("a")
-    X, Y, Z = Ty("x"), Ty("y"), Ty("z")
+    X, Y = Ty("X"), Ty("Y")
+    f, g, x = (X >> Y)("f"), (X >> Y)("g"), X("x")
+    X_, Y_, Z_ = map(categorial.Ty, "XYZ")
+    f_, g_, x_ = (Y_ << X_)("f"), (X_ >> Y_)("g"), X_("x")
 
-    assert TermBase.from_categorial(f(a))\
-        == Word("f", X >> Y)(Word("a", X))
-    assert TermBase.from_categorial(a(g, left=True))\
-        == Word("a", X)(Word("g", X >> Y), left=True)
+    assert f_(x_).to_abstract() == f(x)
+    assert x_(g_, left=True).to_abstract() == g(x)
 
     fx = categorial.FX((y << x)("f"), (z >> x)("g"))
     term = TermBase.from_categorial(fx)

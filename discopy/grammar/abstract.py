@@ -221,3 +221,4 @@ Ty.variable_factory = Variable
 Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
+categorial.TermBase.to_abstract = lambda self: TermBase.from_categorial(self)
