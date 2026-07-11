@@ -233,3 +233,34 @@ def test_training():
     assert losses[-1] < losses[0]
     decoded = decode_sudoku(logits()[0], clues)
     assert len(decoded) == n_cells
+
+
+def test_seq():
+    assert Seq(2) == Seq(2) and Seq(2) != Seq(3)
+    assert Seq(2) != 2 and 2 != Seq(2)
+    assert hash(Seq(2)) != hash(2)
+    assert Dim(Seq(2)) != Dim(2)
+    assert Dim(Seq(2), 3).l == Dim(3, Seq(2))
+    assert Dim(Seq(0)) != Dim(0)  # a sequence atom is not the unit
+    assert eval(repr(Seq(2))) == Seq(2)
+
+
+def test_pass_messages():
+    x = Dim(Seq(1))
+    reflect = Network('reflect', x, x,
+                      module=lambda left, right: (right, left))
+    snake = (Id(x).transpose().to_map() >> reflect.to_map())
+    messages = snake.pass_messages(
+        init={snake.edges[0]: ("hello", )}, n_rounds=2)
+    assert messages[-1] == ("hello", )
+
+    append = Network('append', x, x, module=lambda left, right: (
+        None if right is None else right + ("pong", ),
+        None if left is None else left + ("ping", )))
+    am = append.to_map()
+    out = am.pass_messages(init={am.edges[0]: ()}, n_rounds=1)
+    assert out[-1] == ("ping", )
+    out = am.pass_messages(init={am.edges[0]: ()}, n_rounds=3, inject=False)
+    assert out[-1] is None  # the token has left the map
+    with raises(TypeError):
+        Box('f', x, x).to_map().pass_messages()
