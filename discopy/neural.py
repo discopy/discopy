@@ -76,6 +76,8 @@ from __future__ import annotations
 import random
 from typing import TYPE_CHECKING
 
+from functools import cached_property
+
 from discopy import compact, monoidal
 from discopy.cat import ar_factory, ob_factory
 from discopy.cmap import PortKind
@@ -289,21 +291,19 @@ class CMap(compact.CMap):
             sum(getattr(port.obj, "inside", (port.obj, )))
             for port in self.ports)
 
-    @property
+    @cached_property
     def module_list(self) -> "torch.nn.ModuleList":
         """ The distinct torch modules of the networks inside the map. """
-        if self.__dict__.get("_module_list") is None:
-            import torch
-            modules, seen = [], set()
-            for box in self.boxes:
-                assert_isinstance(box, Network)
-                if box.module is None:
-                    raise ValueError(f"{box!r} has no module.")
-                if id(box.module) not in seen:
-                    seen.add(id(box.module))
-                    modules.append(box.module)
-            self._module_list = torch.nn.ModuleList(modules)
-        return self._module_list
+        import torch
+        modules, seen = [], set()
+        for box in self.boxes:
+            assert_isinstance(box, Network)
+            if box.module is None:
+                raise ValueError(f"{box!r} has no module.")
+            if id(box.module) not in seen:
+                seen.add(id(box.module))
+                modules.append(box.module)
+        return torch.nn.ModuleList(modules)
 
     def parameters(self, recurse: bool = True):
         """ The parameters of the networks inside the map. """
