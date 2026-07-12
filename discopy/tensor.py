@@ -409,7 +409,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     ob = Dim
 
-    def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
+    def eval(self, contractor: Callable = None, dtype: type = None,
+             optimize: str = "greedy") -> Tensor:
         """
         Evaluate a tensor diagram as a :class:`Tensor`.
 
@@ -418,6 +419,10 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
                 or the string ``"einsum"`` for a single :meth:`to_einsum`
                 contraction under the active :func:`backend`.
             dtype : Used for spiders.
+            optimize : Path passed to ``np.einsum`` for the ``"einsum"``
+                contractor. The default ``"greedy"`` avoids the exponential
+                ``"optimal"`` search that ``optimize=True`` triggers on large
+                diagrams.
 
         Examples
         --------
@@ -440,7 +445,7 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             arrays, indices, output = self.to_einsum(dtype=dtype)
             with backend() as np:
                 operands = [x for pair in zip(arrays, indices) for x in pair]
-                array = np.einsum(*operands, output, optimize=True)
+                array = np.einsum(*operands, output, optimize=optimize)
             return Tensor[dtype](array, self.dom, self.cod)
         if contractor is None:
             return Functor(
