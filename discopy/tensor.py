@@ -26,6 +26,7 @@ Summary
 
 from __future__ import annotations
 
+from itertools import count
 from typing import Callable, TYPE_CHECKING
 
 from discopy import (
@@ -413,7 +414,9 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         Evaluate a tensor diagram as a :class:`Tensor`.
 
         Parameters:
-            contractor : Use ``tensornetwork`` or :class:`Functor` by default.
+            contractor : Use ``tensornetwork``, :class:`Functor` by default,
+                or the string ``"einsum"`` for a single :meth:`to_einsum`
+                contraction under the active :func:`backend`.
             dtype : Used for spiders.
 
         Examples
@@ -422,8 +425,23 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         >>> assert (vector >> vector[::-1]).eval().array == 1
         >>> from tensornetwork.contractors import auto
         >>> assert (vector >> vector[::-1]).eval(auto).array == 1
+        >>> assert (vector >> vector[::-1]).eval("einsum").array == 1
+
+        The ``"einsum"`` contractor is differentiable with ``jax``.
+
+        >>> with backend('jax'):
+        ...     import jax, jax.numpy as jnp
+        ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+        ...     f = lambda x: (b(x) >> b(x)[::-1]).eval("einsum").array
+        ...     assert jax.grad(f)(1.) == 4.
         """
         dtype = dtype or self.dtype
+        if contractor == "einsum":
+            arrays, indices, output = self.to_einsum(dtype=dtype)
+            with backend() as np:
+                operands = [x for pair in zip(arrays, indices) for x in pair]
+                array = np.einsum(*operands, output, optimize=True)
+            return Tensor[dtype](array, self.dom, self.cod)
         if contractor is None:
             return Functor(
                 ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
@@ -532,6 +550,59 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
             outputs[offset:offset + len(box.dom)] = node[len(box.dom):]
             nodes.append(node)
         return nodes, inputs + outputs
+
+    def to_einsum(self, dtype: type = None) -> tuple[
+            list, list[list[int]], list[int]]:
+        """
+        Compile a tensor diagram into an ``einsum`` contraction.
+
+        Returns the operands ``arrays``, their integer axis labels ``indices``
+        and the open ``output`` labels (order ``dom.inside + cod.inside``) for
+        the interleaved form ``np.einsum(arrays[0], indices[0], ..., output)``
+        under the active :func:`backend`, e.g. ``jax.numpy`` for autodiff.
+
+        Integer labels rather than a subscript string lift the usual 52-index
+        limit, so arbitrarily wide diagrams contract in a single call.
+
+        Parameters:
+            dtype : Used for spiders.
+
+        Examples
+        --------
+        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+        >>> arrays, indices, output = (vector >> vector[::-1]).to_einsum()
+        >>> with backend() as np:
+        ...     operands = [x for pair in zip(arrays, indices) for x in pair]
+        ...     assert np.einsum(*operands, output) == 1
+        """
+        if dtype is None:
+            dtype = self.dtype
+        fresh = count()
+        arrays, indices, input_edges, scan = [], [], [], []
+        with backend() as np:
+            for dim in self.dom.inside:
+                edge, wire = next(fresh), next(fresh)
+                arrays.append(np.array(np.eye(getattr(dim, 'dim', dim))))
+                indices.append([edge, wire])
+                input_edges.append(edge)
+                scan.append((wire, getattr(dim, 'dim', dim)))
+            for box, off in zip(self.boxes, self.offsets):
+                if isinstance(box, Swap):
+                    scan[off], scan[off + 1] = scan[off + 1], scan[off]
+                    continue
+                dom_edges = [wire for wire, _ in scan[off:off + len(box.dom)]]
+                cod = [(next(fresh), getattr(dim, 'dim', dim))
+                       for dim in box.cod.inside]
+                arrays.append(box.eval(dtype=dtype).array)
+                indices.append(dom_edges + [wire for wire, _ in cod])
+                scan[off:off + len(box.dom)] = cod
+            output_edges = []
+            for wire, dim in scan:
+                edge = next(fresh)
+                arrays.append(np.array(np.eye(dim)))
+                indices.append([wire, edge])
+                output_edges.append(edge)
+        return arrays, indices, input_edges + output_edges
 
     def grad(self, var, **params):
         """ Gradient with respect to :code:`var`. """

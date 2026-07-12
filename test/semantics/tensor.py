@@ -265,3 +265,34 @@ def test_non_numpy_eval():
 def test_Tensor_array():
     box = Box("box", Dim(2), Dim(2), None)
     assert box.array is None
+
+
+def test_to_einsum():
+    vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+    a = Box('a', Dim(1), Dim(2), [1., 2.])
+    b = Box('b', Dim(1), Dim(2), [3., 4.])
+    t = Box('t', Dim(2, 2), Dim(2), list(range(8)))
+    spider = Spider(1, 1, Dim(2)) >> Spider(1, 2, Dim(2)) \
+        >> Spider(2, 0, Dim(2))
+    for diagram in [
+            vector >> vector[::-1],
+            spider,
+            f >> f,
+            a @ b >> Swap(Dim(2), Dim(2)),
+            t,
+            Id(Dim(2)),
+            Cup(Dim(2), Dim(2))]:
+        assert np.allclose(
+            np.asarray(diagram.eval("einsum").array, dtype=float),
+            np.asarray(diagram.eval().array, dtype=float))
+
+
+def test_to_einsum_jax():
+    import jax
+    import jax.numpy as jnp
+    with backend('jax'):
+        b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+        f = lambda x: (b(x) >> b(x)[::-1]).eval("einsum").array
+        assert jax.grad(f)(1.) == 4.
+        assert float(jax.jit(f)(1.)) == 2.
