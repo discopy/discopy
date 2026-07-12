@@ -316,6 +316,173 @@ def test_from_tagged():
     assert best == every(woman)(married(a(man)), left=True)
 
 
+def arithmetic():
+    """
+    A synthetic ACG for arithmetic: strings of digits and infix operators
+    on the syntax side, Church numerals on the semantics side. Operator
+    precedence is encoded in a stratified grammar over atomic types ``t``
+    and ``e``, with deliberately ambiguous lexical entries so that the
+    correct reading has to be learnt from the value of the expression.
+    """
+    A = Ty("a")
+    CH = (A >> A) >> (A >> A)
+
+    def church(k):
+        def outer(f):
+            def inner(x):
+                result = x
+                for _ in range(k):
+                    result = f(result)
+                return result
+            return A(inner)
+        return (A >> A)(outer)
+
+    PLUS = CH(lambda m: CH(lambda n: (A >> A)(lambda f: A(
+        lambda x: m(f)(n(f)(x))))))
+    TIMES = CH(lambda m: CH(lambda n: (A >> A)(lambda f: m(n(f)))))
+
+    T, E = categorial.Ty("t"), categorial.Ty("e")
+    digits = {"one": 1, "two": 2, "three": 3, "four": 4}
+    operators = {"plus": PLUS, "times": TIMES}
+    op_types = {"tt": (T >> T) << T, "te": (T >> E) << T,
+                "ee": (E >> E) << T}
+
+    o = Ty("o")
+    STR = o >> o
+    constant = {w: STR(w) for w in list(digits) + list(operators)}
+
+    def digit_image(name):
+        const = constant[name]
+        return o(lambda z: const(z))
+
+    def op_image(name):
+        const = constant[name]
+        return STR(lambda rhs: STR(lambda lhs: o(
+            lambda z: lhs(const(rhs(z))))))
+
+    syntax_ar, semantics_ar = {}, {}
+    for name, k in digits.items():
+        for ty in (T, E):
+            word = ty(name)
+            syntax_ar[word] = digit_image(name)
+            semantics_ar[word] = church(k)
+    for name, image in operators.items():
+        for ty in op_types.values():
+            word = ty(name)
+            syntax_ar[word] = op_image(name)
+            semantics_ar[word] = image
+
+    syntax = Lexicon(ob={T: STR, E: STR}, ar=syntax_ar)
+    semantics = Lexicon(ob={T: CH, E: CH}, ar=semantics_ar)
+    program = Program.from_lexicon(syntax)
+
+    def encode(sentence):
+        def build(z):
+            result = z
+            for token in reversed(sentence.split()):
+                result = constant[token](result)
+            return result
+        return o(build)
+
+    def value(term):
+        term = term.normal_form()
+        body, count = term.body.body, 0
+        while isinstance(body, closed.Application):
+            body, count = body.args, count + 1
+        return count
+
+    return program, semantics, encode, value, op_types, E
+
+
+ARITHMETIC_TRAIN = [
+    ("two plus three times four", 14), ("two times three plus four", 10),
+    ("one plus two times three", 7), ("three times two plus one", 7),
+    ("four plus four times two", 12), ("one times two plus three", 5),
+    ("two plus two", 4), ("three times three", 9),
+    ("one plus one plus one", 3), ("two times two times two", 8),
+    ("four", 4)]
+
+ARITHMETIC_TEST = [
+    ("four times two plus three", 11), ("one plus four times three", 13),
+    ("two times four plus one", 9), ("three plus two times two", 7),
+    ("one plus one times four", 5)]
+
+
+def test_arithmetic_pipeline():
+    program, semantics, encode, value, op_types, E = arithmetic()
+    forest, goal = program.chart(encode("two plus three times four"), E)
+    derivations = list(program.derivations(forest, goal))
+    values = [value(semantics(term)) for term in derivations]
+    assert sorted(values) == [14, 14, 20, 20, 20]
+    forest, goal = program.chart(encode("three times three"), E)
+    assert {value(semantics(term))
+            for term in program.derivations(forest, goal)} == {9}
+
+
+def test_learn_arithmetic():
+    from math import exp, log
+    from collections import Counter
+    program, semantics, encode, value, op_types, E = arithmetic()
+    rule_by_word = {rule.word: rule for rule in program.rules}
+
+    def analyses(sentence):
+        forest, goal = program.chart(encode(sentence), E)
+        return forest, goal, [
+            (Counter(rule_by_word[c] for c in term.constants),
+             value(semantics(term)))
+            for term in program.derivations(forest, goal)]
+
+    data = [(analyses(sentence), expected)
+            for sentence, expected in ARITHMETIC_TRAIN]
+    theta = {rule: 0. for rule in program.rules}
+
+    def step(learning_rate=.5):
+        loss = 0.
+        gradient = {rule: 0. for rule in program.rules}
+        for (forest, goal, derivations), expected in data:
+            weights = {rule: exp(theta[rule]) for rule in program.rules}
+            partition = program.inside(forest, weights, PROB)[goal]
+            marginals = program.marginals(forest, goal, weights, PROB)
+            gold = [(counts, exp(sum(
+                n * theta[rule] for rule, n in counts.items())))
+                for counts, val in derivations if val == expected]
+            gold_mass = sum(score for _, score in gold)
+            loss += log(partition) - log(gold_mass)
+            for rule in program.rules:
+                gradient[rule] += (
+                    marginals.get(rule, 0.) / partition
+                    - sum(score * counts.get(rule, 0)
+                          for counts, score in gold) / gold_mass)
+        for rule in program.rules:
+            theta[rule] -= learning_rate * gradient[rule]
+        return loss
+
+    initial_loss = step()
+    for _ in range(50):
+        loss = step()
+    assert loss < .1 < initial_loss
+
+    # The learnt weights encode that times binds tighter than plus.
+    T = categorial.Ty("t")
+    tt = (T >> T) << T
+    assert theta[rule_by_word[tt("times")]]\
+        > 1 + theta[rule_by_word[tt("plus")]]
+
+    for sentence, expected in ARITHMETIC_TEST:
+        forest, goal = program.chart(encode(sentence), E)
+        _, best = program.viterbi(forest, goal, theta)
+        assert value(semantics(best)) == expected
+
+    # The posterior mass of the correct reading on the ambiguous canary.
+    (forest, goal, derivations), expected = data[0]
+    weights = {rule: exp(theta[rule]) for rule in program.rules}
+    partition = program.inside(forest, weights, PROB)[goal]
+    gold_mass = sum(
+        exp(sum(n * theta[rule] for rule, n in counts.items()))
+        for counts, val in derivations if val == expected)
+    assert gold_mass / partition > .9
+
+
 def test_identify_and_type_mismatch():
     lexicon, de_dicto, _, (n, np, s) = montague()
     program = Program.from_lexicon(lexicon)
