@@ -49,6 +49,7 @@ Summary
         :nosignatures:
         :toctree:
 
+        sudoku_block
         sudoku_peers
         sudoku
         solve_sudoku
@@ -427,13 +428,32 @@ Diagram.map_factory = CMap
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 
 
-def sudoku_peers(n: int = 2) -> tuple[tuple[int, ...], ...]:
+def sudoku_block(n: int | tuple[int, int] = 2) -> tuple[int, int]:
     """
-    The sorted peers of each cell of an ``n ** 2 x n ** 2`` sudoku grid,
-    i.e. the cells sharing a row, column or ``n x n`` block with it.
+    The ``(height, width)`` of the blocks of a sudoku grid: an integer gives
+    square blocks, a pair gives rectangular ones, so that the grid has
+    ``height * width`` rows and columns.
 
     Parameters:
-        n : The size of a block, i.e. 2 for a 4x4 grid, 3 for 9x9.
+        n : The shape of a block, i.e. 2 for a 4x4 grid, 3 for 9x9
+            or ``(2, 3)`` for a 6x6 grid with rectangular blocks.
+
+    Example
+    -------
+    >>> sudoku_block(2), sudoku_block(3), sudoku_block((2, 3))
+    ((2, 2), (3, 3), (2, 3))
+    """
+    return (n, n) if isinstance(n, int) else tuple(n)
+
+
+def sudoku_peers(n: int | tuple[int, int] = 2) -> tuple[tuple[int, ...], ...]:
+    """
+    The sorted peers of each cell of a sudoku grid, i.e. the cells sharing
+    a row, column or block with it, see :func:`sudoku_block`.
+
+    Parameters:
+        n : The shape of a block, i.e. 2 for a 4x4 grid, 3 for 9x9
+            or ``(2, 3)`` for a 6x6 grid with rectangular blocks.
 
     Example
     -------
@@ -442,11 +462,14 @@ def sudoku_peers(n: int = 2) -> tuple[tuple[int, ...], ...]:
     (1, 2, 3, 4, 5, 8, 12)
     >>> set(map(len, peers)), set(map(len, sudoku_peers(3)))
     ({7}, {20})
+    >>> set(map(len, sudoku_peers((2, 3))))
+    {12}
     """
-    size = n * n
+    height, width = sudoku_block(n)
+    size = height * width
 
     def block(cell):
-        return (cell // size // n) * n + (cell % size) // n
+        return (cell // size // height, cell % size // width)
 
     return tuple(
         tuple(sorted(
@@ -457,7 +480,8 @@ def sudoku_peers(n: int = 2) -> tuple[tuple[int, ...], ...]:
         for cell in range(size * size))
 
 
-def sudoku(n: int = 2, dim: int = 2, network: Network = None) -> CMap:
+def sudoku(n: int | tuple[int, int] = 2, dim: int = 2,
+           network: Network = None) -> CMap:
     """
     A sudoku grid encoded as a closed combinatorial map, with one box per
     cell wired to each of its peers.
@@ -467,7 +491,8 @@ def sudoku(n: int = 2, dim: int = 2, network: Network = None) -> CMap:
     injected as initial messages, see :meth:`CMap.forward`.
 
     Parameters:
-        n : The size of a block, i.e. 2 for a 4x4 grid, 3 for 9x9.
+        n : The shape of a block, i.e. 2 for a 4x4 grid, 3 for 9x9
+            or ``(2, 3)`` for a 6x6 grid with rectangular blocks.
         dim : The width of the messages between cells.
         network : The shared cell network,
                   ``Network('cell', Dim(0), Dim(dim) ** len(peers))``
@@ -481,23 +506,27 @@ def sudoku(n: int = 2, dim: int = 2, network: Network = None) -> CMap:
     >>> assert grid.edges.is_fixpoint_free_involution()
     >>> assert len(grid.connected_components) == 1
     >>> assert not grid.is_planar
+    >>> len(sudoku((2, 3)).boxes), sudoku((2, 3)).n_ports
+    (36, 432)
     """
     peers = sudoku_peers(n)
+    n_cells = len(peers)
     network = network if network is not None\
         else Network('cell', Dim(0), Dim(dim) ** len(peers[0]))
     wires = [
         ((cell, peers[cell].index(other)), (other, peers[other].index(cell)))
-        for cell in range(n ** 4) for other in peers[cell] if cell < other]
-    return CMap.from_wiring(n ** 4 * (network, ), wires)
+        for cell in range(n_cells) for other in peers[cell] if cell < other]
+    return CMap.from_wiring(n_cells * (network, ), wires)
 
 
-def solve_sudoku(grid: tuple[int, ...], n: int = 2,
+def solve_sudoku(grid: tuple[int, ...], n: int | tuple[int, int] = 2,
                  digits: tuple[int, ...] = None) -> tuple[int, ...] | None:
     """
     Solve a sudoku grid by backtracking, with 0 for blank cells.
 
     Parameters:
-        grid : The ``n ** 4`` cells of the grid, row-major.
+        grid : The ``size * size`` cells of the grid, row-major.
+        n : The shape of a block, see :func:`sudoku_block`.
         digits : The order in which to try digits, increasing by default.
 
     Returns:
@@ -510,8 +539,10 @@ def solve_sudoku(grid: tuple[int, ...], n: int = 2,
     (1, 2, 3, 4)
     >>> assert check_sudoku(solution)
     >>> assert solve_sudoku((1, 1) + (0, ) * 14) is None
+    >>> assert check_sudoku(solve_sudoku(36 * (0, ), (2, 3)), (2, 3))
     """
-    size = n * n
+    height, width = sudoku_block(n)
+    size = height * width
     peers = sudoku_peers(n)
     digits = tuple(range(1, size + 1)) if digits is None else digits
     grid = list(grid)
@@ -533,14 +564,15 @@ def solve_sudoku(grid: tuple[int, ...], n: int = 2,
     return tuple(grid) if fill(0) else None
 
 
-def random_sudoku(n: int = 2, n_clues: int = 8, seed: int = 0
+def random_sudoku(n: int | tuple[int, int] = 2, n_clues: int = 8,
+                  seed: int = 0
                   ) -> tuple[tuple[int, ...], tuple[int, ...]]:
     """
     A random sudoku puzzle and its solution, generated by backtracking with
     a shuffled digit order and then blanking random cells.
 
     Parameters:
-        n : The size of a block, i.e. 2 for a 4x4 grid, 3 for 9x9.
+        n : The shape of a block, see :func:`sudoku_block`.
         n_clues : The number of cells left as clues.
         seed : The seed of the random generator.
 
@@ -551,8 +583,10 @@ def random_sudoku(n: int = 2, n_clues: int = 8, seed: int = 0
     >>> assert sum(clue != 0 for clue in clues) == 8
     >>> assert all(clue in (0, digit)
     ...            for clue, digit in zip(clues, solution))
+    >>> assert check_sudoku(random_sudoku((2, 3))[1], (2, 3))
     """
-    size = n * n
+    height, width = sudoku_block(n)
+    size = height * width
     generator = random.Random(seed)
     digits = list(range(1, size + 1))
     generator.shuffle(digits)
@@ -565,9 +599,14 @@ def random_sudoku(n: int = 2, n_clues: int = 8, seed: int = 0
     return tuple(clues), solution
 
 
-def check_sudoku(grid: tuple[int, ...], n: int = 2) -> bool:
+def check_sudoku(grid: tuple[int, ...],
+                 n: int | tuple[int, int] = 2) -> bool:
     """
     Whether a completed grid satisfies all the sudoku constraints.
+
+    Parameters:
+        grid : The ``size * size`` cells of the grid, row-major.
+        n : The shape of a block, see :func:`sudoku_block`.
 
     Example
     -------
@@ -579,7 +618,8 @@ def check_sudoku(grid: tuple[int, ...], n: int = 2) -> bool:
     >>> assert not check_sudoku((1, ) * 16)
     >>> assert not check_sudoku((0, ) * 16)
     """
-    size = n * n
+    height, width = sudoku_block(n)
+    size = height * width
     peers = sudoku_peers(n)
     return all(digit in range(1, size + 1) for digit in grid) and all(
         grid[cell] != grid[peer]
@@ -587,13 +627,13 @@ def check_sudoku(grid: tuple[int, ...], n: int = 2) -> bool:
 
 
 def decode_sudoku(logits, clues: tuple[int, ...],
-                  n: int = 2) -> tuple[int, ...]:
+                  n: int | tuple[int, int] = 2) -> tuple[int, ...]:
     """
     Decode per-cell logits into a completed grid, keeping the clues fixed
     and taking the most likely digit for each blank cell.
 
     Parameters:
-        logits : One row of ``n ** 2`` scores per cell.
+        logits : One row of ``size`` scores per cell.
         clues : The cells of the puzzle, with 0 for blanks.
 
     Example
