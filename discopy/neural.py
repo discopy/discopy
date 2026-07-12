@@ -280,11 +280,16 @@ class CMap(compact.CMap):
         Parameters:
             index : The index of the box.
         """
-        ports = self._box_port_indices[index]
-        arity = len(self.boxes[index].dom)
-        return ports[:arity] + tuple(reversed(ports[arity:]))
+        return self._logical_box_ports[index]
 
-    @property
+    @cached_property
+    def _logical_box_ports(self) -> tuple[tuple[int, ...], ...]:
+        """ The ports of each box in logical order, see :meth:`box_ports`. """
+        return tuple(
+            ports[:len(box.dom)] + tuple(reversed(ports[len(box.dom):]))
+            for ports, box in zip(self._box_port_indices, self.boxes))
+
+    @cached_property
     def port_widths(self) -> tuple[int, ...]:
         """ The dimension carried by each port of the map. """
         return tuple(
@@ -480,19 +485,22 @@ class CMap(compact.CMap):
         'token'
         """
         n_rounds = len(self.boxes) if n_rounds is None else n_rounds
-        incoming = [None] * self.n_ports
+        n_ports, edges = self.n_ports, [self.edges[i]
+                                        for i in range(self.n_ports)]
+        for box in self.boxes:
+            assert_isinstance(box, Network)
+        modules = [(box.module, self.box_ports(box_index))
+                   for box_index, box in enumerate(self.boxes)]
+        incoming = [None] * n_ports
         for port, message in (init or {}).items():
             incoming[port] = message
         for _ in range(n_rounds):
-            outgoing = [None] * self.n_ports
-            for box_index, box in enumerate(self.boxes):
-                assert_isinstance(box, Network)
-                box_ports = self.box_ports(box_index)
-                outputs = box.module(*[incoming[i] for i in box_ports])
+            outgoing = [None] * n_ports
+            for module, box_ports in modules:
+                outputs = module(*[incoming[i] for i in box_ports])
                 for i, message in zip(box_ports, outputs):
                     outgoing[i] = message
-            incoming = [
-                outgoing[self.edges[i]] for i in range(self.n_ports)]
+            incoming = [outgoing[i] for i in edges]
             if inject and init:
                 for port, message in init.items():
                     incoming[port] = message
