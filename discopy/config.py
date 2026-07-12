@@ -45,7 +45,13 @@ DRAWING_DEFAULT = {
     "facecolor": "white",
     "edgecolor": "black",
     "use_tikzstyles": False,
-    "braid_shadow": (.3, .1)
+    "braid_shadow": (.3, .1),
+    # Legend width in inches is legend_base_width + legend_char_width
+    # times the length of the longest label.
+    "legend_base_width": 0.5,
+    "legend_char_width": 0.085,
+    # Gap in inches between the diagram and the legend.
+    "legend_margin": 0.4,
 }
 
 # Mapping from tikz colors to hexcodes.

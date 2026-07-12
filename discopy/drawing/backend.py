@@ -50,8 +50,9 @@ def draw(graph: PlaneGraph, **params):
             # diagram at the same scale and leaving a constant gap between
             # the diagram and the legend.
             longest = max(len(c.legend_label) for c in colours.values())
-            legend_inches = 0.5 + 0.085 * longest  # legend width in inches
-            margin_inches = 0.4  # gap between the diagram and the legend
+            legend_inches = DEFAULT['legend_base_width']\
+                + DEFAULT['legend_char_width'] * longest
+            margin_inches = DEFAULT['legend_margin']
             extra = legend_inches + margin_inches
             fig_width = params['figsize'][0] if 'figsize' in params\
                 else (graph.width or 1)
