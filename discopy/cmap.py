@@ -35,6 +35,7 @@ from enum import StrEnum
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from io import BytesIO
 from itertools import count
 from math import lcm
@@ -235,7 +236,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return len(self.dom) + sum(
             len(box.dom) + len(box.cod) for box in self.boxes) + len(self.cod)
 
-    @property
+    @cached_property
     def _box_port_indices(self) -> tuple[tuple[int, ...], ...]:
         """ The consecutive port indices belonging to each box. """
         result, start = [], len(self.dom)
@@ -611,6 +612,66 @@ class CMap[C0: Pregroup, C1: CMap](
         return cls(box.dom, box.cod, (box, ), edge)
 
     @classmethod
+    def from_wiring(cls, boxes: tuple[Box, ...], wires) -> CMap:
+        """
+        A closed map given by boxes and wires between pairs
+        ``(box_index, port_position)``, where the position counts the
+        domain ports of the box followed by its codomain ports.
+
+        Parameters:
+            boxes : The boxes of the map.
+            wires : Pairs of ``(box_index, port_position)`` pairs.
+
+        Raises:
+            ValueError : If a port is left unwired or wired twice.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box, CMap
+        >>> x = Ty('x')
+        >>> f, g = Box('f', x, x @ x), Box('g', x @ x, x)
+        >>> cm = CMap.from_wiring((f, g), [
+        ...     ((0, 0), (1, 2)), ((0, 1), (1, 0)), ((0, 2), (1, 1))])
+        >>> assert cm.edges.is_fixpoint_free_involution()
+        >>> CMap.from_wiring((f, ), [((0, 0), (0, 0))])
+        Traceback (most recent call last):
+            ...
+        ValueError: Port (0, 0) is wired to itself.
+        """
+        boxes = tuple(boxes)
+        starts, n_ports = [], 0
+        for box in boxes:
+            starts.append(n_ports)
+            n_ports += len(box.dom) + len(box.cod)
+
+        def global_index(box_index: int, position: int) -> int:
+            box = boxes[box_index]
+            arity, coarity = len(box.dom), len(box.cod)
+            if not 0 <= position < arity + coarity:
+                raise ValueError(
+                    f"Box {box_index} has no port {position}.")
+            if position < arity:
+                return starts[box_index] + position
+            return starts[box_index] + arity\
+                + (coarity - 1 - (position - arity))
+
+        pairs, seen = [], set()
+        for (one, other) in wires:
+            i, j = global_index(*one), global_index(*other)
+            if i == j:
+                raise ValueError(f"Port {one} is wired to itself.")
+            for port, position in ((i, one), (j, other)):
+                if port in seen:
+                    raise ValueError(f"Port {position} is wired twice.")
+            seen.update((i, j))
+            pairs.append((i, j))
+        if len(seen) != n_ports:
+            missing = sorted(set(range(n_ports)) - seen)
+            raise ValueError(f"Ports {missing} are left unwired.")
+        edges = Permutation.from_transpositions(pairs, n_ports)
+        return cls(cls.ob(), cls.ob(), boxes, edges)
+
+    @classmethod
     def from_diagram(cls, old: Diagram) -> CMap:
         """
         Turn a :class:`Diagram` into a :class:`CMap`.
@@ -887,6 +948,91 @@ class CMap[C0: Pregroup, C1: CMap](
         edge = self.edges.conjugate(Permutation(mapping))
         return type(self)(
             self.dom, self.cod, boxes, edge, offsets=offsets,
+            scalars=self.scalars)
+
+    def merge_inputs(self, indices: tuple[int, ...], box: Box) -> CMap:
+        """
+        Merge input boundary ports through a box ``x -> x ** k``: the merged
+        inputs are replaced by a single new input at position
+        ``min(indices)`` wired to the domain of ``box``, and the ``i``-th
+        codomain port of ``box`` is wired to the old partner of
+        ``indices[i]``.
+
+        Parameters:
+            indices : The distinct input positions to merge.
+            box : The merging box, with one domain port and ``len(indices)``
+                  codomain ports.
+
+        Raises:
+            ValueError : If the box does not have the required arity, the
+                indices are out of range or not distinct, or two merged
+                inputs are wired to each other.
+
+        Example
+        -------
+        >>> from discopy.symmetric import Ty, Box
+        >>> x, y = Ty('x'), Ty('y')
+        >>> fm = Box('f', x @ x @ x, y).to_map()
+        >>> merged = fm.merge_inputs((0, 2), Box('δ', x, x @ x))
+        >>> assert merged.dom == x @ x and len(merged.boxes) == 2
+        >>> assert merged.edges.is_fixpoint_free_involution()
+        """
+        assert_isinstance(box, self.category)
+        indices = tuple(indices)
+        if len(indices) < 2 or len(box.dom) != 1\
+                or len(box.cod) != len(indices):
+            raise ValueError(
+                f"Expected a box with one input and {len(indices)} outputs, "
+                f"got {box}.")
+        if len(set(indices)) != len(indices) or not all(
+                0 <= i < len(self.dom) for i in indices):
+            raise ValueError(f"Expected distinct inputs, got {indices}.")
+        if any(self.edges[i] in indices for i in indices):
+            raise ValueError(
+                f"The inputs {indices} are wired to each other.")
+
+        position = min(indices)
+        new_dom = self.ob()
+        for i, obj in enumerate(self.dom):
+            new_dom = new_dom @ (
+                box.dom if i == position
+                else self.ob() if i in indices else obj)
+        boxes = self.boxes + (box, )
+        offsets = self.offsets + (None, )
+
+        mapping, new_index, new_input = {}, 0, None
+        for i in range(len(self.dom)):
+            if i == position:
+                new_input = new_index
+                new_index += 1
+            if i in indices:
+                continue
+            mapping[i] = new_index
+            new_index += 1
+        for i in range(len(self.dom), self.n_ports - len(self.cod)):
+            mapping[i] = new_index
+            new_index += 1
+
+        box_dom = new_index
+        box_cods = tuple(
+            box_dom + 1 + len(box.cod) - i - 1
+            for i in range(len(box.cod)))
+        new_index += 1 + len(box.cod)
+        for i in range(self.n_ports - len(self.cod), self.n_ports):
+            mapping[i] = new_index
+            new_index += 1
+        n_ports = new_index
+
+        edge_pairs = [(new_input, box_dom)]
+        for i, j in enumerate(self.edges):
+            if i < j and i not in indices and j not in indices:
+                edge_pairs.append((mapping[i], mapping[j]))
+        for i, index in enumerate(indices):
+            edge_pairs.append((box_cods[i], mapping[self.edges[index]]))
+        edges = Permutation.from_transpositions(edge_pairs, n_ports)
+
+        return type(self)(
+            new_dom, self.cod, boxes, edges, offsets=offsets,
             scalars=self.scalars)
 
     def plug_input(

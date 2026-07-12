@@ -661,16 +661,23 @@ def test_to_term_errors():
         disconnected.to_term()
 
 
-def test_to_map_not_linear():
+def test_to_map_almost_linear():
     from discopy import closed
 
     a, b = closed.Ty("a"), closed.Ty("b")
-    with raises(NotImplementedError):
-        (a >> b)("g").to_map()  # constants have no map encoding
-    u = closed.Variable("u", a >> (a >> b))
+    constant = (a >> b)("g").to_map()  # constants are univalent boxes
+    assert len(constant.boxes) == 1 and len(constant.cod) == 1
+    u = closed.Variable("u", a >> (a >> (a >> b)))
     v = closed.Variable("v", a)
-    with raises(ValueError):
-        closed.Abstraction(v, u(v)(v)).to_map()  # not linear
+    copying = closed.Abstraction(v, u(v)(v)(v)).to_map()
+    assert sorted(box.name for box in copying.boxes)\
+        == ['@', '@', '@', 'δ', 'λ']
+    delta, = (box for box in copying.boxes if box.name == 'δ')
+    assert len(delta.cod) == 3  # one delta with a port per occurrence
+    with raises(ValueError):  # to_term does not support delta nodes
+        copying.to_term()
+    with raises(ValueError):  # discarding is not almost-linear
+        closed.Abstraction(v, b("c")).to_map()
 
 
 def test_petersen():
@@ -757,3 +764,24 @@ def test_euler_characteristic():
     t = compact.Box("t", compact.Ty(), compact.Ty()).to_map()
     assert (s @ t).connected_components == [s, t]
     assert compact.CMap.id().connected_components == [compact.CMap.id()]
+
+
+def test_merge_inputs_errors():
+    from discopy import compact, symmetric
+
+    x, y = symmetric.Ty('x'), symmetric.Ty('y')
+    fm = symmetric.Box('f', x @ x @ x, y).to_map()
+    delta = symmetric.Box('δ', x, x @ x)
+    with raises(ValueError):  # wrong box arity
+        fm.merge_inputs((0, 1, 2), delta)
+    with raises(ValueError):  # single input
+        fm.merge_inputs((0, ), delta)
+    with raises(ValueError):  # not distinct
+        fm.merge_inputs((0, 0), delta)
+    with raises(ValueError):  # out of range
+        fm.merge_inputs((0, 3), delta)
+
+    z = compact.Ty('z')
+    cup = compact.CMap.cups(z, z.r)  # two inputs wired to each other
+    with raises(ValueError):
+        cup.merge_inputs((0, 1), compact.Box('δ', z, z @ z.r))

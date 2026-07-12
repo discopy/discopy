@@ -11,12 +11,15 @@ Summary
     :toctree:
 
     Ty
+    Unitype
     Exp
     TermBase
     Constant
     Variable
     Application
     Abstraction
+    Substitution
+    BohmTree
     Diagram
     Box
     Eval
@@ -50,7 +53,7 @@ Axioms
 
 from __future__ import annotations
 from dataclasses import dataclass
-from typing import Dict, ClassVar
+from typing import Callable, Dict, ClassVar
 
 from discopy import cat, monoidal, biclosed, markov, symmetric
 from discopy.abc import ClosedCategory
@@ -83,6 +86,39 @@ class Exp(biclosed.Exp):
 
     def __str__(self):
         return f"({self.exponent} >> {self.base})"
+
+
+class Unitype(Ty):
+    """
+    A closed type which is its own exponential, used to type terms that are
+    not simply typed, e.g. the exponentiation of Church numerals.
+
+    Parameters:
+        name : The name of the unitype, ``"o"`` by default.
+
+    Note
+    ----
+    A unitype compares equal to the ordinary atomic type with the same name,
+    but only the unitype short-circuits exponentiation: do not reuse the name
+    of a unitype for an ordinary atom.
+
+    Example
+    -------
+    >>> o = Unitype()
+    >>> assert o >> o == o == o << o and o.base == o.exponent == o
+    >>> two = o(lambda f: o(lambda x: f(f(x))))
+    >>> assert two.cod == o and two(two).cod == o
+    """
+    def __init__(self, name: str = "o"):
+        super().__init__(name)
+
+    is_exp = property(lambda self: True)
+    base = exponent = property(lambda self: self)
+
+    def exp(self, other: Ty) -> Ty:
+        return self if other == self else super().exp(other)
+
+    over = under = exp
 
 
 @ar_factory
@@ -208,16 +244,21 @@ class TermBase(Box, biclosed.TermBase):
 
     def to_map(self) -> symmetric.CMap:
         """
-        Encode a pure linear lambda term as a rooted trivalent map over a
-        single generating object, i.e. one direction of Zeilberger's
-        isomorphism; the inverse is :meth:`discopy.cmap.CMap.to_term`.
+        Encode an almost-linear lambda term as a rooted map over a single
+        generating object. On pure linear terms this is one direction of
+        Zeilberger's isomorphism with rooted trivalent maps, and the inverse
+        is :meth:`discopy.cmap.CMap.to_term`.
 
         Each application becomes a node with the function and argument
         subtrees as inputs and the result as output, each abstraction becomes
         a node plugging the root and the wire of the abstracted variable, see
-        :meth:`discopy.cmap.CMap.plug_input`. The free variables of the term
-        are the inputs of the map and the root is its output. The names of
-        the variables are attached to the objects of their wires, see
+        :meth:`discopy.cmap.CMap.plug_input`. A variable with several
+        occurrences goes through one delta node with one port per occurrence,
+        see :meth:`discopy.cmap.CMap.merge_inputs`, and a constant becomes a
+        node with a single port; :meth:`discopy.cmap.CMap.to_term` does not
+        support these two node kinds. The free variables of the term are the
+        inputs of the map and the root is its output. The names of the
+        variables are attached to the objects of their wires, see
         :func:`biclosed.annotate`, so that the round-trip from term to map
         and back is faithful on the nose.
 
@@ -229,32 +270,58 @@ class TermBase(Box, biclosed.TermBase):
         >>> len(cmap.boxes)
         3
         >>> assert cmap.to_term() == term
+
+        >>> o = Unitype()
+        >>> two = o(lambda f: o(lambda x: f(f(x))))
+        >>> sorted(box.name for box in two.to_map().boxes)
+        ['@', '@', 'δ', 'λ', 'λ']
         """
         x = symmetric.Ty("x")
         application_box = symmetric.Box("@", x @ x, x)
 
+        def merge(cmap, variables, var):
+            """ One delta node with a port for each occurrence of var. """
+            indices = tuple(
+                i for i, other in enumerate(variables) if other == var)
+            if len(indices) == 1:
+                return cmap, variables
+            wire = biclosed.annotate(x, var.name)
+            delta = symmetric.Box("δ", wire, wire ** len(indices))
+            variables = [v for v in variables if v != var]
+            variables.insert(indices[0], var)
+            return cmap.merge_inputs(indices, delta), variables
+
         def go(term):
+            if isinstance(term, Constant):
+                return symmetric.CMap.from_box(
+                    symmetric.Box(term.name, symmetric.Ty(), x)), []
             if isinstance(term, Variable):
                 wire = biclosed.annotate(x, term.name)
                 return symmetric.CMap.id(wire), [term]
             if isinstance(term, Application):
                 func, func_vars = go(term.func)
                 args, args_vars = go(term.args)
-                if set(func_vars) & set(args_vars):
-                    raise ValueError(f"Expected a linear term, got {self}.")
                 return func @ args >> symmetric.CMap.from_box(
                     application_box), func_vars + args_vars
             if isinstance(term, Abstraction):
                 body, body_vars = go(term.body)
+                if term.var not in body_vars:
+                    raise ValueError(
+                        "Expected an almost-linear term where every "
+                        f"abstracted variable occurs, got {self}.")
+                body, body_vars = merge(body, body_vars, term.var)
                 index = body_vars.index(term.var)
                 abstraction_box = symmetric.Box(
                     "λ", x, x @ biclosed.annotate(x, term.var.name))
                 remaining = body_vars[:index] + body_vars[index + 1:]
                 return body.plug_input(index, abstraction_box, x), remaining
             raise NotImplementedError(
-                f"Only pure linear terms have a map encoding, got {term}.")
+                f"Expected an almost-linear term, got {term}.")
 
-        return go(self)[0]
+        cmap, variables = go(self)
+        for var in dict.fromkeys(variables):
+            cmap, variables = merge(cmap, variables, var)
+        return cmap
 
 
 type Term = Constant | Variable | Application | Abstraction
@@ -289,7 +356,7 @@ class Variable(TermBase, biclosed.Variable):
 class Application(TermBase, biclosed.Application):
     def __check_dom__(self, func, args, left):
         self.overlap = set(func.freevars).intersection(args.freevars)
-        self.freevars = list(set(func.freevars + args.freevars))\
+        self.freevars = list(dict.fromkeys(func.freevars + args.freevars))\
             if self.overlap else func.freevars + args.freevars
         return self.ob().tensor(*[x.cod for x in self.freevars])
 
@@ -357,6 +424,24 @@ class Context:
 
 @dataclass
 class Substitution:
+    """
+    The simultaneous substitution of terms for free variables.
+
+    Substitution is capture-avoiding: a binder is renamed to a fresh name
+    only when a substituted term has its variable free, so that names are
+    preserved whenever capture cannot happen.
+
+    Parameters:
+        inside : The mapping from variables to the substituted terms.
+
+    Example
+    -------
+    >>> X = Ty("X")
+    >>> u, v = Variable("u", X), Variable("v", X)
+    >>> assert Substitution({u: v})(X(lambda w: u)) == X(lambda w: v)
+    >>> renamed = Substitution({u: v})(X(lambda v: u))
+    >>> assert renamed.body == v and renamed.var != v
+    """
     inside: Dict[Variable, Term]
 
     def __call__(self, term: Term) -> Term:
@@ -365,10 +450,151 @@ class Substitution:
         if isinstance(term, Application):
             return type(term)(self(term.func), self(term.args), term.left)
         if isinstance(term, Abstraction):
-            other = Substitution({
+            inside = {
                 key: value for key, value in self.inside.items()
-                if key != term.var})
-            return type(term)(term.var, other(term.body), term.left)
+                if key != term.var}
+            if not inside:
+                return term
+            var = term.var
+            if any(var in value.freevars for value in inside.values()):
+                var = type(term.var)(biclosed.fresh_name(), term.var.cod)
+                inside[term.var] = var
+            return type(term)(var, Substitution(inside)(term.body), term.left)
+        return term
+
+
+@dataclass
+class BohmTree:
+    """
+    The head normal form of a term: abstracted ``variables`` over a head
+    variable applied to ``args``, with ``None`` for the unexpanded holes of
+    an incomplete tree.
+
+    Parameters:
+        cod : The type of the subterm at this node.
+        variables : The variables abstracted at this node.
+        head : The index of the head variable in the scope, i.e. the free
+               variables followed by the variables bound from the root down
+               to and including this node, with shadowed names resolving to
+               the innermost binder.
+        args : The subtrees the head is applied to, ``None`` for holes.
+
+    Note
+    ----
+    Heads are de Bruijn levels, so trees compare equal up to alpha
+    equivalence: the names of the variables are preserved as much as
+    possible by :meth:`to_term` but they do not affect equality.
+
+    Example
+    -------
+    >>> o = Unitype()
+    >>> two = o(lambda f: o(lambda x: f(f(x))))
+    >>> tree = BohmTree.from_term(two(two))
+    >>> assert tree == BohmTree.from_term(
+    ...     o(lambda f: o(lambda x: f(f(f(f(x)))))))
+    >>> assert BohmTree.from_term(tree.to_term()) == tree
+    >>> assert BohmTree.from_term(two(two), budget=0) is None
+    """
+    cod: Ty
+    variables: tuple[Variable, ...]
+    head: int
+    args: tuple[BohmTree | None, ...]
+
+    def __eq__(self, other):
+        return isinstance(other, BohmTree) and self.head == other.head\
+            and self.cod == other.cod and self.args == other.args\
+            and tuple(x.cod for x in self.variables)\
+            == tuple(x.cod for x in other.variables)
+
+    def __hash__(self):
+        return hash((self.cod, len(self.variables), self.head, self.args))
+
+    @staticmethod
+    def step(term: Term) -> Term | None:
+        """
+        One step of leftmost-outermost head beta reduction, or ``None`` if
+        the term is in head normal form. The extension point for other
+        reduction strategies, see :meth:`from_term`.
+
+        Parameters:
+            term : The term to reduce.
+        """
+        if isinstance(term, Abstraction):
+            body = BohmTree.step(term.body)
+            return None if body is None\
+                else type(term)(term.var, body, term.left)
+        spine, head = [], term
+        while isinstance(head, Application):
+            spine.append(head)
+            head = head.func
+        if not isinstance(head, Abstraction) or not spine:
+            return None
+        redex = spine.pop()
+        result = Substitution({head.var: redex.args})(head.body)
+        for application in reversed(spine):
+            result = type(application)(
+                result, application.args, application.left)
+        return result
+
+    @classmethod
+    def from_term(cls, term: Term, budget: int | None = None,
+                  step: Callable = None, scope: tuple = ()) -> BohmTree | None:
+        """
+        The Böhm tree of a term, reduced with at most ``budget`` beta steps:
+        the nodes that cannot be reached within the budget are ``None``.
+
+        Parameters:
+            term : The term to normalise.
+            budget : The number of beta steps allowed, unbounded by default.
+            step : The reduction strategy, :meth:`step` by default.
+            scope : The free variables of the term.
+        """
+        counter = [budget]
+        return cls._expand(term, tuple(scope), counter, step or cls.step)
+
+    @classmethod
+    def _expand(cls, term, scope, counter, step):
+        """ Build one node, spending beta steps from the shared counter. """
+        while (reduced := step(term)) is not None:
+            if counter[0] is not None:
+                if counter[0] == 0:
+                    return None
+                counter[0] -= 1
+            term = reduced
+        cod, variables = term.cod, []
+        while isinstance(term, Abstraction):
+            variables.append(term.var)
+            term = term.body
+        scope, spine = scope + tuple(variables), []
+        while isinstance(term, Application):
+            spine.append(term.args)
+            term = term.func
+        if not isinstance(term, Variable):
+            raise NotImplementedError(
+                f"Expected a variable head, got {term}.")
+        head = len(scope) - 1 - scope[::-1].index(term)
+        return cls(cod, tuple(variables), head, tuple(
+            cls._expand(arg, scope, counter, step)
+            for arg in reversed(spine)))
+
+    def to_term(self, scope: tuple = ()) -> Term:
+        """
+        The term of a complete Böhm tree, so that normalisation is idempotent.
+
+        Parameters:
+            scope : The free variables of the term.
+
+        Raises:
+            ValueError : If the tree has a hole.
+        """
+        scope = tuple(scope) + self.variables
+        term = scope[self.head]
+        for arg in self.args:
+            if arg is None:
+                raise ValueError(f"{self} has a hole.")
+            term = term(arg.to_term(scope))
+        for var in reversed(self.variables):
+            term = Abstraction(var, term)
         return term
 
 

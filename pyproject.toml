@@ -2,6 +2,11 @@
 requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
 build-backend = "setuptools.build_meta"
 
+# Pin package discovery to discopy* so top-level dirs (benchmark/, plans/, ...)
+# don't trip setuptools flat-layout "multiple top-level packages" detection.
+[tool.setuptools.packages.find]
+include = ["discopy*"]
+
 [project]
 name = "discopy"
 dynamic = ["version"]
@@ -44,6 +49,8 @@ dev = [
     "pyproject-flake8",
     "pylint",
     "pytest",
+    "pytest-benchmark",
+    "polars",
 ]
 docs = ["discopy[docs]"]
 quantum = ["discopy[quantum]"]
@@ -145,3 +152,6 @@ norecursedirs = [
     "test/utils/pickles/TODO",
 ]
 addopts = "--doctest-modules --nbmake --ignore=test/utils/pickles/TODO"
+
+[tool.coverage.report]
+fail_under = 98
