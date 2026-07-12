@@ -26,6 +26,7 @@ Summary
     Functor
     Atom
     Rule
+    Semiring
     Program
 
 .. admonition:: Functions
@@ -53,13 +54,15 @@ n('Alice')((n >> s)('sleeps'), left=True)
 
 from __future__ import annotations
 
+import math
+
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from discopy import cat, monoidal, biclosed, closed, frobenius
 from discopy.grammar import categorial
-from discopy.utils import AxiomError
+from discopy.utils import AxiomError, MappingOrCallable
 
 
 class Query(frobenius.Hypergraph):
@@ -382,6 +385,53 @@ def identify(term: closed.Term) -> closed.Term:
     return term
 
 
+@dataclass(frozen=True)
+class Semiring:
+    """
+    A commutative semiring in which to evaluate a packed forest, i.e. the
+    provenance polynomial of a Datalog query.
+
+    Parameters:
+        zero : The unit of addition, the score of an underivable fact.
+        one : The unit of multiplication, the score of a database fact.
+        plus : The addition, combining alternative derivations.
+        times : The multiplication, combining the premises of a rule.
+
+    Note
+    ----
+    The module provides ``BOOL`` (derivability), ``COUNT`` (number of
+    derivations), ``PROB`` (inside probabilities), ``MAXPLUS`` (Viterbi
+    scores) and ``LOGPROB`` (log-space inside probabilities). Weights may
+    be any objects supporting the semiring operations, e.g. fractions for
+    exact arithmetic or autodifferentiation scalars for training.
+
+    Example
+    -------
+    >>> assert COUNT.plus(COUNT.one, COUNT.one) == 2
+    >>> assert MAXPLUS.times(MAXPLUS.one, 42) == 42
+    """
+    zero: Any
+    one: Any
+    plus: Callable[[Any, Any], Any]
+    times: Callable[[Any, Any], Any]
+
+
+def _logaddexp(left, right):
+    if left == float('-inf'):
+        return right
+    if right == float('-inf'):
+        return left
+    top = max(left, right)
+    return top + math.log(math.exp(left - top) + math.exp(right - top))
+
+
+BOOL = Semiring(False, True, lambda x, y: x or y, lambda x, y: x and y)
+COUNT = Semiring(0, 1, lambda x, y: x + y, lambda x, y: x * y)
+PROB = Semiring(0.0, 1.0, lambda x, y: x + y, lambda x, y: x * y)
+MAXPLUS = Semiring(float('-inf'), 0.0, max, lambda x, y: x + y)
+LOGPROB = Semiring(float('-inf'), 0.0, _logaddexp, lambda x, y: x + y)
+
+
 @dataclass
 class Program:
     """
@@ -498,11 +548,200 @@ class Program:
         for rule, children in forest.get(goal, []):
             yield from expand(rule, children, ())
 
-    def parse(self, term: closed.Term, start: categorial.Ty,
-              identify: callable = None) -> Iterator[categorial.Term]:
+    def inside(self, forest: dict[Atom, list], weights, semiring=PROB,
+               passes: int = None) -> dict[Atom, Any]:
         """
-        Enumerate the derivations of an input term, i.e. the categorial
-        terms whose image under the lexicon beta-reduces to the input.
+        The inside scores of the facts of a packed forest in a semiring,
+        i.e. the evaluation of the provenance polynomial: the score of a
+        fact is the sum over its justifications of the weight of the rule
+        times the product of the scores of the children.
+
+        Parameters:
+            forest : The output of :meth:`seminaive`.
+            weights : Map from :class:`Rule` to weights in the semiring.
+            semiring : The :class:`Semiring` in which to evaluate.
+            passes : The number of iterations, the size of the forest by
+                     default, which is exact for acyclic forests and a
+                     truncation at bounded derivation height otherwise.
+        """
+        weights = MappingOrCallable(weights)
+        passes = len(forest) if passes is None else passes
+        scores = {
+            fact: semiring.one if not justifications else semiring.zero
+            for fact, justifications in forest.items()}
+        for _ in range(passes):
+            update = {}
+            for fact, justifications in forest.items():
+                if not justifications:
+                    update[fact] = semiring.one
+                    continue
+                total = semiring.zero
+                for rule, children in justifications:
+                    value = weights[rule]
+                    for child in children:
+                        value = semiring.times(
+                            value, scores.get(child, semiring.zero))
+                    total = semiring.plus(total, value)
+                update[fact] = total
+            scores = update
+        return scores
+
+    def outside(self, forest: dict[Atom, list], goal: Atom, weights,
+                semiring=PROB, passes: int = None,
+                inside_scores: dict[Atom, Any] = None) -> dict[Atom, Any]:
+        """
+        The outside scores of the facts of a packed forest with respect
+        to a goal, i.e. the derivative of the inside score of the goal
+        with respect to the inside score of each fact.
+
+        Parameters:
+            forest : The output of :meth:`seminaive`.
+            goal : The atom with respect to which to differentiate.
+            weights : Map from :class:`Rule` to weights in the semiring.
+            semiring : The :class:`Semiring` in which to evaluate.
+            passes : The number of iterations, see :meth:`inside`.
+            inside_scores : The output of :meth:`inside`, recomputed by
+                            default.
+        """
+        weights = MappingOrCallable(weights)
+        passes = len(forest) if passes is None else passes
+        if inside_scores is None:
+            inside_scores = self.inside(forest, weights, semiring, passes)
+        scores = {fact: semiring.zero for fact in forest}
+        scores[goal] = semiring.one
+        for _ in range(passes):
+            update = {fact: semiring.zero for fact in forest}
+            update[goal] = semiring.one
+            for fact, justifications in forest.items():
+                for rule, children in justifications:
+                    base = semiring.times(
+                        scores.get(fact, semiring.zero), weights[rule])
+                    for i, child in enumerate(children):
+                        value = base
+                        for j, other in enumerate(children):
+                            if j != i:
+                                value = semiring.times(
+                                    value, inside_scores.get(
+                                        other, semiring.zero))
+                        update[child] = semiring.plus(
+                            update.get(child, semiring.zero), value)
+            scores = update
+        return scores
+
+    def marginals(self, forest: dict[Atom, list], goal: Atom, weights,
+                  semiring=PROB, passes: int = None) -> dict[Rule, Any]:
+        """
+        The marginal score of each rule in the derivations of a goal:
+        the sum over its ground instances of the outside score of the
+        head times the weight times the inside scores of the children.
+
+        In the ``PROB`` semiring this equals the weight of the rule times
+        the derivative of the inside score of the goal with respect to it.
+
+        Parameters:
+            forest : The output of :meth:`seminaive`.
+            goal : The atom whose derivations are marginalized.
+            weights : Map from :class:`Rule` to weights in the semiring.
+            semiring : The :class:`Semiring` in which to evaluate.
+            passes : The number of iterations, see :meth:`inside`.
+        """
+        weights = MappingOrCallable(weights)
+        inside_scores = self.inside(forest, weights, semiring, passes)
+        outside_scores = self.outside(
+            forest, goal, weights, semiring, passes, inside_scores)
+        result = {}
+        for fact, justifications in forest.items():
+            for rule, children in justifications:
+                value = semiring.times(
+                    outside_scores.get(fact, semiring.zero), weights[rule])
+                for child in children:
+                    value = semiring.times(
+                        value, inside_scores.get(child, semiring.zero))
+                result[rule] = semiring.plus(
+                    result.get(rule, semiring.zero), value)
+        return result
+
+    def viterbi(self, forest: dict[Atom, list], goal: Atom, weights,
+                passes: int = None
+                ) -> Optional[tuple[float, categorial.Term]]:
+        """
+        The best derivation of a goal and its score in the ``MAXPLUS``
+        semiring, i.e. with weights read as log-probabilities, or ``None``
+        if the goal is not derivable.
+
+        Parameters:
+            forest : The output of :meth:`seminaive`.
+            goal : The atom to derive.
+            weights : Map from :class:`Rule` to log-weights.
+            passes : The number of iterations, see :meth:`inside`.
+
+        Note
+        ----
+        As for :meth:`derivations`, only acyclic derivations are decoded;
+        the score returned is that of the decoded derivation.
+        """
+        weights = MappingOrCallable(weights)
+        scores = self.inside(forest, weights, MAXPLUS, passes)
+
+        def score(rule, children):
+            return weights[rule] + sum(
+                scores.get(child, MAXPLUS.zero) for child in children)
+
+        def decode(fact, path):
+            if fact in path:
+                return None
+            for rule, children in sorted(
+                    forest.get(fact, []),
+                    key=lambda pair: -score(*pair)):
+                total, subterms = weights[rule], []
+                for child in children:
+                    result = decode(child, path | {fact})
+                    if result is None:
+                        break
+                    total, subterms = total + result[0], subterms + [
+                        result[1]]
+                else:
+                    return total, rule(*subterms)
+            return None
+
+        return decode(goal, frozenset())
+
+    @classmethod
+    def from_tagged(cls, lexicon: cat.Functor, tagging, ob=None
+                    ) -> tuple[Program, dict[Rule, float]]:
+        """
+        Build a program from the output of a supertagger: a sub-lexicon
+        restricted to the tagged words together with a weight for each
+        rule, e.g. to be used with :meth:`viterbi` or :meth:`inside`.
+
+        Parameters:
+            lexicon : The full lexicon from which to take the entries.
+            tagging : For each token, an iterable of pairs of a word and
+                      its log-weight.
+            ob : An optional map from atomic object types to sorts.
+
+        Note
+        ----
+        When the same word is tagged for several tokens, its rule gets
+        the maximum weight: per-token weights on ground rule instances
+        are left for future work.
+        """
+        entries = {}
+        for token in tagging:
+            for word, weight in token:
+                entries[word] = max(
+                    entries.get(word, float('-inf')), weight)
+        sublexicon = type(lexicon)(
+            lexicon.ob_map, {word: lexicon(word) for word in entries})
+        program = cls.from_lexicon(sublexicon, ob)
+        return program, {
+            rule: entries[rule.word] for rule in program.rules}
+
+    def chart(self, term: closed.Term, start: categorial.Ty,
+              identify: callable = None) -> tuple[dict[Atom, list], Atom]:
+        """
+        The packed forest and the goal atom for an input term, i.e. the
+        chart from which derivations, scores and marginals are computed.
 
         Parameters:
             term : The closed term to parse.
@@ -514,9 +753,21 @@ class Program:
                 f"Expected a term of type {self.lexicon(start)}, "
                 f"got {term.cod}.")
         facts, output = self.database(term, identify)
-        forest = self.seminaive(facts)
-        return self.derivations(
-            forest, Atom(start.inside[0].name, output))
+        return self.seminaive(facts), Atom(start.inside[0].name, output)
+
+    def parse(self, term: closed.Term, start: categorial.Ty,
+              identify: callable = None) -> Iterator[categorial.Term]:
+        """
+        Enumerate the derivations of an input term, i.e. the categorial
+        terms whose image under the lexicon beta-reduces to the input.
+
+        Parameters:
+            term : The closed term to parse.
+            start : The atomic categorial type to derive.
+            identify : An optional preprocessing step, see :func:`identify`.
+        """
+        forest, goal = self.chart(term, start, identify)
+        return self.derivations(forest, goal)
 
 
 def parse(lexicon: cat.Functor, term: closed.Term, start: categorial.Ty,

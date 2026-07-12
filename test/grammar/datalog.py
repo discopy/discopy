@@ -185,6 +185,137 @@ def test_parse_string_cfg():
     assert not list(program.parse(scrambled, s))
 
 
+def ambiguous():
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    e, t = Ty("e"), Ty("t")
+    WOMAN = (e >> t)("WOMAN")
+    woman, lady = n("woman"), n("lady")
+    lexicon = Lexicon(ob={n: e >> t, s: t}, ar={woman: WOMAN, lady: WOMAN})
+    program = Program.from_lexicon(lexicon)
+    facts, _ = program.database(WOMAN)
+    forest = program.seminaive(facts)
+    rules = {rule.word.name: rule for rule in program.rules}
+    return program, forest, Atom('n', (0, 1)), rules
+
+
+def test_Semiring():
+    assert COUNT.plus(COUNT.one, COUNT.one) == 2
+    assert BOOL.times(BOOL.one, BOOL.zero) is False
+    assert MAXPLUS.plus(MAXPLUS.zero, 42) == MAXPLUS.times(MAXPLUS.one, 42)
+    assert LOGPROB.plus(LOGPROB.zero, 0.5) == 0.5
+    assert LOGPROB.plus(0.5, LOGPROB.zero) == 0.5
+    from math import exp, log
+    assert abs(LOGPROB.plus(log(.3), log(.5)) - log(.8)) < 1e-12
+
+
+def test_inside():
+    program, forest, goal, rules = ambiguous()
+    counting = program.inside(
+        forest, {rule: 1 for rule in program.rules}, COUNT)
+    assert counting[goal] == len(list(program.derivations(forest, goal)))
+    weights = {rules['woman']: .3, rules['lady']: .5}
+    assert abs(program.inside(forest, weights, PROB)[goal] - .8) < 1e-12
+    from math import log
+    logweights = {rule: log(w) for rule, w in weights.items()}
+    assert abs(program.inside(forest, logweights, LOGPROB)[goal]
+               - log(.8)) < 1e-12
+
+    from fractions import Fraction
+    exact = Semiring(Fraction(0), Fraction(1),
+                     lambda x, y: x + y, lambda x, y: x * y)
+    fractions = {rules['woman']: Fraction(3, 10),
+                 rules['lady']: Fraction(1, 2)}
+    assert program.inside(forest, fractions, exact)[goal] == Fraction(4, 5)
+
+
+def test_marginals_gradcheck():
+    program, forest, goal, rules = ambiguous()
+    weights = {rules['woman']: .3, rules['lady']: .5}
+    assert program.outside(forest, goal, weights)[goal] == 1.
+    marginals = program.marginals(forest, goal, weights, PROB)
+    assert abs(marginals[rules['woman']] - .3) < 1e-12
+    assert abs(marginals[rules['lady']] - .5) < 1e-12
+    eps = 1e-6
+    for name in ('woman', 'lady'):
+        plus, minus = dict(weights), dict(weights)
+        plus[rules[name]] += eps
+        minus[rules[name]] -= eps
+        finite_difference = (
+            program.inside(forest, plus, PROB)[goal]
+            - program.inside(forest, minus, PROB)[goal]) / (2 * eps)
+        analytic = marginals[rules[name]] / weights[rules[name]]
+        assert abs(finite_difference - analytic) < 1e-6
+
+
+def test_viterbi():
+    from math import log
+    program, forest, goal, rules = ambiguous()
+    logweights = {rules['woman']: log(.3), rules['lady']: log(.5)}
+    score, term = program.viterbi(forest, goal, logweights)
+    assert term == categorial.Ty("n")("lady")
+    assert abs(score - log(.5)) < 1e-12
+    assert program.viterbi(forest, Atom('s', (42, )), logweights) is None
+
+
+def test_weighted_montague():
+    from math import log
+    lexicon, de_dicto, (every, a, woman, man, married), (n, np, s) = \
+        montague()
+    program = Program.from_lexicon(lexicon)
+    forest, goal = program.chart(de_dicto, s)
+    assert program.inside(
+        forest, {rule: 1 for rule in program.rules}, COUNT)[goal] == 1
+    weights = {rule: .5 for rule in program.rules}
+    partition = program.inside(forest, weights, PROB)[goal]
+    assert abs(partition - .5 ** 5) < 1e-15
+    marginals = program.marginals(forest, goal, weights, PROB)
+    assert all(abs(value - partition) < 1e-15
+               for value in marginals.values() if value > 0)
+    score, best = program.viterbi(
+        forest, goal, {rule: log(.5) for rule in program.rules})
+    assert best == every(woman)(married(a(man)), left=True)
+    assert abs(score - 5 * log(.5)) < 1e-12
+
+
+def test_weighted_cyclic():
+    n, s = categorial.Ty("n"), categorial.Ty("s")
+    e, t = Ty("e"), Ty("t")
+    ET = e >> t
+    WOMAN = ET("WOMAN")
+    woman, lady, very = n("woman"), n("lady"), (n >> n)("very")
+    lexicon = Lexicon(
+        ob={n: ET, s: t},
+        ar={woman: WOMAN, lady: WOMAN, very: ET(lambda p: p)})
+    program = Program.from_lexicon(lexicon)
+    facts, _ = program.database(WOMAN)
+    forest = program.seminaive(facts)
+    goal = Atom('n', (0, 1))
+    rules = {rule.word.name: rule for rule in program.rules}
+    assert program.inside(
+        forest, {rule: True for rule in program.rules}, BOOL)[goal]
+    score, term = program.viterbi(forest, goal, {
+        rules['woman']: -.2, rules['lady']: -.1, rules['very']: -1.})
+    assert term == lady and abs(score + .1) < 1e-12
+    # A profitable cycle is tried first, cut by the guard, then backed off.
+    score, term = program.viterbi(forest, goal, {
+        rules['woman']: -.2, rules['lady']: -.1, rules['very']: 1.})
+    assert term == lady and abs(score + .1) < 1e-12
+
+
+def test_from_tagged():
+    lexicon, de_dicto, (every, a, woman, man, married), (n, np, s) = \
+        montague()
+    tagging = [
+        [(every, -.1), (a, -2.)], [(woman, -.2)], [(married, -.1)],
+        [(a, -.3), (every, -1.5)], [(man, -.1)]]
+    program, weights = Program.from_tagged(lexicon, tagging)
+    assert len(program.rules) == 5
+    assert weights[{r.word.name: r for r in program.rules}['every']] == -.1
+    forest, goal = program.chart(de_dicto, s)
+    _, best = program.viterbi(forest, goal, weights)
+    assert best == every(woman)(married(a(man)), left=True)
+
+
 def test_identify_and_type_mismatch():
     lexicon, de_dicto, _, (n, np, s) = montague()
     program = Program.from_lexicon(lexicon)
