@@ -35,6 +35,7 @@ from enum import StrEnum
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from functools import cached_property
 from io import BytesIO
 from itertools import count
 from math import lcm
@@ -235,7 +236,7 @@ class CMap[C0: Pregroup, C1: CMap](
         return len(self.dom) + sum(
             len(box.dom) + len(box.cod) for box in self.boxes) + len(self.cod)
 
-    @property
+    @cached_property
     def _box_port_indices(self) -> tuple[tuple[int, ...], ...]:
         """ The consecutive port indices belonging to each box. """
         result, start = [], len(self.dom)
