@@ -71,48 +71,6 @@ def test_from_wiring():
             ((0, 0), (1, 0)), ((0, 1), (1, 1)), ((0, 2), (1, 2))])
 
 
-def test_sudoku_peers():
-    peers = sudoku_peers()
-    assert set(map(len, peers)) == {7} and peers[0] == (1, 2, 3, 4, 5, 8, 12)
-    assert all(cell in peers[peer]
-               for cell in range(16) for peer in peers[cell])
-    assert set(map(len, sudoku_peers(3))) == {20}
-
-
-def test_sudoku_map():
-    grid = sudoku()
-    assert len(grid.boxes) == 16 and grid.n_ports == 112
-    assert grid.boxes[0] is grid.boxes[15]
-    assert grid.edges.is_fixpoint_free_involution()
-    assert len(grid.connected_components) == 1
-    assert not grid.is_planar
-
-
-def test_solve_sudoku():
-    solution = solve_sudoku((0, ) * 16)
-    assert check_sudoku(solution)
-    assert solve_sudoku(solution) == solution
-    assert solve_sudoku((1, 1) + (0, ) * 14) is None
-    assert solve_sudoku((0, 0, 1, 2, 3, 4) + (0, ) * 10) is None
-    assert check_sudoku(solve_sudoku((0, ) * 12 + (1, 2, 3, 0)))
-    assert not check_sudoku((0, ) * 16) and not check_sudoku((1, ) * 16)
-
-
-def test_random_sudoku():
-    clues, solution = random_sudoku(seed=42)
-    assert check_sudoku(solution)
-    assert (clues, solution) == random_sudoku(seed=42)
-    assert solution != random_sudoku(seed=43)[1]
-    assert sum(clue != 0 for clue in clues) == 8
-    assert all(clue in (0, digit) for clue, digit in zip(clues, solution))
-
-
-def test_decode_sudoku():
-    logits = 16 * [[.1, .2, .3, .4]]
-    assert decode_sudoku(logits, (0, ) * 16) == (4, ) * 16
-    assert decode_sudoku(logits, (1, ) * 16) == (1, ) * 16
-
-
 def test_network_module():
     torch = importorskip("torch")
     f = Network('f', Dim(2), Dim(3), module=mlp(5))
@@ -121,10 +79,17 @@ def test_network_module():
     assert f.module is f.data is f.dagger().module
 
 
+def ring(n_cells, network):
+    """ A closed ring of identical cells, each wired to its neighbours. """
+    wires = [((cell, 1), ((cell + 1) % n_cells, 0))
+             for cell in range(n_cells)]
+    return CMap.from_wiring(n_cells * (network, ), wires)
+
+
 def test_weight_sharing():
     importorskip("torch")
-    cell = Network('cell', Dim(0), Dim(4) ** 7, module=mlp(28))
-    grid = sudoku(2, network=cell)
+    cell = Network('cell', Dim(0), Dim(4) ** 2, module=mlp(8))
+    grid = ring(6, cell)
     assert len(grid.module_list) == 1
     assert sum(p.numel() for p in grid.parameters()) \
         == sum(p.numel() for p in cell.module.parameters())
@@ -152,10 +117,10 @@ def test_forward_open_map():
 def test_forward_closed_map():
     torch = importorskip("torch")
     torch.manual_seed(0)
-    cell = Network('cell', Dim(0), Dim(3) ** 7, module=mlp(21))
-    grid = sudoku(2, network=cell)
+    cell = Network('cell', Dim(0), Dim(3) ** 2, module=mlp(6))
+    grid = ring(16, cell)
     states = grid()
-    assert len(states) == 16 and all(s.shape == (1, 21) for s in states)
+    assert len(states) == 16 and all(s.shape == (1, 6) for s in states)
     init = torch.rand(5, sum(grid.port_widths))
     injected, not_injected = (
         grid(init=init, n_rounds=2, inject=inject)
@@ -179,8 +144,8 @@ def test_forward_errors():
 
 def test_torch_protocol():
     torch = importorskip("torch")
-    cell = Network('cell', Dim(0), Dim(2) ** 7, module=mlp(14))
-    grid = sudoku(2, network=cell)
+    cell = Network('cell', Dim(0), Dim(2) ** 2, module=mlp(4))
+    grid = ring(16, cell)
     assert grid.train() is grid and grid.eval() is grid
     assert grid.to(torch.float32) is grid
     assert dict(grid.named_parameters()).keys() \
@@ -198,23 +163,20 @@ def test_torch_protocol():
 def test_training():
     torch = importorskip("torch")
     torch.manual_seed(0)
-    n_cells, n_digits, dim = 16, 4, 4
-    n_peers = len(sudoku_peers()[0])
-    cell = Network('cell', Dim(0), Dim(dim) ** n_peers,
-                   module=mlp(n_peers * dim))
-    grid = sudoku(2, network=cell)
-    embedding = torch.nn.Embedding(n_digits + 1, dim)
-    readout = torch.nn.Linear(n_peers * dim, n_digits)
+    n_cells, n_classes, dim = 8, 4, 4
+    cell = Network('cell', Dim(0), Dim(dim) ** 2, module=mlp(2 * dim))
+    grid = ring(n_cells, cell)
+    embedding = torch.nn.Embedding(n_classes, dim)
+    readout = torch.nn.Linear(2 * dim, n_classes)
     optimizer = torch.optim.Adam([
         *grid.parameters(), *embedding.parameters(),
         *readout.parameters()], lr=0.02)
 
-    clues, solution = random_sudoku(seed=1)
-    clues_tensor = torch.tensor([clues])
-    target = torch.tensor([solution]) - 1
+    clues = torch.arange(n_cells).remainder(n_classes)[None]
+    target = clues.flip(-1)  # each cell must learn its mirror's class
 
     def logits():
-        embedded = embedding(clues_tensor)
+        embedded = embedding(clues)
         init = [None] * grid.n_ports
         for box_index in range(n_cells):
             for port in grid.box_ports(box_index):
@@ -226,13 +188,13 @@ def test_training():
     for _ in range(30):
         optimizer.zero_grad()
         loss = torch.nn.functional.cross_entropy(
-            logits().reshape(-1, n_digits), target.reshape(-1))
+            logits().reshape(-1, n_classes), target.reshape(-1))
         loss.backward()
         optimizer.step()
         losses.append(loss.item())
     assert losses[-1] < losses[0]
-    decoded = decode_sudoku(logits()[0], clues)
-    assert len(decoded) == n_cells
+    assert logits().shape == (1, n_cells, n_classes)
+
 
 
 def test_seq():
