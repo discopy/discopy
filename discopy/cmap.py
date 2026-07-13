@@ -892,6 +892,10 @@ class CMap[C0: Pregroup, C1: CMap](
         Reverse a combinatorial map: swap the boundary, dagger each box in
         reverse order and conjugate the edges by the port relabeling.
 
+        Boundary ports keep their order while each box block is reversed:
+        the clockwise port order of a daggered box is the reversed clockwise
+        order of the original.
+
         >>> from discopy.compact import Ty, Box
         >>> x, y = map(Ty, "xy")
         >>> f, g = Box('f', x, y @ y), Box('g', y @ y, x)
@@ -901,25 +905,14 @@ class CMap[C0: Pregroup, C1: CMap](
         n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
         boxes = tuple(box.dagger() for box in reversed(self.boxes))
         offsets = tuple(reversed(self.offsets))
-        mapping = list(range(n))
-        for i in range(n_dom):
-            mapping[i] = n - n_dom + i
-        for i in range(n_cod):
-            mapping[n - n_cod + i] = i
-        new_starts, start = [], n_cod
-        for box in reversed(self.boxes):
-            new_starts.append(start)
-            start += len(box.dom) + len(box.cod)
-        new_starts.reverse()
-        old_start = n_dom
-        for new_start, box in zip(new_starts, self.boxes):
-            arity, coarity = len(box.dom), len(box.cod)
-            for i in range(arity):
-                mapping[old_start + i]\
-                    = new_start + coarity + arity - 1 - i
-            for i in range(coarity):
-                mapping[old_start + arity + i] = new_start + coarity - 1 - i
-            old_start += arity + coarity
+        sizes = [len(box.dom) + len(box.cod) for box in self.boxes]
+        starts = [n_cod + sum(sizes[i + 1:]) for i in range(len(sizes))]
+        dom_mapping = list(range(n - n_dom, n))
+        box_mapping = sum([
+            list(reversed(range(start, start + size)))
+            for start, size in zip(starts, sizes)], [])
+        cod_mapping = list(range(n_cod))
+        mapping = dom_mapping + box_mapping + cod_mapping
         edges = self.edges.conjugate(Permutation(mapping))
         return type(self)(
             self.cod, self.dom, boxes, edges, offsets=offsets,
