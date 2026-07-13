@@ -139,10 +139,7 @@ class CMap[C0: Pregroup, C1: CMap](
     composing cups and caps.
 
     As for the open structure, we represent the map boundary by a virtual apex
-    node, whose signature is the dagger of the that of the overall map. The
-    additional edge data that this apex induces is equivalent to that of
-    cospans of combinatorial maps where the interfaces are discrete maps, i.e.
-    containing only scalars.
+    node, whose signature is the dagger of the that of the overall map.
 
     By default, `CMap` defines the free compact category over a set of boxes,
     but we also want to be able to encode weaker structure, disallowing cups
