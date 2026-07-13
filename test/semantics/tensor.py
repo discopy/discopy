@@ -267,12 +267,12 @@ def test_Tensor_array():
     assert box.array is None
 
 
-def test_to_einsum():
-    vector = Box('vector', Dim(1), Dim(2), [0, 1])
-    f = Box('f', Dim(2), Dim(2), [0, 1, 1, 0])
+def test_CMap_eval():
+    vector = Box('vector', Dim(1), Dim(2), [0., 1.])
+    f = Box('f', Dim(2), Dim(2), [0., 1., 1., 0.])
     a = Box('a', Dim(1), Dim(2), [1., 2.])
     b = Box('b', Dim(1), Dim(2), [3., 4.])
-    t = Box('t', Dim(2, 2), Dim(2), list(range(8)))
+    u = Box('u', Dim(1), Dim(2, 3), list(map(float, range(6))))
     spider = Spider(1, 1, Dim(2)) >> Spider(1, 2, Dim(2)) \
         >> Spider(2, 0, Dim(2))
     for diagram in [
@@ -280,19 +280,49 @@ def test_to_einsum():
             spider,
             f >> f,
             a @ b >> Swap(Dim(2), Dim(2)),
-            t,
+            u >> u[::-1],
             Id(Dim(2)),
-            Cup(Dim(2), Dim(2))]:
+            Cup(Dim(2), Dim(2)),
+            Cap(Dim(2), Dim(2)) >> Cup(Dim(2), Dim(2))]:
+        tensor, reference = diagram.to_map().eval(), diagram.eval()
+        assert (tensor.dom, tensor.cod) == (reference.dom, reference.cod)
         assert np.allclose(
-            np.asarray(diagram.eval("einsum").array, dtype=float),
-            np.asarray(diagram.eval().array, dtype=float))
+            np.asarray(tensor.array, dtype=float),
+            np.asarray(reference.array, dtype=float))
 
 
-def test_to_einsum_jax():
+def test_CMap_eval_jax():
     import jax
     import jax.numpy as jnp
     with backend('jax'):
         b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
-        f = lambda x: (b(x) >> b(x)[::-1]).eval("einsum").array
+        f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
         assert jax.grad(f)(1.) == 4.
         assert float(jax.jit(f)(1.)) == 2.
+
+
+def test_Functor_contractors():
+    x = frobenius.Ty('x')
+    f = frobenius.Box('f', x, x @ x)
+    diagram = f >> frobenius.Spider(1, 1, x) @ x >> f.dagger()
+    ob, ar = {x: 2}, {f: [1., 2., 3., 4., 5., 6., 7., 8.]}
+    reference = Functor(ob, ar, dtype=float)(diagram)
+    for contractor in CONTRACTORS:
+        result = Functor(ob, ar, dtype=float, contractor=contractor)(diagram)
+        assert np.allclose(result.array, reference.array)
+    with_backend = Functor(
+        ob, ar, dtype=float, contractor='einsum', backend='jax')(diagram)
+    assert np.allclose(np.asarray(with_backend.array), reference.array)
+
+
+def test_Functor_contractor_pytorch():
+    import torch
+    from torch import float64
+    x = frobenius.Ty('x')
+    v = frobenius.Box('v', frobenius.Ty(), x)
+    t = torch.tensor(3.0, dtype=float64, requires_grad=True)
+    F = Functor({x: 2}, {v: torch.stack([t, t])}, dtype=float64,
+                contractor='einsum', backend='pytorch')
+    result = F(v >> v.dagger()).array
+    result.backward()
+    assert result.item() == 18. and t.grad.item() == 12.

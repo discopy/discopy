@@ -887,6 +887,44 @@ class CMap[C0: Pregroup, C1: CMap](
             self.dom, self.cod, boxes, edge, offsets=offsets,
             scalars=self.scalars)
 
+    def dagger(self) -> CMap:
+        """
+        Reverse a combinatorial map: swap the boundary, dagger each box in
+        reverse order and conjugate the edges by the port relabeling.
+
+        >>> from discopy.compact import Ty, Box
+        >>> x, y = map(Ty, "xy")
+        >>> f, g = Box('f', x, y @ y), Box('g', y @ y, x)
+        >>> assert (f >> g).dagger().to_map() == (f >> g).to_map().dagger()
+        >>> assert (f >> g).to_map().dagger().dagger() == (f >> g).to_map()
+        """
+        n, n_dom, n_cod = self.n_ports, len(self.dom), len(self.cod)
+        boxes = tuple(box.dagger() for box in reversed(self.boxes))
+        offsets = tuple(reversed(self.offsets))
+        mapping = list(range(n))
+        for i in range(n_dom):
+            mapping[i] = n - n_dom + i
+        for i in range(n_cod):
+            mapping[n - n_cod + i] = i
+        new_starts, start = [], n_cod
+        for box in reversed(self.boxes):
+            new_starts.append(start)
+            start += len(box.dom) + len(box.cod)
+        new_starts.reverse()
+        old_start = n_dom
+        for new_start, box in zip(new_starts, self.boxes):
+            arity, coarity = len(box.dom), len(box.cod)
+            for i in range(arity):
+                mapping[old_start + i]\
+                    = new_start + coarity + arity - 1 - i
+            for i in range(coarity):
+                mapping[old_start + arity + i] = new_start + coarity - 1 - i
+            old_start += arity + coarity
+        edges = self.edges.conjugate(Permutation(mapping))
+        return type(self)(
+            self.cod, self.dom, boxes, edges, offsets=offsets,
+            scalars=self.scalars)
+
     def plug_input(
             self, input_index: int, box: Box,
             cod: C0, root_index: int = 0) -> CMap:
