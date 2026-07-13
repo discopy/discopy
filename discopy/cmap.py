@@ -164,43 +164,44 @@ class CMap[C0: Pregroup, C1: CMap](
       :math:`e; m = -m` to disallow cups and caps;
     * ``require_connected``: ensures the map forms a single connected component
 
-    The first three knobs form the following cube of categorical structure,
-    where following an axis means enforcing the corresponding constraint:
+    Note that ``require_causal`` implies ``require_oriented`` since cups and
+    caps give rise to traced structure. We can therefore represent the
+    categorical structures we can guarantee by the following diagram:
 
     .. tikz::
         :align: center
 
         \begin{tikzpicture}[
-          x={(2.5cm,0cm)}, y={(0.8cm,1cm)}, z={(0cm,2cm)},
+          x={(2.6cm,0cm)}, y={(0cm,1.6cm)},
           every node/.style={font=\scriptsize, align=center},
-          axis label/.style={font=\tiny, text=gray!35!black},
+          label/.style={font=\tiny, text=gray!35!black},
           edge/.style={draw, -latex}
         ]
-          \node (C)  at (0,0,0) {compact};
-          \node (P)  at (1,0,0) {?};
-          \node (A)  at (0,1,0) {?};
-          \node (O)  at (0,0,1) {symmetric};
-          \node (PA) at (1,1,0) {rigid/pivotal};
-          \node (PO) at (1,0,1) {traced};
-          \node (AO) at (0,1,1) {?};
-          \node (M)  at (1,1,1) {monoidal};
+          \node[label] at (0,1.8) {causal};
+          \node[label] at (1,1.8) {non-causal};
+          \node[label] at (2,1.8) {non-oriented};
+          \node[label, anchor=east] at (-0.65,0) {monoidal};
+          \node[label, anchor=east] at (-0.65,1) {symmetric};
 
-          \draw[edge] (C) -- (P)
-              node[midway, below, sloped, axis label] {planar};
-          \draw[edge] (C) -- (A)
-              node[midway, above, sloped, axis label] {causal};
-          \draw[edge] (C) -- (O)
-              node[midway, above, sloped, axis label] {oriented};
-          \draw[edge] (P) -- (PA);
-          \draw[edge] (P) -- (PO);
-          \draw[edge] (A) -- (PA);
-          \draw[edge] (A) -- (AO);
-          \draw[edge] (O) -- (PO);
-          \draw[edge] (O) -- (AO);
-          \draw[edge] (PA) -- (M);
-          \draw[edge] (PO) -- (M);
-          \draw[edge] (AO) -- (M);
+          \node (S)  at (0,0) {spacial};
+          \node (Y)  at (0,1) {symmetric};
+          \node (T)  at (1,1) {traced};
+          \node (P)  at (2,0) {pivotal};
+          \node (C)  at (2,1) {compact};
+
+          \draw[edge] (S) -- (Y);
+          \draw[edge] (Y) -- (T);
+          \draw[edge] (T) -- (C);
+          \draw[edge] (S) -- (P);
+          \draw[edge] (P) -- (C);
         \end{tikzpicture}
+
+    Note that combinatorial maps as such cannot faithfully represent free
+    monoidal diagrams as there is no way to account for the nesting of
+    connected components, hence the bottom-left corner rather corresponds
+    to the free `spacial` category, i.e. diagrams where entire isolated
+    components can go through wires at once without intermediate overlapping
+    (see :cite:`Selinger10`).
 
     Parameters:
         dom : The domain of the map.
@@ -208,7 +209,7 @@ class CMap[C0: Pregroup, C1: CMap](
         boxes : The boxes inside the map.
         edges : A fixpoint-free involution on ports.
         offsets : Optional drawing offsets, preserved through conversion.
-        scalars : The types of closed wire components with no ports.
+        loops : The types of closed wire components with no ports.
 
     Example
     -------
