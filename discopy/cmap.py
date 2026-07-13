@@ -139,14 +139,15 @@ class CMap[C0: Pregroup, C1: CMap](
     derive a canonical clockwise port orientation on boxes: every box of arity
     :math:`m` and coarity :math:`n` maps to a :math:`(m+n)`-cycle in the
     generated permutation, consisting of contiguous port indices.
-    We also enable scalars to be represented in the symmetric case.
+    Additionally, we allow loops (i.e. matching cups and caps) to be retained
+    in the representation as scalar loops.
 
     As for the open structure, we represent the map boundary by a virtual apex
     node, whose signature is the dagger of the that of the overall map.
 
     By default, `CMap` defines the free compact category over a set of boxes,
-    but we also want to be able to encode weaker structure for each level of
-    the DisCoPy hierarchy.
+    but we also want to be able to encode weaker structure, disallowing cups
+    and caps or even traced structure altogether.
     We therefore further distinguish port sides by assigning a negative
     polarity on domain ports and a positive polarity on codomain ports
     by equipping the map with a polarity assignment
