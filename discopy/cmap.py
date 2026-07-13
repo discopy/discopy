@@ -131,8 +131,8 @@ class CMap[C0: Pregroup, C1: CMap](
     CompactCategory[C0, C1], NamedGeneric['functor']
 ):
     r"""
-    An open combinatorial map, or equivalently an oriented bijective hypergraph
-    with interface.
+    An open combinatorial map, i.e. a diagram represented as a bijection
+    between its ports.
 
     Contrary to the abstract definition, which has unstructured nodes arising
     from the given orientation permutation, we take DisCoPy boxes as nodes and
@@ -141,17 +141,8 @@ class CMap[C0: Pregroup, C1: CMap](
     generated permutation, consisting of contiguous port indices.
     We also enable scalars to be represented in the symmetric case.
 
-    As for the open structure, usually cospans are given by two morphisms
-    :math:`\mathrm{inputs} : \mathrm{dom} \rightarrow M` and
-    :math:`\mathrm{outputs} : \mathrm{cod} \rightarrow M`, where
-    :math:`\mathrm{dom}` and :math:`\mathrm{cod}` are discrete maps.
-    We can simplify and encode it by a single morphism
-    :math:`\mathrm{boundary} : \mathrm{apex} \rightarrow M` where
-    :math:`\mathrm{apex} = \mathrm{dom} \sqcup \mathrm{cod}`
-    Effectively, we simplify even further by integrating this apex as a
-    virtual box within the map, whose signature is the dagger of the overall
-    map. Extra wires connecting the apex to internal nodes encode the data of
-    the previous morphism.
+    As for the open structure, we represent the map boundary by a virtual apex
+    node, whose signature is the dagger of the that of the overall map.
 
     By default, `CMap` defines the free compact category over a set of boxes,
     but we also want to be able to encode weaker structure for each level of
@@ -277,25 +268,25 @@ class CMap[C0: Pregroup, C1: CMap](
     dom: C0
     cod: C0
     offsets: tuple[int, ...]
-    scalars: tuple[C0, ...]
+    loops: tuple[C0, ...]
     edges: Permutation
 
     def __init__(
             self, dom: C0, cod: C0, boxes: tuple[Box, ...],
             edges: Iterable[int],
             offsets: tuple[int | None, ...] | None = None,
-            scalars: tuple[C0, ...] = ()):
+            loops: tuple[C0, ...] = ()):
         assert_isinstance(dom, self.category.ob)
         assert_isinstance(cod, self.category.ob)
         for box in boxes:
             assert_isinstance(box, self.category)
-        for scalar in scalars:
-            assert_isinstance(scalar, self.category.ob)
+        for loop in loops:
+            assert_isinstance(loop, self.category.ob)
         self.dom, self.cod, self.boxes = dom, cod, tuple(boxes)
         self.offsets = offsets or tuple(len(boxes) * [None])
         if len(self.offsets) != len(self.boxes):
             raise ValueError
-        self.scalars = tuple(scalars)
+        self.loops = tuple(loops)
 
         self.edges = Permutation(edges, len(self.ports))
         self.validate()
@@ -353,7 +344,7 @@ class CMap[C0: Pregroup, C1: CMap](
     @property
     def n_edges(self) -> int:
         """ The number of edges. """
-        return self.n_ports // 2 + len(self.scalars)
+        return self.n_ports // 2 + len(self.loops)
 
     @property
     def n_faces(self) -> int:
@@ -361,7 +352,7 @@ class CMap[C0: Pregroup, C1: CMap](
         portless_boxes = sum(
             not len(box.dom) and not len(box.cod) for box in self.boxes)
         return len(self.faces.cycles()) + portless_boxes\
-            + len(self.scalars)
+            + len(self.loops)
 
     @property
     def euler_characteristic(self) -> int:
@@ -383,7 +374,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         if len(self.connected_components) != 1:
             raise ValueError(messages.NOT_CONNECTED.format(self))
-        if not self.n_ports and not self.boxes and not self.scalars:
+        if not self.n_ports and not self.boxes and not self.loops:
             return 2
         return self.n_vertices - self.n_edges + self.n_faces
 
@@ -395,9 +386,9 @@ class CMap[C0: Pregroup, C1: CMap](
         """
         if self.n_ports > 0:
             return False
-        if not self.boxes and len(self.scalars) == 1:
+        if not self.boxes and len(self.loops) == 1:
             return True
-        return len(self.boxes) == 1 and not self.scalars
+        return len(self.boxes) == 1 and not self.loops
 
     @property
     def is_planar(self) -> bool:
@@ -470,7 +461,7 @@ class CMap[C0: Pregroup, C1: CMap](
         """ The connected components, with the boundary component first. """
         if not self.n_ports:
             # Avoid recursively rebuilding the same portless component.
-            if len(self.boxes) + len(self.scalars) <= 1:
+            if len(self.boxes) + len(self.loops) <= 1:
                 return [self]
             components = [
                 type(self)(
@@ -479,7 +470,7 @@ class CMap[C0: Pregroup, C1: CMap](
                 for box, offset in zip(self.boxes, self.offsets)]
             components += [
                 type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-                for scalar in self.scalars]
+                for scalar in self.loops]
             return components
 
         component_of = self.edges.coequalizer(self.orientation)
@@ -507,7 +498,7 @@ class CMap[C0: Pregroup, C1: CMap](
             offsets_by_component.setdefault(component, []).append(offset)
 
         if len(ports_by_component) == 1 and not portless_boxes\
-                and not self.scalars:
+                and not self.loops:
             return [self]
 
         def make_component(component: int) -> CMap:
@@ -545,8 +536,8 @@ class CMap[C0: Pregroup, C1: CMap](
                 self.ob(), self.ob(), (box, ), (), offsets=(offset, ))
             for _, box, offset in portless_boxes]
         components += [
-            type(self)(self.ob(), self.ob(), (), (), scalars=(scalar, ))
-            for scalar in self.scalars]
+            type(self)(self.ob(), self.ob(), (), (), loops=(loop, ))
+            for loop in self.loops]
         return components
 
     def splice(
@@ -671,17 +662,17 @@ class CMap[C0: Pregroup, C1: CMap](
         return factory_name(type(self))\
             + f"(dom={self.dom!r}, cod={self.cod!r}, " \
               f"boxes={self.boxes!r}, edges={self.edges!r}, " \
-              f"ports={ports!r}, scalars={self.scalars!r})"
+              f"ports={ports!r}, scalars={self.loops!r})"
 
     def __eq__(self, other: Any):
         return isinstance(other, CMap) and (
-            self.dom, self.cod, self.boxes, self.edges, self.scalars
+            self.dom, self.cod, self.boxes, self.edges, self.loops
         ) == (
-            other.dom, other.cod, other.boxes, other.edges, other.scalars)
+            other.dom, other.cod, other.boxes, other.edges, other.loops)
 
     def __hash__(self):
         return hash((
-            self.dom, self.cod, self.boxes, self.edges, self.scalars))
+            self.dom, self.cod, self.boxes, self.edges, self.loops))
 
     @classmethod
     def id(cls, dom=None) -> CMap:
@@ -862,7 +853,7 @@ class CMap[C0: Pregroup, C1: CMap](
         >>> scalar = CMap.caps(x.r, x) >> CMap.cups(x.r, x)
         >>> scalar.boxes
         ()
-        >>> scalar.scalars == (x,)
+        >>> scalar.loops == (x,)
         True
         """
         if not self.cod == other.dom:
@@ -878,10 +869,10 @@ class CMap[C0: Pregroup, C1: CMap](
             Permutation.id(other.n_ports - len(other.dom)))
         edge, new_scalars = self.splice(
             edge, glue, ports)
-        scalars = self.scalars + other.scalars + new_scalars
+        loops = self.loops + other.loops + new_scalars
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
-            scalars=scalars)
+            loops=loops)
 
     def trace(self, n: int = 1, left: bool = False) -> CMap:
         """
@@ -913,10 +904,10 @@ class CMap[C0: Pregroup, C1: CMap](
             zip(traced_inputs, traced_outputs), self.n_ports)
         edge, new_scalars = self.splice(
             self.edges, glue, self.ports)
-        scalars = self.scalars + new_scalars
+        loops = self.loops + new_scalars
         return type(self)(
             dom, cod, self.boxes, edge, offsets=self.offsets,
-            scalars=scalars)
+            loops=loops)
 
     @unbiased
     def tensor(self, other: CMap) -> CMap:
@@ -948,7 +939,7 @@ class CMap[C0: Pregroup, C1: CMap](
             other.edges.embed(other_map, n_ports))
         return type(self)(
             dom, cod, boxes, edge, offsets=offsets,
-            scalars=self.scalars + other.scalars)
+            loops=self.loops + other.loops)
 
     def interchange(self, i: int, j: int) -> CMap:
         """
@@ -987,7 +978,7 @@ class CMap[C0: Pregroup, C1: CMap](
         edge = self.edges.conjugate(Permutation(mapping))
         return type(self)(
             self.dom, self.cod, boxes, edge, offsets=offsets,
-            scalars=self.scalars)
+            loops=self.loops)
 
     def plug_input(
             self, input_index: int, box: Box,
@@ -1055,7 +1046,7 @@ class CMap[C0: Pregroup, C1: CMap](
 
         return type(self)(
             new_dom, cod, boxes, edge, offsets=offsets,
-            scalars=self.scalars)
+            loops=self.loops)
 
     def to_diagram(self) -> Diagram:
         """
@@ -1120,6 +1111,14 @@ class CMap[C0: Pregroup, C1: CMap](
                 ) @ diagram.cod[j + 1:]
                 scan = scan[:i] + scan[j:j + 1] + scan[i:j] + scan[j + 1:]
         return diagram
+
+    def to_hypergraph(self):
+        """
+        Forget orientation and return the underlying bijective hypergraph
+        given by the edge permutation. See documentation of
+        :func:``Hypergraph.from_map`` for an example.
+        """
+        return self.category.hypergraph_factory.from_map(self)
 
     def to_dot(
             self, engine="dot", seed=None, graph_attr=None,
@@ -1274,17 +1273,17 @@ class CMap[C0: Pregroup, C1: CMap](
             if ports:
                 lines.append(f"  {{ rank={rank}; {name}; }}")
 
-        for i, scalar in enumerate(self.scalars):
+        for i, loop in enumerate(self.loops):
             attributes = dict(
                 label="",
                 width="0.08",
                 height="0.08",
                 shape="point",
-                tooltip=f"scalar {i}: {scalar}")
-            lines.append(f"  scalar{i} [{attr_string(attributes)}];")
-            attributes = dict(len="0.85", label=scalar)
+                tooltip=f"loop {i}: {loop}")
+            lines.append(f"  loop{i} [{attr_string(attributes)}];")
+            attributes = dict(len="0.85", label=loop)
             lines.append(
-                f"  scalar{i} -- scalar{i} "
+                f"  loop{i} -- loop{i} "
                 f"[{attr_string(attributes)}];")
 
         def node_name(port_index):
@@ -1332,15 +1331,15 @@ class CMap[C0: Pregroup, C1: CMap](
             port_indices : Whether to display port indices.
             block : Whether displaying blocks execution.
 
-        Scalars are drawn as dots with a loop, but the combinatorial map
-        structure does not let us retain inclusion:
+        Scalar loops are drawn as dots with a loop, but the combinatorial map
+        structure does not let us retain inclusion of such loops:
 
         >>> from discopy.compact import Ty, CMap
         >>> x, y, z = map(Ty, "xyz")
         >>> (CMap.caps((x @ y).r, x @ y) >> CMap.cups((x @ y).l, x @ y)).draw(
-        ...     path="docs/_static/cmap/scalar.png", show=False)
+        ...     path="docs/_static/cmap/scalar-loop.png", show=False)
 
-        .. image:: /_static/cmap/scalar.png
+        .. image:: /_static/cmap/scalar-loop.png
             :align: center
         """
         dot = self.to_dot(
