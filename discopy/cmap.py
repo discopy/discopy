@@ -22,10 +22,6 @@ as a function :math:`f : P \\rightarrow P'` such that:
   :math:`e; f = f; e'`;
 * :math:`f` respects orientation: :math:`v; f = f; v'`.
 
-From the previous definition we can define the category of combinatorial maps,
-and the category of open maps is given by cospans where legs are discrete
-combinatorial maps (containing only scalars).
-
 Summary
 -------
 
@@ -143,7 +139,10 @@ class CMap[C0: Pregroup, C1: CMap](
     composing cups and caps.
 
     As for the open structure, we represent the map boundary by a virtual apex
-    node, whose signature is the dagger of the that of the overall map.
+    node, whose signature is the dagger of the that of the overall map. The
+    additional edge data that this apex induces is equivalent to that of
+    cospans of combinatorial maps where the interfaces are discrete maps, i.e.
+    containing only scalars.
 
     By default, `CMap` defines the free compact category over a set of boxes,
     but we also want to be able to encode weaker structure, disallowing cups
