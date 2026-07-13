@@ -135,8 +135,10 @@ class CMap[C0: Pregroup, C1: CMap](
     derive a canonical clockwise port orientation on boxes: every box of arity
     :math:`m` and coarity :math:`n` maps to a :math:`(m+n)`-cycle in the
     generated permutation, consisting of contiguous port indices.
-    Additionally, we allow scalars to be representated as loops arising from
-    composing cups and caps.
+    Additionally, we allow two kinds of scalars: 
+    * `scalar loops` arising from composing cups and caps, parametrized by an
+      atomic type;
+    * `scalar boxes`, i.e. boxes with empty domain and codomain
 
     As for the open structure, we represent the map boundary by a virtual apex
     node, whose signature is the dagger of the that of the overall map.
