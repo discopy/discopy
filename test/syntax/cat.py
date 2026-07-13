@@ -230,6 +230,63 @@ def test_Functor_call():
     assert F(f >> g) == f.dagger() >> f >> g
 
 
+def test_Transformation():
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    F, G = Functor.id(), Functor({x: y, y: x}, {})
+    alpha = Transformation({x: f, y: f[::-1]}, F, G)
+    assert alpha(x) == f and alpha(y) == f[::-1]
+    assert alpha.dom == F and alpha.cod == G
+
+
+def test_Transformation_id():
+    x, y = Ob('x'), Ob('y')
+    F = Functor({x: y, y: x}, {})
+    idF = Transformation.id(F)
+    assert idF.dom == idF.cod == F
+    assert idF(x) == Id(F(x)) == Id(y)
+
+
+def test_Transformation_then():
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    F, G = Functor.id(), Functor({x: y, y: x}, {})
+    alpha = Transformation({x: f, y: f[::-1]}, F, G)
+    beta = Transformation.id(G)
+    assert (alpha >> beta)(x) == alpha(x) >> beta(x)
+    assert (alpha >> beta).dom == F and (alpha >> beta).cod == G
+
+
+def test_Transformation_eq():
+    x, y = Ob('x'), Ob('y')
+    f = Box('f', x, y)
+    F, G = Functor.id(), Functor({x: y, y: x}, {})
+    assert Transformation({x: f, y: f[::-1]}, F, G)\
+        == Transformation({x: f, y: f[::-1]}, F, G)
+    assert Transformation({x: f, y: f[::-1]}, F, G) != F
+
+
+def test_Transformation_repr():
+    F = Functor.id()
+    assert "Transformation" in repr(Transformation.id(F))
+
+
+def test_Transformation_errors():
+    x, y = Ob('x'), Ob('y')
+    F = Functor.id()
+    H = Functor({x: y, y: x}, {})
+    # Vertical composition requires self.cod == other.dom.
+    with raises(AxiomError):
+        Transformation.id(F) >> Transformation.id(H)
+    # then only composes with another Transformation.
+    with raises(TypeError):
+        Transformation.id(F) >> F
+    # A component must be an arrow from dom(x) to cod(x).
+    f = Box('f', x, y)
+    with raises(AxiomError):
+        Transformation({x: f, y: f[::-1]}, F, F)(x)
+
+
 def test_total_ordering():
     x, y, z = Ob('x'), Ob('y'), Ob('z')
     assert sorted([z, y, x]) == [x, y, z]

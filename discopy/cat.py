@@ -20,6 +20,7 @@ Summary
     Sum
     Bubble
     Functor
+    Transformation
 
 .. admonition:: Functions
 
@@ -906,7 +907,117 @@ class Functor(Category):
 
 
 Arrow.generator_factory = Box
+
+
+@ar_factory
+class Transformation(Category):
+    """
+    A (not necessarily natural) transformation between two parallel functors.
+
+    Parameters:
+        components :
+            A mapping from objects ``x`` in the domain category to arrows
+            ``components[x] : dom(x) -> cod(x)`` in the codomain category.
+        dom : The domain functor.
+        cod : The codomain functor.
+
+    Example
+    -------
+    >>> x, y = Ob('x'), Ob('y')
+    >>> f = Box('f', x, y)
+    >>> F, G = Functor.id(), Functor({x: y, y: x}, {})
+    >>> alpha = Transformation({x: f, y: f[::-1]}, F, G)
+    >>> assert alpha(x) == f and alpha(y) == f[::-1]
+    >>> beta = Transformation.id(G)
+    >>> assert (alpha >> beta)(x) == alpha(x) >> beta(x)
+    """
+    ob = Functor
+
+    def __init__(
+            self, components: Mapping[Ob, Arrow] | Callable[[Ob], Arrow],
+            dom: Functor, cod: Functor):
+        assert_isinstance(dom, Functor)
+        assert_isinstance(cod, Functor)
+        if dom.dom != cod.dom or dom.cod != cod.cod:
+            raise utils.AxiomError(
+                "Transformation.dom and Transformation.cod must "
+                "have the same domain and codomain.")
+        self.dom, self.cod = dom, cod
+        self.components: MappingOrCallable[Ob, Arrow] = MappingOrCallable(
+            components)
+
+    def __call__(self, x: Ob) -> Arrow:
+        """
+        The component of the transformation at a given object ``x``,
+        i.e. the arrow from ``dom(x)`` to ``cod(x)`` -- from ``F(x)`` to
+        ``G(x)`` for the functors ``F = self.dom`` and ``G = self.cod``.
+
+        Parameters:
+            x : The object at which to take the component.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> f = Box('f', x, y)
+        >>> F, G = Functor.id(), Functor({x: y, y: x}, {})
+        >>> alpha = Transformation({x: f, y: f[::-1]}, F, G)
+        >>> alpha(x)
+        cat.Box('f', cat.Ob('x'), cat.Ob('y'))
+        >>> assert alpha(x).dom == F(x) and alpha(x).cod == G(x)
+        """
+        component = self.components[x]
+        if component.dom != self.dom(x) or component.cod != self.cod(x):
+            raise utils.AxiomError(
+                f"The component at {x} must be an arrow "
+                f"from {self.dom(x)} to {self.cod(x)}.")
+        return component
+
+    @classmethod
+    def id(cls, dom: Functor) -> Transformation:
+        """
+        The identity transformation on a given functor ``dom``, i.e. the
+        transformation whose component at each object ``x`` is the
+        identity arrow on ``dom(x)``.
+
+        Parameters:
+            dom : The functor on which to take the identity transformation.
+
+        Example
+        -------
+        >>> x, y = Ob('x'), Ob('y')
+        >>> F = Functor({x: y, y: x}, {})
+        >>> alpha = Transformation.id(F)
+        >>> alpha(x)
+        cat.Arrow.id(cat.Ob('y'))
+        >>> assert alpha(x) == F.cod.id(F(x))
+        """
+        return cls(lambda x: dom.cod.id(dom(x)), dom, dom)
+
+    def then(self, other: Transformation) -> Transformation:
+        """
+        The vertical composition of a transformation with another.
+
+        Parameters:
+            other : The other transformation with which to compose.
+        """
+        assert_isinstance(other, Transformation)
+        if self.cod != other.dom:
+            raise utils.AxiomError(messages.NOT_COMPOSABLE.format(
+                self, other, self.cod, other.dom))
+        components = lambda x: self(x) >> other(x)
+        return type(self)(components, self.dom, other.cod)
+
+    def __eq__(self, other):
+        return isinstance(other, Transformation) and (
+            self.components, self.dom, self.cod) == (
+                other.components, other.dom, other.cod)
+
+    def __repr__(self):
+        return factory_name(type(self)) + (
+            f"(components={self.components}, "
+            f"dom={self.dom!r}, cod={self.cod!r})")
+
+
 Arrow.sum_factory = Sum
 Arrow.bubble_factory = Bubble
-CAT = Functor
 Id = Arrow.id
