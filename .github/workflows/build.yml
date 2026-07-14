@@ -68,6 +68,10 @@ jobs:
     - name: Coverage
       run:
         uv run coverage report --show-missing
+    - name: Test notebooks
+      run:
+        # Execute every marimo notebook and fail if any cell errors.
+        uv run python docs/export_notebooks.py --check
   docs:
     runs-on: ubuntu-latest
     strategy:
@@ -98,7 +102,7 @@ jobs:
       if: steps.cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get update
-        sudo apt-get install -y graphviz pandoc
+        sudo apt-get install -y graphviz
         uv sync --locked --group docs
     - name: Build
       if: steps.cache.outputs.cache-hit != 'true'
