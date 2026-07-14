@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 from functools import wraps
+from warnings import warn
 from typing import (
     Callable,
     Mapping,
@@ -506,6 +507,36 @@ def factory(cls):
     """
     cls.factory = cls
     return cls
+
+
+def deprecated_renaming(module: str, **renamed):
+    """
+    Build a module-level ``__getattr__`` (see :pep:`562`) resolving each old
+    name in ``renamed`` to its new class with a :class:`DeprecationWarning`,
+    so that dumps and pickles from before a renaming still load.
+
+    Parameters:
+        module : The ``__name__`` of the module being patched.
+        renamed : A mapping from each old name to its new class.
+
+    Example
+    -------
+    >>> class Wire: pass
+    >>> __getattr__ = deprecated_renaming("discopy.example", Ob=Wire)
+    >>> import warnings
+    >>> with warnings.catch_warnings(record=True) as caught:
+    ...     warnings.simplefilter("always")
+    ...     assert __getattr__("Ob") is Wire
+    >>> assert issubclass(caught[0].category, DeprecationWarning)
+    """
+    def __getattr__(name):
+        if name in renamed:
+            new = renamed[name]
+            warn(f"{module}.{name} has been renamed to {new.__name__}.",
+                 DeprecationWarning)
+            return new
+        raise AttributeError(f"module {module!r} has no attribute {name!r}")
+    return __getattr__
 
 
 class AxiomError(Exception):

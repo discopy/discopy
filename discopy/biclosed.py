@@ -73,6 +73,7 @@ from discopy.utils import (
     assert_isinstance,
     factory_name,
     from_tree,
+    deprecated_renaming,
 )
 
 
@@ -673,3 +674,6 @@ Ty.constant_factory = Constant
 Ty.application_factory = Application
 Ty.abstraction_factory = Abstraction
 Ty.over_factory, Ty.under_factory, Ty.exp_factory = Over, Under, Exp
+
+
+__getattr__ = deprecated_renaming(__name__, Ob=Wire)

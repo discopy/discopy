@@ -42,7 +42,6 @@ Axioms
 from __future__ import annotations
 
 from collections.abc import Callable
-from warnings import warn
 
 from typing import Iterator
 
@@ -52,6 +51,7 @@ from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
+    deprecated_renaming,
     BinaryBoxConstructor,
     AxiomError,
     assert_isatomic
@@ -136,13 +136,7 @@ class Wire(monoidal.Wire):
         return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
-def __getattr__(name):
-    # Resolve the pre-rename Ob name so old dumps and pickles still load.
-    if name == "Ob":
-        warn("discopy.rigid.Ob has been renamed to discopy.rigid.Wire.",
-             DeprecationWarning)
-        return Wire
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+__getattr__ = deprecated_renaming(__name__, Ob=Wire)
 
 
 @factory

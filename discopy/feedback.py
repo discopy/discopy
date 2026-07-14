@@ -144,7 +144,8 @@ from __future__ import annotations
 from discopy import monoidal, braided, markov
 from discopy.abc import FeedbackCategory
 from discopy.utils import (
-    factory, factory_name, assert_isinstance, AxiomError)
+    factory, factory_name, assert_isinstance, AxiomError,
+    deprecated_renaming)
 
 
 def str_delayed(time_step: int):
@@ -667,3 +668,7 @@ Diagram.braid_factory = Swap
 Diagram.copy_factory, Diagram.merge_factory = Copy, Merge
 Diagram.feedback_factory, Diagram.followed_by = Feedback, FollowedBy
 Id = Diagram.id
+
+
+__getattr__ = deprecated_renaming(
+    __name__, Ob=Wire, HeadOb=HeadWire, TailOb=TailWire)

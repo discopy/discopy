@@ -74,7 +74,8 @@ from discopy import messages, tensor, frobenius
 from discopy.cat import factory
 from discopy.matrix import backend
 from discopy.tensor import Dim, Tensor
-from discopy.utils import factory_name, assert_isinstance
+from discopy.utils import (
+    factory_name, assert_isinstance, deprecated_renaming)
 
 
 class Wire(frobenius.Wire):
@@ -930,3 +931,6 @@ def bitstring2index(bitstring):
 Circuit.braid_factory, Circuit.sum_factory = Swap, Sum
 bit, qubit = Ty(Digit(2)), Ty(Qudit(2))
 Id = Circuit.id
+
+
+__getattr__ = deprecated_renaming(__name__, Ob=Wire)

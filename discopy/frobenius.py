@@ -68,7 +68,8 @@ from collections.abc import Callable
 from discopy import monoidal, rigid, markov, compact, pivotal, hypergraph
 from discopy.abc import HypergraphCategory
 from discopy.cat import factory
-from discopy.utils import factory_name, assert_isatomic
+from discopy.utils import (
+    factory_name, assert_isatomic, deprecated_renaming)
 
 
 class Wire(pivotal.Wire):
@@ -396,3 +397,6 @@ Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Diagram.braid_factory, Diagram.spider_factory = Swap, Spider
 Diagram.bubble_factory = Bubble
 Id = Diagram.id
+
+
+__getattr__ = deprecated_renaming(__name__, Ob=Wire)

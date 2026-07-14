@@ -58,6 +58,7 @@ from __future__ import annotations
 from discopy import cat, rigid, traced
 from discopy.abc import PivotalCategory
 from discopy.cat import factory
+from discopy.utils import deprecated_renaming
 
 
 class Wire(rigid.Wire):
@@ -256,3 +257,6 @@ class Functor(rigid.Functor):
 
 Diagram.cup_factory, Diagram.cap_factory = Cup, Cap
 Id = Diagram.id
+
+
+__getattr__ = deprecated_renaming(__name__, Ob=Wire)

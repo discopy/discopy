@@ -65,7 +65,9 @@ from discopy import monoidal
 from discopy.abc import BraidedCategory
 from discopy.cat import factory
 from discopy.monoidal import Ty, Match
-from discopy.utils import factory_name, BinaryBoxConstructor, assert_isatomic
+from discopy.utils import (
+    factory_name, BinaryBoxConstructor, assert_isatomic,
+    deprecated_renaming)
 
 
 class Wire(monoidal.Wire):
@@ -259,3 +261,6 @@ class Functor(monoidal.Functor):
 Diagram.braid_factory = Braid
 Diagram.sum_factory = Sum
 Id = Diagram.id
+
+
+__getattr__ = deprecated_renaming(__name__, Ob=Wire)
