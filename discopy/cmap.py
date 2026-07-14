@@ -629,7 +629,7 @@ class CMap[C0: Pregroup, C1: CMap](
         factory = cls if cls.functor is not None else cls[
             type(old), type(old).functor]
         return factory.functor(
-            ob=lambda typ: typ, ar=factory.from_box,
+            ob_map=lambda typ: typ, ar_map=factory.from_box,
             dom=type(old), cod=factory)(old)
 
     @classmethod

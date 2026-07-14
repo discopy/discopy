@@ -156,7 +156,7 @@ def test_Functor_call():
     assert list(F(g.transpose(left=True)).array.flatten()) == [0.0, 1.0, 2.0]
     with raises(TypeError):
         F("Alice")
-    assert Functor(ob={x: Dim(2, 3)}, ar=None)(x) == Dim(2, 3)
+    assert Functor(ob_map={x: Dim(2, 3)}, ar_map=None)(x) == Dim(2, 3)
 
 
 def test_Functor_swap():
