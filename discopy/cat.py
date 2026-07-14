@@ -28,7 +28,7 @@ Summary
         :nosignatures:
         :toctree:
 
-        ar_factory
+        factory
         dumps
         loads
 
@@ -82,7 +82,7 @@ from typing import (
 from discopy import messages, utils
 from discopy.abc import Category
 from discopy.utils import (  # noqa: F401
-    ar_factory,
+    factory,
     factory_name,
     from_tree,
     rsubs,
@@ -183,11 +183,16 @@ class FreeCategory(Category):
 
     generator_factory = None
 
-    def __init__(self, inside, dom, cod, _scan=True):
-        ob = type(self).ob
+    def __init__(self, inside, dom=None, cod=None, _scan=True):
+        inside, ob = tuple(inside), type(self).ob
+        # Default the boundary objects to those of the path's generators.
+        if dom is None:
+            dom = inside[0].dom if inside else ob()
+        if cod is None:
+            cod = inside[-1].cod if inside else ob()
         dom = dom if isinstance(dom, ob) else ob(dom)
         cod = cod if isinstance(cod, ob) else ob(cod)
-        self.dom, self.cod, self.inside = dom, cod, tuple(inside)
+        self.dom, self.cod, self.inside = dom, cod, inside
         if _scan:
             for generator in inside:
                 assert_isinstance(generator, self.generator_factory)
@@ -249,7 +254,7 @@ class FreeCategory(Category):
         return self[::-1]
 
 
-@ar_factory
+@factory
 class Arrow(FreeCategory):
     """
     An arrow is a tuple of composable boxes :code:`inside` with a pair of
@@ -771,7 +776,7 @@ class Bubble(Box):
         return cls(*map(from_tree, args), dom=dom, cod=cod)
 
 
-@ar_factory
+@factory
 class Functor(Category):
     """
     A functor is a pair of maps :code:`ob_map` and :code:`ar_map` and an

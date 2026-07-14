@@ -42,7 +42,6 @@ import subprocess
 from typing import Any, TYPE_CHECKING, ClassVar, Literal
 
 from discopy import messages
-from discopy.cat import Ob
 from discopy.abc import CompactCategory, NamedGeneric, Pregroup
 from discopy.python.finset import Permutation
 from discopy.utils import (
@@ -54,7 +53,7 @@ from discopy.utils import (
 )
 
 if TYPE_CHECKING:
-    from discopy.monoidal import Ob, Ty, Diagram, Box, Functor
+    from discopy.monoidal import Wire, Ty, Diagram, Box, Functor
 
 
 class PortKind(StrEnum):
@@ -105,7 +104,7 @@ class Port:
     """
     kind: PortKind
     i: int
-    obj: Ob
+    obj: Wire
     depth: float
     side: Literal["up"] | Literal["down"]
 

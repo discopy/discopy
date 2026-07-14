@@ -47,7 +47,7 @@ from typing import Iterator
 
 from discopy import cat, monoidal, biclosed, messages
 from discopy.abc import Pregroup, RigidCategory
-from discopy.cat import ar_factory
+from discopy.cat import factory
 from discopy.utils import (
     assert_isinstance,
     factory_name,
@@ -57,7 +57,7 @@ from discopy.utils import (
 )
 
 
-class Ob(monoidal.Ob):
+class Ob(monoidal.Wire):
     """
     A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
 
@@ -105,17 +105,18 @@ class Ob(monoidal.Ob):
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
-        return monoidal.Ob.__eq__(self, other)\
+        return monoidal.Wire.__eq__(self, other)\
             and isinstance(other, Ob) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
 
     def __repr__(self):
+        cls_name = factory_name(type(self))
         z_repr = ', z=' + repr(self.z) if self.z else ''
         if self.dom == self.cod == monoidal.white:
-            return f"{factory_name(type(self))}({self.name!r}{z_repr})"
-        return f"{factory_name(type(self))}({self.name!r}{z_repr}, " \
+            return f"{cls_name}({self.name!r}{z_repr})"
+        return f"{cls_name}({self.name!r}{z_repr}, " \
             f"dom={self.dom!r}, cod={self.cod!r})"
 
     def __str__(self):
@@ -130,11 +131,11 @@ class Ob(monoidal.Ob):
 
     @classmethod
     def from_tree(cls, tree):
-        base = monoidal.Ob.from_tree(tree)  # Parses the dom/cod colours.
+        base = monoidal.Wire.from_tree(tree)  # Parses the dom/cod colours.
         return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
-@ar_factory
+@factory
 class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
@@ -184,7 +185,7 @@ class Ty(Pregroup, biclosed.Ty):
     generator_factory = Ob
 
 
-@ar_factory
+@factory
 class PRO(monoidal.PRO, Ty):
     """
     A rigid PRO is a natural number ``n`` seen as a rigid type of length ``n``.
@@ -215,7 +216,7 @@ class Layer(monoidal.Layer):
     r = property(lambda self: self.rotate(left=False))
 
 
-@ar_factory
+@factory
 class Diagram(biclosed.Diagram, RigidCategory):
     """
     A rigid diagram is a biclosed diagram
