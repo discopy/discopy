@@ -23,6 +23,18 @@ Summary
     Spider
     Sum
     Bubble
+
+.. admonition:: Functions
+
+    .. autosummary::
+        :template: function.rst
+        :nosignatures:
+        :toctree:
+
+        naive
+        einsum
+        quimb
+        tensornetwork
 """
 
 from __future__ import annotations
@@ -148,11 +160,11 @@ class Tensor(Matrix):
         return type(self)(array, dom, cod)
 
     def dagger(self) -> Tensor:
-        source = range(len(self.dom @ self.cod))
+        source = list(range(len(self.dom @ self.cod)))
         target = [i + len(self.cod) if i < len(self.dom) else
                   i - len(self.dom) for i in range(len(self.dom @ self.cod))]
         with backend() as np:
-            array = np.conj(np.moveaxis(self.array, list(source), target))
+            array = np.conj(np.moveaxis(self.array, source, target))
         return type(self)(array, self.cod, self.dom)
 
     @classmethod
@@ -221,7 +233,8 @@ class Tensor(Matrix):
         -------
         >>> from discopy import markov
         >>> n = markov.Ty('n')
-        >>> F = Functor(ob_map={n: Dim(2)}, ar_map={}, dom=markov.Diagram)
+        >>> F = Functor(
+        ...     ob_map={n: Dim(2)}, ar_map={}, dom=markov.Diagram, dtype=int)
         >>> assert F(markov.Copy(n, 2)) == Tensor[int].copy(Dim(2), 2)\\
         ...     == Tensor[int]([1, 0, 0, 0, 0, 0, 0, 1], Dim(2), Dim(2, 2))
         """
@@ -254,11 +267,11 @@ class Tensor(Matrix):
                 return Tensor[self.dtype](
                     np.conj(self.array), self.dom, self.cod)
         # reverse the wires for both inputs and outputs
-        source = range(len(self.dom @ self.cod))
+        source = list(range(len(self.dom @ self.cod)))
         target = [
             len(self.dom) - i - 1 for i in range(len(self.dom @ self.cod))]
         with backend() as np:
-            array = np.conj(np.moveaxis(self.array, list(source), target))
+            array = np.conj(np.moveaxis(self.array, source, target))
         return type(self)(array, self.dom[::-1], self.cod[::-1])
 
     @classmethod
@@ -305,21 +318,163 @@ class Tensor(Matrix):
         return result
 
 
+def naive(network: Diagram | CMap, dtype: type = None) -> Tensor:
+    """
+    Contract a tensor network by running through the layers, applying one
+    box at a time to the running array, i.e. by calling the :class:`Functor`
+    that sends each box to its array.
+
+    Parameters:
+        network : The tensor network, a :class:`Diagram` or a :class:`CMap`.
+        dtype : The datatype for spiders and the result,
+            inferred from the boxes by default.
+
+    Example
+    -------
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> assert naive(vector >> vector[::-1]).array == 1
+    """
+    diagram = network.to_diagram() if isinstance(network, CMap) else network
+    dtype = dtype or diagram.dtype
+    return Functor(
+        ob_map=lambda x: x, ar_map=lambda box: box.array, dtype=dtype
+    )(diagram)
+
+
+def einsum(network: Diagram | CMap, dtype: type = None,
+           optimize="greedy") -> Tensor:
+    """
+    Contract a tensor network in a single ``einsum`` call under the active
+    :func:`backend`, e.g. ``jax.numpy`` for autodiff.
+
+    The :class:`CMap` structure is Einstein notation: the 2-cycles of its
+    ``edges`` involution are the summed indices, boxes are the tensors and
+    the boundary ports are the free indices, with integer labels lifting
+    the 52-index limit of subscript strings.
+
+    Parameters:
+        network : The tensor network, a :class:`Diagram` or a :class:`CMap`.
+        dtype : The datatype for spiders and the result,
+            inferred from the boxes by default.
+        optimize : The contraction path, passed verbatim to ``np.einsum``,
+            e.g. ``"greedy"``, ``"optimal"`` or an explicit path. Under the
+            numpy backend the path is precomputed with ``opt_einsum`` when
+            available, since numpy's own pathfinder chokes on large networks.
+
+    Example
+    -------
+    >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
+    >>> assert einsum(vector >> vector[::-1]).array == 1
+
+    >>> with backend('jax'):
+    ...     import jax, jax.numpy as jnp
+    ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
+    ...     f = lambda x: einsum(b(x) >> b(x)[::-1]).array
+    ...     assert jax.grad(f)(1.) == 4.
+    """
+    cmap = network if isinstance(network, CMap) else network.to_map()
+    wires, fresh = {}, count()
+    for source, target in enumerate(cmap.edges):
+        if source <= target:
+            wires[source] = wires[target] = next(fresh)
+    dim, ports = lambda typ: product(typ.inside), cmap.ports
+    arrays, indices, output = [], [], []
+    with backend() as np:
+        for port in range(len(cmap.dom)):
+            label = next(fresh)
+            arrays.append(np.array(np.eye(dim(ports[port].obj))))
+            indices.append([label, wires[port]])
+            output.append(label)
+        start = len(cmap.dom)
+        for box in cmap.boxes:
+            arity, coarity = len(box.dom), len(box.cod)
+            box_ports = list(range(start, start + arity)) + list(
+                reversed(range(start + arity, start + arity + coarity)))
+            arrays.append(box.eval(dtype=dtype).array)
+            indices.append([wires[port] for port in box_ports])
+            start += arity + coarity
+        for port in range(cmap.n_ports - len(cmap.cod), cmap.n_ports):
+            label = next(fresh)
+            arrays.append(np.array(np.eye(dim(ports[port].obj))))
+            indices.append([wires[port], label])
+            output.append(label)
+        for scalar in cmap.scalars:
+            arrays.append(np.array(np.eye(dim(scalar))))
+            indices.append(2 * [next(fresh)])
+        if not arrays:
+            return Tensor[dtype]([1], cmap.dom, cmap.cod)
+        operands = [x for pair in zip(arrays, indices) for x in pair]
+        params = dict(optimize=optimize)\
+            if isinstance(get_backend(), (NumPy, JAX)) else {}
+        if isinstance(get_backend(), NumPy):
+            try:
+                from opt_einsum import contract_path
+                path, _ = contract_path(*operands, output, optimize=optimize)
+                params = dict(optimize=['einsum_path'] + list(path))
+            except ImportError:
+                pass
+        array = np.einsum(*operands, output, **params)
+    return Tensor[dtype](array, cmap.dom, cmap.cod)
+
+
+def quimb(network: Diagram | CMap, dtype: type = None) -> Tensor:
+    """
+    Contract a tensor network with ``quimb`` via :meth:`Diagram.to_quimb`.
+
+    Parameters:
+        network : The tensor network, a :class:`Diagram` or a :class:`CMap`.
+        dtype : The datatype for spiders and the result,
+            inferred from the boxes by default.
+    """
+    diagram = network.to_diagram() if isinstance(network, CMap) else network
+    if not diagram.boxes and not diagram.dom.inside:
+        return Tensor[dtype]([1], diagram.dom, diagram.cod)
+    output_inds = [f"inp{i}" for i, _ in enumerate(diagram.dom.inside)]\
+        + [f"out{i}" for i, _ in enumerate(diagram.cod.inside)]
+    array = diagram.to_quimb(dtype=dtype).contract(
+        output_inds=output_inds, preserve_tensor=True).data
+    return Tensor[dtype](array, diagram.dom, diagram.cod)
+
+
+def tensornetwork(network: Diagram | CMap, dtype: type = None) -> Tensor:
+    """
+    Contract a tensor network with Google's ``tensornetwork`` library
+    via :meth:`Diagram.to_tn`.
+
+    Parameters:
+        network : The tensor network, a :class:`Diagram` or a :class:`CMap`.
+        dtype : The datatype for spiders and the result,
+            inferred from the boxes by default.
+    """
+    from tensornetwork.contractors import auto
+    diagram = network.to_diagram() if isinstance(network, CMap) else network
+    if not diagram.boxes and not diagram.dom.inside:
+        return Tensor[dtype]([1], diagram.dom, diagram.cod)
+    array = auto(*diagram.to_tn(dtype=dtype)).tensor
+    return Tensor[dtype](array, diagram.dom, diagram.cod)
+
+
 class Functor(frobenius.Functor):
     """
     A tensor functor is a frobenius functor with a domain category ``dom``
     and ``Tensor[dtype]`` as codomain for a given ``dtype``.
 
+    Calling it on a diagram maps every box to its tensor and contracts the
+    resulting network with ``contractor``, passing ``params`` through, e.g.
+    ``Functor(ob_map, ar_map, contractor=einsum, optimize="optimal")``.
+
     Parameters:
         ob_map : The object mapping.
         ar_map : The arrow mapping.
-        dom : The domain of the functor.
+        dom : The domain of the functor,
+            the class attribute ``dom`` by default.
         dtype : The datatype for the codomain ``Tensor[dtype]``.
-        contractor : The contraction strategy for diagrams: ``None`` for the
-            naive functor, ``'tn'``, ``'quimb'`` or ``'einsum'``, see
-            :attr:`CONTRACTORS`.
+        contractor : The contraction strategy for diagrams, one of
+            :func:`naive`, :func:`einsum`, :func:`quimb` or
+            :func:`tensornetwork`.
         backend : The name of the array :func:`backend` to evaluate in,
-            default is the active backend.
+            the active backend by default.
+        params : Extra keyword arguments passed to the ``contractor``.
 
     Example
     -------
@@ -339,7 +494,7 @@ class Functor(frobenius.Functor):
 
     The same functor with any choice of contractor gives the same tensor.
 
-    >>> for contractor in CONTRACTORS:
+    >>> for contractor in (naive, einsum, quimb, tensornetwork):
     ...     F_ = Functor(F.ob_map, F.ar_map, dom=rigid.Diagram,
     ...                  dtype=bool, contractor=contractor)
     ...     assert F_(diagram) == F(diagram)
@@ -359,39 +514,24 @@ class Functor(frobenius.Functor):
 
     def __init__(
             self, ob_map: dict[cat.Ob, Dim], ar_map: dict[cat.Box, list],
-            dom: type = None, dtype: type = int,
-            contractor: str = None, backend: str = None):
-        self.dtype = dtype
-        self.contractor, self.backend = contractor, backend
+            dom: type = None, dtype: type = float,
+            contractor: Callable = naive, backend: str = None, **params):
+        self.dtype, self.contractor = dtype, contractor
+        self.backend, self.params = backend, params
         cod = type(self).cod[dtype]
         super().__init__(ob_map, ar_map, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
-        contractor = "" if self.contractor is None\
-            else f", contractor={self.contractor!r}"
-        backend = "" if self.backend is None\
+        contractor = "" if self.contractor is naive\
+            else f", contractor={factory_name(self.contractor)}"
+        backend_name = "" if self.backend is None\
             else f", backend={self.backend!r}"
+        params = "".join(
+            f", {key}={value!r}" for key, value in self.params.items())
         return factory_name(type(self))\
             + f"(ob_map={self.ob_map}, ar_map={self.ar_map}, "\
             + f"dom={factory_name(self.dom)}, "\
-            + f"dtype={self.dtype.__name__}{contractor}{backend})"
-
-    def contract(self, other: monoidal.Diagram) -> Tensor:
-        """
-        Evaluate a diagram as a tensor network with the chosen contractor,
-        by mapping it to a :class:`Diagram` with tensor boxes.
-
-        Parameters:
-            other : The diagram to evaluate.
-        """
-        dtype = self.dtype
-        diagram = frobenius.Functor(
-            ob_map=self.ob_map, ar_map=lambda box: Box[dtype](
-                box.name, self(box.dom), self(box.cod), self.ar_map[box]),
-            dom=self.dom, cod=Diagram)(other)
-        if self.contractor is None:
-            return diagram.eval(dtype=dtype)
-        return CONTRACTORS[self.contractor](diagram, dtype)
+            + f"dtype={self.dtype.__name__}{contractor}{backend_name}{params})"
 
     def __call__(self, other):
         if isinstance(other, Dim):
@@ -401,37 +541,48 @@ class Functor(frobenius.Functor):
         if isinstance(other, (cat.Ob, cat.Box)):
             return super().__call__(other)
         assert_isinstance(other, monoidal.Diagram)
-        if self.contractor is not None or self.backend is not None:
+        if self.contractor is not naive or self.params:
+            if any(isinstance(box, cat.Bubble) for box in other.boxes):
+                raise NotImplementedError(
+                    "Bubbles are only supported by the naive contractor.")
+            diagram = frobenius.Functor(
+                ob_map=self.ob_map, ar_map=lambda box: Box[self.dtype](
+                    box.name, self(box.dom), self(box.cod), self.ar_map[box]),
+                dom=self.dom, cod=Diagram)(other)
             with backend(self.backend):
-                return self.contract(other)
-        dim = lambda scan: len(self(scan))
-        scan, array = other.dom, Tensor.id(self(other.dom)).array
-        for box, off in zip(other.boxes, other.offsets):
-            if isinstance(box, symmetric.Swap):
-                source = range(
-                    dim(other.dom @ scan[:off]),
-                    dim(other.dom @ scan[:off] @ box.dom))
-                target = [
-                    i + dim(box.right)
-                    if i < dim(other.dom @ scan[:off]) + dim(box.left)
-                    else i - dim(box.left) for i in source]
+                return diagram.eval(
+                    self.contractor, self.dtype, **self.params)
+        with backend(self.backend):
+            dim = lambda scan: len(self(scan))
+            scan, array = other.dom, Tensor.id(self(other.dom)).array
+            for box, off in zip(other.boxes, other.offsets):
+                if isinstance(box, symmetric.Swap):
+                    source = list(range(
+                        dim(other.dom @ scan[:off]),
+                        dim(other.dom @ scan[:off] @ box.dom)))
+                    target = [
+                        i + dim(box.right)
+                        if i < dim(other.dom @ scan[:off]) + dim(box.left)
+                        else i - dim(box.left) for i in source]
+                    with backend() as np:
+                        array = np.moveaxis(array, source, target)
+                    scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
+                    continue
+                left = dim(scan[:off])
+                source = list(range(dim(other.dom) + left,
+                                    dim(other.dom) + left + dim(box.dom)))
+                target = list(range(dim(box.dom)))
                 with backend() as np:
-                    array = np.moveaxis(array, list(source), list(target))
+                    array = np.tensordot(
+                        array, self(box).array, (source, target))
+                source = list(range(
+                    len(array.shape) - dim(box.cod), len(array.shape)))
+                target = list(range(dim(other.dom) + left,
+                                    dim(other.dom) + left + dim(box.cod)))
+                with backend() as np:
+                    array = np.moveaxis(array, source, target)
                 scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
-                continue
-            left = dim(scan[:off])
-            source = list(range(dim(other.dom) + left,
-                                dim(other.dom) + left + dim(box.dom)))
-            target = list(range(dim(box.dom)))
-            with backend() as np:
-                array = np.tensordot(array, self(box).array, (source, target))
-            source = range(len(array.shape) - dim(box.cod), len(array.shape))
-            target = range(dim(other.dom) + left,
-                           dim(other.dom) + left + dim(box.cod))
-            with backend() as np:
-                array = np.moveaxis(array, list(source), list(target))
-            scan = scan[:off] @ box.cod @ scan[off + len(box.dom):]
-        return self.cod(array, self(other.dom), self(other.cod))
+            return self.cod(array, self(other.dom), self(other.cod))
 
 
 @ar_factory
@@ -448,28 +599,32 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
     """
     ob = Dim
 
-    def eval(self, contractor: Callable = None, dtype: type = None) -> Tensor:
+    def eval(self, contractor: Callable = naive, dtype: type = None,
+             **params) -> Tensor:
         """
         Evaluate a tensor diagram as a :class:`Tensor`.
 
         Parameters:
-            contractor : Use ``tensornetwork`` or :class:`Functor` by default.
-            dtype : Used for spiders.
+            contractor : The contraction strategy, one of :func:`naive`,
+                :func:`einsum`, :func:`quimb` or :func:`tensornetwork`.
+            dtype : The datatype for spiders and the result,
+                inferred from the boxes by default.
+            params : Extra keyword arguments passed to the ``contractor``,
+                e.g. ``optimize`` for :func:`einsum`.
 
         Examples
         --------
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
         >>> assert (vector >> vector[::-1]).eval().array == 1
-        >>> from tensornetwork.contractors import auto
-        >>> assert (vector >> vector[::-1]).eval(auto).array == 1
+        >>> assert (vector >> vector[::-1]).eval(einsum).array == 1
+        >>> assert (vector >> vector[::-1]).eval(
+        ...     einsum, optimize="optimal").array == 1
         """
-        dtype = dtype or self.dtype
-        if contractor is None:
-            return Functor(
-                ob_map=lambda x: x, ar_map=lambda f: f.array,
-                dtype=dtype)(self)
-        array = contractor(*self.to_tn(dtype=dtype)).tensor
-        return Tensor[dtype](array, self.dom, self.cod)
+        if isinstance(self, Sum):
+            return sum((term.eval(contractor, dtype, **params)
+                        for term in self.terms),
+                       Tensor[dtype].zero(self.dom, self.cod))
+        return contractor(self, dtype=dtype, **params)
 
     def to_quimb(self, dtype: type = None) -> "quimb.tensor.Tensor":
         """
@@ -617,13 +772,12 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
 
 class CMap(frobenius.CMap):
     """
-    A tensor combinatorial map is Einstein notation for a tensor network:
-    boxes are tensors, the 2-cycles of the ``edges`` involution are the
-    summed indices and the boundary ports are the free indices.
+    A tensor combinatorial map is a tensor network stored as a combinatorial
+    map: boxes are tensors and the ``edges`` involution is Einstein notation,
+    see :func:`einsum`.
 
     Swaps, cups and caps become wiring while spiders stay as boxes, so that
-    every wire has exactly two ends and the whole map contracts in a single
-    ``einsum`` call.
+    every wire has exactly two ends.
 
     Example
     -------
@@ -632,137 +786,26 @@ class CMap(frobenius.CMap):
     """
     category = Diagram
 
-    def to_einsum(self, dtype: type = None) -> tuple[
-            list, list[list[int]], list[int]]:
+    def eval(self, contractor: Callable = einsum, dtype: type = None,
+             **params) -> Tensor:
         """
-        The operands ``arrays``, their integer axis labels ``indices`` and
-        the free ``output`` labels of the map, for the interleaved form
-        ``np.einsum(arrays[0], indices[0], ..., output)`` under the active
-        :func:`backend`. Integer labels lift the 52-index limit of subscript
-        strings.
+        Contract the tensor network as a :class:`Tensor`.
 
         Parameters:
-            dtype : Used for spiders.
+            contractor : The contraction strategy, one of :func:`naive`,
+                :func:`einsum`, :func:`quimb` or :func:`tensornetwork`.
+            dtype : The datatype for spiders and the result,
+                inferred from the boxes by default.
+            params : Extra keyword arguments passed to the ``contractor``,
+                e.g. ``optimize`` for :func:`einsum`.
 
         Example
         -------
         >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-        >>> arrays, indices, output = (vector >> vector[::-1])\\
-        ...     .to_map().to_einsum()
-        >>> with backend() as np:
-        ...     operands = [x for pair in zip(arrays, indices) for x in pair]
-        ...     assert np.einsum(*operands, output) == 1
+        >>> cmap = (vector >> vector[::-1]).to_map()
+        >>> assert cmap.eval().array == cmap.eval(naive).array == 1
         """
-        wires, fresh = {}, count()
-        for source, target in enumerate(self.edges):
-            if source <= target:
-                wires[source] = wires[target] = next(fresh)
-        dim = lambda typ: product(typ.inside)
-        ports = self.ports
-        arrays, indices, output = [], [], []
-        with backend() as np:
-            for port in range(len(self.dom)):
-                label = next(fresh)
-                arrays.append(np.array(np.eye(dim(ports[port].obj))))
-                indices.append([label, wires[port]])
-                output.append(label)
-            start = len(self.dom)
-            for box in self.boxes:
-                arity, coarity = len(box.dom), len(box.cod)
-                box_ports = list(range(start, start + arity)) + list(
-                    reversed(range(start + arity, start + arity + coarity)))
-                arrays.append(box.eval(dtype=dtype).array)
-                indices.append([wires[port] for port in box_ports])
-                start += arity + coarity
-            for port in range(self.n_ports - len(self.cod), self.n_ports):
-                label = next(fresh)
-                arrays.append(np.array(np.eye(dim(ports[port].obj))))
-                indices.append([wires[port], label])
-                output.append(label)
-            for scalar in self.scalars:
-                arrays.append(np.array(np.eye(dim(scalar))))
-                indices.append(2 * [next(fresh)])
-        return arrays, indices, output
-
-    @staticmethod
-    def einsum_params(operands: list, output: list[int],
-                      optimize: str) -> dict:
-        """
-        The ``optimize`` parameter for ``np.einsum`` under the active
-        :func:`backend`: an explicit ``opt_einsum`` path for numpy when
-        available (numpy's own pathfinder chokes on large maps where
-        ``opt_einsum``, a dependency of jax, does not), the given strategy
-        for numpy and jax otherwise and nothing for other backends.
-        """
-        if not isinstance(get_backend(), (NumPy, JAX)):
-            return {}
-        if isinstance(get_backend(), NumPy):
-            try:
-                from opt_einsum import contract_path
-                path, _ = contract_path(*operands, output, optimize=optimize)
-                return dict(optimize=['einsum_path'] + list(path))
-            except ImportError:
-                pass
-        return dict(optimize=optimize)
-
-    def eval(self, dtype: type = None, optimize: str = "greedy") -> Tensor:
-        """
-        Contract the map as a single ``einsum`` under the active
-        :func:`backend`, e.g. ``jax.numpy`` for autodiff.
-
-        Parameters:
-            dtype : Used for spiders.
-            optimize : The contraction path strategy, see
-                :meth:`einsum_params`. The default ``"greedy"`` avoids the
-                exponential ``"optimal"`` search on large maps.
-
-        Example
-        -------
-        >>> vector = Box('vector', Dim(1), Dim(2), [0, 1])
-        >>> assert (vector >> vector[::-1]).to_map().eval().array == 1
-
-        >>> with backend('jax'):
-        ...     import jax, jax.numpy as jnp
-        ...     b = lambda x: Box[float]('v', Dim(1), Dim(2), x * jnp.ones(2))
-        ...     f = lambda x: (b(x) >> b(x)[::-1]).to_map().eval().array
-        ...     assert jax.grad(f)(1.) == 4.
-        """
-        cls = Tensor if dtype is None else Tensor[dtype]
-        arrays, indices, output = self.to_einsum(dtype=dtype)
-        if not arrays:
-            return cls([1], self.dom, self.cod)
-        operands = [x for pair in zip(arrays, indices) for x in pair]
-        with backend() as np:
-            array = np.einsum(*operands, output, **self.einsum_params(
-                operands, output, optimize))
-        return cls(array, self.dom, self.cod)
-
-
-def tn_contractor(diagram: Diagram, dtype: type) -> Tensor:
-    """ Contract a tensor diagram with ``tensornetwork``. """
-    from tensornetwork.contractors import auto
-    return diagram.eval(auto, dtype=dtype)
-
-
-def quimb_contractor(diagram: Diagram, dtype: type) -> Tensor:
-    """ Contract a tensor diagram with ``quimb``. """
-    output_inds = [f"inp{i}" for i, _ in enumerate(diagram.dom.inside)]\
-        + [f"out{i}" for i, _ in enumerate(diagram.cod.inside)]
-    array = diagram.to_quimb(dtype=dtype).contract(
-        output_inds=output_inds, preserve_tensor=True).data
-    return Tensor[dtype](array, diagram.dom, diagram.cod)
-
-
-def einsum_contractor(diagram: Diagram, dtype: type) -> Tensor:
-    """ Contract a tensor diagram as one ``einsum`` via :class:`CMap`. """
-    return diagram.to_map().eval(dtype=dtype)
-
-
-CONTRACTORS = {
-    'tn': tn_contractor,
-    'quimb': quimb_contractor,
-    'einsum': einsum_contractor,
-}
+        return contractor(self, dtype=dtype, **params)
 
 
 class Box(frobenius.Box, Diagram):

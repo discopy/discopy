@@ -59,7 +59,7 @@ def test_Tensor():
 def test_Spider_to_tn():
     d = Dim(2)
     tensor = Spider(1, 1, d) >> Spider(1, 2, d) >> Spider(2, 0, d)
-    result = tensor.eval(contractor=tn.contractors.auto).array
+    result = tensor.eval(contractor=tensornetwork).array
     assert all(result == np.array([1, 1]))
 
 
@@ -75,7 +75,7 @@ def test_Spider_to_tn_pytorch():
                         np.array([1., 2.]).requires_grad_(True))
             tensor = alice >> Spider[float64](1, 2, d) >> \
                      Spider[float64](2, 0, d)
-            result = tensor.eval(contractor=tn.contractors.auto).array
+            result = tensor.eval(contractor=tensornetwork).array
             assert result.item() == 3
     finally:
         tn.set_default_backend('numpy')
@@ -306,12 +306,12 @@ def test_Functor_contractors():
     f = frobenius.Box('f', x, x @ x)
     diagram = f >> frobenius.Spider(1, 1, x) @ x >> f.dagger()
     ob, ar = {x: 2}, {f: [1., 2., 3., 4., 5., 6., 7., 8.]}
-    reference = Functor(ob, ar, dtype=float)(diagram)
-    for contractor in CONTRACTORS:
-        result = Functor(ob, ar, dtype=float, contractor=contractor)(diagram)
+    reference = Functor(ob, ar)(diagram)
+    for contractor in (naive, einsum, quimb, tensornetwork):
+        result = Functor(ob, ar, contractor=contractor)(diagram)
         assert np.allclose(result.array, reference.array)
     with_backend = Functor(
-        ob, ar, dtype=float, contractor='einsum', backend='jax')(diagram)
+        ob, ar, contractor=einsum, backend='jax')(diagram)
     assert np.allclose(np.asarray(with_backend.array), reference.array)
 
 
@@ -322,7 +322,34 @@ def test_Functor_contractor_pytorch():
     v = frobenius.Box('v', frobenius.Ty(), x)
     t = torch.tensor(3.0, dtype=float64, requires_grad=True)
     F = Functor({x: 2}, {v: torch.stack([t, t])}, dtype=float64,
-                contractor='einsum', backend='pytorch')
+                contractor=einsum, backend='pytorch')
     result = F(v >> v.dagger()).array
     result.backward()
     assert result.item() == 18. and t.grad.item() == 12.
+
+
+def test_eval_params():
+    vector = Box('vector', Dim(1), Dim(2), [1., 2.])
+    diagram = vector >> vector[::-1]
+    assert diagram.eval(einsum, optimize="optimal") == diagram.eval(einsum)
+    x = frobenius.Ty('x')
+    v = frobenius.Box('v', frobenius.Ty(), x)
+    F = Functor({x: 2}, {v: [1., 2.]}, contractor=einsum,
+                optimize="optimal")
+    assert F(v >> v.dagger()).array == 5.
+    assert repr(F) == \
+        "tensor.Functor(ob_map={frobenius.Ty(frobenius.Ob('x')): 2}, " \
+        "ar_map={frobenius.Box('v', frobenius.Ty(), " \
+        "frobenius.Ty(frobenius.Ob('x'))): [1.0, 2.0]}, " \
+        "dom=frobenius.Diagram, dtype=float, " \
+        "contractor=tensor.einsum, optimize='optimal')"
+
+
+def test_Functor_bubble_contractor():
+    men = Box("men", Dim(1), Dim(2), [0, 1])
+    mortal = Box("mortal", Dim(2), Dim(1), [1, 1])
+    men_are_mortal = (men >> mortal.bubble()).bubble()
+    assert men_are_mortal.eval(dtype=bool)
+    F = Functor(lambda x: x, lambda box: box.array, contractor=einsum)
+    with raises(NotImplementedError):
+        F(men_are_mortal.arg)
