@@ -14,7 +14,6 @@ Summary
     TermBase
     Constant
     Variable
-    Application
     Abstraction
     FA
     BA
