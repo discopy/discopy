@@ -1,20 +1,54 @@
 
-from pytest import raises
+import os
 
-from discopy import utils
+from pytest import raises
+from matplotlib.testing.compare import compare_images
+
 from discopy.utils import AxiomError
+from discopy.config import DRAWING_DEFAULT
 from discopy.compact import *
 from discopy.drawing import *
 
 IMG_FOLDER, TIKZ_FOLDER, TOL = 'test/drawing/imgs/', 'test/drawing/tikz/', 20
 
-def draw_and_compare(file, **params):
+
+def draw_and_compare(file, folder=IMG_FOLDER, **params):
     tol = params.pop('tol', TOL)
-    return utils.draw_and_compare(file, IMG_FOLDER, tol, **params)
+
+    def decorator(func):
+        def wrapper():
+            diagram = func()
+            draw = params.get('draw', type(diagram).draw)
+            true_path = os.path.join(folder, file)
+            test_path = os.path.join(folder, '_' + file)
+            draw(diagram, path=test_path, show=False, **params)
+            test = compare_images(true_path, test_path, tol)
+            assert test is None
+            os.remove(test_path)
+        return wrapper
+    return decorator
 
 
-def tikz_and_compare(file, **params):
-    return utils.tikz_and_compare(file, TIKZ_FOLDER, **params)
+def tikz_and_compare(file, folder=TIKZ_FOLDER, **params):
+    def decorator(func):
+        def wrapper():
+            diagram = func()
+            draw = params.get('draw', type(diagram).draw)
+            true_paths = [os.path.join(folder, file)]
+            test_paths = [os.path.join(folder, '_' + file)]
+            if params.get("use_tikzstyles", DRAWING_DEFAULT['use_tikzstyles']):
+                true_paths.append(
+                    true_paths[0].replace('.tikz', '.tikzstyles'))
+                test_paths.append(
+                    test_paths[0].replace('.tikz', '.tikzstyles'))
+            draw(diagram, path=test_paths[0], **dict(params, to_tikz=True))
+            for true_path, test_path in zip(true_paths, test_paths):
+                with open(true_path, "r") as true:
+                    with open(test_path, "r") as test:
+                        assert true.read() == test.read()
+                os.remove(test_path)
+        return wrapper
+    return decorator
 
 
 @draw_and_compare('crack-eggs.png')
@@ -213,6 +247,31 @@ def test_tikz_long_controlled():
     from discopy.quantum import Controlled, CZ, CX
     return (Controlled(CX.l, distance=3) >> Controlled(
         Controlled(CZ.l, distance=2), distance=-1))
+
+
+@draw_and_compare('long-box-name.png', aspect='equal')
+def test_draw_long_box_name():
+    # A box gets wider when its name is too long to fit between its wires,
+    # while boxes with short names keep their default size.
+    x = Ty('x')
+    return Box('f', x, x @ x)\
+        >> Box('a_box_with_a_very_long_name', x @ x, x)\
+        >> Box('g', x, x)
+
+
+@draw_and_compare('box-min-width.png', aspect='equal')
+def test_draw_box_min_width():
+    # The width of a box can be set by hand with `min_width`, e.g. for a
+    # LaTeX name whose rendered width cannot be guessed from its characters.
+    x = Ty('x')
+    return Box('$\\Lambda$', x, x, min_width=3) @ Box('f', x, x)
+
+
+@draw_and_compare('long-latex-name.png', aspect='equal', tol=100)
+def test_draw_long_latex_name():
+    x = Ty('x')
+    return Box('$\\int_a^b f(x)\\,dx = \\sqrt{2}$', x, x) @ Box('f', x, x)
+
 
 def test_to_gif():
     from discopy.grammar.pregroup import (

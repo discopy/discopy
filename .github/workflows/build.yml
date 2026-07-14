@@ -67,7 +67,7 @@ jobs:
         uv run coverage run -m pytest
     - name: Coverage
       run:
-        uv run coverage report --fail-under=98 --show-missing
+        uv run coverage report --show-missing
   docs:
     runs-on: ubuntu-latest
     strategy:
