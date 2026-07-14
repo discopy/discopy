@@ -87,45 +87,44 @@ This is a special case of naturality.
 Permutations
 ============
 
->>> perm = Permutation([2, 0, 1], x @ y @ z)
+A :class:`Permutation` is a :class:`Box` that reorders its input wires,
+holding a :class:`discopy.python.finset.Permutation` as attribute. It is equal
+to the diagram with just that permutation and draws as a single band of
+crossing wires rather than a staircase of swaps.
+
+>>> perm = Permutation(x @ y @ z, [2, 0, 1])
 >>> assert perm.cod == z @ x @ y
->>> assert perm.then(perm.dagger()) == Permutation.id(x @ y @ z)
->>> assert perm @ Permutation.id(w) == Permutation([2, 0, 1, 3], x @ y @ z @ w)
+>>> assert perm >> perm.dagger() == Permutation.id(x @ y @ z)
+>>> assert perm @ Permutation.id(w) == Permutation(x @ y @ z @ w, [2, 0, 1, 3])
+>>> assert Permutation(x @ y, [1, 0]) == Swap(x, y)
 
 Layers
 ======
 
->>> p = Permutation([1, 0], x @ y)
->>> layer = Layer(p, f, Permutation.id(y))
->>> assert layer.dom == x @ y @ x @ y
->>> assert layer.cod == y @ x @ y @ y
->>> layer2 = Layer(Permutation.id(z), g, Permutation.id(w))
->>> combined = layer @ layer2
->>> assert combined.dom == layer.dom @ layer2.dom
+A symmetric :class:`Layer` puts boxes in parallel with permutations routing
+the wires between them. It has the same interface ``(left, box, right, *more)``
+as :class:`monoidal.Layer`, but ``left`` and ``right`` are now permutations
+(an identity permutation being represented by a :class:`Ty`).
+
+>>> layer = Layer(Permutation(x @ y, [1, 0]), f, z)
+>>> assert layer.dom == x @ y @ x @ z and layer.cod == y @ x @ y @ z
 
 Foliation
 =========
 
-:meth:`Diagram.to_layers` foliates a diagram into the smallest list of
-symmetric layers, scheduling boxes as early as possible and absorbing swaps
-into native permutations. :meth:`Diagram.foliation_drawing` then draws this
-foliation compactly: each permutation becomes a single band of crossing
-wires rather than a staircase of swaps, so the quadratic number of swaps
-collapses into a linear number of permutation layers.
+Writing permutations by hand keeps swap-heavy diagrams compact: a whole
+permutation occupies a single layer rather than a quadratic staircase of
+swaps. For example, reversing four wires before a single layer of boxes is a
+permutation layer followed by a box layer.
 
 >>> f0, f1 = Box("f0", w, x), Box("f1", z, y)
 >>> g0, g1 = Box("g0", y, z), Box("g1", x, w)
->>> diagram = Id(x @ y @ z @ w).permute(3, 2, 1, 0) >> f0 @ f1 @ g0 @ g1
+>>> reverse = Permutation(x @ y @ z @ w, [3, 2, 1, 0])
+>>> diagram = reverse >> f0 @ f1 @ g0 @ g1
 >>> diagram.depth()
 1
-
-The diagram reverses four wires before a single layer of boxes, so its
-foliation has just one permutation layer and one box layer:
-
->>> from discopy.drawing import Equation
->>> Equation(diagram, diagram.foliation_drawing(), symbol="=").draw(
-...     path='docs/_static/symmetric/foliation.png', figsize=(7, 6),
-...     margins=(0.05, 0.03))
+>>> diagram.draw(
+...     path='docs/_static/symmetric/foliation.png', figsize=(4, 4))
 
 .. image:: /_static/symmetric/foliation.png
     :align: center
@@ -139,274 +138,8 @@ from discopy import monoidal, balanced, traced, messages
 from discopy.abc import SymmetricCategory
 from discopy.cat import Arrow, ar_factory
 from discopy.monoidal import Ob, Ty, PRO  # noqa: F401
-from discopy.utils import (
-    factory_name, classproperty, assert_isinstance, AxiomError)
-
-
-class Permutation:
-    """
-    A permutation of a type, forming a dagger monoidal category.
-
-    A permutation is stored as a list of integers ``inside`` with a domain
-    type ``dom``. The convention is that ``inside[i] = j`` means output wire
-    ``i`` comes from input wire ``j``.
-
-    Parameters:
-        inside : A list of integers encoding the permutation.
-        dom : The domain type, default is ``PRO(len(inside))``.
-
-    Examples
-    --------
-    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-    >>> perm = Permutation([1, 2, 0], x @ y @ z)
-    >>> assert perm.cod == y @ z @ x
-    >>> assert perm.dagger() == Permutation([2, 0, 1], y @ z @ x)
-    >>> assert perm.then(perm.dagger()) == Permutation.id(x @ y @ z)
-    """
-    ty_factory = Ty
-
-    def __init__(self, inside: list[int], dom: monoidal.Ty = None):
-        inside = list(inside)
-        dom = PRO(len(inside)) if dom is None else dom
-        if sorted(inside) != list(range(len(dom))):
-            raise ValueError(
-                messages.WRONG_PERMUTATION.format(len(dom), inside))
-        if len(inside) != len(dom):
-            raise ValueError(
-                messages.WRONG_PERMUTATION.format(len(dom), inside))
-        self.inside = inside
-        self.dom = dom
-
-    @property
-    def cod(self) -> monoidal.Ty:
-        """The codomain: ``cod[i] = dom[inside[i]]``."""
-        if not self.inside:
-            return self.dom
-        return self.dom[:0].tensor(
-            *[self.dom[j] for j in self.inside])
-
-    @property
-    def is_identity(self) -> bool:
-        return self.inside == list(range(len(self.dom)))
-
-    @classmethod
-    def id(cls, dom: monoidal.Ty = None) -> Permutation:
-        """The identity permutation on a given type."""
-        dom = cls.ty_factory() if dom is None else dom
-        return cls(list(range(len(dom))), dom)
-
-    def then(self, other: Permutation) -> Permutation:
-        """
-        Sequential composition:
-        ``(self >> other).inside[i] = other.inside[self.inside[i]]``.
-        """
-        if self.cod != other.dom:
-            raise AxiomError(
-                f"Permutation {self} does not compose with {other}: "
-                f"{self.cod} != {other.dom}")
-        composed = [other.inside[self.inside[i]]
-                    for i in range(len(self.inside))]
-        return type(self)(composed, self.dom)
-
-    def tensor(self, other: Permutation) -> Permutation:
-        """
-        Parallel composition: place ``self`` and ``other`` side by side.
-        """
-        n = len(self.inside)
-        inside = self.inside + [j + n for j in other.inside]
-        dom = self.dom @ other.dom
-        return type(self)(inside, dom)
-
-    def dagger(self) -> Permutation:
-        """
-        The inverse permutation.
-
-        If ``self.inside[i] = j``, then ``self.dagger().inside[j] = i``.
-        """
-        n = len(self.inside)
-        inv = [0] * n
-        for i, j in enumerate(self.inside):
-            inv[j] = i
-        return type(self)(inv, self.cod)
-
-    def __matmul__(self, other):
-        if isinstance(other, Permutation):
-            return self.tensor(other)
-        return NotImplemented
-
-    def __rshift__(self, other):
-        if isinstance(other, Permutation):
-            return self.then(other)
-        return NotImplemented
-
-    def __eq__(self, other):
-        return isinstance(other, Permutation)\
-            and self.inside == other.inside and self.dom == other.dom
-
-    def __hash__(self):
-        return hash((tuple(self.inside), self.dom))
-
-    def __repr__(self):
-        return f"{factory_name(type(self))}"\
-            f"({self.inside}, {repr(self.dom)})"
-
-    def __str__(self):
-        if self.is_identity:
-            return f"Perm.id({self.dom})"
-        return f"Perm({self.inside}, {self.dom})"
-
-    def __len__(self):
-        return len(self.inside)
-
-    def to_drawing(self):
-        """Draw as a single compact band of crossing wires."""
-        from discopy.drawing import Drawing
-        return Drawing.permutation(self.inside, self.dom)
-
-    def whisker(self, left: monoidal.Ty = None,
-                right: monoidal.Ty = None) -> Permutation:
-        """
-        Whisker this permutation with identity permutations.
-
-        ``left @ self @ right`` as permutations.
-        """
-        result = self
-        if left is not None and len(left) > 0:
-            result = type(self).id(left).tensor(result)
-        if right is not None and len(right) > 0:
-            result = result.tensor(type(self).id(right))
-        return result
-
-
-class Layer:
-    """
-    A symmetric layer is an alternating sequence
-    ``(perm, box, perm, ..., box, perm)`` representing boxes in parallel
-    with permutations routing wires between them.
-
-    The layer represents the parallel composite
-    ``perm0 @ box0 @ perm1 @ ... @ boxN @ permN+1``.
-
-    A layer with no boxes is just a single :class:`Permutation`, i.e.
-    ``Layer(perm)``. This makes a symmetric diagram uniformly a list of
-    layers, with permutation-only layers routing wires between box-layers.
-
-    Parameters:
-        *inside : Alternating :class:`Permutation` and :class:`Box` objects,
-                  with permutations at even positions and boxes at odd.
-
-    Examples
-    --------
-    >>> x, y = Ty('x'), Ty('y')
-    >>> f = Box('f', x, y)
-    >>> p = Permutation([1, 0], x @ y)
-    >>> layer = Layer(p, f, Permutation.id(y))
-    >>> assert layer.dom == x @ y @ x @ y
-    >>> assert layer.cod == y @ x @ y @ y
-
-    A permutation-only layer has length one:
-
-    >>> perm_layer = Layer(Permutation([1, 0], x @ y))
-    >>> assert perm_layer.dom == x @ y and perm_layer.cod == y @ x
-    >>> assert perm_layer.boxes == ()
-    """
-    def __init__(self, *inside):
-        if len(inside) < 1 or len(inside) % 2 == 0:
-            raise ValueError(
-                "Layer needs an odd number of elements (>= 1).")
-        for i, x in enumerate(inside):
-            if i % 2 == 0:
-                assert_isinstance(x, Permutation)
-        self.inside = inside
-
-    @property
-    def perms(self) -> tuple:
-        """The permutations at even positions."""
-        return tuple(self.inside[::2])
-
-    @property
-    def boxes(self) -> tuple:
-        """The boxes at odd positions."""
-        return tuple(self.inside[1::2])
-
-    @property
-    def dom(self) -> monoidal.Ty:
-        ty = self.inside[0].dom[:0]
-        for x in self.inside:
-            ty = ty @ x.dom
-        return ty
-
-    @property
-    def cod(self) -> monoidal.Ty:
-        ty = self.inside[0].dom[:0]
-        for x in self.inside:
-            ty = ty @ x.cod
-        return ty
-
-    def tensor(self, other: Layer) -> Layer:
-        """
-        Parallel composition: merge boundary permutations.
-
-        ``Layer(p0, b0, p1) @ Layer(q0, c0, q1)``
-        ``== Layer(p0, b0, p1 @ q0, c0, q1)``
-        """
-        *head, last_perm = self.inside
-        first_perm, *tail = other.inside
-        return type(self)(*head, last_perm @ first_perm, *tail)
-
-    def dagger(self) -> Layer:
-        """Dagger each component (parallel, not reversed)."""
-        return type(self)(*(x.dagger() for x in self.inside))
-
-    def __matmul__(self, other):
-        if isinstance(other, Layer):
-            return self.tensor(other)
-        if isinstance(other, Permutation):
-            *head, last = self.inside
-            return type(self)(*head, last @ other)
-        return NotImplemented
-
-    def __rmatmul__(self, other):
-        if isinstance(other, Permutation):
-            first, *tail = self.inside
-            return type(self)(other @ first, *tail)
-        return NotImplemented
-
-    def to_diagram(self) -> Diagram:
-        """Expand to a :class:`Diagram` by converting permutations to swaps."""
-        result = None
-        for x in self.inside:
-            if isinstance(x, Permutation):
-                d = Diagram.permutation(x.inside, x.dom)
-            else:
-                layer = Diagram.layer_factory.cast(x)
-                d = Diagram((layer,), x.dom, x.cod, _scan=False)
-            result = d if result is None else result @ d
-        return result
-
-    def to_drawing(self):
-        """
-        Draw the layer compactly, with each permutation rendered as a single
-        band of crossing wires rather than a staircase of swaps.
-        """
-        result = None
-        for x in self.inside:
-            d = x.to_drawing()
-            result = d if result is None else result @ d
-        return result
-
-    def __eq__(self, other):
-        return isinstance(other, type(self)) and self.inside == other.inside
-
-    def __hash__(self):
-        return hash(self.inside)
-
-    def __repr__(self):
-        return f"{factory_name(type(self))}"\
-            f"({', '.join(map(repr, self.inside))})"
-
-    def __str__(self):
-        return ' @ '.join(map(str, self.inside))
+from discopy.python import finset
+from discopy.utils import factory_name, classproperty, assert_isinstance
 
 
 @ar_factory
@@ -528,215 +261,6 @@ class Diagram(balanced.Diagram, SymmetricCategory):
         """
         return self >> self.permutation(list(xs), self.cod)
 
-    @classmethod
-    def from_perm(cls, perm: Permutation) -> Diagram:
-        """
-        Create a diagram from a :class:`Permutation`.
-
-        Examples
-        --------
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> perm = Permutation([2, 0, 1], x @ y @ z)
-        >>> d = Diagram.from_perm(perm)
-        >>> assert d.dom == x @ y @ z and d.cod == z @ x @ y
-        """
-        if perm.is_identity:
-            return cls.id(perm.dom)
-        return cls.permutation(perm.inside, perm.dom)
-
-    @classmethod
-    def from_layer(cls, layer: Layer) -> Diagram:
-        """
-        Create a diagram from a symmetric :class:`Layer`.
-
-        Examples
-        --------
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f = Box('f', x, y)
-        >>> p = Permutation([1, 0], x @ y)
-        >>> layer = Layer(p, f, Permutation.id(y))
-        >>> d = Diagram.from_layer(layer)
-        >>> assert d.dom == layer.dom and d.cod == layer.cod
-        """
-        return layer.to_diagram()
-
-    @classmethod
-    def from_layers(cls, layers: list[Layer], dom: monoidal.Ty = None
-                    ) -> Diagram:
-        """
-        Rebuild a diagram from a list of symmetric :class:`Layer`, i.e. the
-        inverse of :meth:`to_layers`.
-
-        Parameters:
-            layers : The list of layers, composed sequentially.
-            dom : The domain, needed only if ``layers`` is empty.
-
-        Examples
-        --------
-        >>> x, y = Ty('x'), Ty('y')
-        >>> f, g = Box('f', x, y), Box('g', y, x)
-        >>> d = f >> g
-        >>> assert Diagram.from_layers(d.to_layers()) == d
-        """
-        if not layers:
-            return cls.id(cls.ty_factory() if dom is None else dom)
-        result = cls.id(layers[0].dom)
-        for layer in layers:
-            result = result >> layer.to_diagram()
-        return result
-
-    def to_layers(self) -> list[Layer]:
-        """
-        Foliate into a list of symmetric :class:`Layer`, encoding permutations
-        natively rather than as networks of swaps.
-
-        At each step every box whose inputs are available happens, scanning the
-        wires from left to right. A box whose inputs are already lined up in
-        the right order happens in one step; a box whose inputs are all present
-        but out of order is plugged in two steps, i.e. after a
-        :class:`Permutation`-only layer that lines it up. A single permutation
-        reorders all the boxes that need it at once and leaves the others in
-        place, so a permutation only appears when some box genuinely needs one.
-        This keeps the box-layer count equal to the depth while avoiding the
-        gratuitous swaps of an ASAP schedule that gathers every box to the
-        left. Identity permutations are dropped and consecutive
-        permutation-only layers are merged.
-
-        Examples
-        --------
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> f, g = Box('f', x, y), Box('g', y, z)
-
-        Sequential boxes give one box-layer each:
-
-        >>> layers = (f >> g).to_layers()
-        >>> assert [bool(l.boxes) for l in layers] == [True, True]
-
-        Parallel boxes already in order happen together, with no permutation:
-
-        >>> layers = (f @ g.dom >> f.cod @ g).to_layers()
-        >>> assert len(layers) == 1 and len(layers[0].boxes) == 2
-
-        Swaps become permutation-only layers and round-trip on the nose:
-
-        >>> d = f @ Box('h', z, x) >> Swap(y, x)
-        >>> with Diagram.hypergraph_equality:
-        ...     assert Diagram.from_layers(d.to_layers()) == d
-        """
-        if any(isinstance(box, Sum) for box in self.boxes):
-            raise NotImplementedError
-        empty = self.dom[:0]
-        n = len(self.dom)
-        # --- Pass 1: track wires, recording each box's input and output wires.
-        frontier = list(range(n))
-        wire_type = {i: self.dom[i] for i in range(n)}
-        next_id, records = n, []  # records: (box, in_wids, out_wids)
-        for layer in self.inside:
-            delta = 0
-            for box, offset in layer.boxes_and_offsets:
-                off = offset + delta
-                dim_dom, dim_cod = len(box.dom), len(box.cod)
-                in_wids = frontier[off:off + dim_dom]
-                if isinstance(box, Swap):  # A swap just permutes two wires.
-                    frontier[off:off + dim_dom] = in_wids[::-1]
-                    continue
-                out_wids = list(range(next_id, next_id + dim_cod))
-                next_id += dim_cod
-                for i, w in enumerate(out_wids):
-                    wire_type[w] = box.cod[i]
-                frontier[off:off + dim_dom] = out_wids
-                delta += dim_cod - dim_dom
-                records.append((box, tuple(in_wids), tuple(out_wids)))
-        output_wids = list(frontier)
-
-        def type_of(wids):
-            return empty.tensor(*[wire_type[w] for w in wids])
-
-        def route(source, target):
-            index = {w: i for i, w in enumerate(source)}
-            return Layer(Permutation(
-                [index[w] for w in target], type_of(source)))
-
-        # --- Pass 2: at each step, fire every box whose inputs are available,
-        # scanning left to right. A box whose inputs are already lined up
-        # happens in one step; one whose inputs are all present but out of
-        # order is plugged in two steps, i.e. after a permutation that lines it
-        # up. A single permutation handles all the boxes that need reordering
-        # at once and leaves the others in place, so a permutation only appears
-        # when some box genuinely needs it.
-        result, frontier, remaining = [], list(range(n)), list(records)
-        while remaining:
-            available = [r for r in remaining if set(r[1]) <= set(frontier)]
-            by_wire = {w: r for r in available for w in r[1]}
-            # Empty-domain boxes have no trigger wire, so happen straightaway.
-            layout = [("box", r) for r in available if not r[1]]
-            target, placed = [], set()
-            for w in frontier:
-                if w in placed:
-                    continue
-                rec = by_wire.get(w)
-                if rec is None:
-                    layout.append(("wire", w))
-                    target.append(w)
-                    placed.add(w)
-                else:  # Line up this box's whole input block in order.
-                    layout.append(("box", rec))
-                    target += list(rec[1])
-                    placed.update(rec[1])
-            if target != frontier:
-                result.append(route(frontier, target))
-            inside, block = [], []
-            for kind, val in layout:
-                if kind == "wire":
-                    block.append(val)
-                else:
-                    inside += [Permutation.id(type_of(block)), val[0]]
-                    block = []
-            inside.append(Permutation.id(type_of(block)))
-            result.append(Layer(*inside))
-            frontier = [w for kind, val in layout for w in (
-                [val] if kind == "wire" else val[2])]
-            done = set(map(id, available))
-            remaining = [r for r in remaining if id(r) not in done]
-        result.append(route(frontier, output_wids))
-
-        # --- Pass 3: drop identities and merge consecutive permutations.
-        layers = []
-        for layer in result:
-            if not layer.boxes and layer.inside[0].is_identity:
-                continue
-            if layers and not layers[-1].boxes and not layer.boxes:
-                merged = layers[-1].inside[0].then(layer.inside[0])
-                layers[-1] = Layer(merged)
-                continue
-            layers.append(layer)
-        return layers or [Layer(Permutation.id(self.dom))]
-
-    def foliation_drawing(self):
-        """
-        A compact :class:`Drawing` of the diagram's foliation.
-
-        The diagram is foliated with :meth:`to_layers`, then each layer is
-        drawn natively: box-layers as boxes side by side and permutation-only
-        layers as a single band of crossing wires. The result has one row per
-        layer, so it is much shorter than expanding every permutation into a
-        staircase of swaps.
-
-        Examples
-        --------
-        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
-        >>> p = Box('p', x, y @ z)
-        >>> q, r, s = Box('q', y, x), Box('r', z, x), Box('s', x @ x, x)
-        >>> d = p >> Swap(y, z) >> r @ q >> s
-        >>> drawing = d.foliation_drawing()
-        >>> assert drawing.dom == d.dom and drawing.cod == d.cod
-        """
-        from discopy.drawing import Drawing
-        result = Drawing.id(self.dom)
-        for layer in self.to_layers():
-            result = result >> layer.to_drawing()
-        return result
-
     def to_hypergraph(self) -> Hypergraph:
         """ Translate a diagram into a hypergraph. """
         return self.hypergraph_factory.from_diagram(self)
@@ -820,9 +344,241 @@ class Swap(balanced.Braid, Box):
     def dagger(self):
         return type(self)(self.right, self.left)
 
-    def to_perm(self) -> Permutation:
-        """Convert this swap to a :class:`Permutation`."""
-        return Permutation([1, 0], self.dom)
+    def __eq__(self, other):
+        if isinstance(other, Permutation):
+            return other == self
+        return super().__eq__(other)
+
+    __hash__ = Box.__hash__
+
+
+class Permutation(Box):
+    """
+    A permutation box, i.e. a :class:`Box` that reorders its input wires.
+
+    A permutation holds a :class:`discopy.python.finset.Permutation` ``perm``
+    as attribute, with the convention that output wire ``i`` comes from input
+    wire ``perm[i]``, i.e. ``cod[i] == dom[perm[i]]``.
+
+    Being a box, a permutation is equal to the diagram with just that
+    permutation, just like any generator. It composes, tensors and daggers as
+    a permutation: the composite of two permutations is a single permutation
+    and the identity permutation is the identity diagram.
+
+    Parameters:
+        dom : The domain, i.e. the wires to permute.
+        perm : The permutation as a :class:`finset.Permutation` or a list.
+
+    Examples
+    --------
+    >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+    >>> perm = Permutation(x @ y @ z, [1, 2, 0])
+    >>> assert perm.cod == y @ z @ x
+    >>> assert perm.dagger() == Permutation(y @ z @ x, [2, 0, 1])
+    >>> assert perm >> perm.dagger() == Permutation.id(x @ y @ z)
+    """
+    def __init__(self, dom: monoidal.Ty, perm):
+        perm = finset.Permutation(perm, len(dom))
+        if list(perm) == list(range(len(dom))):
+            raise ValueError(messages.IDENTITY_PERMUTATION)
+        self.perm = perm
+        cod = dom[:0].tensor(*[dom[perm[i]] for i in range(len(perm))])
+        super().__init__(
+            f"Permutation({dom}, {list(perm)})", dom, cod, draw_as_wires=True)
+
+    @classmethod
+    def cast(cls, dom: monoidal.Ty, perm) -> Diagram:
+        """
+        The permutation with a given domain, or the identity if ``perm`` is.
+
+        Unlike the constructor, this returns the identity diagram rather than
+        raising when ``perm`` is the identity permutation.
+        """
+        perm = finset.Permutation(perm, len(dom))
+        if list(perm) == list(range(len(dom))):
+            return cls.id(dom)
+        return cls(dom, perm)
+
+    def to_drawing(self):
+        from discopy.drawing import Drawing
+        return Drawing.permutation(list(self.perm), self.dom)
+
+    def to_swaps(self) -> Diagram:
+        """The same permutation built as a network of swaps.
+
+        >>> x, y, z = Ty('x'), Ty('y'), Ty('z')
+        >>> perm = Permutation(x @ y @ z, [1, 2, 0])
+        >>> with Diagram.hypergraph_equality:
+        ...     assert perm.to_swaps() == perm
+        """
+        return self.ar.permutation(list(self.perm), self.dom)
+
+    def then(self, other=None, *others):
+        if isinstance(other, Permutation) and self.cod == other.dom:
+            result = type(self).cast(self.dom, self.perm.then(other.perm))
+            return result if not others else result.then(*others)
+        return super().then(other, *others)
+
+    def tensor(self, other=None, *others):
+        if other is None:
+            return self
+        extra = None
+        if isinstance(other, Permutation):
+            extra = other.perm
+        elif isinstance(other, monoidal.Ty):
+            extra = finset.Permutation.id(len(other))
+        elif isinstance(other, Diagram) and other == other.id(other.dom):
+            extra = finset.Permutation.id(len(other.dom))
+        if extra is not None:
+            dom = self.dom @ (other if isinstance(other, monoidal.Ty)
+                              else other.dom)
+            result = type(self).cast(dom, self.perm.tensor(extra))
+            return result if not others else result.tensor(*others)
+        return super().tensor(other, *others)
+
+    def dagger(self) -> Permutation:
+        return type(self)(self.cod, self.perm.dagger())
+
+    def __repr__(self):
+        return f"{factory_name(type(self))}({self.dom!r}, {list(self.perm)})"
+
+    def __str__(self):
+        return f"Permutation({self.dom}, {list(self.perm)})"
+
+    def __eq__(self, other):
+        if isinstance(other, Swap):
+            return self.dom == other.dom and tuple(self.perm) == (1, 0)
+        return super().__eq__(other)
+
+    def __hash__(self):
+        if not self.use_hypergraph_equality\
+                and len(self.dom) == 2 and tuple(self.perm) == (1, 0):
+            return hash(self.braid_factory(self.dom[:1], self.dom[1:]))
+        return super().__hash__()
+
+
+class Layer(monoidal.Layer):
+    """
+    A symmetric layer is a box in the middle of a pair of permutations, with
+    more boxes and permutations to the right.
+
+    It has the same interface ``(left, box, right, *more)`` as
+    :class:`monoidal.Layer`, but now the arguments at even positions
+    (``left``, ``right``, ...) are permutations rather than mere types: each
+    one is either a :class:`Ty` (the identity permutation, as in
+    ``monoidal.Layer``) or a non-identity :class:`Permutation` box. The
+    arguments at odd positions are non-permutation boxes.
+
+    A layer with a single argument ``Layer(perm)`` is a permutation-only layer,
+    allowed as long as ``perm`` is a non-identity :class:`Permutation`.
+
+    Parameters:
+        inside : The types, permutations and boxes inside the layer, at
+                 even and odd positions respectively.
+
+    Examples
+    --------
+    >>> x, y = Ty('x'), Ty('y')
+    >>> f = Box('f', x, y)
+    >>> p = Permutation(x @ y, [1, 0])
+    >>> layer = Layer(p, f, y)
+    >>> assert layer.dom == x @ y @ x @ y and layer.cod == y @ x @ y @ y
+
+    A permutation-only layer has a single argument and no box:
+
+    >>> perm_layer = Layer(Permutation(x @ y, [1, 0]))
+    >>> assert perm_layer.dom == x @ y and perm_layer.cod == y @ x
+    >>> assert perm_layer.boxes == []
+    """
+    def __init__(self, *inside):
+        if len(inside) % 2 == 0:
+            raise ValueError(messages.LAYERS_MUST_BE_ODD)
+        self.boxes_or_types = tuple(inside)
+        empty = (inside[0].dom if isinstance(inside[0], Permutation)
+                 else inside[0])[:0]
+        name, dom, cod = "", empty, empty
+        for i, x in enumerate(inside):
+            if i % 2:
+                assert_isinstance(x, monoidal.Box)
+                if isinstance(x, Permutation):
+                    raise ValueError(messages.PERMUTATION_AT_ODD_INDEX)
+                dom, cod = dom @ x.dom, cod @ x.cod
+                name += ("" if not name else " @ ") + str(x)
+            elif isinstance(x, Permutation):
+                dom, cod = dom @ x.dom, cod @ x.cod
+                name += ("" if not name else " @ ") + str(x)
+            else:
+                assert_isinstance(x, monoidal.Ty)
+                dom, cod = dom @ x, cod @ x
+                name += "" if not x else ("" if not name else " @ ") + str(x)
+        super(monoidal.Layer, self).__init__(name, dom, cod)
+
+    @classmethod
+    def cast(cls, box: monoidal.Box) -> Layer:
+        """
+        Turn a box into a layer, a permutation into a permutation-only layer.
+
+        >>> x, y = Ty('x'), Ty('y')
+        >>> f = Box('f', x, y)
+        >>> assert Layer.cast(f) == Layer(Ty(), f, Ty())
+        >>> p = Permutation(x @ y, [1, 0])
+        >>> assert Layer.cast(p) == Layer(p)
+        """
+        if isinstance(box, Permutation):
+            return cls(box)
+        return cls(box.dom[:0], box, box.cod[len(box.cod):])
+
+    def dagger(self) -> Layer:
+        return type(self)(*(
+            x.dagger() if i % 2 or isinstance(x, Permutation) else x
+            for i, x in enumerate(self)))
+
+    def rotate(self, left=False):
+        return type(self)(*(x.l if left else x.r for x in list(self)[::-1]))
+
+    l = property(lambda self: self.rotate(left=True))
+    r = property(lambda self: self.rotate(left=False))
+
+    def __matmul__(self, other: monoidal.Ty) -> Layer:
+        *tail, head = self
+        if isinstance(head, Permutation):
+            head = type(head).cast(
+                head.dom @ other,
+                head.perm.tensor(finset.Permutation.id(len(other))))
+        else:
+            head = head @ other
+        return type(self)(*tail, head)
+
+    def __rmatmul__(self, other: monoidal.Ty) -> Layer:
+        head, *tail = self
+        if isinstance(head, Permutation):
+            head = type(head).cast(
+                other @ head.dom,
+                finset.Permutation.id(len(other)).tensor(head.perm))
+        else:
+            head = other @ head
+        return type(self)(head, *tail)
+
+    @property
+    def boxes_and_offsets(self) -> list[tuple[monoidal.Box, int]]:
+        """
+        The boxes and permutations inside the layer with their offsets.
+
+        >>> a, b, c = map(Ty, "abc")
+        >>> f, g = Box('f', a, b), Box('g', c, a)
+        >>> p = Permutation(a @ b, [1, 0])
+        >>> layer = Layer(p, f, c, g, a)
+        >>> [(str(box), offset) for box, offset in layer.boxes_and_offsets]
+        [('Permutation(a @ b, [1, 0])', 0), ('f', 2), ('g', 4)]
+        """
+        result, offset = [], 0
+        for x in self:
+            if isinstance(x, monoidal.Ty):
+                offset += len(x)
+            else:
+                result.append((x, offset))
+                offset += len(x.dom)
+        return result
 
 
 class Trace(balanced.Trace, Box):
@@ -869,6 +625,11 @@ class Functor(balanced.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
+        if isinstance(other, Permutation):
+            factory = getattr(self.cod, "permutation_factory", None)
+            if factory is not None:
+                return factory.cast(self(other.dom), list(other.perm))
+            return self(other.to_swaps())
         if isinstance(other, Swap):
             return self.cod.swap(self(other.dom[0]), self(other.dom[1]))
         return super().__call__(other)
@@ -885,7 +646,9 @@ class CMap(traced.CMap):
 
 Diagram.hypergraph_factory = Hypergraph
 Diagram.map_factory = CMap
+Diagram.layer_factory = Layer
 Diagram.braid_factory = Swap
+Diagram.permutation_factory = Permutation
 Diagram.trace_factory = Trace
 Diagram.sum_factory = Sum
 Id = Diagram.id
