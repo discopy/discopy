@@ -16,7 +16,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     HeadOb
     TailOb
     Ty
@@ -151,7 +151,7 @@ def str_delayed(time_step: int):
     return time_step * ".d" if time_step <= 3 else f".delay({time_step})"
 
 
-class Ob(braided.Ob):
+class Wire(braided.Wire):
     """
     A feedback object is an object with a `time_step` and an optional argument
     `is_constant` for whether the object is interpreted as a constant stream.
@@ -167,7 +167,7 @@ class Ob(braided.Ob):
 
     def delay(self, n_steps=1):
         """ The delay of a feedback object. """
-        return Ob(self.name, self.time_step + n_steps, self.is_constant)
+        return Wire(self.name, self.time_step + n_steps, self.is_constant)
 
     @property
     def head(self) -> HeadOb | None:
@@ -175,14 +175,14 @@ class Ob(braided.Ob):
         return None if self.time_step else HeadOb(self)
 
     @property
-    def tail(self) -> Ob | None:
+    def tail(self) -> Wire | None:
         """ Syntactic sugar for :class:`TailOb` or `self` if `is_constant`. """
         return self.delay(-1) if self.time_step > 0 else (
             self if self.is_constant else TailOb(self))
 
-    def reset(self) -> Ob:
+    def reset(self) -> Wire:
         """ Reset an object to time step zero, used in :class:`Functor`. """
-        return Ob(self.name, time_step=0, is_constant=self.is_constant)
+        return Wire(self.name, time_step=0, is_constant=self.is_constant)
 
     def __eq__(self, other):
         return (
@@ -221,15 +221,15 @@ class Ob(braided.Ob):
         return self.delay()
 
 
-class HeadOb(Ob):
+class HeadOb(Wire):
     """
     The head of a feedback object, interpreted as the first element of a stream
     followed by the constant stream on the empty type.
 
-    Note the object `arg: Ob` cannot be itself a `HeadOb` or be delayed.
+    Note the object `arg: Wire` cannot be itself a `HeadOb` or be delayed.
     """
-    def __init__(self, arg: Ob, time_step: int = 0):
-        assert_isinstance(arg, Ob)
+    def __init__(self, arg: Wire, time_step: int = 0):
+        assert_isinstance(arg, Wire)
         if isinstance(arg, HeadOb) or arg.time_step:
             raise ValueError
         self.arg = arg
@@ -254,18 +254,18 @@ class HeadOb(Ob):
         return self.delay(-1) if self.time_step else None
 
 
-class TailOb(Ob):
+class TailOb(Wire):
     """
     The tail of a non-constant feedback object, interpreted as the stream
     starting from the second time step.
 
     Example
     -------
-    >>> x = Ob('x', is_constant=False)
+    >>> x = Wire('x', is_constant=False)
     >>> assert x.tail == TailOb(x)
     """
-    def __init__(self, arg: Ob, time_step: int = 0):
-        assert_isinstance(arg, Ob)
+    def __init__(self, arg: Wire, time_step: int = 0):
+        assert_isinstance(arg, Wire)
         if isinstance(arg, HeadOb) or arg.is_constant or arg.time_step > 0:
             raise ValueError
         self.arg = arg
@@ -277,7 +277,7 @@ class TailOb(Ob):
 @factory
 class Ty(monoidal.Ty):
     """ A feedback type is a monoidal type with `delay`, `head` and `tail`. """
-    generator_factory = Ob
+    generator_factory = Wire
 
     def delay(self, n_steps=1):
         """ The delay of a feedback type by `n_steps`. """
@@ -293,7 +293,7 @@ class Ty(monoidal.Ty):
         """ The tail of a feedback type, see :class:`TailOb`. """
         return type(self)(*(x.tail for x in self.inside if x.tail))
 
-    d = Ob.d
+    d = Wire.d
 
 
 class Layer(monoidal.Layer):
@@ -383,7 +383,7 @@ class Diagram(markov.Diagram, FeedbackCategory):
         """ Syntactic sugar for :class:`Tail`. """
         return Tail(self)
 
-    d = Ob.d
+    d = Wire.d
 
 
 class Box(markov.Box, Diagram):
@@ -568,7 +568,7 @@ class FollowedBy(Box):
     Example
     -------
     >>> from discopy import stream
-    >>> x = Ty(Ob('x', is_constant=False))
+    >>> x = Ty(Wire('x', is_constant=False))
     >>> FollowedBy(x).draw(path="docs/_static/feedback/followed-by.png")
 
     .. image:: /_static/feedback/followed-by.png
@@ -621,7 +621,7 @@ class Functor(markov.Functor):
 
     Example
     -------
-    >>> x, y, m = [Ty(Ob(n, is_constant=False)) for n in "xym"]
+    >>> x, y, m = [Ty(Wire(n, is_constant=False)) for n in "xym"]
     >>> f = Box('f', x @ m.d, y @ m)
     >>> g = Box('g', y.d @ m.d.d, x.d @ m.d)
     >>> F = Functor({x: y.d, y: x.d, m: m.d}, {f: g})
@@ -635,8 +635,8 @@ class Functor(markov.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, (Ob, Box)) and other.time_step:
-            cod = self.cod.ob if isinstance(other, Ob) else self.cod
+        if isinstance(other, (Wire, Box)) and other.time_step:
+            cod = self.cod.ob if isinstance(other, Wire) else self.cod
             if hasattr(cod, "delay"):
                 result = self(other.reset())
                 for _ in range(other.time_step):

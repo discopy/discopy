@@ -94,7 +94,11 @@ white = Colour("white")
 
 
 class Wire(cat.Ob):
-    """A generating 1-cell with a colour on either side."""
+    """
+    A wire is given by a ``name`` and a pair of colours ``dom`` and ``cod``
+    on its left and right, ``white`` by default. We also record whether the
+    wire ``is_dagger``, i.e. the result of a horizontal reflection.
+    """
 
     def __init__(self, name: str, dom: Colour = white,
                  cod: Colour = white, is_dagger: bool = False):

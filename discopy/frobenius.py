@@ -15,7 +15,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Dim
     Diagram
@@ -71,7 +71,7 @@ from discopy.cat import factory
 from discopy.utils import factory_name, assert_isatomic
 
 
-class Ob(pivotal.Ob):
+class Wire(pivotal.Wire):
     """
     A frobenius object is a self-dual pivotal object.
 
@@ -87,9 +87,9 @@ class Ty(pivotal.Ty):
     A frobenius type is a pivotal type with frobenius objects inside.
 
     Parameters:
-        inside (frobenius.Ob) : The objects inside the type.
+        inside (frobenius.Wire) : The objects inside the type.
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory

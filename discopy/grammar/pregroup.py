@@ -34,7 +34,7 @@ from discopy import rigid, frobenius, messages
 from discopy.cat import factory
 from discopy.utils import AxiomError
 from discopy.grammar import thue
-from discopy.rigid import Ob  # noqa: F401
+from discopy.rigid import Wire  # noqa: F401
 
 
 @factory
@@ -43,7 +43,7 @@ class Ty(rigid.Ty):
     A pregroup type is a rigid type.
 
     Parameters:
-        inside (tuple[Ob, ...]) : The objects inside the type.
+        inside (tuple[Wire, ...]) : The objects inside the type.
 
     Note
     ----

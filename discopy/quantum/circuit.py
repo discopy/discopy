@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Digit
     Qudit
     Ty
@@ -77,7 +77,7 @@ from discopy.tensor import Dim, Tensor
 from discopy.utils import factory_name, assert_isinstance
 
 
-class Ob(frobenius.Ob):
+class Wire(frobenius.Wire):
     """
     A circuit object is an information unit with some dimension ``dim > 1``.
 
@@ -103,7 +103,7 @@ class Ob(frobenius.Ob):
         return f"{factory_name(type(self))}({self.dim})"
 
     @classmethod
-    def from_tree(cls, tree: dict) -> Ob:
+    def from_tree(cls, tree: dict) -> Wire:
         dim, z = tree['dim'], tree.get('z', 0)
         return cls(dim=dim, z=z)
 
@@ -111,7 +111,7 @@ class Ob(frobenius.Ob):
         return dict(dim=self.dim, **super().to_tree())
 
 
-class Digit(Ob):
+class Digit(Wire):
     """
     A digit is a classical unit of information.
 
@@ -133,7 +133,7 @@ class Digit(Ob):
         super(type(self), self).__setstate__(state)
 
 
-class Qudit(Ob):
+class Qudit(Wire):
     """
     A qudit is a quantum unit of information, i.e. a quantum digit.
 
@@ -171,7 +171,7 @@ class Ty(frobenius.Ty):
     >>> print(bit ** 2 @ qubit ** 3)
     bit @ bit @ qubit @ qubit @ qubit
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory

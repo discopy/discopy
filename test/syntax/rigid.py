@@ -5,15 +5,15 @@ from discopy.rigid import *
 
 def test_Ob_init():
     with raises(TypeError) as err:
-        Ob('x', z='y')
+        Wire('x', z='y')
 
 
 def test_Ob_eq():
-    assert Ob('a') == Ob('a').l.r and Ob('a') != 'a'
+    assert Wire('a') == Wire('a').l.r and Wire('a') != 'a'
 
 
 def test_Ob_hash():
-    a = Ob('a')
+    a = Wire('a')
     assert {a: 42}[a] == 42
 
 
@@ -34,11 +34,11 @@ def test_Box_hash():
 
 
 def test_Ob_repr():
-    assert repr(Ob('a', z=42)) == "rigid.Ob('a', z=42)"
+    assert repr(Wire('a', z=42)) == "rigid.Wire('a', z=42)"
 
 
 def test_Ob_str():
-    a = Ob('a')
+    a = Wire('a')
     assert str(a) == "a" and str(a.r) == "a.r" and str(a.l) == "a.l"
 
 

@@ -12,7 +12,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     Diagram
     Box
@@ -60,7 +60,7 @@ from discopy.abc import PivotalCategory
 from discopy.cat import factory
 
 
-class Ob(rigid.Ob):
+class Wire(rigid.Wire):
     """
     A pivotal object is a rigid object where left and right adjoints coincide.
 
@@ -71,7 +71,7 @@ class Ob(rigid.Ob):
     l = r = property(lambda self: type(self)(
         self.name, (self.z + 1) % 2, dom=self.cod, cod=self.dom))
 
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         """
         The dagger of a pivotal object coincides with its left and right
         adjoints, i.e. it flips the parity of the winding number ``z`` and
@@ -86,9 +86,9 @@ class Ty(rigid.Ty):
     A pivotal type is a rigid type with pivotal objects inside.
 
     Parameters:
-        inside (Ob) : The objects inside the type.
+        inside (Wire) : The objects inside the type.
     """
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory

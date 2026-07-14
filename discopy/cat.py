@@ -184,14 +184,13 @@ class FreeCategory(Category):
     generator_factory = None
 
     def __init__(self, inside, dom=None, cod=None, _scan=True):
-        inside, ob = tuple(inside), type(self).ob
-        # Default the boundary objects to those of the path's generators.
+        inside = tuple(inside)
         if dom is None:
-            dom = inside[0].dom if inside else ob()
+            dom = inside[0].dom if inside else self.ob()
         if cod is None:
-            cod = inside[-1].cod if inside else ob()
-        dom = dom if isinstance(dom, ob) else ob(dom)
-        cod = cod if isinstance(cod, ob) else ob(cod)
+            cod = inside[-1].cod if inside else self.ob()
+        dom = dom if isinstance(dom, self.ob) else self.ob(dom)
+        cod = cod if isinstance(cod, self.ob) else self.ob(cod)
         self.dom, self.cod, self.inside = dom, cod, inside
         if _scan:
             for generator in inside:

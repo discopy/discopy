@@ -11,7 +11,7 @@ Summary
     :nosignatures:
     :toctree:
 
-    Ob
+    Wire
     Ty
     PRO
     Diagram
@@ -57,9 +57,9 @@ from discopy.utils import (
 )
 
 
-class Ob(monoidal.Wire):
+class Wire(monoidal.Wire):
     """
-    A rigid object has adjoints :meth:`Ob.l` and :meth:`Ob.r`.
+    A rigid object has adjoints :meth:`Wire.l` and :meth:`Wire.r`.
 
     Parameters:
         name : The name of the object.
@@ -74,7 +74,7 @@ class Ob(monoidal.Wire):
 
     Example
     -------
-    >>> a = Ob('a')
+    >>> a = Wire('a')
     >>> assert a.l.r == a.r.l == a and a != a.l.l != a.r.r
     """
 
@@ -91,22 +91,22 @@ class Ob(monoidal.Wire):
         self.z = z
         super().__init__(name, dom, cod)
 
-    def dagger(self) -> Ob:
+    def dagger(self) -> Wire:
         raise AxiomError("Rigid types have no dagger, use pivotal instead.")
 
     @property
-    def l(self) -> Ob:
+    def l(self) -> Wire:
         """ The left adjoint of the object. """
         return type(self)(self.name, self.z - 1, dom=self.cod, cod=self.dom)
 
     @property
-    def r(self) -> Ob:
+    def r(self) -> Wire:
         """ The right adjoint of the object. """
         return type(self)(self.name, self.z + 1, dom=self.cod, cod=self.dom)
 
     def __eq__(self, other):
         return monoidal.Wire.__eq__(self, other)\
-            and isinstance(other, Ob) and self.z == other.z
+            and isinstance(other, Wire) and self.z == other.z
 
     def __hash__(self):
         return hash(repr(self))
@@ -135,13 +135,16 @@ class Ob(monoidal.Wire):
         return cls(base.name, tree.get('z', 0), dom=base.dom, cod=base.cod)
 
 
+Ob = Wire  # Legacy alias so that pickles dumped before the rename still load.
+
+
 @factory
 class Ty(Pregroup, biclosed.Ty):
     """
     A rigid type is a biclosed type with rigid objects inside.
 
     Parameters:
-        inside (tuple[Ob, ...]) : The objects inside the type.
+        inside (tuple[Wire, ...]) : The objects inside the type.
 
     Example
     -------
@@ -182,7 +185,7 @@ class Ty(Pregroup, biclosed.Ty):
         assert_isatomic(self)
         return self.inside[0].z
 
-    generator_factory = Ob
+    generator_factory = Wire
 
 
 @factory
@@ -736,9 +739,9 @@ class Functor(biclosed.Functor):
     dom = cod = Diagram
 
     def __call__(self, other):
-        if isinstance(other, Ty) or isinstance(other, Ob) and other.z == 0:
+        if isinstance(other, Ty) or isinstance(other, Wire) and other.z == 0:
             return super().__call__(other)
-        if isinstance(other, Ob):
+        if isinstance(other, Wire):
             return self(other.r).l if other.z < 0 else self(other.l).r
         if isinstance(other, Cup):
             return self.cod.cups(self(other.dom[:1]), self(other.dom[1:]))
