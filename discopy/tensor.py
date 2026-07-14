@@ -219,7 +219,7 @@ class Tensor(Matrix):
         -------
         >>> from discopy import markov
         >>> n = markov.Ty('n')
-        >>> F = Functor(ob={n: Dim(2)}, ar={}, dom=markov.Diagram)
+        >>> F = Functor(ob_map={n: Dim(2)}, ar_map={}, dom=markov.Diagram)
         >>> assert F(markov.Copy(n, 2)) == Tensor[int].copy(Dim(2), 2)\\
         ...     == Tensor[int]([1, 0, 0, 0, 0, 0, 0, 1], Dim(2), Dim(2, 2))
         """
@@ -309,8 +309,8 @@ class Functor(frobenius.Functor):
     and ``Tensor[dtype]`` as codomain for a given ``dtype``.
 
     Parameters:
-        ob : The object mapping.
-        ar : The arrow mapping.
+        ob_map : The object mapping.
+        ar_map : The arrow mapping.
         dom : The domain of the functor.
         dtype : The datatype for the codomain ``Tensor[dtype]``.
 
@@ -324,8 +324,8 @@ class Functor(frobenius.Functor):
     ...     >> rigid.Cup(n, n.r) @ s @ rigid.Cup(n.l, n)
 
     >>> F = Functor(
-    ...     ob={s: 1, n: 2},
-    ...     ar={Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]},
+    ...     ob_map={s: 1, n: 2},
+    ...     ar_map={Alice: [0, 1], loves: [0, 1, 1, 0], Bob: [1, 0]},
     ...     dom=rigid.Diagram, dtype=bool)
     >>> F(diagram)
     Tensor[bool]([True], dom=Dim(1), cod=Dim(1))
@@ -344,11 +344,11 @@ class Functor(frobenius.Functor):
     dom, cod = frobenius.Diagram, Tensor
 
     def __init__(
-            self, ob: dict[cat.Ob, Dim], ar: dict[cat.Box, list],
+            self, ob_map: dict[cat.Ob, Dim], ar_map: dict[cat.Box, list],
             dom: type = None, dtype: type = int):
         self.dtype = dtype
         cod = type(self).cod[dtype]
-        super().__init__(ob, ar, dom=dom or type(self).dom, cod=cod)
+        super().__init__(ob_map, ar_map, dom=dom or type(self).dom, cod=cod)
 
     def __repr__(self):
         return factory_name(type(self))\
@@ -426,7 +426,8 @@ class Diagram(NamedGeneric['dtype'], frobenius.Diagram):
         dtype = dtype or self.dtype
         if contractor is None:
             return Functor(
-                ob=lambda x: x, ar=lambda f: f.array, dtype=dtype)(self)
+                ob_map=lambda x: x, ar_map=lambda f: f.array,
+                dtype=dtype)(self)
         array = contractor(*self.to_tn(dtype=dtype)).tensor
         return Tensor[dtype](array, self.dom, self.cod)
 

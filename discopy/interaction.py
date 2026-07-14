@@ -45,8 +45,8 @@ Example
 >>> from discopy.frobenius import Ty as T, Diagram as D, Box, Swap
 >>> S, N = map(T, "SN")
 >>> F = Functor(
-...     ob={s: Ty[T](S), n: Ty[T](N)},
-...     ar={Alice: Box('A', T(), N),
+...     ob_map={s: Ty[T](S), n: Ty[T](N)},
+...     ar_map={Alice: Box('A', T(), N),
 ...         who: Box('W', S @ N, N @ N),
 ...         loves: Box('L', N @ N, S),
 ...         Bob: Box('B', T(), N)},
